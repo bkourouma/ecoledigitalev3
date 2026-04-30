@@ -1,0 +1,228 @@
+###
+# Schedule Generation API Tests
+# Test file for all schedule generation endpoints
+# Use with REST Client extension in VS Code or similar HTTP client
+###
+
+@baseUrl = http://localhost:4000/api/v1
+@tenantId = 6eb9c106-b650-4398-b6fa-091b6828c4ba
+@testClassId = {{$guid}}
+@testCourseId = {{$guid}}
+@testTimeSlotId = {{$guid}}
+
+### 1. Create Time Slot
+POST {{baseUrl}}/schedule-generation/time-slots
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "name": "Lundi Matin Test",
+  "dayOfWeek": "monday",
+  "startTime": "08:00:00",
+  "endTime": "10:00:00",
+  "isActive": true,
+  "priority": 3,
+  "maxConcurrentSessions": 1
+}
+
+### 2. List Time Slots
+GET {{baseUrl}}/schedule-generation/time-slots
+x-tenant: {{tenantId}}
+
+### 3. List Time Slots with Filter
+GET {{baseUrl}}/schedule-generation/time-slots?dayOfWeek=monday&isActive=true
+x-tenant: {{tenantId}}
+
+### 4. Create Another Time Slot
+POST {{baseUrl}}/schedule-generation/time-slots
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "name": "Mardi Après-midi Test",
+  "dayOfWeek": "tuesday",
+  "startTime": "14:00:00",
+  "endTime": "16:00:00",
+  "isActive": true,
+  "priority": 2,
+  "maxConcurrentSessions": 2
+}
+
+### 5. Get Generation Options for Class
+GET {{baseUrl}}/schedule-generation/classes/{{testClassId}}/generation-options
+x-tenant: {{tenantId}}
+
+### 6. Generate Schedule
+POST {{baseUrl}}/schedule-generation/generate
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "classId": "{{testClassId}}",
+  "selectedCourses": [
+    {
+      "courseId": "{{testCourseId}}",
+      "requiredHours": 20,
+      "preferredSessionDuration": 120,
+      "maxSessionsPerWeek": 2
+    }
+  ],
+  "availableTimeSlots": [
+    "{{testTimeSlotId}}"
+  ],
+  "generationPreferences": {
+    "balanceWorkload": true,
+    "avoidBackToBackSessions": false,
+    "preferMorningSlots": true,
+    "maxDailyHours": 6,
+    "allowWeekendSessions": false
+  }
+}
+
+### 7. Get Generation Status
+GET {{baseUrl}}/schedule-generation/{{$guid}}/status
+x-tenant: {{tenantId}}
+
+### 8. Get Generation Result
+GET {{baseUrl}}/schedule-generation/{{$guid}}/result
+x-tenant: {{tenantId}}
+
+### 9. Approve Schedule
+POST {{baseUrl}}/schedule-generation/{{$guid}}/approve
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "startDate": "2024-09-01",
+  "endDate": "2024-12-31"
+}
+
+### 10. List Generation Requests
+GET {{baseUrl}}/schedule-generation/requests
+x-tenant: {{tenantId}}
+
+### 11. List Generation Requests with Filters
+GET {{baseUrl}}/schedule-generation/requests?status=completed&limit=10&offset=0
+x-tenant: {{tenantId}}
+
+### 12. Test Error Cases - Invalid Time Slot
+POST {{baseUrl}}/schedule-generation/time-slots
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "name": "Invalid Time Slot",
+  "dayOfWeek": "monday",
+  "startTime": "10:00:00",
+  "endTime": "08:00:00"
+}
+
+### 13. Test Error Cases - Missing Required Fields
+POST {{baseUrl}}/schedule-generation/generate
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "classId": "{{testClassId}}"
+}
+
+### 14. Test Error Cases - Invalid Class ID
+GET {{baseUrl}}/schedule-generation/classes/invalid-uuid/generation-options
+x-tenant: {{tenantId}}
+
+### 15. Test Error Cases - Missing Tenant
+GET {{baseUrl}}/schedule-generation/time-slots
+
+### 16. Performance Test - Multiple Time Slots Creation
+POST {{baseUrl}}/schedule-generation/time-slots
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "name": "Mercredi Matin",
+  "dayOfWeek": "wednesday",
+  "startTime": "08:00:00",
+  "endTime": "10:00:00",
+  "priority": 3
+}
+
+### 17. Performance Test - Multiple Time Slots Creation
+POST {{baseUrl}}/schedule-generation/time-slots
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "name": "Mercredi Après-midi",
+  "dayOfWeek": "wednesday",
+  "startTime": "14:00:00",
+  "endTime": "16:00:00",
+  "priority": 2
+}
+
+### 18. Performance Test - Multiple Time Slots Creation
+POST {{baseUrl}}/schedule-generation/time-slots
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "name": "Jeudi Matin",
+  "dayOfWeek": "thursday",
+  "startTime": "08:00:00",
+  "endTime": "10:00:00",
+  "priority": 3
+}
+
+### 19. Performance Test - Multiple Time Slots Creation
+POST {{baseUrl}}/schedule-generation/time-slots
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "name": "Vendredi Après-midi",
+  "dayOfWeek": "friday",
+  "startTime": "14:00:00",
+  "endTime": "16:00:00",
+  "priority": 1
+}
+
+### 20. Complex Generation Test - Multiple Courses
+POST {{baseUrl}}/schedule-generation/generate
+Content-Type: application/json
+x-tenant: {{tenantId}}
+
+{
+  "classId": "{{testClassId}}",
+  "selectedCourses": [
+    {
+      "courseId": "{{$guid}}",
+      "requiredHours": 30,
+      "preferredSessionDuration": 120,
+      "maxSessionsPerWeek": 3
+    },
+    {
+      "courseId": "{{$guid}}",
+      "requiredHours": 25,
+      "preferredSessionDuration": 90,
+      "maxSessionsPerWeek": 2
+    },
+    {
+      "courseId": "{{$guid}}",
+      "requiredHours": 20,
+      "preferredSessionDuration": 180,
+      "maxSessionsPerWeek": 1
+    }
+  ],
+  "availableTimeSlots": [
+    "{{$guid}}",
+    "{{$guid}}",
+    "{{$guid}}",
+    "{{$guid}}"
+  ],
+  "generationPreferences": {
+    "balanceWorkload": true,
+    "avoidBackToBackSessions": true,
+    "preferMorningSlots": false,
+    "maxDailyHours": 8,
+    "allowWeekendSessions": true
+  }
+}

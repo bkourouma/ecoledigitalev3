@@ -1,0 +1,513 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Discord-like Dark Theme Base Colors */
+    --background: 220 13% 18%; /* #2f3349 - Dark purple-gray */
+    --foreground: 210 20% 98%; /* #f8fafc - Light text */
+    --card: 220 13% 16%; /* #282a36 - Darker card background */
+    --card-foreground: 210 20% 98%;
+    --popover: 220 13% 14%; /* #242530 - Darker popover */
+    --popover-foreground: 210 20% 98%;
+    --primary: 262 83% 58%; /* #8b5cf6 - Purple primary */
+    --primary-foreground: 210 20% 98%;
+    --secondary: 220 13% 22%; /* #383a4a - Secondary background */
+    --secondary-foreground: 210 20% 98%;
+    --muted: 220 13% 20%; /* #323442 - Muted background */
+    --muted-foreground: 215 20% 65%; /* #94a3b8 - Muted text */
+    --accent: 262 83% 58%; /* #8b5cf6 - Accent purple */
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 13% 25%; /* #404252 - Border color */
+    --input: 220 13% 20%; /* #323442 - Input background */
+    --ring: 262 83% 58%; /* #8b5cf6 - Focus ring */
+    --radius: 1rem;
+
+    /* Discord-inspired Purple Gradients */
+    --gradient-primary: linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #c084fc 100%);
+    --gradient-secondary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+    --gradient-accent: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+    --gradient-hero: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #8b5cf6 100%);
+
+    /* Role-based themes (Discord purple theme) */
+    --role-primary: 262 83% 58%; /* #8b5cf6 - Purple */
+    --role-secondary: 258 90% 66%; /* #a855f7 - Light purple */
+    --role-accent: 270 91% 65%; /* #c084fc - Lighter purple */
+    --role-light: 262 100% 97%; /* #faf5ff - Very light purple */
+    --role-gradient: linear-gradient(135deg, rgb(139 92 246), rgb(168 85 247));
+
+    /* Enhanced Glassmorphism for dark theme */
+    --glass-bg: rgba(139, 92, 246, 0.1); /* Purple tinted glass */
+    --glass-border: rgba(139, 92, 246, 0.2);
+    --glass-blur: 20px;
+    --glass-shadow: 0 8px 32px rgba(139, 92, 246, 0.15);
+    
+    /* Shadow system */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.3);
+    
+    /* Animation tokens */
+    --transition-fast: 150ms ease-in-out;
+    --transition-normal: 250ms ease-in-out;
+    --transition-slow: 350ms ease-in-out;
+    --spring: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    
+    /* Tenant-specific colors */
+    --tenant-primary: 59 130 246; /* blue-500 default */
+    --tenant-secondary: 16 185 129; /* emerald-500 */
+    --tenant-accent: 249 115 22; /* orange-500 */
+  }
+
+  /* Enhanced Dark mode (Discord-like) */
+  .dark {
+    --background: 220 13% 15%; /* Even darker background */
+    --foreground: 210 20% 98%;
+    --card: 220 13% 13%; /* Very dark cards */
+    --card-foreground: 210 20% 98%;
+    --popover: 220 13% 11%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 262 83% 58%; /* Purple primary */
+    --primary-foreground: 210 20% 98%;
+    --secondary: 220 13% 18%; /* Dark secondary */
+    --secondary-foreground: 210 20% 98%;
+    --muted: 220 13% 16%;
+    --muted-foreground: 215 20% 60%; /* Muted text */
+    --accent: 262 83% 58%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 13% 22%;
+    --input: 220 13% 16%;
+    --ring: 262 83% 58%;
+
+    /* Dark glassmorphism */
+    --glass-bg: rgba(0, 0, 0, 0.2);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    
+    /* Dark shadows */
+    --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.4);
+  }
+
+  /* Role-based theming */
+  [data-role="admin"] {
+    --role-primary: 37 99 235; /* blue-600 */
+    --role-secondary: 30 64 175; /* blue-800 */
+    --role-accent: 59 130 246; /* blue-500 */
+    --role-light: 219 234 254; /* blue-50 */
+    --role-gradient: linear-gradient(135deg, rgb(37 99 235), rgb(59 130 246));
+    --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+
+  [data-role="student"] {
+    --role-primary: 5 150 105; /* emerald-600 */
+    --role-secondary: 6 95 70; /* emerald-800 */
+    --role-accent: 16 185 129; /* emerald-500 */
+    --role-light: 236 253 245; /* emerald-50 */
+    --role-gradient: linear-gradient(135deg, rgb(5 150 105), rgb(16 185 129));
+    --shadow-glow: 0 0 20px rgba(16, 185, 129, 0.3);
+  }
+
+  [data-role="parent"] {
+    --role-primary: 234 88 12; /* orange-600 */
+    --role-secondary: 154 52 18; /* orange-800 */
+    --role-accent: 249 115 22; /* orange-500 */
+    --role-light: 255 247 237; /* orange-50 */
+    --role-gradient: linear-gradient(135deg, rgb(234 88 12), rgb(249 115 22));
+    --shadow-glow: 0 0 20px rgba(249, 115, 22, 0.3);
+  }
+
+  /* Tenant-specific theming */
+  [data-tenant="imhotepacademy"] {
+    --tenant-primary: 37 99 235; /* blue-600 */
+    --tenant-secondary: 16 185 129; /* emerald-500 */
+    --tenant-accent: 249 115 22; /* orange-500 */
+  }
+
+  [data-tenant="imhotepdata"] {
+    --tenant-primary: 5 150 105; /* emerald-600 */
+    --tenant-secondary: 59 130 246; /* blue-500 */
+    --tenant-accent: 168 85 247; /* purple-500 */
+  }
+
+  [data-tenant="aspci"] {
+    --tenant-primary: 234 88 12; /* orange-600 */
+    --tenant-secondary: 239 68 68; /* red-500 */
+    --tenant-accent: 168 85 247; /* purple-500 */
+  }
+
+  /* Mobile optimizations */
+  @media (max-width: 768px) {
+    :root {
+      --glass-blur: 8px; /* Reduced blur on mobile for performance */
+      --shadow-glow: 0 0 12px rgba(139, 92, 246, 0.2);
+    }
+  }
+}
+
+@layer components {
+  /* Discord-like Components */
+  .discord-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300;
+  }
+
+  .discord-sidebar {
+    @apply bg-gradient-to-b from-purple-900/20 via-purple-800/10 to-purple-900/20 backdrop-blur-xl border-r border-purple-500/20;
+  }
+
+  .discord-nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:bg-purple-500/10 hover:text-purple-300;
+  }
+
+  .discord-nav-active {
+    @apply bg-purple-500/20 text-purple-300 border-r-2 border-purple-400;
+  }
+
+  .featured-card {
+    @apply relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-6 text-white shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 hover:scale-[1.02];
+  }
+
+  .community-card {
+    @apply bg-gradient-to-br from-purple-600/80 to-blue-600/80 backdrop-blur-xl rounded-2xl p-4 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02];
+  }
+
+  .user-avatar {
+    @apply w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold shadow-lg;
+  }
+
+  .status-indicator {
+    @apply absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 border-2 border-card rounded-full;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground font-normal;
+    line-height: 1.5;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Tailwind Preflight: abbr[title] { text-decoration: underline dotted } — évite le double visuel
+     (texte + variante soulignée) lorsque des abréviations ou couches d’accessibilité ajoutent title. */
+  abbr:where([title]),
+  abbr[title] {
+    text-decoration: none;
+    -webkit-text-decoration: none;
+  }
+
+  /* Échelle de texte légèrement plus compacte (toute l’UI en rem suit cette base) */
+  html {
+    scroll-behavior: smooth;
+    font-size: 15px;
+  }
+
+  @media (max-width: 768px) {
+    html {
+      font-size: 14px;
+    }
+  }
+
+  /* Focus styles */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-offset-2;
+    ring-color: rgb(var(--role-accent));
+  }
+
+  /* Selection styles */
+  ::selection {
+    background: rgb(var(--role-accent) / 0.2);
+    color: rgb(var(--foreground));
+  }
+}
+
+@layer components {
+  /* Glassmorphism utility classes */
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--glass-shadow);
+  }
+
+  /* Role-based utility classes */
+  .bg-role-primary {
+    background-color: rgb(var(--role-primary));
+  }
+
+  .text-role-primary {
+    color: rgb(var(--role-primary));
+  }
+
+  .border-role-primary {
+    border-color: rgb(var(--role-primary));
+  }
+
+  .bg-role-gradient {
+    background: var(--role-gradient);
+  }
+
+  .shadow-role-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Animation classes */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  /* Hover effects */
+  .hover-lift {
+    transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .hover-glow:hover {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Academic Module Gradient Utilities */
+
+  /* Cycles - Blue to Purple */
+  .gradient-cycles {
+    @apply bg-gradient-to-br from-blue-500 via-purple-500 to-purple-600;
+  }
+
+  .gradient-cycles-text {
+    @apply bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent;
+  }
+
+  .gradient-cycles-button {
+    @apply bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700;
+  }
+
+  /* Programmes - Pink to Orange */
+  .gradient-programmes {
+    @apply bg-gradient-to-br from-pink-500 via-purple-500 to-orange-500;
+  }
+
+  .gradient-programmes-text {
+    @apply bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent;
+  }
+
+  .gradient-programmes-button {
+    @apply bg-gradient-to-r from-pink-500 to-orange-600 hover:from-pink-600 hover:to-orange-700;
+  }
+
+  /* Courses - Green to Blue */
+  .gradient-courses {
+    @apply bg-gradient-to-br from-green-500 via-teal-500 to-blue-500;
+  }
+
+  .gradient-courses-text {
+    @apply bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent;
+  }
+
+  .gradient-courses-button {
+    @apply bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700;
+  }
+
+  /* Teachers - Purple to Pink */
+  .gradient-teachers {
+    @apply bg-gradient-to-br from-purple-600 via-pink-500 to-rose-500;
+  }
+
+  .gradient-teachers-text {
+    @apply bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent;
+  }
+
+  .gradient-teachers-button {
+    @apply bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700;
+  }
+
+  /* Statistics Cards */
+  .gradient-stat-primary {
+    @apply bg-gradient-to-br from-blue-500 to-cyan-600;
+  }
+
+  .gradient-stat-success {
+    @apply bg-gradient-to-br from-green-500 to-emerald-600;
+  }
+
+  .gradient-stat-warning {
+    @apply bg-gradient-to-br from-orange-500 to-red-500;
+  }
+
+  .gradient-stat-info {
+    @apply bg-gradient-to-br from-purple-500 to-pink-600;
+  }
+
+  /* Academic Card Base */
+  .academic-card {
+    @apply p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-white relative overflow-hidden cursor-pointer;
+  }
+
+  .academic-card-content {
+    @apply relative z-10;
+  }
+
+  .academic-card-decorative-1 {
+    @apply absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 group-hover:scale-110 transition-transform duration-500;
+  }
+
+  .academic-card-decorative-2 {
+    @apply absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 group-hover:scale-110 transition-transform duration-500;
+  }
+
+  /* Status Badges */
+  .status-badge {
+    @apply bg-white/20 px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  /* Action Buttons */
+  .academic-button-primary {
+    @apply bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30;
+  }
+
+  .academic-button-secondary {
+    @apply bg-white/10 hover:bg-white/20 text-white border-white/20 hover:border-white/30;
+  }
+
+  /* Statistics Card */
+  .stat-card {
+    @apply p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300;
+  }
+
+  .stat-card-icon {
+    @apply bg-white/20 p-3 rounded-lg;
+  }
+
+  .stat-card-label {
+    @apply text-white/80 text-sm font-medium;
+  }
+
+  .stat-card-value {
+    @apply text-3xl font-bold mt-1;
+  }
+
+  /* Container */
+  .academic-container {
+    @apply container mx-auto px-6 py-8 max-w-7xl;
+  }
+
+  /* Header */
+  .academic-header {
+    @apply flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8;
+  }
+
+  .academic-title {
+    @apply text-3xl font-bold;
+  }
+
+  .academic-subtitle {
+    @apply text-muted-foreground mt-2;
+  }
+
+  /* Grid Layouts */
+  .academic-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8;
+  }
+
+  .stats-grid {
+    @apply grid grid-cols-2 md:grid-cols-4 gap-4;
+  }
+
+  .stats-grid-3 {
+    @apply grid grid-cols-1 md:grid-cols-3 gap-4;
+  }
+}
+
+@layer utilities {
+  /* Custom keyframes */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from { 
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to { 
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.3); }
+    50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.6); }
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: var(--role-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Modern scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgb(var(--muted) / 0.1);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(var(--role-primary) / 0.3);
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--role-primary) / 0.5);
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+

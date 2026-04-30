@@ -1,0 +1,186 @@
+{
+  "info": {
+    "name": "Assignment Download API Tests",
+    "description": "Collection de tests pour les endpoints de téléchargement de devoirs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "next_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "tenant_id",
+      "value": "6eb9c106-b650-4398-b6fa-091b6828c4ba",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "536a5c76-0de7-4d6f-8065-e09778566066",
+      "type": "string"
+    },
+    {
+      "key": "assignment_id",
+      "value": "d28040c4-dbf7-465d-aaa1-c1d2b4f269aa",
+      "type": "string"
+    },
+    {
+      "key": "course_id",
+      "value": "22a57716-1b30-4567-8234-f03f28d5ebbf",
+      "type": "string"
+    },
+    {
+      "key": "filename",
+      "value": "1759692735351_assignment-09d4c44d-f3b3-4e60-9b3d-177fd7859bc0-subject_document-1759692735349.pdf",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Tenant",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Dev-Auth",
+            "value": "1",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/health",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "health"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Download File - Original Format",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Tenant",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Dev-Auth",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "X-User-Id",
+            "value": "{{user_id}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/files/{{tenant_id}}/{{course_id}}/{{filename}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "files", "{{tenant_id}}", "{{course_id}}", "{{filename}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Download File - Corrected Format",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Tenant",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Dev-Auth",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "X-User-Id",
+            "value": "{{user_id}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/files/{{tenant_id}}/{{assignment_id}}/{{filename}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "files", "{{tenant_id}}", "{{assignment_id}}", "{{filename}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Get Assignment Details",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Tenant",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Dev-Auth",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "X-User-Id",
+            "value": "{{user_id}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/assignments/{{assignment_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "assignments", "{{assignment_id}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5. Next.js API Download",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "next-auth.session-token=YOUR_SESSION_TOKEN",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{next_url}}/api/v1/files/download?url=%2Fapi%2Fv1%2Ffiles%2F{{tenant_id}}%2F{{course_id}}%2F{{filename}}&assignmentId={{assignment_id}}",
+          "host": ["{{next_url}}"],
+          "path": ["api", "v1", "files", "download"],
+          "query": [
+            {
+              "key": "url",
+              "value": "/api/v1/files/{{tenant_id}}/{{course_id}}/{{filename}}"
+            },
+            {
+              "key": "assignmentId",
+              "value": "{{assignment_id}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

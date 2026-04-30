@@ -1,0 +1,936 @@
+openapi: 3.0.3
+info:
+  title: RSO-PFSO API
+  description: API for RSO-PFSO (Responsable Sûreté de l'Organisation - Port Facility Security Officer) module
+  version: 1.0.0
+  contact:
+    name: ASPCI
+    email: support@aspci.ci
+
+servers:
+  - url: http://localhost:4000/api/v1/rso
+    description: Development server
+  - url: https://ecoledigitale.engage-360.net/api/v1/rso
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Users
+    description: User account management (admin, formateur)
+  - name: Activity Logs
+    description: Activity log viewing and export
+  - name: Profile
+    description: User profile and password management
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with username/email and password. Returns JWT token and user information.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              username:
+                value:
+                  identifier: admin_rso
+                  password: Admin@2024!
+              email:
+                value:
+                  identifier: admin@aspci.ci
+                  password: Admin@2024!
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many login attempts (rate limited)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Logout user and invalidate current session
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh JWT token
+      description: Refresh JWT token 30 minutes before expiration
+      operationId: refreshToken
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset
+      description: Send password reset email with reset link
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Password reset email sent (always returns success for security)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForgotPasswordResponse'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Reset password with token
+      description: Reset password using token from email link
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetPasswordResponse'
+        '400':
+          description: Invalid token or password validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users:
+    get:
+      tags:
+        - Users
+      summary: List users
+      description: Get paginated list of users (admin and formateur only)
+      operationId: listUsers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [administrateur, rso_formateur, agent_pfso, agent_surete]
+          description: Filter by role
+        - name: statut
+          in: query
+          schema:
+            type: string
+            enum: [actif, inactif, suspendu]
+          description: Filter by status
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by name or email
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Items per page
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (insufficient permissions)
+
+    post:
+      tags:
+        - Users
+      summary: Create user
+      description: Create new user account (admin and formateur only, formateur can only create agent_pfso)
+      operationId: createUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (insufficient permissions)
+        '409':
+          description: Username or email already exists
+
+  /users/{userId}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      description: Get user details by ID
+      operationId: getUserById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: User not found
+
+    put:
+      tags:
+        - Users
+      summary: Update user
+      description: Update user account (admin and formateur only)
+      operationId: updateUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: User not found
+
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Delete user account (admin only)
+      operationId: deleteUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteUserResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (only admin can delete)
+        '404':
+          description: User not found
+
+  /users/{userId}/status:
+    patch:
+      tags:
+        - Users
+      summary: Update user status
+      description: Activate, deactivate, or suspend user account
+      operationId: updateUserStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserStatusRequest'
+      responses:
+        '200':
+          description: Status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid status
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: User not found
+
+  /profile:
+    get:
+      tags:
+        - Profile
+      summary: Get current user profile
+      description: Get authenticated user's profile information
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+
+    put:
+      tags:
+        - Profile
+      summary: Update current user profile
+      description: Update authenticated user's profile (name, email, phone)
+      operationId: updateProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+
+  /profile/change-password:
+    post:
+      tags:
+        - Profile
+      summary: Change password
+      description: Change authenticated user's password (requires current password)
+      operationId: changePassword
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangePasswordResponse'
+        '400':
+          description: Invalid current password or validation failed
+        '401':
+          description: Unauthorized
+
+  /activity-logs:
+    get:
+      tags:
+        - Activity Logs
+      summary: List activity logs
+      description: Get paginated list of activity logs (admin only)
+      operationId: listActivityLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+          description: Filter by user ID
+        - name: action
+          in: query
+          schema:
+            type: string
+          description: Filter by action type
+        - name: entityType
+          in: query
+          schema:
+            type: string
+          description: Filter by entity type
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Start date filter
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: End date filter
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          description: List of activity logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityLogListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (admin only)
+
+  /activity-logs/export:
+    get:
+      tags:
+        - Activity Logs
+      summary: Export activity logs
+      description: Export activity logs as CSV/Excel (admin only)
+      operationId: exportActivityLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, excel]
+            default: csv
+      responses:
+        '200':
+          description: Activity logs file
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (admin only)
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - identifier
+        - password
+      properties:
+        identifier:
+          type: string
+          description: Username or email address
+          example: admin_rso
+        password:
+          type: string
+          format: password
+          example: Admin@2024!
+        rememberMe:
+          type: boolean
+          default: false
+          description: Extend session to 30 days
+
+    LoginResponse:
+      type: object
+      required:
+        - user
+        - token
+        - expiresAt
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        token:
+          type: string
+          description: JWT token
+        expiresAt:
+          type: string
+          format: date-time
+          description: Token expiration timestamp
+
+    LogoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Logout successful
+
+    RefreshTokenResponse:
+      type: object
+      required:
+        - token
+        - expiresAt
+      properties:
+        token:
+          type: string
+          description: New JWT token
+        expiresAt:
+          type: string
+          format: date-time
+
+    ForgotPasswordRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@aspci.ci
+
+    ForgotPasswordResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: If the email exists, a password reset link has been sent.
+
+    ResetPasswordRequest:
+      type: object
+      required:
+        - token
+        - password
+        - confirmPassword
+      properties:
+        token:
+          type: string
+          description: Password reset token from email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        confirmPassword:
+          type: string
+          format: password
+
+    ResetPasswordResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Password reset successful
+
+    User:
+      type: object
+      required:
+        - id
+        - username
+        - nom
+        - prenoms
+        - email
+        - role
+        - statut
+        - createdAt
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        nom:
+          type: string
+        prenoms:
+          type: string
+        email:
+          type: string
+          format: email
+        telephone:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [administrateur, rso_formateur, agent_pfso, agent_surete]
+        statut:
+          type: string
+          enum: [actif, inactif, suspendu]
+        installationId:
+          type: integer
+          nullable: true
+        lastLogin:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserResponse:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            createdBy:
+              type: integer
+              nullable: true
+
+    UserListResponse:
+      type: object
+      required:
+        - users
+        - pagination
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateUserRequest:
+      type: object
+      required:
+        - username
+        - nom
+        - prenoms
+        - email
+        - password
+        - role
+      properties:
+        username:
+          type: string
+          minLength: 5
+          maxLength: 20
+        nom:
+          type: string
+          maxLength: 100
+        prenoms:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        telephone:
+          type: string
+        password:
+          type: string
+          format: password
+          minLength: 8
+        role:
+          type: string
+          enum: [administrateur, rso_formateur, agent_pfso, agent_surete]
+        statut:
+          type: string
+          enum: [actif, inactif]
+          default: actif
+        installationId:
+          type: integer
+          description: Required for agent_pfso role
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        nom:
+          type: string
+          maxLength: 100
+        prenoms:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        telephone:
+          type: string
+        role:
+          type: string
+          enum: [administrateur, rso_formateur, agent_pfso, agent_surete]
+        installationId:
+          type: integer
+
+    UpdateUserStatusRequest:
+      type: object
+      required:
+        - statut
+      properties:
+        statut:
+          type: string
+          enum: [actif, inactif, suspendu]
+
+    DeleteUserResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: User deleted successfully
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        nom:
+          type: string
+          maxLength: 100
+        prenoms:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        telephone:
+          type: string
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+        - confirmPassword
+      properties:
+        currentPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+        confirmPassword:
+          type: string
+          format: password
+
+    ChangePasswordResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Password changed successfully. All other sessions have been terminated.
+
+    ActivityLog:
+      type: object
+      required:
+        - id
+        - action
+        - ipAddress
+        - createdAt
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+          nullable: true
+        action:
+          type: string
+        entityType:
+          type: string
+          nullable: true
+        entityId:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        ipAddress:
+          type: string
+        userAgent:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/User'
+          nullable: true
+
+    ActivityLogListResponse:
+      type: object
+      required:
+        - logs
+        - pagination
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityLog'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Pagination:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+

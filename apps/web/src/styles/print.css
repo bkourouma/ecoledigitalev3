@@ -1,0 +1,337 @@
+/**
+ * Print Stylesheet for RSO Activities
+ * Optimized print layout for activity pages
+ * Phase 4 - Gestion des Médias et Documents (Phase 9 - User Story 7)
+ */
+
+/* Hide navigation and non-essential elements when printing */
+@media print {
+  /* Hide navigation, headers, footers, buttons */
+  nav,
+  header,
+  footer,
+  button,
+  .no-print,
+  [class*="navigation"],
+  [class*="sidebar"],
+  [class*="header"],
+  [class*="footer"] {
+    display: none !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4;
+    margin: 2cm 1.5cm;
+    
+    /* Headers and footers using CSS @page */
+    @top-center {
+      content: "RSO-PFSO Platform";
+      font-size: 10pt;
+      color: #666;
+    }
+    
+    @bottom-center {
+      content: "Document confidentiel - Page " counter(page) " sur " counter(pages);
+      font-size: 9pt;
+      color: #666;
+    }
+  }
+
+  /* First page - no header/footer */
+  @page :first {
+    @top-center {
+      content: "";
+    }
+    @bottom-center {
+      content: "";
+    }
+  }
+
+  /* Body styling */
+  body {
+    font-size: 12pt;
+    line-height: 1.6;
+    color: #000;
+    background: white;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Container adjustments */
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Headings */
+  h1 {
+    font-size: 18pt;
+    font-weight: bold;
+    margin-top: 0;
+    margin-bottom: 12pt;
+    page-break-after: avoid;
+    color: #1e40af;
+  }
+
+  h2 {
+    font-size: 16pt;
+    font-weight: bold;
+    margin-top: 16pt;
+    margin-bottom: 10pt;
+    page-break-after: avoid;
+    color: #1e40af;
+  }
+
+  h3 {
+    font-size: 14pt;
+    font-weight: bold;
+    margin-top: 12pt;
+    margin-bottom: 8pt;
+    page-break-after: avoid;
+  }
+
+  h4 {
+    font-size: 12pt;
+    font-weight: bold;
+    margin-top: 10pt;
+    margin-bottom: 6pt;
+    page-break-after: avoid;
+  }
+
+  /* Paragraphs */
+  p {
+    margin-bottom: 8pt;
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Lists */
+  ul,
+  ol {
+    margin-bottom: 10pt;
+    padding-left: 20pt;
+  }
+
+  li {
+    margin-bottom: 4pt;
+    orphans: 2;
+    widows: 2;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12pt 0;
+    page-break-inside: avoid;
+  }
+
+  table th,
+  table td {
+    border: 1px solid #ddd;
+    padding: 6pt;
+    text-align: left;
+  }
+
+  table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+  }
+
+  /* Images */
+  img {
+    max-width: 100%;
+    height: auto;
+    page-break-inside: avoid;
+    page-break-after: avoid;
+    display: block;
+    margin: 10pt auto;
+    /* Optimize for print */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    /* Ensure images print in color */
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Image galleries */
+  .image-gallery,
+  .media-gallery {
+    page-break-inside: avoid;
+    margin: 12pt 0;
+  }
+
+  .image-gallery img,
+  .media-gallery img {
+    max-width: 48%;
+    display: inline-block;
+    margin: 4pt;
+    page-break-inside: avoid;
+  }
+
+  /* Cards and containers */
+  .card,
+  [class*="Card"] {
+    border: 1px solid #ddd;
+    padding: 12pt;
+    margin-bottom: 12pt;
+    page-break-inside: avoid;
+    background: white;
+    box-shadow: none;
+  }
+
+  /* Activity metadata */
+  .activity-metadata {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8pt;
+    margin-bottom: 16pt;
+    padding: 10pt;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    page-break-inside: avoid;
+  }
+
+  .metadata-item {
+    margin-bottom: 6pt;
+  }
+
+  .metadata-label {
+    font-weight: bold;
+    font-size: 10pt;
+    color: #666;
+  }
+
+  .metadata-value {
+    font-size: 11pt;
+  }
+
+  /* Recommendations */
+  .recommendation-item,
+  [class*="Recommendation"] {
+    page-break-inside: avoid;
+    margin-bottom: 12pt;
+    padding: 10pt;
+    border: 1px solid #ddd;
+    border-radius: 4pt;
+  }
+
+  /* Content area */
+  .content-body,
+  [class*="content"] {
+    page-break-inside: auto;
+  }
+
+  /* Page breaks */
+  .page-break {
+    page-break-before: always;
+  }
+
+  .no-page-break {
+    page-break-inside: avoid;
+  }
+
+  /* Avoid breaking inside these elements */
+  .no-break {
+    page-break-inside: avoid;
+  }
+
+  /* Force page break before */
+  .force-page-break {
+    page-break-before: always;
+  }
+
+  /* Links */
+  a {
+    color: #000;
+    text-decoration: underline;
+  }
+
+  a[href^="http"]:after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    color: #666;
+  }
+
+  /* Code blocks */
+  pre,
+  code {
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    padding: 6pt;
+    page-break-inside: avoid;
+    font-size: 10pt;
+    overflow: visible;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  /* Alerts and notifications */
+  .alert,
+  [class*="Alert"] {
+    border: 1px solid #ddd;
+    padding: 8pt;
+    margin-bottom: 10pt;
+    page-break-inside: avoid;
+    background-color: #f9f9f9;
+  }
+
+  /* Hide print button itself */
+  .print-button,
+  [class*="PrintButton"] {
+    display: none !important;
+  }
+
+  /* Activity header for print */
+  .activity-print-header {
+    border-bottom: 2px solid #1e40af;
+    padding-bottom: 10pt;
+    margin-bottom: 16pt;
+    page-break-after: avoid;
+  }
+
+  .activity-print-title {
+    font-size: 20pt;
+    font-weight: bold;
+    color: #1e40af;
+    margin-bottom: 6pt;
+  }
+
+  .activity-print-code {
+    font-size: 12pt;
+    color: #666;
+    font-weight: normal;
+  }
+
+  /* Footer information */
+  .print-footer {
+    margin-top: 20pt;
+    padding-top: 10pt;
+    border-top: 1px solid #ddd;
+    font-size: 9pt;
+    color: #666;
+    text-align: center;
+  }
+}
+
+/* Print-specific utility classes */
+@media print {
+  .print-only {
+    display: block !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-page-break {
+    page-break-before: always;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid;
+  }
+}
+

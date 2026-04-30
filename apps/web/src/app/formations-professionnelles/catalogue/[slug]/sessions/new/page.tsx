@@ -1,0 +1,468 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Button,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  Input,
+  Textarea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@ecoledigitale/ui";
+import { ArrowLeft, Loader2, Calendar, AlertCircle } from "lucide-react";
+import toast from "react-hot-toast";
+import { useFormationDetail, useCreateFormationSession } from "@/lib/hooks/use-formations-pro";
+
+// Schéma de validation
+const sessionFormSchema = z.object({
+  code_session: z.string().optional(),
+  date_debut: z.string().min(1, "La date de début est requise"),
+  date_fin: z.string().min(1, "La date de fin est requise"),
+  horaires: z.string().optional(),
+  mode_formation: z.enum(["presential", "remote", "hybrid", "elearning", "presentiel", "distanciel", "hybride"]),
+  lieu: z.string().optional(),
+  lien_visio: z.string().optional(),
+  places_totales: z.number().int().min(1, "Le nombre de places doit être au moins 1"),
+  prix_ht: z.number().nonnegative().optional().or(z.literal("")),
+  prix_ttc: z.number().nonnegative().optional().or(z.literal("")),
+  notes_internes: z.string().optional(),
+}).refine((data) => {
+  // La date de fin doit être postérieure à la date de début
+  if (data.date_debut && data.date_fin) {
+    const dateDebut = new Date(data.date_debut);
+    const dateFin = new Date(data.date_fin);
+    return dateFin >= dateDebut;
+  }
+  return true;
+}, {
+  message: "La date de fin doit être postérieure ou égale à la date de début",
+  path: ["date_fin"],
+});
+
+type SessionFormData = z.infer<typeof sessionFormSchema>;
+
+export default function NewSessionPage() {
+  const router = useRouter();
+  const params = useParams();
+  const slug = decodeURIComponent(params.slug as string);
+  
+  const { data, isLoading: isLoadingFormation } = useFormationDetail(slug);
+  const createSessionMutation = useCreateFormationSession();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const formation = data?.data;
+
+  const form = useForm<SessionFormData>({
+    resolver: zodResolver(sessionFormSchema),
+    defaultValues: {
+      code_session: "",
+      date_debut: "",
+      date_fin: "",
+      horaires: "",
+      mode_formation: "presential",
+      lieu: "",
+      lien_visio: "",
+      places_totales: 20,
+      prix_ht: undefined,
+      prix_ttc: undefined,
+      notes_internes: "",
+    },
+  });
+
+  // Pré-remplir le prix avec celui de la formation si disponible
+  useEffect(() => {
+    if (formation) {
+      if (formation.prix_ttc) {
+        form.setValue("prix_ttc", formation.prix_ttc);
+      }
+      if (formation.prix_ht) {
+        form.setValue("prix_ht", formation.prix_ht);
+      }
+    }
+  }, [formation, form]);
+
+  const handleCancel = () => {
+    router.push(`/formations-professionnelles/catalogue/${slug}`);
+  };
+
+  const onSubmit = async (formData: SessionFormData) => {
+    if (!formation?.id) {
+      toast.error("Formation introuvable");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Préparer les données pour l'API
+      const payload: any = {
+        code_session: formData.code_session || undefined,
+        date_debut: formData.date_debut,
+        date_fin: formData.date_fin,
+        horaires: formData.horaires || undefined,
+        mode_formation: formData.mode_formation,
+        lieu: formData.lieu || undefined,
+        lien_visio: formData.lien_visio || undefined,
+        places_totales: formData.places_totales,
+        prix_ht: formData.prix_ht === "" || formData.prix_ht === undefined ? null : formData.prix_ht,
+        prix_ttc: formData.prix_ttc === "" || formData.prix_ttc === undefined ? null : formData.prix_ttc,
+        notes_internes: formData.notes_internes || undefined,
+      };
+
+      await createSessionMutation.mutateAsync({
+        formationId: formation.id,
+        data: payload,
+      });
+
+      toast.success("Session planifiée avec succès");
+      router.push(`/formations-professionnelles/catalogue/${slug}`);
+    } catch (error: any) {
+      console.error("Error creating session:", error);
+      toast.error(error.message || "Erreur lors de la planification de la session");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoadingFormation) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center space-y-4">
+            <div className="bg-gradient-to-br from-blue-100 to-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+            <p className="text-gray-600 text-lg">Chargement des informations de la formation...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!formation) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">Formation introuvable</h3>
+                <p className="text-muted-foreground">
+                  La formation demandée n'existe pas ou a été supprimée.
+                </p>
+              </div>
+              <Button onClick={handleCancel}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Retour
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-8">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCancel}
+          disabled={isSubmitting}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Planifier une session
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Créez une nouvelle session pour {formation.titre}
+          </p>
+        </div>
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Informations de la session</CardTitle>
+              <CardDescription>
+                Remplissez les informations pour planifier une nouvelle session de formation
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Code session (optionnel) */}
+              <FormField
+                control={form.control}
+                name="code_session"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Code de session (optionnel)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Ex: DATA-2024-001 (généré automatiquement si vide)" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Dates */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="date_debut"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date de début *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date" 
+                          {...field} 
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="date_fin"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date de fin *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date" 
+                          {...field}
+                          min={form.watch("date_debut") || new Date().toISOString().split('T')[0]}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Horaires */}
+              <FormField
+                control={form.control}
+                name="horaires"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Horaires</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Ex: 9h-17h" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Mode de formation */}
+              <FormField
+                control={form.control}
+                name="mode_formation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mode de formation *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un mode" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="presential">Présentiel</SelectItem>
+                        <SelectItem value="remote">Distanciel</SelectItem>
+                        <SelectItem value="hybrid">Hybride</SelectItem>
+                        <SelectItem value="elearning">E-learning</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Lieu (si présentiel ou hybride) */}
+              {(form.watch("mode_formation") === "presential" || form.watch("mode_formation") === "hybrid") && (
+                <FormField
+                  control={form.control}
+                  name="lieu"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Lieu</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Ex: Salle de formation, Adresse complète..." 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Lien visio (si distanciel ou hybride) */}
+              {(form.watch("mode_formation") === "remote" || form.watch("mode_formation") === "hybrid" || form.watch("mode_formation") === "elearning") && (
+                <FormField
+                  control={form.control}
+                  name="lien_visio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Lien de visioconférence</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="url"
+                          placeholder="Ex: https://meet.google.com/..." 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Places */}
+              <FormField
+                control={form.control}
+                name="places_totales"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre de places *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number"
+                        min="1"
+                        placeholder="Ex: 20" 
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Prix */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="prix_ht"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prix HT</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Ex: 1000.00"
+                          {...field}
+                          onChange={(e) => {
+                            const value = e.target.value === "" ? "" : parseFloat(e.target.value);
+                            field.onChange(value);
+                          }}
+                          value={field.value === undefined ? "" : field.value}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="prix_ttc"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prix TTC</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Ex: 1200.00"
+                          {...field}
+                          onChange={(e) => {
+                            const value = e.target.value === "" ? "" : parseFloat(e.target.value);
+                            field.onChange(value);
+                          }}
+                          value={field.value === undefined ? "" : field.value}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Notes internes */}
+              <FormField
+                control={form.control}
+                name="notes_internes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes internes</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Notes internes pour cette session..."
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Actions */}
+          <div className="flex gap-3 justify-end">
+            <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Calendar className="mr-2 h-4 w-4" />
+              Planifier la session
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
+  );
+}
+

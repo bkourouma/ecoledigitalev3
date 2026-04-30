@@ -1,0 +1,182 @@
+{
+  "info": {
+    "name": "EcoleDigitale - Soumission Devoir Activite 2",
+    "description": "Collection pour soumettre le devoir 'Activite 2' par Célestin Kacou",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Upload PDF File",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Tenant",
+            "value": "imhotepacademy",
+            "type": "text"
+          },
+          {
+            "key": "X-Dev-Auth",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "X-User-Id",
+            "value": "536a5c76-0de7-4d6f-8065-e09778566066",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": [],
+              "description": "Select your PDF file here (max 10 MB)"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:4000/api/v1/assignments/91ccfb83-77bc-4df3-bb28-48ebc52e1a07/submissions/upload",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "4000",
+          "path": [
+            "api",
+            "v1",
+            "assignments",
+            "91ccfb83-77bc-4df3-bb28-48ebc52e1a07",
+            "submissions",
+            "upload"
+          ]
+        },
+        "description": "Upload le fichier PDF. Cette requête va:\n1. Créer automatiquement une soumission dans la table assignment_submissions\n2. Uploader le fichier\n3. Retourner un submissionId à utiliser dans l'étape 2\n\nRÉPONSE ATTENDUE:\n{\n  \"success\": true,\n  \"data\": {\n    \"submissionId\": \"uuid-here\",\n    \"fileUrl\": \"/api/v1/files/...\",\n    \"status\": \"in_progress\"\n  }\n}"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Sauvegarder automatiquement le submissionId",
+              "if (pm.response.code === 200) {",
+              "    const jsonData = pm.response.json();",
+              "    if (jsonData.success && jsonData.data.submissionId) {",
+              "        pm.collectionVariables.set(\"submissionId\", jsonData.data.submissionId);",
+              "        console.log(\"✅ Submission ID saved:\", jsonData.data.submissionId);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Finalize Submission",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "X-Tenant",
+            "value": "imhotepacademy",
+            "type": "text"
+          },
+          {
+            "key": "X-Dev-Auth",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "X-User-Id",
+            "value": "536a5c76-0de7-4d6f-8065-e09778566066",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"confirm_submit\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:4000/api/v1/assignments/4db4dfd7-27e8-4793-b5cd-37a126c3a89d/submissions/{{submissionId}}/finalize",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "4000",
+          "path": [
+            "api",
+            "v1",
+            "assignments",
+            "4db4dfd7-27e8-4793-b5cd-37a126c3a89d",
+            "submissions",
+            "{{submissionId}}",
+            "finalize"
+          ]
+        },
+        "description": "Finalise la soumission. Le {{submissionId}} sera automatiquement rempli si vous avez exécuté l'étape 1.\n\nCette requête va:\n1. Vérifier que la soumission existe\n2. Marquer le status comme 'submitted'\n3. Enregistrer submitted_at\n4. Vérifier si c'est en retard (is_late)\n\nRÉPONSE ATTENDUE:\n{\n  \"success\": true,\n  \"message\": \"Soumission finalisée avec succès\",\n  \"submission\": {\n    \"id\": \"uuid\",\n    \"status\": \"submitted\",\n    \"submitted_at\": \"2025-10-08T...\",\n    \"is_late\": false\n  }\n}"
+      },
+      "response": []
+    },
+    {
+      "name": "3. Verify Submission",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Tenant",
+            "value": "imhotepacademy",
+            "type": "text"
+          },
+          {
+            "key": "X-Dev-Auth",
+            "value": "1",
+            "type": "text"
+          },
+          {
+            "key": "X-User-Id",
+            "value": "536a5c76-0de7-4d6f-8065-e09778566066",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:4000/api/v1/student/assignments",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "4000",
+          "path": [
+            "api",
+            "v1",
+            "student",
+            "assignments"
+          ]
+        },
+        "description": "Vérifie que la soumission a été enregistrée.\n\nCherchez dans la réponse:\n- instance_id: 91ccfb83-77bc-4df3-bb28-48ebc52e1a07\n- title: Activité 2\n- submitted_at: devrait avoir une date (pas null)\n- status: devrait être \"submitted\""
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "submissionId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
+

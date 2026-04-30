@@ -1,0 +1,4 @@
+# Émissions TypeScript locales à côté des sources : Node peut résoudre le .js avant le .ts
+# et exposer un barrel incomplet (schémas owner manquants, etc.).
+src/**/*.js
+src/**/*.js.map

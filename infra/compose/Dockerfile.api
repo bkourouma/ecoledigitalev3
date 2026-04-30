@@ -1,0 +1,59 @@
+# Multi-stage build for API
+FROM node:18-alpine AS base
+RUN npm install -g pnpm
+
+# Dependencies stage
+FROM base AS deps
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/utils/package.json ./packages/utils/
+RUN pnpm install --frozen-lockfile
+
+# Build stage
+FROM base AS builder
+WORKDIR /app
+COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+# Install all workspace dependencies
+RUN pnpm install --frozen-lockfile
+# Build API
+RUN pnpm --filter @ecoledigitale/api build
+
+# Production stage
+FROM node:18-alpine AS runner
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nodejs
+
+# Copy built application
+COPY --from=builder --chown=nodejs:nodejs /app/apps/api/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/apps/api/package.json ./
+# Copy workspace files needed for production
+COPY --from=builder --chown=nodejs:nodejs /app/package.json /app/pnpm-workspace.yaml ./
+COPY --from=builder --chown=nodejs:nodejs /app/packages ./packages
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+
+USER nodejs
+
+EXPOSE 8011
+
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=8011
+
+CMD ["node", "dist/index.js"]
+
+
+
+
+
+
+
+
+
+
+

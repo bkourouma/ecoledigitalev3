@@ -1,0 +1,91 @@
+/* Import des styles Ant Design - Version 5.x utilise CSS-in-JS */
+/* Les styles sont maintenant gérés par le ConfigProvider */
+
+/* Personnalisations des styles Ant Design */
+.ant-form-item-label > label {
+  font-weight: 500;
+  color: #262626;
+}
+
+.ant-input,
+.ant-select-selector,
+.ant-input-number {
+  border-radius: 6px !important;
+}
+
+.ant-btn {
+  border-radius: 6px !important;
+  font-weight: 500;
+}
+
+.ant-card {
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02) !important;
+}
+
+.ant-card-head {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-card-head-title {
+  font-weight: 600;
+}
+
+/* Styles pour les messages de notification */
+.ant-message {
+  z-index: 9999;
+}
+
+/* Personnalisation des couleurs */
+.ant-btn-primary {
+  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
+  border: none;
+  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);
+}
+
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, #40a9ff 0%, #69c0ff 100%);
+  box-shadow: 0 4px 8px rgba(24, 144, 255, 0.3);
+}
+
+/* Styles pour les formulaires */
+.ant-form-item {
+  margin-bottom: 16px;
+}
+
+.ant-form-item-label {
+  padding-bottom: 4px;
+}
+
+/* Styles pour les sélecteurs */
+.ant-select {
+  width: 100%;
+}
+
+.ant-select-selector {
+  min-height: 40px;
+}
+
+.ant-select-selection-item {
+  line-height: 38px;
+}
+
+/* Styles pour les textarea */
+.ant-input {
+  min-height: 40px;
+}
+
+.ant-input[type="number"] {
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ant-card {
+    margin: 0 8px;
+  }
+  
+  .ant-form-item {
+    margin-bottom: 12px;
+  }
+}

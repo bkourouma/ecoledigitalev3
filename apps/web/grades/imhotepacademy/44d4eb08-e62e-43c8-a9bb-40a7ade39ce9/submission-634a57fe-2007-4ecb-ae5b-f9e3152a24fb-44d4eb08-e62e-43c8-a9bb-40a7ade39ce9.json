@@ -1,0 +1,14 @@
+{
+  "submissionId": "submission-634a57fe-2007-4ecb-ae5b-f9e3152a24fb-44d4eb08-e62e-43c8-a9bb-40a7ade39ce9",
+  "assignmentId": "44d4eb08-e62e-43c8-a9bb-40a7ade39ce9",
+  "teacherId": "teacher-test-id",
+  "manual_score": 17.5,
+  "final_score": 17.5,
+  "feedback": "Excellent travail avec des données réelles !",
+  "graded_at": "2025-10-06T07:35:45.892Z",
+  "graded_by": {
+    "id": "teacher-test-id",
+    "email": "kouadio.assi@ecoledigitale.ci",
+    "name": "Enseignant Test Réel"
+  }
+}

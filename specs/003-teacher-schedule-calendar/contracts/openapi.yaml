@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: Teacher Schedule Sessions API
+  version: 1.0.0
+paths:
+  /sessions:
+    get:
+      summary: List sessions for current teacher within a date range
+      parameters:
+        - in: query
+          name: start
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: end
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create a new session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCreate'
+      responses:
+        '201': { description: Created }
+        '409': { description: Conflict with existing session }
+  /sessions/{id}:
+    patch:
+      summary: Update an existing session (drag, resize, edit)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionUpdate'
+      responses:
+        '200': { description: Updated }
+        '409': { description: Conflict with existing session }
+    delete:
+      summary: Delete a session
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Deleted }
+components:
+  schemas:
+    Session:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        teacherId: { type: string, format: uuid }
+        classId: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        startDateTime: { type: string, format: date-time }
+        endDateTime: { type: string, format: date-time }
+        notes: { type: string }
+    SessionCreate:
+      type: object
+      required: [classId, courseId, startDateTime, endDateTime]
+      properties:
+        classId: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        startDateTime: { type: string, format: date-time }
+        endDateTime: { type: string, format: date-time }
+        notes: { type: string }
+    SessionUpdate:
+      type: object
+      properties:
+        startDateTime: { type: string, format: date-time }
+        endDateTime: { type: string, format: date-time }
+        notes: { type: string }
+

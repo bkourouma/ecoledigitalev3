@@ -1,0 +1,349 @@
+openapi: 3.0.3
+info:
+  title: EcoleDigitale — Owner (Propriétaire) API
+  version: 0.1.0
+  description: >
+    Routes réservées au rôle `owner` sur le tenant actif. Authentification JWT et
+    en-tête de tenant identiques au reste de l’API. Toutes les réponses d’erreur
+    suivent le format d’erreur standard du projet.
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: owner-dashboard
+  - name: owner-finances
+  - name: owner-academic
+  - name: owner-staff
+  - name: owner-formations
+  - name: owner-alerts
+  - name: owner-reports
+  - name: owner-payroll
+
+paths:
+  /owner/dashboard:
+    get:
+      tags: [owner-dashboard]
+      summary: Indicateurs consolidés pilotage
+      operationId: getOwnerDashboard
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Agrégats finances, académique, personnel, formations, alertes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerDashboardResponse"
+        "401":
+          description: Non authentifié ou token révoqué
+        "403":
+          description: Rôle owner absent sur le tenant
+
+  /owner/finances:
+    get:
+      tags: [owner-finances]
+      summary: Vue finances et recouvrement
+      operationId: getOwnerFinances
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [month, year]
+        - in: query
+          name: cycle
+          schema:
+            type: string
+            description: Identifiant ou libellé de cycle selon convention API existante
+      responses:
+        "200":
+          description: Agrégats et listes (impayés, rémunérations)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerFinancesResponse"
+        "403":
+          description: Interdit
+
+  /owner/academic:
+    get:
+      tags: [owner-academic]
+      summary: Synthèses académiques et assiduité (lecture seule)
+      operationId: getOwnerAcademic
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerAcademicResponse"
+        "403":
+          description: Interdit
+
+  /owner/staff:
+    get:
+      tags: [owner-staff]
+      summary: RH / enseignants / heures
+      operationId: getOwnerStaff
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerStaffResponse"
+        "403":
+          description: Interdit
+
+  /owner/formations:
+    get:
+      tags: [owner-formations]
+      summary: Formations pro et indicateurs RSO (lecture / export selon règles)
+      operationId: getOwnerFormations
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerFormationsResponse"
+        "403":
+          description: Interdit
+
+  /owner/alerts:
+    get:
+      tags: [owner-alerts]
+      summary: Liste des alertes pilotage en attente ou récentes
+      operationId: listOwnerAlerts
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alerts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OwnerAlert"
+        "403":
+          description: Interdit
+
+  /owner/alerts/{id}/acknowledge:
+    patch:
+      tags: [owner-alerts]
+      summary: Acquitter une alerte
+      operationId: acknowledgeOwnerAlert
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Alerte acquittée
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerAlert"
+        "404":
+          description: Alerte introuvable ou autre tenant
+        "403":
+          description: Interdit
+
+  /owner/reports/financial:
+    get:
+      tags: [owner-reports]
+      summary: Export rapport financier consolidé
+      operationId: exportOwnerFinancialReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: format
+          required: true
+          schema:
+            type: string
+            enum: [pdf, csv]
+        - in: query
+          name: period
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Fichier binaire ou texte (Content-Type adapté)
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            text/csv:
+              schema:
+                type: string
+        "403":
+          description: Interdit
+
+  /owner/payroll/{id}/validate:
+    patch:
+      tags: [owner-payroll]
+      summary: Valider une ligne de rémunération enseignant en attente
+      operationId: validateOwnerPayroll
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Paiement validé / statut mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerPayrollValidationResult"
+        "409":
+          description: État incompatible (déjà validé, etc.)
+        "403":
+          description: Interdit
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    OwnerDashboardResponse:
+      type: object
+      required: [finances, academic, staff, formations, alerts]
+      properties:
+        finances:
+          $ref: "#/components/schemas/OwnerDashboardFinances"
+        academic:
+          $ref: "#/components/schemas/OwnerDashboardAcademic"
+        staff:
+          $ref: "#/components/schemas/OwnerDashboardStaff"
+        formations:
+          $ref: "#/components/schemas/OwnerDashboardFormations"
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/OwnerAlert"
+
+    OwnerDashboardFinances:
+      type: object
+      properties:
+        revenueCurrentMonth:
+          type: number
+        recoveryRate:
+          type: number
+          description: Ratio 0–100
+        recoveryByCycle:
+          type: array
+          items:
+            type: object
+            properties:
+              cycle:
+                type: string
+              rate:
+                type: number
+        teacherPaymentRate:
+          type: number
+        overdueCount:
+          type: integer
+
+    OwnerDashboardAcademic:
+      type: object
+      properties:
+        totalStudents:
+          type: integer
+        totalClasses:
+          type: integer
+        averageGrade:
+          type: number
+        successRate:
+          type: number
+        attendanceRate:
+          type: number
+        assignmentsGradedRate:
+          type: number
+
+    OwnerDashboardStaff:
+      type: object
+      properties:
+        activeTeachers:
+          type: integer
+        totalHoursTaught:
+          type: number
+        coursesWithoutTeacher:
+          type: integer
+        pendingPayrollValidations:
+          type: integer
+
+    OwnerDashboardFormations:
+      type: object
+      properties:
+        activeSessions:
+          type: integer
+        totalEnrollments:
+          type: integer
+        revenueFormations:
+          type: number
+        clientCompanies:
+          type: integer
+
+    OwnerAlert:
+      type: object
+      required: [id, severity, message, domain, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        severity:
+          type: string
+          enum: [high, medium, low]
+        message:
+          type: string
+        domain:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        acknowledgedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    OwnerFinancesResponse:
+      type: object
+      description: Détails à aligner sur packages/contracts (agrégats, listes, seuils)
+
+    OwnerAcademicResponse:
+      type: object
+
+    OwnerStaffResponse:
+      type: object
+
+    OwnerFormationsResponse:
+      type: object
+
+    OwnerPayrollValidationResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true

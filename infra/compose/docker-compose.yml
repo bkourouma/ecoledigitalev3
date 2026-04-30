@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  ecoledigitale-api:
+    build:
+      context: ../../
+      dockerfile: infra/compose/Dockerfile.api
+    container_name: ecoledigitale-api
+    ports:
+      - "8011:8011"  # Dedicated port for EcoleDigitale
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=8011
+      - DATABASE_URL=${DATABASE_URL}
+    restart: unless-stopped
+    networks:
+      - ecoledigitale-network
+    depends_on:
+      - postgres
+
+  ecoledigitale-web:
+    build:
+      context: ../../
+      dockerfile: infra/compose/Dockerfile.web
+    container_name: ecoledigitale-web
+    environment:
+      - NODE_ENV=production
+      - NEXTAUTH_URL=https://ecoledigitale.engage-360.net
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - API_URL=http://ecoledigitale-api:8011
+    restart: unless-stopped
+    networks:
+      - ecoledigitale-network
+    depends_on:
+      - ecoledigitale-api
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: ecoledigitale-postgres
+    environment:
+      - POSTGRES_DB=dbecoledigitale
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../infra/scripts/migrations:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    networks:
+      - ecoledigitale-network
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+
+  minio:
+    image: minio/minio:latest
+    container_name: ecoledigitale-minio
+    environment:
+      - MINIO_ROOT_USER=${MINIO_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"  # MinIO API
+      - "9001:9001"  # MinIO Console
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - ecoledigitale-network
+
+volumes:
+  postgres_data:
+    name: ecoledigitale-postgres-data
+  minio_data:
+    name: ecoledigitale-minio-data
+
+networks:
+  ecoledigitale-network:
+    name: ecoledigitale-network
+    driver: bridge
+
+
+
+
+
+
+
+
+
+
+

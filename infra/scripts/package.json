@@ -1,0 +1,31 @@
+{
+  "name": "ecoledigitale-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "seed": "tsx seed.ts",
+    "migrate": "echo 'Run: psql -h localhost -U postgres -d dbecoledigitale -f migrations/0001_init.sql'"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.8.10",
+    "@types/pg": "^8.10.7",
+    "tsx": "^4.4.0",
+    "typescript": "^5.2.2"
+  }
+}
+
+
+
+
+
+
+
+
+
+
+

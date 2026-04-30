@@ -1,0 +1,56 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
+
+const API_BASE_URL =
+  process.env.NODE_ENV === 'development'
+    ? process.env.API_BASE_URL || 'http://localhost:4000'
+    : process.env.API_URL || process.env.API_BASE_URL || 'http://localhost:4000';
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const sessionData = session as typeof session & { tenantId?: string; jwtToken?: string };
+    const formData = await request.formData();
+    const tenantId =
+      request.headers.get('X-Tenant') ||
+      sessionData.tenantId ||
+      'imhotepacademy';
+    const authorization =
+      request.headers.get('Authorization') ||
+      (sessionData.jwtToken ? `Bearer ${sessionData.jwtToken}` : '');
+
+    const headers: HeadersInit = {
+      'X-Tenant': tenantId,
+      'X-User-Id': session.user.id,
+    };
+
+    if (authorization) {
+      headers.Authorization = authorization;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/assignments/upload-document`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const contentType = response.headers.get('content-type') || 'application/json';
+    const responseBody = await response.text();
+
+    return new NextResponse(responseBody, {
+      status: response.status,
+      headers: {
+        'Content-Type': contentType,
+      },
+    });
+  } catch (error) {
+    console.error('POST /api/v1/assignments/upload-document:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
