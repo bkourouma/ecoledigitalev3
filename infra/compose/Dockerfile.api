@@ -1,8 +1,10 @@
-# Multi-stage build for API
+# Multi-stage build for the API.
+# Production runs via tsx (same runtime as dev) — bypasses the workspace
+# layout pain that breaks tsc-emitted dist module resolution.
 FROM node:18-alpine AS base
 RUN npm install -g pnpm
 
-# Dependencies stage
+# Dependencies stage — install once, share with runner
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -11,49 +13,32 @@ COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/utils/package.json ./packages/utils/
 RUN pnpm install --frozen-lockfile
 
-# Build stage
-FROM base AS builder
-WORKDIR /app
-COPY . .
-COPY --from=deps /app/node_modules ./node_modules
-# Install all workspace dependencies
-RUN pnpm install --frozen-lockfile
-# Build API
-RUN pnpm --filter @ecoledigitale/api build
-
 # Production stage
-FROM node:18-alpine AS runner
+FROM base AS runner
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nodejs
+RUN addgroup --system --gid 1001 nodejs \
+ && adduser --system --uid 1001 nodejs
 
-# Copy built application
-COPY --from=builder --chown=nodejs:nodejs /app/apps/api/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/apps/api/package.json ./
-# Copy workspace files needed for production
-COPY --from=builder --chown=nodejs:nodejs /app/package.json /app/pnpm-workspace.yaml ./
-COPY --from=builder --chown=nodejs:nodejs /app/packages ./packages
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+# Workspace deps (pnpm symlinks resolve correctly when /app/node_modules,
+# /app/apps/*/node_modules and /app/packages/*/node_modules are all in place)
+COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=nodejs:nodejs /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=deps --chown=nodejs:nodejs /app/packages/contracts/node_modules ./packages/contracts/node_modules
+COPY --from=deps --chown=nodejs:nodejs /app/packages/utils/node_modules ./packages/utils/node_modules
+
+# Source — tsx compiles on the fly from these
+COPY --chown=nodejs:nodejs package.json pnpm-workspace.yaml ./
+COPY --chown=nodejs:nodejs apps/api ./apps/api
+COPY --chown=nodejs:nodejs packages/contracts ./packages/contracts
+COPY --chown=nodejs:nodejs packages/utils ./packages/utils
 
 USER nodejs
+WORKDIR /app/apps/api
 
 EXPOSE 8011
-
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=8011
 
-CMD ["node", "dist/apps/api/src/index.js"]
-
-
-
-
-
-
-
-
-
-
-
+CMD ["./node_modules/.bin/tsx", "src/index.ts"]
