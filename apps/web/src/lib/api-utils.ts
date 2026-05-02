@@ -34,13 +34,9 @@ export function getTenantSlug(): string {
     }
   }
 
-  // Fallback for development
-  // Use 'imhotepdata' as it has the actual formations data
-  if (process.env.NODE_ENV === 'development') {
-    return 'imhotepdata';
-  }
-
-  throw new Error('Tenant configuration missing! Set NEXT_PUBLIC_TENANT_SLUG');
+  // Fallback when no subdomain is detectable (e.g. during SSR / pre-render
+  // on the client-side path). Throwing here would break next build.
+  return 'imhotepdata';
 }
 
 /**

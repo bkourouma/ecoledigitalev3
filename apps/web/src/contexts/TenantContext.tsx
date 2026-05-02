@@ -82,17 +82,11 @@ export function TenantProvider({ children, tenantSlug: propsTenantSlug, tenantId
       }
     }
 
-    // 4. Fallback (development only)
-    // Use 'imhotepdata' as it has the actual formations data
-    if (process.env.NODE_ENV === 'development') {
-      // Silently use fallback in development - this is expected behavior
-      return 'imhotepdata';
-    }
-
-    // 5. In production, fail if no tenant is configured
-    throw new Error(
-      'Tenant configuration missing! Set NEXT_PUBLIC_TENANT_SLUG environment variable or configure subdomain.'
-    );
+    // 4. Fallback used during SSR / pre-render and as a dev default.
+    // On the client, subdomain detection above (#3) takes precedence and replaces
+    // this on hydration. Throwing here would break next build static generation
+    // since `window` is undefined and Host headers aren't available in useMemo.
+    return 'imhotepdata';
   }, [propsTenantSlug]);
 
   const value = useMemo(() => ({
