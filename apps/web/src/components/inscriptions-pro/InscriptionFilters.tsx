@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@ecoledigitale/ui";
 import { Input } from "@ecoledigitale/ui";
 import { Label } from "@ecoledigitale/ui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ecoledigitale/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ecoledigitale/ui";
 import { Button } from "@ecoledigitale/ui";
 import { EnrollmentHistoryQuerySchema } from "@ecoledigitale/contracts/src/inscriptions-pro";
 import { z } from "zod";

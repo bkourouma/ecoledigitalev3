@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@ecoledigitale/ui";
-import { Loader2, UserCheck, ArrowLeft } from "lucide-react";
+import { Loader2, UserCheck, ArrowLeft, Download } from "lucide-react";
 import { useFormateurSessionInscrits, useFormateurSessionDetail } from "@/lib/hooks/use-formateur-sessions";
 import { FormateurInscritsList } from "@/components/formateur/FormateurInscritsList";
 import { useExportAttendance } from "@/lib/hooks/use-formateur-attendance";
@@ -11,7 +11,6 @@ import Link from "next/link";
 import { Button } from "@ecoledigitale/ui";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Badge } from "@ecoledigitale/ui";
-import { Download, Loader2 } from "lucide-react";
 
 function InscritsContent() {
   const params = useParams();
