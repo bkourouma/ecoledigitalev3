@@ -5,6 +5,7 @@ const apiInternalUrl = process.env.API_INTERNAL_URL || "http://localhost:4000";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../../"),
   transpilePackages: ["@ecoledigitale/contracts", "@ecoledigitale/ui", "@ecoledigitale/utils", "@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
   experimental: {
     typedRoutes: false, // Désactiver pour éviter les problèmes
