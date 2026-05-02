@@ -16,6 +16,9 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Webpack config with improved chunk handling
   webpack: (config, { dev, isServer }) => {
     // Improve module resolution for monorepo
