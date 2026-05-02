@@ -16,6 +16,11 @@ if [[ ! -f "$ENV_FILE" ]]; then
     exit 1
 fi
 
+# Export so the compose file's `env_file: ${ENV_FILE:-./.env}` resolves
+# correctly. --env-file alone only loads the file's contents; the literal
+# variable name still has to be in the shell env.
+export ENV_FILE
+
 dc() { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -p "$PROJECT" "$@"; }
 
 echo "== build images =="
