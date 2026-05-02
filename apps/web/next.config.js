@@ -1,10 +1,16 @@
 const path = require("path");
 
+const apiInternalUrl = process.env.API_INTERNAL_URL || "http://localhost:4000";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   transpilePackages: ["@ecoledigitale/contracts", "@ecoledigitale/ui", "@ecoledigitale/utils", "@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
   experimental: {
     typedRoutes: false, // Désactiver pour éviter les problèmes
+    // Note: webpack tslib alias below is not mirrored here — Turbopack/SWC
+    // resolves tslib correctly via pnpm without the v2 ES helpers workaround,
+    // and absolute-path aliases are treated as external modules by Turbopack.
   },
   typescript: {
     ignoreBuildErrors: true,
@@ -120,7 +126,7 @@ const nextConfig = {
       // Catch-all for all other /api/v1 routes
       {
         source: '/api/v1/:path*',
-        destination: 'http://localhost:4000/api/v1/:path*',
+        destination: `${apiInternalUrl}/api/v1/:path*`,
       },
     ];
   },

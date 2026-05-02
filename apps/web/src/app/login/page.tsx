@@ -34,9 +34,10 @@ const demoAccounts =
             name: "Owner EcoleDigitale",
           },
           {
-            email: "seed.lp.teacher01@ecoledigitale.local",
-            password: "LpRigl!2026-01",
-            name: "seed.lp.teacher01@ecoledigitale.local",
+            email: "koffi.nguessan.ci@example.com",
+            password: "Password@2025",
+            role: "teacher",
+            name: "Koffi N'Guessan (teacher actif)",
           },
           {
             email: "fabrice.kouadio.lprigla01@example.com",

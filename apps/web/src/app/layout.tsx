@@ -7,7 +7,6 @@ import "../styles/print.css";
 // Patch de compatibilité Ant Design pour React 19 (supprime l'avertissement de compatibilité)
 import "@ant-design/v5-patch-for-react-19";
 import { Providers } from "./providers";
-import "../lib/fetch-interceptor";
 import ChunkErrorBoundary from "../components/ChunkErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"] });

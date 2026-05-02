@@ -10,6 +10,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as HotToaster } from "react-hot-toast";
 import { Toaster as SonnerToaster } from "sonner";
 import { initChunkErrorHandler } from "@/lib/chunk-error-handler";
+// Side-effect import: patches window.fetch with JWT/X-Tenant headers.
+// Must be imported from a client module — server-component side-effect imports
+// of "use client" modules don't run on the client under Turbopack.
+import "@/lib/fetch-interceptor";
 import { AntdConfigProvider } from "@/lib/antd-config";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { TenantProvider } from "@/contexts/TenantContext";

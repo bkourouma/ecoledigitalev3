@@ -7,7 +7,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowLeft, GraduationCap, Mail, Phone, Calendar, User, Clock } from 'lucide-react';
+import {
+  ArrowLeft,
+  GraduationCap,
+  Mail,
+  Phone,
+  Calendar,
+  Clock,
+  Hash,
+  BookOpen,
+  MessageSquare,
+} from 'lucide-react';
 import { useChildDetails, useChildGradesSummary, useChildAttendance, useAbsenceHistory, AbsenceHistoryFilters } from '@/lib/hooks/use-parent-children';
 import { ChildGradesSummary } from '../../components/ChildGradesSummary';
 import { AttendanceRecords } from '../../components/AttendanceRecords';
@@ -58,22 +68,48 @@ export default function ChildDetailPage() {
   const absences = absenceData?.data?.absences || null;
   const absenceStatistics = absenceData?.data?.statistics || null;
 
-  // Get status badge
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800">Actif</Badge>;
-      case 'suspended':
-        return <Badge className="bg-yellow-100 text-yellow-800">Suspendu</Badge>;
-      case 'dropped':
-        return <Badge className="bg-red-100 text-red-800">Abandonné</Badge>;
-      case 'transfer':
-        return <Badge className="bg-blue-100 text-blue-800">Transféré</Badge>;
-      case 'graduated':
-        return <Badge className="bg-purple-100 text-purple-800">Diplômé</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
+    const styles: Record<string, string> = {
+      active: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+      suspended: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+      dropped: 'bg-red-500/15 text-red-400 border-red-500/30',
+      transfer: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+      graduated: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+    };
+    const labels: Record<string, string> = {
+      active: 'Actif',
+      suspended: 'Suspendu',
+      dropped: 'Abandonné',
+      transfer: 'Transféré',
+      graduated: 'Diplômé',
+    };
+    return (
+      <Badge variant="outline" className={styles[status] ?? 'bg-muted text-muted-foreground'}>
+        {labels[status] ?? status}
+      </Badge>
+    );
+  };
+
+  const getInitials = (name: string) =>
+    name
+      .split(' ')
+      .map((p) => p[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+
+  const getGradient = (id: string) => {
+    const gradients = [
+      'from-emerald-500 to-teal-600',
+      'from-blue-500 to-indigo-600',
+      'from-purple-500 to-pink-600',
+      'from-amber-500 to-orange-600',
+      'from-rose-500 to-red-600',
+      'from-cyan-500 to-blue-600',
+    ];
+    const sum = Array.from(id).reduce((a, c) => a + c.charCodeAt(0), 0);
+    return gradients[sum % gradients.length];
   };
 
   // Format date
@@ -92,26 +128,68 @@ export default function ChildDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-emerald-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 py-6">
-            <Link href="/parent/children">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Retour à la liste
-              </Button>
-            </Link>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
-                Détails de l'Enfant
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Informations détaillées et résumé académique
-              </p>
+    <div className="min-h-screen bg-background">
+      <div className="border-b border-border bg-card/40 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <Link href="/parent/children">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground -ml-2">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour à la liste
+            </Button>
+          </Link>
+
+          {child && (
+            <div className="mt-4 flex flex-col lg:flex-row lg:items-center gap-6">
+              <div
+                className={`flex-shrink-0 h-20 w-20 rounded-2xl bg-gradient-to-br ${getGradient(child.id)} flex items-center justify-center text-white font-bold text-2xl shadow-lg`}
+                aria-hidden="true"
+              >
+                {getInitials(child.name)}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-3xl font-bold text-foreground">{child.name}</h1>
+                  {getStatusBadge(child.status)}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <GraduationCap className="h-4 w-4" />
+                    Année {child.currentYear}
+                  </span>
+                  <span className="flex items-center gap-1.5 font-mono">
+                    <Hash className="h-3.5 w-3.5" />
+                    {child.studentNumber}
+                  </span>
+                  <span className="flex items-center gap-1.5 truncate">
+                    <Mail className="h-4 w-4" />
+                    {child.email}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Link href={`/parent/children/${childId}/schedule`}>
+                  <Button variant="outline" size="sm">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Emploi du temps
+                  </Button>
+                </Link>
+                <Link href="/parent/homework">
+                  <Button variant="outline" size="sm">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Devoirs
+                  </Button>
+                </Link>
+                <Link href="/parent/messages">
+                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Contacter
+                  </Button>
+                </Link>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -122,124 +200,71 @@ export default function ChildDetailPage() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
           </div>
         ) : childError ? (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center py-8">
-                <p className="text-red-600 font-medium">Erreur lors du chargement</p>
-                <p className="text-gray-600 text-sm mt-2">
-                  {childError.message || 'Impossible de charger les informations de l\'enfant'}
-                </p>
-              </div>
+          <Card className="border-red-500/30 bg-red-500/5">
+            <CardContent className="pt-6 text-center py-8">
+              <p className="text-red-400 font-medium">Erreur lors du chargement</p>
+              <p className="text-muted-foreground text-sm mt-2">
+                {childError.message || "Impossible de charger les informations de l'enfant"}
+              </p>
             </CardContent>
           </Card>
         ) : !child ? (
           <Card>
-            <CardContent className="pt-6">
-              <div className="text-center py-8">
-                <p className="text-gray-600">Enfant non trouvé</p>
-              </div>
+            <CardContent className="pt-6 text-center py-8">
+              <p className="text-muted-foreground">Enfant non trouvé</p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-6">
-            {/* Child Information Card */}
             <Card>
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-2xl flex items-center gap-3">
-                      <User className="h-6 w-6 text-emerald-600" />
-                      {child.name}
-                    </CardTitle>
-                    <CardDescription className="mt-2">
-                      Informations personnelles et académiques
-                    </CardDescription>
-                  </div>
-                  {getStatusBadge(child.status)}
-                </div>
+                <CardTitle className="text-lg">Informations personnelles</CardTitle>
+                <CardDescription>Coordonnées et données académiques</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Student Number */}
-                  <div className="flex items-start gap-3">
-                    <div className="bg-emerald-100 p-2 rounded-lg">
-                      <GraduationCap className="h-5 w-5 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">Numéro d'étudiant</p>
-                      <p className="text-lg font-semibold text-white">#{child.studentNumber}</p>
-                    </div>
-                  </div>
-
-                  {/* Current Year */}
-                  <div className="flex items-start gap-3">
-                    <div className="bg-blue-100 p-2 rounded-lg">
-                      <GraduationCap className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">Année actuelle</p>
-                      <p className="text-lg font-semibold text-white">Année {child.currentYear}</p>
-                    </div>
-                  </div>
-
-                  {/* Email */}
-                  <div className="flex items-start gap-3">
-                    <div className="bg-purple-100 p-2 rounded-lg">
-                      <Mail className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">Email</p>
-                      <p className="text-lg font-semibold text-white">{child.email}</p>
-                    </div>
-                  </div>
-
-                  {/* Date of Birth */}
-                  <div className="flex items-start gap-3">
-                    <div className="bg-amber-100 p-2 rounded-lg">
-                      <Calendar className="h-5 w-5 text-amber-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">Date de naissance</p>
-                      <p className="text-lg font-semibold text-white">
-                        {formatDate(child.dateOfBirth)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Phone */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <InfoTile
+                    icon={<Hash className="h-4 w-4" />}
+                    label="Numéro d'étudiant"
+                    value={`#${child.studentNumber}`}
+                    tone="emerald"
+                  />
+                  <InfoTile
+                    icon={<GraduationCap className="h-4 w-4" />}
+                    label="Année actuelle"
+                    value={`Année ${child.currentYear}`}
+                    tone="blue"
+                  />
+                  <InfoTile
+                    icon={<Calendar className="h-4 w-4" />}
+                    label="Date de naissance"
+                    value={formatDate(child.dateOfBirth)}
+                    tone="amber"
+                  />
+                  <InfoTile
+                    icon={<Mail className="h-4 w-4" />}
+                    label="Email"
+                    value={child.email}
+                    tone="purple"
+                    mono
+                  />
                   {child.phone && (
-                    <div className="flex items-start gap-3">
-                      <div className="bg-green-100 p-2 rounded-lg">
-                        <Phone className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-white">Téléphone</p>
-                        <p className="text-lg font-semibold text-white">{child.phone}</p>
-                      </div>
-                    </div>
+                    <InfoTile
+                      icon={<Phone className="h-4 w-4" />}
+                      label="Téléphone"
+                      value={child.phone}
+                      tone="emerald"
+                    />
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Grades Summary */}
             <ChildGradesSummary
               gradesSummary={gradesSummary}
               isLoading={isLoadingGrades}
               error={gradesError as Error | null}
             />
-
-            {/* Schedule Link */}
-            <Card>
-              <CardContent className="pt-6">
-                <Link href={`/parent/children/${childId}/schedule`}>
-                  <Button className="w-full" variant="outline" size="lg">
-                    <Clock className="h-5 w-5 mr-2 text-emerald-600" />
-                    Voir l'emploi du temps hebdomadaire
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
 
             {/* Attendance Records */}
             <AttendanceRecords
@@ -260,6 +285,42 @@ export default function ChildDetailPage() {
             />
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function InfoTile({
+  icon,
+  label,
+  value,
+  tone,
+  mono,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone: 'emerald' | 'blue' | 'purple' | 'amber';
+  mono?: boolean;
+}) {
+  const tones = {
+    emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  } as const;
+
+  return (
+    <div className="rounded-xl border border-border bg-background/50 p-4 flex items-start gap-3">
+      <div className={`flex-shrink-0 rounded-lg border p-2 ${tones[tone]}`}>{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p
+          className={`text-sm font-semibold text-foreground mt-0.5 truncate ${mono ? 'font-mono' : ''}`}
+          title={value}
+        >
+          {value}
+        </p>
       </div>
     </div>
   );

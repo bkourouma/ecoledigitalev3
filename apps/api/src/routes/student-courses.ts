@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const StudentCoursesQuerySchema = z.object({
   student_id: z.string().uuid().optional(),
-  status: z.enum(['active', 'completed', 'all']).default('all'),
+  status: z.enum(['active', 'completed', 'upcoming', 'all']).default('all'),
   search: z.string().optional(),
   limit: z.coerce.number().min(1).max(100).default(20),
   offset: z.coerce.number().min(0).default(0)
@@ -180,27 +180,54 @@ export async function studentCoursesRoutes(fastify: FastifyInstance) {
         });
 
         // 4. Récupérer les cours de cette classe
+        // Statuts de démo synthétisés (l'enum course_status n'inclut que draft/active/inactive,
+        // donc on dérive 'completed' / 'upcoming' / 'active' à partir du rang du cours).
         const coursesQuery = `
+          WITH ranked_courses AS (
+            SELECT
+              c.id,
+              c.name,
+              c.code,
+              c.description,
+              c.hours_total,
+              c.hours_theory,
+              c.hours_practical,
+              cc.is_required,
+              ROW_NUMBER() OVER (ORDER BY c.name) AS rn
+            FROM courses c
+            JOIN class_courses cc ON c.id = cc.course_id
+            WHERE cc.tenant_id = $1 AND cc.class_id = $2 AND c.status = 'active'
+          )
           SELECT
-            c.id,
-            c.name,
-            c.code,
-            c.description,
-            c.hours_total,
-            c.hours_theory,
-            c.hours_practical,
-            cc.is_required,
-            c.status,
-            75 as progress,
+            id,
+            name,
+            code,
+            description,
+            hours_total,
+            hours_theory,
+            hours_practical,
+            is_required,
+            CASE (rn - 1) % 5
+              WHEN 0 THEN 'completed'
+              WHEN 1 THEN 'upcoming'
+              ELSE 'active'
+            END AS status,
+            CASE (rn - 1) % 5
+              WHEN 0 THEN 100
+              WHEN 1 THEN 0
+              ELSE 75
+            END AS progress,
             NULL as next_session,
-            c.hours_total as total_hours,
-            FLOOR(c.hours_total * 0.75) as completed_hours,
+            hours_total as total_hours,
+            CASE (rn - 1) % 5
+              WHEN 0 THEN hours_total
+              WHEN 1 THEN 0
+              ELSE FLOOR(hours_total * 0.75)
+            END as completed_hours,
             false as is_favorite,
             NULL as instructor
-          FROM courses c
-          JOIN class_courses cc ON c.id = cc.course_id
-          WHERE cc.tenant_id = $1 AND cc.class_id = $2 AND c.status = 'active'
-          ORDER BY c.name
+          FROM ranked_courses
+          ORDER BY name
         `;
 
         fastify.log.info('Querying courses for class:', { actualTenantId, classId });
@@ -354,26 +381,53 @@ export async function studentCoursesRoutes(fastify: FastifyInstance) {
         const classId = enrollmentResult.rows[0].class_id;
 
         // 4. Récupérer le cours spécifique de cette classe
+        // Le statut de démo doit correspondre à celui de la liste — même rangement par nom.
         const courseQuery = `
+          WITH ranked_courses AS (
+            SELECT
+              c.id,
+              c.name,
+              c.code,
+              c.description,
+              c.hours_total,
+              c.hours_theory,
+              c.hours_practical,
+              cc.is_required,
+              ROW_NUMBER() OVER (ORDER BY c.name) AS rn
+            FROM courses c
+            JOIN class_courses cc ON c.id = cc.course_id
+            WHERE cc.tenant_id = $1 AND cc.class_id = $2 AND c.status = 'active'
+          )
           SELECT
-            c.id,
-            c.name,
-            c.code,
-            c.description,
-            c.hours_total,
-            c.hours_theory,
-            c.hours_practical,
-            cc.is_required,
-            c.status,
-            75 as progress,
+            id,
+            name,
+            code,
+            description,
+            hours_total,
+            hours_theory,
+            hours_practical,
+            is_required,
+            CASE (rn - 1) % 5
+              WHEN 0 THEN 'completed'
+              WHEN 1 THEN 'upcoming'
+              ELSE 'active'
+            END AS status,
+            CASE (rn - 1) % 5
+              WHEN 0 THEN 100
+              WHEN 1 THEN 0
+              ELSE 75
+            END AS progress,
             NULL as next_session,
-            c.hours_total as total_hours,
-            FLOOR(c.hours_total * 0.75) as completed_hours,
+            hours_total as total_hours,
+            CASE (rn - 1) % 5
+              WHEN 0 THEN hours_total
+              WHEN 1 THEN 0
+              ELSE FLOOR(hours_total * 0.75)
+            END as completed_hours,
             false as is_favorite,
             NULL as instructor
-          FROM courses c
-          JOIN class_courses cc ON c.id = cc.course_id
-          WHERE cc.tenant_id = $1 AND cc.class_id = $2 AND c.id = $3 AND c.status = 'active'
+          FROM ranked_courses
+          WHERE id = $3
         `;
 
         const courseResult = await client.query(courseQuery, [actualTenantId, classId, id]);

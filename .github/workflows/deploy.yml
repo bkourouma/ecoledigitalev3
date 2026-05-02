@@ -1,0 +1,34 @@
+name: Deploy to srv917891
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-srv917891
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, srv917891]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show context
+        run: |
+          echo "commit: $GITHUB_SHA"
+          echo "ref:    $GITHUB_REF"
+          docker --version
+          docker compose version
+
+      - name: Make scripts executable
+        run: chmod +x infra/scripts/deploy.sh infra/scripts/restore-db-on-server.sh
+
+      - name: Deploy
+        env:
+          ENV_FILE: /home/deployer/ecoledigitale.env
+          COMPOSE_PROJECT: ecoledigitale
+        run: ./infra/scripts/deploy.sh
