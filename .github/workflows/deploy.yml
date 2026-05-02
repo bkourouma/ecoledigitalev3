@@ -1,4 +1,4 @@
-name: Deploy to srv917891
+name: Deploy to alliance
 
 on:
   push:
@@ -6,12 +6,12 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-srv917891
+  group: deploy-alliance-ecoledigitale
   cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: [self-hosted, srv917891]
+    runs-on: [self-hosted, alliance-ecoledigitale]
     timeout-minutes: 30
     steps:
       - name: Checkout
