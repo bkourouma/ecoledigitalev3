@@ -40,6 +40,8 @@ services:
       HOSTNAME: 0.0.0.0
       # Override env_file: each next-auth instance must point at its own host
       NEXTAUTH_URL: https://formation-pro.allianceconsultants.net
+      # Server-side route handlers proxy to the Fastify API over the docker net
+      API_BASE_URL: http://ecoledigitale-api:8011
     ports:
       - "127.0.0.1:3012:3001"
     restart: unless-stopped
