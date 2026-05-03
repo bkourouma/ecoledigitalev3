@@ -16,43 +16,45 @@ type DemoAccount = {
   name: string;
 };
 
-const demoAccounts =
-  process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_DEMO_ACCOUNTS
-    ? (JSON.parse(process.env.NEXT_PUBLIC_DEMO_ACCOUNTS) as DemoAccount[])
-    : process.env.NODE_ENV === "development"
-      ? [
-          {
-            email: "admin@ecoledigitale.local",
-            password: "Password@2025",
-            role: "admin",
-            name: "Admin EcoleDigitale",
-          },
-          {
-            email: "owner@ecoledigitale.local",
-            password: "Password@2025",
-            role: "owner",
-            name: "Owner EcoleDigitale",
-          },
-          {
-            email: "koffi.nguessan.ci@example.com",
-            password: "Password@2025",
-            role: "teacher",
-            name: "Koffi N'Guessan (teacher actif)",
-          },
-          {
-            email: "fabrice.kouadio.lprigla01@example.com",
-            password: "?DbFJ3EkSmA9",
-            role: "student",
-            name: "fabrice.kouadio.lprigla01@example.com",
-          },
-          {
-            email: "marie.koffi.parent.lprigla@example.com",
-            password: "4rJn%TgUYA7#",
-            role: "parent",
-            name: "marie.koffi.parent.lprigla@example.com",
-          },
-        ]
-      : [];
+// Demo accounts — shown in the "Comptes techniques" panel on the login page.
+// This is a demo deployment so the gate that previously hid them in production
+// has been removed. NEXT_PUBLIC_DEMO_ACCOUNTS still wins if set (build-time).
+const HARDCODED_DEMO_ACCOUNTS: DemoAccount[] = [
+  {
+    email: "admin@ecoledigitale.local",
+    password: "Password@2025",
+    role: "admin",
+    name: "Admin EcoleDigitale",
+  },
+  {
+    email: "owner@ecoledigitale.local",
+    password: "Password@2025",
+    role: "owner",
+    name: "Owner EcoleDigitale",
+  },
+  {
+    email: "koffi.nguessan.ci@example.com",
+    password: "Password@2025",
+    role: "teacher",
+    name: "Koffi N'Guessan (teacher actif)",
+  },
+  {
+    email: "fabrice.kouadio.lprigla01@example.com",
+    password: "?DbFJ3EkSmA9",
+    role: "student",
+    name: "fabrice.kouadio.lprigla01@example.com",
+  },
+  {
+    email: "marie.koffi.parent.lprigla@example.com",
+    password: "4rJn%TgUYA7#",
+    role: "parent",
+    name: "marie.koffi.parent.lprigla@example.com",
+  },
+];
+
+const demoAccounts: DemoAccount[] = process.env.NEXT_PUBLIC_DEMO_ACCOUNTS
+  ? (JSON.parse(process.env.NEXT_PUBLIC_DEMO_ACCOUNTS) as DemoAccount[])
+  : HARDCODED_DEMO_ACCOUNTS;
 
 function routeForRole(role?: string): string {
   const normalized = String(role || "").toLowerCase();
