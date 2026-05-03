@@ -15,6 +15,11 @@ const displayFont = Space_Grotesk({
   variable: "--font-display",
 });
 
+// Multi-tenant runtime context (subdomain, session) requires per-request
+// rendering. Static pre-render also tries to hit Postgres for the public
+// catalog, which fails in the build container.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: {
     default: "Formation Pro | Développez vos compétences",
