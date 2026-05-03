@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import nodemailer, { type Transporter } from "nodemailer";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface VerificationEmailPayload {
@@ -16,13 +16,30 @@ interface EnrollmentConfirmationEmailPayload {
   sessionLabel?: string | null;
 }
 
-function getResendClient() {
-  const apiKey = process.env.RESEND_API_KEY;
-  return apiKey ? new Resend(apiKey) : null;
+let cachedTransporter: Transporter | null = null;
+
+function getTransporter(): Transporter | null {
+  if (cachedTransporter) return cachedTransporter;
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !port || !user || !pass) return null;
+  cachedTransporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+  return cachedTransporter;
+}
+
+function getFrom() {
+  return process.env.SMTP_FROM || process.env.SMTP_USER;
 }
 
 function getReplyTo() {
-  return process.env.RESEND_REPLY_TO_EMAIL || process.env.RESEND_FROM_EMAIL;
+  return process.env.SMTP_REPLY_TO || process.env.SMTP_FROM || process.env.SMTP_USER;
 }
 
 function buildEmailLayout({
@@ -125,17 +142,17 @@ async function sendPortalEmail({
   html: string;
   text: string;
 }) {
-  const resend = getResendClient();
-  const from = process.env.RESEND_FROM_EMAIL;
+  const transporter = getTransporter();
+  const from = getFrom();
 
-  if (!resend || !from) {
+  if (!transporter || !from) {
     console.info(
       `[formation-pro-public] Email skipped for ${to}. Subject: ${subject}`
     );
     return;
   }
 
-  await resend.emails.send({
+  await transporter.sendMail({
     from,
     to,
     replyTo: getReplyTo(),

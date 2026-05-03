@@ -43,7 +43,7 @@ export function AuthProviderButtons({
   if (!googleEnabled) {
     return (
       <p className="rounded-[1.5rem] border border-dashed border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
-        La connexion Google n'est pas encore configurée sur cet environnement.
+        La connexion Google n&apos;est pas encore configurée sur cet environnement.
       </p>
     );
   }

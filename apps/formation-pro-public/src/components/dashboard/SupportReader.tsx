@@ -89,7 +89,7 @@ export function SupportReader({
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                Ce support est ouvert dans un nouvel onglet pour respecter son format d'origine.
+                Ce support est ouvert dans un nouvel onglet pour respecter son format d&apos;origine.
               </p>
               <Button asChild className="mt-4">
                 <Link href={secureUrl} target="_blank" rel="noreferrer">

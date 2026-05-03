@@ -200,7 +200,7 @@ export function AffectationWorkspace({
         <CardHeader>
           <CardTitle>Créer un formateur</CardTitle>
           <CardDescription>
-            Si aucun vrai formateur n'existe encore sur un tenant, commencez ici.
+            Si aucun vrai formateur n&apos;existe encore sur un tenant, commencez ici.
           </CardDescription>
         </CardHeader>
         <CardContent>

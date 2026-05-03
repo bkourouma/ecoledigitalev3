@@ -73,8 +73,8 @@ export default async function LearningWorkspacePage({
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>Commencez par les ressources de contexte, puis avancez vers les vidéos et ateliers.</p>
-            <p>Pour les formats PDF ou bureautiques, les contenus s'ouvrent dans un nouvel onglet.</p>
-            <p>Si une ressource n'est pas lisible, vérifiez simplement le lien source ou contactez le support.</p>
+            <p>Pour les formats PDF ou bureautiques, les contenus s&apos;ouvrent dans un nouvel onglet.</p>
+            <p>Si une ressource n&apos;est pas lisible, vérifiez simplement le lien source ou contactez le support.</p>
           </CardContent>
         </Card>
       </div>

@@ -60,7 +60,7 @@ export default async function VerifyPage({
               </Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/register">Retour à l'inscription</Link>
+              <Link href="/register">Retour à l&apos;inscription</Link>
             </Button>
           </div>
         </CardContent>

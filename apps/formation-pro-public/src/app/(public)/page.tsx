@@ -116,7 +116,7 @@ export default async function HomePage() {
           <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="font-display text-3xl font-semibold">
-                Recevez les nouvelles sessions et les ouvertures d'inscription.
+                Recevez les nouvelles sessions et les ouvertures d&apos;inscription.
               </h2>
               <p className="mt-2 max-w-2xl text-white/70">
                 Une communication utile, focalisée sur les démarrages de cohortes et les dates importantes à ne pas manquer.

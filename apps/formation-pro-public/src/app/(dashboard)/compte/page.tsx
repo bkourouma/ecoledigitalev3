@@ -50,7 +50,7 @@ export default async function ComptePage() {
           Bonjour {session.user.prenom || session.user.name || "Apprenant"}
         </h1>
         <p className="mt-3 max-w-3xl text-sm text-muted-foreground">
-          Retrouvez ici vos commandes, vos vidéos disponibles et l'ensemble de vos
+          Retrouvez ici vos commandes, vos vidéos disponibles et l&apos;ensemble de vos
           accès apprenant.
         </p>
       </div>

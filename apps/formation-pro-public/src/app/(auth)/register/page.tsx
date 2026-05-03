@@ -144,7 +144,7 @@ function RegisterFallback() {
     <div className="container flex min-h-[72vh] items-center justify-center py-10">
       <Card className="w-full max-w-2xl">
         <CardContent className="p-8 text-center text-sm text-muted-foreground">
-          Chargement de la page d'inscription...
+          Chargement de la page d&apos;inscription...
         </CardContent>
       </Card>
     </div>

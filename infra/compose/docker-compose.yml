@@ -26,6 +26,34 @@ services:
       retries: 5
       start_period: 30s
 
+  ecoledigitale-formation-pro:
+    build:
+      context: ../../
+      dockerfile: infra/compose/Dockerfile.formation-pro-public
+    image: ecoledigitale-formation-pro:latest
+    container_name: ecoledigitale-formation-pro
+    env_file:
+      - ${ENV_FILE:-./.env}
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
+      # Override env_file: each next-auth instance must point at its own host
+      NEXTAUTH_URL: https://formation-pro.allianceconsultants.net
+    ports:
+      - "127.0.0.1:3012:3001"
+    restart: unless-stopped
+    networks:
+      - ecoledigitale-network
+    depends_on:
+      - ecoledigitale-api
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   ecoledigitale-web:
     build:
       context: ../../
