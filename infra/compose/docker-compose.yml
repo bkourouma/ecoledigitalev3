@@ -67,6 +67,9 @@ services:
       PORT: 3000
       HOSTNAME: 0.0.0.0
       API_INTERNAL_URL: http://ecoledigitale-api:8011
+      # auth-options.ts reads API_URL when building the next-auth credentials
+      # POST URL — has to point at the API container too, not the web's own port.
+      API_URL: http://ecoledigitale-api:8011
     ports:
       - "127.0.0.1:3011:3000"
     restart: unless-stopped
