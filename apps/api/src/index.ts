@@ -99,6 +99,7 @@ import { reportingRoutes } from "./routes/reporting";
 import { ownerRoutes } from "./routes/owner";
 import { liveSessionsRoutes } from "./routes/live-sessions";
 import { livekitWebhookRoutes } from "./routes/webhooks/livekit";
+import { notificationsInboxRoutes } from "./routes/notifications-inbox";
 import { initializeReservationCleanupJob } from "./jobs/reservation-cleanup.job";
 import { rsoActivityRoutes } from "./routes/rso/activities";
 import { bootstrapSuperAdmin } from "./services/super-admin-bootstrap.service";
@@ -319,6 +320,9 @@ async function start() {
     // LiveKit videoconferencing routes
     await fastify.register(liveSessionsRoutes, { prefix: "/api/v1/live-sessions" });
     await fastify.register(livekitWebhookRoutes, { prefix: "/api/v1/webhooks" });
+
+    // Generic in-app notifications inbox (bell UI)
+    await fastify.register(notificationsInboxRoutes, { prefix: "/api/v1/notifications-inbox" });
 
     // Enregistrement des routes des tableaux de bord étudiants - TEMPORAIREMENT DÉSACTIVÉ
     // await fastify.register(studentDashboardRoutes, { prefix: "/api/v1/students/dashboards" });

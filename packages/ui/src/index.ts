@@ -60,6 +60,9 @@ export { CourseSelector, type Course, type SelectedCourse } from "./components/C
 
 // RSO Components
 export { TagBadge } from "./components/rso/TagBadge";
+
+// Notifications
+export { NotificationBell, type NotificationItem, type NotificationBellProps } from "./components/NotificationBell";
 // Note: SearchAutocomplete, TagSelector, and NotificationWidget are in apps/web
 // and cannot be exported from packages/ui due to circular dependency issues.
 // Import them directly from apps/web/src/components/rso/
