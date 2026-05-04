@@ -97,6 +97,8 @@ import { entreprisesRoutes } from "./routes/entreprises";
 import { exportsRoutes } from "./routes/exports";
 import { reportingRoutes } from "./routes/reporting";
 import { ownerRoutes } from "./routes/owner";
+import { liveSessionsRoutes } from "./routes/live-sessions";
+import { livekitWebhookRoutes } from "./routes/webhooks/livekit";
 import { initializeReservationCleanupJob } from "./jobs/reservation-cleanup.job";
 import { rsoActivityRoutes } from "./routes/rso/activities";
 import { bootstrapSuperAdmin } from "./services/super-admin-bootstrap.service";
@@ -313,6 +315,10 @@ async function start() {
 
     // RSO-PFSO Module routes
     await fastify.register(rsoActivityRoutes, { prefix: "/api/v1/rso" }); // Routes already include /activities
+
+    // LiveKit videoconferencing routes
+    await fastify.register(liveSessionsRoutes, { prefix: "/api/v1/live-sessions" });
+    await fastify.register(livekitWebhookRoutes, { prefix: "/api/v1/webhooks" });
 
     // Enregistrement des routes des tableaux de bord étudiants - TEMPORAIREMENT DÉSACTIVÉ
     // await fastify.register(studentDashboardRoutes, { prefix: "/api/v1/students/dashboards" });

@@ -246,6 +246,7 @@ async function authMiddleware(fastify: FastifyInstance) {
       "/api/v1/files/",
       "/api/v1/formations-pro",
       "/api/v1/super-admin/auth/login",
+      "/api/v1/webhooks/livekit",
     ];
 
     const isPublicSessionsPro =

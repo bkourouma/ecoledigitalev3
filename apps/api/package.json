@@ -52,6 +52,7 @@
     "isomorphic-dompurify": "^2.33.0",
     "jsonwebtoken": "^9.0.2",
     "jszip": "^3.10.1",
+    "livekit-server-sdk": "^2.9.7",
     "mammoth": "^1.10.0",
     "mime-types": "^3.0.1",
     "node-cron": "^4.2.1",
