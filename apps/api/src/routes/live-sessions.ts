@@ -188,6 +188,25 @@ export async function liveSessionsRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Auto-start an egress so the session is recorded end-to-end. Failure to start
+      // recording does NOT abort the live session — we log and continue, surfacing the
+      // status via /:id/recordings.
+      if (recordingEnabled) {
+        try {
+          const keyTemplate = lk.buildRecordingKey(request.tenantId, newId);
+          const { egressId, s3Key } = await lk.startCompositeRecording(roomName, keyTemplate);
+          await client.query(
+            `INSERT INTO live_session_recordings (
+                tenant_id, live_session_id, egress_id, s3_key, status
+             ) VALUES ($1, $2, $3, $4, 'processing')
+             ON CONFLICT (egress_id) DO NOTHING`,
+            [request.tenantId, newId, egressId, s3Key]
+          );
+        } catch (err) {
+          fastify.log.warn({ err, liveSessionId: newId }, "Failed to start LiveKit egress recording");
+        }
+      }
+
       // Notify enrolled recipients on the right side of the platform.
       // Resolution + dispatch run after the response is committed via setImmediate so a slow
       // SMTP/WhatsApp handshake never blocks the create call.
@@ -468,6 +487,60 @@ export async function liveSessionsRoutes(fastify: FastifyInstance) {
       client.release();
     }
   });
+
+  // ===========================================================
+  // GET /api/v1/live-sessions/:id/recordings/:recordingId/playback-url
+  // Returns a short-lived signed URL for the underlying S3 object.
+  // ===========================================================
+  fastify.get(
+    "/:id/recordings/:recordingId/playback-url",
+    async (request: any, reply) => {
+      const lk = ensureService(reply);
+      if (!lk) return;
+
+      if (!request.tenantId) return reply.status(400).send({ error: "Tenant Required" });
+      const parsed = z
+        .object({ id: z.string().uuid(), recordingId: z.string().uuid() })
+        .safeParse(request.params);
+      if (!parsed.success) return reply.status(400).send({ error: "Bad Request" });
+
+      const client = await pg.connect();
+      try {
+        await client.query("SELECT set_config($1, $2, true)", [
+          "app.tenant_id",
+          request.tenantId,
+        ]);
+        const r = await client.query<{ s3_key: string; status: string }>(
+          `SELECT s3_key, status FROM live_session_recordings
+            WHERE id = $1 AND live_session_id = $2 AND tenant_id = $3`,
+          [parsed.data.recordingId, parsed.data.id, request.tenantId]
+        );
+        if (r.rows.length === 0) return reply.status(404).send({ error: "Not Found" });
+        if (!r.rows[0].s3_key || r.rows[0].status !== "ready") {
+          return reply.status(409).send({
+            error: "Recording Not Ready",
+            message: `Recording status: ${r.rows[0].status}`,
+            code: "RECORDING_NOT_READY",
+          });
+        }
+
+        try {
+          const url = await lk.getRecordingPresignedUrl(r.rows[0].s3_key, 3600);
+          return reply.send({
+            data: { url, expiresInSec: 3600, s3Key: r.rows[0].s3_key },
+          });
+        } catch (err: any) {
+          fastify.log.error({ err }, "Failed to sign recording URL");
+          return reply.status(502).send({
+            error: "Bad Gateway",
+            message: err?.message ?? "Failed to sign URL",
+          });
+        }
+      } finally {
+        client.release();
+      }
+    }
+  );
 }
 
 // ===========================================================

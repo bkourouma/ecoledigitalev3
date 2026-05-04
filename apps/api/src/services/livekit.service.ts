@@ -20,6 +20,8 @@ import {
   S3Upload,
   WebhookReceiver,
 } from "livekit-server-sdk";
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export type LiveKitJoinRole = "moderator" | "participant";
 
@@ -52,12 +54,34 @@ export class LiveKitService {
   private readonly roomClient: RoomServiceClient;
   private readonly egressClient: EgressClient;
   private readonly webhookReceiver: WebhookReceiver;
+  private _s3Client: S3Client | null = null;
 
   constructor(config?: Partial<LiveKitConfig>) {
     this.cfg = LiveKitService.loadConfig(config);
     this.roomClient = new RoomServiceClient(this.cfg.url, this.cfg.apiKey, this.cfg.apiSecret);
     this.egressClient = new EgressClient(this.cfg.url, this.cfg.apiKey, this.cfg.apiSecret);
     this.webhookReceiver = new WebhookReceiver(this.cfg.apiKey, this.cfg.apiSecret);
+  }
+
+  private s3(): S3Client {
+    if (!this._s3Client) {
+      this._s3Client = new S3Client({
+        region: this.cfg.s3.region,
+        endpoint: this.cfg.s3.endpoint,
+        credentials: {
+          accessKeyId: this.cfg.s3.accessKey,
+          secretAccessKey: this.cfg.s3.secret,
+        },
+        forcePathStyle: this.cfg.s3.forcePathStyle,
+      });
+    }
+    return this._s3Client;
+  }
+
+  /** Sign a GET URL for a recording stored in the configured bucket. */
+  async getRecordingPresignedUrl(s3Key: string, expiresInSec = 3600): Promise<string> {
+    const cmd = new GetObjectCommand({ Bucket: this.cfg.s3.bucket, Key: s3Key });
+    return getSignedUrl(this.s3(), cmd, { expiresIn: expiresInSec });
   }
 
   static loadConfig(overrides: Partial<LiveKitConfig> = {}): LiveKitConfig {
