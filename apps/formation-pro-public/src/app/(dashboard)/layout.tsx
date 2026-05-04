@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { isPortalAdminEmail } from "@/lib/admin";
 import { authOptions } from "@/lib/auth";
+import { NotificationBellWidget } from "@/components/notifications/NotificationBellWidget";
 
 export default async function DashboardLayout({
   children,
@@ -30,10 +31,15 @@ export default async function DashboardLayout({
   return (
     <div className="container grid gap-6 py-8 md:grid-cols-[240px_minmax(0,1fr)]">
       <aside className="h-fit rounded-[1.75rem] border border-border/70 bg-white/85 p-5 shadow-soft">
-        <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Espace apprenant</p>
-        <p className="mt-3 font-display text-2xl font-semibold">
-          {session.user.prenom || session.user.name || "Bienvenue"}
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Espace apprenant</p>
+            <p className="mt-3 font-display text-2xl font-semibold">
+              {session.user.prenom || session.user.name || "Bienvenue"}
+            </p>
+          </div>
+          <NotificationBellWidget />
+        </div>
         <nav className="mt-6 grid gap-2">
           {links.map((link) => (
             <Link

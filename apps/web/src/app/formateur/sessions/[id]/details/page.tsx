@@ -9,6 +9,7 @@ import { FormateurSessionDetailContent } from "@/components/formateur/FormateurS
 import Link from "next/link";
 import { Button } from "@ecoledigitale/ui";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { AddLiveSessionButton } from "@/components/live-sessions/AddLiveSessionButton";
 
 function SessionDetailContent() {
   const params = useParams();
@@ -69,6 +70,8 @@ function SessionDetailContent() {
 }
 
 export default function FormateurSessionDetailPage() {
+  const params = useParams();
+  const sessionId = params.id as string;
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header */}
@@ -93,6 +96,9 @@ export default function FormateurSessionDetailPage() {
                   </p>
                 </div>
               </div>
+              {sessionId && (
+                <AddLiveSessionButton parentType="professionnelle" parentId={sessionId} />
+              )}
             </div>
           </CardHeader>
         </Card>

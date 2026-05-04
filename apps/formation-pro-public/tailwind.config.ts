@@ -7,6 +7,7 @@ const config = {
     "./src/components/**/*.{ts,tsx}",
     "./src/hooks/**/*.{ts,tsx}",
     "./src/lib/**/*.{ts,tsx}",
+    "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     container: {
