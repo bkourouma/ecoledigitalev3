@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Input, Label } from "@ecoledigitale/ui";
+import { AddLiveSessionButton } from "@/components/live-sessions/AddLiveSessionButton";
 
 type Props = {
   id: string;
@@ -57,6 +58,10 @@ export default function SessionDetails({
           <div>
             <Label>Notes</Label>
             <Input value={notes} onChange={e => setNotes(e.target.value)} />
+          </div>
+          <div className="rounded-md border border-dashed border-blue-200 bg-blue-50 p-3">
+            <p className="mb-2 text-xs font-medium text-blue-900">Cours en ligne</p>
+            <AddLiveSessionButton parentType="instance" parentId={id} />
           </div>
           <div className="flex justify-between">
             <Button variant="destructive" onClick={del}>Supprimer</Button>

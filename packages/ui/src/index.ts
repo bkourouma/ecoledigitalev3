@@ -63,6 +63,14 @@ export { TagBadge } from "./components/rso/TagBadge";
 
 // Notifications
 export { NotificationBell, type NotificationItem, type NotificationBellProps } from "./components/NotificationBell";
+
+// Live session room (LiveKit)
+export {
+  LiveSessionRoom,
+  type LiveSessionRoomProps,
+  type LiveSessionRole,
+  type LiveSessionTokenResponse,
+} from "./components/LiveSessionRoom";
 // Note: SearchAutocomplete, TagSelector, and NotificationWidget are in apps/web
 // and cannot be exported from packages/ui due to circular dependency issues.
 // Import them directly from apps/web/src/components/rso/

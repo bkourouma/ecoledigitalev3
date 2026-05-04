@@ -1,6 +1,10 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { getLiveKitService, LiveKitService } from "../services/livekit.service";
+import {
+  dispatchNotification,
+  type NotificationRecipient,
+} from "../services/notifications-dispatch.service";
 
 /**
  * Live session routes (PR 1) — all mounted under /api/v1/live-sessions
@@ -184,6 +188,15 @@ export async function liveSessionsRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Notify enrolled recipients on the right side of the platform.
+      // Resolution + dispatch run after the response is committed via setImmediate so a slow
+      // SMTP/WhatsApp handshake never blocks the create call.
+      setImmediate(() => {
+        notifyEnrolledRecipients(fastify, request.tenantId, newId, type, parentId).catch((err) => {
+          fastify.log.warn({ err, liveSessionId: newId }, "live_session.invite dispatch failed");
+        });
+      });
+
       return reply.status(201).send({ data: rowToDto(insertRes.rows[0]), created: true });
     } catch (err: any) {
       fastify.log.error({ err }, "Error creating live session");
@@ -257,15 +270,19 @@ export async function liveSessionsRoutes(fastify: FastifyInstance) {
         request.user.email ||
         request.userId;
 
+      // Identities are prefixed so the LiveKit webhook can route attendance rows to the right
+      // subject_kind without an extra DB lookup. Public users use 'pu_'; tenant users 'tu_'.
+      const identity = `tu_${request.userId}`;
       const token = await lk.mintToken({
         roomName: row.room_name,
-        identity: request.userId,
+        identity,
         displayName,
         role: moderator ? "moderator" : "participant",
         metadata: {
           tenantId: request.tenantId,
           liveSessionId: row.id,
           activeRole: request.user.activeRole,
+          subjectKind: "tenant_user",
         },
       });
 
@@ -275,7 +292,7 @@ export async function liveSessionsRoutes(fastify: FastifyInstance) {
           token,
           role: moderator ? "moderator" : "participant",
           roomName: row.room_name,
-          identity: request.userId,
+          identity,
         },
       });
     } catch (err: any) {
@@ -451,4 +468,118 @@ export async function liveSessionsRoutes(fastify: FastifyInstance) {
       client.release();
     }
   });
+}
+
+// ===========================================================
+// Helpers — recipient resolution + dispatch
+// ===========================================================
+
+async function notifyEnrolledRecipients(
+  fastify: FastifyInstance,
+  tenantId: string,
+  liveSessionId: string,
+  parentType: ParentType,
+  parentId: string
+): Promise<void> {
+  const pg = fastify.pg as any;
+  const recipients =
+    parentType === "instance"
+      ? await resolveSchoolRecipients(pg, tenantId, parentId)
+      : await resolvePublicRecipients(pg, tenantId, parentId);
+
+  if (recipients.length === 0) {
+    fastify.log.info(
+      { liveSessionId, parentType, parentId },
+      "No notification recipients resolved for live session"
+    );
+    return;
+  }
+
+  const baseUrl =
+    parentType === "instance"
+      ? process.env.PUBLIC_WEB_URL ?? process.env.NEXTAUTH_URL ?? ""
+      : process.env.PUBLIC_FORMATION_PRO_URL ?? "";
+  const actionUrl = baseUrl
+    ? `${baseUrl.replace(/\/$/, "")}/live/${liveSessionId}`
+    : undefined;
+
+  await dispatchNotification(pg, fastify.log, {
+    tenantId,
+    recipients,
+    type: "live_session.invite",
+    title: "Cours en direct disponible",
+    body: "Un cours en ligne vient de démarrer. Cliquez pour rejoindre la séance.",
+    actionUrl,
+    payload: { liveSessionId, parentType, parentId },
+    channels: ["inapp", "email", "whatsapp"],
+  });
+}
+
+async function resolveSchoolRecipients(
+  pool: any,
+  tenantId: string,
+  sessionInstanceId: string
+): Promise<NotificationRecipient[]> {
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT set_config($1, $2, true)", ["app.tenant_id", tenantId]);
+    const r = await client.query<{
+      user_id: string;
+      email: string;
+      phone: string | null;
+      name: string;
+    }>(
+      `SELECT u.id AS user_id, u.email, sp.phone, u.name
+         FROM session_instances si
+         JOIN student_enrollments se ON se.class_id = si.class_id
+                                    AND se.tenant_id = si.tenant_id
+                                    AND se.status = 'active'
+         JOIN student_profiles sp ON sp.id = se.student_id AND sp.tenant_id = se.tenant_id
+         JOIN users u ON u.id = sp.user_id
+        WHERE si.id = $1 AND si.tenant_id = $2`,
+      [sessionInstanceId, tenantId]
+    );
+    return r.rows.map((row) => ({
+      subjectKind: "tenant_user",
+      subjectUserId: row.user_id,
+      email: row.email,
+      phone: row.phone,
+      displayName: row.name,
+    }));
+  } finally {
+    client.release();
+  }
+}
+
+async function resolvePublicRecipients(
+  pool: any,
+  tenantId: string,
+  sessionProId: string
+): Promise<NotificationRecipient[]> {
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT set_config($1, $2, true)", ["app.tenant_id", tenantId]);
+    const r = await client.query<{
+      user_id: string;
+      email: string;
+      phone: string | null;
+      nom: string | null;
+      prenom: string | null;
+    }>(
+      `SELECT pu.id AS user_id, pu.email, pu.telephone AS phone, pu.nom, pu.prenom
+         FROM inscriptions_public ip
+         JOIN public_users pu ON pu.id = ip.user_id
+        WHERE ip.session_id = $1 AND ip.statut = 'CONFIRME'`,
+      [sessionProId]
+    );
+    return r.rows.map((row) => ({
+      subjectKind: "public_user",
+      subjectUserId: row.user_id,
+      email: row.email,
+      phone: row.phone,
+      displayName: [row.prenom, row.nom].filter(Boolean).join(" ") || row.email,
+    }));
+  } finally {
+    client.release();
+  }
 }

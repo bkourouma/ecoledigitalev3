@@ -213,8 +213,120 @@ async function handleRoomFinished(
     [liveSession.id, finishedAt.toISOString()]
   );
 
-  // PR 3 will add a school_attendance bridge here that turns counted_present rows
-  // into student_attendance entries for the matching session_instance.
+  // For school-side sessions, bridge counted_present rows into the existing student_attendance
+  // table so the LiveKit-marked attendance is visible alongside teacher-marked rows.
+  // This is a no-op for formation-pro sessions (no equivalent canonical attendance table).
+  if (liveSession.session_instance_id) {
+    await bridgeSchoolAttendance(client, liveSession);
+  }
+}
+
+/**
+ * Map counted_present rows on live_session_attendances to student_attendance rows.
+ *
+ * Strategy: for each tenant_user attendee marked counted_present, find the student_profiles row
+ * whose user_id matches; locate (or create) the attendance_session that corresponds to this
+ * session_instance (matched on date + class + teacher); insert/update one student_attendance row
+ * with marked_via='livekit' and marked_by = the live session's creator.
+ *
+ * If the school admin already created an attendance_session manually we reuse it; otherwise we
+ * create one in 'completed' state so the row visibility matches what teachers see.
+ */
+async function bridgeSchoolAttendance(client: any, liveSession: LiveSessionRow): Promise<void> {
+  const sessionInstance = await client.query<{
+    class_id: string;
+    course_id: string;
+    teacher_id: string | null;
+    session_date: string;
+    start_datetime: string;
+    end_datetime: string;
+  }>(
+    `SELECT class_id, course_id, teacher_id, session_date, start_datetime, end_datetime
+       FROM session_instances
+      WHERE id = $1 AND tenant_id = $2`,
+    [liveSession.session_instance_id, liveSession.tenant_id]
+  );
+  if (sessionInstance.rows.length === 0) return;
+  const si = sessionInstance.rows[0];
+
+  // Resolve class_course_id (attendance_sessions FK).
+  const cc = await client.query<{ id: string }>(
+    `SELECT id FROM class_courses
+      WHERE tenant_id = $1 AND class_id = $2 AND course_id = $3
+      LIMIT 1`,
+    [liveSession.tenant_id, si.class_id, si.course_id]
+  );
+  const classCourseId = cc.rows[0]?.id;
+  if (!classCourseId) return; // Without a class_course we can't anchor an attendance_session.
+
+  // Resolve creator's user id (used as marked_by for the bridged rows).
+  const creator = await client.query<{ created_by_user_id: string }>(
+    `SELECT created_by_user_id FROM live_sessions WHERE id = $1`,
+    [liveSession.id]
+  );
+  const markedBy = creator.rows[0]?.created_by_user_id;
+  if (!markedBy) return;
+
+  // Find or create the attendance_session matching this session_instance.
+  const startTime = new Date(si.start_datetime).toISOString().substring(11, 19);
+  const endTime = new Date(si.end_datetime).toISOString().substring(11, 19);
+
+  const existing = await client.query<{ id: string }>(
+    `SELECT id FROM attendance_sessions
+      WHERE tenant_id = $1 AND class_course_id = $2 AND session_date = $3
+      LIMIT 1`,
+    [liveSession.tenant_id, classCourseId, si.session_date]
+  );
+
+  let attendanceSessionId: string;
+  if (existing.rows.length > 0) {
+    attendanceSessionId = existing.rows[0].id;
+  } else {
+    const created = await client.query<{ id: string }>(
+      `INSERT INTO attendance_sessions (
+          tenant_id, class_course_id, teacher_id, session_date,
+          start_time, end_time, status, started_at, completed_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, 'completed', NOW(), NOW())
+       RETURNING id`,
+      [liveSession.tenant_id, classCourseId, si.teacher_id, si.session_date, startTime, endTime]
+    );
+    attendanceSessionId = created.rows[0].id;
+  }
+
+  // Resolve student_profiles.id for each tenant_user attendee that is counted_present and
+  // upsert one student_attendance row with marked_via='livekit'.
+  const present = await client.query<{ subject_user_id: string }>(
+    `SELECT subject_user_id FROM live_session_attendances
+      WHERE live_session_id = $1 AND counted_present = true AND subject_kind = 'tenant_user'`,
+    [liveSession.id]
+  );
+
+  for (const row of present.rows) {
+    const studentProfile = await client.query<{ id: string }>(
+      `SELECT id FROM student_profiles WHERE user_id = $1 AND tenant_id = $2 LIMIT 1`,
+      [row.subject_user_id, liveSession.tenant_id]
+    );
+    const studentId = studentProfile.rows[0]?.id;
+    if (!studentId) continue; // User joined but isn't a student in this tenant — skip.
+
+    await client.query(
+      `INSERT INTO student_attendance (
+          tenant_id, session_id, student_id, attendance_status,
+          marked_by, marked_via
+       )
+       VALUES ($1, $2, $3, 'present', $4, 'livekit')
+       ON CONFLICT (tenant_id, session_id, student_id) DO UPDATE
+         SET attendance_status = 'present',
+             marked_by = EXCLUDED.marked_by,
+             marked_via = 'livekit',
+             marked_at = NOW(),
+             updated_at = NOW()
+         -- Don't clobber rows already marked_via='teacher' — teacher overrides win.
+         WHERE student_attendance.marked_via <> 'teacher'`,
+      [liveSession.tenant_id, attendanceSessionId, studentId, markedBy]
+    );
+  }
 }
 
 async function handleEgressStarted(

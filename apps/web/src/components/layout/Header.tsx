@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Search, Menu, X } from 'lucide-react';
+import { NotificationBellWidget } from '@/components/notifications/NotificationBellWidget';
 
 interface HeaderProps {
   onToggleMobileMenu: () => void;
@@ -10,7 +11,7 @@ interface HeaderProps {
 
 export function Header({ onToggleMobileMenu, isMobileMenuOpen }: HeaderProps) {
   return (
-    <div className="h-full bg-gray-700 border-b border-gray-600 flex items-center px-4">
+    <div className="h-full bg-gray-700 border-b border-gray-600 flex items-center px-4 gap-3">
       {/* Mobile Menu Button */}
       <button
         onClick={onToggleMobileMenu}
@@ -34,6 +35,11 @@ export function Header({ onToggleMobileMenu, isMobileMenuOpen }: HeaderProps) {
             className="w-full bg-gray-800 border border-gray-600 rounded-md pl-10 pr-4 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
           />
         </div>
+      </div>
+
+      {/* Notifications */}
+      <div className="ml-auto text-gray-200">
+        <NotificationBellWidget />
       </div>
     </div>
   );
