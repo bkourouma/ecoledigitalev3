@@ -1213,21 +1213,21 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* Catalogue Formations Section */}
             <div className="pt-2">
               <button
-                onClick={() => setIsImhotepDataFormationsExpanded(!isImhotepDataFormationsExpanded)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isImhotepDataFormationsExpanded ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                onClick={() => setIsFormationsProExpanded(!isFormationsProExpanded)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isFormationsProExpanded ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
               >
                 <div className="flex items-center space-x-3">
                   <BookOpen className="w-5 h-5" />
                   <span>Catalogue Formations</span>
                 </div>
-                {isImhotepDataFormationsExpanded ? (
+                {isFormationsProExpanded ? (
                   <ChevronDown className="w-5 h-5" />
                 ) : (
                   <ChevronRight className="w-5 h-5" />
                 )}
               </button>
 
-              {isImhotepDataFormationsExpanded && (
+              {isFormationsProExpanded && (
                 <div className="ml-4 mt-1 space-y-1">
                   {formationsProNavItems.map((item) => {
                     const Icon = item.icon;
@@ -1252,21 +1252,21 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* Administration Pro Section */}
             <div className="pt-2">
               <button
-                onClick={() => setIsImhotepDataAdminExpanded(!isImhotepDataAdminExpanded)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isImhotepDataAdminExpanded ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                onClick={() => setIsFormationsProAdminExpanded(!isFormationsProAdminExpanded)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isFormationsProAdminExpanded ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
               >
                 <div className="flex items-center space-x-3">
                   <Shield className="w-5 h-5" />
                   <span>Administration Pro</span>
                 </div>
-                {isImhotepDataAdminExpanded ? (
+                {isFormationsProAdminExpanded ? (
                   <ChevronDown className="w-5 h-5" />
                 ) : (
                   <ChevronRight className="w-5 h-5" />
                 )}
               </button>
 
-              {isImhotepDataAdminExpanded && (
+              {isFormationsProAdminExpanded && (
                 <div className="ml-4 mt-1 space-y-1">
                   {formationsProAdminNavItems.map((item) => {
                     const Icon = item.icon;
