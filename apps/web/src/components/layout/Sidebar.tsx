@@ -373,15 +373,6 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const isFormateurSpace = pathname.startsWith('/formateur');
   const showFormateurMenu = isFormateur || isFormateurSpace;
 
-  // Formation Pro: every admin sees the same Catalogue + Administration groups
-  // inside the regular admin sidebar — no per-tenant branch.
-  const [isProFormationsExpanded, setIsProFormationsExpanded] = useState(
-    pathname.startsWith('/formations-professionnelles') && !pathname.startsWith('/formations-professionnelles/admin')
-  );
-  const [isProAdminExpanded, setIsProAdminExpanded] = useState(
-    pathname.startsWith('/formations-professionnelles/admin')
-  );
-
   const handleLogout = async () => {
     try {
       const token = getToken();
@@ -1094,89 +1085,6 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               </div>
             )}
           </div>
-              )}
-
-              {/* Formation Professionnelle Section */}
-              {isAdmin && (
-                <div className="pt-4">
-                  <div className="px-3 mb-2">
-                    <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
-                      Formation Professionnelle
-                    </h3>
-                  </div>
-
-                  <button
-                    onClick={() => setIsProFormationsExpanded(!isProFormationsExpanded)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isProFormationsExpanded ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <BookOpen className="w-5 h-5" />
-                      <span>Catalogue Formations</span>
-                    </div>
-                    {isProFormationsExpanded ? (
-                      <ChevronDown className="w-5 h-5" />
-                    ) : (
-                      <ChevronRight className="w-5 h-5" />
-                    )}
-                  </button>
-
-                  {isProFormationsExpanded && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {formationsProNavItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = pathname === item.href;
-
-                        return (
-                          <NavLink
-                            key={item.href}
-                            href={item.href}
-                            onCloseMobileMenu={onCloseMobileMenu}
-                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                          >
-                            <Icon className="w-5 h-5" />
-                            <span>{item.label}</span>
-                          </NavLink>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => setIsProAdminExpanded(!isProAdminExpanded)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${isProAdminExpanded ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Shield className="w-5 h-5" />
-                      <span>Administration Pro</span>
-                    </div>
-                    {isProAdminExpanded ? (
-                      <ChevronDown className="w-5 h-5" />
-                    ) : (
-                      <ChevronRight className="w-5 h-5" />
-                    )}
-                  </button>
-
-                  {isProAdminExpanded && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {formationsProAdminNavItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = pathname.startsWith(item.href);
-
-                        return (
-                          <NavLink
-                            key={item.href}
-                            href={item.href}
-                            onCloseMobileMenu={onCloseMobileMenu}
-                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                          >
-                            <Icon className="w-5 h-5" />
-                            <span>{item.label}</span>
-                          </NavLink>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
               )}
 
               {/* Academic Operations Section */}
