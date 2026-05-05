@@ -371,24 +371,42 @@ export async function dispatchNotification(
         }
       }
 
+      // Each channel attempt is wrapped so an unexpected throw (e.g. missing delivery-log
+      // table, transient pg error) on one channel never aborts the others — and in particular
+      // never stops us from finishing this recipient's loop iteration so the next recipient
+      // is processed.
       if (channels.includes("email")) {
-        const r = await tryEmail(client, input, recipient, notificationId, log);
-        if (r.ok) channelsSent.push("email");
-        else channelsFailed.push({ channel: "email", reason: r.reason ?? "email_failed" });
+        try {
+          const r = await tryEmail(client, input, recipient, notificationId, log);
+          if (r.ok) channelsSent.push("email");
+          else channelsFailed.push({ channel: "email", reason: r.reason ?? "email_failed" });
+        } catch (err: any) {
+          log.warn({ err, recipient: recipient.subjectUserId }, "tryEmail threw");
+          channelsFailed.push({ channel: "email", reason: err?.message ?? "email_threw" });
+        }
       }
 
       if (channels.includes("whatsapp")) {
-        const r = await tryWhatsapp(client, pool, input, recipient, log);
-        if (r.ok) channelsSent.push("whatsapp");
-        else channelsFailed.push({ channel: "whatsapp", reason: r.reason ?? "whatsapp_failed" });
+        try {
+          const r = await tryWhatsapp(client, pool, input, recipient, log);
+          if (r.ok) channelsSent.push("whatsapp");
+          else channelsFailed.push({ channel: "whatsapp", reason: r.reason ?? "whatsapp_failed" });
+        } catch (err: any) {
+          log.warn({ err, recipient: recipient.subjectUserId }, "tryWhatsapp threw");
+          channelsFailed.push({ channel: "whatsapp", reason: err?.message ?? "whatsapp_threw" });
+        }
       }
 
       // Update channels_sent on the in-app row if we wrote one.
       if (notificationId && channelsSent.length > 0) {
-        await client.query(
-          `UPDATE app_notifications SET channels_sent = $2::jsonb WHERE id = $1`,
-          [notificationId, JSON.stringify(channelsSent)]
-        );
+        try {
+          await client.query(
+            `UPDATE app_notifications SET channels_sent = $2::jsonb WHERE id = $1`,
+            [notificationId, JSON.stringify(channelsSent)]
+          );
+        } catch (err: any) {
+          log.warn({ err, notificationId }, "failed to update channels_sent");
+        }
       }
 
       result.perRecipient.push({
@@ -397,6 +415,16 @@ export async function dispatchNotification(
         notificationId,
         channelsSent,
         channelsFailed,
+      });
+    } catch (err: any) {
+      // Recipient-level catch — keep iterating.
+      log.warn({ err, recipient: recipient.subjectUserId }, "dispatch failed for recipient");
+      result.perRecipient.push({
+        subjectKind: recipient.subjectKind,
+        subjectUserId: recipient.subjectUserId,
+        notificationId,
+        channelsSent,
+        channelsFailed: [...channelsFailed, { channel: "inapp", reason: err?.message ?? "recipient_loop_threw" }],
       });
     } finally {
       client.release();
