@@ -3,9 +3,12 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
 function apiBaseUrl(): string {
-  return process.env.NODE_ENV === "development"
-    ? "http://localhost:4000"
-    : process.env.API_URL || "http://localhost:4000";
+  // Honor an explicit override in any environment so devs running the API on a
+  // non-default port (or behind nginx) don't have NextAuth silently call a phantom
+  // localhost:4000. API_INTERNAL_URL is the same var the Next.js rewrite uses.
+  const override = process.env.API_INTERNAL_URL || process.env.API_URL;
+  if (override) return override;
+  return "http://localhost:4000";
 }
 
 export const authOptions: NextAuthOptions = {
