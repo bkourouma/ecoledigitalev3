@@ -32,6 +32,8 @@ coverage/
 playwright-report/
 test-results/
 test-results.xml
+e2e-screenshots/
+.claude/
 *.tsbuildinfo
 *.d.ts.map
 
