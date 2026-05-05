@@ -84,7 +84,6 @@ const formationsProAdminMenuItems = [
   { icon: Calendar, label: 'Gestion des Sessions', href: '/formations-professionnelles/admin/sessions' as const },
   { icon: Edit, label: 'Créer une Session', href: '/formations-professionnelles/admin/sessions/creer' as const },
   { icon: User, label: 'Formateurs', href: '/formations-professionnelles/admin/formateurs' as const },
-  { icon: Play, label: 'Pages Publiques', href: '/formations-professionnelles/public' as const },
   // { icon: FileText, label: 'Inscriptions', href: '/formations-professionnelles/admin/inscriptions' as const },
 ];
 
