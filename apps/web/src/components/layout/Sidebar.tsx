@@ -1054,7 +1054,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             >
               <div className="flex items-center space-x-3">
                 <Users className="w-5 h-5" />
-                <span>Gestion des Personnes</span>
+                <span>Personnes</span>
               </div>
               {isPeopleExpanded ? (
                 <ChevronDown className="w-5 h-5" />
