@@ -1301,6 +1301,84 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 })}
               </div>
             )}
+
+            {/* Catalogue Formations Section */}
+            <div className="pt-2">
+              <button
+                onClick={() => setIsImhotepDataFormationsExpanded(!isImhotepDataFormationsExpanded)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isImhotepDataFormationsExpanded ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+              >
+                <div className="flex items-center space-x-3">
+                  <BookOpen className="w-5 h-5" />
+                  <span>Catalogue Formations</span>
+                </div>
+                {isImhotepDataFormationsExpanded ? (
+                  <ChevronDown className="w-5 h-5" />
+                ) : (
+                  <ChevronRight className="w-5 h-5" />
+                )}
+              </button>
+
+              {isImhotepDataFormationsExpanded && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {formationsProNavItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname === item.href;
+
+                    return (
+                      <NavLink
+                        key={item.href}
+                        href={item.href}
+                        onCloseMobileMenu={onCloseMobileMenu}
+                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Administration Pro Section */}
+            <div className="pt-2">
+              <button
+                onClick={() => setIsImhotepDataAdminExpanded(!isImhotepDataAdminExpanded)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isImhotepDataAdminExpanded ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+              >
+                <div className="flex items-center space-x-3">
+                  <Shield className="w-5 h-5" />
+                  <span>Administration Pro</span>
+                </div>
+                {isImhotepDataAdminExpanded ? (
+                  <ChevronDown className="w-5 h-5" />
+                ) : (
+                  <ChevronRight className="w-5 h-5" />
+                )}
+              </button>
+
+              {isImhotepDataAdminExpanded && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {formationsProAdminNavItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname.startsWith(item.href);
+
+                    return (
+                      <NavLink
+                        key={item.href}
+                        href={item.href}
+                        onCloseMobileMenu={onCloseMobileMenu}
+                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
           )}
 
