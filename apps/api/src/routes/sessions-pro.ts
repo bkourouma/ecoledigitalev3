@@ -2,7 +2,7 @@
 import bcrypt from "bcryptjs";
 import { SessionProService } from "../services/session-pro.service";
 import { FormateurAvailabilityService } from "../services/formateur-availability.service";
-import { getTableName, usesSessionBasedProfessionalTraining } from "../utils/table-names";
+import { getTableName } from "../utils/table-names";
 import {
   SessionListQuerySchema,
   CalendarQuerySchema,
@@ -47,17 +47,6 @@ interface AuthenticatedRequest extends FastifyRequest {
 }
 
 export async function sessionsProRoutes(fastify: FastifyInstance) {
-  fastify.addHook("preHandler", async (request, reply) => {
-    const tid = (request as AuthenticatedRequest).tenantId;
-    if (tid && !usesSessionBasedProfessionalTraining(tid)) {
-      return reply.status(404).send({
-        success: false,
-        error: "NOT_FOUND",
-        message: "Le planning par sessions n'est pas disponible pour ce tenant.",
-      });
-    }
-  });
-
   const availabilityService = new FormateurAvailabilityService(fastify.pg as any);
   const sessionService = new SessionProService(fastify.pg as any, availabilityService);
 

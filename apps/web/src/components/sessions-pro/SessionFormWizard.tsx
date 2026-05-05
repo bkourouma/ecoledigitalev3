@@ -14,7 +14,7 @@ import {
   Form,
 } from "@ecoledigitale/ui";
 import { ChevronLeft, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
-import { CreateSessionSchema } from "@ecoledigitale/contracts/src/sessions-pro";
+import { CreateSessionSchema } from "@ecoledigitale/contracts/sessions-pro";
 import { FormStep1GeneralInfo } from "./FormStep1GeneralInfo";
 import { FormStep2Formateurs } from "./FormStep2Formateurs";
 import { FormStep3Tarification } from "./FormStep3Tarification";

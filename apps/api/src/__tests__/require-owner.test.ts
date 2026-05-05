@@ -20,7 +20,7 @@ describe("requireOwner", () => {
 
   it("répond 403 si rôle owner absent", async () => {
     const request = {
-      tenantId: "e9f4c59f-0666-4dc7-a7d4-c63004000791",
+      tenantId: "00000000-0000-0000-0000-000000000001",
       user: { id: "u", roles: ["admin", "teacher"] },
     } as unknown as FastifyRequest;
     const reply = createReply();
@@ -31,7 +31,7 @@ describe("requireOwner", () => {
   it("répond 403 pour parent / student / formateur sans owner", async () => {
     for (const roles of [["parent"], ["student"], ["formateur"]]) {
       const request = {
-        tenantId: "e9f4c59f-0666-4dc7-a7d4-c63004000791",
+        tenantId: "00000000-0000-0000-0000-000000000001",
         user: { id: "u", roles },
       } as unknown as FastifyRequest;
       const reply = createReply();
@@ -42,7 +42,7 @@ describe("requireOwner", () => {
 
   it("ne bloque pas si owner présent (réponse non envoyée)", async () => {
     const request = {
-      tenantId: "e9f4c59f-0666-4dc7-a7d4-c63004000791",
+      tenantId: "00000000-0000-0000-0000-000000000001",
       user: { id: "u", roles: ["owner"] },
     } as unknown as FastifyRequest;
     const reply = createReply();
@@ -55,7 +55,7 @@ describe("requireOwner", () => {
 describe("requireOwnerOrAdmin", () => {
   it("ne bloque pas si admin est prÃ©sent", async () => {
     const request = {
-      tenantId: "e9f4c59f-0666-4dc7-a7d4-c63004000791",
+      tenantId: "00000000-0000-0000-0000-000000000001",
       user: { id: "u", roles: ["admin"] },
     } as unknown as FastifyRequest;
     const reply = createReply();
@@ -66,7 +66,7 @@ describe("requireOwnerOrAdmin", () => {
 
   it("ne bloque pas si super_admin est prÃ©sent", async () => {
     const request = {
-      tenantId: "e9f4c59f-0666-4dc7-a7d4-c63004000791",
+      tenantId: "00000000-0000-0000-0000-000000000001",
       user: { id: "u", roles: ["super_admin"] },
     } as unknown as FastifyRequest;
     const reply = createReply();
@@ -77,7 +77,7 @@ describe("requireOwnerOrAdmin", () => {
 
   it("rÃ©pond 403 pour teacher sans owner/admin", async () => {
     const request = {
-      tenantId: "e9f4c59f-0666-4dc7-a7d4-c63004000791",
+      tenantId: "00000000-0000-0000-0000-000000000001",
       user: { id: "u", roles: ["teacher"] },
     } as unknown as FastifyRequest;
     const reply = createReply();

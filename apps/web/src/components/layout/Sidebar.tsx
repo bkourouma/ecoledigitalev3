@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Home,
   Users,
@@ -42,9 +42,6 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { removeToken, getToken } from '@/lib/jwt-storage';
-
-/** ASPCI : sessions + formateurs. Imhotep Data : catalogue par formation uniquement. */
-const TENANT_ASPCI_ID = '52da6ca7-81ad-47ad-b5c3-6f437f64ba37';
 
 const navigationItems = [
   { icon: Home, label: 'Home', href: '/' as const },
@@ -296,35 +293,10 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const isOwner =
     Array.isArray(roles) && roles.some((r: string) => String(r).toLowerCase() === 'owner');
 
-  // Check if user is admin from imhotepdata tenant
-  const tenantId = (session as any)?.tenantId;
-  const isImhotepDataAdmin = isAdmin && tenantId === 'e9f4c59f-0666-4dc7-a7d4-c63004000791';
-
-  // Check if user is admin from ASPCI tenant
-  const isAspciAdmin = isAdmin && tenantId === TENANT_ASPCI_ID;
-
-  const usesSessionBasedProNav = tenantId === TENANT_ASPCI_ID;
-
-  const formationsProNavItems = useMemo(() => {
-    if (usesSessionBasedProNav) return formationsProMenuItems;
-    return formationsProMenuItems.filter(
-      (item) => item.href !== '/formations-professionnelles/sessions'
-    );
-  }, [usesSessionBasedProNav]);
-
-  const formationsProAdminNavItems = useMemo(() => {
-    if (usesSessionBasedProNav) return formationsProAdminMenuItems;
-    const kept = formationsProAdminMenuItems.filter(
-      (item) =>
-        !item.href.startsWith('/formations-professionnelles/admin/sessions') &&
-        item.href !== '/formations-professionnelles/admin/formateurs'
-    );
-    const imhotepAdminLinks = [
-      { icon: Edit, label: 'Nouvelle formation', href: '/formations-professionnelles/catalogue/new' as const },
-      { icon: List, label: 'Inscriptions', href: '/formations-professionnelles/admin/inscriptions' as const },
-    ];
-    return [...imhotepAdminLinks, ...kept];
-  }, [usesSessionBasedProNav]);
+  // All admin tenants are equal: every admin sees the full Formation Pro menus,
+  // alongside the regular admin sidebar. No tenant-id gating.
+  const formationsProNavItems = formationsProMenuItems;
+  const formationsProAdminNavItems = formationsProAdminMenuItems;
 
   const [isAcademicStructureExpanded, setIsAcademicStructureExpanded] = useState(
     pathname.startsWith('/academic') || pathname.startsWith('/annee-academique/types-de-bilan')
@@ -399,15 +371,14 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
     pathname.startsWith('/formations-professionnelles/admin')
   );
   const isFormateurSpace = pathname.startsWith('/formateur');
-  const showFormateurMenu =
-    (isFormateur || isFormateurSpace) && usesSessionBasedProNav;
-  
-  // For imhotepdata and ASPCI admin, initialize menu states
-  const isProfessionalTrainingAdmin = isImhotepDataAdmin || isAspciAdmin;
-  const [isImhotepDataFormationsExpanded, setIsImhotepDataFormationsExpanded] = useState(
+  const showFormateurMenu = isFormateur || isFormateurSpace;
+
+  // Formation Pro: every admin sees the same Catalogue + Administration groups
+  // inside the regular admin sidebar — no per-tenant branch.
+  const [isProFormationsExpanded, setIsProFormationsExpanded] = useState(
     pathname.startsWith('/formations-professionnelles') && !pathname.startsWith('/formations-professionnelles/admin')
   );
-  const [isImhotepDataAdminExpanded, setIsImhotepDataAdminExpanded] = useState(
+  const [isProAdminExpanded, setIsProAdminExpanded] = useState(
     pathname.startsWith('/formations-professionnelles/admin')
   );
 
@@ -539,86 +510,6 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 );
               })}
             </div>
-          ) : isProfessionalTrainingAdmin ? (
-            <>
-              {/* Catalogue Formations Section */}
-              <div className="pt-2">
-                <button
-                  onClick={() => setIsImhotepDataFormationsExpanded(!isImhotepDataFormationsExpanded)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isImhotepDataFormationsExpanded ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <BookOpen className="w-5 h-5" />
-                    <span>Catalogue Formations</span>
-                  </div>
-                  {isImhotepDataFormationsExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5" />
-                  )}
-                </button>
-
-                {isImhotepDataFormationsExpanded && (
-                  <div className="ml-4 mt-1 space-y-1">
-                    {formationsProNavItems.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = pathname === item.href;
-
-                      return (
-                        <NavLink
-                          key={item.href}
-                          href={item.href}
-                          onCloseMobileMenu={onCloseMobileMenu}
-                          className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                        >
-                          <Icon className="w-5 h-5" />
-                          <span>{item.label}</span>
-                        </NavLink>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Administration Section */}
-              <div className="pt-2">
-                <button
-                  onClick={() => setIsImhotepDataAdminExpanded(!isImhotepDataAdminExpanded)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isImhotepDataAdminExpanded ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Shield className="w-5 h-5" />
-                    <span>Administration</span>
-                  </div>
-                  {isImhotepDataAdminExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5" />
-                  )}
-                </button>
-
-                {isImhotepDataAdminExpanded && (
-                  <div className="ml-4 mt-1 space-y-1">
-                    {formationsProAdminNavItems.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = pathname.startsWith(item.href);
-
-                      return (
-                        <NavLink
-                          key={item.href}
-                          href={item.href}
-                          onCloseMobileMenu={onCloseMobileMenu}
-                          className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                        >
-                          <Icon className="w-5 h-5" />
-                          <span>{item.label}</span>
-                        </NavLink>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </>
           ) : (
             <>
               {/* Student Navigation */}
@@ -1119,7 +1010,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               )}
 
               {/* Academic Structure Section */}
-              {isAdmin && !isImhotepDataAdmin && (
+              {isAdmin && (
                     <div className="pt-4">
             <div className="px-3 mb-2">
               <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
@@ -1203,6 +1094,89 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               </div>
             )}
           </div>
+              )}
+
+              {/* Formation Professionnelle Section */}
+              {isAdmin && (
+                <div className="pt-4">
+                  <div className="px-3 mb-2">
+                    <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
+                      Formation Professionnelle
+                    </h3>
+                  </div>
+
+                  <button
+                    onClick={() => setIsProFormationsExpanded(!isProFormationsExpanded)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isProFormationsExpanded ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <BookOpen className="w-5 h-5" />
+                      <span>Catalogue Formations</span>
+                    </div>
+                    {isProFormationsExpanded ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5" />
+                    )}
+                  </button>
+
+                  {isProFormationsExpanded && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      {formationsProNavItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = pathname === item.href;
+
+                        return (
+                          <NavLink
+                            key={item.href}
+                            href={item.href}
+                            onCloseMobileMenu={onCloseMobileMenu}
+                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span>{item.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => setIsProAdminExpanded(!isProAdminExpanded)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${isProAdminExpanded ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Shield className="w-5 h-5" />
+                      <span>Administration Pro</span>
+                    </div>
+                    {isProAdminExpanded ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5" />
+                    )}
+                  </button>
+
+                  {isProAdminExpanded && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      {formationsProAdminNavItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = pathname.startsWith(item.href);
+
+                        return (
+                          <NavLink
+                            key={item.href}
+                            href={item.href}
+                            onCloseMobileMenu={onCloseMobileMenu}
+                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span>{item.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Academic Operations Section */}

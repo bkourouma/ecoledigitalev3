@@ -24,7 +24,6 @@ import {
 import { FormateurAttendanceService } from "../services/formateur-attendance.service";
 import { SupportsCoursService } from "../services/supports-cours.service";
 import { FormateurMessagingService } from "../services/formateur-messaging.service";
-import { usesSessionBasedProfessionalTraining } from "../utils/table-names";
 import {
   SupportsListQuerySchema,
   UploadSupportSchema,
@@ -58,17 +57,6 @@ interface AuthenticatedRequest extends FastifyRequest {
 }
 
 export async function formateurRoutes(fastify: FastifyInstance) {
-  fastify.addHook("preHandler", async (request, reply) => {
-    const tid = (request as AuthenticatedRequest).tenantId;
-    if (tid && !usesSessionBasedProfessionalTraining(tid)) {
-      return reply.status(404).send({
-        success: false,
-        error: "NOT_FOUND",
-        message: "L'espace formateur n'est pas disponible pour ce tenant.",
-      });
-    }
-  });
-
   // Register formateur authentication middleware for all routes
   await fastify.register(formateurAuthMiddleware);
 

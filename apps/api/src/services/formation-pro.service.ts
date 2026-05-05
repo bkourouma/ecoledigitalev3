@@ -55,26 +55,6 @@ export class FormationProService {
       const formationsTable = getTableName(tenantId, 'formations_professionnelles');
       const sessionsTable = getTableName(tenantId, 'sessions_professionnelles');
       
-      // Debug: Check what tenant_ids exist in the database
-      const debugResult = await client.query(
-        `SELECT DISTINCT tenant_id, COUNT(*) as count FROM ${formationsTable} WHERE actif = true GROUP BY tenant_id`
-      );
-      console.log(`[FormationProService] Searching with tenantId: ${tenantId}, table: ${formationsTable}`);
-      console.log(`[FormationProService] Available tenant_ids in ${formationsTable}:`, debugResult.rows);
-      
-      // Also check the other table to see if there's data there
-      const otherTable = tenantId === '52da6ca7-81ad-47ad-b5c3-6f437f64ba37' 
-        ? 'formations_professionnelles' 
-        : 'formations_professionnelles_aspci';
-      try {
-        const otherTableResult = await client.query(
-          `SELECT DISTINCT tenant_id, COUNT(*) as count FROM ${otherTable} WHERE actif = true GROUP BY tenant_id`
-        );
-        console.log(`[FormationProService] Available tenant_ids in ${otherTable}:`, otherTableResult.rows);
-      } catch (e) {
-        console.log(`[FormationProService] Could not check ${otherTable}:`, e instanceof Error ? e.message : String(e));
-      }
-
       // Build WHERE conditions
       const whereConditions: string[] = ["f.tenant_id = $1", "f.actif = true"];
       const queryParams: any[] = [tenantId];

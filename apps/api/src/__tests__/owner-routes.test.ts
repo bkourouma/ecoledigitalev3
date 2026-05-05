@@ -3,7 +3,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { ownerRoutes } from "../routes/owner";
 import type { OwnerDashboardResponse } from "@ecoledigitale/contracts";
 
-const TENANT_ID = "e9f4c59f-0666-4dc7-a7d4-c63004000791";
+const TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 vi.mock("../services/owner-dashboard.service", () => ({
   fetchOwnerDashboardKpis: vi.fn().mockResolvedValue({

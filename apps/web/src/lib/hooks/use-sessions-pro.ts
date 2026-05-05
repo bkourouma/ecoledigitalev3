@@ -31,8 +31,8 @@ import {
   EnrollmentListResponseSchema,
 } from "@ecoledigitale/contracts";
 // Direct import as fallback if main export doesn't work
-import { EnrollmentListResponseSchema as EnrollmentListResponseSchemaDirect } from "@ecoledigitale/contracts/src/sessions-pro/types";
-import { AdminSessionListQuerySchema } from "@ecoledigitale/contracts/src/sessions-pro/admin.schema";
+import { EnrollmentListResponseSchema as EnrollmentListResponseSchemaDirect } from "@ecoledigitale/contracts/sessions-pro/types";
+import { AdminSessionListQuerySchema } from "@ecoledigitale/contracts/sessions-pro/admin.schema";
 import { createApiHeaders, buildQueryString } from "@/lib/api-utils";
 import { hasToken, getToken, isTokenExpired } from "@/lib/jwt-storage";
 import { useDebounce } from "@/lib/hooks/use-debounce";
