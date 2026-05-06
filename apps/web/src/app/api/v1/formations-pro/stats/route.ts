@@ -15,12 +15,14 @@ export async function GET(request: NextRequest) {
       'Content-Type': 'application/json',
       'X-Tenant': tenantId,
     };
-    
+
     if (userId) headers['X-User-Id'] = userId;
-    
-    // Note: Authorization header is NOT required for public catalog routes
-    // The backend auth middleware will skip authentication for /api/v1/formations-pro
-    
+
+    const incomingAuth = request.headers.get('authorization');
+    if (incomingAuth) {
+      headers['Authorization'] = incomingAuth;
+    }
+
     const backendUrl = `${API_BASE_URL}/api/v1/formations-pro/stats`;
     
     console.log('🔍 FORMATIONS-PRO STATS API: Fetching stats:', {

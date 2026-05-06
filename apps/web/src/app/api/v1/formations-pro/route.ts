@@ -22,17 +22,22 @@ export async function GET(request: NextRequest) {
       'Content-Type': 'application/json',
       'X-Tenant': tenantId,
     };
-    
+
     // Add X-User-Id if available
     if (userId) {
       headers['X-User-Id'] = userId;
     }
-    
-    // Note: Authorization header is NOT required for public catalog routes
-    // The backend auth middleware will skip authentication for /api/v1/formations-pro
-    
+
+    // Forward Authorization header when present so the backend can resolve
+    // tenant from the JWT (avoids defaulting to a wrong tenant slug for
+    // logged-in admin/owner users).
+    const incomingAuth = request.headers.get('authorization');
+    if (incomingAuth) {
+      headers['Authorization'] = incomingAuth;
+    }
+
     // Build the backend URL with query parameters
-    const backendUrl = queryString 
+    const backendUrl = queryString
       ? `${API_BASE_URL}/api/v1/formations-pro?${queryString}`
       : `${API_BASE_URL}/api/v1/formations-pro`;
     
@@ -109,12 +114,17 @@ export async function POST(request: NextRequest) {
       'Content-Type': 'application/json',
       'X-Tenant': tenantId,
     };
-    
+
     // Add X-User-Id if available
     if (userId) {
       headers['X-User-Id'] = userId;
     }
-    
+
+    const incomingAuth = request.headers.get('authorization');
+    if (incomingAuth) {
+      headers['Authorization'] = incomingAuth;
+    }
+
     const backendUrl = `${API_BASE_URL}/api/v1/formations-pro`;
     
     console.log('🔍 FORMATIONS-PRO API: Creating formation:', {
