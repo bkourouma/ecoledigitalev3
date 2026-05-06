@@ -438,13 +438,24 @@ if (typeof window !== 'undefined') {
         url.includes('/formations-pro') &&
         !url.includes('/admin/') &&
         !url.includes('/sessions-pro/calendrier'); // Calendar is public
-      
+
       // Check if this is an RSO route (RSO has separate authentication system)
       const isRSORoute = url.includes('/api/v1/rso/');
       const isSuperAdminApiRoute = url.includes('/api/v1/super-admin/');
       const isSuperAdminAuthExcluded = url.includes('/api/v1/super-admin/auth/login');
-      
-      const isAuthExcluded = authExcludedPaths.some(path => url.includes(path)) || isPublicFormationsRoute;
+
+      // For logged-in users, always send the JWT — even on "public" formations-pro
+      // GET routes — so the backend can resolve the right tenant from the token.
+      // (The host nginx overrides X-Tenant from the subdomain, which is empty on
+      //  the main ecoledigitale.* domain, so the backend would otherwise 400.)
+      // Anonymous public users keep the original public-route handling below.
+      const hasUsableToken = (() => {
+        const t = getToken();
+        return !!t && !isTokenExpired(t);
+      })();
+      const isAuthExcluded =
+        authExcludedPaths.some(path => url.includes(path)) ||
+        (isPublicFormationsRoute && !hasUsableToken);
       
       // IMPORTANT: Even for public routes, we should ALWAYS update X-Tenant with tenantId from token if available
       // This ensures that authenticated users see their tenant's data even on public routes
