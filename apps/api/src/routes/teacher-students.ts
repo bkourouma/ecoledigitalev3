@@ -182,7 +182,7 @@ export async function teacherStudentsRoutes(fastify: FastifyInstance) {
           'x-user-id': { type: 'string', format: 'uuid' },
           'x-tenant': { type: 'string' }
         },
-        required: ['x-user-id', 'x-tenant']
+        required: ['x-user-id']
       }
     }
   }, async (request: TeacherStudentsRequest, reply: FastifyReply) => {

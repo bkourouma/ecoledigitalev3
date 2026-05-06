@@ -383,8 +383,9 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
+              'Content-Type': 'application/json',
+            },
+            body: '{}',
           });
           console.log('ðŸ—‘ï¸ Token blacklisted on backend');
         } catch (error) {
