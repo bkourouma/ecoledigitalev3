@@ -74,6 +74,15 @@ async function tenantContextPlugin(fastify: FastifyInstance) {
       }
     }
 
+    // Mirror the resolved tenant onto the X-Tenant header so route handlers
+    // that still read `request.headers['x-tenant']` directly see a valid
+    // value. The host nginx force-overrides X-Tenant from the request
+    // subdomain and strips it when empty (main domain), so without this
+    // mirror those routes 400 even when the JWT carries the tenant.
+    if (request.tenantId) {
+      (request.headers as Record<string, string>)["x-tenant"] = request.tenantId;
+    }
+
     setRlsContext({
       tenantId: request.tenantId ?? null,
       isSuperAdmin: false,
