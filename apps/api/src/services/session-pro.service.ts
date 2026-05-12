@@ -1264,11 +1264,12 @@ export class SessionProService {
             lien_visio,
             places_totales,
             places_reservees,
+            places_disponibles,
             prix_ht,
             prix_ttc,
             statut,
             notes_internes
-          ) VALUES ($1, $2, $3, $4, $5, $6, CAST($7 AS delivery_mode), $8, $9, $10, 0, $11, $12, $13, $14)
+          ) VALUES ($1, $2, $3, $4, $5, $6, CAST($7 AS delivery_mode), $8, $9, $10, 0, $10, $11, $12, $13, $14)
           RETURNING id
         `;
 
