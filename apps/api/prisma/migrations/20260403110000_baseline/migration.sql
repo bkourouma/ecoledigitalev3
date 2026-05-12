@@ -1,6 +1,10 @@
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
+-- Required by uuid_generate_v4() and gen_random_uuid() defaults used below.
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- CreateEnum
 CREATE TYPE "public"."academic_calendar_event_type" AS ENUM ('semester_start', 'semester_end', 'holiday', 'break', 'special_event', 'academic_milestone');
 
