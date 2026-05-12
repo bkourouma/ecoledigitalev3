@@ -26,7 +26,13 @@ export ENV_FILE
 dc() { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -p "$PROJECT" "$@"; }
 
 echo "== build images =="
-dc build --pull ecoledigitale-api ecoledigitale-web
+dc build --pull ecoledigitale-api ecoledigitale-web ecoledigitale-formation-pro
+
+echo "== start postgres =="
+dc up -d postgres
+
+echo "== run database migrations =="
+dc run --rm --no-deps ecoledigitale-api ./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma
 
 echo "== bring up stack =="
 dc up -d --remove-orphans
