@@ -207,10 +207,7 @@ const TimeSlotPicker = React.forwardRef<
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Checkbox
-                      checked={allDaySelected}
-                      ref={someDaySelected ? (el) => {
-                        if (el) el.indeterminate = true;
-                      } : undefined}
+                      checked={someDaySelected ? "indeterminate" : allDaySelected}
                       onCheckedChange={() => handleDayToggle(day)}
                       disabled={disabled}
                     />
