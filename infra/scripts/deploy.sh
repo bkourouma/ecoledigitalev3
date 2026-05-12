@@ -10,6 +10,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="$REPO_ROOT/infra/compose/docker-compose.yml"
 ENV_FILE="${ENV_FILE:-/home/deployer/ecoledigitale.env}"
 PROJECT="${COMPOSE_PROJECT:-ecoledigitale}"
+API_CONTAINER_NAME="${API_CONTAINER_NAME:-ecoledigitale-api}"
+DEPLOY_HEALTH_URL="${DEPLOY_HEALTH_URL:-https://ecoledigitale.allianceconsultants.net/health}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
     echo "env file not found: $ENV_FILE" >&2
@@ -32,7 +34,7 @@ dc up -d --remove-orphans
 echo "== wait for api healthcheck =="
 deadline=$(( $(date +%s) + 180 ))
 while :; do
-    status=$(docker inspect --format='{{.State.Health.Status}}' ecoledigitale-api 2>/dev/null || echo "starting")
+    status=$(docker inspect --format='{{.State.Health.Status}}' "$API_CONTAINER_NAME" 2>/dev/null || echo "starting")
     if [[ "$status" == "healthy" ]]; then
         echo "api: healthy"
         break
@@ -49,8 +51,8 @@ echo "== prune dangling images =="
 docker image prune -f >/dev/null
 
 echo "== smoke test via nginx =="
-if curl -fsS --max-time 10 https://ecoledigitale.allianceconsultants.net/health >/dev/null; then
-    echo "https://ecoledigitale.allianceconsultants.net/health: ok"
+if curl -fsS --max-time 10 "$DEPLOY_HEALTH_URL" >/dev/null; then
+    echo "$DEPLOY_HEALTH_URL: ok"
 else
     echo "WARNING: public health endpoint not responding (DNS/cert may not be live yet)" >&2
 fi

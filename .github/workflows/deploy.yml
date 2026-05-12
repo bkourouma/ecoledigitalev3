@@ -10,9 +10,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    runs-on: [self-hosted, alliance-ecoledigitale]
+  deploy-staging:
+    runs-on: [self-hosted, alliance-ecoledigitale-staging]
     timeout-minutes: 30
+    environment:
+      name: staging
+      url: https://staging-ecoledigitale.allianceconsultants.net
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,8 +30,37 @@ jobs:
       - name: Make scripts executable
         run: chmod +x infra/scripts/deploy.sh infra/scripts/restore-db-on-server.sh
 
-      - name: Deploy
+      - name: Deploy staging
+        env:
+          ENV_FILE: /home/deployer/ecoledigitale-staging.env
+          COMPOSE_PROJECT: ecoledigitale-staging
+          DEPLOY_HEALTH_URL: https://staging-ecoledigitale.allianceconsultants.net/health
+        run: ./infra/scripts/deploy.sh
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: [self-hosted, alliance-ecoledigitale]
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: https://ecoledigitale.allianceconsultants.net
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show context
+        run: |
+          echo "commit: $GITHUB_SHA"
+          echo "ref:    $GITHUB_REF"
+          docker --version
+          docker compose version
+
+      - name: Make scripts executable
+        run: chmod +x infra/scripts/deploy.sh infra/scripts/restore-db-on-server.sh
+
+      - name: Deploy production
         env:
           ENV_FILE: /home/deployer/ecoledigitale.env
           COMPOSE_PROJECT: ecoledigitale
+          DEPLOY_HEALTH_URL: https://ecoledigitale.allianceconsultants.net/health
         run: ./infra/scripts/deploy.sh
