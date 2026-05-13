@@ -2089,11 +2089,10 @@ CREATE TABLE "public"."users" (
     "updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
     "first_name" VARCHAR(100) NOT NULL,
     "last_name" VARCHAR(100) NOT NULL,
-    "computed_name" VARCHAR(255) DEFAULT 
-CASE
+    "computed_name" VARCHAR(255) GENERATED ALWAYS AS (CASE
     WHEN ((last_name)::text = ''::text) THEN (first_name)::text
     ELSE (((first_name)::text || ' '::text) || (last_name)::text)
-END,
+END) STORED,
     "role_updated_at" TIMESTAMP(6),
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
