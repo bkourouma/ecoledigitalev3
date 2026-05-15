@@ -56,6 +56,14 @@ BEGIN
 END $$;
 
 -- Keep compatibility with the project's existing updated_at trigger strategy
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 DROP TRIGGER IF EXISTS "update_bilan_types_updated_at" ON "bilan_types";
 CREATE TRIGGER "update_bilan_types_updated_at"
     BEFORE UPDATE ON "bilan_types"
