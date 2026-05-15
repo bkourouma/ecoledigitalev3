@@ -2666,7 +2666,7 @@ CREATE INDEX "idx_formateurs_actif" ON "public"."formateurs"("tenant_id" ASC, "a
 CREATE INDEX "idx_formateurs_email" ON "public"."formateurs"("tenant_id" ASC, "email" ASC);
 
 -- CreateIndex
-CREATE INDEX "idx_formateurs_specialites" ON "public"."formateurs" USING GIN ("specialites" jsonb_ops ASC);
+CREATE INDEX "idx_formateurs_specialites" ON "public"."formateurs" USING GIN ("specialites" jsonb_ops);
 
 -- CreateIndex
 CREATE INDEX "idx_formateurs_tenant_id" ON "public"."formateurs"("tenant_id" ASC);
@@ -2681,7 +2681,7 @@ CREATE INDEX "idx_formateurs_aspci_actif" ON "public"."formateurs_aspci"("tenant
 CREATE INDEX "idx_formateurs_aspci_email" ON "public"."formateurs_aspci"("tenant_id" ASC, "email" ASC);
 
 -- CreateIndex
-CREATE INDEX "idx_formateurs_aspci_specialites" ON "public"."formateurs_aspci" USING GIN ("specialites" jsonb_ops ASC);
+CREATE INDEX "idx_formateurs_aspci_specialites" ON "public"."formateurs_aspci" USING GIN ("specialites" jsonb_ops);
 
 -- CreateIndex
 CREATE INDEX "idx_formateurs_aspci_tenant_id" ON "public"."formateurs_aspci"("tenant_id" ASC);
@@ -2699,7 +2699,7 @@ CREATE INDEX "idx_formations_professionnelles_slug" ON "public"."formations_prof
 CREATE INDEX "idx_formations_professionnelles_tenant_id" ON "public"."formations_professionnelles"("tenant_id" ASC);
 
 -- CreateIndex
-CREATE INDEX "idx_formations_professionnelles_themes" ON "public"."formations_professionnelles" USING GIN ("themes" jsonb_ops ASC);
+CREATE INDEX "idx_formations_professionnelles_themes" ON "public"."formations_professionnelles" USING GIN ("themes" jsonb_ops);
 
 -- CreateIndex
 CREATE UNIQUE INDEX "formations_professionnelles_aspci_tenant_id_slug_key" ON "public"."formations_professionnelles_aspci"("tenant_id" ASC, "slug" ASC);
@@ -2714,7 +2714,7 @@ CREATE INDEX "idx_formations_professionnelles_aspci_slug" ON "public"."formation
 CREATE INDEX "idx_formations_professionnelles_aspci_tenant_id" ON "public"."formations_professionnelles_aspci"("tenant_id" ASC);
 
 -- CreateIndex
-CREATE INDEX "idx_formations_professionnelles_aspci_themes" ON "public"."formations_professionnelles_aspci" USING GIN ("themes" jsonb_ops ASC);
+CREATE INDEX "idx_formations_professionnelles_aspci_themes" ON "public"."formations_professionnelles_aspci" USING GIN ("themes" jsonb_ops);
 
 -- CreateIndex
 CREATE INDEX "idx_homework_annotations_submission_id" ON "public"."homework_annotations"("submission_id" ASC);
