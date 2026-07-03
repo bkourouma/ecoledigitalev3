@@ -146,6 +146,9 @@ const TimeSlotPicker = React.forwardRef<
     return "Basse";
   };
 
+  const hasReachedMaxSelections =
+    maxSelections !== undefined && selectedSlots.length >= maxSelections;
+
   if (groupByDay) {
     // Group slots by day
     const slotsByDay = timeSlots.reduce((acc, slot) => {
@@ -204,10 +207,7 @@ const TimeSlotPicker = React.forwardRef<
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Checkbox
-                      checked={allDaySelected}
-                      ref={someDaySelected ? (el) => {
-                        if (el) el.indeterminate = true;
-                      } : undefined}
+                      checked={someDaySelected ? "indeterminate" : allDaySelected}
                       onCheckedChange={() => handleDayToggle(day)}
                       disabled={disabled}
                     />
@@ -236,7 +236,7 @@ const TimeSlotPicker = React.forwardRef<
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => handleSlotToggle(slot.id, checked as boolean)}
-                        disabled={disabled || Boolean(maxSelections && !isSelected && selectedSlots.length >= maxSelections)}
+                        disabled={disabled || (!isSelected && hasReachedMaxSelections)}
                       />
                       
                       <div className="flex-1">
@@ -320,7 +320,7 @@ const TimeSlotPicker = React.forwardRef<
             <Checkbox
               checked={isSelected}
               onCheckedChange={(checked) => handleSlotToggle(slot.id, checked as boolean)}
-              disabled={disabled || Boolean(maxSelections && !isSelected && selectedSlots.length >= maxSelections)}
+              disabled={disabled || (!isSelected && hasReachedMaxSelections)}
             />
             
             <div className="flex-1">
