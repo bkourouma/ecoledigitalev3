@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ecoledigitale/ui";
-import { Building, Plus, Filter, MapPin, Users, Settings, Loader2, AlertCircle, Edit, Eye, Trash2, Search, X, Calendar } from "lucide-react";
+import { Building, Plus, Filter, MapPin, Users, Loader2, AlertCircle, Edit, Trash2, Search, X, Calendar } from "lucide-react";
 import { useClassrooms, useDeleteClassroom } from "@/lib/hooks/use-classrooms";
 import { Classroom, ClassroomType, ClassroomStatus } from "@ecoledigitale/contracts";
 
@@ -68,30 +68,6 @@ export default function ClassroomsPage() {
     }
   };
 
-
-  const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      amphitheatre: "Amphithéâtre",
-      salle_cours: "Salle de cours",
-      laboratoire: "Laboratoire",
-      salle_informatique: "Salle informatique",
-      atelier: "Atelier",
-      bibliotheque: "Bibliothèque",
-      salle_reunion: "Salle de réunion",
-      autre: "Autre"
-    };
-    return labels[type] || type;
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      disponible: "Disponible",
-      occupe: "Occupée",
-      maintenance: "En maintenance",
-      hors_service: "Hors service"
-    };
-    return labels[status] || status;
-  };
 
   if (error) {
     return (
@@ -333,56 +309,15 @@ export default function ClassroomsPage() {
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-lg">{classroom.name}</h3>
-                    <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-medium">
-                      {getStatusLabel(classroom.status)}
-                    </span>
                   </div>
 
                   <div className="space-y-2 mb-4">
                     <p className="text-white/90 text-sm">
                       <span className="font-medium">Code:</span> {classroom.code}
                     </p>
-                    <p className="text-white/90 text-sm">
-                      <span className="font-medium">Type:</span> {getTypeLabel(classroom.type)}
-                    </p>
-                    <p className="text-white/90 text-sm flex items-center">
-                      <Users className="w-4 h-4 mr-1" />
-                      Capacité: {classroom.capacity} places
-              </p>
-                    {classroom.building && (
-                      <p className="text-white/90 text-sm flex items-center">
-                        <Building className="w-4 h-4 mr-1" />
-                        {classroom.building}
-                        {classroom.floor && ` - Étage ${classroom.floor}`}
-                      </p>
-                    )}
-                    {classroom.equipment && classroom.equipment.length > 0 && (
-                      <p className="text-white/90 text-sm flex items-center">
-                        <Settings className="w-4 h-4 mr-1" />
-                        {classroom.equipment.length} équipement(s)
-                      </p>
-              )}
-            </div>
-
-                  {classroom.description && (
-                    <p className="text-white/80 text-sm mb-4 line-clamp-2">
-                      {classroom.description}
-                    </p>
-                  )}
+                  </div>
 
                   <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30 transition-all duration-200 p-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/academic/classrooms/${classroom.id}`);
-                      }}
-                      title="Voir les détails"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
                         <Button
                       variant="secondary"
                           size="sm"

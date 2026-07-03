@@ -19,20 +19,16 @@ import { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
 export async function POST(
   _req: NextRequest,
-  { params }: RouteContext
+  { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
-  const { id: liveSessionId } = await params;
+  const liveSessionId = params.id;
   if (!liveSessionId) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }

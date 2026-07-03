@@ -86,12 +86,14 @@ import { parentEmergencyRoutes } from "./routes/parent-emergency";
 import { parentsRoutes } from "./routes/parents";
 import { adminAnnouncementsRoutes } from "./routes/admin-announcements";
 import { adminMessagesRoutes } from "./routes/admin-messages";
+import { registrationRequestsRoutes } from "./routes/registration-requests";
 import { formationsProRoutes } from "./routes/formations-pro";
 import { sessionsProRoutes } from "./routes/sessions-pro";
 import { inscriptionsProRoutes } from "./routes/inscriptions-pro";
 import { codesPromoRoutes } from "./routes/codes-promo";
 import { paiementsProRoutes } from "./routes/paiements-pro";
 import { formateurRoutes } from "./routes/formateur";
+import { professionalRoutes } from "./routes/professional";
 import { documentsRoutes } from "./routes/documents";
 import { entreprisesRoutes } from "./routes/entreprises";
 import { exportsRoutes } from "./routes/exports";
@@ -114,6 +116,12 @@ const fastify = Fastify({
   logger: {
     level: process.env.NODE_ENV === "production" ? "info" : "debug",
   },
+  // find-my-way limite par défaut chaque paramètre d'URL à 100 caractères.
+  // Nos noms de fichiers téléversés (sujet d'évaluation / rendu d'étudiant)
+  // sont préfixés par un ou deux UUID (36 chars chacun) + nom original
+  // → on dépasse facilement la limite et la route remonte un 404.
+  // On élève la limite à 1024 pour tenir compte de toute combinaison réaliste.
+  maxParamLength: 1024,
 });
 
 async function start() {
@@ -285,6 +293,9 @@ async function start() {
     await fastify.register(adminAnnouncementsRoutes, { prefix: "/api/v1/admin/announcements" });
     await fastify.register(adminMessagesRoutes, { prefix: "/api/v1/admin/messages" });
 
+    // Self-registration validation routes (admin reviews public registration requests)
+    await fastify.register(registrationRequestsRoutes, { prefix: "/api/v1/registration-requests" });
+
     // Professional training catalog routes (public access)
     await fastify.register(formationsProRoutes, { prefix: "/api/v1/formations-pro" });
 
@@ -306,6 +317,10 @@ async function start() {
 
     // Trainer space routes (formateur)
     await fastify.register(formateurRoutes, { prefix: "/api/v1/formateur" });
+
+    // Module Professionnel (inscription à la carte) — feature 028.
+    // Module DISTINCT du module "formations professionnelles" ci-dessus.
+    await fastify.register(professionalRoutes, { prefix: "/api/v1/professional" });
 
     // Admin routes for Phase 6 - Gestion Administrative & Documents
     await fastify.register(documentsRoutes, { prefix: "/api/v1/admin/documents" });

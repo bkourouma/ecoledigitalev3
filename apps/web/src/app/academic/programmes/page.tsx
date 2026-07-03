@@ -43,7 +43,7 @@ export default function ProgrammesPage() {
   };
 
   const handleDelete = async (programme: Programme) => {
-    const confirmMessage = `Êtes-vous sûr de vouloir supprimer le programme "${programme.name}" ?\n\nCette action est irréversible et supprimera également tous les cours associés.`;
+    const confirmMessage = `Êtes-vous sûr de vouloir supprimer la filière "${programme.name}" ?\n\nCette action est irréversible et supprimera également tous les cours associés.`;
 
     if (window.confirm(confirmMessage)) {
       try {
@@ -53,7 +53,7 @@ export default function ProgrammesPage() {
       } catch (error: any) {
         console.error("Error deleting programme:", error);
         const errorMessage = error?.message || "Erreur inconnue lors de la suppression";
-        alert(`Erreur lors de la suppression du programme: ${errorMessage}\n\nVeuillez vérifier que le serveur API est démarré et réessayer.`);
+        alert(`Erreur lors de la suppression de la filière: ${errorMessage}\n\nVeuillez vérifier que le serveur API est démarré et réessayer.`);
       }
     }
   };
@@ -65,9 +65,9 @@ export default function ProgrammesPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl font-bold">Programmes académiques</h2>
+            <h2 className="text-2xl font-bold">Filières académiques</h2>
             <p className="text-muted-foreground">
-              Gérez les programmes et unités d'enseignement
+              Gérez les filières et unités d'enseignement
             </p>
           </div>
         </div>
@@ -81,7 +81,7 @@ export default function ProgrammesPage() {
               <div>
                 <h3 className="text-lg font-medium">Erreur de chargement</h3>
                 <p className="text-muted-foreground">
-                  Impossible de charger les programmes. Vérifiez votre connexion.
+                  Impossible de charger les filières. Vérifiez votre connexion.
                 </p>
               </div>
               <Button onClick={() => window.location.reload()}>
@@ -99,10 +99,10 @@ export default function ProgrammesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">
-            Programmes académiques
+            Filières académiques
           </h1>
           <p className="text-muted-foreground mt-2">
-            Gérez les programmes et unités d'enseignement
+            Gérez les filières et unités d'enseignement
           </p>
         </div>
         <Button
@@ -110,7 +110,7 @@ export default function ProgrammesPage() {
           className="bg-gradient-to-r from-pink-500 to-orange-600 hover:from-pink-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Nouveau programme
+          Nouvelle filière
         </Button>
       </div>
 
@@ -121,7 +121,7 @@ export default function ProgrammesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-white/80 text-sm font-medium">
-                  Total programmes
+                  Total filières
                 </p>
                 <p className="text-3xl font-bold mt-1">{programmes.length}</p>
               </div>
@@ -225,7 +225,7 @@ export default function ProgrammesPage() {
             <div className="flex items-center text-sm text-gray-600 whitespace-nowrap">
               <span className="font-medium">{filteredProgrammes.length}</span>
               <span className="ml-1">
-                {filteredProgrammes.length === 1 ? 'programme trouvé' : 'programmes trouvés'}
+                {filteredProgrammes.length === 1 ? 'filière trouvée' : 'filières trouvées'}
               </span>
             </div>
           </div>
@@ -240,7 +240,7 @@ export default function ProgrammesPage() {
               <div className="bg-gradient-to-br from-pink-100 to-orange-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto">
                 <Loader2 className="h-8 w-8 animate-spin text-pink-600" />
               </div>
-              <p className="text-gray-600 text-lg">Chargement des programmes...</p>
+              <p className="text-gray-600 text-lg">Chargement des filières...</p>
             </div>
           </CardContent>
         </Card>
@@ -341,9 +341,9 @@ export default function ProgrammesPage() {
                 <BookOpen className="h-10 w-10 text-pink-600" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucun programme trouvé</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucune filière trouvée</h3>
                 <p className="text-gray-600 text-lg">
-                  Commencez par créer votre premier programme académique
+                  Commencez par créer votre première filière académique
                 </p>
               </div>
               <Button
@@ -351,7 +351,7 @@ export default function ProgrammesPage() {
                 className="bg-gradient-to-r from-pink-500 to-orange-600 hover:from-pink-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Créer un programme
+                Créer une filière
               </Button>
             </div>
           </CardContent>
@@ -369,7 +369,7 @@ export default function ProgrammesPage() {
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucun résultat trouvé</h3>
                 <p className="text-gray-600 text-lg">
-                  Aucun programme ne correspond aux filtres sélectionnés
+                  Aucune filière ne correspond aux filtres sélectionnés
                 </p>
               </div>
               <div className="flex gap-3">
@@ -389,7 +389,7 @@ export default function ProgrammesPage() {
                   className="bg-gradient-to-r from-pink-500 to-orange-600 hover:from-pink-600 hover:to-orange-700 text-white"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Nouveau programme
+                  Nouvelle filière
                 </Button>
               </div>
             </div>

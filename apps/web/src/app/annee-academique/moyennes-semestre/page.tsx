@@ -33,6 +33,8 @@ import { useActiveAcademicYear } from "@/lib/hooks/use-academic-years";
 import { useAcademicYearPeriods } from "@/lib/hooks/use-academic-year-periods";
 import { useClasses } from "@/lib/hooks/use-classes";
 import { useCourses } from "@/lib/hooks/use-courses";
+import { useProgrammes } from "@/lib/hooks/use-programmes";
+import { useCycles } from "@/lib/hooks/use-cycles";
 import {
   generateAttendanceCertificatesPdf,
   generateAttendanceCertificatesHtmlPdf,
@@ -118,6 +120,24 @@ export default function MoyennesSemestrePage() {
     { enabled: !!activeYear?.id }
   );
   const classes = classesRes?.data ?? [];
+
+  /** BTS uniquement : ne garder que les classes dont la filière (programme) relève d'un cycle BTS. */
+  const { data: programmesRes, isLoading: loadingProgrammes } = useProgrammes({ limit: 100 });
+  const { data: cyclesRes, isLoading: loadingCycles } = useCycles({ limit: 100 });
+  const programmes = programmesRes?.data ?? [];
+  const cycles = cyclesRes?.data ?? [];
+
+  const btsClasses = useMemo(() => {
+    const btsCycleIds = new Set(
+      cycles
+        .filter((cy) => `${cy.name ?? ""} ${cy.code ?? ""}`.toLowerCase().includes("bts"))
+        .map((cy) => cy.id)
+    );
+    const btsProgrammeIds = new Set(
+      programmes.filter((p) => btsCycleIds.has(p.cycleId)).map((p) => p.id)
+    );
+    return classes.filter((c) => btsProgrammeIds.has(c.programmeId));
+  }, [classes, programmes, cycles]);
 
   const [periodId, setPeriodId] = useState<string>("");
   const [classId, setClassId] = useState<string>("");
@@ -621,13 +641,18 @@ export default function MoyennesSemestrePage() {
                 <SelectValue placeholder="Choisir une classe" />
               </SelectTrigger>
               <SelectContent>
-                {classes.map((c) => (
+                {btsClasses.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {!loadingClasses && !loadingProgrammes && !loadingCycles && btsClasses.length === 0 && (
+              <p className="text-sm text-orange-700 mt-2">
+                Aucune classe rattachée à un cycle BTS pour cette année.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

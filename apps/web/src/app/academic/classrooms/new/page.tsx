@@ -4,16 +4,16 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button } from "@ecoledigitale/ui";
 import { ArrowLeft } from "lucide-react";
 import { useCreateClassroom } from "@/lib/hooks/use-classrooms";
-import { CreateClassroom } from "@ecoledigitale/contracts";
+import { CreateClassroom, UpdateClassroom } from "@ecoledigitale/contracts";
 import { ClassroomForm } from "@/components/academic/ClassroomForm";
 
 export default function NewClassroomPage() {
   const router = useRouter();
   const createClassroomMutation = useCreateClassroom();
 
-  const handleSubmit = async (data: CreateClassroom) => {
+  const handleSubmit = async (data: CreateClassroom | UpdateClassroom) => {
     try {
-      await createClassroomMutation.mutateAsync(data);
+      await createClassroomMutation.mutateAsync(data as CreateClassroom);
       router.push("/academic/classrooms");
     } catch (error) {
       console.error("Error creating classroom:", error);
@@ -41,7 +41,7 @@ export default function NewClassroomPage() {
             Nouvelle salle de classe
           </h1>
           <p className="text-muted-foreground mt-2">
-            Créez une nouvelle salle de classe avec toutes les informations nécessaires
+            Créez une nouvelle salle de classe en renseignant son nom et son code
           </p>
         </div>
       </div>
@@ -50,11 +50,12 @@ export default function NewClassroomPage() {
         <CardHeader>
           <CardTitle>Informations de la salle</CardTitle>
           <CardDescription>
-            Remplissez les informations pour créer une nouvelle salle de classe
+            Renseignez le nom et le code de la salle
           </CardDescription>
         </CardHeader>
         <CardContent>
           <ClassroomForm
+            simplified
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isLoading={createClassroomMutation.isPending}

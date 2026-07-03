@@ -109,7 +109,7 @@ export function ProgrammeForm({
 
         if (normalized.length === 0) {
           form.setError("bulkItems.0.name" as never, {
-            message: "Ajoutez au moins un programme (nom et code remplis).",
+            message: "Ajoutez au moins une filière (nom et code remplis).",
           });
           return;
         }
@@ -216,7 +216,7 @@ export function ProgrammeForm({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nom du programme</FormLabel>
+                    <FormLabel>Nom de la filière</FormLabel>
                     <FormControl>
                       <Input placeholder="Ex. : SLAM — Solutions logicielles" {...field} />
                     </FormControl>
@@ -250,7 +250,7 @@ export function ProgrammeForm({
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Description du programme…"
+                      placeholder="Description de la filière…"
                       className="min-h-[80px]"
                       {...field}
                     />
@@ -290,12 +290,12 @@ export function ProgrammeForm({
           </>
         ) : (
           <div className="space-y-4">
-            <h3 className="text-sm font-medium">Programmes à créer (même cycle)</h3>
+            <h3 className="text-sm font-medium">Filières à créer (même cycle)</h3>
 
             {fields.map((item, index) => (
               <div key={item.id} className="rounded-lg border p-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold">Programme {index + 1}</h4>
+                  <h4 className="text-sm font-semibold">Filière {index + 1}</h4>
                   <button
                     type="button"
                     onClick={() => remove(index)}
@@ -313,7 +313,7 @@ export function ProgrammeForm({
                     name={`bulkItems.${index}.name`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nom du programme</FormLabel>
+                        <FormLabel>Nom de la filière</FormLabel>
                         <FormControl>
                           <Input
                             placeholder="Ex. : SLAM — Solutions logicielles"
@@ -351,7 +351,7 @@ export function ProgrammeForm({
                 disabled={isLoading}
               >
                 <Plus className="h-4 w-4" />
-                Ajouter un programme
+                Ajouter une filière
               </button>
             </div>
           </div>

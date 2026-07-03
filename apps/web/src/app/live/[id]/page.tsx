@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { LiveSessionRoom, type LiveSessionTokenResponse } from "@ecoledigitale/ui";
 
@@ -14,6 +15,7 @@ export default function LiveSessionPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params?.id;
+  const isEndingSessionRef = React.useRef(false);
 
   if (!id) return null;
 
@@ -45,18 +47,35 @@ export default function LiveSessionPage() {
   const onEndSession = async () => {
     const ok = window.confirm("Terminer la séance pour tous les participants ?");
     if (!ok) return;
-    await fetch(`/api/v1/live-sessions/${id}/end`, { method: "POST" });
+    isEndingSessionRef.current = true;
+    try {
+      const res = await fetch(`/api/v1/live-sessions/${id}/end`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      }
+      router.back();
+    } catch (err: any) {
+      isEndingSessionRef.current = false;
+      window.alert(err?.message ?? "Impossible de terminer la séance");
+    }
+  };
+
+  const onLeave = () => {
+    if (isEndingSessionRef.current) return;
     router.back();
   };
 
   return (
-    <LiveSessionRoom
-      title="Cours en direct"
-      getToken={getToken}
-      onLeave={() => router.back()}
-      onMuteParticipant={onMute}
-      onKickParticipant={onKick}
-      onEndSession={onEndSession}
-    />
+    <main className="fixed inset-0 z-50 overflow-hidden bg-neutral-950">
+      <LiveSessionRoom
+        title="Cours en direct"
+        getToken={getToken}
+        onLeave={onLeave}
+        onMuteParticipant={onMute}
+        onKickParticipant={onKick}
+        onEndSession={onEndSession}
+      />
+    </main>
   );
 }

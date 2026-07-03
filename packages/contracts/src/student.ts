@@ -42,6 +42,9 @@ export const StudentProfileSchema = z.object({
   establishmentMatricule: z.string().max(100).optional(),
   dspsMatricule: z.string().max(100).optional(),
   dspsPreviousMatricule: z.string().max(100).optional(),
+  bacObtentionDate: z.date().optional(),
+  bacSeries: z.string().max(100).optional(),
+  lastDiploma: z.string().max(255).optional(),
   classId: z.string().uuid().optional(),
   className: z.string().max(255).optional(),
   programmeName: z.string().max(255).optional(),
@@ -76,6 +79,9 @@ export const CreateStudentProfileSchema = z.object({
   establishmentMatricule: z.string().max(100).optional(),
   dspsMatricule: z.string().max(100).optional(),
   dspsPreviousMatricule: z.string().max(100).optional(),
+  bacObtentionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  bacSeries: z.string().max(100).optional(),
+  lastDiploma: z.string().max(255).optional(),
 });
 
 // Create Student with User Schema (creates both user and student profile)
@@ -108,6 +114,9 @@ export const CreateStudentWithUserSchema = z.object({
   establishmentMatricule: z.string().max(100).optional(),
   dspsMatricule: z.string().max(100).optional(),
   dspsPreviousMatricule: z.string().max(100).optional(),
+  bacObtentionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  bacSeries: z.string().max(100).optional(),
+  lastDiploma: z.string().max(255).optional(),
 });
 
 // Update Student Profile Schema

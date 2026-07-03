@@ -1,12 +1,7 @@
 "use client";
 
 import { Badge } from "../../badge";
-
-interface Tag {
-  nom: string;
-  couleur: string;
-  icone?: string | null;
-}
+import type { Tag } from "@ecoledigitale/contracts/src/rso/tags";
 
 interface TagBadgeProps {
   tag: Tag;

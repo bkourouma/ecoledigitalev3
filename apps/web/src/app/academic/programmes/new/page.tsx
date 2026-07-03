@@ -29,7 +29,7 @@ export default function NewProgrammePage() {
             : [];
 
       if (programmesToCreate.length === 0) {
-        throw new Error("Ajoutez au moins un programme à créer (nom et code).");
+        throw new Error("Ajoutez au moins une filière à créer (nom et code).");
       }
 
       const cycleId = data.cycleId === "no-cycles" ? undefined : data.cycleId;
@@ -63,14 +63,14 @@ export default function NewProgrammePage() {
 
       if (failedLabels.length > 0) {
         throw new Error(
-          `${failedLabels.length} programme(s) n'ont pas pu être créés : ${failedLabels.join(", ")}`
+          `${failedLabels.length} filière(s) n'ont pas pu être créées : ${failedLabels.join(", ")}`
         );
       }
 
       router.push("/academic/programmes");
     } catch (error) {
       console.error("Error creating programme:", error);
-      alert(error instanceof Error ? error.message : "Erreur lors de la création des programmes.");
+      alert(error instanceof Error ? error.message : "Erreur lors de la création des filières.");
     } finally {
       setIsBulkSubmitting(false);
     }
@@ -95,10 +95,10 @@ export default function NewProgrammePage() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">
-              Nouveaux programmes
+              Nouvelles filières
             </h1>
             <p className="text-muted-foreground mt-2">
-              Choisissez un cycle puis ajoutez un ou plusieurs programmes (statut : actif)
+              Choisissez un cycle puis ajoutez une ou plusieurs filières (statut : actif)
             </p>
           </div>
         </div>
@@ -107,9 +107,9 @@ export default function NewProgrammePage() {
       <div className="max-w-4xl mx-auto">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Programmes par cycle</CardTitle>
+            <CardTitle>Filières par cycle</CardTitle>
             <CardDescription>
-              Même cycle pour tous les programmes de la liste ; chaque ligne a son nom et son code
+              Même cycle pour toutes les filières de la liste ; chaque ligne a son nom et son code
             </CardDescription>
           </CardHeader>
           <CardContent>

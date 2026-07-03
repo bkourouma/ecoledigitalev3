@@ -1,0 +1,1061 @@
+import type { PoolClient } from "pg";
+import type {
+  CreateProfessionalUe,
+  UpdateProfessionalUe,
+  ProfessionalUeEcueInput,
+  UpdateProfessionalUeEcue,
+  CreateProfessionalUeSession,
+  UpdateProfessionalUeSession,
+  ProfessionalUeSessionStatut,
+  CreateProfessionalEcueSeance,
+  UpdateProfessionalEcueSeance,
+  MarkProfessionalAttendance,
+} from "@ecoledigitale/contracts";
+import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
+
+/**
+ * Service UE — Module Professionnel (feature 030).
+ *
+ * L'UE (Unité d'Enseignement) est le pôle ADMINISTRATIF : rattachement à la
+ * filière, prix/UV, composition (ECUE mutualisées), prérequis (entre UE),
+ * cohortes (sessions) et séances pédagogiques (par ECUE) + présence.
+ */
+
+/**
+ * Transitions MANUELLES de statut de cohorte. `complet` n'est jamais une cible
+ * manuelle (piloté par la capacité, géré à l'inscription).
+ */
+export const UE_SESSION_STATUS_TRANSITIONS: Record<
+  ProfessionalUeSessionStatut,
+  ProfessionalUeSessionStatut[]
+> = {
+  brouillon: ["ouvert", "annule"],
+  ouvert: ["brouillon", "en_cours", "annule"],
+  complet: ["ouvert", "en_cours", "annule"],
+  en_cours: ["termine", "annule"],
+  termine: [],
+  annule: [],
+};
+
+export function isValidUeSessionTransition(
+  from: ProfessionalUeSessionStatut,
+  to: ProfessionalUeSessionStatut
+): boolean {
+  if (to === "complet") return false; // automatique (capacité), jamais manuel
+  return UE_SESSION_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+/**
+ * Indique si rattacher `newPrerequisiteIds` comme prérequis de `ueId` créerait
+ * un cycle dans le graphe de prérequis entre UE.
+ *
+ * `existingEdges` doit EXCLURE les arêtes sortantes actuelles de `ueId`. Chaque
+ * arête `{ ue, prerequisite }` signifie « ue exige prerequisite ». Un cycle
+ * existe si, depuis l'un des nouveaux prérequis, on peut atteindre `ueId`.
+ */
+export function wouldCreateUePrerequisiteCycle(
+  existingEdges: Array<{ ue: string; prerequisite: string }>,
+  ueId: string,
+  newPrerequisiteIds: string[]
+): boolean {
+  const requires = new Map<string, string[]>();
+  for (const edge of existingEdges) {
+    const list = requires.get(edge.ue) ?? [];
+    list.push(edge.prerequisite);
+    requires.set(edge.ue, list);
+  }
+  for (const start of newPrerequisiteIds) {
+    const stack: string[] = [start];
+    const seen = new Set<string>();
+    while (stack.length > 0) {
+      const node = stack.pop() as string;
+      if (node === ueId) return true;
+      if (seen.has(node)) continue;
+      seen.add(node);
+      for (const next of requires.get(node) ?? []) stack.push(next);
+    }
+  }
+  return false;
+}
+
+const UE_COLS = `id, tenant_id, filiere_id, code, libelle, description, categorie,
+  prix::float8 AS prix, devise, nb_uv, statut, created_by, created_at, updated_at`;
+
+const UE_SESSION_COLS = `id, tenant_id, ue_id, libelle,
+  date_debut::text AS date_debut, date_fin::text AS date_fin,
+  inscription_ouverte_le, inscription_fermee_le, capacite_max,
+  enseignant_id, classroom_id, statut, created_at, updated_at`;
+
+const SEANCE_COLS = `id, tenant_id, ecue_id, ue_session_id, libelle,
+  date::text AS date, heure_debut::text AS heure_debut, heure_fin::text AS heure_fin,
+  enseignant_id, classroom_id, created_at, updated_at`;
+
+export interface UeListFilters {
+  filiere_id?: string;
+  statut?: string;
+  q?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export class ProfessionalUeService extends ProfessionalBaseService {
+  /* ------------------------------- UE --------------------------------- */
+
+  async createUe(
+    tenantId: string,
+    input: CreateProfessionalUe,
+    userId?: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      try {
+        const res = await client.query(
+          `INSERT INTO professional_ue
+             (tenant_id, filiere_id, code, libelle, description, categorie, prix, devise, nb_uv,
+              statut, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+           ON CONFLICT (tenant_id, code) DO NOTHING
+           RETURNING ${UE_COLS}`,
+          [
+            tenantId,
+            input.filiere_id,
+            input.code,
+            input.libelle,
+            input.description ?? null,
+            input.categorie ?? null,
+            input.prix ?? 0,
+            input.devise ?? "XOF",
+            input.nb_uv ?? 0,
+            input.statut ?? "actif",
+            userId ?? null,
+          ]
+        );
+        if (res.rowCount === 0) {
+          return fail("DUPLICATE_CODE", `Une UE avec le code "${input.code}" existe déjà.`);
+        }
+        return ok(res.rows[0]);
+      } catch (e: any) {
+        if (e?.code === "23503") {
+          return fail("VALIDATION_ERROR", "La filière indiquée est introuvable.");
+        }
+        throw e;
+      }
+    });
+  }
+
+  async listUe(tenantId: string, filters: UeListFilters): Promise<ServiceResult<any>> {
+    const page = Math.max(1, filters.page ?? 1);
+    const pageSize = Math.min(1000, Math.max(1, filters.pageSize ?? 20));
+    return this.withTenant(tenantId, async (client) => {
+      const where: string[] = ["tenant_id = $1"];
+      const params: any[] = [tenantId];
+      let i = 2;
+      if (filters.filiere_id) {
+        where.push(`filiere_id = $${i++}`);
+        params.push(filters.filiere_id);
+      }
+      if (filters.statut) {
+        where.push(`statut = $${i++}`);
+        params.push(filters.statut);
+      }
+      if (filters.q) {
+        where.push(`(code ILIKE $${i} OR libelle ILIKE $${i})`);
+        params.push(`%${filters.q}%`);
+        i++;
+      }
+      const whereSql = where.join(" AND ");
+      const countRes = await client.query(
+        `SELECT count(*)::int AS total FROM professional_ue WHERE ${whereSql}`,
+        params
+      );
+      const listRes = await client.query(
+        `SELECT ${UE_COLS} FROM professional_ue
+         WHERE ${whereSql} ORDER BY created_at DESC LIMIT $${i++} OFFSET $${i++}`,
+        [...params, pageSize, (page - 1) * pageSize]
+      );
+      return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });
+    });
+  }
+
+  async getUe(tenantId: string, id: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const res = await client.query(
+        `SELECT ${UE_COLS} FROM professional_ue WHERE id=$1 AND tenant_id=$2`,
+        [id, tenantId]
+      );
+      if (res.rowCount === 0) return fail("UE_NOT_FOUND", "UE introuvable.");
+      const ecue = await this.loadUeEcue(client, id);
+      const prerequisites = await this.loadUePrerequisites(client, id);
+      return ok({ ...res.rows[0], ecue, prerequisites });
+    });
+  }
+
+  async updateUe(
+    tenantId: string,
+    id: string,
+    input: UpdateProfessionalUe
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sets: string[] = [];
+      const params: any[] = [];
+      let i = 1;
+      const fields: (keyof UpdateProfessionalUe)[] = [
+        "code",
+        "libelle",
+        "description",
+        "categorie",
+        "prix",
+        "devise",
+        "nb_uv",
+        "statut",
+      ];
+      for (const key of fields) {
+        if (input[key] !== undefined) {
+          sets.push(`${key} = $${i++}`);
+          params.push(input[key]);
+        }
+      }
+      if (sets.length === 0) return this.getUe(tenantId, id);
+      sets.push("updated_at = now()");
+      params.push(id, tenantId);
+      try {
+        const res = await client.query(
+          `UPDATE professional_ue SET ${sets.join(", ")}
+           WHERE id=$${i++} AND tenant_id=$${i++} RETURNING ${UE_COLS}`,
+          params
+        );
+        if (res.rowCount === 0) return fail("UE_NOT_FOUND", "UE introuvable.");
+        return ok(res.rows[0]);
+      } catch (e: any) {
+        if (e?.code === "23505") return fail("DUPLICATE_CODE", "Ce code d'UE est déjà utilisé.");
+        throw e;
+      }
+    });
+  }
+
+  async deactivateUe(tenantId: string, id: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const res = await client.query(
+        `UPDATE professional_ue SET statut='inactif', updated_at=now()
+         WHERE id=$1 AND tenant_id=$2 RETURNING ${UE_COLS}`,
+        [id, tenantId]
+      );
+      if (res.rowCount === 0) return fail("UE_NOT_FOUND", "UE introuvable.");
+      return ok(res.rows[0]);
+    });
+  }
+
+  async deleteUe(tenantId: string, id: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const enrolled = await client.query(
+        `SELECT 1 FROM professional_enrollments e
+         JOIN professional_ue_sessions s ON s.id = e.ue_session_id
+         WHERE s.ue_id = $1 AND e.tenant_id = $2 LIMIT 1`,
+        [id, tenantId]
+      );
+      if ((enrolled.rowCount ?? 0) > 0) {
+        return fail(
+          "UE_HAS_ENROLLMENTS",
+          "Impossible de supprimer : des inscriptions existent pour cette UE. Désactivez-la à la place."
+        );
+      }
+      const res = await client.query(
+        `DELETE FROM professional_ue WHERE id=$1 AND tenant_id=$2 RETURNING id`,
+        [id, tenantId]
+      );
+      if (res.rowCount === 0) return fail("UE_NOT_FOUND", "UE introuvable.");
+      return ok({ id });
+    });
+  }
+
+  /* ------------------------ Composition UE↔ECUE ----------------------- */
+
+  private async loadUeEcue(client: PoolClient, ueId: string): Promise<any[]> {
+    const res = await client.query(
+      `SELECT l.id, l.ue_id, l.ecue_id, e.code AS ecue_code, e.libelle AS ecue_libelle,
+              e.credits AS ecue_credits,
+              l.est_obligatoire, l.coefficient::float8 AS coefficient, l.ordre
+       FROM professional_ue_ecue l
+       JOIN professional_ecue e ON e.id = l.ecue_id
+       WHERE l.ue_id = $1
+       ORDER BY l.ordre, e.code`,
+      [ueId]
+    );
+    return res.rows;
+  }
+
+  async listUeEcue(tenantId: string, ueId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const ue = await client.query(
+        `SELECT 1 FROM professional_ue WHERE id=$1 AND tenant_id=$2`,
+        [ueId, tenantId]
+      );
+      if (ue.rowCount === 0) return fail("UE_NOT_FOUND", "UE introuvable.");
+      return ok(await this.loadUeEcue(client, ueId));
+    });
+  }
+
+  async addEcueToUe(
+    tenantId: string,
+    ueId: string,
+    input: ProfessionalUeEcueInput
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const ue = await client.query(
+        `SELECT 1 FROM professional_ue WHERE id=$1 AND tenant_id=$2`,
+        [ueId, tenantId]
+      );
+      if (ue.rowCount === 0) return fail("UE_NOT_FOUND", "UE introuvable.");
+      const ecue = await client.query(
+        `SELECT 1 FROM professional_ecue WHERE id=$1 AND tenant_id=$2`,
+        [input.ecue_id, tenantId]
+      );
+      if (ecue.rowCount === 0) return fail("ECUE_NOT_FOUND", "ECUE introuvable.");
+      try {
+        const res = await client.query(
+          `INSERT INTO professional_ue_ecue
+             (tenant_id, ue_id, ecue_id, est_obligatoire, coefficient, ordre)
+           VALUES ($1,$2,$3,$4,$5,$6)
+           ON CONFLICT (tenant_id, ue_id, ecue_id) DO NOTHING
+           RETURNING id`,
+          [
+            tenantId,
+            ueId,
+            input.ecue_id,
+            input.est_obligatoire ?? true,
+            input.coefficient ?? 1,
+            input.ordre ?? 0,
+          ]
+        );
+        if (res.rowCount === 0) {
+          return fail("UE_ECUE_LINK_EXISTS", "Cette ECUE est déjà rattachée à l'UE.");
+        }
+        return ok(await this.loadUeEcue(client, ueId));
+      } catch (e: any) {
+        if (e?.code === "23514") {
+          return fail("VALIDATION_ERROR", "Coefficient ou ordre invalide.");
+        }
+        throw e;
+      }
+    });
+  }
+
+  async updateUeEcueLink(
+    tenantId: string,
+    ueId: string,
+    ecueId: string,
+    input: UpdateProfessionalUeEcue
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sets: string[] = [];
+      const params: any[] = [];
+      let i = 1;
+      const fields: (keyof UpdateProfessionalUeEcue)[] = [
+        "est_obligatoire",
+        "coefficient",
+        "ordre",
+      ];
+      for (const key of fields) {
+        if (input[key] !== undefined) {
+          sets.push(`${key} = $${i++}`);
+          params.push(input[key]);
+        }
+      }
+      if (sets.length === 0) return this.listUeEcue(tenantId, ueId);
+      params.push(ueId, ecueId, tenantId);
+      const res = await client.query(
+        `UPDATE professional_ue_ecue SET ${sets.join(", ")}
+         WHERE ue_id=$${i++} AND ecue_id=$${i++} AND tenant_id=$${i++} RETURNING id`,
+        params
+      );
+      if (res.rowCount === 0) return fail("UE_ECUE_LINK_NOT_FOUND", "Liaison UE↔ECUE introuvable.");
+      return ok(await this.loadUeEcue(client, ueId));
+    });
+  }
+
+  async removeEcueFromUe(
+    tenantId: string,
+    ueId: string,
+    ecueId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const res = await client.query(
+        `DELETE FROM professional_ue_ecue
+         WHERE ue_id=$1 AND ecue_id=$2 AND tenant_id=$3 RETURNING id`,
+        [ueId, ecueId, tenantId]
+      );
+      if (res.rowCount === 0) return fail("UE_ECUE_LINK_NOT_FOUND", "Liaison UE↔ECUE introuvable.");
+      return ok({ ue_id: ueId, ecue_id: ecueId });
+    });
+  }
+
+  /* --------------------------- Prérequis UE --------------------------- */
+
+  private async loadUePrerequisites(client: PoolClient, ueId: string): Promise<any[]> {
+    const res = await client.query(
+      `SELECT u.id, u.code, u.libelle
+       FROM professional_ue_prerequisites p
+       JOIN professional_ue u ON u.id = p.prerequisite_ue_id
+       WHERE p.ue_id = $1
+       ORDER BY u.code`,
+      [ueId]
+    );
+    return res.rows;
+  }
+
+  async getUePrerequisites(tenantId: string, ueId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const ue = await client.query(
+        `SELECT 1 FROM professional_ue WHERE id=$1 AND tenant_id=$2`,
+        [ueId, tenantId]
+      );
+      if (ue.rowCount === 0) return fail("UE_NOT_FOUND", "UE introuvable.");
+      return ok(await this.loadUePrerequisites(client, ueId));
+    });
+  }
+
+  /**
+   * Remplace les prérequis d'une UE. Rejette : auto-référence, prérequis d'une
+   * autre filière (même filière exigée), cycle dans le graphe.
+   */
+  async setUePrerequisites(
+    tenantId: string,
+    ueId: string,
+    prerequisiteIds: string[]
+  ): Promise<ServiceResult<any>> {
+    return this.withTenantTx(tenantId, async (client) => {
+      const ue = await client.query(
+        `SELECT filiere_id FROM professional_ue WHERE id=$1 AND tenant_id=$2`,
+        [ueId, tenantId]
+      );
+      if (ue.rowCount === 0) return fail("UE_NOT_FOUND", "UE introuvable.");
+      const filiereId = ue.rows[0].filiere_id;
+      const uniqueIds = Array.from(new Set(prerequisiteIds));
+
+      if (uniqueIds.includes(ueId)) {
+        return fail("VALIDATION_ERROR", "Une UE ne peut pas être son propre prérequis.");
+      }
+
+      if (uniqueIds.length > 0) {
+        const check = await client.query(
+          `SELECT id FROM professional_ue
+           WHERE id = ANY($1::uuid[]) AND tenant_id=$2 AND filiere_id=$3`,
+          [uniqueIds, tenantId, filiereId]
+        );
+        if (check.rowCount !== uniqueIds.length) {
+          return fail(
+            "UE_PREREQ_NOT_SAME_FILIERE",
+            "Tous les prérequis doivent exister et appartenir à la même filière que l'UE."
+          );
+        }
+        const edges = await client.query(
+          `SELECT ue_id AS ue, prerequisite_ue_id AS prerequisite
+           FROM professional_ue_prerequisites
+           WHERE tenant_id=$1 AND ue_id <> $2`,
+          [tenantId, ueId]
+        );
+        if (wouldCreateUePrerequisiteCycle(edges.rows, ueId, uniqueIds)) {
+          return fail("UE_PREREQ_CYCLE", "Cette définition de prérequis créerait un cycle.");
+        }
+      }
+
+      await client.query(
+        `DELETE FROM professional_ue_prerequisites WHERE tenant_id=$1 AND ue_id=$2`,
+        [tenantId, ueId]
+      );
+      for (const prerequisiteId of uniqueIds) {
+        await client.query(
+          `INSERT INTO professional_ue_prerequisites (tenant_id, ue_id, prerequisite_ue_id)
+           VALUES ($1,$2,$3)`,
+          [tenantId, ueId, prerequisiteId]
+        );
+      }
+      return ok(await this.loadUePrerequisites(client, ueId));
+    });
+  }
+
+  /* --------------------------- Cohortes (UE) -------------------------- */
+
+  async createSession(
+    tenantId: string,
+    ueId: string,
+    input: CreateProfessionalUeSession
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const ue = await client.query(
+        `SELECT statut FROM professional_ue WHERE id=$1 AND tenant_id=$2`,
+        [ueId, tenantId]
+      );
+      if (ue.rowCount === 0) return fail("UE_NOT_FOUND", "UE introuvable.");
+      if (ue.rows[0].statut === "inactif") {
+        return fail("UE_INACTIVE", "Une UE inactive n'accepte pas de nouvelle cohorte.");
+      }
+      try {
+        const res = await client.query(
+          `INSERT INTO professional_ue_sessions
+             (tenant_id, ue_id, libelle, date_debut, date_fin,
+              inscription_ouverte_le, inscription_fermee_le, capacite_max,
+              enseignant_id, classroom_id, statut)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ouvert')
+           RETURNING ${UE_SESSION_COLS}`,
+          [
+            tenantId,
+            ueId,
+            input.libelle,
+            input.date_debut,
+            input.date_fin,
+            input.inscription_ouverte_le,
+            input.inscription_fermee_le,
+            input.capacite_max ?? null,
+            input.enseignant_id ?? null,
+            input.classroom_id ?? null,
+          ]
+        );
+        return ok(res.rows[0]);
+      } catch (e: any) {
+        if (e?.code === "23503") {
+          return fail("VALIDATION_ERROR", "L'enseignant ou la salle indiqué(e) est introuvable.");
+        }
+        if (e?.code === "23514") {
+          return fail("VALIDATION_ERROR", "Dates, fenêtre d'inscription ou capacité invalides.");
+        }
+        throw e;
+      }
+    });
+  }
+
+  async listSessions(tenantId: string, ueId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const res = await client.query(
+        `SELECT ${UE_SESSION_COLS} FROM professional_ue_sessions
+         WHERE ue_id=$1 AND tenant_id=$2 ORDER BY date_debut DESC`,
+        [ueId, tenantId]
+      );
+      return ok(res.rows);
+    });
+  }
+
+  async getSession(tenantId: string, id: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const res = await client.query(
+        `SELECT ${UE_SESSION_COLS},
+                sem.semestre_id, sem.semestre_libelle,
+                sem.filiere_id, sem.filiere_nom, sem.filiere_code
+         FROM professional_ue_sessions s
+         LEFT JOIN LATERAL (
+           SELECT sm.id AS semestre_id, sm.libelle AS semestre_libelle,
+                  p.id AS filiere_id, p.name AS filiere_nom, p.code AS filiere_code
+           FROM professional_semestre_sessions ss
+           JOIN professional_semestres sm ON sm.id = ss.semestre_id AND sm.tenant_id = ss.tenant_id
+           LEFT JOIN programmes p ON p.id = sm.filiere_id
+           WHERE ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
+           LIMIT 1
+         ) sem ON true
+         WHERE id=$1 AND tenant_id=$2`,
+        [id, tenantId]
+      );
+      if (res.rowCount === 0) return fail("UE_SESSION_NOT_FOUND", "Cohorte introuvable.");
+      const cnt = await client.query(
+        `SELECT count(*)::int AS n FROM professional_enrollments
+         WHERE ue_session_id=$1 AND tenant_id=$2 AND statut <> 'annulee'`,
+        [id, tenantId]
+      );
+      return ok({ ...res.rows[0], nb_inscriptions_actives: cnt.rows[0].n });
+    });
+  }
+
+  async updateSession(
+    tenantId: string,
+    id: string,
+    input: UpdateProfessionalUeSession
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sets: string[] = [];
+      const params: any[] = [];
+      let i = 1;
+      const fields: (keyof UpdateProfessionalUeSession)[] = [
+        "libelle",
+        "date_debut",
+        "date_fin",
+        "inscription_ouverte_le",
+        "inscription_fermee_le",
+        "capacite_max",
+        "enseignant_id",
+        "classroom_id",
+      ];
+      for (const key of fields) {
+        if (input[key] !== undefined) {
+          sets.push(`${key} = $${i++}`);
+          params.push(input[key]);
+        }
+      }
+      if (sets.length === 0) return this.getSession(tenantId, id);
+      sets.push("updated_at = now()");
+      params.push(id, tenantId);
+      try {
+        const res = await client.query(
+          `UPDATE professional_ue_sessions SET ${sets.join(", ")}
+           WHERE id=$${i++} AND tenant_id=$${i++} RETURNING ${UE_SESSION_COLS}`,
+          params
+        );
+        if (res.rowCount === 0) return fail("UE_SESSION_NOT_FOUND", "Cohorte introuvable.");
+        return ok(res.rows[0]);
+      } catch (e: any) {
+        if (e?.code === "23503") {
+          return fail("VALIDATION_ERROR", "L'enseignant ou la salle indiqué(e) est introuvable.");
+        }
+        if (e?.code === "23514") {
+          return fail("VALIDATION_ERROR", "Dates, fenêtre d'inscription ou capacité invalides.");
+        }
+        throw e;
+      }
+    });
+  }
+
+  async transitionSessionStatus(
+    tenantId: string,
+    id: string,
+    statut: ProfessionalUeSessionStatut
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const cur = await client.query(
+        `SELECT statut FROM professional_ue_sessions WHERE id=$1 AND tenant_id=$2`,
+        [id, tenantId]
+      );
+      if (cur.rowCount === 0) return fail("UE_SESSION_NOT_FOUND", "Cohorte introuvable.");
+      const from = cur.rows[0].statut as ProfessionalUeSessionStatut;
+      if (from !== statut && !isValidUeSessionTransition(from, statut)) {
+        return fail("INVALID_TRANSITION", `Transition de statut invalide : ${from} → ${statut}.`);
+      }
+      // Garde-fou : on ne peut ouvrir une session que si chaque ECUE obligatoire
+      // de l'UE a un enseignant affecté.
+      if (statut === "ouvert") {
+        const missing = await client.query(
+          `SELECT e.code
+           FROM professional_ue_sessions s
+           JOIN professional_ue_ecue l ON l.ue_id = s.ue_id AND l.tenant_id = s.tenant_id
+           JOIN professional_ecue e ON e.id = l.ecue_id
+           LEFT JOIN professional_session_ecue_teachers a
+             ON a.ue_session_id = s.id AND a.ecue_id = l.ecue_id AND a.tenant_id = s.tenant_id
+           WHERE s.id = $1 AND s.tenant_id = $2
+             AND l.est_obligatoire = true
+             AND a.enseignant_id IS NULL
+             -- La Conduite est une note de semestre : pas d'enseignant requis.
+             AND NOT (e.libelle ILIKE 'conduite%' OR e.code ILIKE '%EC-CON%')
+           ORDER BY l.ordre, e.code`,
+          [id, tenantId]
+        );
+        if ((missing.rowCount ?? 0) > 0) {
+          const list = missing.rows.map((r) => r.code).join(", ");
+          return fail(
+            "SESSION_ECUE_TEACHERS_MISSING",
+            `Impossible d'ouvrir la session : ${missing.rowCount} ECUE obligatoire(s) sans enseignant (${list}). Affectez un enseignant à chaque ECUE obligatoire (onglet « Enseignants »).`
+          );
+        }
+      }
+      const res = await client.query(
+        `UPDATE professional_ue_sessions SET statut=$1, updated_at=now()
+         WHERE id=$2 AND tenant_id=$3 RETURNING ${UE_SESSION_COLS}`,
+        [statut, id, tenantId]
+      );
+      return ok(res.rows[0]);
+    });
+  }
+
+  async deleteSession(tenantId: string, id: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const enrolled = await client.query(
+        `SELECT 1 FROM professional_enrollments WHERE ue_session_id=$1 AND tenant_id=$2 LIMIT 1`,
+        [id, tenantId]
+      );
+      if ((enrolled.rowCount ?? 0) > 0) {
+        return fail(
+          "SESSION_HAS_ENROLLMENTS",
+          "Impossible de supprimer : des inscriptions existent. Annulez la cohorte à la place."
+        );
+      }
+      const res = await client.query(
+        `DELETE FROM professional_ue_sessions WHERE id=$1 AND tenant_id=$2 RETURNING id`,
+        [id, tenantId]
+      );
+      if (res.rowCount === 0) return fail("UE_SESSION_NOT_FOUND", "Cohorte introuvable.");
+      return ok({ id });
+    });
+  }
+
+  /**
+   * Rouvre des sessions terminées : prolonge la date de fin (et la fenêtre
+   * d'inscription) puis repasse en « ouvert ». La nouvelle date de fin doit être
+   * dans le futur, sinon la finalisation auto les re-clôturerait.
+   */
+  async reopenSessions(
+    tenantId: string,
+    input: { session_ids: string[]; date_fin: string }
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const ids = Array.from(new Set(input.session_ids));
+      const fermeeLe = new Date(`${input.date_fin}T23:59:59`).toISOString();
+      const res = await client.query(
+        `UPDATE professional_ue_sessions
+         SET date_fin = $1::date,
+             inscription_fermee_le = $2,
+             statut = 'ouvert',
+             updated_at = now()
+         WHERE tenant_id = $3 AND id = ANY($4::uuid[])
+           AND $1::date >= date_debut
+         RETURNING id`,
+        [input.date_fin, fermeeLe, tenantId, ids]
+      );
+      return ok({ reopened: res.rowCount });
+    });
+  }
+
+  async adminListSessions(
+    tenantId: string,
+    filters: { ue_id?: string; statut?: string; semestre_id?: string; page?: number; pageSize?: number }
+  ): Promise<ServiceResult<any>> {
+    const page = Math.max(1, filters.page ?? 1);
+    const pageSize = Math.min(500, Math.max(1, filters.pageSize ?? 100));
+    return this.withTenant(tenantId, async (client) => {
+      // Finalisation automatique : toute session dont la date de fin est passée
+      // passe à « termine » (sauf annulée / déjà terminée).
+      await client.query(
+        `UPDATE professional_ue_sessions
+         SET statut = 'termine', updated_at = now()
+         WHERE tenant_id = $1 AND date_fin < CURRENT_DATE
+           AND statut NOT IN ('termine', 'annule')`,
+        [tenantId]
+      );
+
+      const where: string[] = ["s.tenant_id = $1"];
+      const params: any[] = [tenantId];
+      let i = 2;
+      if (filters.ue_id) {
+        where.push(`s.ue_id = $${i++}`);
+        params.push(filters.ue_id);
+      }
+      if (filters.statut) {
+        where.push(`s.statut = $${i++}`);
+        params.push(filters.statut);
+      }
+      if (filters.semestre_id) {
+        where.push(
+          `EXISTS (SELECT 1 FROM professional_semestre_sessions ss2
+                   WHERE ss2.ue_session_id = s.id AND ss2.tenant_id = s.tenant_id
+                     AND ss2.semestre_id = $${i++})`
+        );
+        params.push(filters.semestre_id);
+      }
+      const baseFrom = `FROM professional_ue_sessions s
+        JOIN professional_ue u ON u.id = s.ue_id
+        WHERE ${where.join(" AND ")}`;
+      const countRes = await client.query(`SELECT count(*)::int AS total ${baseFrom}`, params);
+      const listRes = await client.query(
+        `SELECT s.id, s.ue_id, s.libelle,
+                s.date_debut::text AS date_debut, s.date_fin::text AS date_fin,
+                s.inscription_ouverte_le, s.inscription_fermee_le, s.capacite_max,
+                s.enseignant_id, s.classroom_id, s.statut,
+                u.code AS ue_code, u.libelle AS ue_libelle, u.nb_uv::int AS ue_nb_uv,
+                sem.semestre_id, sem.semestre_libelle,
+                sem.filiere_id, sem.filiere_nom, sem.filiere_code,
+                (SELECT count(*)::int FROM professional_enrollments e
+                 WHERE e.ue_session_id = s.id AND e.statut <> 'annulee')
+                  AS nb_inscriptions_actives
+         FROM professional_ue_sessions s
+         JOIN professional_ue u ON u.id = s.ue_id
+         LEFT JOIN LATERAL (
+           SELECT sm.id AS semestre_id, sm.libelle AS semestre_libelle,
+                  p.id AS filiere_id, p.name AS filiere_nom, p.code AS filiere_code
+           FROM professional_semestre_sessions ss
+           JOIN professional_semestres sm ON sm.id = ss.semestre_id AND sm.tenant_id = ss.tenant_id
+           LEFT JOIN programmes p ON p.id = sm.filiere_id
+           WHERE ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
+           LIMIT 1
+         ) sem ON true
+         WHERE ${where.join(" AND ")}
+         ORDER BY s.date_debut DESC, s.libelle LIMIT $${i++} OFFSET $${i++}`,
+        [...params, pageSize, (page - 1) * pageSize]
+      );
+      return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });
+    });
+  }
+
+  /* --------------------------- Séances ECUE --------------------------- */
+
+  async createSeance(
+    tenantId: string,
+    ueSessionId: string,
+    input: CreateProfessionalEcueSeance
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sess = await client.query(
+        `SELECT ue_id FROM professional_ue_sessions WHERE id=$1 AND tenant_id=$2`,
+        [ueSessionId, tenantId]
+      );
+      if (sess.rowCount === 0) return fail("UE_SESSION_NOT_FOUND", "Cohorte introuvable.");
+      // L'ECUE doit être rattachée à l'UE de la cohorte.
+      const link = await client.query(
+        `SELECT 1 FROM professional_ue_ecue
+         WHERE ue_id=$1 AND ecue_id=$2 AND tenant_id=$3`,
+        [sess.rows[0].ue_id, input.ecue_id, tenantId]
+      );
+      if (link.rowCount === 0) {
+        return fail("ECUE_NOT_IN_UE", "L'ECUE n'est pas rattachée à l'UE de cette cohorte.");
+      }
+      try {
+        const res = await client.query(
+          `INSERT INTO professional_ecue_seances
+             (tenant_id, ecue_id, ue_session_id, libelle, date, heure_debut, heure_fin,
+              enseignant_id, classroom_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+           RETURNING ${SEANCE_COLS}`,
+          [
+            tenantId,
+            input.ecue_id,
+            ueSessionId,
+            input.libelle ?? null,
+            input.date,
+            input.heure_debut ?? null,
+            input.heure_fin ?? null,
+            input.enseignant_id ?? null,
+            input.classroom_id ?? null,
+          ]
+        );
+        return ok(res.rows[0]);
+      } catch (e: any) {
+        if (e?.code === "23503") {
+          return fail("VALIDATION_ERROR", "L'enseignant ou la salle indiqué(e) est introuvable.");
+        }
+        if (e?.code === "23514") {
+          return fail("VALIDATION_ERROR", "Horaires de séance invalides.");
+        }
+        throw e;
+      }
+    });
+  }
+
+  async listSeances(tenantId: string, ueSessionId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const res = await client.query(
+        `SELECT se.id, se.ecue_id, se.ue_session_id, se.libelle,
+                se.date::text AS date, se.heure_debut::text AS heure_debut,
+                se.heure_fin::text AS heure_fin, se.enseignant_id, se.classroom_id,
+                se.created_at, se.updated_at,
+                e.code AS ecue_code, e.libelle AS ecue_libelle
+         FROM professional_ecue_seances se
+         JOIN professional_ecue e ON e.id = se.ecue_id
+         WHERE se.ue_session_id=$1 AND se.tenant_id=$2
+         ORDER BY se.date, se.heure_debut NULLS FIRST`,
+        [ueSessionId, tenantId]
+      );
+      return ok(res.rows);
+    });
+  }
+
+  async updateSeance(
+    tenantId: string,
+    seanceId: string,
+    input: UpdateProfessionalEcueSeance
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sets: string[] = [];
+      const params: any[] = [];
+      let i = 1;
+      const fields: (keyof UpdateProfessionalEcueSeance)[] = [
+        "libelle",
+        "date",
+        "heure_debut",
+        "heure_fin",
+        "enseignant_id",
+        "classroom_id",
+      ];
+      for (const key of fields) {
+        if (input[key] !== undefined) {
+          sets.push(`${key} = $${i++}`);
+          params.push(input[key]);
+        }
+      }
+      if (sets.length === 0) {
+        const cur = await client.query(
+          `SELECT ${SEANCE_COLS} FROM professional_ecue_seances WHERE id=$1 AND tenant_id=$2`,
+          [seanceId, tenantId]
+        );
+        if (cur.rowCount === 0) return fail("SEANCE_NOT_FOUND", "Séance introuvable.");
+        return ok(cur.rows[0]);
+      }
+      sets.push("updated_at = now()");
+      params.push(seanceId, tenantId);
+      const res = await client.query(
+        `UPDATE professional_ecue_seances SET ${sets.join(", ")}
+         WHERE id=$${i++} AND tenant_id=$${i++} RETURNING ${SEANCE_COLS}`,
+        params
+      );
+      if (res.rowCount === 0) return fail("SEANCE_NOT_FOUND", "Séance introuvable.");
+      return ok(res.rows[0]);
+    });
+  }
+
+  async deleteSeance(tenantId: string, seanceId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const res = await client.query(
+        `DELETE FROM professional_ecue_seances WHERE id=$1 AND tenant_id=$2 RETURNING id`,
+        [seanceId, tenantId]
+      );
+      if (res.rowCount === 0) return fail("SEANCE_NOT_FOUND", "Séance introuvable.");
+      return ok({ id: seanceId });
+    });
+  }
+
+  /* ------------- Enseignants par ECUE (au sein d'une session) --------- */
+
+  /**
+   * Pour une session, liste chaque ECUE de l'UE avec l'enseignant affecté (le
+   * cas échéant). Sert à l'écran d'affectation côté admin.
+   */
+  async listSessionEcueTeachers(
+    tenantId: string,
+    ueSessionId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sess = await client.query(
+        `SELECT ue_id FROM professional_ue_sessions WHERE id=$1 AND tenant_id=$2`,
+        [ueSessionId, tenantId]
+      );
+      if (sess.rowCount === 0) return fail("UE_SESSION_NOT_FOUND", "Session introuvable.");
+      const res = await client.query(
+        `SELECT l.ecue_id, e.code AS ecue_code, e.libelle AS ecue_libelle,
+                l.ordre, l.est_obligatoire,
+                (e.libelle ILIKE 'conduite%' OR e.code ILIKE '%EC-CON%') AS is_conduite,
+                a.enseignant_id,
+                u.first_name, u.last_name, u.email
+         FROM professional_ue_ecue l
+         JOIN professional_ecue e ON e.id = l.ecue_id
+         LEFT JOIN professional_session_ecue_teachers a
+           ON a.ue_session_id=$1 AND a.ecue_id=l.ecue_id AND a.tenant_id=l.tenant_id
+         LEFT JOIN teachers t ON t.id = a.enseignant_id
+         LEFT JOIN users u ON u.id = t.user_id
+         WHERE l.ue_id=$2 AND l.tenant_id=$3
+         ORDER BY l.ordre, e.code`,
+        [ueSessionId, sess.rows[0].ue_id, tenantId]
+      );
+      return ok(res.rows);
+    });
+  }
+
+  /**
+   * Affecte (ou retire si enseignant_id=null) un enseignant à un ECUE d'une
+   * session. L'ECUE doit appartenir à l'UE de la session.
+   */
+  async setSessionEcueTeacher(
+    tenantId: string,
+    ueSessionId: string,
+    input: { ecue_id: string; enseignant_id: string | null }
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sess = await client.query(
+        `SELECT ue_id FROM professional_ue_sessions WHERE id=$1 AND tenant_id=$2`,
+        [ueSessionId, tenantId]
+      );
+      if (sess.rowCount === 0) return fail("UE_SESSION_NOT_FOUND", "Session introuvable.");
+      const link = await client.query(
+        `SELECT (e.libelle ILIKE 'conduite%' OR e.code ILIKE '%EC-CON%') AS is_conduite
+         FROM professional_ue_ecue l
+         JOIN professional_ecue e ON e.id = l.ecue_id
+         WHERE l.ue_id=$1 AND l.ecue_id=$2 AND l.tenant_id=$3`,
+        [sess.rows[0].ue_id, input.ecue_id, tenantId]
+      );
+      if (link.rowCount === 0) {
+        return fail("ECUE_NOT_IN_UE", "L'ECUE n'est pas rattachée à l'UE de cette session.");
+      }
+      // La Conduite est une note de semestre (assiduité) : aucun enseignant ne lui est affecté.
+      if (link.rows[0].is_conduite && input.enseignant_id != null) {
+        return fail(
+          "CONDUITE_NO_TEACHER",
+          "La Conduite est une note de semestre : on ne lui affecte pas d'enseignant."
+        );
+      }
+      if (input.enseignant_id == null) {
+        await client.query(
+          `DELETE FROM professional_session_ecue_teachers
+           WHERE ue_session_id=$1 AND ecue_id=$2 AND tenant_id=$3`,
+          [ueSessionId, input.ecue_id, tenantId]
+        );
+        return ok({ ecue_id: input.ecue_id, enseignant_id: null });
+      }
+      const teacher = await client.query(
+        `SELECT 1 FROM teachers WHERE id=$1 AND tenant_id=$2`,
+        [input.enseignant_id, tenantId]
+      );
+      if (teacher.rowCount === 0) return fail("VALIDATION_ERROR", "Enseignant introuvable.");
+      await client.query(
+        `INSERT INTO professional_session_ecue_teachers
+           (tenant_id, ue_session_id, ecue_id, enseignant_id)
+         VALUES ($1,$2,$3,$4)
+         ON CONFLICT (tenant_id, ue_session_id, ecue_id)
+         DO UPDATE SET enseignant_id = EXCLUDED.enseignant_id, updated_at = now()`,
+        [tenantId, ueSessionId, input.ecue_id, input.enseignant_id]
+      );
+      return ok({ ecue_id: input.ecue_id, enseignant_id: input.enseignant_id });
+    });
+  }
+
+  /* ------------------------ Présence (séance) ------------------------- */
+
+  /**
+   * Fiche de présence d'une séance : inscrits confirmés/terminés de la cohorte
+   * avec leur statut de présence (null si l'appel n'a pas encore été fait).
+   */
+  async getSeanceAttendance(tenantId: string, seanceId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const seance = await client.query(
+        `SELECT se.id, se.ue_session_id, se.date::text AS date, se.libelle,
+                e.code AS ecue_code, e.libelle AS ecue_libelle
+         FROM professional_ecue_seances se
+         JOIN professional_ecue e ON e.id = se.ecue_id
+         WHERE se.id=$1 AND se.tenant_id=$2`,
+        [seanceId, tenantId]
+      );
+      if (seance.rowCount === 0) return fail("SEANCE_NOT_FOUND", "Séance introuvable.");
+      const res = await client.query(
+        `SELECT sp.id AS student_id, u.first_name, u.last_name,
+                e.statut AS enrollment_statut,
+                a.statut AS attendance_statut, a.updated_at AS marked_at
+         FROM professional_enrollments e
+         JOIN student_profiles sp ON sp.id = e.student_id
+         JOIN users u ON u.id = sp.user_id
+         LEFT JOIN professional_ecue_attendance a
+           ON a.seance_id = $1 AND a.student_id = e.student_id
+         WHERE e.ue_session_id = $2 AND e.statut IN ('confirmee','terminee')
+         ORDER BY u.last_name, u.first_name`,
+        [seanceId, seance.rows[0].ue_session_id]
+      );
+      return ok({ seance: seance.rows[0], items: res.rows });
+    });
+  }
+
+  async markSeanceAttendance(
+    tenantId: string,
+    seanceId: string,
+    input: MarkProfessionalAttendance,
+    markedBy?: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenantTx(tenantId, async (client) => {
+      const seance = await client.query(
+        `SELECT 1 FROM professional_ecue_seances WHERE id=$1 AND tenant_id=$2`,
+        [seanceId, tenantId]
+      );
+      if (seance.rowCount === 0) return fail("SEANCE_NOT_FOUND", "Séance introuvable.");
+      for (const entry of input.entries) {
+        await client.query(
+          `INSERT INTO professional_ecue_attendance
+             (tenant_id, seance_id, student_id, statut, marked_by)
+           VALUES ($1,$2,$3,$4,$5)
+           ON CONFLICT (tenant_id, seance_id, student_id)
+           DO UPDATE SET statut = EXCLUDED.statut, marked_by = EXCLUDED.marked_by,
+                         updated_at = now()`,
+          [tenantId, seanceId, entry.student_id, entry.statut, markedBy ?? null]
+        );
+      }
+      return ok({ seance_id: seanceId, count: input.entries.length });
+    });
+  }
+}

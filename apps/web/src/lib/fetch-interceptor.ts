@@ -419,12 +419,13 @@ if (typeof window !== 'undefined') {
       // RSO auth routes are excluded (they use separate RSO token system)
       const authExcludedPaths = [
         '/auth/login',
-        '/auth/refresh', 
+        '/auth/refresh',
         '/auth/session',
         '/auth/signin',
         '/auth/callback',
         '/auth/providers',
         '/auth/csrf',
+        '/auth/register-request',  // Public self-registration (no token yet)
         '/super-admin/auth/login',
         '/rso/auth/login',      // RSO login (public)
         '/rso/auth/forgot-password',  // RSO password reset (public)

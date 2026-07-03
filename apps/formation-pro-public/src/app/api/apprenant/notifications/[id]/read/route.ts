@@ -6,23 +6,18 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
 export async function POST(
   _req: Request,
-  { params }: RouteContext
+  { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
-  const { id } = await params;
   await prisma.$executeRaw(Prisma.sql`
     UPDATE app_notifications
        SET read_at = NOW()
-     WHERE id = ${id}::uuid
+     WHERE id = ${params.id}::uuid
        AND subject_kind = 'public_user'
        AND subject_user_id = ${session.user.id}
        AND read_at IS NULL

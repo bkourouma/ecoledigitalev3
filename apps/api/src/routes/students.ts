@@ -1,5 +1,9 @@
 import { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
+import path from "path";
+import { promises as fs, createWriteStream } from "fs";
+import { pipeline } from "stream/promises";
+import { randomUUID } from "crypto";
 
 import {
   StudentProfileSchema,
@@ -260,6 +264,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                   academicYearId: { type: "string" },
                   academicYearName: { type: "string" },
                   isActive: { type: "boolean" },
+                  initialPassword: { type: ["string", "null"] },
                   createdAt: { type: "string" },
                   updatedAt: { type: "string" },
                   user: {
@@ -392,6 +397,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                  sp.cepe_code, sp.is_inscribed, sp.inscription_date,
                  sp.residence,
                  sp.establishment_matricule, sp.dsps_matricule, sp.dsps_previous_matricule, sp.initial_password,
+                 sp.bac_obtention_date, sp.bac_series, sp.last_diploma,
                  ${genderSelect}, sp.is_active,
                  sc.class_id, sc.class_name, sc.programme_name, sc.academic_year_id, sc.academic_year_name,
                  sp.created_at, sp.updated_at,
@@ -454,6 +460,9 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           isInscribed: row.is_inscribed,
           inscriptionDate: row.inscription_date,
           residence: row.residence,
+          bacObtentionDate: row.bac_obtention_date,
+          bacSeries: row.bac_series,
+          lastDiploma: row.last_diploma,
           establishmentMatricule: row.establishment_matricule,
           dspsMatricule: row.dsps_matricule,
           dspsPreviousMatricule: row.dsps_previous_matricule,
@@ -462,7 +471,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           programmeName: row.programme_name || undefined,
           academicYearId: row.academic_year_id || undefined,
           academicYearName: row.academic_year_name || undefined,
-          initialPassword: canViewPasswords ? row.initial_password : null,
+          initialPassword: row.initial_password ?? null, // aligné sur teachers (pas de filtrage par rôle)
           gender: row.gender || 'masculin',
           isActive: row.is_active,
           createdAt: row.created_at,
@@ -646,6 +655,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                  sp.cepe_code, sp.is_inscribed, sp.inscription_date,
                  sp.residence,
                  sp.establishment_matricule, sp.dsps_matricule, sp.dsps_previous_matricule, sp.initial_password,
+                 sp.bac_obtention_date, sp.bac_series, sp.last_diploma,
                  ${genderSelect}, sp.is_active,
                  sc.class_id, sc.class_name, sc.programme_name, sc.academic_year_id, sc.academic_year_name,
                  sp.created_at, sp.updated_at,
@@ -713,6 +723,9 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           isInscribed: row.is_inscribed,
           inscriptionDate: row.inscription_date,
           residence: row.residence,
+          bacObtentionDate: row.bac_obtention_date,
+          bacSeries: row.bac_series,
+          lastDiploma: row.last_diploma,
           establishmentMatricule: row.establishment_matricule,
           dspsMatricule: row.dsps_matricule,
           dspsPreviousMatricule: row.dsps_previous_matricule,
@@ -721,7 +734,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           programmeName: row.programme_name || undefined,
           academicYearId: row.academic_year_id || undefined,
           academicYearName: row.academic_year_name || undefined,
-          initialPassword: canViewPasswords ? row.initial_password : null,
+          initialPassword: row.initial_password ?? null, // aligné sur teachers (pas de filtrage par rôle)
           gender: row.gender || 'masculin', // Default to 'masculin' if column doesn't exist yet
           isActive: row.is_active,
           createdAt: row.created_at,
@@ -972,6 +985,9 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           establishmentMatricule: { type: "string", maxLength: 100 },
           dspsMatricule: { type: "string", maxLength: 100 },
           dspsPreviousMatricule: { type: "string", maxLength: 100 },
+          bacObtentionDate: { type: "string", format: "date" },
+          bacSeries: { type: "string", maxLength: 100 },
+          lastDiploma: { type: "string", maxLength: 255 },
         },
       },
     },
@@ -1077,6 +1093,9 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           'establishment_matricule',
           'dsps_matricule',
           'dsps_previous_matricule',
+          'bac_obtention_date',
+          'bac_series',
+          'last_diploma',
           'initial_password',
         ];
 
@@ -1103,6 +1122,9 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           establishmentMatricule,
           data.dspsMatricule || null,
           data.dspsPreviousMatricule || null,
+          data.bacObtentionDate || null,
+          data.bacSeries || null,
+          data.lastDiploma || null,
           data.password,
         ];
 
@@ -1117,7 +1139,8 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           RETURNING id, tenant_id, user_id, student_number, current_year, status, bio,
                     date_of_birth, place_of_birth, nationality, address, phone,
                     emergency_phone, father_name, mother_name, birth_certificate_number, birth_certificate_date,
-                    civil_registry_office, sub_prefecture, residence, establishment_matricule, dsps_matricule, dsps_previous_matricule, initial_password
+                    civil_registry_office, sub_prefecture, residence, establishment_matricule, dsps_matricule, dsps_previous_matricule,
+                    bac_obtention_date, bac_series, last_diploma, initial_password
                     ${hasGenderColumn ? ', gender' : ''}, is_active, created_at, updated_at
         `;
 
@@ -1150,6 +1173,9 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           establishmentMatricule: studentRow.establishment_matricule,
           dspsMatricule: studentRow.dsps_matricule,
           dspsPreviousMatricule: studentRow.dsps_previous_matricule,
+          bacObtentionDate: studentRow.bac_obtention_date,
+          bacSeries: studentRow.bac_series,
+          lastDiploma: studentRow.last_diploma,
           initialPassword: studentRow.initial_password,
           gender: studentRow.gender || 'masculin', // Default to 'masculin' if column doesn't exist yet
           isActive: studentRow.is_active,
@@ -1175,6 +1201,104 @@ export async function studentsRoutes(fastify: FastifyInstance) {
         client.release();
       }
     },
+  });
+
+  // POST /api/v1/students/:id/diploma - Upload du fichier du dernier diplôme (multipart)
+  fastify.post("/:id/diploma", {
+    handler: async (request, reply) => {
+      if (!request.tenantId) {
+        return reply.status(400).send({
+          error: "Tenant Required",
+          message: "This endpoint requires tenant context",
+        });
+      }
+      const { id: studentId } = request.params as { id: string };
+
+      const data = await (request as any).file();
+      if (!data) {
+        return reply.status(422).send({ error: "Validation Error", message: "Aucun fichier fourni." });
+      }
+
+      // Types autorisés : PDF ou image
+      const allowed = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
+      if (!allowed.includes(data.mimetype)) {
+        return reply.status(400).send({
+          error: "Validation Error",
+          message: "Type de fichier non autorisé (PDF, PNG, JPG ou WEBP uniquement).",
+        });
+      }
+
+      const safeName = String(data.filename || "diplome.pdf").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const uniqueName = `${randomUUID()}_${safeName}`;
+      const uploadDir = path.join(process.cwd(), "uploads", "students", studentId, "diploma");
+      await fs.mkdir(uploadDir, { recursive: true });
+      const filePath = path.join(uploadDir, uniqueName);
+
+      try {
+        await pipeline(data.file, createWriteStream(filePath));
+      } catch (err: any) {
+        return reply.status(500).send({
+          error: "Internal Server Error",
+          message: err?.message || "Erreur lors de l'écriture du fichier.",
+        });
+      }
+      if ((data.file as any).truncated) {
+        await fs.unlink(filePath).catch(() => undefined);
+        return reply.status(413).send({ error: "File Too Large", message: "Fichier trop volumineux." });
+      }
+
+      const url = `/api/v1/students/${encodeURIComponent(studentId)}/diploma/${encodeURIComponent(uniqueName)}`;
+      const upd = await fastify.pg.query(
+        `UPDATE student_profiles SET last_diploma = $1, updated_at = now()
+         WHERE id = $2 AND tenant_id = $3 RETURNING id`,
+        [url, studentId, request.tenantId]
+      );
+      if (upd.rowCount === 0) {
+        await fs.unlink(filePath).catch(() => undefined);
+        return reply.status(404).send({ error: "Not Found", message: "Étudiant introuvable." });
+      }
+      return reply.status(201).send({ success: true, data: { url, filename: data.filename } });
+    },
+  });
+
+  // GET /api/v1/students/:id/diploma/:filename - Sert le fichier du diplôme
+  fastify.get("/:id/diploma/:filename", async (request, reply) => {
+    if (!request.tenantId) {
+      return reply.status(400).send({ error: "Tenant Required", message: "This endpoint requires tenant context" });
+    }
+    const { id: studentId, filename } = request.params as { id: string; filename: string };
+    if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+      return reply.status(400).send({ error: "Validation Error", message: "Nom de fichier invalide." });
+    }
+    // L'étudiant doit appartenir au tenant courant
+    const owner = await fastify.pg.query(
+      `SELECT 1 FROM student_profiles WHERE id = $1 AND tenant_id = $2`,
+      [studentId, request.tenantId]
+    );
+    if (owner.rowCount === 0) {
+      return reply.status(404).send({ error: "Not Found", message: "Étudiant introuvable." });
+    }
+    const abs = path.join(process.cwd(), "uploads", "students", studentId, "diploma", filename);
+    try {
+      await fs.access(abs);
+    } catch {
+      return reply.status(404).send({ error: "Not Found", message: "Fichier introuvable." });
+    }
+    const ext = path.extname(filename).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      ".pdf": "application/pdf",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".webp": "image/webp",
+    };
+    const mime = mimeMap[ext] ?? "application/octet-stream";
+    const originalName = filename.replace(/^[0-9a-f-]{36}_/, "");
+    reply.type(mime);
+    reply.header("Content-Disposition", `inline; filename="${originalName}"`);
+    reply.header("X-Content-Type-Options", "nosniff");
+    const buf = await fs.readFile(abs);
+    return reply.send(buf);
   });
 
   // PUT /api/v1/students/:id - Update student

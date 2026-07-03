@@ -59,7 +59,7 @@ function createAcademicHeaders() {
   return headers;
 }
 
-async function fetchProgrammes(query: ProgrammeQuery = {}): Promise<{ data: Programme[]; pagination: any }> {
+async function fetchProgrammesPage(query: ProgrammeQuery): Promise<{ data: Programme[]; pagination: any }> {
   const searchParams = new URLSearchParams();
 
   Object.entries(query).forEach(([key, value]) => {
@@ -77,6 +77,40 @@ async function fetchProgrammes(query: ProgrammeQuery = {}): Promise<{ data: Prog
   }
 
   return response.json();
+}
+
+// Page size used when fetching every programme. The API caps `limit` at 100,
+// so we page through and aggregate client-side to remove any practical limit.
+const FETCH_ALL_PAGE_SIZE = 100;
+
+async function fetchProgrammes(query: ProgrammeQuery = {}): Promise<{ data: Programme[]; pagination: any }> {
+  // Explicit limit -> single page (unchanged behaviour for callers that paginate).
+  if (query.limit !== undefined) {
+    return fetchProgrammesPage(query);
+  }
+
+  // No limit requested -> load ALL programmes by paging through and merging.
+  const all: Programme[] = [];
+  let total = 0;
+  let page = 1;
+
+  // Hard upper bound to avoid an unbounded loop on unexpected responses.
+  for (let guard = 0; guard < 1000; guard++) {
+    const res = await fetchProgrammesPage({ ...query, page, limit: FETCH_ALL_PAGE_SIZE });
+    const rows = res.data || [];
+    all.push(...rows);
+    total = res.pagination?.total ?? all.length;
+
+    if (rows.length === 0 || all.length >= total) {
+      break;
+    }
+    page += 1;
+  }
+
+  return {
+    data: all,
+    pagination: { page: 1, limit: all.length, total, totalPages: 1 },
+  };
 }
 
 async function fetchProgramme(id: string): Promise<Programme> {

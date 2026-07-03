@@ -15,7 +15,7 @@ import {
   useParticipants,
 } from "@livekit/components-react";
 import { Track, RoomEvent } from "livekit-client";
-import { Hand, MicOff, UserX, PhoneOff, MessageSquare, X } from "lucide-react";
+import { Hand, Maximize2, MessageSquare, MicOff, Minimize2, PhoneOff, UserX, X } from "lucide-react";
 import "@livekit/components-styles";
 
 /**
@@ -54,6 +54,8 @@ export interface LiveSessionRoomProps {
   /** Title displayed in the toolbar (e.g. course name). */
   title?: string;
 }
+
+type LiveTrackReference = NonNullable<React.ComponentProps<typeof ParticipantTile>["trackRef"]>;
 
 const RAISE_HAND_TOPIC = "raise-hand";
 
@@ -149,11 +151,28 @@ function RoomShell({
     ],
     { onlySubscribed: false }
   );
+  const screenShareTracks = tracks.filter((track) => track.source === Track.Source.ScreenShare);
 
   const [chatOpen, setChatOpen] = React.useState(false);
+  const [fullscreen, setFullscreen] = React.useState(false);
   const { raisedHands, toggleHand } = useRaiseHand(identity);
 
   const room = useRoomContext();
+
+  React.useEffect(() => {
+    const onFullscreenChange = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = React.useCallback(() => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+      return;
+    }
+    void document.documentElement.requestFullscreen();
+  }, []);
+
   React.useEffect(() => {
     const handler = () => onLeave?.();
     room.on(RoomEvent.Disconnected, handler);
@@ -169,22 +188,28 @@ function RoomShell({
         role={role}
         chatOpen={chatOpen}
         onToggleChat={() => setChatOpen((v) => !v)}
+        fullscreen={fullscreen}
+        onToggleFullscreen={toggleFullscreen}
         onEndSession={onEndSession}
         onLeave={onLeave}
       />
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1">
-          <GridLayout tracks={tracks} className="h-full">
-            <ParticipantTileWithRaiseHand raisedHands={raisedHands} />
-          </GridLayout>
-
-          {role === "moderator" && (onMuteParticipant || onKickParticipant) && (
-            <ModeratorOverlay
-              onMute={onMuteParticipant}
-              onKick={onKickParticipant}
+          {screenShareTracks.length > 0 ? (
+            <PresentationLayout
+              screenTrack={screenShareTracks[0]}
             />
+          ) : (
+            <GridLayout tracks={tracks} className="h-full">
+              <ParticipantTileWithRaiseHand raisedHands={raisedHands} />
+            </GridLayout>
           )}
+
+          <ParticipantsOverlay
+            onMute={role === "moderator" ? onMuteParticipant : undefined}
+            onKick={role === "moderator" ? onKickParticipant : undefined}
+          />
         </div>
 
         {chatOpen && (
@@ -216,11 +241,30 @@ function RoomShell({
   );
 }
 
+function PresentationLayout({
+  screenTrack,
+}: {
+  screenTrack: LiveTrackReference;
+}) {
+  return (
+    <div className="flex h-full w-full overflow-hidden bg-black">
+      <div className="min-w-0 flex-1 bg-black">
+        <ParticipantTile
+          trackRef={screenTrack}
+          className="h-full w-full rounded-none border-0 bg-black [&_.lk-focus-toggle-button]:hidden [&_.lk-participant-media-video]:object-cover [&_.lk-participant-metadata]:hidden"
+        />
+      </div>
+    </div>
+  );
+}
+
 function Toolbar({
   title,
   role,
   chatOpen,
   onToggleChat,
+  fullscreen,
+  onToggleFullscreen,
   onEndSession,
   onLeave,
 }: {
@@ -228,6 +272,8 @@ function Toolbar({
   role: LiveSessionRole;
   chatOpen: boolean;
   onToggleChat: () => void;
+  fullscreen: boolean;
+  onToggleFullscreen: () => void;
   onEndSession?: () => Promise<void> | void;
   onLeave?: () => void;
 }) {
@@ -250,6 +296,15 @@ function Toolbar({
           }
         >
           <MessageSquare className="h-3.5 w-3.5" /> Chat
+        </button>
+        <button
+          type="button"
+          onClick={onToggleFullscreen}
+          aria-label={fullscreen ? "Quitter le plein ecran" : "Plein ecran"}
+          className="inline-flex items-center gap-1 rounded-md border border-neutral-700 px-3 py-1.5 text-xs transition-colors hover:bg-neutral-800"
+        >
+          {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          {fullscreen ? "Reduire" : "Plein ecran"}
         </button>
         {role === "moderator" && onEndSession && (
           <button
@@ -298,7 +353,7 @@ function RaiseHandBadge({ raisedHands }: { raisedHands: Set<string> }) {
   );
 }
 
-function ModeratorOverlay({
+function ParticipantsOverlay({
   onMute,
   onKick,
 }: {

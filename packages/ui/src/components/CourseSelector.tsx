@@ -152,9 +152,6 @@ const CourseSelector = React.forwardRef<
     }, 0);
   };
 
-  const hasReachedMaxSelections =
-    maxSelections !== undefined && selectedCourses.length >= maxSelections;
-
   return (
     <div ref={ref} className={cn("space-y-4", className)} {...props}>
       {/* Header with select all and summary */}
@@ -213,7 +210,7 @@ const CourseSelector = React.forwardRef<
                   <Checkbox
                     checked={isSelected}
                     onCheckedChange={(checked) => handleCourseToggle(course.id, checked as boolean)}
-                    disabled={disabled || (!isSelected && hasReachedMaxSelections)}
+                    disabled={disabled || (maxSelections && !isSelected && selectedCourses.length >= maxSelections)}
                     className="mt-1"
                   />
                   

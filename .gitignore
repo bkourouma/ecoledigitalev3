@@ -101,6 +101,11 @@ config/local.*
 config/development.*
 config/production.*
 
+# Local backup snapshots
+*.backup-20260520/
+.claude.backup-*/
+.specify.backup-*/
+
 # Codex and AI assistant local state
 .codex-logs/
 .serena/

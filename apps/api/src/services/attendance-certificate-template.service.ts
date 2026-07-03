@@ -545,29 +545,21 @@ async function buildAttendanceHtmlDocument(
   <head>
     <meta charset="utf-8" />
     <style>
-      @page { size: A4; margin: 10mm 12mm; }
+      /* Marges type Word (document vierge) : 2,54 cm sur les 4 cotes, appliquees par Puppeteer (page.pdf). */
+      @page { size: A4; margin: 0; }
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: "Georgia", "Times New Roman", serif; color: #243a5a; background: #f4f6fb; }
+      body { margin: 0; font-family: "Georgia", "Times New Roman", serif; color: #243a5a; background: #fff; }
       .certificate {
         width: 100%;
-        height: calc(297mm - 20mm);
-        background: white;
-        padding: 14mm 12mm 12mm;
+        background: #fff;
         page-break-after: always;
         page-break-inside: avoid;
         position: relative;
         overflow: hidden;
       }
       .certificate:last-child { page-break-after: auto; }
-      .certificate::before {
-        content: "";
-        position: absolute;
-        inset: 8mm;
-        border: 1px solid #dbe4f4;
-        pointer-events: none;
-      }
       .certificate-header { position: relative; z-index: 1; }
-      .header-top { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: start; }
+      .header-top { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
       .header-block { text-align: center; }
       .gov-title {
         font-family: Arial, Helvetica, sans-serif;
@@ -613,7 +605,6 @@ async function buildAttendanceHtmlDocument(
         font-family: Arial, Helvetica, sans-serif;
         font-size: 7pt;
         line-height: 1.1;
-        white-space: nowrap;
         color: #666d79;
       }
       .school-year {
@@ -631,7 +622,7 @@ async function buildAttendanceHtmlDocument(
       .certificate-body {
         position: relative;
         z-index: 1;
-        padding: 24px 8px 0;
+        padding: 24px 0 0;
       }
       h1 {
         margin: 14px 0 4px;
@@ -767,10 +758,11 @@ async function renderHtmlToPdf(html: string): Promise<Buffer> {
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
+    // Marges par defaut d'un document Word vierge : 2,54 cm (1 pouce) sur les 4 cotes.
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "12mm", right: "14mm", bottom: "14mm", left: "14mm" },
+      margin: { top: "2.54cm", right: "2.54cm", bottom: "2.54cm", left: "2.54cm" },
     });
     return Buffer.from(pdf);
   } finally {

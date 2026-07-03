@@ -1,8 +1,7 @@
 "use client";
 
-import React from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -10,335 +9,282 @@ import {
   CardHeader,
   CardTitle,
   Button,
-  Badge,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@ecoledigitale/ui";
-import { 
-  BookOpen, 
-  Clock, 
-  Users, 
-  Calendar,
-  Play,
-  CheckCircle,
-  Star,
-  TrendingUp,
+import {
   ArrowLeft,
-  User,
-  Target,
+  AlertCircle,
+  Loader2,
   FileText,
+  ClipboardList,
   Video,
-  Download
+  Info,
+  BookOpen,
+  Calendar,
+  Receipt,
 } from "lucide-react";
-import { useStudentCourse, useCourseMaterials } from '@/lib/hooks/use-student-data';
+import {
+  useMyProfessionalEnrollments,
+  useStudentSessionEcue,
+} from "@/lib/hooks/use-professional-student";
+import { SubjectMaterialsPanel } from "@/components/professional/SubjectMaterialsPanel";
+import { StudentAssignmentsPanel } from "@/components/professional/StudentAssignmentsPanel";
 
-// Helper function to format dates
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+const LIST_URL = "/student/courses";
+
+const STATUT_LABEL: Record<string, string> = {
+  en_attente_paiement: "En attente de paiement",
+  confirmee: "Confirmée",
+  terminee: "Terminée",
+  annulee: "Annulée",
 };
 
-// Function to download material file
-const downloadMaterial = async (materialId: string, materialTitle: string) => {
-  try {
-    // Get the download URL from the Next.js proxy route
-    const response = await fetch(`/api/materials/${materialId}/content`, {
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
+type Tab = "infos" | "supports" | "evaluations" | "visio";
 
-    if (!response.ok) {
-      throw new Error('Failed to get download URL');
-    }
+/** La Conduite n'est pas une matière (ecue) — filtrée partout. */
+function isConduiteEcue(e: any): boolean {
+  const lib = String(e?.libelle ?? "").toLowerCase();
+  const code = String(e?.code ?? "").toUpperCase();
+  return lib.startsWith("conduite") || code.includes("EC-CON");
+}
 
-    const data = await response.json();
-    if (data.downloadUrl) {
-      // Download the file through the proxy route using fetch (which includes auth headers)
-      const fileResponse = await fetch(data.downloadUrl, {
-        method: 'GET',
-      });
-
-      if (!fileResponse.ok) {
-        throw new Error(`Failed to download file: ${fileResponse.status} ${fileResponse.statusText}`);
-      }
-
-      // Get the file as a blob
-      const blob = await fileResponse.blob();
-      
-      // Create a blob URL and trigger download
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = data.fileName || materialTitle || 'download';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Clean up the blob URL
-      window.URL.revokeObjectURL(blobUrl);
-    }
-  } catch (error) {
-    console.error('Download failed:', error);
-    alert('Erreur lors du téléchargement du fichier. Veuillez réessayer.');
-  }
-};
+function fmtDate(value?: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("fr-FR");
+}
 
 export default function StudentCourseDetailPage() {
-  const params = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
-  const courseId = params.id as string;
+  const params = useParams();
+  const enrollmentId = String(params?.id ?? "");
+  const [tab, setTab] = useState<Tab>("infos");
+  const [selectedEcueId, setSelectedEcueId] = useState<string>("");
 
-  const { data: courseData, isLoading, error } = useStudentCourse(courseId);
-  const { data: materialsData, isLoading: materialsLoading } = useCourseMaterials(courseId);
+  const query = useMyProfessionalEnrollments();
+  const enrollments: any[] = (query.data as any[]) ?? [];
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-500"></div>
-      </div>
-    );
-  }
+  const enrollment = useMemo(
+    () => enrollments.find((e) => e.id === enrollmentId),
+    [enrollments, enrollmentId]
+  );
 
-  if (error || !courseData?.data) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Erreur lors du chargement du cours</p>
-          <Button onClick={() => router.back()}>Retour</Button>
-        </div>
-      </div>
-    );
-  }
+  const isActive = enrollment?.statut === "confirmee" || enrollment?.statut === "terminee";
 
-  const course = courseData.data;
+  // ECUE débloquées par cette inscription (UE → plusieurs ECUE), hors Conduite.
+  const ecueQuery = useStudentSessionEcue(
+    isActive ? (enrollment?.ue_session_id ?? null) : null
+  );
+  const ecueList: any[] = useMemo(
+    () => ((ecueQuery.data as any[]) ?? []).filter((e) => !isConduiteEcue(e)),
+    [ecueQuery.data]
+  );
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-emerald-100 text-emerald-800">En cours</Badge>;
-      case 'completed':
-        return <Badge className="bg-blue-100 text-blue-800">Terminé</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
+  useEffect(() => {
+    if (!selectedEcueId && ecueList.length > 0) {
+      setSelectedEcueId(ecueList[0].id);
     }
-  };
+  }, [ecueList, selectedEcueId]);
+
+  if (query.isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto p-6">
+        <Card>
+          <CardContent className="flex justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!enrollment) {
+    return (
+      <div className="max-w-6xl mx-auto p-6 space-y-4">
+        <Button variant="outline" size="sm" onClick={() => router.push(LIST_URL)}>
+          <ArrowLeft className="h-4 w-4 mr-2" /> Retour
+        </Button>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-8 w-8 text-red-600 mb-3" />
+            <p className="text-muted-foreground">Cours introuvable ou non accessible.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const TABS: Array<{ id: Tab; label: string; icon: React.ElementType }> = [
+    { id: "infos", label: "Informations", icon: Info },
+    { id: "supports", label: "Supports de cours", icon: FileText },
+    { id: "evaluations", label: "Évaluations & notes", icon: ClipboardList },
+    { id: "visio", label: "Séances visio", icon: Video },
+  ];
+
+  const EcueSelector = () => (
+    <div className="mb-4 max-w-md">
+      <label className="text-sm font-medium mb-1.5 block">ECUE</label>
+      <Select value={selectedEcueId} onValueChange={setSelectedEcueId}>
+        <SelectTrigger>
+          <SelectValue placeholder="Choisir une ECUE" />
+        </SelectTrigger>
+        <SelectContent>
+          {ecueList.map((e) => (
+            <SelectItem key={e.id} value={e.id}>
+              {e.code} — {e.libelle}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => router.back()}
+    <div className="space-y-6 max-w-6xl mx-auto p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => router.push(LIST_URL)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Retour
+          </Button>
+          <div>
+            <p className="font-mono text-xs text-muted-foreground">{enrollment.ue_code}</p>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+              {enrollment.ue_libelle}
+            </h1>
+            <p className="text-sm text-muted-foreground">{enrollment.session_libelle}</p>
+          </div>
+        </div>
+        <span
+          className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+            enrollment.statut === "confirmee"
+              ? "bg-green-100 text-green-700"
+              : enrollment.statut === "terminee"
+                ? "bg-blue-100 text-blue-700"
+                : enrollment.statut === "en_attente_paiement"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-gray-100 text-gray-700"
+          }`}
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Retour
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-white">{course.name}</h1>
-          <p className="text-gray-300">{course.code}</p>
-        </div>
-        {getStatusBadge(course.status)}
+          {STATUT_LABEL[enrollment.statut] ?? enrollment.statut}
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Course Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-emerald-600" />
-                Aperçu du cours
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-300 mb-4">{course.description}</p>
-              
-              {/* Progress Bar */}
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="font-medium">Progression</span>
-                  <span>{course.progress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className="bg-emerald-500 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${course.progress}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              {/* Course Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                <div className="text-center p-3 bg-gray-700 rounded-lg">
-                  <Clock className="h-6 w-6 text-emerald-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-300">Heures</p>
-                  <p className="font-semibold text-white">{course.completed_hours}/{course.total_hours}h</p>
-                </div>
-                <div className="text-center p-3 bg-gray-700 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-emerald-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-300">Crédits</p>
-                  <p className="font-semibold text-white">{course.credits}</p>
-                </div>
-                <div className="text-center p-3 bg-gray-700 rounded-lg">
-                  <Target className="h-6 w-6 text-emerald-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-300">Statut</p>
-                  <p className="font-semibold text-white">{course.status === 'active' ? 'Actif' : 'Terminé'}</p>
-                </div>
-                <div className="text-center p-3 bg-gray-700 rounded-lg">
-                  <Star className="h-6 w-6 text-emerald-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-300">Favori</p>
-                  <p className="font-semibold text-white">{course.is_favorite ? 'Oui' : 'Non'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Course Content */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-emerald-600" />
-                Contenu du cours
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {materialsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-                </div>
-              ) : materialsData?.data?.length > 0 ? (
-                <div className="space-y-4">
-                  {materialsData.data.map((material: any) => (
-                    <div key={material.id} className="flex items-center justify-between p-4 border border-gray-600 rounded-lg hover:bg-gray-700">
-                      <div className="flex items-center gap-3">
-                        {material.file_type?.includes('video') ? (
-                          <Video className="h-5 w-5 text-emerald-400" />
-                        ) : (
-                          <FileText className="h-5 w-5 text-emerald-400" />
-                        )}
-                        <div>
-                          <p className="font-medium text-white">{material.title}</p>
-                          <p className="text-sm text-gray-300">
-                            {material.file_type?.includes('pdf') ? 'PDF' :
-                             material.file_type?.includes('video') ? 'Vidéo' :
-                             material.file_type?.split('/')[1]?.toUpperCase() || 'Fichier'}
-                            {material.file_size && ` - ${(material.file_size / (1024 * 1024)).toFixed(1)} MB`}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={material.file_type?.includes('video') ? 'default' : 'outline'}
-                        onClick={() => {
-                          if (material.file_type?.includes('video')) {
-                            // Pour les vidéos, ouvrir dans un nouvel onglet
-                          window.open(`/api/materials/${material.id}/content`, '_blank');
-                          } else {
-                            // Pour les autres fichiers, télécharger
-                            downloadMaterial(material.id, material.title);
-                          }
-                        }}
-                      >
-                        {material.file_type?.includes('video') ? (
-                          <>
-                            <Play className="h-4 w-4 mr-2" />
-                            Regarder
-                          </>
-                        ) : (
-                          <>
-                            <Download className="h-4 w-4 mr-2" />
-                            Télécharger
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-400">Aucun support de cours disponible pour le moment</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      {!isActive && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Votre inscription n'est pas encore active. Les supports, évaluations et séances visio ne
+          seront accessibles qu'une fois votre paiement validé.
         </div>
+      )}
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Instructor Info */}
-          {course.instructor && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-emerald-600" />
-                  Enseignant
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <User className="h-8 w-8 text-emerald-600" />
-                  </div>
-                  <h3 className="font-semibold text-white">{course.instructor.first_name} {course.instructor.last_name}</h3>
-                  <p className="text-sm text-gray-300">{course.instructor.email}</p>
-                  <Button size="sm" className="mt-3" variant="outline">
-                    Contacter
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Next Session */}
-          {course.next_session && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-emerald-600" />
-                  Prochain cours
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center">
-                  <span className="block font-semibold text-white">{formatDate(course.next_session)}</span>
-                  <span className="text-sm text-gray-300">Salle à confirmer</span>
-                </p>
-                <Button size="sm" className="w-full mt-3">
-                  Ajouter au calendrier
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions rapides</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button className="w-full" onClick={() => router.push('/student/assignments')}>
-                Voir les devoirs
-              </Button>
-              <Button className="w-full" variant="outline" onClick={() => router.push('/student/grades')}>
-                Consulter les notes
-              </Button>
-              <Button className="w-full" variant="outline">
-                Forum de discussion
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="border-b border-border">
+        <nav className="flex flex-wrap gap-2">
+          {TABS.map(({ id, label, icon: Icon }) => {
+            const isActiveTab = tab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                  isActiveTab
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            );
+          })}
+        </nav>
       </div>
+
+      {tab === "infos" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Informations du cours</CardTitle>
+            <CardDescription>Détails de la session d'UE à laquelle vous êtes inscrit.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              {enrollment.session_libelle}
+            </div>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              {fmtDate(enrollment.date_debut)} → {fmtDate(enrollment.date_fin)}
+            </div>
+            <div className="flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-muted-foreground" />
+              Référence&nbsp;: <span className="font-mono">{enrollment.order_reference}</span>
+            </div>
+            <div className="text-muted-foreground">
+              Inscrit le {new Date(enrollment.created_at).toLocaleString("fr-FR")}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === "supports" && isActive && (
+        <div>
+          <EcueSelector />
+          {selectedEcueId ? (
+            <SubjectMaterialsPanel
+              subjectId={selectedEcueId}
+              canManage={false}
+              canViewStats={false}
+              title="Supports de cours"
+              description="Lecture seule via le site — le téléchargement est désactivé. PDF, vidéo et images s'ouvrent directement dans le navigateur."
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Aucune ECUE disponible.</p>
+          )}
+        </div>
+      )}
+      {tab === "supports" && !isActive && <InactiveNotice />}
+
+      {tab === "evaluations" && isActive && (
+        <div>
+          <EcueSelector />
+          {selectedEcueId ? (
+            <StudentAssignmentsPanel subjectId={selectedEcueId} />
+          ) : (
+            <p className="text-sm text-muted-foreground">Aucune ECUE disponible.</p>
+          )}
+        </div>
+      )}
+      {tab === "evaluations" && !isActive && <InactiveNotice />}
+
+      {tab === "visio" && isActive && (
+        <Card>
+          <CardContent className="py-10 text-center space-y-2">
+            <Video className="h-8 w-8 mx-auto text-blue-500" />
+            <p className="text-sm text-muted-foreground">
+              Les séances visio sont rattachées aux séances planifiées de votre ECUE par
+              l'enseignant. Le lien de connexion vous sera communiqué pour chaque séance.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+      {tab === "visio" && !isActive && <InactiveNotice />}
     </div>
+  );
+}
+
+function InactiveNotice() {
+  return (
+    <Card>
+      <CardContent className="py-10 text-center">
+        <AlertCircle className="h-8 w-8 mx-auto text-amber-500 mb-3" />
+        <p className="text-sm text-muted-foreground">
+          Section disponible une fois votre inscription confirmée.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

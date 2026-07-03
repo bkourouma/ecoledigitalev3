@@ -11,8 +11,8 @@ interface AppLayoutProps {
 
 // Pages qui ne doivent pas avoir le layout principal (pages publiques)
 // Peut être un chemin exact ou un préfixe pour exclure toute une section
-const NO_LAYOUT_PAGES = ['/login'];
-const NO_LAYOUT_PREFIXES = ['/rso/formateur', '/super-admin'];
+const NO_LAYOUT_PAGES = ['/login', '/register'];
+const NO_LAYOUT_PREFIXES = ['/rso/formateur', '/super-admin', '/live'];
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { data: session, status } = useSession();
