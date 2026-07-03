@@ -118,6 +118,8 @@ async function tenantContextPlugin(fastify: FastifyInstance) {
       "/api/v1/parent",
       "/api/v1/teacher",
       "/api/v1/admin",
+      "/api/v1/registration-requests",
+      "/api/v1/professional",
     ];
 
     const requiresTenant = tenantRequiredPrefixes.some((prefix) => request.url.startsWith(prefix));

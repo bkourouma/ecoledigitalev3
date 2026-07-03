@@ -1,332 +1,368 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
-import { AlertCircle, Award, BookOpen, Calendar, Clock, GraduationCap, Users } from 'lucide-react';
-import { createApiHeaders } from '@/lib/api-utils';
-import { useCurrentStudent } from '@/lib/hooks/use-student-data';
-import { getStudentApiError, isStudentProfileMissingError } from '@/lib/student-profile-errors';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@ecoledigitale/ui";
+import {
+  GraduationCap,
+  BookOpen,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  AlertCircle,
+  ListFilter,
+  Plus,
+  X,
+  Calendar,
+  Receipt,
+  FileText,
+} from "lucide-react";
+import { useMyProfessionalEnrollments } from "@/lib/hooks/use-professional-student";
 
-interface Course {
-  id?: string;
-  name?: string;
-  code?: string;
-  description?: string;
-  teacher_name?: string;
-  credits?: number;
-  schedule?: string;
-  status?: 'active' | 'completed' | 'upcoming';
-  progress?: number;
-  semester?: string;
-  assignments_count?: number;
-  next_class?: string;
-  courseId?: string;
-  courseName?: string;
-  courseCode?: string;
-  className?: string;
-  programmeName?: string;
-}
+/**
+ * Mes cours — espace étudiant.
+ * Reprend les inscriptions professionnelles de l'étudiant : header dégradé,
+ * statistiques, cartes par statut. La « Conduite » n'est pas une matière (c'est
+ * une note) : elle est filtrée et n'apparaît jamais.
+ */
 
-type StudentCoursesResponse = {
-  data?: Course[];
+const STATUT_LABEL: Record<string, string> = {
+  en_attente_paiement: "En attente de paiement",
+  confirmee: "Confirmée",
+  terminee: "Terminée",
+  annulee: "Annulée",
 };
 
-function EmptyState({ title, message }: { title: string; message: string }) {
-  return (
-    <Card>
-      <CardContent className="text-center py-12">
-        <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">{title}</h3>
-        <p className="text-muted-foreground">{message}</p>
-      </CardContent>
-    </Card>
-  );
+const STATUT_GRADIENT: Record<string, string> = {
+  confirmee: "from-green-500 via-emerald-500 to-teal-500",
+  terminee: "from-blue-500 via-indigo-500 to-purple-500",
+  en_attente_paiement: "from-amber-500 via-orange-500 to-red-500",
+  annulee: "from-slate-500 via-slate-600 to-slate-700",
+};
+
+/** La Conduite n'est pas une matière (ecue) — filtrée partout. */
+function isConduite(e: any): boolean {
+  const lib = String(e?.ue_libelle ?? "").toLowerCase();
+  const code = String(e?.ue_code ?? "").toUpperCase();
+  return lib.startsWith("conduite") || code.includes("EC-CON");
+}
+
+function fmtDate(value?: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("fr-FR");
 }
 
 export default function StudentCoursesPage() {
-  const { data: session } = useSession();
-  const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'upcoming'>('all');
-  const {
-    data: currentStudent,
-    isLoading: isLoadingStudent,
-    error: currentStudentError,
-  } = useCurrentStudent();
+  const router = useRouter();
+  const [statutFilter, setStatutFilter] = useState<string>("all");
+  const [programmeFilter, setProgrammeFilter] = useState<string>("all");
 
-  const { data: coursesData, isLoading: isLoadingCourses, error } = useQuery<StudentCoursesResponse>({
-    queryKey: ['student-courses-page', currentStudent?.id, filter],
-    queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (filter !== 'all') {
-        searchParams.set('status', filter);
+  const query = useMyProfessionalEnrollments();
+  const enrollments: any[] = useMemo(
+    () => ((query.data as any[]) ?? []).filter((e) => !isConduite(e)),
+    [query.data]
+  );
+
+  // Programmes présents dans les inscriptions (dédoublonnés), pour le filtre.
+  const programmeOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of enrollments) {
+      if (e.filiere_id) {
+        map.set(e.filiere_id, e.filiere_name ?? e.filiere_id);
       }
-      searchParams.set('limit', '50');
-
-      const response = await fetch(`/api/v1/student/courses?${searchParams.toString()}`, {
-        headers: createApiHeaders(session),
-      });
-
-      if (!response.ok) {
-        throw await getStudentApiError(response, 'Erreur lors de la recuperation des cours');
-      }
-
-      return response.json();
-    },
-    enabled: !!currentStudent?.id,
-    retry: false,
-  });
-
-  const loading = isLoadingStudent || isLoadingCourses;
-  const courses = coursesData?.data ?? [];
-  const filteredCourses = courses.filter((course) => filter === 'all' || course.status === filter);
-
-  const getStatusText = (status?: string) => {
-    switch (status) {
-      case 'active':
-        return 'En cours';
-      case 'completed':
-        return 'Termine';
-      case 'upcoming':
-        return 'A venir';
-      default:
-        return 'Actif';
     }
-  };
-
-  const getStatusVariant = (status?: string) => {
-    switch (status) {
-      case 'completed':
-        return 'secondary' as const;
-      case 'upcoming':
-        return 'outline' as const;
-      default:
-        return 'default' as const;
-    }
-  };
-
-  const getProgressColor = (progress?: number) => {
-    if (!progress) return 'bg-gray-300';
-    if (progress >= 80) return 'bg-green-500';
-    if (progress >= 60) return 'bg-blue-500';
-    if (progress >= 40) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const getNextClassText = (nextClass?: string) => {
-    if (!nextClass) return '';
-
-    try {
-      const date = new Date(nextClass);
-      const now = new Date();
-      const diffDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 0) return "Aujourd'hui";
-      if (diffDays === 1) return 'Demain';
-      if (diffDays > 1) return `Dans ${diffDays} jours`;
-      return 'Passe';
-    } catch {
-      return '';
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="h-48 bg-gray-200 rounded"></div>
-            <div className="h-48 bg-gray-200 rounded"></div>
-            <div className="h-48 bg-gray-200 rounded"></div>
-            <div className="h-48 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-      </div>
+    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name, "fr")
     );
-  }
+  }, [enrollments]);
 
-  if (currentStudentError && isStudentProfileMissingError(currentStudentError)) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Mes Cours</h1>
-          <p className="text-muted-foreground">Suivez vos cours et votre progression academique</p>
-        </div>
-        <Card>
-          <CardContent className="text-center py-12">
-            <AlertCircle className="h-12 w-12 mx-auto text-amber-500 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Profil etudiant introuvable</h3>
-            <p className="text-muted-foreground">
-              Ce compte n&apos;est pas encore rattache a une fiche etudiant. Veuillez contacter
-              l&apos;administrateur.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const nbConfirmees = useMemo(
+    () =>
+      enrollments.filter(
+        (e) => e.statut === "confirmee" || e.statut === "terminee"
+      ).length,
+    [enrollments]
+  );
+  const nbEnAttente = useMemo(
+    () => enrollments.filter((e) => e.statut === "en_attente_paiement").length,
+    [enrollments]
+  );
 
-  if (currentStudentError || error) {
-    const message =
-      (currentStudentError instanceof Error && currentStudentError.message) ||
-      (error instanceof Error && error.message) ||
-      'Impossible de charger vos cours.';
-
-    return (
-      <div className="container mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Mes Cours</h1>
-          <p className="text-muted-foreground">Suivez vos cours et votre progression academique</p>
-        </div>
-        <Card>
-          <CardContent className="text-center py-12">
-            <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
-            <h3 className="text-lg font-semibold mb-2 text-red-600">Erreur de chargement</h3>
-            <p className="text-muted-foreground">{message}</p>
-            <Button onClick={() => window.location.reload()} className="mt-4" variant="outline">
-              Reessayer
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const filtered = useMemo(
+    () =>
+      enrollments.filter(
+        (e) =>
+          (statutFilter === "all" || e.statut === statutFilter) &&
+          (programmeFilter === "all" || e.filiere_id === programmeFilter)
+      ),
+    [enrollments, statutFilter, programmeFilter]
+  );
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Mes Cours</h1>
-        <p className="text-muted-foreground">Suivez vos cours et votre progression academique</p>
-      </div>
-
-      <div className="flex gap-2 mb-6">
-        {[
-          { key: 'all', label: 'Tous' },
-          { key: 'active', label: 'En cours' },
-          { key: 'completed', label: 'Termines' },
-          { key: 'upcoming', label: 'A venir' },
-        ].map(({ key, label }) => (
-          <Button
-            key={key}
-            variant={filter === key ? 'default' : 'outline'}
-            onClick={() => setFilter(key as typeof filter)}
-            size="sm"
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-
-      {filteredCourses.length === 0 ? (
-        <EmptyState
-          title={filter === 'all' ? 'Aucun cours' : `Aucun cours ${getStatusText(filter)}`}
-          message={
-            filter === 'all'
-              ? "Vous n'etes inscrit a aucun cours pour le moment."
-              : "Vous n'avez aucun cours dans cette categorie."
-          }
-        />
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredCourses.map((course) => (
-            <Card
-              key={course.id || course.courseId || `${course.name || course.courseName}-course`}
-              className="hover:shadow-lg transition-shadow"
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 min-w-0">
-                    <CardTitle className="text-lg">{course.name || course.courseName || 'Cours'}</CardTitle>
-                    <CardDescription className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4" />
-                      <span className="truncate">
-                        {course.code || course.courseCode || 'N/A'} {course.semester ? `• ${course.semester}` : ''}
-                      </span>
-                    </CardDescription>
-                  </div>
-                  <Badge variant={getStatusVariant(course.status)}>{getStatusText(course.status)}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {course.description && (
-                  <p className="text-sm text-muted-foreground">{course.description}</p>
-                )}
-
-                <div className="space-y-2">
-                  {course.teacher_name && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span>{course.teacher_name}</span>
-                    </div>
-                  )}
-                  {course.schedule && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{course.schedule}</span>
-                    </div>
-                  )}
-                  {course.credits && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                      <span>{course.credits} credits</span>
-                    </div>
-                  )}
-                  {course.className && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <BookOpen className="h-4 w-4 text-muted-foreground" />
-                      <span>Classe: {course.className}</span>
-                    </div>
-                  )}
-                  {course.programmeName && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                      <span>Programme: {course.programmeName}</span>
-                    </div>
-                  )}
-                  {course.assignments_count ? (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Award className="h-4 w-4 text-muted-foreground" />
-                      <span>
-                        {course.assignments_count} devoir{course.assignments_count > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  ) : null}
-                  {course.next_class && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>Prochain cours: {getNextClassText(course.next_class)}</span>
-                    </div>
-                  )}
-                </div>
-
-                {course.status === 'active' && course.progress !== undefined ? (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Progression</span>
-                      <span>{course.progress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all ${getProgressColor(course.progress)}`}
-                        style={{ width: `${course.progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ) : null}
-
-                <Link href={`/student/courses/${course.id || course.courseId || ''}`} className="block">
-                  <Button className="w-full" variant="outline">
-                    Acceder au cours
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+    <div className="space-y-8 max-w-7xl mx-auto p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-blue-500 bg-clip-text text-transparent">
+            Mes cours
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Le contenu pédagogique est accessible une fois l'inscription
+            confirmée.
+          </p>
         </div>
+        <Button
+          onClick={() => router.push("/professionnel/etudiant")}
+          className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Nouvelle inscription
+        </Button>
+      </div>
+
+      {/* Statistiques rapides */}
+      {!query.isLoading && !query.isError && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/80 text-sm font-medium">
+                  Total cours
+                </p>
+                <p className="text-3xl font-bold mt-1">{enrollments.length}</p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-lg">
+                <GraduationCap className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/80 text-sm font-medium">Confirmées</p>
+                <p className="text-3xl font-bold mt-1">{nbConfirmees}</p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-lg">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/80 text-sm font-medium">
+                  En attente de paiement
+                </p>
+                <p className="text-3xl font-bold mt-1">{nbEnAttente}</p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-lg">
+                <Clock className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filtre */}
+      <Card className="shadow-lg">
+        <CardContent className="p-6">
+          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+              <div className="w-full sm:w-[20rem]">
+                <Select value={statutFilter} onValueChange={setStatutFilter}>
+                  <SelectTrigger className="h-11">
+                    <ListFilter className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <SelectValue placeholder="Filtrer par statut" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    {Object.entries(STATUT_LABEL).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full sm:w-[20rem]">
+                <Select
+                  value={programmeFilter}
+                  onValueChange={setProgrammeFilter}
+                >
+                  <SelectTrigger className="h-11">
+                    <GraduationCap className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <SelectValue placeholder="Filtrer par programme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les programmes</SelectItem>
+                    {programmeOptions.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center text-sm text-muted-foreground whitespace-nowrap">
+              <span className="font-medium text-foreground">
+                {filtered.length}
+              </span>
+              <span className="ml-1">
+                {filtered.length === 1 ? "cours affiché" : "cours affichés"}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Chargement */}
+      {query.isLoading && (
+        <Card className="shadow-lg">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="text-center space-y-4">
+              <div className="bg-gradient-to-br from-green-500/20 to-blue-500/20 rounded-full w-16 h-16 flex items-center justify-center mx-auto">
+                <Loader2 className="h-8 w-8 animate-spin text-green-400" />
+              </div>
+              <p className="text-muted-foreground text-lg">
+                Chargement des cours…
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Erreur */}
+      {query.isError && (
+        <Card className="shadow-lg">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-red-500/15 rounded-full flex items-center justify-center mx-auto">
+                <AlertCircle className="h-8 w-8 text-red-400" />
+              </div>
+              <p className="text-muted-foreground">
+                {(query.error as Error)?.message ??
+                  "Impossible de charger les cours."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Grille des cours */}
+      {!query.isLoading && !query.isError && filtered.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {filtered.map((e) => {
+            const gradient =
+              STATUT_GRADIENT[e.statut] ??
+              "from-slate-500 via-slate-600 to-slate-700";
+            return (
+              <div
+                key={e.id}
+                className={`bg-gradient-to-br ${gradient} p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-white relative overflow-hidden group`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <p className="font-mono text-xs text-white/70">
+                        {e.ue_code}
+                      </p>
+                      <h3 className="font-semibold text-lg leading-tight">
+                        {e.ue_libelle}
+                      </h3>
+                    </div>
+                    <span className="bg-white/20 text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap">
+                      {STATUT_LABEL[e.statut] ?? e.statut}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-sm">
+                    <p className="text-white/90 flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 shrink-0" />
+                      {e.session_libelle}
+                    </p>
+                    <p className="text-white/90 flex items-center gap-2">
+                      <Calendar className="h-4 w-4 shrink-0" />
+                      {fmtDate(e.date_debut)} → {fmtDate(e.date_fin)}
+                    </p>
+                    <p className="text-white/90 flex items-center gap-2">
+                      <Receipt className="h-4 w-4 shrink-0" />
+                      <span className="font-mono text-xs">
+                        {e.order_reference}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/student/courses/${e.id}`)}
+                      className="inline-flex items-center gap-2 bg-white/25 hover:bg-white/35 transition-colors px-3 py-1.5 rounded-md text-sm font-medium"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Détails du cours
+                    </button>
+                  </div>
+                </div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 group-hover:scale-110 transition-transform duration-500"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 group-hover:scale-110 transition-transform duration-500"></div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Vide */}
+      {!query.isLoading && !query.isError && filtered.length === 0 && (
+        <Card className="shadow-lg">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="text-center space-y-6">
+              <div className="bg-gradient-to-br from-green-500/20 to-blue-500/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto">
+                <GraduationCap className="h-10 w-10 text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-foreground mb-2">
+                  Aucun cours trouvé
+                </h3>
+                <p className="text-muted-foreground text-lg">
+                  {statutFilter === "all" && programmeFilter === "all"
+                    ? "Vous n'avez pas encore de cours."
+                    : "Aucun cours pour les filtres sélectionnés."}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                {(statutFilter !== "all" || programmeFilter !== "all") && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setStatutFilter("all");
+                      setProgrammeFilter("all");
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Effacer les filtres
+                  </Button>
+                )}
+                <Button
+                  onClick={() => router.push("/professionnel/etudiant")}
+                  className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Découvrir le catalogue
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

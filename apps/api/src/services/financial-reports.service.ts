@@ -27,6 +27,12 @@ interface RevenueReport {
     revenue: number;
     transactions: number;
   }>;
+  // Revenus du Module Professionnel (feature 028) — champ additif et optionnel.
+  professional?: {
+    totalRevenue: number;
+    byMode: Record<string, number>;
+    monthlyTrends: Array<{ month: string; revenue: number; transactions: number }>;
+  };
 }
 
 interface StudentPaymentReport {
@@ -183,6 +189,9 @@ export class FinancialReportsService {
         transactions: parseInt(row.transactions),
       }));
 
+      // Module Professionnel (feature 028) — agrégation additive des paiements pro.
+      const professional = await this.queryProfessionalRevenue(client, filters);
+
       return {
         totalRevenue,
         totalOutstanding,
@@ -190,7 +199,82 @@ export class FinancialReportsService {
         byFeeType,
         byPaymentMethod,
         monthlyTrends,
+        professional,
       };
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Agrège les revenus du Module Professionnel (feature 028) à partir des
+   * paiements `professional_payments` confirmés. Strictement additif — n'altère
+   * aucune requête du reporting académique existant.
+   */
+  private async queryProfessionalRevenue(
+    client: any,
+    filters: ReportFilters
+  ): Promise<{
+    totalRevenue: number;
+    byMode: Record<string, number>;
+    monthlyTrends: Array<{ month: string; revenue: number; transactions: number }>;
+  }> {
+    const conditions: string[] = ["pp.tenant_id = $1", "pp.statut = 'confirme'"];
+    const params: any[] = [filters.tenantId];
+    let i = 2;
+    if (filters.fromDate) {
+      conditions.push(`COALESCE(pp.paid_at, pp.created_at) >= $${i++}`);
+      params.push(filters.fromDate);
+    }
+    if (filters.toDate) {
+      conditions.push(`COALESCE(pp.paid_at, pp.created_at) <= $${i++}`);
+      params.push(filters.toDate);
+    }
+    const where = conditions.join(" AND ");
+
+    const totalRes = await client.query(
+      `SELECT COALESCE(SUM(pp.montant), 0) AS total
+       FROM professional_payments pp WHERE ${where}`,
+      params
+    );
+    const modeRes = await client.query(
+      `SELECT pp.mode, COALESCE(SUM(pp.montant), 0) AS total
+       FROM professional_payments pp WHERE ${where} GROUP BY pp.mode`,
+      params
+    );
+    const monthlyRes = await client.query(
+      `SELECT TO_CHAR(COALESCE(pp.paid_at, pp.created_at), 'YYYY-MM') AS month,
+              COALESCE(SUM(pp.montant), 0) AS revenue,
+              COUNT(*) AS transactions
+       FROM professional_payments pp
+       WHERE ${where}
+         AND COALESCE(pp.paid_at, pp.created_at) >= CURRENT_DATE - INTERVAL '12 months'
+       GROUP BY 1 ORDER BY 1`,
+      params
+    );
+
+    const byMode: Record<string, number> = {};
+    modeRes.rows.forEach((r: any) => {
+      byMode[r.mode] = parseFloat(r.total);
+    });
+
+    return {
+      totalRevenue: parseFloat(totalRes.rows[0].total),
+      byMode,
+      monthlyTrends: monthlyRes.rows.map((r: any) => ({
+        month: r.month,
+        revenue: parseFloat(r.revenue),
+        transactions: parseInt(r.transactions),
+      })),
+    };
+  }
+
+  /** Résumé public des revenus du Module Professionnel (ouvre sa propre connexion). */
+  async getProfessionalRevenueSummary(filters: ReportFilters) {
+    const client = await this.pool.connect();
+    try {
+      await client.query("SELECT set_config('app.tenant_id', $1, true)", [filters.tenantId]);
+      return await this.queryProfessionalRevenue(client, filters);
     } finally {
       client.release();
     }

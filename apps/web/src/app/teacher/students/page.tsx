@@ -1,386 +1,194 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import {
-  Users,
-  Search,
-  Filter,
-  BookOpen,
-  Award,
-  TrendingUp,
-  Eye,
-  Download,
-  Loader2,
-  Grid,
-  List
-} from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ecoledigitale/ui";
-import { useTeacherStudentsByClass } from '@/lib/hooks/use-teachers';
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Users, Search, Layers, Loader2, AlertCircle, Mail, GraduationCap, Eye } from "lucide-react";
+import { Card, CardContent, Input } from "@ecoledigitale/ui";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { useTeacherStudents } from "@/lib/hooks/use-professional-teacher";
+
+/**
+ * Mes Étudiants — Espace enseignant (Module Professionnel).
+ * Affiche tous les étudiants de l'enseignant (selon ses ECUE affectées),
+ * filtrables par filière. Une carte colorée par étudiant, 3 par ligne.
+ */
+
+const CARD_GRADIENT = "from-violet-500 via-purple-500 to-purple-600";
 
 export default function TeacherStudentsPage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClass, setSelectedClass] = useState('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const { data, isLoading, isError, error } = useTeacherStudents();
+  const [filiere, setFiliere] = useState("all");
+  const [search, setSearch] = useState("");
 
-  // Fetch data using new hook
-  const { data, isLoading, error } = useTeacherStudentsByClass(selectedClass, false);
+  const rows: any[] = (data as any[]) ?? [];
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (status === 'loading') return;
-    
-    if (!session) {
-      router.push('/login');
-      return;
+  const filiereOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      if (r.filiere_id) map.set(r.filiere_id, `${r.filiere_nom ?? r.filiere_code} (${r.filiere_code})`);
     }
-
-    // Check if user has teacher role
-    const roles = (session as any)?.roles ?? [];
-    const isTeacher = Array.isArray(roles) && roles.some((r: string) => ['teacher', 'Enseignant'].includes(r));
-
-    if (!isTeacher) {
-      router.push('/');
-    }
-  }, [session, status, router]);
-
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
-      </div>
+    return Array.from(map, ([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label, "fr")
     );
-  }
+  }, [rows]);
 
-  if (!session) {
-    return null;
-  }
-
-  // Check if user has teacher role
-  const roles = (session as any)?.roles ?? [];
-  const isTeacher = Array.isArray(roles) && roles.some((r: string) => ['teacher', 'Enseignant'].includes(r));
-
-  if (!isTeacher) {
-    return null;
-  }
-
-  // Extract data from API response
-  const classes = data?.classes || [];
-  const students = data?.students || [];
-
-  // Filter students based on search (class filter already applied by API)
-  const filteredStudents = useMemo(() => {
-    return students.filter(student => {
-      const matchesSearch =
-        student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.matricule.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.email.toLowerCase().includes(searchTerm.toLowerCase());
-
-      return matchesSearch;
-    });
-  }, [students, searchTerm]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'warning':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'inactive':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  // Un étudiant unique par carte (dédoublonné, filières agrégées).
+  const students = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    const map = new Map<string, any>();
+    for (const r of rows) {
+      if (filiere !== "all" && r.filiere_id !== filiere) continue;
+      if (
+        s &&
+        !`${r.first_name} ${r.last_name} ${r.matricule ?? ""} ${r.email ?? ""}`
+          .toLowerCase()
+          .includes(s)
+      )
+        continue;
+      let st = map.get(r.student_id);
+      if (!st) {
+        st = {
+          student_id: r.student_id,
+          first_name: r.first_name,
+          last_name: r.last_name,
+          email: r.email,
+          phone: r.phone,
+          matricule: r.matricule,
+          filieres: new Set<string>(),
+        };
+        map.set(r.student_id, st);
+      }
+      if (r.filiere_code) st.filieres.add(r.filiere_code);
     }
-  };
+    return Array.from(map.values()).sort((a, b) =>
+      `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`, "fr")
+    );
+  }, [rows, filiere, search]);
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'Actif';
-      case 'warning':
-        return 'Attention';
-      case 'inactive':
-        return 'Inactif';
-      default:
-        return 'Inconnu';
-    }
-  };
-
-  const handleViewStudent = (studentId: string) => {
-    router.push(`/teacher/students/${studentId}`);
-  };
-
-  // Calculate statistics
-  const totalStudents = filteredStudents.length;
-  const activeStudents = filteredStudents.filter(s => s.status === 'active').length;
-  const averageGrade = filteredStudents.length > 0
-    ? filteredStudents.reduce((sum, s) => sum + (s.average || 0), 0) / filteredStudents.length
-    : 0;
-  const averageAttendance = filteredStudents.length > 0
-    ? filteredStudents.reduce((sum, s) => sum + (s.attendance || 0), 0) / filteredStudents.length
-    : 0;
-
-  // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-purple-500" />
       </div>
     );
   }
 
-  // Error state
-  if (error) {
+  if (isError) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Erreur de chargement</h1>
-          <p className="text-muted-foreground mb-4">Impossible de charger les étudiants. Veuillez réessayer.</p>
-          <Button onClick={() => window.location.reload()}>
-            Réessayer
-          </Button>
-        </div>
+      <div className="max-w-3xl mx-auto p-6">
+        <Card className="border-red-200">
+          <CardContent className="flex items-center gap-3 py-8 text-red-700">
+            <AlertCircle className="h-6 w-6 shrink-0" />
+            <p>{(error as Error)?.message ?? "Impossible de charger vos étudiants."}</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground flex items-center">
-                <Users className="w-8 h-8 text-purple-400 mr-3" />
-                Mes Étudiants
-              </h1>
-              <p className="mt-2 text-muted-foreground">
-                Gestion et suivi de vos étudiants
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 rounded-lg border border-border bg-secondary/50 p-1">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 ${
-                    viewMode === 'grid' 
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                >
-                  <Grid className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 ${
-                    viewMode === 'list' 
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                >
-                  <List className="w-4 h-4" />
-                </Button>
-              </div>
-              <Button>
-                <Download className="w-4 h-4 mr-2" />
-                Exporter
-              </Button>
-            </div>
-          </div>
-        </div>
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Users className="w-6 h-6 text-purple-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Total Étudiants</p>
-                  <p className="text-2xl font-bold text-foreground">{totalStudents}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Award className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Moyenne Générale</p>
-                  <p className="text-2xl font-bold text-foreground">{averageGrade.toFixed(1)}/20</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <TrendingUp className="w-6 h-6 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Présence Moyenne</p>
-                  <p className="text-2xl font-bold text-foreground">{averageAttendance.toFixed(0)}%</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="Rechercher un étudiant..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <div className="space-y-2">
-              <Select
-                value={selectedClass}
-                onValueChange={(value) => setSelectedClass(value)}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Toutes les classes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes les classes</SelectItem>
-                  {classes.map((cls) => (
-                    <SelectItem key={cls.id} value={cls.id}>
-                      {cls.name} ({cls.studentCount} étudiants)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        {/* Students Grid/List */}
-        {filteredStudents.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">
-              {searchTerm || selectedClass !== 'all' ? 'Aucun étudiant trouvé' : 'Aucun étudiant assigné'}
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              {searchTerm || selectedClass !== 'all'
-                ? 'Aucun étudiant ne correspond à vos critères de recherche.'
-                : "Vous n'avez pas encore d'étudiants assignés."}
-            </p>
-          </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredStudents.map((student: any) => (
-              <Card key={student.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg flex items-center gap-2 text-foreground">
-                        <Users className="h-5 w-5 text-purple-400 shrink-0" />
-                        {student.firstName} {student.lastName}
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        {student.matricule} • {student.className}
-                      </CardDescription>
-                    </div>
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(student.status)}`}>
-                      {getStatusLabel(student.status)}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <BookOpen className="w-4 h-4 mr-2 shrink-0 text-purple-400/90" />
-                      {student.className} ({student.classCode})
-                    </div>
-                    
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Award className="w-4 h-4 mr-2 shrink-0 text-purple-400/90" />
-                      Moyenne: {student.average ? `${student.average.toFixed(1)}/20` : '-/20'}
-                    </div>
-
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <TrendingUp className="w-4 h-4 mr-2 shrink-0 text-purple-400/90" />
-                      Présence: {student.attendance ? `${student.attendance.toFixed(0)}%` : '-%'}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <Button
-                      onClick={() => handleViewStudent(student.id)}
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                      size="sm"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Voir les détails
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredStudents.map((student: any) => (
-              <Card key={student.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="p-2 bg-purple-100 rounded-lg">
-                        <Users className="w-6 h-6 text-purple-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-foreground">{student.firstName} {student.lastName}</h3>
-                        <p className="text-sm text-muted-foreground">{student.matricule} • {student.className}</p>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                          <span>Moyenne: {student.average ? `${student.average.toFixed(1)}/20` : '-/20'}</span>
-                          <span>Présence: {student.attendance ? `${student.attendance.toFixed(0)}%` : '-%'}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <span className={`px-3 py-1 text-sm rounded-full ${getStatusColor(student.status)}`}>
-                        {getStatusLabel(student.status)}
-                      </span>
-                      <Button
-                        onClick={() => handleViewStudent(student.id)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Voir les détails
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+          <Users className="h-7 w-7 text-purple-500" />
+          Mes Étudiants
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Tous les étudiants de vos sessions actives, selon les ECUE qui vous sont affectées.
+        </p>
       </div>
+
+      {/* Filtres : filière + recherche */}
+      <Card className="shadow-sm">
+        <CardContent className="p-4 flex flex-col lg:flex-row gap-3 lg:items-center">
+          <div className="flex-1 min-w-0">
+            <SearchableSelect
+              value={filiere}
+              onChange={setFiliere}
+              icon={<Layers className="h-4 w-4 text-gray-400" />}
+              placeholder="Toutes les filières"
+              searchPlaceholder="Rechercher une filière…"
+              options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
+            />
+          </div>
+          <div className="relative lg:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un étudiant…"
+              className="pl-9"
+            />
+          </div>
+          <div className="text-sm text-muted-foreground whitespace-nowrap">
+            <span className="font-medium text-foreground">{students.length}</span> étudiant
+            {students.length > 1 ? "s" : ""}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Cartes étudiants (3 par ligne) */}
+      {students.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center text-center py-16 gap-3">
+            <div className="rounded-full bg-purple-50 p-4">
+              <GraduationCap className="h-8 w-8 text-purple-500" />
+            </div>
+            <p className="text-muted-foreground max-w-md">
+              {rows.length === 0
+                ? "Aucun étudiant : aucune session active avec des inscrits sur vos ECUE."
+                : "Aucun étudiant ne correspond à ces filtres."}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {students.map((s) => (
+            <div
+              key={s.student_id}
+              className={`bg-gradient-to-br ${CARD_GRADIENT} p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-white relative overflow-hidden group flex flex-col`}
+            >
+              <div className="relative z-10 flex flex-col flex-1">
+                <h3 className="font-semibold text-lg leading-snug">
+                  {s.last_name} {s.first_name}
+                </h3>
+                {s.matricule && (
+                  <span className="font-mono text-[11px] bg-white/20 rounded px-1.5 py-0.5 w-fit mt-1">
+                    {s.matricule}
+                  </span>
+                )}
+                <div className="mt-3 space-y-1.5 text-sm text-white/90">
+                  {s.email && (
+                    <p className="flex items-center gap-2 truncate">
+                      <Mail className="h-4 w-4 shrink-0" />
+                      {s.email}
+                    </p>
+                  )}
+                  <p className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 shrink-0" />
+                    {Array.from(s.filieres).join(", ") || "—"}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => router.push(`/teacher/students/${s.student_id}`)}
+                  className="mt-4 w-full inline-flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 border border-white/20 transition-colors rounded-lg py-2 text-sm font-medium"
+                >
+                  <Eye className="h-4 w-4" />
+                  Voir les détails
+                </button>
+              </div>
+
+              {/* Décor de fond */}
+              <div className="absolute top-0 right-0 w-28 h-28 bg-white/10 rounded-full transform translate-x-14 -translate-y-14 group-hover:scale-110 transition-transform duration-500" />
+              <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full transform -translate-x-10 translate-y-10 group-hover:scale-110 transition-transform duration-500" />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

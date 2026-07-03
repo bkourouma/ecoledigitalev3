@@ -6,13 +6,9 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
 export async function POST(
   _req: Request,
-  { params }: RouteContext
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {

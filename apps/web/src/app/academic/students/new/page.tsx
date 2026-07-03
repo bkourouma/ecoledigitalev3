@@ -22,9 +22,12 @@ import {
   SelectValue,
 } from "@ecoledigitale/ui";
 import DatePickerFr from "@/components/DatePickerFr";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
-import { useCreateStudent } from "@/lib/hooks/use-students";
+import { ArrowLeft, Loader2, Save, Upload, FileText, X } from "lucide-react";
+import { useCreateStudent, uploadStudentDiploma } from "@/lib/hooks/use-students";
 import { CI_SUBPREFECTURES } from "@/data/ci-subprefectures";
+
+const DIPLOMA_ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
+const DIPLOMA_MAX_MB = 10;
 
 const generatePassword = (): string => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
@@ -40,16 +43,14 @@ const studentFormSchema = z.object({
   lastName: z.string().min(1, "Le nom est requis").max(100, "Le nom ne peut pas dépasser 100 caractères"),
   email: z.string().min(1, "L'email est requis").email("Email invalide"),
   phone: z.string()
+    .min(1, "Le téléphone est requis")
     .refine((val) => {
-      if (!val) return true;
       const digits = val.replace(/\s/g, "");
       return digits.length === 10 && /^\d+$/.test(digits);
     }, "Le numéro doit contenir exactement 10 chiffres")
-    .transform((val) => (val ? val.replace(/\s/g, "") : val))
-    .optional()
-    .or(z.literal("")),
+    .transform((val) => val.replace(/\s/g, "")),
   dateOfBirth: z.string().min(1, "La date de naissance est requise"),
-  placeOfBirth: z.string().max(255, "Le lieu de naissance ne peut pas dépasser 255 caractères").optional().or(z.literal("")),
+  placeOfBirth: z.string().min(1, "Le lieu de naissance est requis").max(255, "Le lieu de naissance ne peut pas dépasser 255 caractères"),
   nationality: z.string().min(1, "La nationalité est requise").max(100, "La nationalité ne peut pas dépasser 100 caractères"),
   address: z.string().optional().or(z.literal("")),
   gender: z.enum(["masculin", "feminin"], {
@@ -58,10 +59,12 @@ const studentFormSchema = z.object({
   birthCertificateNumber: z.string().max(100, "Le numéro d'extrait est trop long").optional().or(z.literal("")),
   birthCertificateDate: z.string().optional().or(z.literal("")),
   civilRegistryOffice: z.string().max(255, "Le bureau d'état civil est trop long").optional().or(z.literal("")),
-  subPrefecture: z.string().min(1, "La sous-préfecture est requise"),
-  residence: z.string().max(255, "La résidence est trop longue").optional().or(z.literal("")),
+  subPrefecture: z.string().max(255, "La sous-préfecture est trop longue").optional().or(z.literal("")),
+  residence: z.string().min(1, "La résidence est requise").max(255, "La résidence est trop longue"),
   dspsMatricule: z.string().max(100, "Le matricule DSPS est trop long").optional().or(z.literal("")),
   dspsPreviousMatricule: z.string().max(100, "Le matricule précédent DSPS est trop long").optional().or(z.literal("")),
+  bacObtentionDate: z.string().min(1, "La date d'obtention du BAC est requise"),
+  bacSeries: z.string().min(1, "La série du BAC est requise").max(100, "La série du BAC est trop longue"),
 });
 
 type StudentFormData = z.infer<typeof studentFormSchema>;
@@ -80,6 +83,8 @@ export default function NewStudentPage() {
   const router = useRouter();
   const createStudent = useCreateStudent();
   const [phoneValue, setPhoneValue] = useState("");
+  const [diplomaFile, setDiplomaFile] = useState<File | null>(null);
+  const [diplomaError, setDiplomaError] = useState<string | null>(null);
 
   const {
     register,
@@ -100,10 +105,35 @@ export default function NewStudentPage() {
   const handlePhoneChange = (e: ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneNumber(e.target.value);
     setPhoneValue(formatted);
-    setValue("phone", formatted);
+    setValue("phone", formatted, { shouldValidate: true });
+  };
+
+  const handleDiplomaChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) {
+      setDiplomaFile(null);
+      return;
+    }
+    const allowed = DIPLOMA_ACCEPT.split(",");
+    if (!allowed.includes(file.type)) {
+      setDiplomaError("Format non autorisé (PDF, PNG, JPG ou WEBP).");
+      setDiplomaFile(null);
+      return;
+    }
+    if (file.size > DIPLOMA_MAX_MB * 1024 * 1024) {
+      setDiplomaError(`Le fichier ne doit pas dépasser ${DIPLOMA_MAX_MB} Mo.`);
+      setDiplomaFile(null);
+      return;
+    }
+    setDiplomaError(null);
+    setDiplomaFile(file);
   };
 
   const onSubmit = async (data: StudentFormData) => {
+    if (!diplomaFile) {
+      setDiplomaError("Le dernier diplôme (fichier) est requis.");
+      return;
+    }
     try {
       const studentData = {
         firstName: data.firstName,
@@ -125,11 +155,24 @@ export default function NewStudentPage() {
         residence: data.residence && data.residence.trim() ? data.residence : undefined,
         dspsMatricule: data.dspsMatricule && data.dspsMatricule.trim() ? data.dspsMatricule : undefined,
         dspsPreviousMatricule: data.dspsPreviousMatricule && data.dspsPreviousMatricule.trim() ? data.dspsPreviousMatricule : undefined,
+        bacObtentionDate: data.bacObtentionDate && data.bacObtentionDate.trim() ? data.bacObtentionDate : undefined,
+        bacSeries: data.bacSeries && data.bacSeries.trim() ? data.bacSeries : undefined,
       };
 
       const createdStudent = await createStudent.mutateAsync(studentData);
       if (!createdStudent) {
         throw new Error("Création de l'étudiant échouée");
+      }
+
+      // Upload du fichier du dernier diplôme (obligatoire).
+      try {
+        await uploadStudentDiploma((createdStudent as any).id, diplomaFile);
+      } catch (uploadError) {
+        console.error("Error uploading diploma:", uploadError);
+        alert(
+          "L'étudiant a été créé, mais l'upload du diplôme a échoué. Vous pourrez le réessayer depuis sa fiche.\n\n" +
+            (uploadError instanceof Error ? uploadError.message : "")
+        );
       }
 
       router.push("/academic/students");
@@ -165,15 +208,6 @@ export default function NewStudentPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <Card className="border-blue-200 bg-blue-50/60">
-          <CardContent className="pt-6">
-            <p className="text-sm text-blue-900">
-              La classe, la date d'inscription, la LV2, la bourse et les autres informations annuelles se gèrent désormais dans
-              <span className="font-semibold"> Année académique &gt; Inscriptions</span>.
-            </p>
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Informations personnelles</CardTitle>
@@ -221,7 +255,7 @@ export default function NewStudentPage() {
                 {errors.nationality && <p className="text-sm text-red-600">{errors.nationality.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Téléphone</Label>
+                <Label htmlFor="phone">Téléphone *</Label>
                 <Input
                   id="phone"
                   value={phoneValue}
@@ -236,25 +270,90 @@ export default function NewStudentPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="dateOfBirth">Date de naissance *</Label>
-                <DatePickerFr id="dateOfBirth" value={undefined} onChange={(iso) => setValue("dateOfBirth", iso)} />
+                <Input id="dateOfBirth" type="date" {...register("dateOfBirth")} />
                 {errors.dateOfBirth && <p className="text-sm text-red-600">{errors.dateOfBirth.message}</p>}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="placeOfBirth">Lieu de naissance</Label>
-                <Input id="placeOfBirth" {...register("placeOfBirth")} placeholder="Ville, Pays" />
-                {errors.placeOfBirth && <p className="text-sm text-red-600">{errors.placeOfBirth.message}</p>}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="address">Adresse</Label>
-              <Textarea id="address" {...register("address")} placeholder="Adresse complète de l'étudiant" rows={3} />
-              {errors.address && <p className="text-sm text-red-600">{errors.address.message}</p>}
             </div>
           </CardContent>
         </Card>
 
+        {/* Informations complémentaires (origine, scolarité, diplômes) */}
         <Card>
+          <CardHeader>
+            <CardTitle>Informations complémentaires</CardTitle>
+            <CardDescription>Origine, scolarité et diplômes de l'étudiant</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="placeOfBirth">Lieu de naissance *</Label>
+                <Input id="placeOfBirth" {...register("placeOfBirth")} placeholder="Ville, Pays" />
+                {errors.placeOfBirth && <p className="text-sm text-red-600">{errors.placeOfBirth.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="residence">Résidence *</Label>
+                <Input id="residence" {...register("residence")} placeholder="Résidence actuelle" />
+                {errors.residence && <p className="text-sm text-red-600">{errors.residence.message}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="bacObtentionDate">Date d'obtention du BAC *</Label>
+                <Input id="bacObtentionDate" type="date" {...register("bacObtentionDate")} />
+                {errors.bacObtentionDate && <p className="text-sm text-red-600">{errors.bacObtentionDate.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bacSeries">Série du BAC *</Label>
+                <Input id="bacSeries" {...register("bacSeries")} placeholder="Ex. A, C, D, G2…" />
+                {errors.bacSeries && <p className="text-sm text-red-600">{errors.bacSeries.message}</p>}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lastDiploma">Dernier diplôme obtenu (fichier) *</Label>
+              {diplomaFile ? (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-input bg-muted/40 px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-4 w-4 shrink-0 text-purple-600" />
+                    <span className="truncate text-sm">{diplomaFile.name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      ({(diplomaFile.size / (1024 * 1024)).toFixed(2)} Mo)
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDiplomaFile(null)}
+                    className="shrink-0 text-red-500 hover:text-red-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <label
+                  htmlFor="lastDiploma"
+                  className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-input px-3 py-2 text-sm text-muted-foreground hover:bg-muted/40"
+                >
+                  <Upload className="h-4 w-4" />
+                  Choisir un fichier (PDF, PNG, JPG ou WEBP, max {DIPLOMA_MAX_MB} Mo)
+                </label>
+              )}
+              <input
+                id="lastDiploma"
+                type="file"
+                accept={DIPLOMA_ACCEPT}
+                onChange={handleDiplomaChange}
+                className="hidden"
+              />
+              {diplomaError && <p className="text-sm text-red-600">{diplomaError}</p>}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Section masquée : conservée pour la structure du formulaire. */}
+        <Card className="hidden">
           <CardHeader>
             <CardTitle>Informations administratives</CardTitle>
             <CardDescription>Informations permanentes conservées sur la fiche étudiant</CardDescription>
@@ -299,21 +398,21 @@ export default function NewStudentPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="residence">Résidence</Label>
-                <Input id="residence" {...register("residence")} placeholder="Résidence" />
-                {errors.residence && <p className="text-sm text-red-600">{errors.residence.message}</p>}
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="dspsMatricule">Matricule DSPS</Label>
                 <Input id="dspsMatricule" {...register("dspsMatricule")} placeholder="Matricule DSPS" />
                 {errors.dspsMatricule && <p className="text-sm text-red-600">{errors.dspsMatricule.message}</p>}
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="dspsPreviousMatricule">Matr. prov. DSPS</Label>
+                <Input id="dspsPreviousMatricule" {...register("dspsPreviousMatricule")} placeholder="Matricule précédent DSPS" />
+                {errors.dspsPreviousMatricule && <p className="text-sm text-red-600">{errors.dspsPreviousMatricule.message}</p>}
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dspsPreviousMatricule">Matr. prov. DSPS</Label>
-              <Input id="dspsPreviousMatricule" {...register("dspsPreviousMatricule")} placeholder="Matricule précédent DSPS" />
-              {errors.dspsPreviousMatricule && <p className="text-sm text-red-600">{errors.dspsPreviousMatricule.message}</p>}
+              <Label htmlFor="address">Adresse</Label>
+              <Textarea id="address" {...register("address")} placeholder="Adresse complète de l'étudiant" rows={3} />
+              {errors.address && <p className="text-sm text-red-600">{errors.address.message}</p>}
             </div>
           </CardContent>
         </Card>

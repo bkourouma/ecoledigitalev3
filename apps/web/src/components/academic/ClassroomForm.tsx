@@ -8,17 +8,34 @@ import { Loader2, Plus, X } from "lucide-react";
 import { Classroom, CreateClassroom, UpdateClassroom, ClassroomType, ClassroomStatus } from "@ecoledigitale/contracts";
 import { useState } from "react";
 
-const classroomFormSchema = z.object({
+const classroomTypeEnum = z.enum(['amphitheatre', 'salle_cours', 'laboratoire', 'salle_informatique', 'atelier', 'bibliotheque', 'salle_reunion', 'autre']);
+
+// Champs communs aux deux variantes du formulaire.
+const classroomBaseFields = {
   name: z.string().min(1, "Le nom est requis").max(255),
   code: z.string().min(1, "Le code est requis").max(50),
-  type: z.enum(['amphitheatre', 'salle_cours', 'laboratoire', 'salle_informatique', 'atelier', 'bibliotheque', 'salle_reunion', 'autre']),
-  capacity: z.number().int().positive("La capacité doit être positive"),
   floor: z.number().int().optional(),
   building: z.string().max(100).optional(),
   description: z.string().optional(),
   equipment: z.array(z.string()).optional(),
   status: z.enum(['disponible', 'occupe', 'maintenance', 'hors_service']).optional(),
   isActive: z.boolean().optional(),
+};
+
+// Formulaire complet (édition / création détaillée) : type et capacité requis.
+const classroomFormSchema = z.object({
+  ...classroomBaseFields,
+  type: classroomTypeEnum,
+  capacity: z.number().int().positive("La capacité doit être positive"),
+});
+
+// Formulaire simplifié (création rapide) : seuls le nom et le code sont requis.
+// Les autres champs sont masqués et optionnels ; des valeurs par défaut valides
+// sont envoyées à la soumission (l'API exige encore type et capacité).
+const classroomSimplifiedSchema = z.object({
+  ...classroomBaseFields,
+  type: classroomTypeEnum.optional(),
+  capacity: z.number().int().positive("La capacité doit être positive").optional(),
 });
 
 type ClassroomFormData = z.infer<typeof classroomFormSchema>;
@@ -28,6 +45,11 @@ interface ClassroomFormProps {
   onSubmit: (data: CreateClassroom | UpdateClassroom) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
+  /**
+   * Mode création rapide : n'affiche que « Nom » et « Code ». Les autres champs
+   * sont masqués et non obligatoires (valeurs par défaut envoyées à l'API).
+   */
+  simplified?: boolean;
 }
 
 const equipmentOptions = [
@@ -53,7 +75,7 @@ const equipmentOptions = [
   "Mobilier spécialisé"
 ];
 
-export function ClassroomForm({ initialData, onSubmit, onCancel, isLoading = false }: ClassroomFormProps) {
+export function ClassroomForm({ initialData, onSubmit, onCancel, isLoading = false, simplified = false }: ClassroomFormProps) {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(initialData?.equipment || []);
   const [newEquipment, setNewEquipment] = useState("");
 
@@ -64,7 +86,7 @@ export function ClassroomForm({ initialData, onSubmit, onCancel, isLoading = fal
     setValue,
     watch,
   } = useForm<ClassroomFormData>({
-    resolver: zodResolver(classroomFormSchema),
+    resolver: zodResolver(simplified ? classroomSimplifiedSchema : classroomFormSchema),
     defaultValues: {
       name: initialData?.name || "",
       code: initialData?.code || "",
@@ -109,8 +131,10 @@ export function ClassroomForm({ initialData, onSubmit, onCancel, isLoading = fal
       const submitData: CreateClassroom | UpdateClassroom = {
         name: data.name,
         code: data.code,
-        type: data.type,
-        capacity: data.capacity,
+        // Champs requis par l'API : en mode simplifié ils sont masqués, on
+        // envoie donc des valeurs par défaut valides.
+        type: data.type ?? "salle_cours",
+        capacity: data.capacity ?? 30,
         ...(data.floor !== undefined && data.floor !== null && { floor: data.floor }),
         ...(data.building && data.building.trim() && { building: data.building.trim() }),
         ...(data.description && data.description.trim() && { description: data.description.trim() }),
@@ -162,6 +186,8 @@ export function ClassroomForm({ initialData, onSubmit, onCancel, isLoading = fal
         </div>
       </div>
 
+      {!simplified && (
+      <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="type">Type de salle *</Label>
@@ -337,6 +363,8 @@ export function ClassroomForm({ initialData, onSubmit, onCancel, isLoading = fal
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Form Actions */}
       <div className="flex justify-end gap-3 pt-6 border-t">

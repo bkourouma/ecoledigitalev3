@@ -1,0 +1,126 @@
+/**
+ * Helpers de mise en forme du relevé de notes (bulletin) — partagés entre
+ * l'affichage HTML (BulletinView) et l'export Word (bulletin-docx).
+ */
+
+export const MINISTERE = "Ministère de l'Enseignement Supérieur\net de la Recherche Scientifique";
+export const REPUBLIQUE = "République de Côte d'Ivoire\nUnion – Discipline – Travail";
+export const INSTITUT = "INSTITUT POLYVALENT DES AFFAIRES ET DU MANAGEMENT";
+export const INSTITUT_SIGLE = "IPAM";
+export const DECISION_TITRE = "Décision finale";
+export const VISA_DIRECTEUR = "Visa le Directeur des Études";
+export const FOOTER_NOTE =
+  "Il ne peut être délivré qu'un seul exemplaire du présent relevé de notes. En cas de perte, un duplicata doit être justifié auprès du service des examens IPAM.";
+export const FOOTER_ADDRESS =
+  "Siège : Abidjan – Cocody, II Plateaux.  Tél. : (225) 27 22-25-49-31  Fax (225) 07-04-63-83-36\n06 BP 2708 Abidjan 06 Côte d'Ivoire   www.ipam.ci / e-mail : info@ipam.ci";
+
+/** « masculin » → « Masculin ». Défaut « Masculin » (comportement de l'app). */
+export function genreLabel(g: string | null | undefined): string {
+  return g === "feminin" ? "Féminin" : "Masculin";
+}
+
+/** Logos (dossier public). */
+export const LOGO_INSTITUT = "/logo-ipam.jpeg";
+export const LOGO_EMBLEME = "/embleme.jpg";
+
+/** Palette institutionnelle IPAM (vert). */
+export const IPAM_GREEN = "#14532D"; // vert foncé (en-têtes, titres)
+export const IPAM_GREEN_LIGHT = "#E8F0EB"; // vert très pâle (zébrage, bandeaux)
+export const IPAM_GREEN_RGB: [number, number, number] = [20, 83, 45];
+export const IPAM_GREEN_LIGHT_RGB: [number, number, number] = [232, 240, 235];
+export const OK_GREEN = "#15803D";
+export const BAD_RED = "#B91C1C";
+
+/** Libellés des catégories d'UE (bandeaux du bulletin). */
+export const CATEGORIE_LABEL: Record<string, string> = {
+  fondamentale: "UNITÉS FONDAMENTALES",
+  specialite: "UNITÉS DE SPÉCIALITÉ",
+  culture_generale: "UNITÉS DE CULTURE GÉNÉRALE",
+  _autres: "AUTRES UNITÉS",
+};
+
+/** Note formatée à 2 décimales, virgule française. */
+export function fmtNote(x: number | null | undefined): string {
+  if (x == null) return "—";
+  return Number(x).toFixed(2).replace(".", ",");
+}
+
+/** Appréciation académique standard à partir d'une moyenne /20. */
+export function appreciation(m: number | null | undefined): string {
+  if (m == null) return "—";
+  if (m < 10) return "Insuffisant";
+  if (m < 12) return "Passable";
+  if (m < 14) return "Assez Bien";
+  if (m < 16) return "Bien";
+  if (m < 18) return "Très Bien";
+  return "Excellent";
+}
+
+/** Grade dérivé de la filière (« LICENCE » / « MASTER » / « BTS »). */
+export function gradeOf(filiereName: string | null | undefined): string {
+  const s = String(filiereName ?? "");
+  if (/licence/i.test(s)) return "LICENCE";
+  if (/master/i.test(s)) return "MASTER";
+  if (/bts/i.test(s)) return "BTS";
+  if (/doctorat/i.test(s)) return "DOCTORAT";
+  return "—";
+}
+
+/** Libellé de la décision finale. */
+export function decisionLabel(d: string | null | undefined): string {
+  switch (d) {
+    case "admis":
+      return "ADMIS";
+    case "rattrapage":
+      return "RATTRAPAGE";
+    default:
+      return "AJOURNÉ";
+  }
+}
+
+/** Décision par UE. */
+export function ueDecision(validee: boolean): string {
+  return validee ? "Validé(e)" : "Non validée";
+}
+
+/** « Semestre 1 » → « S1 ». */
+export function semShort(libelle: string | null | undefined): string {
+  const m = String(libelle ?? "").match(/(\d+)/);
+  return m ? `S${m[1]}` : String(libelle ?? "—");
+}
+
+/** « Semestre 1 » → « 1ER SEMESTRE » (titre). */
+export function semestreOrdinalFr(libelle: string | null | undefined): string {
+  const m = String(libelle ?? "").match(/(\d+)/);
+  const n = m ? parseInt(m[1], 10) : null;
+  if (!n) return String(libelle ?? "SEMESTRE").toUpperCase();
+  return `${n === 1 ? "1ER" : `${n}E`} SEMESTRE`;
+}
+
+/** « Semestre 1 » → « 1er Semestre ». */
+export function semestreLabelShort(libelle: string | null | undefined): string {
+  const m = String(libelle ?? "").match(/(\d+)/);
+  const n = m ? parseInt(m[1], 10) : null;
+  if (!n) return String(libelle ?? "Semestre");
+  return `${n === 1 ? "1er" : `${n}e`} Semestre`;
+}
+
+/** Niveau dérivé du nom de la filière (« LICENCE 1 … » → « Licence 1 »). */
+export function niveauOf(filiereName: string | null | undefined): string {
+  const s = String(filiereName ?? "");
+  const lic = s.match(/licence\s*(\d)/i);
+  if (lic) return `Licence ${lic[1]}`;
+  const mas = s.match(/master\s*(\d)/i);
+  if (mas) return `Master ${mas[1]}`;
+  if (/bts/i.test(s)) return "BTS";
+  return "—";
+}
+
+/** Date « 25 Janvier 1998 » à partir d'une date ISO. */
+export function fmtDateLongFr(value?: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return String(value);
+  const s = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  return s.replace(/ ([a-zà-ú])/i, (m) => m.toUpperCase());
+}

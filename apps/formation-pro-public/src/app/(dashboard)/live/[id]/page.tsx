@@ -27,10 +27,12 @@ export default function LearnerLiveSessionPage() {
   };
 
   return (
-    <LiveSessionRoom
-      title="Cours en direct"
-      getToken={getToken}
-      onLeave={() => router.push("/mes-formations")}
-    />
+    <main className="fixed inset-0 z-50 overflow-hidden bg-neutral-950">
+      <LiveSessionRoom
+        title="Cours en direct"
+        getToken={getToken}
+        onLeave={() => router.push("/mes-formations")}
+      />
+    </main>
   );
 }

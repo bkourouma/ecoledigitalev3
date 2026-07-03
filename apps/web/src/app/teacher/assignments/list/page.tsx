@@ -1,492 +1,394 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   FileText,
   BookOpen,
-  Plus,
+  Layers,
   Search,
-  BarChart3,
-  CheckCircle,
-  AlertCircle,
   Loader2,
+  AlertCircle,
   Calendar,
   Clock,
+  CheckCircle2,
+  Users,
+  ClipboardCheck,
+  GraduationCap,
   Eye,
-  Edit,
-  Trash2
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Badge } from "@ecoledigitale/ui";
-import AssignmentDownloadUnified from "@/components/assignments/AssignmentDownloadUnified";
-import { useDeleteAssignment, useTeacherEvaluations } from '@/lib/hooks/use-evaluations';
-import { useTeacherCourses } from '@/lib/hooks/use-courses';
-import { useCurrentTeacherId } from '@/lib/hooks/use-current-teacher';
+  Hash,
+  Award,
+} from "lucide-react";
+import { Card, CardContent, Input, Badge } from "@ecoledigitale/ui";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { useTeacherAssignments } from "@/lib/hooks/use-professional-teacher";
+
+/**
+ * Historique des Évaluations — Espace enseignant (Module Professionnel).
+ * Récupère TOUTES les évaluations rattachées aux ECUE affectés à l'enseignant,
+ * avec le détail complet (ECUE, UE, filière, session, type, barème, dates,
+ * soumissions / copies notées). Filtrable par filière, matière, type et statut.
+ */
+
+const TYPE_LABELS: Record<string, string> = {
+  devoir: "Devoir",
+  controle: "Contrôle",
+  examen: "Examen",
+  projet: "Projet",
+  qcm: "QCM",
+  autre: "Autre",
+};
+
+const EVAL_TYPE_LABELS: Record<string, string> = {
+  online: "En ligne",
+  pdf: "PDF / Copie",
+  ai_generated: "Généré par IA",
+};
+
+const STATUT_META: Record<string, { label: string; className: string }> = {
+  brouillon: { label: "Brouillon", className: "bg-amber-100 text-amber-700 border-amber-200" },
+  publie: { label: "Publié", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  cloture: { label: "Clôturé", className: "bg-slate-200 text-slate-600 border-slate-300" },
+};
+
+function formatDate(value?: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
 
 export default function TeacherAssignmentsListPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState('all');
-  const [selectedType, setSelectedType] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const { data, isLoading, isError, error } = useTeacherAssignments();
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (status === 'loading') return;
-    
-    if (!session) {
-      router.push('/login');
-      return;
+  const [filiere, setFiliere] = useState("all");
+  const [ecue, setEcue] = useState("all");
+  const [type, setType] = useState("all");
+  const [statut, setStatut] = useState("all");
+  const [search, setSearch] = useState("");
+
+  const rows: any[] = (data as any[]) ?? [];
+
+  const filiereOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      if (r.filiere_id) map.set(r.filiere_id, `${r.filiere_nom ?? r.filiere_code} (${r.filiere_code})`);
     }
+    return Array.from(map, ([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label, "fr")
+    );
+  }, [rows]);
 
-    const roles = (session as any)?.roles ?? [];
-    const isTeacher = Array.isArray(roles) && roles.some((r: string) => ['teacher', 'Enseignant'].includes(r));
-
-    if (!isTeacher) {
-      router.push('/');
+  const ecueOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      if (r.ecue_id) map.set(r.ecue_id, `${r.ecue_libelle ?? r.ecue_code} (${r.ecue_code})`);
     }
-  }, [session, status, router]);
+    return Array.from(map, ([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label, "fr")
+    );
+  }, [rows]);
 
-  const roles = (session as any)?.roles ?? [];
-  const isTeacher = Array.isArray(roles) && roles.some((r: string) => ['teacher', 'Enseignant'].includes(r));
-
-  // Get current teacher ID and fetch data
-  const { data: teacherId, isLoading: loadingTeacherId } = useCurrentTeacherId();
-  const { data: teacherCoursesData, isLoading: loadingCourses } = useTeacherCourses(teacherId);
-  const { data: assignmentsData, isLoading: loadingAssignments } = useTeacherEvaluations(teacherId, {
-    type: selectedType === 'all' ? undefined : selectedType as 'evaluation' | 'homework',
-    search: searchTerm || undefined,
-    limit: 100
-  });
-  const deleteAssignmentMutation = useDeleteAssignment();
-
-  // Transform courses data for dropdown - deduplicate by courseId
-  const courses = useMemo(() => {
-    if (!teacherCoursesData || teacherCoursesData.length === 0) {
-      return [{ id: 'all', name: 'Tous les cours' }];
-    }
-
-    // Deduplicate courses by courseId
-    const coursesMap = new Map<string, any>();
-    
-    teacherCoursesData.forEach((course: any) => {
-      const courseId = course.courseId;
-      
-      // If course already exists, keep the one with the most recent assignment or active status
-      if (coursesMap.has(courseId)) {
-        const existing = coursesMap.get(courseId);
-        
-        // Prefer active status over completed/pending
-        if (course.status === 'active' && existing.status !== 'active') {
-          coursesMap.set(courseId, course);
-        }
-        // If both have same status, prefer the one with more recent assignment
-        else if (course.assignmentCreatedAt && existing.assignmentCreatedAt) {
-          const courseDate = new Date(course.assignmentCreatedAt).getTime();
-          const existingDate = new Date(existing.assignmentCreatedAt).getTime();
-          if (courseDate > existingDate) {
-            coursesMap.set(courseId, course);
-          }
-        }
-      } else {
-        coursesMap.set(courseId, course);
-      }
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (filiere !== "all" && r.filiere_id !== filiere) return false;
+      if (ecue !== "all" && r.ecue_id !== ecue) return false;
+      if (type !== "all" && r.type !== type) return false;
+      if (statut !== "all" && r.statut !== statut) return false;
+      if (
+        s &&
+        !`${r.titre ?? ""} ${r.description ?? ""} ${r.ecue_libelle ?? ""} ${r.ecue_code ?? ""} ${r.ue_libelle ?? ""} ${r.session_libelle ?? ""}`
+          .toLowerCase()
+          .includes(s)
+      )
+        return false;
+      return true;
     });
+  }, [rows, filiere, ecue, type, statut, search]);
 
-    return [
-      { id: 'all', name: 'Tous les cours' },
-      ...Array.from(coursesMap.values()).map((course: any) => ({
-        id: course.courseId,
-        name: course.courseName
-      }))
-    ];
-  }, [teacherCoursesData]);
+  const stats = useMemo(() => {
+    return {
+      total: rows.length,
+      publie: rows.filter((r) => r.statut === "publie").length,
+      brouillon: rows.filter((r) => r.statut === "brouillon").length,
+      cloture: rows.filter((r) => r.statut === "cloture").length,
+      soumis: rows.reduce((sum, r) => sum + (Number(r.nb_soumis) || 0), 0),
+      notes: rows.reduce((sum, r) => sum + (Number(r.nb_notes) || 0), 0),
+    };
+  }, [rows]);
 
-  if (status === 'loading') {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-purple-500" />
       </div>
     );
   }
 
-  if (!session || !isTeacher) {
-    return null;
-  }
-
-  const assignmentTypes = [
-    { id: 'all', name: 'Tous les types' },
-    { id: 'evaluation', name: 'Évaluations' },
-    { id: 'homework', name: 'Devoirs' }
-  ];
-
-  const statusOptions = [
-    { id: 'all', name: 'Tous les statuts' },
-    { id: 'draft', name: 'Brouillon' },
-    { id: 'published', name: 'Publié' },
-    { id: 'completed', name: 'Terminé' }
-  ];
-
-  // Transform API data to match the expected format
-  const assignments = (assignmentsData?.assignments || []).map((assignment: any) => ({
-    id: assignment.id,
-    title: assignment.title,
-    course: assignment.course_title || 'Cours inconnu',
-    courseId: assignment.course_id,
-    type: assignment.type,
-    status: assignment.status,
-    createdAt: assignment.created_at,
-    dueDate: assignment.ends_at,
-    submissionsCount: 0,
-    totalStudents: 0,
-    description: assignment.description,
-    subject_document_url: assignment.subject_document_url as string | undefined,
-  }));
-
-  // Filter assignments
-  const filteredAssignments = assignments.filter(assignment => {
-    const matchesSearch =
-      assignment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      assignment.course.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesCourse = selectedCourse === 'all' || assignment.courseId === selectedCourse;
-    const matchesType = selectedType === 'all' || assignment.type === selectedType;
-    const matchesStatus = selectedStatus === 'all' || assignment.status === selectedStatus;
-
-    return matchesSearch && matchesCourse && matchesType && matchesStatus;
-  });
-
-  // Show loading state
-  if (loadingTeacherId || loadingCourses || loadingAssignments) {
+  if (isError) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-          <span className="text-muted-foreground">Chargement des devoirs...</span>
-        </div>
+      <div className="max-w-3xl mx-auto p-6">
+        <Card className="border-red-200">
+          <CardContent className="flex items-center gap-3 py-8 text-red-700">
+            <AlertCircle className="h-6 w-6 shrink-0" />
+            <p>{(error as Error)?.message ?? "Impossible de charger vos évaluations."}</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'draft':
-        return <Badge variant="outline">Brouillon</Badge>;
-      case 'published':
-        return <Badge variant="default">Publié</Badge>;
-      case 'archived':
-        return <Badge variant="secondary">Archivé</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
-  const getTypeBadge = (type: string) => {
-    switch (type) {
-      case 'evaluation':
-        return <Badge variant="default">Évaluation</Badge>;
-      case 'homework':
-        return <Badge variant="secondary">Devoir</Badge>;
-      default:
-        return <Badge variant="outline">{type}</Badge>;
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'evaluation':
-        return BookOpen;
-      case 'homework':
-        return FileText;
-      default:
-        return FileText;
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'evaluation':
-        return 'Évaluation';
-      case 'homework':
-        return 'Devoir';
-      default:
-        return type;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'Non défini';
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground flex items-center">
-                <FileText className="w-8 h-8 text-purple-400 mr-3 shrink-0" />
-                Liste des Devoirs
-              </h1>
-              <p className="mt-2 text-muted-foreground">
-                Gérez tous vos devoirs et évaluations créés
-              </p>
-            </div>
-            <Button
-              onClick={() => router.push('/teacher/assignments/create')}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Créer un devoir
-            </Button>
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+          <FileText className="h-7 w-7 text-purple-500" />
+          Historique des Évaluations
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Toutes les évaluations rattachées aux ECUE qui vous sont affectées, avec le détail complet.
+        </p>
+      </div>
+
+      {/* Statistiques */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <StatCard icon={FileText} label="Total" value={stats.total} color="text-purple-600" />
+        <StatCard icon={CheckCircle2} label="Publiées" value={stats.publie} color="text-emerald-600" />
+        <StatCard icon={ClipboardCheck} label="Brouillons" value={stats.brouillon} color="text-amber-600" />
+        <StatCard icon={Layers} label="Clôturées" value={stats.cloture} color="text-slate-600" />
+        <StatCard icon={Users} label="Soumissions" value={stats.soumis} color="text-blue-600" />
+        <StatCard icon={Award} label="Copies notées" value={stats.notes} color="text-indigo-600" />
+      </div>
+
+      {/* Filtres */}
+      <Card className="shadow-sm">
+        <CardContent className="p-4 flex flex-col gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <SearchableSelect
+              value={filiere}
+              onChange={setFiliere}
+              icon={<Layers className="h-4 w-4 text-gray-400" />}
+              placeholder="Toutes les filières"
+              searchPlaceholder="Rechercher une filière…"
+              options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
+            />
+            <SearchableSelect
+              value={ecue}
+              onChange={setEcue}
+              icon={<BookOpen className="h-4 w-4 text-gray-400" />}
+              placeholder="Toutes les matières"
+              searchPlaceholder="Rechercher une ECUE…"
+              options={[{ value: "all", label: "Toutes les matières" }, ...ecueOptions]}
+            />
+            <SearchableSelect
+              value={type}
+              onChange={setType}
+              icon={<FileText className="h-4 w-4 text-gray-400" />}
+              placeholder="Tous les types"
+              options={[
+                { value: "all", label: "Tous les types" },
+                ...Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label })),
+              ]}
+            />
+            <SearchableSelect
+              value={statut}
+              onChange={setStatut}
+              icon={<CheckCircle2 className="h-4 w-4 text-gray-400" />}
+              placeholder="Tous les statuts"
+              options={[
+                { value: "all", label: "Tous les statuts" },
+                { value: "publie", label: "Publié" },
+                { value: "brouillon", label: "Brouillon" },
+                { value: "cloture", label: "Clôturé" },
+              ]}
+            />
           </div>
-        </div>
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Devoirs</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{assignments.length}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Publiés</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {assignments.filter(a => a.status === 'published').length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Brouillons</CardTitle>
-              <AlertCircle className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {assignments.filter(a => a.status === 'draft').length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Terminés</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {assignments.filter(a => a.status === 'completed').length}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters and Search */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Rechercher un devoir..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 text-foreground placeholder:text-muted-foreground"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher une évaluation (titre, matière, session…)"
+                className="pl-9"
               />
             </div>
+            <div className="text-sm text-muted-foreground whitespace-nowrap">
+              <span className="font-medium text-foreground">{filtered.length}</span> évaluation
+              {filtered.length > 1 ? "s" : ""}
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Select
-              value={selectedCourse}
-              onValueChange={(value) => setSelectedCourse(value)}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Tous les cours" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((course) => (
-                  <SelectItem key={course.id} value={course.id}>
-                    {course.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={selectedType}
-              onValueChange={(value) => setSelectedType(value)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Tous les types" />
-              </SelectTrigger>
-              <SelectContent>
-                {assignmentTypes.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
-                    {type.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={selectedStatus}
-              onValueChange={(value) => setSelectedStatus(value)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Tous les statuts" />
-              </SelectTrigger>
-              <SelectContent>
-                {statusOptions.map((status) => (
-                  <SelectItem key={status.id} value={status.id}>
-                    {status.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Assignments List */}
-        {filteredAssignments.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">
-              {assignments.length === 0 ? 'Aucun devoir créé' : 'Aucun devoir trouvé'}
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              {assignments.length === 0
-                ? "Vous n'avez pas encore créé de devoirs."
-                : "Aucun devoir ne correspond à vos critères de recherche."}
+      {/* Liste */}
+      {filtered.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center text-center py-16 gap-3">
+            <div className="rounded-full bg-purple-50 p-4">
+              <GraduationCap className="h-8 w-8 text-purple-500" />
+            </div>
+            <p className="text-muted-foreground max-w-md">
+              {rows.length === 0
+                ? "Aucune évaluation créée pour l'instant sur vos ECUE. Créez-en depuis la page d'un cours, onglet « Évaluations »."
+                : "Aucune évaluation ne correspond à ces filtres."}
             </p>
-            <Button
-              onClick={() => router.push('/teacher/assignments/create')}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Créer votre premier devoir
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredAssignments.map((assignment) => {
-              const TypeIcon = getTypeIcon(assignment.type);
-
-              return (
-                <Card key={assignment.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-start space-x-4 flex-1">
-                        <div className="p-2 bg-purple-100 rounded-lg">
-                          <TypeIcon className="w-6 h-6 text-purple-600" />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-3 mb-2 flex-wrap">
-                            <h3 className="text-lg font-semibold text-foreground">
-                              {assignment.title}
-                            </h3>
-                            {getTypeBadge(assignment.type)}
-                            {getStatusBadge(assignment.status)}
-                          </div>
-
-                          <div className="flex items-center space-x-6 text-sm text-muted-foreground flex-wrap gap-2">
-                            <div className="flex items-center space-x-1">
-                              <BookOpen className="w-4 h-4 shrink-0 text-purple-400/90" />
-                              <span>{assignment.course}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <Calendar className="w-4 h-4 shrink-0 text-purple-400/90" />
-                              <span>Créé le {formatDate(assignment.createdAt)}</span>
-                            </div>
-                            {assignment.dueDate && (
-                              <div className="flex items-center space-x-1">
-                                <Clock className="w-4 h-4 shrink-0 text-purple-400/90" />
-                                <span>Échéance: {formatDate(assignment.dueDate)}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {assignment.description && (
-                            <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
-                              {assignment.description}
-                            </p>
-                          )}
-                        </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {filtered.map((a) => {
+            const statutMeta = STATUT_META[a.statut] ?? {
+              label: a.statut,
+              className: "bg-slate-100 text-slate-600 border-slate-200",
+            };
+            return (
+              <Card key={a.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-5">
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                    {/* Colonne gauche : titre + détails */}
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                      <div className="p-2.5 bg-purple-100 rounded-lg shrink-0">
+                        <FileText className="h-6 w-6 text-purple-600" />
                       </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-lg font-semibold text-foreground">{a.titre}</h3>
+                          <Badge variant="outline" className={statutMeta.className}>
+                            {statutMeta.label}
+                          </Badge>
+                          <Badge variant="secondary">{TYPE_LABELS[a.type] ?? a.type}</Badge>
+                          <Badge variant="outline" className="border-purple-200 text-purple-700">
+                            {EVAL_TYPE_LABELS[a.evaluation_type] ?? a.evaluation_type}
+                          </Badge>
+                        </div>
 
-                      <div className="flex items-center space-x-2 ml-4 shrink-0">
-                        {assignment.type === 'homework' && assignment.subject_document_url && (
-                          <AssignmentDownloadUnified
-                            assignmentId={assignment.id}
-                            fileUrl={assignment.subject_document_url}
-                            fileName={`${assignment.title.replace(/[^\w\s.-]/g, "").trim().slice(0, 80) || "sujet"}.pdf`}
-                            showFileName={false}
-                            variant="outline"
-                            size="sm"
-                          />
+                        {a.description && (
+                          <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">
+                            {a.description}
+                          </p>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => router.push(`/teacher/assignments/${assignment.id}`)}
-                          title="Voir les détails"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => router.push(`/teacher/assignments/${assignment.id}/edit`)}
-                          title="Modifier"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (confirm('Êtes-vous sûr de vouloir supprimer ce devoir ?')) {
-                              deleteAssignmentMutation.mutate(assignment.id, {
-                                onError: (error) => {
-                                  console.error('Failed to delete assignment:', error);
-                                  alert(error instanceof Error ? error.message : 'La suppression du devoir a échoué.');
-                                },
-                              });
-                            }
-                          }}
-                          title="Supprimer"
-                          className="text-red-500 hover:text-red-400 hover:bg-red-950/30"
-                          disabled={deleteAssignmentMutation.isPending}
-                        >
-                          {deleteAssignmentMutation.isPending ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
+
+                        {/* Contexte : matière / UE / filière / session */}
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1.5 truncate">
+                            <BookOpen className="h-4 w-4 shrink-0 text-purple-400" />
+                            <span className="truncate">
+                              {a.ecue_libelle ?? a.ecue_code}
+                              {a.ecue_code ? ` · ${a.ecue_code}` : ""}
+                            </span>
+                          </span>
+                          {(a.ue_libelle || a.ue_code) && (
+                            <span className="flex items-center gap-1.5 truncate">
+                              <Layers className="h-4 w-4 shrink-0 text-purple-400" />
+                              <span className="truncate">
+                                {a.ue_libelle ?? a.ue_code}
+                                {a.filiere_code ? ` · ${a.filiere_code}` : ""}
+                              </span>
+                            </span>
                           )}
-                        </Button>
+                          {a.session_libelle && (
+                            <span className="flex items-center gap-1.5 truncate">
+                              <GraduationCap className="h-4 w-4 shrink-0 text-purple-400" />
+                              <span className="truncate">{a.session_libelle}</span>
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1.5">
+                            <Hash className="h-4 w-4 shrink-0 text-purple-400" />
+                            Barème /{Number(a.note_max)} · coeff. {Number(a.coefficient)}
+                          </span>
+                        </div>
+
+                        {/* Dates */}
+                        <div className="mt-2 flex items-center gap-x-6 gap-y-1 flex-wrap text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <Calendar className="h-3.5 w-3.5 shrink-0" />
+                            Créée le {formatDate(a.created_at)}
+                          </span>
+                          {a.starts_at && (
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="h-3.5 w-3.5 shrink-0" />
+                              Début {formatDate(a.starts_at)}
+                            </span>
+                          )}
+                          {a.due_at && (
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="h-3.5 w-3.5 shrink-0" />
+                              Échéance {formatDate(a.due_at)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
+
+                    {/* Colonne droite : soumissions + action */}
+                    <div className="flex flex-row lg:flex-col items-stretch gap-3 lg:w-52 shrink-0">
+                      <div className="flex-1 rounded-lg bg-purple-50 border border-purple-100 p-3 text-center">
+                        <div className="flex justify-around">
+                          <div>
+                            <div className="text-xl font-bold text-blue-600">{a.nb_soumis ?? 0}</div>
+                            <div className="text-[11px] text-muted-foreground">Soumises</div>
+                          </div>
+                          <div>
+                            <div className="text-xl font-bold text-indigo-600">{a.nb_notes ?? 0}</div>
+                            <div className="text-[11px] text-muted-foreground">Notées</div>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!a.ue_session_id}
+                        onClick={() =>
+                          a.ue_session_id &&
+                          router.push(`/teacher/courses/${a.ue_session_id}?tab=evaluations`)
+                        }
+                        title={
+                          a.ue_session_id
+                            ? "Voir les copies et corriger"
+                            : "Évaluation non rattachée à une session"
+                        }
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-3 py-2 text-sm font-medium transition-colors"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Voir / Corriger
+                      </button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="p-4 flex items-center gap-3">
+        <Icon className={`h-6 w-6 shrink-0 ${color}`} />
+        <div className="min-w-0">
+          <div className={`text-2xl font-bold ${color}`}>{value}</div>
+          <div className="text-xs text-muted-foreground truncate">{label}</div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

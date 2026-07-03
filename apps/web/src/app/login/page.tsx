@@ -3,58 +3,28 @@
 import { useEffect, useState } from "react";
 import { getSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { saveToken } from "@/lib/jwt-storage";
+import {
+  DEFAULT_TECHNICAL_PASSWORD,
+  KNOWN_TENANTS_STORAGE_KEY,
+  SELECTED_TENANT_STORAGE_KEY,
+  buildTechnicalAccounts,
+  type TechnicalAccount,
+} from "@/lib/technical-accounts";
 
-type DemoAccount = {
-  email: string;
-  password: string;
-  role?: string;
-  name: string;
-};
-
-// Demo accounts — shown in the "Comptes techniques" panel on the login page.
-// This is a demo deployment so the gate that previously hid them in production
-// has been removed. NEXT_PUBLIC_DEMO_ACCOUNTS still wins if set (build-time).
-const HARDCODED_DEMO_ACCOUNTS: DemoAccount[] = [
-  {
-    email: "admin@ecoledigitale.local",
-    password: "Password@2025",
-    role: "admin",
-    name: "Admin EcoleDigitale",
-  },
-  {
-    email: "owner@ecoledigitale.local",
-    password: "Password@2025",
-    role: "owner",
-    name: "Owner EcoleDigitale",
-  },
-  {
-    email: "koffi.nguessan.ci@example.com",
-    password: "Password@2025",
-    role: "teacher",
-    name: "Koffi N'Guessan (teacher actif)",
-  },
-  {
-    email: "fabrice.kouadio.lprigla01@example.com",
-    password: "?DbFJ3EkSmA9",
-    role: "student",
-    name: "fabrice.kouadio.lprigla01@example.com",
-  },
-  {
-    email: "marie.koffi.parent.lprigla@example.com",
-    password: "4rJn%TgUYA7#",
-    role: "parent",
-    name: "marie.koffi.parent.lprigla@example.com",
-  },
-];
-
-const demoAccounts: DemoAccount[] = process.env.NEXT_PUBLIC_DEMO_ACCOUNTS
-  ? (JSON.parse(process.env.NEXT_PUBLIC_DEMO_ACCOUNTS) as DemoAccount[])
-  : HARDCODED_DEMO_ACCOUNTS;
+type Tenant = { slug: string; name: string };
 
 function routeForRole(role?: string): string {
   const normalized = String(role || "").toLowerCase();
@@ -71,6 +41,35 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedSlug, setSelectedSlug] = useState("");
+
+  // Restore the previously picked tenant, render instantly from the cached list,
+  // then refresh the list from the server route (/api/tenants).
+  useEffect(() => {
+    const storedSlug = localStorage.getItem(SELECTED_TENANT_STORAGE_KEY) || "";
+    if (storedSlug) setSelectedSlug(storedSlug);
+
+    try {
+      const cached = localStorage.getItem(KNOWN_TENANTS_STORAGE_KEY);
+      if (cached) {
+        const list = JSON.parse(cached) as Tenant[];
+        if (Array.isArray(list)) setTenants(list);
+      }
+    } catch {
+      /* ignore malformed cache */
+    }
+
+    fetch("/api/tenants")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (Array.isArray(data?.tenants)) {
+          setTenants(data.tenants as Tenant[]);
+          localStorage.setItem(KNOWN_TENANTS_STORAGE_KEY, JSON.stringify(data.tenants));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const originalHtmlOverflow = document.documentElement.style.overflow;
@@ -132,10 +131,29 @@ export default function LoginPage() {
     }
   };
 
-  const fillForm = (account: DemoAccount) => {
+  const fillForm = (account: TechnicalAccount) => {
     setEmail(account.email);
     setPassword(account.password);
   };
+
+  const handleSelectTenant = (slug: string) => {
+    setSelectedSlug(slug);
+    localStorage.setItem(SELECTED_TENANT_STORAGE_KEY, slug);
+  };
+
+  // Technical accounts of the currently selected tenant.
+  const technicalAccounts: TechnicalAccount[] = selectedSlug
+    ? buildTechnicalAccounts(selectedSlug)
+    : [];
+
+  const selectedTenant = tenants.find((t) => t.slug === selectedSlug);
+
+  // Tenant options for the selector — include the stored slug even if it is not
+  // (yet) in the cached list.
+  const tenantOptions = tenants.map((t) => ({ slug: t.slug, label: t.name || t.slug }));
+  if (selectedSlug && !tenantOptions.some((o) => o.slug === selectedSlug)) {
+    tenantOptions.unshift({ slug: selectedSlug, label: selectedSlug });
+  }
 
   return (
     <div className="min-h-screen flex items-start justify-center bg-background pt-12 pb-16 px-4 sm:px-6 lg:px-8">
@@ -182,38 +200,61 @@ export default function LoginPage() {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Connexion..." : "Se connecter"}
                 </Button>
+                <p className="text-center text-sm text-muted-foreground">
+                  Pas encore de compte ?{" "}
+                  <Link href="/register" className="text-blue-400 hover:underline">
+                    S&apos;inscrire en ligne
+                  </Link>
+                </p>
               </form>
             </CardContent>
           </Card>
 
           <Card variant="glass" className="hover-lift">
             <CardHeader>
-              <CardTitle>Comptes techniques</CardTitle>
-              <CardDescription>Crees automatiquement par tenant et par role.</CardDescription>
+              <CardTitle>Comptes par tenant</CardTitle>
+              <CardDescription>
+                {selectedSlug
+                  ? `Tenant : ${selectedTenant?.name || selectedSlug} — mot de passe : ${DEFAULT_TECHNICAL_PASSWORD}`
+                  : "Choisissez un tenant pour voir ses comptes."}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {demoAccounts.map((account, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  className="w-full justify-start text-left h-auto p-3"
-                  onClick={() => fillForm(account)}
-                >
-                  <div className="w-full">
-                    <div className="font-medium flex items-center gap-2">
-                      {account.name}
-                      {account.role ? (
+            <CardContent className="space-y-3">
+              <div className="space-y-1">
+                <Label>Tenant</Label>
+                <Select value={selectedSlug || undefined} onValueChange={handleSelectTenant}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir un tenant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tenantOptions.map((opt) => (
+                      <SelectItem key={opt.slug} value={opt.slug}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                {technicalAccounts.map((account, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    className="w-full justify-start text-left h-auto p-3"
+                    onClick={() => fillForm(account)}
+                  >
+                    <div className="w-full">
+                      <div className="font-medium flex items-center gap-2">
+                        {account.name}
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
                           {account.role}
                         </span>
-                      ) : null}
+                      </div>
                     </div>
-                    {account.email !== account.name ? (
-                      <div className="text-sm text-muted-foreground">{account.email}</div>
-                    ) : null}
-                  </div>
-                </Button>
-              ))}
+                  </Button>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>

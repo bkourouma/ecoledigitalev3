@@ -8,11 +8,18 @@ import {
   Settings,
   LogOut,
   BookOpen,
+  Layers,
   Calendar,
+  CalendarRange,
+  CalendarClock,
   BarChart3,
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
+  ClipboardList,
+  FileSpreadsheet,
+  DoorOpen,
+  UserPlus,
   DollarSign,
   Calculator,
   FileText,
@@ -91,9 +98,25 @@ const formationsProAdminMenuItems = [
 const academicStructureMenuItems = [
   { icon: BarChart3, label: 'Vue d\'ensemble', href: '/academic' as const },
   { icon: GraduationCap, label: 'Cycles', href: '/academic/cycles' as const },
-  { icon: BookOpen, label: 'Programmes', href: '/academic/programmes' as const },
+  { icon: BookOpen, label: 'Filières', href: '/academic/programmes' as const },
   { icon: ClipboardCheck, label: 'Types de Bilan', href: '/annee-academique/types-de-bilan' as const },
   { icon: Calendar, label: 'Matières', href: '/academic/courses' as const },
+];
+
+// Module Professionnel (Filière → UE → ECUE)
+const professionalModuleMenuItems = [
+  { icon: Layers, label: 'UE', href: '/professionnel/admin/ue' as const },
+  { icon: BookOpen, label: 'ECUE', href: '/professionnel/admin/matieres' as const },
+  { icon: CalendarRange, label: 'Semestres', href: '/professionnel/admin/semestres' as const },
+  { icon: Calendar, label: 'Sessions', href: '/professionnel/admin/sessions' as const },
+  { icon: UserPlus, label: 'Inscriptions', href: '/professionnel/admin/inscriptions' as const },
+  { icon: Users, label: 'Étudiants inscrits', href: '/professionnel/admin/inscrits' as const },
+  { icon: Wallet, label: 'Paiements', href: '/professionnel/admin/paiements' as const },
+  { icon: DoorOpen, label: 'Salles de classe', href: '/academic/classrooms' as const },
+  { icon: CalendarClock, label: 'Planning des cours', href: '/professionnel/admin/planning' as const },
+  { icon: ClipboardCheck, label: 'Présences', href: '/professionnel/admin/presences' as const },
+  { icon: ClipboardList, label: 'Notes', href: '/professionnel/admin/notes' as const },
+  { icon: FileSpreadsheet, label: 'Bulletins', href: '/professionnel/admin/bulletins' as const },
 ];
 
 // People Management
@@ -101,6 +124,7 @@ const peopleMenuItems = [
   { icon: Users, label: 'Enseignants', href: '/academic/teachers' as const },
   { icon: Users, label: 'Étudiants', href: '/academic/students' as const },
   { icon: Users, label: 'Parents', href: '/academic/parents' as const },
+  { icon: ClipboardCheck, label: 'Inscriptions en ligne', href: '/academic/registrations' as const },
 ];
 
 // Academic Year Operations
@@ -116,7 +140,6 @@ const academicOperationsMenuItems = [
 // BTS submenu in Academic Operations
 const btsMenuItems = [
   { icon: Award, label: 'Moyennes semestre', href: '/annee-academique/moyennes-semestre' as const },
-  { icon: Clock, label: 'Horaires d\'Examens', href: '/annee-academique/horaires-examens' as const },
 ];
 
 // Daily Operations
@@ -159,6 +182,8 @@ const studentAcademicMenuItems = [
   { icon: Calendar, label: 'Emploi du Temps', href: '/student/schedule' as const },
   { icon: FileText, label: 'Devoirs', href: '/student/assignments' as const },
   { icon: Award, label: 'Mes Notes', href: '/student/grades' as const },
+  { icon: FileSpreadsheet, label: 'Mon Bulletin', href: '/student/bulletin' as const },
+  { icon: BookOpen, label: 'Module Professionnel', href: '/professionnel/etudiant' as const },
 ];
 
 // Student E-Learning Menu Items
@@ -189,6 +214,7 @@ const teacherCoursesMenuItems = [
   { icon: BookOpen, label: 'Mes Cours', href: '/teacher/courses' as const },
   { icon: Calendar, label: 'Planning des Cours', href: '/teacher/schedule' as const },
   { icon: Users, label: 'Présences', href: '/teacher/attendance' as const },
+  { icon: ClipboardList, label: 'Notes', href: '/professionnel/admin/notes' as const },
 ];
 
 // Teacher Students Menu Items
@@ -235,6 +261,8 @@ const parentMenuItems = [
   { icon: FileText, label: 'Documents', href: '/parent/documents' as const },
   { icon: CreditCard, label: 'Paiements & Finances', href: '/parent/payments' as const },
   { icon: MessageSquare, label: 'Messages', href: '/parent/messages' as const },
+  { icon: BookOpen, label: 'Parcours Professionnel', href: '/parent/professionnel' as const },
+  { icon: Award, label: 'Diplômes de mon enfant', href: '/parent/professionnel/diplomes' as const },
   // { icon: Phone, label: 'Contacts d\'Urgence', href: '/parent/emergency' as const },
 ];
 
@@ -300,15 +328,20 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const [isAcademicStructureExpanded, setIsAcademicStructureExpanded] = useState(
     pathname.startsWith('/academic') || pathname.startsWith('/annee-academique/types-de-bilan')
   );
+  const [isProfessionalModuleExpanded, setIsProfessionalModuleExpanded] = useState(
+    pathname.startsWith('/professionnel/admin') || pathname.startsWith('/academic/classrooms')
+  );
   const [isPeopleExpanded, setIsPeopleExpanded] = useState(
-    pathname.startsWith('/academic/teachers') || pathname.startsWith('/academic/students')
+    pathname.startsWith('/academic/teachers') ||
+    pathname.startsWith('/academic/students') ||
+    pathname.startsWith('/academic/parents') ||
+    pathname.startsWith('/academic/registrations')
   );
   const [isAcademicOperationsExpanded, setIsAcademicOperationsExpanded] = useState(
     pathname.startsWith('/annee-academique') || pathname.startsWith('/academic/assignments')
   );
   const [isBtsExpanded, setIsBtsExpanded] = useState(
-    pathname.startsWith('/annee-academique/moyennes-semestre') ||
-    pathname.startsWith('/annee-academique/horaires-examens')
+    pathname.startsWith('/annee-academique/moyennes-semestre')
   );
   const [isDailyOperationsExpanded, setIsDailyOperationsExpanded] = useState(
     pathname.startsWith('/attendance') || pathname.startsWith('/schedule-generation')
@@ -1012,7 +1045,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* Academic Structure Toggle Button */}
             <button
               onClick={() => setIsAcademicStructureExpanded(!isAcademicStructureExpanded)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${((pathname.startsWith('/academic') && !pathname.startsWith('/academic/teachers') && !pathname.startsWith('/academic/students') && !pathname.startsWith('/academic/assignments')) || pathname.startsWith('/annee-academique/types-de-bilan')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${((pathname.startsWith('/academic') && !pathname.startsWith('/academic/teachers') && !pathname.startsWith('/academic/students') && !pathname.startsWith('/academic/parents') && !pathname.startsWith('/academic/registrations') && !pathname.startsWith('/academic/assignments')) || pathname.startsWith('/annee-academique/types-de-bilan')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
                 <GraduationCap className="w-5 h-5" />
@@ -1050,7 +1083,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* People Management Toggle Button */}
             <button
               onClick={() => setIsPeopleExpanded(!isPeopleExpanded)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${(pathname.startsWith('/academic/teachers') || pathname.startsWith('/academic/students')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${(pathname.startsWith('/academic/teachers') || pathname.startsWith('/academic/students') || pathname.startsWith('/academic/parents') || pathname.startsWith('/academic/registrations')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
                 <Users className="w-5 h-5" />
@@ -1085,6 +1118,56 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               </div>
             )}
           </div>
+              )}
+
+              {/* Module Professionnel Section */}
+              {isAdmin && (
+                <div className="pt-4">
+                  <div className="px-3 mb-2">
+                    <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
+                      Module Professionnel
+                    </h3>
+                  </div>
+
+                  {/* Module Professionnel Toggle Button */}
+                  <button
+                    onClick={() => setIsProfessionalModuleExpanded(!isProfessionalModuleExpanded)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${pathname.startsWith('/professionnel/admin') || pathname.startsWith('/academic/classrooms') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <GraduationCap className="w-5 h-5" />
+                      <span>Module Professionnel</span>
+                    </div>
+                    {isProfessionalModuleExpanded ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5" />
+                    )}
+                  </button>
+
+                  {/* Module Professionnel Submenu */}
+                  {isProfessionalModuleExpanded && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      {professionalModuleMenuItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive =
+                          pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+                        return (
+                          <NavLink
+                            key={item.href}
+                            href={item.href}
+                            onCloseMobileMenu={onCloseMobileMenu}
+                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span>{item.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Academic Operations Section */}
@@ -1137,7 +1220,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* BTS Toggle Button */}
             <button
               onClick={() => setIsBtsExpanded(!isBtsExpanded)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${(pathname.startsWith('/annee-academique/moyennes-semestre') || pathname.startsWith('/annee-academique/horaires-examens')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${pathname.startsWith('/annee-academique/moyennes-semestre') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
                 <GraduationCap className="w-5 h-5" />

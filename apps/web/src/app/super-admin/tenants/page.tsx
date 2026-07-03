@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { KNOWN_TENANTS_STORAGE_KEY } from "@/lib/technical-accounts";
 
 type Tenant = {
   id: string;
@@ -52,7 +53,14 @@ export default function SuperAdminTenantsPage() {
     }
 
     const data = await response.json();
-    setTenants(data.tenants || []);
+    const list: Tenant[] = data.tenants || [];
+    setTenants(list);
+
+    // Cache for the login page tenant selector (no dedicated endpoint needed).
+    localStorage.setItem(
+      KNOWN_TENANTS_STORAGE_KEY,
+      JSON.stringify(list.map((t) => ({ slug: t.slug, name: t.name })))
+    );
   };
 
   useEffect(() => {

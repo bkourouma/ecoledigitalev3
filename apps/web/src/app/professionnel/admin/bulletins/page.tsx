@@ -1,0 +1,247 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { Card, CardContent, Button } from "@ecoledigitale/ui";
+import {
+  GraduationCap,
+  Layers,
+  CalendarRange,
+  Loader2,
+  RefreshCw,
+  Eye,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+} from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { useProgrammes } from "@/lib/hooks/use-programmes";
+import { useProfessionalSemestres } from "@/lib/hooks/use-professional-semestres";
+import { useBulletinRoster, useRecomputeBulletins } from "@/lib/hooks/use-professional-bulletins";
+
+const DECISION: Record<string, { label: string; cls: string; Icon: any }> = {
+  admis: { label: "Admis", cls: "bg-green-100 text-green-700", Icon: CheckCircle2 },
+  rattrapage: { label: "Rattrapage", cls: "bg-amber-100 text-amber-700", Icon: AlertTriangle },
+  ajourne: { label: "Ajourné", cls: "bg-red-100 text-red-700", Icon: XCircle },
+};
+
+function fmt(x: number | null | undefined): string {
+  return x == null ? "—" : x.toFixed(2).replace(".", ",");
+}
+
+export default function BulletinsPage() {
+  const [filiereId, setFiliereId] = useState("");
+  const [semestreId, setSemestreId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const programmesQuery = useProgrammes();
+  const semestresQuery = useProfessionalSemestres(filiereId ? { filiere_id: filiereId } : {});
+  const rosterQuery = useBulletinRoster(semestreId || null);
+  const recomputeMut = useRecomputeBulletins();
+
+  const filieres: any[] = (programmesQuery.data as any)?.data ?? [];
+  const semestres: any[] = useMemo(() => {
+    const list = (semestresQuery.data as any)?.data ?? (semestresQuery.data as any[]) ?? [];
+    // Uniquement les semestres ayant au moins une session créée.
+    return filiereId ? list.filter((s: any) => (s.nb_sessions ?? 0) > 0) : [];
+  }, [semestresQuery.data, filiereId]);
+
+  const roster: any = rosterQuery.data ?? null;
+  const students: any[] = roster?.students ?? [];
+
+  const stats = useMemo(() => {
+    const admis = students.filter((s) => s.decision === "admis").length;
+    const rattr = students.filter((s) => s.decision === "rattrapage").length;
+    const ajour = students.filter((s) => s.decision === "ajourne").length;
+    return { total: students.length, admis, rattr, ajour };
+  }, [students]);
+
+  async function handleRecompute() {
+    if (!semestreId) return;
+    setError(null);
+    try {
+      await recomputeMut.mutateAsync(semestreId);
+    } catch (err: any) {
+      setError(err?.message ?? "Erreur lors du recalcul.");
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+            <FileSpreadsheet className="h-7 w-7 text-indigo-500" />
+            Bulletins & moyennes
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Sélectionnez une filière et un semestre pour consulter les bulletins des étudiants.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/professionnel/admin/notes">
+            <Button variant="outline">
+              <GraduationCap className="h-4 w-4 mr-2" />
+              Saisie des notes
+            </Button>
+          </Link>
+          <Button
+            onClick={handleRecompute}
+            disabled={!semestreId || recomputeMut.isPending}
+            className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
+          >
+            {recomputeMut.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Recalculer
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* Filtres */}
+      <Card className="shadow-sm">
+        <CardContent className="p-4 flex flex-col lg:flex-row gap-3 lg:items-center">
+          <div className="flex-1 min-w-0">
+            <SearchableSelect
+              value={filiereId}
+              onChange={(v) => {
+                setFiliereId(v);
+                setSemestreId("");
+              }}
+              icon={<Layers className="h-4 w-4 text-gray-400" />}
+              placeholder={programmesQuery.isLoading ? "Chargement…" : "Sélectionner une filière"}
+              searchPlaceholder="Rechercher une filière…"
+              options={filieres.map((f) => ({
+                value: f.id,
+                label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
+              }))}
+            />
+          </div>
+          <div className="lg:w-72">
+            <SearchableSelect
+              value={semestreId}
+              onChange={setSemestreId}
+              icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
+              placeholder={
+                !filiereId
+                  ? "Choisir d'abord une filière"
+                  : semestresQuery.isLoading
+                  ? "Chargement…"
+                  : semestres.length === 0
+                  ? "Aucun semestre"
+                  : "Sélectionner un semestre"
+              }
+              options={semestres.map((s) => ({ value: s.id, label: s.libelle }))}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats */}
+      {semestreId && !rosterQuery.isLoading && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Étudiants" value={stats.total} color="from-indigo-500 to-blue-600" />
+          <StatCard label="Admis" value={stats.admis} color="from-green-500 to-emerald-600" />
+          <StatCard label="Rattrapage" value={stats.rattr} color="from-amber-500 to-orange-600" />
+          <StatCard label="Ajournés" value={stats.ajour} color="from-red-500 to-rose-600" />
+        </div>
+      )}
+
+      {/* Tableau */}
+      {!semestreId ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center text-center py-16 gap-3">
+            <div className="rounded-full bg-indigo-50 p-4">
+              <FileSpreadsheet className="h-8 w-8 text-indigo-500" />
+            </div>
+            <p className="text-muted-foreground max-w-md">
+              Choisissez une filière puis un semestre pour afficher la liste des bulletins.
+            </p>
+          </CardContent>
+        </Card>
+      ) : rosterQuery.isLoading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
+        </div>
+      ) : students.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center text-muted-foreground">
+            Aucun étudiant inscrit sur ce semestre.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="shadow-sm overflow-hidden">
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted-foreground border-b border-border bg-muted/30">
+                  <th className="px-4 py-3 font-medium">Étudiant</th>
+                  <th className="px-4 py-3 font-medium">Matricule</th>
+                  <th className="px-4 py-3 font-medium text-center">Moyenne</th>
+                  <th className="px-4 py-3 font-medium text-center">Crédits</th>
+                  <th className="px-4 py-3 font-medium text-center">Décision</th>
+                  <th className="px-4 py-3 font-medium text-right">Bulletin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((s) => {
+                  const dec = DECISION[s.decision] ?? DECISION.ajourne;
+                  const Icon = dec.Icon;
+                  return (
+                    <tr key={s.student_id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
+                      <td className="px-4 py-2.5 font-medium">
+                        {s.first_name} {s.last_name}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                        {s.matricule ?? "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-center font-mono font-semibold">
+                        {fmt(s.moyenne_session)}
+                      </td>
+                      <td className="px-4 py-2.5 text-center font-mono">
+                        {s.credits_valides}/{s.credits_total}
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${dec.cls}`}>
+                          <Icon className="h-3.5 w-3.5" />
+                          {dec.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <Link href={`/professionnel/admin/bulletins/${s.student_id}?semestre=${semestreId}`}>
+                          <Button variant="outline" size="sm" className="h-8">
+                            <Eye className="h-3.5 w-3.5 mr-1.5" />
+                            Voir
+                          </Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className={`rounded-xl p-4 text-white bg-gradient-to-br ${color} shadow`}>
+      <p className="text-white/80 text-sm font-medium">{label}</p>
+      <p className="text-3xl font-bold mt-1">{value}</p>
+    </div>
+  );
+}

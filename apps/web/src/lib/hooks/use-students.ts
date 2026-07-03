@@ -88,6 +88,9 @@ async function createStudent(data: any): Promise<StudentProfile> {
       establishmentMatricule: data.establishmentMatricule,
       dspsMatricule: data.dspsMatricule,
       dspsPreviousMatricule: data.dspsPreviousMatricule,
+      bacObtentionDate: data.bacObtentionDate,
+      bacSeries: data.bacSeries,
+      lastDiploma: data.lastDiploma,
     }),
   });
 
@@ -97,6 +100,40 @@ async function createStudent(data: any): Promise<StudentProfile> {
   }
 
   return response.json();
+}
+
+export async function uploadStudentDiploma(studentId: string, file: File): Promise<{ url: string }> {
+  const doUpload = async () => {
+    const headers = createApiHeaders();
+    // Laisser le navigateur définir le Content-Type multipart (avec boundary).
+    delete (headers as any)["Content-Type"];
+    delete (headers as any)["content-type"];
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return fetch(`${API_BASE_URL}/api/v1/students/${studentId}/diploma`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+  };
+
+  let response = await doUpload();
+  // En dev, l'API (tsx watch) peut recharger juste après la création de
+  // l'étudiant : la route renvoie alors brièvement 404. On retente une fois.
+  if (response.status === 404) {
+    await new Promise((r) => setTimeout(r, 1500));
+    response = await doUpload();
+  }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || "Échec de l'upload du diplôme");
+  }
+
+  const json = await response.json();
+  return json?.data ?? json;
 }
 
 async function updateStudent(id: string, data: UpdateStudentProfile): Promise<StudentProfile> {

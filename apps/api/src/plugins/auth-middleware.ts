@@ -242,6 +242,7 @@ async function authMiddleware(fastify: FastifyInstance) {
     const skipAuthRoutes = [
       "/api/v1/auth/login",
       "/api/v1/auth/refresh",
+      "/api/v1/auth/register-request",
       "/api/v1/health",
       "/api/v1/files/",
       "/api/v1/formations-pro",
