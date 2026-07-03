@@ -210,7 +210,7 @@ const CourseSelector = React.forwardRef<
                   <Checkbox
                     checked={isSelected}
                     onCheckedChange={(checked) => handleCourseToggle(course.id, checked as boolean)}
-                    disabled={disabled || (maxSelections && !isSelected && selectedCourses.length >= maxSelections)}
+                    disabled={disabled || Boolean(maxSelections && !isSelected && selectedCourses.length >= maxSelections)}
                     className="mt-1"
                   />
                   

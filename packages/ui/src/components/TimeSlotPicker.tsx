@@ -236,7 +236,7 @@ const TimeSlotPicker = React.forwardRef<
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => handleSlotToggle(slot.id, checked as boolean)}
-                        disabled={disabled || (maxSelections && !isSelected && selectedSlots.length >= maxSelections)}
+                        disabled={disabled || Boolean(maxSelections && !isSelected && selectedSlots.length >= maxSelections)}
                       />
                       
                       <div className="flex-1">
@@ -320,7 +320,7 @@ const TimeSlotPicker = React.forwardRef<
             <Checkbox
               checked={isSelected}
               onCheckedChange={(checked) => handleSlotToggle(slot.id, checked as boolean)}
-              disabled={disabled || (maxSelections && !isSelected && selectedSlots.length >= maxSelections)}
+              disabled={disabled || Boolean(maxSelections && !isSelected && selectedSlots.length >= maxSelections)}
             />
             
             <div className="flex-1">
