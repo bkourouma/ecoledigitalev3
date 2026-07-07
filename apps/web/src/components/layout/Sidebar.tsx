@@ -226,8 +226,8 @@ const teacherStudentsMenuItems = [
 
 // Teacher Evaluations Menu Items
 const teacherEvaluationsMenuItems = [
-  { icon: FileText, label: 'Créer des Devoirs', href: '/teacher/assignments/create' as const },
-  { icon: List, label: 'Liste des Devoirs', href: '/teacher/assignments/list' as const },
+  { icon: FileText, label: 'Mes évaluations', href: '/teacher/assignments/create' as const },
+  // { icon: List, label: 'Liste des Devoirs', href: '/teacher/assignments/list' as const },
   { icon: Users, label: 'Assigner un devoir', href: '/academic/assignments/assign' as const },
   { icon: Edit, label: 'Corrections en Attente', href: '/teacher/corrections' as const },
 ];
@@ -258,11 +258,8 @@ const teacherProfileMenuItems = [
 const parentMenuItems = [
   { icon: Users, label: 'Mes Enfants', href: '/parent/children' as const },
   { icon: BookOpen, label: 'Cours & Devoirs', href: '/parent/homework' as const },
-  { icon: FileText, label: 'Documents', href: '/parent/documents' as const },
-  { icon: CreditCard, label: 'Paiements & Finances', href: '/parent/payments' as const },
+  { icon: FileText, label: 'Bulletins & Reçus', href: '/parent/documents' as const },
   { icon: MessageSquare, label: 'Messages', href: '/parent/messages' as const },
-  { icon: BookOpen, label: 'Parcours Professionnel', href: '/parent/professionnel' as const },
-  { icon: Award, label: 'Diplômes de mon enfant', href: '/parent/professionnel/diplomes' as const },
   // { icon: Phone, label: 'Contacts d\'Urgence', href: '/parent/emergency' as const },
 ];
 

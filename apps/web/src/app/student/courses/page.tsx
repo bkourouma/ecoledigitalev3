@@ -194,7 +194,7 @@ export default function StudentCoursesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="w-full sm:w-[20rem]">
+              <div className="w-full sm:w-[32rem]">
                 <Select
                   value={programmeFilter}
                   onValueChange={setProgrammeFilter}

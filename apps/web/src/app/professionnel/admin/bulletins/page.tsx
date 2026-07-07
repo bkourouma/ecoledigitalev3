@@ -16,9 +16,15 @@ import {
   XCircle,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { useProgrammes } from "@/lib/hooks/use-programmes";
 import { useProfessionalSemestres } from "@/lib/hooks/use-professional-semestres";
-import { useBulletinRoster, useRecomputeBulletins } from "@/lib/hooks/use-professional-bulletins";
+import {
+  useNotesFilieres,
+  useBulletinRoster,
+  useRecomputeBulletins,
+  useGenerateBulletins,
+  fetchFullBulletins,
+} from "@/lib/hooks/use-professional-bulletins";
+import { openAllBulletinsPdf } from "@/lib/bulletin-pdf";
 
 const DECISION: Record<string, { label: string; cls: string; Icon: any }> = {
   admis: { label: "Admis", cls: "bg-green-100 text-green-700", Icon: CheckCircle2 },
@@ -35,12 +41,17 @@ export default function BulletinsPage() {
   const [semestreId, setSemestreId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const programmesQuery = useProgrammes();
+  const [genInfo, setGenInfo] = useState<string | null>(null);
+  const [openingAll, setOpeningAll] = useState(false);
+  const filieresQuery = useNotesFilieres();
   const semestresQuery = useProfessionalSemestres(filiereId ? { filiere_id: filiereId } : {});
   const rosterQuery = useBulletinRoster(semestreId || null);
   const recomputeMut = useRecomputeBulletins();
+  const generateMut = useGenerateBulletins();
 
-  const filieres: any[] = (programmesQuery.data as any)?.data ?? [];
+  // Filières restreintes à celles ayant au moins un étudiant inscrit
+  // (confirmé/terminé) dans une session — même source que la page Notes.
+  const filieres: any[] = (filieresQuery.data as any[]) ?? [];
   const semestres: any[] = useMemo(() => {
     const list = (semestresQuery.data as any)?.data ?? (semestresQuery.data as any[]) ?? [];
     // Uniquement les semestres ayant au moins une session créée.
@@ -67,6 +78,43 @@ export default function BulletinsPage() {
     }
   }
 
+  async function handleGenerate() {
+    if (!semestreId) return;
+    setError(null);
+    setGenInfo(null);
+    try {
+      const r: any = await generateMut.mutateAsync(semestreId);
+      setGenInfo(
+        `${r.generated} bulletin(s) généré(s) — ${r.definitifs} définitif(s), ${r.provisoires} provisoire(s).`
+      );
+    } catch (err: any) {
+      setError(err?.message ?? "Erreur lors de la génération des bulletins.");
+    }
+  }
+
+  // Ouvre le PDF combiné de tous les bulletins du semestre dans le navigateur.
+  async function handleOpenAll() {
+    if (!semestreId) return;
+    setError(null);
+    // Onglet ouvert de façon synchrone (évite le blocage popup après le fetch).
+    const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    setOpeningAll(true);
+    try {
+      const list = await fetchFullBulletins(semestreId);
+      if (!list || list.length === 0) {
+        win?.close();
+        setError("Aucun bulletin à ouvrir pour ce semestre.");
+        return;
+      }
+      await openAllBulletinsPdf(list, win);
+    } catch (err: any) {
+      win?.close();
+      setError(err?.message ?? "Impossible d'ouvrir les bulletins.");
+    } finally {
+      setOpeningAll(false);
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-6">
       {/* Header */}
@@ -80,7 +128,26 @@ export default function BulletinsPage() {
             Sélectionnez une filière et un semestre pour consulter les bulletins des étudiants.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/professionnel/admin/bulletins/historique">
+            <Button variant="outline">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Historique
+            </Button>
+          </Link>
+          <Button
+            onClick={handleOpenAll}
+            disabled={!semestreId || openingAll}
+            variant="outline"
+            title={!semestreId ? "Sélectionnez une filière et un semestre" : undefined}
+          >
+            {openingAll ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+            )}
+            Tous les bulletins
+          </Button>
           <Link href="/professionnel/admin/notes">
             <Button variant="outline">
               <GraduationCap className="h-4 w-4 mr-2" />
@@ -90,7 +157,7 @@ export default function BulletinsPage() {
           <Button
             onClick={handleRecompute}
             disabled={!semestreId || recomputeMut.isPending}
-            className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
+            variant="outline"
           >
             {recomputeMut.isPending ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -99,12 +166,29 @@ export default function BulletinsPage() {
             )}
             Recalculer
           </Button>
+          <Button
+            onClick={handleGenerate}
+            disabled={!semestreId || generateMut.isPending}
+            className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
+          >
+            {generateMut.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+            )}
+            Générer les bulletins
+          </Button>
         </div>
       </div>
 
       {error && (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
+        </div>
+      )}
+      {genInfo && (
+        <div className="rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm text-green-700">
+          {genInfo}
         </div>
       )}
 
@@ -119,7 +203,7 @@ export default function BulletinsPage() {
                 setSemestreId("");
               }}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder={programmesQuery.isLoading ? "Chargement…" : "Sélectionner une filière"}
+              placeholder={filieresQuery.isLoading ? "Chargement…" : "Sélectionner une filière"}
               searchPlaceholder="Rechercher une filière…"
               options={filieres.map((f) => ({
                 value: f.id,
@@ -190,6 +274,8 @@ export default function BulletinsPage() {
                   <th className="px-4 py-3 font-medium text-center">Moyenne</th>
                   <th className="px-4 py-3 font-medium text-center">Crédits</th>
                   <th className="px-4 py-3 font-medium text-center">Décision</th>
+                  <th className="px-4 py-3 font-medium text-center">Statut bulletin</th>
+                  <th className="px-4 py-3 font-medium text-center">Généré le</th>
                   <th className="px-4 py-3 font-medium text-right">Bulletin</th>
                 </tr>
               </thead>
@@ -217,11 +303,52 @@ export default function BulletinsPage() {
                           {dec.label}
                         </span>
                       </td>
+                      <td className="px-4 py-2.5 text-center">
+                        {(() => {
+                          // Statut LMD : validé / non validé — session 2 / en dette.
+                          const st = s.statut_etudiant;
+                          const cls =
+                            st === "valide"
+                              ? "bg-green-100 text-green-700"
+                              : st === "session2"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-red-100 text-red-700";
+                          const label =
+                            st === "valide"
+                              ? "Validé"
+                              : st === "session2"
+                              ? "Non validé — Session 2"
+                              : "En dette";
+                          const gen =
+                            s.bulletin_statut == null
+                              ? "Non généré"
+                              : s.bulletin_statut === "definitif"
+                              ? "Définitif"
+                              : "Provisoire";
+                          return (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+                                {label}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">{gen}</span>
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-4 py-2.5 text-center text-xs text-muted-foreground">
+                        {s.generated_at
+                          ? new Date(s.generated_at).toLocaleDateString("fr-FR")
+                          : "—"}
+                      </td>
                       <td className="px-4 py-2.5 text-right">
-                        <Link href={`/professionnel/admin/bulletins/${s.student_id}?semestre=${semestreId}`}>
+                        <Link
+                          href={`/professionnel/admin/bulletins/${s.student_id}?semestre=${semestreId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           <Button variant="outline" size="sm" className="h-8">
                             <Eye className="h-3.5 w-3.5 mr-1.5" />
-                            Voir
+                            Consulter
                           </Button>
                         </Link>
                       </td>

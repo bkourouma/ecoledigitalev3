@@ -37,6 +37,7 @@ function mapProgrammeRow(row: any) {
     code: row.code,
     version: row.version,
     description: row.description,
+    domaine: row.domaine ?? null,
     objectives: row.objectives || [],
     ectsCredits: row.ects_credits,
     academicYear: row.academic_year,
@@ -140,6 +141,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               p.code,
               p.version,
               p.description,
+              p.domaine,
               p.objectives,
               p.ects_credits,
               p.academic_year,
@@ -196,6 +198,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
           code: { type: "string", minLength: 1, maxLength: 20 },
           version: { type: "string", maxLength: 10 },
           description: { type: "string" },
+          domaine: { type: "string", maxLength: 255 },
           objectives: { type: "array", items: { type: "string" } },
           ectsCredits: { type: "number", minimum: 0 },
           academicYear: { type: "string", pattern: "^\\d{4}-\\d{4}$" },
@@ -259,12 +262,13 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               code,
               version,
               description,
+              domaine,
               objectives,
               ects_credits,
               academic_year,
               status
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING
               id,
               tenant_id,
@@ -273,6 +277,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               code,
               version,
               description,
+              domaine,
               objectives,
               ects_credits,
               academic_year,
@@ -289,6 +294,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
             programmeData.code,
             programmeData.version || "1.0",
             programmeData.description || null,
+            programmeData.domaine || null,
             programmeData.objectives || [],
             programmeData.ectsCredits || null,
             programmeData.academicYear || null,
@@ -366,6 +372,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               p.code,
               p.version,
               p.description,
+              p.domaine,
               p.objectives,
               p.ects_credits,
               p.academic_year,
@@ -423,6 +430,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
           code: { type: "string", minLength: 1, maxLength: 20 },
           version: { type: "string", maxLength: 10 },
           description: { type: "string" },
+          domaine: { type: "string", maxLength: 255 },
           objectives: { type: "array", items: { type: "string" } },
           ectsCredits: { type: "number", minimum: 0 },
           academicYear: { type: "string", pattern: "^\\d{4}-\\d{4}$" },
@@ -542,6 +550,12 @@ export async function programmesRoutes(fastify: FastifyInstance) {
           paramIndex++;
         }
 
+        if (updateData.domaine !== undefined) {
+          updateFields.push(`domaine = $${paramIndex}`);
+          updateValues.push(updateData.domaine || null);
+          paramIndex++;
+        }
+
         if (updateData.objectives !== undefined) {
           updateFields.push(`objectives = $${paramIndex}`);
           updateValues.push(updateData.objectives);
@@ -589,6 +603,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               code,
               version,
               description,
+              domaine,
               objectives,
               ects_credits,
               academic_year,

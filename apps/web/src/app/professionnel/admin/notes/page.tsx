@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -47,6 +47,8 @@ export default function NotesPage() {
   const [filiereId, setFiliereId] = useState("");
   const [semestreId, setSemestreId] = useState("");
   const [sessionId, setSessionId] = useState("");
+  // Session de saisie LMD : 1 = normale, 2 = rattrapage (examens uniquement).
+  const [noteSession, setNoteSession] = useState<1 | 2>(1);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
@@ -69,8 +71,7 @@ export default function NotesPage() {
     const list = (semestresQuery.data as any[]) ?? [];
     return filiereId ? list : [];
   }, [semestresQuery.data, filiereId]);
-  // La « Conduite » n'est pas une matière : on l'exclut du choix de session.
-  // On masque aussi les sessions (UE) sans aucun étudiant inscrit.
+  // UE (sessions) du semestre, hors « Conduite » et sans inscrit.
   const sessions: any[] = ((sessionsQuery.data as any[]) ?? [])
     .filter((s) => !String(s.ue_libelle ?? "").toLowerCase().startsWith("conduite"))
     .filter((s) => Number(s.nb_inscrits ?? 0) > 0);
@@ -78,8 +79,16 @@ export default function NotesPage() {
   const ecues: any[] = grid?.ecues ?? [];
   const students: any[] = grid?.students ?? [];
 
+  // Conduite : chargée au niveau SEMESTRE (indépendante de l'UE choisie), donc
+  // la note déjà saisie reste affichée quelle que soit l'UE sélectionnée.
   const conduite: any = (conduiteQuery.data as any)?.conduite ?? null;
   const conduiteStudents: any[] = (conduiteQuery.data as any)?.students ?? [];
+  const conduiteByStudent = useMemo(() => {
+    const m = new Map<string, any>();
+    for (const s of conduiteStudents) m.set(s.student_id, s);
+    return m;
+  }, [conduiteStudents]);
+  const showConduite = isAdmin && !!conduite;
 
   function resultOf(eid: string, sid: string) {
     return grid?.results?.find((r: any) => r.ecue_id === eid && r.student_id === sid) ?? null;
@@ -90,17 +99,28 @@ export default function NotesPage() {
     );
   }
   function examenOf(eid: string, sid: string) {
-    return (
-      (grid?.notes ?? []).find(
-        (n: any) => n.ecue_id === eid && n.student_id === sid && n.nature === "examen"
-      ) ?? null
+    // La note d'examen de la Session 2 (rattrapage) remplace celle de Session 1.
+    const exams = (grid?.notes ?? []).filter(
+      (n: any) => n.ecue_id === eid && n.student_id === sid && n.nature === "examen"
     );
+    if (exams.length === 0) return null;
+    return exams.reduce((a: any, b: any) => ((b.session ?? 1) > (a.session ?? 1) ? b : a));
   }
   function evalSubsOf(eid: string, sid: string) {
-    return (grid?.submissions ?? []).filter(
-      (s: any) => s.ecue_id === eid && s.student_id === sid
-    );
+    return (grid?.submissions ?? []).filter((s: any) => s.ecue_id === eid && s.student_id === sid);
   }
+
+  // En Session 2 (rattrapage), on n'affiche que les étudiants ayant au moins un
+  // ECUE non validé (à rattraper). En Session 1, tous les étudiants.
+  const displayedStudents =
+    noteSession === 2
+      ? students.filter((s) =>
+          ecues.some((e) => {
+            const r = resultOf(e.ecue_id, s.student_id);
+            return r != null && r.validee === false;
+          })
+        )
+      : students;
 
   async function handleRecompute() {
     if (!sessionId) return;
@@ -114,9 +134,8 @@ export default function NotesPage() {
 
   /**
    * Enregistre toutes les saisies en cours puis lance le calcul.
-   * Les notes sont sauvegardées au fil de la saisie ; ce bouton force la
-   * validation du champ actif, attend la fin des enregistrements en cours,
-   * puis recalcule les moyennes de la session.
+   * Force la validation du champ actif, attend la fin des enregistrements en
+   * cours, puis recalcule les moyennes de l'UE sélectionnée.
    */
   async function handleSaveAndCompute() {
     if (!sessionId) return;
@@ -124,10 +143,8 @@ export default function NotesPage() {
     setSaved(false);
     setSavingAll(true);
     try {
-      // Valide le champ actuellement en cours d'édition (déclenche sa sauvegarde).
       (document.activeElement as HTMLElement | null)?.blur?.();
       await new Promise((r) => setTimeout(r, 80));
-      // Attend la fin de tous les enregistrements de notes en cours.
       let guard = 0;
       while (qc.isMutating() > 0 && guard < 200) {
         await new Promise((r) => setTimeout(r, 50));
@@ -144,7 +161,7 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-6">
+    <div className="space-y-6 max-w-[1600px] mx-auto p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -187,7 +204,7 @@ export default function NotesPage() {
         </div>
       )}
 
-      {/* Sélecteurs */}
+      {/* Sélecteurs : filière + semestre (toutes les UE du semestre s'affichent) */}
       <Card className="shadow-sm">
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
           <SearchableSelect
@@ -213,6 +230,7 @@ export default function NotesPage() {
             }}
             icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
             placeholder={!filiereId ? "Choisir une filière" : "Semestre"}
+            searchPlaceholder="Rechercher un semestre…"
             options={semestres.map((s) => ({ value: s.id, label: s.libelle }))}
           />
           <SearchableSelect
@@ -225,25 +243,52 @@ export default function NotesPage() {
                 : sessionsQuery.isLoading
                 ? "Chargement…"
                 : sessions.length === 0
-                ? "Aucune session"
-                : "Session"
+                ? "Aucune UE"
+                : "UE"
             }
-            searchPlaceholder="Rechercher une session…"
-            options={sessions.map((s) => {
-              // Remplace le code UE par le nom de l'UE dans le libellé de session
-              // (ex. « Session Semestre 1 — L1DAF-S1-UE1 » → « … — Fondements du Droit »).
-              const base = String(s.session_libelle ?? "");
-              const label =
-                s.ue_code && s.ue_libelle && base.includes(s.ue_code)
-                  ? base.replace(s.ue_code, s.ue_libelle)
-                  : base || s.ue_libelle || "";
-              return { value: s.id, label };
-            })}
+            searchPlaceholder="Rechercher une UE…"
+            options={sessions.map((s) => ({
+              value: s.id,
+              label: `${s.ue_libelle ?? ""}${s.ue_code ? ` (${s.ue_code})` : ""}`.trim(),
+            }))}
           />
+          {/* Session de saisie LMD (rattrapage = uniquement les examens) */}
+          <div className="md:col-span-3 flex items-center gap-3 pt-1">
+            <span className="text-sm font-medium text-muted-foreground">Session de saisie :</span>
+            <div className="inline-flex rounded-lg border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setNoteSession(1)}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  noteSession === 1
+                    ? "bg-indigo-600 text-white"
+                    : "bg-background hover:bg-muted text-muted-foreground"
+                }`}
+              >
+                Session 1 (normale)
+              </button>
+              <button
+                type="button"
+                onClick={() => setNoteSession(2)}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  noteSession === 2
+                    ? "bg-amber-600 text-white"
+                    : "bg-background hover:bg-muted text-muted-foreground"
+                }`}
+              >
+                Session 2 (rattrapage)
+              </button>
+            </div>
+            {noteSession === 2 && (
+              <span className="text-xs text-amber-600">
+                Les notes d'examen saisies remplaceront celles de Session 1 pour les ECUE concernées.
+              </span>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Grille de saisie — une table par ECUE */}
+      {/* Grille de saisie de l'UE sélectionnée (ECUE × étudiants + conduite) */}
       {!sessionId ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center text-center py-16 gap-3">
@@ -251,7 +296,7 @@ export default function NotesPage() {
               <GraduationCap className="h-8 w-8 text-indigo-500" />
             </div>
             <p className="text-muted-foreground max-w-md">
-              Choisissez une filière, un semestre et une session pour saisir les notes.
+              Choisissez une filière, un semestre puis une UE pour saisir les notes.
             </p>
           </CardContent>
         </Card>
@@ -262,7 +307,7 @@ export default function NotesPage() {
       ) : students.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
-            Aucun étudiant inscrit (confirmé) dans cette session.
+            Aucun étudiant inscrit (confirmé) dans cette UE.
           </CardContent>
         </Card>
       ) : ecues.length === 0 ? (
@@ -271,86 +316,137 @@ export default function NotesPage() {
             Cette UE n'a pas d'ECUE (hors Conduite).
           </CardContent>
         </Card>
+      ) : noteSession === 2 && displayedStudents.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center text-muted-foreground">
+            Aucun ECUE à rattraper dans cette UE : tous les étudiants ont validé.
+          </CardContent>
+        </Card>
       ) : (
-        <div className="space-y-6">
-          {ecues.map((ecue) => (
-            <Card key={ecue.ecue_id} className="shadow-sm overflow-hidden">
-              <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-3">
-                <BookOpen className="h-4 w-4 text-indigo-500 shrink-0" />
-                <span className="font-mono text-xs opacity-70">{ecue.code}</span>
-                <span className="font-semibold">{ecue.libelle}</span>
-                {ecue.credits != null && (
-                  <span className="text-xs text-muted-foreground">· {ecue.credits} cr.</span>
-                )}
-              </div>
-              <CardContent className="p-0 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-muted-foreground border-b border-border bg-muted/30">
-                      <th className="px-4 py-3 font-medium">Étudiant</th>
-                      <th className="px-4 py-3 font-medium">Devoirs (/20)</th>
-                      <th className="px-3 py-3 font-medium w-40">Examen (/20)</th>
-                      <th className="px-3 py-3 font-medium text-center w-24">Moy. dev.</th>
-                      <th className="px-3 py-3 font-medium text-center w-24">Note ECUE</th>
-                      <th className="px-4 py-3 font-medium text-right w-28">Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {students.map((s) => {
-                      const subs = evalSubsOf(ecue.ecue_id, s.student_id);
-                      return (
-                        <StudentNoteRow
-                          key={`${ecue.ecue_id}-${s.student_id}`}
-                          student={s}
-                          ecueId={ecue.ecue_id}
-                          sessionId={sessionId}
-                          result={resultOf(ecue.ecue_id, s.student_id)}
-                          devoirs={devoirsOf(ecue.ecue_id, s.student_id)}
-                          examen={examenOf(ecue.ecue_id, s.student_id)}
-                          evalDevoirs={subs.filter((x: any) => x.type !== "examen")}
-                          evalExamen={subs.find((x: any) => x.type === "examen") ?? null}
-                          onError={setError}
-                        />
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Conduite du semestre (note unique par étudiant, saisie admin) */}
-      {isAdmin && semestreId && conduite && conduiteStudents.length > 0 && (
         <Card className="shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-border bg-amber-50 px-4 py-3">
-            <Star className="h-4 w-4 text-amber-500 shrink-0" />
-            <span className="font-semibold">Conduite</span>
-            <span className="text-xs text-muted-foreground">
-              · {conduite.ecue_code}
-              {conduite.credits != null ? ` · ${conduite.credits} cr.` : ""} · une note /20 par
-              étudiant
+          <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-3">
+            <BookOpen className="h-4 w-4 text-indigo-500 shrink-0" />
+            <span className="font-semibold">{grid?.session?.ue_libelle ?? "Unité d'enseignement"}</span>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
+              · {ecues.length} ECUE · {students.length} étudiant{students.length > 1 ? "s" : ""}
+              {showConduite ? " · conduite incluse" : ""}
             </span>
           </div>
-          <CardContent className="p-0 overflow-x-auto">
-            <table className="w-full text-sm">
+          <CardContent className="p-0 overflow-auto max-h-[80vh]">
+            <table className="min-w-full text-[15px] border-collapse">
               <thead>
-                <tr className="text-left text-muted-foreground border-b border-border bg-muted/30">
-                  <th className="px-4 py-3 font-medium">Étudiant</th>
-                  <th className="px-4 py-3 font-medium w-56">Conduite (/20)</th>
+                {/* En-tête groupé : une ECUE = 3 sous-colonnes (Devoirs / Examen / Note) */}
+                <tr className="bg-muted/60 border-b border-border">
+                  <th
+                    rowSpan={2}
+                    className="sticky left-0 top-0 z-30 bg-muted/60 px-5 py-3 text-left font-medium border-r border-border whitespace-nowrap"
+                  >
+                    Étudiant
+                  </th>
+                  {ecues.map((e) => (
+                    <th
+                      key={e.ecue_id}
+                      colSpan={3}
+                      className="sticky top-0 z-20 h-14 bg-muted/60 px-4 py-3 text-center font-semibold border-r border-border whitespace-nowrap"
+                    >
+                      <span className="font-mono text-xs opacity-70">{e.code}</span> {e.libelle}
+                      {e.credits != null && <span className="opacity-70"> · {e.credits} cr.</span>}
+                    </th>
+                  ))}
+                  {showConduite && (
+                    <th
+                      rowSpan={2}
+                      className="sticky top-0 z-20 px-4 py-3 text-center font-semibold bg-amber-500/20 border-l border-border align-middle whitespace-nowrap"
+                    >
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                        <Star className="h-4 w-4 text-amber-500" /> Conduite (/20)
+                      </span>
+                    </th>
+                  )}
+                </tr>
+                <tr className="bg-muted/40 border-b border-border text-xs text-muted-foreground">
+                  {ecues.map((e) => (
+                    <Fragment key={e.ecue_id}>
+                      <th className="sticky top-14 z-20 bg-muted/40 px-4 py-2.5 font-medium whitespace-nowrap">
+                        Devoirs (/20)
+                      </th>
+                      <th className="sticky top-14 z-20 bg-muted/40 px-4 py-2.5 font-medium whitespace-nowrap">
+                        Examen (/20)
+                      </th>
+                      <th className="sticky top-14 z-20 bg-muted/40 px-4 py-2.5 font-medium text-center border-r border-border whitespace-nowrap">
+                        Note
+                      </th>
+                    </Fragment>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {conduiteStudents.map((s) => (
-                  <ConduiteRow
-                    key={s.student_id}
-                    student={s}
-                    ecueId={conduite.ecue_id}
-                    ueSessionId={conduite.ue_session_id}
-                    onError={setError}
-                  />
-                ))}
+                {displayedStudents.map((s) => {
+                  const cond = conduiteByStudent.get(s.student_id);
+                  return (
+                    <tr
+                      key={s.student_id}
+                      className="border-b border-border/60 align-middle hover:bg-muted/20"
+                    >
+                      <td className="sticky left-0 z-10 bg-background px-5 py-4 border-r border-border whitespace-nowrap">
+                        <div className="font-medium whitespace-nowrap">
+                          {s.first_name} {s.last_name}
+                        </div>
+                        {s.matricule && (
+                          <div className="font-mono text-xs text-muted-foreground mt-0.5">
+                            {s.matricule}
+                          </div>
+                        )}
+                      </td>
+                      {ecues.map((e) => {
+                        const subs = evalSubsOf(e.ecue_id, s.student_id);
+                        return (
+                          <Fragment key={e.ecue_id}>
+                            <td className="px-4 py-4 align-middle whitespace-nowrap">
+                              <DevoirsCell
+                                ecueId={e.ecue_id}
+                                sessionId={sessionId}
+                                studentId={s.student_id}
+                                evalDevoirs={subs.filter((x: any) => x.type !== "examen")}
+                                devoirs={devoirsOf(e.ecue_id, s.student_id)}
+                                readOnly={noteSession === 2}
+                                onError={setError}
+                              />
+                            </td>
+                            <td className="px-4 py-4 align-middle whitespace-nowrap">
+                              <ExamenCell
+                                ecueId={e.ecue_id}
+                                sessionId={sessionId}
+                                studentId={s.student_id}
+                                examen={examenOf(e.ecue_id, s.student_id)}
+                                evalExamen={subs.find((x: any) => x.type === "examen") ?? null}
+                                noteSession={noteSession}
+                                locked={
+                                  noteSession === 2 &&
+                                  (resultOf(e.ecue_id, s.student_id)?.moyenne ?? 0) >= 10
+                                }
+                                onError={setError}
+                              />
+                            </td>
+                            <td className="px-4 py-4 text-center border-r border-border align-middle whitespace-nowrap">
+                              <NoteCell result={resultOf(e.ecue_id, s.student_id)} />
+                            </td>
+                          </Fragment>
+                        );
+                      })}
+                      {showConduite && (
+                        <td className="px-4 py-4 bg-amber-500/10 border-l border-border align-middle whitespace-nowrap text-center">
+                          <ConduiteCell
+                            student={cond ?? { student_id: s.student_id, note: null, note_id: null }}
+                            ecueId={conduite.ecue_id}
+                            ueSessionId={conduite.ue_session_id}
+                            onError={setError}
+                          />
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </CardContent>
@@ -358,10 +454,25 @@ export default function NotesPage() {
       )}
 
       {sessionId && ecues.length > 0 && students.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Note ECUE = moyenne des devoirs × 0,4 + note d'examen × 0,6. Une seule note d'examen par
-          ECUE. Les notes issues des évaluations apparaissent automatiquement.
-        </p>
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p>
+            Chaque ECUE : <span className="font-medium">Devoirs</span> (multiples) ·{" "}
+            <span className="font-medium">Examen</span> (unique) ·{" "}
+            <span className="font-medium">Note</span> = moyenne devoirs × 0,4 + examen × 0,6
+            {showConduite && (
+              <>
+                {" "}· <span className="font-medium">Conduite</span> = note unique /20 du semestre
+              </>
+            )}
+            .
+          </p>
+          <p>
+            Repères : <span className="font-mono">m</span> = note saisie manuellement ·{" "}
+            <span className="font-mono">éval</span> = note issue d'une évaluation (copie notée,
+            reprise automatiquement). La couleur de la Note indique le statut (validé / insuffisant /
+            éliminatoire).
+          </p>
+        </div>
       )}
 
       {/* Barre d'action : enregistrer les saisies + calculer */}
@@ -397,50 +508,27 @@ const EVAL_FMT: Record<string, string> = {
   ai_generated: "IA",
 };
 
-function StudentNoteRow({
-  student,
+/** Cellule Devoirs : notes d'évaluations (lecture seule) + notes manuelles + ajout. */
+function DevoirsCell({
   ecueId,
   sessionId,
-  result,
-  devoirs,
-  examen,
+  studentId,
   evalDevoirs,
-  evalExamen,
+  devoirs,
+  readOnly = false,
   onError,
 }: {
-  student: any;
   ecueId: string;
   sessionId: string;
-  result: any;
-  devoirs: any[];
-  examen: any;
+  studentId: string;
   evalDevoirs: any[];
-  evalExamen: any;
+  devoirs: any[];
+  readOnly?: boolean;
   onError: (m: string | null) => void;
 }) {
   const [newDevoir, setNewDevoir] = useState("");
-  // Valeur d'examen effective : note manuelle prioritaire, sinon note d'évaluation.
-  const effExamNote = examen ? examen.note : evalExamen ? evalExamen.note : null;
-  const [examInput, setExamInput] = useState(effExamNote != null ? String(effExamNote) : "");
   const upsert = useUpsertManualNote();
   const del = useDeleteManualNote();
-
-  useEffect(() => {
-    setExamInput(effExamNote != null ? String(effExamNote) : "");
-  }, [examen?.id, examen?.note, evalExamen?.note, ecueId, student.student_id]);
-
-  const statutKey = result
-    ? result.eliminee
-      ? "eliminatoire"
-      : result.validee
-      ? "valide"
-      : result.moyenne != null && result.moyenne >= 5
-      ? "insuffisant"
-      : result.moyenne != null
-      ? "eliminatoire"
-      : "en_cours"
-    : "en_cours";
-  const statut = ECUE_STATUT[statutKey] ?? ECUE_STATUT.en_cours;
 
   async function addDevoir() {
     const v = parseFloat(newDevoir.replace(",", "."));
@@ -449,7 +537,7 @@ function StudentNoteRow({
     try {
       await upsert.mutateAsync({
         ecueId,
-        student_id: student.student_id,
+        student_id: studentId,
         ue_session_id: sessionId,
         nature: "devoir",
         note: v,
@@ -458,28 +546,6 @@ function StudentNoteRow({
       setNewDevoir("");
     } catch (e: any) {
       onError(e?.message ?? "Erreur lors de l'ajout du devoir.");
-    }
-  }
-
-  async function saveExamen() {
-    const raw = examInput.trim();
-    if (raw === "") return;
-    const v = parseFloat(raw.replace(",", "."));
-    if (isNaN(v)) return;
-    // Inchangé (identique à la valeur effective) → ne rien créer.
-    if (effExamNote != null && Number(effExamNote) === v) return;
-    onError(null);
-    try {
-      await upsert.mutateAsync({
-        ecueId,
-        student_id: student.student_id,
-        ue_session_id: sessionId,
-        nature: "examen",
-        note: v,
-        note_max: 20,
-      });
-    } catch (e: any) {
-      onError(e?.message ?? "Erreur lors de l'enregistrement de l'examen.");
     }
   }
 
@@ -493,120 +559,221 @@ function StudentNoteRow({
   }
 
   return (
-    <tr className="border-b border-border/60 last:border-0 align-top">
-      <td className="px-4 py-3">
-        <div className="font-medium">
-          {student.first_name} {student.last_name}
-        </div>
-        {student.matricule && (
-          <div className="font-mono text-[11px] text-muted-foreground">{student.matricule}</div>
-        )}
-      </td>
-      {/* Devoirs : notes d'évaluations (lecture seule) + notes manuelles */}
-      <td className="px-4 py-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {evalDevoirs.map((d) => (
-            <span
-              key={d.assignment_id}
-              className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-xs font-mono"
-              title={`${d.titre} — évaluation ${EVAL_FMT[d.evaluation_type] ?? d.evaluation_type}`}
-            >
-              <BookOpen className="h-3 w-3 opacity-70" />
-              {fmt(d.note)}
-            </span>
-          ))}
-          {devoirs.map((d) => (
-            <span
-              key={d.id}
-              className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-xs font-mono"
-              title="Note saisie manuellement"
-            >
-              {fmt(d.note)}
-              <button
-                type="button"
-                onClick={() => removeNote(d.id)}
-                className="text-indigo-400 hover:text-red-600"
-                title="Supprimer ce devoir"
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-          <span className="inline-flex items-center gap-1">
-            <Input
-              type="number"
-              min={0}
-              max={20}
-              step="0.25"
-              value={newDevoir}
-              onChange={(e) => setNewDevoir(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addDevoir()}
-              placeholder="+ note"
-              className="h-7 w-20 text-xs"
-            />
+    <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap">
+      {evalDevoirs.map((d) => (
+        <span
+          key={d.assignment_id}
+          className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700 px-2.5 py-1 text-[13px] font-mono"
+          title={`${d.titre} — évaluation ${EVAL_FMT[d.evaluation_type] ?? d.evaluation_type}`}
+        >
+          <BookOpen className="h-3.5 w-3.5 opacity-70" />
+          {fmt(d.note)}
+        </span>
+      ))}
+      {devoirs.map((d) => (
+        <span
+          key={d.id}
+          className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 px-2.5 py-1 text-[13px] font-mono"
+          title="Note saisie manuellement"
+        >
+          {fmt(d.note)}
+          {!readOnly && (
             <button
               type="button"
-              onClick={addDevoir}
-              disabled={upsert.isPending}
-              className="text-indigo-600 hover:text-indigo-800"
-              title="Ajouter un devoir"
+              onClick={() => removeNote(d.id)}
+              className="text-indigo-400 hover:text-red-600"
+              title="Supprimer ce devoir"
             >
-              <Plus className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
-          </span>
-        </div>
-      </td>
-      {/* Examen : saisie (manuelle prioritaire) + source */}
-      <td className="px-3 py-3">
-        <div className="flex items-center gap-1.5">
+          )}
+        </span>
+      ))}
+      {readOnly ? (
+        // Session 2 (rattrapage) : devoirs de la Session 1 conservés, non
+        // modifiables (seul l'examen se repasse). Rien d'autre n'est affiché.
+        evalDevoirs.length === 0 && devoirs.length === 0 ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : null
+      ) : (
+        <span className="inline-flex items-center gap-1">
           <Input
             type="number"
             min={0}
             max={20}
             step="0.25"
-            value={examInput}
-            onChange={(e) => setExamInput(e.target.value)}
-            onBlur={saveExamen}
-            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-            placeholder="—"
-            className="h-8 w-20"
+            value={newDevoir}
+            onChange={(e) => setNewDevoir(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addDevoir()}
+            placeholder="+ note"
+            className="h-9 w-20"
           />
-          {examen ? (
-            <>
-              <span className="text-[10px] text-indigo-600" title="Note saisie manuellement">
-                manuel
-              </span>
-              <button
-                type="button"
-                onClick={() => removeNote(examen.id)}
-                className="text-gray-400 hover:text-red-600"
-                title="Supprimer la note d'examen manuelle"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </>
-          ) : evalExamen ? (
-            <span
-              className="text-[10px] text-slate-500"
-              title={`${evalExamen.titre} — évaluation ${EVAL_FMT[evalExamen.evaluation_type] ?? evalExamen.evaluation_type}`}
-            >
-              éval
-            </span>
-          ) : null}
-        </div>
-      </td>
-      <td className="px-3 py-3 text-center font-mono">{fmt(result?.moyenne_devoirs)}</td>
-      <td className="px-3 py-3 text-center font-mono font-semibold">{fmt(result?.moyenne)}</td>
-      <td className="px-4 py-3 text-right">
-        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statut.cls}`}>
-          {statut.label}
+          <button
+            type="button"
+            onClick={addDevoir}
+            disabled={upsert.isPending}
+            className="text-indigo-600 hover:text-indigo-800"
+            title="Ajouter un devoir"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
         </span>
-      </td>
-    </tr>
+      )}
+    </div>
   );
 }
 
-function ConduiteRow({
+/** Cellule Examen : note unique (manuelle prioritaire, sinon note d'évaluation). */
+function ExamenCell({
+  ecueId,
+  sessionId,
+  studentId,
+  examen,
+  evalExamen,
+  noteSession,
+  locked = false,
+  onError,
+}: {
+  ecueId: string;
+  sessionId: string;
+  studentId: string;
+  examen: any;
+  evalExamen: any;
+  noteSession: 1 | 2;
+  locked?: boolean;
+  onError: (m: string | null) => void;
+}) {
+  const effExamNote = examen ? examen.note : evalExamen ? evalExamen.note : null;
+  const [examInput, setExamInput] = useState(effExamNote != null ? String(effExamNote) : "");
+  const upsert = useUpsertManualNote();
+  const del = useDeleteManualNote();
+
+  useEffect(() => {
+    setExamInput(effExamNote != null ? String(effExamNote) : "");
+  }, [examen?.id, examen?.note, evalExamen?.note, ecueId, studentId]);
+
+  async function saveExamen() {
+    if (locked) return; // ECUE déjà validé : pas de rattrapage
+    const raw = examInput.trim();
+    if (raw === "") return;
+    const v = parseFloat(raw.replace(",", "."));
+    if (isNaN(v)) return;
+    if (effExamNote != null && Number(effExamNote) === v) return;
+    onError(null);
+    try {
+      await upsert.mutateAsync({
+        ecueId,
+        student_id: studentId,
+        ue_session_id: sessionId,
+        nature: "examen",
+        note: v,
+        note_max: 20,
+        session: noteSession,
+      });
+    } catch (e: any) {
+      onError(e?.message ?? "Erreur lors de l'enregistrement de l'examen.");
+    }
+  }
+
+  async function removeExamen() {
+    if (!examen?.id) return;
+    onError(null);
+    try {
+      await del.mutateAsync(examen.id);
+    } catch (e: any) {
+      onError(e?.message ?? "Erreur lors de la suppression.");
+    }
+  }
+
+  if (locked) {
+    // Session 2 : ECUE déjà validé (≥ 10) → rattrapage inutile, saisie verrouillée.
+    return (
+      <div
+        className="flex items-center gap-1.5 text-muted-foreground"
+        title="ECUE déjà validé — le rattrapage (Session 2) ne concerne que les ECUE non validés (< 10)."
+      >
+        <span className="font-mono">{effExamNote != null ? fmt(effExamNote) : "—"}</span>
+        <span className="rounded bg-green-100 px-1 text-[10px] font-semibold text-green-700">
+          validé
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Input
+        type="number"
+        min={0}
+        max={20}
+        step="0.25"
+        value={examInput}
+        onChange={(e) => setExamInput(e.target.value)}
+        onBlur={saveExamen}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+        placeholder="—"
+        className="h-9 w-20"
+      />
+      {examen ? (
+        <>
+          {(examen.session ?? 1) === 2 && (
+            <span
+              className="rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-700"
+              title="Note de rattrapage (Session 2) — remplace la note de Session 1"
+            >
+              S2
+            </span>
+          )}
+          <span className="text-[11px] text-indigo-600" title="Note saisie manuellement">
+            m
+          </span>
+          <button
+            type="button"
+            onClick={removeExamen}
+            className="text-gray-400 hover:text-red-600"
+            title="Supprimer la note d'examen manuelle"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </>
+      ) : evalExamen ? (
+        <span
+          className="text-[11px] text-slate-500"
+          title={`${evalExamen.titre} — évaluation ${EVAL_FMT[evalExamen.evaluation_type] ?? evalExamen.evaluation_type}`}
+        >
+          éval
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Cellule Note ECUE (lecture seule) : moyenne calculée + couleur de statut. */
+function NoteCell({ result }: { result: any }) {
+  const statutKey = result
+    ? result.eliminee
+      ? "eliminatoire"
+      : result.validee
+      ? "valide"
+      : result.moyenne != null && result.moyenne >= 5
+      ? "insuffisant"
+      : result.moyenne != null
+      ? "eliminatoire"
+      : "en_cours"
+    : "en_cours";
+  const statut = ECUE_STATUT[statutKey] ?? ECUE_STATUT.en_cours;
+  return (
+    <span
+      className={`inline-block rounded px-2.5 py-1 text-sm font-mono font-semibold ${statut.cls}`}
+      title={statut.label}
+    >
+      {fmt(result?.moyenne)}
+    </span>
+  );
+}
+
+/** Cellule Conduite : note unique /20 par étudiant (portée par l'ECUE de conduite). */
+function ConduiteCell({
   student,
   ecueId,
   ueSessionId,
@@ -658,41 +825,29 @@ function ConduiteRow({
   }
 
   return (
-    <tr className="border-b border-border/60 last:border-0">
-      <td className="px-4 py-3">
-        <div className="font-medium">
-          {student.first_name} {student.last_name}
-        </div>
-        {student.matricule && (
-          <div className="font-mono text-[11px] text-muted-foreground">{student.matricule}</div>
-        )}
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <Input
-            type="number"
-            min={0}
-            max={20}
-            step="0.25"
-            value={val}
-            onChange={(e) => setVal(e.target.value)}
-            onBlur={save}
-            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-            placeholder="—"
-            className="h-8 w-24"
-          />
-          {student.note_id && (
-            <button
-              type="button"
-              onClick={remove}
-              className="text-gray-400 hover:text-red-600"
-              title="Supprimer la note de conduite"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-      </td>
-    </tr>
+    <div className="flex items-center justify-center gap-1.5">
+      <Input
+        type="number"
+        min={0}
+        max={20}
+        step="0.25"
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+        placeholder="—"
+        className="h-9 w-24"
+      />
+      {student.note_id && (
+        <button
+          type="button"
+          onClick={remove}
+          className="text-gray-400 hover:text-red-600"
+          title="Supprimer la note de conduite"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
   );
 }

@@ -22,13 +22,15 @@ import {
   X,
   Receipt,
   BookOpen,
+  FileText,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import {
-  useAdminEnrollments,
+  useAllAdminEnrollments,
   useRecordStudentPayment,
   useEnrollmentsPaymentsHistory,
 } from "@/lib/hooks/use-professional-suivi";
+import { openReceiptPdf, type ReceiptData } from "@/lib/receipt-pdf";
 
 /**
  * Paiements — Module Professionnel (admin).
@@ -96,7 +98,7 @@ function groupEnrollmentsBySession(enrollments: any[]): { label: string; items: 
 }
 
 export default function ProfessionalPaiementsPage() {
-  const query = useAdminEnrollments({ pageSize: 500 });
+  const query = useAllAdminEnrollments();
   const items: any[] = (query.data as any)?.items ?? [];
 
   const [filiere, setFiliere] = useState("all");
@@ -312,14 +314,24 @@ export default function ProfessionalPaiementsPage() {
                   ))}
                 </div>
 
-                <Button
-                  className="w-full mt-auto bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white disabled:opacity-60"
-                  disabled={g.reste <= 0.5}
-                  onClick={() => setPayGroup(g)}
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  {g.reste <= 0.5 ? "Soldé" : "Enregistrer un paiement"}
-                </Button>
+                {g.reste <= 0.5 ? (
+                  <Button
+                    variant="outline"
+                    className="w-full mt-auto border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800"
+                    onClick={() => setPayGroup(g)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Voir les reçus
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full mt-auto bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
+                    onClick={() => setPayGroup(g)}
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Enregistrer un paiement
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -377,6 +389,80 @@ function StatCard({
 
 /* ------------------------------ Modale paiement ---------------------------- */
 
+/**
+ * Une transaction = l'ensemble des lignes de paiement partageant le même
+ * horodatage (un règlement réparti sur plusieurs UE/commandes reste UNE
+ * opération). `total_paye` est le cumul réglé jusqu'à cette transaction incluse.
+ */
+interface Txn {
+  key: string;
+  rows: any[];
+  montant: number;
+  total_paye: number;
+  mode: string;
+  reference: string | null;
+  paid_at: string;
+}
+
+function buildTransactions(payments: any[]): Txn[] {
+  const map = new Map<string, any[]>();
+  for (const p of payments) {
+    const key = String(p.paid_at ?? p.created_at ?? p.id);
+    const arr = map.get(key);
+    if (arr) arr.push(p);
+    else map.set(key, [p]);
+  }
+  const list: Txn[] = Array.from(map.entries()).map(([key, rows]) => ({
+    key,
+    rows,
+    montant: rows.reduce(
+      (a, r) => a + (r.statut === "confirme" || r.statut == null ? Number(r.montant) : 0),
+      0
+    ),
+    total_paye: 0,
+    mode: rows[0]?.mode,
+    reference: rows.find((r) => r.reference_transaction)?.reference_transaction ?? null,
+    paid_at: key,
+  }));
+  list.sort((a, b) => new Date(a.paid_at).getTime() - new Date(b.paid_at).getTime());
+  let cumul = 0;
+  for (const t of list) {
+    cumul += t.montant;
+    t.total_paye = cumul;
+  }
+  return list;
+}
+
+/** N° de reçu affiché : le premier, avec « (+N) » si la transaction couvre plusieurs UE. */
+function txnReceiptNumber(t: Txn): string {
+  const nums = t.rows.map((r) => r.receipt_number).filter(Boolean);
+  if (nums.length <= 1) return nums[0] ?? "—";
+  return `${nums[0]} (+${nums.length - 1})`;
+}
+
+function buildReceiptData(group: any, t: Txn): ReceiptData {
+  return {
+    receipt_number: txnReceiptNumber(t),
+    reference_transaction: t.reference,
+    montant: t.montant,
+    mode: t.mode,
+    paid_at: t.paid_at,
+    student: {
+      first_name: group.first_name,
+      last_name: group.last_name,
+      matricule: group.matricule,
+    },
+    filiere: { nom: group.filiere_nom, code: group.filiere_code },
+    total_du: group.due,
+    total_paye: t.total_paye,
+    ues: group.enrollments.map((e: any) => ({
+      libelle: e.ue_libelle,
+      code: e.ue_code,
+      montant: dueOf(e),
+    })),
+  };
+}
+
 function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
   const historyQuery = useEnrollmentsPaymentsHistory(group.enrollment_ids);
   const recordMut = useRecordStudentPayment();
@@ -394,11 +480,17 @@ function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
   const [reference, setReference] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Regroupe les lignes de paiement par transaction (même horodatage) et
+  // ajoute le cumul « réglé à ce jour » à l'émission de chaque reçu.
+  const transactions = useMemo(() => buildTransactions(payments), [payments]);
+
   async function submit() {
     setError(null);
     const m = Number(montant);
     if (!(m > 0)) return setError("Montant invalide.");
     if (m > reste + 0.5) return setError(`Le montant dépasse le reste (${fmtFCFA(reste)}).`);
+    // Onglet ouvert de façon synchrone (geste utilisateur) pour éviter le blocage popup.
+    const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
     try {
       await recordMut.mutateAsync({
         enrollmentIds: group.enrollment_ids,
@@ -408,10 +500,20 @@ function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
       });
       setMontant("");
       setReference("");
-      historyQuery.refetch();
+      const res = await historyQuery.refetch();
+      const fresh: any[] = (res.data as any)?.payments ?? [];
+      const last = buildTransactions(fresh).slice(-1)[0];
+      if (last) await openReceiptPdf(buildReceiptData(group, last), win);
+      else win?.close();
     } catch (e: any) {
+      win?.close();
       setError(e?.message ?? "Paiement refusé.");
     }
+  }
+
+  function openReceipt(t: Txn) {
+    const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    void openReceiptPdf(buildReceiptData(group, t), win);
   }
 
   return (
@@ -538,27 +640,38 @@ function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
             </div>
           )}
 
-          {/* Historique */}
+          {/* Historique — un reçu éditable par transaction */}
           <div>
             <p className="text-sm font-medium mb-2">Historique des paiements</p>
             {historyQuery.isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            ) : payments.length === 0 ? (
+            ) : transactions.length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucun paiement enregistré.</p>
             ) : (
               <ul className="space-y-1.5">
-                {payments.map((p) => (
+                {[...transactions].reverse().map((t) => (
                   <li
-                    key={p.id}
+                    key={t.key}
                     className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm"
                   >
-                    <span>
-                      <span className="font-medium">{fmtFCFA(p.montant)}</span>{" "}
-                      <span className="text-muted-foreground">· {MODE_LABEL[p.mode] ?? p.mode}</span>
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {p.receipt_number} · {fmtDate(p.paid_at ?? p.created_at)}
-                    </span>
+                    <div className="min-w-0">
+                      <span className="font-medium">{fmtFCFA(t.montant)}</span>{" "}
+                      <span className="text-muted-foreground">· {MODE_LABEL[t.mode] ?? t.mode}</span>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {txnReceiptNumber(t)} · {fmtDate(t.paid_at)}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => openReceipt(t)}
+                      title="Éditer le reçu de paiement (PDF)"
+                    >
+                      <FileText className="h-4 w-4 mr-1.5" />
+                      Reçu
+                    </Button>
                   </li>
                 ))}
               </ul>

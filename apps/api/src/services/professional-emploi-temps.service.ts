@@ -19,7 +19,7 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
          FROM professional_ue_sessions s
          JOIN professional_ue u ON u.id = s.ue_id
          JOIN programmes p ON p.id = u.filiere_id
-         WHERE s.tenant_id = $1 AND s.statut = 'ouvert'
+         WHERE s.tenant_id = $1 AND s.statut <> 'annule'
          ORDER BY p.name`,
         [tenantId]
       );
@@ -38,7 +38,7 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
          FROM professional_ue_sessions s
          JOIN professional_semestre_sessions ss ON ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
          JOIN professional_semestres sm ON sm.id = ss.semestre_id
-         WHERE s.tenant_id = $1 AND sm.filiere_id = $2 AND s.statut = 'ouvert'
+         WHERE s.tenant_id = $1 AND sm.filiere_id = $2 AND s.statut <> 'annule'
          ORDER BY sm.libelle`,
         [tenantId, filiereId]
       );

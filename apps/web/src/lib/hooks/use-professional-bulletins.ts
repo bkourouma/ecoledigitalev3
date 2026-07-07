@@ -59,6 +59,51 @@ export function useBulletin(semestreId: string | null, studentId: string | null)
   });
 }
 
+/** Génère les bulletins officiels de tous les étudiants du semestre. */
+export function useGenerateBulletins() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (semestreId: string) =>
+      apiFetch(`${BASE}/semestres/${semestreId}/bulletins/generate`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["professional-bulletin-roster"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-bulletin"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-bulletins-history"], exact: false });
+    },
+  });
+}
+
+/** Récupère les bulletins COMPLETS d'un semestre (pour le PDF combiné). */
+export async function fetchFullBulletins(semestreId: string): Promise<any[]> {
+  return apiFetch<any[]>(`${BASE}/semestres/${semestreId}/bulletins-full`);
+}
+
+/** Historique complet des présences d'une filière (séances + récap étudiants). */
+export function usePresencesHistory(params: {
+  filiereId: string | null;
+  semestreId?: string;
+  statut?: string;
+}) {
+  const { filiereId, semestreId, statut } = params;
+  const qs = new URLSearchParams({ filiere_id: filiereId ?? "" });
+  if (semestreId) qs.set("semestre_id", semestreId);
+  if (statut && statut !== "all") qs.set("statut", statut);
+  return useQuery({
+    queryKey: ["professional-presences-history", filiereId, semestreId ?? "", statut ?? ""],
+    queryFn: () => apiFetch(`${BASE}/presences/history?${qs.toString()}`),
+    enabled: !!filiereId,
+  });
+}
+
+/** Historique des bulletins d'une filière (semestres, étudiants, bulletins générés). */
+export function useBulletinHistory(filiereId: string | null) {
+  return useQuery({
+    queryKey: ["professional-bulletins-history", filiereId],
+    queryFn: () => apiFetch(`${BASE}/bulletins/history?filiere_id=${filiereId}`),
+    enabled: !!filiereId,
+  });
+}
+
 /** Recalcule tous les résultats des cohortes du semestre. */
 export function useRecomputeBulletins() {
   const qc = useQueryClient();
@@ -140,6 +185,8 @@ interface ManualNoteInput {
   note: number;
   note_max?: number;
   libelle?: string | null;
+  /** 1 = session normale, 2 = rattrapage (LMD). */
+  session?: number;
 }
 
 /** Crée (devoir) ou met à jour (examen unique) une note manuelle. */
@@ -190,6 +237,15 @@ export function useMyBulletin(semestreId: string | null) {
   return useQuery({
     queryKey: ["professional-my-bulletin", semestreId],
     queryFn: () => apiFetch(`${BASE}/student/bulletins/${semestreId}`),
+    enabled: !!semestreId,
+  });
+}
+
+/** Détail des notes individuelles (devoirs + examen) de l'étudiant, par semestre. */
+export function useMyBulletinNotes(semestreId: string | null) {
+  return useQuery({
+    queryKey: ["professional-my-bulletin-notes", semestreId],
+    queryFn: () => apiFetch(`${BASE}/student/bulletins/${semestreId}/notes`),
     enabled: !!semestreId,
   });
 }

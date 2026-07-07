@@ -5,7 +5,6 @@ import {
   moyenneSession,
   creditsValides as calcCreditsValides,
   creditsTotal as calcCreditsTotal,
-  semestreValide as calcSemestreValide,
   arrondi,
   type EcueInput,
 } from "./bulletin-calc";
@@ -27,7 +26,11 @@ const BULLETIN_ROWS = `
          e.credits::int AS credits, l.ordre,
          r.id AS result_id, r.moyenne::float8 AS moyenne,
          r.moyenne_devoirs::float8 AS moyenne_devoirs, r.note_examen::float8 AS note_examen,
-         r.validee, r.validee_manuellement, r.eliminee
+         r.validee, r.validee_manuellement, r.eliminee, r.session_obtention,
+         EXISTS (SELECT 1 FROM professional_ecue_notes n2
+                 WHERE n2.tenant_id = s.tenant_id AND n2.ecue_id = e.id
+                   AND n2.student_id = $3 AND n2.ue_session_id = s.id
+                   AND n2.session = 2) AS ecue_has_s2
   FROM professional_ue_sessions s
   JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
   JOIN professional_ue_ecue l ON l.ue_id = s.ue_id AND l.tenant_id = s.tenant_id
@@ -77,6 +80,12 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     tenantId: string,
     teacherUserId?: string
   ): Promise<ServiceResult<any>> {
+    // On ne retient que les filières ayant au moins un étudiant inscrit
+    // (confirmé/terminé) dans une session d'UE.
+    const HAS_ENROLLED = `EXISTS (
+      SELECT 1 FROM professional_enrollments en
+      WHERE en.ue_session_id = s.id AND en.tenant_id = s.tenant_id
+        AND en.statut IN ('confirmee','terminee'))`;
     return this.withTenant(tenantId, async (client) => {
       if (teacherUserId) {
         const r = await client.query(
@@ -86,14 +95,19 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
            JOIN professional_ue_sessions s ON s.id = a.ue_session_id AND s.tenant_id = a.tenant_id
            JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
            JOIN programmes p ON p.id = u.filiere_id
-           WHERE a.tenant_id = $1 AND t.user_id = $2
+           WHERE a.tenant_id = $1 AND t.user_id = $2 AND ${HAS_ENROLLED}
            ORDER BY p.name`,
           [tenantId, teacherUserId]
         );
         return ok(r.rows);
       }
       const r = await client.query(
-        `SELECT id, name, code FROM programmes WHERE tenant_id = $1 ORDER BY name`,
+        `SELECT DISTINCT p.id, p.name, p.code
+         FROM programmes p
+         JOIN professional_ue u ON u.filiere_id = p.id AND u.tenant_id = p.tenant_id
+         JOIN professional_ue_sessions s ON s.ue_id = u.id AND s.tenant_id = u.tenant_id
+         WHERE p.tenant_id = $1 AND ${HAS_ENROLLED}
+         ORDER BY p.name`,
         [tenantId]
       );
       return ok(r.rows);
@@ -209,8 +223,31 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       const effectif = await this.countSemestreStudents(client, tenantId, semestreId);
       const bulletin = await this.computeStudentBulletin(client, tenantId, sem, stu.rows[0], effectif);
       bulletin.rang = await this.computeRang(client, tenantId, sem, studentId);
+      await this.attachGeneratedMeta(client, tenantId, semestreId, studentId, bulletin);
       return ok(bulletin);
     });
+  }
+
+  /** Attache la date de génération officielle et le statut du bulletin (si généré). */
+  private async attachGeneratedMeta(
+    client: PoolClient,
+    tenantId: string,
+    semestreId: string,
+    studentId: string,
+    bulletin: any
+  ): Promise<void> {
+    const g = await client.query(
+      `SELECT statut, generated_at, updated_at FROM professional_bulletins
+       WHERE tenant_id=$1 AND semestre_id=$2 AND student_id=$3`,
+      [tenantId, semestreId, studentId]
+    );
+    if ((g.rowCount ?? 0) > 0) {
+      bulletin.generated_at = g.rows[0].generated_at;
+      bulletin.bulletin_statut = g.rows[0].statut;
+    } else {
+      bulletin.generated_at = null;
+      bulletin.bulletin_statut = null;
+    }
   }
 
   /** Semestres où l'étudiant (user_id) est inscrit — pour son sélecteur. */
@@ -260,7 +297,203 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       const effectif = await this.countSemestreStudents(client, tenantId, semestreId);
       const bulletin = await this.computeStudentBulletin(client, tenantId, sem, sp.rows[0], effectif);
       bulletin.rang = await this.computeRang(client, tenantId, sem, sp.rows[0].id);
+      await this.attachGeneratedMeta(client, tenantId, semestreId, sp.rows[0].id, bulletin);
       return ok(bulletin);
+    });
+  }
+
+  /**
+   * Détail des notes individuelles de l'étudiant connecté pour un semestre :
+   * chaque devoir et examen saisi manuellement + les copies d'évaluation notées,
+   * par ECUE/cohorte. Sert à afficher le détail des devoirs (pas seulement la
+   * moyenne) dans l'espace étudiant. Scopé au student_profile de l'utilisateur.
+   */
+  async getStudentSemestreNotes(
+    tenantId: string,
+    semestreId: string,
+    userId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sp = await client.query(
+        `SELECT id FROM student_profiles WHERE user_id = $1 AND tenant_id = $2 LIMIT 1`,
+        [userId, tenantId]
+      );
+      if (sp.rowCount === 0) return fail("STUDENT_NOT_FOUND", "Profil étudiant introuvable.");
+      const studentId = sp.rows[0].id as string;
+
+      // Cohortes (UE sessions) du semestre où l'étudiant est inscrit (confirmé).
+      const sessions = await client.query(
+        `SELECT DISTINCT s.id
+         FROM professional_ue_sessions s
+         JOIN professional_enrollments en ON en.ue_session_id = s.id AND en.tenant_id = s.tenant_id
+         WHERE s.tenant_id = $1 AND en.student_id = $3
+           AND en.statut IN ('confirmee','terminee')
+           AND (
+             s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                      WHERE semestre_id = $2 AND tenant_id = $1)
+             OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                            WHERE semestre_id = $2 AND tenant_id = $1)
+           )`,
+        [tenantId, semestreId, studentId]
+      );
+      const sessionIds = sessions.rows.map((r) => r.id as string);
+      if (sessionIds.length === 0) return ok({ notes: [], submissions: [] });
+
+      // Notes manuelles individuelles (devoirs + examen) de l'étudiant.
+      const notes = await client.query(
+        `SELECT id, ecue_id, ue_session_id, nature, libelle,
+                note::float8 AS note, note_max::float8 AS note_max,
+                COALESCE(session, 1)::int AS session, created_at
+         FROM professional_ecue_notes
+         WHERE tenant_id = $1 AND student_id = $2 AND ue_session_id = ANY($3::uuid[])
+         ORDER BY nature, session, created_at`,
+        [tenantId, studentId, sessionIds]
+      );
+
+      // Copies d'évaluation notées (devoirs/examens issus des évaluations).
+      const submissions = await client.query(
+        `SELECT a.ecue_id, a.ue_session_id, a.id AS assignment_id, a.titre,
+                a.type, a.evaluation_type,
+                sub.note::float8 AS note, a.note_max::float8 AS note_max
+         FROM professional_assignment_submissions sub
+         JOIN professional_assignments a ON a.id = sub.assignment_id
+         WHERE sub.tenant_id = $1 AND sub.student_id = $2 AND sub.note IS NOT NULL
+           AND a.ue_session_id = ANY($3::uuid[])
+         ORDER BY a.type DESC, a.titre`,
+        [tenantId, studentId, sessionIds]
+      );
+
+      return ok({ notes: notes.rows, submissions: submissions.rows });
+    });
+  }
+
+  /* ===================== Espace parent (lecture seule) ===================== */
+
+  /** Vérifie qu'un enfant (student_profiles.id) est rattaché au parent. */
+  private async isParentOfChild(
+    client: PoolClient,
+    tenantId: string,
+    parentUserId: string,
+    childStudentId: string
+  ): Promise<boolean> {
+    const r = await client.query(
+      `SELECT 1 FROM student_parents
+       WHERE tenant_id = $1 AND parent_id = $2 AND student_id = $3 LIMIT 1`,
+      [tenantId, parentUserId, childStudentId]
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  /** Semestres où l'enfant est inscrit (parent authentifié). */
+  async listChildSemestres(
+    tenantId: string,
+    parentUserId: string,
+    childStudentId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      if (!(await this.isParentOfChild(client, tenantId, parentUserId, childStudentId))) {
+        return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
+      }
+      const r = await client.query(
+        `SELECT DISTINCT sm.id, sm.libelle, p.name AS filiere_nom, p.code AS filiere_code
+         FROM professional_semestres sm
+         LEFT JOIN programmes p ON p.id = sm.filiere_id
+         WHERE sm.tenant_id = $2 AND sm.id IN (
+           SELECT ss.semestre_id FROM professional_semestre_sessions ss
+           JOIN professional_enrollments en ON en.ue_session_id = ss.ue_session_id
+           WHERE en.student_id = $1 AND en.tenant_id = $2 AND en.statut IN ('confirmee','terminee')
+           UNION
+           SELECT su.semestre_id FROM professional_semestre_ue su
+           JOIN professional_ue_sessions s ON s.ue_id = su.ue_id AND s.tenant_id = su.tenant_id
+           JOIN professional_enrollments en ON en.ue_session_id = s.id
+           WHERE en.student_id = $1 AND en.tenant_id = $2 AND en.statut IN ('confirmee','terminee')
+         )
+         ORDER BY sm.libelle`,
+        [childStudentId, tenantId]
+      );
+      return ok(r.rows);
+    });
+  }
+
+  /** Bulletin d'un enfant pour un semestre (parent authentifié). */
+  async getChildBulletin(
+    tenantId: string,
+    parentUserId: string,
+    semestreId: string,
+    childStudentId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      if (!(await this.isParentOfChild(client, tenantId, parentUserId, childStudentId))) {
+        return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
+      }
+      const stu = await client.query(
+        `SELECT sp.id, u.first_name, u.last_name, sp.student_number AS matricule,
+                sp.date_of_birth::text AS date_of_birth, sp.place_of_birth,
+                sp.is_repeating, sp.gender
+         FROM student_profiles sp JOIN users u ON u.id = sp.user_id
+         WHERE sp.id = $1 AND sp.tenant_id = $2`,
+        [childStudentId, tenantId]
+      );
+      if (stu.rowCount === 0) return fail("STUDENT_NOT_FOUND", "Élève introuvable.");
+      const sem = await this.loadSemestre(client, tenantId, semestreId);
+      if (!sem) return fail("SEMESTRE_NOT_FOUND", "Semestre introuvable.");
+      const effectif = await this.countSemestreStudents(client, tenantId, semestreId);
+      const bulletin = await this.computeStudentBulletin(client, tenantId, sem, stu.rows[0], effectif);
+      bulletin.rang = await this.computeRang(client, tenantId, sem, childStudentId);
+      await this.attachGeneratedMeta(client, tenantId, semestreId, childStudentId, bulletin);
+      return ok(bulletin);
+    });
+  }
+
+  /** Notes individuelles (devoirs + examen) d'un enfant pour un semestre. */
+  async getChildSemestreNotes(
+    tenantId: string,
+    parentUserId: string,
+    semestreId: string,
+    childStudentId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      if (!(await this.isParentOfChild(client, tenantId, parentUserId, childStudentId))) {
+        return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
+      }
+      const sessions = await client.query(
+        `SELECT DISTINCT s.id
+         FROM professional_ue_sessions s
+         JOIN professional_enrollments en ON en.ue_session_id = s.id AND en.tenant_id = s.tenant_id
+         WHERE s.tenant_id = $1 AND en.student_id = $3
+           AND en.statut IN ('confirmee','terminee')
+           AND (
+             s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                      WHERE semestre_id = $2 AND tenant_id = $1)
+             OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                            WHERE semestre_id = $2 AND tenant_id = $1)
+           )`,
+        [tenantId, semestreId, childStudentId]
+      );
+      const sessionIds = sessions.rows.map((r) => r.id as string);
+      if (sessionIds.length === 0) return ok({ notes: [], submissions: [] });
+
+      const notes = await client.query(
+        `SELECT id, ecue_id, ue_session_id, nature, libelle,
+                note::float8 AS note, note_max::float8 AS note_max,
+                COALESCE(session, 1)::int AS session, created_at
+         FROM professional_ecue_notes
+         WHERE tenant_id = $1 AND student_id = $2 AND ue_session_id = ANY($3::uuid[])
+         ORDER BY nature, session, created_at`,
+        [tenantId, childStudentId, sessionIds]
+      );
+      const submissions = await client.query(
+        `SELECT a.ecue_id, a.ue_session_id, a.id AS assignment_id, a.titre,
+                a.type, a.evaluation_type,
+                sub.note::float8 AS note, a.note_max::float8 AS note_max
+         FROM professional_assignment_submissions sub
+         JOIN professional_assignments a ON a.id = sub.assignment_id
+         WHERE sub.tenant_id = $1 AND sub.student_id = $2 AND sub.note IS NOT NULL
+           AND a.ue_session_id = ANY($3::uuid[])
+         ORDER BY a.type DESC, a.titre`,
+        [tenantId, childStudentId, sessionIds]
+      );
+      return ok({ notes: notes.rows, submissions: submissions.rows });
     });
   }
 
@@ -290,6 +523,15 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
 
       const effectif = students.rowCount ?? 0;
       const roster = [];
+      // État de génération des bulletins (date permanente + statut).
+      const gen = await client.query(
+        `SELECT student_id, statut, generated_at FROM professional_bulletins
+         WHERE tenant_id=$1 AND semestre_id=$2`,
+        [tenantId, semestreId]
+      );
+      const genBy = new Map<string, any>();
+      for (const g of gen.rows) genBy.set(String(g.student_id), g);
+
       for (const s of students.rows) {
         const b = await this.computeStudentBulletin(
           client,
@@ -303,22 +545,266 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
           },
           effectif
         );
+        const g = genBy.get(String(s.student_id));
         roster.push({
           student_id: s.student_id,
           first_name: s.first_name,
           last_name: s.last_name,
-          matricule: s.matricule,
+          // Matricule pro (IPAM…) résolu par computeStudentBulletin, sinon le numéro brut.
+          matricule: b.student?.matricule ?? s.matricule,
           moyenne_session: b.moyenne_session,
           credits_valides: b.credits_valides,
           credits_total: b.credits_total,
           semestre_valide: b.semestre_valide,
           decision: b.decision,
+          statut_etudiant: b.statut_etudiant,
+          session_globale: b.session_globale,
+          bulletin_statut: g?.statut ?? null,
+          generated_at: g?.generated_at ?? null,
         });
       }
       return ok({
         semestre: { id: sem.id, libelle: sem.libelle },
-        filiere: { id: sem.filiere_id, name: sem.filiere_nom, code: sem.filiere_code },
+        filiere: {
+        id: sem.filiere_id,
+        name: sem.filiere_nom,
+        code: sem.filiere_code,
+        domaine: sem.filiere_domaine ?? null,
+      },
         students: roster,
+      });
+    });
+  }
+
+  /**
+   * Génère (ou régénère) les bulletins officiels de TOUS les étudiants du
+   * semestre. La date de génération est DÉFINITIVE : posée à la première
+   * génération, elle n'est jamais modifiée (les régénérations mettent à jour
+   * l'instantané et le statut, `updated_at` trace le dernier rafraîchissement).
+   * Statut : « definitif » si le semestre est validé, sinon « provisoire »
+   * (étudiant en attente de Session 2 / rattrapage).
+   */
+  async generateBulletins(tenantId: string, semestreId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sem = await this.loadSemestre(client, tenantId, semestreId);
+      if (!sem) return fail("SEMESTRE_NOT_FOUND", "Semestre introuvable.");
+
+      const students = await client.query(
+        `SELECT DISTINCT en.student_id, u.first_name, u.last_name, sp.student_number AS matricule
+         FROM professional_enrollments en
+         JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+         JOIN student_profiles sp ON sp.id = en.student_id
+         JOIN users u ON u.id = sp.user_id
+         WHERE en.tenant_id = $1 AND en.statut IN ('confirmee','terminee')
+           AND (
+             s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                      WHERE semestre_id = $2 AND tenant_id = $1)
+             OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                            WHERE semestre_id = $2 AND tenant_id = $1)
+           )`,
+        [tenantId, semestreId]
+      );
+
+      const effectif = students.rowCount ?? 0;
+      let definitifs = 0;
+      let provisoires = 0;
+      for (const s of students.rows) {
+        const b = await this.computeStudentBulletin(
+          client,
+          tenantId,
+          sem,
+          {
+            id: s.student_id,
+            first_name: s.first_name,
+            last_name: s.last_name,
+            matricule: s.matricule,
+          },
+          effectif
+        );
+        const statut = b.semestre_valide ? "definitif" : "provisoire";
+        if (statut === "definitif") definitifs++;
+        else provisoires++;
+        await client.query(
+          `INSERT INTO professional_bulletins
+             (tenant_id, student_id, semestre_id, statut, data)
+           VALUES ($1,$2,$3,$4,$5)
+           ON CONFLICT (tenant_id, student_id, semestre_id)
+           DO UPDATE SET data = EXCLUDED.data,
+                         statut = EXCLUDED.statut,
+                         updated_at = now()`,
+          [tenantId, s.student_id, semestreId, statut, JSON.stringify(b)]
+        );
+      }
+      return ok({ generated: effectif, definitifs, provisoires });
+    });
+  }
+
+  /**
+   * Bulletins COMPLETS (calculés) de tous les étudiants d'un semestre — pour
+   * générer un PDF combiné. Le rang est dérivé du classement des moyennes.
+   */
+  async listFullBulletins(tenantId: string, semestreId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sem = await this.loadSemestre(client, tenantId, semestreId);
+      if (!sem) return fail("SEMESTRE_NOT_FOUND", "Semestre introuvable.");
+
+      const students = await client.query(
+        `SELECT DISTINCT en.student_id, u.first_name, u.last_name,
+                sp.student_number AS matricule, sp.date_of_birth::text AS date_of_birth,
+                sp.place_of_birth, sp.is_repeating, sp.gender
+         FROM professional_enrollments en
+         JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+         JOIN student_profiles sp ON sp.id = en.student_id
+         JOIN users u ON u.id = sp.user_id
+         WHERE en.tenant_id = $1 AND en.statut IN ('confirmee','terminee')
+           AND (
+             s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                      WHERE semestre_id = $2 AND tenant_id = $1)
+             OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                            WHERE semestre_id = $2 AND tenant_id = $1)
+           )
+         ORDER BY u.last_name, u.first_name`,
+        [tenantId, semestreId]
+      );
+
+      const effectif = students.rowCount ?? 0;
+      const bulletins: any[] = [];
+      for (const s of students.rows) {
+        const b = await this.computeStudentBulletin(
+          client,
+          tenantId,
+          sem,
+          {
+            id: s.student_id,
+            first_name: s.first_name,
+            last_name: s.last_name,
+            matricule: s.matricule,
+            date_of_birth: s.date_of_birth,
+            place_of_birth: s.place_of_birth,
+            is_repeating: s.is_repeating,
+            gender: s.gender,
+          },
+          effectif
+        );
+        await this.attachGeneratedMeta(client, tenantId, semestreId, s.student_id, b);
+        bulletins.push(b);
+      }
+      // Rang : nombre d'étudiants ayant une moyenne strictement supérieure + 1.
+      for (const b of bulletins) {
+        b.rang =
+          b.moyenne_session == null
+            ? null
+            : bulletins.filter(
+                (o) => o.moyenne_session != null && o.moyenne_session > b.moyenne_session
+              ).length + 1;
+      }
+      return ok(bulletins);
+    });
+  }
+
+  /**
+   * Historique des bulletins d'une filière : semestres (avec statut global et
+   * année scolaire dérivés de leurs sessions d'UE), étudiants inscrits et
+   * bulletins GÉNÉRÉS (professional_bulletins) — pour la page « Historique ».
+   */
+  async getBulletinHistory(tenantId: string, filiereId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const fil = await client.query(
+        `SELECT id, name, code, domaine FROM programmes WHERE id=$1 AND tenant_id=$2`,
+        [filiereId, tenantId]
+      );
+      if (fil.rowCount === 0) return fail("FILIERE_NOT_FOUND", "Filière introuvable.");
+
+      // Semestres + agrégat de leurs sessions d'UE (2 chemins de liaison).
+      const sems = await client.query(
+        `SELECT sm.id, sm.libelle,
+                min(s.date_debut)::text AS date_debut,
+                max(s.date_fin)::text AS date_fin,
+                count(DISTINCT s.id)::int AS nb_sessions,
+                count(DISTINCT s.id) FILTER (WHERE s.statut NOT IN ('termine','annule'))::int AS nb_actives,
+                count(DISTINCT b.id)::int AS nb_bulletins,
+                count(DISTINCT b.id) FILTER (WHERE b.statut <> 'definitif')::int AS nb_bulletins_non_definitifs
+         FROM professional_semestres sm
+         LEFT JOIN LATERAL (
+           SELECT DISTINCT s.id, s.date_debut, s.date_fin, s.statut
+           FROM professional_ue_sessions s
+           WHERE s.tenant_id = sm.tenant_id AND (
+             s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                      WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
+             OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                            WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
+           )
+         ) s ON TRUE
+         LEFT JOIN professional_bulletins b
+           ON b.semestre_id = sm.id AND b.tenant_id = sm.tenant_id
+         WHERE sm.tenant_id = $1 AND sm.filiere_id = $2
+         GROUP BY sm.id, sm.libelle
+         ORDER BY sm.libelle`,
+        [tenantId, filiereId]
+      );
+      const semestres = sems.rows.map((r) => {
+        let statut: "en_cours" | "terminee" | "aucune";
+        if (Number(r.nb_sessions) === 0) statut = "aucune";
+        else if (Number(r.nb_bulletins) > 0 && Number(r.nb_bulletins_non_definitifs) === 0) statut = "terminee";
+        else if (Number(r.nb_actives) === 0) statut = "terminee";
+        else statut = "en_cours";
+        // Année scolaire (pivot septembre) dérivée de la 1re date de début.
+        let annee: string | null = null;
+        if (r.date_debut) {
+          const d = new Date(r.date_debut);
+          if (!isNaN(d.getTime())) {
+            const y = d.getFullYear();
+            annee = d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+          }
+        }
+        return {
+          id: r.id,
+          libelle: r.libelle,
+          date_debut: r.date_debut,
+          date_fin: r.date_fin,
+          statut,
+          annee_scolaire: annee,
+        };
+      });
+
+      // Étudiants inscrits (confirmés/terminés) sur les UE de la filière.
+      // Matricule pro (IPAM…) de la filière prioritaire sur le numéro brut.
+      const students = await client.query(
+        `SELECT DISTINCT en.student_id, u.first_name, u.last_name,
+                COALESCE(psm.matricule, sp.student_number) AS matricule
+         FROM professional_enrollments en
+         JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+         JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+         JOIN student_profiles sp ON sp.id = en.student_id
+         JOIN users u ON u.id = sp.user_id
+         LEFT JOIN professional_student_matricules psm
+                ON psm.student_id = en.student_id AND psm.filiere_id = $2
+               AND psm.tenant_id = $1
+         WHERE en.tenant_id = $1 AND en.statut IN ('confirmee','terminee')
+           AND ue.filiere_id = $2
+         ORDER BY u.last_name, u.first_name`,
+        [tenantId, filiereId]
+      );
+
+      // Bulletins générés de ces semestres.
+      const bulletins = await client.query(
+        `SELECT b.student_id, b.semestre_id, b.statut, b.generated_at,
+                (b.data->>'moyenne_session')::float8 AS moyenne_session,
+                (b.data->>'credits_valides')::int AS credits_valides,
+                (b.data->>'credits_total')::int AS credits_total,
+                b.data->>'decision' AS decision,
+                b.data->>'statut_etudiant' AS statut_etudiant
+         FROM professional_bulletins b
+         JOIN professional_semestres sm ON sm.id = b.semestre_id AND sm.tenant_id = b.tenant_id
+         WHERE b.tenant_id = $1 AND sm.filiere_id = $2`,
+        [tenantId, filiereId]
+      );
+
+      return ok({
+        filiere: fil.rows[0],
+        semestres,
+        students: students.rows,
+        bulletins: bulletins.rows,
       });
     });
   }
@@ -394,7 +880,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
   ): Promise<any | null> {
     const r = await client.query(
       `SELECT sm.id, sm.libelle, sm.filiere_id,
-              p.name AS filiere_nom, p.code AS filiere_code
+              p.name AS filiere_nom, p.code AS filiere_code, p.domaine AS filiere_domaine
        FROM professional_semestres sm
        LEFT JOIN programmes p ON p.id = sm.filiere_id
        WHERE sm.id = $1 AND sm.tenant_id = $2`,
@@ -419,6 +905,19 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     },
     effectif?: number
   ): Promise<any> {
+    // Matricule PROFESSIONNEL de la filière (IPAM…) prioritaire sur le numéro
+    // d'établissement générique — pour l'affichage du bulletin et sa référence.
+    if (sem.filiere_id) {
+      const pm = await client.query(
+        `SELECT matricule FROM professional_student_matricules
+         WHERE tenant_id = $1 AND filiere_id = $2 AND student_id = $3 LIMIT 1`,
+        [tenantId, sem.filiere_id, student.id]
+      );
+      if ((pm.rowCount ?? 0) > 0 && pm.rows[0].matricule) {
+        student = { ...student, matricule: pm.rows[0].matricule as string };
+      }
+    }
+
     const rows = await client.query(BULLETIN_ROWS, [tenantId, sem.id, student.id]);
 
     // Regroupe par cohorte/UE.
@@ -462,9 +961,36 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
           validee: calc.validee,
           validee_manuellement: e.validee_manuellement === true,
           statut: calc.statut,
+          // Session dans laquelle l'ECUE a été validée (1 normale, 2 rattrapage).
+          session_obtention:
+            calc.validee && e.session_obtention != null
+              ? Number(e.session_obtention)
+              : calc.validee
+              ? e.validee_manuellement === true
+                ? 2
+                : 1
+              : null,
           result_id: e.result_id ?? null,
         };
       });
+      // Session de validation de l'UE (LMD) : la plus élevée des sessions
+      // d'obtention de ses ECUE validées (2 dès qu'un rattrapage a servi),
+      // ou 2 si une ECUE n'a été validée que par le jury. Non validée → null.
+      const sessionsEcue = ue._ecues
+        .filter((e: any) => e.session_obtention != null)
+        .map((e: any) => Number(e.session_obtention));
+      const valideeManuel = ue._ecues.some((e: any) => e.validee_manuellement === true);
+      const session_validation = res.validee
+        ? Math.max(1, ...(sessionsEcue.length ? sessionsEcue : [valideeManuel ? 2 : 1]))
+        : null;
+      // État LMD de l'UE : validée / en rattrapage (session 2 pas encore
+      // tentée) / en dette (encore non validée après un passage en session 2).
+      const aTenteS2 = ue._ecues.some((e: any) => e.ecue_has_s2 === true);
+      const etat: "validee" | "rattrapage" | "dette" = res.validee
+        ? "validee"
+        : aTenteS2
+        ? "dette"
+        : "rattrapage";
       ues.push({
         ue_id: ue.ue_id,
         ue_session_id: ue.ue_session_id,
@@ -475,6 +1001,8 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
         nb_uv: ue.nb_uv,
         moyenne_ue: arrondi(res.moyenne),
         validee: res.validee,
+        session_validation,
+        etat,
         motifs: res.motifs,
         ecues,
       });
@@ -513,12 +1041,15 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
         ue_id: cr.ue_id,
         ue_session_id: cr.ue_session_id,
         code: cr.ue_code,
-        libelle: cr.ue_libelle,
+        // « Conduite (S1) » → « Conduite » (on retire le suffixe entre parenthèses).
+        libelle: String(cr.ue_libelle ?? "").replace(/\s*\([^)]*\)\s*$/, "").trim() || "Conduite",
         categorie: cr.categorie ?? null,
         credits: cr.credits ?? 0,
         nb_uv: cr.nb_uv,
         moyenne_ue: note,
         validee,
+        session_validation: validee ? 1 : null,
+        etat: validee ? "validee" : "dette",
         motifs: [],
         is_conduite: true,
         ecues: [
@@ -533,6 +1064,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
             validee,
             validee_manuellement: false,
             statut: validee ? "valide" : "insuffisant",
+            session_obtention: validee ? 1 : null,
             result_id: null,
           },
         ],
@@ -546,19 +1078,21 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     }));
     const cValides = calcCreditsValides(ponds);
     const cTotal = calcCreditsTotal(ponds);
-    // Validé si le seuil de 20 crédits est atteint OU si l'étudiant a validé
-    // TOUS les crédits gradables du semestre (cas d'un semestre offrant < 20
-    // crédits notables, ex. la Conduite non graduée occupe des UV).
-    const semValide = calcSemestreValide(cValides) || (cTotal > 0 && cValides >= cTotal);
-    // Rattrapage possible s'il reste une UE non validée avec une ECUE notée < 10.
-    // La conduite ne se « repasse » pas : elle est exclue de ce déclencheur.
-    const hasRepassable = ues.some(
-      (u) =>
-        !u.is_conduite &&
-        !u.validee &&
-        u.ecues.some((e: any) => e.note_ecue != null && e.note_ecue < 10)
-    );
-    const decision = semValide ? "admis" : hasRepassable ? "rattrapage" : "ajourne";
+    // LMD : pas de compensation entre UE — le semestre est validé UNIQUEMENT
+    // lorsque TOUTES les UE sont validées.
+    const semValide = ues.every((u) => u.validee);
+    // Statut LMD de l'étudiant sur le semestre :
+    //  - valide   : toutes les UE validées ;
+    //  - session2 : au moins une UE en rattrapage (session 2 pas encore tentée) ;
+    //  - dette    : toutes les UE non validées ont déjà été tentées en session 2
+    //               → dette (à trancher au niveau ANNÉE selon les crédits).
+    const anyRattrapage = ues.some((u) => u.etat === "rattrapage");
+    const statut_etudiant: "valide" | "session2" | "dette" = semValide
+      ? "valide"
+      : anyRattrapage
+      ? "session2"
+      : "dette";
+    const decision = semValide ? "admis" : anyRattrapage ? "rattrapage" : "ajourne";
 
     // Année académique dérivée de la 1re date de début de session (sept → août).
     const debuts = rows.rows
@@ -574,6 +1108,13 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       }
     }
     const nbUeValidees = ues.filter((u) => u.validee).length;
+    // Session globale : celle à laquelle l'étudiant a sécurisé tous ses crédits
+    // = la plus élevée parmi les UE validées (Session 2 si au moins une UE l'a
+    // été en rattrapage). Défaut Session 1.
+    const sessionsValidees = ues
+      .filter((u) => u.validee)
+      .map((u) => u.session_validation ?? 1);
+    const session_globale = sessionsValidees.length > 0 ? Math.max(...sessionsValidees) : 1;
 
     // Regroupement des UE par catégorie pédagogique (bandeaux du bulletin).
     const CAT_ORDER = ["fondamentale", "specialite", "culture_generale"];
@@ -613,7 +1154,12 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
         is_repeating: student.is_repeating ?? null,
         gender: student.gender ?? null,
       },
-      filiere: { id: sem.filiere_id, name: sem.filiere_nom, code: sem.filiere_code },
+      filiere: {
+        id: sem.filiere_id,
+        name: sem.filiere_nom,
+        code: sem.filiere_code,
+        domaine: sem.filiere_domaine ?? null,
+      },
       semestre: { id: sem.id, libelle: sem.libelle },
       annee_academique: anneeAcademique,
       effectif: effectif ?? null,
@@ -621,6 +1167,8 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       rang: null as number | null,
       nb_ue_validees: nbUeValidees,
       nb_ue_total: ues.length,
+      session_globale,
+      statut_etudiant,
       categories,
       ues,
       moyenne_session: arrondi(moyenneSession(ponds)),

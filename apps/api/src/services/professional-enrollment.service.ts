@@ -100,9 +100,65 @@ export function evaluatePrerequisites(
   return { satisfait: manquants.length === 0, manquants };
 }
 
+/**
+ * Préfixe fixe du matricule professionnel (institution). Format complet :
+ * `IPAM` + code de la filière (nettoyé, ex. `L1DAF`) + numéro séquentiel sur
+ * 3 chiffres (ex. `001`) → `IPAML1DAF001`.
+ */
+const MATRICULE_PREFIX = "IPAM";
+
+/** Normalise un code de filière pour le matricule (alphanumérique majuscule). */
+export function cleanFiliereCode(code: string | null | undefined): string {
+  return (code ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "") || "XXX";
+}
+
 /* ------------------------------- Service -------------------------------- */
 
 export class ProfessionalEnrollmentService extends ProfessionalBaseService {
+  /**
+   * Attribue (ou récupère) le matricule professionnel d'un étudiant pour une
+   * filière : `IPAM<code filière><NNN>`. Le numéro est séquentiel et unique par
+   * filière. Idempotent : renvoie le matricule existant si déjà attribué.
+   *
+   * La génération est sérialisée par filière via un verrou consultatif de
+   * transaction (`pg_advisory_xact_lock`) pour éviter toute collision de
+   * séquence entre inscriptions concurrentes.
+   */
+  private async ensureProfessionalMatricule(
+    client: PoolClient,
+    tenantId: string,
+    filiereId: string,
+    filiereCode: string,
+    studentId: string
+  ): Promise<string | null> {
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))`, [
+      tenantId,
+      filiereId,
+    ]);
+    const code = cleanFiliereCode(filiereCode);
+    const ins = await client.query(
+      `INSERT INTO professional_student_matricules
+         (tenant_id, student_id, filiere_id, seq, matricule)
+       SELECT $1, $2, $3, nxt, $4 || $5 || lpad(nxt::text, 3, '0')
+       FROM (
+         SELECT COALESCE(MAX(seq), 0) + 1 AS nxt
+         FROM professional_student_matricules
+         WHERE tenant_id = $1 AND filiere_id = $3
+       ) q
+       ON CONFLICT (tenant_id, student_id, filiere_id) DO NOTHING
+       RETURNING matricule`,
+      [tenantId, studentId, filiereId, MATRICULE_PREFIX, code]
+    );
+    if ((ins.rowCount ?? 0) > 0) return ins.rows[0].matricule as string;
+    // Déjà présent → on renvoie le matricule existant.
+    const existing = await client.query(
+      `SELECT matricule FROM professional_student_matricules
+       WHERE tenant_id = $1 AND student_id = $2 AND filiere_id = $3`,
+      [tenantId, studentId, filiereId]
+    );
+    return existing.rowCount ? (existing.rows[0].matricule as string) : null;
+  }
+
   /** Résout l'id `student_profiles` à partir de l'id `users` authentifié. */
   private async getStudentProfileId(
     client: PoolClient,
@@ -438,9 +494,11 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
   ): Promise<ServiceResult<any>> {
     return this.withTenantTx(tenantId, async (client) => {
       const sessRes = await client.query(
-        `SELECT s.id, ue.prix::float8 AS prix, COALESCE(ue.devise, 'XOF') AS devise
+        `SELECT s.id, ue.prix::float8 AS prix, COALESCE(ue.devise, 'XOF') AS devise,
+                ue.filiere_id, p.code AS filiere_code
          FROM professional_ue_sessions s
          JOIN professional_ue ue ON ue.id = s.ue_id
+         JOIN programmes p ON p.id = ue.filiere_id
          WHERE s.id = $1
          FOR UPDATE OF s`,
         [ueSessionId]
@@ -453,6 +511,16 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         [studentId, tenantId]
       );
       if (stRes.rowCount === 0) return fail("STUDENT_NOT_FOUND", "Étudiant introuvable.");
+
+      // Matricule professionnel de la filière (IPAM…) — attribué à la 1ère
+      // inscription dans la filière, réutilisé ensuite.
+      const matricule = await this.ensureProfessionalMatricule(
+        client,
+        tenantId,
+        session.filiere_id,
+        session.filiere_code,
+        studentId
+      );
 
       const dup = await client.query(
         `SELECT 1 FROM professional_enrollments
@@ -479,7 +547,13 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       );
       await this.recomputeOrderTotal(client, order.id);
       await this.syncSessionCapacity(client, ueSessionId);
-      return ok({ id: ins.rows[0].id, order_id: order.id, statut: "en_attente_paiement" });
+      return ok({
+        id: ins.rows[0].id,
+        order_id: order.id,
+        statut: "en_attente_paiement",
+        student_id: studentId,
+        matricule,
+      });
     });
   }
 
@@ -509,11 +583,44 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
           });
       }
     }
+
+    // Matricules professionnels attribués aux étudiants dans les filières
+    // couvertes par les sessions sélectionnées (pour affichage côté admin).
+    const matricules = await this.withTenant(tenantId, async (client) => {
+      const res = await client.query<{
+        student_id: string;
+        matricule: string;
+        filiere_code: string | null;
+        filiere_nom: string | null;
+        first_name: string | null;
+        last_name: string | null;
+      }>(
+        `SELECT psm.student_id, psm.matricule, p.code AS filiere_code, p.name AS filiere_nom,
+                u.first_name, u.last_name
+         FROM professional_student_matricules psm
+         JOIN programmes p ON p.id = psm.filiere_id
+         JOIN student_profiles sp ON sp.id = psm.student_id
+         JOIN users u ON u.id = sp.user_id
+         WHERE psm.tenant_id = $1
+           AND psm.student_id = ANY($2::uuid[])
+           AND psm.filiere_id IN (
+             SELECT DISTINCT ue.filiere_id
+             FROM professional_ue_sessions s
+             JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+             WHERE s.tenant_id = $1 AND s.id = ANY($3::uuid[])
+           )
+         ORDER BY psm.matricule`,
+        [tenantId, studentIds, ueSessionIds]
+      );
+      return res.rows;
+    });
+
     return ok({
       total: ueSessionIds.length * studentIds.length,
       created,
       skipped,
       errors,
+      matricules,
     });
   }
 
@@ -960,6 +1067,9 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         JOIN professional_orders o ON o.id = e.order_id
         JOIN student_profiles sp ON sp.id = e.student_id
         JOIN users u ON u.id = sp.user_id
+        LEFT JOIN professional_student_matricules psm
+               ON psm.student_id = e.student_id AND psm.filiere_id = ue.filiere_id
+              AND psm.tenant_id = e.tenant_id
         WHERE ${where.join(" AND ")}`;
       const countRes = await client.query(`SELECT count(*)::int AS total ${baseFrom}`, params);
       const listRes = await client.query(
@@ -969,7 +1079,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
                 s.statut AS session_statut,
                 ue.id AS ue_id, ue.code AS ue_code, ue.libelle AS ue_libelle, ue.filiere_id,
                 p.name AS filiere_nom, p.code AS filiere_code,
-                e.student_id, sp.student_number AS matricule,
+                e.student_id, COALESCE(psm.matricule, sp.student_number) AS matricule,
                 u.first_name, u.last_name, u.email,
                 o.reference AS order_reference, o.statut AS order_statut,
                 o.montant_total::float8 AS order_montant,
@@ -993,7 +1103,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
                 s.statut AS session_statut,
                 ue.id AS ue_id, ue.code AS ue_code, ue.libelle AS ue_libelle, ue.filiere_id,
                 p.name AS filiere_nom, p.code AS filiere_code,
-                e.student_id, sp.student_number AS matricule,
+                e.student_id, COALESCE(psm.matricule, sp.student_number) AS matricule,
                 u.first_name, u.last_name, u.email,
                 o.id AS order_id, o.reference AS order_reference, o.statut AS order_statut,
                 o.montant_total::float8 AS order_montant, o.devise AS order_devise,
@@ -1006,6 +1116,9 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
          JOIN professional_orders o ON o.id = e.order_id
          JOIN student_profiles sp ON sp.id = e.student_id
          JOIN users u ON u.id = sp.user_id
+         LEFT JOIN professional_student_matricules psm
+                ON psm.student_id = e.student_id AND psm.filiere_id = ue.filiere_id
+               AND psm.tenant_id = e.tenant_id
          WHERE e.id = $1 AND e.tenant_id = $2`,
         [id, tenantId]
       );
@@ -1089,7 +1202,8 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
   ): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
       const res = await client.query(
-        `SELECT sp.id, sp.student_number, u.first_name, u.last_name
+        `SELECT sp.id, sp.student_number, u.first_name, u.last_name, u.email,
+                sp.date_of_birth::text AS date_of_birth
          FROM student_parents pr
          JOIN student_profiles sp ON sp.id = pr.student_id
          JOIN users u ON u.id = sp.user_id
@@ -1142,12 +1256,80 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       }
       const res = await client.query(
         `SELECT p.id, p.montant::float8 AS montant, p.mode, p.statut,
-                p.reference_transaction, p.paid_at, p.receipt_number,
-                o.reference AS order_reference
+                p.reference_transaction, p.paid_at::text AS paid_at,
+                p.created_at::text AS created_at, p.receipt_number,
+                o.reference AS order_reference,
+                o.montant_total::float8 AS order_montant,
+                u.first_name, u.last_name,
+                COALESCE(filmat.matricule, sp.student_number) AS matricule,
+                fil.filiere_nom, fil.filiere_code, fil.ues
          FROM professional_payments p
          JOIN professional_orders o ON o.id = p.order_id
+         JOIN student_profiles sp ON sp.id = o.student_id
+         JOIN users u ON u.id = sp.user_id
+         LEFT JOIN LATERAL (
+           SELECT prog.name AS filiere_nom, prog.code AS filiere_code, prog.id AS filiere_id,
+                  json_agg(json_build_object(
+                    'code', ue.code, 'libelle', ue.libelle, 'montant', en.prix_unitaire
+                  )) AS ues
+           FROM professional_enrollments en
+           JOIN professional_ue_sessions s ON s.id = en.ue_session_id
+           JOIN professional_ue ue ON ue.id = s.ue_id
+           LEFT JOIN programmes prog ON prog.id = ue.filiere_id
+           WHERE en.order_id = o.id
+           GROUP BY prog.name, prog.code, prog.id
+           ORDER BY prog.name
+           LIMIT 1
+         ) fil ON true
+         LEFT JOIN LATERAL (
+           SELECT m.matricule FROM professional_student_matricules m
+           WHERE m.tenant_id = o.tenant_id AND m.student_id = o.student_id
+             AND m.filiere_id = fil.filiere_id LIMIT 1
+         ) filmat ON true
          WHERE o.student_id=$1 ORDER BY p.created_at DESC`,
         [childStudentId]
+      );
+      return ok(res.rows);
+    });
+  }
+
+  /**
+   * Historique de présence d'un enfant (parent, lecture seule) : toutes les
+   * séances des cohortes où l'enfant est inscrit, avec son statut de présence
+   * (present / absent / retard / excuse, ou null si non pointé). Alimente
+   * l'affichage parent depuis les pointages faits par les enseignants
+   * (/teacher/attendance) et l'admin (/professionnel/admin/presences).
+   */
+  async parentListChildAttendance(
+    tenantId: string,
+    parentUserId: string,
+    childStudentId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      if (!(await this.isParentOfChild(client, tenantId, parentUserId, childStudentId))) {
+        return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
+      }
+      const res = await client.query(
+        `SELECT se.id AS seance_id, se.date::text AS date,
+                se.heure_debut::text AS heure_debut, se.heure_fin::text AS heure_fin,
+                se.libelle AS seance_libelle,
+                e.code AS ecue_code, e.libelle AS ecue_libelle,
+                ue.code AS ue_code, ue.libelle AS ue_libelle,
+                p.name AS filiere_nom,
+                a.statut AS statut, a.updated_at AS marked_at
+         FROM professional_ecue_seances se
+         JOIN professional_enrollments en
+           ON en.ue_session_id = se.ue_session_id AND en.tenant_id = se.tenant_id
+              AND en.student_id = $2 AND en.statut IN ('confirmee','terminee')
+         JOIN professional_ecue e ON e.id = se.ecue_id AND e.tenant_id = se.tenant_id
+         JOIN professional_ue_sessions s ON s.id = se.ue_session_id
+         JOIN professional_ue ue ON ue.id = s.ue_id
+         LEFT JOIN programmes p ON p.id = ue.filiere_id
+         LEFT JOIN professional_ecue_attendance a
+           ON a.seance_id = se.id AND a.student_id = $2 AND a.tenant_id = se.tenant_id
+         WHERE se.tenant_id = $1
+         ORDER BY se.date DESC, se.heure_debut DESC NULLS LAST`,
+        [tenantId, childStudentId]
       );
       return ok(res.rows);
     });

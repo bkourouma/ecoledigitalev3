@@ -998,6 +998,29 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  // Historique complet des présences d'une filière (admin) : séances + récap étudiants.
+  fastify.get(
+    "/presences/history",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const q = request.query as { filiere_id?: string; semestre_id?: string; statut?: string };
+      if (!q.filiere_id) {
+        return reply
+          .status(400)
+          .send({ success: false, error: "VALIDATION_ERROR", message: "filiere_id requis." });
+      }
+      const statut =
+        q.statut === "terminee" || q.statut === "en_cours" ? q.statut : undefined;
+      const result = await ue.getPresencesHistory(
+        request.tenantId as string,
+        q.filiere_id,
+        q.semestre_id || undefined,
+        statut
+      );
+      return sendResult(reply, result);
+    })
+  );
+
   // Affectation enseignant ↔ ECUE (au sein d'une session).
   fastify.get(
     "/ue-sessions/:id/ecue-teachers",
@@ -1243,6 +1266,46 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  // Génère les bulletins officiels de tous les étudiants du semestre
+  // (date de génération permanente + statut définitif/provisoire).
+  fastify.post(
+    "/semestres/:id/bulletins/generate",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await bulletin.generateBulletins(request.tenantId as string, id);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Historique des bulletins d'une filière (semestres + étudiants + bulletins générés).
+  fastify.get(
+    "/bulletins/history",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { filiere_id } = request.query as { filiere_id?: string };
+      if (!filiere_id) {
+        return reply
+          .status(400)
+          .send({ success: false, error: "VALIDATION_ERROR", message: "filiere_id requis." });
+      }
+      const result = await bulletin.getBulletinHistory(request.tenantId as string, filiere_id);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Bulletins complets d'un semestre — pour le PDF combiné « Tous les bulletins ».
+  // Chemin distinct de « :studentId » pour éviter toute collision de route.
+  fastify.get(
+    "/semestres/:id/bulletins-full",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await bulletin.listFullBulletins(request.tenantId as string, id);
+      return sendResult(reply, result);
+    })
+  );
+
   // Filières pour la saisie des notes (admin = toutes ; enseignant = les siennes).
   fastify.get(
     "/notes/filieres",
@@ -1342,6 +1405,21 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     handler(async (request, reply) => {
       const { semestreId } = request.params as { semestreId: string };
       const result = await bulletin.getBulletinForUser(
+        request.tenantId as string,
+        semestreId,
+        currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Détail des notes individuelles (devoirs + examen) de l'étudiant connecté.
+  fastify.get(
+    "/student/bulletins/:semestreId/notes",
+    { preHandler: requireStudent },
+    handler(async (request, reply) => {
+      const { semestreId } = request.params as { semestreId: string };
+      const result = await bulletin.getStudentSemestreNotes(
         request.tenantId as string,
         semestreId,
         currentUserId(request)
@@ -1650,6 +1728,91 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
         id
       );
       return sendResult(reply, result);
+    })
+  );
+
+  // Duplique (« assigne ») une évaluation vers d'autres cibles ECUE × cohorte
+  // affectées à l'enseignant. Copie la config + les questions, et recopie le
+  // fichier sujet éventuel dans le dossier du duplicata.
+  fastify.post(
+    "/assignments/:id/duplicate",
+    { preHandler: requireAdminOrTeacher },
+    handler(async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = (request.body ?? {}) as {
+        targets?: Array<{ ecue_id: string; ue_session_id?: string | null }>;
+        due_at?: string | null;
+        starts_at?: string | null;
+        statut?: string | null;
+      };
+      if (!Array.isArray(body.targets) || body.targets.length === 0) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Au moins une filière / cohorte cible est requise.",
+        });
+      }
+
+      const result = await assignments.duplicateToTargets(
+        request.tenantId as string,
+        currentUserId(request),
+        isAdminRequest(request),
+        id,
+        body.targets,
+        {
+          due_at: body.due_at ?? null,
+          starts_at: body.starts_at ?? null,
+          statut: body.statut ?? null,
+        }
+      );
+      if (!result.success) return sendResult(reply, result);
+
+      // Recopie du fichier sujet pour chaque duplicata (si l'évaluation source
+      // avait un sujet PDF/Word). Best-effort : un échec laisse le duplicata sans
+      // sujet, l'enseignant pourra le ré-uploader.
+      for (const dup of result.data.created as any[]) {
+        const meta = dup.document_to_copy as
+          | { source_assignment_id: string; filename: string }
+          | null
+          | undefined;
+        delete dup.document_to_copy;
+        if (!meta) continue;
+        try {
+          const srcPath = path.join(
+            process.cwd(),
+            "uploads",
+            "professional",
+            "assignments",
+            meta.source_assignment_id,
+            meta.filename
+          );
+          await fs.access(srcPath);
+          const destDir = path.join(
+            process.cwd(),
+            "uploads",
+            "professional",
+            "assignments",
+            dup.id
+          );
+          await fs.mkdir(destDir, { recursive: true });
+          await fs.copyFile(srcPath, path.join(destDir, meta.filename));
+          const url = `/api/v1/professional/assignments/${encodeURIComponent(
+            dup.id
+          )}/subject-document/${encodeURIComponent(meta.filename)}`;
+          const upd = await assignments.setSubjectDocumentUrl(
+            request.tenantId as string,
+            currentUserId(request),
+            isAdminRequest(request),
+            dup.id,
+            url
+          );
+          if (upd.success) dup.subject_document_url = url;
+        } catch {
+          /* fichier source absent → duplicata sans sujet */
+        }
+      }
+
+      return reply.status(201).send({ success: true, data: result.data });
     })
   );
 
@@ -2764,6 +2927,120 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
         });
       }
       const result = await enrollment.parentListChildPayments(
+        request.tenantId as string,
+        currentUserId(request),
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Historique de présence/absence d'un enfant (parent).
+  fastify.get(
+    "/parent/attendance",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await enrollment.parentListChildAttendance(
+        request.tenantId as string,
+        currentUserId(request),
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Semestres où l'enfant est inscrit (parent).
+  fastify.get(
+    "/parent/bulletins/semestres",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await bulletin.listChildSemestres(
+        request.tenantId as string,
+        currentUserId(request),
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Bulletin (notes) d'un enfant pour un semestre (parent).
+  fastify.get(
+    "/parent/bulletins/:semestreId",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const { semestreId } = request.params as { semestreId: string };
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await bulletin.getChildBulletin(
+        request.tenantId as string,
+        currentUserId(request),
+        semestreId,
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Détail des notes individuelles d'un enfant pour un semestre (parent).
+  fastify.get(
+    "/parent/bulletins/:semestreId/notes",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const { semestreId } = request.params as { semestreId: string };
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await bulletin.getChildSemestreNotes(
+        request.tenantId as string,
+        currentUserId(request),
+        semestreId,
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Devoirs & évaluations d'un enfant (parent).
+  fastify.get(
+    "/parent/assignments",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await assignments.listForChild(
         request.tenantId as string,
         currentUserId(request),
         q.child_id

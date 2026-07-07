@@ -9,7 +9,7 @@ import { ProgrammeForm } from "@/components/academic/ProgrammeForm";
 
 type CreateProgrammeSubmission = Partial<CreateProgramme> & {
   cycleId?: string;
-  bulkProgrammes?: Array<{ name: string; code: string }>;
+  bulkProgrammes?: Array<{ name: string; code: string; domaine?: string }>;
 };
 
 export default function NewProgrammePage() {
@@ -25,7 +25,7 @@ export default function NewProgrammePage() {
         data.bulkProgrammes && data.bulkProgrammes.length > 0
           ? data.bulkProgrammes
           : data.name && data.code
-            ? [{ name: data.name.trim(), code: data.code.trim() }]
+            ? [{ name: data.name.trim(), code: data.code.trim(), domaine: data.domaine }]
             : [];
 
       if (programmesToCreate.length === 0) {
@@ -46,11 +46,13 @@ export default function NewProgrammePage() {
           continue;
         }
 
+        const domaine = p.domaine?.trim();
         const payload: CreateProgramme = {
           name,
           code,
           cycleId,
           status: "active",
+          ...(domaine ? { domaine } : {}),
         };
 
         try {

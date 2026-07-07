@@ -63,6 +63,7 @@ export const CreateProgrammeSchema = z.object({
   code: z.string().min(1).max(20),
   version: z.string().max(10).default('1.0'),
   description: z.string().optional(),
+  domaine: z.string().max(255).optional(),
   objectives: z.array(z.string()).optional(),
   ectsCredits: z.number().int().nonnegative().optional(),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/).optional(),

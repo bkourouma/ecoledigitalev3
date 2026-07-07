@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import QRCode from "qrcode";
+import { type ReactNode } from "react";
 import {
   MINISTERE,
   REPUBLIQUE,
@@ -17,12 +16,18 @@ import {
   BAD_RED,
   fmtNote,
   appreciation,
-  ueDecision,
   niveauOf,
   fmtDateLongFr,
   genreLabel,
   decisionLabel,
-  semestreOrdinalFr,
+  releveSemestreTitre,
+  semShort,
+  sessionLabel,
+  ueEtatLabel,
+  ueEtatColor,
+  juryIntro,
+  JURY_RESULTATS,
+  JURY_NB,
 } from "@/lib/bulletin-format";
 
 /**
@@ -40,16 +45,9 @@ function decisionColor(d: string): string {
 }
 
 export function BulletinView({ bulletin }: { bulletin: any }) {
-  const [qr, setQr] = useState<string>("");
-  useEffect(() => {
-    if (bulletin?.reference) {
-      QRCode.toDataURL(String(bulletin.reference), { margin: 0, width: 140 })
-        .then(setQr)
-        .catch(() => setQr(""));
-    }
-  }, [bulletin?.reference]);
-
   if (!bulletin) return null;
+
+  const sem = semShort(bulletin.semestre?.libelle);
 
   const studentName = `${bulletin.student?.last_name ?? ""} ${bulletin.student?.first_name ?? ""}`
     .trim()
@@ -59,7 +57,11 @@ export function BulletinView({ bulletin }: { bulletin: any }) {
   }`;
   const totalObtenus = bulletin.credits_valides ?? 0;
   const totalUe = bulletin.credits_total ?? 0;
-  const today = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  // Date officielle : date de génération PERMANENTE du bulletin si généré,
+  // sinon date du jour (consultation d'un bulletin non encore généré).
+  const officialDate = bulletin.generated_at ? new Date(bulletin.generated_at) : new Date();
+  const today = officialDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const isProvisoire = bulletin.bulletin_statut === "provisoire" || bulletin.decision !== "admis";
   // Catégories (fallback : une pseudo-catégorie regroupant toutes les UE).
   const categories: any[] =
     bulletin.categories?.length > 0
@@ -101,13 +103,10 @@ export function BulletinView({ bulletin }: { bulletin: any }) {
               <p className="text-[10px] leading-snug whitespace-pre-line">{MINISTERE}</p>
               <img src={LOGO_INSTITUT} alt="IPAM" className="h-24 mt-2 object-contain" />
             </div>
-            <div className="flex flex-col items-center pt-2">
-              <p className="font-bold text-[17px] tracking-wide mt-6" style={{ color: IPAM_GREEN }}>
-                BULLETIN DE NOTES
-              </p>
-              <div className="px-6 py-0.5 mt-1 border-2" style={{ borderColor: IPAM_GREEN }}>
-                <p className="font-bold text-[13px]" style={{ color: IPAM_GREEN }}>
-                  {semestreOrdinalFr(bulletin.semestre?.libelle)}
+            <div className="flex flex-col items-center justify-center pt-6">
+              <div className="px-4 py-0.5 border-2" style={{ borderColor: IPAM_GREEN }}>
+                <p className="font-bold text-[12px] whitespace-nowrap" style={{ color: IPAM_GREEN }}>
+                  {releveSemestreTitre(bulletin.semestre?.libelle)}
                 </p>
               </div>
             </div>
@@ -117,54 +116,66 @@ export function BulletinView({ bulletin }: { bulletin: any }) {
               <p className="text-[11px] mt-1">
                 <span className="font-semibold">Année scolaire :</span> {bulletin.annee_academique ?? "—"}
               </p>
-              <p className="text-[11px]">
-                <span className="font-semibold">Effectif :</span> {bulletin.effectif ?? "—"}
-              </p>
             </div>
           </div>
 
-          <p className="text-center font-bold text-[15px] tracking-wide mt-1" style={{ color: IPAM_GREEN }}>
+          {/* ---------- Nom de l'institut (pleine largeur, une ligne) ---------- */}
+          <p
+            className="text-center font-bold text-[13.5px] tracking-wide -mt-3 whitespace-nowrap"
+            style={{ color: IPAM_GREEN }}
+          >
             {INSTITUT}
           </p>
 
+          {/* ---------- Jury : introduction ---------- */}
+          {isProvisoire && (
+            <p className="mt-3 rounded border border-amber-400 bg-amber-50 px-2 py-1 text-center text-[11px] font-semibold text-amber-700 print:hidden">
+              BULLETIN PROVISOIRE — en attente de Session 2 (rattrapage)
+            </p>
+          )}
+          <p className="text-[12px] mt-6 leading-snug">{juryIntro(officialDate)}</p>
+
           {/* ---------- Bloc scolarité ---------- */}
-          <div className="mt-4 grid grid-cols-[1.25fr_1fr] gap-x-8 gap-y-1.5 text-[12px]">
+          <div className="mt-2 grid grid-cols-[1.25fr_1fr] gap-x-8 gap-y-1.5 text-[12px]">
             <InfoLine label="Nom et prénoms" value={studentName || "—"} strong />
             <InfoLine label="Matricule" value={String(bulletin.student?.matricule ?? "—")} />
             <InfoLine label="Né(e) le" value={ne} />
             <InfoLine label="Genre" value={genreLabel(bulletin.student?.gender)} />
-            <InfoLine label="Filière" value={bulletin.filiere?.name ?? "—"} />
+            <InfoLine label="Spécialité" value={bulletin.filiere?.name ?? "—"} />
             <InfoLine label="Redoublant(e)" value={bulletin.student?.is_repeating ? "OUI" : "NON"} />
             <InfoLine label="Niveau" value={niveauOf(bulletin.filiere?.name)} />
+            <InfoLine label="Domaine" value={bulletin.filiere?.domaine ?? "—"} />
           </div>
+
+          {/* ---------- Textes jury avant le tableau ---------- */}
+          <p className="text-[12px] mt-3 leading-snug">{JURY_RESULTATS}</p>
+          <p className="text-[12px] font-semibold mt-1 leading-snug">{JURY_NB}</p>
 
           {/* ---------- Tableau ---------- */}
           <table className="w-full border-collapse mt-3" style={{ tableLayout: "fixed" }}>
             <colgroup>
-              <col style={{ width: "30%" }} />
-              <col style={{ width: "9%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "9%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "7%" }} />
+              <col style={{ width: "46%" }} />
               <col style={{ width: "6%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "11%" }} />
             </colgroup>
             <thead>
               <tr style={{ backgroundColor: IPAM_GREEN, color: "white" }}>
                 <th className={th}>UNITÉ D'ENSEIGNEMENTS</th>
-                <th className={th}>Contrôle continu</th>
-                <th className={th}>Examen</th>
-                <th className={th}>Moyenne ECUE</th>
-                <th className={th}>Moyenne UE</th>
+                <th className={th}>Sem</th>
+                <th className={th}>Note</th>
+                <th className={th}>Moy</th>
                 <th className={th}>Appréciation</th>
-                <th className={th}>Crédits obtenus</th>
-                <th className={th}>Crédit UE</th>
+                <th className={th}>Crédits</th>
+                <th className={th}>Session</th>
               </tr>
             </thead>
             <tbody>
               {categories.map((cat) => (
-                <CategoryGroup key={cat.key} cat={cat} />
+                <CategoryGroup key={cat.key} cat={cat} sem={sem} />
               ))}
             </tbody>
           </table>
@@ -180,19 +191,17 @@ export function BulletinView({ bulletin }: { bulletin: any }) {
                   <br />
                   validés
                 </SumHead>
-                <SumHead>Rang</SumHead>
                 <SumHead>Moyenne</SumHead>
                 <SumHead>Appréciation</SumHead>
               </tr>
               <tr className="text-[12px] font-semibold">
-                <SumCell>Session 1</SumCell>
+                <SumCell>{sessionLabel(bulletin.session_globale ?? 1)}</SumCell>
                 <SumCell>
                   {totalObtenus}/{totalUe}
                 </SumCell>
                 <SumCell>
                   {bulletin.nb_ue_validees ?? 0}/{bulletin.nb_ue_total ?? 0}
                 </SumCell>
-                <SumCell>{bulletin.rang ? `${bulletin.rang}/${bulletin.effectif ?? "—"}` : "—"}</SumCell>
                 <SumCell>{fmtNote(bulletin.moyenne_session)}</SumCell>
                 <SumCell>{appreciation(bulletin.moyenne_session)}</SumCell>
               </tr>
@@ -204,12 +213,9 @@ export function BulletinView({ bulletin }: { bulletin: any }) {
             droit.
           </p>
 
-          {/* ---------- Bas : QR/réf · décision · visa ---------- */}
+          {/* ---------- Bas : décision · visa ---------- */}
           <div className="flex justify-between items-end mt-5 text-[12px]">
-            <div className="flex flex-col items-start">
-              {qr && <img src={qr} alt="QR" className="w-[22mm] h-[22mm]" />}
-              <p className="font-mono text-[8.5px] mt-1">N° {bulletin.reference ?? "—"}</p>
-            </div>
+            <div className="flex flex-col items-start" />
             <div className="text-center">
               <p className="font-bold underline">{DECISION_TITRE}</p>
               <p
@@ -264,45 +270,43 @@ function InfoLine({ label, value, strong }: { label: string; value: string; stro
 }
 
 /** UE d'une catégorie (sans bandeau de titre), avec zébrage. */
-function CategoryGroup({ cat }: { cat: any }) {
+function CategoryGroup({ cat, sem }: { cat: any; sem: string }) {
   return (
     <>
       {cat.ues.map((ue: any, i: number) => (
-        <UeBlock key={ue.ue_session_id ?? ue.ue_id} ue={ue} zebra={i % 2 === 1} />
+        <UeBlock key={ue.ue_session_id ?? ue.ue_id} ue={ue} zebra={i % 2 === 1} sem={sem} />
       ))}
     </>
   );
 }
 
-function UeBlock({ ue, zebra }: { ue: any; zebra: boolean }) {
-  const obtenus = ue.validee ? ue.credits : 0;
+function UeBlock({ ue, zebra, sem }: { ue: any; zebra: boolean; sem: string }) {
   const zbg = zebra ? "#F7FAF8" : undefined;
   return (
     <>
-      {/* Ligne UE — nom fusionné sur 4 colonnes */}
+      {/* Ligne UE : Nom (occupe Nom+Sem+Note) · Moy · Décision · Crédit total · Session */}
       <tr className="font-semibold" style={{ backgroundColor: zbg }}>
-        <td className={`${cellBase} uppercase whitespace-nowrap`} colSpan={4}>
+        <td className={`${cellBase} uppercase`} colSpan={3}>
           {ue.libelle ?? ue.code ?? "—"}
         </td>
         <td className={`${cellBase} text-center font-bold`}>{fmtNote(ue.moyenne_ue)}</td>
         <td
           className={`${cellBase} text-center font-semibold`}
-          style={{ color: ue.validee ? OK_GREEN : BAD_RED }}
+          style={{ color: ueEtatColor(ue.etat) }}
         >
-          {ueDecision(ue.validee)}
+          {ueEtatLabel(ue.etat)}
         </td>
-        <td className={`${cellBase} text-center`}>{obtenus}</td>
         <td className={`${cellBase} text-center`}>{ue.credits}</td>
+        <td className={`${cellBase} text-center`}>{sessionLabel(ue.session_validation)}</td>
       </tr>
       {ue.ecues.map((e: any) => (
         <tr key={e.ecue_id} className="text-[11px]" style={{ backgroundColor: zbg }}>
           <td className={`${cellBase} pl-4 text-gray-700`}>{e.libelle ?? e.code ?? "—"}</td>
-          <td className={`${cellBase} text-center`}>{fmtNote(e.moyenne_devoirs)}</td>
-          <td className={`${cellBase} text-center`}>{fmtNote(e.note_examen)}</td>
+          <td className={`${cellBase} text-center`}>{sem}</td>
           <td className={`${cellBase} text-center`}>{fmtNote(e.note_ecue)}</td>
           <td className={cellBase} />
           <td className={`${cellBase} text-center`}>{appreciation(e.note_ecue)}</td>
-          <td className={cellBase} />
+          <td className={`${cellBase} text-center`}>{e.credits ?? "—"}</td>
           <td className={cellBase} />
         </tr>
       ))}

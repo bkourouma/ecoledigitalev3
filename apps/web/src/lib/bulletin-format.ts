@@ -9,6 +9,22 @@ export const INSTITUT = "INSTITUT POLYVALENT DES AFFAIRES ET DU MANAGEMENT";
 export const INSTITUT_SIGLE = "IPAM";
 export const DECISION_TITRE = "Décision finale";
 export const VISA_DIRECTEUR = "Visa le Directeur des Études";
+
+/**
+ * Introduction du jury : la date de délibération est la date de génération du
+ * document (date du jour), au format « 4 Juillet 2026 ».
+ */
+export function juryIntro(date: Date = new Date()): string {
+  const d = date
+    .toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+    .replace(/ ([a-zà-ú])/i, (m) => m.toUpperCase());
+  return `Le Jury d'examen, vu le procès-verbal de délibération en date du ${d}, déclare que l'étudiant(e) :`;
+}
+
+/** Textes du jury / délibération affichés sur le relevé. */
+export const JURY_RESULTATS =
+  "a obtenu, après l'évaluation de ses connaissances, les notes et les résultats suivants.";
+export const JURY_NB = "NB : La décision s'obtient par rapport au total des crédits obtenus.";
 export const FOOTER_NOTE =
   "Il ne peut être délivré qu'un seul exemplaire du présent relevé de notes. En cas de perte, un duplicata doit être justifié auprès du service des examens IPAM.";
 export const FOOTER_ADDRESS =
@@ -83,10 +99,57 @@ export function ueDecision(validee: boolean): string {
   return validee ? "Validé(e)" : "Non validée";
 }
 
+/** Libellé de l'état LMD d'une UE : validée / rattrapage / dette. */
+export function ueEtatLabel(etat: string | null | undefined): string {
+  switch (etat) {
+    case "validee":
+      return "Validé(e)";
+    case "rattrapage":
+      return "Rattrapage (S2)";
+    case "dette":
+      return "En dette";
+    default:
+      return "Non validée";
+  }
+}
+
+/** Couleur (hex) de l'état d'une UE. */
+export function ueEtatColor(etat: string | null | undefined): string {
+  if (etat === "validee") return OK_GREEN;
+  if (etat === "rattrapage") return "#B45309"; // ambre
+  return BAD_RED;
+}
+
+/** Statut LMD de l'étudiant sur le semestre. */
+export function statutEtudiantLabel(s: string | null | undefined): string {
+  switch (s) {
+    case "valide":
+      return "Validé";
+    case "session2":
+      return "Non validé — Session 2";
+    case "dette":
+      return "En dette";
+    default:
+      return "—";
+  }
+}
+
+/** « Session 1 » / « Session 2 » depuis le numéro (1|2). Null → « — ». */
+export function sessionLabel(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `Session ${n}`;
+}
+
 /** « Semestre 1 » → « S1 ». */
 export function semShort(libelle: string | null | undefined): string {
   const m = String(libelle ?? "").match(/(\d+)/);
   return m ? `S${m[1]}` : String(libelle ?? "—");
+}
+
+/** « Semestre 1 » → « RELEVE DE NOTES SEMESTRE 1 » (titre encadré). */
+export function releveSemestreTitre(libelle: string | null | undefined): string {
+  const m = String(libelle ?? "").match(/(\d+)/);
+  return `RELEVE DE NOTES SEMESTRE ${m ? m[1] : ""}`.trim();
 }
 
 /** « Semestre 1 » → « 1ER SEMESTRE » (titre). */

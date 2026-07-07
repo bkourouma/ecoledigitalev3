@@ -270,6 +270,11 @@ export default function ProgrammesPage() {
                         <span className="font-medium">Cycle:</span> {cycle.name}
                       </p>
                     )}
+                    {programme.domaine && (
+                      <p className="text-white/90 text-sm">
+                        <span className="font-medium">Domaine:</span> {programme.domaine}
+                      </p>
+                    )}
                   </div>
 
                   {programme.description && (

@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import {
-  useAdminEnrollments,
+  useAllAdminEnrollments,
   useUpdateEnrollment,
   useDeleteEnrollment,
 } from "@/lib/hooks/use-professional-suivi";
@@ -80,7 +80,7 @@ function fmtPrice(v?: number | null): string {
 }
 
 export default function ProfessionalInscritsPage() {
-  const query = useAdminEnrollments({ pageSize: 500 });
+  const query = useAllAdminEnrollments();
   const updateMut = useUpdateEnrollment();
   const deleteMut = useDeleteEnrollment();
 

@@ -56,7 +56,7 @@ const STATUT_OPTIONS = [
   { value: "cloture", label: "Clôturé" },
 ];
 
-const EVALUATION_TYPES = [
+export const EVALUATION_TYPES = [
   {
     id: "online" as const,
     name: "Évaluation en ligne",
@@ -92,7 +92,7 @@ const EVALUATION_TYPES = [
   },
 ];
 
-const EVALUATION_TYPE_LABEL: Record<string, string> = {
+export const EVALUATION_TYPE_LABEL: Record<string, string> = {
   online: "En ligne",
   pdf: "Sujet PDF",
   ai_generated: "IA",
@@ -297,7 +297,7 @@ export function ProfessionalAssignmentsPanel({ subjectId, sessionId, canManage =
   );
 }
 
-function DeleteAssignmentBtn({ id, onError }: { id: string; onError: (m: string) => void }) {
+export function DeleteAssignmentBtn({ id, onError }: { id: string; onError: (m: string) => void }) {
   const delMut = useDeleteAssignment();
   return (
     <Button
@@ -327,7 +327,7 @@ function DeleteAssignmentBtn({ id, onError }: { id: string; onError: (m: string)
 
 type EvaluationTypeId = "online" | "pdf" | "ai_generated";
 
-function AssignmentForm({
+export function AssignmentForm({
   subjectId,
   sessionId,
   initial,
@@ -984,7 +984,7 @@ function AssignmentForm({
 
 /* -------------------------------------------------------------------------- */
 
-function GradingModal({
+export function GradingModal({
   assignment,
   canManage,
   onClose,
