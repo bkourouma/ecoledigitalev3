@@ -41,6 +41,9 @@ COPY --from=deps --chown=nodejs:nodejs /app/packages/utils/node_modules ./packag
 COPY --chown=nodejs:nodejs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY --chown=nodejs:nodejs apps/web/package.json ./apps/web/
 COPY --from=builder --chown=nodejs:nodejs /app/apps/web/.next ./apps/web/.next
+# Static assets served by `next start` (logos, images, favicon…) — must be
+# copied explicitly, they are NOT part of .next.
+COPY --chown=nodejs:nodejs apps/web/public ./apps/web/public
 COPY --chown=nodejs:nodejs apps/web/next.config.js ./apps/web/next.config.js
 COPY --chown=nodejs:nodejs packages ./packages
 
