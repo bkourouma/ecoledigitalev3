@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+﻿import type { PoolClient } from "pg";
 import type {
   DiplomaCreateInput,
   DiplomaUpdateInput,
@@ -8,17 +8,12 @@ import type {
   DiplomaRequirementDto,
   DiplomaRequirementsSnapshot,
   StudentDiplomaDto,
-<<<<<<< HEAD
-=======
   StudentDiplomaStatut,
->>>>>>> 030-pedagogie-ue-ecue
   StudentDiplomaSummaryDto,
   DiplomaProgressDto,
   DiplomaAttestationDto,
 } from "@ecoledigitale/contracts";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
-<<<<<<< HEAD
-=======
 import {
   loadAllValidatedUeIdsWithConduite,
   loadCycleGroups,
@@ -27,7 +22,6 @@ import {
   loadMentionForFilieres,
   type CycleGroup,
 } from "./professional-cycle-groups";
->>>>>>> 030-pedagogie-ue-ecue
 
 /**
  * Service Diplômes Professionnels — feature 030.
@@ -181,17 +175,11 @@ export interface DiplomaListFilters {
   q?: string;
 }
 
-<<<<<<< HEAD
-/** Candidat à l'octroi manuel. */
-=======
 /** Candidat à l'octroi manuel, enrichi de sa progression vers le diplôme. */
->>>>>>> 030-pedagogie-ue-ecue
 export interface DiplomaCandidate {
   student_id: string;
   student_number: string | null;
   nom_complet: string;
-<<<<<<< HEAD
-=======
   uv_validees: number;
   pourcentage: number;
   eligible: boolean;
@@ -199,7 +187,6 @@ export interface DiplomaCandidate {
   reference: string | null;
   /** Date d'obtention (ISO) si le diplôme a été octroyé, sinon null. */
   date_obtention: string | null;
->>>>>>> 030-pedagogie-ue-ecue
 }
 
 const DIPLOMA_COLS = `id, tenant_id, filiere_id, code, libelle, description,
@@ -207,12 +194,8 @@ const DIPLOMA_COLS = `id, tenant_id, filiere_id, code, libelle, description,
 
 const STUDENT_DIPLOMA_COLS = `id, diploma_id, student_id, reference, statut,
   uv_total_validees, requirements_snapshot, date_obtention, date_revocation,
-<<<<<<< HEAD
-  motif_revocation, octroye_par, revoque_par, created_at, updated_at`;
-=======
   motif_revocation, octroye_par, revoque_par, created_at, updated_at,
   authenticite_reference, authenticite_numero, authenticite_annee`;
->>>>>>> 030-pedagogie-ue-ecue
 
 export class ProfessionalDiplomasService extends ProfessionalBaseService {
   /* ----------------------------- CRUD diplômes ----------------------- */
@@ -307,8 +290,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     });
   }
 
-<<<<<<< HEAD
-=======
   /* --------------------------- Cycles (Licence/Master) ---------------- */
 
   /**
@@ -402,7 +383,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     });
   }
 
->>>>>>> 030-pedagogie-ue-ecue
   async update(
     tenantId: string,
     id: string,
@@ -545,11 +525,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       const diploma = await this.selectDiploma(client, tenantId, diplomaId);
       if (!diploma) return fail("DIPLOMA_NOT_FOUND", "Diplôme introuvable.");
       const requirements = await this.loadRequirements(client, tenantId, diplomaId);
-<<<<<<< HEAD
-      const validatedIds = await this.loadValidatedUeIds(client, tenantId, studentId);
-=======
       const validatedIds = await loadAllValidatedUeIdsWithConduite(client, tenantId, studentId);
->>>>>>> 030-pedagogie-ue-ecue
       const view = computeDiplomaProgress(requirements, diploma.uv_required, validatedIds);
       const award = await this.loadStudentAward(client, tenantId, diplomaId, studentId);
       return ok({
@@ -614,10 +590,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       const ue_validees = (snapshot?.requirements ?? [])
         .filter((r: any) => r.validee)
         .map((r: any) => ({ code: r.code, libelle: r.libelle, nb_uv: r.nb_uv }));
-<<<<<<< HEAD
-      return ok({
-        reference: award.reference,
-=======
 
       const diploma = await this.selectDiploma(client, tenantId, diplomaId);
       const group = diploma ? await resolveCycleGroupFor(client, tenantId, diploma.filiere_id) : null;
@@ -628,7 +600,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       return ok({
         reference: award.reference,
         authenticite_reference: authenticiteReference,
->>>>>>> 030-pedagogie-ue-ecue
         diplome: {
           code: info.code,
           libelle: info.libelle,
@@ -638,10 +609,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
         date_obtention: award.date_obtention ?? "",
         uv_total_validees: award.uv_total_validees,
         ue_validees,
-<<<<<<< HEAD
-=======
         mention,
->>>>>>> 030-pedagogie-ue-ecue
       });
     });
   }
@@ -677,11 +645,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       }
 
       const requirements = await this.loadRequirements(client, tenantId, diplomaId);
-<<<<<<< HEAD
-      const validatedSet = new Set(await this.loadValidatedUeIds(client, tenantId, studentId));
-=======
       const validatedSet = new Set(await loadAllValidatedUeIdsWithConduite(client, tenantId, studentId));
->>>>>>> 030-pedagogie-ue-ecue
       const evalRes = evaluateDiplomaEligibility(
         requirements.map((r) => ({
           ue_id: r.ue_id,
@@ -743,13 +707,9 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
 
   /**
    * Candidats à l'octroi manuel : étudiants ayant au moins une inscription
-<<<<<<< HEAD
-   * (non annulée) sur une cohorte d'une UE de la filière du diplôme.
-=======
    * (non annulée) sur une cohorte d'une UE de l'une des filières du cycle du
    * diplôme (ex. Licence 1→3, Master 1→2 d'une même spécialité — pas
    * seulement la filière terminale).
->>>>>>> 030-pedagogie-ue-ecue
    */
   async listCandidates(
     tenantId: string,
@@ -758,16 +718,11 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     return this.withTenant(tenantId, async (client) => {
       const diploma = await this.selectDiploma(client, tenantId, diplomaId);
       if (!diploma) return fail("DIPLOMA_NOT_FOUND", "Diplôme introuvable.");
-<<<<<<< HEAD
-      const res = await client.query(
-        `SELECT DISTINCT sp.id AS student_id, sp.student_number,
-=======
       const group = await resolveCycleGroupFor(client, tenantId, diploma.filiere_id);
       const filiereIds = group ? group.filieres.map((f) => f.id) : [diploma.filiere_id];
       const res = await client.query(
         `SELECT DISTINCT sp.id AS student_id,
                 sp.student_matricule AS student_number,
->>>>>>> 030-pedagogie-ue-ecue
                 COALESCE(
                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
                   u.computed_name, u.name, sp.student_number, ''
@@ -779,13 +734,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
          JOIN professional_ue ue ON ue.id = sess.ue_id
          WHERE sp.tenant_id = $1
            AND e.statut <> 'annulee'
-<<<<<<< HEAD
-           AND ue.filiere_id = $2
-         ORDER BY nom_complet ASC`,
-        [tenantId, diploma.filiere_id]
-      );
-      return ok(res.rows as DiplomaCandidate[]);
-=======
            AND ue.filiere_id = ANY($2::uuid[])
          ORDER BY nom_complet ASC`,
         [tenantId, filiereIds]
@@ -812,7 +760,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
         });
       }
       return ok(candidates);
->>>>>>> 030-pedagogie-ue-ecue
     });
   }
 
@@ -867,11 +814,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
         [tenantId, ueId]
       );
       if (diplomasRes.rowCount === 0) return ok([]);
-<<<<<<< HEAD
-      const validatedSet = new Set(await this.loadValidatedUeIds(client, tenantId, studentId));
-=======
       const validatedSet = new Set(await loadAllValidatedUeIdsWithConduite(client, tenantId, studentId));
->>>>>>> 030-pedagogie-ue-ecue
       const created: StudentDiplomaDto[] = [];
       for (const diploma of diplomasRes.rows) {
         const award = await this.tryAwardEligible(
@@ -911,11 +854,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       let awarded = 0;
       for (const row of studentsRes.rows) {
         const validatedSet = new Set(
-<<<<<<< HEAD
-          await this.loadValidatedUeIds(client, tenantId, row.student_id)
-=======
           await loadAllValidatedUeIdsWithConduite(client, tenantId, row.student_id)
->>>>>>> 030-pedagogie-ue-ecue
         );
         const award = await this.tryAwardEligible(
           client,
@@ -945,8 +884,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     return res.rowCount === 0 ? null : (res.rows[0] as DiplomaDto);
   }
 
-<<<<<<< HEAD
-=======
   private async selectDiplomaByCode(
     client: PoolClient,
     tenantId: string,
@@ -959,7 +896,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     return res.rowCount === 0 ? null : (res.rows[0] as DiplomaDto);
   }
 
->>>>>>> 030-pedagogie-ue-ecue
   /** Charge les exigences d'un diplôme, enrichies des données d'UE. */
   private async loadRequirements(
     client: PoolClient,
@@ -979,22 +915,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     return res.rows as DiplomaRequirementDto[];
   }
 
-<<<<<<< HEAD
-  /** Ids des UE validées par l'étudiant (`student_professional_ue_results`). */
-  private async loadValidatedUeIds(
-    client: PoolClient,
-    tenantId: string,
-    studentId: string
-  ): Promise<string[]> {
-    const res = await client.query(
-      `SELECT ue_id FROM student_professional_ue_results
-       WHERE student_id=$1 AND tenant_id=$2 AND statut='validee'`,
-      [studentId, tenantId]
-    );
-    return res.rows.map((r: any) => r.ue_id as string);
-  }
-=======
->>>>>>> 030-pedagogie-ue-ecue
 
   private buildSnapshot(
     uvRequired: number,
@@ -1027,8 +947,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     return `DIP-${year}-${String(seq).padStart(6, "0")}`;
   }
 
-<<<<<<< HEAD
-=======
   /**
    * Numéro de référence de l'attestation d'authenticité : AUTH/{année}/{NNN}.
    * Attribué une seule fois par octroi (idempotent — régénérer le PDF
@@ -1081,7 +999,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     throw new Error("Impossible d'attribuer un numéro d'attestation d'authenticité.");
   }
 
->>>>>>> 030-pedagogie-ue-ecue
   private async createAward(
     client: PoolClient,
     tenantId: string,
@@ -1236,11 +1153,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       [tenantId, filiereIds, [...awardByDiploma.keys()]]
     );
 
-<<<<<<< HEAD
-    const validatedIds = await this.loadValidatedUeIds(client, tenantId, studentId);
-=======
     const validatedIds = await loadAllValidatedUeIdsWithConduite(client, tenantId, studentId);
->>>>>>> 030-pedagogie-ue-ecue
     const summaries: StudentDiplomaSummaryDto[] = [];
     for (const diploma of diplomasRes.rows as DiplomaDto[]) {
       const requirements = await this.loadRequirements(client, tenantId, diploma.id);

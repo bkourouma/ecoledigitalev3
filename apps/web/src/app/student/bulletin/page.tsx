@@ -1,15 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, Button } from "@ecoledigitale/ui";
-<<<<<<< HEAD
-import { CalendarRange, Loader2, AlertCircle, FileSpreadsheet, FileDown } from "lucide-react";
-import { SearchableSelect } from "@/components/SearchableSelect";
-import { BulletinView } from "@/components/professional/BulletinView";
-import { useMyBulletin, useMyBulletinSemestres } from "@/lib/hooks/use-professional-bulletins";
-import { downloadBulletinPdf } from "@/lib/bulletin-pdf";
-
-=======
 import {
   CalendarRange,
   Loader2,
@@ -32,7 +24,6 @@ import {
  * /professionnel/admin/bulletins), généré par `bulletin-pdf.ts`. L'aperçu est
  * le document PDF lui-même (iframe), et non un rendu HTML distinct.
  */
->>>>>>> 030-pedagogie-ue-ecue
 export default function MyBulletinPage() {
   const [semestreId, setSemestreId] = useState("");
   const semestresQuery = useMyBulletinSemestres();
@@ -45,11 +36,6 @@ export default function MyBulletinPage() {
     if (!semestreId && semestres.length > 0) setSemestreId(semestres[0].id);
   }, [semestres, semestreId]);
 
-<<<<<<< HEAD
-  return (
-    <div className="space-y-6 max-w-4xl mx-auto p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden">
-=======
   // Aperçu PDF officiel (même document que le PDF téléchargé / celui de l'admin).
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -79,18 +65,13 @@ export default function MyBulletinPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
->>>>>>> 030-pedagogie-ue-ecue
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
             <FileSpreadsheet className="h-7 w-7 text-indigo-500" />
             Mon bulletin
           </h1>
           <p className="text-muted-foreground mt-2">
-<<<<<<< HEAD
-            Consultez votre relevé de notes par semestre.
-=======
             Votre relevé de notes officiel par semestre.
->>>>>>> 030-pedagogie-ue-ecue
           </p>
         </div>
         <div className="flex gap-2 items-center">
@@ -113,8 +94,6 @@ export default function MyBulletinPage() {
             />
           </div>
           <Button
-<<<<<<< HEAD
-=======
             variant="outline"
             onClick={() => {
               if (!bulletinQuery.data) return;
@@ -127,7 +106,6 @@ export default function MyBulletinPage() {
             Ouvrir
           </Button>
           <Button
->>>>>>> 030-pedagogie-ue-ecue
             onClick={() => bulletinQuery.data && downloadBulletinPdf(bulletinQuery.data)}
             disabled={!bulletinQuery.data}
             className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
@@ -159,10 +137,6 @@ export default function MyBulletinPage() {
             <p>{(bulletinQuery.error as Error)?.message ?? "Impossible de charger le bulletin."}</p>
           </CardContent>
         </Card>
-<<<<<<< HEAD
-      ) : (
-        <BulletinView bulletin={bulletinQuery.data} />
-=======
       ) : pdfError ? (
         <Card className="border-red-200">
           <CardContent className="flex flex-col items-center gap-3 py-8 text-red-700">
@@ -191,7 +165,6 @@ export default function MyBulletinPage() {
             style={{ height: "85vh", border: "none" }}
           />
         </Card>
->>>>>>> 030-pedagogie-ue-ecue
       )}
     </div>
   );

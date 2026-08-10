@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   CreateEmploiTempsSlot,
   UpdateEmploiTempsSlot,
 } from "@ecoledigitale/contracts";
@@ -19,11 +19,7 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
          FROM professional_ue_sessions s
          JOIN professional_ue u ON u.id = s.ue_id
          JOIN programmes p ON p.id = u.filiere_id
-<<<<<<< HEAD
-         WHERE s.tenant_id = $1 AND s.statut = 'ouvert'
-=======
          WHERE s.tenant_id = $1 AND s.statut <> 'annule'
->>>>>>> 030-pedagogie-ue-ecue
          ORDER BY p.name`,
         [tenantId]
       );
@@ -42,11 +38,7 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
          FROM professional_ue_sessions s
          JOIN professional_semestre_sessions ss ON ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
          JOIN professional_semestres sm ON sm.id = ss.semestre_id
-<<<<<<< HEAD
-         WHERE s.tenant_id = $1 AND sm.filiere_id = $2 AND s.statut = 'ouvert'
-=======
          WHERE s.tenant_id = $1 AND sm.filiere_id = $2 AND s.statut <> 'annule'
->>>>>>> 030-pedagogie-ue-ecue
          ORDER BY sm.libelle`,
         [tenantId, filiereId]
       );
@@ -78,9 +70,6 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
   ): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
       const res = await client.query(
-<<<<<<< HEAD
-        `SELECT DISTINCT sm.id, sm.libelle
-=======
         `SELECT DISTINCT sm.id, sm.libelle,
                 (SELECT min(s.date_debut)::text FROM professional_semestre_sessions ss2
                  JOIN professional_ue_sessions s ON s.id = ss2.ue_session_id
@@ -88,7 +77,6 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
                 (SELECT max(s.date_fin)::text FROM professional_semestre_sessions ss2
                  JOIN professional_ue_sessions s ON s.id = ss2.ue_session_id
                  WHERE ss2.semestre_id = sm.id AND ss2.tenant_id = sm.tenant_id) AS date_fin
->>>>>>> 030-pedagogie-ue-ecue
          FROM professional_emploi_temps et
          JOIN professional_semestre_sessions ss ON ss.ue_session_id = et.ue_session_id AND ss.tenant_id = et.tenant_id
          JOIN professional_semestres sm ON sm.id = ss.semestre_id

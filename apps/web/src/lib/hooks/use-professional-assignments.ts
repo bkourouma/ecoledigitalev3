@@ -44,8 +44,6 @@ export function useAssignments(filters: { ecue_id?: string; ue_session_id?: stri
   });
 }
 
-<<<<<<< HEAD
-=======
 /**
  * Rafraîchit les deux vues qui listent les évaluations : la vue par ECUE
  * (onglet Évaluations d'une session) et la vue globale enseignant
@@ -56,7 +54,6 @@ function invalidateAssignmentLists(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["professional-teacher-assignments"] });
 }
 
->>>>>>> 030-pedagogie-ue-ecue
 export function useCreateAssignment() {
   const qc = useQueryClient();
   return useMutation({
@@ -66,12 +63,7 @@ export function useCreateAssignment() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
-<<<<<<< HEAD
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ["professional-assignments"] }),
-=======
     onSuccess: () => invalidateAssignmentLists(qc),
->>>>>>> 030-pedagogie-ue-ecue
   });
 }
 
@@ -84,12 +76,7 @@ export function useUpdateAssignment() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
-<<<<<<< HEAD
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ["professional-assignments"] }),
-=======
     onSuccess: () => invalidateAssignmentLists(qc),
->>>>>>> 030-pedagogie-ue-ecue
   });
 }
 
@@ -98,10 +85,6 @@ export function useDeleteAssignment() {
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch(`${BASE}/assignments/${id}`, { method: "DELETE" }),
-<<<<<<< HEAD
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ["professional-assignments"] }),
-=======
     onSuccess: () => invalidateAssignmentLists(qc),
   });
 }
@@ -141,7 +124,6 @@ export function useDuplicateAssignment() {
         body: JSON.stringify({ targets, due_at, starts_at, statut }),
       }),
     onSuccess: () => invalidateAssignmentLists(qc),
->>>>>>> 030-pedagogie-ue-ecue
   });
 }
 
@@ -173,11 +155,7 @@ export function useUploadAssignmentSubjectDocument() {
       }
       return json?.data ?? json;
     },
-<<<<<<< HEAD
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["professional-assignments"] }),
-=======
     onSuccess: () => invalidateAssignmentLists(qc),
->>>>>>> 030-pedagogie-ue-ecue
   });
 }
 
@@ -208,12 +186,6 @@ export function useGradeSubmission() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ note, appreciation }),
       }),
-<<<<<<< HEAD
-    onSuccess: (_d, vars) =>
-      qc.invalidateQueries({
-        queryKey: ["professional-assignment-submissions", vars.assignmentId],
-      }),
-=======
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({
         queryKey: ["professional-assignment-submissions", vars.assignmentId],
@@ -221,7 +193,6 @@ export function useGradeSubmission() {
       // Le nombre de copies notées change → rafraîchir les listes d'évaluations.
       qc.invalidateQueries({ queryKey: ["professional-teacher-assignments"] });
     },
->>>>>>> 030-pedagogie-ue-ecue
   });
 }
 

@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+﻿import type { PoolClient } from "pg";
 import type {
   CreateProfessionalUe,
   UpdateProfessionalUe,
@@ -169,11 +169,7 @@ export class ProfessionalUeService extends ProfessionalBaseService {
       );
       const listRes = await client.query(
         `SELECT ${UE_COLS} FROM professional_ue
-<<<<<<< HEAD
-         WHERE ${whereSql} ORDER BY created_at DESC LIMIT $${i++} OFFSET $${i++}`,
-=======
          WHERE ${whereSql} ORDER BY created_at DESC, id LIMIT $${i++} OFFSET $${i++}`,
->>>>>>> 030-pedagogie-ue-ecue
         [...params, pageSize, (page - 1) * pageSize]
       );
       return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });
@@ -776,11 +772,7 @@ export class ProfessionalUeService extends ProfessionalBaseService {
            LIMIT 1
          ) sem ON true
          WHERE ${where.join(" AND ")}
-<<<<<<< HEAD
-         ORDER BY s.date_debut DESC, s.libelle LIMIT $${i++} OFFSET $${i++}`,
-=======
          ORDER BY s.date_debut DESC, s.libelle, s.id LIMIT $${i++} OFFSET $${i++}`,
->>>>>>> 030-pedagogie-ue-ecue
         [...params, pageSize, (page - 1) * pageSize]
       );
       return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });
@@ -1066,8 +1058,6 @@ export class ProfessionalUeService extends ProfessionalBaseService {
       return ok({ seance_id: seanceId, count: input.entries.length });
     });
   }
-<<<<<<< HEAD
-=======
 
   /**
    * Historique complet des présences d'une filière (admin) : toutes les
@@ -1164,5 +1154,4 @@ export class ProfessionalUeService extends ProfessionalBaseService {
       return ok({ seances: seances.rows, students: students.rows });
     });
   }
->>>>>>> 030-pedagogie-ue-ecue
 }

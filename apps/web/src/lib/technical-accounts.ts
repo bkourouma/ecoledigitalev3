@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Technical accounts helper (web side).
  *
  * Mirrors the server provisioning logic so the login page can display the
@@ -50,10 +50,7 @@ const ACCOUNT_OVERRIDES: Record<string, Record<string, { email: string; password
   ecoledigitale: {
     teacher: { email: "jean.koffi@imhotepacademy.ci", password: "h?ya@q4wEhn9" },
     student: { email: "noella.kouadio.gerna28@example.com", password: "Passw0rd!stu" },
-<<<<<<< HEAD
-=======
     parent: { email: "konan.kouadio.parent28@example.com", password: "xp#UgydODQq*" },
->>>>>>> 030-pedagogie-ue-ecue
   },
 };
 

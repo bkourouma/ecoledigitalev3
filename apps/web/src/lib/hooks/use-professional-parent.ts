@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery } from "@tanstack/react-query";
 import { createApiHeaders } from "@/lib/api-utils";
@@ -48,8 +48,6 @@ export function useChildProfessionalPayments(childId: string | null) {
     enabled: !!childId,
   });
 }
-<<<<<<< HEAD
-=======
 
 /* ----------------- Devoirs & notes de l'enfant (feature 030) ----------------- */
 
@@ -97,4 +95,3 @@ export function useChildBulletinNotes(childId: string | null, semestreId: string
     enabled: !!childId && !!semestreId,
   });
 }
->>>>>>> 030-pedagogie-ue-ecue

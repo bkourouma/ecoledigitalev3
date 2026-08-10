@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Export PDF du relevé de notes — Module Professionnel (feature 030).
  * PDF vectoriel A4 : identité IPAM (vert), filigrane, tableau UE→ECUE groupé
  * par catégorie, zébrage, statuts colorés, synthèse (rang), décision colorée,
@@ -6,10 +6,6 @@
  */
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-<<<<<<< HEAD
-import QRCode from "qrcode";
-=======
->>>>>>> 030-pedagogie-ue-ecue
 import {
   MINISTERE,
   REPUBLIQUE,
@@ -22,24 +18,16 @@ import {
   LOGO_EMBLEME,
   fmtNote,
   appreciation,
-<<<<<<< HEAD
-  ueDecision,
-=======
   ueEtatLabel,
->>>>>>> 030-pedagogie-ue-ecue
   niveauOf,
   fmtDateLongFr,
   genreLabel,
   decisionLabel,
-<<<<<<< HEAD
-  semestreOrdinalFr,
-=======
   releveSemestreTitre,
   sessionLabel,
   juryIntro,
   JURY_RESULTATS,
   JURY_NB,
->>>>>>> 030-pedagogie-ue-ecue
 } from "./bulletin-format";
 
 const M = 12;
@@ -57,11 +45,7 @@ function decRgb(d: string): [number, number, number] {
   return d === "admis" ? OK : d === "rattrapage" ? AMBER : BAD;
 }
 
-<<<<<<< HEAD
-interface Img {
-=======
 export interface Img {
->>>>>>> 030-pedagogie-ue-ecue
   dataUrl: string;
   ratio: number;
 }
@@ -87,11 +71,7 @@ async function loadImg(url: string): Promise<Img | null> {
   }
 }
 
-<<<<<<< HEAD
-function kv(doc: jsPDF, label: string, value: string, x: number, y: number, valueBold = false) {
-=======
 export function kv(doc: jsPDF, label: string, value: string, x: number, y: number, valueBold = false) {
->>>>>>> 030-pedagogie-ue-ecue
   doc.setFont("times", "bold");
   doc.setFontSize(11);
   doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
@@ -105,22 +85,6 @@ export function kv(doc: jsPDF, label: string, value: string, x: number, y: numbe
   doc.text(value, x + w + 2, y);
 }
 
-<<<<<<< HEAD
-export async function downloadBulletinPdf(bulletin: any): Promise<void> {
-  const [logoInstitut, embleme] = await Promise.all([loadImg(LOGO_INSTITUT), loadImg(LOGO_EMBLEME)]);
-  let qrData = "";
-  try {
-    qrData = await QRCode.toDataURL(String(bulletin.reference ?? ""), { margin: 0, width: 200 });
-  } catch {
-    qrData = "";
-  }
-
-  const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
-  const studentName = `${bulletin.student?.last_name ?? ""} ${bulletin.student?.first_name ?? ""}`
-    .trim()
-    .toUpperCase();
-  const today = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-=======
 export interface HeaderImages {
   logoInstitut: Img | null;
   embleme: Img | null;
@@ -140,7 +104,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   // Date officielle : date de génération permanente si le bulletin est généré.
   const officialDate = bulletin.generated_at ? new Date(bulletin.generated_at) : new Date();
   const today = officialDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
->>>>>>> 030-pedagogie-ue-ecue
   const totalObtenus = bulletin.credits_valides ?? 0;
   const totalUe = bulletin.credits_total ?? 0;
 
@@ -151,20 +114,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   MINISTERE.split("\n").forEach((ln, i) => doc.text(ln, M, 14 + i * 3.4));
   REPUBLIQUE.split("\n").forEach((ln, i) => doc.text(ln, RIGHT, 14 + i * 3.4, { align: "right" }));
 
-<<<<<<< HEAD
-  doc.setFont("times", "bold");
-  doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
-  doc.setFontSize(15);
-  doc.text("BULLETIN DE NOTES", PAGE_W / 2, 16, { align: "center" });
-  const ordinal = semestreOrdinalFr(bulletin.semestre?.libelle);
-  doc.setFontSize(11);
-  const ow = doc.getTextWidth(ordinal) + 10;
-  doc.setLineWidth(0.5);
-  doc.setDrawColor(GREEN[0], GREEN[1], GREEN[2]);
-  doc.rect(PAGE_W / 2 - ow / 2, 18.5, ow, 6);
-  doc.text(ordinal, PAGE_W / 2, 22.6, { align: "center" });
-  doc.setTextColor(0, 0, 0);
-=======
   // Encadré central : RELEVE DE NOTES SEMESTRE n (gras, vert).
   doc.setFont("times", "bold");
   doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
@@ -182,7 +131,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   doc.text(`Année scolaire : ${bulletin.annee_academique ?? "—"}`, PAGE_W / 2, 27, {
     align: "center",
   });
->>>>>>> 030-pedagogie-ue-ecue
 
   if (logoInstitut) {
     const h = 22;
@@ -193,26 +141,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
     doc.addImage(embleme.dataUrl, "JPEG", RIGHT - h * embleme.ratio, 21, h * embleme.ratio, h);
   }
 
-<<<<<<< HEAD
-  doc.setFont("times", "normal");
-  doc.setFontSize(10);
-  doc.text(
-    `Année scolaire : ${bulletin.annee_academique ?? "—"}        Effectif : ${bulletin.effectif ?? "—"}`,
-    PAGE_W / 2,
-    30,
-    { align: "center" }
-  );
-
-  // Institut (gras, vert).
-  doc.setFont("times", "bold");
-  doc.setFontSize(13);
-  doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
-  doc.text(INSTITUT, PAGE_W / 2, 46, { align: "center" });
-  doc.setTextColor(0, 0, 0);
-
-  // ---------- Bloc scolarité ----------
-  let y = 54;
-=======
   // Nom de l'institut : pleine largeur, centré, sous les logos (remonté).
   doc.setFont("times", "bold");
   doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
@@ -232,7 +160,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   y += 1.5;
 
   // ---------- Bloc scolarité ----------
->>>>>>> 030-pedagogie-ue-ecue
   const COL2 = 118;
   const ne = `${fmtDateLongFr(bulletin.student?.date_of_birth)}${
     bulletin.student?.place_of_birth ? ` à ${bulletin.student.place_of_birth}` : ""
@@ -243,13 +170,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   kv(doc, "Né(e) le", ne, M, y);
   kv(doc, "Genre", genreLabel(bulletin.student?.gender), COL2, y);
   y += 5.8;
-<<<<<<< HEAD
-  kv(doc, "Filière", String(bulletin.filiere?.name ?? "—"), M, y);
-  kv(doc, "Redoublant(e)", bulletin.student?.is_repeating ? "OUI" : "NON", COL2, y);
-  y += 5.8;
-  kv(doc, "Niveau", niveauOf(bulletin.filiere?.name), M, y);
-  y += 6;
-=======
   kv(doc, "Spécialité", String(bulletin.filiere?.name ?? "—"), M, y);
   kv(doc, "Redoublant(e)", bulletin.student?.is_repeating ? "OUI" : "NON", COL2, y);
   y += 5.8;
@@ -271,7 +191,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   });
   doc.setFont("times", "normal");
   y += 1.5;
->>>>>>> 030-pedagogie-ue-ecue
 
   // ---------- Tableau (catégories + UE + ECUE) ----------
   const catList =
@@ -282,18 +201,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   for (const cat of catList) {
     cat.ues.forEach((ue: any, i: number) => {
       const zbg = i % 2 === 1 ? { fillColor: ZEBRA } : {};
-<<<<<<< HEAD
-      const obtenus = ue.validee ? ue.credits : 0;
-      body.push([
-        { content: (ue.libelle ?? ue.code ?? "—").toUpperCase(), colSpan: 4, styles: { fontStyle: "bold", ...zbg } },
-        { content: fmtNote(ue.moyenne_ue), styles: { fontStyle: "bold", halign: "center", ...zbg } },
-        {
-          content: ueDecision(ue.validee),
-          styles: { halign: "center", fontStyle: "bold", textColor: ue.validee ? OK : BAD, ...zbg },
-        },
-        { content: String(obtenus), styles: { halign: "center", ...zbg } },
-        { content: String(ue.credits), styles: { halign: "center", ...zbg } },
-=======
       // Le titre de l'UE porte « (MOY) » : la valeur en colonne Note de cette
       // ligne est la moyenne de l'UE (colonne Moy supprimée).
       body.push([
@@ -313,26 +220,15 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
         },
         { content: String(ue.credits), styles: { halign: "center", ...zbg } },
         { content: sessionLabel(ue.session_validation), styles: { halign: "center", fontStyle: "bold", ...zbg } },
->>>>>>> 030-pedagogie-ue-ecue
       ]);
       for (const e of ue.ecues) {
         const es = { fontSize: 9.5, ...zbg };
         body.push([
           { content: `   ${e.libelle ?? e.code ?? "—"}`, styles: es },
-<<<<<<< HEAD
-          { content: fmtNote(e.moyenne_devoirs), styles: { ...es, halign: "center" } },
-          { content: fmtNote(e.note_examen), styles: { ...es, halign: "center" } },
-          { content: fmtNote(e.note_ecue), styles: { ...es, halign: "center" } },
-          { content: "", styles: zbg },
-          { content: appreciation(e.note_ecue), styles: { ...es, halign: "center" } },
-          { content: "", styles: zbg },
-          { content: "", styles: zbg },
-=======
           { content: fmtNote(e.note_ecue), styles: { ...es, halign: "center" } },
           { content: appreciation(e.note_ecue), styles: { ...es, halign: "center" } },
           { content: e.credits != null ? String(e.credits) : "—", styles: { ...es, halign: "center" } },
           { content: sessionLabel(e.session_obtention), styles: { ...es, halign: "center" } },
->>>>>>> 030-pedagogie-ue-ecue
         ]);
       }
     });
@@ -352,30 +248,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
       valign: "middle",
     },
     headStyles: { fillColor: GREEN, textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 9.5 },
-<<<<<<< HEAD
-    head: [
-      [
-        "UNITÉ D'ENSEIGNEMENTS",
-        "Contrôle continu",
-        "Examen",
-        "Moyenne ECUE",
-        "Moyenne UE",
-        "Appréciation",
-        "Crédits obtenus",
-        "Crédit UE",
-      ],
-    ],
-    body,
-    columnStyles: {
-      0: { cellWidth: 56 },
-      1: { cellWidth: 18, halign: "center" },
-      2: { cellWidth: 15, halign: "center" },
-      3: { cellWidth: 18, halign: "center" },
-      4: { cellWidth: 16, halign: "center" },
-      5: { cellWidth: 26, halign: "center" },
-      6: { cellWidth: 20, halign: "center" },
-      7: { cellWidth: 17, halign: "center" },
-=======
     head: [["UNITÉ D'ENSEIGNEMENTS", "Note", "Appréciation", "Crédits", "Session"]],
     body,
     columnStyles: {
@@ -384,7 +256,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
       2: { cellWidth: 30, halign: "center" },
       3: { cellWidth: 18, halign: "center" },
       4: { cellWidth: 22, halign: "center" },
->>>>>>> 030-pedagogie-ue-ecue
     },
   });
 
@@ -415,24 +286,13 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
         { content: "Session", styles: hstyle },
         { content: "Crédits", styles: hstyle },
         { content: "Nombre d'UE validés", styles: hstyle },
-<<<<<<< HEAD
-        { content: "Rang", styles: hstyle },
-=======
->>>>>>> 030-pedagogie-ue-ecue
         { content: "Moyenne", styles: hstyle },
         { content: "Appréciation", styles: hstyle },
       ],
       [
-<<<<<<< HEAD
-        { content: "Session 1" },
-        { content: `${totalObtenus}/${totalUe}` },
-        { content: `${bulletin.nb_ue_validees ?? 0}/${bulletin.nb_ue_total ?? 0}` },
-        { content: bulletin.rang ? `${bulletin.rang}/${bulletin.effectif ?? "—"}` : "—" },
-=======
         { content: sessionLabel(bulletin.session_globale ?? 1) },
         { content: `${totalObtenus}/${totalUe}` },
         { content: `${bulletin.nb_ue_validees ?? 0}/${bulletin.nb_ue_total ?? 0}` },
->>>>>>> 030-pedagogie-ue-ecue
         { content: fmtNote(bulletin.moyenne_session), styles: { fontStyle: "bold" } },
         { content: appreciation(bulletin.moyenne_session), styles: { fontStyle: "bold" } },
       ],
@@ -452,28 +312,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
       y += 5;
     });
 
-<<<<<<< HEAD
-  // ---------- Bas : QR/réf · décision · visa ----------
-  y += 3;
-  const topY = y;
-  if (qrData) doc.addImage(qrData, "PNG", M, y, 22, 22);
-  doc.setFont("times", "normal");
-  doc.setFontSize(8);
-  doc.text(`N° ${bulletin.reference ?? "—"}`, M, y + 25);
-
-  // Décision (centre, colorée).
-  doc.setFont("times", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
-  doc.text(DECISION_TITRE, PAGE_W / 2, topY + 3, { align: "center" });
-  const dw = doc.getTextWidth(DECISION_TITRE);
-  doc.setDrawColor(0, 0, 0);
-  doc.line(PAGE_W / 2 - dw / 2, topY + 3.8, PAGE_W / 2 + dw / 2, topY + 3.8);
-  const dc = decRgb(bulletin.decision);
-  doc.setFontSize(15);
-  doc.setTextColor(dc[0], dc[1], dc[2]);
-  doc.text(decisionLabel(bulletin.decision), PAGE_W / 2, topY + 13, { align: "center" });
-=======
   // ---------- Bas : décision · visa ----------
   y += 3;
   const topY = y;
@@ -490,7 +328,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   doc.setFontSize(15);
   doc.setTextColor(dc[0], dc[1], dc[2]);
   doc.text(decisionLabel(bulletin.decision), M, topY + 13);
->>>>>>> 030-pedagogie-ue-ecue
   doc.setTextColor(0, 0, 0);
 
   // Visa (droite) + date.
@@ -514,10 +351,6 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   );
   doc.setTextColor(0, 0, 0);
 
-<<<<<<< HEAD
-  // ---------- Filigrane (overlay léger) ----------
-  if (logoInstitut) {
-=======
 }
 
 /** Filigrane (logo en transparence) appliqué sur toutes les pages du document. */
@@ -526,7 +359,6 @@ function drawWatermarkAllPages(doc: jsPDF, logoInstitut: Img | null): void {
   const total = doc.getNumberOfPages();
   for (let p = 1; p <= total; p++) {
     doc.setPage(p);
->>>>>>> 030-pedagogie-ue-ecue
     try {
       doc.saveGraphicsState();
       (doc as any).setGState(new (doc as any).GState({ opacity: 0.06 }));
@@ -538,12 +370,6 @@ function drawWatermarkAllPages(doc: jsPDF, logoInstitut: Img | null): void {
       /* GState indisponible : on ignore le filigrane */
     }
   }
-<<<<<<< HEAD
-
-  const safe = (studentName || "etudiant").replace(/[^\w-]+/g, "_");
-  const semSafe = String(bulletin.semestre?.libelle ?? "semestre").replace(/[^\w-]+/g, "_");
-  doc.save(`Releve_de_notes_${safe}_${semSafe}.pdf`);
-=======
 }
 
 function bulletinFilename(bulletin: any): string {
@@ -615,5 +441,4 @@ export async function openBulletinPdf(bulletin: any, win?: Window | null): Promi
   if (win) win.location.href = url;
   else window.open(url, "_blank", "noopener,noreferrer");
   setTimeout(() => URL.revokeObjectURL(url), 120_000);
->>>>>>> 030-pedagogie-ue-ecue
 }

@@ -9,8 +9,6 @@ export const INSTITUT = "INSTITUT POLYVALENT DES AFFAIRES ET DU MANAGEMENT";
 export const INSTITUT_SIGLE = "IPAM";
 export const DECISION_TITRE = "Décision finale";
 export const VISA_DIRECTEUR = "Visa le Directeur des Études";
-<<<<<<< HEAD
-=======
 
 /**
  * Introduction du jury : la date de délibération est la date de génération du
@@ -27,7 +25,6 @@ export function juryIntro(date: Date = new Date()): string {
 export const JURY_RESULTATS =
   "a obtenu, après l'évaluation de ses connaissances, les notes et les résultats suivants.";
 export const JURY_NB = "NB : La décision s'obtient par rapport au total des crédits obtenus.";
->>>>>>> 030-pedagogie-ue-ecue
 export const FOOTER_NOTE =
   "Il ne peut être délivré qu'un seul exemplaire du présent relevé de notes. En cas de perte, un duplicata doit être justifié auprès du service des examens IPAM.";
 export const FOOTER_ADDRESS =
@@ -40,11 +37,7 @@ export function genreLabel(g: string | null | undefined): string {
 
 /** Logos (dossier public). */
 export const LOGO_INSTITUT = "/logo-ipam.jpeg";
-<<<<<<< HEAD
-export const LOGO_EMBLEME = "/embleme.jpg";
-=======
 export const LOGO_EMBLEME = "/embleme.png";
->>>>>>> 030-pedagogie-ue-ecue
 
 /** Palette institutionnelle IPAM (vert). */
 export const IPAM_GREEN = "#14532D"; // vert foncé (en-têtes, titres)
@@ -106,8 +99,6 @@ export function ueDecision(validee: boolean): string {
   return validee ? "Validé(e)" : "Non validée";
 }
 
-<<<<<<< HEAD
-=======
 /** Libellé de l'état LMD d'une UE : validée / rattrapage / dette. */
 export function ueEtatLabel(etat: string | null | undefined): string {
   switch (etat) {
@@ -149,22 +140,18 @@ export function sessionLabel(n: number | null | undefined): string {
   return `Session ${n}`;
 }
 
->>>>>>> 030-pedagogie-ue-ecue
 /** « Semestre 1 » → « S1 ». */
 export function semShort(libelle: string | null | undefined): string {
   const m = String(libelle ?? "").match(/(\d+)/);
   return m ? `S${m[1]}` : String(libelle ?? "—");
 }
 
-<<<<<<< HEAD
-=======
 /** « Semestre 1 » → « RELEVE DE NOTES SEMESTRE 1 » (titre encadré). */
 export function releveSemestreTitre(libelle: string | null | undefined): string {
   const m = String(libelle ?? "").match(/(\d+)/);
   return `RELEVE DE NOTES SEMESTRE ${m ? m[1] : ""}`.trim();
 }
 
->>>>>>> 030-pedagogie-ue-ecue
 /** « Semestre 1 » → « 1ER SEMESTRE » (titre). */
 export function semestreOrdinalFr(libelle: string | null | undefined): string {
   const m = String(libelle ?? "").match(/(\d+)/);
@@ -192,8 +179,6 @@ export function niveauOf(filiereName: string | null | undefined): string {
   return "—";
 }
 
-<<<<<<< HEAD
-=======
 /**
  * Appréciation générale du conseil (phrase libre pour le visa), reprend le
  * libellé déjà utilisé côté « moyennes semestre » (semester-averages.ts).
@@ -232,7 +217,6 @@ export function rangLabel(n: number | null | undefined): string {
   return n === 1 ? "1er" : `${n}ème`;
 }
 
->>>>>>> 030-pedagogie-ue-ecue
 /** Date « 25 Janvier 1998 » à partir d'une date ISO. */
 export function fmtDateLongFr(value?: string | null): string {
   if (!value) return "—";

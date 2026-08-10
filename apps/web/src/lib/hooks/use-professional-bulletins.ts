@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createApiHeaders } from "@/lib/api-utils";
@@ -59,8 +59,6 @@ export function useBulletin(semestreId: string | null, studentId: string | null)
   });
 }
 
-<<<<<<< HEAD
-=======
 /** Récupère le bulletin détaillé d'un étudiant (appel imperatif, hors hook). */
 export async function fetchBulletin(semestreId: string, studentId: string): Promise<any> {
   return apiFetch(`${BASE}/semestres/${semestreId}/bulletins/${studentId}`);
@@ -116,7 +114,6 @@ export function useBulletinHistory(filiereId: string | null) {
   });
 }
 
->>>>>>> 030-pedagogie-ue-ecue
 /** Recalcule tous les résultats des cohortes du semestre. */
 export function useRecomputeBulletins() {
   const qc = useQueryClient();
@@ -198,11 +195,8 @@ interface ManualNoteInput {
   note: number;
   note_max?: number;
   libelle?: string | null;
-<<<<<<< HEAD
-=======
   /** 1 = session normale, 2 = rattrapage (LMD). */
   session?: number;
->>>>>>> 030-pedagogie-ue-ecue
 }
 
 /** Crée (devoir) ou met à jour (examen unique) une note manuelle. */
@@ -257,8 +251,6 @@ export function useMyBulletin(semestreId: string | null) {
   });
 }
 
-<<<<<<< HEAD
-=======
 /** Détail des notes individuelles (devoirs + examen) de l'étudiant, par semestre. */
 export function useMyBulletinNotes(semestreId: string | null) {
   return useQuery({
@@ -268,7 +260,6 @@ export function useMyBulletinNotes(semestreId: string | null) {
   });
 }
 
->>>>>>> 030-pedagogie-ue-ecue
 /** Semestres où l'étudiant connecté est inscrit. */
 export function useMyBulletinSemestres() {
   return useQuery({

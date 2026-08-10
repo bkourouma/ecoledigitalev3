@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -99,16 +99,12 @@ export default function StudentDetailPage() {
             <h1 className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-3xl font-bold text-transparent">
               {textOrFallback(student.user?.firstName)} {textOrFallback(student.user?.lastName)}
             </h1>
-<<<<<<< HEAD
-            <p className="mt-2 text-muted-foreground">Matricule: {student.studentNumber}</p>
-=======
             <p className="mt-2 text-muted-foreground">
               {(student as any).studentMatricule && (
                 <>Matricule: {(student as any).studentMatricule} · </>
               )}
               N° établissement: {student.studentNumber}
             </p>
->>>>>>> 030-pedagogie-ue-ecue
           </div>
         </div>
         <Button

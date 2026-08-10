@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+﻿import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import path from "path";
 import fs from "fs/promises";
 import { createWriteStream } from "fs";
@@ -42,11 +42,8 @@ import {
   DiplomaCreateInputSchema,
   DiplomaUpdateInputSchema,
   DiplomaRequirementsReplaceInputSchema,
-<<<<<<< HEAD
-=======
   SignataireCleSchema,
   SignataireUpdateInputSchema,
->>>>>>> 030-pedagogie-ue-ecue
   DiplomaAwardManualInputSchema,
   DiplomaRevokeInputSchema,
 } from "@ecoledigitale/contracts";
@@ -61,11 +58,8 @@ import { ProfessionalEnrollmentService } from "../services/professional-enrollme
 import { ProfessionalPaymentService } from "../services/professional-payment.service";
 import { ProfessionalTeacherService } from "../services/professional-teacher.service";
 import { ProfessionalDiplomasService } from "../services/professional-diplomas.service";
-<<<<<<< HEAD
-=======
 import { ProfessionalAttestationsService } from "../services/professional-attestations.service";
 import { ProfessionalSignatairesService } from "../services/professional-signataires.service";
->>>>>>> 030-pedagogie-ue-ecue
 import {
   ProfessionalEcueMaterialsService,
   type MaterialKind,
@@ -139,13 +133,10 @@ const ERROR_STATUS: Record<string, number> = {
   DIPLOMA_ALREADY_AWARDED: 409,
   DIPLOMA_NOT_ELIGIBLE: 422,
   DIPLOMA_NOT_AWARDED: 404,
-<<<<<<< HEAD
-=======
   // Attestations de réussite (filière → semestres → UE)
   STUDENT_NOT_FOUND: 404,
   NO_UE_CONFIGURED: 422,
   NOT_ELIGIBLE: 422,
->>>>>>> 030-pedagogie-ue-ecue
   LIVEKIT_NOT_CONFIGURED: 503,
   LIVEKIT_UPSTREAM_ERROR: 502,
   FILE_TOO_LARGE: 413,
@@ -198,11 +189,8 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
   const payment = new ProfessionalPaymentService(fastify.pg as any);
   const teacher = new ProfessionalTeacherService(fastify.pg as any);
   const diplomas = new ProfessionalDiplomasService(fastify.pg as any);
-<<<<<<< HEAD
-=======
   const attestations = new ProfessionalAttestationsService(fastify.pg as any);
   const signataires = new ProfessionalSignatairesService(fastify.pg as any);
->>>>>>> 030-pedagogie-ue-ecue
   const ecueMaterials = new ProfessionalEcueMaterialsService(fastify.pg as any);
   const assignments = new ProfessionalAssignmentsService(fastify.pg as any);
   const profLive = new ProfessionalLiveSessionsService(fastify.pg as any);
@@ -1020,8 +1008,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
-<<<<<<< HEAD
-=======
   // Historique complet des présences d'une filière (admin) : séances + récap étudiants.
   fastify.get(
     "/presences/history",
@@ -1045,7 +1031,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
->>>>>>> 030-pedagogie-ue-ecue
   // Affectation enseignant ↔ ECUE (au sein d'une session).
   fastify.get(
     "/ue-sessions/:id/ecue-teachers",
@@ -1291,8 +1276,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
-<<<<<<< HEAD
-=======
   // Génère les bulletins officiels de tous les étudiants du semestre
   // (date de génération permanente + statut définitif/provisoire).
   fastify.post(
@@ -1333,7 +1316,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
->>>>>>> 030-pedagogie-ue-ecue
   // Filières pour la saisie des notes (admin = toutes ; enseignant = les siennes).
   fastify.get(
     "/notes/filieres",
@@ -1413,8 +1395,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
-<<<<<<< HEAD
-=======
   // Bulletin de style BTS (Licence 1/2 uniquement) : rang par UE/ECUE + bilan
   // annuel sur le dernier semestre de la filière (feature ad hoc, hors 030).
   fastify.get(
@@ -1427,7 +1407,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
->>>>>>> 030-pedagogie-ue-ecue
   // Semestres où l'étudiant connecté est inscrit.
   fastify.get(
     "/student/semestres",
@@ -1456,8 +1435,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
-<<<<<<< HEAD
-=======
   // Détail des notes individuelles (devoirs + examen) de l'étudiant connecté.
   fastify.get(
     "/student/bulletins/:semestreId/notes",
@@ -1473,7 +1450,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
->>>>>>> 030-pedagogie-ue-ecue
   /* ===================== Supports d'ECUE (admin + enseignant) ===================== */
 
   const MATERIAL_KIND_BY_MIME: Record<string, MaterialKind> = {
@@ -1777,8 +1753,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
-<<<<<<< HEAD
-=======
   // Duplique (« assigne ») une évaluation vers d'autres cibles ECUE × cohorte
   // affectées à l'enseignant. Copie la config + les questions, et recopie le
   // fichier sujet éventuel dans le dossier du duplicata.
@@ -1864,7 +1838,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
->>>>>>> 030-pedagogie-ue-ecue
   fastify.get(
     "/assignments/:id/submissions",
     { preHandler: requireAdminOrTeacher },
@@ -2984,8 +2957,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
-<<<<<<< HEAD
-=======
   // Historique de présence/absence d'un enfant (parent).
   fastify.get(
     "/parent/attendance",
@@ -3100,7 +3071,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
->>>>>>> 030-pedagogie-ue-ecue
   /* ============== Espace enseignant (cohortes / séances) ============== */
 
   fastify.get(
@@ -3297,8 +3267,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
   /* ============== Diplômes professionnels (admin) ============== */
 
   fastify.get(
-<<<<<<< HEAD
-=======
     "/cycle-groups",
     { preHandler: requireAdmin },
     handler(async (request, reply) => {
@@ -3322,7 +3290,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
   );
 
   fastify.get(
->>>>>>> 030-pedagogie-ue-ecue
     "/diplomas",
     { preHandler: requireAdmin },
     handler(async (request, reply) => {
@@ -3462,8 +3429,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
-<<<<<<< HEAD
-=======
   fastify.get(
     "/diplomas/:id/students/:studentId/progress",
     { preHandler: requireAdmin },
@@ -3484,7 +3449,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
->>>>>>> 030-pedagogie-ue-ecue
   fastify.post(
     "/diplomas/:id/award",
     { preHandler: requireAdmin },
@@ -3597,10 +3561,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
       return sendResult(reply, result);
     })
   );
-<<<<<<< HEAD
-}
-
-=======
 
   /* ===== Attestations de réussite (filière → semestres → UE) — admin ===== */
 
@@ -3670,5 +3630,4 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 }
->>>>>>> 030-pedagogie-ue-ecue
 export default professionalRoutes;

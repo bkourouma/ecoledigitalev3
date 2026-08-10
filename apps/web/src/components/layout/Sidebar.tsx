@@ -125,12 +125,9 @@ const professionalModuleMenuItems = [
   { icon: ClipboardCheck, label: 'Présences', href: '/professionnel/admin/presences' as const },
   { icon: ClipboardList, label: 'Notes', href: '/professionnel/admin/notes' as const },
   { icon: FileSpreadsheet, label: 'Bulletins', href: '/professionnel/admin/bulletins' as const },
-<<<<<<< HEAD
-=======
   { icon: Award, label: 'Attestations de réussite', href: '/professionnel/admin/attestations' as const },
   { icon: GraduationCap, label: 'Diplômes', href: '/professionnel/admin/diplomes' as const },
   { icon: PenLine, label: 'Signataires', href: '/professionnel/admin/signataires' as const },
->>>>>>> 030-pedagogie-ue-ecue
 ];
 
 // People Management

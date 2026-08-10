@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+﻿import type { PoolClient } from "pg";
 import type { CreateProfessionalPayment } from "@ecoledigitale/contracts";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
 
@@ -457,11 +457,7 @@ export class ProfessionalPaymentService extends ProfessionalBaseService {
          FROM professional_payments p
          JOIN professional_orders o ON o.id = p.order_id
          WHERE ${whereSql}
-<<<<<<< HEAD
-         ORDER BY p.created_at DESC LIMIT $${i++} OFFSET $${i++}`,
-=======
          ORDER BY p.created_at DESC, p.id LIMIT $${i++} OFFSET $${i++}`,
->>>>>>> 030-pedagogie-ue-ecue
         [...params, pageSize, (page - 1) * pageSize]
       );
       return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });

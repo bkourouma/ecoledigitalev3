@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -58,11 +58,6 @@ function fmtDate(value?: string | null): string {
   return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("fr-FR");
 }
 
-<<<<<<< HEAD
-export default function ProfessionalSessionsListPage() {
-  const router = useRouter();
-  const [filiereFilter, setFiliereFilter] = useState<string>("all");
-=======
 /**
  * Année scolaire (pivot septembre) dérivée de la date de début d'une session,
  * alignée sur le calcul côté API (professional-bulletin.service.ts) : une session
@@ -80,7 +75,6 @@ export default function ProfessionalSessionsListPage() {
   const router = useRouter();
   const [filiereFilter, setFiliereFilter] = useState<string>("all");
   const [anneeFilter, setAnneeFilter] = useState<string>("all");
->>>>>>> 030-pedagogie-ue-ecue
   const [tab, setTab] = useState<"actives" | "historique">("actives");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -112,15 +106,6 @@ export default function ProfessionalSessionsListPage() {
     [sessions]
   );
 
-<<<<<<< HEAD
-  const filteredSessionsCount = useMemo(
-    () =>
-      sessions.filter((s) => filiereFilter === "all" || s.filiere_code === filiereFilter).length,
-    [sessions, filiereFilter]
-  );
-
-=======
->>>>>>> 030-pedagogie-ue-ecue
   // Regroupe les sessions d'un même lot (semestre + dates + libellé) dans une
   // seule carte. Les sessions sans semestre restent individuelles.
   const groups = useMemo(() => {
@@ -145,10 +130,7 @@ export default function ProfessionalSessionsListPage() {
           filiere_code: s.filiere_code ?? null,
           date_debut: s.date_debut,
           date_fin: s.date_fin,
-<<<<<<< HEAD
-=======
           annee_scolaire: anneeScolaireOf(s.date_debut),
->>>>>>> 030-pedagogie-ue-ecue
           statut: s.statut,
           first_id: s.id,
           items: [] as any[],
@@ -165,8 +147,6 @@ export default function ProfessionalSessionsListPage() {
     () => groups.filter((g) => g.statut === "termine").length,
     [groups]
   );
-<<<<<<< HEAD
-=======
 
   // Années scolaires disponibles dans l'historique, adaptées à la filière choisie.
   // (dérivées de la date de début, pivot septembre — voir anneeScolaireOf)
@@ -182,17 +162,11 @@ export default function ProfessionalSessionsListPage() {
       .map((value) => ({ value, label: value }));
   }, [groups, filiereFilter]);
 
->>>>>>> 030-pedagogie-ue-ecue
   const visibleGroups = useMemo(
     () =>
       groups.filter(
         (g) =>
           (filiereFilter === "all" || g.filiere_code === filiereFilter) &&
-<<<<<<< HEAD
-          (tab === "historique" ? g.statut === "termine" : g.statut !== "termine")
-      ),
-    [groups, tab, filiereFilter]
-=======
           (tab === "historique" ? g.statut === "termine" : g.statut !== "termine") &&
           (tab !== "historique" ||
             anneeFilter === "all" ||
@@ -205,7 +179,6 @@ export default function ProfessionalSessionsListPage() {
   const visibleSessionsCount = useMemo(
     () => visibleGroups.reduce((n, g) => n + g.items.length, 0),
     [visibleGroups]
->>>>>>> 030-pedagogie-ue-ecue
   );
 
   // Pagination d'affichage (côté client) sur les lots de l'onglet courant.
@@ -218,9 +191,6 @@ export default function ProfessionalSessionsListPage() {
 
   useEffect(() => {
     setPage(1);
-<<<<<<< HEAD
-  }, [filiereFilter, tab]);
-=======
   }, [filiereFilter, tab, anneeFilter]);
 
   // La liste des années dépend de la filière/onglet : si l'année sélectionnée
@@ -230,7 +200,6 @@ export default function ProfessionalSessionsListPage() {
       setAnneeFilter("all");
     }
   }, [anneeOptions, anneeFilter]);
->>>>>>> 030-pedagogie-ue-ecue
 
   // Suppression de tout un lot (toutes les sessions d'UE du semestre).
   async function handleDeleteBatch(g: any) {
@@ -378,25 +347,6 @@ export default function ProfessionalSessionsListPage() {
       <Card className="shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
         <CardContent className="p-6">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-<<<<<<< HEAD
-            <div className="w-full lg:w-[32rem]">
-              <SearchableSelect
-                value={filiereFilter}
-                onChange={setFiliereFilter}
-                icon={<BookOpen className="h-4 w-4 text-gray-400" />}
-                placeholder="Filtrer par filière"
-                searchPlaceholder="Rechercher une filière…"
-                options={[
-                  { value: "all", label: "Toutes les filières" },
-                  ...filiereOptions,
-                ]}
-              />
-            </div>
-            <div className="flex items-center text-sm text-gray-600 whitespace-nowrap">
-              <span className="font-medium">{filteredSessionsCount}</span>
-              <span className="ml-1">
-                {filteredSessionsCount === 1 ? "session affichée" : "sessions affichées"}
-=======
             <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
               <div className="w-full lg:w-[32rem]">
                 <SearchableSelect
@@ -431,7 +381,6 @@ export default function ProfessionalSessionsListPage() {
               <span className="font-medium">{visibleSessionsCount}</span>
               <span className="ml-1">
                 {visibleSessionsCount === 1 ? "session affichée" : "sessions affichées"}
->>>>>>> 030-pedagogie-ue-ecue
               </span>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+﻿import type { PoolClient } from "pg";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
 
 /**
@@ -100,11 +100,6 @@ export function evaluatePrerequisites(
   return { satisfait: manquants.length === 0, manquants };
 }
 
-<<<<<<< HEAD
-/* ------------------------------- Service -------------------------------- */
-
-export class ProfessionalEnrollmentService extends ProfessionalBaseService {
-=======
 /**
  * Préfixe fixe du matricule professionnel (institution). Format complet :
  * `IPAM` + code de la filière (nettoyé, ex. `L1DAF`) + numéro séquentiel sur
@@ -164,7 +159,6 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
     return existing.rowCount ? (existing.rows[0].matricule as string) : null;
   }
 
->>>>>>> 030-pedagogie-ue-ecue
   /** Résout l'id `student_profiles` à partir de l'id `users` authentifié. */
   private async getStudentProfileId(
     client: PoolClient,
@@ -500,17 +494,11 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
   ): Promise<ServiceResult<any>> {
     return this.withTenantTx(tenantId, async (client) => {
       const sessRes = await client.query(
-<<<<<<< HEAD
-        `SELECT s.id, ue.prix::float8 AS prix, COALESCE(ue.devise, 'XOF') AS devise
-         FROM professional_ue_sessions s
-         JOIN professional_ue ue ON ue.id = s.ue_id
-=======
         `SELECT s.id, ue.prix::float8 AS prix, COALESCE(ue.devise, 'XOF') AS devise,
                 ue.filiere_id, p.code AS filiere_code
          FROM professional_ue_sessions s
          JOIN professional_ue ue ON ue.id = s.ue_id
          JOIN programmes p ON p.id = ue.filiere_id
->>>>>>> 030-pedagogie-ue-ecue
          WHERE s.id = $1
          FOR UPDATE OF s`,
         [ueSessionId]
@@ -524,8 +512,6 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       );
       if (stRes.rowCount === 0) return fail("STUDENT_NOT_FOUND", "Étudiant introuvable.");
 
-<<<<<<< HEAD
-=======
       // Matricule professionnel de la filière (IPAM…) — attribué à la 1ère
       // inscription dans la filière, réutilisé ensuite.
       const matricule = await this.ensureProfessionalMatricule(
@@ -536,7 +522,6 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         studentId
       );
 
->>>>>>> 030-pedagogie-ue-ecue
       const dup = await client.query(
         `SELECT 1 FROM professional_enrollments
          WHERE student_id=$1 AND ue_session_id=$2 AND statut <> 'annulee' LIMIT 1`,
@@ -562,9 +547,6 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       );
       await this.recomputeOrderTotal(client, order.id);
       await this.syncSessionCapacity(client, ueSessionId);
-<<<<<<< HEAD
-      return ok({ id: ins.rows[0].id, order_id: order.id, statut: "en_attente_paiement" });
-=======
       return ok({
         id: ins.rows[0].id,
         order_id: order.id,
@@ -572,7 +554,6 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         student_id: studentId,
         matricule,
       });
->>>>>>> 030-pedagogie-ue-ecue
     });
   }
 
@@ -602,8 +583,6 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
           });
       }
     }
-<<<<<<< HEAD
-=======
 
     // Matricules professionnels attribués aux étudiants dans les filières
     // couvertes par les sessions sélectionnées (pour affichage côté admin).
@@ -636,16 +615,12 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       return res.rows;
     });
 
->>>>>>> 030-pedagogie-ue-ecue
     return ok({
       total: ueSessionIds.length * studentIds.length,
       created,
       skipped,
       errors,
-<<<<<<< HEAD
-=======
       matricules,
->>>>>>> 030-pedagogie-ue-ecue
     });
   }
 
@@ -1092,12 +1067,6 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         JOIN professional_orders o ON o.id = e.order_id
         JOIN student_profiles sp ON sp.id = e.student_id
         JOIN users u ON u.id = sp.user_id
-<<<<<<< HEAD
-        WHERE ${where.join(" AND ")}`;
-      const countRes = await client.query(`SELECT count(*)::int AS total ${baseFrom}`, params);
-      const listRes = await client.query(
-        `SELECT e.id, e.statut, e.prix_unitaire::float8 AS prix_unitaire, e.created_at,
-=======
         LEFT JOIN professional_student_matricules psm
                ON psm.student_id = e.student_id AND psm.filiere_id = ue.filiere_id
               AND psm.tenant_id = e.tenant_id
@@ -1105,28 +1074,19 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       const countRes = await client.query(`SELECT count(*)::int AS total ${baseFrom}`, params);
       const listRes = await client.query(
         `SELECT e.id, e.order_id, e.statut, e.prix_unitaire::float8 AS prix_unitaire, e.created_at,
->>>>>>> 030-pedagogie-ue-ecue
                 e.ue_session_id, s.libelle AS session_libelle,
                 s.date_debut::text AS date_debut, s.date_fin::text AS date_fin,
                 s.statut AS session_statut,
                 ue.id AS ue_id, ue.code AS ue_code, ue.libelle AS ue_libelle, ue.filiere_id,
                 p.name AS filiere_nom, p.code AS filiere_code,
-<<<<<<< HEAD
-                e.student_id, sp.student_number AS matricule,
-=======
                 e.student_id, COALESCE(psm.matricule, sp.student_number) AS matricule,
->>>>>>> 030-pedagogie-ue-ecue
                 u.first_name, u.last_name, u.email,
                 o.reference AS order_reference, o.statut AS order_statut,
                 o.montant_total::float8 AS order_montant,
                 (SELECT COALESCE(sum(pm.montant),0)::float8 FROM professional_payments pm
                  WHERE pm.order_id = e.order_id AND pm.statut = 'confirme') AS montant_paye
          ${baseFrom}
-<<<<<<< HEAD
-         ORDER BY e.created_at DESC LIMIT $${i++} OFFSET $${i++}`,
-=======
          ORDER BY e.created_at DESC, e.id LIMIT $${i++} OFFSET $${i++}`,
->>>>>>> 030-pedagogie-ue-ecue
         [...params, pageSize, (page - 1) * pageSize]
       );
       return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });
@@ -1143,11 +1103,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
                 s.statut AS session_statut,
                 ue.id AS ue_id, ue.code AS ue_code, ue.libelle AS ue_libelle, ue.filiere_id,
                 p.name AS filiere_nom, p.code AS filiere_code,
-<<<<<<< HEAD
-                e.student_id, sp.student_number AS matricule,
-=======
                 e.student_id, COALESCE(psm.matricule, sp.student_number) AS matricule,
->>>>>>> 030-pedagogie-ue-ecue
                 u.first_name, u.last_name, u.email,
                 o.id AS order_id, o.reference AS order_reference, o.statut AS order_statut,
                 o.montant_total::float8 AS order_montant, o.devise AS order_devise,
@@ -1160,12 +1116,9 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
          JOIN professional_orders o ON o.id = e.order_id
          JOIN student_profiles sp ON sp.id = e.student_id
          JOIN users u ON u.id = sp.user_id
-<<<<<<< HEAD
-=======
          LEFT JOIN professional_student_matricules psm
                 ON psm.student_id = e.student_id AND psm.filiere_id = ue.filiere_id
                AND psm.tenant_id = e.tenant_id
->>>>>>> 030-pedagogie-ue-ecue
          WHERE e.id = $1 AND e.tenant_id = $2`,
         [id, tenantId]
       );
@@ -1249,12 +1202,8 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
   ): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
       const res = await client.query(
-<<<<<<< HEAD
-        `SELECT sp.id, sp.student_number, u.first_name, u.last_name
-=======
         `SELECT sp.id, sp.student_number, u.first_name, u.last_name, u.email,
                 sp.date_of_birth::text AS date_of_birth
->>>>>>> 030-pedagogie-ue-ecue
          FROM student_parents pr
          JOIN student_profiles sp ON sp.id = pr.student_id
          JOIN users u ON u.id = sp.user_id
@@ -1307,12 +1256,6 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       }
       const res = await client.query(
         `SELECT p.id, p.montant::float8 AS montant, p.mode, p.statut,
-<<<<<<< HEAD
-                p.reference_transaction, p.paid_at, p.receipt_number,
-                o.reference AS order_reference
-         FROM professional_payments p
-         JOIN professional_orders o ON o.id = p.order_id
-=======
                 p.reference_transaction, p.paid_at::text AS paid_at,
                 p.created_at::text AS created_at, p.receipt_number,
                 o.reference AS order_reference,
@@ -1343,15 +1286,12 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
            WHERE m.tenant_id = o.tenant_id AND m.student_id = o.student_id
              AND m.filiere_id = fil.filiere_id LIMIT 1
          ) filmat ON true
->>>>>>> 030-pedagogie-ue-ecue
          WHERE o.student_id=$1 ORDER BY p.created_at DESC`,
         [childStudentId]
       );
       return ok(res.rows);
     });
   }
-<<<<<<< HEAD
-=======
 
   /**
    * Historique de présence d'un enfant (parent, lecture seule) : toutes les
@@ -1394,5 +1334,4 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       return ok(res.rows);
     });
   }
->>>>>>> 030-pedagogie-ue-ecue
 }

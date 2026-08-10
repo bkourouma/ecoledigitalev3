@@ -1,14 +1,10 @@
-import type { PoolClient } from "pg";
+﻿import type { PoolClient } from "pg";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
 import {
   evaluerUe,
   moyenneSession,
   creditsValides as calcCreditsValides,
   creditsTotal as calcCreditsTotal,
-<<<<<<< HEAD
-  semestreValide as calcSemestreValide,
-=======
->>>>>>> 030-pedagogie-ue-ecue
   arrondi,
   type EcueInput,
 } from "./bulletin-calc";
@@ -30,15 +26,11 @@ const BULLETIN_ROWS = `
          e.credits::int AS credits, l.ordre,
          r.id AS result_id, r.moyenne::float8 AS moyenne,
          r.moyenne_devoirs::float8 AS moyenne_devoirs, r.note_examen::float8 AS note_examen,
-<<<<<<< HEAD
-         r.validee, r.validee_manuellement, r.eliminee
-=======
          r.validee, r.validee_manuellement, r.eliminee, r.session_obtention,
          EXISTS (SELECT 1 FROM professional_ecue_notes n2
                  WHERE n2.tenant_id = s.tenant_id AND n2.ecue_id = e.id
                    AND n2.student_id = $3 AND n2.ue_session_id = s.id
                    AND n2.session = 2) AS ecue_has_s2
->>>>>>> 030-pedagogie-ue-ecue
   FROM professional_ue_sessions s
   JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
   JOIN professional_ue_ecue l ON l.ue_id = s.ue_id AND l.tenant_id = s.tenant_id
@@ -88,15 +80,12 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     tenantId: string,
     teacherUserId?: string
   ): Promise<ServiceResult<any>> {
-<<<<<<< HEAD
-=======
     // On ne retient que les filières ayant au moins un étudiant inscrit
     // (confirmé/terminé) dans une session d'UE.
     const HAS_ENROLLED = `EXISTS (
       SELECT 1 FROM professional_enrollments en
       WHERE en.ue_session_id = s.id AND en.tenant_id = s.tenant_id
         AND en.statut IN ('confirmee','terminee'))`;
->>>>>>> 030-pedagogie-ue-ecue
     return this.withTenant(tenantId, async (client) => {
       if (teacherUserId) {
         const r = await client.query(
@@ -106,27 +95,19 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
            JOIN professional_ue_sessions s ON s.id = a.ue_session_id AND s.tenant_id = a.tenant_id
            JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
            JOIN programmes p ON p.id = u.filiere_id
-<<<<<<< HEAD
-           WHERE a.tenant_id = $1 AND t.user_id = $2
-=======
            WHERE a.tenant_id = $1 AND t.user_id = $2 AND ${HAS_ENROLLED}
->>>>>>> 030-pedagogie-ue-ecue
            ORDER BY p.name`,
           [tenantId, teacherUserId]
         );
         return ok(r.rows);
       }
       const r = await client.query(
-<<<<<<< HEAD
-        `SELECT id, name, code FROM programmes WHERE tenant_id = $1 ORDER BY name`,
-=======
         `SELECT DISTINCT p.id, p.name, p.code
          FROM programmes p
          JOIN professional_ue u ON u.filiere_id = p.id AND u.tenant_id = p.tenant_id
          JOIN professional_ue_sessions s ON s.ue_id = u.id AND s.tenant_id = u.tenant_id
          WHERE p.tenant_id = $1 AND ${HAS_ENROLLED}
          ORDER BY p.name`,
->>>>>>> 030-pedagogie-ue-ecue
         [tenantId]
       );
       return ok(r.rows);
@@ -170,9 +151,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
                             WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
                    OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
                                   WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
-<<<<<<< HEAD
-                 )) AS nb_sessions
-=======
                  )) AS nb_sessions,
                 (SELECT min(s.date_debut)::text FROM professional_ue_sessions s
                  WHERE s.tenant_id = sm.tenant_id AND (
@@ -181,7 +159,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
                    OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
                                   WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
                  )) AS date_debut
->>>>>>> 030-pedagogie-ue-ecue
          FROM professional_semestres sm
          WHERE sm.tenant_id = $1 AND sm.filiere_id = $2 ${teacherJoin}
          ORDER BY sm.libelle`,
@@ -253,16 +230,11 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       const effectif = await this.countSemestreStudents(client, tenantId, semestreId);
       const bulletin = await this.computeStudentBulletin(client, tenantId, sem, stu.rows[0], effectif);
       bulletin.rang = await this.computeRang(client, tenantId, sem, studentId);
-<<<<<<< HEAD
-=======
       await this.attachGeneratedMeta(client, tenantId, semestreId, studentId, bulletin);
->>>>>>> 030-pedagogie-ue-ecue
       return ok(bulletin);
     });
   }
 
-<<<<<<< HEAD
-=======
   /**
    * Bulletin de style BTS (feature ad hoc, hors spec 030) — même moteur de
    * calcul que le relevé LMD (`computeStudentBulletin`), restitué en tableau
@@ -595,7 +567,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     }
   }
 
->>>>>>> 030-pedagogie-ue-ecue
   /** Semestres où l'étudiant (user_id) est inscrit — pour son sélecteur. */
   async listStudentSemestres(tenantId: string, userId: string): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
@@ -643,16 +614,11 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       const effectif = await this.countSemestreStudents(client, tenantId, semestreId);
       const bulletin = await this.computeStudentBulletin(client, tenantId, sem, sp.rows[0], effectif);
       bulletin.rang = await this.computeRang(client, tenantId, sem, sp.rows[0].id);
-<<<<<<< HEAD
-=======
       await this.attachGeneratedMeta(client, tenantId, semestreId, sp.rows[0].id, bulletin);
->>>>>>> 030-pedagogie-ue-ecue
       return ok(bulletin);
     });
   }
 
-<<<<<<< HEAD
-=======
   /**
    * Détail des notes individuelles de l'étudiant connecté pour un semestre :
    * chaque devoir et examen saisi manuellement + les copies d'évaluation notées,
@@ -848,7 +814,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     });
   }
 
->>>>>>> 030-pedagogie-ue-ecue
   /** Tableau récapitulatif : tous les étudiants du semestre + décision. */
   async listRoster(tenantId: string, semestreId: string): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
@@ -875,8 +840,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
 
       const effectif = students.rowCount ?? 0;
       const roster = [];
-<<<<<<< HEAD
-=======
       // État de génération des bulletins (date permanente + statut).
       const gen = await client.query(
         `SELECT student_id, statut, generated_at FROM professional_bulletins
@@ -886,7 +849,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       const genBy = new Map<string, any>();
       for (const g of gen.rows) genBy.set(String(g.student_id), g);
 
->>>>>>> 030-pedagogie-ue-ecue
       for (const s of students.rows) {
         const b = await this.computeStudentBulletin(
           client,
@@ -900,53 +862,37 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
           },
           effectif
         );
-<<<<<<< HEAD
-=======
         const g = genBy.get(String(s.student_id));
->>>>>>> 030-pedagogie-ue-ecue
         roster.push({
           student_id: s.student_id,
           first_name: s.first_name,
           last_name: s.last_name,
-<<<<<<< HEAD
-          matricule: s.matricule,
-=======
           // Matricule pro (IPAM…) résolu par computeStudentBulletin, sinon le numéro brut.
           matricule: b.student?.matricule ?? s.matricule,
->>>>>>> 030-pedagogie-ue-ecue
           moyenne_session: b.moyenne_session,
           credits_valides: b.credits_valides,
           credits_total: b.credits_total,
           semestre_valide: b.semestre_valide,
           decision: b.decision,
-<<<<<<< HEAD
-=======
           statut_etudiant: b.statut_etudiant,
           session_globale: b.session_globale,
           bulletin_statut: g?.statut ?? null,
           generated_at: g?.generated_at ?? null,
->>>>>>> 030-pedagogie-ue-ecue
         });
       }
       return ok({
         semestre: { id: sem.id, libelle: sem.libelle },
-<<<<<<< HEAD
-        filiere: { id: sem.filiere_id, name: sem.filiere_nom, code: sem.filiere_code },
-=======
         filiere: {
         id: sem.filiere_id,
         name: sem.filiere_nom,
         code: sem.filiere_code,
         domaine: sem.filiere_domaine ?? null,
       },
->>>>>>> 030-pedagogie-ue-ecue
         students: roster,
       });
     });
   }
 
-<<<<<<< HEAD
-=======
   /**
    * Génère (ou régénère) les bulletins officiels de TOUS les étudiants du
    * semestre. La date de génération est DÉFINITIVE : posée à la première
@@ -1180,7 +1126,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     });
   }
 
->>>>>>> 030-pedagogie-ue-ecue
   /* --------------------------- interne --------------------------- */
 
   /** Nombre d'étudiants (confirmés) inscrits sur les cohortes du semestre. */
@@ -1252,11 +1197,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
   ): Promise<any | null> {
     const r = await client.query(
       `SELECT sm.id, sm.libelle, sm.filiere_id,
-<<<<<<< HEAD
-              p.name AS filiere_nom, p.code AS filiere_code
-=======
               p.name AS filiere_nom, p.code AS filiere_code, p.domaine AS filiere_domaine
->>>>>>> 030-pedagogie-ue-ecue
        FROM professional_semestres sm
        LEFT JOIN programmes p ON p.id = sm.filiere_id
        WHERE sm.id = $1 AND sm.tenant_id = $2`,
@@ -1281,8 +1222,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     },
     effectif?: number
   ): Promise<any> {
-<<<<<<< HEAD
-=======
     // Matricule PROFESSIONNEL de la filière (IPAM…) prioritaire sur le numéro
     // d'établissement générique — pour l'affichage du bulletin et sa référence.
     if (sem.filiere_id) {
@@ -1296,7 +1235,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       }
     }
 
->>>>>>> 030-pedagogie-ue-ecue
     const rows = await client.query(BULLETIN_ROWS, [tenantId, sem.id, student.id]);
 
     // Regroupe par cohorte/UE.
@@ -1340,11 +1278,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
           validee: calc.validee,
           validee_manuellement: e.validee_manuellement === true,
           statut: calc.statut,
-<<<<<<< HEAD
-          result_id: e.result_id ?? null,
-        };
-      });
-=======
           // Session dans laquelle l'ECUE a été validée (1 normale, 2 rattrapage).
           session_obtention:
             calc.validee && e.session_obtention != null
@@ -1375,7 +1308,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
         : aTenteS2
         ? "dette"
         : "rattrapage";
->>>>>>> 030-pedagogie-ue-ecue
       ues.push({
         ue_id: ue.ue_id,
         ue_session_id: ue.ue_session_id,
@@ -1386,11 +1318,8 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
         nb_uv: ue.nb_uv,
         moyenne_ue: arrondi(res.moyenne),
         validee: res.validee,
-<<<<<<< HEAD
-=======
         session_validation,
         etat,
->>>>>>> 030-pedagogie-ue-ecue
         motifs: res.motifs,
         ecues,
       });
@@ -1429,22 +1358,15 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
         ue_id: cr.ue_id,
         ue_session_id: cr.ue_session_id,
         code: cr.ue_code,
-<<<<<<< HEAD
-        libelle: cr.ue_libelle,
-=======
         // « Conduite (S1) » → « Conduite » (on retire le suffixe entre parenthèses).
         libelle: String(cr.ue_libelle ?? "").replace(/\s*\([^)]*\)\s*$/, "").trim() || "Conduite",
->>>>>>> 030-pedagogie-ue-ecue
         categorie: cr.categorie ?? null,
         credits: cr.credits ?? 0,
         nb_uv: cr.nb_uv,
         moyenne_ue: note,
         validee,
-<<<<<<< HEAD
-=======
         session_validation: validee ? 1 : null,
         etat: validee ? "validee" : "dette",
->>>>>>> 030-pedagogie-ue-ecue
         motifs: [],
         is_conduite: true,
         ecues: [
@@ -1459,10 +1381,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
             validee,
             validee_manuellement: false,
             statut: validee ? "valide" : "insuffisant",
-<<<<<<< HEAD
-=======
             session_obtention: validee ? 1 : null,
->>>>>>> 030-pedagogie-ue-ecue
             result_id: null,
           },
         ],
@@ -1476,21 +1395,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     }));
     const cValides = calcCreditsValides(ponds);
     const cTotal = calcCreditsTotal(ponds);
-<<<<<<< HEAD
-    // Validé si le seuil de 20 crédits est atteint OU si l'étudiant a validé
-    // TOUS les crédits gradables du semestre (cas d'un semestre offrant < 20
-    // crédits notables, ex. la Conduite non graduée occupe des UV).
-    const semValide = calcSemestreValide(cValides) || (cTotal > 0 && cValides >= cTotal);
-    // Rattrapage possible s'il reste une UE non validée avec une ECUE notée < 10.
-    // La conduite ne se « repasse » pas : elle est exclue de ce déclencheur.
-    const hasRepassable = ues.some(
-      (u) =>
-        !u.is_conduite &&
-        !u.validee &&
-        u.ecues.some((e: any) => e.note_ecue != null && e.note_ecue < 10)
-    );
-    const decision = semValide ? "admis" : hasRepassable ? "rattrapage" : "ajourne";
-=======
     // LMD : pas de compensation entre UE — le semestre est validé UNIQUEMENT
     // lorsque TOUTES les UE sont validées.
     const semValide = ues.every((u) => u.validee);
@@ -1506,7 +1410,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       ? "session2"
       : "dette";
     const decision = semValide ? "admis" : anyRattrapage ? "rattrapage" : "ajourne";
->>>>>>> 030-pedagogie-ue-ecue
 
     // Année académique dérivée de la 1re date de début de session (sept → août).
     const debuts = rows.rows
@@ -1522,8 +1425,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       }
     }
     const nbUeValidees = ues.filter((u) => u.validee).length;
-<<<<<<< HEAD
-=======
     // Session globale : celle à laquelle l'étudiant a sécurisé tous ses crédits
     // = la plus élevée parmi les UE validées (Session 2 si au moins une UE l'a
     // été en rattrapage). Défaut Session 1.
@@ -1531,7 +1432,6 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       .filter((u) => u.validee)
       .map((u) => u.session_validation ?? 1);
     const session_globale = sessionsValidees.length > 0 ? Math.max(...sessionsValidees) : 1;
->>>>>>> 030-pedagogie-ue-ecue
 
     // Regroupement des UE par catégorie pédagogique (bandeaux du bulletin).
     const CAT_ORDER = ["fondamentale", "specialite", "culture_generale"];
@@ -1571,16 +1471,12 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
         is_repeating: student.is_repeating ?? null,
         gender: student.gender ?? null,
       },
-<<<<<<< HEAD
-      filiere: { id: sem.filiere_id, name: sem.filiere_nom, code: sem.filiere_code },
-=======
       filiere: {
         id: sem.filiere_id,
         name: sem.filiere_nom,
         code: sem.filiere_code,
         domaine: sem.filiere_domaine ?? null,
       },
->>>>>>> 030-pedagogie-ue-ecue
       semestre: { id: sem.id, libelle: sem.libelle },
       annee_academique: anneeAcademique,
       effectif: effectif ?? null,
@@ -1588,11 +1484,8 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       rang: null as number | null,
       nb_ue_validees: nbUeValidees,
       nb_ue_total: ues.length,
-<<<<<<< HEAD
-=======
       session_globale,
       statut_etudiant,
->>>>>>> 030-pedagogie-ue-ecue
       categories,
       ues,
       moyenne_session: arrondi(moyenneSession(ponds)),

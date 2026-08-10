@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+﻿import { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import path from "path";
 import { promises as fs, createWriteStream } from "fs";
@@ -481,10 +481,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           bacObtentionDate: row.bac_obtention_date,
           bacSeries: row.bac_series,
           lastDiploma: row.last_diploma,
-<<<<<<< HEAD
-=======
           studentMatricule: row.student_matricule,
->>>>>>> 030-pedagogie-ue-ecue
           establishmentMatricule: row.establishment_matricule,
           dspsMatricule: row.dsps_matricule,
           dspsPreviousMatricule: row.dsps_previous_matricule,
@@ -748,10 +745,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           bacObtentionDate: row.bac_obtention_date,
           bacSeries: row.bac_series,
           lastDiploma: row.last_diploma,
-<<<<<<< HEAD
-=======
           studentMatricule: row.student_matricule,
->>>>>>> 030-pedagogie-ue-ecue
           establishmentMatricule: row.establishment_matricule,
           dspsMatricule: row.dsps_matricule,
           dspsPreviousMatricule: row.dsps_previous_matricule,
@@ -1043,8 +1037,6 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           bacObtentionDate: { type: "string", format: "date" },
           bacSeries: { type: "string", maxLength: 100 },
           lastDiploma: { type: "string", maxLength: 255 },
-<<<<<<< HEAD
-=======
           sendCredentialsEmail: { type: "boolean" },
           saveCredentialsEmailTemplate: { type: "boolean" },
           credentialsEmailTemplate: {
@@ -1055,7 +1047,6 @@ export async function studentsRoutes(fastify: FastifyInstance) {
               body: { type: "string", minLength: 1, maxLength: 20000 },
             },
           },
->>>>>>> 030-pedagogie-ue-ecue
         },
       },
     },
@@ -1234,12 +1225,8 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           RETURNING id, tenant_id, user_id, student_number, current_year, status, bio,
                     date_of_birth, place_of_birth, nationality, address, phone,
                     emergency_phone, father_name, mother_name, birth_certificate_number, birth_certificate_date,
-<<<<<<< HEAD
-                    civil_registry_office, sub_prefecture, residence, establishment_matricule, dsps_matricule, dsps_previous_matricule,
-=======
                     civil_registry_office, sub_prefecture, residence,
                     student_matricule, establishment_matricule, dsps_matricule, dsps_previous_matricule,
->>>>>>> 030-pedagogie-ue-ecue
                     bac_obtention_date, bac_series, last_diploma, initial_password
                     ${hasGenderColumn ? ', gender' : ''}, is_active, created_at, updated_at
         `;
@@ -1360,8 +1347,6 @@ export async function studentsRoutes(fastify: FastifyInstance) {
     },
   });
 
-<<<<<<< HEAD
-=======
   // GET /api/v1/students/credentials-template — Modèle d'email des identifiants
   fastify.get("/credentials-template", {
     handler: async (request, reply) => {
@@ -1526,7 +1511,6 @@ export async function studentsRoutes(fastify: FastifyInstance) {
     },
   });
 
->>>>>>> 030-pedagogie-ue-ecue
   // POST /api/v1/students/:id/diploma - Upload du fichier du dernier diplôme (multipart)
   fastify.post("/:id/diploma", {
     handler: async (request, reply) => {

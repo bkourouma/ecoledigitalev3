@@ -1,10 +1,6 @@
-"use client";
+﻿"use client";
 
-<<<<<<< HEAD
-import { useMemo, useState } from "react";
-=======
 import { useEffect, useMemo, useState } from "react";
->>>>>>> 030-pedagogie-ue-ecue
 import {
   Card,
   CardContent,
@@ -26,15 +22,6 @@ import {
   X,
   Receipt,
   BookOpen,
-<<<<<<< HEAD
-} from "lucide-react";
-import { SearchableSelect } from "@/components/SearchableSelect";
-import {
-  useAdminEnrollments,
-  useRecordStudentPayment,
-  useEnrollmentsPaymentsHistory,
-} from "@/lib/hooks/use-professional-suivi";
-=======
   FileText,
   Calendar,
   ChevronDown,
@@ -46,7 +33,6 @@ import {
   useEnrollmentsPaymentsHistory,
 } from "@/lib/hooks/use-professional-suivi";
 import { openReceiptPdf, type ReceiptData } from "@/lib/receipt-pdf";
->>>>>>> 030-pedagogie-ue-ecue
 
 /**
  * Paiements — Module Professionnel (admin).
@@ -71,8 +57,6 @@ function fmtDate(v?: string | null): string {
   const d = new Date(v);
   return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString("fr-FR");
 }
-<<<<<<< HEAD
-=======
 
 /**
  * Année scolaire (pivot septembre) dérivée de la date de début de la session,
@@ -87,7 +71,6 @@ function anneeScolaireOf(v?: string | null): string | null {
   const y = d.getFullYear();
   return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
->>>>>>> 030-pedagogie-ue-ecue
 const dueOf = (e: any) => Number(e.order_montant ?? e.prix_unitaire ?? 0);
 const paidOf = (e: any) => Number(e.montant_paye ?? 0);
 
@@ -131,18 +114,11 @@ function groupEnrollmentsBySession(enrollments: any[]): { label: string; items: 
 }
 
 export default function ProfessionalPaiementsPage() {
-<<<<<<< HEAD
-  const query = useAdminEnrollments({ pageSize: 500 });
-  const items: any[] = (query.data as any)?.items ?? [];
-
-  const [filiere, setFiliere] = useState("all");
-=======
   const query = useAllAdminEnrollments();
   const items: any[] = (query.data as any)?.items ?? [];
 
   const [filiere, setFiliere] = useState("all");
   const [annee, setAnnee] = useState("all");
->>>>>>> 030-pedagogie-ue-ecue
   const [reglement, setReglement] = useState("all");
   const [search, setSearch] = useState("");
   const [payGroup, setPayGroup] = useState<any | null>(null);
@@ -156,8 +132,6 @@ export default function ProfessionalPaiementsPage() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [items]);
 
-<<<<<<< HEAD
-=======
   // Années scolaires disponibles (dérivées de la date de début des sessions),
   // adaptées à la filière sélectionnée. Plus récentes en premier.
   const anneeOptions = useMemo(() => {
@@ -172,7 +146,6 @@ export default function ProfessionalPaiementsPage() {
       .map((value) => ({ value, label: value }));
   }, [items, filiere]);
 
->>>>>>> 030-pedagogie-ue-ecue
   // Cumul par étudiant + filière (évite les doublons de nom).
   const groups = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -181,10 +154,7 @@ export default function ProfessionalPaiementsPage() {
       if (e.statut === "annulee") continue;
       if (isConduiteEnrollment(e)) continue; // Conduite exclue des paiements.
       if (filiere !== "all" && e.filiere_id !== filiere) continue;
-<<<<<<< HEAD
-=======
       if (annee !== "all" && anneeScolaireOf(e.date_debut) !== annee) continue;
->>>>>>> 030-pedagogie-ue-ecue
       const key = `${e.student_id}|${e.filiere_id}`;
       let g = map.get(key);
       if (!g) {
@@ -220,9 +190,6 @@ export default function ProfessionalPaiementsPage() {
     return list.sort((a, b) =>
       `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`)
     );
-<<<<<<< HEAD
-  }, [items, filiere, reglement, search]);
-=======
   }, [items, filiere, annee, reglement, search]);
 
   // Si la filière change et que l'année sélectionnée n'existe plus dans les
@@ -230,7 +197,6 @@ export default function ProfessionalPaiementsPage() {
   useEffect(() => {
     if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
   }, [anneeOptions, annee]);
->>>>>>> 030-pedagogie-ue-ecue
 
   const stats = useMemo(() => {
     let due = 0,
@@ -274,18 +240,11 @@ export default function ProfessionalPaiementsPage() {
         <StatCard label="Confirmés" value={String(stats.confirmed)} color="teal" />
       </div>
 
-<<<<<<< HEAD
-      {/* Filtres — filière large, recherche réduite */}
-      <Card className="shadow-sm">
-        <CardContent className="p-4 flex flex-col lg:flex-row gap-3 lg:items-center">
-          <div className="flex-1 min-w-0">
-=======
       {/* Filtres — deux en haut (filière, année), deux en bas (règlement, recherche) */}
       <Card className="shadow-sm">
         <CardContent className="p-4 space-y-3">
           {/* Rangée du haut : filière + année scolaire */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
->>>>>>> 030-pedagogie-ue-ecue
             <SearchableSelect
               value={filiere}
               onChange={setFiliere}
@@ -294,10 +253,6 @@ export default function ProfessionalPaiementsPage() {
               searchPlaceholder="Rechercher une filière…"
               options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
             />
-<<<<<<< HEAD
-          </div>
-          <div className="lg:w-48">
-=======
             <SearchableSelect
               value={annee}
               onChange={setAnnee}
@@ -309,7 +264,6 @@ export default function ProfessionalPaiementsPage() {
           </div>
           {/* Rangée du bas : règlement + recherche étudiant */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
->>>>>>> 030-pedagogie-ue-ecue
             <Select value={reglement} onValueChange={setReglement}>
               <SelectTrigger>
                 <SelectValue placeholder="Règlement" />
@@ -321,17 +275,6 @@ export default function ProfessionalPaiementsPage() {
                 <SelectItem value="solde">Soldés</SelectItem>
               </SelectContent>
             </Select>
-<<<<<<< HEAD
-          </div>
-          <div className="relative lg:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Étudiant…"
-              className="pl-9"
-            />
-=======
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -341,7 +284,6 @@ export default function ProfessionalPaiementsPage() {
                 className="pl-9"
               />
             </div>
->>>>>>> 030-pedagogie-ue-ecue
           </div>
         </CardContent>
       </Card>
@@ -401,35 +343,6 @@ export default function ProfessionalPaiementsPage() {
                   </div>
                 </div>
 
-<<<<<<< HEAD
-                {/* Sessions cumulées — libellé de session une fois, puis les UE par nom. */}
-                <div className="text-xs text-muted-foreground space-y-1.5">
-                  {groupEnrollmentsBySession(g.enrollments).map((grp) => (
-                    <div key={grp.label}>
-                      <p className="flex items-center gap-1.5 font-medium text-foreground/80">
-                        <BookOpen className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{grp.label}</span>
-                      </p>
-                      <ul className="mt-0.5 ml-4 list-disc list-inside space-y-0.5">
-                        {grp.items.map((e: any) => (
-                          <li key={e.id} className="truncate">
-                            {e.ue_libelle || e.ue_code}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-
-                <Button
-                  className="w-full mt-auto bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white disabled:opacity-60"
-                  disabled={g.reste <= 0.5}
-                  onClick={() => setPayGroup(g)}
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  {g.reste <= 0.5 ? "Soldé" : "Enregistrer un paiement"}
-                </Button>
-=======
                 {/* Sessions cumulées — chaque session est un accordéon repliable. */}
                 <SessionAccordions enrollments={g.enrollments} />
 
@@ -451,7 +364,6 @@ export default function ProfessionalPaiementsPage() {
                     Enregistrer un paiement
                   </Button>
                 )}
->>>>>>> 030-pedagogie-ue-ecue
               </CardContent>
             </Card>
           ))}
@@ -463,8 +375,6 @@ export default function ProfessionalPaiementsPage() {
   );
 }
 
-<<<<<<< HEAD
-=======
 /**
  * Sessions cumulées d'un étudiant, chacune sous forme d'accordéon repliable.
  * Toutes les sessions sont réduites par défaut ; on clique sur l'en-tête pour
@@ -509,7 +419,6 @@ function SessionAccordions({ enrollments }: { enrollments: any[] }) {
   );
 }
 
->>>>>>> 030-pedagogie-ue-ecue
 function StateBadge({ state }: { state: string }) {
   if (state === "solde")
     return (
@@ -556,8 +465,6 @@ function StatCard({
 
 /* ------------------------------ Modale paiement ---------------------------- */
 
-<<<<<<< HEAD
-=======
 /**
  * Une transaction = l'ensemble des lignes de paiement partageant le même
  * horodatage (un règlement réparti sur plusieurs UE/commandes reste UNE
@@ -701,7 +608,6 @@ function buildReceiptData(
   };
 }
 
->>>>>>> 030-pedagogie-ue-ecue
 function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
   const historyQuery = useEnrollmentsPaymentsHistory(group.enrollment_ids);
   const recordMut = useRecordStudentPayment();
@@ -719,8 +625,6 @@ function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
   const [reference, setReference] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-<<<<<<< HEAD
-=======
   // Historique dispatché par semestre (session) : chaque reçu est rattaché à
   // son semestre via l'ordre de paiement.
   const sessionHistories = useMemo(
@@ -729,17 +633,13 @@ function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
   );
   const hasAnyPayment = sessionHistories.some((sh) => sh.transactions.length > 0);
 
->>>>>>> 030-pedagogie-ue-ecue
   async function submit() {
     setError(null);
     const m = Number(montant);
     if (!(m > 0)) return setError("Montant invalide.");
     if (m > reste + 0.5) return setError(`Le montant dépasse le reste (${fmtFCFA(reste)}).`);
-<<<<<<< HEAD
-=======
     // Onglet ouvert de façon synchrone (geste utilisateur) pour éviter le blocage popup.
     const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
->>>>>>> 030-pedagogie-ue-ecue
     try {
       await recordMut.mutateAsync({
         enrollmentIds: group.enrollment_ids,
@@ -749,10 +649,6 @@ function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
       });
       setMontant("");
       setReference("");
-<<<<<<< HEAD
-      historyQuery.refetch();
-    } catch (e: any) {
-=======
       const res = await historyQuery.refetch();
       const fresh: any[] = (res.data as any)?.payments ?? [];
       // Le paiement peut couvrir plusieurs semestres : on ouvre un reçu par
@@ -782,19 +678,15 @@ function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
       } else win?.close();
     } catch (e: any) {
       win?.close();
->>>>>>> 030-pedagogie-ue-ecue
       setError(e?.message ?? "Paiement refusé.");
     }
   }
 
-<<<<<<< HEAD
-=======
   function openReceipt(sh: SessionHistory, t: Txn) {
     const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
     void openReceiptPdf(buildReceiptData(group, t, { ues: sh.ues, total_du: sh.due }), win);
   }
 
->>>>>>> 030-pedagogie-ue-ecue
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
       <div
@@ -919,36 +811,11 @@ function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
             </div>
           )}
 
-<<<<<<< HEAD
-          {/* Historique */}
-=======
           {/* Historique — reçus dispatchés par semestre (session). */}
->>>>>>> 030-pedagogie-ue-ecue
           <div>
             <p className="text-sm font-medium mb-2">Historique des paiements</p>
             {historyQuery.isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-<<<<<<< HEAD
-            ) : payments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun paiement enregistré.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {payments.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm"
-                  >
-                    <span>
-                      <span className="font-medium">{fmtFCFA(p.montant)}</span>{" "}
-                      <span className="text-muted-foreground">· {MODE_LABEL[p.mode] ?? p.mode}</span>
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {p.receipt_number} · {fmtDate(p.paid_at ?? p.created_at)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-=======
             ) : !hasAnyPayment ? (
               <p className="text-sm text-muted-foreground">Aucun paiement enregistré.</p>
             ) : (
@@ -1001,7 +868,6 @@ function PaymentModal({ group, onClose }: { group: any; onClose: () => void }) {
                     );
                   })}
               </div>
->>>>>>> 030-pedagogie-ue-ecue
             )}
           </div>
         </div>

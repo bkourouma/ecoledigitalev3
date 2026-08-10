@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+﻿import type { PoolClient } from "pg";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
 
 /**
@@ -304,8 +304,6 @@ export class ProfessionalAssignmentsService extends ProfessionalBaseService {
     });
   }
 
-<<<<<<< HEAD
-=======
   /**
    * Extrait le nom de fichier du sujet à partir de son URL protégée
    * (`…/assignments/{id}/subject-document/{filename}`) pour permettre la recopie
@@ -514,7 +512,6 @@ export class ProfessionalAssignmentsService extends ProfessionalBaseService {
     });
   }
 
->>>>>>> 030-pedagogie-ue-ecue
   async update(
     tenantId: string,
     userId: string,
@@ -773,8 +770,6 @@ export class ProfessionalAssignmentsService extends ProfessionalBaseService {
     });
   }
 
-<<<<<<< HEAD
-=======
   /** Devoirs & évaluations d'un enfant (parent authentifié, lecture seule). */
   async listForChild(
     tenantId: string,
@@ -823,7 +818,6 @@ export class ProfessionalAssignmentsService extends ProfessionalBaseService {
     });
   }
 
->>>>>>> 030-pedagogie-ue-ecue
   /* ----------------------------- Questions ----------------------------- */
 
   async listQuestions(

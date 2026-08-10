@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
@@ -40,8 +40,6 @@ async function apiFetch<T = any>(url: string, init?: RequestInit): Promise<T> {
   return (json?.data ?? json) as T;
 }
 
-<<<<<<< HEAD
-=======
 /* -------------------------- Cycles (Licence/Master) -------------------- */
 
 export interface CycleGroupFiliere {
@@ -78,7 +76,6 @@ export function useEnsureCycleDiploma() {
   });
 }
 
->>>>>>> 030-pedagogie-ue-ecue
 /* ------------------------------ Diplômes ------------------------------ */
 
 export interface DiplomasQuery {
@@ -233,16 +230,12 @@ export function useDiplomaAwarded(diplomaId: string | null, statut?: string) {
   });
 }
 
-<<<<<<< HEAD
-/** Étudiants candidats à l'octroi manuel (programme du diplôme). */
-=======
 /** Récupère les données d'attestation d'un étudiant pour un diplôme (hors hook, pour génération PDF à la demande). */
 export function fetchDiplomaAttestation(diplomaId: string, studentId: string) {
   return apiFetch(`${BASE}/diplomas/${diplomaId}/students/${studentId}/attestation`);
 }
 
 /** Étudiants candidats à l'octroi manuel (programme du diplôme), avec progression. */
->>>>>>> 030-pedagogie-ue-ecue
 export function useDiplomaCandidates(diplomaId: string | null) {
   return useQuery({
     queryKey: ["professional-diploma-candidates", diplomaId],
@@ -252,8 +245,6 @@ export function useDiplomaCandidates(diplomaId: string | null) {
   });
 }
 
-<<<<<<< HEAD
-=======
 /** Progression d'un étudiant donné vers un diplôme (vue admin). */
 export function useDiplomaStudentProgress(diplomaId: string | null, studentId: string | null) {
   return useQuery({
@@ -277,7 +268,6 @@ export function useDiplomaStudentAttestation(
   });
 }
 
->>>>>>> 030-pedagogie-ue-ecue
 /** Octroi manuel d'un diplôme à un étudiant (avec option `force`). */
 export function useAwardDiploma() {
   const qc = useQueryClient();
