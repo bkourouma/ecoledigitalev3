@@ -7,7 +7,6 @@ import { useSession } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -25,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useOwnerFinances } from "@/lib/hooks/use-owner-finances";
+import { useOwnerStatsFilters } from "@/lib/hooks/use-owner-stats-filters";
 import { createApiHeaders } from "@/lib/api-utils";
 import type { OwnerFinancesPeriod } from "@ecoledigitale/contracts";
 
@@ -34,6 +34,9 @@ const PERIOD_OPTIONS: { value: OwnerFinancesPeriod; label: string }[] = [
   { value: "year", label: "Année civile en cours" },
   { value: "academic_year", label: "Année scolaire" },
 ];
+
+/** Sentinelle « aucun filtre » pour les Select (Radix refuse la chaîne vide). */
+const ALL = "__all__";
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -47,8 +50,12 @@ export default function OwnerFinancesPage() {
   const tenantId = (session as { tenantId?: string } | null)?.tenantId ?? "no-tenant";
 
   const [period, setPeriod] = useState<OwnerFinancesPeriod>("month");
-  const [academicYearIdInput, setAcademicYearIdInput] = useState("");
-  const [cycleIdInput, setCycleIdInput] = useState("");
+  // Sentinelle « aucun filtre » : Radix interdit la chaîne vide comme valeur de
+  // Select, et `isUuid` la rejette de toute façon, ce qui donne `undefined` en aval.
+  const [academicYearIdInput, setAcademicYearIdInput] = useState(ALL);
+  const [cycleIdInput, setCycleIdInput] = useState(ALL);
+
+  const { data: filterOptions } = useOwnerStatsFilters();
   const [payrollFeedback, setPayrollFeedback] = useState<{
     type: "ok" | "err";
     message: string;
@@ -130,26 +137,41 @@ export default function OwnerFinancesPage() {
           </div>
           {period === "academic_year" ? (
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="ay">Identifiant année scolaire (UUID)</Label>
-              <Input
-                id="ay"
-                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                value={academicYearIdInput}
-                onChange={(e) => setAcademicYearIdInput(e.target.value)}
-              />
+              <Label>Année scolaire</Label>
+              <Select value={academicYearIdInput} onValueChange={setAcademicYearIdInput}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Sélectionner une année…</SelectItem>
+                  {(filterOptions?.academicYears ?? []).map((ay) => (
+                    <SelectItem key={ay.id} value={ay.id}>
+                      {ay.name}
+                      {ay.isActive ? " (en cours)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground">
-                Sans UUID valide, la période utilisée est le mois en cours (repli côté API).
+                Sans année sélectionnée, la période retenue est le mois en cours.
               </p>
             </div>
           ) : null}
           <div className="space-y-2 md:col-span-3">
-            <Label htmlFor="cycle">Cycle (UUID, optionnel)</Label>
-            <Input
-              id="cycle"
-              placeholder="Filtrer par cycle — laisser vide pour tout le tenant"
-              value={cycleIdInput}
-              onChange={(e) => setCycleIdInput(e.target.value)}
-            />
+            <Label>Cycle</Label>
+            <Select value={cycleIdInput} onValueChange={setCycleIdInput}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Tous les cycles</SelectItem>
+                {(filterOptions?.cycles ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="md:col-span-3">
             <Button type="button" variant="secondary" size="sm" onClick={() => refetch()}>

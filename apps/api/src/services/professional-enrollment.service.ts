@@ -1073,7 +1073,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         WHERE ${where.join(" AND ")}`;
       const countRes = await client.query(`SELECT count(*)::int AS total ${baseFrom}`, params);
       const listRes = await client.query(
-        `SELECT e.id, e.statut, e.prix_unitaire::float8 AS prix_unitaire, e.created_at,
+        `SELECT e.id, e.order_id, e.statut, e.prix_unitaire::float8 AS prix_unitaire, e.created_at,
                 e.ue_session_id, s.libelle AS session_libelle,
                 s.date_debut::text AS date_debut, s.date_fin::text AS date_fin,
                 s.statut AS session_statut,
@@ -1086,7 +1086,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
                 (SELECT COALESCE(sum(pm.montant),0)::float8 FROM professional_payments pm
                  WHERE pm.order_id = e.order_id AND pm.statut = 'confirme') AS montant_paye
          ${baseFrom}
-         ORDER BY e.created_at DESC LIMIT $${i++} OFFSET $${i++}`,
+         ORDER BY e.created_at DESC, e.id LIMIT $${i++} OFFSET $${i++}`,
         [...params, pageSize, (page - 1) * pageSize]
       );
       return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });

@@ -37,7 +37,7 @@ export function genreLabel(g: string | null | undefined): string {
 
 /** Logos (dossier public). */
 export const LOGO_INSTITUT = "/logo-ipam.jpeg";
-export const LOGO_EMBLEME = "/embleme.jpg";
+export const LOGO_EMBLEME = "/embleme.png";
 
 /** Palette institutionnelle IPAM (vert). */
 export const IPAM_GREEN = "#14532D"; // vert foncé (en-têtes, titres)
@@ -177,6 +177,44 @@ export function niveauOf(filiereName: string | null | undefined): string {
   if (mas) return `Master ${mas[1]}`;
   if (/bts/i.test(s)) return "BTS";
   return "—";
+}
+
+/**
+ * Appréciation générale du conseil (phrase libre pour le visa), reprend le
+ * libellé déjà utilisé côté « moyennes semestre » (semester-averages.ts).
+ */
+export function appreciationGenerale(m: number | null | undefined): string {
+  if (m == null) return "—";
+  if (m < 8) return "Travail insuffisant.";
+  if (m < 10) return "Travail fragile.";
+  if (m < 12) return "Travail passable.";
+  if (m < 14) return "Travail assez bon.";
+  if (m < 16) return "Bon travail.";
+  if (m < 18) return "Très bon travail.";
+  return "Excellent travail.";
+}
+
+/** Vrai si la filière est une Licence 1 ou Licence 2 (seules éligibles au bulletin BTS). */
+export function isLicenceUnOuDeux(filiereName: string | null | undefined): boolean {
+  return /licence\s*[12]\b/i.test(String(filiereName ?? ""));
+}
+
+/** Spécialité BTS : « LICENCE 1 GENIE LOGICIEL » → « BTS GENIE LOGICIEL ». */
+export function specialiteBts(filiereName: string | null | undefined): string {
+  const stripped = String(filiereName ?? "").replace(/^licence\s*[12]\s*/i, "").trim();
+  return stripped ? `BTS ${stripped}` : "BTS";
+}
+
+/** Niveau BTS : « LICENCE 1 … » → « BTS 1 ». */
+export function niveauBts(filiereName: string | null | undefined): string {
+  const m = String(filiereName ?? "").match(/licence\s*([12])/i);
+  return m ? `BTS ${m[1]}` : "BTS";
+}
+
+/** Rang français : 1 → « 1er », n → « nème ». null → « — ». */
+export function rangLabel(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return n === 1 ? "1er" : `${n}ème`;
 }
 
 /** Date « 25 Janvier 1998 » à partir d'une date ISO. */

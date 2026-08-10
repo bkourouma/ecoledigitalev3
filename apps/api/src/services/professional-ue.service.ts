@@ -169,7 +169,7 @@ export class ProfessionalUeService extends ProfessionalBaseService {
       );
       const listRes = await client.query(
         `SELECT ${UE_COLS} FROM professional_ue
-         WHERE ${whereSql} ORDER BY created_at DESC LIMIT $${i++} OFFSET $${i++}`,
+         WHERE ${whereSql} ORDER BY created_at DESC, id LIMIT $${i++} OFFSET $${i++}`,
         [...params, pageSize, (page - 1) * pageSize]
       );
       return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });
@@ -772,7 +772,7 @@ export class ProfessionalUeService extends ProfessionalBaseService {
            LIMIT 1
          ) sem ON true
          WHERE ${where.join(" AND ")}
-         ORDER BY s.date_debut DESC, s.libelle LIMIT $${i++} OFFSET $${i++}`,
+         ORDER BY s.date_debut DESC, s.libelle, s.id LIMIT $${i++} OFFSET $${i++}`,
         [...params, pageSize, (page - 1) * pageSize]
       );
       return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });

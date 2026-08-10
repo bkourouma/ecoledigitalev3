@@ -70,7 +70,13 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
   ): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
       const res = await client.query(
-        `SELECT DISTINCT sm.id, sm.libelle
+        `SELECT DISTINCT sm.id, sm.libelle,
+                (SELECT min(s.date_debut)::text FROM professional_semestre_sessions ss2
+                 JOIN professional_ue_sessions s ON s.id = ss2.ue_session_id
+                 WHERE ss2.semestre_id = sm.id AND ss2.tenant_id = sm.tenant_id) AS date_debut,
+                (SELECT max(s.date_fin)::text FROM professional_semestre_sessions ss2
+                 JOIN professional_ue_sessions s ON s.id = ss2.ue_session_id
+                 WHERE ss2.semestre_id = sm.id AND ss2.tenant_id = sm.tenant_id) AS date_fin
          FROM professional_emploi_temps et
          JOIN professional_semestre_sessions ss ON ss.ue_session_id = et.ue_session_id AND ss.tenant_id = et.tenant_id
          JOIN professional_semestres sm ON sm.id = ss.semestre_id

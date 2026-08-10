@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, Button, Input } from "@ecoledigitale/ui";
 import {
@@ -18,9 +18,7 @@ import {
   Calendar,
   MapPin,
   GraduationCap,
-  BookOpen,
   Receipt,
-  CheckCircle2,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import {
@@ -61,18 +59,24 @@ function groupStatut(g: any): { label: string; cls: string } {
   if (confirmed === total) return { label: "Confirmée", cls: "bg-green-100 text-green-700" };
   return { label: `${confirmed}/${total} confirmées`, cls: "bg-blue-100 text-blue-700" };
 }
-const STATUT_FILTER_OPTIONS = [
-  { value: "all", label: "Tous les statuts" },
-  { value: "confirmee", label: "Inscrits (confirmées)" },
-  { value: "en_attente_paiement", label: "En attente de paiement" },
-  { value: "terminee", label: "Terminées" },
-  { value: "annulee", label: "Annulées" },
-];
-
 function fmtDate(v?: string | null): string {
   if (!v) return "—";
   const d = new Date(v);
   return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString("fr-FR");
+}
+
+/**
+ * Année scolaire (pivot septembre) dérivée de la date de début de la session,
+ * alignée sur le calcul côté API (professional-bulletin.service.ts) et sur la page
+ * Sessions : une session démarrant en septembre ou après appartient à
+ * « AAAA-AAAA+1 », sinon « AAAA-1-AAAA ».
+ */
+function anneeScolaireOf(v?: string | null): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
 function fmtPrice(v?: number | null): string {
   if (v == null) return "—";
@@ -87,7 +91,7 @@ export default function ProfessionalInscritsPage() {
   const router = useRouter();
   const items: any[] = (query.data as any)?.items ?? [];
   const [filiere, setFiliere] = useState("all");
-  const [statutFilter, setStatutFilter] = useState("all");
+  const [annee, setAnnee] = useState("all");
   const [search, setSearch] = useState("");
   const [editRow, setEditRow] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,15 +106,35 @@ export default function ProfessionalInscritsPage() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [items]);
 
+  // Années scolaires disponibles (dérivées de la date de début des sessions),
+  // adaptées à la filière sélectionnée. Plus récentes en premier.
+  const anneeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of items) {
+      if (filiere !== "all" && e.filiere_id !== filiere) continue;
+      const a = anneeScolaireOf(e.date_debut);
+      if (a) set.add(a);
+    }
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [items, filiere]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((e) => {
       const matchFil = filiere === "all" || e.filiere_id === filiere;
-      const matchStatut = statutFilter === "all" || e.statut === statutFilter;
+      const matchAnnee = annee === "all" || anneeScolaireOf(e.date_debut) === annee;
       const hay = `${e.first_name ?? ""} ${e.last_name ?? ""} ${e.matricule ?? ""} ${e.email ?? ""}`.toLowerCase();
-      return matchFil && matchStatut && (!q || hay.includes(q));
+      return matchFil && matchAnnee && (!q || hay.includes(q));
     });
-  }, [items, filiere, statutFilter, search]);
+  }, [items, filiere, annee, search]);
+
+  // Si la filière change et que l'année sélectionnée n'existe plus dans les
+  // options, on revient à « Toutes les années ».
+  useEffect(() => {
+    if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
+  }, [anneeOptions, annee]);
 
   // Regroupe les inscriptions par étudiant + filière (une carte par binôme).
   // Un même étudiant dans deux filières = deux cartes distinctes.
@@ -203,8 +227,9 @@ export default function ProfessionalInscritsPage() {
 
       {/* Filtres */}
       <Card className="shadow-sm">
-        <CardContent className="p-4 flex flex-col lg:flex-row gap-3 lg:items-center">
-          <div className="flex-1 min-w-0">
+        <CardContent className="p-4 space-y-3">
+          {/* Rangée du haut : filière + année scolaire */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <SearchableSelect
               value={filiere}
               onChange={setFiliere}
@@ -213,17 +238,17 @@ export default function ProfessionalInscritsPage() {
               searchPlaceholder="Rechercher une filière…"
               options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
             />
-          </div>
-          <div className="lg:w-60">
             <SearchableSelect
-              value={statutFilter}
-              onChange={setStatutFilter}
-              icon={<CheckCircle2 className="h-4 w-4 text-gray-400" />}
-              placeholder="Filtrer par statut"
-              options={STATUT_FILTER_OPTIONS}
+              value={annee}
+              onChange={setAnnee}
+              icon={<Calendar className="h-4 w-4 text-gray-400" />}
+              placeholder="Filtrer par année scolaire"
+              searchPlaceholder="Rechercher une année…"
+              options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
             />
           </div>
-          <div className="relative lg:w-56">
+          {/* Rangée du bas : recherche étudiant */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               value={search}
@@ -231,11 +256,6 @@ export default function ProfessionalInscritsPage() {
               placeholder="Étudiant…"
               className="pl-9"
             />
-          </div>
-          <div className="text-sm text-muted-foreground whitespace-nowrap">
-            <span className="font-medium text-foreground">{groups.length}</span> étudiant
-            {groups.length > 1 ? "s" : ""} · {filtered.length} inscription
-            {filtered.length > 1 ? "s" : ""}
           </div>
         </CardContent>
       </Card>

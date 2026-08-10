@@ -8,11 +8,20 @@ import type {
   DiplomaRequirementDto,
   DiplomaRequirementsSnapshot,
   StudentDiplomaDto,
+  StudentDiplomaStatut,
   StudentDiplomaSummaryDto,
   DiplomaProgressDto,
   DiplomaAttestationDto,
 } from "@ecoledigitale/contracts";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
+import {
+  loadAllValidatedUeIdsWithConduite,
+  loadCycleGroups,
+  resolveCycleGroupFor,
+  loadRequiredUeForCycle,
+  loadMentionForFilieres,
+  type CycleGroup,
+} from "./professional-cycle-groups";
 
 /**
  * Service Diplômes Professionnels — feature 030.
@@ -166,11 +175,18 @@ export interface DiplomaListFilters {
   q?: string;
 }
 
-/** Candidat à l'octroi manuel. */
+/** Candidat à l'octroi manuel, enrichi de sa progression vers le diplôme. */
 export interface DiplomaCandidate {
   student_id: string;
   student_number: string | null;
   nom_complet: string;
+  uv_validees: number;
+  pourcentage: number;
+  eligible: boolean;
+  statut_octroi: StudentDiplomaStatut | null;
+  reference: string | null;
+  /** Date d'obtention (ISO) si le diplôme a été octroyé, sinon null. */
+  date_obtention: string | null;
 }
 
 const DIPLOMA_COLS = `id, tenant_id, filiere_id, code, libelle, description,
@@ -178,7 +194,8 @@ const DIPLOMA_COLS = `id, tenant_id, filiere_id, code, libelle, description,
 
 const STUDENT_DIPLOMA_COLS = `id, diploma_id, student_id, reference, statut,
   uv_total_validees, requirements_snapshot, date_obtention, date_revocation,
-  motif_revocation, octroye_par, revoque_par, created_at, updated_at`;
+  motif_revocation, octroye_par, revoque_par, created_at, updated_at,
+  authenticite_reference, authenticite_numero, authenticite_annee`;
 
 export class ProfessionalDiplomasService extends ProfessionalBaseService {
   /* ----------------------------- CRUD diplômes ----------------------- */
@@ -270,6 +287,99 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
         }
         throw e;
       }
+    });
+  }
+
+  /* --------------------------- Cycles (Licence/Master) ---------------- */
+
+  /**
+   * Cycles disponibles (Licence 1→3, Master 1→2 d'une même spécialité),
+   * limités à ceux ayant au moins un étudiant inscrit — pour le filtre de la
+   * page Diplômes.
+   */
+  async listCycleGroups(tenantId: string): Promise<ServiceResult<CycleGroup[]>> {
+    return this.withTenant(tenantId, async (client) => {
+      return ok(await loadCycleGroups(client, tenantId));
+    });
+  }
+
+  /**
+   * Garantit l'existence d'un diplôme couvrant l'intégralité du cycle
+   * (Licence 1→3 ou Master 1→2 d'une même spécialité) contenant `filiereId` —
+   * l'étudiant doit valider toutes les UE de toutes les années du cycle, pas
+   * seulement celles de la filière terminale. Resynchronise les exigences et
+   * le total d'UV à chaque appel (une UE ajoutée/retirée à une filière du
+   * cycle est immédiatement reflétée).
+   */
+  async ensureCycleDiploma(
+    tenantId: string,
+    filiereId: string,
+    createdBy: string | null
+  ): Promise<ServiceResult<DiplomaDto>> {
+    return this.withTenantTx(tenantId, async (client) => {
+      const group = await resolveCycleGroupFor(client, tenantId, filiereId);
+      if (!group) return fail("VALIDATION_ERROR", "Filière introuvable.");
+
+      const requiredUe = await loadRequiredUeForCycle(client, tenantId, group);
+      if (requiredUe.length === 0) {
+        return fail(
+          "NO_UE_CONFIGURED",
+          "Aucune UE n'est rattachée aux semestres de ce cycle."
+        );
+      }
+      const uvRequired = requiredUe.reduce((s, u) => s + u.nb_uv, 0);
+      const terminal = group.filieres[group.filieres.length - 1];
+      const code = `DIP-${terminal.code.replace(/\d+/g, "")}`.slice(0, 50);
+      const anneesLabel = group.filieres.map((f) => f.name).join(", ");
+
+      let diploma = await this.selectDiplomaByCode(client, tenantId, code);
+      if (!diploma) {
+        const insertRes = await client.query(
+          `INSERT INTO professional_diplomas
+             (tenant_id, filiere_id, code, libelle, description, uv_required, statut, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,'actif',$7)
+           ON CONFLICT (tenant_id, code) DO NOTHING
+           RETURNING ${DIPLOMA_COLS}`,
+          [
+            tenantId,
+            terminal.id,
+            code,
+            group.libelle,
+            `Diplôme généré automatiquement pour le cycle complet : ${anneesLabel}.`,
+            uvRequired,
+            createdBy,
+          ]
+        );
+        diploma =
+          insertRes.rowCount === 0
+            ? await this.selectDiplomaByCode(client, tenantId, code)
+            : (insertRes.rows[0] as DiplomaDto);
+      } else if (diploma.uv_required !== uvRequired) {
+        const updRes = await client.query(
+          `UPDATE professional_diplomas SET uv_required=$1, updated_at=now()
+           WHERE id=$2 AND tenant_id=$3 RETURNING ${DIPLOMA_COLS}`,
+          [uvRequired, diploma.id, tenantId]
+        );
+        diploma = updRes.rows[0] as DiplomaDto;
+      }
+      if (!diploma) {
+        return fail("DIPLOMA_NOT_FOUND", "Impossible de créer le diplôme du cycle.");
+      }
+
+      await client.query(
+        `DELETE FROM professional_diploma_requirements WHERE diploma_id=$1 AND tenant_id=$2`,
+        [diploma.id, tenantId]
+      );
+      for (let i = 0; i < requiredUe.length; i++) {
+        await client.query(
+          `INSERT INTO professional_diploma_requirements
+             (tenant_id, diploma_id, ue_id, est_obligatoire, ordre)
+           VALUES ($1,$2,$3,true,$4)`,
+          [tenantId, diploma.id, requiredUe[i].ue_id, i]
+        );
+      }
+
+      return ok(diploma);
     });
   }
 
@@ -415,7 +525,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       const diploma = await this.selectDiploma(client, tenantId, diplomaId);
       if (!diploma) return fail("DIPLOMA_NOT_FOUND", "Diplôme introuvable.");
       const requirements = await this.loadRequirements(client, tenantId, diplomaId);
-      const validatedIds = await this.loadValidatedUeIds(client, tenantId, studentId);
+      const validatedIds = await loadAllValidatedUeIdsWithConduite(client, tenantId, studentId);
       const view = computeDiplomaProgress(requirements, diploma.uv_required, validatedIds);
       const award = await this.loadStudentAward(client, tenantId, diplomaId, studentId);
       return ok({
@@ -480,8 +590,16 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       const ue_validees = (snapshot?.requirements ?? [])
         .filter((r: any) => r.validee)
         .map((r: any) => ({ code: r.code, libelle: r.libelle, nb_uv: r.nb_uv }));
+
+      const diploma = await this.selectDiploma(client, tenantId, diplomaId);
+      const group = diploma ? await resolveCycleGroupFor(client, tenantId, diploma.filiere_id) : null;
+      const filiereIds = group ? group.filieres.map((f) => f.id) : diploma ? [diploma.filiere_id] : [];
+      const mention = await loadMentionForFilieres(client, tenantId, filiereIds, studentId);
+      const authenticiteReference = await this.getOrAssignAuthenticiteReference(client, tenantId, award);
+
       return ok({
         reference: award.reference,
+        authenticite_reference: authenticiteReference,
         diplome: {
           code: info.code,
           libelle: info.libelle,
@@ -491,6 +609,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
         date_obtention: award.date_obtention ?? "",
         uv_total_validees: award.uv_total_validees,
         ue_validees,
+        mention,
       });
     });
   }
@@ -526,7 +645,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       }
 
       const requirements = await this.loadRequirements(client, tenantId, diplomaId);
-      const validatedSet = new Set(await this.loadValidatedUeIds(client, tenantId, studentId));
+      const validatedSet = new Set(await loadAllValidatedUeIdsWithConduite(client, tenantId, studentId));
       const evalRes = evaluateDiplomaEligibility(
         requirements.map((r) => ({
           ue_id: r.ue_id,
@@ -588,7 +707,9 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
 
   /**
    * Candidats à l'octroi manuel : étudiants ayant au moins une inscription
-   * (non annulée) sur une cohorte d'une UE de la filière du diplôme.
+   * (non annulée) sur une cohorte d'une UE de l'une des filières du cycle du
+   * diplôme (ex. Licence 1→3, Master 1→2 d'une même spécialité — pas
+   * seulement la filière terminale).
    */
   async listCandidates(
     tenantId: string,
@@ -597,8 +718,11 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     return this.withTenant(tenantId, async (client) => {
       const diploma = await this.selectDiploma(client, tenantId, diplomaId);
       if (!diploma) return fail("DIPLOMA_NOT_FOUND", "Diplôme introuvable.");
+      const group = await resolveCycleGroupFor(client, tenantId, diploma.filiere_id);
+      const filiereIds = group ? group.filieres.map((f) => f.id) : [diploma.filiere_id];
       const res = await client.query(
-        `SELECT DISTINCT sp.id AS student_id, sp.student_number,
+        `SELECT DISTINCT sp.id AS student_id,
+                sp.student_matricule AS student_number,
                 COALESCE(
                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
                   u.computed_name, u.name, sp.student_number, ''
@@ -610,11 +734,32 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
          JOIN professional_ue ue ON ue.id = sess.ue_id
          WHERE sp.tenant_id = $1
            AND e.statut <> 'annulee'
-           AND ue.filiere_id = $2
+           AND ue.filiere_id = ANY($2::uuid[])
          ORDER BY nom_complet ASC`,
-        [tenantId, diploma.filiere_id]
+        [tenantId, filiereIds]
       );
-      return ok(res.rows as DiplomaCandidate[]);
+
+      const requirements = await this.loadRequirements(client, tenantId, diplomaId);
+      const candidates: DiplomaCandidate[] = [];
+      for (const row of res.rows as Array<{
+        student_id: string;
+        student_number: string | null;
+        nom_complet: string;
+      }>) {
+        const validatedIds = await loadAllValidatedUeIdsWithConduite(client, tenantId, row.student_id);
+        const view = computeDiplomaProgress(requirements, diploma.uv_required, validatedIds);
+        const award = await this.loadStudentAward(client, tenantId, diplomaId, row.student_id);
+        candidates.push({
+          ...row,
+          uv_validees: view.uv_validees,
+          pourcentage: view.pourcentage,
+          eligible: view.eligible,
+          statut_octroi: award ? award.statut : null,
+          reference: award ? award.reference : null,
+          date_obtention: award ? award.date_obtention ?? null : null,
+        });
+      }
+      return ok(candidates);
     });
   }
 
@@ -669,7 +814,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
         [tenantId, ueId]
       );
       if (diplomasRes.rowCount === 0) return ok([]);
-      const validatedSet = new Set(await this.loadValidatedUeIds(client, tenantId, studentId));
+      const validatedSet = new Set(await loadAllValidatedUeIdsWithConduite(client, tenantId, studentId));
       const created: StudentDiplomaDto[] = [];
       for (const diploma of diplomasRes.rows) {
         const award = await this.tryAwardEligible(
@@ -709,7 +854,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       let awarded = 0;
       for (const row of studentsRes.rows) {
         const validatedSet = new Set(
-          await this.loadValidatedUeIds(client, tenantId, row.student_id)
+          await loadAllValidatedUeIdsWithConduite(client, tenantId, row.student_id)
         );
         const award = await this.tryAwardEligible(
           client,
@@ -739,6 +884,18 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     return res.rowCount === 0 ? null : (res.rows[0] as DiplomaDto);
   }
 
+  private async selectDiplomaByCode(
+    client: PoolClient,
+    tenantId: string,
+    code: string
+  ): Promise<DiplomaDto | null> {
+    const res = await client.query(
+      `SELECT ${DIPLOMA_COLS} FROM professional_diplomas WHERE code=$1 AND tenant_id=$2`,
+      [code, tenantId]
+    );
+    return res.rowCount === 0 ? null : (res.rows[0] as DiplomaDto);
+  }
+
   /** Charge les exigences d'un diplôme, enrichies des données d'UE. */
   private async loadRequirements(
     client: PoolClient,
@@ -758,19 +915,6 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     return res.rows as DiplomaRequirementDto[];
   }
 
-  /** Ids des UE validées par l'étudiant (`student_professional_ue_results`). */
-  private async loadValidatedUeIds(
-    client: PoolClient,
-    tenantId: string,
-    studentId: string
-  ): Promise<string[]> {
-    const res = await client.query(
-      `SELECT ue_id FROM student_professional_ue_results
-       WHERE student_id=$1 AND tenant_id=$2 AND statut='validee'`,
-      [studentId, tenantId]
-    );
-    return res.rows.map((r: any) => r.ue_id as string);
-  }
 
   private buildSnapshot(
     uvRequired: number,
@@ -801,6 +945,58 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
     );
     const seq = (res.rows[0].n as number) + 1;
     return `DIP-${year}-${String(seq).padStart(6, "0")}`;
+  }
+
+  /**
+   * Numéro de référence de l'attestation d'authenticité : AUTH/{année}/{NNN}.
+   * Attribué une seule fois par octroi (idempotent — régénérer le PDF
+   * renvoie toujours le même numéro), séquentiel par tenant, sur l'année de
+   * GÉNÉRATION (pas l'année d'obtention du diplôme, qui peut différer).
+   *
+   * Le décompte reprend automatiquement là où en sont les diplômes déjà
+   * obtenus : le nombre de diplômes `obtenu` existants (tous cycles, toutes
+   * années confondus) sert de base, à laquelle s'ajoutent les numéros déjà
+   * attribués cette année — pas besoin de configurer un point de départ à la
+   * main, le compteur suit simplement les octrois déjà enregistrés.
+   */
+  private async getOrAssignAuthenticiteReference(
+    client: PoolClient,
+    tenantId: string,
+    award: Pick<StudentDiplomaDto, "id" | "authenticite_reference">
+  ): Promise<string> {
+    if (award.authenticite_reference) return award.authenticite_reference;
+
+    const annee = new Date().getFullYear();
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const baseRes = await client.query(
+        `SELECT
+           (SELECT count(*)::int FROM student_professional_diplomas
+             WHERE tenant_id=$1 AND statut='obtenu') AS deja_obtenus,
+           (SELECT count(*)::int FROM student_professional_diplomas
+             WHERE tenant_id=$1 AND authenticite_annee=$2) AS deja_numerotes`,
+        [tenantId, annee]
+      );
+      const { deja_obtenus, deja_numerotes } = baseRes.rows[0] as {
+        deja_obtenus: number;
+        deja_numerotes: number;
+      };
+      const numero = deja_obtenus + deja_numerotes + 1;
+      const reference = `AUTH/${annee}/${String(numero).padStart(3, "0")}`;
+      try {
+        await client.query(
+          `UPDATE student_professional_diplomas
+           SET authenticite_reference=$1, authenticite_numero=$2, authenticite_annee=$3
+           WHERE id=$4`,
+          [reference, numero, annee, award.id]
+        );
+        return reference;
+      } catch (err: any) {
+        if (err?.code === "23505" && attempt < 4) continue; // collision : réessaie avec le compte à jour
+        throw err;
+      }
+    }
+    throw new Error("Impossible d'attribuer un numéro d'attestation d'authenticité.");
   }
 
   private async createAward(
@@ -957,7 +1153,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       [tenantId, filiereIds, [...awardByDiploma.keys()]]
     );
 
-    const validatedIds = await this.loadValidatedUeIds(client, tenantId, studentId);
+    const validatedIds = await loadAllValidatedUeIdsWithConduite(client, tenantId, studentId);
     const summaries: StudentDiplomaSummaryDto[] = [];
     for (const diploma of diplomasRes.rows as DiplomaDto[]) {
       const requirements = await this.loadRequirements(client, tenantId, diploma.id);

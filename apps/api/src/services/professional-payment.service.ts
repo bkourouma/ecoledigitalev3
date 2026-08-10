@@ -457,7 +457,7 @@ export class ProfessionalPaymentService extends ProfessionalBaseService {
          FROM professional_payments p
          JOIN professional_orders o ON o.id = p.order_id
          WHERE ${whereSql}
-         ORDER BY p.created_at DESC LIMIT $${i++} OFFSET $${i++}`,
+         ORDER BY p.created_at DESC, p.id LIMIT $${i++} OFFSET $${i++}`,
         [...params, pageSize, (page - 1) * pageSize]
       );
       return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });

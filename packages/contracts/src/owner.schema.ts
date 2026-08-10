@@ -47,11 +47,34 @@ export const OwnerDashboardFormationsSchema = z.object({
   clientCompanies: z.number(),
 });
 
+/**
+ * Synthèse du Module Professionnel (LMD).
+ * Les trois autres blocs ne couvrent que le module académique, les RH et les
+ * formations courtes : sans celui-ci, tout le module UE/ECUE est absent du pilotage.
+ */
+export const OwnerDashboardProfessionalSchema = z.object({
+  enrolledStudents: z.number(),
+  /** Même mesure au mois précédent, pour afficher une variation. */
+  enrolledStudentsPrevMonth: z.number(),
+  recoveryRate: z.number(),
+  /** `null` tant qu'aucun semestre clos ne porte de bulletin. */
+  successRateLastSemester: z.number().nullable(),
+  attendanceRate30d: z.number(),
+});
+
 export const OwnerDashboardResponseSchema = z.object({
   finances: OwnerDashboardFinancesSchema,
   academic: OwnerDashboardAcademicSchema,
   staff: OwnerDashboardStaffSchema,
   formations: OwnerDashboardFormationsSchema,
+  /**
+   * `optional` délibéré : le serveur le renseigne TOUJOURS, mais un client déployé
+   * avant le serveur — ou l'inverse — doit pouvoir lire la réponse sans planter.
+   * Ajouter un champ requis à un schéma de réponse casse toute version antérieure
+   * du client pendant la fenêtre de déploiement. Les consommateurs doivent donc
+   * tester sa présence.
+   */
+  professional: OwnerDashboardProfessionalSchema.optional(),
   alerts: z.array(OwnerAlertSchema),
 });
 

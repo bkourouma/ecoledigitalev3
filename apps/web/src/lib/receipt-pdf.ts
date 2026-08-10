@@ -7,7 +7,10 @@
  */
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { INSTITUT, LOGO_INSTITUT, LOGO_EMBLEME } from "./bulletin-format";
+import { INSTITUT, LOGO_INSTITUT } from "./bulletin-format";
+
+/** Emblème utilisé sur le reçu (PNG détouré, agrandi par rapport au bulletin). */
+const LOGO_RECU_EMBLEME = "/embleme.png";
 
 const M = 14;
 const PAGE_W = 210;
@@ -33,12 +36,15 @@ const MODE_LABEL: Record<string, string> = {
 interface Img {
   dataUrl: string;
   ratio: number;
+  /** Format jsPDF déduit du type MIME (« PNG » conserve la transparence). */
+  format: "PNG" | "JPEG";
 }
 async function loadImg(url: string): Promise<Img | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
+    const format: "PNG" | "JPEG" = blob.type.includes("png") ? "PNG" : "JPEG";
     const dataUrl: string = await new Promise((r) => {
       const f = new FileReader();
       f.onloadend = () => r(f.result as string);
@@ -50,7 +56,7 @@ async function loadImg(url: string): Promise<Img | null> {
       i.onerror = () => r(1);
       i.src = dataUrl;
     });
-    return { dataUrl, ratio };
+    return { dataUrl, ratio, format };
   } catch {
     return null;
   }
@@ -171,11 +177,18 @@ async function drawReceipt(
   // ---------- En-tête institut ----------
   if (logoInstitut) {
     const h = 21;
-    doc.addImage(logoInstitut.dataUrl, "JPEG", M, 11, h * logoInstitut.ratio, h);
+    doc.addImage(logoInstitut.dataUrl, logoInstitut.format, M, 11, h * logoInstitut.ratio, h);
   }
   if (embleme) {
-    const h = 13;
-    doc.addImage(embleme.dataUrl, "JPEG", RIGHT - h * embleme.ratio, 11, h * embleme.ratio, h);
+    const h = 18; // Emblème agrandi (auparavant 13).
+    doc.addImage(
+      embleme.dataUrl,
+      embleme.format,
+      RIGHT - h * embleme.ratio,
+      9,
+      h * embleme.ratio,
+      h
+    );
   }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13.5);
@@ -261,19 +274,19 @@ async function drawReceipt(
   doc.text([matricule, filiere].filter(Boolean).join("      "), px, y + 20, {
     maxWidth: W - 14,
   });
-  y += panelH + 8;
+  y += panelH + 6;
 
   // ---------- Montant reçu ----------
-  const amtH = 17;
+  const amtH = 16;
   doc.setFillColor(GREEN[0], GREEN[1], GREEN[2]);
   doc.roundedRect(M, y, W, amtH, 2, 2, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(255, 255, 255);
-  doc.text("MONTANT REÇU", M + 7, y + 10.6);
-  doc.setFontSize(19);
-  doc.text(fmtFCFA(data.montant), RIGHT - 7, y + 11.4, { align: "right" });
-  y += amtH + 6;
+  doc.text("MONTANT REÇU", M + 7, y + 10);
+  doc.setFontSize(18);
+  doc.text(fmtFCFA(data.montant), RIGHT - 7, y + 10.8, { align: "right" });
+  y += amtH + 5;
 
   // Montant en lettres.
   doc.setFont("helvetica", "italic");
@@ -282,9 +295,9 @@ async function drawReceipt(
   const lettres = `Soit : ${montantEnLettres(data.montant)} francs CFA.`;
   (doc.splitTextToSize(lettres, W) as string[]).forEach((ln) => {
     doc.text(ln, M, y);
-    y += 4.6;
+    y += 4.4;
   });
-  y += 4;
+  y += 2.5;
 
   // ---------- Détail des UE ----------
   const ues = data.ues ?? [];
@@ -300,8 +313,8 @@ async function drawReceipt(
       theme: "plain",
       styles: {
         font: "helvetica",
-        fontSize: 9.5,
-        cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
+        fontSize: 9,
+        cellPadding: { top: 1.4, bottom: 1.4, left: 3, right: 3 },
         textColor: INK,
         valign: "middle",
       },
@@ -309,7 +322,7 @@ async function drawReceipt(
         fillColor: GREEN,
         textColor: [255, 255, 255],
         fontStyle: "bold",
-        fontSize: 8.5,
+        fontSize: 8,
       },
       alternateRowStyles: { fillColor: LIGHT },
       head: [["N°", "Unité d'enseignement (UE)", "Montant"]],
@@ -337,7 +350,7 @@ async function drawReceipt(
         2: { cellWidth: 42, halign: "right" },
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = (doc as any).lastAutoTable.finalY + 6;
   }
 
   // ---------- Situation financière : 4 cases ----------
@@ -364,14 +377,9 @@ async function drawReceipt(
     setColor(doc, b.color ?? INK);
     doc.text(b.value, bx + boxW / 2, y + 12.4, { align: "center" });
   });
-  y += boxH + 10;
+  y += boxH + 8;
 
-  if (y > 240) {
-    doc.addPage();
-    y = 24;
-  }
-
-  // ---------- Mention + signatures ----------
+  // ---------- Mention légale ----------
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   setColor(doc, INK);
@@ -380,22 +388,13 @@ async function drawReceipt(
     W
   ) as string[]).forEach((ln) => {
     doc.text(ln, M, y);
-    y += 4.8;
+    y += 4.6;
   });
-  y += 8;
+  y += 6;
 
   doc.setFontSize(10);
+  setColor(doc, INK);
   doc.text(`Fait à Abidjan, le ${dateStr}`, RIGHT, y, { align: "right" });
-  y += 14;
-  // Deux zones de signature.
-  doc.setDrawColor(120, 130, 125);
-  doc.setLineWidth(0.25);
-  doc.line(M, y, M + 62, y);
-  doc.line(RIGHT - 62, y, RIGHT, y);
-  doc.setFontSize(8.8);
-  setColor(doc, GRAY);
-  doc.text("Cachet de l'établissement", M + 31, y + 4.6, { align: "center" });
-  doc.text("Le Service de la Comptabilité", RIGHT - 31, y + 4.6, { align: "center" });
 
   // ---------- Pied de page ----------
   doc.setDrawColor(GREEN[0], GREEN[1], GREEN[2]);
@@ -423,7 +422,7 @@ function drawWatermark(doc: jsPDF, logoInstitut: Img | null): void {
       (doc as any).setGState(new (doc as any).GState({ opacity: 0.045 }));
       const w = 110;
       const h = w / logoInstitut.ratio;
-      doc.addImage(logoInstitut.dataUrl, "JPEG", (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
+      doc.addImage(logoInstitut.dataUrl, logoInstitut.format, (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
       doc.restoreGraphicsState();
     } catch {
       /* GState indisponible : filigrane ignoré */
@@ -440,7 +439,10 @@ function receiptFilename(data: ReceiptData): string {
 }
 
 async function buildReceiptDoc(data: ReceiptData): Promise<{ doc: jsPDF; filename: string }> {
-  const [logoInstitut, embleme] = await Promise.all([loadImg(LOGO_INSTITUT), loadImg(LOGO_EMBLEME)]);
+  const [logoInstitut, embleme] = await Promise.all([
+    loadImg(LOGO_INSTITUT),
+    loadImg(LOGO_RECU_EMBLEME),
+  ]);
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
   await drawReceipt(doc, data, { logoInstitut, embleme });
   drawWatermark(doc, logoInstitut);

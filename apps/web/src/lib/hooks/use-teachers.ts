@@ -143,7 +143,9 @@ async function fetchTeacher(id: string): Promise<Teacher> {
   return response.json();
 }
 
-async function createTeacher(data: CreateTeacher): Promise<Teacher> {
+export type CreatedTeacher = Teacher & { emailSent?: boolean; emailError?: string | null };
+
+async function createTeacher(data: CreateTeacher): Promise<CreatedTeacher> {
   const response = await fetch(`/api/v1/teachers`, {
     method: "POST",
     headers: createAcademicHeaders(),
@@ -168,6 +170,64 @@ async function updateTeacher(id: string, data: UpdateTeacher): Promise<Teacher> 
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.message || "Failed to update teacher");
+  }
+
+  return response.json();
+}
+
+export interface TeacherCredentialsTemplateResponse {
+  subject: string;
+  body: string;
+  defaults: { subject: string; body: string };
+  variables: Array<{ key: string; label: string }>;
+  emailConfigured: boolean;
+  schoolName: string;
+  loginUrl: string;
+}
+
+async function fetchCredentialsTemplate(): Promise<TeacherCredentialsTemplateResponse> {
+  const response = await fetch(`/api/v1/teachers/credentials-template`, {
+    headers: createAcademicHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error("Impossible de charger le modèle d'email");
+  }
+
+  return response.json();
+}
+
+async function saveCredentialsTemplate(template: {
+  subject: string;
+  body: string;
+}): Promise<{ subject: string; body: string; saved: boolean }> {
+  const response = await fetch(`/api/v1/teachers/credentials-template`, {
+    method: "PUT",
+    headers: createAcademicHeaders(),
+    body: JSON.stringify(template),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || "Impossible d'enregistrer le modèle d'email");
+  }
+
+  return response.json();
+}
+
+async function sendTeacherCredentials(
+  teacherId: string,
+  template?: { subject: string; body: string }
+): Promise<{ teacherId: string; emailSent: boolean; sentTo: string; message: string }> {
+  const response = await fetch(`/api/v1/teachers/${teacherId}/send-credentials`, {
+    method: "POST",
+    headers: createAcademicHeaders(),
+    body: JSON.stringify(template ? { template } : {}),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || error.error || "Échec de l'envoi de l'email");
   }
 
   return response.json();
@@ -344,6 +404,42 @@ export function useDeleteTeacher() {
       queryClient.invalidateQueries({ queryKey: ["teachers", tenantScope] });
       queryClient.invalidateQueries({ queryKey: ["all-teachers", tenantScope] });
     },
+  });
+}
+
+/** Modèle d'email d'envoi des identifiants (par établissement). */
+export function useTeacherCredentialsTemplate() {
+  const tenantScope = getTeacherTenantScope();
+
+  return useQuery({
+    queryKey: ["teacher-credentials-template", tenantScope],
+    queryFn: fetchCredentialsTemplate,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSaveTeacherCredentialsTemplate() {
+  const queryClient = useQueryClient();
+  const tenantScope = getTeacherTenantScope();
+
+  return useMutation({
+    mutationFn: saveCredentialsTemplate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teacher-credentials-template", tenantScope] });
+    },
+  });
+}
+
+/** (Re)envoi manuel des identifiants à un enseignant existant. */
+export function useSendTeacherCredentials() {
+  return useMutation({
+    mutationFn: ({
+      teacherId,
+      template,
+    }: {
+      teacherId: string;
+      template?: { subject: string; body: string };
+    }) => sendTeacherCredentials(teacherId, template),
   });
 }
 

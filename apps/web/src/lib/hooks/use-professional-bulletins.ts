@@ -59,6 +59,16 @@ export function useBulletin(semestreId: string | null, studentId: string | null)
   });
 }
 
+/** Récupère le bulletin détaillé d'un étudiant (appel imperatif, hors hook). */
+export async function fetchBulletin(semestreId: string, studentId: string): Promise<any> {
+  return apiFetch(`${BASE}/semestres/${semestreId}/bulletins/${studentId}`);
+}
+
+/** Récupère le bulletin de style BTS d'un étudiant (Licence 1/2 uniquement). */
+export async function fetchBulletinBts(semestreId: string, studentId: string): Promise<any> {
+  return apiFetch(`${BASE}/semestres/${semestreId}/bulletins/${studentId}/bts`);
+}
+
 /** Génère les bulletins officiels de tous les étudiants du semestre. */
 export function useGenerateBulletins() {
   const qc = useQueryClient();

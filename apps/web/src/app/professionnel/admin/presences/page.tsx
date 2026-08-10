@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, Input } from "@ecoledigitale/ui";
 import {
   ClipboardCheck,
   Layers,
   CalendarRange,
+  Calendar,
   CheckCircle2,
   Loader2,
   AlertCircle,
@@ -59,8 +60,23 @@ function hm(t: string | null | undefined): string {
   return t ? String(t).slice(0, 5) : "—";
 }
 
+/**
+ * Année scolaire (pivot septembre) dérivée de la date de début du semestre,
+ * alignée sur le calcul côté API (professional-bulletin.service.ts) et les autres
+ * pages : un semestre démarrant en septembre ou après appartient à
+ * « AAAA-AAAA+1 », sinon « AAAA-1-AAAA ».
+ */
+function anneeScolaireOf(v?: string | null): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
 export default function AdminPresencesPage() {
   const [filiereId, setFiliereId] = useState("");
+  const [annee, setAnnee] = useState("all");
   const [statut, setStatut] = useState("all");
   const [semestreId, setSemestreId] = useState("");
   const [search, setSearch] = useState("");
@@ -74,7 +90,37 @@ export default function AdminPresencesPage() {
   });
 
   const filieres: any[] = (filieresQuery.data as any[]) ?? [];
-  const semestres: any[] = filiereId ? ((semestresQuery.data as any[]) ?? []) : [];
+  const semestresRaw: any[] = filiereId ? ((semestresQuery.data as any[]) ?? []) : [];
+  const semestres = useMemo(
+    () => semestresRaw.map((s) => ({ ...s, annee_scolaire: anneeScolaireOf(s.date_debut) })),
+    [semestresRaw]
+  );
+
+  // Années scolaires disponibles pour la filière (plus récentes en premier).
+  const anneeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of semestres) if (s.annee_scolaire) set.add(s.annee_scolaire);
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [semestres]);
+
+  // Semestres filtrés par année scolaire sélectionnée.
+  const visibleSemestres = useMemo(
+    () => semestres.filter((s) => annee === "all" || s.annee_scolaire === annee),
+    [semestres, annee]
+  );
+
+  // Si l'année sélectionnée n'existe plus (changement de filière), on réinitialise.
+  useEffect(() => {
+    if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
+  }, [anneeOptions, annee]);
+
+  // Si le semestre sélectionné n'est plus visible (filtre année), on le désélectionne.
+  useEffect(() => {
+    if (semestreId && !visibleSemestres.some((s) => s.id === semestreId)) setSemestreId("");
+  }, [visibleSemestres, semestreId]);
+
   const seances: any[] = (historyQuery.data as any)?.seances ?? [];
   const students: any[] = (historyQuery.data as any)?.students ?? [];
 
@@ -132,40 +178,53 @@ export default function AdminPresencesPage() {
         </p>
       </div>
 
-      {/* Filtres */}
+      {/* Filtres — deux en haut (filière, année), deux en bas (statut, semestre) */}
       <Card className="shadow-sm">
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <SearchableSelect
-            value={filiereId}
-            onChange={(v) => {
-              setFiliereId(v);
-              setSemestreId("");
-            }}
-            icon={<Layers className="h-4 w-4 text-gray-400" />}
-            placeholder={filieresQuery.isLoading ? "Chargement…" : "Filière"}
-            searchPlaceholder="Rechercher une filière…"
-            options={filieres.map((f) => ({
-              value: f.id,
-              label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
-            }))}
-          />
-          <SearchableSelect
-            value={statut}
-            onChange={setStatut}
-            icon={<CheckCircle2 className="h-4 w-4 text-gray-400" />}
-            placeholder="Statut des sessions"
-            options={STATUT_OPTIONS}
-          />
-          <SearchableSelect
-            value={semestreId}
-            onChange={setSemestreId}
-            icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
-            placeholder={!filiereId ? "Choisir une filière" : "Tous les semestres"}
-            options={[
-              { value: "", label: "Tous les semestres" },
-              ...semestres.map((s) => ({ value: s.id, label: s.libelle })),
-            ]}
-          />
+        <CardContent className="p-4 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <SearchableSelect
+              value={filiereId}
+              onChange={(v) => {
+                setFiliereId(v);
+                setAnnee("all");
+                setSemestreId("");
+              }}
+              icon={<Layers className="h-4 w-4 text-gray-400" />}
+              placeholder={filieresQuery.isLoading ? "Chargement…" : "Filière"}
+              searchPlaceholder="Rechercher une filière…"
+              options={filieres.map((f) => ({
+                value: f.id,
+                label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
+              }))}
+            />
+            <SearchableSelect
+              value={annee}
+              onChange={setAnnee}
+              icon={<Calendar className="h-4 w-4 text-gray-400" />}
+              placeholder={!filiereId ? "Choisir une filière" : "Toutes les années"}
+              searchPlaceholder="Rechercher une année…"
+              options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <SearchableSelect
+              value={statut}
+              onChange={setStatut}
+              icon={<CheckCircle2 className="h-4 w-4 text-gray-400" />}
+              placeholder="Statut des sessions"
+              options={STATUT_OPTIONS}
+            />
+            <SearchableSelect
+              value={semestreId}
+              onChange={setSemestreId}
+              icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
+              placeholder={!filiereId ? "Choisir une filière" : "Tous les semestres"}
+              options={[
+                { value: "", label: "Tous les semestres" },
+                ...visibleSemestres.map((s) => ({ value: s.id, label: s.libelle })),
+              ]}
+            />
+          </div>
         </CardContent>
       </Card>
 

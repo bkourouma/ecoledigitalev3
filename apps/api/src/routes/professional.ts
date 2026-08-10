@@ -42,6 +42,8 @@ import {
   DiplomaCreateInputSchema,
   DiplomaUpdateInputSchema,
   DiplomaRequirementsReplaceInputSchema,
+  SignataireCleSchema,
+  SignataireUpdateInputSchema,
   DiplomaAwardManualInputSchema,
   DiplomaRevokeInputSchema,
 } from "@ecoledigitale/contracts";
@@ -56,6 +58,8 @@ import { ProfessionalEnrollmentService } from "../services/professional-enrollme
 import { ProfessionalPaymentService } from "../services/professional-payment.service";
 import { ProfessionalTeacherService } from "../services/professional-teacher.service";
 import { ProfessionalDiplomasService } from "../services/professional-diplomas.service";
+import { ProfessionalAttestationsService } from "../services/professional-attestations.service";
+import { ProfessionalSignatairesService } from "../services/professional-signataires.service";
 import {
   ProfessionalEcueMaterialsService,
   type MaterialKind,
@@ -129,6 +133,10 @@ const ERROR_STATUS: Record<string, number> = {
   DIPLOMA_ALREADY_AWARDED: 409,
   DIPLOMA_NOT_ELIGIBLE: 422,
   DIPLOMA_NOT_AWARDED: 404,
+  // Attestations de réussite (filière → semestres → UE)
+  STUDENT_NOT_FOUND: 404,
+  NO_UE_CONFIGURED: 422,
+  NOT_ELIGIBLE: 422,
   LIVEKIT_NOT_CONFIGURED: 503,
   LIVEKIT_UPSTREAM_ERROR: 502,
   FILE_TOO_LARGE: 413,
@@ -181,6 +189,8 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
   const payment = new ProfessionalPaymentService(fastify.pg as any);
   const teacher = new ProfessionalTeacherService(fastify.pg as any);
   const diplomas = new ProfessionalDiplomasService(fastify.pg as any);
+  const attestations = new ProfessionalAttestationsService(fastify.pg as any);
+  const signataires = new ProfessionalSignatairesService(fastify.pg as any);
   const ecueMaterials = new ProfessionalEcueMaterialsService(fastify.pg as any);
   const assignments = new ProfessionalAssignmentsService(fastify.pg as any);
   const profLive = new ProfessionalLiveSessionsService(fastify.pg as any);
@@ -1381,6 +1391,18 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     handler(async (request, reply) => {
       const { id, studentId } = request.params as { id: string; studentId: string };
       const result = await bulletin.getBulletin(request.tenantId as string, id, studentId);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Bulletin de style BTS (Licence 1/2 uniquement) : rang par UE/ECUE + bilan
+  // annuel sur le dernier semestre de la filière (feature ad hoc, hors 030).
+  fastify.get(
+    "/semestres/:id/bulletins/:studentId/bts",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id, studentId } = request.params as { id: string; studentId: string };
+      const result = await bulletin.getBulletinBts(request.tenantId as string, id, studentId);
       return sendResult(reply, result);
     })
   );
@@ -3245,6 +3267,29 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
   /* ============== Diplômes professionnels (admin) ============== */
 
   fastify.get(
+    "/cycle-groups",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await diplomas.listCycleGroups(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.post(
+    "/cycle-groups/:filiereId/ensure-diploma",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { filiereId } = request.params as { filiereId: string };
+      const result = await diplomas.ensureCycleDiploma(
+        request.tenantId as string,
+        filiereId,
+        currentUserId(request) || null
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.get(
     "/diplomas",
     { preHandler: requireAdmin },
     handler(async (request, reply) => {
@@ -3384,6 +3429,26 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  fastify.get(
+    "/diplomas/:id/students/:studentId/progress",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id, studentId } = request.params as { id: string; studentId: string };
+      const result = await diplomas.computeProgress(request.tenantId as string, id, studentId);
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.get(
+    "/diplomas/:id/students/:studentId/attestation",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id, studentId } = request.params as { id: string; studentId: string };
+      const result = await diplomas.getAttestation(request.tenantId as string, id, studentId);
+      return sendResult(reply, result);
+    })
+  );
+
   fastify.post(
     "/diplomas/:id/award",
     { preHandler: requireAdmin },
@@ -3496,6 +3561,73 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
       return sendResult(reply, result);
     })
   );
-}
 
+  /* ===== Attestations de réussite (filière → semestres → UE) — admin ===== */
+
+  fastify.get(
+    "/filieres/:filiereId/attestation-roster",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { filiereId } = request.params as { filiereId: string };
+      const result = await attestations.getRoster(request.tenantId as string, filiereId);
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.get(
+    "/filieres/:filiereId/students/:studentId/attestation",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { filiereId, studentId } = request.params as { filiereId: string; studentId: string };
+      const result = await attestations.getStudentAttestation(
+        request.tenantId as string,
+        filiereId,
+        studentId
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  /* ===== Signataires des documents officiels — admin ===== */
+
+  fastify.get(
+    "/signataires",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await signataires.list(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.put(
+    "/signataires/:cle",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { cle } = request.params as { cle: string };
+      const parsedCle = SignataireCleSchema.safeParse(cle);
+      if (!parsedCle.success) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Titre de signataire inconnu.",
+        });
+      }
+      const parsed = SignataireUpdateInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Signataire invalide.",
+          details: parsed.error.issues,
+        });
+      }
+      const result = await signataires.upsert(
+        request.tenantId as string,
+        parsedCle.data,
+        parsed.data
+      );
+      return sendResult(reply, result);
+    })
+  );
+}
 export default professionalRoutes;

@@ -63,6 +63,56 @@
     --tenant-primary: 59 130 246; /* blue-500 default */
     --tenant-secondary: 16 185 129; /* emerald-500 */
     --tenant-accent: 249 115 22; /* orange-500 */
+
+    /* ------------------------------------------------------------------ */
+    /* Data-viz — palette catégorielle des graphiques (espace owner)       */
+    /*                                                                     */
+    /* L'ORDRE DES SLOTS EST LE MÉCANISME DE SÛRETÉ DALTONISME, pas un     */
+    /* choix esthétique : il a été validé paire à paire dans les deux      */
+    /* modes. On assigne les séries dans cet ordre, JAMAIS en cyclant, et  */
+    /* la couleur suit l'entité (une filière garde sa teinte quand un      */
+    /* filtre en retire d'autres). Au-delà de 8 séries : regrouper en      */
+    /* « Autres », ne jamais générer une 9e teinte.                        */
+    /*                                                                     */
+    /* En mode clair, les slots 3, 4 et 5 passent sous 3:1 face à la       */
+    /* surface : ils n'ont donc JAMAIS le droit de porter le sens seuls —  */
+    /* légende + étiquettes directes ou vue tableau obligatoires.          */
+    /* ------------------------------------------------------------------ */
+    --viz-series-1: #2a78d6; /* bleu */
+    --viz-series-2: #eb6834; /* orange */
+    --viz-series-3: #1baf7a; /* aqua */
+    --viz-series-4: #eda100; /* jaune */
+    --viz-series-5: #e87ba4; /* magenta */
+    --viz-series-6: #008300; /* vert */
+    --viz-series-7: #4a3aa7; /* violet */
+    --viz-series-8: #e34948; /* rouge */
+
+    /* Statut — réservé aux états (admis / rattrapage / ajourné, seuils de
+       recouvrement). Jamais réutilisé comme « série 4 », et toujours
+       accompagné d'un libellé : la couleur ne porte jamais le sens seule. */
+    --viz-good: #0ca30c;
+    --viz-warning: #fab219;
+    --viz-serious: #ec835a;
+    --viz-critical: #d03b3b;
+
+    /* Chrome : volontairement discret face aux marques de données. */
+    --viz-grid: #e1e0d9;
+    --viz-axis: #c3c2b7;
+    --viz-muted: #898781;
+
+    /* Rampe séquentielle (magnitude continue) — une seule teinte, clair→foncé. */
+    --viz-seq-100: #cde2fb;
+    --viz-seq-300: #6da7ec;
+    --viz-seq-500: #2a78d6;
+    --viz-seq-700: #0d366b;
+
+    /* Encre appariée à chaque palier de la rampe. Indispensable : une couleur de
+       texte fixe est illisible à une extrémité ou à l'autre de la rampe, et la
+       bonne extrémité s'inverse entre thème clair et sombre. */
+    --viz-seq-100-ink: #0b0b0b;
+    --viz-seq-300-ink: #0b0b0b;
+    --viz-seq-500-ink: #ffffff;
+    --viz-seq-700-ink: #ffffff;
   }
 
   /* Enhanced Dark mode (Discord-like) */
@@ -94,6 +144,34 @@
     
     /* Dark shadows */
     --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.4);
+
+    /* Data-viz — mêmes huit teintes, redéclinées pour la surface sombre.
+       Ce n'est pas une inversion automatique : chaque pas a été choisi pour la
+       bande sombre et validé comme jeu (contraste >= 3:1 sur #1e2124). */
+    --viz-series-1: #3987e5;
+    --viz-series-2: #d95926;
+    --viz-series-3: #199e70;
+    --viz-series-4: #c98500;
+    --viz-series-5: #d55181;
+    --viz-series-6: #008300;
+    --viz-series-7: #9085e9;
+    --viz-series-8: #e66767;
+
+    --viz-grid: #2c2c2a;
+    --viz-axis: #383835;
+    --viz-muted: #898781;
+
+    --viz-seq-100: #184f95;
+    --viz-seq-300: #256abf;
+    --viz-seq-500: #3987e5;
+    --viz-seq-700: #86b6ef;
+
+    /* L'appariement s'inverse : en thème sombre c'est le palier HAUT qui est
+       clair, donc celui qui réclame une encre foncée. */
+    --viz-seq-100-ink: #ffffff;
+    --viz-seq-300-ink: #ffffff;
+    --viz-seq-500-ink: #ffffff;
+    --viz-seq-700-ink: #0b0b0b;
   }
 
   /* Role-based theming */

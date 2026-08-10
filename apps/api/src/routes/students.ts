@@ -10,9 +10,26 @@ import {
   StudentQuerySchema,
   CreateStudentParentSchema,
   UpdateStudentParentSchema,
-  StudentParentQuerySchema
+  StudentParentQuerySchema,
+  StudentCredentialsEmailTemplateSchema
 } from "@ecoledigitale/contracts";
+import { emailService } from "../services/email.service";
+import {
+  DEFAULT_STUDENT_CREDENTIALS_TEMPLATE,
+  STUDENT_CREDENTIALS_VARIABLES,
+  loadTenantStudentCredentialsTemplate,
+  renderStudentCredentialsEmail,
+  resolveTenantName,
+  saveTenantStudentCredentialsTemplate,
+} from "../services/student-credentials-email";
 // Force reload: Updated schema max(1000) - 2025-11-05
+
+const LOGIN_URL =
+  process.env.WEB_APP_URL ||
+  process.env.FRONTEND_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://ecoledigitale.engage-360.net/login"
+    : "http://localhost:3000/login");
 
 export async function studentsRoutes(fastify: FastifyInstance) {
   const generateTemporaryPassword = (length = 12): string => {
@@ -255,6 +272,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                   isInscribed: { type: "boolean" },
                   inscriptionDate: { type: "string" },
                   residence: { type: "string" },
+                  studentMatricule: { type: ["string", "null"] },
                   establishmentMatricule: { type: "string" },
                   dspsMatricule: { type: "string" },
                   dspsPreviousMatricule: { type: "string" },
@@ -364,7 +382,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
         }
 
         if (query.search) {
-          whereClause += ` AND (CONCAT(u.first_name, ' ', u.last_name) ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex} OR sp.student_number ILIKE $${paramIndex})`;
+          whereClause += ` AND (CONCAT(u.first_name, ' ', u.last_name) ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex} OR sp.student_number ILIKE $${paramIndex} OR sp.student_matricule ILIKE $${paramIndex})`;
           params.push(`%${query.search}%`);
           paramIndex++;
         }
@@ -395,7 +413,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                  sp.origin_school, sp.is_repeating, sp.lv2, sp.scholarship_level,
                  sp.is_transfer, sp.transfer_decision, sp.affectation_status, sp.affectation_decision,
                  sp.cepe_code, sp.is_inscribed, sp.inscription_date,
-                 sp.residence,
+                 sp.residence, sp.student_matricule,
                  sp.establishment_matricule, sp.dsps_matricule, sp.dsps_previous_matricule, sp.initial_password,
                  sp.bac_obtention_date, sp.bac_series, sp.last_diploma,
                  ${genderSelect}, sp.is_active,
@@ -463,6 +481,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           bacObtentionDate: row.bac_obtention_date,
           bacSeries: row.bac_series,
           lastDiploma: row.last_diploma,
+          studentMatricule: row.student_matricule,
           establishmentMatricule: row.establishment_matricule,
           dspsMatricule: row.dsps_matricule,
           dspsPreviousMatricule: row.dsps_previous_matricule,
@@ -653,7 +672,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                  sp.origin_school, sp.is_repeating, sp.lv2, sp.scholarship_level,
                  sp.is_transfer, sp.transfer_decision, sp.affectation_status, sp.affectation_decision,
                  sp.cepe_code, sp.is_inscribed, sp.inscription_date,
-                 sp.residence,
+                 sp.residence, sp.student_matricule,
                  sp.establishment_matricule, sp.dsps_matricule, sp.dsps_previous_matricule, sp.initial_password,
                  sp.bac_obtention_date, sp.bac_series, sp.last_diploma,
                  ${genderSelect}, sp.is_active,
@@ -726,6 +745,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           bacObtentionDate: row.bac_obtention_date,
           bacSeries: row.bac_series,
           lastDiploma: row.last_diploma,
+          studentMatricule: row.student_matricule,
           establishmentMatricule: row.establishment_matricule,
           dspsMatricule: row.dsps_matricule,
           dspsPreviousMatricule: row.dsps_previous_matricule,
@@ -786,6 +806,10 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           civilRegistryOffice: { type: "string", maxLength: 255 },
           subPrefecture: { type: "string", maxLength: 255 },
           residence: { type: "string", maxLength: 255 },
+          // Matricule saisi : optionnel ici (cet endpoint rattache un profil à un
+          // utilisateur déjà créé). Il est obligatoire sur POST /with-user, utilisé
+          // par la page /academic/students/new.
+          studentMatricule: { type: "string", minLength: 1, maxLength: 50 },
           establishmentMatricule: { type: "string", maxLength: 100 },
           dspsMatricule: { type: "string", maxLength: 100 },
           dspsPreviousMatricule: { type: "string", maxLength: 100 },
@@ -806,6 +830,23 @@ export async function studentsRoutes(fastify: FastifyInstance) {
       try {
         const establishmentMatricule = await getNextEstablishmentMatricule(client, request.tenantId);
         const studentNumber = establishmentMatricule;
+        const studentMatricule = data.studentMatricule
+          ? String(data.studentMatricule).trim()
+          : null;
+
+        if (studentMatricule) {
+          const matriculeConflict = await client.query(
+            `SELECT id FROM student_profiles
+             WHERE tenant_id = $1 AND student_matricule = $2`,
+            [request.tenantId, studentMatricule]
+          );
+          if (matriculeConflict.rows.length > 0) {
+            return reply.status(409).send({
+              error: "Conflict",
+              message: `Le matricule « ${studentMatricule} » est déjà attribué à un autre étudiant`,
+            });
+          }
+        }
 
         // Check if user exists and belongs to tenant
         const userCheck = await client.query(
@@ -861,6 +902,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           'civil_registry_office',
           'sub_prefecture',
           'residence',
+          'student_matricule',
           'establishment_matricule',
           'dsps_matricule',
           'dsps_previous_matricule',
@@ -886,6 +928,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           data.civilRegistryOffice || null,
           data.subPrefecture || null,
           data.residence || null,
+          studentMatricule,
           establishmentMatricule,
           data.dspsMatricule || null,
           data.dspsPreviousMatricule || null,
@@ -902,7 +945,8 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           RETURNING id, tenant_id, user_id, student_number, current_year, status, bio,
                     date_of_birth, place_of_birth, nationality, address, phone,
                     emergency_phone, father_name, mother_name, birth_certificate_number, birth_certificate_date,
-                    civil_registry_office, sub_prefecture, residence, establishment_matricule, dsps_matricule, dsps_previous_matricule
+                    civil_registry_office, sub_prefecture, residence,
+                    student_matricule, establishment_matricule, dsps_matricule, dsps_previous_matricule
                     ${hasGenderColumn ? ', gender' : ''}, is_active, created_at, updated_at
         `;
 
@@ -930,6 +974,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           civilRegistryOffice: row.civil_registry_office,
           subPrefecture: row.sub_prefecture,
           residence: row.residence,
+          studentMatricule: row.student_matricule,
           establishmentMatricule: row.establishment_matricule,
           dspsMatricule: row.dsps_matricule,
           dspsPreviousMatricule: row.dsps_previous_matricule,
@@ -957,7 +1002,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
     schema: {
       body: {
         type: "object",
-        required: ["firstName", "lastName", "email", "password"],
+        required: ["firstName", "lastName", "email", "password", "studentMatricule"],
         additionalProperties: false,
         properties: {
           firstName: { type: "string", minLength: 1, maxLength: 100 },
@@ -965,6 +1010,10 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           email: { type: "string", format: "email" },
           password: { type: "string", minLength: 8 },
           matricule: { type: "string", maxLength: 50 },
+          // Matricule saisi par la scolarité : format libre, obligatoire.
+          // À ne pas confondre avec `matricule` ci-dessus, ignoré au profit de
+          // la séquence numérique automatique (voir plus bas).
+          studentMatricule: { type: "string", minLength: 1, maxLength: 50 },
           currentYear: { type: "number", minimum: 1, maximum: 10, default: 1 },
           status: { type: "string", enum: ["active", "graduated", "suspended", "dropped", "transfer"], default: "active" },
           bio: { type: "string" },
@@ -988,6 +1037,16 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           bacObtentionDate: { type: "string", format: "date" },
           bacSeries: { type: "string", maxLength: 100 },
           lastDiploma: { type: "string", maxLength: 255 },
+          sendCredentialsEmail: { type: "boolean" },
+          saveCredentialsEmailTemplate: { type: "boolean" },
+          credentialsEmailTemplate: {
+            type: "object",
+            required: ["subject", "body"],
+            properties: {
+              subject: { type: "string", minLength: 1, maxLength: 300 },
+              body: { type: "string", minLength: 1, maxLength: 20000 },
+            },
+          },
         },
       },
     },
@@ -1013,9 +1072,34 @@ export async function studentsRoutes(fastify: FastifyInstance) {
         const existingUserResult = await client.query(existingUserQuery, [request.tenantId, data.email]);
 
         if (existingUserResult.rows.length > 0) {
+          // ROLLBACK avant de rendre la connexion au pool : la transaction a
+          // déjà été ouverte par le BEGIN ci-dessus.
+          await client.query('ROLLBACK');
           return reply.status(409).send({
             error: "Conflict",
             message: "A user with this email already exists",
+          });
+        }
+
+        // Matricule saisi par la scolarité : unique dans le tenant.
+        const studentMatricule = String(data.studentMatricule).trim();
+        if (!studentMatricule) {
+          await client.query('ROLLBACK');
+          return reply.status(400).send({
+            error: "Validation Error",
+            message: "Le matricule est requis",
+          });
+        }
+        const matriculeConflict = await client.query(
+          `SELECT id FROM student_profiles
+           WHERE tenant_id = $1 AND student_matricule = $2`,
+          [request.tenantId, studentMatricule]
+        );
+        if (matriculeConflict.rows.length > 0) {
+          await client.query('ROLLBACK');
+          return reply.status(409).send({
+            error: "Conflict",
+            message: `Le matricule « ${studentMatricule} » est déjà attribué à un autre étudiant`,
           });
         }
 
@@ -1090,6 +1174,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           'civil_registry_office',
           'sub_prefecture',
           'residence',
+          'student_matricule',
           'establishment_matricule',
           'dsps_matricule',
           'dsps_previous_matricule',
@@ -1119,6 +1204,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           data.civilRegistryOffice || null,
           data.subPrefecture || null,
           data.residence || null,
+          studentMatricule,
           establishmentMatricule,
           data.dspsMatricule || null,
           data.dspsPreviousMatricule || null,
@@ -1139,7 +1225,8 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           RETURNING id, tenant_id, user_id, student_number, current_year, status, bio,
                     date_of_birth, place_of_birth, nationality, address, phone,
                     emergency_phone, father_name, mother_name, birth_certificate_number, birth_certificate_date,
-                    civil_registry_office, sub_prefecture, residence, establishment_matricule, dsps_matricule, dsps_previous_matricule,
+                    civil_registry_office, sub_prefecture, residence,
+                    student_matricule, establishment_matricule, dsps_matricule, dsps_previous_matricule,
                     bac_obtention_date, bac_series, last_diploma, initial_password
                     ${hasGenderColumn ? ', gender' : ''}, is_active, created_at, updated_at
         `;
@@ -1148,8 +1235,64 @@ export async function studentsRoutes(fastify: FastifyInstance) {
 
         await client.query('COMMIT');
 
+        // Envoi best-effort des identifiants : un échec SMTP ne doit jamais
+        // annuler la création de l'étudiant (la transaction est déjà commitée).
+        let emailSent = false;
+        let emailError: string | null = null;
+
+        // Mémorisation du modèle comme défaut de l'établissement, indépendante
+        // du succès de l'envoi.
+        if (data.saveCredentialsEmailTemplate && data.credentialsEmailTemplate) {
+          try {
+            await saveTenantStudentCredentialsTemplate(
+              client,
+              request.tenantId,
+              data.credentialsEmailTemplate
+            );
+          } catch (saveError) {
+            fastify.log.error(`Failed to save student credentials template: ${saveError}`);
+          }
+        }
+
+        const wantsEmail = data.sendCredentialsEmail !== false;
+        if (wantsEmail && data.email && data.password) {
+          try {
+            if (!emailService.isConfigured()) {
+              throw new Error(
+                "Service email non configuré (variables SMTP_HOST / SMTP_USER / SMTP_PASSWORD manquantes)."
+              );
+            }
+
+            const template =
+              data.credentialsEmailTemplate ??
+              (await loadTenantStudentCredentialsTemplate(client, request.tenantId));
+            const schoolName = await resolveTenantName(client, request.tenantId);
+
+            const { subject, html, text } = renderStudentCredentialsEmail(template, {
+              firstName: data.firstName,
+              lastName: data.lastName,
+              email: data.email,
+              password: data.password,
+              loginUrl: LOGIN_URL,
+              schoolName,
+              studentMatricule,
+              currentYear: data.currentYear,
+            });
+
+            await emailService.sendEmail({ to: data.email, subject, html, text });
+            emailSent = true;
+          } catch (mailError) {
+            emailError = mailError instanceof Error ? mailError.message : String(mailError);
+            fastify.log.error(
+              `Student created (${studentResult.rows[0].id}) but credentials email failed: ${emailError}`
+            );
+          }
+        }
+
         const studentRow = studentResult.rows[0];
         const response = {
+          emailSent,
+          emailError,
           id: studentRow.id,
           tenantId: studentRow.tenant_id,
           userId: studentRow.user_id,
@@ -1170,6 +1313,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           civilRegistryOffice: studentRow.civil_registry_office,
           subPrefecture: studentRow.sub_prefecture,
           residence: studentRow.residence,
+          studentMatricule: studentRow.student_matricule,
           establishmentMatricule: studentRow.establishment_matricule,
           dspsMatricule: studentRow.dsps_matricule,
           dspsPreviousMatricule: studentRow.dsps_previous_matricule,
@@ -1196,6 +1340,170 @@ export async function studentsRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({
           error: "Internal Server Error",
           message: error?.message || "Failed to create student with user account",
+        });
+      } finally {
+        client.release();
+      }
+    },
+  });
+
+  // GET /api/v1/students/credentials-template — Modèle d'email des identifiants
+  fastify.get("/credentials-template", {
+    handler: async (request, reply) => {
+      if (!request.tenantId) {
+        return reply.status(400).send({
+          error: "Tenant Required",
+          message: "This endpoint requires tenant context",
+        });
+      }
+
+      const client = await fastify.pg.connect();
+      try {
+        const [template, schoolName] = await Promise.all([
+          loadTenantStudentCredentialsTemplate(client, request.tenantId),
+          resolveTenantName(client, request.tenantId),
+        ]);
+
+        return reply.send({
+          ...template,
+          defaults: DEFAULT_STUDENT_CREDENTIALS_TEMPLATE,
+          variables: STUDENT_CREDENTIALS_VARIABLES,
+          emailConfigured: emailService.isConfigured(),
+          schoolName,
+          loginUrl: LOGIN_URL,
+        });
+      } catch (error) {
+        fastify.log.error(`Error loading student credentials template: ${error}`);
+        return reply.status(500).send({
+          error: "Internal Server Error",
+          message: "Impossible de charger le modèle d'email",
+        });
+      } finally {
+        client.release();
+      }
+    },
+  });
+
+  // PUT /api/v1/students/credentials-template — Enregistre le modèle du tenant
+  fastify.put("/credentials-template", {
+    handler: async (request, reply) => {
+      if (!request.tenantId) {
+        return reply.status(400).send({
+          error: "Tenant Required",
+          message: "This endpoint requires tenant context",
+        });
+      }
+
+      const template = StudentCredentialsEmailTemplateSchema.parse(request.body as unknown);
+
+      const client = await fastify.pg.connect();
+      try {
+        await saveTenantStudentCredentialsTemplate(client, request.tenantId, template);
+        return reply.send({ ...template, saved: true });
+      } catch (error) {
+        fastify.log.error(`Error saving student credentials template: ${error}`);
+        return reply.status(500).send({
+          error: "Internal Server Error",
+          message: "Impossible d'enregistrer le modèle d'email",
+        });
+      } finally {
+        client.release();
+      }
+    },
+  });
+
+  // POST /api/v1/students/:id/send-credentials — (Re)envoie les identifiants par email
+  fastify.post("/:id/send-credentials", {
+    handler: async (request, reply) => {
+      if (!request.tenantId) {
+        return reply.status(400).send({
+          error: "Tenant Required",
+          message: "This endpoint requires tenant context",
+        });
+      }
+
+      if (!emailService.isConfigured()) {
+        return reply.status(503).send({
+          error: "Service Unavailable",
+          message:
+            "Service email non configuré (variables SMTP_HOST / SMTP_USER / SMTP_PASSWORD manquantes).",
+        });
+      }
+
+      const { id } = request.params as { id: string };
+      const body = (request.body ?? {}) as {
+        template?: { subject: string; body: string };
+      };
+
+      const client = await fastify.pg.connect();
+      try {
+        const studentRes = await client.query(
+          `SELECT sp.id, sp.user_id, sp.student_matricule, sp.current_year, sp.initial_password,
+                  u.first_name, u.last_name, u.email
+             FROM student_profiles sp
+             JOIN users u ON u.id = sp.user_id
+            WHERE sp.id = $1 AND sp.tenant_id = $2`,
+          [id, request.tenantId]
+        );
+
+        if (studentRes.rows.length === 0) {
+          return reply.status(404).send({ error: "Not Found", message: "Étudiant introuvable" });
+        }
+
+        const row = studentRes.rows[0];
+        if (!row.email) {
+          return reply.status(400).send({
+            error: "Validation Error",
+            message: "Cet étudiant n'a pas d'adresse email.",
+          });
+        }
+
+        // Pas de mot de passe en clair disponible : on en régénère un et on
+        // met à jour le compte, sinon l'email serait inutilisable.
+        let password: string = row.initial_password;
+        if (!password) {
+          password = generateTemporaryPassword();
+          const passwordHash = await bcrypt.hash(password, 12);
+          await client.query(
+            `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+            [passwordHash, row.user_id]
+          );
+          await client.query(
+            `UPDATE student_profiles SET initial_password = $1, updated_at = NOW() WHERE id = $2`,
+            [password, id]
+          );
+        }
+
+        const template =
+          (body.template
+            ? StudentCredentialsEmailTemplateSchema.parse(body.template)
+            : null) ?? (await loadTenantStudentCredentialsTemplate(client, request.tenantId));
+        const schoolName = await resolveTenantName(client, request.tenantId);
+
+        const { subject, html, text } = renderStudentCredentialsEmail(template, {
+          firstName: row.first_name,
+          lastName: row.last_name,
+          email: row.email,
+          password,
+          loginUrl: LOGIN_URL,
+          schoolName,
+          studentMatricule: row.student_matricule,
+          currentYear: row.current_year,
+        });
+
+        await emailService.sendEmail({ to: row.email, subject, html, text });
+
+        return reply.send({
+          studentId: row.id,
+          emailSent: true,
+          sentTo: row.email,
+          message: `Identifiants envoyés à ${row.email}`,
+        });
+      } catch (error) {
+        fastify.log.error(`Error sending student credentials: ${error}`);
+        return reply.status(500).send({
+          error: "Internal Server Error",
+          message: error instanceof Error ? error.message : "Échec de l'envoi de l'email",
         });
       } finally {
         client.release();
@@ -1335,6 +1643,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           civilRegistryOffice: { type: "string", maxLength: 255 },
           subPrefecture: { type: "string", maxLength: 255 },
           residence: { type: "string", maxLength: 255 },
+          studentMatricule: { type: "string", minLength: 1, maxLength: 50 },
           establishmentMatricule: { type: "string", maxLength: 100 },
           dspsMatricule: { type: "string", maxLength: 100 },
           dspsPreviousMatricule: { type: "string", maxLength: 100 },
@@ -1368,6 +1677,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
             civilRegistryOffice: { type: "string" },
             subPrefecture: { type: "string" },
             residence: { type: "string" },
+            studentMatricule: { type: ["string", "null"] },
             establishmentMatricule: { type: "string" },
             dspsMatricule: { type: "string" },
             dspsPreviousMatricule: { type: "string" },
@@ -1475,6 +1785,30 @@ export async function studentsRoutes(fastify: FastifyInstance) {
             return reply.status(409).send({
               error: "Conflict",
               message: "A student with this student number already exists",
+            });
+          }
+        }
+
+        // Matricule saisi : format libre, mais unique dans le tenant.
+        if (updateData.studentMatricule !== undefined) {
+          updateData.studentMatricule = String(updateData.studentMatricule).trim();
+          if (!updateData.studentMatricule) {
+            await client.query('ROLLBACK');
+            return reply.status(400).send({
+              error: "Validation Error",
+              message: "Le matricule est requis",
+            });
+          }
+          const matriculeConflict = await client.query(
+            `SELECT id FROM student_profiles
+             WHERE tenant_id = $1 AND student_matricule = $2 AND id != $3`,
+            [request.tenantId, updateData.studentMatricule, id]
+          );
+          if (matriculeConflict.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return reply.status(409).send({
+              error: "Conflict",
+              message: `Le matricule « ${updateData.studentMatricule} » est déjà attribué à un autre étudiant`,
             });
           }
         }
@@ -1611,6 +1945,11 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           profileUpdateValues.push(updateData.residence);
           profileParamIndex++;
         }
+        if (updateData.studentMatricule !== undefined) {
+          profileUpdateFields.push(`student_matricule = $${profileParamIndex}`);
+          profileUpdateValues.push(updateData.studentMatricule);
+          profileParamIndex++;
+        }
         if (updateData.establishmentMatricule !== undefined) {
           profileUpdateFields.push(`establishment_matricule = $${profileParamIndex}`);
           profileUpdateValues.push(updateData.establishmentMatricule);
@@ -1671,7 +2010,8 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           RETURNING id, tenant_id, user_id, student_number, current_year, status, bio,
                     date_of_birth, place_of_birth, nationality, address, phone,
                     emergency_phone, father_name, mother_name, birth_certificate_number, birth_certificate_date,
-                    civil_registry_office, sub_prefecture, residence, establishment_matricule, dsps_matricule, dsps_previous_matricule
+                    civil_registry_office, sub_prefecture, residence,
+                    student_matricule, establishment_matricule, dsps_matricule, dsps_previous_matricule
                     ${genderSelect}, is_active, created_at, updated_at
         `;
 
@@ -1715,6 +2055,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           civilRegistryOffice: profile.civil_registry_office,
           subPrefecture: profile.sub_prefecture,
           residence: profile.residence,
+          studentMatricule: profile.student_matricule,
           establishmentMatricule: profile.establishment_matricule,
           dspsMatricule: profile.dsps_matricule,
           dspsPreviousMatricule: profile.dsps_previous_matricule,

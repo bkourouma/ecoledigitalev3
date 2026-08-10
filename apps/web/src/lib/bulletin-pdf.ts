@@ -45,7 +45,7 @@ function decRgb(d: string): [number, number, number] {
   return d === "admis" ? OK : d === "rattrapage" ? AMBER : BAD;
 }
 
-interface Img {
+export interface Img {
   dataUrl: string;
   ratio: number;
 }
@@ -71,7 +71,7 @@ async function loadImg(url: string): Promise<Img | null> {
   }
 }
 
-function kv(doc: jsPDF, label: string, value: string, x: number, y: number, valueBold = false) {
+export function kv(doc: jsPDF, label: string, value: string, x: number, y: number, valueBold = false) {
   doc.setFont("times", "bold");
   doc.setFontSize(11);
   doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
@@ -85,12 +85,12 @@ function kv(doc: jsPDF, label: string, value: string, x: number, y: number, valu
   doc.text(value, x + w + 2, y);
 }
 
-interface HeaderImages {
+export interface HeaderImages {
   logoInstitut: Img | null;
   embleme: Img | null;
 }
 
-async function loadHeaderImages(): Promise<HeaderImages> {
+export async function loadHeaderImages(): Promise<HeaderImages> {
   const [logoInstitut, embleme] = await Promise.all([loadImg(LOGO_INSTITUT), loadImg(LOGO_EMBLEME)]);
   return { logoInstitut, embleme };
 }
@@ -432,15 +432,13 @@ export async function openAllBulletinsPdf(bulletins: any[], win?: Window | null)
 /**
  * Ouvre le relevé de notes comme un document PDF dans le navigateur
  * (visionneuse native), sans passer par l'interface applicative.
- * `target` : "self" navigue l'onglet courant, "blank" ouvre un nouvel onglet.
+ * `win` : onglet ouvert de façon synchrone au clic (évite le blocage popup) ;
+ * si absent, un nouvel onglet est ouvert.
  */
-export async function openBulletinPdf(bulletin: any, target: "self" | "blank" = "self"): Promise<void> {
+export async function openBulletinPdf(bulletin: any, win?: Window | null): Promise<void> {
   const { doc } = await buildBulletinDoc(bulletin);
   const url = URL.createObjectURL(doc.output("blob"));
-  if (target === "blank") {
-    window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  } else {
-    window.location.replace(url);
-  }
+  if (win) win.location.href = url;
+  else window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 120_000);
 }

@@ -331,7 +331,6 @@ export default function ProfessionalInscriptionsPage() {
                 <>
                   {filteredStudents.slice(0, STUDENT_VISIBLE_CAP).map((s) => {
                     const checked = studentIds.includes(s.id);
-                    const mat = s.studentNumber || s.establishmentMatricule;
                     return (
                       <label
                         key={s.id}
@@ -346,7 +345,6 @@ export default function ProfessionalInscriptionsPage() {
                         />
                         <span>
                           <span className="font-medium">{studentName(s)}</span>
-                          {mat && <span className="text-muted-foreground"> — {mat}</span>}
                         </span>
                       </label>
                     );

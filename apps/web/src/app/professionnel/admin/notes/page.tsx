@@ -8,6 +8,7 @@ import { Card, CardContent, Button, Input } from "@ecoledigitale/ui";
 import {
   Layers,
   CalendarRange,
+  Calendar,
   BookOpen,
   GraduationCap,
   Loader2,
@@ -43,8 +44,23 @@ function fmt(x: number | null | undefined): string {
   return x == null ? "—" : Number(x).toFixed(2).replace(".", ",");
 }
 
+/**
+ * Année scolaire (pivot septembre) dérivée de la date de début du semestre,
+ * alignée sur le calcul côté API (professional-bulletin.service.ts) et les autres
+ * pages : un semestre démarrant en septembre ou après appartient à
+ * « AAAA-AAAA+1 », sinon « AAAA-1-AAAA ».
+ */
+function anneeScolaireOf(v?: string | null): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
 export default function NotesPage() {
   const [filiereId, setFiliereId] = useState("");
+  const [annee, setAnnee] = useState("all");
   const [semestreId, setSemestreId] = useState("");
   const [sessionId, setSessionId] = useState("");
   // Session de saisie LMD : 1 = normale, 2 = rattrapage (examens uniquement).
@@ -69,8 +85,39 @@ export default function NotesPage() {
   const filieres: any[] = (programmesQuery.data as any[]) ?? [];
   const semestres: any[] = useMemo(() => {
     const list = (semestresQuery.data as any[]) ?? [];
-    return filiereId ? list : [];
+    return filiereId
+      ? list.map((s) => ({ ...s, annee_scolaire: anneeScolaireOf(s.date_debut) }))
+      : [];
   }, [semestresQuery.data, filiereId]);
+
+  // Années scolaires disponibles pour la filière (plus récentes en premier).
+  const anneeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of semestres) if (s.annee_scolaire) set.add(s.annee_scolaire);
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [semestres]);
+
+  // Semestres filtrés par année scolaire sélectionnée.
+  const visibleSemestres = useMemo(
+    () => semestres.filter((s) => annee === "all" || s.annee_scolaire === annee),
+    [semestres, annee]
+  );
+
+  // Si l'année sélectionnée n'existe plus (changement de filière), on réinitialise.
+  useEffect(() => {
+    if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
+  }, [anneeOptions, annee]);
+
+  // Si le semestre sélectionné n'est plus visible (filtre année), on le désélectionne.
+  useEffect(() => {
+    if (semestreId && !visibleSemestres.some((s) => s.id === semestreId)) {
+      setSemestreId("");
+      setSessionId("");
+    }
+  }, [visibleSemestres, semestreId]);
+
   // UE (sessions) du semestre, hors « Conduite » et sans inscrit.
   const sessions: any[] = ((sessionsQuery.data as any[]) ?? [])
     .filter((s) => !String(s.ue_libelle ?? "").toLowerCase().startsWith("conduite"))
@@ -204,56 +251,69 @@ export default function NotesPage() {
         </div>
       )}
 
-      {/* Sélecteurs : filière + semestre (toutes les UE du semestre s'affichent) */}
+      {/* Sélecteurs — deux en haut (filière, année), deux en bas (semestre, UE) */}
       <Card className="shadow-sm">
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <SearchableSelect
-            value={filiereId}
-            onChange={(v) => {
-              setFiliereId(v);
-              setSemestreId("");
-              setSessionId("");
-            }}
-            icon={<Layers className="h-4 w-4 text-gray-400" />}
-            placeholder={programmesQuery.isLoading ? "Chargement…" : "Filière"}
-            searchPlaceholder="Rechercher une filière…"
-            options={filieres.map((f) => ({
-              value: f.id,
-              label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
-            }))}
-          />
-          <SearchableSelect
-            value={semestreId}
-            onChange={(v) => {
-              setSemestreId(v);
-              setSessionId("");
-            }}
-            icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
-            placeholder={!filiereId ? "Choisir une filière" : "Semestre"}
-            searchPlaceholder="Rechercher un semestre…"
-            options={semestres.map((s) => ({ value: s.id, label: s.libelle }))}
-          />
-          <SearchableSelect
-            value={sessionId}
-            onChange={setSessionId}
-            icon={<BookOpen className="h-4 w-4 text-gray-400" />}
-            placeholder={
-              !semestreId
-                ? "Choisir un semestre"
-                : sessionsQuery.isLoading
-                ? "Chargement…"
-                : sessions.length === 0
-                ? "Aucune UE"
-                : "UE"
-            }
-            searchPlaceholder="Rechercher une UE…"
-            options={sessions.map((s) => ({
-              value: s.id,
-              label: `${s.ue_libelle ?? ""}${s.ue_code ? ` (${s.ue_code})` : ""}`.trim(),
-            }))}
-          />
+        <CardContent className="p-4 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <SearchableSelect
+              value={filiereId}
+              onChange={(v) => {
+                setFiliereId(v);
+                setAnnee("all");
+                setSemestreId("");
+                setSessionId("");
+              }}
+              icon={<Layers className="h-4 w-4 text-gray-400" />}
+              placeholder={programmesQuery.isLoading ? "Chargement…" : "Filière"}
+              searchPlaceholder="Rechercher une filière…"
+              options={filieres.map((f) => ({
+                value: f.id,
+                label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
+              }))}
+            />
+            <SearchableSelect
+              value={annee}
+              onChange={setAnnee}
+              icon={<Calendar className="h-4 w-4 text-gray-400" />}
+              placeholder={!filiereId ? "Choisir une filière" : "Toutes les années"}
+              searchPlaceholder="Rechercher une année…"
+              options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <SearchableSelect
+              value={semestreId}
+              onChange={(v) => {
+                setSemestreId(v);
+                setSessionId("");
+              }}
+              icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
+              placeholder={!filiereId ? "Choisir une filière" : "Semestre"}
+              searchPlaceholder="Rechercher un semestre…"
+              options={visibleSemestres.map((s) => ({ value: s.id, label: s.libelle }))}
+            />
+            <SearchableSelect
+              value={sessionId}
+              onChange={setSessionId}
+              icon={<BookOpen className="h-4 w-4 text-gray-400" />}
+              placeholder={
+                !semestreId
+                  ? "Choisir un semestre"
+                  : sessionsQuery.isLoading
+                  ? "Chargement…"
+                  : sessions.length === 0
+                  ? "Aucune UE"
+                  : "UE"
+              }
+              searchPlaceholder="Rechercher une UE…"
+              options={sessions.map((s) => ({
+                value: s.id,
+                label: `${s.ue_libelle ?? ""}${s.ue_code ? ` (${s.ue_code})` : ""}`.trim(),
+              }))}
+            />
+          </div>
           {/* Session de saisie LMD (rattrapage = uniquement les examens) */}
-          <div className="md:col-span-3 flex items-center gap-3 pt-1">
+          <div className="flex items-center gap-3 pt-1">
             <span className="text-sm font-medium text-muted-foreground">Session de saisie :</span>
             <div className="inline-flex rounded-lg border border-border overflow-hidden">
               <button
@@ -323,7 +383,30 @@ export default function NotesPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="shadow-sm overflow-hidden">
+        <>
+          {/* Barre d'action — juste au-dessus du tableau. */}
+          <div className="flex items-center justify-end gap-3 rounded-xl border border-border bg-background px-4 py-3 shadow-sm">
+            {saved && (
+              <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+                Enregistré et calculé
+              </span>
+            )}
+            <Button
+              onClick={handleSaveAndCompute}
+              disabled={savingAll || recomputeMut.isPending}
+              className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
+            >
+              {savingAll || recomputeMut.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Enregistrer et calculer
+            </Button>
+          </div>
+
+        <Card className="shadow-sm">
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-3">
             <BookOpen className="h-4 w-4 text-indigo-500 shrink-0" />
             <span className="font-semibold">{grid?.session?.ue_libelle ?? "Unité d'enseignement"}</span>
@@ -332,7 +415,7 @@ export default function NotesPage() {
               {showConduite ? " · conduite incluse" : ""}
             </span>
           </div>
-          <CardContent className="p-0 overflow-auto max-h-[80vh]">
+          <CardContent className="p-0 overflow-x-auto">
             <table className="min-w-full text-[15px] border-collapse">
               <thead>
                 {/* En-tête groupé : une ECUE = 3 sous-colonnes (Devoirs / Examen / Note) */}
@@ -451,52 +534,27 @@ export default function NotesPage() {
             </table>
           </CardContent>
         </Card>
-      )}
 
-      {sessionId && ecues.length > 0 && students.length > 0 && (
-        <div className="text-xs text-muted-foreground space-y-1">
-          <p>
-            Chaque ECUE : <span className="font-medium">Devoirs</span> (multiples) ·{" "}
-            <span className="font-medium">Examen</span> (unique) ·{" "}
-            <span className="font-medium">Note</span> = moyenne devoirs × 0,4 + examen × 0,6
-            {showConduite && (
-              <>
-                {" "}· <span className="font-medium">Conduite</span> = note unique /20 du semestre
-              </>
-            )}
-            .
-          </p>
-          <p>
-            Repères : <span className="font-mono">m</span> = note saisie manuellement ·{" "}
-            <span className="font-mono">éval</span> = note issue d'une évaluation (copie notée,
-            reprise automatiquement). La couleur de la Note indique le statut (validé / insuffisant /
-            éliminatoire).
-          </p>
-        </div>
-      )}
-
-      {/* Barre d'action : enregistrer les saisies + calculer */}
-      {sessionId && ecues.length > 0 && students.length > 0 && (
-        <div className="sticky bottom-4 z-10 flex items-center justify-end gap-3 rounded-xl border border-border bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
-          {saved && (
-            <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
-              <CheckCircle2 className="h-4 w-4" />
-              Enregistré et calculé
-            </span>
-          )}
-          <Button
-            onClick={handleSaveAndCompute}
-            disabled={savingAll || recomputeMut.isPending}
-            className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
-          >
-            {savingAll || recomputeMut.isPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Enregistrer et calculer
-          </Button>
-        </div>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>
+              Chaque ECUE : <span className="font-medium">Devoirs</span> (multiples) ·{" "}
+              <span className="font-medium">Examen</span> (unique) ·{" "}
+              <span className="font-medium">Note</span> = moyenne devoirs × 0,4 + examen × 0,6
+              {showConduite && (
+                <>
+                  {" "}· <span className="font-medium">Conduite</span> = note unique /20 du semestre
+                </>
+              )}
+              .
+            </p>
+            <p>
+              Repères : <span className="font-mono">m</span> = note saisie manuellement ·{" "}
+              <span className="font-mono">éval</span> = note issue d'une évaluation (copie notée,
+              reprise automatiquement). La couleur de la Note indique le statut (validé / insuffisant /
+              éliminatoire).
+            </p>
+          </div>
+        </>
       )}
     </div>
   );

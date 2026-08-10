@@ -13,7 +13,6 @@ import {
   Search,
   Eye,
   GraduationCap,
-  CheckCircle2,
   FileSpreadsheet,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -21,25 +20,18 @@ import { useNotesFilieres, useBulletinHistory } from "@/lib/hooks/use-profession
 
 /**
  * Historique des bulletins — Module Professionnel (LMD).
- * Filière → statut des sessions (en cours / terminées) → session (année
- * scolaire, de la plus ancienne à la plus récente) → tableau : une ligne par
- * étudiant, une colonne par semestre (bulletin généré, consultable en PDF),
- * plus le statut global de la filière (crédits cumulés sur les 3 semestres).
+ * Filière → année scolaire (de la plus ancienne à la plus récente) → tableau :
+ * une ligne par étudiant, une colonne par semestre (bulletin généré,
+ * consultable en PDF), plus le statut global de la filière (crédits cumulés
+ * sur les 3 semestres).
  */
 
 function fmt(x: number | null | undefined): string {
   return x == null ? "—" : Number(x).toFixed(2).replace(".", ",");
 }
 
-const STATUT_OPTIONS = [
-  { value: "all", label: "Tous les statuts" },
-  { value: "en_cours", label: "Sessions en cours" },
-  { value: "terminee", label: "Sessions terminées" },
-];
-
 export default function HistoriqueBulletinsPage() {
   const [filiereId, setFiliereId] = useState("");
-  const [statut, setStatut] = useState("all");
   const [periode, setPeriode] = useState("");
   const [search, setSearch] = useState("");
 
@@ -52,13 +44,11 @@ export default function HistoriqueBulletinsPage() {
   const students: any[] = history?.students ?? [];
   const bulletins: any[] = history?.bulletins ?? [];
 
-  // Périodes (années scolaires) disponibles, filtrées par statut, de la plus
-  // ancienne à la plus récente.
+  // Périodes (années scolaires) disponibles, de la plus ancienne à la plus récente.
   const periodes = useMemo(() => {
     const map = new Map<string, { annee: string; statut: string; date: string }>();
     for (const s of semestres) {
       if (!s.annee_scolaire) continue;
-      if (statut !== "all" && s.statut !== statut) continue;
       const cur = map.get(s.annee_scolaire);
       // Une période est « en cours » si au moins un de ses semestres l'est.
       const st = cur?.statut === "en_cours" || s.statut === "en_cours" ? "en_cours" : s.statut;
@@ -69,16 +59,15 @@ export default function HistoriqueBulletinsPage() {
       });
     }
     return Array.from(map.values()).sort((a, b) => a.annee.localeCompare(b.annee));
-  }, [semestres, statut]);
+  }, [semestres]);
 
-  // Semestres de la période sélectionnée (colonnes du tableau), chronologiques.
+  // Semestres de la période (année scolaire) sélectionnée, chronologiques.
   const shownSemestres = useMemo(
     () =>
       semestres
         .filter((s) => (periode ? s.annee_scolaire === periode : false))
-        .filter((s) => (statut === "all" ? true : s.statut === statut))
         .sort((a, b) => String(a.libelle).localeCompare(String(b.libelle), "fr", { numeric: true })),
-    [semestres, periode, statut]
+    [semestres, periode]
   );
 
   // Index bulletin par (student, semestre).
@@ -162,9 +151,9 @@ export default function HistoriqueBulletinsPage() {
         </div>
       </div>
 
-      {/* Filtres */}
+      {/* Filtres — filière puis année scolaire */}
       <Card className="shadow-sm">
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
           <SearchableSelect
             value={filiereId}
             onChange={(v) => {
@@ -180,16 +169,6 @@ export default function HistoriqueBulletinsPage() {
             }))}
           />
           <SearchableSelect
-            value={statut}
-            onChange={(v) => {
-              setStatut(v);
-              setPeriode("");
-            }}
-            icon={<CheckCircle2 className="h-4 w-4 text-gray-400" />}
-            placeholder="Statut des sessions"
-            options={STATUT_OPTIONS}
-          />
-          <SearchableSelect
             value={periode}
             onChange={setPeriode}
             icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
@@ -200,8 +179,9 @@ export default function HistoriqueBulletinsPage() {
                 ? "Chargement…"
                 : periodes.length === 0
                 ? "Aucune session"
-                : "Session (année scolaire)"
+                : "Année scolaire"
             }
+            searchPlaceholder="Rechercher une année…"
             options={periodes.map((p) => ({
               value: p.annee,
               label: `${p.annee} · ${p.statut === "en_cours" ? "en cours" : "terminée"}`,
@@ -229,7 +209,7 @@ export default function HistoriqueBulletinsPage() {
 
       {/* Contenu */}
       {!filiereId ? (
-        <EmptyState text="Choisissez une filière, un statut puis une session pour afficher l'historique." />
+        <EmptyState text="Choisissez une filière puis une année scolaire pour afficher l'historique." />
       ) : historyQuery.isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
@@ -245,8 +225,8 @@ export default function HistoriqueBulletinsPage() {
         <EmptyState
           text={
             periodes.length === 0
-              ? "Aucune session ne correspond à ce statut pour cette filière."
-              : "Sélectionnez une session (année scolaire) pour afficher le tableau."
+              ? "Aucune session pour cette filière."
+              : "Sélectionnez une année scolaire pour afficher le tableau."
           }
         />
       ) : !ready ? (

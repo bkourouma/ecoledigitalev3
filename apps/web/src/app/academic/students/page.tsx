@@ -41,6 +41,9 @@ export default function StudentsPage() {
     const establishmentMatricule = (student as any).establishmentMatricule;
     return establishmentMatricule || student.studentNumber;
   };
+  // Matricule saisi par la scolarité, affiché en plus du numéro séquentiel.
+  const getStudentMatricule = (student: StudentWithUser) =>
+    (student as any).studentMatricule as string | null | undefined;
 
   const academicYearOptions = useMemo(() => {
     return academicYears.map((year: any) => ({
@@ -70,7 +73,8 @@ export default function StudentsPage() {
         `${student.user?.firstName || ''} ${student.user?.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
         student.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         student.studentNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (((student as any).establishmentMatricule || "").toLowerCase().includes(searchQuery.toLowerCase()));
+        (((student as any).establishmentMatricule || "").toLowerCase().includes(searchQuery.toLowerCase())) ||
+        ((getStudentMatricule(student) || "").toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesAcademicYear =
         academicYearFilter === "all" ||
@@ -420,9 +424,9 @@ export default function StudentsPage() {
                 </div>
 
                 <div className="space-y-2 mb-4">
-                  {getDisplayMatricule(student) && (
+                  {getStudentMatricule(student) && (
                     <p className="text-white/90 text-sm">
-                      <span className="font-medium">Matricule:</span> {getDisplayMatricule(student)}
+                      <span className="font-medium">Matricule:</span> {getStudentMatricule(student)}
                     </p>
                   )}
                   {((student as any).academicYearName || student.currentYear) && (

@@ -151,7 +151,14 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
                             WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
                    OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
                                   WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
-                 )) AS nb_sessions
+                 )) AS nb_sessions,
+                (SELECT min(s.date_debut)::text FROM professional_ue_sessions s
+                 WHERE s.tenant_id = sm.tenant_id AND (
+                   s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                            WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
+                   OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                                  WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
+                 )) AS date_debut
          FROM professional_semestres sm
          WHERE sm.tenant_id = $1 AND sm.filiere_id = $2 ${teacherJoin}
          ORDER BY sm.libelle`,
@@ -226,6 +233,316 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       await this.attachGeneratedMeta(client, tenantId, semestreId, studentId, bulletin);
       return ok(bulletin);
     });
+  }
+
+  /**
+   * Bulletin de style BTS (feature ad hoc, hors spec 030) — même moteur de
+   * calcul que le relevé LMD (`computeStudentBulletin`), restitué en tableau
+   * « discipline » (UE en gras, ECUE en sous-ligne) avec un rang de classe
+   * PAR LIGNE (UE et ECUE), réservé aux filières Licence 1 et Licence 2.
+   * Sur le dernier semestre de la filière, ajoute un bilan annuel (moyenne
+   * pondérée par les crédits de chaque semestre + rang annuel).
+   */
+  async getBulletinBts(
+    tenantId: string,
+    semestreId: string,
+    studentId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sem = await this.loadSemestre(client, tenantId, semestreId);
+      if (!sem) return fail("SEMESTRE_NOT_FOUND", "Semestre introuvable.");
+      if (!/licence\s*[12]\b/i.test(String(sem.filiere_nom ?? ""))) {
+        return fail(
+          "NOT_ELIGIBLE",
+          "Le bulletin BTS n'est disponible que pour les filières Licence 1 et Licence 2."
+        );
+      }
+
+      const stu = await client.query(
+        `SELECT sp.id, u.first_name, u.last_name, sp.student_number AS matricule,
+                sp.date_of_birth::text AS date_of_birth, sp.place_of_birth,
+                sp.is_repeating, sp.gender
+         FROM student_profiles sp JOIN users u ON u.id = sp.user_id
+         WHERE sp.id = $1 AND sp.tenant_id = $2`,
+        [studentId, tenantId]
+      );
+      if (stu.rowCount === 0) return fail("STUDENT_NOT_FOUND", "Étudiant introuvable.");
+
+      // Promotion du semestre (tous les étudiants confirmés/terminés).
+      const rosterRes = await client.query(
+        `SELECT DISTINCT en.student_id, u.first_name, u.last_name, sp.student_number AS matricule
+         FROM professional_enrollments en
+         JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+         JOIN student_profiles sp ON sp.id = en.student_id
+         JOIN users u ON u.id = sp.user_id
+         WHERE en.tenant_id = $1 AND en.statut IN ('confirmee','terminee')
+           AND (
+             s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                      WHERE semestre_id = $2 AND tenant_id = $1)
+             OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                            WHERE semestre_id = $2 AND tenant_id = $1)
+           )`,
+        [tenantId, semestreId]
+      );
+      const effectif = rosterRes.rowCount ?? 0;
+      const rankable = effectif > 0 && effectif <= 300; // garde-fou perf (cf. computeRang)
+
+      // Bulletin de chaque étudiant de la promotion — une seule passe,
+      // réutilisée pour le rang par UE/ECUE ET le rang global.
+      const classBulletins: { studentId: string; bulletin: any }[] = [];
+      if (rankable) {
+        for (const s of rosterRes.rows) {
+          const b = await this.computeStudentBulletin(client, tenantId, sem, {
+            id: s.student_id,
+            first_name: s.first_name,
+            last_name: s.last_name,
+            matricule: s.matricule,
+          });
+          classBulletins.push({ studentId: s.student_id, bulletin: b });
+        }
+      }
+
+      const target = classBulletins.find((x) => x.studentId === studentId);
+      const bulletin = target
+        ? target.bulletin
+        : await this.computeStudentBulletin(client, tenantId, sem, stu.rows[0]);
+      // Le bulletin de la cible peut provenir de classBulletins (promotion),
+      // dont la requête ne charge que id/nom/matricule — on complète toujours
+      // avec le profil complet (date de naissance, genre, redoublement…).
+      bulletin.student = {
+        ...bulletin.student,
+        date_of_birth: stu.rows[0].date_of_birth,
+        place_of_birth: stu.rows[0].place_of_birth,
+        is_repeating: stu.rows[0].is_repeating,
+        gender: stu.rows[0].gender,
+      };
+      bulletin.effectif = effectif;
+
+      const rangGlobal = rankable
+        ? this.rankAmong(
+            classBulletins.map((x) => x.bulletin.moyenne_session),
+            bulletin.moyenne_session
+          )
+        : null;
+      bulletin.rang = rangGlobal;
+      await this.attachGeneratedMeta(client, tenantId, semestreId, studentId, bulletin);
+
+      const ueRow = (ue: any) => {
+        const rangUe = rankable
+          ? this.rankAmong(
+              classBulletins.map(
+                (x) => (x.bulletin.ues as any[]).find((u) => u.ue_id === ue.ue_id)?.moyenne_ue ?? null
+              ),
+              ue.moyenne_ue
+            )
+          : null;
+        return {
+          ue_id: ue.ue_id,
+          libelle: ue.libelle,
+          moyenne: ue.moyenne_ue,
+          coeff: ue.credits,
+          moyenne_ponderee: ue.moyenne_ue != null ? arrondi(ue.moyenne_ue * ue.credits) : null,
+          rang: rangUe,
+          ecues: (ue.ecues as any[]).map((e) => {
+            const rangEcue = rankable
+              ? this.rankAmong(
+                  classBulletins.map((x) => {
+                    const u = (x.bulletin.ues as any[]).find((uu) => uu.ue_id === ue.ue_id);
+                    return u?.ecues?.find((ee: any) => ee.ecue_id === e.ecue_id)?.note_ecue ?? null;
+                  }),
+                  e.note_ecue
+                )
+              : null;
+            return {
+              ecue_id: e.ecue_id,
+              libelle: e.libelle,
+              moyenne: e.note_ecue,
+              coeff: e.credits,
+              moyenne_ponderee:
+                e.note_ecue != null && e.credits != null ? arrondi(e.note_ecue * e.credits) : null,
+              rang: rangEcue,
+            };
+          }),
+        };
+      };
+
+      const disciplines = (bulletin.ues as any[]).filter((ue) => !ue.is_conduite).map(ueRow);
+      const conduiteUe = (bulletin.ues as any[]).find((ue) => ue.is_conduite) ?? null;
+
+      // Absences réelles (feature ad hoc, hors spec 030) — affichées telles
+      // quelles (justifiées / non justifiées), sans conversion en note.
+      // 'absent' = non justifiée, 'excuse' = justifiée.
+      const absRes = await client.query(
+        `SELECT count(*) FILTER (WHERE a.statut='absent')::int AS nb_absent,
+                count(*) FILTER (WHERE a.statut='excuse')::int  AS nb_excuse
+         FROM professional_ecue_attendance a
+         JOIN professional_ecue_seances se ON se.id = a.seance_id AND se.tenant_id = a.tenant_id
+         JOIN professional_ue_sessions s ON s.id = se.ue_session_id AND s.tenant_id = se.tenant_id
+         WHERE a.tenant_id = $1 AND a.student_id = $3
+           AND (
+             s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                      WHERE semestre_id = $2 AND tenant_id = $1)
+             OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                            WHERE semestre_id = $2 AND tenant_id = $1)
+           )`,
+        [tenantId, semestreId, studentId]
+      );
+      const targetAbsences = {
+        nb_absent: Number(absRes.rows[0]?.nb_absent ?? 0),
+        nb_excuse: Number(absRes.rows[0]?.nb_excuse ?? 0),
+      };
+
+      // Savoir être = Conduite uniquement, note réelle (saisie via la page
+      // Notes), identique à celle du relevé LMD (bouton « Consulter »).
+      const savoirEtre: any[] = conduiteUe ? [{ key: "conduite", ...ueRow(conduiteUe) }] : [];
+
+      // Distinctions / sanctions (feature ad hoc) — barème sur la moyenne
+      // semestrielle officielle (LMD), inchangée par ailleurs dans l'appli.
+      const mGlobal = bulletin.moyenne_session as number | null;
+      const distinction =
+        mGlobal == null
+          ? { tableau_honneur: false, tableau_honneur_encouragement: false, avertissement: false }
+          : {
+              tableau_honneur: mGlobal >= 12 && mGlobal < 15,
+              tableau_honneur_encouragement: mGlobal >= 15,
+              avertissement: mGlobal < 10,
+            };
+
+      // Total des points (informatif) : somme des moyennes pondérées de
+      // TOUTES les lignes affichées (disciplines + savoir être). NB : ce
+      // total inclut l'Assiduité, qui n'entre PAS dans la moyenne
+      // semestrielle officielle (LMD) affichée par ailleurs — cette dernière
+      // reste inchangée pour rester cohérente avec le reste de l'application.
+      const allRows = [...disciplines, ...savoirEtre];
+      const totalPoints = allRows.reduce((s, r) => s + (r.moyenne_ponderee ?? 0), 0);
+      const totalCoeff = allRows.reduce((s, r) => s + (r.coeff ?? 0), 0);
+
+      // Bilan annuel : uniquement sur le DERNIER semestre de la filière
+      // (numéro le plus élevé extrait du libellé), moyenne pondérée par les
+      // crédits totaux de chaque semestre.
+      const semNum = (libelle: string | null | undefined): number => {
+        const m = String(libelle ?? "").match(/(\d+)/);
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      const allSemRes = await client.query(
+        `SELECT id, libelle FROM professional_semestres WHERE tenant_id=$1 AND filiere_id=$2`,
+        [tenantId, sem.filiere_id]
+      );
+      const allSemestres = allSemRes.rows
+        .map((r) => ({ id: r.id as string, libelle: r.libelle as string, num: semNum(r.libelle) }))
+        .sort((a, b) => a.num - b.num);
+      const maxNum = allSemestres.length ? allSemestres[allSemestres.length - 1].num : semNum(sem.libelle);
+      const isLastSemestre = allSemestres.length > 1 && semNum(sem.libelle) === maxNum;
+
+      let annuel: any = null;
+      if (isLastSemestre) {
+        // Charge une seule fois l'objet semestre des AUTRES semestres de la
+        // filière (réutilisé pour tous les étudiants de la promotion).
+        const otherSemObjs = new Map<string, any>();
+        for (const s of allSemestres) {
+          if (s.id === sem.id) continue;
+          const semObj = await this.loadSemestre(client, tenantId, s.id);
+          if (semObj) otherSemObjs.set(s.id, semObj);
+        }
+
+        const semDetails: {
+          id: string;
+          libelle: string;
+          moyenne_session: number | null;
+          credits_total: number;
+          rang: number | null;
+        }[] = [];
+        for (const s of allSemestres) {
+          if (s.id === sem.id) {
+            semDetails.push({
+              id: sem.id,
+              libelle: sem.libelle,
+              moyenne_session: bulletin.moyenne_session,
+              credits_total: bulletin.credits_total,
+              rang: rangGlobal,
+            });
+            continue;
+          }
+          const semObj = otherSemObjs.get(s.id);
+          if (!semObj) continue;
+          const b = await this.computeStudentBulletin(client, tenantId, semObj, stu.rows[0]);
+          semDetails.push({
+            id: s.id,
+            libelle: semObj.libelle,
+            moyenne_session: b.moyenne_session,
+            credits_total: b.credits_total,
+            rang: null,
+          });
+        }
+        let som = 0;
+        let cred = 0;
+        for (const s of semDetails) {
+          if (s.moyenne_session == null) continue;
+          som += s.moyenne_session * s.credits_total;
+          cred += s.credits_total;
+        }
+        const moyenneAnnuelle = cred > 0 ? arrondi(som / cred) : null;
+
+        let rangAnnuel: number | null = null;
+        if (rankable) {
+          // Moyennes de TOUTE la promotion, semestre par semestre — permet à
+          // la fois le rang annuel (somme pondérée) ET le rang de chaque
+          // semestre affiché dans le bilan (hors semestre courant, déjà
+          // connu via rangGlobal).
+          const perSemMoyennes = new Map<string, (number | null)[]>();
+          for (const s of allSemestres) perSemMoyennes.set(s.id, []);
+          const classAnnual: (number | null)[] = [];
+          for (const cb of classBulletins) {
+            let s2 = 0;
+            let c2 = 0;
+            for (const s of allSemestres) {
+              const semObj = s.id === sem.id ? sem : otherSemObjs.get(s.id);
+              const mb =
+                s.id === sem.id
+                  ? cb.bulletin
+                  : semObj
+                  ? await this.computeStudentBulletin(client, tenantId, semObj, {
+                      id: cb.studentId,
+                      first_name: "",
+                      last_name: "",
+                      matricule: null,
+                    })
+                  : null;
+              perSemMoyennes.get(s.id)!.push(mb?.moyenne_session ?? null);
+              if (!mb || mb.moyenne_session == null) continue;
+              s2 += mb.moyenne_session * mb.credits_total;
+              c2 += mb.credits_total;
+            }
+            classAnnual.push(c2 > 0 ? s2 / c2 : null);
+          }
+          rangAnnuel = this.rankAmong(classAnnual, moyenneAnnuelle);
+          for (const detail of semDetails) {
+            if (detail.id === sem.id) continue; // déjà rangGlobal
+            detail.rang = this.rankAmong(perSemMoyennes.get(detail.id) ?? [], detail.moyenne_session);
+          }
+        }
+
+        annuel = { moyenne: moyenneAnnuelle, rang: rangAnnuel, semestres: semDetails };
+      }
+
+      return ok({
+        ...bulletin,
+        disciplines,
+        savoir_etre: savoirEtre,
+        absences: { justifiees: targetAbsences.nb_excuse, non_justifiees: targetAbsences.nb_absent },
+        distinction,
+        total_points: arrondi(totalPoints),
+        total_coeff: totalCoeff,
+        annuel,
+      });
+    });
+  }
+
+  /** Rang (1 = premier) d'une valeur au sein d'une liste ; ex æquo = même rang. */
+  private rankAmong(values: (number | null)[], value: number | null): number | null {
+    if (value == null) return null;
+    const higher = values.filter((v) => v != null && (v as number) > (value as number)).length;
+    return higher + 1;
   }
 
   /** Attache la date de génération officielle et le statut du bulletin (si généré). */

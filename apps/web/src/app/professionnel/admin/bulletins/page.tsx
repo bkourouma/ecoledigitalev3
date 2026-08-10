@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
+  Award,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useProfessionalSemestres } from "@/lib/hooks/use-professional-semestres";
@@ -23,8 +24,12 @@ import {
   useRecomputeBulletins,
   useGenerateBulletins,
   fetchFullBulletins,
+  fetchBulletin,
+  fetchBulletinBts,
 } from "@/lib/hooks/use-professional-bulletins";
-import { openAllBulletinsPdf } from "@/lib/bulletin-pdf";
+import { openAllBulletinsPdf, openBulletinPdf } from "@/lib/bulletin-pdf";
+import { openBulletinBtsPdf } from "@/lib/bulletin-pdf-bts";
+import { isLicenceUnOuDeux } from "@/lib/bulletin-format";
 
 const DECISION: Record<string, { label: string; cls: string; Icon: any }> = {
   admis: { label: "Admis", cls: "bg-green-100 text-green-700", Icon: CheckCircle2 },
@@ -43,6 +48,8 @@ export default function BulletinsPage() {
 
   const [genInfo, setGenInfo] = useState<string | null>(null);
   const [openingAll, setOpeningAll] = useState(false);
+  const [busyStudentId, setBusyStudentId] = useState<string | null>(null);
+  const [busyBtsStudentId, setBusyBtsStudentId] = useState<string | null>(null);
   const filieresQuery = useNotesFilieres();
   const semestresQuery = useProfessionalSemestres(filiereId ? { filiere_id: filiereId } : {});
   const rosterQuery = useBulletinRoster(semestreId || null);
@@ -60,6 +67,10 @@ export default function BulletinsPage() {
 
   const roster: any = rosterQuery.data ?? null;
   const students: any[] = roster?.students ?? [];
+
+  // Bulletin BTS : réservé aux filières Licence 1 et Licence 2.
+  const selectedFiliere = filieres.find((f) => f.id === filiereId);
+  const isBtsEligible = isLicenceUnOuDeux(selectedFiliere?.name);
 
   const stats = useMemo(() => {
     const admis = students.filter((s) => s.decision === "admis").length;
@@ -98,6 +109,12 @@ export default function BulletinsPage() {
     setError(null);
     // Onglet ouvert de façon synchrone (évite le blocage popup après le fetch).
     const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    if (!win) {
+      setError(
+        "Le navigateur a bloqué l'ouverture d'un nouvel onglet. Autorisez les pop-ups pour ce site, puis réessayez."
+      );
+      return;
+    }
     setOpeningAll(true);
     try {
       const list = await fetchFullBulletins(semestreId);
@@ -112,6 +129,58 @@ export default function BulletinsPage() {
       setError(err?.message ?? "Impossible d'ouvrir les bulletins.");
     } finally {
       setOpeningAll(false);
+    }
+  }
+
+  /**
+   * Ouvre le relevé de notes d'un étudiant comme document PDF dans un nouvel
+   * onglet du navigateur (visionneuse native), à l'identique de la page
+   * Diplômes — plus de page applicative intermédiaire.
+   */
+  async function handleConsulter(studentId: string) {
+    if (!semestreId || busyStudentId) return;
+    setError(null);
+    setBusyStudentId(studentId);
+    const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    if (!win) {
+      setError(
+        "Le navigateur a bloqué l'ouverture d'un nouvel onglet. Autorisez les pop-ups pour ce site, puis réessayez."
+      );
+      setBusyStudentId(null);
+      return;
+    }
+    try {
+      const bulletin = await fetchBulletin(semestreId, studentId);
+      await openBulletinPdf(bulletin, win);
+    } catch (err: any) {
+      win?.close();
+      setError(err?.message ?? "Impossible d'ouvrir le bulletin.");
+    } finally {
+      setBusyStudentId(null);
+    }
+  }
+
+  /** Ouvre le bulletin de style BTS d'un étudiant (Licence 1/2 uniquement). */
+  async function handleConsulterBts(studentId: string) {
+    if (!semestreId || busyBtsStudentId) return;
+    setError(null);
+    setBusyBtsStudentId(studentId);
+    const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    if (!win) {
+      setError(
+        "Le navigateur a bloqué l'ouverture d'un nouvel onglet. Autorisez les pop-ups pour ce site, puis réessayez."
+      );
+      setBusyBtsStudentId(null);
+      return;
+    }
+    try {
+      const data = await fetchBulletinBts(semestreId, studentId);
+      await openBulletinBtsPdf(data, win);
+    } catch (err: any) {
+      win?.close();
+      setError(err?.message ?? "Impossible d'ouvrir le bulletin BTS.");
+    } finally {
+      setBusyBtsStudentId(null);
     }
   }
 
@@ -319,19 +388,10 @@ export default function BulletinsPage() {
                               : st === "session2"
                               ? "Non validé — Session 2"
                               : "En dette";
-                          const gen =
-                            s.bulletin_statut == null
-                              ? "Non généré"
-                              : s.bulletin_statut === "definitif"
-                              ? "Définitif"
-                              : "Provisoire";
                           return (
-                            <div className="flex flex-col items-center gap-0.5">
-                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-                                {label}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">{gen}</span>
-                            </div>
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+                              {label}
+                            </span>
                           );
                         })()}
                       </td>
@@ -341,16 +401,39 @@ export default function BulletinsPage() {
                           : "—"}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        <Link
-                          href={`/professionnel/admin/bulletins/${s.student_id}?semestre=${semestreId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Button variant="outline" size="sm" className="h-8">
-                            <Eye className="h-3.5 w-3.5 mr-1.5" />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8"
+                            disabled={busyStudentId === s.student_id}
+                            onClick={() => handleConsulter(s.student_id)}
+                          >
+                            {busyStudentId === s.student_id ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                            ) : (
+                              <Eye className="h-3.5 w-3.5 mr-1.5" />
+                            )}
                             Consulter
                           </Button>
-                        </Link>
+                          {isBtsEligible && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8"
+                              disabled={busyBtsStudentId === s.student_id}
+                              onClick={() => handleConsulterBts(s.student_id)}
+                              title="Bulletin de style BTS"
+                            >
+                              {busyBtsStudentId === s.student_id ? (
+                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                              ) : (
+                                <Award className="h-3.5 w-3.5 mr-1.5" />
+                              )}
+                              Bulletin BTS
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
