@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Export PDF du relevé de notes — Module Professionnel (feature 030).
  * PDF vectoriel A4 : identité IPAM (vert), filigrane, tableau UE→ECUE groupé
  * par catégorie, zébrage, statuts colorés, synthèse (rang), décision colorée,

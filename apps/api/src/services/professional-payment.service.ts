@@ -1,4 +1,4 @@
-﻿import type { PoolClient } from "pg";
+import type { PoolClient } from "pg";
 import type { CreateProfessionalPayment } from "@ecoledigitale/contracts";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
 

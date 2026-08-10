@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Contrats partagés — Module Professionnel : Filière → UE → ECUE.
  * Features: 028-professional-module → 030-pedagogie-ue-ecue.
  *

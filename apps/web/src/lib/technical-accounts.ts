@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Technical accounts helper (web side).
  *
  * Mirrors the server provisioning logic so the login page can display the

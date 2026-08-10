@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Contrats partagés — Diplômes Professionnels (composés d'UE).
  * Features: 029-professional-diplomas → 030-pedagogie-ue-ecue.
  *

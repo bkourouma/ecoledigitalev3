@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   CreateEmploiTempsSlot,
   UpdateEmploiTempsSlot,
 } from "@ecoledigitale/contracts";

@@ -1,4 +1,4 @@
-﻿import { FastifyInstance } from "fastify";
+import { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import path from "path";
 import { promises as fs, createWriteStream } from "fs";

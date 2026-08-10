@@ -72,8 +72,8 @@ export function useProfessionalEcueList(query: ProfessionalEcueQuery = {}) {
 }
 
 /**
- * Charge l'INTÉGRALITÉ des ECUE en bouclant sur les pages (lots de 100), afin de
- * contourner le plafond de pagination de l'API. Renvoie { items, total }.
+ * Charge l'INTÉGRALITÉ des ECUE en un seul lot (pageSize = plafond du service),
+ * la boucle ne servant que si le total dépasse ce plafond. Renvoie { items, total }.
  */
 export function useAllProfessionalEcueList(
   filters: { statut?: string; q?: string } = {}
@@ -81,10 +81,15 @@ export function useAllProfessionalEcueList(
   return useQuery({
     queryKey: ["professional-ecue-all", filters],
     queryFn: async () => {
-      const pageSize = 100;
+      // Le service plafonne pageSize à 1000 : une seule requête suffit dans les
+      // volumes réels. Par lots de 100, les ~840 ECUE demandaient 9 allers-retours
+      // en série — le moindre incident réseau (ERR_HTTP2_PING_FAILED) faisait
+      // échouer la queryFn entière et react-query relançait tout depuis page=1,
+      // d'où des « Chargement… » sans fin.
+      const pageSize = 1000;
       const all: any[] = [];
       let page = 1;
-      // Boucle bornée par le `total` renvoyé par l'API (garde-fou page > 100).
+      // Boucle conservée comme filet au-delà de 1000 (garde-fou page > 100).
       for (;;) {
         const res: any = await apiFetch(
           `${BASE}/ecue${buildQueryString({ ...filters, page, pageSize } as any)}`
@@ -153,8 +158,8 @@ export function useProfessionalUeList(query: ProfessionalUeQuery = {}) {
 }
 
 /**
- * Charge l'INTÉGRALITÉ des UE en bouclant sur les pages (lots de 100), afin de
- * contourner le plafond de pagination de l'API. Renvoie { items, total }.
+ * Charge l'INTÉGRALITÉ des UE en un seul lot (pageSize = plafond du service),
+ * la boucle ne servant que si le total dépasse ce plafond. Renvoie { items, total }.
  */
 export function useAllProfessionalUeList(
   filters: { filiere_id?: string; statut?: string; q?: string } = {}
@@ -162,7 +167,10 @@ export function useAllProfessionalUeList(
   return useQuery({
     queryKey: ["professional-ue-all", filters],
     queryFn: async () => {
-      const pageSize = 100;
+      // Idem `useAllProfessionalEcueList` : le service plafonne à 1000, donc une
+      // seule requête au lieu de 5 lots pour les ~480 UE. La boucle reste en
+      // filet au-delà de 1000.
+      const pageSize = 1000;
       const all: any[] = [];
       let page = 1;
       for (;;) {
