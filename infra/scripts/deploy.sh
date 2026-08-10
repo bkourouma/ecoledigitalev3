@@ -37,9 +37,22 @@ dc up -d postgres
 # et `migrate deploy` échoue. On rétablit la table dans son schéma d'origine.
 # Idempotent — no-op sur une base déjà saine. Voir migration 0090.
 echo "== repair _prisma_migrations (drop tenant_id/RLS added by 0055) =="
-set -a; source "$ENV_FILE"; set +a
-PG_USER="${POSTGRES_USER:?POSTGRES_USER not set in $ENV_FILE}"
-PG_DB="${POSTGRES_DB:-dbecoledigitale}"
+
+# Lire une variable du fichier d'environnement SANS l'exécuter. `source` ferait
+# interpréter les valeurs par bash : une valeur non quotée contenant un espace
+# (p. ex. SUPER_ADMIN_NAME) est alors prise pour une commande et le script meurt
+# sur « command not found ». Docker Compose, lui, parse ce format sans shell.
+read_env_var() {
+    sed -n "s/^[[:space:]]*$1=//p" "$ENV_FILE" \
+        | head -1 \
+        | tr -d '\r' \
+        | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/"
+}
+
+PG_USER="$(read_env_var POSTGRES_USER)"
+PG_DB="$(read_env_var POSTGRES_DB)"
+: "${PG_USER:?POSTGRES_USER not set in $ENV_FILE}"
+PG_DB="${PG_DB:-dbecoledigitale}"
 
 for _ in $(seq 1 30); do
     dc exec -T postgres pg_isready -U "$PG_USER" -d postgres >/dev/null 2>&1 && break

@@ -29,10 +29,19 @@ if [[ ! -f "$ENV_FILE" ]]; then
     exit 1
 fi
 
-# shellcheck disable=SC1090
-set -a; source "$ENV_FILE"; set +a
+# Lire les variables SANS exécuter le fichier : `source` ferait interpréter les
+# valeurs par bash, et une valeur non quotée contenant un espace (p. ex.
+# SUPER_ADMIN_NAME) serait prise pour une commande — « command not found ».
+read_env_var() {
+    sed -n "s/^[[:space:]]*$1=//p" "$ENV_FILE" \
+        | head -1 \
+        | tr -d '\r' \
+        | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/"
+}
 
-POSTGRES_USER="${POSTGRES_USER:?POSTGRES_USER not set in $ENV_FILE}"
+POSTGRES_USER="$(read_env_var POSTGRES_USER)"
+POSTGRES_DB="$(read_env_var POSTGRES_DB)"
+: "${POSTGRES_USER:?POSTGRES_USER not set in $ENV_FILE}"
 POSTGRES_DB="${POSTGRES_DB:-dbecoledigitale}"
 
 dc() { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -p "$PROJECT" "$@"; }
