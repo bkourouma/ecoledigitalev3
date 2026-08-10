@@ -19,23 +19,25 @@
 --
 -- Idempotent (patron 0086/0087/0088/0089).
 
--- ===========================================================================
--- 1. Désactiver la Row-Level Security posée par 0055.
--- ===========================================================================
-ALTER TABLE IF EXISTS "_prisma_migrations" NO FORCE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "_prisma_migrations" DISABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS tenant_isolation_policy ON "_prisma_migrations";
+-- Le bloc est gardé par to_regclass : sur une base neuve `_prisma_migrations`
+-- n'existe pas encore (Prisma la crée au premier `migrate deploy`), et le
+-- `IF EXISTS` de DROP POLICY ne porte que sur la policy — pas sur la table.
+DO $$
+BEGIN
+    IF to_regclass('public._prisma_migrations') IS NULL THEN
+        RETURN;
+    END IF;
 
--- ===========================================================================
--- 2. Retirer la contrainte de clé étrangère, l'index et la colonne.
---    L'ordre importe : la FK et l'index dépendent de la colonne.
--- ===========================================================================
-ALTER TABLE IF EXISTS "_prisma_migrations"
-    DROP CONSTRAINT IF EXISTS fk__prisma_migrations_tenant_id;
+    -- 1. Désactiver la Row-Level Security posée par 0055.
+    EXECUTE 'ALTER TABLE "_prisma_migrations" NO FORCE ROW LEVEL SECURITY';
+    EXECUTE 'ALTER TABLE "_prisma_migrations" DISABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS tenant_isolation_policy ON "_prisma_migrations"';
 
-DROP INDEX IF EXISTS idx__prisma_migrations_tenant_id;
-
-ALTER TABLE IF EXISTS "_prisma_migrations"
-    DROP COLUMN IF EXISTS tenant_id;
+    -- 2. Retirer la clé étrangère, l'index et la colonne.
+    --    L'ordre importe : la FK et l'index dépendent de la colonne.
+    EXECUTE 'ALTER TABLE "_prisma_migrations" DROP CONSTRAINT IF EXISTS fk__prisma_migrations_tenant_id';
+    EXECUTE 'DROP INDEX IF EXISTS idx__prisma_migrations_tenant_id';
+    EXECUTE 'ALTER TABLE "_prisma_migrations" DROP COLUMN IF EXISTS tenant_id';
+END $$;
 
 -- Fin de la migration 0090_fix_prisma_migrations_tenant.sql

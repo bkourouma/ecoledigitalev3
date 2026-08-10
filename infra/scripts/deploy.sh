@@ -46,14 +46,23 @@ for _ in $(seq 1 30); do
     sleep 2
 done
 
+# Le bloc entier est gardé par to_regclass : sur une base neuve la table
+# n'existe pas encore (Prisma la crée au premier `migrate deploy`), et le
+# `IF EXISTS` de DROP POLICY ne porte que sur la policy — pas sur la table.
 dc exec -T postgres psql -U "$PG_USER" -d "$PG_DB" -v ON_ERROR_STOP=1 <<'SQL'
-ALTER TABLE IF EXISTS "_prisma_migrations" NO FORCE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "_prisma_migrations" DISABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS tenant_isolation_policy ON "_prisma_migrations";
-ALTER TABLE IF EXISTS "_prisma_migrations"
-    DROP CONSTRAINT IF EXISTS fk__prisma_migrations_tenant_id;
-DROP INDEX IF EXISTS idx__prisma_migrations_tenant_id;
-ALTER TABLE IF EXISTS "_prisma_migrations" DROP COLUMN IF EXISTS tenant_id;
+DO $$
+BEGIN
+    IF to_regclass('public._prisma_migrations') IS NULL THEN
+        RETURN;
+    END IF;
+
+    EXECUTE 'ALTER TABLE "_prisma_migrations" NO FORCE ROW LEVEL SECURITY';
+    EXECUTE 'ALTER TABLE "_prisma_migrations" DISABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS tenant_isolation_policy ON "_prisma_migrations"';
+    EXECUTE 'ALTER TABLE "_prisma_migrations" DROP CONSTRAINT IF EXISTS fk__prisma_migrations_tenant_id';
+    EXECUTE 'DROP INDEX IF EXISTS idx__prisma_migrations_tenant_id';
+    EXECUTE 'ALTER TABLE "_prisma_migrations" DROP COLUMN IF EXISTS tenant_id';
+END $$;
 SQL
 
 echo "== run database migrations =="
