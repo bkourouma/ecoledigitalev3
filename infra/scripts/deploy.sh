@@ -63,7 +63,49 @@ BEGIN
     EXECUTE 'DROP INDEX IF EXISTS idx__prisma_migrations_tenant_id';
     EXECUTE 'ALTER TABLE "_prisma_migrations" DROP COLUMN IF EXISTS tenant_id';
 END $$;
+
+-- `20260515112000_seed_reference_roles` crée l'index unique
+-- (tenant_id, user_id, role_id) sur user_roles. Comme cette migration est
+-- neutralisée plus bas sur les bases à rôles globaux, on pose l'index ici :
+-- c'est le seul apport réel qu'elle a pour ces bases.
+DO $$
+BEGIN
+    IF to_regclass('public.user_roles') IS NULL THEN
+        RETURN;
+    END IF;
+    BEGIN
+        CREATE UNIQUE INDEX IF NOT EXISTS user_roles_tenant_id_user_id_role_id_key
+            ON user_roles (tenant_id, user_id, role_id);
+    EXCEPTION WHEN unique_violation THEN
+        RAISE NOTICE 'user_roles: doublons (tenant_id,user_id,role_id) — index non créé';
+    END;
+END $$;
 SQL
+
+# `20260515112000_seed_reference_roles` prépare des bases NEUVES : elle insère
+# le tenant de référence et 6 rôles via `ON CONFLICT (tenant_id, key)`. Sur une
+# base héritée, les rôles sont GLOBAUX (tenant_id NULL, unicité sur `key` seul)
+# et ce couple n'a aucun index unique → Postgres renvoie 42P10, et l'échec
+# bloque ensuite toute migration (P3018).
+#
+# Rien n'y serait gagné : `user_roles.tenant_id` est déjà posé par 0055, le
+# tenant et les 6 rôles existent, et l'index user_roles vient d'être créé
+# ci-dessus. On marque donc la migration comme appliquée sans l'exécuter.
+NEEDS_SKIP=$(dc exec -T postgres psql -U "$PG_USER" -d "$PG_DB" -tAc "
+SELECT CASE WHEN EXISTS (SELECT 1 FROM roles WHERE tenant_id IS NULL)
+             AND NOT EXISTS (
+                   SELECT 1 FROM \"_prisma_migrations\"
+                    WHERE migration_name = '20260515112000_seed_reference_roles'
+                      AND finished_at IS NOT NULL)
+            THEN 'yes' ELSE 'no' END;" | tr -d '[:space:]')
+
+if [[ "$NEEDS_SKIP" == "yes" ]]; then
+    echo "== skip seed_reference_roles (base à rôles globaux) =="
+    dc run --rm --no-deps ecoledigitale-api \
+        ./node_modules/.bin/prisma migrate resolve \
+        --applied 20260515112000_seed_reference_roles \
+        --schema prisma/schema.prisma
+fi
 
 echo "== run database migrations =="
 dc run --rm --no-deps ecoledigitale-api ./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma
