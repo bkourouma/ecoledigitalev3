@@ -86,6 +86,7 @@ import { parentEmergencyRoutes } from "./routes/parent-emergency";
 import { parentsRoutes } from "./routes/parents";
 import { adminAnnouncementsRoutes } from "./routes/admin-announcements";
 import { adminMessagesRoutes } from "./routes/admin-messages";
+import { adminRolesRoutes } from "./routes/admin-roles";
 import { registrationRequestsRoutes } from "./routes/registration-requests";
 import { formationsProRoutes } from "./routes/formations-pro";
 import { sessionsProRoutes } from "./routes/sessions-pro";
@@ -328,6 +329,9 @@ async function start() {
     await fastify.register(exportsRoutes, { prefix: "/api/v1/admin/exports" });
     await fastify.register(reportingRoutes, { prefix: "/api/v1/admin/reporting" });
     await fastify.register(ownerRoutes, { prefix: "/api/v1/owner" });
+
+    // Rôles administratifs personnalisés + permissions sur les menus du sidebar admin
+    await fastify.register(adminRolesRoutes, { prefix: "/api/v1/admin/access" });
 
     // RSO-PFSO Module routes
     await fastify.register(rsoActivityRoutes, { prefix: "/api/v1/rso" }); // Routes already include /activities

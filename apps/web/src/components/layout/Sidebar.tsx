@@ -50,6 +50,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { removeToken, getToken } from '@/lib/jwt-storage';
+import { useAdminMenuAccess } from '@/lib/hooks/use-admin-roles';
 
 const navigationItems = [
   { icon: Home, label: 'Home', href: '/' as const },
@@ -74,6 +75,8 @@ const ownerMenuItems = [
 
 const adminQuickMenuItems = [
   { icon: Shield, label: 'Accès', href: '/owner/acces' as const },
+  { icon: List, label: 'Rôles', href: '/admin/roles' as const },
+  { icon: Users, label: 'Utilisateurs', href: '/admin/utilisateurs' as const },
 ];
 
 // Formateur space menu (rendered with the same global sidebar style)
@@ -330,10 +333,50 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const isOwner =
     Array.isArray(roles) && roles.some((r: string) => String(r).toLowerCase() === 'owner');
 
+  // Menus autorisés par le rôle administratif de l'utilisateur (page
+  // « Administration → Rôles »). Sans rôle personnalisé, `canSeeHref` renvoie
+  // toujours true : le sidebar reste identique pour les comptes existants.
+  const { canSeeHref } = useAdminMenuAccess();
+
   // All admin tenants are equal: every admin sees the full Formation Pro menus,
   // alongside the regular admin sidebar. No tenant-id gating.
-  const formationsProNavItems = formationsProMenuItems;
-  const formationsProAdminNavItems = formationsProAdminMenuItems;
+  const formationsProNavItems = formationsProMenuItems.filter((item) => canSeeHref(item.href));
+  const formationsProAdminNavItems = formationsProAdminMenuItems.filter((item) =>
+    canSeeHref(item.href)
+  );
+
+  // Entrées du sidebar administrateur filtrées par les permissions du rôle.
+  const visibleAcademicStructureItems = academicStructureMenuItems.filter((item) =>
+    canSeeHref(item.href)
+  );
+  const visiblePeopleItems = peopleMenuItems.filter((item) => canSeeHref(item.href));
+  const visibleProfessionalModuleItems = professionalModuleMenuItems.filter((item) =>
+    canSeeHref(item.href)
+  );
+  const visibleAcademicOperationsItems = academicOperationsMenuItems.filter((item) =>
+    canSeeHref(item.href)
+  );
+  const visibleBtsItems = btsMenuItems.filter((item) => canSeeHref(item.href));
+  const visibleDailyOperationsItems = dailyOperationsMenuItems.filter((item) =>
+    canSeeHref(item.href)
+  );
+  const visibleTeacherPaymentItems = teacherPaymentMenuItems.filter((item) =>
+    canSeeHref(item.href)
+  );
+  const visibleStudentFinanceAdminItems = studentFinanceAdminMenuItems.filter((item) =>
+    canSeeHref(item.href)
+  );
+  const visibleAdminQuickItems = adminQuickMenuItems.filter((item) => canSeeHref(item.href));
+  const canSeeAdminMessages = canSeeHref('/admin/messages');
+
+  const showAcademicStructureSection =
+    visibleAcademicStructureItems.length > 0 || visiblePeopleItems.length > 0;
+  const showAcademicOperationsSection =
+    visibleAcademicOperationsItems.length > 0 ||
+    visibleBtsItems.length > 0 ||
+    visibleDailyOperationsItems.length > 0 ||
+    formationsProNavItems.length > 0 ||
+    formationsProAdminNavItems.length > 0;
 
   const [isAcademicStructureExpanded, setIsAcademicStructureExpanded] = useState(
     pathname.startsWith('/academic') || pathname.startsWith('/annee-academique/types-de-bilan')
@@ -1050,7 +1093,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               )}
 
               {/* Academic Structure Section */}
-              {isAdmin && (
+              {isAdmin && showAcademicStructureSection && (
                     <div className="pt-4">
             <div className="px-3 mb-2">
               <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
@@ -1059,6 +1102,8 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             </div>
 
             {/* Academic Structure Toggle Button */}
+            {visibleAcademicStructureItems.length > 0 && (
+              <>
             <button
               onClick={() => setIsAcademicStructureExpanded(!isAcademicStructureExpanded)}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${((pathname.startsWith('/academic') && !pathname.startsWith('/academic/teachers') && !pathname.startsWith('/academic/students') && !pathname.startsWith('/academic/parents') && !pathname.startsWith('/academic/registrations') && !pathname.startsWith('/academic/assignments')) || pathname.startsWith('/annee-academique/types-de-bilan')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
@@ -1077,7 +1122,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* Academic Structure Submenu */}
             {isAcademicStructureExpanded && (
               <div className="ml-4 mt-1 space-y-1">
-                {academicStructureMenuItems.map((item) => {
+                {visibleAcademicStructureItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
 
@@ -1095,8 +1140,12 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 })}
               </div>
             )}
+              </>
+            )}
 
             {/* People Management Toggle Button */}
+            {visiblePeopleItems.length > 0 && (
+              <>
             <button
               onClick={() => setIsPeopleExpanded(!isPeopleExpanded)}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${(pathname.startsWith('/academic/teachers') || pathname.startsWith('/academic/students') || pathname.startsWith('/academic/parents') || pathname.startsWith('/academic/registrations')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
@@ -1115,7 +1164,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* People Submenu */}
             {isPeopleExpanded && (
               <div className="ml-4 mt-1 space-y-1">
-                {peopleMenuItems.map((item) => {
+                {visiblePeopleItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
 
@@ -1133,11 +1182,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 })}
               </div>
             )}
+              </>
+            )}
           </div>
               )}
 
               {/* Module Professionnel Section */}
-              {isAdmin && (
+              {isAdmin && visibleProfessionalModuleItems.length > 0 && (
                 <div className="pt-4">
                   <div className="px-3 mb-2">
                     <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
@@ -1164,7 +1215,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   {/* Module Professionnel Submenu */}
                   {isProfessionalModuleExpanded && (
                     <div className="ml-4 mt-1 space-y-1">
-                      {professionalModuleMenuItems.map((item) => {
+                      {visibleProfessionalModuleItems.map((item) => {
                         const Icon = item.icon;
                         const isActive =
                           pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -1187,7 +1238,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               )}
 
               {/* Academic Operations Section */}
-              {isAdmin && (
+              {isAdmin && showAcademicOperationsSection && (
                     <div className="pt-2">
             <div className="px-3 mb-2">
               <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
@@ -1196,6 +1247,8 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             </div>
 
             {/* Academic Operations Toggle Button */}
+            {visibleAcademicOperationsItems.length > 0 && (
+              <>
             <button
               onClick={() => setIsAcademicOperationsExpanded(!isAcademicOperationsExpanded)}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${(pathname.startsWith('/annee-academique') || pathname.startsWith('/academic/assignments')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
@@ -1214,7 +1267,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* Academic Operations Submenu */}
             {isAcademicOperationsExpanded && (
               <div className="ml-4 mt-1 space-y-1">
-                {academicOperationsMenuItems.map((item) => {
+                {visibleAcademicOperationsItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
 
@@ -1233,7 +1286,12 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               </div>
             )}
 
+              </>
+            )}
+
             {/* BTS Toggle Button */}
+            {visibleBtsItems.length > 0 && (
+              <>
             <button
               onClick={() => setIsBtsExpanded(!isBtsExpanded)}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${pathname.startsWith('/annee-academique/moyennes-semestre') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
@@ -1252,7 +1310,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* BTS Submenu */}
             {isBtsExpanded && (
               <div className="ml-4 mt-1 space-y-1">
-                {btsMenuItems.map((item) => {
+                {visibleBtsItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
 
@@ -1271,7 +1329,12 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               </div>
             )}
 
+              </>
+            )}
+
             {/* Daily Operations Toggle Button */}
+            {visibleDailyOperationsItems.length > 0 && (
+              <>
             <button
               onClick={() => setIsDailyOperationsExpanded(!isDailyOperationsExpanded)}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${(pathname.startsWith('/attendance') || pathname.startsWith('/schedule-generation')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
@@ -1290,7 +1353,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* Daily Operations Submenu */}
             {isDailyOperationsExpanded && (
               <div className="ml-4 mt-1 space-y-1">
-                {dailyOperationsMenuItems.map((item) => {
+                {visibleDailyOperationsItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
 
@@ -1308,8 +1371,11 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 })}
               </div>
             )}
+              </>
+            )}
 
             {/* Catalogue Formations Section */}
+            {formationsProNavItems.length > 0 && (
             <div className="pt-2">
               <button
                 onClick={() => setIsFormationsProExpanded(!isFormationsProExpanded)}
@@ -1347,8 +1413,10 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 </div>
               )}
             </div>
+            )}
 
             {/* Administration Pro Section */}
+            {formationsProAdminNavItems.length > 0 && (
             <div className="pt-2">
               <button
                 onClick={() => setIsFormationsProAdminExpanded(!isFormationsProAdminExpanded)}
@@ -1386,11 +1454,12 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 </div>
               )}
             </div>
+            )}
           </div>
           )}
 
               {/* Teacher Payment Section */}
-              {isAdmin && (
+              {isAdmin && visibleTeacherPaymentItems.length > 0 && (
                     <div className="pt-4">
             <div className="px-3 mb-2">
               <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
@@ -1417,7 +1486,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* Teacher Payment Submenu */}
             {isTeacherPaymentExpanded && (
               <div className="ml-4 mt-1 space-y-1">
-                {teacherPaymentMenuItems.map((item) => {
+                {visibleTeacherPaymentItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
 
@@ -1490,7 +1559,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
           )}
 
           {/* Student Finance Admin Section - Only show for admins */}
-          {session?.user && (session as any).roles && (session as any).roles.some((role: string) => ['admin', 'super_admin'].includes(role)) && (
+          {session?.user && (session as any).roles && (session as any).roles.some((role: string) => ['admin', 'super_admin'].includes(role)) && visibleStudentFinanceAdminItems.length > 0 && (
             <div className="pt-4">
               <div className="px-3 mb-2">
                 <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
@@ -1517,7 +1586,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               {/* Student Finance Admin Submenu */}
               {isStudentFinanceAdminExpanded && (
                 <div className="ml-4 mt-1 space-y-1">
-                  {studentFinanceAdminMenuItems.map((item) => {
+                  {visibleStudentFinanceAdminItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = pathname === item.href;
 
@@ -1539,7 +1608,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
           )}
 
               {/* Admin Communication Section */}
-              {isAdmin && (
+              {isAdmin && canSeeAdminMessages && (
                     <div className="pt-4">
                       <div className="px-3 mb-2">
                 <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
@@ -1561,14 +1630,14 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               </NavLink>
             </div>
           )}
-              {isAdmin && (
+              {isAdmin && visibleAdminQuickItems.length > 0 && (
                     <div className="pt-4">
                       <div className="px-3 mb-2">
                 <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
                   Administration
                 </h3>
               </div>
-              {adminQuickMenuItems.map((item) => {
+              {visibleAdminQuickItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (

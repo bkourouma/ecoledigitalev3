@@ -84,6 +84,9 @@ export * from './reporting';
 export * from "./owner.schema";
 export * from "./owner-stats.schema";
 
+// Rôles administratifs personnalisés + permissions sur les menus du sidebar admin
+export * from "./admin-roles.schema";
+
 // Export des contrats du Module Professionnel (Filière → UE → ECUE) — features 028 → 030
 export * from "./professional";
 
