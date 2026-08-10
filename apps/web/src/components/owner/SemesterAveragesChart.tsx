@@ -1,13 +1,34 @@
 "use client";
 
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { OwnerAcademicResponse } from "@ecoledigitale/contracts";
+import { VizTooltip } from "@/components/owner/charts/VizTooltip";
+import { VIZ_CHROME, VIZ_STATUS } from "@/components/owner/charts/palette";
 
 type Row = OwnerAcademicResponse["semesterAverages"][number];
 
-function barColor(grade: number) {
-  if (grade >= 12) return "bg-emerald-500";
-  if (grade >= 10) return "bg-amber-500";
-  return "bg-red-400";
+/**
+ * Moyennes par période académique.
+ *
+ * Migré des barres CSS maison vers recharts. L'API de props est inchangée.
+ * Ne rend pas de Card : l'appelant a déjà son conteneur titré.
+ *
+ * La couleur suit le seuil pédagogique (>= 12 / >= 10), pas une série.
+ */
+function gradeColor(grade: number): string {
+  if (grade >= 12) return VIZ_STATUS.good;
+  if (grade >= 10) return VIZ_STATUS.warning;
+  return VIZ_STATUS.critical;
 }
 
 export function SemesterAveragesChart({ rows }: { rows: Row[] }) {
@@ -19,29 +40,46 @@ export function SemesterAveragesChart({ rows }: { rows: Row[] }) {
     );
   }
 
-  const maxGrade = Math.max(20, ...rows.map((r) => r.averageGrade || 0));
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Comparaison des moyennes globales (toutes matières confondues) par période académique enregistrée.
+        Comparaison des moyennes globales (toutes matières confondues) par période
+        académique enregistrée.
       </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {rows.map((r) => (
-          <div key={r.periodId} className="space-y-2 rounded-lg border p-3 bg-card">
-            <div className="flex justify-between items-baseline gap-2">
-              <span className="font-medium text-sm leading-tight">{r.periodName}</span>
-              <span className="text-sm tabular-nums">{r.averageGrade.toFixed(2)} / 20</span>
-            </div>
-            <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${barColor(r.averageGrade)}`}
-                style={{ width: `${Math.min(100, (r.averageGrade / maxGrade) * 100)}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={rows} margin={{ top: 4, right: 12, bottom: 4, left: 0 }}>
+          <CartesianGrid stroke={VIZ_CHROME.grid} strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="periodName"
+            tick={{ fontSize: 11, fill: VIZ_CHROME.muted }}
+            axisLine={{ stroke: VIZ_CHROME.axis }}
+            tickLine={false}
+          />
+          <YAxis
+            // Échelle de notation figée : l'ancienne version cadrait sur la valeur
+            // maximale, ce qui faisait paraître haute une moyenne médiocre.
+            domain={[0, 20]}
+            ticks={[0, 5, 10, 15, 20]}
+            tick={{ fontSize: 11, fill: VIZ_CHROME.muted }}
+            axisLine={{ stroke: VIZ_CHROME.axis }}
+            tickLine={false}
+          />
+          <Tooltip
+            cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
+            content={<VizTooltip valueFormatter={(v) => `${v.toFixed(2)} / 20`} />}
+          />
+          {/* Seuil de validation, tracé pour que la lecture ne dépende pas de la couleur. */}
+          <ReferenceLine y={10} stroke={VIZ_CHROME.axis} strokeDasharray="4 4" />
+          <Bar dataKey="averageGrade" name="Moyenne" radius={[4, 4, 0, 0]} maxBarSize={48}>
+            {rows.map((r) => (
+              <Cell key={r.periodId} fill={gradeColor(r.averageGrade)} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <p className="text-xs text-muted-foreground">
+        Repère tracé à 10 / 20. Vert : au moins 12. Ambre : au moins 10. Rouge : en dessous.
+      </p>
     </div>
   );
 }

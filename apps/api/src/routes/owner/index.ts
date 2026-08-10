@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import type { Pool } from "pg";
 import { z } from "zod";
 import {
@@ -18,7 +18,36 @@ import {
   OwnerAlertSchema,
   type OwnerAlert,
 } from "@ecoledigitale/contracts/src/owner.schema";
+import {
+  OwnerPedagogieQuerySchema,
+  OwnerPedagogieResponseSchema,
+  OwnerFinancesProQuerySchema,
+  OwnerFinancesProResponseSchema,
+  OwnerStatsFiltersResponseSchema,
+  OwnerReferentielQuerySchema,
+  OwnerReferentielResponseSchema,
+  OwnerAssiduiteQuerySchema,
+  OwnerAssiduiteResponseSchema,
+  OwnerPersonnesQuerySchema,
+  OwnerPersonnesResponseSchema,
+  OwnerRecrutementQuerySchema,
+  OwnerRecrutementResponseSchema,
+} from "@ecoledigitale/contracts/src/owner-stats.schema";
+import { fetchOwnerReferentiel } from "../../services/owner-referentiel.service";
+import { fetchOwnerAssiduite } from "../../services/owner-assiduite.service";
+import { fetchOwnerPersonnes } from "../../services/owner-personnes.service";
+import { fetchOwnerRecrutement } from "../../services/owner-recrutement.service";
+import {
+  buildOwnerAssiduiteCsv,
+  buildOwnerFinancesProCsv,
+  buildOwnerPedagogieCsv,
+  buildOwnerPersonnesCsv,
+  buildOwnerRecrutementCsv,
+} from "../../services/owner-stats-csv.service";
 import { requireOwner, requireOwnerOrAdmin } from "../../middlewares/requireOwner";
+import { fetchOwnerPedagogie } from "../../services/owner-pedagogie.service";
+import { fetchOwnerFinancesPro } from "../../services/owner-finances-pro.service";
+import { fetchOwnerStatsFilters } from "../../services/owner-stats-filters.service";
 import { fetchOwnerDashboardKpis } from "../../services/owner-dashboard.service";
 import {
   buildOwnerFinancialReportCsv,
@@ -37,6 +66,38 @@ import {
   listOwnerTenantUsers,
   patchUserRolesAsOwner,
 } from "../../services/owner-users.service";
+
+/**
+ * Normalise la query string des routes de statistiques avant validation Zod.
+ *
+ * Fastify parse `?filiereIds=a&filiereIds=b` en tableau mais `?filiereIds=a` en
+ * chaîne : sans ce passage, un filtre à une seule filière échouerait la validation
+ * `z.array(...)`. On accepte aussi la forme CSV `?filiereIds=a,b`, plus commode à
+ * construire côté front.
+ */
+function normalizeStatsQuery(q: unknown): Record<string, unknown> {
+  const src = (q ?? {}) as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...src };
+
+  for (const key of ["filiereIds"]) {
+    const raw = src[key];
+    if (raw === undefined || raw === null || raw === "") {
+      delete out[key];
+      continue;
+    }
+    const list = Array.isArray(raw) ? raw : String(raw).split(",");
+    const cleaned = list.map((v) => String(v).trim()).filter((v) => v.length > 0);
+    if (cleaned.length === 0) delete out[key];
+    else out[key] = cleaned;
+  }
+
+  // Une chaîne vide vaut « filtre absent », pas « valeur invalide ».
+  for (const key of Object.keys(out)) {
+    if (out[key] === "") delete out[key];
+  }
+
+  return out;
+}
 
 function parseOwnerFinancesQuery(q: unknown): OwnerFinancesQuery {
   const parsed = OwnerFinancesQuerySchema.safeParse(q);
@@ -78,6 +139,15 @@ function emptyDashboard(): z.infer<typeof OwnerDashboardResponseSchema> {
       totalEnrollments: 0,
       revenueFormations: 0,
       clientCompanies: 0,
+    },
+    professional: {
+      enrolledStudents: 0,
+      enrolledStudentsPrevMonth: 0,
+      recoveryRate: 0,
+      // `null` et non 0 : « aucun semestre clos avec bulletins » n'est pas
+      // « 0 % de réussite ». La carte affiche « — » dans ce cas.
+      successRateLastSemester: null,
+      attendanceRate30d: 0,
     },
     alerts: [],
   };
@@ -184,6 +254,439 @@ export async function ownerRoutes(fastify: FastifyInstance) {
           success: false,
           error: "Internal Server Error",
           message: "Impossible de charger les synthèses académiques",
+        });
+      }
+    }
+  );
+
+  /* ---------------- Statistiques Module Professionnel (LMD) ---------------- */
+
+  /**
+   * Référentiel des filtres (filières, semestres, années scolaires).
+   * `requireOwnerOrAdmin` : purement descriptif, utile aussi aux admins.
+   */
+  fastify.get(
+    "/stats/filters",
+    { preHandler: requireOwnerOrAdmin },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      try {
+        const data = await fetchOwnerStatsFilters(fastify.pg as Pool, tenantId, request.log);
+        reply.send(OwnerStatsFiltersResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner stats filters failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de charger les filtres",
+        });
+      }
+    }
+  );
+
+  /**
+   * Pilotage pédagogique LMD.
+   * `requireOwnerOrAdmin` : la performance académique est un outil de pilotage
+   * pédagogique dont les admins ont aussi l'usage (§8-3).
+   */
+  fastify.get(
+    "/pedagogie",
+    { preHandler: requireOwnerOrAdmin },
+    async (request, reply) => {
+      const parsed = OwnerPedagogieQuerySchema.safeParse(
+        normalizeStatsQuery(request.query)
+      );
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const tenantId = request.tenantId!;
+      try {
+        const data = await fetchOwnerPedagogie(
+          fastify.pg as Pool,
+          tenantId,
+          request.log,
+          parsed.data
+        );
+        reply.send(OwnerPedagogieResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner pedagogie failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de charger le pilotage pédagogique",
+        });
+      }
+    }
+  );
+
+  /**
+   * Recouvrement du module professionnel.
+   * `requireOwner` strict : vue financière consolidée réservée au propriétaire (§8-3).
+   */
+  fastify.get(
+    "/finances/professionnel",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const parsed = OwnerFinancesProQuerySchema.safeParse(
+        normalizeStatsQuery(request.query)
+      );
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const tenantId = request.tenantId!;
+      try {
+        const data = await fetchOwnerFinancesPro(
+          fastify.pg as Pool,
+          tenantId,
+          request.log,
+          parsed.data
+        );
+        reply.send(OwnerFinancesProResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner finances pro failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de charger le recouvrement du module professionnel",
+        });
+      }
+    }
+  );
+
+  /**
+   * Santé du catalogue et incohérences structurelles.
+   * `requireOwnerOrAdmin` : ce sont les admins qui corrigeront les anomalies (§8-3).
+   */
+  fastify.get(
+    "/referentiel",
+    { preHandler: requireOwnerOrAdmin },
+    async (request, reply) => {
+      const parsed = OwnerReferentielQuerySchema.safeParse(
+        normalizeStatsQuery(request.query)
+      );
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const tenantId = request.tenantId!;
+      try {
+        const data = await fetchOwnerReferentiel(
+          fastify.pg as Pool,
+          tenantId,
+          request.log,
+          parsed.data
+        );
+        reply.send(OwnerReferentielResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner referentiel failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de charger la santé du référentiel",
+        });
+      }
+    }
+  );
+
+  /**
+   * Assiduité, occupation des salles et charge enseignante.
+   * `requireOwnerOrAdmin` : exploitation opérationnelle, utile aux admins (§8-3).
+   */
+  fastify.get(
+    "/assiduite",
+    { preHandler: requireOwnerOrAdmin },
+    async (request, reply) => {
+      const parsed = OwnerAssiduiteQuerySchema.safeParse(
+        normalizeStatsQuery(request.query)
+      );
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const tenantId = request.tenantId!;
+      try {
+        const data = await fetchOwnerAssiduite(
+          fastify.pg as Pool,
+          tenantId,
+          request.log,
+          parsed.data
+        );
+        reply.send(OwnerAssiduiteResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner assiduite failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de charger les données d'assiduité",
+        });
+      }
+    }
+  );
+
+  /**
+   * Démographie et état des comptes.
+   * `requireOwner` strict : données personnelles agrégées de toute la population.
+   */
+  fastify.get(
+    "/personnes",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const parsed = OwnerPersonnesQuerySchema.safeParse(
+        normalizeStatsQuery(request.query)
+      );
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const tenantId = request.tenantId!;
+      try {
+        const data = await fetchOwnerPersonnes(
+          fastify.pg as Pool,
+          tenantId,
+          request.log,
+          parsed.data
+        );
+        reply.send(OwnerPersonnesResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner personnes failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de charger la démographie",
+        });
+      }
+    }
+  );
+
+  /**
+   * Entonnoir des inscriptions en ligne.
+   * `requireOwnerOrAdmin` : ce sont les admins qui traitent les demandes (§8-3).
+   */
+  fastify.get(
+    "/recrutement",
+    { preHandler: requireOwnerOrAdmin },
+    async (request, reply) => {
+      const parsed = OwnerRecrutementQuerySchema.safeParse(
+        normalizeStatsQuery(request.query)
+      );
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const tenantId = request.tenantId!;
+      try {
+        const data = await fetchOwnerRecrutement(
+          fastify.pg as Pool,
+          tenantId,
+          request.log,
+          parsed.data
+        );
+        reply.send(OwnerRecrutementResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner recrutement failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de charger les données de recrutement",
+        });
+      }
+    }
+  );
+
+  /* ------------------- Exports CSV des pages de statistiques ------------------ */
+
+  /**
+   * Chaque export reprend la garde de sa page : un admin qui n'a pas accès aux
+   * finances consolidées ne doit pas pouvoir les récupérer par l'export.
+   *
+   * Le BOM `﻿` est indispensable pour qu'Excel en configuration française
+   * affiche correctement les accents.
+   */
+  function sendCsv(reply: FastifyReply, filename: string, csv: string) {
+    reply.header("Content-Type", "text/csv; charset=utf-8");
+    reply.header("Content-Disposition", `attachment; filename="${filename}"`);
+    // ⚠️ Le littéral ci-dessous est un vrai caractère BOM (U+FEFF), invisible à
+    // la relecture. Ailleurs dans ce fichier la convention est la séquence
+    // d'échappement "﻿" (cf. /reports/financial) — les octets produits sont
+    // identiques. Ne pas supprimer ce caractère en croyant à une coquille : sans
+    // lui, Excel en configuration française n'affiche pas les accents.
+    return reply.send("﻿" + csv);
+  }
+
+  fastify.get(
+    "/pedagogie/export",
+    { preHandler: requireOwnerOrAdmin },
+    async (request, reply) => {
+      const parsed = OwnerPedagogieQuerySchema.safeParse(normalizeStatsQuery(request.query));
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      try {
+        const data = await fetchOwnerPedagogie(
+          fastify.pg as Pool,
+          request.tenantId!,
+          request.log,
+          parsed.data
+        );
+        return sendCsv(reply, "pilotage-pedagogique.csv", buildOwnerPedagogieCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner pedagogie export failed");
+        return reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de générer l'export",
+        });
+      }
+    }
+  );
+
+  fastify.get(
+    "/finances/professionnel/export",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const parsed = OwnerFinancesProQuerySchema.safeParse(normalizeStatsQuery(request.query));
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      try {
+        const data = await fetchOwnerFinancesPro(
+          fastify.pg as Pool,
+          request.tenantId!,
+          request.log,
+          parsed.data
+        );
+        return sendCsv(
+          reply,
+          "recouvrement-professionnel.csv",
+          buildOwnerFinancesProCsv(data)
+        );
+      } catch (e) {
+        request.log.error({ err: e }, "owner finances pro export failed");
+        return reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de générer l'export",
+        });
+      }
+    }
+  );
+
+  fastify.get(
+    "/assiduite/export",
+    { preHandler: requireOwnerOrAdmin },
+    async (request, reply) => {
+      const parsed = OwnerAssiduiteQuerySchema.safeParse(normalizeStatsQuery(request.query));
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      try {
+        const data = await fetchOwnerAssiduite(
+          fastify.pg as Pool,
+          request.tenantId!,
+          request.log,
+          parsed.data
+        );
+        return sendCsv(reply, "assiduite.csv", buildOwnerAssiduiteCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner assiduite export failed");
+        return reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de générer l'export",
+        });
+      }
+    }
+  );
+
+  fastify.get(
+    "/personnes/export",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const parsed = OwnerPersonnesQuerySchema.safeParse(normalizeStatsQuery(request.query));
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      try {
+        const data = await fetchOwnerPersonnes(
+          fastify.pg as Pool,
+          request.tenantId!,
+          request.log,
+          parsed.data
+        );
+        return sendCsv(reply, "personnes.csv", buildOwnerPersonnesCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner personnes export failed");
+        return reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de générer l'export",
+        });
+      }
+    }
+  );
+
+  fastify.get(
+    "/recrutement/export",
+    { preHandler: requireOwnerOrAdmin },
+    async (request, reply) => {
+      const parsed = OwnerRecrutementQuerySchema.safeParse(normalizeStatsQuery(request.query));
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      try {
+        const data = await fetchOwnerRecrutement(
+          fastify.pg as Pool,
+          request.tenantId!,
+          request.log,
+          parsed.data
+        );
+        return sendCsv(reply, "recrutement.csv", buildOwnerRecrutementCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner recrutement export failed");
+        return reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de générer l'export",
         });
       }
     }

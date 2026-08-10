@@ -43,7 +43,8 @@ import {
   Baby,
   Phone,
   X,
-  Bell
+  Bell,
+  PenLine
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
@@ -58,7 +59,14 @@ const navigationItems = [
 const ownerMenuItems = [
   { icon: BarChart3, label: 'Pilotage', href: '/owner/dashboard' as const },
   { icon: DollarSign, label: 'Finances', href: '/owner/finances' as const },
+  { icon: Receipt, label: 'Recouvrement UE', href: '/owner/finances/professionnel' as const },
   { icon: GraduationCap, label: 'Académique', href: '/owner/academique' as const },
+  { icon: Award, label: 'Pédagogie', href: '/owner/pedagogie' as const },
+  { icon: ClipboardCheck, label: 'Assiduité', href: '/owner/assiduite' as const },
+  { icon: Layers, label: 'Référentiel', href: '/owner/referentiel' as const },
+  // Icône distincte de « RH » (Users), qui vise la paie et non la démographie.
+  { icon: User, label: 'Personnes', href: '/owner/personnes' as const },
+  { icon: UserPlus, label: 'Recrutement', href: '/owner/recrutement' as const },
   { icon: Users, label: 'RH', href: '/owner/staff' as const },
   { icon: BookOpen, label: 'Formations', href: '/owner/formations' as const },
   { icon: Bell, label: 'Alertes', href: '/owner/alertes' as const },
@@ -117,6 +125,12 @@ const professionalModuleMenuItems = [
   { icon: ClipboardCheck, label: 'Présences', href: '/professionnel/admin/presences' as const },
   { icon: ClipboardList, label: 'Notes', href: '/professionnel/admin/notes' as const },
   { icon: FileSpreadsheet, label: 'Bulletins', href: '/professionnel/admin/bulletins' as const },
+<<<<<<< HEAD
+=======
+  { icon: Award, label: 'Attestations de réussite', href: '/professionnel/admin/attestations' as const },
+  { icon: GraduationCap, label: 'Diplômes', href: '/professionnel/admin/diplomes' as const },
+  { icon: PenLine, label: 'Signataires', href: '/professionnel/admin/signataires' as const },
+>>>>>>> 030-pedagogie-ue-ecue
 ];
 
 // People Management
@@ -226,8 +240,8 @@ const teacherStudentsMenuItems = [
 
 // Teacher Evaluations Menu Items
 const teacherEvaluationsMenuItems = [
-  { icon: FileText, label: 'Créer des Devoirs', href: '/teacher/assignments/create' as const },
-  { icon: List, label: 'Liste des Devoirs', href: '/teacher/assignments/list' as const },
+  { icon: FileText, label: 'Mes évaluations', href: '/teacher/assignments/create' as const },
+  // { icon: List, label: 'Liste des Devoirs', href: '/teacher/assignments/list' as const },
   { icon: Users, label: 'Assigner un devoir', href: '/academic/assignments/assign' as const },
   { icon: Edit, label: 'Corrections en Attente', href: '/teacher/corrections' as const },
 ];
@@ -258,8 +272,7 @@ const teacherProfileMenuItems = [
 const parentMenuItems = [
   { icon: Users, label: 'Mes Enfants', href: '/parent/children' as const },
   { icon: BookOpen, label: 'Cours & Devoirs', href: '/parent/homework' as const },
-  { icon: FileText, label: 'Documents', href: '/parent/documents' as const },
-  { icon: CreditCard, label: 'Paiements & Finances', href: '/parent/payments' as const },
+  { icon: FileText, label: 'Bulletins & Reçus', href: '/parent/documents' as const },
   { icon: MessageSquare, label: 'Messages', href: '/parent/messages' as const },
   { icon: BookOpen, label: 'Parcours Professionnel', href: '/parent/professionnel' as const },
   { icon: Award, label: 'Diplômes de mon enfant', href: '/parent/professionnel/diplomes' as const },
@@ -491,10 +504,16 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               </div>
               {ownerMenuItems.map((item) => {
                 const Icon = item.icon;
+                // « Recouvrement UE » vit sous /owner/finances/ tout en ayant sa
+                // propre entrée : sans exception, les deux s'allumeraient ensemble.
                 const isActive =
                   item.href === '/owner/dashboard'
                     ? pathname === '/owner/dashboard' || pathname === '/owner'
-                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    : item.href === '/owner/finances'
+                      ? pathname === '/owner/finances' ||
+                        (pathname.startsWith('/owner/finances/') &&
+                          !pathname.startsWith('/owner/finances/professionnel'))
+                      : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <NavLink
                     key={item.href}

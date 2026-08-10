@@ -10,6 +10,7 @@ interface Programme {
   name: string;
   code: string;
   description?: string;
+  domaine?: string | null;
   cycleId: string;
   status: "draft" | "review" | "approved" | "active" | "archived";
   createdAt: string;
@@ -27,6 +28,7 @@ interface CreateProgramme {
   code: string;
   version?: string;
   description?: string;
+  domaine?: string;
   cycleId: string;
   status?: "draft" | "review" | "approved" | "active" | "archived";
 }
@@ -35,6 +37,7 @@ interface UpdateProgramme {
   name?: string;
   code?: string;
   description?: string;
+  domaine?: string;
   cycleId?: string;
   status?: "draft" | "review" | "approved" | "active" | "archived";
 }

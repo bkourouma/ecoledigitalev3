@@ -1,6 +1,10 @@
 "use client";
 
+<<<<<<< HEAD
 import { useMemo, useState } from "react";
+=======
+import { useEffect, useMemo, useState } from "react";
+>>>>>>> 030-pedagogie-ue-ecue
 import { useRouter } from "next/navigation";
 import { Card, CardContent, Button, Input } from "@ecoledigitale/ui";
 import {
@@ -18,6 +22,7 @@ import {
   Calendar,
   MapPin,
   GraduationCap,
+<<<<<<< HEAD
   BookOpen,
   Receipt,
   CheckCircle2,
@@ -25,6 +30,13 @@ import {
 import { SearchableSelect } from "@/components/SearchableSelect";
 import {
   useAdminEnrollments,
+=======
+  Receipt,
+} from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import {
+  useAllAdminEnrollments,
+>>>>>>> 030-pedagogie-ue-ecue
   useUpdateEnrollment,
   useDeleteEnrollment,
 } from "@/lib/hooks/use-professional-suivi";
@@ -61,6 +73,7 @@ function groupStatut(g: any): { label: string; cls: string } {
   if (confirmed === total) return { label: "Confirmée", cls: "bg-green-100 text-green-700" };
   return { label: `${confirmed}/${total} confirmées`, cls: "bg-blue-100 text-blue-700" };
 }
+<<<<<<< HEAD
 const STATUT_FILTER_OPTIONS = [
   { value: "all", label: "Tous les statuts" },
   { value: "confirmee", label: "Inscrits (confirmées)" },
@@ -69,25 +82,52 @@ const STATUT_FILTER_OPTIONS = [
   { value: "annulee", label: "Annulées" },
 ];
 
+=======
+>>>>>>> 030-pedagogie-ue-ecue
 function fmtDate(v?: string | null): string {
   if (!v) return "—";
   const d = new Date(v);
   return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString("fr-FR");
 }
+<<<<<<< HEAD
+=======
+
+/**
+ * Année scolaire (pivot septembre) dérivée de la date de début de la session,
+ * alignée sur le calcul côté API (professional-bulletin.service.ts) et sur la page
+ * Sessions : une session démarrant en septembre ou après appartient à
+ * « AAAA-AAAA+1 », sinon « AAAA-1-AAAA ».
+ */
+function anneeScolaireOf(v?: string | null): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+>>>>>>> 030-pedagogie-ue-ecue
 function fmtPrice(v?: number | null): string {
   if (v == null) return "—";
   return `${Math.round(v).toLocaleString("fr-FR")} FCFA`;
 }
 
 export default function ProfessionalInscritsPage() {
+<<<<<<< HEAD
   const query = useAdminEnrollments({ pageSize: 500 });
+=======
+  const query = useAllAdminEnrollments();
+>>>>>>> 030-pedagogie-ue-ecue
   const updateMut = useUpdateEnrollment();
   const deleteMut = useDeleteEnrollment();
 
   const router = useRouter();
   const items: any[] = (query.data as any)?.items ?? [];
   const [filiere, setFiliere] = useState("all");
+<<<<<<< HEAD
   const [statutFilter, setStatutFilter] = useState("all");
+=======
+  const [annee, setAnnee] = useState("all");
+>>>>>>> 030-pedagogie-ue-ecue
   const [search, setSearch] = useState("");
   const [editRow, setEditRow] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,15 +142,46 @@ export default function ProfessionalInscritsPage() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [items]);
 
+<<<<<<< HEAD
+=======
+  // Années scolaires disponibles (dérivées de la date de début des sessions),
+  // adaptées à la filière sélectionnée. Plus récentes en premier.
+  const anneeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of items) {
+      if (filiere !== "all" && e.filiere_id !== filiere) continue;
+      const a = anneeScolaireOf(e.date_debut);
+      if (a) set.add(a);
+    }
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [items, filiere]);
+
+>>>>>>> 030-pedagogie-ue-ecue
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((e) => {
       const matchFil = filiere === "all" || e.filiere_id === filiere;
+<<<<<<< HEAD
       const matchStatut = statutFilter === "all" || e.statut === statutFilter;
       const hay = `${e.first_name ?? ""} ${e.last_name ?? ""} ${e.matricule ?? ""} ${e.email ?? ""}`.toLowerCase();
       return matchFil && matchStatut && (!q || hay.includes(q));
     });
   }, [items, filiere, statutFilter, search]);
+=======
+      const matchAnnee = annee === "all" || anneeScolaireOf(e.date_debut) === annee;
+      const hay = `${e.first_name ?? ""} ${e.last_name ?? ""} ${e.matricule ?? ""} ${e.email ?? ""}`.toLowerCase();
+      return matchFil && matchAnnee && (!q || hay.includes(q));
+    });
+  }, [items, filiere, annee, search]);
+
+  // Si la filière change et que l'année sélectionnée n'existe plus dans les
+  // options, on revient à « Toutes les années ».
+  useEffect(() => {
+    if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
+  }, [anneeOptions, annee]);
+>>>>>>> 030-pedagogie-ue-ecue
 
   // Regroupe les inscriptions par étudiant + filière (une carte par binôme).
   // Un même étudiant dans deux filières = deux cartes distinctes.
@@ -203,8 +274,14 @@ export default function ProfessionalInscritsPage() {
 
       {/* Filtres */}
       <Card className="shadow-sm">
+<<<<<<< HEAD
         <CardContent className="p-4 flex flex-col lg:flex-row gap-3 lg:items-center">
           <div className="flex-1 min-w-0">
+=======
+        <CardContent className="p-4 space-y-3">
+          {/* Rangée du haut : filière + année scolaire */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+>>>>>>> 030-pedagogie-ue-ecue
             <SearchableSelect
               value={filiere}
               onChange={setFiliere}
@@ -213,6 +290,7 @@ export default function ProfessionalInscritsPage() {
               searchPlaceholder="Rechercher une filière…"
               options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
             />
+<<<<<<< HEAD
           </div>
           <div className="lg:w-60">
             <SearchableSelect
@@ -224,6 +302,19 @@ export default function ProfessionalInscritsPage() {
             />
           </div>
           <div className="relative lg:w-56">
+=======
+            <SearchableSelect
+              value={annee}
+              onChange={setAnnee}
+              icon={<Calendar className="h-4 w-4 text-gray-400" />}
+              placeholder="Filtrer par année scolaire"
+              searchPlaceholder="Rechercher une année…"
+              options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
+            />
+          </div>
+          {/* Rangée du bas : recherche étudiant */}
+          <div className="relative">
+>>>>>>> 030-pedagogie-ue-ecue
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               value={search}
@@ -232,11 +323,14 @@ export default function ProfessionalInscritsPage() {
               className="pl-9"
             />
           </div>
+<<<<<<< HEAD
           <div className="text-sm text-muted-foreground whitespace-nowrap">
             <span className="font-medium text-foreground">{groups.length}</span> étudiant
             {groups.length > 1 ? "s" : ""} · {filtered.length} inscription
             {filtered.length > 1 ? "s" : ""}
           </div>
+=======
+>>>>>>> 030-pedagogie-ue-ecue
         </CardContent>
       </Card>
 

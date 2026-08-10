@@ -6,7 +6,10 @@
  */
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+<<<<<<< HEAD
 import QRCode from "qrcode";
+=======
+>>>>>>> 030-pedagogie-ue-ecue
 import {
   MINISTERE,
   REPUBLIQUE,
@@ -19,12 +22,24 @@ import {
   LOGO_EMBLEME,
   fmtNote,
   appreciation,
+<<<<<<< HEAD
   ueDecision,
+=======
+  ueEtatLabel,
+>>>>>>> 030-pedagogie-ue-ecue
   niveauOf,
   fmtDateLongFr,
   genreLabel,
   decisionLabel,
+<<<<<<< HEAD
   semestreOrdinalFr,
+=======
+  releveSemestreTitre,
+  sessionLabel,
+  juryIntro,
+  JURY_RESULTATS,
+  JURY_NB,
+>>>>>>> 030-pedagogie-ue-ecue
 } from "./bulletin-format";
 
 const M = 12;
@@ -42,7 +57,11 @@ function decRgb(d: string): [number, number, number] {
   return d === "admis" ? OK : d === "rattrapage" ? AMBER : BAD;
 }
 
+<<<<<<< HEAD
 interface Img {
+=======
+export interface Img {
+>>>>>>> 030-pedagogie-ue-ecue
   dataUrl: string;
   ratio: number;
 }
@@ -68,7 +87,11 @@ async function loadImg(url: string): Promise<Img | null> {
   }
 }
 
+<<<<<<< HEAD
 function kv(doc: jsPDF, label: string, value: string, x: number, y: number, valueBold = false) {
+=======
+export function kv(doc: jsPDF, label: string, value: string, x: number, y: number, valueBold = false) {
+>>>>>>> 030-pedagogie-ue-ecue
   doc.setFont("times", "bold");
   doc.setFontSize(11);
   doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
@@ -82,6 +105,7 @@ function kv(doc: jsPDF, label: string, value: string, x: number, y: number, valu
   doc.text(value, x + w + 2, y);
 }
 
+<<<<<<< HEAD
 export async function downloadBulletinPdf(bulletin: any): Promise<void> {
   const [logoInstitut, embleme] = await Promise.all([loadImg(LOGO_INSTITUT), loadImg(LOGO_EMBLEME)]);
   let qrData = "";
@@ -96,6 +120,27 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
     .trim()
     .toUpperCase();
   const today = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+=======
+export interface HeaderImages {
+  logoInstitut: Img | null;
+  embleme: Img | null;
+}
+
+export async function loadHeaderImages(): Promise<HeaderImages> {
+  const [logoInstitut, embleme] = await Promise.all([loadImg(LOGO_INSTITUT), loadImg(LOGO_EMBLEME)]);
+  return { logoInstitut, embleme };
+}
+
+/** Dessine un relevé de notes complet sur la page courante de `doc`. */
+async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Promise<void> {
+  const { logoInstitut, embleme } = imgs;
+  const studentName = `${bulletin.student?.last_name ?? ""} ${bulletin.student?.first_name ?? ""}`
+    .trim()
+    .toUpperCase();
+  // Date officielle : date de génération permanente si le bulletin est généré.
+  const officialDate = bulletin.generated_at ? new Date(bulletin.generated_at) : new Date();
+  const today = officialDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+>>>>>>> 030-pedagogie-ue-ecue
   const totalObtenus = bulletin.credits_valides ?? 0;
   const totalUe = bulletin.credits_total ?? 0;
 
@@ -106,6 +151,7 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
   MINISTERE.split("\n").forEach((ln, i) => doc.text(ln, M, 14 + i * 3.4));
   REPUBLIQUE.split("\n").forEach((ln, i) => doc.text(ln, RIGHT, 14 + i * 3.4, { align: "right" }));
 
+<<<<<<< HEAD
   doc.setFont("times", "bold");
   doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
   doc.setFontSize(15);
@@ -118,6 +164,25 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
   doc.rect(PAGE_W / 2 - ow / 2, 18.5, ow, 6);
   doc.text(ordinal, PAGE_W / 2, 22.6, { align: "center" });
   doc.setTextColor(0, 0, 0);
+=======
+  // Encadré central : RELEVE DE NOTES SEMESTRE n (gras, vert).
+  doc.setFont("times", "bold");
+  doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
+  const titre = releveSemestreTitre(bulletin.semestre?.libelle);
+  doc.setFontSize(10);
+  const ow = doc.getTextWidth(titre) + 8;
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(GREEN[0], GREEN[1], GREEN[2]);
+  doc.rect(PAGE_W / 2 - ow / 2, 16, ow, 6);
+  doc.text(titre, PAGE_W / 2, 20.1, { align: "center" });
+
+  doc.setFont("times", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Année scolaire : ${bulletin.annee_academique ?? "—"}`, PAGE_W / 2, 27, {
+    align: "center",
+  });
+>>>>>>> 030-pedagogie-ue-ecue
 
   if (logoInstitut) {
     const h = 22;
@@ -128,6 +193,7 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
     doc.addImage(embleme.dataUrl, "JPEG", RIGHT - h * embleme.ratio, 21, h * embleme.ratio, h);
   }
 
+<<<<<<< HEAD
   doc.setFont("times", "normal");
   doc.setFontSize(10);
   doc.text(
@@ -146,6 +212,27 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
 
   // ---------- Bloc scolarité ----------
   let y = 54;
+=======
+  // Nom de l'institut : pleine largeur, centré, sous les logos (remonté).
+  doc.setFont("times", "bold");
+  doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
+  doc.setFontSize(12.5);
+  doc.text(INSTITUT, PAGE_W / 2, 45, { align: "center" });
+  doc.setTextColor(0, 0, 0);
+
+  // ---------- Jury : introduction (espace accru sous le titre) ----------
+  let y = 56;
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.splitTextToSize(juryIntro(officialDate), PAGE_W - 2 * M).forEach((ln: string) => {
+    doc.text(ln, M, y);
+    y += 5;
+  });
+  y += 1.5;
+
+  // ---------- Bloc scolarité ----------
+>>>>>>> 030-pedagogie-ue-ecue
   const COL2 = 118;
   const ne = `${fmtDateLongFr(bulletin.student?.date_of_birth)}${
     bulletin.student?.place_of_birth ? ` à ${bulletin.student.place_of_birth}` : ""
@@ -156,11 +243,35 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
   kv(doc, "Né(e) le", ne, M, y);
   kv(doc, "Genre", genreLabel(bulletin.student?.gender), COL2, y);
   y += 5.8;
+<<<<<<< HEAD
   kv(doc, "Filière", String(bulletin.filiere?.name ?? "—"), M, y);
   kv(doc, "Redoublant(e)", bulletin.student?.is_repeating ? "OUI" : "NON", COL2, y);
   y += 5.8;
   kv(doc, "Niveau", niveauOf(bulletin.filiere?.name), M, y);
   y += 6;
+=======
+  kv(doc, "Spécialité", String(bulletin.filiere?.name ?? "—"), M, y);
+  kv(doc, "Redoublant(e)", bulletin.student?.is_repeating ? "OUI" : "NON", COL2, y);
+  y += 5.8;
+  kv(doc, "Niveau", niveauOf(bulletin.filiere?.name), M, y);
+  kv(doc, "Domaine", String(bulletin.filiere?.domaine ?? "—"), COL2, y);
+  y += 7;
+
+  // ---------- Textes jury avant le tableau ----------
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  doc.splitTextToSize(JURY_RESULTATS, PAGE_W - 2 * M).forEach((ln: string) => {
+    doc.text(ln, M, y);
+    y += 5;
+  });
+  doc.setFont("times", "bold");
+  doc.splitTextToSize(JURY_NB, PAGE_W - 2 * M).forEach((ln: string) => {
+    doc.text(ln, M, y);
+    y += 5;
+  });
+  doc.setFont("times", "normal");
+  y += 1.5;
+>>>>>>> 030-pedagogie-ue-ecue
 
   // ---------- Tableau (catégories + UE + ECUE) ----------
   const catList =
@@ -171,6 +282,7 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
   for (const cat of catList) {
     cat.ues.forEach((ue: any, i: number) => {
       const zbg = i % 2 === 1 ? { fillColor: ZEBRA } : {};
+<<<<<<< HEAD
       const obtenus = ue.validee ? ue.credits : 0;
       body.push([
         { content: (ue.libelle ?? ue.code ?? "—").toUpperCase(), colSpan: 4, styles: { fontStyle: "bold", ...zbg } },
@@ -181,11 +293,33 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
         },
         { content: String(obtenus), styles: { halign: "center", ...zbg } },
         { content: String(ue.credits), styles: { halign: "center", ...zbg } },
+=======
+      // Le titre de l'UE porte « (MOY) » : la valeur en colonne Note de cette
+      // ligne est la moyenne de l'UE (colonne Moy supprimée).
+      body.push([
+        {
+          content: `${(ue.libelle ?? ue.code ?? "—").toUpperCase()} (MOY)`,
+          styles: { fontStyle: "bold", ...zbg },
+        },
+        { content: fmtNote(ue.moyenne_ue), styles: { fontStyle: "bold", halign: "center", ...zbg } },
+        {
+          content: ueEtatLabel(ue.etat),
+          styles: {
+            halign: "center",
+            fontStyle: "bold",
+            textColor: ue.etat === "validee" ? OK : ue.etat === "rattrapage" ? AMBER : BAD,
+            ...zbg,
+          },
+        },
+        { content: String(ue.credits), styles: { halign: "center", ...zbg } },
+        { content: sessionLabel(ue.session_validation), styles: { halign: "center", fontStyle: "bold", ...zbg } },
+>>>>>>> 030-pedagogie-ue-ecue
       ]);
       for (const e of ue.ecues) {
         const es = { fontSize: 9.5, ...zbg };
         body.push([
           { content: `   ${e.libelle ?? e.code ?? "—"}`, styles: es },
+<<<<<<< HEAD
           { content: fmtNote(e.moyenne_devoirs), styles: { ...es, halign: "center" } },
           { content: fmtNote(e.note_examen), styles: { ...es, halign: "center" } },
           { content: fmtNote(e.note_ecue), styles: { ...es, halign: "center" } },
@@ -193,6 +327,12 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
           { content: appreciation(e.note_ecue), styles: { ...es, halign: "center" } },
           { content: "", styles: zbg },
           { content: "", styles: zbg },
+=======
+          { content: fmtNote(e.note_ecue), styles: { ...es, halign: "center" } },
+          { content: appreciation(e.note_ecue), styles: { ...es, halign: "center" } },
+          { content: e.credits != null ? String(e.credits) : "—", styles: { ...es, halign: "center" } },
+          { content: sessionLabel(e.session_obtention), styles: { ...es, halign: "center" } },
+>>>>>>> 030-pedagogie-ue-ecue
         ]);
       }
     });
@@ -212,6 +352,7 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
       valign: "middle",
     },
     headStyles: { fillColor: GREEN, textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 9.5 },
+<<<<<<< HEAD
     head: [
       [
         "UNITÉ D'ENSEIGNEMENTS",
@@ -234,6 +375,16 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
       5: { cellWidth: 26, halign: "center" },
       6: { cellWidth: 20, halign: "center" },
       7: { cellWidth: 17, halign: "center" },
+=======
+    head: [["UNITÉ D'ENSEIGNEMENTS", "Note", "Appréciation", "Crédits", "Session"]],
+    body,
+    columnStyles: {
+      0: { cellWidth: 96 },
+      1: { cellWidth: 20, halign: "center" },
+      2: { cellWidth: 30, halign: "center" },
+      3: { cellWidth: 18, halign: "center" },
+      4: { cellWidth: 22, halign: "center" },
+>>>>>>> 030-pedagogie-ue-ecue
     },
   });
 
@@ -264,15 +415,24 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
         { content: "Session", styles: hstyle },
         { content: "Crédits", styles: hstyle },
         { content: "Nombre d'UE validés", styles: hstyle },
+<<<<<<< HEAD
         { content: "Rang", styles: hstyle },
+=======
+>>>>>>> 030-pedagogie-ue-ecue
         { content: "Moyenne", styles: hstyle },
         { content: "Appréciation", styles: hstyle },
       ],
       [
+<<<<<<< HEAD
         { content: "Session 1" },
         { content: `${totalObtenus}/${totalUe}` },
         { content: `${bulletin.nb_ue_validees ?? 0}/${bulletin.nb_ue_total ?? 0}` },
         { content: bulletin.rang ? `${bulletin.rang}/${bulletin.effectif ?? "—"}` : "—" },
+=======
+        { content: sessionLabel(bulletin.session_globale ?? 1) },
+        { content: `${totalObtenus}/${totalUe}` },
+        { content: `${bulletin.nb_ue_validees ?? 0}/${bulletin.nb_ue_total ?? 0}` },
+>>>>>>> 030-pedagogie-ue-ecue
         { content: fmtNote(bulletin.moyenne_session), styles: { fontStyle: "bold" } },
         { content: appreciation(bulletin.moyenne_session), styles: { fontStyle: "bold" } },
       ],
@@ -292,6 +452,7 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
       y += 5;
     });
 
+<<<<<<< HEAD
   // ---------- Bas : QR/réf · décision · visa ----------
   y += 3;
   const topY = y;
@@ -312,6 +473,24 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
   doc.setFontSize(15);
   doc.setTextColor(dc[0], dc[1], dc[2]);
   doc.text(decisionLabel(bulletin.decision), PAGE_W / 2, topY + 13, { align: "center" });
+=======
+  // ---------- Bas : décision · visa ----------
+  y += 3;
+  const topY = y;
+
+  // Décision (aligné à gauche, colorée).
+  doc.setFont("times", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
+  doc.text(DECISION_TITRE, M, topY + 3);
+  const dw = doc.getTextWidth(DECISION_TITRE);
+  doc.setDrawColor(0, 0, 0);
+  doc.line(M, topY + 3.8, M + dw, topY + 3.8);
+  const dc = decRgb(bulletin.decision);
+  doc.setFontSize(15);
+  doc.setTextColor(dc[0], dc[1], dc[2]);
+  doc.text(decisionLabel(bulletin.decision), M, topY + 13);
+>>>>>>> 030-pedagogie-ue-ecue
   doc.setTextColor(0, 0, 0);
 
   // Visa (droite) + date.
@@ -335,8 +514,19 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
   );
   doc.setTextColor(0, 0, 0);
 
+<<<<<<< HEAD
   // ---------- Filigrane (overlay léger) ----------
   if (logoInstitut) {
+=======
+}
+
+/** Filigrane (logo en transparence) appliqué sur toutes les pages du document. */
+function drawWatermarkAllPages(doc: jsPDF, logoInstitut: Img | null): void {
+  if (!logoInstitut) return;
+  const total = doc.getNumberOfPages();
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p);
+>>>>>>> 030-pedagogie-ue-ecue
     try {
       doc.saveGraphicsState();
       (doc as any).setGState(new (doc as any).GState({ opacity: 0.06 }));
@@ -348,8 +538,82 @@ export async function downloadBulletinPdf(bulletin: any): Promise<void> {
       /* GState indisponible : on ignore le filigrane */
     }
   }
+<<<<<<< HEAD
 
   const safe = (studentName || "etudiant").replace(/[^\w-]+/g, "_");
   const semSafe = String(bulletin.semestre?.libelle ?? "semestre").replace(/[^\w-]+/g, "_");
   doc.save(`Releve_de_notes_${safe}_${semSafe}.pdf`);
+=======
+}
+
+function bulletinFilename(bulletin: any): string {
+  const studentName = `${bulletin.student?.last_name ?? ""} ${bulletin.student?.first_name ?? ""}`
+    .trim()
+    .toUpperCase();
+  const safe = (studentName || "etudiant").replace(/[^\w-]+/g, "_");
+  const semSafe = String(bulletin.semestre?.libelle ?? "semestre").replace(/[^\w-]+/g, "_");
+  return `Releve_de_notes_${safe}_${semSafe}.pdf`;
+}
+
+async function buildBulletinDoc(bulletin: any): Promise<{ doc: jsPDF; filename: string }> {
+  const imgs = await loadHeaderImages();
+  const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
+  await drawBulletin(doc, bulletin, imgs);
+  drawWatermarkAllPages(doc, imgs.logoInstitut);
+  return { doc, filename: bulletinFilename(bulletin) };
+}
+
+/** PDF combiné : un relevé par étudiant, chacun sur sa (ses) propre(s) page(s). */
+async function buildAllBulletinsDoc(bulletins: any[]): Promise<jsPDF> {
+  const imgs = await loadHeaderImages();
+  const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
+  for (let i = 0; i < bulletins.length; i++) {
+    if (i > 0) doc.addPage();
+    await drawBulletin(doc, bulletins[i], imgs);
+  }
+  drawWatermarkAllPages(doc, imgs.logoInstitut);
+  return doc;
+}
+
+/** Télécharge le relevé de notes en PDF. */
+export async function downloadBulletinPdf(bulletin: any): Promise<void> {
+  const { doc, filename } = await buildBulletinDoc(bulletin);
+  doc.save(filename);
+}
+
+/**
+ * Génère le PDF officiel et renvoie une URL blob pour l'aperçu embarqué
+ * (iframe / object). L'appelant doit révoquer l'URL (URL.revokeObjectURL).
+ */
+export async function bulletinPdfObjectUrl(bulletin: any): Promise<string> {
+  const { doc } = await buildBulletinDoc(bulletin);
+  return URL.createObjectURL(doc.output("blob"));
+}
+
+/**
+ * Ouvre le PDF combiné de TOUS les bulletins dans le navigateur.
+ * `win` : onglet ouvert de façon synchrone au clic (évite le blocage popup) ;
+ * si absent, un nouvel onglet est ouvert.
+ */
+export async function openAllBulletinsPdf(bulletins: any[], win?: Window | null): Promise<void> {
+  const doc = await buildAllBulletinsDoc(bulletins);
+  const url = URL.createObjectURL(doc.output("blob"));
+  if (win) win.location.href = url;
+  else window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 120_000);
+}
+
+/**
+ * Ouvre le relevé de notes comme un document PDF dans le navigateur
+ * (visionneuse native), sans passer par l'interface applicative.
+ * `win` : onglet ouvert de façon synchrone au clic (évite le blocage popup) ;
+ * si absent, un nouvel onglet est ouvert.
+ */
+export async function openBulletinPdf(bulletin: any, win?: Window | null): Promise<void> {
+  const { doc } = await buildBulletinDoc(bulletin);
+  const url = URL.createObjectURL(doc.output("blob"));
+  if (win) win.location.href = url;
+  else window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 120_000);
+>>>>>>> 030-pedagogie-ue-ecue
 }

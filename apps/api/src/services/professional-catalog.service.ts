@@ -104,7 +104,11 @@ export class ProfessionalCatalogService extends ProfessionalBaseService {
          LEFT JOIN professional_ue u ON u.id = l.ue_id
          WHERE ${whereSql}
          GROUP BY e.id
+<<<<<<< HEAD
          ORDER BY e.created_at DESC
+=======
+         ORDER BY e.created_at DESC, e.id
+>>>>>>> 030-pedagogie-ue-ecue
          LIMIT $${i++} OFFSET $${i++}`,
         [...params, pageSize, (page - 1) * pageSize]
       );

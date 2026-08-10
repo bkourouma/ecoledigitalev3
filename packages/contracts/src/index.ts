@@ -82,6 +82,16 @@ export * from './entreprises';
 export * from './exports';
 export * from './reporting';
 export * from "./owner.schema";
+export * from "./owner-stats.schema";
+
+// Export des contrats du Module Professionnel (Filière → UE → ECUE) — features 028 → 030
+export * from "./professional";
+
+// Export des contrats des Diplômes Professionnels (composés d'UE) — features 029 → 030
+export * from "./professional-diplomas";
+
+// Signataires configurables des documents officiels (attestations, diplôme)
+export * from "./professional-signataires";
 
 // Export des contrats du Module Professionnel (Filière → UE → ECUE) — features 028 → 030
 export * from "./professional";

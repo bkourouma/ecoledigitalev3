@@ -42,6 +42,11 @@ import {
   DiplomaCreateInputSchema,
   DiplomaUpdateInputSchema,
   DiplomaRequirementsReplaceInputSchema,
+<<<<<<< HEAD
+=======
+  SignataireCleSchema,
+  SignataireUpdateInputSchema,
+>>>>>>> 030-pedagogie-ue-ecue
   DiplomaAwardManualInputSchema,
   DiplomaRevokeInputSchema,
 } from "@ecoledigitale/contracts";
@@ -56,6 +61,11 @@ import { ProfessionalEnrollmentService } from "../services/professional-enrollme
 import { ProfessionalPaymentService } from "../services/professional-payment.service";
 import { ProfessionalTeacherService } from "../services/professional-teacher.service";
 import { ProfessionalDiplomasService } from "../services/professional-diplomas.service";
+<<<<<<< HEAD
+=======
+import { ProfessionalAttestationsService } from "../services/professional-attestations.service";
+import { ProfessionalSignatairesService } from "../services/professional-signataires.service";
+>>>>>>> 030-pedagogie-ue-ecue
 import {
   ProfessionalEcueMaterialsService,
   type MaterialKind,
@@ -129,6 +139,13 @@ const ERROR_STATUS: Record<string, number> = {
   DIPLOMA_ALREADY_AWARDED: 409,
   DIPLOMA_NOT_ELIGIBLE: 422,
   DIPLOMA_NOT_AWARDED: 404,
+<<<<<<< HEAD
+=======
+  // Attestations de réussite (filière → semestres → UE)
+  STUDENT_NOT_FOUND: 404,
+  NO_UE_CONFIGURED: 422,
+  NOT_ELIGIBLE: 422,
+>>>>>>> 030-pedagogie-ue-ecue
   LIVEKIT_NOT_CONFIGURED: 503,
   LIVEKIT_UPSTREAM_ERROR: 502,
   FILE_TOO_LARGE: 413,
@@ -181,6 +198,11 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
   const payment = new ProfessionalPaymentService(fastify.pg as any);
   const teacher = new ProfessionalTeacherService(fastify.pg as any);
   const diplomas = new ProfessionalDiplomasService(fastify.pg as any);
+<<<<<<< HEAD
+=======
+  const attestations = new ProfessionalAttestationsService(fastify.pg as any);
+  const signataires = new ProfessionalSignatairesService(fastify.pg as any);
+>>>>>>> 030-pedagogie-ue-ecue
   const ecueMaterials = new ProfessionalEcueMaterialsService(fastify.pg as any);
   const assignments = new ProfessionalAssignmentsService(fastify.pg as any);
   const profLive = new ProfessionalLiveSessionsService(fastify.pg as any);
@@ -998,6 +1020,32 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+<<<<<<< HEAD
+=======
+  // Historique complet des présences d'une filière (admin) : séances + récap étudiants.
+  fastify.get(
+    "/presences/history",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const q = request.query as { filiere_id?: string; semestre_id?: string; statut?: string };
+      if (!q.filiere_id) {
+        return reply
+          .status(400)
+          .send({ success: false, error: "VALIDATION_ERROR", message: "filiere_id requis." });
+      }
+      const statut =
+        q.statut === "terminee" || q.statut === "en_cours" ? q.statut : undefined;
+      const result = await ue.getPresencesHistory(
+        request.tenantId as string,
+        q.filiere_id,
+        q.semestre_id || undefined,
+        statut
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+>>>>>>> 030-pedagogie-ue-ecue
   // Affectation enseignant ↔ ECUE (au sein d'une session).
   fastify.get(
     "/ue-sessions/:id/ecue-teachers",
@@ -1243,6 +1291,49 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+<<<<<<< HEAD
+=======
+  // Génère les bulletins officiels de tous les étudiants du semestre
+  // (date de génération permanente + statut définitif/provisoire).
+  fastify.post(
+    "/semestres/:id/bulletins/generate",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await bulletin.generateBulletins(request.tenantId as string, id);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Historique des bulletins d'une filière (semestres + étudiants + bulletins générés).
+  fastify.get(
+    "/bulletins/history",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { filiere_id } = request.query as { filiere_id?: string };
+      if (!filiere_id) {
+        return reply
+          .status(400)
+          .send({ success: false, error: "VALIDATION_ERROR", message: "filiere_id requis." });
+      }
+      const result = await bulletin.getBulletinHistory(request.tenantId as string, filiere_id);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Bulletins complets d'un semestre — pour le PDF combiné « Tous les bulletins ».
+  // Chemin distinct de « :studentId » pour éviter toute collision de route.
+  fastify.get(
+    "/semestres/:id/bulletins-full",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await bulletin.listFullBulletins(request.tenantId as string, id);
+      return sendResult(reply, result);
+    })
+  );
+
+>>>>>>> 030-pedagogie-ue-ecue
   // Filières pour la saisie des notes (admin = toutes ; enseignant = les siennes).
   fastify.get(
     "/notes/filieres",
@@ -1322,6 +1413,21 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+<<<<<<< HEAD
+=======
+  // Bulletin de style BTS (Licence 1/2 uniquement) : rang par UE/ECUE + bilan
+  // annuel sur le dernier semestre de la filière (feature ad hoc, hors 030).
+  fastify.get(
+    "/semestres/:id/bulletins/:studentId/bts",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id, studentId } = request.params as { id: string; studentId: string };
+      const result = await bulletin.getBulletinBts(request.tenantId as string, id, studentId);
+      return sendResult(reply, result);
+    })
+  );
+
+>>>>>>> 030-pedagogie-ue-ecue
   // Semestres où l'étudiant connecté est inscrit.
   fastify.get(
     "/student/semestres",
@@ -1350,6 +1456,24 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+<<<<<<< HEAD
+=======
+  // Détail des notes individuelles (devoirs + examen) de l'étudiant connecté.
+  fastify.get(
+    "/student/bulletins/:semestreId/notes",
+    { preHandler: requireStudent },
+    handler(async (request, reply) => {
+      const { semestreId } = request.params as { semestreId: string };
+      const result = await bulletin.getStudentSemestreNotes(
+        request.tenantId as string,
+        semestreId,
+        currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+>>>>>>> 030-pedagogie-ue-ecue
   /* ===================== Supports d'ECUE (admin + enseignant) ===================== */
 
   const MATERIAL_KIND_BY_MIME: Record<string, MaterialKind> = {
@@ -1653,6 +1777,94 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+<<<<<<< HEAD
+=======
+  // Duplique (« assigne ») une évaluation vers d'autres cibles ECUE × cohorte
+  // affectées à l'enseignant. Copie la config + les questions, et recopie le
+  // fichier sujet éventuel dans le dossier du duplicata.
+  fastify.post(
+    "/assignments/:id/duplicate",
+    { preHandler: requireAdminOrTeacher },
+    handler(async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = (request.body ?? {}) as {
+        targets?: Array<{ ecue_id: string; ue_session_id?: string | null }>;
+        due_at?: string | null;
+        starts_at?: string | null;
+        statut?: string | null;
+      };
+      if (!Array.isArray(body.targets) || body.targets.length === 0) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Au moins une filière / cohorte cible est requise.",
+        });
+      }
+
+      const result = await assignments.duplicateToTargets(
+        request.tenantId as string,
+        currentUserId(request),
+        isAdminRequest(request),
+        id,
+        body.targets,
+        {
+          due_at: body.due_at ?? null,
+          starts_at: body.starts_at ?? null,
+          statut: body.statut ?? null,
+        }
+      );
+      if (!result.success) return sendResult(reply, result);
+
+      // Recopie du fichier sujet pour chaque duplicata (si l'évaluation source
+      // avait un sujet PDF/Word). Best-effort : un échec laisse le duplicata sans
+      // sujet, l'enseignant pourra le ré-uploader.
+      for (const dup of result.data.created as any[]) {
+        const meta = dup.document_to_copy as
+          | { source_assignment_id: string; filename: string }
+          | null
+          | undefined;
+        delete dup.document_to_copy;
+        if (!meta) continue;
+        try {
+          const srcPath = path.join(
+            process.cwd(),
+            "uploads",
+            "professional",
+            "assignments",
+            meta.source_assignment_id,
+            meta.filename
+          );
+          await fs.access(srcPath);
+          const destDir = path.join(
+            process.cwd(),
+            "uploads",
+            "professional",
+            "assignments",
+            dup.id
+          );
+          await fs.mkdir(destDir, { recursive: true });
+          await fs.copyFile(srcPath, path.join(destDir, meta.filename));
+          const url = `/api/v1/professional/assignments/${encodeURIComponent(
+            dup.id
+          )}/subject-document/${encodeURIComponent(meta.filename)}`;
+          const upd = await assignments.setSubjectDocumentUrl(
+            request.tenantId as string,
+            currentUserId(request),
+            isAdminRequest(request),
+            dup.id,
+            url
+          );
+          if (upd.success) dup.subject_document_url = url;
+        } catch {
+          /* fichier source absent → duplicata sans sujet */
+        }
+      }
+
+      return reply.status(201).send({ success: true, data: result.data });
+    })
+  );
+
+>>>>>>> 030-pedagogie-ue-ecue
   fastify.get(
     "/assignments/:id/submissions",
     { preHandler: requireAdminOrTeacher },
@@ -2772,6 +2984,123 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+<<<<<<< HEAD
+=======
+  // Historique de présence/absence d'un enfant (parent).
+  fastify.get(
+    "/parent/attendance",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await enrollment.parentListChildAttendance(
+        request.tenantId as string,
+        currentUserId(request),
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Semestres où l'enfant est inscrit (parent).
+  fastify.get(
+    "/parent/bulletins/semestres",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await bulletin.listChildSemestres(
+        request.tenantId as string,
+        currentUserId(request),
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Bulletin (notes) d'un enfant pour un semestre (parent).
+  fastify.get(
+    "/parent/bulletins/:semestreId",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const { semestreId } = request.params as { semestreId: string };
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await bulletin.getChildBulletin(
+        request.tenantId as string,
+        currentUserId(request),
+        semestreId,
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Détail des notes individuelles d'un enfant pour un semestre (parent).
+  fastify.get(
+    "/parent/bulletins/:semestreId/notes",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const { semestreId } = request.params as { semestreId: string };
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await bulletin.getChildSemestreNotes(
+        request.tenantId as string,
+        currentUserId(request),
+        semestreId,
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Devoirs & évaluations d'un enfant (parent).
+  fastify.get(
+    "/parent/assignments",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await assignments.listForChild(
+        request.tenantId as string,
+        currentUserId(request),
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+>>>>>>> 030-pedagogie-ue-ecue
   /* ============== Espace enseignant (cohortes / séances) ============== */
 
   fastify.get(
@@ -2968,6 +3297,32 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
   /* ============== Diplômes professionnels (admin) ============== */
 
   fastify.get(
+<<<<<<< HEAD
+=======
+    "/cycle-groups",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await diplomas.listCycleGroups(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.post(
+    "/cycle-groups/:filiereId/ensure-diploma",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { filiereId } = request.params as { filiereId: string };
+      const result = await diplomas.ensureCycleDiploma(
+        request.tenantId as string,
+        filiereId,
+        currentUserId(request) || null
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.get(
+>>>>>>> 030-pedagogie-ue-ecue
     "/diplomas",
     { preHandler: requireAdmin },
     handler(async (request, reply) => {
@@ -3107,6 +3462,29 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+<<<<<<< HEAD
+=======
+  fastify.get(
+    "/diplomas/:id/students/:studentId/progress",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id, studentId } = request.params as { id: string; studentId: string };
+      const result = await diplomas.computeProgress(request.tenantId as string, id, studentId);
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.get(
+    "/diplomas/:id/students/:studentId/attestation",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id, studentId } = request.params as { id: string; studentId: string };
+      const result = await diplomas.getAttestation(request.tenantId as string, id, studentId);
+      return sendResult(reply, result);
+    })
+  );
+
+>>>>>>> 030-pedagogie-ue-ecue
   fastify.post(
     "/diplomas/:id/award",
     { preHandler: requireAdmin },
@@ -3219,6 +3597,78 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
       return sendResult(reply, result);
     })
   );
+<<<<<<< HEAD
 }
 
+=======
+
+  /* ===== Attestations de réussite (filière → semestres → UE) — admin ===== */
+
+  fastify.get(
+    "/filieres/:filiereId/attestation-roster",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { filiereId } = request.params as { filiereId: string };
+      const result = await attestations.getRoster(request.tenantId as string, filiereId);
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.get(
+    "/filieres/:filiereId/students/:studentId/attestation",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { filiereId, studentId } = request.params as { filiereId: string; studentId: string };
+      const result = await attestations.getStudentAttestation(
+        request.tenantId as string,
+        filiereId,
+        studentId
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  /* ===== Signataires des documents officiels — admin ===== */
+
+  fastify.get(
+    "/signataires",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await signataires.list(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.put(
+    "/signataires/:cle",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { cle } = request.params as { cle: string };
+      const parsedCle = SignataireCleSchema.safeParse(cle);
+      if (!parsedCle.success) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Titre de signataire inconnu.",
+        });
+      }
+      const parsed = SignataireUpdateInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Signataire invalide.",
+          details: parsed.error.issues,
+        });
+      }
+      const result = await signataires.upsert(
+        request.tenantId as string,
+        parsedCle.data,
+        parsed.data
+      );
+      return sendResult(reply, result);
+    })
+  );
+}
+>>>>>>> 030-pedagogie-ue-ecue
 export default professionalRoutes;

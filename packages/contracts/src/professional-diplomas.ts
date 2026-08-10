@@ -124,6 +124,13 @@ export const StudentDiplomaDtoSchema = z.object({
   revoque_par: z.string().uuid().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
+<<<<<<< HEAD
+=======
+  /** Numéro de référence de l'attestation d'authenticité (AUTH/{année}/{NNN}), attribué à la 1ère génération. */
+  authenticite_reference: z.string().nullable().optional(),
+  authenticite_numero: z.number().int().nullable().optional(),
+  authenticite_annee: z.number().int().nullable().optional(),
+>>>>>>> 030-pedagogie-ue-ecue
 });
 
 /* UE dans une vue de progression. */
@@ -158,6 +165,11 @@ export const StudentDiplomaSummaryDtoSchema = z.object({
 
 export const DiplomaAttestationDtoSchema = z.object({
   reference: z.string(),
+<<<<<<< HEAD
+=======
+  /** Numéro de référence de l'attestation d'authenticité (AUTH/{année}/{NNN}), séquentiel et persistant. */
+  authenticite_reference: z.string(),
+>>>>>>> 030-pedagogie-ue-ecue
   diplome: z.object({
     code: z.string(),
     libelle: z.string(),
@@ -168,6 +180,11 @@ export const DiplomaAttestationDtoSchema = z.object({
     nom_complet: z.string(),
   }),
   date_obtention: z.string(),
+<<<<<<< HEAD
+=======
+  /** Année scolaire (« 2025-2026 ») dérivée des sessions d'UE de l'étudiant, imprimée sur l'attestation. */
+  annee_academique: z.string().nullable().optional(),
+>>>>>>> 030-pedagogie-ue-ecue
   uv_total_validees: z.number().int(),
   ue_validees: z.array(
     z.object({
@@ -176,6 +193,11 @@ export const DiplomaAttestationDtoSchema = z.object({
       nb_uv: z.number().int(),
     })
   ),
+<<<<<<< HEAD
+=======
+  /** Mention dérivée de la moyenne des bulletins de l'étudiant (null si aucun bulletin). */
+  mention: z.string().nullable().optional(),
+>>>>>>> 030-pedagogie-ue-ecue
 });
 
 /* ============================ Type exports ============================ */

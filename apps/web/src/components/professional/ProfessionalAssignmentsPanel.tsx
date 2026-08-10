@@ -56,7 +56,11 @@ const STATUT_OPTIONS = [
   { value: "cloture", label: "Clôturé" },
 ];
 
+<<<<<<< HEAD
 const EVALUATION_TYPES = [
+=======
+export const EVALUATION_TYPES = [
+>>>>>>> 030-pedagogie-ue-ecue
   {
     id: "online" as const,
     name: "Évaluation en ligne",
@@ -92,7 +96,11 @@ const EVALUATION_TYPES = [
   },
 ];
 
+<<<<<<< HEAD
 const EVALUATION_TYPE_LABEL: Record<string, string> = {
+=======
+export const EVALUATION_TYPE_LABEL: Record<string, string> = {
+>>>>>>> 030-pedagogie-ue-ecue
   online: "En ligne",
   pdf: "Sujet PDF",
   ai_generated: "IA",
@@ -297,7 +305,11 @@ export function ProfessionalAssignmentsPanel({ subjectId, sessionId, canManage =
   );
 }
 
+<<<<<<< HEAD
 function DeleteAssignmentBtn({ id, onError }: { id: string; onError: (m: string) => void }) {
+=======
+export function DeleteAssignmentBtn({ id, onError }: { id: string; onError: (m: string) => void }) {
+>>>>>>> 030-pedagogie-ue-ecue
   const delMut = useDeleteAssignment();
   return (
     <Button
@@ -327,7 +339,11 @@ function DeleteAssignmentBtn({ id, onError }: { id: string; onError: (m: string)
 
 type EvaluationTypeId = "online" | "pdf" | "ai_generated";
 
+<<<<<<< HEAD
 function AssignmentForm({
+=======
+export function AssignmentForm({
+>>>>>>> 030-pedagogie-ue-ecue
   subjectId,
   sessionId,
   initial,
@@ -984,7 +1000,11 @@ function AssignmentForm({
 
 /* -------------------------------------------------------------------------- */
 
+<<<<<<< HEAD
 function GradingModal({
+=======
+export function GradingModal({
+>>>>>>> 030-pedagogie-ue-ecue
   assignment,
   canManage,
   onClose,

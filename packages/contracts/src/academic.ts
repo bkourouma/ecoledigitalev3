@@ -63,6 +63,7 @@ export const CreateProgrammeSchema = z.object({
   code: z.string().min(1).max(20),
   version: z.string().max(10).default('1.0'),
   description: z.string().optional(),
+  domaine: z.string().max(255).optional(),
   objectives: z.array(z.string()).optional(),
   ectsCredits: z.number().int().nonnegative().optional(),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/).optional(),
@@ -187,6 +188,16 @@ export const TeacherSchema = z.object({
   updatedAt: z.date(),
 });
 
+/**
+ * Modèle d'email d'envoi des identifiants enseignant.
+ * `subject` et `body` acceptent des variables `{{firstName}}`, `{{email}}`,
+ * `{{password}}`, `{{loginUrl}}`, `{{schoolName}}`, etc.
+ */
+export const TeacherCredentialsEmailTemplateSchema = z.object({
+  subject: z.string().min(1).max(300),
+  body: z.string().min(1).max(20000),
+});
+
 export const CreateTeacherSchema = z.object({
   userId: z.string().uuid().optional(),
   employeeNumber: z.string().max(20).optional(),
@@ -202,11 +213,24 @@ export const CreateTeacherSchema = z.object({
   hourlyRate: z.number().nonnegative().optional(),
   /** Si renseigné avec un email : création du compte utilisateur (comme les parents) */
   password: z.string().min(8).optional(),
+  /** Envoyer les identifiants par email juste après la création (défaut : true) */
+  sendCredentialsEmail: z.boolean().optional(),
+  /** Modèle personnalisé pour cet envoi ; sinon le modèle du tenant est utilisé */
+  credentialsEmailTemplate: TeacherCredentialsEmailTemplateSchema.optional(),
+  /** Enregistrer aussi ce modèle comme modèle par défaut de l'établissement */
+  saveCredentialsEmailTemplate: z.boolean().optional(),
 });
 
-export const UpdateTeacherSchema = CreateTeacherSchema.partial().omit({ password: true }).extend({
-  status: TeacherStatusSchema.optional(),
-});
+export const UpdateTeacherSchema = CreateTeacherSchema.partial()
+  .omit({
+    password: true,
+    sendCredentialsEmail: true,
+    credentialsEmailTemplate: true,
+    saveCredentialsEmailTemplate: true,
+  })
+  .extend({
+    status: TeacherStatusSchema.optional(),
+  });
 
 export const CourseAssignmentSchema = z.object({
   id: z.string().uuid(),
@@ -287,6 +311,7 @@ export type UpdateCourse = z.infer<typeof UpdateCourseSchema>;
 export type Teacher = z.infer<typeof TeacherSchema>;
 export type CreateTeacher = z.infer<typeof CreateTeacherSchema>;
 export type UpdateTeacher = z.infer<typeof UpdateTeacherSchema>;
+export type TeacherCredentialsEmailTemplate = z.infer<typeof TeacherCredentialsEmailTemplateSchema>;
 
 export type CourseAssignment = z.infer<typeof CourseAssignmentSchema>;
 export type CreateCourseAssignment = z.infer<typeof CreateCourseAssignmentSchema>;

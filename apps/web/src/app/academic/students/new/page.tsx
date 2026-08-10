@@ -41,6 +41,13 @@ const generatePassword = (): string => {
 const studentFormSchema = z.object({
   firstName: z.string().min(1, "Le prénom est requis").max(100, "Le prénom ne peut pas dépasser 100 caractères"),
   lastName: z.string().min(1, "Le nom est requis").max(100, "Le nom ne peut pas dépasser 100 caractères"),
+  // Matricule saisi par la scolarité — distinct du matricule numérique
+  // (10001, 10002, …) que l'API génère automatiquement à la création.
+  studentMatricule: z
+    .string()
+    .min(1, "Le matricule est requis")
+    .max(50, "Le matricule ne peut pas dépasser 50 caractères")
+    .transform((val) => val.trim()),
   email: z.string().min(1, "L'email est requis").email("Email invalide"),
   phone: z.string()
     .min(1, "Le téléphone est requis")
@@ -138,6 +145,7 @@ export default function NewStudentPage() {
       const studentData = {
         firstName: data.firstName,
         lastName: data.lastName,
+        studentMatricule: data.studentMatricule,
         email: data.email,
         password: generatePassword(),
         currentYear: 1,
@@ -214,6 +222,18 @@ export default function NewStudentPage() {
             <CardDescription>Informations de base sur l'étudiant</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="studentMatricule">Matricule *</Label>
+              <Input
+                id="studentMatricule"
+                {...register("studentMatricule")}
+                placeholder="04100146D"
+              />
+              {errors.studentMatricule && (
+                <p className="text-sm text-red-600">{errors.studentMatricule.message}</p>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">Prénom *</Label>

@@ -27,6 +27,7 @@ const programmeFormSchema = z.object({
   name: z.string().max(100, "Le nom est trop long").optional().or(z.literal("")),
   code: z.string().max(20, "Le code est trop long").optional().or(z.literal("")),
   description: z.string().optional(),
+  domaine: z.string().max(255, "Le domaine est trop long").optional().or(z.literal("")),
   cycleId: z.string().min(1, "Le cycle est requis").refine(
     (value) => value !== "no-cycles",
     "Veuillez sélectionner un cycle valide"
@@ -37,6 +38,7 @@ const programmeFormSchema = z.object({
   bulkItems: z.array(z.object({
     name: z.string().max(100, "Le nom est trop long").optional().or(z.literal("")),
     code: z.string().max(20, "Le code est trop long").optional().or(z.literal("")),
+    domaine: z.string().max(255, "Le domaine est trop long").optional().or(z.literal("")),
   })).optional(),
 });
 
@@ -45,7 +47,7 @@ type ProgrammeFormData = z.infer<typeof programmeFormSchema>;
 interface ProgrammeFormProps {
   programme?: Programme;
   onSubmit: (data: ProgrammeFormData & {
-    bulkProgrammes?: Array<{ name: string; code: string }>;
+    bulkProgrammes?: Array<{ name: string; code: string; domaine?: string }>;
   }) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
@@ -76,9 +78,10 @@ export function ProgrammeForm({
       name: programme?.name || "",
       code: programme?.code || "",
       description: programme?.description || "",
+      domaine: programme?.domaine || "",
       cycleId: programme?.cycleId || "",
       status: (programme?.status || "active") as "draft" | "review" | "approved" | "active" | "archived",
-      bulkItems: allowBulkCreation && !programme ? [{ name: "", code: "" }] : [],
+      bulkItems: allowBulkCreation && !programme ? [{ name: "", code: "", domaine: "" }] : [],
     },
   });
 
@@ -104,6 +107,7 @@ export function ProgrammeForm({
           .map((item) => ({
             name: item.name?.trim() || "",
             code: item.code?.trim() || "",
+            domaine: item.domaine?.trim() || "",
           }))
           .filter((item) => item.name.length > 0 && item.code.length > 0);
 
@@ -125,6 +129,7 @@ export function ProgrammeForm({
           ...data,
           name: deduped[0].name,
           code: deduped[0].code,
+          domaine: deduped[0].domaine || undefined,
           bulkProgrammes: deduped,
           status: "active",
         });
@@ -204,6 +209,12 @@ export function ProgrammeForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <datalist id="domaine-suggestions">
+          <option value="Sciences de Gestion des entreprises" />
+          <option value="Sciences Juridiques, Politiques et Administratives" />
+          <option value="Sciences et Technologies" />
+        </datalist>
+
         {allowBulkCreation && !programme ? (
           cycleField
         ) : null}
@@ -241,6 +252,25 @@ export function ProgrammeForm({
             </div>
 
             {cycleField}
+
+            <FormField
+              control={form.control}
+              name="domaine"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Domaine (optionnel)</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Ex. : Sciences de Gestion des entreprises"
+                      list="domaine-suggestions"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -340,13 +370,32 @@ export function ProgrammeForm({
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name={`bulkItems.${index}.domaine`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Domaine (optionnel)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex. : Sciences de Gestion des entreprises"
+                          list="domaine-suggestions"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             ))}
 
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => append({ name: "", code: "" })}
+                onClick={() => append({ name: "", code: "", domaine: "" })}
                 className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border hover:bg-muted"
                 disabled={isLoading}
               >

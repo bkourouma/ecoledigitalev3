@@ -17,11 +17,19 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
+<<<<<<< HEAD
+=======
+  Hash,
+>>>>>>> 030-pedagogie-ue-ecue
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useProfessionalUeSessionsList } from "@/lib/hooks/use-professional-catalog-admin";
 import { useStudents } from "@/lib/hooks/use-students";
+<<<<<<< HEAD
 import { useAdminEnrollBulk, useAllAdminEnrollments } from "@/lib/hooks/use-professional-suivi";
+=======
+import { useAdminEnrollBulk } from "@/lib/hooks/use-professional-suivi";
+>>>>>>> 030-pedagogie-ue-ecue
 
 /**
  * Inscriptions — Module Professionnel (admin).
@@ -55,6 +63,7 @@ function sessionGroupLabel(s: any): string {
 
 const STUDENT_VISIBLE_CAP = 120;
 
+<<<<<<< HEAD
 // Statuts de session considérés comme NON actifs (terminée / annulée) : une
 // inscription sur une telle session ne « bloque » plus l'étudiant, qui peut
 // donc réapparaître dans la liste.
@@ -64,10 +73,16 @@ export default function ProfessionalInscriptionsPage() {
   const sessionsQuery = useProfessionalUeSessionsList({ pageSize: 500 } as any);
   const studentsQuery = useStudents({ limit: 1000 } as any);
   const enrollmentsQuery = useAllAdminEnrollments();
+=======
+export default function ProfessionalInscriptionsPage() {
+  const sessionsQuery = useProfessionalUeSessionsList({ pageSize: 500 } as any);
+  const studentsQuery = useStudents({ limit: 1000 } as any);
+>>>>>>> 030-pedagogie-ue-ecue
   const bulkMut = useAdminEnrollBulk();
 
   const sessions: any[] = (sessionsQuery.data as any)?.items ?? [];
   const students: any[] = (studentsQuery.data as any)?.data ?? [];
+<<<<<<< HEAD
   const enrollments: any[] = (enrollmentsQuery.data as any)?.items ?? [];
 
   // Étudiants déjà inscrits dans une session ENCORE ACTIVE (inscription non
@@ -82,6 +97,8 @@ export default function ProfessionalInscriptionsPage() {
     }
     return set;
   }, [enrollments]);
+=======
+>>>>>>> 030-pedagogie-ue-ecue
 
   const [filiere, setFiliere] = useState("");
   const [sessionIds, setSessionIds] = useState<string[]>([]);
@@ -128,14 +145,21 @@ export default function ProfessionalInscriptionsPage() {
   const filteredStudents = useMemo(() => {
     const q = studentSearch.trim().toLowerCase();
     return students.filter((s) => {
+<<<<<<< HEAD
       // Masque les étudiants déjà inscrits dans une session encore active.
       if (blockedStudentIds.has(String(s.id))) return false;
+=======
+>>>>>>> 030-pedagogie-ue-ecue
       if (!q) return true;
       const name = studentName(s).toLowerCase();
       const mat = String(s.studentNumber ?? s.establishmentMatricule ?? "").toLowerCase();
       return name.includes(q) || mat.includes(q);
     });
+<<<<<<< HEAD
   }, [students, studentSearch, blockedStudentIds]);
+=======
+  }, [students, studentSearch]);
+>>>>>>> 030-pedagogie-ue-ecue
 
   function toggle(list: string[], setList: (v: string[]) => void, id: string) {
     setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
@@ -204,6 +228,29 @@ export default function ProfessionalInscriptionsPage() {
                 </span>
               </div>
             )}
+<<<<<<< HEAD
+=======
+            {result.matricules?.length > 0 && (
+              <div className="pt-2 border-t">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Hash className="h-3.5 w-3.5" />
+                  Matricules de la filière
+                </div>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                  {result.matricules.map((m: any) => (
+                    <li key={m.student_id} className="flex items-center justify-between gap-3">
+                      <span className="text-foreground truncate">
+                        {`${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "—"}
+                      </span>
+                      <span className="font-mono font-semibold text-indigo-600 whitespace-nowrap">
+                        {m.matricule}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+>>>>>>> 030-pedagogie-ue-ecue
           </CardContent>
         </Card>
       )}
@@ -299,12 +346,16 @@ export default function ProfessionalInscriptionsPage() {
               Étudiants {studentIds.length > 0 && `(${studentIds.length})`}
             </CardTitle>
             <CardDescription>
+<<<<<<< HEAD
               Recherchez et cochez un ou plusieurs étudiants. Les étudiants déjà inscrits dans une
               session encore active sont masqués
               {blockedStudentIds.size > 0 ? ` (${blockedStudentIds.size} masqué${
                 blockedStudentIds.size > 1 ? "s" : ""
               })` : ""}
               .
+=======
+              Recherchez et cochez un ou plusieurs étudiants. Tous les étudiants sont affichés.
+>>>>>>> 030-pedagogie-ue-ecue
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -337,7 +388,10 @@ export default function ProfessionalInscriptionsPage() {
                 <>
                   {filteredStudents.slice(0, STUDENT_VISIBLE_CAP).map((s) => {
                     const checked = studentIds.includes(s.id);
+<<<<<<< HEAD
                     const mat = s.studentNumber || s.establishmentMatricule;
+=======
+>>>>>>> 030-pedagogie-ue-ecue
                     return (
                       <label
                         key={s.id}
@@ -352,7 +406,10 @@ export default function ProfessionalInscriptionsPage() {
                         />
                         <span>
                           <span className="font-medium">{studentName(s)}</span>
+<<<<<<< HEAD
                           {mat && <span className="text-muted-foreground"> — {mat}</span>}
+=======
+>>>>>>> 030-pedagogie-ue-ecue
                         </span>
                       </label>
                     );

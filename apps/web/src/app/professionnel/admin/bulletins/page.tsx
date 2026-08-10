@@ -14,11 +14,30 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
+<<<<<<< HEAD
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useProgrammes } from "@/lib/hooks/use-programmes";
 import { useProfessionalSemestres } from "@/lib/hooks/use-professional-semestres";
 import { useBulletinRoster, useRecomputeBulletins } from "@/lib/hooks/use-professional-bulletins";
+=======
+  Award,
+} from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { useProfessionalSemestres } from "@/lib/hooks/use-professional-semestres";
+import {
+  useNotesFilieres,
+  useBulletinRoster,
+  useRecomputeBulletins,
+  useGenerateBulletins,
+  fetchFullBulletins,
+  fetchBulletin,
+  fetchBulletinBts,
+} from "@/lib/hooks/use-professional-bulletins";
+import { openAllBulletinsPdf, openBulletinPdf } from "@/lib/bulletin-pdf";
+import { openBulletinBtsPdf } from "@/lib/bulletin-pdf-bts";
+import { isLicenceUnOuDeux } from "@/lib/bulletin-format";
+>>>>>>> 030-pedagogie-ue-ecue
 
 const DECISION: Record<string, { label: string; cls: string; Icon: any }> = {
   admis: { label: "Admis", cls: "bg-green-100 text-green-700", Icon: CheckCircle2 },
@@ -35,12 +54,28 @@ export default function BulletinsPage() {
   const [semestreId, setSemestreId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+<<<<<<< HEAD
   const programmesQuery = useProgrammes();
   const semestresQuery = useProfessionalSemestres(filiereId ? { filiere_id: filiereId } : {});
   const rosterQuery = useBulletinRoster(semestreId || null);
   const recomputeMut = useRecomputeBulletins();
 
   const filieres: any[] = (programmesQuery.data as any)?.data ?? [];
+=======
+  const [genInfo, setGenInfo] = useState<string | null>(null);
+  const [openingAll, setOpeningAll] = useState(false);
+  const [busyStudentId, setBusyStudentId] = useState<string | null>(null);
+  const [busyBtsStudentId, setBusyBtsStudentId] = useState<string | null>(null);
+  const filieresQuery = useNotesFilieres();
+  const semestresQuery = useProfessionalSemestres(filiereId ? { filiere_id: filiereId } : {});
+  const rosterQuery = useBulletinRoster(semestreId || null);
+  const recomputeMut = useRecomputeBulletins();
+  const generateMut = useGenerateBulletins();
+
+  // Filières restreintes à celles ayant au moins un étudiant inscrit
+  // (confirmé/terminé) dans une session — même source que la page Notes.
+  const filieres: any[] = (filieresQuery.data as any[]) ?? [];
+>>>>>>> 030-pedagogie-ue-ecue
   const semestres: any[] = useMemo(() => {
     const list = (semestresQuery.data as any)?.data ?? (semestresQuery.data as any[]) ?? [];
     // Uniquement les semestres ayant au moins une session créée.
@@ -50,6 +85,13 @@ export default function BulletinsPage() {
   const roster: any = rosterQuery.data ?? null;
   const students: any[] = roster?.students ?? [];
 
+<<<<<<< HEAD
+=======
+  // Bulletin BTS : réservé aux filières Licence 1 et Licence 2.
+  const selectedFiliere = filieres.find((f) => f.id === filiereId);
+  const isBtsEligible = isLicenceUnOuDeux(selectedFiliere?.name);
+
+>>>>>>> 030-pedagogie-ue-ecue
   const stats = useMemo(() => {
     const admis = students.filter((s) => s.decision === "admis").length;
     const rattr = students.filter((s) => s.decision === "rattrapage").length;
@@ -67,6 +109,104 @@ export default function BulletinsPage() {
     }
   }
 
+<<<<<<< HEAD
+=======
+  async function handleGenerate() {
+    if (!semestreId) return;
+    setError(null);
+    setGenInfo(null);
+    try {
+      const r: any = await generateMut.mutateAsync(semestreId);
+      setGenInfo(
+        `${r.generated} bulletin(s) généré(s) — ${r.definitifs} définitif(s), ${r.provisoires} provisoire(s).`
+      );
+    } catch (err: any) {
+      setError(err?.message ?? "Erreur lors de la génération des bulletins.");
+    }
+  }
+
+  // Ouvre le PDF combiné de tous les bulletins du semestre dans le navigateur.
+  async function handleOpenAll() {
+    if (!semestreId) return;
+    setError(null);
+    // Onglet ouvert de façon synchrone (évite le blocage popup après le fetch).
+    const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    if (!win) {
+      setError(
+        "Le navigateur a bloqué l'ouverture d'un nouvel onglet. Autorisez les pop-ups pour ce site, puis réessayez."
+      );
+      return;
+    }
+    setOpeningAll(true);
+    try {
+      const list = await fetchFullBulletins(semestreId);
+      if (!list || list.length === 0) {
+        win?.close();
+        setError("Aucun bulletin à ouvrir pour ce semestre.");
+        return;
+      }
+      await openAllBulletinsPdf(list, win);
+    } catch (err: any) {
+      win?.close();
+      setError(err?.message ?? "Impossible d'ouvrir les bulletins.");
+    } finally {
+      setOpeningAll(false);
+    }
+  }
+
+  /**
+   * Ouvre le relevé de notes d'un étudiant comme document PDF dans un nouvel
+   * onglet du navigateur (visionneuse native), à l'identique de la page
+   * Diplômes — plus de page applicative intermédiaire.
+   */
+  async function handleConsulter(studentId: string) {
+    if (!semestreId || busyStudentId) return;
+    setError(null);
+    setBusyStudentId(studentId);
+    const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    if (!win) {
+      setError(
+        "Le navigateur a bloqué l'ouverture d'un nouvel onglet. Autorisez les pop-ups pour ce site, puis réessayez."
+      );
+      setBusyStudentId(null);
+      return;
+    }
+    try {
+      const bulletin = await fetchBulletin(semestreId, studentId);
+      await openBulletinPdf(bulletin, win);
+    } catch (err: any) {
+      win?.close();
+      setError(err?.message ?? "Impossible d'ouvrir le bulletin.");
+    } finally {
+      setBusyStudentId(null);
+    }
+  }
+
+  /** Ouvre le bulletin de style BTS d'un étudiant (Licence 1/2 uniquement). */
+  async function handleConsulterBts(studentId: string) {
+    if (!semestreId || busyBtsStudentId) return;
+    setError(null);
+    setBusyBtsStudentId(studentId);
+    const win = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    if (!win) {
+      setError(
+        "Le navigateur a bloqué l'ouverture d'un nouvel onglet. Autorisez les pop-ups pour ce site, puis réessayez."
+      );
+      setBusyBtsStudentId(null);
+      return;
+    }
+    try {
+      const data = await fetchBulletinBts(semestreId, studentId);
+      await openBulletinBtsPdf(data, win);
+    } catch (err: any) {
+      win?.close();
+      setError(err?.message ?? "Impossible d'ouvrir le bulletin BTS.");
+    } finally {
+      setBusyBtsStudentId(null);
+    }
+  }
+
+>>>>>>> 030-pedagogie-ue-ecue
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-6">
       {/* Header */}
@@ -80,7 +220,30 @@ export default function BulletinsPage() {
             Sélectionnez une filière et un semestre pour consulter les bulletins des étudiants.
           </p>
         </div>
+<<<<<<< HEAD
         <div className="flex gap-2">
+=======
+        <div className="flex flex-wrap gap-2">
+          <Link href="/professionnel/admin/bulletins/historique">
+            <Button variant="outline">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Historique
+            </Button>
+          </Link>
+          <Button
+            onClick={handleOpenAll}
+            disabled={!semestreId || openingAll}
+            variant="outline"
+            title={!semestreId ? "Sélectionnez une filière et un semestre" : undefined}
+          >
+            {openingAll ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+            )}
+            Tous les bulletins
+          </Button>
+>>>>>>> 030-pedagogie-ue-ecue
           <Link href="/professionnel/admin/notes">
             <Button variant="outline">
               <GraduationCap className="h-4 w-4 mr-2" />
@@ -90,7 +253,11 @@ export default function BulletinsPage() {
           <Button
             onClick={handleRecompute}
             disabled={!semestreId || recomputeMut.isPending}
+<<<<<<< HEAD
             className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
+=======
+            variant="outline"
+>>>>>>> 030-pedagogie-ue-ecue
           >
             {recomputeMut.isPending ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -99,6 +266,21 @@ export default function BulletinsPage() {
             )}
             Recalculer
           </Button>
+<<<<<<< HEAD
+=======
+          <Button
+            onClick={handleGenerate}
+            disabled={!semestreId || generateMut.isPending}
+            className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
+          >
+            {generateMut.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+            )}
+            Générer les bulletins
+          </Button>
+>>>>>>> 030-pedagogie-ue-ecue
         </div>
       </div>
 
@@ -107,6 +289,14 @@ export default function BulletinsPage() {
           {error}
         </div>
       )}
+<<<<<<< HEAD
+=======
+      {genInfo && (
+        <div className="rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm text-green-700">
+          {genInfo}
+        </div>
+      )}
+>>>>>>> 030-pedagogie-ue-ecue
 
       {/* Filtres */}
       <Card className="shadow-sm">
@@ -119,7 +309,11 @@ export default function BulletinsPage() {
                 setSemestreId("");
               }}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
+<<<<<<< HEAD
               placeholder={programmesQuery.isLoading ? "Chargement…" : "Sélectionner une filière"}
+=======
+              placeholder={filieresQuery.isLoading ? "Chargement…" : "Sélectionner une filière"}
+>>>>>>> 030-pedagogie-ue-ecue
               searchPlaceholder="Rechercher une filière…"
               options={filieres.map((f) => ({
                 value: f.id,
@@ -190,6 +384,11 @@ export default function BulletinsPage() {
                   <th className="px-4 py-3 font-medium text-center">Moyenne</th>
                   <th className="px-4 py-3 font-medium text-center">Crédits</th>
                   <th className="px-4 py-3 font-medium text-center">Décision</th>
+<<<<<<< HEAD
+=======
+                  <th className="px-4 py-3 font-medium text-center">Statut bulletin</th>
+                  <th className="px-4 py-3 font-medium text-center">Généré le</th>
+>>>>>>> 030-pedagogie-ue-ecue
                   <th className="px-4 py-3 font-medium text-right">Bulletin</th>
                 </tr>
               </thead>
@@ -217,6 +416,7 @@ export default function BulletinsPage() {
                           {dec.label}
                         </span>
                       </td>
+<<<<<<< HEAD
                       <td className="px-4 py-2.5 text-right">
                         <Link href={`/professionnel/admin/bulletins/${s.student_id}?semestre=${semestreId}`}>
                           <Button variant="outline" size="sm" className="h-8">
@@ -224,6 +424,70 @@ export default function BulletinsPage() {
                             Voir
                           </Button>
                         </Link>
+=======
+                      <td className="px-4 py-2.5 text-center">
+                        {(() => {
+                          // Statut LMD : validé / non validé — session 2 / en dette.
+                          const st = s.statut_etudiant;
+                          const cls =
+                            st === "valide"
+                              ? "bg-green-100 text-green-700"
+                              : st === "session2"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-red-100 text-red-700";
+                          const label =
+                            st === "valide"
+                              ? "Validé"
+                              : st === "session2"
+                              ? "Non validé — Session 2"
+                              : "En dette";
+                          return (
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+                              {label}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-4 py-2.5 text-center text-xs text-muted-foreground">
+                        {s.generated_at
+                          ? new Date(s.generated_at).toLocaleDateString("fr-FR")
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8"
+                            disabled={busyStudentId === s.student_id}
+                            onClick={() => handleConsulter(s.student_id)}
+                          >
+                            {busyStudentId === s.student_id ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                            ) : (
+                              <Eye className="h-3.5 w-3.5 mr-1.5" />
+                            )}
+                            Consulter
+                          </Button>
+                          {isBtsEligible && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8"
+                              disabled={busyBtsStudentId === s.student_id}
+                              onClick={() => handleConsulterBts(s.student_id)}
+                              title="Bulletin de style BTS"
+                            >
+                              {busyBtsStudentId === s.student_id ? (
+                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                              ) : (
+                                <Award className="h-3.5 w-3.5 mr-1.5" />
+                              )}
+                              Bulletin BTS
+                            </Button>
+                          )}
+                        </div>
+>>>>>>> 030-pedagogie-ue-ecue
                       </td>
                     </tr>
                   );

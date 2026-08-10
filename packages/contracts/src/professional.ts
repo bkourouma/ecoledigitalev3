@@ -490,7 +490,11 @@ export const ProfessionalNoteNatureSchema = z.enum(["devoir", "examen"]);
 
 // Saisie manuelle d'une note (devoir ou examen) directement sur une ECUE,
 // sans passer par une évaluation. L'examen est unique par (ECUE, étudiant,
+<<<<<<< HEAD
 // cohorte).
+=======
+// cohorte, session). `session` : 1 = session normale, 2 = rattrapage (LMD).
+>>>>>>> 030-pedagogie-ue-ecue
 export const CreateEcueManualNoteSchema = z.object({
   ecue_id: z.string().uuid(),
   student_id: z.string().uuid(),
@@ -499,6 +503,10 @@ export const CreateEcueManualNoteSchema = z.object({
   libelle: z.string().max(255).nullable().optional(),
   note: z.number().min(0),
   note_max: z.number().positive().default(20),
+<<<<<<< HEAD
+=======
+  session: z.number().int().min(1).max(2).default(1),
+>>>>>>> 030-pedagogie-ue-ecue
 });
 
 export const UpdateEcueManualNoteSchema = z.object({

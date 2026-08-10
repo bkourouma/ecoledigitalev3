@@ -274,6 +274,119 @@ export async function fetchOwnerDashboardKpis(
     );
     if (compRows.length) clientCompanies = Math.round(Number(compRows[0].c));
 
+    /* ---------------- Module professionnel (LMD) ---------------- */
+
+    /**
+     * Étudiants distincts ayant une inscription active à une UE.
+     * Piège : `professional_payments` et `professional_enrollments` n'exposent pas
+     * l'étudiant de la même façon — ici on part des inscriptions, qui portent
+     * `student_id` en direct.
+     */
+    const proEnrolledStudents = Math.round(
+      await safeNum(
+        client,
+        `SELECT COUNT(DISTINCT en.student_id)::float8 AS v
+         FROM professional_enrollments en
+         WHERE en.tenant_id = $1::uuid
+           AND en.statut IN ('confirmee', 'terminee')`,
+        [tenantId],
+        log,
+        "proEnrolledStudents"
+      )
+    );
+
+    /** Même mesure arrêtée à la fin du mois précédent, pour la variation. */
+    const proEnrolledStudentsPrev = Math.round(
+      await safeNum(
+        client,
+        `SELECT COUNT(DISTINCT en.student_id)::float8 AS v
+         FROM professional_enrollments en
+         WHERE en.tenant_id = $1::uuid
+           AND en.statut IN ('confirmee', 'terminee')
+           AND en.created_at < date_trunc('month', CURRENT_DATE)`,
+        [tenantId],
+        log,
+        "proEnrolledStudentsPrev"
+      )
+    );
+
+    /**
+     * Taux de recouvrement des UE.
+     * §4.4-3 : le statut « payee » d'une commande ne prouve aucun encaissement,
+     * l'encaissé vient toujours de la somme des paiements confirmés. Les paiements
+     * sont agrégés par commande avant toute jointure pour éviter de multiplier les
+     * montants par le nombre d'inscriptions du lot.
+     */
+    const proRecoveryRate = await safeNum(
+      client,
+      `WITH paid_per_order AS (
+         SELECT p.order_id, SUM(p.montant)::float8 AS paid
+         FROM professional_payments p
+         WHERE p.tenant_id = $1::uuid AND p.statut = 'confirme'
+         GROUP BY p.order_id
+       )
+       SELECT CASE WHEN COALESCE(SUM(o.montant_total), 0) > 0
+                   THEN (100.0 * COALESCE(SUM(pp.paid), 0) / SUM(o.montant_total))::float8
+                   ELSE 0::float8 END AS v
+       FROM professional_orders o
+       LEFT JOIN paid_per_order pp ON pp.order_id = o.id
+       WHERE o.tenant_id = $1::uuid
+         AND o.statut <> 'annulee'`,
+      [tenantId],
+      log,
+      "proRecoveryRate"
+    );
+
+    /**
+     * Taux de réussite du dernier semestre portant des bulletins.
+     * On lit `data->>'decision'`, déjà produit par la règle du service de bulletins.
+     * ⚠️ `professional_bulletins` n'a pas de RLS : le filtre tenant est la seule
+     * isolation sur cette table.
+     */
+    const proSuccessRows = await safeQuery<{ rate: string | number | null }>(
+      client,
+      `WITH last_semestre AS (
+         SELECT b.semestre_id
+         FROM professional_bulletins b
+         WHERE b.tenant_id = $1::uuid
+         GROUP BY b.semestre_id
+         ORDER BY MAX(b.generated_at) DESC
+         LIMIT 1
+       )
+       SELECT CASE WHEN COUNT(*) > 0
+                   THEN (100.0 * COUNT(*) FILTER (WHERE b.data->>'decision' = 'admis')
+                         / COUNT(*))::float8
+                   ELSE NULL END AS rate
+       FROM professional_bulletins b
+       JOIN last_semestre ls ON ls.semestre_id = b.semestre_id
+       WHERE b.tenant_id = $1::uuid`,
+      [tenantId],
+      log,
+      "proSuccessRate"
+    );
+    const rawSuccess = proSuccessRows[0]?.rate;
+    const proSuccessRate =
+      rawSuccess === null || rawSuccess === undefined
+        ? null
+        : Math.round((Number(rawSuccess) || 0) * 10) / 10;
+
+    /** Présence sur les séances des 30 derniers jours. Retards comptés présents. */
+    const proAttendanceRate = await safeNum(
+      client,
+      `SELECT CASE WHEN COUNT(*) > 0
+                   THEN (100.0 * COUNT(*) FILTER (WHERE a.statut IN ('present', 'retard'))
+                         / COUNT(*))::float8
+                   ELSE 0::float8 END AS v
+       FROM professional_ecue_attendance a
+       JOIN professional_ecue_seances s
+         ON s.id = a.seance_id AND s.tenant_id = a.tenant_id
+       WHERE a.tenant_id = $1::uuid
+         AND s.date >= CURRENT_DATE - INTERVAL '30 days'`,
+      [tenantId],
+      log,
+      "proAttendanceRate"
+    );
+
     const payload: OwnerDashboardResponse = {
       finances: {
         revenueCurrentMonth,
@@ -304,6 +417,13 @@ export async function fetchOwnerDashboardKpis(
         totalEnrollments,
         revenueFormations,
         clientCompanies,
+      },
+      professional: {
+        enrolledStudents: proEnrolledStudents,
+        enrolledStudentsPrevMonth: proEnrolledStudentsPrev,
+        recoveryRate: Math.round(proRecoveryRate * 10) / 10,
+        successRateLastSemester: proSuccessRate,
+        attendanceRate30d: Math.round(proAttendanceRate * 10) / 10,
       },
       alerts: [],
     };

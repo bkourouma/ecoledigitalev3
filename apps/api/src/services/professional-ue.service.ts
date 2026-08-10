@@ -169,7 +169,11 @@ export class ProfessionalUeService extends ProfessionalBaseService {
       );
       const listRes = await client.query(
         `SELECT ${UE_COLS} FROM professional_ue
+<<<<<<< HEAD
          WHERE ${whereSql} ORDER BY created_at DESC LIMIT $${i++} OFFSET $${i++}`,
+=======
+         WHERE ${whereSql} ORDER BY created_at DESC, id LIMIT $${i++} OFFSET $${i++}`,
+>>>>>>> 030-pedagogie-ue-ecue
         [...params, pageSize, (page - 1) * pageSize]
       );
       return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });
@@ -772,7 +776,11 @@ export class ProfessionalUeService extends ProfessionalBaseService {
            LIMIT 1
          ) sem ON true
          WHERE ${where.join(" AND ")}
+<<<<<<< HEAD
          ORDER BY s.date_debut DESC, s.libelle LIMIT $${i++} OFFSET $${i++}`,
+=======
+         ORDER BY s.date_debut DESC, s.libelle, s.id LIMIT $${i++} OFFSET $${i++}`,
+>>>>>>> 030-pedagogie-ue-ecue
         [...params, pageSize, (page - 1) * pageSize]
       );
       return ok({ items: listRes.rows, total: countRes.rows[0].total, page, pageSize });
@@ -1058,4 +1066,103 @@ export class ProfessionalUeService extends ProfessionalBaseService {
       return ok({ seance_id: seanceId, count: input.entries.length });
     });
   }
+<<<<<<< HEAD
+=======
+
+  /**
+   * Historique complet des présences d'une filière (admin) : toutes les
+   * séances (avec enseignant, durée et décomptes) + récapitulatif par
+   * étudiant (heures d'absence calculées sur la durée réelle des cours).
+   * Filtres : semestre (2 chemins de liaison) et statut de session
+   * (en_cours = non terminée/annulée ; terminee = terminée/annulée).
+   */
+  async getPresencesHistory(
+    tenantId: string,
+    filiereId: string,
+    semestreId?: string,
+    statut?: "en_cours" | "terminee"
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const params: any[] = [tenantId, filiereId];
+      let where = "";
+      if (semestreId) {
+        params.push(semestreId);
+        where += ` AND (
+          s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                   WHERE semestre_id = $${params.length} AND tenant_id = $1)
+          OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                         WHERE semestre_id = $${params.length} AND tenant_id = $1)
+        )`;
+      }
+      if (statut === "terminee") where += ` AND s.statut IN ('termine','annule')`;
+      else if (statut === "en_cours") where += ` AND s.statut NOT IN ('termine','annule')`;
+
+      // Séances (appels) avec enseignant, durée et décomptes de présence.
+      const seances = await client.query(
+        `SELECT se.id AS seance_id, se.libelle AS seance_libelle,
+                se.date::text AS date,
+                se.heure_debut::text AS heure_debut, se.heure_fin::text AS heure_fin,
+                COALESCE(EXTRACT(EPOCH FROM (se.heure_fin - se.heure_debut)) / 60, 0)::int
+                  AS duree_minutes,
+                e.code AS ecue_code, e.libelle AS ecue_libelle,
+                ue.libelle AS ue_libelle,
+                s.id AS ue_session_id, s.statut AS session_statut,
+                trim(coalesce(tu.first_name,'') || ' ' || coalesce(tu.last_name,''))
+                  AS enseignant_nom,
+                (SELECT trim(coalesce(u2.first_name,'') || ' ' || coalesce(u2.last_name,''))
+                 FROM professional_ecue_attendance a2
+                 JOIN users u2 ON u2.id = a2.marked_by
+                 WHERE a2.seance_id = se.id AND a2.marked_by IS NOT NULL
+                 LIMIT 1) AS marque_par,
+                count(a.*) FILTER (WHERE a.statut='present')::int AS nb_present,
+                count(a.*) FILTER (WHERE a.statut='absent')::int  AS nb_absent,
+                count(a.*) FILTER (WHERE a.statut='retard')::int  AS nb_retard,
+                count(a.*) FILTER (WHERE a.statut='excuse')::int  AS nb_excuse,
+                count(a.*)::int AS nb_marques
+         FROM professional_ecue_seances se
+         JOIN professional_ue_sessions s ON s.id = se.ue_session_id AND s.tenant_id = se.tenant_id
+         JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+         JOIN professional_ecue e ON e.id = se.ecue_id AND e.tenant_id = se.tenant_id
+         LEFT JOIN teachers t ON t.id = se.enseignant_id
+         LEFT JOIN users tu ON tu.id = t.user_id
+         LEFT JOIN professional_ecue_attendance a ON a.seance_id = se.id
+         WHERE se.tenant_id = $1 AND ue.filiere_id = $2 ${where}
+         GROUP BY se.id, se.libelle, se.date, se.heure_debut, se.heure_fin,
+                  e.code, e.libelle, ue.libelle, s.id, s.statut,
+                  tu.first_name, tu.last_name
+         ORDER BY se.date DESC, se.heure_debut DESC NULLS LAST`,
+        params
+      );
+
+      // Récapitulatif par étudiant : heures d'absence selon la durée des cours.
+      const students = await client.query(
+        `SELECT a.student_id, u.first_name, u.last_name,
+                sp.student_number AS matricule,
+                count(*)::int AS nb_appels,
+                count(*) FILTER (WHERE a.statut='present')::int AS nb_present,
+                count(*) FILTER (WHERE a.statut='absent')::int  AS nb_absent,
+                count(*) FILTER (WHERE a.statut='retard')::int  AS nb_retard,
+                count(*) FILTER (WHERE a.statut='excuse')::int  AS nb_excuse,
+                COALESCE(SUM(EXTRACT(EPOCH FROM (se.heure_fin - se.heure_debut)) / 3600.0)
+                         FILTER (WHERE a.statut='absent'), 0)::float8 AS heures_absence,
+                COALESCE(SUM(EXTRACT(EPOCH FROM (se.heure_fin - se.heure_debut)) / 3600.0)
+                         FILTER (WHERE a.statut='excuse'), 0)::float8 AS heures_excusees,
+                COALESCE(SUM(EXTRACT(EPOCH FROM (se.heure_fin - se.heure_debut)) / 3600.0),
+                         0)::float8 AS heures_total
+         FROM professional_ecue_attendance a
+         JOIN professional_ecue_seances se ON se.id = a.seance_id AND se.tenant_id = a.tenant_id
+         JOIN professional_ue_sessions s ON s.id = se.ue_session_id AND s.tenant_id = se.tenant_id
+         JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+         JOIN student_profiles sp ON sp.id = a.student_id
+         JOIN users u ON u.id = sp.user_id
+         WHERE a.tenant_id = $1 AND ue.filiere_id = $2 ${where}
+         GROUP BY a.student_id, u.first_name, u.last_name, sp.student_number
+         ORDER BY heures_absence DESC, u.last_name, u.first_name`,
+        params
+      );
+
+      return ok({ seances: seances.rows, students: students.rows });
+    });
+  }
+>>>>>>> 030-pedagogie-ue-ecue
 }

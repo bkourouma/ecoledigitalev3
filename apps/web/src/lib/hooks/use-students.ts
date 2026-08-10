@@ -69,6 +69,9 @@ async function createStudent(data: any): Promise<StudentProfile> {
       email: data.email,
       password: data.password,
       matricule: data.matricule,
+      // Matricule saisi par la scolarité (obligatoire, distinct du matricule
+      // numérique généré automatiquement par l'API).
+      studentMatricule: data.studentMatricule,
       currentYear: data.currentYear || 1,
       status: data.status || "active",
       bio: data.bio,
@@ -266,4 +269,4 @@ export function useResetStudentPassword() {
 }
 
 // Export helper function
-export { generateMatricule };
+export { generateMatricule, fetchStudent };

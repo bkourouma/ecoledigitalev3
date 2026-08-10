@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createApiHeaders, buildQueryString } from '@/lib/api-utils';
+import { useSession } from "next-auth/react";
+import { createApiHeaders } from '@/lib/api-utils';
 import {
   Classroom,
   CreateClassroom,
@@ -10,8 +11,6 @@ import {
   ClassroomType,
   ClassroomStatus
 } from "@ecoledigitale/contracts";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 interface ClassroomsQueryParams {
   type?: ClassroomType;
@@ -37,13 +36,26 @@ interface ClassroomResponse {
   data: Classroom | ClassroomWithReservations;
 }
 
+/**
+ * Tenant courant, dérivé de la session — jamais codé en dur.
+ * Sert aussi de discriminant de cache : sans lui, deux tenants partagent
+ * les mêmes entrées TanStack Query.
+ */
+function useTenantId(): string {
+  const { data: session } = useSession();
+  return (session as { tenantId?: string } | null)?.tenantId ?? "no-tenant";
+}
+
 // Fetch classrooms with optional filters
 export function useClassrooms(params: ClassroomsQueryParams = {}) {
+  const { data: session } = useSession();
+  const tenantId = useTenantId();
+
   return useQuery<ClassroomsResponse>({
-    queryKey: ["classrooms", params],
+    queryKey: ["classrooms", tenantId, params],
     queryFn: async () => {
       const searchParams = new URLSearchParams();
-      
+
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
           searchParams.append(key, value.toString());
@@ -54,11 +66,7 @@ export function useClassrooms(params: ClassroomsQueryParams = {}) {
         `/api/v1/classrooms?${searchParams}`,
         {
           credentials: "include",
-          headers: {
-      "X-Tenant": "imhotepacademy",
-"X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb",
-      "Content-Type": "application/json"
-    },
+          headers: createApiHeaders(session),
         }
       );
 
@@ -68,13 +76,17 @@ export function useClassrooms(params: ClassroomsQueryParams = {}) {
 
       return response.json();
     },
+    enabled: !!session && tenantId !== "no-tenant",
   });
 }
 
 // Fetch single classroom by ID
 export function useClassroom(id: string, includeReservations = false) {
+  const { data: session } = useSession();
+  const tenantId = useTenantId();
+
   return useQuery<ClassroomResponse>({
-    queryKey: ["classroom", id, includeReservations],
+    queryKey: ["classroom", tenantId, id, includeReservations],
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       if (includeReservations) {
@@ -85,11 +97,7 @@ export function useClassroom(id: string, includeReservations = false) {
         `/api/v1/classrooms/${id}?${searchParams}`,
         {
           credentials: "include",
-          headers: {
-      "X-Tenant": "imhotepacademy",
-"X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb",
-      "Content-Type": "application/json"
-    },
+          headers: createApiHeaders(session),
         }
       );
 
@@ -99,23 +107,20 @@ export function useClassroom(id: string, includeReservations = false) {
 
       return response.json();
     },
-    enabled: !!id,
+    enabled: !!id && !!session && tenantId !== "no-tenant",
   });
 }
 
 // Create classroom mutation
 export function useCreateClassroom() {
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
 
   return useMutation({
     mutationFn: async (classroomData: CreateClassroom): Promise<ClassroomResponse> => {
       const response = await fetch(`/api/v1/classrooms`, {
         method: "POST",
-        headers: {
-      "Content-Type": "application/json",
-      "X-Tenant": "imhotepacademy",
-"X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb"
-    },
+        headers: createApiHeaders(session),
         credentials: "include",
         body: JSON.stringify(classroomData),
       });
@@ -137,14 +142,15 @@ export function useCreateClassroom() {
 // Update classroom mutation
 export function useUpdateClassroom() {
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
 
   return useMutation({
-    mutationFn: async ({ 
-      id, 
-      data 
-    }: { 
-      id: string; 
-      data: UpdateClassroom 
+    mutationFn: async ({
+      id,
+      data
+    }: {
+      id: string;
+      data: UpdateClassroom
     }): Promise<ClassroomResponse> => {
       // Ensure data is not empty and is a valid object
       if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
@@ -152,7 +158,7 @@ export function useUpdateClassroom() {
       }
 
       const body = JSON.stringify(data);
-      
+
       // Ensure body is not empty
       if (!body || body === '{}' || body === 'null' || body === 'undefined') {
         throw new Error("Le corps de la requête ne peut pas être vide");
@@ -160,11 +166,7 @@ export function useUpdateClassroom() {
 
       const response = await fetch(`/api/v1/classrooms/${id}`, {
         method: "PUT",
-        headers: {
-      "Content-Type": "application/json",
-      "X-Tenant": "imhotepacademy",
-"X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb"
-    },
+        headers: createApiHeaders(session),
         credentials: "include",
         body: body,
       });
@@ -186,7 +188,7 @@ export function useUpdateClassroom() {
     onSuccess: (_, { id }) => {
       // Invalidate and refetch classrooms and specific classroom
       queryClient.invalidateQueries({ queryKey: ["classrooms"] });
-      queryClient.invalidateQueries({ queryKey: ["classroom", id] });
+      queryClient.invalidateQueries({ queryKey: ["classroom"] });
     },
   });
 }
@@ -194,17 +196,14 @@ export function useUpdateClassroom() {
 // Delete classroom mutation
 export function useDeleteClassroom() {
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
 
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
       const response = await fetch(`/api/v1/classrooms/${id}`, {
         method: "DELETE",
         credentials: "include",
-        headers: {
-      "X-Tenant": "imhotepacademy",
-"X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb",
-          // Don't include Content-Type for DELETE requests without body
-    },
+        headers: createApiHeaders(session),
       });
 
       if (!response.ok) {
@@ -228,13 +227,16 @@ export function useDeleteClassroom() {
 
 // Get available classrooms for a specific time period
 export function useAvailableClassrooms(startDatetime?: Date, endDatetime?: Date) {
+  const { data: session } = useSession();
+  const tenantId = useTenantId();
+
   return useQuery<ClassroomsResponse>({
-    queryKey: ["available-classrooms", startDatetime, endDatetime],
+    queryKey: ["available-classrooms", tenantId, startDatetime, endDatetime],
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       searchParams.append("status", "disponible");
       searchParams.append("isActive", "true");
-      
+
       if (startDatetime && endDatetime) {
         // This would require additional API endpoint to check availability
         // For now, we'll just return active classrooms
@@ -244,11 +246,7 @@ export function useAvailableClassrooms(startDatetime?: Date, endDatetime?: Date)
         `/api/v1/classrooms?${searchParams}`,
         {
           credentials: "include",
-          headers: {
-      "X-Tenant": "imhotepacademy",
-"X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb",
-      "Content-Type": "application/json"
-    },
+          headers: createApiHeaders(session),
         }
       );
 
@@ -258,24 +256,23 @@ export function useAvailableClassrooms(startDatetime?: Date, endDatetime?: Date)
 
       return response.json();
     },
-    enabled: !!startDatetime && !!endDatetime,
+    enabled: !!startDatetime && !!endDatetime && !!session && tenantId !== "no-tenant",
   });
 }
 
 // Get classroom statistics
 export function useClassroomStats() {
+  const { data: session } = useSession();
+  const tenantId = useTenantId();
+
   return useQuery({
-    queryKey: ["classroom-stats"],
+    queryKey: ["classroom-stats", tenantId],
     queryFn: async () => {
       const response = await fetch(
         `/api/v1/classrooms?limit=1000`,
         {
           credentials: "include",
-          headers: {
-      "X-Tenant": "imhotepacademy",
-"X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb",
-      "Content-Type": "application/json"
-    },
+          headers: createApiHeaders(session),
         }
       );
 
@@ -284,7 +281,7 @@ export function useClassroomStats() {
       }
 
       const data: ClassroomsResponse = await response.json();
-      
+
       const stats = {
         total: data.pagination.total,
         available: data.data.filter((c: any) => c.status === 'disponible').length,
@@ -300,5 +297,6 @@ export function useClassroomStats() {
 
       return stats;
     },
+    enabled: !!session && tenantId !== "no-tenant",
   });
 }

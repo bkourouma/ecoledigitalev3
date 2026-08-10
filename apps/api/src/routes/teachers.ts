@@ -4,8 +4,25 @@ import {
   TeacherSchema,
   CreateTeacherSchema,
   UpdateTeacherSchema,
-  TeacherQuerySchema
+  TeacherQuerySchema,
+  TeacherCredentialsEmailTemplateSchema
 } from "@ecoledigitale/contracts";
+import { emailService } from "../services/email.service";
+import {
+  DEFAULT_TEACHER_CREDENTIALS_TEMPLATE,
+  TEACHER_CREDENTIALS_VARIABLES,
+  loadTenantTeacherCredentialsTemplate,
+  renderTeacherCredentialsEmail,
+  resolveTenantName,
+  saveTenantTeacherCredentialsTemplate,
+} from "../services/teacher-credentials-email";
+
+const LOGIN_URL =
+  process.env.WEB_APP_URL ||
+  process.env.FRONTEND_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://ecoledigitale.engage-360.net/login"
+    : "http://localhost:3000/login");
 
 function generateTemporaryPassword(length = 12): string {
   const lowercase = "abcdefghjkmnpqrstuvwxyz";
@@ -216,12 +233,24 @@ export async function teachersRoutes(fastify: FastifyInstance) {
           contractType: { type: "string", enum: ["permanent", "temporary", "freelance"] },
           hourlyRate: { type: "number", minimum: 0 },
           password: { type: "string", minLength: 8 },
+          sendCredentialsEmail: { type: "boolean" },
+          saveCredentialsEmailTemplate: { type: "boolean" },
+          credentialsEmailTemplate: {
+            type: "object",
+            required: ["subject", "body"],
+            properties: {
+              subject: { type: "string", minLength: 1, maxLength: 300 },
+              body: { type: "string", minLength: 1, maxLength: 20000 },
+            },
+          },
         },
       },
       response: {
         201: {
           type: "object",
           properties: {
+            emailSent: { type: "boolean" },
+            emailError: { type: ["string", "null"] },
             id: { type: "string" },
             tenantId: { type: "string" },
             userId: { type: ["string", "null"] },
@@ -395,11 +424,68 @@ export async function teachersRoutes(fastify: FastifyInstance) {
 
         await client.query("COMMIT");
 
-        reply.status(201).send(
-          serializeTeacherRow(teacher, {
+        // Envoi best-effort des identifiants : un échec SMTP ne doit jamais
+        // annuler la création de l'enseignant (la transaction est déjà commitée).
+        let emailSent = false;
+        let emailError: string | null = null;
+
+        // Mémorisation du modèle comme défaut de l'établissement, indépendante
+        // du succès de l'envoi.
+        if (teacherData.saveCredentialsEmailTemplate && teacherData.credentialsEmailTemplate) {
+          try {
+            await saveTenantTeacherCredentialsTemplate(
+              client,
+              request.tenantId,
+              teacherData.credentialsEmailTemplate
+            );
+          } catch (saveError) {
+            fastify.log.error(`Failed to save teacher credentials template: ${saveError}`);
+          }
+        }
+
+        const wantsEmail = teacherData.sendCredentialsEmail !== false;
+        if (wantsEmail && createdNewUser && plainPassword && normalizedEmail) {
+          try {
+            if (!emailService.isConfigured()) {
+              throw new Error(
+                "Service email non configuré (variables SMTP_HOST / SMTP_USER / SMTP_PASSWORD manquantes)."
+              );
+            }
+
+            const template =
+              teacherData.credentialsEmailTemplate ??
+              (await loadTenantTeacherCredentialsTemplate(client, request.tenantId));
+            const schoolName = await resolveTenantName(client, request.tenantId);
+
+            const { subject, html, text } = renderTeacherCredentialsEmail(template, {
+              firstName: teacherData.firstName,
+              lastName: teacherData.lastName,
+              email: normalizedEmail,
+              password: plainPassword,
+              loginUrl: LOGIN_URL,
+              schoolName,
+              employeeNumber: teacherData.employeeNumber,
+              contractType: teacherData.contractType,
+              hireDate: teacherData.hireDate,
+            });
+
+            await emailService.sendEmail({ to: normalizedEmail, subject, html, text });
+            emailSent = true;
+          } catch (mailError) {
+            emailError = mailError instanceof Error ? mailError.message : String(mailError);
+            fastify.log.error(
+              `Teacher created (${teacher.id}) but credentials email failed: ${emailError}`
+            );
+          }
+        }
+
+        reply.status(201).send({
+          ...serializeTeacherRow(teacher, {
             initialPassword: createdNewUser && plainPassword ? plainPassword : null,
-          })
-        );
+          }),
+          emailSent,
+          emailError,
+        });
       } catch (error) {
         await client.query("ROLLBACK").catch(() => {});
         fastify.log.error(`Error creating teacher: ${error}`);
@@ -412,6 +498,173 @@ export async function teachersRoutes(fastify: FastifyInstance) {
         reply.status(500).send({
           error: "Internal Server Error",
           message: "An error occurred while creating the teacher",
+        });
+      } finally {
+        client.release();
+      }
+    },
+  });
+
+  // GET /api/v1/teachers/credentials-template — Modèle d'email des identifiants
+  fastify.get("/credentials-template", {
+    handler: async (request, reply) => {
+      if (!request.tenantId) {
+        return reply.status(400).send({
+          error: "Tenant Required",
+          message: "This endpoint requires tenant context",
+        });
+      }
+
+      const client = await fastify.pg.connect();
+      try {
+        const [template, schoolName] = await Promise.all([
+          loadTenantTeacherCredentialsTemplate(client, request.tenantId),
+          resolveTenantName(client, request.tenantId),
+        ]);
+
+        return reply.send({
+          ...template,
+          defaults: DEFAULT_TEACHER_CREDENTIALS_TEMPLATE,
+          variables: TEACHER_CREDENTIALS_VARIABLES,
+          emailConfigured: emailService.isConfigured(),
+          schoolName,
+          loginUrl: LOGIN_URL,
+        });
+      } catch (error) {
+        fastify.log.error(`Error loading teacher credentials template: ${error}`);
+        return reply.status(500).send({
+          error: "Internal Server Error",
+          message: "Impossible de charger le modèle d'email",
+        });
+      } finally {
+        client.release();
+      }
+    },
+  });
+
+  // PUT /api/v1/teachers/credentials-template — Enregistre le modèle du tenant
+  fastify.put("/credentials-template", {
+    handler: async (request, reply) => {
+      if (!request.tenantId) {
+        return reply.status(400).send({
+          error: "Tenant Required",
+          message: "This endpoint requires tenant context",
+        });
+      }
+
+      const template = TeacherCredentialsEmailTemplateSchema.parse(request.body as unknown);
+
+      const client = await fastify.pg.connect();
+      try {
+        await saveTenantTeacherCredentialsTemplate(client, request.tenantId, template);
+        return reply.send({ ...template, saved: true });
+      } catch (error) {
+        fastify.log.error(`Error saving teacher credentials template: ${error}`);
+        return reply.status(500).send({
+          error: "Internal Server Error",
+          message: "Impossible d'enregistrer le modèle d'email",
+        });
+      } finally {
+        client.release();
+      }
+    },
+  });
+
+  // POST /api/v1/teachers/:id/send-credentials — (Re)envoie les identifiants par email
+  fastify.post("/:id/send-credentials", {
+    handler: async (request, reply) => {
+      if (!request.tenantId) {
+        return reply.status(400).send({
+          error: "Tenant Required",
+          message: "This endpoint requires tenant context",
+        });
+      }
+
+      if (!emailService.isConfigured()) {
+        return reply.status(503).send({
+          error: "Service Unavailable",
+          message:
+            "Service email non configuré (variables SMTP_HOST / SMTP_USER / SMTP_PASSWORD manquantes).",
+        });
+      }
+
+      const { id } = request.params as { id: string };
+      const body = (request.body ?? {}) as {
+        template?: { subject: string; body: string };
+      };
+
+      const client = await fastify.pg.connect();
+      try {
+        const teacherRes = await client.query(
+          `SELECT t.id, t.first_name, t.last_name, t.email, t.employee_number,
+                  t.contract_type, t.hire_date, t.user_id, u.initial_password
+             FROM teachers t
+             LEFT JOIN users u ON u.id = t.user_id
+            WHERE t.id = $1 AND t.tenant_id = $2`,
+          [id, request.tenantId]
+        );
+
+        if (teacherRes.rows.length === 0) {
+          return reply.status(404).send({ error: "Not Found", message: "Enseignant introuvable" });
+        }
+
+        const row = teacherRes.rows[0];
+        if (!row.email) {
+          return reply.status(400).send({
+            error: "Validation Error",
+            message: "Cet enseignant n'a pas d'adresse email.",
+          });
+        }
+
+        // Pas de mot de passe en clair disponible : on en régénère un et on
+        // met à jour le compte, sinon l'email serait inutilisable.
+        let password: string = row.initial_password;
+        if (!password) {
+          if (!row.user_id) {
+            return reply.status(400).send({
+              error: "Validation Error",
+              message: "Cet enseignant n'a pas de compte de connexion.",
+            });
+          }
+          password = generateTemporaryPassword();
+          const passwordHash = await bcrypt.hash(password, 12);
+          await client.query(
+            `UPDATE users SET password_hash = $1, initial_password = $2, updated_at = NOW() WHERE id = $3`,
+            [passwordHash, password, row.user_id]
+          );
+        }
+
+        const template =
+          (body.template
+            ? TeacherCredentialsEmailTemplateSchema.parse(body.template)
+            : null) ?? (await loadTenantTeacherCredentialsTemplate(client, request.tenantId));
+        const schoolName = await resolveTenantName(client, request.tenantId);
+
+        const { subject, html, text } = renderTeacherCredentialsEmail(template, {
+          firstName: row.first_name,
+          lastName: row.last_name,
+          email: row.email,
+          password,
+          loginUrl: LOGIN_URL,
+          schoolName,
+          employeeNumber: row.employee_number,
+          contractType: row.contract_type,
+          hireDate: row.hire_date,
+        });
+
+        await emailService.sendEmail({ to: row.email, subject, html, text });
+
+        return reply.send({
+          teacherId: row.id,
+          emailSent: true,
+          sentTo: row.email,
+          message: `Identifiants envoyés à ${row.email}`,
+        });
+      } catch (error) {
+        fastify.log.error(`Error sending teacher credentials: ${error}`);
+        return reply.status(500).send({
+          error: "Internal Server Error",
+          message: error instanceof Error ? error.message : "Échec de l'envoi de l'email",
         });
       } finally {
         client.release();

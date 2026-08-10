@@ -39,6 +39,8 @@ export const StudentProfileSchema = z.object({
   isInscribed: z.boolean().optional(),
   inscriptionDate: z.date().optional(),
   residence: z.string().max(255).optional(),
+  /** Matricule saisi manuellement par la scolarité (distinct de `studentNumber`, auto). */
+  studentMatricule: z.string().max(50).optional(),
   establishmentMatricule: z.string().max(100).optional(),
   dspsMatricule: z.string().max(100).optional(),
   dspsPreviousMatricule: z.string().max(100).optional(),
@@ -76,12 +78,28 @@ export const CreateStudentProfileSchema = z.object({
   civilRegistryOffice: z.string().max(255).optional(),
   subPrefecture: z.string().max(255).optional(),
   residence: z.string().max(255).optional(),
+  /** Matricule saisi manuellement (optionnel ici : ce schéma sert aux mises à jour partielles). */
+  studentMatricule: z.string().max(50).optional(),
   establishmentMatricule: z.string().max(100).optional(),
   dspsMatricule: z.string().max(100).optional(),
   dspsPreviousMatricule: z.string().max(100).optional(),
   bacObtentionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   bacSeries: z.string().max(100).optional(),
   lastDiploma: z.string().max(255).optional(),
+<<<<<<< HEAD
+=======
+});
+
+/**
+ * Modèle d'email des identifiants de connexion envoyé à la création d'un
+ * compte étudiant. `subject` et `body` acceptent des variables
+ * `{{firstName}}`, `{{email}}`, `{{password}}`, `{{loginUrl}}`,
+ * `{{schoolName}}`, etc.
+ */
+export const StudentCredentialsEmailTemplateSchema = z.object({
+  subject: z.string().min(1).max(300),
+  body: z.string().min(1).max(20000),
+>>>>>>> 030-pedagogie-ue-ecue
 });
 
 // Create Student with User Schema (creates both user and student profile)
@@ -94,6 +112,12 @@ export const CreateStudentWithUserSchema = z.object({
 
   // Student profile fields
   matricule: z.string().max(50).optional(), // Auto-generated if not provided
+  /**
+   * Matricule saisi manuellement par la scolarité — OBLIGATOIRE à la création.
+   * Distinct de `matricule` / `studentNumber` / `establishmentMatricule`, qui sont
+   * la séquence numérique automatique (10001, 10002, …) réécrite par l'API.
+   */
+  studentMatricule: z.string().min(1).max(50),
   currentYear: z.number().int().min(1).max(10).default(1),
   status: StudentStatusSchema.default('active'),
   bio: z.string().optional(),
@@ -117,6 +141,16 @@ export const CreateStudentWithUserSchema = z.object({
   bacObtentionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   bacSeries: z.string().max(100).optional(),
   lastDiploma: z.string().max(255).optional(),
+<<<<<<< HEAD
+=======
+
+  /** Envoyer les identifiants par email juste après la création (défaut : true) */
+  sendCredentialsEmail: z.boolean().optional(),
+  /** Modèle personnalisé pour cet envoi ; sinon le modèle du tenant est utilisé */
+  credentialsEmailTemplate: StudentCredentialsEmailTemplateSchema.optional(),
+  /** Enregistrer aussi ce modèle comme modèle par défaut de l'établissement */
+  saveCredentialsEmailTemplate: z.boolean().optional(),
+>>>>>>> 030-pedagogie-ue-ecue
 });
 
 // Update Student Profile Schema
@@ -218,3 +252,4 @@ export type StudentQuery = z.infer<typeof StudentQuerySchema>;
 export type StudentParentQuery = z.infer<typeof StudentParentQuerySchema>;
 export type StudentListResponse = z.infer<typeof StudentListResponseSchema>;
 export type StudentParentListResponse = z.infer<typeof StudentParentListResponseSchema>;
+export type StudentCredentialsEmailTemplate = z.infer<typeof StudentCredentialsEmailTemplateSchema>;

@@ -9,6 +9,7 @@ import { AlertsPanel } from "@/components/owner/AlertsPanel";
 import { AcademicSummaryCard } from "@/components/owner/AcademicSummaryCard";
 import { StaffSummaryCard } from "@/components/owner/StaffSummaryCard";
 import { FormationsSummaryCard } from "@/components/owner/FormationsSummaryCard";
+import { ProfessionalSummaryCard } from "@/components/owner/ProfessionalSummaryCard";
 
 export default function OwnerDashboardPage() {
   const { data, isLoading, error } = useOwnerDashboard();
@@ -70,7 +71,9 @@ export default function OwnerDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      {/* Quatre cartes désormais : le module professionnel rejoint l'académique,
+          les RH et les formations courtes. */}
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         <AcademicSummaryCard
           averageGrade={data.academic.averageGrade}
           successRate={data.academic.successRate}
@@ -87,6 +90,19 @@ export default function OwnerDashboardPage() {
           revenueFormations={data.formations.revenueFormations}
           clientCompanies={data.formations.clientCompanies}
         />
+        {/* Rendu sous condition : une API antérieure à l'ajout de ce bloc renvoie
+            un payload sans `professional`. Sans cette garde, un simple décalage de
+            version entre le serveur et le client fait tomber TOUT le tableau de
+            bord, alors que les trois autres cartes sont parfaitement affichables. */}
+        {data.professional ? (
+          <ProfessionalSummaryCard
+            enrolledStudents={data.professional.enrolledStudents}
+            enrolledStudentsPrevMonth={data.professional.enrolledStudentsPrevMonth}
+            recoveryRate={data.professional.recoveryRate}
+            successRateLastSemester={data.professional.successRateLastSemester}
+            attendanceRate30d={data.professional.attendanceRate30d}
+          />
+        ) : null}
       </div>
     </div>
   );

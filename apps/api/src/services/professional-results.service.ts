@@ -37,6 +37,11 @@ interface EcueBreakdown {
   note: number | null;
   eliminee: boolean;
   source: "auto" | "manuel" | "mixte" | "aucune";
+<<<<<<< HEAD
+=======
+  /** Session de la note d'examen retenue (2 = rattrapage). */
+  examenSession: number;
+>>>>>>> 030-pedagogie-ue-ecue
 }
 
 export class ProfessionalResultsService extends ProfessionalBaseService {
@@ -171,11 +176,22 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
          AND nature='devoir'`,
       [ecueId, studentId, tenantId, ueSessionId]
     );
+<<<<<<< HEAD
     const manExam = await client.query(
       `SELECT note::float8 AS note, note_max::float8 AS note_max
        FROM professional_ecue_notes
        WHERE tenant_id=$3 AND ecue_id=$1 AND student_id=$2 AND ue_session_id=$4
          AND nature='examen' LIMIT 1`,
+=======
+    // Examen manuel : la Session 2 (rattrapage) REMPLACE la Session 1.
+    const manExam = await client.query(
+      `SELECT note::float8 AS note, note_max::float8 AS note_max,
+              COALESCE(session, 1)::int AS session
+       FROM professional_ecue_notes
+       WHERE tenant_id=$3 AND ecue_id=$1 AND student_id=$2 AND ue_session_id=$4
+         AND nature='examen'
+       ORDER BY session DESC LIMIT 1`,
+>>>>>>> 030-pedagogie-ue-ecue
       [ecueId, studentId, tenantId, ueSessionId]
     );
 
@@ -186,9 +202,17 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
     const moyDev = calcMoyenneDevoirs(devoirs);
 
     let examen: number | null = null;
+<<<<<<< HEAD
     if ((manExam.rowCount ?? 0) > 0) {
       const r = manExam.rows[0];
       examen = normaliserNote(r.note, r.note_max || 20);
+=======
+    let examenSession = 1;
+    if ((manExam.rowCount ?? 0) > 0) {
+      const r = manExam.rows[0];
+      examen = normaliserNote(r.note, r.note_max || 20);
+      examenSession = Number(r.session) || 1;
+>>>>>>> 030-pedagogie-ue-ecue
     } else if ((examEval.rowCount ?? 0) > 0) {
       const r = examEval.rows[0];
       examen = normaliserNote(r.note, r.note_max || 20);
@@ -201,7 +225,11 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
 
     const note = noteEcue(moyDev, examen);
     const eliminee = note != null && note < SEUIL_ELIMINATOIRE;
+<<<<<<< HEAD
     return { moyenneDevoirs: moyDev, noteExamen: examen, note, eliminee, source };
+=======
+    return { moyenneDevoirs: moyDev, noteExamen: examen, note, eliminee, source, examenSession };
+>>>>>>> 030-pedagogie-ue-ecue
   }
 
   /** Calcule et persiste le résultat d'une ECUE (préserve l'override manuel). */
@@ -222,13 +250,24 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
     const manual = existing.rows[0]?.validee_manuellement === true;
     const autoValid = bd.note != null && bd.note >= SEUIL_VALIDATION;
     const validee = manual || autoValid;
+<<<<<<< HEAD
+=======
+    // Session d'obtention (LMD) : validée au mérite → session de la note
+    // d'examen retenue (2 si rattrapage) ; validée uniquement par le jury → 2.
+    const sessionObtention = validee ? (autoValid ? bd.examenSession : 2) : null;
+>>>>>>> 030-pedagogie-ue-ecue
 
     await client.query(
       `INSERT INTO professional_ecue_results
          (tenant_id, ecue_id, student_id, ue_session_id,
           moyenne, moyenne_devoirs, note_examen, eliminee, note_source,
+<<<<<<< HEAD
           validee, date_validation)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $10 THEN now() ELSE NULL END)
+=======
+          validee, date_validation, session_obtention)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $10 THEN now() ELSE NULL END, $12)
+>>>>>>> 030-pedagogie-ue-ecue
        ON CONFLICT (tenant_id, ecue_id, student_id, ue_session_id)
        DO UPDATE SET moyenne = EXCLUDED.moyenne,
                      moyenne_devoirs = EXCLUDED.moyenne_devoirs,
@@ -236,6 +275,13 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
                      eliminee = EXCLUDED.eliminee,
                      note_source = EXCLUDED.note_source,
                      validee = professional_ecue_results.validee_manuellement OR $11,
+<<<<<<< HEAD
+=======
+                     session_obtention = CASE
+                       WHEN (professional_ecue_results.validee_manuellement OR $11)
+                         THEN COALESCE($12, 2)
+                       ELSE NULL END,
+>>>>>>> 030-pedagogie-ue-ecue
                      date_validation = CASE
                        WHEN (professional_ecue_results.validee_manuellement OR $11)
                          AND professional_ecue_results.date_validation IS NULL THEN now()
@@ -254,6 +300,10 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
         bd.source,
         validee,
         autoValid,
+<<<<<<< HEAD
+=======
+        sessionObtention,
+>>>>>>> 030-pedagogie-ue-ecue
       ]
     );
   }
@@ -402,6 +452,10 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
       libelle?: string | null;
       note: number;
       note_max?: number;
+<<<<<<< HEAD
+=======
+      session?: number;
+>>>>>>> 030-pedagogie-ue-ecue
     },
     userId?: string,
     teacherUserId?: string
@@ -423,6 +477,7 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
         return fail("FORBIDDEN", "Vous n'enseignez pas cette ECUE.");
       }
 
+<<<<<<< HEAD
       let row;
       if (input.nature === "examen") {
         const r = await client.query(
@@ -430,6 +485,17 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
              (tenant_id, ecue_id, student_id, ue_session_id, nature, libelle, note, note_max, saisi_par)
            VALUES ($1,$2,$3,$4,'examen',$5,$6,$7,$8)
            ON CONFLICT (tenant_id, ecue_id, student_id, ue_session_id) WHERE nature='examen'
+=======
+      const session = input.session === 2 ? 2 : 1;
+      let row;
+      if (input.nature === "examen") {
+        // Une note d'examen par session (S1 + S2 rattrapage possibles).
+        const r = await client.query(
+          `INSERT INTO professional_ecue_notes
+             (tenant_id, ecue_id, student_id, ue_session_id, nature, libelle, note, note_max, saisi_par, session)
+           VALUES ($1,$2,$3,$4,'examen',$5,$6,$7,$8,$9)
+           ON CONFLICT (tenant_id, ecue_id, student_id, ue_session_id, session) WHERE nature='examen'
+>>>>>>> 030-pedagogie-ue-ecue
            DO UPDATE SET libelle=EXCLUDED.libelle, note=EXCLUDED.note,
                          note_max=EXCLUDED.note_max, saisi_par=EXCLUDED.saisi_par,
                          updated_at=now()
@@ -443,14 +509,23 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
             input.note,
             noteMax,
             userId ?? null,
+<<<<<<< HEAD
+=======
+            session,
+>>>>>>> 030-pedagogie-ue-ecue
           ]
         );
         row = r.rows[0];
       } else {
         const r = await client.query(
           `INSERT INTO professional_ecue_notes
+<<<<<<< HEAD
              (tenant_id, ecue_id, student_id, ue_session_id, nature, libelle, note, note_max, saisi_par)
            VALUES ($1,$2,$3,$4,'devoir',$5,$6,$7,$8)
+=======
+             (tenant_id, ecue_id, student_id, ue_session_id, nature, libelle, note, note_max, saisi_par, session)
+           VALUES ($1,$2,$3,$4,'devoir',$5,$6,$7,$8,$9)
+>>>>>>> 030-pedagogie-ue-ecue
            RETURNING *`,
           [
             tenantId,
@@ -461,6 +536,10 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
             input.note,
             noteMax,
             userId ?? null,
+<<<<<<< HEAD
+=======
+            session,
+>>>>>>> 030-pedagogie-ue-ecue
           ]
         );
         row = r.rows[0];
@@ -789,10 +868,18 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
       );
       const notes = await client.query(
         `SELECT id, ecue_id, student_id, nature, libelle,
+<<<<<<< HEAD
                 note::float8 AS note, note_max::float8 AS note_max
          FROM professional_ecue_notes
          WHERE ue_session_id=$1 AND tenant_id=$2
          ORDER BY nature, created_at`,
+=======
+                note::float8 AS note, note_max::float8 AS note_max,
+                COALESCE(session, 1)::int AS session
+         FROM professional_ecue_notes
+         WHERE ue_session_id=$1 AND tenant_id=$2
+         ORDER BY nature, session, created_at`,
+>>>>>>> 030-pedagogie-ue-ecue
         [ueSessionId, tenantId]
       );
       // Notes issues des évaluations (copies notées) — pour affichage détaillé.

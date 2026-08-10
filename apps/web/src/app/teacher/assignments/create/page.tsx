@@ -1,339 +1,610 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import React, { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  FileText,
-  BookOpen,
-  ArrowRight,
-  Brain,
-  Loader2,
+  Card,
+  CardContent,
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@ecoledigitale/ui";
+import {
+  AlertCircle,
   ArrowLeft,
-  AlertCircle
-} from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Alert, AlertDescription } from "@ecoledigitale/ui";
-import { useTeacherCourses } from '@/lib/hooks/use-courses';
-import { useCurrentTeacherId } from '@/lib/hooks/use-current-teacher';
+  BookOpen,
+  Brain,
+  CheckCircle2,
+  ClipboardList,
+  Edit2,
+  Eye,
+  FileText,
+  Layers,
+  ListChecks,
+  Loader2,
+  Plus,
+  Search,
+  Send,
+  X,
+} from "lucide-react";
+import { useTeacherAssignments } from "@/lib/hooks/use-professional-teacher";
+import { useTeacherEcue, type TeacherEcue } from "@/lib/hooks/use-teacher-professional";
+import {
+  AssignmentForm,
+  GradingModal,
+  DeleteAssignmentBtn,
+  EVALUATION_TYPE_LABEL,
+} from "@/components/professional/ProfessionalAssignmentsPanel";
+import { AssignmentQuestionsManager } from "@/components/professional/AssignmentQuestionsManager";
 
-export default function CreateAssignmentPage() {
-  const { data: session, status } = useSession();
+/**
+ * Mes évaluations — Espace enseignant (Module Professionnel, feature 030).
+ *
+ * Vue globale, transverse à toutes les matières (ECUE) affectées à
+ * l'enseignant : voir, filtrer, créer, corriger, éditer et supprimer ses
+ * évaluations. Réutilise le wizard de création/édition (`AssignmentForm`), la
+ * correction (`GradingModal`) et le gestionnaire de questions déjà employés
+ * dans l'onglet « Évaluations » d'une session.
+ */
+
+const TYPE_FILTERS = [
+  { value: "all", label: "Tous les types" },
+  { value: "online", label: "En ligne" },
+  { value: "pdf", label: "Sujet PDF" },
+  { value: "ai_generated", label: "IA" },
+];
+
+const STATUT_FILTERS = [
+  { value: "all", label: "Tous les statuts" },
+  { value: "brouillon", label: "Brouillon" },
+  { value: "publie", label: "Publié" },
+  { value: "cloture", label: "Clôturé" },
+];
+
+function fmtDateTime(value?: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleString("fr-FR");
+}
+
+function TypeBadge({ type }: { type: string }) {
+  const Icon = type === "online" ? BookOpen : type === "ai_generated" ? Brain : FileText;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap border ${
+        type === "online"
+          ? "bg-green-500/15 text-green-600 border-green-500/40"
+          : type === "ai_generated"
+            ? "bg-purple-500/15 text-purple-600 border-purple-500/40"
+            : "bg-blue-500/15 text-blue-600 border-blue-500/40"
+      }`}
+    >
+      <Icon className="h-3 w-3" />
+      {EVALUATION_TYPE_LABEL[type] ?? "—"}
+    </span>
+  );
+}
+
+function StatutBadge({ statut }: { statut: string }) {
+  return (
+    <span
+      className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+        statut === "publie"
+          ? "bg-green-100 text-green-700"
+          : statut === "brouillon"
+            ? "bg-gray-100 text-gray-700"
+            : "bg-amber-100 text-amber-700"
+      }`}
+    >
+      {statut}
+    </span>
+  );
+}
+
+export default function TeacherEvaluationsPage() {
   const router = useRouter();
-  const [selectedCourse, setSelectedCourse] = useState<string>('');
-  const [evaluationType, setEvaluationType] = useState<'online' | 'pdf' | 'ai_generated'>('online');
+  const listQuery = useTeacherAssignments();
+  const items: any[] = (listQuery.data as any[]) ?? [];
 
-  // Get current teacher ID and fetch their courses - always call hooks at the top level
-  const { data: teacherId, isLoading: loadingTeacherId } = useCurrentTeacherId();
-  const { data: teacherCoursesData = [], isLoading: coursesLoading, error: coursesError } = useTeacherCourses(teacherId);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statutFilter, setStatutFilter] = useState("all");
+  const [sessionFilter, setSessionFilter] = useState("all");
 
-  // Transform teacher courses data to the format expected by the component - always call useMemo
-  // Deduplicate courses by courseId (same course can appear multiple times if teacher has multiple assignments)
-  const courses = useMemo(() => {
-    if (!teacherCoursesData || teacherCoursesData.length === 0) return [];
+  const [error, setError] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [creatingFor, setCreatingFor] = useState<{ subjectId: string; sessionId?: string } | null>(
+    null
+  );
+  const [editing, setEditing] = useState<any | null>(null);
+  const [gradingFor, setGradingFor] = useState<any | null>(null);
+  const [managingQuestionsFor, setManagingQuestionsFor] = useState<any | null>(null);
 
-    console.log('Raw teacher courses data:', teacherCoursesData);
-
-    // Deduplicate courses by courseId
-    const coursesMap = new Map<string, any>();
-    
-    teacherCoursesData.forEach((course: any) => {
-      const courseId = course.courseId;
-      
-      // If course already exists, keep the one with the most recent assignment or active status
-      if (coursesMap.has(courseId)) {
-        const existing = coursesMap.get(courseId);
-        
-        // Prefer active status over completed/pending
-        if (course.status === 'active' && existing.status !== 'active') {
-          coursesMap.set(courseId, course);
-        }
-        // If both have same status, prefer the one with more recent assignment
-        else if (course.assignmentCreatedAt && existing.assignmentCreatedAt) {
-          const courseDate = new Date(course.assignmentCreatedAt).getTime();
-          const existingDate = new Date(existing.assignmentCreatedAt).getTime();
-          if (courseDate > existingDate) {
-            coursesMap.set(courseId, course);
-          }
-        }
-      } else {
-        coursesMap.set(courseId, course);
+  // Cohortes distinctes présentes dans les évaluations (pour le filtre).
+  const sessionOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of items) {
+      if (a.ue_session_id && !map.has(a.ue_session_id)) {
+        const label = [a.session_libelle, a.filiere_code].filter(Boolean).join(" · ");
+        map.set(a.ue_session_id, label || a.session_libelle || "Cohorte");
       }
-    });
-
-    // Transform to the format expected by the component
-    return Array.from(coursesMap.values()).map((course: any) => {
-      console.log('Processing course:', course);
-
-      return {
-        id: course.courseId, // Use the course ID from the API response
-        name: course.courseName,
-        code: course.courseCode,
-        assignmentId: course.assignmentId, // Keep assignment ID for reference
-        className: course.className,
-        classId: course.classId
-      };
-    });
-  }, [teacherCoursesData]);
-
-  const evaluationTypes = useMemo(() => [
-    {
-      id: 'online',
-      name: 'Évaluation en ligne',
-      description: 'Questions interactives (QCM, réponses courtes)',
-      icon: BookOpen,
-      color: 'from-green-500 to-emerald-600'
-    },
-    {
-      id: 'pdf',
-      name: 'Évaluation à sujet unique',
-      description: 'Sujet au format PDF avec remise de fichiers',
-      icon: FileText,
-      color: 'from-blue-500 to-cyan-600'
-    },
-    {
-      id: 'ai_generated',
-      name: 'Évaluation IA',
-      description: 'Génération automatique de questions',
-      icon: Brain,
-      color: 'from-purple-500 to-pink-600'
     }
-  ], []);
+    return Array.from(map, ([id, label]) => ({ id, label }));
+  }, [items]);
 
-  const handleCreateEvaluation = () => {
-    if (!selectedCourse) {
-      alert('Veuillez sélectionner un cours');
-      return;
-    }
-
-    // Redirect to admin evaluation creation with courseId and evaluation type
-    const params = new URLSearchParams({
-      courseId: selectedCourse,
-      evaluation_type: evaluationType
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((a) => {
+      const matchSearch =
+        !q ||
+        `${a.titre ?? ""} ${a.ecue_code ?? ""} ${a.ecue_libelle ?? ""} ${a.ue_code ?? ""} ${
+          a.ue_libelle ?? ""
+        } ${a.session_libelle ?? ""} ${a.filiere_nom ?? ""}`
+          .toLowerCase()
+          .includes(q);
+      const matchType = typeFilter === "all" || a.evaluation_type === typeFilter;
+      const matchStatut = statutFilter === "all" || a.statut === statutFilter;
+      const matchSession = sessionFilter === "all" || a.ue_session_id === sessionFilter;
+      return matchSearch && matchType && matchStatut && matchSession;
     });
+  }, [items, search, typeFilter, statutFilter, sessionFilter]);
 
-    router.push(`/academic/evaluations/create?${params.toString()}`);
-  };
-
-  // Early returns after all hooks are called
-  if (status === 'loading' || loadingTeacherId || coursesLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return null;
-  }
-
-  // Check if user has teacher role
-  const roles = (session as any)?.roles ?? [];
-  const isTeacher = Array.isArray(roles) && roles.some((r: string) => ['teacher', 'Enseignant'].includes(r));
-
-  if (!isTeacher) {
-    return null;
-  }
-
-  // Error state
-  if (coursesError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Erreur de chargement</h1>
-          <p className="text-gray-600 mb-4">Impossible de charger vos cours. Veuillez réessayer.</p>
-          <Button onClick={() => window.location.reload()}>
-            Réessayer
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-
+  const stats = useMemo(() => {
+    return {
+      total: items.length,
+      publiees: items.filter((a) => a.statut === "publie").length,
+      brouillons: items.filter((a) => a.statut === "brouillon").length,
+      aCorriger: items.reduce(
+        (acc, a) => acc + Math.max(0, (a.nb_soumis ?? 0) - (a.nb_notes ?? 0)),
+        0
+      ),
+    };
+  }, [items]);
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.back()}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Retour
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-white flex items-center">
-                <FileText className="w-8 h-8 text-purple-600 mr-3" />
-                Créer une Évaluation
-              </h1>
-              <p className="mt-2 text-white">
-                Sélectionnez le cours et le type d'évaluation à créer
-              </p>
-            </div>
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Retour
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              Mes évaluations
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Créez, suivez et corrigez les évaluations de toutes vos matières.
+            </p>
           </div>
         </div>
-        <div className="space-y-6">
-          {/* Course Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-white">Sélection du Cours</CardTitle>
-              <CardDescription>Choisissez le cours pour lequel vous souhaitez créer une évaluation</CardDescription>
-            </CardHeader>
-            <CardContent>
+        <Button
+          className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+          onClick={() => {
+            setError(null);
+            setPicking(true);
+          }}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Nouvelle évaluation
+        </Button>
+      </div>
 
-              {courses.length === 0 ? (
-                <div className="text-center py-8">
-                  <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun cours assigné</h3>
-                  <p className="text-gray-500">
-                    Vous n'avez pas encore de cours assignés. Contactez l'administration.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {courses.map((course) => (
-                    <div
-                      key={course.id}
-                      onClick={() => setSelectedCourse(course.id)}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                        selectedCourse === course.id
-                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/20 ring-2 ring-purple-200 dark:ring-purple-800'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className={`font-semibold ${selectedCourse === course.id ? 'text-gray-900 dark:text-gray-100' : 'text-white'}`}>{course.name}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{course.code}</p>
-                          <p className="text-sm text-purple-600 dark:text-purple-400 mt-2">
-                            Classe: {course.className}
-                          </p>
-                        </div>
-                        {selectedCourse === course.id && (
-                          <div className="ml-3">
-                            <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
-                              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      {error && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button type="button" onClick={() => setError(null)} className="text-red-500">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
-          {/* Evaluation Type Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-white">Type d'Évaluation</CardTitle>
-              <CardDescription>Choisissez le type d'évaluation que vous souhaitez créer</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {evaluationTypes.map((type) => {
-                  const Icon = type.icon;
-                  const isSelected = evaluationType === type.id;
+      {/* Statistiques */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={ClipboardList} label="Total évaluations" value={stats.total} color="indigo" />
+        <StatCard icon={CheckCircle2} label="Publiées" value={stats.publiees} color="green" />
+        <StatCard icon={FileText} label="Brouillons" value={stats.brouillons} color="purple" />
+        <StatCard icon={Edit2} label="Copies à corriger" value={stats.aCorriger} color="blue" />
+      </div>
 
-                  return (
-                    <div
-                      key={type.id}
-                      onClick={() => setEvaluationType(type.id as any)}
-                      className={`p-6 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                        isSelected
-                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/20 ring-2 ring-purple-200 dark:ring-purple-800'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600'
-                      }`}
-                    >
-                      <div className="text-center">
-                        <div className={`w-12 h-12 mx-auto mb-4 rounded-lg bg-gradient-to-r ${type.color} flex items-center justify-center`}>
-                          <Icon className="w-6 h-6 text-white" />
-                        </div>
-                        <h3 className={`font-semibold mb-2 ${isSelected ? 'text-gray-900 dark:text-gray-100' : 'text-white'}`}>{type.name}</h3>
-                        <p className={`text-sm ${isSelected ? 'text-gray-600 dark:text-gray-400' : 'text-white'}`}>{type.description}</p>
-                        {isSelected && (
-                          <div className="mt-3">
-                            <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center mx-auto">
-                              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+      {/* Filtres */}
+      <Card className="shadow-sm">
+        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un titre, une matière…"
+              className="pl-9"
+            />
+          </div>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              {TYPE_FILTERS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={statutFilter} onValueChange={setStatutFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Statut" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUT_FILTERS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sessionFilter} onValueChange={setSessionFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Cohorte" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes les cohortes</SelectItem>
+              {sessionOptions.map((o) => (
+                <SelectItem key={o.id} value={o.id}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      {/* Liste */}
+      <Card className="shadow-sm">
+        <CardContent className="p-0">
+          {listQuery.isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+            </div>
+          ) : listQuery.isError ? (
+            <div className="flex flex-col items-center justify-center text-center py-16 gap-3">
+              <AlertCircle className="h-8 w-8 text-red-500" />
+              <p className="text-muted-foreground">
+                {(listQuery.error as Error)?.message ?? "Impossible de charger vos évaluations."}
+              </p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center py-16 gap-3">
+              <div className="rounded-full bg-indigo-50 p-4">
+                <ClipboardList className="h-8 w-8 text-indigo-500" />
               </div>
-            </CardContent>
-          </Card>
+              <h3 className="text-lg font-semibold">
+                {items.length === 0 ? "Aucune évaluation" : "Aucune évaluation ne correspond"}
+              </h3>
+              <p className="text-muted-foreground max-w-md">
+                {items.length === 0
+                  ? "Vous n'avez encore créé aucune évaluation. Cliquez sur « Nouvelle évaluation » pour commencer."
+                  : "Essayez d'ajuster votre recherche ou vos filtres."}
+              </p>
+              {items.length === 0 && (
+                <Button
+                  className="mt-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+                  onClick={() => setPicking(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nouvelle évaluation
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase text-muted-foreground border-b bg-muted/30">
+                  <tr>
+                    <th className="py-2.5 px-3">Titre</th>
+                    <th className="py-2.5 px-3">Matière</th>
+                    <th className="py-2.5 px-3">Cohorte</th>
+                    <th className="py-2.5 px-3">Type</th>
+                    <th className="py-2.5 px-3 text-right">/Note</th>
+                    <th className="py-2.5 px-3 text-right">Coef.</th>
+                    <th className="py-2.5 px-3">Échéance</th>
+                    <th className="py-2.5 px-3">Statut</th>
+                    <th className="py-2.5 px-3 text-right">Soumis</th>
+                    <th className="py-2.5 px-3 text-right">Notés</th>
+                    <th className="py-2.5 px-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((a) => (
+                    <tr key={a.id} className="border-b last:border-0 hover:bg-muted/30">
+                      <td className="py-2.5 px-3 font-medium max-w-[220px]">
+                        <button
+                          type="button"
+                          onClick={() => setGradingFor(a)}
+                          className="text-blue-600 hover:underline text-left truncate block max-w-full"
+                          title={a.titre}
+                        >
+                          {a.titre}
+                        </button>
+                        {a.type === "examen" && (
+                          <span className="text-[10px] uppercase tracking-wide text-amber-600 font-semibold">
+                            Examen
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="font-mono text-xs text-indigo-600">{a.ecue_code}</span>
+                        <p className="text-xs text-muted-foreground truncate max-w-[160px]" title={a.ecue_libelle}>
+                          {a.ecue_libelle}
+                        </p>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <p className="text-xs truncate max-w-[150px]" title={a.session_libelle ?? ""}>
+                          {a.session_libelle ?? "—"}
+                        </p>
+                        {a.filiere_code && (
+                          <span className="text-[11px] text-muted-foreground">{a.filiere_code}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <TypeBadge type={a.evaluation_type} />
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono">{a.note_max}</td>
+                      <td className="py-2.5 px-3 text-right font-mono">{a.coefficient}</td>
+                      <td className="py-2.5 px-3 text-xs whitespace-nowrap">{fmtDateTime(a.due_at)}</td>
+                      <td className="py-2.5 px-3">
+                        <StatutBadge statut={a.statut} />
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono">{a.nb_soumis ?? 0}</td>
+                      <td className="py-2.5 px-3 text-right font-mono">{a.nb_notes ?? 0}</td>
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        {(a.evaluation_type === "online" || a.evaluation_type === "ai_generated") && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setManagingQuestionsFor(a)}
+                            title="Gérer les questions"
+                            className="mr-1"
+                          >
+                            <ListChecks className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setGradingFor(a)}
+                          title="Corriger"
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-1"
+                          onClick={() =>
+                            router.push(`/academic/assignments/assign?source=${a.id}`)
+                          }
+                          title="Assigner à d'autres filières"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                        {a.ue_session_id && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="ml-1"
+                            onClick={() => router.push(`/teacher/courses/${a.ue_session_id}`)}
+                            title="Ouvrir la session"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-1"
+                          onClick={() => setEditing(a)}
+                          title="Modifier"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <DeleteAssignmentBtn id={a.id} onError={setError} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-          {/* Summary and Action */}
-          {selectedCourse && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-white">Résumé de la Sélection</CardTitle>
-                <CardDescription>Vérifiez vos sélections avant de continuer</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Cours sélectionné</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {courses.find(c => c.id === selectedCourse)?.name}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {courses.find(c => c.id === selectedCourse)?.code}
-                      </p>
+      {/* Sélecteur de matière (étape 0 de la création) */}
+      {picking && (
+        <EcuePickerModal
+          onClose={() => setPicking(false)}
+          onPick={(ecue) => {
+            setPicking(false);
+            setCreatingFor({ subjectId: ecue.ecue_id, sessionId: ecue.ue_session_id });
+          }}
+        />
+      )}
+
+      {/* Création */}
+      {creatingFor && (
+        <AssignmentForm
+          subjectId={creatingFor.subjectId}
+          sessionId={creatingFor.sessionId}
+          initial={null}
+          onClose={() => setCreatingFor(null)}
+          onError={setError}
+        />
+      )}
+
+      {/* Édition */}
+      {editing && (
+        <AssignmentForm
+          subjectId={editing.ecue_id}
+          sessionId={editing.ue_session_id ?? undefined}
+          initial={editing}
+          onClose={() => setEditing(null)}
+          onError={setError}
+        />
+      )}
+
+      {/* Correction */}
+      {gradingFor && (
+        <GradingModal assignment={gradingFor} canManage onClose={() => setGradingFor(null)} />
+      )}
+
+      {/* Questions interactives */}
+      {managingQuestionsFor && (
+        <AssignmentQuestionsManager
+          assignment={managingQuestionsFor}
+          onClose={() => setManagingQuestionsFor(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: number;
+  color: "indigo" | "purple" | "blue" | "green";
+}) {
+  const colors: Record<string, string> = {
+    indigo: "from-indigo-500 to-indigo-600",
+    purple: "from-purple-500 to-purple-600",
+    blue: "from-blue-500 to-blue-600",
+    green: "from-green-500 to-green-600",
+  };
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="p-4 flex items-center gap-3">
+        <div className={`rounded-xl p-2.5 bg-gradient-to-br ${colors[color]} text-white`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-2xl font-bold leading-none">{value}</p>
+          <p className="text-xs text-muted-foreground mt-1">{label}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Étape 0 : choix de la matière (ECUE) pour laquelle créer l'évaluation.     */
+/* -------------------------------------------------------------------------- */
+
+function EcuePickerModal({
+  onClose,
+  onPick,
+}: {
+  onClose: () => void;
+  onPick: (ecue: TeacherEcue) => void;
+}) {
+  const ecueQuery = useTeacherEcue();
+  const ecues: TeacherEcue[] = ecueQuery.data ?? [];
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return ecues;
+    return ecues.filter((e) =>
+      `${e.ecue_code} ${e.ecue_libelle} ${e.ue_code} ${e.ue_libelle} ${e.session_libelle ?? ""} ${
+        e.filiere_nom ?? ""
+      }`
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [ecues, search]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-background text-foreground border border-border rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <div>
+            <h3 className="font-semibold">Nouvelle évaluation</h3>
+            <p className="text-xs text-muted-foreground">
+              Choisissez d'abord la matière (ECUE) concernée
+            </p>
+          </div>
+          <Button type="button" size="sm" variant="outline" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="p-4 border-b">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher une matière, une cohorte…"
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4">
+          {ecueQuery.isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              {ecues.length === 0
+                ? "Aucune matière ne vous est affectée. Contactez l'administration."
+                : "Aucune matière ne correspond à votre recherche."}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map((e) => (
+                <button
+                  key={`${e.ue_session_id}-${e.ecue_id}`}
+                  type="button"
+                  onClick={() => onPick(e)}
+                  className="w-full text-left p-3 border border-border rounded-lg hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition-colors flex items-start justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[11px] text-indigo-600 bg-indigo-50 rounded px-1.5 py-0.5">
+                        {e.ecue_code}
+                      </span>
+                      <span className="font-medium truncate">{e.ecue_libelle}</span>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Type d'évaluation</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {evaluationTypes.find(t => t.id === evaluationType)?.name}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {evaluationTypes.find(t => t.id === evaluationType)?.description}
-                      </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <BookOpen className="h-3 w-3" />
+                        {e.ue_code} — {e.ue_libelle}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Layers className="h-3 w-3" />
+                        {e.session_libelle ?? e.filiere_nom ?? "—"}
+                      </span>
                     </div>
                   </div>
-                </div>
-
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Vous allez être redirigé vers l'interface de création d'évaluation complète.
-                    Vous pourrez y configurer tous les détails de votre évaluation (questions, durée, paramètres, etc.).
-                  </AlertDescription>
-                </Alert>
-
-                <div className="flex justify-end gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.back()}
-                  >
-                    Retour
-                  </Button>
-                  <Button
-                    onClick={handleCreateEvaluation}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    <span>Continuer la création</span>
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <Plus className="h-4 w-4 text-indigo-500 shrink-0 mt-1 rotate-45" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>

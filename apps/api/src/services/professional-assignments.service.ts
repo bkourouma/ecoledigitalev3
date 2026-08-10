@@ -304,6 +304,217 @@ export class ProfessionalAssignmentsService extends ProfessionalBaseService {
     });
   }
 
+<<<<<<< HEAD
+=======
+  /**
+   * Extrait le nom de fichier du sujet à partir de son URL protégée
+   * (`…/assignments/{id}/subject-document/{filename}`) pour permettre la recopie
+   * du fichier lors d'une duplication. Retourne `null` si aucun document.
+   */
+  private subjectDocFilename(url?: string | null): string | null {
+    if (!url) return null;
+    const marker = "/subject-document/";
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    const raw = url.slice(idx + marker.length).split(/[?#]/)[0];
+    if (!raw) return null;
+    try {
+      const name = decodeURIComponent(raw);
+      // Sécurité : refuse tout traversal.
+      if (name.includes("/") || name.includes("\\") || name.includes("..")) return null;
+      return name;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Duplique une évaluation existante vers d'autres cibles (ECUE × cohorte)
+   * affectées à l'enseignant — pour « assigner » un même devoir à d'autres
+   * filières. Copie la configuration complète ET les questions interactives ; le
+   * fichier sujet éventuel est recopié côté route (fs) via la métadonnée
+   * `document_to_copy` retournée pour chaque duplicata créé.
+   *
+   * Chaque cible invalide (non enseignée, hors cohorte, examen déjà présent,
+   * identique à la source…) est ignorée et rapportée dans `skipped` ; la
+   * duplication continue pour les autres cibles.
+   */
+  async duplicateToTargets(
+    tenantId: string,
+    userId: string,
+    isAdmin: boolean,
+    sourceAssignmentId: string,
+    targets: Array<{ ecue_id: string; ue_session_id?: string | null }>,
+    overrides?: { due_at?: string | null; starts_at?: string | null; statut?: string | null }
+  ): Promise<
+    ServiceResult<{
+      created: any[];
+      skipped: Array<{
+        ecue_id: string;
+        ue_session_id: string | null;
+        reason: string;
+        message: string;
+      }>;
+    }>
+  > {
+    return this.withTenant(tenantId, async (client) => {
+      if (!Array.isArray(targets) || targets.length === 0) {
+        return fail("VALIDATION_ERROR", "Aucune cible sélectionnée.");
+      }
+
+      const srcRes = await client.query(
+        `SELECT * FROM professional_assignments WHERE id = $1 AND tenant_id = $2`,
+        [sourceAssignmentId, tenantId]
+      );
+      if (srcRes.rowCount === 0) return fail("NOT_FOUND", "Évaluation source introuvable.");
+      const src = srcRes.rows[0];
+
+      if (!isAdmin) {
+        const allowed = await this.teacherTeachesEcue(client, userId, src.ecue_id);
+        if (!allowed) return fail("FORBIDDEN", "Vous n'enseignez pas l'ECUE de cette évaluation.");
+      }
+
+      const srcDocFilename = this.subjectDocFilename(src.subject_document_url);
+
+      const created: any[] = [];
+      const skipped: Array<{
+        ecue_id: string;
+        ue_session_id: string | null;
+        reason: string;
+        message: string;
+      }> = [];
+
+      for (const t of targets) {
+        const ecueId = t.ecue_id;
+        const sessionId = t.ue_session_id ?? null;
+        const tag = { ecue_id: ecueId, ue_session_id: sessionId };
+
+        if (!ecueId) {
+          skipped.push({ ...tag, reason: "INVALID", message: "ECUE cible manquante." });
+          continue;
+        }
+        if (ecueId === src.ecue_id && sessionId === (src.ue_session_id ?? null)) {
+          skipped.push({
+            ...tag,
+            reason: "SAME_AS_SOURCE",
+            message: "Cible identique à la source.",
+          });
+          continue;
+        }
+
+        const ecueExists = await client.query(
+          `SELECT 1 FROM professional_ecue WHERE id = $1 AND tenant_id = $2`,
+          [ecueId, tenantId]
+        );
+        if (ecueExists.rowCount === 0) {
+          skipped.push({ ...tag, reason: "ECUE_NOT_FOUND", message: "ECUE introuvable." });
+          continue;
+        }
+
+        if (!isAdmin) {
+          const allowed = await this.teacherTeachesEcue(client, userId, ecueId);
+          if (!allowed) {
+            skipped.push({
+              ...tag,
+              reason: "FORBIDDEN",
+              message: "Vous n'enseignez pas cette ECUE.",
+            });
+            continue;
+          }
+        }
+
+        if (sessionId) {
+          const sess = await client.query(
+            `SELECT 1 FROM professional_ue_sessions s
+             JOIN professional_ue_ecue l ON l.ue_id = s.ue_id
+             WHERE s.id = $1 AND l.ecue_id = $2`,
+            [sessionId, ecueId]
+          );
+          if (sess.rowCount === 0) {
+            skipped.push({
+              ...tag,
+              reason: "ECUE_NOT_IN_COHORT",
+              message: "La cohorte ne contient pas cette ECUE.",
+            });
+            continue;
+          }
+        }
+
+        const targetStatut = (overrides?.statut ?? src.statut) as string;
+        if (src.type === "examen" && sessionId && targetStatut !== "brouillon") {
+          const dup = await client.query(
+            `SELECT 1 FROM professional_assignments
+             WHERE tenant_id=$1 AND ecue_id=$2 AND ue_session_id=$3
+               AND type='examen' AND statut <> 'brouillon'`,
+            [tenantId, ecueId, sessionId]
+          );
+          if ((dup.rowCount ?? 0) > 0) {
+            skipped.push({
+              ...tag,
+              reason: "EXAMEN_EXISTS",
+              message: "Un examen existe déjà pour cette ECUE dans cette cohorte.",
+            });
+            continue;
+          }
+        }
+
+        // Copie de la ligne (sans le fichier sujet — recopié ensuite côté route).
+        const ins = await client.query(
+          `INSERT INTO professional_assignments
+             (tenant_id, ecue_id, ue_session_id, titre, description, type, evaluation_type,
+              note_max, coefficient, consigne_url, starts_at, due_at, statut, created_by,
+              duration_minutes, max_attempts, shuffle_questions, show_results_mode,
+              subject_content, subject_document_url, max_file_size_mb,
+              late_submission_allowed, late_penalty_percent, ai_config, ai_source_material_ids)
+           SELECT tenant_id, $2, $3, titre, description, type, evaluation_type,
+              note_max, coefficient, consigne_url,
+              COALESCE($5::timestamptz, starts_at), COALESCE($6::timestamptz, due_at),
+              COALESCE($7, statut), $4,
+              duration_minutes, max_attempts, shuffle_questions, show_results_mode,
+              subject_content, NULL, max_file_size_mb,
+              late_submission_allowed, late_penalty_percent, ai_config, ai_source_material_ids
+           FROM professional_assignments
+           WHERE id = $1 AND tenant_id = $8
+           RETURNING *`,
+          [
+            sourceAssignmentId,
+            ecueId,
+            sessionId,
+            userId,
+            overrides?.starts_at ?? null,
+            overrides?.due_at ?? null,
+            overrides?.statut ?? null,
+            tenantId,
+          ]
+        );
+        const dup = ins.rows[0];
+
+        // Copie des questions interactives (QCM, réponses, vrai/faux…).
+        await client.query(
+          `INSERT INTO professional_assignment_questions
+             (tenant_id, assignment_id, position, type, question_text, points,
+              options, correct_answer, explanation)
+           SELECT tenant_id, $1, position, type, question_text, points,
+              options, correct_answer, explanation
+           FROM professional_assignment_questions
+           WHERE assignment_id = $2 AND tenant_id = $3
+           ORDER BY position, created_at`,
+          [dup.id, sourceAssignmentId, tenantId]
+        );
+
+        created.push({
+          ...dup,
+          document_to_copy: srcDocFilename
+            ? { source_assignment_id: sourceAssignmentId, filename: srcDocFilename }
+            : null,
+        });
+      }
+
+      return ok({ created, skipped });
+    });
+  }
+
+>>>>>>> 030-pedagogie-ue-ecue
   async update(
     tenantId: string,
     userId: string,
@@ -562,6 +773,57 @@ export class ProfessionalAssignmentsService extends ProfessionalBaseService {
     });
   }
 
+<<<<<<< HEAD
+=======
+  /** Devoirs & évaluations d'un enfant (parent authentifié, lecture seule). */
+  async listForChild(
+    tenantId: string,
+    parentUserId: string,
+    childStudentId: string
+  ): Promise<ServiceResult<any[]>> {
+    return this.withTenant(tenantId, async (client) => {
+      const link = await client.query(
+        `SELECT 1 FROM student_parents
+         WHERE tenant_id = $1 AND parent_id = $2 AND student_id = $3 LIMIT 1`,
+        [tenantId, parentUserId, childStudentId]
+      );
+      if ((link.rowCount ?? 0) === 0) {
+        return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
+      }
+      const res = await client.query(
+        `SELECT a.id, a.titre, a.description, a.type, a.evaluation_type,
+                a.note_max, a.coefficient,
+                a.starts_at, a.due_at, a.statut,
+                a.ecue_id,
+                a.subject_content, a.subject_document_url,
+                a.duration_minutes, a.max_attempts, a.shuffle_questions,
+                a.show_results_mode,
+                a.max_file_size_mb, a.late_submission_allowed,
+                a.late_penalty_percent,
+                ec.code AS ecue_code, ec.libelle AS ecue_libelle,
+                sub.id AS submission_id, sub.statut AS submission_statut,
+                sub.note, sub.appreciation, sub.submitted_at, sub.graded_at,
+                sub.contenu AS submission_contenu, sub.file_url AS submission_file_url
+         FROM professional_assignments a
+         JOIN professional_ecue ec ON ec.id = a.ecue_id
+         JOIN professional_ue_ecue l ON l.ecue_id = a.ecue_id
+         JOIN professional_ue_sessions s ON s.ue_id = l.ue_id
+         JOIN professional_enrollments e ON e.ue_session_id = s.id
+         LEFT JOIN professional_assignment_submissions sub
+                ON sub.assignment_id = a.id AND sub.student_id = e.student_id
+         WHERE e.student_id = $1
+           AND e.statut IN ('confirmee','terminee')
+           AND a.statut <> 'brouillon'
+           AND a.tenant_id = $2
+         GROUP BY a.id, ec.code, ec.libelle, sub.id
+         ORDER BY a.due_at DESC NULLS LAST, a.created_at DESC`,
+        [childStudentId, tenantId]
+      );
+      return ok(res.rows);
+    });
+  }
+
+>>>>>>> 030-pedagogie-ue-ecue
   /* ----------------------------- Questions ----------------------------- */
 
   async listQuestions(

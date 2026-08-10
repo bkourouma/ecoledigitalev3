@@ -194,7 +194,11 @@ export default function StudentCoursesPage() {
                   </SelectContent>
                 </Select>
               </div>
+<<<<<<< HEAD
               <div className="w-full sm:w-[20rem]">
+=======
+              <div className="w-full sm:w-[32rem]">
+>>>>>>> 030-pedagogie-ue-ecue
                 <Select
                   value={programmeFilter}
                   onValueChange={setProgrammeFilter}

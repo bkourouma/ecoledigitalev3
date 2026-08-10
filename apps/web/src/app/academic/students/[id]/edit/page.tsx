@@ -33,6 +33,12 @@ const studentUpdateFormSchema = z.object({
   email: z.string().email("Email invalide").optional().or(z.literal("")),
   phone: z.string().max(20, "Le numéro de téléphone ne peut pas dépasser 20 caractères").optional().or(z.literal("")),
   studentNumber: z.string().min(1, "Le numéro étudiant est requis").max(50, "Le numéro étudiant ne peut pas dépasser 50 caractères"),
+  // Matricule saisi par la scolarité, distinct du numéro séquentiel ci-dessus.
+  studentMatricule: z
+    .string()
+    .min(1, "Le matricule est requis")
+    .max(50, "Le matricule ne peut pas dépasser 50 caractères")
+    .transform((val) => val.trim()),
   status: z.enum(["active", "graduated", "suspended", "dropped", "transfer"] as const),
   dateOfBirth: z.string().optional().or(z.literal("")),
   placeOfBirth: z.string().optional().or(z.literal("")),
@@ -88,6 +94,7 @@ export default function EditStudentPage() {
         email: student.user.email || "",
         phone: student.phone || "",
         studentNumber: student.studentNumber,
+        studentMatricule: (student as any).studentMatricule || "",
         status: student.status,
         dateOfBirth: formatDateForInput(student.dateOfBirth),
         placeOfBirth: student.placeOfBirth || "",
@@ -109,6 +116,7 @@ export default function EditStudentPage() {
         email: data.email || undefined,
         phone: data.phone || undefined,
         studentNumber: data.studentNumber,
+        studentMatricule: data.studentMatricule,
         status: data.status,
         dateOfBirth: data.dateOfBirth || undefined,
         placeOfBirth: data.placeOfBirth || undefined,
@@ -122,6 +130,8 @@ export default function EditStudentPage() {
       router.push("/academic/students");
     } catch (error) {
       console.error("Error updating student:", error);
+      // Sans cela, un conflit de matricule ou d'email échouait silencieusement.
+      alert(error instanceof Error ? error.message : "Erreur lors de la mise à jour de l'étudiant.");
     }
   };
 
@@ -252,14 +262,33 @@ export default function EditStudentPage() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="studentMatricule">Matricule *</Label>
+              <Input
+                id="studentMatricule"
+                {...register("studentMatricule")}
+                placeholder="Ex. ED-2026-001"
+              />
+              <p className="text-xs text-muted-foreground">
+                Matricule propre à l&apos;établissement, saisi librement. Indépendant du numéro
+                d&apos;établissement séquentiel ci-dessous.
+              </p>
+              {errors.studentMatricule && (
+                <p className="text-sm text-red-600">{errors.studentMatricule.message}</p>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="studentNumber">Numéro étudiant *</Label>
+                <Label htmlFor="studentNumber">N° d&apos;établissement *</Label>
                 <Input
                   id="studentNumber"
                   {...register("studentNumber")}
-                  placeholder="STU12345678"
+                  placeholder="10001"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Numérique sur 5 chiffres, attribué automatiquement.
+                </p>
                 {errors.studentNumber && (
                   <p className="text-sm text-red-600">{errors.studentNumber.message}</p>
                 )}

@@ -1,788 +1,717 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
+import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Button,
+  Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Input,
-  Label,
-  Textarea,
   Alert,
   AlertDescription,
-  Badge,
 } from "@ecoledigitale/ui";
 import {
   ArrowLeft,
   ArrowRight,
-  Calendar,
-  Clock,
-  Users,
   BookOpen,
+  Brain,
+  CheckCircle2,
+  ClipboardList,
   FileText,
-  CheckCircle,
-  AlertCircle,
+  Layers,
   Loader2,
   Save,
+  Search,
+  Send,
+  Users,
+  AlertCircle,
+  RotateCcw,
 } from "lucide-react";
-import { useTeacherClasses } from "@/lib/hooks/use-classes";
-import { useTeacherCourses } from "@/lib/hooks/use-courses";
-import { useClassCourses } from "@/lib/hooks/use-class-courses";
-import { useAssignments } from "@/lib/hooks/use-evaluations";
+import { useTeacherAssignments } from "@/lib/hooks/use-professional-teacher";
+import { useTeacherEcue, type TeacherEcue } from "@/lib/hooks/use-teacher-professional";
+import {
+  useDuplicateAssignment,
+  type DuplicateAssignmentResult,
+} from "@/lib/hooks/use-professional-assignments";
+import { EVALUATION_TYPE_LABEL } from "@/components/professional/ProfessionalAssignmentsPanel";
 
-interface AssignmentInstanceData {
-  assignment_id: string;
-  class_id: string;
-  starts_at?: string;
-  ends_at: string;
-  duration_minutes?: number;
-  max_attempts?: number;
-  shuffle_questions?: boolean;
-  show_results_mode?: 'immediate' | 'after_end' | 'after_correction';
-  late_submission_allowed?: boolean;
-  late_penalty_percent?: number;
+/**
+ * Assigner un devoir à d'autres filières — Module Professionnel (feature 030).
+ *
+ * L'enseignant sélectionne l'une de ses évaluations existantes (ancienne ou
+ * récente) puis la duplique vers d'autres cibles ECUE × cohorte qui lui sont
+ * affectées (autres filières). La configuration complète, les questions et le
+ * sujet PDF éventuel sont recopiés.
+ */
+
+type Step = "source" | "targets" | "confirm" | "done";
+
+const STEPS: Array<{ id: Step; title: string; icon: React.ElementType }> = [
+  { id: "source", title: "Devoir à assigner", icon: FileText },
+  { id: "targets", title: "Filières cibles", icon: Layers },
+  { id: "confirm", title: "Validation", icon: CheckCircle2 },
+];
+
+const SKIP_LABELS: Record<string, string> = {
+  SAME_AS_SOURCE: "Cible identique à la source",
+  ECUE_NOT_FOUND: "ECUE introuvable",
+  FORBIDDEN: "ECUE non enseignée",
+  ECUE_NOT_IN_COHORT: "ECUE absente de la cohorte",
+  EXAMEN_EXISTS: "Examen déjà présent",
+  INVALID: "Cible invalide",
+};
+
+function targetKey(e: { ue_session_id: string; ecue_id: string }) {
+  return `${e.ue_session_id}::${e.ecue_id}`;
 }
 
-type Step = 'class' | 'course' | 'assignment' | 'config' | 'review';
+function TypeBadge({ type }: { type: string }) {
+  const Icon = type === "online" ? BookOpen : type === "ai_generated" ? Brain : FileText;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap border ${
+        type === "online"
+          ? "bg-green-500/15 text-green-600 border-green-500/40"
+          : type === "ai_generated"
+            ? "bg-purple-500/15 text-purple-600 border-purple-500/40"
+            : "bg-blue-500/15 text-blue-600 border-blue-500/40"
+      }`}
+    >
+      <Icon className="h-3 w-3" />
+      {EVALUATION_TYPE_LABEL[type] ?? "—"}
+    </span>
+  );
+}
 
 export default function AssignAssignmentPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState<Step>('class');
+  const { data: session, status } = useSession();
 
-  // Redirect if not authenticated
+  // Hooks (toujours appelés, avant tout retour anticipé).
+  const assignmentsQuery = useTeacherAssignments();
+  const ecueQuery = useTeacherEcue();
+  const duplicateMut = useDuplicateAssignment();
+
+  const [step, setStep] = useState<Step>("source");
+  const [sourceId, setSourceId] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dueAt, setDueAt] = useState("");
+  const [statutMode, setStatutMode] = useState<"source" | "brouillon" | "publie" | "cloture">(
+    "source"
+  );
+  const [sourceSearch, setSourceSearch] = useState("");
+  const [targetSearch, setTargetSearch] = useState("");
+  const [result, setResult] = useState<DuplicateAssignmentResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [preselectDone, setPreselectDone] = useState(false);
+
   useEffect(() => {
-    if (status === 'loading') return;
-    
+    if (status === "loading") return;
     if (!session) {
-      router.push('/login');
+      router.push("/login");
       return;
     }
-
     const roles = (session as any)?.roles ?? [];
-    const isTeacher = Array.isArray(roles) && roles.some((r: string) => ['teacher', 'Enseignant'].includes(r));
-    const isAdmin = Array.isArray(roles) && roles.some((r: string) => ['admin', 'Administrateur'].includes(r));
-
-    if (!isTeacher && !isAdmin) {
-      router.push('/');
-    }
+    const allowed =
+      Array.isArray(roles) &&
+      roles.some((r: string) =>
+        ["teacher", "Enseignant", "admin", "Administrateur"].includes(r)
+      );
+    if (!allowed) router.push("/");
   }, [session, status, router]);
 
-  if (status === 'loading') {
+  const items: any[] = (assignmentsQuery.data as any[]) ?? [];
+  const ecues: TeacherEcue[] = ecueQuery.data ?? [];
+  const source = useMemo(() => items.find((a) => a.id === sourceId) ?? null, [items, sourceId]);
+
+  // Pré-sélection du devoir source via ?source=<id> (depuis « Mes évaluations »).
+  useEffect(() => {
+    if (preselectDone) return;
+    const sp =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("source")
+        : null;
+    if (!sp) {
+      setPreselectDone(true);
+      return;
+    }
+    if (items.length === 0) return; // attend le chargement de la liste
+    if (items.some((a) => a.id === sp)) {
+      setSourceId(sp);
+      setStep("targets");
+    }
+    setPreselectDone(true);
+  }, [items, preselectDone]);
+
+  // Cibles possibles : affectations ECUE de l'enseignant, sauf le couple source.
+  const targetEcues = useMemo(() => {
+    return ecues.filter(
+      (e) =>
+        !(
+          source &&
+          e.ecue_id === source.ecue_id &&
+          e.ue_session_id === (source.ue_session_id ?? null)
+        )
+    );
+  }, [ecues, source]);
+
+  const filteredSources = useMemo(() => {
+    const q = sourceSearch.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((a) =>
+      `${a.titre ?? ""} ${a.ecue_code ?? ""} ${a.ecue_libelle ?? ""} ${a.session_libelle ?? ""} ${
+        a.filiere_nom ?? ""
+      }`
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [items, sourceSearch]);
+
+  const filteredTargets = useMemo(() => {
+    const q = targetSearch.trim().toLowerCase();
+    if (!q) return targetEcues;
+    return targetEcues.filter((e) =>
+      `${e.ecue_code} ${e.ecue_libelle} ${e.ue_code} ${e.ue_libelle} ${e.session_libelle ?? ""} ${
+        e.filiere_nom ?? ""
+      }`
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [targetEcues, targetSearch]);
+
+  // Regroupe les cibles par filière pour un affichage clair.
+  const targetsByFiliere = useMemo(() => {
+    const groups = new Map<string, TeacherEcue[]>();
+    for (const e of filteredTargets) {
+      const key = e.filiere_nom || e.filiere_code || "Autre filière";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(e);
+    }
+    return Array.from(groups, ([filiere, list]) => ({ filiere, list }));
+  }, [filteredTargets]);
+
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="h-16 w-16 animate-spin rounded-full border-2 border-border border-t-primary" />
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
       </div>
     );
   }
+  if (!session) return null;
 
-  if (!session) {
-    return null;
-  }
+  const stepIndex = STEPS.findIndex((s) => s.id === step);
+  const canNext =
+    step === "source" ? !!sourceId : step === "targets" ? selected.size > 0 : true;
 
-  const roles = (session as any)?.roles ?? [];
-  const isTeacher = Array.isArray(roles) && roles.some((r: string) => ['teacher', 'Enseignant'].includes(r));
-  const isAdmin = Array.isArray(roles) && roles.some((r: string) => ['admin', 'Administrateur'].includes(r));
-
-  if (!isTeacher && !isAdmin) {
-    return null;
-  }
-  const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const [selectedCourseId, setSelectedCourseId] = useState<string>('');
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>('');
-  const [instanceData, setInstanceData] = useState<AssignmentInstanceData>({
-    assignment_id: '',
-    class_id: '',
-    ends_at: '',
-    show_results_mode: 'after_correction',
-    late_submission_allowed: false,
-    late_penalty_percent: 0,
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Fetch data
-  const { data: classesData, isLoading: classesLoading } = useTeacherClasses();
-  const { data: classCoursesData, isLoading: classCoursesLoading } = useClassCourses(selectedClassId);
-  const { data: teacherCoursesData } = useTeacherCourses(isTeacher ? "current-teacher" : undefined);
-  const { data: assignmentsData, isLoading: assignmentsLoading } = useAssignments({
-    course_id: selectedCourseId,
-    limit: 100,
-  });
-
-  const classes = classesData?.data || [];
-  const classCourses = classCoursesData?.data || [];
-  const teacherCourses = Array.isArray(teacherCoursesData) ? teacherCoursesData : [];
-  const teacherCourseIdsForSelectedClass = new Set(
-    teacherCourses
-      .filter((course: any) => course.classId === selectedClassId)
-      .map((course: any) => course.courseId)
-  );
-  const availableClassCourses = isTeacher
-    ? classCourses.filter((course: any) => teacherCourseIdsForSelectedClass.has(course.id))
-    : classCourses;
-  const assignments = useMemo(() => {
-    const list = assignmentsData?.assignments || [];
-    const published = list.filter((a: any) => a.status === 'published');
-    const others = list.filter((a: any) => a.status !== 'published');
-    return [...published, ...others];
-  }, [assignmentsData]);
-
-  // Get selected data
-  const selectedClass = classes.find(c => c.id === selectedClassId);
-  const selectedCourse = availableClassCourses.find(c => c.id === selectedCourseId);
-  const selectedAssignment = assignments.find(a => a.id === selectedAssignmentId);
-
-  const steps = [
-    { id: 'class', title: 'Sélectionner la classe', icon: Users },
-    { id: 'course', title: 'Choisir le cours', icon: BookOpen },
-    { id: 'assignment', title: 'Choisir le devoir', icon: FileText },
-    { id: 'config', title: 'Configuration', icon: Clock },
-    { id: 'review', title: 'Validation', icon: CheckCircle },
-  ];
-
-  const currentStepIndex = steps.findIndex(s => s.id === currentStep);
-
-  const canProceedToNextStep = () => {
-    switch (currentStep) {
-      case 'class': return selectedClassId !== '';
-      case 'course': return selectedCourseId !== '';
-      case 'assignment': return selectedAssignmentId !== '';
-      case 'config': return instanceData.ends_at !== '';
-      case 'review': return true;
-      default: return false;
-    }
-  };
-
-  const handleNext = () => {
-    if (!canProceedToNextStep()) return;
-    
-    const nextStepIndex = currentStepIndex + 1;
-    if (nextStepIndex < steps.length) {
-      setCurrentStep(steps[nextStepIndex].id as Step);
-    }
-  };
-
-  const handlePrevious = () => {
-    const prevStepIndex = currentStepIndex - 1;
-    if (prevStepIndex >= 0) {
-      setCurrentStep(steps[prevStepIndex].id as Step);
-    }
-  };
-
-  const handleClassSelect = (classId: string) => {
-    setSelectedClassId(classId);
-    setSelectedCourseId('');
-    setSelectedAssignmentId('');
-    setInstanceData(prev => ({ ...prev, class_id: classId }));
-  };
-
-  const handleCourseSelect = (courseId: string) => {
-    setSelectedCourseId(courseId);
-    setSelectedAssignmentId('');
-  };
-
-  const handleAssignmentSelect = (assignmentId: string) => {
-    setSelectedAssignmentId(assignmentId);
-    setInstanceData(prev => ({ ...prev, assignment_id: assignmentId }));
-  };
-
-  const validateConfiguration = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!instanceData.ends_at) {
-      newErrors.ends_at = "La date de fin est requise";
-    }
-
-    if (instanceData.starts_at && instanceData.ends_at) {
-      const startDate = new Date(instanceData.starts_at);
-      const endDate = new Date(instanceData.ends_at);
-      if (startDate >= endDate) {
-        newErrors.starts_at = "La date de début doit être antérieure à la date de fin";
-      }
-    }
-
-    if (instanceData.duration_minutes && instanceData.duration_minutes <= 0) {
-      newErrors.duration_minutes = "La durée doit être positive";
-    }
-
-    if (instanceData.max_attempts && instanceData.max_attempts <= 0) {
-      newErrors.max_attempts = "Le nombre de tentatives doit être positif";
-    }
-
-    if (instanceData.late_penalty_percent && (instanceData.late_penalty_percent < 0 || instanceData.late_penalty_percent > 100)) {
-      newErrors.late_penalty_percent = "La pénalité doit être entre 0 et 100%";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!validateConfiguration()) return;
-
-    setIsSubmitting(true);
-    try {
-      // Convert datetime-local format to ISO string format
-      const processedData = {
-        ...instanceData,
-        ...(instanceData.starts_at ? { starts_at: new Date(instanceData.starts_at).toISOString() } : {}),
-        ends_at: new Date(instanceData.ends_at).toISOString(),
-      };
-
-      const response = await fetch('/api/v1/assignment-instances', {
-        method: 'POST',
-        headers: {
-          "Content-Type": "application/json",
-          // X-User-Id and X-Tenant will be automatically injected by fetch-interceptor from JWT
-        },
-        body: JSON.stringify(processedData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Erreur lors de l\'assignation');
-      }
-
-      const result = await response.json();
-
-      // Success - redirect to assignment instances page with success message
-      router.push(`/academic/assignments/instances?success=assigned&instanceId=${result.id}`);
-    } catch (error) {
-      alert('Erreur lors de l\'assignation: ' + String(error));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+  function toggleTarget(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
     });
-  };
+  }
+
+  function toggleFiliere(list: TeacherEcue[]) {
+    const keys = list.map(targetKey);
+    const allSelected = keys.every((k) => selected.has(k));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => (allSelected ? next.delete(k) : next.add(k)));
+      return next;
+    });
+  }
+
+  function goNext() {
+    if (!canNext) return;
+    if (step === "confirm") return void handleConfirm();
+    setStep(STEPS[Math.min(stepIndex + 1, STEPS.length - 1)].id);
+  }
+
+  function goPrev() {
+    if (stepIndex > 0) setStep(STEPS[stepIndex - 1].id);
+  }
+
+  async function handleConfirm() {
+    setError(null);
+    const targets = Array.from(selected).map((k) => {
+      const [ue_session_id, ecue_id] = k.split("::");
+      return { ecue_id, ue_session_id };
+    });
+    try {
+      const res = await duplicateMut.mutateAsync({
+        sourceId,
+        targets,
+        due_at: dueAt ? new Date(dueAt).toISOString() : null,
+        statut: statutMode === "source" ? null : statutMode,
+      });
+      setResult(res);
+      setStep("done");
+    } catch (e: any) {
+      setError(e?.message ?? "Erreur lors de l'assignation.");
+    }
+  }
+
+  function reset() {
+    setStep("source");
+    setSourceId("");
+    setSelected(new Set());
+    setDueAt("");
+    setStatutMode("source");
+    setResult(null);
+    setError(null);
+    setSourceSearch("");
+    setTargetSearch("");
+  }
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-6">
-            <Button variant="outline" size="sm" onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <h1 className="flex items-center text-3xl font-bold text-foreground">
-                <FileText className="w-8 h-8 text-purple-600 mr-3" />
-                Assigner un devoir
-              </h1>
-              <p className="mt-2 text-muted-foreground">
-                Assignez un devoir ou une évaluation existante à une classe
-              </p>
-            </div>
-          </div>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="sm" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+            <Send className="w-7 h-7 text-indigo-600" />
+            Assigner un devoir à d'autres filières
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Dupliquez une de vos évaluations vers d'autres cohortes selon les ECUE qui vous sont
+            affectés.
+          </p>
+        </div>
+      </div>
 
-          {/* Progress Steps */}
-          <div className="mb-8">
-            <div className="relative">
-              {/* Progress Line Background */}
-              <div className="absolute top-6 left-0 right-0 h-0.5 bg-gray-300 dark:bg-gray-600 hidden sm:block" />
-              {/* Progress Line Filled */}
-              <div 
-                className="absolute top-6 left-0 h-0.5 bg-green-600 transition-all duration-500 hidden sm:block"
-                style={{ width: `${(currentStepIndex / (steps.length - 1)) * 100}%` }}
-              />
-              
-              {/* Steps */}
-              <div className="relative flex items-start justify-between">
-                {steps.map((step, index) => {
-                  const Icon = step.icon;
-                  const isActive = step.id === currentStep;
-                  const isCompleted = index < currentStepIndex;
-                  
-                  return (
-                    <div key={step.id} className="flex flex-col items-center flex-1 relative z-10">
-                      {/* Step Circle */}
-                      <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 ${
-                        isActive 
-                          ? 'border-purple-600 bg-purple-600 text-white shadow-lg shadow-purple-500/50 scale-110' 
-                          : isCompleted 
-                            ? 'border-green-600 bg-green-600 text-white shadow-md'
-                          : 'border-border bg-card text-muted-foreground'
-                      }`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      
-                      {/* Step Title */}
-                      <div className="mt-3 text-center max-w-[120px] sm:max-w-none">
-                        <p className={`text-xs sm:text-sm font-medium leading-tight ${
-                          isActive ? 'text-purple-600 dark:text-purple-400' : isCompleted ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'
-                        }`}>
-                          {step.title}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+      {/* Stepper (masqué sur l'écran de résultat) */}
+      {step !== "done" && (
+        <div className="relative">
+          <div className="absolute top-6 left-0 right-0 h-0.5 bg-border hidden sm:block" />
+          <div
+            className="absolute top-6 left-0 h-0.5 bg-indigo-600 transition-all duration-500 hidden sm:block"
+            style={{ width: `${(stepIndex / (STEPS.length - 1)) * 100}%` }}
+          />
+          <div className="relative flex items-start justify-between">
+            {STEPS.map((s, index) => {
+              const Icon = s.icon;
+              const isActive = s.id === step;
+              const isDone = index < stepIndex;
+              return (
+                <div key={s.id} className="flex flex-col items-center flex-1 relative z-10">
+                  <div
+                    className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 ${
+                      isActive
+                        ? "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-500/40 scale-110"
+                        : isDone
+                          ? "border-green-600 bg-green-600 text-white"
+                          : "border-border bg-card text-muted-foreground"
+                    }`}
+                  >
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <p
+                    className={`mt-3 text-xs sm:text-sm font-medium text-center ${
+                      isActive
+                        ? "text-indigo-600"
+                        : isDone
+                          ? "text-green-600"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {s.title}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
+      )}
 
-        {/* Main Content */}
-        <Card>
-          <CardContent className="p-6">
-            {/* Step 1: Class Selection */}
-            {currentStep === 'class' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="mb-2 text-xl font-semibold text-foreground">Sélectionner une classe</h2>
-                  <p className="text-muted-foreground">
-                    Choisissez la classe à laquelle vous souhaitez assigner le devoir
-                  </p>
-                </div>
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-                {classesLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {classes.map((classItem) => (
-                      <Card
-                        key={classItem.id}
-                        className={`group cursor-pointer transition-all hover:shadow-md ${
-                          selectedClassId === classItem.id
-                            ? 'ring-2 ring-purple-600 bg-purple-500/10'
-                            : 'hover:bg-muted/40'
-                        }`}
-                        onClick={() => handleClassSelect(classItem.id)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className={`font-medium ${selectedClassId === classItem.id ? 'text-foreground' : 'text-foreground/90'} group-hover:text-foreground`}>{classItem.name}</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {classItem.code} • {classItem.studentCount || 0} étudiants
-                              </p>
-                            </div>
-                            {selectedClassId === classItem.id && (
-                              <CheckCircle className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
+      <Card>
+        <CardContent className="p-6">
+          {/* ------------------------------ Étape 1 ------------------------------ */}
+          {step === "source" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-xl font-semibold">Choisir le devoir à assigner</h2>
+                <p className="text-muted-foreground text-sm">
+                  Sélectionnez l'une de vos évaluations existantes à dupliquer.
+                </p>
               </div>
-            )}
-
-            {/* Step 2: Course Selection */}
-            {currentStep === 'course' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="mb-2 text-xl font-semibold text-foreground">Choisir un cours</h2>
-                  <p className="text-muted-foreground">
-                    Sélectionnez le cours pour lequel vous voulez assigner un devoir
-                  </p>
-                  {selectedClass && (
-                    <Badge variant="outline" className="mt-2">
-                      Classe: {selectedClass.name}
-                    </Badge>
-                  )}
-                </div>
-
-                {classCoursesLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {availableClassCourses.map((course) => (
-                      <Card
-                        key={course.id}
-                        className={`group cursor-pointer transition-all hover:shadow-md ${
-                          selectedCourseId === course.id
-                            ? 'ring-2 ring-purple-600 bg-purple-500/10'
-                            : 'hover:bg-muted/40'
-                        }`}
-                        onClick={() => handleCourseSelect(course.id)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className={`font-medium ${selectedCourseId === course.id ? 'text-foreground' : 'text-foreground/90'} group-hover:text-foreground`}>{course.name}</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {course.code} • {course.credits} crédits
-                              </p>
-                            </div>
-                            {selectedCourseId === course.id && (
-                              <CheckCircle className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-
-                {availableClassCourses.length === 0 && !classCoursesLoading && selectedClassId && (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Aucun cours trouvé pour cette classe pour cet enseignant. Vérifiez les affectations enseignant-classe-cours.
-                    </AlertDescription>
-                  </Alert>
-                )}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  value={sourceSearch}
+                  onChange={(e) => setSourceSearch(e.target.value)}
+                  placeholder="Rechercher un devoir, une matière…"
+                  className="pl-9"
+                />
               </div>
-            )}
 
-            {/* Step 3: Assignment Selection */}
-            {currentStep === 'assignment' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="mb-2 text-xl font-semibold text-foreground">Choisir un devoir</h2>
-                  <p className="text-muted-foreground">
-                    Sélectionnez le devoir ou l'évaluation à assigner
-                  </p>
-                  <div className="flex gap-2 mt-2">
-                    {selectedClass && (
-                      <Badge variant="outline">Classe: {selectedClass.name}</Badge>
-                    )}
-                    {selectedCourse && (
-                      <Badge variant="outline">Cours: {selectedCourse.name}</Badge>
-                    )}
-                  </div>
+              {assignmentsQuery.isLoading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-
-                {assignmentsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {assignments.map((assignment) => (
-                      <Card
-                        key={assignment.id}
-                        className={`group cursor-pointer transition-all hover:shadow-md ${
-                          selectedAssignmentId === assignment.id
-                            ? 'ring-2 ring-purple-600 bg-purple-500/10'
-                            : 'hover:bg-muted/40'
+              ) : filteredSources.length === 0 ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {items.length === 0
+                      ? "Vous n'avez encore aucune évaluation. Créez-en une depuis « Mes évaluations »."
+                      : "Aucune évaluation ne correspond à votre recherche."}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="space-y-2 max-h-[52vh] overflow-auto pr-1">
+                  {filteredSources.map((a) => {
+                    const isSel = sourceId === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => {
+                          setSourceId(a.id);
+                          setSelected(new Set());
+                        }}
+                        className={`w-full text-left p-4 border-2 rounded-lg transition-all hover:shadow-sm ${
+                          isSel
+                            ? "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/20 ring-2 ring-indigo-200 dark:ring-indigo-800"
+                            : "border-border hover:border-indigo-300"
                         }`}
-                        onClick={() => handleAssignmentSelect(assignment.id)}
                       >
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className={`font-medium ${selectedAssignmentId === assignment.id ? 'text-foreground' : 'text-foreground/90'} group-hover:text-foreground`}>{assignment.title}</h3>
-                                <Badge variant={assignment.type === 'evaluation' ? 'default' : 'secondary'}>
-                                  {assignment.type === 'evaluation' ? 'Évaluation' : 'Devoir'}
-                                </Badge>
-                              </div>
-                              {assignment.description && (
-                                <p className="mb-2 text-sm text-muted-foreground">
-                                  {assignment.description}
-                                </p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium truncate">{a.titre}</span>
+                              <TypeBadge type={a.evaluation_type} />
+                              {a.type === "examen" && (
+                                <span className="text-[10px] uppercase tracking-wide text-amber-600 font-semibold">
+                                  Examen
+                                </span>
                               )}
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                {assignment.duration_minutes && (
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    {assignment.duration_minutes} min
-                                  </span>
-                                )}
-                                {assignment.max_attempts && (
-                                  <span>{assignment.max_attempts} tentative(s)</span>
-                                )}
-                              </div>
                             </div>
-                            {selectedAssignmentId === assignment.id && (
-                              <CheckCircle className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                            )}
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                              <span className="inline-flex items-center gap-1">
+                                <BookOpen className="h-3 w-3" />
+                                <span className="font-mono">{a.ecue_code}</span> — {a.ecue_libelle}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <Layers className="h-3 w-3" />
+                                {a.session_libelle ?? a.filiere_nom ?? "—"}
+                              </span>
+                              <span>/ {a.note_max} · coef {a.coefficient}</span>
+                            </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-
-                {assignments.length === 0 && !assignmentsLoading && (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Aucun devoir trouvé pour ce cours. Créez d'abord un devoir ou une évaluation.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            )}
-
-            {/* Step 4: Configuration */}
-            {currentStep === 'config' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="mb-2 text-xl font-semibold text-foreground">Configuration de l'assignation</h2>
-                  <p className="text-muted-foreground">
-                    Définissez les paramètres spécifiques pour cette assignation
-                  </p>
+                          {isSel && (
+                            <CheckCircle2 className="h-5 w-5 text-indigo-600 shrink-0" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
+              )}
+            </div>
+          )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Dates */}
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="starts_at">Date de début (optionnelle)</Label>
-                      <Input
-                        id="starts_at"
-                        type="datetime-local"
-                        value={instanceData.starts_at || ''}
-                        onChange={(e) => setInstanceData(prev => ({ ...prev, starts_at: e.target.value }))}
-                      />
-                      {errors.starts_at && (
-                        <p className="text-xs text-red-600">{errors.starts_at}</p>
-                      )}
-                    </div>
+          {/* ------------------------------ Étape 2 ------------------------------ */}
+          {step === "targets" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-xl font-semibold">Filières / cohortes cibles</h2>
+                <p className="text-muted-foreground text-sm">
+                  Cochez les ECUE (dans d'autres filières) qui recevront une copie de ce devoir.
+                </p>
+              </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="ends_at">Date de fin *</Label>
-                      <Input
-                        id="ends_at"
-                        type="datetime-local"
-                        value={instanceData.ends_at}
-                        onChange={(e) => setInstanceData(prev => ({ ...prev, ends_at: e.target.value }))}
-                        required
-                      />
-                      {errors.ends_at && (
-                        <p className="text-xs text-red-600">{errors.ends_at}</p>
-                      )}
-                    </div>
-                  </div>
+              {source && (
+                <div className="rounded-md border border-indigo-200 bg-indigo-50/60 dark:bg-indigo-950/20 px-3 py-2 text-sm flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                  <span className="font-medium truncate">{source.titre}</span>
+                  <TypeBadge type={source.evaluation_type} />
+                </div>
+              )}
 
-                  {/* Parameters */}
-                  <div className="space-y-4">
-                    {selectedAssignment?.type === 'evaluation' && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="duration_minutes">Durée (minutes)</Label>
-                          <Input
-                            id="duration_minutes"
-                            type="number"
-                            min="1"
-                            value={instanceData.duration_minutes || selectedAssignment.duration_minutes || ''}
-                            onChange={(e) => setInstanceData(prev => ({
-                              ...prev,
-                              duration_minutes: e.target.value ? parseInt(e.target.value) : undefined
-                            }))}
-                          />
-                          {errors.duration_minutes && (
-                            <p className="text-xs text-red-600">{errors.duration_minutes}</p>
-                          )}
-                        </div>
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    value={targetSearch}
+                    onChange={(e) => setTargetSearch(e.target.value)}
+                    placeholder="Rechercher une filière, une ECUE, une cohorte…"
+                    className="pl-9"
+                  />
+                </div>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  <span className="font-semibold text-foreground">{selected.size}</span>{" "}
+                  sélectionnée{selected.size > 1 ? "s" : ""}
+                </span>
+              </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="max_attempts">Nombre de tentatives</Label>
-                          <Input
-                            id="max_attempts"
-                            type="number"
-                            min="1"
-                            value={instanceData.max_attempts || selectedAssignment.max_attempts || ''}
-                            onChange={(e) => setInstanceData(prev => ({
-                              ...prev,
-                              max_attempts: e.target.value ? parseInt(e.target.value) : undefined
-                            }))}
-                          />
-                          {errors.max_attempts && (
-                            <p className="text-xs text-red-600">{errors.max_attempts}</p>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="show_results_mode">Affichage des résultats</Label>
-                          <Select
-                            value={instanceData.show_results_mode || 'after_correction'}
-                            onValueChange={(value) => setInstanceData(prev => ({
-                              ...prev,
-                              show_results_mode: value as any
-                            }))}
+              {ecueQuery.isLoading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : targetsByFiliere.length === 0 ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {targetEcues.length === 0
+                      ? "Aucune autre ECUE ne vous est affectée pour recevoir ce devoir."
+                      : "Aucune cible ne correspond à votre recherche."}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="space-y-4 max-h-[48vh] overflow-auto pr-1">
+                  {targetsByFiliere.map(({ filiere, list }) => {
+                    const keys = list.map(targetKey);
+                    const allSel = keys.every((k) => selected.has(k));
+                    return (
+                      <div key={filiere} className="border border-border rounded-lg overflow-hidden">
+                        <div className="flex items-center justify-between bg-muted/40 px-3 py-2">
+                          <span className="text-sm font-semibold flex items-center gap-2">
+                            <Layers className="h-4 w-4 text-indigo-500" />
+                            {filiere}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleFiliere(list)}
+                            className="text-xs text-indigo-600 hover:underline"
                           >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="immediate">Immédiatement</SelectItem>
-                              <SelectItem value="after_end">Après la fin</SelectItem>
-                              <SelectItem value="after_correction">Après correction</SelectItem>
-                            </SelectContent>
-                          </Select>
+                            {allSel ? "Tout décocher" : "Tout cocher"}
+                          </button>
                         </div>
-                      </>
-                    )}
-
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="late_submission_allowed"
-                          checked={instanceData.late_submission_allowed || false}
-                          onChange={(e) => setInstanceData(prev => ({
-                            ...prev,
-                            late_submission_allowed: e.target.checked
-                          }))}
-                        />
-                        <Label htmlFor="late_submission_allowed">Autoriser les soumissions tardives</Label>
+                        <div className="divide-y divide-border">
+                          {list.map((e) => {
+                            const key = targetKey(e);
+                            const isSel = selected.has(key);
+                            return (
+                              <label
+                                key={key}
+                                className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                                  isSel ? "bg-indigo-50/60 dark:bg-indigo-950/20" : "hover:bg-muted/30"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSel}
+                                  onChange={() => toggleTarget(key)}
+                                  className="mt-1"
+                                />
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-[11px] text-indigo-600 bg-indigo-50 rounded px-1.5 py-0.5">
+                                      {e.ecue_code}
+                                    </span>
+                                    <span className="font-medium truncate">{e.ecue_libelle}</span>
+                                  </div>
+                                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+                                    <span className="inline-flex items-center gap-1">
+                                      <BookOpen className="h-3 w-3" />
+                                      {e.ue_code} — {e.ue_libelle}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1">
+                                      <Users className="h-3 w-3" />
+                                      {e.session_libelle ?? "—"} · {e.nb_inscrits} étud.
+                                    </span>
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-                    {instanceData.late_submission_allowed && (
-                      <div className="space-y-2">
-                        <Label htmlFor="late_penalty_percent">Pénalité de retard (%)</Label>
-                        <Input
-                          id="late_penalty_percent"
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={instanceData.late_penalty_percent || 0}
-                          onChange={(e) => setInstanceData(prev => ({
-                            ...prev,
-                            late_penalty_percent: e.target.value ? parseFloat(e.target.value) : 0
-                          }))}
-                        />
-                        {errors.late_penalty_percent && (
-                          <p className="text-xs text-red-600">{errors.late_penalty_percent}</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
+          {/* ------------------------------ Étape 3 ------------------------------ */}
+          {step === "confirm" && source && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-xl font-semibold">Valider l'assignation</h2>
+                <p className="text-muted-foreground text-sm">
+                  Vérifiez le devoir, les cibles et les options avant de confirmer.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-indigo-600" />
+                  <span className="font-medium">{source.titre}</span>
+                  <TypeBadge type={source.evaluation_type} />
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Source :{" "}
+                  <span className="font-mono">{source.ecue_code}</span> — {source.ecue_libelle}
+                  {source.session_libelle ? ` · ${source.session_libelle}` : ""}
+                </div>
+                <div className="text-sm flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-indigo-500" />
+                  <span className="font-semibold">{selected.size}</span> cible
+                  {selected.size > 1 ? "s" : ""} sélectionnée{selected.size > 1 ? "s" : ""}
                 </div>
               </div>
-            )}
 
-            {/* Step 5: Review */}
-            {currentStep === 'review' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="mb-2 text-xl font-semibold text-foreground">Validation de l'assignation</h2>
-                  <p className="text-muted-foreground">
-                    Vérifiez les informations avant de confirmer l'assignation
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="due_at">Nouvelle échéance (optionnelle)</Label>
+                  <Input
+                    id="due_at"
+                    type="datetime-local"
+                    value={dueAt}
+                    onChange={(e) => setDueAt(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Laissez vide pour conserver l'échéance du devoir source.
                   </p>
                 </div>
-
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg text-foreground">Résumé de l'assignation</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <h4 className="font-medium text-sm text-muted-foreground">CLASSE</h4>
-                          <p className="font-medium">{selectedClass?.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {selectedClass?.studentCount || 0} étudiants
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-sm text-muted-foreground">COURS</h4>
-                          <p className="font-medium">{selectedCourse?.name}</p>
-                          <p className="text-sm text-muted-foreground">{selectedCourse?.code}</p>
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-sm text-muted-foreground">DEVOIR</h4>
-                          <p className="font-medium">{selectedAssignment?.title}</p>
-                          <Badge variant={selectedAssignment?.type === 'evaluation' ? 'default' : 'secondary'}>
-                            {selectedAssignment?.type === 'evaluation' ? 'Évaluation' : 'Devoir'}
-                          </Badge>
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-sm text-muted-foreground">PÉRIODE</h4>
-                          {instanceData.starts_at && (
-                            <p className="text-sm">Début: {formatDate(instanceData.starts_at)}</p>
-                          )}
-                          <p className="text-sm">Fin: {formatDate(instanceData.ends_at)}</p>
-                        </div>
-                      </div>
-
-                      {(instanceData.duration_minutes || instanceData.max_attempts || instanceData.late_submission_allowed) && (
-                        <div className="border-t pt-4">
-                          <h4 className="font-medium text-sm text-muted-foreground mb-2">PARAMÈTRES SPÉCIFIQUES</h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            {instanceData.duration_minutes && (
-                              <div>Durée: {instanceData.duration_minutes} minutes</div>
-                            )}
-                            {instanceData.max_attempts && (
-                              <div>Tentatives: {instanceData.max_attempts}</div>
-                            )}
-                            {instanceData.late_submission_allowed && (
-                              <div>Retards autorisés ({instanceData.late_penalty_percent}% pénalité)</div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                <div className="space-y-2">
+                  <Label htmlFor="statut">Statut des copies</Label>
+                  <Select value={statutMode} onValueChange={(v) => setStatutMode(v as any)}>
+                    <SelectTrigger id="statut">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="source">Identique au devoir source</SelectItem>
+                      <SelectItem value="brouillon">Brouillon</SelectItem>
+                      <SelectItem value="publie">Publié</SelectItem>
+                      <SelectItem value="cloture">Clôturé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    « Brouillon » pour préparer avant publication dans chaque filière.
+                  </p>
                 </div>
               </div>
-            )}
 
-            {/* Navigation */}
-            <div className="flex justify-between pt-6 border-t">
-              <Button
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentStepIndex === 0}
-              >
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  La configuration, les questions et le sujet PDF éventuel sont recopiés. Les
+                  soumissions et notes ne le sont pas. Une cible où un « examen » existe déjà sera
+                  ignorée.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
+          {/* ------------------------------ Résultat ------------------------------ */}
+          {step === "done" && result && (
+            <div className="space-y-5">
+              <div className="flex flex-col items-center text-center gap-2 py-2">
+                <div className="rounded-full bg-green-100 p-3">
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                </div>
+                <h2 className="text-xl font-semibold">
+                  {result.created.length > 0
+                    ? `Devoir assigné à ${result.created.length} cible${
+                        result.created.length > 1 ? "s" : ""
+                      }`
+                    : "Aucune copie créée"}
+                </h2>
+                {result.skipped.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {result.skipped.length} cible{result.skipped.length > 1 ? "s" : ""} ignorée
+                    {result.skipped.length > 1 ? "s" : ""}.
+                  </p>
+                )}
+              </div>
+
+              {result.created.length > 0 && (
+                <div className="rounded-lg border border-green-200 bg-green-50/50 dark:bg-green-950/10 p-3 space-y-1.5">
+                  {result.created.map((c: any) => (
+                    <div key={c.id} className="text-sm flex items-center gap-2">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                      <span className="font-mono text-xs">{c.ecue_code ?? c.ecue_id?.slice(0, 8)}</span>
+                      <span className="truncate">{c.titre}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {result.skipped.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 p-3 space-y-1.5">
+                  {result.skipped.map((s, i) => (
+                    <div key={i} className="text-sm flex items-center gap-2 text-amber-700">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span>{SKIP_LABELS[s.reason] ?? s.reason}</span>
+                      <span className="text-xs text-muted-foreground truncate">— {s.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-wrap justify-center gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={reset}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Assigner un autre devoir
+                </Button>
+                <Button
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+                  onClick={() => router.push("/teacher/assignments/create")}
+                >
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  Voir mes évaluations
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ------------------------------ Navigation ------------------------------ */}
+          {step !== "done" && (
+            <div className="flex justify-between pt-6 mt-6 border-t">
+              <Button variant="outline" onClick={goPrev} disabled={stepIndex === 0}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Précédent
               </Button>
-
-              {currentStep === 'review' ? (
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  {isSubmitting ? (
+              <Button
+                onClick={goNext}
+                disabled={!canNext || duplicateMut.isPending}
+                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+              >
+                {step === "confirm" ? (
+                  duplicateMut.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Assignation...
+                      Assignation…
                     </>
                   ) : (
                     <>
                       <Save className="h-4 w-4 mr-2" />
                       Confirmer l'assignation
                     </>
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleNext}
-                  disabled={!canProceedToNextStep()}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  Suivant
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              )}
+                  )
+                ) : (
+                  <>
+                    Suivant
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

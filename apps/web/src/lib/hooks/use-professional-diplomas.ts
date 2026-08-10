@@ -40,6 +40,45 @@ async function apiFetch<T = any>(url: string, init?: RequestInit): Promise<T> {
   return (json?.data ?? json) as T;
 }
 
+<<<<<<< HEAD
+=======
+/* -------------------------- Cycles (Licence/Master) -------------------- */
+
+export interface CycleGroupFiliere {
+  id: string;
+  name: string;
+  code: string;
+  niveau: number;
+}
+
+export interface CycleGroup {
+  id: string;
+  grade: "LICENCE" | "MASTER";
+  specialite: string;
+  libelle: string;
+  filieres: CycleGroupFiliere[];
+}
+
+/** Cycles (Licence 1→3, Master 1→2) ayant au moins un étudiant inscrit. */
+export function useCycleGroups() {
+  return useQuery({
+    queryKey: ["professional-cycle-groups"],
+    queryFn: () => apiFetch<CycleGroup[]>(`${BASE}/cycle-groups`),
+    staleTime: 60 * 1000,
+  });
+}
+
+/** Garantit (crée/resynchronise) le diplôme couvrant tout le cycle d'une filière. */
+export function useEnsureCycleDiploma() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (filiereId: string) =>
+      apiFetch(`${BASE}/cycle-groups/${filiereId}/ensure-diploma`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["professional-diplomas"], exact: false }),
+  });
+}
+
+>>>>>>> 030-pedagogie-ue-ecue
 /* ------------------------------ Diplômes ------------------------------ */
 
 export interface DiplomasQuery {
@@ -194,7 +233,16 @@ export function useDiplomaAwarded(diplomaId: string | null, statut?: string) {
   });
 }
 
+<<<<<<< HEAD
 /** Étudiants candidats à l'octroi manuel (programme du diplôme). */
+=======
+/** Récupère les données d'attestation d'un étudiant pour un diplôme (hors hook, pour génération PDF à la demande). */
+export function fetchDiplomaAttestation(diplomaId: string, studentId: string) {
+  return apiFetch(`${BASE}/diplomas/${diplomaId}/students/${studentId}/attestation`);
+}
+
+/** Étudiants candidats à l'octroi manuel (programme du diplôme), avec progression. */
+>>>>>>> 030-pedagogie-ue-ecue
 export function useDiplomaCandidates(diplomaId: string | null) {
   return useQuery({
     queryKey: ["professional-diploma-candidates", diplomaId],
@@ -204,6 +252,32 @@ export function useDiplomaCandidates(diplomaId: string | null) {
   });
 }
 
+<<<<<<< HEAD
+=======
+/** Progression d'un étudiant donné vers un diplôme (vue admin). */
+export function useDiplomaStudentProgress(diplomaId: string | null, studentId: string | null) {
+  return useQuery({
+    queryKey: ["professional-diploma-student-progress", diplomaId, studentId],
+    queryFn: () => apiFetch(`${BASE}/diplomas/${diplomaId}/students/${studentId}/progress`),
+    enabled: !!diplomaId && !!studentId,
+  });
+}
+
+/** Données structurées de l'attestation d'un étudiant pour un diplôme (vue admin). */
+export function useDiplomaStudentAttestation(
+  diplomaId: string | null,
+  studentId: string | null,
+  enabled = true
+) {
+  return useQuery({
+    queryKey: ["professional-diploma-student-attestation", diplomaId, studentId],
+    queryFn: () => apiFetch(`${BASE}/diplomas/${diplomaId}/students/${studentId}/attestation`),
+    enabled: !!diplomaId && !!studentId && enabled,
+    retry: false,
+  });
+}
+
+>>>>>>> 030-pedagogie-ue-ecue
 /** Octroi manuel d'un diplôme à un étudiant (avec option `force`). */
 export function useAwardDiploma() {
   const qc = useQueryClient();

@@ -195,7 +195,17 @@ export class ProfessionalTeacherService extends ProfessionalBaseService {
                   a.id, a.titre, a.description, a.type, a.evaluation_type,
                   a.note_max::float8 AS note_max, a.coefficient::float8 AS coefficient,
                   a.statut, a.starts_at, a.due_at, a.created_at,
+<<<<<<< HEAD
                   a.subject_document_url,
+=======
+                  a.subject_document_url, a.subject_content,
+                  a.duration_minutes, a.max_attempts, a.shuffle_questions,
+                  a.show_results_mode,
+                  a.max_file_size_mb::float8 AS max_file_size_mb,
+                  a.late_submission_allowed,
+                  a.late_penalty_percent::float8 AS late_penalty_percent,
+                  a.ai_config,
+>>>>>>> 030-pedagogie-ue-ecue
                   a.ecue_id, e.code AS ecue_code, e.libelle AS ecue_libelle,
                   a.ue_session_id, s.libelle AS session_libelle,
                   s.statut AS session_statut,

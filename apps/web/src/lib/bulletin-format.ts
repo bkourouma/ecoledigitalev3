@@ -9,6 +9,25 @@ export const INSTITUT = "INSTITUT POLYVALENT DES AFFAIRES ET DU MANAGEMENT";
 export const INSTITUT_SIGLE = "IPAM";
 export const DECISION_TITRE = "Décision finale";
 export const VISA_DIRECTEUR = "Visa le Directeur des Études";
+<<<<<<< HEAD
+=======
+
+/**
+ * Introduction du jury : la date de délibération est la date de génération du
+ * document (date du jour), au format « 4 Juillet 2026 ».
+ */
+export function juryIntro(date: Date = new Date()): string {
+  const d = date
+    .toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+    .replace(/ ([a-zà-ú])/i, (m) => m.toUpperCase());
+  return `Le Jury d'examen, vu le procès-verbal de délibération en date du ${d}, déclare que l'étudiant(e) :`;
+}
+
+/** Textes du jury / délibération affichés sur le relevé. */
+export const JURY_RESULTATS =
+  "a obtenu, après l'évaluation de ses connaissances, les notes et les résultats suivants.";
+export const JURY_NB = "NB : La décision s'obtient par rapport au total des crédits obtenus.";
+>>>>>>> 030-pedagogie-ue-ecue
 export const FOOTER_NOTE =
   "Il ne peut être délivré qu'un seul exemplaire du présent relevé de notes. En cas de perte, un duplicata doit être justifié auprès du service des examens IPAM.";
 export const FOOTER_ADDRESS =
@@ -21,7 +40,11 @@ export function genreLabel(g: string | null | undefined): string {
 
 /** Logos (dossier public). */
 export const LOGO_INSTITUT = "/logo-ipam.jpeg";
+<<<<<<< HEAD
 export const LOGO_EMBLEME = "/embleme.jpg";
+=======
+export const LOGO_EMBLEME = "/embleme.png";
+>>>>>>> 030-pedagogie-ue-ecue
 
 /** Palette institutionnelle IPAM (vert). */
 export const IPAM_GREEN = "#14532D"; // vert foncé (en-têtes, titres)
@@ -83,12 +106,65 @@ export function ueDecision(validee: boolean): string {
   return validee ? "Validé(e)" : "Non validée";
 }
 
+<<<<<<< HEAD
+=======
+/** Libellé de l'état LMD d'une UE : validée / rattrapage / dette. */
+export function ueEtatLabel(etat: string | null | undefined): string {
+  switch (etat) {
+    case "validee":
+      return "Validé(e)";
+    case "rattrapage":
+      return "Rattrapage (S2)";
+    case "dette":
+      return "En dette";
+    default:
+      return "Non validée";
+  }
+}
+
+/** Couleur (hex) de l'état d'une UE. */
+export function ueEtatColor(etat: string | null | undefined): string {
+  if (etat === "validee") return OK_GREEN;
+  if (etat === "rattrapage") return "#B45309"; // ambre
+  return BAD_RED;
+}
+
+/** Statut LMD de l'étudiant sur le semestre. */
+export function statutEtudiantLabel(s: string | null | undefined): string {
+  switch (s) {
+    case "valide":
+      return "Validé";
+    case "session2":
+      return "Non validé — Session 2";
+    case "dette":
+      return "En dette";
+    default:
+      return "—";
+  }
+}
+
+/** « Session 1 » / « Session 2 » depuis le numéro (1|2). Null → « — ». */
+export function sessionLabel(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `Session ${n}`;
+}
+
+>>>>>>> 030-pedagogie-ue-ecue
 /** « Semestre 1 » → « S1 ». */
 export function semShort(libelle: string | null | undefined): string {
   const m = String(libelle ?? "").match(/(\d+)/);
   return m ? `S${m[1]}` : String(libelle ?? "—");
 }
 
+<<<<<<< HEAD
+=======
+/** « Semestre 1 » → « RELEVE DE NOTES SEMESTRE 1 » (titre encadré). */
+export function releveSemestreTitre(libelle: string | null | undefined): string {
+  const m = String(libelle ?? "").match(/(\d+)/);
+  return `RELEVE DE NOTES SEMESTRE ${m ? m[1] : ""}`.trim();
+}
+
+>>>>>>> 030-pedagogie-ue-ecue
 /** « Semestre 1 » → « 1ER SEMESTRE » (titre). */
 export function semestreOrdinalFr(libelle: string | null | undefined): string {
   const m = String(libelle ?? "").match(/(\d+)/);
@@ -116,6 +192,47 @@ export function niveauOf(filiereName: string | null | undefined): string {
   return "—";
 }
 
+<<<<<<< HEAD
+=======
+/**
+ * Appréciation générale du conseil (phrase libre pour le visa), reprend le
+ * libellé déjà utilisé côté « moyennes semestre » (semester-averages.ts).
+ */
+export function appreciationGenerale(m: number | null | undefined): string {
+  if (m == null) return "—";
+  if (m < 8) return "Travail insuffisant.";
+  if (m < 10) return "Travail fragile.";
+  if (m < 12) return "Travail passable.";
+  if (m < 14) return "Travail assez bon.";
+  if (m < 16) return "Bon travail.";
+  if (m < 18) return "Très bon travail.";
+  return "Excellent travail.";
+}
+
+/** Vrai si la filière est une Licence 1 ou Licence 2 (seules éligibles au bulletin BTS). */
+export function isLicenceUnOuDeux(filiereName: string | null | undefined): boolean {
+  return /licence\s*[12]\b/i.test(String(filiereName ?? ""));
+}
+
+/** Spécialité BTS : « LICENCE 1 GENIE LOGICIEL » → « BTS GENIE LOGICIEL ». */
+export function specialiteBts(filiereName: string | null | undefined): string {
+  const stripped = String(filiereName ?? "").replace(/^licence\s*[12]\s*/i, "").trim();
+  return stripped ? `BTS ${stripped}` : "BTS";
+}
+
+/** Niveau BTS : « LICENCE 1 … » → « BTS 1 ». */
+export function niveauBts(filiereName: string | null | undefined): string {
+  const m = String(filiereName ?? "").match(/licence\s*([12])/i);
+  return m ? `BTS ${m[1]}` : "BTS";
+}
+
+/** Rang français : 1 → « 1er », n → « nème ». null → « — ». */
+export function rangLabel(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return n === 1 ? "1er" : `${n}ème`;
+}
+
+>>>>>>> 030-pedagogie-ue-ecue
 /** Date « 25 Janvier 1998 » à partir d'une date ISO. */
 export function fmtDateLongFr(value?: string | null): string {
   if (!value) return "—";

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { useOwnerAcademic } from "@/lib/hooks/use-owner-academic";
 import { SemesterAveragesChart } from "@/components/owner/SemesterAveragesChart";
-import { AttendanceHeatmap } from "@/components/owner/AttendanceHeatmap";
+import { HeatmapGrid } from "@/components/owner/charts/HeatmapGrid";
 import type { OwnerAcademicResponse } from "@ecoledigitale/contracts";
 
 type ClassAvg = OwnerAcademicResponse["averagesByClass"][number];
@@ -39,6 +39,34 @@ export default function OwnerAcademiquePage() {
     if (!data) return [];
     return sortRows(data.averagesByClass, sortKey, sortDir);
   }, [data, sortKey, sortDir]);
+
+  /**
+   * Mise en forme pour la grille de chaleur : lignes = classes, colonnes = semaines.
+   * Ce n'est pas un calcul d'indicateur — les taux arrivent déjà agrégés par l'API.
+   */
+  const attendanceGrid = useMemo(() => {
+    const cells = data?.attendanceByClassWeek ?? [];
+    if (cells.length === 0) return { rows: [], cols: [], cells: [] };
+
+    const weeks = [...new Set(cells.map((c) => c.weekStart))].sort();
+    const classes = new Map<string, string>();
+    for (const c of cells) classes.set(c.classId, c.className);
+
+    return {
+      rows: [...classes.entries()]
+        .map(([key, label]) => ({ key, label }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+      // Libellé court `MM-JJ` : l'année est constante sur 8 semaines et
+      // encombrerait l'en-tête.
+      cols: weeks.map((w) => ({ key: w, label: w.slice(5) })),
+      cells: cells.map((c) => ({
+        rowKey: c.classId,
+        colKey: c.weekStart,
+        value: c.presentRate,
+        hint: `${c.totalRecords} enregistrement${c.totalRecords > 1 ? "s" : ""}`,
+      })),
+    };
+  }, [data]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -191,14 +219,16 @@ export default function OwnerAcademiquePage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Assiduité (8 dernières semaines)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AttendanceHeatmap cells={data.attendanceByClassWeek} />
-          </CardContent>
-        </Card>
+        <HeatmapGrid
+          className="lg:col-span-2"
+          title="Assiduité (8 dernières semaines)"
+          subtitle="Taux de présences et retards par classe et par semaine. Les colonnes sont les lundis de semaine ISO."
+          rows={attendanceGrid.rows}
+          cols={attendanceGrid.cols}
+          cells={attendanceGrid.cells}
+          valueFormatter={(v) => `${v.toFixed(0)} %`}
+          emptyLabel="Aucune donnée d'assiduité sur les 8 dernières semaines."
+        />
 
         <Card>
           <CardHeader>
