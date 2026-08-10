@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 // ENUM schemas
 export const StudentStatusSchema = z.enum(['active', 'graduated', 'suspended', 'dropped', 'transfer']);
@@ -86,8 +86,6 @@ export const CreateStudentProfileSchema = z.object({
   bacObtentionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   bacSeries: z.string().max(100).optional(),
   lastDiploma: z.string().max(255).optional(),
-<<<<<<< HEAD
-=======
 });
 
 /**
@@ -99,7 +97,6 @@ export const CreateStudentProfileSchema = z.object({
 export const StudentCredentialsEmailTemplateSchema = z.object({
   subject: z.string().min(1).max(300),
   body: z.string().min(1).max(20000),
->>>>>>> 030-pedagogie-ue-ecue
 });
 
 // Create Student with User Schema (creates both user and student profile)
@@ -141,8 +138,6 @@ export const CreateStudentWithUserSchema = z.object({
   bacObtentionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   bacSeries: z.string().max(100).optional(),
   lastDiploma: z.string().max(255).optional(),
-<<<<<<< HEAD
-=======
 
   /** Envoyer les identifiants par email juste après la création (défaut : true) */
   sendCredentialsEmail: z.boolean().optional(),
@@ -150,7 +145,6 @@ export const CreateStudentWithUserSchema = z.object({
   credentialsEmailTemplate: StudentCredentialsEmailTemplateSchema.optional(),
   /** Enregistrer aussi ce modèle comme modèle par défaut de l'établissement */
   saveCredentialsEmailTemplate: z.boolean().optional(),
->>>>>>> 030-pedagogie-ue-ecue
 });
 
 // Update Student Profile Schema
