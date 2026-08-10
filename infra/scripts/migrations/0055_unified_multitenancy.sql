@@ -1,4 +1,4 @@
--- Migration 0055: unified multi-tenant model
+﻿-- Migration 0055: unified multi-tenant model
 -- - One reference tenant: ecoledigitale
 -- - Global roles, tenant-scoped users, tenant_id on user_roles
 -- - Separate super-admin authentication and audit tables
@@ -598,7 +598,11 @@ BEGIN
         'roles',
         'token_blacklist',
         'super_admin_users',
-        'super_admin_audit_logs'
+        'super_admin_audit_logs',
+        -- Table de journal interne du moteur Prisma : schéma imposé par
+        -- l'outil, sans portée tenant. La tenantiser fait échouer
+        -- prisma migrate deploy (INSERT sans tenant_id + RLS forcée).
+        '_prisma_migrations'
       )
   LOOP
     EXECUTE format(
@@ -629,7 +633,11 @@ BEGIN
         'roles',
         'token_blacklist',
         'super_admin_users',
-        'super_admin_audit_logs'
+        'super_admin_audit_logs',
+        -- Table de journal interne du moteur Prisma : schéma imposé par
+        -- l'outil, sans portée tenant. La tenantiser fait échouer
+        -- prisma migrate deploy (INSERT sans tenant_id + RLS forcée).
+        '_prisma_migrations'
       )
       AND t.table_name NOT LIKE '%\_aspci' ESCAPE '\'
       AND NOT EXISTS (
@@ -725,7 +733,11 @@ BEGIN
         'roles',
         'token_blacklist',
         'super_admin_users',
-        'super_admin_audit_logs'
+        'super_admin_audit_logs',
+        -- Table de journal interne du moteur Prisma : schéma imposé par
+        -- l'outil, sans portée tenant. La tenantiser fait échouer
+        -- prisma migrate deploy (INSERT sans tenant_id + RLS forcée).
+        '_prisma_migrations'
       )
   LOOP
     FOR pol IN
