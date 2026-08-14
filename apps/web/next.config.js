@@ -35,6 +35,20 @@ const nextConfig = {
       },
     };
 
+    if (!isServer) {
+      // Le build "browser" d'exceljs (chargé dynamiquement dans
+      // teacher-export.ts) référence `fs` en dur dans son module CSV, même si
+      // l'app n'utilise jamais l'export CSV : Workbook.csv est importé
+      // inconditionnellement par workbook.js. `fs` n'existe pas côté client ;
+      // sans ce fallback, le build échoue avec « Module not found: Can't
+      // resolve 'fs' ». Le code mort qui l'utilise n'étant jamais exécuté au
+      // runtime navigateur, un stub vide suffit.
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
+    }
+
     if (dev && !isServer) {
       // In development, use Next.js default chunking but with better error handling
       // Don't override Next.js's optimized chunking strategy

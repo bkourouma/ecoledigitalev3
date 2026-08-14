@@ -86,9 +86,16 @@ const solidFill = (argb: string) => ({
 /**
  * ExcelJS n'est chargé qu'au clic sur « Excel » : la librairie pèse plusieurs
  * centaines de Ko et n'a aucune raison d'entrer dans le bundle initial.
+ *
+ * Import du build BROWSER explicite (pas `import('exceljs')`) : le point
+ * d'entrée par défaut du paquet est le build Node.js, dont le writer XLSX en
+ * streaming dépend d'`archiver` → `lazystream` → `readable-stream/passthrough`,
+ * un chemin Node pur que webpack ne sait pas résoudre côté client (« Module
+ * not found » au build). Le build `dist/es5/exceljs.browser.js` expose la même
+ * API (`Workbook`, enums) sans cette dépendance.
  */
 const loadExcelJS = async () => {
-  const mod: any = await import('exceljs');
+  const mod: any = await import('exceljs/dist/es5/exceljs.browser.js');
   return mod.default ?? mod;
 };
 
