@@ -1,0 +1,40 @@
+# Normalisation des fins de ligne.
+#
+# Sans ce fichier, un poste Windows (core.autocrlf=true) enregistre des CRLF
+# dans la copie de travail. `actions/checkout` normalise au checkout, donc le
+# pipeline CI/CD ne voyait rien — mais un transfert direct du code vers le
+# serveur (git archive / scp) emporte les CRLF tels quels, et Linux échoue :
+#
+#     /usr/bin/env: 'bash\r': No such file or directory
+#
+# parce qu'il cherche un interpréteur littéralement nommé « bash\r ».
+
+# Par défaut : normaliser en LF dans le dépôt, laisser Git adapter localement.
+* text=auto
+
+# Fichiers qui DOIVENT rester en LF sur disque, y compris sous Windows :
+# ils sont exécutés ou lus par Linux (conteneurs, serveur de production).
+*.sh            text eol=lf
+*.bash          text eol=lf
+Dockerfile*     text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.sql           text eol=lf
+
+# Scripts propres à Windows : conserver les CRLF.
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+*.ps1           text eol=crlf
+
+# Binaires : jamais de conversion.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+*.docx          binary
+*.xlsx          binary
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
