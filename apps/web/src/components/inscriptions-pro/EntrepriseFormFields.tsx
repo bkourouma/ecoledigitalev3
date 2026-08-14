@@ -155,7 +155,7 @@ export function EntrepriseFormFields({
                 id="entreprise_telephone"
                 value={companyData.telephone}
                 onChange={(e) => onCompanyDataChange({ telephone: e.target.value })}
-                placeholder="+33 1 23 45 67 89"
+                placeholder="+225 07 07 12 34 56"
                 className={errors.entreprise_telephone ? "border-destructive" : ""}
               />
             </div>

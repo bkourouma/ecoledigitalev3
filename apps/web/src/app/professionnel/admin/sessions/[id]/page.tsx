@@ -15,6 +15,12 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
 } from "@ecoledigitale/ui";
 import {
   ArrowLeft,
@@ -557,7 +563,9 @@ function SeancesTab({ sessionId, ueId }: { sessionId: string; ueId: string }) {
             <p className="text-sm text-muted-foreground">Aucune séance planifiée.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              {/* whitespace-nowrap : une séance tient sur une seule ligne, le
+                  tableau défile horizontalement plutôt que de replier ses cellules. */}
+              <table className="w-full text-sm whitespace-nowrap">
                 <thead className="text-left text-muted-foreground border-b">
                   <tr>
                     <th className="py-2 pr-3">Date</th>
@@ -578,7 +586,7 @@ function SeancesTab({ sessionId, ueId }: { sessionId: string; ueId: string }) {
                         <span className="font-mono text-xs">{s.ecue_code}</span> {s.ecue_libelle}
                       </td>
                       <td className="py-2 pr-3">{s.libelle ?? "—"}</td>
-                      <td className="py-2 text-right space-x-2 whitespace-nowrap">
+                      <td className="py-2 text-right space-x-2">
                         <Button variant="outline" size="sm" onClick={() => setSelectedSeance(s.id)}>
                           Appel
                         </Button>
@@ -650,6 +658,7 @@ function AttendanceEditor({ seanceId, onClose }: { seanceId: string; onClose: ()
   const query = useSeanceAttendance(seanceId);
   const markMut = useMarkSeanceAttendance();
   const [statuts, setStatuts] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
   const data: any = query.data;
   const items: any[] = data?.items ?? [];
 
@@ -659,27 +668,40 @@ function AttendanceEditor({ seanceId, onClose }: { seanceId: string; onClose: ()
     setStatuts(init);
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * L'appel enregistré, le modal se ferme. En cas d'échec il reste ouvert avec
+   * le message d'erreur : la saisie n'est pas perdue et peut être retentée.
+   * La mutation invalide déjà le cache du pointage — pas de refetch manuel.
+   */
   async function save() {
+    setSaveError(null);
     const entries = Object.entries(statuts).map(([student_id, statut]) => ({ student_id, statut }));
-    await markMut.mutateAsync({ seanceId, data: { entries } as any });
-    query.refetch();
+    try {
+      await markMut.mutateAsync({ seanceId, data: { entries } as any });
+      onClose();
+    } catch (err: any) {
+      setSaveError(err?.message ?? "Erreur lors de l'enregistrement de l'appel.");
+    }
   }
 
   return (
-    <Card className="border-blue-300">
-      <CardHeader>
-        <CardTitle className="text-lg">Appel — {fmtDate(data?.seance?.date)}</CardTitle>
-        <CardDescription>
-          {data?.seance?.ecue_code} {data?.seance?.ecue_libelle}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-lg">Appel — {fmtDate(data?.seance?.date)}</DialogTitle>
+          <DialogDescription>
+            {data?.seance?.ecue_code} {data?.seance?.ecue_libelle}
+          </DialogDescription>
+        </DialogHeader>
+
         {query.isLoading ? (
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         ) : items.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aucun étudiant inscrit confirmé.</p>
         ) : (
-          <div className="space-y-2">
+          // Une promotion peut compter plusieurs dizaines d'inscrits : la liste
+          // défile à l'intérieur du modal, en-tête et boutons restant visibles.
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
             {items.map((it) => (
               <div key={it.student_id} className="flex items-center justify-between gap-3 text-sm">
                 <span>
@@ -704,17 +726,28 @@ function AttendanceEditor({ seanceId, onClose }: { seanceId: string; onClose: ()
             ))}
           </div>
         )}
-        <div className="flex justify-end gap-2 pt-2">
+
+        {saveError && (
+          <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {saveError}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>
             Fermer
           </Button>
           <Button onClick={save} disabled={markMut.isPending || items.length === 0}>
-            <CheckCircle2 className="h-4 w-4 mr-2" />
+            {markMut.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+            )}
             Enregistrer l'appel
           </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

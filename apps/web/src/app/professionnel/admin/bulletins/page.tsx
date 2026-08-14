@@ -72,6 +72,10 @@ export default function BulletinsPage() {
   const selectedFiliere = filieres.find((f) => f.id === filiereId);
   const isBtsEligible = isLicenceUnOuDeux(selectedFiliere?.name);
 
+  // Étudiants dont la décision n'est pas arrêtée : ni bulletin consultable, ni
+  // bulletin généré, tant que le rattrapage n'a pas été saisi.
+  const nbSession2 = students.filter((s) => s.statut_etudiant === "session2").length;
+
   const stats = useMemo(() => {
     const admis = students.filter((s) => s.decision === "admis").length;
     const rattr = students.filter((s) => s.decision === "rattrapage").length;
@@ -95,8 +99,12 @@ export default function BulletinsPage() {
     setGenInfo(null);
     try {
       const r: any = await generateMut.mutateAsync(semestreId);
+      const ignores = Number(r.ignores ?? 0);
       setGenInfo(
-        `${r.generated} bulletin(s) généré(s) — ${r.definitifs} définitif(s), ${r.provisoires} provisoire(s).`
+        `${r.generated} bulletin(s) généré(s) — ${r.definitifs} définitif(s), ${r.provisoires} provisoire(s).` +
+          (ignores > 0
+            ? ` ${ignores} étudiant(s) en attente de Session 2 non généré(s) : leur décision n'est pas arrêtée.`
+            : "")
       );
     } catch (err: any) {
       setError(err?.message ?? "Erreur lors de la génération des bulletins.");
@@ -120,7 +128,11 @@ export default function BulletinsPage() {
       const list = await fetchFullBulletins(semestreId);
       if (!list || list.length === 0) {
         win?.close();
-        setError("Aucun bulletin à ouvrir pour ce semestre.");
+        setError(
+          nbSession2 > 0
+            ? "Aucun bulletin à ouvrir : les étudiants en attente de Session 2 en sont exclus tant que leur décision n'est pas arrêtée."
+            : "Aucun bulletin à ouvrir pour ce semestre."
+        );
         return;
       }
       await openAllBulletinsPdf(list, win);
@@ -338,14 +350,14 @@ export default function BulletinsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-muted-foreground border-b border-border bg-muted/30">
-                  <th className="px-4 py-3 font-medium">Étudiant</th>
-                  <th className="px-4 py-3 font-medium">Matricule</th>
-                  <th className="px-4 py-3 font-medium text-center">Moyenne</th>
-                  <th className="px-4 py-3 font-medium text-center">Crédits</th>
-                  <th className="px-4 py-3 font-medium text-center">Décision</th>
-                  <th className="px-4 py-3 font-medium text-center">Statut bulletin</th>
-                  <th className="px-4 py-3 font-medium text-center">Généré le</th>
-                  <th className="px-4 py-3 font-medium text-right">Bulletin</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap">Étudiant</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap">Matricule</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap text-center">Moyenne</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap text-center">Crédits</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap text-center">Décision</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap text-center">Statut bulletin</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap text-center">Généré le</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Bulletin</th>
                 </tr>
               </thead>
               <tbody>
@@ -354,25 +366,25 @@ export default function BulletinsPage() {
                   const Icon = dec.Icon;
                   return (
                     <tr key={s.student_id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
-                      <td className="px-4 py-2.5 font-medium">
+                      <td className="px-4 py-2.5 whitespace-nowrap font-medium">
                         {s.first_name} {s.last_name}
                       </td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                      <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs text-muted-foreground">
                         {s.matricule ?? "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-center font-mono font-semibold">
+                      <td className="px-4 py-2.5 whitespace-nowrap text-center font-mono font-semibold">
                         {fmt(s.moyenne_session)}
                       </td>
-                      <td className="px-4 py-2.5 text-center font-mono">
+                      <td className="px-4 py-2.5 whitespace-nowrap text-center font-mono">
                         {s.credits_valides}/{s.credits_total}
                       </td>
-                      <td className="px-4 py-2.5 text-center">
+                      <td className="px-4 py-2.5 whitespace-nowrap text-center">
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${dec.cls}`}>
                           <Icon className="h-3.5 w-3.5" />
                           {dec.label}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-center">
+                      <td className="px-4 py-2.5 whitespace-nowrap text-center">
                         {(() => {
                           // Statut LMD : validé / non validé — session 2 / en dette.
                           const st = s.statut_etudiant;
@@ -395,45 +407,61 @@ export default function BulletinsPage() {
                           );
                         })()}
                       </td>
-                      <td className="px-4 py-2.5 text-center text-xs text-muted-foreground">
+                      <td className="px-4 py-2.5 whitespace-nowrap text-center text-xs text-muted-foreground">
                         {s.generated_at
                           ? new Date(s.generated_at).toLocaleDateString("fr-FR")
                           : "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8"
-                            disabled={busyStudentId === s.student_id}
-                            onClick={() => handleConsulter(s.student_id)}
-                          >
-                            {busyStudentId === s.student_id ? (
-                              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                            ) : (
-                              <Eye className="h-3.5 w-3.5 mr-1.5" />
-                            )}
-                            Consulter
-                          </Button>
-                          {isBtsEligible && (
+                      <td className="px-4 py-2.5 whitespace-nowrap text-right">
+                        {s.statut_etudiant === "session2" ? (
+                          // Décision non arrêtée : aucun bulletin n'est encore
+                          // consultable ni généré (l'API refuse également).
+                          <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                            <span>En attente de Session 2</span>
+                            <Link
+                              href="/professionnel/admin/notes/rattrapages"
+                              className="font-medium text-amber-700 underline underline-offset-2"
+                              title="Saisir la note de rattrapage pour arrêter la décision"
+                            >
+                              Rattrapages
+                            </Link>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               className="h-8"
-                              disabled={busyBtsStudentId === s.student_id}
-                              onClick={() => handleConsulterBts(s.student_id)}
-                              title="Bulletin de style BTS"
+                              disabled={busyStudentId === s.student_id}
+                              onClick={() => handleConsulter(s.student_id)}
                             >
-                              {busyBtsStudentId === s.student_id ? (
+                              {busyStudentId === s.student_id ? (
                                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                               ) : (
-                                <Award className="h-3.5 w-3.5 mr-1.5" />
+                                <Eye className="h-3.5 w-3.5 mr-1.5" />
                               )}
-                              Bulletin BTS
+                              Consulter
                             </Button>
-                          )}
-                        </div>
+                            {isBtsEligible && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8"
+                                disabled={busyBtsStudentId === s.student_id}
+                                onClick={() => handleConsulterBts(s.student_id)}
+                                title="Bulletin de style BTS"
+                              >
+                                {busyBtsStudentId === s.student_id ? (
+                                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                ) : (
+                                  <Award className="h-3.5 w-3.5 mr-1.5" />
+                                )}
+                                Bulletin BTS
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

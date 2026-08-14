@@ -230,7 +230,7 @@ export function ContactInformationComponent() {
                   type="tel"
                   value={formData.phone || ''}
                   onChange={(e) => handleChange('phone', e.target.value || null)}
-                  placeholder="+33 6 12 34 56 78"
+                  placeholder="+225 07 07 12 34 56"
                   className={formErrors.phone ? 'border-red-500' : ''}
                 />
               </div>

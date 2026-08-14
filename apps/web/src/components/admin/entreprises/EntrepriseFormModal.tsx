@@ -301,7 +301,7 @@ export function EntrepriseFormModal({ open, onOpenChange, enterprise }: Entrepri
                 <Input
                   value={formData.contact_telephone || ""}
                   onChange={(e) => setFormData({ ...formData, contact_telephone: e.target.value })}
-                  placeholder="+225 XX XX XX XX XX"
+                  placeholder="+225 07 07 12 34 56"
                 />
               </div>
             </div>

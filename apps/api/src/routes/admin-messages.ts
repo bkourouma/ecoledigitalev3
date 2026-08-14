@@ -1,6 +1,42 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { logAndMaybeSendWhatsapp } from "../services/whatsapp-delivery-log";
+import { emailService } from "../services/email.service";
+import { emailLogoAttachments, emailLogoPreviewUrl } from "../services/brand-assets";
+import {
+  PORTAL_URL,
+  WEB_ORIGIN,
+  deliverMessage,
+  ensureDeliveryLogChannelColumn,
+  resolveDisplayName,
+  summarizeStatuses,
+} from "../services/message-delivery";
+import {
+  MESSAGE_TEMPLATE_DEFINITIONS,
+  MESSAGE_TEMPLATE_KINDS,
+  MESSAGE_TEMPLATE_PROFILE_LABELS,
+  buildSampleContext,
+  isMessageTemplateKind,
+  loadTenantMessageTemplate,
+  loadTenantMessageTemplates,
+  renderMessageEmail,
+  resetTenantMessageTemplate,
+  saveTenantMessageTemplate,
+  type MessageEmailTemplate,
+  type MessageTemplateKind,
+} from "../services/message-email-templates";
+import { resolveTenantName } from "../services/teacher-credentials-email";
+
+/** Rôles autorisés sur toutes les routes de ce module. */
+const ADMIN_ROLES = ['admin', 'super_admin', 'Administrateur'];
+
+function isAdmin(roles: string[] | undefined): boolean {
+  return (roles || []).some((r: string) => ADMIN_ROLES.includes(r));
+}
+
+/** Nom affiché de l'administrateur connecté, utilisé comme expéditeur. */
+function resolveSenderName(pool: any, userId: string): Promise<string> {
+  return resolveDisplayName(pool, userId, 'Administration');
+}
 
 interface AuthenticatedRequest {
   tenantId?: string;
@@ -512,6 +548,7 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
         properties: {
           content: { type: 'string', minLength: 1 },
           sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
       response: {
@@ -523,6 +560,7 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
               type: 'object',
               properties: {
                 whatsappStatus: { type: 'string' },
+                emailStatus: { type: 'string' },
                 message: {
                   type: 'object',
                   properties: {
@@ -544,7 +582,11 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
       const tenantId = request.tenantId;
       const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
       const { conversationId } = request.params as { conversationId: string };
-      const { content, sendWhatsapp } = request.body as { content: string; sendWhatsapp?: boolean };
+      const { content, sendWhatsapp, sendEmail } = request.body as {
+        content: string;
+        sendWhatsapp?: boolean;
+        sendEmail?: boolean;
+      };
 
       if (!tenantId) {
         return reply.status(400).send({
@@ -587,11 +629,17 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
         // Ensure tables exist
         await ensureSchoolConversationsTables(pool);
 
-        // Verify conversation exists
+        // Verify conversation exists — les noms parent/enfant alimentent le
+        // modèle d'email de la réponse.
         const conversationCheck = await pool.query(
-          `SELECT id, status, parent_id, subject
-           FROM parent_school_conversations
-           WHERE id = $1 AND tenant_id = $2`,
+          `SELECT psc.id, psc.status, psc.parent_id, psc.subject,
+                  COALESCE(p.first_name || ' ' || p.last_name, p.name) AS parent_name,
+                  COALESCE(cu.first_name || ' ' || cu.last_name, cu.name) AS child_name
+             FROM parent_school_conversations psc
+             JOIN users p ON psc.parent_id = p.id
+             LEFT JOIN student_profiles sp ON sp.id = psc.student_id
+             LEFT JOIN users cu ON cu.id = sp.user_id
+            WHERE psc.id = $1 AND psc.tenant_id = $2`,
           [conversationId, tenantId]
         );
 
@@ -646,21 +694,37 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
 
         const convSubject = conversationCheck.rows[0]?.subject || "";
         const parentId = conversationCheck.rows[0]?.parent_id as string;
-        const wa = await logAndMaybeSendWhatsapp({
+        const schoolName = await resolveTenantName(pool, tenantId);
+        const delivery = await deliverMessage({
           pool,
           tenantId,
           sourceType: "admin_parent_conversation_message",
           sourceId: messageRow.id,
           recipientUserId: parentId,
-          text: `${convSubject}\n\n${messageRow.content}`,
+          whatsappText: `${convSubject}\n\n${messageRow.content}`,
           sendWhatsapp: !!sendWhatsapp,
+          sendEmail: !!sendEmail,
+          templateKind: "admin_parent_reply",
+          context: {
+            recipientName: conversationCheck.rows[0]?.parent_name || "",
+            subject: convSubject,
+            message: messageRow.content,
+            senderName,
+            schoolName,
+            portalUrl: PORTAL_URL,
+            extra: {
+              childName: conversationCheck.rows[0]?.child_name || "",
+              conversationSubject: convSubject,
+            },
+          },
           log: fastify.log,
         });
 
         return reply.send({
           success: true,
           data: {
-            whatsappStatus: wa.whatsappStatus,
+            whatsappStatus: delivery.whatsappStatus,
+            emailStatus: delivery.emailStatus,
             message: {
               id: messageRow.id,
               senderId: messageRow.sender_id,
@@ -918,6 +982,7 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
           subject: { type: 'string', minLength: 1, maxLength: 255 },
           content: { type: 'string', minLength: 1 },
           sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
     },
@@ -931,6 +996,7 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
         subject: string;
         content: string;
         sendWhatsapp?: boolean;
+        sendEmail?: boolean;
       };
       const userRoles = request.user?.roles || [];
       if (!tenantId || !userId) {
@@ -939,7 +1005,15 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
       if (!userRoles.some((r: string) => ['admin', 'super_admin', 'Administrateur'].includes(r))) {
         return reply.status(403).send({ success: false, error: 'Forbidden', message: 'Admin role required' });
       }
-      const { subject, content, sendWhatsapp, allClasses, classIds = [], studentProfileIds = [] } = body;
+      const {
+        subject,
+        content,
+        sendWhatsapp,
+        sendEmail,
+        allClasses,
+        classIds = [],
+        studentProfileIds = [],
+      } = body;
       if (!subject?.trim() || !content?.trim()) {
         return reply.status(400).send({ success: false, error: 'Bad Request', message: 'subject and content required' });
       }
@@ -954,18 +1028,34 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
         await pool.query('SELECT set_config($1, $2, true)', ['app.tenant_id', tenantId]);
         await ensureSchoolConversationsTables(pool);
 
-        const pairSet = new Map<string, { parentId: string; childId: string }>();
+        // Les noms parent/enfant sont récupérés dès la sélection des cibles :
+        // le modèle d'email les personnalise pour chaque destinataire.
+        type BulkTarget = { parentId: string; childId: string; parentName: string; childName: string };
+        const pairSet = new Map<string, BulkTarget>();
+        const collect = (rows: any[]) => {
+          for (const row of rows) {
+            pairSet.set(`${row.parent_id}:${row.child_id}`, {
+              parentId: row.parent_id,
+              childId: row.child_id,
+              parentName: row.parent_name || '',
+              childName: row.child_name || '',
+            });
+          }
+        };
 
         if (studentProfileIds.length > 0) {
           const r = await pool.query(
-            `SELECT DISTINCT sp_rel.parent_id, sp_rel.student_id AS child_id
+            `SELECT DISTINCT sp_rel.parent_id, sp_rel.student_id AS child_id,
+                    COALESCE(pu.first_name || ' ' || pu.last_name, pu.name) AS parent_name,
+                    COALESCE(su.first_name || ' ' || su.last_name, su.name) AS child_name
              FROM student_parents sp_rel
+             JOIN users pu ON pu.id = sp_rel.parent_id
+             JOIN student_profiles sp ON sp.id = sp_rel.student_id AND sp.tenant_id = sp_rel.tenant_id
+             JOIN users su ON su.id = sp.user_id
              WHERE sp_rel.tenant_id = $1 AND sp_rel.student_id = ANY($2::uuid[])`,
             [tenantId, studentProfileIds]
           );
-          for (const row of r.rows) {
-            pairSet.set(`${row.parent_id}:${row.child_id}`, { parentId: row.parent_id, childId: row.child_id });
-          }
+          collect(r.rows);
         }
 
         let classIdList = [...classIds];
@@ -975,15 +1065,18 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
         }
         if (classIdList.length > 0) {
           const r = await pool.query(
-            `SELECT DISTINCT sp_rel.parent_id, se.student_id AS child_id
+            `SELECT DISTINCT sp_rel.parent_id, se.student_id AS child_id,
+                    COALESCE(pu.first_name || ' ' || pu.last_name, pu.name) AS parent_name,
+                    COALESCE(su.first_name || ' ' || su.last_name, su.name) AS child_name
              FROM student_enrollments se
              JOIN student_parents sp_rel ON sp_rel.student_id = se.student_id AND sp_rel.tenant_id = se.tenant_id
+             JOIN users pu ON pu.id = sp_rel.parent_id
+             JOIN student_profiles sp ON sp.id = se.student_id AND sp.tenant_id = se.tenant_id
+             JOIN users su ON su.id = sp.user_id
              WHERE se.tenant_id = $1 AND se.class_id = ANY($2::uuid[])`,
             [tenantId, classIdList]
           );
-          for (const row of r.rows) {
-            pairSet.set(`${row.parent_id}:${row.child_id}`, { parentId: row.parent_id, childId: row.child_id });
-          }
+          collect(r.rows);
         }
 
         const pairs = Array.from(pairSet.values());
@@ -995,8 +1088,17 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
           });
         }
 
+        // Chargés une seule fois : un envoi groupé peut viser des centaines de
+        // parents, inutile de relire le modèle et le nom de l'école à chaque tour.
+        const senderName = await resolveSenderName(pool, userId);
+        const schoolName = await resolveTenantName(pool, tenantId);
+        const emailTemplate = sendEmail
+          ? await loadTenantMessageTemplate(pool, tenantId, 'admin_parent_bulk')
+          : undefined;
+
         let created = 0;
-        for (const { parentId, childId } of pairs) {
+        const emailStatuses: string[] = [];
+        for (const { parentId, childId, parentName, childName } of pairs) {
           const relationshipCheck = await pool.query(
             `SELECT id FROM student_parents 
              WHERE parent_id = $1 AND student_id = $2 AND tenant_id = $3`,
@@ -1019,22 +1121,39 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
             [tenantId, conversationId, userId, content.trim()]
           );
           const messageId = messageResult.rows[0].id;
-          await logAndMaybeSendWhatsapp({
+          const delivery = await deliverMessage({
             pool,
             tenantId,
             sourceType: 'admin_parent_conversation_message',
             sourceId: messageId,
             recipientUserId: parentId,
-            text: `${subject.trim()}\n\n${content.trim()}`,
+            whatsappText: `${subject.trim()}\n\n${content.trim()}`,
             sendWhatsapp: !!sendWhatsapp,
+            sendEmail: !!sendEmail,
+            templateKind: 'admin_parent_bulk',
+            template: emailTemplate,
+            context: {
+              recipientName: parentName,
+              subject: subject.trim(),
+              message: content.trim(),
+              senderName,
+              schoolName,
+              portalUrl: PORTAL_URL,
+              extra: { childName },
+            },
             log: fastify.log,
           });
+          emailStatuses.push(delivery.emailStatus);
           created++;
         }
 
         return reply.status(201).send({
           success: true,
-          data: { created, totalTargets: pairs.length },
+          data: {
+            created,
+            totalTargets: pairs.length,
+            emailSummary: sendEmail ? summarizeStatuses(emailStatuses) : undefined,
+          },
         });
       } catch (error: any) {
         fastify.log.error({ msg: 'bulk-parent-conversations', error: error.message });
@@ -1061,6 +1180,7 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
           subject: { type: 'string', minLength: 1, maxLength: 255 },
           content: { type: 'string', minLength: 1 },
           sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
       response: {
@@ -1072,6 +1192,7 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
               type: 'object',
               properties: {
                 whatsappStatus: { type: 'string' },
+                emailStatus: { type: 'string' },
                 conversation: {
                   type: 'object',
                   properties: {
@@ -1104,12 +1225,13 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
     handler: async (request: AuthenticatedRequest, reply) => {
       const tenantId = request.tenantId;
       const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
-      const { parentId, childId, subject, content, sendWhatsapp } = request.body as {
+      const { parentId, childId, subject, content, sendWhatsapp, sendEmail } = request.body as {
         parentId: string;
         childId: string;
         subject: string;
         content: string;
         sendWhatsapp?: boolean;
+        sendEmail?: boolean;
       };
 
       if (!tenantId) {
@@ -1243,21 +1365,34 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
         const messageId = messageResult.rows[0].id;
         const sentAt = messageResult.rows[0].sent_at;
 
-        const wa = await logAndMaybeSendWhatsapp({
+        const schoolName = await resolveTenantName(pool, tenantId);
+        const delivery = await deliverMessage({
           pool,
           tenantId,
           sourceType: "admin_parent_conversation_message",
           sourceId: messageId,
           recipientUserId: parentId,
-          text: `${subject}\n\n${content}`,
+          whatsappText: `${subject}\n\n${content}`,
           sendWhatsapp: !!sendWhatsapp,
+          sendEmail: !!sendEmail,
+          templateKind: "admin_parent_new",
+          context: {
+            recipientName: parentName,
+            subject,
+            message: content,
+            senderName: adminName,
+            schoolName,
+            portalUrl: PORTAL_URL,
+            extra: { childName },
+          },
           log: fastify.log,
         });
 
         return reply.status(201).send({
           success: true,
           data: {
-            whatsappStatus: wa.whatsappStatus,
+            whatsappStatus: delivery.whatsappStatus,
+            emailStatus: delivery.emailStatus,
             conversation: {
               id: conversationId,
               parentId,
@@ -1554,6 +1689,7 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
           content: { type: 'string', minLength: 1 },
           priorityLevel: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] },
           sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
       response: {
@@ -1566,6 +1702,7 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
               properties: {
                 message: { type: 'string' },
                 sentTo: { type: 'number' },
+                emailSummary: { type: 'object', additionalProperties: { type: 'number' } },
               },
             },
           },
@@ -1575,13 +1712,22 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
     handler: async (request: AuthenticatedRequest, reply) => {
       const tenantId = request.tenantId;
       const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
-      let { teacherIds = [], subject, content, priorityLevel, allTeachers, sendWhatsapp } = request.body as {
+      let {
+        teacherIds = [],
+        subject,
+        content,
+        priorityLevel,
+        allTeachers,
+        sendWhatsapp,
+        sendEmail,
+      } = request.body as {
         teacherIds?: string[];
         subject: string;
         content: string;
         priorityLevel?: string;
         allTeachers?: boolean;
         sendWhatsapp?: boolean;
+        sendEmail?: boolean;
       };
 
       if (!tenantId) {
@@ -1707,51 +1853,66 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
         }
 
         // Get admin name
-        const adminInfo = await pool.query(
-          `SELECT COALESCE(first_name || ' ' || last_name, name) as admin_name
-           FROM users
-           WHERE id = $1`,
-          [userId]
+        const adminName = await resolveSenderName(pool, userId);
+        const schoolName = await resolveTenantName(pool, tenantId);
+        const teacherNames = new Map<string, string>(
+          teachersCheck.rows.map((row: any) => [row.user_id, row.teacher_name || ''])
         );
-        const adminName = adminInfo.rows[0]?.admin_name || 'Admin';
+        const emailTemplate = sendEmail
+          ? await loadTenantMessageTemplate(pool, tenantId, 'admin_teacher')
+          : undefined;
 
         // Insert messages for each teacher
-        const insertPromises = teacherIds.map(async (teacherId: string) => {
-          const ins = await pool.query(
-            `INSERT INTO admin_teacher_messages (
-              tenant_id,
-              admin_id,
-              teacher_id,
-              subject,
-              content,
-              priority_level
-            )
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id`,
-            [tenantId, userId, teacherId, subject, content, priorityLevel || null]
-          );
-          const mid = ins.rows[0]?.id;
-          if (mid) {
-            await logAndMaybeSendWhatsapp({
+        const deliveries = await Promise.all(
+          teacherIds.map(async (teacherId: string) => {
+            const ins = await pool.query(
+              `INSERT INTO admin_teacher_messages (
+                tenant_id,
+                admin_id,
+                teacher_id,
+                subject,
+                content,
+                priority_level
+              )
+              VALUES ($1, $2, $3, $4, $5, $6)
+              RETURNING id`,
+              [tenantId, userId, teacherId, subject, content, priorityLevel || null]
+            );
+            const mid = ins.rows[0]?.id;
+            if (!mid) return null;
+            return deliverMessage({
               pool,
               tenantId,
               sourceType: "admin_teacher_message",
               sourceId: mid,
               recipientUserId: teacherId,
-              text: `${subject}\n\n${content}`,
+              whatsappText: `${subject}\n\n${content}`,
               sendWhatsapp: !!sendWhatsapp,
+              sendEmail: !!sendEmail,
+              templateKind: 'admin_teacher',
+              template: emailTemplate,
+              context: {
+                recipientName: teacherNames.get(teacherId) || '',
+                subject,
+                message: content,
+                senderName: adminName,
+                schoolName,
+                priorityLevel,
+                portalUrl: PORTAL_URL,
+              },
               log: fastify.log,
             });
-          }
-        });
-
-        await Promise.all(insertPromises);
+          })
+        );
 
         return reply.status(201).send({
           success: true,
           data: {
             message: 'Messages envoyés avec succès',
             sentTo: teacherIds.length,
+            emailSummary: sendEmail
+              ? summarizeStatuses(deliveries.filter(Boolean).map((d: any) => d.emailStatus))
+              : undefined,
           },
         });
       } catch (error: any) {
@@ -1793,6 +1954,7 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
           content: { type: 'string', minLength: 1 },
           priorityLevel: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] },
           sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
       response: {
@@ -1805,6 +1967,7 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
               properties: {
                 message: { type: 'string' },
                 sentTo: { type: 'number' },
+                emailSummary: { type: 'object', additionalProperties: { type: 'number' } },
               },
             },
           },
@@ -1841,7 +2004,15 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const { classIds = [], studentIds = [], subject, content, priorityLevel, sendWhatsapp } = request.body as any;
+      const {
+        classIds = [],
+        studentIds = [],
+        subject,
+        content,
+        priorityLevel,
+        sendWhatsapp,
+        sendEmail,
+      } = request.body as any;
 
       if (classIds.length === 0 && studentIds.length === 0) {
         return reply.status(400).send({
@@ -1979,50 +2150,68 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
         }
 
         // Get admin name
-        const adminInfo = await pool.query(
-          `SELECT COALESCE(first_name || ' ' || last_name, name) as admin_name
-           FROM users
-           WHERE id = $1`,
-          [userId]
+        const adminName = await resolveSenderName(pool, userId);
+        const schoolName = await resolveTenantName(pool, tenantId);
+        const emailTemplate = sendEmail
+          ? await loadTenantMessageTemplate(pool, tenantId, 'admin_student')
+          : undefined;
+
+        // Compte utilisateur et nom de chaque étudiant ciblé, en une requête.
+        const studentAccounts = await pool.query(
+          `SELECT sp.id, sp.user_id,
+                  COALESCE(u.first_name || ' ' || u.last_name, u.name) AS student_name
+             FROM student_profiles sp
+             JOIN users u ON u.id = sp.user_id
+            WHERE sp.id = ANY($1::uuid[]) AND sp.tenant_id = $2`,
+          [targetStudentIds, tenantId]
         );
-        const adminName = adminInfo.rows[0]?.admin_name || 'Admin';
+        const accountByProfile = new Map<string, { userId: string; name: string }>(
+          studentAccounts.rows.map((row: any) => [row.id, { userId: row.user_id, name: row.student_name || '' }])
+        );
 
         // Insert messages for each student
-        const insertPromises = targetStudentIds.map(async (studentProfileId: string) => {
-          const ins = await pool.query(
-            `INSERT INTO admin_student_messages (
-              tenant_id,
-              admin_id,
-              student_id,
-              subject,
-              content,
-              priority_level
-            )
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id`,
-            [tenantId, userId, studentProfileId, subject, content, priorityLevel || null]
-          );
-          const mid = ins.rows[0]?.id;
-          const su = await pool.query(
-            `SELECT user_id FROM student_profiles WHERE id = $1 AND tenant_id = $2`,
-            [studentProfileId, tenantId]
-          );
-          const studentUserId = su.rows[0]?.user_id;
-          if (mid && studentUserId) {
-            await logAndMaybeSendWhatsapp({
+        const deliveries = await Promise.all(
+          targetStudentIds.map(async (studentProfileId: string) => {
+            const ins = await pool.query(
+              `INSERT INTO admin_student_messages (
+                tenant_id,
+                admin_id,
+                student_id,
+                subject,
+                content,
+                priority_level
+              )
+              VALUES ($1, $2, $3, $4, $5, $6)
+              RETURNING id`,
+              [tenantId, userId, studentProfileId, subject, content, priorityLevel || null]
+            );
+            const mid = ins.rows[0]?.id;
+            const account = accountByProfile.get(studentProfileId);
+            if (!mid || !account?.userId) return null;
+            return deliverMessage({
               pool,
               tenantId,
               sourceType: 'admin_student_message',
               sourceId: mid,
-              recipientUserId: studentUserId,
-              text: `${subject}\n\n${content}`,
+              recipientUserId: account.userId,
+              whatsappText: `${subject}\n\n${content}`,
               sendWhatsapp: !!sendWhatsapp,
+              sendEmail: !!sendEmail,
+              templateKind: 'admin_student',
+              template: emailTemplate,
+              context: {
+                recipientName: account.name,
+                subject,
+                message: content,
+                senderName: adminName,
+                schoolName,
+                priorityLevel,
+                portalUrl: PORTAL_URL,
+              },
               log: fastify.log,
             });
-          }
-        });
-
-        await Promise.all(insertPromises);
+          })
+        );
 
         fastify.log.info({
           msg: 'Admin announcement sent to students',
@@ -2038,6 +2227,9 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
           data: {
             message: `Annonce envoyée à ${targetStudentIds.length} étudiant(s) avec succès`,
             sentTo: targetStudentIds.length,
+            emailSummary: sendEmail
+              ? summarizeStatuses(deliveries.filter(Boolean).map((d: any) => d.emailStatus))
+              : undefined,
           },
         });
       } catch (error: any) {
@@ -2172,6 +2364,346 @@ export async function adminMessagesRoutes(fastify: FastifyInstance) {
           error: 'Internal Server Error',
           message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : error.message,
         });
+      }
+    },
+  });
+
+  /* ======================================================================
+   * Modèles d'email — un modèle personnalisable par type d'envoi
+   * ==================================================================== */
+
+  /** Valide un couple sujet/corps reçu du client. `null` = payload invalide. */
+  function parseTemplatePayload(value: unknown): MessageEmailTemplate | null {
+    const candidate = value as Partial<MessageEmailTemplate> | null | undefined;
+    const subject = typeof candidate?.subject === 'string' ? candidate.subject.trim() : '';
+    const body = typeof candidate?.body === 'string' ? candidate.body.trim() : '';
+    if (!subject || subject.length > 255) return null;
+    if (!body || body.length > 50_000) return null;
+    return { subject, body };
+  }
+
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  /** Schéma de paramètre commun aux routes `:kind`. */
+  const KIND_PARAMS = {
+    type: 'object',
+    required: ['kind'],
+    properties: { kind: { type: 'string', enum: MESSAGE_TEMPLATE_KINDS } },
+  } as const;
+
+  /** Métadonnées statiques d'un modèle, partagées par toutes les réponses. */
+  function templateMeta(kind: MessageTemplateKind) {
+    const definition = MESSAGE_TEMPLATE_DEFINITIONS[kind];
+    return {
+      kind,
+      profile: definition.profile,
+      profileLabel: MESSAGE_TEMPLATE_PROFILE_LABELS[definition.profile],
+      label: definition.label,
+      description: definition.description,
+      accent: definition.accent,
+      variables: definition.variables,
+      defaults: definition.defaults,
+    };
+  }
+
+  // GET /api/v1/admin/messages/email-templates — tous les modèles du tenant
+  fastify.get('/email-templates', {
+    schema: {
+      tags: ['Admin Messages'],
+      summary: "Modèles d'email des messages administratifs",
+      querystring: { type: 'object', properties: {} },
+    },
+    handler: async (request: AuthenticatedRequest, reply) => {
+      const tenantId = request.tenantId;
+      if (!tenantId) {
+        return reply.status(400).send({ success: false, error: 'Tenant Required', message: 'Tenant context requis' });
+      }
+      if (!isAdmin(request.user?.roles)) {
+        return reply.status(403).send({ success: false, error: 'Forbidden', message: 'Admin role required' });
+      }
+
+      try {
+        const [templates, schoolName] = await Promise.all([
+          loadTenantMessageTemplates(pool, tenantId),
+          resolveTenantName(pool, tenantId),
+        ]);
+
+        return reply.send({
+          success: true,
+          data: {
+            emailConfigured: emailService.isConfigured(),
+            schoolName,
+            portalUrl: PORTAL_URL,
+            logoUrl: emailLogoPreviewUrl(WEB_ORIGIN),
+            templates: MESSAGE_TEMPLATE_KINDS.map((kind) => ({
+              ...templateMeta(kind),
+              ...templates[kind],
+              isCustomized:
+                templates[kind].subject !== MESSAGE_TEMPLATE_DEFINITIONS[kind].defaults.subject ||
+                templates[kind].body !== MESSAGE_TEMPLATE_DEFINITIONS[kind].defaults.body,
+            })),
+          },
+        });
+      } catch (error: any) {
+        fastify.log.error({ msg: 'Error loading message email templates', error: error.message });
+        return reply.status(500).send({
+          success: false,
+          error: 'Internal Server Error',
+          message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : error.message,
+        });
+      }
+    },
+  });
+
+  // PUT /api/v1/admin/messages/email-templates/:kind — personnalise un modèle
+  fastify.put('/email-templates/:kind', {
+    schema: { tags: ['Admin Messages'], summary: "Enregistre un modèle d'email", params: KIND_PARAMS },
+    handler: async (request: AuthenticatedRequest, reply) => {
+      const tenantId = request.tenantId;
+      const { kind } = request.params as { kind: string };
+      if (!tenantId) {
+        return reply.status(400).send({ success: false, error: 'Tenant Required', message: 'Tenant context requis' });
+      }
+      if (!isAdmin(request.user?.roles)) {
+        return reply.status(403).send({ success: false, error: 'Forbidden', message: 'Admin role required' });
+      }
+      if (!isMessageTemplateKind(kind)) {
+        return reply.status(400).send({ success: false, error: 'Bad Request', message: "Type de modèle inconnu" });
+      }
+
+      const parsed = parseTemplatePayload(request.body);
+      if (!parsed) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Bad Request',
+          message: 'Le sujet et le corps du modèle sont requis',
+        });
+      }
+
+      try {
+        await saveTenantMessageTemplate(pool, tenantId, kind, parsed);
+        return reply.send({ success: true, data: { ...templateMeta(kind), ...parsed, isCustomized: true } });
+      } catch (error: any) {
+        fastify.log.error({ msg: 'Error saving message email template', kind, error: error.message });
+        return reply.status(500).send({
+          success: false,
+          error: 'Internal Server Error',
+          message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : error.message,
+        });
+      }
+    },
+  });
+
+  // DELETE /api/v1/admin/messages/email-templates/:kind — retour au modèle par défaut
+  fastify.delete('/email-templates/:kind', {
+    schema: { tags: ['Admin Messages'], summary: "Réinitialise un modèle d'email", params: KIND_PARAMS },
+    handler: async (request: AuthenticatedRequest, reply) => {
+      const tenantId = request.tenantId;
+      const { kind } = request.params as { kind: string };
+      if (!tenantId) {
+        return reply.status(400).send({ success: false, error: 'Tenant Required', message: 'Tenant context requis' });
+      }
+      if (!isAdmin(request.user?.roles)) {
+        return reply.status(403).send({ success: false, error: 'Forbidden', message: 'Admin role required' });
+      }
+      if (!isMessageTemplateKind(kind)) {
+        return reply.status(400).send({ success: false, error: 'Bad Request', message: "Type de modèle inconnu" });
+      }
+
+      try {
+        await resetTenantMessageTemplate(pool, tenantId, kind);
+        const defaults = MESSAGE_TEMPLATE_DEFINITIONS[kind].defaults;
+        return reply.send({ success: true, data: { ...templateMeta(kind), ...defaults, isCustomized: false } });
+      } catch (error: any) {
+        fastify.log.error({ msg: 'Error resetting message email template', kind, error: error.message });
+        return reply.status(500).send({
+          success: false,
+          error: 'Internal Server Error',
+          message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : error.message,
+        });
+      }
+    },
+  });
+
+  // POST /api/v1/admin/messages/email-templates/:kind/preview — rendu HTML
+  fastify.post('/email-templates/:kind/preview', {
+    schema: { tags: ['Admin Messages'], summary: "Aperçu HTML d'un modèle d'email", params: KIND_PARAMS },
+    handler: async (request: AuthenticatedRequest, reply) => {
+      const tenantId = request.tenantId;
+      const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
+      const { kind } = request.params as { kind: string };
+      if (!tenantId) {
+        return reply.status(400).send({ success: false, error: 'Tenant Required', message: 'Tenant context requis' });
+      }
+      if (!isAdmin(request.user?.roles)) {
+        return reply.status(403).send({ success: false, error: 'Forbidden', message: 'Admin role required' });
+      }
+      if (!isMessageTemplateKind(kind)) {
+        return reply.status(400).send({ success: false, error: 'Bad Request', message: "Type de modèle inconnu" });
+      }
+
+      try {
+        // Le brouillon en cours d'édition prime ; sinon on rend le modèle enregistré.
+        const draft = parseTemplatePayload((request.body as any)?.template);
+        const template: MessageEmailTemplate =
+          draft ?? (await loadTenantMessageTemplate(pool, tenantId, kind));
+
+        const [schoolName, senderName] = await Promise.all([
+          resolveTenantName(pool, tenantId),
+          resolveSenderName(pool, userId),
+        ]);
+
+        const context = buildSampleContext(kind, { schoolName, senderName, portalUrl: PORTAL_URL });
+        // Aperçu navigateur : le logo est servi en http, pas en CID.
+        const rendered = renderMessageEmail(kind, template, context, {
+          logoSrc: emailLogoPreviewUrl(WEB_ORIGIN),
+        });
+
+        return reply.send({ success: true, data: { kind, ...rendered } });
+      } catch (error: any) {
+        fastify.log.error({ msg: 'Error previewing message email template', kind, error: error.message });
+        return reply.status(500).send({
+          success: false,
+          error: 'Internal Server Error',
+          message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : error.message,
+        });
+      }
+    },
+  });
+
+  // POST /api/v1/admin/messages/email-templates/:kind/test — email de test
+  fastify.post('/email-templates/:kind/test', {
+    schema: { tags: ['Admin Messages'], summary: "Envoie un email de test avec le modèle", params: KIND_PARAMS },
+    handler: async (request: AuthenticatedRequest, reply) => {
+      const tenantId = request.tenantId;
+      const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
+      const { kind } = request.params as { kind: string };
+      if (!tenantId) {
+        return reply.status(400).send({ success: false, error: 'Tenant Required', message: 'Tenant context requis' });
+      }
+      if (!isAdmin(request.user?.roles)) {
+        return reply.status(403).send({ success: false, error: 'Forbidden', message: 'Admin role required' });
+      }
+      if (!isMessageTemplateKind(kind)) {
+        return reply.status(400).send({ success: false, error: 'Bad Request', message: "Type de modèle inconnu" });
+      }
+      if (!emailService.isConfigured()) {
+        return reply.status(503).send({
+          success: false,
+          error: 'Email Not Configured',
+          message:
+            "Service email non configuré (variables SMTP_HOST / SMTP_USER / SMTP_PASSWORD manquantes).",
+        });
+      }
+
+      const rawTo = (request.body as any)?.to;
+      const to = typeof rawTo === 'string' ? rawTo.trim() : '';
+      if (!EMAIL_RE.test(to)) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Bad Request',
+          message: 'Adresse email de test invalide',
+        });
+      }
+
+      try {
+        const draft = parseTemplatePayload((request.body as any)?.template);
+        const template: MessageEmailTemplate =
+          draft ?? (await loadTenantMessageTemplate(pool, tenantId, kind));
+
+        const [schoolName, senderName] = await Promise.all([
+          resolveTenantName(pool, tenantId),
+          resolveSenderName(pool, userId),
+        ]);
+
+        const context = buildSampleContext(kind, { schoolName, senderName, portalUrl: PORTAL_URL });
+        const { subject, html, text } = renderMessageEmail(kind, template, context);
+
+        await emailService.sendEmail({
+          to,
+          subject: `[TEST] ${subject}`,
+          html,
+          text,
+          attachments: emailLogoAttachments(),
+        });
+
+        return reply.send({ success: true, data: { sentTo: to } });
+      } catch (error: any) {
+        fastify.log.error({ msg: 'Error sending test email', kind, error: error.message });
+        return reply.status(502).send({
+          success: false,
+          error: 'Email Send Failed',
+          message: error.message || "Échec de l'envoi de l'email de test",
+        });
+      }
+    },
+  });
+
+  // GET /api/v1/admin/messages/delivery-log — journal des relais WhatsApp / email
+  fastify.get('/delivery-log', {
+    schema: {
+      tags: ['Admin Messages'],
+      summary: 'Journal des envois relayés (WhatsApp, email)',
+      querystring: {
+        type: 'object',
+        properties: {
+          channel: { type: 'string', enum: ['whatsapp', 'email'] },
+          limit: { type: 'number', minimum: 1, maximum: 100, default: 25 },
+        },
+      },
+    },
+    handler: async (request: AuthenticatedRequest, reply) => {
+      const tenantId = request.tenantId;
+      const { channel, limit = 25 } = request.query as { channel?: string; limit?: number };
+      if (!tenantId) {
+        return reply.status(400).send({ success: false, error: 'Tenant Required', message: 'Tenant context requis' });
+      }
+      if (!isAdmin(request.user?.roles)) {
+        return reply.status(403).send({ success: false, error: 'Forbidden', message: 'Admin role required' });
+      }
+
+      try {
+        await pool.query('SELECT set_config($1, $2, true)', ['app.tenant_id', tenantId]);
+        await ensureDeliveryLogChannelColumn(pool);
+
+        const params: any[] = [tenantId];
+        let where = 'WHERE l.tenant_id = $1';
+        if (channel) {
+          params.push(channel);
+          where += ` AND l.channel = $${params.length}`;
+        }
+        params.push(limit);
+
+        const result = await pool.query(
+          `SELECT l.id, l.channel, l.source_type, l.status, l.message_preview,
+                  l.phone_e164, l.recipient_address, l.error_message, l.created_at,
+                  COALESCE(u.first_name || ' ' || u.last_name, u.name) AS recipient_name
+             FROM app_whatsapp_delivery_log l
+             LEFT JOIN users u ON u.id = l.recipient_user_id
+             ${where}
+             ORDER BY l.created_at DESC
+             LIMIT $${params.length}`,
+          params
+        );
+
+        return reply.send({
+          success: true,
+          data: result.rows.map((row: any) => ({
+            id: row.id,
+            channel: row.channel || 'whatsapp',
+            sourceType: row.source_type,
+            status: row.status,
+            preview: row.message_preview,
+            recipientName: row.recipient_name,
+            recipientAddress: row.recipient_address || row.phone_e164,
+            errorMessage: row.error_message,
+            createdAt: row.created_at,
+          })),
+        });
+      } catch (error: any) {
+        // La table n'existe pas tant qu'aucun envoi n'a eu lieu : journal vide.
+        fastify.log.warn({ msg: 'delivery-log unavailable', error: error.message });
+        return reply.send({ success: true, data: [] });
       }
     },
   });

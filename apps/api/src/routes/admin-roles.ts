@@ -14,6 +14,9 @@ import {
   AdminUserCreateBodySchema,
   AdminUsersListResponseSchema,
   AdminManagedUserSchema,
+  RoleMenuSettingSchema,
+  RoleMenusListResponseSchema,
+  RoleMenusPutBodySchema,
 } from "@ecoledigitale/contracts";
 import { requireOwnerOrAdmin } from "../middlewares/requireOwner";
 import {
@@ -24,6 +27,8 @@ import {
   isAdminRolesFailure,
   listAdminRoles,
   listManagedUsers,
+  listRoleMenuSettings,
+  setRoleMenus,
   setUserAdminRole,
   updateAdminRole,
   type AdminRolesFailure,
@@ -77,6 +82,35 @@ export async function adminRolesRoutes(fastify: FastifyInstance) {
     );
     reply.send(AdminMyMenusResponseSchema.parse(result));
   });
+
+  // -------------------------------------------------------------------------
+  // Menus par défaut des rôles socle (onglet « Menus par rôle » de /owner/acces)
+  // -------------------------------------------------------------------------
+  fastify.get("/role-menus", { preHandler: requireOwnerOrAdmin }, async (request, reply) => {
+    const roles = await listRoleMenuSettings(fastify.pg as Pool, request.tenantId!, request.log);
+    reply.send(RoleMenusListResponseSchema.parse({ roles }));
+  });
+
+  fastify.put<{ Params: { roleKey: string } }>(
+    "/role-menus/:roleKey",
+    { preHandler: requireOwnerOrAdmin },
+    async (request, reply) => {
+      const parsed = RoleMenusPutBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return sendBadRequest(reply, parsed.error.flatten().fieldErrors);
+      }
+
+      const result = await setRoleMenus(
+        fastify.pg as Pool,
+        request.tenantId!,
+        request.params.roleKey,
+        parsed.data.allowedMenuKeys,
+        request.log
+      );
+      if (isAdminRolesFailure(result)) return sendFailure(reply, result);
+      reply.send(RoleMenuSettingSchema.parse(result.value));
+    }
+  );
 
   // -------------------------------------------------------------------------
   // Rôles

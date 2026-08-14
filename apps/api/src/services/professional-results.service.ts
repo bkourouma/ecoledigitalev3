@@ -31,6 +31,52 @@ export const ECUE_VALIDATION_THRESHOLD = SEUIL_VALIDATION;
 /** Exclut la « Conduite » (note, pas une matière) des calculs de moyenne. */
 const NOT_CONDUITE = `NOT (e.libelle ILIKE 'conduite%' OR e.code ILIKE '%EC-CON%')`;
 
+/**
+ * Jointures minimales pour raisonner sur les rattrapages : résultat ECUE `r`,
+ * cohorte `s`, UE `u`, ECUE `e`. Partagées par la liste des rattrapages et par
+ * ses sélecteurs (filière / semestre), qui doivent voir exactement la même
+ * chose : un semestre proposé dans le sélecteur mais vide à l'ouverture serait
+ * un bug visible.
+ */
+const RATTRAPAGE_FROM = `
+  FROM professional_ecue_results r
+  JOIN professional_ue_sessions s ON s.id = r.ue_session_id AND s.tenant_id = r.tenant_id
+  JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
+  JOIN professional_ecue e ON e.id = r.ecue_id AND e.tenant_id = r.tenant_id`;
+
+/**
+ * Un rattrapage = un résultat ECUE CALCULÉ mais NON validé, porté par une
+ * inscription confirmée/terminée, hors ECUE de conduite. Une ECUE sans note
+ * (`moyenne IS NULL`) n'en est pas un : l'étudiant n'a pas encore été noté.
+ * Suppose les alias de `RATTRAPAGE_FROM` et `$1` = tenant.
+ */
+const RATTRAPAGE_PREDICATE = `
+  COALESCE(r.validee, false) = false
+  AND r.moyenne IS NOT NULL
+  AND ${NOT_CONDUITE}
+  AND EXISTS (SELECT 1 FROM professional_enrollments en
+              WHERE en.ue_session_id = s.id AND en.student_id = r.student_id
+                AND en.tenant_id = r.tenant_id
+                AND en.statut IN ('confirmee','terminee'))`;
+
+/** Restriction enseignant : les ECUE qui lui sont affectées dans la cohorte `s`. */
+function teacherEcueFilterSql(param: string): string {
+  return `AND r.ecue_id IN (
+    SELECT a.ecue_id FROM professional_session_ecue_teachers a
+    JOIN teachers t ON t.id = a.enseignant_id
+    WHERE a.ue_session_id = s.id AND t.user_id = ${param} AND a.tenant_id = $1)`;
+}
+
+/** Rattachement d'une cohorte `s` à un semestre (directement ou via son UE). */
+function semestreLinkSql(semestreParam: string, tenantRef = "$1"): string {
+  return `(
+    s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+             WHERE semestre_id = ${semestreParam} AND tenant_id = ${tenantRef})
+    OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                   WHERE semestre_id = ${semestreParam} AND tenant_id = ${tenantRef})
+  )`;
+}
+
 interface EcueBreakdown {
   moyenneDevoirs: number | null;
   noteExamen: number | null;
@@ -751,6 +797,139 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
     });
   }
 
+  /**
+   * Semestres ouverts à la SAISIE DES CONDUITES, avec leur filière.
+   *
+   * Un semestre y figure tant qu'il reste quelque chose à y faire :
+   *   - il a encore au moins une cohorte active (hors UE « Conduite », qui n'est
+   *     jamais clôturée et fausserait le test) ; OU
+   *   - au moins un étudiant n'a pas sa note de conduite, même si toutes les
+   *     cohortes sont terminées : on ne perd pas un semestre à finaliser.
+   *
+   * Un semestre sans aucune cohorte est écarté (rien à noter), et un semestre
+   * dépourvu d'ECUE « Conduite » ne compte aucune note manquante — sans quoi il
+   * resterait indéfiniment dans la liste, aucune saisie n'y étant possible.
+   *
+   * `filiereId` restreint au besoin à une filière ; sinon tout le tenant, ce qui
+   * sert à dresser la liste des filières encore concernées.
+   */
+  private async conduiteSemestreRows(
+    client: PoolClient,
+    tenantId: string,
+    filiereId?: string
+  ): Promise<any[]> {
+    const params: any[] = [tenantId];
+    let filiereFilter = "";
+    if (filiereId) {
+      params.push(filiereId);
+      filiereFilter = `AND sm.filiere_id = $${params.length}`;
+    }
+    const r = await client.query(
+      `WITH sem AS (
+         SELECT sm.id, sm.libelle, sm.filiere_id,
+                p.name AS filiere_nom, p.code AS filiere_code
+         FROM professional_semestres sm
+         JOIN programmes p ON p.id = sm.filiere_id
+         WHERE sm.tenant_id = $1 ${filiereFilter}
+       ),
+       sess AS (
+         SELECT sem.id AS semestre_id, s.id AS ue_session_id, s.ue_id, s.statut,
+                u.libelle AS ue_libelle, s.date_debut
+         FROM sem
+         JOIN professional_ue_sessions s ON s.tenant_id = $1 AND (
+                s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                         WHERE semestre_id = sem.id AND tenant_id = $1)
+             OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                            WHERE semestre_id = sem.id AND tenant_id = $1))
+         JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
+       ),
+       agg AS (
+         SELECT semestre_id,
+                count(*)::int AS nb_sessions,
+                count(*) FILTER (
+                  WHERE statut NOT IN ('termine','annule')
+                    AND ue_libelle NOT ILIKE 'conduite%'
+                )::int AS nb_sessions_actives,
+                min(date_debut)::text AS date_debut
+         FROM sess GROUP BY semestre_id
+       ),
+       cond AS (
+         SELECT DISTINCT ON (se.semestre_id)
+                se.semestre_id, se.ue_session_id, e.id AS ecue_id
+         FROM sess se
+         JOIN professional_ue_ecue l ON l.ue_id = se.ue_id AND l.tenant_id = $1
+         JOIN professional_ecue e ON e.id = l.ecue_id AND e.tenant_id = $1
+         WHERE e.libelle ILIKE 'conduite%' OR e.code ILIKE '%EC-CON%'
+         ORDER BY se.semestre_id
+       ),
+       etu AS (
+         SELECT DISTINCT se.semestre_id, en.student_id
+         FROM sess se
+         JOIN professional_enrollments en
+           ON en.ue_session_id = se.ue_session_id AND en.tenant_id = $1
+          AND en.statut IN ('confirmee','terminee')
+       ),
+       manque AS (
+         SELECT e.semestre_id, count(*)::int AS nb
+         FROM etu e
+         JOIN cond c ON c.semestre_id = e.semestre_id
+         WHERE NOT EXISTS (
+           SELECT 1 FROM professional_ecue_notes n
+           WHERE n.tenant_id = $1 AND n.student_id = e.student_id
+             AND n.ecue_id = c.ecue_id AND n.ue_session_id = c.ue_session_id
+             AND n.nature = 'examen'
+         )
+         GROUP BY e.semestre_id
+       )
+       SELECT sem.id, sem.libelle, sem.filiere_id, sem.filiere_nom, sem.filiere_code,
+              agg.nb_sessions, agg.nb_sessions_actives, agg.date_debut,
+              COALESCE(manque.nb, 0)::int AS nb_conduites_manquantes
+       FROM sem
+       JOIN agg ON agg.semestre_id = sem.id
+       LEFT JOIN manque ON manque.semestre_id = sem.id
+       WHERE agg.nb_sessions > 0
+         AND (agg.nb_sessions_actives > 0 OR COALESCE(manque.nb, 0) > 0)
+       ORDER BY sem.filiere_nom, sem.libelle`,
+      params
+    );
+    return r.rows;
+  }
+
+  /**
+   * Filières encore concernées par la saisie des conduites : celles ayant au
+   * moins un semestre retenu par `conduiteSemestreRows`. Une filière dont aucun
+   * semestre n'a de cohorte n'apparaît donc pas, et une filière dont les
+   * cohortes sont terminées reste visible tant qu'une conduite manque.
+   */
+  async listConduiteFilieres(tenantId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const rows = await this.conduiteSemestreRows(client, tenantId);
+      const byId = new Map<string, any>();
+      for (const r of rows) {
+        if (!byId.has(r.filiere_id)) {
+          byId.set(r.filiere_id, {
+            id: r.filiere_id,
+            name: r.filiere_nom,
+            code: r.filiere_code,
+            nb_conduites_manquantes: 0,
+          });
+        }
+        byId.get(r.filiere_id).nb_conduites_manquantes += Number(r.nb_conduites_manquantes ?? 0);
+      }
+      return ok(Array.from(byId.values()));
+    });
+  }
+
+  /** Semestres d'une filière ouverts à la saisie des conduites. */
+  async listConduiteSemestres(
+    tenantId: string,
+    filiereId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) =>
+      ok(await this.conduiteSemestreRows(client, tenantId, filiereId))
+    );
+  }
+
   async getSessionGrid(
     tenantId: string,
     ueSessionId: string,
@@ -848,6 +1027,123 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
         notes: notes.rows,
         submissions: submissions.rows,
       });
+    });
+  }
+
+  /**
+   * Étudiants en rattrapage (Session 2) d'un semestre — une ligne par couple
+   * (étudiant, ECUE) dont le résultat est CALCULÉ mais NON validé (< 10).
+   *
+   * Alimente la page « Rattrapages » : dès que la note d'examen de Session 2
+   * fait passer l'ECUE à ≥ 10, le résultat devient validé et la ligne sort
+   * d'elle-même de la liste. Les ECUE sans note calculée (`moyenne IS NULL`)
+   * ne sont pas des rattrapages : l'étudiant n'a simplement pas encore été
+   * noté en Session 1.
+   *
+   * Enseignant (`teacherUserId`) : limité aux ECUE qui lui sont affectées.
+   */
+  async listSemestreRattrapages(
+    tenantId: string,
+    semestreId: string,
+    teacherUserId?: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const params: any[] = [tenantId, semestreId];
+      let teacherFilter = "";
+      if (teacherUserId) {
+        params.push(teacherUserId);
+        teacherFilter = teacherEcueFilterSql("$3");
+      }
+      const rows = await client.query(
+        `SELECT r.id AS result_id, r.student_id, r.ecue_id, s.id AS ue_session_id,
+                s.statut AS session_statut, s.libelle AS session_libelle,
+                u.id AS ue_id, u.code AS ue_code, u.libelle AS ue_libelle,
+                e.code AS ecue_code, e.libelle AS ecue_libelle, e.credits::int AS credits,
+                r.moyenne::float8 AS moyenne,
+                r.moyenne_devoirs::float8 AS moyenne_devoirs,
+                r.note_examen::float8 AS note_examen, r.eliminee,
+                usr.first_name, usr.last_name, sp.student_number AS matricule,
+                n1.note::float8 AS note_examen_s1,
+                n2.id AS note_s2_id, n2.note::float8 AS note_examen_s2
+         ${RATTRAPAGE_FROM}
+         JOIN student_profiles sp ON sp.id = r.student_id
+         JOIN users usr ON usr.id = sp.user_id
+         LEFT JOIN professional_ecue_notes n1
+           ON n1.tenant_id = r.tenant_id AND n1.ecue_id = r.ecue_id
+          AND n1.student_id = r.student_id AND n1.ue_session_id = s.id
+          AND n1.nature = 'examen' AND n1.session = 1
+         LEFT JOIN professional_ecue_notes n2
+           ON n2.tenant_id = r.tenant_id AND n2.ecue_id = r.ecue_id
+          AND n2.student_id = r.student_id AND n2.ue_session_id = s.id
+          AND n2.nature = 'examen' AND n2.session = 2
+         WHERE r.tenant_id = $1
+           AND ${RATTRAPAGE_PREDICATE}
+           AND ${semestreLinkSql("$2")} ${teacherFilter}
+         ORDER BY usr.last_name, usr.first_name, u.code, e.code`,
+        params
+      );
+      return ok(rows.rows);
+    });
+  }
+
+  /**
+   * Filières ayant au moins un rattrapage en attente — sélecteur de la page
+   * « Rattrapages ». Une filière dont tout est validé n'y figure pas : l'écran
+   * ne propose que des choix qui donnent quelque chose à voir.
+   */
+  async listRattrapageFilieres(
+    tenantId: string,
+    teacherUserId?: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const params: any[] = [tenantId];
+      let teacherFilter = "";
+      if (teacherUserId) {
+        params.push(teacherUserId);
+        teacherFilter = teacherEcueFilterSql("$2");
+      }
+      const rows = await client.query(
+        `SELECT DISTINCT p.id, p.name, p.code
+         ${RATTRAPAGE_FROM}
+         JOIN programmes p ON p.id = u.filiere_id AND p.tenant_id = u.tenant_id
+         WHERE r.tenant_id = $1 AND ${RATTRAPAGE_PREDICATE} ${teacherFilter}
+         ORDER BY p.name`,
+        params
+      );
+      return ok(rows.rows);
+    });
+  }
+
+  /**
+   * Semestres d'une filière ayant au moins un rattrapage en attente, avec le
+   * nombre d'ECUE concernées. Même règle que `listRattrapageFilieres`.
+   */
+  async listRattrapageSemestres(
+    tenantId: string,
+    filiereId: string,
+    teacherUserId?: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const params: any[] = [tenantId, filiereId];
+      let teacherFilter = "";
+      if (teacherUserId) {
+        params.push(teacherUserId);
+        teacherFilter = teacherEcueFilterSql("$3");
+      }
+      const rows = await client.query(
+        `SELECT sm.id, sm.libelle,
+                (SELECT count(*)::int
+                 ${RATTRAPAGE_FROM}
+                 WHERE r.tenant_id = sm.tenant_id AND ${RATTRAPAGE_PREDICATE}
+                   AND ${semestreLinkSql("sm.id", "sm.tenant_id")} ${teacherFilter}
+                ) AS nb_rattrapages
+         FROM professional_semestres sm
+         WHERE sm.tenant_id = $1 AND sm.filiere_id = $2
+         ORDER BY sm.libelle`,
+        params
+      );
+      // Le comptage sert aussi de filtre : pas de rattrapage, pas de semestre.
+      return ok(rows.rows.filter((x: any) => Number(x.nb_rattrapages ?? 0) > 0));
     });
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Loader2,
   UserCheck,
@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/table";
 import { useOwnerAssiduite, buildQueryString } from "@/lib/hooks/use-owner-assiduite";
 import { ExportCsvButton } from "@/components/owner/charts/ExportCsvButton";
-import { useOwnerStatsFilters } from "@/lib/hooks/use-owner-stats-filters";
+import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
 import { StatCard } from "@/components/owner/charts/StatCard";
 import { BarChartCard } from "@/components/owner/charts/BarChartCard";
 import { LineChartCard } from "@/components/owner/charts/LineChartCard";
@@ -58,10 +58,15 @@ const HEURES = Array.from({ length: 12 }, (_, i) => ({
 export default function OwnerAssiduitePage() {
   const [dateDebut, setDateDebut] = useState<string>("");
   const [dateFin, setDateFin] = useState<string>("");
-  const [filiereIds, setFiliereIds] = useState<string[]>([]);
   const [semestreId, setSemestreId] = useState<string>(ALL);
 
-  const { data: filters } = useOwnerStatsFilters();
+  // Filières prises dans le filtre global ; le semestre reste propre à l'écran.
+  const { filiereIds, options: filters } = useOwnerFilters();
+
+  // Un semestre choisi peut ne plus appartenir aux filières retenues.
+  useEffect(() => {
+    setSemestreId(ALL);
+  }, [filiereIds]);
 
   const params = useMemo(
     () => ({
@@ -181,17 +186,7 @@ export default function OwnerAssiduitePage() {
               onChange={(e) => setDateFin(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label>Filières</Label>
-            <FiliereFilter
-              filieres={filters?.filieres ?? []}
-              value={filiereIds}
-              onChange={(next) => {
-                setFiliereIds(next);
-                setSemestreId(ALL);
-              }}
-            />
-          </div>
+          {/* Les filières sont portées par la barre de filtre globale. */}
           <div className="space-y-2">
             <Label>Semestre</Label>
             <Select value={semestreId} onValueChange={setSemestreId}>

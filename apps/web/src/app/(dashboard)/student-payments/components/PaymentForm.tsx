@@ -288,7 +288,7 @@ export function PaymentForm({ selectedPayment, onClose, onSuccess }: PaymentForm
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="Ex: +225 07 12 34 56 78"
+                  placeholder="Ex: +225 07 07 12 34 56"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   required

@@ -9,6 +9,11 @@ export const OwnerAlertSchema = z.object({
   domain: z.string(),
   createdAt: z.string(),
   acknowledgedAt: z.string().nullable().optional(),
+  /**
+   * Lien profond vers l'écran qui permet d'agir. Une alerte sans lien n'est
+   * qu'un constat : le propriétaire lit le chiffre sans savoir où le traiter.
+   */
+  href: z.string().nullable().optional(),
 });
 
 export const OwnerDashboardFinancesSchema = z.object({
@@ -123,8 +128,15 @@ export const OwnerFinancesTotalsSchema = z.object({
   expectedTuition: z.number(),
   collectedTuition: z.number(),
   recoveryRate: z.number(),
+  /** Compté en SQL sur TOUTES les échéances en retard, pas sur la liste renvoyée. */
   overdueCount: z.number(),
+  /** Idem : somme sur tout le périmètre, jamais sur la liste tronquée. */
   overdueAmount: z.number(),
+  /**
+   * `true` quand `overdueInstallments` ne montre qu'un extrait des impayés.
+   * L'écran doit le dire plutôt que de laisser croire à une liste exhaustive.
+   */
+  overdueListTruncated: z.boolean().default(false),
   teacherPayrollTotal: z.number(),
 });
 

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { useOwnerFinancesPro, buildQueryString } from "@/lib/hooks/use-owner-finances-pro";
 import { ExportCsvButton } from "@/components/owner/charts/ExportCsvButton";
-import { useOwnerStatsFilters } from "@/lib/hooks/use-owner-stats-filters";
+import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
 import { StatCard } from "@/components/owner/charts/StatCard";
 import { ChartCard } from "@/components/owner/charts/ChartCard";
 import { BarChartCard } from "@/components/owner/charts/BarChartCard";
@@ -67,24 +67,34 @@ const ETAT_LABELS = {
 } as const;
 
 export default function OwnerFinancesProfessionnelPage() {
-  const [period, setPeriod] = useState<OwnerFinancesProPeriod>("year");
-  const [anneeScolaire, setAnneeScolaire] = useState<string>(ALL);
-  const [filiereIds, setFiliereIds] = useState<string[]>([]);
   const [mode, setMode] = useState<string>(ALL);
   const [etat, setEtat] = useState<keyof typeof ETAT_LABELS>("tous");
 
-  const { data: filters } = useOwnerStatsFilters();
+  // Période, année et filières viennent du filtre global ; mode de règlement et
+  // état de règlement restent propres à cet écran.
+  const {
+    period: globalPeriod,
+    anneeScolaire,
+    filiereIds,
+    dateDebut,
+    dateFin,
+  } = useOwnerFilters();
 
-  const params = useMemo(
-    () => ({
+  const params = useMemo(() => {
+    // « Année scolaire » dans la barre globale désigne la fenêtre de l'année
+    // académique — `academic_year` dans le vocabulaire de cet endpoint.
+    const period: OwnerFinancesProPeriod =
+      globalPeriod === "year" ? "academic_year" : (globalPeriod as OwnerFinancesProPeriod);
+    return {
       period,
-      anneeScolaire: anneeScolaire === ALL ? undefined : anneeScolaire,
+      dateDebut: period === "custom" ? dateDebut : undefined,
+      dateFin: period === "custom" ? dateFin : undefined,
+      anneeScolaire,
       filiereIds: filiereIds.length > 0 ? filiereIds : undefined,
       mode: mode === ALL ? undefined : (mode as OwnerFinancesProMode),
       etat,
-    }),
-    [period, anneeScolaire, filiereIds, mode, etat]
-  );
+    };
+  }, [globalPeriod, dateDebut, dateFin, anneeScolaire, filiereIds, mode, etat]);
 
   const { data, isLoading, error } = useOwnerFinancesPro(params);
 
@@ -156,58 +166,8 @@ export default function OwnerFinancesProfessionnelPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Filtres</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="space-y-2">
-            <Label>Période</Label>
-            <Select
-              value={period}
-              onValueChange={(v) => setPeriod(v as OwnerFinancesProPeriod)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(PERIOD_LABELS)
-                  .filter(([k]) => k !== "custom")
-                  .map(([k, v]) => (
-                    <SelectItem key={k} value={k}>
-                      {v}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Année scolaire</Label>
-            <Select
-              value={anneeScolaire}
-              onValueChange={setAnneeScolaire}
-              disabled={period !== "academic_year"}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>En cours</SelectItem>
-                {(filters?.anneesScolaires ?? []).map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {a}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Filières</Label>
-            <FiliereFilter
-              filieres={filters?.filieres ?? []}
-              value={filiereIds}
-              onChange={setFiliereIds}
-            />
-          </div>
-
+        {/* Période, année et filières sont portées par la barre globale. */}
+        <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Mode de règlement</Label>
             <Select value={mode} onValueChange={setMode}>

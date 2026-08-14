@@ -69,7 +69,7 @@ export function PaymentDetailsForm({
         type="tel"
         value={phone}
         onChange={(e) => handlePhoneChange(e.target.value)}
-        placeholder="Ex: +225 07 12 34 56 78"
+        placeholder="Ex: +225 07 07 12 34 56"
         isInvalid={!!errors.phone}
         errorMessage={errors.phone}
         required

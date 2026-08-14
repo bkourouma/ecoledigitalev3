@@ -290,15 +290,17 @@ export default function HistoriqueBulletinsPage() {
                       key={st.student_id}
                       className="border-b border-border/60 align-middle hover:bg-muted/20"
                     >
-                      <td className="sticky left-0 z-10 bg-background px-5 py-4 border-r border-border whitespace-nowrap">
-                        <div className="font-medium">
-                          {st.first_name} {st.last_name}
+                      <td className="sticky left-0 z-10 bg-background px-5 py-3 border-r border-border whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {st.first_name} {st.last_name}
+                          </span>
+                          {st.matricule && (
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {st.matricule}
+                            </span>
+                          )}
                         </div>
-                        {st.matricule && (
-                          <div className="font-mono text-xs text-muted-foreground mt-0.5">
-                            {st.matricule}
-                          </div>
-                        )}
                       </td>
                       {shownSemestres.map((sm) => {
                         const b = bulletinBy.get(`${st.student_id}|${sm.id}`);
@@ -308,43 +310,39 @@ export default function HistoriqueBulletinsPage() {
                             className="px-4 py-3 text-center border-r border-border whitespace-nowrap"
                           >
                             {b ? (
-                              <div className="inline-flex flex-col items-center gap-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono font-semibold">
-                                    {fmt(b.moyenne_session)}
-                                  </span>
-                                  <span className="font-mono text-xs text-muted-foreground">
-                                    {b.credits_valides}/{b.credits_total} cr.
-                                  </span>
-                                  <span
-                                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                      b.statut === "definitif"
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-amber-100 text-amber-700"
-                                    }`}
-                                    title={
-                                      b.statut === "definitif"
-                                        ? "Bulletin définitif"
-                                        : "Bulletin provisoire — en attente de Session 2"
-                                    }
-                                  >
-                                    {b.statut === "definitif" ? "Définitif" : "Provisoire"}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] text-muted-foreground">
-                                    généré le {new Date(b.generated_at).toLocaleDateString("fr-FR")}
-                                  </span>
-                                  <Link
-                                    href={`/professionnel/admin/bulletins/${st.student_id}?semestre=${sm.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800"
-                                  >
-                                    <Eye className="h-3 w-3" />
-                                    Consulter
-                                  </Link>
-                                </div>
+                              <div className="inline-flex items-center gap-2">
+                                <span className="font-mono font-semibold">
+                                  {fmt(b.moyenne_session)}
+                                </span>
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  {b.credits_valides}/{b.credits_total} cr.
+                                </span>
+                                <span
+                                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                    b.statut === "definitif"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-amber-100 text-amber-700"
+                                  }`}
+                                  title={
+                                    b.statut === "definitif"
+                                      ? "Bulletin définitif"
+                                      : "Bulletin provisoire — en attente de Session 2"
+                                  }
+                                >
+                                  {b.statut === "definitif" ? "Définitif" : "Provisoire"}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  généré le {new Date(b.generated_at).toLocaleDateString("fr-FR")}
+                                </span>
+                                <Link
+                                  href={`/professionnel/admin/bulletins/${st.student_id}?semestre=${sm.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800"
+                                >
+                                  <Eye className="h-3 w-3" />
+                                  Consulter
+                                </Link>
                               </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">Non généré</span>
@@ -353,7 +351,7 @@ export default function HistoriqueBulletinsPage() {
                         );
                       })}
                       <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <div className="inline-flex flex-col items-center gap-0.5">
+                        <div className="inline-flex items-center gap-2">
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                               fs.kind === "validee"

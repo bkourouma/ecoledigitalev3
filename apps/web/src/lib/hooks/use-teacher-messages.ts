@@ -12,6 +12,7 @@ export interface CreateTeacherMessageInput {
   content: string;
   priorityLevel?: 'low' | 'normal' | 'high' | 'urgent';
   sendWhatsapp?: boolean;
+  sendEmail?: boolean;
 }
 
 export interface TeacherMessage {
@@ -62,7 +63,7 @@ export function useCreateTeacherMessage() {
           ...headers,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ...input, sendWhatsapp: !!input.sendWhatsapp }),
+        body: JSON.stringify({ ...input, sendWhatsapp: !!input.sendWhatsapp, sendEmail: !!input.sendEmail }),
       });
 
       if (!response.ok) {
@@ -220,6 +221,7 @@ export function useTeacherBulkToParents() {
       content: string;
       priorityLevel?: string;
       sendWhatsapp?: boolean;
+      sendEmail?: boolean;
     }) => {
       const headers = createApiHeaders(session);
       headers['X-User-Id'] = userId!;
@@ -244,7 +246,7 @@ export function useTeacherMessageToEstablishment() {
   const { data: session } = useSession();
   const userId = (session as any)?.userId || (session?.user as any)?.id;
   return useMutation({
-    mutationFn: async (body: { subject: string; content: string; sendWhatsapp?: boolean }) => {
+    mutationFn: async (body: { subject: string; content: string; sendWhatsapp?: boolean; sendEmail?: boolean }) => {
       const headers = createApiHeaders(session);
       headers['X-User-Id'] = userId!;
       const res = await fetch(`${API_BASE_URL}/api/v1/teacher/messages/to-establishment`, {
@@ -272,6 +274,7 @@ export function useTeacherMessagesToStudents() {
       subject: string;
       content: string;
       sendWhatsapp?: boolean;
+      sendEmail?: boolean;
     }) => {
       const headers = createApiHeaders(session);
       headers['X-User-Id'] = userId!;

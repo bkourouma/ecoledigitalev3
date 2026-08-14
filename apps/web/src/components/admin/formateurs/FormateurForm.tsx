@@ -199,7 +199,7 @@ export function FormateurForm({ onSuccess, onCancel }: FormateurFormProps) {
 
               <div>
                 <FormLabel>Téléphone</FormLabel>
-                <Input type="tel" {...register("telephone")} placeholder="+225 XX XX XX XX XX" />
+                <Input type="tel" {...register("telephone")} placeholder="+225 07 07 12 34 56" />
                 {errors.telephone && (
                   <p className="text-sm text-red-500 mt-1">{errors.telephone.message}</p>
                 )}

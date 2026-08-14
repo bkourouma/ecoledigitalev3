@@ -10,7 +10,6 @@ import { useCourses } from "@/lib/hooks/use-courses";
 
 export default function ProgrammesPage() {
   const router = useRouter();
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [cycleFilter, setCycleFilter] = useState<string>("all");
 
   const { data: programmesData, isLoading, error } = useProgrammes();
@@ -24,11 +23,9 @@ export default function ProgrammesPage() {
 
   const filteredProgrammes = useMemo(() => {
     return programmes.filter((programme) => {
-      const matchesStatus = statusFilter === "all" || programme.status === statusFilter;
-      const matchesCycle = cycleFilter === "all" || programme.cycleId === cycleFilter;
-      return matchesStatus && matchesCycle;
+      return cycleFilter === "all" || programme.cycleId === cycleFilter;
     });
-  }, [programmes, statusFilter, cycleFilter]);
+  }, [programmes, cycleFilter]);
 
   const handleCreateNew = () => {
     router.push("/academic/programmes/new");
@@ -185,24 +182,6 @@ export default function ProgrammesPage() {
       <Card className="shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-center">
-            {/* Status Filter */}
-            <div className="lg:w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-11 border-gray-200 focus:border-pink-500 focus:ring-pink-500">
-                  <Filter className="h-4 w-4 mr-2 text-gray-400" />
-                  <SelectValue placeholder="Filtrer par statut" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="active">Actifs</SelectItem>
-                  <SelectItem value="draft">Brouillons</SelectItem>
-                  <SelectItem value="review">En révision</SelectItem>
-                  <SelectItem value="approved">Approuvés</SelectItem>
-                  <SelectItem value="archived">Archivés</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Cycle Filter */}
             <div className="lg:w-48">
               <Select value={cycleFilter} onValueChange={setCycleFilter}>
@@ -380,10 +359,7 @@ export default function ProgrammesPage() {
               <div className="flex gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setStatusFilter("all");
-                    setCycleFilter("all");
-                  }}
+                  onClick={() => setCycleFilter("all")}
                   className="border-gray-300 hover:bg-gray-50"
                 >
                   <X className="h-4 w-4 mr-2" />

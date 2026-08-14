@@ -18,6 +18,39 @@ import {
  * (`professional_ecue_results`) et sur le moteur pur `bulletin-calc`.
  */
 
+/**
+ * Portée des écrans de notes :
+ *  - `actives`   → cohortes encore ouvertes : la saisie y est possible.
+ *  - `terminees` → cohortes terminées ou annulées : consultation seule (historique).
+ *  - absent      → aucune restriction (comportement historique).
+ *
+ * Une cohorte est « active » tant que son statut n'est ni `termine` ni `annule`,
+ * même règle que le statut de semestre dérivé dans `getBulletinHistory`.
+ */
+export type NotesScope = "actives" | "terminees";
+
+/**
+ * Un étudiant en attente de Session 2 n'a pas de décision arrêtée : son bulletin
+ * n'est ni consultable ni généré tant que le rattrapage n'a pas été saisi
+ * (page « Rattrapages »). Les deux autres états sont, eux, définitifs :
+ * « valide » (admis) et « dette » (session 2 déjà tentée, ajourné).
+ */
+function enAttenteSession2(bulletin: any): boolean {
+  return bulletin?.statut_etudiant === "session2";
+}
+
+/** Message unique du refus, pour que l'écran et l'API disent la même chose. */
+const SESSION2_PENDING_MESSAGE =
+  "Bulletin indisponible : l'étudiant est en attente de Session 2 (rattrapage). " +
+  "Saisissez les notes de rattrapage pour arrêter la décision.";
+
+/** Condition SQL de portée sur une cohorte (`alias` = alias de la table sessions). */
+function sessionScopeSql(scope: NotesScope | undefined, alias: string): string {
+  if (scope === "actives") return `AND ${alias}.statut NOT IN ('termine','annule')`;
+  if (scope === "terminees") return `AND ${alias}.statut IN ('termine','annule')`;
+  return "";
+}
+
 /** Sessions (cohortes) d'un semestre où l'étudiant est inscrit + composition. */
 const BULLETIN_ROWS = `
   SELECT s.id AS ue_session_id, s.ue_id, s.date_debut::text AS session_date_debut,
@@ -78,7 +111,8 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
    */
   async listNotesFilieres(
     tenantId: string,
-    teacherUserId?: string
+    teacherUserId?: string,
+    scope?: NotesScope
   ): Promise<ServiceResult<any>> {
     // On ne retient que les filières ayant au moins un étudiant inscrit
     // (confirmé/terminé) dans une session d'UE.
@@ -86,6 +120,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       SELECT 1 FROM professional_enrollments en
       WHERE en.ue_session_id = s.id AND en.tenant_id = s.tenant_id
         AND en.statut IN ('confirmee','terminee'))`;
+    const scopeFilter = sessionScopeSql(scope, "s");
     return this.withTenant(tenantId, async (client) => {
       if (teacherUserId) {
         const r = await client.query(
@@ -95,7 +130,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
            JOIN professional_ue_sessions s ON s.id = a.ue_session_id AND s.tenant_id = a.tenant_id
            JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
            JOIN programmes p ON p.id = u.filiere_id
-           WHERE a.tenant_id = $1 AND t.user_id = $2 AND ${HAS_ENROLLED}
+           WHERE a.tenant_id = $1 AND t.user_id = $2 AND ${HAS_ENROLLED} ${scopeFilter}
            ORDER BY p.name`,
           [tenantId, teacherUserId]
         );
@@ -106,7 +141,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
          FROM programmes p
          JOIN professional_ue u ON u.filiere_id = p.id AND u.tenant_id = p.tenant_id
          JOIN professional_ue_sessions s ON s.ue_id = u.id AND s.tenant_id = u.tenant_id
-         WHERE p.tenant_id = $1 AND ${HAS_ENROLLED}
+         WHERE p.tenant_id = $1 AND ${HAS_ENROLLED} ${scopeFilter}
          ORDER BY p.name`,
         [tenantId]
       );
@@ -121,7 +156,8 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
   async listNotesSemestres(
     tenantId: string,
     filiereId: string,
-    teacherUserId?: string
+    teacherUserId?: string,
+    scope?: NotesScope
   ): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
       const params: any[] = [tenantId, filiereId];
@@ -152,6 +188,16 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
                    OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
                                   WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
                  )) AS nb_sessions,
+                -- Sessions encore actives (ni terminées ni annulées) : sert aux
+                -- écrans réservés au semestre en cours (saisie des conduites).
+                (SELECT count(DISTINCT s.id)::int FROM professional_ue_sessions s
+                 WHERE s.tenant_id = sm.tenant_id
+                   AND s.statut NOT IN ('termine','annule') AND (
+                   s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                            WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
+                   OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                                  WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
+                 )) AS nb_sessions_actives,
                 (SELECT min(s.date_debut)::text FROM professional_ue_sessions s
                  WHERE s.tenant_id = sm.tenant_id AND (
                    s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
@@ -164,7 +210,19 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
          ORDER BY sm.libelle`,
         params
       );
-      return ok(r.rows.filter((x: any) => (x.nb_sessions ?? 0) > 0));
+      // Un semestre sans aucune session n'a rien à afficher. Selon la portée, on
+      // ne garde ensuite que ceux ayant au moins une cohorte active (saisie
+      // possible) ou au moins une cohorte terminée (consultation de l'historique).
+      return ok(
+        r.rows.filter((x: any) => {
+          const total = Number(x.nb_sessions ?? 0);
+          if (total === 0) return false;
+          const actives = Number(x.nb_sessions_actives ?? 0);
+          if (scope === "actives") return actives > 0;
+          if (scope === "terminees") return total - actives > 0;
+          return true;
+        })
+      );
     });
   }
 
@@ -229,6 +287,8 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
 
       const effectif = await this.countSemestreStudents(client, tenantId, semestreId);
       const bulletin = await this.computeStudentBulletin(client, tenantId, sem, stu.rows[0], effectif);
+      // Décision non arrêtée : le relevé n'est pas consultable (cf. Rattrapages).
+      if (enAttenteSession2(bulletin)) return fail("SESSION2_PENDING", SESSION2_PENDING_MESSAGE);
       bulletin.rang = await this.computeRang(client, tenantId, sem, studentId);
       await this.attachGeneratedMeta(client, tenantId, semestreId, studentId, bulletin);
       return ok(bulletin);
@@ -306,6 +366,9 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       const bulletin = target
         ? target.bulletin
         : await this.computeStudentBulletin(client, tenantId, sem, stu.rows[0]);
+      // Même règle que le relevé LMD : pas de document tant que la décision
+      // n'est pas arrêtée.
+      if (enAttenteSession2(bulletin)) return fail("SESSION2_PENDING", SESSION2_PENDING_MESSAGE);
       // Le bulletin de la cible peut provenir de classBulletins (promotion),
       // dont la requête ne charge que id/nom/matricule — on complète toujours
       // avec le profil complet (date de naissance, genre, redoublement…).
@@ -899,7 +962,11 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
    * génération, elle n'est jamais modifiée (les régénérations mettent à jour
    * l'instantané et le statut, `updated_at` trace le dernier rafraîchissement).
    * Statut : « definitif » si le semestre est validé, sinon « provisoire »
-   * (étudiant en attente de Session 2 / rattrapage).
+   * (étudiant ajourné après rattrapage).
+   *
+   * Les étudiants en attente de Session 2 sont IGNORÉS : leur décision n'est
+   * pas arrêtée, générer leur bulletin figerait un document qui changera dès la
+   * saisie du rattrapage. Ils sont recomptés dans `ignores`.
    */
   async generateBulletins(tenantId: string, semestreId: string): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
@@ -925,6 +992,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       const effectif = students.rowCount ?? 0;
       let definitifs = 0;
       let provisoires = 0;
+      let ignores = 0;
       for (const s of students.rows) {
         const b = await this.computeStudentBulletin(
           client,
@@ -938,6 +1006,10 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
           },
           effectif
         );
+        if (enAttenteSession2(b)) {
+          ignores++;
+          continue;
+        }
         const statut = b.semestre_valide ? "definitif" : "provisoire";
         if (statut === "definitif") definitifs++;
         else provisoires++;
@@ -952,13 +1024,17 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
           [tenantId, s.student_id, semestreId, statut, JSON.stringify(b)]
         );
       }
-      return ok({ generated: effectif, definitifs, provisoires });
+      return ok({ generated: definitifs + provisoires, definitifs, provisoires, ignores });
     });
   }
 
   /**
    * Bulletins COMPLETS (calculés) de tous les étudiants d'un semestre — pour
    * générer un PDF combiné. Le rang est dérivé du classement des moyennes.
+   *
+   * Les étudiants en attente de Session 2 en sont exclus : leur bulletin n'est
+   * pas consultable individuellement, il ne doit pas l'être davantage dans le
+   * document groupé. Le rang, lui, reste calculé sur la promotion entière.
    */
   async listFullBulletins(tenantId: string, semestreId: string): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
@@ -1007,6 +1083,9 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
         bulletins.push(b);
       }
       // Rang : nombre d'étudiants ayant une moyenne strictement supérieure + 1.
+      // Calculé AVANT le filtrage, sur la promotion entière : exclure les
+      // étudiants en attente de Session 2 du document ne doit pas remonter
+      // artificiellement le rang des autres.
       for (const b of bulletins) {
         b.rang =
           b.moyenne_session == null
@@ -1015,7 +1094,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
                 (o) => o.moyenne_session != null && o.moyenne_session > b.moyenne_session
               ).length + 1;
       }
-      return ok(bulletins);
+      return ok(bulletins.filter((b) => !enAttenteSession2(b)));
     });
   }
 

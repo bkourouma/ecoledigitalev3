@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import "react-day-picker/dist/style.css";
 import "../styles/antd.css";
@@ -9,7 +9,26 @@ import "@ant-design/v5-patch-for-react-19";
 import { Providers } from "./providers";
 import ChunkErrorBoundary from "../components/ChunkErrorBoundary";
 
-const inter = Inter({ subsets: ["latin"] });
+/**
+ * Inter est servie depuis le dépôt plutôt que depuis `next/font/google` : ce
+ * dernier télécharge le fichier depuis fonts.gstatic.com **à la compilation**,
+ * et une coupure réseau y fait échouer le build entier.
+ *
+ * Le fichier est la police variable (100→900) du sous-ensemble `latin`, soit
+ * exactement la couverture de l'ancienne configuration `subsets: ["latin"]`.
+ * Pour couvrir davantage de glyphes (latin-ext), télécharger le woff2
+ * correspondant sur fonts.googleapis.com et l'ajouter à `src`.
+ */
+const inter = localFont({
+  src: "./fonts/inter-latin-variable.woff2",
+  weight: "100 900",
+  style: "normal",
+  display: "swap",
+  variable: "--font-inter",
+  // Repli aligné sur celui que générait next/font/google, pour limiter le
+  // décalage de mise en page pendant le chargement.
+  fallback: ["system-ui", "Segoe UI", "Helvetica Neue", "Arial", "sans-serif"],
+});
 
 export const metadata: Metadata = {
   title: "EcoleDigitale",

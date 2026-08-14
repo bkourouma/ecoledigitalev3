@@ -66,14 +66,34 @@ function escapeHtml(value: string): string {
  * Replace every `{{variable}}` occurrence. Unknown placeholders are left
  * untouched so a typo is visible in the preview rather than silently blanked.
  */
+function replacePlaceholders(
+  template: string,
+  variables: Record<string, string | null | undefined>,
+  transform: (value: string) => string
+): string {
+  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, name: string) => {
+    if (!Object.prototype.hasOwnProperty.call(variables, name)) return match;
+    return transform(String(variables[name] ?? ""));
+  });
+}
+
+/** Rendu destiné au corps HTML : les valeurs substituées sont échappées. */
 export function renderTemplateString(
   template: string,
   variables: Record<string, string | null | undefined>
 ): string {
-  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, name: string) => {
-    if (!Object.prototype.hasOwnProperty.call(variables, name)) return match;
-    return escapeHtml(String(variables[name] ?? ""));
-  });
+  return replacePlaceholders(template, variables, escapeHtml);
+}
+
+/**
+ * Rendu destiné au sujet de l'email, qui est du texte brut : échapper y
+ * produirait des `&amp;` visibles dans la boîte de réception.
+ */
+export function renderTemplateSubject(
+  template: string,
+  variables: Record<string, string | null | undefined>
+): string {
+  return replacePlaceholders(template, variables, (value) => value);
 }
 
 const CONTRACT_LABELS: Record<string, string> = {
@@ -220,7 +240,7 @@ export function renderTeacherCredentialsEmail(
   ctx: TeacherCredentialsContext
 ): { subject: string; html: string; text: string } {
   const variables = buildTeacherCredentialsVariables(ctx);
-  const subject = renderTemplateString(template.subject, variables);
+  const subject = renderTemplateSubject(template.subject, variables);
   const renderedBody = renderTemplateString(template.body, variables);
   return {
     subject,

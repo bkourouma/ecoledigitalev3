@@ -105,6 +105,24 @@ export function usePresencesHistory(params: {
   });
 }
 
+/** Détail de présence d'un étudiant (toutes ses séances sur le périmètre choisi). */
+export function useStudentPresences(params: {
+  studentId: string | null;
+  filiereId: string | null;
+  semestreId?: string;
+  statut?: string;
+}) {
+  const { studentId, filiereId, semestreId, statut } = params;
+  const qs = new URLSearchParams({ filiere_id: filiereId ?? "" });
+  if (semestreId) qs.set("semestre_id", semestreId);
+  if (statut && statut !== "all") qs.set("statut", statut);
+  return useQuery({
+    queryKey: ["professional-student-presences", studentId, filiereId, semestreId ?? "", statut ?? ""],
+    queryFn: () => apiFetch(`${BASE}/presences/students/${studentId}?${qs.toString()}`),
+    enabled: !!studentId && !!filiereId,
+  });
+}
+
 /** Historique des bulletins d'une filière (semestres, étudiants, bulletins générés). */
 export function useBulletinHistory(filiereId: string | null) {
   return useQuery({
@@ -131,18 +149,29 @@ export function useRecomputeBulletins() {
 /* ----------------- Saisie des notes par cohorte ----------------- */
 
 /** Filières accessibles à la saisie (scopées par rôle enseignant). */
-export function useNotesFilieres() {
+/**
+ * Portée des écrans de notes :
+ *  - `actives`   → cohortes encore ouvertes (page de saisie) ;
+ *  - `terminees` → cohortes terminées ou annulées (page historique) ;
+ *  - omise       → aucune restriction.
+ */
+export type NotesScope = "actives" | "terminees";
+
+export function useNotesFilieres(scope?: NotesScope) {
   return useQuery({
-    queryKey: ["professional-notes-filieres"],
-    queryFn: () => apiFetch(`${BASE}/notes/filieres`),
+    queryKey: ["professional-notes-filieres", scope ?? "all"],
+    queryFn: () => apiFetch(`${BASE}/notes/filieres${scope ? `?scope=${scope}` : ""}`),
   });
 }
 
 /** Semestres (avec sessions) d'une filière — scopés par rôle enseignant. */
-export function useNotesSemestres(filiereId: string | null) {
+export function useNotesSemestres(filiereId: string | null, scope?: NotesScope) {
   return useQuery({
-    queryKey: ["professional-notes-semestres", filiereId],
-    queryFn: () => apiFetch(`${BASE}/notes/semestres?filiere_id=${filiereId}`),
+    queryKey: ["professional-notes-semestres", filiereId, scope ?? "all"],
+    queryFn: () =>
+      apiFetch(
+        `${BASE}/notes/semestres?filiere_id=${filiereId}${scope ? `&scope=${scope}` : ""}`
+      ),
     enabled: !!filiereId,
   });
 }
@@ -162,6 +191,61 @@ export function useSessionGrid(ueSessionId: string | null) {
     queryKey: ["professional-session-grid", ueSessionId],
     queryFn: () => apiFetch(`${BASE}/ue-sessions/${ueSessionId}/grid`),
     enabled: !!ueSessionId,
+  });
+}
+
+/**
+ * Filières ayant au moins un rattrapage en attente. Distinct de
+ * `useNotesFilieres` : ici on ne propose que des filières où il reste
+ * effectivement quelque chose à repasser.
+ */
+export function useRattrapageFilieres() {
+  return useQuery({
+    queryKey: ["professional-rattrapage-filieres"],
+    queryFn: () => apiFetch(`${BASE}/rattrapages/filieres`),
+  });
+}
+
+/** Semestres d'une filière ayant au moins un rattrapage (avec le compte). */
+export function useRattrapageSemestres(filiereId: string | null) {
+  return useQuery({
+    queryKey: ["professional-rattrapage-semestres", filiereId],
+    queryFn: () => apiFetch(`${BASE}/rattrapages/semestres?filiere_id=${filiereId}`),
+    enabled: !!filiereId,
+  });
+}
+
+/**
+ * Étudiants en rattrapage (Session 2) d'un semestre : une ligne par couple
+ * (étudiant, ECUE) non validé en Session 1. Une ligne disparaît dès que la
+ * note de rattrapage saisie fait valider l'ECUE.
+ */
+export function useSemestreRattrapages(semestreId: string | null) {
+  return useQuery({
+    queryKey: ["professional-semestre-rattrapages", semestreId],
+    queryFn: () => apiFetch(`${BASE}/semestres/${semestreId}/rattrapages`),
+    enabled: !!semestreId,
+  });
+}
+
+/**
+ * Filières encore concernées par la saisie des conduites : celles ayant au
+ * moins un semestre avec une cohorte active, ou avec une conduite à finaliser.
+ * Une filière dont aucun semestre n'a de session n'y figure pas.
+ */
+export function useConduiteFilieres() {
+  return useQuery({
+    queryKey: ["professional-conduite-filieres"],
+    queryFn: () => apiFetch(`${BASE}/conduite/filieres`),
+  });
+}
+
+/** Semestres d'une filière ouverts à la saisie des conduites (même règle). */
+export function useConduiteSemestres(filiereId: string | null) {
+  return useQuery({
+    queryKey: ["professional-conduite-semestres", filiereId],
+    queryFn: () => apiFetch(`${BASE}/conduite/semestres?filiere_id=${filiereId}`),
+    enabled: !!filiereId,
   });
 }
 
@@ -208,8 +292,17 @@ export function useUpsertManualNote() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["professional-session-grid"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-semestre-conduite"], exact: false });
+      // Saisir la dernière conduite peut faire sortir le semestre (et sa
+      // filière) de la liste « à finaliser » : on rafraîchit ces sélecteurs.
+      qc.invalidateQueries({ queryKey: ["professional-conduite-filieres"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-conduite-semestres"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-bulletin-roster"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-bulletin"], exact: false });
+      // Une note de rattrapage validante fait sortir l'ECUE de la liste — et,
+      // si c'était la dernière, le semestre puis la filière des sélecteurs.
+      qc.invalidateQueries({ queryKey: ["professional-semestre-rattrapages"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-rattrapage-filieres"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-rattrapage-semestres"], exact: false });
     },
   });
 }
@@ -236,7 +329,14 @@ export function useDeleteManualNote() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["professional-session-grid"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-semestre-conduite"], exact: false });
+      // Supprimer une conduite peut faire réapparaître le semestre à finaliser.
+      qc.invalidateQueries({ queryKey: ["professional-conduite-filieres"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-conduite-semestres"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-bulletin"], exact: false });
+      // Supprimer une note de rattrapage peut faire réapparaître l'ECUE.
+      qc.invalidateQueries({ queryKey: ["professional-semestre-rattrapages"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-rattrapage-filieres"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-rattrapage-semestres"], exact: false });
     },
   });
 }

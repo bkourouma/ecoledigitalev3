@@ -15,24 +15,24 @@ import {
   useTeacherMessagesToStudents,
 } from '@/lib/hooks/use-teacher-messages';
 import { useTeacherStudentsByClass } from '@/lib/hooks/use-teachers';
-import { WhatsappSendCheckbox } from '@/components/messaging/WhatsappSendCheckbox';
+import { MessageChannelsField, type MessageChannels } from '@/components/messaging/MessageChannelSelector';
 import { toast } from 'sonner';
 
 export function TeacherEstablishmentForm() {
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
-  const [sendWhatsapp, setSendWhatsapp] = useState(false);
+  const [channels, setChannels] = useState<MessageChannels>({ whatsapp: false, email: false });
   const mut = useTeacherMessageToEstablishment();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subject.trim() || !content.trim()) return;
     try {
-      await mut.mutateAsync({ subject: subject.trim(), content: content.trim(), sendWhatsapp });
+      await mut.mutateAsync({ subject: subject.trim(), content: content.trim(), sendWhatsapp: channels.whatsapp, sendEmail: channels.email });
       toast.success('Message transmis à l’établissement');
       setSubject('');
       setContent('');
-      setSendWhatsapp(false);
+      setChannels({ whatsapp: false, email: false });
     } catch (err: any) {
       toast.error(err?.message || 'Erreur');
     }
@@ -57,7 +57,13 @@ export function TeacherEstablishmentForm() {
             <Label>Message</Label>
             <Textarea rows={4} value={content} onChange={(e) => setContent(e.target.value)} disabled={mut.isPending} />
           </div>
-          <WhatsappSendCheckbox checked={sendWhatsapp} onCheckedChange={setSendWhatsapp} disabled={mut.isPending} id="wa-teacher-est" />
+          <MessageChannelsField
+            idPrefix="teacher-establishment"
+            channels={channels}
+            onChange={setChannels}
+            disabled={mut.isPending}
+            templateKind="teacher_establishment"
+          />
           <Button type="submit" disabled={mut.isPending} className="gap-2">
             {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Envoyer
@@ -75,7 +81,7 @@ export function TeacherStudentBroadcastForm() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
-  const [sendWhatsapp, setSendWhatsapp] = useState(false);
+  const [channels, setChannels] = useState<MessageChannels>({ whatsapp: false, email: false });
 
   const { data: studentsData, isLoading } = useTeacherStudentsByClass(selectedClassFilter, false);
   const students = studentsData?.students || [];
@@ -102,7 +108,8 @@ export function TeacherStudentBroadcastForm() {
           classId,
           subject: subject.trim(),
           content: content.trim(),
-          sendWhatsapp,
+          sendWhatsapp: channels.whatsapp,
+          sendEmail: channels.email,
         });
       } else {
         if (selectedIds.length === 0) {
@@ -113,14 +120,15 @@ export function TeacherStudentBroadcastForm() {
           studentProfileIds: selectedIds,
           subject: subject.trim(),
           content: content.trim(),
-          sendWhatsapp,
+          sendWhatsapp: channels.whatsapp,
+          sendEmail: channels.email,
         });
       }
       toast.success('Messages élèves envoyés');
       setSubject('');
       setContent('');
       setSelectedIds([]);
-      setSendWhatsapp(false);
+      setChannels({ whatsapp: false, email: false });
     } catch (err: any) {
       toast.error(err?.message || 'Erreur');
     }
@@ -218,7 +226,13 @@ export function TeacherStudentBroadcastForm() {
             <Label>Message</Label>
             <Textarea rows={5} value={content} onChange={(e) => setContent(e.target.value)} disabled={mut.isPending} />
           </div>
-          <WhatsappSendCheckbox checked={sendWhatsapp} onCheckedChange={setSendWhatsapp} disabled={mut.isPending} id="wa-teacher-stu" />
+          <MessageChannelsField
+            idPrefix="teacher-students"
+            channels={channels}
+            onChange={setChannels}
+            disabled={mut.isPending}
+            templateKind="teacher_student"
+          />
           <Button type="submit" disabled={mut.isPending} className="gap-2">
             {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Envoyer aux élèves

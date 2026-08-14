@@ -38,6 +38,66 @@ const generatePassword = (): string => {
   return password;
 };
 
+/** Indicatif téléphonique de la Côte d'Ivoire. */
+const CI_DIAL_CODE = "225";
+
+/** Groupe les chiffres deux par deux : « 0707123456 » → « 07 07 12 34 56 ». */
+const groupDigitPairs = (digits: string): string => digits.replace(/(\d{2})(?=\d)/g, "$1 ");
+
+/**
+ * Ne conserve que les 10 chiffres du numéro national, indicatif et séparateurs
+ * retirés. « +225 07 07 12 34 56 », « 00225 07 07 12 34 56 » et
+ * « 07 07 12 34 56 » donnent tous « 0707123456 ».
+ *
+ * L'indicatif n'est retiré que si le reste dépasse 10 chiffres : un numéro
+ * national de 10 chiffres est donc rendu intact, même s'il commençait par 225.
+ */
+const toNationalDigits = (value: string): string => {
+  const digits = value.replace(/\D/g, "");
+  const withoutTrunkPrefix = digits.startsWith("00") ? digits.slice(2) : digits;
+
+  return withoutTrunkPrefix.startsWith(CI_DIAL_CODE) && withoutTrunkPrefix.length > 10
+    ? withoutTrunkPrefix.slice(CI_DIAL_CODE.length)
+    : withoutTrunkPrefix;
+};
+
+/**
+ * Formate le numéro au fil de la frappe. L'indicatif est facultatif : il n'est
+ * conservé que si l'utilisateur le saisit (« + » de tête) ou colle un numéro
+ * international (« 00225… »).
+ */
+const formatPhoneNumber = (value: string): string => {
+  const raw = value.trimStart();
+  const digits = raw.replace(/\D/g, "");
+  const isInternational = raw.startsWith("+") || digits.startsWith("00");
+
+  if (!isInternational) {
+    return groupDigitPairs(digits.slice(0, 10));
+  }
+
+  const withoutTrunkPrefix = digits.startsWith("00") ? digits.slice(2) : digits;
+  // Pendant la frappe l'indicatif est encore incomplet (« +2 », « +22 ») : on
+  // l'accepte tant qu'il reste un préfixe possible de « 225 ». Un « + » posé
+  // devant un numéro national déjà saisi ne doit pas, lui, transformer ses
+  // premiers chiffres en indicatif.
+  const looksLikeDialCode =
+    withoutTrunkPrefix.startsWith(CI_DIAL_CODE) || CI_DIAL_CODE.startsWith(withoutTrunkPrefix);
+
+  if (!looksLikeDialCode) {
+    return groupDigitPairs(withoutTrunkPrefix.slice(0, 10));
+  }
+
+  const dialCode = withoutTrunkPrefix.slice(0, CI_DIAL_CODE.length);
+  const national = groupDigitPairs(
+    withoutTrunkPrefix.slice(CI_DIAL_CODE.length, CI_DIAL_CODE.length + 10)
+  );
+
+  return national ? `+${dialCode} ${national}` : `+${dialCode}`;
+};
+
+/** Longueur de « +225 07 07 12 34 56 », la forme la plus longue acceptée. */
+const PHONE_MAX_LENGTH = 19;
+
 const studentFormSchema = z.object({
   firstName: z.string().min(1, "Le prénom est requis").max(100, "Le prénom ne peut pas dépasser 100 caractères"),
   lastName: z.string().min(1, "Le nom est requis").max(100, "Le nom ne peut pas dépasser 100 caractères"),
@@ -51,17 +111,22 @@ const studentFormSchema = z.object({
   email: z.string().min(1, "L'email est requis").email("Email invalide"),
   phone: z.string()
     .min(1, "Le téléphone est requis")
-    .refine((val) => {
-      const digits = val.replace(/\s/g, "");
-      return digits.length === 10 && /^\d+$/.test(digits);
-    }, "Le numéro doit contenir exactement 10 chiffres")
-    .transform((val) => val.replace(/\s/g, "")),
+    .refine(
+      (val) => /^\d{10}$/.test(toNationalDigits(val)),
+      "Le numéro doit contenir 10 chiffres (indicatif +225 facultatif)"
+    )
+    // L'indicatif éventuellement saisi est retiré avant l'envoi : la base ne
+    // stocke que les 10 chiffres du numéro national, comme les fiches
+    // existantes.
+    .transform((val) => toNationalDigits(val)),
   dateOfBirth: z.string().min(1, "La date de naissance est requise"),
   placeOfBirth: z.string().min(1, "Le lieu de naissance est requis").max(255, "Le lieu de naissance ne peut pas dépasser 255 caractères"),
   nationality: z.string().min(1, "La nationalité est requise").max(100, "La nationalité ne peut pas dépasser 100 caractères"),
   address: z.string().optional().or(z.literal("")),
+  // errorMap : couvre aussi la chaîne vide, que `required_error` laissait
+  // remonter sous la forme du message brut de Zod.
   gender: z.enum(["masculin", "feminin"], {
-    required_error: "Le sexe est requis",
+    errorMap: () => ({ message: "Le sexe est requis" }),
   }),
   birthCertificateNumber: z.string().max(100, "Le numéro d'extrait est trop long").optional().or(z.literal("")),
   birthCertificateDate: z.string().optional().or(z.literal("")),
@@ -75,16 +140,6 @@ const studentFormSchema = z.object({
 });
 
 type StudentFormData = z.infer<typeof studentFormSchema>;
-
-const formatPhoneNumber = (value: string): string => {
-  const digits = value.replace(/\D/g, "").slice(0, 10);
-
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return digits.replace(/(\d{2})(\d+)/, "$1 $2");
-  if (digits.length <= 6) return digits.replace(/(\d{2})(\d{2})(\d+)/, "$1 $2 $3");
-  if (digits.length <= 8) return digits.replace(/(\d{2})(\d{2})(\d{2})(\d+)/, "$1 $2 $3 $4");
-  return digits.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d+)/, "$1 $2 $3 $4 $5");
-};
 
 export default function NewStudentPage() {
   const router = useRouter();
@@ -209,9 +264,6 @@ export default function NewStudentPage() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             Nouvel étudiant
           </h1>
-          <p className="text-muted-foreground mt-2">
-            Créez le profil permanent d'un étudiant. L'inscription en classe se fera ensuite depuis le menu Année académique.
-          </p>
         </div>
       </div>
 
@@ -222,18 +274,6 @@ export default function NewStudentPage() {
             <CardDescription>Informations de base sur l'étudiant</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="studentMatricule">Matricule *</Label>
-              <Input
-                id="studentMatricule"
-                {...register("studentMatricule")}
-                placeholder="04100146D"
-              />
-              {errors.studentMatricule && (
-                <p className="text-sm text-red-600">{errors.studentMatricule.message}</p>
-              )}
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">Prénom *</Label>
@@ -254,6 +294,20 @@ export default function NewStudentPage() {
                 {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
               </div>
               <div className="space-y-2">
+                <Label htmlFor="studentMatricule">Matricule DESPS *</Label>
+                <Input
+                  id="studentMatricule"
+                  {...register("studentMatricule")}
+                  placeholder="04100146D"
+                />
+                {errors.studentMatricule && (
+                  <p className="text-sm text-red-600">{errors.studentMatricule.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="gender">Sexe *</Label>
                 <Select onValueChange={(value) => setValue("gender", value as "masculin" | "feminin", { shouldValidate: true })} value={genderValue}>
                   <SelectTrigger>
@@ -265,6 +319,11 @@ export default function NewStudentPage() {
                   </SelectContent>
                 </Select>
                 {errors.gender && <p className="text-sm text-red-600">{errors.gender.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dateOfBirth">Date de naissance *</Label>
+                <Input id="dateOfBirth" type="date" {...register("dateOfBirth")} />
+                {errors.dateOfBirth && <p className="text-sm text-red-600">{errors.dateOfBirth.message}</p>}
               </div>
             </div>
 
@@ -280,18 +339,10 @@ export default function NewStudentPage() {
                   id="phone"
                   value={phoneValue}
                   onChange={handlePhoneChange}
-                  placeholder="07 07 12 34 56"
-                  maxLength={14}
+                  placeholder="+225 07 07 12 34 56"
+                  maxLength={PHONE_MAX_LENGTH}
                 />
                 {errors.phone && <p className="text-sm text-red-600">{errors.phone.message}</p>}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="dateOfBirth">Date de naissance *</Label>
-                <Input id="dateOfBirth" type="date" {...register("dateOfBirth")} />
-                {errors.dateOfBirth && <p className="text-sm text-red-600">{errors.dateOfBirth.message}</p>}
               </div>
             </div>
           </CardContent>

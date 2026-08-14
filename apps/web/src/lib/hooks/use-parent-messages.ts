@@ -219,8 +219,8 @@ export function useStartParentConversation() {
       conversation: ParentTeacherConversation;
       message: ConversationMessage;
     } 
-  }, Error, { childId: string; teacherId: string; subject: string; content: string; sendWhatsapp?: boolean }>({
-    mutationFn: async ({ childId, teacherId, subject, content, sendWhatsapp }) => {
+  }, Error, { childId: string; teacherId: string; subject: string; content: string; sendWhatsapp?: boolean; sendEmail?: boolean }>({
+    mutationFn: async ({ childId, teacherId, subject, content, sendWhatsapp, sendEmail }) => {
       const headers = createApiHeaders(session);
       const url = `/api/v1/parent/messages/conversations`;
       
@@ -230,7 +230,7 @@ export function useStartParentConversation() {
           ...headers,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ childId, teacherId, subject, content, sendWhatsapp }),
+        body: JSON.stringify({ childId, teacherId, subject, content, sendWhatsapp: !!sendWhatsapp, sendEmail: !!sendEmail }),
       });
       
       if (!response.ok) {
@@ -299,8 +299,8 @@ export function useReplyToConversation() {
       message: ConversationMessage;
       whatsappStatus?: string;
     } 
-  }, Error, { conversationId: string; content: string; sendWhatsapp?: boolean }>({
-    mutationFn: async ({ conversationId, content, sendWhatsapp }) => {
+  }, Error, { conversationId: string; content: string; sendWhatsapp?: boolean; sendEmail?: boolean }>({
+    mutationFn: async ({ conversationId, content, sendWhatsapp, sendEmail }) => {
       const headers = createApiHeaders(session);
       const url = `/api/v1/parent/messages/conversations/${conversationId}/reply`;
       
@@ -310,7 +310,7 @@ export function useReplyToConversation() {
           ...headers,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content, sendWhatsapp }),
+        body: JSON.stringify({ content, sendWhatsapp: !!sendWhatsapp, sendEmail: !!sendEmail }),
       });
       
       if (!response.ok) {
@@ -535,8 +535,8 @@ export function useSendSchoolMessage() {
         sentAt: string;
       };
     } 
-  }, Error, { childId: string; subject: string; content: string; sendWhatsapp?: boolean }>({
-    mutationFn: async ({ childId, subject, content, sendWhatsapp }) => {
+  }, Error, { childId: string; subject: string; content: string; sendWhatsapp?: boolean; sendEmail?: boolean }>({
+    mutationFn: async ({ childId, subject, content, sendWhatsapp, sendEmail }) => {
       const headers = createApiHeaders(session);
       const url = `/api/v1/parent/messages/school-messages`;
       
@@ -546,7 +546,7 @@ export function useSendSchoolMessage() {
           ...headers,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ childId, subject, content, sendWhatsapp: !!sendWhatsapp }),
+        body: JSON.stringify({ childId, subject, content, sendWhatsapp: !!sendWhatsapp, sendEmail: !!sendEmail }),
       });
       
       if (!response.ok) {
@@ -694,8 +694,8 @@ export function useReplyToSchoolConversation() {
         isRead: boolean;
       };
     } 
-  }, Error, { conversationId: string; content: string }>({
-    mutationFn: async ({ conversationId, content }) => {
+  }, Error, { conversationId: string; content: string; sendWhatsapp?: boolean; sendEmail?: boolean }>({
+    mutationFn: async ({ conversationId, content, sendWhatsapp, sendEmail }) => {
       const headers = createApiHeaders(session);
       const url = `/api/v1/parent/messages/school-conversations/${conversationId}/reply`;
       
@@ -705,7 +705,7 @@ export function useReplyToSchoolConversation() {
           ...headers,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, sendWhatsapp: !!sendWhatsapp, sendEmail: !!sendEmail }),
       });
       
       if (!response.ok) {

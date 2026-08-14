@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useOwnerFinances } from "@/lib/hooks/use-owner-finances";
-import { useOwnerStatsFilters } from "@/lib/hooks/use-owner-stats-filters";
+import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
 import { createApiHeaders } from "@/lib/api-utils";
 import type { OwnerFinancesPeriod } from "@ecoledigitale/contracts";
 
@@ -49,13 +49,12 @@ export default function OwnerFinancesPage() {
   const queryClient = useQueryClient();
   const tenantId = (session as { tenantId?: string } | null)?.tenantId ?? "no-tenant";
 
-  const [period, setPeriod] = useState<OwnerFinancesPeriod>("month");
-  // Sentinelle « aucun filtre » : Radix interdit la chaîne vide comme valeur de
-  // Select, et `isUuid` la rejette de toute façon, ce qui donne `undefined` en aval.
-  const [academicYearIdInput, setAcademicYearIdInput] = useState(ALL);
-  const [cycleIdInput, setCycleIdInput] = useState(ALL);
-
-  const { data: filterOptions } = useOwnerStatsFilters();
+  // Année, cycle et période viennent du filtre global de l'espace propriétaire.
+  const {
+    academicYearId,
+    cycleId,
+    period: globalPeriod,
+  } = useOwnerFilters();
   const [payrollFeedback, setPayrollFeedback] = useState<{
     type: "ok" | "err";
     message: string;
@@ -84,13 +83,16 @@ export default function OwnerFinancesPage() {
   });
 
   const queryParams = useMemo(() => {
-    const academicYearId =
-      period === "academic_year" && isUuid(academicYearIdInput)
-        ? academicYearIdInput.trim()
-        : undefined;
-    const cycleId = isUuid(cycleIdInput) ? cycleIdInput.trim() : undefined;
-    return { period, academicYearId, cycleId };
-  }, [period, academicYearIdInput, cycleIdInput]);
+    // « Année scolaire » dans la barre globale désigne la fenêtre de l'année
+    // académique : c'est `academic_year` dans le vocabulaire de cet endpoint.
+    const period: OwnerFinancesPeriod =
+      globalPeriod === "year" ? "academic_year" : (globalPeriod as OwnerFinancesPeriod);
+    return {
+      period,
+      academicYearId: isUuid(academicYearId ?? "") ? academicYearId : undefined,
+      cycleId: isUuid(cycleId ?? "") ? cycleId : undefined,
+    };
+  }, [globalPeriod, academicYearId, cycleId]);
 
   const { data, isLoading, error, refetch } = useOwnerFinances(queryParams);
 
@@ -112,74 +114,15 @@ export default function OwnerFinancesPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filtres</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label>Période</Label>
-            <Select
-              value={period}
-              onValueChange={(v) => setPeriod(v as OwnerFinancesPeriod)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PERIOD_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {period === "academic_year" ? (
-            <div className="space-y-2 md:col-span-2">
-              <Label>Année scolaire</Label>
-              <Select value={academicYearIdInput} onValueChange={setAcademicYearIdInput}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>Sélectionner une année…</SelectItem>
-                  {(filterOptions?.academicYears ?? []).map((ay) => (
-                    <SelectItem key={ay.id} value={ay.id}>
-                      {ay.name}
-                      {ay.isActive ? " (en cours)" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Sans année sélectionnée, la période retenue est le mois en cours.
-              </p>
-            </div>
-          ) : null}
-          <div className="space-y-2 md:col-span-3">
-            <Label>Cycle</Label>
-            <Select value={cycleIdInput} onValueChange={setCycleIdInput}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Tous les cycles</SelectItem>
-                {(filterOptions?.cycles ?? []).map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="md:col-span-3">
-            <Button type="button" variant="secondary" size="sm" onClick={() => refetch()}>
-              Actualiser
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/*
+        Période, année et cycle sont portés par la barre de filtre globale de
+        l'espace propriétaire. Ne reste ici que le rafraîchissement manuel.
+      */}
+      <div>
+        <Button type="button" variant="secondary" size="sm" onClick={() => refetch()}>
+          Actualiser
+        </Button>
+      </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
@@ -282,6 +225,15 @@ export default function OwnerFinancesPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Impayés (réf. anonymisée)</CardTitle>
+                {/* Le tableau est un extrait, les tuiles du haut portent le total :
+                    on le dit plutôt que de laisser croire à une liste exhaustive. */}
+                {data.totals.overdueListTruncated && (
+                  <p className="text-xs text-muted-foreground">
+                    {data.overdueInstallments.length} échéances les plus anciennes affichées sur{" "}
+                    {data.totals.overdueCount} au total ({fmt(data.totals.overdueAmount)}). Utilisez
+                    l&apos;export pour la liste complète.
+                  </p>
+                )}
               </CardHeader>
               <CardContent>
                 <Table>

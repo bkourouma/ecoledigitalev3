@@ -102,14 +102,37 @@ export function evaluatePrerequisites(
 
 /**
  * Préfixe fixe du matricule professionnel (institution). Format complet :
- * `IPAM` + code de la filière (nettoyé, ex. `L1DAF`) + numéro séquentiel sur
- * 3 chiffres (ex. `001`) → `IPAML1DAF001`.
+ * `IPAM-<code filière>-<numéro de l'étudiant sur 4 chiffres>` → `IPAM-L1GL-0001`.
+ *
+ * Le dernier segment n'est PAS un rang par filière : c'est le numéro d'ordre de
+ * l'étudiant dans le tenant (`student_profiles.sequence_number`), attribué à la
+ * création de sa fiche. Un même étudiant garde donc le même numéro d'une filière
+ * à l'autre (`IPAM-L1GL-0001` et `IPAM-M1TL-0001`).
+ *
+ * Toute modification de ce format doit être répercutée sur la migration
+ * `0094_student_sequence_number.sql`, qui réaligne les lignes existantes.
  */
 const MATRICULE_PREFIX = "IPAM";
+
+/** Nombre de chiffres du segment numérique du matricule professionnel. */
+const MATRICULE_SEQ_DIGITS = 4;
 
 /** Normalise un code de filière pour le matricule (alphanumérique majuscule). */
 export function cleanFiliereCode(code: string | null | undefined): string {
   return (code ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "") || "XXX";
+}
+
+/**
+ * Matricule professionnel canonique : `IPAM-<CODE>-<NNNN>` (ex. `IPAM-L1GL-0001`),
+ * où `NNNN` est le numéro d'ordre de l'étudiant. Un numéro à plus de 4 chiffres
+ * n'est pas tronqué (le padding est un minimum, pas une limite).
+ */
+export function formatProfessionalMatricule(
+  filiereCode: string | null | undefined,
+  studentSequenceNumber: number
+): string {
+  const code = cleanFiliereCode(filiereCode);
+  return `${MATRICULE_PREFIX}-${code}-${String(studentSequenceNumber).padStart(MATRICULE_SEQ_DIGITS, "0")}`;
 }
 
 /* ------------------------------- Service -------------------------------- */
@@ -117,12 +140,18 @@ export function cleanFiliereCode(code: string | null | undefined): string {
 export class ProfessionalEnrollmentService extends ProfessionalBaseService {
   /**
    * Attribue (ou récupère) le matricule professionnel d'un étudiant pour une
-   * filière : `IPAM<code filière><NNN>`. Le numéro est séquentiel et unique par
-   * filière. Idempotent : renvoie le matricule existant si déjà attribué.
+   * filière : `IPAM-<code filière>-<NNNN>` (ex. `IPAM-L1GL-0001`), où `NNNN` est
+   * le numéro d'ordre de l'étudiant (`student_profiles.sequence_number`, figé à
+   * la création de sa fiche par le trigger de la migration 0094).
    *
-   * La génération est sérialisée par filière via un verrou consultatif de
-   * transaction (`pg_advisory_xact_lock`) pour éviter toute collision de
-   * séquence entre inscriptions concurrentes.
+   * Aucun verrou n'est nécessaire : le numéro ne dépend plus d'un `MAX()` sur la
+   * filière mais de l'étudiant lui-même. Deux inscriptions concurrentes dans la
+   * même filière ne peuvent donc pas viser le même numéro, et le doublon sur
+   * (étudiant, filière) est absorbé par le `ON CONFLICT`.
+   *
+   * Renvoie `null` si l'étudiant n'a pas de numéro d'ordre — cas anormal (le
+   * trigger en pose un à chaque insertion), traité sans matricule plutôt qu'en
+   * faisant échouer l'inscription.
    */
   private async ensureProfessionalMatricule(
     client: PoolClient,
@@ -131,23 +160,26 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
     filiereCode: string,
     studentId: string
   ): Promise<string | null> {
-    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))`, [
-      tenantId,
-      filiereId,
-    ]);
-    const code = cleanFiliereCode(filiereCode);
+    const seqRes = await client.query(
+      `SELECT sequence_number FROM student_profiles WHERE id = $1 AND tenant_id = $2`,
+      [studentId, tenantId]
+    );
+    const sequenceNumber = seqRes.rows[0]?.sequence_number;
+    if (sequenceNumber == null) return null;
+
     const ins = await client.query(
       `INSERT INTO professional_student_matricules
          (tenant_id, student_id, filiere_id, seq, matricule)
-       SELECT $1, $2, $3, nxt, $4 || $5 || lpad(nxt::text, 3, '0')
-       FROM (
-         SELECT COALESCE(MAX(seq), 0) + 1 AS nxt
-         FROM professional_student_matricules
-         WHERE tenant_id = $1 AND filiere_id = $3
-       ) q
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (tenant_id, student_id, filiere_id) DO NOTHING
        RETURNING matricule`,
-      [tenantId, studentId, filiereId, MATRICULE_PREFIX, code]
+      [
+        tenantId,
+        studentId,
+        filiereId,
+        Number(sequenceNumber),
+        formatProfessionalMatricule(filiereCode, Number(sequenceNumber)),
+      ]
     );
     if ((ins.rowCount ?? 0) > 0) return ins.rows[0].matricule as string;
     // Déjà présent → on renvoie le matricule existant.
@@ -426,13 +458,19 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
     if (existing.rowCount && existing.rowCount > 0) return existing.rows[0];
 
     const year = new Date().getFullYear();
+    const prefix = `PRO-${year}-`;
     for (let attempt = 0; attempt < 5; attempt++) {
-      const cntRes = await client.query(
-        `SELECT count(*)::int AS n FROM professional_orders
+      // Voir createOrderWithRef : on part du MAX attribué, pas d'un COUNT, car
+      // une commande supprimée laisse un trou qui bloquerait le compteur.
+      const maxRes = await client.query(
+        `SELECT COALESCE(MAX(substring(reference from '(\\d+)$')::int), 0) AS n
+         FROM professional_orders
          WHERE tenant_id=$1 AND reference LIKE $2`,
-        [tenantId, `PRO-${year}-%`]
+        [tenantId, `${prefix}%`]
       );
-      const reference = `PRO-${year}-${String((cntRes.rows[0].n as number) + 1 + attempt).padStart(6, "0")}`;
+      const next = (maxRes.rows[0].n as number) + 1 + attempt;
+      const reference = `${prefix}${String(next).padStart(6, "0")}`;
+      await client.query("SAVEPOINT order_ref_cart");
       try {
         const ins = await client.query(
           `INSERT INTO professional_orders (tenant_id, student_id, reference, montant_total, statut)
@@ -440,8 +478,10 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
            RETURNING id, reference, montant_total::float8 AS montant_total, devise, statut`,
           [tenantId, studentId, reference]
         );
+        await client.query("RELEASE SAVEPOINT order_ref_cart");
         return ins.rows[0];
       } catch (e: any) {
+        await client.query("ROLLBACK TO SAVEPOINT order_ref_cart");
         if (e?.code === "23505" && attempt < 4) continue; // collision référence → retry
         throw e;
       }
@@ -458,13 +498,24 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
     devise: string
   ): Promise<any> {
     const year = new Date().getFullYear();
+    const prefix = `PRO-${year}-`;
     for (let attempt = 0; attempt < 5; attempt++) {
-      const cntRes = await client.query(
-        `SELECT count(*)::int AS n FROM professional_orders
+      // On repart du plus grand numéro DÉJÀ attribué, et non d'un COUNT : dès
+      // qu'une commande a été supprimée, la suite présente un trou et le
+      // compteur retomberait indéfiniment sur une référence déjà prise.
+      const maxRes = await client.query(
+        `SELECT COALESCE(MAX(substring(reference from '(\\d+)$')::int), 0) AS n
+         FROM professional_orders
          WHERE tenant_id=$1 AND reference LIKE $2`,
-        [tenantId, `PRO-${year}-%`]
+        [tenantId, `${prefix}%`]
       );
-      const reference = `PRO-${year}-${String((cntRes.rows[0].n as number) + 1 + attempt).padStart(6, "0")}`;
+      const next = (maxRes.rows[0].n as number) + 1 + attempt;
+      const reference = `${prefix}${String(next).padStart(6, "0")}`;
+      // SAVEPOINT indispensable : cette méthode est appelée dans la transaction
+      // de l'inscription. Sans lui, un doublon (23505) avorte toute la
+      // transaction et la tentative suivante échouerait sur « current
+      // transaction is aborted » au lieu de réessayer.
+      await client.query("SAVEPOINT order_ref");
       try {
         const ins = await client.query(
           `INSERT INTO professional_orders (tenant_id, student_id, reference, montant_total, devise, statut)
@@ -472,8 +523,10 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
            RETURNING id`,
           [tenantId, studentId, reference, devise, statut]
         );
+        await client.query("RELEASE SAVEPOINT order_ref");
         return ins.rows[0];
       } catch (e: any) {
+        await client.query("ROLLBACK TO SAVEPOINT order_ref");
         if (e?.code === "23505" && attempt < 4) continue;
         throw e;
       }
@@ -686,9 +739,11 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       const sessRes = await client.query(
         `SELECT s.id, s.statut, s.capacite_max,
                 s.inscription_ouverte_le, s.inscription_fermee_le,
-                ue.id AS ue_id, ue.prix::float8 AS prix, ue.statut AS ue_statut
+                ue.id AS ue_id, ue.prix::float8 AS prix, ue.statut AS ue_statut,
+                ue.filiere_id, p.code AS filiere_code
          FROM professional_ue_sessions s
          JOIN professional_ue ue ON ue.id = s.ue_id
+         JOIN programmes p ON p.id = ue.filiere_id
          WHERE s.id = $1
          FOR UPDATE OF s`,
         [ueSessionId]
@@ -726,6 +781,17 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         return fail(e.reason, e.message);
       }
 
+      // Matricule professionnel de la filière (IPAM-…) dès la mise au panier :
+      // l'appel est idempotent, le repasser à la validation de commande ne
+      // produit rien de nouveau.
+      await this.ensureProfessionalMatricule(
+        client,
+        tenantId,
+        session.filiere_id,
+        session.filiere_code,
+        studentId
+      );
+
       const order = await this.ensureDraftOrder(client, tenantId, studentId);
       await client.query(
         `INSERT INTO professional_enrollments
@@ -759,9 +825,11 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         `SELECT s.id, s.statut, s.capacite_max,
                 s.inscription_ouverte_le, s.inscription_fermee_le,
                 ue.id AS ue_id, ue.libelle AS ue_libelle, ue.prix::float8 AS prix,
-                COALESCE(ue.devise, 'XOF') AS devise, ue.statut AS ue_statut
+                COALESCE(ue.devise, 'XOF') AS devise, ue.statut AS ue_statut,
+                ue.filiere_id, p.code AS filiere_code
          FROM professional_ue_sessions s
          JOIN professional_ue ue ON ue.id = s.ue_id
+         JOIN programmes p ON p.id = ue.filiere_id
          WHERE s.id = $1
          FOR UPDATE OF s`,
         [ueSessionId]
@@ -803,6 +871,17 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         }
       }
 
+      // Matricule professionnel de la filière (IPAM-…) — même règle que
+      // l'inscription par un admin : l'étudiant doit l'avoir quel que soit le
+      // chemin emprunté, sinon son bulletin sort sans matricule.
+      const matricule = await this.ensureProfessionalMatricule(
+        client,
+        tenantId,
+        session.filiere_id,
+        session.filiere_code,
+        studentId
+      );
+
       const order = await this.createOrderWithRef(
         client,
         tenantId,
@@ -819,7 +898,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       );
       await this.syncSessionCapacity(client, ueSessionId);
       await this.recomputeOrderTotal(client, order.id);
-      return ok({ id: ins.rows[0].id, statut: "en_attente_paiement" });
+      return ok({ id: ins.rows[0].id, statut: "en_attente_paiement", matricule });
     });
   }
 
@@ -867,9 +946,12 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       const linesRes = await client.query(
         `SELECT e.id, e.ue_session_id,
                 s.statut AS session_statut, s.capacite_max,
-                s.inscription_ouverte_le, s.inscription_fermee_le, s.ue_id
+                s.inscription_ouverte_le, s.inscription_fermee_le, s.ue_id,
+                ue.filiere_id, p.code AS filiere_code
          FROM professional_enrollments e
          JOIN professional_ue_sessions s ON s.id = e.ue_session_id
+         JOIN professional_ue ue ON ue.id = s.ue_id
+         JOIN programmes p ON p.id = ue.filiere_id
          WHERE e.order_id=$1 AND e.statut <> 'annulee'`,
         [orderId]
       );
@@ -904,6 +986,22 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         const e = elig as { reason: string; message: string };
         return fail(e.reason, e.message);
       }
+      }
+
+      // Filet de sécurité : les paniers constitués avant la généralisation de
+      // l'attribution (cf. addToCart) n'ont pas de matricule. L'appel étant
+      // idempotent, il ne fait rien pour les autres.
+      const filieresVues = new Set<string>();
+      for (const line of linesRes.rows) {
+        if (filieresVues.has(line.filiere_id)) continue;
+        filieresVues.add(line.filiere_id);
+        await this.ensureProfessionalMatricule(
+          client,
+          tenantId,
+          line.filiere_id,
+          line.filiere_code,
+          studentId
+        );
       }
 
       await this.recomputeOrderTotal(client, orderId);

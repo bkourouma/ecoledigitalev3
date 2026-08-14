@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Card, CardContent, Input } from "@ecoledigitale/ui";
 import {
   ClipboardCheck,
@@ -14,6 +15,7 @@ import {
   GraduationCap,
   Clock,
   UserRound,
+  Eye,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import {
@@ -24,10 +26,12 @@ import {
 
 /**
  * Présences — Module Professionnel (admin).
- * Historique complet des appels effectués dans l'application : par filière,
- * statut de session (en cours / terminées) et semestre. Récapitulatif par
- * étudiant avec les heures d'absence calculées sur la durée réelle des cours,
- * et journal des séances avec l'enseignant ayant effectué l'appel.
+ * Synthèse des appels effectués dans l'application, par filière, statut de
+ * session (en cours / terminées) et semestre : récapitulatif par étudiant avec
+ * les heures d'absence calculées sur la durée réelle des cours. Le bouton
+ * « Détails » d'une ligne ouvre la fiche de l'étudiant
+ * (`presences/etudiant/[studentId]`) : toutes ses séances du périmètre,
+ * regroupées par matière, avec son statut de pointage séance par séance.
  */
 
 const STATUT_OPTIONS = [
@@ -42,22 +46,6 @@ function fmtHeures(h: number | null | undefined): string {
   const heures = Math.floor(v);
   const minutes = Math.round((v - heures) * 60);
   return minutes > 0 ? `${heures}h${String(minutes).padStart(2, "0")}` : `${heures}h`;
-}
-
-function fmtDuree(min: number | null | undefined): string {
-  const v = Number(min ?? 0);
-  if (v <= 0) return "—";
-  return fmtHeures(v / 60);
-}
-
-function fmtDateFr(d: string | null | undefined): string {
-  if (!d) return "—";
-  const x = new Date(d);
-  return isNaN(x.getTime()) ? String(d) : x.toLocaleDateString("fr-FR");
-}
-
-function hm(t: string | null | undefined): string {
-  return t ? String(t).slice(0, 5) : "—";
 }
 
 /**
@@ -134,19 +122,18 @@ export default function AdminPresencesPage() {
         : students,
     [students, q]
   );
-  const filteredSeances = useMemo(
-    () =>
-      q
-        ? seances.filter((s) =>
-            `${s.ecue_libelle ?? ""} ${s.ue_libelle ?? ""} ${s.enseignant_nom ?? ""} ${
-              s.marque_par ?? ""
-            }`
-              .toLowerCase()
-              .includes(q)
-          )
-        : seances,
-    [seances, q]
+  // Périmètre courant, transmis à la fiche d'un étudiant (filtres de la page).
+  const semestreLabel = useMemo(
+    () => semestres.find((s) => s.id === semestreId)?.libelle ?? null,
+    [semestres, semestreId]
   );
+  const studentDetailQuery = useMemo(() => {
+    const qs = new URLSearchParams({ filiere_id: filiereId });
+    if (semestreId) qs.set("semestre_id", semestreId);
+    if (semestreLabel) qs.set("semestre", semestreLabel);
+    if (statut !== "all") qs.set("statut", statut);
+    return qs.toString();
+  }, [filiereId, semestreId, semestreLabel, statut]);
 
   const stats = useMemo(() => {
     const appels = seances.filter((s) => Number(s.nb_marques) > 0);
@@ -173,8 +160,8 @@ export default function AdminPresencesPage() {
           Présences
         </h1>
         <p className="text-muted-foreground mt-2">
-          Historique de tous les appels effectués : heures d'absence par étudiant (selon la durée
-          des cours) et journal des séances avec l'enseignant.
+          Synthèse des appels effectués : heures d'absence par étudiant, calculées sur la durée
+          réelle des cours. « Détails » ouvre toutes les séances d'un étudiant.
         </p>
       </div>
 
@@ -301,7 +288,9 @@ export default function AdminPresencesPage() {
               <UserRound className="h-4 w-4 text-indigo-500 shrink-0" />
               <span className="font-semibold">Récapitulatif par étudiant</span>
               <span className="text-xs text-muted-foreground">
-                · heures d'absence calculées sur la durée réelle des séances
+                · heures d'absence calculées sur la durée réelle des séances · « Détails » ouvre
+                toutes les séances de l'étudiant
+                {semestreLabel ? ` pour ${semestreLabel}` : ""}
               </span>
             </div>
             <CardContent className="p-0 overflow-auto max-h-[60vh]">
@@ -322,8 +311,11 @@ export default function AdminPresencesPage() {
                       <th className="sticky top-0 z-10 bg-muted/50 px-3 py-3 font-medium text-center">
                         Heures d'absence
                       </th>
-                      <th className="sticky top-0 z-10 bg-muted/50 px-4 py-3 font-medium text-right">
+                      <th className="sticky top-0 z-10 bg-muted/50 px-3 py-3 font-medium text-center">
                         Taux de présence
+                      </th>
+                      <th className="sticky top-0 z-10 bg-muted/50 px-4 py-3 font-medium text-right">
+                        Détails
                       </th>
                     </tr>
                   </thead>
@@ -378,7 +370,7 @@ export default function AdminPresencesPage() {
                               {fmtHeures(s.heures_absence)}
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 text-right">
+                          <td className="px-3 py-2.5 text-center">
                             {taux == null ? (
                               <span className="text-muted-foreground">—</span>
                             ) : (
@@ -395,104 +387,18 @@ export default function AdminPresencesPage() {
                               </span>
                             )}
                           </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <Link
+                              href={`/professionnel/admin/presences/etudiant/${s.student_id}?${studentDetailQuery}`}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Détails
+                            </Link>
+                          </td>
                         </tr>
                       );
                     })}
-                  </tbody>
-                </table>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Historique des appels (séances) */}
-          <Card className="shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-3">
-              <ClipboardCheck className="h-4 w-4 text-indigo-500 shrink-0" />
-              <span className="font-semibold">Historique des appels</span>
-              <span className="text-xs text-muted-foreground">
-                · {filteredSeances.length} séance{filteredSeances.length > 1 ? "s" : ""} · de la plus
-                récente à la plus ancienne
-              </span>
-            </div>
-            <CardContent className="p-0 overflow-auto max-h-[65vh]">
-              {filteredSeances.length === 0 ? (
-                <p className="py-10 text-center text-muted-foreground text-sm">
-                  Aucune séance pour cette sélection.
-                </p>
-              ) : (
-                <table className="min-w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-muted/50 border-b border-border text-left text-muted-foreground">
-                      <th className="sticky top-0 z-10 bg-muted/50 px-4 py-3 font-medium">Date</th>
-                      <th className="sticky top-0 z-10 bg-muted/50 px-3 py-3 font-medium">Horaire · Durée</th>
-                      <th className="sticky top-0 z-10 bg-muted/50 px-4 py-3 font-medium">Matière (ECUE)</th>
-                      <th className="sticky top-0 z-10 bg-muted/50 px-4 py-3 font-medium">Enseignant</th>
-                      <th className="sticky top-0 z-10 bg-muted/50 px-3 py-3 font-medium text-center">Présents</th>
-                      <th className="sticky top-0 z-10 bg-muted/50 px-3 py-3 font-medium text-center">Absents</th>
-                      <th className="sticky top-0 z-10 bg-muted/50 px-3 py-3 font-medium text-center">Retards</th>
-                      <th className="sticky top-0 z-10 bg-muted/50 px-3 py-3 font-medium text-center">Excusés</th>
-                      <th className="sticky top-0 z-10 bg-muted/50 px-4 py-3 font-medium text-right">Appel</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSeances.map((s) => (
-                      <tr
-                        key={s.seance_id}
-                        className="border-b border-border/60 last:border-0 hover:bg-muted/20"
-                      >
-                        <td className="px-4 py-2.5 whitespace-nowrap font-medium">
-                          {fmtDateFr(s.date)}
-                        </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap font-mono text-xs">
-                          {hm(s.heure_debut)}–{hm(s.heure_fin)}
-                          <span className="ml-1.5 text-muted-foreground">
-                            · {fmtDuree(s.duree_minutes)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
-                          <div>{s.ecue_libelle ?? s.ecue_code}</div>
-                          <div className="text-xs text-muted-foreground">{s.ue_libelle}</div>
-                        </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
-                          {s.enseignant_nom || s.marque_par || (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                          {s.enseignant_nom &&
-                            s.marque_par &&
-                            s.marque_par !== s.enseignant_nom && (
-                              <div
-                                className="text-[10px] text-muted-foreground"
-                                title="Utilisateur ayant enregistré l'appel"
-                              >
-                                appel : {s.marque_par}
-                              </div>
-                            )}
-                        </td>
-                        <td className="px-3 py-2.5 text-center font-mono text-green-600">
-                          {s.nb_present}
-                        </td>
-                        <td className="px-3 py-2.5 text-center font-mono text-red-600">
-                          {s.nb_absent}
-                        </td>
-                        <td className="px-3 py-2.5 text-center font-mono text-amber-600">
-                          {s.nb_retard}
-                        </td>
-                        <td className="px-3 py-2.5 text-center font-mono text-blue-600">
-                          {s.nb_excuse}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          {Number(s.nb_marques) > 0 ? (
-                            <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                              Effectué
-                            </span>
-                          ) : (
-                            <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                              À faire
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
                   </tbody>
                 </table>
               )}

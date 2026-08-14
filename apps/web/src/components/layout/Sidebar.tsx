@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import {
-  Home,
+  LayoutDashboard,
   Users,
   GraduationCap,
   Settings,
@@ -18,6 +18,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileSpreadsheet,
+  AlertTriangle,
   DoorOpen,
   UserPlus,
   DollarSign,
@@ -43,35 +44,106 @@ import {
   Baby,
   Phone,
   X,
-  Bell,
-  PenLine
+  PenLine,
+  RotateCcw,
+  Star
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { removeToken, getToken } from '@/lib/jwt-storage';
 import { useAdminMenuAccess } from '@/lib/hooks/use-admin-roles';
 
+// « Home » (/) a été retiré du menu : la page d'accueil communautaire faisait
+// doublon avec le tableau de bord, qui est désormais le point d'entrée unique.
 const navigationItems = [
-  { icon: Home, label: 'Home', href: '/' as const },
+  { icon: LayoutDashboard, label: 'Tableau de bord', href: '/tableau-de-bord' as const },
 ];
 
-// Espace propriétaire (même style que le reste de l’app)
-const ownerMenuItems = [
-  { icon: BarChart3, label: 'Pilotage', href: '/owner/dashboard' as const },
-  { icon: DollarSign, label: 'Finances', href: '/owner/finances' as const },
-  { icon: Receipt, label: 'Recouvrement UE', href: '/owner/finances/professionnel' as const },
-  { icon: GraduationCap, label: 'Académique', href: '/owner/academique' as const },
-  { icon: Award, label: 'Pédagogie', href: '/owner/pedagogie' as const },
-  { icon: ClipboardCheck, label: 'Assiduité', href: '/owner/assiduite' as const },
-  { icon: Layers, label: 'Référentiel', href: '/owner/referentiel' as const },
-  // Icône distincte de « RH » (Users), qui vise la paie et non la démographie.
-  { icon: User, label: 'Personnes', href: '/owner/personnes' as const },
-  { icon: UserPlus, label: 'Recrutement', href: '/owner/recrutement' as const },
-  { icon: Users, label: 'RH', href: '/owner/staff' as const },
-  { icon: BookOpen, label: 'Formations', href: '/owner/formations' as const },
-  { icon: Bell, label: 'Alertes', href: '/owner/alertes' as const },
+type OwnerMenuLink = { icon: LucideIcon; label: string; href: string };
+
+/** Un bloc du menu propriétaire : un intertitre facultatif et ses entrées. */
+type OwnerMenuSection = { label: string | null; items: OwnerMenuLink[] };
+
+/**
+ * Espace propriétaire.
+ *
+ * Délibérément SANS groupes dépliants, contrairement au menu administrateur.
+ * Un administrateur travaille dans une zone à la fois — replier les autres lui
+ * fait gagner de la place. Un propriétaire, lui, balaie l'ensemble pour décider :
+ * chaque repli lui cache une information qu'il veut voir d'un coup d'œil, et
+ * chaque dépli est un clic entre lui et un chiffre. Les douze entrées tiennent à
+ * l'écran, on les laisse donc toutes visibles.
+ *
+ * L'ordre des blocs est celui dans lequel un propriétaire se pose ses questions :
+ * est-ce que l'argent rentre ? les effectifs tiennent-ils ? la machine
+ * pédagogique tourne-t-elle ? — le référentiel étant l'outil de correction en
+ * aval, il ferme la liste.
+ *
+ * Retirés du menu : Recrutement, RH, Formations et Alertes. Les pages restent
+ * accessibles par URL — seule leur entrée de menu disparaît.
+ */
+const ownerMenuSections: OwnerMenuSection[] = [
+  {
+    // Porte d'entrée de l'espace : pas d'intertitre, elle se suffit.
+    label: null,
+    items: [{ icon: BarChart3, label: 'Pilotage', href: '/owner/dashboard' }],
+  },
+  {
+    label: 'Argent',
+    items: [
+      { icon: DollarSign, label: 'Finances', href: '/owner/finances' },
+      { icon: Wallet, label: 'Trésorerie', href: '/owner/finances/tresorerie' },
+      { icon: Receipt, label: 'Recouvrement UE', href: '/owner/finances/professionnel' },
+      { icon: TrendingUp, label: 'Économie', href: '/owner/economie' },
+    ],
+  },
+  {
+    label: 'Effectifs',
+    items: [
+      // Icône distincte de « RH » (Users), qui vise la paie et non la démographie.
+      { icon: User, label: 'Personnes', href: '/owner/personnes' },
+      { icon: DoorOpen, label: 'Remplissage', href: '/owner/remplissage' },
+    ],
+  },
+  {
+    label: 'Pédagogie',
+    items: [
+      { icon: GraduationCap, label: 'Académique', href: '/owner/academique' },
+      { icon: Award, label: 'Résultats', href: '/owner/pedagogie' },
+      { icon: ClipboardCheck, label: 'Assiduité', href: '/owner/assiduite' },
+      { icon: AlertTriangle, label: 'Risque', href: '/owner/risque' },
+    ],
+  },
+  {
+    label: 'Structure',
+    items: [{ icon: Layers, label: 'Référentiel', href: '/owner/referentiel' }],
+  },
 ];
+
+/**
+ * Entrée active de l'espace propriétaire.
+ *
+ * Deux exceptions, sans lesquelles plusieurs entrées s'allumeraient ensemble :
+ * « Pilotage » couvre aussi /owner, et « Finances » ne doit pas s'allumer quand
+ * on est sur Trésorerie ou Recouvrement UE, qui vivent sous /owner/finances tout
+ * en ayant leur propre entrée.
+ */
+function isOwnerLinkActive(pathname: string, href: string): boolean {
+  if (href === '/owner/dashboard') {
+    return pathname === '/owner/dashboard' || pathname === '/owner';
+  }
+  if (href === '/owner/finances') {
+    return (
+      pathname === '/owner/finances' ||
+      (pathname.startsWith('/owner/finances/') &&
+        !pathname.startsWith('/owner/finances/professionnel') &&
+        !pathname.startsWith('/owner/finances/tresorerie'))
+    );
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 const adminQuickMenuItems = [
   { icon: Shield, label: 'Accès', href: '/owner/acces' as const },
@@ -106,39 +178,58 @@ const formationsProAdminMenuItems = [
 ];
 
 // Core Academic Structure Management
+// « Vue d'ensemble » (clé `academic.overview`) a été remplacée par le tableau de
+// bord administrateur : elle est rendue en haut du menu (`navigationItems`).
+// « Types de Bilan » et « Matières » sont sortis du menu (les pages restent
+// atteignables par URL) — cf. migration 0095.
 const academicStructureMenuItems = [
-  { icon: BarChart3, label: 'Vue d\'ensemble', href: '/academic' as const },
   { icon: GraduationCap, label: 'Cycles', href: '/academic/cycles' as const },
   { icon: BookOpen, label: 'Filières', href: '/academic/programmes' as const },
-  { icon: ClipboardCheck, label: 'Types de Bilan', href: '/annee-academique/types-de-bilan' as const },
-  { icon: Calendar, label: 'Matières', href: '/academic/courses' as const },
 ];
 
-// Module Professionnel (Filière → UE → ECUE)
-const professionalModuleMenuItems = [
+// Module Professionnel (Filière → UE → ECUE), découpé en sous-menus dépliants.
+// Le découpage doit rester aligné sur les groupes de `ADMIN_MENU_CATALOG`
+// (packages/contracts) : c'est le même classement qui s'affiche sur la page
+// « Accès → Menus par rôle ».
+const professionalProgrammeMenuItems = [
   { icon: Layers, label: 'UE', href: '/professionnel/admin/ue' as const },
   { icon: BookOpen, label: 'ECUE', href: '/professionnel/admin/matieres' as const },
   { icon: CalendarRange, label: 'Semestres', href: '/professionnel/admin/semestres' as const },
+];
+
+const professionalSessionsMenuItems = [
   { icon: Calendar, label: 'Sessions', href: '/professionnel/admin/sessions' as const },
+  { icon: DoorOpen, label: 'Salles de classe', href: '/academic/classrooms' as const },
+  { icon: CalendarClock, label: 'Planning des cours', href: '/professionnel/admin/planning' as const },
+];
+
+const professionalStudentsMenuItems = [
   { icon: UserPlus, label: 'Inscriptions', href: '/professionnel/admin/inscriptions' as const },
   { icon: Users, label: 'Étudiants inscrits', href: '/professionnel/admin/inscrits' as const },
   { icon: Wallet, label: 'Paiements', href: '/professionnel/admin/paiements' as const },
-  { icon: DoorOpen, label: 'Salles de classe', href: '/academic/classrooms' as const },
-  { icon: CalendarClock, label: 'Planning des cours', href: '/professionnel/admin/planning' as const },
+];
+
+const professionalTrackingMenuItems = [
   { icon: ClipboardCheck, label: 'Présences', href: '/professionnel/admin/presences' as const },
+  { icon: Star, label: 'Conduite', href: '/professionnel/admin/conduite' as const },
   { icon: ClipboardList, label: 'Notes', href: '/professionnel/admin/notes' as const },
+  { icon: RotateCcw, label: 'Rattrapages', href: '/professionnel/admin/notes/rattrapages' as const },
   { icon: FileSpreadsheet, label: 'Bulletins', href: '/professionnel/admin/bulletins' as const },
+];
+
+const professionalDocumentsMenuItems = [
   { icon: Award, label: 'Attestations de réussite', href: '/professionnel/admin/attestations' as const },
   { icon: GraduationCap, label: 'Diplômes', href: '/professionnel/admin/diplomes' as const },
   { icon: PenLine, label: 'Signataires', href: '/professionnel/admin/signataires' as const },
 ];
 
 // People Management
+// « Inscriptions en ligne » est sortie du menu (page toujours atteignable par
+// URL) — cf. migration 0095.
 const peopleMenuItems = [
   { icon: Users, label: 'Enseignants', href: '/academic/teachers' as const },
   { icon: Users, label: 'Étudiants', href: '/academic/students' as const },
   { icon: Users, label: 'Parents', href: '/academic/parents' as const },
-  { icon: ClipboardCheck, label: 'Inscriptions en ligne', href: '/academic/registrations' as const },
 ];
 
 // Academic Year Operations
@@ -319,6 +410,88 @@ const NavLink = ({
   );
 };
 
+/**
+ * Sous-menu dépliant du Module Professionnel (Programme, Étudiants, …).
+ *
+ * Le groupe est mis en évidence et ouvert d'emblée quand la page courante lui
+ * appartient — l'appartenance se déduit des `href` du groupe, il n'y a donc
+ * aucune liste de préfixes à maintenir en parallèle. Même rendu que les
+ * sous-menus « Cycles & Programmes » / « Personnes ».
+ */
+const ProfessionalModuleGroup = ({
+  label,
+  icon: GroupIcon,
+  items,
+  pathname,
+  onCloseMobileMenu,
+  className = '',
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: ReadonlyArray<{ icon: React.ComponentType<{ className?: string }>; label: string; href: string }>;
+  pathname: string;
+  onCloseMobileMenu?: () => void;
+  className?: string;
+}) => {
+  const matchesHref = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  // Deux entrées d'un même groupe peuvent être imbriquées (« Rattrapages » vit
+  // sous /professionnel/admin/notes/…) : seule la plus spécifique s'allume.
+  const isItemActive = (href: string) =>
+    matchesHref(href) &&
+    !items.some((other) => other.href.length > href.length && matchesHref(other.href));
+  const containsActivePage = items.some((item) => matchesHref(item.href));
+  const [isExpanded, setIsExpanded] = useState(containsActivePage);
+
+  // Le sidebar n'est pas remonté d'une page à l'autre : sans cet effet, arriver
+  // sur une page d'un autre groupe le mettrait en surbrillance tout en le
+  // laissant replié. Le repli manuel reste possible ensuite.
+  React.useEffect(() => {
+    if (containsActivePage) setIsExpanded(true);
+  }, [containsActivePage]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${className} ${containsActivePage ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+      >
+        <div className="flex items-center space-x-3">
+          <GroupIcon className="w-5 h-5" />
+          <span>{label}</span>
+        </div>
+        {isExpanded ? (
+          <ChevronDown className="w-5 h-5" />
+        ) : (
+          <ChevronRight className="w-5 h-5" />
+        )}
+      </button>
+
+      {isExpanded && (
+        <div className="ml-4 mt-1 space-y-1">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const isActive = isItemActive(item.href);
+
+            return (
+              <NavLink
+                key={item.href}
+                href={item.href}
+                onCloseMobileMenu={onCloseMobileMenu}
+                className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+};
+
 export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -333,44 +506,105 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const isOwner =
     Array.isArray(roles) && roles.some((r: string) => String(r).toLowerCase() === 'owner');
 
-  // Menus autorisés par le rôle administratif de l'utilisateur (page
-  // « Administration → Rôles »). Sans rôle personnalisé, `canSeeHref` renvoie
-  // toujours true : le sidebar reste identique pour les comptes existants.
+  // Menus autorisés pour cet utilisateur : liste blanche de son rôle
+  // administratif (page « Administration → Rôles ») ET menus retirés à ses rôles
+  // socle (page « Accès → Menus par rôle »). Sans configuration, `canSeeHref`
+  // renvoie toujours true : le sidebar reste identique pour les comptes existants.
   const { canSeeHref } = useAdminMenuAccess();
+  const canSeeAdmin = (href: string) => canSeeHref('admin', href);
 
   // All admin tenants are equal: every admin sees the full Formation Pro menus,
   // alongside the regular admin sidebar. No tenant-id gating.
-  const formationsProNavItems = formationsProMenuItems.filter((item) => canSeeHref(item.href));
+  const formationsProNavItems = formationsProMenuItems.filter((item) => canSeeAdmin(item.href));
   const formationsProAdminNavItems = formationsProAdminMenuItems.filter((item) =>
-    canSeeHref(item.href)
+    canSeeAdmin(item.href)
   );
 
   // Entrées du sidebar administrateur filtrées par les permissions du rôle.
   const visibleAcademicStructureItems = academicStructureMenuItems.filter((item) =>
-    canSeeHref(item.href)
+    canSeeAdmin(item.href)
   );
-  const visiblePeopleItems = peopleMenuItems.filter((item) => canSeeHref(item.href));
-  const visibleProfessionalModuleItems = professionalModuleMenuItems.filter((item) =>
-    canSeeHref(item.href)
+  const visiblePeopleItems = peopleMenuItems.filter((item) => canSeeAdmin(item.href));
+  const visibleProfessionalProgrammeItems = professionalProgrammeMenuItems.filter((item) =>
+    canSeeAdmin(item.href)
+  );
+  const visibleProfessionalSessionsItems = professionalSessionsMenuItems.filter((item) =>
+    canSeeAdmin(item.href)
+  );
+  const visibleProfessionalStudentsItems = professionalStudentsMenuItems.filter((item) =>
+    canSeeAdmin(item.href)
+  );
+  const visibleProfessionalTrackingItems = professionalTrackingMenuItems.filter((item) =>
+    canSeeAdmin(item.href)
+  );
+  const visibleProfessionalDocumentsItems = professionalDocumentsMenuItems.filter((item) =>
+    canSeeAdmin(item.href)
   );
   const visibleAcademicOperationsItems = academicOperationsMenuItems.filter((item) =>
-    canSeeHref(item.href)
+    canSeeAdmin(item.href)
   );
-  const visibleBtsItems = btsMenuItems.filter((item) => canSeeHref(item.href));
+  const visibleBtsItems = btsMenuItems.filter((item) => canSeeAdmin(item.href));
   const visibleDailyOperationsItems = dailyOperationsMenuItems.filter((item) =>
-    canSeeHref(item.href)
+    canSeeAdmin(item.href)
   );
   const visibleTeacherPaymentItems = teacherPaymentMenuItems.filter((item) =>
-    canSeeHref(item.href)
+    canSeeAdmin(item.href)
   );
   const visibleStudentFinanceAdminItems = studentFinanceAdminMenuItems.filter((item) =>
-    canSeeHref(item.href)
+    canSeeAdmin(item.href)
   );
-  const visibleAdminQuickItems = adminQuickMenuItems.filter((item) => canSeeHref(item.href));
-  const canSeeAdminMessages = canSeeHref('/admin/messages');
+  const visibleAdminQuickItems = adminQuickMenuItems.filter((item) => canSeeAdmin(item.href));
+  const canSeeAdminMessages = canSeeAdmin('/admin/messages');
+
+  // Espaces enseignant / étudiant / parent / formateur : mêmes règles, appliquées
+  // dans leur propre périmètre de catalogue.
+  const visibleFormateurItems = formateurMenuItems.filter((item) =>
+    canSeeHref('formateur', item.href)
+  );
+  const visibleTeacherDashboardItems = teacherMenuItems.filter((item) =>
+    canSeeHref('teacher', item.href)
+  );
+  const visibleTeacherCoursesItems = teacherCoursesMenuItems.filter((item) =>
+    canSeeHref('teacher', item.href)
+  );
+  const visibleTeacherStudentsItems = teacherStudentsMenuItems.filter((item) =>
+    canSeeHref('teacher', item.href)
+  );
+  const visibleTeacherEvaluationsItems = teacherEvaluationsMenuItems.filter((item) =>
+    canSeeHref('teacher', item.href)
+  );
+  const visibleTeacherRemunerationItems = teacherRemunerationMenuItems.filter((item) =>
+    canSeeHref('teacher', item.href)
+  );
+  const visibleTeacherReportsItems = teacherReportsMenuItems.filter((item) =>
+    canSeeHref('teacher', item.href)
+  );
+  const visibleTeacherProfileItems = teacherProfileMenuItems.filter((item) =>
+    canSeeHref('teacher', item.href)
+  );
+  const visibleStudentAcademicItems = studentAcademicMenuItems.filter((item) =>
+    canSeeHref('student', item.href)
+  );
+  const visibleStudentAssistanceItems = studentAssistanceMenuItems.filter((item) =>
+    canSeeHref('student', item.href)
+  );
+  const visibleStudentProfileItems = studentProfileMenuItems.filter((item) =>
+    canSeeHref('student', item.href)
+  );
+  const visibleStudentFinanceItems = studentFinanceMenuItems.filter((item) =>
+    canSeeHref('student', item.href)
+  );
+  const canSeeStudentMessages = canSeeHref('student', '/student/messages');
+  const visibleParentItems = parentMenuItems.filter((item) => canSeeHref('parent', item.href));
 
   const showAcademicStructureSection =
     visibleAcademicStructureItems.length > 0 || visiblePeopleItems.length > 0;
+  const showProfessionalModuleSection =
+    visibleProfessionalProgrammeItems.length > 0 ||
+    visibleProfessionalSessionsItems.length > 0 ||
+    visibleProfessionalStudentsItems.length > 0 ||
+    visibleProfessionalTrackingItems.length > 0 ||
+    visibleProfessionalDocumentsItems.length > 0;
   const showAcademicOperationsSection =
     visibleAcademicOperationsItems.length > 0 ||
     visibleBtsItems.length > 0 ||
@@ -379,16 +613,12 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
     formationsProAdminNavItems.length > 0;
 
   const [isAcademicStructureExpanded, setIsAcademicStructureExpanded] = useState(
-    pathname.startsWith('/academic') || pathname.startsWith('/annee-academique/types-de-bilan')
-  );
-  const [isProfessionalModuleExpanded, setIsProfessionalModuleExpanded] = useState(
-    pathname.startsWith('/professionnel/admin') || pathname.startsWith('/academic/classrooms')
+    pathname.startsWith('/academic/cycles') || pathname.startsWith('/academic/programmes')
   );
   const [isPeopleExpanded, setIsPeopleExpanded] = useState(
     pathname.startsWith('/academic/teachers') ||
     pathname.startsWith('/academic/students') ||
-    pathname.startsWith('/academic/parents') ||
-    pathname.startsWith('/academic/registrations')
+    pathname.startsWith('/academic/parents')
   );
   const [isAcademicOperationsExpanded, setIsAcademicOperationsExpanded] = useState(
     pathname.startsWith('/annee-academique') || pathname.startsWith('/academic/assignments')
@@ -518,7 +748,10 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
       <div className="flex-1 py-4 overflow-y-auto">
         <nav className="space-y-1 px-2">
           {/* Main Navigation */}
-          {navigationItems.map((item) => {
+          {/* « Tableau de bord » porte la clé de catalogue `academic.overview`
+              (ex « Vue d'ensemble » /academic) : il se filtre donc comme les
+              autres entrées administratives. */}
+          {navigationItems.filter((item) => canSeeAdmin(item.href)).map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
 
@@ -542,41 +775,44 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   Propriétaire
                 </h3>
               </div>
-              {ownerMenuItems.map((item) => {
-                const Icon = item.icon;
-                // « Recouvrement UE » vit sous /owner/finances/ tout en ayant sa
-                // propre entrée : sans exception, les deux s'allumeraient ensemble.
-                const isActive =
-                  item.href === '/owner/dashboard'
-                    ? pathname === '/owner/dashboard' || pathname === '/owner'
-                    : item.href === '/owner/finances'
-                      ? pathname === '/owner/finances' ||
-                        (pathname.startsWith('/owner/finances/') &&
-                          !pathname.startsWith('/owner/finances/professionnel'))
-                      : pathname === item.href || pathname.startsWith(`${item.href}/`);
-                return (
-                  <NavLink
-                    key={item.href}
-                    href={item.href}
-                    onCloseMobileMenu={onCloseMobileMenu}
-                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${
-                      isActive
-                        ? 'bg-purple-600 text-white'
-                        : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
-                  </NavLink>
-                );
-              })}
+              {ownerMenuSections.map((section) => (
+                <div key={section.label ?? '__entree__'} className="space-y-1">
+                  {/* Intertitre discret : il sépare sans ajouter de clic. */}
+                  {section.label && (
+                    <div className="px-3 pt-2 pb-0.5">
+                      <span className="text-[10px] font-normal uppercase tracking-wider text-gray-500">
+                        {section.label}
+                      </span>
+                    </div>
+                  )}
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = isOwnerLinkActive(pathname, item.href);
+                    return (
+                      <NavLink
+                        key={item.href}
+                        href={item.href}
+                        onCloseMobileMenu={onCloseMobileMenu}
+                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${
+                          isActive
+                            ? 'bg-purple-600 text-white'
+                            : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           )}
 
           {/* Formateur Section (for formateur accounts or /formateur routes) */}
           {showFormateurMenu ? (
             <div className="pt-2">
-              {formateurMenuItems.map((item) => {
+              {visibleFormateurItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
@@ -599,7 +835,8 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               {isStudent && (
                 <>
               {/* Student Academic Section */}
-              <div className="pt-4">
+              {visibleStudentAcademicItems.length > 0 && (
+<div className="pt-4">
                 <div className="px-3 mb-2">
                   <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
                     Académique
@@ -625,7 +862,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 {/* Academic Submenu */}
                 {isStudentAcademicExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
-                    {studentAcademicMenuItems.map((item) => {
+                    {visibleStudentAcademicItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname === item.href;
 
@@ -644,6 +881,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   </div>
                 )}
               </div>
+)}
 
               {/* Student E-Learning Section */}
               {/* <div className="pt-2">
@@ -691,7 +929,8 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               </div> */}
 
               {/* Student Communication Section */}
-              <div className="pt-2">
+              {canSeeStudentMessages && (
+<div className="pt-2">
                 <div className="px-3 mb-2">
                   <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
                     Communication
@@ -711,9 +950,11 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   <span>Messages</span>
                 </NavLink>
               </div>
+)}
 
               {/* Student Assistance Section */}
-              <div className="pt-2">
+              {visibleStudentAssistanceItems.length > 0 && (
+<div className="pt-2">
                 <div className="px-3 mb-2">
                   <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
                     Assistance
@@ -739,7 +980,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 {/* Assistance Submenu */}
                 {isStudentAssistanceExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
-                    {studentAssistanceMenuItems.map((item) => {
+                    {visibleStudentAssistanceItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname === item.href;
 
@@ -758,10 +999,12 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   </div>
                 )}
               </div>
+)}
 
               {/* Student Profile Section */}
-              <div className="pt-4">
-                {studentProfileMenuItems.map((item) => {
+              {visibleStudentProfileItems.length > 0 && (
+<div className="pt-4">
+                {visibleStudentProfileItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
 
@@ -778,13 +1021,15 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   );
                 })}
               </div>
+)}
                 </>
               )}
               {/* Parent Navigation */}
               {isParent && (
                 <>
                   {/* Parent Children Section */}
-                  <div className="pt-4">
+                  {visibleParentItems.length > 0 && (
+<div className="pt-4">
                 <div className="px-3 mb-2">
                   <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
                     Suivi des Enfants
@@ -810,7 +1055,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 {/* Parent Children Submenu */}
                 {isParentChildrenExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
-                    {parentMenuItems.map((item) => {
+                    {visibleParentItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
@@ -829,6 +1074,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   </div>
                 )}
               </div>
+)}
 
               {/* Parent Settings Menu Item (separate from submenu) */}
               {/* <div className="pt-4">
@@ -852,7 +1098,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               {isTeacher && (
                 <>
                   {/* Teacher Dashboard */}
-              {teacherMenuItems.map((item) => {
+              {visibleTeacherDashboardItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
 
@@ -870,7 +1116,8 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               })}
 
               {/* Teacher Courses Section */}
-              <div className="pt-4">
+              {visibleTeacherCoursesItems.length > 0 && (
+<div className="pt-4">
                 <div className="px-3 mb-2">
                   <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
                     Mes Cours
@@ -894,7 +1141,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
 
                 {isTeacherCoursesExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
-                    {teacherCoursesMenuItems.map((item) => {
+                    {visibleTeacherCoursesItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname === item.href;
 
@@ -913,9 +1160,11 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   </div>
                 )}
               </div>
+)}
 
               {/* Teacher Students Section */}
-              <div className="pt-2">
+              {visibleTeacherStudentsItems.length > 0 && (
+<div className="pt-2">
                 <button
                   onClick={() => setIsTeacherStudentsExpanded(!isTeacherStudentsExpanded)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isTeacherStudentsExpanded ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
@@ -933,7 +1182,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
 
                 {isTeacherStudentsExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
-                    {teacherStudentsMenuItems.map((item) => {
+                    {visibleTeacherStudentsItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname === item.href;
 
@@ -952,9 +1201,11 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   </div>
                 )}
               </div>
+)}
 
               {/* Teacher Evaluations Section */}
-              <div className="pt-2">
+              {visibleTeacherEvaluationsItems.length > 0 && (
+<div className="pt-2">
                 <button
                   onClick={() => setIsTeacherEvaluationsExpanded(!isTeacherEvaluationsExpanded)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isTeacherEvaluationsExpanded ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
@@ -972,7 +1223,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
 
                 {isTeacherEvaluationsExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
-                    {teacherEvaluationsMenuItems.map((item) => {
+                    {visibleTeacherEvaluationsItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname === item.href;
 
@@ -991,9 +1242,11 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   </div>
                 )}
               </div>
+)}
 
               {/* Teacher Remuneration Section */}
-              <div className="pt-2">
+              {visibleTeacherRemunerationItems.length > 0 && (
+<div className="pt-2">
                 <button
                   onClick={() => setIsTeacherRemunerationExpanded(!isTeacherRemunerationExpanded)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isTeacherRemunerationExpanded ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
@@ -1011,7 +1264,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
 
                 {isTeacherRemunerationExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
-                    {teacherRemunerationMenuItems.map((item) => {
+                    {visibleTeacherRemunerationItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname === item.href;
 
@@ -1030,9 +1283,11 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   </div>
                 )}
               </div>
+)}
 
               {/* Teacher Reports Section */}
-              <div className="pt-2">
+              {visibleTeacherReportsItems.length > 0 && (
+<div className="pt-2">
                 <button
                   onClick={() => setIsTeacherReportsExpanded(!isTeacherReportsExpanded)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isTeacherReportsExpanded ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
@@ -1050,7 +1305,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
 
                 {isTeacherReportsExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
-                    {teacherReportsMenuItems.map((item) => {
+                    {visibleTeacherReportsItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname === item.href;
 
@@ -1069,10 +1324,12 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   </div>
                 )}
               </div>
+)}
 
               {/* Teacher Profile Section */}
-              <div className="pt-4">
-                {teacherProfileMenuItems.map((item) => {
+              {visibleTeacherProfileItems.length > 0 && (
+<div className="pt-4">
+                {visibleTeacherProfileItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
 
@@ -1089,6 +1346,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   );
                 })}
               </div>
+)}
                 </>
               )}
 
@@ -1106,7 +1364,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               <>
             <button
               onClick={() => setIsAcademicStructureExpanded(!isAcademicStructureExpanded)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${((pathname.startsWith('/academic') && !pathname.startsWith('/academic/teachers') && !pathname.startsWith('/academic/students') && !pathname.startsWith('/academic/parents') && !pathname.startsWith('/academic/registrations') && !pathname.startsWith('/academic/assignments')) || pathname.startsWith('/annee-academique/types-de-bilan')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${(pathname.startsWith('/academic/cycles') || pathname.startsWith('/academic/programmes')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
                 <GraduationCap className="w-5 h-5" />
@@ -1148,7 +1406,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               <>
             <button
               onClick={() => setIsPeopleExpanded(!isPeopleExpanded)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${(pathname.startsWith('/academic/teachers') || pathname.startsWith('/academic/students') || pathname.startsWith('/academic/parents') || pathname.startsWith('/academic/registrations')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${(pathname.startsWith('/academic/teachers') || pathname.startsWith('/academic/students') || pathname.startsWith('/academic/parents')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
                 <Users className="w-5 h-5" />
@@ -1188,7 +1446,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               )}
 
               {/* Module Professionnel Section */}
-              {isAdmin && visibleProfessionalModuleItems.length > 0 && (
+              {isAdmin && showProfessionalModuleSection && (
                 <div className="pt-4">
                   <div className="px-3 mb-2">
                     <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
@@ -1196,44 +1454,45 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                     </h3>
                   </div>
 
-                  {/* Module Professionnel Toggle Button */}
-                  <button
-                    onClick={() => setIsProfessionalModuleExpanded(!isProfessionalModuleExpanded)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${pathname.startsWith('/professionnel/admin') || pathname.startsWith('/academic/classrooms') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <GraduationCap className="w-5 h-5" />
-                      <span>Module Professionnel</span>
-                    </div>
-                    {isProfessionalModuleExpanded ? (
-                      <ChevronDown className="w-5 h-5" />
-                    ) : (
-                      <ChevronRight className="w-5 h-5" />
-                    )}
-                  </button>
-
-                  {/* Module Professionnel Submenu */}
-                  {isProfessionalModuleExpanded && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {visibleProfessionalModuleItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive =
-                          pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-                        return (
-                          <NavLink
-                            key={item.href}
-                            href={item.href}
-                            onCloseMobileMenu={onCloseMobileMenu}
-                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                          >
-                            <Icon className="w-5 h-5" />
-                            <span>{item.label}</span>
-                          </NavLink>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <ProfessionalModuleGroup
+                    label="Programme"
+                    icon={Layers}
+                    items={visibleProfessionalProgrammeItems}
+                    pathname={pathname}
+                    onCloseMobileMenu={onCloseMobileMenu}
+                  />
+                  <ProfessionalModuleGroup
+                    label="Sessions & Planning"
+                    icon={CalendarClock}
+                    items={visibleProfessionalSessionsItems}
+                    pathname={pathname}
+                    onCloseMobileMenu={onCloseMobileMenu}
+                    className="mt-2"
+                  />
+                  <ProfessionalModuleGroup
+                    label="Étudiants"
+                    icon={Users}
+                    items={visibleProfessionalStudentsItems}
+                    pathname={pathname}
+                    onCloseMobileMenu={onCloseMobileMenu}
+                    className="mt-2"
+                  />
+                  <ProfessionalModuleGroup
+                    label="Suivi & Évaluation"
+                    icon={ClipboardCheck}
+                    items={visibleProfessionalTrackingItems}
+                    pathname={pathname}
+                    onCloseMobileMenu={onCloseMobileMenu}
+                    className="mt-2"
+                  />
+                  <ProfessionalModuleGroup
+                    label="Documents officiels"
+                    icon={Award}
+                    items={visibleProfessionalDocumentsItems}
+                    pathname={pathname}
+                    onCloseMobileMenu={onCloseMobileMenu}
+                    className="mt-2"
+                  />
                 </div>
               )}
 
@@ -1510,7 +1769,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
 
 
           {/* Student Finance Section - Only show for students */}
-          {session?.user && (session as any).roles && (session as any).roles.includes('student') && (
+          {session?.user && (session as any).roles && (session as any).roles.includes('student') && visibleStudentFinanceItems.length > 0 && (
             <div className="pt-4">
               <div className="px-3 mb-2">
                 <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
@@ -1537,7 +1796,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               {/* Student Finance Submenu */}
               {isStudentFinanceExpanded && (
                 <div className="ml-4 mt-1 space-y-1">
-                  {studentFinanceMenuItems.map((item) => {
+                  {visibleStudentFinanceItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = pathname === item.href;
 

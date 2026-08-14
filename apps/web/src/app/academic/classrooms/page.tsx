@@ -2,17 +2,14 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ecoledigitale/ui";
-import { Building, Plus, Filter, MapPin, Users, Loader2, AlertCircle, Edit, Trash2, Search, X, Calendar } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Input } from "@ecoledigitale/ui";
+import { Building, Plus, Loader2, AlertCircle, Edit, Trash2, Search, X } from "lucide-react";
 import { useClassrooms, useDeleteClassroom } from "@/lib/hooks/use-classrooms";
 import { Classroom, ClassroomType, ClassroomStatus } from "@ecoledigitale/contracts";
 
 export default function ClassroomsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [buildingFilter, setBuildingFilter] = useState<string>("all");
 
   const { data: classroomsData, isLoading, error } = useClassrooms({ 
     limit: 100,
@@ -25,24 +22,12 @@ export default function ClassroomsPage() {
   // Filter and search classrooms
   const filteredClassrooms = useMemo(() => {
     return classrooms.filter((classroom) => {
-      const matchesSearch = searchQuery === "" ||
+      return searchQuery === "" ||
         classroom.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         classroom.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (classroom.building && classroom.building.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const matchesType = typeFilter === "all" || classroom.type === typeFilter;
-      const matchesStatus = statusFilter === "all" || classroom.status === statusFilter;
-      const matchesBuilding = buildingFilter === "all" || classroom.building === buildingFilter;
-
-      return matchesSearch && matchesType && matchesStatus && matchesBuilding;
     });
-  }, [classrooms, searchQuery, typeFilter, statusFilter, buildingFilter]);
-
-  // Get unique buildings for filter
-  const buildings = useMemo(() => {
-    const uniqueBuildings = [...new Set(classrooms.map(c => c.building).filter(Boolean))];
-    return uniqueBuildings.sort();
-  }, [classrooms]);
+  }, [classrooms, searchQuery]);
 
   const handleCreateNew = () => {
     router.push("/academic/classrooms/new");
@@ -126,8 +111,8 @@ export default function ClassroomsPage() {
 
       {/* Quick Stats */}
       {!isLoading && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+        <div className="grid grid-cols-1 gap-6">
+          <div className="w-full bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-white/80 text-sm font-medium">
@@ -137,54 +122,6 @@ export default function ClassroomsPage() {
               </div>
               <div className="bg-white/20 p-3 rounded-lg">
                 <Building className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80 text-sm font-medium">
-                  Disponibles
-                </p>
-                <p className="text-3xl font-bold mt-1">
-                  {classrooms.filter(c => c.status === 'disponible').length}
-                </p>
-              </div>
-              <div className="bg-white/20 p-3 rounded-lg">
-                <MapPin className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-violet-500 to-indigo-600 p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80 text-sm font-medium">
-                  Occupées
-                </p>
-                <p className="text-3xl font-bold mt-1">
-                  {classrooms.filter(c => c.status === 'occupe').length}
-                </p>
-              </div>
-              <div className="bg-white/20 p-3 rounded-lg">
-                <Users className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80 text-sm font-medium">
-                  Capacité totale
-                </p>
-                <p className="text-3xl font-bold mt-1">
-                  {classrooms.reduce((sum, c) => sum + c.capacity, 0)}
-                </p>
-              </div>
-              <div className="bg-white/20 p-3 rounded-lg">
-                <Calendar className="h-6 w-6" />
               </div>
             </div>
           </div>
@@ -213,64 +150,6 @@ export default function ClassroomsPage() {
                 </button>
               )}
             </div>
-
-            {/* Type Filter */}
-            <div className="lg:w-48">
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500">
-                  <Filter className="h-4 w-4 mr-2 text-gray-400" />
-                  <SelectValue placeholder="Filtrer par type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les types</SelectItem>
-                <SelectItem value="salle_cours">Salle de cours</SelectItem>
-                <SelectItem value="amphitheatre">Amphithéâtre</SelectItem>
-                <SelectItem value="laboratoire">Laboratoire</SelectItem>
-                <SelectItem value="salle_informatique">Salle informatique</SelectItem>
-                <SelectItem value="atelier">Atelier</SelectItem>
-                <SelectItem value="bibliotheque">Bibliothèque</SelectItem>
-                <SelectItem value="salle_reunion">Salle de réunion</SelectItem>
-                <SelectItem value="autre">Autre</SelectItem>
-              </SelectContent>
-            </Select>
-            </div>
-
-            {/* Status Filter */}
-            <div className="lg:w-48">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500">
-                  <Filter className="h-4 w-4 mr-2 text-gray-400" />
-                  <SelectValue placeholder="Filtrer par statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="disponible">Disponible</SelectItem>
-                <SelectItem value="occupe">Occupée</SelectItem>
-                <SelectItem value="maintenance">En maintenance</SelectItem>
-                <SelectItem value="hors_service">Hors service</SelectItem>
-              </SelectContent>
-            </Select>
-            </div>
-
-            {/* Building Filter */}
-            {buildings.length > 0 && (
-              <div className="lg:w-48">
-            <Select value={buildingFilter} onValueChange={setBuildingFilter}>
-                  <SelectTrigger className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500">
-                    <Building className="h-4 w-4 mr-2 text-gray-400" />
-                    <SelectValue placeholder="Filtrer par bâtiment" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les bâtiments</SelectItem>
-                {buildings.map((building) => (
-                  <SelectItem key={building} value={building}>
-                    {building}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-              </div>
-            )}
 
             {/* Results Count */}
             <div className="flex items-center text-sm text-gray-600 whitespace-nowrap">
@@ -402,16 +281,11 @@ export default function ClassroomsPage() {
               <div className="flex gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setTypeFilter("all");
-                    setStatusFilter("all");
-                    setBuildingFilter("all");
-                  }}
+                  onClick={() => setSearchQuery("")}
                   className="border-gray-300 hover:bg-gray-50"
                 >
                   <X className="h-4 w-4 mr-2" />
-                  Effacer les filtres
+                  Effacer la recherche
                 </Button>
                 <Button
                   onClick={handleCreateNew}

@@ -17,8 +17,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOwnerAssignableRoles, useOwnerUsers } from "@/lib/hooks/use-owner-users";
 import { createApiHeaders } from "@/lib/api-utils";
+import { RoleMenusPanel } from "./role-menus-panel";
 
 export default function OwnerAccesPage() {
   const { data: session } = useSession();
@@ -100,7 +102,13 @@ export default function OwnerAccesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <Tabs defaultValue="utilisateurs" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="utilisateurs">Utilisateurs</TabsTrigger>
+        <TabsTrigger value="menus">Menus par rôle</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="utilisateurs" className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Gestion des accès</h2>
         <p className="text-sm text-muted-foreground mt-1">
@@ -191,6 +199,11 @@ export default function OwnerAccesPage() {
           {saveRoles.error instanceof Error ? saveRoles.error.message : "Enregistrement impossible."}
         </p>
       ) : null}
-    </div>
+      </TabsContent>
+
+      <TabsContent value="menus">
+        <RoleMenusPanel />
+      </TabsContent>
+    </Tabs>
   );
 }

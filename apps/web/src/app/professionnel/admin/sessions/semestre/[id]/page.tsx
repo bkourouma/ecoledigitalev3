@@ -41,6 +41,15 @@ const STATUT_CHIP: Record<string, string> = {
   annule: "bg-red-100 text-red-700",
 };
 
+/**
+ * Session portée par l'UE de « conduite » (ex. « Conduite (S1) ») : note de
+ * semestre transversale. La ligne reste visible pour mémoire, mais sans
+ * inscrits (personne ne s'y inscrit) ni actions (rien à affecter ni modifier).
+ */
+function isConduiteSession(s: any): boolean {
+  return String(s?.ue_libelle ?? "").trim().toLowerCase().startsWith("conduite");
+}
+
 function fmtDate(value?: string | null): string {
   if (!value) return "—";
   const d = new Date(value);
@@ -206,36 +215,43 @@ export default function SemestreSessionsDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {b.items.map((s: any) => (
-                      <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50">
-                        <td className="py-2 pr-3 font-mono text-xs">{s.ue_code}</td>
-                        <td className="py-2 pr-3">{s.ue_libelle}</td>
-                        <td className="py-2 pr-3">{s.ue_nb_uv ?? 0}</td>
-                        <td className="py-2 pr-3">{s.nb_inscriptions_actives ?? 0}</td>
-                        <td className="py-2 pr-3">
-                          <div className="flex gap-1 justify-end">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="p-2"
-                              onClick={() => router.push(`${LIST_URL}/${s.id}`)}
-                              title="Voir / affecter les enseignants"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="p-2"
-                              onClick={() => router.push(`${LIST_URL}/${s.id}/edit`)}
-                              title="Modifier"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {b.items.map((s: any) => {
+                      const conduite = isConduiteSession(s);
+                      return (
+                        <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50">
+                          <td className="py-2 pr-3 font-mono text-xs">{s.ue_code}</td>
+                          <td className="py-2 pr-3">{s.ue_libelle}</td>
+                          <td className="py-2 pr-3">{s.ue_nb_uv ?? 0}</td>
+                          <td className="py-2 pr-3">
+                            {conduite ? "" : (s.nb_inscriptions_actives ?? 0)}
+                          </td>
+                          <td className="py-2 pr-3">
+                            {conduite ? null : (
+                              <div className="flex gap-1 justify-end">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="p-2"
+                                  onClick={() => router.push(`${LIST_URL}/${s.id}`)}
+                                  title="Voir / affecter les enseignants"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="p-2"
+                                  onClick={() => router.push(`${LIST_URL}/${s.id}/edit`)}
+                                  title="Modifier"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -36,15 +36,12 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
       {
         label: "Cycles & Programmes",
         items: [
-          { key: "academic.overview", label: "Vue d'ensemble", href: "/academic" },
+          // La clé reste `academic.overview` (elle est persistée dans
+          // `admin_role_menus`) mais la page « Vue d'ensemble » vit désormais
+          // sous /tableau-de-bord : /academic n'existe plus.
+          { key: "academic.overview", label: "Vue d'ensemble", href: "/tableau-de-bord" },
           { key: "academic.cycles", label: "Cycles", href: "/academic/cycles" },
           { key: "academic.programmes", label: "Filières", href: "/academic/programmes" },
-          {
-            key: "academic.bilan_types",
-            label: "Types de Bilan",
-            href: "/annee-academique/types-de-bilan",
-          },
-          { key: "academic.courses", label: "Matières", href: "/academic/courses" },
         ],
       },
       {
@@ -53,11 +50,6 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
           { key: "people.teachers", label: "Enseignants", href: "/academic/teachers" },
           { key: "people.students", label: "Étudiants", href: "/academic/students" },
           { key: "people.parents", label: "Parents", href: "/academic/parents" },
-          {
-            key: "people.registrations",
-            label: "Inscriptions en ligne",
-            href: "/academic/registrations",
-          },
         ],
       },
     ],
@@ -66,12 +58,28 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
     label: "Module Professionnel",
     groups: [
       {
-        label: "Module Professionnel",
+        label: "Programme",
         items: [
           { key: "pro.ue", label: "UE", href: "/professionnel/admin/ue" },
           { key: "pro.ecue", label: "ECUE", href: "/professionnel/admin/matieres" },
           { key: "pro.semestres", label: "Semestres", href: "/professionnel/admin/semestres" },
+        ],
+      },
+      {
+        label: "Sessions & Planning",
+        items: [
           { key: "pro.sessions", label: "Sessions", href: "/professionnel/admin/sessions" },
+          { key: "pro.classrooms", label: "Salles de classe", href: "/academic/classrooms" },
+          {
+            key: "pro.planning",
+            label: "Planning des cours",
+            href: "/professionnel/admin/planning",
+          },
+        ],
+      },
+      {
+        label: "Étudiants",
+        items: [
           {
             key: "pro.inscriptions",
             label: "Inscriptions",
@@ -83,15 +91,25 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
             href: "/professionnel/admin/inscrits",
           },
           { key: "pro.paiements", label: "Paiements", href: "/professionnel/admin/paiements" },
-          { key: "pro.classrooms", label: "Salles de classe", href: "/academic/classrooms" },
-          {
-            key: "pro.planning",
-            label: "Planning des cours",
-            href: "/professionnel/admin/planning",
-          },
+        ],
+      },
+      {
+        label: "Suivi & Évaluation",
+        items: [
           { key: "pro.presences", label: "Présences", href: "/professionnel/admin/presences" },
+          { key: "pro.conduite", label: "Conduite", href: "/professionnel/admin/conduite" },
           { key: "pro.notes", label: "Notes", href: "/professionnel/admin/notes" },
+          {
+            key: "pro.rattrapages",
+            label: "Rattrapages",
+            href: "/professionnel/admin/notes/rattrapages",
+          },
           { key: "pro.bulletins", label: "Bulletins", href: "/professionnel/admin/bulletins" },
+        ],
+      },
+      {
+        label: "Documents officiels",
+        items: [
           {
             key: "pro.attestations",
             label: "Attestations de réussite",
@@ -273,10 +291,236 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
   },
 ];
 
-/** Toutes les entrées du catalogue, à plat. */
-export const ADMIN_MENU_ITEMS: AdminMenuItemDef[] = ADMIN_MENU_CATALOG.flatMap((section) =>
-  section.groups.flatMap((group) => group.items)
-);
+/**
+ * Catalogues des menus des rôles socle (hors administrateur).
+ *
+ * Ils reflètent le sidebar tel qu'il est rendu pour chaque espace. Les entrées
+ * commentées dans `Sidebar.tsx` (E-Learning étudiant, paramètres parent…) n'y
+ * figurent pas : on ne peut pas donner une permission sur un menu qui n'existe
+ * pas à l'écran.
+ */
+export const TEACHER_MENU_CATALOG: AdminMenuSectionDef[] = [
+  {
+    label: "Espace enseignant",
+    groups: [
+      {
+        label: "Tableau de bord",
+        items: [
+          { key: "teacher.dashboard", label: "Tableau de Bord", href: "/teacher/dashboard" },
+        ],
+      },
+      {
+        label: "Gestion des Cours",
+        items: [
+          { key: "teacher.courses", label: "Mes Cours", href: "/teacher/courses" },
+          { key: "teacher.schedule", label: "Planning des Cours", href: "/teacher/schedule" },
+          { key: "teacher.attendance", label: "Présences", href: "/teacher/attendance" },
+          { key: "teacher.notes", label: "Notes", href: "/professionnel/admin/notes" },
+        ],
+      },
+      {
+        label: "Mes Étudiants",
+        items: [
+          { key: "teacher.students", label: "Liste des Étudiants", href: "/teacher/students" },
+          {
+            key: "teacher.communications",
+            label: "Communications",
+            href: "/teacher/communications",
+          },
+        ],
+      },
+      {
+        label: "Évaluations",
+        items: [
+          {
+            key: "teacher.evaluations",
+            label: "Mes évaluations",
+            href: "/teacher/assignments/create",
+          },
+          {
+            key: "teacher.assign_homework",
+            label: "Assigner un devoir",
+            href: "/academic/assignments/assign",
+          },
+          {
+            key: "teacher.corrections",
+            label: "Corrections en Attente",
+            href: "/teacher/corrections",
+          },
+        ],
+      },
+      {
+        label: "Mes Rémunérations",
+        items: [
+          { key: "teacher.hours", label: "Heures Enseignées", href: "/teacher/hours" },
+          { key: "teacher.payments", label: "Mes Paiements", href: "/teacher/payments" },
+        ],
+      },
+      {
+        label: "Rapports & Analyses",
+        items: [
+          { key: "teacher.reports", label: "Dashboard Analytique", href: "/teacher/reports" },
+        ],
+      },
+      {
+        label: "Profil",
+        items: [
+          {
+            key: "teacher.profile",
+            label: "Informations Personnelles",
+            href: "/teacher/profile",
+          },
+        ],
+      },
+    ],
+  },
+];
+
+export const STUDENT_MENU_CATALOG: AdminMenuSectionDef[] = [
+  {
+    label: "Espace étudiant",
+    groups: [
+      {
+        label: "Mes Études",
+        items: [
+          { key: "student.courses", label: "Mes Cours", href: "/student/courses" },
+          { key: "student.schedule", label: "Emploi du Temps", href: "/student/schedule" },
+          { key: "student.assignments", label: "Devoirs", href: "/student/assignments" },
+          { key: "student.grades", label: "Mes Notes", href: "/student/grades" },
+          { key: "student.bulletin", label: "Mon Bulletin", href: "/student/bulletin" },
+          {
+            key: "student.professionnel",
+            label: "Module Professionnel",
+            href: "/professionnel/etudiant",
+          },
+        ],
+      },
+      {
+        label: "Communication",
+        items: [{ key: "student.messages", label: "Messages", href: "/student/messages" }],
+      },
+      {
+        label: "Assistance",
+        items: [
+          { key: "student.ai_tutor", label: "Tuteur IA", href: "/student/ai-tutor" },
+          { key: "student.support", label: "Support", href: "/student/support" },
+        ],
+      },
+      {
+        label: "Mes Finances",
+        items: [{ key: "student.payments", label: "Mes Paiements", href: "/student-payments" }],
+      },
+      {
+        label: "Profil",
+        items: [{ key: "student.profile", label: "Mon Profil", href: "/student/profile" }],
+      },
+    ],
+  },
+];
+
+export const PARENT_MENU_CATALOG: AdminMenuSectionDef[] = [
+  {
+    label: "Espace parent",
+    groups: [
+      {
+        label: "Mes Enfants",
+        items: [
+          { key: "parent.children", label: "Mes Enfants", href: "/parent/children" },
+          { key: "parent.homework", label: "Cours & Devoirs", href: "/parent/homework" },
+          { key: "parent.documents", label: "Bulletins & Reçus", href: "/parent/documents" },
+          { key: "parent.messages", label: "Messages", href: "/parent/messages" },
+          {
+            key: "parent.professionnel",
+            label: "Parcours Professionnel",
+            href: "/parent/professionnel",
+          },
+          {
+            key: "parent.diplomes",
+            label: "Diplômes de mon enfant",
+            href: "/parent/professionnel/diplomes",
+          },
+        ],
+      },
+    ],
+  },
+];
+
+export const FORMATEUR_MENU_CATALOG: AdminMenuSectionDef[] = [
+  {
+    label: "Espace formateur",
+    groups: [
+      {
+        label: "Espace formateur",
+        items: [
+          { key: "formateur.dashboard", label: "Tableau de bord", href: "/formateur/dashboard" },
+          { key: "formateur.planning", label: "Planning", href: "/formateur/planning" },
+          { key: "formateur.sessions", label: "Sessions", href: "/formateur/sessions" },
+          { key: "formateur.supports", label: "Supports", href: "/formateur/supports" },
+          {
+            key: "formateur.catalogue",
+            label: "Catalogue",
+            href: "/formations-professionnelles/catalogue",
+          },
+          {
+            key: "formateur.public",
+            label: "Page publique",
+            href: "/formations-professionnelles/public",
+          },
+          { key: "formateur.profil", label: "Profil", href: "/formateur/profil" },
+        ],
+      },
+    ],
+  },
+];
+
+/**
+ * Rôles socle dont les menus sont configurables depuis « Accès → Menus par rôle ».
+ * Même périmètre que les rôles attribuables sur cette page.
+ */
+export const MENU_SCOPES = ["admin", "teacher", "student", "parent", "formateur"] as const;
+export type MenuScope = (typeof MENU_SCOPES)[number];
+
+export const MENU_SCOPE_LABELS: Record<MenuScope, string> = {
+  admin: "Administrateur",
+  teacher: "Enseignant",
+  student: "Étudiant",
+  parent: "Parent",
+  formateur: "Formateur",
+};
+
+export const MENU_CATALOG_BY_SCOPE: Record<MenuScope, AdminMenuSectionDef[]> = {
+  admin: ADMIN_MENU_CATALOG,
+  teacher: TEACHER_MENU_CATALOG,
+  student: STUDENT_MENU_CATALOG,
+  parent: PARENT_MENU_CATALOG,
+  formateur: FORMATEUR_MENU_CATALOG,
+};
+
+function flatten(sections: AdminMenuSectionDef[]): AdminMenuItemDef[] {
+  return sections.flatMap((section) => section.groups.flatMap((group) => group.items));
+}
+
+/** Toutes les entrées d'un périmètre, à plat. */
+export function menuItemsForScope(scope: MenuScope): AdminMenuItemDef[] {
+  return flatten(MENU_CATALOG_BY_SCOPE[scope]);
+}
+
+/**
+ * `href` → clé de menu, PAR périmètre.
+ *
+ * Un même `href` peut appartenir à deux espaces (« Notes » est à la fois un menu
+ * admin et un menu enseignant) : la correspondance ne peut donc pas être globale.
+ */
+export const MENU_KEY_BY_HREF_BY_SCOPE: Record<MenuScope, Record<string, string>> =
+  Object.fromEntries(
+    MENU_SCOPES.map((scope) => [
+      scope,
+      Object.fromEntries(menuItemsForScope(scope).map((item) => [item.href, item.key])),
+    ])
+  ) as Record<MenuScope, Record<string, string>>;
+
+/** Toutes les entrées du catalogue admin, à plat. */
+export const ADMIN_MENU_ITEMS: AdminMenuItemDef[] = flatten(ADMIN_MENU_CATALOG);
 
 /** Toutes les clés de menu connues (référentiel de validation). */
 export const ADMIN_MENU_KEYS: string[] = ADMIN_MENU_ITEMS.map((item) => item.key);
@@ -377,6 +621,33 @@ export const AdminMyMenusResponseSchema = z.object({
   allowAll: z.boolean(),
   menuKeys: z.array(z.string()),
   adminRoleName: z.string().nullable(),
+  /**
+   * Menus retirés aux rôles socle de l'utilisateur (onglet « Menus par rôle »).
+   * S'applique en plus de `menuKeys`, y compris quand `allowAll` vaut `true`.
+   */
+  deniedMenuKeys: z.array(z.string()).default([]),
+});
+
+// ---------------------------------------------------------------------------
+// Menus par défaut des rôles socle (admin, teacher, student, parent, formateur)
+// ---------------------------------------------------------------------------
+
+export const RoleMenuScopeSchema = z.enum(MENU_SCOPES);
+
+export const RoleMenuSettingSchema = z.object({
+  roleKey: RoleMenuScopeSchema,
+  label: z.string(),
+  /** Menus explicitement retirés à ce rôle. Vide = tous les menus par défaut. */
+  deniedMenuKeys: z.array(z.string()),
+});
+
+export const RoleMenusListResponseSchema = z.object({
+  roles: z.array(RoleMenuSettingSchema),
+});
+
+export const RoleMenusPutBodySchema = z.object({
+  /** Menus cochés. Tout menu du catalogue absent de cette liste est retiré. */
+  allowedMenuKeys: z.array(z.string().min(1)),
 });
 
 export type AdminMenuCatalogResponse = z.infer<typeof AdminMenuCatalogResponseSchema>;
@@ -390,3 +661,6 @@ export type AdminUsersListResponse = z.infer<typeof AdminUsersListResponseSchema
 export type AdminUserCreateBody = z.infer<typeof AdminUserCreateBodySchema>;
 export type AdminUserAdminRolePatchBody = z.infer<typeof AdminUserAdminRolePatchBodySchema>;
 export type AdminMyMenusResponse = z.infer<typeof AdminMyMenusResponseSchema>;
+export type RoleMenuSetting = z.infer<typeof RoleMenuSettingSchema>;
+export type RoleMenusListResponse = z.infer<typeof RoleMenusListResponseSchema>;
+export type RoleMenusPutBody = z.infer<typeof RoleMenusPutBodySchema>;

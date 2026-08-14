@@ -3,9 +3,14 @@ import type { Pool, PoolClient } from "pg";
 import type { FastifyBaseLogger } from "fastify";
 import {
   ADMIN_MENU_KEYS,
+  MENU_SCOPES,
+  MENU_SCOPE_LABELS,
+  menuItemsForScope,
   type AdminManagedUser,
   type AdminMyMenusResponse,
   type AdminRole,
+  type MenuScope,
+  type RoleMenuSetting,
 } from "@ecoledigitale/contracts";
 
 /**
@@ -513,11 +518,131 @@ export async function setUserAdminRole(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Menus par défaut des rôles socle
+// ---------------------------------------------------------------------------
+
+function isMenuScope(value: string): value is MenuScope {
+  return (MENU_SCOPES as readonly string[]).includes(value);
+}
+
+export async function listRoleMenuSettings(
+  pool: Pool,
+  tenantId: string,
+  log: FastifyBaseLogger
+): Promise<RoleMenuSetting[]> {
+  let deniedByRole = new Map<string, string[]>();
+  try {
+    deniedByRole = await withTenantClient(pool, tenantId, async (client) => {
+      const res = await client.query<{ role_key: string; menu_key: string }>(
+        `SELECT role_key, menu_key FROM role_menu_denials
+         WHERE tenant_id = $1::uuid
+         ORDER BY role_key, menu_key`,
+        [tenantId]
+      );
+      const map = new Map<string, string[]>();
+      for (const row of res.rows) {
+        const list = map.get(row.role_key) ?? [];
+        list.push(row.menu_key);
+        map.set(row.role_key, list);
+      }
+      return map;
+    });
+  } catch (e) {
+    // Base non migrée : on renvoie les menus par défaut plutôt qu'une erreur.
+    log.warn({ err: e }, "role menu denials lookup failed, falling back to defaults");
+  }
+
+  return MENU_SCOPES.map((roleKey) => ({
+    roleKey,
+    label: MENU_SCOPE_LABELS[roleKey],
+    deniedMenuKeys: deniedByRole.get(roleKey) ?? [],
+  }));
+}
+
+/**
+ * Remplace les menus autorisés d'un rôle socle.
+ *
+ * On stocke l'inverse de ce que coche l'utilisateur : tout menu du catalogue
+ * absent de `allowedMenuKeys` devient une exclusion. Une base vide signifie donc
+ * « menus livrés par défaut », y compris après l'ajout d'un nouveau menu au
+ * catalogue — qui reste ainsi visible tant qu'on ne l'a pas explicitement retiré.
+ */
+export async function setRoleMenus(
+  pool: Pool,
+  tenantId: string,
+  roleKey: string,
+  allowedMenuKeys: string[],
+  log: FastifyBaseLogger
+): Promise<AdminRolesResult<RoleMenuSetting>> {
+  if (!isMenuScope(roleKey)) {
+    return {
+      ok: false,
+      status: 400,
+      message: `Rôle inconnu : « ${roleKey} ». Rôles gérables : ${MENU_SCOPES.join(", ")}.`,
+    };
+  }
+
+  const catalogKeys = menuItemsForScope(roleKey).map((item) => item.key);
+  const allowed = new Set(allowedMenuKeys);
+  const unknown = [...allowed].filter((key) => !catalogKeys.includes(key));
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      status: 400,
+      message: `Menu(s) hors du périmètre « ${roleKey} » : ${unknown.join(", ")}`,
+    };
+  }
+
+  const denied = catalogKeys.filter((key) => !allowed.has(key));
+
+  return withTenantClient(pool, tenantId, async (client) => {
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `DELETE FROM role_menu_denials WHERE tenant_id = $1::uuid AND role_key = $2::varchar`,
+        [tenantId, roleKey]
+      );
+      if (denied.length > 0) {
+        await client.query(
+          `INSERT INTO role_menu_denials (tenant_id, role_key, menu_key)
+           SELECT $1::uuid, $2::varchar, key
+           FROM UNNEST($3::varchar[]) AS key
+           ON CONFLICT DO NOTHING`,
+          [tenantId, roleKey, denied]
+        );
+      }
+      await client.query("COMMIT");
+      return {
+        ok: true as const,
+        value: {
+          roleKey,
+          label: MENU_SCOPE_LABELS[roleKey],
+          deniedMenuKeys: denied,
+        },
+      };
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => {});
+      log.error({ err: e, roleKey }, "role menus update failed");
+      return {
+        ok: false as const,
+        status: 400 as const,
+        message: e instanceof Error ? e.message : "Enregistrement des menus impossible.",
+      };
+    }
+  });
+}
+
 /**
  * Menus autorisés pour l'utilisateur courant.
  *
- * Sans rôle administratif (cas de tous les comptes existants) ou pour un
- * propriétaire, on renvoie `allowAll` : le sidebar reste inchangé.
+ * Deux mécanismes se cumulent :
+ *   - `menuKeys` : la liste blanche de son rôle administratif personnalisé
+ *     (`allowAll` quand il n'en a pas, cas de tous les comptes existants) ;
+ *   - `deniedMenuKeys` : les menus retirés à ses rôles socle depuis l'onglet
+ *     « Menus par rôle », qui s'appliquent même en `allowAll`.
+ *
+ * Le propriétaire n'est jamais restreint : c'est lui qui configure ces règles.
  */
 export async function getMyAllowedMenus(
   pool: Pool,
@@ -528,11 +653,23 @@ export async function getMyAllowedMenus(
 ): Promise<AdminMyMenusResponse> {
   const normalized = roleKeys.map((role) => String(role).toLowerCase());
   if (normalized.includes("owner") || normalized.includes("super_admin")) {
-    return { allowAll: true, menuKeys: [], adminRoleName: null };
+    return { allowAll: true, menuKeys: [], adminRoleName: null, deniedMenuKeys: [] };
   }
+
+  const scopes = normalized.filter(isMenuScope);
 
   try {
     return await withTenantClient(pool, tenantId, async (client) => {
+      const deniedRes =
+        scopes.length === 0
+          ? { rows: [] as { menu_key: string }[] }
+          : await client.query<{ menu_key: string }>(
+              `SELECT DISTINCT menu_key FROM role_menu_denials
+               WHERE tenant_id = $1::uuid AND role_key = ANY($2::varchar[])`,
+              [tenantId, scopes]
+            );
+      const deniedMenuKeys = deniedRes.rows.map((row) => row.menu_key).sort();
+
       const res = await client.query<{ name: string; menu_key: string | null }>(
         `SELECT ar.name, m.menu_key
          FROM user_admin_roles ua
@@ -542,7 +679,7 @@ export async function getMyAllowedMenus(
         [userId, tenantId]
       );
       if (res.rows.length === 0) {
-        return { allowAll: true, menuKeys: [], adminRoleName: null };
+        return { allowAll: true, menuKeys: [], adminRoleName: null, deniedMenuKeys };
       }
       return {
         allowAll: false,
@@ -551,11 +688,12 @@ export async function getMyAllowedMenus(
           .filter((key): key is string => Boolean(key))
           .sort(),
         adminRoleName: res.rows[0].name,
+        deniedMenuKeys,
       };
     });
   } catch (e) {
     // Base non migrée : on ne casse pas la navigation des comptes existants.
     log.warn({ err: e }, "admin allowed menus lookup failed, falling back to allowAll");
-    return { allowAll: true, menuKeys: [], adminRoleName: null };
+    return { allowAll: true, menuKeys: [], adminRoleName: null, deniedMenuKeys: [] };
   }
 }

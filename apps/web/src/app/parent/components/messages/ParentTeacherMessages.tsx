@@ -11,7 +11,7 @@ import { ParentTeacherConversation, ConversationFilter, ConversationMessage } fr
 import { useConversationThread, useReplyToConversation, useStartParentConversation, useChildTeachers } from '@/lib/hooks/use-parent-messages';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { WhatsappSendCheckbox } from '@/components/messaging/WhatsappSendCheckbox';
+import { MessageChannelsField, type MessageChannels } from '@/components/messaging/MessageChannelSelector';
 
 interface ParentTeacherMessagesProps {
   conversations: ParentTeacherConversation[] | null;
@@ -45,7 +45,7 @@ export function ParentTeacherMessages({
 }: ParentTeacherMessagesProps) {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
-  const [sendWhatsappReply, setSendWhatsappReply] = useState(false);
+  const [replyChannels, setReplyChannels] = useState<MessageChannels>({ whatsapp: false, email: false });
   const [isReplying, setIsReplying] = useState(false);
   const [showNewConversationForm, setShowNewConversationForm] = useState(false);
   const [newConversationData, setNewConversationData] = useState({
@@ -54,7 +54,7 @@ export function ParentTeacherMessages({
     subject: '',
     content: '',
   });
-  const [sendWhatsappNewConversation, setSendWhatsappNewConversation] = useState(false);
+  const [newChannels, setNewChannels] = useState<MessageChannels>({ whatsapp: false, email: false });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch conversation thread when a conversation is selected
@@ -152,10 +152,11 @@ export function ParentTeacherMessages({
       await replyMutation.mutateAsync({
         conversationId: selectedConversationId,
         content: replyContent.trim(),
-        sendWhatsapp: sendWhatsappReply,
+        sendWhatsapp: replyChannels.whatsapp,
+        sendEmail: replyChannels.email,
       });
       setReplyContent('');
-      setSendWhatsappReply(false);
+      setReplyChannels({ whatsapp: false, email: false });
       // Scroll to bottom will be handled by useEffect
     } catch (error) {
       console.error('Failed to send reply:', error);
@@ -178,7 +179,8 @@ export function ParentTeacherMessages({
         teacherId: newConversationData.teacherId,
         subject: newConversationData.subject.trim(),
         content: newConversationData.content.trim(),
-        sendWhatsapp: sendWhatsappNewConversation,
+        sendWhatsapp: newChannels.whatsapp,
+        sendEmail: newChannels.email,
       });
       // Reset form and close
       setNewConversationData({
@@ -187,7 +189,7 @@ export function ParentTeacherMessages({
         subject: '',
         content: '',
       });
-      setSendWhatsappNewConversation(false);
+      setNewChannels({ whatsapp: false, email: false });
       setShowNewConversationForm(false);
     } catch (error) {
       console.error('Failed to start conversation:', error);
@@ -435,11 +437,12 @@ export function ParentTeacherMessages({
                     />
                   </div>
 
-                  <WhatsappSendCheckbox
-                    checked={sendWhatsappNewConversation}
-                    onCheckedChange={setSendWhatsappNewConversation}
+                  <MessageChannelsField
+                    idPrefix="parent-teacher-new"
+                    channels={newChannels}
+                    onChange={setNewChannels}
                     disabled={startConversationMutation.isPending}
-                    id="wa-parent-teacher-new"
+                    templateKind="parent_teacher_new"
                   />
 
                   <div className="flex items-center gap-2">
@@ -477,7 +480,7 @@ export function ParentTeacherMessages({
                           subject: '',
                           content: '',
                         });
-                        setSendWhatsappNewConversation(false);
+                        setNewChannels({ whatsapp: false, email: false });
                       }}
                     >
                       Annuler
@@ -744,11 +747,12 @@ export function ParentTeacherMessages({
                       Appuyez sur Ctrl+Entrée (ou Cmd+Entrée sur Mac) pour envoyer rapidement
                     </p>
                   </div>
-                  <WhatsappSendCheckbox
-                    checked={sendWhatsappReply}
-                    onCheckedChange={setSendWhatsappReply}
+                  <MessageChannelsField
+                    idPrefix="parent-teacher-reply"
+                    channels={replyChannels}
+                    onChange={setReplyChannels}
                     disabled={isReplying || replyMutation.isPending}
-                    id="wa-parent-teacher-reply"
+                    templateKind="parent_teacher_reply"
                   />
                   <div className="flex justify-end gap-2">
                     <Button
@@ -756,7 +760,7 @@ export function ParentTeacherMessages({
                       onClick={() => {
                         setSelectedConversationId(null);
                         setReplyContent('');
-                        setSendWhatsappReply(false);
+                        setReplyChannels({ whatsapp: false, email: false });
                       }}
                       disabled={isReplying || replyMutation.isPending}
                     >

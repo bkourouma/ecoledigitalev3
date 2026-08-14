@@ -1,13 +1,14 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useOwnerAlerts } from "@/lib/hooks/use-owner-alerts";
-import { createApiHeaders } from "@/lib/api-utils";
+import {
+  useAcknowledgeOwnerAlert,
+  useOwnerAlerts,
+  useSyncOwnerAlerts,
+} from "@/lib/hooks/use-owner-alerts";
 import type { OwnerAlert } from "@ecoledigitale/contracts";
 
 function severityVariant(s: OwnerAlert["severity"]): "destructive" | "default" | "secondary" {
@@ -16,30 +17,17 @@ function severityVariant(s: OwnerAlert["severity"]): "destructive" | "default" |
   return "secondary";
 }
 
-export default function OwnerAlertesPage() {
-  const { data: session } = useSession();
-  const tenantId = (session as { tenantId?: string } | null)?.tenantId ?? "no-tenant";
-  const queryClient = useQueryClient();
-  const { data, isLoading, error, refetch } = useOwnerAlerts();
+/** Sévérité affichée en français : `high`/`medium`/`low` n'est pas une langue d'écran. */
+const SEVERITY_LABEL: Record<string, string> = {
+  high: "Critique",
+  medium: "À traiter",
+  low: "À surveiller",
+};
 
-  const acknowledge = useMutation({
-    mutationFn: async (id: string) => {
-      const headers = createApiHeaders(session);
-      const res = await fetch(`/api/v1/owner/alerts/${id}/acknowledge`, {
-        method: "PATCH",
-        headers: { ...headers, "Content-Type": "application/json" },
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error((body as { message?: string }).message || `Erreur ${res.status}`);
-      }
-      return body;
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["owner-alerts", tenantId] });
-      await queryClient.invalidateQueries({ queryKey: ["owner-dashboard", tenantId] });
-    },
-  });
+export default function OwnerAlertesPage() {
+  const { data, isLoading, error, refetch } = useOwnerAlerts();
+  const acknowledge = useAcknowledgeOwnerAlert();
+  const sync = useSyncOwnerAlerts();
 
   if (isLoading) {
     return (
@@ -69,13 +57,26 @@ export default function OwnerAlertesPage() {
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Alertes pilotage</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Alertes ouvertes pour votre établissement. Chaque chargement peut créer de nouvelles
-            alertes automatiques (impayés, cours sans titulaire, paies à valider) si les conditions
-            sont remplies.
+            Alertes ouvertes pour votre établissement. « Actualiser » recalcule les alertes
+            automatiques (impayés, cours sans titulaire, paies à valider) : celles dont la condition
+            a disparu sont refermées, les nouvelles apparaissent.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
-          Actualiser
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={sync.isPending}
+          onClick={() => sync.mutateAsync().catch(() => refetch())}
+        >
+          {sync.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Recalcul…
+            </>
+          ) : (
+            "Actualiser"
+          )}
         </Button>
       </div>
 
@@ -93,13 +94,23 @@ export default function OwnerAlertesPage() {
                 <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0 pb-2">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={severityVariant(a.severity)}>{a.severity}</Badge>
+                      <Badge variant={severityVariant(a.severity)}>
+                        {SEVERITY_LABEL[a.severity] ?? a.severity}
+                      </Badge>
                       <span className="text-xs text-muted-foreground font-mono">{a.domain}</span>
                     </div>
                     <CardTitle className="text-base font-medium leading-snug">{a.message}</CardTitle>
                     <p className="text-xs text-muted-foreground">
                       {new Date(a.createdAt).toLocaleString("fr-FR")}
                     </p>
+                    {a.href && (
+                      <a
+                        href={a.href}
+                        className="inline-block text-xs font-medium underline underline-offset-2"
+                      >
+                        Aller traiter
+                      </a>
+                    )}
                   </div>
                   <Button
                     type="button"
@@ -108,7 +119,12 @@ export default function OwnerAlertesPage() {
                     disabled={acknowledge.isPending}
                     onClick={() => acknowledge.mutate(a.id)}
                   >
-                    {acknowledge.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Acquitter"}
+                    {/* Seule la ligne acquittée passe en attente, pas toute la liste. */}
+                    {acknowledge.isPending && acknowledge.variables === a.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Acquitter"
+                    )}
                   </Button>
                 </CardHeader>
               </Card>

@@ -26,13 +26,19 @@ import {
 
 type Tenant = { slug: string; name: string };
 
+/**
+ * Page d'atterrissage après connexion.
+ *
+ * Chaque espace a la sienne ; l'administration atterrit sur le tableau de bord
+ * et non sur « / », dont la page d'accueil communautaire a été retirée du menu.
+ */
 function routeForRole(role?: string): string {
   const normalized = String(role || "").toLowerCase();
   if (normalized === "owner") return "/owner/dashboard";
   if (normalized === "teacher") return "/teacher/dashboard";
   if (normalized === "parent") return "/parent/children";
   if (normalized === "student") return "/student/courses";
-  return "/";
+  return "/tableau-de-bord";
 }
 
 export default function LoginPage() {

@@ -11,13 +11,14 @@ function apiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 }
 
+/** Doit rester aligné sur `routeForRole` de la page de connexion. */
 function routeForRole(role?: string): string {
   const normalized = String(role || "").toLowerCase();
   if (normalized === "owner") return "/owner/dashboard";
   if (normalized === "teacher") return "/teacher/dashboard";
   if (normalized === "parent") return "/parent/children";
   if (normalized === "student") return "/student/courses";
-  return "/";
+  return "/tableau-de-bord";
 }
 
 export default function SelectRolePage() {

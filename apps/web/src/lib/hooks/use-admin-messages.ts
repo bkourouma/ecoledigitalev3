@@ -139,8 +139,8 @@ export function useAdminReplyToConversation() {
         isRead: boolean;
       };
     } 
-  }, Error, { conversationId: string; content: string; sendWhatsapp?: boolean }>({
-    mutationFn: async ({ conversationId, content, sendWhatsapp }) => {
+  }, Error, { conversationId: string; content: string; sendWhatsapp?: boolean; sendEmail?: boolean }>({
+    mutationFn: async ({ conversationId, content, sendWhatsapp, sendEmail }) => {
       const headers = createApiHeaders(session);
       const url = `/api/v1/admin/messages/conversations/${conversationId}/reply`;
       
@@ -150,7 +150,7 @@ export function useAdminReplyToConversation() {
           ...headers,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content, sendWhatsapp: !!sendWhatsapp }),
+        body: JSON.stringify({ content, sendWhatsapp: !!sendWhatsapp, sendEmail: !!sendEmail }),
       });
       
       if (!response.ok) {
@@ -252,6 +252,7 @@ export function useAdminSendToTeachers() {
     data: { 
       message: string;
       sentTo: number;
+      emailSummary?: Record<string, number>;
     } 
   }, Error, {
     teacherIds?: string[];
@@ -260,8 +261,9 @@ export function useAdminSendToTeachers() {
     content: string;
     priorityLevel?: string;
     sendWhatsapp?: boolean;
+    sendEmail?: boolean;
   }>({
-    mutationFn: async ({ teacherIds, allTeachers, subject, content, priorityLevel, sendWhatsapp }) => {
+    mutationFn: async ({ teacherIds, allTeachers, subject, content, priorityLevel, sendWhatsapp, sendEmail }) => {
       const headers = createApiHeaders(session);
       const url = `/api/v1/admin/messages/send-to-teachers`;
       
@@ -278,6 +280,7 @@ export function useAdminSendToTeachers() {
           content,
           priorityLevel,
           sendWhatsapp: !!sendWhatsapp,
+          sendEmail: !!sendEmail,
         }),
       });
       
@@ -305,6 +308,7 @@ export function useAdminSendToStudents() {
     data: { 
       message: string;
       sentTo: number;
+      emailSummary?: Record<string, number>;
     } 
   }, Error, { 
     classIds?: string[]; 
@@ -313,8 +317,9 @@ export function useAdminSendToStudents() {
     content: string; 
     priorityLevel?: string;
     sendWhatsapp?: boolean;
+    sendEmail?: boolean;
   }>({
-    mutationFn: async ({ classIds = [], studentIds = [], subject, content, priorityLevel, sendWhatsapp }) => {
+    mutationFn: async ({ classIds = [], studentIds = [], subject, content, priorityLevel, sendWhatsapp, sendEmail }) => {
       const headers = createApiHeaders(session);
       const url = `/api/v1/admin/messages/send-to-students`;
       
@@ -324,7 +329,7 @@ export function useAdminSendToStudents() {
           ...headers,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ classIds, studentIds, subject, content, priorityLevel, sendWhatsapp: !!sendWhatsapp }),
+        body: JSON.stringify({ classIds, studentIds, subject, content, priorityLevel, sendWhatsapp: !!sendWhatsapp, sendEmail: !!sendEmail }),
       });
       
       if (!response.ok) {
@@ -412,8 +417,8 @@ export function useAdminStartConversation() {
         sentAt: string;
       };
     } 
-  }, Error, { parentId: string; childId: string; subject: string; content: string; sendWhatsapp?: boolean }>({
-    mutationFn: async ({ parentId, childId, subject, content, sendWhatsapp }) => {
+  }, Error, { parentId: string; childId: string; subject: string; content: string; sendWhatsapp?: boolean; sendEmail?: boolean }>({
+    mutationFn: async ({ parentId, childId, subject, content, sendWhatsapp, sendEmail }) => {
       const headers = createApiHeaders(session);
       const url = `/api/v1/admin/messages/conversations`;
       
@@ -423,7 +428,7 @@ export function useAdminStartConversation() {
           ...headers,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ parentId, childId, subject, content, sendWhatsapp: !!sendWhatsapp }),
+        body: JSON.stringify({ parentId, childId, subject, content, sendWhatsapp: !!sendWhatsapp, sendEmail: !!sendEmail }),
       });
       
       if (!response.ok) {
@@ -472,6 +477,7 @@ export function useAdminBulkParentConversations() {
       subject: string;
       content: string;
       sendWhatsapp?: boolean;
+      sendEmail?: boolean;
     }) => {
       const headers = createApiHeaders(session);
       const res = await fetch('/api/v1/admin/messages/bulk-parent-conversations', {

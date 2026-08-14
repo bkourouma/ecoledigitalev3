@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
   Badge,
-  Checkbox,
   Alert,
   AlertTitle,
   AlertDescription
@@ -34,18 +33,11 @@ import {
   Plus,
   X,
   Mail,
-  Eye,
-  EyeOff,
-  RotateCcw,
   AlertTriangle,
   Send,
 } from "lucide-react";
 import { CreateTeacher, ContractType } from "@ecoledigitale/contracts";
-import {
-  useCreateTeacher,
-  useTeacherCredentialsTemplate,
-  useSendTeacherCredentials,
-} from "@/lib/hooks/use-teachers";
+import { useCreateTeacher, useSendTeacherCredentials } from "@/lib/hooks/use-teachers";
 
 /** Même logique que la création parent (`/academic/parents/new`) */
 const generatePassword = (): string => {
@@ -73,27 +65,6 @@ const teacherFormSchema = z.object({
 
 type TeacherFormData = z.infer<typeof teacherFormSchema>;
 
-/** Échappement HTML, aligné sur le rendu serveur (teacher-credentials-email.ts). */
-const escapeHtml = (value: string): string =>
-  value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-
-/** Aperçu client du rendu `{{variable}}` — miroir de renderTemplateString côté API. */
-const renderTemplate = (template: string, variables: Record<string, string>): string =>
-  template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, name: string) =>
-    Object.prototype.hasOwnProperty.call(variables, name) ? escapeHtml(variables[name] ?? "") : match
-  );
-
-const CONTRACT_LABELS: Record<string, string> = {
-  permanent: "CDI (Permanent)",
-  temporary: "CDD (Temporaire)",
-  freelance: "Vacataire",
-};
-
 type SubmitResult = {
   teacherId: string;
   email: string;
@@ -104,53 +75,14 @@ type SubmitResult = {
 export default function NewTeacherPage() {
   const router = useRouter();
   const createTeacher = useCreateTeacher();
-  const templateQuery = useTeacherCredentialsTemplate();
   const sendCredentials = useSendTeacherCredentials();
   const [newSpecialty, setNewSpecialty] = useState("");
   const [newQualification, setNewQualification] = useState("");
 
-  // --- Email de bienvenue -------------------------------------------------
-  const [sendEmail, setSendEmail] = useState(true);
-  const [saveAsDefault, setSaveAsDefault] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-  const [templateLoaded, setTemplateLoaded] = useState(false);
+  // Les identifiants partent automatiquement avec le modèle d'email par défaut
+  // de l'établissement : il n'y a plus de section pour le personnaliser ici.
+  // Seul le compte rendu d'envoi subsiste, pour ne pas rater un échec SMTP.
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
-  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
-
-  // Pré-remplissage une seule fois, pour ne pas écraser les retouches en cours.
-  useEffect(() => {
-    if (templateQuery.data && !templateLoaded) {
-      setSubject(templateQuery.data.subject);
-      setBody(templateQuery.data.body);
-      setTemplateLoaded(true);
-    }
-  }, [templateQuery.data, templateLoaded]);
-
-  const resetTemplate = () => {
-    if (!templateQuery.data) return;
-    setSubject(templateQuery.data.defaults.subject);
-    setBody(templateQuery.data.defaults.body);
-  };
-
-  /** Insère `{{key}}` à la position du curseur dans le corps du message. */
-  const insertVariable = (key: string) => {
-    const token = `{{${key}}}`;
-    const textarea = bodyRef.current;
-    if (!textarea) {
-      setBody((prev) => prev + token);
-      return;
-    }
-    const start = textarea.selectionStart ?? body.length;
-    const end = textarea.selectionEnd ?? body.length;
-    const next = body.slice(0, start) + token + body.slice(end);
-    setBody(next);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + token.length, start + token.length);
-    });
-  };
 
   const {
     register,
@@ -193,22 +125,6 @@ export default function NewTeacherPage() {
     setValue("qualifications", qualifications.filter((_, i) => i !== index));
   };
 
-  // Valeurs de démonstration pour l'aperçu du modèle.
-  const previewVariables: Record<string, string> = {
-    firstName: watch("firstName") || "Prénom",
-    lastName: watch("lastName") || "Nom",
-    fullName: `${watch("firstName") || "Prénom"} ${watch("lastName") || "Nom"}`,
-    email: watch("email") || "enseignant@exemple.com",
-    password: "•••••••••••• (généré)",
-    loginUrl: templateQuery.data?.loginUrl || "http://localhost:3000/login",
-    schoolName: templateQuery.data?.schoolName || "Votre établissement",
-    employeeNumber: watch("employeeNumber") || "",
-    contractType: CONTRACT_LABELS[watch("contractType")] ?? "",
-    hireDate: watch("hireDate")
-      ? new Date(watch("hireDate") as string).toLocaleDateString("fr-FR")
-      : "",
-  };
-
   const onSubmit = async (data: TeacherFormData) => {
     setSubmitResult(null);
     try {
@@ -224,17 +140,15 @@ export default function NewTeacherPage() {
         bio: data.bio || undefined,
         specialties: data.specialties.length > 0 ? data.specialties : undefined,
         qualifications: data.qualifications.length > 0 ? data.qualifications : undefined,
-        sendCredentialsEmail: sendEmail,
-        credentialsEmailTemplate:
-          sendEmail && subject.trim() && body.trim() ? { subject, body } : undefined,
-        saveCredentialsEmailTemplate: saveAsDefault,
+        // Envoi systématique, avec le modèle par défaut de l'établissement.
+        sendCredentialsEmail: true,
       };
 
       const created = await createTeacher.mutateAsync(teacherData);
 
       // L'enseignant est créé : un échec d'envoi ne doit pas ressembler à un
       // échec de création, on garde l'utilisateur sur la page pour réessayer.
-      if (sendEmail && created.emailError) {
+      if (created.emailError) {
         setSubmitResult({
           teacherId: created.id,
           email: data.email.trim(),
@@ -254,10 +168,7 @@ export default function NewTeacherPage() {
   const retrySendCredentials = async () => {
     if (!submitResult) return;
     try {
-      await sendCredentials.mutateAsync({
-        teacherId: submitResult.teacherId,
-        template: subject.trim() && body.trim() ? { subject, body } : undefined,
-      });
+      await sendCredentials.mutateAsync({ teacherId: submitResult.teacherId });
       setSubmitResult({ ...submitResult, emailSent: true, emailError: null });
     } catch (error: any) {
       setSubmitResult({
@@ -346,7 +257,7 @@ export default function NewTeacherPage() {
                 <Input
                   id="phone"
                   {...register("phone")}
-                  placeholder="+33 1 23 45 67 89"
+                  placeholder="+225 07 07 12 34 56"
                 />
                 {errors.phone && (
                   <p className="text-sm text-red-600">{errors.phone.message}</p>
@@ -522,157 +433,11 @@ export default function NewTeacherPage() {
           </CardContent>
         </Card>
 
-        {/* Email de bienvenue */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-purple-600" />
-                  Email d'accès
-                </CardTitle>
-                <CardDescription>
-                  Les identifiants sont envoyés automatiquement à l'adresse saisie plus haut, dès
-                  que le compte est créé. Personnalisez le message ci-dessous.
-                </CardDescription>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPreview((v) => !v)}
-              >
-                {showPreview ? (
-                  <>
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Masquer
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-4 w-4 mr-2" />
-                    Aperçu
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {templateQuery.data && !templateQuery.data.emailConfigured && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Service email non configuré</AlertTitle>
-                <AlertDescription>
-                  Les variables SMTP ne sont pas renseignées côté API : l'enseignant sera créé mais
-                  aucun email ne partira. Le mot de passe reste consultable depuis la liste des
-                  enseignants.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="sendEmail"
-                checked={sendEmail}
-                onCheckedChange={(checked) => setSendEmail(checked === true)}
-              />
-              <Label htmlFor="sendEmail" className="cursor-pointer font-normal">
-                Envoyer les identifiants de connexion par email après la création
-              </Label>
-            </div>
-
-            {sendEmail && (
-              <>
-                {templateQuery.isLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Chargement du modèle...
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="emailSubject">Objet du message</Label>
-                      <Input
-                        id="emailSubject"
-                        value={subject}
-                        onChange={(e) => setSubject(e.target.value)}
-                        placeholder="Vos identifiants de connexion - {{schoolName}}"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="emailBody">Corps du message (HTML autorisé)</Label>
-                        <Button type="button" variant="ghost" size="sm" onClick={resetTemplate}>
-                          <RotateCcw className="h-3.5 w-3.5 mr-2" />
-                          Modèle par défaut
-                        </Button>
-                      </div>
-                      <Textarea
-                        id="emailBody"
-                        ref={bodyRef}
-                        value={body}
-                        onChange={(e) => setBody(e.target.value)}
-                        rows={14}
-                        className="font-mono text-xs"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">
-                        Cliquez pour insérer une variable :
-                      </Label>
-                      <div className="flex flex-wrap gap-2">
-                        {(templateQuery.data?.variables ?? []).map((variable) => (
-                          <button
-                            key={variable.key}
-                            type="button"
-                            title={variable.label}
-                            onClick={() => insertVariable(variable.key)}
-                            className="rounded-md border border-purple-200 bg-purple-50 px-2 py-1 font-mono text-xs text-purple-700 transition-colors hover:bg-purple-100"
-                          >
-                            {`{{${variable.key}}}`}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="saveAsDefault"
-                        checked={saveAsDefault}
-                        onCheckedChange={(checked) => setSaveAsDefault(checked === true)}
-                      />
-                      <Label htmlFor="saveAsDefault" className="cursor-pointer font-normal">
-                        Enregistrer ce modèle comme modèle par défaut de l'établissement
-                      </Label>
-                    </div>
-
-                    {showPreview && (
-                      <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
-                        <p className="text-xs text-muted-foreground">
-                          Aperçu avec les valeurs du formulaire (le mot de passe réel est généré à
-                          l'enregistrement) :
-                        </p>
-                        <p className="text-sm">
-                          <span className="text-muted-foreground">Objet : </span>
-                          <span className="font-medium">
-                            {renderTemplate(subject, previewVariables)}
-                          </span>
-                        </p>
-                        <div
-                          className="prose prose-sm max-w-none rounded-md border bg-white p-4 text-sm"
-                          dangerouslySetInnerHTML={{
-                            __html: renderTemplate(body, previewVariables),
-                          }}
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-
-            {submitResult && !submitResult.emailSent && (
+        {/* Compte rendu de l'envoi des identifiants (aucune saisie ici : l'email
+            part automatiquement avec le modèle par défaut de l'établissement). */}
+        {submitResult && (
+          <div className="space-y-4">
+            {!submitResult.emailSent && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Enseignant créé, mais l'email n'est pas parti</AlertTitle>
@@ -706,7 +471,7 @@ export default function NewTeacherPage() {
               </Alert>
             )}
 
-            {submitResult?.emailSent && (
+            {submitResult.emailSent && (
               <Alert>
                 <Mail className="h-4 w-4" />
                 <AlertTitle>Identifiants envoyés à {submitResult.email}</AlertTitle>
@@ -723,8 +488,8 @@ export default function NewTeacherPage() {
                 </AlertDescription>
               </Alert>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-4">

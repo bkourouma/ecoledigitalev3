@@ -17,6 +17,8 @@ export interface EmailOptions {
     path?: string;
     content?: Buffer | string;
     contentType?: string;
+    /** Content-ID pour une image embarquée référencée par `<img src="cid:…">`. */
+    cid?: string;
   }>;
 }
 

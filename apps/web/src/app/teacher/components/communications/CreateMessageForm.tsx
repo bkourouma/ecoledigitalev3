@@ -15,7 +15,7 @@ import {
   useTeacherBulkToParents,
 } from '@/lib/hooks/use-teacher-messages';
 import { useTeacherStudentsByClass } from '@/lib/hooks/use-teachers';
-import { WhatsappSendCheckbox } from '@/components/messaging/WhatsappSendCheckbox';
+import { MessageChannelsField, type MessageChannels } from '@/components/messaging/MessageChannelSelector';
 import { toast } from 'sonner';
 
 interface CreateMessageFormProps {
@@ -31,7 +31,7 @@ export function CreateMessageForm({ onSuccess, onCancel }: CreateMessageFormProp
   const [content, setContent] = useState('');
   const [priorityLevel, setPriorityLevel] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
   const [selectedClass, setSelectedClass] = useState('all');
-  const [sendWhatsapp, setSendWhatsapp] = useState(false);
+  const [channels, setChannels] = useState<MessageChannels>({ whatsapp: false, email: false });
 
   const { data: studentsData, isLoading: isLoadingStudents } = useTeacherStudentsByClass(selectedClass, false);
   const students = studentsData?.students || [];
@@ -66,7 +66,8 @@ export function CreateMessageForm({ onSuccess, onCancel }: CreateMessageFormProp
           subject: subject.trim(),
           content: content.trim(),
           priorityLevel: priorityLevel === 'normal' ? undefined : priorityLevel,
-          sendWhatsapp,
+          sendWhatsapp: channels.whatsapp,
+          sendEmail: channels.email,
         });
       } else if (mode === 'class') {
         if (selectedClass === 'all') {
@@ -78,7 +79,8 @@ export function CreateMessageForm({ onSuccess, onCancel }: CreateMessageFormProp
           subject: subject.trim(),
           content: content.trim(),
           priorityLevel: priorityLevel === 'normal' ? undefined : priorityLevel,
-          sendWhatsapp,
+          sendWhatsapp: channels.whatsapp,
+          sendEmail: channels.email,
         });
       } else {
         if (selectedStudentIds.length === 0) {
@@ -90,7 +92,8 @@ export function CreateMessageForm({ onSuccess, onCancel }: CreateMessageFormProp
           subject: subject.trim(),
           content: content.trim(),
           priorityLevel: priorityLevel === 'normal' ? undefined : priorityLevel,
-          sendWhatsapp,
+          sendWhatsapp: channels.whatsapp,
+          sendEmail: channels.email,
         });
       }
       toast.success('Message(s) envoyé(s)');
@@ -99,7 +102,7 @@ export function CreateMessageForm({ onSuccess, onCancel }: CreateMessageFormProp
       setSubject('');
       setContent('');
       setPriorityLevel('normal');
-      setSendWhatsapp(false);
+      setChannels({ whatsapp: false, email: false });
       onSuccess?.();
     } catch (err: any) {
       toast.error(err?.message || 'Erreur');
@@ -241,7 +244,13 @@ export function CreateMessageForm({ onSuccess, onCancel }: CreateMessageFormProp
             <Textarea rows={6} value={content} onChange={(e) => setContent(e.target.value)} disabled={pending} required />
           </div>
 
-          <WhatsappSendCheckbox checked={sendWhatsapp} onCheckedChange={setSendWhatsapp} disabled={pending} id="wa-teacher-parents" />
+          <MessageChannelsField
+            idPrefix="teacher-parents"
+            channels={channels}
+            onChange={setChannels}
+            disabled={pending}
+            templateKind={mode === 'single' ? 'teacher_parent' : 'teacher_parent_bulk'}
+          />
 
           <div className="flex justify-end gap-2">
             {onCancel && (

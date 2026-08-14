@@ -45,8 +45,22 @@ const studentUpdateFormSchema = z.object({
   nationality: z.string().optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
   emergencyPhone: z.string().optional().or(z.literal("")),
-  gender: z.enum(["masculin", "feminin"], { required_error: "Le sexe est requis" }),
+  // errorMap plutôt que required_error : couvre d'un seul message la valeur
+  // absente ET la valeur vide (`""`), qui produisait sinon le message brut de Zod
+  // « Invalid enum value. Expected 'masculin' | 'feminin', received '' ».
+  gender: z.enum(["masculin", "feminin"], {
+    errorMap: () => ({ message: "Le sexe est requis" }),
+  }),
 });
+
+/**
+ * Ne retient que les deux valeurs valides. Toute autre entrée (`null` en base
+ * pour les fiches anciennes, `undefined`, chaîne vide) renvoie `undefined` :
+ * le champ reste sur son libellé d'invite et la scolarité doit choisir, plutôt
+ * que de se voir attribuer « masculin » par défaut.
+ */
+const normalizeGender = (value: unknown): "masculin" | "feminin" | undefined =>
+  value === "masculin" || value === "feminin" ? value : undefined;
 
 type StudentUpdateFormData = z.infer<typeof studentUpdateFormSchema>;
 type StudentUpdatePayload = UpdateStudentProfile & {
@@ -101,7 +115,7 @@ export default function EditStudentPage() {
         nationality: student.nationality || "",
         address: student.address || "",
         emergencyPhone: student.emergencyPhone || "",
-        gender: (student.gender as "masculin" | "feminin") || "masculin",
+        gender: normalizeGender(student.gender),
       });
     }
   }, [student, reset]);
@@ -193,15 +207,6 @@ export default function EditStudentPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <Card className="border-blue-200 bg-blue-50/60">
-          <CardContent className="pt-6">
-            <p className="text-sm text-blue-900">
-              La classe, la date d&apos;inscription, la LV2, la bourse et les autres informations annuelles se modifient
-              dÃ©sormais dans <span className="font-semibold">AnnÃ©e acadÃ©mique &gt; Inscriptions</span>.
-            </p>
-          </CardContent>
-        </Card>
-
         {/* Personal Information */}
         <Card>
           <CardHeader>
@@ -254,7 +259,7 @@ export default function EditStudentPage() {
                 <Input
                   id="phone"
                   {...register("phone")}
-                  placeholder="+33 1 23 45 67 89"
+                  placeholder="+225 07 07 12 34 56"
                 />
                 {errors.phone && (
                   <p className="text-sm text-red-600">{errors.phone.message}</p>
@@ -319,8 +324,13 @@ export default function EditStudentPage() {
             <div className="space-y-2">
               <Label htmlFor="gender">Sexe *</Label>
               <Select
-                onValueChange={(value) => setValue("gender", value as "masculin" | "feminin", { shouldValidate: true })}
-                value={watch("gender") ?? ""}
+                onValueChange={(value) => {
+                  // Garde-fou : on n'écrit jamais une valeur hors des deux
+                  // attendues dans l'état du formulaire.
+                  const selected = normalizeGender(value);
+                  if (selected) setValue("gender", selected, { shouldValidate: true });
+                }}
+                value={normalizeGender(watch("gender")) ?? ""}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Sélectionner le sexe" />
@@ -330,6 +340,11 @@ export default function EditStudentPage() {
                   <SelectItem value="feminin">Féminin</SelectItem>
                 </SelectContent>
               </Select>
+              {!normalizeGender(watch("gender")) && !errors.gender && (
+                <p className="text-xs text-muted-foreground">
+                  Le sexe n&apos;est pas renseigné sur cette fiche : sélectionnez-le pour pouvoir enregistrer.
+                </p>
+              )}
               {errors.gender && (
                 <p className="text-sm text-red-600">{errors.gender.message}</p>
               )}
@@ -411,7 +426,7 @@ export default function EditStudentPage() {
               <Input
                 id="emergencyPhone"
                 {...register("emergencyPhone")}
-                placeholder="+33 1 23 45 67 89"
+                placeholder="+225 07 07 12 34 56"
               />
               {errors.emergencyPhone && (
                 <p className="text-sm text-red-600">{errors.emergencyPhone.message}</p>

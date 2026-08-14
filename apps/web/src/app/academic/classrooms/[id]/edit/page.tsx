@@ -11,7 +11,10 @@ export default function EditClassroomPage() {
   const router = useRouter();
   const params = useParams();
   const classroomId = params.id as string;
-  const { data: classroom, isLoading, error } = useClassroom(classroomId);
+  // `useClassroom` renvoie l'enveloppe `{ data: Classroom }` de l'API : sans ce
+  // déballage, le formulaire s'ouvrait vide et le titre affichait un nom absent.
+  const { data: classroomEnvelope, isLoading, error } = useClassroom(classroomId);
+  const classroom = classroomEnvelope?.data;
   const updateClassroomMutation = useUpdateClassroom();
 
   const handleSubmit = async (data: UpdateClassroom) => {

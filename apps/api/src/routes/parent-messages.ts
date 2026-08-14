@@ -1,6 +1,14 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { logAndMaybeSendWhatsapp } from "../services/whatsapp-delivery-log";
+import {
+  PORTAL_URL,
+  deliverMessage,
+  resolveAdminRecipients,
+  resolveDisplayName,
+  summarizeStatuses,
+} from "../services/message-delivery";
+import { loadTenantMessageTemplate } from "../services/message-email-templates";
+import { resolveTenantName } from "../services/teacher-credentials-email";
 
 interface AuthenticatedRequest {
   tenantId?: string;
@@ -1086,6 +1094,7 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
           subject: { type: 'string', minLength: 1, maxLength: 255 },
           content: { type: 'string', minLength: 1 },
           sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
       response: {
@@ -1097,6 +1106,7 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
               type: 'object',
               properties: {
                 whatsappStatus: { type: 'string' },
+                emailStatus: { type: 'string' },
                 conversation: {
                   type: 'object',
                   properties: {
@@ -1131,12 +1141,13 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
     handler: async (request: AuthenticatedRequest, reply) => {
       const tenantId = request.tenantId;
       const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
-      const { childId, teacherId, subject, content, sendWhatsapp } = request.body as {
+      const { childId, teacherId, subject, content, sendWhatsapp, sendEmail } = request.body as {
         childId: string;
         teacherId: string;
         subject: string;
         content: string;
         sendWhatsapp?: boolean;
+        sendEmail?: boolean;
       };
 
       if (!tenantId) {
@@ -1293,21 +1304,34 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
         const sentAt = messageResult.rows[0].sent_at;
 
         const waText = `${subject}\n\n${content}`;
-        const wa = await logAndMaybeSendWhatsapp({
+        const schoolName = await resolveTenantName(pool, tenantId);
+        const delivery = await deliverMessage({
           pool,
           tenantId,
           sourceType: "parent_teacher_conversation_message",
           sourceId: messageId,
           recipientUserId: teacherUserId,
-          text: waText,
+          whatsappText: waText,
           sendWhatsapp: !!sendWhatsapp,
+          sendEmail: !!sendEmail,
+          templateKind: 'parent_teacher_new',
+          context: {
+            recipientName: teacherName,
+            subject,
+            message: content,
+            senderName: parentName,
+            schoolName,
+            portalUrl: PORTAL_URL,
+            extra: { childName },
+          },
           log: fastify.log,
         });
 
         return reply.status(201).send({
           success: true,
           data: {
-            whatsappStatus: wa.whatsappStatus,
+            whatsappStatus: delivery.whatsappStatus,
+            emailStatus: delivery.emailStatus,
             conversation: {
               id: conversationId,
               parentId: userId,
@@ -1532,6 +1556,7 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
         properties: {
           content: { type: 'string', minLength: 1 },
           sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
         required: ['content'],
       },
@@ -1591,7 +1616,11 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
       const tenantId = request.tenantId;
       const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
       const { conversationId } = request.params as { conversationId: string };
-      const { content, sendWhatsapp } = request.body as { content: string; sendWhatsapp?: boolean };
+      const { content, sendWhatsapp, sendEmail } = request.body as {
+        content: string;
+        sendWhatsapp?: boolean;
+        sendEmail?: boolean;
+      };
 
       if (!tenantId) {
         return reply.status(400).send({
@@ -1631,11 +1660,17 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
         // Set tenant context for RLS
         await pool.query('SELECT set_config($1, $2, true)', ['app.tenant_id', tenantId]);
 
-        // Verify parent has access to this conversation
+        // Verify parent has access to this conversation. Les noms de
+        // l'enseignant et de l'enfant alimentent le modèle d'email.
         const conversationCheck = await pool.query(
-          `SELECT id, parent_id, teacher_id, status
-           FROM parent_teacher_conversations
-           WHERE id = $1 AND parent_id = $2 AND tenant_id = $3`,
+          `SELECT ptc.id, ptc.parent_id, ptc.teacher_id, ptc.status, ptc.subject,
+                  COALESCE(t.first_name || ' ' || t.last_name, t.name) AS teacher_name,
+                  COALESCE(cu.first_name || ' ' || cu.last_name, cu.name) AS child_name
+             FROM parent_teacher_conversations ptc
+             LEFT JOIN users t ON t.id = ptc.teacher_id
+             LEFT JOIN student_profiles sp ON sp.id = ptc.student_id
+             LEFT JOIN users cu ON cu.id = sp.user_id
+            WHERE ptc.id = $1 AND ptc.parent_id = $2 AND ptc.tenant_id = $3`,
           [conversationId, userId, tenantId]
         );
 
@@ -1700,21 +1735,37 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
         };
 
         const teacherUserId = conversation.teacher_id as string;
-        const wa = await logAndMaybeSendWhatsapp({
+        const schoolName = await resolveTenantName(pool, tenantId);
+        const delivery = await deliverMessage({
           pool,
           tenantId,
           sourceType: "parent_teacher_conversation_message",
           sourceId: messageRow.id,
           recipientUserId: teacherUserId,
-          text: content.trim(),
+          whatsappText: content.trim(),
           sendWhatsapp: !!sendWhatsapp,
+          sendEmail: !!sendEmail,
+          templateKind: 'parent_teacher_reply',
+          context: {
+            recipientName: conversation.teacher_name || '',
+            subject: conversation.subject || '',
+            message: content.trim(),
+            senderName,
+            schoolName,
+            portalUrl: PORTAL_URL,
+            extra: {
+              childName: conversation.child_name || '',
+              conversationSubject: conversation.subject || '',
+            },
+          },
           log: fastify.log,
         });
 
         return reply.send({
           success: true,
           data: {
-            whatsappStatus: wa.whatsappStatus,
+            whatsappStatus: delivery.whatsappStatus,
+            emailStatus: delivery.emailStatus,
             message,
           },
         });
@@ -2642,6 +2693,7 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
           subject: { type: 'string', minLength: 1, maxLength: 255 },
           content: { type: 'string', minLength: 1 },
           sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
       response: {
@@ -2653,6 +2705,7 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
               type: 'object',
               properties: {
                 whatsappStatus: { type: 'string' },
+                emailSummary: { type: 'object', additionalProperties: { type: 'number' } },
                 conversation: {
                   type: 'object',
                   properties: {
@@ -2684,11 +2737,12 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
     handler: async (request: AuthenticatedRequest, reply) => {
       const tenantId = request.tenantId;
       const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
-      const { childId, subject, content, sendWhatsapp } = request.body as {
+      const { childId, subject, content, sendWhatsapp, sendEmail } = request.body as {
         childId: string;
         subject: string;
         content: string;
         sendWhatsapp?: boolean;
+        sendEmail?: boolean;
       };
 
       if (!tenantId) {
@@ -2807,35 +2861,50 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
         const messageId = messageResult.rows[0].id;
         const sentAt = messageResult.rows[0].sent_at;
 
-        const admins = await pool.query(
-          `SELECT DISTINCT ur.user_id
-           FROM user_roles ur
-           JOIN roles r ON r.id = ur.role_id
-           JOIN users u ON u.id = ur.user_id AND u.tenant_id = $1
-           WHERE ur.tenant_id = $1
-             AND r.key IN ('admin','super_admin','Administrateur')
-           LIMIT 30`,
-          [tenantId]
-        );
+        const [admins, schoolName] = await Promise.all([
+          resolveAdminRecipients(pool, tenantId),
+          resolveTenantName(pool, tenantId),
+        ]);
+        const emailTemplate = sendEmail
+          ? await loadTenantMessageTemplate(pool, tenantId, 'parent_school_new')
+          : undefined;
+
         let lastWa: string = "skipped";
-        for (const row of admins.rows) {
-          const wa = await logAndMaybeSendWhatsapp({
+        const emailStatuses: string[] = [];
+        for (const admin of admins) {
+          const delivery = await deliverMessage({
             pool,
             tenantId,
             sourceType: "parent_school_message",
             sourceId: messageId,
-            recipientUserId: row.user_id,
-            text: `[Parent → Établissement — ${childName}] ${subject}\n\n${structuredContent}`,
+            recipientUserId: admin.userId,
+            whatsappText: `[Parent → Établissement — ${childName}] ${subject}\n\n${structuredContent}`,
             sendWhatsapp: !!sendWhatsapp,
+            sendEmail: !!sendEmail,
+            templateKind: 'parent_school_new',
+            template: emailTemplate,
+            context: {
+              recipientName: admin.name,
+              subject,
+              // Le préfixe « [Enfant concerné : … ] » est déjà porté par le
+              // modèle via {{childName}} : l'email reprend le texte du parent.
+              message: content,
+              senderName: parentName,
+              schoolName,
+              portalUrl: PORTAL_URL,
+              extra: { childName },
+            },
             log: fastify.log,
           });
-          lastWa = wa.whatsappStatus;
+          lastWa = delivery.whatsappStatus;
+          emailStatuses.push(delivery.emailStatus);
         }
 
         return reply.status(201).send({
           success: true,
           data: {
             whatsappStatus: lastWa,
+            emailSummary: sendEmail ? summarizeStatuses(emailStatuses) : undefined,
             conversation: {
               id: conversationId,
               parentId: userId,
@@ -3268,6 +3337,8 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
         required: ['content'],
         properties: {
           content: { type: 'string', minLength: 1 },
+          sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
       response: {
@@ -3278,6 +3349,8 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
             data: {
               type: 'object',
               properties: {
+                whatsappStatus: { type: 'string' },
+                emailSummary: { type: 'object', additionalProperties: { type: 'number' } },
                 message: {
                   type: 'object',
                   properties: {
@@ -3299,7 +3372,11 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
       const tenantId = request.tenantId;
       const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
       const { conversationId } = request.params as { conversationId: string };
-      const { content } = request.body as { content: string };
+      const { content, sendWhatsapp, sendEmail } = request.body as {
+        content: string;
+        sendWhatsapp?: boolean;
+        sendEmail?: boolean;
+      };
 
       if (!tenantId) {
         return reply.status(400).send({
@@ -3344,9 +3421,12 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
 
         // Verify parent has access to this conversation
         const conversationCheck = await pool.query(
-          `SELECT id, parent_id, status
-           FROM parent_school_conversations
-           WHERE id = $1 AND parent_id = $2 AND tenant_id = $3`,
+          `SELECT psc.id, psc.parent_id, psc.status, psc.subject,
+                  COALESCE(cu.first_name || ' ' || cu.last_name, cu.name) AS child_name
+             FROM parent_school_conversations psc
+             LEFT JOIN student_profiles sp ON sp.id = psc.student_id
+             LEFT JOIN users cu ON cu.id = sp.user_id
+            WHERE psc.id = $1 AND psc.parent_id = $2 AND psc.tenant_id = $3`,
           [conversationId, userId, tenantId]
         );
 
@@ -3399,9 +3479,51 @@ export async function parentMessagesRoutes(fastify: FastifyInstance) {
           [conversationId]
         );
 
+        const [admins, schoolName] = await Promise.all([
+          resolveAdminRecipients(pool, tenantId),
+          resolveTenantName(pool, tenantId),
+        ]);
+        const emailTemplate = sendEmail
+          ? await loadTenantMessageTemplate(pool, tenantId, 'parent_school_reply')
+          : undefined;
+
+        let lastWa: string = 'skipped';
+        const emailStatuses: string[] = [];
+        for (const admin of admins) {
+          const delivery = await deliverMessage({
+            pool,
+            tenantId,
+            sourceType: 'parent_school_message',
+            sourceId: messageRow.id,
+            recipientUserId: admin.userId,
+            whatsappText: `[Parent → Établissement] ${conversation.subject || ''}\n\n${messageRow.content}`,
+            sendWhatsapp: !!sendWhatsapp,
+            sendEmail: !!sendEmail,
+            templateKind: 'parent_school_reply',
+            template: emailTemplate,
+            context: {
+              recipientName: admin.name,
+              subject: conversation.subject || '',
+              message: messageRow.content,
+              senderName,
+              schoolName,
+              portalUrl: PORTAL_URL,
+              extra: {
+                childName: conversation.child_name || '',
+                conversationSubject: conversation.subject || '',
+              },
+            },
+            log: fastify.log,
+          });
+          lastWa = delivery.whatsappStatus;
+          emailStatuses.push(delivery.emailStatus);
+        }
+
         return reply.send({
           success: true,
           data: {
+            whatsappStatus: lastWa,
+            emailSummary: sendEmail ? summarizeStatuses(emailStatuses) : undefined,
             message: {
               id: messageRow.id,
               senderId: messageRow.sender_id,

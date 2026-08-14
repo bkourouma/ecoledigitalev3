@@ -13,23 +13,23 @@ import {
   useStudentMessageToSchool,
   useStudentMessageToTeacher,
 } from '@/lib/hooks/use-student-messages';
-import { WhatsappSendCheckbox } from '@/components/messaging/WhatsappSendCheckbox';
+import { MessageChannelsField, type MessageChannels } from '@/components/messaging/MessageChannelSelector';
 import { toast } from 'sonner';
 
 export function StudentWriteToSchoolPanel() {
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
-  const [sendWhatsapp, setSendWhatsapp] = useState(false);
+  const [channels, setChannels] = useState<MessageChannels>({ whatsapp: false, email: false });
   const mut = useStudentMessageToSchool();
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subject.trim() || !content.trim()) return;
     try {
-      await mut.mutateAsync({ subject: subject.trim(), content: content.trim(), sendWhatsapp });
+      await mut.mutateAsync({ subject: subject.trim(), content: content.trim(), sendWhatsapp: channels.whatsapp, sendEmail: channels.email });
       toast.success('Message envoyé à l’établissement');
       setSubject('');
       setContent('');
-      setSendWhatsapp(false);
+      setChannels({ whatsapp: false, email: false });
     } catch (err: any) {
       toast.error(err?.message || 'Erreur');
     }
@@ -53,7 +53,13 @@ export function StudentWriteToSchoolPanel() {
             <Label>Message</Label>
             <Textarea rows={4} value={content} onChange={(e) => setContent(e.target.value)} disabled={mut.isPending} />
           </div>
-          <WhatsappSendCheckbox checked={sendWhatsapp} onCheckedChange={setSendWhatsapp} disabled={mut.isPending} id="wa-stu-school" />
+          <MessageChannelsField
+            idPrefix="student-school"
+            channels={channels}
+            onChange={setChannels}
+            disabled={mut.isPending}
+            templateKind="student_school"
+          />
           <Button type="submit" disabled={mut.isPending} size="sm" className="gap-2">
             {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Envoyer
@@ -70,7 +76,7 @@ export function StudentWriteToTeacherPanel() {
   const [classCourseId, setClassCourseId] = useState('');
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
-  const [sendWhatsapp, setSendWhatsapp] = useState(false);
+  const [channels, setChannels] = useState<MessageChannels>({ whatsapp: false, email: false });
   const mut = useStudentMessageToTeacher();
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,12 +91,13 @@ export function StudentWriteToTeacherPanel() {
         classCourseId: row.classCourseId,
         subject: subject.trim(),
         content: content.trim(),
-        sendWhatsapp,
+        sendWhatsapp: channels.whatsapp,
+        sendEmail: channels.email,
       });
       toast.success('Message envoyé à l’enseignant');
       setSubject('');
       setContent('');
-      setSendWhatsapp(false);
+      setChannels({ whatsapp: false, email: false });
       setClassCourseId('');
     } catch (err: any) {
       toast.error(err?.message || 'Erreur');
@@ -134,7 +141,13 @@ export function StudentWriteToTeacherPanel() {
             <Label>Message</Label>
             <Textarea rows={4} value={content} onChange={(e) => setContent(e.target.value)} disabled={mut.isPending} />
           </div>
-          <WhatsappSendCheckbox checked={sendWhatsapp} onCheckedChange={setSendWhatsapp} disabled={mut.isPending} id="wa-stu-teacher" />
+          <MessageChannelsField
+            idPrefix="student-teacher"
+            channels={channels}
+            onChange={setChannels}
+            disabled={mut.isPending}
+            templateKind="student_teacher_new"
+          />
           <Button type="submit" disabled={mut.isPending} size="sm" className="gap-2">
             {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Envoyer

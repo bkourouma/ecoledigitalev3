@@ -250,7 +250,7 @@ export default function TeacherSettingsPage() {
                     value={formData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
                     className="mt-1"
-                    placeholder="+33 6 12 34 56 78"
+                    placeholder="+225 07 07 12 34 56"
                   />
                 ) : (
                   <p className="mt-1 text-gray-900">{teacher.phone || 'Non spécifié'}</p>

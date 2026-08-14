@@ -71,6 +71,18 @@ const nextConfig = {
     }
     return config;
   },
+  async redirects() {
+    return [
+      {
+        // La « Vue d'ensemble » /academic a été remplacée par le tableau de bord
+        // administrateur. Les liens et favoris existants ne doivent pas tomber
+        // sur un 404. Les sous-routes /academic/* ne sont pas concernées.
+        source: '/academic',
+        destination: '/tableau-de-bord',
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     return [
       // Exclude specific routes that have Next.js API handlers

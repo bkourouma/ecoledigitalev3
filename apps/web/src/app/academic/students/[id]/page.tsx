@@ -86,6 +86,10 @@ export default function StudentDetailPage() {
   }
 
   const diplomaUrl = (student as any).lastDiploma as string | undefined;
+  // Numéro d'ordre figé de l'étudiant, affiché sur 4 chiffres (`0076`).
+  const rawSequenceNumber = (student as any).sequenceNumber as number | null | undefined;
+  const sequenceNumber =
+    rawSequenceNumber == null ? null : String(rawSequenceNumber).padStart(4, "0");
 
   return (
     <div className="container mx-auto max-w-4xl px-6 py-8">
@@ -101,9 +105,12 @@ export default function StudentDetailPage() {
             </h1>
             <p className="mt-2 text-muted-foreground">
               {(student as any).studentMatricule && (
-                <>Matricule: {(student as any).studentMatricule} · </>
+                <>Matricule DESPS: {(student as any).studentMatricule} · </>
               )}
-              N° établissement: {student.studentNumber}
+              {/* Numéro d'ordre figé de l'étudiant, sur 4 chiffres — même valeur
+                  que sur les cartes de la liste. Remplace l'ancien n° séquentiel
+                  d'établissement (10076), qui est réécrit à chaque listing. */}
+              Matricule IPAM: {sequenceNumber ?? "—"}
             </p>
           </div>
         </div>

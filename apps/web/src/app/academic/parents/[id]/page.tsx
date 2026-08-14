@@ -12,7 +12,7 @@ import {
   Badge,
 } from "@ecoledigitale/ui";
 import { ArrowLeft, Edit, Mail, Phone, Calendar, User, Users, Heart, Loader2, AlertCircle, GraduationCap } from "lucide-react";
-import { useParent, useParentChildren } from "@/lib/hooks/use-parents";
+import { useParent, useParentChildren, ParentChild } from "@/lib/hooks/use-parents";
 
 export default function ParentDetailPage() {
   const router = useRouter();
@@ -22,14 +22,16 @@ export default function ParentDetailPage() {
   const { data: childrenData, isLoading: isLoadingChildren } = useParentChildren(parentId);
   
   // Deduplicate children by id to prevent duplicate key errors
-  const children = React.useMemo(() => {
-    const childrenList = childrenData?.children || [];
+  const children = React.useMemo<ParentChild[]>(() => {
+    // `useParentChildren` renvoie `response.json()` sans type : sans annotation,
+    // `children` serait `any` et le `map` de rendu perdrait son type contextuel.
+    const childrenList: ParentChild[] = childrenData?.children || [];
     const seenIds = new Set<string>();
-    const uniqueChildren: typeof childrenList = [];
-    
+    const uniqueChildren: ParentChild[] = [];
+
     console.log('[ParentDetailPage] Raw children data:', childrenList);
-    
-    childrenList.forEach((child: any, index: number) => {
+
+    childrenList.forEach((child: ParentChild, index: number) => {
       if (!seenIds.has(child.id)) {
         seenIds.add(child.id);
         uniqueChildren.push(child);
@@ -176,10 +178,9 @@ export default function ParentDetailPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Main Info */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* Main Content — pleine largeur depuis le retrait de la colonne
+          « Actions rapides », qui occupait le tiers de droite. */}
+      <div className="space-y-6">
           {/* Informations générales */}
           <Card className="shadow-lg">
             <CardHeader>
@@ -277,12 +278,15 @@ export default function ParentDetailPage() {
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-gray-900 truncate">{child.name}</p>
                           <div className="flex items-center gap-4 mt-1">
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">Matricule:</span> {child.studentNumber}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">Année:</span> {child.currentYear}
-                            </p>
+                            {/* Même identité que la liste des étudiants : le numéro
+                                d'ordre figé, et non le compteur d'établissement
+                                (10002…) qui est réécrit à chaque listing. */}
+                            {child.sequenceNumber != null && (
+                              <p className="text-sm text-gray-600">
+                                <span className="font-medium">Matricule IPAM:</span>{" "}
+                                {String(child.sequenceNumber).padStart(4, "0")}
+                              </p>
+                            )}
                             <Badge
                               variant={
                                 child.status === 'active' ? 'default' :
@@ -307,42 +311,6 @@ export default function ParentDetailPage() {
               )}
             </CardContent>
           </Card>
-        </div>
-
-        {/* Right Column - Sidebar */}
-        <div className="space-y-6">
-          {/* Actions rapides */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Actions rapides</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                onClick={() => router.push(`/academic/parents/${parentId}/edit`)}
-                className="w-full bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Modifier le parent
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push(`/academic/parents/assign?parentId=${parentId}`)}
-                className="w-full border-gray-300 bg-white hover:bg-gray-50 hover:text-gray-900 text-gray-900 font-medium"
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Assigner des étudiants
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/academic/parents')}
-                className="w-full border-gray-300 hover:bg-gray-50 hover:text-gray-900 text-gray-700"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Retour à la liste
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );

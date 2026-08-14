@@ -204,7 +204,7 @@ export default function AttestationsPage() {
           )}
 
           {/* Sélecteurs */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Filière</label>
               <SearchableSelect
@@ -229,20 +229,22 @@ export default function AttestationsPage() {
                 options={anneeOptions}
               />
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                Rechercher un étudiant
-              </label>
-              <div className="relative">
-                <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Nom ou matricule…"
-                  className="pl-9"
-                  disabled={!filiereId}
-                />
-              </div>
+          </div>
+
+          {/* La recherche occupe sa propre ligne, pleine largeur, sous les deux sélecteurs. */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Rechercher un étudiant
+            </label>
+            <div className="relative">
+              <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Nom ou matricule…"
+                className="pl-9"
+                disabled={!filiereId}
+              />
             </div>
           </div>
 

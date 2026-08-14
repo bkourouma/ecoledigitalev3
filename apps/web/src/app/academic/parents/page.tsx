@@ -1,47 +1,52 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ecoledigitale/ui";
-import { Users, Plus, Search, Filter, Loader2, AlertCircle, Eye, EyeOff, Edit, Trash2, X, Mail, Phone, UserCheck, Heart } from "lucide-react";
-import { useParents, useDeleteParent, useResetParentPassword, Parent } from "@/lib/hooks/use-parents";
+import { Users, Plus, Search, Filter, Loader2, AlertCircle, Eye, Edit, Trash2, X, Mail, Phone, UserCheck, Heart, ChevronLeft, ChevronRight } from "lucide-react";
+import { useParents, useDeleteParent, Parent } from "@/lib/hooks/use-parents";
+
+/** Tailles de page proposées ; la première est la valeur par défaut. */
+const PAGE_SIZES = [10, 50, 100] as const;
 
 export default function ParentsPage() {
   const router = useRouter();
-  const { data: session } = useSession();
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
-  const limit = 20;
-  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
-  const [generatedPasswords, setGeneratedPasswords] = useState<Record<string, string>>({});
-  const [resettingPasswordFor, setResettingPasswordFor] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
+
+  // Une nouvelle recherche repart de la première page : rester sur la page 5
+  // d'un résultat qui n'en compte que 2 afficherait une liste vide.
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, pageSize]);
 
   const { data: parentsData, isLoading, error } = useParents({
     search: searchQuery || undefined,
     page,
-    limit,
+    limit: pageSize,
   });
   const deleteParentMutation = useDeleteParent();
-  const resetParentPasswordMutation = useResetParentPassword();
 
-  const userRoles: string[] = (session as any)?.roles || [];
-  const isAdmin = userRoles.includes("admin") || userRoles.includes("super_admin");
-
-  const parents = parentsData?.data?.parents || [];
+  // `useParents` renvoie `response.json()` sans type : sans cette annotation,
+  // `parents` est `any` et les callbacks de filter/reduce perdent leur type
+  // contextuel (TS7006 sur les tuiles de statistiques ci-dessous).
+  // La recherche et la pagination sont faites par l'API : les lignes reçues sont
+  // exactement celles à afficher, aucun filtrage client ne s'y ajoute.
+  const parents: Parent[] = parentsData?.data?.parents || [];
   const pagination = parentsData?.data;
 
-  // Filter parents (client-side filtering for consistency with courses page)
-  const filteredParents = useMemo(() => {
-    return parents.filter((parent: Parent) => {
-      const matchesSearch = searchQuery === "" ||
-        parent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        parent.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        `${parent.firstName} ${parent.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
-
-      return matchesSearch;
-    });
-  }, [parents, searchQuery]);
+  // Les compteurs portent sur tout le résultat de la recherche, pas sur la seule
+  // page affichée : l'API renvoie les agrégats avec la page.
+  const totalCount: number = pagination?.total ?? parents.length;
+  const withChildrenCount: number =
+    pagination?.withChildren ?? parents.filter((p) => p.childrenCount > 0).length;
+  const childrenCount: number =
+    pagination?.totalChildren ?? parents.reduce((sum, p) => sum + p.childrenCount, 0);
+  const averageChildren = totalCount > 0 ? (childrenCount / totalCount).toFixed(1) : "0";
+  const totalPages = Math.max(1, pagination?.totalPages ?? 1);
+  const firstShown = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const lastShown = Math.min(page * pageSize, totalCount);
 
   const handleView = (parent: Parent) => {
     router.push(`/academic/parents/${parent.id}`);
@@ -49,53 +54,6 @@ export default function ParentsPage() {
 
   const handleEdit = (parent: Parent) => {
     router.push(`/academic/parents/${parent.id}/edit`);
-  };
-
-  const togglePasswordVisibility = (parentId: string) => {
-    setRevealedPasswords((prev) => ({ ...prev, [parentId]: !prev[parentId] }));
-  };
-
-  const getParentPassword = (parent: Parent): string | null => {
-    const localPassword = generatedPasswords[parent.id];
-    if (localPassword) return localPassword;
-
-    const candidates = [
-      parent.initialPassword,
-      (parent as any).temporaryPassword,
-      (parent as any).tempPassword,
-      (parent as any).generatedPassword,
-    ];
-
-    for (const candidate of candidates) {
-      if (typeof candidate !== "string") continue;
-      const value = candidate.trim();
-      if (!value) continue;
-      if (/^\$2[aby]\$/.test(value)) continue;
-      return value;
-    }
-
-    return null;
-  };
-
-  const handlePasswordAction = async (parent: Parent) => {
-    const currentPassword = getParentPassword(parent);
-    if (currentPassword) {
-      togglePasswordVisibility(parent.id);
-      return;
-    }
-
-    if (!isAdmin) return;
-
-    try {
-      setResettingPasswordFor(parent.id);
-      const result = await resetParentPasswordMutation.mutateAsync(parent.id);
-      setGeneratedPasswords((prev) => ({ ...prev, [parent.id]: result.initialPassword }));
-      setRevealedPasswords((prev) => ({ ...prev, [parent.id]: true }));
-    } catch (error: any) {
-      alert(error?.message || "Impossible de générer le mot de passe");
-    } finally {
-      setResettingPasswordFor(null);
-    }
   };
 
   const handleDelete = async (parent: Parent) => {
@@ -170,14 +128,6 @@ export default function ParentsPage() {
         </div>
         <div className="flex gap-2">
           <Button
-            variant="outline"
-            onClick={() => router.push('/academic/parents/assign')}
-            className="border-gray-300 bg-white hover:bg-gray-50 hover:text-gray-900 text-gray-900 font-medium"
-          >
-            <Users className="h-4 w-4 mr-2" />
-            Assigner des étudiants
-          </Button>
-          <Button
             onClick={() => router.push('/academic/parents/new')}
             className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
           >
@@ -196,7 +146,7 @@ export default function ParentsPage() {
                 <p className="text-white/80 text-sm font-medium">
                   Total parents
                 </p>
-                <p className="text-3xl font-bold mt-1">{parents.length}</p>
+                <p className="text-3xl font-bold mt-1">{totalCount}</p>
               </div>
               <div className="bg-white/20 p-3 rounded-lg">
                 <Users className="h-6 w-6" />
@@ -210,9 +160,7 @@ export default function ParentsPage() {
                 <p className="text-white/80 text-sm font-medium">
                   Avec enfants
                 </p>
-                <p className="text-3xl font-bold mt-1">
-                  {parents.filter(p => p.childrenCount > 0).length}
-                </p>
+                <p className="text-3xl font-bold mt-1">{withChildrenCount}</p>
               </div>
               <div className="bg-white/20 p-3 rounded-lg">
                 <Heart className="h-6 w-6" />
@@ -226,9 +174,7 @@ export default function ParentsPage() {
                 <p className="text-white/80 text-sm font-medium">
                   Total enfants
                 </p>
-                <p className="text-3xl font-bold mt-1">
-                  {parents.reduce((sum, p) => sum + p.childrenCount, 0)}
-                </p>
+                <p className="text-3xl font-bold mt-1">{childrenCount}</p>
               </div>
               <div className="bg-white/20 p-3 rounded-lg">
                 <UserCheck className="h-6 w-6" />
@@ -242,11 +188,7 @@ export default function ParentsPage() {
                 <p className="text-white/80 text-sm font-medium">
                   Moyenne enfants
                 </p>
-                <p className="text-3xl font-bold mt-1">
-                  {parents.length > 0 
-                    ? (parents.reduce((sum, p) => sum + p.childrenCount, 0) / parents.length).toFixed(1)
-                    : '0'}
-                </p>
+                <p className="text-3xl font-bold mt-1">{averageChildren}</p>
               </div>
               <div className="bg-white/20 p-3 rounded-lg">
                 <Users className="h-6 w-6" />
@@ -284,9 +226,9 @@ export default function ParentsPage() {
 
             {/* Results Count */}
             <div className="flex items-center text-sm text-gray-600 whitespace-nowrap">
-              <span className="font-medium">{filteredParents.length}</span>
+              <span className="font-medium">{totalCount}</span>
               <span className="ml-1">
-                {filteredParents.length === 1 ? 'parent trouvé' : 'parents trouvés'}
+                {totalCount === 1 ? 'parent trouvé' : 'parents trouvés'}
               </span>
             </div>
           </div>
@@ -308,11 +250,9 @@ export default function ParentsPage() {
       )}
 
       {/* Parents List */}
-      {!isLoading && filteredParents.length > 0 && (
+      {!isLoading && parents.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredParents.map((parent: Parent) => {
-            const parentPassword = getParentPassword(parent);
-            return (
+          {parents.map((parent: Parent) => (
             <div
               key={parent.id}
               className="bg-gradient-to-br from-rose-500 via-pink-500 to-fuchsia-500 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-white relative overflow-hidden group cursor-pointer"
@@ -333,17 +273,6 @@ export default function ParentsPage() {
                   <p className="text-white/90 text-sm">
                     <span className="font-medium">Nombre d'enfants:</span> {parent.childrenCount || 0}
                   </p>
-                  {parent.createdAt && (
-                    <p className="text-white/90 text-sm">
-                      <span className="font-medium">Créé le:</span> {new Date(parent.createdAt).toLocaleDateString('fr-FR')}
-                    </p>
-                  )}
-                  <div className="text-white/90 text-sm">
-                    <span className="font-medium">Mot de passe:</span>{" "}
-                    {parentPassword
-                      ? (revealedPasswords[parent.id] ? parentPassword : "********")
-                      : "Non disponible"}
-                  </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -374,41 +303,6 @@ export default function ParentsPage() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30 transition-all duration-200 px-3"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handlePasswordAction(parent);
-                    }}
-                    title={
-                      parentPassword
-                        ? (revealedPasswords[parent.id] ? "Masquer le mot de passe" : "Voir le mot de passe")
-                        : (isAdmin ? "Générer puis afficher le mot de passe" : "Mot de passe non disponible")
-                    }
-                    disabled={
-                      resettingPasswordFor === parent.id ||
-                      (!parentPassword && !isAdmin)
-                    }
-                  >
-                    {resettingPasswordFor === parent.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        Génération...
-                      </>
-                    ) : revealedPasswords[parent.id] ? (
-                      <>
-                        <EyeOff className="w-4 h-4 mr-1" />
-                        Masquer MDP
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-4 h-4 mr-1" />
-                        {parentPassword ? "Voir MDP" : (isAdmin ? "Générer MDP" : "Voir MDP")}
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
                     className="bg-red-500/20 hover:bg-red-500/40 text-white border-red-300/20 hover:border-red-300/40 transition-all duration-200 p-2"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -425,13 +319,12 @@ export default function ParentsPage() {
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 group-hover:scale-110 transition-transform duration-500"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 group-hover:scale-110 transition-transform duration-500"></div>
             </div>
-          );
-          })}
+          ))}
         </div>
       )}
 
       {/* Empty State - No parents at all */}
-      {!isLoading && parents.length === 0 && (
+      {!isLoading && parents.length === 0 && !searchQuery && (
         <Card className="shadow-lg">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="text-center space-y-6">
@@ -457,7 +350,7 @@ export default function ParentsPage() {
       )}
 
       {/* Empty State - No filtered results */}
-      {!isLoading && parents.length > 0 && filteredParents.length === 0 && (
+      {!isLoading && parents.length === 0 && !!searchQuery && (
         <Card className="shadow-lg">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="text-center space-y-6">
@@ -496,30 +389,61 @@ export default function ParentsPage() {
       )}
 
       {/* Pagination */}
-      {!isLoading && pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-600">
-            Page {pagination.page} sur {pagination.totalPages} ({pagination.total} parent{pagination.total !== 1 ? 's' : ''})
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="border-gray-300 hover:bg-gray-50"
-            >
-              Précédent
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
-              disabled={page === pagination.totalPages}
-              className="border-gray-300 hover:bg-gray-50"
-            >
-              Suivant
-            </Button>
-          </div>
-        </div>
+      {!isLoading && parents.length > 0 && (
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="whitespace-nowrap">Parents par page</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(value) => setPageSize(Number(value))}
+                >
+                  <SelectTrigger className="h-9 w-[84px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZES.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="text-sm text-gray-600 whitespace-nowrap">
+                {firstShown}–{lastShown} sur {totalCount}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={page <= 1}
+                  className="border-gray-300"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Précédent
+                </Button>
+                <span className="text-sm text-gray-600 whitespace-nowrap px-1">
+                  Page {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  disabled={page >= totalPages}
+                  className="border-gray-300"
+                >
+                  Suivant
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

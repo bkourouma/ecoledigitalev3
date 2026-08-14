@@ -48,9 +48,13 @@ export function technicalAccountEmail(roleKey: string, tenantSlug: string): stri
  */
 const ACCOUNT_OVERRIDES: Record<string, Record<string, { email: string; password: string }>> = {
   ecoledigitale: {
-    teacher: { email: "jean.koffi@imhotepacademy.ci", password: "h?ya@q4wEhn9" },
-    student: { email: "noella.kouadio.gerna28@example.com", password: "Passw0rd!stu" },
-    parent: { email: "konan.kouadio.parent28@example.com", password: "xp#UgydODQq*" },
+    // Nadège Aka : enseignante d'Analyse Mathématique en L1GL/L2GL — elle porte
+    // de vraies séances, ses appels de présence et ses copies à corriger.
+    teacher: { email: "nadege.aka@ecoledigitale.test", password: "Passw0rd!2026" },
+    // Noella Kouadio : l'une des deux enfants de Konan Kouadio (fratrie).
+    student: { email: "noella.kouadio001@example.com", password: "Passw0rd!2026" },
+    // Konan Kouadio : seul parent rattaché à deux enfants (Noella + Yannick).
+    parent: { email: "konan.kouadio.parent001@example.com", password: "Passw0rd!2026" },
   },
 };
 

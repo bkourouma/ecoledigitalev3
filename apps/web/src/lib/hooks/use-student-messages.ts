@@ -178,7 +178,7 @@ export function useStudentMessageToSchool() {
   const userId = (session as any)?.userId || (session?.user as any)?.id;
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { subject: string; content: string; sendWhatsapp?: boolean }) => {
+    mutationFn: async (body: { subject: string; content: string; sendWhatsapp?: boolean; sendEmail?: boolean }) => {
       const headers = createApiHeaders(session);
       headers['X-User-Id'] = userId!;
       const res = await fetch(`${API_BASE_URL}/api/v1/student/messages/to-school`, {
@@ -207,6 +207,7 @@ export function useStudentMessageToTeacher() {
       subject: string;
       content: string;
       sendWhatsapp?: boolean;
+      sendEmail?: boolean;
     }) => {
       const headers = createApiHeaders(session);
       headers['X-User-Id'] = userId!;

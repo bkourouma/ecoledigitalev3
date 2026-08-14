@@ -447,6 +447,17 @@ export const MarkProfessionalAttendanceSchema = z.object({
   entries: z.array(MarkProfessionalAttendanceItemSchema).default([]),
 });
 
+/**
+ * Justification administrative d'une absence : `justifiee` fait passer le
+ * pointage de `absent` à `excuse` (la valeur que le bulletin compte comme
+ * « absence justifiée ») avec son motif ; `false` fait le chemin inverse et
+ * efface le motif.
+ */
+export const JustifyProfessionalAbsenceSchema = z.object({
+  justifiee: z.boolean(),
+  motif: z.string().trim().max(500, "Motif trop long (500 caractères maximum)").optional(),
+});
+
 export const ProfessionalEcueAttendanceSchema = z.object({
   id: z.string().uuid(),
   tenant_id: z.string().uuid(),
@@ -822,6 +833,7 @@ export type UpdateProfessionalEcueSeance = z.infer<typeof UpdateProfessionalEcue
 
 export type MarkProfessionalAttendanceItem = z.infer<typeof MarkProfessionalAttendanceItemSchema>;
 export type MarkProfessionalAttendance = z.infer<typeof MarkProfessionalAttendanceSchema>;
+export type JustifyProfessionalAbsence = z.infer<typeof JustifyProfessionalAbsenceSchema>;
 export type ProfessionalEcueAttendance = z.infer<typeof ProfessionalEcueAttendanceSchema>;
 
 export type ProfessionalEcueResult = z.infer<typeof ProfessionalEcueResultSchema>;

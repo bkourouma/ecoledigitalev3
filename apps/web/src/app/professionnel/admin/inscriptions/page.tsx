@@ -54,11 +54,48 @@ function sessionGroupLabel(s: any): string {
   return s.semestre_libelle ? String(s.semestre_libelle) : lib;
 }
 
+/**
+ * « Conduite » est la seule matière transversale : elle est déclinée dans toutes
+ * les filières et à tous les semestres, et ne s'inscrit pas ici. On l'écarte de
+ * la liste des sessions, y compris pour les filières encore en cours.
+ */
+function isTransversale(s: any): boolean {
+  return /^conduite\b/i.test(String(s.ue_libelle ?? s.libelle ?? "").trim());
+}
+
+/** Date du jour au format AAAA-MM-JJ, en heure locale (pas en UTC). */
+function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
+}
+
+/**
+ * Session encore active : ni terminée ni annulée, et dont la date de fin n'est
+ * pas dépassée. La date est testée en plus du statut car la finalisation
+ * automatique (statut → « termine ») n'a lieu qu'au chargement de la liste des
+ * sessions : le statut stocké peut être en retard. Même règle que la liste des
+ * filières de la page Planning.
+ */
+function isSessionActive(s: any): boolean {
+  const statut = String(s.statut ?? "");
+  if (statut === "termine" || statut === "annule") return false;
+  const fin = String(s.date_fin ?? "").slice(0, 10);
+  return fin !== "" && fin >= todayISO();
+}
+
 const STUDENT_VISIBLE_CAP = 120;
 
 export default function ProfessionalInscriptionsPage() {
   const sessionsQuery = useProfessionalUeSessionsList({ pageSize: 500 } as any);
-  const studentsQuery = useStudents({ limit: 1000 } as any);
+  // Seuls les étudiants réellement inscriptibles sont proposés : ceux qui ont déjà
+  // une inscription non annulée sur une session encore active sont écartés côté
+  // API. Une session terminée ne bloque pas — l'étudiant réapparaît.
+  const studentsQuery = useStudents({
+    limit: 1000,
+    withoutActiveProfessionalEnrollment: true,
+  } as any);
   const bulkMut = useAdminEnrollBulk();
 
   const sessions: any[] = (sessionsQuery.data as any)?.items ?? [];
@@ -74,6 +111,8 @@ export default function ProfessionalInscriptionsPage() {
   const filiereOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const s of sessions) {
+      if (isTransversale(s)) continue; // pas de filière proposée pour la seule Conduite
+      if (!isSessionActive(s)) continue; // filière proposée seulement si une session est encore active
       if (s.filiere_code) {
         map.set(s.filiere_code, `${s.filiere_nom ?? s.filiere_code} (${s.filiere_code})`);
       }
@@ -88,7 +127,7 @@ export default function ProfessionalInscriptionsPage() {
       filiere === ""
         ? []
         : sessions
-            .filter((s) => s.filiere_code === filiere)
+            .filter((s) => s.filiere_code === filiere && !isTransversale(s))
             .sort((a, b) => String(a.libelle).localeCompare(String(b.libelle))),
     [sessions, filiere]
   );
@@ -214,7 +253,10 @@ export default function ProfessionalInscriptionsPage() {
             <CardTitle className="text-base">
               Sessions {sessionIds.length > 0 && `(${sessionIds.length})`}
             </CardTitle>
-            <CardDescription>Cochez une ou plusieurs sessions.</CardDescription>
+            <CardDescription>
+              Cochez une ou plusieurs sessions. La matière transversale « Conduite » n'est pas
+              listée.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-2">
@@ -298,7 +340,9 @@ export default function ProfessionalInscriptionsPage() {
               Étudiants {studentIds.length > 0 && `(${studentIds.length})`}
             </CardTitle>
             <CardDescription>
-              Recherchez et cochez un ou plusieurs étudiants. Tous les étudiants sont affichés.
+              Recherchez et cochez un ou plusieurs étudiants. Seuls les étudiants sans
+              inscription en cours sont proposés : ceux déjà inscrits à une session active
+              n&apos;apparaissent pas tant qu&apos;elle n&apos;est pas terminée.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -325,7 +369,11 @@ export default function ProfessionalInscriptionsPage() {
             <div className="max-h-80 overflow-y-auto rounded-md border divide-y">
               {filteredStudents.length === 0 ? (
                 <p className="px-3 py-3 text-sm text-muted-foreground">
-                  {studentsQuery.isLoading ? "Chargement…" : "Aucun étudiant"}
+                  {studentsQuery.isLoading
+                    ? "Chargement…"
+                    : studentSearch.trim()
+                      ? "Aucun étudiant ne correspond à cette recherche."
+                      : "Aucun étudiant inscriptible : tous ont déjà une inscription en cours."}
                 </p>
               ) : (
                 <>

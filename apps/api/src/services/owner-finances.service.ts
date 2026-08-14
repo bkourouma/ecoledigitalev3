@@ -2,6 +2,12 @@ import type { Pool } from "pg";
 import type { FastifyBaseLogger } from "fastify";
 import type { OwnerFinancesPeriod, OwnerFinancesResponse } from "@ecoledigitale/contracts";
 
+/**
+ * Nombre d'échéances en retard listées nominativement. C'est un extrait destiné
+ * à l'écran, PAS une base de calcul : les totaux sont agrégés séparément en SQL.
+ */
+const OVERDUE_LIST_LIMIT = 200;
+
 export type OwnerFinancesQuery = {
   period: OwnerFinancesPeriod;
   /** When period is academic_year */
@@ -147,7 +153,31 @@ export async function fetchOwnerFinances(
       AND sti.due_date::date <= $3::date
       AND ($4::uuid IS NULL OR cy.id = $4::uuid)
     ORDER BY sti.due_date ASC
-    LIMIT 200
+    LIMIT ${OVERDUE_LIST_LIMIT}
+  `;
+
+  /**
+   * Totaux des impayés : requête d'agrégat SÉPARÉE, sans LIMIT.
+   *
+   * `overdueCount` et `overdueAmount` étaient auparavant sommés en TypeScript sur
+   * la liste plafonnée ci-dessus : au-delà de ${OVERDUE_LIST_LIMIT} échéances en
+   * retard, le montant affiché au propriétaire était faux — et faux « par le bas »,
+   * donc rassurant à tort. Mêmes conditions que `overdueSql`, sans troncature.
+   */
+  const overdueTotalsSql = `
+    SELECT
+      COUNT(*)::int AS overdue_count,
+      COALESCE(SUM(sti.amount - sti.amount_paid), 0)::float AS overdue_amount
+    FROM student_tuition_installments sti
+    JOIN student_enrollments se ON se.id = sti.enrollment_id AND se.tenant_id = sti.tenant_id
+    JOIN classes c ON c.id = se.class_id AND c.tenant_id = sti.tenant_id
+    JOIN programmes p ON p.id = c.programme_id AND p.tenant_id = c.tenant_id
+    JOIN cycles cy ON cy.id = p.cycle_id AND cy.tenant_id = c.tenant_id
+    WHERE sti.tenant_id = $1::uuid
+      AND sti.status IN ('pending', 'partial', 'overdue')
+      AND sti.amount > sti.amount_paid
+      AND sti.due_date::date <= $3::date
+      AND ($4::uuid IS NULL OR cy.id = $4::uuid)
   `;
 
   const payrollSql = `
@@ -172,6 +202,8 @@ export async function fetchOwnerFinances(
   let recoveryRows: Record<string, unknown>[] = [];
   let overdueRows: Record<string, unknown>[] = [];
   let payrollRows: Record<string, unknown>[] = [];
+  let overdueCount = 0;
+  let overdueAmount = 0;
   try {
     await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
     try {
@@ -185,6 +217,13 @@ export async function fetchOwnerFinances(
       overdueRows = overdueRes.rows;
     } catch (e) {
       log?.warn({ err: e }, "owner finances overdue query failed");
+    }
+    try {
+      const totalsRes = await client.query(overdueTotalsSql, paramsBase);
+      overdueCount = Number(totalsRes.rows[0]?.overdue_count) || 0;
+      overdueAmount = Number(totalsRes.rows[0]?.overdue_amount) || 0;
+    } catch (e) {
+      log?.warn({ err: e }, "owner finances overdue totals query failed");
     }
     try {
       const payrollRes = await client.query(payrollSql, [tenantId, startStr, endStr]);
@@ -218,10 +257,8 @@ export async function fetchOwnerFinances(
       ? Math.round((collectedTuition / expectedTuition) * 1000) / 10
       : 0;
 
-  let overdueAmount = 0;
   const overdueInstallments = overdueRows.map((row) => {
     const due = Number(row.amount_due) || 0;
-    overdueAmount += due;
     return {
       studentRef: anonymizeStudentRef(String(row.student_id)),
       className: row.class_name,
@@ -250,8 +287,11 @@ export async function fetchOwnerFinances(
       expectedTuition,
       collectedTuition,
       recoveryRate: recoveryRateTotal,
-      overdueCount: overdueInstallments.length,
+      // Comptés en SQL sur TOUTES les échéances en retard, pas sur la liste
+      // tronquée ci-dessous : `overdueInstallments` est un extrait, pas le total.
+      overdueCount,
       overdueAmount,
+      overdueListTruncated: overdueInstallments.length < overdueCount,
       teacherPayrollTotal,
     },
     recoveryByClass,

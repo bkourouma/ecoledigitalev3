@@ -8,7 +8,6 @@ import { Card, CardContent, Button, Input } from "@ecoledigitale/ui";
 import {
   Layers,
   CalendarRange,
-  Calendar,
   BookOpen,
   GraduationCap,
   Loader2,
@@ -19,6 +18,9 @@ import {
   Save,
   CheckCircle2,
   Star,
+  AlertTriangle,
+  History,
+  RotateCcw,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import {
@@ -44,27 +46,10 @@ function fmt(x: number | null | undefined): string {
   return x == null ? "—" : Number(x).toFixed(2).replace(".", ",");
 }
 
-/**
- * Année scolaire (pivot septembre) dérivée de la date de début du semestre,
- * alignée sur le calcul côté API (professional-bulletin.service.ts) et les autres
- * pages : un semestre démarrant en septembre ou après appartient à
- * « AAAA-AAAA+1 », sinon « AAAA-1-AAAA ».
- */
-function anneeScolaireOf(v?: string | null): string | null {
-  if (!v) return null;
-  const d = new Date(v);
-  if (isNaN(d.getTime())) return null;
-  const y = d.getFullYear();
-  return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
-}
-
 export default function NotesPage() {
   const [filiereId, setFiliereId] = useState("");
-  const [annee, setAnnee] = useState("all");
   const [semestreId, setSemestreId] = useState("");
   const [sessionId, setSessionId] = useState("");
-  // Session de saisie LMD : 1 = normale, 2 = rattrapage (examens uniquement).
-  const [noteSession, setNoteSession] = useState<1 | 2>(1);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
@@ -75,42 +60,25 @@ export default function NotesPage() {
   const isAdmin =
     Array.isArray(roles) && roles.some((r) => ["admin", "super_admin", "Administrateur"].includes(r));
 
-  const programmesQuery = useNotesFilieres();
-  const semestresQuery = useNotesSemestres(filiereId || null);
+  // Saisie = uniquement ce qui est encore ouvert. Les filières et semestres dont
+  // toutes les cohortes sont terminées relèvent de la page Historique.
+  const programmesQuery = useNotesFilieres("actives");
+  const semestresQuery = useNotesSemestres(filiereId || null, "actives");
   const sessionsQuery = useSemestreSessions(semestreId || null);
   const gridQuery = useSessionGrid(sessionId || null);
   const conduiteQuery = useSemestreConduite(isAdmin && semestreId ? semestreId : null);
   const recomputeMut = useRecomputeSession();
 
   const filieres: any[] = (programmesQuery.data as any[]) ?? [];
-  const semestres: any[] = useMemo(() => {
-    const list = (semestresQuery.data as any[]) ?? [];
-    return filiereId
-      ? list.map((s) => ({ ...s, annee_scolaire: anneeScolaireOf(s.date_debut) }))
-      : [];
-  }, [semestresQuery.data, filiereId]);
-
-  // Années scolaires disponibles pour la filière (plus récentes en premier).
-  const anneeOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of semestres) if (s.annee_scolaire) set.add(s.annee_scolaire);
-    return Array.from(set)
-      .sort((a, b) => b.localeCompare(a))
-      .map((value) => ({ value, label: value }));
-  }, [semestres]);
-
-  // Semestres filtrés par année scolaire sélectionnée.
-  const visibleSemestres = useMemo(
-    () => semestres.filter((s) => annee === "all" || s.annee_scolaire === annee),
-    [semestres, annee]
+  // Semestres de la filière, restreints par l'API aux seuls encore actifs : il
+  // n'y a donc plus de filtre d'année ici, l'historique vit sur sa propre page.
+  const visibleSemestres: any[] = useMemo(
+    () => (filiereId ? ((semestresQuery.data as any[]) ?? []) : []),
+    [semestresQuery.data, filiereId]
   );
 
-  // Si l'année sélectionnée n'existe plus (changement de filière), on réinitialise.
-  useEffect(() => {
-    if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
-  }, [anneeOptions, annee]);
-
-  // Si le semestre sélectionné n'est plus visible (filtre année), on le désélectionne.
+  // Si le semestre sélectionné n'est plus dans la liste (changement de filière,
+  // ou semestre qui vient de se terminer), on le désélectionne.
   useEffect(() => {
     if (semestreId && !visibleSemestres.some((s) => s.id === semestreId)) {
       setSemestreId("");
@@ -118,10 +86,12 @@ export default function NotesPage() {
     }
   }, [visibleSemestres, semestreId]);
 
-  // UE (sessions) du semestre, hors « Conduite » et sans inscrit.
+  // UE (sessions) du semestre : hors « Conduite », sans inscrit, et hors cohortes
+  // terminées ou annulées — la saisie ne concerne que ce qui est encore ouvert.
   const sessions: any[] = ((sessionsQuery.data as any[]) ?? [])
     .filter((s) => !String(s.ue_libelle ?? "").toLowerCase().startsWith("conduite"))
-    .filter((s) => Number(s.nb_inscrits ?? 0) > 0);
+    .filter((s) => Number(s.nb_inscrits ?? 0) > 0)
+    .filter((s) => !["termine", "annule"].includes(String(s.statut ?? "")));
   const grid: any = gridQuery.data ?? null;
   const ecues: any[] = grid?.ecues ?? [];
   const students: any[] = grid?.students ?? [];
@@ -145,32 +115,69 @@ export default function NotesPage() {
       (n: any) => n.ecue_id === eid && n.student_id === sid && n.nature === "devoir"
     );
   }
+  /** Note d'examen de la Session 1 — la seule saisie sur cette page. */
   function examenOf(eid: string, sid: string) {
-    // La note d'examen de la Session 2 (rattrapage) remplace celle de Session 1.
-    const exams = (grid?.notes ?? []).filter(
-      (n: any) => n.ecue_id === eid && n.student_id === sid && n.nature === "examen"
+    return (
+      (grid?.notes ?? []).find(
+        (n: any) =>
+          n.ecue_id === eid &&
+          n.student_id === sid &&
+          n.nature === "examen" &&
+          (n.session ?? 1) === 1
+      ) ?? null
     );
-    if (exams.length === 0) return null;
-    return exams.reduce((a: any, b: any) => ((b.session ?? 1) > (a.session ?? 1) ? b : a));
+  }
+  /**
+   * Note d'examen de rattrapage (Session 2), saisie sur la page « Rattrapages ».
+   * Simplement signalée ici : elle remplace la note de Session 1 dans le calcul.
+   */
+  function rattrapageOf(eid: string, sid: string) {
+    return (
+      (grid?.notes ?? []).find(
+        (n: any) =>
+          n.ecue_id === eid &&
+          n.student_id === sid &&
+          n.nature === "examen" &&
+          (n.session ?? 1) === 2
+      ) ?? null
+    );
   }
   function evalSubsOf(eid: string, sid: string) {
     return (grid?.submissions ?? []).filter((s: any) => s.ecue_id === eid && s.student_id === sid);
   }
 
-  // En Session 2 (rattrapage), on n'affiche que les étudiants ayant au moins un
-  // ECUE non validé (à rattraper). En Session 1, tous les étudiants.
-  const displayedStudents =
-    noteSession === 2
-      ? students.filter((s) =>
-          ecues.some((e) => {
-            const r = resultOf(e.ecue_id, s.student_id);
-            return r != null && r.validee === false;
-          })
-        )
-      : students;
+  /**
+   * Étudiants affichés sans note de conduite : la conduite est saisie sur la
+   * page « Conduite » et entre dans les moyennes du semestre.
+   */
+  const missingConduite = useMemo(
+    () =>
+      showConduite ? students.filter((s) => conduiteByStudent.get(s.student_id)?.note == null) : [],
+    [showConduite, students, conduiteByStudent]
+  );
+
+  /**
+   * Garde-fou : la conduite entre dans les moyennes du semestre, donc aucun
+   * calcul n'est possible tant qu'un étudiant affiché n'a pas la sienne.
+   * Renvoie `true` (et affiche le motif) quand le calcul doit être refusé.
+   */
+  function blockedByMissingConduite(): boolean {
+    if (missingConduite.length === 0) return false;
+    const noms = missingConduite
+      .slice(0, 10)
+      .map((s) => `${s.first_name} ${s.last_name}`)
+      .join(", ");
+    const reste = missingConduite.length > 10 ? `, et ${missingConduite.length - 10} autre(s)` : "";
+    setError(
+      `Calcul impossible : ${missingConduite.length} étudiant(s) n'ont pas de note de conduite ` +
+        `(${noms}${reste}). Saisissez-les sur la page « Conduite », puis relancez le calcul.`
+    );
+    return true;
+  }
 
   async function handleRecompute() {
     if (!sessionId) return;
+    if (blockedByMissingConduite()) return;
     setError(null);
     try {
       await recomputeMut.mutateAsync(sessionId);
@@ -183,9 +190,12 @@ export default function NotesPage() {
    * Enregistre toutes les saisies en cours puis lance le calcul.
    * Force la validation du champ actif, attend la fin des enregistrements en
    * cours, puis recalcule les moyennes de l'UE sélectionnée.
+   *
+   * Refusé tant qu'une note de conduite manque (voir `blockedByMissingConduite`).
    */
   async function handleSaveAndCompute() {
     if (!sessionId) return;
+    if (blockedByMissingConduite()) return;
     setError(null);
     setSaved(false);
     setSavingAll(true);
@@ -222,6 +232,21 @@ export default function NotesPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link href="/professionnel/admin/notes/rattrapages">
+            <Button
+              variant="outline"
+              title="Saisir les examens de Session 2 des étudiants non validés"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Rattrapages
+            </Button>
+          </Link>
+          <Link href="/professionnel/admin/notes/historique">
+            <Button variant="outline" title="Consulter les notes des sessions terminées">
+              <History className="h-4 w-4 mr-2" />
+              Historique
+            </Button>
+          </Link>
           {isAdmin && (
             <Link href="/professionnel/admin/bulletins">
               <Button variant="outline">
@@ -232,7 +257,12 @@ export default function NotesPage() {
           )}
           <Button
             onClick={handleRecompute}
-            disabled={!sessionId || recomputeMut.isPending}
+            disabled={!sessionId || recomputeMut.isPending || missingConduite.length > 0}
+            title={
+              missingConduite.length > 0
+                ? `Calcul bloqué : ${missingConduite.length} étudiant(s) sans note de conduite.`
+                : undefined
+            }
             className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
           >
             {recomputeMut.isPending ? (
@@ -251,36 +281,32 @@ export default function NotesPage() {
         </div>
       )}
 
-      {/* Sélecteurs — deux en haut (filière, année), deux en bas (semestre, UE) */}
+      {/* Sélecteurs — filière, semestre, UE. Tous restreints aux cohortes encore
+          ouvertes : les sessions terminées se consultent sur la page Historique. */}
       <Card className="shadow-sm">
         <CardContent className="p-4 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <SearchableSelect
               value={filiereId}
               onChange={(v) => {
                 setFiliereId(v);
-                setAnnee("all");
                 setSemestreId("");
                 setSessionId("");
               }}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder={programmesQuery.isLoading ? "Chargement…" : "Filière"}
+              placeholder={
+                programmesQuery.isLoading
+                  ? "Chargement…"
+                  : filieres.length === 0
+                  ? "Aucune filière en cours"
+                  : "Filière"
+              }
               searchPlaceholder="Rechercher une filière…"
               options={filieres.map((f) => ({
                 value: f.id,
                 label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
               }))}
             />
-            <SearchableSelect
-              value={annee}
-              onChange={setAnnee}
-              icon={<Calendar className="h-4 w-4 text-gray-400" />}
-              placeholder={!filiereId ? "Choisir une filière" : "Toutes les années"}
-              searchPlaceholder="Rechercher une année…"
-              options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <SearchableSelect
               value={semestreId}
               onChange={(v) => {
@@ -312,39 +338,18 @@ export default function NotesPage() {
               }))}
             />
           </div>
-          {/* Session de saisie LMD (rattrapage = uniquement les examens) */}
-          <div className="flex items-center gap-3 pt-1">
-            <span className="text-sm font-medium text-muted-foreground">Session de saisie :</span>
-            <div className="inline-flex rounded-lg border border-border overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setNoteSession(1)}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                  noteSession === 1
-                    ? "bg-indigo-600 text-white"
-                    : "bg-background hover:bg-muted text-muted-foreground"
-                }`}
-              >
-                Session 1 (normale)
-              </button>
-              <button
-                type="button"
-                onClick={() => setNoteSession(2)}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                  noteSession === 2
-                    ? "bg-amber-600 text-white"
-                    : "bg-background hover:bg-muted text-muted-foreground"
-                }`}
-              >
-                Session 2 (rattrapage)
-              </button>
-            </div>
-            {noteSession === 2 && (
-              <span className="text-xs text-amber-600">
-                Les notes d'examen saisies remplaceront celles de Session 1 pour les ECUE concernées.
-              </span>
-            )}
-          </div>
+          {/* La Session 2 (rattrapage) se saisit sur sa propre page : elle ne
+              concerne que les étudiants non validés, examens uniquement. */}
+          <p className="pt-1 text-xs text-muted-foreground">
+            Saisie de la <span className="font-medium">Session 1 (normale)</span>. Les examens de{" "}
+            <Link
+              href="/professionnel/admin/notes/rattrapages"
+              className="font-medium underline underline-offset-2"
+            >
+              Session 2 (rattrapage)
+            </Link>{" "}
+            se saisissent sur la page dédiée, qui ne liste que les étudiants non validés.
+          </p>
         </CardContent>
       </Card>
 
@@ -376,14 +381,27 @@ export default function NotesPage() {
             Cette UE n'a pas d'ECUE (hors Conduite).
           </CardContent>
         </Card>
-      ) : noteSession === 2 && displayedStudents.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center text-muted-foreground">
-            Aucun ECUE à rattraper dans cette UE : tous les étudiants ont validé.
-          </CardContent>
-        </Card>
       ) : (
         <>
+          {/* Conduites manquantes : le calcul est refusé tant qu'il en manque une. */}
+          {missingConduite.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>
+                <span className="font-medium">Calcul bloqué</span> —{" "}
+                <span className="font-medium">{missingConduite.length}</span> étudiant
+                {missingConduite.length > 1 ? "s" : ""} sans note de conduite, alors qu'elle entre
+                dans les moyennes du semestre.
+              </span>
+              <Link
+                href="/professionnel/admin/conduite"
+                className="font-medium underline underline-offset-2"
+              >
+                Saisir les conduites
+              </Link>
+            </div>
+          )}
+
           {/* Barre d'action — juste au-dessus du tableau. */}
           <div className="flex items-center justify-end gap-3 rounded-xl border border-border bg-background px-4 py-3 shadow-sm">
             {saved && (
@@ -394,7 +412,12 @@ export default function NotesPage() {
             )}
             <Button
               onClick={handleSaveAndCompute}
-              disabled={savingAll || recomputeMut.isPending}
+              disabled={savingAll || recomputeMut.isPending || missingConduite.length > 0}
+              title={
+                missingConduite.length > 0
+                  ? `Calcul bloqué : ${missingConduite.length} étudiant(s) sans note de conduite.`
+                  : undefined
+              }
               className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
             >
               {savingAll || recomputeMut.isPending ? (
@@ -444,6 +467,13 @@ export default function NotesPage() {
                       <span className="inline-flex items-center gap-1 whitespace-nowrap">
                         <Star className="h-4 w-4 text-amber-500" /> Conduite (/20)
                       </span>
+                      <Link
+                        href="/professionnel/admin/conduite"
+                        className="mt-0.5 block text-[10px] font-normal text-muted-foreground underline"
+                        title="La note de conduite se saisit sur la page Conduite"
+                      >
+                        saisie sur la page Conduite
+                      </Link>
                     </th>
                   )}
                 </tr>
@@ -464,7 +494,7 @@ export default function NotesPage() {
                 </tr>
               </thead>
               <tbody>
-                {displayedStudents.map((s) => {
+                {students.map((s) => {
                   const cond = conduiteByStudent.get(s.student_id);
                   return (
                     <tr
@@ -492,7 +522,6 @@ export default function NotesPage() {
                                 studentId={s.student_id}
                                 evalDevoirs={subs.filter((x: any) => x.type !== "examen")}
                                 devoirs={devoirsOf(e.ecue_id, s.student_id)}
-                                readOnly={noteSession === 2}
                                 onError={setError}
                               />
                             </td>
@@ -503,11 +532,7 @@ export default function NotesPage() {
                                 studentId={s.student_id}
                                 examen={examenOf(e.ecue_id, s.student_id)}
                                 evalExamen={subs.find((x: any) => x.type === "examen") ?? null}
-                                noteSession={noteSession}
-                                locked={
-                                  noteSession === 2 &&
-                                  (resultOf(e.ecue_id, s.student_id)?.moyenne ?? 0) >= 10
-                                }
+                                rattrapage={rattrapageOf(e.ecue_id, s.student_id)}
                                 onError={setError}
                               />
                             </td>
@@ -521,9 +546,6 @@ export default function NotesPage() {
                         <td className="px-4 py-4 bg-amber-500/10 border-l border-border align-middle whitespace-nowrap text-center">
                           <ConduiteCell
                             student={cond ?? { student_id: s.student_id, note: null, note_id: null }}
-                            ecueId={conduite.ecue_id}
-                            ueSessionId={conduite.ue_session_id}
-                            onError={setError}
                           />
                         </td>
                       )}
@@ -542,7 +564,12 @@ export default function NotesPage() {
               <span className="font-medium">Note</span> = moyenne devoirs × 0,4 + examen × 0,6
               {showConduite && (
                 <>
-                  {" "}· <span className="font-medium">Conduite</span> = note unique /20 du semestre
+                  {" "}· <span className="font-medium">Conduite</span> = note unique /20 du semestre,
+                  en lecture seule ici (saisie sur la page{" "}
+                  <Link href="/professionnel/admin/conduite" className="underline">
+                    Conduite
+                  </Link>
+                  )
                 </>
               )}
               .
@@ -573,7 +600,6 @@ function DevoirsCell({
   studentId,
   evalDevoirs,
   devoirs,
-  readOnly = false,
   onError,
 }: {
   ecueId: string;
@@ -581,7 +607,6 @@ function DevoirsCell({
   studentId: string;
   evalDevoirs: any[];
   devoirs: any[];
-  readOnly?: boolean;
   onError: (m: string | null) => void;
 }) {
   const [newDevoir, setNewDevoir] = useState("");
@@ -635,61 +660,54 @@ function DevoirsCell({
           title="Note saisie manuellement"
         >
           {fmt(d.note)}
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={() => removeNote(d.id)}
-              className="text-indigo-400 hover:text-red-600"
-              title="Supprimer ce devoir"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </span>
-      ))}
-      {readOnly ? (
-        // Session 2 (rattrapage) : devoirs de la Session 1 conservés, non
-        // modifiables (seul l'examen se repasse). Rien d'autre n'est affiché.
-        evalDevoirs.length === 0 && devoirs.length === 0 ? (
-          <span className="text-xs text-muted-foreground">—</span>
-        ) : null
-      ) : (
-        <span className="inline-flex items-center gap-1">
-          <Input
-            type="number"
-            min={0}
-            max={20}
-            step="0.25"
-            value={newDevoir}
-            onChange={(e) => setNewDevoir(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addDevoir()}
-            placeholder="+ note"
-            className="h-9 w-20"
-          />
           <button
             type="button"
-            onClick={addDevoir}
-            disabled={upsert.isPending}
-            className="text-indigo-600 hover:text-indigo-800"
-            title="Ajouter un devoir"
+            onClick={() => removeNote(d.id)}
+            className="text-indigo-400 hover:text-red-600"
+            title="Supprimer ce devoir"
           >
-            <Plus className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </span>
-      )}
+      ))}
+      <span className="inline-flex items-center gap-1">
+        <Input
+          type="number"
+          min={0}
+          max={20}
+          step="0.25"
+          value={newDevoir}
+          onChange={(e) => setNewDevoir(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addDevoir()}
+          placeholder="+ note"
+          className="h-9 w-20"
+        />
+        <button
+          type="button"
+          onClick={addDevoir}
+          disabled={upsert.isPending}
+          className="text-indigo-600 hover:text-indigo-800"
+          title="Ajouter un devoir"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </span>
     </div>
   );
 }
 
-/** Cellule Examen : note unique (manuelle prioritaire, sinon note d'évaluation). */
+/**
+ * Cellule Examen — Session 1 : note unique (manuelle prioritaire, sinon note
+ * d'évaluation). Une éventuelle note de rattrapage (`rattrapage`, Session 2)
+ * n'est que signalée : elle se saisit sur la page « Rattrapages ».
+ */
 function ExamenCell({
   ecueId,
   sessionId,
   studentId,
   examen,
   evalExamen,
-  noteSession,
-  locked = false,
+  rattrapage,
   onError,
 }: {
   ecueId: string;
@@ -697,8 +715,7 @@ function ExamenCell({
   studentId: string;
   examen: any;
   evalExamen: any;
-  noteSession: 1 | 2;
-  locked?: boolean;
+  rattrapage: any;
   onError: (m: string | null) => void;
 }) {
   const effExamNote = examen ? examen.note : evalExamen ? evalExamen.note : null;
@@ -711,7 +728,6 @@ function ExamenCell({
   }, [examen?.id, examen?.note, evalExamen?.note, ecueId, studentId]);
 
   async function saveExamen() {
-    if (locked) return; // ECUE déjà validé : pas de rattrapage
     const raw = examInput.trim();
     if (raw === "") return;
     const v = parseFloat(raw.replace(",", "."));
@@ -726,7 +742,7 @@ function ExamenCell({
         nature: "examen",
         note: v,
         note_max: 20,
-        session: noteSession,
+        session: 1,
       });
     } catch (e: any) {
       onError(e?.message ?? "Erreur lors de l'enregistrement de l'examen.");
@@ -743,21 +759,6 @@ function ExamenCell({
     }
   }
 
-  if (locked) {
-    // Session 2 : ECUE déjà validé (≥ 10) → rattrapage inutile, saisie verrouillée.
-    return (
-      <div
-        className="flex items-center gap-1.5 text-muted-foreground"
-        title="ECUE déjà validé — le rattrapage (Session 2) ne concerne que les ECUE non validés (< 10)."
-      >
-        <span className="font-mono">{effExamNote != null ? fmt(effExamNote) : "—"}</span>
-        <span className="rounded bg-green-100 px-1 text-[10px] font-semibold text-green-700">
-          validé
-        </span>
-      </div>
-    );
-  }
-
   return (
     <div className="flex items-center gap-1.5">
       <Input
@@ -772,16 +773,18 @@ function ExamenCell({
         placeholder="—"
         className="h-9 w-20"
       />
+      {rattrapage && (
+        <span
+          className="rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-700"
+          title={`Rattrapage saisi (Session 2) : ${fmt(
+            rattrapage.note
+          )}/20 — c'est cette note qui est retenue dans le calcul. Modification sur la page Rattrapages.`}
+        >
+          S2 {fmt(rattrapage.note)}
+        </span>
+      )}
       {examen ? (
         <>
-          {(examen.session ?? 1) === 2 && (
-            <span
-              className="rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-700"
-              title="Note de rattrapage (Session 2) — remplace la note de Session 1"
-            >
-              S2
-            </span>
-          )}
           <span className="text-[11px] text-indigo-600" title="Note saisie manuellement">
             m
           </span>
@@ -830,82 +833,28 @@ function NoteCell({ result }: { result: any }) {
   );
 }
 
-/** Cellule Conduite : note unique /20 par étudiant (portée par l'ECUE de conduite). */
-function ConduiteCell({
-  student,
-  ecueId,
-  ueSessionId,
-  onError,
-}: {
-  student: any;
-  ecueId: string;
-  ueSessionId: string;
-  onError: (m: string | null) => void;
-}) {
-  const [val, setVal] = useState(student.note != null ? String(student.note) : "");
-  const upsert = useUpsertManualNote();
-  const del = useDeleteManualNote();
-
-  useEffect(() => {
-    setVal(student.note != null ? String(student.note) : "");
-  }, [student.note, student.note_id, student.student_id]);
-
-  async function save() {
-    const raw = val.trim();
-    if (raw === "") return;
-    const v = parseFloat(raw.replace(",", "."));
-    if (isNaN(v)) return;
-    if (student.note != null && Number(student.note) === v) return; // inchangé
-    onError(null);
-    try {
-      await upsert.mutateAsync({
-        ecueId,
-        student_id: student.student_id,
-        ue_session_id: ueSessionId,
-        nature: "examen",
-        note: v,
-        note_max: 20,
-      });
-    } catch (e: any) {
-      onError(e?.message ?? "Erreur lors de l'enregistrement de la conduite.");
-    }
+/**
+ * Cellule Conduite (lecture seule) : la note /20 du semestre est saisie sur la
+ * page « Conduite », au vu des présences. Elle n'est ici que reportée.
+ */
+function ConduiteCell({ student }: { student: any }) {
+  if (student?.note == null) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700"
+        title="Aucune note de conduite — à saisir sur la page Conduite."
+      >
+        <AlertTriangle className="h-3.5 w-3.5" />
+        Non saisie
+      </span>
+    );
   }
-
-  async function remove() {
-    if (!student.note_id) return;
-    onError(null);
-    try {
-      await del.mutateAsync(student.note_id);
-      setVal("");
-    } catch (e: any) {
-      onError(e?.message ?? "Erreur lors de la suppression.");
-    }
-  }
-
   return (
-    <div className="flex items-center justify-center gap-1.5">
-      <Input
-        type="number"
-        min={0}
-        max={20}
-        step="0.25"
-        value={val}
-        onChange={(e) => setVal(e.target.value)}
-        onBlur={save}
-        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-        placeholder="—"
-        className="h-9 w-24"
-      />
-      {student.note_id && (
-        <button
-          type="button"
-          onClick={remove}
-          className="text-gray-400 hover:text-red-600"
-          title="Supprimer la note de conduite"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
+    <span
+      className="inline-block rounded bg-amber-100 px-2.5 py-1 text-sm font-mono font-semibold text-amber-800"
+      title="Note de conduite du semestre — saisie sur la page Conduite."
+    >
+      {fmt(student.note)}
+    </span>
   );
 }

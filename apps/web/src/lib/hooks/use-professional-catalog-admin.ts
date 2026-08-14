@@ -452,6 +452,109 @@ export function useMarkSeanceAttendance() {
   });
 }
 
+/**
+ * Justifie (ou dé-justifie) l'absence d'un étudiant sur une séance : le
+ * pointage bascule entre `absent` et `excuse`, avec le motif saisi.
+ */
+export function useJustifyAbsence() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      seanceId,
+      studentId,
+      justifiee,
+      motif,
+    }: {
+      seanceId: string;
+      studentId: string;
+      justifiee: boolean;
+      motif?: string;
+    }) =>
+      apiFetch(
+        `${BASE}/seances/${seanceId}/attendance/${studentId}/justification`,
+        jsonInit("POST", { justifiee, motif })
+      ),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["professional-seance-attendance", v.seanceId] });
+      qc.invalidateQueries({ queryKey: ["professional-student-presences"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-presences-history"], exact: false });
+    },
+  });
+}
+
+/** Dépose (ou remplace) le justificatif PDF d'une absence justifiée. */
+export function useUploadJustificatif() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      seanceId,
+      studentId,
+      file,
+    }: {
+      seanceId: string;
+      studentId: string;
+      file: File;
+    }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const headers = createApiHeaders();
+      delete (headers as any)["Content-Type"];
+      delete (headers as any)["content-type"];
+      const res = await fetch(
+        `${BASE}/seances/${seanceId}/attendance/${studentId}/justificatif`,
+        { method: "POST", headers, body: formData }
+      );
+      const text = await res.text();
+      let json: any = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        /* réponse non JSON */
+      }
+      if (!res.ok) throw new Error(json?.message ?? `Erreur HTTP ${res.status}`);
+      return json?.data ?? json;
+    },
+    onSuccess: (_d, v) =>
+      qc.invalidateQueries({ queryKey: ["professional-seance-attendance", v.seanceId] }),
+  });
+}
+
+/** Retire le justificatif d'une absence (la justification reste). */
+export function useDeleteJustificatif() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ seanceId, studentId }: { seanceId: string; studentId: string }) =>
+      apiFetch(`${BASE}/seances/${seanceId}/attendance/${studentId}/justificatif`, {
+        method: "DELETE",
+      }),
+    onSuccess: (_d, v) =>
+      qc.invalidateQueries({ queryKey: ["professional-seance-attendance", v.seanceId] }),
+  });
+}
+
+/**
+ * Charge le justificatif en blob authentifié et renvoie une URL temporaire
+ * (à révoquer via URL.revokeObjectURL après usage).
+ */
+export async function fetchJustificatifUrl(seanceId: string, studentId: string): Promise<string> {
+  const headers = createApiHeaders();
+  delete (headers as any)["Content-Type"];
+  delete (headers as any)["content-type"];
+  const res = await fetch(`${BASE}/seances/${seanceId}/attendance/${studentId}/justificatif`, {
+    headers,
+  });
+  if (!res.ok) {
+    let msg = `Erreur HTTP ${res.status}`;
+    try {
+      msg = (await res.json())?.message ?? msg;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  return URL.createObjectURL(await res.blob());
+}
+
 /* ===================== Résultats ECUE & validation UE ================ */
 
 export function useSessionResults(ueSessionId: string | null) {

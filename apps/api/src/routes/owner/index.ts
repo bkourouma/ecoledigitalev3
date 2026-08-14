@@ -32,7 +32,36 @@ import {
   OwnerPersonnesResponseSchema,
   OwnerRecrutementQuerySchema,
   OwnerRecrutementResponseSchema,
+  OwnerPulseResponseSchema,
+  OwnerTresorerieQuerySchema,
+  OwnerTresorerieResponseSchema,
+  OwnerCashRegisterQuerySchema,
+  OwnerCashRegisterResponseSchema,
+  OwnerRemplissageQuerySchema,
+  OwnerRemplissageResponseSchema,
+  OwnerRisqueQuerySchema,
+  OwnerRisqueResponseSchema,
+  OwnerEconomieQuerySchema,
+  OwnerEconomieResponseSchema,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
+import {
+  buildOwnerEconomieCsv,
+  fetchOwnerEconomie,
+} from "../../services/owner-economie.service";
+import {
+  buildOwnerRisqueCsv,
+  fetchOwnerRisque,
+} from "../../services/owner-risque.service";
+import {
+  buildOwnerRemplissageCsv,
+  fetchOwnerRemplissage,
+} from "../../services/owner-remplissage.service";
+import { fetchOwnerPulse } from "../../services/owner-pulse.service";
+import {
+  buildOwnerCashRegisterCsv,
+  fetchOwnerCashRegister,
+  fetchOwnerTresorerie,
+} from "../../services/owner-tresorerie.service";
 import { fetchOwnerReferentiel } from "../../services/owner-referentiel.service";
 import { fetchOwnerAssiduite } from "../../services/owner-assiduite.service";
 import { fetchOwnerPersonnes } from "../../services/owner-personnes.service";
@@ -160,6 +189,7 @@ function mapAlertRow(row: {
   domain: string;
   created_at: Date | string;
   acknowledged_at: Date | string | null;
+  href?: string | null;
 }): OwnerAlert {
   return {
     id: row.id,
@@ -168,10 +198,282 @@ function mapAlertRow(row: {
     domain: row.domain,
     createdAt: new Date(row.created_at).toISOString(),
     acknowledgedAt: row.acknowledged_at ? new Date(row.acknowledged_at).toISOString() : null,
+    href: row.href ?? null,
   };
 }
 
 export async function ownerRoutes(fastify: FastifyInstance) {
+  /**
+   * Le « pouls » : les 8 indicateurs de tête, consolidés scolaire + professionnel.
+   * Lecture pure, sans effet de bord. `computedAt` permet à l'écran d'afficher
+   * « données au JJ/MM à HH:MM » plutôt que de laisser croire au temps réel.
+   */
+  fastify.get(
+    "/pulse",
+    { preHandler: requireOwnerOrAdmin },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      try {
+        const data = await fetchOwnerPulse(fastify.pg as Pool, tenantId, request.log);
+        reply.send(OwnerPulseResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner pulse aggregation failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Calcul du pouls impossible",
+        });
+      }
+    }
+  );
+
+  /**
+   * Économie : marge brute pédagogique par filière, LTV par famille, rétention
+   * inter-semestres, prévision de trésorerie à 13 semaines.
+   */
+  fastify.get(
+    "/economie",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const raw = normalizeStatsQuery(request.query) as Record<string, unknown>;
+      const wantsCsv = String(raw.format ?? "").toLowerCase() === "csv";
+      const parsed = OwnerEconomieQuerySchema.safeParse(raw);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Paramètres de filtrage invalides",
+        });
+      }
+      try {
+        const data = await fetchOwnerEconomie(
+          fastify.pg as Pool,
+          tenantId,
+          parsed.data,
+          request.log
+        );
+        if (!wantsCsv) {
+          return reply.send(OwnerEconomieResponseSchema.parse(data));
+        }
+        reply
+          .header("Content-Type", "text/csv; charset=utf-8")
+          .header("Content-Disposition", `attachment; filename="economie.csv"`)
+          // BOM : sans lui Excel lit le CSV en ANSI et casse les accents.
+          .send("﻿" + buildOwnerEconomieCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner economie aggregation failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Calcul économique impossible",
+        });
+      }
+    }
+  );
+
+  /**
+   * Qualité et risque : score de décrochage, avancement de saisie par
+   * enseignant nommé, corrélation assiduité / résultats.
+   *
+   * `?format=csv` exporte la liste nominative des étudiants à rappeler — c'est
+   * la seule sortie de tout l'espace propriétaire qui se traduit directement en
+   * coups de téléphone.
+   */
+  fastify.get(
+    "/risque",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const raw = normalizeStatsQuery(request.query) as Record<string, unknown>;
+      const wantsCsv = String(raw.format ?? "").toLowerCase() === "csv";
+      const parsed = OwnerRisqueQuerySchema.safeParse(raw);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Paramètres de filtrage invalides",
+        });
+      }
+      try {
+        const data = await fetchOwnerRisque(
+          fastify.pg as Pool,
+          tenantId,
+          parsed.data,
+          request.log
+        );
+        if (!wantsCsv) {
+          return reply.send(OwnerRisqueResponseSchema.parse(data));
+        }
+        reply
+          .header("Content-Type", "text/csv; charset=utf-8")
+          .header("Content-Disposition", `attachment; filename="etudiants-a-risque.csv"`)
+          // BOM : sans lui Excel lit le CSV en ANSI et casse les accents.
+          .send("﻿" + buildOwnerRisqueCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner risque aggregation failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Calcul du risque impossible",
+        });
+      }
+    }
+  );
+
+  /**
+   * Remplissage et planning. `?format=csv` exporte cohortes, classes et
+   * conflits — ce qu'un directeur des études emporte en réunion de rentrée.
+   */
+  fastify.get(
+    "/remplissage",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const raw = normalizeStatsQuery(request.query) as Record<string, unknown>;
+      const wantsCsv = String(raw.format ?? "").toLowerCase() === "csv";
+      const parsed = OwnerRemplissageQuerySchema.safeParse(raw);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Paramètres de filtrage invalides",
+        });
+      }
+      try {
+        const data = await fetchOwnerRemplissage(
+          fastify.pg as Pool,
+          tenantId,
+          parsed.data,
+          request.log
+        );
+        if (!wantsCsv) {
+          return reply.send(OwnerRemplissageResponseSchema.parse(data));
+        }
+        reply
+          .header("Content-Type", "text/csv; charset=utf-8")
+          .header("Content-Disposition", `attachment; filename="remplissage.csv"`)
+          // BOM : sans lui Excel lit le CSV en ANSI et casse les accents.
+          .send("﻿" + buildOwnerRemplissageCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner remplissage aggregation failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Calcul du remplissage impossible",
+        });
+      }
+    }
+  );
+
+  /**
+   * Trésorerie et recouvrement : balance âgée, courbe d'encaissements comparée
+   * à la même saison l'an dernier, répartition par mode, écarts de caisse.
+   */
+  fastify.get(
+    "/tresorerie",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const parsed = OwnerTresorerieQuerySchema.safeParse(normalizeStatsQuery(request.query));
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Paramètres de période invalides",
+        });
+      }
+      try {
+        const data = await fetchOwnerTresorerie(
+          fastify.pg as Pool,
+          tenantId,
+          parsed.data,
+          request.log
+        );
+        reply.send(OwnerTresorerieResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner tresorerie aggregation failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Calcul de la trésorerie impossible",
+        });
+      }
+    }
+  );
+
+  /**
+   * Journal de caisse. `?format=csv` renvoie la pièce comptable complète sur la
+   * période — pas la page affichée à l'écran, sinon l'export mentirait.
+   */
+  fastify.get(
+    "/tresorerie/journal",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const raw = normalizeStatsQuery(request.query) as Record<string, unknown>;
+      const wantsCsv = String(raw.format ?? "").toLowerCase() === "csv";
+      const parsed = OwnerCashRegisterQuerySchema.safeParse(raw);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Paramètres du journal de caisse invalides",
+        });
+      }
+      try {
+        const input = wantsCsv
+          ? { ...parsed.data, page: 1, pageSize: 500 }
+          : parsed.data;
+        const data = await fetchOwnerCashRegister(
+          fastify.pg as Pool,
+          tenantId,
+          input,
+          request.log
+        );
+
+        if (!wantsCsv) {
+          return reply.send(OwnerCashRegisterResponseSchema.parse(data));
+        }
+
+        // Au-delà d'une page serveur, on parcourt le reste pour que le fichier
+        // soit exhaustif : un journal de caisse tronqué n'a aucune valeur.
+        let all = data;
+        if (data.totalCount > data.rows.length) {
+          const rows = [...data.rows];
+          const pages = Math.ceil(data.totalCount / 500);
+          for (let p = 2; p <= pages; p++) {
+            const next = await fetchOwnerCashRegister(
+              fastify.pg as Pool,
+              tenantId,
+              { ...parsed.data, page: p, pageSize: 500 },
+              request.log
+            );
+            rows.push(...next.rows);
+          }
+          all = { ...data, rows };
+        }
+
+        const csv = buildOwnerCashRegisterCsv(all);
+        reply
+          .header("Content-Type", "text/csv; charset=utf-8")
+          .header(
+            "Content-Disposition",
+            `attachment; filename="journal-de-caisse-${all.dateDebut}_${all.dateFin}.csv"`
+          )
+          // BOM : sans lui Excel lit le CSV en ANSI et casse les accents.
+          .send("﻿" + csv);
+      } catch (e) {
+        request.log.error({ err: e }, "owner cash register failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Journal de caisse indisponible",
+        });
+      }
+    }
+  );
+
   fastify.get(
     "/dashboard",
     { preHandler: requireOwner },
@@ -196,9 +498,11 @@ export async function ownerRoutes(fastify: FastifyInstance) {
           created_at: Date;
           acknowledged_at: Date | null;
         }>(
-          `SELECT id, severity, message, domain, created_at, acknowledged_at
+          // Une alerte auto-résolue (condition disparue) n'est plus ouverte,
+          // même si personne ne l'a acquittée à la main.
+          `SELECT id, severity, message, domain, created_at, acknowledged_at, href
            FROM owner_pilotage_alerts
-           WHERE tenant_id = $1 AND acknowledged_at IS NULL
+           WHERE tenant_id = $1 AND acknowledged_at IS NULL AND resolved_at IS NULL
            ORDER BY created_at DESC
            LIMIT 50`,
           [tenantId]
@@ -730,6 +1034,37 @@ export async function ownerRoutes(fastify: FastifyInstance) {
     }
   );
 
+  /**
+   * Recalcule les alertes de pilotage. Action EXPLICITE.
+   *
+   * `syncOwnerPilotageAlerts` insère et résout des lignes : c'était une écriture
+   * déclenchée par un simple `GET /alerts`, donc par le seul fait d'ouvrir la
+   * page. La lecture est désormais une lecture ; le rafraîchissement passe par
+   * ici (bouton « Actualiser ») ou par un job planifié.
+   */
+  fastify.post(
+    "/alerts/sync",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const client = await fastify.pg.connect();
+      try {
+        await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
+        await syncOwnerPilotageAlerts(client, tenantId, request.log);
+        reply.send({ success: true });
+      } catch (e) {
+        request.log.warn({ err: e }, "owner alerts sync failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Recalcul des alertes impossible",
+        });
+      } finally {
+        client.release();
+      }
+    }
+  );
+
   fastify.get(
     "/alerts",
     { preHandler: requireOwner },
@@ -738,7 +1073,6 @@ export async function ownerRoutes(fastify: FastifyInstance) {
       const client = await fastify.pg.connect();
       try {
         await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
-        await syncOwnerPilotageAlerts(client, tenantId, request.log);
         const res = await client.query<{
           id: string;
           severity: string;
@@ -747,9 +1081,9 @@ export async function ownerRoutes(fastify: FastifyInstance) {
           created_at: Date;
           acknowledged_at: Date | null;
         }>(
-          `SELECT id, severity, message, domain, created_at, acknowledged_at
+          `SELECT id, severity, message, domain, created_at, acknowledged_at, href
            FROM owner_pilotage_alerts
-           WHERE tenant_id = $1 AND acknowledged_at IS NULL
+           WHERE tenant_id = $1 AND acknowledged_at IS NULL AND resolved_at IS NULL
            ORDER BY created_at DESC`,
           [tenantId]
         );
@@ -799,7 +1133,7 @@ export async function ownerRoutes(fastify: FastifyInstance) {
           `UPDATE owner_pilotage_alerts
            SET acknowledged_at = NOW(), acknowledged_by_user_id = $3
            WHERE id = $1 AND tenant_id = $2 AND acknowledged_at IS NULL
-           RETURNING id, severity, message, domain, created_at, acknowledged_at`,
+           RETURNING id, severity, message, domain, created_at, acknowledged_at, href`,
           [id, tenantId, userId]
         );
         if (res.rowCount === 0) {

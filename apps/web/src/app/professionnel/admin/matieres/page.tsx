@@ -28,6 +28,23 @@ import { useNotesFilieres } from "@/lib/hooks/use-professional-bulletins";
 const PAGE_SIZE = 20;
 
 /**
+ * ECUE de « conduite » (ex. « Conduite (S1) », code « EC-CON… ») : note de
+ * semestre transversale. Elle reste en base et alimente les moyennes et
+ * bulletins, mais n'est pas gérée depuis cet écran — même règle que l'API
+ * (`libelle ILIKE 'conduite%' OR code ILIKE '%EC-CON%'`).
+ */
+function isConduiteEcue(e: any): boolean {
+  const libelle = String(e?.libelle ?? "").trim().toLowerCase();
+  const code = String(e?.code ?? "").toUpperCase();
+  return libelle.startsWith("conduite") || code.includes("EC-CON");
+}
+
+/** UE de « conduite » : transversale, masquée de l'administration du catalogue. */
+function isConduiteUe(u: any): boolean {
+  return String(u?.libelle ?? "").trim().toLowerCase().startsWith("conduite");
+}
+
+/**
  * Liste des ECUE (Éléments Constitutifs d'UE) — Module Professionnel (feature 030).
  *
  * L'ECUE est le pôle PÉDAGOGIQUE : code, libellé, type de bilan, statut. Elle ne
@@ -49,8 +66,15 @@ export default function ProfessionalEcueListPage() {
 
   const bilanTypes: any[] = bilanTypesQuery.data?.data ?? [];
   const filieres: any[] = (filieresQuery.data as any[]) ?? [];
-  const items: any[] = ecueQuery.data?.items ?? [];
-  const ues: any[] = ueListQuery.data?.items ?? [];
+  // La Conduite est transversale : ni la carte ECUE, ni son UE dans les filtres.
+  const items: any[] = useMemo(
+    () => (ecueQuery.data?.items ?? []).filter((e: any) => !isConduiteEcue(e)),
+    [ecueQuery.data]
+  );
+  const ues: any[] = useMemo(
+    () => (ueListQuery.data?.items ?? []).filter((u: any) => !isConduiteUe(u)),
+    [ueListQuery.data]
+  );
 
   // UE de la filière sélectionnée (pour le select UE et le filtrage des ECUE).
   const filteredUes = useMemo(

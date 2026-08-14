@@ -64,9 +64,14 @@ function getParentTenantScope(): string {
 }
 
 // Fetch parents list
-async function resetParentPassword(
-  id: string
-): Promise<{ parentId: string; initialPassword: string; message: string }> {
+async function resetParentPassword(id: string): Promise<{
+  parentId: string;
+  initialPassword: string;
+  message: string;
+  /** Envoi SMTP du nouveau mot de passe (best-effort côté API). */
+  emailSent?: boolean;
+  emailError?: string | null;
+}> {
   const response = await fetch(`/api/v1/parents/${id}/reset-password`, {
     method: "POST",
     headers: {
@@ -517,7 +522,13 @@ export interface ParentChild {
   email: string;
   currentYear: number;
   status: 'active' | 'suspended' | 'dropped' | 'transfer' | 'graduated';
+  /** Compteur séquentiel d'établissement (10001, 10002…), réécrit à chaque listing. */
   studentNumber: string;
+  /**
+   * Numéro d'ordre figé de l'étudiant, base du matricule IPAM. Affiché sur
+   * 4 chiffres, comme sur la liste des étudiants.
+   */
+  sequenceNumber?: number | null;
 }
 
 export function useParentChildren(parentId: string) {

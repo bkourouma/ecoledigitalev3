@@ -1,5 +1,13 @@
 import { FastifyInstance } from "fastify";
-import { logAndMaybeSendWhatsapp } from "../services/whatsapp-delivery-log";
+import {
+  PORTAL_URL,
+  deliverMessage,
+  resolveAdminRecipients,
+  resolveDisplayName,
+  summarizeStatuses,
+} from "../services/message-delivery";
+import { loadTenantMessageTemplate } from "../services/message-email-templates";
+import { resolveTenantName } from "../services/teacher-credentials-email";
 
 interface AuthenticatedRequest {
   tenantId?: string;
@@ -446,6 +454,8 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
           messageId: { type: 'string', format: 'uuid' },
           teacherId: { type: 'string', format: 'uuid' },
           content: { type: 'string', minLength: 1 },
+          sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
       response: {
@@ -457,6 +467,8 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
               type: 'object',
               properties: {
                 message: { type: 'string' },
+                whatsappStatus: { type: 'string' },
+                emailStatus: { type: 'string' },
               },
             },
           },
@@ -483,7 +495,7 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const { messageId, teacherId, content } = request.body as any;
+      const { messageId, teacherId, content, sendWhatsapp, sendEmail } = request.body as any;
 
       if (!content || !content.trim()) {
         return reply.status(400).send({
@@ -515,7 +527,7 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
 
         // Verify the message exists and belongs to this student
         const messageCheck = await pool.query(
-          `SELECT id, teacher_id, student_id FROM teacher_messages 
+          `SELECT id, teacher_id, student_id, subject FROM teacher_messages
            WHERE id = $1 AND student_id = $2 AND tenant_id = $3`,
           [messageId, studentId, tenantId]
         );
@@ -625,6 +637,33 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
           [tenantId, studentId, teacherId, messageId, content.trim()]
         );
 
+        const [teacherName, schoolName] = await Promise.all([
+          resolveDisplayName(pool, teacherId, 'Enseignant'),
+          resolveTenantName(pool, tenantId),
+        ]);
+        const conversationSubject = message.subject || '';
+        const delivery = await deliverMessage({
+          pool,
+          tenantId,
+          sourceType: 'student_teacher_message',
+          sourceId: replyResult.rows[0].id,
+          recipientUserId: teacherId,
+          whatsappText: `[Réponse de ${studentName}] ${conversationSubject}\n\n${content.trim()}`,
+          sendWhatsapp: !!sendWhatsapp,
+          sendEmail: !!sendEmail,
+          templateKind: 'student_teacher_reply',
+          context: {
+            recipientName: teacherName,
+            subject: conversationSubject,
+            message: content.trim(),
+            senderName: studentName,
+            schoolName,
+            portalUrl: PORTAL_URL,
+            extra: { conversationSubject },
+          },
+          log: fastify.log,
+        });
+
         fastify.log.info({
           msg: 'Student replied to teacher message',
           userId,
@@ -639,6 +678,8 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
             message: 'Réponse envoyée avec succès',
             replyId: replyResult.rows[0].id,
             sentAt: replyResult.rows[0].sent_at,
+            whatsappStatus: delivery.whatsappStatus,
+            emailStatus: delivery.emailStatus,
           },
         });
       } catch (error: any) {
@@ -725,16 +766,18 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
           subject: { type: 'string', minLength: 1, maxLength: 255 },
           content: { type: 'string', minLength: 1 },
           sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
     },
     handler: async (request: AuthenticatedRequest, reply) => {
       const tenantId = request.tenantId;
       const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
-      const { subject, content, sendWhatsapp } = request.body as {
+      const { subject, content, sendWhatsapp, sendEmail } = request.body as {
         subject: string;
         content: string;
         sendWhatsapp?: boolean;
+        sendEmail?: boolean;
       };
       const userRoles = request.user?.roles || [];
       if (!tenantId || !userId) {
@@ -777,31 +820,51 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
           [tenantId, userId, profileId, subject.trim(), fullContent]
         );
         const id = ins.rows[0].id;
-        const admins = await pool.query(
-          `SELECT DISTINCT ur.user_id
-           FROM user_roles ur
-           JOIN roles r ON r.id = ur.role_id
-           JOIN users u ON u.id = ur.user_id AND u.tenant_id = $1
-           WHERE ur.tenant_id = $1
-             AND r.key IN ('admin','super_admin','Administrateur')
-           LIMIT 30`,
-          [tenantId]
-        );
+        const [admins, schoolName] = await Promise.all([
+          resolveAdminRecipients(pool, tenantId),
+          resolveTenantName(pool, tenantId),
+        ]);
+        const emailTemplate = sendEmail
+          ? await loadTenantMessageTemplate(pool, tenantId, 'student_school')
+          : undefined;
+
         let lastWa = 'skipped';
-        for (const row of admins.rows) {
-          const wa = await logAndMaybeSendWhatsapp({
+        const emailStatuses: string[] = [];
+        for (const admin of admins) {
+          const delivery = await deliverMessage({
             pool,
             tenantId,
             sourceType: 'student_school_message',
             sourceId: id,
-            recipientUserId: row.user_id,
-            text: `[Élève → Établissement — ${studentName}] ${subject}\n\n${fullContent}`,
+            recipientUserId: admin.userId,
+            whatsappText: `[Élève → Établissement — ${studentName}] ${subject}\n\n${fullContent}`,
             sendWhatsapp: !!sendWhatsapp,
+            sendEmail: !!sendEmail,
+            templateKind: 'student_school',
+            template: emailTemplate,
+            context: {
+              recipientName: admin.name,
+              subject: subject.trim(),
+              // Le nom de l'étudiant est déjà porté par {{studentName}} dans le
+              // modèle : l'email reprend le texte saisi, sans le préfixe.
+              message: content.trim(),
+              senderName: studentName,
+              schoolName,
+              portalUrl: PORTAL_URL,
+            },
             log: fastify.log,
           });
-          lastWa = wa.whatsappStatus;
+          lastWa = delivery.whatsappStatus;
+          emailStatuses.push(delivery.emailStatus);
         }
-        return reply.status(201).send({ success: true, data: { id, whatsappStatus: lastWa } });
+        return reply.status(201).send({
+          success: true,
+          data: {
+            id,
+            whatsappStatus: lastWa,
+            emailSummary: sendEmail ? summarizeStatuses(emailStatuses) : undefined,
+          },
+        });
       } catch (error: any) {
         fastify.log.error({ msg: 'student to-school', error: error.message });
         return reply.status(500).send({
@@ -827,18 +890,20 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
           subject: { type: 'string', minLength: 1, maxLength: 255 },
           content: { type: 'string', minLength: 1 },
           sendWhatsapp: { type: 'boolean' },
+          sendEmail: { type: 'boolean' },
         },
       },
     },
     handler: async (request: AuthenticatedRequest, reply) => {
       const tenantId = request.tenantId;
       const userId = (request.user?.id || (request.headers as any)?.['x-user-id']) as string;
-      const { teacherUserId, classCourseId, subject, content, sendWhatsapp } = request.body as {
+      const { teacherUserId, classCourseId, subject, content, sendWhatsapp, sendEmail } = request.body as {
         teacherUserId: string;
         classCourseId?: string;
         subject: string;
         content: string;
         sendWhatsapp?: boolean;
+        sendEmail?: boolean;
       };
       const userRoles = request.user?.roles || [];
       if (!tenantId || !userId) {
@@ -849,14 +914,23 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
       }
       try {
         await pool.query('SELECT set_config($1, $2, true)', ['app.tenant_id', tenantId]);
+        // La classe de l'élève est remontée ici pour que l'email reçu par
+        // l'enseignant situe tout de suite l'expéditeur ({{className}}).
         const sp = await pool.query(
-          `SELECT id FROM student_profiles WHERE user_id = $1 AND tenant_id = $2`,
+          `SELECT sp.id, cl.name AS class_name
+             FROM student_profiles sp
+             LEFT JOIN student_enrollments se ON se.student_id = sp.id AND se.tenant_id = sp.tenant_id
+             LEFT JOIN classes cl ON cl.id = se.class_id
+            WHERE sp.user_id = $1 AND sp.tenant_id = $2
+            ORDER BY se.created_at DESC NULLS LAST
+            LIMIT 1`,
           [userId, tenantId]
         );
         if (sp.rows.length === 0) {
           return reply.status(404).send({ success: false, error: 'Not Found', message: 'Student profile not found' });
         }
         const studentProfileId = sp.rows[0].id;
+        const studentClassName = sp.rows[0].class_name || '';
         const ok = classCourseId
           ? await pool.query(
               `SELECT 1 FROM teacher_assignments ta
@@ -891,17 +965,40 @@ export async function studentMessagesRoutes(fastify: FastifyInstance) {
           [tenantId, userId, teacherUserId, subject.trim(), content.trim()]
         );
         const mid = ins.rows[0].id;
-        const wa = await logAndMaybeSendWhatsapp({
+        const [studentName, teacherName, schoolName] = await Promise.all([
+          resolveDisplayName(pool, userId, 'Étudiant'),
+          resolveDisplayName(pool, teacherUserId, 'Enseignant'),
+          resolveTenantName(pool, tenantId),
+        ]);
+        const delivery = await deliverMessage({
           pool,
           tenantId,
           sourceType: 'student_teacher_message',
           sourceId: mid,
           recipientUserId: teacherUserId,
-          text: `${subject.trim()}\n\n${content.trim()}`,
+          whatsappText: `${subject.trim()}\n\n${content.trim()}`,
           sendWhatsapp: !!sendWhatsapp,
+          sendEmail: !!sendEmail,
+          templateKind: 'student_teacher_new',
+          context: {
+            recipientName: teacherName,
+            subject: subject.trim(),
+            message: content.trim(),
+            senderName: studentName,
+            schoolName,
+            portalUrl: PORTAL_URL,
+            extra: { className: studentClassName },
+          },
           log: fastify.log,
         });
-        return reply.status(201).send({ success: true, data: { id: mid, whatsappStatus: wa.whatsappStatus } });
+        return reply.status(201).send({
+          success: true,
+          data: {
+            id: mid,
+            whatsappStatus: delivery.whatsappStatus,
+            emailStatus: delivery.emailStatus,
+          },
+        });
       } catch (error: any) {
         fastify.log.error({ msg: 'student to-teacher', error: error.message });
         return reply.status(500).send({

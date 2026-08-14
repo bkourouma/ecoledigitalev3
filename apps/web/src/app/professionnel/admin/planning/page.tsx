@@ -282,6 +282,10 @@ export default function ProfessionalPlanningPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Filière et semestre</CardTitle>
+          <CardDescription>
+            Seules les filières ayant encore une session en cours (non terminée) sont proposées. Les
+            plannings des sessions terminées restent visibles depuis « Consulter ».
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
@@ -290,7 +294,13 @@ export default function ProfessionalPlanningPage() {
               value={filiereId}
               onChange={selectFiliere}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder={programmesQuery.isLoading ? "Chargement…" : "Sélectionner une filière"}
+              placeholder={
+                programmesQuery.isLoading
+                  ? "Chargement…"
+                  : filieres.length === 0
+                  ? "Aucune filière avec une session en cours"
+                  : "Sélectionner une filière"
+              }
               options={filieres.map((f) => ({
                 value: f.id,
                 label: `${f.name}${f.code ? ` (${f.code})` : ""}`,

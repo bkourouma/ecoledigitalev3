@@ -1,98 +1,50 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ecoledigitale/ui";
-import { Users, Plus, Search, Filter, GraduationCap, Loader2, AlertCircle, Eye, EyeOff, Edit, Trash2, FileSpreadsheet, FileText, X, Mail, Phone, Calendar, MapPin } from "lucide-react";
-import { useStudents, useDeleteStudent, useResetStudentPassword } from "@/lib/hooks/use-students";
-import { useAcademicYears } from "@/lib/hooks/use-academic-years";
-import { useProgrammes } from "@/lib/hooks/use-programmes";
+import { Users, Plus, Search, Loader2, AlertCircle, Eye, Edit, Trash2, X, Mail, Phone, Calendar, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
+import { useStudents, useDeleteStudent } from "@/lib/hooks/use-students";
 import { StudentWithUser } from "@ecoledigitale/contracts";
-import { exportStudentsToExcel, exportStudentsToWord, StudentExportData } from "@/lib/utils/student-export";
+
+/** Tailles de page proposées ; la première est la valeur par défaut. */
+const PAGE_SIZES = [10, 50, 100] as const;
 
 export default function StudentsPage() {
   const router = useRouter();
-  const { data: session } = useSession();
   const [searchQuery, setSearchQuery] = useState("");
-  const [academicYearFilter, setAcademicYearFilter] = useState<string>("all");
-  const [programmeFilter, setProgrammeFilter] = useState<string>("all");
-  const [isExporting, setIsExporting] = useState(false);
-  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
-  const [generatedPasswords, setGeneratedPasswords] = useState<Record<string, string>>({});
-  const [resettingPasswordFor, setResettingPasswordFor] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
+
+  // Une nouvelle recherche repart de la première page : rester sur la page 7
+  // d'un résultat qui n'en compte que 2 afficherait une liste vide.
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, pageSize]);
 
   const { data: studentsData, isLoading, error } = useStudents({
     search: searchQuery || undefined,
-    academicYearId: academicYearFilter !== "all" ? academicYearFilter : undefined,
-    page: 1,
-    limit: 1000,
+    page,
+    limit: pageSize,
   });
-  const { data: academicYearsData } = useAcademicYears({ includeStats: true });
-  const { data: programmesData } = useProgrammes({ limit: 100 });
   const deleteStudentMutation = useDeleteStudent();
-  const resetStudentPasswordMutation = useResetStudentPassword();
+  // La recherche et la pagination sont faites par l'API : les lignes reçues sont
+  // exactement celles à afficher, aucun filtrage client ne s'y ajoute.
   const students = studentsData?.data || [];
-  const academicYears = academicYearsData?.data || [];
-  const programmes = programmesData?.data || [];
-  const userRoles: string[] = (session as any)?.roles || [];
-  const isAdmin = userRoles.includes("admin") || userRoles.includes("super_admin");
-  const getDisplayMatricule = (student: StudentWithUser) => {
-    const establishmentMatricule = (student as any).establishmentMatricule;
-    return establishmentMatricule || student.studentNumber;
-  };
   // Matricule saisi par la scolarité, affiché en plus du numéro séquentiel.
   const getStudentMatricule = (student: StudentWithUser) =>
     (student as any).studentMatricule as string | null | undefined;
+  // Numéro d'ordre figé de l'étudiant, sur 4 chiffres (`0075`). Attribué à la
+  // création de la fiche : présent pour tous, y compris hors module professionnel.
+  const getSequenceNumber = (student: StudentWithUser) => {
+    const value = (student as any).sequenceNumber as number | null | undefined;
+    return value == null ? null : String(value).padStart(4, "0");
+  };
 
-  const academicYearOptions = useMemo(() => {
-    return academicYears.map((year: any) => ({
-      value: year.id,
-      label: year.name,
-    }));
-  }, [academicYears]);
-
-  const programmeOptions = useMemo(() => {
-    if (programmes.length > 0) {
-      return programmes.map((programme: any) => ({
-        value: programme.id,
-        label: programme.name,
-      }));
-    }
-
-    const fallbackProgrammes = students
-      .map((student: StudentWithUser) => (student as any).programmeName)
-      .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
-    return Array.from(new Set(fallbackProgrammes)).map((name) => ({ value: name, label: name }));
-  }, [programmes, students]);
-
-  // Filter students (client-side filtering for consistency with courses page)
-  const filteredStudents = useMemo(() => {
-    return students.filter((student: StudentWithUser) => {
-      const matchesSearch = searchQuery === "" ||
-        `${student.user?.firstName || ''} ${student.user?.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.studentNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (((student as any).establishmentMatricule || "").toLowerCase().includes(searchQuery.toLowerCase())) ||
-        ((getStudentMatricule(student) || "").toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const matchesAcademicYear =
-        academicYearFilter === "all" ||
-        (student as any).academicYearId === academicYearFilter;
-
-      const selectedProgramme = programmeOptions.find((p) => p.value === programmeFilter);
-      const matchesProgramme =
-        programmeFilter === "all" ||
-        (student as any).programmeName === selectedProgramme?.label;
-
-      return matchesSearch && matchesAcademicYear && matchesProgramme;
-    });
-  }, [students, searchQuery, academicYearFilter, programmeFilter, programmeOptions]);
-
-  const studentTotalCount =
-    programmeFilter === "all"
-      ? studentsData?.pagination?.total ?? filteredStudents.length
-      : filteredStudents.length;
+  const studentTotalCount: number = studentsData?.pagination?.total ?? students.length;
+  const totalPages = Math.max(1, Math.ceil(studentTotalCount / pageSize));
+  const firstShown = studentTotalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const lastShown = Math.min(page * pageSize, studentTotalCount);
 
   const handleView = (student: StudentWithUser) => {
     router.push(`/academic/students/${student.id}`);
@@ -120,38 +72,6 @@ export default function StudentsPage() {
     }
   };
 
-  const handleExportToExcel = async () => {
-    setIsExporting(true);
-    try {
-      const exportData: StudentExportData = {
-        students: filteredStudents,
-        exportDate: new Date().toLocaleDateString('fr-FR'),
-        totalCount: filteredStudents.length
-      };
-      exportStudentsToExcel(exportData);
-    } catch (error) {
-      console.error("Failed to export to Excel:", error);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportToWord = async () => {
-    setIsExporting(true);
-    try {
-      const exportData: StudentExportData = {
-        students: filteredStudents,
-        exportDate: new Date().toLocaleDateString('fr-FR'),
-        totalCount: filteredStudents.length
-      };
-      exportStudentsToWord(exportData);
-    } catch (error) {
-      console.error("Failed to export to Word:", error);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   const getStudentName = (student: StudentWithUser) => {
     const u = (student.user ?? {}) as any;
     const first = u.firstName ?? (student as any).firstName ?? u.first_name ?? "";
@@ -163,63 +83,6 @@ export default function StudentsPage() {
     if (nameFromUser) return nameFromUser;
     if (email) return String(email).split("@")[0];
     return 'Étudiant inconnu';
-  };
-
-  const togglePasswordVisibility = (studentId: string) => {
-    setRevealedPasswords((prev) => ({ ...prev, [studentId]: !prev[studentId] }));
-  };
-
-  const getStudentPassword = (student: StudentWithUser): string | null => {
-    const s = student as any;
-    const localPassword = generatedPasswords[student.id];
-    if (localPassword) return localPassword;
-
-    const candidates = [
-      s.initialPassword,
-      s.temporaryPassword,
-      s.tempPassword,
-      s.generatedPassword,
-      s.defaultPassword,
-      s.plainPassword,
-      s.user?.initialPassword,
-      s.user?.temporaryPassword,
-      s.user?.tempPassword,
-      s.user?.generatedPassword,
-      s.user?.defaultPassword,
-      s.user?.plainPassword,
-    ];
-
-    for (const candidate of candidates) {
-      if (typeof candidate !== "string") continue;
-      const value = candidate.trim();
-      if (!value) continue;
-      // Avoid showing password hashes if backend sends them.
-      if (/^\$2[aby]\$/.test(value)) continue;
-      return value;
-    }
-
-    return null;
-  };
-
-  const handlePasswordAction = async (student: StudentWithUser) => {
-    const currentPassword = getStudentPassword(student);
-    if (currentPassword) {
-      togglePasswordVisibility(student.id);
-      return;
-    }
-
-    if (!isAdmin) return;
-
-    try {
-      setResettingPasswordFor(student.id);
-      const result = await resetStudentPasswordMutation.mutateAsync(student.id);
-      setGeneratedPasswords((prev) => ({ ...prev, [student.id]: result.initialPassword }));
-      setRevealedPasswords((prev) => ({ ...prev, [student.id]: true }));
-    } catch (error: any) {
-      alert(error?.message || "Impossible de générer le mot de passe");
-    } finally {
-      setResettingPasswordFor(null);
-    }
   };
 
   if (error) {
@@ -270,32 +133,6 @@ export default function StudentsPage() {
         </div>
         <div className="flex gap-2">
           <Button
-            variant="outline"
-            onClick={handleExportToExcel}
-            disabled={isExporting || filteredStudents.length === 0}
-            className="bg-green-50 border-green-200 hover:bg-green-100 text-green-700 hover:text-green-800 shadow-sm"
-          >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-            )}
-            Excel
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleExportToWord}
-            disabled={isExporting || filteredStudents.length === 0}
-            className="bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700 hover:text-blue-800 shadow-sm"
-          >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <FileText className="h-4 w-4 mr-2" />
-            )}
-            Word
-          </Button>
-          <Button
             onClick={() => router.push("/academic/students/new")}
             className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
           >
@@ -324,7 +161,7 @@ export default function StudentsPage() {
         </div>
       )}
 
-      {/* Search and Filter Controls */}
+      {/* Search Controls */}
       <Card className="shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
         <CardContent className="p-6">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -345,42 +182,6 @@ export default function StudentsPage() {
                   <X className="h-4 w-4" />
                 </button>
               )}
-            </div>
-
-            {/* Status Filter */}
-            <div className="lg:w-48">
-              <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
-                <SelectTrigger className="h-11 border-gray-200 focus:border-teal-500 focus:ring-teal-500">
-                  <Filter className="h-4 w-4 mr-2 text-gray-400" />
-                  <SelectValue placeholder="Filtrer par année académique" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes les années académiques</SelectItem>
-                  {academicYearOptions.map((yearOption) => (
-                    <SelectItem key={yearOption.value} value={yearOption.value}>
-                      {yearOption.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Programme Filter */}
-            <div className="lg:w-48">
-              <Select value={programmeFilter} onValueChange={setProgrammeFilter}>
-                <SelectTrigger className="h-11 border-gray-200 focus:border-teal-500 focus:ring-teal-500">
-                  <GraduationCap className="h-4 w-4 mr-2 text-gray-400" />
-                  <SelectValue placeholder="Filtrer par programme" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les programmes</SelectItem>
-                  {programmeOptions.map((programme) => (
-                    <SelectItem key={programme.value} value={programme.value}>
-                      {programme.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Results Count */}
@@ -409,10 +210,9 @@ export default function StudentsPage() {
       )}
 
       {/* Students List */}
-      {!isLoading && filteredStudents.length > 0 && (
+      {!isLoading && students.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredStudents.map((student: StudentWithUser) => {
-            const studentPassword = getStudentPassword(student);
+          {students.map((student: StudentWithUser) => {
             return (
               <div
                 key={student.id}
@@ -426,13 +226,12 @@ export default function StudentsPage() {
                 <div className="space-y-2 mb-4">
                   {getStudentMatricule(student) && (
                     <p className="text-white/90 text-sm">
-                      <span className="font-medium">Matricule:</span> {getStudentMatricule(student)}
+                      <span className="font-medium">Matricule DESPS:</span> {getStudentMatricule(student)}
                     </p>
                   )}
-                  {((student as any).academicYearName || student.currentYear) && (
+                  {getSequenceNumber(student) && (
                     <p className="text-white/90 text-sm">
-                      <span className="font-medium">Année:</span>{" "}
-                      {(student as any).academicYearName || `Année ${student.currentYear}`}
+                      <span className="font-medium">Matricule IPAM:</span> {getSequenceNumber(student)}
                     </p>
                   )}
                   {(student as any).className && (
@@ -474,12 +273,6 @@ export default function StudentsPage() {
                       {student.placeOfBirth}
                     </p>
                   )}
-                    <div className="text-white/90 text-sm">
-                      <span className="font-medium">Mot de passe:</span>{" "}
-                      {studentPassword
-                        ? (revealedPasswords[student.id] ? studentPassword : "********")
-                        : "Non disponible"}
-                    </div>
                 </div>
 
                 {student.bio && (
@@ -516,41 +309,6 @@ export default function StudentsPage() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30 transition-all duration-200 px-3"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handlePasswordAction(student);
-                    }}
-                    title={
-                      studentPassword
-                        ? (revealedPasswords[student.id] ? "Masquer le mot de passe" : "Voir le mot de passe")
-                        : (isAdmin ? "Générer puis afficher le mot de passe" : "Mot de passe non disponible")
-                    }
-                    disabled={
-                      resettingPasswordFor === student.id ||
-                      (!studentPassword && !isAdmin)
-                    }
-                  >
-                    {resettingPasswordFor === student.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        Génération...
-                      </>
-                    ) : revealedPasswords[student.id] ? (
-                      <>
-                        <EyeOff className="w-4 h-4 mr-1" />
-                        Masquer MDP
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-4 h-4 mr-1" />
-                        {studentPassword ? "Voir MDP" : (isAdmin ? "Générer MDP" : "Voir MDP")}
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
                     className="bg-red-500/20 hover:bg-red-500/40 text-white border-red-300/20 hover:border-red-300/40 transition-all duration-200 p-2"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -577,8 +335,66 @@ export default function StudentsPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {!isLoading && students.length > 0 && (
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="whitespace-nowrap">Étudiants par page</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(value) => setPageSize(Number(value))}
+                >
+                  <SelectTrigger className="h-9 w-[84px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZES.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="text-sm text-gray-600 whitespace-nowrap">
+                {firstShown}–{lastShown} sur {studentTotalCount}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={page <= 1}
+                  className="border-gray-300"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Précédent
+                </Button>
+                <span className="text-sm text-gray-600 whitespace-nowrap px-1">
+                  Page {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  disabled={page >= totalPages}
+                  className="border-gray-300"
+                >
+                  Suivant
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Empty State - No students at all */}
-      {!isLoading && students.length === 0 && (
+      {!isLoading && students.length === 0 && !searchQuery && (
         <Card className="shadow-lg">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="text-center space-y-6">
@@ -604,7 +420,7 @@ export default function StudentsPage() {
       )}
 
       {/* Empty State - No filtered results */}
-      {!isLoading && students.length > 0 && filteredStudents.length === 0 && (
+      {!isLoading && students.length === 0 && !!searchQuery && (
         <Card className="shadow-lg">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="text-center space-y-6">
@@ -620,15 +436,11 @@ export default function StudentsPage() {
               <div className="flex gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setAcademicYearFilter("all");
-                    setProgrammeFilter("all");
-                  }}
+                  onClick={() => setSearchQuery("")}
                   className="border-gray-300 hover:bg-gray-50"
                 >
                   <X className="h-4 w-4 mr-2" />
-                  Effacer les filtres
+                  Effacer la recherche
                 </Button>
                 <Button
                   onClick={() => router.push("/academic/students/new")}

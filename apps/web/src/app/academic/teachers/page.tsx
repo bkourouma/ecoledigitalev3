@@ -1,47 +1,32 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { SessionProvider, useSession } from "next-auth/react";
+import { SessionProvider } from "next-auth/react";
 import { Card, CardContent, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ecoledigitale/ui";
-import { Users, Plus, Search, Filter, UserCheck, Loader2, AlertCircle, Eye, EyeOff, Edit, Trash2, FileSpreadsheet, FileText, X, Mail, Phone, Calendar, Award } from "lucide-react";
-import { toast } from "sonner";
-import { useAllTeachers, useDeleteTeacher, useResetTeacherPassword, useUpdateTeacher } from "@/lib/hooks/use-teachers";
+import { Users, Plus, Search, UserCheck, Loader2, AlertCircle, Eye, Edit, Trash2, FileSpreadsheet, X, Mail, Phone, Calendar, Award, ChevronLeft, ChevronRight } from "lucide-react";
+import { useAllTeachers, useDeleteTeacher } from "@/lib/hooks/use-teachers";
 import { Teacher, ContractType, TeacherStatus } from "@ecoledigitale/contracts";
-import { exportTeachersToExcel, exportTeachersToWord, TeacherExportData } from "@/lib/utils/teacher-export";
+import { exportTeachersToExcel, TeacherExportData } from "@/lib/utils/teacher-export";
+
+/** Tailles de page proposées ; la première est la valeur par défaut. */
+const PAGE_SIZES = [10, 50, 100] as const;
 
 function TeachersPageContent() {
   const router = useRouter();
-  const { data: session } = useSession();
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [contractFilter, setContractFilter] = useState<string>("all");
-  const [specialtyFilter, setSpecialtyFilter] = useState<string>("all");
   const [isExporting, setIsExporting] = useState(false);
-  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
-  const [generatedPasswords, setGeneratedPasswords] = useState<Record<string, string>>({});
-  const [resettingPasswordFor, setResettingPasswordFor] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
 
   const { data: teachersData, isLoading, error } = useAllTeachers();
   const deleteTeacherMutation = useDeleteTeacher();
-  const resetTeacherPasswordMutation = useResetTeacherPassword();
-  const updateTeacherMutation = useUpdateTeacher();
   const teachers = teachersData?.data || [];
-
-  const userRoles: string[] = (session as any)?.roles || [];
-  const isAdmin = userRoles.includes("admin") || userRoles.includes("super_admin");
-
-  // Get all unique specialties for filter dropdown
-  const allSpecialties = Array.from(
-    new Set(
-      teachers.flatMap((teacher: Teacher) => teacher.specialties || [])
-    )
-  ).sort();
 
   // Filter teachers
   const filteredTeachers = useMemo(() => {
     return teachers.filter((teacher: Teacher) => {
-      const matchesSearch = searchQuery === "" ||
+      return searchQuery === "" ||
         `${teacher.firstName} ${teacher.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
         teacher.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         teacher.employeeNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -51,15 +36,27 @@ function TeachersPageContent() {
         teacher.qualifications?.some(qualification =>
           qualification.toLowerCase().includes(searchQuery.toLowerCase())
         );
-
-      const matchesStatus = statusFilter === "all" || teacher.status === statusFilter;
-      const matchesContract = contractFilter === "all" || teacher.contractType === contractFilter;
-      const matchesSpecialty = specialtyFilter === "all" ||
-        teacher.specialties?.includes(specialtyFilter);
-
-      return matchesSearch && matchesStatus && matchesContract && matchesSpecialty;
     });
-  }, [teachers, searchQuery, statusFilter, contractFilter, specialtyFilter]);
+  }, [teachers, searchQuery]);
+
+  // Une nouvelle recherche repart de la première page : rester sur la page 5
+  // d'un résultat qui n'en compte que 2 afficherait une liste vide.
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, pageSize]);
+
+  // Pagination côté client : `useAllTeachers()` charge déjà toutes les fiches et
+  // la recherche porte sur des champs (spécialités, qualifications) que l'API ne
+  // filtre pas. On découpe donc le résultat filtré plutôt que de paginer côté
+  // serveur, ce qui amputerait la recherche.
+  const totalPages = Math.max(1, Math.ceil(filteredTeachers.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedTeachers = useMemo(
+    () => filteredTeachers.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredTeachers, currentPage, pageSize]
+  );
+  const firstShown = filteredTeachers.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const lastShown = Math.min(currentPage * pageSize, filteredTeachers.length);
 
   const handleView = (teacher: Teacher) => {
     router.push(`/academic/teachers/${teacher.id}`);
@@ -67,81 +64,6 @@ function TeachersPageContent() {
 
   const handleEdit = (teacher: Teacher) => {
     router.push(`/academic/teachers/${teacher.id}/edit`);
-  };
-
-  const togglePasswordVisibility = (teacherId: string) => {
-    setRevealedPasswords((prev) => ({ ...prev, [teacherId]: !prev[teacherId] }));
-  };
-
-  const getTeacherPassword = (teacher: Teacher): string | null => {
-    const localPassword = generatedPasswords[teacher.id];
-    if (localPassword) return localPassword;
-
-    const raw = (teacher as any).initialPassword;
-    if (typeof raw !== "string") return null;
-    const value = raw.trim();
-    if (!value) return null;
-    if (/^\$2[aby]\$/.test(value)) return null;
-    return value;
-  };
-
-  const handlePasswordAction = async (teacher: Teacher) => {
-    const currentPassword = getTeacherPassword(teacher);
-    if (currentPassword) {
-      togglePasswordVisibility(teacher.id);
-      return;
-    }
-
-    if (!isAdmin) return;
-
-    if (!teacher.userId) {
-      const email = teacher.email?.trim();
-      if (!email) {
-        toast.message("Aucun compte de connexion", {
-          description:
-            "Ajoutez une adresse e-mail sur la fiche enseignant, enregistrez, puis générez le mot de passe.",
-          action: {
-            label: "Modifier la fiche",
-            onClick: () => router.push(`/academic/teachers/${teacher.id}/edit`),
-          },
-        });
-        return;
-      }
-
-      try {
-        setResettingPasswordFor(teacher.id);
-        const updated = await updateTeacherMutation.mutateAsync({
-          id: teacher.id,
-          data: {},
-        });
-        const initial = (updated as { initialPassword?: string | null }).initialPassword;
-        if (typeof initial === "string" && initial.trim()) {
-          setGeneratedPasswords((prev) => ({ ...prev, [teacher.id]: initial.trim() }));
-          setRevealedPasswords((prev) => ({ ...prev, [teacher.id]: true }));
-          toast.success("Compte créé. Le mot de passe s'affiche sur la carte.");
-          return;
-        }
-        const result = await resetTeacherPasswordMutation.mutateAsync(teacher.id);
-        setGeneratedPasswords((prev) => ({ ...prev, [teacher.id]: result.initialPassword }));
-        setRevealedPasswords((prev) => ({ ...prev, [teacher.id]: true }));
-      } catch (error: any) {
-        toast.error(error?.message || "Impossible de créer le compte ou le mot de passe");
-      } finally {
-        setResettingPasswordFor(null);
-      }
-      return;
-    }
-
-    try {
-      setResettingPasswordFor(teacher.id);
-      const result = await resetTeacherPasswordMutation.mutateAsync(teacher.id);
-      setGeneratedPasswords((prev) => ({ ...prev, [teacher.id]: result.initialPassword }));
-      setRevealedPasswords((prev) => ({ ...prev, [teacher.id]: true }));
-    } catch (error: any) {
-      toast.error(error?.message || "Impossible de générer le mot de passe");
-    } finally {
-      setResettingPasswordFor(null);
-    }
   };
 
   const handleDelete = async (teacher: Teacher) => {
@@ -165,25 +87,9 @@ function TeachersPageContent() {
         exportDate: new Date().toLocaleDateString('fr-FR'),
         totalCount: filteredTeachers.length
       };
-      exportTeachersToExcel(exportData);
+      await exportTeachersToExcel(exportData);
     } catch (error) {
       console.error("Failed to export to Excel:", error);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportToWord = async () => {
-    setIsExporting(true);
-    try {
-      const exportData: TeacherExportData = {
-        teachers: filteredTeachers,
-        exportDate: new Date().toLocaleDateString('fr-FR'),
-        totalCount: filteredTeachers.length
-      };
-      exportTeachersToWord(exportData);
-    } catch (error) {
-      console.error("Failed to export to Word:", error);
     } finally {
       setIsExporting(false);
     }
@@ -267,19 +173,6 @@ function TeachersPageContent() {
               )}
               Excel
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleExportToWord}
-            disabled={isExporting || filteredTeachers.length === 0}
-              className="bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700 hover:text-blue-800 shadow-sm"
-            >
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <FileText className="h-4 w-4 mr-2" />
-              )}
-              Word
-            </Button>
           <Button
             onClick={() => router.push("/academic/teachers/new")}
             className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
@@ -357,7 +250,7 @@ function TeachersPageContent() {
       </div>
       )}
 
-      {/* Search and Filter Controls */}
+      {/* Search Control */}
       <Card className="shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
         <CardContent className="p-6">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -379,58 +272,6 @@ function TeachersPageContent() {
                 </button>
               )}
             </div>
-
-            {/* Status Filter */}
-            <div className="lg:w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-11 border-gray-200 focus:border-orange-500 focus:ring-orange-500">
-                  <Filter className="h-4 w-4 mr-2 text-gray-400" />
-                  <SelectValue placeholder="Filtrer par statut" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="active">Actifs</SelectItem>
-                  <SelectItem value="inactive">Inactifs</SelectItem>
-                  <SelectItem value="suspended">Suspendus</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Contract Filter */}
-            <div className="lg:w-48">
-              <Select value={contractFilter} onValueChange={setContractFilter}>
-                <SelectTrigger className="h-11 border-gray-200 focus:border-orange-500 focus:ring-orange-500">
-                  <Users className="h-4 w-4 mr-2 text-gray-400" />
-                  <SelectValue placeholder="Filtrer par contrat" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les contrats</SelectItem>
-                  <SelectItem value="permanent">CDI</SelectItem>
-                  <SelectItem value="temporary">CDD</SelectItem>
-                  <SelectItem value="freelance">Vacataire</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Specialty Filter */}
-            {allSpecialties.length > 0 && (
-              <div className="lg:w-48">
-                <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-                  <SelectTrigger className="h-11 border-gray-200 focus:border-orange-500 focus:ring-orange-500">
-                    <Filter className="h-4 w-4 mr-2 text-gray-400" />
-                    <SelectValue placeholder="Filtrer par spécialité" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes les spécialités</SelectItem>
-                    {allSpecialties.map((specialty) => (
-                      <SelectItem key={specialty} value={specialty}>
-                        {specialty}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             {/* Results Count */}
             <div className="flex items-center text-sm text-gray-600 whitespace-nowrap">
@@ -458,11 +299,9 @@ function TeachersPageContent() {
       )}
 
       {/* Teachers List */}
-      {!isLoading && filteredTeachers.length > 0 && (
+      {!isLoading && paginatedTeachers.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTeachers.map((teacher: Teacher) => {
-            const teacherPassword = getTeacherPassword(teacher);
-            return (
+          {paginatedTeachers.map((teacher: Teacher) => (
             <div
               key={teacher.id}
               className="bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-white relative overflow-hidden group cursor-pointer"
@@ -492,14 +331,6 @@ function TeachersPageContent() {
                       {teacher.email}
                     </p>
                   )}
-                  <div className="text-white/90 text-sm">
-                    <span className="font-medium">Mot de passe:</span>{" "}
-                    {teacher.userId
-                      ? teacherPassword
-                        ? (revealedPasswords[teacher.id] ? teacherPassword : "********")
-                        : "Non affiché"
-                      : "Sans compte"}
-                  </div>
                   {teacher.phone && (
                     <p className="text-white/90 text-sm flex items-center">
                       <Phone className="w-4 h-4 mr-1" />
@@ -520,12 +351,6 @@ function TeachersPageContent() {
                     </p>
                   )}
                 </div>
-
-                {teacher.bio && (
-                  <p className="text-white/80 text-sm mb-4 line-clamp-2">
-                    {teacher.bio}
-                  </p>
-                )}
 
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -555,41 +380,6 @@ function TeachersPageContent() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30 transition-all duration-200 px-3"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handlePasswordAction(teacher);
-                    }}
-                    title={
-                      teacherPassword
-                        ? (revealedPasswords[teacher.id] ? "Masquer le mot de passe" : "Voir le mot de passe")
-                        : (isAdmin ? "Générer puis afficher le mot de passe" : "Mot de passe non disponible")
-                    }
-                    disabled={
-                      resettingPasswordFor === teacher.id ||
-                      (!teacherPassword && !isAdmin)
-                    }
-                  >
-                    {resettingPasswordFor === teacher.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        Génération...
-                      </>
-                    ) : revealedPasswords[teacher.id] ? (
-                      <>
-                        <EyeOff className="w-4 h-4 mr-1" />
-                        Masquer MDP
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-4 h-4 mr-1" />
-                        {teacherPassword ? "Voir MDP" : (isAdmin ? "Générer MDP" : "Voir MDP")}
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
                     className="bg-red-500/20 hover:bg-red-500/40 text-white border-red-300/20 hover:border-red-300/40 transition-all duration-200 p-2"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -611,9 +401,66 @@ function TeachersPageContent() {
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 group-hover:scale-110 transition-transform duration-500"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 group-hover:scale-110 transition-transform duration-500"></div>
             </div>
-          );
-          })}
+          ))}
         </div>
+      )}
+
+      {/* Pagination */}
+      {!isLoading && filteredTeachers.length > 0 && (
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="whitespace-nowrap">Enseignants par page</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(value) => setPageSize(Number(value))}
+                >
+                  <SelectTrigger className="h-9 w-[84px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZES.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="text-sm text-gray-600 whitespace-nowrap">
+                {firstShown}–{lastShown} sur {filteredTeachers.length}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage <= 1}
+                  className="border-gray-300"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Précédent
+                </Button>
+                <span className="text-sm text-gray-600 whitespace-nowrap px-1">
+                  Page {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="border-gray-300"
+                >
+                  Suivant
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Empty State - No teachers at all */}
@@ -659,16 +506,11 @@ function TeachersPageContent() {
               <div className="flex gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setStatusFilter("all");
-                    setContractFilter("all");
-                    setSpecialtyFilter("all");
-                  }}
+                  onClick={() => setSearchQuery("")}
                   className="border-gray-300 hover:bg-gray-50"
                 >
                   <X className="h-4 w-4 mr-2" />
-                  Effacer les filtres
+                  Effacer la recherche
                 </Button>
                 <Button
                   onClick={() => router.push("/academic/teachers/new")}

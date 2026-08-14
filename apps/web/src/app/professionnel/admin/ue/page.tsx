@@ -34,6 +34,15 @@ function fmtPrice(prix: any, devise?: string): string {
 }
 
 /**
+ * UE de « conduite » (ex. « Conduite (S1) ») : matière transversale sans prix.
+ * Elle reste en base et alimente les moyennes et bulletins, mais n'est pas
+ * gérée depuis cet écran — comme elle est déjà exclue de l'écran Paiements.
+ */
+function isConduiteUe(u: any): boolean {
+  return String(u?.libelle ?? "").trim().toLowerCase().startsWith("conduite");
+}
+
+/**
  * Liste des UE (Unités d'Enseignement) — Module Professionnel (feature 030).
  *
  * L'UE est le pôle ADMINISTRATIF : rattachée à une Filière, elle porte le prix,
@@ -50,7 +59,11 @@ export default function ProfessionalUeListPage() {
   const deleteMut = useDeleteProfessionalUe();
 
   const filieres: any[] = programmesQuery.data?.data ?? [];
-  const items: any[] = ueQuery.data?.items ?? [];
+  // La Conduite est transversale (sans prix) : jamais affichée ni comptée ici.
+  const items: any[] = useMemo(
+    () => (ueQuery.data?.items ?? []).filter((u: any) => !isConduiteUe(u)),
+    [ueQuery.data]
+  );
 
   const filiereNameOf = (id: string) => {
     const p = filieres.find((x) => x.id === id);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Award, GaugeCircle, GraduationCap, RefreshCcw, FileCheck2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { useOwnerPedagogie, buildQueryString } from "@/lib/hooks/use-owner-pedagogie";
 import { ExportCsvButton } from "@/components/owner/charts/ExportCsvButton";
-import { useOwnerStatsFilters } from "@/lib/hooks/use-owner-stats-filters";
+import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
 import { StatCard } from "@/components/owner/charts/StatCard";
 import { ChartCard } from "@/components/owner/charts/ChartCard";
 import { BarChartCard } from "@/components/owner/charts/BarChartCard";
@@ -45,17 +45,21 @@ const CATEGORIE_LABELS: Record<OwnerUeCategorie, string> = {
 };
 
 export default function OwnerPedagogiePage() {
-  const [anneeScolaire, setAnneeScolaire] = useState<string>(ALL);
-  const [filiereIds, setFiliereIds] = useState<string[]>([]);
+  // Année et filières viennent du filtre global ; le reste est propre à l'écran.
+  const { anneeScolaire, filiereIds, options: filters } = useOwnerFilters();
   const [semestreId, setSemestreId] = useState<string>(ALL);
   const [statut, setStatut] = useState<"en_cours" | "termine" | "tous">("tous");
   const [categorie, setCategorie] = useState<string>(ALL);
 
-  const { data: filters } = useOwnerStatsFilters();
+  // Un semestre choisi peut ne plus appartenir aux filières retenues : le
+  // garder filtrerait sur un périmètre vide sans le dire.
+  useEffect(() => {
+    setSemestreId(ALL);
+  }, [filiereIds]);
 
   const params = useMemo(
     () => ({
-      anneeScolaire: anneeScolaire === ALL ? undefined : anneeScolaire,
+      anneeScolaire,
       filiereIds: filiereIds.length > 0 ? filiereIds : undefined,
       semestreId: semestreId === ALL ? undefined : semestreId,
       statut,
@@ -175,36 +179,13 @@ export default function OwnerPedagogiePage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Filtres</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <div className="space-y-2">
-            <Label>Année scolaire</Label>
-            <Select value={anneeScolaire} onValueChange={setAnneeScolaire}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Toutes</SelectItem>
-                {(filters?.anneesScolaires ?? []).map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {a}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Filières</Label>
-            <FiliereFilter
-              filieres={filters?.filieres ?? []}
-              value={filiereIds}
-              onChange={(next) => {
-                setFiliereIds(next);
-                setSemestreId(ALL);
-              }}
-            />
-          </div>
-
+        {/*
+          Année scolaire et filières sont portées par la barre de filtre globale
+          de l'espace propriétaire : les répéter ici créerait deux sélections
+          concurrentes pour la même dimension. Ne restent que les dimensions
+          propres à cet écran.
+        */}
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div className="space-y-2">
             <Label>Semestre</Label>
             <Select value={semestreId} onValueChange={setSemestreId}>

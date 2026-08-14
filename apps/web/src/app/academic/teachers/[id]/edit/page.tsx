@@ -249,7 +249,7 @@ export default function EditTeacherPage() {
                 <Input
                   id="phone"
                   {...register("phone")}
-                  placeholder="+33 1 23 45 67 89"
+                  placeholder="+225 07 07 12 34 56"
                 />
                 {errors.phone && (
                   <p className="text-sm text-red-600">{errors.phone.message}</p>

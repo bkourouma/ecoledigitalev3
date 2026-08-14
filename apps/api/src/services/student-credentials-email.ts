@@ -11,7 +11,12 @@
  */
 
 import type { PoolClient } from "pg";
-import { renderTemplateString, htmlToPlainText, resolveTenantName } from "./teacher-credentials-email";
+import {
+  renderTemplateString,
+  renderTemplateSubject,
+  htmlToPlainText,
+  resolveTenantName,
+} from "./teacher-credentials-email";
 
 export const STUDENT_CREDENTIALS_SETTINGS_KEY = "studentCredentialsEmail";
 
@@ -166,7 +171,7 @@ export function renderStudentCredentialsEmail(
   ctx: StudentCredentialsContext
 ): { subject: string; html: string; text: string } {
   const variables = buildStudentCredentialsVariables(ctx);
-  const subject = renderTemplateString(template.subject, variables);
+  const subject = renderTemplateSubject(template.subject, variables);
   const renderedBody = renderTemplateString(template.body, variables);
   return {
     subject,

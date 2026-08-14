@@ -152,6 +152,16 @@ export async function parentChildrenRoutes(fastify: FastifyInstance) {
                   AND se_ay.status = 'active'
                   AND cl_ay.academic_year_id = $3::uuid
               )
+              -- Élèves inscrits en module professionnel : ils n'ont pas de
+              -- student_enrollments classiques, mais restent des enfants du
+              -- parent quelle que soit l'année académique sélectionnée.
+              OR EXISTS (
+                SELECT 1
+                FROM professional_enrollments pe
+                WHERE pe.student_id = sp.id
+                  AND pe.tenant_id = sp.tenant_id
+                  AND pe.statut IN ('confirmee', 'terminee')
+              )
             )
           ORDER BY u.last_name, u.first_name
         `;

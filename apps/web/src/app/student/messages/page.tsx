@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createApiHeaders } from '@/lib/api-utils';
 import { toast } from 'sonner';
 import { StudentWriteToSchoolPanel, StudentWriteToTeacherPanel } from '../components/StudentOutgoingPanels';
+import { MessageChannelsField, type MessageChannels } from '@/components/messaging/MessageChannelSelector';
 
 export default function StudentMessagesPage() {
   const { data: session, status } = useSession();
@@ -55,11 +56,20 @@ export default function StudentMessagesPage() {
   // State for reply
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState<{ [key: string]: string }>({});
+  const [replyChannels, setReplyChannels] = useState<MessageChannels>({ whatsapp: false, email: false });
   const queryClient = useQueryClient();
 
   // Mutation for replying to teacher message
   const replyMutation = useMutation({
-    mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
+    mutationFn: async ({
+      messageId,
+      content,
+      channels,
+    }: {
+      messageId: string;
+      content: string;
+      channels: MessageChannels;
+    }) => {
       const headers = createApiHeaders(session);
       const userId = (session as any)?.userId || (session?.user as any)?.id;
       headers['X-User-Id'] = userId;
@@ -82,6 +92,8 @@ export default function StudentMessagesPage() {
           messageId,
           teacherId: message.teacherId,
           content: content.trim(),
+          sendWhatsapp: channels.whatsapp,
+          sendEmail: channels.email,
         }),
       });
 
@@ -95,6 +107,7 @@ export default function StudentMessagesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['student-teacher-messages'] });
       setReplyContent({});
+      setReplyChannels({ whatsapp: false, email: false });
       setSelectedMessageId(null);
       toast.success('Réponse envoyée avec succès');
     },
@@ -359,6 +372,7 @@ export default function StudentMessagesPage() {
                                       replyMutation.mutate({
                                         messageId: message.id,
                                         content: replyContent[message.id],
+                                        channels: replyChannels,
                                       });
                                     }
                                   }}
@@ -373,6 +387,13 @@ export default function StudentMessagesPage() {
                                     rows={3}
                                     disabled={replyMutation.isPending}
                                     className="resize-none"
+                                  />
+                                  <MessageChannelsField
+                                    idPrefix={`student-reply-${message.id}`}
+                                    channels={replyChannels}
+                                    onChange={setReplyChannels}
+                                    disabled={replyMutation.isPending}
+                                    templateKind="student_teacher_reply"
                                   />
                                   <div className="flex items-center justify-end gap-2">
                                     <Button

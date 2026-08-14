@@ -1,6 +1,26 @@
 import { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { emailService } from "../services/email.service";
+import {
+  canViewInitialPassword,
+  maskInitialPassword,
+} from "../middlewares/credentials-visibility";
+import {
+  ParentCredentialsTemplate,
+  loadTenantParentCredentialsTemplate,
+  loadTenantParentPasswordResetTemplate,
+  renderParentCredentialsEmail,
+  resolveTenantName,
+  saveTenantParentCredentialsTemplate,
+} from "../services/parent-credentials-email";
+
+const LOGIN_URL =
+  process.env.WEB_APP_URL ||
+  process.env.FRONTEND_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://ecoledigitale.engage-360.net/login"
+    : "http://localhost:3000/login");
 
 interface AuthenticatedRequest {
   tenantId?: string;
@@ -75,6 +95,10 @@ export async function parentsRoutes(fastify: FastifyInstance) {
                   },
                 },
                 total: { type: 'number' },
+                /** Parents ayant au moins un enfant, sur tout le résultat. */
+                withChildren: { type: 'number' },
+                /** Somme des enfants rattachés, sur tout le résultat. */
+                totalChildren: { type: 'number' },
                 page: { type: 'number' },
                 limit: { type: 'number' },
                 totalPages: { type: 'number' },
@@ -166,16 +190,29 @@ export async function parentsRoutes(fastify: FastifyInstance) {
           paramIndex++;
         }
 
-        // Count total parents (users with parent role)
-        const countQuery = `
-          SELECT COUNT(DISTINCT u.id) as total
-          FROM users u
-          INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = u.tenant_id
-          INNER JOIN roles r ON ur.role_id = r.id AND r.key = 'parent'
-          ${whereClause}
+        // Totaux calculés sur l'ensemble du résultat, pas sur la seule page
+        // renvoyée : les tuiles de statistiques de l'écran comptaient sinon les
+        // dix parents de la page courante au lieu de tous les parents du tenant.
+        const statsQuery = `
+          SELECT
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE agg.children_count > 0)::int AS with_children,
+            COALESCE(SUM(agg.children_count), 0)::int AS total_children
+          FROM (
+            SELECT COUNT(DISTINCT sp.id) AS children_count
+            FROM users u
+            INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = u.tenant_id
+            INNER JOIN roles r ON ur.role_id = r.id AND r.key = 'parent'
+            LEFT JOIN student_parents sp_rel ON sp_rel.parent_id = u.id AND sp_rel.tenant_id = u.tenant_id
+            LEFT JOIN student_profiles sp ON sp.id = sp_rel.student_id AND sp.tenant_id = u.tenant_id
+            ${whereClause}
+            GROUP BY u.id
+          ) agg
         `;
-        const countResult = await pool.query(countQuery, params);
-        const total = parseInt(countResult.rows[0].total);
+        const statsResult = await pool.query(statsQuery, params);
+        const total = statsResult.rows[0].total as number;
+        const withChildren = statsResult.rows[0].with_children as number;
+        const totalChildren = statsResult.rows[0].total_children as number;
 
         // Get parents with children count
         const parentsQuery = `
@@ -201,6 +238,7 @@ export async function parentsRoutes(fastify: FastifyInstance) {
         params.push(limit, offset);
         const parentsResult = await pool.query(parentsQuery, params);
 
+        const canViewPasswords = canViewInitialPassword(request);
         const parents = parentsResult.rows.map((row: any) => ({
           id: row.id,
           email: row.email,
@@ -209,7 +247,8 @@ export async function parentsRoutes(fastify: FastifyInstance) {
           name: row.name || `${row.first_name} ${row.last_name}`,
           childrenCount: parseInt(row.children_count || '0'),
           createdAt: row.created_at,
-          initialPassword: row.initial_password ?? null,
+          // Réservé à la direction et à l'administration : `null` pour les autres.
+          initialPassword: maskInitialPassword(canViewPasswords, row.initial_password),
         }));
 
         return reply.send({
@@ -217,6 +256,8 @@ export async function parentsRoutes(fastify: FastifyInstance) {
           data: {
             parents,
             total,
+            withChildren,
+            totalChildren,
             page,
             limit,
             totalPages: Math.ceil(total / limit),
@@ -269,7 +310,7 @@ export async function parentsRoutes(fastify: FastifyInstance) {
 
         const check = await client.query(
           `
-            SELECT u.id
+            SELECT u.id, u.email, u.first_name, u.last_name, u.name
             FROM users u
             INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = u.tenant_id
             INNER JOIN roles r ON ur.role_id = r.id AND r.key = 'parent'
@@ -287,6 +328,7 @@ export async function parentsRoutes(fastify: FastifyInstance) {
           });
         }
 
+        const parentRow = check.rows[0];
         const newPassword = generateTemporaryPassword();
         const newPasswordHash = await bcrypt.hash(newPassword, 12);
 
@@ -303,10 +345,51 @@ export async function parentsRoutes(fastify: FastifyInstance) {
 
         await client.query('COMMIT');
 
+        // Envoi best-effort du nouveau mot de passe : la réinitialisation est
+        // déjà commitée, un échec SMTP ne doit pas la faire échouer.
+        let emailSent = false;
+        let emailError: string | null = null;
+
+        if (parentRow.email) {
+          try {
+            if (!emailService.isConfigured()) {
+              throw new Error(
+                'Service email non configuré (variables SMTP_HOST / SMTP_USER / SMTP_PASSWORD manquantes).'
+              );
+            }
+
+            // Modèle dédié au reset : il ne parle pas d'un compte « créé ».
+            const template = await loadTenantParentPasswordResetTemplate(client, tenantId);
+            const schoolName = await resolveTenantName(client, tenantId);
+            const fallbackNameParts = String(parentRow.name || '').trim().split(/\s+/);
+
+            const { subject, html, text } = renderParentCredentialsEmail(template, {
+              firstName: parentRow.first_name || fallbackNameParts[0] || '',
+              lastName: parentRow.last_name || fallbackNameParts.slice(1).join(' ') || '',
+              email: parentRow.email,
+              password: newPassword,
+              loginUrl: LOGIN_URL,
+              schoolName,
+            });
+
+            await emailService.sendEmail({ to: parentRow.email, subject, html, text });
+            emailSent = true;
+          } catch (mailError) {
+            emailError = mailError instanceof Error ? mailError.message : String(mailError);
+            fastify.log.error(
+              `Parent password reset (${parentId}) but credentials email failed: ${emailError}`
+            );
+          }
+        }
+
         return reply.send({
           parentId,
           initialPassword: newPassword,
-          message: 'Mot de passe réinitialisé avec succès',
+          emailSent,
+          emailError,
+          message: emailSent
+            ? `Mot de passe réinitialisé et envoyé à ${parentRow.email}`
+            : 'Mot de passe réinitialisé avec succès',
         });
       } catch (error: any) {
         await client.query('ROLLBACK');
@@ -446,7 +529,11 @@ export async function parentsRoutes(fastify: FastifyInstance) {
             name: parent.name || `${parent.first_name} ${parent.last_name}`,
             childrenCount: parseInt(parent.children_count || '0'),
             createdAt: parent.created_at,
-            initialPassword: parent.initial_password ?? null,
+            // Réservé à la direction et à l'administration : `null` pour les autres.
+            initialPassword: maskInitialPassword(
+              canViewInitialPassword(request),
+              parent.initial_password
+            ),
           },
         });
       } catch (error: any) {
@@ -474,6 +561,17 @@ export async function parentsRoutes(fastify: FastifyInstance) {
           email: { type: 'string', format: 'email' },
           password: { type: 'string', minLength: 8 },
           phone: { type: 'string' },
+          // Envoi des identifiants par email (SMTP) — activé par défaut.
+          sendCredentialsEmail: { type: 'boolean' },
+          saveCredentialsEmailTemplate: { type: 'boolean' },
+          credentialsEmailTemplate: {
+            type: 'object',
+            required: ['subject', 'body'],
+            properties: {
+              subject: { type: 'string', minLength: 1, maxLength: 300 },
+              body: { type: 'string', minLength: 1, maxLength: 20000 },
+            },
+          },
         },
       },
       response: {
@@ -492,6 +590,8 @@ export async function parentsRoutes(fastify: FastifyInstance) {
                 createdAt: { type: 'string' },
               },
             },
+            emailSent: { type: 'boolean' },
+            emailError: { type: ['string', 'null'] },
           },
         },
         403: {
@@ -547,6 +647,59 @@ export async function parentsRoutes(fastify: FastifyInstance) {
         const body = request.body as any;
         const { firstName, lastName, email, password, phone } = body;
         const normalizedEmail = String(email || '').trim().toLowerCase();
+        const customTemplate = body.credentialsEmailTemplate as ParentCredentialsTemplate | undefined;
+        const wantsEmail = body.sendCredentialsEmail !== false;
+
+        /**
+         * Envoi best-effort des identifiants : un échec SMTP ne doit jamais
+         * annuler la création du parent (la transaction est déjà commitée).
+         * N'est appelé que sur les chemins où un mot de passe neuf a été posé.
+         */
+        const deliverCredentials = async (
+          parentId: string
+        ): Promise<{ emailSent: boolean; emailError: string | null }> => {
+          if (body.saveCredentialsEmailTemplate && customTemplate) {
+            try {
+              await saveTenantParentCredentialsTemplate(client, tenantId, customTemplate);
+            } catch (saveError) {
+              fastify.log.error(`Failed to save parent credentials template: ${saveError}`);
+            }
+          }
+
+          if (!wantsEmail || !normalizedEmail || !password) {
+            return { emailSent: false, emailError: null };
+          }
+
+          try {
+            if (!emailService.isConfigured()) {
+              throw new Error(
+                'Service email non configuré (variables SMTP_HOST / SMTP_USER / SMTP_PASSWORD manquantes).'
+              );
+            }
+
+            const template =
+              customTemplate ?? (await loadTenantParentCredentialsTemplate(client, tenantId));
+            const schoolName = await resolveTenantName(client, tenantId);
+
+            const { subject, html, text } = renderParentCredentialsEmail(template, {
+              firstName,
+              lastName,
+              email: normalizedEmail,
+              password,
+              loginUrl: LOGIN_URL,
+              schoolName,
+            });
+
+            await emailService.sendEmail({ to: normalizedEmail, subject, html, text });
+            return { emailSent: true, emailError: null };
+          } catch (mailError) {
+            const message = mailError instanceof Error ? mailError.message : String(mailError);
+            fastify.log.error(
+              `Parent created (${parentId}) but credentials email failed: ${message}`
+            );
+            return { emailSent: false, emailError: message };
+          }
+        };
 
         await client.query('BEGIN');
         // Set tenant context for RLS
@@ -626,6 +779,10 @@ export async function parentsRoutes(fastify: FastifyInstance) {
             const recoveredUser = recoveredUserResult.rows[0];
 
             await client.query('COMMIT');
+
+            // Le compte orphelin a reçu un mot de passe neuf : on l'envoie.
+            const delivery = await deliverCredentials(recoveredUser.id);
+
             return reply.status(201).send({
               success: true,
               data: {
@@ -636,6 +793,7 @@ export async function parentsRoutes(fastify: FastifyInstance) {
                 name: recoveredUser.name,
                 createdAt: recoveredUser.created_at,
               },
+              ...delivery,
             });
           }
           
@@ -663,6 +821,9 @@ export async function parentsRoutes(fastify: FastifyInstance) {
             const promotedUser = promotedUserResult.rows[0];
 
             await client.query('COMMIT');
+
+            // Compte existant qui gagne simplement le rôle parent : son mot de
+            // passe est inchangé, on n'envoie donc aucun identifiant.
             return reply.status(201).send({
               success: true,
               data: {
@@ -673,6 +834,8 @@ export async function parentsRoutes(fastify: FastifyInstance) {
                 name: promotedUser.name,
                 createdAt: promotedUser.created_at,
               },
+              emailSent: false,
+              emailError: null,
             });
           }
 
@@ -722,6 +885,8 @@ export async function parentsRoutes(fastify: FastifyInstance) {
         );
         await client.query('COMMIT');
 
+        const delivery = await deliverCredentials(user.id);
+
         return reply.status(201).send({
           success: true,
           data: {
@@ -732,6 +897,7 @@ export async function parentsRoutes(fastify: FastifyInstance) {
             name: user.name,
             createdAt: user.created_at,
           },
+          ...delivery,
         });
       } catch (error: any) {
         await client.query('ROLLBACK');
@@ -1158,6 +1324,9 @@ export async function parentsRoutes(fastify: FastifyInstance) {
                       currentYear: { type: 'number' },
                       status: { type: 'string' },
                       studentNumber: { type: 'string' },
+                      // Numéro d'ordre figé (base du matricule IPAM). Sans cette
+                      // déclaration, Fastify le retirerait de la réponse.
+                      sequenceNumber: { type: ['integer', 'null'] },
                     },
                   },
                 },
@@ -1247,7 +1416,8 @@ export async function parentsRoutes(fastify: FastifyInstance) {
             u.email,
             sp.current_year as currentYear,
             sp.status,
-            sp.student_number as studentNumber
+            sp.student_number as studentNumber,
+            sp.sequence_number
           FROM student_parents sp_rel
           INNER JOIN student_profiles sp ON sp_rel.student_id = sp.id AND sp.tenant_id = $1
           INNER JOIN users u ON sp.user_id = u.id AND u.tenant_id = $1
@@ -1265,6 +1435,7 @@ export async function parentsRoutes(fastify: FastifyInstance) {
           currentYear: row.currentyear || 1,
           status: row.status || 'active',
           studentNumber: row.studentnumber || '',
+          sequenceNumber: row.sequence_number ?? null,
         }));
 
         return reply.send({

@@ -2,7 +2,14 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
+import { PulseBar } from "@/components/owner/PulseBar";
+import { OwnerFiltersProvider } from "@/components/owner/filters/owner-filters-context";
+import {
+  OWNER_FILTER_SCOPE,
+  OWNER_PERIOD_OPTIONS,
+  OwnerFilterBar,
+} from "@/components/owner/filters/OwnerFilterBar";
 
 function isOwnerRole(roles: unknown): boolean {
   if (!Array.isArray(roles)) return false;
@@ -53,5 +60,33 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
     return null;
   }
 
-  return <>{children}</>;
+  // « Accès » est ouvert aux administrateurs non-propriétaires : ils n'ont pas
+  // les droits sur /owner/pulse, la barre y serait un bandeau d'erreur.
+  const showPulse = isOwnerRole(roles) && !pathname.startsWith("/owner/acces");
+
+  // Un écran absent de la table de portée n'affiche aucune barre : mieux vaut
+  // pas de filtre qu'un filtre qui ne filtre rien.
+  const filterDimensions = OWNER_FILTER_SCOPE[pathname] ?? [];
+
+  return (
+    // `useSearchParams` impose une frontière Suspense côté App Router.
+    <Suspense fallback={<div className="text-muted-foreground">Chargement…</div>}>
+      <OwnerFiltersProvider>
+        {showPulse && (
+          <div className="mb-6">
+            <PulseBar />
+          </div>
+        )}
+        {filterDimensions.length > 0 && (
+          <div className="mb-6">
+            <OwnerFilterBar
+              dimensions={filterDimensions}
+              periods={OWNER_PERIOD_OPTIONS[pathname]}
+            />
+          </div>
+        )}
+        {children}
+      </OwnerFiltersProvider>
+    </Suspense>
+  );
 }

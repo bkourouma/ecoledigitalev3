@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { canViewInitialPassword } from "../middlewares/credentials-visibility";
 import bcrypt from "bcryptjs";
 import {
   TeacherSchema,
@@ -42,15 +43,25 @@ function generateTemporaryPassword(length = 12): string {
   return seed.sort(() => Math.random() - 0.5).join("");
 }
 
+/**
+ * Sérialise une fiche enseignant.
+ *
+ * `initialPassword` (mot de passe en clair) n'est jamais tiré de la base sans
+ * `canViewStoredPassword` : par défaut le champ est `null`, quel que soit son
+ * contenu en base. `overrides.initialPassword` reste possible pour le seul cas
+ * légitime — restituer une fois à l'appelant le mot de passe qu'il vient de
+ * faire générer en créant ou en rattachant le compte.
+ */
 function serializeTeacherRow(
   row: Record<string, any>,
-  overrides?: { initialPassword?: string | null }
+  overrides?: { initialPassword?: string | null; canViewStoredPassword?: boolean }
 ) {
+  const storedPassword = overrides?.canViewStoredPassword ? row.initial_password ?? null : null;
   return {
     id: row.id,
     tenantId: row.tenant_id,
     userId: row.user_id ?? null,
-    initialPassword: overrides?.initialPassword ?? row.initial_password ?? null,
+    initialPassword: overrides?.initialPassword ?? storedPassword,
     ...(row.employee_number != null ? { employeeNumber: row.employee_number } : {}),
     firstName: row.first_name,
     lastName: row.last_name,
@@ -190,7 +201,10 @@ export async function teachersRoutes(fastify: FastifyInstance) {
 
         const teachersResult = await client.query(teachersQuery, [...params, query.limit, offset]);
 
-        const teachers = teachersResult.rows.map((row) => serializeTeacherRow(row));
+        const canViewStoredPassword = canViewInitialPassword(request);
+        const teachers = teachersResult.rows.map((row) =>
+          serializeTeacherRow(row, { canViewStoredPassword })
+        );
 
         reply.send({
           data: teachers,
@@ -821,7 +835,9 @@ export async function teachersRoutes(fastify: FastifyInstance) {
         }
 
         const row = teacherResult.rows[0];
-        const teacher = serializeTeacherRow(row);
+        const teacher = serializeTeacherRow(row, {
+          canViewStoredPassword: canViewInitialPassword(request),
+        });
 
         reply.send(teacher);
       } catch (error) {

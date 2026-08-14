@@ -28,6 +28,7 @@ import {
   UpdateProfessionalEcueSeanceSchema,
   SetSessionEcueTeacherSchema,
   MarkProfessionalAttendanceSchema,
+  JustifyProfessionalAbsenceSchema,
   ValidateProfessionalEcueResultSchema,
   CreateEcueManualNoteSchema,
   UpdateEcueManualNoteSchema,
@@ -53,7 +54,10 @@ import { ProfessionalSemestreService } from "../services/professional-semestre.s
 import { ProfessionalEmploiTempsService } from "../services/professional-emploi-temps.service";
 import { ProfessionalPlanningService } from "../services/professional-planning.service";
 import { ProfessionalResultsService } from "../services/professional-results.service";
-import { ProfessionalBulletinService } from "../services/professional-bulletin.service";
+import {
+  ProfessionalBulletinService,
+  type NotesScope,
+} from "../services/professional-bulletin.service";
 import { ProfessionalEnrollmentService } from "../services/professional-enrollment.service";
 import { ProfessionalPaymentService } from "../services/professional-payment.service";
 import { ProfessionalTeacherService } from "../services/professional-teacher.service";
@@ -86,6 +90,15 @@ import {
  * APRÈS `authMiddleware`. UE = administratif (prix/UV/cohortes/inscription/
  * diplôme), ECUE = pédagogique (supports/devoirs/séances/présence).
  */
+
+/**
+ * Portée des écrans de notes, lue depuis la querystring. Toute autre valeur est
+ * ignorée (aucune restriction), pour ne pas transformer une faute de frappe en
+ * liste vide silencieuse.
+ */
+function notesScopeOf(raw?: string): NotesScope | undefined {
+  return raw === "actives" || raw === "terminees" ? raw : undefined;
+}
 
 const ERROR_STATUS: Record<string, number> = {
   TENANT_REQUIRED: 400,
@@ -1031,6 +1044,31 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  // Détail de présence d'un étudiant sur une filière / un semestre (admin).
+  fastify.get(
+    "/presences/students/:studentId",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { studentId } = request.params as { studentId: string };
+      const q = request.query as { filiere_id?: string; semestre_id?: string; statut?: string };
+      if (!q.filiere_id) {
+        return reply
+          .status(400)
+          .send({ success: false, error: "VALIDATION_ERROR", message: "filiere_id requis." });
+      }
+      const statut =
+        q.statut === "terminee" || q.statut === "en_cours" ? q.statut : undefined;
+      const result = await ue.getStudentPresences(
+        request.tenantId as string,
+        studentId,
+        q.filiere_id,
+        q.semestre_id || undefined,
+        statut
+      );
+      return sendResult(reply, result);
+    })
+  );
+
   // Affectation enseignant ↔ ECUE (au sein d'une session).
   fastify.get(
     "/ue-sessions/:id/ecue-teachers",
@@ -1096,6 +1134,165 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  // Justification administrative d'une absence (motif + auteur + date).
+  fastify.post(
+    "/seances/:seanceId/attendance/:studentId/justification",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { seanceId, studentId } = request.params as {
+        seanceId: string;
+        studentId: string;
+      };
+      const parsed = JustifyProfessionalAbsenceSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Données de justification invalides.",
+          details: parsed.error.issues,
+        });
+      }
+      const result = await ue.setAttendanceJustification(
+        request.tenantId as string,
+        seanceId,
+        studentId,
+        parsed.data,
+        currentUserId(request) || undefined
+      );
+      // Retirer la justification détache le justificatif : on efface le fichier.
+      const ancien = (result as any)?.data?.ancien_justificatif_path;
+      if (result.success && ancien) {
+        await fs.unlink(path.join(process.cwd(), ancien)).catch(() => undefined);
+      }
+      return sendResult(reply, result);
+    })
+  );
+
+  // Justificatif (PDF) d'une absence justifiée : dépôt / remplacement.
+  fastify.post(
+    "/seances/:seanceId/attendance/:studentId/justificatif",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { seanceId, studentId } = request.params as {
+        seanceId: string;
+        studentId: string;
+      };
+      const data = await (request as any).file();
+      if (!data) {
+        return reply
+          .status(422)
+          .send({ success: false, error: "VALIDATION_ERROR", message: "Aucun fichier fourni." });
+      }
+      const mime = String(data.mimetype || "application/octet-stream");
+      if (mime !== "application/pdf") {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le justificatif doit être un PDF.",
+        });
+      }
+
+      const nom = String(data.filename || "justificatif.pdf");
+      const safeName = nom.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const uniqueName = `${randomUUID()}_${safeName}`;
+      const relDir = path.join("uploads", "professional", "justificatifs", seanceId);
+      await fs.mkdir(path.join(process.cwd(), relDir), { recursive: true });
+      const relPath = path.join(relDir, uniqueName);
+      const absPath = path.join(process.cwd(), relPath);
+
+      try {
+        await pipeline(data.file, createWriteStream(absPath));
+      } catch (err: any) {
+        return reply.status(500).send({
+          success: false,
+          error: "INTERNAL_ERROR",
+          message: err?.message ?? "Erreur lors de l'écriture du fichier.",
+        });
+      }
+      if ((data.file as any).truncated) {
+        await fs.unlink(absPath).catch(() => undefined);
+        return reply
+          .status(413)
+          .send({ success: false, error: "FILE_TOO_LARGE", message: "Fichier trop volumineux." });
+      }
+
+      const stat = await fs.stat(absPath);
+      const result = await ue.setAttendanceJustificatif(
+        request.tenantId as string,
+        seanceId,
+        studentId,
+        { path: relPath, nom, mime, taille: stat.size }
+      );
+      if (!result.success) {
+        await fs.unlink(absPath).catch(() => undefined);
+        return sendResult(reply, result);
+      }
+      // Le fichier remplacé n'est plus référencé : on le supprime du disque.
+      const ancien = (result as any)?.data?.ancien_justificatif_path;
+      if (ancien && ancien !== relPath) {
+        await fs.unlink(path.join(process.cwd(), ancien)).catch(() => undefined);
+      }
+      return sendResult(reply, result, 201);
+    })
+  );
+
+  // Consultation du justificatif.
+  fastify.get(
+    "/seances/:seanceId/attendance/:studentId/justificatif",
+    { preHandler: requireAdminOrTeacher },
+    handler(async (request, reply) => {
+      const { seanceId, studentId } = request.params as {
+        seanceId: string;
+        studentId: string;
+      };
+      const result = await ue.getAttendanceJustificatif(
+        request.tenantId as string,
+        seanceId,
+        studentId
+      );
+      if (!result.success) return sendResult(reply, result);
+      const j = result.data;
+      const abs = path.join(process.cwd(), j.justificatif_path);
+      try {
+        await fs.access(abs);
+      } catch {
+        return reply
+          .status(404)
+          .send({ success: false, error: "NOT_FOUND", message: "Fichier introuvable." });
+      }
+      reply.type(j.justificatif_mime || "application/pdf");
+      reply.header(
+        "Content-Disposition",
+        `inline; filename="${String(j.justificatif_nom || "justificatif.pdf").replace(/"/g, "")}"`
+      );
+      reply.header("X-Content-Type-Options", "nosniff");
+      reply.header("Cache-Control", "private, max-age=0, no-store");
+      return reply.send(await fs.readFile(abs));
+    })
+  );
+
+  // Retrait du justificatif (la justification, elle, reste).
+  fastify.delete(
+    "/seances/:seanceId/attendance/:studentId/justificatif",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { seanceId, studentId } = request.params as {
+        seanceId: string;
+        studentId: string;
+      };
+      const result = await ue.deleteAttendanceJustificatif(
+        request.tenantId as string,
+        seanceId,
+        studentId
+      );
+      const ancien = (result as any)?.data?.ancien_justificatif_path;
+      if (result.success && ancien) {
+        await fs.unlink(path.join(process.cwd(), ancien)).catch(() => undefined);
+      }
+      return sendResult(reply, result);
+    })
+  );
+
   /* ===================== Résultats ECUE & validation UE ===================== */
 
   fastify.get(
@@ -1125,6 +1322,83 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     handler(async (request, reply) => {
       const { id } = request.params as { id: string };
       const result = await results.getSessionGrid(
+        request.tenantId as string,
+        id,
+        isAdminRequest(request) ? undefined : currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Filières encore concernées par la saisie des conduites : au moins un
+  // semestre avec une cohorte active, ou avec une conduite restant à saisir.
+  fastify.get(
+    "/conduite/filieres",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await results.listConduiteFilieres(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Semestres d'une filière ouverts à la saisie des conduites (même règle).
+  fastify.get(
+    "/conduite/semestres",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { filiere_id } = request.query as { filiere_id?: string };
+      if (!filiere_id) {
+        return reply
+          .status(400)
+          .send({ success: false, error: "VALIDATION_ERROR", message: "filiere_id requis." });
+      }
+      const result = await results.listConduiteSemestres(request.tenantId as string, filiere_id);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Filières ayant au moins un rattrapage en attente — sélecteur de la page
+  // « Rattrapages » (rien à rattraper = filière absente de la liste).
+  fastify.get(
+    "/rattrapages/filieres",
+    { preHandler: requireAdminOrTeacher },
+    handler(async (request, reply) => {
+      const result = await results.listRattrapageFilieres(
+        request.tenantId as string,
+        isAdminRequest(request) ? undefined : currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Semestres d'une filière ayant au moins un rattrapage en attente.
+  fastify.get(
+    "/rattrapages/semestres",
+    { preHandler: requireAdminOrTeacher },
+    handler(async (request, reply) => {
+      const { filiere_id } = request.query as { filiere_id?: string };
+      if (!filiere_id) {
+        return reply
+          .status(400)
+          .send({ success: false, error: "VALIDATION_ERROR", message: "filiere_id requis." });
+      }
+      const result = await results.listRattrapageSemestres(
+        request.tenantId as string,
+        filiere_id,
+        isAdminRequest(request) ? undefined : currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Étudiants en rattrapage (Session 2) d'un semestre : couples (étudiant,
+  // ECUE) non validés en Session 1 — alimente la page « Rattrapages ».
+  fastify.get(
+    "/semestres/:id/rattrapages",
+    { preHandler: requireAdminOrTeacher },
+    handler(async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await results.listSemestreRattrapages(
         request.tenantId as string,
         id,
         isAdminRequest(request) ? undefined : currentUserId(request)
@@ -1321,9 +1595,11 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     "/notes/filieres",
     { preHandler: requireAdminOrTeacher },
     handler(async (request, reply) => {
+      const { scope } = request.query as { scope?: string };
       const result = await bulletin.listNotesFilieres(
         request.tenantId as string,
-        isAdminRequest(request) ? undefined : currentUserId(request)
+        isAdminRequest(request) ? undefined : currentUserId(request),
+        notesScopeOf(scope)
       );
       return sendResult(reply, result);
     })
@@ -1334,7 +1610,7 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     "/notes/semestres",
     { preHandler: requireAdminOrTeacher },
     handler(async (request, reply) => {
-      const { filiere_id } = request.query as { filiere_id?: string };
+      const { filiere_id, scope } = request.query as { filiere_id?: string; scope?: string };
       if (!filiere_id) {
         return reply
           .status(400)
@@ -1343,7 +1619,8 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
       const result = await bulletin.listNotesSemestres(
         request.tenantId as string,
         filiere_id,
-        isAdminRequest(request) ? undefined : currentUserId(request)
+        isAdminRequest(request) ? undefined : currentUserId(request),
+        notesScopeOf(scope)
       );
       return sendResult(reply, result);
     })

@@ -5,7 +5,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { createApiHeaders } from "@/lib/api-utils";
 import {
-  ADMIN_MENU_KEY_BY_HREF,
+  MENU_KEY_BY_HREF_BY_SCOPE,
+  type MenuScope,
+  type RoleMenuSetting,
+  type RoleMenusListResponse,
   type AdminManagedUser,
   type AdminMenuCatalogResponse,
   type AdminMyMenusResponse,
@@ -195,12 +198,50 @@ export function useSetUserAdminRole() {
   });
 }
 
+export function useRoleMenus() {
+  const { data: session } = useSession();
+  const tenantId = useTenantId();
+
+  return useQuery<RoleMenusListResponse>({
+    queryKey: ["role-menus", tenantId],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/role-menus`, { headers: createApiHeaders(session) });
+      if (!res.ok) await readError(res, "Impossible de charger les menus des rôles");
+      return res.json();
+    },
+    enabled: !!session && tenantId !== "no-tenant",
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useSaveRoleMenus() {
+  const { data: session } = useSession();
+  const tenantId = useTenantId();
+  const queryClient = useQueryClient();
+
+  return useMutation<RoleMenuSetting, Error, { roleKey: MenuScope; allowedMenuKeys: string[] }>({
+    mutationFn: async ({ roleKey, allowedMenuKeys }) => {
+      const res = await fetch(`${BASE}/role-menus/${roleKey}`, {
+        method: "PUT",
+        headers: createApiHeaders(session),
+        body: JSON.stringify({ allowedMenuKeys }),
+      });
+      if (!res.ok) await readError(res, "Enregistrement des menus impossible");
+      return res.json();
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["role-menus", tenantId] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-my-menus", tenantId] });
+    },
+  });
+}
+
 /**
- * Menus du sidebar administrateur autorisés pour l'utilisateur connecté.
+ * Menus du sidebar autorisés pour l'utilisateur connecté.
  *
  * Tant que la requête n'a pas répondu — ou si elle échoue — on laisse tout
- * visible : un rôle personnalisé restreint l'affichage, il ne doit pas faire
- * clignoter le menu des comptes non concernés.
+ * visible : une restriction ne doit pas faire clignoter le menu des comptes non
+ * concernés.
  */
 export function useAdminMenuAccess() {
   const { data: session } = useSession();
@@ -222,22 +263,29 @@ export function useAdminMenuAccess() {
     const data = query.data;
     const allowAll = !data || data.allowAll || query.isError;
     const allowed = new Set(data?.menuKeys ?? []);
+    const denied = new Set(query.isError ? [] : (data?.deniedMenuKeys ?? []));
+
+    /** Autorise un menu à partir de sa clé de catalogue. */
+    function canSeeKey(key: string): boolean {
+      if (denied.has(key)) return false;
+      return allowAll || allowed.has(key);
+    }
 
     return {
       allowAll,
       adminRoleName: data?.adminRoleName ?? null,
       isLoading: query.isLoading,
-      /** Autorise un menu à partir de sa clé de catalogue. */
-      canSeeKey: (key: string) => allowAll || allowed.has(key),
+      canSeeKey,
       /**
-       * Autorise une entrée du sidebar à partir de son `href`.
+       * Autorise une entrée du sidebar à partir de son `href`, dans le périmètre
+       * du bloc qui la rend (`admin`, `teacher`…). Le périmètre est nécessaire :
+       * « Notes » existe à la fois côté admin et côté enseignant, sous deux clés.
        * Un href absent du catalogue n'est pas administrable : il reste visible.
        */
-      canSeeHref: (href: string) => {
-        if (allowAll) return true;
-        const key = ADMIN_MENU_KEY_BY_HREF[href];
+      canSeeHref: (scope: MenuScope, href: string) => {
+        const key = MENU_KEY_BY_HREF_BY_SCOPE[scope][href];
         if (!key) return true;
-        return allowed.has(key);
+        return canSeeKey(key);
       },
     };
   }, [query.data, query.isError, query.isLoading]);

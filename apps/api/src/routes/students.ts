@@ -15,6 +15,10 @@ import {
 } from "@ecoledigitale/contracts";
 import { emailService } from "../services/email.service";
 import {
+  canViewInitialPassword,
+  maskInitialPassword,
+} from "../middlewares/credentials-visibility";
+import {
   DEFAULT_STUDENT_CREDENTIALS_TEMPLATE,
   STUDENT_CREDENTIALS_VARIABLES,
   loadTenantStudentCredentialsTemplate,
@@ -230,6 +234,12 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           search: { type: "string" },
           page: { type: "number", minimum: 1, default: 1 },
           limit: { type: "number", minimum: 1, maximum: 1000, default: 20 },
+          /**
+           * Ne renvoie que les étudiants sans inscription en cours dans le module
+           * professionnel. Utilisé par l'écran d'inscription en lot, qui ne doit
+           * proposer que des étudiants réellement inscriptibles.
+           */
+          withoutActiveProfessionalEnrollment: { type: "boolean" },
         },
       },
       response: {
@@ -273,7 +283,9 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                   inscriptionDate: { type: "string" },
                   residence: { type: "string" },
                   studentMatricule: { type: ["string", "null"] },
+                  sequenceNumber: { type: ["integer", "null"] },
                   establishmentMatricule: { type: "string" },
+                  professionalMatricule: { type: ["string", "null"] },
                   dspsMatricule: { type: "string" },
                   dspsPreviousMatricule: { type: "string" },
                   classId: { type: "string" },
@@ -283,6 +295,9 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                   academicYearName: { type: "string" },
                   isActive: { type: "boolean" },
                   initialPassword: { type: ["string", "null"] },
+                  // Nombre de parents rattachés : permet aux écrans d'assignation
+                  // de ne proposer que les étudiants encore sans parent.
+                  parentsCount: { type: "number" },
                   createdAt: { type: "string" },
                   updatedAt: { type: "string" },
                   user: {
@@ -324,6 +339,11 @@ export async function studentsRoutes(fastify: FastifyInstance) {
       // The students directory is now a global people-management view.
       // Only filter by academic year when the page explicitly requests it.
       const academicYearId = rawQuery.academicYearId;
+      // Un booléen de querystring arrive en chaîne : "false" est truthy, d'où la
+      // comparaison explicite plutôt qu'un simple Boolean().
+      const withoutActiveProfessionalEnrollment =
+        rawQuery.withoutActiveProfessionalEnrollment === true ||
+        rawQuery.withoutActiveProfessionalEnrollment === "true";
 
       // Use manual validation instead of Zod schema until server reloads with updated schema
       const query = {
@@ -333,13 +353,13 @@ export async function studentsRoutes(fastify: FastifyInstance) {
         status: status || undefined,
         currentYear,
         academicYearId,
+        withoutActiveProfessionalEnrollment,
       };
       
       const offset = (query.page - 1) * query.limit;
 
       const client = await fastify.pg.connect();
-      const userRoles = (request as any).user?.roles || [];
-      const canViewPasswords = userRoles.includes("admin") || userRoles.includes("super_admin");
+      const canViewPasswords = canViewInitialPassword(request);
       try {
         await enforceSequentialMatricules(client, request.tenantId);
 
@@ -381,8 +401,42 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           paramIndex++;
         }
 
+        if (query.withoutActiveProfessionalEnrollment) {
+          // « Inscription en cours » = une inscription non annulée portant sur une
+          // cohorte encore active. Une cohorte terminée ou annulée ne bloque donc
+          // plus l'étudiant : il redevient inscriptible.
+          whereClause += ` AND NOT EXISTS (
+            SELECT 1
+            FROM professional_enrollments pe_active
+            JOIN professional_ue_sessions pus_active
+              ON pus_active.id = pe_active.ue_session_id
+             AND pus_active.tenant_id = pe_active.tenant_id
+            WHERE pe_active.student_id = sp.id
+              AND pe_active.tenant_id = sp.tenant_id
+              AND pe_active.statut <> 'annulee'
+              AND pus_active.statut NOT IN ('annule', 'termine')
+          )`;
+        }
+
         if (query.search) {
-          whereClause += ` AND (CONCAT(u.first_name, ' ', u.last_name) ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex} OR sp.student_number ILIKE $${paramIndex} OR sp.student_matricule ILIKE $${paramIndex})`;
+          // La liste étant paginée côté serveur, la recherche doit couvrir tout ce
+          // que la carte affiche — sinon un étudiant hors de la page courante
+          // resterait introuvable. D'où le matricule d'établissement, le numéro
+          // d'ordre (comparé sur 4 chiffres, tel qu'affiché) et le matricule IPAM.
+          whereClause += ` AND (
+            CONCAT(u.first_name, ' ', u.last_name) ILIKE $${paramIndex}
+            OR u.email ILIKE $${paramIndex}
+            OR sp.student_number ILIKE $${paramIndex}
+            OR sp.student_matricule ILIKE $${paramIndex}
+            OR sp.establishment_matricule ILIKE $${paramIndex}
+            OR LPAD(sp.sequence_number::text, 4, '0') ILIKE $${paramIndex}
+            OR EXISTS (
+              SELECT 1 FROM professional_student_matricules psm_search
+              WHERE psm_search.student_id = sp.id
+                AND psm_search.tenant_id = sp.tenant_id
+                AND psm_search.matricule ILIKE $${paramIndex}
+            )
+          )`;
           params.push(`%${query.search}%`);
           paramIndex++;
         }
@@ -413,11 +467,19 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                  sp.origin_school, sp.is_repeating, sp.lv2, sp.scholarship_level,
                  sp.is_transfer, sp.transfer_decision, sp.affectation_status, sp.affectation_decision,
                  sp.cepe_code, sp.is_inscribed, sp.inscription_date,
-                 sp.residence, sp.student_matricule,
+                 sp.residence, sp.student_matricule, sp.sequence_number,
                  sp.establishment_matricule, sp.dsps_matricule, sp.dsps_previous_matricule, sp.initial_password,
                  sp.bac_obtention_date, sp.bac_series, sp.last_diploma,
                  ${genderSelect}, sp.is_active,
                  sc.class_id, sc.class_name, sc.programme_name, sc.academic_year_id, sc.academic_year_name,
+                 pm.matricule AS professional_matricule,
+                 -- Nombre de parents déjà rattachés à l'étudiant.
+                 (
+                   SELECT COUNT(*)
+                   FROM student_parents spar
+                   WHERE spar.student_id = sp.id
+                     AND spar.tenant_id = sp.tenant_id
+                 ) AS parents_count,
                  sp.created_at, sp.updated_at,
                  u.email, u.first_name, u.last_name, u.name
           FROM student_profiles sp
@@ -439,6 +501,16 @@ export async function studentsRoutes(fastify: FastifyInstance) {
             ORDER BY (se.status = 'active') DESC, se.created_at DESC
             LIMIT 1
           ) sc ON TRUE
+          -- Matricule IPAM (IPAM-<CODE>-<NNNN>) : un par filière du module
+          -- professionnel. On expose le plus récent quand l'étudiant en a plusieurs.
+          LEFT JOIN LATERAL (
+            SELECT psm.matricule
+            FROM professional_student_matricules psm
+            WHERE psm.student_id = sp.id
+              AND psm.tenant_id = sp.tenant_id
+            ORDER BY psm.created_at DESC, psm.seq DESC
+            LIMIT 1
+          ) pm ON TRUE
           ${whereClause}
           ORDER BY sp.created_at DESC, u.first_name, u.last_name
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -482,7 +554,10 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           bacSeries: row.bac_series,
           lastDiploma: row.last_diploma,
           studentMatricule: row.student_matricule,
+          // Numéro d'ordre figé (0001, 0002, …), base du matricule IPAM.
+          sequenceNumber: row.sequence_number ?? null,
           establishmentMatricule: row.establishment_matricule,
+          professionalMatricule: row.professional_matricule ?? null,
           dspsMatricule: row.dsps_matricule,
           dspsPreviousMatricule: row.dsps_previous_matricule,
           classId: row.class_id || undefined,
@@ -490,7 +565,10 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           programmeName: row.programme_name || undefined,
           academicYearId: row.academic_year_id || undefined,
           academicYearName: row.academic_year_name || undefined,
-          initialPassword: row.initial_password ?? null, // aligné sur teachers (pas de filtrage par rôle)
+          // Réservé à la direction et à l'administration : `null` pour tous les autres.
+          initialPassword: maskInitialPassword(canViewPasswords, row.initial_password),
+          // COUNT() revient en bigint (chaîne) via node-postgres.
+          parentsCount: Number(row.parents_count ?? 0),
           gender: row.gender || 'masculin',
           isActive: row.is_active,
           createdAt: row.created_at,
@@ -647,8 +725,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const userRoles = (request as any).user?.roles || [];
-      const canViewPasswords = userRoles.includes("admin") || userRoles.includes("super_admin");
+      const canViewPasswords = canViewInitialPassword(request);
       const { id } = request.params as { id: string };
       const client = await fastify.pg.connect();
 
@@ -672,11 +749,12 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                  sp.origin_school, sp.is_repeating, sp.lv2, sp.scholarship_level,
                  sp.is_transfer, sp.transfer_decision, sp.affectation_status, sp.affectation_decision,
                  sp.cepe_code, sp.is_inscribed, sp.inscription_date,
-                 sp.residence, sp.student_matricule,
+                 sp.residence, sp.student_matricule, sp.sequence_number,
                  sp.establishment_matricule, sp.dsps_matricule, sp.dsps_previous_matricule, sp.initial_password,
                  sp.bac_obtention_date, sp.bac_series, sp.last_diploma,
                  ${genderSelect}, sp.is_active,
                  sc.class_id, sc.class_name, sc.programme_name, sc.academic_year_id, sc.academic_year_name,
+                 pm.matricule AS professional_matricule,
                  sp.created_at, sp.updated_at,
                  u.email, u.first_name, u.last_name, u.name
           FROM student_profiles sp
@@ -697,6 +775,15 @@ export async function studentsRoutes(fastify: FastifyInstance) {
             ORDER BY (se.status = 'active') DESC, se.created_at DESC
             LIMIT 1
           ) sc ON TRUE
+          -- Matricule IPAM (IPAM-<CODE>-<NNNN>) : cf. commentaire du listing.
+          LEFT JOIN LATERAL (
+            SELECT psm.matricule
+            FROM professional_student_matricules psm
+            WHERE psm.student_id = sp.id
+              AND psm.tenant_id = sp.tenant_id
+            ORDER BY psm.created_at DESC, psm.seq DESC
+            LIMIT 1
+          ) pm ON TRUE
           WHERE sp.id = $1 AND sp.tenant_id = $2
         `;
 
@@ -746,7 +833,10 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           bacSeries: row.bac_series,
           lastDiploma: row.last_diploma,
           studentMatricule: row.student_matricule,
+          // Numéro d'ordre figé (0001, 0002, …), base du matricule IPAM.
+          sequenceNumber: row.sequence_number ?? null,
           establishmentMatricule: row.establishment_matricule,
+          professionalMatricule: row.professional_matricule ?? null,
           dspsMatricule: row.dsps_matricule,
           dspsPreviousMatricule: row.dsps_previous_matricule,
           classId: row.class_id || undefined,
@@ -754,7 +844,8 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           programmeName: row.programme_name || undefined,
           academicYearId: row.academic_year_id || undefined,
           academicYearName: row.academic_year_name || undefined,
-          initialPassword: row.initial_password ?? null, // aligné sur teachers (pas de filtrage par rôle)
+          // Réservé à la direction et à l'administration : `null` pour tous les autres.
+          initialPassword: maskInitialPassword(canViewPasswords, row.initial_password),
           gender: row.gender || 'masculin', // Default to 'masculin' if column doesn't exist yet
           isActive: row.is_active,
           createdAt: row.created_at,
@@ -946,7 +1037,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                     date_of_birth, place_of_birth, nationality, address, phone,
                     emergency_phone, father_name, mother_name, birth_certificate_number, birth_certificate_date,
                     civil_registry_office, sub_prefecture, residence,
-                    student_matricule, establishment_matricule, dsps_matricule, dsps_previous_matricule
+                    student_matricule, sequence_number, establishment_matricule, dsps_matricule, dsps_previous_matricule
                     ${hasGenderColumn ? ', gender' : ''}, is_active, created_at, updated_at
         `;
 
@@ -975,7 +1066,10 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           subPrefecture: row.sub_prefecture,
           residence: row.residence,
           studentMatricule: row.student_matricule,
+          // Numéro d'ordre figé (0001, 0002, …), base du matricule IPAM.
+          sequenceNumber: row.sequence_number ?? null,
           establishmentMatricule: row.establishment_matricule,
+          professionalMatricule: row.professional_matricule ?? null,
           dspsMatricule: row.dsps_matricule,
           dspsPreviousMatricule: row.dsps_previous_matricule,
           gender: row.gender || 'masculin', // Default to 'masculin' if column doesn't exist yet
@@ -1226,7 +1320,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
                     date_of_birth, place_of_birth, nationality, address, phone,
                     emergency_phone, father_name, mother_name, birth_certificate_number, birth_certificate_date,
                     civil_registry_office, sub_prefecture, residence,
-                    student_matricule, establishment_matricule, dsps_matricule, dsps_previous_matricule,
+                    student_matricule, sequence_number, establishment_matricule, dsps_matricule, dsps_previous_matricule,
                     bac_obtention_date, bac_series, last_diploma, initial_password
                     ${hasGenderColumn ? ', gender' : ''}, is_active, created_at, updated_at
         `;
@@ -1314,6 +1408,8 @@ export async function studentsRoutes(fastify: FastifyInstance) {
           subPrefecture: studentRow.sub_prefecture,
           residence: studentRow.residence,
           studentMatricule: studentRow.student_matricule,
+          // Numéro d'ordre figé (0001, 0002, …), base du matricule IPAM.
+          sequenceNumber: studentRow.sequence_number ?? null,
           establishmentMatricule: studentRow.establishment_matricule,
           dspsMatricule: studentRow.dsps_matricule,
           dspsPreviousMatricule: studentRow.dsps_previous_matricule,

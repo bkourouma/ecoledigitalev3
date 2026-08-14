@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { useOwnerPersonnes, buildQueryString } from "@/lib/hooks/use-owner-personnes";
 import { ExportCsvButton } from "@/components/owner/charts/ExportCsvButton";
-import { useOwnerStatsFilters } from "@/lib/hooks/use-owner-stats-filters";
+import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
 import { StatCard } from "@/components/owner/charts/StatCard";
 import { BarChartCard } from "@/components/owner/charts/BarChartCard";
 import { DonutChartCard } from "@/components/owner/charts/DonutChartCard";
@@ -42,9 +42,8 @@ function genderLabel(g: string | null): string {
 }
 
 export default function OwnerPersonnesPage() {
-  const [filiereIds, setFiliereIds] = useState<string[]>([]);
-
-  const { data: filters } = useOwnerStatsFilters();
+  // Filières prises dans le filtre global de l'espace propriétaire.
+  const { filiereIds } = useOwnerFilters();
 
   const params = useMemo(
     () => ({ filiereIds: filiereIds.length > 0 ? filiereIds : undefined }),
@@ -92,22 +91,6 @@ export default function OwnerPersonnesPage() {
           filename="personnes.csv"
         />
       </div>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Filtres</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label>Filières</Label>
-            <FiliereFilter
-              filieres={filters?.filieres ?? []}
-              value={filiereIds}
-              onChange={setFiliereIds}
-            />
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard

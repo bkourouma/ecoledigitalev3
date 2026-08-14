@@ -25,6 +25,7 @@ import {
   decisionLabel,
   releveSemestreTitre,
   sessionLabel,
+  rangLabel,
   juryIntro,
   JURY_RESULTATS,
   JURY_NB,
@@ -192,6 +193,32 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   doc.setFont("times", "normal");
   y += 1.5;
 
+  // ---------- Bandeau « provisoire » ----------
+  // Un relevé dont le semestre n'est pas acquis est un document d'étape : il
+  // sera réédité après la session 2. Même règle que l'affichage HTML.
+  const isProvisoire =
+    bulletin.bulletin_statut === "provisoire" || bulletin.decision !== "admis";
+  if (isProvisoire) {
+    const bandH = 8;
+    doc.setFillColor(254, 243, 199); // ambre pâle
+    doc.setDrawColor(AMBER[0], AMBER[1], AMBER[2]);
+    doc.setLineWidth(0.4);
+    doc.rect(M, y, PAGE_W - 2 * M, bandH, "FD");
+    doc.setFont("times", "bold");
+    doc.setFontSize(10.5);
+    doc.setTextColor(AMBER[0], AMBER[1], AMBER[2]);
+    doc.text(
+      "BULLETIN PROVISOIRE — en attente de Session 2 (rattrapage)",
+      PAGE_W / 2,
+      y + bandH / 2 + 1.2,
+      { align: "center" }
+    );
+    doc.setTextColor(0, 0, 0);
+    doc.setLineWidth(0.2);
+    doc.setFont("times", "normal");
+    y += bandH + 3;
+  }
+
   // ---------- Tableau (catégories + UE + ECUE) ----------
   const catList =
     bulletin.categories?.length > 0
@@ -266,7 +293,13 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   }
 
   // ---------- Synthèse (avec rang) ----------
-  const hstyle = { fontStyle: "bold", fillColor: GREEN, textColor: [255, 255, 255] as [number, number, number] };
+  // `as const` sur fontStyle : sans lui, TypeScript l'élargit en `string` et le
+  // style n'est plus assignable au `CellInput` de jspdf-autotable.
+  const hstyle = {
+    fontStyle: "bold" as const,
+    fillColor: GREEN,
+    textColor: [255, 255, 255] as [number, number, number],
+  };
   autoTable(doc, {
     startY: y,
     margin: { left: M, right: M },
@@ -287,6 +320,9 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
         { content: "Crédits", styles: hstyle },
         { content: "Nombre d'UE validés", styles: hstyle },
         { content: "Moyenne", styles: hstyle },
+        // Rang de l'étudiant dans la promotion (null si l'effectif dépasse le
+        // garde-fou de calcul côté API : la colonne affiche alors « — »).
+        { content: "Rang", styles: hstyle },
         { content: "Appréciation", styles: hstyle },
       ],
       [
@@ -294,6 +330,12 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
         { content: `${totalObtenus}/${totalUe}` },
         { content: `${bulletin.nb_ue_validees ?? 0}/${bulletin.nb_ue_total ?? 0}` },
         { content: fmtNote(bulletin.moyenne_session), styles: { fontStyle: "bold" } },
+        {
+          content: bulletin.effectif
+            ? `${rangLabel(bulletin.rang)} / ${bulletin.effectif}`
+            : rangLabel(bulletin.rang),
+          styles: { fontStyle: "bold" },
+        },
         { content: appreciation(bulletin.moyenne_session), styles: { fontStyle: "bold" } },
       ],
     ],

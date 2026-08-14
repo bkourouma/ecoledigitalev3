@@ -16,7 +16,7 @@ import {
   useReplyToSchoolConversation 
 } from '@/lib/hooks/use-parent-messages';
 import { toast } from 'sonner';
-import { WhatsappSendCheckbox } from '@/components/messaging/WhatsappSendCheckbox';
+import { MessageChannelsField, type MessageChannels } from '@/components/messaging/MessageChannelSelector';
 
 interface SchoolMessageFormProps {
   children?: Array<{ id: string; name: string }>;
@@ -33,7 +33,8 @@ export function SchoolMessageForm({ children = [] }: SchoolMessageFormProps) {
     subject: '',
     content: '',
   });
-  const [sendWhatsappNew, setSendWhatsappNew] = useState(false);
+  const [channels, setChannels] = useState<MessageChannels>({ whatsapp: false, email: false });
+  const [replyChannels, setReplyChannels] = useState<MessageChannels>({ whatsapp: false, email: false });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch conversations
@@ -98,8 +99,11 @@ export function SchoolMessageForm({ children = [] }: SchoolMessageFormProps) {
       await replyMutation.mutateAsync({
         conversationId: selectedConversationId,
         content: replyContent.trim(),
+        sendWhatsapp: replyChannels.whatsapp,
+        sendEmail: replyChannels.email,
       });
       setReplyContent('');
+      setReplyChannels({ whatsapp: false, email: false });
       toast.success('Réponse envoyée avec succès');
     } catch (error) {
       console.error('Failed to send reply:', error);
@@ -122,12 +126,13 @@ export function SchoolMessageForm({ children = [] }: SchoolMessageFormProps) {
         childId: newMessageData.childId,
         subject: newMessageData.subject,
         content: newMessageData.content,
-        sendWhatsapp: sendWhatsappNew,
+        sendWhatsapp: channels.whatsapp,
+        sendEmail: channels.email,
       });
       
       toast.success('Message envoyé à l\'établissement avec succès');
       setNewMessageData({ childId: '', subject: '', content: '' });
-      setSendWhatsappNew(false);
+      setChannels({ whatsapp: false, email: false });
       setShowNewMessageForm(false);
       // Select the new conversation
       if (result.data?.conversation?.id) {
@@ -294,11 +299,12 @@ export function SchoolMessageForm({ children = [] }: SchoolMessageFormProps) {
                     />
                   </div>
 
-                  <WhatsappSendCheckbox
-                    checked={sendWhatsappNew}
-                    onCheckedChange={setSendWhatsappNew}
+                  <MessageChannelsField
+                    idPrefix="parent-school"
+                    channels={channels}
+                    onChange={setChannels}
                     disabled={sendMessageMutation.isPending}
-                    id="wa-parent-school"
+                    templateKind="parent_school_new"
                   />
 
                   <div className="flex justify-end gap-2">
@@ -460,6 +466,15 @@ export function SchoolMessageForm({ children = [] }: SchoolMessageFormProps) {
                         disabled={isReplying}
                         rows={4}
                         className="resize-none"
+                      />
+                    </div>
+                    <div className="mt-3">
+                      <MessageChannelsField
+                        idPrefix="parent-school-reply"
+                        channels={replyChannels}
+                        onChange={setReplyChannels}
+                        disabled={isReplying}
+                        templateKind="parent_school_reply"
                       />
                     </div>
                     <div className="flex justify-end mt-4">

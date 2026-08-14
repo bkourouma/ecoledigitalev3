@@ -11,6 +11,16 @@ import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional
  * semaine et le créneau horaire récurrents. Consulté par filière + semestre.
  */
 export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
+  /**
+   * Session « encore en cours » : ni terminée ni annulée, et dont la date de fin
+   * n'est pas dépassée. La date est testée en plus du statut car la finalisation
+   * automatique (statut → « termine ») n'a lieu qu'au chargement de la liste des
+   * sessions : le statut stocké peut être en retard. Les plannings des sessions
+   * terminées restent consultables via la page Consultation.
+   */
+  private static readonly OPEN_SESSION_CLAUSE =
+    `s.statut NOT IN ('termine', 'annule') AND s.date_fin >= CURRENT_DATE`;
+
   /** Filières ayant au moins une session encore OUVERTE (pour créer un planning). */
   async listFilieresWithOpenSessions(tenantId: string): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
@@ -19,7 +29,8 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
          FROM professional_ue_sessions s
          JOIN professional_ue u ON u.id = s.ue_id
          JOIN programmes p ON p.id = u.filiere_id
-         WHERE s.tenant_id = $1 AND s.statut <> 'annule'
+         WHERE s.tenant_id = $1
+           AND ${ProfessionalEmploiTempsService.OPEN_SESSION_CLAUSE}
          ORDER BY p.name`,
         [tenantId]
       );
@@ -38,7 +49,8 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
          FROM professional_ue_sessions s
          JOIN professional_semestre_sessions ss ON ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
          JOIN professional_semestres sm ON sm.id = ss.semestre_id
-         WHERE s.tenant_id = $1 AND sm.filiere_id = $2 AND s.statut <> 'annule'
+         WHERE s.tenant_id = $1 AND sm.filiere_id = $2
+           AND ${ProfessionalEmploiTempsService.OPEN_SESSION_CLAUSE}
          ORDER BY sm.libelle`,
         [tenantId, filiereId]
       );

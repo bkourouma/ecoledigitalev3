@@ -15,13 +15,11 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  RotateCcw,
 } from "lucide-react";
 import {
   useProfessionalUeSessionsList,
   useDeleteProfessionalUeSession,
 } from "@/lib/hooks/use-professional-catalog-admin";
-import { useReopenSessions } from "@/lib/hooks/use-professional-semestres";
 import { SearchableSelect } from "@/components/SearchableSelect";
 
 const PAGE_SIZE = 12;
@@ -81,7 +79,6 @@ export default function ProfessionalSessionsListPage() {
 
   const sessionsQuery = useProfessionalUeSessionsList({ pageSize: 500 });
   const deleteMut = useDeleteProfessionalUeSession();
-  const reopenMut = useReopenSessions();
 
   const sessions: any[] = sessionsQuery.data?.items ?? [];
 
@@ -218,40 +215,6 @@ export default function ProfessionalSessionsListPage() {
       }
     } catch (err: any) {
       setError(err?.message ?? "Erreur lors de la suppression du lot.");
-    }
-  }
-
-  // Réouverture d'un lot terminé : on demande une nouvelle date de fin (future).
-  async function handleReopenBatch(g: any) {
-    setError(null);
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    const def = d.toISOString().slice(0, 10);
-    const input =
-      typeof window !== "undefined"
-        ? window.prompt(
-            `Rouvrir le lot « ${g.title} » jusqu'à quelle date de fin ? (AAAA-MM-JJ)`,
-            def
-          )
-        : null;
-    if (!input) return;
-    const newDate = input.trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
-      setError("Date invalide (format attendu : AAAA-MM-JJ).");
-      return;
-    }
-    const today = new Date().toISOString().slice(0, 10);
-    if (newDate <= today) {
-      setError("La nouvelle date de fin doit être dans le futur.");
-      return;
-    }
-    try {
-      await reopenMut.mutateAsync({
-        session_ids: g.items.map((s: any) => s.id),
-        date_fin: newDate,
-      });
-    } catch (err: any) {
-      setError(err?.message ?? "Erreur lors de la réouverture du lot.");
     }
   }
 
@@ -479,22 +442,7 @@ export default function ProfessionalSessionsListPage() {
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
-                    {g.statut === "termine" ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30 transition-all duration-200 p-2"
-                        onClick={() => handleReopenBatch(g)}
-                        disabled={reopenMut.isPending}
-                        title="Rouvrir le lot (nouvelle date de fin)"
-                      >
-                        {reopenMut.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <RotateCcw className="w-4 h-4" />
-                        )}
-                      </Button>
-                    ) : (
+                    {g.statut !== "termine" && (
                       <Button
                         variant="secondary"
                         size="sm"

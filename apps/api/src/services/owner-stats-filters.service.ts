@@ -20,8 +20,17 @@ export async function fetchOwnerStatsFilters(
     await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
 
     const filieres = await client
-      .query<{ id: string; name: string; code: string; cycle_name: string | null }>(
-        `SELECT p.id, p.name, p.code, c.name AS cycle_name
+      .query<{
+        id: string;
+        name: string;
+        code: string;
+        cycle_id: string | null;
+        cycle_name: string | null;
+      }>(
+        // `cycle_id` sert au filtre global : restreindre les filières proposées
+        // au cycle choisi demande un identifiant, pas un libellé (deux cycles
+        // peuvent porter le même nom, et un nom peut être renommé).
+        `SELECT p.id, p.name, p.code, p.cycle_id, c.name AS cycle_name
          FROM programmes p
          -- LEFT JOIN délibéré : une filière dont le cycle a été supprimé doit rester
          -- sélectionnable (cf. le défaut inverse de GET /courses, §6-11).
@@ -110,6 +119,7 @@ export async function fetchOwnerStatsFilters(
         id: r.id,
         name: r.name,
         code: r.code,
+        cycleId: r.cycle_id,
         cycleName: r.cycle_name,
       })),
       semestres: semestres.rows.map((r) => ({

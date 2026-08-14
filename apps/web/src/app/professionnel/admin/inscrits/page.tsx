@@ -3,51 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, Button, Input } from "@ecoledigitale/ui";
-import {
-  Users,
-  Search,
-  Layers,
-  Eye,
-  Edit,
-  Trash2,
-  X,
-  Loader2,
-  AlertCircle,
-  Mail,
-  Phone,
-  Calendar,
-  MapPin,
-  GraduationCap,
-  Receipt,
-} from "lucide-react";
+import { Users, Search, Layers, Eye, Loader2, Calendar } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import {
-  useAllAdminEnrollments,
-  useUpdateEnrollment,
-  useDeleteEnrollment,
-} from "@/lib/hooks/use-professional-suivi";
-import { useStudent } from "@/lib/hooks/use-students";
+import { useAllAdminEnrollments } from "@/lib/hooks/use-professional-suivi";
 
 /**
  * Étudiants inscrits — Module Professionnel (admin).
- * Liste en cartes (3/ligne) de toutes les inscriptions, filtrables par filière,
- * avec actions voir / modifier le statut / supprimer.
+ * Liste en cartes (3/ligne) de toutes les inscriptions, filtrables par filière
+ * et année scolaire. Le détail d'un binôme étudiant + filière s'ouvre sur sa
+ * propre page (`inscrits/etudiant/[studentId]/[filiereId]`).
  */
-
-const STATUT: Record<string, { label: string; cls: string }> = {
-  en_attente_paiement: { label: "En attente paiement", cls: "bg-amber-100 text-amber-700" },
-  confirmee: { label: "Confirmée", cls: "bg-green-100 text-green-700" },
-  terminee: { label: "Terminée", cls: "bg-blue-100 text-blue-700" },
-  annulee: { label: "Annulée", cls: "bg-gray-100 text-gray-600" },
-};
-// Dégradé de carte par statut (aligné sur les cartes Sessions).
-const STATUT_GRADIENT: Record<string, string> = {
-  en_attente_paiement: "from-amber-500 via-orange-500 to-red-500",
-  confirmee: "from-green-500 via-teal-500 to-blue-500",
-  terminee: "from-blue-500 via-indigo-500 to-purple-500",
-  annulee: "from-gray-400 via-gray-500 to-gray-600",
-};
-const STATUT_OPTIONS = ["en_attente_paiement", "confirmee", "terminee", "annulee"];
 
 /** Statut résumé d'un groupe d'inscriptions (cumul des UE). */
 function groupStatut(g: any): { label: string; cls: string } {
@@ -59,12 +24,6 @@ function groupStatut(g: any): { label: string; cls: string } {
   if (confirmed === total) return { label: "Confirmée", cls: "bg-green-100 text-green-700" };
   return { label: `${confirmed}/${total} confirmées`, cls: "bg-blue-100 text-blue-700" };
 }
-function fmtDate(v?: string | null): string {
-  if (!v) return "—";
-  const d = new Date(v);
-  return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString("fr-FR");
-}
-
 /**
  * Année scolaire (pivot septembre) dérivée de la date de début de la session,
  * alignée sur le calcul côté API (professional-bulletin.service.ts) et sur la page
@@ -78,23 +37,15 @@ function anneeScolaireOf(v?: string | null): string | null {
   const y = d.getFullYear();
   return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
-function fmtPrice(v?: number | null): string {
-  if (v == null) return "—";
-  return `${Math.round(v).toLocaleString("fr-FR")} FCFA`;
-}
 
 export default function ProfessionalInscritsPage() {
   const query = useAllAdminEnrollments();
-  const updateMut = useUpdateEnrollment();
-  const deleteMut = useDeleteEnrollment();
 
   const router = useRouter();
   const items: any[] = (query.data as any)?.items ?? [];
   const [filiere, setFiliere] = useState("all");
   const [annee, setAnnee] = useState("all");
   const [search, setSearch] = useState("");
-  const [editRow, setEditRow] = useState<any | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const filiereOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -146,6 +97,8 @@ export default function ProfessionalInscritsPage() {
       if (!g) {
         g = {
           key,
+          student_id: e.student_id,
+          filiere_id: e.filiere_id,
           first_name: e.first_name,
           last_name: e.last_name,
           matricule: e.matricule,
@@ -162,41 +115,8 @@ export default function ProfessionalInscritsPage() {
     );
   }, [filtered]);
 
-  async function handleDelete(e: any) {
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm(
-        `Supprimer l'inscription de ${e.first_name} ${e.last_name} à « ${e.session_libelle} » ?`
-      )
-    )
-      return;
-    setError(null);
-    try {
-      await deleteMut.mutateAsync(e.id);
-    } catch (err: any) {
-      setError(err?.message ?? "Erreur lors de la suppression.");
-    }
-  }
-
-  /** Supprime toutes les inscriptions cumulées d'un étudiant (une filière). */
-  async function handleDeleteGroup(g: any) {
-    const n = g.enrollments.length;
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm(
-        `Supprimer les ${n} inscription${n > 1 ? "s" : ""} de ${g.first_name} ${g.last_name} en ${
-          g.filiere_code ?? g.filiere_nom
-        } ?`
-      )
-    )
-      return;
-    setError(null);
-    try {
-      for (const e of g.enrollments) await deleteMut.mutateAsync(e.id);
-    } catch (err: any) {
-      setError(err?.message ?? "Erreur lors de la suppression.");
-    }
-  }
+  // La suppression d'une inscription se fait depuis sa fiche détaillée
+  // (/professionnel/admin/inscrits/[id]), plus depuis cette liste.
 
   if (query.isLoading) {
     return (
@@ -219,9 +139,9 @@ export default function ProfessionalInscritsPage() {
         </p>
       </div>
 
-      {error && (
+      {query.isError && (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {error}
+          {(query.error as Error)?.message ?? "Erreur lors du chargement des inscriptions."}
         </div>
       )}
 
@@ -230,32 +150,46 @@ export default function ProfessionalInscritsPage() {
         <CardContent className="p-4 space-y-3">
           {/* Rangée du haut : filière + année scolaire */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <SearchableSelect
-              value={filiere}
-              onChange={setFiliere}
-              icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder="Filtrer par filière"
-              searchPlaceholder="Rechercher une filière…"
-              options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
-            />
-            <SearchableSelect
-              value={annee}
-              onChange={setAnnee}
-              icon={<Calendar className="h-4 w-4 text-gray-400" />}
-              placeholder="Filtrer par année scolaire"
-              searchPlaceholder="Rechercher une année…"
-              options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
-            />
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Filière</label>
+              <SearchableSelect
+                value={filiere}
+                onChange={setFiliere}
+                icon={<Layers className="h-4 w-4 text-gray-400" />}
+                placeholder="Filtrer par filière"
+                searchPlaceholder="Rechercher une filière…"
+                options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Année scolaire
+              </label>
+              <SearchableSelect
+                value={annee}
+                onChange={setAnnee}
+                icon={<Calendar className="h-4 w-4 text-gray-400" />}
+                placeholder="Filtrer par année scolaire"
+                searchPlaceholder="Rechercher une année…"
+                options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
+              />
+            </div>
           </div>
-          {/* Rangée du bas : recherche étudiant */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Étudiant…"
-              className="pl-9"
-            />
+
+          {/* La recherche occupe sa propre ligne, pleine largeur, sous les deux sélecteurs. */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Rechercher un étudiant
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Nom ou matricule…"
+                className="pl-9"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -315,16 +249,16 @@ export default function ProfessionalInscritsPage() {
 
                 <Button
                   variant="secondary"
-                  className="w-full mt-auto bg-red-500/20 hover:bg-red-500/40 text-white border-red-300/20 hover:border-red-300/40 transition-all duration-200"
-                  onClick={() => handleDeleteGroup(g)}
-                  disabled={deleteMut.isPending}
+                  className="w-full mt-auto bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30 transition-all duration-200"
+                  onClick={() =>
+                    router.push(
+                      `/professionnel/admin/inscrits/etudiant/${g.student_id}/${g.filiere_id}`
+                    )
+                  }
+                  title="Voir le détail des sessions"
                 >
-                  {deleteMut.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4 mr-2" />
-                  )}
-                  Supprimer
+                  <Eye className="h-4 w-4 mr-2" />
+                  Détails
                 </Button>
               </div>
 
@@ -337,92 +271,5 @@ export default function ProfessionalInscritsPage() {
       )}
 
     </div>
-  );
-}
-
-/* ----------------------------- Modale générique ---------------------------- */
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
-      <div
-        className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl bg-background shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-border px-5 py-3 sticky top-0 bg-background">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function Info({ icon: Icon, label, value }: { icon?: any; label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-        {Icon && <Icon className="h-3.5 w-3.5" />} {label}
-      </p>
-      <p className="text-sm">{value ?? "—"}</p>
-    </div>
-  );
-}
-
-/* -------------------------------- Édition ---------------------------------- */
-
-function EditModal({
-  row,
-  onClose,
-  onSave,
-  saving,
-}: {
-  row: any;
-  onClose: () => void;
-  onSave: (statut: string) => void;
-  saving: boolean;
-}) {
-  const [statut, setStatut] = useState<string>(row.statut);
-  return (
-    <Modal title="Modifier l'inscription" onClose={onClose}>
-      <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          {row.first_name} {row.last_name} — {row.session_libelle}
-        </p>
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Statut de l'inscription</label>
-          <div className="grid grid-cols-2 gap-2">
-            {STATUT_OPTIONS.map((opt) => {
-              const meta = STATUT[opt];
-              const active = statut === opt;
-              return (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setStatut(opt)}
-                  className={`rounded-lg border px-3 py-2 text-sm text-left transition-colors ${
-                    active ? "border-indigo-500 bg-primary/10 font-medium" : "border-border hover:bg-accent"
-                  }`}
-                >
-                  {meta.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={saving}>
-            Annuler
-          </Button>
-          <Button onClick={() => onSave(statut)} disabled={saving || statut === row.statut}>
-            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-            Enregistrer
-          </Button>
-        </div>
-      </div>
-    </Modal>
   );
 }

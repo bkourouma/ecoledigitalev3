@@ -41,7 +41,21 @@ export const StudentProfileSchema = z.object({
   residence: z.string().max(255).optional(),
   /** Matricule saisi manuellement par la scolarité (distinct de `studentNumber`, auto). */
   studentMatricule: z.string().max(50).optional(),
+  /**
+   * Numéro d'ordre de l'étudiant dans l'établissement (1, 2, 3, …), attribué à la
+   * création de la fiche et JAMAIS recalculé — contrairement à `studentNumber` /
+   * `establishmentMatricule`. Affiché sur 4 chiffres (`0001`) et repris comme
+   * segment final du matricule IPAM. Lecture seule.
+   */
+  sequenceNumber: z.number().int().positive().nullable().optional(),
   establishmentMatricule: z.string().max(100).optional(),
+  /**
+   * Matricule IPAM au format `IPAM-<CODE FILIERE>-<NNNN>` (ex. `IPAM-L1GL-0001`),
+   * où `NNNN` est `sequenceNumber`. Généré par le module professionnel à la 1ère
+   * inscription dans une filière. Lecture seule : `null` tant qu'aucune filière
+   * n'est rattachée à l'étudiant.
+   */
+  professionalMatricule: z.string().max(100).nullable().optional(),
   dspsMatricule: z.string().max(100).optional(),
   dspsPreviousMatricule: z.string().max(100).optional(),
   bacObtentionDate: z.date().optional(),
@@ -187,7 +201,19 @@ export const StudentWithUserSchema = StudentProfileSchema.extend({
     email: z.string().email(),
     firstName: z.string(),
     lastName: z.string(),
+    /**
+     * Nom complet stocké sur `users.name`. L'API le renvoie sur la liste comme
+     * sur le détail, et `firstName`/`lastName` en sont dérivés quand ils sont
+     * absents — d'où son usage comme repli d'affichage. Optionnel : la colonne
+     * est nullable.
+     */
+    name: z.string().optional(),
   }),
+  /**
+   * Nombre de parents rattachés à l'étudiant (liste `GET /students`).
+   * Permet aux écrans d'assignation de filtrer les étudiants sans parent.
+   */
+  parentsCount: z.number().int().nonnegative().optional(),
 });
 
 // Student Parent with User Info Schema
@@ -207,6 +233,13 @@ export const StudentQuerySchema = z.object({
   search: z.string().optional(), // Search by name, email, or student number
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(1000).default(20),
+  /**
+   * Exclut les étudiants ayant une inscription en cours dans le module
+   * professionnel — c'est-à-dire une inscription non annulée sur une cohorte
+   * encore active (ni terminée, ni annulée). Une cohorte terminée ne bloque plus
+   * l'étudiant.
+   */
+  withoutActiveProfessionalEnrollment: z.coerce.boolean().optional(),
 });
 
 export const StudentParentQuerySchema = z.object({

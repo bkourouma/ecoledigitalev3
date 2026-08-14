@@ -29,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useOwnerReferentiel } from "@/lib/hooks/use-owner-referentiel";
-import { useOwnerStatsFilters } from "@/lib/hooks/use-owner-stats-filters";
+import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
 import { StatCard } from "@/components/owner/charts/StatCard";
 import { BarChartCard } from "@/components/owner/charts/BarChartCard";
 import { FiliereFilter } from "@/components/owner/charts/FiliereFilter";
@@ -129,15 +129,20 @@ const SEVERITY_STYLES = {
 } as const;
 
 export default function OwnerReferentielPage() {
-  const [cycleId, setCycleId] = useState<string>(ALL);
-  const [filiereIds, setFiliereIds] = useState<string[]>([]);
   const [categorie, setCategorie] = useState<string>(ALL);
 
-  const { data: filters } = useOwnerStatsFilters();
+  /**
+   * Cycle et filières viennent du filtre global.
+   *
+   * Au passage, cela corrige un filtre inopérant : l'écran dérivait ses cycles
+   * des LIBELLÉS portés par les filières et envoyait ce libellé dans `cycleId`,
+   * que l'API attend en UUID. Choisir un cycle ne filtrait donc rien.
+   */
+  const { cycleId, filiereIds } = useOwnerFilters();
 
   const params = useMemo(
     () => ({
-      cycleId: cycleId === ALL ? undefined : cycleId,
+      cycleId,
       filiereIds: filiereIds.length > 0 ? filiereIds : undefined,
       categorie: categorie === ALL ? undefined : (categorie as OwnerUeCategorie),
     }),
@@ -145,16 +150,6 @@ export default function OwnerReferentielPage() {
   );
 
   const { data, isLoading, error } = useOwnerReferentiel(params);
-
-  // Les cycles ne sont pas exposés tels quels par le référentiel de filtres :
-  // on les dérive des filières, qui portent leur libellé de cycle.
-  const cycleOptions = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const f of filters?.filieres ?? []) {
-      if (f.cycleName && !seen.has(f.cycleName)) seen.set(f.cycleName, f.cycleName);
-    }
-    return [...seen.keys()].sort();
-  }, [filters]);
 
   const grouped = useMemo(() => {
     if (!data) return [];
@@ -204,31 +199,8 @@ export default function OwnerReferentielPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Filtres</CardTitle>
         </CardHeader>
+        {/* Cycle et filières sont portés par la barre de filtre globale. */}
         <CardContent className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label>Cycle</Label>
-            <Select value={cycleId} onValueChange={setCycleId} disabled={cycleOptions.length === 0}>
-              <SelectTrigger>
-                <SelectValue placeholder="Tous" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Tous</SelectItem>
-                {cycleOptions.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Filières</Label>
-            <FiliereFilter
-              filieres={filters?.filieres ?? []}
-              value={filiereIds}
-              onChange={setFiliereIds}
-            />
-          </div>
           <div className="space-y-2">
             <Label>Catégorie d&apos;UE</Label>
             <Select value={categorie} onValueChange={setCategorie}>
