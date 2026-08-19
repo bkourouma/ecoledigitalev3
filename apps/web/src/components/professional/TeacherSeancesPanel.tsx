@@ -15,7 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@ecoledigitale/ui";
-import { Loader2, Plus, Trash2, CheckCircle2 } from "lucide-react";
+import {
+  Loader2,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+} from "lucide-react";
 import {
   useTeacherSessionEcue,
   useTeacherSessionSeances,
@@ -30,6 +38,8 @@ import {
  * Création de séances par ECUE (libellé auto-incrémenté « Séance N ») + appel de
  * présence par séance. Réutilisé dans le détail d'une matière et la page Présences.
  */
+
+const PAGE_SIZES = [10, 20, 50];
 
 const ATTENDANCE = ["present", "absent", "retard", "excuse"];
 const ATTENDANCE_LABEL: Record<string, string> = {
@@ -54,6 +64,8 @@ export function TeacherSeancesPanel({ sessionId }: { sessionId: string }) {
   const ecues: any[] = (ecueQuery.data as any[]) ?? [];
 
   const [selectedSeance, setSelectedSeance] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   // Indique si l'utilisateur a saisi un libellé manuel (sinon on auto-incrémente).
   const [libelleTouched, setLibelleTouched] = useState(false);
@@ -72,6 +84,31 @@ export function TeacherSeancesPanel({ sessionId }: { sessionId: string }) {
       : seances.length;
     return `Séance ${n + 1}`;
   }, [seances, form.ecue_id]);
+
+  // Pagination des séances déjà planifiées.
+  const totalPages = Math.max(1, Math.ceil(seances.length / pageSize));
+  // Borne la page courante : une suppression peut la rendre caduque.
+  const currentPage = Math.min(page, totalPages);
+  const firstIndex = (currentPage - 1) * pageSize;
+  const pagedSeances = useMemo(
+    () => seances.slice(firstIndex, firstIndex + pageSize),
+    [seances, firstIndex, pageSize]
+  );
+
+  // Contexte affiché en tête du popup d'appel.
+  const seanceSubtitle = useMemo(() => {
+    const s = seances.find((x) => x.id === selectedSeance);
+    if (!s) return undefined;
+    const heure = s.heure_debut ? ` · ${String(s.heure_debut).slice(0, 5)}` : "";
+    return `${s.libelle ?? s.ecue_libelle} — ${s.ecue_code} ${s.ecue_libelle} · ${fmtDate(
+      s.date
+    )}${heure}`;
+  }, [seances, selectedSeance]);
+
+  function changePageSize(value: string) {
+    setPageSize(Number(value));
+    setPage(1);
+  }
 
   // Tant que l'utilisateur n'a pas édité le champ, on le garde synchronisé.
   useEffect(() => {
@@ -94,6 +131,7 @@ export function TeacherSeancesPanel({ sessionId }: { sessionId: string }) {
       });
       setForm({ ecue_id: "", date: "", heure_debut: "", heure_fin: "", libelle: "" });
       setLibelleTouched(false); // réactive l'auto-incrément pour la séance suivante
+      setPage(1); // la nouvelle séance arrive en tête : on la rend visible
       seancesQuery.refetch();
     } catch (err: any) {
       setError(err?.message ?? "Erreur lors de la création de la séance.");
@@ -137,55 +175,6 @@ export function TeacherSeancesPanel({ sessionId }: { sessionId: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {seances.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Aucune séance planifiée. Ajoutez-en une ci-dessous.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left text-muted-foreground border-b">
-                  <tr>
-                    <th className="py-2 pr-3">Date</th>
-                    <th className="py-2 pr-3">Horaire</th>
-                    <th className="py-2 pr-3">ECUE</th>
-                    <th className="py-2 pr-3">Libellé</th>
-                    <th className="py-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {seances.map((s) => (
-                    <tr key={s.id} className="border-b last:border-0">
-                      <td className="py-2 pr-3">{fmtDate(s.date)}</td>
-                      <td className="py-2 pr-3">
-                        {s.heure_debut ? `${s.heure_debut}${s.heure_fin ? `–${s.heure_fin}` : ""}` : "—"}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <span className="font-mono text-xs">{s.ecue_code}</span> {s.ecue_libelle}
-                      </td>
-                      <td className="py-2 pr-3">{s.libelle ?? "—"}</td>
-                      <td className="py-2 text-right space-x-2 whitespace-nowrap">
-                        <Button variant="outline" size="sm" onClick={() => setSelectedSeance(s.id)}>
-                          Appel
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-600"
-                          disabled={deleteMut.isPending}
-                          onClick={() => remove(s.id)}
-                          title="Supprimer la séance"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
           {/* Formulaire de création de séance */}
           {ecues.length === 0 ? (
             <p className="text-xs text-muted-foreground">
@@ -260,11 +249,143 @@ export function TeacherSeancesPanel({ sessionId }: { sessionId: string }) {
               </div>
             </form>
           )}
+
+          <div className="pt-1 text-sm font-medium">Séances déjà planifiées</div>
+          {seances.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Aucune séance planifiée. Ajoutez-en une ci-dessus.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-muted-foreground border-b">
+                  <tr>
+                    <th className="py-2 pr-3">Date</th>
+                    <th className="py-2 pr-3">Horaire</th>
+                    <th className="py-2 pr-3">ECUE</th>
+                    <th className="py-2 pr-3">Libellé</th>
+                    <th className="py-2 pr-3">Appel</th>
+                    <th className="py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedSeances.map((s) => (
+                    <tr key={s.id} className="border-b last:border-0">
+                      <td className="py-2 pr-3">{fmtDate(s.date)}</td>
+                      <td className="py-2 pr-3">
+                        {s.heure_debut ? `${s.heure_debut}${s.heure_fin ? `–${s.heure_fin}` : ""}` : "—"}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span className="font-mono text-xs">{s.ecue_code}</span> {s.ecue_libelle}
+                      </td>
+                      <td className="py-2 pr-3">{s.libelle ?? "—"}</td>
+                      <td className="py-2 pr-3 whitespace-nowrap">
+                        {s.nb_marques > 0 ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Effectué
+                            <span className="font-normal">
+                              ({s.nb_present ?? 0}P · {s.nb_absent ?? 0}A)
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            À faire
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 text-right space-x-2 whitespace-nowrap">
+                        <Button variant="outline" size="sm" onClick={() => setSelectedSeance(s.id)}>
+                          {s.nb_marques > 0 ? (
+                            <>
+                              <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                              Modifier
+                            </>
+                          ) : (
+                            "Faire l'appel"
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600"
+                          disabled={deleteMut.isPending}
+                          onClick={() => remove(s.id)}
+                          title="Supprimer la séance"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {seances.length > 0 && (
+            <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Lignes par page</span>
+                <Select value={String(pageSize)} onValueChange={changePageSize}>
+                  <SelectTrigger className="h-8 w-[4.5rem]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZES.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span>
+                  {firstIndex + 1}–{firstIndex + pagedSeances.length} sur {seances.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage(currentPage - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Précédent
+                </Button>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  Page {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage(currentPage + 1)}
+                >
+                  Suivant
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {selectedSeance && (
-        <SeanceAttendanceSheet seanceId={selectedSeance} onClose={() => setSelectedSeance(null)} />
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4"
+          onClick={() => setSelectedSeance(null)}
+        >
+          <div className="my-8 w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <SeanceAttendanceSheet
+              seanceId={selectedSeance}
+              subtitle={seanceSubtitle}
+              onClose={() => setSelectedSeance(null)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

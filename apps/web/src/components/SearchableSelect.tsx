@@ -18,11 +18,22 @@ interface SearchableSelectProps {
   className?: string;
   /** Placeholder of the inner search field. */
   searchPlaceholder?: string;
+  disabled?: boolean;
 }
+
+/** Hauteur maximale de la liste déroulante, et minimum en dessous duquel on ne descend pas. */
+const LIST_MAX_HEIGHT = 264;
+const LIST_MIN_HEIGHT = 160;
+/** Champ de recherche + bordures, à déduire de la place disponible. */
+const SEARCH_BAR_HEIGHT = 46;
 
 /**
  * Select recherchable (combobox) — bouton + panneau avec champ de recherche et
  * liste filtrée. Autonome (sans dépendance combobox), même style que le Select.
+ *
+ * Le panneau s'ouvre toujours **vers le bas** : plutôt que de basculer au-dessus
+ * du bouton quand la place manque, on borne la hauteur de la liste à l'espace
+ * disponible puis on fait défiler le minimum pour amener le panneau à l'écran.
  */
 export function SearchableSelect({
   value,
@@ -32,11 +43,14 @@ export function SearchableSelect({
   icon,
   className,
   searchPlaceholder = "Rechercher…",
+  disabled = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [maxListHeight, setMaxListHeight] = useState(LIST_MAX_HEIGHT);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find((o) => o.value === value);
   const q = query.trim().toLowerCase();
@@ -63,12 +77,35 @@ export function SearchableSelect({
     }
   }, [open]);
 
+  // Amène le panneau à l'écran (défilement minimal du conteneur le plus proche).
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => panelRef.current?.scrollIntoView({ block: "nearest" }), 0);
+    return () => clearTimeout(t);
+  }, [open]);
+
+  function toggle() {
+    if (disabled) return;
+    setOpen((o) => {
+      if (!o && containerRef.current) {
+        // Borne la liste à la place restante sous le bouton (marge de 8px).
+        const rect = containerRef.current.getBoundingClientRect();
+        const below = window.innerHeight - rect.bottom - 8;
+        setMaxListHeight(
+          Math.max(LIST_MIN_HEIGHT, Math.min(LIST_MAX_HEIGHT, below - SEARCH_BAR_HEIGHT))
+        );
+      }
+      return !o;
+    });
+  }
+
   return (
     <div ref={containerRef} className={cn("relative", className)}>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex h-11 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        onClick={toggle}
+        disabled={disabled}
+        className="flex h-11 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span className="flex min-w-0 items-center gap-2">
           {icon}
@@ -80,7 +117,10 @@ export function SearchableSelect({
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
+        <div
+          ref={panelRef}
+          className="absolute top-full z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md"
+        >
           <div className="flex items-center gap-2 border-b px-2">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
             <input
@@ -103,7 +143,7 @@ export function SearchableSelect({
               }}
             />
           </div>
-          <div className="max-h-64 overflow-y-auto p-1">
+          <div className="overflow-y-auto p-1" style={{ maxHeight: maxListHeight }}>
             {filtered.length === 0 ? (
               <p className="px-2 py-2 text-sm text-muted-foreground">Aucun résultat.</p>
             ) : (

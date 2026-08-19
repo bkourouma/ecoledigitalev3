@@ -1,40 +1,43 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Card, CardContent, Button } from "@ecoledigitale/ui";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@ecoledigitale/ui";
 import {
   Loader2,
   AlertCircle,
   UserCheck,
-  BookOpen,
-  Info,
   Layers,
   ListFilter,
   History,
-  Pencil,
+  Eye,
   Plus,
-  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { TeacherSeancesPanel, SeanceAttendanceSheet } from "@/components/professional/TeacherSeancesPanel";
 import { useTeacherSessions, useTeacherAttendanceHistory } from "@/lib/hooks/use-professional-teacher";
+import { isSessionActive } from "@/lib/professional-sessions";
 
 /**
  * Présences — Espace enseignant (Module Professionnel).
  * Par défaut : historique de toutes les présences effectuées (filtrable par
- * filière et statut de session). Un bouton « Nouvelle présence » ouvre un popup
- * pour planifier ses séances et faire l'appel.
+ * filière et statut de session). Le bouton « Nouvelle présence » mène à la page
+ * dédiée pour choisir une session, planifier ses séances et faire l'appel.
  */
 
-const STATUT_LABEL: Record<string, string> = {
-  ouvert: "Ouverte",
-  en_cours: "En cours",
-  termine: "Terminée",
-  complet: "Complète",
-  annule: "Annulée",
-  brouillon: "Brouillon",
-};
 const EN_COURS = ["ouvert", "en_cours", "complet", "brouillon"];
+
+const PAGE_SIZES = [10, 20, 50];
 
 const STATUT_FILTER = [
   { value: "all", label: "Toutes" },
@@ -54,36 +57,31 @@ function statutMatch(sessionStatut: string, filter: string): boolean {
   return EN_COURS.includes(sessionStatut);
 }
 
-function sessionLabel(s: any): string {
-  const base = String(s.libelle ?? s.session_libelle ?? "");
-  return s.ue_code && s.ue_libelle && base.includes(s.ue_code)
-    ? base.replace(s.ue_code, s.ue_libelle)
-    : s.ue_libelle
-    ? `${base} — ${s.ue_libelle}`
-    : base;
-}
-
 export default function TeacherAttendancePage() {
+  const router = useRouter();
   const sessionsQuery = useTeacherSessions();
   const historyQuery = useTeacherAttendanceHistory();
   const [filiere, setFiliere] = useState("all");
   const [statut, setStatut] = useState("all");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalSessionId, setModalSessionId] = useState("");
-  const [manageSeance, setManageSeance] = useState<any | null>(null);
+  const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
+  const [page, setPage] = useState(1);
 
   const sessions: any[] = (sessionsQuery.data as any[]) ?? [];
   const history: any[] = (historyQuery.data as any[]) ?? [];
 
+  // L'appel ne se fait que sur des sessions encore actives.
+  const activeSessions = useMemo(() => sessions.filter(isSessionActive), [sessions]);
+
+  // Seules les filières ayant encore une session active sont proposées au filtre.
   const filiereOptions = useMemo(() => {
     const map = new Map<string, string>();
-    for (const s of [...sessions, ...history]) {
+    for (const s of activeSessions) {
       if (s.filiere_id) map.set(s.filiere_id, `${s.filiere_nom ?? s.filiere_code} (${s.filiere_code})`);
     }
     return Array.from(map, ([value, label]) => ({ value, label })).sort((a, b) =>
       a.label.localeCompare(b.label, "fr")
     );
-  }, [sessions, history]);
+  }, [activeSessions]);
 
   const filteredHistory = useMemo(
     () =>
@@ -94,14 +92,30 @@ export default function TeacherAttendancePage() {
     [history, filiere, statut]
   );
 
-  const modalSelected = useMemo(
-    () => sessions.find((s) => s.id === modalSessionId) ?? null,
-    [sessions, modalSessionId]
+  // Pagination client : l'historique est déjà chargé en entier.
+  const totalPages = Math.max(1, Math.ceil(filteredHistory.length / pageSize));
+  // Borne la page courante : un filtre plus restrictif peut la rendre caduque.
+  const currentPage = Math.min(page, totalPages);
+  const firstIndex = (currentPage - 1) * pageSize;
+  const pagedHistory = useMemo(
+    () => filteredHistory.slice(firstIndex, firstIndex + pageSize),
+    [filteredHistory, firstIndex, pageSize]
   );
 
-  function openModal(sessionId = "") {
-    setModalSessionId(sessionId);
-    setModalOpen(true);
+  // Tout changement de filtre ou de taille de page ramène en tête de liste.
+  function changeFiliere(value: string) {
+    setFiliere(value);
+    setPage(1);
+  }
+
+  function changeStatut(value: string) {
+    setStatut(value);
+    setPage(1);
+  }
+
+  function changePageSize(value: string) {
+    setPageSize(Number(value));
+    setPage(1);
   }
 
   const isLoading = sessionsQuery.isLoading || historyQuery.isLoading;
@@ -141,8 +155,8 @@ export default function TeacherAttendancePage() {
           </p>
         </div>
         <Button
-          onClick={() => openModal("")}
-          disabled={sessions.length === 0}
+          onClick={() => router.push("/teacher/attendance/new")}
+          disabled={activeSessions.length === 0}
           className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -158,7 +172,7 @@ export default function TeacherAttendancePage() {
             <div className="mt-1.5">
               <SearchableSelect
                 value={filiere}
-                onChange={setFiliere}
+                onChange={changeFiliere}
                 icon={<Layers className="h-4 w-4 text-gray-400" />}
                 placeholder="Toutes les filières"
                 searchPlaceholder="Rechercher une filière…"
@@ -171,7 +185,7 @@ export default function TeacherAttendancePage() {
             <div className="mt-1.5">
               <SearchableSelect
                 value={statut}
-                onChange={setStatut}
+                onChange={changeStatut}
                 icon={<ListFilter className="h-4 w-4 text-gray-400" />}
                 placeholder="Toutes"
                 options={STATUT_FILTER}
@@ -208,9 +222,8 @@ export default function TeacherAttendancePage() {
                 <thead>
                   <tr className="text-left text-muted-foreground border-b border-border bg-muted/20">
                     <th className="px-4 py-2.5 font-medium">Date</th>
-                    <th className="px-4 py-2.5 font-medium">Séance / ECUE</th>
-                    <th className="px-4 py-2.5 font-medium">UE (Session)</th>
-                    <th className="px-4 py-2.5 font-medium">Filière</th>
+                    <th className="px-4 py-2.5 font-medium">Séance</th>
+                    <th className="px-4 py-2.5 font-medium">ECUE</th>
                     <th className="px-3 py-2.5 font-medium text-center">Prés.</th>
                     <th className="px-3 py-2.5 font-medium text-center">Abs.</th>
                     <th className="px-3 py-2.5 font-medium text-center">Ret.</th>
@@ -219,25 +232,16 @@ export default function TeacherAttendancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredHistory.map((h) => (
+                  {pagedHistory.map((h) => (
                     <tr key={h.seance_id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
                       <td className="px-4 py-2.5 whitespace-nowrap">
                         {fmtDate(h.date)}
                         {h.heure_debut ? ` · ${String(h.heure_debut).slice(0, 5)}` : ""}
                       </td>
-                      <td className="px-4 py-2.5">
-                        <div className="font-medium">{h.seance_libelle || h.ecue_libelle}</div>
-                        <div className="text-xs text-muted-foreground">
-                          <span className="font-mono">{h.ecue_code}</span> {h.ecue_libelle}
-                        </div>
+                      <td className="px-4 py-2.5 font-medium">
+                        {h.seance_libelle || h.ecue_libelle}
                       </td>
-                      <td className="px-4 py-2.5">
-                        <div>{h.ue_libelle}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {STATUT_LABEL[h.session_statut] ?? h.session_statut}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-xs">{h.filiere_code}</td>
+                      <td className="px-4 py-2.5">{h.ecue_libelle}</td>
                       {h.nb_marques > 0 ? (
                         <>
                           <td className="px-3 py-2.5 text-center font-semibold text-green-700">{h.nb_present}</td>
@@ -257,10 +261,10 @@ export default function TeacherAttendancePage() {
                           variant="outline"
                           size="sm"
                           className="h-8"
-                          onClick={() => setManageSeance(h)}
+                          onClick={() => router.push(`/teacher/attendance/${h.seance_id}`)}
                         >
-                          <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                          {h.nb_marques > 0 ? "Gérer" : "Faire l'appel"}
+                          <Eye className="h-3.5 w-3.5 mr-1.5" />
+                          Détails
                         </Button>
                       </td>
                     </tr>
@@ -269,90 +273,55 @@ export default function TeacherAttendancePage() {
               </table>
             </div>
           )}
+          {filteredHistory.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Lignes par page</span>
+                <Select value={String(pageSize)} onValueChange={changePageSize}>
+                  <SelectTrigger className="h-8 w-[4.5rem]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZES.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span>
+                  {firstIndex + 1}–{firstIndex + pagedHistory.length} sur {filteredHistory.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage(currentPage - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Précédent
+                </Button>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  Page {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage(currentPage + 1)}
+                >
+                  Suivant
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
-
-      {/* Popup : saisie des présences */}
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/50 overflow-y-auto"
-          onClick={() => setModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-4xl my-8 rounded-xl bg-background shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-border px-5 py-3 sticky top-0 bg-background rounded-t-xl">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <UserCheck className="h-5 w-5 text-indigo-500" />
-                Faire l'appel
-              </h2>
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-5 space-y-5">
-              <div>
-                <label className="text-sm font-medium">Session</label>
-                <div className="mt-1.5">
-                  <SearchableSelect
-                    value={modalSessionId}
-                    onChange={setModalSessionId}
-                    icon={<BookOpen className="h-4 w-4 text-gray-400" />}
-                    placeholder="Sélectionner une session"
-                    searchPlaceholder="Rechercher…"
-                    options={sessions.map((s) => ({ value: s.id, label: sessionLabel(s) }))}
-                  />
-                </div>
-              </div>
-
-              {modalSelected ? (
-                <>
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <Info className="h-4 w-4" />
-                    <span className="font-medium text-foreground">
-                      {modalSelected.ue_code} — {modalSelected.ue_libelle}
-                    </span>
-                    <span>· {modalSelected.filiere_code}</span>
-                    <span>· {STATUT_LABEL[modalSelected.statut] ?? modalSelected.statut}</span>
-                    <span>
-                      · {modalSelected.nb_inscrits ?? 0} inscrit
-                      {(modalSelected.nb_inscrits ?? 0) > 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <TeacherSeancesPanel sessionId={modalSelected.id} />
-                </>
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  Choisissez une session pour planifier ses séances et faire l'appel.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Popup : feuille de présence d'une séance (Gérer) */}
-      {manageSeance && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/50 overflow-y-auto"
-          onClick={() => setManageSeance(null)}
-        >
-          <div className="w-full max-w-lg my-8" onClick={(e) => e.stopPropagation()}>
-            <SeanceAttendanceSheet
-              seanceId={manageSeance.seance_id}
-              subtitle={`${manageSeance.ecue_code} ${manageSeance.ecue_libelle} · ${fmtDate(
-                manageSeance.date
-              )}${manageSeance.ue_libelle ? ` · ${manageSeance.ue_libelle}` : ""}`}
-              onClose={() => setManageSeance(null)}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

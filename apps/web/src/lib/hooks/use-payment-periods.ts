@@ -19,8 +19,11 @@ export interface PaymentPeriod {
 export interface CreatePaymentPeriod {
   name: string;
   description?: string;
-  periodStart: string; // ISO date string (YYYY-MM-DD)
-  periodEnd: string; // ISO date string (YYYY-MM-DD)
+  /** Facultatif : à défaut, le serveur retient le mois en cours. */
+  periodStart?: string; // ISO date string (YYYY-MM-DD)
+  periodEnd?: string; // ISO date string (YYYY-MM-DD)
+  /** Absent = période collective (tous les enseignants). */
+  teacherId?: string;
 }
 
 interface UsePaymentPeriodsOptions {

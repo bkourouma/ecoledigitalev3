@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
+import { basculerSeanceRealisee } from "./professional-seance-constat";
 
 /**
  * Service enseignant — Module Professionnel (feature 030).
@@ -242,6 +243,9 @@ export class ProfessionalTeacherService extends ProfessionalBaseService {
                 et.ecue_id, e.code AS ecue_code, e.libelle AS ecue_libelle,
                 ue.code AS ue_code, ue.libelle AS ue_libelle,
                 p.name AS filiere_nom, p.code AS filiere_code,
+                s.statut AS session_statut,
+                (s.statut NOT IN ('termine', 'annule') AND s.date_fin >= CURRENT_DATE)
+                  AS session_active,
                 et.classroom_id, c.name AS classroom_name, c.code AS classroom_code
          FROM professional_emploi_temps et
          JOIN professional_ue_sessions s ON s.id = et.ue_session_id AND s.tenant_id = et.tenant_id
@@ -254,6 +258,52 @@ export class ProfessionalTeacherService extends ProfessionalBaseService {
         [tenantId, teacherId]
       );
       return ok(res.rows);
+    });
+  }
+
+  /**
+   * Détail d'une séance animée par l'enseignant : même contexte que
+   * l'historique des présences (ECUE, UE, session, filière) mais pour une seule
+   * séance, avec le décompte des statuts de présence déjà saisis.
+   */
+  async getSeanceDetail(
+    tenantId: string,
+    userId: string,
+    seanceId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const teacherId = await this.getTeacherId(client, tenantId, userId);
+      if (!teacherId) return fail("NOT_FOUND", "Profil enseignant introuvable.");
+      if (!(await this.teacherOwnsSeance(client, teacherId, seanceId))) {
+        return fail("FORBIDDEN", "Cette séance ne vous est pas affectée.");
+      }
+      const res = await client.query(
+        `SELECT se.id AS seance_id, se.libelle AS seance_libelle,
+                se.date::text AS date, se.heure_debut::text AS heure_debut,
+                se.heure_fin::text AS heure_fin,
+                se.ecue_id, e.code AS ecue_code, e.libelle AS ecue_libelle,
+                se.ue_session_id, s.libelle AS session_libelle, s.statut AS session_statut,
+                ue.code AS ue_code, ue.libelle AS ue_libelle,
+                ue.filiere_id, p.name AS filiere_nom, p.code AS filiere_code,
+                count(a.*) FILTER (WHERE a.statut='present')::int AS nb_present,
+                count(a.*) FILTER (WHERE a.statut='absent')::int  AS nb_absent,
+                count(a.*) FILTER (WHERE a.statut='retard')::int  AS nb_retard,
+                count(a.*) FILTER (WHERE a.statut='excuse')::int  AS nb_excuse,
+                count(a.*)::int AS nb_marques
+         FROM professional_ecue_seances se
+         JOIN professional_ecue e ON e.id = se.ecue_id
+         JOIN professional_ue_sessions s ON s.id = se.ue_session_id
+         JOIN professional_ue ue ON ue.id = s.ue_id
+         JOIN programmes p ON p.id = ue.filiere_id
+         LEFT JOIN professional_ecue_attendance a ON a.seance_id = se.id
+         WHERE se.id = $1 AND se.tenant_id = $2
+         GROUP BY se.id, se.libelle, se.date, se.heure_debut, se.heure_fin,
+                  se.ecue_id, e.code, e.libelle, se.ue_session_id, s.libelle, s.statut,
+                  ue.code, ue.libelle, ue.filiere_id, p.name, p.code`,
+        [seanceId, tenantId]
+      );
+      if (res.rowCount === 0) return fail("SEANCE_NOT_FOUND", "Séance introuvable.");
+      return ok(res.rows[0]);
     });
   }
 
@@ -303,14 +353,23 @@ export class ProfessionalTeacherService extends ProfessionalBaseService {
       const res = await client.query(
         `SELECT se.id, se.ecue_id, se.ue_session_id, se.libelle,
                 se.date::text AS date, se.heure_debut::text AS heure_debut,
-                se.heure_fin::text AS heure_fin,
-                e.code AS ecue_code, e.libelle AS ecue_libelle
+                se.heure_fin::text AS heure_fin, se.created_at::text AS created_at,
+                e.code AS ecue_code, e.libelle AS ecue_libelle,
+                count(att.*) FILTER (WHERE att.statut='present')::int AS nb_present,
+                count(att.*) FILTER (WHERE att.statut='absent')::int  AS nb_absent,
+                count(att.*) FILTER (WHERE att.statut='retard')::int  AS nb_retard,
+                count(att.*) FILTER (WHERE att.statut='excuse')::int  AS nb_excuse,
+                count(att.*)::int AS nb_marques
          FROM professional_ecue_seances se
          JOIN professional_ecue e ON e.id = se.ecue_id
          JOIN professional_session_ecue_teachers a
            ON a.ue_session_id = se.ue_session_id AND a.ecue_id = se.ecue_id
+         LEFT JOIN professional_ecue_attendance att ON att.seance_id = se.id
          WHERE se.ue_session_id=$1 AND a.enseignant_id=$2
-         ORDER BY se.date, se.heure_debut NULLS FIRST`,
+         GROUP BY se.id, se.ecue_id, se.ue_session_id, se.libelle, se.date,
+                  se.heure_debut, se.heure_fin, se.created_at, e.code, e.libelle
+         -- Tri par date décroissante : la séance la plus récente en tête.
+         ORDER BY se.date DESC, se.heure_debut DESC NULLS LAST, se.created_at DESC`,
         [ueSessionId, teacherId]
       );
       return ok(res.rows);
@@ -481,7 +540,20 @@ export class ProfessionalTeacherService extends ProfessionalBaseService {
           [tenantId, seanceId, record.student_id, record.statut, userId]
         );
       }
-      return ok({ updated: records.length });
+
+      /**
+       * L'appel vaut constat de réalisation — exactement comme depuis l'écran
+       * d'administration. Ce chemin ne le faisait pas : la séance gardait le
+       * statut « planifiée » malgré ses pointages, et l'écran de validation des
+       * séances la refusait au motif « Non marquée réalisée ». L'enseignant
+       * avait constaté, il fallait le reconstater à sa place.
+       *
+       * La règle est importée, pas recopiée : deux chemins pour le même geste
+       * ne doivent pas pouvoir diverger à nouveau.
+       */
+      const statutBascule = await basculerSeanceRealisee(client, tenantId, seanceId, userId);
+
+      return ok({ updated: records.length, statut_bascule: statutBascule });
     });
   }
 }

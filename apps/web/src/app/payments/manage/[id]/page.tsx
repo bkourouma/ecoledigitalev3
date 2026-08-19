@@ -38,6 +38,25 @@ interface Payment {
   calculated_at: string;
   approved_at?: string;
   paid_at?: string;
+  hour_details: HourDetail[];
+}
+
+/**
+ * Ligne de justification d'un montant (feature 031). `source` dit de quel
+ * module vient l'heure ; `hourlyRate` et `hoursCount` sont ceux figés au
+ * calcul — une révision de tarif ne les modifie pas.
+ */
+interface HourDetail {
+  id: string;
+  source: 'academique' | 'professionnel';
+  sessionDate: string | null;
+  intitule: string | null;
+  code: string | null;
+  cohorteLibelle: string | null;
+  hoursCount: number;
+  hourlyRate: number;
+  amount: number;
+  isOvertime: boolean;
 }
 
 const statusConfig = {
@@ -74,6 +93,20 @@ async function fetchPayment(id: string): Promise<Payment> {
     calculated_at: payment.calculatedAt || payment.calculated_at || '',
     approved_at: payment.approvedAt || payment.approved_at,
     paid_at: payment.paidAt || payment.paid_at,
+    hour_details: Array.isArray(payment.hourDetails)
+      ? payment.hourDetails.map((d: any) => ({
+          id: d.id,
+          source: d.source ?? 'academique',
+          sessionDate: d.sessionDate ?? null,
+          intitule: d.intitule ?? d.courseTitle ?? null,
+          code: d.code ?? null,
+          cohorteLibelle: d.cohorteLibelle ?? null,
+          hoursCount: Number(d.hoursCount ?? 0),
+          hourlyRate: Number(d.hourlyRate ?? 0),
+          amount: Number(d.amount ?? 0),
+          isOvertime: Boolean(d.isOvertime),
+        }))
+      : [],
   };
 }
 
@@ -292,6 +325,77 @@ export default function PaymentDetailsPage() {
           </CardContent>
         </Card>
 
+        {/* Détail horaire — feature 031. C'est ce qui rend un montant opposable :
+            chaque ligne renvoie à une séance identifiable, avec son origine. */}
+        {payment.hour_details.length > 0 && (
+          <Card className="shadow-lg lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                <span>Détail des heures</span>
+              </CardTitle>
+              <CardDescription>
+                Chaque ligne justifie une part du montant. Le tarif affiché est celui appliqué au
+                moment du calcul.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-600">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Date</th>
+                      <th className="px-3 py-2 text-left font-medium">Origine</th>
+                      <th className="px-3 py-2 text-left font-medium">Intitulé</th>
+                      <th className="px-3 py-2 text-left font-medium">Cohorte</th>
+                      <th className="px-3 py-2 text-right font-medium">Heures</th>
+                      <th className="px-3 py-2 text-right font-medium">Tarif</th>
+                      <th className="px-3 py-2 text-right font-medium">Montant</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {payment.hour_details.map((d) => (
+                      <tr key={d.id} className={d.isOvertime ? 'bg-amber-50/50' : undefined}>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {d.sessionDate
+                            ? new Date(d.sessionDate).toLocaleDateString('fr-FR')
+                            : '—'}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
+                              d.source === 'professionnel'
+                                ? 'bg-indigo-100 text-indigo-800'
+                                : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {d.source === 'professionnel' ? 'Professionnel' : 'Académique'}
+                          </span>
+                          {d.isOvertime && (
+                            <span className="ml-1 text-xs text-amber-700">h. sup</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {d.code && <span className="font-mono text-xs text-gray-500">{d.code} </span>}
+                          {d.intitule ?? '—'}
+                        </td>
+                        <td className="px-3 py-2 text-gray-600">{d.cohorteLibelle ?? '—'}</td>
+                        <td className="px-3 py-2 text-right font-mono">{d.hoursCount.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {formatCurrency(String(d.hourlyRate), payment.currency)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono font-medium">
+                          {formatCurrency(String(d.amount), payment.currency)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Status and Dates */}
         <Card className="shadow-lg">
           <CardHeader>
@@ -335,7 +439,16 @@ export default function PaymentDetailsPage() {
         {/* Action Buttons */}
         <Card className="shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex gap-3 justify-end">
+            <div className="flex flex-wrap gap-3 justify-end">
+              {/* Bulletin officiel — charte des attestations, rendu par l'API.
+                  Nouvel onglet : la visionneuse PDF remplacerait la page. */}
+              <Button
+                onClick={() => window.open(`/api/teacher-payments/${payment.id}/pdf`, "_blank")}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Bulletin de paie (PDF)
+              </Button>
               <Button
                 variant="outline"
                 onClick={async () => {

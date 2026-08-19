@@ -44,7 +44,7 @@ export default function TeacherEcuePage() {
   const router = useRouter();
   const { data, isLoading, isError, error } = useTeacherEcue();
   const [search, setSearch] = useState("");
-  const [statut, setStatut] = useState("all");
+  const [statut, setStatut] = useState("en_cours");
 
   const ecues: TeacherEcue[] = data ?? [];
 
@@ -68,7 +68,7 @@ export default function TeacherEcuePage() {
         } ${e.session_libelle ?? ""}`
           .toLowerCase()
           .includes(q);
-      const matchStatut = statut === "all" || e.statut === statut;
+      const matchStatut = e.statut === statut;
       return matchSearch && matchStatut;
     });
   }, [ecues, search, statut]);
@@ -132,8 +132,6 @@ export default function TeacherEcuePage() {
                 <SelectValue placeholder="Statut" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="ouvert">Ouverte</SelectItem>
                 <SelectItem value="en_cours">En cours</SelectItem>
                 <SelectItem value="termine">Terminée</SelectItem>
               </SelectContent>
@@ -166,7 +164,7 @@ export default function TeacherEcuePage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((e) => {
             return (
               <Card

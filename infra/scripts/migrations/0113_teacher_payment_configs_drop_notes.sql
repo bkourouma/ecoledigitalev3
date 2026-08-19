@@ -1,0 +1,28 @@
+-- =========================================================================
+-- 0113 — Suppression de la colonne `notes` des configurations de paie
+-- =========================================================================
+--
+-- Le champ « Notes (optionnel) » a été retiré du formulaire de configuration
+-- (AntdTeacherPaymentConfigForm) et de la carte de l'écran
+-- /payments/teacher-configs. Plus aucun écran ne le saisit ni ne l'affiche :
+-- la colonne ne pouvait plus que se figer sur d'anciennes valeurs, sans moyen
+-- de les corriger — pire qu'une absence d'information.
+--
+-- ATTENTION : opération destructrice et non réversible par migration inverse.
+-- Le contenu de la colonne est définitivement perdu. Sauvegarder la table
+-- avant application si les notes existantes ont une valeur métier.
+--
+-- Le code applicatif correspondant a été retiré au préalable :
+--   - apps/api/src/routes/teacher-payment-configs.ts (schémas, SELECT,
+--     INSERT, UPDATE)
+--   - apps/api/src/services/payment-calculator.ts
+--   - apps/api/src/services/teacher-payroll-overview.service.ts
+--   - packages/contracts/src/payments.ts (TeacherPaymentConfigSchema,
+--     CreateTeacherPaymentConfigSchema)
+--
+-- N'affecte PAS les autres colonnes `notes` du domaine paie, qui restent en
+-- service : professional_ecue_rates.notes, course_hourly_rates.notes,
+-- teacher_payments.notes.
+-- =========================================================================
+
+ALTER TABLE teacher_payment_configs DROP COLUMN IF EXISTS notes;

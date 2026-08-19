@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { User } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -11,7 +13,6 @@ import {
   FormLabel,
   FormMessage,
   Input,
-  Textarea,
   Select,
   SelectContent,
   SelectItem,
@@ -25,6 +26,7 @@ import {
   PaymentConfigType,
 } from "@ecoledigitale/contracts";
 import { useAllTeachers } from "@/lib/hooks/use-teachers";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import DatePickerFr from "@/components/DatePickerFr";
 
 const teacherPaymentConfigFormSchema = z.object({
@@ -39,7 +41,6 @@ const teacherPaymentConfigFormSchema = z.object({
   overtimeMultiplier: z.number().positive("Le multiplicateur doit être positif").default(1.5),
   effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format de date invalide (YYYY-MM-DD)"),
   effectiveTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format de date invalide (YYYY-MM-DD)").optional().or(z.literal("")),
-  notes: z.string().optional(),
 }).refine((data) => {
   // If configType is salary or mixed, monthlySalary or annualSalary must be provided
   if ((data.configType === "salary" || data.configType === "mixed") && !data.monthlySalary && !data.annualSalary) {
@@ -93,6 +94,15 @@ export function AntdTeacherPaymentConfigForm({
   const { data: teachersData, isLoading: isLoadingTeachers } = useAllTeachers();
   const teachers = teachersData?.data || [];
 
+  const teacherOptions = useMemo(
+    () =>
+      teachers.map((teacher) => ({
+        value: teacher.id,
+        label: `${teacher.firstName} ${teacher.lastName} (${teacher.email})`,
+      })),
+    [teachers]
+  );
+
   const form = useForm<TeacherPaymentConfigFormData>({
     resolver: zodResolver(teacherPaymentConfigFormSchema),
     defaultValues: {
@@ -113,7 +123,6 @@ export function AntdTeacherPaymentConfigForm({
             ? config.effectiveTo.substring(0, 10)
             : new Date(config.effectiveTo).toISOString().split('T')[0])
         : "",
-      notes: config?.notes || "",
     },
   });
 
@@ -141,24 +150,19 @@ export function AntdTeacherPaymentConfigForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Enseignant *</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
-                disabled={isLoadingTeachers}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez un enseignant" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {teachers.map((teacher) => (
-                    <SelectItem key={teacher.id} value={teacher.id}>
-                      {teacher.firstName} {teacher.lastName} ({teacher.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <SearchableSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={isLoadingTeachers}
+                  icon={<User className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                  placeholder={
+                    isLoadingTeachers ? "Chargement des enseignants…" : "Sélectionnez un enseignant"
+                  }
+                  searchPlaceholder="Rechercher un enseignant…"
+                  options={teacherOptions}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -339,24 +343,6 @@ export function AntdTeacherPaymentConfigForm({
             )}
           />
         </div>
-
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Notes (optionnel)</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Notes sur cette configuration..."
-                  className="min-h-[80px]"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         <div className="flex gap-3 pt-4">
           <button

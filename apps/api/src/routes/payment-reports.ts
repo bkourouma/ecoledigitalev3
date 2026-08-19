@@ -20,6 +20,10 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
           toDate: { type: "string", format: "date" },
           groupBy: { type: "string", enum: ["teacher", "course", "period", "month"], default: "teacher" },
           includeDetails: { type: "boolean", default: false },
+          // Filtre d'origine (feature 031). S'applique au DÉTAIL horaire : un
+          // paiement mixte apparaît dans les deux filtres, avec des montants
+          // partiels.
+          source: { type: "string", enum: ["all", "academique", "professionnel"], default: "all" },
         },
       },
       response: {
@@ -38,6 +42,20 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
                     pendingPayments: { type: "number" },
                     byStatus: { type: "object" },
                     byType: { type: "object" },
+                    // Ventilation par origine (feature 031). `nonVentile`
+                    // recueille ce qui n'est rattaché à aucune heure — les
+                    // salaires, qui ne dépendent pas des séances. Sans ce
+                    // troisième poste, académique + professionnel ne
+                    // retomberait pas sur le total et l'écart serait
+                    // inexplicable pour le gestionnaire.
+                    bySource: {
+                      type: "object",
+                      properties: {
+                        academique: { type: "number" },
+                        professionnel: { type: "number" },
+                        nonVentile: { type: "number" },
+                      },
+                    },
                   },
                 },
                 details: { type: "array" },
@@ -80,13 +98,28 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
         }
 
         if (query.courseId) {
+          // Repointé sur `attendance_session_id` : le calculateur n'alimente
+          // pas `teaching_hours_id`, donc l'ancienne jointure ne remontait
+          // jamais aucun paiement (écart E4).
           whereClause += ` AND EXISTS (
             SELECT 1 FROM payment_hour_details phd
-            JOIN teaching_hours th ON phd.teaching_hours_id = th.id
-            JOIN course_assignments ca ON th.assignment_id = ca.id
-            WHERE phd.payment_id = tp.id AND ca.course_id = $${paramIndex}
+            JOIN teacher_attendance_sessions tas ON tas.id = phd.attendance_session_id
+            JOIN class_courses cc ON cc.id = tas.class_course_id
+            WHERE phd.payment_id = tp.id AND cc.course_id = $${paramIndex}
           )`;
           params.push(query.courseId);
+          paramIndex++;
+        }
+
+        // Filtre d'origine : ne retient que les paiements comportant au moins
+        // une heure de cette origine. Le montant affiché reste ventilé par
+        // `bySource` — un paiement mixte apparaît dans les deux filtres.
+        if (query.source && query.source !== "all") {
+          whereClause += ` AND EXISTS (
+            SELECT 1 FROM payment_hour_details phd
+            WHERE phd.payment_id = tp.id AND phd.source = $${paramIndex}
+          )`;
+          params.push(query.source);
           paramIndex++;
         }
 
@@ -140,7 +173,31 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
           params
         );
 
+        // Ventilation par origine (feature 031). Elle se lit sur le DÉTAIL
+        // horaire, pas sur le paiement : un bulletin mixte contribue aux deux
+        // origines. Ce qui n'a aucune ligne de détail — typiquement un salaire —
+        // ne relève d'aucune origine et forme le troisième poste.
+        const bySourceResult = await client.query(
+          `SELECT
+             COALESCE(SUM(phd.amount) FILTER (WHERE phd.source = 'academique'), 0)    AS academique,
+             COALESCE(SUM(phd.amount) FILTER (WHERE phd.source = 'professionnel'), 0) AS professionnel
+           FROM payment_hour_details phd
+           WHERE phd.payment_id IN (SELECT tp.id FROM teacher_payments tp ${whereClause})`,
+          params
+        );
+
         const summary = summaryResult.rows[0];
+        const sourceRow = bySourceResult.rows[0] ?? {};
+        const academique = parseFloat(sourceRow.academique ?? 0);
+        const professionnel = parseFloat(sourceRow.professionnel ?? 0);
+        const bySource = {
+          academique,
+          professionnel,
+          // Le reste du total : ce que le détail horaire ne justifie pas.
+          // Sans ce poste, académique + professionnel ne retomberait pas sur le
+          // total et l'écart serait inexplicable.
+          nonVentile: parseFloat(summary.total_amount ?? 0) - academique - professionnel,
+        };
         const byStatus = {};
         const byType = {};
 
@@ -273,6 +330,7 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
               pendingPayments: parseInt(summary.pending_payments),
               byStatus,
               byType,
+              bySource,
             },
             details,
             period,
@@ -780,6 +838,7 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
           fromDate: { type: "string", format: "date" },
           toDate: { type: "string", format: "date" },
           includeHourDetails: { type: "boolean", default: false },
+          source: { type: "string", enum: ["all", "academique", "professionnel"], default: "all" },
         },
       },
       response: {
@@ -799,12 +858,13 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
 
       const { format } = request.params as { format: string };
       const activeAcademicYearId = request.headers["x-academic-year-id"] as string | undefined;
-      const { periodId, teacherId, fromDate, toDate, includeHourDetails } = request.query as {
+      const { periodId, teacherId, fromDate, toDate, includeHourDetails, source } = request.query as {
         periodId?: string;
         teacherId?: string;
         fromDate?: string;
         toDate?: string;
         includeHourDetails?: boolean;
+        source?: "all" | "academique" | "professionnel";
       };
 
       // This would typically use a library like csv-writer or exceljs
@@ -839,6 +899,16 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
           paramIndex++;
         }
 
+        // Filtre d'origine (feature 031) — au niveau du détail horaire.
+        if (source && source !== "all") {
+          whereClause += ` AND EXISTS (
+            SELECT 1 FROM payment_hour_details phd
+            WHERE phd.payment_id = tp.id AND phd.source = $${paramIndex}
+          )`;
+          params.push(source);
+          paramIndex++;
+        }
+
         if (activeAcademicYearId) {
           whereClause += ` AND tp.payment_period_id IN (
             SELECT id FROM payment_periods WHERE tenant_id = $1 AND academic_year_id = $${paramIndex}
@@ -848,8 +918,8 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
         }
 
         const result = await client.query(
-          `SELECT 
-            tp.id, 
+          `SELECT
+            tp.id,
             COALESCE(u.first_name || ' ' || u.last_name, t.first_name || ' ' || t.last_name, 'Enseignant') as teacher_name,
             COALESCE(u.email, t.email, '') as teacher_email,
             pp.name as period_name,
@@ -863,7 +933,13 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
             tp.status,
             tp.calculated_at,
             tp.approved_at,
-            tp.paid_at
+            tp.paid_at,
+            -- Ventilation par origine : la même colonne que l'affichage, sinon
+            -- l'export raconte une autre histoire que l'écran (FR-030).
+            COALESCE((SELECT SUM(d.amount) FROM payment_hour_details d
+                       WHERE d.payment_id = tp.id AND d.source = 'academique'), 0)    AS montant_academique,
+            COALESCE((SELECT SUM(d.amount) FROM payment_hour_details d
+                       WHERE d.payment_id = tp.id AND d.source = 'professionnel'), 0) AS montant_professionnel
           FROM teacher_payments tp
           JOIN teachers t ON tp.teacher_id = t.id
           LEFT JOIN users u ON t.user_id = u.id
@@ -877,6 +953,7 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
         const headers = [
           "Payment ID", "Teacher Name", "Teacher Email", "Period", "Payment Type",
           "Base Amount", "Overtime Amount", "Bonus Amount", "Deductions", "Total Amount",
+          "Montant Academique", "Montant Professionnel",
           "Currency", "Status", "Calculated At", "Approved At", "Paid At"
         ];
 
@@ -894,6 +971,8 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
             row.bonus_amount,
             row.deductions,
             row.total_amount,
+            row.montant_academique,
+            row.montant_professionnel,
             row.currency,
             row.status,
             row.calculated_at,
@@ -928,6 +1007,7 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
           periodId: { type: "string", format: "uuid" },
           fromDate: { type: "string", format: "date" },
           toDate: { type: "string", format: "date" },
+          source: { type: "string", enum: ["all", "academique", "professionnel"], default: "all" },
         },
       },
     },
@@ -936,7 +1016,7 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: "Tenant Required", message: "This endpoint requires tenant context" });
       }
 
-      const { page = 1, limit = 20, status, teacherId, periodId, fromDate, toDate } = request.query as any;
+      const { page = 1, limit = 20, status, teacherId, periodId, fromDate, toDate, source } = request.query as any;
       const activeAcademicYearId = request.headers["x-academic-year-id"] as string | undefined;
       const offset = (page - 1) * limit;
 
@@ -976,6 +1056,16 @@ export async function paymentReportsRoutes(fastify: FastifyInstance) {
         if (toDate) {
           whereClause += ` AND tp.calculated_at <= $${paramIndex}`;
           params.push(toDate);
+          paramIndex++;
+        }
+
+        // Filtre d'origine (feature 031) — au niveau du détail horaire.
+        if (source && source !== "all") {
+          whereClause += ` AND EXISTS (
+            SELECT 1 FROM payment_hour_details phd
+            WHERE phd.payment_id = tp.id AND phd.source = $${paramIndex}
+          )`;
+          params.push(source);
           paramIndex++;
         }
 

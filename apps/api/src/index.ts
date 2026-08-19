@@ -44,7 +44,7 @@ import { aiEvaluationsRoutes } from "./routes/ai-evaluations";
 import { paymentPeriodsRoutes } from "./routes/payment-periods";
 import simplePaymentPeriodsRoutes from "./routes/simple-payment-periods";
 import { teacherPaymentConfigsRoutes } from "./routes/teacher-payment-configs";
-import { teacherPaymentsRoutes } from "./routes/teacher-payments";
+import { teacherPaymentsRoutes, teacherPayslipRoutes } from "./routes/teacher-payments";
 import { courseHourlyRatesRoutes } from "./routes/course-hourly-rates";
 import { paymentReportsRoutes } from "./routes/payment-reports";
 import { teachingHoursRoutes } from "./routes/teaching-hours";
@@ -96,6 +96,7 @@ import { codesPromoRoutes } from "./routes/codes-promo";
 import { paiementsProRoutes } from "./routes/paiements-pro";
 import { formateurRoutes } from "./routes/formateur";
 import { professionalRoutes } from "./routes/professional";
+import { professionalRemunerationRoutes } from "./routes/professional-remuneration";
 import { documentsRoutes } from "./routes/documents";
 import { entreprisesRoutes } from "./routes/entreprises";
 import { exportsRoutes } from "./routes/exports";
@@ -240,6 +241,8 @@ async function start() {
     await fastify.register(simplePaymentPeriodsRoutes, { prefix: "/api/v1/simple-payment-periods" });
     await fastify.register(teacherPaymentConfigsRoutes, { prefix: "/api/v1/teacher-payment-configs" });
     await fastify.register(teacherPaymentsRoutes, { prefix: "/api/v1/teacher-payments" });
+    // Bulletin de paie (PDF + notification) — meme prefixe : c'est un attribut du paiement.
+    await fastify.register(teacherPayslipRoutes, { prefix: "/api/v1/teacher-payments" });
     await fastify.register(courseHourlyRatesRoutes, { prefix: "/api/v1/course-hourly-rates" });
     await fastify.register(paymentReportsRoutes, { prefix: "/api/v1/payment-reports" });
     await fastify.register(cycleFeesRoutes, { prefix: "/api/v1/cycle-fees" });
@@ -326,6 +329,13 @@ async function start() {
     // Module Professionnel (inscription à la carte) — feature 028.
     // Module DISTINCT du module "formations professionnelles" ci-dessus.
     await fastify.register(professionalRoutes, { prefix: "/api/v1/professional" });
+
+    // Rémunération des enseignants du Module Professionnel — feature 031.
+    // Séances payables + tarifs ECUE ; le calcul et le workflow de paiement
+    // restent ceux de /api/v1/teacher-payments, partagés avec l'Académique.
+    await fastify.register(professionalRemunerationRoutes, {
+      prefix: "/api/v1/professional/remuneration",
+    });
 
     // Admin routes for Phase 6 - Gestion Administrative & Documents
     await fastify.register(documentsRoutes, { prefix: "/api/v1/admin/documents" });

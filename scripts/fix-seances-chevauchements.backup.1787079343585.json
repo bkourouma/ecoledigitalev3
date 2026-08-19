@@ -1,0 +1,175 @@
+{
+  "genere_le": "2026-08-18T18:55:43.584Z",
+  "lignes": [
+    {
+      "id": "63f54d50-d4c0-4508-ac39-db67fab9a6e8",
+      "enseignant": "Koffi Assamoi",
+      "date": "2026-06-15",
+      "ecue": "L1TL-EC-ODE",
+      "avant_debut": "10:15:00",
+      "avant_fin": "12:15:00",
+      "apres_debut": "12:30:00",
+      "apres_fin": "14:30:00"
+    },
+    {
+      "id": "fd6b454e-0cd3-4613-af82-6003a534bb1c",
+      "enseignant": "Nadège Aka",
+      "date": "2026-06-15",
+      "ecue": "L1TL-EC-IMA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00",
+      "apres_debut": "10:00:00",
+      "apres_fin": "12:00:00"
+    },
+    {
+      "id": "1a85a2a1-0076-4019-9598-90c693b4fcb1",
+      "enseignant": "Koffi Assamoi",
+      "date": "2026-06-22",
+      "ecue": "L1TL-EC-ODE",
+      "avant_debut": "10:15:00",
+      "avant_fin": "12:15:00",
+      "apres_debut": "12:30:00",
+      "apres_fin": "14:30:00"
+    },
+    {
+      "id": "11fb4f8d-b95e-4f4d-99e7-9c6cf26e2dc4",
+      "enseignant": "Nadège Aka",
+      "date": "2026-06-22",
+      "ecue": "L2GL-EC-DPA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00",
+      "apres_debut": "10:00:00",
+      "apres_fin": "12:00:00"
+    },
+    {
+      "id": "d17f2a68-dabe-4d0f-8442-d31bf4fde4ac",
+      "enseignant": "Koffi Assamoi",
+      "date": "2026-06-29",
+      "ecue": "L1TL-EC-ODE",
+      "avant_debut": "10:15:00",
+      "avant_fin": "12:15:00",
+      "apres_debut": "12:30:00",
+      "apres_fin": "14:30:00"
+    },
+    {
+      "id": "75d5523b-e9f2-4ab8-b9c3-2400202e754a",
+      "enseignant": "Nadège Aka",
+      "date": "2026-06-29",
+      "ecue": "L2GL-EC-DPA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00",
+      "apres_debut": "10:00:00",
+      "apres_fin": "12:00:00"
+    },
+    {
+      "id": "1ca16f7b-6068-4bf0-a8a7-97930a90fc67",
+      "enseignant": "Koffi Assamoi",
+      "date": "2026-07-06",
+      "ecue": "L2GL-EC-SDI",
+      "avant_debut": "10:15:00",
+      "avant_fin": "12:15:00",
+      "apres_debut": "12:30:00",
+      "apres_fin": "14:30:00"
+    },
+    {
+      "id": "02962488-798d-4779-83b8-ec3737ac37ae",
+      "enseignant": "Nadège Aka",
+      "date": "2026-07-06",
+      "ecue": "L1TL-EC-IMA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00",
+      "apres_debut": "10:00:00",
+      "apres_fin": "12:00:00"
+    },
+    {
+      "id": "933a0f86-37b2-4168-9062-0dae59391ceb",
+      "enseignant": "Koffi Assamoi",
+      "date": "2026-07-13",
+      "ecue": "L1TL-EC-ODE",
+      "avant_debut": "10:15:00",
+      "avant_fin": "12:15:00",
+      "apres_debut": "12:30:00",
+      "apres_fin": "14:30:00"
+    },
+    {
+      "id": "7e3590bb-1260-4531-8a77-6caf4254e97c",
+      "enseignant": "Nadège Aka",
+      "date": "2026-07-13",
+      "ecue": "L2GL-EC-DPA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00",
+      "apres_debut": "10:00:00",
+      "apres_fin": "12:00:00"
+    },
+    {
+      "id": "e9e93659-27d0-4cec-b588-66c8b67207e6",
+      "enseignant": "Seydou Bamba",
+      "date": "2026-07-14",
+      "ecue": "L1TL-EC-MIC",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00",
+      "apres_debut": "10:00:00",
+      "apres_fin": "12:00:00"
+    },
+    {
+      "id": "909ca766-55d2-412d-b7f7-6a97e397582a",
+      "enseignant": "Nadège Aka",
+      "date": "2026-07-15",
+      "ecue": "L2GL-EC-DPA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00",
+      "apres_debut": "10:00:00",
+      "apres_fin": "12:00:00"
+    },
+    {
+      "id": "f0285c18-ad90-4307-96f5-01c6780c52b7",
+      "enseignant": "Koffi Assamoi",
+      "date": "2026-07-20",
+      "ecue": "L1TL-EC-ODE",
+      "avant_debut": "10:15:00",
+      "avant_fin": "12:15:00",
+      "apres_debut": "12:30:00",
+      "apres_fin": "14:30:00"
+    },
+    {
+      "id": "c4402cfc-3d5b-410b-8b56-42d8badf1922",
+      "enseignant": "Nadège Aka",
+      "date": "2026-07-20",
+      "ecue": "L2GL-EC-DPA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00",
+      "apres_debut": "10:00:00",
+      "apres_fin": "12:00:00"
+    },
+    {
+      "id": "ed315957-b461-44e0-a956-a446a854bf8a",
+      "enseignant": "Nadège Aka",
+      "date": "2026-07-27",
+      "ecue": "L2GL-EC-DPA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00",
+      "apres_debut": "10:00:00",
+      "apres_fin": "12:00:00"
+    },
+    {
+      "id": "316f68f4-deb8-4c8b-a31a-0c540cc8df92",
+      "enseignant": "Koffi Assamoi",
+      "date": "2026-08-03",
+      "ecue": "L1TL-EC-ODE",
+      "avant_debut": "10:15:00",
+      "avant_fin": "12:15:00",
+      "apres_debut": "12:30:00",
+      "apres_fin": "14:30:00"
+    },
+    {
+      "id": "1133fadc-9644-497a-8f8f-126a2ee84e4a",
+      "enseignant": "Nadège Aka",
+      "date": "2026-08-03",
+      "ecue": "L1TL-EC-IMA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00",
+      "apres_debut": "10:00:00",
+      "apres_fin": "12:00:00"
+    }
+  ]
+}

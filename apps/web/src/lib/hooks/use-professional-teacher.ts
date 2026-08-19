@@ -123,6 +123,15 @@ export function useDeleteTeacherSeance() {
   });
 }
 
+/** Détail d'une séance : contexte (ECUE, UE, session, filière) + décompte de présence. */
+export function useTeacherSeanceDetail(seanceId: string | null) {
+  return useQuery({
+    queryKey: ["professional-teacher-seance", seanceId],
+    queryFn: () => apiFetch(`${BASE}/seances/${seanceId}`),
+    enabled: !!seanceId,
+  });
+}
+
 /** Feuille de présence d'une séance (inscrits confirmés + statut de présence). */
 export function useTeacherSeanceAttendance(seanceId: string | null) {
   return useQuery({
@@ -150,6 +159,9 @@ export function useMarkTeacherSeanceAttendance() {
       }),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["professional-teacher-attendance", vars.seanceId] });
+      qc.invalidateQueries({ queryKey: ["professional-teacher-seance", vars.seanceId] });
+      // Rafraîchit l'état « Appel effectué » des listes de séances.
+      qc.invalidateQueries({ queryKey: ["professional-teacher-seances"] });
       qc.invalidateQueries({ queryKey: ["professional-teacher-attendance-history"] });
     },
   });

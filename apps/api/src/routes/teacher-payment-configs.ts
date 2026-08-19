@@ -41,7 +41,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
                   overtimeMultiplier: { type: "number" },
                   effectiveFrom: { type: "string" },
                   effectiveTo: { type: "string" },
-                  notes: { type: "string" },
                   createdBy: { type: "string" },
                   createdAt: { type: "string" },
                   updatedAt: { type: "string" },
@@ -114,11 +113,11 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
           paramIndex++;
         }
 
-        if (activeAcademicYearId) {
-          whereClause += ` AND tpc.academic_year_id = $${paramIndex}`;
-          params.push(activeAcademicYearId);
-          paramIndex++;
-        }
+        // Pas de filtrage par année académique : une configuration est
+        // identifiée par sa PLAGE DE DATES, pas par l'année où elle a été
+        // saisie. La filtrer sur l'année active masquerait les configurations
+        // qui couvrent plusieurs années — et celles créées hors interface, qui
+        // n'ont aucune année renseignée.
 
         // Get total count
         const countQuery = `
@@ -136,7 +135,7 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
             tpc.academic_year_id,
             tpc.monthly_salary, tpc.annual_salary, tpc.default_hourly_rate,
             tpc.overtime_threshold, tpc.overtime_multiplier,
-            tpc.effective_from, tpc.effective_to, tpc.notes,
+            tpc.effective_from, tpc.effective_to,
             tpc.created_by, tpc.created_at, tpc.updated_at,
             COALESCE(u.first_name || ' ' || u.last_name, t.first_name || ' ' || t.last_name) as teacher_name,
             COALESCE(u.email, t.email) as teacher_email
@@ -166,7 +165,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
           overtimeMultiplier: parseFloat(row.overtime_multiplier),
           effectiveFrom: row.effective_from,
           effectiveTo: row.effective_to,
-          notes: row.notes,
           createdBy: row.created_by,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
@@ -219,7 +217,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
                 overtimeMultiplier: { type: "number" },
                 effectiveFrom: { type: "string" },
                 effectiveTo: { type: "string" },
-                notes: { type: "string" },
                 createdBy: { type: "string" },
                 createdAt: { type: "string" },
                 updatedAt: { type: "string" },
@@ -256,18 +253,15 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
             tpc.academic_year_id,
             tpc.monthly_salary, tpc.annual_salary, tpc.default_hourly_rate,
             tpc.overtime_threshold, tpc.overtime_multiplier,
-            tpc.effective_from, tpc.effective_to, tpc.notes,
+            tpc.effective_from, tpc.effective_to,
             tpc.created_by, tpc.created_at, tpc.updated_at,
             COALESCE(u.first_name || ' ' || u.last_name, t.first_name || ' ' || t.last_name, 'Unknown Teacher') as teacher_name,
             COALESCE(u.email, t.email, '') as teacher_email
           FROM teacher_payment_configs tpc
           LEFT JOIN teachers t ON tpc.teacher_id = t.id
           LEFT JOIN users u ON t.user_id = u.id
-          WHERE tpc.id = $1 AND tpc.tenant_id = $2
-          ${request.headers["x-academic-year-id"] ? "AND tpc.academic_year_id = $3" : ""}`,
-          request.headers["x-academic-year-id"]
-            ? [id, request.tenantId, request.headers["x-academic-year-id"]]
-            : [id, request.tenantId]
+          WHERE tpc.id = $1 AND tpc.tenant_id = $2`,
+          [id, request.tenantId]
         );
 
         if (result.rows.length === 0) {
@@ -292,7 +286,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
             overtimeMultiplier: parseFloat(row.overtime_multiplier),
             effectiveFrom: row.effective_from,
             effectiveTo: row.effective_to,
-            notes: row.notes,
             createdBy: row.created_by,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
@@ -341,7 +334,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
                 overtimeMultiplier: { type: "number" },
                 effectiveFrom: { type: "string" },
                 effectiveTo: { type: "string" },
-                notes: { type: "string" },
                 createdBy: { type: "string" },
                 createdAt: { type: "string" },
                 updatedAt: { type: "string" },
@@ -378,7 +370,7 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
             id, tenant_id, academic_year_id, teacher_id, config_type,
             monthly_salary, annual_salary, default_hourly_rate,
             overtime_threshold, overtime_multiplier,
-            effective_from, effective_to, notes,
+            effective_from, effective_to,
             created_by, created_at, updated_at
           FROM teacher_payment_configs
           WHERE tenant_id = $1 AND teacher_id = $2
@@ -421,7 +413,7 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
               id, tenant_id, academic_year_id, teacher_id, config_type,
               monthly_salary, annual_salary, default_hourly_rate,
               overtime_threshold, overtime_multiplier,
-              effective_from, effective_to, notes,
+              effective_from, effective_to,
               created_by, created_at, updated_at
              FROM teacher_payment_configs
              WHERE tenant_id = $1 AND teacher_id = $2
@@ -453,7 +445,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
             overtimeMultiplier: parseFloat(row.overtime_multiplier),
             effectiveFrom: row.effective_from,
             effectiveTo: row.effective_to,
-            notes: row.notes,
             createdBy: row.created_by,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
@@ -480,7 +471,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
           overtimeMultiplier: { type: "number", minimum: 1, default: 1.5 },
           effectiveFrom: { type: "string", format: "date" },
           effectiveTo: { type: "string", format: "date" },
-          notes: { type: "string" },
         },
         required: ["teacherId", "configType", "effectiveFrom"],
       },
@@ -503,7 +493,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
                 overtimeMultiplier: { type: "number" },
                 effectiveFrom: { type: "string" },
                 effectiveTo: { type: "string" },
-                notes: { type: "string" },
                 createdBy: { type: "string" },
                 createdAt: { type: "string" },
                 updatedAt: { type: "string" },
@@ -529,13 +518,11 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
       }
 
       const data = CreateTeacherPaymentConfigSchema.parse(request.body);
-      const activeAcademicYearId = request.headers["x-academic-year-id"] as string | undefined;
-      if (!activeAcademicYearId) {
-        return reply.status(400).send({
-          error: "Academic Year Required",
-          message: "Aucune année académique active détectée. Veuillez activer une année avant l'enregistrement.",
-        });
-      }
+      // Année académique facultative : elle sert d'étiquette de traçabilité,
+      // pas de condition. Une configuration de paie suit le contrat de
+      // l'enseignant, dont la durée ne s'aligne pas sur l'année scolaire.
+      const activeAcademicYearId =
+        (request.headers["x-academic-year-id"] as string | undefined) || null;
 
       // Validate config type requirements
       if (data.configType === 'salary' && !data.monthlySalary && !data.annualSalary) {
@@ -575,31 +562,13 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
           });
         }
 
-        const academicYearResult = await client.query(
-          `SELECT start_date, end_date
-           FROM academic_years
-           WHERE id = $1 AND tenant_id = $2`,
-          [activeAcademicYearId, request.tenantId]
-        );
-
-        if (academicYearResult.rows.length === 0) {
-          return reply.status(400).send({
-            error: "Academic Year Not Found",
-            message: "Année académique active introuvable pour ce tenant",
-          });
-        }
-
-        const ayStart = new Date(academicYearResult.rows[0].start_date);
-        const ayEnd = new Date(academicYearResult.rows[0].end_date);
-        const effectiveFrom = new Date(data.effectiveFrom);
-        const effectiveTo = data.effectiveTo ? new Date(data.effectiveTo) : null;
-
-        if (effectiveFrom < ayStart || effectiveFrom > ayEnd || (effectiveTo && (effectiveTo < ayStart || effectiveTo > ayEnd))) {
-          return reply.status(400).send({
-            error: "Out of Bounds",
-            message: "Les dates de la configuration doivent être comprises dans l'année académique active",
-          });
-        }
+        // La période de validité d'une configuration de paie N'EST PLUS bornée
+        // par l'année académique active : une rémunération se négocie sur la
+        // durée du contrat, qui ne s'aligne pas sur le calendrier scolaire.
+        // L'année active reste enregistrée sur la ligne (traçabilité), mais elle
+        // ne conditionne plus l'acceptation des dates.
+        // Le chevauchement entre deux configurations d'un même enseignant reste
+        // interdit — c'est lui qui garantit un tarif unique à une date donnée.
 
         // Check for overlapping configs
         const overlapCheck = await client.query(
@@ -638,11 +607,11 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
           `INSERT INTO teacher_payment_configs
           (tenant_id, academic_year_id, teacher_id, config_type, monthly_salary, annual_salary,
            default_hourly_rate, overtime_threshold, overtime_multiplier,
-           effective_from, effective_to, notes, created_by)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+           effective_from, effective_to, created_by)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
           RETURNING id, tenant_id, academic_year_id, teacher_id, config_type, monthly_salary, annual_salary,
                     default_hourly_rate, overtime_threshold, overtime_multiplier,
-                    effective_from, effective_to, notes, created_by, created_at, updated_at`,
+                    effective_from, effective_to, created_by, created_at, updated_at`,
           [
             request.tenantId,
             activeAcademicYearId,
@@ -655,7 +624,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
             data.overtimeMultiplier,
             data.effectiveFrom,
             data.effectiveTo,
-            data.notes,
             createdBy,
           ]
         );
@@ -675,7 +643,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
             overtimeMultiplier: parseFloat(row.overtime_multiplier),
             effectiveFrom: row.effective_from,
             effectiveTo: row.effective_to,
-            notes: row.notes,
             createdBy: row.created_by,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
@@ -708,7 +675,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
           overtimeMultiplier: { type: "number", minimum: 1 },
           effectiveFrom: { type: "string", format: "date" },
           effectiveTo: { type: "string", format: "date" },
-          notes: { type: "string" },
         },
       },
       response: {
@@ -729,7 +695,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
                 overtimeMultiplier: { type: "number" },
                 effectiveFrom: { type: "string" },
                 effectiveTo: { type: "string" },
-                notes: { type: "string" },
                 createdBy: { type: "string" },
                 createdAt: { type: "string" },
                 updatedAt: { type: "string" },
@@ -756,13 +721,9 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
 
       const { id } = request.params as { id: string };
       const data = UpdateTeacherPaymentConfigSchema.parse(request.body);
-      const activeAcademicYearId = request.headers["x-academic-year-id"] as string | undefined;
-      if (!activeAcademicYearId) {
-        return reply.status(400).send({
-          error: "Academic Year Required",
-          message: "Aucune année académique active détectée. Veuillez activer une année avant l'enregistrement.",
-        });
-      }
+      // Facultative, comme à la création.
+      const activeAcademicYearId =
+        (request.headers["x-academic-year-id"] as string | undefined) || null;
 
       const client = await fastify.pg.connect();
       try {
@@ -835,11 +796,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
           paramIndex++;
         }
 
-        if (data.notes !== undefined) {
-          updateFields.push(`notes = $${paramIndex}`);
-          params.push(data.notes);
-          paramIndex++;
-        }
 
         if (updateFields.length === 0) {
           return reply.status(400).send({
@@ -848,37 +804,14 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
           });
         }
 
-        const academicYearResult = await client.query(
-          `SELECT start_date, end_date
-           FROM academic_years
-           WHERE id = $1 AND tenant_id = $2`,
-          [activeAcademicYearId, request.tenantId]
-        );
-
-        if (academicYearResult.rows.length === 0) {
-          return reply.status(400).send({
-            error: "Academic Year Not Found",
-            message: "Année académique active introuvable pour ce tenant",
-          });
+        // Comme à la création : les dates de validité ne sont plus bornées par
+        // l'année académique active. L'année reste enregistrée pour la
+        // traçabilité, sans conditionner l'édition.
+        if (activeAcademicYearId) {
+          updateFields.push(`academic_year_id = $${paramIndex}`);
+          params.push(activeAcademicYearId);
+          paramIndex++;
         }
-
-        const nextEffectiveFrom = data.effectiveFrom || existing.effective_from;
-        const nextEffectiveTo = data.effectiveTo === undefined ? existing.effective_to : data.effectiveTo;
-        const ayStart = new Date(academicYearResult.rows[0].start_date);
-        const ayEnd = new Date(academicYearResult.rows[0].end_date);
-        const effectiveFrom = new Date(nextEffectiveFrom);
-        const effectiveTo = nextEffectiveTo ? new Date(nextEffectiveTo) : null;
-
-        if (effectiveFrom < ayStart || effectiveFrom > ayEnd || (effectiveTo && (effectiveTo < ayStart || effectiveTo > ayEnd))) {
-          return reply.status(400).send({
-            error: "Out of Bounds",
-            message: "Les dates de la configuration doivent être comprises dans l'année académique active",
-          });
-        }
-
-        updateFields.push(`academic_year_id = $${paramIndex}`);
-        params.push(activeAcademicYearId);
-        paramIndex++;
 
         const result = await client.query(
           `UPDATE teacher_payment_configs 
@@ -886,7 +819,7 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
           WHERE id = $1 AND tenant_id = $2
           RETURNING id, tenant_id, academic_year_id, teacher_id, config_type, monthly_salary, annual_salary,
                     default_hourly_rate, overtime_threshold, overtime_multiplier,
-                    effective_from, effective_to, notes, created_by, created_at, updated_at`,
+                    effective_from, effective_to, created_by, created_at, updated_at`,
           params
         );
 
@@ -905,7 +838,6 @@ export async function teacherPaymentConfigsRoutes(fastify: FastifyInstance) {
             overtimeMultiplier: parseFloat(row.overtime_multiplier),
             effectiveFrom: row.effective_from,
             effectiveTo: row.effective_to,
-            notes: row.notes,
             createdBy: row.created_by,
             createdAt: row.created_at,
             updatedAt: row.updated_at,

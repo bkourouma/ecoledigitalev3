@@ -1,33 +1,58 @@
 import { FastifyInstance } from "fastify";
-import { 
+import {
   PaymentCalculationDetails,
   TeacherPaymentConfig,
   PaymentConfigType,
-  PaymentType
+  PaymentType,
+  HourSource,
+  PaymentCalculationScope,
+  PaymentCalculationSkipReason,
 } from "@ecoledigitale/contracts";
+import { HourCollector, HourRecord } from "./hour-collectors/types";
+import { AcademicHourCollector } from "./hour-collectors/academic-hour-collector";
+import { ProfessionalHourCollector } from "./hour-collectors/professional-hour-collector";
+import { EcueRateIndex, preloadRatesOnClient } from "./professional-ecue-rates.service";
 
-export interface TeachingHourRecord {
-  id: string;
-  assignmentId: string;
-  sessionDate: Date;
-  hoursTaught: number;
-  sessionType: 'theory' | 'practical' | 'exam' | 'evaluation';
-  validatedAt: Date | null;
-  courseId: string;
-  teacherId: string;
+/**
+ * Moteur de calcul de la rémunération enseignante.
+ *
+ * Feature 031 : la collecte des heures est extraite derrière `HourCollector` et
+ * agrège désormais DEUX origines — Académique et Professionnel. Le calcul
+ * lui-même (semaines, heures supplémentaires, salaire/horaire/mixte) n'est pas
+ * modifié.
+ *
+ * Décision structurante : un enseignant reçoit UN SEUL paiement par période,
+ * quelles que soient les origines de ses heures. Le seuil d'heures
+ * supplémentaires porte sur le temps de travail réel d'une personne : le
+ * scinder par origine permettrait de faire 30 h en académique et 30 h en
+ * professionnel sans jamais le déclencher. L'origine vit donc sur la LIGNE DE
+ * DÉTAIL, jamais sur le paiement.
+ */
+
+/** Heure enrichie de son tarif résolu, prête pour le calcul. */
+export interface PricedHourRecord extends HourRecord {
+  /** Tarif appliqué. Figé dans le détail : une révision ultérieure ne le change pas. */
+  resolvedRate: number;
 }
 
-export interface PaymentCalculationInput {
-  teacherId: string;
-  periodStart: Date;
-  periodEnd: Date;
-  config: TeacherPaymentConfig;
-  teachingHours: TeachingHourRecord[];
-  courseRates?: Record<string, number>; // courseId -> hourly rate
+export interface PaymentHourDetailLine {
+  source: HourSource;
+  teachingHoursId: string | null;
+  attendanceSessionId: string | null;
+  seanceId: string | null;
+  hoursCount: number;
+  hourlyRate: number;
+  amount: number;
+  isOvertime: boolean;
+  /** Libellés d'affichage — utiles à l'aperçu, non persistés. */
+  sessionDate?: string | null;
+  intitule?: string | null;
+  code?: string | null;
 }
 
 export interface PaymentCalculationResult {
   teacherId: string;
+  teacherName: string;
   paymentType: PaymentType;
   baseAmount: number;
   overtimeAmount: number;
@@ -35,103 +60,112 @@ export interface PaymentCalculationResult {
   deductions: number;
   totalAmount: number;
   calculationDetails: PaymentCalculationDetails;
-  hourDetails: Array<{
-    teachingHoursId: string;
-    hoursCount: number;
-    hourlyRate: number;
-    amount: number;
-    isOvertime: boolean;
-  }>;
+  hourDetails: PaymentHourDetailLine[];
+  /** Ventilation des heures par origine — lisible directement dans le compte rendu. */
+  hoursBySource: Record<HourSource, number>;
+}
+
+export interface SkippedTeacher {
+  teacherId: string;
+  teacherName: string;
+  skipReason: PaymentCalculationSkipReason;
+  message: string;
+}
+
+export interface BatchCalculationOutcome {
+  results: PaymentCalculationResult[];
+  skipped: SkippedTeacher[];
+}
+
+export interface PaymentCalculationInput {
+  teacherId: string;
+  teacherName: string;
+  periodStart: Date;
+  periodEnd: Date;
+  config: TeacherPaymentConfig;
+  hours: PricedHourRecord[];
 }
 
 export class PaymentCalculator {
+  private readonly academicCollector = new AcademicHourCollector();
+  private readonly professionalCollector = new ProfessionalHourCollector();
+
   constructor(private fastify: FastifyInstance) {}
 
-  /**
-   * Calculate payment for a teacher for a given period
-   */
-  async calculatePayment(input: PaymentCalculationInput): Promise<PaymentCalculationResult> {
-    const { teacherId, periodStart, periodEnd, config, teachingHours, courseRates = {} } = input;
+  /* =================================================================== */
+  /* Calcul unitaire                                                      */
+  /* =================================================================== */
 
-    switch (config.configType) {
-      case 'salary':
+  /**
+   * Calcul pur : aucune I/O, tout vient de `input`. Public pour être testable
+   * directement — les invariants de la feature (un seul bulletin, heures
+   * supplémentaires sur le cumul des origines) se vérifient ici, sans base.
+   */
+  computePayment(input: PaymentCalculationInput): PaymentCalculationResult {
+    switch (input.config.configType) {
+      case "salary":
         return this.calculateSalaryPayment(input);
-      case 'hourly':
+      case "hourly":
         return this.calculateHourlyPayment(input);
-      case 'mixed':
+      case "mixed":
         return this.calculateMixedPayment(input);
       default:
-        throw new Error(`Unsupported payment config type: ${config.configType}`);
+        throw new Error(`Unsupported payment config type: ${input.config.configType}`);
     }
   }
 
-  /**
-   * Calculate salary-based payment
-   */
+  /** Salaire prorata des jours ouvrés. Les heures n'entrent pas dans le montant. */
   private calculateSalaryPayment(input: PaymentCalculationInput): PaymentCalculationResult {
-    const { teacherId, periodStart, periodEnd, config } = input;
+    const { teacherId, teacherName, periodStart, periodEnd, config, hours } = input;
 
     if (!config.monthlySalary && !config.annualSalary) {
-      throw new Error('Salary configuration missing for salary-based payment');
+      throw new Error("Salary configuration missing for salary-based payment");
     }
 
-    const monthlySalary = config.monthlySalary || (config.annualSalary! / 12);
-    
-    // Calculate proration based on working days
+    const monthlySalary = config.monthlySalary || config.annualSalary! / 12;
     const { totalDays, workingDays } = this.calculateWorkingDays(periodStart, periodEnd);
     const prorationFactor = workingDays / this.getStandardWorkingDaysInMonth(periodStart);
-    
     const baseAmount = monthlySalary * prorationFactor;
 
     const calculationDetails: PaymentCalculationDetails = {
-      regularHours: 0, // Not applicable for salary
+      regularHours: 0,
       overtimeHours: 0,
-      rates: {
-        regular: 0,
-        overtime: 0,
-      },
+      rates: { regular: 0, overtime: 0 },
       periodDays: totalDays,
       workingDays,
-      breakdown: [
-        {
-          description: 'Monthly Salary (Prorated)',
-          amount: baseAmount,
-        },
-      ],
+      breakdown: [{ description: "Salaire mensuel (prorata)", amount: baseAmount }],
     };
 
     return {
       teacherId,
-      paymentType: 'salary',
+      teacherName,
+      paymentType: "salary",
       baseAmount,
       overtimeAmount: 0,
       bonusAmount: 0,
       deductions: 0,
       totalAmount: baseAmount,
       calculationDetails,
+      // Les séances sont listées à titre informatif : un enseignant salarié
+      // doit pouvoir vérifier ce qui a été constaté, même si le montant n'en
+      // dépend pas.
       hourDetails: [],
+      hoursBySource: this.sumBySource(hours),
     };
   }
 
-  /**
-   * Calculate hourly-based payment
-   */
+  /** Rémunération horaire, heures supplémentaires appréciées par semaine calendaire. */
   private calculateHourlyPayment(input: PaymentCalculationInput): PaymentCalculationResult {
-    const { teacherId, config, teachingHours, courseRates = {}, periodStart, periodEnd } = input;
+    const { teacherId, teacherName, config, hours, periodStart, periodEnd } = input;
 
-    if (!config.defaultHourlyRate) {
-      throw new Error('Default hourly rate missing for hourly-based payment');
-    }
+    const hoursBySource = this.sumBySource(hours);
 
-    // Only count validated hours
-    const validatedHours = teachingHours.filter(h => h.validatedAt !== null);
-    
-    // If no validated hours, return zero payment
-    if (validatedHours.length === 0) {
+    if (hours.length === 0) {
       const { totalDays, workingDays } = this.calculateWorkingDays(periodStart, periodEnd);
       return {
         teacherId,
-        paymentType: 'hourly',
+        teacherName,
+        paymentType: "hourly",
         baseAmount: 0,
         overtimeAmount: 0,
         bonusAmount: 0,
@@ -141,417 +175,472 @@ export class PaymentCalculator {
           regularHours: 0,
           overtimeHours: 0,
           rates: {
-            regular: config.defaultHourlyRate,
-            overtime: config.defaultHourlyRate * config.overtimeMultiplier,
+            regular: config.defaultHourlyRate ?? 0,
+            overtime: (config.defaultHourlyRate ?? 0) * config.overtimeMultiplier,
           },
           periodDays: totalDays,
           workingDays,
-          breakdown: [
-            {
-              description: 'No validated hours for this period',
-              amount: 0,
-            },
-          ],
+          breakdown: [{ description: "Aucune heure validée sur la période", amount: 0 }],
         },
         hourDetails: [],
+        hoursBySource,
       };
     }
-    
+
     let totalRegularAmount = 0;
     let totalOvertimeAmount = 0;
     let totalRegularHours = 0;
     let totalOvertimeHours = 0;
-    
-    const hourDetails: Array<{
-      teachingHoursId: string;
-      hoursCount: number;
-      hourlyRate: number;
-      amount: number;
-      isOvertime: boolean;
-    }> = [];
+    const hourDetails: PaymentHourDetailLine[] = [];
 
-    const breakdown: Array<{
-      description: string;
-      amount: number;
-      hours?: number;
-      rate?: number;
-    }> = [];
-
-    // Calculate weekly hours to determine overtime
-    const weeklyHours = this.groupHoursByWeek(validatedHours);
-    
-    for (const [weekStart, weekHours] of weeklyHours.entries()) {
+    // Le cumul hebdomadaire mélange délibérément les origines : c'est le temps
+    // de travail réel de la personne qui déclenche les heures supplémentaires.
+    for (const [, weekHours] of this.groupHoursByWeek(hours)) {
       let weeklyTotal = 0;
-      
+
       for (const hour of weekHours) {
-        const rate = courseRates[hour.courseId] || config.defaultHourlyRate;
-        weeklyTotal += hour.hoursTaught;
-        
-        const isOvertime = weeklyTotal > config.overtimeThreshold;
-        const overtimeHours = isOvertime ? 
-          Math.max(0, weeklyTotal - config.overtimeThreshold) : 0;
-        const regularHours = hour.hoursTaught - overtimeHours;
-        
+        const rate = hour.resolvedRate;
+        weeklyTotal += hour.hours;
+
+        // Seule la fraction qui dépasse le seuil bascule en heures sup — une
+        // séance à cheval sur le seuil est donc coupée en deux lignes.
+        const overtimeHours = Math.max(
+          0,
+          Math.min(hour.hours, weeklyTotal - config.overtimeThreshold)
+        );
+        const regularHours = hour.hours - overtimeHours;
+
         if (regularHours > 0) {
-          const regularAmount = regularHours * rate;
-          totalRegularAmount += regularAmount;
+          const amount = regularHours * rate;
+          totalRegularAmount += amount;
           totalRegularHours += regularHours;
-          
-          hourDetails.push({
-            teachingHoursId: hour.id,
-            hoursCount: regularHours,
-            hourlyRate: rate,
-            amount: regularAmount,
-            isOvertime: false,
-          });
+          hourDetails.push(this.toDetailLine(hour, regularHours, rate, amount, false));
         }
-        
+
         if (overtimeHours > 0) {
           const overtimeRate = rate * config.overtimeMultiplier;
-          const overtimeAmount = overtimeHours * overtimeRate;
-          totalOvertimeAmount += overtimeAmount;
+          const amount = overtimeHours * overtimeRate;
+          totalOvertimeAmount += amount;
           totalOvertimeHours += overtimeHours;
-          
-          hourDetails.push({
-            teachingHoursId: hour.id,
-            hoursCount: overtimeHours,
-            hourlyRate: overtimeRate,
-            amount: overtimeAmount,
-            isOvertime: true,
-          });
+          hourDetails.push(this.toDetailLine(hour, overtimeHours, overtimeRate, amount, true));
         }
       }
     }
 
-    // Create breakdown
+    const breakdown: PaymentCalculationDetails["breakdown"] = [];
     if (totalRegularHours > 0) {
       breakdown.push({
-        description: 'Regular Hours',
+        description: "Heures normales",
         amount: totalRegularAmount,
         hours: totalRegularHours,
         rate: totalRegularAmount / totalRegularHours,
       });
     }
-
     if (totalOvertimeHours > 0) {
       breakdown.push({
-        description: 'Overtime Hours',
+        description: "Heures supplémentaires",
         amount: totalOvertimeAmount,
         hours: totalOvertimeHours,
         rate: totalOvertimeAmount / totalOvertimeHours,
       });
     }
+    for (const source of ["academique", "professionnel"] as const) {
+      if (hoursBySource[source] > 0) {
+        breakdown.push({
+          description: source === "academique" ? "dont Académique" : "dont Professionnel",
+          amount: 0,
+          hours: hoursBySource[source],
+        });
+      }
+    }
 
-    const calculationDetails: PaymentCalculationDetails = {
-      regularHours: totalRegularHours,
-      overtimeHours: totalOvertimeHours,
-      rates: {
-        regular: config.defaultHourlyRate,
-        overtime: config.defaultHourlyRate * config.overtimeMultiplier,
-      },
-      periodDays: this.calculateWorkingDays(
-        new Date(Math.min(...validatedHours.map(h => h.sessionDate.getTime()))),
-        new Date(Math.max(...validatedHours.map(h => h.sessionDate.getTime())))
-      ).totalDays,
-      workingDays: this.calculateWorkingDays(
-        new Date(Math.min(...validatedHours.map(h => h.sessionDate.getTime()))),
-        new Date(Math.max(...validatedHours.map(h => h.sessionDate.getTime())))
-      ).workingDays,
-      breakdown,
-    };
+    const span = this.calculateWorkingDays(periodStart, periodEnd);
 
     return {
       teacherId,
-      paymentType: 'hourly',
+      teacherName,
+      paymentType: "hourly",
       baseAmount: totalRegularAmount,
       overtimeAmount: totalOvertimeAmount,
       bonusAmount: 0,
       deductions: 0,
       totalAmount: totalRegularAmount + totalOvertimeAmount,
-      calculationDetails,
+      calculationDetails: {
+        regularHours: totalRegularHours,
+        overtimeHours: totalOvertimeHours,
+        rates: {
+          regular: config.defaultHourlyRate ?? 0,
+          overtime: (config.defaultHourlyRate ?? 0) * config.overtimeMultiplier,
+        },
+        periodDays: span.totalDays,
+        workingDays: span.workingDays,
+        breakdown,
+      },
       hourDetails,
+      hoursBySource,
     };
   }
 
-  /**
-   * Calculate mixed payment (salary + hourly)
-   */
+  /** Salaire + heures : les deux composantes s'additionnent. */
   private calculateMixedPayment(input: PaymentCalculationInput): PaymentCalculationResult {
     const salaryResult = this.calculateSalaryPayment(input);
     const hourlyResult = this.calculateHourlyPayment(input);
 
-    const totalAmount = salaryResult.totalAmount + hourlyResult.totalAmount;
-
-    const calculationDetails: PaymentCalculationDetails = {
-      regularHours: hourlyResult.calculationDetails.regularHours,
-      overtimeHours: hourlyResult.calculationDetails.overtimeHours,
-      rates: hourlyResult.calculationDetails.rates,
-      periodDays: salaryResult.calculationDetails.periodDays,
-      workingDays: salaryResult.calculationDetails.workingDays,
-      breakdown: [
-        ...salaryResult.calculationDetails.breakdown,
-        ...hourlyResult.calculationDetails.breakdown,
-      ],
-    };
-
     return {
       teacherId: input.teacherId,
-      paymentType: 'mixed',
+      teacherName: input.teacherName,
+      paymentType: "mixed",
       baseAmount: salaryResult.baseAmount + hourlyResult.baseAmount,
       overtimeAmount: hourlyResult.overtimeAmount,
       bonusAmount: 0,
       deductions: 0,
-      totalAmount,
-      calculationDetails,
+      totalAmount: salaryResult.totalAmount + hourlyResult.totalAmount,
+      calculationDetails: {
+        regularHours: hourlyResult.calculationDetails.regularHours,
+        overtimeHours: hourlyResult.calculationDetails.overtimeHours,
+        rates: hourlyResult.calculationDetails.rates,
+        periodDays: salaryResult.calculationDetails.periodDays,
+        workingDays: salaryResult.calculationDetails.workingDays,
+        breakdown: [
+          ...salaryResult.calculationDetails.breakdown,
+          ...hourlyResult.calculationDetails.breakdown,
+        ],
+      },
       hourDetails: hourlyResult.hourDetails,
+      hoursBySource: hourlyResult.hoursBySource,
     };
   }
 
-  /**
-   * Calculate working days in a period (excluding weekends)
-   */
+  private toDetailLine(
+    hour: PricedHourRecord,
+    hoursCount: number,
+    hourlyRate: number,
+    amount: number,
+    isOvertime: boolean
+  ): PaymentHourDetailLine {
+    return {
+      source: hour.source,
+      // `teaching_hours` n'est pas une source collectée : la colonne existe pour
+      // l'historique du schéma, jamais renseignée par ce calcul (écart E4).
+      teachingHoursId: null,
+      attendanceSessionId: hour.source === "academique" ? (hour.attendanceSessionId ?? null) : null,
+      seanceId: hour.source === "professionnel" ? (hour.seanceId ?? null) : null,
+      hoursCount,
+      hourlyRate,
+      amount,
+      isOvertime,
+      sessionDate: hour.sessionDate,
+      intitule: hour.intitule ?? null,
+      code: hour.code ?? null,
+    };
+  }
+
+  private sumBySource(hours: HourRecord[]): Record<HourSource, number> {
+    const acc: Record<HourSource, number> = { academique: 0, professionnel: 0 };
+    for (const h of hours) acc[h.source] += h.hours;
+    return acc;
+  }
+
+  /* =================================================================== */
+  /* Utilitaires de calendrier (inchangés)                                */
+  /* =================================================================== */
+
   private calculateWorkingDays(start: Date, end: Date): { totalDays: number; workingDays: number } {
     const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     let workingDays = 0;
-    
     const current = new Date(start);
     while (current <= end) {
       const dayOfWeek = current.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Not Sunday (0) or Saturday (6)
-        workingDays++;
-      }
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) workingDays++;
       current.setDate(current.getDate() + 1);
     }
-    
     return { totalDays, workingDays };
   }
 
-  /**
-   * Get standard working days in a month (approximately 22 days)
-   */
   private getStandardWorkingDaysInMonth(date: Date): number {
     const year = date.getFullYear();
     const month = date.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
     let workingDays = 0;
     for (let day = 1; day <= daysInMonth; day++) {
       const dayOfWeek = new Date(year, month, day).getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        workingDays++;
-      }
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) workingDays++;
     }
-    
     return workingDays;
   }
 
-  /**
-   * Group teaching hours by week to calculate overtime correctly
-   */
-  private groupHoursByWeek(hours: TeachingHourRecord[]): Map<string, TeachingHourRecord[]> {
-    const weeklyHours = new Map<string, TeachingHourRecord[]>();
-    
+  /** Regroupe par semaine ISO (lundi) pour le seuil d'heures supplémentaires. */
+  private groupHoursByWeek(hours: PricedHourRecord[]): Map<string, PricedHourRecord[]> {
+    const weekly = new Map<string, PricedHourRecord[]>();
     for (const hour of hours) {
-      const weekStart = this.getWeekStart(hour.sessionDate);
-      const weekKey = weekStart.toISOString().split('T')[0];
-      
-      if (!weeklyHours.has(weekKey)) {
-        weeklyHours.set(weekKey, []);
-      }
-      weeklyHours.get(weekKey)!.push(hour);
+      const weekKey = this.getWeekStart(hour.sessionDate);
+      const list = weekly.get(weekKey);
+      if (list) list.push(hour);
+      else weekly.set(weekKey, [hour]);
     }
-    
-    // Sort hours within each week by date
-    for (const [week, weekHours] of weeklyHours.entries()) {
-      weekHours.sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime());
+    for (const list of weekly.values()) {
+      list.sort((a, b) => (a.sessionDate < b.sessionDate ? -1 : a.sessionDate > b.sessionDate ? 1 : 0));
     }
-    
-    return weeklyHours;
+    return weekly;
   }
 
-  /**
-   * Get the start of the week (Monday) for a given date
-   */
-  private getWeekStart(date: Date): Date {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-    return new Date(d.setDate(diff));
+  /** Lundi de la semaine d'une date `YYYY-MM-DD`, en clé `YYYY-MM-DD`. */
+  private getWeekStart(dateStr: string): string {
+    const d = new Date(`${dateStr}T00:00:00Z`);
+    const day = d.getUTCDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setUTCDate(d.getUTCDate() + diff);
+    return d.toISOString().slice(0, 10);
   }
 
+  /* =================================================================== */
+  /* Calcul par lot                                                       */
+  /* =================================================================== */
+
   /**
-   * Batch calculate payments for multiple teachers
+   * Calcule les paiements d'une période. `scope` restreint les origines
+   * collectées ; par défaut les deux.
+   *
+   * Retourne les résultats ET les enseignants écartés avec leur motif : un
+   * compte rendu qui se contente d'omettre un enseignant ne permet pas de
+   * savoir s'il manque une configuration, des heures, ou un tarif.
    */
   async calculateBatchPayments(
     tenantId: string,
     periodId: string,
-    teacherIds?: string[]
-  ): Promise<PaymentCalculationResult[]> {
+    teacherIds?: string[],
+    scope: PaymentCalculationScope = "all"
+  ): Promise<BatchCalculationOutcome> {
     const client = await this.fastify.pg.connect();
     try {
-      this.fastify.log.info(`Starting calculateBatchPayments: tenantId=${tenantId}, periodId=${periodId}, teacherIds=${teacherIds?.length || 'all'}`);
-      
-      // Get payment period
+      this.fastify.log.info(
+        `calculateBatchPayments: tenant=${tenantId} period=${periodId} scope=${scope} teachers=${teacherIds?.length ?? "all"}`
+      );
+
       const periodResult = await client.query(
-        `SELECT
-           period_start,
-           period_end,
-           to_char(period_start::date, 'YYYY-MM-DD') AS period_start_date,
-           to_char(period_end::date, 'YYYY-MM-DD') AS period_end_date
-         FROM payment_periods 
+        `SELECT to_char(period_start::date, 'YYYY-MM-DD') AS period_start,
+                to_char(period_end::date,   'YYYY-MM-DD') AS period_end
+         FROM payment_periods
          WHERE id = $1 AND tenant_id = $2`,
         [periodId, tenantId]
       );
-
       if (periodResult.rows.length === 0) {
-        this.fastify.log.error(`Payment period not found: periodId=${periodId}, tenantId=${tenantId}`);
         throw new Error(`Payment period not found: ${periodId}`);
       }
+      const periodStartStr: string = periodResult.rows[0].period_start;
+      const periodEndStr: string = periodResult.rows[0].period_end;
 
-      const { period_start, period_end, period_start_date, period_end_date } = periodResult.rows[0];
-      // Convert to date strings for SQL queries
-      const periodStartStr = period_start_date || (period_start instanceof Date 
-        ? period_start.toISOString().split('T')[0] 
-        : new Date(period_start).toISOString().split('T')[0]);
-      const periodEndStr = period_end_date || (period_end instanceof Date 
-        ? period_end.toISOString().split('T')[0] 
-        : new Date(period_end).toISOString().split('T')[0]);
-      this.fastify.log.info(`Found period: ${periodStartStr} to ${periodEndStr}`);
+      // --- Enseignants du périmètre -----------------------------------
+      const restrict = Boolean(teacherIds && teacherIds.length > 0);
+      const teachersResult = await client.query(
+        `SELECT t.id,
+                COALESCE(TRIM(u.first_name || ' ' || u.last_name),
+                         TRIM(t.first_name || ' ' || t.last_name),
+                         u.email, 'Enseignant') AS name
+         FROM teachers t
+         LEFT JOIN users u ON u.id = t.user_id
+         WHERE t.tenant_id = $1
+           AND t.status = 'active'
+           AND ($2::boolean IS FALSE OR t.id = ANY($3::uuid[]))`,
+        [tenantId, restrict, restrict ? teacherIds : []]
+      );
+      const teacherNames = new Map<string, string>(
+        teachersResult.rows.map((r) => [r.id as string, r.name as string])
+      );
 
-      // Get teachers to calculate for
-      let teacherQuery = `
-        SELECT DISTINCT t.id, t.user_id
-        FROM teachers t
-        WHERE t.tenant_id = $1 AND t.status = 'active'
-      `;
-      const teacherParams = [tenantId];
+      // --- Collecte des heures : UNE requête par origine ---------------
+      const collectors: HourCollector[] = [];
+      if (scope === "all" || scope === "academique") collectors.push(this.academicCollector);
+      if (scope === "all" || scope === "professionnel") collectors.push(this.professionalCollector);
 
-      if (teacherIds && teacherIds.length > 0) {
-        teacherQuery += ` AND t.id = ANY($2)`;
-        teacherParams.push(teacherIds);
+      const collected: HourRecord[] = [];
+      for (const collector of collectors) {
+        const rows = await collector.collect(client, {
+          tenantId,
+          periodStart: periodStartStr,
+          periodEnd: periodEndStr,
+          teacherIds: restrict ? teacherIds : undefined,
+          // Les heures déjà portées au bulletin d'une AUTRE période sont
+          // écartées par le collecteur. Passer la période courante lui permet
+          // de ne pas s'exclure lui-même lors d'un recalcul.
+          periodId,
+        });
+        this.fastify.log.info(`  collecteur ${collector.source}: ${rows.length} heure(s)`);
+        collected.push(...rows);
       }
 
-      const teachersResult = await client.query(teacherQuery, teacherParams);
+      // --- Tarifs -----------------------------------------------------
+      const ecueRates: EcueRateIndex = await preloadRatesOnClient(
+        client,
+        tenantId,
+        periodStartStr,
+        periodEndStr
+      );
+      const courseRates = await this.loadCourseRates(
+        client,
+        tenantId,
+        periodStartStr,
+        periodEndStr
+      );
+
+      // --- Regroupement par enseignant --------------------------------
+      const hoursByTeacher = new Map<string, HourRecord[]>();
+      for (const record of collected) {
+        if (!teacherNames.has(record.teacherId)) continue; // hors périmètre / inactif
+        const list = hoursByTeacher.get(record.teacherId);
+        if (list) list.push(record);
+        else hoursByTeacher.set(record.teacherId, [record]);
+      }
+
       const results: PaymentCalculationResult[] = [];
+      const skipped: SkippedTeacher[] = [];
 
-      this.fastify.log.info(`Calculating payments for ${teachersResult.rows.length} teacher(s)`);
+      for (const [teacherId, teacherName] of teacherNames) {
+        const teacherHours = hoursByTeacher.get(teacherId) ?? [];
 
-      for (const teacher of teachersResult.rows) {
-        try {
-          this.fastify.log.info(`Processing teacher ${teacher.id}`);
-          
-          // Get teacher payment config
-          const configResult = await client.query(
-            `SELECT * FROM teacher_payment_configs 
-             WHERE tenant_id = $1 AND teacher_id = $2 
-             AND effective_from <= $3 
-             AND (effective_to IS NULL OR effective_to >= $4)
-             ORDER BY effective_from DESC
-             LIMIT 1`,
-            [tenantId, teacher.id, period_end, period_start]
-          );
+        const configResult = await client.query(
+          `SELECT * FROM teacher_payment_configs
+           WHERE tenant_id = $1 AND teacher_id = $2
+             AND effective_from <= $3::date
+             AND (effective_to IS NULL OR effective_to >= $4::date)
+           ORDER BY effective_from DESC
+           LIMIT 1`,
+          [tenantId, teacherId, periodEndStr, periodStartStr]
+        );
 
-          if (configResult.rows.length === 0) {
-            this.fastify.log.warn(`No payment config found for teacher ${teacher.id}`);
-            continue;
-          }
-
-          const config = this.mapConfigFromDb(configResult.rows[0]);
-          this.fastify.log.info(`Found config for teacher ${teacher.id}: type=${config.configType}, salary=${config.monthlySalary}, hourlyRate=${config.defaultHourlyRate}`);
-
-          // Get validated attendance sessions for the period.
-          // Source aligned with /payments/teaching-hours and /teacher/hours.
-          const hoursResult = await client.query(
-            `SELECT
-               s.id,
-               s.assignment_id,
-               s.session_date,
-               s.duration_hours,
-               s.status,
-               cc.course_id
-             FROM teacher_attendance_sessions s
-             JOIN teacher_assignments ta ON s.assignment_id = ta.id
-             JOIN class_courses cc ON ta.class_course_id = cc.id
-             WHERE s.tenant_id = $1
-               AND ta.teacher_id = $2
-               AND s.status = 'completed'
-               AND s.session_date BETWEEN $3::date AND $4::date`,
-            [tenantId, teacher.id, periodStartStr, periodEndStr]
-          );
-
-          this.fastify.log.info(`Found ${hoursResult.rows.length} validated attendance sessions for teacher ${teacher.id}`);
-
-          const teachingHours = hoursResult.rows.map(row => ({
-            id: row.id,
-            assignmentId: row.assignment_id,
-            sessionDate: new Date(row.session_date),
-            hoursTaught: parseFloat(row.duration_hours || 0),
-            sessionType: 'theory' as const,
-            validatedAt: row.status === 'completed' ? new Date(row.session_date) : null,
-            courseId: row.course_id,
-            teacherId: teacher.id,
-          }));
-
-          // Get course-specific rates
-          const ratesResult = await client.query(
-            `SELECT course_id, rate_amount
-             FROM course_hourly_rates
-             WHERE tenant_id = $1 
-             AND (teacher_id = $2 OR teacher_id IS NULL)
-             AND effective_from <= $3
-             AND (effective_to IS NULL OR effective_to >= $4)
-             ORDER BY teacher_id NULLS LAST, effective_from DESC`,
-            [tenantId, teacher.id, period_end, period_start]
-          );
-
-          const courseRates: Record<string, number> = {};
-          for (const rate of ratesResult.rows) {
-            if (rate.course_id && !courseRates[rate.course_id]) {
-              courseRates[rate.course_id] = parseFloat(rate.rate_amount);
-            }
-          }
-
-          // Calculate payment
-          const result = await this.calculatePayment({
-            teacherId: teacher.id,
-            periodStart: new Date(period_start),
-            periodEnd: new Date(period_end),
-            config,
-            teachingHours,
-            courseRates,
+        if (configResult.rows.length === 0) {
+          // Signalé explicitement : sans configuration, l'enseignant n'est jamais
+          // payé et personne ne s'en aperçoit tant qu'il ne réclame pas.
+          skipped.push({
+            teacherId,
+            teacherName,
+            skipReason: "NO_CONFIG",
+            message: "Aucune configuration de paie valide sur la période.",
           });
+          continue;
+        }
 
-          this.fastify.log.info(`Calculated payment for teacher ${teacher.id}: totalAmount=${result.totalAmount}, type=${result.paymentType}`);
-          results.push(result);
+        const config = this.mapConfigFromDb(configResult.rows[0]);
+
+        if (config.configType === "hourly" && teacherHours.length === 0) {
+          skipped.push({
+            teacherId,
+            teacherName,
+            skipReason: "NO_HOURS",
+            message: "Aucune heure validée sur la période.",
+          });
+          continue;
+        }
+
+        // --- Tarification de chaque heure -----------------------------
+        const priced: PricedHourRecord[] = [];
+        let unresolved: HourRecord | null = null;
+
+        for (const hour of teacherHours) {
+          const rate = this.resolveRate(hour, config, ecueRates, courseRates);
+          if (rate === null) {
+            unresolved = hour;
+            break;
+          }
+          priced.push({ ...hour, resolvedRate: rate });
+        }
+
+        if (unresolved) {
+          // Un montant nul silencieux serait pris pour « pas d'heures ».
+          skipped.push({
+            teacherId,
+            teacherName,
+            skipReason: "NO_RATE_RESOLVED",
+            message:
+              unresolved.source === "professionnel"
+                ? `Aucun tarif applicable pour l'ECUE « ${unresolved.code ?? unresolved.ecueId} » le ${unresolved.sessionDate}, ni tarif horaire par défaut.`
+                : `Aucun tarif applicable pour le cours « ${unresolved.code ?? unresolved.courseId} » le ${unresolved.sessionDate}, ni tarif horaire par défaut.`,
+          });
+          continue;
+        }
+
+        try {
+          results.push(
+            this.computePayment({
+              teacherId,
+              teacherName,
+              periodStart: new Date(`${periodStartStr}T00:00:00Z`),
+              periodEnd: new Date(`${periodEndStr}T00:00:00Z`),
+              config,
+              hours: priced,
+            })
+          );
         } catch (error) {
-          this.fastify.log.error(`Error calculating payment for teacher ${teacher.id}:`, error);
-          // Continue with other teachers
+          this.fastify.log.error(
+            `Erreur de calcul pour l'enseignant ${teacherId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+          skipped.push({
+            teacherId,
+            teacherName,
+            skipReason: "NO_CONFIG",
+            message: error instanceof Error ? error.message : "Configuration de paie inexploitable.",
+          });
         }
       }
 
-      this.fastify.log.info(`Calculation complete: ${results.length} result(s) returned`);
-
-      return results;
-    } catch (error) {
-      this.fastify.log.error('Error in calculateBatchPayments:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.fastify.log.error('calculateBatchPayments error details:', {
-        error: errorMessage,
-        stack: errorStack,
-        tenantId,
-        periodId,
-        teacherIds
-      });
-      throw error; // Re-throw to be handled by the route handler
+      this.fastify.log.info(
+        `calculateBatchPayments terminé : ${results.length} calculé(s), ${skipped.length} écarté(s)`
+      );
+      return { results, skipped };
     } finally {
       client.release();
     }
   }
 
   /**
-   * Map database row to TeacherPaymentConfig
+   * Tarif d'une heure. Ordre : tarif spécifique à l'origine, puis tarif horaire
+   * par défaut de la configuration. `null` = rien de résoluble (FR-013).
    */
+  private resolveRate(
+    hour: HourRecord,
+    config: TeacherPaymentConfig,
+    ecueRates: EcueRateIndex,
+    courseRates: Map<string, number>
+  ): number | null {
+    if (hour.source === "professionnel" && hour.ecueId) {
+      const hit = ecueRates.find(hour.ecueId, hour.teacherId, hour.sessionDate);
+      if (hit) return hit.montant_horaire;
+    }
+    if (hour.source === "academique" && hour.courseId) {
+      const rate = courseRates.get(hour.courseId);
+      if (rate != null) return rate;
+    }
+    if (config.defaultHourlyRate != null) return config.defaultHourlyRate;
+    // Un salarié pur n'a pas de tarif horaire : ses heures ne portent aucun
+    // montant, ce n'est pas une anomalie.
+    if (config.configType === "salary") return 0;
+    return null;
+  }
+
+  /** Tarifs par cours (Académique), tous enseignants — le nominatif l'emporte. */
+  private async loadCourseRates(
+    client: any,
+    tenantId: string,
+    periodStart: string,
+    periodEnd: string
+  ): Promise<Map<string, number>> {
+    const res = await client.query(
+      `SELECT course_id, rate_amount::float8 AS rate_amount, teacher_id
+       FROM course_hourly_rates
+       WHERE tenant_id = $1
+         AND effective_from <= $2::date
+         AND (effective_to IS NULL OR effective_to >= $3::date)
+         AND course_id IS NOT NULL
+       ORDER BY (teacher_id IS NULL), effective_from DESC`,
+      [tenantId, periodEnd, periodStart]
+    );
+    const map = new Map<string, number>();
+    for (const row of res.rows) {
+      if (!map.has(row.course_id)) map.set(row.course_id, Number(row.rate_amount));
+    }
+    return map;
+  }
+
   private mapConfigFromDb(row: any): TeacherPaymentConfig {
     return {
       id: row.id,
@@ -565,10 +654,9 @@ export class PaymentCalculator {
       overtimeMultiplier: parseFloat(row.overtime_multiplier) || 1.5,
       effectiveFrom: new Date(row.effective_from),
       effectiveTo: row.effective_to ? new Date(row.effective_to) : undefined,
-      notes: row.notes,
       createdBy: row.created_by,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
-    };
+    } as TeacherPaymentConfig;
   }
 }

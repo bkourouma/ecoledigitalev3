@@ -8,6 +8,8 @@ import {
   PaymentStatusSchema
 } from "@ecoledigitale/contracts/src/payments";
 import { PaymentCalculator } from "../services/payment-calculator.js";
+import { TeacherPayslipService } from "../services/teacher-payslip.service.js";
+import { TeacherPayslipNotificationService } from "../services/teacher-payslip-notification.service.js";
 
 export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
   const paymentCalculator = new PaymentCalculator(fastify);
@@ -310,36 +312,41 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Get hour details (handle cases where payment has no hour details)
+        // Détail horaire, via la vue enrichie : elle résout le libellé de
+        // l'origine (ECUE + cohorte, ou cours) sans dupliquer la jointure ici.
+        // L'ancienne requête ne joignait que `teaching_hours`, table que le
+        // calculateur n'alimente pas — elle renvoyait donc des libellés vides.
         let hourDetails = [];
         try {
           const hourDetailsResult = await client.query(
-            `SELECT
-              phd.id, phd.teaching_hours_id, phd.hours_count, phd.hourly_rate,
-              phd.amount, phd.is_overtime, phd.created_at,
-              th.session_date, th.session_type,
-              c.name as course_title
-            FROM payment_hour_details phd
-            LEFT JOIN teaching_hours th ON phd.teaching_hours_id = th.id
-            LEFT JOIN course_assignments ca ON th.assignment_id = ca.id
-            LEFT JOIN courses c ON ca.course_id = c.id
-            WHERE phd.payment_id = $1
-            ORDER BY th.session_date NULLS LAST`,
+            `SELECT id, source, teaching_hours_id, attendance_session_id, seance_id,
+                    hours_count, hourly_rate, amount, is_overtime, created_at,
+                    session_date, intitule, code, cohorte_libelle
+             FROM v_payment_hour_details_enriched
+             WHERE payment_id = $1
+             ORDER BY session_date NULLS LAST, created_at`,
             [id]
           );
-          
+
           hourDetails = hourDetailsResult.rows
-            .filter(hd => hd.id) // Filter out null rows if any
+            .filter(hd => hd.id)
             .map(hd => ({
               id: hd.id,
+              source: hd.source,
               teachingHoursId: hd.teaching_hours_id,
+              attendanceSessionId: hd.attendance_session_id,
+              seanceId: hd.seance_id,
               hoursCount: parseFloat(hd.hours_count || '0'),
+              // Figés au calcul : jamais recalculés à la lecture (FR-023).
               hourlyRate: parseFloat(hd.hourly_rate || '0'),
               amount: parseFloat(hd.amount || '0'),
               isOvertime: hd.is_overtime || false,
               sessionDate: hd.session_date,
-              sessionType: hd.session_type,
-              courseTitle: hd.course_title || 'N/A',
+              intitule: hd.intitule,
+              code: hd.code,
+              cohorteLibelle: hd.cohorte_libelle,
+              // Conservé pour les consommateurs existants du champ.
+              courseTitle: hd.intitule || 'N/A',
             }));
         } catch (hourDetailsError) {
           // If hour details query fails, log but don't fail the entire request
@@ -387,199 +394,34 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
     },
   });
 
-  // POST /api/v1/teacher-payments - Create a new payment
+
+  /**
+   * POST /api/v1/teacher-payments — NEUTRALISÉ (feature 031).
+   *
+   * Cet endpoint créait un paiement à partir de montants fournis par l'appelant,
+   * SANS écrire la moindre ligne dans payment_hour_details. Le bulletin
+   * affichait donc un total que rien ne justifiait : impossible à contrôler,
+   * impossible à contester.
+   *
+   * Il reste déclaré plutôt que supprimé pour répondre 410 avec une explication,
+   * là où un 404 laisserait un appelant externe deviner. Le chemin correct est
+   * POST /calculate, qui écrit le paiement ET sa justification ligne à ligne,
+   * puis PATCH /:id/adjustments pour les primes et retenues.
+   */
   fastify.post("/", {
-    schema: {
-      body: {
-        type: "object",
-        properties: {
-          teacherId: { type: "string", format: "uuid" },
-          periodId: { type: "string", format: "uuid" },
-          paymentType: { type: "string", enum: ["salary", "hourly", "mixed", "bonus", "deduction"] },
-          baseAmount: { type: "number", minimum: 0 },
-          overtimeAmount: { type: "number", minimum: 0, default: 0 },
-          bonusAmount: { type: "number", minimum: 0, default: 0 },
-          deductions: { type: "number", minimum: 0, default: 0 },
-          totalAmount: { type: "number" },
-          hourlyDetails: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-                hoursValidated: { type: "number" },
-                hourlyRate: { type: "number" },
-                amount: { type: "number" }
-              }
-            }
-          },
-          notes: { type: "string" }
+    handler: async (_request, reply) => {
+      return reply.status(410).send({
+        error: "Gone",
+        message:
+          "Cet endpoint est retiré : il créait un paiement sans détail horaire, donc sans justification. " +
+          "Utilisez POST /api/v1/teacher-payments/calculate (écrit le paiement et son détail), " +
+          "puis PATCH /api/v1/teacher-payments/:id/adjustments pour les primes et retenues.",
+        replacement: {
+          calculate: "POST /api/v1/teacher-payments/calculate",
+          adjustments: "PATCH /api/v1/teacher-payments/:id/adjustments",
         },
-        required: ["teacherId", "periodId", "paymentType", "totalAmount"]
-      }
+      });
     },
-    handler: async (request, reply) => {
-      let tenantId = (request as any).tenantId as string | undefined;
-      let userId = (request as any).userId as string | undefined;
-
-      if (!tenantId) {
-        const headerTenant = (request.headers['x-tenant'] as string | undefined)?.trim();
-        if (headerTenant) {
-          const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(headerTenant);
-          if (uuidLike) tenantId = headerTenant; else {
-            const tmp = await fastify.pg.connect();
-            try {
-              const t = await tmp.query('SELECT id FROM tenants WHERE slug = $1 OR code = $1 LIMIT 1', [headerTenant]);
-              if (t.rows.length > 0) tenantId = t.rows[0].id;
-            } finally { tmp.release(); }
-          }
-        }
-      }
-      if (!tenantId) return reply.status(400).send({ error: 'Tenant Required', message: 'Tenant missing' });
-      const activeAcademicYearId = request.headers["x-academic-year-id"] as string | undefined;
-      if (!activeAcademicYearId) {
-        return reply.status(400).send({
-          error: "Academic Year Required",
-          message: "Aucune année académique active détectée. Veuillez activer une année avant l'enregistrement.",
-        });
-      }
-
-      // For now, use a default user ID if not provided by auth middleware
-      if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
-        userId = '634a57fe-2007-4ecb-ae5b-f9e3152a24fb'; // Default admin user
-        fastify.log.warn(`Invalid userId provided: ${userId}, using default admin user`);
-      }
-
-      const data = request.body as any;
-      const client = await fastify.pg.connect();
-
-      try {
-        // Verify the teacher_payments table exists
-        const tableCheck = await client.query(`
-          SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            AND table_name = 'teacher_payments'
-          )
-        `);
-        
-        if (!tableCheck.rows[0].exists) {
-          return reply.status(500).send({
-            error: "Table Missing",
-            message: "teacher_payments table does not exist. Please run database migrations."
-          });
-        }
-
-        // Verify the required columns exist
-        const columnCheck = await client.query(`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_name = 'teacher_payments' 
-          AND column_name IN ('payment_config_id', 'payment_type', 'base_amount', 'total_amount')
-        `);
-        
-        if (columnCheck.rows.length < 4) {
-          return reply.status(500).send({
-            error: "Table Schema Error",
-            message: "teacher_payments table is missing required columns. Please run database migrations.",
-            missingColumns: ['payment_config_id', 'payment_type', 'base_amount', 'total_amount'].filter(
-              col => !columnCheck.rows.some(row => row.column_name === col)
-            )
-          });
-        }
-
-        await client.query('BEGIN');
-
-        const periodYearCheck = await client.query(
-          `SELECT 1 FROM payment_periods WHERE id = $1 AND tenant_id = $2 AND academic_year_id = $3`,
-          [data.periodId, tenantId, activeAcademicYearId]
-        );
-        if (periodYearCheck.rows.length === 0) {
-          await client.query('ROLLBACK');
-          return reply.status(400).send({
-            error: "Academic Year Mismatch",
-            message: "La période sélectionnée n'appartient pas à l'année académique active.",
-          });
-        }
-
-        // Get the teacher's payment config ID
-        let paymentConfigId = null;
-        if (data.paymentType === 'salary' || data.paymentType === 'mixed' || data.paymentType === 'hourly') {
-          fastify.log.info(`Looking for payment config for teacher ${data.teacherId} in tenant ${tenantId}`);
-          const configResult = await client.query(
-            `SELECT id FROM teacher_payment_configs 
-             WHERE tenant_id = $1 AND teacher_id = $2 
-             AND academic_year_id = $3
-             AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
-             AND effective_from <= CURRENT_DATE
-             ORDER BY effective_from DESC LIMIT 1`,
-            [tenantId, data.teacherId, activeAcademicYearId]
-          );
-          if (configResult.rows.length > 0) {
-            paymentConfigId = configResult.rows[0].id;
-            fastify.log.info(`Found payment config: ${paymentConfigId}`);
-          } else {
-            fastify.log.warn(`No active payment config found for teacher ${data.teacherId}`);
-          }
-        }
-
-        // Create the payment record
-        fastify.log.info(`Creating payment record with config ID: ${paymentConfigId}`);
-        const paymentResult = await client.query(
-          `INSERT INTO teacher_payments (
-            tenant_id, teacher_id, payment_period_id, payment_config_id, payment_type,
-            base_amount, overtime_amount, bonus_amount, deductions, total_amount,
-            currency, status, created_by, calculation_details
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'XOF', 'calculated', $11, $12)
-          RETURNING *`,
-          [
-            tenantId,
-            data.teacherId,
-            data.periodId,
-            paymentConfigId,
-            data.paymentType,
-            data.baseAmount || 0,
-            data.overtimeAmount || 0,
-            data.bonusAmount || 0,
-            data.deductions || 0,
-            data.totalAmount,
-            userId,
-            JSON.stringify({ hourlyDetails: data.hourlyDetails || [] })
-          ]
-        );
-
-        const payment = paymentResult.rows[0];
-
-        await client.query('COMMIT');
-
-        return reply.status(201).send({
-          data: {
-            id: payment.id,
-            teacherId: payment.teacher_id,
-            periodId: payment.payment_period_id,
-            paymentType: payment.payment_type,
-            baseAmount: parseFloat(payment.base_amount),
-            overtimeAmount: parseFloat(payment.overtime_amount),
-            bonusAmount: parseFloat(payment.bonus_amount),
-            deductions: parseFloat(payment.deductions),
-            totalAmount: parseFloat(payment.total_amount),
-            status: payment.status,
-            createdAt: payment.created_at
-          }
-        });
-      } catch (error) {
-        await client.query('ROLLBACK');
-        fastify.log.error('Error creating teacher payment:', error);
-        fastify.log.error('Payment data:', data);
-        return reply.status(500).send({
-          error: "Internal Server Error",
-          message: "Failed to create payment",
-          details: error.message
-        });
-      } finally {
-        client.release();
-      }
-    }
   });
 
   // POST /api/v1/teacher-payments/calculate - Calculate payments for period
@@ -594,6 +436,11 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
             items: { type: "string", format: "uuid" }
           },
           recalculate: { type: "boolean", default: false },
+          // Périmètre de collecte. Absent = "all" : un appel existant inclut
+          // désormais les heures professionnelles (feature 031).
+          scope: { type: "string", enum: ["all", "academique", "professionnel"], default: "all" },
+          // Aperçu : calcule sans persister.
+          dryRun: { type: "boolean", default: false },
         },
         required: ["periodId"],
       },
@@ -617,6 +464,7 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
                       status: { type: "string" },
                       paymentId: { type: "string" },
                       totalAmount: { type: "number" },
+                      currency: { type: "string" },
                       paymentType: { type: "string" },
                       baseAmount: { type: "number" },
                       overtimeAmount: { type: "number" },
@@ -625,6 +473,37 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
                       regularHours: { type: "number" },
                       overtimeHours: { type: "number" },
                       totalHours: { type: "number" },
+                      // Motif d'exclusion : sans lui, un enseignant non payé est
+                      // indiscernable d'un enseignant absent du périmètre.
+                      skipReason: { type: "string" },
+                      message: { type: "string" },
+                      hoursBySource: {
+                        type: "object",
+                        properties: {
+                          academique: { type: "number" },
+                          professionnel: { type: "number" },
+                        },
+                      },
+                      // Renseigné en mode aperçu : permet à l'écran d'afficher
+                      // le détail ligne à ligne avant validation.
+                      hourDetails: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            source: { type: "string" },
+                            sessionDate: { type: "string" },
+                            intitule: { type: "string" },
+                            code: { type: "string" },
+                            hoursCount: { type: "number" },
+                            hourlyRate: { type: "number" },
+                            amount: { type: "number" },
+                            isOvertime: { type: "boolean" },
+                            seanceId: { type: "string" },
+                            attendanceSessionId: { type: "string" },
+                          },
+                        },
+                      },
                       error: { type: "string" },
                     },
                   },
@@ -665,13 +544,10 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
             }
           }
         }
+        // Année académique facultative : les périodes de paie n'y sont plus
+        // rattachées obligatoirement.
         const activeAcademicYearId = request.headers["x-academic-year-id"] as string | undefined;
-        if (!activeAcademicYearId) {
-          return reply.status(400).send({
-            error: "Academic Year Required",
-            message: "Aucune année académique active détectée. Veuillez activer une année avant le calcul.",
-          });
-        }
+        void activeAcademicYearId;
         if (!request.tenantId) {
           return reply.status(400).send({
             error: "Tenant Required",
@@ -691,8 +567,8 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
         }
         // Verify payment period exists and is active
         const periodResult = await client.query(
-          `SELECT status FROM payment_periods WHERE id = $1 AND tenant_id = $2 AND academic_year_id = $3`,
-          [data.periodId, request.tenantId, activeAcademicYearId]
+          `SELECT status FROM payment_periods WHERE id = $1 AND tenant_id = $2`,
+          [data.periodId, request.tenantId]
         );
 
         if (periodResult.rows.length === 0) {
@@ -700,6 +576,39 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
             error: "Period Not Found",
             message: "Payment period not found",
           });
+        }
+
+        // ---------------------------------------------------------------
+        // PÉRIMÈTRE DE LA PÉRIODE (feature 031).
+        //
+        // Une période ciblée ne doit produire de bulletins QUE pour les
+        // enseignants qu'elle vise. Sans ce filtre, ouvrir une période pour
+        // trois vacataires calculerait les trente — et l'écran l'annoncerait
+        // comme une régularisation ciblée.
+        //
+        // Quand l'appelant fournit déjà `teacherIds`, on INTERSECTE plutôt que
+        // de remplacer : le périmètre de la période est une borne, pas un
+        // élargissement.
+        // ---------------------------------------------------------------
+        const perimetre = await client.query(
+          `SELECT teacher_id FROM payment_period_teachers
+            WHERE payment_period_id = $1 AND tenant_id = $2`,
+          [data.periodId, request.tenantId]
+        );
+
+        if (perimetre.rows.length > 0) {
+          const cibles = perimetre.rows.map((r: any) => r.teacher_id as string);
+          data.teacherIds = data.teacherIds?.length
+            ? data.teacherIds.filter((id: string) => cibles.includes(id))
+            : cibles;
+
+          if (data.teacherIds.length === 0) {
+            return reply.status(400).send({
+              error: "Empty Scope",
+              message:
+                "Aucun enseignant commun entre la demande et le périmètre de la période.",
+            });
+          }
         }
 
         if (periodResult.rows[0].status === 'closed' || periodResult.rows[0].status === 'archived') {
@@ -747,36 +656,123 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
           });
         }
 
+        // Devise de l'établissement : le défaut de colonne ne suffit pas quand
+        // la base a été construite depuis la variante 'EUR' de la migration 0011.
+        let tenantCurrency = "XOF";
+        try {
+          const devise = await client.query(
+            `SELECT devise FROM professional_ue
+             WHERE tenant_id = $1 AND devise IS NOT NULL
+             GROUP BY devise ORDER BY count(*) DESC LIMIT 1`,
+            [request.tenantId]
+          );
+          if (devise.rows.length > 0 && devise.rows[0].devise) {
+            tenantCurrency = devise.rows[0].devise;
+          }
+        } catch {
+          // Le module professionnel peut ne pas être déployé : XOF reste le défaut.
+        }
+
         // Calculate payments
-        fastify.log.info(`Starting batch payment calculation for period ${data.periodId}, teachers: ${data.teacherIds?.length || 'all'}`);
-        const calculations = await paymentCalculator.calculateBatchPayments(
+        fastify.log.info(`Starting batch payment calculation for period ${data.periodId}, teachers: ${data.teacherIds?.length || 'all'}, scope: ${data.scope}`);
+        const outcome = await paymentCalculator.calculateBatchPayments(
           request.tenantId,
           data.periodId,
-          data.teacherIds
+          data.teacherIds,
+          data.scope
         );
-        fastify.log.info(`Batch calculation returned ${calculations.length} result(s)`);
+        const calculations = outcome.results;
+        fastify.log.info(
+          `Batch calculation returned ${calculations.length} result(s), ${outcome.skipped.length} skipped`
+        );
 
         let calculated = 0;
         let skipped = 0;
         let errors = 0;
-        const results = [];
+        const results: any[] = [];
+
+        // Les enseignants écartés par le calculateur figurent dans le compte
+        // rendu avec leur motif : les omettre laisserait croire qu'ils ont été
+        // traités (FR-026).
+        for (const s of outcome.skipped) {
+          skipped++;
+          results.push({
+            teacherId: s.teacherId,
+            teacherName: s.teacherName,
+            status: "skipped",
+            skipReason: s.skipReason,
+            message: s.message,
+          });
+        }
+
+        // Mode aperçu : on renvoie le résultat du moteur sans rien écrire.
+        // C'est ce qui permet à l'écran de montrer un montant AVANT validation
+        // en s'appuyant sur le même calcul que la validation elle-même.
+        if (data.dryRun) {
+          for (const calc of calculations) {
+            calculated++;
+            results.push({
+              teacherId: calc.teacherId,
+              teacherName: calc.teacherName,
+              status: "preview",
+              totalAmount: calc.totalAmount,
+              currency: tenantCurrency,
+              paymentType: calc.paymentType,
+              baseAmount: calc.baseAmount,
+              overtimeAmount: calc.overtimeAmount,
+              bonusAmount: calc.bonusAmount,
+              deductions: calc.deductions,
+              regularHours: calc.calculationDetails.regularHours,
+              overtimeHours: calc.calculationDetails.overtimeHours,
+              totalHours:
+                calc.calculationDetails.regularHours + calc.calculationDetails.overtimeHours,
+              hoursBySource: calc.hoursBySource,
+              hourDetails: calc.hourDetails,
+            });
+          }
+          return { data: { calculated, skipped, errors, results } };
+        }
 
         for (const calc of calculations) {
           try {
             // Check if payment already exists
             const existingResult = await client.query(
-              `SELECT id FROM teacher_payments
-              WHERE tenant_id = $1 AND teacher_id = $2 AND payment_period_id = $3 AND payment_type = $4`,
-              [request.tenantId, calc.teacherId, data.periodId, calc.paymentType]
+              // Recherche SANS le type de paiement : un enseignant n'a qu'UN
+              // bulletin par période. Chercher aussi sur `payment_type` créait
+              // un second bulletin dès qu'une configuration passait d'horaire à
+              // salarié en cours de période — l'ancien restait, le nouveau
+              // s'ajoutait, et payer les deux payait l'enseignant deux fois.
+              `SELECT id, status::text AS status, payment_type::text AS payment_type
+               FROM teacher_payments
+               WHERE tenant_id = $1 AND teacher_id = $2 AND payment_period_id = $3`,
+              [request.tenantId, calc.teacherId, data.periodId]
             );
 
-            if (existingResult.rows.length > 0 && !data.recalculate) {
+            const existing = existingResult.rows[0];
+
+            // Un paiement approuvé, payé ou annulé n'est JAMAIS écrasé par un
+            // recalcul : il a déjà engagé l'établissement (FR-025).
+            if (existing && ["approved", "paid", "cancelled"].includes(existing.status)) {
               skipped++;
               results.push({
                 teacherId: calc.teacherId,
-                teacherName: "Unknown", // Would need to fetch from DB
+                teacherName: calc.teacherName,
                 status: "skipped",
-                paymentId: existingResult.rows[0].id,
+                skipReason: "PAYMENT_LOCKED",
+                paymentId: existing.id,
+                paymentType: calc.paymentType,
+                message: `Paiement au statut « ${existing.status} » : non recalculé.`,
+              });
+              continue;
+            }
+
+            if (existing && !data.recalculate) {
+              skipped++;
+              results.push({
+                teacherId: calc.teacherId,
+                teacherName: calc.teacherName,
+                status: "skipped",
+                paymentId: existing.id,
                 totalAmount: 0,
                 paymentType: calc.paymentType,
                 baseAmount: calc.baseAmount,
@@ -786,6 +782,7 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
                 regularHours: calc.calculationDetails.regularHours,
                 overtimeHours: calc.calculationDetails.overtimeHours,
                 totalHours: calc.calculationDetails.regularHours + calc.calculationDetails.overtimeHours,
+                hoursBySource: calc.hoursBySource,
                 error: "Payment already exists",
               });
               continue;
@@ -795,12 +792,17 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
             await client.query('BEGIN');
 
             let paymentId;
-            if (existingResult.rows.length > 0) {
+            if (existing) {
               // Update existing payment
               const updateResult = await client.query(
+                // `payment_type` fait partie de la mise à jour : quand la
+                // configuration passe d'horaire à salarié, le bulletin existant
+                // CHANGE de type au lieu qu'un second soit créé à côté.
                 `UPDATE teacher_payments
-                SET base_amount = $1, overtime_amount = $2, bonus_amount = $3,
+                SET payment_type = $9::payment_type,
+                    base_amount = $1, overtime_amount = $2, bonus_amount = $3,
                     deductions = $4, total_amount = $5, calculation_details = $6,
+                    currency = $8,
                     status = 'calculated', calculated_at = NOW(), updated_at = NOW()
                 WHERE id = $7
                 RETURNING id`,
@@ -811,12 +813,16 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
                   calc.deductions,
                   calc.totalAmount,
                   JSON.stringify(calc.calculationDetails),
-                  existingResult.rows[0].id,
+                  existing.id,
+                  tenantCurrency,
+                  calc.paymentType,
                 ]
               );
               paymentId = updateResult.rows[0].id;
 
-              // Delete existing hour details
+              // Le détail est reconstruit intégralement : un recalcul qui
+              // ajouterait des lignes sans purger les anciennes doublerait les
+              // heures affichées sur le bulletin (FR-024).
               await client.query(
                 `DELETE FROM payment_hour_details WHERE payment_id = $1`,
                 [paymentId]
@@ -827,8 +833,8 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
                 `INSERT INTO teacher_payments
                 (tenant_id, teacher_id, payment_period_id, payment_type, base_amount,
                  overtime_amount, bonus_amount, deductions, total_amount,
-                 calculation_details, created_by)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                 calculation_details, created_by, currency)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 RETURNING id`,
                 [
                   request.tenantId,
@@ -842,21 +848,28 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
                   calc.totalAmount,
                   JSON.stringify(calc.calculationDetails),
                   effectiveUserId,
+                  tenantCurrency,
                 ]
               );
               paymentId = insertResult.rows[0].id;
             }
 
-            // Insert hour details
+            // Détail horaire : chaque ligne porte son origine et la référence
+            // qui la justifie. `hours_count` et `hourly_rate` sont FIGÉS ici —
+            // une révision de tarif ne doit pas altérer un paiement existant.
             for (const hourDetail of calc.hourDetails) {
               await client.query(
                 `INSERT INTO payment_hour_details
-                (tenant_id, payment_id, teaching_hours_id, hours_count, hourly_rate, amount, is_overtime)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                (tenant_id, payment_id, source, teaching_hours_id, attendance_session_id,
+                 seance_id, hours_count, hourly_rate, amount, is_overtime)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
                 [
                   request.tenantId,
                   paymentId,
+                  hourDetail.source,
                   hourDetail.teachingHoursId,
+                  hourDetail.attendanceSessionId,
+                  hourDetail.seanceId,
                   hourDetail.hoursCount,
                   hourDetail.hourlyRate,
                   hourDetail.amount,
@@ -870,10 +883,11 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
 
             results.push({
               teacherId: calc.teacherId,
-              teacherName: "Unknown", // Would need to fetch from DB
+              teacherName: calc.teacherName,
               status: "calculated",
               paymentId,
               totalAmount: calc.totalAmount,
+              currency: tenantCurrency,
               paymentType: calc.paymentType,
               baseAmount: calc.baseAmount,
               overtimeAmount: calc.overtimeAmount,
@@ -882,6 +896,7 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
               regularHours: calc.calculationDetails.regularHours,
               overtimeHours: calc.calculationDetails.overtimeHours,
               totalHours: calc.calculationDetails.regularHours + calc.calculationDetails.overtimeHours,
+              hoursBySource: calc.hoursBySource,
             });
           } catch (error) {
             await client.query('ROLLBACK');
@@ -890,7 +905,7 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
 
             results.push({
               teacherId: calc.teacherId,
-              teacherName: "Unknown",
+              teacherName: calc.teacherName,
               status: "error",
               error: error instanceof Error ? error.message : "Unknown error",
             });
@@ -1096,7 +1111,14 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
         for (const paymentId of data.paymentIds) {
           try {
             let updateQuery = "";
-            let params = [request.userId, data.notes, paymentId, request.tenantId];
+            // Les paramètres sont propres à CHAQUE action. Un jeu commun de
+            // quatre valeurs laissait `$1` (l'utilisateur) non référencé par
+            // « mark_paid », « reject » et « cancel » : PostgreSQL ne peut pas
+            // inférer le type d'un paramètre inutilisé et rejetait la requête
+            // (« n'a pas pu déterminer le type de données du paramètre $1 »).
+            // Ces trois actions échouaient donc systématiquement, en silence —
+            // la réponse restait 200 avec `processed: 0`.
+            let params: unknown[] = [];
 
             switch (data.action) {
               case "approve":
@@ -1106,28 +1128,32 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
                       notes = COALESCE($2, notes), updated_at = NOW()
                   WHERE id = $3 AND tenant_id = $4 AND status = 'calculated'
                 `;
+                params = [request.userId, data.notes, paymentId, request.tenantId];
                 break;
               case "reject":
                 updateQuery = `
                   UPDATE teacher_payments
-                  SET status = 'disputed', notes = COALESCE($2, notes), updated_at = NOW()
-                  WHERE id = $3 AND tenant_id = $4 AND status IN ('calculated', 'approved')
+                  SET status = 'disputed', notes = COALESCE($1::text, notes), updated_at = NOW()
+                  WHERE id = $2 AND tenant_id = $3 AND status IN ('calculated', 'approved')
                 `;
+                params = [data.notes, paymentId, request.tenantId];
                 break;
               case "mark_paid":
                 updateQuery = `
                   UPDATE teacher_payments
                   SET status = 'paid', paid_at = NOW(),
-                      notes = COALESCE($2, notes), updated_at = NOW()
-                  WHERE id = $3 AND tenant_id = $4 AND status = 'approved'
+                      notes = COALESCE($1::text, notes), updated_at = NOW()
+                  WHERE id = $2 AND tenant_id = $3 AND status = 'approved'
                 `;
+                params = [data.notes, paymentId, request.tenantId];
                 break;
               case "cancel":
                 updateQuery = `
                   UPDATE teacher_payments
-                  SET status = 'cancelled', notes = COALESCE($2, notes), updated_at = NOW()
-                  WHERE id = $3 AND tenant_id = $4 AND status IN ('calculated', 'approved')
+                  SET status = 'cancelled', notes = COALESCE($1::text, notes), updated_at = NOW()
+                  WHERE id = $2 AND tenant_id = $3 AND status IN ('calculated', 'approved')
                 `;
+                params = [data.notes, paymentId, request.tenantId];
                 break;
             }
 
@@ -1289,6 +1315,115 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
   });
 
   // PATCH /api/v1/teacher-payments/:id/status - Update payment status
+  /**
+   * PATCH /api/v1/teacher-payments/:id/adjustments
+   *
+   * Primes, retenues et, au besoin, correction du montant de base — les seules
+   * valeurs que la spec prévoit de saisir à la main. Le TOTAL n'est jamais
+   * accepté du client : il est recalculé ici à partir de ses composantes, sinon
+   * rien ne garantit qu'il corresponde à ce que le détail justifie.
+   *
+   * Refusé sur un paiement approuvé ou payé : les ajuster reviendrait à modifier
+   * un montant déjà engagé.
+   */
+  fastify.patch("/:id/adjustments", {
+    schema: {
+      params: {
+        type: "object",
+        properties: { id: { type: "string", format: "uuid" } },
+        required: ["id"],
+      },
+      body: {
+        type: "object",
+        properties: {
+          baseAmount: { type: "number", minimum: 0 },
+          bonusAmount: { type: "number", minimum: 0 },
+          deductions: { type: "number", minimum: 0 },
+          notes: { type: "string" },
+        },
+      },
+    },
+    handler: async (request, reply) => {
+      if (!request.tenantId) {
+        return reply.status(400).send({
+          error: "Tenant Required",
+          message: "This endpoint requires tenant context",
+        });
+      }
+
+      const { id } = request.params as { id: string };
+      const body = request.body as {
+        baseAmount?: number;
+        bonusAmount?: number;
+        deductions?: number;
+        notes?: string;
+      };
+
+      const client = await fastify.pg.connect();
+      try {
+        const current = await client.query(
+          `SELECT status::text AS status, base_amount, overtime_amount
+           FROM teacher_payments WHERE id = $1 AND tenant_id = $2`,
+          [id, request.tenantId]
+        );
+        if (current.rows.length === 0) {
+          return reply.status(404).send({ error: "Not Found", message: "Paiement introuvable." });
+        }
+        if (["approved", "paid", "cancelled"].includes(current.rows[0].status)) {
+          return reply.status(409).send({
+            error: "Payment Locked",
+            message: `Paiement au statut « ${current.rows[0].status} » : ses montants ne sont plus modifiables.`,
+          });
+        }
+
+        const base =
+          body.baseAmount !== undefined
+            ? body.baseAmount
+            : parseFloat(current.rows[0].base_amount);
+        const overtime = parseFloat(current.rows[0].overtime_amount) || 0;
+        const bonus = body.bonusAmount ?? 0;
+        const deductions = body.deductions ?? 0;
+        const total = base + overtime + bonus - deductions;
+
+        if (total < 0) {
+          return reply.status(400).send({
+            error: "Invalid Amounts",
+            message: "Les retenues dépassent le montant dû.",
+          });
+        }
+
+        const updated = await client.query(
+          `UPDATE teacher_payments
+           SET base_amount = $1, bonus_amount = $2, deductions = $3,
+               total_amount = $4, notes = COALESCE($5, notes), updated_at = NOW()
+           WHERE id = $6 AND tenant_id = $7
+           RETURNING id, base_amount, overtime_amount, bonus_amount, deductions, total_amount`,
+          [base, bonus, deductions, total, body.notes ?? null, id, request.tenantId]
+        );
+
+        const r = updated.rows[0];
+        return {
+          data: {
+            id: r.id,
+            baseAmount: parseFloat(r.base_amount),
+            overtimeAmount: parseFloat(r.overtime_amount),
+            bonusAmount: parseFloat(r.bonus_amount),
+            deductions: parseFloat(r.deductions),
+            totalAmount: parseFloat(r.total_amount),
+          },
+        };
+      } catch (error) {
+        fastify.log.error("Error adjusting payment:", error);
+        return reply.status(500).send({
+          error: "Internal Server Error",
+          message: error instanceof Error ? error.message : "Ajustement impossible",
+        });
+      } finally {
+        client.release();
+      }
+    },
+  });
+
   fastify.patch("/:id/status", {
     schema: {
       params: {
@@ -1352,5 +1487,60 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
         client.release();
       }
     }
+  });
+}
+
+/**
+ * Bulletin de paie — feature 031.
+ *
+ * Ces routes sont enregistrees a part pour ne pas alourdir davantage le
+ * fichier principal, mais restent montees sous le meme prefixe
+ * (`/api/v1/teacher-payments`) : le bulletin est un attribut du paiement, pas
+ * une ressource independante.
+ */
+export async function teacherPayslipRoutes(fastify: FastifyInstance) {
+  const payslips = new TeacherPayslipService(fastify.pg as any);
+  const notifications = new TeacherPayslipNotificationService();
+
+  /** Bulletin au format PDF, pret a etre telecharge ou archive. */
+  fastify.get("/:id/payslip.pdf", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const result = await payslips.generatePdf(request.tenantId as string, id);
+    if (!result.success) {
+      const failure = result as { error: string; message?: string };
+      return reply
+        .status(failure.error === "PAYMENT_NOT_FOUND" ? 404 : 500)
+        .send({ success: false, error: failure.error, message: failure.message });
+    }
+
+    // `inline` plutot que `attachment` : le bulletin se consulte le plus
+    // souvent d'un coup d'oeil, le telechargement reste a un clic.
+    return reply
+      .header("Content-Type", "application/pdf")
+      .header("Content-Disposition", `inline; filename="bulletin-paie-${id.slice(0, 8)}.pdf"`)
+      .send(result.data);
+  });
+
+  /** Envoie le bulletin a l'enseignant par courriel, en piece jointe. */
+  fastify.post("/:id/notify", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const donnees = await payslips.getPayslipData(request.tenantId as string, id);
+    if (!donnees.success) {
+      const failure = donnees as { error: string; message?: string };
+      return reply
+        .status(failure.error === "PAYMENT_NOT_FOUND" ? 404 : 500)
+        .send({ success: false, error: failure.error, message: failure.message });
+    }
+
+    const pdf = await payslips.generatePdf(request.tenantId as string, id);
+    if (!pdf.success) {
+      return reply.status(500).send({ success: false, error: "PDF_GENERATION_FAILED" });
+    }
+
+    const envoi = await notifications.notifier(donnees.data, pdf.data);
+    // Un echec d'envoi n'est pas une erreur serveur : le bulletin existe. On
+    // renvoie 200 avec le motif, a charge de l'appelant de le signaler.
+    return reply.send({ success: true, data: envoi });
   });
 }

@@ -13,6 +13,7 @@ import type {
   JustifyProfessionalAbsence,
 } from "@ecoledigitale/contracts";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
+import { basculerSeanceRealisee } from "./professional-seance-constat";
 
 /**
  * Service UE — Module Professionnel (feature 030).
@@ -1180,7 +1181,19 @@ export class ProfessionalUeService extends ProfessionalBaseService {
           [tenantId, seanceId, entry.student_id, entry.statut, markedBy ?? null]
         );
       }
-      return ok({ seance_id: seanceId, count: input.entries.length });
+
+      /**
+       * L'APPEL FAIT PASSER LA SÉANCE EN « RÉALISÉE ». La règle est partagée
+       * avec le chemin enseignant — voir `professional-seance-constat.ts`.
+       */
+      const bascule = await basculerSeanceRealisee(client, tenantId, seanceId, markedBy);
+
+      return ok({
+        seance_id: seanceId,
+        count: input.entries.length,
+        /** true si l'appel vient de faire basculer la séance en « réalisée ». */
+        statut_bascule: bascule,
+      });
     });
   }
 

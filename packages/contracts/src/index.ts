@@ -96,6 +96,11 @@ export * from "./professional-diplomas";
 // Signataires configurables des documents officiels (attestations, diplôme)
 export * from "./professional-signataires";
 
+// Rémunération des enseignants du Module Professionnel — feature 031
+// (séances payables + tarifs horaires par ECUE ; le moteur de paie reste celui
+// de ./payments, partagé avec l'Académique)
+export * from "./professional-remuneration";
+
 // Export des contrats du Module Professionnel (Filière → UE → ECUE) — features 028 → 030
 export * from "./professional";
 

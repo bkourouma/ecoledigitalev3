@@ -97,11 +97,9 @@ export async function paymentPeriodsRoutes(fastify: FastifyInstance) {
           paramIndex++;
         }
 
-        if (activeAcademicYearId) {
-          whereClause += ` AND academic_year_id = $${paramIndex}`;
-          params.push(activeAcademicYearId);
-          paramIndex++;
-        }
+        // Pas de filtrage par année : une période est identifiée par sa plage
+        // de dates. La filtrer sur l'année active masquerait les périodes
+        // créées sans année, ou couvrant deux années scolaires.
 
         // Get total count
         const countQuery = `SELECT COUNT(*) FROM payment_periods ${whereClause}`;
@@ -253,8 +251,18 @@ export async function paymentPeriodsRoutes(fastify: FastifyInstance) {
           description: { type: "string" },
           periodStart: { type: "string", format: "date" },
           periodEnd: { type: "string", format: "date" },
+          // Vide / absent = période COLLECTIVE (tous les enseignants).
+          teacherIds: {
+            type: "array",
+            items: { type: "string", format: "uuid" },
+          },
         },
-        required: ["name", "periodStart", "periodEnd"],
+        // Les dates SONT obligatoires, mais volontairement absentes d'ici : le
+        // refus du schéma Fastify est un message anglais générique
+        // (« body must have required property 'periodStart' »). Le contrôle est
+        // fait dans le handler, qui répond en français comme le reste du
+        // parcours. Ne pas les ajouter ici sans déplacer le message.
+        required: ["name"],
       },
       response: {
         201: {
@@ -274,6 +282,7 @@ export async function paymentPeriodsRoutes(fastify: FastifyInstance) {
                 createdBy: { type: "string" },
                 createdAt: { type: "string" },
                 updatedAt: { type: "string" },
+                teacherIds: { type: "array", items: { type: "string" } },
               },
             },
           },
@@ -285,18 +294,49 @@ export async function paymentPeriodsRoutes(fastify: FastifyInstance) {
             message: { type: "string" },
           },
         },
+        // Le verrou « une période en attente à la fois » renvoie la période
+        // fautive : l'écran doit pouvoir y renvoyer l'utilisateur.
+        409: {
+          type: "object",
+          properties: {
+            error: { type: "string" },
+            message: { type: "string" },
+            pendingPeriod: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                name: { type: "string" },
+                periodStart: { type: "string" },
+                periodEnd: { type: "string" },
+                nbTeachers: { type: "number" },
+              },
+            },
+          },
+        },
       },
     },
     handler: async (request: AuthenticatedRequest, reply) => {
       try {
         console.log('📥 Received request body:', request.body);
 
-        // Simple validation
         const body = request.body as any;
-        if (!body || !body.name || !body.periodStart || !body.periodEnd) {
+        if (!body || !body.name) {
           return reply.status(400).send({
             error: "Missing required fields",
-            message: "name, periodStart, and periodEnd are required",
+            message: "Le nom de la période est requis.",
+          });
+        }
+
+        // Dates OBLIGATOIRES. Le serveur retenait le mois en cours à défaut ;
+        // ce repli est supprimé. Tant que deux périodes ne pouvaient pas se
+        // recouvrir, des bornes devinées restaient sans conséquence. Depuis la
+        // migration 0112, ce sont elles qui déterminent quelles heures tombent
+        // dans quel bulletin : une valeur implicite répondrait à la place du
+        // gestionnaire, et l'écart ne se verrait qu'au montant.
+        if (!body.periodStart || !body.periodEnd) {
+          return reply.status(400).send({
+            error: "Missing required fields",
+            message: "Les dates de début et de fin de la période sont requises.",
           });
         }
 
@@ -309,12 +349,7 @@ export async function paymentPeriodsRoutes(fastify: FastifyInstance) {
             message: "This endpoint requires tenant context",
           });
         }
-        if (!activeAcademicYearId) {
-          return reply.status(400).send({
-            error: "Academic Year Required",
-            message: "Aucune année académique active détectée. Veuillez activer une année avant l'enregistrement.",
-          });
-        }
+        // Année académique facultative : simple étiquette de traçabilité.
 
         // Get or create a user for testing
         const client = await fastify.pg.connect();
@@ -349,71 +384,164 @@ export async function paymentPeriodsRoutes(fastify: FastifyInstance) {
         if (new Date(data.periodStart) >= new Date(data.periodEnd)) {
           return reply.status(400).send({
             error: "Invalid Date Range",
-            message: "Period start date must be before end date",
+            message: "La date de début doit précéder la date de fin.",
           });
         }
 
         const dbClient = await fastify.pg.connect();
         try {
-          const academicYearResult = await dbClient.query(
-            `SELECT start_date, end_date
-             FROM academic_years
-             WHERE id = $1 AND tenant_id = $2`,
-            [activeAcademicYearId, tenantId]
+          // Les dates d'une période de paie NE SONT PLUS bornées par l'année
+          // académique : un exercice de paie suit le calendrier de
+          // l'établissement, pas le calendrier scolaire. L'année reste
+          // enregistrée sur la ligne à titre de traçabilité quand l'en-tête est
+          // présent, mais elle ne conditionne plus la création.
+          //
+          // Le chevauchement de dates NE BLOQUE PLUS la création : ouvrir une
+          // période sur des dates déjà couvertes est un choix de gestion
+          // (correctif, complément, régularisation). Il est journalisé, pas
+          // refusé — voir plus bas.
+
+          // ---------------------------------------------------------------
+          // VERROU : une seule période en attente à la fois.
+          //
+          // « En attente » = aucune ligne de `teacher_payments` ne s'y
+          // rattache, donc elle n'a pas encore servi au calcul. Tant qu'elle
+          // n'a pas été consommée, en ouvrir une deuxième laisse le
+          // gestionnaire avec deux exercices ouverts sans savoir lequel
+          // alimente quoi.
+          //
+          // La règle vaut quel que soit le périmètre : une période
+          // individuelle en attente bloque aussi la création d'une collective.
+          // ---------------------------------------------------------------
+          const enAttente = await dbClient.query(
+            `SELECT pp.id, pp.name, pp.period_start::text AS period_start,
+                    pp.period_end::text AS period_end,
+                    (SELECT count(*)::int FROM payment_period_teachers ppt
+                      WHERE ppt.payment_period_id = pp.id)         AS nb_enseignants
+               FROM payment_periods pp
+              WHERE pp.tenant_id = $1
+                AND pp.status <> 'archived'
+                AND NOT EXISTS (SELECT 1 FROM teacher_payments tp
+                                 WHERE tp.payment_period_id = pp.id)
+              ORDER BY pp.created_at DESC
+              LIMIT 1`,
+            [tenantId]
           );
 
-          if (academicYearResult.rows.length === 0) {
-            return reply.status(400).send({
-              error: "Academic Year Not Found",
-              message: "Année académique active introuvable pour ce tenant",
+          if (enAttente.rows.length > 0) {
+            const p = enAttente.rows[0];
+            const perimetre =
+              p.nb_enseignants > 0
+                ? `${p.nb_enseignants} enseignant(s)`
+                : "collective";
+            return reply.status(409).send({
+              error: "Pending Period Exists",
+              message:
+                `La période « ${p.name} » (${perimetre}, du ${p.period_start} au ` +
+                `${p.period_end}) n'a pas encore servi au calcul. ` +
+                `Lancez son calcul, ou supprimez-la, avant d'en créer une autre.`,
+              pendingPeriod: {
+                id: p.id,
+                name: p.name,
+                periodStart: p.period_start,
+                periodEnd: p.period_end,
+                nbTeachers: p.nb_enseignants,
+              },
             });
           }
 
-          const ayStart = new Date(academicYearResult.rows[0].start_date);
-          const ayEnd = new Date(academicYearResult.rows[0].end_date);
-          const periodStart = new Date(data.periodStart);
-          const periodEnd = new Date(data.periodEnd);
+          // ---------------------------------------------------------------
+          // Chevauchement : SIGNALÉ, PLUS REFUSÉ.
+          //
+          // Le contrôle tient compte du PÉRIMÈTRE : deux périodes
+          // individuelles visant des enseignants différents couvrent
+          // légitimement les mêmes dates. Dès qu'une collective est en jeu, ou
+          // qu'il s'agit du même enseignant, les mêmes séances SERONT
+          // recollectées : rien en aval ne les écarte, le prédicat de
+          // payabilité ne connaît pas les bulletins déjà émis.
+          //
+          // La création reste autorisée. On garde la trace côté serveur pour
+          // pouvoir expliquer un double paiement après coup.
+          // ---------------------------------------------------------------
+          const cibles: string[] = Array.isArray(data.teacherIds) ? data.teacherIds : [];
 
-          if (periodStart < ayStart || periodEnd > ayEnd) {
-            return reply.status(400).send({
-              error: "Out of Bounds",
-              message: "Les dates de la période doivent être comprises dans l'année académique active",
-            });
-          }
-
-          // Check for overlapping periods
           const overlapCheck = await dbClient.query(
-            `SELECT id FROM payment_periods
-            WHERE tenant_id = $1
-            AND status != 'archived'
-            AND daterange($2::date, $3::date, '[]') && daterange(period_start, period_end, '[]')`,
-            [tenantId, data.periodStart, data.periodEnd]
+            `SELECT pp.id, pp.name FROM payment_periods pp
+              WHERE pp.tenant_id = $1
+                AND pp.status != 'archived'
+                AND daterange($2::date, $3::date, '[]')
+                    && daterange(pp.period_start, pp.period_end, '[]')
+                AND (
+                  -- La nouvelle est collective : elle touche tout le monde.
+                  cardinality($4::uuid[]) = 0
+                  -- L'existante est collective : elle couvre déjà nos cibles.
+                  OR NOT EXISTS (SELECT 1 FROM payment_period_teachers ppt
+                                  WHERE ppt.payment_period_id = pp.id)
+                  -- Sinon, seul un enseignant COMMUN aux deux pose problème.
+                  OR EXISTS (SELECT 1 FROM payment_period_teachers ppt
+                              WHERE ppt.payment_period_id = pp.id
+                                AND ppt.teacher_id = ANY($4::uuid[]))
+                )`,
+            [tenantId, data.periodStart, data.periodEnd, cibles]
           );
 
           if (overlapCheck.rows.length > 0) {
-            return reply.status(400).send({
-              error: "Overlapping Period",
-              message: "Payment period overlaps with an existing period",
-            });
+            fastify.log.warn(
+              {
+                tenantId,
+                periodStart: data.periodStart,
+                periodEnd: data.periodEnd,
+                teacherIds: cibles,
+                overlaps: overlapCheck.rows.map((r: { id: string; name: string }) => ({
+                  id: r.id,
+                  name: r.name,
+                })),
+              },
+              "Période de paie créée en chevauchement d'une période existante : " +
+                "les mêmes séances peuvent être payées deux fois."
+            );
           }
 
-          const result = await dbClient.query(
-            `INSERT INTO payment_periods
-            (tenant_id, academic_year_id, name, description, period_start, period_end, status, created_by)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING id, tenant_id, academic_year_id, name, description, period_start, period_end,
-                      status, created_by, created_at, updated_at`,
-            [
-              tenantId,
-              activeAcademicYearId,
-              data.name,
-              data.description,
-              data.periodStart,
-              data.periodEnd,
-              'active', // Set status to 'active' by default instead of 'draft'
-              userId,
-            ]
-          );
+          // La période et son périmètre forment un tout : une période créée
+          // sans ses enseignants serait silencieusement collective, donc
+          // paierait tout l'établissement. Transaction obligatoire.
+          await dbClient.query("BEGIN");
+          let result;
+          try {
+            result = await dbClient.query(
+              `INSERT INTO payment_periods
+              (tenant_id, academic_year_id, name, description, period_start, period_end,
+               status, created_by)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+              RETURNING id, tenant_id, academic_year_id, name, description, period_start, period_end,
+                        status, created_by, created_at, updated_at`,
+              [
+                tenantId,
+                activeAcademicYearId,
+                data.name,
+                data.description,
+                data.periodStart,
+                data.periodEnd,
+                'active', // Set status to 'active' by default instead of 'draft'
+                userId,
+              ]
+            );
+
+            if (cibles.length > 0) {
+              // `unnest` plutôt qu'une boucle : un aller-retour au lieu de N,
+              // et l'insertion reste atomique.
+              await dbClient.query(
+                `INSERT INTO payment_period_teachers (tenant_id, payment_period_id, teacher_id)
+                 SELECT $1, $2, x FROM unnest($3::uuid[]) AS x
+                 ON CONFLICT DO NOTHING`,
+                [tenantId, result.rows[0].id, cibles]
+              );
+            }
+            await dbClient.query("COMMIT");
+          } catch (e) {
+            await dbClient.query("ROLLBACK");
+            throw e;
+          }
 
           const row = result.rows[0];
           return reply.status(201).send({
@@ -429,6 +557,7 @@ export async function paymentPeriodsRoutes(fastify: FastifyInstance) {
               createdBy: row.created_by,
               createdAt: row.created_at,
               updatedAt: row.updated_at,
+              teacherIds: cibles,
             },
           });
         } finally {
@@ -504,13 +633,8 @@ export async function paymentPeriodsRoutes(fastify: FastifyInstance) {
 
       const { id } = request.params as { id: string };
       const data = UpdatePaymentPeriodSchema.parse(request.body);
+      // Année académique facultative, comme à la création.
       const activeAcademicYearId = request.headers["x-academic-year-id"] as string | undefined;
-      if (!activeAcademicYearId) {
-        return reply.status(400).send({
-          error: "Academic Year Required",
-          message: "Aucune année académique active détectée. Veuillez activer une année avant l'enregistrement.",
-        });
-      }
 
       const client = await fastify.pg.connect();
       try {
@@ -571,47 +695,12 @@ export async function paymentPeriodsRoutes(fastify: FastifyInstance) {
           });
         }
 
-        const academicYearResult = await client.query(
-          `SELECT start_date, end_date
-           FROM academic_years
-           WHERE id = $1 AND tenant_id = $2`,
-          [activeAcademicYearId, request.tenantId]
-        );
-
-        if (academicYearResult.rows.length === 0) {
-          return reply.status(400).send({
-            error: "Academic Year Not Found",
-            message: "Année académique active introuvable pour ce tenant",
-          });
+        // Dates non bornées par l'année académique (voir la création).
+        if (activeAcademicYearId) {
+          updateFields.push(`academic_year_id = $${paramIndex}`);
+          params.push(activeAcademicYearId);
+          paramIndex++;
         }
-
-        const currentPeriodResult = await client.query(
-          `SELECT period_start, period_end
-           FROM payment_periods
-           WHERE id = $1 AND tenant_id = $2`,
-          [id, request.tenantId]
-        );
-
-        const currentStart = currentPeriodResult.rows[0]?.period_start;
-        const currentEnd = currentPeriodResult.rows[0]?.period_end;
-        const nextStart = data.periodStart ? data.periodStart.toISOString().split('T')[0] : currentStart;
-        const nextEnd = data.periodEnd ? data.periodEnd.toISOString().split('T')[0] : currentEnd;
-
-        const ayStart = new Date(academicYearResult.rows[0].start_date);
-        const ayEnd = new Date(academicYearResult.rows[0].end_date);
-        const periodStart = new Date(nextStart);
-        const periodEnd = new Date(nextEnd);
-
-        if (periodStart < ayStart || periodEnd > ayEnd) {
-          return reply.status(400).send({
-            error: "Out of Bounds",
-            message: "Les dates de la période doivent être comprises dans l'année académique active",
-          });
-        }
-
-        updateFields.push(`academic_year_id = $${paramIndex}`);
-        params.push(activeAcademicYearId);
-        paramIndex++;
 
         const result = await client.query(
           `UPDATE payment_periods 

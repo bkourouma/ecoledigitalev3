@@ -1,6 +1,13 @@
 /**
  * Test file to verify PaymentPeriodForm error handling
  * This test ensures that errors from the API are properly displayed to users
+ *
+ * Les cas « chevauchement de périodes » ont été retirés : l'API ne refuse plus
+ * une période qui en recouvre une autre (elle se contente de la journaliser) et
+ * la contrainte d'exclusion en base a été levée par la migration 0112. Le
+ * formulaire n'a donc plus de branche à traduire pour ce cas, et les tests qui
+ * s'en servaient comme véhicule s'appuient désormais sur l'erreur de cohérence
+ * des dates, qui est toujours émise.
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/test-globals';
@@ -33,76 +40,11 @@ describe('PaymentPeriodForm Error Handling', () => {
     jest.resetAllMocks();
   });
 
-  it('should display error message when API returns overlapping period error', async () => {
-    const user = userEvent.setup();
-    
-    // Mock onSubmit to throw an overlapping period error
-    mockOnSubmit.mockRejectedValueOnce(
-      new Error('Payment period overlaps with an existing period')
-    );
-
-    render(
-      <PaymentPeriodForm
-        onSubmit={mockOnSubmit}
-        onCancel={mockOnCancel}
-        isLoading={false}
-      />
-    );
-
-    // Fill in the form
-    const nameInput = screen.getByLabelText(/nom de la période/i);
-    await user.type(nameInput, 'Test Period');
-
-    // Submit the form
-    const submitButton = screen.getByRole('button', { name: /enregistrer/i });
-    await user.click(submitButton);
-
-    // Wait for error message to appear
-    await waitFor(() => {
-      expect(screen.getByText(/cette période chevauche avec une période existante/i)).toBeInTheDocument();
-    });
-
-    // Verify the error message is in French
-    expect(screen.getByText(/cette période chevauche avec une période existante/i)).toBeInTheDocument();
-    expect(screen.getByText(/veuillez choisir des dates différentes/i)).toBeInTheDocument();
-  });
-
-  it('should display error message when API returns "Overlapping Period" error', async () => {
-    const user = userEvent.setup();
-    
-    // Mock onSubmit to throw an error with "Overlapping Period" in the message
-    mockOnSubmit.mockRejectedValueOnce(
-      new Error('Overlapping Period')
-    );
-
-    render(
-      <PaymentPeriodForm
-        onSubmit={mockOnSubmit}
-        onCancel={mockOnCancel}
-        isLoading={false}
-      />
-    );
-
-    // Fill in the form
-    const nameInput = screen.getByLabelText(/nom de la période/i);
-    await user.type(nameInput, 'Test Period');
-
-    // Submit the form
-    const submitButton = screen.getByRole('button', { name: /enregistrer/i });
-    await user.click(submitButton);
-
-    // Wait for error message to appear
-    await waitFor(() => {
-      expect(screen.getByText(/cette période chevauche avec une période existante/i)).toBeInTheDocument();
-    });
-  });
-
   it('should clear error message when user changes date fields', async () => {
     const user = userEvent.setup();
-    
-    // Mock onSubmit to throw an error
+
     mockOnSubmit.mockRejectedValueOnce(
-      new Error('Payment period overlaps with an existing period')
+      new Error('Period start date must be before end date')
     );
 
     render(
@@ -122,7 +64,9 @@ describe('PaymentPeriodForm Error Handling', () => {
 
     // Wait for error message to appear
     await waitFor(() => {
-      expect(screen.getByText(/cette période chevauche avec une période existante/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/la date de début doit être antérieure à la date de fin/i)
+      ).toBeInTheDocument();
     });
 
     // Change a date field
@@ -131,13 +75,15 @@ describe('PaymentPeriodForm Error Handling', () => {
 
     // Error message should be cleared
     await waitFor(() => {
-      expect(screen.queryByText(/cette période chevauche avec une période existante/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/la date de début doit être antérieure à la date de fin/i)
+      ).not.toBeInTheDocument();
     });
   });
 
   it('should display generic error message for unknown errors', async () => {
     const user = userEvent.setup();
-    
+
     // Mock onSubmit to throw a generic error
     mockOnSubmit.mockRejectedValueOnce(
       new Error('Network error')
@@ -167,10 +113,10 @@ describe('PaymentPeriodForm Error Handling', () => {
 
   it('should clear error message on new submission attempt', async () => {
     const user = userEvent.setup();
-    
+
     // Mock onSubmit to throw an error first, then succeed
     mockOnSubmit
-      .mockRejectedValueOnce(new Error('Payment period overlaps with an existing period'))
+      .mockRejectedValueOnce(new Error('Period start date must be before end date'))
       .mockResolvedValueOnce(undefined);
 
     render(
@@ -190,7 +136,9 @@ describe('PaymentPeriodForm Error Handling', () => {
 
     // Wait for error message to appear
     await waitFor(() => {
-      expect(screen.getByText(/cette période chevauche avec une période existante/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/la date de début doit être antérieure à la date de fin/i)
+      ).toBeInTheDocument();
     });
 
     // Submit again (second attempt - will succeed)
@@ -198,13 +146,15 @@ describe('PaymentPeriodForm Error Handling', () => {
 
     // Error message should be cleared
     await waitFor(() => {
-      expect(screen.queryByText(/cette période chevauche avec une période existante/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/la date de début doit être antérieure à la date de fin/i)
+      ).not.toBeInTheDocument();
     });
   });
 
   it('should handle date validation errors correctly', async () => {
     const user = userEvent.setup();
-    
+
     // Mock onSubmit to throw a date validation error
     mockOnSubmit.mockRejectedValueOnce(
       new Error('Period start date must be before end date')
@@ -228,8 +178,9 @@ describe('PaymentPeriodForm Error Handling', () => {
 
     // Wait for error message to appear
     await waitFor(() => {
-      expect(screen.getByText(/la date de début doit être antérieure à la date de fin/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/la date de début doit être antérieure à la date de fin/i)
+      ).toBeInTheDocument();
     });
   });
 });
-

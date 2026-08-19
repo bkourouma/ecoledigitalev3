@@ -1,0 +1,37 @@
+-- ===========================================================================
+-- 0112 — Autoriser le chevauchement des périodes de paiement
+-- ===========================================================================
+--
+-- La contrainte `payment_periods_no_overlap` (posée par 0011, puis reposée par
+-- 0103) interdisait à deux périodes non archivées du même tenant de couvrir des
+-- dates communes. Elle est levée : ouvrir une période sur des dates déjà
+-- couvertes est un besoin de gestion légitime — correctif, complément, ou
+-- régularisation d'un oubli constaté après coup.
+--
+-- CE QUE CETTE LEVÉE COÛTE, EXPLICITEMENT
+--
+-- Rien, en aval, n'écarte une séance déjà payée. Le prédicat de payabilité
+-- (SEANCE_PAYABLE_PREDICATE, dans
+-- apps/api/src/services/professional-seance-validation.service.ts) ne retient
+-- que `validated_at IS NOT NULL` : il ne connaît pas les bulletins déjà émis.
+-- Deux périodes qui se recouvrent produiront donc deux bulletins portant les
+-- MÊMES heures. C'était le seul garde-fou contre le double paiement.
+--
+-- Le fait est journalisé côté API à la création (fastify.log.warn dans
+-- apps/api/src/routes/payment-periods.ts) pour pouvoir expliquer un double
+-- paiement après coup. La responsabilité passe au gestionnaire.
+--
+-- POUR REVENIR EN ARRIÈRE
+--
+--   ALTER TABLE payment_periods
+--       ADD CONSTRAINT payment_periods_no_overlap EXCLUDE USING gist (
+--           tenant_id WITH =,
+--           daterange(period_start, period_end, '[]') WITH &&
+--       ) WHERE (status <> 'archived');
+--
+-- Cet ordre échoue si des périodes chevauchantes ont été créées entre-temps :
+-- il faut alors les archiver ou les supprimer d'abord.
+-- ===========================================================================
+
+ALTER TABLE payment_periods
+    DROP CONSTRAINT IF EXISTS payment_periods_no_overlap;

@@ -101,6 +101,55 @@ export async function GET(
   }
 }
 
+/**
+ * Détail des heures payées (feature 031). Le relevé porte la même
+ * justification que la fiche PDF : date, origine, intitulé, cohorte, durée,
+ * tarif. Deux documents qui n'affichent pas la même chose sur un même paiement
+ * sont pires qu'un seul.
+ */
+function renderStatementHourDetails(payment: any): string {
+  const details: any[] = Array.isArray(payment.hourDetails) ? payment.hourDetails : [];
+  if (details.length === 0) return '';
+
+  const fmt = (n: number) => Number(n || 0).toLocaleString('fr-FR');
+  const fmtDate = (d: string | null) =>
+    d ? new Date(d).toLocaleDateString('fr-FR') : '—';
+
+  const rows = details
+    .map(
+      (d) => `
+        <tr>
+          <td style="padding:6px;border-bottom:1px solid #eee;">${fmtDate(d.sessionDate)}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;">${d.source === 'professionnel' ? 'Professionnel' : 'Académique'}${d.isOvertime ? ' (h. sup)' : ''}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;">${d.code ? `${d.code} — ` : ''}${d.intitule ?? '—'}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;">${d.cohorteLibelle ?? '—'}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;">${Number(d.hoursCount || 0).toFixed(2)}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;">${fmt(d.hourlyRate)}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;">${fmt(d.amount)}</td>
+        </tr>`
+    )
+    .join('');
+
+  return `
+    <div class="info-section">
+      <h3>Détail des heures</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#f7f7f7;">
+            <th style="padding:6px;text-align:left;">Date</th>
+            <th style="padding:6px;text-align:left;">Origine</th>
+            <th style="padding:6px;text-align:left;">Intitulé</th>
+            <th style="padding:6px;text-align:left;">Cohorte</th>
+            <th style="padding:6px;text-align:right;">Heures</th>
+            <th style="padding:6px;text-align:right;">Tarif</th>
+            <th style="padding:6px;text-align:right;">Montant</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
 function generateStatementHTML(payment: any): string {
   const formatAmount = (amount: number) => {
     return amount.toLocaleString('fr-FR') + ' FCFA';
@@ -288,6 +337,8 @@ function generateStatementHTML(payment: any): string {
           <span>${formatAmount(payment.netAmount || payment.totalAmount || payment.total_amount || 0)}</span>
         </div>
       </div>
+
+      ${renderStatementHourDetails(payment)}
 
       ${payment.notes ? `
         <div class="info-section">

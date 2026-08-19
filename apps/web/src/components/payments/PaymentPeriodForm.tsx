@@ -12,7 +12,6 @@ import {
   FormLabel,
   FormMessage,
   Input,
-  Textarea,
 } from "@ecoledigitale/ui";
 import { Loader2, AlertCircle } from "lucide-react";
 import DatePickerFr from "@/components/DatePickerFr";
@@ -21,6 +20,11 @@ import { PaymentPeriod } from "@/lib/hooks/use-payment-periods";
 const paymentPeriodFormSchema = z.object({
   name: z.string().min(1, "Le nom est requis").max(100, "Le nom est trop long"),
   description: z.string().optional(),
+  // Dates OBLIGATOIRES. Elles étaient facultatives, le serveur retenant le
+  // mois en cours à défaut. Ce repli n'est plus tenable : depuis que deux
+  // périodes peuvent couvrir les mêmes dates, les bornes décident seules
+  // quelles heures tombent dans quel bulletin. Une valeur devinée y répondrait
+  // à la place du gestionnaire.
   periodStart: z.string().min(1, "La date de début est requise"),
   periodEnd: z.string().min(1, "La date de fin est requise"),
 }).refine((data) => {
@@ -75,11 +79,15 @@ export function PaymentPeriodForm({ period, onSubmit, onCancel, isLoading = fals
       console.error("Error submitting form:", error);
       const errorMsg = error instanceof Error ? error.message : "Erreur lors de l'enregistrement";
       
-      // Traduire les messages d'erreur en français
+      // Traduire les messages d'erreur en français.
+      //
+      // Plus de branche « chevauchement » : l'API n'oppose plus de refus quand
+      // deux périodes se recouvrent (elle le journalise seulement), et la
+      // contrainte d'exclusion en base a été levée par la migration 0112.
+      // Traduire une erreur que personne n'émet ferait croire à un garde-fou
+      // qui n'existe plus.
       let displayMessage = errorMsg;
-      if (errorMsg.includes("overlaps") || errorMsg.includes("chevauche") || errorMsg.includes("Overlapping Period")) {
-        displayMessage = "Cette période chevauche avec une période existante. Veuillez choisir des dates différentes.";
-      } else if (errorMsg.includes("must match format") || (errorMsg.includes("format") && errorMsg.includes("date"))) {
+      if (errorMsg.includes("must match format") || (errorMsg.includes("format") && errorMsg.includes("date"))) {
         displayMessage = "Le format de date est invalide. Veuillez sélectionner une date valide.";
       } else if (errorMsg.includes("Period start date must be before end date")) {
         displayMessage = "La date de début doit être antérieure à la date de fin.";
@@ -129,33 +137,19 @@ export function PaymentPeriodForm({ period, onSubmit, onCancel, isLoading = fals
           )}
         />
 
-        {/* Description */}
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description (optionnel)</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Description de la période..."
-                  className="min-h-[100px] resize-none bg-background border-border text-foreground"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* La description a été retirée du formulaire : elle n'apparaissait
+            nulle part dans le parcours de paie, et un champ libre que personne
+            ne lit invite à consigner des décisions là où elles se perdent.
+            La colonne existe toujours en base pour les périodes anciennes. */}
 
-        {/* Dates */}
+        {/* Dates — obligatoires, cf. schéma ci-dessus */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
             name="periodStart"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Date de début</FormLabel>
+                <FormLabel>Date de début *</FormLabel>
                 <FormControl>
                   <DatePickerFr
                     value={field.value}
@@ -175,7 +169,7 @@ export function PaymentPeriodForm({ period, onSubmit, onCancel, isLoading = fals
             name="periodEnd"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Date de fin</FormLabel>
+                <FormLabel>Date de fin *</FormLabel>
                 <FormControl>
                   <DatePickerFr
                     value={field.value}

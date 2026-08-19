@@ -1,0 +1,168 @@
+CONSTAT PREALABLE — migration 0103 (feature 031, tache T002)
+================================================================================
+Script  : scripts/check-payment-hour-details-fk.js
+Base    : localhost:5432/dbecoledigitale (DEV)
+Postgres: 18.4
+Date    : 2026-08-18
+
+/!\ PROD NON ENCORE CONSTATEE — T002 reste ouvert tant que le script n'a pas ete
+    execute sur la base de production. Ne rien deduire du dev (les deux bases ont
+    deja diverge par le passe, cf. E5 ci-dessous).
+
+
+1. ECARTS ANNONCES EN PHASE 0 — verification
+--------------------------------------------------------------------------------
+
+E4  payment_hour_details.teaching_hours_id        >>> CONFIRME
+    - Colonne NOT NULL, FK payment_hour_details_teaching_hours_id_fkey PRESENTE
+      (REFERENCES teaching_hours(id) ON DELETE CASCADE).
+    - payment_hour_details : 0 ligne.
+    - teacher_payments     : 0 ligne.
+    Lecture : aucune ligne de detail horaire n'a JAMAIS pu s'ecrire sur cette
+    base. Le chemin `hourly` academique n'a donc jamais abouti — coherent avec
+    l'analyse (l'insert viole la FK, le try/catch par paiement ROLLBACK et
+    incremente `errors`). Aucune donnee a requalifier : 0 reference orpheline.
+    => 0103 doit bien DROP la FK, relacher le NOT NULL, puis la recreer.
+
+E5  payment_periods.academic_year_id              >>> PRESENTE SUR DEV
+    - Colonne presente, NULLABLE, 3 periodes, 0 ligne a NULL.
+    - Toujours absente du schema versionne (aucune migration ne la cree).
+    Lecture : la derive est confirmee, dans le sens "dev l'a, le versionne non".
+    Une base reconstruite depuis les migrations n'aurait pas la colonne.
+    => ADD COLUMN IF NOT EXISTS : no-op sur dev, indispensable ailleurs.
+    => A REVERIFIER EN PROD en priorite.
+
+E6  teacher_payments.currency                     >>> NON AVERE SUR DEV
+    - Defaut deja 'XOF' (et non 'EUR').
+    Cause : la base a ete construite depuis 0011_teacher_remuneration_FIXED.sql,
+    qui declare 'XOF', alors que 0011_teacher_remuneration.sql declare 'EUR'.
+    => voir E9. L'ALTER … SET DEFAULT 'XOF' de 0103 reste utile (idempotent,
+       et corrige les bases construites depuis la variante non-_fixed).
+
+
+2. ECARTS NOUVEAUX — decouverts par le constat
+--------------------------------------------------------------------------------
+
+E7  teacher_payments : contrainte d'unicite ABSENTE          >>> IMPORTANT
+    `unique_teacher_payment_per_period (tenant_id, teacher_id,
+     payment_period_id, payment_type)` n'existe PAS sur cette base.
+    Impact direct sur la feature : la decision D-R2 ("un seul paiement par
+    enseignant et par periode") s'appuyait sur cette contrainte pour etre
+    garantie par la base. Elle ne l'est aujourd'hui que par la requete
+    `SELECT … WHERE tenant_id/teacher_id/period/type` du calculateur — soit une
+    garantie applicative, sujette a la course entre deux calculs simultanes.
+    => 0103 doit RECREER cette contrainte (apres controle des doublons
+       existants — ici triviale, la table est vide).
+
+E8  payment_periods : EXCLUDE anti-chevauchement ABSENT      >>> IMPORTANT
+    `payment_periods_no_overlap` n'existe PAS sur cette base.
+    Impact direct sur la feature : deux periodes qui se recouvrent peuvent
+    exister ; une meme seance validee tomberait alors dans les DEUX periodes et
+    serait payee DEUX FOIS. Le risque est le meme pour l'academique, mais il
+    devient concret ici puisqu'on ajoute une source d'heures.
+    => 0103 doit RECREER l'EXCLUDE (apres controle : 3 periodes en base,
+       verifier qu'aucune ne se chevauche avant d'ajouter la contrainte).
+
+E9  DEUX FICHIERS 0011 DIVERGENTS                            >>> A TRANCHER
+    infra/scripts/migrations/ contient :
+      - 0011_teacher_remuneration.sql        (CREATE TYPE/TABLE secs, 'EUR',
+                                              AVEC les EXCLUDE et les UNIQUE)
+      - 0011_teacher_remuneration_fixed.sql  (idempotent DO $$…$$ / IF NOT EXISTS,
+                                              'XOF', SANS plusieurs contraintes)
+    L'etat de la base correspond a un melange : les EXCLUDE de
+    teacher_payment_configs et course_hourly_rates SONT presents, mais ceux de
+    payment_periods et les UNIQUE de teacher_payments /
+    payment_hour_details ne le sont PAS.
+    => Aucun des deux fichiers ne decrit l'etat reel. Question ouverte pour
+       l'equipe : lequel fait foi ? 0103 regularise l'ecart constate ; le
+       nettoyage des deux fichiers 0011 est un chantier distinct.
+
+    unique_teaching_hour_per_payment (payment_id, teaching_hours_id) est lui
+    aussi ABSENT — cela retire le garde-fou sur lequel FR-024/SC-005
+    (recalcul sans doublon de ligne) comptaient au niveau base.
+
+
+3. CONTRAINTES REELLEMENT PRESENTES (patron a calquer pour les tarifs ECUE)
+--------------------------------------------------------------------------------
+  teacher_payment_configs_no_overlap  [x]
+     EXCLUDE USING gist (tenant_id WITH =, teacher_id WITH =,
+       daterange(effective_from, COALESCE(effective_to,'infinity'::date),'[]') WITH &&)
+
+  course_hourly_rates_no_overlap      [x]
+     EXCLUDE USING gist (tenant_id WITH =,
+       COALESCE(course_id,  '000…000'::uuid) WITH =,
+       COALESCE(teacher_id, '000…000'::uuid) WITH =,
+       rate_type WITH =,
+       daterange(effective_from, COALESCE(effective_to,'infinity'::date),'[]') WITH &&)
+
+  => Le patron de data-model.md §1 (professional_ecue_hourly_rates) est VALIDE :
+     il existe bien en base et fonctionne. btree_gist : present.
+
+
+4. PREREQUIS DE 0103
+--------------------------------------------------------------------------------
+  btree_gist                       OUI
+  professional_ecue_seances        OUI   (570 lignes)
+  professional_ecue                OUI
+  professional_ue_sessions         OUI
+  academic_years                   OUI
+  professional_ecue_hourly_rates   NON   (a creer — attendu)
+
+  Colonnes que 0103 ajoute a professional_ecue_seances : statut, validated_by,
+  validated_at — aucune presente. RAS.
+
+
+5. VALIDATION DE LA DECISION D-R12 (aucun backfill)
+--------------------------------------------------------------------------------
+  570 seances en base, dont 570 avec horaires complets ET enseignant renseigne.
+  Autrement dit : la TOTALITE des seances existantes deviendrait payable si la
+  migration les initialisait a 'realisee' + validees.
+  => D-R12 (initialisation en 'planifiee', non validees, aucun backfill) n'est
+     pas une precaution theorique : sans elle, le premier calcul apres migration
+     paierait 570 seances que personne n'a verifiees.
+
+
+6. CE QUE 0103 DOIT PREVOIR — liste consolidee
+--------------------------------------------------------------------------------
+  [1] DROP CONSTRAINT IF EXISTS payment_hour_details_teaching_hours_id_fkey
+      (PRESENTE sur dev) puis ALTER COLUMN teaching_hours_id DROP NOT NULL
+      (NOT NULL sur dev) puis recreation de la FK.
+  [2] DROP CONSTRAINT IF EXISTS unique_teaching_hour_per_payment (absente sur
+      dev — no-op) et creation des 3 index uniques partiels.
+  [3] ADD COLUMN IF NOT EXISTS payment_periods.academic_year_id
+      (no-op sur dev, indispensable sur une base reconstruite).
+  [4] ALTER teacher_payments.currency SET DEFAULT 'XOF' (no-op sur dev).
+  [5] NOUVEAU — recreer unique_teacher_payment_per_period sur teacher_payments
+      (E7), apres controle de doublons.
+  [6] NOUVEAU — recreer payment_periods_no_overlap (E8), apres controle de
+      chevauchement des 3 periodes existantes.
+  [7] Creer professional_ecue_hourly_rates (patron EXCLUDE valide, §3).
+  [8] Ajouter statut / validated_by / validated_at a professional_ecue_seances,
+      SANS backfill (§5).
+
+  Les points [5] et [6] n'etaient PAS prevus par le plan initial : ils sont
+  ajoutes au perimetre par ce constat.
+
+
+7. RESTE A FAIRE POUR CLORE T002
+--------------------------------------------------------------------------------
+  - Executer le script sur la PROD :
+        DATABASE_URL=postgresql://…  node scripts/check-payment-hour-details-fk.js
+  - Completer ce fichier avec la section PROD.
+  - Trancher E9 (quel fichier 0011 fait foi) avec l'equipe.
+
+
+8. ECART SUPPLEMENTAIRE — decouvert pendant l'implementation (2026-08-18)
+--------------------------------------------------------------------------------
+
+E10 PaymentTypeSchema (contrats) plus etroit que l'enum PostgreSQL
+    Contrat : z.enum(['salary','hourly','bonus','deduction'])
+    Base    : payment_type = salary, hourly, bonus, deduction, MIXED
+    `calculateMixedPayment` produit 'mixed' depuis toujours et l'insert
+    fonctionne — c'est le contrat Zod qui etait faux, pas la base.
+    Le defaut ne se voyait pas : tsc ne le signalait pas dans la configuration
+    du projet, seul ts-jest l'a fait remonter en compilant les tests.
+    => Corrige : 'mixed' ajoute a PaymentTypeSchema (packages/contracts/src/payments.ts).
+
+    A noter : payment_config_type contient bien (salary, hourly, mixed) des 0011.
+    Seul payment_type avait diverge — encore un ecart entre le versionne et la base.

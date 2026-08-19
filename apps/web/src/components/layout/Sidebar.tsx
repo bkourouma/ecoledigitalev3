@@ -12,6 +12,8 @@ import {
   Calendar,
   CalendarRange,
   CalendarClock,
+  CalendarCheck,
+  Banknote,
   BarChart3,
   ChevronDown,
   ChevronRight,
@@ -26,7 +28,9 @@ import {
   FileText,
   CreditCard,
   TrendingUp,
+  History,
   Receipt,
+  ScrollText,
   Wallet,
   PieChart,
   Clock,
@@ -54,6 +58,11 @@ import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { removeToken, getToken } from '@/lib/jwt-storage';
 import { useAdminMenuAccess } from '@/lib/hooks/use-admin-roles';
+
+// Convention de ce fichier : toute icône du menu porte `shrink-0`. Les rangées
+// sont des conteneurs flex où le libellé voisin ne se coupe pas ; sans cette
+// classe, un libellé plus large que le volet écrase le SVG à zéro pixel et
+// l'entrée apparaît sans icône. C'est arrivé sur « Configuration Enseignants ».
 
 // « Home » (/) a été retiré du menu : la page d'accueil communautaire faisait
 // doublon avec le tableau de bord, qui est désormais le point d'entrée unique.
@@ -257,12 +266,26 @@ const dailyOperationsMenuItems = [
 
 // Teacher Payment Management
 const teacherPaymentMenuItems = [
-  { icon: Calendar, label: 'Périodes de Paiement', href: '/payments/periods' as const },
-  { icon: Settings, label: 'Configuration Enseignants', href: '/payments/teacher-configs' as const },
-  { icon: Clock, label: 'Validation des Heures', href: '/payments/teaching-hours' as const },
-  { icon: Calculator, label: 'Calcul des Paiements', href: '/payments/calculate' as const },
-  { icon: DollarSign, label: 'Gestion des Paiements', href: '/payments/manage' as const },
-  { icon: FileText, label: 'Rapports Enseignants', href: '/payments/reports' as const },
+  // « Périodes de Paiement » est masqué du menu : les périodes se créent
+  // désormais depuis « Bulletin de paiement », où elles sont bornées par le
+  // verrou d'unicité. La page reste atteignable par URL.
+
+  // Feature 031 — les écrans du Module Professionnel sont fondus dans ce groupe
+  // plutôt que dans un second menu de paie : côte à côte, les deux donnaient
+  // deux endroits où chercher le même bulletin. L'ordre suit le parcours :
+  // configurer qui est payable, valider les séances qui donnent les heures,
+  // puis générer les bulletins qui les consomment.
+  { icon: Settings, label: 'Configuration', href: '/payments/teacher-configs' as const },
+  { icon: CalendarCheck, label: 'Validation des séances', href: '/professionnel/admin/remuneration/seances' as const },
+  // Masqués du menu, comme « Périodes de Paiement » : ces trois écrans sont
+  // l'ancien parcours de paie académique, doublonné par « Bulletin de paiement »
+  // qui génère et archive en un endroit. Les pages restent atteignables par URL.
+  // { icon: Clock, label: 'Validation des Heures', href: '/payments/teaching-hours' as const },
+  // { icon: Calculator, label: 'Calcul des Paiements', href: '/payments/calculate' as const },
+  // { icon: DollarSign, label: 'Gestion des Paiements', href: '/payments/manage' as const },
+  { icon: ScrollText, label: 'Bulletin de paiement', href: '/professionnel/admin/remuneration/bulletins' as const },
+  // Consultation, pas une étape du parcours : dernière de la liste.
+  { icon: History, label: 'Historique des paiements', href: '/professionnel/admin/remuneration/historique' as const },
 ];
 
 // Student Finance (for students)
@@ -340,6 +363,9 @@ const teacherEvaluationsMenuItems = [
 // Teacher Remuneration Menu Items
 const teacherRemunerationMenuItems = [
   { icon: Clock, label: 'Heures Enseignées', href: '/teacher/hours' as const },
+  // Séances du Module Professionnel — feature 031. Entrée distincte de
+  // « Heures Enseignées », qui ne lit que la chaîne académique.
+  { icon: CalendarCheck, label: 'Séances Professionnelles', href: '/teacher/professional-seances' as const },
   { icon: DollarSign, label: 'Mes Paiements', href: '/teacher/payments' as const },
   // { icon: FileText, label: 'Relevés de Paie', href: '/teacher/payslips' as const },
   // { icon: Settings, label: 'Configuration Personnelle', href: '/teacher/config' as const },
@@ -458,13 +484,13 @@ const ProfessionalModuleGroup = ({
         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${className} ${containsActivePage ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
       >
         <div className="flex items-center space-x-3">
-          <GroupIcon className="w-5 h-5" />
+          <GroupIcon className="w-5 h-5 shrink-0" />
           <span>{label}</span>
         </div>
         {isExpanded ? (
-          <ChevronDown className="w-5 h-5" />
+          <ChevronDown className="w-5 h-5 shrink-0" />
         ) : (
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className="w-5 h-5 shrink-0" />
         )}
       </button>
 
@@ -481,7 +507,7 @@ const ProfessionalModuleGroup = ({
                 onCloseMobileMenu={onCloseMobileMenu}
                 className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-5 h-5 shrink-0" />
                 <span>{item.label}</span>
               </NavLink>
             );
@@ -550,6 +576,12 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const visibleTeacherPaymentItems = teacherPaymentMenuItems.filter((item) =>
     canSeeAdmin(item.href)
   );
+  // Le groupe mêle deux familles de routes depuis la fusion : la paie partagée
+  // (/payments) et les écrans 031 du Module Professionnel. Sans ce second
+  // préfixe, y arriver laisse le menu replié et non surligné.
+  const isTeacherPaymentRoute =
+    pathname.startsWith('/payments') ||
+    pathname.startsWith('/professionnel/admin/remuneration');
   const visibleStudentFinanceAdminItems = studentFinanceAdminMenuItems.filter((item) =>
     canSeeAdmin(item.href)
   );
@@ -630,7 +662,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
     pathname.startsWith('/attendance') || pathname.startsWith('/schedule-generation')
   );
   const [isTeacherPaymentExpanded, setIsTeacherPaymentExpanded] = useState(
-    pathname.startsWith('/payments')
+    isTeacherPaymentRoute
   );
   const [isStudentFinanceExpanded, setIsStudentFinanceExpanded] = useState(
     pathname.startsWith('/student-payments')
@@ -740,7 +772,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             className="md:hidden p-1 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
             aria-label="Close menu"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5 shrink-0" />
           </button>
         )}
       </div>
@@ -762,7 +794,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 onCloseMobileMenu={onCloseMobileMenu}
                 className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-5 h-5 shrink-0" />
                 <span>{item.label}</span>
               </NavLink>
             );
@@ -799,7 +831,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                             : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                         }`}
                       >
-                        <Icon className="w-5 h-5" />
+                        <Icon className="w-5 h-5 shrink-0" />
                         <span>{item.label}</span>
                       </NavLink>
                     );
@@ -823,7 +855,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                     onCloseMobileMenu={onCloseMobileMenu}
                     className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-5 h-5 shrink-0" />
                     <span>{item.label}</span>
                   </NavLink>
                 );
@@ -849,13 +881,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isStudentAcademicExpanded ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <BookOpen className="w-5 h-5" />
+                    <BookOpen className="w-5 h-5 shrink-0" />
                     <span>Mes Études</span>
                   </div>
                   {isStudentAcademicExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-5 h-5 shrink-0" />
                   ) : (
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 shrink-0" />
                   )}
                 </button>
 
@@ -873,7 +905,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-5 h-5 shrink-0" />
                           <span>{item.label}</span>
                         </NavLink>
                       );
@@ -896,13 +928,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isStudentELearningExpanded ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <Play className="w-5 h-5" />
+                    <Play className="w-5 h-5 shrink-0" />
                     <span>Apprentissage</span>
                   </div>
                   {isStudentELearningExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-5 h-5 shrink-0" />
                   ) : (
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 shrink-0" />
                   )}
                 </button>
 
@@ -919,7 +951,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-5 h-5 shrink-0" />
                           <span>{item.label}</span>
                         </NavLink>
                       );
@@ -946,7 +978,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                       : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
-                  <MessageSquare className="w-5 h-5" />
+                  <MessageSquare className="w-5 h-5 shrink-0" />
                   <span>Messages</span>
                 </NavLink>
               </div>
@@ -967,13 +999,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isStudentAssistanceExpanded ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <Bot className="w-5 h-5" />
+                    <Bot className="w-5 h-5 shrink-0" />
                     <span>Aide & Support</span>
                   </div>
                   {isStudentAssistanceExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-5 h-5 shrink-0" />
                   ) : (
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 shrink-0" />
                   )}
                 </button>
 
@@ -991,7 +1023,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-5 h-5 shrink-0" />
                           <span>{item.label}</span>
                         </NavLink>
                       );
@@ -1015,7 +1047,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                       onCloseMobileMenu={onCloseMobileMenu}
                       className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mb-1 ${isActive ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-5 h-5 shrink-0" />
                       <span>{item.label}</span>
                     </NavLink>
                   );
@@ -1042,13 +1074,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isParentChildrenExpanded ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <Baby className="w-5 h-5" />
+                    <Baby className="w-5 h-5 shrink-0" />
                     <span>Mes Enfants</span>
                   </div>
                   {isParentChildrenExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-5 h-5 shrink-0" />
                   ) : (
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 shrink-0" />
                   )}
                 </button>
 
@@ -1066,7 +1098,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-5 h-5 shrink-0" />
                           <span>{item.label}</span>
                         </NavLink>
                       );
@@ -1087,7 +1119,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                       : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
-                  <Settings className="w-5 h-5" />
+                  <Settings className="w-5 h-5 shrink-0" />
                   <span>{parentSettingsMenuItem.label}</span>
                 </NavLink>
                   </div> */}
@@ -1109,7 +1141,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                     onCloseMobileMenu={onCloseMobileMenu}
                     className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-4 ${isActive ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-5 h-5 shrink-0" />
                     <span>{item.label}</span>
                   </NavLink>
                 );
@@ -1129,13 +1161,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isTeacherCoursesExpanded ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <BookOpen className="w-5 h-5" />
+                    <BookOpen className="w-5 h-5 shrink-0" />
                     <span>Gestion des Cours</span>
                   </div>
                   {isTeacherCoursesExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-5 h-5 shrink-0" />
                   ) : (
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 shrink-0" />
                   )}
                 </button>
 
@@ -1152,7 +1184,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-5 h-5 shrink-0" />
                           <span>{item.label}</span>
                         </NavLink>
                       );
@@ -1170,13 +1202,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isTeacherStudentsExpanded ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <Users className="w-5 h-5" />
+                    <Users className="w-5 h-5 shrink-0" />
                     <span>Mes Étudiants</span>
                   </div>
                   {isTeacherStudentsExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-5 h-5 shrink-0" />
                   ) : (
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 shrink-0" />
                   )}
                 </button>
 
@@ -1193,7 +1225,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-5 h-5 shrink-0" />
                           <span>{item.label}</span>
                         </NavLink>
                       );
@@ -1211,13 +1243,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isTeacherEvaluationsExpanded ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <Award className="w-5 h-5" />
+                    <Award className="w-5 h-5 shrink-0" />
                     <span>Évaluations</span>
                   </div>
                   {isTeacherEvaluationsExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-5 h-5 shrink-0" />
                   ) : (
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 shrink-0" />
                   )}
                 </button>
 
@@ -1234,7 +1266,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-5 h-5 shrink-0" />
                           <span>{item.label}</span>
                         </NavLink>
                       );
@@ -1252,13 +1284,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isTeacherRemunerationExpanded ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <DollarSign className="w-5 h-5" />
+                    <DollarSign className="w-5 h-5 shrink-0" />
                     <span>Mes Rémunérations</span>
                   </div>
                   {isTeacherRemunerationExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-5 h-5 shrink-0" />
                   ) : (
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 shrink-0" />
                   )}
                 </button>
 
@@ -1275,7 +1307,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-5 h-5 shrink-0" />
                           <span>{item.label}</span>
                         </NavLink>
                       );
@@ -1293,13 +1325,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isTeacherReportsExpanded ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <BarChart3 className="w-5 h-5" />
+                    <BarChart3 className="w-5 h-5 shrink-0" />
                     <span>Rapports & Analyses</span>
                   </div>
                   {isTeacherReportsExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-5 h-5 shrink-0" />
                   ) : (
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 shrink-0" />
                   )}
                 </button>
 
@@ -1316,7 +1348,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-5 h-5 shrink-0" />
                           <span>{item.label}</span>
                         </NavLink>
                       );
@@ -1340,7 +1372,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                       onCloseMobileMenu={onCloseMobileMenu}
                       className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mb-1 ${isActive ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-5 h-5 shrink-0" />
                       <span>{item.label}</span>
                     </NavLink>
                   );
@@ -1367,13 +1399,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${(pathname.startsWith('/academic/cycles') || pathname.startsWith('/academic/programmes')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
-                <GraduationCap className="w-5 h-5" />
+                <GraduationCap className="w-5 h-5 shrink-0" />
                 <span>Cycles & Programmes</span>
               </div>
               {isAcademicStructureExpanded ? (
-                <ChevronDown className="w-5 h-5" />
+                <ChevronDown className="w-5 h-5 shrink-0" />
               ) : (
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5 shrink-0" />
               )}
             </button>
 
@@ -1391,7 +1423,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                       className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-5 h-5 shrink-0" />
                       <span>{item.label}</span>
                         </NavLink>
                   );
@@ -1409,13 +1441,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${(pathname.startsWith('/academic/teachers') || pathname.startsWith('/academic/students') || pathname.startsWith('/academic/parents')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
-                <Users className="w-5 h-5" />
+                <Users className="w-5 h-5 shrink-0" />
                 <span>Personnes</span>
               </div>
               {isPeopleExpanded ? (
-                <ChevronDown className="w-5 h-5" />
+                <ChevronDown className="w-5 h-5 shrink-0" />
               ) : (
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5 shrink-0" />
               )}
             </button>
 
@@ -1433,7 +1465,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                       className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-5 h-5 shrink-0" />
                       <span>{item.label}</span>
                         </NavLink>
                   );
@@ -1513,13 +1545,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${(pathname.startsWith('/annee-academique') || pathname.startsWith('/academic/assignments')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
-                <Calendar className="w-5 h-5" />
+                <Calendar className="w-5 h-5 shrink-0" />
                 <span>Année Académique</span>
               </div>
               {isAcademicOperationsExpanded ? (
-                <ChevronDown className="w-5 h-5" />
+                <ChevronDown className="w-5 h-5 shrink-0" />
               ) : (
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5 shrink-0" />
               )}
             </button>
 
@@ -1537,7 +1569,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                       className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-5 h-5 shrink-0" />
                       <span>{item.label}</span>
                         </NavLink>
                   );
@@ -1556,13 +1588,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${pathname.startsWith('/annee-academique/moyennes-semestre') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
-                <GraduationCap className="w-5 h-5" />
+                <GraduationCap className="w-5 h-5 shrink-0" />
                 <span>BTS</span>
               </div>
               {isBtsExpanded ? (
-                <ChevronDown className="w-5 h-5" />
+                <ChevronDown className="w-5 h-5 shrink-0" />
               ) : (
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5 shrink-0" />
               )}
             </button>
 
@@ -1580,7 +1612,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                       className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-5 h-5 shrink-0" />
                       <span>{item.label}</span>
                         </NavLink>
                   );
@@ -1599,13 +1631,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors mt-2 ${(pathname.startsWith('/attendance') || pathname.startsWith('/schedule-generation')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
-                <ClipboardCheck className="w-5 h-5" />
+                <ClipboardCheck className="w-5 h-5 shrink-0" />
                 <span>Post BTS</span>
               </div>
               {isDailyOperationsExpanded ? (
-                <ChevronDown className="w-5 h-5" />
+                <ChevronDown className="w-5 h-5 shrink-0" />
               ) : (
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5 shrink-0" />
               )}
             </button>
 
@@ -1623,7 +1655,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                       className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-5 h-5 shrink-0" />
                       <span>{item.label}</span>
                         </NavLink>
                   );
@@ -1641,13 +1673,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isFormationsProExpanded ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
               >
                 <div className="flex items-center space-x-3">
-                  <BookOpen className="w-5 h-5" />
+                  <BookOpen className="w-5 h-5 shrink-0" />
                   <span>Catalogue Formations</span>
                 </div>
                 {isFormationsProExpanded ? (
-                  <ChevronDown className="w-5 h-5" />
+                  <ChevronDown className="w-5 h-5 shrink-0" />
                 ) : (
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 shrink-0" />
                 )}
               </button>
 
@@ -1664,7 +1696,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                         onCloseMobileMenu={onCloseMobileMenu}
                         className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                       >
-                        <Icon className="w-5 h-5" />
+                        <Icon className="w-5 h-5 shrink-0" />
                         <span>{item.label}</span>
                       </NavLink>
                     );
@@ -1682,13 +1714,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isFormationsProAdminExpanded ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
               >
                 <div className="flex items-center space-x-3">
-                  <Shield className="w-5 h-5" />
+                  <Shield className="w-5 h-5 shrink-0" />
                   <span>Administration Pro</span>
                 </div>
                 {isFormationsProAdminExpanded ? (
-                  <ChevronDown className="w-5 h-5" />
+                  <ChevronDown className="w-5 h-5 shrink-0" />
                 ) : (
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 shrink-0" />
                 )}
               </button>
 
@@ -1705,7 +1737,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                         onCloseMobileMenu={onCloseMobileMenu}
                         className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                       >
-                        <Icon className="w-5 h-5" />
+                        <Icon className="w-5 h-5 shrink-0" />
                         <span>{item.label}</span>
                       </NavLink>
                     );
@@ -1722,23 +1754,23 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                     <div className="pt-4">
             <div className="px-3 mb-2">
               <h3 className="text-[11px] font-normal text-gray-400 uppercase tracking-wider">
-                Rémunération Enseignants
+                Rémunération
               </h3>
             </div>
 
             {/* Teacher Payment Toggle Button */}
             <button
               onClick={() => setIsTeacherPaymentExpanded(!isTeacherPaymentExpanded)}
-              className={`w-full flex items-center justify-between px-2 py-2 rounded-lg text-[16px] font-normal transition-colors ${pathname.startsWith('/payments') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+              className={`w-full flex items-center justify-between px-2 py-2 rounded-lg text-[16px] font-normal transition-colors ${isTeacherPaymentRoute ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-2">
-                <DollarSign className="w-5 h-5" />
-                <span className="whitespace-nowrap">Rémunération Enseignants</span>
+                <DollarSign className="w-5 h-5 shrink-0" />
+                <span className="whitespace-nowrap">Rémunération</span>
               </div>
               {isTeacherPaymentExpanded ? (
-                <ChevronDown className="w-5 h-5" />
+                <ChevronDown className="w-5 h-5 shrink-0" />
               ) : (
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5 shrink-0" />
               )}
             </button>
 
@@ -1756,7 +1788,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                       className={`flex items-center space-x-2 px-2 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-5 h-5 shrink-0" />
                       <span className="whitespace-nowrap">{item.label}</span>
                         </NavLink>
                   );
@@ -1783,13 +1815,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${pathname.startsWith('/student-payments') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
               >
                 <div className="flex items-center space-x-3">
-                  <Wallet className="w-5 h-5" />
+                  <Wallet className="w-5 h-5 shrink-0" />
                   <span>Paiements & Reçus</span>
                 </div>
                 {isStudentFinanceExpanded ? (
-                  <ChevronDown className="w-5 h-5" />
+                  <ChevronDown className="w-5 h-5 shrink-0" />
                 ) : (
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 shrink-0" />
                 )}
               </button>
 
@@ -1807,7 +1839,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                         className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                       >
-                        <Icon className="w-5 h-5" />
+                        <Icon className="w-5 h-5 shrink-0" />
                         <span>{item.label}</span>
                         </NavLink>
                     );
@@ -1832,13 +1864,13 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${pathname.startsWith('/admin/finances') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
               >
                 <div className="flex items-center space-x-3">
-                  <PieChart className="w-5 h-5" />
+                  <PieChart className="w-5 h-5 shrink-0" />
                   <span>Gestion Financière</span>
                 </div>
                 {isStudentFinanceAdminExpanded ? (
-                  <ChevronDown className="w-5 h-5" />
+                  <ChevronDown className="w-5 h-5 shrink-0" />
                 ) : (
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 shrink-0" />
                 )}
               </button>
 
@@ -1856,7 +1888,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                           onCloseMobileMenu={onCloseMobileMenu}
                         className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                       >
-                        <Icon className="w-5 h-5" />
+                        <Icon className="w-5 h-5 shrink-0" />
                         <span>{item.label}</span>
                         </NavLink>
                     );
@@ -1884,7 +1916,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                     : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                 }`}
               >
-                <MessageSquare className="w-5 h-5" />
+                <MessageSquare className="w-5 h-5 shrink-0" />
                 <span>Messages</span>
               </NavLink>
             </div>
@@ -1906,7 +1938,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                     onCloseMobileMenu={onCloseMobileMenu}
                     className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-5 h-5 shrink-0" />
                     <span>{item.label}</span>
                   </NavLink>
                 );
@@ -1944,14 +1976,14 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             {/* Action Buttons */}
             <div className="flex space-x-2">
               <button className="flex items-center justify-center space-x-2 px-3 py-2 rounded-lg text-[16px] font-normal text-gray-300 hover:bg-gray-800 hover:text-white transition-colors flex-1">
-                <Settings className="w-5 h-5" />
+                <Settings className="w-5 h-5 shrink-0" />
                 <span>Settings</span>
               </button>
               <button
                 onClick={handleLogout}
                 className="flex items-center justify-center space-x-2 px-3 py-2 rounded-lg text-[16px] font-normal text-gray-300 hover:bg-red-600 hover:text-white transition-colors flex-1"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-5 h-5 shrink-0" />
                 <span>Logout</span>
               </button>
             </div>

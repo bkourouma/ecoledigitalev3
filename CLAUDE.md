@@ -1,8 +1,8 @@
 <!-- SPECKIT START -->
-## Active Spec Kit feature: 030-pedagogie-ue-ecue
+## Active Spec Kit feature: 031-remuneration-professionnelle
 
-- Spec:  specs/030-pedagogie-ue-ecue/spec.md
-- Plan:  specs/030-pedagogie-ue-ecue/plan.md
+- Spec:  specs/031-remuneration-professionnelle/spec.md
+- Plan:  specs/031-remuneration-professionnelle/plan.md
 - Design: research.md, data-model.md, contracts/, quickstart.md (same directory)
 
 Stack: TypeScript / Node 18+ monorepo (pnpm) — Fastify API (`apps/api`),

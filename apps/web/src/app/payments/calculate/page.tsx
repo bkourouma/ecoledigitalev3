@@ -76,6 +76,11 @@ interface BatchPaymentResult {
   overtimeHours?: number;
   totalHours?: number;
   totalAmount?: number;
+  currency?: string;
+  // Motif d'exclusion (feature 031) : sans lui, un enseignant non payé est
+  // indiscernable d'un enseignant hors périmètre.
+  skipReason?: "NO_CONFIG" | "NO_HOURS" | "OUT_OF_SCOPE" | "PAYMENT_LOCKED" | "NO_RATE_RESOLVED" | string;
+  hoursBySource?: { academique?: number; professionnel?: number };
   error?: string;
   message?: string;
 }
@@ -168,6 +173,19 @@ const formatFCFA = (amount: number) => {
   }).format(amount) + ' FCFA';
 };
 
+/**
+ * Motifs d'exclusion du calcul (feature 031). Chacun appelle une action
+ * différente du gestionnaire — d'où l'intérêt de les distinguer plutôt que
+ * d'afficher « ignoré ».
+ */
+const SKIP_REASON_LABELS: Record<string, string> = {
+  NO_CONFIG: "Sans configuration",
+  NO_HOURS: "Aucune heure",
+  OUT_OF_SCOPE: "Hors périmètre",
+  PAYMENT_LOCKED: "Paiement verrouillé",
+  NO_RATE_RESOLVED: "Tarif introuvable",
+};
+
 const toNumber = (value: unknown) => {
   const numberValue = typeof value === "number" ? value : Number(value || 0);
   return Number.isFinite(numberValue) ? numberValue : 0;
@@ -198,6 +216,9 @@ export default function CalculatePaymentsPage() {
   // Check if there are teachers who already have payments for the selected period
   const [teachersWithExistingPayments, setTeachersWithExistingPayments] = useState<string[]>([]);
   const [recalculateExisting, setRecalculateExisting] = useState(false);
+  // Périmètre de collecte des heures (feature 031). « Tous » par défaut : le
+  // bulletin d'un enseignant intervenant dans les deux modules doit les cumuler.
+  const [calculationScope, setCalculationScope] = useState<"all" | "academique" | "professionnel">("all");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -507,81 +528,99 @@ export default function CalculatePaymentsPage() {
         return;
       }
 
-      // Fetch attendance sessions for the teacher and period
-      console.log('Fetching attendance sessions for teacher:', selectedTeacherId, 'from', fromDate, 'to', toDate);
-      const attendanceRes = await fetch(`/api/teacher/attendance?fromDate=${fromDate}&toDate=${toDate}&teacherId=${selectedTeacherId}`, {
-        headers: {
-          "Content-Type": "application/json",
-        },
+      // APERÇU PAR LE MOTEUR — plus de calcul parallèle ici.
+      //
+      // Cet écran recalculait les heures dans le navigateur à partir de la
+      // seule chaîne académique (/api/teacher/attendance). Un enseignant du
+      // Module Professionnel y ressortait donc à 0, alors que le calcul en lot
+      // lui trouvait ses heures : deux calculs pour un même enseignant, deux
+      // résultats. On interroge désormais le MÊME moteur que la validation, en
+      // mode aperçu — il collecte les deux origines et résout les tarifs
+      // exactement comme il le fera à l'enregistrement.
+      const previewRes = await fetch("/api/v1/teacher-payments/calculate", {
+        method: "POST",
+        headers: createApiHeaders(),
+        body: JSON.stringify({
+          periodId: selectedPeriodId,
+          teacherIds: [selectedTeacherId],
+          scope: calculationScope,
+          dryRun: true,
+        }),
       });
 
-      // Handle attendance sessions data
-      let validatedHours: ValidatedHour[] = [];
-      let totalHourlyAmount = 0;
-
-      if (attendanceRes.ok) {
-        const attendanceData = await attendanceRes.json();
-        console.log('Attendance data for teacher:', selectedTeacherId, attendanceData);
-        
-        // Get hourly rate from teacher config (or default)
-        const defaultHourlyRate = config.defaultHourlyRate || 15000; // Default rate in FCFA
-        
-        // Map attendance sessions to ValidatedHour format
-        // Show each attendance session as a separate line
-        if (attendanceData.data && Array.isArray(attendanceData.data)) {
-          validatedHours = attendanceData.data
-            .filter((session: any) => session.validated && session.duration > 0)
-            .map((session: any, index: number) => {
-              // Use hourly_rate from session (from teacher record), fallback to config, then default
-              // Payment config drives the displayed/calculated rate by default.
-              const sessionHourlyRate = defaultHourlyRate || session.hourlyRate || 0;
-              const duration = session.duration || 0;
-              
-              return {
-                id: session.id || `session-${index}`,
-                teacherId: selectedTeacherId,
-                courseId: session.courseId || session.assignmentId,
-                courseName: session.courseName || 'Cours non défini',
-                courseCode: session.courseCode || '',
-                hoursValidated: duration,
-                hourlyRate: sessionHourlyRate,
-                amount: duration * sessionHourlyRate,
-                date: session.date, // Include session date
-              };
-            });
-        }
-        totalHourlyAmount = validatedHours.reduce((sum: number, hour: ValidatedHour) => sum + (hour.amount || 0), 0);
-        console.log('Mapped attendance sessions to validated hours:', validatedHours);
-      } else {
-        console.log('Attendance response not ok:', attendanceRes.status, attendanceRes.statusText);
-        const errorText = await attendanceRes.text().catch(() => '');
-        console.log('Attendance error:', errorText);
+      if (!previewRes.ok) {
+        const err = await previewRes.json().catch(() => ({}));
+        toast({
+          title: "Calcul impossible",
+          description: err.message || "Le moteur n'a pas pu calculer ce paiement.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      console.log('Payment config:', config);
-      console.log('Final payment calculation:', {
-        teacherId: selectedTeacherId,
-        teacherName: `${teacher.firstName} ${teacher.lastName}`,
-        configType: config.configType,
-        salaryAmount: config.configType === 'salary' || config.configType === 'mixed' ? config.monthlySalary : 0,
-        hourlyDetails: validatedHours,
-        totalHourlyAmount,
-        totalAmount: (config.configType === 'salary' || config.configType === 'mixed' ? config.monthlySalary : 0) + totalHourlyAmount,
-      });
+      const preview: CalcResponse = await previewRes.json();
+      const ligne = (preview.data?.results || []).find(
+        (r) => r.teacherId === selectedTeacherId
+      );
 
-      // Determine salary amount: show salary only for 'salary' or 'mixed' config types
-      const salaryAmount = (config.configType === 'salary' || config.configType === 'mixed') ? (config.monthlySalary || 0) : 0;
+      if (!ligne || ligne.status !== "preview") {
+        // Le moteur a écarté cet enseignant : afficher SON motif plutôt qu'un
+        // zéro muet, qui ne dit pas s'il manque une config, des heures ou un tarif.
+        setPaymentCalculation({
+          teacherId: selectedTeacherId,
+          teacherName: `${teacher.firstName} ${teacher.lastName}`,
+          configType: config.configType,
+          salaryAmount: 0,
+          hourlyDetails: [],
+          totalHourlyAmount: 0,
+          bonusAmount: 0,
+          deductions: 0,
+          totalAmount: 0,
+        });
+        toast({
+          title: "Aucun montant calculé",
+          description:
+            ligne?.message ||
+            (ligne?.skipReason ? SKIP_REASON_LABELS[ligne.skipReason] : undefined) ||
+            "Aucune heure validée pour cet enseignant sur cette période.",
+          variant: "destructive",
+          duration: 8000,
+        });
+        return;
+      }
+
+      // Le détail du moteur alimente directement l'aperçu.
+      const details: any[] = (ligne as any).hourDetails || [];
+      const validatedHours: ValidatedHour[] = details.map((d: any, i: number) => ({
+        id: d.seanceId || d.attendanceSessionId || `ligne-${i}`,
+        teacherId: selectedTeacherId,
+        courseId: d.seanceId || d.attendanceSessionId || "",
+        courseName: d.intitule || "Séance",
+        courseCode: d.code || "",
+        hoursValidated: toNumber(d.hoursCount),
+        hourlyRate: toNumber(d.hourlyRate),
+        amount: toNumber(d.amount),
+        date: d.sessionDate || undefined,
+      }));
+      const totalHourlyAmount = validatedHours.reduce((sum, h) => sum + (h.amount || 0), 0);
+
+      // Part salariale = ce que le montant de base ne doit pas aux heures.
+      // Vaut 0 en configuration horaire, le salaire prorata en salarié et mixte.
+      const salaryAmount = Math.max(
+        0,
+        toNumber(ligne.baseAmount) + toNumber(ligne.overtimeAmount) - totalHourlyAmount
+      );
 
       setPaymentCalculation({
         teacherId: selectedTeacherId,
-        teacherName: `${teacher.firstName} ${teacher.lastName}`,
-        configType: config.configType,
+        teacherName: ligne.teacherName || `${teacher.firstName} ${teacher.lastName}`,
+        configType: (ligne.paymentType as any) || config.configType,
         salaryAmount,
         hourlyDetails: validatedHours,
         totalHourlyAmount,
-        bonusAmount: 0, // TODO: Add bonus calculation logic
-        deductions: 0,  // TODO: Add deductions calculation logic
-        totalAmount: salaryAmount + totalHourlyAmount + 0 + 0, // + bonus + deductions
+        bonusAmount: 0,
+        deductions: 0,
+        totalAmount: salaryAmount + totalHourlyAmount,
       });
     } catch (e) {
       console.error('Error loading payment calculation:', e);
@@ -611,10 +650,11 @@ export default function CalculatePaymentsPage() {
       const res = await fetch("/api/v1/teacher-payments/calculate", {
         method: "POST",
         headers: createApiHeaders(),
-        body: JSON.stringify({ 
-          periodId: selectedPeriodId, 
+        body: JSON.stringify({
+          periodId: selectedPeriodId,
           teacherIds: teachersToCalculate.map(t => t.id),
-          recalculate: recalculateExisting 
+          recalculate: recalculateExisting,
+          scope: calculationScope,
         }),
       });
 
@@ -747,23 +787,79 @@ export default function CalculatePaymentsPage() {
 
     setCalculating(true);
     try {
-      const paymentData = {
-        teacherId: paymentCalculation.teacherId,
-        periodId: selectedPeriodId,
-        paymentType: paymentCalculation.configType,
-        baseAmount: paymentCalculation.salaryAmount || 0,
-        overtimeAmount: paymentCalculation.totalHourlyAmount,
-        bonusAmount: paymentCalculation.bonusAmount,
-        deductions: paymentCalculation.deductions,
-        totalAmount: paymentCalculation.totalAmount,
-        hourlyDetails: paymentCalculation.hourlyDetails,
-      };
-
-      const res = await fetch("/api/v1/teacher-payments", {
+      // ENREGISTREMENT PAR LE MOTEUR.
+      //
+      // L'ancien chemin envoyait les montants calculés côté navigateur à
+      // POST /teacher-payments, qui crée bien le paiement mais N'ÉCRIT AUCUNE
+      // ligne de détail : le bulletin affichait un total que rien ne justifiait.
+      // On laisse donc le moteur écrire paiement ET détail, puis on applique
+      // par-dessus les seuls ajustements qui se saisissent à la main.
+      const res = await fetch("/api/v1/teacher-payments/calculate", {
         method: "POST",
         headers: createApiHeaders(),
-        body: JSON.stringify(paymentData),
+        body: JSON.stringify({
+          periodId: selectedPeriodId,
+          teacherIds: [paymentCalculation.teacherId],
+          scope: calculationScope,
+          recalculate: true,
+        }),
       });
+
+      const calcJson: CalcResponse = res.ok ? await res.json() : ({} as CalcResponse);
+      const ligne = (calcJson.data?.results || []).find(
+        (r) => r.teacherId === paymentCalculation.teacherId
+      );
+
+      if (res.ok && ligne?.status !== "calculated") {
+        toast({
+          title: "Paiement non enregistré",
+          description:
+            ligne?.message ||
+            (ligne?.skipReason ? SKIP_REASON_LABELS[ligne.skipReason] : undefined) ||
+            "Le moteur n'a produit aucun paiement pour cet enseignant.",
+          variant: "destructive",
+          duration: 8000,
+        });
+        return;
+      }
+
+      // Primes, retenues et correction éventuelle du montant de base. Le total
+      // est recalculé côté serveur à partir de ces composantes.
+      const aAjuster =
+        paymentCalculation.bonusAmount > 0 ||
+        paymentCalculation.deductions > 0 ||
+        Math.abs(
+          paymentCalculation.salaryAmount +
+            paymentCalculation.totalHourlyAmount -
+            (toNumber(ligne?.baseAmount) + toNumber(ligne?.overtimeAmount))
+        ) > 0.5;
+
+      if (res.ok && ligne?.paymentId && aAjuster) {
+        const adjRes = await fetch(
+          `/api/v1/teacher-payments/${ligne.paymentId}/adjustments`,
+          {
+            method: "PATCH",
+            headers: createApiHeaders(),
+            body: JSON.stringify({
+              baseAmount:
+                paymentCalculation.salaryAmount +
+                paymentCalculation.totalHourlyAmount -
+                toNumber(ligne.overtimeAmount),
+              bonusAmount: paymentCalculation.bonusAmount,
+              deductions: paymentCalculation.deductions,
+            }),
+          }
+        );
+        if (!adjRes.ok) {
+          const err = await adjRes.json().catch(() => ({}));
+          toast({
+            title: "Paiement créé, ajustements refusés",
+            description: err.message || "Primes et retenues n'ont pas pu être appliquées.",
+            variant: "destructive",
+            duration: 8000,
+          });
+        }
+      }
 
       if (res.ok) {
         toast({
@@ -1033,6 +1129,33 @@ export default function CalculatePaymentsPage() {
               </div>
               <p className="text-sm text-gray-500 mt-1">
                 Sélectionnez un enseignant pour voir le détail ou "Tous" pour calculer en masse.
+              </p>
+            </div>
+
+            {/* Périmètre des heures collectées — feature 031. Un enseignant
+                intervenant dans les deux modules reçoit un seul bulletin
+                cumulant les deux origines, d'où « Tous » par défaut. */}
+            <div>
+              <Label className="text-sm font-medium">Périmètre des heures</Label>
+              <Select
+                value={calculationScope}
+                onValueChange={(v) => setCalculationScope(v as "all" | "academique" | "professionnel")}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les modules</SelectItem>
+                  <SelectItem value="academique">Académique uniquement</SelectItem>
+                  <SelectItem value="professionnel">Professionnel uniquement</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-gray-500 mt-1">
+                {calculationScope === "all"
+                  ? "Heures académiques et professionnelles cumulées sur un seul bulletin."
+                  : calculationScope === "academique"
+                    ? "Séances de présence enseignant uniquement."
+                    : "Séances d'ECUE validées uniquement."}
               </p>
             </div>
           </div>
@@ -1605,7 +1728,25 @@ export default function CalculatePaymentsPage() {
                           </Badge>
                         </td>
                         <td className="py-2 pr-3">{formatPaymentType(r.paymentType)}</td>
-                        <td className="py-2 pr-3 text-right font-mono">{toNumber(r.totalHours).toFixed(2)}h</td>
+                        <td className="py-2 pr-3 text-right font-mono">
+                          {toNumber(r.totalHours).toFixed(2)}h
+                          {/* Ventilation par origine : c'est elle qui rend
+                              vérifiable qu'un enseignant du professionnel est
+                              bien payé sur ses séances. */}
+                          {r.hoursBySource &&
+                            (toNumber(r.hoursBySource.academique) > 0 ||
+                              toNumber(r.hoursBySource.professionnel) > 0) && (
+                              <div className="text-[11px] text-gray-500 font-sans">
+                                {toNumber(r.hoursBySource.academique) > 0 &&
+                                  `acad. ${toNumber(r.hoursBySource.academique).toFixed(1)}h`}
+                                {toNumber(r.hoursBySource.academique) > 0 &&
+                                  toNumber(r.hoursBySource.professionnel) > 0 &&
+                                  " · "}
+                                {toNumber(r.hoursBySource.professionnel) > 0 &&
+                                  `pro. ${toNumber(r.hoursBySource.professionnel).toFixed(1)}h`}
+                              </div>
+                            )}
+                        </td>
                         <td className="py-2 pr-3 text-right font-mono">{toNumber(r.overtimeHours).toFixed(2)}h</td>
                         <td className="py-2 pr-3 text-right font-mono">{formatFCFA(toNumber(r.baseAmount))}</td>
                         <td className="py-2 pr-3 text-right font-mono">{formatFCFA(toNumber(r.overtimeAmount))}</td>
@@ -1616,7 +1757,14 @@ export default function CalculatePaymentsPage() {
                             ? formatFCFA(r.totalAmount) 
                             : "-"}
                         </td>
-                        <td className="py-2 pr-3 text-sm text-gray-600">{r.error || r.message || ""}</td>
+                        <td className="py-2 pr-3 text-sm text-gray-600">
+                          {r.skipReason && (
+                            <Badge variant="outline" className="mr-1 font-mono text-[10px]">
+                              {SKIP_REASON_LABELS[r.skipReason] ?? r.skipReason}
+                            </Badge>
+                          )}
+                          {r.error || r.message || ""}
+                        </td>
                       </tr>
                     );
                   })}

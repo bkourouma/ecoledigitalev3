@@ -3479,6 +3479,21 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  // Détail d'une séance (contexte + décompte de présence).
+  fastify.get(
+    "/teacher/seances/:seanceId",
+    { preHandler: requireTeacher },
+    handler(async (request, reply) => {
+      const { seanceId } = request.params as { seanceId: string };
+      const result = await teacher.getSeanceDetail(
+        request.tenantId as string,
+        currentUserId(request),
+        seanceId
+      );
+      return sendResult(reply, result);
+    })
+  );
+
   fastify.delete(
     "/teacher/seances/:seanceId",
     { preHandler: requireTeacher },

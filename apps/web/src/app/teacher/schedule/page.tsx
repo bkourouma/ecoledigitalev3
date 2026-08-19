@@ -21,15 +21,16 @@ function fmtDate(value?: string | null): string {
 
 export default function TeacherSchedulePage() {
   const { data, isLoading, isError, error } = useTeacherEmploiTemps();
-  const [filiere, setFiliere] = useState("all");
+  const [filiere, setFiliere] = useState("");
 
   const slots = data ?? [];
 
-  // Filières distinctes présentes dans l'emploi du temps de l'enseignant.
+  // Filières distinctes présentes dans l'emploi du temps de l'enseignant,
+  // limitées à celles dont au moins une session est encore active.
   const filiereOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const s of slots) {
-      if (s.filiere_code) {
+      if (s.session_active && s.filiere_code) {
         map.set(s.filiere_code, `${s.filiere_nom ?? s.filiere_code} (${s.filiere_code})`);
       }
     }
@@ -38,9 +39,16 @@ export default function TeacherSchedulePage() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [slots]);
 
+  // Filière réellement appliquée : le choix de l'enseignant s'il est encore
+  // proposé, sinon la première filière active. Null quand aucune ne l'est.
+  const selectedFiliere = filiereOptions.some((o) => o.value === filiere)
+    ? filiere
+    : filiereOptions[0]?.value ?? null;
+
   const visibleSlots = useMemo(
-    () => (filiere === "all" ? slots : slots.filter((s) => s.filiere_code === filiere)),
-    [slots, filiere]
+    () =>
+      selectedFiliere ? slots.filter((s) => s.filiere_code === selectedFiliere) : slots,
+    [slots, selectedFiliere]
   );
 
   // Intervalle de période couvert par les créneaux affichés.
@@ -87,18 +95,19 @@ export default function TeacherSchedulePage() {
             Vos cours de la semaine, d'après le planning configuré par l'administration.
           </p>
         </div>
-        {filiereOptions.length > 1 && (
-          <div className="w-full sm:w-72">
-            <SearchableSelect
-              value={filiere}
-              onChange={setFiliere}
-              icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder="Filtrer par filière"
-              options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
-            />
-          </div>
-        )}
       </div>
+
+      {filiereOptions.length > 0 && (
+        <div className="w-full md:w-1/2">
+          <SearchableSelect
+            value={selectedFiliere ?? ""}
+            onChange={setFiliere}
+            icon={<Layers className="h-4 w-4 text-gray-400" />}
+            placeholder="Filtrer par filière"
+            options={filiereOptions}
+          />
+        </div>
+      )}
 
       {slots.length === 0 ? (
         <Card>

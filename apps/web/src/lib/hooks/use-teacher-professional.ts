@@ -58,6 +58,10 @@ export type TeacherEmploiTempsSlot = {
   ue_libelle: string;
   filiere_nom: string | null;
   filiere_code: string | null;
+  /** Statut de la cohorte (UE session) qui porte ce créneau. */
+  session_statut: string | null;
+  /** true si la cohorte n'est ni terminée ni annulée et n'est pas encore échue. */
+  session_active: boolean | null;
   classroom_id: string | null;
   classroom_name: string | null;
   classroom_code: string | null;

@@ -1,0 +1,97 @@
+{
+  "genere_le": "2026-08-18T17:37:30.745Z",
+  "nouveau_creneau": [
+    "10:00:00",
+    "12:00:00"
+  ],
+  "lignes": [
+    {
+      "id": "0079d183-e40a-4026-aa09-9106def3a593",
+      "enseignant": "Adjoua Brou",
+      "date": "2026-06-21",
+      "ecue": "L1TL-EC-MAC",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    },
+    {
+      "id": "582be5b7-e11e-44b8-8604-419d76b5b75d",
+      "enseignant": "Awa Cissé",
+      "date": "2026-06-21",
+      "ecue": "L1TL-EC-ANG",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    },
+    {
+      "id": "1cee5488-b4de-4cde-a8c4-ca9f03865178",
+      "enseignant": "Djeneba Camara",
+      "date": "2026-06-21",
+      "ecue": "L1TL-EC-TEC",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    },
+    {
+      "id": "740c3f45-5e76-4c04-87e8-a4f86d33d38b",
+      "enseignant": "Koffi Assamoi",
+      "date": "2026-06-21",
+      "ecue": "L1TL-EC-ODE",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    },
+    {
+      "id": "a53114c7-4ca6-4dd5-907e-4b10388590c0",
+      "enseignant": "Nadège Aka",
+      "date": "2026-06-21",
+      "ecue": "L1TL-EC-IMA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    },
+    {
+      "id": "21fa6941-1507-42b4-9005-957211f94188",
+      "enseignant": "Seydou Bamba",
+      "date": "2026-06-21",
+      "ecue": "L1TL-EC-MIC",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    },
+    {
+      "id": "c14c1ea0-28fa-4749-94c3-ac7ab9c0d191",
+      "enseignant": "Awa Cissé",
+      "date": "2026-07-03",
+      "ecue": "L1TL-EC-ANG",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    },
+    {
+      "id": "62956798-9ecd-408b-a930-fca5773d67cb",
+      "enseignant": "Djeneba Camara",
+      "date": "2026-07-03",
+      "ecue": "L1TL-EC-TEC",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    },
+    {
+      "id": "56a2d5f3-fa26-4103-b7bf-c04f60b39fbe",
+      "enseignant": "Koffi Assamoi",
+      "date": "2026-07-03",
+      "ecue": "L1TL-EC-ODE",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    },
+    {
+      "id": "da931e2d-5ba1-4169-b1ec-b8ae3911ffeb",
+      "enseignant": "Nadège Aka",
+      "date": "2026-07-03",
+      "ecue": "L1TL-EC-IMA",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    },
+    {
+      "id": "66cc328b-a9f2-4324-a44d-5acf0ac90df8",
+      "enseignant": "Seydou Bamba",
+      "date": "2026-07-03",
+      "ecue": "L1TL-EC-MIC",
+      "avant_debut": "08:00:00",
+      "avant_fin": "10:00:00"
+    }
+  ]
+}
