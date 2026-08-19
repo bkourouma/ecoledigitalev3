@@ -300,6 +300,9 @@ const STATUT_LABELS: Record<string, string> = {
   calculated: "Calculé",
   approved: "Approuvé",
   paid: "Payé",
+  // Introduit par la migration 0113 : bulletin classé sans rien à verser.
+  // Sans cette entrée, le document imprimait « unpaid » en anglais.
+  unpaid: "Impayé",
   disputed: "Contesté",
   cancelled: "Annulé",
 };
@@ -541,7 +544,14 @@ export function buildPayslipHtml(d: PayslipData): string {
         <div class="champ"><span class="cle">Nom et prénoms</span>${echappe(d.enseignantNom)}</div>
         <div class="champ"><span class="cle">Matricule</span>${echappe(d.enseignantMatricule ?? "—")}</div>
         <div class="champ"><span class="cle">Courriel</span>${echappe(d.enseignantEmail ?? "—")}</div>
-        <div class="champ"><span class="cle">Statut</span>${echappe(TYPE_LABELS[type] ?? d.typePaiement)}</div>
+        <!-- « Mode de rémunération » et non « Statut » : ce champ porte la
+             configuration de paie de l'enseignant, pas l'état du versement —
+             lequel figure plus bas sous « État du versement ». Deux champs
+             nommés « statut » sur le même document, l'un pour le mode de
+             calcul et l'autre pour le règlement, se lisaient l'un pour
+             l'autre. Le détail chiffré de cette configuration suit dans la
+             base de calcul. -->
+        <div class="champ"><span class="cle">Mode de rémunération</span>${echappe(TYPE_LABELS[type] ?? d.typePaiement)}</div>
         <div class="champ"><span class="cle">Période</span>${echappe(d.periodeNom)}</div>
         <div class="champ"><span class="cle">Référence</span>${echappe(d.paiementId.slice(0, 8).toUpperCase())}</div>
       </div>

@@ -19,10 +19,8 @@ import {
   Mail,
   Plus,
   ScrollText,
-  User,
   UserRound,
   Users,
-  X,
 } from "lucide-react";
 import {
   useArchiverBulletins,
@@ -34,6 +32,7 @@ import {
   type EtatConfiguration,
 } from "@/lib/hooks/use-professional-remuneration";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 /** Période qui pilote les cartes — voir `periode_courante` côté API. */
 type PeriodeCourante = NonNullable<
@@ -141,6 +140,9 @@ export default function BulletinsPaiePage() {
   const [enseignantChoisi, setEnseignantChoisi] = useState("");
   const [seulementAProbleme, setSeulementAProbleme] = useState(false);
   const [action, setAction] = useState<{ kind: "ok" | "warn"; text: string } | null>(null);
+  /* L'archivage est le geste de clôture : il fige le statut financier et sort
+     les bulletins du plan de travail. Il ne part plus sur un simple clic. */
+  const [confirmation, setConfirmation] = useState(false);
 
   const tous = query.data?.items ?? [];
   const periodeEnAttente = enAttenteQuery.data?.periode ?? null;
@@ -151,11 +153,18 @@ export default function BulletinsPaiePage() {
    */
   const periodeCourante = query.data?.periode_courante ?? null;
 
-  /** Bulletins encore au plan de travail — ceux qu'on peut classer. */
-  const bulletinsPrets = useMemo(
-    () => tous.filter((e) => e.bulletin).map((e) => e.bulletin!.id),
-    [tous]
-  );
+  /**
+   * Bulletins encore au plan de travail, et le sort que l'archivage leur
+   * réserve. Un bulletin à zéro sera classé IMPAYÉ : rien à verser, faute
+   * d'heure valorisable.
+   *
+   * COMPTÉ PAR LE SERVEUR, pas déduit des cartes. Chaque carte n'expose qu'UN
+   * bulletin par enseignant — le plus récent non archivé. Dès qu'un enseignant
+   * en avait plusieurs, ce qui arrive quand deux périodes coexistent, le
+   * décompte tiré des cartes était trop bas : « Tout archiver (3) » en classait
+   * trois et en laissait d'autres derrière, sans rien dire.
+   */
+  const aArchiver = query.data?.en_attente ?? { total: 0, payes: 0, impayes: 0 };
 
   const lancerCalcul = async () => {
     if (!periodeEnAttente) return;
@@ -174,14 +183,17 @@ export default function BulletinsPaiePage() {
     }
   };
 
-  const lancerArchivage = async (ids: string[]) => {
-    if (ids.length === 0) return;
+  const lancerArchivage = async () => {
+    if (aArchiver.total === 0) return;
     setAction(null);
+    setConfirmation(false);
     try {
-      const r = await archiver.mutateAsync(ids);
+      const r = await archiver.mutateAsync();
       setAction({
         kind: "ok",
-        text: `${r.archives} bulletin(s) archivé(s). Ils sont désormais dans l'historique.`,
+        text:
+          `${r.archives} bulletin(s) archivé(s) : ${r.payes} payé(s), ${r.impayes} impayé(s). ` +
+          `Ils sont désormais dans l'historique.`,
       });
     } catch (error) {
       setAction({ kind: "warn", text: (error as Error).message });
@@ -273,7 +285,7 @@ export default function BulletinsPaiePage() {
         </Card>
       )}
 
-      <CreationPeriode enseignants={tous} />
+      <CreationPeriode />
 
       {/* Génération et classement */}
       <Card>
@@ -301,12 +313,12 @@ export default function BulletinsPaiePage() {
           </button>
 
           <button
-            onClick={() => lancerArchivage(bulletinsPrets)}
-            disabled={bulletinsPrets.length === 0 || archiver.isPending}
+            onClick={() => setConfirmation(true)}
+            disabled={aArchiver.total === 0 || archiver.isPending}
             className="inline-flex items-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Archive className="h-4 w-4" />
-            Tout archiver ({bulletinsPrets.length})
+            Tout archiver ({aArchiver.total})
           </button>
 
           {/* L'historique a sa propre entrée de menu : « Historique des
@@ -321,7 +333,7 @@ export default function BulletinsPaiePage() {
             </span>
           )}
 
-          {!periodeEnAttente && bulletinsPrets.length === 0 && (
+          {!periodeEnAttente && aArchiver.total === 0 && (
             <span className="text-sm text-muted-foreground">
               Créez une période de paiement pour générer des bulletins.
             </span>
@@ -390,13 +402,7 @@ export default function BulletinsPaiePage() {
       ) : (
         <div className="space-y-3">
           {enseignants.map((e) => (
-            <CarteEnseignant
-              key={e.id}
-              enseignant={e}
-              periode={periodeCourante}
-              onArchiver={lancerArchivage}
-              archivage={archiver.isPending}
-            />
+            <CarteEnseignant key={e.id} enseignant={e} periode={periodeCourante} />
           ))}
         </div>
       )}
@@ -407,6 +413,27 @@ export default function BulletinsPaiePage() {
           {enseignants.length !== tous.length && ` sur ${tous.length}`}.
         </p>
       )}
+
+      {/* L'archivage clôt la période : il fige le statut financier de chaque
+          bulletin et les sort du plan de travail. La boîte dit CE QUI VA ÊTRE
+          DÉCIDÉ, pas seulement combien de lignes bougent — c'est la répartition
+          payés / impayés qui mérite d'être relue avant de valider. */}
+      <ConfirmationDialog
+        open={confirmation}
+        onOpenChange={setConfirmation}
+        title="Archiver les bulletins de la période ?"
+        description={
+          `${aArchiver.total} bulletin(s) vont être classés : ` +
+          `${aArchiver.payes} marqué(s) PAYÉ, ` +
+          `${aArchiver.impayes} marqué(s) IMPAYÉ (aucun montant à verser, faute d'heure ` +
+          `valorisable sur la période). ` +
+          `Les bulletins quitteront le plan de travail pour l'historique, et la période sera close.`
+        }
+        confirmText="Archiver"
+        cancelText="Annuler"
+        onConfirm={lancerArchivage}
+        loading={archiver.isPending}
+      />
     </div>
   );
 }
@@ -425,13 +452,16 @@ export default function BulletinsPaiePage() {
  * Le formulaire se désactive AVANT la saisie plutôt que de laisser remplir
  * pour opposer un refus à la fin.
  */
-function CreationPeriode({ enseignants }: { enseignants: EnseignantPaie[] }) {
+function CreationPeriode() {
   const enAttenteQuery = usePeriodeEnAttente();
   const creer = useCreerPeriodePaie();
 
-  const [perimetre, setPerimetre] = useState<"collectif" | "cible">("collectif");
-  const [choisis, setChoisis] = useState<Set<string>>(new Set());
-  const [rechercheEns, setRechercheEns] = useState("");
+  /* Plus de choix de périmètre : une période couvre TOUS les enseignants.
+     Le sélecteur « Enseignants choisis » a été retiré — un périmètre partiel
+     produisait des bulletins pour les uns et rien pour les autres, sans que
+     l'écran dise lesquels manquaient ni pourquoi. Le calcul écarte de lui-même
+     ceux qui n'ont ni heures ni configuration, avec un motif. L'API accepte
+     toujours `teacherIds` : la sélection reste possible par appel direct. */
   const [nom, setNom] = useState("");
   const [debut, setDebut] = useState("");
   const [fin, setFin] = useState("");
@@ -443,29 +473,10 @@ function CreationPeriode({ enseignants }: { enseignants: EnseignantPaie[] }) {
   const champ =
     "rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed";
 
-  const basculer = (id: string) =>
-    setChoisis((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  // Recherche appliquée à la liste de sélection uniquement : les enseignants
-  // déjà cochés restent visibles en pastilles au-dessus, même filtrés.
-  const visibles = useMemo(() => {
-    const q = rechercheEns.trim().toLowerCase();
-    return q ? enseignants.filter((e) => e.nom.toLowerCase().includes(q)) : enseignants;
-  }, [enseignants, rechercheEns]);
-
   const soumettre = async () => {
     setRetour(null);
     if (!nom.trim()) {
       setRetour({ kind: "warn", text: "Le nom de la période est requis." });
-      return;
-    }
-    if (perimetre === "cible" && choisis.size === 0) {
-      setRetour({ kind: "warn", text: "Choisissez au moins un enseignant." });
       return;
     }
     if (!debut || !fin) {
@@ -480,17 +491,16 @@ function CreationPeriode({ enseignants }: { enseignants: EnseignantPaie[] }) {
       return;
     }
     try {
+      /* `teacherIds` absent = période COLLECTIVE côté API. C'est désormais le
+         seul mode offert par cet écran. */
       await creer.mutateAsync({
         name: nom.trim(),
         periodStart: debut,
         periodEnd: fin,
-        teacherIds: perimetre === "cible" ? Array.from(choisis) : undefined,
       });
       setNom("");
       setDebut("");
       setFin("");
-      setChoisis(new Set());
-      setRechercheEns("");
       setRetour({
         kind: "ok",
         text: "Période créée. Lancez son calcul pour pouvoir en ouvrir une autre.",
@@ -549,27 +559,8 @@ function CreationPeriode({ enseignants }: { enseignants: EnseignantPaie[] }) {
           </div>
         )}
 
-        {/* Périmètre */}
-        <div className="flex flex-wrap gap-2">
-          {(["collectif", "cible"] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPerimetre(p)}
-              disabled={bloque}
-              className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                perimetre === p
-                  ? "border-indigo-500/50 bg-indigo-500/15 text-indigo-300"
-                  : "border-input text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {p === "collectif" ? <Users className="h-4 w-4" /> : <User className="h-4 w-4" />}
-              {p === "collectif"
-                ? "Tous les enseignants"
-                : `Enseignants choisis${choisis.size > 0 ? ` (${choisis.size})` : ""}`}
-            </button>
-          ))}
-        </div>
-
+        {/* Aucun affichage du périmètre : toute période couvre l'ensemble des
+            enseignants, il n'y a plus rien à choisir ni à signaler. */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="flex flex-col gap-1 text-sm md:col-span-2">
             <span className="text-muted-foreground">Nom de la période *</span>
@@ -582,99 +573,6 @@ function CreationPeriode({ enseignants }: { enseignants: EnseignantPaie[] }) {
               className={champ}
             />
           </label>
-
-          {/* Sélection multiple. Une liste à cocher plutôt qu'un menu
-              déroulant : on choisit ici plusieurs personnes parmi une trentaine,
-              et il faut voir d'un coup d'œil qui est retenu. */}
-          {perimetre === "cible" && (
-            <div className="md:col-span-2 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Enseignants * <span className="text-xs">({choisis.size} sélectionné(s))</span>
-                </span>
-                <div className="flex gap-3 text-xs">
-                  <button
-                    onClick={() => setChoisis(new Set(visibles.map((e) => e.id)))}
-                    disabled={bloque}
-                    className="text-indigo-400 underline underline-offset-2 disabled:opacity-50"
-                  >
-                    Tout cocher{rechercheEns ? " (résultats)" : ""}
-                  </button>
-                  {choisis.size > 0 && (
-                    <button
-                      onClick={() => setChoisis(new Set())}
-                      disabled={bloque}
-                      className="text-muted-foreground underline underline-offset-2 disabled:opacity-50"
-                    >
-                      Tout décocher
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Pastilles des choisis — visibles même quand la recherche les
-                  masque de la liste, sinon on croit les avoir perdus. */}
-              {choisis.size > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {enseignants
-                    .filter((e) => choisis.has(e.id))
-                    .map((e) => (
-                      <button
-                        key={e.id}
-                        onClick={() => basculer(e.id)}
-                        disabled={bloque}
-                        title="Retirer de la sélection"
-                        className="inline-flex items-center gap-1 rounded-md border border-indigo-500/40 bg-indigo-500/15 px-2 py-0.5 text-xs text-indigo-200 disabled:opacity-50"
-                      >
-                        {e.nom}
-                        <X className="h-3 w-3" />
-                      </button>
-                    ))}
-                </div>
-              )}
-
-              <input
-                type="text"
-                value={rechercheEns}
-                onChange={(e) => setRechercheEns(e.target.value)}
-                disabled={bloque}
-                placeholder="Filtrer la liste…"
-                className={champ + " w-full"}
-              />
-
-              <div className="max-h-56 overflow-y-auto rounded-md border border-input divide-y divide-border">
-                {visibles.length === 0 ? (
-                  <p className="px-3 py-4 text-sm text-muted-foreground text-center">
-                    Aucun enseignant ne correspond.
-                  </p>
-                ) : (
-                  visibles.map((e) => (
-                    <label
-                      key={e.id}
-                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={choisis.has(e.id)}
-                        onChange={() => basculer(e.id)}
-                        disabled={bloque}
-                        className="h-4 w-4 shrink-0"
-                      />
-                      <span className="truncate">{e.nom}</span>
-                      {/* Un enseignant non configuré peut être coché : c'est le
-                          calcul qui l'écartera. Le dire ici évite de chercher
-                          plus tard pourquoi son bulletin manque. */}
-                      {e.etat_configuration !== "active" && (
-                        <span className="ml-auto shrink-0 text-[11px] text-amber-400">
-                          non configuré
-                        </span>
-                      )}
-                    </label>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Bornes désormais OBLIGATOIRES. Le repli sur « le mois en cours »
               était acceptable tant que deux périodes ne pouvaient pas se
@@ -777,14 +675,10 @@ function Indicateur({
 function CarteEnseignant({
   enseignant: e,
   periode,
-  onArchiver,
-  archivage,
 }: {
   enseignant: EnseignantPaie;
   /** Période qui pilote la carte. `null` = cycle terminé, compteurs à zéro. */
   periode: PeriodeCourante | null;
-  onArchiver?: (ids: string[]) => void;
-  archivage?: boolean;
 }) {
   const etat = ETATS[e.etat_configuration];
   const cfg = e.config;
@@ -970,13 +864,16 @@ function CarteEnseignant({
                           consultable dans l&apos;historique
                         </span>
                       )}
-                      {/* Les deux actions du bulletin, côte à côte : consulter
-                          puis classer, dans l'ordre où on les enchaîne. La
-                          teinte diffère parce que les gestes diffèrent —
-                          consulter n'engage rien, classer fait sortir le
-                          bulletin du plan de travail. */}
+                      {/* PLUS D'ARCHIVAGE À LA CARTE. Classer un bulletin isolé
+                          laissait la période à moitié close, sans que rien ne
+                          dise lesquels restaient. L'archivage est désormais un
+                          geste unique, en tête d'écran, avec confirmation.
+
+                          Le PDF n'apparaît que s'il y a un montant : un bulletin
+                          à zéro n'a rien à présenter, et le proposer laisserait
+                          croire qu'un versement a eu lieu. */}
                       <div className="ml-auto flex items-center gap-2">
-                        {e.bulletin ? (
+                        {e.bulletin && (e.bulletin.montant ?? 0) > 0 ? (
                           <a
                             href={`/api/teacher-payments/${e.bulletin.id}/pdf`}
                             target="_blank"
@@ -986,30 +883,15 @@ function CarteEnseignant({
                             <FileText className="h-4 w-4" />
                             Bulletin
                           </a>
+                        ) : e.bulletin ? (
+                          <span className="text-xs text-amber-400 whitespace-nowrap">
+                            Sera classé impayé
+                          </span>
                         ) : (
-                          <button
-                            disabled
-                            title="Bulletin archivé — consultable depuis l'historique"
-                            className="inline-flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground cursor-not-allowed whitespace-nowrap"
-                          >
-                            <FileText className="h-4 w-4" />
-                            Bulletin
-                          </button>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            Bulletin dans l&apos;historique
+                          </span>
                         )}
-
-                        <button
-                          onClick={() => e.bulletin && onArchiver?.([e.bulletin.id])}
-                          disabled={!e.bulletin || archivage}
-                          title={
-                            e.bulletin
-                              ? "Classer ce bulletin dans l'historique"
-                              : "Bulletin déjà archivé — en attente d'une nouvelle période"
-                          }
-                          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed whitespace-nowrap"
-                        >
-                          <Archive className="h-4 w-4" />
-                          Archiver
-                        </button>
                       </div>
                     </div>
                   </div>

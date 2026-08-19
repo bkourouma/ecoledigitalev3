@@ -388,9 +388,39 @@ export class TeacherPayrollOverviewService extends ProfessionalBaseService {
         p?.id ?? null,
       ]);
       const items = rows.rows.map(mapEnseignant);
+
+      /**
+       * TOUS les bulletins encore au plan de travail — pas seulement ceux que
+       * les cartes montrent.
+       *
+       * `bul` ne remonte qu'UN bulletin par enseignant (`LIMIT 1`, le plus
+       * récent non archivé). Compter les cartes sous-estimait donc le reste à
+       * classer dès qu'un enseignant en avait plusieurs, ce qui arrive depuis
+       * que deux périodes peuvent coexister : « Tout archiver (3) » en classait
+       * trois et en laissait d'autres derrière, sans rien dire.
+       *
+       * La répartition payés / impayés suit la règle de `archiverBulletins` —
+       * même expression, pour que la confirmation annonce ce qui va réellement
+       * se produire.
+       */
+      const attente = await client.query(
+        `SELECT count(*)::int                                        AS total,
+                count(*) FILTER (WHERE total_amount > 0)::int        AS payes,
+                count(*) FILTER (WHERE total_amount <= 0)::int       AS impayes
+           FROM teacher_payments
+          WHERE tenant_id = $1 AND archived_at IS NULL`,
+        [tenantId]
+      );
+
       return ok({
         items,
         total: items.length,
+        /** Ce que « Tout archiver » va réellement traiter. */
+        en_attente: {
+          total: attente.rows[0].total as number,
+          payes: attente.rows[0].payes as number,
+          impayes: attente.rows[0].impayes as number,
+        },
         non_configures: items.filter((e) => e.etat_configuration !== "active").length,
         /** Heures validées SUR LA PÉRIODE COURANTE, tous enseignants. */
         heures_validees: items.reduce((s, e) => s + e.heures.totales, 0),
@@ -414,33 +444,66 @@ export class TeacherPayrollOverviewService extends ProfessionalBaseService {
   }
 
   /**
-   * Classe des bulletins.
+   * Classe des bulletins ET TRANCHE LEUR SORT FINANCIER.
    *
-   * L'archivage ne touche NI le statut financier, NI les heures consommées :
-   * `payment_hour_details` reste en place, donc les heures restent décomptées.
-   * Classer n'est pas annuler — un bulletin archivé a bien été produit.
+   * L'archivage n'était qu'un classement : le bulletin gardait son statut de
+   * calcul, si bien que l'historique répondait « calculé » à la question
+   * « a-t-il été payé ? ». C'est le geste de clôture, il doit conclure.
+   *
+   *   - PAYÉ   : il y a quelque chose à verser.
+   *   - IMPAYÉ : le bulletin sort à zéro. Le cas visé est l'enseignant dont
+   *              aucune heure valorisable n'a pu être collectée sur la période.
+   *
+   * POURQUOI LE MONTANT ET NON LE NOMBRE D'HEURES. Les deux coïncident pour une
+   * rémunération horaire ou mixte : sans heures, le montant tombe à zéro. Mais
+   * un SALAIRE FIXE est dû indépendamment des heures — le calculateur ne les
+   * valorise même pas (voir `calculateSalaryPayment`). Trancher sur les heures
+   * marquerait « impayé » un salarié qui doit être payé. Le montant répond à la
+   * vraie question : reste-t-il quelque chose à verser ?
+   *
+   * Les heures consommées ne bougent pas : `payment_hour_details` reste en
+   * place, donc elles restent décomptées. Classer n'est pas annuler.
    *
    * Idempotent : réarchiver un bulletin déjà classé ne le redate pas, sans quoi
-   * l'ordre de l'historique changerait à chaque clic.
+   * l'ordre de l'historique changerait à chaque clic — et son statut financier
+   * ne serait pas rejugé.
+   */
+  /**
+   * @param paymentIds liste explicite, ou `null` pour TOUT ce qui reste au plan
+   *   de travail. L'écran passe `null` : il n'a jamais la liste complète, la
+   *   vue d'ensemble ne lui remonte qu'un bulletin par enseignant. Lui faire
+   *   énumérer les identifiants revenait à n'archiver que ce qu'il voyait.
    */
   async archiverBulletins(
     tenantId: string,
-    paymentIds: string[],
+    paymentIds: string[] | null,
     userId: string | null
-  ): Promise<ServiceResult<{ archives: number; deja_archives: number }>> {
+  ): Promise<
+    ServiceResult<{ archives: number; deja_archives: number; payes: number; impayes: number }>
+  > {
     return this.withTenantTx(tenantId, async (client) => {
       const res = await client.query(
         `UPDATE teacher_payments
-            SET archived_at = now(), archived_by = $3, updated_at = now()
+            SET archived_at = now(),
+                archived_by = $3,
+                status = CASE WHEN total_amount > 0 THEN 'paid'::payment_status
+                              ELSE 'unpaid'::payment_status END,
+                updated_at = now()
           WHERE tenant_id = $1
-            AND id = ANY($2::uuid[])
             AND archived_at IS NULL
-          RETURNING id`,
+            AND ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))
+          RETURNING id, status::text AS statut`,
         [tenantId, paymentIds, userId]
       );
+      const archives = res.rowCount ?? 0;
+      const payes = res.rows.filter((r) => r.statut === "paid").length;
       return ok({
-        archives: res.rowCount ?? 0,
-        deja_archives: paymentIds.length - (res.rowCount ?? 0),
+        archives,
+        // Sans liste explicite, la notion n'a pas de sens : on archive ce qui
+        // reste, il ne peut rien y avoir « déjà archivé » dans la demande.
+        deja_archives: paymentIds ? paymentIds.length - archives : 0,
+        payes,
+        impayes: archives - payes,
       });
     });
   }
@@ -476,6 +539,7 @@ export class TeacherPayrollOverviewService extends ProfessionalBaseService {
                 tp.teacher_id            AS enseignant_id,
                 COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''),
                          NULLIF(TRIM(t.first_name  || ' ' || t.last_name), '')) AS enseignant_nom,
+                pp.id                    AS periode_id,
                 pp.name                  AS periode_nom,
                 pp.period_start::text    AS periode_debut,
                 pp.period_end::text      AS periode_fin,

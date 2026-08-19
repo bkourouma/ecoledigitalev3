@@ -117,13 +117,26 @@ export async function professionalRemunerationRoutes(fastify: FastifyInstance): 
     "/bulletins/archiver",
     { preHandler: requireAdmin },
     handler(async (request, reply) => {
-      const body = request.body as { paymentIds?: string[] };
-      if (!Array.isArray(body?.paymentIds) || body.paymentIds.length === 0) {
-        return validationError(reply, "paymentIds est requis et ne peut pas être vide.");
+      const body = request.body as { paymentIds?: string[]; tous?: boolean };
+
+      /* `tous: true` archive TOUT ce qui reste au plan de travail. L'écran ne
+         peut pas énumérer les identifiants : sa vue d'ensemble ne lui remonte
+         qu'un bulletin par enseignant, si bien qu'il n'archivait que ceux qu'il
+         affichait et en laissait d'autres derrière.
+
+         L'exigence sur `paymentIds` reste entière quand `tous` est absent : un
+         tableau vide ne doit jamais valoir « tout », sans quoi un appel mal
+         formé clôturerait la période entière. */
+      const tous = body?.tous === true;
+      if (!tous && (!Array.isArray(body?.paymentIds) || body.paymentIds.length === 0)) {
+        return validationError(
+          reply,
+          "paymentIds est requis et ne peut pas être vide, ou passer tous: true."
+        );
       }
       const result = await paie.archiverBulletins(
         request.tenantId as string,
-        body.paymentIds,
+        tous ? null : (body.paymentIds as string[]),
         currentUserId(request)
       );
       return sendResult(reply, result);

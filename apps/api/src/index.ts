@@ -87,6 +87,7 @@ import { parentsRoutes } from "./routes/parents";
 import { adminAnnouncementsRoutes } from "./routes/admin-announcements";
 import { adminMessagesRoutes } from "./routes/admin-messages";
 import { messagingCommonRoutes } from "./routes/messaging-common";
+import { adminEmailRoutes } from "./routes/admin-email";
 import { adminRolesRoutes } from "./routes/admin-roles";
 import { registrationRequestsRoutes } from "./routes/registration-requests";
 import { formationsProRoutes } from "./routes/formations-pro";
@@ -297,6 +298,9 @@ async function start() {
     // Admin-specific routes
     await fastify.register(adminAnnouncementsRoutes, { prefix: "/api/v1/admin/announcements" });
     await fastify.register(adminMessagesRoutes, { prefix: "/api/v1/admin/messages" });
+
+    // Composition et envoi d'emails depuis l'espace administrateur
+    await fastify.register(adminEmailRoutes, { prefix: "/api/v1/admin/email" });
 
     // Messagerie transverse : état du canal email, partagé par les 4 profils
     await fastify.register(messagingCommonRoutes, { prefix: "/api/v1/messaging" });

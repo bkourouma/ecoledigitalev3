@@ -409,6 +409,12 @@ export function useEnseignantsPaie() {
     non_configures: number;
     heures_validees: number;
     seances_validees: number;
+    /**
+     * TOUS les bulletins encore au plan de travail, et le sort que l'archivage
+     * leur réserve. Compté côté serveur : les cartes n'en montrent qu'un par
+     * enseignant, s'y fier sous-estimait le reste à classer.
+     */
+    en_attente: { total: number; payes: number; impayes: number };
     /** Période qui pilote l'écran.  = aucune ouverte. */
     periode_courante: {
       id: string;
@@ -521,6 +527,8 @@ export interface BulletinArchive {
   heures_sup: number | null;
   enseignant_id: string;
   enseignant_nom: string | null;
+  /** Sert de clé au filtre par période : deux périodes peuvent porter le même nom. */
+  periode_id: string;
   periode_nom: string;
   periode_debut: string;
   periode_fin: string;
@@ -555,9 +563,20 @@ export function useCalculerPeriode() {
 /** Classe des bulletins : ils quittent le plan de travail pour l'historique. */
 export function useArchiverBulletins() {
   const qc = useQueryClient();
-  return useMutation<{ archives: number; deja_archives: number }, Error, string[]>({
-    mutationFn: (paymentIds) =>
-      apiFetch(`${BASE}/bulletins/archiver`, jsonInit("POST", { paymentIds })),
+  /* `payes` / `impayes` : l'archivage tranche le sort financier de chaque
+     bulletin — payé, ou impayé s'il sort à zéro. Le compte rendu les distingue,
+     sinon « 30 bulletins archivés » masquerait ceux que personne ne touchera.
+
+     `tous: true` plutôt qu'une liste d'identifiants : la vue d'ensemble ne
+     remonte qu'UN bulletin par enseignant, donc l'écran ne connaît jamais la
+     liste complète. Lui faire énumérer les ids n'archivait que ce qu'il
+     affichait et laissait le reste au plan de travail. */
+  return useMutation<
+    { archives: number; deja_archives: number; payes: number; impayes: number },
+    Error,
+    void
+  >({
+    mutationFn: () => apiFetch(`${BASE}/bulletins/archiver`, jsonInit("POST", { tous: true })),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["prof-remuneration", "bulletins"] }),
   });
 }

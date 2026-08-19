@@ -7,7 +7,9 @@ export const PaymentConfigTypeSchema = z.enum(['salary', 'hourly', 'mixed']);
 // `calculateMixedPayment`, mais manquait ici : le contrat était plus étroit que
 // la base (dérive constatée en 031). La base fait foi.
 export const PaymentTypeSchema = z.enum(['salary', 'hourly', 'bonus', 'deduction', 'mixed']);
-export const PaymentStatusSchema = z.enum(['calculated', 'approved', 'paid', 'disputed', 'cancelled']);
+// `unpaid` : bulletin classé sans rien à verser — aucune heure valorisable sur
+// la période. Posé par l'archivage, jamais par le calcul (migration 0113).
+export const PaymentStatusSchema = z.enum(['calculated', 'approved', 'paid', 'disputed', 'cancelled', 'unpaid']);
 export const RateTypeSchema = z.enum(['theory', 'practical', 'exam', 'evaluation', 'supervision']);
 
 /**

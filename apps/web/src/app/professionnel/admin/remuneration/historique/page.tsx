@@ -14,9 +14,9 @@ import {
 } from "@ecoledigitale/ui";
 import {
   AlertCircle,
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
-  Clock,
   FileText,
   History,
   Loader2,
@@ -45,21 +45,49 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 
 const PAGE_SIZES = [10, 20, 50];
 
+/**
+ * Un bulletin archivé répond « payé » ou « impayé » — c'est l'archivage qui
+ * tranche. « Calculé » n'a plus lieu d'apparaître ici : ce statut décrit une
+ * étape de travail, pas un sort financier, et il laissait l'historique
+ * répondre « calculé » à la question « a-t-il été payé ? ». Les autres valeurs
+ * restent listées pour les bulletins antérieurs à ce changement.
+ */
 const STATUT_LABELS: Record<string, string> = {
+  paid: "Payé",
+  unpaid: "Impayé",
   calculated: "Calculé",
   approved: "Approuvé",
-  paid: "Payé",
   disputed: "Contesté",
   cancelled: "Annulé",
 };
 
 const STATUT_STYLES: Record<string, string> = {
+  paid: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  /* Rouge, comme « non configuré » ailleurs : c'est une anomalie de gestion —
+     un enseignant est passé à la paie sans qu'aucune heure ne soit valorisable. */
+  unpaid: "bg-red-500/15 text-red-400 border-red-500/30",
   calculated: "bg-blue-500/15 text-blue-300 border-blue-500/30",
-  approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  paid: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+  approved: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
   disputed: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  cancelled: "bg-red-500/15 text-red-400 border-red-500/30",
+  cancelled: "bg-muted text-muted-foreground border-border",
 };
+
+const MOIS = [
+  "janvier",
+  "février",
+  "mars",
+  "avril",
+  "mai",
+  "juin",
+  "juillet",
+  "août",
+  "septembre",
+  "octobre",
+  "novembre",
+  "décembre",
+];
+
+const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const TYPE_LABELS: Record<string, string> = {
   salary: "Salaire fixe",
@@ -101,6 +129,23 @@ const anneeScolaire = (b: BulletinArchive): string | null => {
   return d.getMonth() >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 };
 
+/**
+ * Libellé d'une période dans le filtre, déduit de son INTERVALLE et non de son
+ * nom : le nom est saisi à la main et ne dit pas toujours ce qu'il couvre.
+ *
+ *   « Décembre 2025 — année 2025-2026 »
+ *   « Décembre 2025 → février 2026 — année 2025-2026 »  (période à cheval)
+ */
+const libellePeriode = (b: BulletinArchive): string => {
+  const [anD, moisD] = b.periode_debut.split("-").map(Number);
+  const [anF, moisF] = b.periode_fin.split("-").map(Number);
+  const premier = majuscule(`${MOIS[moisD - 1]} ${anD}`);
+  const annee = anneeScolaire(b);
+  const suffixe = annee ? ` — année ${annee}` : "";
+  if (anD === anF && moisD === moisF) return premier + suffixe;
+  return `${premier} → ${MOIS[moisF - 1]} ${anF}${suffixe}`;
+};
+
 const fmtHeures = (v: number | null): string => {
   const n = Number(v ?? 0);
   const h = Math.floor(n);
@@ -129,6 +174,7 @@ function Contenu() {
   // évite de rechercher la personne qu'on vient de quitter.
   const [enseignantId, setEnseignantId] = useState(params.get("enseignantId") ?? "");
   const [annee, setAnnee] = useState("");
+  const [periodeId, setPeriodeId] = useState("");
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
   const [page, setPage] = useState(1);
 
@@ -155,11 +201,34 @@ function Contenu() {
   // alors sur « toutes », plutôt que de filtrer sur une valeur devenue absente.
   const anneeActive = anneeOptions.some((o) => o.value === annee) ? annee : "";
 
-  const filtres = useMemo(
-    () =>
-      anneeActive ? items.filter((b) => anneeScolaire(b) === anneeActive) : items,
-    [items, anneeActive]
-  );
+  /**
+   * Périodes réellement représentées, libellées par leur intervalle. Groupées
+   * par identifiant et non par nom : deux périodes peuvent porter le même
+   * intitulé, les fondre en masquerait une.
+   *
+   * Les options suivent l'année sélectionnée — proposer une période de
+   * 2024-2025 alors qu'on filtre 2025-2026 ne donnerait qu'une liste vide.
+   */
+  const periodeOptions = useMemo(() => {
+    const source = anneeActive ? items.filter((b) => anneeScolaire(b) === anneeActive) : items;
+    const par = new Map<string, { libelle: string; debut: string }>();
+    for (const b of source) {
+      if (!par.has(b.periode_id)) {
+        par.set(b.periode_id, { libelle: libellePeriode(b), debut: b.periode_debut });
+      }
+    }
+    return [...par.entries()]
+      .sort((a, z) => z[1].debut.localeCompare(a[1].debut)) // la plus récente en tête
+      .map(([id, p]) => ({ value: id, label: p.libelle }));
+  }, [items, anneeActive]);
+
+  const periodeActive = periodeOptions.some((o) => o.value === periodeId) ? periodeId : "";
+
+  const filtres = useMemo(() => {
+    let liste = anneeActive ? items.filter((b) => anneeScolaire(b) === anneeActive) : items;
+    if (periodeActive) liste = liste.filter((b) => b.periode_id === periodeActive);
+    return liste;
+  }, [items, anneeActive, periodeActive]);
 
   const stats = useMemo(
     () => ({
@@ -188,6 +257,14 @@ function Contenu() {
 
   function changeAnnee(value: string) {
     setAnnee(value);
+    // La période choisie appartenait peut-être à l'année qu'on quitte : la
+    // laisser posée filtrerait sur une valeur que la liste ne propose plus.
+    setPeriodeId("");
+    setPage(1);
+  }
+
+  function changePeriode(value: string) {
+    setPeriodeId(value);
     setPage(1);
   }
 
@@ -249,6 +326,22 @@ function Contenu() {
             />
             <span className="text-xs text-muted-foreground">
               Année rattachée à la période de paie du bulletin.
+            </span>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm md:col-span-2">
+            <span className="text-muted-foreground">Période de paiement</span>
+            <SearchableSelect
+              value={periodeActive}
+              onChange={changePeriode}
+              icon={<CalendarClock className="h-4 w-4 text-muted-foreground" />}
+              placeholder="Toutes les périodes"
+              searchPlaceholder="Rechercher une période…"
+              options={[{ value: "", label: "Toutes les périodes" }, ...periodeOptions]}
+            />
+            <span className="text-xs text-muted-foreground">
+              Le mois et l&apos;année scolaire sont déduits de l&apos;intervalle de dates de la
+              période.
             </span>
           </label>
         </CardContent>
@@ -372,13 +465,12 @@ function LigneBulletin({ bulletin: b, avecNom }: { bulletin: BulletinArchive; av
             label="Rémunération"
             valeur={TYPE_LABELS[b.type_paiement] ?? b.type_paiement}
           />
-          <Donnee
-            label="Heures"
-            // Un salaire fixe n'a pas d'heures valorisées : afficher « 0 h »
-            // serait juste, mais « — » dit mieux que la question ne se pose pas.
-            valeur={b.type_paiement === "salary" ? "—" : fmtHeures(heures)}
-            hint={b.nb_lignes > 0 ? `${b.nb_lignes} ligne(s)` : undefined}
-          />
+          {/* Un salaire fixe n'a pas d'heures valorisées : la colonne est
+              retirée, pas remplie d'un tiret. Un « — » se lit comme une donnée
+              manquante, alors que la question ne se pose simplement pas. */}
+          {b.type_paiement !== "salary" && (
+            <Donnee label="Heures" valeur={fmtHeures(heures)} />
+          )}
           <Donnee
             label="Archivé le"
             valeur={fmtDate(b.archive_le)}
@@ -454,7 +546,10 @@ function Donnee({
     <div className="min-w-0" title={title}>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`text-sm mt-0.5 break-words ${fort ? "font-semibold" : ""}`}>{valeur}</div>
-      {hint && <div className="text-[11px] text-muted-foreground truncate">{hint}</div>}
+      {/* `break-words` et non `truncate` : le seul indice restant est le nom de
+          la personne qui a archivé. Tronqué, « Administrateur Te… » ne désigne
+          plus personne — c'est justement ce qu'on veut lire. */}
+      {hint && <div className="text-[11px] text-muted-foreground break-words">{hint}</div>}
     </div>
   );
 }

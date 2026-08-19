@@ -4,11 +4,18 @@ import React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Mail, MessageCircle, AlertTriangle, Settings2 } from 'lucide-react';
-import { useMessagingEmailConfig } from '@/lib/hooks/use-messaging-email-config';
-import type { MessageTemplateKind } from '@/lib/hooks/use-admin-message-templates';
+import { Bell, Mail, AlertTriangle, Settings2 } from 'lucide-react';
+import {
+  useMessagingEmailConfig,
+  type MessageTemplateKind,
+} from '@/lib/hooks/use-messaging-email-config';
 
 export interface MessageChannels {
+  /**
+   * Conservé pour la compatibilité des appelants et de l'API, mais plus
+   * proposé dans l'interface : le relais WhatsApp est désactivé, seul l'email
+   * subsiste. Les formulaires transmettent donc toujours `false`.
+   */
   whatsapp: boolean;
   email: boolean;
 }
@@ -31,8 +38,8 @@ interface Props {
  * Choix des canaux de diffusion d'un message.
  *
  * L'application est un canal implicite et non désactivable : le message est
- * toujours consultable dans l'espace du destinataire. WhatsApp et Email sont
- * des relais additionnels, chacun avec ses prérequis.
+ * toujours consultable dans l'espace du destinataire. L'email est le seul
+ * relais externe proposé.
  */
 export function MessageChannelSelector({
   channels,
@@ -44,7 +51,6 @@ export function MessageChannelSelector({
   onEditTemplate,
 }: Props) {
   const emailId = `${idPrefix}-email`;
-  const whatsappId = `${idPrefix}-whatsapp`;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
@@ -53,7 +59,7 @@ export function MessageChannelSelector({
         <span className="text-xs text-slate-500">— le message reste consultable dans l&apos;application</span>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         {/* Canal applicatif : toujours actif, présenté en lecture seule. */}
         <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
           <Bell className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
@@ -61,32 +67,6 @@ export function MessageChannelSelector({
             <p className="text-sm font-medium text-emerald-900">Application</p>
             <p className="mt-0.5 text-xs text-emerald-700">Toujours actif</p>
           </div>
-        </div>
-
-        {/* WhatsApp */}
-        <div
-          className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
-            channels.whatsapp
-              ? 'border-amber-300 bg-amber-50'
-              : 'border-slate-200 bg-white hover:border-amber-200'
-          } ${disabled ? 'opacity-60' : ''}`}
-        >
-          <Checkbox
-            id={whatsappId}
-            checked={channels.whatsapp}
-            disabled={disabled}
-            onCheckedChange={(value) => onChange({ ...channels, whatsapp: value === true })}
-            className="mt-0.5"
-          />
-          <Label htmlFor={whatsappId} className={`min-w-0 flex-1 ${disabled ? '' : 'cursor-pointer'}`}>
-            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-900">
-              <MessageCircle className="h-4 w-4 text-amber-600" />
-              WhatsApp
-            </span>
-            <span className="mt-0.5 block text-xs font-normal text-slate-600">
-              Nécessite un numéro renseigné pour le destinataire.
-            </span>
-          </Label>
         </div>
 
         {/* Email */}

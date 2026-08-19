@@ -22,7 +22,7 @@ export async function teacherPaymentsRoutes(fastify: FastifyInstance) {
         properties: {
           teacherId: { type: "string", format: "uuid" },
           periodId: { type: "string", format: "uuid" },
-          status: { type: "string", enum: ["calculated", "approved", "paid", "disputed", "cancelled"] },
+          status: { type: "string", enum: ["calculated", "approved", "paid", "disputed", "cancelled", "unpaid"] },
           paymentType: { type: "string", enum: ["salary", "hourly", "bonus", "deduction"] },
           fromDate: { type: "string", format: "date" },
           toDate: { type: "string", format: "date" },

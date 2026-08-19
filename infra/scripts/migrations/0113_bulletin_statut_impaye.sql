@@ -1,0 +1,26 @@
+-- ===========================================================================
+-- 0113 — Statut « impayé » sur les bulletins de paie
+-- ===========================================================================
+--
+-- L'archivage tranche désormais le sort financier de chaque bulletin : il le
+-- marque PAYÉ, ou IMPAYÉ quand il n'y a rien à verser — l'enseignant n'a aucune
+-- heure valorisable sur la période, le bulletin sort à zéro.
+--
+-- Jusqu'ici les bulletins archivés gardaient leur statut de calcul
+-- (`calculated`), ce qui laissait l'historique répondre « calculé » à la
+-- question « a-t-il été payé ? ». Aucune des valeurs existantes ne convenait :
+--   - `cancelled` dit que le bulletin est annulé, pas qu'il est resté à zéro ;
+--   - `disputed` dit qu'il est contesté, ce qui suppose un désaccord.
+--
+-- La valeur est ajoutée SANS être utilisée dans la même transaction : PostgreSQL
+-- refuse de lire une valeur d'enum créée dans la transaction courante. Le
+-- passage effectif des bulletins se fait à l'archivage, plus tard.
+--
+-- POUR REVENIR EN ARRIÈRE
+-- Une valeur d'enum ne se retire pas simplement (DROP VALUE n'existe pas). Il
+-- faudrait recréer le type sans elle, après avoir remis les bulletins
+-- concernés sur un autre statut :
+--   UPDATE teacher_payments SET status = 'calculated' WHERE status = 'unpaid';
+-- ===========================================================================
+
+ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'unpaid';

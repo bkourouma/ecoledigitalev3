@@ -1,62 +1,56 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Mail, MailWarning, MessageSquare, Megaphone, Settings2, Users } from 'lucide-react';
-import { AdminParentConversations } from '../components/messages/AdminParentConversations';
-import { AdminTeacherMessages } from '../components/messages/AdminTeacherMessages';
-import { AdminStudentAnnouncements } from '../components/messages/AdminStudentAnnouncements';
-import { EmailTemplatesManager } from '../components/messages/EmailTemplatesManager';
-import { useAllTeachers } from '@/lib/hooks/use-teachers';
 import {
-  useMessageEmailTemplates,
-  type MessageTemplateKind,
-} from '@/lib/hooks/use-admin-message-templates';
+  AlertTriangle,
+  History,
+  Inbox,
+  Loader2,
+  Mail,
+  MailCheck,
+  PenLine,
+} from 'lucide-react';
+import { EmailComposer, type ComposerPrefill } from '../components/messages/EmailComposer';
+import { EmailHistory } from '../components/messages/EmailHistory';
+import { EmailInbox } from '../components/messages/EmailInbox';
+import { useMessagingEmailConfig } from '@/lib/hooks/use-messaging-email-config';
+import type { InboxMessage } from '@/lib/hooks/use-admin-email';
 
-type MessageTab = 'parent-conversations' | 'teacher-messages' | 'student-announcements' | 'email-templates';
+type MessagesTab = 'compose' | 'inbox' | 'history';
 
-const TABS: Array<{ value: MessageTab; label: string; shortLabel: string; icon: React.ElementType }> = [
-  { value: 'parent-conversations', label: 'Parents', shortLabel: 'Parents', icon: Users },
-  { value: 'teacher-messages', label: 'Enseignants', shortLabel: 'Enseig.', icon: MessageSquare },
-  { value: 'student-announcements', label: 'Étudiants', shortLabel: 'Étud.', icon: Megaphone },
-  { value: 'email-templates', label: "Modèles d'email", shortLabel: 'Modèles', icon: Settings2 },
+const TABS: Array<{ value: MessagesTab; label: string; icon: React.ElementType }> = [
+  { value: 'compose', label: 'Nouveau message', icon: PenLine },
+  { value: 'inbox', label: 'Boîte de réception', icon: Inbox },
+  { value: 'history', label: 'Historique', icon: History },
 ];
 
 export default function AdminMessagesPage() {
   const { data: session, status } = useSession();
-  const [activeTab, setActiveTab] = useState<MessageTab>('parent-conversations');
-  // Modèle à ouvrir quand on arrive depuis le lien « Personnaliser » d'un formulaire.
-  const [focusTemplate, setFocusTemplate] = useState<MessageTemplateKind | null>(null);
+  const [activeTab, setActiveTab] = useState<MessagesTab>('compose');
+  const [prefill, setPrefill] = useState<ComposerPrefill | null>(null);
+  const { data: emailConfig } = useMessagingEmailConfig();
 
-  const { data: teachersData, isLoading: isLoadingTeachers, error: teachersError } = useAllTeachers();
-  const { data: templatesData } = useMessageEmailTemplates();
-
-  // Seuls les enseignants dotés d'un compte utilisateur peuvent être destinataires.
-  const teachers = useMemo(() => {
-    const rows = teachersData?.data ?? [];
-    return rows
-      .filter((teacher) => !!teacher.userId)
-      .map((teacher) => ({
-        id: teacher.userId!,
-        name:
-          `${teacher.firstName || ''} ${teacher.lastName || ''}`.trim() ||
-          teacher.email ||
-          'Enseignant sans nom',
-      }));
-  }, [teachersData]);
-
-  const openTemplate = (kind: MessageTemplateKind) => {
-    setFocusTemplate(kind);
-    setActiveTab('email-templates');
+  /** « Répondre par email » : bascule sur la composition, expéditeur pré-choisi. */
+  const handleReply = (message: InboxMessage) => {
+    if (!message.senderId) return;
+    setPrefill({
+      recipientId: message.senderId,
+      subject: message.subject.startsWith('Re :') ? message.subject : `Re : ${message.subject}`,
+      // Un jeton distinct à chaque clic, pour rejouer l'effet sur le même message.
+      token: Date.now(),
+    });
+    setActiveTab('compose');
   };
 
   if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-600" />
+      <div className="flex items-center justify-center gap-2 py-24 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+        Chargement…
       </div>
     );
   }
@@ -67,108 +61,89 @@ export default function AdminMessagesPage() {
 
   const roles = (session as any)?.roles ?? [];
   const isAdmin =
-    Array.isArray(roles) && roles.some((role: string) => ['admin', 'super_admin', 'Administrateur'].includes(role));
+    Array.isArray(roles) &&
+    roles.some((role: string) => ['admin', 'super_admin', 'Administrateur'].includes(role));
 
   if (!isAdmin) {
     redirect('/');
   }
 
-  const emailConfigured = templatesData?.emailConfigured;
+  const emailConfigured = emailConfig?.emailConfigured;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="space-y-6 p-6">
       {/* En-tête */}
-      <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 text-white">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold sm:text-3xl">Messages</h1>
-              <p className="mt-2 max-w-2xl text-sm text-emerald-50 sm:text-base">
-                Communiquez avec les parents, les enseignants et les étudiants. Chaque message reste
-                consultable dans l&apos;application et peut être relayé par WhatsApp ou par email.
-                L&apos;onglet « Modèles d&apos;email » régit aussi les envois faits depuis les
-                espaces enseignant, parent et étudiant.
-              </p>
-            </div>
-
-            {/* État du canal email, visible dès l'arrivée sur la page */}
-            {emailConfigured !== undefined && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('email-templates')}
-                className="flex items-center gap-2 rounded-xl bg-white/15 px-4 py-3 text-left backdrop-blur-sm transition-colors hover:bg-white/25"
-              >
-                {emailConfigured ? (
-                  <Mail className="h-5 w-5 shrink-0" />
-                ) : (
-                  <MailWarning className="h-5 w-5 shrink-0 text-amber-200" />
-                )}
-                <div>
-                  <p className="text-sm font-semibold">Canal email</p>
-                  <p className="text-xs text-emerald-50">
-                    {emailConfigured ? 'SMTP configuré' : 'SMTP non configuré'}
-                  </p>
-                </div>
-              </button>
-            )}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <Mail className="mt-1 h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Composez et envoyez des emails aux parents, enseignants et étudiants de
+              l&apos;établissement, et consultez les messages qui vous sont adressés. Chaque envoi
+              est tracé dans l&apos;application.
+            </p>
           </div>
         </div>
+
+        {emailConfigured !== undefined && (
+          <div
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+              emailConfigured
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+            }`}
+          >
+            {emailConfigured ? (
+              <MailCheck className="h-4 w-4 shrink-0" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+            )}
+            <span className="font-medium">
+              {emailConfigured ? 'Serveur SMTP configuré' : 'Serveur SMTP non configuré'}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Contenu */}
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => {
-            setActiveTab(value as MessageTab);
-            if (value !== 'email-templates') setFocusTemplate(null);
-          }}
-          className="space-y-6"
-        >
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-white p-2 shadow-sm sm:grid-cols-4">
-            {TABS.map(({ value, label, shortLabel, icon: Icon }) => (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm data-[state=active]:bg-emerald-600 data-[state=active]:text-white"
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">{label}</span>
-                <span className="sm:hidden">{shortLabel}</span>
-                {value === 'teacher-messages' && teachers.length > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="ml-1 hidden bg-slate-100 text-[10px] text-slate-700 lg:inline-flex"
-                  >
-                    {teachers.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+      {emailConfigured === false && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="flex items-start gap-3 p-4 text-sm">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+            <p className="text-muted-foreground">
+              Aucun email ne peut partir tant que les variables serveur{' '}
+              <code className="font-mono">SMTP_HOST</code>,{' '}
+              <code className="font-mono">SMTP_USER</code> et{' '}
+              <code className="font-mono">SMTP_PASSWORD</code> ne sont pas renseignées. La rédaction et la
+              boîte de réception restent accessibles.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-          <TabsContent value="parent-conversations" className="space-y-6">
-            <AdminParentConversations onOpenTemplate={openTemplate} />
-          </TabsContent>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as MessagesTab)} className="space-y-6">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
+          {TABS.map(({ value, label, icon: Icon }) => (
+            <TabsTrigger key={value} value={value} className="flex items-center gap-2">
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="truncate">{label}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-          <TabsContent value="teacher-messages" className="space-y-6">
-            <AdminTeacherMessages
-              teachers={teachers}
-              isLoading={isLoadingTeachers}
-              error={teachersError as Error | null}
-              onOpenTemplate={openTemplate}
-            />
-          </TabsContent>
+        <TabsContent value="compose">
+          <EmailComposer prefill={prefill} />
+        </TabsContent>
 
-          <TabsContent value="student-announcements" className="space-y-6">
-            <AdminStudentAnnouncements onOpenTemplate={openTemplate} />
-          </TabsContent>
+        <TabsContent value="inbox">
+          <EmailInbox onReply={handleReply} />
+        </TabsContent>
 
-          <TabsContent value="email-templates" className="space-y-6">
-            <EmailTemplatesManager focusKind={focusTemplate} />
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="history">
+          <EmailHistory />
+        </TabsContent>
+
+      </Tabs>
     </div>
   );
 }

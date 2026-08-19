@@ -159,19 +159,18 @@ export function buildMessageEmailVariables(
 }
 
 /**
- * Coquille HTML commune : bandeau IPAM (logo + nom de l'institut), corps du
+ * Coquille HTML commune : bandeau (logo + nom de l'institut), corps du
  * message et pied de page institutionnel. `logoSrc` vaut `cid:...` pour un
  * envoi réel (image embarquée) et une URL http pour l'aperçu du navigateur.
  */
 export function wrapMessageEmailHtml(params: {
   bodyHtml: string;
-  schoolName: string;
   accent: string;
   priorityLevel?: string | null;
   logoSrc: string;
   showPriorityBadge?: boolean;
 }): string {
-  const { bodyHtml, schoolName, accent, priorityLevel, logoSrc } = params;
+  const { bodyHtml, accent, priorityLevel, logoSrc } = params;
   const level = priorityLevel || "normal";
   const showBadge = params.showPriorityBadge !== false && level !== "normal";
   const badgeColor = PRIORITY_COLORS[level] || IPAM_GREEN;
@@ -181,7 +180,7 @@ export function wrapMessageEmailHtml(params: {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(schoolName)}</title>
+  <title>${escapeHtml(INSTITUT_NOM)}</title>
   <style>
     body { margin:0; padding:0; background:#F1F5F4; font-family:Arial, Helvetica, sans-serif;
            color:#1F2937; line-height:1.6; }
@@ -191,10 +190,8 @@ export function wrapMessageEmailHtml(params: {
     .header { background:${accent}; color:#FFFFFF; padding:24px; text-align:center; }
     .header img { display:block; margin:0 auto 12px; height:64px; width:auto; border-radius:8px;
                   background:#FFFFFF; padding:6px; }
-    .header .sigle { font-size:22px; font-weight:bold; letter-spacing:2px; margin:0; }
-    .header .institut { font-size:11px; letter-spacing:.6px; margin:6px 0 0; opacity:.9;
+    .header .institut { font-size:13px; letter-spacing:.6px; margin:0; opacity:.95;
                         text-transform:uppercase; }
-    .header .school { font-size:13px; margin:10px 0 0; opacity:.95; }
     .accent-bar { height:4px; background:${IPAM_GREEN_LIGHT}; }
     .badge { display:inline-block; margin:14px 0 0; padding:4px 12px; border-radius:999px;
              background:${badgeColor}; color:#FFFFFF; font-size:11px; font-weight:bold;
@@ -223,10 +220,8 @@ export function wrapMessageEmailHtml(params: {
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <img src="${logoSrc}" alt="${escapeHtml(INSTITUT_SIGLE)}">
-        <p class="sigle">${escapeHtml(INSTITUT_SIGLE)}</p>
+        <img src="${logoSrc}" alt="${escapeHtml(INSTITUT_NOM)}">
         <p class="institut">${escapeHtml(INSTITUT_NOM)}</p>
-        <p class="school">${escapeHtml(schoolName)}</p>
         ${showBadge ? `<span class="badge">Priorité ${escapeHtml(priorityLabel(level))}</span>` : ""}
       </div>
       <div class="accent-bar"></div>
@@ -234,7 +229,7 @@ export function wrapMessageEmailHtml(params: {
       <div class="footer">
         <p>${escapeHtml(INSTITUT_ADRESSE)}</p>
         <p>${escapeHtml(INSTITUT_WEB)} · ${escapeHtml(INSTITUT_EMAIL)}</p>
-        <p>Cet email a été envoyé automatiquement depuis l'espace ${escapeHtml(schoolName)}, merci de ne pas y répondre.</p>
+        <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
       </div>
     </div>
   </div>
@@ -267,7 +262,6 @@ export function renderMessageEmail(
     subject: renderTemplateSubject(template.subject, variables),
     html: wrapMessageEmailHtml({
       bodyHtml: renderedBody,
-      schoolName: ctx.schoolName,
       accent: definition.accent,
       priorityLevel: ctx.priorityLevel,
       logoSrc: options?.logoSrc ?? `cid:${EMAIL_LOGO_CID}`,

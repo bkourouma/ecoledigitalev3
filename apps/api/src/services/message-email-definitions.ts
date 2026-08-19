@@ -111,7 +111,7 @@ const MESSAGE_BLOCK = `<div class="message-card">
   <div class="message-body">{{message}}</div>
 </div>`;
 
-const SIGNATURE_BLOCK = `<p class="signature">Cordialement,<br><strong>{{senderName}}</strong><br>{{schoolName}}</p>`;
+const SIGNATURE_BLOCK = `<p class="signature">Cordialement,<br><strong>{{senderName}}</strong></p>`;
 
 const CTA_BLOCK = `<p class="cta-wrapper"><a class="btn" href="{{portalUrl}}">Consulter dans mon espace</a></p>`;
 
@@ -130,10 +130,10 @@ const ADMIN_DEFINITIONS: MessageTemplateDefinition[] = [
     recipientAlias: "parentName",
     variables: variables(V.parentName, V.childName),
     defaults: {
-      subject: "[{{schoolName}}] {{subject}}",
+      subject: "{{subject}}",
       body: `<p>Bonjour {{parentName}},</p>
 
-<p>L'administration de <strong>{{schoolName}}</strong> vous a adressé un nouveau message
+<p>L'administration de l'établissement vous a adressé un nouveau message
 concernant <strong>{{childName}}</strong>.</p>
 
 ${MESSAGE_BLOCK}
@@ -162,10 +162,10 @@ ${SIGNATURE_BLOCK}`,
     recipientAlias: "parentName",
     variables: variables(V.parentName, V.childName, V.conversationSubject),
     defaults: {
-      subject: "Re : {{conversationSubject}} — {{schoolName}}",
+      subject: "Re : {{conversationSubject}}",
       body: `<p>Bonjour {{parentName}},</p>
 
-<p>L'administration de <strong>{{schoolName}}</strong> a répondu à votre conversation
+<p>L'administration de l'établissement a répondu à votre conversation
 « {{conversationSubject}} » concernant <strong>{{childName}}</strong>.</p>
 
 ${MESSAGE_BLOCK}
@@ -192,10 +192,10 @@ ${SIGNATURE_BLOCK}`,
     recipientAlias: "parentName",
     variables: variables(V.parentName, V.childName),
     defaults: {
-      subject: "[{{schoolName}}] Communication : {{subject}}",
+      subject: "Communication : {{subject}}",
       body: `<p>Bonjour {{parentName}},</p>
 
-<p>{{schoolName}} adresse la communication suivante aux parents des élèves concernés.
+<p>L'établissement adresse la communication suivante aux parents des élèves concernés.
 Ce message vous est transmis au titre de <strong>{{childName}}</strong>.</p>
 
 ${MESSAGE_BLOCK}
@@ -221,10 +221,10 @@ ${SIGNATURE_BLOCK}`,
     recipientAlias: "teacherName",
     variables: variables(V.teacherName),
     defaults: {
-      subject: "[{{schoolName}}] {{subject}}",
+      subject: "{{subject}}",
       body: `<p>Bonjour {{teacherName}},</p>
 
-<p>L'administration de <strong>{{schoolName}}</strong> vous adresse le message suivant
+<p>L'administration de l'établissement vous adresse le message suivant
 (priorité&nbsp;: {{priority}}).</p>
 
 ${MESSAGE_BLOCK}
@@ -249,10 +249,10 @@ ${SIGNATURE_BLOCK}`,
     recipientAlias: "studentName",
     variables: variables(V.studentName),
     defaults: {
-      subject: "[{{schoolName}}] Annonce : {{subject}}",
+      subject: "Annonce : {{subject}}",
       body: `<p>Bonjour {{studentName}},</p>
 
-<p>{{schoolName}} publie l'annonce suivante à votre attention
+<p>L'établissement publie l'annonce suivante à votre attention
 (priorité&nbsp;: {{priority}}).</p>
 
 ${MESSAGE_BLOCK}
@@ -285,7 +285,7 @@ const TEACHER_DEFINITIONS: MessageTemplateDefinition[] = [
     senderAlias: "teacherName",
     variables: variables(V.parentName, V.childName, V.teacherName),
     defaults: {
-      subject: "[{{schoolName}}] {{subject}} — {{childName}}",
+      subject: "{{subject}} — {{childName}}",
       body: `<p>Bonjour {{parentName}},</p>
 
 <p><strong>{{teacherName}}</strong> vous adresse un message concernant
@@ -319,7 +319,7 @@ ${SIGNATURE_BLOCK}`,
     senderAlias: "teacherName",
     variables: variables(V.parentName, V.childName, V.teacherName),
     defaults: {
-      subject: "[{{schoolName}}] {{subject}}",
+      subject: "{{subject}}",
       body: `<p>Bonjour {{parentName}},</p>
 
 <p><strong>{{teacherName}}</strong> adresse la communication suivante aux parents de la
@@ -353,7 +353,7 @@ ${SIGNATURE_BLOCK}`,
       subject: "[Enseignant → Établissement] {{subject}}",
       body: `<p>Bonjour {{adminName}},</p>
 
-<p><strong>{{teacherName}}</strong>, enseignant(e) à {{schoolName}}, adresse le message
+<p><strong>{{teacherName}}</strong>, enseignant(e) de l'établissement, adresse le message
 suivant à l'administration.</p>
 
 ${MESSAGE_BLOCK}
@@ -380,7 +380,7 @@ ${CTA_BLOCK}
     senderAlias: "teacherName",
     variables: variables(V.studentName, V.teacherName, V.className),
     defaults: {
-      subject: "[{{schoolName}}] {{subject}}",
+      subject: "{{subject}}",
       body: `<p>Bonjour {{studentName}},</p>
 
 <p><strong>{{teacherName}}</strong> vous adresse le message suivant.</p>
@@ -417,7 +417,7 @@ const PARENT_DEFINITIONS: MessageTemplateDefinition[] = [
     senderAlias: "parentName",
     variables: variables(V.teacherName, V.parentName, V.childName),
     defaults: {
-      subject: "[{{schoolName}}] Message d'un parent : {{subject}}",
+      subject: "Message d'un parent : {{subject}}",
       body: `<p>Bonjour {{teacherName}},</p>
 
 <p><strong>{{parentName}}</strong>, parent de <strong>{{childName}}</strong>, vous a adressé
@@ -450,7 +450,7 @@ ${SIGNATURE_BLOCK}`,
     senderAlias: "parentName",
     variables: variables(V.teacherName, V.parentName, V.childName, V.conversationSubject),
     defaults: {
-      subject: "Re : {{conversationSubject}} — {{schoolName}}",
+      subject: "Re : {{conversationSubject}}",
       body: `<p>Bonjour {{teacherName}},</p>
 
 <p><strong>{{parentName}}</strong> a répondu dans la conversation
@@ -485,7 +485,7 @@ ${SIGNATURE_BLOCK}`,
       body: `<p>Bonjour {{adminName}},</p>
 
 <p><strong>{{parentName}}</strong>, parent de <strong>{{childName}}</strong>, adresse le
-message suivant à l'administration de {{schoolName}}.</p>
+message suivant à l'administration de l'établissement.</p>
 
 ${MESSAGE_BLOCK}
 
@@ -550,7 +550,7 @@ const STUDENT_DEFINITIONS: MessageTemplateDefinition[] = [
     senderAlias: "studentName",
     variables: variables(V.teacherName, V.studentName, V.className),
     defaults: {
-      subject: "[{{schoolName}}] Message d'un étudiant : {{subject}}",
+      subject: "Message d'un étudiant : {{subject}}",
       body: `<p>Bonjour {{teacherName}},</p>
 
 <p><strong>{{studentName}}</strong> vous a adressé un message depuis son espace étudiant.</p>
@@ -614,7 +614,7 @@ ${SIGNATURE_BLOCK}`,
       body: `<p>Bonjour {{adminName}},</p>
 
 <p><strong>{{studentName}}</strong> adresse le message suivant à l'administration de
-{{schoolName}}.</p>
+l'établissement.</p>
 
 ${MESSAGE_BLOCK}
 
