@@ -7,7 +7,16 @@ on:
 
 concurrency:
   group: deploy-alliance-ecoledigitale
-  cancel-in-progress: false
+  # `true` : un nouveau push annule le run precedent encore en attente ou en
+  # cours. Avec `false`, un seul run bloque gelait indefiniment tous les
+  # suivants — vecu le 19/08 : le runner de staging etant hors ligne, le run #64
+  # restait « Queued » sans fin et les runs #65 et #66 affichaient « waiting for
+  # #64 to complete », la production n'etant jamais deployee.
+  #
+  # Le risque associe — interrompre un deploiement en cours — est limite ici :
+  # deploy.sh est idempotent, et le run suivant reprend depuis le debut. Seule
+  # la derniere version poussee compte.
+  cancel-in-progress: true
 
 jobs:
   deploy-staging:
