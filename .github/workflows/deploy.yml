@@ -38,7 +38,11 @@ jobs:
         run: ./infra/scripts/deploy.sh
 
   deploy-production:
-    needs: deploy-staging
+    # `needs: deploy-staging` retire temporairement : le runner de staging est
+    # hors ligne, ses jobs restent en « Queued » et la production n'etait donc
+    # jamais deployee. Les deux jobs sont desormais independants.
+    # A RETABLIR une fois le runner alliance-ecoledigitale-staging reconnecte,
+    # pour retrouver la validation sur staging avant la production.
     runs-on: [self-hosted, alliance-ecoledigitale]
     timeout-minutes: 60
     environment:

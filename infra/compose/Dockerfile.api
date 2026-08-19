@@ -11,7 +11,12 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/utils/package.json ./packages/utils/
-RUN pnpm install --frozen-lockfile
+# Cache BuildKit du store pnpm, partage par les trois images via id=pnpm-store
+# (meme pnpm-lock.yaml). Sans lui : "reused 0, downloaded 1329" a chaque build,
+# le COPY . . de l etape builder invalidant la couche des qu une source change.
+# Requiert BuildKit : docker compose build l active (verifie), docker build non
+# (buildx absent du serveur).
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store,sharing=locked pnpm install --frozen-lockfile
 
 # Production stage
 FROM base AS runner
