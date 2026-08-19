@@ -12,7 +12,7 @@ concurrency:
 jobs:
   deploy-staging:
     runs-on: [self-hosted, alliance-ecoledigitale-staging]
-    timeout-minutes: 30
+    timeout-minutes: 60
     environment:
       name: staging
       url: https://staging-ecoledigitale.allianceconsultants.net
@@ -40,7 +40,7 @@ jobs:
   deploy-production:
     needs: deploy-staging
     runs-on: [self-hosted, alliance-ecoledigitale]
-    timeout-minutes: 30
+    timeout-minutes: 60
     environment:
       name: production
       url: https://ecoledigitale.allianceconsultants.net
