@@ -242,7 +242,7 @@ function drawHeader(doc: jsPDF, imgs: PdfHeaderImages): number {
     const logoH = 17;
     doc.addImage(
       logo.dataUrl,
-      "JPEG",
+      logo.format,
       PAGE_W / 2 - (logoH * logo.ratio) / 2,
       y,
       logoH * logo.ratio,
@@ -301,7 +301,7 @@ function drawWatermark(doc: jsPDF, logo: PdfImg | null): void {
     if (logo) {
       const w = 120;
       const h = w / logo.ratio;
-      doc.addImage(logo.dataUrl, "JPEG", (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
+      doc.addImage(logo.dataUrl, logo.format, (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
     }
     drawLaurelBranch(doc, PAGE_W / 2, 258, 1);
     drawLaurelBranch(doc, PAGE_W / 2, 258, -1);

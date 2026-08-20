@@ -217,7 +217,7 @@ function drawWatermarks(doc: jsPDF, logo: PdfImg | null): void {
     if (logo) {
       const w = 105;
       const h = w / logo.ratio;
-      doc.addImage(logo.dataUrl, "JPEG", (PAGE_W - w) / 2, (PAGE_H - h) / 2 - 4, w, h);
+      doc.addImage(logo.dataUrl, logo.format, (PAGE_W - w) / 2, (PAGE_H - h) / 2 - 4, w, h);
     }
 
     setOpacity(0.05);
@@ -362,7 +362,7 @@ function drawDiplome(doc: jsPDF, data: DiplomePdfInput, imgs: DiplomeHeaderImage
   // à défaut d'image, les lignes de texte le remplacent.
   if (ministere) {
     const h = 16;
-    doc.addImage(ministere.dataUrl, "PNG", M + 8, LOGO_TOP, h * ministere.ratio, h);
+    doc.addImage(ministere.dataUrl, ministere.format, M + 8, LOGO_TOP, h * ministere.ratio, h);
   } else {
     doc.setFont("times", "bold");
     doc.setFontSize(8);
@@ -375,7 +375,7 @@ function drawDiplome(doc: jsPDF, data: DiplomePdfInput, imgs: DiplomeHeaderImage
     const h = 22;
     doc.addImage(
       logoInstitut.dataUrl,
-      "JPEG",
+      logoInstitut.format,
       PAGE_W / 2 - (h * logoInstitut.ratio) / 2,
       LOGO_TOP,
       h * logoInstitut.ratio,
@@ -389,7 +389,7 @@ function drawDiplome(doc: jsPDF, data: DiplomePdfInput, imgs: DiplomeHeaderImage
     const h = 14;
     doc.addImage(
       embleme.dataUrl,
-      "PNG",
+      embleme.format,
       colRightX - (h * embleme.ratio) / 2,
       LOGO_TOP,
       h * embleme.ratio,

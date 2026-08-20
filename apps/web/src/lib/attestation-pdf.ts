@@ -144,7 +144,7 @@ function drawWatermark(doc: jsPDF, logo: PdfImg | null): void {
     (doc as any).setGState(new (doc as any).GState({ opacity: 0.06 }));
     const w = 120;
     const h = w / logo.ratio;
-    doc.addImage(logo.dataUrl, "JPEG", (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
+    doc.addImage(logo.dataUrl, logo.format, (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
     doc.restoreGraphicsState();
   } catch {
     /* GState indisponible : on ignore le filigrane */
@@ -197,7 +197,7 @@ function drawAttestation(doc: jsPDF, data: AttestationPdfInput, imgs: PdfHeaderI
     const h = 21;
     doc.addImage(
       logoInstitut.dataUrl,
-      "JPEG",
+      logoInstitut.format,
       PAGE_W / 2 - (h * logoInstitut.ratio) / 2,
       19,
       h * logoInstitut.ratio,
@@ -205,7 +205,7 @@ function drawAttestation(doc: jsPDF, data: AttestationPdfInput, imgs: PdfHeaderI
     );
   } else if (embleme) {
     const h = 18;
-    doc.addImage(embleme.dataUrl, "JPEG", PAGE_W / 2 - (h * embleme.ratio) / 2, 20, h * embleme.ratio, h);
+    doc.addImage(embleme.dataUrl, embleme.format, PAGE_W / 2 - (h * embleme.ratio) / 2, 20, h * embleme.ratio, h);
   }
 
   /* -------------------------- Titre en cartouche -------------------- */

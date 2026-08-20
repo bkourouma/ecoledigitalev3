@@ -69,11 +69,11 @@ async function drawBulletinBts(doc: jsPDF, data: any, imgs: HeaderImages): Promi
   // Logos de part et d'autre, année scolaire entre les deux.
   if (logoInstitut) {
     const h = 20;
-    doc.addImage(logoInstitut.dataUrl, "JPEG", M, 21, h * logoInstitut.ratio, h);
+    doc.addImage(logoInstitut.dataUrl, logoInstitut.format, M, 21, h * logoInstitut.ratio, h);
   }
   if (embleme) {
     const h = 18;
-    doc.addImage(embleme.dataUrl, "JPEG", RIGHT - h * embleme.ratio, 21, h * embleme.ratio, h);
+    doc.addImage(embleme.dataUrl, embleme.format, RIGHT - h * embleme.ratio, 21, h * embleme.ratio, h);
   }
   doc.setFont("times", "normal");
   doc.setFontSize(9);
@@ -364,7 +364,7 @@ function drawWatermark(doc: jsPDF, logoInstitut: HeaderImages["logoInstitut"]): 
     (doc as any).setGState(new (doc as any).GState({ opacity: 0.06 }));
     const w = 120;
     const h = w / logoInstitut.ratio;
-    doc.addImage(logoInstitut.dataUrl, "JPEG", (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
+    doc.addImage(logoInstitut.dataUrl, logoInstitut.format, (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
     doc.restoreGraphicsState();
   } catch {
     /* GState indisponible : on ignore le filigrane */

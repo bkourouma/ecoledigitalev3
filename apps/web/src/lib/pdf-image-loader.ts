@@ -4,6 +4,16 @@ import { LOGO_INSTITUT, LOGO_EMBLEME } from "./bulletin-format";
 export interface PdfImg {
   dataUrl: string;
   ratio: number;
+  /**
+   * Format reconnu par jsPDF, déduit du type MIME réel du fichier.
+   *
+   * `addImage` ne devine pas le format : celui qu'on lui annonce fait foi. Un
+   * PNG déclaré « JPEG » n'est pas rendu — silencieusement, sans exception ni
+   * message. C'est ce qui faisait disparaître l'emblème (/embleme.png) et le
+   * logo du ministère (/Logo_du_MESRS.png) des attestations et des diplômes,
+   * alors que le logo IPAM (/logo-ipam.jpeg) s'affichait.
+   */
+  format: "PNG" | "JPEG";
 }
 
 export async function loadPdfImg(url: string): Promise<PdfImg | null> {
@@ -22,7 +32,11 @@ export async function loadPdfImg(url: string): Promise<PdfImg | null> {
       i.onerror = () => r(1);
       i.src = dataUrl;
     });
-    return { dataUrl, ratio };
+    // Le préfixe du data URI porte le type MIME : « data:image/png;base64,… ».
+    // Tout ce qui n'est pas un PNG est traité en JPEG, seuls ces deux formats
+    // étant utilisés pour les en-têtes.
+    const format: "PNG" | "JPEG" = /^data:image\/png/i.test(dataUrl) ? "PNG" : "JPEG";
+    return { dataUrl, ratio, format };
   } catch {
     return null;
   }
