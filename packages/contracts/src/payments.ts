@@ -7,8 +7,14 @@ export const PaymentConfigTypeSchema = z.enum(['salary', 'hourly', 'mixed']);
 // `calculateMixedPayment`, mais manquait ici : le contrat était plus étroit que
 // la base (dérive constatée en 031). La base fait foi.
 export const PaymentTypeSchema = z.enum(['salary', 'hourly', 'bonus', 'deduction', 'mixed']);
-// `unpaid` : bulletin classé sans rien à verser — aucune heure valorisable sur
-// la période. Posé par l'archivage, jamais par le calcul (migration 0113).
+// Cycle de vie d'un bulletin (migration 0114) :
+//   calculated -> le calcul a tourné
+//   approved   -> montant ARRÊTÉ par l'archivage, pas encore versé. Affiché
+//                 « Impayé » : une somme est due et n'a pas été réglée.
+//   paid       -> versement constaté, avec `paid_at` et `paid_by`.
+// `unpaid` est ABANDONNÉ : introduit par la 0113 pour « rien à verser », il
+// disait l'inverse de ce que le mot signifie. Plus aucun code ne l'écrit ; la
+// valeur reste parce que PostgreSQL ne sait pas retirer une valeur d'enum.
 export const PaymentStatusSchema = z.enum(['calculated', 'approved', 'paid', 'disputed', 'cancelled', 'unpaid']);
 export const RateTypeSchema = z.enum(['theory', 'practical', 'exam', 'evaluation', 'supervision']);
 

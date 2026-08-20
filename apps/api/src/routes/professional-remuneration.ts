@@ -143,6 +143,34 @@ export async function professionalRemunerationRoutes(fastify: FastifyInstance): 
     })
   );
 
+  /**
+   * Constate le versement de bulletins arrêtés — c'est ici que `paid_at` se
+   * remplit. Même forme que `/bulletins/archiver` : une liste, ou `tous: true`.
+   *
+   * Le service n'agit que sur les bulletins `approved` ; un appel large ne peut
+   * donc pas verser ce qui n'a pas été arrêté.
+   */
+  fastify.post(
+    "/bulletins/verser",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const body = request.body as { paymentIds?: string[]; tous?: boolean };
+      const tous = body?.tous === true;
+      if (!tous && (!Array.isArray(body?.paymentIds) || body.paymentIds.length === 0)) {
+        return validationError(
+          reply,
+          "paymentIds est requis et ne peut pas être vide, ou passer tous: true."
+        );
+      }
+      const result = await paie.marquerVerses(
+        request.tenantId as string,
+        tous ? null : (body.paymentIds as string[]),
+        currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
   /** Historique des bulletins archivés, filtrable par enseignant. */
   fastify.get(
     "/bulletins/historique",

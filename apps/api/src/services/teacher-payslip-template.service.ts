@@ -298,10 +298,12 @@ function chromiumExecutable(): string | null {
 
 const STATUT_LABELS: Record<string, string> = {
   calculated: "Calculé",
-  approved: "Approuvé",
+  // « Impayé » et non « Approuvé » : le montant est arrêté mais pas encore
+  // versé. C'est le vocabulaire de l'écran, et celui que lit l'enseignant.
+  approved: "Impayé",
   paid: "Payé",
-  // Introduit par la migration 0113 : bulletin classé sans rien à verser.
-  // Sans cette entrée, le document imprimait « unpaid » en anglais.
+  // `unpaid` est abandonné depuis la 0114 — plus aucun code ne l'écrit. Entrée
+  // conservée pour les documents régénérés à partir de données anciennes.
   unpaid: "Impayé",
   disputed: "Contesté",
   cancelled: "Annulé",

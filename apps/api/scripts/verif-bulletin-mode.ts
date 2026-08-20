@@ -62,6 +62,27 @@ const url = (
     console.log(`   aucun statut anglais brut                : ${!/>(unpaid|calculated|paid)</.test(html)}`);
   }
 
+  /* Le vocabulaire du versement : deux mots, et deux seulement. `approved` est
+     l'état posé par l'archivage — dû, pas encore versé — il doit se lire
+     « Impayé » et non « Approuvé ». */
+  const parStatut = await pool.query(
+    `SELECT DISTINCT ON (tp.status) tp.id, tp.status::text AS statut
+       FROM teacher_payments tp WHERE tp.tenant_id = $1
+      ORDER BY tp.status, tp.updated_at DESC`,
+    [tenantId]
+  );
+  const attenduStatut: Record<string, string> = { approved: "Impayé", paid: "Payé" };
+  for (const row of parStatut.rows) {
+    const r = (await service.getPayslipData(tenantId, row.id)) as { data?: unknown };
+    if (!r.data) continue;
+    const html = buildPayslipHtml(r.data as never);
+    const attendu = attenduStatut[row.statut];
+    if (!attendu) continue;
+    console.log(
+      `statut « ${row.statut} » -> « ${attendu} » sur le document : ${html.includes(`>${attendu}<`)}`
+    );
+  }
+
   await pool.end();
 })().catch((e) => {
   console.error("ERR", e.message);

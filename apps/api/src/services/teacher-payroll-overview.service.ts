@@ -22,6 +22,7 @@ import { ProfessionalBaseService, ok, ServiceResult } from "./professional-base.
 import {
   DUREE_PAYEE_SQL,
   SEANCE_PAYABLE_PREDICATE,
+  SEANCE_PRETE_A_VALIDER_PREDICATE,
 } from "./professional-seance-validation.service";
 import { heureDejaPayeeSQL } from "./hour-collectors/heures-consommees";
 
@@ -58,6 +59,7 @@ const SQL_OVERVIEW = `
     cfg.effective_to::text                            AS effective_to,
     cfg.couvre_aujourdhui                             AS couvre_aujourdhui,
     COALESCE(nb.total, 0)::int                        AS nb_configs,
+    COALESCE(av.nb, 0)::int                           AS seances_a_valider,
     COALESCE(h.nb_seances, 0)::int                    AS nb_seances,
     COALESCE(h.heures_totales, 0)::float8             AS heures_totales,
     h.premiere_seance                                 AS premiere_seance,
@@ -131,6 +133,26 @@ const SQL_OVERVIEW = `
        -- Même expression que celle des collecteurs, importée et non recopiée.
        AND NOT ${heureDejaPayeeSQL("seance_id", "se.id", "se.tenant_id", "$4")}
   ) h ON TRUE
+  -- SÉANCES FAITES MAIS PAS ENCORE VALIDÉES, sur la même période.
+  --
+  -- Sans ce compteur, deux situations opposées se présentent à l'identique —
+  -- « 0 heure » : l'enseignant qui n'a pas fait cours, et celui qui a fait
+  -- cours sans que personne ne valide ses séances. Le premier n'attend rien,
+  -- le second sera sauté de la paie en silence.
+  --
+  -- Le prédicat est celui de l'écran de validation, importé et non recopié :
+  -- annoncer ici un nombre que cet écran ne retrouverait pas serait pire que
+  -- de ne rien annoncer.
+  LEFT JOIN LATERAL (
+    SELECT count(*) AS nb
+      FROM professional_ecue_seances se
+     WHERE se.enseignant_id = t.id
+       AND se.tenant_id     = t.tenant_id
+       AND $2::date IS NOT NULL
+       AND se.date BETWEEN $2::date AND $3::date
+       AND se.validated_at IS NULL
+       AND (${SEANCE_PRETE_A_VALIDER_PREDICATE})
+  ) av ON TRUE
   -- Bulletin COURANT : le plus récent non archivé.
   --
   -- C'est lui que l'écran propose de consulter puis d'archiver. Un bulletin
@@ -172,6 +194,8 @@ export interface EnseignantPaie {
   statut: string | null;
   type_contrat: string | null;
   etat_configuration: EtatConfiguration;
+  /** Séances réalisées mais NON validées sur la période : la paie les sautera. */
+  seances_a_valider: number;
   nb_configs: number;
   /**
    * Cumul des heures VALIDÉES : réalisées, validées, avec bénéficiaire et durée
@@ -236,6 +260,8 @@ function mapEnseignant(row: Record<string, any>): EnseignantPaie {
     type_contrat: row.type_contrat ?? null,
     etat_configuration: etatDe(row),
     nb_configs: row.nb_configs ?? 0,
+    /** Séances faites, pas encore validées : la paie les sautera en l'état. */
+    seances_a_valider: row.seances_a_valider ?? 0,
     heures: {
       nb_seances: row.nb_seances ?? 0,
       totales: Number(row.heures_totales ?? 0),
@@ -399,14 +425,12 @@ export class TeacherPayrollOverviewService extends ProfessionalBaseService {
        * que deux périodes peuvent coexister : « Tout archiver (3) » en classait
        * trois et en laissait d'autres derrière, sans rien dire.
        *
-       * La répartition payés / impayés suit la règle de `archiverBulletins` —
-       * même expression, pour que la confirmation annonce ce qui va réellement
-       * se produire.
+       * Plus de répartition payés / impayés : l'archivage ne tranche plus le
+       * sort financier, il arrête le montant. Tous les bulletins classés
+       * partent « à verser », et c'est le constat de versement qui les solde.
        */
       const attente = await client.query(
-        `SELECT count(*)::int                                        AS total,
-                count(*) FILTER (WHERE total_amount > 0)::int        AS payes,
-                count(*) FILTER (WHERE total_amount <= 0)::int       AS impayes
+        `SELECT count(*)::int AS total
            FROM teacher_payments
           WHERE tenant_id = $1 AND archived_at IS NULL`,
         [tenantId]
@@ -416,11 +440,7 @@ export class TeacherPayrollOverviewService extends ProfessionalBaseService {
         items,
         total: items.length,
         /** Ce que « Tout archiver » va réellement traiter. */
-        en_attente: {
-          total: attente.rows[0].total as number,
-          payes: attente.rows[0].payes as number,
-          impayes: attente.rows[0].impayes as number,
-        },
+        en_attente: { total: attente.rows[0].total as number },
         non_configures: items.filter((e) => e.etat_configuration !== "active").length,
         /** Heures validées SUR LA PÉRIODE COURANTE, tous enseignants. */
         heures_validees: items.reduce((s, e) => s + e.heures.totales, 0),
@@ -444,29 +464,29 @@ export class TeacherPayrollOverviewService extends ProfessionalBaseService {
   }
 
   /**
-   * Classe des bulletins ET TRANCHE LEUR SORT FINANCIER.
+   * Classe des bulletins et ARRÊTE le montant dû. Ne verse rien.
    *
-   * L'archivage n'était qu'un classement : le bulletin gardait son statut de
-   * calcul, si bien que l'historique répondait « calculé » à la question
-   * « a-t-il été payé ? ». C'est le geste de clôture, il doit conclure.
+   * TROIS ACTES, TROIS TRACES. Générer calcule (`calculated_at`), archiver
+   * arrête (`archived_at` + `approved_at`), verser décaisse (`paid_at`, voir
+   * `marquerVerses`). L'archivage posait auparavant `paid` directement : 35
+   * bulletins ont ainsi été déclarés payés sans qu'aucun décaissement ne soit
+   * jamais enregistré, `paid_at` restant vide. Classer un papier n'est pas
+   * sortir de l'argent.
    *
-   *   - PAYÉ   : il y a quelque chose à verser.
-   *   - IMPAYÉ : le bulletin sort à zéro. Le cas visé est l'enseignant dont
-   *              aucune heure valorisable n'a pu être collectée sur la période.
+   * Le statut retenu est `approved` — « la Direction arrête la rémunération »,
+   * ce que dit le document lui-même. Il s'affiche « Impayé » à l'écran : une
+   * somme est due, elle n'a pas encore été versée.
    *
-   * POURQUOI LE MONTANT ET NON LE NOMBRE D'HEURES. Les deux coïncident pour une
-   * rémunération horaire ou mixte : sans heures, le montant tombe à zéro. Mais
-   * un SALAIRE FIXE est dû indépendamment des heures — le calculateur ne les
-   * valorise même pas (voir `calculateSalaryPayment`). Trancher sur les heures
-   * marquerait « impayé » un salarié qui doit être payé. Le montant répond à la
-   * vraie question : reste-t-il quelque chose à verser ?
+   * EFFET DE BORD VOULU : `approved` fait partie de `LOCKING_STATUSES`
+   * (professional-seance-validation.service.ts). Les séances restent donc
+   * verrouillées après archivage, exactement comme avec `paid` auparavant.
    *
    * Les heures consommées ne bougent pas : `payment_hour_details` reste en
    * place, donc elles restent décomptées. Classer n'est pas annuler.
    *
    * Idempotent : réarchiver un bulletin déjà classé ne le redate pas, sans quoi
-   * l'ordre de l'historique changerait à chaque clic — et son statut financier
-   * ne serait pas rejugé.
+   * l'ordre de l'historique changerait à chaque clic. `approved_at` est posé
+   * par `COALESCE`, pour ne pas écraser une approbation antérieure.
    */
   /**
    * @param paymentIds liste explicite, ou `null` pour TOUT ce qui reste au plan
@@ -479,31 +499,82 @@ export class TeacherPayrollOverviewService extends ProfessionalBaseService {
     paymentIds: string[] | null,
     userId: string | null
   ): Promise<
-    ServiceResult<{ archives: number; deja_archives: number; payes: number; impayes: number }>
+    ServiceResult<{ archives: number; deja_archives: number; a_verser: number }>
   > {
     return this.withTenantTx(tenantId, async (client) => {
       const res = await client.query(
         `UPDATE teacher_payments
             SET archived_at = now(),
                 archived_by = $3,
-                status = CASE WHEN total_amount > 0 THEN 'paid'::payment_status
-                              ELSE 'unpaid'::payment_status END,
+                -- ARRÊTER N'EST PAS VERSER. L'archivage fixe le montant dû ;
+                -- le versement se constate ailleurs, avec sa date. Poser
+                -- 'paid' ici déclarait payés 35 bulletins dont aucun
+                -- décaissement n'a jamais été enregistré.
+                status = 'approved'::payment_status,
+                approved_by = COALESCE(approved_by, $3),
+                approved_at = COALESCE(approved_at, now()),
                 updated_at = now()
           WHERE tenant_id = $1
             AND archived_at IS NULL
             AND ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))
-          RETURNING id, status::text AS statut`,
+          RETURNING id`,
         [tenantId, paymentIds, userId]
       );
       const archives = res.rowCount ?? 0;
-      const payes = res.rows.filter((r) => r.statut === "paid").length;
       return ok({
         archives,
         // Sans liste explicite, la notion n'a pas de sens : on archive ce qui
         // reste, il ne peut rien y avoir « déjà archivé » dans la demande.
         deja_archives: paymentIds ? paymentIds.length - archives : 0,
-        payes,
-        impayes: archives - payes,
+        /** Tous les bulletins archivés sont désormais « à verser ». */
+        a_verser: archives,
+      });
+    });
+  }
+
+  /**
+   * Constate le VERSEMENT de bulletins arrêtés. C'est ici, et nulle part
+   * ailleurs, que `paid_at` se remplit.
+   *
+   * Ne touche QUE les bulletins `approved` : on ne verse pas ce qui n'a pas été
+   * arrêté. Un bulletin encore `calculated` doit d'abord être archivé, un
+   * bulletin `cancelled` ou `disputed` ne doit pas l'être du tout. Le filtre
+   * porte donc sur le statut, pas seulement sur les identifiants reçus — un
+   * appel qui viserait large ne pourrait pas court-circuiter la règle.
+   *
+   * Idempotent : un bulletin déjà versé n'est pas redaté, il n'entre plus dans
+   * le périmètre.
+   *
+   * `paid_by` répond à « qui a constaté le versement ». Sans cette colonne, le
+   * journal d'audit attribuait la ligne à l'approbateur — celui qui a arrêté le
+   * montant, pas celui qui a sorti l'argent.
+   *
+   * @param paymentIds liste explicite, ou `null` pour tous les bulletins
+   *   arrêtés et non encore versés du tenant.
+   */
+  async marquerVerses(
+    tenantId: string,
+    paymentIds: string[] | null,
+    userId: string | null
+  ): Promise<ServiceResult<{ verses: number; ignores: number }>> {
+    return this.withTenantTx(tenantId, async (client) => {
+      const res = await client.query(
+        `UPDATE teacher_payments
+            SET status = 'paid'::payment_status,
+                paid_at = now(),
+                paid_by = $3,
+                updated_at = now()
+          WHERE tenant_id = $1
+            AND status = 'approved'::payment_status
+            AND ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))
+          RETURNING id`,
+        [tenantId, paymentIds, userId]
+      );
+      const verses = res.rowCount ?? 0;
+      return ok({
+        verses,
+        /** Demandés mais hors périmètre : déjà versés, annulés, ou non arrêtés. */
+        ignores: paymentIds ? paymentIds.length - verses : 0,
       });
     });
   }
@@ -533,6 +604,9 @@ export class TeacherPayrollOverviewService extends ProfessionalBaseService {
                 tp.currency              AS devise,
                 tp.calculated_at         AS calcule_le,
                 tp.archived_at           AS archive_le,
+                -- Date du versement RÉEL. Distincte de l'archivage : classer un
+                -- bulletin ne sort pas l'argent.
+                tp.paid_at               AS verse_le,
                 tp.payment_type::text    AS type_paiement,
                 (tp.calculation_details -> 'regularHours')  AS heures_normales,
                 (tp.calculation_details -> 'overtimeHours') AS heures_sup,

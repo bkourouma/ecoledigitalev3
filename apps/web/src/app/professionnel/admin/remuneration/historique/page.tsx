@@ -14,6 +14,7 @@ import {
 } from "@ecoledigitale/ui";
 import {
   AlertCircle,
+  BadgeCheck,
   CalendarClock,
   ChevronLeft,
   ChevronRight,
@@ -27,6 +28,7 @@ import {
 import {
   useEnseignantsPaie,
   useHistoriqueBulletins,
+  useMarquerVerses,
   type BulletinArchive,
 } from "@/lib/hooks/use-professional-remuneration";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -46,31 +48,38 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 const PAGE_SIZES = [10, 20, 50];
 
 /**
- * Un bulletin archivé répond « payé » ou « impayé » — c'est l'archivage qui
- * tranche. « Calculé » n'a plus lieu d'apparaître ici : ce statut décrit une
- * étape de travail, pas un sort financier, et il laissait l'historique
- * répondre « calculé » à la question « a-t-il été payé ? ». Les autres valeurs
- * restent listées pour les bulletins antérieurs à ce changement.
+ * Deux mots suffisent au gestionnaire : PAYÉ et IMPAYÉ.
+ *
+ * `approved` est l'état posé par l'archivage — le montant est arrêté, il n'a
+ * pas encore été versé. C'est la définition même d'un impayé, et c'est ce que
+ * le mot doit dire ici. `paid` n'arrive que par un constat de versement
+ * explicite, avec sa date.
+ *
+ * Les autres valeurs restent listées pour les bulletins antérieurs.
  */
 const STATUT_LABELS: Record<string, string> = {
   paid: "Payé",
+  approved: "Impayé",
+  // Abandonné depuis la 0114, conservé pour d'éventuelles données anciennes.
   unpaid: "Impayé",
   calculated: "Calculé",
-  approved: "Approuvé",
   disputed: "Contesté",
   cancelled: "Annulé",
 };
 
 const STATUT_STYLES: Record<string, string> = {
   paid: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  /* Rouge, comme « non configuré » ailleurs : c'est une anomalie de gestion —
-     un enseignant est passé à la paie sans qu'aucune heure ne soit valorisable. */
-  unpaid: "bg-red-500/15 text-red-400 border-red-500/30",
+  /* Ambre et non rouge : un impayé n'est pas une anomalie, c'est une étape.
+     Le rouge est réservé aux situations qui demandent une correction. */
+  approved: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  unpaid: "bg-amber-500/15 text-amber-400 border-amber-500/30",
   calculated: "bg-blue-500/15 text-blue-300 border-blue-500/30",
-  approved: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
-  disputed: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  disputed: "bg-orange-500/15 text-orange-400 border-orange-500/30",
   cancelled: "bg-muted text-muted-foreground border-border",
 };
+
+/** Un bulletin arrêté mais pas encore versé — au sens comptable du mot. */
+const estImpaye = (statut: string): boolean => statut === "approved" || statut === "unpaid";
 
 const MOIS = [
   "janvier",
@@ -178,8 +187,33 @@ function Contenu() {
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
   const [page, setPage] = useState(1);
 
+  const [retour, setRetour] = useState<{ kind: "ok" | "warn"; text: string } | null>(null);
+
   const enseignantsQuery = useEnseignantsPaie();
   const query = useHistoriqueBulletins(enseignantId || undefined);
+  const verser = useMarquerVerses();
+
+  /**
+   * Constate le versement. Le rafraîchissement passe par l'invalidation du hook :
+   * le statut, la date et l'accès au PDF changent tous les trois, les recalculer
+   * à la main ici les ferait diverger de ce que le serveur a réellement écrit.
+   */
+  const lancerVersement = async (ids: string[]) => {
+    setRetour(null);
+    try {
+      const r = await verser.mutateAsync(ids);
+      await query.refetch();
+      setRetour({
+        kind: r.verses > 0 ? "ok" : "warn",
+        text:
+          r.verses > 0
+            ? `${r.verses} versement(s) enregistré(s).`
+            : "Aucun bulletin à verser : ils sont déjà réglés ou pas encore arrêtés.",
+      });
+    } catch (error) {
+      setRetour({ kind: "warn", text: (error as Error).message });
+    }
+  };
 
   const items = query.data?.items ?? [];
   const enseignants = enseignantsQuery.data?.items ?? [];
@@ -235,6 +269,9 @@ function Contenu() {
       total: filtres.length,
       montant: filtres.reduce((s, b) => s + (b.montant ?? 0), 0),
       devise: filtres[0]?.devise ?? "XOF",
+      /* Ce qui reste dû sur le périmètre affiché. C'est le chiffre que le
+         gestionnaire cherche : « combien me reste-t-il à verser ? » */
+      impayes: filtres.filter((b) => estImpaye(b.statut)),
     }),
     [filtres]
   );
@@ -362,6 +399,49 @@ function Contenu() {
         />
       </div>
 
+      {/* Reste à verser sur le périmètre affiché, avec le règlement groupé.
+          Le bouton porte sur ce qui est FILTRÉ, pas sur tout l'historique : on
+          règle une période, pas l'ensemble des exercices d'un coup. */}
+      {stats.impayes.length > 0 && (
+        <Card className="border-amber-500/40">
+          <CardContent className="flex flex-wrap items-center gap-3 py-4">
+            <BadgeCheck className="h-5 w-5 shrink-0 text-amber-500" />
+            <p className="text-sm">
+              <span className="font-semibold text-amber-400">
+                {stats.impayes.length} bulletin(s) impayé(s)
+              </span>{" "}
+              <span className="text-muted-foreground">
+                —{" "}
+                {fmtMontant(
+                  stats.impayes.reduce((s, b) => s + (b.montant ?? 0), 0),
+                  stats.devise
+                )}{" "}
+                restant à verser
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={() => lancerVersement(stats.impayes.map((b) => b.id))}
+              disabled={verser.isPending}
+              className="ml-auto inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {verser.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <BadgeCheck className="h-4 w-4" />
+              )}
+              Marquer versés ({stats.impayes.length})
+            </button>
+          </CardContent>
+        </Card>
+      )}
+
+      {retour && (
+        <p className={`text-sm ${retour.kind === "ok" ? "text-emerald-400" : "text-amber-500"}`}>
+          {retour.text}
+        </p>
+      )}
+
       {/* Liste */}
       {query.isLoading ? (
         <div className="flex justify-center py-16">
@@ -387,7 +467,13 @@ function Contenu() {
       ) : (
         <div className="space-y-3">
           {pageItems.map((b) => (
-            <LigneBulletin key={b.id} bulletin={b} avecNom={!enseignantId} />
+            <LigneBulletin
+              key={b.id}
+              bulletin={b}
+              avecNom={!enseignantId}
+              onVerser={lancerVersement}
+              versementEnCours={verser.isPending}
+            />
           ))}
 
           <Card>
@@ -443,13 +529,23 @@ function Contenu() {
   );
 }
 
-function LigneBulletin({ bulletin: b, avecNom }: { bulletin: BulletinArchive; avecNom: boolean }) {
+function LigneBulletin({
+  bulletin: b,
+  avecNom,
+  onVerser,
+  versementEnCours,
+}: {
+  bulletin: BulletinArchive;
+  avecNom: boolean;
+  onVerser: (ids: string[]) => void;
+  versementEnCours: boolean;
+}) {
   const heures = Number(b.heures_normales ?? 0) + Number(b.heures_sup ?? 0);
 
-  /* Le statut fait foi, pas le montant : c'est l'archivage qui a tranché, et
-     lui seul. Rejuger ici sur `montant <= 0` ferait diverger l'écran de la
-     décision enregistrée si la règle d'archivage venait à changer. */
-  const estImpaye = b.statut === "unpaid";
+  /* Le statut fait foi, pas le montant : c'est l'archivage qui a arrêté le
+     montant, et le versement qui le solde. Rejuger ici sur `montant <= 0`
+     ferait diverger l'écran des décisions enregistrées. */
+  const impaye = estImpaye(b.statut);
 
   return (
     <Card>
@@ -476,12 +572,23 @@ function LigneBulletin({ bulletin: b, avecNom }: { bulletin: BulletinArchive; av
           {b.type_paiement !== "salary" && (
             <Donnee label="Heures" valeur={fmtHeures(heures)} />
           )}
+          {/* Deux dates, deux actes. « Archivé le » dit quand le montant a été
+              arrêté ; « Versé le » quand l'argent est parti. Les confondre est
+              précisément ce qui avait produit 35 bulletins déclarés payés sans
+              qu'aucun décaissement n'ait été enregistré. */}
           <Donnee
             label="Archivé le"
             valeur={fmtDate(b.archive_le)}
             hint={b.archive_par || undefined}
             title={fmtHorodatage(b.archive_le)}
           />
+          {b.verse_le && (
+            <Donnee
+              label="Versé le"
+              valeur={fmtDate(b.verse_le)}
+              title={fmtHorodatage(b.verse_le)}
+            />
+          )}
         </div>
 
         <div className="shrink-0 flex items-center gap-3">
@@ -492,19 +599,34 @@ function LigneBulletin({ bulletin: b, avecNom }: { bulletin: BulletinArchive; av
           >
             {STATUT_LABELS[b.statut] ?? b.statut}
           </span>
+          {/* Solder le bulletin : c'est ce geste, et lui seul, qui le fait
+              passer à « Payé » et enregistre la date du versement. */}
+          {impaye && (
+            <button
+              type="button"
+              onClick={() => onVerser([b.id])}
+              disabled={versementEnCours}
+              title="Enregistrer le versement de ce bulletin"
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              <BadgeCheck className="h-4 w-4" />
+              Marquer versé
+            </button>
+          )}
+
           {/* Même libellé et même traitement que sur l'écran des bulletins :
               c'est le même document, il doit porter le même nom partout.
 
-              UN BULLETIN IMPAYÉ NE S'IMPRIME PAS. « Impayé » veut dire qu'il
-              n'y avait rien à verser : le document ne constaterait aucune
-              rémunération, et remis à l'enseignant il ferait office de preuve
-              d'un versement qui n'a pas eu lieu. Le bouton reste visible, mais
-              inerte — le retirer laisserait croire à un défaut d'affichage. */}
-          {estImpaye ? (
+              UN BULLETIN IMPAYÉ NE S'IMPRIME PAS. Le document atteste une
+              rémunération versée ; le remettre avant le versement en ferait la
+              preuve d'un paiement qui n'a pas eu lieu. Le bouton reste visible
+              mais inerte — le retirer laisserait croire à un défaut
+              d'affichage — et s'active dès que le versement est constaté. */}
+          {impaye ? (
             <button
               type="button"
               disabled
-              title="Bulletin impayé : aucun montant à verser, le document n'est pas éditable."
+              title="Bulletin impayé : enregistrez le versement pour pouvoir éditer le document."
               className="inline-flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground cursor-not-allowed whitespace-nowrap"
             >
               <FileText className="h-4 w-4" />

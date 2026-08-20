@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { openPayslipPdf } from "@/lib/payslip-pdf";
 import { Card, CardContent } from "@ecoledigitale/ui";
 import {
   AlertCircle,
@@ -13,7 +12,6 @@ import {
   Calculator,
   CheckCircle2,
   Clock,
-  FileText,
   Info,
   Loader2,
   Lock,
@@ -165,13 +163,24 @@ export default function BulletinsPaiePage() {
    * décompte tiré des cartes était trop bas : « Tout archiver (3) » en classait
    * trois et en laissait d'autres derrière, sans rien dire.
    */
-  const aArchiver = query.data?.en_attente ?? { total: 0, payes: 0, impayes: 0 };
+  const aArchiver = query.data?.en_attente ?? { total: 0 };
 
+  /**
+   * Calcule OU RECALCULE la période ouverte.
+   *
+   * Le repli sur `periodeCourante` n'est pas un détail : dès le premier calcul,
+   * la période cesse d'être « en attente » et `periodeEnAttente` retombe à
+   * `null`. L'écran n'offrait alors plus aucune commande — or c'est
+   * précisément le moment où l'on en a besoin, quand on s'aperçoit qu'on a
+   * généré avant d'avoir validé toutes les séances. Le serveur, lui, sait
+   * recalculer : `recalculate: true` réécrit les bulletins existants.
+   */
   const lancerCalcul = async () => {
-    if (!periodeEnAttente) return;
+    const periodId = periodeEnAttente?.id ?? periodeCourante?.id;
+    if (!periodId) return;
     setAction(null);
     try {
-      const r = await calculer.mutateAsync({ periodId: periodeEnAttente.id });
+      const r = await calculer.mutateAsync({ periodId });
       setAction({
         kind: r.calculated > 0 ? "ok" : "warn",
         text:
@@ -193,8 +202,8 @@ export default function BulletinsPaiePage() {
       setAction({
         kind: "ok",
         text:
-          `${r.archives} bulletin(s) archivé(s) : ${r.payes} payé(s), ${r.impayes} impayé(s). ` +
-          `Ils sont désormais dans l'historique.`,
+          `${r.archives} bulletin(s) archivé(s), montant arrêté. Ils sont dans ` +
+          `l'historique au statut « Impayé » — enregistrez-y les versements.`,
       });
     } catch (error) {
       setAction({ kind: "warn", text: (error as Error).message });
@@ -286,33 +295,21 @@ export default function BulletinsPaiePage() {
         </Card>
       )}
 
-      <CreationPeriode />
+      <CreationPeriode
+        onCalculer={lancerCalcul}
+        calculEnCours={calculer.isPending}
+        periodeCourante={periodeCourante}
+        bulletinsGeneres={aArchiver.total}
+      />
 
       {/* Génération et classement */}
       <Card>
         <CardContent className="p-4 flex flex-wrap items-center gap-3">
-          {/* Le calcul n'est possible QUE sur une période en attente : c'est
-              elle qui porte le périmètre. Sans période, rien à calculer. */}
-          <button
-            onClick={lancerCalcul}
-            disabled={!periodeEnAttente || calculer.isPending}
-            title={
-              periodeEnAttente
-                ? `Calculer « ${periodeEnAttente.nom} »`
-                : "Créez d'abord une période de paiement"
-            }
-            // Même dégradé que « Générer les bulletins » des bulletins
-            // scolaires : c'est le même geste, il doit se reconnaître.
-            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 px-4 py-2 text-sm font-medium text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {calculer.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Calculator className="h-4 w-4" />
-            )}
-            Générer les bulletins
-          </button>
-
+          {/* Le calcul ne figure plus ici : sa commande vit dans le bandeau de
+              la période en attente, à l'endroit où cette période est annoncée.
+              Deux boutons pour le même geste, à deux endroits de l'écran,
+              laissaient croire à deux étapes distinctes. Ne reste ici que ce
+              qui suit la génération : l'archivage. */}
           <button
             onClick={() => setConfirmation(true)}
             disabled={aArchiver.total === 0 || archiver.isPending}
@@ -415,20 +412,19 @@ export default function BulletinsPaiePage() {
         </p>
       )}
 
-      {/* L'archivage clôt la période : il fige le statut financier de chaque
-          bulletin et les sort du plan de travail. La boîte dit CE QUI VA ÊTRE
-          DÉCIDÉ, pas seulement combien de lignes bougent — c'est la répartition
-          payés / impayés qui mérite d'être relue avant de valider. */}
+      {/* L'archivage clôt la période : il ARRÊTE le montant de chaque bulletin
+          et les sort du plan de travail. Il ne verse rien — la boîte doit le
+          dire, sinon « archiver » se comprend comme « payer », ce qui avait
+          produit 35 bulletins déclarés payés sans aucun décaissement. */}
       <ConfirmationDialog
         open={confirmation}
         onOpenChange={setConfirmation}
-        title="Archiver les bulletins de la période ?"
+        title="Arrêter et archiver les bulletins de la période ?"
         description={
-          `${aArchiver.total} bulletin(s) vont être classés : ` +
-          `${aArchiver.payes} marqué(s) PAYÉ, ` +
-          `${aArchiver.impayes} marqué(s) IMPAYÉ (aucun montant à verser, faute d'heure ` +
-          `valorisable sur la période). ` +
-          `Les bulletins quitteront le plan de travail pour l'historique, et la période sera close.`
+          `${aArchiver.total} bulletin(s) vont être classés, leur montant arrêté. ` +
+          `Ils passeront dans l'historique au statut « Impayé » : la somme est due, ` +
+          `elle n'est pas encore versée. Le versement s'enregistre ensuite depuis ` +
+          `l'historique. La période sera close.`
         }
         confirmText="Archiver"
         cancelText="Annuler"
@@ -453,7 +449,20 @@ export default function BulletinsPaiePage() {
  * Le formulaire se désactive AVANT la saisie plutôt que de laisser remplir
  * pour opposer un refus à la fin.
  */
-function CreationPeriode() {
+function CreationPeriode({
+  onCalculer,
+  calculEnCours,
+  periodeCourante,
+  bulletinsGeneres,
+}: {
+  /** Lance le calcul de la période ouverte, sans quitter l'écran. */
+  onCalculer: () => void;
+  calculEnCours: boolean;
+  /** Période qui pilote l'écran : en attente de calcul, ou déjà calculée. */
+  periodeCourante: PeriodeCourante | null;
+  /** Bulletins encore au plan de travail sur cette période. */
+  bulletinsGeneres: number;
+}) {
   const enAttenteQuery = usePeriodeEnAttente();
   const creer = useCreerPeriodePaie();
 
@@ -550,13 +559,59 @@ function CreationPeriode() {
               , du {fmtDate(enAttente.periode_debut)} au {fmtDate(enAttente.periode_fin)}. Aucune
               autre période ne peut être ouverte tant que celle-ci n'a pas servi au calcul.
             </p>
-            <Link
-              href={`/payments/calculate?periodId=${enAttente.id}`}
-              className="inline-flex items-center gap-2 mt-2 text-sm font-medium text-amber-100 underline underline-offset-2"
+            {/* SEULE COMMANDE DE CALCUL DE L'ÉCRAN.
+                C'était un lien vers /payments/calculate, qui faisait quitter la
+                page pour refaire ailleurs ce qu'un bouton d'ici faisait déjà.
+                Deux chemins pour un même geste, dont un seul restait sous les
+                yeux du gestionnaire. Le calcul se lance donc ici, sans
+                navigation, à l'endroit exact où la période est annoncée. */}
+            <button
+              type="button"
+              onClick={onCalculer}
+              disabled={calculEnCours}
+              className="inline-flex items-center gap-2 mt-3 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 px-4 py-2 text-sm font-medium text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Calculator className="h-4 w-4" />
-              Lancer le calcul de cette période
-            </Link>
+              {calculEnCours ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Calculator className="h-4 w-4" />
+              )}
+              {calculEnCours ? "Calcul en cours…" : "Générer les bulletins de cette période"}
+            </button>
+          </div>
+        )}
+
+        {/* PÉRIODE DÉJÀ CALCULÉE, PAS ENCORE ARCHIVÉE.
+            Ce bandeau manquait, et son absence coûtait cher : dès le premier
+            calcul la période sort de l'état « en attente », le bandeau ambre
+            disparaît, et l'écran n'offre plus aucune commande de calcul. Or
+            c'est exactement là qu'on en a besoin — quand on s'aperçoit d'avoir
+            généré avant d'avoir validé toutes les séances, ce qui produit des
+            bulletins incomplets et des enseignants sans bulletin du tout.
+            Le recalcul réécrit les bulletins existants de la période. */}
+        {!enAttente && periodeCourante && bulletinsGeneres > 0 && (
+          <div className="rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-4 py-3">
+            <p className="text-sm font-semibold text-indigo-200 flex items-center gap-2">
+              <Calculator className="h-4 w-4 shrink-0" />
+              {bulletinsGeneres} bulletin(s) générés sur « {periodeCourante.nom} »
+            </p>
+            <p className="text-sm text-indigo-200 mt-1">
+              Des séances validées après le calcul n&apos;y figurent pas. Relancez le calcul pour
+              les intégrer, puis archivez.
+            </p>
+            <button
+              type="button"
+              onClick={onCalculer}
+              disabled={calculEnCours}
+              className="inline-flex items-center gap-2 mt-3 rounded-lg border border-indigo-400/50 px-4 py-2 text-sm font-medium text-indigo-100 hover:bg-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {calculEnCours ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Calculator className="h-4 w-4" />
+              )}
+              {calculEnCours ? "Recalcul en cours…" : "Recalculer les bulletins"}
+            </button>
           </div>
         )}
 
@@ -684,11 +739,6 @@ function CarteEnseignant({
   const etat = ETATS[e.etat_configuration];
   const cfg = e.config;
 
-  // Erreur de generation du bulletin, affichee sous le bouton. Locale a la
-  // carte : `setAction` du parent porte le resultat des actions de masse, la
-  // noyer avec un echec individuel brouillerait les deux.
-  const [erreurPdf, setErreurPdf] = useState<string | null>(null);
-
   /**
    * Le bulletin de cet enseignant a été classé et rien n'a été réouvert depuis.
    * On le déduit de l'absence de bulletin courant alors qu'il en existe des
@@ -815,6 +865,19 @@ function CarteEnseignant({
                     </div>
                   )}
 
+                  {/* LE CAS DANGEREUX. « 0 heure » recouvre deux situations
+                      opposées : l'enseignant qui n'a pas fait cours, et celui
+                      dont les séances n'ont pas été validées. Le second sera
+                      sauté de la paie en silence — d'où cet avertissement, à la
+                      couleur de ce qui demande une action. */}
+                  {periode && e.seances_a_valider > 0 && (
+                    <p className="text-xs text-amber-400 mt-2 flex items-start gap-1">
+                      <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                      {e.seances_a_valider} séance(s) réalisée(s) non validée(s) sur cette
+                      période : elles ne seront pas payées tant qu&apos;elles ne sont pas validées.
+                    </p>
+                  )}
+
                   {surSalaire(e) && e.heures.nb_seances > 0 && (
                     <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1">
                       <Info className="h-3 w-3 shrink-0 mt-0.5" />
@@ -870,49 +933,15 @@ function CarteEnseignant({
                           consultable dans l&apos;historique
                         </span>
                       )}
-                      {/* PLUS D'ARCHIVAGE À LA CARTE. Classer un bulletin isolé
-                          laissait la période à moitié close, sans que rien ne
-                          dise lesquels restaient. L'archivage est désormais un
-                          geste unique, en tête d'écran, avec confirmation.
-
-                          Le PDF n'apparaît que s'il y a un montant : un bulletin
-                          à zéro n'a rien à présenter, et le proposer laisserait
-                          croire qu'un versement a eu lieu. */}
-                      <div className="ml-auto flex items-center gap-2">
-                        {erreurPdf && (
-                          <span className="text-xs text-red-400 max-w-[14rem] text-right">
-                            {erreurPdf}
-                          </span>
-                        )}
-                        {e.bulletin && (e.bulletin.montant ?? 0) > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              // L'onglet doit etre ouvert DANS le geste de clic,
-                              // sinon le navigateur le bloque : la generation qui
-                              // suit est asynchrone.
-                              const win = window.open("", "_blank", "noopener,noreferrer");
-                              openPayslipPdf(e.bulletin.id, win).catch((err) => {
-                                setErreurPdf(
-                                  err?.message ?? "Génération du bulletin impossible."
-                                );
-                              });
-                            }}
-                            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 whitespace-nowrap"
-                          >
-                            <FileText className="h-4 w-4" />
-                            Bulletin
-                          </button>
-                        ) : e.bulletin ? (
-                          <span className="text-xs text-amber-400 whitespace-nowrap">
-                            Sera classé impayé
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            Bulletin dans l&apos;historique
-                          </span>
-                        )}
-                      </div>
+                      {/* NI ARCHIVAGE NI PDF À LA CARTE.
+                          Classer un bulletin isolé laissait la période à moitié
+                          close, sans que rien ne dise lesquels restaient :
+                          l'archivage est un geste unique, en tête d'écran.
+                          Le PDF, lui, est parti à l'historique — c'est là qu'un
+                          bulletin se consulte, une fois arrêté et versé. Le
+                          proposer ici invitait à éditer un document avant même
+                          que la période soit close. Cet écran sert à préparer
+                          la paie, pas à distribuer des pièces. */}
                     </div>
                   </div>
                 )}

@@ -386,6 +386,8 @@ export interface EnseignantPaie {
   type_contrat: string | null;
   /** `active` seul garantit qu'un calcul produira quelque chose pour lui. */
   etat_configuration: EtatConfiguration;
+  /** Séances réalisées mais NON validées sur la période : la paie les sautera. */
+  seances_a_valider: number;
   nb_configs: number;
   /** Cumul des heures payables — voir `HeuresEnseignant`. */
   heures: HeuresEnseignant;
@@ -522,6 +524,8 @@ export interface BulletinArchive {
   devise: string;
   calcule_le: string | null;
   archive_le: string;
+  /** Date du versement réel. `null` tant que le bulletin est « Impayé ». */
+  verse_le: string | null;
   type_paiement: string;
   heures_normales: number | null;
   heures_sup: number | null;
@@ -560,23 +564,37 @@ export function useCalculerPeriode() {
   });
 }
 
-/** Classe des bulletins : ils quittent le plan de travail pour l'historique. */
+/**
+ * Classe des bulletins ET ARRÊTE leur montant : ils quittent le plan de travail
+ * pour l'historique, au statut « Impayé » — dû, pas encore versé.
+ */
 export function useArchiverBulletins() {
   const qc = useQueryClient();
-  /* `payes` / `impayes` : l'archivage tranche le sort financier de chaque
-     bulletin — payé, ou impayé s'il sort à zéro. Le compte rendu les distingue,
-     sinon « 30 bulletins archivés » masquerait ceux que personne ne touchera.
-
-     `tous: true` plutôt qu'une liste d'identifiants : la vue d'ensemble ne
+  /* `tous: true` plutôt qu'une liste d'identifiants : la vue d'ensemble ne
      remonte qu'UN bulletin par enseignant, donc l'écran ne connaît jamais la
      liste complète. Lui faire énumérer les ids n'archivait que ce qu'il
      affichait et laissait le reste au plan de travail. */
-  return useMutation<
-    { archives: number; deja_archives: number; payes: number; impayes: number },
-    Error,
-    void
-  >({
+  return useMutation<{ archives: number; deja_archives: number; a_verser: number }, Error, void>({
     mutationFn: () => apiFetch(`${BASE}/bulletins/archiver`, jsonInit("POST", { tous: true })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["prof-remuneration", "bulletins"] }),
+  });
+}
+
+/**
+ * Constate le VERSEMENT de bulletins arrêtés — c'est ce geste, et lui seul, qui
+ * fait passer un bulletin d'« Impayé » à « Payé » et enregistre sa date.
+ *
+ * Accepte une liste ; sans argument, verse tout ce qui est arrêté et non encore
+ * versé. Le serveur n'agit que sur les bulletins `approved`.
+ */
+export function useMarquerVerses() {
+  const qc = useQueryClient();
+  return useMutation<{ verses: number; ignores: number }, Error, string[] | undefined>({
+    mutationFn: (paymentIds) =>
+      apiFetch(
+        `${BASE}/bulletins/verser`,
+        jsonInit("POST", paymentIds?.length ? { paymentIds } : { tous: true })
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["prof-remuneration", "bulletins"] }),
   });
 }

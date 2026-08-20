@@ -523,28 +523,30 @@ export class PaymentCalculator {
         const config = this.mapConfigFromDb(configResult.rows[0]);
 
         /**
-         * PAS DE COURT-CIRCUIT SUR L'ABSENCE D'HEURES.
+         * SANS HEURE VALIDÉE, PAS DE BULLETIN.
          *
-         * Un enseignant horaire sans heure validée produisait auparavant un
-         * `skipped` avec le motif NO_HOURS : aucun bulletin n'était émis. Cela
-         * rendait le statut « impayé » INATTEIGNABLE — la migration 0113 le
-         * définit pourtant comme « bulletin classé sans rien à verser, aucune
-         * heure valorisable sur la période », et `archiverBulletins` tranche
-         * sur le montant. Sans bulletin, rien à trancher.
+         * Un bulletin est un document de PAIEMENT : s'il n'y a rien à verser,
+         * il n'y a pas de document. Émettre un bulletin à zéro obligerait à
+         * l'étiqueter, et le seul mot disponible — « impayé » — dirait le
+         * contraire de la réalité : impayé signifie « une somme est due et n'a
+         * pas été réglée », alors qu'ici rien n'est dû. L'historique
+         * afficherait des créances qui n'existent pas.
          *
-         * `calculateHourlyPayment` porte déjà la branche « zéro heure » : elle
-         * renvoie un montant nul avec la mention « Aucune heure validée sur la
-         * période ». Elle était morte, elle sert maintenant.
-         *
-         * Conséquence assumée : la génération produit désormais un bulletin
-         * pour CHAQUE enseignant configuré. Ceux sans heures sortent à zéro et
-         * deviendront « impayés » à l'archivage — ce qui est l'information
-         * recherchée, là où un enseignant absent de la liste ne disait rien.
-         *
-         * NO_CONFIG et NO_RATE_RESOLVED restent des écartements : dans ces deux
-         * cas, on ne SAIT PAS combien verser, ce qui n'est pas la même chose
-         * que savoir qu'il n'y a rien à verser.
+         * L'enseignant n'est pas perdu de vue pour autant : l'écran des
+         * bulletins liste TOUS les enseignants, et signale séparément ceux dont
+         * des séances réalisées attendent d'être validées — le cas réellement
+         * dangereux, où l'absence d'heures vient d'un oubli de validation et
+         * non d'une absence de cours.
          */
+        if (config.configType === "hourly" && teacherHours.length === 0) {
+          skipped.push({
+            teacherId,
+            teacherName,
+            skipReason: "NO_HOURS",
+            message: "Aucune heure validée sur la période.",
+          });
+          continue;
+        }
 
         // --- Tarification de chaque heure -----------------------------
         const priced: PricedHourRecord[] = [];
