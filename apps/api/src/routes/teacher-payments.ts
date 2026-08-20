@@ -1502,6 +1502,31 @@ export async function teacherPayslipRoutes(fastify: FastifyInstance) {
   const payslips = new TeacherPayslipService(fastify.pg as any);
   const notifications = new TeacherPayslipNotificationService();
 
+  /**
+   * Donnees du bulletin en JSON, pour un rendu PDF cote navigateur.
+   *
+   * La voie serveur (`/payslip.pdf`, ci-dessous) passe par Puppeteer : elle
+   * renvoyait un 504 Gateway Time-out en production, Chromium et Puppeteer
+   * n'etant pas de versions compatibles. Les bulletins de notes n'ont jamais eu
+   * ce probleme parce qu'ils sont composes dans le navigateur avec jsPDF
+   * (apps/web/src/lib/bulletin-pdf.ts) : aucun navigateur headless, aucun
+   * delai d'expiration a franchir.
+   *
+   * Cet endpoint sert le meme `PayslipData` que celui remis au gabarit HTML —
+   * la mise en page seule change de camp.
+   */
+  fastify.get("/:id/payslip-data", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const result = await payslips.getPayslipData(request.tenantId as string, id);
+    if (!result.success) {
+      const failure = result as { error: string; message?: string };
+      return reply
+        .status(failure.error === "PAYMENT_NOT_FOUND" ? 404 : 500)
+        .send({ success: false, error: failure.error, message: failure.message });
+    }
+    return reply.send({ success: true, data: result.data });
+  });
+
   /** Bulletin au format PDF, pret a etre telecharge ou archive. */
   fastify.get("/:id/payslip.pdf", async (request, reply) => {
     const { id } = request.params as { id: string };

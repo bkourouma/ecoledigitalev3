@@ -1,7 +1,25 @@
 # Multi-stage build for the API.
 # Production runs via tsx (same runtime as dev) — bypasses the workspace
 # layout pain that breaks tsc-emitted dist module resolution.
-FROM node:18-alpine AS base
+#
+# ATTENTION — le tag Alpine est EPINGLE a 3.19 et ne doit pas etre relache.
+# Alpine ne propose qu'une seule version de Chromium par release, et Puppeteer
+# 21.11 (apps/api/package.json) parle le protocole CDP de Chrome 121. Mesure
+# sur ce serveur, avec un PDF de test :
+#
+#   Alpine 3.18 -> Chromium 119 : PDF genere en 529 ms
+#   Alpine 3.19 -> Chromium 124 : PDF genere en 549 ms
+#   Alpine 3.20 -> Chromium 131 : non teste
+#   Alpine 3.21 -> Chromium 136 : ECHEC apres 150 s
+#                                 « Requesting main frame too early! »
+#
+# C'est ce dernier cas qui renvoyait un 504 Gateway Time-out a la generation
+# d'un bulletin de paie : Chromium demarrait en 535 ms puis Puppeteer restait
+# bloque, l'ecart de versions cassant le dialogue CDP.
+#
+# Passer a une Alpine plus recente suppose donc de monter Puppeteer en meme
+# temps (et d'adapter `headless: "new"`, retire apres la v22).
+FROM node:18-alpine3.19 AS base
 RUN npm install -g pnpm
 
 # Dependencies stage — install once, share with runner

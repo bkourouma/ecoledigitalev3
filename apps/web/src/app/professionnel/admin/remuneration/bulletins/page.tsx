@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { openPayslipPdf } from "@/lib/payslip-pdf";
 import { Card, CardContent } from "@ecoledigitale/ui";
 import {
   AlertCircle,
@@ -683,6 +684,11 @@ function CarteEnseignant({
   const etat = ETATS[e.etat_configuration];
   const cfg = e.config;
 
+  // Erreur de generation du bulletin, affichee sous le bouton. Locale a la
+  // carte : `setAction` du parent porte le resultat des actions de masse, la
+  // noyer avec un echec individuel brouillerait les deux.
+  const [erreurPdf, setErreurPdf] = useState<string | null>(null);
+
   /**
    * Le bulletin de cet enseignant a été classé et rien n'a été réouvert depuis.
    * On le déduit de l'absence de bulletin courant alors qu'il en existe des
@@ -873,16 +879,30 @@ function CarteEnseignant({
                           à zéro n'a rien à présenter, et le proposer laisserait
                           croire qu'un versement a eu lieu. */}
                       <div className="ml-auto flex items-center gap-2">
+                        {erreurPdf && (
+                          <span className="text-xs text-red-400 max-w-[14rem] text-right">
+                            {erreurPdf}
+                          </span>
+                        )}
                         {e.bulletin && (e.bulletin.montant ?? 0) > 0 ? (
-                          <a
-                            href={`/api/teacher-payments/${e.bulletin.id}/pdf`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // L'onglet doit etre ouvert DANS le geste de clic,
+                              // sinon le navigateur le bloque : la generation qui
+                              // suit est asynchrone.
+                              const win = window.open("", "_blank", "noopener,noreferrer");
+                              openPayslipPdf(e.bulletin.id, win).catch((err) => {
+                                setErreurPdf(
+                                  err?.message ?? "Génération du bulletin impossible."
+                                );
+                              });
+                            }}
                             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 whitespace-nowrap"
                           >
                             <FileText className="h-4 w-4" />
                             Bulletin
-                          </a>
+                          </button>
                         ) : e.bulletin ? (
                           <span className="text-xs text-amber-400 whitespace-nowrap">
                             Sera classé impayé
