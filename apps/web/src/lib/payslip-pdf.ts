@@ -202,11 +202,11 @@ function enTete(doc: jsPDF, d: PayslipData, imgs: HeaderImages): number {
 
   if (imgs.logoInstitut) {
     const h = 22;
-    doc.addImage(imgs.logoInstitut.dataUrl, "JPEG", M, 21, h * imgs.logoInstitut.ratio, h);
+    doc.addImage(imgs.logoInstitut.dataUrl, imgs.logoInstitut.format, M, 21, h * imgs.logoInstitut.ratio, h);
   }
   if (imgs.embleme) {
     const h = 19;
-    doc.addImage(imgs.embleme.dataUrl, "JPEG", RIGHT - h * imgs.embleme.ratio, 21, h * imgs.embleme.ratio, h);
+    doc.addImage(imgs.embleme.dataUrl, imgs.embleme.format, RIGHT - h * imgs.embleme.ratio, 21, h * imgs.embleme.ratio, h);
   }
 
   doc.setFont("times", "bold");

@@ -49,6 +49,15 @@ function decRgb(d: string): [number, number, number] {
 export interface Img {
   dataUrl: string;
   ratio: number;
+  /**
+   * Format reconnu par jsPDF, deduit du type MIME reel du fichier.
+   *
+   * `addImage` ne devine pas le format : celui qu'on lui annonce fait foi. Un
+   * PNG declare « JPEG » n'est pas rendu — silencieusement, sans exception ni
+   * message. C'est ce qui faisait disparaitre l'embleme (/embleme.png) de tous
+   * les documents, alors que le logo (/logo-ipam.jpeg) s'affichait.
+   */
+  format: "PNG" | "JPEG";
 }
 async function loadImg(url: string): Promise<Img | null> {
   try {
@@ -66,7 +75,11 @@ async function loadImg(url: string): Promise<Img | null> {
       i.onerror = () => r(1);
       i.src = dataUrl;
     });
-    return { dataUrl, ratio };
+    // Le prefixe du data URI porte le type MIME : « data:image/png;base64,… ».
+    // Tout ce qui n'est pas un PNG est traite en JPEG, seuls ces deux formats
+    // etant utilises pour les en-tetes.
+    const format: "PNG" | "JPEG" = /^data:image\/png/i.test(dataUrl) ? "PNG" : "JPEG";
+    return { dataUrl, ratio, format };
   } catch {
     return null;
   }
@@ -135,11 +148,11 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
 
   if (logoInstitut) {
     const h = 22;
-    doc.addImage(logoInstitut.dataUrl, "JPEG", M, 21, h * logoInstitut.ratio, h);
+    doc.addImage(logoInstitut.dataUrl, logoInstitut.format, M, 21, h * logoInstitut.ratio, h);
   }
   if (embleme) {
     const h = 19;
-    doc.addImage(embleme.dataUrl, "JPEG", RIGHT - h * embleme.ratio, 21, h * embleme.ratio, h);
+    doc.addImage(embleme.dataUrl, embleme.format, RIGHT - h * embleme.ratio, 21, h * embleme.ratio, h);
   }
 
   // Nom de l'institut : pleine largeur, centré, sous les logos (remonté).
@@ -406,7 +419,7 @@ function drawWatermarkAllPages(doc: jsPDF, logoInstitut: Img | null): void {
       (doc as any).setGState(new (doc as any).GState({ opacity: 0.06 }));
       const w = 120;
       const h = w / logoInstitut.ratio;
-      doc.addImage(logoInstitut.dataUrl, "JPEG", (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
+      doc.addImage(logoInstitut.dataUrl, logoInstitut.format, (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
       doc.restoreGraphicsState();
     } catch {
       /* GState indisponible : on ignore le filigrane */

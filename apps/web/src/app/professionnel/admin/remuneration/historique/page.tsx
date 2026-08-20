@@ -446,6 +446,11 @@ function Contenu() {
 function LigneBulletin({ bulletin: b, avecNom }: { bulletin: BulletinArchive; avecNom: boolean }) {
   const heures = Number(b.heures_normales ?? 0) + Number(b.heures_sup ?? 0);
 
+  /* Le statut fait foi, pas le montant : c'est l'archivage qui a tranché, et
+     lui seul. Rejuger ici sur `montant <= 0` ferait diverger l'écran de la
+     décision enregistrée si la règle d'archivage venait à changer. */
+  const estImpaye = b.statut === "unpaid";
+
   return (
     <Card>
       <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center gap-4">
@@ -488,16 +493,34 @@ function LigneBulletin({ bulletin: b, avecNom }: { bulletin: BulletinArchive; av
             {STATUT_LABELS[b.statut] ?? b.statut}
           </span>
           {/* Même libellé et même traitement que sur l'écran des bulletins :
-              c'est le même document, il doit porter le même nom partout. */}
-          <a
-            href={`/api/teacher-payments/${b.id}/pdf`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 whitespace-nowrap"
-          >
-            <FileText className="h-4 w-4" />
-            Bulletin
-          </a>
+              c'est le même document, il doit porter le même nom partout.
+
+              UN BULLETIN IMPAYÉ NE S'IMPRIME PAS. « Impayé » veut dire qu'il
+              n'y avait rien à verser : le document ne constaterait aucune
+              rémunération, et remis à l'enseignant il ferait office de preuve
+              d'un versement qui n'a pas eu lieu. Le bouton reste visible, mais
+              inerte — le retirer laisserait croire à un défaut d'affichage. */}
+          {estImpaye ? (
+            <button
+              type="button"
+              disabled
+              title="Bulletin impayé : aucun montant à verser, le document n'est pas éditable."
+              className="inline-flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground cursor-not-allowed whitespace-nowrap"
+            >
+              <FileText className="h-4 w-4" />
+              Bulletin
+            </button>
+          ) : (
+            <a
+              href={`/api/teacher-payments/${b.id}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 whitespace-nowrap"
+            >
+              <FileText className="h-4 w-4" />
+              Bulletin
+            </a>
+          )}
         </div>
       </CardContent>
     </Card>
