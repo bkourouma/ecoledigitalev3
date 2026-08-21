@@ -12,6 +12,17 @@ const nextConfig = {
     // Note: webpack tslib alias below is not mirrored here — Turbopack/SWC
     // resolves tslib correctly via pnpm without the v2 ES helpers workaround,
     // and absolute-path aliases are treated as external modules by Turbopack.
+    turbo: {
+      resolveAlias: {
+        // Pendant Turbopack du `resolve.fallback = { fs: false }` défini plus
+        // bas : `next dev --turbo` n'exécute jamais la fonction `webpack`, donc
+        // sans cet alias le build casse sur « Can't resolve 'fs' » dès qu'une
+        // page tire exceljs (→ @fast-csv/format). La condition `browser` limite
+        // la substitution au bundle client ; côté serveur, `fs` reste le vrai
+        // module Node.
+        fs: { browser: "./turbopack-stubs/empty.js" },
+      },
+    },
   },
   typescript: {
     ignoreBuildErrors: true,

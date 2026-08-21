@@ -16,6 +16,8 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openBulletinHistoriquePdf } from "@/lib/utils/bulletin-historique-report";
 import { useNotesFilieres, useBulletinHistory } from "@/lib/hooks/use-professional-bulletins";
 
 /**
@@ -34,6 +36,7 @@ export default function HistoriqueBulletinsPage() {
   const [filiereId, setFiliereId] = useState("");
   const [periode, setPeriode] = useState("");
   const [search, setSearch] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const filieresQuery = useNotesFilieres();
   const historyQuery = useBulletinHistory(filiereId || null);
@@ -127,29 +130,61 @@ export default function HistoriqueBulletinsPage() {
 
   const ready = !!filiereId && !!periode && shownSemestres.length > 0;
 
+  /**
+   * Périmètre exporté : exactement le tableau affiché, recherche comprise.
+   * `bulletinOf` et `statutFiliereOf` sont les dérivations de l'écran — le
+   * document ne peut donc pas diverger de ce qui est sous les yeux.
+   */
+  const exportContexte = {
+    filiere: history?.filiere?.name ?? "—",
+    annee: periode,
+    semestres: shownSemestres.map((sm) => ({
+      id: sm.id,
+      libelle: sm.libelle,
+      statut: sm.statut,
+      clotureAt: sm.bulletins_clotures_at ?? null,
+    })),
+    recherche: search.trim() || undefined,
+    bulletinOf: (studentId: string, semestreId: string) =>
+      bulletinBy.get(`${studentId}|${semestreId}`) ?? null,
+    statutFiliereOf: (studentId: string) => filiereStatus(studentId),
+  };
+
   return (
     <div className="space-y-6 max-w-[1500px] mx-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4">
+      {/* Header — actions sous le titre, comme les autres écrans du module. */}
+      <div className="flex flex-col gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+            <History className="h-7 w-7 text-indigo-500" />
+            Historique des bulletins
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Tous les bulletins générés par filière et par session : les trois semestres de chaque
+            étudiant, avec le statut global de la filière.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
           <Link href="/professionnel/admin/bulletins">
-            <Button variant="outline" size="sm">
+            <Button variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Retour
             </Button>
           </Link>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-              <History className="h-7 w-7 text-indigo-500" />
-              Historique des bulletins
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Tous les bulletins générés par filière et par session : les trois semestres de chaque
-              étudiant, avec le statut global de la filière.
-            </p>
-          </div>
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={!ready || historyQuery.isLoading || filteredStudents.length === 0}
+            onExportPdf={(win) => openBulletinHistoriquePdf(filteredStudents, exportContexte, win)}
+            onError={setError}
+          />
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Filtres — filière puis année scolaire */}
       <Card className="shadow-sm">
@@ -266,14 +301,29 @@ export default function HistoriqueBulletinsPage() {
                       className="sticky top-0 z-20 bg-muted/60 px-4 py-3 text-center font-semibold border-r border-border whitespace-nowrap"
                     >
                       {sm.libelle}
+                      {/* La clôture est une décision d'archivage, « terminé » une
+                          dérivation de l'avancement : la décision prime. */}
                       <span
                         className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                          sm.statut === "terminee"
-                            ? "bg-slate-200 text-slate-600"
-                            : "bg-emerald-100 text-emerald-700"
+                          sm.bulletins_clotures_at
+                            ? "bg-indigo-100 text-indigo-700"
+                            : sm.statut === "terminee"
+                              ? "bg-slate-200 text-slate-600"
+                              : "bg-emerald-100 text-emerald-700"
                         }`}
+                        title={
+                          sm.bulletins_clotures_at
+                            ? `Bulletins clôturés le ${new Date(
+                                sm.bulletins_clotures_at
+                              ).toLocaleDateString("fr-FR")} — lecture seule.`
+                            : undefined
+                        }
                       >
-                        {sm.statut === "terminee" ? "terminé" : "en cours"}
+                        {sm.bulletins_clotures_at
+                          ? "clôturé"
+                          : sm.statut === "terminee"
+                            ? "terminé"
+                            : "en cours"}
                       </span>
                     </th>
                   ))}

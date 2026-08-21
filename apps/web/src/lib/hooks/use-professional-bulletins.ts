@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createApiHeaders } from "@/lib/api-utils";
 
 /**
@@ -78,6 +78,27 @@ export function useGenerateBulletins() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["professional-bulletin-roster"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-bulletin"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-bulletins-history"], exact: false });
+    },
+  });
+}
+
+/**
+ * Clôture les bulletins d'un semestre : il quitte la page « Bulletins &
+ * moyennes » pour l'historique, en lecture seule.
+ *
+ * À ne pas confondre avec `useCloturerSemestre`, qui clôture les NOTES en
+ * passant les cohortes d'UE en « terminé ». La liste des semestres est
+ * invalidée : le semestre disparaît du sélecteur de la page de travail.
+ */
+export function useCloturerBulletins() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (semestreId: string) =>
+      apiFetch(`${BASE}/semestres/${semestreId}/bulletins/cloturer`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["professional-semestres"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-bulletin-roster"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-bulletins-history"], exact: false });
     },
   });
@@ -195,6 +216,21 @@ export function useSessionGrid(ueSessionId: string | null) {
 }
 
 /**
+ * Grilles de PLUSIEURS cohortes en parallèle — pour les vues qui affichent
+ * toutes les UE d'un semestre côte à côte (historique des notes). Même clé de
+ * cache que `useSessionGrid` : les deux hooks se partagent les résultats.
+ */
+export function useSessionGrids(ueSessionIds: string[]) {
+  return useQueries({
+    queries: ueSessionIds.map((id) => ({
+      queryKey: ["professional-session-grid", id],
+      queryFn: () => apiFetch(`${BASE}/ue-sessions/${id}/grid`),
+      enabled: !!id,
+    })),
+  });
+}
+
+/**
  * Filières ayant au moins un rattrapage en attente. Distinct de
  * `useNotesFilieres` : ici on ne propose que des filières où il reste
  * effectivement quelque chose à repasser.
@@ -267,6 +303,29 @@ export function useRecomputeSession() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["professional-session-grid"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-bulletin-roster"], exact: false });
+    },
+  });
+}
+
+/**
+ * Clôture les notes d'un semestre : ses cohortes passent à « terminé », donc
+ * le semestre quitte l'écran de saisie pour l'historique.
+ *
+ * Les listes de filières et de semestres sont invalidées des deux portées
+ * (« actives » et « terminees ») : le semestre disparaît de l'une et apparaît
+ * dans l'autre.
+ */
+export function useCloturerSemestre() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (semestreId: string) =>
+      apiFetch(`${BASE}/semestres/${semestreId}/cloturer`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["professional-notes-filieres"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-notes-semestres"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-semestre-sessions"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-session-grid"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-ue-sessions"], exact: false });
     },
   });
 }

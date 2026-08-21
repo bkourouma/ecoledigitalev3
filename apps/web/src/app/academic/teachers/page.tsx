@@ -4,10 +4,11 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SessionProvider } from "next-auth/react";
 import { Card, CardContent, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ecoledigitale/ui";
-import { Users, Plus, Search, UserCheck, Loader2, AlertCircle, Eye, Edit, Trash2, FileSpreadsheet, X, Mail, Phone, Calendar, Award, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, Plus, Search, UserCheck, Loader2, AlertCircle, Eye, Edit, Trash2, FileText, FileType, X, Mail, Phone, Calendar, Award, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAllTeachers, useDeleteTeacher } from "@/lib/hooks/use-teachers";
 import { Teacher, ContractType, TeacherStatus } from "@ecoledigitale/contracts";
-import { exportTeachersToExcel, TeacherExportData } from "@/lib/utils/teacher-export";
+import { openTeachersPdf, downloadTeachersDocx } from "@/lib/utils/teacher-report";
+import { ouvrirOngletPdf, POPUP_BLOQUEE } from "@/lib/utils/report-pdf";
 
 /** Tailles de page proposées ; la première est la valeur par défaut. */
 const PAGE_SIZES = [10, 50, 100] as const;
@@ -15,7 +16,8 @@ const PAGE_SIZES = [10, 50, 100] as const;
 function TeachersPageContent() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingWord, setIsExportingWord] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
 
@@ -79,19 +81,38 @@ function TeachersPageContent() {
     }
   };
 
-  const handleExportToExcel = async () => {
-    setIsExporting(true);
+  const handleExportToPdf = async () => {
+    // L'onglet doit être ouvert dans le geste de clic : ouvert après la
+    // composition du document (asynchrone), il serait bloqué comme popup.
+    const win = ouvrirOngletPdf();
+    if (!win) {
+      // Popup bloquée : sans ce contrôle, le PDF serait composé pour rien et
+      // l'échec passerait inaperçu (aucune exception n'est levée ici).
+      alert(POPUP_BLOQUEE);
+      return;
+    }
+    setIsExportingPdf(true);
     try {
-      const exportData: TeacherExportData = {
-        teachers: filteredTeachers,
-        exportDate: new Date().toLocaleDateString('fr-FR'),
-        totalCount: filteredTeachers.length
-      };
-      await exportTeachersToExcel(exportData);
+      // Le PDF reprend la liste filtrée affichée, pas seulement la page courante.
+      await openTeachersPdf(filteredTeachers, win);
     } catch (error) {
-      console.error("Failed to export to Excel:", error);
+      console.error("Failed to export to PDF:", error);
+      alert("Erreur lors de la génération du PDF");
     } finally {
-      setIsExporting(false);
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportToWord = async () => {
+    setIsExportingWord(true);
+    try {
+      // Un .docx ne s'affiche pas dans le navigateur : il est téléchargé.
+      await downloadTeachersDocx(filteredTeachers);
+    } catch (error) {
+      console.error("Failed to export to Word:", error);
+      alert("Erreur lors de la génération du document Word");
+    } finally {
+      setIsExportingWord(false);
     }
   };
 
@@ -162,16 +183,29 @@ function TeachersPageContent() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={handleExportToExcel}
-            disabled={isExporting || filteredTeachers.length === 0}
-              className="bg-green-50 border-green-200 hover:bg-green-100 text-green-700 hover:text-green-800 shadow-sm"
+              onClick={handleExportToPdf}
+              disabled={isExportingPdf || filteredTeachers.length === 0}
+              className="bg-red-50 border-red-200 hover:bg-red-100 text-red-700 hover:text-red-800 shadow-sm"
             >
-              {isExporting ? (
+              {isExportingPdf ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                <FileText className="h-4 w-4 mr-2" />
               )}
-              Excel
+              PDF
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportToWord}
+              disabled={isExportingWord || filteredTeachers.length === 0}
+              className="bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700 hover:text-blue-800 shadow-sm"
+            >
+              {isExportingWord ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <FileType className="h-4 w-4 mr-2" />
+              )}
+              Word
             </Button>
           <Button
             onClick={() => router.push("/academic/teachers/new")}

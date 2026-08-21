@@ -18,6 +18,8 @@ import {
   Eye,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openPresencePdf } from "@/lib/utils/presence-report";
 import {
   useNotesFilieres,
   useNotesSemestres,
@@ -151,18 +153,45 @@ export default function AdminPresencesPage() {
     };
   }, [seances, students]);
 
+  /**
+   * Périmètre exporté : exactement ce que le tableau affiche, filtres compris.
+   * La colonne « Détails » n'a pas d'équivalent papier, elle n'est pas reprise.
+   */
+  const exportContexte = useMemo(
+    () => ({
+      filiere:
+        filieres.find((f) => f.id === filiereId)?.name ??
+        (filiereId ? filiereId : "Aucune filière sélectionnée"),
+      annee: annee === "all" ? "Toutes les années" : annee,
+      statut: STATUT_OPTIONS.find((o) => o.value === statut)?.label ?? statut,
+      semestre: semestreLabel ?? "Tous les semestres",
+      recherche: search.trim() || undefined,
+      stats,
+    }),
+    [filieres, filiereId, annee, statut, semestreLabel, search, stats]
+  );
+
   return (
     <div className="space-y-6 max-w-[1500px] mx-auto p-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-          <ClipboardCheck className="h-7 w-7 text-indigo-500" />
-          Présences
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Synthèse des appels effectués : heures d'absence par étudiant, calculées sur la durée
-          réelle des cours. « Détails » ouvre toutes les séances d'un étudiant.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+            <ClipboardCheck className="h-7 w-7 text-indigo-500" />
+            Présences
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Synthèse des appels effectués : heures d'absence par étudiant, calculées sur la durée
+            réelle des cours. « Détails » ouvre toutes les séances d'un étudiant.
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={historyQuery.isLoading || filteredStudents.length === 0}
+            onExportPdf={(win) => openPresencePdf(filteredStudents, exportContexte, win)}
+          />
+        </div>
       </div>
 
       {/* Filtres — deux en haut (filière, année), deux en bas (statut, semestre) */}

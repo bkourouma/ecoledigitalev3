@@ -53,6 +53,7 @@ export class ProfessionalSemestreService extends ProfessionalBaseService {
       const res = await client.query(
         `SELECT sm.id, sm.tenant_id, sm.filiere_id, sm.libelle,
                 sm.created_by, sm.created_at, sm.updated_at,
+                sm.bulletins_clotures_at,
                 p.name AS filiere_nom,
                 (SELECT count(*)::int FROM professional_semestre_ue su
                  WHERE su.semestre_id = sm.id AND su.tenant_id = sm.tenant_id) AS nb_ue,
@@ -445,6 +446,42 @@ export class ProfessionalSemestreService extends ProfessionalBaseService {
       }
 
       return ok({ sessions_created: sessionsCreated, semestres: semestresTouched.length });
+    });
+  }
+
+  /**
+   * Clôture les notes d'un semestre : toutes ses cohortes encore ouvertes
+   * passent à « terminé ».
+   *
+   * C'est ce qui fait basculer le semestre de l'écran de saisie
+   * (`/professionnel/admin/notes`, qui ne montre que les cohortes non
+   * terminées) vers l'historique, en lecture seule. Le périmètre est celui de
+   * `listSemestreSessions` — rattachement direct au semestre OU via l'UE — et
+   * inclut la Conduite, qui appartient elle aussi au semestre.
+   */
+  async cloturerSemestre(tenantId: string, id: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sem = await client.query(
+        `SELECT libelle FROM professional_semestres WHERE id = $1 AND tenant_id = $2`,
+        [id, tenantId]
+      );
+      if (sem.rowCount === 0) return fail("SEMESTRE_NOT_FOUND", "Semestre introuvable.");
+
+      const res = await client.query(
+        `UPDATE professional_ue_sessions s
+         SET statut = 'termine', updated_at = now()
+         WHERE s.tenant_id = $1
+           AND s.statut NOT IN ('termine', 'annule')
+           AND (
+             s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                      WHERE semestre_id = $2 AND tenant_id = $1)
+             OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                            WHERE semestre_id = $2 AND tenant_id = $1)
+           )
+         RETURNING s.id`,
+        [tenantId, id]
+      );
+      return ok({ id, libelle: sem.rows[0].libelle, cloturees: res.rowCount });
     });
   }
 

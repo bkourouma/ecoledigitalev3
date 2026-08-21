@@ -29,6 +29,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openDiplomeListePdf } from "@/lib/utils/diplome-report";
 import {
   useCycleGroups,
   useEnsureCycleDiploma,
@@ -159,6 +161,24 @@ export default function DiplomesPage() {
     return { total: candidates.length, eligible, obtenu, shown: filtered.length };
   }, [candidates, filtered]);
 
+  /** Périmètre exporté : le tableau tel qu'il est filtré à l'écran. */
+  const exportContexte = useMemo(
+    () => ({
+      grade: grade ? (GRADE_LABEL[grade] ?? grade) : "Tous les cycles",
+      cycle: selectedGroup?.libelle ?? "—",
+      annees: (selectedGroup?.filieres ?? []).map((f: any) => f.code).join(", "),
+      annee: annee || "Toutes les années",
+      statut:
+        statut === "eligibles"
+          ? "Éligibles uniquement"
+          : statut === "obtenus"
+            ? "Diplômés uniquement"
+            : "Tous les étudiants du cycle",
+      recherche: search.trim() || undefined,
+    }),
+    [grade, selectedGroup, annee, statut, search]
+  );
+
   /**
    * Génère le diplôme et l'ouvre dans un nouvel onglet du navigateur
    * (visionneuse PDF native : imprimer / télécharger). Onglet ouvert de façon
@@ -258,6 +278,18 @@ export default function DiplomesPage() {
           toutes les UE de chaque année (toutes ses attestations de réussite) — les 3 années de
           Licence ou les 2 de Master d'une même spécialité.
         </p>
+        {/* Export de la LISTE — le diplôme et son attestation d'authenticité,
+            eux, se génèrent ligne par ligne dans le tableau. */}
+        <div className="flex flex-wrap gap-2 mt-3">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={!diplomaId || candidatesQuery.isLoading || filtered.length === 0}
+            onExportPdf={(win) =>
+              openDiplomeListePdf(filtered, exportContexte, academicYearFromDate, win)
+            }
+            onError={setError}
+          />
+        </div>
       </div>
 
       {error && (

@@ -26,6 +26,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openAttestationListePdf } from "@/lib/utils/attestation-report";
 import { useNotesFilieres } from "@/lib/hooks/use-professional-bulletins";
 import {
   useAttestationRoster,
@@ -122,6 +124,21 @@ export default function AttestationsPage() {
 
   const diplomeLabel = roster?.filiere?.name ? intituleObtention(roster.filiere.name) : null;
 
+  /** Périmètre exporté : le tableau tel qu'il est filtré à l'écran. */
+  const exportContexte = useMemo(
+    () => ({
+      cycle: cycle ? (CYCLE_LABEL[cycle] ?? cycle) : "Tous les cycles",
+      filiere: roster?.filiere?.name ?? "—",
+      annee: annee || "Toutes les années",
+      statut: statut === "eligibles" ? "Éligibles uniquement" : "Tous les inscrits",
+      recherche: search.trim() || undefined,
+      ueRequises: ueRequises.length,
+      uvTotal: ueRequises.reduce((sum: number, u: any) => sum + Number(u.nb_uv ?? 0), 0),
+      diplome: diplomeLabel,
+    }),
+    [cycle, roster, annee, statut, search, ueRequises, diplomeLabel]
+  );
+
   /**
    * Génère l'attestation et l'ouvre directement dans un nouvel onglet du
    * navigateur (visionneuse PDF native : boutons imprimer / télécharger). On
@@ -177,6 +194,16 @@ export default function AttestationsPage() {
           L'attestation est délivrable dès que l'étudiant a validé toutes les UE des semestres de sa
           filière — les années antérieures restent consultables.
         </p>
+        {/* Export de la LISTE — l'attestation nominative, elle, se génère
+            ligne par ligne dans le tableau. */}
+        <div className="flex flex-wrap gap-2 mt-3">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={!filiereId || rosterQuery.isLoading || filtered.length === 0}
+            onExportPdf={(win) => openAttestationListePdf(filtered, exportContexte, win)}
+            onError={setGenError}
+          />
+        </div>
       </div>
 
       {genError && (

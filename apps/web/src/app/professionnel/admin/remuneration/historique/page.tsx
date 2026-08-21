@@ -32,6 +32,8 @@ import {
   type BulletinArchive,
 } from "@/lib/hooks/use-professional-remuneration";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openHistoriquePaiePdf } from "@/lib/utils/paie-report";
 
 /**
  * Historique des bulletins de paie archivés — feature 031.
@@ -310,19 +312,49 @@ function Contenu() {
     setPage(1);
   }
 
+  /** Périmètre de l'export : les filtres tels qu'ils sont posés à l'écran. */
+  const exportContexte = useMemo(() => {
+    const enseignant = enseignantId
+      ? (enseignants.find((e) => e.id === enseignantId)?.nom ?? undefined)
+      : undefined;
+    const periode = periodeActive
+      ? (periodeOptions.find((o) => o.value === periodeActive)?.label ?? undefined)
+      : undefined;
+    const annee = anneeActive || undefined;
+    return {
+      enseignant,
+      annee,
+      periode,
+      filtreLibelle:
+        [enseignant, annee, periode].filter(Boolean).join("  ·  ") || "Tous les bulletins archivés",
+    };
+  }, [enseignantId, enseignants, anneeActive, periodeActive, periodeOptions]);
+
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto p-6">
       {/* Plus de lien « Retour » : cet écran est une entrée de menu à part
           entière, pas une sous-page des bulletins. */}
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-          <History className="h-7 w-7 text-indigo-500" />
-          Historique des paiements
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Toutes les générations archivées, la plus récente en premier. Un bulletin n'apparaît ici
-          qu'une fois archivé depuis l'écran des bulletins.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+            <History className="h-7 w-7 text-indigo-500" />
+            Historique des paiements
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Toutes les générations archivées, la plus récente en premier. Un bulletin n'apparaît ici
+            qu'une fois archivé depuis l'écran des bulletins.
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          {/* Exporte le périmètre FILTRÉ, pas la page affichée : la pagination
+              est un confort de lecture, pas un critère de sélection. */}
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={query.isLoading || filtres.length === 0}
+            onError={(text) => setRetour({ kind: "warn", text })}
+            onExportPdf={(win) => openHistoriquePaiePdf(filtres, exportContexte, win)}
+          />
+        </div>
       </div>
 
       {/* Filtre */}

@@ -12,16 +12,20 @@ import {
   Trash2,
   Layers,
   GraduationCap,
+  Download,
   X,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportOptionsDialog } from "@/components/ExportOptionsDialog";
 import { useProgrammes } from "@/lib/hooks/use-programmes";
 import {
   useAllProfessionalUeList,
   useDeleteProfessionalUe,
 } from "@/lib/hooks/use-professional-catalog-admin";
+import { UE_EXPORT_CHOICES, UE_EXPORT_DEFAUT, openUeReportPdf } from "@/lib/utils/ue-report";
+import { ouvrirOngletPdf, POPUP_BLOQUEE } from "@/lib/utils/report-pdf";
 
 const PAGE_SIZE = 20;
 
@@ -53,6 +57,8 @@ export default function ProfessionalUeListPage() {
   const [filiereFilter, setFiliereFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [exportOuvert, setExportOuvert] = useState(false);
+  const [exportChoix, setExportChoix] = useState<Set<string>>(new Set(UE_EXPORT_DEFAUT));
 
   const programmesQuery = useProgrammes();
   const ueQuery = useAllProfessionalUeList();
@@ -94,6 +100,41 @@ export default function ProfessionalUeListPage() {
     setPage(1);
   }, [filiereFilter]);
 
+  /** Bascule une case de la boîte de dialogue d'export. */
+  function basculerChoix(key: string) {
+    setExportChoix((prev) => {
+      const suivant = new Set(prev);
+      if (suivant.has(key)) suivant.delete(key);
+      else suivant.add(key);
+      return suivant;
+    });
+  }
+
+  /** Le catalogue ne s'exporte qu'en PDF. */
+  async function handleExport() {
+    setError(null);
+    const options = {
+      choix: exportChoix,
+      filiereNom: filiereNameOf,
+      filtreLibelle:
+        filiereFilter === "all"
+          ? "Toutes les filières"
+          : `Filière : ${filiereNameOf(filiereFilter)}`,
+    };
+    try {
+      // L'onglet s'ouvre dans le geste de clic, sinon la popup est bloquée.
+      const win = ouvrirOngletPdf();
+      if (!win) {
+        setError(POPUP_BLOQUEE);
+        return;
+      }
+      await openUeReportPdf(filteredItems, options, win);
+      setExportOuvert(false);
+    } catch (err: any) {
+      setError(err?.message ?? "Erreur lors de l'export.");
+    }
+  }
+
   async function handleDelete(id: string) {
     setError(null);
     if (
@@ -123,14 +164,47 @@ export default function ProfessionalUeListPage() {
             Pôle administratif — prix, UV, sessions et composition en ECUE, par filière.
           </p>
         </div>
-        <Button
-          onClick={() => router.push("/professionnel/admin/ue/new")}
-          className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nouvelle UE
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setExportOuvert(true)}
+            disabled={ueQuery.isLoading || filteredItems.length === 0}
+            className="bg-emerald-50 border-emerald-200 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 shadow-sm"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exporter
+          </Button>
+          <Button
+            onClick={() => router.push("/professionnel/admin/ue/new")}
+            className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle UE
+          </Button>
+        </div>
       </div>
+
+      <ExportOptionsDialog
+        open={exportOuvert}
+        onClose={() => setExportOuvert(false)}
+        title="Exporter le catalogue des UE"
+        description={`${filteredItems.length} UE seront exportées en PDF. Choisissez les données à faire figurer dans le document : sa mise en page s'y adapte.`}
+        formats={["pdf"]}
+        groups={[
+          {
+            groupLabel: "Données de l'UE",
+            choices: [
+              { key: "_code", label: "Code et intitulé", hint: "Toujours inclus", locked: true },
+              ...UE_EXPORT_CHOICES.map((c) => ({ ...c })),
+            ],
+          },
+        ]}
+        selected={exportChoix}
+        onToggle={basculerChoix}
+        onExport={handleExport}
+        disabled={filteredItems.length === 0}
+        disabledReason="Aucune UE à exporter avec le filtre courant."
+      />
 
       {error && (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">

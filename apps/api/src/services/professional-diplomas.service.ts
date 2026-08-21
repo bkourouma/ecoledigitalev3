@@ -722,13 +722,16 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       const filiereIds = group ? group.filieres.map((f) => f.id) : [diploma.filiere_id];
       const res = await client.query(
         `SELECT DISTINCT sp.id AS student_id,
-                sp.student_matricule AS student_number,
+                COALESCE(psm.matricule, sp.student_number) AS student_number,
                 COALESCE(
                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
                   u.computed_name, u.name, sp.student_number, ''
                 ) AS nom_complet
          FROM student_profiles sp
          LEFT JOIN users u ON u.id = sp.user_id
+         LEFT JOIN professional_student_matricules psm
+                ON psm.student_id = sp.id AND psm.filiere_id = $3
+               AND psm.tenant_id = sp.tenant_id
          JOIN professional_enrollments e ON e.student_id = sp.id AND e.tenant_id = sp.tenant_id
          JOIN professional_ue_sessions sess ON sess.id = e.ue_session_id
          JOIN professional_ue ue ON ue.id = sess.ue_id
@@ -736,7 +739,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
            AND e.statut <> 'annulee'
            AND ue.filiere_id = ANY($2::uuid[])
          ORDER BY nom_complet ASC`,
-        [tenantId, filiereIds]
+        [tenantId, filiereIds, diploma.filiere_id]
       );
 
       const requirements = await this.loadRequirements(client, tenantId, diplomaId);

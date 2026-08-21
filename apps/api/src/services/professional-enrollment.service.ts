@@ -1179,6 +1179,10 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
                 p.name AS filiere_nom, p.code AS filiere_code,
                 e.student_id, COALESCE(psm.matricule, sp.student_number) AS matricule,
                 u.first_name, u.last_name, u.email,
+                -- Téléphone de l'étudiant (student_profiles) : les listes
+                -- d'émargement exportées le portent. Pas de repli sur
+                -- emergency_phone, qui est le numéro d'un proche.
+                sp.phone AS telephone,
                 o.reference AS order_reference, o.statut AS order_statut,
                 o.montant_total::float8 AS order_montant,
                 (SELECT COALESCE(sum(pm.montant),0)::float8 FROM professional_payments pm

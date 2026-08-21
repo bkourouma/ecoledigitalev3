@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   XCircle,
   Award,
+  Lock,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useProfessionalSemestres } from "@/lib/hooks/use-professional-semestres";
@@ -23,6 +24,7 @@ import {
   useBulletinRoster,
   useRecomputeBulletins,
   useGenerateBulletins,
+  useCloturerBulletins,
   fetchFullBulletins,
   fetchBulletin,
   fetchBulletinBts,
@@ -55,14 +57,18 @@ export default function BulletinsPage() {
   const rosterQuery = useBulletinRoster(semestreId || null);
   const recomputeMut = useRecomputeBulletins();
   const generateMut = useGenerateBulletins();
+  const cloturerMut = useCloturerBulletins();
 
   // Filières restreintes à celles ayant au moins un étudiant inscrit
   // (confirmé/terminé) dans une session — même source que la page Notes.
   const filieres: any[] = (filieresQuery.data as any[]) ?? [];
   const semestres: any[] = useMemo(() => {
     const list = (semestresQuery.data as any)?.data ?? (semestresQuery.data as any[]) ?? [];
-    // Uniquement les semestres ayant au moins une session créée.
-    return filiereId ? list.filter((s: any) => (s.nb_sessions ?? 0) > 0) : [];
+    // Semestres ayant au moins une session créée ET dont les bulletins ne sont
+    // pas clôturés : les clôturés sont passés à l'historique, en lecture seule.
+    return filiereId
+      ? list.filter((s: any) => (s.nb_sessions ?? 0) > 0 && !s.bulletins_clotures_at)
+      : [];
   }, [semestresQuery.data, filiereId]);
 
   const roster: any = rosterQuery.data ?? null;
@@ -108,6 +114,36 @@ export default function BulletinsPage() {
       );
     } catch (err: any) {
       setError(err?.message ?? "Erreur lors de la génération des bulletins.");
+    }
+  }
+
+  /**
+   * Clôture les bulletins du semestre : ils sont arrêtés et le semestre quitte
+   * cet écran pour l'Historique, en lecture seule. Geste irréversible depuis
+   * l'interface — d'où la confirmation.
+   */
+  async function handleCloturer() {
+    const libelle = semestres.find((s: any) => s.id === semestreId)?.libelle ?? "ce semestre";
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        `Clôturer les bulletins de « ${libelle} » ?
+
+` +
+          `Ils ne pourront plus être régénérés et le semestre basculera dans ` +
+          `l'Historique des bulletins, en lecture seule.`
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setGenInfo(null);
+    try {
+      await cloturerMut.mutateAsync(semestreId);
+      // Le semestre n'est plus dans cette liste : on repart d'une sélection vide.
+      setSemestreId("");
+    } catch (err: any) {
+      setError(err?.message ?? "Erreur lors de la clôture des bulletins.");
     }
   }
 
@@ -198,8 +234,8 @@ export default function BulletinsPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Header — actions sous le titre : à droite, cinq boutons écrasaient le titre. */}
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
             <FileSpreadsheet className="h-7 w-7 text-indigo-500" />
@@ -258,6 +294,28 @@ export default function BulletinsPage() {
               <FileSpreadsheet className="h-4 w-4 mr-2" />
             )}
             Générer les bulletins
+          </Button>
+          {/* Clôture : archive le semestre. L'API la refuse tant qu'aucun
+              bulletin n'est généré, le bouton le dit avant le clic. */}
+          <Button
+            variant="outline"
+            onClick={handleCloturer}
+            disabled={!semestreId || cloturerMut.isPending || nbSession2 > 0}
+            title={
+              !semestreId
+                ? "Sélectionnez une filière et un semestre"
+                : nbSession2 > 0
+                  ? `Clôture bloquée : ${nbSession2} étudiant(s) en attente de Session 2.`
+                  : "Clôturer les bulletins et basculer le semestre dans l'Historique"
+            }
+            className="bg-amber-50 border-amber-200 hover:bg-amber-100 text-amber-700 hover:text-amber-800"
+          >
+            {cloturerMut.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Lock className="h-4 w-4 mr-2" />
+            )}
+            Clôturer
           </Button>
         </div>
       </div>

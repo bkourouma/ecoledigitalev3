@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   History,
   RotateCcw,
+  Lock,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import {
@@ -30,6 +31,7 @@ import {
   useSessionGrid,
   useSemestreConduite,
   useRecomputeSession,
+  useCloturerSemestre,
   useUpsertManualNote,
   useDeleteManualNote,
 } from "@/lib/hooks/use-professional-bulletins";
@@ -68,6 +70,7 @@ export default function NotesPage() {
   const gridQuery = useSessionGrid(sessionId || null);
   const conduiteQuery = useSemestreConduite(isAdmin && semestreId ? semestreId : null);
   const recomputeMut = useRecomputeSession();
+  const cloturerMut = useCloturerSemestre();
 
   const filieres: any[] = (programmesQuery.data as any[]) ?? [];
   // Semestres de la filière, restreints par l'API aux seuls encore actifs : il
@@ -147,6 +150,35 @@ export default function NotesPage() {
   }
 
   /**
+   * Clôture des notes du semestre : ses cohortes passent à « terminé », donc
+   * le semestre quitte cet écran pour l'historique, en lecture seule. Geste
+   * irréversible depuis l'interface — d'où la confirmation.
+   */
+  async function handleCloturer() {
+    const semestre = visibleSemestres.find((s) => s.id === semestreId);
+    const libelle = semestre?.libelle ?? "ce semestre";
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        `Clôturer les notes de « ${libelle} » ?\n\n` +
+          `Ses ${sessions.length} UE passeront en « Terminé » : la saisie ne sera plus possible ` +
+          `et le semestre basculera dans l'Historique des notes.`
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await cloturerMut.mutateAsync(semestreId);
+      // Le semestre n'est plus dans cette liste : on repart d'une sélection vide.
+      setSemestreId("");
+      setSessionId("");
+    } catch (err: any) {
+      setError(err?.message ?? "Erreur lors de la clôture du semestre.");
+    }
+  }
+
+  /**
    * Étudiants affichés sans note de conduite : la conduite est saisie sur la
    * page « Conduite » et entre dans les moyennes du semestre.
    */
@@ -219,8 +251,8 @@ export default function NotesPage() {
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Header — actions sous le titre : à droite, cinq boutons écrasaient le titre. */}
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
             <GraduationCap className="h-7 w-7 text-indigo-500" />
@@ -231,7 +263,7 @@ export default function NotesPage() {
             reprises automatiquement.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/professionnel/admin/notes/rattrapages">
             <Button
               variant="outline"
@@ -255,6 +287,33 @@ export default function NotesPage() {
               </Button>
             </Link>
           )}
+          {/* Clôture du semestre : bascule ses UE en « Terminé », donc vers
+              l'Historique — où se fait l'export. */}
+          <Button
+            variant="outline"
+            onClick={handleCloturer}
+            disabled={
+              !semestreId ||
+              sessions.length === 0 ||
+              cloturerMut.isPending ||
+              missingConduite.length > 0
+            }
+            title={
+              !semestreId
+                ? "Choisissez une filière et un semestre"
+                : missingConduite.length > 0
+                  ? `Clôture bloquée : ${missingConduite.length} étudiant(s) sans note de conduite.`
+                  : "Clôturer les notes du semestre et le basculer dans l'Historique"
+            }
+            className="bg-amber-50 border-amber-200 hover:bg-amber-100 text-amber-700 hover:text-amber-800"
+          >
+            {cloturerMut.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Lock className="h-4 w-4 mr-2" />
+            )}
+            Clôturer le semestre
+          </Button>
           <Button
             onClick={handleRecompute}
             disabled={!sessionId || recomputeMut.isPending || missingConduite.length > 0}

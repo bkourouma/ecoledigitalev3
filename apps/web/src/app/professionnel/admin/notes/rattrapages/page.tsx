@@ -9,13 +9,14 @@ import {
   Loader2,
   RotateCcw,
   ArrowLeft,
-  History,
   Search,
   CheckCircle2,
   AlertTriangle,
   Users,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openRattrapagePdf } from "@/lib/utils/rattrapage-report";
 import {
   useRattrapageFilieres,
   useRattrapageSemestres,
@@ -140,6 +141,20 @@ export default function RattrapagesPage() {
 
   const nbEcues = groupes.reduce((n, g) => n + g.rows.length, 0);
 
+  /**
+   * Périmètre exporté : exactement ce que la liste affiche, recherche comprise.
+   * Les libellés viennent des sélecteurs, qui gardent le choix courant même
+   * lorsqu’il vient de sortir de la liste des filières / semestres concernés.
+   */
+  const exportContexte = useMemo(
+    () => ({
+      filiere: filiereLabel || filiereOptions.find((o) => o.value === filiereId)?.label || "—",
+      semestre: semestreLabel || semestreOptions.find((o) => o.value === semestreId)?.label || "—",
+      recherche: search.trim() || undefined,
+    }),
+    [filiereLabel, filiereOptions, filiereId, semestreLabel, semestreOptions, semestreId, search]
+  );
+
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto p-6">
       {/* En-tête */}
@@ -155,17 +170,17 @@ export default function RattrapagesPage() {
             disparaît de cette liste.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={rattrapagesQuery.isLoading || groupes.length === 0}
+            onExportPdf={(win) => openRattrapagePdf(groupes, exportContexte, win)}
+            onError={setError}
+          />
           <Link href="/professionnel/admin/notes">
             <Button variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Saisie des notes
-            </Button>
-          </Link>
-          <Link href="/professionnel/admin/notes/historique">
-            <Button variant="outline">
-              <History className="h-4 w-4 mr-2" />
-              Historique
             </Button>
           </Link>
         </div>

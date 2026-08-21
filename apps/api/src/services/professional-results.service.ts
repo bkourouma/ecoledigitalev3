@@ -750,13 +750,20 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
       }
       const conduite = cond.rows[0];
 
-      // Étudiants du semestre : inscrits (confirmés) de toutes les sessions du semestre.
+      // Étudiants du semestre : inscrits (confirmés) de toutes les sessions du
+      // semestre. Matricule de la FILIÈRE (« IPAM-L1GL-0027 ») quand il existe,
+      // comme dans la grille de notes et la liste des inscriptions.
       const students = await client.query(
         `SELECT DISTINCT en.student_id, u.first_name, u.last_name,
-                sp.student_number AS matricule
+                COALESCE(psm.matricule, sp.student_number) AS matricule
          FROM professional_enrollments en
          JOIN student_profiles sp ON sp.id = en.student_id
          JOIN users u ON u.id = sp.user_id
+         JOIN professional_ue_sessions ses ON ses.id = en.ue_session_id
+         JOIN professional_ue ue ON ue.id = ses.ue_id
+         LEFT JOIN professional_student_matricules psm
+                ON psm.student_id = en.student_id AND psm.filiere_id = ue.filiere_id
+               AND psm.tenant_id = en.tenant_id
          WHERE en.tenant_id = $1 AND en.statut IN ('confirmee','terminee')
            AND en.ue_session_id IN (
              SELECT s.id FROM professional_ue_sessions s
@@ -938,7 +945,7 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
     return this.withTenant(tenantId, async (client) => {
       const sess = await client.query(
         `SELECT s.id, s.ue_id, s.libelle AS session_libelle,
-                u.code AS ue_code, u.libelle AS ue_libelle
+                u.code AS ue_code, u.libelle AS ue_libelle, u.filiere_id
          FROM professional_ue_sessions s
          JOIN professional_ue u ON u.id = s.ue_id
          WHERE s.id=$1 AND s.tenant_id=$2`,
@@ -946,6 +953,7 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
       );
       if (sess.rowCount === 0) return fail("UE_SESSION_NOT_FOUND", "Cohorte introuvable.");
       const ueId = sess.rows[0].ue_id as string;
+      const filiereId = sess.rows[0].filiere_id as string;
 
       // Enseignant : limité aux ECUE qui lui sont affectées dans cette cohorte.
       const ecueParams: any[] = [ueId, tenantId];
@@ -966,16 +974,22 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
          ORDER BY l.ordre, e.code`,
         ecueParams
       );
+      // Matricule : celui de la FILIÈRE (« IPAM-L2GL-0014 ») quand il existe,
+      // et non le numéro d'étudiant générique — c'est le premier que portent
+      // les documents officiels. Même règle que la liste des inscriptions.
       const students = await client.query(
         `SELECT DISTINCT en.student_id, u.first_name, u.last_name,
-                sp.student_number AS matricule
+                COALESCE(psm.matricule, sp.student_number) AS matricule
          FROM professional_enrollments en
          JOIN student_profiles sp ON sp.id = en.student_id
          JOIN users u ON u.id = sp.user_id
+         LEFT JOIN professional_student_matricules psm
+                ON psm.student_id = en.student_id AND psm.filiere_id = $3
+               AND psm.tenant_id = en.tenant_id
          WHERE en.ue_session_id=$1 AND en.tenant_id=$2
            AND en.statut IN ('confirmee','terminee')
          ORDER BY u.last_name, u.first_name`,
-        [ueSessionId, tenantId]
+        [ueSessionId, tenantId, filiereId]
       );
       const resultsRows = await client.query(
         `SELECT r.id AS result_id, r.ecue_id, r.student_id,
@@ -1040,6 +1054,9 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
    * ne sont pas des rattrapages : l'étudiant n'a simplement pas encore été
    * noté en Session 1.
    *
+   * Matricule : celui de la FILIÈRE (« IPAM-L1GL-0027 ») quand il existe, et
+   * non le numéro d'étudiant générique — même règle que la grille de notes.
+   *
    * Enseignant (`teacherUserId`) : limité aux ECUE qui lui sont affectées.
    */
   async listSemestreRattrapages(
@@ -1062,12 +1079,16 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
                 r.moyenne::float8 AS moyenne,
                 r.moyenne_devoirs::float8 AS moyenne_devoirs,
                 r.note_examen::float8 AS note_examen, r.eliminee,
-                usr.first_name, usr.last_name, sp.student_number AS matricule,
+                usr.first_name, usr.last_name,
+                COALESCE(psm.matricule, sp.student_number) AS matricule,
                 n1.note::float8 AS note_examen_s1,
                 n2.id AS note_s2_id, n2.note::float8 AS note_examen_s2
          ${RATTRAPAGE_FROM}
          JOIN student_profiles sp ON sp.id = r.student_id
          JOIN users usr ON usr.id = sp.user_id
+         LEFT JOIN professional_student_matricules psm
+                ON psm.student_id = r.student_id AND psm.filiere_id = u.filiere_id
+               AND psm.tenant_id = r.tenant_id
          LEFT JOIN professional_ecue_notes n1
            ON n1.tenant_id = r.tenant_id AND n1.ecue_id = r.ecue_id
           AND n1.student_id = r.student_id AND n1.ue_session_id = s.id

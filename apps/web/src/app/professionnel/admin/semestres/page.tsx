@@ -18,7 +18,12 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
 import { useProgrammes } from "@/lib/hooks/use-programmes";
+import {
+  downloadSemestreReportDocx,
+  openSemestreReportPdf,
+} from "@/lib/utils/semestre-report";
 import {
   useProfessionalSemestres,
   useDeleteProfessionalSemestre,
@@ -64,6 +69,17 @@ export default function ProfessionalSemestresListPage() {
     setPage(1);
   }, [filiereFilter]);
 
+  /** Le document rappelle en sous-titre le filtre sous lequel il a été édité. */
+  const exportOptions = useMemo(() => {
+    const filiere = filieres.find((f) => f.id === filiereFilter);
+    return {
+      filtreLibelle:
+        filiereFilter === "all" || !filiere
+          ? "Toutes les filières"
+          : `Filière : ${filiere.name}${filiere.code ? ` (${filiere.code})` : ""}`,
+    };
+  }, [filiereFilter, filieres]);
+
   async function handleDelete(id: string) {
     setError(null);
     if (
@@ -93,13 +109,21 @@ export default function ProfessionalSemestresListPage() {
             Composez les semestres d'une filière avec ses UE. Les sessions se créent ensuite.
           </p>
         </div>
-        <Button
-          onClick={() => router.push("/professionnel/admin/semestres/new")}
-          className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nouveau semestre
-        </Button>
+        <div className="flex gap-2">
+          <ExportButtons
+            disabled={semestresQuery.isLoading || semestres.length === 0}
+            onError={setError}
+            onExportPdf={(win) => openSemestreReportPdf(semestres, exportOptions, win)}
+            onExportWord={() => downloadSemestreReportDocx(semestres, exportOptions)}
+          />
+          <Button
+            onClick={() => router.push("/professionnel/admin/semestres/new")}
+            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nouveau semestre
+          </Button>
+        </div>
       </div>
 
       {error && (

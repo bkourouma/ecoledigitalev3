@@ -12,6 +12,7 @@ import {
   Trash2,
   Calendar,
   BookOpen,
+  FileText,
   X,
   ChevronLeft,
   ChevronRight,
@@ -21,6 +22,8 @@ import {
   useDeleteProfessionalUeSession,
 } from "@/lib/hooks/use-professional-catalog-admin";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { openSessionReportPdf } from "@/lib/utils/session-report";
+import { ouvrirOngletPdf, POPUP_BLOQUEE } from "@/lib/utils/report-pdf";
 
 const PAGE_SIZE = 12;
 
@@ -76,6 +79,8 @@ export default function ProfessionalSessionsListPage() {
   const [tab, setTab] = useState<"actives" | "historique">("actives");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  /** Clé « <lot>:<format> » de l'export en cours, pour n'animer que ce bouton. */
+  const [exportEnCours, setExportEnCours] = useState<string | null>(null);
 
   const sessionsQuery = useProfessionalUeSessionsList({ pageSize: 500 });
   const deleteMut = useDeleteProfessionalUeSession();
@@ -197,6 +202,30 @@ export default function ProfessionalSessionsListPage() {
       setAnneeFilter("all");
     }
   }, [anneeOptions, anneeFilter]);
+
+  /**
+   * Export PDF d'UNE session (le lot affiché sur la carte) : sa fiche et la
+   * liste des étudiants inscrits, UE par UE. Volontairement pas d'export
+   * global — une liste de tous les inscrits de toutes les sessions n'est pas
+   * exploitable.
+   */
+  async function handleExportSession(g: any) {
+    setError(null);
+    // L'onglet s'ouvre dans le geste de clic, sinon la popup est bloquée.
+    const win = ouvrirOngletPdf();
+    if (!win) {
+      setError(POPUP_BLOQUEE);
+      return;
+    }
+    setExportEnCours(g.key);
+    try {
+      await openSessionReportPdf(g, win);
+    } catch (err: any) {
+      setError(err?.message ?? "Erreur lors de l'export de la session.");
+    } finally {
+      setExportEnCours(null);
+    }
+  }
 
   // Suppression de tout un lot (toutes les sessions d'UE du semestre).
   async function handleDeleteBatch(g: any) {
@@ -471,6 +500,22 @@ export default function ProfessionalSessionsListPage() {
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Trash2 className="w-4 h-4" />
+                      )}
+                    </Button>
+
+                    {/* Export de CETTE session : fiche du lot + inscrits par UE. */}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30 transition-all duration-200 p-2"
+                      onClick={() => handleExportSession(g)}
+                      disabled={exportEnCours !== null}
+                      title="Exporter cette session en PDF"
+                    >
+                      {exportEnCours === g.key ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FileText className="w-4 h-4" />
                       )}
                     </Button>
                   </div>

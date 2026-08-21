@@ -37,13 +37,13 @@ import type { ProfessionalUeSessionStatut } from "@ecoledigitale/contracts";
 
 const LIST_URL = "/professionnel/admin/sessions";
 const NONE = "none";
-const STATUTS: ProfessionalUeSessionStatut[] = [
-  "brouillon",
-  "ouvert",
-  "en_cours",
-  "termine",
-  "annule",
-];
+/**
+ * Statuts proposés à la main. Une cohorte est ouverte, puis terminée : l'état
+ * intermédiaire « En cours » n'est plus offert. Il reste affiché (voir
+ * `STATUT_LABEL`) pour les cohortes qui le portent encore, et se clôture en
+ * choisissant « Terminé ».
+ */
+const STATUTS: ProfessionalUeSessionStatut[] = ["brouillon", "ouvert", "termine", "annule"];
 
 /** Libellés accentués des statuts de session. */
 const STATUT_LABEL: Record<string, string> = {

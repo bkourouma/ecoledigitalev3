@@ -726,6 +726,18 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  // Clôture des notes d'un semestre : ses cohortes passent à « terminé » et le
+  // semestre bascule de l'écran de saisie vers l'historique.
+  fastify.post(
+    "/semestres/:id/cloturer",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await semestre.cloturerSemestre(request.tenantId as string, id);
+      return sendResult(reply, result);
+    })
+  );
+
   fastify.delete(
     "/semestres/:id",
     { preHandler: requireAdmin },
@@ -1558,6 +1570,23 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     handler(async (request, reply) => {
       const { id } = request.params as { id: string };
       const result = await bulletin.generateBulletins(request.tenantId as string, id);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Clôture des bulletins du semestre : il quitte la page de travail pour
+  // l'historique, en lecture seule. Distincte de /semestres/:id/cloturer, qui
+  // clôture les NOTES en passant les cohortes d'UE en « terminé ».
+  fastify.post(
+    "/semestres/:id/bulletins/cloturer",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await bulletin.cloturerBulletins(
+        request.tenantId as string,
+        id,
+        currentUserId(request) || undefined
+      );
       return sendResult(reply, result);
     })
   );

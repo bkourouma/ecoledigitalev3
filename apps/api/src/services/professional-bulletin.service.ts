@@ -972,6 +972,13 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     return this.withTenant(tenantId, async (client) => {
       const sem = await this.loadSemestre(client, tenantId, semestreId);
       if (!sem) return fail("SEMESTRE_NOT_FOUND", "Semestre introuvable.");
+      // Clôturé = archivé : regénérer réécrirait des documents déjà arrêtés.
+      if (sem.bulletins_clotures_at) {
+        return fail(
+          "BULLETINS_CLOTURES",
+          "Les bulletins de ce semestre sont clôturés : ils ne peuvent plus être régénérés."
+        );
+      }
 
       const students = await client.query(
         `SELECT DISTINCT en.student_id, u.first_name, u.last_name, sp.student_number AS matricule
@@ -1113,7 +1120,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
 
       // Semestres + agrégat de leurs sessions d'UE (2 chemins de liaison).
       const sems = await client.query(
-        `SELECT sm.id, sm.libelle,
+        `SELECT sm.id, sm.libelle, sm.bulletins_clotures_at,
                 min(s.date_debut)::text AS date_debut,
                 max(s.date_fin)::text AS date_fin,
                 count(DISTINCT s.id)::int AS nb_sessions,
@@ -1134,7 +1141,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
          LEFT JOIN professional_bulletins b
            ON b.semestre_id = sm.id AND b.tenant_id = sm.tenant_id
          WHERE sm.tenant_id = $1 AND sm.filiere_id = $2
-         GROUP BY sm.id, sm.libelle
+         GROUP BY sm.id, sm.libelle, sm.bulletins_clotures_at
          ORDER BY sm.libelle`,
         [tenantId, filiereId]
       );
@@ -1160,6 +1167,7 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
           date_fin: r.date_fin,
           statut,
           annee_scolaire: annee,
+          bulletins_clotures_at: r.bulletins_clotures_at,
         };
       });
 
@@ -1269,13 +1277,76 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
     return higher + 1;
   }
 
+  /**
+   * Clôture les bulletins d'un semestre : ils sont arrêtés, le semestre quitte
+   * la page de travail « Bulletins & moyennes » pour l'historique, où il est en
+   * lecture seule. `generateBulletins` le refuse ensuite.
+   *
+   * À NE PAS CONFONDRE avec la clôture des NOTES
+   * (`professional-semestre.service.ts` → `cloturerSemestre`), qui passe les
+   * cohortes d'UE en « terminé ». Les deux gestes sont indépendants et dans cet
+   * ordre : clôturer les notes, générer les bulletins, clôturer les bulletins.
+   *
+   * Refus si aucun bulletin n'a été généré : clôturer un semestre vide
+   * l'archiverait sans document, donc sans rien à consulter dans l'historique.
+   *
+   * Idempotent : un semestre déjà clôturé n'est pas re-daté.
+   */
+  async cloturerBulletins(
+    tenantId: string,
+    semestreId: string,
+    userId?: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sem = await this.loadSemestre(client, tenantId, semestreId);
+      if (!sem) return fail("SEMESTRE_NOT_FOUND", "Semestre introuvable.");
+      if (sem.bulletins_clotures_at) {
+        return ok({
+          id: semestreId,
+          libelle: sem.libelle,
+          bulletins_clotures_at: sem.bulletins_clotures_at,
+          deja_cloture: true,
+        });
+      }
+
+      const nb = await client.query(
+        `SELECT count(*)::int AS n FROM professional_bulletins
+         WHERE tenant_id = $1 AND semestre_id = $2`,
+        [tenantId, semestreId]
+      );
+      if (Number(nb.rows[0].n) === 0) {
+        return fail(
+          "AUCUN_BULLETIN",
+          "Aucun bulletin généré pour ce semestre : générez-les avant de clôturer."
+        );
+      }
+
+      const res = await client.query(
+        `UPDATE professional_semestres
+         SET bulletins_clotures_at = now(),
+             bulletins_clotures_par = $3,
+             updated_at = now()
+         WHERE id = $2 AND tenant_id = $1 AND bulletins_clotures_at IS NULL
+         RETURNING bulletins_clotures_at`,
+        [tenantId, semestreId, userId ?? null]
+      );
+      return ok({
+        id: semestreId,
+        libelle: sem.libelle,
+        bulletins: Number(nb.rows[0].n),
+        bulletins_clotures_at: res.rows[0]?.bulletins_clotures_at ?? null,
+        deja_cloture: false,
+      });
+    });
+  }
+
   private async loadSemestre(
     client: PoolClient,
     tenantId: string,
     semestreId: string
   ): Promise<any | null> {
     const r = await client.query(
-      `SELECT sm.id, sm.libelle, sm.filiere_id,
+      `SELECT sm.id, sm.libelle, sm.filiere_id, sm.bulletins_clotures_at,
               p.name AS filiere_nom, p.code AS filiere_code, p.domaine AS filiere_domaine
        FROM professional_semestres sm
        LEFT JOIN programmes p ON p.id = sm.filiere_id

@@ -19,6 +19,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { createApiHeaders } from "@/lib/api-utils";
+import { texteImprimable } from "@/lib/utils/report-doc";
 import { loadHeaderImages, kv, type HeaderImages } from "@/lib/bulletin-pdf";
 import {
   INSTITUT,
@@ -76,11 +77,20 @@ export interface PayslipData {
 
 /* ------------------------------ Formatage ------------------------------- */
 
+/**
+ * `Intl.NumberFormat("fr-FR")` sépare les milliers par une espace insécable
+ * étroite (U+202F), que les polices standard de jsPDF n'encodent pas : le
+ * glyphe sort faux et le montant ne peut plus être coupé en fin de ligne.
+ * `texteImprimable` la ramène à une espace ordinaire — même correctif que
+ * `receipt-pdf.ts`.
+ */
 const nombre = (v: number, decimales = 0): string =>
-  new Intl.NumberFormat("fr-FR", {
-    minimumFractionDigits: decimales,
-    maximumFractionDigits: decimales,
-  }).format(v || 0);
+  texteImprimable(
+    new Intl.NumberFormat("fr-FR", {
+      minimumFractionDigits: decimales,
+      maximumFractionDigits: decimales,
+    }).format(v || 0)
+  );
 
 const montant = (v: number, devise: string): string =>
   `${nombre(Math.round(v || 0))} ${devise}`;

@@ -55,12 +55,22 @@ describe("isValidUeSessionTransition (machine à états)", () => {
     expect(isValidUeSessionTransition("brouillon", "ouvert")).toBe(true);
   });
 
-  it("autorise ouvert → en_cours", () => {
-    expect(isValidUeSessionTransition("ouvert", "en_cours")).toBe(true);
+  it("autorise ouvert → termine : une cohorte ouverte se clôture directement", () => {
+    expect(isValidUeSessionTransition("ouvert", "termine")).toBe(true);
   });
 
-  it("autorise en_cours → termine", () => {
+  it("autorise complet → termine", () => {
+    expect(isValidUeSessionTransition("complet", "termine")).toBe(true);
+  });
+
+  it("ne propose plus 'en_cours' comme cible : l'étape a été retirée du parcours", () => {
+    expect(isValidUeSessionTransition("ouvert", "en_cours")).toBe(false);
+    expect(isValidUeSessionTransition("complet", "en_cours")).toBe(false);
+  });
+
+  it("laisse clôturer les cohortes restées 'en_cours' en base", () => {
     expect(isValidUeSessionTransition("en_cours", "termine")).toBe(true);
+    expect(isValidUeSessionTransition("en_cours", "annule")).toBe(true);
   });
 
   it("autorise l'annulation depuis ouvert", () => {

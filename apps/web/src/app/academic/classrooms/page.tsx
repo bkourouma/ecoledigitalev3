@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Inpu
 import { Building, Plus, Loader2, AlertCircle, Edit, Trash2, Search, X } from "lucide-react";
 import { useClassrooms, useDeleteClassroom } from "@/lib/hooks/use-classrooms";
 import { Classroom, ClassroomType, ClassroomStatus } from "@ecoledigitale/contracts";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openClassroomsPdf } from "@/lib/utils/classroom-report";
 
 export default function ClassroomsPage() {
   const router = useRouter();
@@ -28,6 +30,12 @@ export default function ClassroomsPage() {
         (classroom.building && classroom.building.toLowerCase().includes(searchQuery.toLowerCase()));
     });
   }, [classrooms, searchQuery]);
+
+  /** Le document rappelle en sous-titre la recherche sous laquelle il est édité. */
+  const exportOptions = useMemo(
+    () => ({ filtreLibelle: searchQuery ? `Recherche : « ${searchQuery} »` : undefined }),
+    [searchQuery]
+  );
 
   const handleCreateNew = () => {
     router.push("/academic/classrooms/new");
@@ -100,13 +108,20 @@ export default function ClassroomsPage() {
             Gérez les salles de classe et leurs réservations
             </p>
           </div>
-            <Button
-          onClick={handleCreateNew}
-          className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-          Nouvelle salle
-            </Button>
+        <div className="flex gap-2">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={isLoading || filteredClassrooms.length === 0}
+            onExportPdf={(win) => openClassroomsPdf(filteredClassrooms, exportOptions, win)}
+          />
+          <Button
+            onClick={handleCreateNew}
+            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle salle
+          </Button>
+        </div>
       </div>
 
       {/* Quick Stats */}

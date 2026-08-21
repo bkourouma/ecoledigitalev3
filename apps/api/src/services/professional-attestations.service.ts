@@ -67,12 +67,15 @@ export class ProfessionalAttestationsService extends ProfessionalBaseService {
                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
                   u.computed_name, u.name, sp.student_number, ''
                 ) AS nom_complet,
-                sp.student_matricule AS matricule
+                COALESCE(psm.matricule, sp.student_number) AS matricule
          FROM professional_enrollments en
          JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
          JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
          JOIN student_profiles sp ON sp.id = en.student_id
          LEFT JOIN users u ON u.id = sp.user_id
+         LEFT JOIN professional_student_matricules psm
+                ON psm.student_id = en.student_id AND psm.filiere_id = $2
+               AND psm.tenant_id = en.tenant_id
          WHERE en.tenant_id = $1 AND en.statut IN ('confirmee','terminee') AND ue.filiere_id = $2
          ORDER BY nom_complet ASC`,
         [tenantId, filiereId]
@@ -131,11 +134,14 @@ export class ProfessionalAttestationsService extends ProfessionalBaseService {
                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
                   u.computed_name, u.name, sp.student_number, ''
                 ) AS nom_complet,
-                sp.student_matricule AS matricule
+                COALESCE(psm.matricule, sp.student_number) AS matricule
          FROM student_profiles sp
          LEFT JOIN users u ON u.id = sp.user_id
+         LEFT JOIN professional_student_matricules psm
+                ON psm.student_id = sp.id AND psm.filiere_id = $3
+               AND psm.tenant_id = sp.tenant_id
          WHERE sp.id = $2 AND sp.tenant_id = $1`,
-        [tenantId, studentId]
+        [tenantId, studentId, filiereId]
       );
       if (studentRes.rowCount === 0) return fail("STUDENT_NOT_FOUND", "Étudiant introuvable.");
       const student = studentRes.rows[0] as {

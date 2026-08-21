@@ -26,14 +26,19 @@ import { basculerSeanceRealisee } from "./professional-seance-constat";
 /**
  * Transitions MANUELLES de statut de cohorte. `complet` n'est jamais une cible
  * manuelle (piloté par la capacité, géré à l'inscription).
+ *
+ * Une cohorte vit ouverte puis, une fois achevée, passe à `termine` : l'étape
+ * intermédiaire `en_cours` n'est plus proposée. Elle reste dans l'énumération
+ * — des cohortes l'ont encore en base — et conserve sa sortie vers `termine`
+ * pour qu'on puisse les clôturer.
  */
 export const UE_SESSION_STATUS_TRANSITIONS: Record<
   ProfessionalUeSessionStatut,
   ProfessionalUeSessionStatut[]
 > = {
   brouillon: ["ouvert", "annule"],
-  ouvert: ["brouillon", "en_cours", "annule"],
-  complet: ["ouvert", "en_cours", "annule"],
+  ouvert: ["brouillon", "termine", "annule"],
+  complet: ["ouvert", "termine", "annule"],
   en_cours: ["termine", "annule"],
   termine: [],
   annule: [],

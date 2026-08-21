@@ -18,6 +18,8 @@ import {
   useSemestresWithEmploiTemps,
 } from "@/lib/hooks/use-professional-emploi-temps";
 import { downloadEmploiTempsDocx } from "@/lib/emploi-temps-docx";
+import { openEmploiTempsPdf } from "@/lib/emploi-temps-pdf";
+import { ouvrirOngletPdf, POPUP_BLOQUEE } from "@/lib/utils/report-pdf";
 
 /**
  * Consultation des emplois du temps — Module Professionnel.
@@ -96,6 +98,22 @@ export default function ConsultationEmploiTempsPage() {
     if (semestreId && !visibleSemestres.some((s) => s.id === semestreId)) setSemestreId("");
   }, [visibleSemestres, semestreId]);
 
+  /** Même grille que l'export Word, ouverte dans la visionneuse PDF. */
+  async function exporterPdf() {
+    if (!et) return;
+    // L'onglet s'ouvre dans le geste de clic, sinon la popup est bloquée.
+    const win = ouvrirOngletPdf();
+    if (!win) {
+      alert(POPUP_BLOQUEE);
+      return;
+    }
+    try {
+      await openEmploiTempsPdf(et, win);
+    } catch (err: any) {
+      alert(err?.message ?? "Erreur lors de l'export PDF.");
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-6">
       {/* Header */}
@@ -116,6 +134,14 @@ export default function ConsultationEmploiTempsPage() {
           >
             <Pencil className="h-4 w-4 mr-2" />
             Créer / modifier
+          </Button>
+          <Button
+            onClick={exporterPdf}
+            disabled={!et || slots.length === 0}
+            className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white"
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            Exporter en PDF
           </Button>
           <Button
             onClick={() => et && downloadEmploiTempsDocx(et)}

@@ -412,11 +412,15 @@ export function useEnseignantsPaie() {
     heures_validees: number;
     seances_validees: number;
     /**
-     * TOUS les bulletins encore au plan de travail, et le sort que l'archivage
-     * leur réserve. Compté côté serveur : les cartes n'en montrent qu'un par
-     * enseignant, s'y fier sous-estimait le reste à classer.
+     * TOUS les bulletins encore au plan de travail. Compté côté serveur : les
+     * cartes n'en montrent qu'un par enseignant, s'y fier sous-estimait le
+     * reste à classer.
+     *
+     * Pas de répartition payés / impayés : l'archivage n'arrête que le montant,
+     * c'est le constat de versement qui solde. Le type l'annonçait encore et
+     * l'API ne l'envoie plus — d'où des « undefined » à l'affichage.
      */
-    en_attente: { total: number; payes: number; impayes: number };
+    en_attente: { total: number };
     /** Période qui pilote l'écran.  = aucune ouverte. */
     periode_courante: {
       id: string;
@@ -498,6 +502,70 @@ export function useCreerPeriodePaie() {
       }
       return json?.data ?? json;
     },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prof-remuneration", "bulletins"] });
+      qc.invalidateQueries({ queryKey: ["payment-periods"] });
+    },
+  });
+}
+
+/**
+ * Appel aux routes `/payment-periods`, qui vivent hors du préfixe
+ * `professional/remuneration` : `apiFetch` ne convient donc pas, on reprend le
+ * même traitement d'erreur que la création — remonter le message du serveur,
+ * jamais un « erreur 409 » qui n'apprend rien.
+ */
+async function periodeFetch(url: string, init: RequestInit): Promise<any> {
+  const headers: Record<string, string> = { ...createApiHeaders() };
+  /* PAS DE Content-Type SANS CORPS. Fastify refuse en 400 — « Body cannot be
+     empty when content-type is set to 'application/json' » — une requête qui
+     annonce du JSON sans en envoyer. C'est le cas du DELETE. `apiFetch`, plus
+     haut dans ce fichier, applique déjà la même précaution. */
+  if (init.body == null) {
+    delete headers["Content-Type"];
+    delete headers["content-type"];
+  } else {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(url, { ...init, headers });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.message || json?.error || `Erreur HTTP ${res.status}`);
+  return json?.data ?? json;
+}
+
+/**
+ * Modifie une période NON ENCORE CALCULÉE : nom et bornes.
+ *
+ * Les dates conditionnent les heures collectées. Les changer après le calcul
+ * laisserait des bulletins fondés sur un intervalle qui n'existe plus — d'où
+ * l'usage réservé à la période en attente, seule que l'écran propose de
+ * modifier.
+ */
+export function useModifierPeriodePaie() {
+  const qc = useQueryClient();
+  return useMutation<any, Error, { id: string } & CreerPeriodeInput>({
+    mutationFn: ({ id, ...payload }) =>
+      periodeFetch(`/api/v1/payment-periods/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prof-remuneration", "bulletins"] });
+      qc.invalidateQueries({ queryKey: ["payment-periods"] });
+    },
+  });
+}
+
+/**
+ * Supprime une période en attente. Sans `cascade` : le serveur refuse dès
+ * qu'un bulletin s'y rattache, et c'est voulu — supprimer une période calculée
+ * emporterait ses bulletins, ce qui ne doit pas tenir dans un clic.
+ */
+export function useSupprimerPeriodePaie() {
+  const qc = useQueryClient();
+  return useMutation<any, Error, string>({
+    mutationFn: (id) => periodeFetch(`/api/v1/payment-periods/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["prof-remuneration", "bulletins"] });
       qc.invalidateQueries({ queryKey: ["payment-periods"] });

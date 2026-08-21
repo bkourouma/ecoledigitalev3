@@ -10,6 +10,7 @@ import {
   CalendarClock,
   CalendarPlus,
   Calculator,
+  Check,
   CheckCircle2,
   Clock,
   Info,
@@ -17,7 +18,9 @@ import {
   Lock,
   Mail,
   Plus,
+  Pencil,
   ScrollText,
+  Trash2,
   UserRound,
   Users,
 } from "lucide-react";
@@ -25,6 +28,8 @@ import {
   useArchiverBulletins,
   useCalculerPeriode,
   useCreerPeriodePaie,
+  useModifierPeriodePaie,
+  useSupprimerPeriodePaie,
   useEnseignantsPaie,
   usePeriodeEnAttente,
   type EnseignantPaie,
@@ -480,6 +485,70 @@ function CreationPeriode({
   const enAttente = enAttenteQuery.data?.periode ?? null;
   const bloque = Boolean(enAttente);
 
+  /* Édition et suppression de la période EN ATTENTE, depuis son bandeau.
+     Une période calculée n'est pas modifiable ici : ses bornes ont déjà servi
+     à collecter des heures, les changer laisserait des bulletins fondés sur un
+     intervalle qui n'existe plus. Le bandeau ne s'affichant que sur une période
+     en attente, la garde est structurelle. */
+  const modifier = useModifierPeriodePaie();
+  const supprimer = useSupprimerPeriodePaie();
+  const [edition, setEdition] = useState(false);
+  const [suppression, setSuppression] = useState(false);
+  const [editNom, setEditNom] = useState("");
+  const [editDebut, setEditDebut] = useState("");
+  const [editFin, setEditFin] = useState("");
+
+  const ouvrirEdition = () => {
+    if (!enAttente) return;
+    setRetour(null);
+    setEditNom(enAttente.nom);
+    setEditDebut(enAttente.periode_debut.slice(0, 10));
+    setEditFin(enAttente.periode_fin.slice(0, 10));
+    setEdition(true);
+  };
+
+  const enregistrerEdition = async () => {
+    if (!enAttente) return;
+    setRetour(null);
+    if (!editNom.trim()) {
+      setRetour({ kind: "warn", text: "Le nom de la période est requis." });
+      return;
+    }
+    if (!editDebut || !editFin) {
+      setRetour({ kind: "warn", text: "Les dates de début et de fin sont requises." });
+      return;
+    }
+    if (editDebut > editFin) {
+      setRetour({ kind: "warn", text: "La date de début doit précéder la date de fin." });
+      return;
+    }
+    try {
+      await modifier.mutateAsync({
+        id: enAttente.id,
+        name: editNom.trim(),
+        periodStart: editDebut,
+        periodEnd: editFin,
+      });
+      setEdition(false);
+      setRetour({ kind: "ok", text: "Période modifiée." });
+    } catch (error) {
+      setRetour({ kind: "warn", text: (error as Error).message });
+    }
+  };
+
+  const lancerSuppression = async () => {
+    if (!enAttente) return;
+    setSuppression(false);
+    setRetour(null);
+    try {
+      await supprimer.mutateAsync(enAttente.id);
+      setEdition(false);
+      setRetour({ kind: "ok", text: "Période supprimée. Vous pouvez en ouvrir une autre." });
+    } catch (error) {
+      setRetour({ kind: "warn", text: (error as Error).message });
+    }
+  };
+
   const champ =
     "rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed";
 
@@ -559,6 +628,84 @@ function CreationPeriode({
               , du {fmtDate(enAttente.periode_debut)} au {fmtDate(enAttente.periode_fin)}. Aucune
               autre période ne peut être ouverte tant que celle-ci n'a pas servi au calcul.
             </p>
+            {/* Corriger avant de calculer. Une faute de nom ou de bornes ne se
+                rattrape plus une fois les bulletins générés : les heures
+                auront été collectées sur le mauvais intervalle. C'est donc ici,
+                tant que rien n'est calculé, que la période reste malléable. */}
+            {edition ? (
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+                <label className="flex flex-col gap-1 text-xs md:col-span-3">
+                  <span className="text-amber-200">Nom de la période *</span>
+                  <input
+                    type="text"
+                    value={editNom}
+                    onChange={(e) => setEditNom(e.target.value)}
+                    className={champ}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="text-amber-200">Du *</span>
+                  <input
+                    type="date"
+                    value={editDebut}
+                    onChange={(e) => setEditDebut(e.target.value)}
+                    className={champ}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="text-amber-200">Au *</span>
+                  <input
+                    type="date"
+                    value={editFin}
+                    onChange={(e) => setEditFin(e.target.value)}
+                    className={champ}
+                  />
+                </label>
+                <div className="flex items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={enregistrerEdition}
+                    disabled={modifier.isPending}
+                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {modifier.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    Enregistrer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEdition(false)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm font-medium"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                <button
+                  type="button"
+                  onClick={ouvrirEdition}
+                  className="inline-flex items-center gap-1.5 font-medium text-amber-100 underline underline-offset-2"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Modifier
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSuppression(true)}
+                  disabled={supprimer.isPending}
+                  className="inline-flex items-center gap-1.5 font-medium text-red-300 underline underline-offset-2 disabled:opacity-40"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Supprimer
+                </button>
+              </div>
+            )}
+
             {/* SEULE COMMANDE DE CALCUL DE L'ÉCRAN.
                 C'était un lien vers /payments/calculate, qui faisait quitter la
                 page pour refaire ailleurs ce qu'un bouton d'ici faisait déjà.
@@ -694,6 +841,27 @@ function CreationPeriode({
             La liste complète vit ailleurs — le hook `usePeriodesPaie` reste
             disponible pour l'écran qui la portera. */}
       </CardContent>
+
+      {/* Supprimer une période reste rare et définitif : la confirmation dit ce
+          qu'on efface, pas seulement « êtes-vous sûr ». Aucun bulletin n'est
+          en jeu — le serveur refuse la suppression dès qu'il en existe un. */}
+      <ConfirmationDialog
+        open={suppression}
+        onOpenChange={setSuppression}
+        title="Supprimer cette période de paiement ?"
+        description={
+          enAttente
+            ? `« ${enAttente.nom} » (du ${fmtDate(enAttente.periode_debut)} au ` +
+              `${fmtDate(enAttente.periode_fin)}) sera supprimée. Aucun bulletin n'a été ` +
+              `généré, aucune heure ne sera perdue : elles resteront disponibles pour ` +
+              `une prochaine période.`
+            : ""
+        }
+        confirmText="Supprimer"
+        cancelText="Annuler"
+        onConfirm={lancerSuppression}
+        loading={supprimer.isPending}
+      />
     </Card>
   );
 }
