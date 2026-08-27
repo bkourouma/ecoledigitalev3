@@ -1,11 +1,16 @@
 /**
- * Export PDF d'une session professionnelle — une fiche par session,
- * jamais un bloc pour toutes : c'est session par session que l'information est
- * exploitable (liste d'émargement, remise au responsable de filière…).
+ * Export PDF d'une ouverture de classe — une fiche par semestre de la classe,
+ * jamais un bloc pour plusieurs : c'est semestre par semestre que l'information
+ * est exploitable (liste d'émargement, remise au responsable de filière…).
  *
- * L'écran regroupe les sessions d'un même semestre en un « lot » ; le document
- * suit ce découpage : les informations du lot en tête, puis une section par UE
- * avec les étudiants qui y sont inscrits.
+ * L'écran regroupe les sessions d'UE d'un même semestre en un « lot » ; le
+ * document en donne les informations en tête, puis la liste COMPLÈTE des
+ * étudiants du semestre — une ligne par étudiant, sans détail UE par UE.
+ *
+ * Attention au vocabulaire du module professionnel : ce qu'il appelle
+ * `filiere_nom` est en réalité le nom de la CLASSE (table `programmes`). La
+ * vraie filière — celle de /academic/programmes — est rattachée à la classe et
+ * arrive ici par `classe_filiere_nom`.
  */
 import {
   dateEdition,
@@ -19,41 +24,35 @@ import { apiGet, enParallele } from "@/lib/utils/report-api";
 import { openReportPdf } from "@/lib/utils/report-pdf";
 import { fmtMontant } from "@/lib/utils/ue-report";
 
-/** Libellés accentués des statuts de session (identiques à l'écran). */
-const STATUT_SESSION: Record<string, string> = {
-  brouillon: "Brouillon",
-  ouvert: "Ouvert",
-  complet: "Complet",
-  en_cours: "En cours",
-  termine: "Terminé",
-  annule: "Annulé",
-};
-
-/** Libellés des statuts d'inscription. */
-const STATUT_INSCRIPTION: Record<string, string> = {
-  en_attente: "En attente",
-  active: "Active",
-  confirme: "Confirmée",
-  confirmee: "Confirmée",
-  annulee: "Annulée",
-  terminee: "Terminée",
-  complete: "Terminée",
-};
-
-const libelleStatut = (map: Record<string, string>, v: any) => map[String(v)] ?? String(v ?? "—");
-
 function fmtDate(value?: string | null): string {
   if (!value) return "—";
   const d = new Date(value);
   return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("fr-FR");
 }
 
+/**
+ * Niveau d'une classe : le préfixe de cycle de son nom
+ * (« MASTER 2 INTELLIGENCE ARTIFICIELLE » → « MASTER 2 »).
+ *
+ * Même découpage que la migration 0116, qui a dérivé la filière en retirant
+ * précisément ce préfixe : niveau et filière recomposent donc exactement le nom
+ * de la classe.
+ */
+function niveauDeClasse(nomClasse?: string | null): string {
+  const m = /^\s*(LICENCE|MASTER|BTS|CERTIFICAT|DUT|BAC)\s*([0-9]*)/i.exec(nomClasse ?? "");
+  if (!m) return "—";
+  return [m[1].toUpperCase(), m[2]].filter(Boolean).join(" ");
+}
+
 /** Le lot tel que l'écran le construit (voir la page Sessions). */
 export interface SessionLot {
   title: string;
   semestre_libelle?: string | null;
+  /** Nom de la CLASSE (le module professionnel l'appelle « filière »). */
   filiere_nom?: string | null;
   filiere_code?: string | null;
+  /** Filière académique de la classe, telle que gérée dans /academic/programmes. */
+  classe_filiere_nom?: string | null;
   date_debut?: string | null;
   date_fin?: string | null;
   annee_scolaire?: string | null;
@@ -71,50 +70,57 @@ async function chargerInscrits(ueSessionId: string): Promise<any[]> {
 }
 
 /**
- * Section d'une UE : ses inscrits, ou la mention qu'elle n'en a aucun.
+ * Liste complète des étudiants du semestre : une ligne par étudiant, pas de
+ * découpage par UE.
  *
- * Chaque UE ouvre sa propre page (sauf la première, qui suit les informations
- * de la session) : la liste d'une UE se détache ainsi pour l'impression et
- * l'émargement. Le bandeau de la session est repris en tête de chaque page,
- * sans quoi les pages suivantes ne diraient plus de quelle session il s'agit.
+ * Un même étudiant étant inscrit à plusieurs UE du lot, ses inscriptions sont
+ * fusionnées : montant dû et montant réglé sont ses cumuls sur le semestre.
  */
-function sectionUe(
-  lot: SessionLot,
-  session: any,
-  inscrits: any[] | null,
-  premiere: boolean
-): ReportBlock[] {
-  const titre = `${session.ue_code ?? ""} — ${session.ue_libelle ?? session.libelle ?? ""}`.trim();
+function tableauInscrits(listes: Array<any[] | null>): ReportBlock[] {
+  const manquantes = listes.filter((l) => l === null).length;
   const blocs: ReportBlock[] = [];
-  if (!premiere) blocs.push({ kind: "pageBreak" });
-  blocs.push(
-    {
-      kind: "heading",
-      text: lot.title || "Session",
-      note: libelleStatut(STATUT_SESSION, lot.statut),
-    },
-    {
-      kind: "heading",
-      level: 2,
-      text: titre || "Unité d'enseignement",
-      note:
-        inscrits === null
-          ? libelleStatut(STATUT_SESSION, session.statut)
-          : `${libelleStatut(STATUT_SESSION, session.statut)}  ·  ${effectif(inscrits.length, "inscrit")}`,
-    }
-  );
 
-  if (inscrits === null) {
-    blocs.push({ kind: "note", text: "Liste des inscrits indisponible pour cette session." });
-    return blocs;
+  const parEtudiant = new Map<string, any>();
+  for (const liste of listes) {
+    for (const e of liste ?? []) {
+      const cle = String(e.student_id ?? e.matricule ?? e.id);
+      const deja = parEtudiant.get(cle);
+      if (!deja) {
+        parEtudiant.set(cle, {
+          matricule: e.matricule ?? null,
+          last_name: e.last_name ?? null,
+          first_name: e.first_name ?? null,
+          // `telephone` vient de student_profiles.phone, exposé par l'API des
+          // inscriptions ; `phone` couvre les charges utiles plus anciennes.
+          telephone: e.telephone ?? e.phone ?? null,
+          prix_unitaire: Number(e.prix_unitaire ?? 0),
+          montant_paye: Number(e.montant_paye ?? 0),
+        });
+        continue;
+      }
+      deja.prix_unitaire += Number(e.prix_unitaire ?? 0);
+      deja.montant_paye += Number(e.montant_paye ?? 0);
+      deja.telephone = deja.telephone ?? e.telephone ?? e.phone ?? null;
+    }
   }
-  if (inscrits.length === 0) {
-    blocs.push({ kind: "note", text: "Aucun étudiant inscrit à cette session." });
+
+  if (manquantes > 0) {
+    blocs.push({
+      kind: "note",
+      text: `${effectif(manquantes, "UE", "UE")} n'${
+        manquantes === 1 ? "a" : "ont"
+      } pas pu être interrogée${manquantes === 1 ? "" : "s"} : ${
+        manquantes === 1 ? "ses inscrits ne figurent pas" : "leurs inscrits ne figurent pas"
+      } dans la liste.`,
+    });
+  }
+  if (parEtudiant.size === 0) {
+    blocs.push({ kind: "note", text: "Aucun étudiant inscrit sur ce semestre." });
     return blocs;
   }
 
   // Tri alphabétique : la liste sert de feuille d'émargement.
-  const tries = [...inscrits].sort((a, b) =>
+  const tries = Array.from(parEtudiant.values()).sort((a, b) =>
     `${a.last_name ?? ""} ${a.first_name ?? ""}`.localeCompare(
       `${b.last_name ?? ""} ${b.first_name ?? ""}`,
       "fr"
@@ -128,23 +134,19 @@ function sectionUe(
     table: {
       columns: [
         { header: "N°", width: 10, align: "center" },
-        { header: "Matricule", width: 28, align: "center" },
-        { header: "Nom", width: 42 },
-        { header: "Prénom(s)", width: 46 },
+        // Assez large pour que « IPAM-L1GL-9009 » tienne sur une seule ligne :
+        // coupé, le matricule n'est plus lisible d'un coup d'œil.
+        { header: "Matricule", width: 42, align: "center" },
+        { header: "Nom & Prénom(s)", width: 90 },
         { header: "Téléphone" },
-        { header: "Inscription", width: 26, align: "center" },
         { header: "Montant dû", width: 28, align: "right" },
         { header: "Réglé", width: 28, align: "right" },
       ],
       rows: tries.map((e, i) => [
         String(i + 1),
         e.matricule || "—",
-        (e.last_name || "—").toUpperCase(),
-        e.first_name || "—",
-        // `telephone` vient de student_profiles.phone, exposé par l'API des
-        // inscriptions ; `phone` couvre les charges utiles plus anciennes.
-        e.telephone || e.phone || "—",
-        libelleStatut(STATUT_INSCRIPTION, e.statut),
+        `${(e.last_name || "—").toUpperCase()} ${e.first_name || ""}`.trim(),
+        e.telephone || "—",
         fmtMontant(e.prix_unitaire),
         fmtMontant(e.montant_paye),
       ]),
@@ -152,8 +154,6 @@ function sectionUe(
         "",
         "",
         `TOTAL — ${effectif(tries.length, "inscrit")}`,
-        "",
-        "",
         "",
         fmtMontant(totalDu),
         fmtMontant(totalPaye),
@@ -188,33 +188,31 @@ export async function buildSessionReportSpec(lot: SessionLot): Promise<ReportSpe
   const totalCredits = sessions.reduce((n, s) => n + Number(s.ue_nb_uv ?? 0), 0);
 
   const infos: Array<[string, string]> = [
-    [
-      "Filière",
-      lot.filiere_nom
-        ? `${lot.filiere_nom}${lot.filiere_code ? ` (${lot.filiere_code})` : ""}`
-        : "—",
-    ],
+    ["Classe", lot.title || lot.filiere_nom || "—"],
+    ["Niveau", niveauDeClasse(lot.filiere_nom)],
+    ["Filière", lot.classe_filiere_nom || "—"],
     ["Semestre", lot.semestre_libelle || "—"],
     ["Période", `${fmtDate(lot.date_debut)} → ${fmtDate(lot.date_fin)}`],
     ["Année scolaire", lot.annee_scolaire || "—"],
-    ["Statut", libelleStatut(STATUT_SESSION, lot.statut)],
     ["Unités d'enseignement", effectif(sessions.length, "UE", "UE")],
     ["Crédits cumulés", String(totalCredits)],
     ["Étudiants inscrits", effectif(etudiants, "étudiant")],
   ];
 
-  const nomFichier = `session-${slugFichier(lot.title)}-${stampFichier()}`;
+  // Le nom porte le semestre quand la fiche n'en couvre qu'un : deux fiches de
+  // la même classe éditées le même jour se distinguent ainsi.
+  const nomFichier = `fiche-classe-${slugFichier(
+    [lot.title, lot.semestre_libelle].filter(Boolean).join(" ")
+  )}-${stampFichier()}`;
 
   return {
-    title: "Fiche de session",
-    subtitle: lot.title,
+    title: "Fiche de classe",
+    // Pas de sous-titre : la classe et le semestre sont rappelés dans le
+    // tableau d'informations, juste en dessous.
     filename: nomFichier,
     metaLeft: `Édité le ${dateEdition()}`,
     metaRight: effectif(etudiants, "inscrit"),
-    blocks: [
-      { kind: "keyValues", items: infos, columns: 2 },
-      ...sessions.flatMap((s, i) => sectionUe(lot, s, inscrits[i], i === 0)),
-    ],
+    blocks: [{ kind: "keyValues", items: infos, columns: 2 }, ...tableauInscrits(inscrits)],
   };
 }
 

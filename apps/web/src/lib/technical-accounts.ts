@@ -48,13 +48,16 @@ export function technicalAccountEmail(roleKey: string, tenantSlug: string): stri
  */
 const ACCOUNT_OVERRIDES: Record<string, Record<string, { email: string; password: string }>> = {
   ecoledigitale: {
-    // Nadège Aka : enseignante d'Analyse Mathématique en L1GL/L2GL — elle porte
-    // de vraies séances, ses appels de présence et ses copies à corriger.
-    teacher: { email: "nadege.aka@ecoledigitale.test", password: "Passw0rd!2026" },
-    // Noella Kouadio : l'une des deux enfants de Konan Kouadio (fratrie).
-    student: { email: "noella.kouadio001@example.com", password: "Passw0rd!2026" },
-    // Konan Kouadio : seul parent rattaché à deux enfants (Noella + Yannick).
-    parent: { email: "konan.kouadio.parent001@example.com", password: "Passw0rd!2026" },
+    // Adjoua Brou : enseignante la plus chargée de la filière Intelligence
+    // Artificielle — 8 ECUE, 57 séances pointées, 244 notes saisies et 4
+    // bulletins de paie versés (2021-2022 → 2025-2026).
+    teacher: { email: "adjoua.brou@ecoledigitale.test", password: "qvP2KbaeV%Dr" },
+    // Adama Kouassi (ETU-2026-001) : l'aîné de la fratrie Kouassi, inscrit de
+    // L1IA à M2IA — bulletins, présences, paiements et diplômes complets.
+    student: { email: "adama.kouassi.001@etu.ecoledigitale.ci", password: "Ed2e0674bd6d!7" },
+    // Bernard Kouassi : parent des deux enfants ci-dessus (Adama + Fatou),
+    // pour voir le sélecteur d'enfant côté espace parent.
+    parent: { email: "bernard.kouassi.p01@parents.ecoledigitale.ci", password: "Ed90d9773611!7" },
   },
 };
 

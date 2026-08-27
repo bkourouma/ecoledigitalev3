@@ -476,6 +476,15 @@ export async function bulletinPdfObjectUrl(bulletin: any): Promise<string> {
  * `win` : onglet ouvert de façon synchrone au clic (évite le blocage popup) ;
  * si absent, un nouvel onglet est ouvert.
  */
+/**
+ * URL objet du PDF combiné, à afficher dans une visionneuse applicative.
+ * L'appelant est responsable de la révoquer.
+ */
+export async function allBulletinsPdfObjectUrl(bulletins: any[]): Promise<string> {
+  const doc = await buildAllBulletinsDoc(bulletins);
+  return URL.createObjectURL(doc.output("blob"));
+}
+
 export async function openAllBulletinsPdf(bulletins: any[], win?: Window | null): Promise<void> {
   const doc = await buildAllBulletinsDoc(bulletins);
   const url = URL.createObjectURL(doc.output("blob"));

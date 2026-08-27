@@ -1,5 +1,5 @@
 /**
- * Exports PDF et Word des notes — Module Professionnel.
+ * Export PDF des notes — Module Professionnel.
  *
  * Le périmètre suit la sélection de l'écran : filière → semestre → UE. Le
  * document porte une section par UE et, dans chacune, une ligne par couple
@@ -8,7 +8,9 @@
  * trois sous-colonnes par ECUE, comme à l'écran, deviendrait illisible dès
  * quatre ECUE.
  *
- * La note de conduite est semestrielle : elle fait l'objet d'un tableau à part.
+ * Le document est complet : toutes les UE terminées du semestre, toutes les
+ * colonnes de notes (devoirs, examen, moyenne, statut). La note de conduite est
+ * semestrielle : elle fait l'objet d'un tableau à part, en fin de document.
  */
 import {
   dateEdition,
@@ -21,23 +23,10 @@ import {
 } from "@/lib/utils/report-doc";
 import { apiGet, enParallele } from "@/lib/utils/report-api";
 import { openReportPdf } from "@/lib/utils/report-pdf";
-import { downloadReportDocx } from "@/lib/utils/report-docx";
 
 /* -------------------------------- Options ------------------------------- */
 
-export const NOTES_EXPORT_CHOICES = [
-  { key: "devoirs", label: "Moyenne des devoirs", hint: "Colonne « Devoirs (/20) »" },
-  { key: "examen", label: "Note d'examen", hint: "Colonne « Examen (/20) »" },
-  { key: "statut", label: "Statut de l'ECUE", hint: "Validé, compensé, insuffisant, éliminatoire" },
-  { key: "conduite", label: "Notes de conduite", hint: "Tableau semestriel, en fin de document" },
-] as const;
-
-export type NotesExportKey = (typeof NOTES_EXPORT_CHOICES)[number]["key"];
-
-export const NOTES_EXPORT_DEFAUT: NotesExportKey[] = ["devoirs", "examen", "statut"];
-
 export interface NotesExportContexte {
-  choix: Set<string>;
   filiere: string;
   semestre: string;
   /** Année scolaire déduite des dates du semestre. */
@@ -51,8 +40,6 @@ export interface NotesExportContexte {
   grilles?: Array<any | null>;
   /** Notes de conduite du semestre, par étudiant. */
   conduite?: any[];
-  /** Précision de portée (« Cohortes terminées »), rappelée en tête. */
-  porteeLibelle?: string;
 }
 
 /* ------------------------------- Formatage ------------------------------ */
@@ -84,19 +71,17 @@ async function chargerGrille(sessionId: string): Promise<any | null> {
 
 /* ------------------------------ Construction ---------------------------- */
 
-function colonnes(o: NotesExportContexte): ReportColumn[] {
-  const cols: ReportColumn[] = [
+function colonnes(): ReportColumn[] {
+  return [
     { header: "N°", width: 10, align: "center" },
     { header: "Matricule", width: 36, align: "center" },
-    { header: "Nom", width: 42 },
-    { header: "Prénom(s)", width: 44 },
+    { header: "Nom & Prénom(s)", width: 86 },
     { header: "Intitulé de l'ECUE" },
+    { header: "Devoirs /20", width: 24, align: "center" },
+    { header: "Examen /20", width: 24, align: "center" },
+    { header: "Note /20", width: 22, align: "center" },
+    { header: "Statut", width: 26, align: "center" },
   ];
-  if (o.choix.has("devoirs")) cols.push({ header: "Devoirs /20", width: 24, align: "center" });
-  if (o.choix.has("examen")) cols.push({ header: "Examen /20", width: 24, align: "center" });
-  cols.push({ header: "Note /20", width: 22, align: "center" });
-  if (o.choix.has("statut")) cols.push({ header: "Statut", width: 26, align: "center" });
-  return cols;
 }
 
 /**
@@ -166,22 +151,22 @@ function sectionUe(
   etudiants.forEach((s, i) => {
     ecues.forEach((e, j) => {
       const r = resultat(e.ecue_id, s.student_id);
-      const cells = [
+      rows.push([
         j === 0 ? String(i + 1) : "",
         j === 0 ? s.matricule || "—" : "",
-        j === 0 ? (s.last_name || "—").toUpperCase() : "",
-        j === 0 ? s.first_name || "—" : "",
+        j === 0
+          ? `${(s.last_name || "—").toUpperCase()} ${s.first_name || ""}`.trim()
+          : "",
         e.libelle ?? "—",
-      ];
-      if (o.choix.has("devoirs")) cells.push(fmtNote(r?.moyenne_devoirs));
-      if (o.choix.has("examen")) cells.push(fmtNote(r?.note_examen));
-      cells.push(fmtNote(r?.moyenne));
-      if (o.choix.has("statut")) cells.push(statutEcue(r));
-      rows.push(cells);
+        fmtNote(r?.moyenne_devoirs),
+        fmtNote(r?.note_examen),
+        fmtNote(r?.moyenne),
+        statutEcue(r),
+      ]);
     });
   });
 
-  blocs.push({ kind: "table", table: { columns: colonnes(o), rows } });
+  blocs.push({ kind: "table", table: { columns: colonnes(), rows } });
   return blocs;
 }
 
@@ -219,18 +204,16 @@ function sectionConduite(conduite: any[], o: NotesExportContexte): ReportBlock[]
         columns: [
           { header: "N°", width: 10, align: "center" },
           { header: "Matricule", width: 30, align: "center" },
-          { header: "Nom", width: 50 },
-          { header: "Prénom(s)" },
+          { header: "Nom & Prénom(s)" },
           { header: "Conduite /20", width: 28, align: "center" },
         ],
         rows: triees.map((s, i) => [
           String(i + 1),
           s.matricule || "—",
-          (s.last_name || "—").toUpperCase(),
-          s.first_name || "—",
+          `${(s.last_name || "—").toUpperCase()} ${s.first_name || ""}`.trim(),
           fmtNote(s.note),
         ]),
-        footer: ["", "", `MOYENNE — ${effectif(triees.length, "étudiant")}`, "", fmtNote(moyenne)],
+        footer: ["", "", `MOYENNE — ${effectif(triees.length, "étudiant")}`, fmtNote(moyenne)],
       },
     },
   ];
@@ -252,14 +235,13 @@ export async function buildNotesReportSpec(o: NotesExportContexte): Promise<Repo
     ["Année scolaire", o.annee || "—"],
     ["Périmètre", "Toutes les UE du semestre"],
   ];
-  if (o.porteeLibelle) perimetre.push(["Portée", o.porteeLibelle]);
 
   const blocks: ReportBlock[] = [
     { kind: "keyValues", items: perimetre, columns: 2 },
     ...cibles.flatMap((s, i) => sectionUe(s, grilles[i], o, i === 0)),
   ];
 
-  if (o.choix.has("conduite")) blocks.push(...sectionConduite(o.conduite ?? [], o));
+  blocks.push(...sectionConduite(o.conduite ?? [], o));
 
   return {
     title: "Relevé des notes",
@@ -281,8 +263,4 @@ export async function openNotesReportPdf(o: NotesExportContexte, win?: Window | 
     if (win) win.close();
     throw e;
   }
-}
-
-export async function downloadNotesReportDocx(o: NotesExportContexte) {
-  return downloadReportDocx(await buildNotesReportSpec(o));
 }

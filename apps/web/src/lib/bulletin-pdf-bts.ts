@@ -356,18 +356,29 @@ async function drawBulletinBts(doc: jsPDF, data: any, imgs: HeaderImages): Promi
   doc.setTextColor(0, 0, 0);
 }
 
-/** Filigrane (logo en transparence). */
-function drawWatermark(doc: jsPDF, logoInstitut: HeaderImages["logoInstitut"]): void {
+/** Filigrane (logo en transparence) appliqué sur toutes les pages du document. */
+function drawWatermarkAllPages(doc: jsPDF, logoInstitut: HeaderImages["logoInstitut"]): void {
   if (!logoInstitut) return;
-  try {
-    doc.saveGraphicsState();
-    (doc as any).setGState(new (doc as any).GState({ opacity: 0.06 }));
-    const w = 120;
-    const h = w / logoInstitut.ratio;
-    doc.addImage(logoInstitut.dataUrl, logoInstitut.format, (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
-    doc.restoreGraphicsState();
-  } catch {
-    /* GState indisponible : on ignore le filigrane */
+  const total = doc.getNumberOfPages();
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p);
+    try {
+      doc.saveGraphicsState();
+      (doc as any).setGState(new (doc as any).GState({ opacity: 0.06 }));
+      const w = 120;
+      const h = w / logoInstitut.ratio;
+      doc.addImage(
+        logoInstitut.dataUrl,
+        logoInstitut.format,
+        (PAGE_W - w) / 2,
+        (PAGE_H - h) / 2,
+        w,
+        h
+      );
+      doc.restoreGraphicsState();
+    } catch {
+      /* GState indisponible : on ignore le filigrane */
+    }
   }
 }
 
@@ -384,8 +395,33 @@ async function buildBulletinBtsDoc(data: any): Promise<{ doc: jsPDF; filename: s
   const imgs = await loadHeaderImages();
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
   await drawBulletinBts(doc, data, imgs);
-  drawWatermark(doc, imgs.logoInstitut);
+  drawWatermarkAllPages(doc, imgs.logoInstitut);
   return { doc, filename: bulletinBtsFilename(data) };
+}
+
+/** PDF combiné : un bulletin BTS par étudiant, chacun sur sa propre page. */
+async function buildAllBulletinsBtsDoc(datas: any[]): Promise<jsPDF> {
+  const imgs = await loadHeaderImages();
+  const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
+  for (let i = 0; i < datas.length; i++) {
+    if (i > 0) doc.addPage();
+    await drawBulletinBts(doc, datas[i], imgs);
+  }
+  drawWatermarkAllPages(doc, imgs.logoInstitut);
+  return doc;
+}
+
+/**
+ * Ouvre le PDF combiné des bulletins BTS de TOUS les étudiants fournis.
+ * `win` : onglet ouvert de façon synchrone au clic (évite le blocage popup) ;
+ * si absent, un nouvel onglet est ouvert.
+ */
+export async function openAllBulletinsBtsPdf(datas: any[], win?: Window | null): Promise<void> {
+  const doc = await buildAllBulletinsBtsDoc(datas);
+  const url = URL.createObjectURL(doc.output("blob"));
+  if (win) win.location.href = url;
+  else window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 120_000);
 }
 
 /**

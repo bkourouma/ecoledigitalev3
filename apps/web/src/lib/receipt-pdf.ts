@@ -459,6 +459,15 @@ export async function downloadReceiptPdf(data: ReceiptData): Promise<void> {
  * Ouvre le reçu de paiement comme un document PDF dans le navigateur.
  * `win` : onglet ouvert de façon synchrone au clic (évite le blocage popup).
  */
+/**
+ * URL objet du reçu, à afficher dans une visionneuse applicative.
+ * L'appelant est responsable de la révoquer.
+ */
+export async function receiptPdfObjectUrl(data: ReceiptData): Promise<string> {
+  const { doc } = await buildReceiptDoc(data);
+  return URL.createObjectURL(doc.output("blob"));
+}
+
 export async function openReceiptPdf(data: ReceiptData, win?: Window | null): Promise<void> {
   const { doc } = await buildReceiptDoc(data);
   const url = URL.createObjectURL(doc.output("blob"));
