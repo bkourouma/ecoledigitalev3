@@ -219,10 +219,10 @@ export default function AdminConduitePage() {
                 filieresQuery.isLoading
                   ? "Chargement…"
                   : filiereOptions.length === 0
-                  ? "Aucune filière à finaliser"
-                  : "Filière"
+                  ? "Aucune classe à finaliser"
+                  : "Classe"
               }
-              searchPlaceholder="Rechercher une filière…"
+              searchPlaceholder="Rechercher une classe…"
               options={filiereOptions}
             />
             <SearchableSelect
@@ -234,7 +234,7 @@ export default function AdminConduitePage() {
               icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
               placeholder={
                 !filiereId
-                  ? "Choisir une filière"
+                  ? "Choisir une classe"
                   : semestresQuery.isLoading
                   ? "Chargement…"
                   : semestreOptions.length === 0
@@ -262,8 +262,8 @@ export default function AdminConduitePage() {
             </div>
             <p className="text-muted-foreground max-w-md">
               {filiereId && !semestresQuery.isLoading && semestreOptions.length === 0
-                ? "Rien à finaliser pour cette filière : ses semestres sont terminés et toutes les conduites sont saisies."
-                : "Choisissez une filière puis un semestre pour saisir les notes de conduite."}
+                ? "Rien à finaliser pour cette classe : ses semestres sont terminés et toutes les conduites sont saisies."
+                : "Choisissez une classe puis un semestre pour saisir les notes de conduite."}
             </p>
           </CardContent>
         </Card>

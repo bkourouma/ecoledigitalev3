@@ -10,14 +10,10 @@ import {
   CardDescription,
   Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@ecoledigitale/ui";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useProgrammes } from "@/lib/hooks/use-programmes";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { useCreateProfessionalUe } from "@/lib/hooks/use-professional-catalog-admin";
 
 /**
@@ -45,7 +41,7 @@ export default function NewProfessionalUePage() {
     e.preventDefault();
     setError(null);
     if (!filiereId) {
-      setError("Veuillez sélectionner une filière.");
+      setError("Veuillez sélectionner une classe.");
       return;
     }
     if (!code.trim() || !libelle.trim()) {
@@ -79,7 +75,7 @@ export default function NewProfessionalUePage() {
             Nouvelle UE
           </h1>
           <p className="text-muted-foreground mt-2">
-            Rattachez l'UE à une filière et définissez son prix.
+            Rattachez l'UE à une classe et définissez son prix.
           </p>
         </div>
       </div>
@@ -101,26 +97,17 @@ export default function NewProfessionalUePage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Filière</label>
-                <Select value={filiereId} onValueChange={setFiliereId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner une filière" />
-                  </SelectTrigger>
-                  <SelectContent side="bottom" sideOffset={4} position="item-aligned">
-                    {filieres.length > 0 ? (
-                      filieres.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                          {p.code ? ` (${p.code})` : ""}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-filiere" disabled>
-                        {programmesQuery.isLoading ? "Chargement…" : "Aucune filière disponible"}
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <label className="text-sm font-medium">Classe</label>
+                <SearchableSelect
+                  value={filiereId}
+                  onChange={setFiliereId}
+                  placeholder={programmesQuery.isLoading ? "Chargement…" : "Sélectionner une classe"}
+                  searchPlaceholder="Rechercher une classe…"
+                  options={filieres.map((p) => ({
+                    value: p.id,
+                    label: `${p.name}${p.code ? ` (${p.code})` : ""}`,
+                  }))}
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

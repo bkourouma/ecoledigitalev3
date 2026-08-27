@@ -1363,11 +1363,47 @@ export class ProfessionalUeService extends ProfessionalBaseService {
    * Filtres : semestre (2 chemins de liaison) et statut de session
    * (en_cours = non terminée/annulée ; terminee = terminée/annulée).
    */
+  /**
+   * Options de sélection des présences : un enregistrement par couple
+   * (nom de classe, semestre) ayant au moins une séance, avec son année
+   * scolaire. La page en dérive ses listes sans requêtes en cascade, ce qui
+   * permet de choisir l'année avant la classe.
+   */
+  async listPresencesOptions(tenantId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const res = await client.query(
+        `SELECT DISTINCT
+                p.id AS classe_id, p.name AS classe_nom, p.code AS classe_code,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS nom,
+                sm.id AS semestre_id, sm.libelle AS semestre_libelle,
+                s.statut AS session_statut,
+                CASE WHEN EXTRACT(MONTH FROM s.date_debut) >= 9
+                     THEN EXTRACT(YEAR FROM s.date_debut)::int || '-' ||
+                          (EXTRACT(YEAR FROM s.date_debut)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM s.date_debut)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM s.date_debut)::int
+                END AS annee_scolaire
+         FROM professional_ecue_seances se
+         JOIN professional_ue_sessions s ON s.id = se.ue_session_id AND s.tenant_id = se.tenant_id
+         JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+         JOIN programmes p ON p.id = ue.filiere_id
+         LEFT JOIN professional_semestre_sessions ss
+                ON ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
+         LEFT JOIN professional_semestres sm ON sm.id = ss.semestre_id
+         WHERE se.tenant_id = $1
+         ORDER BY annee_scolaire DESC, nom, sm.libelle`,
+        [tenantId]
+      );
+      return ok(res.rows);
+    });
+  }
+
   async getPresencesHistory(
     tenantId: string,
     filiereId: string,
     semestreId?: string,
-    statut?: "en_cours" | "terminee"
+    statut?: "en_cours" | "terminee",
+    classeNom?: string
   ): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
       const params: any[] = [tenantId, filiereId];
@@ -1383,6 +1419,11 @@ export class ProfessionalUeService extends ProfessionalBaseService {
       }
       if (statut === "terminee") where += ` AND s.statut IN ('termine','annule')`;
       else if (statut === "en_cours") where += ` AND s.statut NOT IN ('termine','annule')`;
+      // Une classe peut porter plusieurs noms : on ne mélange pas leurs séances.
+      if (classeNom) {
+        params.push(classeNom);
+        where += ` AND btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) = $${params.length}`;
+      }
 
       // Séances (appels) : une ligne par séance d'ECUE, avec son rattachement
       // (UE, semestre, session, salle), son enseignant et ses décomptes de présence.

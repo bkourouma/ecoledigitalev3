@@ -34,10 +34,14 @@ async function apiFetch<T = any>(url: string, init?: RequestInit): Promise<T> {
 }
 
 /** Roster des étudiants inscrits dans une filière, avec leur progression de crédits. */
-export function useAttestationRoster(filiereId: string | null) {
+export function useAttestationRoster(filiereId: string | null, classeNom?: string) {
   return useQuery({
-    queryKey: ["professional-attestation-roster", filiereId],
-    queryFn: () => apiFetch(`${BASE}/filieres/${filiereId}/attestation-roster`),
+    queryKey: ["professional-attestation-roster", filiereId, classeNom ?? ""],
+    queryFn: () =>
+      apiFetch(
+        `${BASE}/filieres/${filiereId}/attestation-roster` +
+          (classeNom ? `?classe_nom=${encodeURIComponent(classeNom)}` : "")
+      ),
     enabled: !!filiereId,
     staleTime: 30 * 1000,
   });

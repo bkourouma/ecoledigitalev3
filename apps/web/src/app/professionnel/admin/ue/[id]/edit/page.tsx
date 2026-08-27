@@ -120,7 +120,7 @@ export default function EditProfessionalUePage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>Informations de l'UE</CardTitle>
-              <CardDescription>La filière n'est pas modifiable après création.</CardDescription>
+              <CardDescription>La classe n'est pas modifiable après création.</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-5">

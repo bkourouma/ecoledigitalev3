@@ -21,9 +21,8 @@ import {
   Users,
   Loader2,
   AlertCircle,
-  FileDown,
   ExternalLink,
-  CalendarRange,
+  X,
   Wallet,
   CheckCircle2,
 } from "lucide-react";
@@ -33,9 +32,10 @@ import {
   useChildBulletin,
   useChildProfessionalPayments,
 } from "@/lib/hooks/use-professional-parent";
-import { openAllBulletinsPdf, downloadBulletinPdf } from "@/lib/bulletin-pdf";
-import { openReceiptPdf, downloadReceiptPdf, type ReceiptData } from "@/lib/receipt-pdf";
+import { allBulletinsPdfObjectUrl } from "@/lib/bulletin-pdf";
+import { receiptPdfObjectUrl, type ReceiptData } from "@/lib/receipt-pdf";
 import { semestreLabelShort } from "@/lib/bulletin-format";
+import { useFiltresScolaires } from "@/components/FiltresScolaires";
 
 /**
  * Bulletins & Reçus — espace parent (Module Professionnel, feature 030).
@@ -104,7 +104,11 @@ export default function ParentDocumentsPage() {
             <div>
               <h1 className="text-2xl font-bold text-foreground">Bulletins & Reçus</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Relevés de notes et reçus de paiement officiels de votre enfant.
+                Relevés de notes et reçus de paiement officiels de votre enfant,
+                en consultation.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Pour obtenir un exemplaire, adressez-vous au service de scolarité.
               </p>
             </div>
           </div>
@@ -119,7 +123,6 @@ export default function ParentDocumentsPage() {
                   {children.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {childName(c)}
-                      {c.student_number ? ` · ${c.student_number}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -209,11 +212,101 @@ function TabButton({
   );
 }
 
+/* -------------------------- Visionneuse -------------------------- */
+
+/**
+ * Affiche un PDF SANS la visionneuse native du navigateur, qui porte ses
+ * propres boutons Télécharger et Imprimer. Le document reste dans un cadre
+ * de l'application, avec le fragment `#toolbar=0` qui masque cette barre
+ * là où le navigateur l'honore (Chrome, Edge).
+ *
+ * Ce n'est pas un verrou : rien n'empêche une capture d'écran, et Firefox
+ * ignore le fragment et affiche sa propre barre.
+ */
+function VisionneusePdf({
+  url,
+  titre,
+  onClose,
+}: {
+  url: string | null;
+  titre: string;
+  onClose: () => void;
+}) {
+  // La touche Échap ferme, comme n'importe quelle boîte de dialogue.
+  useEffect(() => {
+    if (!url) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [url, onClose]);
+
+  if (!url) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/80 p-4 sm:p-8">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="font-medium text-white">{titre}</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onClose}
+          className="bg-white/10 text-white hover:bg-white/20"
+        >
+          <X className="h-4 w-4 mr-1.5" />
+          Fermer
+        </Button>
+      </div>
+      <iframe
+        src={`${url}#toolbar=0&navpanes=0&statusbar=0`}
+        title={titre}
+        className="flex-1 w-full rounded-lg bg-white"
+      />
+    </div>
+  );
+}
+
+/**
+ * Fabrique une URL de PDF et la confie à la visionneuse, en révoquant la
+ * précédente : un blob non révoqué reste en mémoire tout l'onglet durant.
+ */
+function useVisionneuse() {
+  const [url, setUrl] = useState<string | null>(null);
+  const [titre, setTitre] = useState("");
+  const [chargement, setChargement] = useState<string | null>(null);
+
+  const ouvrir = async (cle: string, libelle: string, fabrique: () => Promise<string>) => {
+    setChargement(cle);
+    try {
+      const u = await fabrique();
+      setUrl((ancien) => {
+        if (ancien) URL.revokeObjectURL(ancien);
+        return u;
+      });
+      setTitre(libelle);
+    } finally {
+      setChargement(null);
+    }
+  };
+
+  const fermer = () => {
+    setUrl((ancien) => {
+      if (ancien) URL.revokeObjectURL(ancien);
+      return null;
+    });
+  };
+
+  return { url, titre, chargement, ouvrir, fermer };
+}
+
 /* --------------------------- Bulletins --------------------------- */
 
 function BulletinsTab({ childId }: { childId: string }) {
   const semestresQuery = useChildBulletinSemestres(childId || null);
   const semestres: any[] = (semestresQuery.data as any[]) ?? [];
+  // Un semestre porte déjà son contexte : il sert directement de ligne.
+  const { visibles, barre, filtre } = useFiltresScolaires(
+    semestres.map((s) => ({ ...s, semestre_id: s.id, semestre_libelle: s.libelle }))
+  );
+  const visionneuse = useVisionneuse();
 
   if (semestresQuery.isLoading) {
     return (
@@ -245,15 +338,44 @@ function BulletinsTab({ childId }: { childId: string }) {
   }
 
   return (
-    <div className="space-y-3">
-      {semestres.map((s) => (
-        <BulletinRow key={s.id} childId={childId} semestre={s} />
-      ))}
+    <div className="space-y-4">
+      {barre}
+      {visibles.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Aucun bulletin pour les filtres sélectionnés.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {visibles.map((s: any) => (
+            <BulletinRow
+              key={s.id}
+              childId={childId}
+              semestre={s}
+              visionneuse={visionneuse}
+            />
+          ))}
+        </div>
+      )}
+      <VisionneusePdf
+        url={visionneuse.url}
+        titre={visionneuse.titre}
+        onClose={visionneuse.fermer}
+      />
     </div>
   );
 }
 
-function BulletinRow({ childId, semestre }: { childId: string; semestre: any }) {
+function BulletinRow({
+  childId,
+  semestre,
+  visionneuse,
+}: {
+  childId: string;
+  semestre: any;
+  visionneuse: ReturnType<typeof useVisionneuse>;
+}) {
   const query = useChildBulletin(childId || null, semestre.id);
   const bulletin: any = query.data;
 
@@ -269,8 +391,14 @@ function BulletinRow({ childId, semestre }: { childId: string; semestre: any }) 
               Relevé de notes — {semestreLabelShort(semestre.libelle)}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {semestre.filiere_nom ?? semestre.filiere_code ?? ""}
-              {bulletin?.annee_academique ? ` · ${bulletin.annee_academique}` : ""}
+              {/* L'année scolaire situe la période, puis le nom de classe
+                  identifie le groupe suivi ; la filière ne sert que de repli. */}
+              {bulletin?.annee_academique ?? semestre.annee_scolaire ?? ""}
+              {(bulletin?.annee_academique ?? semestre.annee_scolaire) &&
+              (semestre.classe_nom ?? semestre.filiere_nom ?? semestre.filiere_code)
+                ? " · "
+                : ""}
+              {semestre.classe_nom ?? semestre.filiere_nom ?? semestre.filiere_code ?? ""}
             </p>
           </div>
         </div>
@@ -284,24 +412,22 @@ function BulletinRow({ childId, semestre }: { childId: string; semestre: any }) 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  if (!bulletin) return;
-                  const w = window.open("about:blank", "_blank");
-                  openAllBulletinsPdf([bulletin], w);
-                }}
-                disabled={!bulletin}
+                onClick={() =>
+                  bulletin &&
+                  visionneuse.ouvrir(
+                    semestre.id,
+                    `Relevé de notes — ${semestreLabelShort(semestre.libelle)}`,
+                    () => allBulletinsPdfObjectUrl([bulletin])
+                  )
+                }
+                disabled={!bulletin || visionneuse.chargement === semestre.id}
               >
-                <ExternalLink className="h-4 w-4 mr-1.5" />
+                {visionneuse.chargement === semestre.id ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-4 w-4 mr-1.5" />
+                )}
                 Voir
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => bulletin && downloadBulletinPdf(bulletin)}
-                disabled={!bulletin}
-                className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
-              >
-                <FileDown className="h-4 w-4 mr-1.5" />
-                PDF
               </Button>
             </>
           )}
@@ -324,6 +450,11 @@ interface Txn {
   student: { first_name?: string; last_name?: string; matricule?: string | null };
   filiere: { nom?: string | null; code?: string | null };
   ues: { code?: string | null; libelle?: string | null; montant?: number | null }[];
+  // Contexte scolaire de la commande réglée : ce qui rend le reçu filtrable.
+  annee_scolaire: string | null;
+  classe_nom: string | null;
+  semestre_id: string | null;
+  semestre_libelle: string | null;
 }
 
 /** Regroupe les paiements en transactions (même horodatage) + cumul payé. */
@@ -367,6 +498,10 @@ function buildTransactions(payments: any[]): { txns: Txn[]; totalDu: number } {
       },
       filiere: { nom: first.filiere_nom, code: first.filiere_code },
       ues,
+      annee_scolaire: first.annee_scolaire ?? null,
+      classe_nom: first.classe_nom ?? null,
+      semestre_id: first.semestre_id ?? null,
+      semestre_libelle: first.semestre_libelle ?? null,
     };
   });
   // Cumul payé, chronologique.
@@ -400,7 +535,11 @@ function ReceiptsTab({ childId }: { childId: string }) {
   const query = useChildProfessionalPayments(childId || null);
   const payments: any[] = (query.data as any[]) ?? [];
   const { txns, totalDu } = useMemo(() => buildTransactions(payments), [payments]);
+  const { visibles, barre } = useFiltresScolaires(txns);
+  const visionneuse = useVisionneuse();
 
+  // Les totaux portent sur TOUTE la scolarité, pas sur la sélection : le
+  // cumul payé et le reste dû n'ont de sens qu'à l'échelle du dossier.
   const totalPaye = txns.length > 0 ? Math.max(...txns.map((t) => t.total_paye)) : 0;
   const reste = Math.max(0, totalDu - totalPaye);
 
@@ -445,6 +584,8 @@ function ReceiptsTab({ childId }: { childId: string }) {
         />
       </div>
 
+      {barre}
+
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -460,7 +601,7 @@ function ReceiptsTab({ childId }: { childId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {txns.map((t) => (
+                {visibles.map((t) => (
                   <tr key={t.key} className="border-b border-border/60 hover:bg-muted/20">
                     <td className="px-4 py-3 whitespace-nowrap text-foreground">{fmtDate(t.paid_at)}</td>
                     <td className="px-3 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">
@@ -482,21 +623,21 @@ function ReceiptsTab({ childId }: { childId: string }) {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            const w = window.open("about:blank", "_blank");
-                            openReceiptPdf(toReceiptData(t, totalDu), w);
-                          }}
+                          onClick={() =>
+                            visionneuse.ouvrir(
+                              t.key,
+                              `Reçu ${t.receipt_number}`,
+                              () => receiptPdfObjectUrl(toReceiptData(t, totalDu))
+                            )
+                          }
+                          disabled={visionneuse.chargement === t.key}
                           title="Voir le reçu"
                         >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => downloadReceiptPdf(toReceiptData(t, totalDu))}
-                          className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-                          title="Télécharger le reçu"
-                        >
-                          <FileDown className="h-4 w-4" />
+                          {visionneuse.chargement === t.key ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ExternalLink className="h-4 w-4" />
+                          )}
                         </Button>
                       </div>
                     </td>
@@ -504,9 +645,20 @@ function ReceiptsTab({ childId }: { childId: string }) {
                 ))}
               </tbody>
             </table>
+            {visibles.length === 0 && (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                Aucun reçu pour les filtres sélectionnés.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
+
+      <VisionneusePdf
+        url={visionneuse.url}
+        titre={visionneuse.titre}
+        onClose={visionneuse.fermer}
+      />
     </div>
   );
 }

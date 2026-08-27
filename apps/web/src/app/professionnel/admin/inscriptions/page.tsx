@@ -6,7 +6,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
   Button,
   Input,
 } from "@ecoledigitale/ui";
@@ -101,35 +100,40 @@ export default function ProfessionalInscriptionsPage() {
   const sessions: any[] = (sessionsQuery.data as any)?.items ?? [];
   const students: any[] = (studentsQuery.data as any)?.data ?? [];
 
-  const [filiere, setFiliere] = useState("");
+  // Sélection : « code de la classe|nom de la classe ». On inscrit dans un nom
+  // de classe précis, pas dans une classe entière.
+  const [nomKey, setNomKey] = useState("");
   const [sessionIds, setSessionIds] = useState<string[]>([]);
   const [studentIds, setStudentIds] = useState<string[]>([]);
   const [studentSearch, setStudentSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any | null>(null);
 
-  const filiereOptions = useMemo(() => {
+  const nomOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const s of sessions) {
-      if (isTransversale(s)) continue; // pas de filière proposée pour la seule Conduite
-      if (!isSessionActive(s)) continue; // filière proposée seulement si une session est encore active
-      if (s.filiere_code) {
-        map.set(s.filiere_code, `${s.filiere_nom ?? s.filiere_code} (${s.filiere_code})`);
-      }
+      if (isTransversale(s)) continue; // la Conduite ne s'inscrit pas ici
+      if (!isSessionActive(s)) continue; // seulement si une session est encore active
+      if (!s.filiere_code) continue;
+      map.set(`${s.filiere_code}|${sessionGroupLabel(s)}`, sessionGroupLabel(s));
     }
     return Array.from(map.entries())
       .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
   }, [sessions]);
 
   const visibleSessions = useMemo(
     () =>
-      filiere === ""
+      nomKey === ""
         ? []
         : sessions
-            .filter((s) => s.filiere_code === filiere && !isTransversale(s))
+            .filter(
+              (s) =>
+                `${s.filiere_code}|${sessionGroupLabel(s)}` === nomKey &&
+                !isTransversale(s)
+            )
             .sort((a, b) => String(a.libelle).localeCompare(String(b.libelle))),
-    [sessions, filiere]
+    [sessions, nomKey]
   );
 
   // Sessions regroupées par libellé de session (affiché une seule fois),
@@ -226,7 +230,7 @@ export default function ProfessionalInscriptionsPage() {
               <div className="pt-2 border-t">
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
                   <Hash className="h-3.5 w-3.5" />
-                  Matricules de la filière
+                  Matricules de la classe
                 </div>
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
                   {result.matricules.map((m: any) => (
@@ -251,22 +255,19 @@ export default function ProfessionalInscriptionsPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="text-base">
-              Sessions {sessionIds.length > 0 && `(${sessionIds.length})`}
+              Nom de classe {sessionIds.length > 0 && `(${sessionIds.length})`}
             </CardTitle>
-            <CardDescription>
-              Cochez une ou plusieurs sessions. La matière transversale « Conduite » n'est pas
-              listée.
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-2">
               <div className="flex-1">
                 <SearchableSelect
-                  value={filiere}
-                  onChange={(v) => setFiliere(v)}
+                  value={nomKey}
+                  onChange={(v) => setNomKey(v)}
                   icon={<Layers className="h-4 w-4 text-gray-400" />}
-                  placeholder="Sélectionner une filière"
-                  options={filiereOptions}
+                  placeholder="Sélectionner un nom de classe"
+                  searchPlaceholder="Rechercher un nom de classe…"
+                  options={nomOptions}
                 />
               </div>
               <button
@@ -286,9 +287,9 @@ export default function ProfessionalInscriptionsPage() {
               </button>
             </div>
             <div className="max-h-80 overflow-y-auto rounded-md border divide-y">
-              {filiere === "" ? (
+              {nomKey === "" ? (
                 <p className="px-3 py-3 text-sm text-muted-foreground">
-                  Sélectionnez une filière pour afficher ses sessions.
+                  Sélectionnez un nom de classe pour afficher ses sessions.
                 </p>
               ) : sessionGroups.length === 0 ? (
                 <p className="px-3 py-3 text-sm text-muted-foreground">
@@ -339,11 +340,6 @@ export default function ProfessionalInscriptionsPage() {
             <CardTitle className="text-base">
               Étudiants {studentIds.length > 0 && `(${studentIds.length})`}
             </CardTitle>
-            <CardDescription>
-              Recherchez et cochez un ou plusieurs étudiants. Seuls les étudiants sans
-              inscription en cours sont proposés : ceux déjà inscrits à une session active
-              n&apos;apparaissent pas tant qu&apos;elle n&apos;est pas terminée.
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-2">

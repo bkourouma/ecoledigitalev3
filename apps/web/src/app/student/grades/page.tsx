@@ -91,68 +91,82 @@ function semNum(libelle: string | null | undefined): number {
 }
 
 /** Clé filière (code si présent, sinon nom). */
-function filiereKey(s: any): string {
-  return String(s?.filiere_code ?? s?.filiere_nom ?? "—");
+/**
+ * Clé de regroupement : le nom de classe porté par la cohorte de l'étudiant.
+ * Une même classe pouvant porter plusieurs noms, c'est lui qui identifie le
+ * groupe suivi. Repli sur la filière pour un semestre sans cohorte connue.
+ */
+function classeKey(s: any): string {
+  return String(s?.classe_nom ?? s?.filiere_nom ?? s?.filiere_code ?? "—");
 }
 
 export default function StudentGradesPage() {
   const { data: session, status } = useSession();
   const semestresQuery = useMyBulletinSemestres();
-  const [filiereFilter, setFiliereFilter] = useState<string>(ALL);
+  // L'année scolaire commande les classes, qui commandent les semestres.
+  const [anneeFilter, setAnneeFilter] = useState<string>(ALL);
+  const [classeFilter, setClasseFilter] = useState<string>(ALL);
   const [semestreFilter, setSemestreFilter] = useState<string>(ALL);
 
   const semestres: any[] = (semestresQuery.data as any[]) ?? [];
 
-  // Filières distinctes présentes dans les inscriptions (pour le filtre).
-  const filiereOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const s of semestres) {
-      map.set(filiereKey(s), s.filiere_nom ?? filiereKey(s));
-    }
-    return Array.from(map, ([value, label]) => ({ value, label })).sort((a, b) =>
-      a.label.localeCompare(b.label, "fr")
-    );
+  // Années scolaires couvertes par la scolarité de l'étudiant.
+  const anneeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of semestres) if (s.annee_scolaire) set.add(s.annee_scolaire);
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
   }, [semestres]);
 
-  // Semestres proposés au filtre (restreints à la filière choisie), triés.
+  // Noms de classe de l'année retenue.
+  const classeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of semestres) {
+      if (anneeFilter !== ALL && s.annee_scolaire !== anneeFilter) continue;
+      set.add(classeKey(s));
+    }
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b, "fr"))
+      .map((value) => ({ value, label: value }));
+  }, [semestres, anneeFilter]);
+
+  // Semestres proposés au filtre (restreints à l'année et à la classe), triés.
   const semestreOptions = useMemo(() => {
-    const list =
-      filiereFilter === ALL
-        ? semestres
-        : semestres.filter((s) => filiereKey(s) === filiereFilter);
+    const list = semestres.filter(
+      (s) =>
+        (anneeFilter === ALL || s.annee_scolaire === anneeFilter) &&
+        (classeFilter === ALL || classeKey(s) === classeFilter)
+    );
     return [...list]
       .sort(
         (a, b) =>
-          (a.filiere_nom ?? "").localeCompare(b.filiere_nom ?? "", "fr") ||
+          classeKey(a).localeCompare(classeKey(b), "fr") ||
           semNum(a.libelle) - semNum(b.libelle)
       )
-      .map((s) => ({
-        value: s.id,
-        label: `${semestreLabelShort(s.libelle)}${
-          s.filiere_code ? ` · ${s.filiere_code}` : ""
-        }`,
-      }));
-  }, [semestres, filiereFilter]);
+      .map((s) => ({ value: s.id, label: semestreLabelShort(s.libelle) }));
+  }, [semestres, anneeFilter, classeFilter]);
 
   // Semestres visibles après application des filtres.
   const visibleSemestres = useMemo(() => {
     let list = semestres;
-    if (filiereFilter !== ALL) list = list.filter((s) => filiereKey(s) === filiereFilter);
+    if (anneeFilter !== ALL) list = list.filter((s) => s.annee_scolaire === anneeFilter);
+    if (classeFilter !== ALL) list = list.filter((s) => classeKey(s) === classeFilter);
     if (semestreFilter !== ALL) list = list.filter((s) => s.id === semestreFilter);
     return list;
-  }, [semestres, filiereFilter, semestreFilter]);
+  }, [semestres, anneeFilter, classeFilter, semestreFilter]);
 
-  // Regroupement : filière → semestres triés (S1, S2, S3…).
+  // Regroupement : nom de classe → semestres triés (S1, S2, S3…).
   const groups = useMemo(() => {
     const map = new Map<
       string,
       { key: string; nom: string; code: string | null; semestres: any[] }
     >();
     for (const s of visibleSemestres) {
-      const key = filiereKey(s);
+      const key = classeKey(s);
       let g = map.get(key);
       if (!g) {
-        g = { key, nom: s.filiere_nom ?? key, code: s.filiere_code ?? null, semestres: [] };
+        g = { key, nom: key, code: s.annee_scolaire ?? null, semestres: [] };
         map.set(key, g);
       }
       g.semestres.push(s);
@@ -187,18 +201,18 @@ export default function StudentGradesPage() {
             Mes notes
           </h1>
           <p className="text-muted-foreground mt-2">
-            Le détail de vos notes par filière et par semestre — unités
+            Le détail de vos notes par classe et par semestre — unités
             d'enseignement et matières (Devoirs, Examen, Note), tel que saisi par
             vos enseignants.
           </p>
         </div>
-        <Link href="/student/bulletin">
+        <Link href="/student/documents">
           <Button
             variant="outline"
             className="border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10"
           >
             <FileSpreadsheet className="h-4 w-4 mr-2" />
-            Mon bulletin officiel
+            Mes bulletins officiels
           </Button>
         </Link>
       </div>
@@ -209,8 +223,8 @@ export default function StudentGradesPage() {
           <StatCard
             icon={<Layers className="h-6 w-6 text-indigo-400" />}
             iconBg="bg-indigo-500/15"
-            label="Filières"
-            value={filiereOptions.length}
+            label="Classes"
+            value={classeOptions.length}
           />
           <StatCard
             icon={<CalendarRange className="h-6 w-6 text-purple-400" />}
@@ -227,22 +241,40 @@ export default function StudentGradesPage() {
         </div>
       )}
 
-      {/* Filtres (Filière + Semestre) — comme la saisie enseignant */}
+      {/* Filtres : année scolaire, puis nom de classe et semestre */}
       {hasData && (
         <Card className="shadow-sm">
           <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* L'année ouvre la cascade : elle occupe sa propre ligne. */}
             <SearchableSelect
-              value={filiereFilter}
+              className="md:col-span-2"
+              value={anneeFilter}
               onChange={(v) => {
-                setFiliereFilter(v);
+                setAnneeFilter(v);
+                // Classes et semestres dépendent de l'année.
+                setClasseFilter(ALL);
+                setSemestreFilter(ALL);
+              }}
+              icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
+              placeholder="Année scolaire"
+              searchPlaceholder="Rechercher une année…"
+              options={[
+                { value: ALL, label: "Toutes les années" },
+                ...anneeOptions,
+              ]}
+            />
+            <SearchableSelect
+              value={classeFilter}
+              onChange={(v) => {
+                setClasseFilter(v);
                 setSemestreFilter(ALL);
               }}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder="Filière"
-              searchPlaceholder="Rechercher une filière…"
+              placeholder="Nom de classe"
+              searchPlaceholder="Rechercher un nom de classe…"
               options={[
-                { value: ALL, label: "Toutes les filières" },
-                ...filiereOptions,
+                { value: ALL, label: "Tous les noms de classe" },
+                ...classeOptions,
               ]}
             />
             <SearchableSelect
@@ -320,7 +352,7 @@ export default function StudentGradesPage() {
         </Card>
       )}
 
-      {/* Notes par filière → semestre */}
+      {/* Notes par nom de classe → semestre */}
       {!semestresQuery.isLoading &&
         !semestresQuery.isError &&
         groups.map((g) => (

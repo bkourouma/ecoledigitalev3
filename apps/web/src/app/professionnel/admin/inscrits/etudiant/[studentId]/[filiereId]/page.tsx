@@ -30,18 +30,11 @@ import { useStudent } from "@/lib/hooks/use-students";
  * Inscriptions d'un étudiant dans une filière — Module Professionnel (admin).
  *
  * Page de détail complète du binôme étudiant + filière : identité de l'étudiant,
- * récapitulatif financier et intégralité des sessions inscrites avec leurs
- * données de commande. Remplace l'ancienne modale « Détails » de la liste.
+ * récapitulatif financier de la classe ouverte. Remplace l'ancienne modale
+ * « Détails » de la liste.
  */
 
 const LIST_URL = "/professionnel/admin/inscrits";
-
-const STATUT: Record<string, { label: string; cls: string }> = {
-  en_attente_paiement: { label: "En attente paiement", cls: "bg-amber-100 text-amber-700" },
-  confirmee: { label: "Confirmée", cls: "bg-green-100 text-green-700" },
-  terminee: { label: "Terminée", cls: "bg-blue-100 text-blue-700" },
-  annulee: { label: "Annulée", cls: "bg-gray-100 text-gray-600" },
-};
 
 function fmtDate(v?: string | null): string {
   if (!v) return "—";
@@ -143,7 +136,7 @@ export default function InscritsGroupePage() {
             <AlertCircle className="h-6 w-6 shrink-0" />
             <p>
               {(query.error as Error)?.message ??
-                "Aucune inscription pour cet étudiant dans cette filière."}
+                "Aucune inscription pour cet étudiant dans cette classe."}
             </p>
           </CardContent>
         </Card>
@@ -214,14 +207,14 @@ export default function InscritsGroupePage() {
         <CardHeader>
           <CardTitle>Récapitulatif</CardTitle>
           <CardDescription>
-            Cumul sur cette filière. Le montant payé est porté par la commande : une même
-            commande peut couvrir plusieurs sessions.
+            Cumul sur cette classe. Le montant payé est porté par la commande : une même
+            commande peut couvrir plusieurs UE.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Info icon={Layers} label="Filière" value={first.filiere_nom ?? "—"} />
-            <Info icon={BookOpen} label="Sessions inscrites" value={`${enrollments.length}`} />
+            <Info icon={Layers} label="Classe" value={first.filiere_nom ?? "—"} />
+            <Info icon={BookOpen} label="UE inscrites" value={`${enrollments.length}`} />
             <Info label="Total dû" value={fmtPrice(totaux.du)} />
             <Info icon={Wallet} label="Payé (commandes liées)" value={fmtPrice(totaux.paye)} />
           </div>
@@ -253,71 +246,6 @@ export default function InscritsGroupePage() {
         </CardContent>
       </Card>
 
-      {/* Sessions inscrites */}
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>
-            Sessions inscrites ({enrollments.length})
-          </CardTitle>
-          <CardDescription>Détail relevé au moment de l&apos;inscription.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {enrollments.map((e) => {
-            const st = STATUT[e.statut] ?? { label: e.statut, cls: "bg-gray-100 text-gray-600" };
-            return (
-              <div key={e.id} className="rounded-lg border p-4 space-y-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium">
-                      {e.ue_libelle ?? e.session_libelle}
-                      {e.ue_code ? ` (${e.ue_code})` : ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{e.session_libelle}</p>
-                  </div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${st.cls}`}>
-                    {st.label}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <Info icon={Calendar} label="Début" value={fmtDate(e.date_debut)} />
-                  <Info icon={Calendar} label="Fin" value={fmtDate(e.date_fin)} />
-                  <Info label="Statut de la session" value={e.session_statut ?? "—"} />
-                  <Info label="Prix" value={fmtPrice(e.prix_unitaire)} />
-                  <Info
-                    icon={Receipt}
-                    label="Commande"
-                    value={<span className="font-mono">{e.order_reference ?? "—"}</span>}
-                  />
-                  <Info label="Statut commande" value={e.order_statut ?? "—"} />
-                  <Info label="Montant commande" value={fmtPrice(e.order_montant)} />
-                  <Info label="Payé sur la commande" value={fmtPrice(e.montant_paye)} />
-                  <Info icon={Calendar} label="Inscrit le" value={fmtDate(e.created_at)} />
-                </div>
-
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`${LIST_URL}/${e.id}`)}
-                  >
-                    Fiche complète de l&apos;inscription
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      router.push(`/professionnel/admin/sessions/${e.ue_session_id}`)
-                    }
-                  >
-                    <BookOpen className="h-4 w-4 mr-2" /> Ouvrir la session
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
     </div>
   );
 }

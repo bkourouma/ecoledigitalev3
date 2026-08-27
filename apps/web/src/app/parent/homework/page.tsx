@@ -48,6 +48,7 @@ import {
   semShort,
   semestreLabelShort,
 } from "@/lib/bulletin-format";
+import { useFiltresScolaires } from "@/components/FiltresScolaires";
 
 /**
  * Devoirs & Notes — espace parent (Module Professionnel, feature 030).
@@ -154,7 +155,6 @@ export default function ParentHomeworkPage() {
                 {children.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {childName(c)}
-                    {c.student_number ? ` · ${c.student_number}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -302,7 +302,10 @@ function SubmissionBadge({ a }: { a: any }) {
 
 function AssignmentsSection({ childId }: { childId: string }) {
   const query = useChildAssignments(childId || null);
-  const items: any[] = (query.data as any[]) ?? [];
+  const toutes: any[] = (query.data as any[]) ?? [];
+  // Chaque devoir porte le contexte de la cohorte où il a été donné : année,
+  // nom de classe et semestre. Les compteurs suivent la sélection.
+  const { visibles: items, barre } = useFiltresScolaires(toutes);
 
   const stats = useMemo(() => {
     let notes = 0;
@@ -333,7 +336,7 @@ function AssignmentsSection({ childId }: { childId: string }) {
       </Card>
     );
   }
-  if (items.length === 0) {
+  if (toutes.length === 0) {
     return (
       <Card>
         <CardContent className="py-16 text-center text-muted-foreground">
@@ -345,6 +348,16 @@ function AssignmentsSection({ childId }: { childId: string }) {
 
   return (
     <div className="space-y-6">
+      {barre}
+
+      {items.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Aucun devoir pour les filtres sélectionnés.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
       <div className="grid grid-cols-3 gap-4">
         <StatCard icon={<ClipboardList className="h-5 w-5 text-emerald-400" />} label="Total" value={stats.total} />
         <StatCard icon={<CheckCircle2 className="h-5 w-5 text-sky-400" />} label="Corrigés" value={stats.notes} />
@@ -413,6 +426,8 @@ function AssignmentsSection({ childId }: { childId: string }) {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }
@@ -422,10 +437,15 @@ function AssignmentsSection({ childId }: { childId: string }) {
 function NotesSection({ childId }: { childId: string }) {
   const semestresQuery = useChildBulletinSemestres(childId || null);
   const semestres: any[] = (semestresQuery.data as any[]) ?? [];
+  // Un semestre porte déjà son contexte : il sert directement de ligne aux
+  // filtres année scolaire → nom de classe → semestre.
+  const { visibles, barre } = useFiltresScolaires(
+    semestres.map((s) => ({ ...s, semestre_id: s.id, semestre_libelle: s.libelle }))
+  );
 
   const sorted = useMemo(
-    () => [...semestres].sort((a, b) => semNum(a.libelle) - semNum(b.libelle)),
-    [semestres]
+    () => [...visibles].sort((a, b) => semNum(a.libelle) - semNum(b.libelle)),
+    [visibles]
   );
 
   if (semestresQuery.isLoading) {
@@ -447,7 +467,7 @@ function NotesSection({ childId }: { childId: string }) {
       </Card>
     );
   }
-  if (sorted.length === 0) {
+  if (semestres.length === 0) {
     return (
       <Card>
         <CardContent className="py-16 text-center text-muted-foreground">
@@ -459,9 +479,17 @@ function NotesSection({ childId }: { childId: string }) {
 
   return (
     <div className="space-y-6">
-      {sorted.map((s) => (
-        <SemesterNotes key={s.id} childId={childId} semestre={s} />
-      ))}
+      {barre}
+
+      {sorted.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Aucun semestre pour les filtres sélectionnés.
+          </CardContent>
+        </Card>
+      ) : (
+        sorted.map((s) => <SemesterNotes key={s.id} childId={childId} semestre={s} />)
+      )}
       <p className="text-xs text-muted-foreground">
         Chaque matière (ECUE) : <span className="font-medium">Devoirs</span> (une
         pastille par devoir) · <span className="font-medium">Examen</span> ·{" "}
@@ -511,8 +539,14 @@ function SemesterNotes({ childId, semestre }: { childId: string; semestre: any }
               {semestreLabelShort(semestre.libelle)}
             </p>
             <p className="text-xs text-muted-foreground">
-              {semestre.filiere_nom ?? semestre.filiere_code ?? ""}
-              {bulletin?.annee_academique ? ` · ${bulletin.annee_academique}` : ""}
+              {/* L'année scolaire situe la période, puis le nom de classe
+                  identifie le groupe suivi ; la filière ne sert que de repli. */}
+              {bulletin?.annee_academique ?? semestre.annee_scolaire ?? ""}
+              {(bulletin?.annee_academique ?? semestre.annee_scolaire) &&
+              (semestre.classe_nom ?? semestre.filiere_nom ?? semestre.filiere_code)
+                ? " · "
+                : ""}
+              {semestre.classe_nom ?? semestre.filiere_nom ?? semestre.filiere_code ?? ""}
             </p>
           </div>
         </div>

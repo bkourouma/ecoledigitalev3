@@ -138,7 +138,7 @@ export default function EditProfessionalSemestrePage() {
             Modifier le semestre
           </h1>
           <p className="text-muted-foreground mt-2">
-            Filière : <span className="font-medium">{detail.filiere_nom ?? "—"}</span> (non
+            Classe : <span className="font-medium">{detail.filiere_nom ?? "—"}</span> (non
             modifiable)
           </p>
         </div>
@@ -186,7 +186,7 @@ export default function EditProfessionalSemestrePage() {
               </div>
             ) : ues.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4">
-                Aucune UE disponible pour cette filière.
+                Aucune UE disponible pour cette classe.
               </p>
             ) : (
               <div className="overflow-x-auto">

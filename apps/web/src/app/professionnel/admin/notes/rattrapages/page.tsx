@@ -18,7 +18,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { ExportButtons } from "@/components/ExportButtons";
 import { openRattrapagePdf } from "@/lib/utils/rattrapage-report";
 import {
-  useRattrapageFilieres,
+  useRattrapageNoms,
   useRattrapageSemestres,
   useSemestreRattrapages,
   useUpsertManualNote,
@@ -42,7 +42,7 @@ import {
  * traite plus du tout le rattrapage.
  *
  * Les deux sélecteurs ne proposent QUE ce qui a effectivement un rattrapage en
- * attente (API `/rattrapages/filieres` et `/rattrapages/semestres`) : pas de
+ * attente (API `/rattrapages/noms` et `/rattrapages/semestres`) : pas de
  * filtre d'année, et aucun choix qui mènerait à un écran vide.
  */
 
@@ -73,8 +73,24 @@ interface RattrapageRow {
   note_examen_s2: number | null;
 }
 
+/**
+ * Nom de classe porté par une ligne : le libellé de sa session, amputé du
+ * suffixe « — CODE UE ».
+ */
+function nomDeClasseOf(r: any): string {
+  const lib = String(r.session_libelle ?? "").trim();
+  const code = String(r.ue_code ?? "").trim();
+  if (code && lib.endsWith(code)) {
+    return lib.slice(0, lib.length - code.length).replace(/[\s—–-]+$/u, "").trim() || lib;
+  }
+  return lib;
+}
+
 export default function RattrapagesPage() {
-  const [filiereId, setFiliereId] = useState("");
+  // L'année scolaire commande la sélection : elle restreint les noms.
+  const [annee, setAnnee] = useState("");
+  // Sélection au grain du nom de classe : « classeId|nom ».
+  const [nomKey, setNomKey] = useState("");
   const [semestreId, setSemestreId] = useState("");
   // Libellés du choix courant : une filière (ou un semestre) sort de la liste
   // dès son dernier rattrapage validé, or l'utilisateur est encore dessus.
@@ -83,11 +99,13 @@ export default function RattrapagesPage() {
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const filieresQuery = useRattrapageFilieres();
+  const filiereId = nomKey ? nomKey.split("|")[0] : "";
+
+  const nomsQuery = useRattrapageNoms();
   const semestresQuery = useRattrapageSemestres(filiereId || null);
   const rattrapagesQuery = useSemestreRattrapages(semestreId || null);
 
-  const filieres: any[] = (filieresQuery.data as any[]) ?? [];
+  const noms: any[] = (nomsQuery.data as any[]) ?? [];
   const semestres: any[] = filiereId ? ((semestresQuery.data as any[]) ?? []) : [];
 
   /**
@@ -96,15 +114,32 @@ export default function RattrapagesPage() {
    * sous les doigts de l'utilisateur au moment précis où il finit sa saisie.
    */
   const filiereOptions = useMemo(() => {
-    const opts = filieres.map((f) => ({
-      value: f.id as string,
-      label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
-    }));
-    if (filiereId && !opts.some((o) => o.value === filiereId) && filiereLabel) {
-      opts.push({ value: filiereId, label: filiereLabel });
+    const map = new Map<string, string>();
+    for (const n of noms) {
+      if (annee && n.annee_scolaire !== annee) continue;
+      map.set(`${n.classe_id}|${n.nom}`, n.nom);
+    }
+    const opts = Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+    if (nomKey && !opts.some((o) => o.value === nomKey) && filiereLabel) {
+      opts.push({ value: nomKey, label: filiereLabel });
     }
     return opts;
-  }, [filieres, filiereId, filiereLabel]);
+  }, [noms, annee, nomKey, filiereLabel]);
+
+  // Années scolaires ayant encore un rattrapage. L'API restreint déjà ces
+  // lignes aux ECUE de l'enseignant connecté : il ne voit que les siennes.
+  const anneeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of noms) if (n.annee_scolaire) set.add(n.annee_scolaire);
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [noms]);
+
+  // Première année proposée par défaut.
+  useEffect(() => {
+    if (!annee && anneeOptions.length > 0) setAnnee(anneeOptions[0].value);
+  }, [anneeOptions, annee]);
 
   const semestreOptions = useMemo(() => {
     const opts = semestres.map((s) => ({
@@ -117,11 +152,17 @@ export default function RattrapagesPage() {
     return opts;
   }, [semestres, semestreId, semestreLabel]);
 
-  const rows: RattrapageRow[] = (rattrapagesQuery.data as RattrapageRow[]) ?? [];
+  // Un semestre peut porter deux noms de classe : on ne mélange pas leurs
+  // rattrapages.
+  const nomClasse = nomKey ? nomKey.split("|").slice(1).join("|") : "";
+  const rows: RattrapageRow[] = useMemo(() => {
+    const list = (rattrapagesQuery.data as RattrapageRow[]) ?? [];
+    return nomClasse ? list.filter((r) => nomDeClasseOf(r) === nomClasse) : list;
+  }, [rattrapagesQuery.data, nomClasse]);
   // Plus aucune filière concernée = plus rien à afficher, sélecteurs compris.
   // Conditionné à `isSuccess` : une requête en échec, en attente ou en pause
   // n'est pas une preuve qu'il n'y a rien à rattraper.
-  const aucunRattrapage = filieresQuery.isSuccess && filiereOptions.length === 0;
+  const aucunRattrapage = nomsQuery.isSuccess && filiereOptions.length === 0;
 
   // Regroupement par étudiant : une carte par étudiant, ses ECUE à repasser.
   const groupes = useMemo(() => {
@@ -192,22 +233,38 @@ export default function RattrapagesPage() {
         </div>
       )}
 
-      {/* Sélecteurs — filière puis semestre, restreints à ce qui a un rattrapage */}
+      {/* Sélecteurs — année, nom de classe puis semestre, restreints à ce qui a un rattrapage */}
       {!aucunRattrapage && (
       <Card className="shadow-sm">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <SearchableSelect
-              value={filiereId}
+              className="md:col-span-2"
+              value={annee}
               onChange={(v) => {
-                setFiliereId(v);
+                setAnnee(v);
+                setNomKey("");
+                setFiliereLabel("");
+                setSemestreId("");
+                setSemestreLabel("");
+              }}
+              icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
+              placeholder={nomsQuery.isLoading ? "Chargement…" : "Année scolaire"}
+              searchPlaceholder="Rechercher une année…"
+              options={anneeOptions}
+            />
+            <SearchableSelect
+              value={nomKey}
+              onChange={(v) => {
+                setNomKey(v);
                 setFiliereLabel(filiereOptions.find((o) => o.value === v)?.label ?? "");
                 setSemestreId("");
                 setSemestreLabel("");
               }}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder={filieresQuery.isLoading ? "Chargement…" : "Filière"}
-              searchPlaceholder="Rechercher une filière…"
+              disabled={!annee}
+              placeholder="Nom de classe"
+              searchPlaceholder="Rechercher un nom de classe…"
               options={filiereOptions}
             />
             <SearchableSelect
@@ -218,8 +275,8 @@ export default function RattrapagesPage() {
               }}
               icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
               placeholder={
-                !filiereId
-                  ? "Choisir une filière"
+                !nomKey
+                  ? "Choisir un nom de classe"
                   : semestresQuery.isError
                   ? "Erreur de chargement"
                   : semestresQuery.isSuccess && semestreOptions.length === 0
@@ -257,17 +314,17 @@ export default function RattrapagesPage() {
       )}
 
       {/* Liste des rattrapages */}
-      {filieresQuery.isError ? (
+      {nomsQuery.isError ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center text-center py-16 gap-3">
             <div className="rounded-full bg-red-50 p-4">
               <AlertTriangle className="h-8 w-8 text-red-500" />
             </div>
             <p className="text-red-700 max-w-md">
-              Impossible de charger les filières concernées :{" "}
-              {(filieresQuery.error as any)?.message ?? "erreur inconnue"}
+              Impossible de charger les classes concernées :{" "}
+              {(nomsQuery.error as any)?.message ?? "erreur inconnue"}
             </p>
-            <Button variant="outline" onClick={() => filieresQuery.refetch()}>
+            <Button variant="outline" onClick={() => nomsQuery.refetch()}>
               Réessayer
             </Button>
           </CardContent>
@@ -291,7 +348,7 @@ export default function RattrapagesPage() {
               <RotateCcw className="h-8 w-8 text-amber-500" />
             </div>
             <p className="text-muted-foreground max-w-md">
-              Choisissez une filière puis un semestre pour voir les étudiants concernés par la
+              Choisissez une classe puis un semestre pour voir les étudiants concernés par la
               Session 2 (rattrapage).
             </p>
           </CardContent>

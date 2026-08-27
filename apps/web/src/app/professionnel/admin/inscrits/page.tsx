@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, Button, Input } from "@ecoledigitale/ui";
 import { Users, Search, Layers, Eye, Loader2, Calendar } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openInscritsPdf } from "@/lib/utils/inscrits-report";
 import { useAllAdminEnrollments } from "@/lib/hooks/use-professional-suivi";
 
 /**
@@ -38,54 +40,77 @@ function anneeScolaireOf(v?: string | null): string | null {
   return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
 
+/**
+ * Nom de la classe porté par une inscription : le libellé de la session,
+ * amputé de son suffixe « — CODE UE ». C'est ce nom qu'on filtre, et non la
+ * classe : une classe peut en porter plusieurs.
+ */
+function nomDeClasseOf(e: any): string {
+  const lib = String(e.session_libelle ?? "").trim();
+  const code = String(e.ue_code ?? "").trim();
+  if (code && lib.endsWith(code)) {
+    return lib.slice(0, lib.length - code.length).replace(/[\s—–-]+$/u, "").trim() || lib;
+  }
+  return lib;
+}
+
+/** Clé de sélection d'un nom de classe : « classe|nom ». */
+function nomKeyOf(e: any): string {
+  return `${e.filiere_id}|${nomDeClasseOf(e)}`;
+}
+
 export default function ProfessionalInscritsPage() {
   const query = useAllAdminEnrollments();
 
   const router = useRouter();
   const items: any[] = (query.data as any)?.items ?? [];
-  const [filiere, setFiliere] = useState("all");
+  const [nomKey, setNomKey] = useState("all");
   const [annee, setAnnee] = useState("all");
   const [search, setSearch] = useState("");
 
-  const filiereOptions = useMemo(() => {
+  // Noms de classe de l'année choisie. L'année commande la liste, et non
+  // l'inverse : c'est elle qu'on sélectionne en premier.
+  const nomOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const e of items) {
-      if (e.filiere_id) map.set(e.filiere_id, `${e.filiere_nom ?? e.filiere_code} (${e.filiere_code})`);
+      if (!e.filiere_id) continue;
+      if (annee !== "all" && anneeScolaireOf(e.date_debut) !== annee) continue;
+      map.set(nomKeyOf(e), nomDeClasseOf(e));
     }
     return Array.from(map.entries())
       .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [items]);
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [items, annee]);
 
   // Années scolaires disponibles (dérivées de la date de début des sessions),
   // adaptées à la filière sélectionnée. Plus récentes en premier.
   const anneeOptions = useMemo(() => {
     const set = new Set<string>();
     for (const e of items) {
-      if (filiere !== "all" && e.filiere_id !== filiere) continue;
       const a = anneeScolaireOf(e.date_debut);
       if (a) set.add(a);
     }
     return Array.from(set)
       .sort((a, b) => b.localeCompare(a))
       .map((value) => ({ value, label: value }));
-  }, [items, filiere]);
+  }, [items]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((e) => {
-      const matchFil = filiere === "all" || e.filiere_id === filiere;
+      const matchFil = nomKey === "all" || nomKeyOf(e) === nomKey;
       const matchAnnee = annee === "all" || anneeScolaireOf(e.date_debut) === annee;
       const hay = `${e.first_name ?? ""} ${e.last_name ?? ""} ${e.matricule ?? ""} ${e.email ?? ""}`.toLowerCase();
       return matchFil && matchAnnee && (!q || hay.includes(q));
     });
-  }, [items, filiere, annee, search]);
+  }, [items, nomKey, annee, search]);
 
   // Si la filière change et que l'année sélectionnée n'existe plus dans les
   // options, on revient à « Toutes les années ».
+  // Changer d'année peut faire disparaître le nom retenu de la liste.
   useEffect(() => {
-    if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
-  }, [anneeOptions, annee]);
+    if (nomKey !== "all" && !nomOptions.some((o) => o.value === nomKey)) setNomKey("all");
+  }, [nomOptions, nomKey]);
 
   // Regroupe les inscriptions par étudiant + filière (une carte par binôme).
   // Un même étudiant dans deux filières = deux cartes distinctes.
@@ -115,6 +140,22 @@ export default function ProfessionalInscritsPage() {
     );
   }, [filtered]);
 
+  const [exportErreur, setExportErreur] = useState<string | null>(null);
+
+  /** Périmètre exporté : exactement les cartes affichées, filtres compris. */
+  const exportOptions = useMemo(
+    () => ({
+      annee: annee === "all" ? "Toutes les années" : annee,
+      nomClasse:
+        nomKey === "all"
+          ? "Tous les noms de classe"
+          : (nomOptions.find((o) => o.value === nomKey)?.label ?? nomKey),
+      recherche: search.trim() || undefined,
+      statutOf: (g: any) => groupStatut(g).label,
+    }),
+    [annee, nomKey, nomOptions, search]
+  );
+
   // La suppression d'une inscription se fait depuis sa fiche détaillée
   // (/professionnel/admin/inscrits/[id]), plus depuis cette liste.
 
@@ -129,15 +170,31 @@ export default function ProfessionalInscritsPage() {
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-          <Users className="h-7 w-7 text-indigo-500" />
-          Étudiants inscrits
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Toutes les inscriptions aux sessions du Module Professionnel.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+            <Users className="h-7 w-7 text-indigo-500" />
+            Étudiants inscrits
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Toutes les inscriptions aux sessions du Module Professionnel.
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={query.isLoading || groups.length === 0}
+            onExportPdf={(win) => openInscritsPdf(groups, exportOptions, win)}
+            onError={setExportErreur}
+          />
+        </div>
       </div>
+
+      {exportErreur && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {exportErreur}
+        </div>
+      )}
 
       {query.isError && (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
@@ -151,17 +208,6 @@ export default function ProfessionalInscritsPage() {
           {/* Rangée du haut : filière + année scolaire */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Filière</label>
-              <SearchableSelect
-                value={filiere}
-                onChange={setFiliere}
-                icon={<Layers className="h-4 w-4 text-gray-400" />}
-                placeholder="Filtrer par filière"
-                searchPlaceholder="Rechercher une filière…"
-                options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
-              />
-            </div>
-            <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                 Année scolaire
               </label>
@@ -172,6 +218,17 @@ export default function ProfessionalInscritsPage() {
                 placeholder="Filtrer par année scolaire"
                 searchPlaceholder="Rechercher une année…"
                 options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nom de classe</label>
+              <SearchableSelect
+                value={nomKey}
+                onChange={setNomKey}
+                icon={<Layers className="h-4 w-4 text-gray-400" />}
+                placeholder="Filtrer par nom de classe"
+                searchPlaceholder="Rechercher un nom de classe…"
+                options={[{ value: "all", label: "Tous les noms de classe" }, ...nomOptions]}
               />
             </div>
           </div>
@@ -242,10 +299,6 @@ export default function ProfessionalInscritsPage() {
                   </span>
                 </div>
 
-                <p className="text-sm text-white/90">
-                  {g.enrollments.length} session{g.enrollments.length > 1 ? "s" : ""} inscrite
-                  {g.enrollments.length > 1 ? "s" : ""}
-                </p>
 
                 <Button
                   variant="secondary"
@@ -255,7 +308,7 @@ export default function ProfessionalInscritsPage() {
                       `/professionnel/admin/inscrits/etudiant/${g.student_id}/${g.filiere_id}`
                     )
                   }
-                  title="Voir le détail des sessions"
+                  title="Voir le détail de la classe"
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   Détails

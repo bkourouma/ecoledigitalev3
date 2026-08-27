@@ -38,6 +38,7 @@ import {
   useAwardDiploma,
   fetchDiplomaAttestation,
 } from "@/lib/hooks/use-professional-diplomas";
+import { useNotesNoms } from "@/lib/hooks/use-professional-bulletins";
 import { fetchStudent } from "@/lib/hooks/use-students";
 import { fetchSignataires, indexSignataires } from "@/lib/hooks/use-professional-signataires";
 import { openDiplomePdf, type DiplomePdfInput } from "@/lib/diplome-pdf";
@@ -51,15 +52,16 @@ import {
 
 type StatutFilter = "tous" | "eligibles" | "obtenus";
 
-const GRADE_ORDER = ["LICENCE", "MASTER"] as const;
 const GRADE_LABEL: Record<string, string> = { LICENCE: "Licence", MASTER: "Master" };
 
 export default function DiplomesPage() {
   const router = useRouter();
-  const [grade, setGrade] = useState<string>(""); // "" = tous
-  const [groupId, setGroupId] = useState("");
+
   const [statut, setStatut] = useState<StatutFilter>("tous");
-  const [annee, setAnnee] = useState(""); // "" = toutes les années d'obtention
+  // Le nom de classe pilote la page : il désigne une classe, dont on déduit
+  // le cycle, donc le diplôme. « classeId|nom ».
+  const [anneeClasse, setAnneeClasse] = useState("");
+  const [nomKey, setNomKey] = useState("");
   const [search, setSearch] = useState("");
   const [diplomaId, setDiplomaId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -67,37 +69,26 @@ export default function DiplomesPage() {
 
   const groupsQuery = useCycleGroups();
   const groups: any[] = (groupsQuery.data as any[]) ?? [];
+  const classeId = nomKey ? nomKey.split("|")[0] : "";
+  const classeNom = nomKey ? nomKey.split("|").slice(1).join("|") : "";
   const ensureMut = useEnsureCycleDiploma();
   const awardMut = useAwardDiploma();
 
+  const nomsQuery = useNotesNoms();
   const candidatesQuery = useDiplomaCandidates(diplomaId);
   const candidates: any[] = (candidatesQuery.data as any[]) ?? [];
 
-  const selectedGroup = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
+  // Le cycle affiché découle du nom choisi : il contient sa classe.
+  const selectedGroup = useMemo(
+    () => groups.find((g: any) => (g.filieres ?? []).some((f: any) => f.id === classeId)),
+    [groups, classeId]
+  );
 
-  // Cycles (grades) présents pour les onglets.
-  const gradesPresents = useMemo(() => {
-    const set = new Set(groups.map((g) => g.grade));
-    return GRADE_ORDER.filter((g) => set.has(g));
-  }, [groups]);
-
-  // Options de cycle (spécialité) filtrées par grade.
-  const groupOptions = useMemo(() => {
-    return groups
-      .filter((g) => !grade || g.grade === grade)
-      .slice()
-      .sort((a, b) => String(a.libelle).localeCompare(String(b.libelle), "fr"))
-      .map((g) => ({ value: g.id, label: g.libelle }));
-  }, [groups, grade]);
-
-  // Désélectionne le cycle s'il sort du grade filtré.
+  // Prépare (crée/resynchronise) le diplôme du cycle contenant la classe du
+  // nom choisi → id. L'API résout le cycle à partir de n'importe quelle
+  // classe qui en fait partie.
   useEffect(() => {
-    if (groupId && !groupOptions.some((o) => o.value === groupId)) setGroupId("");
-  }, [groupOptions, groupId]);
-
-  // Prépare (crée/resynchronise) le diplôme du cycle sélectionné → id.
-  useEffect(() => {
-    if (!groupId) {
+    if (!classeId) {
       setDiplomaId(null);
       return;
     }
@@ -105,7 +96,7 @@ export default function DiplomesPage() {
     setDiplomaId(null);
     setError(null);
     ensureMut
-      .mutateAsync(groupId)
+      .mutateAsync(classeId)
       .then((d: any) => {
         if (!cancelled) setDiplomaId(d.id);
       })
@@ -116,25 +107,39 @@ export default function DiplomesPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupId]);
+  }, [classeId]);
 
-  // Années d'obtention disponibles parmi les diplômés (dérivées de la date d'octroi).
-  const anneeOptions = useMemo(() => {
+  // Années scolaires et noms de classe, dérivés des classes elles-mêmes : ils
+  // doivent exister avant tout chargement de diplôme, puisque c'est le nom
+  // choisi qui détermine lequel charger.
+  const anneeClasseOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const c of candidates) {
-      if (c.statut_octroi === "obtenu" && c.date_obtention) {
-        const a = academicYearFromDate(c.date_obtention);
-        if (a) set.add(a);
-      }
-    }
-    const arr = [...set].sort((a, b) => b.localeCompare(a));
-    return [{ value: "", label: "Toutes les années" }, ...arr.map((a) => ({ value: a, label: a }))];
-  }, [candidates]);
+    for (const n of nomsQuery.data ?? []) if (n.annee_scolaire) set.add(n.annee_scolaire);
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [nomsQuery.data]);
 
-  // Réinitialise le filtre année quand on change de cycle.
+  const nomOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const n of nomsQuery.data ?? []) {
+      if (anneeClasse && n.annee_scolaire !== anneeClasse) continue;
+      map.set(`${n.classe_id}|${n.nom}`, n.nom);
+    }
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [nomsQuery.data, anneeClasse]);
+
+  // Première année proposée par défaut.
   useEffect(() => {
-    setAnnee("");
-  }, [groupId]);
+    if (!anneeClasse && anneeClasseOptions.length > 0) {
+      setAnneeClasse(anneeClasseOptions[0].value);
+    }
+  }, [anneeClasseOptions, anneeClasse]);
+
+  // Changer d'année peut faire disparaître le nom retenu.
+  useEffect(() => {
+    if (nomKey && !nomOptions.some((o) => o.value === nomKey)) setNomKey("");
+  }, [nomOptions, nomKey]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -142,18 +147,15 @@ export default function DiplomesPage() {
       const obtenu = c.statut_octroi === "obtenu";
       if (statut === "eligibles" && !(c.eligible && !obtenu)) return false;
       if (statut === "obtenus" && !obtenu) return false;
-      // Filtre par année d'obtention : ne concerne que les diplômés.
-      if (annee) {
-        if (!obtenu || !c.date_obtention || academicYearFromDate(c.date_obtention) !== annee)
-          return false;
-      }
+      // Le cycle couvre plusieurs classes : on ne garde que celle du nom choisi.
+      if (classeNom && c.classe_nom !== classeNom) return false;
       if (q) {
         const hay = `${c.nom_complet ?? ""} ${c.student_number ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [candidates, statut, annee, search]);
+  }, [candidates, statut, classeNom, search]);
 
   const stats = useMemo(() => {
     const obtenu = candidates.filter((c) => c.statut_octroi === "obtenu").length;
@@ -164,10 +166,12 @@ export default function DiplomesPage() {
   /** Périmètre exporté : le tableau tel qu'il est filtré à l'écran. */
   const exportContexte = useMemo(
     () => ({
-      grade: grade ? (GRADE_LABEL[grade] ?? grade) : "Tous les cycles",
+      grade: selectedGroup?.grade
+        ? (GRADE_LABEL[selectedGroup.grade] ?? selectedGroup.grade)
+        : "—",
       cycle: selectedGroup?.libelle ?? "—",
       annees: (selectedGroup?.filieres ?? []).map((f: any) => f.code).join(", "),
-      annee: annee || "Toutes les années",
+      annee: anneeClasse || "Toutes les années",
       statut:
         statut === "eligibles"
           ? "Éligibles uniquement"
@@ -176,7 +180,7 @@ export default function DiplomesPage() {
             : "Tous les étudiants du cycle",
       recherche: search.trim() || undefined,
     }),
-    [grade, selectedGroup, annee, statut, search]
+    [selectedGroup, anneeClasse, statut, search]
   );
 
   /**
@@ -263,7 +267,7 @@ export default function DiplomesPage() {
     }
   }
 
-  const preparing = !!groupId && !diplomaId && !error;
+  const preparing = !!classeId && !diplomaId && !error;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-4 sm:p-6">
@@ -302,46 +306,37 @@ export default function DiplomesPage() {
       {/* Barre de filtres */}
       <Card className="shadow-sm border-emerald-100">
         <CardContent className="p-4 space-y-4">
-          {gradesPresents.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <FilterPill active={grade === ""} onClick={() => setGrade("")}>
-                Tous les cycles
-              </FilterPill>
-              {gradesPresents.map((g) => (
-                <FilterPill key={g} active={grade === g} onClick={() => setGrade(g)}>
-                  {GRADE_LABEL[g] ?? g}
-                </FilterPill>
-              ))}
-            </div>
-          )}
+
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                Cycle (spécialité)
+                Année scolaire
               </label>
               <SearchableSelect
-                value={groupId}
-                onChange={setGroupId}
-                icon={<Layers className="h-4 w-4 text-gray-400" />}
-                placeholder={
-                  groupsQuery.isLoading ? "Chargement…" : "Sélectionner un cycle (Licence ou Master)"
-                }
-                searchPlaceholder="Rechercher une spécialité…"
-                options={groupOptions}
+                value={anneeClasse}
+                onChange={(v) => {
+                  setAnneeClasse(v);
+                  setNomKey("");
+                }}
+                icon={<CalendarDays className="h-4 w-4 text-gray-400" />}
+                placeholder={nomsQuery.isLoading ? "Chargement…" : "Année scolaire"}
+                searchPlaceholder="Rechercher une année…"
+                options={anneeClasseOptions}
               />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                Année d'obtention
+                Nom de classe
               </label>
               <SearchableSelect
-                value={annee}
-                onChange={setAnnee}
-                icon={<CalendarDays className="h-4 w-4 text-gray-400" />}
-                placeholder="Toutes les années"
-                searchPlaceholder="Rechercher une année…"
-                options={anneeOptions}
+                value={nomKey}
+                onChange={setNomKey}
+                icon={<Layers className="h-4 w-4 text-gray-400" />}
+                disabled={!anneeClasse}
+                placeholder="Nom de classe"
+                searchPlaceholder="Rechercher un nom de classe…"
+                options={nomOptions}
               />
             </div>
           </div>
@@ -413,15 +408,15 @@ export default function DiplomesPage() {
       )}
 
       {/* Contenu */}
-      {!groupId ? (
+      {!nomKey ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-center">
             <div className="rounded-full bg-emerald-50 p-4">
               <GraduationCap className="h-8 w-8 text-emerald-500" />
             </div>
             <p className="text-muted-foreground max-w-md">
-              Choisissez un cycle (Licence ou Master) pour afficher ses candidats et générer leurs
-              diplômes.
+              Choisissez une année scolaire puis un nom de classe pour afficher ses
+              candidats et générer leurs diplômes.
             </p>
           </CardContent>
         </Card>
@@ -469,6 +464,7 @@ export default function DiplomesPage() {
                   <tr className="text-left text-muted-foreground border-b bg-muted/30">
                     <th className="px-4 py-3 whitespace-nowrap">Étudiant</th>
                     <th className="px-4 py-3 whitespace-nowrap">Matricule</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Nom de classe</th>
                     <th className="px-4 py-3 whitespace-nowrap">Année d'obtention</th>
                     <th className="px-4 py-3 text-center">Progression du cycle</th>
                     <th className="px-4 py-3 text-center">Statut</th>
@@ -494,6 +490,20 @@ export default function DiplomesPage() {
                         <td className="px-4 py-2.5 font-medium whitespace-nowrap">{c.nom_complet}</td>
                         <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground whitespace-nowrap">
                           {c.student_number ?? "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs whitespace-nowrap">
+                          {c.classe_nom ? (
+                            <>
+                              <span>{c.classe_nom}</span>
+                              {c.annee_classe && (
+                                <span className="block text-muted-foreground">
+                                  {c.annee_classe}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-2.5">
                           {obtenu && c.date_obtention ? (

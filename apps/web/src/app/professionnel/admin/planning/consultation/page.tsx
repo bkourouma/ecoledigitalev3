@@ -14,8 +14,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { EmploiTempsGrid } from "@/components/professional/EmploiTempsGrid";
 import {
   useEmploiTemps,
-  useFilieresWithEmploiTemps,
-  useSemestresWithEmploiTemps,
+  useConsultationOptions,
 } from "@/lib/hooks/use-professional-emploi-temps";
 import { downloadEmploiTempsDocx } from "@/lib/emploi-temps-docx";
 import { openEmploiTempsPdf } from "@/lib/emploi-temps-pdf";
@@ -33,67 +32,74 @@ function fmtDate(value?: string | null): string {
   return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("fr-FR");
 }
 
-/**
- * Année scolaire (pivot septembre) dérivée de la date de début du semestre,
- * alignée sur le calcul côté API (professional-bulletin.service.ts) et les autres
- * pages : un semestre démarrant en septembre ou après appartient à
- * « AAAA-AAAA+1 », sinon « AAAA-1-AAAA ».
- */
-function anneeScolaireOf(v?: string | null): string | null {
-  if (!v) return null;
-  const d = new Date(v);
-  if (isNaN(d.getTime())) return null;
-  const y = d.getFullYear();
-  return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
-}
-
 export default function ConsultationEmploiTempsPage() {
   const router = useRouter();
-  const [filiereId, setFiliereId] = useState("");
-  const [annee, setAnnee] = useState("all");
+  // L'année vient en premier : elle commande les noms, qui commandent les
+  // semestres.
+  const [annee, setAnnee] = useState("");
+  const [nomKey, setNomKey] = useState("");
   const [semestreId, setSemestreId] = useState("");
 
-  const programmesQuery = useFilieresWithEmploiTemps();
-  const semestresQuery = useSemestresWithEmploiTemps(filiereId || null);
+  const optionsQuery = useConsultationOptions();
 
   // Dès qu'un semestre est sélectionné, on charge sa grille complète (toutes
   // périodes confondues) — plus besoin de choisir un emploi du temps précis.
   const etQuery = useEmploiTemps(semestreId || null, null);
   const et: any = etQuery.data ?? null;
-  const slots: any[] = et?.slots ?? [];
 
-  const filieres: any[] = (programmesQuery.data as any[]) ?? [];
+  const options = useMemo(() => optionsQuery.data ?? [], [optionsQuery.data]);
 
-  // Semestres de la filière, triés, avec leur année scolaire dérivée.
-  const semestres: any[] = useMemo(() => {
-    const list = (semestresQuery.data as any[]) ?? [];
-    if (!filiereId) return [];
-    return [...list]
-      .map((s) => ({ ...s, annee_scolaire: anneeScolaireOf(s.date_debut) }))
-      .sort((a, b) => String(a.libelle).localeCompare(String(b.libelle)));
-  }, [semestresQuery.data, filiereId]);
-
-  // Années scolaires disponibles pour la filière (plus récentes en premier).
+  // Années scolaires disponibles (plus récentes en premier).
   const anneeOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const s of semestres) if (s.annee_scolaire) set.add(s.annee_scolaire);
+    for (const o of options) if (o.annee_scolaire) set.add(o.annee_scolaire);
     return Array.from(set)
       .sort((a, b) => b.localeCompare(a))
       .map((value) => ({ value, label: value }));
-  }, [semestres]);
+  }, [options]);
 
-  // Semestres filtrés par année scolaire sélectionnée.
-  const visibleSemestres = useMemo(
-    () => semestres.filter((s) => annee === "all" || s.annee_scolaire === annee),
-    [semestres, annee]
-  );
+  // Noms de classe de l'année choisie.
+  const nomOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const o of options) {
+      if (annee && o.annee_scolaire !== annee) continue;
+      map.set(`${o.classe_id}|${o.nom}`, o.nom);
+    }
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [options, annee]);
 
-  // Si l'année sélectionnée n'existe plus (changement de filière), on réinitialise.
+  // Semestres du couple (année, nom) choisi.
+  const visibleSemestres = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const o of options) {
+      if (annee && o.annee_scolaire !== annee) continue;
+      if (nomKey && `${o.classe_id}|${o.nom}` !== nomKey) continue;
+      map.set(o.semestre_id, { id: o.semestre_id, libelle: o.semestre_libelle });
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      String(a.libelle).localeCompare(String(b.libelle))
+    );
+  }, [options, annee, nomKey]);
+
+  // Le nom retenu sert à filtrer la grille : un semestre peut en porter deux.
+  const nomClasse = nomKey ? nomKey.split("|").slice(1).join("|") : "";
+
+  const slots: any[] = useMemo(() => {
+    const list: any[] = et?.slots ?? [];
+    return nomClasse ? list.filter((sl) => sl.classe_nom === nomClasse) : list;
+  }, [et, nomClasse]);
+
+  // Première année proposée par défaut, pour que l'écran ne soit pas vide.
   useEffect(() => {
-    if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
+    if (!annee && anneeOptions.length > 0) setAnnee(anneeOptions[0].value);
   }, [anneeOptions, annee]);
 
-  // Si le semestre sélectionné n'est plus visible (filtre année), on le désélectionne.
+  // Un changement d'année peut invalider le nom, donc le semestre.
+  useEffect(() => {
+    if (nomKey && !nomOptions.some((o) => o.value === nomKey)) setNomKey("");
+  }, [nomOptions, nomKey]);
   useEffect(() => {
     if (semestreId && !visibleSemestres.some((s) => s.id === semestreId)) setSemestreId("");
   }, [visibleSemestres, semestreId]);
@@ -123,7 +129,7 @@ export default function ConsultationEmploiTempsPage() {
             Consultation des emplois du temps
           </h1>
           <p className="text-muted-foreground mt-2">
-            Sélectionnez la filière, l'année scolaire puis le semestre : la grille s'affiche
+            Sélectionnez la classe, l'année scolaire puis le semestre : la grille s'affiche
             directement.
           </p>
         </div>
@@ -160,34 +166,50 @@ export default function ConsultationEmploiTempsPage() {
           <CardTitle>Sélection</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Filière</label>
-            <SearchableSelect
-              value={filiereId}
-              onChange={(id) => {
-                setFiliereId(id);
-                setAnnee("all");
-                setSemestreId("");
-              }}
-              icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder={programmesQuery.isLoading ? "Chargement…" : "Sélectionner une filière"}
-              options={filieres.map((f) => ({
-                value: f.id,
-                label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
-              }))}
-            />
-          </div>
-          <div className="space-y-1.5">
+          {/* L'année commande le reste : seule sur sa ligne, en premier. */}
+          <div className="space-y-1.5 md:col-span-2">
             <label className="text-sm font-medium">Année scolaire</label>
             <SearchableSelect
               value={annee}
-              onChange={(v) => setAnnee(v)}
+              onChange={(v) => {
+                setAnnee(v);
+                setNomKey("");
+                setSemestreId("");
+              }}
               icon={<Calendar className="h-4 w-4 text-gray-400" />}
-              placeholder={!filiereId ? "Choisir d'abord une filière" : "Toutes les années"}
+              placeholder={
+                optionsQuery.isLoading
+                  ? "Chargement…"
+                  : anneeOptions.length === 0
+                    ? "Aucun emploi du temps"
+                    : "Sélectionner une année"
+              }
               searchPlaceholder="Rechercher une année…"
-              options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
+              options={anneeOptions}
             />
           </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Nom de la classe</label>
+            <SearchableSelect
+              value={nomKey}
+              onChange={(v) => {
+                setNomKey(v);
+                setSemestreId("");
+              }}
+              icon={<Layers className="h-4 w-4 text-gray-400" />}
+              placeholder={
+                !annee
+                  ? "Choisir d'abord une année"
+                  : nomOptions.length === 0
+                    ? "Aucune classe cette année"
+                    : "Sélectionner un nom de classe"
+              }
+              searchPlaceholder="Rechercher un nom de classe…"
+              options={nomOptions}
+            />
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Semestre</label>
             <SearchableSelect
@@ -195,15 +217,14 @@ export default function ConsultationEmploiTempsPage() {
               onChange={(v) => setSemestreId(v)}
               icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
               placeholder={
-                !filiereId
-                  ? "Choisir d'abord une filière"
-                  : semestresQuery.isLoading
-                  ? "Chargement…"
+                !nomKey
+                  ? "Choisir d'abord un nom de classe"
                   : visibleSemestres.length === 0
-                  ? "Aucun semestre"
-                  : "Sélectionner un semestre"
+                    ? "Aucun semestre"
+                    : "Sélectionner un semestre"
               }
-              options={visibleSemestres.map((s) => ({ value: s.id, label: s.libelle }))}
+              searchPlaceholder="Rechercher un semestre…"
+              options={visibleSemestres.map((sm) => ({ value: sm.id, label: sm.libelle }))}
             />
           </div>
         </CardContent>

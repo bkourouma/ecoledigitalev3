@@ -27,6 +27,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openPaiementsPdf } from "@/lib/utils/paiements-report";
 import {
   useAllAdminEnrollments,
   useRecordStudentPayment,
@@ -48,6 +50,14 @@ const MODES = [
   { value: "autre", label: "Autre" },
 ];
 const MODE_LABEL: Record<string, string> = Object.fromEntries(MODES.map((m) => [m.value, m.label]));
+
+/** Libellés du filtre de règlement, repris tels quels dans l'export. */
+const REGLEMENT_LABEL: Record<string, string> = {
+  all: "Tous",
+  non_regle: "Non réglés",
+  partiel: "Partiels",
+  solde: "Soldés",
+};
 
 function fmtFCFA(v?: number | null): string {
   return `${Math.round(Number(v ?? 0)).toLocaleString("fr-FR")} FCFA`;
@@ -71,6 +81,25 @@ function anneeScolaireOf(v?: string | null): string | null {
   const y = d.getFullYear();
   return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
+/**
+ * Nom de la classe porté par une inscription : le libellé de la session,
+ * amputé de son suffixe « — CODE UE ». C'est ce nom qu'on filtre, et non la
+ * classe : une classe peut en porter plusieurs.
+ */
+function nomDeClasseOf(e: any): string {
+  const lib = String(e.session_libelle ?? "").trim();
+  const code = String(e.ue_code ?? "").trim();
+  if (code && lib.endsWith(code)) {
+    return lib.slice(0, lib.length - code.length).replace(/[\s—–-]+$/u, "").trim() || lib;
+  }
+  return lib;
+}
+
+/** Clé de sélection d'un nom de classe : « classe|nom ». */
+function nomKeyOf(e: any): string {
+  return `${e.filiere_id}|${nomDeClasseOf(e)}`;
+}
+
 const dueOf = (e: any) => Number(e.order_montant ?? e.prix_unitaire ?? 0);
 const paidOf = (e: any) => Number(e.montant_paye ?? 0);
 
@@ -117,34 +146,53 @@ export default function ProfessionalPaiementsPage() {
   const query = useAllAdminEnrollments();
   const items: any[] = (query.data as any)?.items ?? [];
 
-  const [filiere, setFiliere] = useState("all");
+  const [nomKey, setNomKey] = useState("all");
   const [annee, setAnnee] = useState("all");
+  const [semestreId, setSemestreId] = useState("all");
   const [reglement, setReglement] = useState("all");
   const [search, setSearch] = useState("");
   const [payGroup, setPayGroup] = useState<any | null>(null);
 
-  const filiereOptions = useMemo(() => {
+  // Noms de classe de l'année choisie : l'année commande la liste.
+  const nomOptions = useMemo(() => {
     const map = new Map<string, string>();
-    for (const e of items)
-      if (e.filiere_id) map.set(e.filiere_id, `${e.filiere_nom ?? e.filiere_code} (${e.filiere_code})`);
+    for (const e of items) {
+      if (!e.filiere_id) continue;
+      if (annee !== "all" && anneeScolaireOf(e.date_debut) !== annee) continue;
+      map.set(nomKeyOf(e), nomDeClasseOf(e));
+    }
     return Array.from(map.entries())
       .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [items]);
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [items, annee]);
 
   // Années scolaires disponibles (dérivées de la date de début des sessions),
   // adaptées à la filière sélectionnée. Plus récentes en premier.
   const anneeOptions = useMemo(() => {
     const set = new Set<string>();
     for (const e of items) {
-      if (filiere !== "all" && e.filiere_id !== filiere) continue;
       const a = anneeScolaireOf(e.date_debut);
       if (a) set.add(a);
     }
     return Array.from(set)
       .sort((a, b) => b.localeCompare(a))
       .map((value) => ({ value, label: value }));
-  }, [items, filiere]);
+  }, [items]);
+
+  // Semestres de l'année et du nom de classe retenus : dernier maillon de la
+  // cascade année → nom de classe → semestre.
+  const semestreOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of items) {
+      if (!e.semestre_id) continue;
+      if (annee !== "all" && anneeScolaireOf(e.date_debut) !== annee) continue;
+      if (nomKey !== "all" && nomKeyOf(e) !== nomKey) continue;
+      map.set(e.semestre_id, e.semestre_libelle ?? "Semestre");
+    }
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr", { numeric: true }));
+  }, [items, annee, nomKey]);
 
   // Cumul par étudiant + filière (évite les doublons de nom).
   const groups = useMemo(() => {
@@ -153,8 +201,9 @@ export default function ProfessionalPaiementsPage() {
     for (const e of items) {
       if (e.statut === "annulee") continue;
       if (isConduiteEnrollment(e)) continue; // Conduite exclue des paiements.
-      if (filiere !== "all" && e.filiere_id !== filiere) continue;
+      if (nomKey !== "all" && nomKeyOf(e) !== nomKey) continue;
       if (annee !== "all" && anneeScolaireOf(e.date_debut) !== annee) continue;
+      if (semestreId !== "all" && e.semestre_id !== semestreId) continue;
       const key = `${e.student_id}|${e.filiere_id}`;
       let g = map.get(key);
       if (!g) {
@@ -190,13 +239,18 @@ export default function ProfessionalPaiementsPage() {
     return list.sort((a, b) =>
       `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`)
     );
-  }, [items, filiere, annee, reglement, search]);
+  }, [items, nomKey, annee, semestreId, reglement, search]);
 
-  // Si la filière change et que l'année sélectionnée n'existe plus dans les
-  // options, on revient à « Toutes les années ».
+  // Changer d'année peut faire disparaître le nom retenu de la liste, et
+  // changer de nom peut faire disparaître le semestre retenu.
   useEffect(() => {
-    if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
-  }, [anneeOptions, annee]);
+    if (nomKey !== "all" && !nomOptions.some((o) => o.value === nomKey)) setNomKey("all");
+  }, [nomOptions, nomKey]);
+  useEffect(() => {
+    if (semestreId !== "all" && !semestreOptions.some((o) => o.value === semestreId)) {
+      setSemestreId("all");
+    }
+  }, [semestreOptions, semestreId]);
 
   const stats = useMemo(() => {
     let due = 0,
@@ -210,6 +264,25 @@ export default function ProfessionalPaiementsPage() {
     return { due, paid, reste: Math.max(0, due - paid), count: groups.length, confirmed };
   }, [groups]);
 
+  /** Périmètre exporté : exactement les cartes affichées, filtres compris. */
+  const exportOptions = useMemo(
+    () => ({
+      annee: annee === "all" ? "Toutes les années" : annee,
+      nomClasse:
+        nomKey === "all"
+          ? "Tous les noms de classe"
+          : (nomOptions.find((o) => o.value === nomKey)?.label ?? nomKey),
+      semestre:
+        semestreId === "all"
+          ? "Tous les semestres"
+          : (semestreOptions.find((o) => o.value === semestreId)?.label ?? semestreId),
+      reglement: REGLEMENT_LABEL[reglement] ?? reglement,
+      recherche: search.trim() || undefined,
+      stats,
+    }),
+    [annee, nomKey, nomOptions, semestreId, semestreOptions, reglement, search, stats]
+  );
+
   if (query.isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -220,15 +293,24 @@ export default function ProfessionalPaiementsPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-          <Wallet className="h-7 w-7 text-indigo-500" />
-          Paiements
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Un étudiant = une carte (cumul de ses UE). Un premier paiement confirme l'inscription ; le
-          reste à payer reste visible.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+            <Wallet className="h-7 w-7 text-indigo-500" />
+            Paiements
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Un étudiant = une carte (cumul de ses UE). Un premier paiement confirme l'inscription ;
+            le reste à payer reste visible.
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={groups.length === 0}
+            onExportPdf={(win) => openPaiementsPdf(groups, exportOptions, win)}
+          />
+        </div>
       </div>
 
       {/* Stats */}
@@ -240,19 +322,12 @@ export default function ProfessionalPaiementsPage() {
         <StatCard label="Confirmés" value={String(stats.confirmed)} color="teal" />
       </div>
 
-      {/* Filtres — deux en haut (filière, année), deux en bas (règlement, recherche) */}
+      {/* Filtres — cascade année → nom de classe → semestre, puis règlement,
+          et la recherche seule sur sa ligne. */}
       <Card className="shadow-sm">
         <CardContent className="p-4 space-y-3">
-          {/* Rangée du haut : filière + année scolaire */}
+          {/* Rangée du haut : année scolaire, puis nom de classe */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <SearchableSelect
-              value={filiere}
-              onChange={setFiliere}
-              icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder="Filtrer par filière"
-              searchPlaceholder="Rechercher une filière…"
-              options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
-            />
             <SearchableSelect
               value={annee}
               onChange={setAnnee}
@@ -261,9 +336,25 @@ export default function ProfessionalPaiementsPage() {
               searchPlaceholder="Rechercher une année…"
               options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
             />
+            <SearchableSelect
+              value={nomKey}
+              onChange={setNomKey}
+              icon={<Layers className="h-4 w-4 text-gray-400" />}
+              placeholder="Filtrer par nom de classe"
+              searchPlaceholder="Rechercher un nom de classe…"
+              options={[{ value: "all", label: "Tous les noms de classe" }, ...nomOptions]}
+            />
           </div>
-          {/* Rangée du bas : règlement + recherche étudiant */}
+          {/* Rangée du milieu : semestre + règlement */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <SearchableSelect
+              value={semestreId}
+              onChange={setSemestreId}
+              icon={<Calendar className="h-4 w-4 text-gray-400" />}
+              placeholder="Filtrer par semestre"
+              searchPlaceholder="Rechercher un semestre…"
+              options={[{ value: "all", label: "Tous les semestres" }, ...semestreOptions]}
+            />
             <Select value={reglement} onValueChange={setReglement}>
               <SelectTrigger>
                 <SelectValue placeholder="Règlement" />
@@ -275,15 +366,16 @@ export default function ProfessionalPaiementsPage() {
                 <SelectItem value="solde">Soldés</SelectItem>
               </SelectContent>
             </Select>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Étudiant…"
-                className="pl-9"
-              />
-            </div>
+          </div>
+          {/* La recherche étudiant occupe sa propre ligne, pleine largeur. */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Étudiant…"
+              className="pl-9"
+            />
           </div>
         </CardContent>
       </Card>

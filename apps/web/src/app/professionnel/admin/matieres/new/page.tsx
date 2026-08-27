@@ -138,14 +138,14 @@ export default function NewProfessionalEcuePage() {
                 <Layers className="h-5 w-5 text-indigo-600" /> UE de rattachement (optionnel)
               </CardTitle>
               <CardDescription>
-                Choisissez d'abord une filière pour filtrer les UE, puis l'UE à laquelle rattacher
+                Choisissez d'abord une classe pour filtrer les UE, puis l'UE à laquelle rattacher
                 ces ECUE (UV 1, « obligatoire » par défaut — ajustables depuis le détail de l'UE).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Filière</label>
+                  <label className="text-sm font-medium">Classe</label>
                   <SearchableSelect
                     value={filiereId}
                     onChange={(v) => {
@@ -153,10 +153,10 @@ export default function NewProfessionalEcuePage() {
                       setSelectedUeId("");
                     }}
                     icon={<Layers className="h-4 w-4 text-gray-400" />}
-                    placeholder={filieresQuery.isLoading ? "Chargement…" : "Toutes les filières"}
-                    searchPlaceholder="Rechercher une filière…"
+                    placeholder={filieresQuery.isLoading ? "Chargement…" : "Toutes les classes"}
+                    searchPlaceholder="Rechercher une classe…"
                     options={[
-                      { value: "", label: "Toutes les filières" },
+                      { value: "", label: "Toutes les classes" },
                       ...filieres.map((f) => ({
                         value: f.id,
                         label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
@@ -176,7 +176,7 @@ export default function NewProfessionalEcuePage() {
                       onChange={setSelectedUeId}
                       icon={<Layers className="h-4 w-4 text-gray-400" />}
                       placeholder={
-                        ues.length === 0 ? "Aucune UE pour cette filière" : "Choisir une UE"
+                        ues.length === 0 ? "Aucune UE pour cette classe" : "Choisir une UE"
                       }
                       searchPlaceholder="Rechercher une UE…"
                       options={[
@@ -192,7 +192,7 @@ export default function NewProfessionalEcuePage() {
               </div>
               {!ueListQuery.isLoading && filiereId && ues.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  Aucune UE pour cette filière. Vous pourrez rattacher ces ECUE plus tard.
+                  Aucune UE pour cette classe. Vous pourrez rattacher ces ECUE plus tard.
                 </p>
               )}
             </CardContent>

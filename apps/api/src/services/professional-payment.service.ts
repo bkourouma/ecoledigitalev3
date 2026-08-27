@@ -9,8 +9,14 @@ import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional
  * bascule commande → `payee` et inscriptions → `confirmee`, génération du reçu.
  */
 
+/**
+ * Colonnes exposées d'un paiement. Plus de `receipt_url` : la route qu'elle
+ * pointait n'existe plus, et l'espace étudiant ne délivre pas de reçu — la
+ * colonne reste en base (les lignes anciennes la portent encore) mais n'est ni
+ * écrite ni lue.
+ */
 const PAYMENT_COLS = `id, tenant_id, order_id, montant::float8 AS montant, mode,
-  reference_transaction, statut, paid_at, receipt_number, receipt_url,
+  reference_transaction, statut, paid_at, receipt_number,
   created_at, updated_at`;
 
 export class ProfessionalPaymentService extends ProfessionalBaseService {
@@ -130,14 +136,6 @@ export class ProfessionalPaymentService extends ProfessionalBaseService {
         return fail("INTERNAL_ERROR", "Échec de génération du reçu de paiement.");
       }
 
-      const receiptUrl = `/api/v1/professional/student/receipts/${payment.id}`;
-      const updated = await client.query(
-        `UPDATE professional_payments SET receipt_url=$1, updated_at=now()
-         WHERE id=$2 RETURNING ${PAYMENT_COLS}`,
-        [receiptUrl, payment.id]
-      );
-      payment = updated.rows[0];
-
       // Bascule commande → payee et inscriptions → confirmee (FR-020).
       await client.query(
         `UPDATE professional_orders SET statut='payee', updated_at=now() WHERE id=$1`,
@@ -217,13 +215,6 @@ export class ProfessionalPaymentService extends ProfessionalBaseService {
         }
       }
       if (!payment) return fail("INTERNAL_ERROR", "Échec de génération du reçu.");
-
-      const receiptUrl = `/api/v1/professional/student/receipts/${payment.id}`;
-      const upd = await client.query(
-        `UPDATE professional_payments SET receipt_url=$1, updated_at=now() WHERE id=$2 RETURNING ${PAYMENT_COLS}`,
-        [receiptUrl, payment.id]
-      );
-      payment = upd.rows[0];
 
       const newPaid = paid + montant;
       const fullyPaid = newPaid + 0.001 >= order.montant_total;
@@ -324,14 +315,13 @@ export class ProfessionalPaymentService extends ProfessionalBaseService {
         if (rRemaining <= 0.001) continue;
         const alloc = Math.min(rRemaining, left);
 
-        let payId: string | null = null;
         for (let attempt = 0; attempt < 5; attempt++) {
           const rn = await this.generateReceiptNumber(client, tenantId, attempt);
           try {
-            const ins = await client.query(
+            await client.query(
               `INSERT INTO professional_payments
                  (tenant_id, order_id, montant, mode, reference_transaction, statut, paid_at, receipt_number)
-               VALUES ($1,$2,$3,$4,$5,'confirme',now(),$6) RETURNING id`,
+               VALUES ($1,$2,$3,$4,$5,'confirme',now(),$6)`,
               [
                 tenantId,
                 r.order_id,
@@ -341,18 +331,11 @@ export class ProfessionalPaymentService extends ProfessionalBaseService {
                 rn,
               ]
             );
-            payId = ins.rows[0].id;
             break;
           } catch (e: any) {
             if (e?.code === "23505" && attempt < 4) continue;
             throw e;
           }
-        }
-        if (payId) {
-          await client.query(
-            `UPDATE professional_payments SET receipt_url=$1 WHERE id=$2`,
-            [`/api/v1/professional/student/receipts/${payId}`, payId]
-          );
         }
         refUsed = true;
         left -= alloc;
@@ -400,29 +383,43 @@ export class ProfessionalPaymentService extends ProfessionalBaseService {
     });
   }
 
-  /** Reçu d'un paiement confirmé appartenant à l'étudiant authentifié. */
-  async getReceipt(
-    tenantId: string,
-    userId: string,
-    paymentId: string
-  ): Promise<ServiceResult<any>> {
+  /**
+   * Versements de l'étudiant authentifié — la traçabilité de son espace
+   * « Mes paiements », en regard de la page admin Paiements.
+   *
+   * Volontairement sans `receipt_number` ni `receipt_url` : l'espace étudiant
+   * montre le suivi des versements, pas les reçus. Ce qu'une charge utile ne
+   * porte pas ne peut pas fuiter par un écran.
+   */
+  async studentListPayments(tenantId: string, userId: string): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
       const studentId = await this.getStudentProfileId(client, tenantId, userId);
       if (!studentId) return fail("NOT_FOUND", "Profil étudiant introuvable.");
       const res = await client.query(
-        `SELECT p.id, p.receipt_number, p.receipt_url,
-                p.montant::float8 AS montant, p.mode, p.statut, p.paid_at,
-                o.reference AS order_reference
+        `SELECT p.id, p.order_id, p.montant::float8 AS montant, p.mode, p.statut,
+                -- Un encaissement réparti sur plusieurs commandes crée une ligne
+                -- par commande, mais reference_transaction est UNIQUE : seule
+                -- la première la porte, les autres sont NULL. On la rediffuse
+                -- sur toutes les lignes du même encaissement — même instant de
+                -- versement, même mode — sinon l'étudiant voit une référence
+                -- sur une ligne et rien sur les onze suivantes.
+                max(p.reference_transaction) OVER (
+                  PARTITION BY COALESCE(p.paid_at, p.created_at), p.mode
+                ) AS reference_transaction,
+                p.paid_at, p.created_at,
+                o.reference AS order_reference,
+                o.montant_total::float8 AS order_montant
          FROM professional_payments p
          JOIN professional_orders o ON o.id = p.order_id
-         WHERE p.id=$1 AND o.student_id=$2`,
-        [paymentId, studentId]
+         WHERE p.tenant_id = $1 AND o.student_id = $2
+         ORDER BY COALESCE(p.paid_at, p.created_at) DESC, p.created_at DESC`,
+        [tenantId, studentId]
       );
-      if (res.rowCount === 0) return fail("NOT_FOUND", "Reçu introuvable.");
-      if (res.rows[0].statut !== "confirme") {
-        return fail("NOT_FOUND", "Reçu indisponible : le paiement n'est pas confirmé.");
-      }
-      return ok(res.rows[0]);
+      const confirmes = res.rows.filter((r: any) => r.statut === "confirme");
+      return ok({
+        payments: res.rows,
+        total_verse: confirmes.reduce((s: number, r: any) => s + Number(r.montant ?? 0), 0),
+      });
     });
   }
 

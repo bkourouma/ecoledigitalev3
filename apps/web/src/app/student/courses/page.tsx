@@ -2,16 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@ecoledigitale/ui";
+import { Card, CardContent, Button } from "@ecoledigitale/ui";
 import {
   GraduationCap,
   BookOpen,
@@ -27,6 +18,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useMyProfessionalEnrollments } from "@/lib/hooks/use-professional-student";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 /**
  * Mes cours — espace étudiant.
@@ -64,8 +56,12 @@ function fmtDate(value?: string | null): string {
 
 export default function StudentCoursesPage() {
   const router = useRouter();
+  // Cascade : l'année scolaire commande les noms de classe, qui commandent
+  // les semestres. Le statut reste transversal.
+  const [anneeFilter, setAnneeFilter] = useState<string>("all");
+  const [classeFilter, setClasseFilter] = useState<string>("all");
+  const [semestreFilter, setSemestreFilter] = useState<string>("all");
   const [statutFilter, setStatutFilter] = useState<string>("all");
-  const [programmeFilter, setProgrammeFilter] = useState<string>("all");
 
   const query = useMyProfessionalEnrollments();
   const enrollments: any[] = useMemo(
@@ -73,18 +69,43 @@ export default function StudentCoursesPage() {
     [query.data]
   );
 
-  // Programmes présents dans les inscriptions (dédoublonnés), pour le filtre.
-  const programmeOptions = useMemo(() => {
+  // Années scolaires couvertes par les inscriptions.
+  const anneeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of enrollments) if (e.annee_scolaire) set.add(e.annee_scolaire);
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [enrollments]);
+
+  // Noms de classe de l'année retenue. Une classe pouvant en porter
+  // plusieurs, c'est le nom qui identifie le groupe suivi, pas la filière.
+  const classeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of enrollments) {
+      if (anneeFilter !== "all" && e.annee_scolaire !== anneeFilter) continue;
+      const nom = e.classe_nom ?? e.filiere_name;
+      if (nom) set.add(nom);
+    }
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b, "fr"))
+      .map((value) => ({ value, label: value }));
+  }, [enrollments, anneeFilter]);
+
+  // Semestres de l'année et de la classe retenues.
+  const semestreOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const e of enrollments) {
-      if (e.filiere_id) {
-        map.set(e.filiere_id, e.filiere_name ?? e.filiere_id);
-      }
+      if (!e.semestre_id) continue;
+      if (anneeFilter !== "all" && e.annee_scolaire !== anneeFilter) continue;
+      if (classeFilter !== "all" && (e.classe_nom ?? e.filiere_name) !== classeFilter)
+        continue;
+      map.set(e.semestre_id, e.semestre_libelle ?? "Semestre");
     }
-    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) =>
-      a.name.localeCompare(b.name, "fr")
+    return Array.from(map, ([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label, "fr")
     );
-  }, [enrollments]);
+  }, [enrollments, anneeFilter, classeFilter]);
 
   const nbConfirmees = useMemo(
     () =>
@@ -102,10 +123,13 @@ export default function StudentCoursesPage() {
     () =>
       enrollments.filter(
         (e) =>
-          (statutFilter === "all" || e.statut === statutFilter) &&
-          (programmeFilter === "all" || e.filiere_id === programmeFilter)
+          (anneeFilter === "all" || e.annee_scolaire === anneeFilter) &&
+          (classeFilter === "all" ||
+            (e.classe_nom ?? e.filiere_name) === classeFilter) &&
+          (semestreFilter === "all" || e.semestre_id === semestreFilter) &&
+          (statutFilter === "all" || e.statut === statutFilter)
       ),
-    [enrollments, statutFilter, programmeFilter]
+    [enrollments, anneeFilter, classeFilter, semestreFilter, statutFilter]
   );
 
   return (
@@ -176,42 +200,80 @@ export default function StudentCoursesPage() {
       {/* Filtre */}
       <Card className="shadow-lg">
         <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-              <div className="w-full sm:w-[20rem]">
-                <Select value={statutFilter} onValueChange={setStatutFilter}>
-                  <SelectTrigger className="h-11">
-                    <ListFilter className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <SelectValue placeholder="Filtrer par statut" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les statuts</SelectItem>
-                    {Object.entries(STATUT_LABEL).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* L'année ouvre la cascade : elle occupe sa propre ligne. */}
+              <div className="md:col-span-3">
+                <label className="text-sm font-medium">Année scolaire</label>
+                <div className="mt-1.5">
+                  <SearchableSelect
+                    value={anneeFilter}
+                    onChange={(v) => {
+                      setAnneeFilter(v);
+                      // Classes et semestres dépendent de l'année.
+                      setClasseFilter("all");
+                      setSemestreFilter("all");
+                    }}
+                    icon={<Calendar className="h-4 w-4 text-muted-foreground" />}
+                    placeholder="Toutes les années"
+                    searchPlaceholder="Rechercher une année…"
+                    options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
+                  />
+                </div>
               </div>
-              <div className="w-full sm:w-[32rem]">
-                <Select
-                  value={programmeFilter}
-                  onValueChange={setProgrammeFilter}
-                >
-                  <SelectTrigger className="h-11">
-                    <GraduationCap className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <SelectValue placeholder="Filtrer par programme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les programmes</SelectItem>
-                    {programmeOptions.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div>
+                <label className="text-sm font-medium">Nom de classe</label>
+                <div className="mt-1.5">
+                  <SearchableSelect
+                    value={classeFilter}
+                    onChange={(v) => {
+                      setClasseFilter(v);
+                      setSemestreFilter("all");
+                    }}
+                    icon={<GraduationCap className="h-4 w-4 text-muted-foreground" />}
+                    placeholder="Tous les noms de classe"
+                    searchPlaceholder="Rechercher un nom de classe…"
+                    options={[
+                      { value: "all", label: "Tous les noms de classe" },
+                      ...classeOptions,
+                    ]}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Semestre</label>
+                <div className="mt-1.5">
+                  <SearchableSelect
+                    value={semestreFilter}
+                    onChange={setSemestreFilter}
+                    icon={<Calendar className="h-4 w-4 text-muted-foreground" />}
+                    placeholder="Tous les semestres"
+                    searchPlaceholder="Rechercher un semestre…"
+                    options={[
+                      { value: "all", label: "Tous les semestres" },
+                      ...semestreOptions,
+                    ]}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Statut</label>
+                <div className="mt-1.5">
+                  <SearchableSelect
+                    value={statutFilter}
+                    onChange={setStatutFilter}
+                    icon={<ListFilter className="h-4 w-4 text-muted-foreground" />}
+                    placeholder="Tous les statuts"
+                    searchPlaceholder="Rechercher un statut…"
+                    options={[
+                      { value: "all", label: "Tous les statuts" },
+                      ...Object.entries(STATUT_LABEL).map(([value, label]) => ({
+                        value,
+                        label,
+                      })),
+                    ]}
+                  />
+                </div>
               </div>
             </div>
             <div className="flex items-center text-sm text-muted-foreground whitespace-nowrap">
@@ -334,18 +396,26 @@ export default function StudentCoursesPage() {
                   Aucun cours trouvé
                 </h3>
                 <p className="text-muted-foreground text-lg">
-                  {statutFilter === "all" && programmeFilter === "all"
+                  {statutFilter === "all" &&
+                  anneeFilter === "all" &&
+                  classeFilter === "all" &&
+                  semestreFilter === "all"
                     ? "Vous n'avez pas encore de cours."
                     : "Aucun cours pour les filtres sélectionnés."}
                 </p>
               </div>
               <div className="flex gap-3">
-                {(statutFilter !== "all" || programmeFilter !== "all") && (
+                {(statutFilter !== "all" ||
+                  anneeFilter !== "all" ||
+                  classeFilter !== "all" ||
+                  semestreFilter !== "all") && (
                   <Button
                     variant="outline"
                     onClick={() => {
                       setStatutFilter("all");
-                      setProgrammeFilter("all");
+                      setAnneeFilter("all");
+                      setClasseFilter("all");
+                      setSemestreFilter("all");
                     }}
                   >
                     <X className="h-4 w-4 mr-2" />

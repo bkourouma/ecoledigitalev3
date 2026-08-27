@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 interface Assignment {
   id: string;
   assignment_id?: string;
+  /** « professionnel » : devoir du Module Professionnel, sans fiche de détail. */
+  source?: string;
   title: string;
   description: string;
   course: {
@@ -372,16 +374,34 @@ export default function StudentAssignmentsPage() {
                           showFileName
                         />
                       )}
-                      <Button asChild variant="default" className="gap-1">
-                        <Link href={`/student/assignments/${assignment.id}`}>
-                          {assignment.status === 'pending'
-                            ? 'Commencer'
-                            : assignment.status === 'submitted'
-                              ? 'Voir la soumission'
-                              : 'Voir les résultats'}
-                          <ChevronRight className="h-4 w-4" />
-                        </Link>
-                      </Button>
+                      {assignment.source === 'professionnel' ? (
+                        // Le Module Professionnel n'a pas de fiche de détail
+                        // côté étudiant : la note et l'appréciation sont donc
+                        // affichées ici, sur la carte.
+                        <div className="flex items-center gap-3 text-sm">
+                          {assignment.grade != null && (
+                            <span className="font-semibold text-foreground">
+                              {assignment.grade}/{assignment.max_points}
+                            </span>
+                          )}
+                          {assignment.feedback && (
+                            <span className="max-w-xs truncate text-muted-foreground" title={assignment.feedback}>
+                              {assignment.feedback}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <Button asChild variant="default" className="gap-1">
+                          <Link href={`/student/assignments/${assignment.id}`}>
+                            {assignment.status === 'pending'
+                              ? 'Commencer'
+                              : assignment.status === 'submitted'
+                                ? 'Voir la soumission'
+                                : 'Voir les résultats'}
+                            <ChevronRight className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import {
-  useNotesFilieres,
+  useNotesNoms,
   useNotesSemestres,
   useSemestreSessions,
   useSessionGrid,
@@ -48,8 +48,21 @@ function fmt(x: number | null | undefined): string {
   return x == null ? "—" : Number(x).toFixed(2).replace(".", ",");
 }
 
+/** Nom de classe porte par une session : son libelle sans le suffixe « — CODE UE ». */
+function nomDeClasse(libelle?: string | null, ueCode?: string | null): string {
+  const lib = String(libelle ?? "").trim();
+  const code = String(ueCode ?? "").trim();
+  if (code && lib.endsWith(code)) {
+    return lib.slice(0, lib.length - code.length).replace(/[\s—–-]+$/u, "").trim() || lib;
+  }
+  return lib;
+}
+
 export default function NotesPage() {
-  const [filiereId, setFiliereId] = useState("");
+  // L'année scolaire commande la sélection : elle restreint les noms.
+  const [annee, setAnnee] = useState("");
+  // Sélection au grain du nom de classe : « classeId|nom ».
+  const [nomKey, setNomKey] = useState("");
   const [semestreId, setSemestreId] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +77,9 @@ export default function NotesPage() {
 
   // Saisie = uniquement ce qui est encore ouvert. Les filières et semestres dont
   // toutes les cohortes sont terminées relèvent de la page Historique.
-  const programmesQuery = useNotesFilieres("actives");
+  const nomsQuery = useNotesNoms("actives");
+  const filiereId = nomKey ? nomKey.split("|")[0] : "";
+  const nomClasse = nomKey ? nomKey.split("|").slice(1).join("|") : "";
   const semestresQuery = useNotesSemestres(filiereId || null, "actives");
   const sessionsQuery = useSemestreSessions(semestreId || null);
   const gridQuery = useSessionGrid(sessionId || null);
@@ -72,7 +87,41 @@ export default function NotesPage() {
   const recomputeMut = useRecomputeSession();
   const cloturerMut = useCloturerSemestre();
 
-  const filieres: any[] = (programmesQuery.data as any[]) ?? [];
+  // Années scolaires des classes accessibles. L'API restreint déjà ces
+  // lignes aux cohortes de l'enseignant connecté : un enseignant ne voit
+  // donc que les années où il enseigne.
+  const anneeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of nomsQuery.data ?? []) if (n.annee_scolaire) set.add(n.annee_scolaire);
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [nomsQuery.data]);
+
+  // L'API renvoie une ligne par couple (nom, semestre) : on dédoublonne,
+  // en ne gardant que l'année retenue.
+  const nomOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const n of nomsQuery.data ?? []) {
+      if (annee && n.annee_scolaire !== annee) continue;
+      map.set(`${n.classe_id}|${n.nom}`, n.nom);
+    }
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [nomsQuery.data, annee]);
+
+  // Première année proposée par défaut.
+  useEffect(() => {
+    if (!annee && anneeOptions.length > 0) setAnnee(anneeOptions[0].value);
+  }, [anneeOptions, annee]);
+
+  // Changer d'année peut faire disparaître le nom retenu.
+  useEffect(() => {
+    if (nomKey && !nomOptions.some((o) => o.value === nomKey)) {
+      setNomKey("");
+      setSemestreId("");
+      setSessionId("");
+    }
+  }, [nomOptions, nomKey]);
   // Semestres de la filière, restreints par l'API aux seuls encore actifs : il
   // n'y a donc plus de filtre d'année ici, l'historique vit sur sa propre page.
   const visibleSemestres: any[] = useMemo(
@@ -94,7 +143,9 @@ export default function NotesPage() {
   const sessions: any[] = ((sessionsQuery.data as any[]) ?? [])
     .filter((s) => !String(s.ue_libelle ?? "").toLowerCase().startsWith("conduite"))
     .filter((s) => Number(s.nb_inscrits ?? 0) > 0)
-    .filter((s) => !["termine", "annule"].includes(String(s.statut ?? "")));
+    .filter((s) => !["termine", "annule"].includes(String(s.statut ?? "")))
+    // Un semestre peut porter deux noms de classe : on ne garde que le sien.
+    .filter((s) => !nomClasse || nomDeClasse(s.session_libelle, s.ue_code) === nomClasse);
   const grid: any = gridQuery.data ?? null;
   const ecues: any[] = grid?.ecues ?? [];
   const students: any[] = grid?.students ?? [];
@@ -287,33 +338,35 @@ export default function NotesPage() {
               </Button>
             </Link>
           )}
-          {/* Clôture du semestre : bascule ses UE en « Terminé », donc vers
-              l'Historique — où se fait l'export. */}
-          <Button
-            variant="outline"
-            onClick={handleCloturer}
-            disabled={
-              !semestreId ||
-              sessions.length === 0 ||
-              cloturerMut.isPending ||
-              missingConduite.length > 0
-            }
-            title={
-              !semestreId
-                ? "Choisissez une filière et un semestre"
-                : missingConduite.length > 0
-                  ? `Clôture bloquée : ${missingConduite.length} étudiant(s) sans note de conduite.`
-                  : "Clôturer les notes du semestre et le basculer dans l'Historique"
-            }
-            className="bg-amber-50 border-amber-200 hover:bg-amber-100 text-amber-700 hover:text-amber-800"
-          >
-            {cloturerMut.isPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Lock className="h-4 w-4 mr-2" />
-            )}
-            Clôturer le semestre
-          </Button>
+          {/* Clôture du semestre (admin uniquement) : bascule ses UE en « Terminé »,
+              donc vers l'Historique — où se fait l'export. */}
+          {isAdmin && (
+            <Button
+              variant="outline"
+              onClick={handleCloturer}
+              disabled={
+                !semestreId ||
+                sessions.length === 0 ||
+                cloturerMut.isPending ||
+                missingConduite.length > 0
+              }
+              title={
+                !semestreId
+                  ? "Choisissez une classe et un semestre"
+                  : missingConduite.length > 0
+                    ? `Clôture bloquée : ${missingConduite.length} étudiant(s) sans note de conduite.`
+                    : "Clôturer les notes du semestre et le basculer dans l'Historique"
+              }
+              className="bg-amber-50 border-amber-200 hover:bg-amber-100 text-amber-700 hover:text-amber-800"
+            >
+              {cloturerMut.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Lock className="h-4 w-4 mr-2" />
+              )}
+              Clôturer le semestre
+            </Button>
+          )}
           <Button
             onClick={handleRecompute}
             disabled={!sessionId || recomputeMut.isPending || missingConduite.length > 0}
@@ -340,31 +393,36 @@ export default function NotesPage() {
         </div>
       )}
 
-      {/* Sélecteurs — filière, semestre, UE. Tous restreints aux cohortes encore
+      {/* Sélecteurs — classe, semestre, UE. Tous restreints aux cohortes encore
           ouvertes : les sessions terminées se consultent sur la page Historique. */}
       <Card className="shadow-sm">
         <CardContent className="p-4 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <SearchableSelect
-              value={filiereId}
+              value={annee}
               onChange={(v) => {
-                setFiliereId(v);
+                setAnnee(v);
+                setNomKey("");
+                setSemestreId("");
+                setSessionId("");
+              }}
+              icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
+              placeholder={nomsQuery.isLoading ? "Chargement…" : "Année scolaire"}
+              searchPlaceholder="Rechercher une année…"
+              options={anneeOptions}
+            />
+            <SearchableSelect
+              value={nomKey}
+              onChange={(v) => {
+                setNomKey(v);
                 setSemestreId("");
                 setSessionId("");
               }}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder={
-                programmesQuery.isLoading
-                  ? "Chargement…"
-                  : filieres.length === 0
-                  ? "Aucune filière en cours"
-                  : "Filière"
-              }
-              searchPlaceholder="Rechercher une filière…"
-              options={filieres.map((f) => ({
-                value: f.id,
-                label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
-              }))}
+              disabled={!annee}
+              placeholder="Nom de classe"
+              searchPlaceholder="Rechercher un nom de classe…"
+              options={nomOptions}
             />
             <SearchableSelect
               value={semestreId}
@@ -373,7 +431,8 @@ export default function NotesPage() {
                 setSessionId("");
               }}
               icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
-              placeholder={!filiereId ? "Choisir une filière" : "Semestre"}
+              disabled={!nomKey}
+              placeholder="Semestre"
               searchPlaceholder="Rechercher un semestre…"
               options={visibleSemestres.map((s) => ({ value: s.id, label: s.libelle }))}
             />
@@ -381,15 +440,8 @@ export default function NotesPage() {
               value={sessionId}
               onChange={setSessionId}
               icon={<BookOpen className="h-4 w-4 text-gray-400" />}
-              placeholder={
-                !semestreId
-                  ? "Choisir un semestre"
-                  : sessionsQuery.isLoading
-                  ? "Chargement…"
-                  : sessions.length === 0
-                  ? "Aucune UE"
-                  : "UE"
-              }
+              disabled={!semestreId}
+              placeholder={sessionsQuery.isLoading ? "Chargement…" : "UE"}
               searchPlaceholder="Rechercher une UE…"
               options={sessions.map((s) => ({
                 value: s.id,
@@ -420,7 +472,7 @@ export default function NotesPage() {
               <GraduationCap className="h-8 w-8 text-indigo-500" />
             </div>
             <p className="text-muted-foreground max-w-md">
-              Choisissez une filière, un semestre puis une UE pour saisir les notes.
+              Choisissez une classe, un semestre puis une UE pour saisir les notes.
             </p>
           </CardContent>
         </Card>

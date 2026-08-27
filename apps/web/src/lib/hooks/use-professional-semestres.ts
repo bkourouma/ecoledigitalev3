@@ -65,6 +65,73 @@ export function useProfessionalSemestre(id: string | null) {
   });
 }
 
+export interface ClasseNomOuvert {
+  nom: string;
+  /** Semestres que ce nom est censé couvrir. */
+  semestres_portee: { id: string; libelle: string }[];
+  /** false = portée non déclarée, tous les semestres sont supposés couverts. */
+  portee_declaree: boolean;
+  semestres_ouverts: { id: string; libelle: string }[];
+  semestres_restants: { id: string; libelle: string }[];
+  complet: boolean;
+}
+
+export interface ClasseNomsPayload {
+  semestres: { id: string; libelle: string }[];
+  noms: ClasseNomOuvert[];
+}
+
+/**
+ * Noms de classe déjà ouverts pour une classe, avec les semestres qu'il leur
+ * reste. Entièrement déduit des ouvertures existantes : rien n'est stocké.
+ */
+export function useClasseNoms(classeId: string | null) {
+  return useQuery<ClasseNomsPayload>({
+    queryKey: ["professional-classe-noms", classeId],
+    queryFn: () => apiFetch(`${BASE}/classes/${classeId}/noms`),
+    enabled: !!classeId,
+  });
+}
+
+export interface ClasseNomPortee {
+  classe_id: string;
+  nom: string;
+  semestre_ids: string[];
+}
+
+/** Portées de tous les noms de classe — pour la liste des ouvertures. */
+export function useToutesPortees() {
+  return useQuery<ClasseNomPortee[]>({
+    queryKey: ["professional-classe-portees"],
+    queryFn: () => apiFetch(`${BASE}/classe-noms`),
+    staleTime: 30 * 1000,
+  });
+}
+
+/** Déclare les semestres qu'un nom de classe est censé couvrir. */
+export function useDeclareClasseNom() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      classeId,
+      nom,
+      semestreIds,
+    }: {
+      classeId: string;
+      nom: string;
+      semestreIds: string[];
+    }) =>
+      apiFetch(
+        `${BASE}/classes/${classeId}/noms`,
+        jsonInit("POST", { nom, semestre_ids: semestreIds })
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["professional-classe-noms"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-classe-portees"], exact: false });
+    },
+  });
+}
+
 /** UE d'une filière, sélectionnables dans un semestre. */
 export function useEligibleUeForSemestre(filiereId: string | null) {
   return useQuery({
@@ -105,6 +172,7 @@ export function useCreateSessionsBySemestre() {
       qc.invalidateQueries({ queryKey: ["professional-ue-sessions-list"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-ue-sessions"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-semestres"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-classe-noms"], exact: false });
     },
   });
 }

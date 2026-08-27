@@ -180,6 +180,10 @@ export interface DiplomaCandidate {
   student_id: string;
   student_number: string | null;
   nom_complet: string;
+  /** Nom de classe de la derniere inscription du cycle. */
+  classe_nom: string | null;
+  /** Annee scolaire de cette derniere inscription. */
+  annee_classe: string | null;
   uv_validees: number;
   pourcentage: number;
   eligible: boolean;
@@ -726,7 +730,15 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
                 COALESCE(
                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
                   u.computed_name, u.name, sp.student_number, ''
-                ) AS nom_complet
+                ) AS nom_complet,
+                derniere.nom AS classe_nom,
+                CASE WHEN derniere.date_debut IS NULL THEN NULL
+                     WHEN EXTRACT(MONTH FROM derniere.date_debut) >= 9
+                     THEN EXTRACT(YEAR FROM derniere.date_debut)::int || '-' ||
+                          (EXTRACT(YEAR FROM derniere.date_debut)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM derniere.date_debut)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM derniere.date_debut)::int
+                END AS annee_classe
          FROM student_profiles sp
          LEFT JOIN users u ON u.id = sp.user_id
          LEFT JOIN professional_student_matricules psm
@@ -735,6 +747,22 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
          JOIN professional_enrollments e ON e.student_id = sp.id AND e.tenant_id = sp.tenant_id
          JOIN professional_ue_sessions sess ON sess.id = e.ue_session_id
          JOIN professional_ue ue ON ue.id = sess.ue_id
+         -- Nom de classe et année : ceux de l'inscription la plus récente de
+         -- l'étudiant dans ce cycle. Un cycle couvre plusieurs classes, on
+         -- retient donc la dernière suivie.
+         LEFT JOIN LATERAL (
+           SELECT btrim(split_part(s2.libelle, ' ' || chr(8212) || ' ', 1)) AS nom,
+                  s2.date_debut
+           FROM professional_enrollments e2
+           JOIN professional_ue_sessions s2
+             ON s2.id = e2.ue_session_id AND s2.tenant_id = e2.tenant_id
+           JOIN professional_ue ue2 ON ue2.id = s2.ue_id AND ue2.tenant_id = s2.tenant_id
+           WHERE e2.student_id = sp.id AND e2.tenant_id = sp.tenant_id
+             AND e2.statut <> 'annulee'
+             AND ue2.filiere_id = ANY($2::uuid[])
+           ORDER BY s2.date_debut DESC
+           LIMIT 1
+         ) derniere ON TRUE
          WHERE sp.tenant_id = $1
            AND e.statut <> 'annulee'
            AND ue.filiere_id = ANY($2::uuid[])
@@ -748,6 +776,8 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
         student_id: string;
         student_number: string | null;
         nom_complet: string;
+        classe_nom: string | null;
+        annee_classe: string | null;
       }>) {
         const validatedIds = await loadAllValidatedUeIdsWithConduite(client, tenantId, row.student_id);
         const view = computeDiplomaProgress(requirements, diploma.uv_required, validatedIds);

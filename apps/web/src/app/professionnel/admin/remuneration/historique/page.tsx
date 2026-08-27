@@ -121,23 +121,38 @@ const fmtHorodatage = (d: string | null): string | undefined => {
   return isNaN(parsed.getTime()) ? d : parsed.toLocaleString("fr-FR");
 };
 
+const jour = (v: string): Date => new Date(v.length <= 10 ? `${v}T00:00:00` : v);
+
 /**
  * Année scolaire d'un bulletin.
  *
  * La source de vérité est `payment_periods.academic_year_id`, remontée par
  * l'API dans `annee_scolaire`. La déduction par date ne sert que de repli pour
  * une période qui ne serait rattachée à aucune année : l'année démarre en
- * septembre (2025-2026 = 2025-09-01 → 2026-06-30), juillet et août appartenant
- * donc à l'année qui vient de s'achever.
+ * septembre, juillet et août appartenant donc à l'année qui vient de s'achever.
+ *
+ * LE PIVOT EST POSÉ SUR LE MILIEU DE L'INTERVALLE, pas sur sa date de début.
+ * Une période qui ne commence pas en septembre serait sinon rangée dans l'année
+ * précédente : « Exercice 2026-2027 » court du 01/08/2026 au 31/12/2026, donc
+ * démarre en août, et tombait en 2025-2026 — le filtre d'année n'offrait jamais
+ * 2026-2027 et empilait silencieusement deux exercices. Sur une période de
+ * septembre à août, le milieu tombe en mars : le résultat est inchangé.
+ *
+ * Même règle côté serveur pour l'écran propriétaire de la masse salariale
+ * (`ANNEE_SQL`), pour qu'un même bulletin tombe dans la même année des deux
+ * côtés.
  */
 const anneeScolaire = (b: BulletinArchive): string | null => {
   if (b.annee_scolaire) return b.annee_scolaire;
-  const debut = b.periode_debut;
-  if (!debut) return null;
-  const d = new Date(debut.length <= 10 ? `${debut}T00:00:00` : debut);
-  if (isNaN(d.getTime())) return null;
-  const y = d.getFullYear();
-  return d.getMonth() >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+  if (!b.periode_debut) return null;
+  const debut = jour(b.periode_debut);
+  if (isNaN(debut.getTime())) return null;
+  const fin = b.periode_fin ? jour(b.periode_fin) : debut;
+  const milieu = new Date(
+    debut.getTime() + (isNaN(fin.getTime()) ? 0 : fin.getTime() - debut.getTime()) / 2
+  );
+  const y = milieu.getFullYear();
+  return milieu.getMonth() >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 };
 
 /**

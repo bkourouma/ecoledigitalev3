@@ -55,7 +55,6 @@ export default function ParentDiplomasPage() {
                 {children.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.first_name} {c.last_name}
-                    {c.student_number ? ` (${c.student_number})` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

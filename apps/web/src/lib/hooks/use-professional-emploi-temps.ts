@@ -61,6 +61,32 @@ export function useEmploiTemps(
 }
 
 /** Filières ayant au moins une session encore ouverte (création de planning). */
+export interface ConsultationOption {
+  classe_id: string;
+  classe_nom: string;
+  classe_code: string | null;
+  nom: string;
+  semestre_id: string;
+  semestre_libelle: string;
+  annee_scolaire: string;
+}
+
+/** Année → nom de classe → semestre, pour la page de consultation. */
+export function useConsultationOptions() {
+  return useQuery<ConsultationOption[]>({
+    queryKey: ["emploi-temps-consultation-options"],
+    queryFn: () => apiFetch(`${BASE}/emploi-temps/consultation-options`),
+  });
+}
+
+/** Noms de classe ayant au moins une session encore ouverte. */
+export function useNomsWithOpenSessions() {
+  return useQuery({
+    queryKey: ["emploi-temps-noms-open"],
+    queryFn: () => apiFetch(`${BASE}/emploi-temps/noms-open-sessions`),
+  });
+}
+
 export function useFilieresWithOpenSessions() {
   return useQuery({
     queryKey: ["emploi-temps-filieres-open"],
@@ -117,6 +143,16 @@ export function useStudentEmploiTemps() {
   return useQuery({
     queryKey: ["student-professional-emploi-temps"],
     queryFn: () => apiFetch(`${BASE}/student/emploi-temps`),
+  });
+}
+
+/** Emploi du temps d'un enfant, côté parent : même grille que l'espace étudiant. */
+export function useChildEmploiTemps(childId?: string | null) {
+  return useQuery({
+    queryKey: ["parent-child-professional-emploi-temps", childId],
+    queryFn: () =>
+      apiFetch(`${BASE}/parent/emploi-temps?child_id=${encodeURIComponent(childId!)}`),
+    enabled: !!childId,
   });
 }
 

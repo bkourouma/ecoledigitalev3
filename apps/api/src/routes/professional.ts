@@ -653,6 +653,53 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  // Portées déclarées de tous les noms de classe du tenant.
+  fastify.get(
+    "/classe-noms",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await semestre.listToutesPortees(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Noms de classe déjà ouverts pour une classe, avec les semestres restants.
+  fastify.get(
+    "/classes/:classeId/noms",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { classeId } = request.params as { classeId: string };
+      const result = await semestre.listClasseNoms(request.tenantId as string, classeId);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Déclare les semestres qu'un nom de classe est censé couvrir.
+  fastify.post(
+    "/classes/:classeId/noms",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { classeId } = request.params as { classeId: string };
+      const body = (request.body ?? {}) as { nom?: string; semestre_ids?: string[] };
+      const nom = (body.nom ?? "").trim();
+      const semestreIds = Array.isArray(body.semestre_ids) ? body.semestre_ids : [];
+      if (!nom || semestreIds.length === 0) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Nom et semestres requis.",
+        });
+      }
+      const result = await semestre.upsertClasseNomPortee(
+        request.tenantId as string,
+        classeId,
+        nom,
+        semestreIds
+      );
+      return sendResult(reply, result, 201);
+    })
+  );
+
   // Création groupée de sessions par semestre (un semestre ou toute la filière).
   fastify.post(
     "/sessions/by-semestre",
@@ -751,6 +798,26 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
   /* ===================== Emploi du temps (hebdomadaire) ===================== */
 
   // Filières ayant au moins une session encore ouverte (pour créer un planning).
+  // Arbre de consultation du planning : année → nom de classe → semestre.
+  fastify.get(
+    "/emploi-temps/consultation-options",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await emploiTemps.listConsultationOptions(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Noms de classe ayant au moins une session ouverte — sélecteur du planning.
+  fastify.get(
+    "/emploi-temps/noms-open-sessions",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await emploiTemps.listNomsWithOpenSessions(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
   fastify.get(
     "/emploi-temps/filieres-open-sessions",
     { preHandler: requireAdmin },
@@ -1035,10 +1102,24 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
 
   // Historique complet des présences d'une filière (admin) : séances + récap étudiants.
   fastify.get(
+    "/presences/options",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await ue.listPresencesOptions(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.get(
     "/presences/history",
     { preHandler: requireAdmin },
     handler(async (request, reply) => {
-      const q = request.query as { filiere_id?: string; semestre_id?: string; statut?: string };
+      const q = request.query as {
+        filiere_id?: string;
+        semestre_id?: string;
+        statut?: string;
+        classe_nom?: string;
+      };
       if (!q.filiere_id) {
         return reply
           .status(400)
@@ -1050,7 +1131,8 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
         request.tenantId as string,
         q.filiere_id,
         q.semestre_id || undefined,
-        statut
+        statut,
+        q.classe_nom || undefined
       );
       return sendResult(reply, result);
     })
@@ -1372,6 +1454,18 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
   // Filières ayant au moins un rattrapage en attente — sélecteur de la page
   // « Rattrapages » (rien à rattraper = filière absente de la liste).
   fastify.get(
+    "/rattrapages/noms",
+    { preHandler: requireAdminOrTeacher },
+    handler(async (request, reply) => {
+      const result = await results.listRattrapageNoms(
+        request.tenantId as string,
+        isAdminRequest(request) ? undefined : currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  fastify.get(
     "/rattrapages/filieres",
     { preHandler: requireAdminOrTeacher },
     handler(async (request, reply) => {
@@ -1602,7 +1696,11 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
           .status(400)
           .send({ success: false, error: "VALIDATION_ERROR", message: "filiere_id requis." });
       }
-      const result = await bulletin.getBulletinHistory(request.tenantId as string, filiere_id);
+      const result = await bulletin.getBulletinHistory(
+        request.tenantId as string,
+        filiere_id,
+        (request.query as { classe_nom?: string }).classe_nom || undefined
+      );
       return sendResult(reply, result);
     })
   );
@@ -1615,6 +1713,51 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     handler(async (request, reply) => {
       const { id } = request.params as { id: string };
       const result = await bulletin.listFullBulletins(request.tenantId as string, id);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Noms de classe dont les bulletins sont clôturés — page Historique.
+  fastify.get(
+    "/bulletins/historique-noms",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await bulletin.listHistoriqueNoms(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Noms de classe ayant encore un semestre à éditer (bulletins non clôturés).
+  fastify.get(
+    "/bulletins/noms",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await bulletin.listBulletinsNoms(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Classes ayant encore un semestre à éditer (bulletins non clôturés).
+  fastify.get(
+    "/bulletins/filieres",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const result = await bulletin.listBulletinsFilieres(request.tenantId as string);
+      return sendResult(reply, result);
+    })
+  );
+
+  // Noms de classe pour la saisie des notes.
+  fastify.get(
+    "/notes/noms",
+    { preHandler: requireAdminOrTeacher },
+    handler(async (request, reply) => {
+      const { scope } = request.query as { scope?: string };
+      const result = await bulletin.listNotesNoms(
+        request.tenantId as string,
+        isAdminRequest(request) ? undefined : currentUserId(request),
+        notesScopeOf(scope)
+      );
       return sendResult(reply, result);
     })
   );
@@ -1735,6 +1878,33 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
       const result = await bulletin.getBulletinForUser(
         request.tenantId as string,
         semestreId,
+        currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Historique de présence/absence de l'étudiant connecté.
+  fastify.get(
+    "/student/attendance",
+    { preHandler: requireStudent },
+    handler(async (request, reply) => {
+      const result = await enrollment.studentListOwnAttendance(
+        request.tenantId as string,
+        currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Rattrapages (Session 2) de l'étudiant connecté : les ECUE qu'il doit
+  // repasser, et le résultat de celles qu'il a déjà repassées.
+  fastify.get(
+    "/student/rattrapages",
+    { preHandler: requireStudent },
+    handler(async (request, reply) => {
+      const result = await results.listStudentRattrapages(
+        request.tenantId as string,
         currentUserId(request)
       );
       return sendResult(reply, result);
@@ -3193,15 +3363,33 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  /**
+   * Versements de l'étudiant : la traçabilité de son espace « Mes paiements ».
+   * Sans reçu — voir `studentListPayments`.
+   */
   fastify.get(
-    "/student/receipts/:paymentId",
+    "/student/payments",
     { preHandler: requireStudent },
     handler(async (request, reply) => {
-      const { paymentId } = request.params as { paymentId: string };
-      const result = await payment.getReceipt(
+      const result = await payment.studentListPayments(
         request.tenantId as string,
-        currentUserId(request),
-        paymentId
+        currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  /**
+   * Reçus de l'étudiant : les mêmes documents que ceux servis à son parent.
+   * Distinct de `/student/payments`, qui suit les versements sans reçu.
+   */
+  fastify.get(
+    "/student/receipts",
+    { preHandler: requireStudent },
+    handler(async (request, reply) => {
+      const result = await enrollment.studentListOwnReceipts(
+        request.tenantId as string,
+        currentUserId(request)
       );
       return sendResult(reply, result);
     })
@@ -3221,8 +3409,9 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  // Emploi du temps d'un enfant : la même grille que l'espace étudiant.
   fastify.get(
-    "/parent/enrollments",
+    "/parent/emploi-temps",
     { preHandler: requireParent },
     handler(async (request, reply) => {
       const q = request.query as Record<string, string | undefined>;
@@ -3233,7 +3422,7 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
           message: "Le paramètre child_id est requis.",
         });
       }
-      const result = await enrollment.parentListChildEnrollments(
+      const result = await emploiTemps.listChildEmploiTemps(
         request.tenantId as string,
         currentUserId(request),
         q.child_id
@@ -3255,6 +3444,29 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
         });
       }
       const result = await enrollment.parentListChildPayments(
+        request.tenantId as string,
+        currentUserId(request),
+        q.child_id
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Rattrapages (Session 2) d'un enfant (parent) : les ECUE à repasser et le
+  // résultat de celles déjà repassées.
+  fastify.get(
+    "/parent/rattrapages",
+    { preHandler: requireParent },
+    handler(async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>;
+      if (!q.child_id) {
+        return reply.status(422).send({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Le paramètre child_id est requis.",
+        });
+      }
+      const result = await results.listChildRattrapages(
         request.tenantId as string,
         currentUserId(request),
         q.child_id
@@ -3890,7 +4102,11 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     { preHandler: requireAdmin },
     handler(async (request, reply) => {
       const { filiereId } = request.params as { filiereId: string };
-      const result = await attestations.getRoster(request.tenantId as string, filiereId);
+      const result = await attestations.getRoster(
+        request.tenantId as string,
+        filiereId,
+        (request.query as { classe_nom?: string }).classe_nom || undefined
+      );
       return sendResult(reply, result);
     })
   );

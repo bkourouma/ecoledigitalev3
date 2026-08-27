@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, Input } from "@ecoledigitale/ui";
+import { Card, CardContent, Input, Button } from "@ecoledigitale/ui";
 import {
   ClipboardCheck,
   Layers,
@@ -16,14 +16,14 @@ import {
   Clock,
   UserRound,
   Eye,
+  History,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { ExportButtons } from "@/components/ExportButtons";
 import { openPresencePdf } from "@/lib/utils/presence-report";
 import {
-  useNotesFilieres,
-  useNotesSemestres,
   usePresencesHistory,
+  usePresencesOptions,
 } from "@/lib/hooks/use-professional-bulletins";
 
 /**
@@ -36,11 +36,6 @@ import {
  * regroupées par matière, avec son statut de pointage séance par séance.
  */
 
-const STATUT_OPTIONS = [
-  { value: "all", label: "Toutes les sessions" },
-  { value: "en_cours", label: "Sessions en cours" },
-  { value: "terminee", label: "Sessions terminées" },
-];
 
 /** 4.5 → « 4h30 » ; 2 → « 2h » ; 0 → « 0h ». */
 function fmtHeures(h: number | null | undefined): string {
@@ -65,48 +60,70 @@ function anneeScolaireOf(v?: string | null): string | null {
 }
 
 export default function AdminPresencesPage() {
-  const [filiereId, setFiliereId] = useState("");
-  const [annee, setAnnee] = useState("all");
-  const [statut, setStatut] = useState("all");
+  // L'année commande la liste des noms, qui commande celle des semestres.
+  const [annee, setAnnee] = useState("");
+  const [nomKey, setNomKey] = useState("");
   const [semestreId, setSemestreId] = useState("");
   const [search, setSearch] = useState("");
 
-  const filieresQuery = useNotesFilieres();
-  const semestresQuery = useNotesSemestres(filiereId || null);
+  const optionsQuery = usePresencesOptions();
+  // Cet écran ne montre que les classes encore en cours ; les terminées vivent
+  // sur la page Historique.
+  const options = useMemo(
+    () => (optionsQuery.data ?? []).filter((o) => o.session_statut !== "termine" && o.session_statut !== "annule"),
+    [optionsQuery.data]
+  );
+
+  const filiereId = nomKey ? nomKey.split("|")[0] : "";
+  const nomClasse = nomKey ? nomKey.split("|").slice(1).join("|") : "";
+
   const historyQuery = usePresencesHistory({
     filiereId: filiereId || null,
     semestreId: semestreId || undefined,
-    statut,
+    statut: "en_cours",
+    classeNom: nomClasse || undefined,
   });
 
-  const filieres: any[] = (filieresQuery.data as any[]) ?? [];
-  const semestresRaw: any[] = filiereId ? ((semestresQuery.data as any[]) ?? []) : [];
-  const semestres = useMemo(
-    () => semestresRaw.map((s) => ({ ...s, annee_scolaire: anneeScolaireOf(s.date_debut) })),
-    [semestresRaw]
-  );
-
-  // Années scolaires disponibles pour la filière (plus récentes en premier).
   const anneeOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const s of semestres) if (s.annee_scolaire) set.add(s.annee_scolaire);
+    for (const o of options) if (o.annee_scolaire) set.add(o.annee_scolaire);
     return Array.from(set)
       .sort((a, b) => b.localeCompare(a))
       .map((value) => ({ value, label: value }));
-  }, [semestres]);
+  }, [options]);
 
-  // Semestres filtrés par année scolaire sélectionnée.
-  const visibleSemestres = useMemo(
-    () => semestres.filter((s) => annee === "all" || s.annee_scolaire === annee),
-    [semestres, annee]
-  );
+  const nomOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const o of options) {
+      if (annee && o.annee_scolaire !== annee) continue;
+      map.set(`${o.classe_id}|${o.nom}`, o.nom);
+    }
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [options, annee]);
 
-  // Si l'année sélectionnée n'existe plus (changement de filière), on réinitialise.
+  const visibleSemestres = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const o of options) {
+      if (!o.semestre_id) continue;
+      if (annee && o.annee_scolaire !== annee) continue;
+      if (nomKey && `${o.classe_id}|${o.nom}` !== nomKey) continue;
+      map.set(o.semestre_id, { id: o.semestre_id, libelle: o.semestre_libelle });
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      String(a.libelle).localeCompare(String(b.libelle))
+    );
+  }, [options, annee, nomKey]);
+
+  // Première année proposée par défaut.
   useEffect(() => {
-    if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
+    if (!annee && anneeOptions.length > 0) setAnnee(anneeOptions[0].value);
   }, [anneeOptions, annee]);
 
-  // Si le semestre sélectionné n'est plus visible (filtre année), on le désélectionne.
+  useEffect(() => {
+    if (nomKey && !nomOptions.some((o) => o.value === nomKey)) setNomKey("");
+  }, [nomOptions, nomKey]);
   useEffect(() => {
     if (semestreId && !visibleSemestres.some((s) => s.id === semestreId)) setSemestreId("");
   }, [visibleSemestres, semestreId]);
@@ -126,16 +143,17 @@ export default function AdminPresencesPage() {
   );
   // Périmètre courant, transmis à la fiche d'un étudiant (filtres de la page).
   const semestreLabel = useMemo(
-    () => semestres.find((s) => s.id === semestreId)?.libelle ?? null,
-    [semestres, semestreId]
+    () => visibleSemestres.find((s) => s.id === semestreId)?.libelle ?? null,
+    [visibleSemestres, semestreId]
   );
   const studentDetailQuery = useMemo(() => {
     const qs = new URLSearchParams({ filiere_id: filiereId });
     if (semestreId) qs.set("semestre_id", semestreId);
     if (semestreLabel) qs.set("semestre", semestreLabel);
-    if (statut !== "all") qs.set("statut", statut);
+    if (nomClasse) qs.set("classe_nom", nomClasse);
+    qs.set("statut", "en_cours");
     return qs.toString();
-  }, [filiereId, semestreId, semestreLabel, statut]);
+  }, [filiereId, semestreId, semestreLabel, nomClasse]);
 
   const stats = useMemo(() => {
     const appels = seances.filter((s) => Number(s.nb_marques) > 0);
@@ -159,16 +177,14 @@ export default function AdminPresencesPage() {
    */
   const exportContexte = useMemo(
     () => ({
-      filiere:
-        filieres.find((f) => f.id === filiereId)?.name ??
-        (filiereId ? filiereId : "Aucune filière sélectionnée"),
-      annee: annee === "all" ? "Toutes les années" : annee,
-      statut: STATUT_OPTIONS.find((o) => o.value === statut)?.label ?? statut,
+      filiere: nomClasse || "Aucun nom de classe sélectionné",
+      annee: annee || "Toutes les années",
+      statut: "Classes en cours",
       semestre: semestreLabel ?? "Tous les semestres",
       recherche: search.trim() || undefined,
       stats,
     }),
-    [filieres, filiereId, annee, statut, semestreLabel, search, stats]
+    [nomClasse, annee, semestreLabel, search, stats]
   );
 
   return (
@@ -186,6 +202,12 @@ export default function AdminPresencesPage() {
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
+          <Link href="/professionnel/admin/presences/historique">
+            <Button variant="outline" title="Consulter les présences des classes terminées">
+              <History className="h-4 w-4 mr-2" />
+              Historique
+            </Button>
+          </Link>
           <ExportButtons
             formats={["pdf"]}
             disabled={historyQuery.isLoading || filteredStudents.length === 0}
@@ -194,50 +216,53 @@ export default function AdminPresencesPage() {
         </div>
       </div>
 
-      {/* Filtres — deux en haut (filière, année), deux en bas (statut, semestre) */}
+      {/* Filtres : l'année d'abord, puis le nom de classe, puis le semestre. */}
       <Card className="shadow-sm">
         <CardContent className="p-4 space-y-3">
+          <SearchableSelect
+            value={annee}
+            onChange={(v) => {
+              setAnnee(v);
+              setNomKey("");
+              setSemestreId("");
+            }}
+            icon={<Calendar className="h-4 w-4 text-gray-400" />}
+            placeholder={
+              optionsQuery.isLoading
+                ? "Chargement…"
+                : anneeOptions.length === 0
+                  ? "Aucun appel enregistré"
+                  : "Sélectionner une année"
+            }
+            searchPlaceholder="Rechercher une année…"
+            options={anneeOptions}
+          />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <SearchableSelect
-              value={filiereId}
+              value={nomKey}
               onChange={(v) => {
-                setFiliereId(v);
-                setAnnee("all");
+                setNomKey(v);
                 setSemestreId("");
               }}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder={filieresQuery.isLoading ? "Chargement…" : "Filière"}
-              searchPlaceholder="Rechercher une filière…"
-              options={filieres.map((f) => ({
-                value: f.id,
-                label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
-              }))}
-            />
-            <SearchableSelect
-              value={annee}
-              onChange={setAnnee}
-              icon={<Calendar className="h-4 w-4 text-gray-400" />}
-              placeholder={!filiereId ? "Choisir une filière" : "Toutes les années"}
-              searchPlaceholder="Rechercher une année…"
-              options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <SearchableSelect
-              value={statut}
-              onChange={setStatut}
-              icon={<CheckCircle2 className="h-4 w-4 text-gray-400" />}
-              placeholder="Statut des sessions"
-              options={STATUT_OPTIONS}
+              placeholder={
+                !annee
+                  ? "Choisir d'abord une année"
+                  : nomOptions.length === 0
+                    ? "Aucune classe cette année"
+                    : "Sélectionner un nom de classe"
+              }
+              searchPlaceholder="Rechercher un nom de classe…"
+              options={nomOptions}
             />
             <SearchableSelect
               value={semestreId}
               onChange={setSemestreId}
               icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
-              placeholder={!filiereId ? "Choisir une filière" : "Tous les semestres"}
+              placeholder={!nomKey ? "Choisir un nom de classe" : "Tous les semestres"}
               options={[
                 { value: "", label: "Tous les semestres" },
-                ...visibleSemestres.map((s) => ({ value: s.id, label: s.libelle })),
+                ...visibleSemestres.map((sm) => ({ value: sm.id, label: sm.libelle })),
               ]}
             />
           </div>
@@ -252,8 +277,8 @@ export default function AdminPresencesPage() {
               <GraduationCap className="h-8 w-8 text-indigo-500" />
             </div>
             <p className="text-muted-foreground max-w-md">
-              Choisissez une filière (puis, au besoin, un statut de session et un semestre) pour
-              afficher l'historique des présences.
+              Choisissez une année puis un nom de classe pour afficher les présences.
+              Les classes terminées sont sur la page Historique.
             </p>
           </CardContent>
         </Card>

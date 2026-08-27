@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, Button } from "@ecoledigitale/ui";
 import {
@@ -20,7 +20,7 @@ import {
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useProfessionalSemestres } from "@/lib/hooks/use-professional-semestres";
 import {
-  useNotesFilieres,
+  useBulletinsNoms,
   useBulletinRoster,
   useRecomputeBulletins,
   useGenerateBulletins,
@@ -44,7 +44,8 @@ function fmt(x: number | null | undefined): string {
 }
 
 export default function BulletinsPage() {
-  const [filiereId, setFiliereId] = useState("");
+  // Sélection au grain du nom de classe : « classeId|nom ».
+  const [nomKey, setNomKey] = useState("");
   const [semestreId, setSemestreId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -52,16 +53,23 @@ export default function BulletinsPage() {
   const [openingAll, setOpeningAll] = useState(false);
   const [busyStudentId, setBusyStudentId] = useState<string | null>(null);
   const [busyBtsStudentId, setBusyBtsStudentId] = useState<string | null>(null);
-  const filieresQuery = useNotesFilieres();
+  const nomsQuery = useBulletinsNoms();
+  const filiereId = nomKey ? nomKey.split("|")[0] : "";
+  const nomClasse = nomKey ? nomKey.split("|").slice(1).join("|") : "";
   const semestresQuery = useProfessionalSemestres(filiereId ? { filiere_id: filiereId } : {});
   const rosterQuery = useBulletinRoster(semestreId || null);
   const recomputeMut = useRecomputeBulletins();
   const generateMut = useGenerateBulletins();
   const cloturerMut = useCloturerBulletins();
 
-  // Filières restreintes à celles ayant au moins un étudiant inscrit
-  // (confirmé/terminé) dans une session — même source que la page Notes.
-  const filieres: any[] = (filieresQuery.data as any[]) ?? [];
+  // Noms restreints à ceux où il reste un semestre non clôturé : une fois la
+  // dernière clôture faite, le nom sort du sélecteur.
+  const noms: any[] = (nomsQuery.data as any[]) ?? [];
+  const nomOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const n of noms) map.set(`${n.classe_id}|${n.nom}`, n.nom);
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [noms]);
   const semestres: any[] = useMemo(() => {
     const list = (semestresQuery.data as any)?.data ?? (semestresQuery.data as any[]) ?? [];
     // Semestres ayant au moins une session créée ET dont les bulletins ne sont
@@ -71,12 +79,23 @@ export default function BulletinsPage() {
       : [];
   }, [semestresQuery.data, filiereId]);
 
+  // Après une clôture, le nom choisi peut ne plus être ouvert : on vide la
+  // sélection plutôt que de laisser un libellé fantôme dans le champ.
+  useEffect(() => {
+    if (nomsQuery.isLoading || !nomKey) return;
+    if (!nomOptions.some((o) => o.value === nomKey)) {
+      setNomKey("");
+      setSemestreId("");
+    }
+  }, [nomOptions, nomKey, nomsQuery.isLoading]);
+
   const roster: any = rosterQuery.data ?? null;
   const students: any[] = roster?.students ?? [];
 
-  // Bulletin BTS : réservé aux filières Licence 1 et Licence 2.
-  const selectedFiliere = filieres.find((f) => f.id === filiereId);
-  const isBtsEligible = isLicenceUnOuDeux(selectedFiliere?.name);
+  // Bulletin BTS : réservé aux Licence 1 et Licence 2. C'est le nom de la
+  // CLASSE qui décide, pas le nom donné à l'ouverture.
+  const selectedFiliere = noms.find((n) => `${n.classe_id}|${n.nom}` === nomKey);
+  const isBtsEligible = isLicenceUnOuDeux(selectedFiliere?.classe_nom);
 
   // Étudiants dont la décision n'est pas arrêtée : ni bulletin consultable, ni
   // bulletin généré, tant que le rattrapage n'a pas été saisi.
@@ -242,7 +261,7 @@ export default function BulletinsPage() {
             Bulletins & moyennes
           </h1>
           <p className="text-muted-foreground mt-2">
-            Sélectionnez une filière et un semestre pour consulter les bulletins des étudiants.
+            Sélectionnez une classe et un semestre pour consulter les bulletins des étudiants.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -256,7 +275,7 @@ export default function BulletinsPage() {
             onClick={handleOpenAll}
             disabled={!semestreId || openingAll}
             variant="outline"
-            title={!semestreId ? "Sélectionnez une filière et un semestre" : undefined}
+            title={!semestreId ? "Sélectionnez une classe et un semestre" : undefined}
           >
             {openingAll ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -303,7 +322,7 @@ export default function BulletinsPage() {
             disabled={!semestreId || cloturerMut.isPending || nbSession2 > 0}
             title={
               !semestreId
-                ? "Sélectionnez une filière et un semestre"
+                ? "Sélectionnez une classe et un semestre"
                 : nbSession2 > 0
                   ? `Clôture bloquée : ${nbSession2} étudiant(s) en attente de Session 2.`
                   : "Clôturer les bulletins et basculer le semestre dans l'Historique"
@@ -336,18 +355,17 @@ export default function BulletinsPage() {
         <CardContent className="p-4 flex flex-col lg:flex-row gap-3 lg:items-center">
           <div className="flex-1 min-w-0">
             <SearchableSelect
-              value={filiereId}
+              value={nomKey}
               onChange={(v) => {
-                setFiliereId(v);
+                setNomKey(v);
                 setSemestreId("");
               }}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder={filieresQuery.isLoading ? "Chargement…" : "Sélectionner une filière"}
-              searchPlaceholder="Rechercher une filière…"
-              options={filieres.map((f) => ({
-                value: f.id,
-                label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
-              }))}
+              placeholder={
+                nomsQuery.isLoading ? "Chargement…" : "Sélectionner un nom de classe"
+              }
+              searchPlaceholder="Rechercher un nom de classe…"
+              options={nomOptions}
             />
           </div>
           <div className="lg:w-72">
@@ -356,8 +374,8 @@ export default function BulletinsPage() {
               onChange={setSemestreId}
               icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
               placeholder={
-                !filiereId
-                  ? "Choisir d'abord une filière"
+                !nomKey
+                  ? "Choisir d'abord un nom de classe"
                   : semestresQuery.isLoading
                   ? "Chargement…"
                   : semestres.length === 0
@@ -388,7 +406,7 @@ export default function BulletinsPage() {
               <FileSpreadsheet className="h-8 w-8 text-indigo-500" />
             </div>
             <p className="text-muted-foreground max-w-md">
-              Choisissez une filière puis un semestre pour afficher la liste des bulletins.
+              Choisissez une classe puis un semestre pour afficher la liste des bulletins.
             </p>
           </CardContent>
         </Card>

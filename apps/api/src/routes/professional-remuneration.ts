@@ -504,4 +504,78 @@ export async function professionalRemunerationRoutes(fastify: FastifyInstance): 
       }
     })
   );
+
+  /**
+   * Configuration de rémunération de l'enseignant connecté — le pendant en
+   * lecture seule de l'écran « Configuration » de l'administration.
+   *
+   * TOUTES ses configurations, pas seulement celle en vigueur : la précédente
+   * explique un bulletin ancien, et c'est justement ce qu'on vient vérifier
+   * quand on relit son historique.
+   *
+   * Aucune écriture n'est exposée ici : c'est l'administration qui décide
+   * comment quelqu'un est payé, l'intéressé le consulte.
+   */
+  fastify.get(
+    "/my/configuration",
+    { preHandler: requireTeacher },
+    handler(async (request, reply) => {
+      const teacherId = await resolveOwnTeacherId(request);
+      if (!teacherId) {
+        return reply
+          .status(404)
+          .send({ success: false, error: "TEACHER_NOT_FOUND", message: "Profil enseignant introuvable." });
+      }
+      const client = await (fastify.pg as any).connect();
+      try {
+        await client.query("SELECT set_config('app.tenant_id', $1, true)", [request.tenantId]);
+        const res = await client.query(
+          `SELECT tpc.id,
+                  tpc.config_type::text            AS config_type,
+                  tpc.monthly_salary::float8       AS monthly_salary,
+                  tpc.annual_salary::float8        AS annual_salary,
+                  tpc.default_hourly_rate::float8  AS default_hourly_rate,
+                  tpc.overtime_threshold::float8   AS overtime_threshold,
+                  tpc.overtime_multiplier::float8  AS overtime_multiplier,
+                  tpc.effective_from::text         AS effective_from,
+                  tpc.effective_to::text           AS effective_to
+             FROM teacher_payment_configs tpc
+            WHERE tpc.tenant_id = $1 AND tpc.teacher_id = $2
+            -- La plus récente en tête : celle qui a le plus de chances d'être
+            -- en vigueur, donc celle qu'on ouvre l'écran pour lire.
+            ORDER BY tpc.effective_from DESC NULLS LAST, tpc.created_at DESC`,
+          [request.tenantId, teacherId]
+        );
+        return reply.send({ success: true, data: { items: res.rows } });
+      } finally {
+        client.release();
+      }
+    })
+  );
+
+  /**
+   * Historique de paie de l'enseignant connecté.
+   *
+   * Restreint aux bulletins RÉELLEMENT VERSÉS (`seulementVerses`) : un bulletin
+   * archivé mais impayé est un montant arrêté en interne, pas un revenu perçu.
+   * Le porter à la connaissance de l'intéressé annoncerait un versement qui n'a
+   * pas eu lieu.
+   *
+   * Le PDF du bulletin n'est pas servi ici et l'écran n'en propose pas le
+   * téléchargement : le document reste délivré par l'administration.
+   */
+  fastify.get(
+    "/my/historique",
+    { preHandler: requireTeacher },
+    handler(async (request, reply) => {
+      const teacherId = await resolveOwnTeacherId(request);
+      if (!teacherId) {
+        return reply
+          .status(404)
+          .send({ success: false, error: "TEACHER_NOT_FOUND", message: "Profil enseignant introuvable." });
+      }
+      const result = await paie.historiqueBulletins(request.tenantId as string, teacherId, true);
+      return sendResult(reply, result);
+    })
+  );
 }

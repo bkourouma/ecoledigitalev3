@@ -144,7 +144,7 @@ export default function EditProfessionalUeSessionPage() {
         <Card className="shadow-lg">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-            <p className="text-gray-600 mt-3">Chargement de la session…</p>
+            <p className="text-gray-600 mt-3">Chargement de la classe…</p>
           </CardContent>
         </Card>
       </div>
@@ -161,7 +161,7 @@ export default function EditProfessionalUeSessionPage() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-            Modifier la session
+            Modifier l'ouverture de classe
           </h1>
           <p className="text-muted-foreground mt-2">{subjectName}</p>
         </div>
@@ -177,7 +177,7 @@ export default function EditProfessionalUeSessionPage() {
         {/* Formulaire */}
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Informations de la session</CardTitle>
+            <CardTitle>Informations de la classe</CardTitle>
             <CardDescription>La matière de rattachement n'est pas modifiable.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -266,7 +266,7 @@ export default function EditProfessionalUeSessionPage() {
         {/* Statut */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Statut de la session</CardTitle>
+            <CardTitle className="text-lg">Statut de la classe</CardTitle>
             <CardDescription>
               Statut actuel :{" "}
               <strong>{STATUT_LABEL[session?.statut] ?? session?.statut}</strong>. Le passage
@@ -347,7 +347,7 @@ function EcueTeachersEditor({ sessionId }: { sessionId: string }) {
         <CardTitle>Enseignants par ECUE</CardTitle>
         <CardDescription>
           Affectez un enseignant à chaque ECUE de l'UE. Chaque ECUE obligatoire doit avoir un
-          enseignant pour que la session puisse être ouverte.
+          enseignant pour que la classe puisse être ouverte.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -363,7 +363,7 @@ function EcueTeachersEditor({ sessionId }: { sessionId: string }) {
           </div>
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Aucun ECUE rattaché à l'UE de cette session. Composez l'UE pour ajouter des ECUE.
+            Aucun ECUE rattaché à l'UE de cette classe. Composez l'UE pour ajouter des ECUE.
           </p>
         ) : (
           <>
@@ -371,7 +371,7 @@ function EcueTeachersEditor({ sessionId }: { sessionId: string }) {
               <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
                 <p>
-                  {missingObligatoire.length} ECUE obligatoire(s) sans enseignant : la session ne
+                  {missingObligatoire.length} ECUE obligatoire(s) sans enseignant : la classe ne
                   pourra pas être ouverte tant qu'ils n'ont pas d'enseignant affecté.
                 </p>
               </div>

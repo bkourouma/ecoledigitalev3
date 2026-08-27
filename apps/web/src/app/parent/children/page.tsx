@@ -3,7 +3,7 @@
 import React from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { Users, GraduationCap, TrendingUp } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { ChildrenList } from '../components/ChildrenList';
 import { useParentChildren } from '@/lib/hooks/use-parent-children';
 
@@ -53,15 +53,6 @@ export default function ParentChildrenPage() {
   }, [data?.data?.children]);
 
   const activeCount = children.filter((c: any) => c.status === 'active').length;
-  const grades = children
-    .map((c: any) => c.summaryIndicator?.gradeAverage)
-    .filter((g: number | null): g is number => typeof g === 'number');
-  const overallAverage = grades.length
-    ? grades.reduce((a, b) => a + b, 0) / grades.length
-    : null;
-  const attentionCount = children.filter(
-    (c: any) => c.summaryIndicator?.attendanceStatus === 'warning',
-  ).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -86,18 +77,6 @@ export default function ParentChildrenPage() {
                 label="Enfants actifs"
                 value={`${activeCount}/${children.length}`}
                 tone="emerald"
-              />
-              <StatCard
-                icon={<GraduationCap className="h-5 w-5" />}
-                label="Moyenne globale"
-                value={overallAverage !== null ? `${overallAverage.toFixed(1)}/20` : '—'}
-                tone="blue"
-              />
-              <StatCard
-                icon={<TrendingUp className="h-5 w-5" />}
-                label="Points d'attention"
-                value={String(attentionCount)}
-                tone={attentionCount > 0 ? 'amber' : 'emerald'}
               />
             </div>
           )}

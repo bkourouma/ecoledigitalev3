@@ -34,6 +34,8 @@ import {
 } from "@/lib/hooks/use-professional-remuneration";
 import { useSessionEcueTeachers } from "@/lib/hooks/use-professional-catalog-admin";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openSeancesPdf } from "@/lib/utils/seance-report";
 import {
   AideStatuts,
   FILTRES_VIDES,
@@ -204,6 +206,27 @@ export default function RemunerationSeancesPage() {
       },
     ];
   }, [items.length, total, seancesQuery.data?.summary]);
+
+  /**
+   * Périmètre exporté : les mêmes filtres que l'écran, mais SANS pagination —
+   * le document reprend toutes les séances à valider, pas les 10 de la page.
+   */
+  const exportContexte = useMemo(
+    () => ({
+      filters: versSeanceFilters(filtres, false),
+      perimetre: [
+        [
+          "Enseignant",
+          filtres.enseignantId
+            ? (enseignantsATraiter.find((t) => t.id === filtres.enseignantId)?.nom ??
+              filtres.enseignantId)
+            : "Tous les enseignants en attente",
+        ],
+        ["Portée", "Séances non encore validées"],
+      ] as Array<[string, string]>,
+    }),
+    [filtres, enseignantsATraiter]
+  );
 
   const selectionnables = useMemo(() => items.filter((s) => !isLocked(s)), [items]);
 
@@ -460,15 +483,25 @@ export default function RemunerationSeancesPage() {
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto p-6">
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-          <CalendarCheck className="h-7 w-7 text-indigo-500" />
-          Validation des séances
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Marquez les séances réellement effectuées, puis validez celles qui sont payables. Une
-          séance planifiée, annulée ou non validée ne produit aucun montant lors du calcul.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+            <CalendarCheck className="h-7 w-7 text-indigo-500" />
+            Validation des séances
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Marquez les séances réellement effectuées, puis validez celles qui sont payables. Une
+            séance planifiée, annulée ou non validée ne produit aucun montant lors du calcul.
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={seancesQuery.isLoading || total === 0}
+            onExportPdf={(win) => openSeancesPdf(exportContexte, win)}
+            onError={(text) => setFeedback({ kind: "warn", text })}
+          />
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground -mt-3">

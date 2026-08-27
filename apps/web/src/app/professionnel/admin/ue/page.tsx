@@ -12,20 +12,18 @@ import {
   Trash2,
   Layers,
   GraduationCap,
-  Download,
   X,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { ExportOptionsDialog } from "@/components/ExportOptionsDialog";
+import { ExportButtons } from "@/components/ExportButtons";
 import { useProgrammes } from "@/lib/hooks/use-programmes";
 import {
   useAllProfessionalUeList,
   useDeleteProfessionalUe,
 } from "@/lib/hooks/use-professional-catalog-admin";
-import { UE_EXPORT_CHOICES, UE_EXPORT_DEFAUT, openUeReportPdf } from "@/lib/utils/ue-report";
-import { ouvrirOngletPdf, POPUP_BLOQUEE } from "@/lib/utils/report-pdf";
+import { openUeReportPdf } from "@/lib/utils/ue-report";
 
 const PAGE_SIZE = 20;
 
@@ -57,8 +55,6 @@ export default function ProfessionalUeListPage() {
   const [filiereFilter, setFiliereFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [exportOuvert, setExportOuvert] = useState(false);
-  const [exportChoix, setExportChoix] = useState<Set<string>>(new Set(UE_EXPORT_DEFAUT));
 
   const programmesQuery = useProgrammes();
   const ueQuery = useAllProfessionalUeList();
@@ -100,39 +96,23 @@ export default function ProfessionalUeListPage() {
     setPage(1);
   }, [filiereFilter]);
 
-  /** Bascule une case de la boîte de dialogue d'export. */
-  function basculerChoix(key: string) {
-    setExportChoix((prev) => {
-      const suivant = new Set(prev);
-      if (suivant.has(key)) suivant.delete(key);
-      else suivant.add(key);
-      return suivant;
-    });
-  }
-
-  /** Le catalogue ne s'exporte qu'en PDF. */
-  async function handleExport() {
+  /**
+   * Le catalogue ne s'exporte qu'en PDF, et reprend la liste telle qu'elle est
+   * filtrée à l'écran.
+   */
+  async function handleExport(win: Window) {
     setError(null);
-    const options = {
-      choix: exportChoix,
-      filiereNom: filiereNameOf,
-      filtreLibelle:
-        filiereFilter === "all"
-          ? "Toutes les filières"
-          : `Filière : ${filiereNameOf(filiereFilter)}`,
-    };
-    try {
-      // L'onglet s'ouvre dans le geste de clic, sinon la popup est bloquée.
-      const win = ouvrirOngletPdf();
-      if (!win) {
-        setError(POPUP_BLOQUEE);
-        return;
-      }
-      await openUeReportPdf(filteredItems, options, win);
-      setExportOuvert(false);
-    } catch (err: any) {
-      setError(err?.message ?? "Erreur lors de l'export.");
-    }
+    await openUeReportPdf(
+      filteredItems,
+      {
+        classeNom: filiereNameOf,
+        filtreLibelle:
+          filiereFilter === "all"
+            ? "Toutes les classes"
+            : `Classe : ${filiereNameOf(filiereFilter)}`,
+      },
+      win
+    );
   }
 
   async function handleDelete(id: string) {
@@ -161,19 +141,16 @@ export default function ProfessionalUeListPage() {
             Unités d'Enseignement (UE)
           </h1>
           <p className="text-muted-foreground mt-2">
-            Pôle administratif — prix, UV, sessions et composition en ECUE, par filière.
+            Pôle administratif — prix, UV, sessions et composition en ECUE, par classe.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setExportOuvert(true)}
+          <ExportButtons
+            formats={["pdf"]}
             disabled={ueQuery.isLoading || filteredItems.length === 0}
-            className="bg-emerald-50 border-emerald-200 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 shadow-sm"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Exporter
-          </Button>
+            onExportPdf={handleExport}
+            onError={setError}
+          />
           <Button
             onClick={() => router.push("/professionnel/admin/ue/new")}
             className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
@@ -183,28 +160,6 @@ export default function ProfessionalUeListPage() {
           </Button>
         </div>
       </div>
-
-      <ExportOptionsDialog
-        open={exportOuvert}
-        onClose={() => setExportOuvert(false)}
-        title="Exporter le catalogue des UE"
-        description={`${filteredItems.length} UE seront exportées en PDF. Choisissez les données à faire figurer dans le document : sa mise en page s'y adapte.`}
-        formats={["pdf"]}
-        groups={[
-          {
-            groupLabel: "Données de l'UE",
-            choices: [
-              { key: "_code", label: "Code et intitulé", hint: "Toujours inclus", locked: true },
-              ...UE_EXPORT_CHOICES.map((c) => ({ ...c })),
-            ],
-          },
-        ]}
-        selected={exportChoix}
-        onToggle={basculerChoix}
-        onExport={handleExport}
-        disabled={filteredItems.length === 0}
-        disabledReason="Aucune UE à exporter avec le filtre courant."
-      />
 
       {error && (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
@@ -229,7 +184,7 @@ export default function ProfessionalUeListPage() {
           <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-6 rounded-xl text-white shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white/80 text-sm font-medium">Filières couvertes</p>
+                <p className="text-white/80 text-sm font-medium">Classes couvertes</p>
                 <p className="text-3xl font-bold mt-1">{distinctFilieres}</p>
               </div>
               <div className="bg-white/20 p-3 rounded-lg">
@@ -249,9 +204,9 @@ export default function ProfessionalUeListPage() {
                 value={filiereFilter}
                 onChange={setFiliereFilter}
                 icon={<GraduationCap className="h-4 w-4 text-gray-400" />}
-                placeholder="Filtrer par filière"
+                placeholder="Filtrer par classe"
                 options={[
-                  { value: "all", label: "Toutes les filières" },
+                  { value: "all", label: "Toutes les classes" },
                   ...filieres.map((p) => ({ value: p.id, label: p.name })),
                 ]}
               />
@@ -304,7 +259,7 @@ export default function ProfessionalUeListPage() {
                   <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
                     <p className="text-white/90 col-span-2 font-mono text-xs">{u.code}</p>
                     <p className="text-white/90 col-span-2">
-                      <span className="font-medium">Filière :</span> {filiereNameOf(u.filiere_id)}
+                      <span className="font-medium">Classe :</span> {filiereNameOf(u.filiere_id)}
                     </p>
                     <p className="text-white/90">
                       <span className="font-medium">Crédit(s) :</span> {u.nb_uv}
@@ -415,7 +370,7 @@ export default function ProfessionalUeListPage() {
         <Card className="shadow-lg">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-6">
             <Layers className="h-10 w-10 text-gray-500" />
-            <p className="text-gray-600 text-lg">Aucune UE pour cette filière.</p>
+            <p className="text-gray-600 text-lg">Aucune UE pour cette classe.</p>
             <Button variant="outline" onClick={() => setFiliereFilter("all")}>
               <X className="h-4 w-4 mr-2" />
               Effacer le filtre

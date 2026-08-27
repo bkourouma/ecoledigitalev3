@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
   Users,
-  GraduationCap,
   AlertCircle,
   CheckCircle2,
   ArrowRight,
@@ -124,6 +123,8 @@ export function ChildrenList({ children, isLoading, error }: ChildrenListProps) 
         };
         const gradient = getGradientForId(child.id);
         const initials = getInitials(child.name);
+        // Matricule IPAM de la filière quand il existe, numéro d'établissement sinon.
+        const matricule = child.professionalMatricule || child.studentNumber;
         const grade = child.summaryIndicator.gradeAverage;
         const attendance = child.summaryIndicator.attendanceStatus;
 
@@ -160,11 +161,7 @@ export function ChildrenList({ children, isLoading, error }: ChildrenListProps) 
                     </Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <GraduationCap className="h-4 w-4" aria-hidden="true" />
-                      Année {child.currentYear}
-                    </span>
-                    <span className="font-mono text-xs">#{child.studentNumber}</span>
+                    <span className="font-mono text-xs">{matricule}</span>
                   </div>
                 </div>
 
@@ -193,9 +190,7 @@ export function ChildrenList({ children, isLoading, error }: ChildrenListProps) 
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Présence régulière
                     </span>
-                  ) : (
-                    <span className="text-muted-foreground">Aucune donnée de présence</span>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="flex items-center gap-1">

@@ -29,6 +29,101 @@ async function verifyParentChildRelationship(
   return result.rows.length > 0;
 }
 
+/**
+ * Emploi du temps du module professionnel, décliné en dates réelles.
+ *
+ * Les élèves du module professionnel n'ont ni `student_enrollments` ni
+ * `session_instances` : leurs cours vivent dans `professional_ecue_seances`,
+ * projection datée de la grille hebdomadaire `professional_emploi_temps`
+ * (cf. owner-assiduite.service.ts : la grille = le PLANIFIÉ, les séances = les
+ * occurrences réelles). On lit donc les séances, qui portent déjà la date,
+ * l'horaire, l'enseignant et le statut.
+ *
+ * Retourne des lignes au même format que la requête « classique » du portail
+ * parent, pour que les deux sources se concatènent sans conversion.
+ */
+async function fetchProfessionalSchedule(
+  pool: any,
+  options: {
+    tenantId: string;
+    childId: string;
+    fromDate: string;
+    toDate: string;
+    limit?: number;
+  }
+): Promise<any[]> {
+  const { tenantId, childId, fromDate, toDate, limit } = options;
+
+  const result = await pool.query(
+    `SELECT
+       s.id,
+       s.date::text          AS date,
+       s.heure_debut::text   AS start_time,
+       s.heure_fin::text     AS end_time,
+       e.libelle             AS course_name,
+       e.code                AS course_code,
+       COALESCE(cr.name, grille.classroom_name) AS classroom,
+       NULLIF(BTRIM(t.first_name || ' ' || t.last_name), '') AS teacher_name
+     FROM professional_ecue_seances s
+     -- Une séance concerne l'élève s'il est inscrit à la cohorte (session d'UE).
+     JOIN professional_enrollments en
+       ON en.ue_session_id = s.ue_session_id
+      AND en.tenant_id = s.tenant_id
+      AND en.student_id = $1
+      AND en.statut IN ('confirmee', 'terminee')
+     JOIN professional_ecue e ON e.id = s.ecue_id
+     LEFT JOIN teachers t ON t.id = s.enseignant_id
+     LEFT JOIN classrooms cr ON cr.id = s.classroom_id
+     -- La salle n'est le plus souvent saisie que sur la grille hebdomadaire :
+     -- on la rapproche par (cohorte, ECUE, jour de semaine, heure de début).
+     LEFT JOIN LATERAL (
+       SELECT c2.name AS classroom_name
+       FROM professional_emploi_temps et
+       JOIN classrooms c2 ON c2.id = et.classroom_id
+       WHERE et.tenant_id = s.tenant_id
+         AND et.ue_session_id = s.ue_session_id
+         AND et.ecue_id = s.ecue_id
+         AND et.jour = EXTRACT(ISODOW FROM s.date)
+         AND et.heure_debut = s.heure_debut
+       LIMIT 1
+     ) grille ON TRUE
+     WHERE s.tenant_id = $2
+       AND s.date >= $3::date
+       AND s.date <= $4::date
+       AND s.statut <> 'annulee'
+       -- La Conduite est une note de comportement, pas une matière : elle est
+       -- exclue de l'emploi du temps (même règle que le portail étudiant,
+       -- cf. ProfessionalEmploiTempsService.listStudentEmploiTemps).
+       AND NOT (e.libelle ILIKE 'conduite%' OR e.code ILIKE '%EC-CON%')
+     ORDER BY s.date ASC, s.heure_debut ASC
+     ${limit ? `LIMIT ${Number(limit)}` : ''}`,
+    [childId, tenantId, fromDate, toDate]
+  );
+
+  return result.rows.map((row: any) => ({
+    id: row.id,
+    date: row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    courseName: row.course_name,
+    courseCode: row.course_code,
+    classroom: row.classroom,
+    teacherName: row.teacher_name,
+  }));
+}
+
+/**
+ * Clé de tri commune aux deux sources : le portail « classique » renvoie une
+ * Date (colonne `date`), le module professionnel une chaîne `YYYY-MM-DD`.
+ */
+function scheduleSortKey(item: { date: any; startTime?: string }): string {
+  const date =
+    item.date instanceof Date
+      ? item.date.toISOString().split('T')[0]
+      : String(item.date ?? '').split('T')[0];
+  return `${date} ${item.startTime ?? ''}`;
+}
+
 export async function parentChildrenRoutes(fastify: FastifyInstance) {
   const pool = fastify.pg as any;
 
@@ -56,6 +151,7 @@ export async function parentChildrenRoutes(fastify: FastifyInstance) {
                       currentYear: { type: 'number' },
                       status: { type: 'string', enum: ['active', 'suspended', 'dropped', 'transfer', 'graduated'] },
                       studentNumber: { type: 'string' },
+                      professionalMatricule: { type: 'string', nullable: true },
                       summaryIndicator: {
                         type: 'object',
                         properties: {
@@ -131,6 +227,7 @@ export async function parentChildrenRoutes(fastify: FastifyInstance) {
             sp.current_year,
             sp.status,
             sp.student_number,
+            pm.matricule AS professional_matricule,
             u.id as user_id,
             u.first_name,
             u.last_name,
@@ -139,6 +236,16 @@ export async function parentChildrenRoutes(fastify: FastifyInstance) {
           FROM student_parents sp_rel
           JOIN student_profiles sp ON sp_rel.student_id = sp.id
           JOIN users u ON sp.user_id = u.id
+          -- Matricule IPAM (IPAM<CODE FILIÈRE><NNN>) du module professionnel :
+          -- un par filière, on expose le plus récent quand il y en a plusieurs.
+          LEFT JOIN LATERAL (
+            SELECT psm.matricule
+            FROM professional_student_matricules psm
+            WHERE psm.student_id = sp.id
+              AND psm.tenant_id = sp.tenant_id
+            ORDER BY psm.created_at DESC, psm.seq DESC
+            LIMIT 1
+          ) pm ON TRUE
           WHERE sp_rel.parent_id = $1
             AND sp_rel.tenant_id = $2
             AND (
@@ -215,6 +322,7 @@ export async function parentChildrenRoutes(fastify: FastifyInstance) {
               currentYear: row.current_year,
               status: row.status,
               studentNumber: row.student_number,
+              professionalMatricule: row.professional_matricule ?? null,
               summaryIndicator: {
                 gradeAverage: gradeAverage ? Math.round(gradeAverage * 100) / 100 : null,
                 attendanceStatus: attendanceStatus,
@@ -376,6 +484,16 @@ export async function parentChildrenRoutes(fastify: FastifyInstance) {
                   AND se_ay.tenant_id = sp.tenant_id
                   AND se_ay.status = 'active'
                   AND cl_ay.academic_year_id = $3::uuid
+              )
+              -- Élèves inscrits en module professionnel : ils n'ont pas de
+              -- student_enrollments classiques, mais restent des enfants du
+              -- parent quelle que soit l'année académique sélectionnée.
+              OR EXISTS (
+                SELECT 1
+                FROM professional_enrollments pe
+                WHERE pe.student_id = sp.id
+                  AND pe.tenant_id = sp.tenant_id
+                  AND pe.statut IN ('confirmee', 'terminee')
               )
             )
         `;
@@ -832,12 +950,25 @@ export async function parentChildrenRoutes(fastify: FastifyInstance) {
           enrollments: enrollmentCheck.rows,
         });
 
+        // Emploi du temps du module professionnel : indépendant des classes,
+        // il se lit toujours (un élève peut cumuler les deux parcours).
+        const professionalSchedule = await fetchProfessionalSchedule(pool, {
+          tenantId,
+          childId,
+          fromDate: weekStartStr,
+          toDate: weekEndStr,
+        });
+
         if (enrollmentCheck.rows.length === 0) {
-          fastify.log.warn('No active enrollments found for student:', { childId, tenantId });
+          fastify.log.info('No classic enrollments — falling back to professional schedule:', {
+            childId,
+            tenantId,
+            professionalCount: professionalSchedule.length,
+          });
           return reply.send({
             success: true,
             data: {
-              schedule: [],
+              schedule: professionalSchedule,
               weekStart: weekStartStr,
               weekEnd: weekEndStr,
             },
@@ -1003,23 +1134,26 @@ export async function parentChildrenRoutes(fastify: FastifyInstance) {
           fastify.log.warn('=== END DEBUG ===');
         }
 
-        const schedule = scheduleResult.rows.map((row: any) => ({
-          id: row.id,
-          date: row.date,
-          startTime: row.start_time,
-          endTime: row.end_time,
-          courseName: row.course_name,
-          courseCode: row.course_code,
-          classroom: row.classroom,
-          teacherName: row.teacher_name,
-        }));
+        const schedule = [
+          ...scheduleResult.rows.map((row: any) => ({
+            id: row.id,
+            date: row.date,
+            startTime: row.start_time,
+            endTime: row.end_time,
+            courseName: row.course_name,
+            courseCode: row.course_code,
+            classroom: row.classroom,
+            teacherName: row.teacher_name,
+          })),
+          ...professionalSchedule,
+        ].sort((a, b) => scheduleSortKey(a).localeCompare(scheduleSortKey(b)));
 
         return reply.send({
           success: true,
           data: {
             schedule,
-            weekStart: weekStart.toISOString().split('T')[0],
-            weekEnd: weekEnd.toISOString().split('T')[0],
+            weekStart: weekStartStr,
+            weekEnd: weekEndStr,
           },
         });
       } catch (error) {
@@ -1169,12 +1303,32 @@ export async function parentChildrenRoutes(fastify: FastifyInstance) {
           enrollments: enrollmentCheck2.rows,
         });
 
+        // Prochains cours du module professionnel : indépendants des classes,
+        // ils se lisent toujours (un élève peut cumuler les deux parcours).
+        const formatLocalDate = (date: Date): string => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+        const professionalUpcoming = await fetchProfessionalSchedule(pool, {
+          tenantId,
+          childId,
+          fromDate: formatLocalDate(today),
+          toDate: formatLocalDate(sevenDaysLater),
+          limit: 10,
+        });
+
         if (enrollmentCheck2.rows.length === 0) {
-          fastify.log.warn('No active enrollments found for student:', { childId, tenantId });
+          fastify.log.info('No classic enrollments — falling back to professional upcoming classes:', {
+            childId,
+            tenantId,
+            professionalCount: professionalUpcoming.length,
+          });
           return reply.send({
             success: true,
             data: {
-              upcomingClasses: [],
+              upcomingClasses: professionalUpcoming,
             },
           });
         }
@@ -1241,16 +1395,21 @@ export async function parentChildrenRoutes(fastify: FastifyInstance) {
           sampleRow: upcomingClassesResult.rows[0],
         });
 
-        const upcomingClasses = upcomingClassesResult.rows.map((row: any) => ({
-          id: row.id,
-          date: row.date,
-          startTime: row.start_time,
-          endTime: row.end_time,
-          courseName: row.course_name,
-          courseCode: row.course_code,
-          classroom: row.classroom,
-          teacherName: row.teacher_name,
-        }));
+        const upcomingClasses = [
+          ...upcomingClassesResult.rows.map((row: any) => ({
+            id: row.id,
+            date: row.date,
+            startTime: row.start_time,
+            endTime: row.end_time,
+            courseName: row.course_name,
+            courseCode: row.course_code,
+            classroom: row.classroom,
+            teacherName: row.teacher_name,
+          })),
+          ...professionalUpcoming,
+        ]
+          .sort((a, b) => scheduleSortKey(a).localeCompare(scheduleSortKey(b)))
+          .slice(0, 10);
 
         return reply.send({
           success: true,

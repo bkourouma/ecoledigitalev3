@@ -10,47 +10,39 @@ import {
   CardDescription,
   Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@ecoledigitale/ui";
-import { ArrowLeft, Loader2, Layers, CalendarRange, Info, UserCog } from "lucide-react";
+import { ArrowLeft, Loader2, Layers, CalendarRange, Info, UserCog, Tag, Check } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useProgrammes } from "@/lib/hooks/use-programmes";
 import {
   useProfessionalSemestre,
   useProfessionalSemestres,
   useCreateSessionsBySemestre,
+  useClasseNoms,
+  useDeclareClasseNom,
+  type ClasseNomOuvert,
 } from "@/lib/hooks/use-professional-semestres";
 import { useTeachers } from "@/lib/hooks/use-teachers";
 
 /**
- * Création de sessions par semestre — Module Professionnel.
+ * Création de classes par semestre — Module Professionnel.
  *
- * Pour chaque semestre choisi, on crée une session par UE, datée et rattachée au
+ * Pour le semestre choisi, on crée une classe par UE, datée et rattachée au
  * semestre. À la création, on affiche toutes les UE du semestre et, pour chaque
  * UE, ses ECUE afin d'affecter un enseignant en même temps.
- * Portée : un semestre ou toute la filière.
  */
 
 const LIST_URL = "/professionnel/admin/sessions";
 const NONE = "__none__";
 
-type Scope = "one" | "all";
-
 interface BlockData {
-  libelle: string;
   date_debut: string;
   date_fin: string;
 }
 
-const emptyBlock = (semLibelle: string): BlockData => ({
-  libelle: `Session ${semLibelle.replace(/semestre\s*/i, "").trim()}`,
-  date_debut: "",
-  date_fin: "",
-});
+/** Le nom de la classe est commun à tous les semestres ouverts d'un coup. */
+const emptyBlock = (): BlockData => ({ date_debut: "", date_fin: "" });
+
 
 function teacherLabel(t: any): string {
   const name = `${t.firstName ?? t.first_name ?? ""} ${t.lastName ?? t.last_name ?? ""}`.trim();
@@ -90,20 +82,7 @@ function SemestreBlockCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {/* Champs de la session */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Libellé des sessions</label>
-          <Input
-            value={block.libelle}
-            onChange={(e) => onBlock({ libelle: e.target.value })}
-            placeholder="Ex. : Session Janvier 2026"
-          />
-          <p className="text-xs text-muted-foreground">
-            Le code de chaque UE est ajouté automatiquement (ex. « {block.libelle || "Session"} —
-            UE-CODE »).
-          </p>
-        </div>
-
+        {/* Période de la classe */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Date de début</label>
@@ -210,8 +189,10 @@ function SemestreBlockCard({
 export default function NewProfessionalSessionPage() {
   const router = useRouter();
   const [filiereId, setFiliereId] = useState<string>("");
-  const [scope, setScope] = useState<Scope>("one");
-  const [oneSemestreId, setOneSemestreId] = useState<string>("");
+  const [nomClasse, setNomClasse] = useState<string>("");
+  const [semestreId, setSemestreId] = useState<string>("");
+  // Portée choisie pour un nom neuf : les semestres qu'il couvrira.
+  const [porteeIds, setPorteeIds] = useState<string[]>([]);
   const [blocks, setBlocks] = useState<Record<string, BlockData>>({});
   // Affectations : { [semestreId]: { [ecueId]: teacherId } }.
   const [teacherSel, setTeacherSel] = useState<Record<string, Record<string, string>>>({});
@@ -221,6 +202,8 @@ export default function NewProfessionalSessionPage() {
   const semestresQuery = useProfessionalSemestres(filiereId ? { filiere_id: filiereId } : {});
   const teachersQuery = useTeachers({ limit: 100 });
   const createMut = useCreateSessionsBySemestre();
+  const nomsQuery = useClasseNoms(filiereId || null);
+  const declareMut = useDeclareClasseNom();
 
   const filieres: any[] = programmesQuery.data?.data ?? [];
   const teachers: any[] = (teachersQuery.data as any)?.data ?? [];
@@ -231,26 +214,108 @@ export default function NewProfessionalSessionPage() {
       : [];
   }, [semestresQuery.data, filiereId]);
 
-  const targetSemestres = useMemo(() => {
-    if (!filiereId) return [];
-    if (scope === "all") return semestres;
-    return oneSemestreId ? semestres.filter((s) => s.id === oneSemestreId) : [];
-  }, [filiereId, scope, oneSemestreId, semestres]);
+
+  // Noms déjà utilisés pour cette classe. Un nom dont tous les semestres sont
+  // ouverts est bouclé : il ne sert plus à rien de le proposer.
+  const nomsEnCours: ClasseNomOuvert[] = useMemo(
+    () => (nomsQuery.data?.noms ?? []).filter((n) => !n.complet),
+    [nomsQuery.data]
+  );
+
+  // Semestres déjà ouverts pour le nom saisi : on ne les propose plus.
+  const nomCourant = useMemo(
+    () => (nomsQuery.data?.noms ?? []).find((n) => n.nom === nomClasse.trim()) ?? null,
+    [nomsQuery.data, nomClasse]
+  );
+  const semestresDejaOuverts = useMemo(
+    () => new Set((nomCourant?.semestres_ouverts ?? []).map((sm) => sm.id)),
+    [nomCourant]
+  );
+
+  const targetSemestres = useMemo(
+    () => (filiereId && semestreId ? semestres.filter((s) => s.id === semestreId) : []),
+    [filiereId, semestreId, semestres]
+  );
+
+  // Le semestre à ouvrir se choisit dans la portée cochée, moins ce qui est
+  // déjà ouvert sous ce nom.
+  const semestresDisponibles = useMemo(() => {
+    const portee = nomClasse.trim()
+      ? semestres.filter((sm) => porteeIds.includes(sm.id))
+      : semestres;
+    return portee.filter((sm) => !semestresDejaOuverts.has(sm.id));
+  }, [nomClasse, porteeIds, semestres, semestresDejaOuverts]);
+
+  // Le nom choisi impose sa portée de départ : celle déjà déclarée s'il
+  // existe, les trois semestres s'il est neuf. Les modifications de
+  // l'utilisateur ne sont pas écrasées : cet effet ne rejoue que si le nom
+  // change, ou si la portée enregistrée change.
+  useEffect(() => {
+    if (!filiereId || semestres.length === 0) return;
+    if (nomCourant) {
+      setPorteeIds(nomCourant.semestres_portee.map((sm) => sm.id));
+    } else if (nomClasse.trim()) {
+      setPorteeIds(semestres.map((sm) => sm.id));
+    } else {
+      setPorteeIds([]);
+    }
+  }, [filiereId, nomClasse, nomCourant, semestres]);
+
+  // Un semestre déjà ouvert ne peut pas sortir de la portée : la déclaration
+  // contredirait les ouvertures existantes.
+  function togglePortee(id: string) {
+    if (semestresDejaOuverts.has(id)) return;
+    setPorteeIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  // Portée modifiée par rapport à ce qui est enregistré.
+  const porteeModifiee = useMemo(() => {
+    if (!nomCourant) return false;
+      const avant = nomCourant.semestres_portee.map((sm) => sm.id).sort().join("|");
+      const apres = [...porteeIds].sort().join("|");
+    return avant !== apres;
+  }, [nomCourant, porteeIds]);
+
+  async function enregistrerPortee() {
+    if (!filiereId || !nomClasse.trim() || porteeIds.length === 0) return;
+    setError(null);
+    try {
+      await declareMut.mutateAsync({
+        classeId: filiereId,
+        nom: nomClasse.trim(),
+        semestreIds: porteeIds,
+      });
+    } catch (err: any) {
+      setError(err?.message ?? "Erreur lors de l'enregistrement de la portée.");
+    }
+  }
 
   useEffect(() => {
     setBlocks((prev) => {
       const next = { ...prev };
-      for (const s of targetSemestres) if (!next[s.id]) next[s.id] = emptyBlock(s.libelle);
+      for (const s of targetSemestres) if (!next[s.id]) next[s.id] = emptyBlock();
       return next;
     });
   }, [targetSemestres]);
 
+  // Changer de nom ou de portée peut rendre le semestre choisi invalide.
+  useEffect(() => {
+    setSemestreId((prev) =>
+      prev && !semestresDisponibles.some((sm) => sm.id === prev) ? "" : prev
+    );
+  }, [semestresDisponibles]);
+
   function selectFiliere(id: string) {
     setFiliereId(id);
-    setOneSemestreId("");
+    setNomClasse("");
+    setSemestreId("");
+    setPorteeIds([]);
     setBlocks({});
     setTeacherSel({});
   }
+
 
   function setBlockField(semId: string, patch: Partial<BlockData>) {
     setBlocks((prev) => ({ ...prev, [semId]: { ...prev[semId], ...patch } }));
@@ -269,17 +334,16 @@ export default function NewProfessionalSessionPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!filiereId) return setError("Veuillez sélectionner une filière.");
-    if (targetSemestres.length === 0)
-      return setError(
-        scope === "one" ? "Veuillez sélectionner un semestre." : "Cette filière n'a aucun semestre."
-      );
+    if (!filiereId) return setError("Veuillez sélectionner une classe.");
+    if (!nomClasse.trim()) return setError("Veuillez saisir le nom de la classe.");
+    if (targetSemestres.length === 0) return setError("Veuillez sélectionner un semestre.");
+    if (porteeIds.length === 0)
+      return setError("Veuillez cocher les semestres que ce nom couvrira.");
 
     const payloadBlocks = [];
     for (const s of targetSemestres) {
       const b = blocks[s.id];
       if (!b) continue;
-      if (!b.libelle.trim()) return setError(`Libellé manquant pour « ${s.libelle} ».`);
       if (!b.date_debut || !b.date_fin)
         return setError(`Dates manquantes pour « ${s.libelle} ».`);
       if (b.date_fin < b.date_debut)
@@ -292,7 +356,7 @@ export default function NewProfessionalSessionPage() {
 
       payloadBlocks.push({
         semestre_id: s.id,
-        libelle: b.libelle.trim(),
+        libelle: nomClasse.trim(),
         date_debut: b.date_debut,
         date_fin: b.date_fin,
         inscription_ouverte_le: new Date(`${b.date_debut}T00:00:00`).toISOString(),
@@ -306,9 +370,21 @@ export default function NewProfessionalSessionPage() {
 
     try {
       await createMut.mutateAsync({ filiere_id: filiereId, blocks: payloadBlocks });
+      // La portée cochée est enregistrée à chaque ouverture : elle vaut aussi
+      // bien déclaration initiale que correction. Un échec ici ne remet pas en
+      // cause l'ouverture créée.
+      if (porteeIds.length > 0) {
+        try {
+          await declareMut.mutateAsync({
+            classeId: filiereId,
+            nom: nomClasse.trim(),
+            semestreIds: porteeIds,
+          });
+        } catch {}
+      }
       router.push(LIST_URL);
     } catch (err: any) {
-      setError(err?.message ?? "Erreur lors de la création des sessions.");
+      setError(err?.message ?? "Erreur lors de la création des classes.");
     }
   }
 
@@ -322,11 +398,10 @@ export default function NewProfessionalSessionPage() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-            Nouvelles sessions
+            Ouvrir une classe
           </h1>
           <p className="text-muted-foreground mt-2">
-            Créez les sessions d'un semestre ou de toute une filière, et affectez les enseignants
-            par ECUE en même temps.
+            Ouvrez une classe sur un semestre et affectez les enseignants par ECUE en même temps.
           </p>
         </div>
       </div>
@@ -338,23 +413,24 @@ export default function NewProfessionalSessionPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl mx-auto w-full">
-        {/* Filière + portée */}
+        {/* Classe + semestre */}
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Filière et portée</CardTitle>
+            <CardTitle>Classe, nom et semestre</CardTitle>
             <CardDescription>
-              Un étudiant peut s'inscrire à un seul semestre ou à toute la filière.
+              Un nom de classe se poursuit d&apos;un semestre à l&apos;autre : reprenez
+              celui d&apos;une ouverture précédente, ou saisissez-en un nouveau.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Filière</label>
+              <label className="text-sm font-medium">Classe</label>
               <SearchableSelect
                 value={filiereId}
                 onChange={selectFiliere}
                 icon={<Layers className="h-4 w-4 text-gray-400" />}
                 placeholder={
-                  programmesQuery.isLoading ? "Chargement…" : "Sélectionner une filière"
+                  programmesQuery.isLoading ? "Chargement…" : "Sélectionner une classe"
                 }
                 options={filieres.map((f) => ({
                   value: f.id,
@@ -364,39 +440,159 @@ export default function NewProfessionalSessionPage() {
             </div>
 
             {filiereId && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Portée</label>
-                  <Select value={scope} onValueChange={(v) => setScope(v as Scope)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="one">Un semestre</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Nom de la classe</label>
+                <Input
+                  value={nomClasse}
+                  onChange={(e) => setNomClasse(e.target.value)}
+                  placeholder="Ex. : LICENCE 1 TRANSPORT LOGISTIQUE"
+                />
 
-                {scope === "one" && (
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Semestre</label>
-                    <SearchableSelect
-                      value={oneSemestreId}
-                      onChange={setOneSemestreId}
-                      icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
-                      placeholder={
-                        semestresQuery.isLoading
-                          ? "Chargement…"
-                          : semestres.length === 0
-                          ? "Aucun semestre"
-                          : "Sélectionner un semestre"
-                      }
-                      options={semestres.map((s) => ({
-                        value: s.id,
-                        label: `${s.libelle} · ${s.nb_ue ?? 0} UE`,
-                      }))}
-                    />
+                {/* Noms commencés mais pas encore bouclés : un clic les reprend. */}
+                {nomsEnCours.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-xs text-muted-foreground">
+                      Noms déjà commencés pour cette classe :
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {nomsEnCours.map((n) => {
+                        const actif = n.nom === nomClasse.trim();
+                        return (
+                          <button
+                            key={n.nom}
+                            type="button"
+                            onClick={() => setNomClasse(n.nom)}
+                            className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors ${
+                              actif
+                                ? "border-indigo-500 bg-indigo-500/10 text-indigo-500"
+                                : "border-input hover:bg-accent hover:text-accent-foreground"
+                            }`}
+                            title={`Reste : ${n.semestres_restants
+                              .map((sm) => sm.libelle)
+                              .join(", ")}`}
+                          >
+                            <Tag className="h-3 w-3 shrink-0" />
+                            <span>{n.nom}</span>
+                            <span className="text-muted-foreground">
+                              {n.semestres_portee.length - n.semestres_restants.length}/
+                              {n.semestres_portee.length}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* Portée du nom : modifiable tant qu'un semestre n'est pas ouvert. */}
+            {filiereId && nomClasse.trim() && semestres.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-sm font-medium">
+                    {nomCourant
+                      ? "Semestres couverts par ce nom"
+                      : "Ce nom sera utilisé pour"}
+                  </label>
+                  {porteeModifiee && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={enregistrerPortee}
+                      disabled={declareMut.isPending || porteeIds.length === 0}
+                    >
+                      {declareMut.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : null}
+                      Enregistrer la portée
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {semestres.map((sm) => {
+                    const coche = porteeIds.includes(sm.id);
+                    const verrouille = semestresDejaOuverts.has(sm.id);
+                    return (
+                      <button
+                        key={sm.id}
+                        type="button"
+                        disabled={verrouille}
+                        onClick={() => togglePortee(sm.id)}
+                        title={
+                          verrouille
+                            ? "Déjà ouvert sous ce nom : ne peut plus sortir de la portée"
+                            : undefined
+                        }
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                          verrouille
+                            ? "cursor-not-allowed border-input bg-muted text-muted-foreground"
+                            : coche
+                              ? "border-indigo-500 bg-indigo-500/10 text-indigo-500"
+                              : "border-input hover:bg-accent hover:text-accent-foreground"
+                        }`}
+                      >
+                        <span
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                            coche
+                              ? verrouille
+                                ? "border-muted-foreground bg-muted-foreground text-background"
+                                : "border-indigo-500 bg-indigo-500 text-white"
+                              : "border-input"
+                          }`}
+                        >
+                          {coche && <Check className="h-3 w-3" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate">{sm.libelle}</span>
+                          {verrouille && (
+                            <span className="block text-xs text-muted-foreground">
+                              déjà ouvert
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Le nom disparaîtra de la liste une fois ces semestres ouverts.
+                </p>
+              </div>
+            )}
+
+            {filiereId && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Semestre</label>
+                <SearchableSelect
+                  value={semestreId}
+                  onChange={setSemestreId}
+                  icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
+                  placeholder={
+                    semestresQuery.isLoading
+                      ? "Chargement…"
+                      : semestresDisponibles.length === 0
+                        ? "Tous les semestres sont déjà ouverts pour ce nom"
+                        : "Sélectionner un semestre"
+                  }
+                  searchPlaceholder="Rechercher un semestre…"
+                  options={semestresDisponibles.map((sm) => ({
+                    value: sm.id,
+                    label: `${sm.libelle} · ${sm.nb_ue ?? 0} UE`,
+                  }))}
+                />
+                {nomCourant && (
+                  <p className="text-xs text-muted-foreground">
+                    Ce nom couvre{" "}
+                    {nomCourant.semestres_portee.map((sm) => sm.libelle).join(", ")}.
+                    {nomCourant.semestres_ouverts.length > 0 && (
+                      <>
+                        {" "}Déjà ouvert :{" "}
+                        {nomCourant.semestres_ouverts.map((sm) => sm.libelle).join(", ")}.
+                      </>
+                    )}
+                  </p>
                 )}
               </div>
             )}
@@ -405,7 +601,7 @@ export default function NewProfessionalSessionPage() {
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Info className="h-4 w-4" />
                 {targetSemestres.length} semestre{targetSemestres.length > 1 ? "s" : ""} ·{" "}
-                {totalUe} session{totalUe > 1 ? "s" : ""} seront créées (une par UE).
+                {totalUe} classe{totalUe > 1 ? "s" : ""} seront créées (une par UE).
               </p>
             )}
           </CardContent>
@@ -416,7 +612,7 @@ export default function NewProfessionalSessionPage() {
           <SemestreBlockCard
             key={s.id}
             semestre={s}
-            block={blocks[s.id] ?? emptyBlock(s.libelle)}
+            block={blocks[s.id] ?? emptyBlock()}
             onBlock={(patch) => setBlockField(s.id, patch)}
             teachers={teachers}
             selections={teacherSel[s.id] ?? {}}
@@ -440,7 +636,7 @@ export default function NewProfessionalSessionPage() {
                 Enregistrement…
               </span>
             ) : (
-              `Créer ${totalUe > 0 ? `${totalUe} ` : ""}session${totalUe > 1 ? "s" : ""}`
+              "Créer"
             )}
           </Button>
         </div>

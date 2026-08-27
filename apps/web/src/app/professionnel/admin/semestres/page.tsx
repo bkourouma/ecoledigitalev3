@@ -75,8 +75,8 @@ export default function ProfessionalSemestresListPage() {
     return {
       filtreLibelle:
         filiereFilter === "all" || !filiere
-          ? "Toutes les filières"
-          : `Filière : ${filiere.name}${filiere.code ? ` (${filiere.code})` : ""}`,
+          ? "Toutes les classes"
+          : `Classe : ${filiere.name}${filiere.code ? ` (${filiere.code})` : ""}`,
     };
   }, [filiereFilter, filieres]);
 
@@ -106,7 +106,7 @@ export default function ProfessionalSemestresListPage() {
             Semestres
           </h1>
           <p className="text-muted-foreground mt-2">
-            Composez les semestres d'une filière avec ses UE. Les sessions se créent ensuite.
+            Composez les semestres d'une classe avec ses UE. Les sessions se créent ensuite.
           </p>
         </div>
         <div className="flex gap-2">
@@ -160,7 +160,7 @@ export default function ProfessionalSemestresListPage() {
         </div>
       )}
 
-      {/* Filtre par filière */}
+      {/* Filtre par classe */}
       <Card className="shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
         <CardContent className="p-6">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
@@ -169,9 +169,9 @@ export default function ProfessionalSemestresListPage() {
                 value={filiereFilter}
                 onChange={setFiliereFilter}
                 icon={<Layers className="h-4 w-4 text-gray-400" />}
-                placeholder="Filtrer par filière"
+                placeholder="Filtrer par classe"
                 options={[
-                  { value: "all", label: "Toutes les filières" },
+                  { value: "all", label: "Toutes les classes" },
                   ...filieres.map((f) => ({
                     value: f.id,
                     label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
@@ -246,7 +246,7 @@ export default function ProfessionalSemestresListPage() {
                   <p className="text-white/90 flex items-center gap-1.5">
                     <Layers className="h-3.5 w-3.5 shrink-0" />
                     <span>
-                      <span className="font-medium">Filière :</span>{" "}
+                      <span className="font-medium">Classe :</span>{" "}
                       {s.filiere_nom ?? "—"}
                     </span>
                   </p>
@@ -337,7 +337,7 @@ export default function ProfessionalSemestresListPage() {
                 <p className="text-gray-600 text-lg">
                   {filiereFilter === "all"
                     ? "Commencez par créer votre premier semestre."
-                    : "Aucun semestre pour la filière sélectionnée."}
+                    : "Aucun semestre pour la classe sélectionnée."}
                 </p>
               </div>
               <div className="flex gap-3">

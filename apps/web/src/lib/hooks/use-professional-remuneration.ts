@@ -678,3 +678,44 @@ export function useHistoriqueBulletins(enseignantId?: string) {
     staleTime: 15_000,
   });
 }
+
+/* ==================== Espace enseignant ================================= */
+
+/**
+ * Configuration de rémunération de l'enseignant connecté, en lecture seule.
+ *
+ * Toutes ses configurations, la plus récente en tête : la précédente explique
+ * un bulletin ancien. L'identité vient du jeton côté serveur — cet écran ne
+ * peut, par construction, montrer la rémunération de personne d'autre.
+ */
+export function useMaConfigurationPaie() {
+  return useQuery<{ items: MaConfigPaie[] }>({
+    queryKey: ["prof-remuneration", "my", "configuration"],
+    queryFn: () => apiFetch(`${BASE}/my/configuration`),
+    staleTime: 60_000,
+  });
+}
+
+export interface MaConfigPaie {
+  id: string;
+  config_type: "salary" | "hourly" | "mixed" | string;
+  monthly_salary: number | null;
+  annual_salary: number | null;
+  default_hourly_rate: number | null;
+  overtime_threshold: number | null;
+  overtime_multiplier: number | null;
+  effective_from: string | null;
+  effective_to: string | null;
+}
+
+/**
+ * Historique de paie de l'enseignant connecté : uniquement les bulletins
+ * VERSÉS. Le tri est déjà fait par le serveur, du plus récent au plus ancien.
+ */
+export function useMonHistoriquePaie() {
+  return useQuery<{ items: BulletinArchive[]; total: number }>({
+    queryKey: ["prof-remuneration", "my", "historique"],
+    queryFn: () => apiFetch(`${BASE}/my/historique`),
+    staleTime: 15_000,
+  });
+}

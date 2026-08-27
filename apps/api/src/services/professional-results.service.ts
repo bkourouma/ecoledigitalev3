@@ -1136,6 +1136,41 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
   }
 
   /**
+   * Noms de classe ayant au moins un rattrapage en attente. Même règle que
+   * `listRattrapageFilieres`, mais au grain du nom : une classe peut en porter
+   * plusieurs et on ne rattrape pas les deux ensemble.
+   */
+  async listRattrapageNoms(
+    tenantId: string,
+    teacherUserId?: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const params: any[] = [tenantId];
+      let teacherFilter = "";
+      if (teacherUserId) {
+        params.push(teacherUserId);
+        teacherFilter = teacherEcueFilterSql("$2");
+      }
+      const rows = await client.query(
+        `SELECT DISTINCT p.id AS classe_id, p.name AS classe_nom, p.code AS classe_code,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS nom,
+                CASE WHEN EXTRACT(MONTH FROM s.date_debut) >= 9
+                     THEN EXTRACT(YEAR FROM s.date_debut)::int || '-' ||
+                          (EXTRACT(YEAR FROM s.date_debut)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM s.date_debut)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM s.date_debut)::int
+                END AS annee_scolaire
+         ${RATTRAPAGE_FROM}
+         JOIN programmes p ON p.id = u.filiere_id AND p.tenant_id = u.tenant_id
+         WHERE r.tenant_id = $1 AND ${RATTRAPAGE_PREDICATE} ${teacherFilter}
+         ORDER BY annee_scolaire DESC, nom`,
+        params
+      );
+      return ok(rows.rows);
+    });
+  }
+
+  /**
    * Semestres d'une filière ayant au moins un rattrapage en attente, avec le
    * nombre d'ECUE concernées. Même règle que `listRattrapageFilieres`.
    */
@@ -1166,6 +1201,135 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
       // Le comptage sert aussi de filtre : pas de rattrapage, pas de semestre.
       return ok(rows.rows.filter((x: any) => Number(x.nb_rattrapages ?? 0) > 0));
     });
+  }
+
+  /**
+   * Rattrapages de l'ÉTUDIANT connecté (espace étudiant).
+   * Résout son profil depuis son `user_id`, puis délègue à
+   * `rattrapageRowsForStudent`.
+   */
+  async listStudentRattrapages(
+    tenantId: string,
+    userId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const sp = await client.query(
+        `SELECT id FROM student_profiles WHERE user_id=$1 AND tenant_id=$2 LIMIT 1`,
+        [userId, tenantId]
+      );
+      if (!sp.rowCount) {
+        return fail("NOT_FOUND", "Aucun profil étudiant rattaché à ce compte.");
+      }
+      return ok(await this.rattrapageRowsForStudent(client, tenantId, sp.rows[0].id));
+    });
+  }
+
+  /**
+   * Rattrapages d'un ENFANT (espace parent). Mêmes lignes que celles servies à
+   * l'étudiant lui-même, après vérification du rattachement parent/enfant.
+   */
+  async listChildRattrapages(
+    tenantId: string,
+    parentUserId: string,
+    childStudentId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const rel = await client.query(
+        `SELECT 1 FROM student_parents
+         WHERE tenant_id=$1 AND parent_id=$2 AND student_id=$3 LIMIT 1`,
+        [tenantId, parentUserId, childStudentId]
+      );
+      if (!rel.rowCount) {
+        return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
+      }
+      return ok(await this.rattrapageRowsForStudent(client, tenantId, childStudentId));
+    });
+  }
+
+  /**
+   * Une ligne par ECUE que l'étudiant doit repasser en Session 2, plus celles
+   * qu'il a déjà repassées. Partagé par l'espace étudiant et l'espace parent :
+   * les deux doivent voir exactement la même chose.
+   *
+   * Même définition du rattrapage que la page admin (`listSemestreRattrapages`),
+   * mais bornée à un seul étudiant et sans les lignes des autres. On garde en
+   * plus les ECUE déjà repassées : le prédicat de rattrapage les fait sortir
+   * dès qu'elles sont validées, or c'est justement le résultat du rattrapage
+   * qu'on veut montrer. D'où l'état porté par chaque ligne :
+   *   - `a_repasser`   : non validée, aucune note de Session 2 saisie ;
+   *   - `non_validee`  : note de Session 2 saisie, ECUE toujours < 10 ;
+   *   - `validee`      : ECUE validée (rattrapage réussi).
+   *
+   * Une ECUE sans moyenne calculée n'est pas un rattrapage : l'étudiant n'a
+   * simplement pas encore été noté en Session 1.
+   */
+  private async rattrapageRowsForStudent(
+    client: PoolClient,
+    tenantId: string,
+    studentId: string
+  ): Promise<any[]> {
+    const rows = await client.query(
+        `SELECT r.id AS result_id, r.student_id, r.ecue_id, s.id AS ue_session_id,
+                s.statut AS session_statut, s.libelle AS session_libelle,
+                s.date_debut::text AS date_debut, s.date_fin::text AS date_fin,
+                u.id AS ue_id, u.code AS ue_code, u.libelle AS ue_libelle,
+                e.code AS ecue_code, e.libelle AS ecue_libelle, e.credits::int AS credits,
+                r.moyenne::float8 AS moyenne,
+                r.moyenne_devoirs::float8 AS moyenne_devoirs,
+                r.note_examen::float8 AS note_examen, r.eliminee,
+                COALESCE(r.validee, false) AS validee,
+                n1.note::float8 AS note_examen_s1,
+                n2.note::float8 AS note_examen_s2,
+                sem.semestre_id, sem.semestre_libelle,
+                p.name AS filiere_nom, p.code AS filiere_code,
+                COALESCE(psm.matricule, sp.student_number) AS matricule,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS classe_nom,
+                CASE WHEN EXTRACT(MONTH FROM s.date_debut) >= 9
+                     THEN EXTRACT(YEAR FROM s.date_debut)::int || '-' ||
+                          (EXTRACT(YEAR FROM s.date_debut)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM s.date_debut)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM s.date_debut)::int
+                END AS annee_scolaire,
+                CASE WHEN COALESCE(r.validee, false) THEN 'validee'
+                     WHEN n2.note IS NOT NULL THEN 'non_validee'
+                     ELSE 'a_repasser' END AS etat
+         ${RATTRAPAGE_FROM}
+         JOIN student_profiles sp ON sp.id = r.student_id
+         LEFT JOIN programmes p ON p.id = u.filiere_id AND p.tenant_id = u.tenant_id
+         LEFT JOIN professional_student_matricules psm
+                ON psm.student_id = r.student_id AND psm.filiere_id = u.filiere_id
+               AND psm.tenant_id = r.tenant_id
+         -- Semestre porteur de la cohorte (rattachement direct ou via l'UE).
+         LEFT JOIN LATERAL (
+           SELECT sm.id AS semestre_id, sm.libelle AS semestre_libelle
+           FROM professional_semestres sm
+           WHERE sm.tenant_id = r.tenant_id
+             AND ${semestreLinkSql("sm.id", "r.tenant_id")}
+           ORDER BY sm.libelle
+           LIMIT 1
+         ) sem ON TRUE
+         LEFT JOIN professional_ecue_notes n1
+           ON n1.tenant_id = r.tenant_id AND n1.ecue_id = r.ecue_id
+          AND n1.student_id = r.student_id AND n1.ue_session_id = s.id
+          AND n1.nature = 'examen' AND n1.session = 1
+         LEFT JOIN professional_ecue_notes n2
+           ON n2.tenant_id = r.tenant_id AND n2.ecue_id = r.ecue_id
+          AND n2.student_id = r.student_id AND n2.ue_session_id = s.id
+          AND n2.nature = 'examen' AND n2.session = 2
+         WHERE r.tenant_id = $1
+           AND r.student_id = $2
+           AND r.moyenne IS NOT NULL
+           AND ${NOT_CONDUITE}
+           AND EXISTS (SELECT 1 FROM professional_enrollments en
+                       WHERE en.ue_session_id = s.id AND en.student_id = r.student_id
+                         AND en.tenant_id = r.tenant_id
+                         AND en.statut IN ('confirmee','terminee'))
+           -- À repasser, ou déjà repassée (note de Session 2 présente).
+           AND (COALESCE(r.validee, false) = false OR n2.note IS NOT NULL)
+         ORDER BY annee_scolaire DESC, sem.semestre_libelle, u.code, e.code`,
+      [tenantId, studentId]
+    );
+    return rows.rows;
   }
 
   /** Capitalisation des UV par UE pour un étudiant. */

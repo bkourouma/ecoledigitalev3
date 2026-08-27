@@ -149,9 +149,12 @@ export function EmploiTempsGrid({
                               </button>
                             )}
                             <span className="font-semibold text-gray-900">{s.ecue_libelle}</span>
-                            {showFiliere && (s.filiere_nom || s.filiere_code) && (
+                            {/* Le nom de classe identifie le groupe suivi ; le code
+                                filière ne sert que de repli pour les créneaux qui
+                                n'en portent pas. */}
+                            {showFiliere && (s.classe_nom || s.filiere_nom || s.filiere_code) && (
                               <span className="text-indigo-700 font-medium text-[11px]">
-                                {s.filiere_code || s.filiere_nom}
+                                {s.classe_nom || s.filiere_code || s.filiere_nom}
                               </span>
                             )}
                             {showTeacher && (

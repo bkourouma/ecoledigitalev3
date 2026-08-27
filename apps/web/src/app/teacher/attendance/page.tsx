@@ -17,12 +17,12 @@ import {
   AlertCircle,
   UserCheck,
   Layers,
-  ListFilter,
   History,
   Eye,
   Plus,
   ChevronLeft,
   ChevronRight,
+  CalendarDays,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useTeacherSessions, useTeacherAttendanceHistory } from "@/lib/hooks/use-professional-teacher";
@@ -31,19 +31,11 @@ import { isSessionActive } from "@/lib/professional-sessions";
 /**
  * Présences — Espace enseignant (Module Professionnel).
  * Par défaut : historique de toutes les présences effectuées (filtrable par
- * filière et statut de session). Le bouton « Nouvelle présence » mène à la page
+ * année scolaire et nom de classe). Le bouton « Nouvelle présence » mène à la page
  * dédiée pour choisir une session, planifier ses séances et faire l'appel.
  */
 
-const EN_COURS = ["ouvert", "en_cours", "complet", "brouillon"];
-
 const PAGE_SIZES = [10, 20, 50];
-
-const STATUT_FILTER = [
-  { value: "all", label: "Toutes" },
-  { value: "en_cours", label: "En cours" },
-  { value: "termine", label: "Terminées" },
-];
 
 function fmtDate(value?: string | null): string {
   if (!value) return "—";
@@ -51,18 +43,42 @@ function fmtDate(value?: string | null): string {
   return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("fr-FR");
 }
 
-function statutMatch(sessionStatut: string, filter: string): boolean {
-  if (filter === "all") return true;
-  if (filter === "termine") return sessionStatut === "termine";
-  return EN_COURS.includes(sessionStatut);
+
+/**
+ * Nom de classe porté par une ligne : le libellé de sa session, amputé du
+ * suffixe « — CODE UE ». Une classe pouvant porter plusieurs noms, c'est lui
+ * qui identifie le groupe suivi, pas la filière.
+ */
+/**
+ * Année scolaire d'une cohorte, d'après sa date de début. La bascule est
+ * fixée au 1er septembre, comme dans les requêtes du module professionnel :
+ * une même classe doit porter la même année ici et côté administration.
+ */
+function anneeScolaireOf(date?: string | null): string {
+  const d = date ? new Date(date) : null;
+  if (!d || isNaN(d.getTime())) return "";
+  const y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+  return `${y}-${y + 1}`;
+}
+
+function nomDeClasseOf(r: any): string {
+  // Les cohortes exposent « libelle », l'historique « session_libelle ».
+  const lib = String(r.session_libelle ?? r.libelle ?? "").trim();
+  const code = String(r.ue_code ?? "").trim();
+  if (code && lib.endsWith(code)) {
+    return lib.slice(0, lib.length - code.length).replace(/[\s—–-]+$/u, "").trim() || lib;
+  }
+  return lib;
 }
 
 export default function TeacherAttendancePage() {
   const router = useRouter();
   const sessionsQuery = useTeacherSessions();
   const historyQuery = useTeacherAttendanceHistory();
+  // L'année scolaire commande le filtre : elle restreint les noms proposés.
+  const [annee, setAnnee] = useState("all");
+  // Filtre au grain du nom de classe : « filiereId|nom ».
   const [filiere, setFiliere] = useState("all");
-  const [statut, setStatut] = useState("all");
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
   const [page, setPage] = useState(1);
 
@@ -72,24 +88,50 @@ export default function TeacherAttendancePage() {
   // L'appel ne se fait que sur des sessions encore actives.
   const activeSessions = useMemo(() => sessions.filter(isSessionActive), [sessions]);
 
-  // Seules les filières ayant encore une session active sont proposées au filtre.
+  // Les séances de l'historique ne portent pas de date de cohorte : leur
+  // année scolaire se lit sur la session dont elles relèvent.
+  const anneeParSession = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of sessions) map.set(s.id, anneeScolaireOf(s.date_debut));
+    return map;
+  }, [sessions]);
+
+  // Années scolaires des cohortes auxquelles l'enseignant est affecté.
+  // Toutes, et pas seulement les actives : l'historique couvre aussi les
+  // séances des cohortes déjà terminées.
+  const anneeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of sessions) {
+      const a = anneeScolaireOf(s.date_debut);
+      if (a) set.add(a);
+    }
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [sessions]);
+
+  // Noms de classe de ces mêmes cohortes, restreints à l'année retenue.
   const filiereOptions = useMemo(() => {
     const map = new Map<string, string>();
-    for (const s of activeSessions) {
-      if (s.filiere_id) map.set(s.filiere_id, `${s.filiere_nom ?? s.filiere_code} (${s.filiere_code})`);
+    for (const s of sessions) {
+      const nom = nomDeClasseOf(s);
+      if (!s.filiere_id || !nom) continue;
+      if (annee !== "all" && anneeScolaireOf(s.date_debut) !== annee) continue;
+      map.set(`${s.filiere_id}|${nom}`, nom);
     }
     return Array.from(map, ([value, label]) => ({ value, label })).sort((a, b) =>
       a.label.localeCompare(b.label, "fr")
     );
-  }, [activeSessions]);
+  }, [sessions, annee]);
 
   const filteredHistory = useMemo(
     () =>
       history.filter(
         (h) =>
-          (filiere === "all" || h.filiere_id === filiere) && statutMatch(h.session_statut, statut)
+          (annee === "all" || anneeParSession.get(h.ue_session_id) === annee) &&
+          (filiere === "all" || `${h.filiere_id}|${nomDeClasseOf(h)}` === filiere)
       ),
-    [history, filiere, statut]
+    [history, annee, anneeParSession, filiere]
   );
 
   // Pagination client : l'historique est déjà chargé en entier.
@@ -103,15 +145,18 @@ export default function TeacherAttendancePage() {
   );
 
   // Tout changement de filtre ou de taille de page ramène en tête de liste.
+  function changeAnnee(value: string) {
+    setAnnee(value);
+    // Le nom retenu peut ne pas exister dans la nouvelle année.
+    setFiliere("all");
+    setPage(1);
+  }
+
   function changeFiliere(value: string) {
     setFiliere(value);
     setPage(1);
   }
 
-  function changeStatut(value: string) {
-    setStatut(value);
-    setPage(1);
-  }
 
   function changePageSize(value: string) {
     setPageSize(Number(value));
@@ -168,27 +213,31 @@ export default function TeacherAttendancePage() {
       <Card className="shadow-sm">
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium">Filière</label>
+            <label className="text-sm font-medium">Année scolaire</label>
+            <div className="mt-1.5">
+              <SearchableSelect
+                value={annee}
+                onChange={changeAnnee}
+                icon={<CalendarDays className="h-4 w-4 text-gray-400" />}
+                placeholder="Toutes les années"
+                searchPlaceholder="Rechercher une année…"
+                options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Nom de classe</label>
             <div className="mt-1.5">
               <SearchableSelect
                 value={filiere}
                 onChange={changeFiliere}
                 icon={<Layers className="h-4 w-4 text-gray-400" />}
-                placeholder="Toutes les filières"
-                searchPlaceholder="Rechercher une filière…"
-                options={[{ value: "all", label: "Toutes les filières" }, ...filiereOptions]}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium">Statut</label>
-            <div className="mt-1.5">
-              <SearchableSelect
-                value={statut}
-                onChange={changeStatut}
-                icon={<ListFilter className="h-4 w-4 text-gray-400" />}
-                placeholder="Toutes"
-                options={STATUT_FILTER}
+                placeholder="Tous les noms de classe"
+                searchPlaceholder="Rechercher un nom de classe…"
+                options={[
+                  { value: "all", label: "Tous les noms de classe" },
+                  ...filiereOptions,
+                ]}
               />
             </div>
           </div>

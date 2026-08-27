@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, Button } from "@ecoledigitale/ui";
 import {
   Layers,
@@ -14,20 +15,12 @@ import {
   ArrowLeft,
   RotateCcw,
   Smile,
-  Download,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { ExportOptionsDialog } from "@/components/ExportOptionsDialog";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openNotesReportPdf } from "@/lib/utils/notes-report";
 import {
-  NOTES_EXPORT_CHOICES,
-  NOTES_EXPORT_DEFAUT,
-  downloadNotesReportDocx,
-  openNotesReportPdf,
-} from "@/lib/utils/notes-report";
-import { ouvrirOngletPdf, POPUP_BLOQUEE } from "@/lib/utils/report-pdf";
-import {
-  useNotesFilieres,
-  useNotesSemestres,
+  useNotesNoms,
   useSemestreSessions,
   useSessionGrids,
   useSemestreConduite,
@@ -68,63 +61,75 @@ function fmt(x: number | null | undefined): string {
 /** Séparateur vertical entre deux sections d'UE. */
 const UE_SEP = "border-l-2 border-border";
 
-/**
- * Année scolaire (pivot septembre) dérivée de la date de début du semestre,
- * alignée sur le calcul côté API (professional-bulletin.service.ts) et sur les
- * autres pages : un semestre démarrant en septembre ou après appartient à
- * « AAAA-AAAA+1 », sinon « AAAA-1-AAAA ».
- */
-function anneeScolaireOf(v?: string | null): string | null {
-  if (!v) return null;
-  const d = new Date(v);
-  if (isNaN(d.getTime())) return null;
-  const y = d.getFullYear();
-  return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
-}
-
 export default function NotesHistoriquePage() {
-  const [filiereId, setFiliereId] = useState("");
-  const [annee, setAnnee] = useState("all");
+  // L'année commande la liste des noms, qui commande celle des semestres.
+  const [annee, setAnnee] = useState("");
+  const [nomKey, setNomKey] = useState("");
   const [semestreId, setSemestreId] = useState("");
-  const [exportOuvert, setExportOuvert] = useState(false);
-  const [exportChoix, setExportChoix] = useState<Set<string>>(new Set(NOTES_EXPORT_DEFAUT));
   const [exportErreur, setExportErreur] = useState<string | null>(null);
 
-  // Portée « terminees » : seules les filières et semestres ayant au moins une
-  // cohorte terminée ou annulée remontent ici.
-  const filieresQuery = useNotesFilieres("terminees");
-  const semestresQuery = useNotesSemestres(filiereId || null, "terminees");
+  const { data: session } = useSession();
+  const roles = ((session as any)?.roles ?? []) as string[];
+  const isAdmin =
+    Array.isArray(roles) && roles.some((r) => ["admin", "super_admin", "Administrateur"].includes(r));
+
+  // Portée « terminees » : seules les classes ayant au moins une cohorte
+  // terminée ou annulée remontent ici.
+  const nomsQuery = useNotesNoms("terminees");
+  const filiereId = nomKey ? nomKey.split("|")[0] : "";
   const sessionsQuery = useSemestreSessions(semestreId || null);
   // Conduite du semestre : saisie sur la page dédiée, affichée ici en lecture.
-  const conduiteQuery = useSemestreConduite(semestreId || null);
+  // Réservée aux administrateurs — la route la refuse aux enseignants, on ne
+  // la demande donc pas pour eux.
+  const conduiteQuery = useSemestreConduite(isAdmin && semestreId ? semestreId : null);
 
-  const filieres: any[] = (filieresQuery.data as any[]) ?? [];
+  const options = useMemo(() => nomsQuery.data ?? [], [nomsQuery.data]);
 
-  const semestres: any[] = useMemo(() => {
-    const list = (semestresQuery.data as any[]) ?? [];
-    return filiereId
-      ? list.map((s) => ({ ...s, annee_scolaire: anneeScolaireOf(s.date_debut) }))
-      : [];
-  }, [semestresQuery.data, filiereId]);
-
-  // Années scolaires disponibles pour la filière (plus récentes en premier).
+  // Années scolaires disponibles (plus récentes en premier).
   const anneeOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const s of semestres) if (s.annee_scolaire) set.add(s.annee_scolaire);
+    for (const o of options) if (o.annee_scolaire) set.add(o.annee_scolaire);
     return Array.from(set)
       .sort((a, b) => b.localeCompare(a))
       .map((value) => ({ value, label: value }));
-  }, [semestres]);
+  }, [options]);
 
-  const visibleSemestres = useMemo(
-    () => semestres.filter((s) => annee === "all" || s.annee_scolaire === annee),
-    [semestres, annee]
-  );
+  // Noms de classe de l'année choisie.
+  const nomOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const o of options) {
+      if (annee && o.annee_scolaire !== annee) continue;
+      map.set(`${o.classe_id}|${o.nom}`, o.nom);
+    }
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [options, annee]);
 
-  // Si l'année sélectionnée n'existe plus (changement de filière), on réinitialise.
+  // Semestres du couple (année, nom).
+  const visibleSemestres = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const o of options) {
+      if (!o.semestre_id) continue;
+      if (annee && o.annee_scolaire !== annee) continue;
+      if (nomKey && `${o.classe_id}|${o.nom}` !== nomKey) continue;
+      map.set(o.semestre_id, {
+        id: o.semestre_id,
+        libelle: o.semestre_libelle,
+        annee_scolaire: o.annee_scolaire,
+      });
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      String(a.libelle).localeCompare(String(b.libelle))
+    );
+  }, [options, annee, nomKey]);
+
+  // Première année proposée par défaut.
   useEffect(() => {
-    if (annee !== "all" && !anneeOptions.some((o) => o.value === annee)) setAnnee("all");
+    if (!annee && anneeOptions.length > 0) setAnnee(anneeOptions[0].value);
   }, [anneeOptions, annee]);
+
+  useEffect(() => {
+    if (nomKey && !nomOptions.some((o) => o.value === nomKey)) setNomKey("");
+  }, [nomOptions, nomKey]);
 
   // Si le semestre sélectionné n'est plus visible (filtre année), on le désélectionne.
   useEffect(() => {
@@ -151,7 +156,7 @@ export default function NotesHistoriquePage() {
   // Conduite du semestre : ECUE dédiée + note par étudiant.
   const conduite: any = (conduiteQuery.data as any) ?? null;
   const conduiteStudents: any[] = conduite?.students ?? [];
-  const hasConduite = Boolean(conduite?.conduite) && conduiteStudents.length > 0;
+  const hasConduite = isAdmin && Boolean(conduite?.conduite) && conduiteStudents.length > 0;
   const conduiteNotes = useMemo(() => {
     const m = new Map<string, number | null>();
     for (const s of conduiteStudents) m.set(String(s.student_id), s.note ?? null);
@@ -237,19 +242,18 @@ export default function NotesHistoriquePage() {
    */
   const exportContexte = useMemo(
     () => ({
-      filiere: filieres.find((f) => f.id === filiereId)?.name ?? "—",
+      filiere: nomOptions.find((o) => o.value === nomKey)?.label ?? "—",
       semestre: semestreLabel,
       annee:
-        annee !== "all"
-          ? annee
-          : (visibleSemestres.find((s) => s.id === semestreId)?.annee_scolaire ?? "—"),
+        annee ||
+        (visibleSemestres.find((s) => s.id === semestreId)?.annee_scolaire ?? "—"),
       sessions,
       grilles: gridQueries.map((q) => q.data ?? null),
       conduite: conduiteStudents,
-      porteeLibelle: "Cohortes terminées",
     }),
     [
-      filieres,
+      nomOptions,
+      nomKey,
       filiereId,
       semestreLabel,
       annee,
@@ -261,34 +265,13 @@ export default function NotesHistoriquePage() {
     ]
   );
 
-  function basculerChoixExport(key: string) {
-    setExportChoix((prev) => {
-      const suivant = new Set(prev);
-      if (suivant.has(key)) suivant.delete(key);
-      else suivant.add(key);
-      return suivant;
-    });
-  }
-
-  async function handleExportNotes(format: "pdf" | "word") {
+  /**
+   * Le document est complet : toutes les UE terminées du semestre, toutes les
+   * colonnes de notes et le tableau de conduite.
+   */
+  async function exporterPdf(win: Window) {
     setExportErreur(null);
-    const contexte = { ...exportContexte, choix: exportChoix };
-    try {
-      if (format === "pdf") {
-        // L'onglet s'ouvre dans le geste de clic, sinon la popup est bloquée.
-        const win = ouvrirOngletPdf();
-        if (!win) {
-          setExportErreur(POPUP_BLOQUEE);
-          return;
-        }
-        await openNotesReportPdf(contexte, win);
-      } else {
-        await downloadNotesReportDocx(contexte);
-      }
-      setExportOuvert(false);
-    } catch (err: any) {
-      setExportErreur(err?.message ?? "Erreur lors de l'export des notes.");
-    }
+    await openNotesReportPdf(exportContexte, win);
   }
 
   return (
@@ -305,20 +288,12 @@ export default function NotesHistoriquePage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setExportOuvert(true)}
+          <ExportButtons
+            formats={["pdf"]}
             disabled={!semestreId || gridsLoading || students.length === 0}
-            title={
-              !semestreId
-                ? "Choisissez une filière, une année et un semestre"
-                : "Exporter les notes de ce semestre en PDF ou en Word"
-            }
-            className="bg-emerald-50 border-emerald-200 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Exporter
-          </Button>
+            onExportPdf={exporterPdf}
+            onError={setExportErreur}
+          />
           <Link href="/professionnel/admin/notes/rattrapages">
             <Button
               variant="outline"
@@ -337,28 +312,6 @@ export default function NotesHistoriquePage() {
         </div>
       </div>
 
-      <ExportOptionsDialog
-        open={exportOuvert}
-        onClose={() => setExportOuvert(false)}
-        title="Exporter l'historique des notes"
-        description={`${exportContexte.filiere} · ${exportContexte.semestre} · ${exportContexte.annee}. Toutes les UE terminées du semestre sont exportées.`}
-        groups={[
-          {
-            groupLabel: "Colonnes",
-            choices: [
-              { key: "_identite", label: "Étudiant et ECUE", hint: "Toujours inclus", locked: true },
-              { key: "_note", label: "Note finale /20", hint: "Toujours incluse", locked: true },
-              ...NOTES_EXPORT_CHOICES.map((c) => ({ ...c })),
-            ],
-          },
-        ]}
-        selected={exportChoix}
-        onToggle={basculerChoixExport}
-        onExport={handleExportNotes}
-        disabled={!semestreId}
-        disabledReason="Sélectionnez d'abord un semestre."
-      />
-
       {exportErreur && (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
           {exportErreur}
@@ -368,43 +321,40 @@ export default function NotesHistoriquePage() {
       {/* Sélecteurs — filière, année scolaire, semestre (l'UE n'en est plus un) */}
       <Card className="shadow-sm">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <SearchableSelect
-              value={filiereId}
+              className="md:col-span-2"
+              value={annee}
               onChange={(v) => {
-                setFiliereId(v);
-                setAnnee("all");
+                setAnnee(v);
+                setNomKey("");
+                setSemestreId("");
+              }}
+              icon={<Calendar className="h-4 w-4 text-gray-400" />}
+              placeholder={nomsQuery.isLoading ? "Chargement…" : "Année scolaire"}
+              searchPlaceholder="Rechercher une année…"
+              options={anneeOptions}
+            />
+            <SearchableSelect
+              value={nomKey}
+              onChange={(v) => {
+                setNomKey(v);
                 setSemestreId("");
               }}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
-              placeholder={
-                filieresQuery.isLoading
-                  ? "Chargement…"
-                  : filieres.length === 0
-                  ? "Aucune session terminée"
-                  : "Filière"
-              }
-              searchPlaceholder="Rechercher une filière…"
-              options={filieres.map((f) => ({
-                value: f.id,
-                label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
-              }))}
-            />
-            <SearchableSelect
-              value={annee}
-              onChange={setAnnee}
-              icon={<Calendar className="h-4 w-4 text-gray-400" />}
-              placeholder={!filiereId ? "Choisir une filière" : "Toutes les années"}
-              searchPlaceholder="Rechercher une année…"
-              options={[{ value: "all", label: "Toutes les années" }, ...anneeOptions]}
+              disabled={!annee}
+              placeholder="Nom de classe"
+              searchPlaceholder="Rechercher un nom de classe…"
+              options={nomOptions}
             />
             <SearchableSelect
               value={semestreId}
               onChange={setSemestreId}
               icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
-              placeholder={!filiereId ? "Choisir une filière" : "Semestre"}
+              disabled={!nomKey}
+              placeholder="Semestre"
               searchPlaceholder="Rechercher un semestre…"
-              options={visibleSemestres.map((s) => ({ value: s.id, label: s.libelle }))}
+              options={visibleSemestres.map((sm) => ({ value: sm.id, label: sm.libelle }))}
             />
           </div>
         </CardContent>
@@ -418,7 +368,7 @@ export default function NotesHistoriquePage() {
               <GraduationCap className="h-8 w-8 text-indigo-500" />
             </div>
             <p className="text-muted-foreground max-w-md">
-              Choisissez une filière puis un semestre pour consulter les notes de toutes ses UE.
+              Choisissez une classe puis un semestre pour consulter les notes de toutes ses UE.
             </p>
           </CardContent>
         </Card>

@@ -37,6 +37,8 @@ import {
 } from "@/lib/hooks/use-professional-remuneration";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openPaieBulletinsPdf } from "@/lib/utils/paie-bulletins-report";
 
 /** Période qui pilote les cartes — voir `periode_courante` côté API. */
 type PeriodeCourante = NonNullable<
@@ -235,18 +237,57 @@ export default function BulletinsPaiePage() {
     };
   }, [tous]);
 
+  /** Périmètre exporté : exactement les cartes affichées, filtres compris. */
+  const exportOptions = useMemo(
+    () => ({
+      enseignant: enseignantChoisi
+        ? (tous.find((e) => e.id === enseignantChoisi)?.nom ?? enseignantChoisi)
+        : "Tous les enseignants",
+      filtre: seulementAProbleme
+        ? "Seulement les enseignants à configurer"
+        : "Tous les états de configuration",
+      periode: periodeCourante?.nom ?? periodeEnAttente?.nom ?? null,
+      stats: {
+        total: stats.total,
+        configures: stats.configures,
+        aTraiter: stats.aTraiter,
+        heuresValidees: query.data?.heures_validees ?? 0,
+        seancesValidees: query.data?.seances_validees ?? 0,
+      },
+    }),
+    [
+      enseignantChoisi,
+      tous,
+      seulementAProbleme,
+      periodeCourante,
+      periodeEnAttente,
+      stats,
+      query.data,
+    ]
+  );
+
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto p-6">
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-          <ScrollText className="h-7 w-7 text-indigo-500" />
-          Bulletins de paie
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Tous les enseignants de l'établissement et leur configuration de rémunération. Un
-          enseignant sans configuration valide ne produit aucun bulletin — et le calcul ne le
-          signale pas.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+            <ScrollText className="h-7 w-7 text-indigo-500" />
+            Bulletins de paie
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Tous les enseignants de l'établissement et leur configuration de rémunération. Un
+            enseignant sans configuration valide ne produit aucun bulletin — et le calcul ne le
+            signale pas.
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={query.isLoading || enseignants.length === 0}
+            onExportPdf={(win) => openPaieBulletinsPdf(enseignants, exportOptions, win)}
+            onError={(text) => setAction({ kind: "warn", text })}
+          />
+        </div>
       </div>
 
       {/* Indicateurs */}

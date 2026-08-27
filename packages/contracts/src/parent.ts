@@ -8,6 +8,9 @@ export const ChildListItemSchema = z.object({
   currentYear: z.number().int().min(1).max(10),
   status: z.enum(['active', 'suspended', 'dropped', 'transfer', 'graduated']),
   studentNumber: z.string(),
+  // Matricule IPAM du module professionnel (IPAM<CODE FILIÈRE><NNN>), quand
+  // l'élève est inscrit dans une filière. Affiché en priorité sur les cartes.
+  professionalMatricule: z.string().nullable().optional(),
   summaryIndicator: z.object({
     gradeAverage: z.number().nullable(),
     attendanceStatus: z.enum(['good', 'warning']).nullable(),

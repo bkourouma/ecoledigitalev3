@@ -33,14 +33,6 @@ export function useProfessionalChildren() {
   });
 }
 
-export function useChildProfessionalEnrollments(childId: string | null) {
-  return useQuery({
-    queryKey: ["professional-parent-enrollments", childId],
-    queryFn: () => apiFetch(`${BASE}/enrollments?child_id=${childId}`),
-    enabled: !!childId,
-  });
-}
-
 export function useChildProfessionalPayments(childId: string | null) {
   return useQuery({
     queryKey: ["professional-parent-payments", childId],
@@ -61,6 +53,18 @@ export function useChildAssignments(childId: string | null) {
 }
 
 /** Historique de présence/absence de l'enfant (pointages enseignant/admin). */
+/**
+ * Rattrapages (Session 2) de l'enfant : ECUE à repasser et issue de celles
+ * déjà repassées. Mêmes lignes que l'espace étudiant.
+ */
+export function useChildRattrapages(childId: string | null) {
+  return useQuery({
+    queryKey: ["professional-parent-rattrapages", childId],
+    queryFn: () => apiFetch(`${BASE}/rattrapages?child_id=${childId}`),
+    enabled: !!childId,
+  });
+}
+
 export function useChildAttendanceHistory(childId: string | null) {
   return useQuery({
     queryKey: ["professional-parent-attendance", childId],

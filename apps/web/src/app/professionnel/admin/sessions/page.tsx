@@ -21,6 +21,8 @@ import {
   useProfessionalUeSessionsList,
   useDeleteProfessionalUeSession,
 } from "@/lib/hooks/use-professional-catalog-admin";
+import { useToutesPortees } from "@/lib/hooks/use-professional-semestres";
+import { useProgrammes } from "@/lib/hooks/use-programmes";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { openSessionReportPdf } from "@/lib/utils/session-report";
 import { ouvrirOngletPdf, POPUP_BLOQUEE } from "@/lib/utils/report-pdf";
@@ -103,59 +105,129 @@ export default function ProfessionalSessionsListPage() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [sessions]);
 
+  // Portées déclarées, indexées comme les cartes : « classe|nom ».
+  const porteesQuery = useToutesPortees();
+  const porteeParNom = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const p of porteesQuery.data ?? []) {
+      m.set(`${p.classe_id}|${p.nom}`, p.semestre_ids ?? []);
+    }
+    return m;
+  }, [porteesQuery.data]);
+
   const nbOuvertes = useMemo(
     () => sessions.filter((s) => s.statut === "ouvert").length,
     [sessions]
   );
 
-  // Regroupe les sessions d'un même lot (semestre + dates + libellé) dans une
-  // seule carte. Les sessions sans semestre restent individuelles.
+  /*
+   * Filière académique de chaque classe. Le module professionnel appelle
+   * « filiere_id » ce qui est en réalité l'identifiant de la CLASSE (table
+   * `programmes`) : la vraie filière — celle gérée dans /academic/programmes —
+   * se lit sur la classe, d'où cette table de correspondance.
+   */
+  const programmesQuery = useProgrammes();
+  const filiereDeClasse = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of programmesQuery.data?.data ?? []) {
+      if (p.filiere?.name) m.set(String(p.id), p.filiere.name);
+    }
+    return m;
+  }, [programmesQuery.data]);
+
+  // Une carte = un NOM DE CLASSE, pas un semestre. Ouvrir un semestre
+  // supplémentaire sous le même nom enrichit la carte existante au lieu d'en
+  // créer une nouvelle.
   const groups = useMemo(() => {
     const map = new Map<string, any>();
     for (const s of sessions) {
       const suffix = s.ue_code ? ` — ${s.ue_code}` : "";
-      const prefix =
+      const nom =
         suffix && s.libelle?.endsWith(suffix)
           ? s.libelle.slice(0, -suffix.length)
           : s.libelle;
-      // Clé de lot : semestre si dispo, sinon libellé du lot — + la période.
-      // (fonctionne même si l'API ne renvoie pas encore le semestre)
-      const key = `${s.semestre_id ?? prefix}|${s.date_debut}|${s.date_fin}`;
+      const key = `${s.filiere_id ?? s.filiere_code ?? ""}|${nom}`;
       let g = map.get(key);
       if (!g) {
         g = {
           key,
-          title: prefix,
-          semestre_id: s.semestre_id ?? null,
-          semestre_libelle: s.semestre_libelle ?? null,
+          title: nom,
+          classe_id: s.filiere_id ?? null,
           filiere_nom: s.filiere_nom ?? null,
           filiere_code: s.filiere_code ?? null,
-          date_debut: s.date_debut,
-          date_fin: s.date_fin,
-          annee_scolaire: anneeScolaireOf(s.date_debut),
-          statut: s.statut,
           first_id: s.id,
           items: [] as any[],
+          // Un sous-groupe par semestre, avec sa propre période.
+          semestres: new Map<string, any>(),
         };
         map.set(key, g);
       }
       g.items.push(s);
+
+      const semKey = s.semestre_id ?? `__sans__|${s.date_debut}|${s.date_fin}`;
+      let sem = g.semestres.get(semKey);
+      if (!sem) {
+        sem = {
+          semestre_id: s.semestre_id ?? null,
+          semestre_libelle: s.semestre_libelle ?? null,
+          date_debut: s.date_debut,
+          date_fin: s.date_fin,
+          statut: s.statut,
+          first_id: s.id,
+          items: [] as any[],
+        };
+        g.semestres.set(semKey, sem);
+      }
+      sem.items.push(s);
+      if (s.statut !== "termine") sem.statut = s.statut;
+      if (s.date_debut < sem.date_debut) sem.date_debut = s.date_debut;
+      if (s.date_fin > sem.date_fin) sem.date_fin = s.date_fin;
     }
-    return Array.from(map.values());
-  }, [sessions]);
+
+    return Array.from(map.values()).map((g) => {
+      const semestres = (Array.from(g.semestres.values()) as any[]).sort((a: any, b: any) =>
+        String(a.semestre_libelle ?? "").localeCompare(String(b.semestre_libelle ?? ""))
+      );
+      const portee = porteeParNom.get(g.key) ?? null;
+      // Nombre de semestres attendus : la portée déclarée, sinon ce qui existe.
+      const nbAttendus = portee ? portee.length : semestres.length;
+      const nbOuverts = semestres.length;
+      const toutesTerminees = g.items.every((it: any) => it.statut === "termine");
+      // Un nom part à l'historique seulement quand sa portée est entièrement
+      // ouverte ET que la dernière période est expirée.
+      const termine = toutesTerminees && nbOuverts >= nbAttendus;
+      const dateDebut = semestres.reduce(
+        (min: string, sm: any) => (sm.date_debut < min ? sm.date_debut : min),
+        semestres[0]?.date_debut
+      );
+      const dateFin = semestres.reduce(
+        (max: string, sm: any) => (sm.date_fin > max ? sm.date_fin : max),
+        semestres[0]?.date_fin
+      );
+      return {
+        ...g,
+        semestres,
+        nb_semestres_ouverts: nbOuverts,
+        nb_semestres_attendus: nbAttendus,
+        portee_declaree: Boolean(portee),
+        date_debut: dateDebut,
+        date_fin: dateFin,
+        annee_scolaire: anneeScolaireOf(dateDebut),
+        statut: termine ? "termine" : semestres.find((sm: any) => sm.statut !== "termine")?.statut ?? "ouvert",
+        termine,
+      };
+    });
+  }, [sessions, porteeParNom]);
 
   // Onglets : actives (en cours / à venir) vs historique (terminées).
-  const nbTermines = useMemo(
-    () => groups.filter((g) => g.statut === "termine").length,
-    [groups]
-  );
+  const nbTermines = useMemo(() => groups.filter((g) => g.termine).length, [groups]);
 
   // Années scolaires disponibles dans l'historique, adaptées à la filière choisie.
   // (dérivées de la date de début, pivot septembre — voir anneeScolaireOf)
   const anneeOptions = useMemo(() => {
     const set = new Set<string>();
     for (const g of groups) {
-      if (g.statut !== "termine") continue;
+      if (!g.termine) continue;
       if (filiereFilter !== "all" && g.filiere_code !== filiereFilter) continue;
       if (g.annee_scolaire) set.add(g.annee_scolaire);
     }
@@ -169,7 +241,7 @@ export default function ProfessionalSessionsListPage() {
       groups.filter(
         (g) =>
           (filiereFilter === "all" || g.filiere_code === filiereFilter) &&
-          (tab === "historique" ? g.statut === "termine" : g.statut !== "termine") &&
+          (tab === "historique" ? g.termine : !g.termine) &&
           (tab !== "historique" ||
             anneeFilter === "all" ||
             g.annee_scolaire === anneeFilter)
@@ -177,11 +249,6 @@ export default function ProfessionalSessionsListPage() {
     [groups, tab, filiereFilter, anneeFilter]
   );
 
-  // Nombre de sessions réellement affichées dans l'onglet courant (après filtres).
-  const visibleSessionsCount = useMemo(
-    () => visibleGroups.reduce((n, g) => n + g.items.length, 0),
-    [visibleGroups]
-  );
 
   // Pagination d'affichage (côté client) sur les lots de l'onglet courant.
   const pageCount = Math.max(1, Math.ceil(visibleGroups.length / PAGE_SIZE));
@@ -204,24 +271,34 @@ export default function ProfessionalSessionsListPage() {
   }, [anneeOptions, anneeFilter]);
 
   /**
-   * Export PDF d'UNE session (le lot affiché sur la carte) : sa fiche et la
-   * liste des étudiants inscrits, UE par UE. Volontairement pas d'export
-   * global — une liste de tous les inscrits de toutes les sessions n'est pas
-   * exploitable.
+   * Export PDF d'UN SEUL semestre de la classe : sa fiche et la liste des
+   * étudiants inscrits, UE par UE. Volontairement pas d'export global — une
+   * fiche couvrant tous les semestres à la fois n'est pas exploitable.
    */
-  async function handleExportSession(g: any) {
+  async function handleExportSemestre(g: any, sm: any) {
     setError(null);
-    // L'onglet s'ouvre dans le geste de clic, sinon la popup est bloquée.
     const win = ouvrirOngletPdf();
     if (!win) {
       setError(POPUP_BLOQUEE);
       return;
     }
-    setExportEnCours(g.key);
+    setExportEnCours(`${g.key}|${sm.semestre_id ?? sm.first_id}`);
     try {
-      await openSessionReportPdf(g, win);
+      await openSessionReportPdf(
+        {
+          ...g,
+          semestre_libelle: sm.semestre_libelle ?? null,
+          date_debut: sm.date_debut,
+          date_fin: sm.date_fin,
+          annee_scolaire: anneeScolaireOf(sm.date_debut),
+          statut: sm.statut,
+          items: sm.items,
+          classe_filiere_nom: filiereDeClasse.get(String(g.classe_id)) ?? null,
+        },
+        win
+      );
     } catch (err: any) {
-      setError(err?.message ?? "Erreur lors de l'export de la session.");
+      setError(err?.message ?? "Erreur lors de l'export de ce semestre.");
     } finally {
       setExportEnCours(null);
     }
@@ -233,7 +310,7 @@ export default function ProfessionalSessionsListPage() {
     if (
       typeof window !== "undefined" &&
       !window.confirm(
-        `Supprimer ce lot « ${g.title} » ?\n\n${g.items.length} session(s) d'UE seront supprimées (supports et présences liés inclus). Action irréversible.`
+        `Supprimer ce lot « ${g.title} » ?\n\n${g.items.length} classe(s) d'UE seront supprimées (supports et présences liés inclus). Action irréversible.`
       )
     ) {
       return;
@@ -253,10 +330,10 @@ export default function ProfessionalSessionsListPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-            Sessions professionnelles
+            Ouvertures de classe
           </h1>
           <p className="text-muted-foreground mt-2">
-            Instances datées d'une matière, avec fenêtre d'inscription et capacité.
+            Une classe ouverte sur un semestre, avec ses dates et son équipe enseignante.
           </p>
         </div>
         <Button
@@ -264,7 +341,7 @@ export default function ProfessionalSessionsListPage() {
           className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Nouvelle session
+          Ouvrir une classe
         </Button>
       </div>
 
@@ -280,7 +357,7 @@ export default function ProfessionalSessionsListPage() {
           <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white/80 text-sm font-medium">Total sessions</p>
+                <p className="text-white/80 text-sm font-medium">Total classes</p>
                 <p className="text-3xl font-bold mt-1">{sessions.length}</p>
               </div>
               <div className="bg-white/20 p-3 rounded-lg">
@@ -291,7 +368,7 @@ export default function ProfessionalSessionsListPage() {
           <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-6 rounded-xl text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white/80 text-sm font-medium">Sessions ouvertes</p>
+                <p className="text-white/80 text-sm font-medium">Classes ouvertes</p>
                 <p className="text-3xl font-bold mt-1">{nbOuvertes}</p>
               </div>
               <div className="bg-white/20 p-3 rounded-lg">
@@ -306,7 +383,7 @@ export default function ProfessionalSessionsListPage() {
       <div className="border-b border-border">
         <nav className="flex flex-wrap gap-2">
           {[
-            { id: "actives" as const, label: "Sessions actives", count: groups.length - nbTermines },
+            { id: "actives" as const, label: "Classes ouvertes", count: groups.length - nbTermines },
             { id: "historique" as const, label: "Historique (terminées)", count: nbTermines },
           ].map((t) => {
             const isActive = tab === t.id;
@@ -345,10 +422,10 @@ export default function ProfessionalSessionsListPage() {
                   value={filiereFilter}
                   onChange={setFiliereFilter}
                   icon={<BookOpen className="h-4 w-4 text-gray-400" />}
-                  placeholder="Filtrer par filière"
-                  searchPlaceholder="Rechercher une filière…"
+                  placeholder="Filtrer par classe"
+                  searchPlaceholder="Rechercher une classe…"
                   options={[
-                    { value: "all", label: "Toutes les filières" },
+                    { value: "all", label: "Toutes les classes" },
                     ...filiereOptions,
                   ]}
                 />
@@ -369,12 +446,6 @@ export default function ProfessionalSessionsListPage() {
                 </div>
               )}
             </div>
-            <div className="flex items-center text-sm text-gray-600 whitespace-nowrap">
-              <span className="font-medium">{visibleSessionsCount}</span>
-              <span className="ml-1">
-                {visibleSessionsCount === 1 ? "session affichée" : "sessions affichées"}
-              </span>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -387,7 +458,7 @@ export default function ProfessionalSessionsListPage() {
               <div className="bg-gradient-to-br from-green-100 to-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto">
                 <Loader2 className="h-8 w-8 animate-spin text-green-600" />
               </div>
-              <p className="text-gray-600 text-lg">Chargement des sessions…</p>
+              <p className="text-gray-600 text-lg">Chargement des classes…</p>
             </div>
           </CardContent>
         </Card>
@@ -403,7 +474,7 @@ export default function ProfessionalSessionsListPage() {
               </div>
               <p className="text-muted-foreground">
                 {(sessionsQuery.error as Error)?.message ??
-                  "Impossible de charger les sessions."}
+                  "Impossible de charger les classes."}
               </p>
             </div>
           </CardContent>
@@ -430,27 +501,81 @@ export default function ProfessionalSessionsListPage() {
                     </span>
                   </div>
 
-                  <div className="space-y-1 mb-3 text-sm">
-                    {(g.semestre_libelle || g.filiere_nom) && (
+                  <div className="space-y-2 mb-3 text-sm">
+                    {g.filiere_nom && (
                       <p className="text-white/90">
-                        {g.filiere_nom ? (
-                          <>
-                            {g.filiere_nom}
-                            {g.filiere_code ? ` (${g.filiere_code})` : ""}
-                            {g.semestre_libelle ? " · " : ""}
-                          </>
-                        ) : null}
-                        {g.semestre_libelle ? (
-                          <span className="font-medium">{g.semestre_libelle}</span>
-                        ) : null}
+                        {g.filiere_nom}
+                        {g.filiere_code ? ` (${g.filiere_code})` : ""}
                       </p>
                     )}
+
+                    {/* Avancement du nom sur sa portée. */}
                     <p className="text-white/90">
-                      <span className="font-medium">Période :</span> {fmtDate(g.date_debut)} →{" "}
-                      {fmtDate(g.date_fin)}
+                      <span className="font-medium">Semestres :</span>{" "}
+                      {g.nb_semestres_ouverts}/{g.nb_semestres_attendus} ouverts
+                      {!g.portee_declaree && (
+                        <span className="text-white/70"> · portée non déclarée</span>
+                      )}
                     </p>
+
+                    {/* Un semestre par ligne, avec sa période et son statut. */}
+                    <div className="space-y-1 rounded-lg bg-white/10 p-2">
+                      {g.semestres.map((sm: any) => {
+                        const cle = `${g.key}|${sm.semestre_id ?? sm.first_id}`;
+                        return (
+                          <div
+                            key={sm.semestre_id ?? sm.first_id}
+                            className="flex items-center gap-1"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                router.push(
+                                  sm.semestre_id
+                                    ? `/professionnel/admin/sessions/semestre/${sm.semestre_id}`
+                                    : `/professionnel/admin/sessions/${sm.first_id}`
+                                )
+                              }
+                              className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded px-2 py-1 text-left text-xs hover:bg-white/15 transition-colors"
+                              title="Voir le détail de ce semestre"
+                            >
+                              <span className="min-w-0">
+                                <span className="block font-medium truncate">
+                                  {sm.semestre_libelle ?? "Sans semestre"}
+                                </span>
+                                <span className="block text-white/75">
+                                  {fmtDate(sm.date_debut)} → {fmtDate(sm.date_fin)} ·{" "}
+                                  {sm.items.length} UE
+                                </span>
+                              </span>
+                              <span className="shrink-0 rounded bg-white/20 px-1.5 py-0.5">
+                                {STATUT_LABEL[sm.statut] ?? sm.statut}
+                              </span>
+                            </button>
+                            {/* Fiche de classe restreinte à CE semestre : seul
+                                export de l'écran, dans les deux onglets. */}
+                            <button
+                              type="button"
+                              onClick={() => handleExportSemestre(g, sm)}
+                              disabled={exportEnCours !== null}
+                              title={`Exporter en PDF la fiche de ${
+                                sm.semestre_libelle ?? "ce semestre"
+                              }`}
+                              className="shrink-0 rounded bg-white/20 p-1.5 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {exportEnCours === cle ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <FileText className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
                     <p className="text-white/80 text-xs">
-                      {g.items.length} UE · {totalUv} crédits
+                      {g.items.length} UE au total · {totalUv} crédits
                     </p>
                   </div>
 
@@ -462,8 +587,8 @@ export default function ProfessionalSessionsListPage() {
                       className="bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30 transition-all duration-200 p-2"
                       onClick={() =>
                         router.push(
-                          g.semestre_id
-                            ? `/professionnel/admin/sessions/semestre/${g.semestre_id}`
+                          g.semestres[0]?.semestre_id
+                            ? `/professionnel/admin/sessions/semestre/${g.semestres[0].semestre_id}`
                             : `/professionnel/admin/sessions/${g.first_id}`
                         )
                       }
@@ -478,8 +603,8 @@ export default function ProfessionalSessionsListPage() {
                         className="bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30 transition-all duration-200 p-2"
                         onClick={() =>
                           router.push(
-                            g.semestre_id
-                              ? `/professionnel/admin/sessions/semestre/${g.semestre_id}`
+                            g.semestres[0]?.semestre_id
+                              ? `/professionnel/admin/sessions/semestre/${g.semestres[0].semestre_id}`
                               : `/professionnel/admin/sessions/${g.first_id}/edit`
                           )
                         }
@@ -500,22 +625,6 @@ export default function ProfessionalSessionsListPage() {
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Trash2 className="w-4 h-4" />
-                      )}
-                    </Button>
-
-                    {/* Export de CETTE session : fiche du lot + inscrits par UE. */}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="bg-white/20 hover:bg-white/30 text-white border-white/20 hover:border-white/30 transition-all duration-200 p-2"
-                      onClick={() => handleExportSession(g)}
-                      disabled={exportEnCours !== null}
-                      title="Exporter cette session en PDF"
-                    >
-                      {exportEnCours === g.key ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <FileText className="w-4 h-4" />
                       )}
                     </Button>
                   </div>
@@ -567,18 +676,18 @@ export default function ProfessionalSessionsListPage() {
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   {tab === "historique"
-                    ? "Aucune session terminée"
-                    : "Aucune session active"}
+                    ? "Aucune classe terminée"
+                    : "Aucune classe ouverte"}
                 </h3>
                 <p className="text-gray-600 text-lg">
                   {tab === "historique"
-                    ? "Les sessions dont la date de fin est passée apparaîtront ici."
+                    ? "Les classes dont la date de fin est passée apparaîtront ici."
                     : filiereFilter === "all"
-                    ? "Commencez par créer votre première session."
-                    : "Aucune session pour la filière sélectionnée."}
+                    ? "Commencez par créer votre première classe."
+                    : "Aucun résultat pour la classe sélectionnée."}
                 </p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap justify-center gap-3">
                 {filiereFilter !== "all" && (
                   <Button variant="outline" onClick={() => setFiliereFilter("all")}>
                     <X className="h-4 w-4 mr-2" />
@@ -591,7 +700,7 @@ export default function ProfessionalSessionsListPage() {
                     className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Nouvelle session
+                    Ouvrir une classe
                   </Button>
                 )}
               </div>

@@ -180,7 +180,7 @@ export default function StudentPresencesPage() {
           <CardContent className="flex items-center gap-3 py-8 text-amber-700">
             <AlertCircle className="h-6 w-6 shrink-0" />
             <p>
-              Filière manquante dans l'adresse. Revenez à l'historique des présences et cliquez sur
+              Classe manquante dans l'adresse. Revenez à l'historique des présences et cliquez sur
               « Détails » depuis le récapitulatif par étudiant.
             </p>
           </CardContent>

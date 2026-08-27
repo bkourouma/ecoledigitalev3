@@ -1072,12 +1072,40 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
                 s.date_fin::text AS date_fin,
                 ue.id AS ue_id, ue.code AS ue_code, ue.libelle AS ue_libelle,
                 ue.filiere_id, p.name AS filiere_name,
-                o.reference AS order_reference
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS classe_nom,
+                CASE WHEN EXTRACT(MONTH FROM s.date_debut) >= 9
+                     THEN EXTRACT(YEAR FROM s.date_debut)::int || '-' ||
+                          (EXTRACT(YEAR FROM s.date_debut)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM s.date_debut)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM s.date_debut)::int
+                END AS annee_scolaire,
+                sem.id AS semestre_id, sem.libelle AS semestre_libelle,
+                o.reference AS order_reference, o.statut AS order_statut,
+                o.montant_total::float8 AS order_montant,
+                -- Versements CONFIRMÉS de la commande : l'étudiant doit voir ce
+                -- qui a été encaissé, pas seulement ce qu'il doit.
+                (SELECT COALESCE(sum(pm.montant),0)::float8 FROM professional_payments pm
+                 WHERE pm.order_id = e.order_id AND pm.statut = 'confirme') AS order_paye
          FROM professional_enrollments e
          JOIN professional_ue_sessions s ON s.id = e.ue_session_id
          JOIN professional_ue ue ON ue.id = s.ue_id
          JOIN programmes p ON p.id = ue.filiere_id
          JOIN professional_orders o ON o.id = e.order_id
+         -- Semestre de la cohorte : rattachement direct, ou via son UE.
+         -- En LEFT, une cohorte non rattachée reste visible.
+         LEFT JOIN LATERAL (
+           SELECT sm.id, sm.libelle
+           FROM professional_semestres sm
+           WHERE sm.tenant_id = s.tenant_id
+             AND (EXISTS (SELECT 1 FROM professional_semestre_sessions ss
+                          WHERE ss.semestre_id = sm.id AND ss.ue_session_id = s.id
+                            AND ss.tenant_id = s.tenant_id)
+               OR EXISTS (SELECT 1 FROM professional_semestre_ue su
+                          WHERE su.semestre_id = sm.id AND su.ue_id = s.ue_id
+                            AND su.tenant_id = s.tenant_id))
+           ORDER BY sm.libelle
+           LIMIT 1
+         ) sem ON TRUE
          WHERE e.student_id=$1
            AND ue.libelle NOT ILIKE 'conduite%'
          ORDER BY e.created_at DESC`,
@@ -1168,6 +1196,21 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         LEFT JOIN professional_student_matricules psm
                ON psm.student_id = e.student_id AND psm.filiere_id = ue.filiere_id
               AND psm.tenant_id = e.tenant_id
+        -- Semestre de la cohorte : rattachement direct, ou via son UE.
+        -- En LEFT, une cohorte non rattachée reste dans la liste.
+        LEFT JOIN LATERAL (
+          SELECT sm.id, sm.libelle
+          FROM professional_semestres sm
+          WHERE sm.tenant_id = s.tenant_id
+            AND (EXISTS (SELECT 1 FROM professional_semestre_sessions ss
+                         WHERE ss.semestre_id = sm.id AND ss.ue_session_id = s.id
+                           AND ss.tenant_id = s.tenant_id)
+              OR EXISTS (SELECT 1 FROM professional_semestre_ue su
+                         WHERE su.semestre_id = sm.id AND su.ue_id = s.ue_id
+                           AND su.tenant_id = s.tenant_id))
+          ORDER BY sm.libelle
+          LIMIT 1
+        ) sem ON TRUE
         WHERE ${where.join(" AND ")}`;
       const countRes = await client.query(`SELECT count(*)::int AS total ${baseFrom}`, params);
       const listRes = await client.query(
@@ -1177,6 +1220,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
                 s.statut AS session_statut,
                 ue.id AS ue_id, ue.code AS ue_code, ue.libelle AS ue_libelle, ue.filiere_id,
                 p.name AS filiere_nom, p.code AS filiere_code,
+                sem.id AS semestre_id, sem.libelle AS semestre_libelle,
                 e.student_id, COALESCE(psm.matricule, sp.student_number) AS matricule,
                 u.first_name, u.last_name, u.email,
                 -- Téléphone de l'étudiant (student_profiles) : les listes
@@ -1305,42 +1349,24 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
     return this.withTenant(tenantId, async (client) => {
       const res = await client.query(
         `SELECT sp.id, sp.student_number, u.first_name, u.last_name, u.email,
-                sp.date_of_birth::text AS date_of_birth
+                sp.date_of_birth::text AS date_of_birth,
+                pm.matricule AS professional_matricule
          FROM student_parents pr
          JOIN student_profiles sp ON sp.id = pr.student_id
          JOIN users u ON u.id = sp.user_id
+         -- Matricule IPAM de la filière (le plus récent si plusieurs filières) :
+         -- affiché en priorité sur le numéro d'établissement générique.
+         LEFT JOIN LATERAL (
+           SELECT psm.matricule
+           FROM professional_student_matricules psm
+           WHERE psm.student_id = sp.id
+             AND psm.tenant_id = sp.tenant_id
+           ORDER BY psm.created_at DESC, psm.seq DESC
+           LIMIT 1
+         ) pm ON TRUE
          WHERE pr.tenant_id=$1 AND pr.parent_id=$2
          ORDER BY u.last_name, u.first_name`,
         [tenantId, parentUserId]
-      );
-      return ok(res.rows);
-    });
-  }
-
-  /** Inscriptions professionnelles d'un enfant (lecture seule). */
-  async parentListChildEnrollments(
-    tenantId: string,
-    parentUserId: string,
-    childStudentId: string
-  ): Promise<ServiceResult<any>> {
-    return this.withTenant(tenantId, async (client) => {
-      if (!(await this.isParentOfChild(client, tenantId, parentUserId, childStudentId))) {
-        return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
-      }
-      const res = await client.query(
-        `SELECT e.id, e.statut, e.prix_unitaire::float8 AS prix_unitaire, e.created_at,
-                s.libelle AS session_libelle, s.date_debut::text AS date_debut,
-                s.date_fin::text AS date_fin,
-                ue.code AS ue_code, ue.libelle AS ue_libelle,
-                o.reference AS order_reference
-         FROM professional_enrollments e
-         JOIN professional_ue_sessions s ON s.id = e.ue_session_id
-         JOIN professional_ue ue ON ue.id = s.ue_id
-         JOIN professional_orders o ON o.id = e.order_id
-         WHERE e.student_id=$1
-           AND ue.libelle NOT ILIKE 'conduite%'
-         ORDER BY e.created_at DESC`,
-        [childStudentId]
       );
       return ok(res.rows);
     });
@@ -1356,15 +1382,59 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       if (!(await this.isParentOfChild(client, tenantId, parentUserId, childStudentId))) {
         return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
       }
-      const res = await client.query(
-        `SELECT p.id, p.montant::float8 AS montant, p.mode, p.statut,
-                p.reference_transaction, p.paid_at::text AS paid_at,
+      return ok(await this.receiptRowsForStudent(client, childStudentId));
+    });
+  }
+
+  /**
+   * Reçus de l'ÉTUDIANT connecté (espace étudiant, « Bulletins & Reçus »).
+   *
+   * Distinct de `ProfessionalPaymentService.studentListPayments`, qui alimente
+   * « Mes paiements » et ne porte volontairement pas de numéro de reçu : ici,
+   * l'étudiant consulte les mêmes reçus que son parent, sur ses propres
+   * versements.
+   */
+  async studentListOwnReceipts(
+    tenantId: string,
+    userId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const studentId = await this.getStudentProfileId(client, tenantId, userId);
+      if (!studentId) {
+        return fail("NOT_FOUND", "Aucun profil étudiant rattaché à ce compte.");
+      }
+      return ok(await this.receiptRowsForStudent(client, studentId));
+    });
+  }
+
+  /**
+   * Versements d'un étudiant avec tout le contexte du reçu (numéro, matricule,
+   * filière, UE réglées, année scolaire, classe, semestre). Partagé par
+   * l'espace parent et l'espace étudiant : le reçu doit être le même document.
+   */
+  private async receiptRowsForStudent(
+    client: PoolClient,
+    studentId: string
+  ): Promise<any[]> {
+    const res = await client.query(
+      `SELECT p.id, p.montant::float8 AS montant, p.mode, p.statut,
+                -- Un encaissement réparti sur plusieurs commandes crée une
+                -- ligne par commande, mais reference_transaction est UNIQUE :
+                -- seule la première la porte. On la rediffuse sur toutes les
+                -- lignes du même encaissement — même instant, même mode —
+                -- sinon la colonne paraît vide sur presque toutes les lignes.
+                max(p.reference_transaction) OVER (
+                  PARTITION BY COALESCE(p.paid_at, p.created_at), p.mode
+                ) AS reference_transaction,
+                p.paid_at::text AS paid_at,
                 p.created_at::text AS created_at, p.receipt_number,
                 o.reference AS order_reference,
                 o.montant_total::float8 AS order_montant,
                 u.first_name, u.last_name,
                 COALESCE(filmat.matricule, sp.student_number) AS matricule,
-                fil.filiere_nom, fil.filiere_code, fil.ues
+                fil.filiere_nom, fil.filiere_code, fil.ues,
+                fil.classe_nom, fil.annee_scolaire,
+                fil.semestre_id, fil.semestre_libelle
          FROM professional_payments p
          JOIN professional_orders o ON o.id = p.order_id
          JOIN student_profiles sp ON sp.id = o.student_id
@@ -1373,11 +1443,36 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
            SELECT prog.name AS filiere_nom, prog.code AS filiere_code, prog.id AS filiere_id,
                   json_agg(json_build_object(
                     'code', ue.code, 'libelle', ue.libelle, 'montant', en.prix_unitaire
-                  )) AS ues
+                  )) AS ues,
+                  -- Contexte scolaire de la commande : le nom de classe et
+                  -- l'année viennent de la cohorte réglée, le semestre de son
+                  -- rattachement (direct ou via l'UE).
+                  btrim(split_part(min(s.libelle), ' ' || chr(8212) || ' ', 1)) AS classe_nom,
+                  CASE WHEN EXTRACT(MONTH FROM min(s.date_debut)) >= 9
+                       THEN EXTRACT(YEAR FROM min(s.date_debut))::int || '-' ||
+                            (EXTRACT(YEAR FROM min(s.date_debut))::int + 1)
+                       ELSE (EXTRACT(YEAR FROM min(s.date_debut))::int - 1) || '-' ||
+                            EXTRACT(YEAR FROM min(s.date_debut))::int
+                  END AS annee_scolaire,
+                  min(sem.id::text) AS semestre_id,
+                  min(sem.libelle) AS semestre_libelle
            FROM professional_enrollments en
            JOIN professional_ue_sessions s ON s.id = en.ue_session_id
            JOIN professional_ue ue ON ue.id = s.ue_id
            LEFT JOIN programmes prog ON prog.id = ue.filiere_id
+           LEFT JOIN LATERAL (
+             SELECT sm.id, sm.libelle
+             FROM professional_semestres sm
+             WHERE sm.tenant_id = s.tenant_id
+               AND (EXISTS (SELECT 1 FROM professional_semestre_sessions ss
+                            WHERE ss.semestre_id = sm.id AND ss.ue_session_id = s.id
+                              AND ss.tenant_id = s.tenant_id)
+                 OR EXISTS (SELECT 1 FROM professional_semestre_ue su
+                            WHERE su.semestre_id = sm.id AND su.ue_id = s.ue_id
+                              AND su.tenant_id = s.tenant_id))
+             ORDER BY sm.libelle
+             LIMIT 1
+           ) sem ON TRUE
            WHERE en.order_id = o.id
            GROUP BY prog.name, prog.code, prog.id
            ORDER BY prog.name
@@ -1389,10 +1484,9 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
              AND m.filiere_id = fil.filiere_id LIMIT 1
          ) filmat ON true
          WHERE o.student_id=$1 ORDER BY p.created_at DESC`,
-        [childStudentId]
-      );
-      return ok(res.rows);
-    });
+      [studentId]
+    );
+    return res.rows;
   }
 
   /**
@@ -1411,13 +1505,53 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       if (!(await this.isParentOfChild(client, tenantId, parentUserId, childStudentId))) {
         return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
       }
-      const res = await client.query(
-        `SELECT se.id AS seance_id, se.date::text AS date,
+      return ok(await this.attendanceRowsForStudent(client, tenantId, childStudentId));
+    });
+  }
+
+  /**
+   * Historique de présence de l'ÉTUDIANT connecté (espace étudiant).
+   * Mêmes lignes que celles servies au parent, résolues depuis son `user_id`.
+   */
+  async studentListOwnAttendance(
+    tenantId: string,
+    userId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const studentId = await this.getStudentProfileId(client, tenantId, userId);
+      if (!studentId) {
+        return fail("NOT_FOUND", "Aucun profil étudiant rattaché à ce compte.");
+      }
+      return ok(await this.attendanceRowsForStudent(client, tenantId, studentId));
+    });
+  }
+
+  /**
+   * Séances des cohortes où l'étudiant est inscrit, avec son pointage éventuel
+   * et le contexte de la cohorte (année scolaire, nom de classe, semestre) dont
+   * se servent les filtres côté web. Partagé par l'espace parent et l'espace
+   * étudiant : les deux doivent voir exactement le même historique.
+   */
+  private async attendanceRowsForStudent(
+    client: PoolClient,
+    tenantId: string,
+    studentId: string
+  ): Promise<any[]> {
+    const res = await client.query(
+      `SELECT se.id AS seance_id, se.date::text AS date,
                 se.heure_debut::text AS heure_debut, se.heure_fin::text AS heure_fin,
                 se.libelle AS seance_libelle,
                 e.code AS ecue_code, e.libelle AS ecue_libelle,
                 ue.code AS ue_code, ue.libelle AS ue_libelle,
                 p.name AS filiere_nom,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS classe_nom,
+                CASE WHEN EXTRACT(MONTH FROM s.date_debut) >= 9
+                     THEN EXTRACT(YEAR FROM s.date_debut)::int || '-' ||
+                          (EXTRACT(YEAR FROM s.date_debut)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM s.date_debut)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM s.date_debut)::int
+                END AS annee_scolaire,
+                sem.id AS semestre_id, sem.libelle AS semestre_libelle,
                 a.statut AS statut, a.updated_at AS marked_at
          FROM professional_ecue_seances se
          JOIN professional_enrollments en
@@ -1427,13 +1561,27 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
          JOIN professional_ue_sessions s ON s.id = se.ue_session_id
          JOIN professional_ue ue ON ue.id = s.ue_id
          LEFT JOIN programmes p ON p.id = ue.filiere_id
+         -- Semestre de la cohorte : rattachement direct, ou via son UE.
+         -- En LEFT, une séance non rattachée reste comptée globalement.
+         LEFT JOIN LATERAL (
+           SELECT sm.id, sm.libelle
+           FROM professional_semestres sm
+           WHERE sm.tenant_id = s.tenant_id
+             AND (EXISTS (SELECT 1 FROM professional_semestre_sessions ss
+                          WHERE ss.semestre_id = sm.id AND ss.ue_session_id = s.id
+                            AND ss.tenant_id = s.tenant_id)
+               OR EXISTS (SELECT 1 FROM professional_semestre_ue su
+                          WHERE su.semestre_id = sm.id AND su.ue_id = s.ue_id
+                            AND su.tenant_id = s.tenant_id))
+           ORDER BY sm.libelle
+           LIMIT 1
+         ) sem ON TRUE
          LEFT JOIN professional_ecue_attendance a
            ON a.seance_id = se.id AND a.student_id = $2 AND a.tenant_id = se.tenant_id
          WHERE se.tenant_id = $1
          ORDER BY se.date DESC, se.heure_debut DESC NULLS LAST`,
-        [tenantId, childStudentId]
-      );
-      return ok(res.rows);
-    });
+      [tenantId, studentId]
+    );
+    return res.rows;
   }
 }

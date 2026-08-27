@@ -79,6 +79,12 @@ export function useGenerateBulletins() {
       qc.invalidateQueries({ queryKey: ["professional-bulletin-roster"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-bulletin"], exact: false });
       qc.invalidateQueries({ queryKey: ["professional-bulletins-history"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-bulletins-filieres"], exact: false });
+      qc.invalidateQueries({ queryKey: ["professional-bulletins-noms"], exact: false });
+      qc.invalidateQueries({
+        queryKey: ["professional-bulletins-historique-noms"],
+        exact: false,
+      });
     },
   });
 }
@@ -110,17 +116,47 @@ export async function fetchFullBulletins(semestreId: string): Promise<any[]> {
 }
 
 /** Historique complet des présences d'une filière (séances + récap étudiants). */
+export interface PresenceOption {
+  classe_id: string;
+  classe_nom: string;
+  classe_code: string | null;
+  nom: string;
+  semestre_id: string | null;
+  semestre_libelle: string | null;
+  session_statut: string;
+  annee_scolaire: string;
+}
+
+/**
+ * Année → nom de classe → semestre, pour les écrans de présences. Déduit des
+ * séances existantes : rien n'apparaît tant qu'aucun appel n'a été fait.
+ */
+export function usePresencesOptions() {
+  return useQuery<PresenceOption[]>({
+    queryKey: ["professional-presences-options"],
+    queryFn: () => apiFetch(`${BASE}/presences/options`),
+  });
+}
+
 export function usePresencesHistory(params: {
   filiereId: string | null;
   semestreId?: string;
   statut?: string;
+  classeNom?: string;
 }) {
-  const { filiereId, semestreId, statut } = params;
+  const { filiereId, semestreId, statut, classeNom } = params;
   const qs = new URLSearchParams({ filiere_id: filiereId ?? "" });
   if (semestreId) qs.set("semestre_id", semestreId);
   if (statut && statut !== "all") qs.set("statut", statut);
+  if (classeNom) qs.set("classe_nom", classeNom);
   return useQuery({
-    queryKey: ["professional-presences-history", filiereId, semestreId ?? "", statut ?? ""],
+    queryKey: [
+      "professional-presences-history",
+      filiereId,
+      semestreId ?? "",
+      statut ?? "",
+      classeNom ?? "",
+    ],
     queryFn: () => apiFetch(`${BASE}/presences/history?${qs.toString()}`),
     enabled: !!filiereId,
   });
@@ -145,10 +181,22 @@ export function useStudentPresences(params: {
 }
 
 /** Historique des bulletins d'une filière (semestres, étudiants, bulletins générés). */
-export function useBulletinHistory(filiereId: string | null) {
+/** Noms de classe dont les bulletins sont clôturés — page Historique. */
+export function useHistoriqueNoms() {
   return useQuery({
-    queryKey: ["professional-bulletins-history", filiereId],
-    queryFn: () => apiFetch(`${BASE}/bulletins/history?filiere_id=${filiereId}`),
+    queryKey: ["professional-bulletins-historique-noms"],
+    queryFn: () => apiFetch(`${BASE}/bulletins/historique-noms`),
+  });
+}
+
+export function useBulletinHistory(filiereId: string | null, classeNom?: string) {
+  return useQuery({
+    queryKey: ["professional-bulletins-history", filiereId, classeNom ?? ""],
+    queryFn: () =>
+      apiFetch(
+        `${BASE}/bulletins/history?filiere_id=${filiereId}` +
+          (classeNom ? `&classe_nom=${encodeURIComponent(classeNom)}` : "")
+      ),
     enabled: !!filiereId,
   });
 }
@@ -177,6 +225,46 @@ export function useRecomputeBulletins() {
  *  - omise       → aucune restriction.
  */
 export type NotesScope = "actives" | "terminees";
+
+/**
+ * Noms de classe de la page Bulletins : uniquement ceux où il reste un
+ * semestre non clôturé. Un nom disparaît du sélecteur dès sa dernière clôture.
+ */
+export function useBulletinsNoms() {
+  return useQuery({
+    queryKey: ["professional-bulletins-noms"],
+    queryFn: () => apiFetch(`${BASE}/bulletins/noms`),
+  });
+}
+
+/**
+ * Classes de la page Bulletins : uniquement celles où il reste un semestre
+ * non clôturé. Une classe disparaît du sélecteur dès sa dernière clôture.
+ */
+export function useBulletinsFilieres() {
+  return useQuery({
+    queryKey: ["professional-bulletins-filieres"],
+    queryFn: () => apiFetch(`${BASE}/bulletins/filieres`),
+  });
+}
+
+export interface NotesNom {
+  classe_id: string;
+  classe_nom: string;
+  classe_code: string | null;
+  nom: string;
+  annee_scolaire: string | null;
+  semestre_id: string | null;
+  semestre_libelle: string | null;
+}
+
+/** Noms de classe pour la saisie des notes (même périmètre que les filières). */
+export function useNotesNoms(scope?: NotesScope) {
+  return useQuery<NotesNom[]>({
+    queryKey: ["professional-notes-noms", scope ?? "all"],
+    queryFn: () => apiFetch(`${BASE}/notes/noms${scope ? `?scope=${scope}` : ""}`),
+  });
+}
 
 export function useNotesFilieres(scope?: NotesScope) {
   return useQuery({
@@ -235,6 +323,14 @@ export function useSessionGrids(ueSessionIds: string[]) {
  * `useNotesFilieres` : ici on ne propose que des filières où il reste
  * effectivement quelque chose à repasser.
  */
+/** Noms de classe ayant au moins un rattrapage en attente. */
+export function useRattrapageNoms() {
+  return useQuery({
+    queryKey: ["professional-rattrapage-noms"],
+    queryFn: () => apiFetch(`${BASE}/rattrapages/noms`),
+  });
+}
+
 export function useRattrapageFilieres() {
   return useQuery({
     queryKey: ["professional-rattrapage-filieres"],
@@ -416,6 +512,17 @@ export function useMyBulletinNotes(semestreId: string | null) {
     queryKey: ["professional-my-bulletin-notes", semestreId],
     queryFn: () => apiFetch(`${BASE}/student/bulletins/${semestreId}/notes`),
     enabled: !!semestreId,
+  });
+}
+
+/**
+ * Rattrapages de l'étudiant connecté : les ECUE à repasser en Session 2 et
+ * celles déjà repassées (avec leur issue). Voir `/professionnel/etudiant/rattrapages`.
+ */
+export function useMyRattrapages() {
+  return useQuery({
+    queryKey: ["professional-my-rattrapages"],
+    queryFn: () => apiFetch(`${BASE}/student/rattrapages`),
   });
 }
 

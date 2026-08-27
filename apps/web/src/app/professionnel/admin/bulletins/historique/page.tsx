@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, Button, Input } from "@ecoledigitale/ui";
 import {
@@ -14,11 +14,22 @@ import {
   Eye,
   GraduationCap,
   FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { ExportButtons } from "@/components/ExportButtons";
 import { openBulletinHistoriquePdf } from "@/lib/utils/bulletin-historique-report";
-import { useNotesFilieres, useBulletinHistory } from "@/lib/hooks/use-professional-bulletins";
+import { ouvrirOngletPdf, POPUP_BLOQUEE } from "@/lib/utils/report-pdf";
+import { enParallele } from "@/lib/utils/report-api";
+import { openAllBulletinsPdf } from "@/lib/bulletin-pdf";
+import { openAllBulletinsBtsPdf } from "@/lib/bulletin-pdf-bts";
+import { isLicenceUnOuDeux } from "@/lib/bulletin-format";
+import {
+  useHistoriqueNoms,
+  useBulletinHistory,
+  fetchFullBulletins,
+  fetchBulletinBts,
+} from "@/lib/hooks/use-professional-bulletins";
 
 /**
  * Historique des bulletins — Module Professionnel (LMD).
@@ -33,15 +44,51 @@ function fmt(x: number | null | undefined): string {
 }
 
 export default function HistoriqueBulletinsPage() {
-  const [filiereId, setFiliereId] = useState("");
+  // L'année scolaire commande la liste des noms de classe.
+  const [anneeClasse, setAnneeClasse] = useState("");
+  // Sélection au grain du nom de classe : « classeId|nom ».
+  const [nomKey, setNomKey] = useState("");
   const [periode, setPeriode] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const filieresQuery = useNotesFilieres();
-  const historyQuery = useBulletinHistory(filiereId || null);
+  // Seuls les noms dont les bulletins sont clôturés relèvent de l'historique.
+  const nomsQuery = useHistoriqueNoms();
+  const filiereId = nomKey ? nomKey.split("|")[0] : "";
+  const nomClasse = nomKey ? nomKey.split("|").slice(1).join("|") : "";
+  const historyQuery = useBulletinHistory(filiereId || null, nomClasse || undefined);
 
-  const filieres: any[] = (filieresQuery.data as any[]) ?? [];
+  const noms = useMemo(() => (nomsQuery.data as any[]) ?? [], [nomsQuery.data]);
+
+  // L'année vient en premier : elle commande la liste des noms.
+  const anneeClasseOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of noms) if (n.annee_scolaire) set.add(n.annee_scolaire);
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [noms]);
+
+  const nomOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const n of noms) {
+      if (anneeClasse && n.annee_scolaire !== anneeClasse) continue;
+      map.set(`${n.classe_id}|${n.nom}`, n.nom);
+    }
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [noms, anneeClasse]);
+
+  // Première année proposée par défaut.
+  useEffect(() => {
+    if (!anneeClasse && anneeClasseOptions.length > 0) {
+      setAnneeClasse(anneeClasseOptions[0].value);
+    }
+  }, [anneeClasseOptions, anneeClasse]);
+
+  // Changer d'année peut faire disparaître le nom retenu.
+  useEffect(() => {
+    if (nomKey && !nomOptions.some((o) => o.value === nomKey)) setNomKey("");
+  }, [nomOptions, nomKey]);
   const history: any = historyQuery.data ?? null;
   const semestres: any[] = history?.semestres ?? [];
   const students: any[] = history?.students ?? [];
@@ -101,7 +148,7 @@ export default function HistoriqueBulletinsPage() {
     if (allDefinitif && sumT > 0 && sumV >= sumT) {
       return {
         kind: "validee" as const,
-        label: "Filière validée",
+        label: "Classe validée",
         detail: `${sumV}/${sumT} crédits`,
       };
     }
@@ -129,6 +176,59 @@ export default function HistoriqueBulletinsPage() {
   }, [filteredStudents, shownSemestres, bulletinBy]);
 
   const ready = !!filiereId && !!periode && shownSemestres.length > 0;
+
+  // Le bulletin de style BTS est réservé aux classes de Licence 1 et 2.
+  const btsEligible = isLicenceUnOuDeux(history?.filiere?.name);
+
+  /** Bloc en cours de composition : « <semestreId>|releve » ou « …|bts ». */
+  const [busyBloc, setBusyBloc] = useState<string | null>(null);
+
+  /**
+   * Ouvre, pour un semestre, UN SEUL PDF contenant le bulletin de chaque
+   * étudiant du tableau (recherche comprise) : relevé LMD ou bulletin BTS.
+   * Les étudiants sans bulletin généré sur ce semestre en sont exclus.
+   */
+  async function ouvrirBloc(semestre: any, kind: "releve" | "bts") {
+    if (busyBloc) return;
+    setError(null);
+    const cibles = filteredStudents.filter((st) =>
+      bulletinBy.has(`${st.student_id}|${semestre.id}`)
+    );
+    if (cibles.length === 0) {
+      setError(`Aucun bulletin généré pour « ${semestre.libelle} » dans cette sélection.`);
+      return;
+    }
+    // L'onglet s'ouvre dans le geste de clic, sinon la popup est bloquée.
+    const win = ouvrirOngletPdf();
+    if (!win) {
+      setError(POPUP_BLOQUEE);
+      return;
+    }
+    setBusyBloc(`${semestre.id}|${kind}`);
+    try {
+      if (kind === "releve") {
+        const tous = await fetchFullBulletins(semestre.id);
+        const ids = new Set(cibles.map((st) => String(st.student_id)));
+        const retenus = (tous ?? []).filter((b: any) => ids.has(String(b.student?.id)));
+        if (retenus.length === 0) throw new Error("Aucun bulletin à ouvrir pour ce semestre.");
+        await openAllBulletinsPdf(retenus, win);
+      } else {
+        const datas = await enParallele(
+          cibles,
+          (st) => fetchBulletinBts(semestre.id, st.student_id),
+          4
+        );
+        const retenus = datas.filter(Boolean);
+        if (retenus.length === 0) throw new Error("Aucun bulletin BTS à ouvrir pour ce semestre.");
+        await openAllBulletinsBtsPdf(retenus, win);
+      }
+    } catch (err: any) {
+      win.close();
+      setError(err?.message ?? "Impossible d'ouvrir les bulletins de ce semestre.");
+    } finally {
+      setBusyBloc(null);
+    }
+  }
 
   /**
    * Périmètre exporté : exactement le tableau affiché, recherche comprise.
@@ -160,8 +260,8 @@ export default function HistoriqueBulletinsPage() {
             Historique des bulletins
           </h1>
           <p className="text-muted-foreground mt-2">
-            Tous les bulletins générés par filière et par session : les trois semestres de chaque
-            étudiant, avec le statut global de la filière.
+            Tous les bulletins générés par classe et par session : les trois semestres de chaque
+            étudiant, avec le statut global de la classe.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -186,30 +286,41 @@ export default function HistoriqueBulletinsPage() {
         </div>
       )}
 
-      {/* Filtres — filière puis année scolaire */}
+      {/* Filtres — nom de classe puis année scolaire */}
       <Card className="shadow-sm">
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
           <SearchableSelect
-            value={filiereId}
+            className="md:col-span-2"
+            value={anneeClasse}
             onChange={(v) => {
-              setFiliereId(v);
+              setAnneeClasse(v);
+              setNomKey("");
+              setPeriode("");
+            }}
+            icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
+            placeholder={nomsQuery.isLoading ? "Chargement…" : "Année scolaire"}
+            searchPlaceholder="Rechercher une année…"
+            options={anneeClasseOptions}
+          />
+          <SearchableSelect
+            value={nomKey}
+            onChange={(v) => {
+              setNomKey(v);
               setPeriode("");
             }}
             icon={<Layers className="h-4 w-4 text-gray-400" />}
-            placeholder={filieresQuery.isLoading ? "Chargement…" : "Filière"}
-            searchPlaceholder="Rechercher une filière…"
-            options={filieres.map((f) => ({
-              value: f.id,
-              label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
-            }))}
+            disabled={!anneeClasse}
+            placeholder="Nom de classe"
+            searchPlaceholder="Rechercher un nom de classe…"
+            options={nomOptions}
           />
           <SearchableSelect
             value={periode}
             onChange={setPeriode}
             icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
             placeholder={
-              !filiereId
-                ? "Choisir une filière"
+              !nomKey
+                ? "Choisir un nom de classe"
                 : historyQuery.isLoading
                 ? "Chargement…"
                 : periodes.length === 0
@@ -235,7 +346,7 @@ export default function HistoriqueBulletinsPage() {
             color="from-emerald-500 to-green-600"
           />
           <StatCard
-            label="Filière validée"
+            label="Classe validée"
             value={stats.validees}
             color="from-amber-500 to-orange-600"
           />
@@ -244,7 +355,7 @@ export default function HistoriqueBulletinsPage() {
 
       {/* Contenu */}
       {!filiereId ? (
-        <EmptyState text="Choisissez une filière puis une année scolaire pour afficher l'historique." />
+        <EmptyState text="Choisissez une classe puis une année scolaire pour afficher l'historique." />
       ) : historyQuery.isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
@@ -260,14 +371,14 @@ export default function HistoriqueBulletinsPage() {
         <EmptyState
           text={
             periodes.length === 0
-              ? "Aucune session pour cette filière."
+              ? "Aucune session pour cette classe."
               : "Sélectionnez une année scolaire pour afficher le tableau."
           }
         />
       ) : !ready ? (
         <EmptyState text="Aucun semestre ne correspond à cette sélection." />
       ) : students.length === 0 ? (
-        <EmptyState text="Aucun étudiant inscrit dans cette filière." />
+        <EmptyState text="Aucun étudiant inscrit dans cette classe." />
       ) : (
         <Card className="shadow-sm overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 border-b border-border bg-muted/40 px-4 py-3">
@@ -325,10 +436,30 @@ export default function HistoriqueBulletinsPage() {
                             ? "terminé"
                             : "en cours"}
                       </span>
+                      {/* Tous les bulletins du semestre en un seul document :
+                          un étudiant par page, dans l'ordre du tableau. */}
+                      <div className="mt-2 flex items-center justify-center gap-1.5 font-normal">
+                        <BlocButton
+                          label="Bulletins"
+                          title={`Ouvrir en un seul PDF les relevés de notes de ${sm.libelle} pour tous les étudiants affichés`}
+                          busy={busyBloc === `${sm.id}|releve`}
+                          disabled={busyBloc !== null}
+                          onClick={() => ouvrirBloc(sm, "releve")}
+                        />
+                        {btsEligible && (
+                          <BlocButton
+                            label="BTS"
+                            title={`Ouvrir en un seul PDF les bulletins BTS de ${sm.libelle} pour tous les étudiants affichés`}
+                            busy={busyBloc === `${sm.id}|bts`}
+                            disabled={busyBloc !== null}
+                            onClick={() => ouvrirBloc(sm, "bts")}
+                          />
+                        )}
+                      </div>
                     </th>
                   ))}
                   <th className="sticky top-0 z-20 bg-muted/60 px-4 py-3 text-center font-semibold whitespace-nowrap">
-                    Statut filière
+                    Statut classe
                   </th>
                 </tr>
               </thead>
@@ -433,12 +564,40 @@ export default function HistoriqueBulletinsPage() {
 
       {ready && (
         <p className="text-xs text-muted-foreground">
-          « Filière validée » = les {shownSemestres.length} bulletins sont définitifs et la totalité
+          « Classe validée » = les {shownSemestres.length} bulletins sont définitifs et la totalité
           des crédits est acquise. « En cours » = semestres ou rattrapages encore ouverts. « Crédits
           incomplets » = sessions terminées sans la totalité des crédits.
         </p>
       )}
     </div>
+  );
+}
+
+/** Petit bouton d'ouverture d'un bloc de bulletins, dans l'en-tête d'un semestre. */
+function BlocButton({
+  label,
+  title,
+  busy,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  title: string;
+  busy: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+      {label}
+    </button>
   );
 }
 

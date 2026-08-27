@@ -150,6 +150,166 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
   }
 
   /**
+   * Classes encore concernées par l'édition des bulletins : celles ayant au
+   * moins un semestre doté d'une session ET dont les bulletins ne sont pas
+   * clôturés. Même prédicat que le sélecteur de semestre de la page, pour
+   * qu'une classe ne puisse pas apparaître avec une liste de semestres vide.
+   */
+  async listBulletinsFilieres(tenantId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const r = await client.query(
+        `SELECT DISTINCT p.id, p.name, p.code
+         FROM programmes p
+         JOIN professional_semestres sm
+           ON sm.filiere_id = p.id AND sm.tenant_id = p.tenant_id
+         WHERE p.tenant_id = $1
+           AND sm.bulletins_clotures_at IS NULL
+           AND EXISTS (
+             SELECT 1 FROM professional_ue_sessions s
+             WHERE s.tenant_id = sm.tenant_id AND (
+               s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                        WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
+               OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                              WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
+             )
+           )
+         ORDER BY p.name`,
+        [tenantId]
+      );
+      return ok(r.rows);
+    });
+  }
+
+  /**
+   * Noms de classe dont au moins un semestre a été clôturé — sélecteur de la
+   * page Historique. Le miroir exact de `listBulletinsNoms` : un nom bascule
+   * de l'un à l'autre au moment de la clôture.
+   */
+  async listHistoriqueNoms(tenantId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const r = await client.query(
+        `SELECT DISTINCT p.id AS classe_id, p.name AS classe_nom, p.code AS classe_code,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS nom,
+                CASE WHEN EXTRACT(MONTH FROM s.date_debut) >= 9
+                     THEN EXTRACT(YEAR FROM s.date_debut)::int || '-' ||
+                          (EXTRACT(YEAR FROM s.date_debut)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM s.date_debut)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM s.date_debut)::int
+                END AS annee_scolaire
+         FROM programmes p
+         JOIN professional_semestres sm
+           ON sm.filiere_id = p.id AND sm.tenant_id = p.tenant_id
+         JOIN professional_semestre_sessions ss
+           ON ss.semestre_id = sm.id AND ss.tenant_id = sm.tenant_id
+         JOIN professional_ue_sessions s
+           ON s.id = ss.ue_session_id AND s.tenant_id = ss.tenant_id
+         WHERE p.tenant_id = $1 AND sm.bulletins_clotures_at IS NOT NULL
+         ORDER BY annee_scolaire DESC, nom`,
+        [tenantId]
+      );
+      return ok(r.rows);
+    });
+  }
+
+  /**
+   * Noms de classe encore concernés par l'édition des bulletins : ceux ayant
+   * au moins un semestre doté d'une session ET dont les bulletins ne sont pas
+   * clôturés. Même prédicat que `listBulletinsFilieres`, au grain du nom.
+   */
+  async listBulletinsNoms(tenantId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const r = await client.query(
+        `SELECT DISTINCT p.id AS classe_id, p.name AS classe_nom, p.code AS classe_code,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS nom
+         FROM programmes p
+         JOIN professional_semestres sm
+           ON sm.filiere_id = p.id AND sm.tenant_id = p.tenant_id
+         JOIN professional_ue u ON u.filiere_id = p.id AND u.tenant_id = p.tenant_id
+         JOIN professional_ue_sessions s ON s.ue_id = u.id AND s.tenant_id = u.tenant_id
+         WHERE p.tenant_id = $1
+           AND sm.bulletins_clotures_at IS NULL
+           AND (
+             s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
+                      WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
+             OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
+                            WHERE semestre_id = sm.id AND tenant_id = sm.tenant_id)
+           )
+         ORDER BY p.name, nom`,
+        [tenantId]
+      );
+      return ok(r.rows);
+    });
+  }
+
+  /**
+   * Noms de classe pour la saisie des notes, au grain du nom : une classe peut
+   * en porter plusieurs, et on ne saisit pas les notes des deux ensemble.
+   *
+   * Contrairement à `listNotesFilieres`, aucun inscrit n'est exigé : un nom
+   * apparaît dès que sa classe est ouverte, même si personne n'y est encore
+   * inscrit.
+   *
+   * Une ligne par couple (nom, semestre), avec l'année scolaire : les écrans
+   * qui font choisir l'année en premier en dérivent tout leur arbre.
+   */
+  async listNotesNoms(
+    tenantId: string,
+    teacherUserId?: string,
+    scope?: NotesScope
+  ): Promise<ServiceResult<any>> {
+    const scopeFilter = sessionScopeSql(scope, "s");
+    const NOM = `btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1))`;
+    return this.withTenant(tenantId, async (client) => {
+      if (teacherUserId) {
+        const r = await client.query(
+          `SELECT DISTINCT p.id AS classe_id, p.name AS classe_nom, p.code AS classe_code,
+                  ${NOM} AS nom,
+                  CASE WHEN EXTRACT(MONTH FROM s.date_debut) >= 9
+                       THEN EXTRACT(YEAR FROM s.date_debut)::int || '-' ||
+                            (EXTRACT(YEAR FROM s.date_debut)::int + 1)
+                       ELSE (EXTRACT(YEAR FROM s.date_debut)::int - 1) || '-' ||
+                            EXTRACT(YEAR FROM s.date_debut)::int
+                  END AS annee_scolaire,
+                  sm.id AS semestre_id, sm.libelle AS semestre_libelle
+           FROM professional_session_ecue_teachers a
+           JOIN teachers t ON t.id = a.enseignant_id
+           JOIN professional_ue_sessions s ON s.id = a.ue_session_id AND s.tenant_id = a.tenant_id
+           JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
+           JOIN programmes p ON p.id = u.filiere_id
+           LEFT JOIN professional_semestre_sessions ss
+                  ON ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
+           LEFT JOIN professional_semestres sm ON sm.id = ss.semestre_id
+           WHERE a.tenant_id = $1 AND t.user_id = $2 ${scopeFilter}
+           ORDER BY annee_scolaire DESC, nom, sm.libelle`,
+          [tenantId, teacherUserId]
+        );
+        return ok(r.rows);
+      }
+      const r = await client.query(
+        `SELECT DISTINCT p.id AS classe_id, p.name AS classe_nom, p.code AS classe_code,
+                ${NOM} AS nom,
+                CASE WHEN EXTRACT(MONTH FROM s.date_debut) >= 9
+                     THEN EXTRACT(YEAR FROM s.date_debut)::int || '-' ||
+                          (EXTRACT(YEAR FROM s.date_debut)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM s.date_debut)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM s.date_debut)::int
+                END AS annee_scolaire,
+                sm.id AS semestre_id, sm.libelle AS semestre_libelle
+         FROM programmes p
+         JOIN professional_ue u ON u.filiere_id = p.id AND u.tenant_id = p.tenant_id
+         JOIN professional_ue_sessions s ON s.ue_id = u.id AND s.tenant_id = u.tenant_id
+         LEFT JOIN professional_semestre_sessions ss
+                ON ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
+         LEFT JOIN professional_semestres sm ON sm.id = ss.semestre_id
+         WHERE p.tenant_id = $1 ${scopeFilter}
+         ORDER BY annee_scolaire DESC, nom, sm.libelle`,
+        [tenantId]
+      );
+      return ok(r.rows);
+    });
+  }
+
+  /**
    * Semestres d'une filière ayant au moins une session — pour la saisie.
    * Enseignant → uniquement les semestres où il enseigne.
    */
@@ -634,9 +794,35 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
   async listStudentSemestres(tenantId: string, userId: string): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
       const r = await client.query(
-        `SELECT DISTINCT sm.id, sm.libelle, p.name AS filiere_nom, p.code AS filiere_code
+        `SELECT DISTINCT sm.id, sm.libelle, p.name AS filiere_nom, p.code AS filiere_code,
+                ctx.classe_nom, ctx.annee_scolaire
          FROM professional_semestres sm
          LEFT JOIN programmes p ON p.id = sm.filiere_id
+         -- Nom de classe et année scolaire tels que vécus par CET étudiant :
+         -- ils viennent de la cohorte où il est inscrit pour ce semestre, pas
+         -- du programme, qui ne connaît ni l'un ni l'autre.
+         LEFT JOIN LATERAL (
+           SELECT btrim(split_part(s2.libelle, ' ' || chr(8212) || ' ', 1)) AS classe_nom,
+                  CASE WHEN EXTRACT(MONTH FROM s2.date_debut) >= 9
+                       THEN EXTRACT(YEAR FROM s2.date_debut)::int || '-' ||
+                            (EXTRACT(YEAR FROM s2.date_debut)::int + 1)
+                       ELSE (EXTRACT(YEAR FROM s2.date_debut)::int - 1) || '-' ||
+                            EXTRACT(YEAR FROM s2.date_debut)::int
+                  END AS annee_scolaire
+           FROM professional_enrollments en2
+           JOIN student_profiles sp2 ON sp2.id = en2.student_id
+           JOIN professional_ue_sessions s2 ON s2.id = en2.ue_session_id
+                AND s2.tenant_id = en2.tenant_id
+           LEFT JOIN professional_semestre_sessions ss2
+                  ON ss2.ue_session_id = s2.id AND ss2.tenant_id = s2.tenant_id
+           LEFT JOIN professional_semestre_ue su2
+                  ON su2.ue_id = s2.ue_id AND su2.tenant_id = s2.tenant_id
+           WHERE sp2.user_id = $1 AND en2.tenant_id = $2
+             AND en2.statut IN ('confirmee','terminee')
+             AND (ss2.semestre_id = sm.id OR su2.semestre_id = sm.id)
+           ORDER BY s2.date_debut DESC
+           LIMIT 1
+         ) ctx ON TRUE
          WHERE sm.tenant_id = $2 AND sm.id IN (
            SELECT ss.semestre_id FROM professional_semestre_sessions ss
            JOIN professional_enrollments en ON en.ue_session_id = ss.ue_session_id
@@ -775,9 +961,34 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
         return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
       }
       const r = await client.query(
-        `SELECT DISTINCT sm.id, sm.libelle, p.name AS filiere_nom, p.code AS filiere_code
+        `SELECT DISTINCT sm.id, sm.libelle, p.name AS filiere_nom, p.code AS filiere_code,
+                ctx.classe_nom, ctx.annee_scolaire
          FROM professional_semestres sm
          LEFT JOIN programmes p ON p.id = sm.filiere_id
+         -- Nom de classe et année scolaire tels que vécus par CET enfant :
+         -- ils viennent de la cohorte où il est inscrit pour ce semestre, pas
+         -- du programme, qui ne connaît ni l'un ni l'autre.
+         LEFT JOIN LATERAL (
+           SELECT btrim(split_part(s2.libelle, ' ' || chr(8212) || ' ', 1)) AS classe_nom,
+                  CASE WHEN EXTRACT(MONTH FROM s2.date_debut) >= 9
+                       THEN EXTRACT(YEAR FROM s2.date_debut)::int || '-' ||
+                            (EXTRACT(YEAR FROM s2.date_debut)::int + 1)
+                       ELSE (EXTRACT(YEAR FROM s2.date_debut)::int - 1) || '-' ||
+                            EXTRACT(YEAR FROM s2.date_debut)::int
+                  END AS annee_scolaire
+           FROM professional_enrollments en2
+           JOIN professional_ue_sessions s2 ON s2.id = en2.ue_session_id
+                AND s2.tenant_id = en2.tenant_id
+           LEFT JOIN professional_semestre_sessions ss2
+                  ON ss2.ue_session_id = s2.id AND ss2.tenant_id = s2.tenant_id
+           LEFT JOIN professional_semestre_ue su2
+                  ON su2.ue_id = s2.ue_id AND su2.tenant_id = s2.tenant_id
+           WHERE en2.student_id = $1 AND en2.tenant_id = $2
+             AND en2.statut IN ('confirmee','terminee')
+             AND (ss2.semestre_id = sm.id OR su2.semestre_id = sm.id)
+           ORDER BY s2.date_debut DESC
+           LIMIT 1
+         ) ctx ON TRUE
          WHERE sm.tenant_id = $2 AND sm.id IN (
            SELECT ss.semestre_id FROM professional_semestre_sessions ss
            JOIN professional_enrollments en ON en.ue_session_id = ss.ue_session_id
@@ -1110,8 +1321,15 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
    * année scolaire dérivés de leurs sessions d'UE), étudiants inscrits et
    * bulletins GÉNÉRÉS (professional_bulletins) — pour la page « Historique ».
    */
-  async getBulletinHistory(tenantId: string, filiereId: string): Promise<ServiceResult<any>> {
+  async getBulletinHistory(
+    tenantId: string,
+    filiereId: string,
+    classeNom?: string
+  ): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
+      // Une classe peut porter plusieurs noms : sans ce filtre, l'historique
+      // de l'un afficherait les étudiants et les bulletins de l'autre.
+      const NOM = `btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1))`;
       const fil = await client.query(
         `SELECT id, name, code, domaine FROM programmes WHERE id=$1 AND tenant_id=$2`,
         [filiereId, tenantId]
@@ -1141,9 +1359,15 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
          LEFT JOIN professional_bulletins b
            ON b.semestre_id = sm.id AND b.tenant_id = sm.tenant_id
          WHERE sm.tenant_id = $1 AND sm.filiere_id = $2
+           AND ($3::text IS NULL OR EXISTS (
+             SELECT 1 FROM professional_semestre_sessions ss2
+             JOIN professional_ue_sessions s2 ON s2.id = ss2.ue_session_id
+             WHERE ss2.semestre_id = sm.id AND ss2.tenant_id = sm.tenant_id
+               AND btrim(split_part(s2.libelle, ' ' || chr(8212) || ' ', 1)) = $3
+           ))
          GROUP BY sm.id, sm.libelle, sm.bulletins_clotures_at
          ORDER BY sm.libelle`,
-        [tenantId, filiereId]
+        [tenantId, filiereId, classeNom ?? null]
       );
       const semestres = sems.rows.map((r) => {
         let statut: "en_cours" | "terminee" | "aucune";
@@ -1186,8 +1410,9 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
                AND psm.tenant_id = $1
          WHERE en.tenant_id = $1 AND en.statut IN ('confirmee','terminee')
            AND ue.filiere_id = $2
+           AND ($3::text IS NULL OR ${NOM} = $3)
          ORDER BY u.last_name, u.first_name`,
-        [tenantId, filiereId]
+        [tenantId, filiereId, classeNom ?? null]
       );
 
       // Bulletins générés de ces semestres.
@@ -1200,8 +1425,9 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
                 b.data->>'statut_etudiant' AS statut_etudiant
          FROM professional_bulletins b
          JOIN professional_semestres sm ON sm.id = b.semestre_id AND sm.tenant_id = b.tenant_id
-         WHERE b.tenant_id = $1 AND sm.filiere_id = $2`,
-        [tenantId, filiereId]
+         WHERE b.tenant_id = $1 AND sm.filiere_id = $2
+           AND ($3::text IS NULL OR b.semestre_id = ANY($4::uuid[]))`,
+        [tenantId, filiereId, classeNom ?? null, semestres.map((x) => x.id)]
       );
 
       return ok({

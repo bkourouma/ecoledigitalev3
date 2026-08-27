@@ -17,6 +17,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openEcueReportPdf } from "@/lib/utils/ecue-report";
 import { useBilanTypes } from "@/lib/hooks/use-bilan-types";
 import {
   useAllProfessionalEcueList,
@@ -122,6 +124,33 @@ export default function ProfessionalEcueListPage() {
     setPage(1);
   }, [ueFilter, filiereFilter]);
 
+  /**
+   * Le catalogue ne s'exporte qu'en PDF, et reprend la liste telle qu'elle est
+   * filtrée à l'écran (classe et UE), pagination comprise mise à plat.
+   */
+  async function handleExport(win: Window) {
+    setError(null);
+    const ueSelectionnee = filteredUes.find((u: any) => u.id === ueFilter);
+    await openEcueReportPdf(
+      filteredItems,
+      {
+        classe:
+          filiereFilter === "all"
+            ? "Toutes les classes"
+            : `Classe : ${
+                filieres.find((f: any) => f.id === filiereFilter)?.name ?? filiereFilter
+              }`,
+        ue:
+          ueFilter === "all"
+            ? "Toutes les UE"
+            : `UE : ${
+                ueSelectionnee ? `${ueSelectionnee.code} — ${ueSelectionnee.libelle}` : ueFilter
+              }`,
+      },
+      win
+    );
+  }
+
   async function handleDelete(id: string) {
     setError(null);
     if (
@@ -152,13 +181,21 @@ export default function ProfessionalEcueListPage() {
             et les UV sont portés par l'UE.
           </p>
         </div>
-        <Button
-          onClick={() => router.push("/professionnel/admin/matieres/new")}
-          className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nouvelle ECUE
-        </Button>
+        <div className="flex gap-2">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={ecueQuery.isLoading || filteredItems.length === 0}
+            onExportPdf={handleExport}
+            onError={setError}
+          />
+          <Button
+            onClick={() => router.push("/professionnel/admin/matieres/new")}
+            className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle ECUE
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -207,10 +244,10 @@ export default function ProfessionalEcueListPage() {
                   setUeFilter("all");
                 }}
                 icon={<Layers className="h-4 w-4 text-gray-400" />}
-                placeholder={filieresQuery.isLoading ? "Chargement…" : "Filtrer par filière"}
-                searchPlaceholder="Rechercher une filière…"
+                placeholder={filieresQuery.isLoading ? "Chargement…" : "Filtrer par classe"}
+                searchPlaceholder="Rechercher une classe…"
                 options={[
-                  { value: "all", label: "Toutes les filières" },
+                  { value: "all", label: "Toutes les classes" },
                   ...filieres.map((f: any) => ({
                     value: f.id,
                     label: `${f.name}${f.code ? ` (${f.code})` : ""}`,

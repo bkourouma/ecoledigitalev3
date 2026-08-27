@@ -53,7 +53,11 @@ export interface AttestationRoster {
 
 export class ProfessionalAttestationsService extends ProfessionalBaseService {
   /** Roster des étudiants inscrits dans la filière, avec leur progression. */
-  async getRoster(tenantId: string, filiereId: string): Promise<ServiceResult<AttestationRoster>> {
+  async getRoster(
+    tenantId: string,
+    filiereId: string,
+    classeNom?: string
+  ): Promise<ServiceResult<AttestationRoster>> {
     return this.withTenant(tenantId, async (client) => {
       const filiere = await this.selectFiliere(client, tenantId, filiereId);
       if (!filiere) return fail("FILIERE_NOT_FOUND", "Filière introuvable.");
@@ -77,8 +81,12 @@ export class ProfessionalAttestationsService extends ProfessionalBaseService {
                 ON psm.student_id = en.student_id AND psm.filiere_id = $2
                AND psm.tenant_id = en.tenant_id
          WHERE en.tenant_id = $1 AND en.statut IN ('confirmee','terminee') AND ue.filiere_id = $2
+           -- Une classe peut porter plusieurs noms : on ne mélange pas leurs
+           -- inscrits. Le nom est le libellé de la session sans « — CODE UE ».
+           AND ($3::text IS NULL
+                OR btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) = $3)
          ORDER BY nom_complet ASC`,
-        [tenantId, filiereId]
+        [tenantId, filiereId, classeNom ?? null]
       );
 
       // Année scolaire de chaque étudiant, dérivée de la session d'UE la plus

@@ -4,10 +4,10 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, MapPin, User, AlertCircle, BookOpen } from 'lucide-react';
-import { ScheduleSession } from '@ecoledigitale/contracts';
+import { ParentScheduleSession } from '@ecoledigitale/contracts';
 
 interface UpcomingClassesProps {
-  upcomingClasses: ScheduleSession[] | null;
+  upcomingClasses: ParentScheduleSession[] | null;
   isLoading?: boolean;
   error?: Error | null;
 }

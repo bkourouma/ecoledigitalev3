@@ -140,7 +140,7 @@ export default function SemestreSessionsDetailPage() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-              Sessions — {semestre?.libelle ?? "Semestre"}
+              Classes — {semestre?.libelle ?? "Semestre"}
             </h1>
             <p className="text-muted-foreground mt-1 text-sm flex items-center gap-1.5">
               <Layers className="h-4 w-4" />
@@ -155,30 +155,30 @@ export default function SemestreSessionsDetailPage() {
           onClick={() => router.push(`${LIST_URL}/new`)}
           className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white"
         >
-          Nouvelles sessions
+          Ouvrir une classe
         </Button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard label="Sessions (UE)" value={sessions.length} icon={CalendarRange} gradient="from-green-500 to-emerald-600" />
+        <StatCard label="Classes (UE)" value={sessions.length} icon={CalendarRange} gradient="from-green-500 to-emerald-600" />
         <StatCard label="Lots" value={batches.length} icon={Layers} gradient="from-indigo-500 to-purple-600" />
         <StatCard label="Crédits" value={totalUv} icon={GraduationCap} gradient="from-purple-500 to-pink-600" />
       </div>
 
-      {/* Lots de sessions */}
+      {/* Lots de classes */}
       {sessions.length === 0 ? (
         <Card className="shadow-lg">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
             <div className="bg-gradient-to-br from-green-100 to-blue-100 rounded-full w-16 h-16 flex items-center justify-center">
               <CalendarRange className="h-8 w-8 text-green-600" />
             </div>
-            <p className="text-gray-600">Aucune session pour ce semestre.</p>
+            <p className="text-gray-600">Aucune classe ouverte pour ce semestre.</p>
             <Button
               onClick={() => router.push(`${LIST_URL}/new`)}
               className="bg-gradient-to-r from-green-500 to-blue-600 text-white"
             >
-              Créer des sessions
+              Créer des classes
             </Button>
           </CardContent>
         </Card>

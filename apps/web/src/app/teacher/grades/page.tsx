@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import {
@@ -18,20 +18,142 @@ import {
   Plus,
   Loader2
 } from 'lucide-react';
-import { useTeacherAssignments, useTeacherAssignmentStudents } from '@/lib/hooks/use-teachers';
+import { useTeacherSessions, useTeacherStudents } from '@/lib/hooks/use-professional-teacher';
+import { SearchableSelect } from '@/components/SearchableSelect';
+
+/**
+ * Année scolaire d'une cohorte, d'après sa date de début. Bascule au 1er
+ * septembre, comme les requêtes du module professionnel : une même classe
+ * doit porter la même année ici et côté administration.
+ */
+function anneeScolaireOf(date?: string | null): string {
+  const d = date ? new Date(date) : null;
+  if (!d || isNaN(d.getTime())) return '';
+  const y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+  return `${y}-${y + 1}`;
+}
+
+/**
+ * Nom de classe porté par une ligne : le libellé de sa cohorte, amputé du
+ * suffixe « — CODE UE ». Une classe pouvant porter plusieurs noms, c'est lui
+ * qui identifie le groupe enseigné, pas la filière.
+ */
+function nomDeClasseOf(r: any): string {
+  // Les cohortes exposent « libelle », la liste d'étudiants « session_libelle ».
+  const lib = String(r.session_libelle ?? r.libelle ?? '').trim();
+  const code = String(r.ue_code ?? '').trim();
+  if (code && lib.endsWith(code)) {
+    return lib.slice(0, lib.length - code.length).replace(/[\s—–-]+$/u, '').trim() || lib;
+  }
+  return lib;
+}
 
 export default function GradesPage() {
   const { data: session, status } = useSession();
+  // L'année scolaire commande la sélection : elle restreint les noms de
+  // classe, qui restreignent à leur tour les cours proposés.
+  const [annee, setAnnee] = useState('');
+  // « filiereId|nom »
+  const [nomKey, setNomKey] = useState('');
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedAssignment, setSelectedAssignment] = useState('');
-  const [editingGrade, setEditingGrade] = useState<number | null>(null);
-  const [grades, setGrades] = useState<{[key: number]: number | string}>({});
+  const [editingGrade, setEditingGrade] = useState<string | null>(null);
+  const [grades, setGrades] = useState<{[key: string]: number | string}>({});
 
-  // Fetch real data
-  const { data: assignments = [], isLoading: assignmentsLoading } = useTeacherAssignments();
-  const { data: students = [], isLoading: studentsLoading } = useTeacherAssignmentStudents(selectedCourse);
+  // Cohortes où l'enseignant intervient, et leurs inscrits : l'API ne renvoie
+  // que ses propres affectations.
+  const { data: sessionsData, isLoading: assignmentsLoading } = useTeacherSessions();
+  const { data: studentsData, isLoading: studentsLoading } = useTeacherStudents();
+  const sessions: any[] = (sessionsData as any[]) ?? [];
+  const allStudents: any[] = (studentsData as any[]) ?? [];
 
-  // Redirect if not authenticated
+  // Années scolaires des cohortes de l'enseignant.
+  const anneeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of sessions) {
+      const a = anneeScolaireOf(s.date_debut);
+      if (a) set.add(a);
+    }
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ value, label: value }));
+  }, [sessions]);
+
+  // Noms de classe de l'année retenue.
+  const nomOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of sessions) {
+      const nom = nomDeClasseOf(s);
+      if (!s.filiere_id || !nom) continue;
+      if (annee && anneeScolaireOf(s.date_debut) !== annee) continue;
+      map.set(`${s.filiere_id}|${nom}`, nom);
+    }
+    return Array.from(map, ([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label, 'fr')
+    );
+  }, [sessions, annee]);
+
+  // Cours (cohortes d'UE) du nom de classe retenu.
+  const courses = useMemo(() => {
+    if (!nomKey) return [] as any[];
+    return sessions
+      .filter((s) => `${s.filiere_id}|${nomDeClasseOf(s)}` === nomKey)
+      .filter((s) => (annee ? anneeScolaireOf(s.date_debut) === annee : true))
+      .map((s) => ({
+        id: s.id,
+        name: `${s.ue_libelle ?? ''}${s.ue_code ? ` (${s.ue_code})` : ''}`.trim(),
+        class: nomDeClasseOf(s),
+      }));
+  }, [sessions, nomKey, annee]);
+
+  // Première année proposée par défaut.
+  useEffect(() => {
+    if (!annee && anneeOptions.length > 0) setAnnee(anneeOptions[0].value);
+  }, [anneeOptions, annee]);
+
+  // Changer d'année peut faire disparaître le nom retenu, et changer de nom
+  // le cours retenu.
+  useEffect(() => {
+    if (nomKey && !nomOptions.some((o) => o.value === nomKey)) {
+      setNomKey('');
+      setSelectedCourse('');
+    }
+  }, [nomOptions, nomKey]);
+  useEffect(() => {
+    if (selectedCourse && !courses.some((c: any) => c.id === selectedCourse)) {
+      setSelectedCourse('');
+    }
+  }, [courses, selectedCourse]);
+
+  // Inscrits de la cohorte choisie.
+  const students = useMemo(
+    () => (selectedCourse ? allStudents.filter((st) => st.ue_session_id === selectedCourse) : []),
+    [allStudents, selectedCourse]
+  );
+
+  const assignmentTypes = [
+    { id: 'ctrl1', name: 'Contrôle 1 - Fonctions', totalPoints: 20, type: 'Contrôle' },
+    { id: 'td1', name: 'TD 1 - Exercices', totalPoints: 10, type: 'TD' },
+    { id: 'exam1', name: 'Examen Partiel', totalPoints: 40, type: 'Examen' },
+    { id: 'proj1', name: 'Projet de Groupe', totalPoints: 30, type: 'Projet' }
+  ];
+
+  // Une ligne par étudiant de la cohorte.
+  const transformedStudents = useMemo(() => {
+    return students.map((student: any) => ({
+      id: String(student.student_id ?? student.id),
+      firstName: student.first_name ?? '',
+      lastName: student.last_name ?? '',
+      matricule: student.matricule,
+      email: student.email,
+      currentGrade: null as number | null,
+      hasSubmitted: false,
+    }));
+  }, [students]);
+
+  const selectedCourseData = courses.find((c: any) => c.id === selectedCourse);
+  const selectedAssignmentData = assignmentTypes.find(a => a.id === selectedAssignment);
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -44,7 +166,7 @@ export default function GradesPage() {
     redirect('/login');
   }
 
-  // Check if user has teacher role
+  // L'écran est réservé aux enseignants.
   const roles = (session as any)?.roles ?? [];
   const isTeacher = Array.isArray(roles) && roles.some((r: string) => ['teacher', 'Enseignant'].includes(r));
 
@@ -52,47 +174,14 @@ export default function GradesPage() {
     redirect('/');
   }
 
-  // Process real data
-  const courses = useMemo(() => {
-    return assignments.map((assignment: any) => ({
-      id: assignment.id,
-      name: assignment.courseName,
-      class: assignment.className
-    }));
-  }, [assignments]);
-
-  const assignmentTypes = [
-    { id: 'ctrl1', name: 'Contrôle 1 - Fonctions', totalPoints: 20, type: 'Contrôle' },
-    { id: 'td1', name: 'TD 1 - Exercices', totalPoints: 10, type: 'TD' },
-    { id: 'exam1', name: 'Examen Partiel', totalPoints: 40, type: 'Examen' },
-    { id: 'proj1', name: 'Projet de Groupe', totalPoints: 30, type: 'Projet' }
-  ];
-
-  // Transform students data
-  const transformedStudents = useMemo(() => {
-    return students.map((student: any) => ({
-      id: student.id,
-      firstName: student.first_name || student.firstName,
-      lastName: student.last_name || student.lastName,
-      matricule: student.matricule,
-      email: student.email,
-      currentGrade: student.currentGrade || null,
-      hasSubmitted: student.hasSubmitted || false,
-      submissionDate: student.submissionDate || null
-    }));
-  }, [students]);
-
-  const selectedCourseData = courses.find(c => c.id === selectedCourse);
-  const selectedAssignmentData = assignmentTypes.find(a => a.id === selectedAssignment);
-
-  const handleGradeChange = (studentId: number, value: string) => {
+  const handleGradeChange = (studentId: string, value: string) => {
     setGrades(prev => ({
       ...prev,
       [studentId]: value
     }));
   };
 
-  const handleSaveGrade = (studentId: number) => {
+  const handleSaveGrade = (studentId: string) => {
     const grade = grades[studentId];
     if (grade !== undefined && grade !== '') {
       // Here you would save to your API
@@ -168,25 +257,55 @@ export default function GradesPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Course and Assignment Selection */}
         <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Sélection du Cours et de l'Évaluation</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Sélection de la classe et de l'évaluation</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
+                Année scolaire *
+              </label>
+              <SearchableSelect
+                value={annee}
+                onChange={(v) => {
+                  setAnnee(v);
+                  setNomKey('');
+                  setSelectedCourse('');
+                }}
+                placeholder={assignmentsLoading ? "Chargement…" : "Année scolaire"}
+                searchPlaceholder="Rechercher une année…"
+                options={anneeOptions}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nom de classe *
+              </label>
+              <SearchableSelect
+                value={nomKey}
+                onChange={(v) => {
+                  setNomKey(v);
+                  setSelectedCourse('');
+                }}
+                disabled={!annee}
+                placeholder="Nom de classe"
+                searchPlaceholder="Rechercher un nom de classe…"
+                options={nomOptions}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Cours *
               </label>
-              <select
+              <SearchableSelect
                 value={selectedCourse}
-                onChange={(e) => setSelectedCourse(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="">Sélectionner un cours</option>
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.name} ({course.class})
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedCourse}
+                disabled={!nomKey}
+                placeholder="Cours"
+                searchPlaceholder="Rechercher un cours…"
+                options={courses.map((course: any) => ({ value: course.id, label: course.name }))}
+              />
             </div>
 
             <div>

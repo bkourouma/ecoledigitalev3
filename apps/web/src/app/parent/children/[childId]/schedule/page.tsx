@@ -7,7 +7,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import Link from 'next/link';
-import { useChildDetails, useUpcomingClasses } from '@/lib/hooks/use-parent-children';
+import { useChildDetails, useChildSchedule, useUpcomingClasses } from '@/lib/hooks/use-parent-children';
+import { useChildEmploiTemps } from '@/lib/hooks/use-professional-emploi-temps';
+import { ChildEmploiTemps } from '../../../components/ChildEmploiTemps';
+import { ChildSchedule } from '../../../components/ChildSchedule';
 import { UpcomingClasses } from '../../../components/UpcomingClasses';
 
 export default function ChildSchedulePage() {
@@ -49,7 +52,13 @@ export default function ChildSchedulePage() {
 
   // Fetch child details, schedule, and upcoming classes
   const { data: childData, isLoading: isLoadingChild, error: childError } = useChildDetails(childId);
+  const { data: scheduleData, isLoading: isLoadingSchedule, error: scheduleError } = useChildSchedule(childId, currentWeek);
   const { data: upcomingClassesData, isLoading: isLoadingUpcoming, error: upcomingError } = useUpcomingClasses(childId);
+  // Module professionnel : ces élèves n'ont pas de classe ni de séances au sens
+  // du portail classique. Dès qu'ils ont des créneaux, c'est la grille du module
+  // professionnel qui fait foi — la même que dans l'espace étudiant.
+  const { data: professionalSlots } = useChildEmploiTemps(childId);
+  const isProfessional = Array.isArray(professionalSlots) && professionalSlots.length > 0;
 
   const child = childData?.data?.child;
   const { weekStart, weekEnd } = useMemo(() => {
@@ -62,6 +71,7 @@ export default function ChildSchedulePage() {
     const dd = String(endDate.getDate()).padStart(2, '0');
     return { weekStart: start, weekEnd: `${yy}-${mm}-${dd}` };
   }, [currentWeek]);
+  const schedule = scheduleData?.data?.schedule || [];
   const upcomingClasses = upcomingClassesData?.data?.upcomingClasses || [];
 
   // Navigation functions
@@ -157,6 +167,10 @@ export default function ChildSchedulePage() {
               </div>
             </CardContent>
           </Card>
+        ) : isProfessional ? (
+          /* Module professionnel : grille hebdomadaire + cascade de filtres,
+             identique à « Mon emploi du temps » de l'espace étudiant. */
+          <ChildEmploiTemps childId={childId} />
         ) : (
           <div className="space-y-6">
             {/* Week Navigation */}
@@ -208,6 +222,15 @@ export default function ChildSchedulePage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Weekly Schedule */}
+            <ChildSchedule
+              schedule={schedule}
+              weekStart={weekStart}
+              weekEnd={weekEnd}
+              isLoading={isLoadingSchedule}
+              error={scheduleError as Error | null}
+            />
 
             {/* Upcoming Classes */}
             <UpcomingClasses

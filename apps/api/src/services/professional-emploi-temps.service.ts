@@ -38,6 +38,31 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
     });
   }
 
+  /**
+   * Noms de classe ayant au moins une session encore OUVERTE.
+   *
+   * Le planning se construit pour un nom de classe précis : deux noms d'une
+   * même classe peuvent tourner sur le même semestre avec des ECUE distinctes.
+   * Le nom se déduit du libellé de la session, dont on retire le suffixe
+   * « — CODE UE ».
+   */
+  async listNomsWithOpenSessions(tenantId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const res = await client.query(
+        `SELECT DISTINCT p.id AS classe_id, p.name AS classe_nom, p.code AS classe_code,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS nom
+         FROM professional_ue_sessions s
+         JOIN professional_ue u ON u.id = s.ue_id
+         JOIN programmes p ON p.id = u.filiere_id
+         WHERE s.tenant_id = $1
+           AND ${ProfessionalEmploiTempsService.OPEN_SESSION_CLAUSE}
+         ORDER BY p.name, nom`,
+        [tenantId]
+      );
+      return ok(res.rows);
+    });
+  }
+
   /** Semestres d'une filière ayant au moins une session encore OUVERTE. */
   async listSemestresWithOpenSessions(
     tenantId: string,
@@ -100,6 +125,43 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
     });
   }
 
+  /**
+   * Options de consultation : un enregistrement par couple
+   * (nom de classe, semestre) possédant au moins un créneau, avec son année
+   * scolaire. La page en dérive ses trois listes déroulantes sans avoir à
+   * enchaîner trois requêtes dépendantes.
+   *
+   * L'année scolaire suit le pivot de septembre, comme partout ailleurs.
+   */
+  async listConsultationOptions(tenantId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const res = await client.query(
+        `SELECT DISTINCT
+                p.id AS classe_id, p.name AS classe_nom, p.code AS classe_code,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS nom,
+                sm.id AS semestre_id, sm.libelle AS semestre_libelle,
+                CASE WHEN EXTRACT(MONTH FROM min(s.date_debut) OVER w) >= 9
+                     THEN EXTRACT(YEAR FROM min(s.date_debut) OVER w)::int || '-' ||
+                          (EXTRACT(YEAR FROM min(s.date_debut) OVER w)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM min(s.date_debut) OVER w)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM min(s.date_debut) OVER w)::int
+                END AS annee_scolaire
+         FROM professional_emploi_temps et
+         JOIN professional_ue_sessions s ON s.id = et.ue_session_id AND s.tenant_id = et.tenant_id
+         JOIN professional_ue u ON u.id = s.ue_id
+         JOIN programmes p ON p.id = u.filiere_id
+         JOIN professional_semestre_sessions ss
+           ON ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
+         JOIN professional_semestres sm ON sm.id = ss.semestre_id
+         WHERE et.tenant_id = $1
+         WINDOW w AS (PARTITION BY sm.id)
+         ORDER BY annee_scolaire DESC, nom, sm.libelle`,
+        [tenantId]
+      );
+      return ok(res.rows);
+    });
+  }
+
   /** Liste les emplois du temps d'un semestre = périodes distinctes (date début/fin). */
   async listEmploisDuTemps(tenantId: string, semestreId: string): Promise<ServiceResult<any>> {
     return this.withTenant(tenantId, async (client) => {
@@ -157,6 +219,7 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
         `SELECT et.id, et.jour, et.heure_debut::text AS heure_debut, et.heure_fin::text AS heure_fin,
                 et.date_debut::text AS date_debut, et.date_fin::text AS date_fin,
                 et.ue_session_id, u.code AS ue_code, u.libelle AS ue_libelle,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS classe_nom,
                 et.ecue_id, e.code AS ecue_code, e.libelle AS ecue_libelle,
                 et.enseignant_id, te.first_name, te.last_name,
                 et.classroom_id, c.name AS classroom_name, c.code AS classroom_code
@@ -190,6 +253,7 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
     return this.withTenant(tenantId, async (client) => {
       const res = await client.query(
         `SELECT s.id AS ue_session_id, u.code AS ue_code, u.libelle AS ue_libelle,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS classe_nom,
                 e.id AS ecue_id, e.code AS ecue_code, e.libelle AS ecue_libelle, l.ordre,
                 t.enseignant_id, te.first_name, te.last_name
          FROM professional_semestre_sessions ss
@@ -208,11 +272,7 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
     });
   }
 
-  /**
-   * Emploi du temps de l'étudiant connecté : créneaux des sessions (cohortes)
-   * où il est inscrit (confirmé/terminé). La Conduite (note, pas une matière)
-   * est exclue.
-   */
+  /** Emploi du temps de l'étudiant connecté. */
   async listStudentEmploiTemps(
     tenantId: string,
     userId: string
@@ -225,6 +285,42 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
       const studentId =
         sp.rowCount && sp.rowCount > 0 ? (sp.rows[0].id as string) : null;
       if (!studentId) return fail("NOT_FOUND", "Profil étudiant introuvable.");
+      return ok(await this.queryEmploiTempsForStudent(client, tenantId, studentId));
+    });
+  }
+
+  /**
+   * Emploi du temps d'un enfant, pour son parent : même grille que celle de
+   * l'espace étudiant, à condition que le lien parent-enfant existe.
+   */
+  async listChildEmploiTemps(
+    tenantId: string,
+    parentUserId: string,
+    childId: string
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const link = await client.query(
+        `SELECT 1 FROM student_parents
+         WHERE parent_id = $1 AND student_id = $2 AND tenant_id = $3
+         LIMIT 1`,
+        [parentUserId, childId, tenantId]
+      );
+      if (!link.rowCount) {
+        return fail("FORBIDDEN", "Cet élève n'est pas rattaché à votre compte.");
+      }
+      return ok(await this.queryEmploiTempsForStudent(client, tenantId, childId));
+    });
+  }
+
+  /**
+   * Créneaux des cohortes où l'élève est inscrit (confirmé/terminé). La Conduite
+   * (note de comportement, pas une matière) est exclue.
+   */
+  private async queryEmploiTempsForStudent(
+    client: any,
+    tenantId: string,
+    studentId: string
+  ): Promise<any[]> {
       const res = await client.query(
         `SELECT et.id, et.jour,
                 et.heure_debut::text AS heure_debut, et.heure_fin::text AS heure_fin,
@@ -232,6 +328,14 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
                 et.ecue_id, e.code AS ecue_code, e.libelle AS ecue_libelle,
                 u.code AS ue_code, u.libelle AS ue_libelle,
                 p.name AS filiere_nom, p.code AS filiere_code,
+                btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS classe_nom,
+                CASE WHEN EXTRACT(MONTH FROM s.date_debut) >= 9
+                     THEN EXTRACT(YEAR FROM s.date_debut)::int || '-' ||
+                          (EXTRACT(YEAR FROM s.date_debut)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM s.date_debut)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM s.date_debut)::int
+                END AS annee_scolaire,
+                sm.id AS semestre_id, sm.libelle AS semestre_libelle,
                 et.enseignant_id, te.first_name, te.last_name,
                 et.classroom_id, c.name AS classroom_name, c.code AS classroom_code
          FROM professional_emploi_temps et
@@ -243,13 +347,17 @@ export class ProfessionalEmploiTempsService extends ProfessionalBaseService {
               AND en.student_id = $2 AND en.statut IN ('confirmee','terminee')
          LEFT JOIN teachers te ON te.id = et.enseignant_id
          LEFT JOIN classrooms c ON c.id = et.classroom_id
+         -- Rattachement au semestre : en LEFT, un créneau non rattaché ne doit
+         -- pas disparaître de l'emploi du temps.
+         LEFT JOIN professional_semestre_sessions ss
+                ON ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
+         LEFT JOIN professional_semestres sm ON sm.id = ss.semestre_id
          WHERE et.tenant_id = $1
            AND NOT (e.libelle ILIKE 'conduite%' OR e.code ILIKE '%EC-CON%')
          ORDER BY et.jour, et.heure_debut`,
         [tenantId, studentId]
       );
-      return ok(res.rows);
-    });
+      return res.rows;
   }
 
   /** Vérifie que l'ECUE est bien rattachée à l'UE de la session. */

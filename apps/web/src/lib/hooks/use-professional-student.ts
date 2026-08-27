@@ -170,3 +170,44 @@ export function useMyProfessionalEnrollments() {
     queryFn: () => apiFetch(`${BASE}/enrollments`),
   });
 }
+
+/* ------------------------ Présences & absences ----------------------- */
+
+/**
+ * Séances des cohortes de l'étudiant connecté avec son pointage éventuel —
+ * mêmes lignes que celles servies au parent. Alimente
+ * `/professionnel/etudiant/presences`.
+ */
+export function useMyAttendanceHistory() {
+  return useQuery({
+    queryKey: ["professional-student-attendance"],
+    queryFn: () => apiFetch(`${BASE}/attendance`),
+  });
+}
+
+/* ------------------------- Suivi des versements ---------------------- */
+
+/**
+ * Versements de l'étudiant connecté : la traçabilité de « Mes paiements ».
+ *
+ * La charge utile ne porte NI numéro NI lien de reçu — l'espace étudiant suit
+ * ses règlements, il ne délivre pas de reçus.
+ */
+export function useMyProfessionalPayments() {
+  return useQuery<{ payments: any[]; total_verse: number }>({
+    queryKey: ["professional-student-payments"],
+    queryFn: () => apiFetch(`${BASE}/payments`),
+  });
+}
+
+/**
+ * Reçus de l'étudiant connecté : mêmes lignes que celles servies au parent
+ * (numéro de reçu, matricule, filière, UE réglées, contexte scolaire), pour
+ * regénérer le reçu PDF. Alimente « Bulletins & Reçus » de l'espace étudiant.
+ */
+export function useMyProfessionalReceipts() {
+  return useQuery<any[]>({
+    queryKey: ["professional-student-receipts"],
+    queryFn: () => apiFetch(`${BASE}/receipts`),
+  });
+}

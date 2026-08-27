@@ -39,6 +39,7 @@ import {
   semShort,
   semestreLabelShort,
 } from "@/lib/bulletin-format";
+import { useFiltresScolaires } from "@/components/FiltresScolaires";
 
 /**
  * Détail d'un enfant — espace parent (Module Professionnel, feature 030).
@@ -151,7 +152,8 @@ export default function ChildDetailPage() {
                 <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1.5 font-mono">
                     <Hash className="h-3.5 w-3.5" />
-                    {child.student_number ?? "—"}
+                    {/* Matricule IPAM de la filière, numéro d'établissement à défaut. */}
+                    {child.professional_matricule || child.student_number || "—"}
                   </span>
                   {child.email && (
                     <span className="flex items-center gap-1.5 truncate">
@@ -230,7 +232,10 @@ export default function ChildDetailPage() {
 
 function AttendanceSection({ childId }: { childId: string }) {
   const query = useChildAttendanceHistory(childId || null);
-  const records: any[] = (query.data as any[]) ?? [];
+  const toutes: any[] = (query.data as any[]) ?? [];
+  // Chaque séance porte le contexte de sa cohorte : année, nom de classe et
+  // semestre. Statistiques ET historique portent sur la sélection.
+  const { visibles: records, barre } = useFiltresScolaires(toutes);
 
   const stats = useMemo(() => {
     let present = 0, absent = 0, retard = 0, excuse = 0, pointes = 0;
@@ -254,6 +259,8 @@ function AttendanceSection({ childId }: { childId: string }) {
         <CalendarCheck className="h-5 w-5 text-emerald-400" />
         <h2 className="text-xl font-bold text-foreground">Présences & absences</h2>
       </div>
+
+      {toutes.length > 0 && <div className="mb-4">{barre}</div>}
 
       {query.isLoading ? (
         <div className="flex justify-center py-10">
@@ -289,7 +296,11 @@ function AttendanceSection({ childId }: { childId: string }) {
           {pointed.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
-                Aucun pointage de présence pour le moment.
+                {toutes.length === 0
+                  ? "Aucun pointage de présence pour le moment."
+                  : records.length === 0
+                    ? "Aucune séance pour les filtres sélectionnés."
+                    : "Aucun pointage de présence sur cette sélection."}
               </CardContent>
             </Card>
           ) : (
@@ -371,9 +382,21 @@ function AttStat({ icon, label, value }: { icon: ReactNode; label: string; value
 function NotesSection({ childId }: { childId: string }) {
   const semestresQuery = useChildBulletinSemestres(childId || null);
   const semestres: any[] = (semestresQuery.data as any[]) ?? [];
+  // Un semestre porte déjà son contexte : il sert directement de ligne aux
+  // filtres année scolaire → nom de classe → semestre.
+  const { visibles, barre } = useFiltresScolaires(
+    semestres.map((s) => ({ ...s, semestre_id: s.id, semestre_libelle: s.libelle }))
+  );
+  // Tri chronologique : l'année d'abord, puis le rang du semestre. Trier sur le
+  // seul rang mettrait côte à côte le Semestre 1 de deux années différentes.
   const sorted = useMemo(
-    () => [...semestres].sort((a, b) => semNum(a.libelle) - semNum(b.libelle)),
-    [semestres]
+    () =>
+      [...visibles].sort(
+        (a: any, b: any) =>
+          String(a.annee_scolaire ?? "").localeCompare(String(b.annee_scolaire ?? "")) ||
+          semNum(a.libelle) - semNum(b.libelle)
+      ),
+    [visibles]
   );
 
   return (
@@ -391,6 +414,8 @@ function NotesSection({ childId }: { childId: string }) {
         </Link>
       </div>
 
+      {semestres.length > 0 && <div className="mb-4">{barre}</div>}
+
       {semestresQuery.isLoading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
@@ -407,7 +432,9 @@ function NotesSection({ childId }: { childId: string }) {
       ) : sorted.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            Aucune note disponible : l'enfant n'est inscrit à aucun semestre pour l'instant.
+            {semestres.length === 0
+              ? "Aucune note disponible : l'enfant n'est inscrit à aucun semestre pour l'instant."
+              : "Aucun semestre pour les filtres sélectionnés."}
           </CardContent>
         </Card>
       ) : (
@@ -439,8 +466,14 @@ function SemesterOverview({ childId, semestre }: { childId: string; semestre: an
               {semestreLabelShort(semestre.libelle)}
             </p>
             <p className="text-xs text-muted-foreground">
-              {semestre.filiere_nom ?? semestre.filiere_code ?? ""}
-              {bulletin?.annee_academique ? ` · ${bulletin.annee_academique}` : ""}
+              {/* L'année scolaire situe la période, puis le nom de classe
+                  identifie le groupe suivi ; la filière ne sert que de repli. */}
+              {bulletin?.annee_academique ?? semestre.annee_scolaire ?? ""}
+              {(bulletin?.annee_academique ?? semestre.annee_scolaire) &&
+              (semestre.classe_nom ?? semestre.filiere_nom ?? semestre.filiere_code)
+                ? " · "
+                : ""}
+              {semestre.classe_nom ?? semestre.filiere_nom ?? semestre.filiere_code ?? ""}
             </p>
           </div>
         </div>

@@ -280,13 +280,13 @@ export default function InscritDetailPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Session</CardTitle>
-            <CardDescription>UE, filière et période.</CardDescription>
+            <CardDescription>UE, classe et période.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Info label="Session" value={e.session_libelle} />
               <Info label="UE" value={`${e.ue_code ?? ""} ${e.ue_libelle ?? ""}`.trim()} />
-              <Info icon={Layers} label="Filière" value={`${e.filiere_nom ?? ""}${e.filiere_code ? ` (${e.filiere_code})` : ""}`} />
+              <Info icon={Layers} label="Classe" value={`${e.filiere_nom ?? ""}${e.filiere_code ? ` (${e.filiere_code})` : ""}`} />
               <Info icon={Calendar} label="Période" value={`${fmtDate(e.date_debut)} → ${fmtDate(e.date_fin)}`} />
               <Info label="Statut de la session" value={e.session_statut} />
             </div>

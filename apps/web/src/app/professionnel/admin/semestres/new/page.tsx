@@ -93,7 +93,7 @@ export default function NewProfessionalSemestrePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!filiereId) return setError("Veuillez sélectionner une filière.");
+    if (!filiereId) return setError("Veuillez sélectionner une classe.");
 
     const payloadSemestres = blocks
       .map((b) => ({ libelle: b.libelle.trim(), ue_ids: selectedIdsOf(b) }))
@@ -138,7 +138,7 @@ export default function NewProfessionalSemestrePage() {
             Nouveaux semestres
           </h1>
           <p className="text-muted-foreground mt-2">
-            Choisissez une filière, puis composez chaque semestre avec ses UE. Vous pouvez en
+            Choisissez une classe, puis composez chaque semestre avec ses UE. Vous pouvez en
             créer plusieurs à la fois.
           </p>
         </div>
@@ -154,17 +154,17 @@ export default function NewProfessionalSemestrePage() {
         {/* Filière */}
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Filière</CardTitle>
+            <CardTitle>Classe</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Filière</label>
+              <label className="text-sm font-medium">Classe</label>
               <SearchableSelect
                 value={filiereId}
                 onChange={selectFiliere}
                 icon={<Layers className="h-4 w-4 text-gray-400" />}
                 placeholder={
-                  programmesQuery.isLoading ? "Chargement…" : "Sélectionner une filière"
+                  programmesQuery.isLoading ? "Chargement…" : "Sélectionner une classe"
                 }
                 options={filieres.map((f) => ({
                   value: f.id,
@@ -194,7 +194,7 @@ export default function NewProfessionalSemestrePage() {
             ) : ues.length === 0 ? (
               <Card className="shadow-lg">
                 <CardContent className="text-sm text-muted-foreground py-6">
-                  Aucune UE pour cette filière. Créez d'abord des UE (menu UE) avant de composer
+                  Aucune UE pour cette classe. Créez d'abord des UE (menu UE) avant de composer
                   un semestre.
                 </CardContent>
               </Card>

@@ -713,7 +713,8 @@ export const ProfessionalPaymentSchema = z.object({
   statut: ProfessionalPaymentStatutSchema,
   paid_at: z.string().nullable().optional(),
   receipt_number: z.string().nullable().optional(),
-  receipt_url: z.string().nullable().optional(),
+  // Plus de `receipt_url` : l'espace étudiant ne délivre pas de reçu, la route
+  // qu'elle pointait n'existe plus et l'API ne renseigne plus la colonne.
   created_at: z.string(),
   updated_at: z.string(),
 });

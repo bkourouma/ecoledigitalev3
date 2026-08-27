@@ -798,19 +798,53 @@ export class ProfessionalAssignmentsService extends ProfessionalBaseService {
                 ec.code AS ecue_code, ec.libelle AS ecue_libelle,
                 sub.id AS submission_id, sub.statut AS submission_statut,
                 sub.note, sub.appreciation, sub.submitted_at, sub.graded_at,
-                sub.contenu AS submission_contenu, sub.file_url AS submission_file_url
+                sub.contenu AS submission_contenu, sub.file_url AS submission_file_url,
+                -- Contexte de la cohorte, pour les filtres de l'espace parent
+                -- (année scolaire → nom de classe → semestre).
+                btrim(split_part(coh.libelle, ' ' || chr(8212) || ' ', 1)) AS classe_nom,
+                CASE WHEN EXTRACT(MONTH FROM coh.date_debut) >= 9
+                     THEN EXTRACT(YEAR FROM coh.date_debut)::int || '-' ||
+                          (EXTRACT(YEAR FROM coh.date_debut)::int + 1)
+                     ELSE (EXTRACT(YEAR FROM coh.date_debut)::int - 1) || '-' ||
+                          EXTRACT(YEAR FROM coh.date_debut)::int
+                END AS annee_scolaire,
+                sem.id AS semestre_id, sem.libelle AS semestre_libelle
          FROM professional_assignments a
          JOIN professional_ecue ec ON ec.id = a.ecue_id
-         JOIN professional_ue_ecue l ON l.ecue_id = a.ecue_id
-         JOIN professional_ue_sessions s ON s.ue_id = l.ue_id
-         JOIN professional_enrollments e ON e.ue_session_id = s.id
+         -- UNE cohorte par devoir : celle, la plus récente, où l'enfant est
+         -- inscrit et qui porte l'ECUE du devoir. Un JOIN direct dupliquerait
+         -- le devoir autant de fois que l'ECUE apparaît dans des UE suivies —
+         -- c'est ce que dédoublonnait le GROUP BY d'avant, au prix d'un
+         -- contexte inexploitable.
+         JOIN LATERAL (
+           SELECT s.id, s.libelle, s.date_debut, s.ue_id
+           FROM professional_ue_ecue l
+           JOIN professional_ue_sessions s ON s.ue_id = l.ue_id
+           JOIN professional_enrollments e ON e.ue_session_id = s.id
+           WHERE l.ecue_id = a.ecue_id
+             AND e.student_id = $1
+             AND e.statut IN ('confirmee','terminee')
+           ORDER BY s.date_debut DESC NULLS LAST
+           LIMIT 1
+         ) coh ON TRUE
+         -- Semestre de la cohorte : rattachement direct, ou via son UE.
+         LEFT JOIN LATERAL (
+           SELECT sm.id, sm.libelle
+           FROM professional_semestres sm
+           WHERE sm.tenant_id = a.tenant_id
+             AND (EXISTS (SELECT 1 FROM professional_semestre_sessions ss
+                          WHERE ss.semestre_id = sm.id AND ss.ue_session_id = coh.id
+                            AND ss.tenant_id = a.tenant_id)
+               OR EXISTS (SELECT 1 FROM professional_semestre_ue su
+                          WHERE su.semestre_id = sm.id AND su.ue_id = coh.ue_id
+                            AND su.tenant_id = a.tenant_id))
+           ORDER BY sm.libelle
+           LIMIT 1
+         ) sem ON TRUE
          LEFT JOIN professional_assignment_submissions sub
-                ON sub.assignment_id = a.id AND sub.student_id = e.student_id
-         WHERE e.student_id = $1
-           AND e.statut IN ('confirmee','terminee')
-           AND a.statut <> 'brouillon'
+                ON sub.assignment_id = a.id AND sub.student_id = $1
+         WHERE a.statut <> 'brouillon'
            AND a.tenant_id = $2
-         GROUP BY a.id, ec.code, ec.libelle, sub.id
          ORDER BY a.due_at DESC NULLS LAST, a.created_at DESC`,
         [childStudentId, tenantId]
       );

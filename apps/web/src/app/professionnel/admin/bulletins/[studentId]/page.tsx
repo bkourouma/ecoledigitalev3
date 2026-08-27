@@ -262,7 +262,7 @@ export default function BulletinEtudiantPage() {
               variant="outline"
               onClick={() => handlePdf("bts")}
               disabled={busyPdf !== null}
-              title="Disponible pour les filières Licence 1 et 2"
+              title="Disponible pour les classes Licence 1 et 2"
             >
               {busyPdf === "bts" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

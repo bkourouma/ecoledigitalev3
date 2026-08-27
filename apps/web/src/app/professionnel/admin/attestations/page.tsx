@@ -28,7 +28,7 @@ import {
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { ExportButtons } from "@/components/ExportButtons";
 import { openAttestationListePdf } from "@/lib/utils/attestation-report";
-import { useNotesFilieres } from "@/lib/hooks/use-professional-bulletins";
+import { useNotesNoms } from "@/lib/hooks/use-professional-bulletins";
 import {
   useAttestationRoster,
   fetchFiliereAttestation,
@@ -52,55 +52,64 @@ const CYCLE_LABEL: Record<string, string> = {
 
 export default function AttestationsPage() {
   const [cycle, setCycle] = useState<string>(""); // "" = tous les cycles
-  const [filiereId, setFiliereId] = useState("");
+  // Sélection au grain du nom de classe : « classeId|nom ».
+  const [nomKey, setNomKey] = useState("");
   const [annee, setAnnee] = useState(""); // "" = toutes les années
   const [statut, setStatut] = useState<StatutFilter>("tous");
   const [search, setSearch] = useState("");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
 
-  const filieresQuery = useNotesFilieres();
-  const filieres: any[] = (filieresQuery.data as any[]) ?? [];
+  const nomsQuery = useNotesNoms();
+  const filiereId = nomKey ? nomKey.split("|")[0] : "";
+  const nomClasse = nomKey ? nomKey.split("|").slice(1).join("|") : "";
 
-  const rosterQuery = useAttestationRoster(filiereId || null);
+  // Un nom par ligne : l'API en renvoie une par couple (nom, semestre).
+  const noms = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const n of nomsQuery.data ?? []) map.set(`${n.classe_id}|${n.nom}`, n);
+    return Array.from(map.values());
+  }, [nomsQuery.data]);
+
+  const rosterQuery = useAttestationRoster(filiereId || null, nomClasse || undefined);
   const roster: any = rosterQuery.data ?? null;
   const students: any[] = roster?.students ?? [];
   const ueRequises: any[] = roster?.ue_requises ?? [];
 
-  // Cycles présents parmi les filières (pour les onglets).
+  // Cycles présents. Le cycle se lit sur le nom de la CLASSE, pas sur celui
+  // donné à l'ouverture : « Groupe du soir » ne dirait rien du cycle.
   const cyclesPresents = useMemo(() => {
-    const set = new Set(filieres.map((f) => gradeOf(f.name)).filter((g) => g && g !== "—"));
+    const set = new Set(
+      noms.map((n) => gradeOf(n.classe_nom)).filter((g) => g && g !== "—")
+    );
     return CYCLE_ORDER.filter((c) => set.has(c));
-  }, [filieres]);
+  }, [noms]);
 
-  // Filières visibles selon le cycle sélectionné, triées par libellé.
+  // Noms visibles selon le cycle sélectionné, triés par libellé.
   const filiereOptions = useMemo(() => {
-    return filieres
-      .filter((f) => !cycle || gradeOf(f.name) === cycle)
+    return noms
+      .filter((n) => !cycle || gradeOf(n.classe_nom) === cycle)
+      .filter((n) => !annee || n.annee_scolaire === annee)
       .slice()
-      .sort((a, b) => String(a.name).localeCompare(String(b.name), "fr"))
-      .map((f) => ({ value: f.id, label: `${f.name}${f.code ? ` · ${f.code}` : ""}` }));
-  }, [filieres, cycle]);
+      .sort((a, b) => String(a.nom).localeCompare(String(b.nom), "fr"))
+      .map((n) => ({ value: `${n.classe_id}|${n.nom}`, label: n.nom }));
+  }, [noms, cycle, annee]);
 
-  // Si la filière sélectionnée sort du cycle filtré, on la désélectionne.
+  // Si le nom sélectionné sort du cycle filtré, on le désélectionne.
   useEffect(() => {
-    if (filiereId && !filiereOptions.some((o) => o.value === filiereId)) {
-      setFiliereId("");
+    if (nomKey && !filiereOptions.some((o) => o.value === nomKey)) {
+      setNomKey("");
     }
-  }, [filiereOptions, filiereId]);
+  }, [filiereOptions, nomKey]);
 
-  // Années scolaires disponibles parmi les étudiants éligibles du roster.
+  // Années scolaires des classes. Elles commandent la liste des noms, elles
+  // ne peuvent donc pas être dérivées du roster, qui n'existe qu'après.
   const anneeOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const s of students) if (s.annee_scolaire) set.add(s.annee_scolaire);
+    for (const n of noms) if (n.annee_scolaire) set.add(n.annee_scolaire);
     const arr = [...set].sort((a, b) => b.localeCompare(a));
     return [{ value: "", label: "Toutes les années" }, ...arr.map((a) => ({ value: a, label: a }))];
-  }, [students]);
-
-  // Réinitialise le filtre année quand on change de filière.
-  useEffect(() => {
-    setAnnee("");
-  }, [filiereId]);
+  }, [noms]);
 
   // Étudiants après application des filtres client (statut, année, recherche).
   const filtered = useMemo(() => {
@@ -190,9 +199,9 @@ export default function AttestationsPage() {
           Attestations de réussite
         </h1>
         <p className="text-muted-foreground text-sm max-w-3xl">
-          Recherchez un étudiant par filière, année scolaire ou nom, puis générez son attestation.
+          Recherchez un étudiant par classe, année scolaire ou nom, puis générez son attestation.
           L'attestation est délivrable dès que l'étudiant a validé toutes les UE des semestres de sa
-          filière — les années antérieures restent consultables.
+          classe — les années antérieures restent consultables.
         </p>
         {/* Export de la LISTE — l'attestation nominative, elle, se génère
             ligne par ligne dans le tableau. */}
@@ -230,30 +239,37 @@ export default function AttestationsPage() {
             </div>
           )}
 
-          {/* Sélecteurs */}
+          {/* Sélecteurs : l'année commande le nom, les deux sur une ligne. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Filière</label>
-              <SearchableSelect
-                value={filiereId}
-                onChange={setFiliereId}
-                icon={<Layers className="h-4 w-4 text-gray-400" />}
-                placeholder={filieresQuery.isLoading ? "Chargement…" : "Sélectionner une filière"}
-                searchPlaceholder="Rechercher une filière…"
-                options={filiereOptions}
-              />
-            </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                 Année scolaire
               </label>
               <SearchableSelect
                 value={annee}
-                onChange={setAnnee}
+                onChange={(v) => {
+                  setAnnee(v);
+                  setNomKey("");
+                }}
                 icon={<CalendarDays className="h-4 w-4 text-gray-400" />}
                 placeholder="Toutes les années"
                 searchPlaceholder="Rechercher une année…"
                 options={anneeOptions}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Nom de classe
+              </label>
+              <SearchableSelect
+                value={nomKey}
+                onChange={setNomKey}
+                icon={<Layers className="h-4 w-4 text-gray-400" />}
+                placeholder={
+                  nomsQuery.isLoading ? "Chargement…" : "Sélectionner un nom de classe"
+                }
+                searchPlaceholder="Rechercher un nom de classe…"
+                options={filiereOptions}
               />
             </div>
           </div>
@@ -329,7 +345,7 @@ export default function AttestationsPage() {
               <Award className="h-8 w-8 text-amber-500" />
             </div>
             <p className="text-muted-foreground max-w-md">
-              Choisissez une filière pour afficher ses étudiants inscrits et générer leurs
+              Choisissez une classe pour afficher ses étudiants inscrits et générer leurs
               attestations.
             </p>
           </CardContent>
@@ -341,7 +357,7 @@ export default function AttestationsPage() {
       ) : ueRequises.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
-            Cette filière n'a aucune UE rattachée à ses semestres. Composez d'abord ses semestres (
+            Cette classe n'a aucune UE rattachée à ses semestres. Composez d'abord ses semestres (
             <a href="/professionnel/admin/semestres" className="underline">
               Semestres
             </a>

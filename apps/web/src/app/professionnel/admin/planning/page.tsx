@@ -34,7 +34,7 @@ import {
   useEmploiTempsEcue,
   useCreateEmploiTempsSlot,
   useDeleteEmploiTempsSlot,
-  useFilieresWithOpenSessions,
+  useNomsWithOpenSessions,
   useSemestresWithOpenSessions,
 } from "@/lib/hooks/use-professional-emploi-temps";
 import { useClassrooms } from "@/lib/hooks/use-classrooms";
@@ -107,6 +107,8 @@ type RowDraft = {
 
 export default function ProfessionalPlanningPage() {
   const [filiereId, setFiliereId] = useState("");
+  // Nom de classe choisi : le planning se construit pour ce nom précis.
+  const [nomClasse, setNomClasse] = useState("");
   const [semestreId, setSemestreId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -119,7 +121,7 @@ export default function ProfessionalPlanningPage() {
   const [saving, setSaving] = useState(false);
   const rowIdRef = useRef(0);
 
-  const programmesQuery = useFilieresWithOpenSessions();
+  const nomsQuery = useNomsWithOpenSessions();
   const semestresQuery = useSemestresWithOpenSessions(filiereId || null);
   const etQuery = useEmploiTemps(semestreId || null);
   const ecueQuery = useEmploiTempsEcue(semestreId || null);
@@ -127,7 +129,8 @@ export default function ProfessionalPlanningPage() {
   const createMut = useCreateEmploiTempsSlot();
   const deleteMut = useDeleteEmploiTempsSlot();
 
-  const filieres: any[] = (programmesQuery.data as any[]) ?? [];
+  const noms: any[] = (nomsQuery.data as any[]) ?? [];
+  const nomKey = filiereId && nomClasse ? `${filiereId}|${nomClasse}` : "";
   const semestres: any[] = useMemo(() => {
     const list = (semestresQuery.data as any[]) ?? [];
     return filiereId
@@ -136,7 +139,12 @@ export default function ProfessionalPlanningPage() {
   }, [semestresQuery.data, filiereId]);
   const et: any = etQuery.data ?? null;
   const slots: any[] = et?.slots ?? [];
-  const ecues: any[] = (ecueQuery.data as any[]) ?? [];
+  // Un semestre peut porter plusieurs noms de classe : on ne garde que les
+  // ECUE des sessions du nom sélectionné.
+  const ecues: any[] = useMemo(() => {
+    const list = (ecueQuery.data as any[]) ?? [];
+    return nomClasse ? list.filter((e) => e.classe_nom === nomClasse) : list;
+  }, [ecueQuery.data, nomClasse]);
   const classrooms: any[] = (classroomsQuery.data as any)?.data ?? [];
 
   function ecueByKey(key: string) {
@@ -177,8 +185,11 @@ export default function ProfessionalPlanningPage() {
     return map;
   }, [slots]);
 
-  function selectFiliere(id: string) {
-    setFiliereId(id);
+  /** La valeur reçue est « classeId|nom » : on éclate les deux. */
+  function selectNom(key: string) {
+    const [classeId, ...reste] = key.split("|");
+    setFiliereId(classeId ?? "");
+    setNomClasse(reste.join("|"));
     setSemestreId("");
     setRows([]);
   }
@@ -267,10 +278,6 @@ export default function ProfessionalPlanningPage() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
             Emploi du temps
           </h1>
-          <p className="text-muted-foreground mt-2">
-            Ajoutez autant de créneaux que nécessaire (jour + horaire + ECUE), puis enregistrez tout
-            en une fois.
-          </p>
         </div>
         <div className="flex gap-2">
           <Link href="/professionnel/admin/planning/consultation">
@@ -307,31 +314,35 @@ export default function ProfessionalPlanningPage() {
       {/* Filière + semestre */}
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Filière et semestre</CardTitle>
-          <CardDescription>
-            Seules les filières ayant encore une session en cours (non terminée) sont proposées. Les
-            plannings des sessions terminées restent visibles depuis « Consulter ».
-          </CardDescription>
+          <CardTitle>Classe et semestre</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Filière</label>
+            <label className="text-sm font-medium">Nom de la classe</label>
             <SearchableSelect
-              value={filiereId}
-              onChange={selectFiliere}
+              value={nomKey}
+              onChange={selectNom}
               icon={<Layers className="h-4 w-4 text-gray-400" />}
+              searchPlaceholder="Rechercher un nom de classe…"
               placeholder={
-                programmesQuery.isLoading
+                nomsQuery.isLoading
                   ? "Chargement…"
-                  : filieres.length === 0
-                  ? "Aucune filière avec une session en cours"
-                  : "Sélectionner une filière"
+                  : noms.length === 0
+                    ? "Aucune classe avec une session en cours"
+                    : "Sélectionner un nom de classe"
               }
-              options={filieres.map((f) => ({
-                value: f.id,
-                label: `${f.name}${f.code ? ` (${f.code})` : ""}`,
+              options={noms.map((n) => ({
+                value: `${n.classe_id}|${n.nom}`,
+                label: n.nom,
               }))}
             />
+            {nomClasse && (
+              <p className="text-xs text-muted-foreground">
+                Classe :{" "}
+                {noms.find((n) => `${n.classe_id}|${n.nom}` === nomKey)?.classe_nom ??
+                  "—"}
+              </p>
+            )}
           </div>
           {filiereId && (
             <div className="space-y-1.5">
@@ -402,30 +413,16 @@ export default function ProfessionalPlanningPage() {
                     <div className="flex flex-col md:flex-row md:items-end gap-3">
                       <div className="flex-[2] space-y-1">
                         <Label className="text-xs font-medium">ECUE</Label>
-                        <Select
+                        <SearchableSelect
                           value={r.ecueKey}
-                          onValueChange={(v) => updateRow(r.rowId, "ecueKey", v)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner une ECUE" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ecues.length > 0 ? (
-                              ecues.map((e) => (
-                                <SelectItem
-                                  key={`${e.ue_session_id}|${e.ecue_id}`}
-                                  value={`${e.ue_session_id}|${e.ecue_id}`}
-                                >
-                                  {e.ecue_code} — {e.ecue_libelle}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="none" disabled>
-                                {ecueQuery.isLoading ? "Chargement…" : "Aucune ECUE"}
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+                          onChange={(v) => updateRow(r.rowId, "ecueKey", v)}
+                          placeholder={ecueQuery.isLoading ? "Chargement…" : "Sélectionner une ECUE"}
+                          searchPlaceholder="Rechercher une ECUE…"
+                          options={ecues.map((e) => ({
+                            value: `${e.ue_session_id}|${e.ecue_id}`,
+                            label: `${e.ecue_code} — ${e.ecue_libelle}`,
+                          }))}
+                        />
                       </div>
                       <div className="flex-1 space-y-1">
                         <Label className="text-xs font-medium">Jour</Label>
@@ -474,19 +471,16 @@ export default function ProfessionalPlanningPage() {
                       </div>
                       <div className="flex-1 space-y-1">
                         <Label className="text-xs font-medium">Salle</Label>
-                        <Select value={r.salleId} onValueChange={(v) => updateRow(r.rowId, "salleId", v)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="—" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={NONE}>— Aucune —</SelectItem>
-                            {classrooms.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          value={r.salleId}
+                          onChange={(v) => updateRow(r.rowId, "salleId", v)}
+                          placeholder="—"
+                          searchPlaceholder="Rechercher une salle…"
+                          options={[
+                            { value: NONE, label: "— Aucune —" },
+                            ...classrooms.map((c) => ({ value: c.id, label: c.name })),
+                          ]}
+                        />
                       </div>
                       <Button
                         type="button"

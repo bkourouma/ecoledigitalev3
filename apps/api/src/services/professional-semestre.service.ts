@@ -340,6 +340,158 @@ export class ProfessionalSemestreService extends ProfessionalBaseService {
    * `professional_semestre_sessions`. Permet « un semestre » ou « toute la
    * filière » (plusieurs blocs), à des dates indépendantes.
    */
+  /**
+   * Noms de classe deja utilises pour une classe, avec les semestres qu'ils
+   * couvrent deja et ceux qu'il leur reste.
+   *
+   * Rien n'est stocke : tout se deduit des ouvertures existantes. Une
+   * ouverture supprimee libere donc aussitot son semestre, et un nom dont
+   * tous les semestres sont ouverts sort de lui-meme de la liste.
+   */
+  async listClasseNoms(tenantId: string, classeId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const classe = await client.query(
+        `SELECT 1 FROM programmes WHERE id = $1 AND tenant_id = $2`,
+        [classeId, tenantId]
+      );
+      if (classe.rowCount === 0) return fail("FILIERE_NOT_FOUND", "Classe introuvable.");
+
+      // Tous les semestres de la classe, dans l'ordre.
+      const semestres = await client.query(
+        `SELECT id, libelle FROM professional_semestres
+         WHERE tenant_id = $1 AND filiere_id = $2
+         ORDER BY libelle`,
+        [tenantId, classeId]
+      );
+
+      // Le libelle stocke vaut « {nom} — {CODE UE} » : on retire le suffixe
+      // pour retrouver le nom saisi a l'ouverture.
+      const rows = await client.query(
+        `SELECT btrim(split_part(s.libelle, ' ' || chr(8212) || ' ', 1)) AS nom,
+                ss.semestre_id
+         FROM professional_ue_sessions s
+         JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
+         JOIN professional_semestre_sessions ss
+           ON ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
+         WHERE s.tenant_id = $1 AND u.filiere_id = $2
+         GROUP BY 1, 2`,
+        [tenantId, classeId]
+      );
+
+      const tousLesSemestres = semestres.rows.map((r: any) => ({
+        id: r.id as string,
+        libelle: r.libelle as string,
+      }));
+
+      // Portées déclarées. Un nom sans déclaration couvre tous les semestres
+      // de la classe : c'est le comportement d'avant, conservé tel quel.
+      const portees = await client.query(
+        `SELECT nom, semestre_ids FROM professional_classe_noms
+         WHERE tenant_id = $1 AND classe_id = $2`,
+        [tenantId, classeId]
+      );
+      const porteeParNom = new Map<string, Set<string>>();
+      for (const p of portees.rows) {
+        porteeParNom.set(p.nom, new Set((p.semestre_ids ?? []) as string[]));
+      }
+
+      const parNom = new Map<string, Set<string>>();
+      for (const r of rows.rows) {
+        if (!r.nom) continue;
+        if (!parNom.has(r.nom)) parNom.set(r.nom, new Set());
+        parNom.get(r.nom)!.add(r.semestre_id);
+      }
+      // Un nom peut être déclaré avant d'avoir la moindre ouverture.
+      for (const nom of porteeParNom.keys()) {
+        if (!parNom.has(nom)) parNom.set(nom, new Set());
+      }
+
+      const data = Array.from(parNom.entries())
+        .map(([nom, ouverts]) => {
+          const declares = porteeParNom.get(nom);
+          // Intersection avec les semestres réels : une portée obsolète est ignorée.
+          const portee =
+            declares && declares.size > 0
+              ? tousLesSemestres.filter((sm) => declares.has(sm.id))
+              : tousLesSemestres;
+          const restants = portee.filter((sm) => !ouverts.has(sm.id));
+          return {
+            nom,
+            semestres_portee: portee,
+            portee_declaree: Boolean(declares && declares.size > 0),
+            semestres_ouverts: tousLesSemestres.filter((sm) => ouverts.has(sm.id)),
+            semestres_restants: restants,
+            complet: restants.length === 0,
+          };
+        })
+        .sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+
+      return ok({ semestres: tousLesSemestres, noms: data });
+    });
+  }
+
+  /**
+   * Toutes les portées déclarées du tenant. La liste des ouvertures s'en sert
+   * pour savoir quand un nom a fini son parcours.
+   */
+  async listToutesPortees(tenantId: string): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const r = await client.query(
+        `SELECT classe_id, nom, semestre_ids
+         FROM professional_classe_noms
+         WHERE tenant_id = $1`,
+        [tenantId]
+      );
+      return ok(
+        r.rows.map((x: any) => ({
+          classe_id: x.classe_id as string,
+          nom: x.nom as string,
+          semestre_ids: (x.semestre_ids ?? []) as string[],
+        }))
+      );
+    });
+  }
+
+  /**
+   * Déclare (ou corrige) les semestres qu'un nom de classe est censé couvrir.
+   * Appelée juste après la création d'une ouverture portant un nom neuf.
+   */
+  async upsertClasseNomPortee(
+    tenantId: string,
+    classeId: string,
+    nom: string,
+    semestreIds: string[]
+  ): Promise<ServiceResult<any>> {
+    return this.withTenant(tenantId, async (client) => {
+      const classe = await client.query(
+        `SELECT 1 FROM programmes WHERE id = $1 AND tenant_id = $2`,
+        [classeId, tenantId]
+      );
+      if (classe.rowCount === 0) return fail("FILIERE_NOT_FOUND", "Classe introuvable.");
+
+      // Les semestres doivent appartenir à la classe.
+      const valides = await client.query(
+        `SELECT id FROM professional_semestres
+         WHERE tenant_id = $1 AND filiere_id = $2 AND id = ANY($3::uuid[])`,
+        [tenantId, classeId, semestreIds]
+      );
+      const ids = valides.rows.map((r: any) => r.id as string);
+      if (ids.length === 0) {
+        return fail("VALIDATION_ERROR", "Aucun semestre valide pour cette classe.");
+      }
+
+      const res = await client.query(
+        `INSERT INTO professional_classe_noms (tenant_id, classe_id, nom, semestre_ids)
+         VALUES ($1, $2, $3, $4::uuid[])
+         ON CONFLICT (tenant_id, classe_id, nom)
+         DO UPDATE SET semestre_ids = EXCLUDED.semestre_ids, updated_at = NOW()
+         RETURNING id, nom, semestre_ids`,
+        [tenantId, classeId, nom, ids]
+      );
+      return ok(res.rows[0]);
+    });
+  }
+
   async createSessionsBySemestre(
     tenantId: string,
     input: CreateSessionsBySemestre

@@ -4,10 +4,10 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, MapPin, User, AlertCircle, BookOpen } from 'lucide-react';
-import { ScheduleSession } from '@ecoledigitale/contracts';
+import { ParentScheduleSession } from '@ecoledigitale/contracts';
 
 interface ChildScheduleProps {
-  schedule: ScheduleSession[];
+  schedule: ParentScheduleSession[];
   weekStart: string;
   weekEnd: string;
   isLoading?: boolean;
@@ -41,7 +41,7 @@ export function ChildSchedule({ schedule, weekStart, weekEnd, isLoading, error }
 
   // Group schedule by day - MUST be called before any conditional returns
   const scheduleByDay = useMemo(() => {
-    const grouped: Record<string, ScheduleSession[]> = {};
+    const grouped: Record<string, ParentScheduleSession[]> = {};
     
     // Initialize all days
     const startDate = new Date(weekStart);

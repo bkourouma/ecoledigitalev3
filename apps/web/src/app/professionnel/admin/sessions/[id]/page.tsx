@@ -131,7 +131,7 @@ export default function ProfessionalSessionDetailPage() {
         <Card className="shadow-lg">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-            <p className="text-gray-600 mt-3">Chargement de la session…</p>
+            <p className="text-gray-600 mt-3">Chargement de la classe…</p>
           </CardContent>
         </Card>
       </div>
@@ -198,11 +198,11 @@ export default function ProfessionalSessionDetailPage() {
         </Button>
       </div>
 
-      {/* Cette session fait partie d'un semestre : lien vers toutes ses UE. */}
+      {/* Cette classe fait partie d'un semestre : lien vers toutes ses UE. */}
       {session.semestre_id && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3">
           <p className="text-sm text-indigo-900">
-            Cette session fait partie du{" "}
+            Cette classe fait partie du{" "}
             <span className="font-semibold">{session.semestre_libelle}</span>
             {session.filiere_nom ? (
               <>
@@ -252,13 +252,13 @@ export default function ProfessionalSessionDetailPage() {
       {activeTab === "details" && (
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Informations de la session</CardTitle>
+            <CardTitle>Informations de la classe</CardTitle>
             <CardDescription>Occurrence datée et inscriptible d'une UE.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="UE" value={ueName} />
-              <Field label="Libellé" value={session.libelle} />
+              <Field label="Nom de la classe" value={session.libelle} />
               <Field label="Date de début" value={fmtDate(session.date_debut)} />
               <Field label="Date de fin" value={fmtDate(session.date_fin)} />
               <Field label="Salle" value={classroom ? classroom.name ?? classroom.code : session.classroom_id ?? null} />
@@ -305,7 +305,7 @@ function EvaluationsTab({ sessionId, ueId }: { sessionId: string; ueId: string }
       <Card>
         <CardContent className="py-8">
           <p className="text-sm text-muted-foreground">
-            Aucun ECUE n'est rattaché à l'UE de cette session. Composez l'UE pour ajouter des ECUE.
+            Aucun ECUE n'est rattaché à l'UE de cette classe. Composez l'UE pour ajouter des ECUE.
           </p>
         </CardContent>
       </Card>
@@ -324,18 +324,16 @@ function EvaluationsTab({ sessionId, ueId }: { sessionId: string; ueId: string }
         <CardContent>
           <div className="max-w-md space-y-1.5">
             <label className="text-sm font-medium">ECUE</label>
-            <Select value={selectedEcueId} onValueChange={setSelectedEcueId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner un ECUE" />
-              </SelectTrigger>
-              <SelectContent>
-                {ecues.map((e) => (
-                  <SelectItem key={e.ecue_id} value={e.ecue_id}>
-                    {e.ecue_code} — {e.ecue_libelle}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedEcueId}
+              onChange={setSelectedEcueId}
+              placeholder="Sélectionner un ECUE"
+              searchPlaceholder="Rechercher un ECUE…"
+              options={ecues.map((e) => ({
+                value: e.ecue_id,
+                label: `${e.ecue_code} — ${e.ecue_libelle}`,
+              }))}
+            />
           </div>
         </CardContent>
       </Card>
@@ -393,7 +391,7 @@ function EcueTeachersTab({ sessionId }: { sessionId: string }) {
           <CardTitle>Enseignants par ECUE</CardTitle>
           <CardDescription>
             Enseignant affecté à chaque ECUE de l'UE (lecture seule). La modification se fait via
-            « Modifier les affectations » ou à la création de la session.
+            « Modifier les affectations » ou à la création de la classe.
           </CardDescription>
         </div>
         <Button
@@ -417,7 +415,7 @@ function EcueTeachersTab({ sessionId }: { sessionId: string }) {
                   {missingObligatoire.length} ECUE obligatoire(s) sans enseignant
                 </p>
                 <p>
-                  La session <span className="font-medium">ne pourra pas être ouverte</span> tant
+                  La classe <span className="font-medium">ne pourra pas être ouverte</span> tant
                   que chaque ECUE obligatoire n'a pas d'enseignant affecté.
                 </p>
               </div>
@@ -426,7 +424,7 @@ function EcueTeachersTab({ sessionId }: { sessionId: string }) {
             <div className="flex items-center gap-2 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
               <CheckCircle2 className="h-5 w-5 shrink-0" />
               <p>
-                Tous les ECUE obligatoires ont un enseignant. La session peut être ouverte
+                Tous les ECUE obligatoires ont un enseignant. La classe peut être ouverte
                 {missingOptional.length > 0
                   ? ` (${missingOptional.length} ECUE optionnel(s) encore sans enseignant).`
                   : "."}
@@ -436,7 +434,7 @@ function EcueTeachersTab({ sessionId }: { sessionId: string }) {
 
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Aucun ECUE rattaché à l'UE de cette session. Composez l'UE pour ajouter des ECUE.
+            Aucun ECUE rattaché à l'UE de cette classe. Composez l'UE pour ajouter des ECUE.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -608,24 +606,16 @@ function SeancesTab({ sessionId, ueId }: { sessionId: string; ueId: string }) {
           <form onSubmit={create} className="rounded-lg border p-4 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
             <div className="md:col-span-2 space-y-1.5">
               <label className="text-sm font-medium">ECUE</label>
-              <Select value={form.ecue_id} onValueChange={(v) => setForm({ ...form, ecue_id: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choisir une ECUE" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ecueOptions.length === 0 ? (
-                    <SelectItem value="__none__" disabled>
-                      Aucun ECUE rattaché à cette UE
-                    </SelectItem>
-                  ) : (
-                    ecueOptions.map((e) => (
-                      <SelectItem key={e.ecue_id} value={e.ecue_id}>
-                        {e.ecue_code} — {e.ecue_libelle}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={form.ecue_id}
+                onChange={(v) => setForm({ ...form, ecue_id: v })}
+                placeholder="Choisir une ECUE"
+                searchPlaceholder="Rechercher un ECUE…"
+                options={ecueOptions.map((e) => ({
+                  value: e.ecue_id,
+                  label: `${e.ecue_code} — ${e.ecue_libelle}`,
+                }))}
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Date</label>
