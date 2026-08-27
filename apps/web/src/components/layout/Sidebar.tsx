@@ -20,7 +20,6 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileSpreadsheet,
-  AlertTriangle,
   DoorOpen,
   UserPlus,
   DollarSign,
@@ -44,6 +43,7 @@ import {
   Edit,
   Archive,
   Shield,
+  ShieldAlert,
   List,
   Baby,
   Phone,
@@ -58,6 +58,7 @@ import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { removeToken, getToken } from '@/lib/jwt-storage';
 import { useAdminMenuAccess } from '@/lib/hooks/use-admin-roles';
+import { isAdminRole } from '@/lib/role-landing';
 
 // Convention de ce fichier : toute icône du menu porte `shrink-0`. Les rangées
 // sont des conteneurs flex où le libellé voisin ne se coupe pas ; sans cette
@@ -82,52 +83,69 @@ type OwnerMenuSection = { label: string | null; items: OwnerMenuLink[] };
  * Un administrateur travaille dans une zone à la fois — replier les autres lui
  * fait gagner de la place. Un propriétaire, lui, balaie l'ensemble pour décider :
  * chaque repli lui cache une information qu'il veut voir d'un coup d'œil, et
- * chaque dépli est un clic entre lui et un chiffre. Les douze entrées tiennent à
- * l'écran, on les laisse donc toutes visibles.
+ * chaque dépli est un clic entre lui et un chiffre.
  *
- * L'ordre des blocs est celui dans lequel un propriétaire se pose ses questions :
- * est-ce que l'argent rentre ? les effectifs tiennent-ils ? la machine
- * pédagogique tourne-t-elle ? — le référentiel étant l'outil de correction en
- * aval, il ferme la liste.
+ * Chaque entrée répond à UNE question que se pose un fondateur, et les blocs
+ * suivent l'ordre dans lequel il se les pose : est-ce que l'argent rentre ?
+ * → est-ce que les élèves sont là ? → est-ce que la machine pédagogique
+ * tourne ? → qu'est-ce que je vends ? → qu'est-ce que je dois décider ?
  *
- * Retirés du menu : Recrutement, RH, Formations et Alertes. Les pages restent
- * accessibles par URL — seule leur entrée de menu disparaît.
+ * Aucune page de l'espace n'est hors menu. Quatre écrans l'étaient — RH,
+ * Recrutement, Formations et le rapport financier PDF — et un cinquième,
+ * « Accès », n'apparaissait que pour les comptes également administrateurs :
+ * ils étaient construits, branchés sur l'API, et introuvables autrement qu'en
+ * tapant l'URL. Une page qu'on ne peut pas atteindre n'existe pas.
+ *
+ * Treize écrans plus « Accès », et non dix-huit : « Impayés », « Résultats », « Points de
+ * vigilance » et « Catalogue » couvrent chacune deux écrans, réunis en onglets
+ * derrière une seule entrée. Le propriétaire ne raisonne pas en « scolaire » ou
+ * « professionnel » — il raisonne en argent qui rentre et en élèves qui
+ * réussissent. Les adresses absorbées (`/owner/academique`, `/owner/formations`,
+ * `/owner/finances/professionnel`) survivent en redirections : les liens
+ * profonds du pouls y mènent encore.
  */
 const ownerMenuSections: OwnerMenuSection[] = [
   {
     // Porte d'entrée de l'espace : pas d'intertitre, elle se suffit.
     label: null,
-    items: [{ icon: BarChart3, label: 'Pilotage', href: '/owner/dashboard' }],
+    items: [{ icon: BarChart3, label: 'Tableau de bord', href: '/owner/dashboard' }],
   },
   {
     label: 'Argent',
     items: [
-      { icon: DollarSign, label: 'Finances', href: '/owner/finances' },
-      { icon: Wallet, label: 'Trésorerie', href: '/owner/finances/tresorerie' },
-      { icon: Receipt, label: 'Recouvrement UE', href: '/owner/finances/professionnel' },
-      { icon: TrendingUp, label: 'Économie', href: '/owner/economie' },
+      { icon: DollarSign, label: 'Encaissements', href: '/owner/finances' },
+      { icon: Wallet, label: 'Impayés', href: '/owner/finances/tresorerie' },
+      { icon: Banknote, label: 'Masse salariale', href: '/owner/staff' },
+      { icon: TrendingUp, label: 'Rentabilité', href: '/owner/economie' },
     ],
   },
   {
-    label: 'Effectifs',
+    label: 'Élèves',
     items: [
       // Icône distincte de « RH » (Users), qui vise la paie et non la démographie.
-      { icon: User, label: 'Personnes', href: '/owner/personnes' },
+      { icon: User, label: 'Effectifs', href: '/owner/personnes' },
       { icon: DoorOpen, label: 'Remplissage', href: '/owner/remplissage' },
+      { icon: UserPlus, label: 'Recrutement', href: '/owner/recrutement' },
     ],
   },
   {
     label: 'Pédagogie',
     items: [
-      { icon: GraduationCap, label: 'Académique', href: '/owner/academique' },
       { icon: Award, label: 'Résultats', href: '/owner/pedagogie' },
       { icon: ClipboardCheck, label: 'Assiduité', href: '/owner/assiduite' },
-      { icon: AlertTriangle, label: 'Risque', href: '/owner/risque' },
+      { icon: ShieldAlert, label: 'Points de vigilance', href: '/owner/risque' },
     ],
   },
   {
-    label: 'Structure',
-    items: [{ icon: Layers, label: 'Référentiel', href: '/owner/referentiel' }],
+    label: 'Offre',
+    items: [{ icon: Layers, label: 'Catalogue', href: '/owner/referentiel' }],
+  },
+  {
+    label: 'Pilotage',
+    items: [
+      { icon: FileText, label: 'Rapports', href: '/owner/finances/rapport' },
+      { icon: Shield, label: 'Accès', href: '/owner/acces' },
+    ],
   },
 ];
 
@@ -135,21 +153,17 @@ const ownerMenuSections: OwnerMenuSection[] = [
  * Entrée active de l'espace propriétaire.
  *
  * Deux exceptions, sans lesquelles plusieurs entrées s'allumeraient ensemble :
- * « Pilotage » couvre aussi /owner, et « Finances » ne doit pas s'allumer quand
- * on est sur Trésorerie ou Recouvrement UE, qui vivent sous /owner/finances tout
- * en ayant leur propre entrée.
+ * « Tableau de bord » couvre aussi /owner, et « Encaissements » ne doit
+ * s'allumer que sur /owner/finances exactement — les trois routes qui vivent
+ * dessous (Impayés professionnel, Impayés scolaire, Rapports) ont chacune leur
+ * propre entrée de menu.
  */
 function isOwnerLinkActive(pathname: string, href: string): boolean {
   if (href === '/owner/dashboard') {
     return pathname === '/owner/dashboard' || pathname === '/owner';
   }
   if (href === '/owner/finances') {
-    return (
-      pathname === '/owner/finances' ||
-      (pathname.startsWith('/owner/finances/') &&
-        !pathname.startsWith('/owner/finances/professionnel') &&
-        !pathname.startsWith('/owner/finances/tresorerie'))
-    );
+    return pathname === '/owner/finances';
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -194,6 +208,7 @@ const formationsProAdminMenuItems = [
 const academicStructureMenuItems = [
   { icon: GraduationCap, label: 'Cycles', href: '/academic/cycles' as const },
   { icon: BookOpen, label: 'Filières', href: '/academic/programmes' as const },
+  { icon: Layers, label: 'Classes', href: '/academic/classes' as const },
 ];
 
 // Module Professionnel (Filière → UE → ECUE), découpé en sous-menus dépliants.
@@ -207,7 +222,7 @@ const professionalProgrammeMenuItems = [
 ];
 
 const professionalSessionsMenuItems = [
-  { icon: Calendar, label: 'Sessions', href: '/professionnel/admin/sessions' as const },
+  { icon: Calendar, label: 'Ouvertures de classe', href: '/professionnel/admin/sessions' as const },
   { icon: DoorOpen, label: 'Salles de classe', href: '/academic/classrooms' as const },
   { icon: CalendarClock, label: 'Planning des cours', href: '/professionnel/admin/planning' as const },
 ];
@@ -291,7 +306,6 @@ const teacherPaymentMenuItems = [
 // Student Finance (for students)
 const studentFinanceMenuItems = [
   { icon: Wallet, label: 'Mes Paiements', href: '/student-payments' as const },
-  // { icon: Receipt, label: 'Mes Reçus', href: '/student-payments/receipts' as const }, // Masqué
 ];
 
 // Student Finance Management (for admins)
@@ -310,7 +324,14 @@ const studentAcademicMenuItems = [
   { icon: Calendar, label: 'Emploi du Temps', href: '/student/schedule' as const },
   { icon: FileText, label: 'Devoirs', href: '/student/assignments' as const },
   { icon: Award, label: 'Mes Notes', href: '/student/grades' as const },
-  { icon: FileSpreadsheet, label: 'Mon Bulletin', href: '/student/bulletin' as const },
+  // « Mon Bulletin » (/student/bulletin) est retiré du menu : son contenu est
+  // repris par l'onglet Bulletins de « Bulletins & Reçus ». La page reste
+  // accessible par lien direct (Mes Notes, Mes Rattrapages).
+  { icon: FileText, label: 'Bulletins & Reçus', href: '/student/documents' as const },
+  { icon: TrendingUp, label: 'Ma progression', href: '/student/progression' as const },
+  { icon: Award, label: 'Mes diplômes', href: '/student/diplomes' as const },
+  { icon: CalendarCheck, label: 'Présences & absences', href: '/professionnel/etudiant/presences' as const },
+  { icon: RotateCcw, label: 'Mes Rattrapages', href: '/professionnel/etudiant/rattrapages' as const },
   { icon: BookOpen, label: 'Module Professionnel', href: '/professionnel/etudiant' as const },
 ];
 
@@ -363,10 +384,16 @@ const teacherEvaluationsMenuItems = [
 // Teacher Remuneration Menu Items
 const teacherRemunerationMenuItems = [
   { icon: Clock, label: 'Heures Enseignées', href: '/teacher/hours' as const },
-  // Séances du Module Professionnel — feature 031. Entrée distincte de
-  // « Heures Enseignées », qui ne lit que la chaîne académique.
-  { icon: CalendarCheck, label: 'Séances Professionnelles', href: '/teacher/professional-seances' as const },
   { icon: DollarSign, label: 'Mes Paiements', href: '/teacher/payments' as const },
+  // Masquée du menu, comme leurs équivalents côté administration : la page
+  // reste atteignable par URL.
+  // { icon: CalendarCheck, label: 'Séances Professionnelles', href: '/teacher/professional-seances' as const },
+  // Miroir en lecture seule des écrans de paie de l'administration : mêmes
+  // libellés, périmètre réduit à l'enseignant connecté. « Validation des
+  // séances » et « Bulletin de paiement » n'ont pas d'équivalent ici — ce sont
+  // des actes de gestion, pas des consultations.
+  { icon: Settings, label: 'Configuration', href: '/teacher/remuneration/configuration' as const },
+  { icon: History, label: 'Historique des paiements', href: '/teacher/remuneration/historique' as const },
   // { icon: FileText, label: 'Relevés de Paie', href: '/teacher/payslips' as const },
   // { icon: Settings, label: 'Configuration Personnelle', href: '/teacher/config' as const },
 ];
@@ -388,10 +415,13 @@ const teacherProfileMenuItems = [
 // Parent Navigation Menu Items (for submenu under "Mes Enfants")
 const parentMenuItems = [
   { icon: Users, label: 'Mes Enfants', href: '/parent/children' as const },
+  { icon: CalendarClock, label: 'Emploi du temps', href: '/parent/schedule' as const },
   { icon: BookOpen, label: 'Cours & Devoirs', href: '/parent/homework' as const },
   { icon: FileText, label: 'Bulletins & Reçus', href: '/parent/documents' as const },
+  { icon: TrendingUp, label: 'Progression de mon enfant', href: '/parent/progression' as const },
+  { icon: CalendarCheck, label: 'Présences & absences', href: '/parent/presences' as const },
+  { icon: RotateCcw, label: 'Rattrapages de mon enfant', href: '/parent/rattrapages' as const },
   { icon: MessageSquare, label: 'Messages', href: '/parent/messages' as const },
-  { icon: BookOpen, label: 'Parcours Professionnel', href: '/parent/professionnel' as const },
   { icon: Award, label: 'Diplômes de mon enfant', href: '/parent/professionnel/diplomes' as const },
   // { icon: Phone, label: 'Contacts d\'Urgence', href: '/parent/emergency' as const },
 ];
@@ -524,7 +554,9 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
 
   // Rôles
   const roles = (session as any)?.roles ?? [];
-  const isAdmin = Array.isArray(roles) && roles.some((r: string) => ['admin', 'super_admin', 'Administrateur'].includes(r));
+  // Même définition que le garde de `/tableau-de-bord` : l'entrée de menu et
+  // l'accès à la page doivent apparaître et disparaître ensemble.
+  const isAdmin = isAdminRole(roles);
   const isStudent = Array.isArray(roles) && roles.some((r: string) => ['student', 'Étudiant'].includes(r));
   const isTeacher = Array.isArray(roles) && roles.some((r: string) => ['teacher', 'Enseignant'].includes(r));
   const isParent = Array.isArray(roles) && roles.some((r: string) => ['parent', 'Parent'].includes(r));
@@ -585,7 +617,11 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const visibleStudentFinanceAdminItems = studentFinanceAdminMenuItems.filter((item) =>
     canSeeAdmin(item.href)
   );
-  const visibleAdminQuickItems = adminQuickMenuItems.filter((item) => canSeeAdmin(item.href));
+  // « Accès » figure désormais dans le bloc Propriétaire. Le laisser aussi ici
+  // l'afficherait deux fois à un compte cumulant les deux rôles.
+  const visibleAdminQuickItems = adminQuickMenuItems.filter(
+    (item) => canSeeAdmin(item.href) && !(isOwner && item.href === '/owner/acces')
+  );
   const canSeeAdminMessages = canSeeAdmin('/admin/messages');
 
   // Espaces enseignant / étudiant / parent / formateur : mêmes règles, appliquées
@@ -645,7 +681,9 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
     formationsProAdminNavItems.length > 0;
 
   const [isAcademicStructureExpanded, setIsAcademicStructureExpanded] = useState(
-    pathname.startsWith('/academic/cycles') || pathname.startsWith('/academic/programmes')
+    pathname.startsWith('/academic/cycles') ||
+    pathname.startsWith('/academic/programmes') ||
+    pathname.startsWith('/academic/classes')
   );
   const [isPeopleExpanded, setIsPeopleExpanded] = useState(
     pathname.startsWith('/academic/teachers') ||
@@ -674,7 +712,8 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   // Student menu states
   const [isStudentAcademicExpanded, setIsStudentAcademicExpanded] = useState(
     pathname.startsWith('/student/courses') || pathname.startsWith('/student/schedule') ||
-    pathname.startsWith('/student/assignments') || pathname.startsWith('/student/grades')
+    pathname.startsWith('/student/assignments') || pathname.startsWith('/student/grades') ||
+    pathname.startsWith('/professionnel/etudiant')
   );
   const [isStudentELearningExpanded, setIsStudentELearningExpanded] = useState(
     pathname.startsWith('/student/content') || pathname.startsWith('/student/progress')
@@ -701,7 +740,10 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   );
   const [isTeacherRemunerationExpanded, setIsTeacherRemunerationExpanded] = useState(
     pathname.startsWith('/teacher/hours') || pathname.startsWith('/teacher/payments') ||
-    pathname.startsWith('/teacher/payslips') || pathname.startsWith('/teacher/config')
+    pathname.startsWith('/teacher/payslips') || pathname.startsWith('/teacher/config') ||
+    // Sans ce préfixe, arriver sur un écran du groupe laisse le menu replié et
+    // l'entrée non surlignée.
+    pathname.startsWith('/teacher/remuneration')
   );
   const [isTeacherReportsExpanded, setIsTeacherReportsExpanded] = useState(
     pathname.startsWith('/teacher/reports')
@@ -782,8 +824,10 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
           {/* Main Navigation */}
           {/* « Tableau de bord » porte la clé de catalogue `academic.overview`
               (ex « Vue d'ensemble » /academic) : il se filtre donc comme les
-              autres entrées administratives. */}
-          {navigationItems.filter((item) => canSeeAdmin(item.href)).map((item) => {
+              autres entrées administratives. Réservé à l'administration : les
+              autres profils ont leur propre tableau de bord (voir le garde de
+              `app/tableau-de-bord/layout.tsx`). */}
+          {isAdmin && navigationItems.filter((item) => canSeeAdmin(item.href)).map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
 
@@ -1396,7 +1440,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
               <>
             <button
               onClick={() => setIsAcademicStructureExpanded(!isAcademicStructureExpanded)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${(pathname.startsWith('/academic/cycles') || pathname.startsWith('/academic/programmes')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${(pathname.startsWith('/academic/cycles') || pathname.startsWith('/academic/programmes') || pathname.startsWith('/academic/classes')) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
             >
               <div className="flex items-center space-x-3">
                 <GraduationCap className="w-5 h-5 shrink-0" />
@@ -1494,7 +1538,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                     onCloseMobileMenu={onCloseMobileMenu}
                   />
                   <ProfessionalModuleGroup
-                    label="Sessions & Planning"
+                    label="Classe & Planning"
                     icon={CalendarClock}
                     items={visibleProfessionalSessionsItems}
                     pathname={pathname}

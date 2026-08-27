@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { saveToken } from "@/lib/jwt-storage";
+import { activeRoleOf, routeForRole } from "@/lib/role-landing";
 import {
   DEFAULT_TECHNICAL_PASSWORD,
   KNOWN_TENANTS_STORAGE_KEY,
@@ -25,21 +26,6 @@ import {
 } from "@/lib/technical-accounts";
 
 type Tenant = { slug: string; name: string };
-
-/**
- * Page d'atterrissage après connexion.
- *
- * Chaque espace a la sienne ; l'administration atterrit sur le tableau de bord
- * et non sur « / », dont la page d'accueil communautaire a été retirée du menu.
- */
-function routeForRole(role?: string): string {
-  const normalized = String(role || "").toLowerCase();
-  if (normalized === "owner") return "/owner/dashboard";
-  if (normalized === "teacher") return "/teacher/dashboard";
-  if (normalized === "parent") return "/parent/children";
-  if (normalized === "student") return "/student/courses";
-  return "/tableau-de-bord";
-}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -125,9 +111,9 @@ export default function LoginPage() {
       }
 
       if ((session as any)?.requiresRoleSelection) {
-        router.push("/select-role");
+        router.replace("/select-role");
       } else {
-        router.push(routeForRole((session as any)?.activeRole || (session as any)?.roles?.[0]));
+        router.replace(routeForRole(activeRoleOf(session)));
       }
       router.refresh();
     } catch {

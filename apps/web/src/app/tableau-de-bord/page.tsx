@@ -378,7 +378,8 @@ export default function TableauDeBordPage() {
             accent="bg-violet-500"
             entries={[
               { label: "Cycles", href: "/academic/cycles", icon: GraduationCap, count: nbCycles },
-              { label: "Filières", href: "/academic/programmes", icon: BookOpen, count: nbProgrammes },
+              { label: "Filières", href: "/academic/programmes", icon: BookOpen },
+              { label: "Classes", href: "/academic/classes", icon: Layers, count: nbProgrammes },
             ]}
           />
           <MenuGroup
@@ -413,11 +414,11 @@ export default function TableauDeBordPage() {
             ]}
           />
           <MenuGroup
-            title="Sessions & Planning"
+            title="Classe & Planning"
             accent="bg-emerald-500"
             entries={[
               {
-                label: "Sessions",
+                label: "Ouvertures de classe",
                 href: "/professionnel/admin/sessions",
                 icon: Calendar,
                 count: sessions.length,

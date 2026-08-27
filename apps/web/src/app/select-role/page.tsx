@@ -6,19 +6,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { saveToken } from "@/lib/jwt-storage";
+import { routeForRole } from "@/lib/role-landing";
 
 function apiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-}
-
-/** Doit rester aligné sur `routeForRole` de la page de connexion. */
-function routeForRole(role?: string): string {
-  const normalized = String(role || "").toLowerCase();
-  if (normalized === "owner") return "/owner/dashboard";
-  if (normalized === "teacher") return "/teacher/dashboard";
-  if (normalized === "parent") return "/parent/children";
-  if (normalized === "student") return "/student/courses";
-  return "/tableau-de-bord";
 }
 
 export default function SelectRolePage() {
@@ -70,7 +61,7 @@ export default function SelectRolePage() {
         requiresRoleSelection: false,
       });
 
-      router.push(routeForRole(data.user.activeRole));
+      router.replace(routeForRole(data.user.activeRole));
       router.refresh();
     } catch {
       setError("Erreur lors du changement de role.");

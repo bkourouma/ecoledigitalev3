@@ -68,7 +68,7 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
       {
         label: "Sessions & Planning",
         items: [
-          { key: "pro.sessions", label: "Sessions", href: "/professionnel/admin/sessions" },
+          { key: "pro.sessions", label: "Classes", href: "/professionnel/admin/sessions" },
           { key: "pro.classrooms", label: "Salles de classe", href: "/academic/classrooms" },
           {
             key: "pro.planning",
@@ -354,6 +354,16 @@ export const TEACHER_MENU_CATALOG: AdminMenuSectionDef[] = [
         items: [
           { key: "teacher.hours", label: "Heures Enseignées", href: "/teacher/hours" },
           { key: "teacher.payments", label: "Mes Paiements", href: "/teacher/payments" },
+          {
+            key: "teacher.remuneration_config",
+            label: "Configuration",
+            href: "/teacher/remuneration/configuration",
+          },
+          {
+            key: "teacher.remuneration_historique",
+            label: "Historique des paiements",
+            href: "/teacher/remuneration/historique",
+          },
         ],
       },
       {
@@ -387,7 +397,23 @@ export const STUDENT_MENU_CATALOG: AdminMenuSectionDef[] = [
           { key: "student.schedule", label: "Emploi du Temps", href: "/student/schedule" },
           { key: "student.assignments", label: "Devoirs", href: "/student/assignments" },
           { key: "student.grades", label: "Mes Notes", href: "/student/grades" },
-          { key: "student.bulletin", label: "Mon Bulletin", href: "/student/bulletin" },
+          { key: "student.documents", label: "Bulletins & Reçus", href: "/student/documents" },
+          {
+            key: "student.progression",
+            label: "Ma progression",
+            href: "/student/progression",
+          },
+          { key: "student.diplomes", label: "Mes diplômes", href: "/student/diplomes" },
+          {
+            key: "student.presences",
+            label: "Présences & absences",
+            href: "/professionnel/etudiant/presences",
+          },
+          {
+            key: "student.rattrapages",
+            label: "Mes Rattrapages",
+            href: "/professionnel/etudiant/rattrapages",
+          },
           {
             key: "student.professionnel",
             label: "Module Professionnel",
@@ -426,14 +452,25 @@ export const PARENT_MENU_CATALOG: AdminMenuSectionDef[] = [
         label: "Mes Enfants",
         items: [
           { key: "parent.children", label: "Mes Enfants", href: "/parent/children" },
+          { key: "parent.schedule", label: "Emploi du temps", href: "/parent/schedule" },
           { key: "parent.homework", label: "Cours & Devoirs", href: "/parent/homework" },
           { key: "parent.documents", label: "Bulletins & Reçus", href: "/parent/documents" },
-          { key: "parent.messages", label: "Messages", href: "/parent/messages" },
           {
-            key: "parent.professionnel",
-            label: "Parcours Professionnel",
-            href: "/parent/professionnel",
+            key: "parent.progression",
+            label: "Progression de mon enfant",
+            href: "/parent/progression",
           },
+          {
+            key: "parent.presences",
+            label: "Présences & absences",
+            href: "/parent/presences",
+          },
+          {
+            key: "parent.rattrapages",
+            label: "Rattrapages de mon enfant",
+            href: "/parent/rattrapages",
+          },
+          { key: "parent.messages", label: "Messages", href: "/parent/messages" },
           {
             key: "parent.diplomes",
             label: "Diplômes de mon enfant",

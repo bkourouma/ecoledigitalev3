@@ -17,6 +17,8 @@ import {
   Users,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ExportButtons } from "@/components/ExportButtons";
+import { openTeacherConfigsPdf } from "@/lib/utils/teacher-config-report";
 import { useToast } from "@/components/ui/use-toast";
 import {
   useDeleteTeacherPaymentConfig,
@@ -100,6 +102,23 @@ export default function TeacherPaymentConfigsPage() {
     };
   }, [affichees]);
 
+  /**
+   * Périmètre exporté : exactement les lignes affichées. Le plafond de l'API
+   * est reporté dans le document, faute de quoi un enseignant simplement non
+   * chargé y passerait pour non configuré.
+   */
+  const exportOptions = useMemo(
+    () => ({
+      enseignant: enseignantId
+        ? (optionsEnseignants.find((o) => o.value === enseignantId)?.label ?? enseignantId)
+        : "Tous les enseignants",
+      tronquee: pagination?.hasMore
+        ? `${pagination.total} configurations existent : seules les ${configs.length} plus récentes sont reprises ici.`
+        : undefined,
+    }),
+    [enseignantId, optionsEnseignants, pagination, configs.length]
+  );
+
   const lancerSuppression = async (config: TeacherPaymentConfigRow) => {
     const nom = config.teacherName ?? "cet enseignant";
     if (!confirm(`Supprimer la configuration de ${nom} ? Cette action est définitive.`)) return;
@@ -129,10 +148,20 @@ export default function TeacherPaymentConfigsPage() {
             enseignant sans configuration n&apos;apparaîtra dans aucun bulletin.
           </p>
         </div>
-        <Button onClick={() => router.push("/payments/teacher-configs/new")} className="shrink-0">
-          <Plus className="h-4 w-4 mr-2" />
-          Nouvelle configuration
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <ExportButtons
+            formats={["pdf"]}
+            disabled={query.isLoading || affichees.length === 0}
+            onExportPdf={(win) => openTeacherConfigsPdf(affichees, exportOptions, win)}
+            onError={(message) =>
+              toast({ title: "Export impossible", description: message, variant: "destructive" })
+            }
+          />
+          <Button onClick={() => router.push("/payments/teacher-configs/new")}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle configuration
+          </Button>
+        </div>
       </div>
 
       {/* Filtre */}
