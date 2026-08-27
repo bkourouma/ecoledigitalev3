@@ -2,7 +2,11 @@
 # Production runs `next start` against the full node_modules tree (same
 # pattern as ecoledigitale-web — pnpm symlinks break Next standalone).
 FROM node:18-alpine AS base
-RUN npm install -g pnpm
+# Pinned to the version declared by `packageManager` in package.json. An
+# unpinned install pulls whatever npm publishes that day, and pnpm 12 refuses a
+# v9 lockfile it cannot verify /exe against — the build then breaks with no
+# commit having moved (hit on 2026-08-27).
+RUN npm install -g pnpm@10.14.0
 
 # Dependencies — install once for layer cache reuse
 FROM base AS deps

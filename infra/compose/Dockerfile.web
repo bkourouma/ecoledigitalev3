@@ -3,7 +3,11 @@
 # Next's standalone output gets corrupted by pnpm's symlink layout
 # (next/* package files don't get traced).
 FROM node:18-alpine AS base
-RUN npm install -g pnpm
+# Pinned to the version declared by `packageManager` in package.json. An
+# unpinned install pulls whatever npm publishes that day, and pnpm 12 refuses a
+# v9 lockfile it cannot verify /exe against — the build then breaks with no
+# commit having moved (hit on 2026-08-27).
+RUN npm install -g pnpm@10.14.0
 
 # Dependencies — installed once, shared with builder + runner
 FROM base AS deps

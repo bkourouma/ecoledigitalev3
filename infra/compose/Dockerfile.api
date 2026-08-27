@@ -20,7 +20,12 @@
 # Passer a une Alpine plus recente suppose donc de monter Puppeteer en meme
 # temps (et d'adapter `headless: "new"`, retire apres la v22).
 FROM node:18-alpine3.19 AS base
-RUN npm install -g pnpm
+# pnpm est epingle sur la version declaree par `packageManager` dans
+# package.json. Sans version, `npm install -g pnpm` sert la derniere publiee :
+# pnpm 12 verifie l identite du gestionnaire de paquets et refuse un lockfile v9,
+# qui ne contient pas /exe. Le build cassait alors sans qu aucun commit
+# n ait bouge — vecu le 27/08/2026 (ERR_PNPM_PNPM_ENGINE_IDENTITY_UNVERIFIABLE).
+RUN npm install -g pnpm@10.14.0
 
 # Dependencies stage — install once, share with runner
 FROM base AS deps
