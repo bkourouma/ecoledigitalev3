@@ -38,6 +38,14 @@ function mapProgrammeRow(row: any) {
     version: row.version,
     description: row.description,
     domaine: row.domaine ?? null,
+    filiereId: row.filiere_id ?? null,
+    filiere: row.filiere_id
+      ? {
+          id: row.filiere_id,
+          name: row.filiere_name ?? null,
+          domaine: row.filiere_domaine ?? null,
+        }
+      : null,
     objectives: row.objectives || [],
     ectsCredits: row.ects_credits,
     academicYear: row.academic_year,
@@ -68,6 +76,19 @@ async function ensureCycleExists(client: any, cycleId: string, tenantId: string)
   return cycleResult.rows.length > 0;
 }
 
+async function ensureFiliereExists(client: any, filiereId: string, tenantId: string) {
+  const filiereResult = await client.query(
+    `
+      SELECT id
+      FROM filieres
+      WHERE id = $1 AND tenant_id = $2
+    `,
+    [filiereId, tenantId]
+  );
+
+  return filiereResult.rows.length > 0;
+}
+
 export async function programmesRoutes(fastify: FastifyInstance) {
   fastify.get("/", {
     schema: {
@@ -75,6 +96,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
         type: "object",
         properties: {
           cycleId: { type: "string", format: "uuid" },
+          filiereId: { type: "string", format: "uuid" },
           status: { type: "string", enum: ["draft", "review", "approved", "active", "archived"] },
           academicYear: { type: "string", pattern: "^\\d{4}-\\d{4}$" },
           page: { type: "number", minimum: 1, default: 1 },
@@ -109,6 +131,13 @@ export async function programmesRoutes(fastify: FastifyInstance) {
           paramIndex++;
         }
 
+        // Filtre par filiere : absent du contrat partage, lu directement.
+        const filiereIdFilter = (request.query as Record<string, unknown>)?.filiereId;
+        if (typeof filiereIdFilter === "string" && filiereIdFilter) {
+          whereClause += ` AND p.filiere_id = $${paramIndex}`;
+          params.push(filiereIdFilter);
+          paramIndex++;
+        }
         if (query.status) {
           whereClause += ` AND p.status = $${paramIndex}`;
           params.push(query.status);
@@ -150,12 +179,16 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               p.approved_at,
               p.created_at,
               p.updated_at,
+              p.filiere_id,
               c.id AS cycle_id,
               c.name AS cycle_name,
               c.code AS cycle_code,
-              c.type AS cycle_type
+              c.type AS cycle_type,
+              f.name AS filiere_name,
+              f.domaine AS filiere_domaine
             FROM programmes p
             JOIN cycles c ON p.cycle_id = c.id
+            LEFT JOIN filieres f ON f.id = p.filiere_id
             ${whereClause}
             ORDER BY p.created_at DESC
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -199,6 +232,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
           version: { type: "string", maxLength: 10 },
           description: { type: "string" },
           domaine: { type: "string", maxLength: 255 },
+          filiereId: { type: "string", format: "uuid" },
           objectives: { type: "array", items: { type: "string" } },
           ectsCredits: { type: "number", minimum: 0 },
           academicYear: { type: "string", pattern: "^\\d{4}-\\d{4}$" },
@@ -221,6 +255,12 @@ export async function programmesRoutes(fastify: FastifyInstance) {
         ...CreateProgrammeSchema.parse(rawProgrammeData),
         cycleId: String(rawProgrammeData.cycleId),
       };
+      // `filiereId` n'est pas encore porte par le contrat partage : on le lit
+      // directement dans le corps de la requete.
+      const filiereId =
+        typeof rawProgrammeData.filiereId === "string" && rawProgrammeData.filiereId
+          ? rawProgrammeData.filiereId
+          : null;
       const client = await fastify.pg.connect();
 
       try {
@@ -233,6 +273,14 @@ export async function programmesRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({
             error: "Not Found",
             message: "Cycle not found",
+          });
+        }
+
+        if (filiereId && !(await ensureFiliereExists(client, filiereId, tenantId))) {
+          await client.query("ROLLBACK");
+          return reply.status(404).send({
+            error: "Not Found",
+            message: "Filiere not found",
           });
         }
 
@@ -263,12 +311,13 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               version,
               description,
               domaine,
+              filiere_id,
               objectives,
               ects_credits,
               academic_year,
               status
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING
               id,
               tenant_id,
@@ -278,6 +327,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               version,
               description,
               domaine,
+              filiere_id,
               objectives,
               ects_credits,
               academic_year,
@@ -295,6 +345,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
             programmeData.version || "1.0",
             programmeData.description || null,
             programmeData.domaine || null,
+            filiereId,
             programmeData.objectives || [],
             programmeData.ectsCredits || null,
             programmeData.academicYear || null,
@@ -308,11 +359,14 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               c.id AS cycle_id,
               c.name AS cycle_name,
               c.code AS cycle_code,
-              c.type AS cycle_type
+              c.type AS cycle_type,
+              f.name AS filiere_name,
+              f.domaine AS filiere_domaine
             FROM cycles c
+            LEFT JOIN filieres f ON f.id = $2
             WHERE c.id = $1
           `,
-          [programme.programme_cycle_id]
+          [programme.programme_cycle_id, programme.filiere_id ?? null]
         );
 
         await client.query("COMMIT");
@@ -381,12 +435,16 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               p.approved_at,
               p.created_at,
               p.updated_at,
+              p.filiere_id,
               c.id AS cycle_id,
               c.name AS cycle_name,
               c.code AS cycle_code,
-              c.type AS cycle_type
+              c.type AS cycle_type,
+              f.name AS filiere_name,
+              f.domaine AS filiere_domaine
             FROM programmes p
             JOIN cycles c ON p.cycle_id = c.id
+            LEFT JOIN filieres f ON f.id = p.filiere_id
             WHERE p.id = $1 AND p.tenant_id = $2
           `,
           [id, tenantId]
@@ -431,6 +489,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
           version: { type: "string", maxLength: 10 },
           description: { type: "string" },
           domaine: { type: "string", maxLength: 255 },
+          filiereId: { type: "string", format: "uuid" },
           objectives: { type: "array", items: { type: "string" } },
           ectsCredits: { type: "number", minimum: 0 },
           academicYear: { type: "string", pattern: "^\\d{4}-\\d{4}$" },
@@ -456,6 +515,12 @@ export async function programmesRoutes(fastify: FastifyInstance) {
         cycleId:
           rawUpdateData.cycleId !== undefined ? String(rawUpdateData.cycleId) : parsedUpdateData.cycleId,
       };
+      const filiereIdUpdate =
+        rawUpdateData.filiereId === undefined
+          ? undefined
+          : typeof rawUpdateData.filiereId === "string" && rawUpdateData.filiereId
+          ? rawUpdateData.filiereId
+          : null;
       const client = await fastify.pg.connect();
 
       try {
@@ -490,6 +555,14 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               message: "Cycle not found",
             });
           }
+        }
+
+        if (filiereIdUpdate && !(await ensureFiliereExists(client, filiereIdUpdate, tenantId))) {
+          await client.query("ROLLBACK");
+          return reply.status(404).send({
+            error: "Not Found",
+            message: "Filiere not found",
+          });
         }
 
         if (updateData.code || updateData.version) {
@@ -556,6 +629,12 @@ export async function programmesRoutes(fastify: FastifyInstance) {
           paramIndex++;
         }
 
+        if (filiereIdUpdate !== undefined) {
+          updateFields.push(`filiere_id = $${paramIndex}`);
+          updateValues.push(filiereIdUpdate);
+          paramIndex++;
+        }
+
         if (updateData.objectives !== undefined) {
           updateFields.push(`objectives = $${paramIndex}`);
           updateValues.push(updateData.objectives);
@@ -604,6 +683,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               version,
               description,
               domaine,
+              filiere_id,
               objectives,
               ects_credits,
               academic_year,
@@ -623,11 +703,14 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               c.id AS cycle_id,
               c.name AS cycle_name,
               c.code AS cycle_code,
-              c.type AS cycle_type
+              c.type AS cycle_type,
+              f.name AS filiere_name,
+              f.domaine AS filiere_domaine
             FROM cycles c
+            LEFT JOIN filieres f ON f.id = $2
             WHERE c.id = $1
           `,
-          [programme.programme_cycle_id]
+          [programme.programme_cycle_id, programme.filiere_id ?? null]
         );
 
         await client.query("COMMIT");

@@ -1,113 +1,73 @@
 "use client";
 
-import { useRouter, useParams } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button } from "@ecoledigitale/ui";
-import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
-import { useProgramme, useUpdateProgramme } from "@/lib/hooks/use-programmes";
-import { ProgrammeForm } from "@/components/academic/ProgrammeForm";
+import { useParams, useRouter } from "next/navigation";
+import { Button, Card, CardContent } from "@ecoledigitale/ui";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { FiliereForm } from "@/components/academic/FiliereForm";
+import { useFiliere, useUpdateFiliere } from "@/lib/hooks/use-filieres";
 
-export default function EditProgrammePage() {
+export default function EditFilierePage() {
   const router = useRouter();
   const params = useParams();
-  const programmeId = params.id as string;
-  const { data: programme, isLoading, error } = useProgramme(programmeId);
-  const updateProgrammeMutation = useUpdateProgramme();
+  const id = (params?.id as string) ?? "";
 
-  const handleSubmit = async (data: any) => {
-    try {
-      await updateProgrammeMutation.mutateAsync({
-        id: programmeId,
-        data,
-      });
-      router.push("/academic/programmes");
-    } catch (error) {
-      console.error("Error updating programme:", error);
-    }
-  };
+  const { data: filiere, isLoading, error } = useFiliere(id);
+  const updateMutation = useUpdateFiliere();
 
-  const handleCancel = () => {
+  async function handleSubmit(data: { name: string; domaine: string | null }) {
+    await updateMutation.mutateAsync({ id, data });
     router.push("/academic/programmes");
-  };
+  }
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-6 py-8 max-w-4xl">
-        <div className="flex items-center justify-center py-16">
-          <div className="text-center space-y-4">
-            <div className="bg-gradient-to-br from-blue-100 to-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            </div>
-            <p className="text-gray-600 text-lg">Chargement des informations du programme...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !programme) {
-    return (
-      <div className="container mx-auto px-6 py-8 max-w-4xl">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
-                <AlertCircle className="h-8 w-8 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-medium">Programme introuvable</h3>
-                <p className="text-muted-foreground">
-                  Le programme demandé n'existe pas ou vous n'avez pas les permissions pour le modifier.
-                </p>
-              </div>
-              <Button onClick={() => router.push("/academic/programmes")}>
-                Retour à la liste
-              </Button>
-            </div>
+      <div className="max-w-2xl mx-auto p-6">
+        <Card className="shadow-lg">
+          <CardContent className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-pink-600" />
           </CardContent>
         </Card>
       </div>
     );
   }
 
+  if (error || !filiere) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 space-y-4">
+        <h3 className="text-lg font-medium">Filière introuvable</h3>
+        <p className="text-muted-foreground">
+          La filière demandée n&apos;existe pas ou vous n&apos;avez pas les
+          permissions pour la modifier.
+        </p>
+        <Button onClick={() => router.push("/academic/programmes")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour aux filières
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-6 py-8 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.push("/academic/programmes")}
-        >
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" onClick={() => router.push("/academic/programmes")}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Modifier le programme
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">
+            Modifier la filière
           </h1>
-          <p className="text-muted-foreground mt-2">
-            Modifiez les informations de {programme.name}
-          </p>
+          <p className="text-muted-foreground mt-1">{filiere.name}</p>
         </div>
       </div>
 
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>Informations du programme</CardTitle>
-          <CardDescription>
-            Modifiez les informations du programme
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ProgrammeForm
-            programme={programme}
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
-            isLoading={updateProgrammeMutation.isPending}
-          />
-        </CardContent>
-      </Card>
+      <FiliereForm
+        filiere={filiere}
+        onSubmit={handleSubmit}
+        onCancel={() => router.push("/academic/programmes")}
+        isLoading={updateMutation.isPending}
+      />
     </div>
   );
 }
-

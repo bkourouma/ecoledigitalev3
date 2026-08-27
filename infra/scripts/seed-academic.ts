@@ -67,17 +67,28 @@ const programmes = [
   }
 ];
 
+/**
+ * Années scolaires CONTIGUËS : chacune finit la veille du premier anniversaire
+ * de son début, soit le 31 août pour une année ouverte le 1er septembre.
+ *
+ * Elles s'arrêtaient au 30 juin, ce qui laissait juillet et août hors de toute
+ * année : un encaissement de frais d'inscription passé en juillet, une paie
+ * calculée en août ou un bulletin généré après les rattrapages n'appartenaient
+ * à aucune année et disparaissaient de toutes les vues annuelles. Voir la
+ * migration 0118, qui répare les bases existantes ; ce jeu d'amorçage ne doit
+ * pas recréer le trou derrière elle.
+ */
 const academicYears = [
   {
     name: "2025-2026",
     startDate: "2025-09-01",
-    endDate: "2026-06-30",
+    endDate: "2026-08-31",
     isActive: true
   },
   {
     name: "2024-2025",
     startDate: "2024-09-01",
-    endDate: "2025-06-30",
+    endDate: "2025-08-31",
     isActive: false
   }
 ];

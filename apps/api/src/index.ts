@@ -16,6 +16,7 @@ import { superAdminTenantsRoutes } from "./routes/super-admin-tenants";
 import { superAdminRolesRoutes } from "./routes/super-admin-roles";
 import { cyclesRoutes } from "./routes/cycles";
 import { programmesRoutes } from "./routes/programmes";
+import { filieresRoutes } from "./routes/filieres";
 import { coursesRoutes } from "./routes/courses";
 import { teachersRoutes } from "./routes/teachers";
 import { studentsRoutes } from "./routes/students";
@@ -198,6 +199,7 @@ async function start() {
     // Academic module routes
     await fastify.register(cyclesRoutes, { prefix: "/api/v1/cycles" });
     await fastify.register(programmesRoutes, { prefix: "/api/v1/programmes" });
+    await fastify.register(filieresRoutes, { prefix: "/api/v1/filieres" });
     await fastify.register(coursesRoutes, { prefix: "/api/v1/courses" });
     await fastify.register(teachersRoutes, { prefix: "/api/v1/teachers" });
     await fastify.register(studentsRoutes, { prefix: "/api/v1/students" });

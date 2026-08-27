@@ -12,6 +12,12 @@ interface Programme {
   description?: string;
   domaine?: string | null;
   cycleId: string;
+  filiereId?: string | null;
+  filiere?: {
+    id: string;
+    name: string | null;
+    domaine: string | null;
+  } | null;
   status: "draft" | "review" | "approved" | "active" | "archived";
   createdAt: string;
   updatedAt: string;
@@ -30,6 +36,7 @@ interface CreateProgramme {
   description?: string;
   domaine?: string;
   cycleId: string;
+  filiereId?: string | null;
   status?: "draft" | "review" | "approved" | "active" | "archived";
 }
 
@@ -39,6 +46,7 @@ interface UpdateProgramme {
   description?: string;
   domaine?: string;
   cycleId?: string;
+  filiereId?: string | null;
   status?: "draft" | "review" | "approved" | "active" | "archived";
 }
 
@@ -47,6 +55,7 @@ interface ProgrammeQuery {
   limit?: number;
   search?: string;
   cycleId?: string;
+  filiereId?: string;
   status?: string;
 }
 
@@ -236,6 +245,7 @@ export function useCreateProgramme() {
     mutationFn: createProgramme,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["programmes"] });
+      queryClient.invalidateQueries({ queryKey: ["filieres"] });
     },
   });
 }
@@ -248,6 +258,7 @@ export function useUpdateProgramme() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["programmes"] });
       queryClient.invalidateQueries({ queryKey: ["programmes", id] });
+      queryClient.invalidateQueries({ queryKey: ["filieres"] });
     },
   });
 }
@@ -259,6 +270,7 @@ export function useDeleteProgramme() {
     mutationFn: deleteProgramme,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["programmes"] });
+      queryClient.invalidateQueries({ queryKey: ["filieres"] });
     },
   });
 }
