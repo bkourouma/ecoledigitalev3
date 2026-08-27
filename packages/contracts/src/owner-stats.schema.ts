@@ -161,8 +161,19 @@ export const OwnerFinancesProQuerySchema = z.object({
   filiereIds: z.array(z.string().uuid()).optional(),
   semestreId: z.string().uuid().optional(),
   mode: OwnerFinancesProModeSchema.optional(),
+  /**
+   * Nom de classe « filiereId|nom », repris de l'écran admin Paiements.
+   * Restreint TOUT l'écran, comme la filière — pas seulement un tableau.
+   */
+  nomClasse: z.string().optional(),
   /** État de règlement de l'étudiant, appliqué au tableau des impayés. */
   etat: z.enum(["non_regle", "partiel", "solde", "tous"]).optional().default("tous"),
+  /**
+   * Recherche nom / prénom / matricule, appliquée au SEUL tableau des impayés —
+   * exactement comme le champ « Étudiant… » de la page admin Paiements, qui ne
+   * touche pas non plus les totaux de l'écran.
+   */
+  recherche: z.string().optional(),
 });
 
 export const OwnerFinancesProTotalsSchema = z.object({
@@ -170,12 +181,33 @@ export const OwnerFinancesProTotalsSchema = z.object({
   expected: z.number(),
   /** Σ professional_payments.montant WHERE statut = 'confirme'. */
   collected: z.number(),
-  /** collected / expected — en %. */
-  recoveryRate: z.number(),
+  /**
+   * collected / expected, en %. `null` quand rien n'est attendu : un zéro
+   * afficherait 0 % de recouvrement sur un périmètre intégralement payé.
+   */
+  recoveryRate: z.number().nullable(),
   /** max(0, expected − collected). */
   outstanding: z.number(),
   /** Étudiants dont le reste dû dépasse 0,5 FCFA (tolérance d'arrondi). */
   unsettledStudents: z.number().int().nonnegative(),
+  /**
+   * PART DES UE DE CONDUITE dans les deux totaux ci-dessus.
+   *
+   * L'écran admin Paiements écarte ces UE de son périmètre : il ne les affiche
+   * pas, ne les compte pas, ne les facture pas. Le propriétaire, lui, ne peut
+   * pas les écarter — sur cette base elles portent 10 200 000 FCFA de commandes
+   * INTÉGRALEMENT ENCAISSÉES, et les retirer ferait disparaître de l'argent
+   * réellement entré en caisse, en plus de désaccorder cet écran du tableau de
+   * bord et de Rentabilité, qui les comptent.
+   *
+   * Ces deux montants sont donc publiés pour que l'écart entre les deux écrans
+   * soit LISIBLE plutôt que subi : « attendu ici, moins la conduite, égale
+   * l'attendu de la page Paiements ».
+   */
+  conduite: z.object({
+    expected: z.number(),
+    collected: z.number(),
+  }),
 });
 
 export const OwnerFinancesProMonthlySchema = z.object({
@@ -236,6 +268,8 @@ export const OwnerFinancesProResponseSchema = z.object({
   periodStart: z.string(),
   periodEnd: z.string(),
   filiereIds: z.array(z.string().uuid()),
+  /** Nom de classe retenu (« filiereId|nom »), ou `null` pour toutes. */
+  nomClasse: z.string().nullable(),
   semestreId: z.string().uuid().nullable(),
   mode: OwnerFinancesProModeSchema.nullable(),
   etat: z.enum(["non_regle", "partiel", "solde", "tous"]),
@@ -258,6 +292,22 @@ export const OwnerFinancesProResponseSchema = z.object({
 /*  Référentiel des filtres (alimente les sélecteurs des pages owner)          */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Années scolaires où l'option porte de l'activité, millésimes « AAAA-AAAA+1 ».
+ *
+ * Sert à faire commander la liste par l'année choisie, comme sur l'écran
+ * Paiements du module professionnel : une classe ouverte en 2021-2022 n'a rien
+ * à faire dans le sélecteur quand on regarde 2023-2024, et la proposer promet
+ * un croisement qui ne ramènera jamais rien.
+ *
+ * LES DEUX MOTEURS Y SONT : ouvertures de sessions professionnelles ET classes
+ * de la scolarité rattachées à une année académique. Un tableau vide dit donc
+ * « cette entrée n'a jamais porté d'activité, nulle part » — une ligne de
+ * catalogue jamais ouverte. Le sélecteur la masque dès qu'une année est retenue,
+ * puisqu'elle ne peut rien ramener.
+ */
+const OwnerOptionAnneesSchema = z.array(z.string()).default([]);
+
 export const OwnerStatsFiliereOptionSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -265,12 +315,36 @@ export const OwnerStatsFiliereOptionSchema = z.object({
   /** Cycle de rattachement. `null` quand le cycle a été supprimé. */
   cycleId: z.string().uuid().nullable(),
   cycleName: z.string().nullable(),
+  annees: OwnerOptionAnneesSchema,
 });
 
 export const OwnerStatsSemestreOptionSchema = z.object({
   id: z.string().uuid(),
   libelle: z.string(),
   filiereId: z.string().uuid(),
+  annees: OwnerOptionAnneesSchema,
+});
+
+/**
+ * NOM DE CLASSE — la dimension par laquelle l'administration filtre réellement.
+ *
+ * Ce n'est pas la filière : une même filière peut porter plusieurs classes
+ * (« LICENCE 1 TRANSPORT LOGISTIQUE » et « … B » existent sur la même). Les
+ * écrans admin Paiements et Étudiants inscrits le dérivent du libellé de
+ * l'ouverture, amputé de son suffixe « — CODE UE ». On reprend ici la MÊME
+ * règle, au caractère près, sans quoi les deux écrans proposeraient des listes
+ * différentes pour la même école.
+ *
+ * `value` porte « filiereId|nom », la clé de sélection de la page Paiements :
+ * deux filières peuvent avoir donné le même nom à une classe.
+ */
+export const OwnerStatsNomClasseOptionSchema = z.object({
+  value: z.string(),
+  nom: z.string(),
+  filiereId: z.string().uuid(),
+  annees: OwnerOptionAnneesSchema,
+  /** Semestres atteignables depuis cette classe — dernier maillon de la cascade. */
+  semestreIds: z.array(z.string().uuid()).default([]),
 });
 
 export const OwnerStatsCycleOptionSchema = z.object({
@@ -292,6 +366,7 @@ export const OwnerStatsAcademicYearOptionSchema = z.object({
 
 export const OwnerStatsFiltersResponseSchema = z.object({
   filieres: z.array(OwnerStatsFiliereOptionSchema),
+  nomsDeClasse: z.array(OwnerStatsNomClasseOptionSchema).default([]),
   semestres: z.array(OwnerStatsSemestreOptionSchema),
   anneesScolaires: z.array(OwnerAcademicYearSchema),
   cycles: z.array(OwnerStatsCycleOptionSchema),
@@ -483,7 +558,12 @@ export const OwnerAssiduiteResponseSchema = z.object({
 /* -------------------------------------------------------------------------- */
 
 export const OwnerPersonnesQuerySchema = z.object({
-  academicYearId: z.string().uuid().optional(),
+  /**
+   * Année scolaire `YYYY-YYYY` (pivot septembre), dérivée des ouvertures de
+   * classe. Remplace l'ancien `academicYearId` : il portait sur
+   * `student_enrollments.academic_year_id`, et cette table n'est pas alimentée.
+   */
+  anneeScolaire: OwnerAcademicYearSchema.optional(),
   filiereIds: z.array(z.string().uuid()).optional(),
 });
 
@@ -494,7 +574,11 @@ export const OwnerPersonnesKpisSchema = z.object({
   /** Étudiants actifs / enseignants actifs. `null` si aucun enseignant. */
   studentTeacherRatio: z.number().nullable(),
   /**
-   * Comptes sans mot de passe initial généré.
+   * Comptes sans mot de passe initial généré, PARMI LES PERSONNES DU PÉRIMÈTRE
+   * — étudiants, leurs parents, enseignants. Il comptait auparavant tous les
+   * utilisateurs du tenant, propriétaire et comptes d'administration inclus,
+   * sur un écran qui ne parle pas d'eux.
+   *
    * ⚠️ Aucune colonne ne trace l'ENVOI des identifiants : on ne mesure que la
    * présence de `users.initial_password`, pas leur transmission effective.
    */
@@ -551,7 +635,8 @@ export const OwnerPersonnesCoverageSchema = z.object({
 });
 
 export const OwnerPersonnesResponseSchema = z.object({
-  academicYearId: z.string().uuid().nullable(),
+  /** Année retenue, ou `null` quand l'écran cumule toutes les années. */
+  anneeScolaire: z.string().nullable(),
   filiereIds: z.array(z.string().uuid()),
   kpis: OwnerPersonnesKpisSchema,
   genderDistribution: z.array(OwnerPersonnesGenderRowSchema),
@@ -639,6 +724,11 @@ export const OwnerRecrutementResponseSchema = z.object({
 /* -------------------------------------------------------------------------- */
 
 export const OwnerEconomieQuerySchema = z.object({
+  /**
+   * Année scolaire `YYYY-YYYY` (pivot septembre), dérivée des ouvertures de
+   * classe. Absente ⇒ toutes années cumulées.
+   */
+  anneeScolaire: OwnerAcademicYearSchema.optional(),
   filiereIds: z.array(z.string().uuid()).optional(),
 });
 
@@ -691,19 +781,10 @@ export const OwnerRetentionSchema = z.object({
   tauxRetention: z.number().nullable(),
 });
 
-export const OwnerForecastPointSchema = z.object({
-  semaine: z.number().int(),
-  debut: z.string(),
-  entreesAttendues: z.number(),
-  sortiesPrevues: z.number(),
-  /** Soldes CUMULÉS par scénario de recouvrement, partant de zéro. */
-  solde_prudent: z.number(),
-  solde_median: z.number(),
-  solde_optimiste: z.number(),
-});
-
 export const OwnerEconomieResponseSchema = z.object({
   computedAt: z.string(),
+  /** Année retenue, ou `null` quand l'écran cumule toutes les années. */
+  anneeScolaire: z.string().nullable(),
   couverture: OwnerEconomieCouvertureSchema,
   kpis: z.object({
     encaisseTotal: z.number(),
@@ -712,15 +793,10 @@ export const OwnerEconomieResponseSchema = z.object({
     tauxMargeBrute: z.number().nullable(),
     famillesSuivies: z.number().int().nonnegative(),
     fratries: z.number().int().nonnegative(),
-    /** Première semaine où le scénario médian passe sous zéro. */
-    semaineRupture: z.number().int().nullable(),
-    dateRupture: z.string().nullable(),
   }),
   marges: z.array(OwnerMargeFiliereSchema),
   familles: z.array(OwnerFamilleSchema),
   retention: z.array(OwnerRetentionSchema),
-  forecast: z.array(OwnerForecastPointSchema),
-  scenarios: z.array(z.object({ key: z.string(), label: z.string() })),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -820,6 +896,11 @@ export const OwnerRisqueResponseSchema = z.object({
 /* -------------------------------------------------------------------------- */
 
 export const OwnerRemplissageQuerySchema = z.object({
+  /**
+   * Année scolaire `YYYY-YYYY` (pivot septembre), dérivée des ouvertures de
+   * classe. Absente ⇒ toutes années cumulées.
+   */
+  anneeScolaire: OwnerAcademicYearSchema.optional(),
   filiereIds: z.array(z.string().uuid()).optional(),
 });
 
@@ -836,21 +917,26 @@ export const OwnerRemplissageKpisSchema = z.object({
   /** Cohortes exclues du taux global, faute de `capacite_max`. */
   cohortesSansCapacite: z.number().int().nonnegative(),
   tauxRemplissageCohortes: TauxSchema,
-  classesActives: z.number().int().nonnegative(),
-  tauxRemplissageClasses: TauxSchema,
+  /** Cohortes du périmètre encore ouvertes — celles qui appellent un arbitrage. */
+  cohortesOuvertes: z.number().int().nonnegative(),
   conflitsPlanning: z.number().int().nonnegative(),
   creneauxTotal: z.number().int().nonnegative(),
   creneauxSansSalle: z.number().int().nonnegative(),
   creneauxSansEnseignant: z.number().int().nonnegative(),
-  heuresPlanifiees30j: z.number(),
-  heuresTenues30j: z.number(),
-  /** Heures tenues rapportées aux heures planifiées sur 30 jours. */
+  /**
+   * Heures de grille déroulées sur LE PÉRIMÈTRE DE L'ÉCRAN — l'année choisie,
+   * ou toutes années cumulées. Auparavant une fenêtre glissante de 30 jours,
+   * qui ne couvrait que 24 des 1 326 séances tenues et ignorait tout filtre.
+   */
+  heuresPlanifiees: z.number(),
+  heuresTenues: z.number(),
+  /** Heures tenues rapportées aux heures planifiées, même périmètre. */
   tauxRespectPlanning: TauxSchema,
   /**
-   * Séances des 30 derniers jours sans horaire saisi : elles ne comptent pas
-   * dans les heures tenues, ce qui minore mécaniquement le taux de respect.
+   * Séances du périmètre sans horaire saisi : elles ne comptent pas dans les
+   * heures tenues, ce qui minore mécaniquement le taux de respect.
    */
-  seancesSansHoraire30j: z.number().int().nonnegative(),
+  seancesSansHoraire: z.number().int().nonnegative(),
 });
 
 export const OwnerCohorteRowSchema = z.object({
@@ -865,17 +951,6 @@ export const OwnerCohorteRowSchema = z.object({
   joursAvantDebut: z.number().nullable(),
   capacite: z.number().nullable(),
   inscrits: z.number().int().nonnegative(),
-  tauxRemplissage: TauxSchema,
-});
-
-export const OwnerClasseRowSchema = z.object({
-  classId: z.string(),
-  name: z.string(),
-  code: z.string().nullable(),
-  filiereName: z.string().nullable(),
-  cycleName: z.string().nullable(),
-  capacite: z.number().nullable(),
-  effectif: z.number().int().nonnegative(),
   tauxRemplissage: TauxSchema,
 });
 
@@ -901,9 +976,10 @@ export const OwnerCouvertureRowSchema = z.object({
 
 export const OwnerRemplissageResponseSchema = z.object({
   computedAt: z.string(),
+  /** Année retenue, ou `null` quand l'écran cumule toutes les années. */
+  anneeScolaire: z.string().nullable(),
   kpis: OwnerRemplissageKpisSchema,
   cohortes: z.array(OwnerCohorteRowSchema),
-  classes: z.array(OwnerClasseRowSchema),
   conflits: z.array(OwnerPlanningConflitSchema),
   couverture: z.array(OwnerCouvertureRowSchema),
 });
@@ -930,14 +1006,6 @@ export const OwnerTresorerieQuerySchema = z.object({
  * retard gonfle artificiellement la dette et fait paniquer pour rien.
  */
 export const OwnerAgedBucketSchema = z.enum(["a_echoir", "j0_30", "j31_60", "j61_90", "j90_plus"]);
-
-export const OwnerAgedBucketRowSchema = z.object({
-  bucket: OwnerAgedBucketSchema,
-  label: z.string(),
-  scolaire: z.number(),
-  professionnel: z.number(),
-  total: z.number(),
-});
 
 export const OwnerAgedByFiliereRowSchema = z.object({
   filiereId: z.string().nullable(),
@@ -986,7 +1054,12 @@ export const OwnerTresorerieTotalsSchema = z.object({
   outstanding: z.number(),
   /** Part échue du reste à recouvrer. */
   outstandingEchu: z.number(),
-  recoveryRate: z.number(),
+  /**
+   * `null` quand RIEN n'est attendu sur la période — à ne pas confondre avec
+   * « rien n'est recouvré ». Un zéro affichait 0 % de recouvrement sur un
+   * établissement intégralement payé, sur l'écran même des impayés.
+   */
+  recoveryRate: z.number().nullable(),
 });
 
 export const OwnerTresorerieResponseSchema = z.object({
@@ -995,18 +1068,10 @@ export const OwnerTresorerieResponseSchema = z.object({
   granularity: OwnerTresorerieGranularitySchema,
   computedAt: z.string(),
   totals: OwnerTresorerieTotalsSchema,
-  agedBalance: z.array(OwnerAgedBucketRowSchema),
   agedByFiliere: z.array(OwnerAgedByFiliereRowSchema),
   cashflow: z.array(OwnerCashflowPointSchema),
   byPaymentMode: z.array(OwnerPaymentModeRowSchema),
   anomalies: OwnerCashAnomaliesSchema,
-  /**
-   * Part des commandes professionnelles encore adossées à l'échéance par défaut
-   * créée par la migration 0096 plutôt qu'à un échéancier saisi. Au-dessus de
-   * zéro, l'ancienneté professionnelle est une convention, pas une échéance
-   * négociée : l'écran doit le dire.
-   */
-  proDefaultScheduleShare: z.number(),
 });
 
 /* --- Journal de caisse ---------------------------------------------------- */
@@ -1091,11 +1156,45 @@ export const OwnerPulseKpiSchema = z.object({
   measured: z.boolean(),
 });
 
+/**
+ * Année scolaire regardée, au format « AAAA-AAAA+1 ».
+ *
+ * C'est l'année DÉRIVÉE des ouvertures de classe, pas une ligne de la table
+ * `academic_years`. Le module professionnel n'a pas de table d'années : une
+ * année existe parce qu'une classe a été ouverte, et son millésime se lit sur
+ * la date de début de l'ouverture avec un pivot en septembre.
+ *
+ * S'adosser à `academic_years` était une erreur : sur une base réelle, cette
+ * table ignorait trois années portant douze ouvertures chacune et déclarait une
+ * année qui n'en portait aucune. Le filtre montrait donc le contraire de
+ * l'activité.
+ *
+ * Absente, le pouls décrit le présent — le mois en cours, les 30 derniers
+ * jours. Présente, il décrit cette année-là de bout en bout, et les indicateurs
+ * concernés changent de libellé pour le dire.
+ */
+export const OwnerPulseQuerySchema = z.object({
+  anneeScolaire: OwnerAcademicYearSchema.optional(),
+});
+
 export const OwnerPulseResponseSchema = z.object({
   /** Horodatage du calcul, affiché comme « données au JJ/MM à HH:MM ». */
   computedAt: z.string(),
   /** Fenêtre de l'année scolaire retenue pour les indicateurs annuels. */
   academicYearLabel: z.string().nullable(),
+  /**
+   * Bornes de la fenêtre effectivement retenue, en `AAAA-MM-JJ`.
+   *
+   * Le tableau de bord les réutilise pour caler ses autres blocs — courbe des
+   * encaissements, concentration des impayés — sur la MÊME fenêtre que les
+   * indicateurs. Les recalculer de son côté finirait par diverger le jour où
+   * une année ne suivrait pas le pivot de septembre.
+   *
+   * `null` quand l'année demandée est introuvable : rien n'est alors mesuré,
+   * plutôt que d'afficher les chiffres d'une autre année sous son nom.
+   */
+  windowStart: z.string().nullable(),
+  windowEnd: z.string().nullable(),
   kpis: z.array(OwnerPulseKpiSchema),
 });
 
@@ -1107,7 +1206,6 @@ export type OwnerEconomieQuery = z.infer<typeof OwnerEconomieQuerySchema>;
 export type OwnerEconomieResponse = z.infer<typeof OwnerEconomieResponseSchema>;
 export type OwnerMargeFiliere = z.infer<typeof OwnerMargeFiliereSchema>;
 export type OwnerFamille = z.infer<typeof OwnerFamilleSchema>;
-export type OwnerForecastPoint = z.infer<typeof OwnerForecastPointSchema>;
 export type OwnerRisqueQuery = z.infer<typeof OwnerRisqueQuerySchema>;
 export type OwnerRisqueResponse = z.infer<typeof OwnerRisqueResponseSchema>;
 export type OwnerRisqueSignalKey = z.infer<typeof OwnerRisqueSignalKeySchema>;
@@ -1116,7 +1214,6 @@ export type OwnerRisqueTeacher = z.infer<typeof OwnerRisqueTeacherSchema>;
 export type OwnerRemplissageQuery = z.infer<typeof OwnerRemplissageQuerySchema>;
 export type OwnerRemplissageResponse = z.infer<typeof OwnerRemplissageResponseSchema>;
 export type OwnerCohorteRow = z.infer<typeof OwnerCohorteRowSchema>;
-export type OwnerClasseRow = z.infer<typeof OwnerClasseRowSchema>;
 export type OwnerPlanningConflit = z.infer<typeof OwnerPlanningConflitSchema>;
 export type OwnerCouvertureRow = z.infer<typeof OwnerCouvertureRowSchema>;
 export type OwnerTresorerieGranularity = z.infer<typeof OwnerTresorerieGranularitySchema>;
@@ -1131,6 +1228,7 @@ export type OwnerCashRegisterRow = z.infer<typeof OwnerCashRegisterRowSchema>;
 export type OwnerPulseUnit = z.infer<typeof OwnerPulseUnitSchema>;
 export type OwnerPulseStatus = z.infer<typeof OwnerPulseStatusSchema>;
 export type OwnerPulseKpi = z.infer<typeof OwnerPulseKpiSchema>;
+export type OwnerPulseQuery = z.infer<typeof OwnerPulseQuerySchema>;
 export type OwnerPulseResponse = z.infer<typeof OwnerPulseResponseSchema>;
 export type OwnerUeCategorie = z.infer<typeof OwnerUeCategorieSchema>;
 export type OwnerPedagogieQuery = z.infer<typeof OwnerPedagogieQuerySchema>;
@@ -1149,3 +1247,251 @@ export type OwnerPersonnesQuery = z.infer<typeof OwnerPersonnesQuerySchema>;
 export type OwnerPersonnesResponse = z.infer<typeof OwnerPersonnesResponseSchema>;
 export type OwnerRecrutementQuery = z.infer<typeof OwnerRecrutementQuerySchema>;
 export type OwnerRecrutementResponse = z.infer<typeof OwnerRecrutementResponseSchema>;
+
+/* -------------------------------------------------------------------------- */
+/*  5.J — /owner/payroll : masse salariale                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Statuts réels de `payment_status` en base — six, pas trois.
+ *
+ * `disputed`, `cancelled` et `unpaid` existent et doivent être nommés : une
+ * paie contestée exclue d'un total sans le dire ferait un écart inexplicable
+ * entre cet écran et le bulletin que l'enseignant a en main.
+ */
+export const OwnerPayrollStatusSchema = z.enum([
+  "calculated",
+  "approved",
+  "paid",
+  "disputed",
+  "cancelled",
+  "unpaid",
+]);
+
+/** Filtre d'archivage. Toutes les paies d'un exercice clos sont archivées. */
+export const OwnerPayrollArchiveSchema = z.enum(["actives", "archivees", "toutes"]);
+
+/**
+ * Année scolaire au format « AAAA-AAAA+1 », telle que l'affiche la page admin
+ * des bulletins archivés. Le format est vérifié ici : c'est une chaîne libre qui
+ * finit dans une comparaison SQL.
+ */
+export const OwnerPayrollAnneeSchema = z.string().regex(/^[0-9]{4}-[0-9]{4}$/);
+
+export const OwnerPayrollQuerySchema = z.object({
+  /** `payment_periods.id`. Absent = toutes les périodes. */
+  periodId: z.string().uuid().optional(),
+  /** Année scolaire ; restreint aux périodes de paie qui lui appartiennent. */
+  anneeScolaire: OwnerPayrollAnneeSchema.optional(),
+  /**
+   * `teachers.id`. Absent = tous les enseignants.
+   *
+   * Même axe que le filtre « Enseignant » de la page administrateur des
+   * bulletins archivés : « combien je paie, À QUI » est la moitié de la
+   * question de l'écran, elle doit être filtrable.
+   */
+  teacherId: z.string().uuid().optional(),
+  status: OwnerPayrollStatusSchema.optional(),
+  archive: OwnerPayrollArchiveSchema.default("toutes"),
+});
+
+export const OwnerPayrollPeriodOptionSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  status: z.string(),
+  /**
+   * Année scolaire de la période. `academic_years.name` quand la période y est
+   * rattachée, sinon déduite de `period_start` avec un pivot en septembre —
+   * même règle que la page administrateur des bulletins archivés, pour que les
+   * deux écrans classent un même bulletin dans la même année.
+   */
+  anneeScolaire: z.string().nullable(),
+});
+
+export const OwnerPayrollKpisSchema = z.object({
+  /** Somme des paies retenues par le filtre, hors annulées. */
+  masseSalariale: z.number(),
+  bulletins: z.number().int().nonnegative(),
+  enseignantsPayes: z.number().int().nonnegative(),
+  /** Masse / enseignants payés. `null` si personne n'est payé. */
+  coutMoyenParEnseignant: z.number().nullable(),
+  /** Statut `calculated` : calculé, en attente de la signature du propriétaire. */
+  enAttenteValidation: z.number().int().nonnegative(),
+  montantEnAttente: z.number(),
+  /** Approuvé mais `paid_at IS NULL` : engagé, pas encore sorti de caisse. */
+  approuveNonVerse: z.number().int().nonnegative(),
+  montantApprouveNonVerse: z.number(),
+  /**
+   * Montant des paies annulées ou contestées sur le périmètre. Exclu de
+   * `masseSalariale`, et affiché à part pour que l'exclusion soit visible.
+   */
+  montantHorsTotal: z.number(),
+});
+
+/** Décomposition du bulletin, telle que la porte `teacher_payments`. */
+export const OwnerPayrollBreakdownSchema = z.object({
+  base: z.number(),
+  heuresSup: z.number(),
+  primes: z.number(),
+  retenues: z.number(),
+  total: z.number(),
+});
+
+export const OwnerPayrollByPeriodSchema = z.object({
+  periodId: z.string().uuid(),
+  name: z.string(),
+  periodStart: z.string(),
+  bulletins: z.number().int().nonnegative(),
+  enseignantsPayes: z.number().int().nonnegative(),
+  montant: z.number(),
+});
+
+export const OwnerPayrollByTeacherSchema = z.object({
+  teacherId: z.string().uuid(),
+  teacherName: z.string(),
+  email: z.string().nullable(),
+  bulletins: z.number().int().nonnegative(),
+  base: z.number(),
+  heuresSup: z.number(),
+  primes: z.number(),
+  retenues: z.number(),
+  total: z.number(),
+});
+
+export const OwnerPayrollPendingRowSchema = z.object({
+  id: z.string().uuid(),
+  teacherName: z.string(),
+  periodName: z.string().nullable(),
+  amount: z.number(),
+  calculatedAt: z.string().nullable(),
+});
+
+export const OwnerPayrollCourseGapSchema = z.object({
+  classCourseId: z.string().uuid(),
+  className: z.string(),
+  courseName: z.string(),
+});
+
+/**
+ * Enseignant proposé au filtre, avec son nombre de bulletins.
+ *
+ * Seuls ceux qui EN ONT figurent dans la liste — même règle que la page
+ * administrateur des bulletins archivés. Proposer quelqu'un sans bulletin
+ * ouvrirait un écran vide sans dire pourquoi.
+ */
+export const OwnerPayrollTeacherOptionSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  bulletins: z.number().int().nonnegative(),
+});
+
+/**
+ * Statut réellement porté par au moins un bulletin, avec son effectif.
+ *
+ * `payment_status` a six valeurs ; une base n'en porte généralement que deux ou
+ * trois. Lister les six dans le menu revient à proposer quatre filtres qui
+ * n'ouvrent que du vide. L'effectif est renvoyé pour que l'option annonce ce
+ * qu'elle contient avant d'être choisie.
+ */
+export const OwnerPayrollStatusCountSchema = z.object({
+  status: OwnerPayrollStatusSchema,
+  bulletins: z.number().int().nonnegative(),
+});
+
+/**
+ * Un bulletin, tel que la page administrateur des bulletins archivés le montre.
+ *
+ * L'écran propriétaire agrège ; mais dès qu'un enseignant ou une période est
+ * choisi, la question devient « quelles lignes exactement ? ». Les mêmes
+ * colonnes que l'historique — deux dates distinctes, `archivedAt` qui dit quand
+ * le montant a été arrêté et `paidAt` quand l'argent est parti — pour que les
+ * deux écrans ne puissent pas raconter deux histoires du même bulletin.
+ */
+export const OwnerPayrollBulletinSchema = z.object({
+  id: z.string().uuid(),
+  teacherId: z.string().uuid(),
+  teacherName: z.string(),
+  periodId: z.string().uuid().nullable(),
+  periodName: z.string().nullable(),
+  periodStart: z.string().nullable(),
+  periodEnd: z.string().nullable(),
+  anneeScolaire: z.string().nullable(),
+  status: z.string(),
+  amount: z.number(),
+  /** `null` tant que le bulletin n'a pas été archivé. */
+  archivedAt: z.string().nullable(),
+  /** Date du versement RÉEL. `null` tant que le bulletin reste dû. */
+  paidAt: z.string().nullable(),
+});
+
+export const OwnerPayrollResponseSchema = z.object({
+  /** Filtres réellement appliqués, ré-exposés pour l'affichage et le PDF. */
+  periodId: z.string().uuid().nullable(),
+  periodName: z.string().nullable(),
+  anneeScolaire: z.string().nullable(),
+  teacherId: z.string().uuid().nullable(),
+  teacherName: z.string().nullable(),
+  status: OwnerPayrollStatusSchema.nullable(),
+  archive: OwnerPayrollArchiveSchema,
+  /** Périodes proposées au filtre : l'écran n'a pas à les deviner. */
+  periods: z.array(OwnerPayrollPeriodOptionSchema),
+  /**
+   * Années réellement représentées, de la plus récente à la plus ancienne.
+   * Proposer une année sans aucun bulletin donnerait un écran vide sans dire
+   * pourquoi.
+   */
+  anneesScolaires: z.array(z.string()),
+  /** Enseignants porteurs d'au moins un bulletin, du plus fourni au moins. */
+  teachers: z.array(OwnerPayrollTeacherOptionSchema),
+  /**
+   * Statuts réellement présents, hors filtre de statut : le menu ne doit pas se
+   * vider de ses propres options dès qu'on en choisit une.
+   */
+  statuts: z.array(OwnerPayrollStatusCountSchema),
+  /**
+   * Effectifs des deux faces de l'archivage, hors filtre d'archivage. Un
+   * établissement dont tout est classé doit le LIRE sur l'option, plutôt que de
+   * découvrir un écran vide après l'avoir choisie.
+   */
+  archiveCounts: z.object({
+    actives: z.number().int().nonnegative(),
+    archivees: z.number().int().nonnegative(),
+  }),
+  kpis: OwnerPayrollKpisSchema,
+  breakdown: OwnerPayrollBreakdownSchema,
+  /** Toutes les périodes, filtre de période ignoré : c'est une évolution. */
+  byPeriod: z.array(OwnerPayrollByPeriodSchema),
+  byTeacher: z.array(OwnerPayrollByTeacherSchema),
+  /**
+   * Les bulletins du périmètre, ligne à ligne. Plafonnés côté serveur ;
+   * `bulletinsTotal` porte sur tout ce que le filtre retient, pour qu'un
+   * écrêtage se lise au lieu de se deviner.
+   */
+  bulletins: z.array(OwnerPayrollBulletinSchema),
+  bulletinsTotal: z.number().int().nonnegative(),
+  pending: z.array(OwnerPayrollPendingRowSchema),
+  coursesWithoutTeacher: z.array(OwnerPayrollCourseGapSchema),
+  /**
+   * Cours sans titulaire AFFICHABLES : mêmes jointures que la liste, pour que
+   * le compteur et le tableau ne puissent pas se contredire.
+   */
+  coursesWithoutTeacherTotal: z.number().int().nonnegative(),
+  /**
+   * Lignes `class_courses` sans titulaire dont la classe ou la matière
+   * référencée n'existe plus. Elles ne sont listables nulle part : les compter
+   * avec les autres afficherait un total au-dessus d'un tableau plus court, ce
+   * qui se lit comme une troncature au lieu d'un défaut de données.
+   */
+  coursesWithoutTeacherOrphaned: z.number().int().nonnegative(),
+});
+
+export type OwnerPayrollStatus = z.infer<typeof OwnerPayrollStatusSchema>;
+export type OwnerPayrollArchive = z.infer<typeof OwnerPayrollArchiveSchema>;
+export type OwnerPayrollQuery = z.infer<typeof OwnerPayrollQuerySchema>;
+export type OwnerPayrollResponse = z.infer<typeof OwnerPayrollResponseSchema>;
+export type OwnerPayrollByTeacher = z.infer<typeof OwnerPayrollByTeacherSchema>;
+export type OwnerPayrollTeacherOption = z.infer<typeof OwnerPayrollTeacherOptionSchema>;
+export type OwnerPayrollPeriodOption = z.infer<typeof OwnerPayrollPeriodOptionSchema>;
+export type OwnerPayrollBulletin = z.infer<typeof OwnerPayrollBulletinSchema>;

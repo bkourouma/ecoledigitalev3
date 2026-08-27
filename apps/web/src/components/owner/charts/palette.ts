@@ -64,7 +64,7 @@ export function seriesColorFor(key: string, keys: readonly string[]): string {
 
 /**
  * Seuils métier de recouvrement, déjà en vigueur dans l'espace owner
- * (RecoveryByCycleChart) : vert >= 80 %, ambre >= 60 %, rouge en deçà.
+ * (autrefois RecoveryByCycleChart) : vert >= 80 %, ambre >= 60 %, rouge en deçà.
  * Couleur de statut — toujours accompagnée de la valeur chiffrée à l'écran.
  */
 export function recoveryColor(rate: number): string {
@@ -85,6 +85,11 @@ export function formatFcfaCompact(n: number): string {
   return String(n);
 }
 
-export function formatPct(n: number): string {
+/**
+ * Pourcentage affiché. `null` / `undefined` → « Non mesuré », jamais « 0 % » :
+ * un zéro ferait passer une absence de dénominateur pour un recouvrement nul.
+ */
+export function formatPct(n: number | null | undefined): string {
+  if (n === null || n === undefined) return "Non mesuré";
   return `${n.toFixed(1)} %`;
 }

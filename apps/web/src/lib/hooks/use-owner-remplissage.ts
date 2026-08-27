@@ -5,10 +5,16 @@ import { useSession } from "next-auth/react";
 import { createApiHeaders } from "@/lib/api-utils";
 import type { OwnerRemplissageResponse } from "@ecoledigitale/contracts";
 
-export function useOwnerRemplissage(filiereIds?: string[]) {
+export function useOwnerRemplissage(anneeScolaire?: string | null, filiereIds?: string[]) {
   const { data: session } = useSession();
   const tenantId = (session as { tenantId?: string } | null)?.tenantId ?? "no-tenant";
-  const qs = filiereIds?.length ? `?filiereIds=${filiereIds.join(",")}` : "";
+
+  // `URLSearchParams` plutôt qu'une concaténation : l'année et les filières
+  // s'ajoutent indépendamment, et la clé de cache doit refléter les deux.
+  const params = new URLSearchParams();
+  if (anneeScolaire) params.set("anneeScolaire", anneeScolaire);
+  if (filiereIds?.length) params.set("filiereIds", filiereIds.join(","));
+  const qs = params.toString() ? `?${params.toString()}` : "";
 
   return useQuery<OwnerRemplissageResponse>({
     queryKey: ["owner-remplissage", tenantId, qs],

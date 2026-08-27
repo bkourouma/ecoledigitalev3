@@ -21,7 +21,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useOwnerRecrutement, buildQueryString } from "@/lib/hooks/use-owner-recrutement";
-import { ExportCsvButton } from "@/components/owner/charts/ExportCsvButton";
+import { OwnerPageHeader } from "@/components/owner/OwnerPageHeader";
+import { jourFr, tableOrNote, type OwnerReportContent } from "@/lib/utils/owner-report";
 import { StatCard } from "@/components/owner/charts/StatCard";
 import { ChartCard } from "@/components/owner/charts/ChartCard";
 import { BarChartCard } from "@/components/owner/charts/BarChartCard";
@@ -70,6 +71,95 @@ export default function OwnerRecrutementPage() {
 
   const { data, isLoading, error } = useOwnerRecrutement(params);
 
+  /**
+   * L'entonnoir ouvre le rapport : c'est le seul bloc où l'on voit combien de
+   * demandes se perdent entre le dépôt et l'identifiant remis, donc combien
+   * d'élèves sont déjà venus frapper sans jamais entrer.
+   */
+  const construireRapport = (): OwnerReportContent => {
+    const d = data!;
+    const f = d.funnel;
+    const perte = (de: number, vers: number) =>
+      de === 0 ? "—" : `${(((de - vers) / de) * 100).toFixed(1)} %`;
+    return {
+      filename: "recrutement",
+      orientation: "portrait",
+      blocks: [
+        {
+          kind: "keyValues",
+          columns: 2,
+          items: [
+            ["Fenêtre", `Du ${d.dateDebut} au ${d.dateFin}`],
+            ["Demandes reçues", String(d.kpis.received)],
+            ["Taux de validation", `${d.kpis.approvalRate.toFixed(1)} %`],
+            [
+              "Délai moyen de traitement",
+              d.kpis.avgProcessingDays === null
+                ? "Non mesuré"
+                : `${d.kpis.avgProcessingDays.toFixed(1)} jour(s)`,
+            ],
+            ["Demandes en attente", String(d.kpis.pending)],
+          ],
+        },
+        { kind: "heading", text: "Entonnoir d'acquisition", level: 1 },
+        {
+          kind: "table",
+          table: {
+            columns: [
+              { header: "Étape" },
+              { header: "Volume", width: 30, align: "right" },
+              { header: "Perte depuis l'étape précédente", width: 60, align: "right" },
+            ],
+            rows: [
+              ["Demandes reçues", String(f.received), "—"],
+              ["Validées", String(f.approved), perte(f.received, f.approved)],
+              ["Comptes créés", String(f.accountsCreated), perte(f.approved, f.accountsCreated)],
+              [
+                "Identifiants générés",
+                String(f.credentialsIssued),
+                perte(f.accountsCreated, f.credentialsIssued),
+              ],
+            ],
+          },
+        },
+        { kind: "heading", text: "Répartition par statut", level: 1 },
+        tableOrNote(
+          [{ header: "Statut" }, { header: "Demandes", width: 30, align: "right" }],
+          d.byStatus.map((s) => [STATUS_LABELS[s.status], String(s.count)]),
+          "Aucune demande sur la période."
+        ),
+        { kind: "heading", text: "Délai de traitement", level: 1 },
+        tableOrNote(
+          [{ header: "Délai" }, { header: "Demandes", width: 30, align: "right" }],
+          d.processingDelays.map((p) => [p.bucket, String(p.count)]),
+          "Aucune demande traitée sur la période."
+        ),
+        { kind: "heading", text: "Demandes par semaine", level: 1 },
+        tableOrNote(
+          [
+            { header: "Semaine du" },
+            { header: "Étudiants", width: 30, align: "right" },
+            { header: "Parents", width: 30, align: "right" },
+          ],
+          d.weekly.map((w) => [jourFr(w.weekStart), String(w.student), String(w.parent)]),
+          "Aucune demande sur la période."
+        ),
+        { kind: "heading", text: "Niveaux souhaités", level: 1 },
+        tableOrNote(
+          [{ header: "Niveau" }, { header: "Demandes", width: 30, align: "right" }],
+          d.desiredLevels.map((l) => [l.level, String(l.count)]),
+          "Aucun niveau renseigné sur la période."
+        ),
+        { kind: "heading", text: "Motifs de rejet", level: 1 },
+        tableOrNote(
+          [{ header: "Motif" }, { header: "Demandes", width: 30, align: "right" }],
+          d.rejectionReasons.map((r) => [r.reason, String(r.count)]),
+          "Aucun rejet sur la période."
+        ),
+      ],
+    };
+  };
+
   const funnelSteps = useMemo(() => {
     if (!data) return [];
     const f = data.funnel;
@@ -105,20 +195,17 @@ export default function OwnerRecrutementPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Recrutement en ligne</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Demandes d&apos;inscription déposées depuis le site public, du {data.dateDebut} au{" "}
-            {data.dateFin}.
-          </p>
-        </div>
-        <ExportCsvButton
-          endpoint="/api/v1/owner/recrutement/export"
-          queryString={buildQueryString(params)}
-          filename="recrutement.csv"
-        />
-      </div>
+      <OwnerPageHeader
+        title="Recrutement"
+        question="Est-ce que je fais entrer assez de nouveaux élèves ?"
+        precision={`Demandes d'inscription déposées depuis le site public, du ${data.dateDebut} au ${data.dateFin}.`}
+        pdf={construireRapport}
+        csv={{
+          endpoint: "/api/v1/owner/recrutement/export",
+          queryString: buildQueryString(params),
+          filename: "recrutement.csv",
+        }}
+      />
 
       <Card>
         <CardHeader className="pb-3">

@@ -6,14 +6,15 @@ import { createApiHeaders } from "@/lib/api-utils";
 import type { OwnerPersonnesResponse } from "@ecoledigitale/contracts";
 
 export type OwnerPersonnesParams = {
-  academicYearId?: string;
+  /** Année scolaire dérivée `YYYY-YYYY`. Absente ⇒ toutes années cumulées. */
+  anneeScolaire?: string;
   filiereIds?: string[];
 };
 
 /** Exporté pour que le bouton d'export réutilise EXACTEMENT le périmètre affiché. */
 export function buildQueryString(p: OwnerPersonnesParams): string {
   const sp = new URLSearchParams();
-  if (p.academicYearId) sp.set("academicYearId", p.academicYearId);
+  if (p.anneeScolaire) sp.set("anneeScolaire", p.anneeScolaire);
   if (p.filiereIds && p.filiereIds.length > 0) sp.set("filiereIds", p.filiereIds.join(","));
   return sp.toString();
 }

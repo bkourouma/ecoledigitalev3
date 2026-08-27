@@ -1,100 +1,127 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import type { FastifyBaseLogger } from "fastify";
 import type { OwnerFinancesPeriod, OwnerFinancesResponse } from "@ecoledigitale/contracts";
+import { PRO_ORDER_DATES_CTE } from "./owner-pro-annee.sql";
 
 /**
- * Nombre d'échéances en retard listées nominativement. C'est un extrait destiné
- * à l'écran, PAS une base de calcul : les totaux sont agrégés séparément en SQL.
+ * Encaissements : combien est rentré sur la période, et d'où.
+ *
+ * CE QUI A CHANGÉ, ET POURQUOI
+ * Ce service ne lisait que le module scolaire — `payment_transactions` et
+ * `student_tuition_installments`. Sur un établissement dont l'activité passe
+ * par le module professionnel, il renvoyait donc zéro encaissement pendant que
+ * la caisse encaissait. C'était l'inverse de la réalité, affiché sur le seul
+ * écran qui porte le mot « Encaissements ».
+ *
+ * PUIS LA SCOLARITÉ EN EST SORTIE. L'écran ne décrit plus que le module
+ * professionnel : les moitiés scolaires des totaux, la ventilation par cycle et
+ * par classe, et la liste des échéances scolaires en retard ont été retirées.
+ * Les laisser à zéro sur un établissement qui ne saisit pas de scolarité
+ * revenait à afficher une contre-performance là où il n'y a pas de mesure.
+ *
+ * CE QUI N'Y EST PLUS
+ * Le bloc des rémunérations enseignantes. C'est de l'argent qui sort, sur un
+ * écran qui décrit ce qui rentre, et il ne suivait même pas la période
+ * sélectionnée. Il a son écran — Masse salariale — filtrable et exportable.
+ *
+ * Chaque requête est indépendante et tolérante à l'échec : un bloc cassé
+ * n'emporte pas les autres.
  */
-const OVERDUE_LIST_LIMIT = 200;
 
 export type OwnerFinancesQuery = {
   period: OwnerFinancesPeriod;
-  /** When period is academic_year */
-  academicYearId?: string;
-  /** Optional cycle filter (UUID) */
-  cycleId?: string;
+  /** Année scolaire dérivée « AAAA-AAAA+1 ». */
+  anneeScolaire?: string;
+  /** Restreint la moitié professionnelle. */
+  filiereIds?: string[];
 };
 
-function monthRange(d: Date): { start: Date; end: Date } {
-  const y = d.getUTCFullYear();
-  const m = d.getUTCMonth();
-  const start = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999));
-  return { start, end };
+type Row = Record<string, unknown>;
+
+async function safeQuery<T extends Row>(
+  client: PoolClient,
+  sql: string,
+  params: unknown[],
+  log: FastifyBaseLogger | undefined,
+  label: string
+): Promise<T[]> {
+  try {
+    const r = await client.query<T>(sql, params);
+    return r.rows;
+  } catch (e) {
+    log?.warn({ err: e, label }, "owner finances query failed");
+    return [];
+  }
 }
 
-function quarterRange(d: Date): { start: Date; end: Date } {
-  const y = d.getUTCFullYear();
-  const q = Math.floor(d.getUTCMonth() / 3);
-  const startM = q * 3;
-  const start = new Date(Date.UTC(y, startM, 1, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(y, startM + 3, 0, 23, 59, 59, 999));
-  return { start, end };
+function num(v: unknown): number {
+  if (v === null || v === undefined) return 0;
+  const n = typeof v === "number" ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : 0;
 }
 
-function yearRange(d: Date): { start: Date; end: Date } {
-  const y = d.getUTCFullYear();
-  return {
-    start: new Date(Date.UTC(y, 0, 1, 0, 0, 0, 0)),
-    end: new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999)),
-  };
+/** Arrondi au franc : le FCFA n'a pas de subdivision en circulation. */
+function franc(v: unknown): number {
+  return Math.round(num(v));
 }
 
+function taux(collected: number, expected: number): number | null {
+  if (expected <= 0) return null;
+  return Math.round((1000 * collected) / expected) / 10;
+}
+
+/**
+ * Référence anonymisée d'un élève.
+ *
+ * Les listes d'impayés de cet écran sont consultées par le propriétaire, pas
+ * par le service de recouvrement : le nom n'y ajoute rien et l'expose sans
+ * raison. La liste nominative existe, elle, sur l'écran Impayés.
+ */
 export function anonymizeStudentRef(studentId: string): string {
   const hex = studentId.replace(/-/g, "");
   return `${hex.slice(0, 6).toUpperCase()}…`;
 }
 
-export async function resolveFinancesDateRange(
-  pool: Pool,
-  tenantId: string,
-  query: OwnerFinancesQuery,
-  log?: FastifyBaseLogger
-): Promise<{ start: Date; end: Date; academicYearId?: string }> {
-  const now = new Date();
-  if (query.period === "month") {
-    const { start, end } = monthRange(now);
-    return { start, end };
-  }
-  if (query.period === "quarter") {
-    const { start, end } = quarterRange(now);
-    return { start, end };
-  }
-  if (query.period === "year") {
-    const { start, end } = yearRange(now);
-    return { start, end };
-  }
-  if (query.period === "academic_year") {
-    if (!query.academicYearId) {
-      log?.warn("academic_year without academicYearId — falling back to current month");
-      const { start, end } = monthRange(now);
-      return { start, end };
-    }
-    const r = await pool.query(
-      `SELECT start_date, end_date FROM academic_years
-       WHERE tenant_id = $1 AND id = $2::uuid`,
-      [tenantId, query.academicYearId]
-    );
-    if (r.rows.length === 0) {
-      log?.warn({ academicYearId: query.academicYearId }, "academic year not found");
-      const { start, end } = monthRange(now);
-      return { start, end };
-    }
-    const row = r.rows[0];
-    return {
-      start: new Date(row.start_date),
-      end: new Date(row.end_date),
-      academicYearId: query.academicYearId,
-    };
-  }
-  const { start, end } = monthRange(now);
-  return { start, end };
+/* --------------------------- Fenêtre de la période ------------------------- */
+
+function utc(y: number, m: number, d: number, h = 0, mi = 0, s = 0, ms = 0): Date {
+  return new Date(Date.UTC(y, m, d, h, mi, s, ms));
 }
 
-function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+/**
+ * Bornes de la période demandée.
+ *
+ * `academic_year` suit la MÊME règle que partout ailleurs dans l'espace
+ * propriétaire : du 1er septembre de N au 31 août de N+1, millésime pris dans
+ * `anneeScolaire` ou déduit du jour. L'ancienne version lisait `academic_years`
+ * et, faute d'identifiant, retombait sur le mois en cours — « année scolaire »
+ * affichait donc un mois.
+ */
+export function resolveFinancesDateRange(query: OwnerFinancesQuery): {
+  start: Date;
+  end: Date;
+} {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+
+  if (query.period === "month") return { start: utc(y, m, 1), end: utc(y, m + 1, 0, 23, 59, 59, 999) };
+  if (query.period === "quarter") {
+    const q = Math.floor(m / 3) * 3;
+    return { start: utc(y, q, 1), end: utc(y, q + 3, 0, 23, 59, 59, 999) };
+  }
+  if (query.period === "year") return { start: utc(y, 0, 1), end: utc(y, 11, 31, 23, 59, 59, 999) };
+
+  // academic_year — pivot septembre, douze mois pleins.
+  const n = query.anneeScolaire
+    ? parseInt(query.anneeScolaire.slice(0, 4), 10)
+    : m >= 8
+      ? y
+      : y - 1;
+  return { start: utc(n, 8, 1), end: utc(n + 1, 7, 31, 23, 59, 59, 999) };
 }
+
+/* --------------------------------- Service -------------------------------- */
 
 export async function fetchOwnerFinances(
   pool: Pool,
@@ -102,241 +129,242 @@ export async function fetchOwnerFinances(
   query: OwnerFinancesQuery,
   log?: FastifyBaseLogger
 ): Promise<OwnerFinancesResponse> {
-  const { start, end, academicYearId } = await resolveFinancesDateRange(
-    pool,
-    tenantId,
-    query,
-    log
-  );
-  const startStr = toIsoDate(start);
-  const endStr = toIsoDate(end);
-  const cycleForSql = query.cycleId ?? null;
-
-  const paramsBase: unknown[] = [tenantId, startStr, endStr, cycleForSql];
-
-  const recoverySql = `
-    SELECT
-      c.id AS class_id,
-      c.name AS class_name,
-      cy.name AS cycle_name,
-      COALESCE(SUM(sti.amount), 0)::float AS expected,
-      COALESCE(SUM(sti.amount_paid), 0)::float AS collected
-    FROM classes c
-    JOIN programmes p ON p.id = c.programme_id AND p.tenant_id = c.tenant_id
-    JOIN cycles cy ON cy.id = p.cycle_id AND cy.tenant_id = c.tenant_id
-    LEFT JOIN student_enrollments se ON se.class_id = c.id
-      AND se.tenant_id = c.tenant_id
-      AND se.status = 'active'::enrollment_status
-    LEFT JOIN student_tuition_installments sti ON sti.enrollment_id = se.id
-      AND sti.tenant_id = se.tenant_id
-      AND sti.due_date::date BETWEEN $2::date AND $3::date
-    WHERE c.tenant_id = $1::uuid
-      AND ($4::uuid IS NULL OR cy.id = $4::uuid)
-    GROUP BY c.id, c.name, cy.name
-    ORDER BY cy.name NULLS LAST, c.name
-  `;
-
-  const overdueSql = `
-    SELECT
-      sti.student_id,
-      sti.amount - sti.amount_paid AS amount_due,
-      sti.due_date,
-      c.name AS class_name
-    FROM student_tuition_installments sti
-    JOIN student_enrollments se ON se.id = sti.enrollment_id AND se.tenant_id = sti.tenant_id
-    JOIN classes c ON c.id = se.class_id AND c.tenant_id = sti.tenant_id
-    JOIN programmes p ON p.id = c.programme_id AND p.tenant_id = c.tenant_id
-    JOIN cycles cy ON cy.id = p.cycle_id AND cy.tenant_id = c.tenant_id
-    WHERE sti.tenant_id = $1::uuid
-      AND sti.status IN ('pending', 'partial', 'overdue')
-      AND sti.amount > sti.amount_paid
-      AND sti.due_date::date <= $3::date
-      AND ($4::uuid IS NULL OR cy.id = $4::uuid)
-    ORDER BY sti.due_date ASC
-    LIMIT ${OVERDUE_LIST_LIMIT}
-  `;
-
-  /**
-   * Totaux des impayés : requête d'agrégat SÉPARÉE, sans LIMIT.
-   *
-   * `overdueCount` et `overdueAmount` étaient auparavant sommés en TypeScript sur
-   * la liste plafonnée ci-dessus : au-delà de ${OVERDUE_LIST_LIMIT} échéances en
-   * retard, le montant affiché au propriétaire était faux — et faux « par le bas »,
-   * donc rassurant à tort. Mêmes conditions que `overdueSql`, sans troncature.
-   */
-  const overdueTotalsSql = `
-    SELECT
-      COUNT(*)::int AS overdue_count,
-      COALESCE(SUM(sti.amount - sti.amount_paid), 0)::float AS overdue_amount
-    FROM student_tuition_installments sti
-    JOIN student_enrollments se ON se.id = sti.enrollment_id AND se.tenant_id = sti.tenant_id
-    JOIN classes c ON c.id = se.class_id AND c.tenant_id = sti.tenant_id
-    JOIN programmes p ON p.id = c.programme_id AND p.tenant_id = c.tenant_id
-    JOIN cycles cy ON cy.id = p.cycle_id AND cy.tenant_id = c.tenant_id
-    WHERE sti.tenant_id = $1::uuid
-      AND sti.status IN ('pending', 'partial', 'overdue')
-      AND sti.amount > sti.amount_paid
-      AND sti.due_date::date <= $3::date
-      AND ($4::uuid IS NULL OR cy.id = $4::uuid)
-  `;
-
-  const payrollSql = `
-    SELECT
-      tp.id,
-      tp.total_amount AS amount,
-      tp.status::text AS status,
-      tp.calculated_at,
-      pp.name AS period_name,
-      COALESCE(u.first_name || ' ' || u.last_name, u.email, 'Enseignant') AS teacher_name
-    FROM teacher_payments tp
-    JOIN teachers t ON t.id = tp.teacher_id
-    JOIN users u ON u.id = t.user_id
-    LEFT JOIN payment_periods pp ON pp.id = tp.payment_period_id
-    WHERE tp.tenant_id = $1::uuid
-      AND COALESCE(tp.calculated_at, tp.created_at)::date BETWEEN $2::date AND $3::date
-    ORDER BY COALESCE(tp.calculated_at, tp.created_at) DESC
-    LIMIT 100
-  `;
-
   const client = await pool.connect();
-  let recoveryRows: Record<string, unknown>[] = [];
-  let overdueRows: Record<string, unknown>[] = [];
-  let payrollRows: Record<string, unknown>[] = [];
-  let overdueCount = 0;
-  let overdueAmount = 0;
   try {
     await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
-    try {
-      const recoveryRes = await client.query(recoverySql, paramsBase);
-      recoveryRows = recoveryRes.rows;
-    } catch (e) {
-      log?.warn({ err: e }, "owner finances recovery query failed");
-    }
-    try {
-      const overdueRes = await client.query(overdueSql, paramsBase);
-      overdueRows = overdueRes.rows;
-    } catch (e) {
-      log?.warn({ err: e }, "owner finances overdue query failed");
-    }
-    try {
-      const totalsRes = await client.query(overdueTotalsSql, paramsBase);
-      overdueCount = Number(totalsRes.rows[0]?.overdue_count) || 0;
-      overdueAmount = Number(totalsRes.rows[0]?.overdue_amount) || 0;
-    } catch (e) {
-      log?.warn({ err: e }, "owner finances overdue totals query failed");
-    }
-    try {
-      const payrollRes = await client.query(payrollSql, [tenantId, startStr, endStr]);
-      payrollRows = payrollRes.rows;
-    } catch (e) {
-      log?.warn({ err: e }, "owner finances payroll query failed");
-    }
+
+    const { start, end } = resolveFinancesDateRange(query);
+    // Même fenêtre, un an plus tôt : le calendrier scolaire est trop saisonnier
+    // pour qu'un écart au mois précédent veuille dire quoi que ce soit.
+    const startPrev = new Date(start);
+    startPrev.setUTCFullYear(startPrev.getUTCFullYear() - 1);
+    const endPrev = new Date(end);
+    endPrev.setUTCFullYear(endPrev.getUTCFullYear() - 1);
+
+    const filieres = query.filiereIds?.length ? query.filiereIds : null;
+    /* ---- Ce que le module professionnel a réellement à offrir ------------- */
+    // Mesuré une fois, sans filtre : une source vide doit être annoncée comme
+    // non alimentée, jamais lue comme une contre-performance.
+    const couvRows = await safeQuery<Row>(
+      client,
+      `SELECT (SELECT COUNT(*) FROM professional_payments WHERE tenant_id = $1::uuid)
+            + (SELECT COUNT(*) FROM professional_orders WHERE tenant_id = $1::uuid) AS pro`,
+      [tenantId],
+      log,
+      "couverture"
+    );
+
+    /* ---- Totaux du module professionnel ----------------------------------- */
+    const totalRows = await safeQuery<Row>(
+      client,
+      `WITH ${PRO_ORDER_DATES_CTE},
+       pro AS (
+         SELECT COALESCE(SUM(pp.montant), 0)::float8 AS collected
+           FROM professional_payments pp
+           JOIN pro_order_dates d ON d.order_id = pp.order_id
+          WHERE pp.tenant_id = $1::uuid
+            AND pp.statut = 'confirme'
+            AND d.debut BETWEEN $2 AND $3
+       ),
+       pro_prev AS (
+         SELECT COALESCE(SUM(pp.montant), 0)::float8 AS collected
+           FROM professional_payments pp
+           JOIN pro_order_dates d ON d.order_id = pp.order_id
+          WHERE pp.tenant_id = $1::uuid
+            AND pp.statut = 'confirme'
+            AND d.debut BETWEEN $4 AND $5
+       ),
+       pro_att AS (
+         SELECT COALESCE(SUM(po.montant_total), 0)::float8 AS expected
+           FROM professional_orders po
+           JOIN pro_order_dates d ON d.order_id = po.id
+          WHERE po.tenant_id = $1::uuid
+            AND po.statut <> 'annulee'
+            AND d.debut BETWEEN $2 AND $3
+       )
+       SELECT pro.collected AS pro_collected, pro_att.expected AS pro_expected,
+              pro_prev.collected AS prev_collected
+         FROM pro, pro_att, pro_prev`,
+      // `filieres` n'est PAS passé ici : cette requête ne le référence pas, et un
+      // paramètre non cité empêche Postgres d'en déduire le type — la requête
+      // échouait silencieusement, tous les totaux revenaient à zéro pendant que
+      // les ventilations, elles, affichaient 102 millions.
+      [tenantId, start, end, startPrev, endPrev],
+      log,
+      "totaux"
+    );
+    const t = totalRows[0] ?? {};
+
+    /* ---- Courbe mensuelle ------------------------------------------------- */
+    // Le filtre de filière s'applique ici aussi, par appartenance de la commande
+    // — sinon la courbe raconterait un périmètre plus large que les totaux
+    // affichés juste au-dessus d'elle.
+    const monthlyRows = await safeQuery<Row>(
+      client,
+      `WITH ${PRO_ORDER_DATES_CTE},
+       mois AS (
+         SELECT generate_series(date_trunc('month', $2::timestamptz),
+                                date_trunc('month', $3::timestamptz),
+                                INTERVAL '1 month') AS m
+       )
+       SELECT to_char(mois.m, 'YYYY-MM') AS month,
+              to_char(mois.m, 'TMMon YYYY') AS label,
+              COALESCE((SELECT SUM(pp.montant) FROM professional_payments pp
+                         JOIN pro_order_dates d ON d.order_id = pp.order_id
+                         WHERE pp.tenant_id = $1::uuid
+                           AND pp.statut = 'confirme'
+                           -- Mois de la CLASSE OUVERTE, pas du versement.
+                           AND date_trunc('month', d.debut) = mois.m
+                           AND ($4::uuid[] IS NULL OR EXISTS (
+                                 SELECT 1
+                                   FROM professional_enrollments pe
+                                   JOIN professional_ue_sessions s ON s.id = pe.ue_session_id AND s.tenant_id = pe.tenant_id
+                                   JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+                                  WHERE pe.order_id = pp.order_id
+                                    AND pe.tenant_id = pp.tenant_id
+                                    AND ue.filiere_id = ANY($4::uuid[])))), 0)::float8 AS professionnel
+         FROM mois
+        ORDER BY mois.m`,
+      [tenantId, start, end, filieres],
+      log,
+      "courbe"
+    );
+
+    /* ---- Professionnel : par filière -------------------------------------- */
+    // Le rattachement passe par les inscriptions de la commande : une commande
+    // peut porter des UE de plusieurs filières, on répartit donc au prorata du
+    // nombre d'inscriptions plutôt que d'attribuer le tout à la première.
+    const byFiliereRows = await safeQuery<Row>(
+      client,
+      `WITH ${PRO_ORDER_DATES_CTE},
+       lignes AS (
+         SELECT po.id AS order_id,
+                pr.id AS filiere_id,
+                COALESCE(pr.name, 'Sans filière') AS filiere_name,
+                COUNT(*)::float8 AS n
+           FROM professional_orders po
+           JOIN pro_order_dates od ON od.order_id = po.id
+           JOIN professional_enrollments pe ON pe.order_id = po.id AND pe.tenant_id = po.tenant_id
+           JOIN professional_ue_sessions s ON s.id = pe.ue_session_id AND s.tenant_id = pe.tenant_id
+           JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+           LEFT JOIN programmes pr ON pr.id = ue.filiere_id AND pr.tenant_id = ue.tenant_id
+          WHERE po.tenant_id = $1::uuid
+            AND po.statut <> 'annulee'
+            AND od.debut BETWEEN $2 AND $3
+            AND ($4::uuid[] IS NULL OR pr.id = ANY($4::uuid[]))
+          GROUP BY po.id, pr.id, pr.name
+       ),
+       parts AS (
+         SELECT l.*, l.n / SUM(l.n) OVER (PARTITION BY l.order_id) AS part FROM lignes l
+       )
+       SELECT p.filiere_id, p.filiere_name,
+              COALESCE(SUM(po.montant_total * p.part), 0)::float8 AS expected,
+              COALESCE(SUM(
+                p.part * (SELECT COALESCE(SUM(pp.montant), 0) FROM professional_payments pp
+                           WHERE pp.order_id = po.id AND pp.tenant_id = po.tenant_id
+                             AND pp.statut = 'confirme')
+              ), 0)::float8 AS collected
+         FROM parts p
+         JOIN professional_orders po ON po.id = p.order_id AND po.tenant_id = $1::uuid
+        GROUP BY p.filiere_id, p.filiere_name
+        ORDER BY expected DESC`,
+      [tenantId, start, end, filieres],
+      log,
+      "parFiliere"
+    );
+
+    /* ---- Professionnel : par mode de règlement ---------------------------- */
+    const byModeRows = await safeQuery<Row>(
+      client,
+      `WITH ${PRO_ORDER_DATES_CTE}
+       SELECT pp.mode::text AS mode,
+              COUNT(*)::int AS n,
+              COALESCE(SUM(pp.montant), 0)::float8 AS amount
+         FROM professional_payments pp
+         JOIN pro_order_dates d ON d.order_id = pp.order_id
+        WHERE pp.tenant_id = $1::uuid
+          AND pp.statut = 'confirme'
+          AND d.debut BETWEEN $2 AND $3
+        GROUP BY pp.mode
+        ORDER BY amount DESC`,
+      [tenantId, start, end],
+      log,
+      "parMode"
+    );
+
+    /**
+     * Total professionnel : deux calculs, et c'est délibéré.
+     *
+     * Sans filtre de filière, on prend la somme directe des paiements — la plus
+     * juste, car elle compte aussi les commandes qu'aucune inscription ne
+     * rattache à une filière.
+     *
+     * Avec un filtre, on prend la SOMME DES LIGNES de la ventilation. La
+     * requête des totaux ne sait pas répartir une commande multi-filières au
+     * prorata ; si elle appliquait la règle grossière « la commande compte en
+     * entier dès qu'une de ses UE touche la filière », le total afficherait
+     * plus que la somme des lignes juste en dessous. Un écran où le total
+     * contredit son propre tableau est pire qu'un écran approximatif.
+     */
+    const filtreFiliere = filieres !== null;
+    const collectedPro = filtreFiliere
+      ? byFiliereRows.reduce((s, r) => s + franc(r.collected), 0)
+      : franc(t.pro_collected);
+    const expectedPro = filtreFiliere
+      ? byFiliereRows.reduce((s, r) => s + franc(r.expected), 0)
+      : franc(t.pro_expected);
+    const collected = collectedPro;
+    const expected = expectedPro;
+
+    return {
+      period: query.period,
+      periodStart: start.toISOString(),
+      periodEnd: end.toISOString(),
+      anneeScolaire: query.anneeScolaire ?? null,
+      filiereIds: query.filiereIds ?? [],
+      couverture: {
+        professionnelAlimente: num(couvRows[0]?.pro) > 0,
+      },
+      totals: {
+        collected,
+        expected,
+        recoveryRate: taux(collected, expected),
+        collectedPreviousYear: franc(t.prev_collected),
+      },
+      monthly: monthlyRows.map((r) => ({
+        month: String(r.month),
+        label: String(r.label),
+        professionnel: franc(r.professionnel),
+        total: franc(r.professionnel),
+      })),
+      byFiliere: byFiliereRows.map((r) => ({
+        filiereId: (r.filiere_id as string) ?? null,
+        filiereName: String(r.filiere_name),
+        expected: franc(r.expected),
+        collected: franc(r.collected),
+        recoveryRate: taux(franc(r.collected), franc(r.expected)) ?? 0,
+      })),
+      byMode: byModeRows.map((r) => ({
+        mode: String(r.mode ?? "autre"),
+        label: MODE_LABELS[String(r.mode ?? "")] ?? String(r.mode ?? "Autre"),
+        amount: franc(r.amount),
+        count: Math.round(num(r.n)),
+      })),
+    };
   } finally {
     client.release();
   }
-
-  const recoveryByClass = recoveryRows.map((row) => {
-    const expected = Number(row.expected) || 0;
-    const collected = Number(row.collected) || 0;
-    const recoveryRate =
-      expected > 0 ? Math.round((collected / expected) * 1000) / 10 : 0;
-    return {
-      classId: row.class_id,
-      className: row.class_name,
-      cycleName: row.cycle_name,
-      expected,
-      collected,
-      recoveryRate,
-    };
-  });
-
-  const expectedTuition = recoveryByClass.reduce((s, r) => s + r.expected, 0);
-  const collectedTuition = recoveryByClass.reduce((s, r) => s + r.collected, 0);
-  const recoveryRateTotal =
-    expectedTuition > 0
-      ? Math.round((collectedTuition / expectedTuition) * 1000) / 10
-      : 0;
-
-  const overdueInstallments = overdueRows.map((row) => {
-    const due = Number(row.amount_due) || 0;
-    return {
-      studentRef: anonymizeStudentRef(String(row.student_id)),
-      className: row.class_name,
-      amountDue: due,
-      dueDate: toIsoDate(new Date(row.due_date)),
-    };
-  });
-
-  const teacherPayroll = payrollRows.map((row) => ({
-    id: row.id,
-    teacherName: row.teacher_name,
-    periodLabel: row.period_name,
-    amount: Number(row.amount) || 0,
-    status: row.status,
-    calculatedAt: new Date(row.calculated_at).toISOString(),
-  }));
-  const teacherPayrollTotal = teacherPayroll.reduce((s, p) => s + p.amount, 0);
-
-  return {
-    period: query.period,
-    periodStart: start.toISOString(),
-    periodEnd: end.toISOString(),
-    ...(academicYearId ? { academicYearId } : {}),
-    ...(query.cycleId ? { cycleId: query.cycleId } : {}),
-    totals: {
-      expectedTuition,
-      collectedTuition,
-      recoveryRate: recoveryRateTotal,
-      // Comptés en SQL sur TOUTES les échéances en retard, pas sur la liste
-      // tronquée ci-dessous : `overdueInstallments` est un extrait, pas le total.
-      overdueCount,
-      overdueAmount,
-      overdueListTruncated: overdueInstallments.length < overdueCount,
-      teacherPayrollTotal,
-    },
-    recoveryByClass,
-    overdueInstallments,
-    teacherPayroll,
-  };
 }
 
-export function buildOwnerFinancialReportCsv(data: OwnerFinancesResponse): string {
-  const lines: string[] = [];
-  lines.push("Rapport financier (propriétaire)");
-  lines.push(`Période;${data.period}`);
-  lines.push(`Du;${data.periodStart}`);
-  lines.push(`Au;${data.periodEnd}`);
-  lines.push("");
-  lines.push("Indicateur;Valeur");
-  lines.push(`Encours attendu;${data.totals.expectedTuition}`);
-  lines.push(`Encours perçu;${data.totals.collectedTuition}`);
-  lines.push(`Taux de recouvrement (%);${data.totals.recoveryRate}`);
-  lines.push(`Nombre d'échéances en retard;${data.totals.overdueCount}`);
-  lines.push(`Montant en retard;${data.totals.overdueAmount}`);
-  lines.push(`Masse salariale enseignants;${data.totals.teacherPayrollTotal}`);
-  lines.push("");
-  lines.push("Classe;Cycle;Attendu;Perçu;Taux (%)");
-  for (const r of data.recoveryByClass) {
-    lines.push(
-      `${escapeCsv(r.className)};${escapeCsv(r.cycleName ?? "")};${r.expected};${r.collected};${r.recoveryRate}`
-    );
-  }
-  lines.push("");
-  lines.push("Réf. élève (anonymisée);Classe;Montant dû;Échéance");
-  for (const o of data.overdueInstallments) {
-    lines.push(
-      `${escapeCsv(o.studentRef)};${escapeCsv(o.className ?? "")};${o.amountDue};${o.dueDate}`
-    );
-  }
-  lines.push("");
-  lines.push("ID paiement;Enseignant;Période;Montant;Statut;Calculé le");
-  for (const p of data.teacherPayroll) {
-    lines.push(
-      `${p.id};${escapeCsv(p.teacherName)};${escapeCsv(p.periodLabel ?? "")};${p.amount};${p.status};${p.calculatedAt}`
-    );
-  }
-  return lines.join("\n");
-}
+const MODE_LABELS: Record<string, string> = {
+  especes: "Espèces",
+  mobile_money: "Mobile Money",
+  virement: "Virement",
+  cheque: "Chèque",
+  autre: "Autre",
+};
+
+/* ---------------------- Rapport financier (/owner/rapports) ---------------- */
 
 function escapeCsv(s: string): string {
   if (s.includes(";") || s.includes('"') || s.includes("\n")) {
@@ -345,55 +373,106 @@ function escapeCsv(s: string): string {
   return s;
 }
 
-export function buildOwnerFinancialReportHtml(data: OwnerFinancesResponse): string {
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n);
-  const rows = data.recoveryByClass
-    .map(
-      (r) =>
-        `<tr><td>${escapeHtml(r.className)}</td><td>${escapeHtml(r.cycleName ?? "—")}</td><td>${fmt(r.expected)}</td><td>${fmt(r.collected)}</td><td>${r.recoveryRate}%</td></tr>`
-    )
-    .join("");
-  const overdueRows = data.overdueInstallments
-    .map(
-      (o) =>
-        `<tr><td>${escapeHtml(o.studentRef)}</td><td>${escapeHtml(o.className ?? "—")}</td><td>${fmt(o.amountDue)}</td><td>${o.dueDate}</td></tr>`
-    )
-    .join("");
-  const payrollRows = data.teacherPayroll
-    .map(
-      (p) =>
-        `<tr><td>${escapeHtml(p.teacherName)}</td><td>${escapeHtml(p.periodLabel ?? "—")}</td><td>${fmt(p.amount)}</td><td>${escapeHtml(p.status)}</td></tr>`
-    )
-    .join("");
-  return `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="utf-8"/><title>Rapport financier</title>
-<style>body{font-family:system-ui,sans-serif;margin:24px;color:#111}h1{font-size:20px}table{border-collapse:collapse;width:100%;margin:16px 0}th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:12px}th{background:#f4f4f4}.muted{color:#666;font-size:12px}</style>
-</head><body>
-<h1>Rapport financier</h1>
-<p class="muted">Période : ${escapeHtml(data.period)} — du ${data.periodStart.slice(0, 10)} au ${data.periodEnd.slice(0, 10)}</p>
-<h2>Synthèse</h2>
-<ul>
-<li>Encours attendu : ${fmt(data.totals.expectedTuition)}</li>
-<li>Encours perçu : ${fmt(data.totals.collectedTuition)}</li>
-<li>Taux de recouvrement : ${data.totals.recoveryRate}%</li>
-<li>Échéances en retard : ${data.totals.overdueCount} (${fmt(data.totals.overdueAmount)})</li>
-<li>Masse salariale enseignants : ${fmt(data.totals.teacherPayrollTotal)}</li>
-</ul>
-<h2>Recouvrement par classe</h2>
-<table><thead><tr><th>Classe</th><th>Cycle</th><th>Attendu</th><th>Perçu</th><th>Taux</th></tr></thead><tbody>${rows}</tbody></table>
-<h2>Retards (réf. élève anonymisée)</h2>
-<table><thead><tr><th>Réf.</th><th>Classe</th><th>Montant dû</th><th>Échéance</th></tr></thead><tbody>${overdueRows}</tbody></table>
-<h2>Rémunérations enseignants</h2>
-<table><thead><tr><th>Enseignant</th><th>Période</th><th>Montant</th><th>Statut</th></tr></thead><tbody>${payrollRows}</tbody></table>
-<p class="muted">Document généré le ${new Date().toLocaleString("fr-FR")}</p>
-</body></html>`;
-}
-
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+const fmtFr = (n: number) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n);
+
+/** Module professionnel seul, dans l'ordre de l'écran. */
+export function buildOwnerFinancialReportCsv(data: OwnerFinancesResponse): string {
+  const lines: string[] = [];
+  lines.push("Rapport financier (propriétaire) — module professionnel");
+  lines.push(`Période;${data.period}`);
+  lines.push(`Du;${data.periodStart.slice(0, 10)}`);
+  lines.push(`Au;${data.periodEnd.slice(0, 10)}`);
+  lines.push(`Année scolaire;${data.anneeScolaire ?? "Toutes"}`);
+  lines.push("");
+  lines.push("Indicateur;Valeur");
+  lines.push(`Encaissé;${data.totals.collected}`);
+  lines.push(`Attendu;${data.totals.expected}`);
+  lines.push(`Taux de recouvrement (%);${data.totals.recoveryRate ?? ""}`);
+  lines.push(`Encaissé sur la même période l'an dernier;${data.totals.collectedPreviousYear}`);
+  if (!data.couverture.professionnelAlimente) {
+    lines.push("Avertissement;Aucune donnée professionnelle saisie");
+  }
+  lines.push("");
+  lines.push("Mois;Encaissé");
+  for (const m of data.monthly) {
+    lines.push(`${escapeCsv(m.label)};${m.professionnel}`);
+  }
+  lines.push("");
+  lines.push("Filière;Attendu;Encaissé;Taux (%)");
+  for (const r of data.byFiliere) {
+    lines.push(`${escapeCsv(r.filiereName)};${r.expected};${r.collected};${r.recoveryRate}`);
+  }
+  lines.push("");
+  lines.push("Mode de règlement;Règlements;Montant");
+  for (const r of data.byMode) {
+    lines.push(`${escapeCsv(r.label)};${r.count};${r.amount}`);
+  }
+  return lines.join("\n");
+}
+
+export function buildOwnerFinancialReportHtml(data: OwnerFinancesResponse): string {
+  const tbl = (entetes: string[], lignes: string[][]) =>
+    `<table><thead><tr>${entetes.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${
+      lignes.length
+        ? lignes
+            .map((l) => `<tr>${l.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`)
+            .join("")
+        : `<tr><td colspan="${entetes.length}" class="muted">Aucune donnée</td></tr>`
+    }</tbody></table>`;
+
+  const avertissements = data.couverture.professionnelAlimente
+    ? ""
+    : "<p class=\"warn\">Aucune donnée professionnelle n'est saisie.</p>";
+
+  return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"/><title>Rapport financier</title>
+<style>body{font-family:system-ui,sans-serif;margin:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:22px}table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:12px}th{background:#f4f4f4}.muted{color:#666;font-size:12px}.warn{background:#fff7ed;border:1px solid #fdba74;padding:8px;font-size:12px}</style>
+</head><body>
+<h1>Rapport financier — encaissements du module professionnel</h1>
+<p class="muted">Du ${data.periodStart.slice(0, 10)} au ${data.periodEnd.slice(0, 10)}${
+    data.anneeScolaire ? ` · année ${escapeHtml(data.anneeScolaire)}` : ""
+  }</p>
+${avertissements}
+<h2>Synthèse</h2>
+${tbl(
+  ["Indicateur", "Montant"],
+  [
+    ["Encaissé", fmtFr(data.totals.collected)],
+    ["Attendu", fmtFr(data.totals.expected)],
+  ]
+)}
+<ul>
+<li>Taux de recouvrement : ${data.totals.recoveryRate === null ? "non mesuré" : `${data.totals.recoveryRate} %`}</li>
+<li>Même période l'an dernier : ${fmtFr(data.totals.collectedPreviousYear)}</li>
+</ul>
+<h2>Encaissements par mois</h2>
+${tbl(
+  ["Mois", "Encaissé"],
+  data.monthly.map((m) => [m.label, fmtFr(m.professionnel)])
+)}
+<h2>Recouvrement par filière</h2>
+${tbl(
+  ["Filière", "Attendu", "Encaissé", "Taux"],
+  data.byFiliere.map((r) => [
+    r.filiereName,
+    fmtFr(r.expected),
+    fmtFr(r.collected),
+    `${r.recoveryRate} %`,
+  ])
+)}
+<h2>Modes de règlement</h2>
+${tbl(
+  ["Mode", "Règlements", "Montant"],
+  data.byMode.map((r) => [r.label, String(r.count), fmtFr(r.amount)])
+)}
+<p class="muted">Document généré le ${new Date().toLocaleString("fr-FR")}</p>
+</body></html>`;
 }

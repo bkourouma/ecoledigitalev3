@@ -10,13 +10,10 @@ import {
   OwnerAcademicResponseSchema,
   OwnerStaffResponseSchema,
   OwnerFormationsResponseSchema,
-  OwnerAlertsListResponseSchema,
   OwnerUsersListResponseSchema,
   OwnerAssignableRolesResponseSchema,
   OwnerUserRolesPatchBodySchema,
   OwnerUserRolesPatchResponseSchema,
-  OwnerAlertSchema,
-  type OwnerAlert,
 } from "@ecoledigitale/contracts/src/owner.schema";
 import {
   OwnerPedagogieQuerySchema,
@@ -32,6 +29,7 @@ import {
   OwnerPersonnesResponseSchema,
   OwnerRecrutementQuerySchema,
   OwnerRecrutementResponseSchema,
+  OwnerPulseQuerySchema,
   OwnerPulseResponseSchema,
   OwnerTresorerieQuerySchema,
   OwnerTresorerieResponseSchema,
@@ -43,6 +41,8 @@ import {
   OwnerRisqueResponseSchema,
   OwnerEconomieQuerySchema,
   OwnerEconomieResponseSchema,
+  OwnerPayrollQuerySchema,
+  OwnerPayrollResponseSchema,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
 import {
   buildOwnerEconomieCsv,
@@ -57,6 +57,7 @@ import {
   fetchOwnerRemplissage,
 } from "../../services/owner-remplissage.service";
 import { fetchOwnerPulse } from "../../services/owner-pulse.service";
+import { fetchOwnerPayrollMass } from "../../services/owner-payroll-mass.service";
 import {
   buildOwnerCashRegisterCsv,
   fetchOwnerCashRegister,
@@ -71,6 +72,7 @@ import {
   buildOwnerFinancesProCsv,
   buildOwnerPedagogieCsv,
   buildOwnerPersonnesCsv,
+  buildOwnerPayrollCsv,
   buildOwnerRecrutementCsv,
 } from "../../services/owner-stats-csv.service";
 import { requireOwner, requireOwnerOrAdmin } from "../../middlewares/requireOwner";
@@ -89,7 +91,6 @@ import { validateTeacherPaymentAsOwner } from "../../services/owner-payroll.serv
 import { fetchOwnerAcademic } from "../../services/owner-academic.service";
 import { fetchOwnerStaff } from "../../services/owner-staff.service";
 import { fetchOwnerFormations } from "../../services/owner-formations.service";
-import { syncOwnerPilotageAlerts } from "../../services/owner-alerts-feed.service";
 import {
   OWNER_ASSIGNABLE_ROLE_KEYS,
   listOwnerTenantUsers,
@@ -129,14 +130,12 @@ function normalizeStatsQuery(q: unknown): Record<string, unknown> {
 }
 
 function parseOwnerFinancesQuery(q: unknown): OwnerFinancesQuery {
-  const parsed = OwnerFinancesQuerySchema.safeParse(q);
+  const parsed = OwnerFinancesQuerySchema.safeParse(normalizeStatsQuery(q));
   const d = parsed.success ? parsed.data : { period: "month" as const };
-  const cycleRaw = d.cycleId ?? d.cycle;
-  const cycleId = z.string().uuid().safeParse(cycleRaw ?? "").success ? cycleRaw : undefined;
   return {
-    period: d.period,
-    academicYearId: d.academicYearId,
-    cycleId,
+    period: d.period ?? "month",
+    anneeScolaire: d.anneeScolaire,
+    filiereIds: d.filiereIds,
   };
 }
 
@@ -178,29 +177,9 @@ function emptyDashboard(): z.infer<typeof OwnerDashboardResponseSchema> {
       successRateLastSemester: null,
       attendanceRate30d: 0,
     },
-    alerts: [],
   };
 }
 
-function mapAlertRow(row: {
-  id: string;
-  severity: string;
-  message: string;
-  domain: string;
-  created_at: Date | string;
-  acknowledged_at: Date | string | null;
-  href?: string | null;
-}): OwnerAlert {
-  return {
-    id: row.id,
-    severity: row.severity as OwnerAlert["severity"],
-    message: row.message,
-    domain: row.domain,
-    createdAt: new Date(row.created_at).toISOString(),
-    acknowledgedAt: row.acknowledged_at ? new Date(row.acknowledged_at).toISOString() : null,
-    href: row.href ?? null,
-  };
-}
 
 export async function ownerRoutes(fastify: FastifyInstance) {
   /**
@@ -213,8 +192,21 @@ export async function ownerRoutes(fastify: FastifyInstance) {
     { preHandler: requireOwnerOrAdmin },
     async (request, reply) => {
       const tenantId = request.tenantId!;
+      const parsed = OwnerPulseQuerySchema.safeParse(normalizeStatsQuery(request.query));
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Paramètres de filtrage invalides",
+        });
+      }
       try {
-        const data = await fetchOwnerPulse(fastify.pg as Pool, tenantId, request.log);
+        const data = await fetchOwnerPulse(
+          fastify.pg as Pool,
+          tenantId,
+          request.log,
+          parsed.data.anneeScolaire
+        );
         reply.send(OwnerPulseResponseSchema.parse(data));
       } catch (e) {
         request.log.error({ err: e }, "owner pulse aggregation failed");
@@ -485,34 +477,6 @@ export async function ownerRoutes(fastify: FastifyInstance) {
       } catch (e) {
         request.log.error({ err: e }, "owner dashboard KPI aggregation failed");
         base = OwnerDashboardResponseSchema.parse(emptyDashboard());
-      }
-
-      const client = await fastify.pg.connect();
-      try {
-        await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
-        const res = await client.query<{
-          id: string;
-          severity: string;
-          message: string;
-          domain: string;
-          created_at: Date;
-          acknowledged_at: Date | null;
-        }>(
-          // Une alerte auto-résolue (condition disparue) n'est plus ouverte,
-          // même si personne ne l'a acquittée à la main.
-          `SELECT id, severity, message, domain, created_at, acknowledged_at, href
-           FROM owner_pilotage_alerts
-           WHERE tenant_id = $1 AND acknowledged_at IS NULL AND resolved_at IS NULL
-           ORDER BY created_at DESC
-           LIMIT 50`,
-          [tenantId]
-        );
-        base = { ...base, alerts: res.rows.map(mapAlertRow) };
-      } catch (e) {
-        request.log.warn({ err: e }, "owner dashboard alerts query skipped or failed");
-        base = { ...base, alerts: [] };
-      } finally {
-        client.release();
       }
 
       reply.send(OwnerDashboardResponseSchema.parse(base));
@@ -996,6 +960,51 @@ export async function ownerRoutes(fastify: FastifyInstance) {
     }
   );
 
+  /**
+   * Masse salariale enseignante.
+   *
+   * `?format=csv` renvoie le même périmètre en tableur, filtres compris. Les
+   * filtres portent sur la PÉRIODE DE PAIE et non sur l'année scolaire :
+   * `payment_periods.academic_year_id` n'est renseignée nulle part, et un
+   * filtre adossé à cette colonne renverrait un écran vide sans l'expliquer.
+   */
+  fastify.get(
+    "/payroll",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const raw = normalizeStatsQuery(request.query) as Record<string, unknown>;
+      const wantsCsv = String(raw.format ?? "").toLowerCase() === "csv";
+      const parsed = OwnerPayrollQuerySchema.safeParse(raw);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Paramètres de filtrage invalides",
+        });
+      }
+      try {
+        const data = await fetchOwnerPayrollMass(
+          fastify.pg as Pool,
+          tenantId,
+          parsed.data,
+          request.log
+        );
+        if (wantsCsv) {
+          return sendCsv(reply, "masse-salariale.csv", buildOwnerPayrollCsv(data));
+        }
+        reply.send(OwnerPayrollResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner payroll mass failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de charger la masse salariale",
+        });
+      }
+    }
+  );
+
   fastify.get(
     "/staff",
     { preHandler: requireOwner },
@@ -1030,122 +1039,6 @@ export async function ownerRoutes(fastify: FastifyInstance) {
           error: "Internal Server Error",
           message: "Impossible de charger les formations professionnelles",
         });
-      }
-    }
-  );
-
-  /**
-   * Recalcule les alertes de pilotage. Action EXPLICITE.
-   *
-   * `syncOwnerPilotageAlerts` insère et résout des lignes : c'était une écriture
-   * déclenchée par un simple `GET /alerts`, donc par le seul fait d'ouvrir la
-   * page. La lecture est désormais une lecture ; le rafraîchissement passe par
-   * ici (bouton « Actualiser ») ou par un job planifié.
-   */
-  fastify.post(
-    "/alerts/sync",
-    { preHandler: requireOwner },
-    async (request, reply) => {
-      const tenantId = request.tenantId!;
-      const client = await fastify.pg.connect();
-      try {
-        await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
-        await syncOwnerPilotageAlerts(client, tenantId, request.log);
-        reply.send({ success: true });
-      } catch (e) {
-        request.log.warn({ err: e }, "owner alerts sync failed");
-        reply.status(500).send({
-          success: false,
-          error: "Internal Server Error",
-          message: "Recalcul des alertes impossible",
-        });
-      } finally {
-        client.release();
-      }
-    }
-  );
-
-  fastify.get(
-    "/alerts",
-    { preHandler: requireOwner },
-    async (request, reply) => {
-      const tenantId = request.tenantId!;
-      const client = await fastify.pg.connect();
-      try {
-        await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
-        const res = await client.query<{
-          id: string;
-          severity: string;
-          message: string;
-          domain: string;
-          created_at: Date;
-          acknowledged_at: Date | null;
-        }>(
-          `SELECT id, severity, message, domain, created_at, acknowledged_at, href
-           FROM owner_pilotage_alerts
-           WHERE tenant_id = $1 AND acknowledged_at IS NULL AND resolved_at IS NULL
-           ORDER BY created_at DESC`,
-          [tenantId]
-        );
-        reply.send(OwnerAlertsListResponseSchema.parse({ alerts: res.rows.map(mapAlertRow) }));
-      } catch (e) {
-        request.log.warn({ err: e }, "owner alerts list failed");
-        reply.send(OwnerAlertsListResponseSchema.parse({ alerts: [] }));
-      } finally {
-        client.release();
-      }
-    }
-  );
-
-  fastify.patch<{ Params: { id: string } }>(
-    "/alerts/:id/acknowledge",
-    { preHandler: requireOwner },
-    async (request, reply) => {
-      const { id } = request.params;
-      if (!z.string().uuid().safeParse(id).success) {
-        return reply.status(400).send({
-          success: false,
-          error: "Bad Request",
-          message: "Identifiant d’alerte invalide",
-        });
-      }
-      const tenantId = request.tenantId!;
-      const userId = (request as { user?: { id: string } }).user?.id;
-      if (!userId) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-          message: "Contexte utilisateur manquant",
-        });
-      }
-
-      const client = await fastify.pg.connect();
-      try {
-        await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
-        const res = await client.query<{
-          id: string;
-          severity: string;
-          message: string;
-          domain: string;
-          created_at: Date;
-          acknowledged_at: Date | null;
-        }>(
-          `UPDATE owner_pilotage_alerts
-           SET acknowledged_at = NOW(), acknowledged_by_user_id = $3
-           WHERE id = $1 AND tenant_id = $2 AND acknowledged_at IS NULL
-           RETURNING id, severity, message, domain, created_at, acknowledged_at, href`,
-          [id, tenantId, userId]
-        );
-        if (res.rowCount === 0) {
-          return reply.status(404).send({
-            success: false,
-            error: "Not Found",
-            message: "Alerte introuvable ou déjà acquittée",
-          });
-        }
-        reply.send(OwnerAlertSchema.parse(mapAlertRow(res.rows[0])));
-      } finally {
-        client.release();
       }
     }
   );

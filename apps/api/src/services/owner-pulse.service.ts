@@ -6,10 +6,11 @@ import type {
   OwnerPulseStatus,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
 import { PRO_UNPAID_INSTALLMENTS_CTE } from "./owner-pro-outstanding.sql";
+import { PRO_ORDER_DATES_CTE } from "./owner-pro-annee.sql";
 
 /**
- * Le « pouls » de l'établissement : les 8 chiffres qu'un propriétaire regarde
- * en premier, dans l'ordre où il se pose les questions —
+ * Le « pouls » de l'établissement : les chiffres qu'un propriétaire regarde en
+ * premier, dans l'ordre où il se pose les questions —
  *   est-ce que l'argent rentre ? → est-ce que les effectifs tiennent ?
  *   → est-ce que la machine pédagogique tourne ? → où est-ce que je perds ?
  *
@@ -31,7 +32,7 @@ import { PRO_UNPAID_INSTALLMENTS_CTE } from "./owner-pro-outstanding.sql";
  * `professional_ue_sessions`). Aucun autre écran ne les additionne aujourd'hui.
  *
  * Performance : une requête par indicateur, chacune indépendante et tolérante à
- * l'échec (un KPI cassé n'emporte pas les sept autres). Si le temps de réponse
+ * l'échec (un KPI cassé n'emporte pas les autres). Si le temps de réponse
  * devient un sujet, c'est ici qu'une vue matérialisée rafraîchie toutes les
  * 15 min viendra se brancher, `computedAt` étant déjà exposé pour l'annoncer.
  */
@@ -63,6 +64,13 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Date SQL en `AAAA-MM-JJ`, ou `null` quand la fenêtre n'a pas pu être résolue. */
+function isoDay(v: unknown): string | null {
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "string" && v.length >= 10) return v.slice(0, 10);
+  return null;
+}
+
 /** `null` si la valeur est absente — à distinguer d'un vrai zéro. */
 function numOrNull(v: unknown): number | null {
   if (v === null || v === undefined) return null;
@@ -92,32 +100,51 @@ function statusAbove(value: number | null, warn: number, crit: number): OwnerPul
 /* ------------------------- Fenêtres et paramètres -------------------------- */
 
 /**
- * Fenêtre de l'année scolaire courante.
+ * Fenêtre de l'année scolaire regardée.
  *
- * On prend l'année académique active quand elle existe. Sinon on retombe sur le
- * pivot de septembre — la même convention que le reste du module professionnel,
- * qui n'a pas de colonne d'année scolaire.
+ * `$2` porte l'année au format « AAAA-AAAA+1 » ; à NULL, on prend l'année en
+ * cours, déduite de la date du jour.
+ *
+ * AUCUNE LECTURE DE `academic_years` ICI, ET C'EST VOLONTAIRE.
+ * Le module professionnel n'a pas de table d'années scolaires : une année
+ * existe parce qu'une classe a été ouverte, et son millésime se lit sur
+ * `professional_ue_sessions.date_debut` avec un pivot en septembre. C'est la
+ * convention de `/owner/stats/filters`, de la page d'historique des bulletins
+ * et de tous les écrans professionnels.
+ *
+ * S'adosser à `academic_years` produisait un filtre qui montrait le contraire
+ * de l'activité : la table ignorait trois années portant douze ouvertures
+ * chacune et déclarait une année qui n'en portait aucune.
+ *
+ * La fenêtre est donc PUREMENT CALCULÉE : du 1er septembre de N au 31 août de
+ * N+1. Douze mois pleins, contigus d'une année à l'autre, sans trou de juillet
+ * et août — c'est la même règle que la migration 0118 a appliquée aux dates de
+ * `academic_years`, pour que les deux vocabulaires coïncident au moins.
  */
 const ACADEMIC_WINDOW_CTE = `
-  ay AS (
-    SELECT name, start_date, end_date
-    FROM academic_years
-    WHERE tenant_id = $1::uuid AND is_active
-    ORDER BY start_date DESC
-    LIMIT 1
+  an AS (
+    SELECT
+      -- Millésime d'ouverture : celui demandé, sinon celui du jour.
+      COALESCE(
+        NULLIF(split_part($2::text, '-', 1), '')::int,
+        CASE WHEN EXTRACT(MONTH FROM CURRENT_DATE) >= 9
+             THEN EXTRACT(YEAR FROM CURRENT_DATE)::int
+             ELSE EXTRACT(YEAR FROM CURRENT_DATE)::int - 1 END
+      ) AS n
+    -- Le tenant n'entre PAS dans le calcul de la fenêtre : c'est de
+    -- l'arithmétique de dates, identique pour tout le monde. Il reste
+    -- néanmoins cité ici pour que Postgres puisse typer $1, que les requêtes
+    -- consommatrices utilisent toutes. Sans cette ligne, la seule requête qui
+    -- ne lit que la fenêtre échoue sur « n'a pas pu déterminer le type de
+    -- données du paramètre $1 ».
+    WHERE $1::uuid IS NOT NULL
   ),
   win AS (
     SELECT
-      COALESCE(
-        (SELECT start_date FROM ay),
-        make_date(
-          CASE WHEN EXTRACT(MONTH FROM CURRENT_DATE) >= 9
-               THEN EXTRACT(YEAR FROM CURRENT_DATE)::int
-               ELSE EXTRACT(YEAR FROM CURRENT_DATE)::int - 1 END,
-          9, 1)
-      ) AS d1,
-      COALESCE((SELECT end_date FROM ay), CURRENT_DATE + INTERVAL '1 year') AS d2,
-      (SELECT name FROM ay) AS label
+      make_date(n, 9, 1) AS d1,
+      make_date(n + 1, 8, 31) AS d2,
+      n::text || '-' || (n + 1)::text AS label
+    FROM an
   )`;
 
 /** Ancienneté à partir de laquelle un impayé devient préoccupant. */
@@ -128,29 +155,95 @@ const AGED_DAYS = 60;
 export async function fetchOwnerPulse(
   pool: Pool,
   tenantId: string,
-  log: FastifyBaseLogger
+  log: FastifyBaseLogger,
+  /**
+   * Année scolaire regardée, au format « AAAA-AAAA+1 », DÉRIVÉE des ouvertures
+   * de classe et non lue dans une table. Absente, le pouls décrit le présent :
+   * le mois en cours, les 30 derniers jours. Présente, il décrit cette année-là
+   * de bout en bout — et les indicateurs concernés changent de libellé.
+   */
+  anneeScolaire?: string
 ): Promise<OwnerPulseResponse> {
   const client = await pool.connect();
   const kpis: OwnerPulseKpi[] = [];
   let academicYearLabel: string | null = null;
 
+  // Une année explicitement demandée bascule le pouls en lecture d'année.
+  const surAnnee = !!anneeScolaire;
+  /** Paramètres communs à toute requête qui monte la fenêtre d'année. */
+  const P: unknown[] = [tenantId, anneeScolaire ?? null];
+
+  let windowStart: string | null = null;
+  let windowEnd: string | null = null;
+
   try {
     await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
 
-    const yearRow = await safeRow<{ label: string | null }>(
+    const yearRow = await safeRow<Row>(
       client,
-      `WITH ${ACADEMIC_WINDOW_CTE} SELECT label FROM win`,
-      [tenantId],
+      `WITH ${ACADEMIC_WINDOW_CTE}
+       SELECT label, d1::date AS d1, d2::date AS d2 FROM win`,
+      P,
       log,
       "academicYear"
     );
     academicYearLabel = (yearRow?.label as string | null) ?? null;
+    windowStart = isoDay(yearRow?.d1);
+    windowEnd = isoDay(yearRow?.d2);
 
     /* ---- KPI 1 — Encaissements du mois (toutes activités) ---------------- */
     // Scolaire (payment_transactions) + professionnel (professional_payments).
     // Comparaison à date : on ne compare que les jours déjà écoulés du mois
     // précédent, sinon le 3 du mois on se croit toujours en chute libre.
-    const cash = await safeRow<Row>(
+    /**
+     * Sur une année choisie, « le mois en cours » n'a plus de sens : le mois
+     * courant est hors de 2023-2024. L'indicateur bascule donc sur la fenêtre
+     * de l'année, comparée à la fenêtre de l'année précédente — et son libellé
+     * le dit. Laisser « du mois » afficher un chiffre hors du périmètre choisi
+     * serait un filtre qui n'agit pas.
+     */
+    const cash = surAnnee
+      ? await safeRow<Row>(
+          client,
+          // Le professionnel est daté par la CLASSE OUVERTE, pas par
+          // l'horodatage du paiement (cf. `PRO_ORDER_DATES_CTE`) : sur une base
+          // reprise, `paid_at` est identique sur cinq années et vidait les
+          // années passées au profit de l'année de chargement.
+          `WITH ${ACADEMIC_WINDOW_CTE},
+                ${PRO_ORDER_DATES_CTE}
+           SELECT
+             (SELECT COALESCE(SUM(amount), 0)::float8
+                FROM payment_transactions, win
+               WHERE tenant_id = $1::uuid
+                 AND status = 'completed'::transaction_status
+                 AND COALESCE(processed_at, created_at)::date BETWEEN win.d1 AND win.d2)
+           + (SELECT COALESCE(SUM(pp.montant), 0)::float8
+                FROM professional_payments pp
+                JOIN pro_order_dates d ON d.order_id = pp.order_id
+                CROSS JOIN win
+               WHERE pp.tenant_id = $1::uuid
+                 AND pp.statut = 'confirme'
+                 AND d.debut BETWEEN win.d1 AND win.d2) AS current_month,
+             NULL::float8 AS previous_month,
+             (SELECT COALESCE(SUM(amount), 0)::float8
+                FROM payment_transactions, win
+               WHERE tenant_id = $1::uuid
+                 AND status = 'completed'::transaction_status
+                 AND COALESCE(processed_at, created_at)::date
+                     BETWEEN win.d1 - INTERVAL '1 year' AND win.d2 - INTERVAL '1 year')
+           + (SELECT COALESCE(SUM(pp.montant), 0)::float8
+                FROM professional_payments pp
+                JOIN pro_order_dates d ON d.order_id = pp.order_id
+                CROSS JOIN win
+               WHERE pp.tenant_id = $1::uuid
+                 AND pp.statut = 'confirme'
+                 AND d.debut BETWEEN win.d1 - INTERVAL '1 year' AND win.d2 - INTERVAL '1 year')
+             AS same_month_last_year`,
+          P,
+          log,
+          "cashCollectedOverYear"
+        )
+      : await safeRow<Row>(
       client,
       `SELECT
          (SELECT COALESCE(SUM(amount), 0)::float8
@@ -203,8 +296,18 @@ export async function fetchOwnerPulse(
     );
 
     const cashNow = num(cash?.current_month);
-    const cashPrev = cash ? num(cash.previous_month) : null;
     const cashLastYear = cash ? num(cash.same_month_last_year) : 0;
+    // En lecture d'année, la comparaison utile est l'année précédente : il n'y a
+    // pas de « mois dernier » dans une année close. `num(null)` vaudrait 0 et
+    // afficherait une chute de 100 % — d'où le choix explicite plutôt qu'un
+    // repli silencieux sur zéro.
+    const cashPrev = surAnnee
+      ? cashLastYear > 0
+        ? cashLastYear
+        : null
+      : cash
+        ? num(cash.previous_month)
+        : null;
     // Le calendrier scolaire est très saisonnier (pic septembre-octobre, creux
     // juillet-août) : l'écart au même mois de l'an dernier est plus parlant que
     // l'écart au mois précédent, on le met donc en sous-valeur.
@@ -219,83 +322,31 @@ export async function fetchOwnerPulse(
 
     kpis.push({
       key: "cash_collected_month",
-      label: "Encaissements du mois",
+      label: surAnnee ? "Encaissements de l'année" : "Encaissements du mois",
       value: Math.round(cashNow),
       unit: "fcfa",
       previousValue: cashPrev === null ? null : Math.round(cashPrev),
-      previousLabel: "mois dernier, à la même date",
+      previousLabel: surAnnee ? "année précédente" : "mois dernier, à la même date",
       status: cashStatus,
-      hint: "Scolarité et module professionnel confondus. Seuls les paiements confirmés sont comptés.",
-      detail:
-        cashLastYear > 0
+      hint: surAnnee
+        ? "Scolarité et module professionnel confondus, sur toute l'année scolaire choisie. Seuls les paiements confirmés sont comptés."
+        : "Scolarité et module professionnel confondus. Seuls les paiements confirmés sont comptés.",
+      detail: surAnnee
+        ? cashLastYear > 0
+          ? `${fmtFcfa(cashLastYear)} sur l'année précédente`
+          : "Pas d'historique sur l'année précédente"
+        : cashLastYear > 0
           ? `${fmtFcfa(cashLastYear)} au même mois l'an dernier`
           : "Pas d'historique sur le même mois l'an dernier",
       href: "/owner/finances",
       measured: cash !== null,
     });
 
-    /* ---- KPI 2 — Taux de recouvrement consolidé -------------------------- */
-    const recovery = await safeRow<Row>(
-      client,
-      `WITH ${ACADEMIC_WINDOW_CTE},
-       ${PRO_UNPAID_INSTALLMENTS_CTE},
-       scolaire AS (
-         SELECT COALESCE(SUM(sti.amount), 0)::float8 AS due,
-                COALESCE(SUM(sti.amount_paid), 0)::float8 AS paid
-         FROM student_tuition_installments sti
-         JOIN student_enrollments se
-           ON se.id = sti.enrollment_id AND se.tenant_id = sti.tenant_id
-         CROSS JOIN win
-         WHERE sti.tenant_id = $1::uuid
-           AND sti.due_date BETWEEN win.d1 AND win.d2
-       ),
-       /* L'attendu professionnel est ancré sur les ÉCHÉANCES de la fenêtre, pas
-          sur la date de création de la commande : sinon le taux de recouvrement
-          ne parle pas de la même dette que la balance âgée.
-          Le montant est ajusté au total réel de la commande et le reste dû suit
-          l'imputation « plus ancienne échéance d'abord » — l'encaissé s'en
-          déduit, sans second calcul qui divergerait. */
-       pro AS (
-         SELECT COALESCE(SUM(si.montant), 0)::float8 AS due,
-                COALESCE(SUM(si.montant - COALESCE(pu.unpaid, 0)), 0)::float8 AS paid
-         FROM pro_scaled_installments si
-         LEFT JOIN pro_unpaid_installments pu
-           ON pu.order_id = si.order_id AND pu.due_date = si.due_date
-         CROSS JOIN win
-         WHERE si.due_date BETWEEN win.d1 AND win.d2
-       )
-       SELECT (scolaire.due + pro.due) AS due,
-              (scolaire.paid + pro.paid) AS paid
-       FROM scolaire, pro`,
-      [tenantId],
-      log,
-      "recoveryRateConsolidated"
-    );
-
-    const recDue = num(recovery?.due);
-    const recPaid = num(recovery?.paid);
-    const recRate = recDue > 0 ? round1((100 * recPaid) / recDue) : null;
-
-    kpis.push({
-      key: "recovery_rate",
-      label: "Taux de recouvrement",
-      value: recRate ?? 0,
-      unit: "percent",
-      previousValue: null,
-      previousLabel: "sur l'année scolaire en cours",
-      status: statusAbove(recRate, 85, 70),
-      hint: "Encaissé rapporté à l'attendu sur l'année scolaire en cours, scolarité et module professionnel confondus. Un taux bas en octobre est normal ; en mai il ne l'est plus.",
-      detail:
-        recDue > 0
-          ? `${fmtFcfa(recPaid)} encaissés sur ${fmtFcfa(recDue)}`
-          : // Rien d'exigible sur l'année en cours ne veut pas dire « rien à
-            // recouvrer » : la dette peut être entièrement antérieure.
-            academicYearLabel
-            ? `Aucune échéance sur l'année ${academicYearLabel} — voir le reste à recouvrer des années antérieures`
-            : "Aucune année académique active : la fenêtre de calcul retombe sur le pivot de septembre",
-      href: "/owner/finances",
-      measured: recovery !== null && recDue > 0,
-    });
+    /* ---- KPI 2 retiré — Taux de recouvrement ------------------------------
+       Retiré sur décision métier : le module professionnel ne fonctionne pas
+       par échéancier. Un « taux de recouvrement » y suppose un attendu échelonné
+       dans le temps qui n'existe pas — une commande est réglée ou ne l'est pas.
+       Le montant qui reste dû garde tout son sens et reste affiché ci-dessous. */
 
     /* ---- KPI 3 — Reste à recouvrer, dont ancien --------------------------- */
     // L'ancienneté professionnelle s'appuie sur `professional_order_installments`
@@ -350,7 +401,13 @@ export async function fetchOwnerPulse(
 
     kpis.push({
       key: "outstanding",
-      label: "Reste à recouvrer",
+      // Volontairement PAS annualisé, et le libellé le dit quand une année est
+      // choisie. Le reste à recouvrer est un STOCK — ce qu'on vous doit
+      // aujourd'hui — et non un flux de l'année : les échéances impayées ne
+      // portent aucune année scolaire à laquelle les rattacher. Le restreindre
+      // sur la fenêtre reviendrait à filtrer sur la date d'échéance, ce qui
+      // effacerait des dettes anciennes toujours dues.
+      label: surAnnee ? "Reste à recouvrer (toutes années)" : "Reste à recouvrer",
       value: Math.round(rest),
       unit: "fcfa",
       previousValue: null,
@@ -380,13 +437,28 @@ export async function fetchOwnerPulse(
          FROM student_enrollments se
          JOIN student_profiles sp ON sp.id = se.student_id AND sp.tenant_id = se.tenant_id
          JOIN academic_years a ON a.id = se.academic_year_id AND a.tenant_id = se.tenant_id
-         WHERE se.tenant_id = $1::uuid AND a.is_active
+         WHERE se.tenant_id = $1::uuid
+           -- Même rapprochement que le taux de remplissage : l'année dérivée
+           -- fait foi. Filtrer sur a.is_active rendait l'effectif sourd au
+           -- filtre : on gardait toujours l'année cochée active, quelle que
+           -- soit celle choisie dans la barre.
+           --
+           -- Sous-requête scalaire et non win.label : chaque branche d'une
+           -- UNION a son propre FROM, et référencer win sans l'y joindre
+           -- faisait échouer la requête entière — l'effectif affichait « non
+           -- mesuré » sur toutes les années.
+           AND a.name = (SELECT label FROM win)
          UNION
          SELECT pe.student_id, (pe.statut IN ('confirmee', 'terminee')) AS still_active
          FROM professional_enrollments pe
+         -- Daté par la CLASSE OUVERTE, pas par pe.created_at : sur une base
+         -- reprise, toutes les inscriptions de cinq années portent le même
+         -- horodatage, et l'effectif des années passées tombait à zéro.
+         JOIN professional_ue_sessions ses
+           ON ses.id = pe.ue_session_id AND ses.tenant_id = pe.tenant_id
          CROSS JOIN win
          WHERE pe.tenant_id = $1::uuid
-           AND pe.created_at::date BETWEEN win.d1 AND win.d2
+           AND ses.date_debut BETWEEN win.d1 AND win.d2
        )
        SELECT
          (SELECT COUNT(DISTINCT student_id) FILTER (WHERE still_active) FROM inscrits)::int AS actifs,
@@ -397,7 +469,7 @@ export async function fetchOwnerPulse(
            WHERE sp.tenant_id = $1::uuid
              AND sp.status = 'active'::student_status
              AND NOT EXISTS (SELECT 1 FROM inscrits i WHERE i.student_id = sp.id))::int AS sans_inscription`,
-      [tenantId],
+      P,
       log,
       "headcount"
     );
@@ -407,11 +479,11 @@ export async function fetchOwnerPulse(
     const sansInscription = num(headcount?.sans_inscription);
     const attrition = rentree > 0 ? (100 * (rentree - actifs)) / rentree : 0;
 
-    // Une fiche active sans inscription sur l'année en cours est du chiffre
+    // Une fiche active sans inscription sur l'année regardée est du chiffre
     // d'affaires récupérable, pas une perte : c'est une file de relance.
     const headcountDetail =
       sansInscription > 0
-        ? `${sansInscription} fiche(s) active(s) sans inscription sur l'année en cours — à relancer`
+        ? `${sansInscription} fiche(s) active(s) sans inscription sur l'année ${academicYearLabel ?? "en cours"} — à relancer`
         : rentree > actifs
           ? `${rentree - actifs} départ(s) depuis la rentrée (${fmtPct(round1(attrition))})`
           : rentree > 0
@@ -435,7 +507,9 @@ export async function fetchOwnerPulse(
             : attrition > 3
               ? "warning"
               : "good",
-      hint: "Étudiants distincts ayant une inscription sur l'année en cours, scolaire et professionnel confondus : un étudiant inscrit aux deux moteurs ne compte qu'une fois.",
+      hint: surAnnee
+        ? "Étudiants distincts ayant une inscription sur l'année choisie, scolaire et professionnel confondus : un étudiant inscrit aux deux moteurs ne compte qu'une fois."
+        : "Étudiants distincts ayant une inscription sur l'année en cours, scolaire et professionnel confondus : un étudiant inscrit aux deux moteurs ne compte qu'une fois.",
       detail: headcountDetail,
       href: "/owner/personnes",
       measured: headcount !== null,
@@ -454,9 +528,17 @@ export async function fetchOwnerPulse(
                                  AND pe.tenant_id = s.tenant_id
                                  AND pe.statut <> 'annulee')), 0)::float8 AS seats
          FROM professional_ue_sessions s
+         CROSS JOIN win
          WHERE s.tenant_id = $1::uuid
            AND s.capacite_max IS NOT NULL AND s.capacite_max > 0
-           AND CURRENT_DATE BETWEEN s.date_debut AND s.date_fin
+           AND ${
+             surAnnee
+               ? // Sur une année, toute cohorte qui la CHEVAUCHE compte : une
+                 // cohorte close en mars appartient à l'année, même si elle ne
+                 // tourne plus aujourd'hui.
+                 `s.date_debut <= win.d2 AND s.date_fin >= win.d1`
+               : `CURRENT_DATE BETWEEN s.date_debut AND s.date_fin`
+           }
        ),
        scolaire AS (
          SELECT COALESCE(SUM(c.max_students), 0)::float8 AS capacity,
@@ -465,15 +547,24 @@ export async function fetchOwnerPulse(
                                  AND se.tenant_id = c.tenant_id
                                  AND se.status = 'active'::enrollment_status)), 0)::float8 AS seats
          FROM classes c
-         JOIN academic_years a ON a.id = c.academic_year_id AND a.tenant_id = c.tenant_id
+         JOIN academic_years a
+           ON a.id = c.academic_year_id
+          AND a.tenant_id = c.tenant_id
+         CROSS JOIN win
          WHERE c.tenant_id = $1::uuid
-           AND a.is_active
+           -- Rapprochement PAR LE NOM, dans ce sens-là : l'année dérivée fait
+           -- foi, et l'on cherche la ligne de academic_years qui porte le même
+           -- millésime. Une année sans ligne correspondante — 2021-2022 ici —
+           -- ne contribue simplement pas : il n'y avait pas de classes cette
+           -- année-là non plus. Filtrer sur a.is_active rendait l'indicateur
+           -- sourd au filtre d'année.
+           AND a.name = win.label
            AND c.max_students IS NOT NULL AND c.max_students > 0
        )
        SELECT (pro.capacity + scolaire.capacity) AS capacity,
               (pro.seats + scolaire.seats) AS seats
        FROM pro, scolaire`,
-      [tenantId],
+      P,
       log,
       "fillRate"
     );
@@ -499,9 +590,15 @@ export async function fetchOwnerPulse(
               : fillRate < 70
                 ? "warning"
                 : "good",
-      hint: "Places occupées sur places déclarées, cohortes professionnelles en cours et classes de l'année active. Les cohortes et classes sans capacité renseignée sont exclues du calcul.",
+      // Le périmètre des cohortes CHANGE entre les deux lectures : « en cours
+      // aujourd'hui » sans filtre, « qui chevauchent l'année » avec. Les deux
+      // chiffres diffèrent donc légitimement, et le libellé doit dire lequel on
+      // regarde — sinon on croit à une incohérence.
+      hint: surAnnee
+        ? "Places occupées sur places déclarées, pour les cohortes professionnelles qui chevauchent l'année choisie et les classes de cette année. Les cohortes et classes sans capacité renseignée sont exclues du calcul."
+        : "Places occupées sur places déclarées, cohortes professionnelles en cours et classes de l'année active. Les cohortes et classes sans capacité renseignée sont exclues du calcul.",
       detail: capacity > 0 ? `${Math.round(seats)} places occupées sur ${Math.round(capacity)}` : null,
-      href: "/owner/academique",
+      href: "/owner/remplissage",
       measured: fill !== null && capacity > 0,
     });
 
@@ -511,16 +608,32 @@ export async function fetchOwnerPulse(
     // `heure_fin` étant NULLABLE, on mesure aussi la couverture et on l'annonce.
     const presence = await safeRow<Row>(
       client,
-      `WITH marks AS (
+      // Deux découpages selon le mode. En lecture d'année, « avant » est l'année
+      // précédente : comparer une année à ses 30 derniers jours n'aurait pas de
+      // sens, et laisser la fenêtre glissante afficherait des séances hors du
+      // périmètre choisi.
+      `WITH ${ACADEMIC_WINDOW_CTE},
+       marks AS (
          SELECT a.statut,
-                CASE WHEN s.date >= CURRENT_DATE - INTERVAL '30 days' THEN 'now' ELSE 'before' END AS bucket,
+                ${
+                  surAnnee
+                    ? `CASE WHEN s.date BETWEEN win.d1 AND win.d2 THEN 'now'
+                            WHEN s.date BETWEEN win.d1 - INTERVAL '1 year' AND win.d2 - INTERVAL '1 year' THEN 'before'
+                       END`
+                    : `CASE WHEN s.date >= CURRENT_DATE - INTERVAL '30 days' THEN 'now' ELSE 'before' END`
+                } AS bucket,
                 CASE WHEN s.heure_debut IS NOT NULL AND s.heure_fin IS NOT NULL
                      THEN EXTRACT(EPOCH FROM (s.heure_fin - s.heure_debut)) / 3600.0
                      ELSE NULL END AS hours
          FROM professional_ecue_attendance a
          JOIN professional_ecue_seances s ON s.id = a.seance_id AND s.tenant_id = a.tenant_id
+         CROSS JOIN win
          WHERE a.tenant_id = $1::uuid
-           AND s.date >= CURRENT_DATE - INTERVAL '60 days'
+           AND ${
+             surAnnee
+               ? `s.date BETWEEN win.d1 - INTERVAL '1 year' AND win.d2`
+               : `s.date >= CURRENT_DATE - INTERVAL '60 days'`
+           }
        )
        SELECT
          COALESCE(SUM(hours) FILTER (WHERE bucket = 'now'), 0)::float8 AS hours_now,
@@ -530,7 +643,7 @@ export async function fetchOwnerPulse(
          COUNT(*) FILTER (WHERE bucket = 'now')::int AS marks_now,
          COUNT(*) FILTER (WHERE bucket = 'now' AND hours IS NULL)::int AS marks_without_hours
        FROM marks`,
-      [tenantId],
+      P,
       log,
       "presenceRate"
     );
@@ -548,11 +661,11 @@ export async function fetchOwnerPulse(
 
     kpis.push({
       key: "presence_rate",
-      label: "Présence (30 jours)",
+      label: surAnnee ? "Présence sur l'année" : "Présence (30 jours)",
       value: presenceRate ?? 0,
       unit: "percent",
       previousValue: presencePrev,
-      previousLabel: "30 jours précédents",
+      previousLabel: surAnnee ? "année précédente" : "30 jours précédents",
       status: statusAbove(presenceRate, 85, 70),
       hint:
         marksNoHours > 0
@@ -566,65 +679,10 @@ export async function fetchOwnerPulse(
       measured: presence !== null && hoursNow > 0,
     });
 
-    /* ---- KPI 7 — Taux de réussite du dernier semestre clos ---------------- */
-    const success = await safeRow<Row>(
-      client,
-      `WITH ranked AS (
-         SELECT semestre_id, MAX(generated_at) AS last_gen
-         FROM professional_bulletins
-         WHERE tenant_id = $1::uuid
-         GROUP BY semestre_id
-         ORDER BY last_gen DESC
-         LIMIT 2
-       ),
-       ordered AS (
-         SELECT semestre_id, row_number() OVER (ORDER BY last_gen DESC) AS rk FROM ranked
-       )
-       SELECT
-         COUNT(*) FILTER (WHERE o.rk = 1)::int AS total_current,
-         COUNT(*) FILTER (WHERE o.rk = 1 AND b.data->>'decision' = 'admis')::int AS admis_current,
-         COUNT(*) FILTER (WHERE o.rk = 2)::int AS total_previous,
-         COUNT(*) FILTER (WHERE o.rk = 2 AND b.data->>'decision' = 'admis')::int AS admis_previous
-       FROM professional_bulletins b
-       JOIN ordered o ON o.semestre_id = b.semestre_id
-       WHERE b.tenant_id = $1::uuid`,
-      [tenantId],
-      log,
-      "successRate"
-    );
-
-    const totalCurrent = num(success?.total_current);
-    const admisCurrent = num(success?.admis_current);
-    const totalPrevious = num(success?.total_previous);
-    const admisPrevious = num(success?.admis_previous);
-    const successRate = totalCurrent > 0 ? round1((100 * admisCurrent) / totalCurrent) : null;
-    const successPrev = totalPrevious > 0 ? round1((100 * admisPrevious) / totalPrevious) : null;
-
-    // Un taux quasi parfait sur une cohorte nombreuse est un signal de notation
-    // non discriminante, pas une bonne nouvelle : on le signale aussi.
-    const successStatus: OwnerPulseStatus =
-      successRate === null
-        ? "neutral"
-        : successRate > 97 && totalCurrent >= 20
-          ? "warning"
-          : statusAbove(successRate, 70, 55);
-
-    kpis.push({
-      key: "success_rate",
-      label: "Réussite du dernier semestre",
-      value: successRate ?? 0,
-      unit: "percent",
-      previousValue: successPrev,
-      previousLabel: "semestre précédent",
-      status: successStatus,
-      hint:
-        successRate !== null && successRate > 97 && totalCurrent >= 20
-          ? "Part d'admis sur le dernier semestre dont des bulletins ont été générés. Au-delà de 97 % sur une promotion nombreuse, c'est la notation qu'il faut regarder, pas le résultat."
-          : "Part d'admis sur le dernier semestre dont des bulletins ont été générés.",
-      detail: totalCurrent > 0 ? `${Math.round(admisCurrent)} admis sur ${Math.round(totalCurrent)}` : null,
-      href: "/owner/pedagogie",
-      measured: success !== null && totalCurrent > 0,
-    });
+    /* ---- KPI 7 retiré — Réussite du dernier semestre ----------------------
+       Retiré sur décision métier. La réussite par semestre reste consultable,
+       filtrable et exportable sur l'écran Résultats, où elle se lit avec les
+       décisions de jury et le poids du rattrapage qui l'expliquent. */
 
     /* ---- KPI 8 — Solde encaissements moins salaires ---------------------- */
     // Ce n'est PAS une marge : aucune table de dépenses n'existe (loyer,
@@ -632,17 +690,37 @@ export async function fetchOwnerPulse(
     // et `measured` reste vrai car les deux termes calculés sont exacts.
     const payroll = await safeRow<Row>(
       client,
-      `SELECT COALESCE(SUM(total_amount), 0)::float8 AS v
-         FROM teacher_payments
-        WHERE tenant_id = $1::uuid
-          AND status IN ('calculated'::payment_status,
-                         'approved'::payment_status,
-                         'paid'::payment_status)
-          AND date_trunc('month', COALESCE(calculated_at, created_at))
-              = date_trunc('month', CURRENT_DATE)`,
-      [tenantId],
+      // Un bulletin de paie est daté par sa PÉRIODE DE PAIE, pas par
+      // `calculated_at` qui porte la date de composition du document. Sur cette
+      // base, les six exercices ont été calculés le même mois : les rattacher à
+      // `calculated_at` mettait toute la masse salariale de cinq ans sur
+      // l'année en cours, et laissait les autres à zéro. C'est le même défaut
+      // que sur les commandes professionnelles, et la même correction.
+      //
+      // Un bulletin sans période rattachée est EXCLU plutôt que rattaché au
+      // hasard : il vaut mieux un total incomplet et annoncé qu'un total faux.
+      `WITH ${ACADEMIC_WINDOW_CTE}
+       SELECT COALESCE(SUM(tp.total_amount), 0)::float8 AS v
+         FROM teacher_payments tp
+         JOIN payment_periods pp ON pp.id = tp.payment_period_id AND pp.tenant_id = tp.tenant_id
+         CROSS JOIN win
+        WHERE tp.tenant_id = $1::uuid
+          AND tp.status IN ('calculated'::payment_status,
+                            'approved'::payment_status,
+                            'paid'::payment_status)
+          AND ${
+            surAnnee
+              ? // Les exercices dont la période DÉMARRE dans l'année regardée —
+                // même règle que l'écran Masse salariale, pour que les deux
+                // écrans ne se contredisent pas.
+                `pp.period_start BETWEEN win.d1 AND win.d2`
+              : // Sans filtre : l'exercice de paie EN COURS. « Les salaires du
+                // mois » n'existe pas quand les exercices sont annuels.
+                `CURRENT_DATE BETWEEN pp.period_start AND pp.period_end`
+          }`,
+      P,
       log,
-      "payrollThisMonth"
+      surAnnee ? "payrollOverYear" : "payrollThisMonth"
     );
 
     const payrollAmount = num(payroll?.v);
@@ -655,15 +733,21 @@ export async function fetchOwnerPulse(
       value: Math.round(balance),
       unit: "fcfa",
       previousValue: null,
-      previousLabel: "mois en cours",
+      previousLabel: surAnnee ? "année scolaire" : "exercice de paie en cours",
       status:
         balance < 0 ? "critical" : payrollShare > 60 ? "warning" : cashNow === 0 ? "neutral" : "good",
-      hint: "Encaissements du mois moins les rémunérations enseignantes calculées, approuvées ou payées. Ce n'est pas un résultat d'exploitation : loyer, énergie, fournitures et amortissements ne sont dans aucune table.",
+      hint: `${
+        surAnnee
+          ? "Encaissements de l'année moins les rémunérations des exercices de paie ouverts dans cette même année"
+          : "Encaissements du mois moins les rémunérations de l'exercice de paie en cours"
+      }, calculées, approuvées ou payées. Les deux termes sont rattachés à leur période d'activité — classe ouverte pour l'argent qui rentre, exercice de paie pour celui qui sort — et non à leur date d'enregistrement. Ce n'est pas un résultat d'exploitation : loyer, énergie, fournitures et amortissements ne sont dans aucune table.`,
       detail:
         cashNow > 0
           ? `${fmtFcfa(payrollAmount)} de salaires, soit ${fmtPct(round1(payrollShare))} des encaissements`
           : payrollAmount > 0
-            ? `${fmtFcfa(payrollAmount)} de salaires, aucun encaissement ce mois-ci`
+            ? `${fmtFcfa(payrollAmount)} de salaires, aucun encaissement sur ${
+                surAnnee ? "l'année" : "ce mois-ci"
+              }`
             : null,
       href: "/owner/staff",
       measured: payroll !== null && cash !== null,
@@ -675,6 +759,8 @@ export async function fetchOwnerPulse(
   return {
     computedAt: new Date().toISOString(),
     academicYearLabel,
+    windowStart,
+    windowEnd,
     kpis,
   };
 }

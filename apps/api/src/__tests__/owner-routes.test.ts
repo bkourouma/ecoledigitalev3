@@ -58,7 +58,6 @@ describe("routes /api/v1/owner (guards + dashboard)", () => {
   const mockClient = {
     query: vi.fn(async (sql: string) => {
       if (/set_config/i.test(sql)) return { rows: [] };
-      if (/owner_pilotage_alerts/i.test(sql) && /SELECT/i.test(sql)) return { rows: [] };
       return { rows: [] };
     }),
     release: vi.fn(),
@@ -119,15 +118,6 @@ describe("routes /api/v1/owner (guards + dashboard)", () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body) as OwnerDashboardResponse;
     expect(body.finances).toBeDefined();
-    expect(body.alerts).toEqual([]);
-  });
-
-  it("PATCH /alerts/:id/acknowledge -> 403 without owner role", async () => {
-    const res = await app.inject({
-      method: "PATCH",
-      url: "/api/v1/owner/alerts/00000000-0000-0000-0000-000000000001/acknowledge",
-    });
-    expect(res.statusCode).toBe(403);
   });
 
   it("GET /roles/assignable -> 200 with admin role", async () => {

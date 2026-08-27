@@ -1,21 +1,5 @@
 import { z } from "zod";
 
-export const OwnerAlertSeveritySchema = z.enum(["high", "medium", "low"]);
-
-export const OwnerAlertSchema = z.object({
-  id: z.string().uuid(),
-  severity: OwnerAlertSeveritySchema,
-  message: z.string(),
-  domain: z.string(),
-  createdAt: z.string(),
-  acknowledgedAt: z.string().nullable().optional(),
-  /**
-   * Lien profond vers l'écran qui permet d'agir. Une alerte sans lien n'est
-   * qu'un constat : le propriétaire lit le chiffre sans savoir où le traiter.
-   */
-  href: z.string().nullable().optional(),
-});
-
 export const OwnerDashboardFinancesSchema = z.object({
   revenueCurrentMonth: z.number(),
   recoveryRate: z.number(),
@@ -80,8 +64,30 @@ export const OwnerDashboardResponseSchema = z.object({
    * tester sa présence.
    */
   professional: OwnerDashboardProfessionalSchema.optional(),
-  alerts: z.array(OwnerAlertSchema),
 });
+
+/* -------------------------------------------------------------------------- */
+/*  Encaissements — /owner/finances                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * L'écran répond à « combien est rentré, et d'où ».
+ *
+ * IL NE DÉCRIT QUE LE MODULE PROFESSIONNEL. Il a d'abord lu la seule scolarité
+ * (`payment_transactions`, `student_tuition_installments`), affichant zéro
+ * encaissement sur un établissement dont la caisse encaissait — l'inverse de la
+ * réalité, sur le seul écran qui porte le mot « Encaissements ». Il a ensuite
+ * consolidé les deux moitiés. Il ne garde aujourd'hui que le professionnel.
+ *
+ * Pourquoi retirer plutôt que laisser à zéro : la scolarité n'est pas saisie
+ * ici, et un zéro non mesuré se lit comme une contre-performance. Les axes de
+ * ventilation partaient d'ailleurs dans deux directions — cycle et classe d'un
+ * côté, filière de l'autre — sans jamais se rejoindre.
+ *
+ * CE QUI N'Y EST PLUS : le bloc des rémunérations enseignantes. C'est de
+ * l'argent qui SORT, sur un écran qui décrit ce qui rentre — et il a désormais
+ * son propre écran, filtrable et exportable.
+ */
 
 export const OwnerFinancesPeriodSchema = z.enum([
   "month",
@@ -92,64 +98,87 @@ export const OwnerFinancesPeriodSchema = z.enum([
 
 export const OwnerFinancesQuerySchema = z.object({
   period: OwnerFinancesPeriodSchema.optional().default("month"),
-  academicYearId: z.string().uuid().optional(),
-  /** Filtre cycle (UUID) */
-  cycleId: z.string().uuid().optional(),
-  /** Alias historique de cycleId */
-  cycle: z.string().optional(),
+  /**
+   * Année scolaire « AAAA-AAAA+1 », DÉRIVÉE des ouvertures de classe.
+   * Remplace l'ancien `academicYearId` : la table `academic_years` ne décrit pas
+   * l'activité réelle de l'établissement (cf. `OwnerPulseQuerySchema`).
+   */
+  anneeScolaire: z.string().regex(/^[0-9]{4}-[0-9]{4}$/).optional(),
+  /** Restreint la moitié PROFESSIONNELLE. */
+  filiereIds: z.array(z.string().uuid()).optional(),
 });
 
-export const OwnerFinancesRecoveryByClassSchema = z.object({
-  classId: z.string().uuid(),
-  className: z.string(),
-  cycleName: z.string().nullable(),
+/** Un point de la courbe : un mois du module professionnel. */
+export const OwnerFinancesMonthlyPointSchema = z.object({
+  /** `AAAA-MM`. */
+  month: z.string(),
+  label: z.string(),
+  /**
+   * Encaissé du mois. `professionnel` et `total` portent la même valeur depuis
+   * que l'écran ne couvre plus que le module professionnel : `total` reste pour
+   * les consommateurs qui le lisent, il n'additionne plus rien.
+   */
+  professionnel: z.number(),
+  total: z.number(),
+});
+
+export const OwnerFinancesByFiliereSchema = z.object({
+  filiereId: z.string().uuid().nullable(),
+  filiereName: z.string(),
   expected: z.number(),
   collected: z.number(),
   recoveryRate: z.number(),
 });
 
-export const OwnerFinancesOverdueRowSchema = z.object({
-  studentRef: z.string(),
-  className: z.string().nullable(),
-  amountDue: z.number(),
-  dueDate: z.string(),
-});
-
-export const OwnerFinancesPayrollRowSchema = z.object({
-  id: z.string().uuid(),
-  teacherName: z.string(),
-  periodLabel: z.string().nullable(),
+/** Répartition des encaissements professionnels par mode de règlement. */
+export const OwnerFinancesByModeSchema = z.object({
+  mode: z.string(),
+  label: z.string(),
   amount: z.number(),
-  status: z.string(),
-  calculatedAt: z.string(),
+  count: z.number().int().nonnegative(),
 });
 
+/**
+ * Totaux du MODULE PROFESSIONNEL uniquement.
+ *
+ * L'endpoint consolidait la scolarité et le professionnel, et exposait les deux
+ * moitiés de chaque montant. L'écran `/owner/finances` ne parle plus que du
+ * professionnel : les moitiés scolaires ont été retirées plutôt que laissées à
+ * zéro, un zéro non mesuré se lisant comme une contre-performance.
+ */
 export const OwnerFinancesTotalsSchema = z.object({
-  expectedTuition: z.number(),
-  collectedTuition: z.number(),
-  recoveryRate: z.number(),
-  /** Compté en SQL sur TOUTES les échéances en retard, pas sur la liste renvoyée. */
-  overdueCount: z.number(),
-  /** Idem : somme sur tout le périmètre, jamais sur la liste tronquée. */
-  overdueAmount: z.number(),
-  /**
-   * `true` quand `overdueInstallments` ne montre qu'un extrait des impayés.
-   * L'écran doit le dire plutôt que de laisser croire à une liste exhaustive.
-   */
-  overdueListTruncated: z.boolean().default(false),
-  teacherPayrollTotal: z.number(),
+  /** Σ `professional_payments.montant` confirmés sur la période. */
+  collected: z.number(),
+  /** Σ `professional_orders.montant_total`, commandes non annulées. */
+  expected: z.number(),
+  /** collected / expected, en %. `null` quand rien n'est attendu. */
+  recoveryRate: z.number().nullable(),
+  /** Même période, un an plus tôt — la saisonnalité rend l'écart mensuel muet. */
+  collectedPreviousYear: z.number(),
+});
+
+/**
+ * Ce que le module professionnel a réellement fourni.
+ *
+ * Une source sans aucune donnée saisie n'est pas une source à zéro : c'est une
+ * source qu'on ne mesure pas. L'écran l'annonce au lieu de laisser lire un zéro
+ * comme une contre-performance.
+ */
+export const OwnerFinancesCouvertureSchema = z.object({
+  professionnelAlimente: z.boolean(),
 });
 
 export const OwnerFinancesResponseSchema = z.object({
   period: OwnerFinancesPeriodSchema,
   periodStart: z.string(),
   periodEnd: z.string(),
-  academicYearId: z.string().uuid().optional(),
-  cycleId: z.string().uuid().optional(),
+  anneeScolaire: z.string().nullable(),
+  filiereIds: z.array(z.string().uuid()),
+  couverture: OwnerFinancesCouvertureSchema,
   totals: OwnerFinancesTotalsSchema,
-  recoveryByClass: z.array(OwnerFinancesRecoveryByClassSchema),
-  overdueInstallments: z.array(OwnerFinancesOverdueRowSchema),
-  teacherPayroll: z.array(OwnerFinancesPayrollRowSchema),
+  monthly: z.array(OwnerFinancesMonthlyPointSchema),
+  byFiliere: z.array(OwnerFinancesByFiliereSchema),
+  byMode: z.array(OwnerFinancesByModeSchema),
 });
 
 export const OwnerFinancialReportFormatSchema = z.enum(["pdf", "csv"]);
@@ -276,10 +305,6 @@ export const OwnerFormationsResponseSchema = z.object({
   activeFormateurs: z.number().int().nonnegative().optional(),
 });
 
-export const OwnerAlertsListResponseSchema = z.object({
-  alerts: z.array(OwnerAlertSchema),
-});
-
 export const OwnerUserListItemSchema = z.object({
   userId: z.string().uuid(),
   email: z.string(),
@@ -309,14 +334,12 @@ export const OwnerUserRolesPatchResponseSchema = z.object({
 });
 
 export type OwnerDashboardResponse = z.infer<typeof OwnerDashboardResponseSchema>;
-export type OwnerAlert = z.infer<typeof OwnerAlertSchema>;
 export type OwnerFinancesPeriod = z.infer<typeof OwnerFinancesPeriodSchema>;
 export type OwnerFinancesResponse = z.infer<typeof OwnerFinancesResponseSchema>;
 export type OwnerPayrollValidateResponse = z.infer<typeof OwnerPayrollValidateResponseSchema>;
 export type OwnerAcademicResponse = z.infer<typeof OwnerAcademicResponseSchema>;
 export type OwnerUserListItem = z.infer<typeof OwnerUserListItemSchema>;
 export type OwnerUserRolesPatchResponse = z.infer<typeof OwnerUserRolesPatchResponseSchema>;
-export type OwnerAlertsListResponse = z.infer<typeof OwnerAlertsListResponseSchema>;
 export type OwnerUsersListResponse = z.infer<typeof OwnerUsersListResponseSchema>;
 export type OwnerAssignableRolesResponse = z.infer<typeof OwnerAssignableRolesResponseSchema>;
 export type OwnerStaffResponse = z.infer<typeof OwnerStaffResponseSchema>;

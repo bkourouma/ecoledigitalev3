@@ -3,6 +3,7 @@ import type {
   OwnerFinancesProResponse,
   OwnerPedagogieResponse,
   OwnerPersonnesResponse,
+  OwnerPayrollResponse,
   OwnerRecrutementResponse,
 } from "@ecoledigitale/contracts";
 
@@ -192,10 +193,18 @@ export function buildOwnerFinancesProCsv(d: OwnerFinancesProResponse): string {
 
   lines.push(row(["Recouvrement — Module professionnel"]));
   lines.push(row(["Période", `${d.periodStart} → ${d.periodEnd}`]));
+  // Le nom de classe fait partie du périmètre : un CSV se relit hors de l'écran
+  // qui l'a produit, et « 18 000 000 » ne dit pas de quelle classe il parle.
+  lines.push(
+    row([
+      "Nom de classe",
+      d.nomClasse ? d.nomClasse.split("|").slice(1).join("|") : "Toutes",
+    ])
+  );
   lines.push(
     row([
       "UE « Conduite »",
-      "Incluses (écart assumé avec l'écran admin des paiements)",
+      `Incluses — ${Math.round(d.totals.conduite.expected)} FCFA, écartées par l'écran admin des paiements`,
     ])
   );
   lines.push("");
@@ -215,7 +224,11 @@ export function buildOwnerFinancesProCsv(d: OwnerFinancesProResponse): string {
           d.totals.collected,
           "Somme des paiements confirmés sur ces commandes",
         ],
-        ["Taux de recouvrement (%)", num(d.totals.recoveryRate, 1), "Encaissé / attendu"],
+        [
+          "Taux de recouvrement (%)",
+          d.totals.recoveryRate === null ? "non mesuré" : num(d.totals.recoveryRate, 1),
+          "Encaissé / attendu — « non mesuré » quand rien n'est attendu",
+        ],
         ["Reste à recouvrer", d.totals.outstanding, "Attendu − encaissé, borné à zéro"],
         [
           "Étudiants non soldés",
@@ -427,6 +440,11 @@ export function buildOwnerPersonnesCsv(d: OwnerPersonnesResponse): string {
   const lines: string[] = [];
 
   lines.push(row(["Personnes — démographie et comptes"]));
+  // Le périmètre en tête : un CSV se relit hors de l'écran qui l'a produit, et
+  // « 20 étudiants » ne veut rien dire sans l'année à laquelle ils étaient là.
+  lines.push(
+    row(["Périmètre", d.anneeScolaire ?? "Toutes années cumulées"])
+  );
   lines.push("");
 
   lines.push(
@@ -597,6 +615,177 @@ export function buildOwnerRecrutementCsv(d: OwnerRecrutementResponse): string {
       d.desiredLevels.map((r) => [r.level, r.count])
     )
   );
+
+  return lines.join("\r\n");
+}
+
+/**
+ * Masse salariale.
+ *
+ * Le fichier s'ouvre sur les filtres appliqués, comme les autres : un tableur de
+ * paie sans son périmètre se confond avec celui de l'exercice voisin. La ligne
+ * « hors total » y figure explicitement — un montant annulé ou contesté retiré
+ * du total en silence produit un écart qu'on ne sait plus expliquer six mois
+ * plus tard.
+ */
+export function buildOwnerPayrollCsv(d: OwnerPayrollResponse): string {
+  const lines: string[] = [];
+
+  lines.push(row(["Masse salariale enseignante"]));
+  lines.push(row(["Année scolaire", d.anneeScolaire ?? "Toutes"]));
+  lines.push(row(["Période de paie", d.periodName ?? "Toutes"]));
+  lines.push(row(["Enseignant", d.teacherName ?? "Tous"]));
+  lines.push(row(["Statut", d.status ?? "Tous"]));
+  lines.push(row(["Archivage", d.archive]));
+  lines.push("");
+
+  lines.push(
+    ...section(
+      "Indicateurs",
+      ["Indicateur", "Valeur", "Règle de calcul"],
+      [
+        [
+          "Masse salariale (FCFA)",
+          num(d.kpis.masseSalariale, 0),
+          "Somme des bulletins calculés, approuvés, payés ou impayés",
+        ],
+        ["Bulletins", d.kpis.bulletins, "Bulletins comptés dans la masse"],
+        ["Enseignants payés", d.kpis.enseignantsPayes, "Enseignants distincts"],
+        [
+          "Coût moyen par enseignant (FCFA)",
+          num(d.kpis.coutMoyenParEnseignant, 0),
+          "Masse salariale / enseignants payés",
+        ],
+        [
+          "En attente de validation",
+          d.kpis.enAttenteValidation,
+          `${num(d.kpis.montantEnAttente, 0)} FCFA au statut « calculé »`,
+        ],
+        [
+          "Approuvé non versé",
+          d.kpis.approuveNonVerse,
+          `${num(d.kpis.montantApprouveNonVerse, 0)} FCFA engagés, date de versement absente`,
+        ],
+        [
+          "Hors total (FCFA)",
+          num(d.kpis.montantHorsTotal, 0),
+          "Bulletins annulés ou contestés, exclus de la masse salariale",
+        ],
+      ]
+    )
+  );
+
+  lines.push(
+    ...section(
+      "Décomposition",
+      ["Poste", "Montant (FCFA)"],
+      [
+        ["Base", num(d.breakdown.base, 0)],
+        ["Heures supplémentaires", num(d.breakdown.heuresSup, 0)],
+        ["Primes", num(d.breakdown.primes, 0)],
+        ["Retenues", num(d.breakdown.retenues, 0)],
+        ["Total", num(d.breakdown.total, 0)],
+      ]
+    )
+  );
+
+  lines.push(
+    ...section(
+      "Évolution par période de paie",
+      ["Période", "Début", "Bulletins", "Enseignants payés", "Montant (FCFA)"],
+      d.byPeriod.map((p) => [
+        p.name,
+        p.periodStart,
+        p.bulletins,
+        p.enseignantsPayes,
+        num(p.montant, 0),
+      ])
+    )
+  );
+
+  lines.push(
+    ...section(
+      "Coût par enseignant",
+      [
+        "Enseignant",
+        "Courriel",
+        "Bulletins",
+        "Base",
+        "Heures sup.",
+        "Primes",
+        "Retenues",
+        "Total (FCFA)",
+      ],
+      d.byTeacher.map((t) => [
+        t.teacherName,
+        t.email ?? "",
+        t.bulletins,
+        num(t.base, 0),
+        num(t.heuresSup, 0),
+        num(t.primes, 0),
+        num(t.retenues, 0),
+        num(t.total, 0),
+      ])
+    )
+  );
+
+  lines.push(
+    ...section(
+      d.bulletins.length < d.bulletinsTotal
+        ? `Bulletins (${d.bulletins.length} sur ${d.bulletinsTotal})`
+        : `Bulletins (${d.bulletinsTotal})`,
+      [
+        "Enseignant",
+        "Période",
+        "Année scolaire",
+        "Statut",
+        "Archivé le",
+        "Versé le",
+        "Montant (FCFA)",
+      ],
+      d.bulletins.map((b) => [
+        b.teacherName,
+        b.periodName ?? "",
+        b.anneeScolaire ?? "",
+        b.status,
+        b.archivedAt ? b.archivedAt.slice(0, 10) : "",
+        b.paidAt ? b.paidAt.slice(0, 10) : "",
+        num(b.amount, 0),
+      ])
+    )
+  );
+
+  lines.push(
+    ...section(
+      "Paies en attente de validation",
+      ["Enseignant", "Période", "Calculée le", "Montant (FCFA)"],
+      d.pending.map((p) => [
+        p.teacherName,
+        p.periodName ?? "",
+        p.calculatedAt ? p.calculatedAt.slice(0, 10) : "",
+        num(p.amount, 0),
+      ])
+    )
+  );
+
+  lines.push(
+    ...section(
+      `Cours sans titulaire actif (${d.coursesWithoutTeacher.length} sur ${d.coursesWithoutTeacherTotal})`,
+      ["Classe", "Cours"],
+      d.coursesWithoutTeacher.map((c) => [c.className, c.courseName])
+    )
+  );
+
+  if (d.coursesWithoutTeacherOrphaned > 0) {
+    lines.push(
+      row([
+        "Rattachements non listables",
+        d.coursesWithoutTeacherOrphaned,
+        "Classe ou matière référencée absente en base — données à réparer",
+      ])
+    );
+    lines.push("");
+  }
 
   return lines.join("\r\n");
 }

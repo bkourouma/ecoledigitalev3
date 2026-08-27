@@ -13,7 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useOwnerPersonnes, buildQueryString } from "@/lib/hooks/use-owner-personnes";
-import { ExportCsvButton } from "@/components/owner/charts/ExportCsvButton";
+import { OwnerPageHeader } from "@/components/owner/OwnerPageHeader";
+import { jourFr, tableOrNote, type OwnerReportContent } from "@/lib/utils/owner-report";
 import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
 import { StatCard } from "@/components/owner/charts/StatCard";
 import { BarChartCard } from "@/components/owner/charts/BarChartCard";
@@ -42,15 +43,141 @@ function genderLabel(g: string | null): string {
 }
 
 export default function OwnerPersonnesPage() {
-  // Filières prises dans le filtre global de l'espace propriétaire.
-  const { filiereIds } = useOwnerFilters();
+  /**
+   * Année ET filières. Les deux agissent réellement depuis que le périmètre se
+   * lit sur les inscriptions professionnelles : auparavant le filtre filière
+   * passait par `student_enrollments`, table vide, et vidait l'écran entier.
+   */
+  const { anneeScolaire, filiereIds } = useOwnerFilters();
 
   const params = useMemo(
-    () => ({ filiereIds: filiereIds.length > 0 ? filiereIds : undefined }),
-    [filiereIds]
+    () => ({
+      anneeScolaire: anneeScolaire ?? undefined,
+      filiereIds: filiereIds.length > 0 ? filiereIds : undefined,
+    }),
+    [anneeScolaire, filiereIds]
   );
 
   const { data, isLoading, error } = useOwnerPersonnes(params);
+
+  /**
+   * La couverture des données ferme le rapport plutôt que de l'ouvrir : ce sont
+   * des trous à combler, pas des chiffres à lire. Mais elle y figure — un
+   * effectif dont un quart des dates de naissance manque se lit autrement.
+   */
+  const construireRapport = (): OwnerReportContent => {
+    const d = data!;
+    return {
+      filename: "effectifs",
+      orientation: "portrait",
+      blocks: [
+        {
+          kind: "keyValues",
+          columns: 2,
+          items: [
+            ["Étudiants actifs", String(d.kpis.activeStudents)],
+            ["Enseignants actifs", String(d.kpis.activeTeachers)],
+            ["Parents", String(d.kpis.parents)],
+            [
+              "Ratio étudiants / enseignant",
+              d.kpis.studentTeacherRatio === null
+                ? "Non mesuré"
+                : d.kpis.studentTeacherRatio.toFixed(1),
+            ],
+            ["Comptes sans identifiants", String(d.kpis.accountsWithoutCredentials)],
+          ],
+        },
+        { kind: "heading", text: "Effectifs par filière", level: 1 },
+        tableOrNote(
+          [
+            { header: "Filière" },
+            { header: "Cycle", width: 45 },
+            { header: "Étudiants", width: 30, align: "right" },
+          ],
+          d.headcountByFiliere.map((f) => [
+            f.filiereName,
+            f.cycleName ?? "—",
+            String(f.count),
+          ]),
+          "Aucun étudiant rattaché à une filière.",
+          [
+            "Total",
+            "",
+            String(d.headcountByFiliere.reduce((s, f) => s + f.count, 0)),
+          ]
+        ),
+        { kind: "heading", text: "Répartition par sexe", level: 1 },
+        tableOrNote(
+          [{ header: "Sexe" }, { header: "Étudiants", width: 30, align: "right" }],
+          d.genderDistribution.map((g) => [genderLabel(g.gender), String(g.count)]),
+          "Aucune donnée de sexe renseignée."
+        ),
+        { kind: "heading", text: "Pyramide des âges", level: 1 },
+        tableOrNote(
+          [{ header: "Tranche d'âge" }, { header: "Étudiants", width: 30, align: "right" }],
+          d.agePyramid.map((a) => [
+            `${a.bucketStart} – ${a.bucketStart + 1} ans`,
+            String(a.count),
+          ]),
+          "Aucune date de naissance exploitable."
+        ),
+        { kind: "heading", text: "Nationalités les plus représentées", level: 1 },
+        tableOrNote(
+          [{ header: "Nationalité" }, { header: "Étudiants", width: 30, align: "right" }],
+          d.topNationalities.map((n) => [n.nationality, String(n.count)]),
+          "Aucune nationalité renseignée."
+        ),
+        { kind: "heading", text: "Enseignants par type de contrat", level: 1 },
+        tableOrNote(
+          [{ header: "Contrat" }, { header: "Enseignants", width: 30, align: "right" }],
+          d.teachersByContract.map((c) => [
+            CONTRACT_LABELS[c.contractType] ?? c.contractType,
+            String(c.count),
+          ]),
+          "Aucun type de contrat renseigné."
+        ),
+        { kind: "pageBreak" },
+        { kind: "heading", text: "Enseignants", level: 1 },
+        tableOrNote(
+          [
+            { header: "Nom" },
+            { header: "Contrat", width: 30 },
+            { header: "Statut", width: 26 },
+            { header: "Embauche", width: 28, align: "right" },
+            { header: "Ancienneté", width: 26, align: "right" },
+            { header: "ECUE", width: 20, align: "right" },
+            { header: "Filières", width: 22, align: "right" },
+            { header: "Compte", width: 22 },
+          ],
+          d.teachers.map((t) => [
+            t.teacherName,
+            CONTRACT_LABELS[t.contractType] ?? t.contractType,
+            t.status,
+            t.hireDate ? jourFr(t.hireDate) : "—",
+            t.seniorityYears === null ? "—" : `${t.seniorityYears.toFixed(1)} an(s)`,
+            String(t.ecueCount),
+            String(t.filiereCount),
+            t.hasUserAccount ? "Oui" : "Non",
+          ]),
+          "Aucun enseignant enregistré."
+        ),
+        { kind: "heading", text: "Couverture des données", level: 1 },
+        {
+          kind: "keyValues",
+          columns: 2,
+          items: [
+            ["Étudiants sans parent rattaché", String(d.coverage.studentsWithoutParent)],
+            ["Parents sans enfant rattaché", String(d.coverage.parentsWithoutChild)],
+            ["Enseignants sans compte", String(d.coverage.teachersWithoutAccount)],
+            [
+              "Étudiants sans date de naissance",
+              String(d.coverage.studentsWithoutBirthDate),
+            ],
+          ],
+        },
+      ],
+    };
+  };
 
   if (isLoading) {
     return (
@@ -76,21 +203,21 @@ export default function OwnerPersonnesPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Personnes</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Étudiants, enseignants et parents. Les totaux portent sur l&apos;ensemble du
-            tenant, contrairement aux compteurs des pages Étudiants et Parents, calculés
-            sur la page affichée.
-          </p>
-        </div>
-        <ExportCsvButton
-          endpoint="/api/v1/owner/personnes/export"
-          queryString={buildQueryString(params)}
-          filename="personnes.csv"
-        />
-      </div>
+      <OwnerPageHeader
+        title="Effectifs"
+        question="Combien d'élèves, qui sont-ils, où sont-ils ?"
+        precision={`Les totaux portent sur l'ensemble de l'établissement, contrairement aux compteurs des écrans Étudiants et Parents, calculés sur la page affichée. ${
+          anneeScolaire
+            ? `Périmètre : ${anneeScolaire}.`
+            : "Toutes années cumulées : un étudiant passé par plusieurs promotions compte dans chacune, la somme des effectifs par filière dépasse donc le nombre de personnes."
+        }`}
+        pdf={construireRapport}
+        csv={{
+          endpoint: "/api/v1/owner/personnes/export",
+          queryString: buildQueryString(params),
+          filename: "effectifs.csv",
+        }}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
@@ -116,7 +243,7 @@ export default function OwnerPersonnesPage() {
         <StatCard
           label="Comptes sans identifiants"
           value={String(data.kpis.accountsWithoutCredentials)}
-          hint="Mot de passe initial non généré"
+          hint="Étudiants, parents et enseignants du périmètre"
           icon={KeyRound}
           deltaPolarity="lower-is-better"
         />
@@ -129,7 +256,9 @@ export default function OwnerPersonnesPage() {
             Aucune colonne de la base ne trace l&apos;<em>envoi</em> des identifiants : ce
             compteur mesure les comptes dont le mot de passe initial n&apos;a pas été
             généré. Un compte doté d&apos;un mot de passe peut malgré tout ne jamais avoir
-            reçu ses accès.
+            reçu ses accès. Il ne porte que sur les personnes de cet écran —
+            étudiants du périmètre, leurs parents, enseignants — et non sur les comptes
+            d&apos;administration.
           </p>
           <p className="mt-2">
             L&apos;indicateur « étudiants redoublants » du cahier des charges n&apos;est pas

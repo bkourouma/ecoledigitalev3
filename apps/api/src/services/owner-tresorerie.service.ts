@@ -8,6 +8,7 @@ import type {
   OwnerTresorerieResponse,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
 import { PRO_UNPAID_INSTALLMENTS_CTE } from "./owner-pro-outstanding.sql";
+import { PRO_ORDER_DATES_CTE } from "./owner-pro-annee.sql";
 
 /**
  * Trésorerie et recouvrement, scolaire et professionnel consolidés.
@@ -15,9 +16,9 @@ import { PRO_UNPAID_INSTALLMENTS_CTE } from "./owner-pro-outstanding.sql";
  * Répond à la première question d'un propriétaire — « est-ce que l'argent
  * rentre ? » — par quatre lectures qui n'existaient nulle part :
  *
- *   1. la BALANCE ÂGÉE : combien on nous doit, et depuis combien de temps.
- *      La probabilité de recouvrer s'effondre après 90 jours : un reste à
- *      recouvrer sans ventilation par ancienneté ne dit rien d'exploitable ;
+ *   1. le RESTE À RECOUVRER PAR FILIÈRE, ventilé par ancienneté. La probabilité
+ *      de recouvrer s'effondre après 90 jours : un reste à recouvrer sans cette
+ *      ventilation ne dit rien d'exploitable ;
  *   2. la COURBE DE TRÉSORERIE, comparée à la même saison l'an dernier — le
  *      calendrier scolaire est trop saisonnier pour qu'un écart au mois
  *      précédent veuille dire quoi que ce soit ;
@@ -26,15 +27,23 @@ import { PRO_UNPAID_INSTALLMENTS_CTE } from "./owner-pro-outstanding.sql";
  *   4. les ÉCARTS DE CAISSE : commande marquée payée sans aucun paiement,
  *      encaissement sans reçu. Chacun est soit une erreur de saisie, soit pire.
  *
- * Deux règles de méthode :
+ * Une règle de méthode : le dû à venir (`a_echoir`) n'est JAMAIS mélangé au
+ * retard. Les confondre gonfle la dette et déclenche des relances injustifiées.
  *
- * - Le dû à venir (`a_echoir`) n'est JAMAIS mélangé au retard. Les confondre
- *   gonfle la dette et déclenche des relances injustifiées.
- * - Côté professionnel, l'ancienneté s'appuie sur `professional_order_installments`
- *   (migration 0096). Tant qu'un établissement n'a pas saisi ses échéanciers, ces
- *   lignes portent `is_default = true` : la réponse expose `proDefaultScheduleShare`
- *   pour que l'écran dise que l'ancienneté y est une convention, pas une échéance
- *   négociée.
+ * CE QUE CETTE RÉPONSE N'EXPOSE PLUS, ET POURQUOI
+ *
+ * `agedBalance` (la balance âgée consolidée), `couverture` et
+ * `proDefaultScheduleShare` ont été retirés : ils ne servaient qu'à un bloc de
+ * l'écran Impayés, supprimé depuis. Ce module ne saisit pas d'échéancier — la
+ * ventilation par ancienneté y était vide par construction, et le drapeau qui
+ * l'annonçait promettait une saisie qui n'aura pas lieu.
+ *
+ * ATTENTION, LIMITE CONNUE : `agedByFiliere` repose encore sur
+ * `professional_order_installments` côté professionnel, une table que ce module
+ * n'alimente pas. Le tableau de bord, seul lecteur restant, y voit donc toujours
+ * zéro côté professionnel. Le reste dû réel se calcule sur les commandes
+ * (`montant_total` moins les versements confirmés), comme le fait déjà
+ * `owner-finances-pro.service.ts`.
  */
 
 /* --------------------------------- Outils --------------------------------- */
@@ -84,14 +93,6 @@ function resolveWindow(q: OwnerTresorerieQuery): { from: string; to: string } {
   d.setUTCDate(d.getUTCDate() - 89);
   return { from: toIsoDate(d), to };
 }
-
-const BUCKET_LABEL: Record<OwnerAgedBucket, string> = {
-  a_echoir: "À échoir",
-  j0_30: "1 à 30 jours",
-  j31_60: "31 à 60 jours",
-  j61_90: "61 à 90 jours",
-  j90_plus: "Plus de 90 jours",
-};
 
 const BUCKET_ORDER: OwnerAgedBucket[] = ["a_echoir", "j0_30", "j31_60", "j61_90", "j90_plus"];
 
@@ -228,7 +229,7 @@ export async function fetchOwnerTresorerie(
        GROUP BY filiere_id, filiere_name, bucket, source`,
       [tenantId, filiereIds],
       log,
-      "agedBalance"
+      "agedByFiliere"
     );
 
     // Agrégation par tranche (scolaire / professionnel / total).
@@ -260,16 +261,19 @@ export async function fetchOwnerTresorerie(
       perFiliere.get(key)!.buckets[bucket] += montant;
     }
 
-    const agedBalance = BUCKET_ORDER.map((bucket) => {
+    /**
+     * `perBucket` ne sort plus dans la réponse : il ne sert qu'à totaliser.
+     *
+     * La balance âgée consolidée (`agedBalance`) était exposée pour un
+     * graphique que l'écran Impayés n'affiche plus — le module professionnel ne
+     * saisit pas d'échéancier, la ventilation par ancienneté y restait vide par
+     * construction. La ventilation PAR FILIÈRE, elle, est encore lue par le
+     * tableau de bord et reste produite.
+     */
+    const totalParBucket = (bucket: OwnerAgedBucket) => {
       const v = perBucket.get(bucket)!;
-      return {
-        bucket,
-        label: BUCKET_LABEL[bucket],
-        scolaire: round0(v.scolaire),
-        professionnel: round0(v.professionnel),
-        total: round0(v.scolaire + v.professionnel),
-      };
-    });
+      return v.scolaire + v.professionnel;
+    };
 
     // Classement par dette ÉCHUE : c'est elle qui appelle une relance, pas le
     // dû à venir. Au-delà de 8 filières, le reste est regroupé — mais compté,
@@ -311,7 +315,8 @@ export async function fetchOwnerTresorerie(
     // décale la fenêtre d'un an et on ramène les points sur la même grille.
     const cashRows = await safeRows<Row>(
       client,
-      `WITH bornes AS (
+      `WITH ${PRO_ORDER_DATES_CTE},
+       bornes AS (
          SELECT $2::date AS d1, $3::date AS d2, $4::text AS gran
        ),
        grille AS (
@@ -332,11 +337,16 @@ export async function fetchOwnerTresorerie(
          FROM payment_transactions
          WHERE tenant_id = $1::uuid AND status = 'completed'::transaction_status
          UNION ALL
-         SELECT COALESCE(paid_at, created_at)::date AS jour,
-                montant::float8 AS montant,
+         -- Daté par la CLASSE OUVERTE, pas par le versement : sur une base
+         -- reprise, tous les paiements portent le même horodatage et la courbe
+         -- des années passées restait plate à zéro pendant que l'indicateur
+         -- au-dessus d'elle affichait 18 millions.
+         SELECT d.debut::date AS jour,
+                pp.montant::float8 AS montant,
                 'pro' AS source
-         FROM professional_payments
-         WHERE tenant_id = $1::uuid AND statut = 'confirme'
+         FROM professional_payments pp
+         JOIN pro_order_dates d ON d.order_id = pp.order_id
+         WHERE pp.tenant_id = $1::uuid AND pp.statut = 'confirme'
        )
        SELECT
          g.tranche::text AS tranche,
@@ -384,13 +394,15 @@ export async function fetchOwnerTresorerie(
     /* ---- Répartition par mode de règlement -------------------------------- */
     const modeRows = await safeRows<Row>(
       client,
-      `SELECT COALESCE(NULLIF(TRIM(mode), ''), 'autre') AS mode,
-              SUM(montant)::float8 AS amount,
+      `WITH ${PRO_ORDER_DATES_CTE}
+       SELECT COALESCE(NULLIF(TRIM(pp.mode), ''), 'autre') AS mode,
+              SUM(pp.montant)::float8 AS amount,
               COUNT(*)::int AS n
-         FROM professional_payments
-        WHERE tenant_id = $1::uuid
-          AND statut = 'confirme'
-          AND COALESCE(paid_at, created_at)::date BETWEEN $2::date AND $3::date
+         FROM professional_payments pp
+         JOIN pro_order_dates d ON d.order_id = pp.order_id
+        WHERE pp.tenant_id = $1::uuid
+          AND pp.statut = 'confirme'
+          AND d.debut BETWEEN $2::date AND $3::date
         GROUP BY 1
         ORDER BY amount DESC`,
       [tenantId, from, to],
@@ -438,15 +450,18 @@ export async function fetchOwnerTresorerie(
     /* ---- Totaux et part d'échéancier par défaut --------------------------- */
     const totalsRow = await safeRows<Row>(
       client,
-      `WITH ${PRO_UNPAID_CTE},
+      `WITH ${PRO_ORDER_DATES_CTE},
+       ${PRO_UNPAID_CTE},
        collected AS (
          SELECT
            (SELECT COALESCE(SUM(amount), 0)::float8 FROM payment_transactions
              WHERE tenant_id = $1::uuid AND status = 'completed'::transaction_status
                AND COALESCE(processed_at, created_at)::date BETWEEN $2::date AND $3::date)
-         + (SELECT COALESCE(SUM(montant), 0)::float8 FROM professional_payments
-             WHERE tenant_id = $1::uuid AND statut = 'confirme'
-               AND COALESCE(paid_at, created_at)::date BETWEEN $2::date AND $3::date) AS v
+         + (SELECT COALESCE(SUM(pp.montant), 0)::float8
+              FROM professional_payments pp
+              JOIN pro_order_dates d ON d.order_id = pp.order_id
+             WHERE pp.tenant_id = $1::uuid AND pp.statut = 'confirme'
+               AND d.debut BETWEEN $2::date AND $3::date) AS v
        ),
        expected AS (
          SELECT
@@ -456,29 +471,45 @@ export async function fetchOwnerTresorerie(
          -- un échéancier figé ne doit pas minorer l'attendu.
          + (SELECT COALESCE(SUM(si.montant), 0)::float8
               FROM pro_scaled_installments si
-             WHERE si.due_date BETWEEN $2::date AND $3::date) AS v
+             WHERE si.due_date BETWEEN $2::date AND $3::date)
+         -- Commandes SANS échéancier : sans ce terme, l'attendu ne compte que
+         -- ce qui a une date d'échéance alors que l'encaissé compte tout. Les
+         -- deux termes du ratio ne portaient pas sur le même périmètre, et le
+         -- taux affichait 0 % sur un établissement intégralement payé.
+         --
+         -- DATÉES À LA CLASSE OUVERTE, comme l'encaissé juste au-dessus. Ce
+         -- terme filtrait sur created_at, l'horodatage d'écriture de la ligne :
+         -- sur une base reprise, les 1 360 commandes le portent au même jour.
+         -- L'attendu retombait donc à 0 là où l'encaissé valait 18 M, et le taux
+         -- de recouvrement passait « non mesuré » sur toutes les années passées.
+         + (SELECT COALESCE(SUM(po.montant_total), 0)::float8
+              FROM professional_orders po
+              JOIN pro_order_dates d ON d.order_id = po.id
+             WHERE po.tenant_id = $1::uuid
+               AND po.statut <> 'annulee'
+               AND d.debut BETWEEN $2::date AND $3::date
+               AND NOT EXISTS (SELECT 1 FROM professional_order_installments oi
+                                WHERE oi.order_id = po.id AND oi.tenant_id = po.tenant_id)) AS v
        ),
-       defaut AS (
-         SELECT
-           COUNT(*)::float8 AS total,
-           COUNT(*) FILTER (WHERE is_default)::float8 AS par_defaut
-         FROM professional_order_installments
-         WHERE tenant_id = $1::uuid
-       )
        SELECT collected.v AS collected,
-              expected.v  AS expected,
-              CASE WHEN defaut.total > 0 THEN 100.0 * defaut.par_defaut / defaut.total ELSE 0 END AS default_share
-       FROM collected, expected, defaut`,
+              expected.v  AS expected
+       FROM collected, expected`,
       [tenantId, from, to],
       log,
       "tresorerieTotals"
     );
     const totalsSrc = totalsRow[0] ?? {};
 
-    const outstanding = agedBalance.reduce((s, b) => s + b.total, 0);
-    const outstandingEchu = agedBalance
-      .filter((b) => b.bucket !== "a_echoir")
-      .reduce((s, b) => s + b.total, 0);
+    const outstanding = round0(
+      BUCKET_ORDER.reduce((s, bucket) => s + totalParBucket(bucket), 0)
+    );
+    // Le dû à venir n'est pas du retard : `a_echoir` sort du total échu.
+    const outstandingEchu = round0(
+      BUCKET_ORDER.filter((b) => b !== "a_echoir").reduce(
+        (s, bucket) => s + totalParBucket(bucket),
+        0
+      )
+    );
     const collected = round0(num(totalsSrc.collected));
     const expected = round0(num(totalsSrc.expected));
 
@@ -492,9 +523,12 @@ export async function fetchOwnerTresorerie(
         expected,
         outstanding,
         outstandingEchu,
-        recoveryRate: expected > 0 ? round1((100 * collected) / expected) : 0,
+        // `null` et non 0 : « rien n'est attendu » n'est pas « rien n'est
+        // recouvré ». Le zéro affichait 0 % de recouvrement sur un
+        // établissement intégralement payé — l'inverse de la situation, sur
+        // l'écran même des impayés.
+        recoveryRate: expected > 0 ? round1((100 * collected) / expected) : null,
       },
-      agedBalance,
       agedByFiliere,
       cashflow,
       byPaymentMode,
@@ -508,7 +542,6 @@ export async function fetchOwnerTresorerie(
           amount: round0(num(anomaly.no_receipt_amount)),
         },
       },
-      proDefaultScheduleShare: round1(num(totalsSrc.default_share)),
     };
   } finally {
     client.release();

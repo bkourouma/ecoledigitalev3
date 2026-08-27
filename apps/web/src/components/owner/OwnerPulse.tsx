@@ -8,8 +8,8 @@ import { useOwnerPulse } from "@/lib/hooks/use-owner-pulse";
 import { formatFcfa, formatPct, VIZ_STATUS } from "@/components/owner/charts/palette";
 
 /**
- * Barre haute persistante de l'espace propriétaire : les 8 chiffres qu'on
- * regarde avant tout le reste.
+ * Le pouls de l'établissement : les chiffres qu'on regarde avant tout le reste,
+ * groupés en deux lectures — l'argent, puis l'école.
  *
  * Trois règles de lecture, héritées de la palette data-viz :
  *  - une couleur de statut est TOUJOURS doublée d'un libellé ;
@@ -129,15 +129,85 @@ function KpiTile({ kpi }: { kpi: OwnerPulseKpi }) {
   );
 }
 
-export function PulseBar() {
-  const { data, isLoading, isError, error, refetch, isFetching } = useOwnerPulse();
+/**
+ * Regroupement des indicateurs en deux lectures.
+ *
+ * En une seule rangée, les tuiles se lisaient comme une liste : rien ne disait
+ * que les premières répondent à « est-ce que l'argent rentre ? » et les
+ * suivantes à « est-ce que l'école tourne ? ». Deux rangées titrées font ce
+ * travail sans ajouter un pixel de chrome.
+ *
+ * Deux indicateurs ont été RETIRÉS sur décision métier :
+ *  - « Taux de recouvrement » — le module professionnel ne fonctionne pas par
+ *    échéancier, un taux y suppose un attendu échelonné qui n'existe pas ;
+ *  - « Réussite du dernier semestre » — elle se lit sur l'écran Résultats, avec
+ *    les décisions de jury et le poids du rattrapage qui l'expliquent.
+ */
+const GROUPES: Array<{ titre: string; keys: string[] }> = [
+  {
+    titre: "L'argent",
+    keys: ["cash_collected_month", "outstanding", "operating_balance"],
+  },
+  {
+    titre: "L'école",
+    keys: ["headcount_active", "fill_rate", "presence_rate"],
+  },
+];
+
+/**
+ * Répartit les indicateurs reçus dans les groupes ci-dessus.
+ *
+ * Tout indicateur dont la clé n'est listée nulle part atterrit dans un groupe
+ * « Autres indicateurs » plutôt que de disparaître : le jour où le serveur en
+ * ajoute un neuvième, il s'affiche — mal rangé, mais visible. Un tableau de
+ * bord qui perd un chiffre en silence est pire qu'un tableau de bord mal rangé.
+ */
+function grouper(kpis: OwnerPulseKpi[]): Array<{ titre: string; kpis: OwnerPulseKpi[] }> {
+  const connues = new Set(GROUPES.flatMap((g) => g.keys));
+  const groupes = GROUPES.map((g) => ({
+    titre: g.titre,
+    kpis: g.keys
+      .map((k) => kpis.find((kpi) => kpi.key === k))
+      .filter((k): k is OwnerPulseKpi => !!k),
+  })).filter((g) => g.kpis.length > 0);
+
+  const orphelins = kpis.filter((k) => !connues.has(k.key));
+  if (orphelins.length > 0) {
+    groupes.push({ titre: "Autres indicateurs", kpis: orphelins });
+  }
+  return groupes;
+}
+
+/**
+ * Les chiffres de tête, en deux rangées titrées.
+ *
+ * Se monte uniquement sur le tableau de bord. Ils étaient auparavant répétés en
+ * bandeau au-dessus des dix-sept écrans de l'espace : sur la page Assiduité,
+ * des indicateurs financiers volaient un tiers de la hauteur utile à la seule
+ * chose qu'on était venu regarder. Le tableau de bord est l'endroit où on les
+ * cherche ; partout ailleurs, ils étaient du décor.
+ *
+ * Le composant refait son propre appel plutôt que de recevoir les données en
+ * props : React Query partage la requête avec le `useOwnerPulse()` de la page,
+ * qui en a besoin pour composer le PDF. Une seule requête réseau, aucun câblage.
+ */
+export function OwnerPulse({ anneeScolaire }: { anneeScolaire?: string }) {
+  const { data, isLoading, isError, error, refetch, isFetching } =
+    useOwnerPulse(anneeScolaire);
 
   // Squelette : le bloc garde sa hauteur, la page ne saute pas au chargement.
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-[104px] animate-pulse rounded-lg border bg-muted/40" />
+      <div className="space-y-5">
+        {GROUPES.map((g) => (
+          <div key={g.titre} className="space-y-2">
+            <div className="h-3 w-24 animate-pulse rounded bg-muted/60" />
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              {g.keys.map((k) => (
+                <div key={k} className="h-[104px] animate-pulse rounded-lg border bg-muted/40" />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -164,12 +234,20 @@ export function PulseBar() {
   const computed = new Date(data.computedAt);
 
   return (
-    <section aria-label="Indicateurs de tête" className="space-y-2">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-        {data.kpis.map((kpi) => (
-          <KpiTile key={kpi.key} kpi={kpi} />
-        ))}
-      </div>
+    <section aria-label="Indicateurs de tête" className="space-y-5">
+      {grouper(data.kpis).map((groupe) => (
+        <div key={groupe.titre} className="space-y-2">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {groupe.titre}
+          </h3>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {groupe.kpis.map((kpi) => (
+              <KpiTile key={kpi.key} kpi={kpi} />
+            ))}
+          </div>
+        </div>
+      ))}
+
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
         <span>
           Données au {computed.toLocaleDateString("fr-FR")} à{" "}
@@ -193,3 +271,6 @@ export function PulseBar() {
     </section>
   );
 }
+
+/** Valeur d'un indicateur, formatée comme à l'écran — réutilisée par le PDF. */
+export { formatValue as formatPulseValue };

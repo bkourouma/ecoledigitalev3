@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { useSession } from "next-auth/react";
 import { createApiHeaders } from "@/lib/api-utils";
+import { OwnerPageHeader } from "@/components/owner/OwnerPageHeader";
 import type { OwnerFinancesPeriod } from "@ecoledigitale/contracts";
 
 const PERIOD_OPTIONS: { value: OwnerFinancesPeriod; label: string }[] = [
@@ -93,15 +94,21 @@ export default function OwnerFinancialReportPage() {
 
   return (
     <div className="space-y-8">
+      {/*
+        Seul écran de l'espace sans bouton d'export dans son en-tête : il EST le
+        générateur. Ses propres boutons vivent plus bas, avec les paramètres qui
+        les commandent.
+      */}
+      <OwnerPageHeader
+        title="Rapports"
+        question="Sortir un dossier financier pour la banque, l'associé ou le conseil."
+        precision="Export CSV (données tabulaires) ou PDF (même périmètre, mise en page imprimable). Les identifiants élèves sont masqués dans les listes d'impayés."
+      />
+
       <div>
-        <Button variant="ghost" size="sm" className="mb-2 -ml-2" asChild>
-          <Link href="/owner/finances">← Retour aux finances</Link>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/owner/finances">← Retour aux encaissements</Link>
         </Button>
-        <h2 className="text-xl font-semibold tracking-tight">Rapport financier</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Export CSV (données tabulaires) ou PDF (même périmètre, mise en page imprimable). Les
-          identifiants élèves sont masqués dans les listes d&apos;impayés.
-        </p>
       </div>
 
       <Card>

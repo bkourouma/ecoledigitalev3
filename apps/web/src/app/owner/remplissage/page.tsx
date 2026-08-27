@@ -12,7 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ExportCsvButton } from "@/components/owner/charts/ExportCsvButton";
+import { OwnerPageHeader } from "@/components/owner/OwnerPageHeader";
+import { jourFr, tableOrNote, type OwnerReportContent } from "@/lib/utils/owner-report";
 import { VIZ_STATUS } from "@/components/owner/charts/palette";
 import { useOwnerRemplissage } from "@/lib/hooks/use-owner-remplissage";
 import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
@@ -25,6 +26,10 @@ import type { OwnerCohorteRow } from "@ecoledigitale/contracts";
  * bientôt et qui ne se rempliront plus. Viennent ensuite les conflits de
  * planning (rien ne les détecte à la saisie), la complétude de la grille et le
  * respect du programme.
+ *
+ * Le bloc « Classes de l'année active » a été retiré : ses six lignes affichaient
+ * un effectif de 0 et un remplissage de 0 %, faute d'inscription scolaire en
+ * base. Le détail est dans owner-remplissage.service.ts.
  */
 
 /* --------------------------------- Outils --------------------------------- */
@@ -99,8 +104,18 @@ function isUrgent(c: OwnerCohorteRow): boolean {
 export default function OwnerRemplissagePage() {
   // Périmètre pris dans le filtre global de l'espace propriétaire (barre du
   // layout), pas dans un état local : la sélection suit d'un écran à l'autre.
-  const { filiereIds } = useOwnerFilters();
-  const { data, isLoading, isError, error, refetch } = useOwnerRemplissage(filiereIds);
+  const { anneeScolaire, filiereIds } = useOwnerFilters();
+  const { data, isLoading, isError, error, refetch } = useOwnerRemplissage(
+    anneeScolaire,
+    filiereIds
+  );
+
+  const paramsExport = (() => {
+    const q = new URLSearchParams({ format: "csv" });
+    if (anneeScolaire) q.set("anneeScolaire", anneeScolaire);
+    if (filiereIds.length) q.set("filiereIds", filiereIds.join(","));
+    return q.toString();
+  })();
   const [showAllCohortes, setShowAllCohortes] = useState(false);
 
   const urgentes = useMemo(() => (data?.cohortes ?? []).filter(isUrgent), [data]);
@@ -127,25 +142,129 @@ export default function OwnerRemplissagePage() {
 
   const k = data?.kpis;
 
+  /**
+   * Le rapport imprime TOUTES les cohortes, là où l'écran en montre quinze
+   * derrière un « voir plus ». Un document exporté n'a pas de bouton : le
+   * tronquer en silence en ferait une liste fausse.
+   */
+  const construireRapport = (): OwnerReportContent => {
+    const d = data!;
+    const taux = (v: number | null) => (v === null ? "Capacité non saisie" : `${v.toFixed(1)} %`);
+    return {
+      filename: "remplissage",
+      blocks: [
+        {
+          kind: "keyValues",
+          columns: 2,
+          items: [
+            ["Périmètre", d.anneeScolaire ?? "Toutes années cumulées"],
+            ["Cohortes du périmètre", String(d.kpis.cohortesActives)],
+            ["dont encore ouvertes", String(d.kpis.cohortesOuvertes)],
+            ["dont vides", String(d.kpis.cohortesVides)],
+            ["dont sans capacité saisie", String(d.kpis.cohortesSansCapacite)],
+            ["Remplissage des cohortes", taux(d.kpis.tauxRemplissageCohortes)],
+            ["Conflits de planning", String(d.kpis.conflitsPlanning)],
+            ["Créneaux planifiés", String(d.kpis.creneauxTotal)],
+            ["dont sans salle", String(d.kpis.creneauxSansSalle)],
+            ["dont sans enseignant", String(d.kpis.creneauxSansEnseignant)],
+            ["Heures planifiées", (d.kpis.heuresPlanifiees ?? 0).toFixed(1)],
+            ["Heures tenues", (d.kpis.heuresTenues ?? 0).toFixed(1)],
+            ["Respect du planning", taux(d.kpis.tauxRespectPlanning)],
+            ["Séances sans horaire", String(d.kpis.seancesSansHoraire)],
+          ],
+        },
+        {
+          kind: "note",
+          text: "Les cohortes sans capacité saisie sont exclues du taux de remplissage : les compter à zéro ferait chuter un indicateur sur une donnée manquante, pas sur une salle vide.",
+        },
+        { kind: "heading", text: "Conflits de planning", level: 1 },
+        tableOrNote(
+          [
+            { header: "Type", width: 26 },
+            { header: "Ressource", width: 48 },
+            { header: "Jour", width: 26 },
+            { header: "Créneau A", width: 30 },
+            { header: "Cours A" },
+            { header: "Créneau B", width: 30 },
+            { header: "Cours B" },
+          ],
+          d.conflits.map((c) => [
+            c.type === "salle" ? "Salle" : "Enseignant",
+            c.ressource,
+            c.jour,
+            c.plageA,
+            c.coursA,
+            c.plageB,
+            c.coursB,
+          ]),
+          "Aucun conflit de salle ni d'enseignant détecté."
+        ),
+        { kind: "pageBreak" },
+        { kind: "heading", text: "Cohortes professionnelles", level: 1 },
+        tableOrNote(
+          [
+            { header: "Cohorte" },
+            { header: "UE", width: 26 },
+            { header: "Filière", width: 42 },
+            { header: "Statut", width: 26 },
+            { header: "Début", width: 26, align: "right" },
+            { header: "J avant début", width: 28, align: "right" },
+            { header: "Capacité", width: 24, align: "right" },
+            { header: "Inscrits", width: 24, align: "right" },
+            { header: "Remplissage", width: 34, align: "right" },
+          ],
+          d.cohortes.map((c) => [
+            c.libelle,
+            c.ueCode,
+            c.filiereName ?? "—",
+            c.statut,
+            c.dateDebut ? jourFr(c.dateDebut) : "—",
+            c.joursAvantDebut === null ? "—" : String(c.joursAvantDebut),
+            c.capacite === null ? "—" : String(c.capacite),
+            String(c.inscrits),
+            taux(c.tauxRemplissage),
+          ]),
+          "Aucune cohorte professionnelle sur ce périmètre."
+        ),
+        { kind: "heading", text: "Couverture du programme par semestre", level: 1 },
+        tableOrNote(
+          [
+            { header: "Semestre" },
+            { header: "Filière", width: 50 },
+            { header: "ECUE au programme", width: 40, align: "right" },
+            { header: "ECUE programmées", width: 40, align: "right" },
+            { header: "Couverture", width: 34, align: "right" },
+          ],
+          d.couverture.map((c) => [
+            c.libelle,
+            c.filiereName ?? "—",
+            String(c.ecueTotal),
+            String(c.ecueProgrammees),
+            c.taux === null ? "—" : `${c.taux.toFixed(1)} %`,
+          ]),
+          "Aucun semestre à couvrir sur ce périmètre."
+        ),
+      ],
+    };
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Remplissage &amp; planning</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Capacités, cohortes à arbitrer, conflits de salle et d&apos;enseignant. Une capacité non
-            renseignée n&apos;est jamais comptée comme un taux de zéro.
-          </p>
-        </div>
-        <ExportCsvButton
-          endpoint="/api/v1/owner/remplissage"
-          queryString={
-            filiereIds.length ? `format=csv&filiereIds=${filiereIds.join(",")}` : "format=csv"
-          }
-          filename="remplissage.csv"
-          label="Exporter"
-        />
-      </div>
+      <OwnerPageHeader
+        title="Remplissage"
+        question="Mes classes sont-elles pleines, mes salles occupées ?"
+        precision={`Capacités, cohortes à arbitrer, conflits de salle et d'enseignant. Une capacité non renseignée n'est jamais comptée comme un taux de zéro. ${
+          anneeScolaire
+            ? `Périmètre : classes ouvertes en ${anneeScolaire}.`
+            : "Toutes années cumulées."
+        }`}
+        pdf={data ? construireRapport : undefined}
+        csv={{
+          endpoint: "/api/v1/owner/remplissage",
+          queryString: paramsExport,
+          filename: "remplissage.csv",
+        }}
+      />
 
       {/* Ce qui se décide encore : en tête, avant les tableaux. */}
       {urgentes.length > 0 && (
@@ -185,25 +304,13 @@ export default function OwnerRemplissagePage() {
           tone={fillColor(k?.tauxRemplissageCohortes ?? null)}
           hint={
             k
-              ? `${k.cohortesActives} cohorte(s) en cours${
+              ? `${k.cohortesActives} cohorte(s), dont ${k.cohortesOuvertes} encore ouverte(s)${
                   k.cohortesSansCapacite > 0
                     ? ` · ${k.cohortesSansCapacite} hors calcul, sans capacité`
                     : ""
                 }`
               : undefined
           }
-        />
-        <Stat
-          label="Remplissage classes"
-          value={
-            isLoading && !data
-              ? "…"
-              : k?.tauxRemplissageClasses === null || k === undefined
-                ? "—"
-                : `${k.tauxRemplissageClasses} %`
-          }
-          tone={fillColor(k?.tauxRemplissageClasses ?? null)}
-          hint={k ? `${k.classesActives} classe(s) sur l'année active` : undefined}
         />
         <Stat
           label="Cohortes sans inscrit"
@@ -254,17 +361,17 @@ export default function OwnerRemplissagePage() {
             </div>
             <div>
               <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                Respect du planning (30 j)
+                Respect du planning
               </div>
               <div className="text-xl font-semibold tabular-nums">
                 {k.tauxRespectPlanning === null ? "—" : `${k.tauxRespectPlanning} %`}
               </div>
               <div className="text-xs text-muted-foreground">
-                {k.heuresTenues30j} h tenues sur {k.heuresPlanifiees30j} h planifiées
-                {k.seancesSansHoraire30j > 0 && (
+                {k.heuresTenues} h tenues sur {k.heuresPlanifiees} h planifiées
+                {k.seancesSansHoraire > 0 && (
                   <>
                     {" "}
-                    · {k.seancesSansHoraire30j} séance(s) sans horaire saisi, exclues du calcul
+                    · {k.seancesSansHoraire} séance(s) sans horaire saisi, exclues du calcul
                   </>
                 )}
               </div>
@@ -392,51 +499,6 @@ export default function OwnerRemplissagePage() {
         </CardContent>
       </Card>
 
-      {/* Classes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Classes de l&apos;année active</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cycle</TableHead>
-                <TableHead>Classe</TableHead>
-                <TableHead>Filière</TableHead>
-                <TableHead className="text-right">Effectif</TableHead>
-                <TableHead className="text-right">Remplissage</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!data || data.classes.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-sm text-muted-foreground">
-                    {isLoading ? "Chargement…" : "Aucune classe sur l'année active."}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.classes.map((c) => (
-                  <TableRow key={c.classId}>
-                    <TableCell className="text-muted-foreground">{c.cycleName ?? "—"}</TableCell>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{c.filiereName ?? "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {c.effectif}
-                      {c.capacite !== null && (
-                        <span className="text-muted-foreground"> / {c.capacite}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <FillCell taux={c.tauxRemplissage} />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
 
       {/* Couverture du planning par semestre */}
       {data && data.couverture.length > 0 && (

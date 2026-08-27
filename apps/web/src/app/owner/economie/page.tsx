@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
-import { AlertTriangle, Info, TrendingDown, Users } from "lucide-react";
+import { AlertTriangle, Info, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -12,27 +11,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ExportCsvButton } from "@/components/owner/charts/ExportCsvButton";
-import { ChartCard } from "@/components/owner/charts/ChartCard";
-import {
-  formatFcfa,
-  formatFcfaCompact,
-  VIZ_SERIES,
-  VIZ_STATUS,
-} from "@/components/owner/charts/palette";
+import { formatFcfa, VIZ_STATUS } from "@/components/owner/charts/palette";
 import { useOwnerEconomie } from "@/lib/hooks/use-owner-economie";
 import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { OwnerPageHeader } from "@/components/owner/OwnerPageHeader";
+import { jourFr, tableOrNote, type OwnerReportContent } from "@/lib/utils/owner-report";
 
 /**
  * Économie de l'établissement.
@@ -42,6 +25,11 @@ import {
  * pédagogique » et un bandeau qui dit pourquoi. Une marge de 100 % n'est pas une
  * performance, c'est une comptabilité absente — et le laisser deviner serait le
  * mensonge le plus coûteux de tout le pilotage.
+ *
+ * La courbe de prévision de trésorerie à 13 semaines et sa carte « Rupture » ont
+ * été retirées : faute d'échéancier, elles annonçaient zéro recette face à des
+ * salaires comptés cinq fois, donc une rupture en semaine 1 sur toute base. Le
+ * détail de la mesure est dans owner-economie.service.ts.
  */
 
 function Stat({
@@ -72,23 +60,151 @@ function Stat({
 }
 
 export default function OwnerEconomiePage() {
-  const { filiereIds } = useOwnerFilters();
-  const { data, isLoading, isError, error, refetch } = useOwnerEconomie(filiereIds);
+  const { anneeScolaire, filiereIds } = useOwnerFilters();
+  const { data, isLoading, isError, error, refetch } = useOwnerEconomie(
+    anneeScolaire,
+    filiereIds
+  );
 
   const k = data?.kpis;
   const cov = data?.couverture;
   const interpretable = cov?.margeInterpretable ?? false;
 
-  const forecastRows = useMemo(
-    () =>
-      (data?.forecast ?? []).map((p) => ({
-        semaine: `S${p.semaine}`,
-        prudent: p.solde_prudent,
-        median: p.solde_median,
-        optimiste: p.solde_optimiste,
-      })),
-    [data]
-  );
+  /**
+   * La couverture des données ouvre le rapport, avant tout chiffre de marge.
+   * Une « marge » calculée sans charges saisies n'est pas une marge : c'est un
+   * solde. Imprimée sans cet avertissement, elle serait lue comme un résultat.
+   */
+  const construireRapport = (): OwnerReportContent => {
+    const d = data!;
+    const pct = (v: number | null) => (v === null ? "Non mesuré" : `${v.toFixed(1)} %`);
+    const fcfaOuNon = (v: number | null) => (v === null ? "Non mesuré" : formatFcfa(v));
+    return {
+      filename: "rentabilite",
+      blocks: [
+        {
+          kind: "keyValues",
+          columns: 2,
+          items: [["Périmètre", d.anneeScolaire ?? "Toutes années cumulées"]],
+        },
+        { kind: "heading", text: "Ce que ces chiffres couvrent", level: 2 },
+        {
+          kind: "keyValues",
+          columns: 2,
+          items: [
+            ["Coût enseignant saisi", d.couverture.coutEnseignantSaisi ? "Oui" : "Non"],
+            [
+              "Charges d'exploitation saisies",
+              d.couverture.chargesSaisies
+                ? `${d.couverture.nombreCharges} charges, dont ${d.couverture.chargesAffectees} affectées`
+                : "Non",
+            ],
+            [
+              "Historique des statuts depuis",
+              d.couverture.historiqueStatutsDepuis
+                ? jourFr(d.couverture.historiqueStatutsDepuis)
+                : "Non disponible",
+            ],
+          ],
+        },
+        ...(d.couverture.margeInterpretable
+          ? []
+          : [
+              {
+                kind: "note" as const,
+                text: "Les charges d'exploitation ne sont pas saisies : les montants ci-dessous sont des SOLDES (encaissements moins coût enseignant), et non des marges. Ils surestiment la rentabilité réelle.",
+              },
+            ]),
+        {
+          kind: "keyValues",
+          columns: 2,
+          items: [
+            ["Encaissé", formatFcfa(d.kpis.encaisseTotal)],
+            ["Coût total", formatFcfa(d.kpis.coutTotal)],
+            [
+              d.couverture.margeInterpretable ? "Marge brute" : "Solde",
+              formatFcfa(d.kpis.margeBruteTotale),
+            ],
+            ["Taux", pct(d.kpis.tauxMargeBrute)],
+            ["Familles suivies", String(d.kpis.famillesSuivies)],
+            ["Fratries", String(d.kpis.fratries)],
+          ],
+        },
+        { kind: "heading", text: "Marge par filière", level: 1 },
+        tableOrNote(
+          [
+            { header: "Filière" },
+            { header: "Encaissé", width: 38, align: "right" },
+            { header: "Coût enseignant", width: 38, align: "right" },
+            { header: "Charges affectées", width: 38, align: "right" },
+            { header: "Marge", width: 38, align: "right" },
+            { header: "Taux", width: 24, align: "right" },
+            { header: "Par étudiant", width: 34, align: "right" },
+          ],
+          d.marges.map((m) => [
+            m.filiereName,
+            formatFcfa(m.encaisse),
+            formatFcfa(m.coutEnseignant),
+            formatFcfa(m.chargesAffectees),
+            formatFcfa(m.margeBrute),
+            pct(m.tauxMarge),
+            fcfaOuNon(m.margeParEtudiant),
+          ]),
+          "Aucune filière avec des encaissements sur ce périmètre.",
+          [
+            "Total",
+            formatFcfa(d.kpis.encaisseTotal),
+            "",
+            "",
+            formatFcfa(d.kpis.margeBruteTotale),
+            pct(d.kpis.tauxMargeBrute),
+            "",
+          ]
+        ),
+        { kind: "heading", text: "Rétention inter-semestres", level: 1 },
+        tableOrNote(
+          [
+            { header: "Filière" },
+            { header: "Cohorte", width: 30, align: "right" },
+            { header: "Poursuivis", width: 30, align: "right" },
+            { header: "Taux", width: 26, align: "right" },
+          ],
+          d.retention.map((r) => [
+            r.filiereName,
+            String(r.cohorte),
+            String(r.poursuivis),
+            pct(r.tauxRetention),
+          ]),
+          "Pas assez d'historique pour mesurer la rétention."
+        ),
+        { kind: "heading", text: "Familles les plus contributrices", level: 1 },
+        tableOrNote(
+          [
+            { header: "Famille" },
+            { header: "Enfants", width: 26, align: "right" },
+            { header: "Encaissé", width: 42, align: "right" },
+            { header: "Années de présence", width: 36, align: "right" },
+            { header: "Revenu annuel moyen", width: 42, align: "right" },
+          ],
+          d.familles.map((f) => [
+            f.parentNom,
+            String(f.enfants),
+            formatFcfa(f.encaisseTotal),
+            f.anneesPresence === null ? "—" : f.anneesPresence.toFixed(1),
+            fcfaOuNon(f.revenuAnnuelMoyen),
+          ]),
+          "Aucune famille rattachée à des encaissements."
+        ),
+      ],
+    };
+  };
+
+  const paramsExport = (() => {
+    const q = new URLSearchParams({ format: "csv" });
+    if (anneeScolaire) q.set("anneeScolaire", anneeScolaire);
+    if (filiereIds.length) q.set("filiereIds", filiereIds.join(","));
+    return q.toString();
+  })();
 
   if (isError) {
     return (
@@ -108,23 +224,21 @@ export default function OwnerEconomiePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Économie</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Marge brute pédagogique par filière, valeur par famille, rétention et prévision de
-            trésorerie.
-          </p>
-        </div>
-        <ExportCsvButton
-          endpoint="/api/v1/owner/economie"
-          queryString={
-            filiereIds.length ? `format=csv&filiereIds=${filiereIds.join(",")}` : "format=csv"
-          }
-          filename="economie.csv"
-          label="Exporter"
-        />
-      </div>
+      <OwnerPageHeader
+        title="Rentabilité"
+        question="Est-ce que je gagne de l'argent, et sur quelle filière ?"
+        precision={`Marge brute pédagogique par filière, valeur par famille et rétention. ${
+          anneeScolaire
+            ? `Classes ouvertes en ${anneeScolaire}.`
+            : "Toutes années cumulées depuis l'ouverture."
+        }`}
+        pdf={data ? construireRapport : undefined}
+        csv={{
+          endpoint: "/api/v1/owner/economie",
+          queryString: paramsExport,
+          filename: "rentabilite.csv",
+        }}
+      />
 
       {/*
         Le bandeau le plus important de l'écran : sans charges saisies, le
@@ -168,7 +282,16 @@ export default function OwnerEconomiePage() {
         <Stat
           label="Encaissé"
           value={isLoading && !data ? "…" : formatFcfa(k?.encaisseTotal ?? 0)}
-          hint="Sur le périmètre filtré"
+          hint={anneeScolaire ? `Classes ouvertes en ${anneeScolaire}` : "Toutes années cumulées"}
+        />
+        <Stat
+          label="Coût enseignant"
+          value={isLoading && !data ? "…" : formatFcfa(k?.coutTotal ?? 0)}
+          hint={
+            cov?.chargesSaisies
+              ? "Salaires versés et charges affectées"
+              : "Salaires versés — aucune autre charge saisie"
+          }
         />
         <Stat
           label={interpretable ? "Marge brute pédagogique" : "Encaissé moins coûts connus"}
@@ -185,66 +308,7 @@ export default function OwnerEconomiePage() {
           value={isLoading && !data ? "…" : String(k?.famillesSuivies ?? 0)}
           hint={`dont ${k?.fratries ?? 0} fratrie(s) — base d'une remise fratrie`}
         />
-        <Stat
-          label="Rupture de trésorerie"
-          value={
-            isLoading && !data
-              ? "…"
-              : k?.semaineRupture
-                ? `Semaine ${k.semaineRupture}`
-                : "Aucune"
-          }
-          tone={k?.semaineRupture ? VIZ_STATUS.critical : VIZ_STATUS.good}
-          hint={
-            k?.dateRupture
-              ? `à partir du ${new Date(k.dateRupture).toLocaleDateString("fr-FR")}`
-              : "Sur l'horizon de 13 semaines, scénario médian"
-          }
-        />
       </div>
-
-      {/* Prévision de trésorerie */}
-      <ChartCard
-        title="Prévision de trésorerie — 13 semaines"
-        subtitle="Solde cumulé des flux attendus, selon trois hypothèses de recouvrement."
-        footnote="Prévision de FLUX partant de zéro : aucune table ne porte le solde bancaire de l'établissement. Le croisement de la courbe avec zéro indique la semaine où les encaissements ne couvriront plus les sorties."
-        isEmpty={forecastRows.length === 0}
-        emptyLabel="Aucune échéance ni sortie prévue sur l'horizon."
-      >
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={forecastRows} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--viz-grid)" />
-            <XAxis dataKey="semaine" tick={{ fontSize: 11 }} />
-            <YAxis tickFormatter={(v: number) => formatFcfaCompact(v)} tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v: number) => formatFcfa(v)} />
-            <Legend />
-            {/* La ligne de zéro est le repère qui compte. */}
-            <ReferenceLine y={0} stroke={VIZ_STATUS.critical} strokeDasharray="4 4" />
-            <Line
-              type="monotone"
-              dataKey="prudent"
-              name="Prudent (70 %)"
-              stroke={VIZ_SERIES[2]}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="median"
-              name="Médian (85 %)"
-              stroke={VIZ_SERIES[0]}
-              strokeWidth={2}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="optimiste"
-              name="Optimiste (100 %)"
-              stroke={VIZ_SERIES[1]}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </ChartCard>
 
       {/* Marge par filière */}
       <Card>

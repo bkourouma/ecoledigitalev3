@@ -4,23 +4,21 @@ import type {
   OwnerEconomieQuery,
   OwnerEconomieResponse,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
-import { PRO_UNPAID_INSTALLMENTS_CTE } from "./owner-pro-outstanding.sql";
+import { PRO_ORDER_DATES_CTE, anneeDe } from "./owner-pro-annee.sql";
 
 /**
  * Économie de l'établissement.
  *
  * Quatrième et dernière question d'un propriétaire : « où est-ce que je perds de
- * l'argent sans le voir ? » Quatre lectures :
+ * l'argent sans le voir ? » Trois lectures :
  *
  *   1. MARGE BRUTE PÉDAGOGIQUE par filière — encaissé moins coût enseignant
  *      direct, moins les charges effectivement affectées à la filière ;
- *   2. LTV PAR FAMILLE, et non par élève : en Afrique de l'Ouest la décision de
- *      scolarisation se prend au niveau du foyer, et une fratrie qui part, ce
- *      sont trois scolarités perdues d'un coup ;
+ *   2. VALEUR PAR FAMILLE, et non par élève : en Afrique de l'Ouest la décision
+ *      de scolarisation se prend au niveau du foyer, et une fratrie qui part,
+ *      ce sont trois scolarités perdues d'un coup ;
  *   3. RÉTENTION inter-semestres, le meilleur prédicteur de chiffre d'affaires
- *      de l'année suivante ;
- *   4. PRÉVISION DE TRÉSORERIE à 13 semaines, dont le croisement de la courbe
- *      avec zéro est le chiffre le plus important de tout le pilotage.
+ *      de l'année suivante.
  *
  * HONNÊTETÉ DES CHIFFRES — la contrainte structurante de cet écran.
  *
@@ -30,6 +28,32 @@ import { PRO_UNPAID_INSTALLMENTS_CTE } from "./owner-pro-outstanding.sql";
  * combien de sources de coût portent réellement des données. Une marge de 80 %
  * calculée sans aucune charge enregistrée n'est pas une bonne nouvelle, c'est
  * une comptabilité absente — et l'écran doit le dire, pas le laisser deviner.
+ *
+ * CE QUI A ÉTÉ RETIRÉ — la prévision de trésorerie à 13 semaines.
+ *
+ * Elle allumait une carte rouge « Rupture de trésorerie · Semaine 1 » sur toute
+ * base, et ses deux côtés étaient faux :
+ *
+ *   - ENTRÉES lues dans student_tuition_installments et les échéances
+ *     professionnelles. Ces deux tables sont vides, et le module professionnel
+ *     ne pratique pas l'échéancier : les recettes attendues valaient 0 sur les
+ *     treize semaines, structurellement et pour toujours ;
+ *   - SORTIES retenues sur calculated_at BETWEEN debut_de_semaine - 30 AND fin.
+ *     Cette fenêtre glissante de 30 jours faisait retomber un même bulletin non
+ *     versé dans CINQ semaines consécutives — 675 000 FCFA de salaires dus
+ *     annoncés comme 3 375 000 FCFA de décaissements.
+ *
+ * Zéro recette face à des salaires quintuplés : la rupture était garantie quelle
+ * que soit la santé réelle de l'école. Une prévision honnête demanderait des
+ * échéances saisies ; en attendant, l'absence de carte vaut mieux qu'une alarme
+ * qui ne peut pas ne pas se déclencher.
+ *
+ * PÉRIMÈTRE ANNUEL — cf. owner-pro-annee.sql.
+ *
+ * Sans année choisie l'écran cumule les cinq rentrées, ce qui répond à « qu'ont
+ * rapporté ces filières depuis toujours ». Avec une année, chaque bloc se
+ * restreint à elle en passant par la seule date qui décrive un fait pédagogique :
+ * le début de l'ouverture de classe, jamais l'horodatage d'écriture de la ligne.
  */
 
 /* --------------------------------- Outils --------------------------------- */
@@ -71,23 +95,34 @@ function rate(part: number, whole: number): number | null {
   return round1((100 * part) / whole);
 }
 
-/** Horizon de la prévision de trésorerie, en semaines. */
-const FORECAST_WEEKS = 13;
+const ROWS_LIMIT = 100;
 
 /**
- * Taux de recouvrement retenus pour les trois scénarios de prévision.
+ * Encaissé confirmé par commande professionnelle.
  *
- * Ce ne sont pas des paramètres décoratifs : la date à laquelle la courbe croise
- * zéro dépend entièrement d'eux. Les afficher côte à côte évite de faire passer
- * une hypothèse optimiste pour une prédiction.
+ * Fragment isolé du bloc d'échéancier qui le portait autrefois : cet écran a
+ * besoin des versements, pas des échéances — et importer la machinerie complète
+ * laissait croire que la balance âgée servait ici à quelque chose.
+ *
+ * Paramètre attendu : $1 = tenant.
  */
-const FORECAST_SCENARIOS = [
-  { key: "prudent", label: "Prudent (70 %)", rate: 0.7 },
-  { key: "median", label: "Médian (85 %)", rate: 0.85 },
-  { key: "optimiste", label: "Optimiste (100 %)", rate: 1 },
-] as const;
+const PAID_PER_ORDER_CTE = `
+  paid_per_order AS (
+    SELECT p.order_id, SUM(p.montant)::float8 AS paid
+      FROM professional_payments p
+     WHERE p.tenant_id = $1::uuid AND p.statut = 'confirme'
+     GROUP BY p.order_id
+  )`;
 
-const ROWS_LIMIT = 100;
+/**
+ * Année scolaire d'un bulletin de paie : le millésime porté par la période, ou
+ * à défaut le pivot de septembre sur son début.
+ *
+ * Deux origines de date, un seul millésime — c'est la règle de l'écran « Masse
+ * salariale », et les deux écrans doivent tomber sur le même total pour une
+ * année donnée, sans quoi le propriétaire arbitre entre deux chiffres.
+ */
+const ANNEE_PAIE_SQL = `COALESCE(ay.name, ${anneeDe("pp.period_start")})`;
 
 /* --------------------------------- Service -------------------------------- */
 
@@ -98,6 +133,7 @@ export async function fetchOwnerEconomie(
   log: FastifyBaseLogger
 ): Promise<OwnerEconomieResponse> {
   const filiereIds = query.filiereIds && query.filiereIds.length > 0 ? query.filiereIds : null;
+  const annee = query.anneeScolaire ?? null;
   const client = await pool.connect();
 
   try {
@@ -106,6 +142,10 @@ export async function fetchOwnerEconomie(
     /* ---- Couverture des sources de coût ----------------------------------- */
     // Sans cette mesure, une marge élevée se lit comme une performance alors
     // qu'elle ne traduit qu'une absence de saisie.
+    //
+    // Volontairement NON restreinte à l'année : elle décrit l'état de la SAISIE,
+    // pas celui de l'exercice. « Aucune charge enregistrée » reste la même
+    // information qu'on regarde 2021-2022 ou l'année en cours.
     const coverageRows = await safeRows<Row>(
       client,
       `SELECT
@@ -129,12 +169,22 @@ export async function fetchOwnerEconomie(
     /* ---- Marge brute pédagogique par filière ------------------------------- */
     const margeRows = await safeRows<Row>(
       client,
-      `WITH ${PRO_UNPAID_INSTALLMENTS_CTE},
+      `WITH ${PAID_PER_ORDER_CTE},
+       ${PRO_ORDER_DATES_CTE},
+       /* Commandes du périmètre : celles dont la classe s'est ouverte pendant
+          l'année demandée. Un seul endroit décide de l'appartenance annuelle,
+          et tous les blocs de revenus en dépendent. */
+       commandes AS (
+         SELECT d.order_id
+           FROM pro_order_dates d
+          WHERE $3::text IS NULL OR ${anneeDe("d.debut")} = $3::text
+       ),
        /* Encaissé réparti par filière au prorata des inscriptions : une commande
           peut porter des UE de plusieurs filières, on ne l'affecte jamais en bloc. */
        part_filiere AS (
          SELECT en.order_id, u.filiere_id, SUM(en.prix_unitaire)::float8 AS part
          FROM professional_enrollments en
+         JOIN commandes c ON c.order_id = en.order_id
          JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
          JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
          WHERE en.tenant_id = $1::uuid AND en.statut <> 'annulee'
@@ -155,25 +205,45 @@ export async function fetchOwnerEconomie(
           filière par les ECUE enseignées. La table des paiements enseignants ne
           porte aucun centre de coût — la jointure passe donc par les
           affectations d'ECUE, et le montant est réparti entre les filières où
-          l'enseignant intervient. */
+          l'enseignant intervient.
+
+          UNE LIGNE PAR FILIÈRE DISTINCTE, et le diviseur compté sur ce même
+          ensemble. La forme précédente joignait le bulletin à CHAQUE affectation
+          d'ECUE : un enseignant assurant deux matières dans la même filière y
+          voyait son salaire compté deux fois. Le total ne tombait juste que
+          parce que ces données comportent exactement une affectation par filière
+          et par enseignant — une coïncidence, pas une garantie.
+
+          Les affectations sont restreintes à la MÊME année que le bulletin :
+          sinon un salaire de 2021-2022 se répartirait sur les filières que
+          l'enseignant a rejointes depuis, et les parts tombant hors de l'année
+          disparaîtraient du total — mesuré : 8 613 000 FCFA de paie réelle
+          affichés 3 036 400 sur 2025-2026. */
        cout_enseignant AS (
-         SELECT u.filiere_id,
-                SUM(tp.total_amount / NULLIF(aff.nb_filieres, 0))::float8 AS cout
+         SELECT aff.filiere_id,
+                SUM(tp.total_amount / aff.nb_filieres)::float8 AS cout
          FROM teacher_payments tp
+         JOIN payment_periods pp
+           ON pp.id = tp.payment_period_id AND pp.tenant_id = tp.tenant_id
+         LEFT JOIN academic_years ay
+           ON ay.id = pp.academic_year_id AND ay.tenant_id = pp.tenant_id
          JOIN LATERAL (
-           SELECT COUNT(DISTINCT u2.filiere_id) AS nb_filieres
-           FROM professional_session_ecue_teachers st2
-           JOIN professional_ue_sessions s2 ON s2.id = st2.ue_session_id AND s2.tenant_id = st2.tenant_id
-           JOIN professional_ue u2 ON u2.id = s2.ue_id AND u2.tenant_id = s2.tenant_id
-           WHERE st2.enseignant_id = tp.teacher_id AND st2.tenant_id = tp.tenant_id
-         ) aff ON aff.nb_filieres > 0
-         JOIN professional_session_ecue_teachers st
-           ON st.enseignant_id = tp.teacher_id AND st.tenant_id = tp.tenant_id
-         JOIN professional_ue_sessions s ON s.id = st.ue_session_id AND s.tenant_id = st.tenant_id
-         JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
+           SELECT f.filiere_id, COUNT(*) OVER () AS nb_filieres
+           FROM (
+             SELECT DISTINCT u2.filiere_id
+             FROM professional_session_ecue_teachers st
+             JOIN professional_ue_sessions s2 ON s2.id = st.ue_session_id AND s2.tenant_id = st.tenant_id
+             JOIN professional_ue u2 ON u2.id = s2.ue_id AND u2.tenant_id = s2.tenant_id
+             WHERE st.enseignant_id = tp.teacher_id
+               AND st.tenant_id = tp.tenant_id
+               AND u2.filiere_id IS NOT NULL
+               AND ($3::text IS NULL OR ${anneeDe("s2.date_debut")} = $3::text)
+           ) f
+         ) aff ON TRUE
          WHERE tp.tenant_id = $1::uuid
            AND tp.status IN ('calculated'::payment_status, 'approved'::payment_status, 'paid'::payment_status)
-         GROUP BY u.filiere_id
+           AND ($3::text IS NULL OR ${ANNEE_PAIE_SQL} = $3::text)
+         GROUP BY aff.filiere_id
        ),
        /* Charges explicitement affectées à la filière. Les charges d'établissement
           (programme_id NULL) ne sont JAMAIS réparties : une clé inventée
@@ -187,6 +257,7 @@ export async function fetchOwnerEconomie(
        effectifs AS (
          SELECT u.filiere_id, COUNT(DISTINCT en.student_id)::int AS etudiants
          FROM professional_enrollments en
+         JOIN commandes c ON c.order_id = en.order_id
          JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
          JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
          WHERE en.tenant_id = $1::uuid AND en.statut <> 'annulee'
@@ -209,7 +280,7 @@ export async function fetchOwnerEconomie(
          AND (r.encaisse IS NOT NULL OR ef.etudiants IS NOT NULL)
        ORDER BY COALESCE(r.encaisse, 0) DESC
        LIMIT ${ROWS_LIMIT}`,
-      [tenantId, filiereIds],
+      [tenantId, filiereIds, annee],
       log,
       "margeParFiliere"
     );
@@ -233,12 +304,28 @@ export async function fetchOwnerEconomie(
       };
     });
 
-    /* ---- LTV par famille --------------------------------------------------- */
+    /* ---- Valeur par famille ------------------------------------------------ */
     // L'unité économique est le foyer : une fratrie qui part, ce sont plusieurs
     // scolarités perdues le même jour.
+    //
+    // L'ANNÉE RESTREINT LA LISTE, PAS LE MONTANT. La valeur d'une famille se
+    // mesure sur sa durée — la tronquer à douze mois en ferait un chiffre
+    // d'affaires annuel, ce que la colonne « revenu annuel moyen » donne déjà.
+    // Le filtre choisit donc QUELLES familles apparaissent (celles présentes
+    // cette année-là), et chacune reste affichée avec tout ce qu'elle a versé.
     const familleRows = await safeRows<Row>(
       client,
-      `WITH ${PRO_UNPAID_INSTALLMENTS_CTE},
+      `WITH ${PAID_PER_ORDER_CTE},
+       perimetre AS (
+         SELECT DISTINCT en.student_id
+         FROM professional_enrollments en
+         JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+         JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
+         WHERE en.tenant_id = $1::uuid
+           AND en.statut <> 'annulee'
+           AND ($2::uuid[] IS NULL OR u.filiere_id = ANY($2::uuid[]))
+           AND ($3::text IS NULL OR ${anneeDe("s.date_debut")} = $3::text)
+       ),
        paiement_par_etudiant AS (
          SELECT o.student_id, SUM(COALESCE(pp.paid, 0))::float8 AS encaisse
          FROM professional_orders o
@@ -263,6 +350,7 @@ export async function fetchOwnerEconomie(
          MIN(an.premiere) AS premiere_inscription,
          MAX(an.derniere) AS derniere_activite
        FROM student_parents sp
+       JOIN perimetre pm ON pm.student_id = sp.student_id
        JOIN users u ON u.id = sp.parent_id AND u.tenant_id = sp.tenant_id
        LEFT JOIN paiement_par_etudiant pe ON pe.student_id = sp.student_id
        LEFT JOIN anciennete an ON an.student_id = sp.student_id
@@ -271,7 +359,7 @@ export async function fetchOwnerEconomie(
        HAVING COALESCE(SUM(pe.encaisse), 0) > 0 OR COUNT(DISTINCT sp.student_id) > 1
        ORDER BY 4 DESC
        LIMIT ${ROWS_LIMIT}`,
-      [tenantId],
+      [tenantId, filiereIds, annee],
       log,
       "ltvFamille"
     );
@@ -288,8 +376,8 @@ export async function fetchOwnerEconomie(
         enfants: Math.round(num(r.enfants)),
         encaisseTotal: encaisse,
         anneesPresence: anneesPresence === null ? null : round1(anneesPresence),
-        // LTV RÉALISÉE : ce que la famille a effectivement payé. Pas une
-        // projection — la LTV prédictive exigerait un historique de sortie
+        // VALEUR RÉALISÉE : ce que la famille a effectivement payé. Pas une
+        // projection — une valeur prédictive exigerait un historique de sortie
         // que la migration 0099 ne commence qu'aujourd'hui à constituer.
         revenuAnnuelMoyen:
           anneesPresence && anneesPresence > 0 ? round0(encaisse / anneesPresence) : null,
@@ -301,6 +389,10 @@ export async function fetchOwnerEconomie(
     /* ---- Rétention inter-semestres ----------------------------------------- */
     // Un étudiant est « retenu » s'il réapparaît sur une cohorte démarrant après
     // la fin de la précédente. Mesure directe, sans hypothèse.
+    //
+    // L'année restreint la COHORTE observée, jamais la recherche de la suite :
+    // demander « qu'ont fait les étudiants de 2023-2024 ? » impose de regarder
+    // 2024-2025 pour répondre. Restreindre les deux donnerait 0 % partout.
     const retentionRows = await safeRows<Row>(
       client,
       `WITH parcours AS (
@@ -310,13 +402,17 @@ export async function fetchOwnerEconomie(
          JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
          WHERE en.tenant_id = $1::uuid
            AND en.statut <> 'annulee'
-           AND ($2::uuid[] IS NULL OR u.filiere_id = ANY($2::uuid[]))
+       ),
+       cohorte AS (
+         SELECT * FROM parcours p
+          WHERE ($2::uuid[] IS NULL OR p.filiere_id = ANY($2::uuid[]))
+            AND ($3::text IS NULL OR ${anneeDe("p.date_debut")} = $3::text)
        ),
        bornes AS (
          SELECT student_id, filiere_id,
                 MIN(date_debut) AS debut,
                 MAX(date_fin) AS fin
-         FROM parcours GROUP BY student_id, filiere_id
+         FROM cohorte GROUP BY student_id, filiere_id
        )
        SELECT
          pr.id AS filiere_id,
@@ -332,7 +428,7 @@ export async function fetchOwnerEconomie(
        GROUP BY pr.id, pr.name
        ORDER BY pr.name
        LIMIT ${ROWS_LIMIT}`,
-      [tenantId, filiereIds],
+      [tenantId, filiereIds, annee],
       log,
       "retention"
     );
@@ -349,100 +445,12 @@ export async function fetchOwnerEconomie(
       };
     });
 
-    /* ---- Prévision de trésorerie à 13 semaines ----------------------------- */
-    const forecastRows = await safeRows<Row>(
-      client,
-      `WITH ${PRO_UNPAID_INSTALLMENTS_CTE},
-       semaines AS (
-         SELECT generate_series(0, ${FORECAST_WEEKS - 1}) AS n
-       ),
-       grille AS (
-         -- Le cast en date précède la soustraction : date_trunc renvoie un
-         -- timestamp, et retrancher un entier à un timestamp n'existe pas.
-         SELECT n,
-                (date_trunc('week', CURRENT_DATE) + (n || ' weeks')::interval)::date AS debut,
-                ((date_trunc('week', CURRENT_DATE) + ((n + 1) || ' weeks')::interval)::date - 1) AS fin
-         FROM semaines
-       )
-       SELECT
-         g.n,
-         g.debut::text AS debut,
-         /* Entrées attendues : échéances scolaires + échéances professionnelles
-            encore impayées, tombant dans la semaine. */
-         COALESCE((
-           SELECT SUM(GREATEST(0, sti.amount - sti.amount_paid))::float8
-           FROM student_tuition_installments sti
-           WHERE sti.tenant_id = $1::uuid
-             AND sti.status IN ('pending'::installment_status,
-                                'partial'::installment_status,
-                                'overdue'::installment_status)
-             AND sti.due_date BETWEEN g.debut AND g.fin
-         ), 0) AS entrees_scolaire,
-         COALESCE((
-           SELECT SUM(pu.unpaid)::float8
-           FROM pro_unpaid_installments pu
-           WHERE pu.due_date BETWEEN g.debut AND g.fin
-         ), 0) AS entrees_pro,
-         /* Sorties : rémunérations enseignantes calculées ou approuvées et non
-            encore payées, plus les charges engagées non décaissées. */
-         COALESCE((
-           SELECT SUM(tp.total_amount)::float8
-           FROM teacher_payments tp
-           WHERE tp.tenant_id = $1::uuid
-             AND tp.status IN ('calculated'::payment_status, 'approved'::payment_status)
-             AND tp.paid_at IS NULL
-             AND COALESCE(tp.calculated_at, tp.created_at)::date BETWEEN g.debut - 30 AND g.fin
-         ), 0) AS sorties_salaires,
-         COALESCE((
-           SELECT SUM(e.amount)::float8
-           FROM expenses e
-           WHERE e.tenant_id = $1::uuid
-             AND e.paid_on IS NULL
-             AND e.incurred_on BETWEEN g.debut AND g.fin
-         ), 0) AS sorties_charges
-       FROM grille g
-       ORDER BY g.n`,
-      [tenantId],
-      log,
-      "previsionTresorerie"
-    );
-
-    // Le solde cumulé part de zéro : c'est une prévision de FLUX, pas de compte
-    // en banque — aucune table ne porte le solde bancaire de l'établissement.
-    const cumul: Record<string, number> = { prudent: 0, median: 0, optimiste: 0 };
-    const forecast = forecastRows.map((r) => {
-      const entrees = num(r.entrees_scolaire) + num(r.entrees_pro);
-      const sorties = num(r.sorties_salaires) + num(r.sorties_charges);
-      const point: Record<string, unknown> = {
-        semaine: Math.round(num(r.n)) + 1,
-        debut: String(r.debut),
-        entreesAttendues: round0(entrees),
-        sortiesPrevues: round0(sorties),
-      };
-      for (const sc of FORECAST_SCENARIOS) {
-        cumul[sc.key] += entrees * sc.rate - sorties;
-        point[`solde_${sc.key}`] = round0(cumul[sc.key]);
-      }
-      return point as {
-        semaine: number;
-        debut: string;
-        entreesAttendues: number;
-        sortiesPrevues: number;
-        solde_prudent: number;
-        solde_median: number;
-        solde_optimiste: number;
-      };
-    });
-
-    // Première semaine où le scénario médian passe sous zéro : le chiffre le plus
-    // important du tableau de bord, quand il existe.
-    const rupture = forecast.find((p) => p.solde_median < 0);
-
     const totalEncaisse = marges.reduce((s, m) => s + m.encaisse, 0);
     const totalCout = marges.reduce((s, m) => s + m.coutEnseignant + m.chargesAffectees, 0);
 
     return {
       computedAt: new Date().toISOString(),
+      anneeScolaire: annee,
       couverture: {
         coutEnseignantSaisi,
         chargesSaisies,
@@ -462,27 +470,28 @@ export async function fetchOwnerEconomie(
         tauxMargeBrute: rate(totalEncaisse - totalCout, totalEncaisse),
         famillesSuivies: familles.length,
         fratries: fratries.length,
-        semaineRupture: rupture ? rupture.semaine : null,
-        dateRupture: rupture ? rupture.debut : null,
       },
       marges,
       familles,
       retention,
-      forecast,
-      scenarios: FORECAST_SCENARIOS.map((s) => ({ key: s.key, label: s.label })),
     };
   } finally {
     client.release();
   }
 }
 
-/** Export CSV : marges par filière et prévision de trésorerie. */
+/** Export CSV : marges par filière et rétention. */
 export function buildOwnerEconomieCsv(data: OwnerEconomieResponse): string {
   const esc = (v: unknown) => {
     const s = String(v ?? "");
     return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines: string[] = [];
+
+  // Le périmètre est écrit EN TÊTE : un CSV se relit hors de l'écran qui l'a
+  // produit, et « 18 000 000 » ne veut rien dire sans son année.
+  lines.push(`Périmètre;${data.anneeScolaire ?? "toutes années cumulées"}`);
+  lines.push("");
 
   if (!data.couverture.margeInterpretable) {
     lines.push(
@@ -504,23 +513,6 @@ export function buildOwnerEconomieCsv(data: OwnerEconomieResponse): string {
         m.margeBrute,
         m.tauxMarge ?? "",
         m.margeParEtudiant ?? "",
-      ].join(";")
-    );
-  }
-
-  lines.push("");
-  lines.push(`Prévision de trésorerie sur ${data.forecast.length} semaines`);
-  lines.push("Semaine;Début;Entrées attendues;Sorties prévues;Solde prudent;Solde médian;Solde optimiste");
-  for (const p of data.forecast) {
-    lines.push(
-      [
-        p.semaine,
-        p.debut,
-        p.entreesAttendues,
-        p.sortiesPrevues,
-        p.solde_prudent,
-        p.solde_median,
-        p.solde_optimiste,
       ].join(";")
     );
   }

@@ -4,6 +4,7 @@ import type {
   OwnerRemplissageQuery,
   OwnerRemplissageResponse,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
+import { anneeDe } from "./owner-pro-annee.sql";
 
 /**
  * Remplissage et planning.
@@ -19,8 +20,8 @@ import type {
  *
  * Quatre lectures :
  *
- *   1. REMPLISSAGE des cohortes professionnelles et des classes scolaires, trié
- *      par risque croissant : ce qu'il faut arbitrer avant la date de début ;
+ *   1. REMPLISSAGE des cohortes professionnelles, trié par risque croissant :
+ *      ce qu'il faut arbitrer avant la date de début ;
  *   2. CONFLITS de planning — même salle ou même enseignant sur deux créneaux
  *      qui se chevauchent. Rien ne les détecte aujourd'hui, ni à la saisie ni
  *      après : le conflit se découvre en salle, devant les étudiants ;
@@ -29,6 +30,32 @@ import type {
  *      l'indicateur « prêt pour la rentrée », qui doit atteindre zéro à J-7 ;
  *   4. ÉCART entre les heures planifiées et les heures réellement tenues, qui
  *      mesure le respect du programme.
+ *
+ * PÉRIMÈTRE — corrigé.
+ *
+ * L'écran ne montrait que les ouvertures ni terminées ni annulées : 4 sur 64.
+ * Les quatre appartenaient à la même filière et au même semestre, si bien que
+ * « taux de remplissage des cohortes : 80 % » décrivait une promotion et se
+ * lisait comme l'indicateur de l'établissement. Quatre années entières — 12
+ * ouvertures chacune — restaient hors de portée.
+ *
+ * Le statut ne décide donc plus du périmètre : l'ANNÉE le décide, et le statut
+ * ne sert plus qu'au tri et au compte des cohortes encore ouvertes. Une année
+ * passée devient consultable, l'année en cours garde ses arbitrages en tête.
+ *
+ * CE QUI A ÉTÉ RETIRÉ — le bloc « Classes scolaires ».
+ *
+ * Six classes, un effectif de 0 pour chacune, et un indicateur « remplissage
+ * des classes » figé à 0 %. Il lisait student_enrollments, table sans aucune
+ * ligne : ce 0 % n'était pas un constat mais une absence de saisie affichée
+ * comme un échec. Même retrait que la balance âgée et que l'onglet scolaire
+ * d'Impayés — la moitié scolaire de cette base n'est pas alimentée.
+ *
+ * CE QUI A ÉTÉ ÉTENDU — le filtre au planning.
+ *
+ * Conflits, complétude des créneaux et heures ne recevaient que le tenant :
+ * sur douze indicateurs, dix restaient figés quand on choisissait une filière.
+ * Tous prennent maintenant le même périmètre que les cohortes.
  */
 
 /* --------------------------------- Outils --------------------------------- */
@@ -83,6 +110,37 @@ const OVERLAP_CONDITION = `
   AND COALESCE(a.date_debut, '-infinity'::date) <= COALESCE(b.date_fin, 'infinity'::date)
   AND COALESCE(b.date_debut, '-infinity'::date) <= COALESCE(a.date_fin, 'infinity'::date)`;
 
+/**
+ * Restriction d'un créneau d'emploi du temps à l'année et aux filières.
+ *
+ * Un créneau n'a pas d'année propre : il la tient de l'ouverture qu'il dessert.
+ * On passe donc par la session, comme pour les cohortes — sans quoi « conflits
+ * de planning » compterait les collisions de cinq années à la fois.
+ *
+ * Les alias internes sont préfixés : la même condition s'applique à des tables
+ * déjà nommées `s` ou `u` — les séances, par exemple — et un alias partagé se
+ * ferait masquer par celui de la sous-requête, qui se comparerait alors à
+ * elle-même.
+ *
+ * $2 = année (text | null), $3 = filières (uuid[] | null).
+ */
+const CRENEAU_PERIMETRE = `
+  EXISTS (
+    SELECT 1
+      FROM professional_ue_sessions perim_s
+      JOIN professional_ue perim_u
+        ON perim_u.id = perim_s.ue_id AND perim_u.tenant_id = perim_s.tenant_id
+     WHERE perim_s.id = %ALIAS%.ue_session_id
+       AND perim_s.tenant_id = %ALIAS%.tenant_id
+       AND ($3::uuid[] IS NULL OR perim_u.filiere_id = ANY($3::uuid[]))
+       AND ($2::text IS NULL OR ${anneeDe("perim_s.date_debut")} = $2::text)
+  )`;
+
+/** `CRENEAU_PERIMETRE` appliqué à un alias de table donné. */
+function perimetreCreneau(alias: string): string {
+  return CRENEAU_PERIMETRE.split("%ALIAS%").join(alias);
+}
+
 const JOURS = ["", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
 function hhmm(v: unknown): string {
@@ -99,14 +157,19 @@ export async function fetchOwnerRemplissage(
   log: FastifyBaseLogger
 ): Promise<OwnerRemplissageResponse> {
   const filiereIds = query.filiereIds && query.filiereIds.length > 0 ? query.filiereIds : null;
+  const anneeScolaire = query.anneeScolaire ?? null;
+  // Ordre figé pour toutes les requêtes de l'écran : tenant, année, filières.
+  // Un ordre unique évite les décalages de $N au fil des retouches.
+  const scopeParams = [tenantId, anneeScolaire, filiereIds];
   const client = await pool.connect();
 
   try {
     await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
 
     /* ---- Cohortes professionnelles --------------------------------------- */
-    // Périmètre : tout ce qui n'est ni terminé ni annulé. Une cohorte terminée
-    // n'appelle plus d'arbitrage, elle n'a plus rien à remplir.
+    // Périmètre : l'ANNÉE, pas le statut. Les annulées restent exclues — elles
+    // n'ont jamais eu de remplissage à mesurer — mais les terminées entrent :
+    // sans elles, quatre années d'ouvertures n'existaient nulle part.
     const cohorteRows = await safeRows<Row>(
       client,
       `SELECT
@@ -124,11 +187,12 @@ export async function fetchOwnerRemplissage(
        JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
        LEFT JOIN programmes pr ON pr.id = u.filiere_id AND pr.tenant_id = u.tenant_id
        WHERE s.tenant_id = $1::uuid
-         AND s.statut NOT IN ('termine', 'annule')
-         AND ($2::uuid[] IS NULL OR u.filiere_id = ANY($2::uuid[]))
-       ORDER BY s.date_debut NULLS LAST
+         AND s.statut <> 'annule'
+         AND ($3::uuid[] IS NULL OR u.filiere_id = ANY($3::uuid[]))
+         AND ($2::text IS NULL OR ${anneeDe("s.date_debut")} = $2::text)
+       ORDER BY s.date_debut DESC NULLS LAST
        LIMIT ${ROWS_LIMIT}`,
-      [tenantId, filiereIds],
+      scopeParams,
       log,
       "cohortes"
     );
@@ -152,53 +216,19 @@ export async function fetchOwnerRemplissage(
           tauxRemplissage: capacite ? rate(inscrits, capacite) : null,
         };
       })
-      // Le plus critique d'abord : une cohorte vide qui démarre dans 3 jours
-      // passe avant une cohorte à moitié pleine qui démarre dans 2 mois.
+      // Ce qui appelle encore un arbitrage passe devant : une cohorte terminée
+      // ne se remplit plus, quel que soit son taux. Puis le plus critique
+      // d'abord — une cohorte vide qui démarre dans 3 jours passe avant une
+      // cohorte à moitié pleine qui démarre dans 2 mois.
       .sort((a, b) => {
+        const oa = a.statut === "termine" ? 1 : 0;
+        const ob = b.statut === "termine" ? 1 : 0;
+        if (oa !== ob) return oa - ob;
         const ra = a.tauxRemplissage ?? 999;
         const rb = b.tauxRemplissage ?? 999;
         if (ra !== rb) return ra - rb;
         return (a.joursAvantDebut ?? 9999) - (b.joursAvantDebut ?? 9999);
       });
-
-    /* ---- Classes scolaires ------------------------------------------------ */
-    const classeRows = await safeRows<Row>(
-      client,
-      `SELECT
-         c.id, c.name, c.code, c.max_students,
-         pr.name AS filiere_name, cy.name AS cycle_name,
-         (SELECT COUNT(*) FROM student_enrollments se
-           WHERE se.class_id = c.id
-             AND se.tenant_id = c.tenant_id
-             AND se.status = 'active'::enrollment_status)::int AS effectif
-       FROM classes c
-       JOIN academic_years a ON a.id = c.academic_year_id AND a.tenant_id = c.tenant_id
-       LEFT JOIN programmes pr ON pr.id = c.programme_id AND pr.tenant_id = c.tenant_id
-       LEFT JOIN cycles cy ON cy.id = pr.cycle_id AND cy.tenant_id = pr.tenant_id
-       WHERE c.tenant_id = $1::uuid
-         AND a.is_active
-         AND ($2::uuid[] IS NULL OR c.programme_id = ANY($2::uuid[]))
-       ORDER BY cy.name NULLS LAST, c.name
-       LIMIT ${ROWS_LIMIT}`,
-      [tenantId, filiereIds],
-      log,
-      "classes"
-    );
-
-    const classes = classeRows.map((r) => {
-      const capacite = r.max_students === null ? null : Math.round(num(r.max_students));
-      const effectif = Math.round(num(r.effectif));
-      return {
-        classId: String(r.id),
-        name: String(r.name ?? ""),
-        code: (r.code as string | null) ?? null,
-        filiereName: (r.filiere_name as string | null) ?? null,
-        cycleName: (r.cycle_name as string | null) ?? null,
-        capacite,
-        effectif,
-        tauxRemplissage: capacite ? rate(effectif, capacite) : null,
-      };
-    });
 
     /* ---- Conflits de planning --------------------------------------------- */
     // `b.id > a.id` : sans cette borne, chaque conflit remonterait deux fois,
@@ -234,9 +264,11 @@ export async function fetchOwnerRemplissage(
        LEFT JOIN professional_ue_sessions sb ON sb.id = b.ue_session_id AND sb.tenant_id = b.tenant_id
        LEFT JOIN professional_ue ub ON ub.id = sb.ue_id AND ub.tenant_id = sb.tenant_id
        WHERE a.tenant_id = $1::uuid
+         AND ${perimetreCreneau("a")}
+         AND ${perimetreCreneau("b")}
        ORDER BY a.jour, a.heure_debut
        LIMIT ${ROWS_LIMIT}`,
-      [tenantId],
+      scopeParams,
       log,
       "conflitsPlanning"
     );
@@ -261,9 +293,10 @@ export async function fetchOwnerRemplissage(
          COUNT(*)::int AS total,
          COUNT(*) FILTER (WHERE classroom_id IS NULL)::int AS sans_salle,
          COUNT(*) FILTER (WHERE enseignant_id IS NULL)::int AS sans_enseignant
-       FROM professional_emploi_temps
-       WHERE tenant_id = $1::uuid`,
-      [tenantId],
+       FROM professional_emploi_temps et
+       WHERE et.tenant_id = $1::uuid
+         AND ${perimetreCreneau("et")}`,
+      scopeParams,
       log,
       "creneauxIncomplets"
     );
@@ -286,8 +319,9 @@ export async function fetchOwnerRemplissage(
                             WHERE semestre_id = sem.id AND tenant_id = sem.tenant_id)
           )
          WHERE sem.tenant_id = $1::uuid
-           AND s.statut NOT IN ('termine', 'annule')
-           AND ($2::uuid[] IS NULL OR sem.filiere_id = ANY($2::uuid[]))
+           AND s.statut <> 'annule'
+           AND ($3::uuid[] IS NULL OR sem.filiere_id = ANY($3::uuid[]))
+           AND ($2::text IS NULL OR ${anneeDe("s.date_debut")} = $2::text)
        ),
        attendus AS (
          SELECT ss.semestre_id, ss.libelle, ss.filiere_id, ss.ue_session_id, l.ecue_id
@@ -310,7 +344,7 @@ export async function fetchOwnerRemplissage(
        GROUP BY a.semestre_id, a.libelle, pr.name
        ORDER BY pr.name NULLS LAST, a.libelle
        LIMIT ${ROWS_LIMIT}`,
-      [tenantId, filiereIds],
+      scopeParams,
       log,
       "couverturePlanning"
     );
@@ -328,16 +362,40 @@ export async function fetchOwnerRemplissage(
       };
     });
 
-    /* ---- Écart entre planifié et tenu, sur 30 jours ------------------------ */
-    // On déroule le calendrier des 30 derniers jours et on compte, pour chaque
-    // créneau hebdomadaire, ses occurrences réellement tombées dans sa période
-    // de validité. Comparer une grille hebdomadaire à un volume mensuel sans ce
-    // déroulé donnerait n'importe quoi.
+    /* ---- Écart entre planifié et tenu, sur le périmètre -------------------- */
+    // On déroule le calendrier de la fenêtre et on compte, pour chaque créneau
+    // hebdomadaire, ses occurrences réellement tombées dans sa période de
+    // validité. Comparer une grille hebdomadaire à un volume sans ce déroulé
+    // donnerait n'importe quoi.
+    //
+    // LA FENÊTRE EST CELLE DE L'ÉCRAN, plus les 30 derniers jours. Cette fenêtre
+    // glissante ne couvrait que 24 des 1 326 séances tenues : « respect du
+    // planning 92,3 % » décrivait deux semaines d'été et ne bougeait ni avec la
+    // filière ni avec l'année. Sans année choisie, la fenêtre s'étend sur toute
+    // la période couverte par les créneaux du périmètre.
     const ecartRows = await safeRows<Row>(
       client,
-      `WITH jours AS (
+      `WITH bornes AS (
+         SELECT
+           COALESCE(
+             CASE WHEN $2::text IS NULL THEN NULL
+                  ELSE make_date(split_part($2::text, '-', 1)::int, 9, 1) END,
+             (SELECT MIN(et.date_debut) FROM professional_emploi_temps et
+               WHERE et.tenant_id = $1::uuid AND ${perimetreCreneau("et")})
+           ) AS d1,
+           COALESCE(
+             CASE WHEN $2::text IS NULL THEN NULL
+                  ELSE make_date(split_part($2::text, '-', 1)::int + 1, 8, 31) END,
+             (SELECT MAX(et.date_fin) FROM professional_emploi_temps et
+               WHERE et.tenant_id = $1::uuid AND ${perimetreCreneau("et")})
+           ) AS d2
+       ),
+       jours AS (
+         -- Le garde-fou NOT NULL : sans aucun créneau au périmètre, les bornes
+         -- sont nulles et generate_series lèverait une erreur.
          SELECT d::date AS d, EXTRACT(ISODOW FROM d)::int AS dow
-         FROM generate_series(CURRENT_DATE - 29, CURRENT_DATE, INTERVAL '1 day') d
+         FROM bornes b, generate_series(b.d1, b.d2, INTERVAL '1 day') d
+         WHERE b.d1 IS NOT NULL AND b.d2 IS NOT NULL
        ),
        planifie AS (
          SELECT COALESCE(SUM(
@@ -350,21 +408,23 @@ export async function fetchOwnerRemplissage(
           AND j.d <= COALESCE(et.date_fin, j.d)
          WHERE et.tenant_id = $1::uuid
            AND et.heure_debut IS NOT NULL AND et.heure_fin IS NOT NULL
+           AND ${perimetreCreneau("et")}
        ),
        tenu AS (
          SELECT COALESCE(SUM(
-                  EXTRACT(EPOCH FROM (s.heure_fin - s.heure_debut)) / 3600.0
+                  EXTRACT(EPOCH FROM (sea.heure_fin - sea.heure_debut)) / 3600.0
                 ), 0)::float8 AS h,
                 COUNT(*)::int AS n,
-                COUNT(*) FILTER (WHERE s.heure_debut IS NULL OR s.heure_fin IS NULL)::int AS n_sans_horaire
-         FROM professional_ecue_seances s
-         WHERE s.tenant_id = $1::uuid
-           AND s.date >= CURRENT_DATE - 29
-           AND s.date <= CURRENT_DATE
+                COUNT(*) FILTER (WHERE sea.heure_debut IS NULL OR sea.heure_fin IS NULL)::int AS n_sans_horaire
+         FROM professional_ecue_seances sea, bornes b
+         WHERE sea.tenant_id = $1::uuid
+           AND (b.d1 IS NULL OR sea.date >= b.d1)
+           AND (b.d2 IS NULL OR sea.date <= b.d2)
+           AND ${perimetreCreneau("sea")}
        )
        SELECT planifie.h AS planifie, tenu.h AS tenu, tenu.n AS seances, tenu.n_sans_horaire AS sans_horaire
        FROM planifie, tenu`,
-      [tenantId],
+      scopeParams,
       log,
       "ecartPlanifieTenu"
     );
@@ -377,31 +437,25 @@ export async function fetchOwnerRemplissage(
     const inscritsCohortes = cohortes
       .filter((c) => c.capacite !== null)
       .reduce((s, c) => s + c.inscrits, 0);
-    const capaciteClasses = classes.reduce((s, c) => s + (c.capacite ?? 0), 0);
-    const effectifClasses = classes
-      .filter((c) => c.capacite !== null)
-      .reduce((s, c) => s + c.effectif, 0);
-
     return {
       computedAt: new Date().toISOString(),
+      anneeScolaire,
       kpis: {
         cohortesActives: cohortes.length,
         cohortesVides: cohortes.filter((c) => c.inscrits === 0).length,
         cohortesSansCapacite: cohortes.filter((c) => c.capacite === null).length,
         tauxRemplissageCohortes: rate(inscritsCohortes, capaciteCohortes),
-        classesActives: classes.length,
-        tauxRemplissageClasses: rate(effectifClasses, capaciteClasses),
+        cohortesOuvertes: cohortes.filter((c) => c.statut !== "termine").length,
         conflitsPlanning: conflits.length,
         creneauxTotal: Math.round(num(gap.total)),
         creneauxSansSalle: Math.round(num(gap.sans_salle)),
         creneauxSansEnseignant: Math.round(num(gap.sans_enseignant)),
-        heuresPlanifiees30j: heuresPlanifiees,
-        heuresTenues30j: heuresTenues,
+        heuresPlanifiees,
+        heuresTenues,
         tauxRespectPlanning: rate(heuresTenues, heuresPlanifiees),
-        seancesSansHoraire30j: Math.round(num(ecart.sans_horaire)),
+        seancesSansHoraire: Math.round(num(ecart.sans_horaire)),
       },
       cohortes,
-      classes,
       conflits,
       couverture,
     };
@@ -410,7 +464,7 @@ export async function fetchOwnerRemplissage(
   }
 }
 
-/** Export CSV du remplissage des cohortes et des classes. */
+/** Export CSV du remplissage des cohortes et des conflits de planning. */
 export function buildOwnerRemplissageCsv(data: OwnerRemplissageResponse): string {
   const esc = (v: unknown) => {
     const s = String(v ?? "");
@@ -418,6 +472,10 @@ export function buildOwnerRemplissageCsv(data: OwnerRemplissageResponse): string
   };
   const pct = (v: number | null) => (v === null ? "capacité non renseignée" : String(v));
   const lines: string[] = [];
+
+  // Le périmètre en tête : un CSV se relit hors de l'écran qui l'a produit.
+  lines.push(`Périmètre;${data.anneeScolaire ?? "toutes années cumulées"}`);
+  lines.push("");
 
   lines.push("Cohortes professionnelles");
   lines.push("Filière;UE;Session;Statut;Début;Jours avant début;Inscrits;Capacité;Remplissage %");
@@ -431,22 +489,6 @@ export function buildOwnerRemplissageCsv(data: OwnerRemplissageResponse): string
         c.dateDebut ?? "",
         c.joursAvantDebut ?? "",
         c.inscrits,
-        c.capacite ?? "",
-        pct(c.tauxRemplissage),
-      ].join(";")
-    );
-  }
-
-  lines.push("");
-  lines.push("Classes");
-  lines.push("Cycle;Filière;Classe;Effectif;Capacité;Remplissage %");
-  for (const c of data.classes) {
-    lines.push(
-      [
-        esc(c.cycleName ?? ""),
-        esc(c.filiereName ?? ""),
-        esc(c.name),
-        c.effectif,
         c.capacite ?? "",
         pct(c.tauxRemplissage),
       ].join(";")

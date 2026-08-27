@@ -425,7 +425,6 @@ export async function fetchOwnerDashboardKpis(
         successRateLastSemester: proSuccessRate,
         attendanceRate30d: Math.round(proAttendanceRate * 10) / 10,
       },
-      alerts: [],
     };
 
     return OwnerDashboardResponseSchema.parse(payload);

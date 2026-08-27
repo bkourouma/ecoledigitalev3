@@ -584,10 +584,17 @@ export class TeacherPayrollOverviewService extends ProfessionalBaseService {
    *
    * Filtrable par enseignant : c'est la question qu'on pose à un historique de
    * paie — « qu'a-t-on versé à cette personne, et quand ? ».
+   *
+   * `seulementVerses` restreint aux bulletins réellement payés. C'est ce que
+   * lit l'espace enseignant : un bulletin archivé mais non versé n'est qu'un
+   * montant arrêté en interne, le montrer à l'intéressé lui annoncerait un
+   * versement qui n'a pas eu lieu. Le filtre est posé EN SQL et non à
+   * l'affichage — ces lignes ne doivent pas quitter le serveur.
    */
   async historiqueBulletins(
     tenantId: string,
-    enseignantId?: string
+    enseignantId?: string,
+    seulementVerses = false
   ): Promise<ServiceResult<{ items: any[]; total: number }>> {
     return this.withTenant(tenantId, async (client) => {
       const params: any[] = [tenantId];
@@ -596,6 +603,9 @@ export class TeacherPayrollOverviewService extends ProfessionalBaseService {
         filtre = " AND tp.teacher_id = $2";
         params.push(enseignantId);
       }
+      // `paid_at` en plus du statut : c'est la date qui atteste le
+      // décaissement, un statut posé sans elle ne prouve rien.
+      if (seulementVerses) filtre += " AND tp.status = 'paid' AND tp.paid_at IS NOT NULL";
 
       const rows = await client.query(
         `SELECT tp.id,

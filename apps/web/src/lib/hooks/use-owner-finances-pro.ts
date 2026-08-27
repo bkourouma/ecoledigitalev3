@@ -15,9 +15,13 @@ export type OwnerFinancesProParams = {
   dateFin?: string;
   anneeScolaire?: string;
   filiereIds?: string[];
+  /** Nom de classe « filiereId|nom », dimension de filtrage des écrans admin. */
+  nomClasse?: string;
   semestreId?: string;
   mode?: OwnerFinancesProMode;
   etat?: "non_regle" | "partiel" | "solde" | "tous";
+  /** Nom / prénom / matricule — n'agit que sur le tableau des impayés. */
+  recherche?: string;
 };
 
 /** Exporté pour que le bouton d'export réutilise EXACTEMENT le périmètre affiché. */
@@ -30,9 +34,11 @@ export function buildQueryString(p: OwnerFinancesProParams): string {
   }
   if (p.anneeScolaire) sp.set("anneeScolaire", p.anneeScolaire);
   if (p.filiereIds && p.filiereIds.length > 0) sp.set("filiereIds", p.filiereIds.join(","));
+  if (p.nomClasse) sp.set("nomClasse", p.nomClasse);
   if (p.semestreId) sp.set("semestreId", p.semestreId);
   if (p.mode) sp.set("mode", p.mode);
   if (p.etat) sp.set("etat", p.etat);
+  if (p.recherche) sp.set("recherche", p.recherche);
   return sp.toString();
 }
 

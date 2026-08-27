@@ -3,13 +3,8 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Suspense, useEffect } from "react";
-import { PulseBar } from "@/components/owner/PulseBar";
 import { OwnerFiltersProvider } from "@/components/owner/filters/owner-filters-context";
-import {
-  OWNER_FILTER_SCOPE,
-  OWNER_PERIOD_OPTIONS,
-  OwnerFilterBar,
-} from "@/components/owner/filters/OwnerFilterBar";
+import { OwnerFilterSlot } from "@/components/owner/filters/OwnerFilterSlot";
 
 function isOwnerRole(roles: unknown): boolean {
   if (!Array.isArray(roles)) return false;
@@ -60,31 +55,18 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
     return null;
   }
 
-  // « Accès » est ouvert aux administrateurs non-propriétaires : ils n'ont pas
-  // les droits sur /owner/pulse, la barre y serait un bandeau d'erreur.
-  const showPulse = isOwnerRole(roles) && !pathname.startsWith("/owner/acces");
-
-  // Un écran absent de la table de portée n'affiche aucune barre : mieux vaut
-  // pas de filtre qu'un filtre qui ne filtre rien.
-  const filterDimensions = OWNER_FILTER_SCOPE[pathname] ?? [];
-
   return (
-    // `useSearchParams` impose une frontière Suspense côté App Router.
+    // `useSearchParams` impose une frontière Suspense côté App Router. La barre
+    // de filtre est rendue par `OwnerFilterSlot`, sous cette frontière : elle
+    // doit lire `?vue=` pour connaître l'onglet regardé, ce que ce composant-ci
+    // — qui pose le Suspense — ne peut pas faire.
+    //
+    // Le pouls, lui, ne vit plus dans le layout : monté ici, il coiffait les
+    // dix-sept écrans de l'espace et volait un tiers de la hauteur utile de
+    // chacun. Il est désormais le corps du tableau de bord.
     <Suspense fallback={<div className="text-muted-foreground">Chargement…</div>}>
       <OwnerFiltersProvider>
-        {showPulse && (
-          <div className="mb-6">
-            <PulseBar />
-          </div>
-        )}
-        {filterDimensions.length > 0 && (
-          <div className="mb-6">
-            <OwnerFilterBar
-              dimensions={filterDimensions}
-              periods={OWNER_PERIOD_OPTIONS[pathname]}
-            />
-          </div>
-        )}
+        <OwnerFilterSlot />
         {children}
       </OwnerFiltersProvider>
     </Suspense>

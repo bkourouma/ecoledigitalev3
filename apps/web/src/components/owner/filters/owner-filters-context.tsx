@@ -4,29 +4,32 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useState,
   type ReactNode,
 } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useOwnerStatsFilters } from "@/lib/hooks/use-owner-stats-filters";
 
 /**
- * Filtre global de l'espace propriétaire : année · cycle · filières · période.
+ * Filtre global de l'espace propriétaire : année · cycle · filières · semestre ·
+ * catégorie d'UE · période.
  *
  * POURQUOI UN ÉTAT PARTAGÉ
- * Chaque page portait son propre `useState`. Trois conséquences : on reperdait
- * sa sélection en changeant d'écran, deux pages voisines pouvaient afficher des
- * périmètres différents sans le dire, et surtout DEUX VOCABULAIRES D'ANNÉE
- * cohabitaient — `academicYearId` (un UUID, table `academic_years`, côté
- * scolaire) et `anneeScolaire` (une chaîne « 2025-2026 » dérivée par pivot
- * septembre, côté professionnel). Le même écran pouvait donc filtrer sur deux
- * années différentes selon le bloc regardé.
+ * Chaque page portait son propre `useState` : on reperdait sa sélection en
+ * changeant d'écran, et deux pages voisines pouvaient afficher des périmètres
+ * différents sans le dire.
  *
- * Ce contexte tient UNE sélection d'année et en dérive les deux formes, en
- * rapprochant le nom de l'année académique de la liste des années scolaires
- * renvoyée par `/owner/filters`. Quand le rapprochement échoue, `anneeScolaire`
- * vaut `undefined` : mieux vaut ne pas filtrer que filtrer sur une année
- * devinée.
+ * QUELLE ANNÉE FAIT FOI
+ * L'ANNÉE DÉRIVÉE, celle qui se lit sur la date de début des ouvertures de
+ * classe avec un pivot en septembre. Le module professionnel n'a pas de table
+ * d'années scolaires : une année existe parce qu'une classe a été ouverte.
+ *
+ * La table `academic_years` a été essayée comme référentiel et abandonnée : sur
+ * une base réelle elle ignorait trois années portant douze ouvertures chacune
+ * et déclarait une année qui n'en portait aucune. Elle n'est plus lue que par
+ * rapprochement de nom, pour les rares écrans qui exigent encore un UUID.
  *
  * POURQUOI DANS L'URL
  * La sélection vit dans les paramètres de l'adresse, pas dans un état React :
@@ -52,6 +55,16 @@ export interface OwnerFiltersState {
   anneeScolaire?: string;
   cycleId?: string;
   filiereIds: string[];
+  /**
+   * Nom de classe « filiereId|nom », dimension de filtrage des écrans admin
+   * Paiements et Étudiants inscrits. Ce n'est PAS la filière : une filière peut
+   * porter plusieurs classes.
+   */
+  nomClasse?: string;
+  /** `semestres.id` du module professionnel. */
+  semestreId?: string;
+  /** Catégorie d'UE : fondamentale, spécialité, culture générale. */
+  categorie?: string;
   period: OwnerPeriod;
   /** Bornes lues uniquement quand `period === 'custom'`. */
   dateDebut?: string;
@@ -59,9 +72,13 @@ export interface OwnerFiltersState {
 }
 
 interface OwnerFiltersContextValue extends OwnerFiltersState {
-  setAcademicYearId: (value: string | undefined) => void;
+  /** Millésime « AAAA-AAAA+1 » dérivé des ouvertures, ou `undefined` pour toutes. */
+  setAnneeScolaire: (value: string | undefined) => void;
   setCycleId: (value: string | undefined) => void;
   setFiliereIds: (value: string[]) => void;
+  setNomClasse: (value: string | undefined) => void;
+  setSemestreId: (value: string | undefined) => void;
+  setCategorie: (value: string | undefined) => void;
   setPeriod: (value: OwnerPeriod) => void;
   setCustomRange: (from: string | undefined, to: string | undefined) => void;
   reset: () => void;
@@ -79,6 +96,9 @@ const PARAM = {
   year: "ay",
   cycle: "cy",
   filieres: "fil",
+  nomClasse: "cls",
+  semestre: "sem",
+  categorie: "cat",
   period: "per",
   from: "du",
   to: "au",
@@ -91,44 +111,85 @@ function parsePeriod(raw: string | null): OwnerPeriod {
 }
 
 export function OwnerFiltersProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: options, isLoading: optionsLoading } = useOwnerStatsFilters();
 
-  const academicYearId = searchParams.get(PARAM.year) ?? undefined;
-  const cycleId = searchParams.get(PARAM.cycle) ?? undefined;
-  const period = parsePeriod(searchParams.get(PARAM.period));
-  const dateDebut = searchParams.get(PARAM.from) ?? undefined;
-  const dateFin = searchParams.get(PARAM.to) ?? undefined;
+  /**
+   * Copie locale de la query string.
+   *
+   * Le provider vit dans le *layout* `/owner`. Sous Next.js 15, `router.replace`
+   * pour changer uniquement `?ay=` ne rerend pas le layout : `useSearchParams()`
+   * restait figé, le sélecteur affichait la nouvelle année (état interne Radix)
+   * et le tableau de bord continuait d'appeler l'API sans filtre.
+   *
+   * On écrit l'URL avec `history.replaceState` — intercepté par Next 15, ça
+   * met à jour `useSearchParams` sans navigation RSC — et on tient une copie
+   * React pour que les consommateurs voient le changement dans le même tick,
+   * même si le layout ne se relance pas.
+   */
+  const [queryString, setQueryString] = useState(() => searchParams.toString());
 
-  const filiereIds = useMemo(() => {
-    const raw = searchParams.get(PARAM.filieres);
-    if (!raw) return [];
-    return raw.split(",").filter(Boolean);
-  }, [searchParams]);
+  useEffect(() => {
+    const lire = () => {
+      const q = window.location.search.startsWith("?")
+        ? window.location.search.slice(1)
+        : window.location.search;
+      setQueryString(q);
+    };
+    // Retour arrière / lien interne : l'URL a changé sans passer par `patch`.
+    lire();
+    window.addEventListener("popstate", lire);
+    return () => window.removeEventListener("popstate", lire);
+  }, [pathname]);
+
+  const params = useMemo(() => new URLSearchParams(queryString), [queryString]);
 
   /**
-   * Réconciliation des deux vocabulaires d'année.
+   * L'année scolaire SÉLECTIONNÉE, au format « AAAA-AAAA+1 ».
    *
-   * `academic_years.name` et les libellés d'années scolaires du module
-   * professionnel s'écrivent tous deux « AAAA-AAAA+1 ». Quand les deux
-   * coïncident, on peut filtrer les deux moitiés de l'établissement sur la même
-   * année. Sinon on laisse le professionnel non filtré plutôt que d'inventer une
-   * correspondance.
+   * C'est désormais la chaîne dérivée des ouvertures de classe qui vit dans
+   * l'URL, et non l'identifiant d'une ligne de `academic_years`. Le module
+   * professionnel n'a pas de table d'années : une année existe parce qu'une
+   * classe a été ouverte. S'adosser à la table donnait un filtre qui masquait
+   * trois années d'activité réelle et en proposait une vide.
    */
-  const { academicYearName, anneeScolaire } = useMemo(() => {
-    if (!academicYearId || !options) return {};
-    const year = options.academicYears.find((y) => y.id === academicYearId);
-    if (!year) return {};
-    const match = options.anneesScolaires.find((a) => a === year.name);
-    return { academicYearName: year.name, anneeScolaire: match };
-  }, [academicYearId, options]);
+  const anneeScolaire = params.get(PARAM.year) ?? undefined;
+  const cycleId = params.get(PARAM.cycle) ?? undefined;
+  const nomClasse = params.get(PARAM.nomClasse) ?? undefined;
+  const semestreId = params.get(PARAM.semestre) ?? undefined;
+  const categorie = params.get(PARAM.categorie) ?? undefined;
+  const period = parsePeriod(params.get(PARAM.period));
+  const dateDebut = params.get(PARAM.from) ?? undefined;
+  const dateFin = params.get(PARAM.to) ?? undefined;
+
+  const filiereIds = useMemo(() => {
+    const raw = params.get(PARAM.filieres);
+    if (!raw) return [];
+    return raw.split(",").filter(Boolean);
+  }, [params]);
+
+  /**
+   * Rapprochement vers la table, pour les rares écrans qui l'exigent encore.
+   *
+   * Le sens compte : l'année DÉRIVÉE fait foi, et l'on cherche la ligne de
+   * `academic_years` qui porte le même millésime — l'inverse de ce qui se
+   * faisait avant. `academicYearId` reste `undefined` quand aucune ligne ne
+   * correspond, et l'écran concerné n'est alors pas filtré : mieux vaut un
+   * écran non restreint qu'un écran restreint sur une année devinée.
+   *
+   * Seul `/owner/finances` consomme encore cet identifiant.
+   */
+  const { academicYearId, academicYearName } = useMemo(() => {
+    if (!anneeScolaire) return {};
+    const ligne = options?.academicYears.find((y) => y.name === anneeScolaire);
+    return { academicYearId: ligne?.id, academicYearName: anneeScolaire };
+  }, [anneeScolaire, options]);
 
   /** Écrit la sélection dans l'URL sans empiler d'entrées d'historique. */
   const patch = useCallback(
     (changes: Record<string, string | undefined>) => {
-      const next = new URLSearchParams(searchParams.toString());
+      const next = new URLSearchParams(queryString);
       for (const [key, value] of Object.entries(changes)) {
         if (value === undefined || value === "" || value === OWNER_FILTER_ALL) {
           next.delete(key);
@@ -137,9 +198,13 @@ export function OwnerFiltersProvider({ children }: { children: ReactNode }) {
         }
       }
       const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      const href = qs ? `${pathname}?${qs}` : pathname;
+      // `replaceState`, pas `router.replace` : voir le commentaire sur
+      // `queryString`. Next 15 intercepte cet appel et aligne `useSearchParams`.
+      window.history.replaceState(window.history.state, "", href);
+      setQueryString(qs);
     },
-    [pathname, router, searchParams]
+    [pathname, queryString]
   );
 
   const value = useMemo<OwnerFiltersContextValue>(
@@ -149,14 +214,32 @@ export function OwnerFiltersProvider({ children }: { children: ReactNode }) {
       anneeScolaire,
       cycleId,
       filiereIds,
+      nomClasse,
+      semestreId,
+      categorie,
       period,
       dateDebut,
       dateFin,
-      setAcademicYearId: (v) => patch({ [PARAM.year]: v }),
-      setCycleId: (v) => patch({ [PARAM.cycle]: v }),
-      // Changer de cycle ou de filière invalide un semestre choisi ailleurs :
-      // les pages concernées remettent leur propre sélection à « tous ».
-      setFiliereIds: (v) => patch({ [PARAM.filieres]: v.length ? v.join(",") : undefined }),
+      // Changer d'année invalide la classe retenue — les listes de la page
+      // Paiements sont commandées par l'année — et donc le semestre avec elle.
+      setAnneeScolaire: (v) =>
+        patch({ [PARAM.year]: v, [PARAM.nomClasse]: undefined, [PARAM.semestre]: undefined }),
+      // Changer de cycle restreint les filières proposées : une filière retenue
+      // hors du nouveau cycle filtrerait sur un périmètre vide sans le dire.
+      setCycleId: (v) => patch({ [PARAM.cycle]: v, [PARAM.filieres]: undefined, [PARAM.semestre]: undefined }),
+      // Un semestre appartient à une filière : changer de filière invalide le
+      // semestre retenu. Le nettoyer ici évite que chaque page le refasse — et
+      // qu'une page oublie de le faire.
+      setFiliereIds: (v) =>
+        patch({
+          [PARAM.filieres]: v.length ? v.join(",") : undefined,
+          [PARAM.semestre]: undefined,
+        }),
+      // Dernier maillon avant le semestre : changer de classe invalide le
+      // semestre, exactement comme la cascade de la page admin Paiements.
+      setNomClasse: (v) => patch({ [PARAM.nomClasse]: v, [PARAM.semestre]: undefined }),
+      setSemestreId: (v) => patch({ [PARAM.semestre]: v }),
+      setCategorie: (v) => patch({ [PARAM.categorie]: v }),
       setPeriod: (v) =>
         patch({
           [PARAM.period]: v,
@@ -171,12 +254,24 @@ export function OwnerFiltersProvider({ children }: { children: ReactNode }) {
           [PARAM.year]: undefined,
           [PARAM.cycle]: undefined,
           [PARAM.filieres]: undefined,
+          [PARAM.nomClasse]: undefined,
+          [PARAM.semestre]: undefined,
+          [PARAM.categorie]: undefined,
           [PARAM.period]: undefined,
           [PARAM.from]: undefined,
           [PARAM.to]: undefined,
         }),
       isFiltered:
-        !!academicYearId || !!cycleId || filiereIds.length > 0 || period !== "year",
+        // L'année vit dans `anneeScolaire` (chaîne dérivée), pas dans
+        // `academicYearId` (UUID de `academic_years`, souvent absent). Tester
+        // l'UUID faisait passer une année choisie pour « pas de filtre ».
+        !!anneeScolaire ||
+        !!cycleId ||
+        filiereIds.length > 0 ||
+        !!nomClasse ||
+        !!semestreId ||
+        !!categorie ||
+        period !== "year",
       options,
       optionsLoading,
     }),
@@ -186,6 +281,9 @@ export function OwnerFiltersProvider({ children }: { children: ReactNode }) {
       anneeScolaire,
       cycleId,
       filiereIds,
+      nomClasse,
+      semestreId,
+      categorie,
       period,
       dateDebut,
       dateFin,

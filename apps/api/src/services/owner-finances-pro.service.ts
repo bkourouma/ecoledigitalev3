@@ -5,10 +5,14 @@ import type {
   OwnerFinancesProQuery,
   OwnerFinancesProResponse,
 } from "@ecoledigitale/contracts";
+import { CLE_NOM_DE_CLASSE_SQL, PRO_ORDER_DATES_CTE } from "./owner-pro-annee.sql";
 
 /**
- * Recouvrement du Module Professionnel (UE / ECUE), absent de /owner/finances qui
- * ne couvre que `payment_transactions` (module académique).
+ * Recouvrement du Module Professionnel (UE / ECUE) — onglet Impayés.
+ *
+ * L'écran Encaissements consolide désormais les deux moitiés. Celui-ci reste
+ * la vue nominative du recouvrement des inscriptions aux UE : attendu,
+ * encaissé, étudiants non soldés.
  *
  * Pièges appliqués :
  *  - §4.4-1  `professional_payments` n'a ni `student_id` ni `enrollment_id` :
@@ -26,6 +30,26 @@ import type {
  *            signalé au front par `includesConduite: true`.
  *  - §4.4-8  on requête `professional_ue_sessions` en direct (l'endpoint REST
  *            clôturerait les sessions échues au passage).
+ *
+ * DATE MÉTIER D'UNE COMMANDE — corrigé.
+ *
+ * Le périmètre se bornait sur `o.created_at`. Cette colonne porte la date
+ * d'ÉCRITURE de la ligne : les 1 360 commandes de cinq années scolaires y
+ * portent toutes le 26 août 2026. L'écran affichait donc 102 000 000 FCFA sur
+ * « 2025-2026 » — l'historique complet sous l'étiquette d'une seule année —
+ * et 0 FCFA sur chacune des quatre précédentes, alors que la page admin
+ * Paiements y lit 18 000 000 FCFA à chaque fois.
+ *
+ * La commande est désormais rattachée à l'ANNÉE DE LA CLASSE qu'elle ouvre,
+ * par `PRO_ORDER_DATES_CTE` — la règle qu'appliquent déjà le tableau de bord,
+ * Encaissements et Rentabilité, et surtout celle que la page Paiements applique
+ * en JavaScript (`anneeScolaireOf(e.date_debut)`).
+ *
+ * FILTRE PAR NOM DE CLASSE.
+ *
+ * L'administration ne filtre pas par filière mais par NOM DE CLASSE, dérivé du
+ * libellé de l'ouverture. Le même filtre est offert ici, avec la même clé
+ * « filiereId|nom », pour que les deux écrans se recoupent option par option.
  *
  * Piège de double comptage (non listé au §4.4, mais structurant) : une commande
  * porte N inscriptions. Tout `orders JOIN enrollments JOIN payments` multiplie les
@@ -65,58 +89,104 @@ async function safeQuery<T>(
  * interprétable (sinon on divise des encaissements d'une période par un attendu
  * d'une autre). Le graphique mensuel, lui, est volontairement en 12 mois glissants
  * toutes cohortes confondues — c'est indiqué dans l'UI.
+ *
+ * `end` est la borne affichée. `sqlEnd` est la borne SQL exclue. Pour une
+ * période prédéfinie (mois, trimestre, année) elles coïncident. Pour `custom`,
+ * le sélecteur « Au » est inclusif : on ajoute un jour à `sqlEnd` pour que la
+ * dernière journée choisie ne disparaisse pas du périmètre.
  */
+function nextUtcDay(isoDate: string): string {
+  const d = new Date(`${isoDate}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 function resolvePeriod(filters: OwnerFinancesProQuery): {
   start: string;
+  /** Affichée telle quelle : pour `custom`, c'est le « Au » du sélecteur, inclusif. */
   end: string;
+  /** Borne SQL exclue du CTE `order_scope` (`created_at < sqlEnd`). */
+  sqlEnd: string;
 } {
   const now = new Date();
   const y = now.getUTCFullYear();
   const m = now.getUTCMonth();
   const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const exclusive = (start: string, end: string) => ({ start, end, sqlEnd: end });
 
   switch (filters.period) {
     case "month":
-      return { start: iso(new Date(Date.UTC(y, m, 1))), end: iso(new Date(Date.UTC(y, m + 1, 1))) };
+      return exclusive(
+        iso(new Date(Date.UTC(y, m, 1))),
+        iso(new Date(Date.UTC(y, m + 1, 1)))
+      );
     case "quarter": {
       const q = Math.floor(m / 3) * 3;
-      return { start: iso(new Date(Date.UTC(y, q, 1))), end: iso(new Date(Date.UTC(y, q + 3, 1))) };
+      return exclusive(
+        iso(new Date(Date.UTC(y, q, 1))),
+        iso(new Date(Date.UTC(y, q + 3, 1)))
+      );
     }
     case "year":
-      return { start: iso(new Date(Date.UTC(y, 0, 1))), end: iso(new Date(Date.UTC(y + 1, 0, 1))) };
+      return exclusive(
+        iso(new Date(Date.UTC(y, 0, 1))),
+        iso(new Date(Date.UTC(y + 1, 0, 1)))
+      );
     case "academic_year": {
       // Pivot septembre, cohérent avec la dérivation d'année scolaire du module pédagogie.
       const label = filters.anneeScolaire;
       const startYear = label ? Number(label.split("-")[0]) : m >= 8 ? y : y - 1;
-      return {
-        start: iso(new Date(Date.UTC(startYear, 8, 1))),
-        end: iso(new Date(Date.UTC(startYear + 1, 8, 1))),
-      };
+      return exclusive(
+        iso(new Date(Date.UTC(startYear, 8, 1))),
+        iso(new Date(Date.UTC(startYear + 1, 8, 1)))
+      );
     }
     case "custom":
-    default:
-      return {
-        start: filters.dateDebut ?? iso(new Date(Date.UTC(y, 0, 1))),
-        end: filters.dateFin ?? iso(new Date(Date.UTC(y + 1, 0, 1))),
-      };
+    default: {
+      const start = filters.dateDebut ?? iso(new Date(Date.UTC(y, 0, 1)));
+      // Le sélecteur « Au » est inclusif. Le CTE coupe à borne exclue : sans
+      // ce +1 jour, la dernière journée choisie disparaissait du périmètre.
+      if (filters.dateFin) {
+        return { start, end: filters.dateFin, sqlEnd: nextUtcDay(filters.dateFin) };
+      }
+      const end = iso(new Date(Date.UTC(y + 1, 0, 1)));
+      return exclusive(start, end);
+    }
   }
 }
 
 /**
  * Cohorte de commandes du périmètre.
  * $1 tenantId, $2 filiereIds (uuid[] | null), $3 semestreId (uuid | null),
- * $4 start (date), $5 end (date, borne exclue).
+ * $4 start (date), $5 end (date, borne exclue), $6 nomClasse (text | null).
+ *
+ * La borne de dates porte sur le DÉBUT DE L'OUVERTURE, pas sur `created_at`.
+ * Une commande sans inscription rattachée à une ouverture datée n'a pas de date
+ * métier : la jointure interne l'écarte, plutôt que de la ranger arbitrairement
+ * dans l'année du chargement des données.
  */
 const ORDER_SCOPE_CTE = `
+  ${PRO_ORDER_DATES_CTE},
   order_scope AS (
-    SELECT o.id, o.student_id, o.montant_total::float8 AS montant_total, o.created_at
+    SELECT o.id, o.student_id, o.montant_total::float8 AS montant_total, d.debut
     FROM professional_orders o
+    JOIN pro_order_dates d ON d.order_id = o.id
     WHERE o.tenant_id = $1::uuid
       -- §4.4-3 : on ne se fie pas au statut pour l'encaissement, mais une commande
       -- annulée ne fait pas partie du chiffre d'affaires attendu.
       AND o.statut <> 'annulee'
-      AND o.created_at >= $4::date
-      AND o.created_at <  $5::date
+      AND d.debut >= $4::date
+      AND d.debut <  $5::date
+      AND ($6::text IS NULL OR EXISTS (
+        SELECT 1
+        FROM professional_enrollments en
+        JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+        JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+        WHERE en.order_id = o.id
+          AND en.tenant_id = o.tenant_id
+          AND en.statut <> 'annulee'
+          AND ${CLE_NOM_DE_CLASSE_SQL} = $6::text
+      ))
       AND ($2::uuid[] IS NULL OR EXISTS (
         SELECT 1
         FROM professional_enrollments en
@@ -168,9 +238,13 @@ export async function fetchOwnerFinancesPro(
   const semestreId = filters.semestreId ?? null;
   const mode = filters.mode ?? null;
   const etat = filters.etat ?? "tous";
-  const { start, end } = resolvePeriod(filters);
+  const nomClasse = filters.nomClasse?.trim() ? filters.nomClasse.trim() : null;
+  const recherche = filters.recherche?.trim() ? filters.recherche.trim() : null;
+  const { start, end, sqlEnd } = resolvePeriod(filters);
 
-  const scopeParams = [tenantId, filiereIds, semestreId, start, end];
+  // $6 = nom de classe : il fait partie du PÉRIMÈTRE, au même titre que la
+  // filière, et doit donc être fourni par toute requête bâtie sur order_scope.
+  const scopeParams = [tenantId, filiereIds, semestreId, start, sqlEnd, nomClasse];
 
   const client = await pool.connect();
   try {
@@ -195,47 +269,87 @@ export async function fetchOwnerFinancesPro(
        )
        SELECT COALESCE(SUM(due), 0)::float8 AS expected,
               COALESCE(SUM(paid), 0)::float8 AS collected,
-              COUNT(*) FILTER (WHERE due - paid > $6::float8)::int AS unsettled
+              COUNT(*) FILTER (WHERE due - paid > $7::float8)::int AS unsettled
        FROM per_student`,
       [...scopeParams, OWNER_FINANCES_PRO_SETTLED_EPSILON],
       log,
       "totals"
     );
 
+    /* ---- Part des UE de conduite dans ces totaux (§4.4-6) ---- */
+    // Publiée pour rendre lisible l'écart avec la page admin Paiements, qui
+    // écarte ces UE de son périmètre. Même cohorte de commandes, restreinte aux
+    // commandes portant au moins une inscription de conduite.
+    const conduiteRows = await safeQuery<{
+      expected: string | number | null;
+      collected: string | number | null;
+    }>(
+      client,
+      `WITH ${ORDER_SCOPE_CTE},
+            ${PAID_PER_ORDER_CTE}
+       SELECT COALESCE(SUM(os.montant_total), 0)::float8 AS expected,
+              COALESCE(SUM(COALESCE(pp.paid, 0)), 0)::float8 AS collected
+       FROM order_scope os
+       LEFT JOIN paid_per_order pp ON pp.order_id = os.id
+       WHERE EXISTS (
+         SELECT 1
+         FROM professional_enrollments en
+         JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+         JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+         WHERE en.order_id = os.id
+           AND en.tenant_id = $1::uuid
+           AND en.statut <> 'annulee'
+           -- Même test que l'écran admin : le libellé commence par « conduite ».
+           AND lower(btrim(ue.libelle)) LIKE 'conduite%'
+       )`,
+      scopeParams,
+      log,
+      "partConduite"
+    );
+    const cond = conduiteRows[0] ?? { expected: 0, collected: 0 };
+
     const t = totalRows[0] ?? { expected: 0, collected: 0, unsettled: 0 };
     const expected = Number(t.expected) || 0;
     const collected = Number(t.collected) || 0;
 
-    /* ---- Encaissements mensuels, 12 mois glissants, toutes cohortes ---- */
+    /* ---- Encaissements mensuels de la fenêtre ---- */
+    // Deux corrections d'un coup. L'axe portait sur `p.paid_at`, l'horodatage
+    // d'écriture du règlement : les 1 360 paiements y tombent tous dans le même
+    // mois, et la courbe se réduisait à une barre. Et la fenêtre était de douze
+    // mois glissants, donc étrangère à l'année choisie et au filtre de classe.
+    // Le mois est désormais celui de l'OUVERTURE DE LA CLASSE, comme sur l'écran
+    // Encaissements, et la série couvre exactement la fenêtre de l'écran.
     const monthlyRows = await safeQuery<{
       month: string;
       amount: string | number | null;
       tx_count: string | number;
     }>(
       client,
-      `SELECT TO_CHAR(COALESCE(p.paid_at, p.created_at), 'YYYY-MM') AS month,
-              COALESCE(SUM(p.montant), 0)::float8 AS amount,
+      `WITH ${ORDER_SCOPE_CTE},
+            ${PAID_PER_ORDER_CTE},
+       mois AS (
+         -- Grille pleine : un mois sans encaissement doit apparaître à zéro,
+         -- sans quoi la courbe relie deux points distants comme s'ils étaient
+         -- consécutifs.
+         SELECT generate_series(date_trunc('month', $4::timestamptz),
+                                date_trunc('month', $5::timestamptz - INTERVAL '1 day'),
+                                INTERVAL '1 month') AS m
+       )
+       SELECT to_char(mois.m, 'YYYY-MM') AS month,
+              COALESCE((SELECT SUM(COALESCE(pp.paid, 0))
+                          FROM order_scope os
+                          LEFT JOIN paid_per_order pp ON pp.order_id = os.id
+                         WHERE date_trunc('month', os.debut) = mois.m), 0)::float8 AS amount,
               -- §4.4-4 : transactions métier = règlements distincts, pas de lignes.
-              COUNT(DISTINCT (o.student_id, p.paid_at))::int AS tx_count
-       FROM professional_payments p
-       JOIN professional_orders o ON o.id = p.order_id AND o.tenant_id = p.tenant_id
-       WHERE p.tenant_id = $1::uuid
-         AND p.statut = 'confirme'
-         AND COALESCE(p.paid_at, p.created_at)
-             >= date_trunc('month', CURRENT_DATE) - make_interval(months => $2::int - 1)
-         AND ($3::uuid[] IS NULL OR EXISTS (
-           SELECT 1
-           FROM professional_enrollments en
-           JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
-           JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
-           WHERE en.order_id = o.id
-             AND en.tenant_id = o.tenant_id
-             AND en.statut <> 'annulee'
-             AND u.filiere_id = ANY($3::uuid[])
-         ))
-       GROUP BY month
+              COALESCE((SELECT COUNT(DISTINCT (os.student_id, p.paid_at))
+                          FROM order_scope os
+                          JOIN professional_payments p
+                            ON p.order_id = os.id AND p.tenant_id = $1::uuid
+                           AND p.statut = 'confirme'
+                         WHERE date_trunc('month', os.debut) = mois.m), 0)::int AS tx_count
+       FROM mois
        ORDER BY month`,
-      [tenantId, OWNER_FINANCES_PRO_MONTHS, filiereIds],
+      scopeParams,
       log,
       "monthlyCollections"
     );
@@ -255,7 +369,7 @@ export async function fetchOwnerFinancesPro(
        JOIN order_scope os ON os.id = p.order_id
        WHERE p.tenant_id = $1::uuid
          AND p.statut = 'confirme'
-         AND ($6::text IS NULL OR p.mode = $6::text)
+         AND ($7::text IS NULL OR p.mode = $7::text)
        GROUP BY p.mode
        ORDER BY amount DESC`,
       [...scopeParams, mode],
@@ -322,8 +436,11 @@ export async function fetchOwnerFinancesPro(
          SELECT os.student_id,
                 SUM(os.montant_total) AS due,
                 SUM(COALESCE(pp.paid, 0)) AS paid,
-                MIN(os.created_at) FILTER (
-                  WHERE os.montant_total - COALESCE(pp.paid, 0) > $6::float8
+                -- Date de l'impayé le plus ancien : le DÉBUT DE L'OUVERTURE,
+                -- et non l'horodatage d'écriture de la commande, qui est le même
+                -- pour toute la base et rendait cette colonne muette.
+                MIN(os.debut) FILTER (
+                  WHERE os.montant_total - COALESCE(pp.paid, 0) > $7::float8
                 ) AS oldest_unpaid_at
          FROM order_scope os
          LEFT JOIN paid_per_order pp ON pp.order_id = os.id
@@ -347,19 +464,27 @@ export async function fetchOwnerFinancesPro(
        FROM per_student ps
        JOIN student_profiles sp ON sp.id = ps.student_id AND sp.tenant_id = $1::uuid
        JOIN users us ON us.id = sp.user_id AND us.tenant_id = sp.tenant_id
-       WHERE CASE $7::text
-               WHEN 'non_regle' THEN ps.paid <= $6::float8
-               WHEN 'partiel'   THEN ps.paid > $6::float8 AND ps.due - ps.paid > $6::float8
-               WHEN 'solde'     THEN ps.due - ps.paid <= $6::float8
-               ELSE ps.due - ps.paid > $6::float8
+       WHERE CASE $8::text
+               WHEN 'non_regle' THEN ps.paid <= $7::float8
+               WHEN 'partiel'   THEN ps.paid > $7::float8 AND ps.due - ps.paid > $7::float8
+               WHEN 'solde'     THEN ps.due - ps.paid <= $7::float8
+               ELSE ps.due - ps.paid > $7::float8
              END
+         -- Recherche nom / prénom / matricule, comme le champ « Étudiant… » de
+         -- la page admin Paiements. Elle ne touche QUE ce tableau : les totaux
+         -- de l'écran décrivent le périmètre, pas la ligne cherchée.
+         AND ($10::text IS NULL OR
+              TRIM(COALESCE(us.first_name, '') || ' ' || COALESCE(us.last_name, ''))
+                ILIKE '%' || $10::text || '%'
+              OR COALESCE(sp.student_number, '') ILIKE '%' || $10::text || '%')
        ORDER BY (ps.due - ps.paid) DESC
-       LIMIT $8::int`,
+       LIMIT $9::int`,
       [
         ...scopeParams,
         OWNER_FINANCES_PRO_SETTLED_EPSILON,
         etat,
         OWNER_FINANCES_PRO_TOP_UNPAID,
+        recherche,
       ],
       log,
       "topUnpaid"
@@ -427,6 +552,7 @@ export async function fetchOwnerFinancesPro(
       periodStart: start,
       periodEnd: end,
       filiereIds: filiereIds ?? [],
+      nomClasse,
       semestreId,
       mode: mode as OwnerFinancesProMode | null,
       etat,
@@ -434,10 +560,20 @@ export async function fetchOwnerFinancesPro(
       totals: {
         expected: Math.round(expected),
         collected: Math.round(collected),
+        // `null` et non 0 : « rien n'est attendu » n'est pas « rien n'est
+        // recouvré ». Le zéro affichait 0 % sur un périmètre soldé — l'inverse
+        // de la situation, sur l'écran même des impayés. Aligné sur
+        // OwnerFinancesProTotalsSchema.recoveryRate (.nullable()).
         recoveryRate:
-          expected > 0 ? Math.round((collected * 1000) / expected) / 10 : 0,
+          expected > 0 ? Math.round((collected * 1000) / expected) / 10 : null,
         outstanding: Math.max(0, Math.round(expected - collected)),
         unsettledStudents: Number(t.unsettled) || 0,
+        // §4.4-6 : de quoi rapprocher ces totaux de ceux de la page admin
+        // Paiements, qui écarte les UE de conduite de son périmètre.
+        conduite: {
+          expected: Math.round(Number(cond.expected) || 0),
+          collected: Math.round(Number(cond.collected) || 0),
+        },
       },
       monthlyCollections: monthlyRows.map((r) => ({
         month: r.month,

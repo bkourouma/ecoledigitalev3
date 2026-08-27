@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Loader2,
   UserCheck,
@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -29,16 +28,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useOwnerAssiduite, buildQueryString } from "@/lib/hooks/use-owner-assiduite";
-import { ExportCsvButton } from "@/components/owner/charts/ExportCsvButton";
+import { OwnerPageHeader } from "@/components/owner/OwnerPageHeader";
+import { jourFr, tableOrNote, type OwnerReportContent } from "@/lib/utils/owner-report";
 import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
 import { StatCard } from "@/components/owner/charts/StatCard";
 import { BarChartCard } from "@/components/owner/charts/BarChartCard";
 import { LineChartCard } from "@/components/owner/charts/LineChartCard";
 import { HeatmapGrid } from "@/components/owner/charts/HeatmapGrid";
-import { FiliereFilter } from "@/components/owner/charts/FiliereFilter";
 import { VIZ_SEQUENTIAL, VIZ_STATUS, formatPct } from "@/components/owner/charts/palette";
 
-const ALL = "__all__";
 
 const JOURS = [
   { key: "1", label: "Lundi" },
@@ -55,30 +53,180 @@ const HEURES = Array.from({ length: 12 }, (_, i) => ({
   label: `${String(i + 8).padStart(2, "0")}h`,
 }));
 
+/**
+ * Fenêtre de dates déduite de la période globale.
+ *
+ * L'écran avait ses deux champs de dates ; la barre globale porte déjà une
+ * période, « Personnalisée » comprise. Deux sélecteurs pour la même dimension,
+ * c'est la garantie qu'ils divergent — et qu'on lise un taux de présence sur un
+ * mois en croyant lire l'année.
+ *
+ * `undefined` laisse l'API choisir sa fenêtre par défaut, qu'elle renvoie et
+ * que l'en-tête affiche : on n'invente pas de bornes ici.
+ */
+function fenetreDe(
+  period: string,
+  dateDebut?: string,
+  dateFin?: string
+): { dateDebut?: string; dateFin?: string } {
+  if (period === "custom") return { dateDebut, dateFin };
+  const jours = period === "month" ? 29 : period === "quarter" ? 89 : 364;
+  const fin = new Date();
+  const debut = new Date(fin);
+  debut.setUTCDate(debut.getUTCDate() - jours);
+  return {
+    dateDebut: debut.toISOString().slice(0, 10),
+    dateFin: fin.toISOString().slice(0, 10),
+  };
+}
+
 export default function OwnerAssiduitePage() {
-  const [dateDebut, setDateDebut] = useState<string>("");
-  const [dateFin, setDateFin] = useState<string>("");
-  const [semestreId, setSemestreId] = useState<string>(ALL);
+  // Filières, semestre et période viennent tous de la barre globale. L'écran
+  // n'a plus d'état de filtre du tout.
+  const {
+    filiereIds,
+    semestreId,
+    period,
+    dateDebut,
+    dateFin,
+    options: filters,
+  } = useOwnerFilters();
 
-  // Filières prises dans le filtre global ; le semestre reste propre à l'écran.
-  const { filiereIds, options: filters } = useOwnerFilters();
-
-  // Un semestre choisi peut ne plus appartenir aux filières retenues.
-  useEffect(() => {
-    setSemestreId(ALL);
-  }, [filiereIds]);
-
-  const params = useMemo(
-    () => ({
-      dateDebut: dateDebut || undefined,
-      dateFin: dateFin || undefined,
+  const params = useMemo(() => {
+    const fenetre = fenetreDe(period, dateDebut, dateFin);
+    return {
+      ...fenetre,
       filiereIds: filiereIds.length > 0 ? filiereIds : undefined,
-      semestreId: semestreId === ALL ? undefined : semestreId,
-    }),
-    [dateDebut, dateFin, filiereIds, semestreId]
-  );
+      semestreId,
+    };
+  }, [period, dateDebut, dateFin, filiereIds, semestreId]);
 
   const { data, isLoading, error } = useOwnerAssiduite(params);
+
+  /**
+   * Les étudiants les plus absents ouvrent le rapport : c'est la seule partie
+   * nominative, donc la seule sur laquelle on convoque quelqu'un. Le reste
+   * décrit l'établissement, pas des personnes.
+   */
+  const construireRapport = (): OwnerReportContent => {
+    const d = data!;
+    return {
+      filename: "assiduite",
+      blocks: [
+        {
+          kind: "keyValues",
+          columns: 2,
+          items: [
+            ["Fenêtre", `Du ${d.dateDebut} au ${d.dateFin}`],
+            ["Taux de présence", `${d.kpis.presenceRate.toFixed(1)} %`],
+            ["Heures d'absence", d.kpis.absenceHours.toFixed(1)],
+            ["Taux d'appel effectué", `${d.kpis.callRate.toFixed(1)} %`],
+            ["Occupation des salles", `${d.kpis.roomOccupancyRate.toFixed(1)} %`],
+            ["Heures planifiées", d.kpis.plannedHours.toFixed(1)],
+            ["Amplitude ouvrable retenue", `${d.openingHoursPerWeek} h / semaine`],
+          ],
+        },
+        { kind: "heading", text: "Étudiants les plus absents", level: 1 },
+        tableOrNote(
+          [
+            { header: "Étudiant" },
+            { header: "Matricule", width: 34 },
+            { header: "Heures d'absence", width: 38, align: "right" },
+            { header: "dont excusées", width: 34, align: "right" },
+            { header: "Absences", width: 28, align: "right" },
+          ],
+          d.topAbsentStudents.map((s) => [
+            s.studentName,
+            s.matricule ?? "—",
+            s.absenceHours.toFixed(1),
+            s.excusedHours.toFixed(1),
+            String(s.absenceCount),
+          ]),
+          "Aucune absence enregistrée sur la période."
+        ),
+        { kind: "heading", text: "Présence par semaine et par filière", level: 1 },
+        tableOrNote(
+          [
+            { header: "Semaine du", width: 34 },
+            { header: "Filière" },
+            { header: "Taux de présence", width: 40, align: "right" },
+            { header: "Pointages", width: 30, align: "right" },
+          ],
+          d.attendanceByWeek.map((c) => [
+            jourFr(c.weekStart),
+            c.filiereName,
+            `${c.presentRate.toFixed(1)} %`,
+            String(c.totalRecords),
+          ]),
+          "Aucun pointage saisi sur la période."
+        ),
+        { kind: "heading", text: "Évolution du taux de présence", level: 1 },
+        tableOrNote(
+          [
+            { header: "Semaine du", width: 40 },
+            { header: "Taux de présence", width: 44, align: "right" },
+            { header: "Pointages", width: 34, align: "right" },
+          ],
+          d.presenceTrend.map((t) => [
+            jourFr(t.weekStart),
+            `${t.presentRate.toFixed(1)} %`,
+            String(t.totalRecords),
+          ]),
+          "Aucun pointage saisi sur la période."
+        ),
+        { kind: "pageBreak" },
+        { kind: "heading", text: "Utilisation des salles", level: 1 },
+        tableOrNote(
+          [
+            { header: "Salle" },
+            { header: "Code", width: 28 },
+            { header: "Bâtiment", width: 40 },
+            { header: "Capacité", width: 26, align: "right" },
+            { header: "Heures / semaine", width: 38, align: "right" },
+            { header: "Occupation", width: 32, align: "right" },
+          ],
+          d.roomUsage.map((r) => [
+            r.name,
+            r.code,
+            r.building ?? "—",
+            String(r.capacity),
+            r.weeklyHours.toFixed(1),
+            `${r.occupancyRate.toFixed(1)} %`,
+          ]),
+          "Aucune salle active sur ce périmètre."
+        ),
+        { kind: "heading", text: "Charge par enseignant", level: 1 },
+        tableOrNote(
+          [
+            { header: "Enseignant" },
+            { header: "Heures / semaine", width: 38, align: "right" },
+            { header: "ECUE", width: 24, align: "right" },
+            { header: "Filières", width: 26, align: "right" },
+            { header: "Compte", width: 24 },
+          ],
+          d.teacherLoad.map((t) => [
+            t.teacherName,
+            t.weeklyHours.toFixed(1),
+            String(t.ecueCount),
+            String(t.filiereCount),
+            t.hasUserAccount ? "Oui" : "Non",
+          ]),
+          "Aucune charge planifiée sur ce périmètre."
+        ),
+        { kind: "heading", text: "ECUE sans enseignant affecté", level: 1 },
+        tableOrNote(
+          [
+            { header: "UE", width: 30 },
+            { header: "Code ECUE", width: 34 },
+            { header: "ECUE" },
+            { header: "Filière", width: 50 },
+          ],
+          d.unassignedEcue.map((u) => [u.ueCode, u.ecueCode, u.ecueLibelle, u.filiereName]),
+          "Toutes les ECUE programmées ont un enseignant affecté."
+        ),
+      ],
+    };
+  };
 
   const semestreOptions = useMemo(() => {
     const all = filters?.semestres ?? [];
@@ -143,68 +291,23 @@ export default function OwnerAssiduitePage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">
-            Assiduité, salles et charge enseignante
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Du {data.dateDebut} au {data.dateFin}. Les taux de présence portent sur les
-            séances réellement tenues ; l&apos;occupation et la charge, sur l&apos;emploi du
-            temps planifié.
-          </p>
-        </div>
-        <ExportCsvButton
-          endpoint="/api/v1/owner/assiduite/export"
-          queryString={buildQueryString(params)}
-          filename="assiduite.csv"
-        />
-      </div>
+      <OwnerPageHeader
+        title="Assiduité"
+        question="Est-ce que mes élèves viennent, et mes salles servent-elles ?"
+        precision={`Du ${data.dateDebut} au ${data.dateFin}. Les taux de présence portent sur les séances réellement tenues ; l'occupation et la charge, sur l'emploi du temps planifié.`}
+        pdf={construireRapport}
+        csv={{
+          endpoint: "/api/v1/owner/assiduite/export",
+          queryString: buildQueryString(params),
+          filename: "assiduite.csv",
+        }}
+      />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Filtres</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="space-y-2">
-            <Label htmlFor="date-debut">Du</Label>
-            <Input
-              id="date-debut"
-              type="date"
-              value={dateDebut}
-              max={dateFin || undefined}
-              onChange={(e) => setDateDebut(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="date-fin">Au</Label>
-            <Input
-              id="date-fin"
-              type="date"
-              value={dateFin}
-              min={dateDebut || undefined}
-              onChange={(e) => setDateFin(e.target.value)}
-            />
-          </div>
-          {/* Les filières sont portées par la barre de filtre globale. */}
-          <div className="space-y-2">
-            <Label>Semestre</Label>
-            <Select value={semestreId} onValueChange={setSemestreId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Tous</SelectItem>
-                {semestreOptions.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.libelle}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      {/*
+        Aucune carte « Filtres » ici : filières, semestre et période sont tous
+        portés par la barre globale, en haut de l'écran. La fenêtre de dates
+        réellement retenue est celle qu'annonce l'API, rappelée sous le titre.
+      */}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
