@@ -78,7 +78,7 @@ export default function AdminMessagesPage() {
           <Mail className="mt-1 h-6 w-6 text-primary" />
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            <p className="max-w-2xl text-muted-foreground whitespace-nowrap text-sm md:text-base">
               Composez et envoyez des emails aux parents, enseignants et étudiants de
               l&apos;établissement, et consultez les messages qui vous sont adressés. Chaque envoi
               est tracé dans l&apos;application.

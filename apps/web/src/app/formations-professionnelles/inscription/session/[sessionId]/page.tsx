@@ -30,8 +30,8 @@ export default function InscriptionPage({ params }: { params: Promise<{ sessionI
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Inscription à la formation</h1>
-        <p className="text-muted-foreground">Remplissez le formulaire ci-dessous pour vous inscrire</p>
+        <h1 className="font-bold mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">Inscription à la formation</h1>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Remplissez le formulaire ci-dessous pour vous inscrire</p>
       </div>
 
       <SessionDisponibiliteChecker sessionId={sessionId} />

@@ -2,6 +2,12 @@ import type { Pool, PoolClient } from "pg";
 import type { FastifyBaseLogger } from "fastify";
 import type { OwnerFinancesPeriod, OwnerFinancesResponse } from "@ecoledigitale/contracts";
 import { PRO_ORDER_DATES_CTE } from "./owner-pro-annee.sql";
+import { ECARTS_DE_CAISSE_SQL } from "./owner-caisse.sql";
+import {
+  OUVERTURES_CTE,
+  OUVERTURES_PERIMETRE_CTE,
+  COMMANDES_PERIMETRE_CTE,
+} from "./owner-perimetre.sql";
 
 /**
  * Encaissements : combien est rentré sur la période, et d'où.
@@ -34,6 +40,9 @@ export type OwnerFinancesQuery = {
   anneeScolaire?: string;
   /** Restreint la moitié professionnelle. */
   filiereIds?: string[];
+  /** Ouverture de classe, clé « filiereId|nom » — contrat owner-perimetre.sql. */
+  nomClasse?: string;
+  semestreId?: string;
 };
 
 type Row = Record<string, unknown>;
@@ -142,6 +151,15 @@ export async function fetchOwnerFinances(
     endPrev.setUTCFullYear(endPrev.getUTCFullYear() - 1);
 
     const filieres = query.filiereIds?.length ? query.filiereIds : null;
+    /*
+       Le contrat de owner-perimetre.sql. La fenêtre de dates ci-dessus porte
+       déjà l'année demandée ; ces dimensions-ci portent l'APPARTENANCE de
+       l'ouverture, ce que des bornes de dates ne savent pas exprimer.
+    */
+    const anneeScolaire = query.anneeScolaire ?? null;
+    const nomClasse = query.nomClasse?.trim() ? query.nomClasse.trim() : null;
+    const semestreId = query.semestreId ?? null;
+    const perimetre = [tenantId, anneeScolaire, filieres, nomClasse, semestreId];
     /* ---- Ce que le module professionnel a réellement à offrir ------------- */
     // Mesuré une fois, sans filtre : une source vide doit être annoncée comme
     // non alimentée, jamais lue comme une contre-performance.
@@ -149,6 +167,13 @@ export async function fetchOwnerFinances(
       client,
       `SELECT (SELECT COUNT(*) FROM professional_payments WHERE tenant_id = $1::uuid)
             + (SELECT COUNT(*) FROM professional_orders WHERE tenant_id = $1::uuid) AS pro`,
+      /*
+         SANS FILTRE, DÉLIBÉRÉMENT — et donc le seul tableau de paramètres de ce
+         service à ne pas suivre le contrat du périmètre. Cette requête répond à
+         « le module professionnel est-il alimenté ? ». Une source vide l est
+         quel que soit le filtre, et la restreindre ferait dire « non alimenté »
+         à une classe simplement sans commande.
+      */
       [tenantId],
       log,
       "couverture"
@@ -158,29 +183,35 @@ export async function fetchOwnerFinances(
     const totalRows = await safeQuery<Row>(
       client,
       `WITH ${PRO_ORDER_DATES_CTE},
+       ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       ${COMMANDES_PERIMETRE_CTE},
        pro AS (
          SELECT COALESCE(SUM(pp.montant), 0)::float8 AS collected
            FROM professional_payments pp
            JOIN pro_order_dates d ON d.order_id = pp.order_id
+           JOIN commandes_perimetre cp ON cp.order_id = pp.order_id
           WHERE pp.tenant_id = $1::uuid
             AND pp.statut = 'confirme'
-            AND d.debut BETWEEN $2 AND $3
+            AND d.debut BETWEEN $6 AND $7
        ),
        pro_prev AS (
          SELECT COALESCE(SUM(pp.montant), 0)::float8 AS collected
            FROM professional_payments pp
            JOIN pro_order_dates d ON d.order_id = pp.order_id
+           JOIN commandes_perimetre cp ON cp.order_id = pp.order_id
           WHERE pp.tenant_id = $1::uuid
             AND pp.statut = 'confirme'
-            AND d.debut BETWEEN $4 AND $5
+            AND d.debut BETWEEN $8 AND $9
        ),
        pro_att AS (
          SELECT COALESCE(SUM(po.montant_total), 0)::float8 AS expected
            FROM professional_orders po
            JOIN pro_order_dates d ON d.order_id = po.id
+           JOIN commandes_perimetre cp ON cp.order_id = po.id
           WHERE po.tenant_id = $1::uuid
             AND po.statut <> 'annulee'
-            AND d.debut BETWEEN $2 AND $3
+            AND d.debut BETWEEN $6 AND $7
        )
        SELECT pro.collected AS pro_collected, pro_att.expected AS pro_expected,
               pro_prev.collected AS prev_collected
@@ -189,7 +220,14 @@ export async function fetchOwnerFinances(
       // paramètre non cité empêche Postgres d'en déduire le type — la requête
       // échouait silencieusement, tous les totaux revenaient à zéro pendant que
       // les ventilations, elles, affichaient 102 millions.
-      [tenantId, start, end, startPrev, endPrev],
+      /*
+         L'ANNÉE EST LAISSÉE À NULL ICI, comme sur la courbe de trésorerie.
+         Cette requête calcule aussi l'encaissé de l'exercice PRÉCÉDENT
+         (`collectedPreviousYear`) : filtrer sur l'année demandée en écarterait
+         les commandes et ramènerait la comparaison à zéro. Ce sont les bornes
+         de dates, déjà calées sur l'année, qui portent le temps.
+      */
+      [tenantId, null, filieres, nomClasse, semestreId, start, end, startPrev, endPrev],
       log,
       "totaux"
     );
@@ -202,30 +240,34 @@ export async function fetchOwnerFinances(
     const monthlyRows = await safeQuery<Row>(
       client,
       `WITH ${PRO_ORDER_DATES_CTE},
+       ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       ${COMMANDES_PERIMETRE_CTE},
        mois AS (
-         SELECT generate_series(date_trunc('month', $2::timestamptz),
-                                date_trunc('month', $3::timestamptz),
+         SELECT generate_series(date_trunc('month', $6::timestamptz),
+                                date_trunc('month', $7::timestamptz),
                                 INTERVAL '1 month') AS m
        )
        SELECT to_char(mois.m, 'YYYY-MM') AS month,
               to_char(mois.m, 'TMMon YYYY') AS label,
               COALESCE((SELECT SUM(pp.montant) FROM professional_payments pp
                          JOIN pro_order_dates d ON d.order_id = pp.order_id
+           JOIN commandes_perimetre cp ON cp.order_id = pp.order_id
                          WHERE pp.tenant_id = $1::uuid
                            AND pp.statut = 'confirme'
                            -- Mois de la CLASSE OUVERTE, pas du versement.
                            AND date_trunc('month', d.debut) = mois.m
-                           AND ($4::uuid[] IS NULL OR EXISTS (
+                           AND ($3::uuid[] IS NULL OR EXISTS (
                                  SELECT 1
                                    FROM professional_enrollments pe
                                    JOIN professional_ue_sessions s ON s.id = pe.ue_session_id AND s.tenant_id = pe.tenant_id
                                    JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
                                   WHERE pe.order_id = pp.order_id
                                     AND pe.tenant_id = pp.tenant_id
-                                    AND ue.filiere_id = ANY($4::uuid[])))), 0)::float8 AS professionnel
+                                    AND ue.filiere_id = ANY($3::uuid[])))), 0)::float8 AS professionnel
          FROM mois
         ORDER BY mois.m`,
-      [tenantId, start, end, filieres],
+      [...perimetre, start, end],
       log,
       "courbe"
     );
@@ -237,6 +279,9 @@ export async function fetchOwnerFinances(
     const byFiliereRows = await safeQuery<Row>(
       client,
       `WITH ${PRO_ORDER_DATES_CTE},
+       ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       ${COMMANDES_PERIMETRE_CTE},
        lignes AS (
          SELECT po.id AS order_id,
                 pr.id AS filiere_id,
@@ -244,15 +289,42 @@ export async function fetchOwnerFinances(
                 COUNT(*)::float8 AS n
            FROM professional_orders po
            JOIN pro_order_dates od ON od.order_id = po.id
+           JOIN commandes_perimetre cp ON cp.order_id = po.id
            JOIN professional_enrollments pe ON pe.order_id = po.id AND pe.tenant_id = po.tenant_id
            JOIN professional_ue_sessions s ON s.id = pe.ue_session_id AND s.tenant_id = pe.tenant_id
            JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
            LEFT JOIN programmes pr ON pr.id = ue.filiere_id AND pr.tenant_id = ue.tenant_id
           WHERE po.tenant_id = $1::uuid
             AND po.statut <> 'annulee'
-            AND od.debut BETWEEN $2 AND $3
-            AND ($4::uuid[] IS NULL OR pr.id = ANY($4::uuid[]))
+            AND od.debut BETWEEN $6 AND $7
+            AND ($3::uuid[] IS NULL OR pr.id = ANY($3::uuid[]))
           GROUP BY po.id, pr.id, pr.name
+         UNION ALL
+         /* Les commandes de FRAIS — inscription, scolarite, annexes, autres
+            (migrations 0122 et 0123) — n'inscrivent a aucune UE. Le JOIN interne
+            ci-dessus les ecartait : mesure sur cette base, 690 000 FCFA sur
+            960 000 manquaient au tableau, pendant que le total au-dessus, lui,
+            les comptait. Le total contredisait donc ses propres lignes.
+
+            Une seule ligne par commande, donc une part entiere : la classe est
+            portee par la commande (colonne programme_id), ce n'est pas une cle
+            de repartition. */
+         SELECT po.id AS order_id,
+                pr.id AS filiere_id,
+                COALESCE(pr.name, 'Sans filière') AS filiere_name,
+                1::float8 AS n
+           FROM professional_orders po
+           JOIN pro_order_dates od ON od.order_id = po.id
+           JOIN commandes_perimetre cp ON cp.order_id = po.id
+           LEFT JOIN programmes pr ON pr.id = po.programme_id AND pr.tenant_id = po.tenant_id
+          WHERE po.tenant_id = $1::uuid
+            AND po.statut <> 'annulee'
+            AND po.programme_id IS NOT NULL
+            AND od.debut BETWEEN $6 AND $7
+            AND ($3::uuid[] IS NULL OR pr.id = ANY($3::uuid[]))
+            AND NOT EXISTS (
+              SELECT 1 FROM professional_enrollments pe2
+               WHERE pe2.order_id = po.id AND pe2.tenant_id = po.tenant_id)
        ),
        parts AS (
          SELECT l.*, l.n / SUM(l.n) OVER (PARTITION BY l.order_id) AS part FROM lignes l
@@ -268,26 +340,52 @@ export async function fetchOwnerFinances(
          JOIN professional_orders po ON po.id = p.order_id AND po.tenant_id = $1::uuid
         GROUP BY p.filiere_id, p.filiere_name
         ORDER BY expected DESC`,
-      [tenantId, start, end, filieres],
+      [...perimetre, start, end],
       log,
       "parFiliere"
     );
 
+    /*
+       Écarts de caisse — arrivés ici AVEC le journal de caisse.
+       Une pièce comptable se lit avec ses écarts sous les yeux : les laisser
+       sur l'écran des Impayés obligeait à changer de page pour savoir si le
+       journal qu'on vient de lire est fiable.
+       Le fragment est partagé avec owner-tresorerie : deux écrans qui posent
+       la même question doivent y répondre par le même calcul.
+    */
+    const ecartRows = await safeQuery<Row>(
+      client,
+      `WITH ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       ${COMMANDES_PERIMETRE_CTE}
+       ${ECARTS_DE_CAISSE_SQL}`,
+      perimetre,
+      log,
+      "ecartsDeCaisse"
+    );
+    const ecart = ecartRows[0] ?? {};
+
     /* ---- Professionnel : par mode de règlement ---------------------------- */
     const byModeRows = await safeQuery<Row>(
       client,
-      `WITH ${PRO_ORDER_DATES_CTE}
+      `WITH ${PRO_ORDER_DATES_CTE},
+       ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       ${COMMANDES_PERIMETRE_CTE}
+       -- Pas de virgule ici : COMMANDES_PERIMETRE_CTE est la DERNIERE clause du
+       -- WITH. Une virgule de trop y rend 42601, que safeQuery avale en silence.
        SELECT pp.mode::text AS mode,
               COUNT(*)::int AS n,
               COALESCE(SUM(pp.montant), 0)::float8 AS amount
          FROM professional_payments pp
          JOIN pro_order_dates d ON d.order_id = pp.order_id
+           JOIN commandes_perimetre cp ON cp.order_id = pp.order_id
         WHERE pp.tenant_id = $1::uuid
           AND pp.statut = 'confirme'
-          AND d.debut BETWEEN $2 AND $3
+          AND d.debut BETWEEN $6 AND $7
         GROUP BY pp.mode
         ORDER BY amount DESC`,
-      [tenantId, start, end],
+      [...perimetre, start, end],
       log,
       "parMode"
     );
@@ -350,6 +448,16 @@ export async function fetchOwnerFinances(
         amount: franc(r.amount),
         count: Math.round(num(r.n)),
       })),
+      anomalies: {
+        ordersPaidWithoutPayment: {
+          count: Math.round(num(ecart.orders_no_payment)),
+          amount: franc(ecart.orders_no_payment_amount),
+        },
+        paymentsWithoutReceipt: {
+          count: Math.round(num(ecart.no_receipt)),
+          amount: franc(ecart.no_receipt_amount),
+        },
+      },
     };
   } finally {
     client.release();

@@ -137,13 +137,13 @@ export default function TeacherPaymentConfigsPage() {
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto p-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <Settings className="h-7 w-7 text-indigo-500 shrink-0" />
             Configuration des rémunérations
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Comment chaque enseignant est payé : salaire fixe, taux horaire ou les deux. Un
             enseignant sans configuration n&apos;apparaîtra dans aucun bulletin.
           </p>

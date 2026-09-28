@@ -252,9 +252,9 @@ export default function ScheduleResultPage() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+        className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3"
       >
-        <div className="flex items-center gap-4">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button
             variant="outline"
             onClick={() => router.back()}
@@ -264,8 +264,8 @@ export default function ScheduleResultPage() {
             Retour
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Résultat de Génération</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="whitespace-nowrap font-bold text-gray-900 text-2xl leading-tight md:text-3xl">Résultat de Génération</h1>
+            <p className="whitespace-nowrap text-gray-600 text-sm text-muted-foreground md:text-base">
               Visualisez et approuvez votre planning généré
             </p>
           </div>

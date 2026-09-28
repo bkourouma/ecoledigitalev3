@@ -13,7 +13,7 @@ export default function ParentSettingsPage() {
     <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8 max-w-4xl">
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Paramètres</h1>
-        <p className="text-gray-600 mt-2 text-sm sm:text-base">
+        <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
           Cette page est temporairement désactivée.
         </p>
       </div>
@@ -25,7 +25,7 @@ export default function ParentSettingsPage() {
     <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8 max-w-4xl">
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Paramètres</h1>
-        <p className="text-gray-600 mt-2 text-sm sm:text-base">
+        <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
           Gérez vos informations personnelles et vos préférences
         </p>
       </div>

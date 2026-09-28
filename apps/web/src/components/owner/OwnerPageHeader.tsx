@@ -40,8 +40,14 @@ import {
 export interface OwnerPageHeaderProps {
   /** Nom de l'écran, identique à son entrée de menu. */
   title: string;
-  /** La question à laquelle l'écran répond, en une phrase. */
-  question: string;
+  /**
+   * La question à laquelle l'écran répond, en une phrase.
+   *
+   * FACULTATIVE : certains écrans se passent de cette ligne, et un titre seul
+   * vaut mieux qu'une phrase imposée. Le sous-titre du PDF suit — il est vide
+   * quand l'écran n'en donne pas, plutôt que d'afficher « undefined ».
+   */
+  question?: string;
   /**
    * Précision propre à l'écran (fenêtre de dates calculée par l'API, source des
    * données…), affichée sous la question. Le périmètre des filtres, lui, est
@@ -53,7 +59,7 @@ export interface OwnerPageHeaderProps {
    * à chaque re-rendu d'une page qui en compte plusieurs milliers de lignes
    * coûterait cher pour un bouton parfois jamais pressé.
    */
-  pdf?: () => OwnerReportContent;
+  pdf?: () => OwnerReportContent | Promise<OwnerReportContent>;
   /** Export CSV existant de l'écran, quand l'API en propose un. */
   csv?: { endpoint: string; queryString?: string; filename: string };
 }
@@ -88,7 +94,14 @@ export function OwnerPageHeader({
 
   const exporterPdf = async (win: Window) => {
     if (!pdf) return;
-    await openReportPdf(buildOwnerReport(title, question, scope, pdf()), win);
+    /*
+       Le contenu peut être ASYNCHRONE, et l'awaiter ici ne change rien aux
+       écrans qui le rendent synchrone. Un écran dont le rapport doit contenir
+       plus que ce qu'il affiche — le journal de caisse, paginé à 25 lignes —
+       ne peut pas être forcé d'imprimer une page tronquée, ni de précharger
+       l'intégralité à chaque visite pour un bouton parfois jamais pressé.
+    */
+    await openReportPdf(buildOwnerReport(title, question ?? "", scope, await pdf()), win);
   };
 
   return (
@@ -96,7 +109,9 @@ export function OwnerPageHeader({
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{question}</p>
+          {question ? (
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">{question}</p>
+          ) : null}
           {precision ? (
             <p className="mt-1 text-sm text-muted-foreground">{precision}</p>
           ) : null}

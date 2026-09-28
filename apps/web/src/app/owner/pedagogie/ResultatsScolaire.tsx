@@ -199,7 +199,7 @@ export function ResultatsScolaire() {
   return (
     <div className="space-y-8">
       <OwnerPageHeader
-        title="Résultats — Scolaire"
+        title="Notes & bulletins — Scolaire"
         question="Est-ce que mes élèves réussissent ?"
         precision="Moyennes saisies par période, réussite par programme, assiduité récente et devoirs corrigés. Lecture seule."
         pdf={construireRapport}

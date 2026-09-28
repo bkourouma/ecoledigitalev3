@@ -20,7 +20,7 @@ import { StatCard } from "@/components/owner/charts/StatCard";
 import { BarChartCard } from "@/components/owner/charts/BarChartCard";
 import { DonutChartCard } from "@/components/owner/charts/DonutChartCard";
 import { FiliereFilter } from "@/components/owner/charts/FiliereFilter";
-import { VIZ_SEQUENTIAL } from "@/components/owner/charts/palette";
+import { VIZ_SEQUENTIAL, formatFcfa } from "@/components/owner/charts/palette";
 
 const GENDER_LABELS: Record<string, string> = {
   masculin: "Masculin",
@@ -48,14 +48,15 @@ export default function OwnerPersonnesPage() {
    * lit sur les inscriptions professionnelles : auparavant le filtre filière
    * passait par `student_enrollments`, table vide, et vidait l'écran entier.
    */
-  const { anneeScolaire, filiereIds } = useOwnerFilters();
+  const { anneeScolaire, filiereIds, nomClasse } = useOwnerFilters();
 
   const params = useMemo(
     () => ({
       anneeScolaire: anneeScolaire ?? undefined,
       filiereIds: filiereIds.length > 0 ? filiereIds : undefined,
+      nomClasse: nomClasse ?? undefined,
     }),
-    [anneeScolaire, filiereIds]
+    [anneeScolaire, filiereIds, nomClasse]
   );
 
   const { data, isLoading, error } = useOwnerPersonnes(params);
@@ -161,6 +162,49 @@ export default function OwnerPersonnesPage() {
           ]),
           "Aucun enseignant enregistré."
         ),
+        /* Les deux files de relance figurent AUSSI à l'imprimé : ce sont les
+           seules pages de ce rapport qui se traduisent en appels, et un PDF
+           qu'on emporte en réunion sans elles perd ce qui s'y décide. */
+        { kind: "heading", text: "À réinscrire", level: 1 },
+        tableOrNote(
+          [
+            { header: "Étudiant" },
+            { header: "Matricule", width: 34 },
+            { header: "Dernière classe", width: 60 },
+            { header: "Année", width: 26 },
+            { header: "Contact", width: 50 },
+          ],
+          d.aRelancer.map((e) => [
+            e.nom,
+            e.matricule ?? "—",
+            e.derniereClasse ?? "—",
+            e.derniereAnnee ?? "—",
+            e.telephone ?? e.email ?? "—",
+          ]),
+          "Tous les anciens étudiants sont réinscrits sur cette année."
+        ),
+        { kind: "heading", text: "Enseignants sans affectation", level: 1 },
+        tableOrNote(
+          [
+            { header: "Enseignant" },
+            { header: "Contrat", width: 34 },
+            { header: "Coût mensuel", width: 40, align: "right" },
+          ],
+          d.enseignantsInactifs.map((t) => [
+            t.nom,
+            CONTRACT_LABELS[t.contractType ?? ""] ?? t.contractType ?? "—",
+            t.coutMensuel === null ? "non mesuré" : formatFcfa(t.coutMensuel),
+          ]),
+          "Tous les enseignants ont au moins une affectation."
+        ),
+        {
+          kind: "note",
+          text: `Sur ${d.relances.enseignantsSansAffectation} enseignant(s) sans affectation, ${d.relances.permanentsSansAffectation} sous contrat permanent : seuls ceux-là représentent un coût fixe qui ne produit rien.${
+            d.relances.coutMesure
+              ? ""
+              : " Aucun tarif n'étant saisi, ce coût ne peut pas être chiffré."
+          }`,
+        },
         { kind: "heading", text: "Couverture des données", level: 1 },
         {
           kind: "keyValues",
@@ -204,7 +248,7 @@ export default function OwnerPersonnesPage() {
   return (
     <div className="space-y-8">
       <OwnerPageHeader
-        title="Effectifs"
+        title="Personnes"
         question="Combien d'élèves, qui sont-ils, où sont-ils ?"
         precision={`Les totaux portent sur l'ensemble de l'établissement, contrairement aux compteurs des écrans Étudiants et Parents, calculés sur la page affichée. ${
           anneeScolaire
@@ -333,6 +377,143 @@ export default function OwnerPersonnesPage() {
           height={Math.max(220, data.topNationalities.length * 26 + 60)}
           series={[{ key: "effectif", label: "Étudiants", color: VIZ_SEQUENTIAL[1] }]}
         />
+      </div>
+
+      {/*
+        DEUX FILES DE RELANCE, UNE SEULE QUESTION : qui, nommément, représente
+        de l'argent qu'on ne fait pas travailler ? Elles passent avant la
+        couverture des données parce qu'elles se traduisent en appels dans la
+        journée, là où un rattachement manquant attend.
+      */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              À réinscrire
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                {data.relances.etudiantsARelancer}
+              </span>
+            </CardTitle>
+            <p className="text-xs font-normal text-muted-foreground">
+              Anciens étudiants sans inscription sur {anneeScolaire ?? "l'année en cours"}. Ils
+              connaissent l&apos;école : c&apos;est du chiffre d&apos;affaires récupérable à
+              coût quasi nul.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {data.aRelancer.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Tous les anciens étudiants sont réinscrits sur cette année.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Étudiant</TableHead>
+                    <TableHead>Dernière classe</TableHead>
+                    <TableHead>Contact</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.aRelancer.slice(0, 10).map((e) => (
+                    <TableRow key={e.studentId}>
+                      <TableCell>
+                        <div className="font-medium">{e.nom}</div>
+                        {e.matricule && (
+                          <div className="font-mono text-xs text-muted-foreground">
+                            {e.matricule}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {e.derniereClasse ?? "—"}
+                        {e.derniereAnnee && (
+                          <div className="text-xs">{e.derniereAnnee}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {e.telephone ?? e.email ?? (
+                          <span className="text-muted-foreground">aucun contact</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            {data.relances.etudiantsARelancer > data.aRelancer.length && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                … et {data.relances.etudiantsARelancer - data.aRelancer.length} autre(s).
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Enseignants sans affectation
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                {data.relances.enseignantsSansAffectation}
+              </span>
+            </CardTitle>
+            {/*
+              Le type de contrat fait toute la valeur de cette liste : un
+              permanent sans affectation est un coût fixe dormant, un freelance
+              sans affectation ne coûte rien. Les mélanger ne servirait aucune
+              décision.
+            */}
+            <p className="text-xs font-normal text-muted-foreground">
+              Dont <strong>{data.relances.permanentsSansAffectation} permanent(s)</strong> —
+              seuls ceux-là représentent un coût fixe qui ne produit rien.
+              {!data.relances.coutMesure &&
+                " Aucun tarif n'étant saisi, ce coût ne peut pas être chiffré ici."}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {data.enseignantsInactifs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Tous les enseignants ont au moins une affectation.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Enseignant</TableHead>
+                    <TableHead>Contrat</TableHead>
+                    <TableHead className="text-right">Coût mensuel</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.enseignantsInactifs.slice(0, 10).map((t) => (
+                    <TableRow key={t.teacherId}>
+                      <TableCell className="font-medium">{t.nom}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {t.contractType ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {/* « non mesuré », jamais 0 : un zéro se lirait
+                            « cet enseignant est gratuit ». */}
+                        {t.coutMensuel === null ? (
+                          <span className="text-xs italic text-muted-foreground">non mesuré</span>
+                        ) : (
+                          formatFcfa(t.coutMensuel)
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            {data.relances.enseignantsSansAffectation > data.enseignantsInactifs.length && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                … et{" "}
+                {data.relances.enseignantsSansAffectation - data.enseignantsInactifs.length}{" "}
+                autre(s).
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

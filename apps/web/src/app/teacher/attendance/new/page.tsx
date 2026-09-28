@@ -111,11 +111,11 @@ export default function TeacherNewAttendancePage() {
           Retour aux présences
         </Button>
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <UserCheck className="h-7 w-7 text-indigo-500" />
             Nouvelle présence
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Choisissez la session, planifiez la séance, puis faites l'appel.
           </p>
         </div>

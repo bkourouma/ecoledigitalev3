@@ -244,9 +244,17 @@ export default function DiplomesPage() {
           diplome: attestation.diplome,
           etudiant: {
             nom_complet: attestation.etudiant.nom_complet,
-            matricule,
-            date_naissance: student?.dateOfBirth ? String(student.dateOfBirth) : null,
-            lieu_naissance: student?.placeOfBirth ?? null,
+            // Repli sur le matricule porte par l'attestation : la ligne de
+            // candidat ne le fournit pas toujours, et un diplome sans
+            // matricule n'identifie pas son titulaire.
+            matricule: matricule ?? attestation.etudiant?.matricule ?? null,
+            date_naissance: student?.dateOfBirth
+              ? String(student.dateOfBirth)
+              : attestation.etudiant?.date_naissance
+                ? String(attestation.etudiant.date_naissance)
+                : null,
+            lieu_naissance:
+              student?.placeOfBirth ?? attestation.etudiant?.lieu_naissance ?? null,
           },
           date_obtention: attestation.date_obtention,
           annee_academique: anneeAcademique,
@@ -277,7 +285,7 @@ export default function DiplomesPage() {
           <GraduationCap className="h-7 w-7 text-emerald-500" />
           Diplômes
         </h1>
-        <p className="text-muted-foreground text-sm max-w-3xl">
+        <p className="text-muted-foreground max-w-3xl whitespace-nowrap text-sm md:text-base">
           Le diplôme couvre tout le cycle : il est délivrable une fois que l'étudiant a validé
           toutes les UE de chaque année (toutes ses attestations de réussite) — les 3 années de
           Licence ou les 2 de Master d'une même spécialité.
@@ -427,9 +435,9 @@ export default function DiplomesPage() {
       ) : (
         <Card className="shadow-sm overflow-hidden">
           <CardHeader className="border-b bg-muted/20">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
               <div>
-                <CardTitle className="text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
                   <GraduationCap className="h-4 w-4 text-emerald-500" />
                   {selectedGroup?.libelle}
                 </CardTitle>

@@ -16,6 +16,56 @@ function isCatalogueAdmin(roles: string[] | undefined): boolean {
 }
 
 export async function formationsProRoutes(fastify: FastifyInstance) {
+  /**
+   * Garde des routes d'ÉCRITURE du catalogue : administrateur authentifié du tenant.
+   *
+   * Ce module est enregistré en accès public, parce que la LECTURE du catalogue
+   * l'est. Ses routes de création, modification et suppression n'avaient pourtant
+   * aucune garde : une requête anonyme portant seulement l'en-tête X-Tenant
+   * atteignait le gestionnaire, et une suppression aboutissait. Seule la route
+   * « catalogue-support » vérifiait l'identité ; cette garde reprend exactement
+   * ses règles, pour les appliquer à toutes les écritures.
+   *
+   * Placée en preHandler : le tenant n'est résolu qu'à cette étape (plugin
+   * tenant-context). Une requête anonyme au corps invalide reçoit donc encore
+   * l'erreur de validation avant le refus ; aucune écriture n'est possible pour
+   * autant, ce qui est la propriété qui compte.
+   */
+  const requireCatalogueAdmin = async (request: any, reply: any) => {
+    let payload: ReturnType<typeof verifyToken>;
+    try {
+      const token = extractTokenFromHeader((request.headers as any).authorization);
+      if (!token) {
+        return reply.status(401).send({
+          success: false,
+          error: "AUTH_REQUIRED",
+          message: "Authentification requise",
+        });
+      }
+      payload = verifyToken(token);
+    } catch {
+      return reply.status(401).send({
+        success: false,
+        error: "INVALID_TOKEN",
+        message: "Jeton invalide ou expiré",
+      });
+    }
+    if (payload.tenantId !== request.tenantId) {
+      return reply.status(403).send({
+        success: false,
+        error: "TENANT_MISMATCH",
+        message: "Token et contexte locataire incohérents",
+      });
+    }
+    if (!isCatalogueAdmin(payload.roles)) {
+      return reply.status(403).send({
+        success: false,
+        error: "FORBIDDEN",
+        message: "Réservé aux administrateurs",
+      });
+    }
+  };
+
   const formationService = new FormationProService(fastify.pg as any);
   const pdfService = new PDFGenerationService();
   const supportsService = new SupportsCoursService(fastify.pg as any);
@@ -726,6 +776,7 @@ export async function formationsProRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/formations-pro - Create a new formation
   fastify.post("/", {
+    preHandler: requireCatalogueAdmin,
     schema: {
       tags: ["Formations Professionnelles"],
       summary: "Create a new professional training program",
@@ -1211,6 +1262,7 @@ export async function formationsProRoutes(fastify: FastifyInstance) {
 
   // PUT /api/v1/formations-pro/:slug - Update formation
   fastify.put("/:slug", {
+    preHandler: requireCatalogueAdmin,
     schema: {
       tags: ["Formations Professionnelles"],
       summary: "Update training program",
@@ -1390,6 +1442,7 @@ export async function formationsProRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/formations-pro/:id/sessions - Create a new session for a formation
   fastify.post("/:id/sessions", {
+    preHandler: requireCatalogueAdmin,
     schema: {
       tags: ["Formations Professionnelles"],
       summary: "Create training session",
@@ -1520,6 +1573,7 @@ export async function formationsProRoutes(fastify: FastifyInstance) {
 
   // PUT /api/v1/formations-pro/:id/sessions/:sessionId - Update a session
   fastify.put("/:id/sessions/:sessionId", {
+    preHandler: requireCatalogueAdmin,
     schema: {
       tags: ["Formations Professionnelles"],
       summary: "Update training session",
@@ -1624,6 +1678,7 @@ export async function formationsProRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/formations-pro/:id/sessions/:sessionId - Delete a session
   fastify.delete("/:id/sessions/:sessionId", {
+    preHandler: requireCatalogueAdmin,
     schema: {
       tags: ["Formations Professionnelles"],
       summary: "Delete training session",
@@ -2004,6 +2059,7 @@ export async function formationsProRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/formations-pro/:id - Delete a formation
   fastify.delete("/:id", {
+    preHandler: requireCatalogueAdmin,
     schema: {
       tags: ["Formations Professionnelles"],
       summary: "Delete a formation",

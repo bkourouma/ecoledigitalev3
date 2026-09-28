@@ -33,10 +33,10 @@ export default function ParentDiplomasPage() {
   return (
     <div className="space-y-8 max-w-5xl mx-auto p-6">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+        <h1 className="font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
           Diplômes de mon enfant
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Consultation en lecture seule des diplômes professionnels et de leur progression.
         </p>
       </div>

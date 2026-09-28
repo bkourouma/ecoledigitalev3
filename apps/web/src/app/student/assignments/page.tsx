@@ -196,7 +196,7 @@ export default function StudentAssignmentsPage() {
           <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
             <AlertCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
             <h2 className="mb-2 text-xl font-semibold text-foreground">Erreur de chargement</h2>
-            <p className="mb-6 text-sm text-muted-foreground">{error}</p>
+            <p className="mb-6 text-muted-foreground whitespace-nowrap text-sm md:text-base">{error}</p>
             <Button variant="outline" onClick={() => window.location.reload()}>
               Réessayer
             </Button>
@@ -210,14 +210,14 @@ export default function StudentAssignmentsPage() {
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="mb-8 rounded-xl border border-border bg-card/80 p-6 shadow-sm">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
             <div className="flex gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                 <ClipboardList className="h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Mes devoirs</h1>
-                <p className="mt-1 text-muted-foreground">
+                <h1 className="font-bold tracking-tight text-foreground whitespace-nowrap text-2xl leading-tight md:text-3xl">Mes devoirs</h1>
+                <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                   Consultez les échéances, téléchargez les sujets et accédez à vos soumissions.
                 </p>
               </div>
@@ -287,9 +287,9 @@ export default function StudentAssignmentsPage() {
                 )}
               >
                 <CardHeader className="pb-2">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
                     <div className="min-w-0 flex-1 space-y-1">
-                      <CardTitle className="text-lg text-foreground sm:text-xl">{assignment.title}</CardTitle>
+                      <CardTitle className="text-lg text-foreground sm:text-xl whitespace-nowrap text-2xl leading-tight md:text-3xl">{assignment.title}</CardTitle>
                       <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
                         <span className="inline-flex items-center gap-1.5">
                           <BookOpen className="h-3.5 w-3.5 shrink-0" />

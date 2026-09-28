@@ -5,10 +5,29 @@ import { useSession } from "next-auth/react";
 import { createApiHeaders } from "@/lib/api-utils";
 import type { OwnerRisqueResponse } from "@ecoledigitale/contracts";
 
-export function useOwnerRisque(filiereIds?: string[]) {
+export type OwnerRisqueParams = {
+  filiereIds?: string[];
+  /**
+   * Ouverture de classe, cle « filiereId|nom ». Ni annee ni semestre : cet
+   * ecran travaille sur une fenetre de 30 jours calee sur la derniere seance
+   * connue, pas sur un exercice.
+   */
+  nomClasse?: string;
+};
+
+/** Exporte pour que le bouton d export reutilise EXACTEMENT le perimetre affiche. */
+export function buildQueryString(p: OwnerRisqueParams): string {
+  const sp = new URLSearchParams();
+  if (p.filiereIds && p.filiereIds.length > 0) sp.set("filiereIds", p.filiereIds.join(","));
+  if (p.nomClasse) sp.set("nomClasse", p.nomClasse);
+  return sp.toString();
+}
+
+export function useOwnerRisque(params: OwnerRisqueParams) {
   const { data: session } = useSession();
   const tenantId = (session as { tenantId?: string } | null)?.tenantId ?? "no-tenant";
-  const qs = filiereIds?.length ? `?filiereIds=${filiereIds.join(",")}` : "";
+  const query = buildQueryString(params);
+  const qs = query ? `?${query}` : "";
 
   return useQuery<OwnerRisqueResponse>({
     queryKey: ["owner-risque", tenantId, qs],

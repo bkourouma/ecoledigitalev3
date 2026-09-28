@@ -234,13 +234,13 @@ export default function TeacherCorrectionsPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
+          <h1 className="font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <ClipboardCheck className="h-8 w-8 text-green-500 shrink-0" />
             Corrections
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Tous vos devoirs et examens en attente de correction, toutes filières
             et unités d'enseignement confondues.
           </p>

@@ -205,11 +205,11 @@ export default function StudentsReportPage() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+        className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3"
       >
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Rapport par Étudiant</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="font-bold text-gray-900 whitespace-nowrap text-2xl leading-tight md:text-3xl">Rapport par Étudiant</h1>
+          <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
             État des paiements de chaque étudiant
           </p>
         </div>

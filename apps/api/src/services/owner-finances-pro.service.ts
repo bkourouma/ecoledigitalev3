@@ -5,7 +5,12 @@ import type {
   OwnerFinancesProQuery,
   OwnerFinancesProResponse,
 } from "@ecoledigitale/contracts";
-import { CLE_NOM_DE_CLASSE_SQL, PRO_ORDER_DATES_CTE } from "./owner-pro-annee.sql";
+import { PRO_ORDER_DATES_CTE } from "./owner-pro-annee.sql";
+import {
+  OUVERTURES_CTE,
+  OUVERTURES_PERIMETRE_CTE,
+  COMMANDES_PERIMETRE_CTE,
+} from "./owner-perimetre.sql";
 
 /**
  * Recouvrement du Module Professionnel (UE / ECUE) — onglet Impayés.
@@ -156,62 +161,45 @@ function resolvePeriod(filters: OwnerFinancesProQuery): {
 }
 
 /**
- * Cohorte de commandes du périmètre.
- * $1 tenantId, $2 filiereIds (uuid[] | null), $3 semestreId (uuid | null),
- * $4 start (date), $5 end (date, borne exclue), $6 nomClasse (text | null).
+ * Périmètre des commandes de l'écran, bâti sur le socle partagé.
  *
- * La borne de dates porte sur le DÉBUT DE L'OUVERTURE, pas sur `created_at`.
- * Une commande sans inscription rattachée à une ouverture datée n'a pas de date
- * métier : la jointure interne l'écarte, plutôt que de la ranger arbitrairement
- * dans l'année du chargement des données.
+ * CE QUI A CHANGÉ, ET CE QUE ÇA CORRIGE
+ *
+ * Ce CTE posait trois EXISTS — filière, classe, semestre — qui passaient tous
+ * par professional_enrollments. Les commandes de FRAIS (inscription, scolarité,
+ * annexes, autres, migrations 0122 et 0123) n'ont aucune ligne dans cette table :
+ * dès qu'un filtre était posé, elles disparaissaient. Mesuré à l'API sur cette
+ * base : filtrer par classe faisait tomber l'attendu de 960 000 à 270 000 FCFA,
+ * alors que les six commandes appartiennent toutes à cette classe.
+ *
+ * Le socle (owner-perimetre.sql) traite les deux sortes de commandes : par les
+ * inscriptions quand il y en a, par la classe que porte la commande sinon.
+ *
+ * L'ANNÉE SCOLAIRE DEVIENT UN FILTRE À PART ENTIÈRE. Elle n'était jusqu'ici
+ * honorée qu'à travers resolvePeriod, et seulement pour period=academic_year :
+ * demander « 2026-2027 » avec une autre période retombait sur l'année civile.
+ * Elle filtre désormais l'appartenance de l'ouverture, indépendamment de la
+ * fenêtre de dates, qui reste ce qu'elle est — une période d'observation.
+ *
+ * Le nom order_scope et ses colonnes sont conservés : les huit requêtes qui le
+ * consomment n'ont pas à connaître le socle.
+ *
+ * Paramètres (contrat de owner-perimetre.sql, puis les deux propres à l'écran) :
+ * $1 tenantId, $2 anneeScolaire, $3 filiereIds, $4 nomClasse, $5 semestreId,
+ * $6 start (date), $7 sqlEnd (date, borne exclue).
  */
 const ORDER_SCOPE_CTE = `
   ${PRO_ORDER_DATES_CTE},
+  ${OUVERTURES_CTE},
+  ${OUVERTURES_PERIMETRE_CTE},
+  ${COMMANDES_PERIMETRE_CTE},
   order_scope AS (
-    SELECT o.id, o.student_id, o.montant_total::float8 AS montant_total, d.debut
-    FROM professional_orders o
-    JOIN pro_order_dates d ON d.order_id = o.id
-    WHERE o.tenant_id = $1::uuid
-      -- §4.4-3 : on ne se fie pas au statut pour l'encaissement, mais une commande
-      -- annulée ne fait pas partie du chiffre d'affaires attendu.
-      AND o.statut <> 'annulee'
-      AND d.debut >= $4::date
-      AND d.debut <  $5::date
-      AND ($6::text IS NULL OR EXISTS (
-        SELECT 1
-        FROM professional_enrollments en
-        JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
-        JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
-        WHERE en.order_id = o.id
-          AND en.tenant_id = o.tenant_id
-          AND en.statut <> 'annulee'
-          AND ${CLE_NOM_DE_CLASSE_SQL} = $6::text
-      ))
-      AND ($2::uuid[] IS NULL OR EXISTS (
-        SELECT 1
-        FROM professional_enrollments en
-        JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
-        JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
-        WHERE en.order_id = o.id
-          AND en.tenant_id = o.tenant_id
-          AND en.statut <> 'annulee'
-          AND u.filiere_id = ANY($2::uuid[])
-      ))
-      AND ($3::uuid IS NULL OR EXISTS (
-        SELECT 1
-        FROM professional_enrollments en
-        JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
-        WHERE en.order_id = o.id
-          AND en.tenant_id = o.tenant_id
-          AND en.statut <> 'annulee'
-          -- Piège §4.4-5 : double chemin semestre → sessions.
-          AND (
-            s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
-                     WHERE semestre_id = $3::uuid AND tenant_id = $1::uuid)
-            OR s.ue_id IN (SELECT ue_id FROM professional_semestre_ue
-                           WHERE semestre_id = $3::uuid AND tenant_id = $1::uuid)
-          )
-      ))
+    SELECT c.order_id AS id, c.student_id, c.montant_total, d.debut,
+           c.programme_id, c.par_inscription
+      FROM commandes_perimetre c
+      JOIN pro_order_dates d ON d.order_id = c.order_id
+     WHERE d.debut >= $6::date
+       AND d.debut <  $7::date
   )`;
 
 /**
@@ -236,15 +224,31 @@ export async function fetchOwnerFinancesPro(
   const filiereIds =
     filters.filiereIds && filters.filiereIds.length > 0 ? filters.filiereIds : null;
   const semestreId = filters.semestreId ?? null;
+  const anneeScolaire = filters.anneeScolaire ?? null;
   const mode = filters.mode ?? null;
   const etat = filters.etat ?? "tous";
   const nomClasse = filters.nomClasse?.trim() ? filters.nomClasse.trim() : null;
   const recherche = filters.recherche?.trim() ? filters.recherche.trim() : null;
   const { start, end, sqlEnd } = resolvePeriod(filters);
 
-  // $6 = nom de classe : il fait partie du PÉRIMÈTRE, au même titre que la
-  // filière, et doit donc être fourni par toute requête bâtie sur order_scope.
-  const scopeParams = [tenantId, filiereIds, semestreId, start, sqlEnd, nomClasse];
+  /*
+     Le contrat de owner-perimetre.sql, dans son ordre figé, puis les deux
+     paramètres propres à cet écran. Toute requête bâtie sur order_scope les
+     reçoit en bloc ; ses paramètres à elle commencent donc à $8.
+
+     L'ordre n'est pas négociable : c'est lui qui rend les fragments du socle
+     réutilisables d'un service à l'autre. La version précédente numérotait à sa
+     guise, et avait dû ajouter le nom de classe en $6 après coup.
+  */
+  const scopeParams = [
+    tenantId, // $1
+    anneeScolaire, // $2
+    filiereIds, // $3
+    nomClasse, // $4
+    semestreId, // $5
+    start, // $6
+    sqlEnd, // $7
+  ];
 
   const client = await pool.connect();
   try {
@@ -269,7 +273,7 @@ export async function fetchOwnerFinancesPro(
        )
        SELECT COALESCE(SUM(due), 0)::float8 AS expected,
               COALESCE(SUM(paid), 0)::float8 AS collected,
-              COUNT(*) FILTER (WHERE due - paid > $7::float8)::int AS unsettled
+              COUNT(*) FILTER (WHERE due - paid > $8::float8)::int AS unsettled
        FROM per_student`,
       [...scopeParams, OWNER_FINANCES_PRO_SETTLED_EPSILON],
       log,
@@ -331,8 +335,8 @@ export async function fetchOwnerFinancesPro(
          -- Grille pleine : un mois sans encaissement doit apparaître à zéro,
          -- sans quoi la courbe relie deux points distants comme s'ils étaient
          -- consécutifs.
-         SELECT generate_series(date_trunc('month', $4::timestamptz),
-                                date_trunc('month', $5::timestamptz - INTERVAL '1 day'),
+         SELECT generate_series(date_trunc('month', $6::timestamptz),
+                                date_trunc('month', $7::timestamptz - INTERVAL '1 day'),
                                 INTERVAL '1 month') AS m
        )
        SELECT to_char(mois.m, 'YYYY-MM') AS month,
@@ -369,7 +373,7 @@ export async function fetchOwnerFinancesPro(
        JOIN order_scope os ON os.id = p.order_id
        WHERE p.tenant_id = $1::uuid
          AND p.statut = 'confirme'
-         AND ($7::text IS NULL OR p.mode = $7::text)
+         AND ($8::text IS NULL OR p.mode = $8::text)
        GROUP BY p.mode
        ORDER BY amount DESC`,
       [...scopeParams, mode],
@@ -400,6 +404,19 @@ export async function fetchOwnerFinancesPro(
          WHERE en.tenant_id = $1::uuid
            AND en.statut <> 'annulee'
          GROUP BY en.order_id, u.filiere_id
+         UNION ALL
+         -- Les commandes de FRAIS n'inscrivent à aucune UE : le prorata
+         -- ci-dessus ne leur donne aucune part, et elles sortaient du tableau
+         -- alors que le total, lui, les comptait. Mesuré : 270 000 FCFA
+         -- ventilés sous un total de 960 000 — un total qui contredit ses
+         -- propres lignes coûte plus cher qu'un écran approximatif.
+         --
+         -- Part entière, et ce n'est pas une clé de répartition : la classe est
+         -- portée par la commande elle-même.
+         SELECT os.id, os.programme_id, os.montant_total
+         FROM order_scope os
+         WHERE NOT os.par_inscription
+           AND os.programme_id IS NOT NULL
        ),
        order_share_total AS (
          SELECT order_id, SUM(share) AS total FROM enrollment_share GROUP BY order_id
@@ -440,7 +457,7 @@ export async function fetchOwnerFinancesPro(
                 -- et non l'horodatage d'écriture de la commande, qui est le même
                 -- pour toute la base et rendait cette colonne muette.
                 MIN(os.debut) FILTER (
-                  WHERE os.montant_total - COALESCE(pp.paid, 0) > $7::float8
+                  WHERE os.montant_total - COALESCE(pp.paid, 0) > $8::float8
                 ) AS oldest_unpaid_at
          FROM order_scope os
          LEFT JOIN paid_per_order pp ON pp.order_id = os.id
@@ -464,21 +481,21 @@ export async function fetchOwnerFinancesPro(
        FROM per_student ps
        JOIN student_profiles sp ON sp.id = ps.student_id AND sp.tenant_id = $1::uuid
        JOIN users us ON us.id = sp.user_id AND us.tenant_id = sp.tenant_id
-       WHERE CASE $8::text
-               WHEN 'non_regle' THEN ps.paid <= $7::float8
-               WHEN 'partiel'   THEN ps.paid > $7::float8 AND ps.due - ps.paid > $7::float8
-               WHEN 'solde'     THEN ps.due - ps.paid <= $7::float8
-               ELSE ps.due - ps.paid > $7::float8
+       WHERE CASE $9::text
+               WHEN 'non_regle' THEN ps.paid <= $8::float8
+               WHEN 'partiel'   THEN ps.paid > $8::float8 AND ps.due - ps.paid > $8::float8
+               WHEN 'solde'     THEN ps.due - ps.paid <= $8::float8
+               ELSE ps.due - ps.paid > $8::float8
              END
          -- Recherche nom / prénom / matricule, comme le champ « Étudiant… » de
          -- la page admin Paiements. Elle ne touche QUE ce tableau : les totaux
          -- de l'écran décrivent le périmètre, pas la ligne cherchée.
-         AND ($10::text IS NULL OR
+         AND ($11::text IS NULL OR
               TRIM(COALESCE(us.first_name, '') || ' ' || COALESCE(us.last_name, ''))
-                ILIKE '%' || $10::text || '%'
-              OR COALESCE(sp.student_number, '') ILIKE '%' || $10::text || '%')
+                ILIKE '%' || $11::text || '%'
+              OR COALESCE(sp.student_number, '') ILIKE '%' || $11::text || '%')
        ORDER BY (ps.due - ps.paid) DESC
-       LIMIT $9::int`,
+       LIMIT $10::int`,
       [
         ...scopeParams,
         OWNER_FINANCES_PRO_SETTLED_EPSILON,

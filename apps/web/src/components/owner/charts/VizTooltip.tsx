@@ -25,11 +25,23 @@ export function VizTooltip({
 
   const fmt = valueFormatter ?? ((v: number) => new Intl.NumberFormat("fr-FR").format(v));
 
+  /**
+   * En-tête : la catégorie survolée. Elle n'existe QUE sur les graphiques à
+   * axe catégoriel — un camembert n'en a pas, et Recharts passe alors `label`
+   * à `undefined`. `String(undefined)` écrivait « undefined » en titre de
+   * chaque tranche survolée. Sans catégorie, on ne met pas d'en-tête : la
+   * ligne en dessous porte déjà le nom de la tranche et sa valeur.
+   */
+  const entete =
+    label === undefined || label === null || label === ""
+      ? null
+      : labelFormatter
+        ? labelFormatter(String(label))
+        : String(label);
+
   return (
     <div className="rounded-lg border bg-popover px-3 py-2 shadow-md text-popover-foreground">
-      <p className="text-xs font-medium mb-1.5">
-        {labelFormatter ? labelFormatter(String(label)) : String(label)}
-      </p>
+      {entete ? <p className="text-xs font-medium mb-1.5">{entete}</p> : null}
       <ul className="space-y-1">
         {payload.map((entry, i) => (
           <li key={`${entry.dataKey}-${i}`} className="flex items-center gap-2 text-xs">

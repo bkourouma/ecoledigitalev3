@@ -48,10 +48,10 @@ export default function TeacherStudentDetailPage() {
 
   if (error || !student) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Étudiant non trouvé</h1>
-          <p className="text-muted-foreground mb-4">L'étudiant demandé n'existe pas ou vous n'y avez pas accès.</p>
+          <h1 className="font-bold text-foreground mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">Étudiant non trouvé</h1>
+          <p className="text-muted-foreground mb-4 whitespace-nowrap text-sm md:text-base">L'étudiant demandé n'existe pas ou vous n'y avez pas accès.</p>
           <Button onClick={() => router.push('/teacher/students')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Retour aux étudiants
@@ -65,7 +65,7 @@ export default function TeacherStudentDetailPage() {
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button
             variant="outline"
             onClick={() => router.push('/teacher/students')}
@@ -76,12 +76,12 @@ export default function TeacherStudentDetailPage() {
           </Button>
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-foreground">
+              <h1 className="whitespace-nowrap font-bold text-foreground text-2xl leading-tight md:text-3xl">
                 {student.user?.firstName} {student.user?.lastName}
               </h1>
               {getStatusBadge(student.status)}
             </div>
-            <p className="text-muted-foreground">Matricule: {student.studentNumber}</p>
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">Matricule: {student.studentNumber}</p>
           </div>
         </div>
 

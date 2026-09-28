@@ -164,7 +164,7 @@ export default function EditFormateurPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-red-600">
             {isNotFound ? "Formateur non trouvé" : "Erreur de chargement"}
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             {isNotFound 
               ? "Le formateur demandé n'existe pas ou a été supprimé."
               : error?.message || "Une erreur s'est produite lors du chargement du formateur."}
@@ -196,20 +196,20 @@ export default function EditFormateurPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-7xl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 sm:mb-8">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button
           variant="outline"
           onClick={handleCancel}
-          className="flex items-center gap-2 w-full sm:w-auto"
+          className="flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Retour</span>
+          Retour
         </Button>
         <div className="flex-1 w-full min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold break-words">
+          <h1 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">
             Modifier le formateur
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground break-words">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             {formateur.prenom} {formateur.nom}
           </p>
         </div>

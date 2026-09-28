@@ -177,7 +177,7 @@ function RegisterForm() {
             </div>
           </div>
           <h1 className="text-4xl font-bold gradient-text">Inscription en ligne</h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Inscrivez votre/vos enfant(s) puis votre compte parent. Un administrateur
             validera la demande et vous recevrez tous les identifiants par email.
           </p>

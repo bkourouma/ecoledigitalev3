@@ -5,6 +5,18 @@ import type {
   OwnerEconomieResponse,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
 import { PRO_ORDER_DATES_CTE, anneeDe } from "./owner-pro-annee.sql";
+import {
+  OUVERTURES_CTE,
+  OUVERTURES_PERIMETRE_CTE,
+  COMMANDES_PERIMETRE_CTE,
+} from "./owner-perimetre.sql";
+import { ANNEE_CHARGE_SQL } from "./owner-charges.service";
+import {
+  bornesExercice,
+  CHARGES_EXERCICE_SQL,
+  PRODUITS_EXERCICE_SQL,
+  SALAIRES_EXERCICE_SQL,
+} from "./owner-resultat.sql";
 
 /**
  * Économie de l'établissement.
@@ -134,6 +146,14 @@ export async function fetchOwnerEconomie(
 ): Promise<OwnerEconomieResponse> {
   const filiereIds = query.filiereIds && query.filiereIds.length > 0 ? query.filiereIds : null;
   const annee = query.anneeScolaire ?? null;
+  /*
+     Contrat de owner-perimetre.sql. Ce service ordonnait ses paramètres
+     autrement ; l'alignement est ce qui rend ses requêtes réutilisables et,
+     surtout, ce qui lui donne le filtre par ouverture de classe.
+  */
+  const nomClasse = query.nomClasse?.trim() ? query.nomClasse.trim() : null;
+  const semestreId = query.semestreId ?? null;
+  const perimetre = [tenantId, annee, filiereIds, nomClasse, semestreId];
   const client = await pool.connect();
 
   try {
@@ -171,16 +191,33 @@ export async function fetchOwnerEconomie(
       client,
       `WITH ${PAID_PER_ORDER_CTE},
        ${PRO_ORDER_DATES_CTE},
+       ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       ${COMMANDES_PERIMETRE_CTE},
        /* Commandes du périmètre : celles dont la classe s'est ouverte pendant
           l'année demandée. Un seul endroit décide de l'appartenance annuelle,
           et tous les blocs de revenus en dépendent. */
+       /*
+          Le périmètre commun prend la place du filtre d'année local : il porte
+          les mêmes commandes, plus celles de FRAIS que l'ancien chemin perdait,
+          et il répond en outre à la classe et au semestre.
+       */
        commandes AS (
-         SELECT d.order_id
-           FROM pro_order_dates d
-          WHERE $3::text IS NULL OR ${anneeDe("d.debut")} = $3::text
+         SELECT order_id FROM commandes_perimetre
        ),
        /* Encaissé réparti par filière au prorata des inscriptions : une commande
-          peut porter des UE de plusieurs filières, on ne l'affecte jamais en bloc. */
+          peut porter des UE de plusieurs filières, on ne l'affecte jamais en bloc.
+
+          DEUX BRANCHES, parce qu'il y a deux sortes de commandes depuis les
+          migrations 0122 et 0123. Celles qui inscrivent à des UE se répartissent
+          au prorata ; celles de FRAIS — inscription, scolarité, annexes, autres —
+          n'inscrivent à rien et n'avaient donc aucune part : leur encaissement
+          n'était attribué à aucune filière et disparaissait du tableau des
+          marges, alors même qu'il figurait dans le total encaissé.
+
+          L'affectation directe de la seconde branche n'est PAS une clé de
+          répartition inventée : la commande porte elle-même sa classe
+          (colonne programme_id), et le montant lui revient donc en entier. */
        part_filiere AS (
          SELECT en.order_id, u.filiere_id, SUM(en.prix_unitaire)::float8 AS part
          FROM professional_enrollments en
@@ -189,6 +226,17 @@ export async function fetchOwnerEconomie(
          JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
          WHERE en.tenant_id = $1::uuid AND en.statut <> 'annulee'
          GROUP BY en.order_id, u.filiere_id
+         UNION ALL
+         SELECT po.id, po.programme_id, po.montant_total::float8
+         FROM professional_orders po
+         JOIN commandes c ON c.order_id = po.id
+         WHERE po.tenant_id = $1::uuid
+           AND po.programme_id IS NOT NULL
+           AND po.statut <> 'annulee'
+           AND NOT EXISTS (
+             SELECT 1 FROM professional_enrollments en2
+              WHERE en2.order_id = po.id AND en2.tenant_id = po.tenant_id
+                AND en2.statut <> 'annulee')
        ),
        total_commande AS (
          SELECT order_id, SUM(part) AS total FROM part_filiere GROUP BY order_id
@@ -237,22 +285,35 @@ export async function fetchOwnerEconomie(
              WHERE st.enseignant_id = tp.teacher_id
                AND st.tenant_id = tp.tenant_id
                AND u2.filiere_id IS NOT NULL
-               AND ($3::text IS NULL OR ${anneeDe("s2.date_debut")} = $3::text)
+               AND ($2::text IS NULL OR ${anneeDe("s2.date_debut")} = $2::text)
            ) f
          ) aff ON TRUE
          WHERE tp.tenant_id = $1::uuid
            AND tp.status IN ('calculated'::payment_status, 'approved'::payment_status, 'paid'::payment_status)
-           AND ($3::text IS NULL OR ${ANNEE_PAIE_SQL} = $3::text)
+           AND ($2::text IS NULL OR ${ANNEE_PAIE_SQL} = $2::text)
          GROUP BY aff.filiere_id
        ),
        /* Charges explicitement affectées à la filière. Les charges d'établissement
           (programme_id NULL) ne sont JAMAIS réparties : une clé inventée
           fabriquerait des marges sans signification comptable. */
+       /*
+          Charges imputées à une classe, POUR L'EXERCICE DEMANDÉ.
+
+          Ce bloc ne filtrait pas par année : une charge de 2024-2025 pesait sur
+          la marge de 2026-2027, et le loyer d'une rentrée passée rendait
+          déficitaire une promotion qui ne l'avait pas engagé. Tant qu'aucune
+          charge n'était saisissable, personne ne pouvait s'en apercevoir.
+
+          L'exercice vient de ANNEE_CHARGE_SQL : colonne explicite si le
+          comptable a dérogé, pivot septembre sur la date d'engagement sinon.
+       */
        charges AS (
-         SELECT programme_id AS filiere_id, SUM(amount)::float8 AS montant
-         FROM expenses
-         WHERE tenant_id = $1::uuid AND programme_id IS NOT NULL
-         GROUP BY programme_id
+         SELECT e.programme_id AS filiere_id, SUM(e.amount)::float8 AS montant
+         FROM expenses e
+         WHERE e.tenant_id = $1::uuid
+           AND e.programme_id IS NOT NULL
+           AND ($2::text IS NULL OR ${ANNEE_CHARGE_SQL} = $2::text)
+         GROUP BY e.programme_id
        ),
        effectifs AS (
          SELECT u.filiere_id, COUNT(DISTINCT en.student_id)::int AS etudiants
@@ -276,11 +337,11 @@ export async function fetchOwnerEconomie(
        LEFT JOIN charges ch ON ch.filiere_id = pr.id
        LEFT JOIN effectifs ef ON ef.filiere_id = pr.id
        WHERE pr.tenant_id = $1::uuid
-         AND ($2::uuid[] IS NULL OR pr.id = ANY($2::uuid[]))
+         AND ($3::uuid[] IS NULL OR pr.id = ANY($3::uuid[]))
          AND (r.encaisse IS NOT NULL OR ef.etudiants IS NOT NULL)
        ORDER BY COALESCE(r.encaisse, 0) DESC
        LIMIT ${ROWS_LIMIT}`,
-      [tenantId, filiereIds, annee],
+      perimetre,
       log,
       "margeParFiliere"
     );
@@ -316,6 +377,8 @@ export async function fetchOwnerEconomie(
     const familleRows = await safeRows<Row>(
       client,
       `WITH ${PAID_PER_ORDER_CTE},
+       ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
        perimetre AS (
          SELECT DISTINCT en.student_id
          FROM professional_enrollments en
@@ -323,8 +386,9 @@ export async function fetchOwnerEconomie(
          JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
          WHERE en.tenant_id = $1::uuid
            AND en.statut <> 'annulee'
-           AND ($2::uuid[] IS NULL OR u.filiere_id = ANY($2::uuid[]))
-           AND ($3::text IS NULL OR ${anneeDe("s.date_debut")} = $3::text)
+           /* Périmètre commun : filière, année, CLASSE et semestre d'un coup. */
+           AND EXISTS (SELECT 1 FROM ouvertures_perimetre op
+                        WHERE op.ue_session_id = en.ue_session_id)
        ),
        paiement_par_etudiant AS (
          SELECT o.student_id, SUM(COALESCE(pp.paid, 0))::float8 AS encaisse
@@ -359,7 +423,7 @@ export async function fetchOwnerEconomie(
        HAVING COALESCE(SUM(pe.encaisse), 0) > 0 OR COUNT(DISTINCT sp.student_id) > 1
        ORDER BY 4 DESC
        LIMIT ${ROWS_LIMIT}`,
-      [tenantId, filiereIds, annee],
+      perimetre,
       log,
       "ltvFamille"
     );
@@ -395,7 +459,9 @@ export async function fetchOwnerEconomie(
     // 2024-2025 pour répondre. Restreindre les deux donnerait 0 % partout.
     const retentionRows = await safeRows<Row>(
       client,
-      `WITH parcours AS (
+      `WITH ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       parcours AS (
          SELECT DISTINCT en.student_id, u.filiere_id, s.date_debut, s.date_fin
          FROM professional_enrollments en
          JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
@@ -405,8 +471,10 @@ export async function fetchOwnerEconomie(
        ),
        cohorte AS (
          SELECT * FROM parcours p
-          WHERE ($2::uuid[] IS NULL OR p.filiere_id = ANY($2::uuid[]))
-            AND ($3::text IS NULL OR ${anneeDe("p.date_debut")} = $3::text)
+          /* Périmètre commun, comme partout ailleurs dans ce service. */
+          WHERE EXISTS (SELECT 1 FROM ouvertures_perimetre op
+                         WHERE op.filiere_id = p.filiere_id
+                           AND op.date_debut = p.date_debut)
        ),
        bornes AS (
          SELECT student_id, filiere_id,
@@ -428,7 +496,7 @@ export async function fetchOwnerEconomie(
        GROUP BY pr.id, pr.name
        ORDER BY pr.name
        LIMIT ${ROWS_LIMIT}`,
-      [tenantId, filiereIds, annee],
+      perimetre,
       log,
       "retention"
     );
@@ -445,12 +513,157 @@ export async function fetchOwnerEconomie(
       };
     });
 
+    /*
+       LES CHARGES D ETABLISSEMENT ONT LEUR PROPRE REQUETE.
+
+       Premiere version : elles voyageaient sur chaque ligne du tableau des
+       marges, et le service lisait la premiere. C etait faux des qu aucune
+       filiere n avait d activite — un exercice sans cours mais avec un loyer
+       affichait zero charge, alors que la tresorerie, elle, etait bien sortie.
+       Une charge d etablissement ne depend d aucune filiere : sa requete non
+       plus.
+    */
+    const etabRows = await safeRows<Row>(
+      client,
+      `SELECT COALESCE(SUM(e.amount), 0)::float8 AS montant,
+              COUNT(*)::int AS nombre
+         FROM expenses e
+        WHERE e.tenant_id = $1::uuid
+          AND e.programme_id IS NULL
+          AND ($2::text IS NULL OR ${ANNEE_CHARGE_SQL} = $2::text)`,
+      [tenantId, annee],
+      log,
+      "chargesEtablissement"
+    );
+    const etabMontant = num(etabRows[0]?.montant);
+    const etabNombre = Math.round(num(etabRows[0]?.nombre));
+
+    /* ---- Compte de résultat à deux colonnes ------------------------------ */
+    /*
+       La lecture d'un expert-comptable : ce que l'école a GAGNÉ, et ce qui est
+       PASSÉ par la banque. L'écart entre les deux n'est pas une anomalie, c'est
+       l'information — il se décompose en trois soldes de clôture.
+
+       Sans millésime, l'exercice ne peut pas être borné : la barre accepte
+       « toutes années », un compte de résultat non. On rend alors un exercice
+       non mesurable plutôt que d'en inventer un sur douze mois glissants.
+    */
+    const exercice = bornesExercice(annee, query.baseExercice ?? "scolaire");
+    const jour = (d: Date) => d.toISOString().slice(0, 10);
+
+    const produitRows = exercice
+      ? await safeRows<Row>(
+          client,
+          `WITH ${PRO_ORDER_DATES_CTE},
+           ${OUVERTURES_CTE},
+           ${OUVERTURES_PERIMETRE_CTE},
+           ${COMMANDES_PERIMETRE_CTE}
+           ${PRODUITS_EXERCICE_SQL}`,
+          [...perimetre, jour(exercice.debut), jour(exercice.fin)],
+          log,
+          "resultatProduits"
+        )
+      : [];
+
+    const chargeRows = exercice
+      ? await safeRows<Row>(
+          client,
+          CHARGES_EXERCICE_SQL,
+          [tenantId, jour(exercice.debut), jour(exercice.fin)],
+          log,
+          "resultatCharges"
+        )
+      : [];
+
+    const salaireRows = exercice
+      ? await safeRows<Row>(
+          client,
+          SALAIRES_EXERCICE_SQL,
+          [tenantId, exercice.debut.toISOString(), exercice.fin.toISOString()],
+          log,
+          "resultatSalaires"
+        )
+      : [];
+
+    const pr = produitRows[0] ?? {};
+    const ch = chargeRows[0] ?? {};
+    const sa = salaireRows[0] ?? {};
+
+    /*
+       Une source vide n'est pas une source à zéro. Tant qu'aucune charge n'est
+       saisie et qu'aucun bulletin n'est calculé, les lignes sortent en
+       mesuree: false avec des montants null : elles n'entrent dans aucun total,
+       et le résultat se déclare non interprétable. Un résultat qui additionne
+       des charges absentes comme si elles valaient zéro annonce un bénéfice qui
+       n'existe pas.
+    */
+    const chargesMesurees = Math.round(num(ch.nombre_engage)) > 0;
+    const salairesMesures = Math.round(num(sa.nombre)) > 0;
+    const produitsMesures = exercice !== null;
+
+    const lignes = [
+      {
+        cle: "produits",
+        libelle: "Produits — scolarité et unités d'enseignement",
+        sens: "produit" as const,
+        engagement: produitsMesures ? Math.round(num(pr.engagement)) : null,
+        caisse: produitsMesures ? Math.round(num(pr.caisse)) : null,
+        mesuree: produitsMesures,
+        note: produitsMesures
+          ? "Engagement daté à l'ouverture de la classe financée ; caisse datée au versement. Les deux colonnes ne se recoupent pas ligne à ligne."
+          : "Choisir une année scolaire pour borner l'exercice.",
+      },
+      {
+        cle: "charges_externes",
+        libelle: "Charges externes",
+        sens: "charge" as const,
+        engagement: chargesMesurees ? Math.round(num(ch.engagement)) : null,
+        caisse: chargesMesurees ? Math.round(num(ch.caisse)) : null,
+        mesuree: chargesMesurees,
+        note: chargesMesurees
+          ? null
+          : "Aucune charge saisie sur cet exercice : la ligne n'est pas mesurée, elle ne vaut pas zéro.",
+      },
+      {
+        cle: "masse_salariale",
+        libelle: "Masse salariale enseignante",
+        sens: "charge" as const,
+        engagement: salairesMesures ? Math.round(num(sa.engagement)) : null,
+        caisse: salairesMesures ? Math.round(num(sa.caisse)) : null,
+        mesuree: salairesMesures,
+        note: salairesMesures
+          ? "Engagée à l'approbation du bulletin, décaissée au versement."
+          : "Aucun bulletin de paie calculé : la ligne n'est pas mesurée, elle ne vaut pas zéro.",
+      },
+    ];
+
+    const interpretable = lignes.every((l) => l.mesuree);
+    const sommeColonne = (cle: "engagement" | "caisse") =>
+      interpretable
+        ? lignes.reduce(
+            (t, l) => t + (l.sens === "produit" ? 1 : -1) * (l[cle] ?? 0),
+            0
+          )
+        : null;
+
     const totalEncaisse = marges.reduce((s, m) => s + m.encaisse, 0);
     const totalCout = marges.reduce((s, m) => s + m.coutEnseignant + m.chargesAffectees, 0);
 
     return {
       computedAt: new Date().toISOString(),
       anneeScolaire: annee,
+      chargesEtablissement: {
+        montant: Math.round(etabMontant),
+        nombre: etabNombre,
+        /*
+           Le seul chiffre de cet ecran qui soit un RESULTAT et non une marge :
+           la marge brute pedagogique, moins ce qui n est imputable a personne.
+           Il n existe volontairement pas de version par filiere.
+        */
+        resultatApresChargesEtablissement: Math.round(
+          totalEncaisse - totalCout - etabMontant
+        ),
+      },
       couverture: {
         coutEnseignantSaisi,
         chargesSaisies,
@@ -470,6 +683,23 @@ export async function fetchOwnerEconomie(
         tauxMargeBrute: rate(totalEncaisse - totalCout, totalEncaisse),
         famillesSuivies: familles.length,
         fratries: fratries.length,
+      },
+      compteDeResultat: {
+        base: exercice?.base ?? (query.baseExercice ?? "scolaire"),
+        debut: exercice ? exercice.debut.toISOString() : "",
+        fin: exercice ? exercice.fin.toISOString() : "",
+        libelle: exercice ? exercice.libelle : "Exercice non borné",
+        lignes,
+        soldes: {
+          creancesClients: produitsMesures ? Math.round(num(pr.creances)) : null,
+          salairesDus: salairesMesures ? Math.round(num(sa.dus)) : null,
+          dettesFournisseurs: chargesMesurees ? Math.round(num(ch.dettes)) : null,
+        },
+        resultat: {
+          engagement: sommeColonne("engagement"),
+          caisse: sommeColonne("caisse"),
+          interpretable,
+        },
       },
       marges,
       familles,

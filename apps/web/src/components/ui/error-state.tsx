@@ -69,7 +69,7 @@ export function PageError({
         <div className="mb-8">
           <AlertCircle className="h-24 w-24 text-red-500 mx-auto mb-6" />
           <h1 className="text-4xl font-bold text-gray-900 mb-4">{title}</h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-md mx-auto">{message}</p>
+          <p className="text-xl text-gray-600 mb-8 max-w-md mx-auto whitespace-nowrap text-sm md:text-base">{message}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           {onRetry && (

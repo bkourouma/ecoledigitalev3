@@ -21,7 +21,6 @@ import {
 import { ArrowLeft, Save, Loader2, Users, X } from "lucide-react";
 import { useStudents } from "@/lib/hooks/use-students";
 import { useParents, useAssignStudentToParent, useStudentParents, useUnassignStudentFromParent } from "@/lib/hooks/use-parents";
-import { useActiveAcademicYear } from "@/lib/hooks/use-academic-years";
 import { StudentWithUser } from "@ecoledigitale/contracts";
 
 export default function AssignStudentsToParentPage() {
@@ -32,16 +31,18 @@ export default function AssignStudentsToParentPage() {
   const [isPrimaryContact, setIsPrimaryContact] = useState(false);
   const [emergencyContact, setEmergencyContact] = useState(false);
   const [canPickup, setCanPickup] = useState(true);
-  const { data: activeAcademicYearData } = useActiveAcademicYear();
-  const activeAcademicYearId = activeAcademicYearData?.data?.id;
 
+  // Le rattachement parent-enfant n'a pas de dimension annuelle : la table de
+  // liaison ne porte aucune année scolaire. Filtrer ces deux listes sur
+  // l'année active vidait donc l'écran dès qu'un établissement n'inscrit pas
+  // ses étudiants par année académique -- c'est le cas du module professionnel,
+  // où les 63 étudiants et 46 parents du tenant devenaient 0 de part et d'autre,
+  // sans le moindre message.
   const { data: studentsData, isLoading: isLoadingStudents } = useStudents({
     limit: 1000,
-    academicYearId: activeAcademicYearId || undefined,
   });
   const { data: parentsData, isLoading: isLoadingParents } = useParents({
     limit: 1000,
-    academicYearId: activeAcademicYearId || undefined,
   });
   const { data: studentParentsData, isLoading: isLoadingStudentParents } = useStudentParents(selectedStudentId || "");
   
@@ -103,7 +104,7 @@ export default function AssignStudentsToParentPage() {
   return (
     <div className="container mx-auto px-6 py-8 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button
           variant="outline"
           size="sm"
@@ -113,10 +114,10 @@ export default function AssignStudentsToParentPage() {
           Retour
         </Button>
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent text-2xl leading-tight md:text-3xl">
             Assigner des étudiants aux parents
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Créez des relations entre les étudiants et leurs parents
           </p>
         </div>

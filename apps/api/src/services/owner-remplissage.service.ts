@@ -5,6 +5,7 @@ import type {
   OwnerRemplissageResponse,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
 import { anneeDe } from "./owner-pro-annee.sql";
+import { OUVERTURES_CTE, OUVERTURES_PERIMETRE_CTE } from "./owner-perimetre.sql";
 
 /**
  * Remplissage et planning.
@@ -127,13 +128,8 @@ const OVERLAP_CONDITION = `
 const CRENEAU_PERIMETRE = `
   EXISTS (
     SELECT 1
-      FROM professional_ue_sessions perim_s
-      JOIN professional_ue perim_u
-        ON perim_u.id = perim_s.ue_id AND perim_u.tenant_id = perim_s.tenant_id
-     WHERE perim_s.id = %ALIAS%.ue_session_id
-       AND perim_s.tenant_id = %ALIAS%.tenant_id
-       AND ($3::uuid[] IS NULL OR perim_u.filiere_id = ANY($3::uuid[]))
-       AND ($2::text IS NULL OR ${anneeDe("perim_s.date_debut")} = $2::text)
+      FROM ouvertures_perimetre perim_op
+     WHERE perim_op.ue_session_id = %ALIAS%.ue_session_id
   )`;
 
 /** `CRENEAU_PERIMETRE` appliqué à un alias de table donné. */
@@ -160,7 +156,15 @@ export async function fetchOwnerRemplissage(
   const anneeScolaire = query.anneeScolaire ?? null;
   // Ordre figé pour toutes les requêtes de l'écran : tenant, année, filières.
   // Un ordre unique évite les décalages de $N au fil des retouches.
-  const scopeParams = [tenantId, anneeScolaire, filiereIds];
+  /*
+     Ce service numérotait déjà [tenant, année, filières] : il suffit de le
+     compléter pour qu'il suive le contrat de owner-perimetre.sql, et il gagne
+     au passage le filtre par ouverture de classe et par semestre — deux
+     dimensions que son écran affiche pourtant.
+  */
+  const nomClasse = query.nomClasse?.trim() ? query.nomClasse.trim() : null;
+  const semestreId = query.semestreId ?? null;
+  const scopeParams = [tenantId, anneeScolaire, filiereIds, nomClasse, semestreId];
   const client = await pool.connect();
 
   try {
@@ -172,7 +176,9 @@ export async function fetchOwnerRemplissage(
     // sans elles, quatre années d'ouvertures n'existaient nulle part.
     const cohorteRows = await safeRows<Row>(
       client,
-      `SELECT
+      `WITH ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE}
+       SELECT
          s.id, s.libelle, s.date_debut, s.date_fin, s.statut,
          s.capacite_max,
          u.code AS ue_code, u.libelle AS ue_libelle,
@@ -182,14 +188,51 @@ export async function fetchOwnerRemplissage(
          (SELECT COUNT(*) FROM professional_enrollments pe
            WHERE pe.ue_session_id = s.id
              AND pe.tenant_id = s.tenant_id
-             AND pe.statut <> 'annulee')::int AS inscrits
+             AND pe.statut <> 'annulee')::int AS inscrits,
+         /* L OUVERTURE COMME LIGNE ECONOMIQUE.
+            Attendu : la somme des prix d inscription reellement poses sur
+            cette ouverture — et non le prix catalogue de l UE, qui ignorerait
+            les remises accordees a l inscription. */
+         (SELECT COALESCE(SUM(pe.prix_unitaire), 0) FROM professional_enrollments pe
+           WHERE pe.ue_session_id = s.id
+             AND pe.tenant_id = s.tenant_id
+             AND pe.statut <> 'annulee')::float8 AS ca_attendu,
+         /* Encaisse : les reglements confirmes des commandes qui financent
+            cette ouverture. Une commande peut en financer plusieurs — son
+            montant est donc reparti au prorata du nombre d inscriptions
+            qu elle porte, faute de quoi la premiere ouverture rencontree
+            absorberait tout le reglement. */
+         (SELECT COALESCE(SUM(pay.montant * pe_part.part), 0)
+            FROM professional_enrollments pe
+            JOIN professional_orders o
+              ON o.id = pe.order_id AND o.tenant_id = pe.tenant_id
+            JOIN professional_payments pay
+              ON pay.order_id = o.id AND pay.tenant_id = o.tenant_id
+             AND pay.statut = 'confirme'
+            CROSS JOIN LATERAL (
+              SELECT 1.0 / NULLIF((SELECT COUNT(*) FROM professional_enrollments pe2
+                                    WHERE pe2.order_id = o.id
+                                      AND pe2.tenant_id = o.tenant_id
+                                      AND pe2.statut <> 'annulee'), 0) AS part
+            ) pe_part
+           WHERE pe.ue_session_id = s.id
+             AND pe.tenant_id = s.tenant_id
+             AND pe.statut <> 'annulee')::float8 AS ca_encaisse,
+         /* Cout enseignant : le chemin est direct — payment_hour_details.seance_id
+            puis professional_ecue_seances.ue_session_id — mais la table peut
+            etre vide. NULL alors, jamais zero : voir couvertureEconomique. */
+         (SELECT SUM(phd.amount)
+            FROM payment_hour_details phd
+            JOIN professional_ecue_seances sc ON sc.id = phd.seance_id
+           WHERE sc.ue_session_id = s.id
+             AND sc.tenant_id = s.tenant_id)::float8 AS cout_enseignant
        FROM professional_ue_sessions s
        JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
        LEFT JOIN programmes pr ON pr.id = u.filiere_id AND pr.tenant_id = u.tenant_id
        WHERE s.tenant_id = $1::uuid
          AND s.statut <> 'annule'
-         AND ($3::uuid[] IS NULL OR u.filiere_id = ANY($3::uuid[]))
-         AND ($2::text IS NULL OR ${anneeDe("s.date_debut")} = $2::text)
+         /* Périmètre commun : filière, année, CLASSE et semestre d'un coup. */
+         AND EXISTS (SELECT 1 FROM ouvertures_perimetre op WHERE op.ue_session_id = s.id)
        ORDER BY s.date_debut DESC NULLS LAST
        LIMIT ${ROWS_LIMIT}`,
       scopeParams,
@@ -214,6 +257,16 @@ export async function fetchOwnerRemplissage(
           capacite,
           inscrits,
           tauxRemplissage: capacite ? rate(inscrits, capacite) : null,
+          caAttendu: Math.round(num(r.ca_attendu)),
+          caEncaisse: Math.round(num(r.ca_encaisse)),
+          resteDu: Math.max(0, Math.round(num(r.ca_attendu)) - Math.round(num(r.ca_encaisse))),
+          /* NULL et non 0 : une source vide n'est pas un coût nul, et un solde
+             bâti dessus annoncerait une rentabilité qui n'a pas été mesurée. */
+          coutEnseignant: r.cout_enseignant === null ? null : Math.round(num(r.cout_enseignant)),
+          solde:
+            r.cout_enseignant === null
+              ? null
+              : Math.round(num(r.ca_encaisse)) - Math.round(num(r.cout_enseignant)),
         };
       })
       // Ce qui appelle encore un arbitrage passe devant : une cohorte terminée
@@ -230,12 +283,39 @@ export async function fetchOwnerRemplissage(
         return (a.joursAvantDebut ?? 9999) - (b.joursAvantDebut ?? 9999);
       });
 
+    /* ---- Le coût enseignant est-il seulement mesurable ? ------------------- */
+    /*
+       Constat AVANT d'afficher quoi que ce soit, comme le veut la règle : si
+       `payment_hour_details` ne porte aucune heure rattachée à une séance, le
+       coût par ouverture n'existe pas — et on le DIT, au lieu de replier sur
+       une répartition au prorata des filières, qui est précisément la clé
+       inventée que ce chantier supprime ailleurs.
+
+       La mesure porte sur toute la table et non sur le périmètre : « la source
+       est-elle alimentée » reste la même question quel que soit le filtre.
+    */
+    const heuresRows = await safeRows<Row>(
+      client,
+      `SELECT COUNT(*)::int AS lignes,
+              COUNT(seance_id)::int AS avec_seance
+         FROM payment_hour_details`,
+      [],
+      log,
+      "couvertureHeures"
+    );
+    const heures = heuresRows[0] ?? {};
+    const lignesHeures = Math.round(num(heures.lignes));
+    const heuresRattachees = Math.round(num(heures.avec_seance));
+    const coutEnseignantMesure = heuresRattachees > 0;
+
     /* ---- Conflits de planning --------------------------------------------- */
     // `b.id > a.id` : sans cette borne, chaque conflit remonterait deux fois,
     // une fois dans chaque sens.
     const conflitRows = await safeRows<Row>(
       client,
-      `SELECT
+      `WITH ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE}
+       SELECT
          a.id AS a_id, b.id AS b_id,
          CASE WHEN a.classroom_id IS NOT NULL AND a.classroom_id = b.classroom_id
               THEN 'salle' ELSE 'enseignant' END AS type,
@@ -289,7 +369,9 @@ export async function fetchOwnerRemplissage(
     /* ---- Complétude du planning ------------------------------------------- */
     const gapRows = await safeRows<Row>(
       client,
-      `SELECT
+      `WITH ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE}
+       SELECT
          COUNT(*)::int AS total,
          COUNT(*) FILTER (WHERE classroom_id IS NULL)::int AS sans_salle,
          COUNT(*) FILTER (WHERE enseignant_id IS NULL)::int AS sans_enseignant
@@ -307,7 +389,9 @@ export async function fetchOwnerRemplissage(
     // (par session et par UE), comme partout ailleurs dans le module.
     const couvertureRows = await safeRows<Row>(
       client,
-      `WITH sem_sessions AS (
+      `WITH ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       sem_sessions AS (
          SELECT DISTINCT sem.id AS semestre_id, sem.libelle, sem.filiere_id, s.id AS ue_session_id
          FROM professional_semestres sem
          JOIN professional_ue_sessions s
@@ -320,8 +404,8 @@ export async function fetchOwnerRemplissage(
           )
          WHERE sem.tenant_id = $1::uuid
            AND s.statut <> 'annule'
-           AND ($3::uuid[] IS NULL OR sem.filiere_id = ANY($3::uuid[]))
-           AND ($2::text IS NULL OR ${anneeDe("s.date_debut")} = $2::text)
+           /* Périmètre commun, comme partout ailleurs dans ce service. */
+           AND EXISTS (SELECT 1 FROM ouvertures_perimetre op WHERE op.ue_session_id = s.id)
        ),
        attendus AS (
          SELECT ss.semestre_id, ss.libelle, ss.filiere_id, ss.ue_session_id, l.ecue_id
@@ -375,7 +459,9 @@ export async function fetchOwnerRemplissage(
     // la période couverte par les créneaux du périmètre.
     const ecartRows = await safeRows<Row>(
       client,
-      `WITH bornes AS (
+      `WITH ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       bornes AS (
          SELECT
            COALESCE(
              CASE WHEN $2::text IS NULL THEN NULL
@@ -457,6 +543,15 @@ export async function fetchOwnerRemplissage(
       },
       cohortes,
       conflits,
+      couvertureEconomique: {
+        coutEnseignantMesure,
+        raison: coutEnseignantMesure
+          ? null
+          : lignesHeures === 0
+            ? "Aucune heure de paie n'est enregistrée : le coût par ouverture n'est pas mesurable. Il n'est pas remplacé par une répartition au prorata, qui inventerait une clé."
+            : `Les ${lignesHeures} lignes d'heures de paie ne sont rattachées à aucune séance : le coût ne peut être imputé à une ouverture.`,
+        ouverturesValorisees: cohortes.filter((c) => c.caAttendu > 0).length,
+      },
       couverture,
     };
   } finally {

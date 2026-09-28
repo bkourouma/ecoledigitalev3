@@ -140,7 +140,7 @@ export default function ChildDetailPage() {
           </Link>
 
           {child && (
-            <div className="mt-4 flex flex-col lg:flex-row lg:items-center gap-6">
+            <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
               <div
                 className={`flex-shrink-0 h-20 w-20 rounded-2xl bg-gradient-to-br ${getGradient(child.id)} flex items-center justify-center text-white font-bold text-2xl shadow-lg`}
                 aria-hidden="true"
@@ -148,7 +148,7 @@ export default function ChildDetailPage() {
                 {getInitials(childName(child))}
               </div>
               <div className="flex-1 min-w-0">
-                <h1 className="text-3xl font-bold text-foreground">{childName(child)}</h1>
+                <h1 className="font-bold text-foreground whitespace-nowrap text-2xl leading-tight md:text-3xl">{childName(child)}</h1>
                 <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1.5 font-mono">
                     <Hash className="h-3.5 w-3.5" />

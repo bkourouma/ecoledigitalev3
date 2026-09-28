@@ -50,7 +50,8 @@ export function ResultatsProfessionnel() {
   //
   // L'invalidation du semestre au changement de filière est faite par le
   // contexte lui-même : chaque page n'a plus à s'en souvenir — ni à l'oublier.
-  const { anneeScolaire, filiereIds, semestreId, categorie, options: filters } = useOwnerFilters();
+  const { anneeScolaire, filiereIds, semestreId, nomClasse, categorie, options: filters } =
+    useOwnerFilters();
   const [statut, setStatut] = useState<"en_cours" | "termine" | "tous">("tous");
 
   const params = useMemo(
@@ -58,10 +59,11 @@ export function ResultatsProfessionnel() {
       anneeScolaire,
       filiereIds: filiereIds.length > 0 ? filiereIds : undefined,
       semestreId,
+      nomClasse: nomClasse ?? undefined,
       statut,
       categorie: categorie as OwnerUeCategorie | undefined,
     }),
-    [anneeScolaire, filiereIds, semestreId, statut, categorie]
+    [anneeScolaire, filiereIds, semestreId, nomClasse, statut, categorie]
   );
 
   const { data, isLoading, error } = useOwnerPedagogie(params);
@@ -285,7 +287,7 @@ export function ResultatsProfessionnel() {
   return (
     <div className="space-y-8">
       <OwnerPageHeader
-        title="Résultats — Professionnel"
+        title="Notes & bulletins — Professionnel"
         question="Est-ce que mes étudiants valident leurs UE ?"
         precision="Module professionnel (LMD). Les indicateurs sont agrégés en base : ils portent sur l'ensemble du périmètre, jamais sur une page affichée."
         pdf={construireRapport}

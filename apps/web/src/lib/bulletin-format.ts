@@ -199,16 +199,27 @@ export function isLicenceUnOuDeux(filiereName: string | null | undefined): boole
   return /licence\s*[12]\b/i.test(String(filiereName ?? ""));
 }
 
-/** Spécialité BTS : « LICENCE 1 GENIE LOGICIEL » → « BTS GENIE LOGICIEL ». */
-export function specialiteBts(filiereName: string | null | undefined): string {
-  const stripped = String(filiereName ?? "").replace(/^licence\s*[12]\s*/i, "").trim();
-  return stripped ? `BTS ${stripped}` : "BTS";
+/*
+ * Identité imprimée sur le bulletin de mise en page « BTS ».
+ *
+ * Les Licence 1 et 2 utilisent volontairement ce gabarit : c'est une MISE EN
+ * PAGE, pas un diplôme. Les anciens helpers en tiraient pourtant l'identité du
+ * titulaire — « Spécialité BTS GENIE LOGICIEL », « Niveau BTS 1 » — pour un
+ * étudiant inscrit en Licence. La forme du document avait déteint sur ce qu'il
+ * atteste. Ces deux fonctions impriment le niveau et la spécialité réels.
+ */
+
+/** Spécialité réelle : « LICENCE 1 GENIE LOGICIEL » → « GENIE LOGICIEL » (casse d'origine). */
+export function specialiteBulletin(filiereName: string | null | undefined): string {
+  const raw = String(filiereName ?? "").trim();
+  const sansGrade = raw.replace(/^\s*(licence|master|bts|doctorat)\s*\d*\s*/i, "").trim();
+  return sansGrade || raw || "—";
 }
 
-/** Niveau BTS : « LICENCE 1 … » → « BTS 1 ». */
-export function niveauBts(filiereName: string | null | undefined): string {
-  const m = String(filiereName ?? "").match(/licence\s*([12])/i);
-  return m ? `BTS ${m[1]}` : "BTS";
+/** Niveau réel : « LICENCE 1 … » → « LICENCE 1 ». */
+export function niveauBulletin(filiereName: string | null | undefined): string {
+  const m = String(filiereName ?? "").match(/\b(licence|master|bts|doctorat)\s*(\d)/i);
+  return m ? `${m[1].toUpperCase()} ${m[2]}` : gradeOf(filiereName);
 }
 
 /** Rang français : 1 → « 1er », n → « nème ». null → « — ». */

@@ -129,18 +129,18 @@ export default function ClassroomDetailPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-7xl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 sm:mb-8">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button
           variant="outline"
           onClick={() => router.push('/academic/classrooms')}
-          className="flex items-center gap-2 w-full sm:w-auto"
+          className="flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Retour</span>
+          Retour
         </Button>
         <div className="flex-1 w-full min-w-0">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-            <h1 className="text-2xl sm:text-3xl font-bold break-words">{classroom.name}</h1>
+            <h1 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">{classroom.name}</h1>
             <div className="flex flex-wrap items-center gap-2">
               <span className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-full font-medium whitespace-nowrap ${getStatusColor(classroom.status)}`}>
                 {getStatusLabel(classroom.status)}
@@ -150,7 +150,7 @@ export default function ClassroomDetailPage() {
               </span>
             </div>
           </div>
-          <p className="text-sm sm:text-base text-muted-foreground break-words">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Code: {classroom.code}
             {classroom.building && (
               <>

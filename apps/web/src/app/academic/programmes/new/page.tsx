@@ -17,16 +17,16 @@ export default function NewFilierePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button variant="outline" onClick={() => router.push("/academic/programmes")}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">
+          <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent text-2xl leading-tight md:text-3xl">
             Nouvelle filière
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Créez une nouvelle filière de formation
           </p>
         </div>

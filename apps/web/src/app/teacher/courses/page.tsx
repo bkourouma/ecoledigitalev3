@@ -98,10 +98,10 @@ export default function TeacherEcuePage() {
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+        <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
           Mes matières (ECUE)
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Les ECUE du Module Professionnel auxquelles vous avez été affecté.
         </p>
       </div>

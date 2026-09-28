@@ -146,11 +146,11 @@ export default function TeacherAssignmentsListPage() {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+        <h1 className="font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
           <FileText className="h-7 w-7 text-purple-500" />
           Historique des Évaluations
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Toutes les évaluations rattachées aux ECUE qui vous sont affectées, avec le détail complet.
         </p>
       </div>

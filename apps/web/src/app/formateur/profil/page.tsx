@@ -64,7 +64,7 @@ export default function FormateurProfilePage() {
       <div className="mb-6">
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-3">
+            <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
               <Link href="/formateur/dashboard">
                 <Button variant="ghost" size="sm">
                   <ArrowLeft className="h-4 w-4 mr-2" />
@@ -76,8 +76,8 @@ export default function FormateurProfilePage() {
                   <User className="h-6 w-6 text-primary" aria-hidden="true" />
                 </div>
                 <div>
-                  <CardTitle className="text-2xl">Mon Profil</CardTitle>
-                  <p className="text-muted-foreground text-sm mt-1">
+                  <CardTitle className="whitespace-nowrap text-2xl leading-tight md:text-3xl">Mon Profil</CardTitle>
+                  <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                     Gérez vos informations professionnelles et votre profil
                   </p>
                 </div>

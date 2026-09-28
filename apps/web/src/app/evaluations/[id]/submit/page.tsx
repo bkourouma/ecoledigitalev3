@@ -150,7 +150,7 @@ export default function SubmitHomeworkPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Chargement...</h2>
-          <p className="text-muted-foreground">Préparation du devoir</p>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Préparation du devoir</p>
         </div>
       </div>
     );
@@ -163,15 +163,16 @@ export default function SubmitHomeworkPage() {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Link href={`/evaluations/${assignmentId}`}>
           <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
         </Link>
         <div>
-          <h2 className="text-2xl font-bold">{assignment.title}</h2>
-          <p className="text-muted-foreground">Soumission de devoir</p>
+          <h2 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">{assignment.title}</h2>
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">Soumission de devoir</p>
         </div>
       </div>
 

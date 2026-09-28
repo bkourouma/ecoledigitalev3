@@ -41,10 +41,10 @@ export default function CreerInscriptionPage() {
 
       <div className="space-y-4 sm:space-y-6 w-full min-w-0">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3 sm:justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Créer une inscription</h1>
-            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+            <h1 className="whitespace-nowrap font-bold text-foreground text-2xl leading-tight md:text-3xl">Créer une inscription</h1>
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
               Sélectionnez une session pour créer une nouvelle inscription
             </p>
           </div>
@@ -115,7 +115,7 @@ export default function CreerInscriptionPage() {
               <Card key={session.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle className="text-lg">{session.formation.titre}</CardTitle>
-                  <p className="text-sm text-muted-foreground font-mono">{session.code_session}</p>
+                  <p className="text-muted-foreground font-mono text-xs">{session.code_session}</p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1 text-sm">

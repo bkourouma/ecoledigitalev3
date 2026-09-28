@@ -168,7 +168,7 @@ export default function AdminRolesPage() {
         <Shield className="h-6 w-6 text-blue-600" />
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Rôles &amp; permissions</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Créez des rôles et cochez les menus du sidebar Administration auxquels ils donnent
             accès.
           </p>

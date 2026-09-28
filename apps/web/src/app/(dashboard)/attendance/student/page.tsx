@@ -161,10 +161,10 @@ const StudentAttendancePage = () => {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold gradient-text mb-2">
+            <h1 className="font-bold gradient-text mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
               Mon Suivi de Présence
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
               Consultez votre historique de présence et vos statistiques
             </p>
           </div>

@@ -25,7 +25,7 @@ export default function EvaluationResultPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Chargement...</h2>
-          <p className="text-muted-foreground">Chargement des résultats</p>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Chargement des résultats</p>
         </div>
       </div>
     );
@@ -93,15 +93,16 @@ export default function EvaluationResultPage() {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Link href="/evaluations">
           <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
         </Link>
         <div>
-          <h2 className="text-2xl font-bold">{assignment.title}</h2>
-          <p className="text-muted-foreground">Résultats de l'évaluation</p>
+          <h2 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">{assignment.title}</h2>
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">Résultats de l'évaluation</p>
         </div>
       </div>
 

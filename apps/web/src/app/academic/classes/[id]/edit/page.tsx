@@ -57,16 +57,16 @@ export default function EditClassePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button variant="outline" onClick={() => router.push("/academic/classes")}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+          <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent text-2xl leading-tight md:text-3xl">
             Modifier la classe
           </h1>
-          <p className="text-muted-foreground mt-1">{classe.name}</p>
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">{classe.name}</p>
         </div>
       </div>
 

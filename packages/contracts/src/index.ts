@@ -83,6 +83,10 @@ export * from './exports';
 export * from './reporting';
 export * from "./owner.schema";
 export * from "./owner-stats.schema";
+export * from "./owner-charges.schema";
+export * from "./owner-scolarite.schema";
+export * from "./owner-documents.schema";
+export * from "./owner-programme.schema";
 
 // Rôles administratifs personnalisés + permissions sur les menus du sidebar admin
 export * from "./admin-roles.schema";
@@ -117,3 +121,6 @@ export * from "./professional-diplomas";
 
 
 
+
+// Prospection : provenance des étudiants, commerciaux et commissions
+export * from "./prospection";

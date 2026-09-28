@@ -447,7 +447,16 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   fastify.post("/login", {
     handler: async (request, reply) => {
-      const { email, password, activeRole } = loginSchema.parse(request.body);
+      const parsed = loginSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "Validation Error",
+          message: "Invalid request data",
+          details: parsed.error.errors,
+        });
+      }
+
+      const { email, password, activeRole } = parsed.data;
       const normalizedEmail = email.trim().toLowerCase();
 
       setRlsContext({

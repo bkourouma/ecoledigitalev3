@@ -341,6 +341,10 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       }
       const r = await client.query(
         `SELECT sm.id, sm.libelle,
+                -- Cloture : l'ecran de saisie doit le savoir AVANT la frappe,
+                -- sinon l'utilisateur remplit un formulaire que le serveur
+                -- refusera ligne par ligne.
+                sm.bulletins_clotures_at,
                 (SELECT count(DISTINCT s.id)::int FROM professional_ue_sessions s
                  WHERE s.tenant_id = sm.tenant_id AND (
                    s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
@@ -866,6 +870,35 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
       await this.attachGeneratedMeta(client, tenantId, semestreId, sp.rows[0].id, bulletin);
       return ok(bulletin);
     });
+  }
+
+  /**
+   * Bulletin de mise en page « BTS » de l'étudiant CONNECTÉ (Licence 1 et 2).
+   *
+   * Le gabarit BTS ne lit pas le même payload que le relevé LMD : il attend des
+   * lignes de disciplines à coefficients et un total de points. Lui passer le
+   * payload LMD produisait un document vide — identité correcte, tableau sans
+   * une ligne, total « — ». Cette méthode sert à l'étudiant les données que
+   * l'administration utilise pour éditer ce même bulletin.
+   *
+   * Le profil est résolu depuis l'utilisateur connecté : un étudiant n'obtient
+   * que le sien, jamais celui d'un camarade.
+   */
+  async getBulletinBtsForUser(
+    tenantId: string,
+    semestreId: string,
+    userId: string
+  ): Promise<ServiceResult<any>> {
+    const spId = await this.withTenant(tenantId, async (client) => {
+      const r = await client.query(
+        `SELECT sp.id FROM student_profiles sp
+          WHERE sp.user_id = $1 AND sp.tenant_id = $2 LIMIT 1`,
+        [userId, tenantId]
+      );
+      return r.rowCount === 0 ? null : (r.rows[0].id as string);
+    });
+    if (!spId) return fail("STUDENT_NOT_FOUND", "Profil étudiant introuvable.");
+    return this.getBulletinBts(tenantId, semestreId, spId);
   }
 
   /**

@@ -342,11 +342,11 @@ export default function TeacherHoursPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+              <h1 className="font-bold text-foreground flex items-center gap-3 whitespace-nowrap text-2xl leading-tight md:text-3xl">
                 <Clock className="w-8 h-8 text-purple-400 shrink-0" />
                 Mes Heures Enseignées
               </h1>
-              <p className="mt-2 text-muted-foreground">
+              <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                 Gestion et validation de vos heures d'enseignement
               </p>
             </div>

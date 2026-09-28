@@ -36,9 +36,7 @@ import {
   AdminEnrollStudentSchema,
   AdminEnrollBulkSchema,
   AdminUpdateEnrollmentSchema,
-  AdminRecordPaymentSchema,
-  AdminRecordStudentPaymentSchema,
-  EnrollmentIdsSchema,
+  RecordLotPaymentSchema,
   CreateProfessionalPaymentSchema,
   DiplomaCreateInputSchema,
   DiplomaUpdateInputSchema,
@@ -1884,6 +1882,22 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
+  // Bulletin de mise en page BTS de l'étudiant connecté (Licence 1 et 2) : les
+  // mêmes données que celles dont l'administration se sert pour l'éditer.
+  fastify.get(
+    "/student/bulletins/:semestreId/bts",
+    { preHandler: requireStudent },
+    handler(async (request, reply) => {
+      const { semestreId } = request.params as { semestreId: string };
+      const result = await bulletin.getBulletinBtsForUser(
+        request.tenantId as string,
+        semestreId,
+        currentUserId(request)
+      );
+      return sendResult(reply, result);
+    })
+  );
+
   // Historique de présence/absence de l'étudiant connecté.
   fastify.get(
     "/student/attendance",
@@ -3017,12 +3031,54 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
     })
   );
 
-  // Paiement d'un étudiant réparti sur plusieurs inscriptions (lot).
-  fastify.post(
-    "/enrollments/pay",
+  /* ------------------------------------------------------------------ *
+   * Scolarité — le barème complet par lot (un étudiant × une classe) :
+   * inscription, scolarité, frais annexes et autres frais, là où les
+   * routes `/enrollments/*` ne connaissent que les UE.
+   * ------------------------------------------------------------------ */
+
+  // Situation financière de tous les lots, filtrable par filière ou par classe.
+  fastify.get(
+    "/scolarite/lots",
     { preHandler: requireAdmin },
     handler(async (request, reply) => {
-      const parsed = AdminRecordStudentPaymentSchema.safeParse(request.body);
+      const q = request.query as Record<string, string | undefined>;
+      const result = await payment.adminListScolariteLots(request.tenantId as string, {
+        filiereId: q.filiere_id,
+        programmeId: q.programme_id,
+      });
+      return sendResult(reply, result);
+    })
+  );
+
+  // Détail d'un lot : lignes du barème, UE et historique des paiements.
+  fastify.get(
+    "/scolarite/lots/:studentId/:programmeId",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { studentId, programmeId } = request.params as {
+        studentId: string;
+        programmeId: string;
+      };
+      const result = await payment.adminGetScolariteLot(
+        request.tenantId as string,
+        studentId,
+        programmeId
+      );
+      return sendResult(reply, result);
+    })
+  );
+
+  // Encaisse un règlement sur une ligne du barème d'un lot.
+  fastify.post(
+    "/scolarite/lots/:studentId/:programmeId/pay",
+    { preHandler: requireAdmin },
+    handler(async (request, reply) => {
+      const { studentId, programmeId } = request.params as {
+        studentId: string;
+        programmeId: string;
+      };
+      const parsed = RecordLotPaymentSchema.safeParse(request.body);
       if (!parsed.success) {
         return reply.status(422).send({
           success: false,
@@ -3031,72 +3087,17 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
           details: parsed.error.issues,
         });
       }
-      const result = await payment.adminRecordStudentPayment(
+      const result = await payment.adminRecordLotPayment(
         request.tenantId as string,
-        parsed.data.enrollment_ids,
+        studentId,
+        programmeId,
+        parsed.data.ligne,
         {
           montant: parsed.data.montant,
           mode: parsed.data.mode,
           reference_transaction: parsed.data.reference_transaction || null,
         }
       );
-      return sendResult(reply, result, 201);
-    })
-  );
-
-  // Historique fusionné des paiements d'un lot (plusieurs inscriptions).
-  fastify.post(
-    "/enrollments/payments-history",
-    { preHandler: requireAdmin },
-    handler(async (request, reply) => {
-      const parsed = EnrollmentIdsSchema.safeParse(request.body);
-      if (!parsed.success) {
-        return reply.status(422).send({
-          success: false,
-          error: "VALIDATION_ERROR",
-          message: "Liste d'inscriptions invalide.",
-          details: parsed.error.issues,
-        });
-      }
-      const result = await payment.adminListPaymentsForEnrollments(
-        request.tenantId as string,
-        parsed.data.enrollment_ids
-      );
-      return sendResult(reply, result);
-    })
-  );
-
-  // Paiements d'une inscription (admin) : historique.
-  fastify.get(
-    "/enrollments/:id/payments",
-    { preHandler: requireAdmin },
-    handler(async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const result = await payment.adminListEnrollmentPayments(request.tenantId as string, id);
-      return sendResult(reply, result);
-    })
-  );
-
-  // Enregistrer un paiement (partiel possible) sur une inscription (admin).
-  fastify.post(
-    "/enrollments/:id/payments",
-    { preHandler: requireAdmin },
-    handler(async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const parsed = AdminRecordPaymentSchema.safeParse(request.body);
-      if (!parsed.success) {
-        return reply.status(422).send({
-          success: false,
-          error: "VALIDATION_ERROR",
-          message: "Paiement invalide.",
-          details: parsed.error.issues,
-        });
-      }
-      const result = await payment.adminRecordPayment(request.tenantId as string, id, {
-        montant: parsed.data.montant,
-        mode: parsed.data.mode,
-        reference_transaction: parsed.data.reference_transaction || null,
-      });
       return sendResult(reply, result, 201);
     })
   );
@@ -3112,21 +3113,6 @@ export async function professionalRoutes(fastify: FastifyInstance): Promise<void
         ue_id: q.ue_id,
         student_id: q.student_id,
         statut: q.statut,
-        page: q.page ? Number(q.page) : undefined,
-        pageSize: q.pageSize ? Number(q.pageSize) : undefined,
-      });
-      return sendResult(reply, result);
-    })
-  );
-
-  fastify.get(
-    "/payments",
-    { preHandler: requireAdmin },
-    handler(async (request, reply) => {
-      const q = request.query as Record<string, string | undefined>;
-      const result = await payment.adminListPayments(request.tenantId as string, {
-        statut: q.statut,
-        order_id: q.order_id,
         page: q.page ? Number(q.page) : undefined,
         pageSize: q.pageSize ? Number(q.pageSize) : undefined,
       });

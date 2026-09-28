@@ -127,14 +127,15 @@ export default function GradeSubmissionPage() {
   if (isLoadingPage) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Link href={`/academic/evaluations/${assignmentId}/grading`}>
             <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold">Chargement...</h2>
+            <h2 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">Chargement...</h2>
           </div>
         </div>
       </div>
@@ -144,15 +145,16 @@ export default function GradeSubmissionPage() {
   if (errorMessage || !assignment || !submission) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Link href={`/academic/evaluations/${assignmentId}/grading`}>
             <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold">Soumission indisponible</h2>
-            <p className="text-muted-foreground">
+            <h2 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">Soumission indisponible</h2>
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
               Impossible de charger les d&eacute;tails de cette copie pour le moment.
             </p>
           </div>
@@ -174,16 +176,17 @@ export default function GradeSubmissionPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Link href={`/academic/evaluations/${assignmentId}/grading`}>
             <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold">Correction - {submission.student_name}</h2>
-            <p className="text-muted-foreground">
+            <h2 className="whitespace-nowrap font-bold leading-tight text-2xl md:text-3xl">Correction - {submission.student_name}</h2>
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
               {assignment.title}
             </p>
           </div>

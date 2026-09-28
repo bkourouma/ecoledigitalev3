@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
+import { confirmerSiInscriptionSoldee } from "./professional-inscription-gate";
 
 /**
  * Service inscription — Module Professionnel (feature 030).
@@ -490,12 +491,103 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
   }
 
   /** Crée une commande avec une référence unique (statut fourni). */
+  /**
+   * Met en place les lignes du barème de la classe pour ce lot
+   * (un étudiant × une classe), et les tient à jour.
+   *
+   * Sans cela, un étudiant fraîchement inscrit ne devrait que ses UE :
+   * l'inscription, les frais annexes et les autres frais du barème
+   * (`cycles_frais`, écran /admin/finances/scolarite) ne seraient jamais
+   * facturés — et la règle « inscription incomplète tant que les frais
+   * d'inscription ne sont pas soldés » ne se déclencherait pas, faute de ligne
+   * d'inscription à solder.
+   *
+   * La ligne `scolarite` est un COMPLÉMENT : le barème de scolarité moins ce que
+   * couvrent déjà les commandes d'UE du lot. Elle est donc recalculée à chaque
+   * inscription, puisque chaque UE ajoutée la réduit d'autant.
+   *
+   * Idempotent : `uniq_prof_order_frais` garantit une commande par nature.
+   */
+  private async ensureBaremeOrders(
+    client: PoolClient,
+    tenantId: string,
+    studentId: string,
+    programmeId: string | null
+  ): Promise<void> {
+    if (!programmeId) return;
+
+    const bareme = await client.query(
+      `SELECT inscription::float8, annexes::float8, autres::float8, scolarite::float8, currency
+       FROM cycles_frais WHERE tenant_id = $1 AND programme_id = $2`,
+      [tenantId, programmeId]
+    );
+    if (bareme.rowCount === 0) return; // Classe sans barème : rien à facturer.
+    const { inscription, annexes, autres, scolarite, currency } = bareme.rows[0];
+
+    const ueCouvert = await client.query(
+      `SELECT COALESCE(SUM(montant_total), 0)::float8 AS total
+       FROM professional_orders
+       WHERE tenant_id = $1 AND student_id = $2 AND programme_id = $3
+         AND nature = 'ue' AND statut <> 'annulee'`,
+      [tenantId, studentId, programmeId]
+    );
+    const complement = Math.max(0, Number(scolarite) - Number(ueCouvert.rows[0].total));
+
+    const lignes: [string, number][] = [
+      ["inscription", Number(inscription)],
+      ["annexes", Number(annexes)],
+      ["autres", Number(autres)],
+      ["scolarite", complement],
+    ];
+
+    for (const [nature, montant] of lignes) {
+      if (montant <= 0) {
+        // Un complément retombé à zéro n'a plus lieu d'être — sauf s'il porte
+        // déjà des versements, auquel cas on n'y touche pas.
+        await client.query(
+          `DELETE FROM professional_orders o
+           WHERE o.tenant_id = $1 AND o.student_id = $2 AND o.programme_id = $3
+             AND o.nature = $4
+             AND NOT EXISTS (SELECT 1 FROM professional_payments p WHERE p.order_id = o.id)`,
+          [tenantId, studentId, programmeId, nature]
+        );
+        continue;
+      }
+
+      await client.query(
+        `INSERT INTO professional_orders
+           (tenant_id, student_id, programme_id, nature, reference, montant_total, devise, statut)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'en_attente_paiement')
+         ON CONFLICT (tenant_id, student_id, programme_id, nature)
+           WHERE nature NOT IN ('ue', 'transversal')
+         DO UPDATE SET montant_total = EXCLUDED.montant_total, updated_at = now()`,
+        [
+          tenantId,
+          studentId,
+          programmeId,
+          nature,
+          `FRAIS-${studentId}-${programmeId}-${nature}`,
+          montant,
+          currency || "XOF",
+        ]
+      );
+    }
+  }
+
+  /**
+   * Crée une commande avec sa référence.
+   *
+   * `programmeId` est la CLASSE que la commande concerne (migration 0122). Sans
+   * lui, la commande n'appartient à aucun lot : elle disparaît de l'écran
+   * Paiements étudiants, qui regroupe par (étudiant, classe).
+   */
   private async createOrderWithRef(
     client: PoolClient,
     tenantId: string,
     studentId: string,
     statut: string,
-    devise: string
+    devise: string,
+    programmeId: string | null
   ): Promise<any> {
     const year = new Date().getFullYear();
     const prefix = `PRO-${year}-`;
@@ -518,10 +610,11 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       await client.query("SAVEPOINT order_ref");
       try {
         const ins = await client.query(
-          `INSERT INTO professional_orders (tenant_id, student_id, reference, montant_total, devise, statut)
-           VALUES ($1,$2,$3,0,$4,$5)
+          `INSERT INTO professional_orders
+             (tenant_id, student_id, reference, montant_total, devise, statut, programme_id)
+           VALUES ($1,$2,$3,0,$4,$5,$6)
            RETURNING id`,
-          [tenantId, studentId, reference, devise, statut]
+          [tenantId, studentId, reference, devise, statut, programmeId]
         );
         await client.query("RELEASE SAVEPOINT order_ref");
         return ins.rows[0];
@@ -589,7 +682,8 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         tenantId,
         studentId,
         "en_attente_paiement",
-        session.devise
+        session.devise,
+        session.filiere_id
       );
       const ins = await client.query(
         `INSERT INTO professional_enrollments
@@ -599,11 +693,26 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         [tenantId, order.id, studentId, ueSessionId, session.prix ?? 0]
       );
       await this.recomputeOrderTotal(client, order.id);
+      await this.ensureBaremeOrders(client, tenantId, studentId, session.filiere_id);
       await this.syncSessionCapacity(client, ueSessionId);
+
+      // Frais d'inscription soldés -- ou absents du barème, auquel cas rien
+      // n'est dû : la scolarité s'ouvre immédiatement. Sans cette évaluation
+      // ici, la condition n'était jamais examinée qu'à l'encaissement : une
+      // classe sans frais d'inscription ne déclenchait donc aucun
+      // encaissement, donc aucune confirmation, et ses inscrits restaient
+      // invisibles de toute la scolarité (présences, notes, bulletins).
+      const scolariteOuverte = await confirmerSiInscriptionSoldee(
+        client,
+        tenantId,
+        studentId,
+        session.filiere_id
+      );
+
       return ok({
         id: ins.rows[0].id,
         order_id: order.id,
-        statut: "en_attente_paiement",
+        statut: scolariteOuverte ? "confirmee" : "en_attente_paiement",
         student_id: studentId,
         matricule,
       });
@@ -887,7 +996,8 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
         tenantId,
         studentId,
         "en_attente_paiement",
-        session.devise
+        session.devise,
+        session.filiere_id
       );
       const ins = await client.query(
         `INSERT INTO professional_enrollments
@@ -898,6 +1008,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
       );
       await this.syncSessionCapacity(client, ueSessionId);
       await this.recomputeOrderTotal(client, order.id);
+      await this.ensureBaremeOrders(client, tenantId, studentId, session.filiere_id);
       return ok({ id: ins.rows[0].id, statut: "en_attente_paiement", matricule });
     });
   }
@@ -1432,7 +1543,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
                 o.montant_total::float8 AS order_montant,
                 u.first_name, u.last_name,
                 COALESCE(filmat.matricule, sp.student_number) AS matricule,
-                fil.filiere_nom, fil.filiere_code, fil.ues,
+                fil.filiere_nom, fil.filiere_code, fil.vraie_filiere_nom, fil.ues,
                 fil.classe_nom, fil.annee_scolaire,
                 fil.semestre_id, fil.semestre_libelle
          FROM professional_payments p
@@ -1440,7 +1551,12 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
          JOIN student_profiles sp ON sp.id = o.student_id
          JOIN users u ON u.id = sp.user_id
          LEFT JOIN LATERAL (
+           -- prog est la CLASSE (voir 0116) ; la vraie filiere se lit sur la
+           -- table filieres, d'ou le second join. Les colonnes historiques
+           -- filiere_nom / filiere_code designent la classe : on les garde
+           -- telles quelles pour ne pas casser leurs lecteurs.
            SELECT prog.name AS filiere_nom, prog.code AS filiere_code, prog.id AS filiere_id,
+                  fl.name AS vraie_filiere_nom,
                   json_agg(json_build_object(
                     'code', ue.code, 'libelle', ue.libelle, 'montant', en.prix_unitaire
                   )) AS ues,
@@ -1460,6 +1576,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
            JOIN professional_ue_sessions s ON s.id = en.ue_session_id
            JOIN professional_ue ue ON ue.id = s.ue_id
            LEFT JOIN programmes prog ON prog.id = ue.filiere_id
+           LEFT JOIN filieres fl ON fl.id = prog.filiere_id
            LEFT JOIN LATERAL (
              SELECT sm.id, sm.libelle
              FROM professional_semestres sm
@@ -1474,7 +1591,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
              LIMIT 1
            ) sem ON TRUE
            WHERE en.order_id = o.id
-           GROUP BY prog.name, prog.code, prog.id
+           GROUP BY prog.name, prog.code, prog.id, fl.name
            ORDER BY prog.name
            LIMIT 1
          ) fil ON true

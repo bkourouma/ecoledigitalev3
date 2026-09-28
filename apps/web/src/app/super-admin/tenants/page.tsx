@@ -120,8 +120,8 @@ export default function SuperAdminTenantsPage() {
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold gradient-text">Tenants</h1>
-            <p className="text-muted-foreground">Creation et pilotage global des etablissements.</p>
+            <h1 className="font-bold gradient-text whitespace-nowrap text-2xl leading-tight md:text-3xl">Tenants</h1>
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Creation et pilotage global des etablissements.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" asChild>

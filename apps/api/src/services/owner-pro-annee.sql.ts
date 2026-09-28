@@ -40,25 +40,100 @@
  * horodatages ne distinguent pas les exercices. Les libellés des indicateurs le
  * disent.
  *
+ * LES COMMANDES QUI N'INSCRIVENT À RIEN
+ *
+ * Depuis les migrations 0122 et 0123, `professional_orders` porte aussi des
+ * commandes de FRAIS — inscription, scolarité, frais annexes, autres — qui ne
+ * financent aucune ouverture et n'ont donc AUCUNE ligne dans
+ * `professional_enrollments`. Deux JOIN internes les faisaient disparaître :
+ * mesuré sur la base de développement, 690 000 FCFA sur 960 000, soit 72 % des
+ * montants, sortaient du périmètre dès qu'une année ou une classe était
+ * choisie. L'écran annonçait « 2026-2027 » et montrait le quart de la vérité.
+ *
+ * D'où une cascade de replis, du plus précis au plus grossier, et un
+ * `CROSS JOIN LATERAL` qui ne perd jamais une commande :
+ *
+ *   1. les ouvertures que la commande finance ;
+ *   2. les ouvertures de SA classe (`programme_id`, migration 0122) où
+ *      l'étudiant est inscrit — c'est ce niveau qui récupère les frais ;
+ *   3. n'importe quelle ouverture où l'étudiant est inscrit ;
+ *   4. les ouvertures de la classe portée par la commande ;
+ *   5. à défaut, la date d'écriture de la ligne.
+ *
+ * `niveau` SORT DE LA REQUÊTE, et ce n'est pas décoratif : un montant daté par
+ * le niveau 5 est daté par défaut, pas mesuré. L'appelant qui l'affiche sans
+ * le dire présente une approximation comme un fait. Les niveaux 1 et 2 sont
+ * des rattachements pédagogiques ; les niveaux 4 et 5 sont des approximations.
+ *
  * Colonnes produites par `pro_order_dates` :
  *   order_id — `professional_orders.id`
- *   debut    — date de début de la plus ancienne ouverture de la commande
+ *   debut    — date de début retenue pour la commande
+ *   niveau   — 1 à 5, le rang du repli ayant fourni `debut` (cf. ci-dessus)
  *
  * Paramètre attendu : `$1` = tenant.
  */
 export const PRO_ORDER_DATES_CTE = `
   pro_order_dates AS (
     SELECT po.id AS order_id,
-           MIN(s.date_debut) AS debut
+           d.debut,
+           d.niveau
       FROM professional_orders po
-      JOIN professional_enrollments pe
-        ON pe.order_id = po.id AND pe.tenant_id = po.tenant_id
-      JOIN professional_ue_sessions s
-        ON s.id = pe.ue_session_id AND s.tenant_id = pe.tenant_id
+      /* LATERAL et non LEFT JOIN : le niveau 5 renvoie toujours une ligne, donc
+         aucune commande ne sort du perimetre faute de date. C'est exactement le
+         defaut que cette version corrige. */
+      CROSS JOIN LATERAL (
+        SELECT v.debut, v.niveau
+          FROM (
+            /* 1. Les ouvertures que cette commande finance. */
+            SELECT MIN(s.date_debut) AS debut, 1 AS niveau
+              FROM professional_enrollments en
+              JOIN professional_ue_sessions s
+                ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+             WHERE en.order_id = po.id AND en.tenant_id = po.tenant_id
+            UNION ALL
+            /* 2. Les ouvertures de SA classe ou l'etudiant est inscrit.
+                  Le niveau qui recupere les commandes de frais. */
+            SELECT MIN(s.date_debut), 2
+              FROM professional_enrollments en
+              JOIN professional_ue_sessions s
+                ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+              JOIN professional_ue ue
+                ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+             WHERE en.student_id = po.student_id AND en.tenant_id = po.tenant_id
+               AND po.programme_id IS NOT NULL AND ue.filiere_id = po.programme_id
+            UNION ALL
+            /* 3. Toute ouverture ou l'etudiant est inscrit. */
+            SELECT MIN(s.date_debut), 3
+              FROM professional_enrollments en
+              JOIN professional_ue_sessions s
+                ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+             WHERE en.student_id = po.student_id AND en.tenant_id = po.tenant_id
+            UNION ALL
+            /* 4. Les ouvertures de la classe portee par la commande. */
+            SELECT MIN(s.date_debut), 4
+              FROM professional_ue_sessions s
+              JOIN professional_ue ue
+                ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+             WHERE po.programme_id IS NOT NULL AND ue.filiere_id = po.programme_id
+               AND s.tenant_id = po.tenant_id
+            UNION ALL
+            /* 5. Dernier recours : la date d'ecriture de la ligne. Approximation
+                  assumee, signalee par le niveau. */
+            SELECT po.created_at::date, 5
+          ) v
+         WHERE v.debut IS NOT NULL
+         ORDER BY v.niveau
+         LIMIT 1
+      ) d
      WHERE po.tenant_id = $1::uuid
-       AND s.date_debut IS NOT NULL
-     GROUP BY po.id
   )`;
+
+/**
+ * Au-dela de ce rang, la date est une approximation et non un rattachement
+ * pedagogique. A comparer a `pro_order_dates.niveau` pour distinguer, dans un
+ * total, la part reellement datee de la part datee par defaut.
+ */
+export const PRO_DATE_NIVEAU_MESURE = 3;
 
 /**
  * NOM DE CLASSE porté par une ouverture — règle des écrans admin.

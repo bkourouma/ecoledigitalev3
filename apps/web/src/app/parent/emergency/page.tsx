@@ -36,8 +36,8 @@ export default function ParentEmergencyPage() {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Contacts d'urgence</h1>
-        <p className="text-gray-600">
+        <h1 className="font-bold text-gray-900 mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">Contacts d'urgence</h1>
+        <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
           Cette page est temporairement désactivée.
         </p>
       </div>
@@ -48,8 +48,8 @@ export default function ParentEmergencyPage() {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Contacts d'urgence</h1>
-        <p className="text-gray-600">
+        <h1 className="font-bold text-gray-900 mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">Contacts d'urgence</h1>
+        <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
           Gérez vos contacts d'urgence et les autorisations de récupération pour vos enfants
         </p>
       </div>

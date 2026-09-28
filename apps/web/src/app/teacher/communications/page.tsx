@@ -119,7 +119,7 @@ export default function TeacherCommunicationsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">Messages aux Parents</h2>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-gray-500 whitespace-nowrap text-sm md:text-base">
                   Envoyez et gérez vos messages aux parents de vos étudiants
                 </p>
               </div>

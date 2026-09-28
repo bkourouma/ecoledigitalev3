@@ -285,7 +285,19 @@ export function TeacherSeancesPanel({ sessionId }: { sessionId: string }) {
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             Effectué
                             <span className="font-normal">
-                              ({s.nb_present ?? 0}P · {s.nb_absent ?? 0}A)
+                              (
+                              {[
+                                `${s.nb_present ?? 0}P`,
+                                `${s.nb_absent ?? 0}A`,
+                                // Retards et absences justifiées n'apparaissaient
+                                // nulle part : une séance « 1P · 1A » pouvait en
+                                // cacher un troisième, pointé mais invisible.
+                                (s.nb_retard ?? 0) > 0 ? `${s.nb_retard}R` : null,
+                                (s.nb_excuse ?? 0) > 0 ? `${s.nb_excuse}E` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                              )
                             </span>
                           </span>
                         ) : (
@@ -428,7 +440,7 @@ export function SeanceAttendanceSheet({
         {query.isLoading ? (
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun étudiant inscrit confirmé.</p>
+          <p className="text-sm text-muted-foreground">Aucun étudiant inscrit confirmé. Si la classe compte pourtant des inscrits, c'est que leurs frais d'inscription ne sont pas soldés : une inscription reste « en attente de paiement » tant qu'ils ne le sont pas, et la scolarité ne la voit pas. Le solde se vérifie dans Paiements étudiants.</p>
         ) : (
           <div className="space-y-2">
             {items.map((it) => (

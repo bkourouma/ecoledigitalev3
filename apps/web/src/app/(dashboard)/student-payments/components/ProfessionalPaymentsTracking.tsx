@@ -32,7 +32,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 /**
  * Traçabilité des paiements du Module Professionnel, côté étudiant.
  *
- * Contrepartie de la page admin `/professionnel/admin/paiements` : l'étudiant y
+ * Contrepartie de la page admin `/admin/finances/student-payments` : l'étudiant y
  * retrouve ce que l'administration voit de LUI — ses UE regroupées par classe
  * puis par session, ce qui est dû, ce qui a été encaissé, ce qu'il reste à
  * régler, et la liste de ses versements.

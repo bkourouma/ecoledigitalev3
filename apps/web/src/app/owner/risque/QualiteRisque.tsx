@@ -16,7 +16,7 @@ import { OwnerPageHeader } from "@/components/owner/OwnerPageHeader";
 import { tableOrNote, type OwnerReportContent } from "@/lib/utils/owner-report";
 import { ChartCard } from "@/components/owner/charts/ChartCard";
 import { VIZ_STATUS, VIZ_SERIES, formatFcfa } from "@/components/owner/charts/palette";
-import { useOwnerRisque } from "@/lib/hooks/use-owner-risque";
+import { buildQueryString, useOwnerRisque } from "@/lib/hooks/use-owner-risque";
 import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
 import {
   CartesianGrid,
@@ -78,8 +78,11 @@ function Stat({
 /* --------------------------------- Page ----------------------------------- */
 
 export function QualiteRisque() {
-  const { filiereIds } = useOwnerFilters();
-  const { data, isLoading, isError, error, refetch } = useOwnerRisque(filiereIds);
+  const { filiereIds, nomClasse } = useOwnerFilters();
+  const { data, isLoading, isError, error, refetch } = useOwnerRisque({
+    filiereIds,
+    nomClasse: nomClasse ?? undefined,
+  });
   const [showAll, setShowAll] = useState(false);
 
   const k = data?.kpis;
@@ -229,9 +232,14 @@ export function QualiteRisque() {
         pdf={data ? construireRapport : undefined}
         csv={{
           endpoint: "/api/v1/owner/risque",
-          queryString: filiereIds.length
-            ? `format=csv&filiereIds=${filiereIds.join(",")}`
-            : "format=csv",
+          /* Le fichier exporte doit porter le perimetre affiche a l ecran :
+             un en-tete qui ment sur son contenu est pire que pas d en-tete. */
+          queryString: [
+            "format=csv",
+            buildQueryString({ filiereIds, nomClasse: nomClasse ?? undefined }),
+          ]
+            .filter(Boolean)
+            .join("&"),
           filename: "etudiants-a-risque.csv",
         }}
       />

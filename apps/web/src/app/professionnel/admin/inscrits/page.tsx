@@ -170,13 +170,13 @@ export default function ProfessionalInscritsPage() {
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <Users className="h-7 w-7 text-indigo-500" />
             Étudiants inscrits
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Toutes les inscriptions aux sessions du Module Professionnel.
           </p>
         </div>
@@ -267,7 +267,9 @@ export default function ProfessionalInscritsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        /* Deux cartes par ligne au maximum : elles portent la liste des UE de
+           l'étudiant, qui se comprime mal sur trois colonnes. */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {groups.map((g) => (
             <div
               key={g.key}

@@ -1,25 +1,28 @@
 "use client";
 
-import { OwnerTabs } from "@/components/owner/OwnerTabs";
-import { SanteReferentiel } from "./SanteReferentiel";
-import { FormationsPro } from "./FormationsPro";
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 /**
- * Catalogue — tout ce que l'établissement vend, et l'état de la structure qui
- * le décrit.
+ * Ancienne adresse du catalogue, devenue « Cycles, filières & classes »
+ * (`/owner/structure`).
  *
- * Le référentiel (cycles → filières → UE → ECUE) porte l'offre diplômante ; les
- * formations professionnelles courtes portent l'offre en entreprise. Deux
- * tables, deux modèles économiques, une seule question de fondateur : « qu'est-ce
- * que je propose, et est-ce que c'est propre ? »
+ * Le mot « référentiel » décrit une table, pas une question de fondateur.
+ * Depuis que chaque classe y porte son économie — ouvertures, barème, CA
+ * théorique, encaissé —, l'écran répond à « laquelle tourne, laquelle dort,
+ * laquelle facture », ce que le mot « référentiel » n'annonçait pas.
+ *
+ * Conservée en redirection, avec ses paramètres : un favori doit rouvrir le même
+ * périmètre et le même onglet, pas l'écran nu.
  */
-export default function OwnerCataloguePage() {
-  return (
-    <OwnerTabs
-      tabs={[
-        { value: "referentiel", label: "Offre diplômante", content: <SanteReferentiel /> },
-        { value: "formations", label: "Formations pro", content: <FormationsPro /> },
-      ]}
-    />
-  );
+export default function OwnerReferentielRedirect() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const qs = searchParams.toString();
+    router.replace(`/owner/structure${qs ? `?${qs}` : ""}`);
+  }, [router, searchParams]);
+
+  return <div className="text-muted-foreground">Redirection vers « Cycles, filières &amp; classes »…</div>;
 }

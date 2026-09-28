@@ -222,11 +222,11 @@ export default function TeacherConfigPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+              <h1 className="font-bold text-gray-900 flex items-center whitespace-nowrap text-2xl leading-tight md:text-3xl">
                 <Settings className="w-8 h-8 text-purple-600 mr-3" />
                 Configuration Personnelle
               </h1>
-              <p className="mt-2 text-gray-600">
+              <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
                 Gérez votre configuration de paiement et rémunération
               </p>
             </div>

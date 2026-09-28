@@ -152,8 +152,8 @@ export default function TeacherSettingsPage() {
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-purple-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center gap-4">
+          <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
+            <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
               <Link href="/teacher/profile">
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="h-4 w-4 mr-2" />
@@ -161,10 +161,10 @@ export default function TeacherSettingsPage() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight text-2xl md:text-3xl">
                   Paramètres
                 </h1>
-                <p className="text-gray-600 mt-1">
+                <p className="whitespace-nowrap text-gray-600 text-muted-foreground text-sm md:text-base">
                   Gérez vos préférences et informations de contact
                 </p>
               </div>

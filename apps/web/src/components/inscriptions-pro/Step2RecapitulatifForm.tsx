@@ -80,7 +80,7 @@ export function Step2RecapitulatifForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold mb-2">Récapitulatif</h2>
-        <p className="text-muted-foreground">Vérifiez vos informations avant de continuer</p>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Vérifiez vos informations avant de continuer</p>
       </div>
 
       <Card>

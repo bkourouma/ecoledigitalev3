@@ -63,8 +63,8 @@ export default function ParentChildrenPage() {
               <Users className="h-7 w-7 text-emerald-400" aria-hidden="true" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Mes Enfants</h1>
-              <p className="text-sm text-muted-foreground mt-1">
+              <h1 className="font-bold text-foreground whitespace-nowrap text-2xl leading-tight md:text-3xl">Mes Enfants</h1>
+              <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                 Suivez la scolarité de vos enfants en un coup d'œil
               </p>
             </div>

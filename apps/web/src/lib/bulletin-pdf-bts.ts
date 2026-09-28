@@ -18,9 +18,10 @@ import {
   genreLabel,
   appreciation,
   semestreLabelShort,
-  specialiteBts,
-  niveauBts,
+  specialiteBulletin,
+  niveauBulletin,
   rangLabel,
+  decisionLabel,
   appreciationGenerale,
   IPAM_GREEN_RGB,
   IPAM_GREEN_LIGHT_RGB,
@@ -34,6 +35,28 @@ const RIGHT = PAGE_W - M;
 
 const GREEN = IPAM_GREEN_RGB;
 const ZEBRA: [number, number, number] = [247, 250, 248];
+
+/**
+ * Décision imprimée sur le bulletin.
+ *
+ * Elle figurait à l'écran (« Décision du jury : ADMIS ») mais jamais sur le
+ * document, alors que le bulletin est précisément la pièce qui la porte.
+ *
+ * Garde-fou : `decisionLabel` retombe sur « AJOURNÉ » pour toute valeur
+ * inconnue — une décision ABSENTE deviendrait donc un échec imprimé.
+ *
+ * Pas de suffixe « (provisoire) ». Le statut provisoire d'un bulletin veut dire
+ * que le SEMESTRE n'est pas validé (il pourra l'être en rattrapant des dettes),
+ * pas que la décision du jury est en suspens. Après session 2 et clôture,
+ * « AJOURNÉ » est définitif ; l'écrire « AJOURNÉ (provisoire) » prêtait au
+ * verdict un statut qui appartient au semestre. Une décision réellement en
+ * attente s'écrit déjà d'elle-même : RATTRAPAGE.
+ */
+function decisionBulletin(data: any): string {
+  const d = data?.decision;
+  if (d !== "admis" && d !== "rattrapage" && d !== "ajourne") return "—";
+  return decisionLabel(d);
+}
 
 /** Dessine un bulletin BTS complet sur la page courante de `doc`. */
 async function drawBulletinBts(doc: jsPDF, data: any, imgs: HeaderImages): Promise<void> {
@@ -92,8 +115,8 @@ async function drawBulletinBts(doc: jsPDF, data: any, imgs: HeaderImages): Promi
   const COL2 = 118;
   kv(doc, "Nom et prénoms", studentName || "—", M, y, true);
   y += 6;
-  kv(doc, "Spécialité", specialiteBts(data.filiere?.name), M, y);
-  kv(doc, "Niveau", niveauBts(data.filiere?.name), COL2, y);
+  kv(doc, "Spécialité", specialiteBulletin(data.filiere?.name), M, y);
+  kv(doc, "Niveau", niveauBulletin(data.filiere?.name), COL2, y);
   y += 6;
   const neLe = `${fmtDateLongFr(data.student?.date_of_birth)}${
     data.student?.place_of_birth ? ` à ${data.student.place_of_birth}` : ""
@@ -213,7 +236,13 @@ async function drawBulletinBts(doc: jsPDF, data: any, imgs: HeaderImages): Promi
   y += 5.5;
 
   // ---------- Synthèse semestrielle ----------
-  const hstyle = { fontStyle: "bold", fillColor: GREEN, textColor: [255, 255, 255] as [number, number, number] };
+  // `as const` sur fontStyle : sans lui TypeScript élargit "bold" en string, que
+  // jspdf-autotable refuse — chaque en-tête de ce fichier était en erreur.
+  const hstyle = {
+    fontStyle: "bold" as const,
+    fillColor: GREEN,
+    textColor: [255, 255, 255] as [number, number, number],
+  };
   autoTable(doc, {
     startY: y,
     margin: { left: M, right: M },
@@ -233,11 +262,13 @@ async function drawBulletinBts(doc: jsPDF, data: any, imgs: HeaderImages): Promi
         { content: "Total des points", styles: hstyle },
         { content: "Moyenne semestrielle", styles: hstyle },
         { content: "Rang", styles: hstyle },
+        { content: "Décision du jury", styles: hstyle },
       ],
       [
         { content: fmtNote(data.total_points) },
         { content: fmtNote(data.moyenne_session), styles: { fontStyle: "bold" } },
         { content: rangLabel(data.rang), styles: { fontStyle: "bold" } },
+        { content: decisionBulletin(data), styles: { fontStyle: "bold" } },
       ],
     ],
   });
@@ -409,6 +440,19 @@ async function buildAllBulletinsBtsDoc(datas: any[]): Promise<jsPDF> {
   }
   drawWatermarkAllPages(doc, imgs.logoInstitut);
   return doc;
+}
+
+/**
+ * URL objet du PDF combiné, à afficher dans une visionneuse applicative.
+ * L'appelant est responsable de la révoquer.
+ *
+ * Pendant de `allBulletinsPdfObjectUrl` côté LMD : sans lui, l'espace étudiant
+ * n'avait d'autre choix que le gabarit LMD, y compris pour une classe de
+ * Licence 1 ou 2 dont l'administration édite un bulletin de style BTS.
+ */
+export async function allBulletinsBtsPdfObjectUrl(datas: any[]): Promise<string> {
+  const doc = await buildAllBulletinsBtsDoc(datas);
+  return URL.createObjectURL(doc.output("blob"));
 }
 
 /**

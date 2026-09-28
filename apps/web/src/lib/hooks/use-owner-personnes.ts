@@ -9,6 +9,13 @@ export type OwnerPersonnesParams = {
   /** Année scolaire dérivée `YYYY-YYYY`. Absente ⇒ toutes années cumulées. */
   anneeScolaire?: string;
   filiereIds?: string[];
+  /**
+   * Ouverture de classe, clé « filiereId|nom ». Elle agit sur les TROIS
+   * périmètres de cet écran — étudiants, enseignants et parents : ne la
+   * brancher que sur les étudiants ferait comparer une classe à tout
+   * l'établissement dans le ratio étudiants/enseignant.
+   */
+  nomClasse?: string;
 };
 
 /** Exporté pour que le bouton d'export réutilise EXACTEMENT le périmètre affiché. */
@@ -16,6 +23,7 @@ export function buildQueryString(p: OwnerPersonnesParams): string {
   const sp = new URLSearchParams();
   if (p.anneeScolaire) sp.set("anneeScolaire", p.anneeScolaire);
   if (p.filiereIds && p.filiereIds.length > 0) sp.set("filiereIds", p.filiereIds.join(","));
+  if (p.nomClasse) sp.set("nomClasse", p.nomClasse);
   return sp.toString();
 }
 

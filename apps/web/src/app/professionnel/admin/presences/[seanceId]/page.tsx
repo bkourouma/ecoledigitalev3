@@ -263,7 +263,7 @@ export default function SeanceDetailPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <ClipboardCheck className="h-7 w-7 text-indigo-500" />
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
+              <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
                 {seance.seance_libelle || seance.libelle || "Séance"}
               </h1>
               {nbMarques > 0 ? (
@@ -542,7 +542,7 @@ export default function SeanceDetailPage() {
                     ? "Justification de l'absence"
                     : "Justifier l'absence"}
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                   {justifying.first_name} {justifying.last_name}
                   {justifying.matricule ? ` · ${justifying.matricule}` : ""} — séance du{" "}
                   {fmtDateLongueFr(seance?.date)}

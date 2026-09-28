@@ -1,41 +1,25 @@
 import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from "@jest/globals";
 import Fastify, { type FastifyInstance } from "fastify";
 import { ownerRoutes } from "../routes/owner";
-import type { OwnerDashboardResponse } from "@ecoledigitale/contracts";
 
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
-vi.mock("../services/owner-dashboard.service", () => ({
-  fetchOwnerDashboardKpis: vi.fn().mockResolvedValue({
-    finances: {
-      revenueCurrentMonth: 0,
-      recoveryRate: 0,
-      recoveryByCycle: [],
-      teacherPaymentRate: 0,
-      overdueCount: 0,
-    },
-    academic: {
-      totalStudents: 0,
-      totalClasses: 0,
-      averageGrade: 0,
-      successRate: 0,
-      attendanceRate: 0,
-      assignmentsGradedRate: 0,
-    },
-    staff: {
-      activeTeachers: 0,
-      totalHoursTaught: 0,
-      coursesWithoutTeacher: 0,
-      pendingPayrollValidations: 0,
-    },
-    formations: {
-      activeSessions: 0,
-      totalEnrollments: 0,
-      revenueFormations: 0,
-      clientCompanies: 0,
-    },
-  }),
-}));
+/*
+   LE MOCK DE `owner-dashboard.service` A DISPARU AVEC LUI (23/09/2026).
+
+   L'endpoint `GET /owner/dashboard` et son service de 434 lignes ont été
+   retirés : plus aucune des trois applications du monorepo ne les appelait, et
+   l'écran `/owner/dashboard` lit `/owner/pulse` et `/owner/tresorerie`.
+
+   Les deux tests de GARDE qu'il portait sont conservés, portés sur `/scolarite`
+   — une route `requireOwner` bien vivante. C'est le garde-fou qui compte, pas la
+   route sur laquelle on l'éprouve : un 403 est rendu par le `preHandler` avant
+   tout accès aux données, donc n'importe quelle route protégée fait l'affaire.
+
+   Le troisième test (200 avec le rôle owner) n'est PAS reporté : il exigeait un
+   mock de base réaliste, et un 200 obtenu sur un client qui renvoie des lignes
+   vides ne prouverait rien de plus que l'absence de crash.
+*/
 
 vi.mock("../services/owner-users.service", () => ({
   OWNER_ASSIGNABLE_ROLE_KEYS: ["admin", "teacher", "student", "parent", "formateur"],
@@ -52,7 +36,7 @@ vi.mock("../services/owner-users.service", () => ({
   }),
 }));
 
-describe("routes /api/v1/owner (guards + dashboard)", () => {
+describe("routes /api/v1/owner (gardes + accès)", () => {
   let app: FastifyInstance;
 
   const mockClient = {
@@ -95,29 +79,25 @@ describe("routes /api/v1/owner (guards + dashboard)", () => {
     vi.clearAllMocks();
   });
 
-  it("GET /dashboard -> 403 without owner role", async () => {
-    const res = await app.inject({ method: "GET", url: "/api/v1/owner/dashboard" });
+  it("GET /scolarite -> 403 without owner role", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/v1/owner/scolarite" });
     expect(res.statusCode).toBe(403);
   });
 
-  it("GET /dashboard -> 403 with admin role", async () => {
+  /*
+     Le rôle admin seul ne suffit pas sur une route `requireOwner`, et ce test
+     tient toujours après le correctif du 403 owner+admin : le middleware
+     autorise désormais sur `availableRoles`, que ce faux utilisateur ne porte
+     pas. Un admin qui n'est PAS owner reste dehors — c'était tout l'enjeu de ne
+     pas élargir `roles` à la source.
+  */
+  it("GET /scolarite -> 403 with admin role", async () => {
     const res = await app.inject({
       method: "GET",
-      url: "/api/v1/owner/dashboard",
+      url: "/api/v1/owner/scolarite",
       headers: { "x-test-role": "admin" },
     });
     expect(res.statusCode).toBe(403);
-  });
-
-  it("GET /dashboard -> 200 with owner role", async () => {
-    const res = await app.inject({
-      method: "GET",
-      url: "/api/v1/owner/dashboard",
-      headers: { "x-test-role": "owner" },
-    });
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body) as OwnerDashboardResponse;
-    expect(body.finances).toBeDefined();
   });
 
   it("GET /roles/assignable -> 200 with admin role", async () => {

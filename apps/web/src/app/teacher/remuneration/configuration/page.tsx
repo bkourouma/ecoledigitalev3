@@ -54,11 +54,11 @@ export default function MaConfigurationRemunerationPage() {
   return (
     <div className="space-y-6 max-w-[1100px] mx-auto p-6">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+        <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
           <Settings className="h-7 w-7 text-indigo-500 shrink-0" />
           Ma configuration de rémunération
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Comment votre rémunération est calculée. Ces paramètres sont fixés par
           l&apos;administration : cet écran les donne à lire, il ne les modifie pas.
         </p>

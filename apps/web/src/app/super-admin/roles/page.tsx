@@ -100,8 +100,8 @@ export default function SuperAdminRolesPage() {
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold gradient-text">Roles globaux</h1>
-            <p className="text-muted-foreground">
+            <h1 className="font-bold gradient-text whitespace-nowrap text-2xl leading-tight md:text-3xl">Roles globaux</h1>
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
               Les roles sont communs, mais leurs affectations restent isolees par tenant.
             </p>
           </div>

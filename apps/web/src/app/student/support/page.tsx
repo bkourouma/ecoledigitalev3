@@ -187,10 +187,10 @@ export default function StudentSupportPage() {
                 <HelpCircle className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
+                <h1 className="font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
                   Support & Aide
                 </h1>
-                <p className="text-gray-600 mt-2">
+                <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
                   Trouvez des réponses à vos questions ou contactez notre équipe
                 </p>
               </div>

@@ -202,13 +202,13 @@ export default function TeacherSeanceDetailPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour aux présences
         </Button>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+            <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
               <UserCheck className="h-7 w-7 text-indigo-500" />
               {seance.seance_libelle || seance.ecue_libelle}
             </h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
               <span className="font-mono">{seance.ecue_code}</span> {seance.ecue_libelle}
             </p>
           </div>
@@ -336,7 +336,7 @@ export default function TeacherSeanceDetailPage() {
                 <UserCheck className="h-8 w-8 text-indigo-500" />
               </div>
               <p className="text-muted-foreground mt-3 max-w-md mx-auto">
-                Aucun étudiant inscrit confirmé sur cette session : il n'y a pas d'appel à faire.
+                Aucun étudiant inscrit confirmé sur cette session : il n'y a pas d'appel à faire. Si des étudiants y sont pourtant inscrits, leurs frais d'inscription ne sont pas soldés — une inscription « en attente de paiement » n'ouvre pas la scolarité. Signalez-le à la scolarité.
               </p>
             </div>
           ) : (

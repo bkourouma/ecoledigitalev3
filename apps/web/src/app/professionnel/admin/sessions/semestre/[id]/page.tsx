@@ -132,17 +132,17 @@ export default function SemestreSessionsDetailPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button variant="outline" size="sm" onClick={() => router.push(LIST_URL)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+            <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent leading-tight text-2xl md:text-3xl">
               Classes — {semestre?.libelle ?? "Semestre"}
             </h1>
-            <p className="text-muted-foreground mt-1 text-sm flex items-center gap-1.5">
+            <p className="whitespace-nowrap text-muted-foreground flex items-center gap-1.5 text-sm md:text-base">
               <Layers className="h-4 w-4" />
               {semestre?.filiere_nom ?? "—"}
               {semestre?.filiere_code ? (

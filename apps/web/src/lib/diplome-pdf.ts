@@ -528,6 +528,15 @@ function drawDiplome(doc: jsPDF, data: DiplomePdfInput, imgs: DiplomeHeaderImage
   doc.setFontSize(8);
   doc.setTextColor(90, 90, 90);
   doc.text(DUPLICATA_MENTION, PAGE_W / 2, PAGE_H - 15, { align: "center" });
+
+  // Reference du diplome : elle etait passee au gabarit sans jamais etre
+  // dessinee. Sans elle, le document ne peut pas etre rapproche du registre.
+  if (data.reference) {
+    doc.setFont("times", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(90, 90, 90);
+    doc.text(`Réf. ${data.reference}`, M, PAGE_H - 15);
+  }
 }
 
 async function buildDiplomeDoc(data: DiplomePdfInput): Promise<jsPDF> {

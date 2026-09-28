@@ -53,7 +53,7 @@ export default function CycleDetailPage() {
       <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-7xl">
         <div className="text-center space-y-4">
           <h1 className="text-xl sm:text-2xl font-bold text-red-600">Cycle non trouvé</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Le cycle demandé n'existe pas ou a été supprimé.</p>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Le cycle demandé n'existe pas ou a été supprimé.</p>
           <Button onClick={() => router.push('/academic/cycles')} className="w-full sm:w-auto">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Retour aux cycles
@@ -68,18 +68,18 @@ export default function CycleDetailPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-7xl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 sm:mb-8">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button
           variant="outline"
           onClick={() => router.push('/academic/cycles')}
-          className="flex items-center gap-2 w-full sm:w-auto"
+          className="flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Retour</span>
+          Retour
         </Button>
         <div className="flex-1 w-full min-w-0">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-            <h1 className="text-2xl sm:text-3xl font-bold break-words">{cycle.name}</h1>
+            <h1 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">{cycle.name}</h1>
             <div className="flex flex-wrap items-center gap-2">
               <span className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-full font-medium whitespace-nowrap ${
                 cycle.status === 'active' 
@@ -100,7 +100,7 @@ export default function CycleDetailPage() {
               </span>
             </div>
           </div>
-          <p className="text-sm sm:text-base text-muted-foreground break-words">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Code: {cycle.code}
           </p>
         </div>

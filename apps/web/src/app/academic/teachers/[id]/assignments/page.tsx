@@ -18,14 +18,14 @@ export default function TeacherAssignmentsPage() {
 
   return (
     <div className="container mx-auto px-6 py-8 max-w-5xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <Button variant="outline" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Retour
         </Button>
         <div className="text-right">
-          <h2 className="text-2xl font-bold">Affectations</h2>
+          <h2 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Affectations</h2>
           {teacher && (
-            <p className="text-muted-foreground text-sm flex items-center justify-end gap-2">
+            <p className="text-muted-foreground flex items-center justify-end gap-2 whitespace-nowrap text-sm md:text-base">
               <User className="h-4 w-4" /> {teacher.firstName} {teacher.lastName}
             </p>
           )}

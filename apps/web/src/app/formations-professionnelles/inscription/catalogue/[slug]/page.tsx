@@ -56,8 +56,8 @@ export default function InscriptionCataloguePage({
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Achat de la formation</h1>
-        <p className="text-muted-foreground">Remplissez le formulaire pour vous inscrire et payer</p>
+        <h1 className="font-bold mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">Achat de la formation</h1>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Remplissez le formulaire pour vous inscrire et payer</p>
       </div>
 
       <FormationDisponibiliteChecker formationProId={formationId} />

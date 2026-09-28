@@ -257,8 +257,8 @@ export default function ScheduleStatsPage() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Statistiques des Emplois du Temps</h1>
-            <p className="text-muted-foreground text-base">Analysez les performances et métriques de vos plannings</p>
+            <h1 className="font-bold text-foreground whitespace-nowrap text-2xl leading-tight md:text-3xl">Statistiques des Emplois du Temps</h1>
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Analysez les performances et métriques de vos plannings</p>
           </div>
           <div className="flex items-center space-x-2">
             <Button

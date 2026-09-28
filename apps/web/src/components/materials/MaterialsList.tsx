@@ -204,10 +204,10 @@ export function MaterialsList({
   return (
     <div className="space-y-6">
       {/* Header with controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Course Materials</h2>
-          <p className="text-gray-600">{filteredMaterials.length} of {materials.length} materials</p>
+          <h2 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Course Materials</h2>
+          <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">{filteredMaterials.length} of {materials.length} materials</p>
         </div>
         
         <div className="flex items-center gap-2">

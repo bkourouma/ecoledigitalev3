@@ -134,7 +134,7 @@ export default function TestAuthPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">🔐 JWT Authentication Diagnostic</h1>
+        <h1 className="font-bold mb-6 whitespace-nowrap text-2xl leading-tight md:text-3xl">🔐 JWT Authentication Diagnostic</h1>
         
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Login Credentials</h2>

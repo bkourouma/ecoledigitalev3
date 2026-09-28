@@ -421,7 +421,7 @@ export default function TeacherDashboardPage() {
     <div className="space-y-8">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Tableau de bord</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Vue rapide de l&apos;activite de {teacherName}, avec vos cours, vos heures et vos paiements.
         </p>
       </div>

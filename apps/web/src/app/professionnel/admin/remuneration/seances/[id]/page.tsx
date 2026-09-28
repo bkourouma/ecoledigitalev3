@@ -88,7 +88,7 @@ export default function SeanceDetailPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto p-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <div>
           <button
             onClick={() => router.back()}
@@ -97,11 +97,11 @@ export default function SeanceDetailPage() {
             <ArrowLeft className="h-4 w-4" />
             Retour à la validation
           </button>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="whitespace-nowrap font-bold flex items-center gap-2 text-2xl leading-tight md:text-3xl">
             <CalendarCheck className="h-6 w-6 text-indigo-400" />
             {s.ecue_libelle ?? "Séance"}
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             <span className="font-mono text-xs">{s.ecue_code}</span>
             {s.seance_libelle && <> · {s.seance_libelle}</>} · {fmtDate(s.date)}
           </p>
@@ -208,7 +208,7 @@ export default function SeanceDetailPage() {
             Appel
           </h2>
           {totalPointages === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
               Aucun pointage enregistré. L'appel n'est pas obligatoire pour payer une séance : il
               constate qu'elle a eu lieu, il ne la valide pas.
             </p>
@@ -265,7 +265,7 @@ export default function SeanceDetailPage() {
             Paiement
           </h2>
           {s.lignes_paiement.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
               Cette séance n'est rattachée à aucun bulletin. Elle le sera au prochain calcul, si
               elle est payable.
             </p>

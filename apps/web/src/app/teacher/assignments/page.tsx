@@ -87,10 +87,10 @@ export default function TeacherAssignmentsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
                 Mes Affectations
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
                 Gestion de vos cours et classes assignées
               </p>
             </div>
@@ -149,7 +149,7 @@ export default function TeacherAssignmentsPage() {
         <div className="bg-white rounded-xl shadow-sm border border-purple-100">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900">Mes Cours Assignés</h2>
-            <p className="text-gray-600 mt-1">Liste complète de vos affectations pour cette année académique</p>
+            <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">Liste complète de vos affectations pour cette année académique</p>
           </div>
 
           <div className="divide-y divide-gray-200">

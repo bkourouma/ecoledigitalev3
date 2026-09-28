@@ -256,11 +256,11 @@ export default function BulletinsPage() {
       {/* Header — actions sous le titre : à droite, cinq boutons écrasaient le titre. */}
       <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <FileSpreadsheet className="h-7 w-7 text-indigo-500" />
             Bulletins & moyennes
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Sélectionnez une classe et un semestre pour consulter les bulletins des étudiants.
           </p>
         </div>

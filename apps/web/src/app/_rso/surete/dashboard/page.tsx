@@ -39,8 +39,8 @@ export default function RSOSureteDashboardPage() {
   return (
     <div className="container mx-auto py-8 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Dashboard Agent de Sûreté</h1>
-        <p className="text-muted-foreground mt-2">
+        <h1 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Dashboard Agent de Sûreté</h1>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Tableau de bord agent de sûreté portuaire
         </p>
       </div>

@@ -99,6 +99,7 @@ import { paiementsProRoutes } from "./routes/paiements-pro";
 import { formateurRoutes } from "./routes/formateur";
 import { professionalRoutes } from "./routes/professional";
 import { professionalRemunerationRoutes } from "./routes/professional-remuneration";
+import { prospectionRoutes } from "./routes/prospection";
 import { documentsRoutes } from "./routes/documents";
 import { entreprisesRoutes } from "./routes/entreprises";
 import { exportsRoutes } from "./routes/exports";
@@ -342,6 +343,9 @@ async function start() {
     await fastify.register(professionalRemunerationRoutes, {
       prefix: "/api/v1/professional/remuneration",
     });
+
+    // Prospection : provenance des étudiants, commerciaux et commissions.
+    await fastify.register(prospectionRoutes, { prefix: "/api/v1/prospection" });
 
     // Admin routes for Phase 6 - Gestion Administrative & Documents
     await fastify.register(documentsRoutes, { prefix: "/api/v1/admin/documents" });

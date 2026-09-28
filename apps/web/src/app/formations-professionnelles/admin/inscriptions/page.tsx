@@ -106,10 +106,10 @@ export default function AdminInscriptionsPage() {
 
       <div className="space-y-4 sm:space-y-6 w-full min-w-0">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestion des Inscriptions</h1>
-              <p className="text-sm sm:text-base text-muted-foreground mt-1">
+              <h1 className="font-bold text-foreground whitespace-nowrap text-2xl leading-tight md:text-3xl">Gestion des Inscriptions</h1>
+              <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                 Gérez toutes les inscriptions aux formations professionnelles
               </p>
             </div>

@@ -12,13 +12,20 @@ import {
   Badge,
 } from "@ecoledigitale/ui";
 import { ArrowLeft, Edit, Mail, Phone, Calendar, User, Users, Heart, Loader2, AlertCircle, GraduationCap } from "lucide-react";
-import { useParent, useParentChildren, ParentChild } from "@/lib/hooks/use-parents";
+import {
+  useParent,
+  useParentChildren,
+  useResetParentPassword,
+  ParentChild,
+} from "@/lib/hooks/use-parents";
+import { ResetPasswordAction } from "@/components/academic/ResetPasswordAction";
 
 export default function ParentDetailPage() {
   const router = useRouter();
   const params = useParams();
   const parentId = params.id as string;
   const { data: parent, isLoading, error } = useParent(parentId);
+  const resetPassword = useResetParentPassword();
   const { data: childrenData, isLoading: isLoadingChildren } = useParentChildren(parentId);
   
   // Deduplicate children by id to prevent duplicate key errors
@@ -88,8 +95,8 @@ export default function ParentDetailPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button
             variant="outline"
             size="sm"
@@ -100,10 +107,10 @@ export default function ParentDetailPage() {
             Retour
           </Button>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">
+            <h1 className="whitespace-nowrap font-bold text-white leading-tight text-2xl md:text-3xl">
               {parent.name}
             </h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
               Profil parent
             </p>
           </div>
@@ -116,6 +123,13 @@ export default function ParentDetailPage() {
           Modifier
         </Button>
       </div>
+
+      {/* Le mot de passe genere a la creation part par e-mail. Si l'envoi
+          echoue, c'est le seul moyen de rendre le compte parent utilisable. */}
+      <ResetPasswordAction
+        personLabel={`${(parent as any)?.firstName ?? ""} ${(parent as any)?.lastName ?? ""}`.trim() || (parent as any)?.name || "ce parent"}
+        onReset={async () => (await resetPassword.mutateAsync(parentId)).initialPassword}
+      />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">

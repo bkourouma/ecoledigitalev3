@@ -20,14 +20,15 @@ export default function StudentAssignmentPage() {
   if (assignmentLoading || submissionLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Link href="/evaluations">
             <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold">Chargement...</h2>
+            <h2 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">Chargement...</h2>
           </div>
         </div>
       </div>
@@ -37,15 +38,16 @@ export default function StudentAssignmentPage() {
   if (assignmentError || !assignment) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Link href="/evaluations">
             <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold">Erreur</h2>
-            <p className="text-muted-foreground">
+            <h2 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">Erreur</h2>
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
               {assignmentError ? String(assignmentError) : "Évaluation non trouvée"}
             </p>
           </div>
@@ -135,22 +137,23 @@ export default function StudentAssignmentPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Link href="/evaluations">
           <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
         </Link>
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-2xl font-bold">{assignment.title}</h2>
+            <h2 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">{assignment.title}</h2>
             {getTypeBadge(assignment.type)}
             <Badge variant={status === 'available' ? 'default' : 'secondary'}>
               {label}
             </Badge>
             {getSubmissionStatusBadge()}
           </div>
-          <p className="text-muted-foreground">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             {assignment.course_title} ({assignment.course_code})
           </p>
         </div>

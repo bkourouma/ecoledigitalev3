@@ -139,7 +139,7 @@ export default function TestPaymentPeriodsPage() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Payment Periods API Test</h1>
+      <h1 className="font-bold mb-6 whitespace-nowrap text-2xl leading-tight md:text-3xl">Payment Periods API Test</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Test Form */}

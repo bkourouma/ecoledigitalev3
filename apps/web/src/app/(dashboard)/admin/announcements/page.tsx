@@ -193,7 +193,7 @@ export default function AdminAnnouncementsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Liste des Annonces</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-gray-500 whitespace-nowrap text-sm md:text-base">
               Créez et gérez les annonces visibles par tous les parents
             </p>
           </div>

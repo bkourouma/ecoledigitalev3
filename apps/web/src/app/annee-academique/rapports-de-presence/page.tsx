@@ -444,11 +444,11 @@ export default function AttendanceReportsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+        <h1 className="font-bold text-gray-900 mb-2 flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
           <FileText className="h-8 w-8 text-emerald-600" />
           Rapports de Présence
         </h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
           Gérez les rapports de présence des étudiants (taux de présence, jours présents/absents)
         </p>
       </div>

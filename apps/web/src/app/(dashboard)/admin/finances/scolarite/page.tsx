@@ -1,213 +1,444 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Card, CardHeader, CardTitle, CardDescription, CardContent,
-  Button, Input, Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
-  Alert, AlertDescription
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@ecoledigitale/ui";
-import { Save } from "lucide-react";
+import { AlertCircle, BookOpen, Check, GraduationCap, Layers, Loader2, Save } from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { useFilieres } from "@/lib/hooks/use-filieres";
+import {
+  useScolariteBareme,
+  useUpsertScolarite,
+  type ScolariteClasse,
+} from "@/lib/hooks/use-scolarite-bareme";
 
-const API_BASE_URL = "";
+/**
+ * Scolarité — barème par filière.
+ *
+ * On choisit une filière, et chaque CLASSE de cette filière apparaît avec le
+ * détail de ses semestres : la scolarité proposée est la somme des prix des UE
+ * qui composent chaque semestre. Le champ Scolarité reste modifiable ;
+ * inscription, frais annexes et autres frais sont saisis par l'utilisateur.
+ *
+ * Couleurs : ne PAS utiliser les variantes `dark:`. La palette sombre est portée
+ * par `:root` dans globals.css, et il n'existe aucun bloc `.light` — l'interface
+ * est donc sombre quel que soit le thème, alors que `dark:` ne s'active que si
+ * ThemeProvider a posé la classe `dark`. Un `bg-<couleur>-50 dark:bg-<couleur>-950`
+ * donne alors un fond clair sous un texte clair.
+ */
+
+/**
+ * Référence stable pour les listes vides : un `[]` littéral recréé à chaque
+ * rendu relancerait l'effet de (ré)initialisation du formulaire en boucle.
+ */
+const AUCUNE_CLASSE: ScolariteClasse[] = [];
+
+/** Valeur des filtres cycle / classe quand aucun n'est appliqué. */
+const TOUS = "all";
+
+interface FraisForm {
+  inscription: string;
+  scolarite: string;
+  annexes: string;
+  autres: string;
+}
+
+const CHAMPS: { key: keyof FraisForm; label: string }[] = [
+  { key: "inscription", label: "Inscription" },
+  { key: "scolarite", label: "Scolarité" },
+  { key: "annexes", label: "Frais annexes" },
+  { key: "autres", label: "Autres frais" },
+];
+
+function toNumber(value: string): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function formatMontant(montant: number, currency: string): string {
+  return `${new Intl.NumberFormat("fr-FR").format(montant)} ${currency}`;
+}
+
+/**
+ * Valeurs initiales du formulaire d'une classe : ce qui est déjà enregistré
+ * fait foi ; à défaut, la scolarité est pré-remplie avec la somme des UE.
+ */
+function seedForm(classe: ScolariteClasse): FraisForm {
+  if (classe.fees) {
+    return {
+      inscription: String(classe.fees.inscription),
+      scolarite: String(classe.fees.scolarite),
+      annexes: String(classe.fees.annexes),
+      autres: String(classe.fees.autres),
+    };
+  }
+
+  return {
+    inscription: "0",
+    scolarite: String(classe.scolariteCalculee),
+    annexes: "0",
+    autres: "0",
+  };
+}
+
+function seedForms(classes: ScolariteClasse[]): Record<string, FraisForm> {
+  return Object.fromEntries(classes.map((classe) => [classe.programmeId, seedForm(classe)]));
+}
 
 export default function AdminScolaritePage() {
-  const [selectedCycleId, setSelectedCycleId] = useState<string>("");
-  const [selectedProgrammeId, setSelectedProgrammeId] = useState<string>("");
-  const [form, setForm] = useState({ inscription: 0, scolarite: 0, annexes: 0, autres: 0, currency: "XOF" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [filiereId, setFiliereId] = useState("");
+  const [cycleFilter, setCycleFilter] = useState(TOUS);
+  const [classeFilter, setClasseFilter] = useState(TOUS);
+  const [forms, setForms] = useState<Record<string, FraisForm>>({});
+  const [baseline, setBaseline] = useState<Record<string, FraisForm>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [erreurs, setErreurs] = useState<Record<string, string>>({});
+  const [enregistrees, setEnregistrees] = useState<Record<string, boolean>>({});
 
-  const { data: cyclesData } = useQuery({
-    queryKey: ["cycles"],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE_URL}/api/v1/cycles`, { headers: {
-      "X-Tenant": "imhotepacademy",
-      "Content-Type": "application/json",
-"X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb"
-    } });
-      const json = await res.json();
-      return json.data || [];
-    }
-  });
+  const { data: filieresData, isLoading: filieresLoading } = useFilieres();
+  const { data: baremeData, isLoading, error } = useScolariteBareme(filiereId);
+  const upsert = useUpsertScolarite();
 
-  const { data: programmesData } = useQuery({
-    queryKey: ["programmes-by-cycle", selectedCycleId],
-    enabled: !!selectedCycleId,
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE_URL}/api/v1/programmes?cycleId=${selectedCycleId}&limit=100`, { headers: {
-      "X-Tenant": "imhotepacademy",
-      "Content-Type": "application/json",
-"X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb"
-    } });
-      if (!res.ok) {
-        throw new Error(`Failed to fetch programmes: ${res.statusText}`);
-      }
-      const json = await res.json();
-      return json.data || [];
-    },
-  });
+  const classes = baremeData ?? AUCUNE_CLASSE;
 
-  const { data: feesData, refetch } = useQuery({
-    queryKey: ["cycle-fees", selectedCycleId, selectedProgrammeId],
-    enabled: !!selectedCycleId && !!selectedProgrammeId,
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE_URL}/api/v1/cycle-fees?cycleId=${selectedCycleId}&programmeId=${selectedProgrammeId}`,
-        {
-          headers: {
-            "X-Tenant": "imhotepacademy",
-            "Content-Type": "application/json",
-            "X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb"
-          }
-        }
-      );
-      if (!res.ok) {
-        throw new Error(`Failed to fetch cycle fees: ${res.statusText}`);
-      }
-      const json = await res.json();
-      const fees = (json.data || [])[0];
-      return fees || null;
-    }
-  });
-
+  // Chaque rechargement du barème (changement de filière, retour d'un
+  // enregistrement) redonne sa référence au formulaire.
   useEffect(() => {
-    setSelectedProgrammeId("");
-    setForm({ inscription: 0, scolarite: 0, annexes: 0, autres: 0, currency: "XOF" });
-  }, [selectedCycleId]);
+    const seeded = seedForms(classes);
+    setForms(seeded);
+    setBaseline(seeded);
+  }, [classes]);
 
+  // Le nom seul : le domaine rallongerait le libellé sans rien distinguer de plus.
+  const filiereOptions = useMemo(
+    () => (filieresData ?? []).map((f) => ({ value: f.id, label: f.name })),
+    [filieresData]
+  );
+
+  // Les cycles proposés sont ceux que porte réellement la filière choisie.
+  const cycleOptions = useMemo(() => {
+    const cycles = new Map<string, string>();
+    for (const classe of classes) cycles.set(classe.cycleId, classe.cycleName);
+    return [
+      { value: TOUS, label: "Tous les cycles" },
+      ...[...cycles.entries()]
+        .map(([value, label]) => ({ value, label }))
+        .sort((a, b) => a.label.localeCompare(b.label, "fr")),
+    ];
+  }, [classes]);
+
+  // La liste des classes se restreint au cycle choisi.
+  const classesDuCycle = useMemo(
+    () => classes.filter((c) => cycleFilter === TOUS || c.cycleId === cycleFilter),
+    [classes, cycleFilter]
+  );
+
+  const classeOptions = useMemo(
+    () => [
+      { value: TOUS, label: "Toutes les classes" },
+      ...classesDuCycle.map((c) => ({ value: c.programmeId, label: c.programmeName })),
+    ],
+    [classesDuCycle]
+  );
+
+  const classesAffichees = useMemo(
+    () => classesDuCycle.filter((c) => classeFilter === TOUS || c.programmeId === classeFilter),
+    [classesDuCycle, classeFilter]
+  );
+
+  // Changer de filière remet les deux filtres à zéro : les cycles et les
+  // classes proposés ne sont plus les mêmes.
   useEffect(() => {
-    if (feesData) {
-      setForm({
-        inscription: Number(feesData.inscription || 0),
-        scolarite: Number(feesData.scolarite || 0),
-        annexes: Number(feesData.annexes || 0),
-        autres: Number(feesData.autres || 0),
-        currency: feesData.currency || "XOF",
-      });
-    } else if (selectedProgrammeId) {
-      setForm({ inscription: 0, scolarite: 0, annexes: 0, autres: 0, currency: "XOF" });
-    }
-  }, [feesData, selectedProgrammeId]);
+    setCycleFilter(TOUS);
+    setClasseFilter(TOUS);
+  }, [filiereId]);
 
-  async function saveFees() {
-    setSaving(true);
-    setError(null);
+  // Une classe sélectionnée puis exclue par le filtre de cycle ne doit pas
+  // laisser la page vide sans explication.
+  useEffect(() => {
+    if (classeFilter === TOUS) return;
+    if (!classesDuCycle.some((c) => c.programmeId === classeFilter)) {
+      setClasseFilter(TOUS);
+    }
+  }, [classeFilter, classesDuCycle]);
+
+  function majChamp(programmeId: string, champ: keyof FraisForm, valeur: string) {
+    setForms((prev) => ({
+      ...prev,
+      [programmeId]: { ...prev[programmeId], [champ]: valeur },
+    }));
+    setEnregistrees((prev) => ({ ...prev, [programmeId]: false }));
+  }
+
+  async function enregistrer(classe: ScolariteClasse) {
+    const form = forms[classe.programmeId];
+    if (!form) return;
+
+    setSavingId(classe.programmeId);
+    setErreurs((prev) => ({ ...prev, [classe.programmeId]: "" }));
+
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/cycle-fees/upsert`, {
-        method: "POST",
-        headers: {
-      "Content-Type": "application/json",
-      "X-Tenant": "imhotepacademy",
-"X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb"
-    },
-        body: JSON.stringify({ cycleId: selectedCycleId, programmeId: selectedProgrammeId, ...form })
+      await upsert.mutateAsync({
+        cycleId: classe.cycleId,
+        programmeId: classe.programmeId,
+        inscription: toNumber(form.inscription),
+        scolarite: toNumber(form.scolarite),
+        annexes: toNumber(form.annexes),
+        autres: toNumber(form.autres),
+        currency: classe.currency || "XOF",
       });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.message || "Erreur lors de l'enregistrement");
-      await refetch();
+      setEnregistrees((prev) => ({ ...prev, [classe.programmeId]: true }));
     } catch (e: any) {
-      setError(e?.message || "Erreur inconnue");
+      setErreurs((prev) => ({
+        ...prev,
+        [classe.programmeId]: e?.message || "Erreur lors de l'enregistrement",
+      }));
     } finally {
-      setSaving(false);
+      setSavingId(null);
     }
   }
 
   return (
-    <div className="container mx-auto px-6 py-8 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Scolarité - Barème par cycle et filière</h1>
-          <p className="text-muted-foreground mt-1">
-            Définir les montants par défaut d'inscription, scolarité et autres frais pour chaque couple cycle + filière.
-            Ces montants seront automatiquement appliqués lors de l'inscription des étudiants si aucun montant spécifique n'est défini.
-          </p>
-        </div>
-      </div>
+    <div className="container mx-auto px-6 py-8 space-y-6">
+      <h1 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Scolarité &mdash; barème par filière</h1>
 
       <Card>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
+          {/* La filière occupe toute la largeur : les noms sont longs et se
+              couperaient dans une colonne partagée. */}
           <div>
-            <label className="text-sm text-muted-foreground">Cycle</label>
-            <Select value={selectedCycleId} onValueChange={setSelectedCycleId}>
-              <SelectTrigger className="mt-1 w-full">
-                <SelectValue placeholder="Sélectionner un cycle" />
-              </SelectTrigger>
-              <SelectContent>
-                {(cyclesData || []).map((c: any) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name} ({c.code})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="text-sm text-muted-foreground">Filière</label>
+            <SearchableSelect
+              className="mt-1 w-full"
+              value={filiereId}
+              onChange={setFiliereId}
+              options={filiereOptions}
+              icon={<Layers className="h-4 w-4" />}
+              placeholder={
+                filieresLoading ? "Chargement des filières..." : "Sélectionner une filière"
+              }
+              searchPlaceholder="Rechercher une filière..."
+              disabled={filieresLoading}
+            />
           </div>
 
-          {selectedCycleId ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="text-sm text-muted-foreground">Filière (obligatoire)</label>
-              <Select value={selectedProgrammeId} onValueChange={setSelectedProgrammeId}>
-                <SelectTrigger className="mt-1 w-full">
-                  <SelectValue placeholder="Sélectionner une filière liée au cycle" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(programmesData || []).map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name} ({p.code})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {Array.isArray(programmesData) && programmesData.length === 0 ? (
-                <p className="mt-2 text-sm text-amber-600">
-                  Aucune filière trouvée pour ce cycle. Créez une filière dans la page Programmes avant de configurer les frais.
-                </p>
-              ) : null}
+              <label className="text-sm text-muted-foreground">Cycle</label>
+              <SearchableSelect
+                className="mt-1 w-full"
+                value={cycleFilter}
+                onChange={setCycleFilter}
+                options={cycleOptions}
+                icon={<GraduationCap className="h-4 w-4" />}
+                placeholder="Tous les cycles"
+                searchPlaceholder="Rechercher un cycle..."
+                disabled={!filiereId || classes.length === 0}
+              />
             </div>
-          ) : null}
+            <div>
+              <label className="text-sm text-muted-foreground">Classe</label>
+              <SearchableSelect
+                className="mt-1 w-full"
+                value={classeFilter}
+                onChange={setClasseFilter}
+                options={classeOptions}
+                icon={<BookOpen className="h-4 w-4" />}
+                placeholder="Toutes les classes"
+                searchPlaceholder="Rechercher une classe..."
+                disabled={!filiereId || classesDuCycle.length === 0}
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {selectedCycleId && selectedProgrammeId ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Frais du cycle et de la filière sélectionnés</CardTitle>
-            <CardDescription>Modifiez les montants par défaut pour cette filière</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {error ? (
-              <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
-            ) : null}
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="text-sm text-muted-foreground">Inscription</label>
-                <Input type="number" min={0} value={form.inscription} onChange={(e) => setForm({ ...form, inscription: Number(e.target.value || 0) })} className="mt-1" />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Scolarité</label>
-                <Input type="number" min={0} value={form.scolarite} onChange={(e) => setForm({ ...form, scolarite: Number(e.target.value || 0) })} className="mt-1" />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Frais annexes</label>
-                <Input type="number" min={0} value={form.annexes} onChange={(e) => setForm({ ...form, annexes: Number(e.target.value || 0) })} className="mt-1" />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Autres frais</label>
-                <Input type="number" min={0} value={form.autres} onChange={(e) => setForm({ ...form, autres: Number(e.target.value || 0) })} className="mt-1" />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <Button onClick={saveFees} disabled={!selectedCycleId || !selectedProgrammeId || saving}>
-                {saving ? "Enregistrement..." : (
-                  <span className="flex items-center gap-2"><Save className="h-4 w-4" /> Enregistrer</span>
-                )}
-              </Button>
-              <Link href="/admin/finances">
-                <Button variant="outline">Retour Tableau de bord</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+      {error ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{(error as Error).message}</AlertDescription>
+        </Alert>
       ) : null}
+
+      {filiereId && isLoading ? (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Chargement du barème...
+        </div>
+      ) : null}
+
+      {filiereId && !isLoading && classes.length === 0 ? (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Aucune classe rattachée à cette filière. Créez-en une depuis{" "}
+            <Link href="/academic/classes" className="underline">
+              Classes
+            </Link>
+            .
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {filiereId && !isLoading && classes.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {classesAffichees.length} classe{classesAffichees.length > 1 ? "s" : ""} affichée
+          {classesAffichees.length > 1 ? "s" : ""}
+          {classesAffichees.length !== classes.length ? ` sur ${classes.length}` : ""}
+        </p>
+      ) : null}
+
+      {filiereId && !isLoading && classes.length > 0 && classesAffichees.length === 0 ? (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>Aucune classe ne correspond aux filtres choisis.</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {classesAffichees.map((classe) => {
+        const form = forms[classe.programmeId];
+        if (!form) return null;
+
+        const reference = baseline[classe.programmeId];
+        const modifie =
+          !reference || CHAMPS.some(({ key }) => toNumber(form[key]) !== toNumber(reference[key]));
+        const total = CHAMPS.reduce((somme, { key }) => somme + toNumber(form[key]), 0);
+        const enCours = savingId === classe.programmeId;
+
+        return (
+          <Card key={classe.programmeId}>
+            <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-muted-foreground" />
+                  {classe.programmeName}
+                </CardTitle>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">{classe.programmeCode}</Badge>
+                  <Badge variant="secondary">{classe.cycleName}</Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {classe.semestres.length} semestre{classe.semestres.length > 1 ? "s" : ""}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Total à payer
+                </p>
+                <p className="text-2xl font-bold">{formatMontant(total, classe.currency)}</p>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              {classe.semestres.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Semestre</TableHead>
+                      <TableHead className="text-right">UE</TableHead>
+                      <TableHead className="text-right">Montant des UE</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {classe.semestres.map((semestre) => (
+                      <TableRow key={semestre.id}>
+                        <TableCell className="font-medium">{semestre.libelle}</TableCell>
+                        <TableCell className="text-right">{semestre.nbUe}</TableCell>
+                        <TableCell className="text-right">
+                          {formatMontant(semestre.montant, classe.currency)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell className="font-semibold">
+                        Total scolarité ({classe.semestres.length} semestre
+                        {classe.semestres.length > 1 ? "s" : ""})
+                      </TableCell>
+                      <TableCell />
+                      <TableCell className="text-right font-semibold">
+                        {formatMontant(classe.scolariteCalculee, classe.currency)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Aucun semestre pour cette classe : la scolarité ne peut pas être calculée à
+                    partir des UE. Saisissez le montant à la main, ou créez les semestres depuis{" "}
+                    <Link href="/professionnel/admin/semestres" className="underline">
+                      Semestres
+                    </Link>
+                    .
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                {CHAMPS.map(({ key, label }) => (
+                  <div key={key}>
+                    <label className="text-sm text-muted-foreground">{label}</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      className="mt-1"
+                      value={form[key]}
+                      onChange={(e) => majChamp(classe.programmeId, key, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {erreurs[classe.programmeId] ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{erreurs[classe.programmeId]}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              <div className="flex items-center gap-3">
+                <Button onClick={() => enregistrer(classe)} disabled={enCours || !modifie}>
+                  {enCours ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Enregistrement...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Save className="h-4 w-4" /> Enregistrer
+                    </span>
+                  )}
+                </Button>
+                {enregistrees[classe.programmeId] && !modifie ? (
+                  <span className="flex items-center gap-1 text-sm text-emerald-600">
+                    <Check className="h-4 w-4" /> Enregistré
+                  </span>
+                ) : null}
+                {!classe.fees && !enregistrees[classe.programmeId] ? (
+                  <span className="text-sm text-muted-foreground">Jamais enregistré</span>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

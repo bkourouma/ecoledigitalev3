@@ -76,24 +76,108 @@ export const OWNER_FILTER_SCOPE: Record<string, OwnerFilterDimension[]> = {
 
   // Résultats — onglet « scolaire » par défaut, et cet onglet n'accepte aucun
   // paramètre côté API : pas de barre du tout.
-  "/owner/pedagogie:professionnel": ["year", "filieres", "semestre", "categorie"],
+  /*
+     Le nom de classe agit sur les DEUX moities de l onglet : la sante des UE
+     par les ouvertures, les bulletins par les etudiants qui y sont inscrits.
+     Sans ce second chemin, choisir une classe aurait restreint le tableau des
+     UE en laissant les taux de reussite decrire l etablissement entier.
+  */
+  "/owner/pedagogie:professionnel": [
+    "year",
+    "filieres",
+    "nomClasse",
+    "semestre",
+    "categorie",
+  ],
+  /* Les deux nouveaux onglets lisent le MÊME endpoint et le même périmètre :
+     leur portée doit donc être identique, sinon changer d onglet changerait
+     silencieusement le périmètre des chiffres. */
+  "/owner/pedagogie:rattrapages": ["year", "filieres", "nomClasse", "semestre", "categorie"],
+  "/owner/pedagogie:bulletins": ["year", "filieres", "nomClasse", "semestre", "categorie"],
 
-  // Catalogue — onglet « offre diplômante » par défaut ; « formations pro »
-  // n'accepte aucun paramètre.
+  /* Catalogue — plus d'onglets depuis le retrait de « formations pro »
+     (23/09/2026). Les clés suffixées servent les favoris qui portent encore
+     un `vue=` : sans elles, la barre disparaîtrait sur ces adresses. */
+  "/owner/structure": ["cycle", "filieres", "categorie"],
+  "/owner/structure:referentiel": ["cycle", "filieres", "categorie"],
+  "/owner/structure:formations": ["cycle", "filieres", "categorie"],
+  /* Anciennes adresses : la redirection monte une page, et un ecran sans portee
+     declaree n afficherait aucun filtre le temps du saut. */
   "/owner/referentiel": ["cycle", "filieres", "categorie"],
   "/owner/referentiel:referentiel": ["cycle", "filieres", "categorie"],
 
-  // Points de vigilance — écran unique depuis le retrait des alertes.
-  "/owner/risque": ["filieres"],
+  /*
+     Points de vigilance — écran unique depuis le retrait des alertes.
 
-  "/owner/assiduite": ["filieres", "semestre", "period"],
-  "/owner/personnes": ["year", "filieres"],
+     Ni « année » ni « semestre » : cet écran travaille sur une fenêtre de
+     30 jours calée sur la dernière séance connue, pas sur un exercice. Les
+     proposer laisserait croire à un filtre qui n'agit pas. Le nom de classe,
+     lui, restreint bien les quatre blocs — score, enseignants, présence et
+     corrélation — par les ouvertures de la classe choisie.
+  */
+  "/owner/risque": ["filieres", "nomClasse"],
+
+  /*
+     Scolarité — les quatre dimensions agissent, et le service les applique
+     toutes : vérifié classe par classe, une classe inexistante ramène tous les
+     blocs à zéro et le dû à « non mesurable ».
+  */
+  "/owner/scolarite": ["year", "filieres", "nomClasse", "semestre"],
+  /* Documents officiels : les quatre dimensions agissent — le pipeline passe par
+     etudiants_perimetre, et le filtre de filiere porte aussi sur le diplome. */
+  "/owner/documents": ["year", "filieres", "nomClasse", "semestre"],
+  /* Programme : les quatre dimensions du socle agissent — les ouvertures par
+     ouvertures_perimetre, la filière et la classe directement sur l'UE.
+     PAS « categorie » : le service ne l'applique pas, et la proposer
+     fabriquerait le filtre menteur que ce chantier corrige partout ailleurs. */
+  "/owner/programme": ["year", "filieres", "nomClasse", "semestre"],
+
+  /* Presences : l annee et la classe agissent depuis l adoption du socle, et
+     sont donc proposees. Verifie classe par classe avant de les declarer. */
+  "/owner/assiduite": ["year", "filieres", "nomClasse", "semestre", "period"],
+  "/owner/assiduite:presences": ["year", "filieres", "nomClasse", "semestre", "period"],
+  "/owner/assiduite:conduite": ["year", "filieres", "nomClasse", "semestre", "period"],
+  /*
+     Le nom de classe agit sur les TROIS perimetres de cet ecran — etudiants,
+     enseignants et parents. Ne le brancher que sur les etudiants aurait laisse
+     le ratio etudiants/enseignant comparer une classe a tout l etablissement.
+  */
+  "/owner/personnes": ["year", "filieres", "nomClasse"],
+  "/owner/ouvertures": ["year", "filieres"],
+  /* L ancienne adresse reste declaree : la redirection monte une page, et un
+     ecran sans portee declaree n afficherait aucun filtre le temps du saut. */
   "/owner/remplissage": ["year", "filieres"],
+  /*
+     Rentabilite — l onglet Charges accepte en plus le nom de classe : une
+     charge de cohorte s y impute, et le comptable doit pouvoir ne voir que
+     celles d une promotion. L onglet par defaut garde ses deux dimensions.
+  */
   "/owner/economie": ["year", "filieres"],
+  "/owner/economie:rentabilite": ["year", "filieres"],
+  "/owner/economie:charges": ["year", "filieres", "nomClasse"],
   "/owner/recrutement": ["period"],
-  // `/owner/staff` n'est pas ici : la masse salariale se filtre par période de
-  // PAIE, une dimension qui n'a de sens que sur cet écran — elle vit donc sur
-  // l'écran, pas dans cette barre.
+  /*
+    Prospection — année et filière seulement.
+
+    PAS DE PÉRIODE : l'écran ne date pas un encaissement, il date un ÉTUDIANT,
+    par le début de sa première ouverture de classe. Une fenêtre glissante
+    superposée à ce rattachement poserait deux questions de temps dont une
+    seule commande les chiffres — le même écueil qu'on a retiré des Impayés.
+  */
+  /*
+     Le nom de classe agit depuis que student_filiere porte la cle de
+     l ouverture : effectifs, canaux, commerciaux et commissions repondent
+     tous au meme perimetre. Auparavant il n aurait restreint que l argent.
+  */
+  "/owner/prospection": ["year", "filieres", "nomClasse"],
+  // `/owner/remuneration` n'est pas ici, ni son ancienne adresse `/owner/staff` :
+  // la masse salariale se filtre par période de PAIE, une dimension qui n'a de
+  // sens que sur cet écran — elle vit donc sur l'écran, pas dans cette barre.
+  //
+  // L'onglet « Configuration & séances » ne prend aucun filtre non plus, et pour
+  // une raison propre : il décrit l'état du PARAMÉTRAGE, pas celui d'une
+  // période. « Cet enseignant a-t-il une configuration de paie » reste la même
+  // question qu'on regarde janvier ou l'année entière.
 };
 
 /**

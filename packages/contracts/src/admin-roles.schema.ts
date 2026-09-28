@@ -42,6 +42,11 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
           { key: "academic.overview", label: "Vue d'ensemble", href: "/tableau-de-bord" },
           { key: "academic.cycles", label: "Cycles", href: "/academic/cycles" },
           { key: "academic.programmes", label: "Filières", href: "/academic/programmes" },
+          // Au menu depuis l'extraction des filières (migration 0116), mais
+          // jamais déclarée ici : faute de clé, canSeeHref la laissait passer
+          // pour TOUT rôle, et la page « Accès → Menus par rôle » promettait un
+          // contrôle qu'elle n'exerçait pas sur cette entrée.
+          { key: "academic.classes", label: "Classes", href: "/academic/classes" },
         ],
       },
       {
@@ -68,7 +73,16 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
       {
         label: "Sessions & Planning",
         items: [
-          { key: "pro.sessions", label: "Classes", href: "/professionnel/admin/sessions" },
+          // Libellé aligné sur la barre : le module dit « ouverture de classe »
+          // là où cette entrée disait « Classes » — mot désormais pris par
+          // academic.classes ci-dessus, ce qui rendait les deux indiscernables
+          // dans la liste des droits. La clé, elle, est persistée en base et ne
+          // change jamais.
+          {
+            key: "pro.sessions",
+            label: "Ouvertures de classe",
+            href: "/professionnel/admin/sessions",
+          },
           { key: "pro.classrooms", label: "Salles de classe", href: "/academic/classrooms" },
           {
             key: "pro.planning",
@@ -79,7 +93,13 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
       },
       {
         label: "Étudiants",
+        // Ordre du menu : la scolarité se fixe avant d'inscrire, l'encaissement
+        // vient après. Ces deux entrées sont passées du bloc « Finances
+        // Étudiantes » à celui-ci en même temps que leur menu ; les clés ne
+        // changent pas, les droits déjà accordés restent valables. L'ancienne
+        // « pro.paiements » a disparu avec sa page, qui ne facturait que les UE.
         items: [
+          { key: "finance.scolarite", label: "Scolarité", href: "/admin/finances/scolarite" },
           {
             key: "pro.inscriptions",
             label: "Inscriptions",
@@ -90,7 +110,41 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
             label: "Étudiants inscrits",
             href: "/professionnel/admin/inscrits",
           },
-          { key: "pro.paiements", label: "Paiements", href: "/professionnel/admin/paiements" },
+          {
+            key: "finance.student_payments",
+            label: "Paiements",
+            href: "/admin/finances/student-payments",
+          },
+        ],
+      },
+      {
+        label: "Prospection",
+        items: [
+          {
+            key: "pro.prospection",
+            label: "Tableau de bord prospection",
+            href: "/professionnel/admin/prospection",
+          },
+          {
+            key: "pro.provenances",
+            label: "Étudiants amenés par un commercial",
+            href: "/professionnel/admin/prospection/provenances",
+          },
+          {
+            key: "pro.commerciaux",
+            label: "Commerciaux",
+            href: "/professionnel/admin/prospection/commerciaux",
+          },
+          {
+            key: "pro.commissions.historique",
+            label: "Commissions à payer",
+            href: "/professionnel/admin/prospection/commissions/historique",
+          },
+          {
+            key: "pro.commissions.payees",
+            label: "Commissions payées",
+            href: "/professionnel/admin/prospection/commissions/historique/payees",
+          },
         ],
       },
       {
@@ -237,6 +291,27 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
           },
           { key: "payroll.manage", label: "Gestion des Paiements", href: "/payments/manage" },
           { key: "payroll.reports", label: "Rapports Enseignants", href: "/payments/reports" },
+          // Les trois écrans de la rémunération professionnelle (feature 031).
+          // Ils sont au menu administrateur depuis leur livraison mais n'avaient
+          // aucune clé : ils étaient donc visibles par tout rôle, sans moyen de
+          // les retirer. Les trois entrées « Validation des Heures », « Calcul »
+          // et « Gestion » ci-dessus sont, elles, masquées de la barre — ces
+          // écrans-ci les remplacent à l'usage.
+          {
+            key: "payroll.seances",
+            label: "Validation des séances",
+            href: "/professionnel/admin/remuneration/seances",
+          },
+          {
+            key: "payroll.bulletins",
+            label: "Bulletin de paiement",
+            href: "/professionnel/admin/remuneration/bulletins",
+          },
+          {
+            key: "payroll.historique",
+            label: "Historique des paiements",
+            href: "/professionnel/admin/remuneration/historique",
+          },
         ],
       },
     ],
@@ -247,16 +322,13 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
       {
         label: "Gestion Financière",
         items: [
-          { key: "finance.scolarite", label: "Scolarité", href: "/admin/finances/scolarite" },
+          // « Scolarité » et « Paiements Étudiants » sont déclarés plus haut,
+          // dans le bloc Étudiants du module professionnel, où leur menu vit
+          // désormais. Les redéclarer ici les afficherait deux fois.
           {
             key: "finance.tuition_schedules",
             label: "Échéanciers",
             href: "/admin/finances/tuition-schedules",
-          },
-          {
-            key: "finance.student_payments",
-            label: "Paiements Étudiants",
-            href: "/admin/finances/student-payments",
           },
           {
             key: "finance.reports",

@@ -5,6 +5,7 @@ import type {
   OwnerPedagogieResponse,
   OwnerUeCategorie,
 } from "@ecoledigitale/contracts";
+import { CLE_NOM_DE_CLASSE_SQL } from "./owner-pro-annee.sql";
 
 /**
  * Pilotage pédagogique LMD (module professionnel), toutes filières confondues.
@@ -56,8 +57,8 @@ async function safeQuery<T>(
  * L'année scolaire n'est pas une colonne : elle est dérivée par pivot septembre sur
  * la première session rattachée au semestre (par l'un OU l'autre des deux chemins).
  *
- * Paramètres attendus : $1 tenantId, $2 filiereIds (uuid[] | null),
- * $3 semestreId (uuid | null), $4 anneeScolaire (text | null).
+ * Paramètres attendus : $1 tenantId, $3 filiereIds (uuid[] | null),
+ * $5 semestreId (uuid | null), $2 anneeScolaire (text | null).
  */
 const SEMESTRE_SCOPE_CTE = `
   semestre_scope AS (
@@ -81,15 +82,15 @@ const SEMESTRE_SCOPE_CTE = `
         )
     ) first_session ON true
     WHERE sem.tenant_id = $1::uuid
-      AND ($2::uuid[] IS NULL OR sem.filiere_id = ANY($2::uuid[]))
-      AND ($3::uuid IS NULL OR sem.id = $3::uuid)
+      AND ($3::uuid[] IS NULL OR sem.filiere_id = ANY($3::uuid[]))
+      AND ($5::uuid IS NULL OR sem.id = $5::uuid)
       AND (
-        $4::text IS NULL
+        $2::text IS NULL
         OR first_session.date_debut IS NOT NULL
         AND CASE WHEN EXTRACT(MONTH FROM first_session.date_debut) >= 9
                  THEN EXTRACT(YEAR FROM first_session.date_debut)::int
                  ELSE EXTRACT(YEAR FROM first_session.date_debut)::int - 1
-            END = split_part($4::text, '-', 1)::int
+            END = split_part($2::text, '-', 1)::int
       )
   )`;
 
@@ -100,8 +101,8 @@ const SEMESTRE_SCOPE_CTE = `
  * plusieurs semestres (par session ET par UE), ce qui dupliquerait chaque résultat
  * ECUE dans les agrégats en aval.
  *
- * Paramètres supplémentaires : $5 statut ('en_cours' | 'termine' | 'tous'),
- * $6 categorie (text | null).
+ * Paramètres supplémentaires : $6 statut ('en_cours' | 'termine' | 'tous'),
+ * $7 categorie (text | null).
  */
 const SESSION_SCOPE_CTE = `
   session_scope AS (
@@ -112,7 +113,10 @@ const SESSION_SCOPE_CTE = `
            ss.filiere_id,
            ss.filiere_name
     FROM professional_ue_sessions s
-    JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
+    -- Alias de l UE : ue et non u, c est celui qu attend le fragment partage
+    -- dérive le nom de classe. Une seule définition du nom pour toute
+    -- l'application.
+    JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
     JOIN semestre_scope ss ON (
       s.id IN (SELECT ue_session_id FROM professional_semestre_sessions
                WHERE semestre_id = ss.semestre_id AND tenant_id = $1::uuid)
@@ -120,8 +124,10 @@ const SESSION_SCOPE_CTE = `
                      WHERE semestre_id = ss.semestre_id AND tenant_id = $1::uuid)
     )
     WHERE s.tenant_id = $1::uuid
-      AND ($6::text IS NULL OR u.categorie = $6::text)
-      AND CASE $5::text
+      AND ($7::text IS NULL OR ue.categorie = $7::text)
+      /* Ouverture de classe — la dimension des écrans d'administration. */
+      AND ($4::text IS NULL OR ${CLE_NOM_DE_CLASSE_SQL} = $4::text)
+      AND CASE $6::text
             WHEN 'en_cours' THEN s.statut IN ('ouvert', 'complet', 'en_cours')
             WHEN 'termine'  THEN s.statut = 'termine'
             ELSE true
@@ -134,6 +140,32 @@ const SESSION_SCOPE_CTE = `
  * canonique `NOT_CONDUITE` de professional-results.service.ts : toute divergence
  * de casse ou de motif produirait des chiffres différents de ceux des bulletins.
  */
+/**
+ * Restriction d un BULLETIN a une ouverture de classe.
+ *
+ * Un bulletin porte un etudiant et un semestre, jamais une ouverture : le lien
+ * passe par les inscriptions. Sans ce fragment, choisir une classe restreignait
+ * la sante des UE mais laissait les taux de reussite, les moyennes et les
+ * decisions decrire l etablissement entier — deux perimetres sur le meme ecran.
+ *
+ * Il cite $4, ce qui resout au passage le typage du parametre sur les requetes
+ * de bulletins : Postgres refuse une requete dont il ne peut pas typer un
+ * parametre transmis, meme inutilise.
+ *
+ * Alias attendu : `b` = professional_bulletins.
+ */
+const BULLETIN_CLASSE_SQL = `
+  ($4::text IS NULL OR EXISTS (
+     SELECT 1
+       FROM professional_enrollments en
+       JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+       JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+      WHERE en.student_id = b.student_id
+        AND en.tenant_id = b.tenant_id
+        AND en.statut <> 'annulee'
+        AND ${CLE_NOM_DE_CLASSE_SQL} = $4::text
+   ))`;
+
 const NOT_CONDUITE = "NOT (e.libelle ILIKE 'conduite%' OR e.code ILIKE '%EC-CON%')";
 
 /**
@@ -164,9 +196,16 @@ export async function fetchOwnerPedagogie(
   /**
    * Deux jeux de paramètres distincts : PostgreSQL rejette un bind qui fournit plus
    * de paramètres que la requête n'en référence. Les agrégats qui n'utilisent que
-   * SEMESTRE_SCOPE_CTE ($1..$4) ne doivent donc pas recevoir statut/categorie.
+   * SEMESTRE_SCOPE_CTE ($1..$2) ne doivent donc pas recevoir statut/categorie.
    */
-  const semestreParams = [tenantId, filiereIds, semestreId, anneeScolaire];
+  /*
+     Contrat de owner-perimetre.sql. Ce service ordonnait ses paramètres
+     autrement — filière en $2, semestre en $3, année en $4 — et trois rangs se
+     croisaient avec le contrat partagé. L'ordre est désormais celui de tous les
+     autres services, ce qui rend ses fragments réutilisables.
+  */
+  const nomClasse = filters.nomClasse?.trim() ? filters.nomClasse.trim() : null;
+  const semestreParams = [tenantId, anneeScolaire, filiereIds, nomClasse, semestreId];
   const sessionParams = [...semestreParams, statut, categorie];
 
   const client = await pool.connect();
@@ -194,7 +233,8 @@ export async function fetchOwnerPedagogie(
               COALESCE(SUM(${jsonNumber("credits_total")}), 0)::int AS credits_total
        FROM professional_bulletins b
        JOIN semestre_scope ss ON ss.semestre_id = b.semestre_id
-       WHERE b.tenant_id = $1::uuid`,
+       WHERE b.tenant_id = $1::uuid
+         AND ${BULLETIN_CLASSE_SQL}`,
       semestreParams,
       log,
       "kpis"
@@ -235,6 +275,7 @@ export async function fetchOwnerPedagogie(
        FROM professional_bulletins b
        JOIN semestre_scope ss ON ss.semestre_id = b.semestre_id
        WHERE b.tenant_id = $1::uuid
+         AND ${BULLETIN_CLASSE_SQL}
        GROUP BY ss.filiere_id, ss.filiere_name
        ORDER BY ss.filiere_name`,
       semestreParams,
@@ -262,6 +303,7 @@ export async function fetchOwnerPedagogie(
        FROM professional_bulletins b
        JOIN semestre_scope ss ON ss.semestre_id = b.semestre_id
        WHERE b.tenant_id = $1::uuid
+         AND ${BULLETIN_CLASSE_SQL}
        GROUP BY ss.semestre_id, ss.semestre_libelle, ss.filiere_id, ss.filiere_name
        -- professional_semestres n'a aucune colonne d'ordre : le libellé est le seul tri possible.
        ORDER BY ss.filiere_name, ss.semestre_libelle`,
@@ -301,9 +343,9 @@ export async function fetchOwnerPedagogie(
        WHERE r.tenant_id = $1::uuid
          AND ${NOT_CONDUITE}
        GROUP BY e.id, e.code, e.libelle
-       HAVING COUNT(*) FILTER (WHERE r.moyenne IS NOT NULL) >= $7::int
+       HAVING COUNT(*) FILTER (WHERE r.moyenne IS NOT NULL) >= $8::int
        ORDER BY fail_rate DESC, evaluated DESC
-       LIMIT $8::int`,
+       LIMIT $9::int`,
       [...sessionParams, OWNER_PEDAGOGIE_MIN_COHORT, OWNER_PEDAGOGIE_TOP_FAILED],
       log,
       "topFailedEcue"
@@ -358,6 +400,126 @@ export async function fetchOwnerPedagogie(
       "ueHealth"
     );
 
+    /* ---- Le rattrapage, comme chantier et non comme taux ------------------ */
+    /*
+       `session2` dit déjà quelle PART des validations vient du rattrapage.
+       Ceci répond à la question d'avant : qui est concerné, et est-ce que ça
+       marche ? Comparer les deux moyennes est le seul moyen de le savoir.
+
+       La session vit sur `professional_ecue_notes.session` : 1 pour la session
+       normale, 2 pour le rattrapage.
+    */
+    const rattrapageRows = await safeQuery<{
+      etudiants: string | number;
+      notes2: string | number;
+      moyenne2: string | number | null;
+      moyenne1: string | number | null;
+    }>(
+      client,
+      `WITH ${SEMESTRE_SCOPE_CTE},
+            ${SESSION_SCOPE_CTE}
+       SELECT COUNT(DISTINCT n.student_id) FILTER (WHERE n.session = 2)::int AS etudiants,
+              COUNT(*) FILTER (WHERE n.session = 2)::int                     AS notes2,
+              AVG(n.note) FILTER (WHERE n.session = 2)::float8               AS moyenne2,
+              AVG(n.note) FILTER (WHERE n.session = 1)::float8               AS moyenne1
+         FROM professional_ecue_notes n
+         JOIN session_scope sc ON sc.ue_session_id = n.ue_session_id
+         JOIN professional_ecue e ON e.id = n.ecue_id AND e.tenant_id = n.tenant_id
+        WHERE n.tenant_id = $1::uuid
+          /* La conduite n est pas rattrapable : elle se note, elle ne se
+             repasse pas. La melanger fausserait les deux moyennes. */
+          AND ${NOT_CONDUITE}`,
+      sessionParams,
+      log,
+      "rattrapage"
+    );
+    const rat = rattrapageRows[0] ?? {};
+
+    /* Les ECUE où le rattrapage est le plus demandé : le vrai goulot. */
+    const rattrapageEcueRows = await safeQuery<{
+      ecue_id: string;
+      code: string;
+      libelle: string;
+      filiere_name: string | null;
+      etudiants: string | number;
+      moyenne: string | number | null;
+    }>(
+      client,
+      `WITH ${SEMESTRE_SCOPE_CTE},
+            ${SESSION_SCOPE_CTE}
+       SELECT e.id AS ecue_id, e.code, e.libelle,
+              sc.filiere_name,
+              COUNT(DISTINCT n.student_id)::int AS etudiants,
+              AVG(n.note)::float8 AS moyenne
+         FROM professional_ecue_notes n
+         JOIN session_scope sc ON sc.ue_session_id = n.ue_session_id
+         JOIN professional_ecue e ON e.id = n.ecue_id AND e.tenant_id = n.tenant_id
+        WHERE n.tenant_id = $1::uuid
+          AND n.session = 2
+          AND ${NOT_CONDUITE}
+        GROUP BY e.id, e.code, e.libelle, sc.filiere_name
+        ORDER BY etudiants DESC, e.code
+        LIMIT 10`,
+      sessionParams,
+      log,
+      "rattrapageEcue"
+    );
+
+    /* ---- L'état de la chaîne des bulletins --------------------------------- */
+    /*
+       Un semestre CLÔTURÉ SANS AUCUN BULLETIN est un blocage sec : la clôture
+       dit « c'est fini » et les étudiants n'ont pourtant aucun relevé. Sans
+       bulletin définitif, ni diplôme ni attestation ni réinscription ne
+       suivent. Mesuré le 23/09/2026 : 16 semestres clôturés, 15 sans bulletin.
+    */
+    const bulletinRows = await safeQuery<{
+      semestre_id: string;
+      libelle: string;
+      filiere_name: string | null;
+      cloture_le: string | null;
+      bulletins: string | number;
+      definitifs: string | number;
+    }>(
+      client,
+      `WITH ${SEMESTRE_SCOPE_CTE}
+       SELECT ss.semestre_id,
+              ss.semestre_libelle AS libelle,
+              ss.filiere_name,
+              sem.bulletins_clotures_at::text AS cloture_le,
+              COUNT(b.id)::int AS bulletins,
+              COUNT(b.id) FILTER (WHERE b.statut = 'definitif')::int AS definitifs
+         FROM semestre_scope ss
+         JOIN professional_semestres sem
+           ON sem.id = ss.semestre_id AND sem.tenant_id = $1::uuid
+         LEFT JOIN professional_bulletins b
+           ON b.semestre_id = ss.semestre_id AND b.tenant_id = $1::uuid
+          AND ${BULLETIN_CLASSE_SQL}
+        /*
+           LE DENOMINATEUR SUIT LE FILTRE, SINON LE COMPTEUR MENT.
+
+           Le filtre de classe ne portait que sur les bulletins, jamais sur les
+           semestres : choisir une classe ecartait ses bulletins des autres
+           semestres sans ecarter ces semestres eux-memes, et le nombre de
+           « clotures sans bulletin » AUGMENTAIT — 15 sans filtre, 16 avec.
+           Filtrer ne peut pas creer un blocage.
+
+           La cle de classe est « filiereId|nom » : sa filiere est la partie
+           gauche, et c est elle qui restreint les semestres.
+        */
+        WHERE ($4::text IS NULL
+               OR ss.filiere_id::text = split_part($4::text, '|', 1))
+        GROUP BY ss.semestre_id, ss.semestre_libelle, ss.filiere_name,
+                 sem.bulletins_clotures_at
+        /* Les cloturés sans bulletin d'abord : c'est là que la chaîne casse. */
+        ORDER BY (sem.bulletins_clotures_at IS NOT NULL AND COUNT(b.id) = 0) DESC,
+                 sem.bulletins_clotures_at DESC NULLS LAST,
+                 ss.semestre_libelle
+        LIMIT 200`,
+      semestreParams,
+      log,
+      "bulletinsParSemestre"
+    );
+
     /* ---- Distribution des moyennes de session (histogramme) ---- */
     const distRows = await safeQuery<{ bucket: string; count: string | number }>(
       client,
@@ -367,6 +529,7 @@ export async function fetchOwnerPedagogie(
          FROM professional_bulletins b
          JOIN semestre_scope ss ON ss.semestre_id = b.semestre_id
          WHERE b.tenant_id = $1::uuid
+           AND ${BULLETIN_CLASSE_SQL}
        )
        SELECT bucket, COUNT(g.moyenne)::int AS count
        FROM (VALUES ('<5', 0), ('5-8', 1), ('8-10', 2), ('10-12', 3),
@@ -471,6 +634,52 @@ export async function fetchOwnerPedagogie(
         bucket: r.bucket as OwnerPedagogieResponse["gradeDistribution"][number]["bucket"],
         count: Number(r.count) || 0,
       })),
+      rattrapage: {
+        etudiantsConcernes: Math.round(Number(rat.etudiants) || 0),
+        notesSession2: Math.round(Number(rat.notes2) || 0),
+        /* NULL et non 0 : une moyenne sur aucune note n'existe pas, et un zéro
+           se lirait « tout le monde a eu 0 au rattrapage ». */
+        moyenneSession2:
+          rat.moyenne2 === null || rat.moyenne2 === undefined
+            ? null
+            : Math.round(Number(rat.moyenne2) * 100) / 100,
+        moyenneSession1:
+          rat.moyenne1 === null || rat.moyenne1 === undefined
+            ? null
+            : Math.round(Number(rat.moyenne1) * 100) / 100,
+        ecueLesPlusReprises: rattrapageEcueRows.map((r) => ({
+          ecueId: String(r.ecue_id),
+          code: String(r.code ?? ""),
+          libelle: String(r.libelle ?? ""),
+          filiereName: (r.filiere_name as string | null) ?? null,
+          etudiants: Math.round(Number(r.etudiants) || 0),
+          moyenne:
+            r.moyenne === null || r.moyenne === undefined
+              ? null
+              : Math.round(Number(r.moyenne) * 100) / 100,
+        })),
+      },
+      bulletins: {
+        generes: bulletinRows.reduce((t, r) => t + (Number(r.bulletins) || 0), 0),
+        definitifs: bulletinRows.reduce((t, r) => t + (Number(r.definitifs) || 0), 0),
+        provisoires: bulletinRows.reduce(
+          (t, r) => t + ((Number(r.bulletins) || 0) - (Number(r.definitifs) || 0)),
+          0
+        ),
+        semestres: bulletinRows.length,
+        semestresClotures: bulletinRows.filter((r) => r.cloture_le !== null).length,
+        semestresCloturesSansBulletin: bulletinRows.filter(
+          (r) => r.cloture_le !== null && (Number(r.bulletins) || 0) === 0
+        ).length,
+        parSemestre: bulletinRows.map((r) => ({
+          semestreId: String(r.semestre_id),
+          libelle: String(r.libelle ?? ""),
+          filiereName: (r.filiere_name as string | null) ?? null,
+          clotureLe: r.cloture_le ? String(r.cloture_le).slice(0, 10) : null,
+          bulletins: Math.round(Number(r.bulletins) || 0),
+          definitifs: Math.round(Number(r.definitifs) || 0),
+        })),
+      },
       session2: {
         validatedTotal,
         validatedSession2,

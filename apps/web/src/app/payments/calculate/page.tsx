@@ -988,7 +988,7 @@ export default function CalculatePaymentsPage() {
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Calculator className="w-6 h-6" /> Calcul des Paiements
           </h1>
-          <p className="text-gray-600">Sélectionnez une période et un enseignant pour calculer son paiement, ou calculez tous les enseignants.</p>
+          <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">Sélectionnez une période et un enseignant pour calculer son paiement, ou calculez tous les enseignants.</p>
         </div>
         <div className="flex gap-2">
           <Button 

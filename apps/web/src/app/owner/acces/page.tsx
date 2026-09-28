@@ -111,7 +111,7 @@ export default function OwnerAccesPage() {
       <TabsContent value="utilisateurs" className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Gestion des accès</h2>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Attribution des rôles gérables par le propriétaire :{" "}
           <span className="font-mono text-xs">{rolesQ.data.roleKeys.join(", ")}</span>. Le rôle{" "}
           <code className="text-xs bg-muted px-1 rounded">owner</code> ne peut pas être modifié ici.

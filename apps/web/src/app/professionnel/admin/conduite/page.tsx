@@ -177,13 +177,13 @@ export default function AdminConduitePage() {
   return (
     <div className="space-y-6 max-w-[1500px] mx-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="font-bold bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <Star className="h-7 w-7 text-amber-500" />
             Saisie des conduites
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Une note de conduite /20 par étudiant et par semestre, attribuée au vu des présences
             des sessions en cours. La saisie est enregistrée dès que le curseur quitte le champ.
           </p>
@@ -234,7 +234,7 @@ export default function AdminConduitePage() {
               icon={<CalendarRange className="h-4 w-4 text-gray-400" />}
               placeholder={
                 !filiereId
-                  ? "Choisir une classe"
+                  ? "Choisissez d'abord une classe"
                   : semestresQuery.isLoading
                   ? "Chargement…"
                   : semestreOptions.length === 0

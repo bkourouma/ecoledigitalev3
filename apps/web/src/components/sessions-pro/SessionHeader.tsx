@@ -72,9 +72,9 @@ export function SessionHeader({ session, className, backHref }: SessionHeaderPro
       </div>
 
       {/* Title and Status */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+          <h1 className="font-bold text-foreground mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             {formationTitre}
           </h1>
           <div className="flex items-center gap-4 text-foreground/90">

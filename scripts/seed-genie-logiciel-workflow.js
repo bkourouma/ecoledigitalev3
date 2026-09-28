@@ -18,7 +18,6 @@ const bcrypt = require("bcryptjs");
 
 const CONNECTION_CANDIDATES = [
   process.env.DATABASE_URL,
-  "postgresql://postgres:29122003@localhost:5433/dbecoledigitale",
   "postgresql://postgres:29122003@localhost:5432/dbecoledigitale",
 ].filter(Boolean);
 

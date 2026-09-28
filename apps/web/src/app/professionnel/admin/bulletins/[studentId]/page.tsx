@@ -207,7 +207,7 @@ export default function BulletinEtudiantPage() {
             <AlertCircle className="h-10 w-10 text-red-500" />
             <div>
               <h1 className="text-lg font-semibold">Bulletin indisponible</h1>
-              <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+              <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">{error}</p>
             </div>
             <Button variant="outline" onClick={() => router.push("/professionnel/admin/bulletins")}>
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -228,7 +228,7 @@ export default function BulletinEtudiantPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       {/* En-tête */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3 sm:items-start sm:justify-between">
         <div className="min-w-0">
           <Link
             href="/professionnel/admin/bulletins/historique"
@@ -237,11 +237,11 @@ export default function BulletinEtudiantPage() {
             <ArrowLeft className="h-4 w-4" />
             Historique des bulletins
           </Link>
-          <h1 className="mt-2 flex items-center gap-2 text-2xl font-bold">
+          <h1 className="whitespace-nowrap mt-2 flex items-center gap-2 font-bold text-2xl leading-tight md:text-3xl">
             <FileSpreadsheet className="h-6 w-6 text-indigo-500" />
             {`${student.last_name ?? ""} ${student.first_name ?? ""}`.trim() || "Étudiant"}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             {semestre.libelle ?? "Semestre"}
             {filiere.name ? ` · ${filiere.name}` : ""}
             {bulletin?.annee_academique ? ` · ${bulletin.annee_academique}` : ""}

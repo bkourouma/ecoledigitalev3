@@ -273,7 +273,7 @@ export default function CourseDetailPage() {
       <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-7xl">
         <div className="text-center space-y-4">
           <h1 className="text-xl sm:text-2xl font-bold text-red-600">Cours non trouvé</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Le cours demandé n'existe pas ou a été supprimé.</p>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Le cours demandé n'existe pas ou a été supprimé.</p>
           <Button onClick={() => router.push('/academic/courses')} className="w-full sm:w-auto">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Retour aux cours
@@ -286,18 +286,18 @@ export default function CourseDetailPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-7xl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 sm:mb-8">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button
           variant="outline"
           onClick={() => router.push('/academic/courses')}
-          className="flex items-center gap-2 w-full sm:w-auto"
+          className="flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Retour</span>
+          Retour
         </Button>
         <div className="flex-1 w-full min-w-0">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-            <h1 className="text-2xl sm:text-3xl font-bold break-words">{course.name}</h1>
+            <h1 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">{course.name}</h1>
             <div className="flex flex-wrap items-center gap-2">
               <span className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-full font-medium whitespace-nowrap ${getStatusColor(course.status)}`}>
               {getStatusLabel(course.status)}
@@ -307,7 +307,7 @@ export default function CourseDetailPage() {
             </span>
             </div>
           </div>
-          <p className="text-sm sm:text-base text-muted-foreground break-words">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Code: {course.code}
             {course.programme?.name && (
               <>
@@ -414,8 +414,8 @@ export default function CourseDetailPage() {
           {/* Course Materials */}
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl whitespace-nowrap text-2xl leading-tight md:text-3xl">
                   <FileText className="w-5 h-5" />
                   Supports de cours ({materials.length})
                 </CardTitle>
@@ -505,8 +505,8 @@ export default function CourseDetailPage() {
           {/* Assignments */}
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl whitespace-nowrap text-2xl leading-tight md:text-3xl">
                   <BookOpen className="w-5 h-5" />
                   Devoirs et évaluations
                 </CardTitle>
@@ -635,8 +635,8 @@ export default function CourseDetailPage() {
           {/* Students */}
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg whitespace-nowrap text-2xl leading-tight md:text-3xl">
                   <Users className="w-5 h-5" />
                   Étudiants inscrits
                 </CardTitle>

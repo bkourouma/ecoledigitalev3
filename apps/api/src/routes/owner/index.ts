@@ -2,7 +2,6 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import type { Pool } from "pg";
 import { z } from "zod";
 import {
-  OwnerDashboardResponseSchema,
   OwnerFinancesQuerySchema,
   OwnerFinancesResponseSchema,
   OwnerFinancialReportQuerySchema,
@@ -29,6 +28,8 @@ import {
   OwnerPersonnesResponseSchema,
   OwnerRecrutementQuerySchema,
   OwnerRecrutementResponseSchema,
+  OwnerProspectionQuerySchema,
+  OwnerProspectionResponseSchema,
   OwnerPulseQuerySchema,
   OwnerPulseResponseSchema,
   OwnerTresorerieQuerySchema,
@@ -45,6 +46,36 @@ import {
   OwnerPayrollResponseSchema,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
 import {
+  OwnerChargesQuerySchema,
+  OwnerChargesResponseSchema,
+  OwnerChargeCategoriesResponseSchema,
+  OwnerChargeCreateBodySchema,
+  OwnerChargePatchBodySchema,
+  OwnerChargeMutationResponseSchema,
+  OwnerChargeCohortesResponseSchema,
+} from "@ecoledigitale/contracts/src/owner-charges.schema";
+import {
+  OwnerScolariteQuerySchema,
+  OwnerScolariteResponseSchema,
+} from "@ecoledigitale/contracts/src/owner-scolarite.schema";
+import {
+  OwnerDocumentsQuerySchema,
+  OwnerDocumentsResponseSchema,
+} from "@ecoledigitale/contracts/src/owner-documents.schema";
+import {
+  OwnerProgrammeQuerySchema,
+  OwnerProgrammeResponseSchema,
+} from "@ecoledigitale/contracts/src/owner-programme.schema";
+import {
+  fetchOwnerCharges,
+  fetchOwnerChargeCategories,
+  createOwnerCharge,
+  updateOwnerCharge,
+  deleteOwnerCharge,
+  OwnerChargeInvalide,
+  fetchOwnerChargeCohortes,
+} from "../../services/owner-charges.service";
+import {
   buildOwnerEconomieCsv,
   fetchOwnerEconomie,
 } from "../../services/owner-economie.service";
@@ -52,6 +83,18 @@ import {
   buildOwnerRisqueCsv,
   fetchOwnerRisque,
 } from "../../services/owner-risque.service";
+import {
+  buildOwnerScolariteCsv,
+  fetchOwnerScolarite,
+} from "../../services/owner-scolarite.service";
+import {
+  buildOwnerDocumentsCsv,
+  fetchOwnerDocuments,
+} from "../../services/owner-documents.service";
+import {
+  buildOwnerProgrammeCsv,
+  fetchOwnerProgramme,
+} from "../../services/owner-programme.service";
 import {
   buildOwnerRemplissageCsv,
   fetchOwnerRemplissage,
@@ -67,6 +110,7 @@ import { fetchOwnerReferentiel } from "../../services/owner-referentiel.service"
 import { fetchOwnerAssiduite } from "../../services/owner-assiduite.service";
 import { fetchOwnerPersonnes } from "../../services/owner-personnes.service";
 import { fetchOwnerRecrutement } from "../../services/owner-recrutement.service";
+import { fetchOwnerProspection } from "../../services/owner-prospection.service";
 import {
   buildOwnerAssiduiteCsv,
   buildOwnerFinancesProCsv,
@@ -74,12 +118,12 @@ import {
   buildOwnerPersonnesCsv,
   buildOwnerPayrollCsv,
   buildOwnerRecrutementCsv,
+  buildOwnerProspectionCsv,
 } from "../../services/owner-stats-csv.service";
 import { requireOwner, requireOwnerOrAdmin } from "../../middlewares/requireOwner";
 import { fetchOwnerPedagogie } from "../../services/owner-pedagogie.service";
 import { fetchOwnerFinancesPro } from "../../services/owner-finances-pro.service";
 import { fetchOwnerStatsFilters } from "../../services/owner-stats-filters.service";
-import { fetchOwnerDashboardKpis } from "../../services/owner-dashboard.service";
 import {
   buildOwnerFinancialReportCsv,
   buildOwnerFinancialReportHtml,
@@ -121,6 +165,22 @@ function normalizeStatsQuery(q: unknown): Record<string, unknown> {
     else out[key] = cleaned;
   }
 
+
+  /*
+     Les filtres texte sont rognés avant d'être comparés.
+
+     nomClasse porte la clé « filiereId|nom » : elle traverse une URL, un
+     champ de recherche et parfois un copier-coller, et une espace en tête ou
+     en queue la rend introuvable en base. L'égalité SQL est stricte, elle ne
+     pardonne pas — le filtre ne ramènerait rien, et l'écran vide se lirait
+     comme une absence de données plutôt que comme une clé mal formée.
+
+     La boucle « chaîne vide » ci-dessous vient après, pour qu'un filtre
+     réduit à des espaces soit traité comme un filtre absent.
+  */
+  for (const key of ["nomClasse", "recherche", "search"]) {
+    if (typeof out[key] === "string") out[key] = (out[key] as string).trim();
+  }
   // Une chaîne vide vaut « filtre absent », pas « valeur invalide ».
   for (const key of Object.keys(out)) {
     if (out[key] === "") delete out[key];
@@ -136,49 +196,13 @@ function parseOwnerFinancesQuery(q: unknown): OwnerFinancesQuery {
     period: d.period ?? "month",
     anneeScolaire: d.anneeScolaire,
     filiereIds: d.filiereIds,
+    // Le périmètre complet : sans ces deux lignes, le service recevrait un
+    // filtre que l écran a pourtant envoyé, et ne filtrerait rien.
+    nomClasse: "nomClasse" in d ? d.nomClasse : undefined,
+    semestreId: "semestreId" in d ? d.semestreId : undefined,
   };
 }
 
-function emptyDashboard(): z.infer<typeof OwnerDashboardResponseSchema> {
-  return {
-    finances: {
-      revenueCurrentMonth: 0,
-      recoveryRate: 0,
-      recoveryByCycle: [],
-      teacherPaymentRate: 0,
-      overdueCount: 0,
-    },
-    academic: {
-      totalStudents: 0,
-      totalClasses: 0,
-      averageGrade: 0,
-      successRate: 0,
-      attendanceRate: 0,
-      assignmentsGradedRate: 0,
-    },
-    staff: {
-      activeTeachers: 0,
-      totalHoursTaught: 0,
-      coursesWithoutTeacher: 0,
-      pendingPayrollValidations: 0,
-    },
-    formations: {
-      activeSessions: 0,
-      totalEnrollments: 0,
-      revenueFormations: 0,
-      clientCompanies: 0,
-    },
-    professional: {
-      enrolledStudents: 0,
-      enrolledStudentsPrevMonth: 0,
-      recoveryRate: 0,
-      // `null` et non 0 : « aucun semestre clos avec bulletins » n'est pas
-      // « 0 % de réussite ». La carte affiche « — » dans ce cas.
-      successRateLastSemester: null,
-      attendanceRate30d: 0,
-    },
-  };
-}
 
 
 export async function ownerRoutes(fastify: FastifyInstance) {
@@ -308,6 +332,168 @@ export async function ownerRoutes(fastify: FastifyInstance) {
           success: false,
           error: "Internal Server Error",
           message: "Calcul du risque impossible",
+        });
+      }
+    }
+  );
+
+  /**
+   * Programme : une ligne par UE, le produit et la brique pédagogique côte à
+   * côte — prix, crédits affichés, crédits réellement calculés, ouvertures,
+   * inscrits.
+   *
+   * L'écart de maquette est le point dur : `nb_uv` est AFFICHÉ, la somme des
+   * crédits des ECUE est ce qui s'IMPRIME sur les relevés et les diplômes. Quand
+   * les deux divergent, le document officiel porte un faux — à corriger avant de
+   * générer les bulletins, sinon il faut réimprimer.
+   *
+   * Le volume horaire sort `mesurable: false` tant que le planning n'est pas
+   * saisi : un rapport heures/crédits bâti sur trois séances ferait passer une
+   * absence de planning pour une sous-dotation.
+   */
+  fastify.get(
+    "/programme",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const raw = normalizeStatsQuery(request.query) as Record<string, unknown>;
+      const wantsCsv = String(raw.format ?? "").toLowerCase() === "csv";
+      const parsed = OwnerProgrammeQuerySchema.safeParse(raw);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Paramètres de filtrage invalides",
+        });
+      }
+      try {
+        const data = await fetchOwnerProgramme(
+          fastify.pg as Pool,
+          tenantId,
+          parsed.data,
+          request.log
+        );
+        if (!wantsCsv) {
+          return reply.send(OwnerProgrammeResponseSchema.parse(data));
+        }
+        reply
+          .header("Content-Type", "text/csv; charset=utf-8")
+          .header("Content-Disposition", `attachment; filename="programme.csv"`)
+          // BOM : sans lui Excel lit le CSV en ANSI et casse les accents.
+          .send("\ufeff" + buildOwnerProgrammeCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner programme aggregation failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Calcul du programme impossible",
+        });
+      }
+    }
+  );
+
+  /**
+   * Documents officiels : pipeline de diplomation, signataires, complétude des
+   * dossiers.
+   *
+   * Deux faits que rien ne montrait : l'éligible non diplômé (un dossier fini
+   * qui dort) et l'octroi sans les UV requises (un titre attaquable). Plus
+   * l'état des signataires — les quatre valeurs livrées par défaut sont des
+   * noms de personnes réelles, et un établissement qui ne les a pas remplacés
+   * imprime leur signature sur ses diplômes.
+   *
+   * Le volume d'attestations est déclaré NON MESURABLE : aucune table ne les
+   * enregistre.
+   */
+  fastify.get(
+    "/documents",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const raw = normalizeStatsQuery(request.query) as Record<string, unknown>;
+      const wantsCsv = String(raw.format ?? "").toLowerCase() === "csv";
+      const parsed = OwnerDocumentsQuerySchema.safeParse(raw);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Paramètres de filtrage invalides",
+        });
+      }
+      try {
+        const data = await fetchOwnerDocuments(
+          fastify.pg as Pool,
+          tenantId,
+          parsed.data,
+          request.log
+        );
+        if (!wantsCsv) {
+          return reply.send(OwnerDocumentsResponseSchema.parse(data));
+        }
+        reply
+          .header("Content-Type", "text/csv; charset=utf-8")
+          .header("Content-Disposition", `attachment; filename="documents-officiels.csv"`)
+          // BOM : sans lui Excel lit le CSV en ANSI et casse les accents.
+          .send("\ufeff" + buildOwnerDocumentsCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner documents aggregation failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Calcul des documents officiels impossible",
+        });
+      }
+    }
+  );
+
+  /**
+   * Scolarité : le barème de chaque classe, ce qui a réellement été commandé,
+   * et l'écart entre les deux.
+   *
+   * L'unité est le LOT (étudiant × classe), la seule qui porte une dette. Une
+   * classe sans grille tarifaire ne produit aucun dû — jamais zéro : la
+   * réponse porte `couverture.duInterpretable` pour que l'écran dise
+   * « commandé » tant que le dû n'est pas mesurable.
+   *
+   * `?format=csv` exporte la ventilation par classe, en-tête de périmètre
+   * compris.
+   */
+  fastify.get(
+    "/scolarite",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const raw = normalizeStatsQuery(request.query) as Record<string, unknown>;
+      const wantsCsv = String(raw.format ?? "").toLowerCase() === "csv";
+      const parsed = OwnerScolariteQuerySchema.safeParse(raw);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: "Paramètres de filtrage invalides",
+        });
+      }
+      try {
+        const data = await fetchOwnerScolarite(
+          fastify.pg as Pool,
+          tenantId,
+          parsed.data,
+          request.log
+        );
+        if (!wantsCsv) {
+          return reply.send(OwnerScolariteResponseSchema.parse(data));
+        }
+        reply
+          .header("Content-Type", "text/csv; charset=utf-8")
+          .header("Content-Disposition", `attachment; filename="scolarite-bareme.csv"`)
+          // BOM : sans lui Excel lit le CSV en ANSI et casse les accents.
+          .send("\ufeff" + buildOwnerScolariteCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner scolarite aggregation failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Calcul de la scolarité impossible",
         });
       }
     }
@@ -463,23 +649,6 @@ export async function ownerRoutes(fastify: FastifyInstance) {
           message: "Journal de caisse indisponible",
         });
       }
-    }
-  );
-
-  fastify.get(
-    "/dashboard",
-    { preHandler: requireOwner },
-    async (request, reply) => {
-      const tenantId = request.tenantId!;
-      let base;
-      try {
-        base = await fetchOwnerDashboardKpis(fastify.pg as Pool, tenantId, request.log);
-      } catch (e) {
-        request.log.error({ err: e }, "owner dashboard KPI aggregation failed");
-        base = OwnerDashboardResponseSchema.parse(emptyDashboard());
-      }
-
-      reply.send(OwnerDashboardResponseSchema.parse(base));
     }
   );
 
@@ -781,6 +950,47 @@ export async function ownerRoutes(fastify: FastifyInstance) {
     }
   );
 
+  /**
+   * Prospection — provenance des étudiants et coût des commerciaux.
+   *
+   * `requireOwner` strict : on y lit une dette envers des tiers et le prix payé
+   * pour chaque étudiant recruté (§8-3). L'administration a ses propres écrans
+   * d'exploitation sous `/api/v1/prospection`, qui ne consolident rien.
+   */
+  fastify.get(
+    "/prospection",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const parsed = OwnerProspectionQuerySchema.safeParse(
+        normalizeStatsQuery(request.query)
+      );
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const tenantId = request.tenantId!;
+      try {
+        const data = await fetchOwnerProspection(
+          fastify.pg as Pool,
+          tenantId,
+          request.log,
+          parsed.data
+        );
+        reply.send(OwnerProspectionResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner prospection failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de charger les données de prospection",
+        });
+      }
+    }
+  );
+
   /* ------------------- Exports CSV des pages de statistiques ------------------ */
 
   /**
@@ -951,6 +1161,37 @@ export async function ownerRoutes(fastify: FastifyInstance) {
         return sendCsv(reply, "recrutement.csv", buildOwnerRecrutementCsv(data));
       } catch (e) {
         request.log.error({ err: e }, "owner recrutement export failed");
+        return reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Impossible de générer l'export",
+        });
+      }
+    }
+  );
+
+  fastify.get(
+    "/prospection/export",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const parsed = OwnerProspectionQuerySchema.safeParse(normalizeStatsQuery(request.query));
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.flatten().fieldErrors,
+        });
+      }
+      try {
+        const data = await fetchOwnerProspection(
+          fastify.pg as Pool,
+          request.tenantId!,
+          request.log,
+          parsed.data
+        );
+        return sendCsv(reply, "prospection.csv", buildOwnerProspectionCsv(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner prospection export failed");
         return reply.status(500).send({
           success: false,
           error: "Internal Server Error",
@@ -1220,6 +1461,197 @@ export async function ownerRoutes(fastify: FastifyInstance) {
           success: false,
           error: "Internal Server Error",
           message: "Erreur lors de la validation du paiement",
+        });
+      }
+    }
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /*  Charges — les seules routes d'ÉCRITURE métier de l'espace propriétaire */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+     Pourquoi l'espace propriétaire écrit ici, et nulle part ailleurs.
+
+     La table `expenses` existe depuis la migration 0098 et `owner-economie`
+     la lit depuis toujours, mais aucune route ne permettait d'y saisir quoi que
+     ce soit : l'écran Rentabilité ne pouvait afficher qu'un chiffre d'affaires
+     et refusait, à juste titre, d'appeler « marge » un encaissement dont on
+     n'avait retranché aucune charge. Ces cinq routes sont ce qui lui permet de
+     l'écrire un jour.
+
+     `requireOwner` strict : une charge est une écriture comptable, elle
+     n'appartient pas au périmètre d'un administrateur de scolarité.
+  */
+  fastify.get("/charges", { preHandler: requireOwner }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const parsed = OwnerChargesQuerySchema.safeParse(normalizeStatsQuery(request.query));
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: "Bad Request",
+        message: "Paramètres de filtre invalides",
+      });
+    }
+    try {
+      const data = await fetchOwnerCharges(
+        fastify.pg as Pool,
+        tenantId,
+        parsed.data,
+        request.log
+      );
+      reply.send(OwnerChargesResponseSchema.parse(data));
+    } catch (e) {
+      request.log.error({ err: e }, "owner charges failed");
+      reply.status(500).send({
+        success: false,
+        error: "Internal Server Error",
+        message: "Erreur lors du chargement des charges",
+      });
+    }
+  });
+
+  fastify.get("/charges/categories", { preHandler: requireOwner }, async (request, reply) => {
+    try {
+      const data = await fetchOwnerChargeCategories(fastify.pg as Pool, request.tenantId!);
+      reply.send(OwnerChargeCategoriesResponseSchema.parse(data));
+    } catch (e) {
+      request.log.error({ err: e }, "owner charge categories failed");
+      reply.status(500).send({
+        success: false,
+        error: "Internal Server Error",
+        message: "Erreur lors du chargement des catégories",
+      });
+    }
+  });
+
+  /*
+     Les cohortes d une classe donnee. Le selecteur du formulaire en depend :
+     sans elle, il proposerait des noms derives des ouvertures, que la cle
+     etrangere de la charge refuserait ensuite.
+  */
+  fastify.get<{ Querystring: { programmeId?: string } }>(
+    "/charges/cohortes",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      try {
+        const data = await fetchOwnerChargeCohortes(
+          fastify.pg as Pool,
+          request.tenantId!,
+          request.query.programmeId ?? null
+        );
+        reply.send(OwnerChargeCohortesResponseSchema.parse(data));
+      } catch (e) {
+        request.log.error({ err: e }, "owner charge cohortes failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Erreur lors du chargement des cohortes",
+        });
+      }
+    }
+  );
+
+  fastify.post("/charges", { preHandler: requireOwner }, async (request, reply) => {
+    const parsed = OwnerChargeCreateBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      // Le premier message de Zod, pas la liste entière : il est déjà rédigé
+      // pour être lu par un comptable, pas par un développeur.
+      return reply.status(400).send({
+        success: false,
+        error: "Bad Request",
+        message: parsed.error.issues[0]?.message ?? "Charge invalide",
+      });
+    }
+    try {
+      const charge = await createOwnerCharge(
+        fastify.pg as Pool,
+        request.tenantId!,
+        parsed.data,
+        request.user?.id ?? null,
+        request.log
+      );
+      reply.status(201).send(OwnerChargeMutationResponseSchema.parse({ charge }));
+    } catch (e) {
+      if (e instanceof OwnerChargeInvalide) {
+        return reply
+          .status(400)
+          .send({ success: false, error: "Bad Request", message: e.message });
+      }
+      request.log.error({ err: e }, "owner charge create failed");
+      reply.status(500).send({
+        success: false,
+        error: "Internal Server Error",
+        message: "Erreur lors de l'enregistrement de la charge",
+      });
+    }
+  });
+
+  fastify.patch<{ Params: { id: string } }>(
+    "/charges/:id",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      const parsed = OwnerChargePatchBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Bad Request",
+          message: parsed.error.issues[0]?.message ?? "Charge invalide",
+        });
+      }
+      try {
+        const charge = await updateOwnerCharge(
+          fastify.pg as Pool,
+          request.tenantId!,
+          request.params.id,
+          parsed.data,
+          request.log
+        );
+        if (!charge) {
+          return reply
+            .status(404)
+            .send({ success: false, error: "Not Found", message: "Charge introuvable" });
+        }
+        reply.send(OwnerChargeMutationResponseSchema.parse({ charge }));
+      } catch (e) {
+        if (e instanceof OwnerChargeInvalide) {
+          return reply
+            .status(400)
+            .send({ success: false, error: "Bad Request", message: e.message });
+        }
+        request.log.error({ err: e }, "owner charge update failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Erreur lors de la mise à jour de la charge",
+        });
+      }
+    }
+  );
+
+  fastify.delete<{ Params: { id: string } }>(
+    "/charges/:id",
+    { preHandler: requireOwner },
+    async (request, reply) => {
+      try {
+        const ok = await deleteOwnerCharge(
+          fastify.pg as Pool,
+          request.tenantId!,
+          request.params.id,
+          request.log
+        );
+        if (!ok) {
+          return reply
+            .status(404)
+            .send({ success: false, error: "Not Found", message: "Charge introuvable" });
+        }
+        reply.status(204).send();
+      } catch (e) {
+        request.log.error({ err: e }, "owner charge delete failed");
+        reply.status(500).send({
+          success: false,
+          error: "Internal Server Error",
+          message: "Erreur lors de la suppression de la charge",
         });
       }
     }

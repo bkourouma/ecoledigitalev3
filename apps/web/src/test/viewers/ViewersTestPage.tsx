@@ -118,7 +118,7 @@ export default function ViewersTestPage() {
                       <suite.icon className="h-5 w-5 text-blue-600" />
                       <h2 className="text-lg font-semibold">{suite.name} Test Suite</h2>
                     </div>
-                    <p className="text-gray-600 text-sm">{suite.description}</p>
+                    <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">{suite.description}</p>
                   </CardContent>
                 </Card>
                 <TestComponent />

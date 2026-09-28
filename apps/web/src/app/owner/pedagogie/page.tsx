@@ -3,6 +3,8 @@
 import { OwnerTabs } from "@/components/owner/OwnerTabs";
 import { ResultatsScolaire } from "./ResultatsScolaire";
 import { ResultatsProfessionnel } from "./ResultatsProfessionnel";
+import { Rattrapages } from "./Rattrapages";
+import { Bulletins } from "./Bulletins";
 
 /**
  * Résultats — une seule question, deux moteurs pédagogiques.
@@ -27,6 +29,14 @@ export default function OwnerResultatsPage() {
           label: "Professionnel",
           content: <ResultatsProfessionnel />,
         },
+        /*
+          Deux onglets de plus, et non deux blocs dans « Professionnel » : un
+          fondateur qui demande « les bulletins sortent-ils ? » ne pose pas la
+          même question que « quels sont les résultats ? ». Les mêler obligerait
+          à faire défiler une page de moyennes pour trouver un blocage.
+        */
+        { value: "rattrapages", label: "Rattrapages", content: <Rattrapages /> },
+        { value: "bulletins", label: "Bulletins", content: <Bulletins /> },
       ]}
     />
   );

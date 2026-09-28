@@ -6,6 +6,7 @@ import type {
   OwnerRisqueSignalKey,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
 import { PRO_UNPAID_INSTALLMENTS_CTE } from "./owner-pro-outstanding.sql";
+import { CLE_NOM_DE_CLASSE_SQL } from "./owner-pro-annee.sql";
 
 /**
  * Qualité et risque.
@@ -110,6 +111,9 @@ export async function fetchOwnerRisque(
   log: FastifyBaseLogger
 ): Promise<OwnerRisqueResponse> {
   const filiereIds = query.filiereIds && query.filiereIds.length > 0 ? query.filiereIds : null;
+  const anneeScolaire = query.anneeScolaire ?? null;
+  const nomClasse = query.nomClasse?.trim() ? query.nomClasse.trim() : null;
+  const semestreId = query.semestreId ?? null;
   const client = await pool.connect();
 
   try {
@@ -157,19 +161,37 @@ export async function fetchOwnerRisque(
     const staleThreshold = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
     const windowShifted = lastSeance !== null && lastSeance < staleThreshold;
     const windowEnd = windowShifted ? lastSeance! : today;
+    /*
+       Contrat de owner-perimetre.sql, puis la borne de fenetre propre a cet
+       ecran. La fenetre se calcule APRES la derniere seance connue, donc le
+       tableau ne peut etre construit qu ici et non en tete de fonction.
+    */
+    const perimetre = [tenantId, anneeScolaire, filiereIds, nomClasse, semestreId, windowEnd];
 
     /* ---- Signaux par étudiant --------------------------------------------- */
     const studentRows = await safeRows<Row>(
       client,
       `WITH cohorte AS (
          -- Étudiants engagés dans au moins une cohorte non annulée.
-         SELECT DISTINCT en.student_id, u.filiere_id
+         SELECT DISTINCT en.student_id, ue.filiere_id
          FROM professional_enrollments en
          JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
-         JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
+         JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
          WHERE en.tenant_id = $1::uuid
            AND en.statut <> 'annulee'
-           AND ($2::uuid[] IS NULL OR u.filiere_id = ANY($2::uuid[]))
+           AND ($3::uuid[] IS NULL OR ue.filiere_id = ANY($3::uuid[]))
+           /* Ouverture de classe — la dimension des ecrans d administration. */
+           AND ($4::text IS NULL OR ${CLE_NOM_DE_CLASSE_SQL} = $4::text)
+           /* NI L ANNEE NI LE SEMESTRE ne sont des dimensions de cet ecran :
+              il travaille sur une fenetre de 30 jours calee sur la derniere
+              seance connue, pas sur un exercice. Les deux parametres sont
+              neanmoins transmis par le contrat de perimetre, et Postgres refuse
+              une requete dont il ne peut pas typer un parametre fourni. Ces
+              deux conditions sont donc toujours vraies : elles ne servent qu au
+              typage. La barre de filtres, elle, ne propose pas ces dimensions —
+              un filtre qui n agit pas ne doit jamais s afficher. */
+           AND ($2::text IS NULL OR TRUE)
+           AND ($5::uuid IS NULL OR TRUE)
        ),
        /* Assiduité sur 30 jours, pondérée par la durée réelle des séances. */
        absences AS (
@@ -181,8 +203,8 @@ export async function fetchOwnerRisque(
          FROM professional_ecue_attendance a
          JOIN professional_ecue_seances se ON se.id = a.seance_id AND se.tenant_id = a.tenant_id
          WHERE a.tenant_id = $1::uuid
-           AND se.date > $3::date - 30
-           AND se.date <= $3::date
+           AND se.date > $6::date - 30
+           AND se.date <= $6::date
          GROUP BY a.student_id
        ),
        /* Résultats : moyenne courante et présence d'une note éliminatoire. */
@@ -243,7 +265,7 @@ export async function fetchOwnerRisque(
        LEFT JOIN resultats re ON re.student_id = c.student_id
        LEFT JOIN impayes im ON im.student_id = c.student_id
        LEFT JOIN vues vu ON vu.student_id = c.student_id`,
-      [tenantId, filiereIds, windowEnd],
+      perimetre,
       log,
       "signauxEtudiants"
     );
@@ -351,13 +373,35 @@ export async function fetchOwnerRisque(
     /* ---- Avancement de la saisie, par enseignant nommé --------------------- */
     const teacherRows = await safeRows<Row>(
       client,
-      `WITH affectations AS (
+      `WITH ouvertures_ecran AS (
+         /* Les ouvertures de classe que le filtre laisse passer. Extrait en CTE
+            parce que DEUX sources alimentent cet ecran : les affectations
+            d enseignant et les seances d appel. Filtrer les premieres seulement
+            laissait un enseignant dans la liste pour une classe ou il n a
+            jamais enseigne — il suffisait qu il ait des seances ailleurs. */
+         SELECT s.id
+         FROM professional_ue_sessions s
+         JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+         WHERE s.tenant_id = $1::uuid
+           AND ($3::uuid[] IS NULL OR ue.filiere_id = ANY($3::uuid[]))
+           /* Ouverture de classe — la dimension des ecrans d administration. */
+           AND ($4::text IS NULL OR ${CLE_NOM_DE_CLASSE_SQL} = $4::text)
+           /* NI L ANNEE NI LE SEMESTRE ne sont des dimensions de cet ecran :
+              il travaille sur une fenetre de 30 jours calee sur la derniere
+              seance connue, pas sur un exercice. Les deux parametres sont
+              neanmoins transmis par le contrat de perimetre, et Postgres refuse
+              une requete dont il ne peut pas typer un parametre fourni. Ces
+              deux conditions sont donc toujours vraies : elles ne servent qu au
+              typage. La barre de filtres, elle, ne propose pas ces dimensions —
+              un filtre qui n agit pas ne doit jamais s afficher. */
+           AND ($2::text IS NULL OR TRUE)
+           AND ($5::uuid IS NULL OR TRUE)
+       ),
+       affectations AS (
          SELECT st.enseignant_id, st.ue_session_id, st.ecue_id
          FROM professional_session_ecue_teachers st
-         JOIN professional_ue_sessions s ON s.id = st.ue_session_id AND s.tenant_id = st.tenant_id
-         JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
          WHERE st.tenant_id = $1::uuid
-           AND ($2::uuid[] IS NULL OR u.filiere_id = ANY($2::uuid[]))
+           AND st.ue_session_id IN (SELECT id FROM ouvertures_ecran)
        ),
        /* Notes attendues : une note d'examen par inscrit, sur les cohortes closes. */
        attendus AS (
@@ -390,8 +434,9 @@ export async function fetchOwnerRisque(
                 ))::int AS pointees
          FROM professional_ecue_seances se
          WHERE se.tenant_id = $1::uuid
-           AND se.date > $3::date - 30
-           AND se.date <= $3::date
+           AND se.ue_session_id IN (SELECT id FROM ouvertures_ecran)
+           AND se.date > $6::date - 30
+           AND se.date <= $6::date
            AND se.enseignant_id IS NOT NULL
          GROUP BY se.enseignant_id
        )
@@ -408,7 +453,7 @@ export async function fetchOwnerRisque(
        WHERE t.tenant_id = $1::uuid
          AND (at.attendues IS NOT NULL OR ap.seances IS NOT NULL)
        LIMIT ${ROWS_LIMIT}`,
-      [tenantId, filiereIds, windowEnd],
+      perimetre,
       log,
       "avancementEnseignants"
     );
@@ -443,21 +488,27 @@ export async function fetchOwnerRisque(
          -- séance quand le semestre est clos) : on compte tout le groupe.
          COUNT(*)::int AS pointages_30j,
          COUNT(*) FILTER (WHERE a.statut IN ('present', 'retard'))::int AS presents_30j,
-         COUNT(*) FILTER (WHERE se.date > $3::date - 7)::int AS pointages_7j,
-         COUNT(*) FILTER (WHERE se.date > $3::date - 7
+         COUNT(*) FILTER (WHERE se.date > $6::date - 7)::int AS pointages_7j,
+         COUNT(*) FILTER (WHERE se.date > $6::date - 7
                             AND a.statut IN ('present', 'retard'))::int AS presents_7j
        FROM professional_ecue_attendance a
        JOIN professional_ecue_seances se ON se.id = a.seance_id AND se.tenant_id = a.tenant_id
        JOIN professional_ue_sessions s ON s.id = se.ue_session_id AND s.tenant_id = se.tenant_id
-       JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
-       JOIN programmes pr ON pr.id = u.filiere_id AND pr.tenant_id = u.tenant_id
+       JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+       JOIN programmes pr ON pr.id = ue.filiere_id AND pr.tenant_id = ue.tenant_id
        WHERE a.tenant_id = $1::uuid
-         AND se.date > $3::date - 30
-         AND se.date <= $3::date
-         AND ($2::uuid[] IS NULL OR u.filiere_id = ANY($2::uuid[]))
+         AND se.date > $6::date - 30
+         AND se.date <= $6::date
+         AND ($3::uuid[] IS NULL OR ue.filiere_id = ANY($3::uuid[]))
+         /* Ouverture de classe — meme dimension que le reste de l ecran. */
+         AND ($4::text IS NULL OR ${CLE_NOM_DE_CLASSE_SQL} = $4::text)
+         /* Ni l annee ni le semestre ne sont des dimensions de cet ecran :
+            cites pour le typage, cf. la requete des signaux. */
+         AND ($2::text IS NULL OR TRUE)
+         AND ($5::uuid IS NULL OR TRUE)
        GROUP BY pr.id, pr.name
        ORDER BY pr.name`,
-      [tenantId, filiereIds, windowEnd],
+      perimetre,
       log,
       "tendancePresence"
     );
@@ -507,6 +558,9 @@ export async function fetchOwnerRisque(
       enseignants,
       presence,
       correlation,
+      /* Le perimetre est renvoye tel qu applique, pour l en-tete de l export. */
+      filiereIds: filiereIds ?? [],
+      nomClasse,
     };
   } finally {
     client.release();
@@ -522,6 +576,19 @@ export function buildOwnerRisqueCsv(data: OwnerRisqueResponse): string {
   const lines: string[] = [];
 
   lines.push("Étudiants à risque de décrochage");
+  /* Le nom de classe prime : c est le filtre le plus etroit, et celui que le
+     lecteur du fichier doit voir en premier. Meme regle que la prospection. */
+  lines.push(
+    "Périmètre;" +
+      esc(
+        data.nomClasse
+          ? `Classe : ${data.nomClasse.split("|").pop()}`
+          : data.filiereIds.length > 0
+            ? `${data.filiereIds.length} filière(s)`
+            : "Toutes filières"
+      )
+  );
+  lines.push("");
   lines.push(
     "Score;Motif dominant;Nom;Matricule;Filière;Téléphone;E-mail;Heures d'absence 30j;Taux d'absence %;Moyenne;Notes éliminatoires;Reste dû;Jours de retard"
   );

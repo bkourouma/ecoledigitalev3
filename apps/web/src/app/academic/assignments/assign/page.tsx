@@ -273,16 +273,17 @@ export default function AssignAssignmentPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button variant="outline" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
         </Button>
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2 text-2xl leading-tight md:text-3xl">
             <Send className="w-7 h-7 text-indigo-600" />
             Assigner un devoir à d'autres filières
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Dupliquez une de vos évaluations vers d'autres cohortes selon les ECUE qui vous sont
             affectés.
           </p>
@@ -347,7 +348,7 @@ export default function AssignAssignmentPage() {
             <div className="space-y-4">
               <div>
                 <h2 className="text-xl font-semibold">Choisir le devoir à assigner</h2>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                   Sélectionnez l'une de vos évaluations existantes à dupliquer.
                 </p>
               </div>
@@ -432,7 +433,7 @@ export default function AssignAssignmentPage() {
             <div className="space-y-4">
               <div>
                 <h2 className="text-xl font-semibold">Filières / cohortes cibles</h2>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                   Cochez les ECUE (dans d'autres filières) qui recevront une copie de ce devoir.
                 </p>
               </div>
@@ -546,7 +547,7 @@ export default function AssignAssignmentPage() {
             <div className="space-y-5">
               <div>
                 <h2 className="text-xl font-semibold">Valider l'assignation</h2>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                   Vérifiez le devoir, les cibles et les options avant de confirmer.
                 </p>
               </div>
@@ -627,7 +628,7 @@ export default function AssignAssignmentPage() {
                     : "Aucune copie créée"}
                 </h2>
                 {result.skipped.length > 0 && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                     {result.skipped.length} cible{result.skipped.length > 1 ? "s" : ""} ignorée
                     {result.skipped.length > 1 ? "s" : ""}.
                   </p>

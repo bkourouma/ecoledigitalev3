@@ -276,10 +276,10 @@ export default function DashboardPage() {
         transition={{ duration: 0.6 }}
         className="mb-8"
       >
-        <h1 className="text-3xl font-bold gradient-text mb-2">
+        <h1 className="font-bold gradient-text mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
           {pageTitle[userRole as keyof typeof pageTitle]}
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Suivez vos performances et votre progression en temps réel
         </p>
       </motion.div>

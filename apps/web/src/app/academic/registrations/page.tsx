@@ -75,10 +75,10 @@ export default function RegistrationsPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">
+        <h1 className="font-bold bg-gradient-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
           Inscriptions en ligne
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Validez les demandes d&apos;inscription et envoyez les identifiants aux étudiants et
           parents.
         </p>

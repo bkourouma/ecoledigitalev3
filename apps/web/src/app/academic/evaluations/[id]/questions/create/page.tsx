@@ -325,15 +325,16 @@ export default function CreateQuestionPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Link href={`/academic/evaluations/${assignmentId}?tab=questions`}>
           <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
         </Link>
         <div>
-          <h2 className="text-2xl font-bold">Créer une question</h2>
-          <p className="text-muted-foreground">
+          <h2 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">Créer une question</h2>
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Ajoutez une nouvelle question à votre évaluation
           </p>
         </div>

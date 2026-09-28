@@ -157,7 +157,7 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-4xl font-bold gradient-text">EcoleDigitale</h1>
-          <p className="mt-2 text-muted-foreground">Connexion a votre espace educatif</p>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Connexion a votre espace educatif</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">

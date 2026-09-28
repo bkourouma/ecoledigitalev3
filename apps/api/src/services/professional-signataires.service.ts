@@ -16,7 +16,17 @@ import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional
  * corrects en toutes circonstances.
  */
 
-const DEFAULTS: Record<SignataireCle, SignataireDto> = {
+/**
+ * Exporté depuis le 23/09/2026 pour que l'espace propriétaire puisse DÉTECTER
+ * qu'un établissement imprime encore ces valeurs.
+ *
+ * Ce sont des noms de personnes réelles. Tant qu'un établissement ne les a pas
+ * remplacés, ses diplômes et ses attestations portent la signature de gens qui
+ * n'ont jamais vu ses étudiants. L'écran « Documents officiels » le signale, et
+ * il ne peut le faire qu'en comparant à cette source — la redéclarer ailleurs
+ * garantirait qu'un jour les deux divergent et que l'alerte se taise.
+ */
+export const SIGNATAIRES_DEFAULTS: Record<SignataireCle, SignataireDto> = {
   attestation_reussite: {
     cle: "attestation_reussite",
     nom: "Celeste BAH",
@@ -43,6 +53,7 @@ const DEFAULTS: Record<SignataireCle, SignataireDto> = {
   },
 };
 
+const DEFAULTS = SIGNATAIRES_DEFAULTS;
 const CLES = Object.keys(DEFAULTS) as SignataireCle[];
 
 export class ProfessionalSignatairesService extends ProfessionalBaseService {

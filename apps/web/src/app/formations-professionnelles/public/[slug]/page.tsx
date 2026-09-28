@@ -156,8 +156,8 @@ export default function FormationPublicDetailPage() {
         <Link href="/formations-professionnelles/public" className="text-sm text-muted-foreground hover:underline">
           Retour au catalogue public
         </Link>
-        <h1 className="text-3xl font-bold">{formation.titre}</h1>
-        <p className="text-muted-foreground">{formation.description_courte || ""}</p>
+        <h1 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">{formation.titre}</h1>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">{formation.description_courte || ""}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

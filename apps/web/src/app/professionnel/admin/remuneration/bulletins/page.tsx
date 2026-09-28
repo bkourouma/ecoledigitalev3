@@ -268,13 +268,13 @@ export default function BulletinsPaiePage() {
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <ScrollText className="h-7 w-7 text-indigo-500" />
             Bulletins de paie
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Tous les enseignants de l'établissement et leur configuration de rémunération. Un
             enseignant sans configuration valide ne produit aucun bulletin — et le calcul ne le
             signale pas.
@@ -637,7 +637,7 @@ function CreationPeriode({
           <CalendarPlus className="h-5 w-5 text-indigo-500 shrink-0 mt-0.5" />
           <div>
             <h2 className="font-semibold text-lg">Période de paiement</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <p className="text-muted-foreground mt-0.5 whitespace-nowrap text-sm md:text-base">
               Ouvrez une période pour tous les enseignants, ou pour un seul — un rattrapage, un
               vacataire oublié, un solde de tout compte.
             </p>

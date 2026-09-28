@@ -116,7 +116,7 @@ export function RoleMenusPanel() {
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Menus par rôle</h2>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Décochez un menu pour le retirer à tous les utilisateurs portant ce rôle ; recochez-le pour
           le rétablir. Le rôle <code className="text-xs bg-muted px-1 rounded">owner</code> n&apos;est
           jamais restreint.

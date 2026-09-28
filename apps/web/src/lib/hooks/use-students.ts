@@ -74,6 +74,10 @@ async function createStudent(data: any): Promise<StudentProfile> {
       studentMatricule: data.studentMatricule,
       currentYear: data.currentYear || 1,
       status: data.status || "active",
+      // Le sexe est saisi et valide par le formulaire, mais il etait absent de
+      // cette liste : il se perdait entre l'ecran et l'API, et les fiches comme
+      // les bulletins affichaient ensuite un genre par defaut.
+      gender: data.gender,
       bio: data.bio,
       dateOfBirth: data.dateOfBirth,
       placeOfBirth: data.placeOfBirth,

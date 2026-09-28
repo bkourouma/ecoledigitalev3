@@ -25,7 +25,8 @@ import {
   Loader2,
   AlertCircle
 } from "lucide-react";
-import { useTeacher } from "@/lib/hooks/use-teachers";
+import { useTeacher, useResetTeacherPassword } from "@/lib/hooks/use-teachers";
+import { ResetPasswordAction } from "@/components/academic/ResetPasswordAction";
 import { ContractType, TeacherStatus } from "@ecoledigitale/contracts";
 import { formatAmountFCFA } from "@/lib/utils";
 
@@ -53,6 +54,7 @@ export default function TeacherDetailPage() {
   const teacherId = params.id as string;
   
   const { data: teacher, isLoading, error } = useTeacher(teacherId);
+  const resetPassword = useResetTeacherPassword();
 
   if (error) {
     return (
@@ -99,8 +101,8 @@ export default function TeacherDetailPage() {
   return (
     <div className="container mx-auto px-6 py-8 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button
             variant="outline"
             size="sm"
@@ -110,10 +112,10 @@ export default function TeacherDetailPage() {
             Retour
           </Button>
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight text-2xl md:text-3xl">
               {teacher.firstName} {teacher.lastName}
             </h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
               Profil enseignant
             </p>
           </div>
@@ -126,6 +128,14 @@ export default function TeacherDetailPage() {
           Modifier
         </Button>
       </div>
+
+      {/* Le mot de passe genere a la creation part par e-mail. Si l'envoi
+          echoue, c'est le seul moyen de rendre le compte utilisable. */}
+      <ResetPasswordAction
+        className="mb-6"
+        personLabel={`${teacher.firstName} ${teacher.lastName}`}
+        onReset={async () => (await resetPassword.mutateAsync(teacher.id)).initialPassword}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Information */}

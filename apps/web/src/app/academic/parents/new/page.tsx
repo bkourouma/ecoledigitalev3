@@ -23,7 +23,6 @@ import {
 import { ArrowLeft, Save, Loader2, Plus, X, Users, ChevronDown, Search } from "lucide-react";
 import { useCreateParent, useAssignStudentToParent, AssignStudentToParentData } from "@/lib/hooks/use-parents";
 import { useStudents } from "@/lib/hooks/use-students";
-import { useActiveAcademicYear } from "@/lib/hooks/use-academic-years";
 import { StudentWithUser } from "@ecoledigitale/contracts";
 
 const generatePassword = (): string => {
@@ -179,12 +178,10 @@ export default function NewParentPage() {
   const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>([]);
   const [studentToAdd, setStudentToAdd] = useState("");
 
-  const { data: activeAcademicYearData } = useActiveAcademicYear();
-  const activeAcademicYearId = activeAcademicYearData?.data?.id;
-
+  // Pas de filtre d'année : le rattachement parent-enfant n'a pas de dimension
+  // annuelle, et filtrer ici vidait la liste des étudiants proposables.
   const { data: studentsData, isLoading: isLoadingStudents } = useStudents({
     limit: 1000,
-    academicYearId: activeAcademicYearId || undefined,
   });
 
   const students: StudentWithUser[] = studentsData?.data || [];
@@ -309,16 +306,16 @@ export default function NewParentPage() {
 
   return (
     <div className="container mx-auto px-6 py-8 max-w-3xl">
-      <div className="flex items-center gap-4 mb-8">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button variant="outline" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent text-2xl leading-tight md:text-3xl">
             Nouveau parent
           </h1>
-          <p className="text-muted-foreground mt-2">Ajoutez un nouveau parent à votre système</p>
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">Ajoutez un nouveau parent à votre système</p>
         </div>
       </div>
 

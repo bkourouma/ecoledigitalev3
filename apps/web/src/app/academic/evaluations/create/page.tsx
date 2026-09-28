@@ -422,17 +422,18 @@ export default function CreateEvaluationPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Link href={courseId ? `/academic/courses/${courseId}` : "/academic/evaluations"}>
           <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+          <h2 className="whitespace-nowrap font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent text-2xl leading-tight md:text-3xl">
             Créer une évaluation
           </h2>
-          <p className="text-muted-foreground">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Créez une nouvelle évaluation en ligne, un devoir PDF, ou générez-la avec l'IA
           </p>
         </div>

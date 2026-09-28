@@ -206,10 +206,10 @@ export default function StudentProfilePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
+              <h1 className="font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
                 Mon Profil
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
                 Gérez vos informations personnelles et académiques
               </p>
             </div>
@@ -263,7 +263,7 @@ export default function StudentProfilePage() {
                 <h2 className="text-xl font-bold text-white mb-1">
                   {formData.firstName || (session?.user as any)?.firstName || 'Étudiant'} {formData.lastName || (session?.user as any)?.lastName || ''}
                 </h2>
-                <p className="text-gray-600 mb-2">{formData.program || 'Non spécifié'}</p>
+                <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">{formData.program || 'Non spécifié'}</p>
                 <p className="text-sm text-gray-500">N° Étudiant: {formData.studentNumber || 'Non assigné'}</p>
               </CardContent>
             </Card>

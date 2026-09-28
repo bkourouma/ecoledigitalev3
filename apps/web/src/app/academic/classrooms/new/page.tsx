@@ -27,7 +27,7 @@ export default function NewClassroomPage() {
   return (
     <div className="container mx-auto px-6 py-8 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button
           variant="outline"
           size="sm"
@@ -37,10 +37,10 @@ export default function NewClassroomPage() {
           Retour
         </Button>
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent text-2xl leading-tight md:text-3xl">
             Nouvelle salle de classe
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Créez une nouvelle salle de classe en renseignant son nom et son code
           </p>
         </div>

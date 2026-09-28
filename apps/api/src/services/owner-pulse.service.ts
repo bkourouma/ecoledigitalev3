@@ -598,7 +598,10 @@ export async function fetchOwnerPulse(
         ? "Places occupées sur places déclarées, pour les cohortes professionnelles qui chevauchent l'année choisie et les classes de cette année. Les cohortes et classes sans capacité renseignée sont exclues du calcul."
         : "Places occupées sur places déclarées, cohortes professionnelles en cours et classes de l'année active. Les cohortes et classes sans capacité renseignée sont exclues du calcul.",
       detail: capacity > 0 ? `${Math.round(seats)} places occupées sur ${Math.round(capacity)}` : null,
-      href: "/owner/remplissage",
+      /* L'écran s'appelle « Ouvertures » depuis que chaque ouverture y est une
+         ligne économique. L'ancienne adresse redirige, mais pointer la bonne
+         évite un saut visible au lecteur. */
+      href: "/owner/ouvertures",
       measured: fill !== null && capacity > 0,
     });
 
@@ -749,7 +752,10 @@ export async function fetchOwnerPulse(
                 surAnnee ? "l'année" : "ce mois-ci"
               }`
             : null,
-      href: "/owner/staff",
+      /* L écran s appelle « Rémunération » depuis qu il porte aussi la
+         configuration de la paie et la validation des séances. L ancienne
+         adresse redirige, mais pointer la bonne évite un saut visible. */
+      href: "/owner/remuneration",
       measured: payroll !== null && cash !== null,
     });
   } finally {

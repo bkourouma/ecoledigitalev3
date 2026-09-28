@@ -32,6 +32,8 @@ export default function SignatairesPage() {
   const updateMut = useUpdateSignataire();
 
   const [forms, setForms] = useState<Record<string, FormState>>({});
+  // Fiches modifiées et pas encore enregistrées : à préserver d'un rafraîchissement.
+  const [dirty, setDirty] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [savedCle, setSavedCle] = useState<SignataireCle | null>(null);
 
@@ -41,23 +43,45 @@ export default function SignatairesPage() {
   );
 
   // Initialise les formulaires à partir des valeurs enregistrées.
+  //
+  // Une fiche en cours de modification n'est JAMAIS réécrite ici. Sans cette
+  // précaution, le moindre rafraîchissement en arrière-plan (retour sur
+  // l'onglet, reprise de connexion) remplaçait la saisie en cours par la
+  // valeur d'origine : la frappe et la réécriture s'entremêlaient, et on
+  // enregistrait un nom composite du genre « Celeste BAHKoffi Signataire ».
   useEffect(() => {
     if (!signatairesQuery.data) return;
-    const next: Record<string, FormState> = {};
-    for (const { cle } of SIGNATAIRE_LABELS) {
-      const s = byCle[cle];
-      next[cle] = {
-        nom: s?.nom ?? "",
-        qualite: s?.qualite ?? "",
-        fonction: s?.fonction ?? "",
-      };
-    }
-    setForms(next);
-  }, [signatairesQuery.data, byCle]);
+    setForms((prev) => {
+      const next: Record<string, FormState> = { ...prev };
+      for (const { cle } of SIGNATAIRE_LABELS) {
+        if (dirty[cle]) continue;
+        const s = byCle[cle];
+        next[cle] = {
+          nom: s?.nom ?? "",
+          qualite: s?.qualite ?? "",
+          fonction: s?.fonction ?? "",
+        };
+      }
+      return next;
+    });
+  }, [signatairesQuery.data, byCle, dirty]);
 
   function setField(cle: SignataireCle, field: keyof FormState, value: string) {
     setForms((prev) => ({ ...prev, [cle]: { ...prev[cle], [field]: value } }));
+    setDirty((prev) => ({ ...prev, [cle]: true }));
     setSavedCle(null);
+  }
+
+  // Le champ arrive pré-rempli par le signataire en place. On sélectionne son
+  // contenu à la prise de focus : la valeur existante devient visible comme
+  // telle, et taper la remplace au lieu de s'y ajouter.
+  function selectOnFocus(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    const el = e.currentTarget;
+    // La sélection attend la fin du cycle courant : au clic, le relâchement du
+    // bouton qui suit la prise de focus repositionne le curseur et annulerait
+    // une sélection posée trop tôt. On n'utilise pas requestAnimationFrame :
+    // il ne se déclenche pas dans un onglet en arrière-plan.
+    setTimeout(() => el.select(), 0);
   }
 
   async function handleSave(cle: SignataireCle) {
@@ -78,6 +102,7 @@ export default function SignatairesPage() {
         },
       });
       setSavedCle(cle);
+      setDirty((prev) => ({ ...prev, [cle]: false }));
     } catch (e: any) {
       setError(e?.message ?? "Erreur lors de l'enregistrement du signataire.");
     }
@@ -90,7 +115,7 @@ export default function SignatairesPage() {
           <PenLine className="h-7 w-7 text-slate-500" />
           Signataires des documents
         </h1>
-        <p className="text-muted-foreground text-sm max-w-3xl">
+        <p className="text-muted-foreground max-w-3xl whitespace-nowrap text-sm md:text-base">
           Noms et titres imprimés sur l'attestation de réussite, le diplôme et l'attestation
           d'authenticité. Un seul nom est enregistré par titre : la modification s'applique
           immédiatement aux prochains documents générés.
@@ -128,6 +153,7 @@ export default function SignatairesPage() {
                       </label>
                       <Input
                         value={form.nom}
+                        onFocus={selectOnFocus}
                         onChange={(e) => setField(slot.cle, "nom", e.target.value)}
                         placeholder="Nom imprimé sur le document"
                       />
@@ -139,6 +165,7 @@ export default function SignatairesPage() {
                         </label>
                         <Input
                           value={form.qualite}
+                          onFocus={selectOnFocus}
                           onChange={(e) => setField(slot.cle, "qualite", e.target.value)}
                           placeholder="Ex. Enseignant Chercheur"
                         />
@@ -156,6 +183,7 @@ export default function SignatairesPage() {
                     {slot.fonctionMultiligne ? (
                       <Textarea
                         value={form.fonction}
+                        onFocus={selectOnFocus}
                         onChange={(e) => setField(slot.cle, "fonction", e.target.value)}
                         rows={2}
                         placeholder={"Directeur du Comité Scientifique\nDirecteur de Recherche"}
@@ -163,6 +191,7 @@ export default function SignatairesPage() {
                     ) : (
                       <Input
                         value={form.fonction}
+                        onFocus={selectOnFocus}
                         onChange={(e) => setField(slot.cle, "fonction", e.target.value)}
                         placeholder="Ex. Directeur des Etudes"
                       />

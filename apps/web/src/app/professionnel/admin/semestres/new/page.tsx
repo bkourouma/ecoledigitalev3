@@ -13,6 +13,7 @@ import {
 import { ArrowLeft, Loader2, Layers, AlertCircle, Plus, Trash2 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useProgrammes } from "@/lib/hooks/use-programmes";
+import { useScrollIntoViewOn } from "@/lib/hooks/use-scroll-into-view-on";
 import {
   useEligibleUeForSemestre,
   useCreateProfessionalSemestresBatch,
@@ -42,6 +43,9 @@ export default function NewProfessionalSemestrePage() {
   const [filiereId, setFiliereId] = useState<string>("");
   const [blocks, setBlocks] = useState<SemestreBlock[]>([newBlock(1)]);
   const [error, setError] = useState<string | null>(null);
+  // Le bouton est en bas de page, ce message en haut : sans cela,
+  // l'erreur s'affiche hors écran et le clic semble sans effet.
+  const feedbackRef = useScrollIntoViewOn(error);
 
   const programmesQuery = useProgrammes();
   const ueQuery = useEligibleUeForSemestre(filiereId || null);
@@ -128,21 +132,23 @@ export default function NewProfessionalSemestrePage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto p-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button variant="outline" size="sm" onClick={() => router.push(LIST_URL)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent text-2xl leading-tight md:text-3xl">
             Nouveaux semestres
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Choisissez une classe, puis composez chaque semestre avec ses UE. Vous pouvez en
             créer plusieurs à la fois.
           </p>
         </div>
       </div>
+
+      <div ref={feedbackRef} className="scroll-mt-24" />
 
       {error && (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">

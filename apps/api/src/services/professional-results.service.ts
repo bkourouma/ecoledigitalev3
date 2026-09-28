@@ -1,6 +1,10 @@
 import type { PoolClient } from "pg";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
 import {
+  messageCloture,
+  semestreClotureDeSession,
+} from "./professional-cloture-guard";
+import {
   normaliserNote,
   moyenneDevoirs as calcMoyenneDevoirs,
   noteEcue,
@@ -104,6 +108,11 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
         [ueSessionId, tenantId]
       );
       if (sess.rowCount === 0) return fail("UE_SESSION_NOT_FOUND", "Cohorte introuvable.");
+
+      // Semestre clôturé : les bulletins sont arrêtés, la note ne bouge plus.
+      const cloture = await semestreClotureDeSession(client, tenantId, ueSessionId);
+      if (cloture) return fail("SEMESTRE_CLOTURE", messageCloture(cloture));
+
       const ueId = sess.rows[0].ue_id as string;
 
       const ecueRows = await client.query(
@@ -469,6 +478,10 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
     teacherUserId?: string
   ): Promise<ServiceResult<any>> {
     return this.withTenantTx(tenantId, async (client) => {
+      // Semestre clôturé : les bulletins sont arrêtés, la note ne bouge plus.
+      const cloture = await semestreClotureDeSession(client, tenantId, input.ue_session_id);
+      if (cloture) return fail("SEMESTRE_CLOTURE", messageCloture(cloture));
+
       const noteMax = input.note_max ?? 20;
       if (input.note > noteMax)
         return fail("VALIDATION_ERROR", "La note dépasse le barème.");
@@ -550,6 +563,19 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
     teacherUserId?: string
   ): Promise<ServiceResult<any>> {
     return this.withTenantTx(tenantId, async (client) => {
+      // Semestre clôturé : la note est figée, qu'on veuille la corriger ou l'effacer.
+      const cible = await client.query(
+        `SELECT ue_session_id FROM professional_ecue_notes WHERE id=$1 AND tenant_id=$2`,
+        [id, tenantId]
+      );
+      if (cible.rowCount === 0) return fail("NOTE_NOT_FOUND", "Note introuvable.");
+      const cloture = await semestreClotureDeSession(
+        client,
+        tenantId,
+        cible.rows[0].ue_session_id as string
+      );
+      if (cloture) return fail("SEMESTRE_CLOTURE", messageCloture(cloture));
+
       if (teacherUserId) {
         const own = await client.query(
           `SELECT ecue_id, ue_session_id FROM professional_ecue_notes WHERE id=$1 AND tenant_id=$2`,
@@ -604,6 +630,19 @@ export class ProfessionalResultsService extends ProfessionalBaseService {
     teacherUserId?: string
   ): Promise<ServiceResult<any>> {
     return this.withTenantTx(tenantId, async (client) => {
+      // Semestre clôturé : la note est figée, qu'on veuille la corriger ou l'effacer.
+      const cible = await client.query(
+        `SELECT ue_session_id FROM professional_ecue_notes WHERE id=$1 AND tenant_id=$2`,
+        [id, tenantId]
+      );
+      if (cible.rowCount === 0) return fail("NOTE_NOT_FOUND", "Note introuvable.");
+      const cloture = await semestreClotureDeSession(
+        client,
+        tenantId,
+        cible.rows[0].ue_session_id as string
+      );
+      if (cloture) return fail("SEMESTRE_CLOTURE", messageCloture(cloture));
+
       if (teacherUserId) {
         const own = await client.query(
           `SELECT ecue_id, ue_session_id FROM professional_ecue_notes WHERE id=$1 AND tenant_id=$2`,

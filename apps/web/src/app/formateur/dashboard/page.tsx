@@ -38,8 +38,8 @@ export default function FormateurDashboardPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Tableau de bord</h1>
-        <p className="text-muted-foreground">
+        <h1 className="font-bold mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">Tableau de bord</h1>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Vue d'ensemble de vos activités de formation
         </p>
       </div>

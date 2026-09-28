@@ -246,7 +246,7 @@ export default function TakeEvaluationPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Chargement...</h2>
-          <p className="text-muted-foreground">Préparation de l'évaluation</p>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Préparation de l'évaluation</p>
         </div>
       </div>
     );

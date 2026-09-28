@@ -191,7 +191,7 @@ export default function TeacherScheduleCalendarPage() {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Erreur de chargement
           </h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-4 whitespace-nowrap text-sm md:text-base">
             {error instanceof Error ? error.message : "Impossible de charger votre calendrier"}
           </p>
           <button
@@ -215,8 +215,8 @@ export default function TeacherScheduleCalendarPage() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Mon Calendrier</h1>
-            <p className="text-gray-600">Consultez vos cours programmés</p>
+            <h1 className="font-bold text-gray-900 whitespace-nowrap text-2xl leading-tight md:text-3xl">Mon Calendrier</h1>
+            <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">Consultez vos cours programmés</p>
           </div>
           <Button
             variant="outline"

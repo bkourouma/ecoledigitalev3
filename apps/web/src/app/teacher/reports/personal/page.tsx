@@ -211,13 +211,13 @@ export default function PersonalStatsPage() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="font-bold text-gray-900 flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <Award className="h-8 w-8 text-purple-600" />
             Mes Statistiques
           </h1>
-          <p className="text-gray-600 mt-1">Vue d'ensemble de votre activité d'enseignement</p>
+          <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">Vue d'ensemble de votre activité d'enseignement</p>
         </div>
         <div className="flex gap-2">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>

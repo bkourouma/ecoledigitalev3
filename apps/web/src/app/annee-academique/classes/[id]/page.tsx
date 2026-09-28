@@ -116,7 +116,7 @@ export default function ClassDetailsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button 
           variant="outline" 
           size="sm"
@@ -126,8 +126,8 @@ export default function ClassDetailsPage() {
           Retour
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-white">{classDetails.name}</h1>
-          <p className="text-gray-300">{classDetails.code}</p>
+          <h1 className="whitespace-nowrap font-bold text-white text-2xl leading-tight md:text-3xl">{classDetails.name}</h1>
+          <p className="whitespace-nowrap text-gray-300 text-sm text-muted-foreground md:text-base">{classDetails.code}</p>
         </div>
         <Button
           onClick={() => router.push(`/annee-academique/ajouter-classe?edit=${classId}`)}
@@ -279,9 +279,9 @@ export default function ClassDetailsPage() {
         <TabsContent value="courses" className="space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
                 <div>
-                  <CardTitle className="text-white">Cours de la classe</CardTitle>
+                  <CardTitle className="text-white whitespace-nowrap text-2xl leading-tight md:text-3xl">Cours de la classe</CardTitle>
                   <CardDescription className="text-gray-300">
                     {filteredCourses.length} cours assigné{filteredCourses.length > 1 ? 's' : ''}
                   </CardDescription>
@@ -374,9 +374,9 @@ export default function ClassDetailsPage() {
         <TabsContent value="students" className="space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
                 <div>
-                  <CardTitle className="text-white">Étudiants inscrits</CardTitle>
+                  <CardTitle className="text-white whitespace-nowrap text-2xl leading-tight md:text-3xl">Étudiants inscrits</CardTitle>
                   <CardDescription className="text-gray-300">
                     {filteredStudents.length} étudiant{filteredStudents.length > 1 ? 's' : ''} inscrit{filteredStudents.length > 1 ? 's' : ''}
                   </CardDescription>

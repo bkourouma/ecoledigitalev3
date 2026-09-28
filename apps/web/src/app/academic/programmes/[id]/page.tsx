@@ -35,7 +35,7 @@ export default function FiliereDetailPage() {
     return (
       <div className="max-w-5xl mx-auto p-6 space-y-4">
         <h1 className="text-xl sm:text-2xl font-bold text-red-600">Filière non trouvée</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           La filière demandée n&apos;existe pas ou a été supprimée.
         </p>
         <Button onClick={() => router.push("/academic/programmes")}>
@@ -49,17 +49,17 @@ export default function FiliereDetailPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button variant="outline" onClick={() => router.push("/academic/programmes")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">
+            <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent leading-tight text-2xl md:text-3xl">
               {filiere.name}
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
               {filiere.domaine || "Domaine non renseigné"}
             </p>
           </div>

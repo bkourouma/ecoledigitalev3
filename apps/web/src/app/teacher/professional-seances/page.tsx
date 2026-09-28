@@ -138,11 +138,11 @@ export default function TeacherProfessionalSeancesPage() {
   return (
     <div className="space-y-6 max-w-[1300px] mx-auto p-6">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+        <h1 className="font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
           <CalendarCheck className="h-7 w-7 text-purple-500" />
           Mes séances professionnelles
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Vos séances d'ECUE et leur prise en compte dans votre rémunération.
         </p>
       </div>

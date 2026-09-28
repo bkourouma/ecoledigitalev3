@@ -41,11 +41,11 @@ export default function ParentRattrapagesPage() {
     <div className="space-y-6 max-w-5xl mx-auto p-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
+        <h1 className="font-bold bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
           <RotateCcw className="h-7 w-7 text-amber-500" />
           Rattrapages de mon enfant
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Les ECUE que votre enfant doit repasser en Session 2.
         </p>
       </div>

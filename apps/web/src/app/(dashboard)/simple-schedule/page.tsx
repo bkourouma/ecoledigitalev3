@@ -241,8 +241,8 @@ export default function SimpleSchedulePage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-3xl font-bold text-foreground">Génération Simplifiée de Planning</h1>
-        <p className="text-muted-foreground text-base">Créez un emploi du temps directement</p>
+        <h1 className="font-bold text-foreground whitespace-nowrap text-2xl leading-tight md:text-3xl">Génération Simplifiée de Planning</h1>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Créez un emploi du temps directement</p>
       </motion.div>
 
       {/* Class Selection */}

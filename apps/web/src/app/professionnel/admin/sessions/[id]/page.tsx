@@ -176,17 +176,17 @@ export default function ProfessionalSessionDetailPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button variant="outline" size="sm" onClick={() => router.push(LIST_URL)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+            <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent leading-tight text-2xl md:text-3xl">
               {session.libelle}
             </h1>
-            <p className="text-muted-foreground mt-1 text-sm">{ueName}</p>
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">{ueName}</p>
           </div>
         </div>
         <Button
@@ -687,7 +687,7 @@ function AttendanceEditor({ seanceId, onClose }: { seanceId: string; onClose: ()
         {query.isLoading ? (
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun étudiant inscrit confirmé.</p>
+          <p className="text-sm text-muted-foreground">Aucun étudiant inscrit confirmé. Si la classe compte pourtant des inscrits, c'est que leurs frais d'inscription ne sont pas soldés : une inscription reste « en attente de paiement » tant qu'ils ne le sont pas, et la scolarité ne la voit pas. Le solde se vérifie dans Paiements étudiants.</p>
         ) : (
           // Une promotion peut compter plusieurs dizaines d'inscrits : la liste
           // défile à l'intérieur du modal, en-tête et boutons restant visibles.

@@ -1,11 +1,36 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-type RequestUser = { id: string; roles?: string[] };
+type RequestUser = { id: string; roles?: string[]; availableRoles?: string[] };
 
 function hasNormalizedRole(roles: string[] | undefined, allowedRoles: string[]): boolean {
   if (!Array.isArray(roles)) return false;
   const normalizedRoles = roles.map((role) => String(role).toLowerCase());
   return allowedRoles.some((role) => normalizedRoles.includes(role));
+}
+
+/**
+ * Rôles à considérer pour AUTORISER, et pourquoi ce ne sont pas ceux de `roles`.
+ *
+ * `auth-middleware` remplit `roles: [activeRole]` — uniquement le rôle sous
+ * lequel la personne navigue à cet instant. Conséquence, corrigée ici : un
+ * compte **owner ET admin** dont le rôle actif est `admin` recevait un 403 sur
+ * TOUT l'espace propriétaire. Le fondateur d'une école qui administre aussi son
+ * établissement se voyait refuser ses propres statistiques, sans explication,
+ * simplement parce qu'il avait basculé de casquette.
+ *
+ * L'autorisation se fonde sur ce que la personne EST — `availableRoles`, la
+ * liste de ses rôles sur ce tenant — et non sur celui qu'elle a choisi
+ * d'afficher. Le rôle actif garde son sens : il gouverne la PRÉSENTATION, le
+ * menu et les préférences, pas le droit d'accès.
+ *
+ * `roles` est conservé en repli pour les appelants qui ne remplissent pas
+ * `availableRoles`, et n'est pas modifié à la source : d'autres codes testent
+ * `roles` pour décider d'actions, et y verser tous les rôles disponibles
+ * élargirait silencieusement des permissions qui n'ont rien demandé.
+ */
+function rolesPourAutorisation(user: RequestUser | undefined): string[] {
+  if (user?.availableRoles && user.availableRoles.length > 0) return user.availableRoles;
+  return user?.roles ?? [];
 }
 
 /**
@@ -24,7 +49,7 @@ export async function requireOwner(request: FastifyRequest, reply: FastifyReply)
   }
 
   const user = (request as FastifyRequest & { user?: RequestUser }).user;
-  const roles = user?.roles ?? [];
+  const roles = rolesPourAutorisation(user);
   if (!hasNormalizedRole(roles, ["owner"])) {
     reply.status(403).send({
       success: false,
@@ -51,7 +76,7 @@ export async function requireOwnerOrAdmin(request: FastifyRequest, reply: Fastif
   }
 
   const user = (request as FastifyRequest & { user?: RequestUser }).user;
-  const roles = user?.roles ?? [];
+  const roles = rolesPourAutorisation(user);
   if (!hasNormalizedRole(roles, ["owner", "admin", "super_admin", "administrateur"])) {
     reply.status(403).send({
       success: false,

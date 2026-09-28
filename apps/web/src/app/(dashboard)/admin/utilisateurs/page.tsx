@@ -145,7 +145,7 @@ export default function AdminUsersPage() {
         <Users className="h-6 w-6 text-blue-600" />
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Utilisateurs</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Créez des comptes et attribuez-leur un rôle : à la connexion, l&apos;utilisateur ne verra
             que les menus autorisés par ce rôle.
           </p>

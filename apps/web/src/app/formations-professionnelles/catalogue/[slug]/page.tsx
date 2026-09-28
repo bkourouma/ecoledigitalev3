@@ -215,7 +215,7 @@ export default function FormationDetailPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-red-600">
             {isNotFound ? "Formation non trouvée" : "Erreur de chargement"}
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             {isNotFound 
               ? "La formation demandée n'existe pas ou a été supprimée."
               : error?.message || "Une erreur s'est produite lors du chargement de la formation."}
@@ -345,7 +345,7 @@ export default function FormationDetailPage() {
     <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-7xl w-full min-w-0">
       {/* Header */}
       <div className="space-y-3 sm:space-y-0 mb-4 sm:mb-6 md:mb-8 min-w-0">
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button
             variant="outline"
             onClick={() => router.push('/formations-professionnelles/catalogue')}
@@ -353,18 +353,18 @@ export default function FormationDetailPage() {
             size="sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Retour</span>
+            Retour
           </Button>
           <div className="flex-1 min-w-0 overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
-              <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold break-words min-w-0">{formation.titre}</h1>
+              <h1 className="whitespace-nowrap font-bold min-w-0 text-2xl leading-tight md:text-3xl">{formation.titre}</h1>
               {niveauInfo && (
                 <Badge variant={niveauInfo.variant} className="whitespace-nowrap flex-shrink-0 text-xs">
                   {niveauInfo.label}
                 </Badge>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground break-words mt-1">
+            <p className="whitespace-nowrap text-sm text-muted-foreground md:text-base">
               Formation professionnelle
             </p>
           </div>
@@ -679,8 +679,8 @@ export default function FormationDetailPage() {
           {sessionBasedCatalogue ? (
             <Card>
               <CardHeader>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                  <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2 flex-wrap">
+                <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
+                  <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2 flex-wrap whitespace-nowrap text-2xl leading-tight md:text-3xl">
                     <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span>Sessions planifiées</span>
                     {formation.sessions && formation.sessions.length > 0 && (

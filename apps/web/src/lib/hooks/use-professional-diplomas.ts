@@ -204,6 +204,15 @@ export function useStudentDiplomaProgress(id: string | null) {
   });
 }
 
+/**
+ * Attestation d'un diplôme obtenu, récupérée à la demande (clic sur
+ * « Télécharger ») plutôt que via un hook de requête : la charge utile porte
+ * aussi les signataires, que l'espace étudiant ne peut pas lire autrement.
+ */
+export function fetchStudentDiplomaAttestation(id: string): Promise<any> {
+  return apiFetch(`${BASE}/student/diplomas/${id}/attestation`);
+}
+
 /** Données structurées de l'attestation d'un diplôme obtenu. */
 export function useStudentDiplomaAttestation(id: string | null, enabled = true) {
   return useQuery({

@@ -18,7 +18,9 @@ import {
   Phone,
   User,
 } from "lucide-react";
-import { useStudent } from "@/lib/hooks/use-students";
+import { useStudent, useResetStudentPassword } from "@/lib/hooks/use-students";
+import { ResetPasswordAction } from "@/components/academic/ResetPasswordAction";
+import { ProvenanceEtudiantCard } from "@/components/prospection/ProvenanceEtudiantCard";
 import { createApiHeaders } from "@/lib/api-utils";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -28,6 +30,7 @@ export default function StudentDetailPage() {
   const params = useParams();
   const studentId = params.id as string;
   const { data: student, isLoading, error } = useStudent(studentId);
+  const resetPassword = useResetStudentPassword();
 
   const textOrFallback = (value?: string | null) =>
     value && String(value).trim().length > 0 ? value : "—";
@@ -93,17 +96,17 @@ export default function StudentDetailPage() {
 
   return (
     <div className="container mx-auto max-w-4xl px-6 py-8">
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button variant="outline" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Retour
           </Button>
           <div>
-            <h1 className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-3xl font-bold text-transparent">
+            <h1 className="whitespace-nowrap bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text font-bold text-transparent leading-tight text-2xl md:text-3xl">
               {textOrFallback(student.user?.firstName)} {textOrFallback(student.user?.lastName)}
             </h1>
-            <p className="mt-2 text-muted-foreground">
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
               {(student as any).studentMatricule && (
                 <>Matricule DESPS: {(student as any).studentMatricule} · </>
               )}
@@ -122,6 +125,14 @@ export default function StudentDetailPage() {
           Modifier
         </Button>
       </div>
+
+      {/* Le mot de passe genere a la creation part par e-mail. Si l'envoi
+          echoue, c'est le seul moyen de rendre le compte utilisable. */}
+      <ResetPasswordAction
+        className="mb-6"
+        personLabel={`${student.user?.firstName ?? ""} ${student.user?.lastName ?? ""}`.trim() || "cet étudiant"}
+        onReset={async () => (await resetPassword.mutateAsync(studentId)).initialPassword}
+      />
 
       <div className="space-y-6">
         {/* Informations personnelles */}
@@ -163,7 +174,7 @@ export default function StudentDetailPage() {
                   <Phone className="h-4 w-4" />
                   Téléphone
                 </p>
-                <p className="font-mono">{textOrFallback(student.phone)}</p>
+                <p className="font-mono text-xs">{textOrFallback(student.phone)}</p>
               </div>
             </div>
             <div>
@@ -226,6 +237,10 @@ export default function StudentDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* D'où vient l'étudiant. Tous les canaux sont suivis ici ; l'écran
+            Prospection ne retient que ceux amenés par un commercial. */}
+        <ProvenanceEtudiantCard studentId={studentId} />
       </div>
     </div>
   );

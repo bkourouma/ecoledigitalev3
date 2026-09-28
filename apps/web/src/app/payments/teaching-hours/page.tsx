@@ -280,10 +280,10 @@ export default function TeachingHoursValidationPage() {
 
   return (
     <div className="space-y-6 pb-4">
-      <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-gradient-to-r from-slate-900/90 to-slate-800/80 p-5 md:flex-row md:items-center md:justify-between">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Validation des Heures Enseignées</h1>
-          <p className="mt-1 text-sm text-slate-300">
+          <p className="text-slate-300 whitespace-nowrap text-sm md:text-base text-muted-foreground">
             Contrôlez et validez les séances soumises par les enseignants avant le calcul des paiements.
           </p>
         </div>

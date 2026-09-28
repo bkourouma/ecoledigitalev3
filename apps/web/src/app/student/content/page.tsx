@@ -200,10 +200,10 @@ export default function StudentContentPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
+              <h1 className="font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
                 Contenu Récent
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
                 Accédez à tous les supports de cours de vos matières
               </p>
             </div>

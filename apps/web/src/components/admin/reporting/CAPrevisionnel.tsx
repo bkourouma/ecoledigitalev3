@@ -59,8 +59,8 @@ export function CAPrevisionnel() {
       {/* Header with selectors */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">CA Prévisionnel</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">CA Prévisionnel</h1>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Prévisions de chiffre d'affaires pour l'année {annee}
           </p>
         </div>

@@ -164,7 +164,7 @@ export function Step1InfosForm({ initialData, onComplete, onCancel }: Step1Infos
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold mb-2">Informations personnelles</h2>
-        <p className="text-muted-foreground">Remplissez vos informations pour compléter l'inscription</p>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Remplissez vos informations pour compléter l'inscription</p>
       </div>
 
       <TypeInscriptionSelector

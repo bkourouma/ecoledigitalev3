@@ -19,7 +19,7 @@ import { isStudentProfileMissingError } from "@/lib/student-profile-errors";
  *
  * L'écran ne fait plus qu'UNE chose : la traçabilité des règlements du Module
  * Professionnel, en regard de ce que l'administration voit sur
- * `/professionnel/admin/paiements`. Ni frais scolaires, ni échéancier, ni
+ * `/admin/finances/student-payments`. Ni frais scolaires, ni échéancier, ni
  * formulaire de paiement, ni reçus : les versements sont saisis par la
  * scolarité, l'étudiant les consulte.
  */
@@ -75,8 +75,8 @@ export default function StudentPaymentsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <h1 className="text-3xl font-bold text-foreground">Mes Paiements</h1>
-        <p className="text-muted-foreground mt-2">
+        <h1 className="font-bold text-foreground whitespace-nowrap text-2xl leading-tight md:text-3xl">Mes Paiements</h1>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Suivi de vos règlements du Module Professionnel : ce que vous devez, ce qui a été
           encaissé et le détail de vos versements.
         </p>

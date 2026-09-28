@@ -49,8 +49,8 @@ export function AdminExports() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Exports de Données</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Exports de Données</h1>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Exportez vos données en Excel ou CSV avec des filtres personnalisables
         </p>
       </div>

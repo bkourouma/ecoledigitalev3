@@ -202,7 +202,7 @@ export default function StudentPresencesPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <UserRound className="h-7 w-7 text-indigo-500" />
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
+              <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
                 {student.first_name} {student.last_name}
               </h1>
               {student.matricule && (

@@ -79,7 +79,7 @@ export default function RecordingsPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="text-2xl font-semibold text-neutral-900">Enregistrements de la séance</h1>
-      <p className="mt-1 text-sm text-neutral-500">
+      <p className="text-neutral-500 whitespace-nowrap text-sm md:text-base text-muted-foreground">
         Les enregistrements sont disponibles quelques minutes après la fin de la séance.
       </p>
 

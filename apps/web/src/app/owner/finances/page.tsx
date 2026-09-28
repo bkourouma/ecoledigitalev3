@@ -26,6 +26,10 @@ import {
 import { useOwnerFinances, buildQueryString } from "@/lib/hooks/use-owner-finances";
 import type { OwnerFinancesResponse } from "@ecoledigitale/contracts";
 import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
+import { JournalDeCaisse } from "@/components/owner/JournalDeCaisse";
+import { fetchCashRegisterPourRapport } from "@/lib/hooks/use-owner-tresorerie";
+import { useSession } from "next-auth/react";
+import { AlertTriangle } from "lucide-react";
 import { jourFr, tableOrNote, type OwnerReportContent } from "@/lib/utils/owner-report";
 import type { ReportBlock } from "@/lib/utils/report-doc";
 
@@ -96,6 +100,8 @@ function tableauxDe(data: OwnerFinancesResponse | undefined): Tableaux {
 
 export default function OwnerEncaissementsPage() {
   const { anneeScolaire, filiereIds, period } = useOwnerFilters();
+  // Le rapport imprimé va chercher le journal lui-même : il lui faut la session.
+  const { data: session } = useSession();
 
   const params = useMemo(
     () => ({
@@ -109,6 +115,24 @@ export default function OwnerEncaissementsPage() {
   );
 
   const { data, isLoading, error, refetch } = useOwnerFinances(params);
+
+  /*
+    Le journal de caisse se cale sur LA PÉRIODE AFFICHÉE, et non sur tout
+    l'historique : un journal qui déborde des bornes annoncées au-dessus de lui
+    n'est plus une pièce de contrôle, c'est une source de contradiction.
+    `periodStart`/`periodEnd` sont ceux que l'endpoint a effectivement retenus
+    — les recalculer ici ferait diverger les deux moitiés de l'écran au premier
+    changement de règle de période.
+  */
+  const journalFilters = useMemo(
+    () => ({
+      dateDebut: data?.periodStart?.slice(0, 10),
+      dateFin: data?.periodEnd?.slice(0, 10),
+      anneeScolaire: anneeScolaire ?? undefined,
+      filiereIds: (filiereIds?.length ?? 0) > 0 ? filiereIds : undefined,
+    }),
+    [data?.periodStart, data?.periodEnd, anneeScolaire, filiereIds]
+  );
 
   const couverture = useMemo(() => couvertureDe(data), [data]);
   const tableaux = useMemo(() => tableauxDe(data), [data]);
@@ -133,7 +157,14 @@ export default function OwnerEncaissementsPage() {
     return (100 * d) / data.totals.collectedPreviousYear;
   }, [data]);
 
-  const construireRapport = (): OwnerReportContent => {
+  /*
+     Le rapport est ASYNCHRONE parce qu'il contient plus que l'écran : le
+     journal de caisse y entre en entier, quand l'écran le pagine à 25 lignes.
+     Une pièce comptable tronquée est pire qu'une pièce absente — mais
+     précharger l'intégralité à chaque visite coûterait cher pour un bouton
+     parfois jamais pressé. On ne va donc la chercher qu'au clic.
+  */
+  const construireRapport = async (): Promise<OwnerReportContent> => {
     const d = data!;
     const blocks: ReportBlock[] = [
       {
@@ -201,6 +232,63 @@ export default function OwnerEncaissementsPage() {
       ),
     );
 
+    /* Écarts de caisse : ils conditionnent la lecture de tout ce qui précède. */
+    if (
+      d.anomalies.ordersPaidWithoutPayment.count > 0 ||
+      d.anomalies.paymentsWithoutReceipt.count > 0
+    ) {
+      blocks.push({
+        kind: "note",
+        text: `Écarts de caisse : ${d.anomalies.ordersPaidWithoutPayment.count} commande(s) « payée » sans ligne de paiement pour ${formatFcfa(
+          d.anomalies.ordersPaidWithoutPayment.amount
+        )} ; ${d.anomalies.paymentsWithoutReceipt.count} encaissement(s) sans numéro de reçu passé 48 h pour ${formatFcfa(
+          d.anomalies.paymentsWithoutReceipt.amount
+        )}.`,
+      });
+    }
+
+    /*
+       Le journal, en entier. Si l'endpoint plafonne avant la fin, le rapport le
+       DIT : un tableau qui s'arrête sans prévenir se lit comme un journal
+       complet, et c'est ainsi qu'on signe une pièce fausse.
+    */
+    try {
+      const journal = await fetchCashRegisterPourRapport(session, journalFilters);
+      blocks.push(
+        { kind: "heading", text: "Journal de caisse", level: 1 },
+        tableOrNote(
+          [
+            { header: "Date", width: 30 },
+            { header: "Reçu", width: 38 },
+            { header: "Étudiant" },
+            { header: "Filière" },
+            { header: "Mode", width: 34 },
+            { header: "Montant", width: 44, align: "right" },
+          ],
+          journal.rows.map((r) => [
+            jourFr(r.paidAt),
+            r.receiptNumber ?? "manquant",
+            r.studentName,
+            r.filiereName ?? "—",
+            r.modeLabel,
+            formatFcfa(r.amount),
+          ]),
+          "Aucun encaissement sur cette période."
+        ),
+        {
+          kind: "note",
+          text: journal.complet
+            ? "Journal daté à la date du versement, quand les montants ci-dessus sont rattachés à l'année de la classe ouverte : les deux totaux peuvent différer sans qu'aucun soit faux."
+            : `Journal TRONQUÉ : ${journal.rows.length} lignes imprimées sur ${journal.totalCount}. Utiliser l'export CSV pour la totalité.`,
+        }
+      );
+    } catch {
+      blocks.push({
+        kind: "note",
+        text: "Le journal de caisse n'a pas pu être chargé : il ne figure pas dans ce rapport.",
+      });
+    }
+
     return { filename: "encaissements", blocks };
   };
 
@@ -232,7 +320,7 @@ export default function OwnerEncaissementsPage() {
   return (
     <div className="space-y-8">
       <OwnerPageHeader
-        title="Encaissements"
+        title="Paiements"
         question="Combien est rentré sur la période, et d'où ?"
         precision={`Du ${jourFr(data.periodStart)} au ${jourFr(
           data.periodEnd
@@ -244,6 +332,40 @@ export default function OwnerEncaissementsPage() {
           filename: "encaissements.csv",
         }}
       />
+
+      {/*
+        LES ÉCARTS DE CAISSE PASSENT EN TÊTE. Ils étaient noyés en bas de
+        l'écran des Impayés, qui répond pourtant à une tout autre question.
+        Le premier des deux peut cacher une perte sèche : adminUpdateEnrollment
+        force le statut « payée » sans créer de règlement, donc la commande est
+        soldée dans l'application sans que l'argent soit passé par la caisse.
+      */}
+      {(data.anomalies.ordersPaidWithoutPayment.count > 0 ||
+        data.anomalies.paymentsWithoutReceipt.count > 0) && (
+        <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
+          <CardContent className="space-y-1 py-3 text-sm">
+            <div className="flex items-center gap-2 font-medium text-red-800 dark:text-red-300">
+              <AlertTriangle className="h-4 w-4" />
+              Écarts de caisse à vérifier
+            </div>
+            {data.anomalies.ordersPaidWithoutPayment.count > 0 && (
+              <div className="text-red-800 dark:text-red-300">
+                <strong>{data.anomalies.ordersPaidWithoutPayment.count}</strong> commande(s)
+                marquée(s) « payée » sans aucune ligne de paiement, pour{" "}
+                {formatFcfa(data.anomalies.ordersPaidWithoutPayment.amount)} — l&apos;argent
+                n&apos;est jamais passé par la caisse.
+              </div>
+            )}
+            {data.anomalies.paymentsWithoutReceipt.count > 0 && (
+              <div className="text-red-800 dark:text-red-300">
+                <strong>{data.anomalies.paymentsWithoutReceipt.count}</strong> encaissement(s)
+                sans numéro de reçu passé 48 h, pour{" "}
+                {formatFcfa(data.anomalies.paymentsWithoutReceipt.amount)}.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/*
         Une source sans aucune donnée saisie n'est pas une source à zéro : c'est
@@ -372,6 +494,18 @@ export default function OwnerEncaissementsPage() {
         valueFormatter={formatFcfa}
         centerLabel="Encaissé"
         centerValue={formatFcfa(data.totals.collected)}
+      />
+
+      {/*
+        Le journal ferme l'écran : on lit d'abord ce qui est rentré et d'où,
+        puis on descend à la ligne à ligne quand on cherche une pièce précise.
+      */}
+      <JournalDeCaisse
+        filters={journalFilters}
+        exportFilename={`journal-de-caisse-${data.periodStart.slice(0, 10)}_${data.periodEnd.slice(
+          0,
+          10
+        )}.csv`}
       />
     </div>
   );

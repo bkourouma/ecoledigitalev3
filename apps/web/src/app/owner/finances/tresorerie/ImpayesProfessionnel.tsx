@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Loader2,
   AlertTriangle,
@@ -9,8 +9,6 @@ import {
   Coins,
   Info,
   Percent,
-  Receipt,
-  Search,
   Wallet,
   Users,
 } from "lucide-react";
@@ -34,8 +32,6 @@ import {
 } from "@/components/ui/table";
 import { useOwnerFinancesPro, buildQueryString } from "@/lib/hooks/use-owner-finances-pro";
 import {
-  buildCashRegisterQuery,
-  useOwnerCashRegister,
   useOwnerTresorerie,
 } from "@/lib/hooks/use-owner-tresorerie";
 import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
@@ -47,7 +43,6 @@ import { ChartCard } from "@/components/owner/charts/ChartCard";
 import { BarChartCard } from "@/components/owner/charts/BarChartCard";
 import { LineChartCard } from "@/components/owner/charts/LineChartCard";
 import { DonutChartCard } from "@/components/owner/charts/DonutChartCard";
-import { ExportCsvButton } from "@/components/owner/charts/ExportCsvButton";
 import {
   VIZ_SEQUENTIAL,
   VIZ_SERIES,
@@ -99,20 +94,6 @@ export function ImpayesProfessionnel() {
   // Année, classe et semestre viennent du filtre global ; l'état de règlement
   // reste propre au tableau des impayés.
   const { anneeScolaire, filiereIds, nomClasse, semestreId } = useOwnerFilters();
-
-  /**
-   * Filière portée par le nom de classe retenu.
-   *
-   * La clé du référentiel est « filiereId|nom ». Les blocs de trésorerie
-   * (courbe, modes de règlement, journal de caisse) ne connaissent que la
-   * filière : sans cette extraction, choisir une classe restreindrait les
-   * totaux du haut de l'écran mais laisserait la courbe décrire l'école
-   * entière — deux périmètres sur le même écran, sans que rien ne le dise.
-   */
-  const filiereDuNomClasse = useMemo(
-    () => (nomClasse ? nomClasse.split("|")[0] : undefined),
-    [nomClasse]
-  );
 
   /** Recherche du tableau des impayés, reprise du champ « Étudiant… » admin. */
   const [rechercheInput, setRechercheInput] = useState("");
@@ -171,38 +152,31 @@ export function ImpayesProfessionnel() {
         : 90;
     const granularity: "day" | "week" | "month" =
       span <= 45 ? "day" : span <= 200 ? "week" : "month";
-    // La filière du nom de classe retenu prend le pas : c'est le périmètre que
-    // l'utilisateur voit en haut de l'écran.
-    const perimetre = filiereDuNomClasse ? [filiereDuNomClasse] : filiereIds;
-    return { dateDebut, dateFin, granularity, filiereIds: perimetre };
-  }, [data, filiereIds, filiereDuNomClasse]);
+    /*
+       LE PÉRIMÈTRE COMPLET, ET NON PLUS SA SEULE FILIÈRE.
+
+       Ces blocs ne recevaient que la filière, parce que l'endpoint de
+       trésorerie ne connaissait qu'elle : la classe y était dégradée par un
+       split sur la clé « filiereId|nom ». Choisir « LICENCE 1 A » restreignait
+       donc les totaux du haut de l'écran pendant que la balance âgée, la
+       courbe, les modes de règlement et le journal décrivaient l'école entière
+       — deux périmètres sur la même page, sans que rien ne le dise.
+
+       Depuis l'adoption du socle commun (owner-perimetre.sql), l'endpoint
+       accepte les quatre dimensions. L'écran les transmet telles quelles.
+    */
+    return {
+      dateDebut,
+      dateFin,
+      granularity,
+      anneeScolaire,
+      filiereIds: filiereIds.length > 0 ? filiereIds : undefined,
+      nomClasse,
+      semestreId,
+    };
+  }, [data, anneeScolaire, filiereIds, nomClasse, semestreId]);
 
   const treso = useOwnerTresorerie(tresoFilters);
-
-  const [journalPage, setJournalPage] = useState(1);
-  // Changer de période ou de filière change le nombre de pages : rester en
-  // page 7 afficherait un tableau vide sans expliquer pourquoi.
-  useEffect(() => {
-    setJournalPage(1);
-  }, [tresoFilters]);
-  const [journalSearch, setJournalSearch] = useState("");
-  const [journalSearchInput, setJournalSearchInput] = useState("");
-  const journalFilters = useMemo(
-    () => ({
-      ...tresoFilters,
-      search: journalSearch || undefined,
-      page: journalPage,
-      pageSize: 25,
-    }),
-    [tresoFilters, journalSearch, journalPage]
-  );
-  const journal = useOwnerCashRegister(journalFilters);
-
-  /** Export du journal : tout le périmètre affiché, sans la pagination. */
-  const journalExportQuery = useMemo(
-    () => `${buildCashRegisterQuery({ ...journalFilters, page: undefined })}&format=csv`,
-    [journalFilters]
-  );
 
   const anomalies = treso.data?.anomalies;
   const hasAnomalies =
@@ -438,7 +412,7 @@ export function ImpayesProfessionnel() {
         question="Qui me doit combien sur les inscriptions aux UE ?"
         precision={`Du ${data.periodStart} au ${data.periodEnd}${
           data.nomClasse ? ` · ${data.nomClasse.split("|").slice(1).join("|")}` : ""
-        }. Recouvrement des inscriptions aux UE, sur les classes ouvertes dans cette fenêtre. Le journal de caisse ci-dessous consolide scolarité et professionnel — la scolarité n'y pèse que si des règlements y sont saisis.`}
+        }. Recouvrement des inscriptions aux UE, sur les classes ouvertes dans cette fenêtre. Le journal de caisse, lui, est sur l'écran « Paiements ».`}
         pdf={construireRapport}
         csv={{
           endpoint: "/api/v1/owner/finances/professionnel/export",
@@ -450,7 +424,7 @@ export function ImpayesProfessionnel() {
       {/*
         RAPPROCHEMENT AVEC L'ÉCRAN ADMIN PAIEMENTS.
 
-        Cet écran et /professionnel/admin/paiements lisent les mêmes commandes,
+        Cet écran et /admin/finances/student-payments lisent les mêmes commandes,
         avec un périmètre volontairement différent : l'administration écarte les
         UE de conduite de son plan de facturation, le propriétaire ne le peut
         pas — sur cette base elles portent des commandes intégralement encaissées,
@@ -481,6 +455,87 @@ export function ImpayesProfessionnel() {
             .
           </span>
         </div>
+      )}
+
+      {/*
+        DÉLAI INSCRIPTION → PREMIER RÈGLEMENT.
+        Au-delà du seuil, ce n'est plus un retard de paiement : c'est une
+        politique d'acompte qui ne tient pas, et l'école a livré des heures de
+        cours avant d'avoir vu le premier franc. Le délai par classe dit
+        laquelle renégocier.
+      */}
+      {treso.data?.delaiPaiement && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              Délai entre l&apos;inscription et le premier règlement
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {treso.data.delaiPaiement.mesure ? (
+              <>
+                <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+                  <span>
+                    Moyenne{" "}
+                    <strong className="tabular-nums">
+                      {treso.data.delaiPaiement.moyenJours} j
+                    </strong>
+                  </span>
+                  <span>
+                    Médiane{" "}
+                    <strong className="tabular-nums">
+                      {treso.data.delaiPaiement.medianeJours} j
+                    </strong>
+                  </span>
+                  <span className="text-muted-foreground">
+                    sur {treso.data.delaiPaiement.lotsPayes} inscription(s) réglée(s) · seuil
+                    d&apos;alerte {treso.data.delaiPaiement.seuilJours} j
+                  </span>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Classe</TableHead>
+                      <TableHead className="text-right">Réglées</TableHead>
+                      <TableHead className="text-right">Délai moyen</TableHead>
+                      <TableHead className="text-right">Médiane</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {treso.data.delaiPaiement.parClasse.map((c) => (
+                      <TableRow key={c.filiereId ?? c.filiereName}>
+                        <TableCell className="font-medium">{c.filiereName}</TableCell>
+                        <TableCell className="text-right tabular-nums">{c.lots}</TableCell>
+                        <TableCell
+                          className="text-right tabular-nums"
+                          style={
+                            c.moyenJours !== null &&
+                            c.moyenJours > treso.data!.delaiPaiement.seuilJours
+                              ? { color: VIZ_STATUS.critical }
+                              : undefined
+                          }
+                        >
+                          {/* Une classe sans règlement n'a pas un délai de zéro :
+                              elle n'en a pas. */}
+                          {c.moyenJours === null ? "—" : `${c.moyenJours} j`}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {c.medianeJours === null ? "—" : `${c.medianeJours} j`}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
+            ) : (
+              /* Aucun chiffre quand les dates ne décrivent pas des faits : un
+                 délai de 0 jour se lirait « tout le monde paie le jour même ». */
+              <p className="text-muted-foreground">
+                {treso.data.delaiPaiement.raisonNonMesure}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Écarts de caisse : en tête, parce qu'ils ne devraient pas exister. */}
@@ -808,161 +863,29 @@ export function ImpayesProfessionnel() {
           <p className="text-xs text-muted-foreground mt-3">
             Pour encaisser un règlement, rendez-vous sur{" "}
             <Link
-              href="/professionnel/admin/paiements"
+              href="/admin/finances/student-payments"
               className="underline underline-offset-2 hover:text-foreground"
             >
-              Paiements du module professionnel
+              Paiements étudiants
             </Link>
             .
           </p>
         </CardContent>
       </Card>
 
-      {/* Journal de caisse : la pièce de contrôle, exportable. */}
-      <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Receipt className="h-4 w-4" />
-              Journal de caisse
-            </CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Reçus émis sur la période — pièce de contrôle interne et d&apos;audit.{" "}
-              {journal.data
-                ? `${journal.data.totalCount} encaissement(s), ${formatFcfa(journal.data.totalAmount)} au total.`
-                : ""}
-            </p>
-            {/*
-              Le journal date chaque ligne au VERSEMENT, quand les agrégats
-              ci-dessus datent à la classe ouverte. Les deux répondent à deux
-              questions différentes — « qu'est-ce qui est passé par la caisse » et
-              « qu'ont rapporté les classes de cette année » — et peuvent donc
-              légitimement diverger. Le taire ferait croire à une incohérence.
-            */}
-            <p className="mt-1 text-xs text-muted-foreground">
-              Daté à la date du versement, alors que les montants ci-dessus sont rattachés à
-              l&apos;année de la classe ouverte : les deux totaux peuvent différer sans que
-              l&apos;un des deux soit faux.
-            </p>
-          </div>
-          <ExportCsvButton
-            endpoint="/api/v1/owner/tresorerie/journal"
-            queryString={journalExportQuery}
-            filename={`journal-de-caisse-${tresoFilters.dateDebut ?? "debut"}_${tresoFilters.dateFin ?? "fin"}.csv`}
-            label="Exporter le journal"
-          />
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setJournalPage(1);
-              setJournalSearch(journalSearchInput);
-            }}
-          >
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pl-8"
-                placeholder="Étudiant, matricule, n° de reçu…"
-                value={journalSearchInput}
-                onChange={(e) => setJournalSearchInput(e.target.value)}
-                aria-label="Rechercher dans le journal de caisse"
-              />
-            </div>
-            <Button type="submit" variant="outline" size="sm">
-              Rechercher
-            </Button>
-          </form>
-
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Reçu</TableHead>
-                  <TableHead>Étudiant</TableHead>
-                  <TableHead>Filière</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead className="text-right">Montant</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!journal.data || journal.data.rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-sm text-muted-foreground">
-                      {journal.isLoading ? "Chargement…" : "Aucun encaissement sur cette période."}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  journal.data.rows.map((r) => (
-                    <TableRow key={r.paymentId}>
-                      <TableCell className="whitespace-nowrap">
-                        {new Date(r.paidAt).toLocaleDateString("fr-FR")}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {r.receiptNumber ?? (
-                          <span className="text-red-600" title="Encaissement sans numéro de reçu">
-                            manquant
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{r.studentName}</div>
-                        {r.matricule && (
-                          <div className="font-mono text-xs text-muted-foreground">
-                            {r.matricule}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{r.filiereName ?? "—"}</TableCell>
-                      <TableCell>{r.modeLabel}</TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
-                        {formatFcfa(r.amount)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {journal.data && journal.data.totalCount > journal.data.pageSize && (
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>
-                {(journal.data.page - 1) * journal.data.pageSize + 1}–
-                {Math.min(journal.data.page * journal.data.pageSize, journal.data.totalCount)} sur{" "}
-                {journal.data.totalCount}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={journalPage <= 1}
-                  onClick={() => setJournalPage((p) => Math.max(1, p - 1))}
-                >
-                  Précédent
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={journalPage * journal.data.pageSize >= journal.data.totalCount}
-                  onClick={() => setJournalPage((p) => p + 1)}
-                >
-                  Suivant
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
+      {/*
+        LE JOURNAL DE CAISSE N'EST PLUS ICI. Il vivait sur cet écran par accident
+        d'histoire — les deux lisent professional_payments — mais il répond à la
+        question inverse : « qu'est-ce qui EST rentré, ligne par ligne », quand
+        cet écran-ci traite de ce qui n'est PAS rentré. Il est désormais sur
+        « Paiements », avec les écarts de caisse qui permettent de le lire.
+        Composant partagé : components/owner/JournalDeCaisse.tsx.
+      */}
       {treso.data && (
         <p className="text-xs text-muted-foreground">
           Trésorerie au {new Date(treso.data.computedAt).toLocaleString("fr-FR")}
-          {treso.isFetching ? " · actualisation en cours" : ""}. Le journal ne dit pas qui a
-          encaissé : <code>professional_payments</code> ne stocke pas l&apos;auteur de la saisie.
+          {treso.isFetching ? " · actualisation en cours" : ""}. Le journal de caisse est
+          désormais sur l&apos;écran « Paiements ».
         </p>
       )}
     </div>

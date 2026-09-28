@@ -258,7 +258,10 @@ export default function RemunerationSeancesPage() {
       if (result.rejected.length === 0) {
         setFeedback({
           kind: "ok",
-          text: `${result.updated} séance(s) validée(s). Elles rejoignent l'historique.`,
+          // Il n'existe pas (encore) d'écran listant les séances validées : l'ancien
+          // message renvoyait vers un « historique » où elles n'apparaissent pas.
+          // Elles ne redeviennent visibles qu'au calcul du bulletin de la période.
+          text: `${result.updated} séance(s) validée(s). Elles seront prises en compte au prochain bulletin de paiement de leur période.`,
         });
       } else {
         // Le lot est partiel : annoncer un succès global masquerait les rejets.
@@ -483,13 +486,13 @@ export default function RemunerationSeancesPage() {
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <CalendarCheck className="h-7 w-7 text-indigo-500" />
             Validation des séances
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Marquez les séances réellement effectuées, puis validez celles qui sont payables. Une
             séance planifiée, annulée ou non validée ne produit aucun montant lors du calcul.
           </p>
@@ -713,7 +716,7 @@ export default function RemunerationSeancesPage() {
           <CardContent className="p-5 space-y-4">
             <div>
               <h2 className="font-semibold text-lg">Ajouter une séance</h2>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                 Pour une séance qui n'était pas à l'emploi du temps. Si elle y figurait, utilisez
                 plutôt la liste des séances attendues ci-dessus : elle pré-remplit tout.
               </p>

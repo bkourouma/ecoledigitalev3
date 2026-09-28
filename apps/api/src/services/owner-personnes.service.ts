@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 import type { FastifyBaseLogger } from "fastify";
 import type { OwnerPersonnesQuery, OwnerPersonnesResponse } from "@ecoledigitale/contracts";
-import { anneeDe } from "./owner-pro-annee.sql";
+import { CLE_NOM_DE_CLASSE_SQL, anneeDe } from "./owner-pro-annee.sql";
 
 /**
  * Démographie et état des comptes : étudiants, enseignants, parents.
@@ -53,6 +53,20 @@ export const OWNER_PERSONNES_TOP_NATIONALITIES = 10;
 /** Amplitude des tranches d'âge, en années. */
 export const OWNER_PERSONNES_AGE_BUCKET = 2;
 
+/**
+ * Millésime de l'année scolaire en cours, pivot septembre.
+ *
+ * Sert de référence aux files de relance quand la barre ne fixe aucune année :
+ * « non réinscrit » n'a de sens que par rapport à une année précise, et
+ * « toutes années » en donnerait zéro par construction — tout étudiant déjà
+ * inscrit appartient à l'ensemble de toutes les années.
+ */
+function anneeCourante(): string {
+  const d = new Date();
+  const debut = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+  return `${debut}-${debut + 1}`;
+}
+
 async function safeQuery<T>(
   client: PoolClient,
   sql: string,
@@ -81,20 +95,24 @@ const STUDENT_FILIERE_CTE = `
   student_filiere AS (
     -- Voie PROFESSIONNELLE : la filière vient de l'UE de l'ouverture suivie, et
     -- l'année se déduit de sa date de début (pivot septembre).
-    SELECT pe.student_id, u.filiere_id, ${anneeDe("s.date_debut")} AS annee
+    -- L alias de l UE est ue et non u : c est celui qu attend le fragment
+    -- partage qui derive le nom de classe. Une seule definition du nom pour
+    -- toute l application.
+    SELECT pe.student_id, ue.filiere_id, ${anneeDe("s.date_debut")} AS annee,
+           ${CLE_NOM_DE_CLASSE_SQL} AS cle_classe
       FROM professional_enrollments pe
       JOIN professional_ue_sessions s
         ON s.id = pe.ue_session_id AND s.tenant_id = pe.tenant_id
-      JOIN professional_ue u
-        ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
+      JOIN professional_ue ue
+        ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
      WHERE pe.tenant_id = $1::uuid
        AND pe.statut <> 'annulee'
-       AND u.filiere_id IS NOT NULL
+       AND ue.filiere_id IS NOT NULL
        AND s.date_debut IS NOT NULL
     UNION
     -- Voie SCOLAIRE, sans lignes sur cette base mais conservée : le jour où des
     -- inscriptions y seront saisies, filtre et effectifs les prendront seuls.
-    SELECT se.student_id, cl.programme_id AS filiere_id, ay.name AS annee
+    SELECT se.student_id, cl.programme_id AS filiere_id, ay.name AS annee, NULL::text
       FROM student_enrollments se
       JOIN classes cl ON cl.id = se.class_id AND cl.tenant_id = se.tenant_id
       LEFT JOIN academic_years ay
@@ -122,14 +140,21 @@ const STUDENT_SCOPE_CTE = `
     WHERE sp.tenant_id = $1::uuid
       AND sp.status = 'active'
       AND (
-        ($2::text IS NULL AND $3::uuid[] IS NULL)
+        ($2::text IS NULL AND $3::uuid[] IS NULL AND $4::text IS NULL)
         OR EXISTS (
           SELECT 1 FROM student_filiere f
            WHERE f.student_id = sp.id
              AND ($3::uuid[] IS NULL OR f.filiere_id = ANY($3::uuid[]))
              AND ($2::text IS NULL OR f.annee = $2::text)
+             AND ($4::text IS NULL OR f.cle_classe = $4::text)
         )
       )
+      -- LE SEMESTRE N EST PAS UNE DIMENSION DE LA DEMOGRAPHIE, mais le contrat
+      -- de perimetre le fournit a toutes les requetes : Postgres exige de
+      -- pouvoir typer chaque parametre transmis, et refuse la requete entiere
+      -- sinon. La condition est donc toujours vraie — elle ne sert qu au
+      -- typage, comme le fait deja ACADEMIC_WINDOW_CTE pour le tenant.
+      AND ($5::uuid IS NULL OR TRUE)
   )`;
 
 /**
@@ -146,20 +171,27 @@ const TEACHER_SCOPE_CTE = `
     FROM teachers t
     WHERE t.tenant_id = $1::uuid
       AND (
-        ($2::text IS NULL AND $3::uuid[] IS NULL)
+        ($2::text IS NULL AND $3::uuid[] IS NULL AND $4::text IS NULL)
         OR EXISTS (
           SELECT 1
             FROM professional_session_ecue_teachers st
             JOIN professional_ue_sessions s
               ON s.id = st.ue_session_id AND s.tenant_id = st.tenant_id
-            JOIN professional_ue u
-              ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
+            JOIN professional_ue ue
+              ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
            WHERE st.enseignant_id = t.id
              AND st.tenant_id = t.tenant_id
-             AND ($3::uuid[] IS NULL OR u.filiere_id = ANY($3::uuid[]))
+             AND ($3::uuid[] IS NULL OR ue.filiere_id = ANY($3::uuid[]))
              AND ($2::text IS NULL OR ${anneeDe("s.date_debut")} = $2::text)
+             AND ($4::text IS NULL OR ${CLE_NOM_DE_CLASSE_SQL} = $4::text)
         )
       )
+      -- LE SEMESTRE N EST PAS UNE DIMENSION DE LA DEMOGRAPHIE, mais le contrat
+      -- de perimetre le fournit a toutes les requetes : Postgres exige de
+      -- pouvoir typer chaque parametre transmis, et refuse la requete entiere
+      -- sinon. La condition est donc toujours vraie — elle ne sert qu au
+      -- typage, comme le fait deja ACADEMIC_WINDOW_CTE pour le tenant.
+      AND ($5::uuid IS NULL OR TRUE)
   )`;
 
 /** Parents rattachés à un étudiant du périmètre. Requiert student_scope. */
@@ -179,7 +211,17 @@ export async function fetchOwnerPersonnes(
   const filiereIds =
     filters.filiereIds && filters.filiereIds.length > 0 ? filters.filiereIds : null;
 
-  const scopeParams = [tenantId, anneeScolaire, filiereIds];
+  /*
+     Contrat de owner-perimetre.sql. Ce service numerotait deja
+     [tenant, annee, filieres] : il suffit de completer.
+
+     Le nom de classe agit sur les TROIS perimetres — etudiants, enseignants et
+     parents. Ne le brancher que sur les etudiants aurait laisse le ratio
+     etudiants/enseignant comparer une classe a tout l etablissement.
+  */
+  const nomClasse = filters.nomClasse?.trim() ? filters.nomClasse.trim() : null;
+  const semestreId = filters.semestreId ?? null;
+  const scopeParams = [tenantId, anneeScolaire, filiereIds, nomClasse, semestreId];
 
   const client = await pool.connect();
   try {
@@ -246,7 +288,7 @@ export async function fetchOwnerPersonnes(
     const ageRows = await safeQuery<{ bucket_start: string | number; count: string | number }>(
       client,
       `WITH ${STUDENT_FILIERE_CTE}, ${STUDENT_SCOPE_CTE}
-       SELECT (FLOOR(EXTRACT(YEAR FROM AGE(date_of_birth)) / $4::int) * $4::int)::int
+       SELECT (FLOOR(EXTRACT(YEAR FROM AGE(date_of_birth)) / $6::int) * $6::int)::int
                 AS bucket_start,
               COUNT(*)::int AS count
        FROM student_scope
@@ -356,7 +398,7 @@ export async function fetchOwnerPersonnes(
        WHERE NULLIF(TRIM(nationality), '') IS NOT NULL
        GROUP BY TRIM(nationality)
        ORDER BY count DESC, nationality
-       LIMIT $4::int`,
+       LIMIT $6::int`,
       [...scopeParams, OWNER_PERSONNES_TOP_NATIONALITIES],
       log,
       "topNationalities"
@@ -402,6 +444,92 @@ export async function fetchOwnerPersonnes(
       teachers_without_account: 0,
       students_without_birth_date: 0,
     };
+
+    /* ---- Files de relance nominatives -------------------------------------- */
+    /*
+       Deux listes, une seule question : qui, nommément, représente de l'argent
+       qu'on ne fait pas travailler ?
+
+       Elles ne suivent PAS le filtre d'année de l'écran, et c'est délibéré : un
+       étudiant « à relancer » se définit par son ABSENCE de l'année active,
+       donc le filtre qui le masquerait est exactement celui qu'il faut ignorer.
+       L'année de référence est celle de la barre, ou l'année en cours à défaut.
+    */
+    const relanceRows = await safeQuery<Record<string, unknown>>(
+      client,
+      `WITH ${STUDENT_FILIERE_CTE}
+       SELECT sp.id AS student_id,
+              TRIM(COALESCE(us.first_name, '') || ' ' || COALESCE(us.last_name, '')) AS nom,
+              sp.student_matricule AS matricule,
+              /* Le telephone vit sur student_profiles, pas sur users : la
+                 premiere version citait us.phone et TOUTE la requete etait
+                 avalee par safeQuery — une file de relance vide qui avait
+                 l air veridique. */
+              sp.phone AS telephone,
+              us.email,
+              (SELECT pr.name FROM student_filiere sf
+                 JOIN programmes pr ON pr.id = sf.filiere_id
+                WHERE sf.student_id = sp.id
+                ORDER BY sf.annee DESC NULLS LAST LIMIT 1)   AS derniere_classe,
+              (SELECT sf.annee FROM student_filiere sf
+                WHERE sf.student_id = sp.id
+                ORDER BY sf.annee DESC NULLS LAST LIMIT 1)   AS derniere_annee,
+              COUNT(*) OVER ()::int                          AS total
+         FROM student_profiles sp
+         LEFT JOIN users us ON us.id = sp.user_id AND us.tenant_id = sp.tenant_id
+        WHERE sp.tenant_id = $1::uuid
+          AND sp.status = 'active'
+          /* Il a deja ete inscrit : sans cela, tout prospect jamais inscrit
+             entrerait dans une file de REinscription. */
+          AND EXISTS (SELECT 1 FROM student_filiere sf WHERE sf.student_id = sp.id)
+          /* Mais pas sur l annee de reference. */
+          AND NOT EXISTS (
+            SELECT 1 FROM student_filiere sf
+             WHERE sf.student_id = sp.id AND sf.annee = $2::text)
+        ORDER BY derniere_annee DESC NULLS LAST, nom
+        LIMIT 100`,
+      [tenantId, anneeScolaire ?? anneeCourante()],
+      log,
+      "etudiantsARelancer"
+    );
+
+    /*
+       Enseignants sans aucune affectation d'ECUE.
+
+       Le type de contrat figure au meme rang que le nom, parce qu'il change
+       tout : un PERMANENT sans affectation est un cout fixe dormant, un
+       FREELANCE sans affectation ne coute rien. Une liste qui les melangerait
+       ne servirait a aucune decision.
+    */
+    const inactifRows = await safeQuery<Record<string, unknown>>(
+      client,
+      `SELECT te.id AS teacher_id,
+              TRIM(COALESCE(us.first_name, '') || ' ' || COALESCE(us.last_name, '')) AS nom,
+              te.contract_type::text AS contract_type,
+              /* Cout mensuel : salaire fixe s il existe, sinon rien. Un taux
+                 horaire sans volume ne fait pas un cout mensuel, et l inventer
+                 reviendrait a chiffrer une hypothese. */
+              cfg.monthly_salary::float8 AS cout_mensuel,
+              COUNT(*) OVER ()::int AS total,
+              SUM(CASE WHEN te.contract_type::text = 'permanent' THEN 1 ELSE 0 END)
+                OVER ()::int AS total_permanents,
+              COUNT(cfg.monthly_salary) OVER ()::int AS total_chiffres
+         FROM teachers te
+         LEFT JOIN users us ON us.id = te.user_id AND us.tenant_id = te.tenant_id
+         LEFT JOIN teacher_payment_configs cfg
+           ON cfg.teacher_id = te.id AND cfg.tenant_id = te.tenant_id
+        WHERE te.tenant_id = $1::uuid
+          AND NOT EXISTS (
+            SELECT 1 FROM professional_session_ecue_teachers st
+             WHERE st.enseignant_id = te.id AND st.tenant_id = te.tenant_id)
+        ORDER BY (te.contract_type::text = 'permanent') DESC, nom
+        LIMIT 100`,
+      [tenantId],
+      log,
+      "enseignantsInactifs"
+    );
+
+    const inactif0 = inactifRows[0] ?? {};
 
     return {
       anneeScolaire,
@@ -454,6 +582,31 @@ export async function fetchOwnerPersonnes(
         nationality: r.nationality,
         count: Number(r.count) || 0,
       })),
+      aRelancer: relanceRows.map((r) => ({
+        studentId: String(r.student_id),
+        nom: String(r.nom || "").trim() || "Étudiant inconnu",
+        matricule: (r.matricule as string | null) ?? null,
+        telephone: (r.telephone as string | null) ?? null,
+        email: (r.email as string | null) ?? null,
+        derniereClasse: (r.derniere_classe as string | null) ?? null,
+        derniereAnnee: (r.derniere_annee as string | null) ?? null,
+      })),
+      enseignantsInactifs: inactifRows.map((r) => ({
+        teacherId: String(r.teacher_id),
+        nom: String(r.nom || "").trim() || "Enseignant inconnu",
+        contractType: (r.contract_type as string | null) ?? null,
+        /* NULL et non 0 : aucun tarif n'est saisi sur cette base, et un zéro
+           se lirait « cet enseignant est gratuit ». */
+        coutMensuel: r.cout_mensuel === null || r.cout_mensuel === undefined
+          ? null
+          : Number(r.cout_mensuel),
+      })),
+      relances: {
+        etudiantsARelancer: relanceRows.length > 0 ? Number(relanceRows[0].total) || 0 : 0,
+        enseignantsSansAffectation: Number(inactif0.total) || 0,
+        permanentsSansAffectation: Number(inactif0.total_permanents) || 0,
+        coutMesure: (Number(inactif0.total_chiffres) || 0) > 0,
+      },
       coverage: {
         studentsWithoutParent: Number(cov.students_without_parent) || 0,
         parentsWithoutChild: Number(cov.parents_without_child) || 0,

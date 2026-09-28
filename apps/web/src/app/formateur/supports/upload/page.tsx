@@ -183,7 +183,7 @@ export default function UploadSupportPage() {
       <div className="mb-6">
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-3">
+            <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
               <Link href="/formateur/supports">
                 <Button variant="ghost" size="sm">
                   <ArrowLeft className="h-4 w-4 mr-2" />
@@ -195,8 +195,8 @@ export default function UploadSupportPage() {
                   <UploadCloud className="h-6 w-6 text-primary" aria-hidden="true" />
                 </div>
                 <div>
-                  <CardTitle className="text-2xl">Ajouter un Support de Cours</CardTitle>
-                  <p className="text-muted-foreground text-sm mt-1">
+                  <CardTitle className="whitespace-nowrap text-2xl leading-tight md:text-3xl">Ajouter un Support de Cours</CardTitle>
+                  <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                     Téléchargez un fichier et ajoutez les informations nécessaires
                   </p>
                 </div>

@@ -89,17 +89,17 @@ export default function RSOAdminPermissionsPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button variant="outline" size="sm" onClick={() => router.push("/rso/admin/dashboard")}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+          <h1 className="whitespace-nowrap font-bold flex items-center gap-3 text-2xl leading-tight md:text-3xl">
             <Shield className="h-8 w-8" />
             Gestion des Permissions
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Visualisez et gérez les permissions par rôle et module
           </p>
         </div>

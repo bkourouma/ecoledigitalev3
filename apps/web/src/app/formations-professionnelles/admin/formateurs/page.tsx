@@ -120,10 +120,10 @@ export default function AdminFormateursPage() {
         className="mb-4 sm:mb-6"
       />
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold">Gestion des Formateurs</h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1">
+          <h1 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Gestion des Formateurs</h1>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Gérez les formateurs pour les formations professionnelles
           </p>
         </div>

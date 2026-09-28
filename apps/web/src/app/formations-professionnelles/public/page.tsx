@@ -12,8 +12,8 @@ export default function PublicFormationsPage() {
   return (
     <div className="container mx-auto max-w-6xl px-4 py-10">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Catalogue Public Imhotep Data</h1>
-        <p className="text-muted-foreground mt-2">
+        <h1 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Catalogue Public Imhotep Data</h1>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Decouvrez les formations, creez votre compte, puis achetez en ligne pour debloquer les videos.
         </p>
       </div>

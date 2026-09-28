@@ -127,12 +127,12 @@ export default function ProfessionalStudentPage() {
   return (
     <div className="space-y-8 max-w-5xl mx-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-blue-500 bg-clip-text text-transparent">
+          <h1 className="font-bold bg-gradient-to-r from-green-500 to-blue-500 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
             Inscription aux sessions
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Choisissez une filière et inscrivez-vous directement aux sessions souhaitées.
           </p>
         </div>

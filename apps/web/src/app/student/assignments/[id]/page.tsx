@@ -83,7 +83,8 @@ function StudentAssignmentDetailPageContent() {
           <div className="flex items-center gap-4 mb-6">
             <Link href="/student/assignments">
               <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Retour
               </Button>
             </Link>
             <div>
@@ -117,17 +118,18 @@ function StudentAssignmentDetailPageContent() {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
+          <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
             <Link href="/student/assignments">
               <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
             </Link>
             <div>
-              <h2 className="text-2xl font-bold text-red-400">
+              <h2 className="whitespace-nowrap font-bold text-red-400 text-2xl leading-tight md:text-3xl">
                 {is404 ? 'Devoir introuvable' : is403 ? 'Accès refusé' : 'Erreur de chargement'}
               </h2>
-              <p className="text-muted-foreground">
+              <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
                 {is404 
                   ? 'Ce devoir n\'existe pas ou n\'est pas assigné à vos cours' 
                   : is403
@@ -176,15 +178,16 @@ function StudentAssignmentDetailPageContent() {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
+          <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
             <Link href="/student/assignments">
               <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
             </Link>
             <div>
-              <h2 className="text-2xl font-bold text-foreground">Devoir introuvable</h2>
-              <p className="text-muted-foreground">Ce devoir n'existe pas ou vous n'y avez pas accès</p>
+              <h2 className="whitespace-nowrap font-bold text-foreground text-2xl leading-tight md:text-3xl">Devoir introuvable</h2>
+              <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">Ce devoir n'existe pas ou vous n'y avez pas accès</p>
             </div>
           </div>
         </div>
@@ -311,16 +314,17 @@ function StudentAssignmentDetailPageContent() {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
-          <div className="flex items-start gap-4 min-w-0">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3 sm:items-start sm:justify-between">
+          <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
             <Link href="/student/assignments" className="shrink-0">
               <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Retour
               </Button>
             </Link>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                <h1 className="text-2xl font-bold text-foreground break-words">{assignment.title}</h1>
+                <h1 className="whitespace-nowrap font-bold text-foreground leading-tight text-2xl md:text-3xl">{assignment.title}</h1>
                 {getStatusBadge(assignment.status)}
                 {getPriorityBadge(assignment.priority)}
               </div>
@@ -583,7 +587,7 @@ export default function StudentAssignmentDetailPage() {
             <h2 className="text-xl font-semibold text-foreground mb-2">
               Erreur de chargement du devoir
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
               Une erreur s'est produite lors du chargement des détails du devoir. Veuillez recharger la page.
             </p>
           </div>

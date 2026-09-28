@@ -188,10 +188,10 @@ export default function TeacherProfilePage() {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
                   {teacher.firstName} {teacher.lastName}
                 </h1>
-                <p className="text-gray-600 mt-1">
+                <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
                   Profil Enseignant
                 </p>
               </div>

@@ -68,8 +68,8 @@ export function EntrepriseDetailPage({ entrepriseId, onEdit }: EntrepriseDetailP
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{entreprise.raison_sociale}</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">{entreprise.raison_sociale}</h1>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             {entreprise.siret && `SIRET: ${entreprise.siret}`}
           </p>
         </div>

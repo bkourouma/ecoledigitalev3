@@ -137,14 +137,25 @@ export default function DiplomaDetailPage() {
         fetchSignataires().catch(() => []),
       ]);
       const sig = indexSignataires(signatairesList);
+      // Donnees communes au diplome et a l'attestation. Les UV et les replis
+      // d'identite y vivent desormais : ils n'etaient transmis qu'a
+      // l'attestation, si bien que le diplome edite depuis CETTE fiche sortait
+      // sans « totalisant 13/13 UV », alors que la page liste et l'espace
+      // etudiant l'imprimaient. Trois chemins vers un meme document doivent
+      // produire le meme texte.
       const commonData = {
         reference: attestation.reference,
         diplome: attestation.diplome,
         etudiant: {
           nom_complet: attestation.etudiant.nom_complet,
-          matricule,
-          date_naissance: student?.dateOfBirth ? String(student.dateOfBirth) : null,
-          lieu_naissance: student?.placeOfBirth ?? null,
+          matricule: matricule ?? attestation.etudiant?.matricule ?? null,
+          date_naissance: student?.dateOfBirth
+            ? String(student.dateOfBirth)
+            : attestation.etudiant?.date_naissance
+              ? String(attestation.etudiant.date_naissance)
+              : null,
+          lieu_naissance:
+            student?.placeOfBirth ?? attestation.etudiant?.lieu_naissance ?? null,
         },
         date_obtention: attestation.date_obtention,
         annee_academique:
@@ -198,18 +209,18 @@ export default function DiplomaDetailPage() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button variant="outline" size="sm" onClick={() => router.push("/professionnel/admin/diplomes")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="whitespace-nowrap font-bold flex items-center gap-2 leading-tight text-2xl md:text-3xl">
               <GraduationCap className="h-6 w-6 text-emerald-600" />
               {diploma?.libelle}
             </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
               <span className="font-mono">{diploma?.code}</span> · {diploma?.uv_required} UV requises (
               {requirementsByFiliere.length} année{requirementsByFiliere.length > 1 ? "s" : ""}) ·{" "}
               {diploma?.statut}

@@ -263,4 +263,178 @@ export async function cycleFeesRoutes(fastify: FastifyInstance) {
       }
     },
   });
+
+  // GET /api/v1/cycle-fees/scolarite?filiereId=... — bareme d'une filiere.
+  //
+  // Pour chaque CLASSE de la filiere (table `programmes`), renvoie ses
+  // semestres (`professional_semestres`) avec la somme des prix des UE qui les
+  // composent, le total de la scolarite sur l'ensemble des semestres, et les
+  // frais deja enregistres dans `cycles_frais` s'il y en a.
+  //
+  // Rappel de vocabulaire : `programmes` porte la CLASSE, la filiere vit dans
+  // `filieres` ; les tables professionnelles nomment encore `filiere_id` la
+  // colonne qui pointe vers `programmes`.
+  fastify.get("/scolarite", {
+    schema: {
+      querystring: {
+        type: "object",
+        required: ["filiereId"],
+        properties: {
+          filiereId: { type: "string", format: "uuid" },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  programmeId: { type: "string" },
+                  programmeName: { type: "string" },
+                  programmeCode: { type: "string" },
+                  cycleId: { type: "string" },
+                  cycleName: { type: "string" },
+                  cycleCode: { type: "string" },
+                  currency: { type: "string" },
+                  scolariteCalculee: { type: "number" },
+                  semestres: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        libelle: { type: "string" },
+                        nbUe: { type: "number" },
+                        montant: { type: "number" },
+                      },
+                    },
+                  },
+                  fees: {
+                    type: ["object", "null"],
+                    properties: {
+                      id: { type: "string" },
+                      inscription: { type: "number" },
+                      scolarite: { type: "number" },
+                      annexes: { type: "number" },
+                      autres: { type: "number" },
+                      currency: { type: "string" },
+                      updatedAt: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => {
+      if (!request.tenantId) {
+        return reply.status(400).send({
+          error: "Tenant Required",
+          message: "This endpoint requires tenant context",
+        });
+      }
+
+      const { filiereId } = (request.query || {}) as { filiereId: string };
+
+      const client = await pool.connect();
+      try {
+        await client.query("SELECT set_config('app.tenant_id', $1, true)", [request.tenantId]);
+
+        // Une ligne par couple (classe, semestre). Les classes sans semestre
+        // ressortent avec semestre_id NULL grace aux LEFT JOIN.
+        const res = await client.query(
+          `SELECT
+             p.id   AS programme_id,
+             p.name AS programme_name,
+             p.code AS programme_code,
+             c.id   AS cycle_id,
+             c.name AS cycle_name,
+             c.code AS cycle_code,
+             sm.id      AS semestre_id,
+             sm.libelle AS semestre_libelle,
+             COUNT(su.ue_id)::int        AS nb_ue,
+             COALESCE(SUM(u.prix), 0)    AS montant,
+             MIN(u.devise)               AS devise
+           FROM programmes p
+           JOIN cycles c ON c.id = p.cycle_id
+           LEFT JOIN professional_semestres sm
+             ON sm.filiere_id = p.id AND sm.tenant_id = p.tenant_id
+           LEFT JOIN professional_semestre_ue su
+             ON su.semestre_id = sm.id AND su.tenant_id = sm.tenant_id
+           LEFT JOIN professional_ue u
+             ON u.id = su.ue_id AND u.tenant_id = su.tenant_id
+           WHERE p.tenant_id = $1 AND p.filiere_id = $2
+           GROUP BY p.id, p.name, p.code, c.id, c.name, c.code, sm.id, sm.libelle
+           ORDER BY p.name ASC, sm.libelle ASC`,
+          [request.tenantId, filiereId]
+        );
+
+        const byProgramme = new Map<string, any>();
+        for (const r of res.rows) {
+          let entry = byProgramme.get(r.programme_id);
+          if (!entry) {
+            entry = {
+              programmeId: r.programme_id,
+              programmeName: r.programme_name,
+              programmeCode: r.programme_code,
+              cycleId: r.cycle_id,
+              cycleName: r.cycle_name,
+              cycleCode: r.cycle_code,
+              currency: "XOF",
+              scolariteCalculee: 0,
+              semestres: [] as any[],
+              fees: null,
+            };
+            byProgramme.set(r.programme_id, entry);
+          }
+          if (!r.semestre_id) continue;
+          const montant = Number(r.montant);
+          entry.semestres.push({
+            id: r.semestre_id,
+            libelle: r.semestre_libelle,
+            nbUe: Number(r.nb_ue),
+            montant,
+          });
+          entry.scolariteCalculee += montant;
+          if (r.devise) entry.currency = r.devise;
+        }
+
+        const programmeIds = [...byProgramme.keys()];
+        if (programmeIds.length > 0) {
+          const feesRes = await client.query(
+            `SELECT id, programme_id, inscription, scolarite, annexes, autres, currency, updated_at
+             FROM cycles_frais
+             WHERE tenant_id = $1 AND programme_id = ANY($2::uuid[])`,
+            [request.tenantId, programmeIds]
+          );
+          for (const f of feesRes.rows) {
+            const entry = byProgramme.get(f.programme_id);
+            if (!entry) continue;
+            entry.fees = {
+              id: f.id,
+              inscription: Number(f.inscription),
+              scolarite: Number(f.scolarite),
+              annexes: Number(f.annexes),
+              autres: Number(f.autres),
+              currency: f.currency,
+              updatedAt: f.updated_at,
+            };
+            entry.currency = f.currency || entry.currency;
+          }
+        }
+
+        return { data: [...byProgramme.values()] };
+      } finally {
+        try {
+          await client.query("RESET app.tenant_id");
+        } catch {}
+        client.release();
+      }
+    },
+  });
 }

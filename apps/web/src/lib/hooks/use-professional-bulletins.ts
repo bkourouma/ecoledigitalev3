@@ -498,6 +498,15 @@ export function useDeleteManualNote() {
 
 /* -------------------- Bulletin côté étudiant -------------------- */
 
+/**
+ * Données du bulletin de mise en page BTS de l'étudiant connecté, à la demande.
+ * Le gabarit BTS ne lit pas le payload LMD de `useMyBulletin` : il lui faut ses
+ * propres lignes à coefficients, sans quoi le document sort vide.
+ */
+export function fetchMyBulletinBts(semestreId: string): Promise<any> {
+  return apiFetch(`${BASE}/student/bulletins/${semestreId}/bts`);
+}
+
 export function useMyBulletin(semestreId: string | null) {
   return useQuery({
     queryKey: ["professional-my-bulletin", semestreId],

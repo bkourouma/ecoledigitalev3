@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AlertTriangle, Info, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,9 +13,11 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { formatFcfa, VIZ_STATUS } from "@/components/owner/charts/palette";
-import { useOwnerEconomie } from "@/lib/hooks/use-owner-economie";
+import { useOwnerEconomie, type BaseExercice } from "@/lib/hooks/use-owner-economie";
 import { useOwnerFilters } from "@/components/owner/filters/owner-filters-context";
 import { OwnerPageHeader } from "@/components/owner/OwnerPageHeader";
+import { OwnerTabs } from "@/components/owner/OwnerTabs";
+import { SaisieCharges } from "./SaisieCharges";
 import { jourFr, tableOrNote, type OwnerReportContent } from "@/lib/utils/owner-report";
 
 /**
@@ -59,11 +62,18 @@ function Stat({
   );
 }
 
-export default function OwnerEconomiePage() {
+function Rentabilite() {
   const { anneeScolaire, filiereIds } = useOwnerFilters();
+  /*
+     La base d'exercice vit SUR L'ÉCRAN et non dans la barre de filtres : un
+     résultat porte sur UN exercice, là où la barre accepte « toutes années ».
+     La mettre dans la barre l'aurait proposée aux écrans qui ne la lisent pas.
+  */
+  const [baseExercice, setBaseExercice] = useState<BaseExercice>("scolaire");
   const { data, isLoading, isError, error, refetch } = useOwnerEconomie(
     anneeScolaire,
-    filiereIds
+    filiereIds,
+    baseExercice
   );
 
   const k = data?.kpis;
@@ -239,6 +249,145 @@ export default function OwnerEconomiePage() {
           filename: "rentabilite.csv",
         }}
       />
+
+      {/*
+        COMPTE DE RÉSULTAT À DEUX COLONNES — la lecture d'un expert-comptable.
+        Ce que l'école a GAGNÉ, et ce qui est PASSÉ par la banque. L'écart entre
+        les deux n'est pas une anomalie : il se lit dans les trois soldes de
+        clôture, et chacun est un décalage de trésorerie, pas une perte.
+      */}
+      {data?.compteDeResultat && (
+        <Card>
+          <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">Compte de résultat</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {data.compteDeResultat.libelle}
+                {data.compteDeResultat.debut
+                  ? ` · du ${jourFr(data.compteDeResultat.debut)} au ${jourFr(
+                      data.compteDeResultat.fin
+                    )}`
+                  : ""}
+              </p>
+            </div>
+            {/* Le sélecteur commande ce tableau : il se tient à côté de lui. */}
+            <div className="flex shrink-0 gap-1 rounded-md border p-1">
+              {(["scolaire", "civil"] as const).map((base) => (
+                <Button
+                  key={base}
+                  size="sm"
+                  variant={baseExercice === base ? "default" : "ghost"}
+                  onClick={() => setBaseExercice(base)}
+                >
+                  {base === "scolaire" ? "Exercice scolaire" : "Année civile"}
+                </Button>
+              ))}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Poste</TableHead>
+                  <TableHead className="text-right">Engagement</TableHead>
+                  <TableHead className="text-right">Caisse</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.compteDeResultat.lignes.map((l) => (
+                  <TableRow key={l.cle}>
+                    <TableCell>
+                      <div className="font-medium">
+                        {l.sens === "charge" ? "− " : "+ "}
+                        {l.libelle}
+                      </div>
+                      {l.note && <div className="text-xs text-muted-foreground">{l.note}</div>}
+                    </TableCell>
+                    {/* Une ligne non mesurée s'écrit « non mesuré », jamais 0 :
+                        un zéro se lirait « cette charge n'existe pas ». */}
+                    <TableCell className="text-right tabular-nums">
+                      {l.engagement === null ? (
+                        <span className="text-xs italic text-muted-foreground">non mesuré</span>
+                      ) : (
+                        formatFcfa(l.engagement)
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {l.caisse === null ? (
+                        <span className="text-xs italic text-muted-foreground">non mesuré</span>
+                      ) : (
+                        formatFcfa(l.caisse)
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-t-2">
+                  <TableCell className="font-semibold">
+                    {data.compteDeResultat.resultat.interpretable
+                      ? "Résultat de l'exercice"
+                      : "Résultat — non calculable"}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {data.compteDeResultat.resultat.engagement === null
+                      ? "—"
+                      : formatFcfa(data.compteDeResultat.resultat.engagement)}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {data.compteDeResultat.resultat.caisse === null
+                      ? "—"
+                      : formatFcfa(data.compteDeResultat.resultat.caisse)}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+
+            {!data.compteDeResultat.resultat.interpretable && (
+              <p className="text-sm text-muted-foreground">
+                Le résultat n&apos;est pas calculé tant qu&apos;une ligne de charge n&apos;est pas
+                mesurée : l&apos;additionner comme si elle valait zéro annoncerait un bénéfice qui
+                n&apos;existe pas.
+              </p>
+            )}
+
+            {/* Les trois soldes qui expliquent l'écart entre les deux colonnes. */}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {(
+                [
+                  [
+                    "Créances clients",
+                    data.compteDeResultat.soldes.creancesClients,
+                    "Facturé, non encaissé",
+                  ],
+                  [
+                    "Salaires dus",
+                    data.compteDeResultat.soldes.salairesDus,
+                    "Paie approuvée, non versée",
+                  ],
+                  [
+                    "Dettes fournisseurs",
+                    data.compteDeResultat.soldes.dettesFournisseurs,
+                    "Charges engagées, non décaissées",
+                  ],
+                ] as Array<[string, number | null, string]>
+              ).map(([label, valeur, hint]) => (
+                <div key={label} className="rounded-md border p-3">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {label}
+                  </div>
+                  <div className="mt-1 text-lg font-semibold tabular-nums">
+                    {valeur === null ? (
+                      <span className="text-sm italic text-muted-foreground">non mesuré</span>
+                    ) : (
+                      formatFcfa(valeur)
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/*
         Le bandeau le plus important de l'écran : sans charges saisies, le
@@ -526,5 +675,28 @@ export default function OwnerEconomiePage() {
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Rentabilité et Charges, deux onglets d un même écran.
+ *
+ * La charge se saisit LÀ OÙ ELLE SE LIT. Une route séparée obligerait à quitter
+ * la Rentabilité pour corriger le chiffre qu on vient d y lire, puis à y
+ * revenir pour vérifier — deux navigations pour une correction, et l occasion
+ * d oublier ce qu on cherchait.
+ *
+ * C est aussi la raison pour laquelle toute mutation de charge invalide
+ * "owner-economie" : les deux moitiés de cet écran ne doivent jamais se
+ * contredire.
+ */
+export default function OwnerEconomiePage() {
+  return (
+    <OwnerTabs
+      tabs={[
+        { value: "rentabilite", label: "Rentabilité", content: <Rentabilite /> },
+        { value: "charges", label: "Charges", content: <SaisieCharges /> },
+      ]}
+    />
   );
 }

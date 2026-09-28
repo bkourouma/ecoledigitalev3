@@ -224,8 +224,8 @@ export default function ScheduleCalendarPage() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Calendrier des Cours</h1>
-            <p className="text-muted-foreground text-base">Consultez les emplois du temps approuvés</p>
+            <h1 className="font-bold text-foreground whitespace-nowrap text-2xl leading-tight md:text-3xl">Calendrier des Cours</h1>
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Consultez les emplois du temps approuvés</p>
           </div>
           <div className="flex items-center space-x-2">
             <Button

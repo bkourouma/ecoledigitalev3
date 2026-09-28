@@ -129,6 +129,14 @@ export default function NotesPage() {
     [semestresQuery.data, filiereId]
   );
 
+  // Clôture du semestre sélectionné : les bulletins sont arrêtés, le serveur
+  // refuse désormais toute écriture de note. On le dit AVANT la frappe plutôt
+  // que de laisser remplir un formulaire qui sera refusé ligne par ligne.
+  const semestreClotureLe: string | null = useMemo(() => {
+    const sem = visibleSemestres.find((x) => x.id === semestreId);
+    return sem?.bulletins_clotures_at ?? null;
+  }, [visibleSemestres, semestreId]);
+
   // Si le semestre sélectionné n'est plus dans la liste (changement de filière,
   // ou semestre qui vient de se terminer), on le désélectionne.
   useEffect(() => {
@@ -305,11 +313,11 @@ export default function NotesPage() {
       {/* Header — actions sous le titre : à droite, cinq boutons écrasaient le titre. */}
       <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <GraduationCap className="h-7 w-7 text-indigo-500" />
             Saisie des notes
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Saisissez les notes de devoirs et d'examen par ECUE. Les notes des évaluations sont
             reprises automatiquement.
           </p>
@@ -348,7 +356,8 @@ export default function NotesPage() {
                 !semestreId ||
                 sessions.length === 0 ||
                 cloturerMut.isPending ||
-                missingConduite.length > 0
+                missingConduite.length > 0 ||
+                !!semestreClotureLe
               }
               title={
                 !semestreId
@@ -369,11 +378,18 @@ export default function NotesPage() {
           )}
           <Button
             onClick={handleRecompute}
-            disabled={!sessionId || recomputeMut.isPending || missingConduite.length > 0}
+            disabled={
+              !sessionId ||
+              recomputeMut.isPending ||
+              missingConduite.length > 0 ||
+              !!semestreClotureLe
+            }
             title={
-              missingConduite.length > 0
-                ? `Calcul bloqué : ${missingConduite.length} étudiant(s) sans note de conduite.`
-                : undefined
+              semestreClotureLe
+                ? "Semestre clôturé : les notes ne sont plus modifiables."
+                : missingConduite.length > 0
+                  ? `Calcul bloqué : ${missingConduite.length} étudiant(s) sans note de conduite.`
+                  : undefined
             }
             className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white"
           >
@@ -386,6 +402,18 @@ export default function NotesPage() {
           </Button>
         </div>
       </div>
+
+      {semestreClotureLe && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+          <Lock className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>
+            <strong>Semestre clôturé</strong> le{" "}
+            {new Date(semestreClotureLe).toLocaleDateString("fr-FR")}. Les bulletins sont
+            arrêtés : les notes ne sont plus modifiables et le calcul ne peut plus être relancé.
+            La saisie reste visible en lecture.
+          </span>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
@@ -550,13 +578,22 @@ export default function NotesPage() {
             </span>
           </div>
           <CardContent className="p-0 overflow-x-auto">
+            {/* Semestre cloture : tout le tableau passe en lecture seule.
+                Un <fieldset disabled> desactive nativement chaque champ et
+                chaque bouton qu'il contient — y compris ceux qu'on ajoutera
+                plus tard. Desactiver seulement les boutons d'action laissait
+                les notes saisissables, et le refus n'arrivait qu'au serveur. */}
+            <fieldset
+              disabled={!!semestreClotureLe}
+              className="m-0 border-0 p-0 disabled:opacity-100"
+            >
             <table className="min-w-full text-[15px] border-collapse">
               <thead>
                 {/* En-tête groupé : une ECUE = 3 sous-colonnes (Devoirs / Examen / Note) */}
                 <tr className="bg-muted/60 border-b border-border">
                   <th
                     rowSpan={2}
-                    className="sticky left-0 top-0 z-30 bg-muted/60 px-5 py-3 text-left font-medium border-r border-border whitespace-nowrap"
+                    className="md:sticky md:left-0 sticky top-0 z-30 bg-muted/60 px-5 py-3 text-left font-medium border-r border-border whitespace-nowrap"
                   >
                     Étudiant
                   </th>
@@ -612,7 +649,7 @@ export default function NotesPage() {
                       key={s.student_id}
                       className="border-b border-border/60 align-middle hover:bg-muted/20"
                     >
-                      <td className="sticky left-0 z-10 bg-background px-5 py-4 border-r border-border whitespace-nowrap">
+                      <td className="md:sticky md:left-0 z-10 bg-background px-5 py-4 border-r border-border whitespace-nowrap">
                         <div className="font-medium whitespace-nowrap">
                           {s.first_name} {s.last_name}
                         </div>
@@ -665,6 +702,7 @@ export default function NotesPage() {
                 })}
               </tbody>
             </table>
+            </fieldset>
           </CardContent>
         </Card>
 

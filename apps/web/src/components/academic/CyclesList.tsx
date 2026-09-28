@@ -91,10 +91,10 @@ export function CyclesList({ cycles, isLoading, onCreateNew, onEdit, onView }: C
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Cycles académiques</h2>
-          <p className="text-muted-foreground">
+          <h2 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Cycles académiques</h2>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Gérez les cycles de formation de votre établissement
           </p>
         </div>

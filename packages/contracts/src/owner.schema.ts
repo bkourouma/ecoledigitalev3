@@ -1,93 +1,19 @@
 import { z } from "zod";
 
-export const OwnerDashboardFinancesSchema = z.object({
-  revenueCurrentMonth: z.number(),
-  recoveryRate: z.number(),
-  recoveryByCycle: z.array(
-    z.object({
-      cycle: z.string(),
-      rate: z.number(),
-    })
-  ),
-  teacherPaymentRate: z.number(),
-  overdueCount: z.number(),
-});
+/*
+   LE TABLEAU DE BORD AGRÉGÉ A ÉTÉ RETIRÉ le 23/09/2026.
 
-export const OwnerDashboardAcademicSchema = z.object({
-  totalStudents: z.number(),
-  totalClasses: z.number(),
-  averageGrade: z.number(),
-  successRate: z.number(),
-  attendanceRate: z.number(),
-  assignmentsGradedRate: z.number(),
-});
+   Six schémas vivaient ici — finances, academic, staff, formations,
+   professional et leur enveloppe — pour un seul consommateur :
+   `GET /api/v1/owner/dashboard`. Cet endpoint n'était plus appelé par aucune
+   des trois applications du monorepo ; l'écran `/owner/dashboard` lit
+   `/owner/pulse` et `/owner/tresorerie`, qui datent les montants à l'ouverture
+   de classe là où l'agrégat interrogeait encore les tables legacy Imhotep en
+   parallèle des `professional_*`.
 
-export const OwnerDashboardStaffSchema = z.object({
-  activeTeachers: z.number(),
-  totalHoursTaught: z.number(),
-  coursesWithoutTeacher: z.number(),
-  pendingPayrollValidations: z.number(),
-});
-
-export const OwnerDashboardFormationsSchema = z.object({
-  activeSessions: z.number(),
-  totalEnrollments: z.number(),
-  revenueFormations: z.number(),
-  clientCompanies: z.number(),
-});
-
-/**
- * Synthèse du Module Professionnel (LMD).
- * Les trois autres blocs ne couvrent que le module académique, les RH et les
- * formations courtes : sans celui-ci, tout le module UE/ECUE est absent du pilotage.
- */
-export const OwnerDashboardProfessionalSchema = z.object({
-  enrolledStudents: z.number(),
-  /** Même mesure au mois précédent, pour afficher une variation. */
-  enrolledStudentsPrevMonth: z.number(),
-  recoveryRate: z.number(),
-  /** `null` tant qu'aucun semestre clos ne porte de bulletin. */
-  successRateLastSemester: z.number().nullable(),
-  attendanceRate30d: z.number(),
-});
-
-export const OwnerDashboardResponseSchema = z.object({
-  finances: OwnerDashboardFinancesSchema,
-  academic: OwnerDashboardAcademicSchema,
-  staff: OwnerDashboardStaffSchema,
-  formations: OwnerDashboardFormationsSchema,
-  /**
-   * `optional` délibéré : le serveur le renseigne TOUJOURS, mais un client déployé
-   * avant le serveur — ou l'inverse — doit pouvoir lire la réponse sans planter.
-   * Ajouter un champ requis à un schéma de réponse casse toute version antérieure
-   * du client pendant la fenêtre de déploiement. Les consommateurs doivent donc
-   * tester sa présence.
-   */
-  professional: OwnerDashboardProfessionalSchema.optional(),
-});
-
-/* -------------------------------------------------------------------------- */
-/*  Encaissements — /owner/finances                                            */
-/* -------------------------------------------------------------------------- */
-
-/**
- * L'écran répond à « combien est rentré, et d'où ».
- *
- * IL NE DÉCRIT QUE LE MODULE PROFESSIONNEL. Il a d'abord lu la seule scolarité
- * (`payment_transactions`, `student_tuition_installments`), affichant zéro
- * encaissement sur un établissement dont la caisse encaissait — l'inverse de la
- * réalité, sur le seul écran qui porte le mot « Encaissements ». Il a ensuite
- * consolidé les deux moitiés. Il ne garde aujourd'hui que le professionnel.
- *
- * Pourquoi retirer plutôt que laisser à zéro : la scolarité n'est pas saisie
- * ici, et un zéro non mesuré se lit comme une contre-performance. Les axes de
- * ventilation partaient d'ailleurs dans deux directions — cycle et classe d'un
- * côté, filière de l'autre — sans jamais se rejoindre.
- *
- * CE QUI N'Y EST PLUS : le bloc des rémunérations enseignantes. C'est de
- * l'argent qui SORT, sur un écran qui décrit ce qui rentre — et il a désormais
- * son propre écran, filtrable et exportable.
- */
+   Garder un contrat sans lecteur, c'est promettre une compatibilité que
+   personne ne vérifie plus. Le service et sa route sont partis avec.
+*/
 
 export const OwnerFinancesPeriodSchema = z.enum([
   "month",
@@ -106,6 +32,12 @@ export const OwnerFinancesQuerySchema = z.object({
   anneeScolaire: z.string().regex(/^[0-9]{4}-[0-9]{4}$/).optional(),
   /** Restreint la moitié PROFESSIONNELLE. */
   filiereIds: z.array(z.string().uuid()).optional(),
+  /**
+   * Ouverture de classe, clé « filiereId|nom » — la dimension de filtrage des
+   * écrans d'administration. Même contrat que `owner-perimetre.sql`.
+   */
+  nomClasse: z.string().optional(),
+  semestreId: z.string().uuid().optional(),
 });
 
 /** Un point de la courbe : un mois du module professionnel. */
@@ -179,6 +111,30 @@ export const OwnerFinancesResponseSchema = z.object({
   monthly: z.array(OwnerFinancesMonthlyPointSchema),
   byFiliere: z.array(OwnerFinancesByFiliereSchema),
   byMode: z.array(OwnerFinancesByModeSchema),
+  /**
+   * Écarts de caisse, arrivés ici AVEC le journal de caisse.
+   *
+   * Une pièce comptable se lit avec ses écarts sous les yeux. Les laisser sur
+   * l'écran des Impayés obligeait à changer de page pour savoir si le journal
+   * qu'on vient de lire est fiable — et l'écran des Impayés répond, lui, à une
+   * tout autre question : ce qui n'est pas encore rentré.
+   *
+   * `ordersPaidWithoutPayment` est le seul des deux qui puisse cacher une
+   * perte : `adminUpdateEnrollment` force le statut « payée » sans créer de
+   * règlement, donc la commande est soldée dans l'application sans que l'argent
+   * soit passé par la caisse.
+   */
+  anomalies: z.object({
+    ordersPaidWithoutPayment: z.object({
+      count: z.number().int().nonnegative(),
+      amount: z.number(),
+    }),
+    /** Encaissements confirmés sans numéro de reçu, passé 48 heures. */
+    paymentsWithoutReceipt: z.object({
+      count: z.number().int().nonnegative(),
+      amount: z.number(),
+    }),
+  }),
 });
 
 export const OwnerFinancialReportFormatSchema = z.enum(["pdf", "csv"]);
@@ -333,7 +289,6 @@ export const OwnerUserRolesPatchResponseSchema = z.object({
   roleKeys: z.array(z.string()),
 });
 
-export type OwnerDashboardResponse = z.infer<typeof OwnerDashboardResponseSchema>;
 export type OwnerFinancesPeriod = z.infer<typeof OwnerFinancesPeriodSchema>;
 export type OwnerFinancesResponse = z.infer<typeof OwnerFinancesResponseSchema>;
 export type OwnerPayrollValidateResponse = z.infer<typeof OwnerPayrollValidateResponseSchema>;

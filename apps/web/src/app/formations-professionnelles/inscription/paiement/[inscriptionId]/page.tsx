@@ -114,8 +114,8 @@ export default function PaymentPage({
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Paiement de l'inscription</h1>
-        <p className="text-muted-foreground">
+        <h1 className="font-bold mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">Paiement de l'inscription</h1>
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Choisissez votre méthode de paiement et complétez votre inscription
         </p>
       </div>

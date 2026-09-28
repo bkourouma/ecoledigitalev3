@@ -232,10 +232,10 @@ export default function GradesPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
                 Saisie des Notes
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
                 Gérez et saisissez les notes de vos étudiants
               </p>
             </div>
@@ -390,7 +390,7 @@ export default function GradesPage() {
                     <h2 className="text-xl font-semibold text-gray-900">
                       {selectedAssignmentData?.name}
                     </h2>
-                    <p className="text-gray-600 mt-1">
+                    <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
                       {selectedCourseData?.name} • Total: {selectedAssignmentData?.totalPoints} points
                     </p>
                   </div>

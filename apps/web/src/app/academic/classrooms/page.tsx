@@ -65,10 +65,10 @@ export default function ClassroomsPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
           <div>
-            <h2 className="text-2xl font-bold">Salles de classe</h2>
-            <p className="text-muted-foreground">
+            <h2 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Salles de classe</h2>
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
               Gérez les salles de classe et leurs réservations
             </p>
           </div>
@@ -99,12 +99,12 @@ export default function ClassroomsPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
           <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
             Salles de classe
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Gérez les salles de classe et leurs réservations
             </p>
           </div>

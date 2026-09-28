@@ -494,6 +494,99 @@ export async function fetchOwnerPayrollMass(
       "payrollGaps"
     );
 
+    /* ---- Configuration de la paie ----------------------------------------- */
+    /*
+       PREMIÈRE des quatre entrées du menu administrateur que l'espace
+       propriétaire ne montrait pas.
+
+       Un enseignant sans configuration ne peut pas être payé : son bulletin ne
+       se calcule pas. Un tarif expiré non remplacé produit le même blocage, plus
+       tard et plus silencieusement.
+
+       NON restreinte au périmètre de paie : « la configuration est-elle en
+       place » décrit l'état du paramétrage, pas celui d'une période. Elle reste
+       la même question qu'on regarde janvier ou l'année entière.
+    */
+    const configRows = await safeQuery<Row>(
+      client,
+      `SELECT
+         (SELECT COUNT(*) FROM teachers te
+           WHERE te.tenant_id = $1::uuid)::int AS enseignants,
+         (SELECT COUNT(DISTINCT cfg.teacher_id) FROM teacher_payment_configs cfg
+           WHERE cfg.tenant_id = $1::uuid)::int AS avec_config,
+         (SELECT COUNT(*) FROM professional_ecue_hourly_rates r
+           WHERE r.tenant_id = $1::uuid)::int AS tarifs,
+         /* Nominatif contre generique : un tarif generique convient tant qu un
+            enseignant ne negocie pas le sien. Le jour ou il le fait, l absence
+            de nominatif se paie en litige. */
+         (SELECT COUNT(*) FROM professional_ecue_hourly_rates r
+           WHERE r.tenant_id = $1::uuid AND r.enseignant_id IS NOT NULL)::int AS nominatifs,
+         (SELECT COUNT(*) FROM professional_ecue_hourly_rates r
+           WHERE r.tenant_id = $1::uuid AND r.enseignant_id IS NULL)::int AS generiques,
+         (SELECT COUNT(*) FROM professional_ecue_hourly_rates r
+           WHERE r.tenant_id = $1::uuid
+             AND r.valide_au IS NOT NULL AND r.valide_au < CURRENT_DATE)::int AS expires`,
+      [tenantId],
+      log,
+      "payrollConfiguration"
+    );
+    const cfg = configRows[0] ?? {};
+
+    /* ---- Validation des séances ------------------------------------------- */
+    /*
+       `validated_at` GOUVERNE LA PAYABILITÉ, et c'est le premier poste de
+       litige : une séance non validée n'est pas due, quel que soit le travail
+       fourni.
+
+       La valorisation suit la résolution de tarif documentée en 0103 —
+       nominatif d'abord, générique ensuite, et seulement si le tarif est en
+       vigueur À LA DATE DE LA SÉANCE. Un tarif signé après coup ne vaut pas pour
+       le passé, et l'appliquer rétroactivement fabriquerait une dette.
+
+       Une séance validée sans tarif résoluble n'entre dans AUCUN total : elle
+       sort de la valorisation, et l'appelant le dit. Lui donner 0 FCFA la ferait
+       passer pour une heure gratuite.
+    */
+    const seanceRows = await safeQuery<Row>(
+      client,
+      `SELECT COUNT(*)::int AS total,
+              COUNT(se.validated_at)::int AS validees,
+              COUNT(*) FILTER (WHERE se.heure_debut IS NOT NULL
+                                 AND se.heure_fin IS NOT NULL)::int AS horodatees,
+              COUNT(*) FILTER (WHERE se.validated_at IS NOT NULL
+                                 AND tarif.montant IS NOT NULL
+                                 AND se.heure_debut IS NOT NULL
+                                 AND se.heure_fin IS NOT NULL)::int AS valorisables,
+              COALESCE(SUM(
+                tarif.montant
+                * EXTRACT(EPOCH FROM (se.heure_fin - se.heure_debut)) / 3600.0
+              ) FILTER (WHERE se.validated_at IS NOT NULL
+                          AND tarif.montant IS NOT NULL
+                          AND se.heure_debut IS NOT NULL
+                          AND se.heure_fin IS NOT NULL), 0)::float8 AS engagement
+         FROM professional_ecue_seances se
+         LEFT JOIN LATERAL (
+           /* Resolution du tarif : nominatif d abord, generique ensuite. */
+           SELECT r.montant_horaire AS montant
+             FROM professional_ecue_hourly_rates r
+            WHERE r.tenant_id = se.tenant_id
+              AND r.ecue_id = se.ecue_id
+              AND (r.enseignant_id = se.enseignant_id OR r.enseignant_id IS NULL)
+              AND (r.valide_du IS NULL OR r.valide_du <= se.date)
+              AND (r.valide_au IS NULL OR r.valide_au >= se.date)
+            ORDER BY (r.enseignant_id IS NOT NULL) DESC, r.valide_du DESC NULLS LAST
+            LIMIT 1
+         ) tarif ON TRUE
+        WHERE se.tenant_id = $1::uuid`,
+      [tenantId],
+      log,
+      "payrollSeances"
+    );
+    const sea = seanceRows[0] ?? {};
+    const seancesTotal = Math.round(num(sea.total));
+    const seancesValidees = Math.round(num(sea.validees));
+    const seancesValorisables = Math.round(num(sea.valorisables));
+
     const enseignantsPayes = Math.round(num(t.enseignants));
     const masse = franc(t.total);
 
@@ -600,6 +693,35 @@ export async function fetchOwnerPayrollMass(
       })),
       coursesWithoutTeacherTotal: Math.round(num(gapCountRows[0]?.total)),
       coursesWithoutTeacherOrphaned: Math.round(num(gapCountRows[0]?.orphelins)),
+      configuration: {
+        enseignants: Math.round(num(cfg.enseignants)),
+        avecConfiguration: Math.round(num(cfg.avec_config)),
+        sansConfiguration:
+          Math.round(num(cfg.enseignants)) - Math.round(num(cfg.avec_config)),
+        tarifsEcue: Math.round(num(cfg.tarifs)),
+        tarifsNominatifs: Math.round(num(cfg.nominatifs)),
+        tarifsGeneriques: Math.round(num(cfg.generiques)),
+        tarifsExpires: Math.round(num(cfg.expires)),
+      },
+      seances: {
+        total: seancesTotal,
+        validees: seancesValidees,
+        horodatees: Math.round(num(sea.horodatees)),
+        valorisables: seancesValorisables,
+        /* NULL et non 0 : une séance sans tarif résolu n'a pas un coût nul, elle
+           n'a pas de coût connu. Un zéro se lirait « cette heure ne vaut rien »,
+           et le total de l'engagement serait faux vers le bas. */
+        engagementNonPaye:
+          seancesValorisables > 0 ? Math.round(num(sea.engagement)) : null,
+        raisonNonValorisable:
+          seancesValorisables > 0
+            ? null
+            : seancesTotal === 0
+              ? "Aucune séance n'est enregistrée : il n'y a rien à valider ni à payer."
+              : seancesValidees === 0
+                ? `Aucune des ${seancesTotal} séances n'est validée. \`validated_at\` gouverne la payabilité : sans lui, rien n'est dû, quel que soit le travail fourni.`
+                : `Les ${seancesValidees} séance(s) validée(s) n'ont aucun tarif résoluble — ni nominatif, ni générique en vigueur à leur date. Elles n'entrent dans aucun total plutôt que de valoir 0 FCFA.`,
+      },
     };
   } finally {
     client.release();

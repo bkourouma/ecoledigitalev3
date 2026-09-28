@@ -8,6 +8,14 @@ import type { OwnerAssiduiteResponse } from "@ecoledigitale/contracts";
 export type OwnerAssiduiteParams = {
   dateDebut?: string;
   dateFin?: string;
+  /**
+   * Annee scolaire et ouverture de classe : le service les applique depuis le
+   * 22/09/2026 (adoption du socle de perimetre), mais le hook ne les envoyait
+   * pas et la barre ne les proposait pas. Quatre points font un filtre — le
+   * perimetre affiche, le schema Zod, le predicat SQL, ET la query string.
+   */
+  anneeScolaire?: string;
+  nomClasse?: string;
   filiereIds?: string[];
   semestreId?: string;
   building?: string;
@@ -18,6 +26,8 @@ export function buildQueryString(p: OwnerAssiduiteParams): string {
   const sp = new URLSearchParams();
   if (p.dateDebut) sp.set("dateDebut", p.dateDebut);
   if (p.dateFin) sp.set("dateFin", p.dateFin);
+  if (p.anneeScolaire) sp.set("anneeScolaire", p.anneeScolaire);
+  if (p.nomClasse) sp.set("nomClasse", p.nomClasse);
   if (p.filiereIds && p.filiereIds.length > 0) sp.set("filiereIds", p.filiereIds.join(","));
   if (p.semestreId) sp.set("semestreId", p.semestreId);
   if (p.building) sp.set("building", p.building);

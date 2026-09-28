@@ -1,8 +1,15 @@
 "use client";
 
-import { Card, CardContent } from "@ecoledigitale/ui";
-import { Award, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
-import { useStudentDiplomas } from "@/lib/hooks/use-professional-diplomas";
+import { useState } from "react";
+import { Card, CardContent, Button } from "@ecoledigitale/ui";
+import { Award, CheckCircle2, Loader2, AlertCircle, Download } from "lucide-react";
+import {
+  useStudentDiplomas,
+  fetchStudentDiplomaAttestation,
+} from "@/lib/hooks/use-professional-diplomas";
+import { openDiplomePdf, type DiplomePdfInput } from "@/lib/diplome-pdf";
+import { academicYearFromDate } from "@/lib/diplome-format";
+import { createApiHeaders } from "@/lib/api-utils";
 
 /**
  * Mes diplômes — espace étudiant (Module Professionnel).
@@ -21,10 +28,10 @@ export default function StudentDiplomasPage() {
   return (
     <div className="space-y-8 max-w-5xl mx-auto p-6">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+        <h1 className="font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
           Mes diplômes
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Consultation en lecture seule de vos diplômes professionnels et de leur progression.
         </p>
       </div>
@@ -94,6 +101,66 @@ function StudentDiplomaCard({
 }) {
   const d = summary.diploma;
   const pct = Math.max(0, Math.min(100, summary.pourcentage ?? 0));
+  const [busy, setBusy] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  /**
+   * Le PDF est produit dans le navigateur, comme côté administration. Les
+   * signataires viennent de l'attestation elle-même : la route qui les expose
+   * est réservée à l'administration, et un diplôme sans signature ne vaut rien.
+   */
+  async function telecharger() {
+    if (busy) return;
+    setErreur(null);
+    setBusy(true);
+    const win = window.open("", "_blank");
+    if (!win) {
+      setErreur(
+        "Le navigateur a bloqué l'ouverture d'un nouvel onglet. Autorisez les pop-ups pour ce site, puis réessayez."
+      );
+      setBusy(false);
+      return;
+    }
+    try {
+      const att: any = await fetchStudentDiplomaAttestation(d.id);
+      // Identité détaillée (matricule, naissance) : facultative, le diplôme
+      // reste émis si elle n'est pas joignable.
+      const moi: any = await fetch("/api/v1/students/me", { headers: createApiHeaders() })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      const profil = moi?.data ?? moi ?? null;
+      const sig = att?.signataires ?? {};
+
+      const input: DiplomePdfInput = {
+        reference: att.reference,
+        diplome: att.diplome,
+        etudiant: {
+          nom_complet: att.etudiant?.nom_complet ?? "",
+          matricule:
+            att.etudiant?.matricule ?? profil?.studentMatricule ?? profil?.student_number ?? null,
+          date_naissance:
+            att.etudiant?.date_naissance != null
+              ? String(att.etudiant.date_naissance)
+              : profil?.dateOfBirth
+                ? String(profil.dateOfBirth)
+                : null,
+          lieu_naissance: att.etudiant?.lieu_naissance ?? profil?.placeOfBirth ?? null,
+        },
+        date_obtention: att.date_obtention,
+        annee_academique: att.annee_academique ?? academicYearFromDate(att.date_obtention),
+        mention: att.mention ?? null,
+        signataire_gauche: sig.diplome_gauche ?? null,
+        signataire_droite: sig.diplome_droite ?? null,
+      };
+      await openDiplomePdf(input, win);
+    } catch (e: any) {
+      if (win && !win.closed) win.close();
+      setErreur(e?.message ?? "Impossible de produire le diplôme.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Card className="shadow-lg">
       <CardContent className="p-6 space-y-3">
@@ -127,6 +194,25 @@ function StudentDiplomaCard({
         </div>
         {obtained && summary.reference && (
           <p className="text-xs text-gray-500">Référence : {summary.reference}</p>
+        )}
+        {obtained && (
+          <div className="pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={telecharger}
+              className="w-full"
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Télécharger mon diplôme
+            </Button>
+            {erreur ? <p className="text-xs text-red-600 mt-2">{erreur}</p> : null}
+          </div>
         )}
       </CardContent>
     </Card>

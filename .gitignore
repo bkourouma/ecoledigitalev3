@@ -118,3 +118,6 @@ config/production.*
 
 # Keep reproducible install metadata
 !pnpm-lock.yaml
+
+# Sauvegardes locales (dumps, fichiers de campagnes E2E)
+infra/backups/

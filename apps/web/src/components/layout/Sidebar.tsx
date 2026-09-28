@@ -50,7 +50,11 @@ import {
   X,
   PenLine,
   RotateCcw,
-  Star
+  Star,
+  Radar,
+  Compass,
+  Briefcase,
+  Coins
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -79,30 +83,70 @@ type OwnerMenuSection = { label: string | null; items: OwnerMenuLink[] };
 /**
  * Espace propriétaire.
  *
+ * LE MENU EST LE MIROIR DU MENU ADMINISTRATEUR. C'est la règle qui gouverne ce
+ * bloc, et elle prime sur toute autre considération d'ergonomie.
+ *
+ * L'espace a longtemps été rangé par question de fondateur — Argent, Élèves,
+ * Pédagogie, Offre, Pilotage. C'était cohérent en soi, mais le propriétaire et
+ * ses administrateurs ne trouvaient plus la même chose au même endroit : quand
+ * il demandait « où sont les commissions ? », personne ne pouvait le guider
+ * depuis son propre écran. Les sections et leur ordre reprennent donc
+ * exactement ceux de la barre administrateur — Structure académique, Module
+ * professionnel, Scolarité, Prospection, Suivi & évaluation, Rémunération —
+ * avec les mêmes mots.
+ *
+ * SOURCE DU MIROIR : les constantes de ce fichier (`academicStructureMenuItems`,
+ * `professionalSessionsMenuItems`, `professionalStudentsMenuItems`, etc.), et
+ * NON `ADMIN_MENU_CATALOG`. Les deux ont divergé : le catalogue ignore encore
+ * « Classes », appelle « Classes » ce que la barre nomme « Ouvertures de
+ * classe », et ne contient aucune des quatre entrées Rémunération. Le miroir
+ * suit ce que le propriétaire voit à l'écran.
+ *
+ * « Pilotage » est le seul bloc sans équivalent administrateur : il porte ce
+ * qui n'appartient à aucun domaine métier — la rentabilité, les points de
+ * vigilance, les rapports, les accès.
+ *
+ * UNE SECTION NE PARAÎT QUE SI ELLE A UN ÉCRAN. Deux entrées du menu
+ * administrateur n'a pas encore son pendant propriétaire : « Programme
+ * (UE & ECUE) ». Elle n'est pas listée — une entrée qui mène à une page vide se
+ * lit comme une école sans données, et coûte plus cher que son absence. Elle
+ * arrivera avec son écran.
+ *
+ * Deux entrées ont rejoint la liste depuis le miroir :
+ *   - « Inscriptions & effectifs inscrits » le 22/09/2026 — le trou le plus
+ *     visible, la scolarité étant le poste le plus lourd de l'école et le seul
+ *     qu'aucun écran propriétaire ne montrait ;
+ *   - « Attestations, diplômes & signataires » le 23/09/2026, avec la section
+ *     « Documents officiels » qui n'existait pas côté propriétaire. Elle porte
+ *     un fait qu'aucun autre écran ne peut dire : les quatre signataires livrés
+ *     par défaut sont des noms de personnes réelles, et un établissement qui ne
+ *     les a pas remplacés imprime leur signature sur ses diplômes.
+ *
+ * LES ADRESSES SE RENOMMENT QUAND LEUR ÉCRAN EST REFONDU, jamais avant : une
+ * URL renommée deux fois pose une redirection pour rien et change deux fois de
+ * sens. Faits à ce jour, chacun avec sa redirection qui transmet les
+ * paramètres — un favori doit rouvrir le même périmètre, pas l'écran nu :
+ *
+ *   - `/owner/remplissage` → `/owner/ouvertures` (23/09/2026), quand chaque
+ *     ouverture est devenue une ligne économique et que le taux de remplissage
+ *     n'a plus été qu'un indicateur parmi six ;
+ *   - `/owner/referentiel` → `/owner/structure` (23/09/2026), quand chaque
+ *     classe a porté son économie et que l'écran a cessé de décrire une table.
+ *
+ *   - `/owner/staff` → `/owner/remuneration` (23/09/2026), quand l écran a cessé
+ *     de ne montrer qu une population pour montrer ce qui bloque son paiement.
+ *
+ * Tous les renommages prévus sont faits.
+ *
  * Délibérément SANS groupes dépliants, contrairement au menu administrateur.
  * Un administrateur travaille dans une zone à la fois — replier les autres lui
  * fait gagner de la place. Un propriétaire, lui, balaie l'ensemble pour décider :
  * chaque repli lui cache une information qu'il veut voir d'un coup d'œil, et
  * chaque dépli est un clic entre lui et un chiffre.
  *
- * Chaque entrée répond à UNE question que se pose un fondateur, et les blocs
- * suivent l'ordre dans lequel il se les pose : est-ce que l'argent rentre ?
- * → est-ce que les élèves sont là ? → est-ce que la machine pédagogique
- * tourne ? → qu'est-ce que je vends ? → qu'est-ce que je dois décider ?
- *
- * Aucune page de l'espace n'est hors menu. Quatre écrans l'étaient — RH,
- * Recrutement, Formations et le rapport financier PDF — et un cinquième,
- * « Accès », n'apparaissait que pour les comptes également administrateurs :
- * ils étaient construits, branchés sur l'API, et introuvables autrement qu'en
- * tapant l'URL. Une page qu'on ne peut pas atteindre n'existe pas.
- *
- * Treize écrans plus « Accès », et non dix-huit : « Impayés », « Résultats », « Points de
- * vigilance » et « Catalogue » couvrent chacune deux écrans, réunis en onglets
- * derrière une seule entrée. Le propriétaire ne raisonne pas en « scolaire » ou
- * « professionnel » — il raisonne en argent qui rentre et en élèves qui
- * réussissent. Les adresses absorbées (`/owner/academique`, `/owner/formations`,
- * `/owner/finances/professionnel`) survivent en redirections : les liens
- * profonds du pouls y mènent encore.
+ * Aucune page de l'espace n'est hors menu. Les adresses absorbées
+ * (`/owner/academique`, `/owner/formations`, `/owner/finances/professionnel`)
+ * survivent en redirections : les liens profonds du pouls y mènent encore.
  */
 const ownerMenuSections: OwnerMenuSection[] = [
   {
@@ -111,38 +155,80 @@ const ownerMenuSections: OwnerMenuSection[] = [
     items: [{ icon: BarChart3, label: 'Tableau de bord', href: '/owner/dashboard' }],
   },
   {
-    label: 'Argent',
+    label: 'Structure académique',
     items: [
-      { icon: DollarSign, label: 'Encaissements', href: '/owner/finances' },
-      { icon: Wallet, label: 'Impayés', href: '/owner/finances/tresorerie' },
-      { icon: Banknote, label: 'Masse salariale', href: '/owner/staff' },
-      { icon: TrendingUp, label: 'Rentabilité', href: '/owner/economie' },
+      // Une seule entrée pour « Cycles », « Filières » et « Classes » : l'écran
+      // les traite ensemble. Son libellé nomme les trois, pour qu'on le trouve
+      // en cherchant n'importe lequel des trois mots.
+      { icon: Layers, label: 'Cycles, filières & classes', href: '/owner/structure' },
+      { icon: Users, label: 'Personnes', href: '/owner/personnes' },
     ],
   },
   {
-    label: 'Élèves',
+    label: 'Module professionnel',
     items: [
-      // Icône distincte de « RH » (Users), qui vise la paie et non la démographie.
-      { icon: User, label: 'Effectifs', href: '/owner/personnes' },
-      { icon: DoorOpen, label: 'Remplissage', href: '/owner/remplissage' },
-      { icon: UserPlus, label: 'Recrutement', href: '/owner/recrutement' },
+      // « Ouvertures » et non « Remplissage » : le propriétaire et son
+      // gestionnaire de scolarité doivent désigner la même chose du même mot.
+      // Les trois entrées de la section administrateur — ouvertures, salles,
+      // planning — vivent sur cet écran unique, et le libellé les nomme toutes
+      // pour qu'on le trouve en cherchant n'importe laquelle.
+      {
+        icon: BookOpen,
+        label: 'Programme (UE · ECUE · Semestres)',
+        href: '/owner/programme',
+      },
+      { icon: Calendar, label: 'Ouvertures, salles & planning', href: '/owner/ouvertures' },
     ],
   },
   {
-    label: 'Pédagogie',
+    label: 'Scolarité',
     items: [
-      { icon: Award, label: 'Résultats', href: '/owner/pedagogie' },
-      { icon: ClipboardCheck, label: 'Assiduité', href: '/owner/assiduite' },
-      { icon: ShieldAlert, label: 'Points de vigilance', href: '/owner/risque' },
+      {
+        icon: ClipboardList,
+        label: 'Inscriptions & effectifs inscrits',
+        href: '/owner/scolarite',
+      },
+      { icon: Wallet, label: 'Paiements', href: '/owner/finances' },
+      { icon: DollarSign, label: 'Impayés', href: '/owner/finances/tresorerie' },
     ],
   },
   {
-    label: 'Offre',
-    items: [{ icon: Layers, label: 'Catalogue', href: '/owner/referentiel' }],
+    label: 'Prospection',
+    items: [
+      { icon: Radar, label: 'Prospection & commissions', href: '/owner/prospection' },
+    ],
   },
   {
+    label: 'Suivi & évaluation',
+    items: [
+      { icon: ClipboardCheck, label: 'Présences', href: '/owner/assiduite' },
+      { icon: FileSpreadsheet, label: 'Notes & bulletins', href: '/owner/pedagogie' },
+    ],
+  },
+  {
+    label: 'Documents officiels',
+    items: [
+      {
+        icon: Award,
+        label: 'Attestations, diplômes & signataires',
+        href: '/owner/documents',
+      },
+    ],
+  },
+  {
+    label: 'Rémunération',
+    items: [
+      { icon: Banknote, label: 'Séances, bulletins & masse salariale', href: '/owner/remuneration' },
+    ],
+  },
+  {
+    // Le seul bloc sans équivalent administrateur, et il vient en dernier :
+    // ce sont des écrans de décision, pas de consultation quotidienne.
     label: 'Pilotage',
     items: [
+      { icon: TrendingUp, label: 'Rentabilité', href: '/owner/economie' },
+      { icon: ShieldAlert, label: 'Points de vigilance', href: '/owner/risque' },
+      { icon: UserPlus, label: 'Recrutement', href: '/owner/recrutement' },
       { icon: FileText, label: 'Rapports', href: '/owner/finances/rapport' },
       { icon: Shield, label: 'Accès', href: '/owner/acces' },
     ],
@@ -153,9 +239,9 @@ const ownerMenuSections: OwnerMenuSection[] = [
  * Entrée active de l'espace propriétaire.
  *
  * Deux exceptions, sans lesquelles plusieurs entrées s'allumeraient ensemble :
- * « Tableau de bord » couvre aussi /owner, et « Encaissements » ne doit
- * s'allumer que sur /owner/finances exactement — les trois routes qui vivent
- * dessous (Impayés professionnel, Impayés scolaire, Rapports) ont chacune leur
+ * « Tableau de bord » couvre aussi /owner, et « Paiements » ne doit s'allumer
+ * que sur /owner/finances exactement — les deux routes qui vivent dessous
+ * (« Impayés » en /tresorerie, « Rapports » en /rapport) ont chacune leur
  * propre entrée de menu.
  */
 function isOwnerLinkActive(pathname: string, href: string): boolean {
@@ -227,10 +313,43 @@ const professionalSessionsMenuItems = [
   { icon: CalendarClock, label: 'Planning des cours', href: '/professionnel/admin/planning' as const },
 ];
 
+// L'argent de l'étudiant se règle ici, au plus près de son inscription :
+// « Scolarité » fixe le barème de la classe, « Paiements » l'encaisse, et la
+// scolarité ouvre la marche puisqu'on la fixe AVANT d'inscrire qui que ce soit.
+// L'ancienne page /professionnel/admin/paiements, qui ne facturait que les UE,
+// a été supprimée — elle ignorait inscription, frais annexes et autres frais.
 const professionalStudentsMenuItems = [
+  { icon: Calendar, label: 'Scolarité', href: '/admin/finances/scolarite' as const },
   { icon: UserPlus, label: 'Inscriptions', href: '/professionnel/admin/inscriptions' as const },
   { icon: Users, label: 'Étudiants inscrits', href: '/professionnel/admin/inscrits' as const },
-  { icon: Wallet, label: 'Paiements', href: '/professionnel/admin/paiements' as const },
+  { icon: Wallet, label: 'Paiements', href: '/admin/finances/student-payments' as const },
+];
+
+// Prospection : d'où viennent les étudiants et ce qui est dû aux commerciaux.
+// Rangée juste après « Étudiants » : c'est au moment d'inscrire que la
+// provenance se saisit.
+const professionalProspectionMenuItems = [
+  { icon: Radar, label: 'Tableau de bord', href: '/professionnel/admin/prospection' as const },
+  {
+    icon: Compass,
+    label: 'Amenés par un commercial',
+    href: '/professionnel/admin/prospection/provenances' as const,
+  },
+  {
+    icon: Briefcase,
+    label: 'Commerciaux',
+    href: '/professionnel/admin/prospection/commerciaux' as const,
+  },
+  {
+    icon: Coins,
+    label: 'Commissions à payer',
+    href: '/professionnel/admin/prospection/commissions/historique' as const,
+  },
+  {
+    icon: History,
+    label: 'Commissions payées',
+    href: '/professionnel/admin/prospection/commissions/historique/payees' as const,
+  },
 ];
 
 const professionalTrackingMenuItems = [
@@ -311,9 +430,9 @@ const studentFinanceMenuItems = [
 // Student Finance Management (for admins)
 const studentFinanceAdminMenuItems = [
   // { icon: PieChart, label: 'Tableau de Bord', href: '/admin/finances' as const }, // Masqu?
-  { icon: Calendar, label: 'Scolarité', href: '/admin/finances/scolarite' as const },
+  // « Scolarité » et « Paiements Étudiants » sont passés dans le bloc Étudiants
+  // du module professionnel : c'est là qu'on inscrit, donc là qu'on encaisse.
   { icon: Calendar, label: 'Échéanciers', href: '/admin/finances/tuition-schedules' as const },
-  { icon: Users, label: 'Paiements Étudiants', href: '/admin/finances/student-payments' as const },
   // { icon: TrendingUp, label: 'Analyses Financi?res', href: '/admin/finances/analytics' as const }, // Masqu?
   { icon: FileText, label: 'Rapports Financiers', href: '/admin/finances/reports' as const },
 ];
@@ -592,6 +711,9 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const visibleProfessionalStudentsItems = professionalStudentsMenuItems.filter((item) =>
     canSeeAdmin(item.href)
   );
+  const visibleProfessionalProspectionItems = professionalProspectionMenuItems.filter((item) =>
+    canSeeAdmin(item.href)
+  );
   const visibleProfessionalTrackingItems = professionalTrackingMenuItems.filter((item) =>
     canSeeAdmin(item.href)
   );
@@ -671,6 +793,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
     visibleProfessionalProgrammeItems.length > 0 ||
     visibleProfessionalSessionsItems.length > 0 ||
     visibleProfessionalStudentsItems.length > 0 ||
+    visibleProfessionalProspectionItems.length > 0 ||
     visibleProfessionalTrackingItems.length > 0 ||
     visibleProfessionalDocumentsItems.length > 0;
   const showAcademicOperationsSection =
@@ -1549,6 +1672,14 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
                     label="Étudiants"
                     icon={Users}
                     items={visibleProfessionalStudentsItems}
+                    pathname={pathname}
+                    onCloseMobileMenu={onCloseMobileMenu}
+                    className="mt-2"
+                  />
+                  <ProfessionalModuleGroup
+                    label="Prospection"
+                    icon={Radar}
+                    items={visibleProfessionalProspectionItems}
                     pathname={pathname}
                     onCloseMobileMenu={onCloseMobileMenu}
                     className="mt-2"

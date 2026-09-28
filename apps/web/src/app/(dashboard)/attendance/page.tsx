@@ -196,12 +196,12 @@ const AttendancePage = () => {
   return (
     <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+          <h1 className="font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent whitespace-nowrap text-2xl leading-tight md:text-3xl">
             Gestion des Présences
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2 break-words">
+          <p className="text-muted-foreground sm:mt-2 whitespace-nowrap text-sm md:text-base">
             Gérez les sessions de cours et enregistrez les présences des étudiants
           </p>
         </div>

@@ -254,7 +254,7 @@ export default function TeacherReportsDashboardPage() {
             <div className="text-center">
               <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
               <h2 className="text-xl font-bold text-gray-900 mb-2">Erreur de chargement</h2>
-              <p className="text-gray-600">
+              <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
                 {(classesError as Error)?.message || (progressError as Error)?.message || "Erreur inconnue"}
               </p>
             </div>
@@ -266,10 +266,10 @@ export default function TeacherReportsDashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-white">Dashboard Analytique Enseignant</h1>
-          <p className="text-slate-300 mt-1">
+          <h1 className="font-bold text-white whitespace-nowrap text-2xl leading-tight md:text-3xl">Dashboard Analytique Enseignant</h1>
+          <p className="text-slate-300 whitespace-nowrap text-sm md:text-base text-muted-foreground">
             Vue unifiée des évaluations, progression et performance des classes
           </p>
         </div>

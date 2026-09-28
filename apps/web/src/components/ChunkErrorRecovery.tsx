@@ -9,6 +9,24 @@ interface ChunkErrorRecoveryProps {
   onReload?: () => void;
 }
 
+/**
+ * Recharge en contournant le cache HTTP.
+ *
+ * `window.location.reload()` rejoue la navigation SANS ignorer le cache : sur
+ * une erreur de chunk periMe, il ramene exactement le fichier fautif. Un
+ * parametre unique dans l'URL est le seul moyen fiable d'obtenir des fichiers
+ * frais.
+ */
+function rechargerSansCache(): void {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('cb', String(Date.now()));
+    window.location.replace(url.toString());
+  } catch {
+    window.location.reload();
+  }
+}
+
 export function ChunkErrorRecovery({ onRetry, onReload }: ChunkErrorRecoveryProps) {
   const [isOnline, setIsOnline] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
@@ -47,7 +65,7 @@ export function ChunkErrorRecovery({ onRetry, onReload }: ChunkErrorRecoveryProp
       if (onRetry) {
         onRetry();
       } else {
-        window.location.reload();
+        rechargerSansCache();
       }
     } catch (error) {
       console.error('Erreur lors de la récupération:', error);
@@ -60,7 +78,7 @@ export function ChunkErrorRecovery({ onRetry, onReload }: ChunkErrorRecoveryProp
     if (onReload) {
       onReload();
     } else {
-      window.location.reload();
+      rechargerSansCache();
     }
   };
 
@@ -81,7 +99,7 @@ export function ChunkErrorRecovery({ onRetry, onReload }: ChunkErrorRecoveryProp
             Erreur de Chargement
           </h2>
           
-          <p className="text-gray-600 text-sm mb-4">
+          <p className="text-gray-600 mb-4 whitespace-nowrap text-sm md:text-base">
             {!isOnline 
               ? 'Connexion internet perdue. Vérifiez votre connexion.'
               : 'Une erreur de chargement s\'est produite. Cela peut être dû à une mise à jour de l\'application.'

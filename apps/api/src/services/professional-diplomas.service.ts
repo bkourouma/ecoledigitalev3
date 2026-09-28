@@ -575,8 +575,13 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
         return fail("DIPLOMA_NOT_AWARDED", "Ce diplôme n'a pas été obtenu par l'étudiant.");
       }
       const infoRes = await client.query(
-        `SELECT d.code, d.libelle, p.name AS filiere_libelle,
+        `SELECT d.code, d.libelle, d.uv_required, p.name AS filiere_libelle,
                 sp.id AS student_id,
+                sp.date_of_birth, sp.place_of_birth,
+                -- Matricule imprime sur le document : celui de la filiere s'il
+                -- existe, sinon le numero d'etudiant. Il manquait sur le
+                -- diplome quand l'appelant ne le fournissait pas lui-meme.
+                COALESCE(psm.matricule, sp.student_number) AS matricule,
                 COALESCE(
                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
                   u.computed_name, u.name, sp.student_number, ''
@@ -585,6 +590,9 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
          JOIN programmes p ON p.id = d.filiere_id
          JOIN student_profiles sp ON sp.id = $2
          LEFT JOIN users u ON u.id = sp.user_id
+         LEFT JOIN professional_student_matricules psm
+                ON psm.student_id = sp.id AND psm.filiere_id = d.filiere_id
+               AND psm.tenant_id = d.tenant_id
          WHERE d.id=$1 AND d.tenant_id=$3`,
         [diplomaId, studentId, tenantId]
       );
@@ -601,6 +609,28 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       const mention = await loadMentionForFilieres(client, tenantId, filiereIds, studentId);
       const authenticiteReference = await this.getOrAssignAuthenticiteReference(client, tenantId, award);
 
+      // Signataires imprimes sur le document. Ils voyagent avec l'attestation
+      // parce que la route /signataires est reservee a l'administration : sans
+      // eux ici, un diplome telecharge par l'etudiant lui-meme sortirait sans
+      // aucune signature, ce qui est pire qu'un diplome non telechargeable.
+      const sigRes = await client.query(
+        `SELECT cle, nom, qualite, fonction FROM professional_signataires
+          WHERE tenant_id = $1`,
+        [tenantId]
+      );
+      const signataires: Record<
+        string,
+        { cle: string; nom: string; qualite: string | null; fonction: string | null }
+      > = {};
+      for (const row of sigRes.rows as Array<{
+        cle: string;
+        nom: string;
+        qualite: string | null;
+        fonction: string | null;
+      }>) {
+        signataires[row.cle] = row;
+      }
+
       return ok({
         reference: award.reference,
         authenticite_reference: authenticiteReference,
@@ -608,12 +638,20 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
           code: info.code,
           libelle: info.libelle,
           filiere_libelle: info.filiere_libelle,
+          uv_required: info.uv_required,
         },
-        etudiant: { id: info.student_id, nom_complet: info.nom_complet ?? "" },
+        etudiant: {
+          id: info.student_id,
+          nom_complet: info.nom_complet ?? "",
+          matricule: info.matricule ?? null,
+          date_naissance: info.date_of_birth ?? null,
+          lieu_naissance: info.place_of_birth ?? null,
+        },
         date_obtention: award.date_obtention ?? "",
         uv_total_validees: award.uv_total_validees,
         ue_validees,
         mention,
+        signataires,
       });
     });
   }
@@ -758,13 +796,17 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
              ON s2.id = e2.ue_session_id AND s2.tenant_id = e2.tenant_id
            JOIN professional_ue ue2 ON ue2.id = s2.ue_id AND ue2.tenant_id = s2.tenant_id
            WHERE e2.student_id = sp.id AND e2.tenant_id = sp.tenant_id
-             AND e2.statut <> 'annulee'
+             AND e2.statut IN ('confirmee','terminee')
              AND ue2.filiere_id = ANY($2::uuid[])
            ORDER BY s2.date_debut DESC
            LIMIT 1
          ) derniere ON TRUE
          WHERE sp.tenant_id = $1
-           AND e.statut <> 'annulee'
+           -- Meme predicat que le reste de la scolarite : un inscrit dont les
+           -- frais d'inscription ne sont pas soldes n'est candidat a rien.
+           -- Sans cet alignement, l'ecran Diplomes annoncait des candidats que
+           -- l'ecran Attestations comptait pour zero, sur la meme cohorte.
+           AND e.statut IN ('confirmee','terminee')
            AND ue.filiere_id = ANY($2::uuid[])
          ORDER BY nom_complet ASC`,
         [tenantId, filiereIds, diploma.filiere_id]

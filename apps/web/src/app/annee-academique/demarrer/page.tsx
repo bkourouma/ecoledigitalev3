@@ -232,10 +232,10 @@ export default function DemarrerAnneeAcademiquePage() {
   return (<>
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">
+        <h1 className="font-bold text-foreground mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
           Démarrer Année Académique
         </h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">
           Gérez les années académiques et définissez l'année active pour votre institution.
         </p>
       </div>
@@ -340,7 +340,7 @@ export default function DemarrerAnneeAcademiquePage() {
       {/* Semestres / Trimestres */}
       <Card className="mb-8">
         <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
             <div className="flex items-start gap-3">
               <Layers className="h-6 w-6 text-muted-foreground shrink-0 mt-0.5" />
               <div>

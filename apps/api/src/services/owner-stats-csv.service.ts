@@ -4,8 +4,10 @@ import type {
   OwnerPedagogieResponse,
   OwnerPersonnesResponse,
   OwnerPayrollResponse,
+  OwnerProspectionResponse,
   OwnerRecrutementResponse,
 } from "@ecoledigitale/contracts";
+import { OWNER_PROSPECTION_CANAL_LABELS } from "@ecoledigitale/contracts";
 
 /**
  * Construction des exports CSV des pages de statistiques owner.
@@ -782,6 +784,180 @@ export function buildOwnerPayrollCsv(d: OwnerPayrollResponse): string {
         "Rattachements non listables",
         d.coursesWithoutTeacherOrphaned,
         "Classe ou matière référencée absente en base — données à réparer",
+      ])
+    );
+    lines.push("");
+  }
+
+  return lines.join("\r\n");
+}
+
+/**
+ * Prospection — d'où viennent les étudiants et ce que coûtent les commerciaux.
+ *
+ * La couverture de la saisie ouvre le fichier, avant toute répartition : un
+ * tableur qui circule sans elle donnerait des parts de canal pour des parts
+ * d'école.
+ */
+export function buildOwnerProspectionCsv(d: OwnerProspectionResponse): string {
+  const lines: string[] = [];
+
+  lines.push(row(["Prospection — provenance des étudiants et commissions"]));
+  lines.push(row(["Année scolaire", d.anneeScolaire ?? "Toutes années"]));
+  lines.push(
+    row([
+      "Périmètre",
+      // Le nom de classe prime : c est le filtre le plus etroit, et celui que
+      // le lecteur du fichier doit voir en premier.
+      d.nomClasse
+        ? `Classe : ${d.nomClasse.split("|").pop()}`
+        : d.filiereIds.length > 0
+          ? `${d.filiereIds.length} filière(s)`
+          : "Toutes filières",
+    ])
+  );
+  lines.push("");
+
+  lines.push(
+    ...section(
+      "Couverture de la saisie",
+      ["Indicateur", "Valeur", "Règle de calcul"],
+      [
+        ["Étudiants du périmètre", d.couverture.etudiants, ""],
+        ["Provenance renseignée", d.couverture.renseignes, ""],
+        ["Provenance inconnue", d.couverture.nonRenseignes, ""],
+        [
+          "Couverture (%)",
+          num(d.kpis.couverture, 1),
+          "Renseignés / étudiants du périmètre",
+        ],
+        [
+          "Scolarité non rattachée (FCFA)",
+          num(d.couverture.scolariteNonRattachee, 0),
+          "Encaissements des étudiants dont la provenance est inconnue",
+        ],
+      ]
+    )
+  );
+
+  lines.push(
+    ...section(
+      "Indicateurs",
+      ["Indicateur", "Valeur", "Règle de calcul"],
+      [
+        [
+          "Scolarité encaissée (FCFA)",
+          num(d.kpis.scolariteEncaissee, 0),
+          "Ligne Scolarité du barème (natures ue et scolarite), paiements confirmés",
+        ],
+        ["Étudiants amenés par un commercial", d.kpis.viaCommercial, ""],
+        [
+          "Commission acquise (FCFA)",
+          num(d.kpis.commissionAcquise, 0),
+          "Paiement par paiement : montant × taux figé sur la fiche de l'étudiant",
+        ],
+        ["Commission versée (FCFA)", num(d.kpis.commissionVersee, 0), ""],
+        [
+          "Commission due (FCFA)",
+          num(d.kpis.commissionDue, 0),
+          "Lignes de commission non encore réglées",
+        ],
+        [
+          "Taux effectif (%)",
+          num(d.kpis.tauxEffectif, 2),
+          "Commission acquise / scolarité encaissée via commercial",
+        ],
+      ]
+    )
+  );
+
+  lines.push(
+    ...section(
+      "Par canal",
+      [
+        "Canal",
+        "Étudiants",
+        "Part (%)",
+        "Scolarité encaissée",
+        "Par étudiant",
+        "Commission",
+        "Net pour l'école",
+      ],
+      d.parCanal.map((c) => [
+        OWNER_PROSPECTION_CANAL_LABELS[c.canal],
+        c.etudiants,
+        num(c.part, 1),
+        num(c.scolariteEncaissee, 0),
+        num(c.scolariteParEtudiant, 0),
+        num(c.commissionAcquise, 0),
+        num(c.net, 0),
+      ])
+    )
+  );
+
+  lines.push(
+    ...section(
+      "Arrivées par mois",
+      ["Mois", "Total", "Commercial", "Médias", "Bouche-à-oreille", "Autre / inconnu"],
+      d.parMois.map((m) => [
+        m.mois,
+        m.total,
+        m.commercial,
+        m.medias,
+        m.boucheAOreille,
+        m.autre,
+      ])
+    )
+  );
+
+  lines.push(
+    ...section(
+      "Commerciaux",
+      [
+        "Commercial",
+        "Actif",
+        "Étudiants",
+        "Scolarité encaissée",
+        "Commission acquise",
+        "Versée",
+        "Reste dû",
+        "Taux effectif (%)",
+        "Lignes à régler",
+      ],
+      d.commerciaux.map((c) => [
+        c.nom,
+        c.actif ? "Oui" : "Non",
+        c.etudiants,
+        num(c.scolariteEncaissee, 0),
+        num(c.commissionAcquise, 0),
+        num(c.commissionVersee, 0),
+        num(c.solde, 0),
+        num(c.tauxEffectif, 2),
+        c.lignesDues,
+      ])
+    )
+  );
+
+  lines.push(
+    ...section(
+      "Dette de commissions",
+      ["Indicateur", "Valeur"],
+      [
+        ["Montant dû (FCFA)", num(d.dette.total, 0)],
+        ["Lignes à régler", d.dette.lignes],
+        ["Commerciaux concernés", d.dette.commerciaux],
+        ["Plus ancien encaissement dû", d.dette.plusAncienne ?? "—"],
+        ["Ancienneté (jours)", d.dette.ageJours ?? "—"],
+      ]
+    )
+  );
+
+  if (d.etudiantsSansDate > 0) {
+    lines.push(
+      row([
+        "Étudiants absents de la courbe mensuelle",
+        d.etudiantsSansDate,
+        "Aucune ouverture de classe ne les date — comptés dans les totaux, pas dans les mois",
       ])
     );
     lines.push("");

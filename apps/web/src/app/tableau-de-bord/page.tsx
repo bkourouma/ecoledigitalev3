@@ -242,7 +242,7 @@ export default function TableauDeBordPage() {
         <div className="relative z-10">
           <p className="text-sm font-medium text-white/80">Espace administrateur</p>
           <h1 className="mt-1 text-4xl font-bold">Tableau de bord</h1>
-          <p className="mt-3 max-w-2xl text-white/85">
+          <p className="mt-3 max-w-2xl text-white/85 whitespace-nowrap text-sm md:text-base">
             Vue consolidée de l&apos;établissement : structure académique, module professionnel,
             suivi pédagogique et documents officiels.
           </p>
@@ -329,7 +329,7 @@ export default function TableauDeBordPage() {
             hint={`${fmtMontant(finances.paye)} encaissés`}
             icon={Wallet}
             gradient="from-amber-500 via-orange-500 to-red-500"
-            href="/professionnel/admin/paiements"
+            href="/admin/finances/student-payments"
             loading={enrollmentsQuery.isLoading}
           />
         </div>
@@ -446,7 +446,8 @@ export default function TableauDeBordPage() {
                 icon: Users,
                 count: nbInscrits,
               },
-              { label: "Paiements", href: "/professionnel/admin/paiements", icon: Wallet },
+              { label: "Scolarité", href: "/admin/finances/scolarite", icon: Calendar },
+              { label: "Paiements", href: "/admin/finances/student-payments", icon: Wallet },
             ]}
           />
           <MenuGroup

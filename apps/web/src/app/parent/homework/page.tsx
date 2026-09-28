@@ -133,13 +133,13 @@ export default function ParentHomeworkPage() {
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-500 to-blue-500 bg-clip-text text-transparent flex items-center gap-3">
+          <h1 className="font-bold bg-gradient-to-r from-emerald-500 to-blue-500 bg-clip-text text-transparent flex items-center gap-3 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <ClipboardList className="h-8 w-8 text-emerald-400 shrink-0" />
             Devoirs & Notes
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Les devoirs, évaluations et notes réels de votre enfant, saisis par
             ses enseignants.
           </p>

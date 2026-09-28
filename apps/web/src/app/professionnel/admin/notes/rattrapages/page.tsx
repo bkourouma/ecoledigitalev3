@@ -199,13 +199,13 @@ export default function RattrapagesPage() {
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto p-6">
       {/* En-tête */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2 text-2xl leading-tight md:text-3xl">
             <RotateCcw className="h-7 w-7 text-amber-500" />
             Rattrapages — Session 2
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Tous les étudiants ayant au moins une ECUE non validée en Session 1. La note d&apos;examen
             saisie ici remplace celle de Session 1 : dès que l&apos;ECUE repasse à 10/20, elle
             disparaît de cette liste.

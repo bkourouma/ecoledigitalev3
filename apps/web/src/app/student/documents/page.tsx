@@ -16,9 +16,12 @@ import {
 import {
   useMyBulletin,
   useMyBulletinSemestres,
+  fetchMyBulletinBts,
 } from "@/lib/hooks/use-professional-bulletins";
 import { useMyProfessionalReceipts } from "@/lib/hooks/use-professional-student";
 import { allBulletinsPdfObjectUrl } from "@/lib/bulletin-pdf";
+import { allBulletinsBtsPdfObjectUrl } from "@/lib/bulletin-pdf-bts";
+import { isLicenceUnOuDeux } from "@/lib/bulletin-format";
 import { receiptPdfObjectUrl, type ReceiptData } from "@/lib/receipt-pdf";
 import { semestreLabelShort } from "@/lib/bulletin-format";
 import { useFiltresScolaires } from "@/components/FiltresScolaires";
@@ -61,7 +64,7 @@ export default function StudentDocumentsPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Bulletins & Reçus</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                 Vos relevés de notes et reçus de paiement officiels, en consultation.
               </p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -178,8 +181,11 @@ function useVisionneuse() {
   const [titre, setTitre] = useState("");
   const [chargement, setChargement] = useState<string | null>(null);
 
+  const [erreur, setErreur] = useState<string | null>(null);
+
   const ouvrir = async (cle: string, libelle: string, fabrique: () => Promise<string>) => {
     setChargement(cle);
+    setErreur(null);
     try {
       const u = await fabrique();
       setUrl((ancien) => {
@@ -187,6 +193,15 @@ function useVisionneuse() {
         return u;
       });
       setTitre(libelle);
+    } catch (e: any) {
+      // Sans ce catch, une génération qui échouait laissait l'utilisateur
+      // devant un bouton qui tourne puis s'arrete, sans un mot : rien ne
+      // distinguait l'echec du succes.
+      setErreur(
+        e?.message
+          ? `Le document n'a pas pu être produit : ${e.message}`
+          : "Le document n'a pas pu être produit."
+      );
     } finally {
       setChargement(null);
     }
@@ -199,7 +214,7 @@ function useVisionneuse() {
     });
   };
 
-  return { url, titre, chargement, ouvrir, fermer };
+  return { url, titre, chargement, erreur, ouvrir, fermer };
 }
 
 /* --------------------------- Bulletins --------------------------- */
@@ -245,6 +260,11 @@ function BulletinsTab() {
   return (
     <div className="space-y-4">
       {barre}
+      {visionneuse.erreur && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {visionneuse.erreur}
+        </div>
+      )}
       {visibles.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
@@ -276,6 +296,9 @@ function BulletinRow({
 }) {
   const query = useMyBulletin(semestre.id);
   const bulletin: any = query.data;
+  const btsEligible = isLicenceUnOuDeux(
+    bulletin?.filiere?.name ?? semestre.classe_nom ?? semestre.filiere_nom
+  );
 
   return (
     <Card>
@@ -314,7 +337,18 @@ function BulletinRow({
                 visionneuse.ouvrir(
                   semestre.id,
                   `Relevé de notes — ${semestreLabelShort(semestre.libelle)}`,
-                  () => allBulletinsPdfObjectUrl([bulletin])
+                  () =>
+                    // Licence 1 et 2 : l'établissement édite un bulletin de
+                    // style BTS. L'étudiant doit recevoir EXACTEMENT le document
+                    // que l'administration lui remet, pas une autre mise en page.
+                    // Le gabarit BTS a son propre payload : lui donner celui du
+                    // relevé LMD produisait un document vide (tableau sans ligne,
+                    // total « — »). On va chercher les données BTS au clic.
+                    btsEligible
+                      ? fetchMyBulletinBts(semestre.id).then((d) =>
+                          allBulletinsBtsPdfObjectUrl([d])
+                        )
+                      : allBulletinsPdfObjectUrl([bulletin])
                 )
               }
               disabled={!bulletin || visionneuse.chargement === semestre.id}
@@ -343,6 +377,7 @@ interface Txn {
   mode: string;
   reference: string | null;
   receipt_number: string;
+  receipt_numbers_all: string;
   student: { first_name?: string; last_name?: string; matricule?: string | null };
   filiere: { nom?: string | null; code?: string | null };
   ues: { code?: string | null; libelle?: string | null; montant?: number | null }[];
@@ -387,6 +422,9 @@ function buildTransactions(payments: any[]): { txns: Txn[]; totalDu: number } {
       mode: first.mode,
       reference: rows.find((r) => r.reference_transaction)?.reference_transaction ?? null,
       receipt_number,
+      // Forme abrégée pour la liste, liste complète pour le reçu imprimé : un
+      // règlement réparti sur deux UE a deux numéros, la pièce doit porter les deux.
+      receipt_numbers_all: nums.length === 0 ? "—" : nums.join(" · "),
       student: {
         first_name: first.first_name,
         last_name: first.last_name,
@@ -414,7 +452,7 @@ function buildTransactions(payments: any[]): { txns: Txn[]; totalDu: number } {
 
 function toReceiptData(t: Txn, totalDu: number): ReceiptData {
   return {
-    receipt_number: t.receipt_number,
+    receipt_number: t.receipt_numbers_all,
     reference_transaction: t.reference,
     montant: t.montant,
     mode: t.mode,

@@ -134,7 +134,7 @@ export default function PaymentValidationPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">Historique des Paiements</h1>
-          <p className="text-gray-600">Consultez les paiements récents enregistrés</p>
+          <p className="text-gray-600 whitespace-nowrap text-sm md:text-base">Consultez les paiements récents enregistrés</p>
         </div>
         <Button onClick={fetchTransactions} variant="outline">
           <RefreshCw className="w-4 h-4 mr-2" />

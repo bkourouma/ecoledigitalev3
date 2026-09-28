@@ -145,7 +145,19 @@ export interface ReceiptData {
   mode?: string | null;
   paid_at?: string | null;
   student: { first_name?: string; last_name?: string; matricule?: string | null };
+  /**
+   * La CLASSE de l'étudiant — « LICENCE 2 INTELLIGENCE ARTIFICIELLE ». C'est ce
+   * que le module professionnel appelle encore `filiere_nom`, alors que la
+   * colonne pointe sur `programmes` (voir migration 0116).
+   */
+  classe?: { nom?: string | null; code?: string | null } | null;
+  /** La vraie filière — « INTELLIGENCE ARTIFICIELLE », table `filieres`. */
   filiere?: { nom?: string | null; code?: string | null } | null;
+  /**
+   * Ce que détaille le tableau `ues`. Par défaut les unités d'enseignement ;
+   * les reçus du barème de scolarité y mettent leurs lignes de frais.
+   */
+  objet?: { titre: string; colonne: string } | null;
   /** Total dû (toutes UE du lot). */
   total_du: number;
   /** Total payé cumulé à l'émission de ce reçu (inclus). */
@@ -220,7 +232,14 @@ async function drawReceipt(
 
   // Pastille n° de reçu, centrée.
   const rn = `N° ${data.receipt_number ?? "—"}`;
-  doc.setFontSize(10.5);
+  // Un règlement réparti sur plusieurs UE porte plusieurs numéros : la
+  // pastille réduit sa police plutôt que de déborder de la page.
+  let rnSize = 10.5;
+  doc.setFontSize(rnSize);
+  while (doc.getTextWidth(rn) + 12 > PAGE_W - 30 && rnSize > 6.5) {
+    rnSize -= 0.5;
+    doc.setFontSize(rnSize);
+  }
   const rw = doc.getTextWidth(rn) + 12;
   doc.setFillColor(LIGHT[0], LIGHT[1], LIGHT[2]);
   doc.setDrawColor(GREEN[0], GREEN[1], GREEN[2]);
@@ -247,7 +266,9 @@ async function drawReceipt(
   y += 6;
 
   // ---------- Panneau étudiant ----------
-  const panelH = 27;
+  // Deux lignes de métadonnées sous le nom : matricule + filière, puis la
+  // classe seule. D'où 31 mm et non 27.
+  const panelH = 31;
   doc.setFillColor(LIGHT[0], LIGHT[1], LIGHT[2]);
   doc.setDrawColor(GREEN[0], GREEN[1], GREEN[2]);
   doc.setLineWidth(0.3);
@@ -267,13 +288,32 @@ async function drawReceipt(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   setColor(doc, GRAY);
+  const largeurUtile = W - 14;
   const matricule = data.student?.matricule ? `Matricule : ${data.student.matricule}` : "";
-  const filiere = `Filière : ${data.filiere?.nom ?? "—"}${
-    data.filiere?.code ? ` (${data.filiere.code})` : ""
+  const classe = `Classe : ${data.classe?.nom ?? "—"}${
+    data.classe?.code ? ` (${data.classe.code})` : ""
   }`;
-  doc.text([matricule, filiere].filter(Boolean).join("      "), px, y + 20, {
-    maxWidth: W - 14,
-  });
+  // La filière n'apparaît que si on la connaît : mieux vaut rien qu'un tiret.
+  const filiere = data.filiere?.nom ? `Filière : ${data.filiere.nom}` : "";
+
+  const ligneHaute = [matricule, filiere].filter(Boolean).join("      ");
+  if (ligneHaute) doc.text(ligneHaute, px, y + 18.5, { maxWidth: largeurUtile });
+
+  /*
+   * La classe occupe sa propre ligne, et doit y tenir entière : les noms de
+   * classe sont longs (« LICENCE 1 INTELLIGENCE ARTIFICIELLE (L1IA) ») et un
+   * repli passerait sous le bord du panneau, dont la hauteur est fixe. On
+   * rétrécit donc la police jusqu'à ce que le texte entre, plutôt que de le
+   * laisser déborder.
+   */
+  let tailleClasse = 9.5;
+  doc.setFontSize(tailleClasse);
+  while (doc.getTextWidth(classe) > largeurUtile && tailleClasse > 6) {
+    tailleClasse -= 0.25;
+    doc.setFontSize(tailleClasse);
+  }
+  doc.text(classe, px, y + 24.5);
+  doc.setFontSize(9.5);
   y += panelH + 6;
 
   // ---------- Montant reçu ----------
@@ -301,11 +341,15 @@ async function drawReceipt(
 
   // ---------- Détail des UE ----------
   const ues = data.ues ?? [];
+  const objet = data.objet ?? {
+    titre: "OBJET DU PAIEMENT — UNITÉS D'ENSEIGNEMENT",
+    colonne: "Unité d'enseignement (UE)",
+  };
   if (ues.length > 0) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     setColor(doc, GREEN);
-    doc.text("OBJET DU PAIEMENT — UNITÉS D'ENSEIGNEMENT", M, y);
+    doc.text(objet.titre, M, y);
     y += 2.5;
     autoTable(doc, {
       startY: y,
@@ -325,7 +369,7 @@ async function drawReceipt(
         fontSize: 8,
       },
       alternateRowStyles: { fillColor: LIGHT },
-      head: [["N°", "Unité d'enseignement (UE)", "Montant"]],
+      head: [["N°", objet.colonne, "Montant"]],
       body: [
         ...ues.map((u, i) => [
           { content: String(i + 1), styles: { halign: "center" as const } },

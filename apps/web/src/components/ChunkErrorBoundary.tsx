@@ -58,18 +58,30 @@ class ChunkErrorBoundary extends Component<Props, State> {
     });
   }
 
-  handleReload = () => {
-    // Vider le cache et recharger
+  handleReload = async () => {
+    // Le vidage du cache est asynchrone : l'attendre, sinon le rechargement
+    // partait avant que quoi que ce soit ne soit supprime.
     if ('caches' in window) {
-      caches.keys().then(function(names) {
-        for (let name of names) {
-          caches.delete(name);
-        }
-      });
+      try {
+        const names = await caches.keys();
+        await Promise.all(names.map((name) => caches.delete(name)));
+      } catch {
+        // Cache Storage indisponible (navigation privee, permissions) : le
+        // parametre anti-cache ci-dessous suffit a s'en sortir.
+      }
     }
-    
-    // Forcer le rechargement complet
-    window.location.reload();
+
+    // window.location.reload() NE contourne PAS le cache HTTP : c'est la raison
+    // pour laquelle ce bouton ne debloquait personne. On recharge donc via une
+    // URL porteuse d'un parametre unique, seul moyen fiable d'obtenir des
+    // chunks frais quand une version periMee est en cache.
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('cb', String(Date.now()));
+      window.location.replace(url.toString());
+    } catch {
+      window.location.reload();
+    }
   };
 
   handleRetry = () => {
@@ -90,7 +102,7 @@ class ChunkErrorBoundary extends Component<Props, State> {
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
                 {isChunkError ? 'Erreur de Chargement' : 'Une erreur est survenue'}
               </h2>
-              <p className="text-gray-600 text-sm mb-4">
+              <p className="text-gray-600 mb-4">
                 {isChunkError 
                   ? 'Une erreur de chargement des ressources s\'est produite. Cela peut être dû à une mise à jour de l\'application.'
                   : 'Une erreur inattendue s\'est produite.'

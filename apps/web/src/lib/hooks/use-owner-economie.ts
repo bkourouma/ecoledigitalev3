@@ -5,7 +5,20 @@ import { useSession } from "next-auth/react";
 import { createApiHeaders } from "@/lib/api-utils";
 import type { OwnerEconomieResponse } from "@ecoledigitale/contracts";
 
-export function useOwnerEconomie(anneeScolaire?: string | null, filiereIds?: string[]) {
+export type BaseExercice = "scolaire" | "civil";
+
+export function useOwnerEconomie(
+  anneeScolaire?: string | null,
+  filiereIds?: string[],
+  /**
+   * Base de l'exercice du compte de résultat.
+   *
+   * Volontairement hors de la barre de filtres : un résultat porte sur UN
+   * exercice, là où la barre accepte « toutes années ». Le sélecteur vit sur
+   * l'écran, à côté du tableau qu'il commande.
+   */
+  baseExercice?: BaseExercice
+) {
   const { data: session } = useSession();
   const tenantId = (session as { tenantId?: string } | null)?.tenantId ?? "no-tenant";
 
@@ -15,6 +28,7 @@ export function useOwnerEconomie(anneeScolaire?: string | null, filiereIds?: str
   const params = new URLSearchParams();
   if (anneeScolaire) params.set("anneeScolaire", anneeScolaire);
   if (filiereIds?.length) params.set("filiereIds", filiereIds.join(","));
+  if (baseExercice) params.set("baseExercice", baseExercice);
   const qs = params.toString() ? `?${params.toString()}` : "";
 
   return useQuery<OwnerEconomieResponse>({

@@ -121,7 +121,7 @@ export default function ChildSchedulePage() {
       {/* Header */}
       <div className="bg-card shadow-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 py-6">
+          <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3 py-6">
             <Link href="/parent/children">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -129,11 +129,11 @@ export default function ChildSchedulePage() {
               </Button>
             </Link>
             <div className="flex-1">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
+              <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent text-2xl leading-tight md:text-3xl">
                 Emploi du Temps
               </h1>
               {child && (
-                <p className="text-gray-600 mt-2">
+                <p className="whitespace-nowrap text-gray-600 text-sm text-muted-foreground md:text-base">
                   Planning hebdomadaire de {child.name}
                 </p>
               )}

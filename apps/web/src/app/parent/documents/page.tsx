@@ -41,7 +41,7 @@ import { useFiltresScolaires } from "@/components/FiltresScolaires";
  * Bulletins & Reçus — espace parent (Module Professionnel, feature 030).
  * Reprend les documents officiels des pages admin :
  *  - Bulletins : le relevé de notes PDF de /professionnel/admin/bulletins ;
- *  - Reçus : les reçus de paiement PDF de /professionnel/admin/paiements.
+ *  - Reçus : les reçus de paiement PDF de /admin/finances/student-payments.
  * Documents générés par les mêmes libs (bulletin-pdf / receipt-pdf) → identiques.
  */
 
@@ -96,14 +96,14 @@ export default function ParentDocumentsPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b border-border bg-card/80 shadow-sm backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-emerald-500/15 p-2">
               <FileText className="h-8 w-8 text-emerald-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Bulletins & Reçus</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <h1 className="font-bold text-foreground whitespace-nowrap text-2xl leading-tight md:text-3xl">Bulletins & Reçus</h1>
+              <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
                 Relevés de notes et reçus de paiement officiels de votre enfant,
                 en consultation.
               </p>
@@ -447,6 +447,7 @@ interface Txn {
   mode: string;
   reference: string | null;
   receipt_number: string;
+  receipt_numbers_all: string;
   student: { first_name?: string; last_name?: string; matricule?: string | null };
   filiere: { nom?: string | null; code?: string | null };
   ues: { code?: string | null; libelle?: string | null; montant?: number | null }[];
@@ -491,6 +492,9 @@ function buildTransactions(payments: any[]): { txns: Txn[]; totalDu: number } {
       mode: first.mode,
       reference: rows.find((r) => r.reference_transaction)?.reference_transaction ?? null,
       receipt_number,
+      // Forme abrégée pour la liste, liste complète pour le reçu imprimé : un
+      // règlement réparti sur deux UE a deux numéros, la pièce doit porter les deux.
+      receipt_numbers_all: nums.length === 0 ? "—" : nums.join(" · "),
       student: {
         first_name: first.first_name,
         last_name: first.last_name,
@@ -518,7 +522,7 @@ function buildTransactions(payments: any[]): { txns: Txn[]; totalDu: number } {
 
 function toReceiptData(t: Txn, totalDu: number): ReceiptData {
   return {
-    receipt_number: t.receipt_number,
+    receipt_number: t.receipt_numbers_all,
     reference_transaction: t.reference,
     montant: t.montant,
     mode: t.mode,

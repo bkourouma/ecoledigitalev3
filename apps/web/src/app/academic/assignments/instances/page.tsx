@@ -161,14 +161,15 @@ export default function AssignmentInstancesPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Link href="/academic/assignments">
             <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold">Chargement...</h2>
+            <h2 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">Chargement...</h2>
           </div>
         </div>
       </div>
@@ -178,15 +179,16 @@ export default function AssignmentInstancesPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Link href="/academic/assignments">
             <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold text-red-600">Erreur</h2>
-            <p className="text-muted-foreground">
+            <h2 className="whitespace-nowrap font-bold text-red-600 text-2xl leading-tight md:text-3xl">Erreur</h2>
+            <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
               Impossible de charger les évaluations assignées
             </p>
           </div>
@@ -221,15 +223,16 @@ export default function AssignmentInstancesPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Link href="/academic/assignments">
           <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour
+        </Button>
         </Link>
         <div className="flex-1">
-          <h2 className="text-2xl font-bold">Évaluations Assignées</h2>
-          <p className="text-muted-foreground">
+          <h2 className="whitespace-nowrap font-bold text-2xl leading-tight md:text-3xl">Évaluations Assignées</h2>
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             Gérez toutes les évaluations assignées aux classes
           </p>
         </div>

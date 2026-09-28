@@ -646,27 +646,24 @@ export const AdminUpdateEnrollmentSchema = z.object({
 });
 export type AdminUpdateEnrollment = z.infer<typeof AdminUpdateEnrollmentSchema>;
 
-/** Enregistrement d'un paiement (partiel possible) par un administrateur. */
-export const AdminRecordPaymentSchema = z.object({
+/**
+ * Les quatre lignes du barème de scolarité (`cycles_frais`). Une commande d'UE
+ * alimente la ligne « scolarite ».
+ */
+export const LigneBaremeSchema = z.enum(["inscription", "scolarite", "annexes", "autres"]);
+export type LigneBareme = z.infer<typeof LigneBaremeSchema>;
+
+/**
+ * Règlement d'une ligne du barème pour un lot (un étudiant × une classe).
+ * Le lot est porté par l'URL, la ligne par le corps de la requête.
+ */
+export const RecordLotPaymentSchema = z.object({
+  ligne: LigneBaremeSchema,
   montant: z.number().positive("Le montant doit être positif"),
   mode: ProfessionalPaymentModeSchema,
   reference_transaction: z.string().max(255).optional().or(z.literal("")),
 });
-export type AdminRecordPayment = z.infer<typeof AdminRecordPaymentSchema>;
-
-/** Paiement d'un étudiant réparti sur plusieurs inscriptions (un lot). */
-export const AdminRecordStudentPaymentSchema = z.object({
-  enrollment_ids: z.array(z.string().uuid()).min(1, "Au moins une inscription est requise."),
-  montant: z.number().positive("Le montant doit être positif"),
-  mode: ProfessionalPaymentModeSchema,
-  reference_transaction: z.string().max(255).optional().or(z.literal("")),
-});
-export type AdminRecordStudentPayment = z.infer<typeof AdminRecordStudentPaymentSchema>;
-
-/** Liste d'ids d'inscriptions (ex. historique fusionné des paiements). */
-export const EnrollmentIdsSchema = z.object({
-  enrollment_ids: z.array(z.string().uuid()).min(1),
-});
+export type RecordLotPayment = z.infer<typeof RecordLotPaymentSchema>;
 
 /** Inscription en lot : N étudiants × M sessions. */
 export const AdminEnrollBulkSchema = z.object({

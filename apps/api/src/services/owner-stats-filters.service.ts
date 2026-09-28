@@ -144,8 +144,14 @@ export async function fetchOwnerStatsFilters(
            FROM academic_years ay
            WHERE ay.tenant_id = $1::uuid
              AND ay.name ~ '^\\d{4}-\\d{4}$'
+             -- Une classe DOIT porter au moins un inscrit pour que son année
+             -- compte. Vérifier la seule existence de la classe faisait
+             -- apparaître des années entières sur la foi de coquilles vides,
+             -- créées puis abandonnées.
              AND EXISTS (
-               SELECT 1 FROM classes c
+               SELECT 1
+               FROM classes c
+               JOIN student_enrollments se ON se.class_id = c.id
                WHERE c.academic_year_id = ay.id AND c.tenant_id = ay.tenant_id
              )
          ) millesimes

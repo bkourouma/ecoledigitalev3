@@ -390,7 +390,7 @@ export default function AttendanceSessionPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-6xl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 sm:mb-8">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button
           variant="outline"
           size="sm"
@@ -401,10 +401,10 @@ export default function AttendanceSessionPage() {
           Retour
         </Button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+          <h1 className="whitespace-nowrap font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent text-2xl leading-tight md:text-3xl">
             Session de Présence
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2 break-words">
+          <p className="whitespace-nowrap text-muted-foreground text-sm md:text-base">
             {session.className} - {session.courseName || 'Cours non défini'}
           </p>
         </div>
@@ -479,9 +479,9 @@ export default function AttendanceSessionPage() {
       {/* Attendance List */}
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:gap-3">
             <div className="flex-1 min-w-0">
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl whitespace-nowrap text-2xl leading-tight md:text-3xl">
                 <Users className="h-5 w-5 text-emerald-600 flex-shrink-0" />
                 <span className="truncate">Liste des étudiants ({students.length})</span>
               </CardTitle>

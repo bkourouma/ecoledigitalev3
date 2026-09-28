@@ -224,8 +224,8 @@ export default function RSOFormateurActivitiesPage() {
     <div className="container mx-auto py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestion des activités</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Gestion des activités</h1>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Créez et gérez les activités de sûreté portuaire
           </p>
         </div>

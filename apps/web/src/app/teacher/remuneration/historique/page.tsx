@@ -203,11 +203,11 @@ export default function MonHistoriquePaiementsPage() {
   return (
     <div className="space-y-6 max-w-[1200px] mx-auto p-6">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+        <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
           <History className="h-7 w-7 text-indigo-500 shrink-0" />
           Mon historique de paiements
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Les rémunérations qui vous ont été effectivement versées, la plus récente en premier. Un
           montant en cours de traitement n&apos;apparaît qu&apos;une fois le versement enregistré.
         </p>

@@ -8,6 +8,12 @@ import type {
   OwnerTresorerieResponse,
 } from "@ecoledigitale/contracts/src/owner-stats.schema";
 import { PRO_UNPAID_INSTALLMENTS_CTE } from "./owner-pro-outstanding.sql";
+import { ECARTS_DE_CAISSE_SQL } from "./owner-caisse.sql";
+import {
+  OUVERTURES_CTE,
+  OUVERTURES_PERIMETRE_CTE,
+  COMMANDES_PERIMETRE_CTE,
+} from "./owner-perimetre.sql";
 import { PRO_ORDER_DATES_CTE } from "./owner-pro-annee.sql";
 
 /**
@@ -117,6 +123,19 @@ function modeLabel(mode: string): string {
  */
 const AGE_BUCKET_SQL = `
   CASE
+    -- SANS ECHEANCE, DONC PAS EN RETARD. professional_order_installments n'est
+    -- alimentee par aucun service : la totalite des commandes professionnelles
+    -- arrive ici sans due_date. Les WHEN qui suivent rendent tous NULL sur une
+    -- date absente, si bien que le ELSE les classait toutes en "plus de 90
+    -- jours" -- l'ecran affirmait un retard de trois mois sur des commandes qui
+    -- n'ont aucune echeance, et le total echu etait faux d'autant.
+    --
+    -- On peut dire qu'une commande est INCOMPLETE, jamais qu'elle est EN
+    -- RETARD. a_echoir est la seule tranche NON echue : ces montants comptent
+    -- donc dans le reste du et sortent du total echu. Une tranche propre
+    -- ("sans echeance") serait plus juste encore, mais elle demande une colonne
+    -- de plus a l'ecran.
+    WHEN due_date IS NULL THEN 'a_echoir'
     WHEN due_date > CURRENT_DATE THEN 'a_echoir'
     WHEN CURRENT_DATE - due_date <= 30 THEN 'j0_30'
     WHEN CURRENT_DATE - due_date <= 60 THEN 'j31_60'
@@ -172,12 +191,27 @@ const PRO_UNPAID_CTE = `
     JOIN professional_ue u ON u.id = s.ue_id AND u.tenant_id = s.tenant_id
     WHERE en.tenant_id = $1::uuid AND en.statut <> 'annulee'
     GROUP BY en.order_id, u.filiere_id
+    UNION ALL
+    -- Commandes de FRAIS (migrations 0122 et 0123) : aucune inscription, donc
+    -- aucune part, donc absentes de la balance agee. Mesure sur cette base :
+    -- 220 000 FCFA affiches pour 860 000 reellement dus. La classe est portee
+    -- par la commande elle-meme, la part lui revient entiere.
+    SELECT o.id, o.programme_id, o.montant_total::float8
+    FROM professional_orders o
+    WHERE o.tenant_id = $1::uuid
+      AND o.statut <> 'annulee'
+      AND o.programme_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM professional_enrollments en2
+         WHERE en2.order_id = o.id AND en2.tenant_id = o.tenant_id
+           AND en2.statut <> 'annulee')
   ),
   pro_share_total AS (
     SELECT order_id, SUM(part) AS total FROM pro_share GROUP BY order_id
   ),
   pro_unpaid AS (
     SELECT
+      pi.order_id,
       sh.filiere_id,
       pr.name AS filiere_name,
       pi.due_date,
@@ -203,6 +237,18 @@ export async function fetchOwnerTresorerie(
   const { from, to } = resolveWindow(query);
   const granularity = query.granularity ?? "week";
   const filiereIds = query.filiereIds && query.filiereIds.length > 0 ? query.filiereIds : null;
+  /*
+     Le contrat de owner-perimetre.sql. L'écran Impayés affichait déjà ces
+     sélecteurs, mais ce service ne connaissait que la filière : la page
+     dégradait la classe en filière pour tout ce qui vient d'ici, et choisir une
+     classe ne restreignait que la moitié de l'écran.
+  */
+  const anneeScolaire = query.anneeScolaire ?? null;
+  const nomClasse = query.nomClasse?.trim() ? query.nomClasse.trim() : null;
+  const semestreId = query.semestreId ?? null;
+  /** Les cinq paramètres du socle, dans leur ordre figé. Les propres à une
+   *  requête viennent ensuite, à partir de $6. */
+  const perimetre = [tenantId, anneeScolaire, filiereIds, nomClasse, semestreId];
   const client = await pool.connect();
 
   try {
@@ -213,10 +259,26 @@ export async function fetchOwnerTresorerie(
       client,
       `WITH ${SCOLAIRE_UNPAID_CTE},
        ${PRO_UNPAID_CTE},
+       ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       ${COMMANDES_PERIMETRE_CTE},
        tous AS (
-         SELECT filiere_id, filiere_name, due_date, unpaid, 'scolaire' AS source FROM scolaire_unpaid
+         /*
+            LA MOITIÉ SCOLAIRE NE SAIT PAS RÉPONDRE aux filtres propres au module
+            professionnel. Elle passe par student_enrollments et classes : elle a
+            bien une filière, mais ni année scolaire dérivée d'une ouverture, ni
+            nom de classe, ni semestre. La laisser entrer quand l'un de ces trois
+            filtres est posé ferait passer des impayés de scolarité pour des
+            impayés de la classe choisie. Elle se retire donc, explicitement.
+         */
+         SELECT filiere_id, filiere_name, due_date, unpaid, 'scolaire' AS source
+           FROM scolaire_unpaid
+          WHERE $2::text IS NULL AND $4::text IS NULL AND $5::uuid IS NULL
          UNION ALL
-         SELECT filiere_id, filiere_name, due_date, unpaid, 'pro'      AS source FROM pro_unpaid
+         /* Le professionnel, lui, se restreint au périmètre commun. */
+         SELECT pu.filiere_id, pu.filiere_name, pu.due_date, pu.unpaid, 'pro' AS source
+           FROM pro_unpaid pu
+           JOIN commandes_perimetre cp ON cp.order_id = pu.order_id
        )
        SELECT
          filiere_id,
@@ -225,9 +287,9 @@ export async function fetchOwnerTresorerie(
          source,
          SUM(unpaid)::float8 AS montant
        FROM tous
-       WHERE ($2::uuid[] IS NULL OR filiere_id = ANY($2::uuid[]))
+       WHERE ($3::uuid[] IS NULL OR filiere_id = ANY($3::uuid[]))
        GROUP BY filiere_id, filiere_name, bucket, source`,
-      [tenantId, filiereIds],
+      perimetre,
       log,
       "agedByFiliere"
     );
@@ -316,8 +378,11 @@ export async function fetchOwnerTresorerie(
     const cashRows = await safeRows<Row>(
       client,
       `WITH ${PRO_ORDER_DATES_CTE},
+       ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       ${COMMANDES_PERIMETRE_CTE},
        bornes AS (
-         SELECT $2::date AS d1, $3::date AS d2, $4::text AS gran
+         SELECT $6::date AS d1, $7::date AS d2, $8::text AS gran
        ),
        grille AS (
          SELECT generate_series(
@@ -336,6 +401,10 @@ export async function fetchOwnerTresorerie(
                 'scolaire' AS source
          FROM payment_transactions
          WHERE tenant_id = $1::uuid AND status = 'completed'::transaction_status
+           -- La scolarité classique n'a ni ouverture ni semestre : elle se
+           -- retire quand l'un de ces filtres est posé, plutôt que de faire
+           -- passer ses encaissements pour ceux de la classe choisie.
+           AND $4::text IS NULL AND $5::uuid IS NULL
          UNION ALL
          -- Daté par la CLASSE OUVERTE, pas par le versement : sur une base
          -- reprise, tous les paiements portent le même horodatage et la courbe
@@ -346,6 +415,7 @@ export async function fetchOwnerTresorerie(
                 'pro' AS source
          FROM professional_payments pp
          JOIN pro_order_dates d ON d.order_id = pp.order_id
+         JOIN commandes_perimetre cp ON cp.order_id = pp.order_id
          WHERE pp.tenant_id = $1::uuid AND pp.statut = 'confirme'
        )
        SELECT
@@ -367,7 +437,15 @@ export async function fetchOwnerTresorerie(
                        AND (SELECT d2 FROM bornes)
        GROUP BY g.tranche
        ORDER BY g.tranche`,
-      [tenantId, from, to, granularity],
+      /*
+         L'ANNÉE EST VOLONTAIREMENT LAISSÉE À NULL sur cette requête, seule de
+         tout le service. La courbe affiche l'exercice ET celui d'avant, en
+         série grisée : lui appliquer le filtre d'année scolaire écarterait
+         précisément les données de comparaison et rendrait la série N-1 plate.
+         C'est la fenêtre de dates qui commande ici — les autres dimensions du
+         périmètre, elles, s'appliquent normalement.
+      */
+      [tenantId, null, filiereIds, nomClasse, semestreId, from, to, granularity],
       log,
       "cashflow"
     );
@@ -394,18 +472,23 @@ export async function fetchOwnerTresorerie(
     /* ---- Répartition par mode de règlement -------------------------------- */
     const modeRows = await safeRows<Row>(
       client,
-      `WITH ${PRO_ORDER_DATES_CTE}
+      `WITH ${PRO_ORDER_DATES_CTE},
+       ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       ${COMMANDES_PERIMETRE_CTE}
+       -- Pas de virgule : COMMANDES_PERIMETRE_CTE est la DERNIÈRE clause du WITH.
        SELECT COALESCE(NULLIF(TRIM(pp.mode), ''), 'autre') AS mode,
               SUM(pp.montant)::float8 AS amount,
               COUNT(*)::int AS n
          FROM professional_payments pp
          JOIN pro_order_dates d ON d.order_id = pp.order_id
+         JOIN commandes_perimetre cp ON cp.order_id = pp.order_id
         WHERE pp.tenant_id = $1::uuid
           AND pp.statut = 'confirme'
-          AND d.debut BETWEEN $2::date AND $3::date
+          AND d.debut BETWEEN $6::date AND $7::date
         GROUP BY 1
         ORDER BY amount DESC`,
-      [tenantId, from, to],
+      [...perimetre, from, to],
       log,
       "byPaymentMode"
     );
@@ -420,58 +503,129 @@ export async function fetchOwnerTresorerie(
     /* ---- Écarts de caisse -------------------------------------------------- */
     const anomalyRow = await safeRows<Row>(
       client,
-      `SELECT
-         (SELECT COUNT(*) FROM professional_orders o
-           WHERE o.tenant_id = $1::uuid
-             AND o.statut = 'payee'
-             AND NOT EXISTS (SELECT 1 FROM professional_payments p
-                              WHERE p.order_id = o.id AND p.tenant_id = o.tenant_id))::int AS orders_no_payment,
-         (SELECT COALESCE(SUM(o.montant_total), 0) FROM professional_orders o
-           WHERE o.tenant_id = $1::uuid
-             AND o.statut = 'payee'
-             AND NOT EXISTS (SELECT 1 FROM professional_payments p
-                              WHERE p.order_id = o.id AND p.tenant_id = o.tenant_id))::float8 AS orders_no_payment_amount,
-         (SELECT COUNT(*) FROM professional_payments p
-           WHERE p.tenant_id = $1::uuid
-             AND p.statut = 'confirme'
-             AND (p.receipt_number IS NULL OR TRIM(p.receipt_number) = '')
-             AND COALESCE(p.paid_at, p.created_at) < now() - INTERVAL '48 hours')::int AS no_receipt,
-         (SELECT COALESCE(SUM(p.montant), 0) FROM professional_payments p
-           WHERE p.tenant_id = $1::uuid
-             AND p.statut = 'confirme'
-             AND (p.receipt_number IS NULL OR TRIM(p.receipt_number) = '')
-             AND COALESCE(p.paid_at, p.created_at) < now() - INTERVAL '48 hours')::float8 AS no_receipt_amount`,
-      [tenantId],
+      `WITH ${OUVERTURES_CTE},
+            ${OUVERTURES_PERIMETRE_CTE},
+            ${COMMANDES_PERIMETRE_CTE}
+       ${ECARTS_DE_CAISSE_SQL}`,
+      perimetre,
       log,
       "cashAnomalies"
     );
     const anomaly = anomalyRow[0] ?? {};
+
+    /* ---- Délai inscription → premier règlement ---------------------------- */
+    /*
+       Au-dela d une trentaine de jours, ce n est plus un retard : c est une
+       politique d acompte qui ne tient pas, et l ecole a livre des heures de
+       cours avant d avoir vu le premier franc.
+
+       MAIS les deux dates sont des dates d ECRITURE DE LIGNE. Sur une base
+       alimentee par reprise, elles portent toutes l horodatage du chargement et
+       le delai vaut 0 pour tout le monde — ce qui se lirait « tout le monde
+       paie le jour meme », l inverse exact de ce qu on cherche. On remonte donc
+       aussi le nombre de JOURS DISTINCTS d inscription : s il est derisoire au
+       regard du nombre de lots, les dates decrivent une reprise et non des
+       faits, et l appelant refuse d afficher le moindre delai.
+    */
+    const delaiRows = await safeRows<Row>(
+      client,
+      `WITH ${OUVERTURES_CTE},
+            ${OUVERTURES_PERIMETRE_CTE},
+       lots AS (
+         SELECT en.student_id,
+                op.filiere_id,
+                MIN(en.created_at)::date AS inscrit_le,
+                MIN(p.paid_at)::date     AS paye_le
+           FROM professional_enrollments en
+           JOIN ouvertures_perimetre op ON op.ue_session_id = en.ue_session_id
+           JOIN professional_orders o
+             ON o.id = en.order_id AND o.tenant_id = en.tenant_id
+           LEFT JOIN professional_payments p
+             ON p.order_id = o.id AND p.tenant_id = o.tenant_id
+            AND p.statut = 'confirme'
+          WHERE en.tenant_id = $1::uuid
+            AND en.statut <> 'annulee'
+          GROUP BY en.student_id, op.filiere_id
+       )
+       SELECT l.filiere_id,
+              COALESCE(pr.name, 'Sans classe')                    AS filiere_name,
+              COUNT(*) FILTER (WHERE l.paye_le IS NOT NULL)::int  AS lots_payes,
+              AVG(l.paye_le - l.inscrit_le) FILTER (
+                WHERE l.paye_le IS NOT NULL)::float8              AS moyen,
+              PERCENTILE_CONT(0.5) WITHIN GROUP (
+                ORDER BY (l.paye_le - l.inscrit_le))
+                FILTER (WHERE l.paye_le IS NOT NULL)::float8      AS mediane,
+              /* Le test de fiabilite, en deux mesures conjointes : l etalement
+                 des inscriptions, et le plus grand delai observe. */
+              COUNT(DISTINCT l.inscrit_le)::int                   AS jours_distincts,
+              MAX(l.paye_le - l.inscrit_le) FILTER (
+                WHERE l.paye_le IS NOT NULL)::int                 AS delai_max,
+              COUNT(*)::int                                       AS lots
+         FROM lots l
+         LEFT JOIN programmes pr ON pr.id = l.filiere_id AND pr.tenant_id = $1::uuid
+        GROUP BY GROUPING SETS ((l.filiere_id, pr.name), ())
+        ORDER BY l.filiere_id NULLS FIRST`,
+      perimetre,
+      log,
+      "delaiPremierPaiement"
+    );
+
+    /* La ligne du GROUPING SET vide porte le total : filiere_id à NULL et pas
+       de nom de classe — à ne pas confondre avec une classe réellement sans
+       nom, qui porterait un filiere_id. */
+    const delaiTotal = delaiRows.find((r) => r.filiere_id === null) ?? {};
+    const delaiClasses = delaiRows.filter((r) => r.filiere_id !== null);
+
+    const lotsPayes = Math.round(num(delaiTotal.lots_payes));
+    const lotsTotal = Math.round(num(delaiTotal.lots));
+    const joursDistincts = Math.round(num(delaiTotal.jours_distincts));
+    const delaiMax = Math.round(num(delaiTotal.delai_max));
+    /*
+       LA SIGNATURE D'UNE REPRISE DE DONNÉES : toutes les inscriptions portent
+       le même jour ET aucun délai n'est jamais non nul. Les deux ensemble ne
+       laissent aucune autre lecture — une école qui encaisse réellement tout à
+       l'inscription étale au moins ses inscriptions sur plusieurs jours.
+
+       Ne tester que le volume serait pire que rien : une base reprise de quatre
+       lots passerait le test et l'écran annoncerait « délai moyen 0 jour »,
+       c'est-à-dire « tout le monde paie le jour même » — l'inverse exact de ce
+       que cet indicateur doit détecter.
+    */
+    const datesFiables = !(joursDistincts <= 1 && delaiMax === 0);
+    const delaiMesure = lotsPayes > 0 && datesFiables;
 
     /* ---- Totaux et part d'échéancier par défaut --------------------------- */
     const totalsRow = await safeRows<Row>(
       client,
       `WITH ${PRO_ORDER_DATES_CTE},
        ${PRO_UNPAID_CTE},
+       ${OUVERTURES_CTE},
+       ${OUVERTURES_PERIMETRE_CTE},
+       ${COMMANDES_PERIMETRE_CTE},
        collected AS (
          SELECT
            (SELECT COALESCE(SUM(amount), 0)::float8 FROM payment_transactions
              WHERE tenant_id = $1::uuid AND status = 'completed'::transaction_status
-               AND COALESCE(processed_at, created_at)::date BETWEEN $2::date AND $3::date)
+               AND COALESCE(processed_at, created_at)::date BETWEEN $6::date AND $7::date
+               AND $2::text IS NULL AND $4::text IS NULL AND $5::uuid IS NULL)
          + (SELECT COALESCE(SUM(pp.montant), 0)::float8
               FROM professional_payments pp
               JOIN pro_order_dates d ON d.order_id = pp.order_id
+              JOIN commandes_perimetre cp ON cp.order_id = pp.order_id
              WHERE pp.tenant_id = $1::uuid AND pp.statut = 'confirme'
-               AND d.debut BETWEEN $2::date AND $3::date) AS v
+               AND d.debut BETWEEN $6::date AND $7::date) AS v
        ),
        expected AS (
          SELECT
            (SELECT COALESCE(SUM(amount), 0)::float8 FROM student_tuition_installments
-             WHERE tenant_id = $1::uuid AND due_date BETWEEN $2::date AND $3::date)
+             WHERE tenant_id = $1::uuid AND due_date BETWEEN $6::date AND $7::date
+               AND $2::text IS NULL AND $4::text IS NULL AND $5::uuid IS NULL)
          -- Montant ajusté au total réel de la commande (cf. fragment partagé) :
          -- un échéancier figé ne doit pas minorer l'attendu.
          + (SELECT COALESCE(SUM(si.montant), 0)::float8
               FROM pro_scaled_installments si
-             WHERE si.due_date BETWEEN $2::date AND $3::date)
+              JOIN commandes_perimetre cp ON cp.order_id = si.order_id
+             WHERE si.due_date BETWEEN $6::date AND $7::date)
          -- Commandes SANS échéancier : sans ce terme, l'attendu ne compte que
          -- ce qui a une date d'échéance alors que l'encaissé compte tout. Les
          -- deux termes du ratio ne portaient pas sur le même périmètre, et le
@@ -485,16 +639,22 @@ export async function fetchOwnerTresorerie(
          + (SELECT COALESCE(SUM(po.montant_total), 0)::float8
               FROM professional_orders po
               JOIN pro_order_dates d ON d.order_id = po.id
+              JOIN commandes_perimetre cp ON cp.order_id = po.id
              WHERE po.tenant_id = $1::uuid
                AND po.statut <> 'annulee'
-               AND d.debut BETWEEN $2::date AND $3::date
+               AND d.debut BETWEEN $6::date AND $7::date
                AND NOT EXISTS (SELECT 1 FROM professional_order_installments oi
                                 WHERE oi.order_id = po.id AND oi.tenant_id = po.tenant_id)) AS v
-       ),
+       )
+       -- Pas de virgule avant ce SELECT : "expected" est la DERNIERE CTE. Elle
+       -- y etait, la requete entiere echouait en 42601, et safeRows renvoyait
+       -- une liste vide sans rien interrompre -- donc "collected" et "expected"
+       -- de l'ecran Impayes valaient 0 depuis toujours, et son taux de
+       -- recouvrement restait "non mesure" quoi qu'il arrive.
        SELECT collected.v AS collected,
               expected.v  AS expected
        FROM collected, expected`,
-      [tenantId, from, to],
+      [...perimetre, from, to],
       log,
       "tresorerieTotals"
     );
@@ -542,6 +702,29 @@ export async function fetchOwnerTresorerie(
           amount: round0(num(anomaly.no_receipt_amount)),
         },
       },
+      delaiPaiement: {
+        mesure: delaiMesure,
+        raisonNonMesure: delaiMesure
+          ? null
+          : lotsPayes === 0
+            ? "Aucune inscription du périmètre n'a encore reçu de règlement confirmé."
+            : `Les ${lotsTotal} inscriptions du périmètre portent toutes le même jour et aucun règlement n'est jamais arrivé plus tard : ces dates sont celles d'une reprise de données, pas des inscriptions réelles. Un délai de 0 jour se lirait « tout le monde paie le jour même ».`,
+        lotsPayes,
+        /* Aucun chiffre quand les dates ne décrivent pas des faits : un délai
+           de 0 jour se lirait « tout le monde paie le jour même ». */
+        moyenJours: delaiMesure ? round0(num(delaiTotal.moyen)) : null,
+        medianeJours: delaiMesure ? round0(num(delaiTotal.mediane)) : null,
+        seuilJours: 30,
+        parClasse: delaiMesure
+          ? delaiClasses.map((r) => ({
+              filiereId: (r.filiere_id as string | null) ?? null,
+              filiereName: String(r.filiere_name ?? "Sans classe"),
+              lots: Math.round(num(r.lots_payes)),
+              moyenJours: r.moyen === null ? null : round0(num(r.moyen)),
+              medianeJours: r.mediane === null ? null : round0(num(r.mediane)),
+            }))
+          : [],
+      },
     };
   } finally {
     client.release();
@@ -579,6 +762,11 @@ export async function fetchOwnerCashRegister(
   const pageSize = query.pageSize ?? 50;
   const mode = query.mode && query.mode.trim() !== "" ? query.mode.trim() : null;
   const search = query.search && query.search.trim() !== "" ? `%${query.search.trim()}%` : null;
+  /** Contrat de owner-perimetre.sql, puis les paramètres propres au journal. */
+  const anneeScolaire = query.anneeScolaire ?? null;
+  const filiereIds = query.filiereIds && query.filiereIds.length > 0 ? query.filiereIds : null;
+  const nomClasse = query.nomClasse?.trim() ? query.nomClasse.trim() : null;
+  const semestreId = query.semestreId ?? null;
 
   const client = await pool.connect();
   try {
@@ -587,6 +775,7 @@ export async function fetchOwnerCashRegister(
     const base = `
       FROM professional_payments p
       JOIN professional_orders o ON o.id = p.order_id AND o.tenant_id = p.tenant_id
+      JOIN commandes_perimetre cp ON cp.order_id = p.order_id
       LEFT JOIN student_profiles sp ON sp.id = o.student_id AND sp.tenant_id = o.tenant_id
       LEFT JOIN users u ON u.id = sp.user_id AND u.tenant_id = sp.tenant_id
       LEFT JOIN LATERAL (
@@ -604,20 +793,23 @@ export async function fetchOwnerCashRegister(
       ) fil ON true
       WHERE p.tenant_id = $1::uuid
         AND p.statut = 'confirme'
-        AND COALESCE(p.paid_at, p.created_at)::date BETWEEN $2::date AND $3::date
-        AND ($4::text IS NULL OR p.mode = $4::text)
-        AND ($5::text IS NULL OR (
-              COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '') ILIKE $5::text
-           OR COALESCE(sp.student_matricule, '') ILIKE $5::text
-           OR COALESCE(sp.student_number, '') ILIKE $5::text
-           OR COALESCE(p.receipt_number, '') ILIKE $5::text
-           OR COALESCE(o.reference, '') ILIKE $5::text))`;
+        AND COALESCE(p.paid_at, p.created_at)::date BETWEEN $6::date AND $7::date
+        AND ($8::text IS NULL OR p.mode = $8::text)
+        AND ($9::text IS NULL OR (
+              COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '') ILIKE $9::text
+           OR COALESCE(sp.student_matricule, '') ILIKE $9::text
+           OR COALESCE(sp.student_number, '') ILIKE $9::text
+           OR COALESCE(p.receipt_number, '') ILIKE $9::text
+           OR COALESCE(o.reference, '') ILIKE $9::text))`;
 
-    const params = [tenantId, from, to, mode, search];
+    const params = [tenantId, anneeScolaire, filiereIds, nomClasse, semestreId, from, to, mode, search];
 
     const totalsRows = await safeRows<Row>(
       client,
-      `SELECT COUNT(*)::int AS n, COALESCE(SUM(p.montant), 0)::float8 AS total ${base}`,
+      `WITH ${OUVERTURES_CTE},
+            ${OUVERTURES_PERIMETRE_CTE},
+            ${COMMANDES_PERIMETRE_CTE}
+       SELECT COUNT(*)::int AS n, COALESCE(SUM(p.montant), 0)::float8 AS total ${base}`,
       params,
       log,
       "cashRegisterTotals"
@@ -625,7 +817,10 @@ export async function fetchOwnerCashRegister(
 
     const rows = await safeRows<Row>(
       client,
-      `SELECT
+      `WITH ${OUVERTURES_CTE},
+            ${OUVERTURES_PERIMETRE_CTE},
+            ${COMMANDES_PERIMETRE_CTE}
+       SELECT
          p.id,
          COALESCE(p.paid_at, p.created_at) AS paid_at,
          p.receipt_number,
@@ -638,7 +833,7 @@ export async function fetchOwnerCashRegister(
          fil.name AS filiere_name
        ${base}
        ORDER BY COALESCE(p.paid_at, p.created_at) DESC, p.id
-       LIMIT $6 OFFSET $7`,
+       LIMIT $10 OFFSET $11`,
       [...params, pageSize, (page - 1) * pageSize],
       log,
       "cashRegisterRows"

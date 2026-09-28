@@ -17,10 +17,10 @@ export function SuccessHeader({ enrollmentNumber }: SuccessHeaderProps) {
             <div className="absolute inset-0 bg-green-400/20 rounded-full animate-ping" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-green-600 dark:text-green-400 mb-2">
+            <h1 className="font-bold text-green-600 dark:text-green-400 mb-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
               Inscription confirmée !
             </h1>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-lg text-muted-foreground whitespace-nowrap text-sm md:text-base">
               Votre inscription a été confirmée avec succès
             </p>
             <p className="text-sm text-muted-foreground mt-2">

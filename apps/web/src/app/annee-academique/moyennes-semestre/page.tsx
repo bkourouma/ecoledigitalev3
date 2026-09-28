@@ -592,11 +592,11 @@ export default function MoyennesSemestrePage() {
       <div className="mb-8">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-2">
+            <h1 className="font-bold text-foreground mb-2 flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
               <Table2 className="h-8 w-8" />
               Moyennes par semestre
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
               Saisissez les moyennes sur 20 par matière et par période (semestre ou trimestre). Année active :{" "}
               <span className="font-medium text-foreground">{activeYear.name}</span>
             </p>

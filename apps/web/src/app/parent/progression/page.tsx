@@ -185,11 +185,11 @@ export default function ParentProgressionPage() {
     <div className="space-y-8 max-w-7xl mx-auto p-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-500 to-sky-500 bg-clip-text text-transparent flex items-center gap-3">
+        <h1 className="font-bold bg-gradient-to-r from-emerald-500 to-sky-500 bg-clip-text text-transparent flex items-center gap-3 whitespace-nowrap text-2xl leading-tight md:text-3xl">
           <TrendingUp className="h-8 w-8 text-emerald-400 shrink-0" />
           Progression de mon enfant
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Le parcours scolaire année par année : classes suivies, résultats de
           chaque semestre et assiduité.
         </p>

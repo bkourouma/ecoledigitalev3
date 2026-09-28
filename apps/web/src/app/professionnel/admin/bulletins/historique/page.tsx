@@ -255,11 +255,11 @@ export default function HistoriqueBulletinsPage() {
       {/* Header — actions sous le titre, comme les autres écrans du module. */}
       <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
             <History className="h-7 w-7 text-indigo-500" />
             Historique des bulletins
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Tous les bulletins générés par classe et par session : les trois semestres de chaque
             étudiant, avec le statut global de la classe.
           </p>

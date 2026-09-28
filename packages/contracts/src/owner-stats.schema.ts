@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PROVENANCE_CANAL_LABELS, PROVENANCE_CANAUX } from "./prospection";
 
 /**
  * Statistiques propriétaire du Module Professionnel (LMD : filière → semestre → UE → ECUE).
@@ -29,6 +30,60 @@ export const OwnerAcademicYearSchema = z
   .string()
   .regex(/^\d{4}-\d{4}$/, "Format attendu : 2025-2026");
 
+
+/**
+ * Sur quoi porte une comparaison avec l'année précédente.
+ *
+ * Le « à la même date » n'est légitime que pour un indicateur daté par un fait
+ * daté. Côté module professionnel, les encaissements ne sont PAS datés par
+ * `paid_at` mais par le début de l'ouverture de classe : sur une base reprise,
+ * `paid_at` porte le même jour sur cinq années. Comparer « au 22 septembre
+ * contre au 22 septembre de l'an dernier » un montant attaché à une date
+ * d'ouverture ne veut rien dire — d'où ces trois bases, nommées et publiées.
+ */
+export const OwnerComparaisonBasisSchema = z.enum([
+  /** Exercice entier contre exercice entier : l'indicateur est daté par l'ouverture. */
+  "annee_complete",
+  /** Arrêté au même jour de l'exercice : l'indicateur est daté par un fait daté. */
+  "a_meme_date",
+  /** L'an dernier n'existe pas, ou le périmètre choisi n'y existait pas. */
+  "non_comparable",
+]);
+export type OwnerComparaisonBasis = z.infer<typeof OwnerComparaisonBasisSchema>;
+
+/**
+ * Variation d'un indicateur par rapport à la même dimension de l'année N-1.
+ *
+ * TROIS FAÇONS DE NE PAS MENTIR, et elles sont distinctes :
+ *
+ *   - `measured: false` — l'an dernier n'a rien à mesurer sur ce périmètre.
+ *     L'écran écrit « pas d'historique », jamais « -100 % ». C'est le cas d'une
+ *     classe qui n'avait pas ouvert.
+ *   - `deltaPct: null` — l'an dernier valait zéro : le rapport n'existe pas.
+ *     Seul l'écart absolu est affiché. Un « +100 % » sur base nulle est une
+ *     invention.
+ *   - `basis` — sur quoi porte la comparaison, pour que le lecteur sache s'il
+ *     lit un exercice entier ou un arrêté à date.
+ *
+ * `measured: true` avec `previousValue: 0` est donc un zéro VÉRIDIQUE — de
+ * l'activité existait, elle n'a rien rapporté — là où `measured: false` dit
+ * qu'il n'y avait rien à mesurer. Les confondre ferait passer une absence de
+ * données pour une contre-performance.
+ */
+export const OwnerComparaisonSchema = z.object({
+  /** Millésime comparé, `2024-2025`. `null` si aucune année n'est demandée. */
+  anneePrecedente: z.string().nullable(),
+  previousValue: z.number().nullable(),
+  /** Phrase toute faite pour l'écran, y compris quand rien n'est mesurable. */
+  previousLabel: z.string(),
+  /** Écart absolu, dans l'unité de l'indicateur. */
+  delta: z.number().nullable(),
+  /** Écart relatif en points de pourcentage. `null` si la base est nulle. */
+  deltaPct: z.number().nullable(),
+  basis: OwnerComparaisonBasisSchema,
+  measured: z.boolean(),
+});
+export type OwnerComparaison = z.infer<typeof OwnerComparaisonSchema>;
 /* -------------------------------------------------------------------------- */
 /*  5.A — /owner/pedagogie                                                     */
 /* -------------------------------------------------------------------------- */
@@ -42,6 +97,8 @@ export const OwnerPedagogieQuerySchema = z.object({
   /** Statut des sessions d'UE du périmètre. */
   statut: z.enum(["en_cours", "termine", "tous"]).optional().default("tous"),
   categorie: OwnerUeCategorieSchema.optional(),
+  /** Ouverture de classe, cle « filiereId|nom » — contrat owner-perimetre.sql. */
+  nomClasse: z.string().optional(),
 });
 
 export const OwnerPedagogieKpisSchema = z.object({
@@ -117,6 +174,75 @@ export const OwnerPedagogieSession2Schema = z.object({
   rate: z.number(),
 });
 
+/**
+ * Le rattrapage, vu comme un chantier et non comme un taux.
+ *
+ * `session2` répond déjà à « quelle part des validations vient du rattrapage ».
+ * Ce bloc-ci répond à la question d'avant : **qui est en rattrapage, et
+ * est-ce que ça marche ?**
+ *
+ * La session est portée par `professional_ecue_notes.session` : 1 pour la
+ * session normale, 2 pour le rattrapage. Comparer les deux moyennes est le seul
+ * moyen de savoir si une session de rattrapage sert à quelque chose — mesuré le
+ * 23/09/2026 sur la base de développement, 11,33 en session 1 contre 9,67 en
+ * session 2.
+ */
+export const OwnerRattrapageSchema = z.object({
+  /** Étudiants portant au moins une note de session 2. */
+  etudiantsConcernes: z.number().int().nonnegative(),
+  notesSession2: z.number().int().nonnegative(),
+  /** `null` quand aucune note de session 2 n'existe : pas de moyenne sur rien. */
+  moyenneSession2: z.number().nullable(),
+  /** Moyenne des mêmes natures en session 1, pour la comparaison. */
+  moyenneSession1: z.number().nullable(),
+  /** ECUE où le rattrapage est le plus demandé — le vrai goulot. */
+  ecueLesPlusReprises: z.array(
+    z.object({
+      ecueId: z.string().uuid(),
+      code: z.string(),
+      libelle: z.string(),
+      filiereName: z.string().nullable(),
+      etudiants: z.number().int().nonnegative(),
+      moyenne: z.number().nullable(),
+    })
+  ),
+});
+
+/**
+ * L'état de la chaîne des bulletins.
+ *
+ * CE QU'IL FAUT VOIR, ET QUI NE SE VOYAIT NULLE PART
+ *
+ * Un semestre **clôturé sans aucun bulletin** est un blocage sec : la clôture
+ * dit « c'est fini », et les étudiants n'ont pourtant aucun relevé. Sans
+ * bulletin définitif, ni diplôme ni attestation ni réinscription ne peuvent
+ * suivre. Mesuré le 23/09/2026 : 121 semestres, 16 clôturés, et **15 de ces 16
+ * n'ont aucun bulletin**.
+ *
+ * Ce n'est pas un défaut de saisie mais un état de la production pédagogique —
+ * c'est pourquoi il vit ici, sur l'écran des résultats, et non dans un panneau
+ * d'anomalies.
+ */
+export const OwnerBulletinsEtatSchema = z.object({
+  generes: z.number().int().nonnegative(),
+  provisoires: z.number().int().nonnegative(),
+  definitifs: z.number().int().nonnegative(),
+  semestres: z.number().int().nonnegative(),
+  semestresClotures: z.number().int().nonnegative(),
+  /** Clôturés sans aucun bulletin : la chaîne s'arrête là. */
+  semestresCloturesSansBulletin: z.number().int().nonnegative(),
+  parSemestre: z.array(
+    z.object({
+      semestreId: z.string().uuid(),
+      libelle: z.string(),
+      filiereName: z.string().nullable(),
+      clotureLe: z.string().nullable(),
+      bulletins: z.number().int().nonnegative(),
+      definitifs: z.number().int().nonnegative(),
+    })
+  ),
+});
+
 export const OwnerPedagogieResponseSchema = z.object({
   /** Filtres réellement appliqués, ré-exposés pour l'affichage. */
   anneeScolaire: OwnerAcademicYearSchema.nullable(),
@@ -131,6 +257,10 @@ export const OwnerPedagogieResponseSchema = z.object({
   ueHealth: z.array(OwnerPedagogieUeHealthSchema),
   gradeDistribution: z.array(OwnerPedagogieGradeBucketSchema),
   session2: OwnerPedagogieSession2Schema,
+  /** Le rattrapage comme chantier : qui est concerné, et est-ce que ça marche. */
+  rattrapage: OwnerRattrapageSchema,
+  /** L'état de la chaîne des bulletins, clôtures comprises. */
+  bulletins: OwnerBulletinsEtatSchema,
 });
 
 /* -------------------------------------------------------------------------- */
@@ -406,7 +536,78 @@ export const OwnerReferentielFiliereRowSchema = z.object({
   /** Σ professional_ecue.credits — valeur réellement utilisée en pondération. */
   sumCredits: z.number().int().nonnegative(),
   studentCount: z.number().int().nonnegative(),
+  /*
+   * LA CLASSE COMME LIGNE ÉCONOMIQUE.
+   *
+   * Un catalogue ne dit pas ce qu'il rapporte. Ces quatre colonnes répondent à
+   * la question qu'un fondateur pose devant une liste de classes : laquelle
+   * tourne, laquelle dort, laquelle facture.
+   *
+   * Les COQUILLES VIDES se lisent ici, et non dans un panneau d'alertes : une
+   * classe à 0 ouverture et 0 inscrit se voit dans son propre tableau. Le
+   * catalogue d'incohérences a été retiré de l'espace Propriétaire le
+   * 23/09/2026 — un contrôle de saisie s'adresse à qui corrige, pas à qui
+   * décide.
+   */
+  /** Ouvertures de classe jamais annulées, toutes années confondues. */
+  ouvertureCount: z.number().int().nonnegative(),
+  /**
+   * Lots facturables : inscrits NON ANNULÉS — l'assiette du CA théorique.
+   *
+   * Diverge de `studentCount`, qui ne compte que les confirmés : un étudiant en
+   * attente de paiement n'est pas confirmé, mais c'est justement lui qui porte
+   * la dette. Mesuré le 23/09/2026, LICENCE 1 GENIE LOGICIEL a 0 confirmé et
+   * 1 non annulé — bâtir le CA théorique sur les confirmés annonçait « 0 FCFA
+   * attendu » sur une classe tarifée 960 000 qui avait déjà encaissé 100 000.
+   */
+  lotsFacturables: z.number().int().nonnegative(),
+  /**
+   * Barème complet d'un lot — inscription + scolarité + annexes + autres.
+   * `null` quand la classe n'a pas de grille tarifaire : elle n'est pas
+   * gratuite, elle n'est pas tarifée. C'est un trou de facturation, et le
+   * détail nominatif en vit sur `/owner/scolarite`.
+   */
+  baremeTotal: z.number().nullable(),
+  /**
+   * Détail du barème, tel que le saisit l'écran Scolarité
+   * (`/admin/finances/scolarite`). `null` dans les mêmes cas que `baremeTotal`.
+   */
+  bareme: z
+    .object({
+      inscription: z.number(),
+      scolarite: z.number(),
+      annexes: z.number(),
+      autres: z.number(),
+      currency: z.string(),
+    })
+    .nullable(),
+  /** `baremeTotal × lotsFacturables`. `null` dès que le barème l'est. */
+  caTheorique: z.number().nullable(),
+  /** Règlements confirmés rattachés à cette classe, par commande ou inscription. */
+  caEncaisse: z.number(),
 });
+
+/**
+ * Portée d'une incohérence — ce qui décide si elle appelle une action ce matin.
+ *
+ * POURQUOI CETTE DISTINCTION EXISTE
+ *
+ * Le catalogue de cette école porte 41 classes et 121 semestres ; deux classes
+ * seulement ont une ouverture réelle. Les 119 semestres « sans session » ne sont
+ * donc pas des défauts : ce sont les classes qu'on n'a pas encore ouvertes, et
+ * il est normal qu'un semestre jamais ouvert n'ait aucune séance.
+ *
+ * Les additionner aux vraies alertes noyait le seul point actionnable — huit
+ * ECUE obligatoires sans enseignant, sur des ouvertures portant six étudiants —
+ * sous 92 % de lignes sans enjeu. Un écran qui annonce « 110 incohérences »
+ * quand dix comptent n'est pas alarmiste : il est ignoré.
+ *
+ * `ouverture` — l'objet touche une ouverture de classe existante. Des étudiants
+ *   peuvent déjà en dépendre : à traiter maintenant.
+ * `catalogue` — l'objet décrit une maquette qui n'a jamais ouvert. À corriger
+ *   AVANT d'ouvrir la classe, jamais dans l'urgence.
+ */
+export const OwnerReferentielPorteeSchema = z.enum(["ouverture", "catalogue"]);
 
 /**
  * Une incohérence structurelle détectée dans le catalogue.
@@ -428,6 +629,8 @@ export const OwnerReferentielIssueSchema = z.object({
   label: z.string(),
   detail: z.string().nullable(),
   filiereName: z.string().nullable(),
+  /** Voir `OwnerReferentielPorteeSchema` : ce qui appelle une action ce matin. */
+  portee: OwnerReferentielPorteeSchema,
 });
 
 export const OwnerReferentielMutualisationSchema = z.object({
@@ -443,9 +646,32 @@ export const OwnerReferentielResponseSchema = z.object({
   categorie: OwnerUeCategorieSchema.nullable(),
   kpis: OwnerReferentielKpisSchema,
   filieres: z.array(OwnerReferentielFiliereRowSchema),
+  /** Échantillon affichable, plafonné par type. Voir `issueCounts` pour le vrai nombre. */
   issues: z.array(OwnerReferentielIssueSchema),
-  /** Compte par type d'incohérence — évite de recompter côté client. */
+  /**
+   * Compte RÉEL par type d'incohérence, sans plafond.
+   *
+   * Il valait auparavant `issues.length` par type, donc au plus 50 : l'écran
+   * annonçait « 110 au total » là où la base en portait 129, et affichait
+   * « 50+ » sans jamais pouvoir dire combien. Un total qui paraît exact tout en
+   * sous-estimant est pire qu'un total absent — on décide dessus.
+   */
   issueCounts: z.record(z.string(), z.number().int().nonnegative()),
+  /**
+   * Part de chaque type qui porte sur une ouverture réelle — **comptée en SQL,
+   * pas estimée**.
+   *
+   * Un type se répartit parfois sur les deux portées : 118 UE à prix zéro dont
+   * une poignée sont déjà ouvertes. Ventiler au prorata des 50 lignes
+   * rapportées reproduirait, sur le résumé, l'inexactitude que `issueCounts`
+   * vient de corriger sur le total.
+   */
+  issueOuvertureCounts: z.record(z.string(), z.number().int().nonnegative()),
+  /** Comptes réels par portée, pour trancher d'un coup d'œil ce qui presse. */
+  porteeCounts: z.object({
+    ouverture: z.number().int().nonnegative(),
+    catalogue: z.number().int().nonnegative(),
+  }),
   ecueMutualisation: z.array(OwnerReferentielMutualisationSchema),
 });
 
@@ -460,6 +686,13 @@ export const OwnerAssiduiteQuerySchema = z.object({
   filiereIds: z.array(z.string().uuid()).optional(),
   semestreId: z.string().uuid().optional(),
   building: z.string().optional(),
+  /**
+   * Périmètre — contrat de owner-perimetre.sql. L'écran Présences affichait
+   * déjà la filière et le semestre ; il ignorait l'année scolaire et
+   * l'ouverture de classe, que sa barre de filtres propose pourtant.
+   */
+  anneeScolaire: OwnerAcademicYearSchema.optional(),
+  nomClasse: z.string().optional(),
 });
 
 export const OwnerAssiduiteKpisSchema = z.object({
@@ -535,6 +768,33 @@ export const OwnerAssiduiteTrendSchema = z.object({
   totalRecords: z.number().int().nonnegative(),
 });
 
+/**
+ * Conduite — une note, pas une présence, mais elle se lit avec elles.
+ *
+ * Elle se note sur une ECUE dédiée, sans enseignant ni prix : elle ne
+ * s'enseigne pas et ne se vend pas, l'administration l'attribue. Sa place est
+ * sur l'écran des présences parce qu'elle sanctionne le même comportement — la
+ * tenue et l'assiduité — et qu'un fondateur les lit ensemble.
+ *
+ * `sansNote` est le seul chiffre actionnable du bloc : un étudiant inscrit sans
+ * note de conduite empêche la génération de son bulletin. Ce n'est pas une
+ * anomalie de saisie qu'on signale pour la forme, c'est un relevé qui ne
+ * sortira pas.
+ */
+export const OwnerConduiteClasseSchema = z.object({
+  filiereId: z.string().uuid().nullable(),
+  filiereName: z.string(),
+  inscrits: z.number().int().nonnegative(),
+  notes: z.number().int().nonnegative(),
+  /** `null` quand la classe n'a aucune note : pas de moyenne sur rien. */
+  moyenne: z.number().nullable(),
+  mini: z.number().nullable(),
+  maxi: z.number().nullable(),
+  sousLaMoyenne: z.number().int().nonnegative(),
+  /** Inscrits sans aucune note de conduite : autant de bulletins bloqués. */
+  sansNote: z.number().int().nonnegative(),
+});
+
 export const OwnerAssiduiteResponseSchema = z.object({
   dateDebut: z.string(),
   dateFin: z.string(),
@@ -551,6 +811,13 @@ export const OwnerAssiduiteResponseSchema = z.object({
   roomUsage: z.array(OwnerAssiduiteRoomUsageSchema),
   unassignedEcue: z.array(OwnerAssiduiteUnassignedSchema),
   presenceTrend: z.array(OwnerAssiduiteTrendSchema),
+  /** Conduite : la note de tenue, et les bulletins qu'elle bloque. */
+  conduite: z.object({
+    parClasse: z.array(OwnerConduiteClasseSchema),
+    notesTotal: z.number().int().nonnegative(),
+    /** Total des inscrits sans note — autant de bulletins qui ne sortiront pas. */
+    etudiantsSansNote: z.number().int().nonnegative(),
+  }),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -565,6 +832,9 @@ export const OwnerPersonnesQuerySchema = z.object({
    */
   anneeScolaire: OwnerAcademicYearSchema.optional(),
   filiereIds: z.array(z.string().uuid()).optional(),
+  /** Ouverture de classe, cle « filiereId|nom » — contrat owner-perimetre.sql. */
+  nomClasse: z.string().optional(),
+  semestreId: z.string().uuid().optional(),
 });
 
 export const OwnerPersonnesKpisSchema = z.object({
@@ -634,6 +904,45 @@ export const OwnerPersonnesCoverageSchema = z.object({
   studentsWithoutBirthDate: z.number().int().nonnegative(),
 });
 
+/**
+ * Les deux files de relance nominatives de l'écran Personnes.
+ *
+ * Elles répondent à la même question sous deux angles : **qui, nommément,
+ * représente de l'argent qu'on ne fait pas travailler ?**
+ *
+ * - Un ancien étudiant non réinscrit sur l'année active, c'est du chiffre
+ *   d'affaires récupérable à coût quasi nul : il connaît l'école, elle le
+ *   connaît, et un appel suffit parfois.
+ * - Un enseignant sans affectation sous contrat **permanent**, c'est un coût
+ *   fixe dormant. Le même sans affectation en **freelance** ne coûte rien : la
+ *   distinction fait toute la valeur de la liste, et c'est pourquoi le type de
+ *   contrat y figure au même rang que le nom.
+ */
+export const OwnerRelanceEtudiantSchema = z.object({
+  studentId: z.string().uuid(),
+  nom: z.string(),
+  matricule: z.string().nullable(),
+  telephone: z.string().nullable(),
+  email: z.string().nullable(),
+  /** Dernière classe suivie, pour savoir vers quoi le rappeler. */
+  derniereClasse: z.string().nullable(),
+  /** Millésime de sa dernière inscription. */
+  derniereAnnee: z.string().nullable(),
+});
+
+export const OwnerEnseignantInactifSchema = z.object({
+  teacherId: z.string().uuid(),
+  nom: z.string(),
+  contractType: z.string().nullable(),
+  /**
+   * Coût mensuel. `null` quand il n'est pas saisi — ce qui est le cas de TOUS
+   * les enseignants sur la base de développement au 23/09/2026 : ni
+   * `teachers.hourly_rate` ni `teacher_payment_configs.monthly_salary` ne sont
+   * renseignés. Un zéro se lirait « cet enseignant est gratuit ».
+   */
+  coutMensuel: z.number().nullable(),
+});
+
 export const OwnerPersonnesResponseSchema = z.object({
   /** Année retenue, ou `null` quand l'écran cumule toutes les années. */
   anneeScolaire: z.string().nullable(),
@@ -646,6 +955,22 @@ export const OwnerPersonnesResponseSchema = z.object({
   teachers: z.array(OwnerPersonnesTeacherRowSchema),
   topNationalities: z.array(OwnerPersonnesNationalityRowSchema),
   coverage: OwnerPersonnesCoverageSchema,
+  /** Anciens étudiants non réinscrits sur l'année active. */
+  aRelancer: z.array(OwnerRelanceEtudiantSchema),
+  /** Enseignants sans aucune affectation d'ECUE. */
+  enseignantsInactifs: z.array(OwnerEnseignantInactifSchema),
+  relances: z.object({
+    /** Total réel, la liste pouvant être tronquée pour l'affichage. */
+    etudiantsARelancer: z.number().int().nonnegative(),
+    enseignantsSansAffectation: z.number().int().nonnegative(),
+    /** Dont le contrat est permanent : le seul coût fixe dormant. */
+    permanentsSansAffectation: z.number().int().nonnegative(),
+    /**
+     * `false` tant qu'aucun tarif n'est saisi : l'écran affiche alors les noms
+     * sans chiffrer le coût, plutôt qu'un total à zéro.
+     */
+    coutMesure: z.boolean(),
+  }),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -730,6 +1055,18 @@ export const OwnerEconomieQuerySchema = z.object({
    */
   anneeScolaire: OwnerAcademicYearSchema.optional(),
   filiereIds: z.array(z.string().uuid()).optional(),
+  /** Ouverture de classe, clé « filiereId|nom » — contrat owner-perimetre.sql. */
+  nomClasse: z.string().optional(),
+  semestreId: z.string().uuid().optional(),
+  /**
+   * Base de l'exercice du compte de résultat : scolaire (1er sept → 31 août)
+   * ou civile (1er janv → 31 déc).
+   *
+   * ELLE N'EST PAS DANS LA BARRE DE FILTRES, et c'est délibéré : un résultat
+   * porte sur UN exercice, là où la barre accepte « toutes années ». Le
+   * sélecteur vit sur l'écran, à côté du tableau qu'il commande.
+   */
+  baseExercice: z.enum(["scolaire", "civil"]).optional().default("scolaire"),
 });
 
 /**
@@ -748,6 +1085,23 @@ export const OwnerEconomieCouvertureSchema = z.object({
   historiqueStatutsDepuis: z.string().nullable(),
   /** `false` = le chiffre affiché est un chiffre d'affaires, pas une marge. */
   margeInterpretable: z.boolean(),
+});
+
+/**
+ * Charges d ETABLISSEMENT : loyer, energie, amortissements.
+ *
+ * Elles ne sont rattachees a aucune classe et ne le seront JAMAIS par une cle
+ * inventee — ni au prorata des effectifs, ni a celui du chiffre d affaires.
+ * Elles vivent donc hors du tableau des marges, en pied, sous leur propre nom.
+ * Le resultat apres charges d etablissement est un chiffre GLOBAL : il n existe
+ * pas de version « par filiere », et c est le seul moyen de ne pas transformer
+ * une convention de repartition en verite comptable.
+ */
+export const OwnerChargesEtablissementSchema = z.object({
+  montant: z.number(),
+  nombre: z.number().int().nonnegative(),
+  /** Marge brute pedagogique totale MOINS les charges d etablissement. */
+  resultatApresChargesEtablissement: z.number(),
 });
 
 export const OwnerMargeFiliereSchema = z.object({
@@ -781,11 +1135,82 @@ export const OwnerRetentionSchema = z.object({
   tauxRetention: z.number().nullable(),
 });
 
+/**
+ * Compte de résultat à deux colonnes : engagement et caisse.
+ *
+ * POURQUOI DEUX COLONNES
+ *
+ * C'est la lecture d'un expert-comptable, et les deux dates de chaque fait sont
+ * déjà en base : `incurred_on`/`paid_on` côté charges, la commande et le
+ * règlement côté produits, `approved_at`/`paid_at` côté salaires. Une seule
+ * colonne obligerait à choisir entre « ce que l'école a gagné » et « ce qui est
+ * passé par la banque », alors que l'écart entre les deux EST l'information :
+ * il se lit dans les trois soldes de clôture.
+ *
+ * UNE LIGNE NON MESURÉE N'EST PAS UNE LIGNE À ZÉRO
+ *
+ * `mesuree: false` quand la source est vide — aucune charge saisie, aucun
+ * bulletin de paie calculé. Les montants sortent alors `null` et non 0, et la
+ * ligne n'entre dans aucun total. Un résultat qui additionne des charges
+ * absentes comme si elles valaient zéro annonce un bénéfice qui n'existe pas :
+ * c'est l'erreur que cet écran doit rendre impossible.
+ */
+export const OwnerResultatLigneSchema = z.object({
+  cle: z.string(),
+  libelle: z.string(),
+  /** `produit` s'ajoute au résultat, `charge` s'en retranche. */
+  sens: z.enum(["produit", "charge"]),
+  /** Daté au fait générateur : commande émise, charge engagée, paie approuvée. */
+  engagement: z.number().nullable(),
+  /** Daté au mouvement d'argent : règlement encaissé, charge décaissée, paie versée. */
+  caisse: z.number().nullable(),
+  mesuree: z.boolean(),
+  /** Ce que le lecteur doit savoir pour interpréter la ligne. */
+  note: z.string().nullable(),
+});
+
+/**
+ * Les trois soldes qui expliquent l'écart entre les deux colonnes.
+ *
+ * Chacun est un décalage de trésorerie, pas une perte : de l'argent dû à
+ * l'école, ou par elle. `null` quand la source n'est pas alimentée.
+ */
+export const OwnerResultatSoldesSchema = z.object({
+  /** Facturé, non encaissé. */
+  creancesClients: z.number().nullable(),
+  /** Paie approuvée, non versée. */
+  salairesDus: z.number().nullable(),
+  /** Charges engagées, non décaissées. */
+  dettesFournisseurs: z.number().nullable(),
+});
+
+export const OwnerCompteDeResultatSchema = z.object({
+  base: z.enum(["scolaire", "civil"]),
+  /** Bornes effectivement retenues, en ISO — l'écran ne les recalcule pas. */
+  debut: z.string(),
+  fin: z.string(),
+  libelle: z.string(),
+  lignes: z.array(OwnerResultatLigneSchema),
+  soldes: OwnerResultatSoldesSchema,
+  resultat: z.object({
+    engagement: z.number().nullable(),
+    caisse: z.number().nullable(),
+    /**
+     * `false` tant qu'une ligne de charge n'est pas mesurée. L'écran doit alors
+     * écrire « produits » et non « résultat » : un résultat amputé de ses
+     * charges n'est pas un résultat prudent, c'est un résultat faux.
+     */
+    interpretable: z.boolean(),
+  }),
+});
+
 export const OwnerEconomieResponseSchema = z.object({
   computedAt: z.string(),
   /** Année retenue, ou `null` quand l'écran cumule toutes les années. */
   anneeScolaire: z.string().nullable(),
   couverture: OwnerEconomieCouvertureSchema,
+  /** Ce que l ecran affiche en pied de tableau, hors colonnes des marges. */
+  chargesEtablissement: OwnerChargesEtablissementSchema,
   kpis: z.object({
     encaisseTotal: z.number(),
     coutTotal: z.number(),
@@ -797,6 +1222,8 @@ export const OwnerEconomieResponseSchema = z.object({
   marges: z.array(OwnerMargeFiliereSchema),
   familles: z.array(OwnerFamilleSchema),
   retention: z.array(OwnerRetentionSchema),
+  /** Compte de résultat à deux colonnes — la lecture d'un expert-comptable. */
+  compteDeResultat: OwnerCompteDeResultatSchema,
 });
 
 /* -------------------------------------------------------------------------- */
@@ -805,6 +1232,10 @@ export const OwnerEconomieResponseSchema = z.object({
 
 export const OwnerRisqueQuerySchema = z.object({
   filiereIds: z.array(z.string().uuid()).optional(),
+  /** Contrat de perimetre commun a l espace proprietaire. */
+  anneeScolaire: OwnerAcademicYearSchema.optional(),
+  nomClasse: z.string().optional(),
+  semestreId: z.string().uuid().optional(),
 });
 
 /** Les quatre signaux du score de décrochage. */
@@ -889,6 +1320,15 @@ export const OwnerRisqueResponseSchema = z.object({
   enseignants: z.array(OwnerRisqueTeacherSchema),
   presence: z.array(OwnerRisquePresenceSchema),
   correlation: z.array(OwnerRisqueCorrelationPointSchema),
+  /**
+   * Périmètre effectivement appliqué, renvoyé pour que l'export CSV porte en
+   * en-tête ce qu'il contient réellement. Un fichier nominatif qui annonce
+   * « toutes filières » alors qu'il ne liste qu'une classe se lit comme un
+   * état de l'école entière, et la relance téléphonique part de travers.
+   */
+  filiereIds: z.array(z.string().uuid()),
+  /** Ouverture de classe, clé « filiereId|nom ». */
+  nomClasse: z.string().nullable(),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -902,6 +1342,9 @@ export const OwnerRemplissageQuerySchema = z.object({
    */
   anneeScolaire: OwnerAcademicYearSchema.optional(),
   filiereIds: z.array(z.string().uuid()).optional(),
+  /** Ouverture de classe, clé « filiereId|nom » — contrat owner-perimetre.sql. */
+  nomClasse: z.string().optional(),
+  semestreId: z.string().uuid().optional(),
 });
 
 /**
@@ -952,6 +1395,29 @@ export const OwnerCohorteRowSchema = z.object({
   capacite: z.number().nullable(),
   inscrits: z.number().int().nonnegative(),
   tauxRemplissage: TauxSchema,
+  /*
+   * L'OUVERTURE COMME LIGNE ÉCONOMIQUE.
+   *
+   * C'est la décision go/no-go d'un fondateur : ouvrir, fusionner ou annuler.
+   * Elle ne se prend pas sur un taux de remplissage seul — une classe à 40 %
+   * dont les inscrits ont payé vaut mieux qu'une classe pleine qui ne règle
+   * pas. Les trois colonnes se lisent ensemble.
+   */
+  /** Σ des prix d'inscription à cette ouverture, hors annulées. */
+  caAttendu: z.number(),
+  /** Règlements confirmés sur les commandes qui financent cette ouverture. */
+  caEncaisse: z.number(),
+  resteDu: z.number(),
+  /**
+   * Coût enseignant imputé à cette ouverture. `null` quand il n'est pas
+   * mesurable — voir `couvertureEconomique`.
+   *
+   * Il n'est JAMAIS remplacé par une répartition au prorata : une marge par
+   * classe bâtie sur une clé inventée n'est pas une marge, c'est une opinion.
+   */
+  coutEnseignant: z.number().nullable(),
+  /** `caEncaisse - coutEnseignant`. `null` dès que le coût ne l'est pas. */
+  solde: z.number().nullable(),
 });
 
 export const OwnerPlanningConflitSchema = z.object({
@@ -982,6 +1448,27 @@ export const OwnerRemplissageResponseSchema = z.object({
   cohortes: z.array(OwnerCohorteRowSchema),
   conflits: z.array(OwnerPlanningConflitSchema),
   couverture: z.array(OwnerCouvertureRowSchema),
+  /**
+   * Ce que la colonne économique peut, ou ne peut pas, mesurer.
+   *
+   * Le coût enseignant par ouverture passe par
+   * `payment_hour_details.seance_id` → `professional_ecue_seances.ue_session_id`.
+   * Ce chemin existe et est direct, mais la table peut être entièrement vide —
+   * elle l'est sur la base de développement au 23/09/2026, comme l'était déjà
+   * le chemin académique que la migration 0103 documente (défaut E4 : la clé
+   * étrangère rejetait les insertions et l'erreur était avalée).
+   *
+   * Quand elle l'est, le coût sort `null` et le solde avec lui. **Pas de repli
+   * sur une répartition au prorata** : c'est exactement la clé inventée que ce
+   * chantier supprime ailleurs.
+   */
+  couvertureEconomique: z.object({
+    coutEnseignantMesure: z.boolean(),
+    /** Pourquoi il ne l'est pas. `null` quand il l'est. */
+    raison: z.string().nullable(),
+    /** Ouvertures dont le CA attendu est chiffrable, sur le total du périmètre. */
+    ouverturesValorisees: z.number().int().nonnegative(),
+  }),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -996,7 +1483,19 @@ export const OwnerTresorerieQuerySchema = z.object({
   dateDebut: z.string().optional(),
   dateFin: z.string().optional(),
   granularity: OwnerTresorerieGranularitySchema.optional().default("week"),
+  /**
+   * Périmètre — le contrat commun de `owner-perimetre.sql`.
+   *
+   * L'écran Impayés affichait déjà ces trois sélecteurs, mais cette requête-ci
+   * n'en connaissait qu'un : la page dégradait donc la classe en filière pour
+   * la balance âgée, la courbe et le journal. Choisir « LICENCE 1 A »
+   * restreignait le haut de l'écran et pas le bas, sans que rien ne le dise.
+   */
+  anneeScolaire: OwnerAcademicYearSchema.optional(),
   filiereIds: z.array(z.string().uuid()).optional(),
+  /** Clé `filiereId|nom` de l'ouverture de classe. */
+  nomClasse: z.string().optional(),
+  semestreId: z.string().uuid().optional(),
 });
 
 /**
@@ -1062,6 +1561,52 @@ export const OwnerTresorerieTotalsSchema = z.object({
   recoveryRate: z.number().nullable(),
 });
 
+/**
+ * Délai entre l'inscription et le premier règlement, par classe.
+ *
+ * À QUOI IL SERT
+ *
+ * Au-delà d'une trentaine de jours, ce n'est plus un retard de paiement, c'est
+ * une politique d'acompte qui ne tient pas : l'école a livré des heures de
+ * cours avant d'avoir vu le premier franc. Le délai par classe dit laquelle
+ * renégocier, et c'est une décision qu'un fondateur peut prendre seul.
+ *
+ * POURQUOI IL PEUT ÊTRE NON MESURABLE, ET POURQUOI C'EST CAPITAL
+ *
+ * Il se calcule entre `professional_enrollments.created_at` et le premier
+ * `professional_payments.paid_at` — deux dates d'ÉCRITURE DE LIGNE. Sur une
+ * base alimentée par reprise de données, elles portent toutes l'horodatage du
+ * chargement : le délai vaut alors 0 pour tout le monde, et ce zéro se lirait
+ * « tout le monde paie le jour même », c'est-à-dire l'inverse exact de ce que
+ * l'indicateur doit détecter.
+ *
+ * D'où un test de fiabilité plutôt qu'un chiffre brut : si les inscriptions du
+ * périmètre se concentrent sur un ou deux jours distincts alors qu'elles sont
+ * nombreuses, les dates décrivent une reprise et non des faits. L'indicateur
+ * sort alors `mesure: false` avec sa raison, et n'affiche AUCUN délai.
+ */
+export const OwnerDelaiClasseSchema = z.object({
+  filiereId: z.string().uuid().nullable(),
+  filiereName: z.string(),
+  lots: z.number().int().nonnegative(),
+  /** Délai moyen en jours. `null` quand la classe n'a aucun lot payé. */
+  moyenJours: z.number().nullable(),
+  medianeJours: z.number().nullable(),
+});
+
+export const OwnerDelaiPaiementSchema = z.object({
+  mesure: z.boolean(),
+  /** Pourquoi l'indicateur n'est pas mesurable. `null` quand il l'est. */
+  raisonNonMesure: z.string().nullable(),
+  /** Inscriptions ayant reçu au moins un règlement confirmé. */
+  lotsPayes: z.number().int().nonnegative(),
+  moyenJours: z.number().nullable(),
+  medianeJours: z.number().nullable(),
+  /** Seuil au-delà duquel la politique d'acompte doit changer. */
+  seuilJours: z.number().int(),
+  parClasse: z.array(OwnerDelaiClasseSchema),
+});
+
 export const OwnerTresorerieResponseSchema = z.object({
   dateDebut: z.string(),
   dateFin: z.string(),
@@ -1072,6 +1617,8 @@ export const OwnerTresorerieResponseSchema = z.object({
   cashflow: z.array(OwnerCashflowPointSchema),
   byPaymentMode: z.array(OwnerPaymentModeRowSchema),
   anomalies: OwnerCashAnomaliesSchema,
+  /** Délai entre l'inscription et le premier règlement. */
+  delaiPaiement: OwnerDelaiPaiementSchema,
 });
 
 /* --- Journal de caisse ---------------------------------------------------- */
@@ -1094,6 +1641,17 @@ export const OwnerCashRegisterQuerySchema = z.object({
   dateFin: z.string().optional(),
   mode: z.string().optional(),
   search: z.string().optional(),
+  /**
+   * Périmètre — même contrat que le reste de l'écran Impayés.
+   *
+   * Le journal est une pièce comptable : il doit lister exactement les
+   * encaissements du périmètre affiché au-dessus de lui, sans quoi son total
+   * ne se rapproche d'aucun des chiffres de la page.
+   */
+  anneeScolaire: OwnerAcademicYearSchema.optional(),
+  filiereIds: z.array(z.string().uuid()).optional(),
+  nomClasse: z.string().optional(),
+  semestreId: z.string().uuid().optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(1).max(500).optional().default(50),
 });
@@ -1204,6 +1762,8 @@ export const OwnerPulseResponseSchema = z.object({
 
 export type OwnerEconomieQuery = z.infer<typeof OwnerEconomieQuerySchema>;
 export type OwnerEconomieResponse = z.infer<typeof OwnerEconomieResponseSchema>;
+export type OwnerCompteDeResultat = z.infer<typeof OwnerCompteDeResultatSchema>;
+export type OwnerResultatLigne = z.infer<typeof OwnerResultatLigneSchema>;
 export type OwnerMargeFiliere = z.infer<typeof OwnerMargeFiliereSchema>;
 export type OwnerFamille = z.infer<typeof OwnerFamilleSchema>;
 export type OwnerRisqueQuery = z.infer<typeof OwnerRisqueQuerySchema>;
@@ -1485,6 +2045,54 @@ export const OwnerPayrollResponseSchema = z.object({
    * qui se lit comme une troncature au lieu d'un défaut de données.
    */
   coursesWithoutTeacherOrphaned: z.number().int().nonnegative(),
+  /**
+   * CONFIGURATION DE LA PAIE — première des quatre entrées du menu
+   * administrateur que l'espace propriétaire ne montrait pas.
+   *
+   * Un enseignant sans configuration ne peut pas être payé : son bulletin ne se
+   * calcule pas. Un tarif expiré non remplacé produit le même blocage, plus tard
+   * et plus silencieusement.
+   *
+   * Mesuré le 23/09/2026 : 30 configurations pour 31 enseignants, toutes de type
+   * horaire, et 96 tarifs d'ECUE **tous génériques** — aucun nominatif. Un tarif
+   * générique convient tant qu'un enseignant ne négocie pas le sien ; le jour où
+   * il le fait, l'absence de nominatif se paie en litige.
+   */
+  configuration: z.object({
+    enseignants: z.number().int().nonnegative(),
+    avecConfiguration: z.number().int().nonnegative(),
+    sansConfiguration: z.number().int().nonnegative(),
+    tarifsEcue: z.number().int().nonnegative(),
+    tarifsNominatifs: z.number().int().nonnegative(),
+    tarifsGeneriques: z.number().int().nonnegative(),
+    tarifsExpires: z.number().int().nonnegative(),
+  }),
+  /**
+   * VALIDATION DES SÉANCES — `validated_at` gouverne la payabilité, et c'est le
+   * premier poste de litige.
+   *
+   * Une séance non validée n'est pas payable, quel que soit le travail fourni.
+   * Une séance validée mais **sans tarif résoluble** ne l'est pas davantage :
+   * elle sort `null` et n'entre dans aucun total, plutôt que de valoir 0 FCFA —
+   * un zéro se lirait « cette heure ne vaut rien ».
+   *
+   * Mesuré le 23/09/2026 : 3 séances, **0 validée**, et **0 dont le tarif se
+   * résout**. Double blocage, et aucun des deux ne se voyait.
+   */
+  seances: z.object({
+    total: z.number().int().nonnegative(),
+    validees: z.number().int().nonnegative(),
+    horodatees: z.number().int().nonnegative(),
+    /** Séances validées dont un tarif se résout : les seules valorisables. */
+    valorisables: z.number().int().nonnegative(),
+    /**
+     * Engagement pris et non décaissé : les séances validées, valorisées au
+     * tarif résolu. `null` quand aucune ne l'est — pas 0.
+     */
+    engagementNonPaye: z.number().nullable(),
+    /** Pourquoi rien n'est valorisable, quand c'est le cas. */
+    raisonNonValorisable: z.string().nullable(),
+  }),
 });
 
 export type OwnerPayrollStatus = z.infer<typeof OwnerPayrollStatusSchema>;
@@ -1495,3 +2103,199 @@ export type OwnerPayrollByTeacher = z.infer<typeof OwnerPayrollByTeacherSchema>;
 export type OwnerPayrollTeacherOption = z.infer<typeof OwnerPayrollTeacherOptionSchema>;
 export type OwnerPayrollPeriodOption = z.infer<typeof OwnerPayrollPeriodOptionSchema>;
 export type OwnerPayrollBulletin = z.infer<typeof OwnerPayrollBulletinSchema>;
+
+/* -------------------------------------------------------------------------- */
+/*  5.K — /owner/prospection : d'où viennent les étudiants, et à quel prix     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Lecture PROPRIÉTAIRE du module Prospection (migration
+ * `0120_prospection_commerciaux.sql`).
+ *
+ * L'administration dispose déjà des écrans d'exploitation — saisir une
+ * provenance, tenir la liste des commerciaux, régler une commission ligne à
+ * ligne. Rien de tout cela n'est repris ici : le propriétaire ne saisit pas,
+ * il arbitre. Cet écran répond à trois questions qu'aucun écran d'exploitation
+ * ne pose :
+ *
+ *   1. quelle part de mes étudiants sait-on d'où elle vient (la couverture,
+ *      qui conditionne la lecture de tout le reste) ;
+ *   2. quel canal amène le plus d'argent, pas seulement le plus de monde ;
+ *   3. combien me coûtent les commerciaux, et combien leur reste-t-il dû.
+ *
+ * MAILLE DE TEMPS ET DE PÉRIMÈTRE — un étudiant est rattaché à l'année et à la
+ * filière de sa PREMIÈRE OUVERTURE DE CLASSE suivie, jamais à l'horodatage de
+ * sa fiche (cf. `owner-pro-annee.sql.ts`). Une commission suit l'étudiant qui
+ * l'a produite : le commercial a été payé pour l'avoir amené cette année-là,
+ * même s'il encaisse encore sa part deux ans plus tard.
+ */
+
+/** Canal de provenance, augmenté du cas « jamais renseigné ». */
+export const OwnerProspectionCanalSchema = z.enum([
+  ...PROVENANCE_CANAUX,
+  "non_renseigne",
+]);
+
+/**
+ * Libellés d'affichage, repris du module d'exploitation pour que le canal
+ * s'appelle pareil des deux côtés, et complétés du cas « jamais renseigné » —
+ * qui est une information, pas une ligne vide.
+ */
+export const OWNER_PROSPECTION_CANAL_LABELS: Record<
+  z.infer<typeof OwnerProspectionCanalSchema>,
+  string
+> = {
+  ...PROVENANCE_CANAL_LABELS,
+  non_renseigne: "Provenance inconnue",
+};
+
+export const OwnerProspectionQuerySchema = z.object({
+  /** Année scolaire `YYYY-YYYY` (pivot septembre). Absente ⇒ toutes années. */
+  anneeScolaire: OwnerAcademicYearSchema.optional(),
+  /** Filières (= `programmes.id`). Vide ou absent ⇒ toutes filières. */
+  filiereIds: z.array(z.string().uuid()).optional(),
+  /** Ouverture de classe, clé « filiereId|nom » — contrat owner-perimetre.sql. */
+  nomClasse: z.string().optional(),
+  semestreId: z.string().uuid().optional(),
+});
+
+export const OwnerProspectionKpisSchema = z.object({
+  /** Étudiants du périmètre, provenance renseignée ou non. */
+  etudiants: z.number().int().nonnegative(),
+  /** Part des étudiants dont la provenance est connue, en %. */
+  couverture: z.number(),
+  /** Étudiants amenés par un commercial. */
+  viaCommercial: z.number().int().nonnegative(),
+  /**
+   * Scolarité encaissée sur les étudiants du périmètre — la ligne « Scolarité »
+   * du barème (natures `ue` et `scolarite`), paiements confirmés.
+   */
+  scolariteEncaissee: z.number(),
+  /** Commission acquise par les commerciaux sur ces encaissements. */
+  commissionAcquise: z.number(),
+  commissionVersee: z.number(),
+  /** Acquise − versée : la dette réelle du jour. */
+  commissionDue: z.number(),
+  /**
+   * Commission acquise / scolarité encaissée VIA COMMERCIAL, en %. C'est le
+   * taux réellement consenti, moyenne pondérée des taux figés fiche par fiche.
+   * `null` quand aucun encaissement commercial n'a eu lieu : un taux sans
+   * assiette n'est pas zéro, il n'existe pas.
+   */
+  tauxEffectif: z.number().nullable(),
+});
+
+/**
+ * Couverture de la saisie. Elle précède les chiffres par canal parce qu'elle
+ * les qualifie : une répartition établie sur un tiers des étudiants décrit ce
+ * tiers, pas l'école.
+ */
+export const OwnerProspectionCouvertureSchema = z.object({
+  etudiants: z.number().int().nonnegative(),
+  renseignes: z.number().int().nonnegative(),
+  nonRenseignes: z.number().int().nonnegative(),
+  /**
+   * `true` dès que la moitié au moins des étudiants a une provenance connue.
+   * En deçà, l'écran affiche la répartition mais dit qu'elle n'est pas
+   * représentative.
+   */
+  representative: z.boolean(),
+  /**
+   * Scolarité encaissée par les étudiants SANS provenance : l'argent qu'on ne
+   * sait rattacher à aucun canal, et donc la mesure du coût de l'angle mort.
+   */
+  scolariteNonRattachee: z.number(),
+});
+
+export const OwnerProspectionCanalRowSchema = z.object({
+  canal: OwnerProspectionCanalSchema,
+  etudiants: z.number().int().nonnegative(),
+  /** Part du canal dans les étudiants du périmètre, en %. */
+  part: z.number(),
+  scolariteEncaissee: z.number(),
+  /** Encaissé / étudiants du canal. `null` quand le canal est vide. */
+  scolariteParEtudiant: z.number().nullable(),
+  /** Nulle hors canal « commercial » : les autres ne coûtent rien. */
+  commissionAcquise: z.number(),
+  /** Encaissé − commission : ce que le canal laisse réellement à l'école. */
+  net: z.number(),
+});
+
+export const OwnerProspectionMoisRowSchema = z.object({
+  /** `YYYY-MM` du début de la première ouverture suivie. */
+  mois: z.string(),
+  total: z.number().int().nonnegative(),
+  commercial: z.number().int().nonnegative(),
+  /** Google, Facebook, radio / télé / journal. */
+  medias: z.number().int().nonnegative(),
+  /** Une connaissance, un étudiant déjà inscrit. */
+  boucheAOreille: z.number().int().nonnegative(),
+  /** « Autre », et les étudiants sans provenance renseignée. */
+  autre: z.number().int().nonnegative(),
+});
+
+export const OwnerProspectionCommercialRowSchema = z.object({
+  commercialId: z.string().uuid(),
+  nom: z.string(),
+  actif: z.boolean(),
+  etudiants: z.number().int().nonnegative(),
+  scolariteEncaissee: z.number(),
+  commissionAcquise: z.number(),
+  commissionVersee: z.number(),
+  /** Acquise − versée. Négatif possible : un versement dépasse l'acquis. */
+  solde: z.number(),
+  /** Taux réellement consenti à ce commercial, en %. `null` sans assiette. */
+  tauxEffectif: z.number().nullable(),
+  /** Lignes de commission (un paiement de scolarité) encore non réglées. */
+  lignesDues: z.number().int().nonnegative(),
+});
+
+/**
+ * Ancienneté de la dette. Un solde de commissions n'est pas un chiffre neutre :
+ * c'est une promesse faite à quelqu'un qui continue d'amener des étudiants.
+ */
+export const OwnerProspectionDetteSchema = z.object({
+  total: z.number(),
+  lignes: z.number().int().nonnegative(),
+  /** Date du plus ancien encaissement dont la commission reste due. */
+  plusAncienne: z.string().nullable(),
+  /** Âge de cette ligne, en jours. `null` quand rien n'est dû. */
+  ageJours: z.number().int().nullable(),
+  /** Commerciaux ayant au moins une ligne due. */
+  commerciaux: z.number().int().nonnegative(),
+});
+
+export const OwnerProspectionResponseSchema = z.object({
+  /** Année retenue, ou `null` quand l'écran cumule toutes les années. */
+  anneeScolaire: z.string().nullable(),
+  filiereIds: z.array(z.string().uuid()),
+  /**
+   * Ouverture de classe retenue, telle que le service l a appliquee.
+   *
+   * Exposee parce que l export CSV doit annoncer SON perimetre : sans elle, il
+   * ecrivait « Toutes filieres » sur un fichier filtre par classe — un en-tete
+   * qui ment sur le contenu qu il accompagne.
+   */
+  nomClasse: z.string().nullable(),
+  kpis: OwnerProspectionKpisSchema,
+  couverture: OwnerProspectionCouvertureSchema,
+  parCanal: z.array(OwnerProspectionCanalRowSchema),
+  parMois: z.array(OwnerProspectionMoisRowSchema),
+  commerciaux: z.array(OwnerProspectionCommercialRowSchema),
+  dette: OwnerProspectionDetteSchema,
+  /**
+   * Étudiants du périmètre qu'aucune ouverture de classe ne date : ils sont
+   * comptés dans les effectifs et les encaissements, mais absents de la courbe
+   * mensuelle, qui n'a aucune date où les poser. Le dire évite qu'un total et
+   * une somme de colonnes se contredisent sans explication.
+   */
+  etudiantsSansDate: z.number().int().nonnegative(),
+});
+
+export type OwnerProspectionCanal = z.infer<typeof OwnerProspectionCanalSchema>;
+export type OwnerProspectionQuery = z.infer<typeof OwnerProspectionQuerySchema>;
+export type OwnerProspectionResponse = z.infer<typeof OwnerProspectionResponseSchema>;
+export type OwnerProspectionCanalRow = z.infer<typeof OwnerProspectionCanalRowSchema>;
+export type OwnerProspectionCommercialRow = z.infer<
+  typeof OwnerProspectionCommercialRowSchema
+>;

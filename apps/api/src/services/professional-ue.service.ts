@@ -649,13 +649,23 @@ export class ProfessionalUeService extends ProfessionalBaseService {
                 sem.semestre_id, sem.semestre_libelle,
                 sem.filiere_id, sem.filiere_nom, sem.filiere_code
          FROM professional_ue_sessions s
+         -- Semestre de la cohorte : rattachement direct (pose a l'ouverture
+         -- d'un semestre) OU, a defaut, via son UE. Meme resolution que la
+         -- liste des inscriptions et les bulletins, pour qu'une cohorte creee
+         -- hors du flux "ouvrir un semestre" garde quand meme son semestre.
          LEFT JOIN LATERAL (
            SELECT sm.id AS semestre_id, sm.libelle AS semestre_libelle,
                   p.id AS filiere_id, p.name AS filiere_nom, p.code AS filiere_code
-           FROM professional_semestre_sessions ss
-           JOIN professional_semestres sm ON sm.id = ss.semestre_id AND sm.tenant_id = ss.tenant_id
+           FROM professional_semestres sm
            LEFT JOIN programmes p ON p.id = sm.filiere_id
-           WHERE ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
+           WHERE sm.tenant_id = s.tenant_id
+             AND (EXISTS (SELECT 1 FROM professional_semestre_sessions ss
+                          WHERE ss.semestre_id = sm.id AND ss.ue_session_id = s.id
+                            AND ss.tenant_id = s.tenant_id)
+               OR EXISTS (SELECT 1 FROM professional_semestre_ue su
+                          WHERE su.semestre_id = sm.id AND su.ue_id = s.ue_id
+                            AND su.tenant_id = s.tenant_id))
+           ORDER BY sm.libelle
            LIMIT 1
          ) sem ON true
          WHERE id=$1 AND tenant_id=$2`,
@@ -870,13 +880,23 @@ export class ProfessionalUeService extends ProfessionalBaseService {
                   AS nb_inscriptions_actives
          FROM professional_ue_sessions s
          JOIN professional_ue u ON u.id = s.ue_id
+         -- Semestre de la cohorte : rattachement direct (pose a l'ouverture
+         -- d'un semestre) OU, a defaut, via son UE. Meme resolution que la
+         -- liste des inscriptions et les bulletins, pour qu'une cohorte creee
+         -- hors du flux "ouvrir un semestre" garde quand meme son semestre.
          LEFT JOIN LATERAL (
            SELECT sm.id AS semestre_id, sm.libelle AS semestre_libelle,
                   p.id AS filiere_id, p.name AS filiere_nom, p.code AS filiere_code
-           FROM professional_semestre_sessions ss
-           JOIN professional_semestres sm ON sm.id = ss.semestre_id AND sm.tenant_id = ss.tenant_id
+           FROM professional_semestres sm
            LEFT JOIN programmes p ON p.id = sm.filiere_id
-           WHERE ss.ue_session_id = s.id AND ss.tenant_id = s.tenant_id
+           WHERE sm.tenant_id = s.tenant_id
+             AND (EXISTS (SELECT 1 FROM professional_semestre_sessions ss
+                          WHERE ss.semestre_id = sm.id AND ss.ue_session_id = s.id
+                            AND ss.tenant_id = s.tenant_id)
+               OR EXISTS (SELECT 1 FROM professional_semestre_ue su
+                          WHERE su.semestre_id = sm.id AND su.ue_id = s.ue_id
+                            AND su.tenant_id = s.tenant_id))
+           ORDER BY sm.libelle
            LIMIT 1
          ) sem ON true
          WHERE ${where.join(" AND ")}

@@ -66,8 +66,8 @@ export function AdminDocuments() {
       {/* Header with actions */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestion des Documents</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-bold whitespace-nowrap text-2xl leading-tight md:text-3xl">Gestion des Documents</h1>
+          <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
             Générez et gérez les documents administratifs
           </p>
         </div>

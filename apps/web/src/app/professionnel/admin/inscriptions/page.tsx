@@ -19,9 +19,20 @@ import {
   Hash,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import {
+  ProvenanceEnLot,
+  emptyProvenanceLot,
+  lotToEntrees,
+  type ProvenanceLotState,
+} from "@/components/prospection/ProvenanceEnLot";
 import { useProfessionalUeSessionsList } from "@/lib/hooks/use-professional-catalog-admin";
 import { useStudents } from "@/lib/hooks/use-students";
 import { useAdminEnrollBulk } from "@/lib/hooks/use-professional-suivi";
+import {
+  useCommerciaux,
+  useCreateCommercial,
+  useSetProvenancesBulk,
+} from "@/lib/hooks/use-prospection";
 
 /**
  * Inscriptions — Module Professionnel (admin).
@@ -96,6 +107,14 @@ export default function ProfessionalInscriptionsPage() {
     withoutActiveProfessionalEnrollment: true,
   } as any);
   const bulkMut = useAdminEnrollBulk();
+  const commerciauxQuery = useCommerciaux();
+  const createCommercial = useCreateCommercial();
+  const provenanceBulkMut = useSetProvenancesBulk();
+
+  // Le référent « Un étudiant » se choisit parmi TOUS les étudiants : celui qui
+  // parraine est presque toujours déjà inscrit, donc absent de la liste
+  // ci-dessus (filtrée sur les inscriptibles).
+  const tousLesEtudiantsQuery = useStudents({ limit: 1000 } as any);
 
   const sessions: any[] = (sessionsQuery.data as any)?.items ?? [];
   const students: any[] = (studentsQuery.data as any)?.data ?? [];
@@ -108,6 +127,7 @@ export default function ProfessionalInscriptionsPage() {
   const [studentSearch, setStudentSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any | null>(null);
+  const [provenance, setProvenance] = useState<ProvenanceLotState>(emptyProvenanceLot());
 
   const nomOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -136,28 +156,83 @@ export default function ProfessionalInscriptionsPage() {
     [sessions, nomKey]
   );
 
-  // Sessions regroupées par libellé de session (affiché une seule fois),
-  // chaque groupe listant ses UE par intitulé (sans le code).
+  /*
+   * UE regroupées par SEMESTRE. Toutes les sessions visibles appartiennent déjà
+   * au même nom de classe : le semestre est donc le seul découpage qui apporte
+   * quelque chose ici — grouper par libellé de session ne donnait qu'un bloc.
+   *
+   * Une cohorte sans semestre rattaché atterrit dans un groupe à part, en fin
+   * de liste, plutôt que d'être escamotée.
+   */
   const sessionGroups = useMemo(() => {
-    const groups = new Map<string, any[]>();
+    const groups = new Map<string, { label: string; items: any[] }>();
     for (const s of visibleSessions) {
-      const key = sessionGroupLabel(s);
-      const arr = groups.get(key);
-      if (arr) arr.push(s);
-      else groups.set(key, [s]);
+      const key = s.semestre_id ?? "__sans_semestre";
+      let g = groups.get(key);
+      if (!g) {
+        g = { label: s.semestre_libelle ?? "Hors semestre", items: [] };
+        groups.set(key, g);
+      }
+      g.items.push(s);
     }
-    return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
+    return Array.from(groups.entries())
+      .map(([key, g]) => ({
+        key,
+        label: g.label,
+        items: g.items.sort((a, b) =>
+          String(a.ue_libelle ?? a.libelle).localeCompare(String(b.ue_libelle ?? b.libelle), "fr")
+        ),
+      }))
+      .sort((a, b) => {
+        if (a.key === "__sans_semestre") return 1;
+        if (b.key === "__sans_semestre") return -1;
+        return a.label.localeCompare(b.label, "fr", { numeric: true });
+      });
   }, [visibleSessions]);
 
+  /*
+   * Liste triée par ordre alphabétique du nom affiché. Le tri précède le
+   * plafond d'affichage : sans lui, les 120 premiers seraient ceux que l'API a
+   * renvoyés en premier, c'est-à-dire un échantillon arbitraire.
+   *
+   * `localeCompare` en français avec `sensitivity: "base"` range les accents et
+   * les majuscules à leur place — « Émile » voisine « Emile » au lieu d'être
+   * rejeté en fin de liste.
+   */
   const filteredStudents = useMemo(() => {
     const q = studentSearch.trim().toLowerCase();
-    return students.filter((s) => {
-      if (!q) return true;
-      const name = studentName(s).toLowerCase();
-      const mat = String(s.studentNumber ?? s.establishmentMatricule ?? "").toLowerCase();
-      return name.includes(q) || mat.includes(q);
-    });
+    return students
+      .filter((s) => {
+        if (!q) return true;
+        const name = studentName(s).toLowerCase();
+        const mat = String(s.studentNumber ?? s.establishmentMatricule ?? "").toLowerCase();
+        return name.includes(q) || mat.includes(q);
+      })
+      .sort((a, b) =>
+        studentName(a).localeCompare(studentName(b), "fr", {
+          sensitivity: "base",
+          numeric: true,
+        })
+      );
   }, [students, studentSearch]);
+
+  const studentOptions = useMemo(
+    () =>
+      ((tousLesEtudiantsQuery.data as any)?.data ?? []).map((s: any) => ({
+        id: s.id,
+        nom: studentName(s),
+      })),
+    [tousLesEtudiantsQuery.data]
+  );
+
+  const selectionOptions = useMemo(
+    () =>
+      studentIds.map((id) => {
+        const trouve = students.find((s) => s.id === id);
+        return { id, nom: trouve ? studentName(trouve) : "Étudiant" };
+      }),
+    [studentIds, students]
+  );
 
   function toggle(list: string[], setList: (v: string[]) => void, id: string) {
     setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
@@ -170,9 +245,31 @@ export default function ProfessionalInscriptionsPage() {
     setResult(null);
     if (sessionIds.length === 0) return setError("Sélectionnez au moins une session.");
     if (studentIds.length === 0) return setError("Sélectionnez au moins un étudiant.");
+
+    // La provenance est facultative, mais si elle est commencée elle doit être
+    // complète : on le dit AVANT d'inscrire, pour ne pas laisser des
+    // inscriptions créées derrière un formulaire en erreur.
+    const lot = lotToEntrees(provenance, studentIds);
+    if ("erreur" in lot) return setError(lot.erreur);
+
     try {
       const res: any = await bulkMut.mutateAsync({ ueSessionIds: sessionIds, studentIds });
-      setResult(res);
+
+      let provenanceResultat: any = null;
+      if (lot.entrees.length > 0) {
+        try {
+          provenanceResultat = await provenanceBulkMut.mutateAsync(lot.entrees);
+        } catch (err: any) {
+          // Les inscriptions, elles, sont bien créées : on le signale sans les
+          // faire passer pour un échec.
+          provenanceResultat = {
+            enregistrees: 0,
+            erreurs: [{ student_id: "", message: err?.message ?? "Provenance non enregistrée." }],
+          };
+        }
+      }
+
+      setResult({ ...res, provenance: provenanceResultat });
     } catch (err: any) {
       setError(err?.message ?? "Erreur lors de l'enregistrement des inscriptions.");
     }
@@ -182,11 +279,11 @@ export default function ProfessionalInscriptionsPage() {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+        <h1 className="font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2 whitespace-nowrap text-2xl leading-tight md:text-3xl">
           <UserPlus className="h-7 w-7 text-indigo-500" />
           Inscriptions
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">
           Inscrivez un ou plusieurs étudiants dans une ou plusieurs sessions en une fois, même
           sans paiement.
         </p>
@@ -213,6 +310,27 @@ export default function ProfessionalInscriptionsPage() {
                 </span>
               )}
             </div>
+            {result.provenance && (
+              <div className="text-sm">
+                {result.provenance.enregistrees > 0 && (
+                  <span className="text-green-700">
+                    {result.provenance.enregistrees} provenance
+                    {result.provenance.enregistrees > 1 ? "s" : ""} enregistrée
+                    {result.provenance.enregistrees > 1 ? "s" : ""}
+                  </span>
+                )}
+                {result.provenance.erreurs?.length > 0 && (
+                  <span className="text-amber-700">
+                    {result.provenance.enregistrees > 0 ? " · " : ""}
+                    Provenance non enregistrée :{" "}
+                    {result.provenance.erreurs
+                      .slice(0, 2)
+                      .map((e: any) => e.message)
+                      .join(" · ")}
+                  </span>
+                )}
+              </div>
+            )}
             {result.errors?.length > 0 && (
               <div className="text-sm text-red-700 flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -259,33 +377,16 @@ export default function ProfessionalInscriptionsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <SearchableSelect
-                  value={nomKey}
-                  onChange={(v) => setNomKey(v)}
-                  icon={<Layers className="h-4 w-4 text-gray-400" />}
-                  placeholder="Sélectionner un nom de classe"
-                  searchPlaceholder="Rechercher un nom de classe…"
-                  options={nomOptions}
-                />
-              </div>
-              <button
-                type="button"
-                className="text-xs text-indigo-600 hover:underline whitespace-nowrap"
-                onClick={() =>
-                  setSessionIds(
-                    sessionIds.length === visibleSessions.length
-                      ? []
-                      : visibleSessions.map((s) => s.id)
-                  )
-                }
-              >
-                {sessionIds.length === visibleSessions.length && visibleSessions.length > 0
-                  ? "Tout décocher"
-                  : "Tout cocher"}
-              </button>
-            </div>
+            {/* Le select occupe toute la largeur : la sélection en masse se fait
+                désormais semestre par semestre, dans l'en-tête de chaque groupe. */}
+            <SearchableSelect
+              value={nomKey}
+              onChange={(v) => setNomKey(v)}
+              icon={<Layers className="h-4 w-4 text-gray-400" />}
+              placeholder="Sélectionner un nom de classe"
+              searchPlaceholder="Rechercher un nom de classe…"
+              options={nomOptions}
+            />
             <div className="max-h-80 overflow-y-auto rounded-md border divide-y">
               {nomKey === "" ? (
                 <p className="px-3 py-3 text-sm text-muted-foreground">
@@ -296,11 +397,36 @@ export default function ProfessionalInscriptionsPage() {
                   {sessionsQuery.isLoading ? "Chargement…" : "Aucune session"}
                 </p>
               ) : (
-                sessionGroups.map((group) => (
-                  <div key={group.label}>
-                    <div className="sticky top-0 z-10 bg-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {group.label}
-                    </div>
+                sessionGroups.map((group) => {
+                  const idsDuGroupe = group.items.map((s: any) => s.id);
+                  const toutCoche = idsDuGroupe.every((id: string) => sessionIds.includes(id));
+                  // Partiellement cochée : l'état indéterminé dit « une partie
+                  // seulement », ce qu'une case à deux états ne sait pas montrer.
+                  const partiel =
+                    !toutCoche && idsDuGroupe.some((id: string) => sessionIds.includes(id));
+
+                  return (
+                  <div key={group.key}>
+                    <label className="sticky top-0 z-10 flex cursor-pointer items-center gap-2 bg-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/80">
+                      <input
+                        type="checkbox"
+                        checked={toutCoche}
+                        ref={(el) => {
+                          if (el) el.indeterminate = partiel;
+                        }}
+                        onChange={() =>
+                          setSessionIds(
+                            toutCoche
+                              ? sessionIds.filter((id) => !idsDuGroupe.includes(id))
+                              : [...new Set([...sessionIds, ...idsDuGroupe])]
+                          )
+                        }
+                      />
+                      <span className="min-w-0 flex-1 truncate">{group.label}</span>
+                      <span className="shrink-0 font-normal normal-case">
+                        {group.items.length} UE
+                      </span>
+                    </label>
                     <div className="divide-y">
                       {group.items.map((s) => {
                         const checked = sessionIds.includes(s.id);
@@ -328,7 +454,8 @@ export default function ProfessionalInscriptionsPage() {
                       })}
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </CardContent>
@@ -404,6 +531,50 @@ export default function ProfessionalInscriptionsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Provenance des étudiants sélectionnés */}
+      <ProvenanceEnLot
+        value={provenance}
+        onChange={setProvenance}
+        selection={selectionOptions}
+        students={studentOptions}
+        commerciaux={commerciauxQuery.data ?? []}
+        onCreateCommercial={(nom, taux) =>
+          createCommercial.mutateAsync({ nom, taux_commission: taux })
+        }
+      />
+
+      {/* Retour d'enregistrement, AU NIVEAU DU BOUTON.
+          Il vivait en haut de page, hors de l'ecran au moment du clic. Un
+          defilement automatique vers le haut a d'abord servi de palliatif ;
+          il a ete retire : une fois ce bloc place ici, il arrachait
+          l'utilisateur a la confirmation qu'il venait de voir apparaitre. */}
+      {(error || result) && (
+        <div
+          className={
+            error
+              ? "rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700"
+              : "rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm text-green-800"
+          }
+        >
+          {error ? (
+            error
+          ) : (
+            <>
+              <span className="font-medium">
+                {result.created} inscription{result.created > 1 ? "s" : ""} créée
+                {result.created > 1 ? "s" : ""}
+              </span>
+              {result.skipped > 0
+                ? ` · ${result.skipped} déjà inscrit${result.skipped > 1 ? "s" : ""} (ignoré${
+                    result.skipped > 1 ? "s" : ""
+                  })`
+                : ""}
+              {" — le détail figure en haut de page."}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Barre de validation */}
       <Card className="shadow-lg">

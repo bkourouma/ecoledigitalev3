@@ -198,7 +198,7 @@ export default function AttestationsPage() {
           <Award className="h-7 w-7 text-amber-500" />
           Attestations de réussite
         </h1>
-        <p className="text-muted-foreground text-sm max-w-3xl">
+        <p className="text-muted-foreground max-w-3xl whitespace-nowrap text-sm md:text-base">
           Recherchez un étudiant par classe, année scolaire ou nom, puis générez son attestation.
           L'attestation est délivrable dès que l'étudiant a validé toutes les UE des semestres de sa
           classe — les années antérieures restent consultables.

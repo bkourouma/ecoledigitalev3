@@ -74,4 +74,28 @@ export const PRO_UNPAID_INSTALLMENTS_CTE = `
       )) AS unpaid
     FROM pro_scaled_installments si
     LEFT JOIN paid_per_order pp ON pp.order_id = si.order_id
+    UNION ALL
+    -- COMMANDES SANS ECHEANCIER. Aucun service n'alimente
+    -- professional_order_installments : sur cette base, la table est VIDE et
+    -- couvre donc zero commande sur 960 000 FCFA. Sans cette branche, tout
+    -- l'impaye professionnel vaut structurellement 0 tout en s'affichant comme
+    -- une mesure -- le pouls annoncait 0 FCFA de reste a recouvrer pendant que
+    -- l'ecran Impayes en montrait 860 000.
+    --
+    -- due_date reste NULL, et ce n'est pas un oubli : sans echeance, on peut
+    -- dire qu'une commande est INCOMPLETE, jamais qu'elle est EN RETARD. La
+    -- comparaison d'anciennete sur NULL ne rend jamais vrai, si bien que ces
+    -- lignes entrent dans le reste du et jamais dans la part echue.
+    SELECT
+      o.id AS order_id,
+      o.student_id,
+      NULL::date AS due_date,
+      GREATEST(0, o.montant_total::float8 - COALESCE(pp.paid, 0)) AS unpaid
+    FROM professional_orders o
+    LEFT JOIN paid_per_order pp ON pp.order_id = o.id
+    WHERE o.tenant_id = $1::uuid
+      AND o.statut <> 'annulee'
+      AND NOT EXISTS (
+        SELECT 1 FROM professional_order_installments i2
+         WHERE i2.order_id = o.id AND i2.tenant_id = o.tenant_id)
   )`;

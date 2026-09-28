@@ -59,12 +59,12 @@ export default function EditDiplomaPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <Button variant="outline" size="sm" onClick={() => router.push(`/professionnel/admin/diplomes/${id}`)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
+        <h1 className="whitespace-nowrap font-bold flex items-center gap-2 text-2xl leading-tight md:text-3xl">
           <GraduationCap className="h-6 w-6 text-emerald-600" />
           Modifier le diplôme
         </h1>
