@@ -70,6 +70,15 @@ export default function SuperAdminTenantsPage() {
   const createTenant = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
+
+    // Même règle que l'API : on la dit avant l'envoi, en clair.
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      setError(
+        "Le slug doit contenir uniquement des lettres minuscules, des chiffres et des tirets, " +
+          "sans espace ni accent (ex. ecole-test)."
+      );
+      return;
+    }
     setLoading(true);
 
     try {
@@ -93,21 +102,38 @@ export default function SuperAdminTenantsPage() {
     }
   };
 
+  // Une action qui échoue doit le dire : sans cela, la liste se recharge à
+  // l'identique et on ne sait pas si le tenant a été supprimé ou non.
+  const failureMessage = async (response: Response, fallback: string) => {
+    const data = await response.json().catch(() => ({}));
+    return data.message || fallback;
+  };
+
   const setActive = async (tenant: Tenant, isActive: boolean) => {
-    await fetch(`${apiBaseUrl()}/api/v1/super-admin/tenants/${tenant.id}`, {
+    setError("");
+    const response = await fetch(`${apiBaseUrl()}/api/v1/super-admin/tenants/${tenant.id}`, {
       method: "PATCH",
       headers: authHeaders(),
       body: JSON.stringify({ isActive }),
     });
+    if (!response.ok) {
+      setError(await failureMessage(response, "Modification du tenant impossible."));
+      return;
+    }
     await loadTenants();
   };
 
   const deleteTenant = async (tenant: Tenant) => {
     if (!window.confirm(`Supprimer definitivement le tenant ${tenant.slug} ?`)) return;
-    await fetch(`${apiBaseUrl()}/api/v1/super-admin/tenants/${tenant.id}`, {
+    setError("");
+    const response = await fetch(`${apiBaseUrl()}/api/v1/super-admin/tenants/${tenant.id}`, {
       method: "DELETE",
       headers: authHeaders(),
     });
+    if (!response.ok) {
+      setError(await failureMessage(response, "Suppression du tenant impossible."));
+      return;
+    }
     await loadTenants();
   };
 

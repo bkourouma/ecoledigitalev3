@@ -28,6 +28,23 @@ const tenantPatchSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+/**
+ * Message lisible pour une entrée refusée. Le message brut d'une ZodError est un
+ * tableau JSON (« [ { "validation": "regex", … } ] ») : illisible pour la personne
+ * qui remplit le formulaire.
+ */
+function readableValidationMessage(error: z.ZodError): string {
+  const champ = error.issues[0]?.path[0];
+  if (champ === "slug") {
+    return (
+      "Le slug doit contenir uniquement des lettres minuscules, des chiffres et des tirets, " +
+      "sans espace ni accent, 50 caractères au plus (ex. ecole-test)."
+    );
+  }
+  if (champ === "name") return "Le nom est requis (255 caractères au plus).";
+  return "Les informations saisies sont invalides.";
+}
+
 function requireSuperAdmin(request: any) {
   if (!request.superAdmin) {
     throw new Error("SUPER_ADMIN_REQUIRED");
@@ -77,9 +94,22 @@ export async function superAdminTenantsRoutes(fastify: FastifyInstance) {
         await client.query("ROLLBACK");
       }
 
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({
+          error: "Validation Error",
+          message: readableValidationMessage(error),
+        });
+      }
+
       const isDuplicate = String(error?.message || "").includes("duplicate key");
-      return reply.status(isDuplicate ? 409 : 400).send({
-        error: isDuplicate ? "Tenant Exists" : "Tenant Creation Failed",
+      if (isDuplicate) {
+        return reply.status(409).send({
+          error: "Tenant Exists",
+          message: "Un tenant avec ce slug existe déjà. Choisissez un autre slug.",
+        });
+      }
+      return reply.status(400).send({
+        error: "Tenant Creation Failed",
         message: error instanceof Error ? error.message : "Unable to create tenant",
       });
     } finally {

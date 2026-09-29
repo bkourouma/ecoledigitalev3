@@ -298,8 +298,11 @@ moyennes attendues restent les mêmes.
    - **Slug** : `<slug>`.
 
    Clique **Créer**.
-3. **Refus à tester avant** : un slug avec majuscule ou espace (`Test 1`). Attendu : un refus,
-   rien de créé. Relève le message.
+3. **Refus à tester avant** : un slug avec un espace (`test 1`). Le champ passe la saisie en
+   minuscules tout seul. Attendu : rien de créé, et le message « Le slug doit contenir uniquement
+   des lettres minuscules, des chiffres et des tirets, sans espace ni accent… ». Sur une version
+   plus ancienne, le refus s'affichait en JSON brut : relève le texte tel quel. Refais ensuite la
+   saisie avec `<slug>`.
 4. **Attendu** : le tenant apparaît dans la liste, **actif**. Relève son UUID si la page
    l'affiche.
 5. Clique **Sélectionner** sur sa ligne : le tenant sera présélectionné sur `/login`.
