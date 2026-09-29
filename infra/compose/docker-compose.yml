@@ -77,6 +77,10 @@ services:
       # not as a build arg — so the client bundle still uses relative URLs
       # (which the browser sends through nginx → /api/v1/ → API).
       NEXT_PUBLIC_API_URL: http://ecoledigitale-api:8011
+      # Panneau « Comptes par tenant » de /login : il remplit le formulaire avec
+      # les identifiants des comptes techniques. JAMAIS en production publique.
+      # Mettre `true` uniquement sur un environnement de test fermé.
+      SHOW_TECHNICAL_ACCOUNTS: ${SHOW_TECHNICAL_ACCOUNTS:-false}
     ports:
       - "127.0.0.1:3011:3000"
     restart: unless-stopped

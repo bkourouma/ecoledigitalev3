@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { technicalAccountsEnabled } from "@/lib/technical-accounts.server";
 
 /**
  * Public (server-side) list of tenants for the login page selector.
@@ -19,6 +20,12 @@ function apiBaseUrl(): string {
 }
 
 export async function GET() {
+  // La liste ne sert qu'au panneau « Comptes par tenant » : quand il est coupé,
+  // rien ne justifie d'énumérer les établissements à un visiteur anonyme.
+  if (!technicalAccountsEnabled()) {
+    return NextResponse.json({ tenants: [] });
+  }
+
   const email = process.env.SUPER_ADMIN_EMAIL;
   const password = process.env.SUPER_ADMIN_PASSWORD;
 

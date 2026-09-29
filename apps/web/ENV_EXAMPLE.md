@@ -29,6 +29,10 @@ NEXTAUTH_SECRET=your-secret-key-here-change-in-production
 # =================================================================
 NEXT_PUBLIC_ENABLE_DEV_TOOLS=true
 NEXT_PUBLIC_DEMO_ACCOUNTS=
+# Panneau « Comptes par tenant » de /login (remplit email + mot de passe des
+# comptes techniques). Lu côté serveur, à l'exécution. Non renseigné : actif en
+# `next dev`, coupé en production. Ne JAMAIS mettre `true` sur un site public.
+SHOW_TECHNICAL_ACCOUNTS=
 
 # =================================================================
 # RSO-PFSO ACTIVITIES MODULE (Phase 3)
@@ -44,4 +48,5 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 - Generate NEXTAUTH_SECRET with: `openssl rand -base64 32`
 - Never commit `.env.local` to version control
 - In production, set `NEXT_PUBLIC_ENABLE_DEV_TOOLS=false`
+- In production, leave `SHOW_TECHNICAL_ACCOUNTS` unset or `false` (login demo panel)
 

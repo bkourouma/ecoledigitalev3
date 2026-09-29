@@ -18,11 +18,10 @@ import {
 import { saveToken } from "@/lib/jwt-storage";
 import { activeRoleOf, routeForRole } from "@/lib/role-landing";
 import {
-  DEFAULT_TECHNICAL_PASSWORD,
   KNOWN_TENANTS_STORAGE_KEY,
   SELECTED_TENANT_STORAGE_KEY,
-  buildTechnicalAccounts,
   type TechnicalAccount,
+  type TechnicalAccountsResponse,
 } from "@/lib/technical-accounts";
 
 type Tenant = { slug: string; name: string };
@@ -35,10 +34,23 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedSlug, setSelectedSlug] = useState("");
+  // Panneau « Comptes par tenant » : masqué tant que le serveur ne l'a pas
+  // explicitement autorisé (voir `technicalAccountsEnabled`). Faux par défaut,
+  // pour qu'il n'apparaisse jamais, même un instant, là où il est coupé.
+  const [panelEnabled, setPanelEnabled] = useState(false);
+  const [technicalAccounts, setTechnicalAccounts] = useState<TechnicalAccount[]>([]);
+
+  useEffect(() => {
+    fetch("/api/technical-accounts")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: TechnicalAccountsResponse | null) => setPanelEnabled(data?.enabled === true))
+      .catch(() => setPanelEnabled(false));
+  }, []);
 
   // Restore the previously picked tenant, render instantly from the cached list,
   // then refresh the list from the server route (/api/tenants).
   useEffect(() => {
+    if (!panelEnabled) return;
     const storedSlug = localStorage.getItem(SELECTED_TENANT_STORAGE_KEY) || "";
     if (storedSlug) setSelectedSlug(storedSlug);
 
@@ -61,7 +73,28 @@ export default function LoginPage() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [panelEnabled]);
+
+  // Technical accounts of the currently selected tenant, served by the server
+  // only while the panel is enabled — they are never part of the client bundle.
+  useEffect(() => {
+    if (!panelEnabled || !selectedSlug) {
+      setTechnicalAccounts([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/technical-accounts?tenant=${encodeURIComponent(selectedSlug)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: TechnicalAccountsResponse | null) => {
+        if (!cancelled) setTechnicalAccounts(data?.enabled ? data.accounts : []);
+      })
+      .catch(() => {
+        if (!cancelled) setTechnicalAccounts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [panelEnabled, selectedSlug]);
 
   useEffect(() => {
     const originalHtmlOverflow = document.documentElement.style.overflow;
@@ -133,11 +166,6 @@ export default function LoginPage() {
     localStorage.setItem(SELECTED_TENANT_STORAGE_KEY, slug);
   };
 
-  // Technical accounts of the currently selected tenant.
-  const technicalAccounts: TechnicalAccount[] = selectedSlug
-    ? buildTechnicalAccounts(selectedSlug)
-    : [];
-
   const selectedTenant = tenants.find((t) => t.slug === selectedSlug);
 
   // Tenant options for the selector — include the stored slug even if it is not
@@ -149,7 +177,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-start justify-center bg-background pt-12 pb-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl w-full space-y-8">
+      <div className={`${panelEnabled ? "max-w-4xl" : "max-w-md"} w-full space-y-8`}>
         <div className="text-center">
           <div className="flex justify-center mb-6">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-xl">
@@ -160,7 +188,7 @@ export default function LoginPage() {
           <p className="text-muted-foreground whitespace-nowrap text-sm md:text-base">Connexion a votre espace educatif</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className={panelEnabled ? "grid md:grid-cols-2 gap-8" : "grid gap-8"}>
           <Card variant="glass" className="hover-lift">
             <CardHeader>
               <CardTitle gradient>Connexion</CardTitle>
@@ -202,53 +230,55 @@ export default function LoginPage() {
             </CardContent>
           </Card>
 
-          <Card variant="glass" className="hover-lift">
-            <CardHeader>
-              <CardTitle>Comptes par tenant</CardTitle>
-              <CardDescription>
-                {selectedSlug
-                  ? `Tenant : ${selectedTenant?.name || selectedSlug} — mot de passe : ${DEFAULT_TECHNICAL_PASSWORD}`
-                  : "Choisissez un tenant pour voir ses comptes."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <Label>Tenant</Label>
-                <Select value={selectedSlug || undefined} onValueChange={handleSelectTenant}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisir un tenant" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tenantOptions.map((opt) => (
-                      <SelectItem key={opt.slug} value={opt.slug}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          {panelEnabled && (
+            <Card variant="glass" className="hover-lift">
+              <CardHeader>
+                <CardTitle>Comptes par tenant</CardTitle>
+                <CardDescription>
+                  {selectedSlug
+                    ? `Tenant : ${selectedTenant?.name || selectedSlug} — cliquez un compte pour remplir le formulaire.`
+                    : "Choisissez un tenant pour voir ses comptes."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1">
+                  <Label>Tenant</Label>
+                  <Select value={selectedSlug || undefined} onValueChange={handleSelectTenant}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir un tenant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenantOptions.map((opt) => (
+                        <SelectItem key={opt.slug} value={opt.slug}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                {technicalAccounts.map((account, index) => (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    className="w-full justify-start text-left h-auto p-3"
-                    onClick={() => fillForm(account)}
-                  >
-                    <div className="w-full">
-                      <div className="font-medium flex items-center gap-2">
-                        {account.name}
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                          {account.role}
-                        </span>
+                <div className="space-y-2">
+                  {technicalAccounts.map((account, index) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      className="w-full justify-start text-left h-auto p-3"
+                      onClick={() => fillForm(account)}
+                    >
+                      <div className="w-full">
+                        <div className="font-medium flex items-center gap-2">
+                          {account.name}
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                            {account.role}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
