@@ -114,30 +114,18 @@ d'e-mail.
 
 ---
 
-## Le run lui-même : à arrêter en production
+## Le run lui-même : poursuite en production, décidée par l'utilisateur
 
-Le parcours crée des données, encaisse des paiements et octroie un diplôme. **Il ne doit pas
-continuer en production** : le scénario l'interdit désormais (§0.1 bis).
+L'utilisateur a choisi de poursuivre en production. Le scénario a un **mode production**
+(§0.1 bis) :
+- l'humain se connecte lui-même aux comptes ;
+- les encaissements et les diplômes sont optionnels (paramètres OUI / NON), parce qu'ils
+  consomment de vrais numéros de reçu et de diplôme ;
+- la paie n'est jamais générée ;
+- le nettoyage est obligatoire en fin de run.
 
-Données `E2E-2909-1` déjà créées en production, à supprimer. L'ordre compte à cause des clés
-étrangères :
-1. les semestres ;
-2. les ECUE ;
-3. les UE ;
-4. la classe ;
-5. la filière ;
-6. le cycle ;
-7. les deux enseignants et leurs comptes utilisateurs.
+**Reprise** : à l'acte 3.1 (test de doublon), avec le même tag `E2E-2909-1` et le registre du
+rapport. L'alerte native restée ouverte est à fermer par l'humain.
 
-Identifiants :
-- Semestres :
-  - `4b432732-9f2a-4c5b-b7a5-7a62ff401509`
-  - `8ae3eb98-9d24-423b-ad2e-0e00877c91c7`
-  - `1b246551-364d-4835-9117-a50ff2f93a3b`
-- ECUE et UE : ceux du registre du rapport (codes `*-29091`).
-- Classe : `5c111540-2e58-4ddf-b551-27e9af61632e` (`L1T29091`).
-- Cycle : `LIC29091`. Filière : `TESTOLOGIE E2E-2909-1`.
-- Enseignants : `awa.29091@example.test` et `kone.29091@example.test`.
-
-Reprendre ensuite le parcours **depuis l'acte 1**, sur `localhost` ou une copie de test, avec un
-nouveau tag (`E2E-JJMM-2`).
+**Nettoyage en fin de run** : `docs/testing/e2e-computer-use/nettoyage-parcours-pro.sql`, avec
+`-v tag=E2E-2909-1 -v code=29091`, d'abord à blanc (`commit=0`).
