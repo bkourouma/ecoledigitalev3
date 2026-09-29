@@ -18,6 +18,7 @@
 | Acte | Rôle | Contenu |
 |---|---|---|
 | 0 | — | Mode d'emploi, règles, paramètres du run, jeu de données |
+| 00 | Super-admin + Admin | *Variante « nouveau tenant »* : création de l'établissement de test, contrôle de ce qu'il contient, cloisonnement |
 | 1 | Admin | Structure : cycle, filière, classe |
 | 2 | Admin | Programme : UE, ECUE, trois semestres |
 | 3 | Admin | Personnes : enseignants, étudiants, parent, mots de passe |
@@ -91,6 +92,18 @@ correspond pas au paramètre, **tu ne crées rien** : tu t'arrêtes et tu le sig
    (voir la section Nettoyage). Jusque-là, les effectifs et chiffres du propriétaire incluent
    les données du run.
 
+**Variante « nouveau tenant »** (paramètre « Tenant du run » = `NOUVEAU`). Le run se joue dans
+un établissement créé pour lui (acte 00), séparé d'`ecoledigitale`. Ce qui change :
+- **Encaissements et diplômes peuvent passer à OUI** : les numéros de reçu (`REC-PRO-…`) et de
+  diplôme (`DIP-…`) sont comptés **par tenant**. Ceux d'`ecoledigitale` ne bougent pas.
+- **Signataires** : le tenant neuf n'en a aucun. Tu les **renseignes** à l'acte 4.2 (exception à
+  la règle 4 ci-dessus, qui protège les signataires d'un établissement réel).
+- **Chiffres du propriétaire** (acte 18) : le tenant ne contient que le run. Les totaux globaux
+  doivent donc **égaler exactement** les valeurs du run.
+- **Nettoyage** : suppression du tenant entier par le super-admin (voir la section Nettoyage).
+- **Adresses e-mail** : elles sont uniques sur toute la plateforme. Un `<JJMMN>` déjà utilisé
+  dans un autre tenant fera échouer la création des comptes : prends un tag neuf.
+
 **Connexion.** Le panneau « Comptes par tenant » apparaît en développement (`next dev`) et sur
 l'instance de démonstration (`SHOW_TECHNICAL_ACCOUNTS=true`). Il sert aux comptes techniques
 (admin, owner). Les comptes créés par le run n'y figurent pas : l'humain s'y connecte.
@@ -106,6 +119,9 @@ l'instance de démonstration (`SHOW_TECHNICAL_ACCOUNTS=true`). Il sert aux compt
 | `FIN` (J + 60 jours) | `____-__-__` | `2026-11-28` |
 | Base isolée (copie jetable) ? | `OUI` / `NON` | `OUI` |
 | **Environnement** | `LOCAL` / `PRODUCTION (autorisé par : ____)` | `PRODUCTION (autorisé par : Micka)` |
+| **Tenant du run** | `ecoledigitale` (existant) / `NOUVEAU` | `NOUVEAU` |
+| Slug du tenant (si NOUVEAU) | minuscules, chiffres, tirets | `test-<JJMMN>` → `test-30091` |
+| Nom du tenant (si NOUVEAU) | libre | `École de test <TAG>` |
 | URL de l'application | `https://…` ou `http://localhost:3000` | `https://ecoledigitale.allianceconsultants.net` |
 | Encaissements en production ? | `OUI` / `NON` | `NON` |
 | Diplômes en production ? | `OUI` / `NON` | `NON` |
@@ -166,6 +182,10 @@ relatives au jour du test) se remplacent par ces valeurs.
 |---|---|---|
 | Admin | `admin@ecoledigitale.local` | `/tableau-de-bord` |
 | Owner | `owner@ecoledigitale.local` | `/owner/dashboard` |
+
+**Variante « nouveau tenant »** : dans la liste *Tenant*, choisis **le tenant du run**. Les lignes
+deviennent `admin@<slug>.local` et `owner@<slug>.local`, mot de passe `Password@2025`, rempli
+par le clic.
 
 Les comptes **créés par le run** n'apparaissent pas dans ce panneau. Pour eux, saisis l'e-mail
 et le mot de passe noté au registre, au clavier (acte 3).
@@ -261,6 +281,80 @@ au diplôme.
 **Règle de nommage des crédits** : les UV de chaque UE égalent la somme des crédits de ses ECUE.
 Ainsi, quelle que soit la pondération retenue par l'application (UV d'UE ou crédits d'ECUE), les
 moyennes attendues restent les mêmes.
+
+---
+
+# ACTE 00 — Créer le tenant de test (variante « nouveau tenant » seulement)
+
+> À sauter si « Tenant du run » = `ecoledigitale`.
+
+### 00.1 Création par le super-admin
+
+1. L'humain ouvre `<URL>/super-admin/login` et se connecte avec le compte super-admin. Celui-ci
+   est défini dans le `.env` de l'API par `SUPER_ADMIN_EMAIL` et `SUPER_ADMIN_PASSWORD` : tu ne
+   saisis pas ce mot de passe.
+2. Page **Tenants**. Saisis :
+   - **Nom** : `<Nom du tenant>` ;
+   - **Slug** : `<slug>`.
+
+   Clique **Créer**.
+3. **Refus à tester avant** : un slug avec majuscule ou espace (`Test 1`). Attendu : un refus,
+   rien de créé. Relève le message.
+4. **Attendu** : le tenant apparaît dans la liste, **actif**. Relève son UUID si la page
+   l'affiche.
+5. Clique **Sélectionner** sur sa ligne : le tenant sera présélectionné sur `/login`.
+
+La création fait automatiquement deux choses :
+- elle crée **5 comptes techniques** (`admin@`, `owner@`, `teacher@`, `student@`,
+  `parent@<slug>.local`, mot de passe `Password@2025`) ;
+- elle **copie depuis `ecoledigitale`** les cycles, les classes, les cours et les créneaux
+  horaires.
+
+Elle ne crée pas le reste : filières, UE, ECUE, semestres, salles, signataires, personnes et
+barèmes.
+
+### 00.2 Connexion au nouveau tenant
+
+Déconnexion du super-admin, puis `/login` → *Tenant* = `<slug>`.
+
+**Attendu** : 5 lignes (`admin@<slug>.local`, …). Clique la ligne admin → **Se connecter** →
+`/tableau-de-bord`.
+
+Si le tenant n'est pas dans la liste, deux causes possibles :
+- le serveur web n'a pas les variables `SUPER_ADMIN_EMAIL` et `SUPER_ADMIN_PASSWORD` (elles
+  alimentent cette liste) ;
+- le panneau est coupé (`SHOW_TECHNICAL_ACCOUNTS`).
+
+Dans ce cas, l'humain saisit `admin@<slug>.local` / `Password@2025` au clavier. Note-le en
+MINEURE.
+
+### 00.3 Ce que contient le tenant neuf
+
+| Écran | Attendu |
+|---|---|
+| Menu latéral | **Toutes** les entrées de l'acte 1.0, y compris **Scolarité**, **Paiements** et **FINANCES ÉTUDIANTES** : un tenant neuf n'a aucune restriction de menu. Leur présence ici, et leur absence dans `ecoledigitale`, confirmerait que l'écart ANO-A1-01 vient de la configuration « Menus par rôle » d'`ecoledigitale` |
+| `/academic/cycles` | Les cycles copiés d'`ecoledigitale`. Relève leur nombre |
+| `/academic/classes` | Les classes copiées. **Regarde leur filière** : les filières ne sont pas copiées, donc une classe copiée peut afficher une filière vide, ou le nom d'une filière d'`ecoledigitale`. Relève ce que tu vois. Une filière d'un autre établissement **visible** ici est **MAJEURE** (fuite entre tenants) |
+| `/academic/programmes` (Filières) | **Vide** |
+| UE, ECUE, Semestres, Ouvertures de classe, Salles | **Vides** |
+| Enseignants, Étudiants, Parents | **Vides**. Les comptes techniques ne sont pas des fiches |
+| Signataires | 4 cartes **vides** |
+| Scolarité (`/admin/finances/scolarite`) | Aucune filière proposée |
+
+### 00.4 Cloisonnement entre établissements — test prioritaire
+
+Toujours connecté en admin du tenant neuf :
+1. `/academic/students`, recherche **`Kouassi`**, puis **`E2E-2909-1`** (le run précédent
+   d'`ecoledigitale`).
+2. `/academic/teachers`, recherche **`Brou`**.
+3. `/professionnel/admin/ue`, recherche **`UE-CPT-29091`**.
+
+**Attendu : aucun résultat.** Le moindre étudiant, enseignant ou UE d'`ecoledigitale` visible ici
+est **BLOQUANT** : les données d'un établissement fuiraient chez un autre. Arrête-toi et relève
+l'URL et la requête.
+
+Puis relis toutes les étapes de ce document en remplaçant `ecoledigitale` par `<slug>`, là où il
+s'agit du tenant du run.
 
 ---
 
@@ -578,6 +672,19 @@ chacune des quatre cartes le **nom** et la **fonction** affichés :
 
 Tu les retrouveras sur les PDF de l'acte 14. Une carte vide est **MAJEURE** : le document
 sortirait sans signataire.
+
+> **Variante « nouveau tenant »** : les quatre cartes sont vides, c'est attendu. **Renseigne-les**,
+> chaque carte avec son propre bouton **Enregistrer**, puis recharge la page : les quatre noms
+> doivent tenir.
+>
+> | Carte | Nom | Qualité | Fonction |
+> |---|---|---|---|
+> | Attestation de réussite | `Koffi Signataire <TAG>` | `Enseignant Chercheur` | `Directeur des études` |
+> | Diplôme — gauche | `Aya Gauche <TAG>` | — | `Le Directeur Général` |
+> | Diplôme — droite | `Yao Droite <TAG>` | — | `Le Président du Jury` |
+> | Attestation d'authenticité | `Ama Authentique <TAG>` | — | `Le Secrétaire Général` |
+>
+> Relève d'abord le refus « Le nom est requis. » en enregistrant une carte sans nom.
 
 ### 4.3 Barème de scolarité de la classe — **avant** toute inscription
 
@@ -1673,6 +1780,17 @@ Sur chaque écran :
 Les chiffres globaux mêlent les données réelles : **seuls les chiffres filtrés sur le run se
 comparent**.
 
+> **Variante « nouveau tenant »** : le tenant ne contient que le run. **Les chiffres globaux
+> doivent égaler exactement ceux du run** :
+> - effectif actif **3** ;
+> - enseignants **2** ;
+> - encaissements = total de l'acte 6 ;
+> - diplômes octroyés 2 et révoqués 1, si les diplômes sont à OUI.
+>
+> Seules exceptions : les cycles, classes, cours et créneaux copiés à la création (acte 00.3),
+> sans aucun inscrit. Tout autre écart est **MAJEURE** : il désignerait des données venues d'un
+> autre établissement.
+
 | # | Menu | URL | Contrôle avec les données du run |
 |---|---|---|---|
 | 1 | Tableau de bord | `/owner/dashboard` | « Comment va l'école, là, maintenant ? ». Les 8 indicateurs s'affichent. « Encaissements du mois » ≥ 250 000 si les encaissements du run datent du mois |
@@ -1884,6 +2002,23 @@ Une MINEURE tient en trois lignes : titre, URL, constat.
 ---
 
 ## Nettoyage (pour l'humain, après la campagne)
+
+**Variante « nouveau tenant » : supprimer le tenant.**
+1. `<URL>/super-admin/login`.
+2. Page **Tenants**, ligne du tenant du run → **Supprimer** → confirmer.
+
+Presque toutes les données d'un établissement sont reliées au tenant avec suppression en cascade
+(208 références sur 209). Le tenant emporte donc ses comptes, ses fiches, son module
+professionnel, ses paiements et ses diplômes.
+
+Ensuite, lance **la répétition à blanc** du script ci-dessous (`commit=0`) avec le tag du run.
+Elle doit trouver **0 racine** et **aucune ligne `RESTE`**. Une ligne `RESTE` signale une table
+sans lien vers le tenant, à nettoyer avec `commit=1`.
+
+Si **Supprimer** échoue (erreur 500), relève le message, puis passe par le script : il supprime
+les données du run dans n'importe quel tenant.
+
+**Tenant existant (`ecoledigitale`)** : utilise le script ci-dessous.
 
 Tout objet du run porte `<TAG>` ou une adresse `…<JJMMN>@example.test`. Le script
 `docs/testing/e2e-computer-use/nettoyage-parcours-pro.sql` les supprime, **et rien d'autre**.
