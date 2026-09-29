@@ -12,7 +12,7 @@ navigateur**, sur l'environnement de développement local (web `:3000`, API `:40
 |---|---|---|
 | `00-protocole-agent.md` | Contrat d'exécution : discipline de budget, classement des anomalies, format de rapport, règles de prudence | **chaque agent, avant son scénario** |
 | `01-lancement-campagne.md` | Prérequis, ordre d'exécution, prompt de lancement, réaction aux rapports | l'orchestrateur |
-| `scenarios/S01..S16` | Les seize scénarios, un fichier chacun | l'agent qui joue le scénario |
+| `scenarios/S01..S17` | Les dix-sept scénarios, un fichier chacun | l'agent qui joue le scénario |
 | `registre-donnees.md` | Identifiants créés et valeurs attendues — le seul canal entre scénarios | tout le monde |
 | `modeles/fiche-anomalie.md` | Ce que doit contenir une anomalie pour être corrigeable sans rejeu | les agents |
 | `modeles/rapport-final.md` | Le document de sortie, d'où part le chantier de correction | l'orchestrateur |
@@ -42,6 +42,8 @@ S01 socle (cycle, filière, classe, UE, ECUE, semestre)
 **B — Volet financier.** S11 encaissement, S12 commissions de prospection, S13 rémunération du
 formateur, S14 tunnel d'inscription publique. S11 à S13 s'accrochent à la chaîne A ; S14 est
 autonome.
+**S17** rejoue la rémunération de bout en bout (génération, archivage, versement, vue
+enseignante) : autonome, à coller tel quel dans Claude web, **sur une base isolée uniquement**.
 
 **C — Parcours académique classique.** S15 et S16, indépendants. À noter d'emblée, parce que
 c'est une réponse à la question de départ : **ce parcours ne délivre aucun diplôme**. Il
