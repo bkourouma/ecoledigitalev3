@@ -91,9 +91,9 @@ correspond pas au paramètre, **tu ne crées rien** : tu t'arrêtes et tu le sig
    (voir la section Nettoyage). Jusque-là, les effectifs et chiffres du propriétaire incluent
    les données du run.
 
-**Connexion.** Le panneau « Comptes par tenant » n'apparaît qu'en développement (`next dev`) ou
-si `SHOW_TECHNICAL_ACCOUNTS=true`. S'il est absent, les identifiants se saisissent au clavier
-(en production, par l'humain).
+**Connexion.** Le panneau « Comptes par tenant » apparaît en développement (`next dev`) et sur
+l'instance de démonstration (`SHOW_TECHNICAL_ACCOUNTS=true`). Il sert aux comptes techniques
+(admin, owner). Les comptes créés par le run n'y figurent pas : l'humain s'y connecte.
 
 ## 0.2 Paramètres du run — l'humain les remplit avant de coller
 

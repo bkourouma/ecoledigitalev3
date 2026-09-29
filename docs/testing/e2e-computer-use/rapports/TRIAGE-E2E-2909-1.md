@@ -149,3 +149,21 @@ rapport. L'alerte native restée ouverte est à fermer par l'humain.
 | « Inscription directe, sans paiement préalable » (onglet Inscrits d'une session) | **À décider** | Ce chemin confirme l'étudiant sans passer par le verrou des frais d'inscription. Voulu pour les régularisations ? Sinon, il faut l'aligner sur `professional-inscription-gate.ts` |
 | Signataire « Diplôme — droite » : titre dans le champ Nom | Donnée | « CELESTE BAH, Enseignant - chercheur » : à vérifier sur le PDF du diplôme. Correction dans Signataires si le rendu déplaît |
 | TF (« Total des frais ») = 350 000 | Constat | Le total dû d'un étudiant couvre dès l'inscription le barème complet des trois semestres, pas la part du semestre ouvert |
+
+---
+
+## Décision du 29/09 — panneau de connexion maintenu en production
+
+L'instance de production sert de **démonstration**, avec des données de test : l'utilisateur
+veut garder le panneau « Comptes par tenant ». Il est réactivé par défaut dans
+`docker-compose.yml` (`SHOW_TECHNICAL_ACCOUNTS: ${SHOW_TECHNICAL_ACCOUNTS:-true}`).
+
+Ce qui reste du correctif : les mots de passe ne sont plus écrits dans le JavaScript public,
+mais servis par `/api/technical-accounts`. Le panneau se coupe par une variable, sans modifier
+le code.
+
+**À faire le jour où l'instance reçoit de vraies données** :
+- mettre `SHOW_TECHNICAL_ACCOUNTS=false` dans le `.env` ;
+- changer les mots de passe des comptes techniques.
+
+ANO-A0-01 est donc **accepté par décision**, pas corrigé.
