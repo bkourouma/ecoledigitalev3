@@ -10,6 +10,7 @@ navigateur**, sur l'environnement de développement local (web `:3000`, API `:40
 
 | Fichier | À quoi il sert | Qui le lit |
 |---|---|---|
+| `PARCOURS-COMPLET-MODULE-PRO.md` | **Parcours unique et autonome** du module professionnel, de la filière au diplôme, sur les cinq profils (admin, enseignants, étudiants, parent, owner), écran par écran. À coller tel quel dans Claude (extension Chrome) | l'agent navigateur |
 | `00-protocole-agent.md` | Contrat d'exécution : discipline de budget, classement des anomalies, format de rapport, règles de prudence | **chaque agent, avant son scénario** |
 | `01-lancement-campagne.md` | Prérequis, ordre d'exécution, prompt de lancement, réaction aux rapports | l'orchestrateur |
 | `scenarios/S01..S17` | Les dix-sept scénarios, un fichier chacun | l'agent qui joue le scénario |
