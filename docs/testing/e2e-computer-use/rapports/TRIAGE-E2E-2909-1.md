@@ -129,3 +129,23 @@ rapport. L'alerte native restée ouverte est à fermer par l'humain.
 
 **Nettoyage en fin de run** : `docs/testing/e2e-computer-use/nettoyage-parcours-pro.sql`, avec
 `-v tag=E2E-2909-1 -v code=29091`, d'abord à blanc (`commit=0`).
+
+---
+
+# Deuxième rapport — actes 3 à 6, production
+
+| Anomalie | Verdict | Suite |
+|---|---|---|
+| **ANO-A4-01** — tables de prospection absentes (500) | Corrigé par l'exploitation : migrations 0120 à 0130 appliquées | Reste `0035_transcripts.sql` à appliquer (relevés de notes) |
+| **ANO-A4-02** — message SQL brut renvoyé au navigateur | **Corrigé** | Les routes `professional`, `professional-remuneration` et `prospection` avaient leur propre gestionnaire d'erreurs, qui renvoyait `error.message` tel quel. Elles utilisent désormais `utils/public-error-message.ts` : en production, une erreur PostgreSQL devient « Erreur interne du serveur. ». Les messages métier restent affichés. Le détail reste dans les journaux |
+| **ANO-A4-03** — la fenêtre « Nouveau commercial » ne se ferme pas | **Corrigé** | La fermeture attendait le rechargement de toutes les listes de prospection. Elle suit maintenant directement la réponse du serveur, et le rechargement se fait en arrière-plan |
+| **ANO-A5-01** — matricule `-0061` au lieu de `-0001` | **Voulu**, erreur du scénario | Le suffixe est le numéro d'ordre de l'étudiant dans l'établissement : il reste le même d'une classe à l'autre (`professional-enrollment.service.ts`). Scénario corrigé |
+| **ANO-A5-02** — les inscrits restent cochés après enregistrement | **Corrigé** | La sélection est vidée et la liste des inscriptibles rechargée dès l'enregistrement |
+| **ANO-A5-03** — ligne de créneau qui déborde (planning) | **Corrigé** | Les colonnes peuvent rétrécir (`min-w-0`) : une ECUE au libellé long ne pousse plus la ligne hors de l'écran |
+| **ANO-A5-04** — créneau supprimé sans confirmation | **Corrigé** | Boîte de confirmation « Supprimer ce créneau ? » (composant de l'application, pas une alerte native) |
+| **ANO-A3-02** — erreurs en `alert()` natif (enseignant, étudiant, parent) | **À planifier** | Refonte des trois formulaires pour afficher l'erreur dans la page. Pas d'impact sur les données ; gêne l'automatisation |
+| **ANO-A3-03** — sous-préfecture « Abengourou » affichée, vide enregistrée | **Pas un défaut visible** | Le champ est dans une carte **masquée** (`className="hidden"`) et facultatif dans le schéma. L'outil de test lit le DOM caché ; un utilisateur ne voit rien. À nettoyer à l'occasion : l'étoile « * » d'un champ masqué et facultatif est trompeuse |
+| Téléphone `0701<JJMMN>` à 9 chiffres | Erreur du scénario | Corrigé : `0701<JJMMN>0` |
+| « Inscription directe, sans paiement préalable » (onglet Inscrits d'une session) | **À décider** | Ce chemin confirme l'étudiant sans passer par le verrou des frais d'inscription. Voulu pour les régularisations ? Sinon, il faut l'aligner sur `professional-inscription-gate.ts` |
+| Signataire « Diplôme — droite » : titre dans le champ Nom | Donnée | « CELESTE BAH, Enseignant - chercheur » : à vérifier sur le PDF du diplôme. Correction dans Signataires si le rendu déplaît |
+| TF (« Total des frais ») = 350 000 | Constat | Le total dû d'un étudiant couvre dès l'inscription le barème complet des trois semestres, pas la part du semestre ouvert |

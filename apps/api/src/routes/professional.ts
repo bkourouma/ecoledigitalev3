@@ -80,6 +80,7 @@ import {
   requireAdminOrTeacher,
   requireTeacher,
 } from "../middlewares/professional-guards";
+import { publicErrorMessage } from "../utils/public-error-message";
 
 /**
  * Routes du Module Professionnel — Filière → UE → ECUE (feature 030).
@@ -177,7 +178,7 @@ function handler(fn: (request: FastifyRequest, reply: FastifyReply) => Promise<u
       return reply.status(500).send({
         success: false,
         error: "INTERNAL_ERROR",
-        message: error?.message ?? "Erreur interne du serveur.",
+        message: publicErrorMessage(error),
       });
     }
   };

@@ -74,7 +74,11 @@ export function useCreateCommercial() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       }),
-    onSuccess: invalidate,
+    // La fenêtre de saisie se ferme dès que le serveur a répondu : elle
+    // n'attend pas le rechargement des listes, qui suit en arrière-plan.
+    onSuccess: () => {
+      void invalidate();
+    },
   });
 }
 
@@ -87,7 +91,11 @@ export function useUpdateCommercial() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       }),
-    onSuccess: invalidate,
+    // La fenêtre de saisie se ferme dès que le serveur a répondu : elle
+    // n'attend pas le rechargement des listes, qui suit en arrière-plan.
+    onSuccess: () => {
+      void invalidate();
+    },
   });
 }
 

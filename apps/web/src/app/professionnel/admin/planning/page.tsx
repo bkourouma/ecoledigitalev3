@@ -41,6 +41,7 @@ import { useClassrooms } from "@/lib/hooks/use-classrooms";
 import { downloadEmploiTempsDocx } from "@/lib/emploi-temps-docx";
 import { openEmploiTempsPdf } from "@/lib/emploi-temps-pdf";
 import { ouvrirOngletPdf, POPUP_BLOQUEE } from "@/lib/utils/report-pdf";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 /**
  * Emploi du temps hebdomadaire — Module Professionnel.
@@ -128,6 +129,8 @@ export default function ProfessionalPlanningPage() {
   const classroomsQuery = useClassrooms({ limit: 100 } as any);
   const createMut = useCreateEmploiTempsSlot();
   const deleteMut = useDeleteEmploiTempsSlot();
+  // Créneau enregistré dont la suppression attend confirmation.
+  const [slotASupprimer, setSlotASupprimer] = useState<any | null>(null);
 
   const noms: any[] = (nomsQuery.data as any[]) ?? [];
   const nomKey = filiereId && nomClasse ? `${filiereId}|${nomClasse}` : "";
@@ -411,7 +414,7 @@ export default function ProfessionalPlanningPage() {
                     className="flex flex-col gap-2 p-3 border rounded-lg bg-gray-50"
                   >
                     <div className="flex flex-col md:flex-row md:items-end gap-3">
-                      <div className="flex-[2] space-y-1">
+                      <div className="min-w-0 flex-[2] space-y-1">
                         <Label className="text-xs font-medium">ECUE</Label>
                         <SearchableSelect
                           value={r.ecueKey}
@@ -424,7 +427,7 @@ export default function ProfessionalPlanningPage() {
                           }))}
                         />
                       </div>
-                      <div className="flex-1 space-y-1">
+                      <div className="min-w-0 flex-1 space-y-1">
                         <Label className="text-xs font-medium">Jour</Label>
                         <Select value={r.jour} onValueChange={(v) => updateRow(r.rowId, "jour", v)}>
                           <SelectTrigger>
@@ -439,7 +442,7 @@ export default function ProfessionalPlanningPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex-1 space-y-1">
+                      <div className="min-w-0 flex-1 space-y-1">
                         <Label className="text-xs font-medium">Début</Label>
                         <Select value={r.hDebut} onValueChange={(v) => updateRow(r.rowId, "hDebut", v)}>
                           <SelectTrigger>
@@ -454,7 +457,7 @@ export default function ProfessionalPlanningPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex-1 space-y-1">
+                      <div className="min-w-0 flex-1 space-y-1">
                         <Label className="text-xs font-medium">Fin</Label>
                         <Select value={r.hFin} onValueChange={(v) => updateRow(r.rowId, "hFin", v)}>
                           <SelectTrigger>
@@ -469,7 +472,7 @@ export default function ProfessionalPlanningPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex-1 space-y-1">
+                      <div className="min-w-0 flex-1 space-y-1">
                         <Label className="text-xs font-medium">Salle</Label>
                         <SearchableSelect
                           value={r.salleId}
@@ -584,7 +587,7 @@ export default function ProfessionalPlanningPage() {
                                     {idx > 0 && <div className="w-full border-t border-gray-300 mb-1" />}
                                     <button
                                       type="button"
-                                      onClick={() => handleDelete(s)}
+                                      onClick={() => setSlotASupprimer(s)}
                                       className="absolute top-0 right-0 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                       title="Supprimer"
                                     >
@@ -623,6 +626,27 @@ export default function ProfessionalPlanningPage() {
           </Card>
         </>
       )}
+      <ConfirmationDialog
+        open={slotASupprimer !== null}
+        onOpenChange={(open) => {
+          if (!open) setSlotASupprimer(null);
+        }}
+        title="Supprimer ce créneau ?"
+        description={
+          slotASupprimer
+            ? `${slotASupprimer.ecue_libelle ?? "Ce cours"} disparaîtra de l'emploi du temps de la classe. ` +
+              `Les séances déjà faites ne sont pas touchées.`
+            : ""
+        }
+        confirmText="Supprimer"
+        variant="destructive"
+        loading={deleteMut.isPending}
+        onConfirm={() => {
+          const slot = slotASupprimer;
+          setSlotASupprimer(null);
+          if (slot) void handleDelete(slot);
+        }}
+      />
     </div>
   );
 }

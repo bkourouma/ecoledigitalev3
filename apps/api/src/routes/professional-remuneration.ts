@@ -15,6 +15,7 @@ import type { ServiceResult } from "../services/professional-base.service";
 import { ProfessionalSeanceValidationService } from "../services/professional-seance-validation.service";
 import { ProfessionalEcueRatesService } from "../services/professional-ecue-rates.service";
 import { TeacherPayrollOverviewService } from "../services/teacher-payroll-overview.service";
+import { publicErrorMessage } from "../utils/public-error-message";
 
 /**
  * Rémunération du Module Professionnel — feature 031.
@@ -57,7 +58,7 @@ function handler(fn: (request: FastifyRequest, reply: FastifyReply) => Promise<u
       return reply.status(500).send({
         success: false,
         error: "INTERNAL_ERROR",
-        message: error?.message ?? "Erreur interne du serveur.",
+        message: publicErrorMessage(error),
       });
     }
   };

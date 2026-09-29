@@ -270,6 +270,11 @@ export default function ProfessionalInscriptionsPage() {
       }
 
       setResult({ ...res, provenance: provenanceResultat });
+      // Les étudiants inscrits ne sont plus inscriptibles : on vide la sélection
+      // et on recharge la liste, sinon un second clic les réinscrirait.
+      setStudentIds([]);
+      setProvenance(emptyProvenanceLot());
+      void studentsQuery.refetch();
     } catch (err: any) {
       setError(err?.message ?? "Erreur lors de l'enregistrement des inscriptions.");
     }

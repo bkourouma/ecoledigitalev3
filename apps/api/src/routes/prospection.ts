@@ -12,6 +12,7 @@ import {
 import { requireAdmin } from "../middlewares/professional-guards";
 import type { ServiceResult } from "../services/professional-base.service";
 import { ProspectionService } from "../services/prospection.service";
+import { publicErrorMessage } from "../utils/public-error-message";
 
 /**
  * Prospection — d'où viennent les étudiants, qui les a amenés, et ce qui est dû
@@ -52,7 +53,7 @@ function handler(fn: (request: FastifyRequest, reply: FastifyReply) => Promise<u
       return reply.status(500).send({
         success: false,
         error: "INTERNAL_ERROR",
-        message: error?.message ?? "Erreur interne du serveur.",
+        message: publicErrorMessage(error),
       });
     }
   };

@@ -473,7 +473,8 @@ Si l'écran affiche « Enseignant créé, mais l'email n'est pas parti », cliqu
 envoyer**. C'est attendu : les adresses `.test` ne sont pas routables.
 
 **Contrôle de doublon** : recrée Awa avec le même e-mail. Attendu : « Un enseignant avec cet
-email existe déjà ».
+email existe déjà ». Ce message s'affiche dans une **alerte native** du navigateur : demande à
+l'humain de cliquer OK et de te lire le texte. Même chose pour le doublon de matricule (3.2).
 
 ### 3.2 Trois étudiants
 
@@ -488,7 +489,7 @@ email existe déjà ».
 | Sexe | **Féminin** | **Masculin** | **Féminin** |
 | Date de naissance | `2004-03-12` | `2003-07-25` | `2004-11-02` |
 | Nationalité | `Ivoirienne` | `Ivoirienne` | `Malienne` |
-| Téléphone (10 chiffres) | `0701<JJMMN>` | `0702<JJMMN>` | `0703<JJMMN>` |
+| Téléphone (10 chiffres) | `0701<JJMMN>0` | `0702<JJMMN>0` | `0703<JJMMN>0` |
 | Lieu de naissance | `Abidjan, Côte d'Ivoire` | `Bouaké, Côte d'Ivoire` | `Bamako, Mali` |
 | Résidence | `Cocody` | `Yopougon` | `Marcory` |
 | Date d'obtention du BAC | 1er juillet de l'an dernier | idem | idem |
@@ -517,7 +518,7 @@ Chantal ou Aminata affichée « Masculin » est **MAJEURE** (défaut déjà corr
 | Prénom | `Fatou` |
 | Nom | `Parente <TAG>` |
 | Email | `fatou.<JJMMN>@example.test` |
-| Téléphone | `0704<JJMMN>` |
+| Téléphone | `0704<JJMMN>0` |
 
 Carte « Enfants à assigner » :
 1. Étudiant **Aminata Excellente <TAG>** → **Ajouter** → Type de relation **Parent**, coche
@@ -619,7 +620,7 @@ sortirait sans signataire.
 | Champ | Valeur |
 |---|---|
 | Nom | `Moussa Commercial <TAG>` |
-| Téléphone | `0705<JJMMN>` |
+| Téléphone | `0705<JJMMN>0` |
 | Taux par défaut (%) | `10` |
 | Email | `moussa.<JJMMN>@example.test` |
 
@@ -709,11 +710,13 @@ Aucun ne doit être en erreur.
    Comptabilité générale) et enregistre-le.
 2. Selon le code, **aucun conflit n'est détecté** : les deux cours s'empilent dans la même case.
    Si c'est le cas, note-le (constat C6).
-3. **Supprime ensuite ce créneau** : survole la case, icône de suppression.
+3. **Supprime ensuite ce créneau** : survole la case, icône de suppression. Une confirmation
+   « Supprimer ce créneau ? » doit s'afficher : clique **Supprimer**.
 
 **Consultation** : bouton **Consulter** (`/professionnel/admin/planning/consultation`). La grille
 doit être en lecture seule, identique. Les boutons **Exporter en PDF** et **Exporter en Word**
-doivent produire un fichier. Une seule capture si le PDF est mal rendu.
+doivent produire un fichier : **tu es autorisé à les lancer** (un téléchargement ou un onglet PDF
+n'écrit rien en base). Une seule capture si le PDF est mal rendu.
 
 ### 5.3 Les inscriptions du semestre 1, avec provenance
 
@@ -739,13 +742,16 @@ doivent produire un fichier. Une seule capture si le PDF est mal rendu.
 7. Clique **Enregistrer les inscriptions**.
 
 **Attendu** :
-- La carte de résultat « 6 inscription(s) créée(s) · 0 déjà inscrit(s) ». La page doit
-  **défiler jusqu'au message** : si tu dois remonter pour le voir, c'est MINEURE.
+- La carte de résultat « 6 inscription(s) créée(s) · 0 déjà inscrit(s) », **en haut de page**.
+  Un bandeau en bas de page le signale.
 - Les provenances comptées.
-- Le bloc **« Matricules de la classe »** : `IPAM-L1T<JJMMN>-0001`, `-0002`, `-0003`. Relève qui a
+- Le bloc **« Matricules de la classe »** : `IPAM-L1T<JJMMN>-NNNN`, où `NNNN` est le **numéro
+  d'ordre de l'étudiant dans l'établissement** (son numéro de fiche), et non un rang dans la
+  classe. C'est voulu : un étudiant garde le même numéro d'une classe à l'autre. Relève qui a
   quel numéro.
-- Juste après, les trois étudiants **disparaissent** de la liste des inscriptibles. C'est voulu :
-  un étudiant avec une inscription en cours n'est plus proposé.
+- Juste après, les trois étudiants **disparaissent** de la liste des inscriptibles, sans
+  rechargement, et la sélection est vidée. C'est voulu : un étudiant avec une inscription en
+  cours n'est plus proposé. S'ils restent listés et cochés, c'est MINEURE.
 
 ### 5.4 Le verrou « frais d'inscription »
 
