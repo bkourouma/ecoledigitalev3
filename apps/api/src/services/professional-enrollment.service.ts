@@ -1541,6 +1541,18 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
                 p.created_at::text AS created_at, p.receipt_number,
                 o.reference AS order_reference,
                 o.montant_total::float8 AS order_montant,
+                -- Situation d'ENSEMBLE du dossier, identique sur chaque ligne : le dû
+                -- est celui de TOUTES les commandes non annulées, payées ou non.
+                -- Le déduire des seules commandes déjà réglées (ce que faisait
+                -- l'écran) annonce « Soldé » à un étudiant qui n'a réglé qu'un
+                -- semestre sur trois.
+                (SELECT COALESCE(sum(o2.montant_total), 0)::float8
+                   FROM professional_orders o2
+                  WHERE o2.student_id = $1 AND o2.statut <> 'annulee') AS student_total_du,
+                (SELECT COALESCE(sum(pm.montant), 0)::float8
+                   FROM professional_payments pm
+                   JOIN professional_orders o3 ON o3.id = pm.order_id
+                  WHERE o3.student_id = $1 AND pm.statut = 'confirme') AS student_total_paye,
                 u.first_name, u.last_name,
                 COALESCE(filmat.matricule, sp.student_number) AS matricule,
                 fil.filiere_nom, fil.filiere_code, fil.vraie_filiere_nom, fil.ues,

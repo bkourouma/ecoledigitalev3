@@ -460,14 +460,19 @@ interface Txn {
 
 /** Regroupe les paiements en transactions (même horodatage) + cumul payé. */
 function buildTransactions(payments: any[]): { txns: Txn[]; totalDu: number } {
-  // Total dû = somme des montants des commandes distinctes.
+  // Total dû = TOUTES les commandes du dossier, réglées ou non (calculé par l'API).
+  // Repli : les seules commandes visibles ici, pour une API plus ancienne.
   const dueByOrder = new Map<string, number>();
   for (const p of payments) {
     if (p.order_reference && !dueByOrder.has(p.order_reference)) {
       dueByOrder.set(p.order_reference, Number(p.order_montant ?? 0));
     }
   }
-  const totalDu = Array.from(dueByOrder.values()).reduce((a, b) => a + b, 0);
+  const dossierDu = payments.find((p) => p.student_total_du != null)?.student_total_du;
+  const totalDu =
+    dossierDu != null
+      ? Number(dossierDu)
+      : Array.from(dueByOrder.values()).reduce((a, b) => a + b, 0);
 
   const map = new Map<string, any[]>();
   for (const p of payments) {
@@ -544,7 +549,13 @@ function ReceiptsTab({ childId }: { childId: string }) {
 
   // Les totaux portent sur TOUTE la scolarité, pas sur la sélection : le
   // cumul payé et le reste dû n'ont de sens qu'à l'échelle du dossier.
-  const totalPaye = txns.length > 0 ? Math.max(...txns.map((t) => t.total_paye)) : 0;
+  const payeApi = payments.find((p) => p.student_total_paye != null)?.student_total_paye;
+  const totalPaye =
+    payeApi != null
+      ? Number(payeApi)
+      : txns.length > 0
+      ? Math.max(...txns.map((t) => t.total_paye))
+      : 0;
   const reste = Math.max(0, totalDu - totalPaye);
 
   if (query.isLoading) {
