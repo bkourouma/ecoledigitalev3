@@ -740,7 +740,10 @@ export class ProfessionalBulletinService extends ProfessionalBaseService {
               s2 += mb.moyenne_session * mb.credits_total;
               c2 += mb.credits_total;
             }
-            classAnnual.push(c2 > 0 ? s2 / c2 : null);
+            // Arrondi comme la moyenne affichée : comparer une moyenne arrondie à
+            // des valeurs exactes (la sienne comprise) la ferait passer derrière
+            // elle-même.
+            classAnnual.push(c2 > 0 ? arrondi(s2 / c2) : null);
           }
           rangAnnuel = this.rankAmong(classAnnual, moyenneAnnuelle);
           for (const detail of semDetails) {

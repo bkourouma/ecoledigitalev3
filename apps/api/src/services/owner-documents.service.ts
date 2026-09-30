@@ -94,14 +94,37 @@ export async function fetchOwnerDocuments(
     const pipelineRows = await safeRows<Row>(
       client,
       `WITH ${SOCLE},
-       uv_par_etudiant AS (
-         /* UV acquises : seul le statut validee compte. Un resultat en_cours ou
-            en echec ne donne aucun credit, et les additionner rendrait tout le
-            monde eligible. */
-         SELECT r.student_id, SUM(r.uv_acquises)::int AS uv_total
+       /* MEME REGLE QUE L ADMINISTRATION (evaluateDiplomaEligibility).
+          Les UV d un etudiant pour un diplome sont celles des UE EXIGEES par ce
+          diplome qu il a validees : une UE validee mais etrangere au diplome ne
+          compte pas, et une exigence obligatoire manquante rend inelegible quel
+          que soit le total. Additionner uv_acquises de tous ses resultats, comme
+          on le faisait, ignorait la liste des exigences ET la Conduite : l ecran
+          annoncait « 0 eligible, 2 octrois sans UV » quand l administration en
+          voyait 2 eligibles. */
+       ue_validees AS (
+         /* Statut validee, ou — la Conduite ne passant jamais par les
+            resultats d UE — une note d examen de Conduite >= 10. */
+         SELECT r.student_id, r.ue_id
            FROM student_professional_ue_results r
           WHERE r.tenant_id = $1::uuid AND r.statut = 'validee'
-          GROUP BY r.student_id
+         UNION
+         SELECT n.student_id, l.ue_id
+           FROM professional_ecue_notes n
+           JOIN professional_ecue e ON e.id = n.ecue_id AND e.tenant_id = n.tenant_id
+           JOIN professional_ue_ecue l ON l.ecue_id = e.id AND l.tenant_id = e.tenant_id
+          WHERE n.tenant_id = $1::uuid AND n.nature = 'examen' AND n.note >= 10
+            AND (e.libelle ILIKE 'conduite%' OR e.code ILIKE '%EC-CON%')
+       ),
+       exigences AS (
+         /* Une ligne par (diplome, UE) : l obligatoire prime, comme a l eval. */
+         SELECT dr.diploma_id, dr.ue_id,
+                bool_or(dr.est_obligatoire) AS obligatoire,
+                MAX(u.nb_uv) AS nb_uv
+           FROM professional_diploma_requirements dr
+           JOIN professional_ue u ON u.id = dr.ue_id AND u.tenant_id = dr.tenant_id
+          WHERE dr.tenant_id = $1::uuid
+          GROUP BY dr.diploma_id, dr.ue_id
        ),
        candidats AS (
          /* Le vivier : les etudiants du PERIMETRE inscrits dans la filiere du
@@ -112,6 +135,28 @@ export async function fetchOwnerDocuments(
            FROM professional_diplomas d
            JOIN etudiants_perimetre ep ON ep.filiere_id = d.filiere_id
           WHERE d.tenant_id = $1::uuid
+       ),
+       octroyes_actifs AS (
+         SELECT sd.diploma_id, sd.student_id
+           FROM student_professional_diplomas sd
+          WHERE sd.tenant_id = $1::uuid AND sd.date_revocation IS NULL
+       ),
+       bilan AS (
+         SELECT p.diploma_id, p.student_id,
+                COALESCE(SUM(x.nb_uv) FILTER (WHERE v.ue_id IS NOT NULL), 0)::int AS uv,
+                COALESCE(bool_and(v.ue_id IS NOT NULL OR NOT x.obligatoire), true) AS obligatoires_ok
+           FROM (SELECT diploma_id, student_id FROM candidats
+                 UNION
+                 SELECT diploma_id, student_id FROM octroyes_actifs) p
+           LEFT JOIN exigences x ON x.diploma_id = p.diploma_id
+           LEFT JOIN ue_validees v ON v.student_id = p.student_id AND v.ue_id = x.ue_id
+          GROUP BY p.diploma_id, p.student_id
+       ),
+       eligibles_bilan AS (
+         SELECT b.diploma_id, b.student_id
+           FROM bilan b
+           JOIN professional_diplomas d ON d.id = b.diploma_id
+          WHERE b.obligatoires_ok AND b.uv >= d.uv_required
        )
        SELECT d.id AS diploma_id,
               d.code,
@@ -120,7 +165,9 @@ export async function fetchOwnerDocuments(
               d.uv_required,
               COUNT(DISTINCT ca.student_id)::int AS candidats,
               COUNT(DISTINCT ca.student_id) FILTER (
-                WHERE COALESCE(uv.uv_total, 0) >= d.uv_required)::int AS eligibles,
+                WHERE EXISTS (SELECT 1 FROM eligibles_bilan eb
+                               WHERE eb.diploma_id = d.id
+                                 AND eb.student_id = ca.student_id))::int AS eligibles,
               (SELECT COUNT(*) FROM student_professional_diplomas sd
                 WHERE sd.diploma_id = d.id AND sd.tenant_id = $1::uuid
                   AND sd.date_revocation IS NULL)::int AS octroyes,
@@ -129,23 +176,22 @@ export async function fetchOwnerDocuments(
                   AND sd.date_revocation IS NOT NULL)::int AS revoques,
               /* Eligible sans diplome : le dossier fini qui dort. */
               COUNT(DISTINCT ca.student_id) FILTER (
-                WHERE COALESCE(uv.uv_total, 0) >= d.uv_required
-                  AND NOT EXISTS (SELECT 1 FROM student_professional_diplomas sd
-                                   WHERE sd.diploma_id = d.id
-                                     AND sd.student_id = ca.student_id
-                                     AND sd.tenant_id = $1::uuid
-                                     AND sd.date_revocation IS NULL))::int
+                WHERE EXISTS (SELECT 1 FROM eligibles_bilan eb
+                               WHERE eb.diploma_id = d.id
+                                 AND eb.student_id = ca.student_id)
+                  AND NOT EXISTS (SELECT 1 FROM octroyes_actifs oa
+                                   WHERE oa.diploma_id = d.id
+                                     AND oa.student_id = ca.student_id))::int
                 AS eligibles_non_diplomes,
               /* Octroi sans les UV requises : un titre attaquable. */
-              (SELECT COUNT(*) FROM student_professional_diplomas sd
-                 LEFT JOIN uv_par_etudiant u2 ON u2.student_id = sd.student_id
-                WHERE sd.diploma_id = d.id AND sd.tenant_id = $1::uuid
-                  AND sd.date_revocation IS NULL
-                  AND COALESCE(u2.uv_total, 0) < d.uv_required)::int AS octroyes_sans_uv
+              (SELECT COUNT(*) FROM octroyes_actifs oa
+                WHERE oa.diploma_id = d.id
+                  AND NOT EXISTS (SELECT 1 FROM eligibles_bilan eb
+                                   WHERE eb.diploma_id = oa.diploma_id
+                                     AND eb.student_id = oa.student_id))::int AS octroyes_sans_uv
          FROM professional_diplomas d
          LEFT JOIN programmes pr ON pr.id = d.filiere_id AND pr.tenant_id = d.tenant_id
          LEFT JOIN candidats ca ON ca.diploma_id = d.id
-         LEFT JOIN uv_par_etudiant uv ON uv.student_id = ca.student_id
         WHERE d.tenant_id = $1::uuid
           /* Le filtre de filiere s applique au diplome lui-meme : choisir une
              filiere ne doit pas laisser les diplomes des autres a zero. */

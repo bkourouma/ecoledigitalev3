@@ -68,7 +68,13 @@ export default function TeacherEcuePage() {
         } ${e.session_libelle ?? ""}`
           .toLowerCase()
           .includes(q);
-      const matchStatut = e.statut === statut;
+      // « En cours » couvre toute cohorte encore active : une cohorte tout juste
+      // ouverte (`ouvert`, `complet`) n'est pas encore `en_cours`, mais l'enseignant
+      // doit déjà pouvoir y accéder. Seules les cohortes closes ou annulées sortent.
+      const matchStatut =
+        statut === "termine"
+          ? e.statut === "termine"
+          : e.statut !== "termine" && e.statut !== "annule";
       return matchSearch && matchStatut;
     });
   }, [ecues, search, statut]);
