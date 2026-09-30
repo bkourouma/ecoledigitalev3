@@ -68,3 +68,48 @@ export function messageCloture(sem: SemestreCloture): string {
   const date = new Date(sem.bulletins_clotures_at).toLocaleDateString("fr-FR");
   return `Le semestre « ${sem.libelle} » a été clôturé le ${date} : ses notes ne sont plus modifiables, les bulletins étant arrêtés.`;
 }
+
+/**
+ * Verrou de clôture pour la CORRECTION d'une copie.
+ *
+ * Une note de copie alimente le résultat ECUE (auto-capture) : la corriger après
+ * clôture ferait bouger une moyenne déjà portée sur un bulletin remis. On cherche
+ * donc les cohortes que cette correction toucherait — celle de l'évaluation, ou, si
+ * elle n'est rattachée à aucune, toutes celles où l'étudiant est inscrit et dont
+ * l'UE porte l'ECUE — et on refuse dès que l'une appartient à un semestre clôturé.
+ */
+export async function semestreClotureDeEvaluation(
+  client: PoolClient,
+  tenantId: string,
+  assignmentId: string,
+  studentId: string
+): Promise<SemestreCloture | null> {
+  const a = await client.query(
+    `SELECT ecue_id, ue_session_id FROM professional_assignments
+     WHERE id = $1 AND tenant_id = $2`,
+    [assignmentId, tenantId]
+  );
+  if (a.rowCount === 0) return null;
+  const { ecue_id, ue_session_id } = a.rows[0];
+
+  let sessionIds: string[];
+  if (ue_session_id) {
+    sessionIds = [ue_session_id];
+  } else {
+    const s = await client.query(
+      `SELECT DISTINCT s.id
+       FROM professional_enrollments en
+       JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+       JOIN professional_ue_ecue l ON l.ue_id = s.ue_id AND l.tenant_id = s.tenant_id
+       WHERE en.student_id = $1 AND en.tenant_id = $2
+         AND en.statut IN ('confirmee','terminee') AND l.ecue_id = $3`,
+      [studentId, tenantId, ecue_id]
+    );
+    sessionIds = s.rows.map((r) => r.id as string);
+  }
+  for (const id of sessionIds) {
+    const cloture = await semestreClotureDeSession(client, tenantId, id);
+    if (cloture) return cloture;
+  }
+  return null;
+}

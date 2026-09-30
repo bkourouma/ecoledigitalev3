@@ -4,6 +4,7 @@ import {
 } from "../professional-inscription-gate";
 import {
   semestreClotureDeSession,
+  semestreClotureDeEvaluation,
   messageCloture,
 } from "../professional-cloture-guard";
 
@@ -139,5 +140,42 @@ describe("Verrou de clôture — message", () => {
     // Aucune route ne remet bulletins_clotures_at à NULL : ne pas envoyer
     // l'utilisateur chercher une porte qui n'existe pas.
     expect(msg.toLowerCase()).not.toContain("rouvr");
+  });
+});
+
+describe("Verrou de clôture — semestreClotureDeEvaluation (correction d'une copie)", () => {
+  const ASSIGN = "66666666-6666-6666-6666-666666666666";
+  const CLOTURE = {
+    semestre_id: "55555555-5555-5555-5555-555555555555",
+    libelle: "Semestre 3",
+    bulletins_clotures_at: "2026-09-22T17:23:31.546Z",
+  };
+
+  it("bloque la correction d'une évaluation rattachée à une cohorte clôturée", async () => {
+    const { client } = clientFactice([
+      { rows: [{ ecue_id: "e1", ue_session_id: SESSION }] },
+      { rows: [CLOTURE] },
+    ]);
+    const sem = await semestreClotureDeEvaluation(client, T, ASSIGN, ETU);
+    expect(sem?.libelle).toBe("Semestre 3");
+  });
+
+  it("laisse passer si la cohorte n'est dans aucun semestre clôturé", async () => {
+    const { client } = clientFactice([
+      { rows: [{ ecue_id: "e1", ue_session_id: SESSION }] },
+      { rows: [] },
+    ]);
+    await expect(semestreClotureDeEvaluation(client, T, ASSIGN, ETU)).resolves.toBeNull();
+  });
+
+  it("sans cohorte sur l'évaluation, examine celles où l'étudiant est inscrit", async () => {
+    const { client, appels } = clientFactice([
+      { rows: [{ ecue_id: "e1", ue_session_id: null }] },
+      { rows: [{ id: SESSION }] },
+      { rows: [CLOTURE] },
+    ]);
+    const sem = await semestreClotureDeEvaluation(client, T, ASSIGN, ETU);
+    expect(sem?.libelle).toBe("Semestre 3");
+    expect(appels[1].sql).toMatch(/professional_enrollments/);
   });
 });

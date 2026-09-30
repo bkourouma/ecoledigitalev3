@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
+import { messageCloture, semestreClotureDeEvaluation } from "./professional-cloture-guard";
 
 /**
  * Évaluations professionnelles (feature 030) — rattachées à l'ECUE
@@ -1233,6 +1234,13 @@ export class ProfessionalAssignmentsService extends ProfessionalBaseService {
       if (input.points < 0 || input.points > max) {
         return fail("VALIDATION_ERROR", `Points hors plage (0 → ${max}).`);
       }
+      const cloture = await semestreClotureDeEvaluation(
+        client,
+        tenantId,
+        row.assignment_id,
+        row.student_id
+      );
+      if (cloture) return fail("SEMESTRE_CLOTURE", messageCloture(cloture));
       await client.query(
         `UPDATE professional_assignment_question_answers
          SET points_earned = $1, feedback = $2, graded_manually = true,
@@ -1303,6 +1311,8 @@ export class ProfessionalAssignmentsService extends ProfessionalBaseService {
       if (input.note < 0 || input.note > noteMax) {
         return fail("VALIDATION_ERROR", `Note hors plage (0 → ${noteMax}).`);
       }
+      const cloture = await semestreClotureDeEvaluation(client, tenantId, assignmentId, studentId);
+      if (cloture) return fail("SEMESTRE_CLOTURE", messageCloture(cloture));
       const res = await client.query(
         `INSERT INTO professional_assignment_submissions
            (tenant_id, assignment_id, student_id, statut, note, appreciation, graded_at, graded_by)
