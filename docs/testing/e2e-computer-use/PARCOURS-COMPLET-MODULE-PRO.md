@@ -1795,11 +1795,18 @@ Ouvre directement :
 
 # ACTE 18 — Owner : tour des 18 écrans
 
-Connecte-toi en **owner** (panneau, ligne `owner@ecoledigitale.local`). Arrivée attendue :
-`/owner/dashboard`.
+Connecte-toi en **owner du tenant du run** : `owner@<slug>.local`, mot de passe `Password@2025`
+(variante « nouveau tenant » : `owner@test-30091.local`). **Jamais** `owner@ecoledigitale.local` dans
+ce cas : ce serait l'établissement réel, avec ses chiffres réels. Contrôle avant d'ouvrir le
+moindre écran : le tableau de bord doit montrer **3 étudiants** et environ **250 000** encaissés,
+pas des dizaines de fiches ni des millions. Arrivée attendue : `/owner/dashboard`.
 
-**Le menu** : l'intertitre global « PROPRIÉTAIRE », sans groupes dépliants. **Aucun bloc admin**
-(ni « MODULE PROFESSIONNEL » en saisie, ni « ADMINISTRATION » de l'admin).
+**Le menu** : un intertitre global « PROPRIÉTAIRE », et des **sections toutes visibles d'un coup**
+(rien à déplier) : Structure académique, Module professionnel, Scolarité, Prospection, Suivi &
+évaluation, Documents officiels, Rémunération, Pilotage. Ces titres, dont « Module professionnel »,
+sont **attendus**. Ce qui ne doit **pas** être là : les écrans de **saisie** de l'administrateur
+(UE, ECUE, Notes, Inscriptions…) et le bloc « ADMINISTRATION » de l'admin. Un lien du menu owner
+mène à un écran de **consultation** `/owner/...`.
 
 Sur chaque écran :
 - relève le **titre** ;
