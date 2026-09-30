@@ -310,11 +310,14 @@ moyennes attendues restent les mêmes.
 La création fait automatiquement deux choses :
 - elle crée **5 comptes techniques** (`admin@`, `owner@`, `teacher@`, `student@`,
   `parent@<slug>.local`, mot de passe `Password@2025`) ;
-- elle **copie depuis `ecoledigitale`** les cycles, les classes, les cours et les créneaux
-  horaires.
+- elle **copie depuis `ecoledigitale`** les cycles, les filières, les classes, les cours et les
+  créneaux horaires.
 
-Elle ne crée pas le reste : filières, UE, ECUE, semestres, salles, signataires, personnes et
-barèmes.
+Elle ne crée pas le reste : UE, ECUE, semestres, salles, personnes et barèmes.
+
+> **Avant de créer le tenant**, nettoie les restes des runs précédents dans `ecoledigitale`
+> (script de nettoyage, `tag` du run précédent). La copie reprend tout ce que l'établissement de
+> référence contient, y compris un cycle, une filière et une classe `…E2E-…` laissés par un test.
 
 ### 00.2 Connexion au nouveau tenant
 
@@ -337,11 +340,11 @@ MINEURE.
 |---|---|
 | Menu latéral | **Toutes** les entrées de l'acte 1.0, y compris **Scolarité**, **Paiements** et **FINANCES ÉTUDIANTES** : un tenant neuf n'a aucune restriction de menu. Leur présence ici, et leur absence dans `ecoledigitale`, confirmerait que l'écart ANO-A1-01 vient de la configuration « Menus par rôle » d'`ecoledigitale` |
 | `/academic/cycles` | Les cycles copiés d'`ecoledigitale`. Relève leur nombre |
-| `/academic/classes` | Les classes copiées. **Regarde leur filière** : les filières ne sont pas copiées, donc une classe copiée peut afficher une filière vide, ou le nom d'une filière d'`ecoledigitale`. Relève ce que tu vois. Une filière d'un autre établissement **visible** ici est **MAJEURE** (fuite entre tenants) |
-| `/academic/programmes` (Filières) | **Vide** |
+| `/academic/programmes` (Filières) | **Version corrigée** (déployée avant la création du tenant) : les filières d'`ecoledigitale`, **copiées** dans le tenant. **Version ancienne** : vide |
+| `/academic/classes` | Les classes copiées. **Regarde leur filière** et compare avec la liste des Filières ci-dessus. **Version corrigée** : chaque classe porte une filière **présente dans la liste des Filières du tenant**. **Version ancienne** : des classes affichent une filière absente de cette liste = liens vers l'autre établissement, **MAJEURE** (anomalie A00-02 du run E2E-3009-1). Ce cas se répare avec `infra/scripts/repair-cross-tenant-references.sql` |
 | UE, ECUE, Semestres, Ouvertures de classe, Salles | **Vides** |
 | Enseignants, Étudiants, Parents | **Vides**. Les comptes techniques ne sont pas des fiches |
-| Signataires | 4 cartes **vides** |
+| Signataires | 4 cartes **pré-remplies** avec les noms livrés par défaut avec l'application (des personnes réelles, étrangères au tenant). **Ce n'est pas une fuite** : l'écran ne distingue pas une valeur enregistrée d'une valeur par défaut. Tant que tu n'as rien enregistré, les documents du tenant sortiraient signés par ces personnes. Tu les remplaces à l'acte 4.2 |
 | Scolarité (`/admin/finances/scolarite`) | Aucune filière proposée |
 
 ### 00.4 Cloisonnement entre établissements — test prioritaire
@@ -676,9 +679,11 @@ chacune des quatre cartes le **nom** et la **fonction** affichés :
 Tu les retrouveras sur les PDF de l'acte 14. Une carte vide est **MAJEURE** : le document
 sortirait sans signataire.
 
-> **Variante « nouveau tenant »** : les quatre cartes sont vides, c'est attendu. **Renseigne-les**,
-> chaque carte avec son propre bouton **Enregistrer**, puis recharge la page : les quatre noms
-> doivent tenir.
+> **Variante « nouveau tenant »** : les quatre cartes affichent les noms livrés par défaut. **Ne
+> les laisse pas** : **remplace** le contenu de chacune par les valeurs ci-dessous, avec son propre
+> bouton **Enregistrer**, **même si tu ne vois aucune différence de champ vide**. Puis recharge la
+> page : les quatre noms de test doivent tenir. C'est l'enregistrement qui crée la ligne du tenant ;
+> sans lui, diplômes et attestations sortent avec les noms par défaut.
 >
 > | Carte | Nom | Qualité | Fonction |
 > |---|---|---|---|
@@ -1807,7 +1812,7 @@ comparent**.
 | 9 | Prospection & commissions | `/owner/prospection` | « Amenés par un commercial » ≥ 1. « Reste dû aux commerciaux » inclut 10 000 |
 | 10 | Présences | `/owner/assiduite` | Onglet Présences : « Appels effectués ». Onglet **Conduite** (`?vue=conduite`) : les conduites du run |
 | 11 | Notes & bulletins | `/owner/pedagogie` | Onglet **Professionnel** : « Taux de réussite », « Bulletins définitifs ». Onglets **Rattrapages** et **Bulletins** : le run (1 étudiant rattrapé, 1 ajourné) |
-| 12 | Attestations, diplômes & signataires | `/owner/documents` | Diplôme du cycle : Octroyés 2, **Révoqués 1**, Éligibles 2. Signataires : 4 lignes, état renseigné |
+| 12 | Attestations, diplômes & signataires | `/owner/documents` | Diplôme du cycle : Octroyés 2, **Révoqués 1**, Éligibles 2. Signataires : 4 lignes, « Valeur par défaut » = **non** sur chacune, **aucun** bandeau « ATTENTION : … portent encore le nom livré par défaut ». Si ce bandeau apparaît, les signataires de l'acte 4.2 n'ont pas été enregistrés |
 | 13 | Séances, bulletins & masse salariale | `/owner/remuneration` | Onglet « Configuration & séances » : les 4 séances validées d'Awa et Koné. Enseignants sans configuration signalés |
 | 14 | Rentabilité | `/owner/economie` | Onglets « Rentabilité » et « Charges » s'affichent |
 | 15 | Points de vigilance | `/owner/risque` | S'affiche. Relève si Chantal (ajournée, absences) ou les impayés du run y figurent |

@@ -188,7 +188,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               f.domaine AS filiere_domaine
             FROM programmes p
             JOIN cycles c ON p.cycle_id = c.id
-            LEFT JOIN filieres f ON f.id = p.filiere_id
+            LEFT JOIN filieres f ON f.id = p.filiere_id AND f.tenant_id = p.tenant_id
             ${whereClause}
             ORDER BY p.created_at DESC
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -444,7 +444,7 @@ export async function programmesRoutes(fastify: FastifyInstance) {
               f.domaine AS filiere_domaine
             FROM programmes p
             JOIN cycles c ON p.cycle_id = c.id
-            LEFT JOIN filieres f ON f.id = p.filiere_id
+            LEFT JOIN filieres f ON f.id = p.filiere_id AND f.tenant_id = p.tenant_id
             WHERE p.id = $1 AND p.tenant_id = $2
           `,
           [id, tenantId]

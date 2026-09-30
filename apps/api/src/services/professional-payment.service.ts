@@ -503,7 +503,7 @@ export class ProfessionalPaymentService extends ProfessionalBaseService {
      FROM professional_orders o
      JOIN programmes p        ON p.id = o.programme_id
      JOIN cycles c            ON c.id = p.cycle_id
-     LEFT JOIN filieres f     ON f.id = p.filiere_id
+     LEFT JOIN filieres f     ON f.id = p.filiere_id AND f.tenant_id = p.tenant_id
      JOIN student_profiles sp ON sp.id = o.student_id
      JOIN users u             ON u.id = sp.user_id
      LEFT JOIN professional_student_matricules psm

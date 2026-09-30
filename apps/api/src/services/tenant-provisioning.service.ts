@@ -4,7 +4,7 @@ import type { PoolClient } from "pg";
 export const DEFAULT_REFERENCE_TENANT_SLUG = "ecoledigitale";
 export const DEFAULT_REFERENCE_TENANT_NAME = "ecoledigitale";
 export const DEFAULT_TECHNICAL_PASSWORD = "Password@2025";
-const REFERENCE_TABLES = ["cycles", "programmes", "courses", "time_slots"] as const;
+const REFERENCE_TABLES = ["cycles", "filieres", "programmes", "courses", "time_slots"] as const;
 
 type TenantSummary = {
   id: string;
@@ -73,6 +73,32 @@ async function getTableColumns(client: PoolClient, tableName: string): Promise<s
   return result.rows.map((row) => row.column_name);
 }
 
+/**
+ * Colonnes de `tableName` qui pointent vers un compte utilisateur (`approved_by`,
+ * `created_by`…), avec leur nullabilité.
+ *
+ * Un compte appartient à UN établissement. Recopier tel quel l'identifiant d'un
+ * utilisateur de l'établissement de référence dans une ligne du nouvel
+ * établissement crée un lien entre deux établissements.
+ */
+async function getUserReferenceColumns(
+  client: PoolClient,
+  tableName: string
+): Promise<Array<{ column: string; nullable: boolean }>> {
+  const result = await client.query<{ column_name: string; nullable: boolean }>(
+    `
+      SELECT a.attname AS column_name, NOT a.attnotnull AS nullable
+      FROM pg_constraint c
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+      WHERE c.contype = 'f'
+        AND c.conrelid = to_regclass($1)
+        AND c.confrelid = to_regclass('users')
+    `,
+    [`public.${tableName}`]
+  );
+  return result.rows.map((row) => ({ column: row.column_name, nullable: row.nullable }));
+}
+
 async function getExistingIdForClone(
   client: PoolClient,
   tableName: typeof REFERENCE_TABLES[number],
@@ -83,6 +109,14 @@ async function getExistingIdForClone(
     const result = await client.query("SELECT id FROM cycles WHERE tenant_id = $1 AND code = $2 LIMIT 1", [
       targetTenantId,
       row.code,
+    ]);
+    return result.rows[0]?.id ?? null;
+  }
+
+  if (tableName === "filieres" && row.name) {
+    const result = await client.query("SELECT id FROM filieres WHERE tenant_id = $1 AND name = $2 LIMIT 1", [
+      targetTenantId,
+      row.name,
     ]);
     return result.rows[0]?.id ?? null;
   }
@@ -285,9 +319,11 @@ async function cloneReferenceTable(
   tableName: typeof REFERENCE_TABLES[number],
   sourceTenantId: string,
   targetTenantId: string,
-  idMapping: Map<string, string>
+  idMapping: Map<string, string>,
+  filiereMapping: Map<string, string> = new Map()
 ): Promise<Map<string, string>> {
   const columns = await getTableColumns(client, tableName);
+  const userColumns = await getUserReferenceColumns(client, tableName);
   const result = await client.query<Record<string, unknown>>(
     `SELECT * FROM ${tableName} WHERE tenant_id = $1`,
     [sourceTenantId]
@@ -325,9 +361,20 @@ async function cloneReferenceTable(
       newRow[column] = row[column];
     }
 
+    // Les comptes ne se copient pas : ils appartiennent à l'établissement de référence.
+    for (const { column, nullable } of userColumns) {
+      if (nullable && column in newRow) newRow[column] = null;
+    }
+
     if (tableName === "programmes" && row.cycle_id) {
       newRow.cycle_id = idMapping.get(String(row.cycle_id));
       if (!newRow.cycle_id) continue;
+    }
+
+    if (tableName === "programmes" && columns.includes("filiere_id")) {
+      // Jamais l'identifiant d'une filière d'un autre établissement : la copie
+      // correspondante, ou rien.
+      newRow.filiere_id = row.filiere_id ? filiereMapping.get(String(row.filiere_id)) ?? null : null;
     }
 
     if (tableName === "courses" && row.programme_id) {
@@ -362,7 +409,17 @@ export async function cloneReferenceDataFromReferenceTenant(
   }
 
   const cycleMap = await cloneReferenceTable(client, "cycles", sourceTenantId, targetTenantId, new Map());
-  const programmeMap = await cloneReferenceTable(client, "programmes", sourceTenantId, targetTenantId, cycleMap);
+  // Les classes appartiennent à une filière : sans copier les filières, chaque
+  // classe copiée garderait un lien vers celle de l'établissement de référence.
+  const filiereMap = await cloneReferenceTable(client, "filieres", sourceTenantId, targetTenantId, new Map());
+  const programmeMap = await cloneReferenceTable(
+    client,
+    "programmes",
+    sourceTenantId,
+    targetTenantId,
+    cycleMap,
+    filiereMap
+  );
   await cloneReferenceTable(client, "courses", sourceTenantId, targetTenantId, programmeMap);
   await cloneReferenceTable(client, "time_slots", sourceTenantId, targetTenantId, new Map());
 }

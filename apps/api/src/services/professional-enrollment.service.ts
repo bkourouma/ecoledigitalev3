@@ -1576,7 +1576,7 @@ export class ProfessionalEnrollmentService extends ProfessionalBaseService {
            JOIN professional_ue_sessions s ON s.id = en.ue_session_id
            JOIN professional_ue ue ON ue.id = s.ue_id
            LEFT JOIN programmes prog ON prog.id = ue.filiere_id
-           LEFT JOIN filieres fl ON fl.id = prog.filiere_id
+           LEFT JOIN filieres fl ON fl.id = prog.filiere_id AND fl.tenant_id = prog.tenant_id
            LEFT JOIN LATERAL (
              SELECT sm.id, sm.libelle
              FROM professional_semestres sm
