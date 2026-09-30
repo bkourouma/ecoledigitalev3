@@ -505,7 +505,8 @@ Clique **« Tout archiver (N) »**.
 - Clique **« Archiver »**.
 - Le message « N bulletin(s) archivé(s), montant arrêté. Ils sont dans l'historique au statut
   « Impayé » — enregistrez-y les versements. »
-- La carte d'Awa affiche **« Bulletin archivé »**.
+- La carte d'Awa n'affiche plus de bulletin : **« Aucune période de paiement ouverte »**. C'est voulu :
+  le bandeau de bulletin est lié à la période, et plus aucune n'est ouverte une fois tout archivé.
 
 ### 8c — Les verrous
 
@@ -603,12 +604,15 @@ Il doit porter :
 - l'identité d'Awa et la période ;
 - le total d'heures **H0 + 6,5 h** ;
 - le montant **M2**, en toutes lettres ou en chiffres ;
-- une ligne par séance (date, origine **Professionnel**, ECUE, cohorte, durée, tarif, montant),
-  avec S1 à **2,5 h** ;
-- aucune ligne pour **S3** (annulée).
+- la base de calcul : « Heures normales retenues **6,50 h** » au taux de 10 000 XOF de l'heure, et le
+  net à payer **M2**.
 
-Si une ligne manque, si le total diffère de M2, ou si S3 y figure, c'est une anomalie
-**MAJEURE**.
+**Pas de tableau de détail séance par séance** : c'est voulu (un vacataire peut cumuler trois cents
+séances). Le détail se lit sur la fiche de chaque séance. Si le total d'heures ne vaut pas H0 + 6,5 h ou si
+le net diffère de M2, c'est une anomalie **MAJEURE**.
+
+L'en-tête du document est celui de l'IPAM, quel que soit le tenant : identité d'établissement en dur,
+**constat connu** (voir la campagne E2E-3009-1). Ne pas le signaler comme anomalie nouvelle.
 
 ---
 
@@ -662,7 +666,7 @@ Ces points ont été lus dans le code, pas vus à l'exécution. Pour chacun, don
 | 3 | Aucun bouton ne permet de **dévalider** une séance depuis l'écran. Une validation faite par erreur ne se corrige pas sans intervention technique. | 5b |
 | 4 | Le détail des enseignants écartés par le calcul (sans configuration, sans heures, sans tarif) n'est pas affiché après « Générer ». | 6b |
 | 5 | « Tout archiver (N) » compte les bulletins non archivés de **toutes** les périodes. | 8a |
-| 6 | La règle « pas de PDF pour un bulletin impayé » n'est tenue que par l'écran. | 9 |
+| 6 | La règle « pas de PDF pour un bulletin impayé » n'est tenue que par l'écran. **Confirmé (2026-09-30), et conservé pour un administrateur** ; en revanche, un compte non comptable ne lit plus que ses propres bulletins (contrôle ajouté côté API). | 9 |
 | 7 | « Marquer versé » ne demande aucune confirmation. | 11a |
 | 8 | Devise « FCFA » côté enseignant, « XOF » côté administration. | 12b |
 | 9 | Le formulaire « Ajouter une séance » n'acceptait que les cohortes « en cours », statut qu'aucune cohorte n'atteint (une cohorte créée est « Ouverte », puis « Terminée »). Corrigé : il accepte désormais Ouvert, Complet et En cours. | 3b |

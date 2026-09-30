@@ -101,6 +101,25 @@ function anneeScolaire(debut: string | null): string | null {
 }
 
 export class TeacherPayslipService extends ProfessionalBaseService {
+  /**
+   * Ce bulletin est-il celui de cet utilisateur ? (paiement de l'enseignant dont le
+   * compte est `userId`). Sert à borner l'accès d'un enseignant à SES bulletins.
+   */
+  async appartientA(tenantId: string, paymentId: string, userId: string): Promise<boolean> {
+    const res = await this.withTenant(tenantId, async (client) => {
+      const r = await client.query(
+        `SELECT 1
+           FROM teacher_payments tp
+           JOIN teachers t ON t.id = tp.teacher_id AND t.tenant_id = tp.tenant_id
+          WHERE tp.id = $1 AND tp.tenant_id = $2 AND t.user_id = $3
+          LIMIT 1`,
+        [paymentId, tenantId, userId]
+      );
+      return ok((r.rowCount ?? 0) > 0);
+    });
+    return res.success ? (res as { data: boolean }).data : false;
+  }
+
   /** Données complètes du bulletin, prêtes pour la mise en page. */
   async getPayslipData(tenantId: string, paymentId: string): Promise<ServiceResult<PayslipData>> {
     return this.withTenant(tenantId, async (client) => {

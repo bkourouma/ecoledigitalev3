@@ -253,3 +253,26 @@ Deux remarques de l'agent :
 
 **Bilan de la campagne E2E-3009-1** : tous les correctifs sont confirmés en ligne, sauf A7-01 (à rejouer
 sur un tenant neuf avant clôture) et le dialogue « Forcer l'octroi » (aucun étudiant éligible à tester).
+
+
+---
+
+# Scénario S17-T (paie, tenant test-30091) : OK avec réserves
+
+Le cycle complet est validé : configuration, période, cinq séances, validation en lot partielle
+(2 traitées, 1 refusée), génération (55 000 XOF), recalcul idempotent puis après séance tardive
+(65 000 XOF), archivage, versement, PDF (6,50 h, 65 000 XOF), vues enseignantes et cloisonnement de Koné.
+Constat 9 (formulaire d'ajout de séance) confirmé corrigé : la cohorte « Ouverte » est proposée.
+
+| Réf. | Verdict | Suite |
+|---|---|---|
+| **S17-01** PDF d'un bulletin impayé servi (200) | **Vrai trou, corrigé** : les routes du bulletin n'avaient aucun contrôle d'appelant, tout compte du tenant lisait le bulletin de n'importe qui par son identifiant | Administrateur et propriétaire lisent tout ; tout autre compte ne lit que ses bulletins ; l'envoi par courriel est réservé à la gestion. **L'administrateur conserve l'accès à un bulletin impayé par URL** (règle d'écran) : à décider s'il faut l'interdire |
+| **S17-02** pas de ligne par séance sur le PDF | **Voulu** : le gabarit dit « pas de tableau de détail des heures » (base de calcul seulement). Mon scénario attendait à tort des lignes | Scénario corrigé |
+| **S17-03** en-tête IPAM sur le PDF d'un autre tenant | **Connu (C19)**, identité d'établissement en dur | À décider : identité par établissement |
+| S17-04 carte de Koné sans « 1 h validée » | À reproduire : le compteur n'exige pas de configuration ; le total général compte bien la séance | — |
+| **S17-05** bandeau « séances validées après le calcul n'y figurent pas » dès la génération | Libellé affirmait comme un fait une éventualité | Corrigé : « Une séance validée après le calcul n'y figure pas : relancez le calcul… » |
+| **S17-06** « Aucune période de paiement ouverte » après archivage | **Voulu** (le bandeau est lié à la période) | Scénario corrigé |
+| S17-07 « modifié » sans « prévu » sur S2, FCFA / XOF | Connu (constat 8) | — |
+
+À revérifier après déploiement : les routes du bulletin (PDF depuis Awa : le sien doit sortir, celui d'un
+autre enseignant doit être refusé en 403) et que l'administrateur lit toujours tout.

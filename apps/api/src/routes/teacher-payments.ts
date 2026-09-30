@@ -1502,6 +1502,31 @@ export async function teacherPayslipRoutes(fastify: FastifyInstance) {
   const payslips = new TeacherPayslipService(fastify.pg as any);
   const notifications = new TeacherPayslipNotificationService();
 
+  const ROLES_COMPTABLES = ["admin", "super_admin", "administrateur", "owner"];
+
+  /**
+   * Qui peut lire un bulletin de paie.
+   *
+   * Ces routes n'avaient AUCUN contrôle d'appelant : tout compte connecté du tenant
+   * (étudiant, parent, autre enseignant) obtenait le bulletin de n'importe qui en
+   * connaissant l'identifiant du paiement. La gestion (administrateur, propriétaire)
+   * lit tout ; tout autre rôle ne lit que ses propres bulletins.
+   */
+  async function peutLireBulletin(request: any, reply: any, paymentId: string): Promise<boolean> {
+    const user = request.user;
+    if (!user?.id) {
+      await reply.status(401).send({ success: false, error: "UNAUTHORIZED", message: "Connexion requise." });
+      return false;
+    }
+    const roles: string[] = (user.roles ?? [user.role]).filter(Boolean).map((r: string) => String(r).toLowerCase());
+    if (roles.some((r) => ROLES_COMPTABLES.includes(r))) return true;
+    if (await payslips.appartientA(request.tenantId as string, paymentId, user.id as string)) return true;
+    await reply
+      .status(403)
+      .send({ success: false, error: "FORBIDDEN", message: "Ce bulletin n'est pas le vôtre." });
+    return false;
+  }
+
   /**
    * Donnees du bulletin en JSON, pour un rendu PDF cote navigateur.
    *
@@ -1517,6 +1542,7 @@ export async function teacherPayslipRoutes(fastify: FastifyInstance) {
    */
   fastify.get("/:id/payslip-data", async (request, reply) => {
     const { id } = request.params as { id: string };
+    if (!(await peutLireBulletin(request, reply, id))) return reply;
     const result = await payslips.getPayslipData(request.tenantId as string, id);
     if (!result.success) {
       const failure = result as { error: string; message?: string };
@@ -1530,6 +1556,7 @@ export async function teacherPayslipRoutes(fastify: FastifyInstance) {
   /** Bulletin au format PDF, pret a etre telecharge ou archive. */
   fastify.get("/:id/payslip.pdf", async (request, reply) => {
     const { id } = request.params as { id: string };
+    if (!(await peutLireBulletin(request, reply, id))) return reply;
     const result = await payslips.generatePdf(request.tenantId as string, id);
     if (!result.success) {
       const failure = result as { error: string; message?: string };
@@ -1549,6 +1576,14 @@ export async function teacherPayslipRoutes(fastify: FastifyInstance) {
   /** Envoie le bulletin a l'enseignant par courriel, en piece jointe. */
   fastify.post("/:id/notify", async (request, reply) => {
     const { id } = request.params as { id: string };
+
+    // L'envoi par courriel est un acte de gestion : jamais depuis un compte enseignant.
+    const rolesAppelant: string[] = ((request as any).user?.roles ?? []).map((r: string) => String(r).toLowerCase());
+    if (!rolesAppelant.some((r) => ROLES_COMPTABLES.includes(r))) {
+      return reply
+        .status(403)
+        .send({ success: false, error: "FORBIDDEN", message: "Réservé à la gestion." });
+    }
 
     const donnees = await payslips.getPayslipData(request.tenantId as string, id);
     if (!donnees.success) {

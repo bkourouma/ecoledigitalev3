@@ -784,8 +784,8 @@ function CreationPeriode({
               {bulletinsGeneres} bulletin(s) générés sur « {periodeCourante.nom} »
             </p>
             <p className="text-sm text-indigo-200 mt-1">
-              Des séances validées après le calcul n&apos;y figurent pas. Relancez le calcul pour
-              les intégrer, puis archivez.
+              Une séance validée après le calcul n&apos;y figure pas : relancez le calcul pour
+              l&apos;intégrer, puis archivez.
             </p>
             <button
               type="button"
