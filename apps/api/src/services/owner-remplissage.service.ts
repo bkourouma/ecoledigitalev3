@@ -179,7 +179,8 @@ export async function fetchOwnerRemplissage(
       `WITH ${OUVERTURES_CTE},
        ${OUVERTURES_PERIMETRE_CTE}
        SELECT
-         s.id, s.libelle, s.date_debut, s.date_fin, s.statut,
+         s.id, s.libelle, s.date_debut::text AS date_debut_iso, s.date_fin::text AS date_fin_iso,
+         s.statut,
          s.capacite_max,
          u.code AS ue_code, u.libelle AS ue_libelle,
          u.filiere_id,
@@ -251,8 +252,8 @@ export async function fetchOwnerRemplissage(
           ueLibelle: String(r.ue_libelle ?? ""),
           filiereName: (r.filiere_name as string | null) ?? null,
           statut: String(r.statut ?? ""),
-          dateDebut: r.date_debut ? String(r.date_debut).slice(0, 10) : null,
-          dateFin: r.date_fin ? String(r.date_fin).slice(0, 10) : null,
+          dateDebut: r.date_debut_iso ? String(r.date_debut_iso).slice(0, 10) : null,
+          dateFin: r.date_fin_iso ? String(r.date_fin_iso).slice(0, 10) : null,
           joursAvantDebut: r.jours_avant_debut === null ? null : Math.round(num(r.jours_avant_debut)),
           capacite,
           inscrits,

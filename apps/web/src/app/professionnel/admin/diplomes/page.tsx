@@ -543,7 +543,10 @@ export default function DiplomesPage() {
                         <td className="px-4 py-2.5 whitespace-nowrap">
                           <div className="flex justify-end items-center gap-1.5 flex-nowrap">
                             {revoque ? (
-                              <span className="text-xs text-muted-foreground">Diplôme révoqué</span>
+                              <span className="text-xs text-muted-foreground">
+                                Diplôme révoqué
+                                {c.motif_revocation ? ` — motif : ${c.motif_revocation}` : ""}
+                              </span>
                             ) : (
                               <>
                                 <Button

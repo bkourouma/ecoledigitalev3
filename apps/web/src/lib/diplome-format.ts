@@ -175,12 +175,16 @@ export function anneeAcademiqueEspacee(annee: string | null | undefined): string
   return m ? `${m[1]} - ${m[2]}` : s;
 }
 
-/** Année académique (« 2026-2027 ») à partir d'une date (bascule au 1er août). */
+/**
+ * Année académique (« 2026-2027 ») à partir d'une date. Bascule au 1er SEPTEMBRE,
+ * comme partout ailleurs dans l'application (admin, étudiant, owner, SQL) : une
+ * classe ouverte fin août appartient à l'année qui se termine, pas à la suivante.
+ */
 export function academicYearFromDate(value: string | null | undefined): string {
   if (!value) return "";
   const d = new Date(value);
   if (isNaN(d.getTime())) return "";
-  const y = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1;
+  const y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
   return `${y}-${y + 1}`;
 }
 

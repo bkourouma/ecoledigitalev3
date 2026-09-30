@@ -143,6 +143,7 @@ const ERROR_STATUS: Record<string, number> = {
   DIPLOMA_UE_NOT_SAME_FILIERE: 422,
   DIPLOMA_HAS_AWARDS: 409,
   DIPLOMA_ALREADY_AWARDED: 409,
+  DIPLOMA_REVOKED: 409,
   DIPLOMA_NOT_ELIGIBLE: 422,
   DIPLOMA_NOT_AWARDED: 404,
   // Attestations de réussite (filière → semestres → UE)

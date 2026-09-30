@@ -191,6 +191,8 @@ export interface DiplomaCandidate {
   reference: string | null;
   /** Date d'obtention (ISO) si le diplôme a été octroyé, sinon null. */
   date_obtention: string | null;
+  /** Motif saisi à la révocation, si le diplôme de cet étudiant a été révoqué. */
+  motif_revocation: string | null;
 }
 
 const DIPLOMA_COLS = `id, tenant_id, filiere_id, code, libelle, description,
@@ -685,6 +687,12 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       if ((existing.rowCount ?? 0) > 0) {
         return fail("DIPLOMA_ALREADY_AWARDED", "Cet étudiant détient déjà ce diplôme.");
       }
+      if (await this.aEteRevoque(client, tenantId, diplomaId, studentId)) {
+        return fail(
+          "DIPLOMA_REVOKED",
+          "Le diplôme de cet étudiant a été révoqué : il ne peut plus lui être octroyé."
+        );
+      }
 
       const requirements = await this.loadRequirements(client, tenantId, diplomaId);
       const validatedSet = new Set(await loadAllValidatedUeIdsWithConduite(client, tenantId, studentId));
@@ -823,7 +831,9 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       }>) {
         const validatedIds = await loadAllValidatedUeIdsWithConduite(client, tenantId, row.student_id);
         const view = computeDiplomaProgress(requirements, diploma.uv_required, validatedIds);
-        const award = await this.loadStudentAward(client, tenantId, diplomaId, row.student_id);
+        // Un diplôme révoqué doit rester visible : sans lui, la liste retombait sur
+        // « En cours » et proposait de nouveau « Forcer l'octroi ».
+        const award = await this.loadStudentAwardOuRevoque(client, tenantId, diplomaId, row.student_id);
         candidates.push({
           ...row,
           uv_validees: view.uv_validees,
@@ -832,6 +842,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
           statut_octroi: award ? award.statut : null,
           reference: award ? award.reference : null,
           date_obtention: award ? award.date_obtention ?? null : null,
+          motif_revocation: award?.statut === "revoque" ? award.motif_revocation ?? null : null,
         });
       }
       return ok(candidates);
@@ -1120,6 +1131,8 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       [diploma.id, studentId, tenantId]
     );
     if ((existing.rowCount ?? 0) > 0) return null;
+    // Révoqué = définitif : l'octroi automatique ne doit pas le régénérer.
+    if (await this.aEteRevoque(client, tenantId, diploma.id, studentId)) return null;
 
     const requirements = await this.loadRequirements(client, tenantId, diploma.id);
     const evalResult = evaluateDiplomaEligibility(
@@ -1170,6 +1183,40 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       [diplomaId, studentId, tenantId]
     );
     return res.rowCount === 0 ? null : (res.rows[0] as StudentDiplomaDto);
+  }
+
+  /**
+   * Diplôme de l'étudiant, révoqué compris : l'octroi actif s'il existe, sinon la
+   * dernière révocation.
+   */
+  private async loadStudentAwardOuRevoque(
+    client: PoolClient,
+    tenantId: string,
+    diplomaId: string,
+    studentId: string
+  ): Promise<StudentDiplomaDto | null> {
+    const res = await client.query(
+      `SELECT ${STUDENT_DIPLOMA_COLS} FROM student_professional_diplomas
+       WHERE diploma_id=$1 AND student_id=$2 AND tenant_id=$3
+       ORDER BY (statut = 'revoque'), created_at DESC LIMIT 1`,
+      [diplomaId, studentId, tenantId]
+    );
+    return res.rowCount === 0 ? null : (res.rows[0] as StudentDiplomaDto);
+  }
+
+  /** Vrai si un octroi de ce diplôme à cet étudiant a été révoqué : c'est définitif. */
+  private async aEteRevoque(
+    client: PoolClient,
+    tenantId: string,
+    diplomaId: string,
+    studentId: string
+  ): Promise<boolean> {
+    const res = await client.query(
+      `SELECT 1 FROM student_professional_diplomas
+       WHERE diploma_id=$1 AND student_id=$2 AND tenant_id=$3 AND statut = 'revoque' LIMIT 1`,
+      [diplomaId, studentId, tenantId]
+    );
+    return (res.rowCount ?? 0) > 0;
   }
 
   private async isParentOfChild(

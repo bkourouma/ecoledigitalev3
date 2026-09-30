@@ -474,9 +474,17 @@ export default function DiplomaDetailPage() {
                             <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}>
                               {badge.label}
                             </span>
+                            {c.statut_octroi === "revoque" && c.motif_revocation && (
+                              <div className="mt-1 text-[11px] text-muted-foreground">
+                                Motif : {c.motif_revocation}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-2.5">
                             <div className="flex justify-end gap-1.5 flex-wrap">
+                              {c.statut_octroi === "revoque" && (
+                                <span className="text-xs text-muted-foreground">Diplôme révoqué</span>
+                              )}
                               {!isObtenu && c.statut_octroi !== "revoque" && (
                                 <Button
                                   size="sm"
@@ -572,6 +580,11 @@ export default function DiplomaDetailPage() {
                           >
                             {a.statut === "obtenu" ? "Obtenu" : "Révoqué"}
                           </span>
+                          {a.statut !== "obtenu" && a.motif_revocation && (
+                            <div className="mt-1 text-[11px] text-muted-foreground">
+                              Motif : {a.motif_revocation}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-center text-xs text-muted-foreground">
                           {a.date_obtention ? new Date(a.date_obtention).toLocaleDateString("fr-FR") : "—"}
