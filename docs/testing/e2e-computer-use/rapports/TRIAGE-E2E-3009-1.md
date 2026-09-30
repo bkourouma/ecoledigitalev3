@@ -167,3 +167,54 @@ serveur). Rien changé à l'aveugle. Mesure demandée à l'agent : durée de cha
 ou après évite le cas.
 
 **Filtres non conservés et libellé de classe incohérent** (mineurs) : non traités.
+
+---
+
+# Rapport final — actes 00 à 19 (14 MAJEURES, 0 BLOQUANTE, OK_AVEC_RESERVES)
+
+Chaque anomalie est confrontée au code. Verdicts : **corrigé**, **déjà corrigé (à déployer)**,
+**voulu / donnée du run**, **à décider**, **à reproduire**.
+
+## Corrigé dans ce lot
+
+| Réf. | Cause trouvée | Correction |
+|---|---|---|
+| **A19-01 = C14** — corriger une copie modifie la note d'un semestre clôturé | La saisie manuelle était verrouillée après clôture, pas la correction d'une copie : la note était écrite puis réintégrée au résultat ECUE | `semestreClotureDeEvaluation` refuse la correction (copie **et** question) avec le message habituel « Le semestre « X » a été clôturé… ». Testé (3 cas) |
+| **A9-01 = A16-01 = A17-01** — « Total dû » égal au payé, « Soldé » | L'en-tête déduisait le dû **des seules commandes déjà réglées** : un étudiant qui n'a payé qu'un semestre paraît soldé | L'API renvoie `student_total_du` (toutes les commandes non annulées) et `student_total_paye` ; les onglets Reçus étudiant et parent les utilisent |
+| **A18-02** — début de cohorte « 31/08/2001 » | `String(date).slice(0,10)` sur un objet `Date` donne « Mon Aug 31 », lu comme 2001 par le navigateur | Dates émises en ISO par SQL (`::text`) |
+| **A13-01** — rang annuel faux (2ᵉ au lieu de 1ʳᵉ, 4ᵉ sur 3) | La moyenne **arrondie** de l'étudiant était comparée à des moyennes de promotion **exactes**, la sienne comprise : il se comptait devant lui-même | Les moyennes de promotion sont arrondies comme la moyenne affichée |
+| **A14-03 = A17-02** — année « 2026-2027 » sur diplôme/attestation | Seuls diplômes et attestations basculaient l'année au **1er août** ; tout le reste au 1er septembre. Une classe ouverte le 30/08 tombait donc dans l'année suivante | Bascule au 1er septembre partout |
+| **A14-02** — révocation : motif invisible, « Forcer l'octroi » de retour | La liste des candidats **excluait** les octrois révoqués : l'écran, qui sait afficher « Révoqué », ne le recevait jamais | Statut « Révoqué » + motif affichés ; l'octroi manuel **et** automatique refuse désormais un diplôme révoqué (code `DIPLOMA_REVOKED`) |
+| **A18-03** — owner : « 2 octrois sans UV, 0 éligible » | L'owner additionnait `uv_acquises` de tous les résultats, sans la Conduite et sans regarder les UE exigées par le diplôme ; l'admin évalue les UE exigées | SQL aligné sur `evaluateDiplomaEligibility` (UE exigées validées, Conduite comprise, obligatoires). Vérifié sur base de test : éligible réel = 1, octroi forcé sans les UE = 1, révoqué = 1 |
+| **A7-01** — « Mes cours » vide | Le filtre « En cours » n'acceptait que `en_cours` ; une cohorte `ouvert` ou `complet` n'apparaissait sous aucun filtre | « En cours » = toute cohorte ni terminée ni annulée |
+
+## Déjà corrigé, à déployer
+
+A00-01 (message de slug), A00-02 (filières copiées d'un autre tenant : à réparer sur les tenants
+existants avec `infra/scripts/repair-cross-tenant-references.sql`), A14-01 (dialogue « Forcer l'octroi »),
+C11, C18, dialogues de clôture.
+
+## Voulu ou donnée du run
+
+- **A18-01** — Paiements owner à 0 FCFA sur « Année scolaire ». Le code rattache une commande à
+  **l'année de la classe qu'elle ouvre** (2025-2026 : ouverture au 31/08/2026, avant le pivot de septembre),
+  alors que « aujourd'hui » (30/09/2026) est en 2026-2027, période par défaut de l'écran. Pas un défaut ;
+  effet du paramètre `DEBUT` du run. **Choisir `DEBUT` au 1ᵉʳ septembre ou après.**
+- **A00-03** — signataires d'un tenant neuf : repli sur les valeurs par défaut du code (noms réels).
+  À décider : vides par défaut ?
+- **A12-01 / A14-05** — identité de l'IPAM en dur : voir C19.
+
+## À reproduire (données nécessaires)
+
+- **A16-03** — Bakary : semestre 2 « 0 UE · 0 matière » côté étudiant alors que l'admin a un bulletin
+  S2 (12,20). Le calcul est **le même** (`getBulletinForUser` / `computeStudentBulletin`) ; aucune cause
+  visible dans le code sans les données. Demander à l'agent l'appel réseau `/student/bulletins/<S2>` de
+  Bakary (statut HTTP et corps).
+- **A19-02** — fiche « inscrit » de l'admin : 100 000 au lieu de 150 000. À comparer avec le journal
+  après déploiement du correctif A9-01 : l'écart peut venir du même défaut (commandes non réglées).
+
+## Suite
+
+1. Déployer, puis **rejouer** les points corrigés sur `test-30091` : A19-01 (refus attendu), A9-01,
+   A13-01, A14-02/03, A18-02/03, A7-01.
+2. Nettoyer (suppression du tenant, puis répétition à blanc du script).
