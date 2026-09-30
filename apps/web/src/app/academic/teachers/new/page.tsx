@@ -26,6 +26,7 @@ import {
   AlertDescription
 } from "@ecoledigitale/ui";
 import DatePickerFr from "@/components/DatePickerFr";
+import { FormMessage } from "@/components/ui/form-message";
 import {
   ArrowLeft,
   Save,
@@ -83,6 +84,8 @@ export default function NewTeacherPage() {
   // de l'établissement : il n'y a plus de section pour le personnaliser ici.
   // Seul le compte rendu d'envoi subsiste, pour ne pas rater un échec SMTP.
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
+  // Erreur de création affichée dans la page (et non dans une alerte du navigateur).
+  const [formError, setFormError] = useState<string | null>(null);
 
   const {
     register,
@@ -127,6 +130,7 @@ export default function NewTeacherPage() {
 
   const onSubmit = async (data: TeacherFormData) => {
     setSubmitResult(null);
+    setFormError(null);
     try {
       const teacherData: CreateTeacher = {
         firstName: data.firstName,
@@ -161,7 +165,7 @@ export default function NewTeacherPage() {
       router.push("/academic/teachers");
     } catch (error: any) {
       console.error("Error creating teacher:", error);
-      alert(error?.message || "Erreur lors de la création de l'enseignant");
+      setFormError(error?.message || "Erreur lors de la création de l'enseignant");
     }
   };
 
@@ -492,6 +496,8 @@ export default function NewTeacherPage() {
         )}
 
         {/* Action Buttons */}
+        <FormMessage message={formError} />
+
         <div className="flex justify-end gap-4">
           <Button
             type="button"

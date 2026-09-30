@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@ecoledigitale/ui";
 import DatePickerFr from "@/components/DatePickerFr";
+import { FormMessage } from "@/components/ui/form-message";
 import { ArrowLeft, Loader2, Save, Upload, FileText, X } from "lucide-react";
 import { useCreateStudent, uploadStudentDiploma } from "@/lib/hooks/use-students";
 import { CI_SUBPREFECTURES } from "@/data/ci-subprefectures";
@@ -147,6 +148,11 @@ export default function NewStudentPage() {
   const [phoneValue, setPhoneValue] = useState("");
   const [diplomaFile, setDiplomaFile] = useState<File | null>(null);
   const [diplomaError, setDiplomaError] = useState<string | null>(null);
+  // Erreurs affichées dans la page (et non dans une alerte du navigateur).
+  const [formError, setFormError] = useState<string | null>(null);
+  // Étudiant créé mais fichier non téléversé : on reste sur la page pour le dire,
+  // sans proposer de recréer l'étudiant.
+  const [uploadFailure, setUploadFailure] = useState<{ studentId: string; message: string } | null>(null);
 
   const {
     register,
@@ -192,6 +198,7 @@ export default function NewStudentPage() {
   };
 
   const onSubmit = async (data: StudentFormData) => {
+    setFormError(null);
     if (!diplomaFile) {
       setDiplomaError("Le dernier diplôme (fichier) est requis.");
       return;
@@ -232,10 +239,13 @@ export default function NewStudentPage() {
         await uploadStudentDiploma((createdStudent as any).id, diplomaFile);
       } catch (uploadError) {
         console.error("Error uploading diploma:", uploadError);
-        alert(
-          "L'étudiant a été créé, mais l'upload du diplôme a échoué. Vous pourrez le réessayer depuis sa fiche.\n\n" +
-            (uploadError instanceof Error ? uploadError.message : "")
-        );
+        setUploadFailure({
+          studentId: String((createdStudent as any).id),
+          message:
+            "L'étudiant a été créé, mais l'envoi du diplôme a échoué. Vous pourrez le réessayer depuis sa fiche." +
+            (uploadError instanceof Error && uploadError.message ? `\n\n${uploadError.message}` : ""),
+        });
+        return;
       }
 
       router.push("/academic/students");
@@ -246,10 +256,10 @@ export default function NewStudentPage() {
         const suggestedEmail = data.email.includes("@")
           ? data.email.replace("@", `+${Date.now().toString().slice(-4)}@`)
           : `${data.email}.${Date.now().toString().slice(-4)}@ecoledigitale.ci`;
-        alert(`Cet email existe déjà.\n\nUtilisez un autre email, par exemple : ${suggestedEmail}`);
+        setFormError(`Cet email existe déjà.\n\nUtilisez un autre email, par exemple : ${suggestedEmail}`);
         return;
       }
-      alert(message);
+      setFormError(message);
     }
   };
 
@@ -488,13 +498,33 @@ export default function NewStudentPage() {
           </CardContent>
         </Card>
 
+        <FormMessage message={formError} />
+
+        {uploadFailure && (
+          <div className="space-y-3">
+            <FormMessage message={uploadFailure.message} variant="warning" />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push(`/academic/students/${uploadFailure.studentId}`)}
+              >
+                Ouvrir la fiche de l'étudiant
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => router.push("/academic/students")}>
+                Retour à la liste
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-end gap-4">
           <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
             Annuler
           </Button>
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || uploadFailure !== null}
             className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
           >
             {isSubmitting ? (

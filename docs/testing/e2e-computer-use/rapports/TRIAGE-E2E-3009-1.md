@@ -96,3 +96,31 @@ créer un autre tenant de test.
 ## Acte 3 en cours
 - 3.3 (parent) : l'alerte native est à lire et à fermer par l'humain.
 - Doublons enseignant et matricule, puis 3.4 (mots de passe) : à jouer avec l'humain.
+
+---
+
+## ANO-A3-02 — alertes natives du navigateur : remplacées par des messages dans la page
+
+**Décision de l'utilisateur** : oui. Corrigé sur les formulaires du parcours.
+
+Une alerte native bloque l'onglet, disparaît sans laisser de trace et ne peut être ni lue ni
+fermée par l'agent de test : c'est ce qui faisait perdre le texte des messages de doublon.
+
+| Écran | Avant | Après |
+|---|---|---|
+| Nouvel enseignant (`/academic/teachers/new`) | alerte sur toute erreur de création (dont doublon d'e-mail) | message rouge dans la page |
+| Nouvel étudiant (`/academic/students/new`) | alertes : e-mail existant, doublon de matricule, échec de création, **échec d'envoi du diplôme** | message rouge dans la page ; échec d'envoi du diplôme : bandeau jaune avec « Ouvrir la fiche de l'étudiant » et « Retour à la liste », création désactivée pour éviter de recréer l'étudiant |
+| Nouveau parent (`/academic/parents/new`) | alertes : échec de création, identifiant non renvoyé, assignations en échec, **e-mail des identifiants non parti** | message rouge pour l'échec de création ; sinon bandeau jaune avec « Assigner des enfants » et « Continuer vers la liste » |
+| Assigner des étudiants aux parents (`/academic/parents/assign`) | alertes de validation, de succès et d'erreur ; confirmation native du retrait | messages dans la page ; confirmation du retrait par une boîte de dialogue de l'application |
+
+Composant partagé : `components/ui/form-message.tsx` (la page défile jusqu'au message ; rouge =
+`role="alert"`, jaune et vert = `role="status"`).
+
+**Effet à connaître pendant le run** : sur un établissement sans SMTP, la création d'un parent ne
+retourne plus toute seule à la liste. Il faut cliquer « Continuer vers la liste ». Le scénario
+(acte 3.3) le dit.
+
+**Reste des alertes natives** (hors parcours, non modifiées) : listes enseignants, étudiants et
+parents (suppression, export PDF/Word), modification d'un étudiant, fiche étudiant (ouverture du
+diplôme), et huit formulaires académiques génériques (« Erreur lors de l'enregistrement… »). À
+traiter au besoin.

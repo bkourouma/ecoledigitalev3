@@ -23,6 +23,7 @@ import {
 import { ArrowLeft, Save, Loader2, Plus, X, Users, ChevronDown, Search } from "lucide-react";
 import { useCreateParent, useAssignStudentToParent, AssignStudentToParentData } from "@/lib/hooks/use-parents";
 import { useStudents } from "@/lib/hooks/use-students";
+import { FormMessage } from "@/components/ui/form-message";
 import { StudentWithUser } from "@ecoledigitale/contracts";
 
 const generatePassword = (): string => {
@@ -177,6 +178,12 @@ export default function NewParentPage() {
 
   const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>([]);
   const [studentToAdd, setStudentToAdd] = useState("");
+  // Erreur de création, affichée dans la page (et non dans une alerte du navigateur).
+  const [formError, setFormError] = useState<string | null>(null);
+  // Le parent est créé, mais quelque chose s'est mal passé après (assignation,
+  // envoi des identifiants) : on reste sur la page pour le dire, sans proposer de
+  // le recréer.
+  const [partialOutcome, setPartialOutcome] = useState<string | null>(null);
 
   // Pas de filtre d'année : le rattachement parent-enfant n'a pas de dimension
   // annuelle, et filtrer ici vidait la liste des étudiants proposables.
@@ -236,6 +243,7 @@ export default function NewParentPage() {
   };
 
   const onSubmit = async (data: ParentFormData) => {
+    setFormError(null);
     let parentId: string | undefined;
     // Renseigné par l'API quand l'envoi SMTP des identifiants a échoué.
     let credentialsEmailError: string | null = null;
@@ -254,15 +262,14 @@ export default function NewParentPage() {
       }
     } catch (error: any) {
       console.error("Error creating parent:", error);
-      alert(error.message || "Erreur lors de la création du parent");
+      setFormError(error.message || "Erreur lors de la création du parent");
       return;
     }
 
     if (linkedChildren.length > 0 && !parentId) {
-      alert(
+      setPartialOutcome(
         "Le parent a été créé, mais son identifiant n'a pas été renvoyé : les enfants n'ont pas pu être assignés. Utilisez la page d'assignation."
       );
-      router.push("/academic/parents");
       return;
     }
 
@@ -285,21 +292,27 @@ export default function NewParentPage() {
       }
     }
 
+    const problems: string[] = [];
     if (failures.length > 0) {
-      alert(
-        `Le parent a été créé, mais certaines assignations ont échoué :\n\n${failures.join(
+      problems.push(
+        `Le parent a été créé, mais certaines assignations ont échoué :\n${failures.join(
           "\n"
-        )}\n\nVous pouvez les reprendre depuis la page d'assignation.`
+        )}\nVous pouvez les reprendre depuis la page d'assignation.`
       );
     }
-
     if (credentialsEmailError) {
-      alert(
-        `Le parent a été créé, mais l'envoi de ses identifiants par email a échoué :\n\n${credentialsEmailError}`
+      problems.push(
+        `Le parent a été créé, mais l'envoi de ses identifiants par email a échoué : ${credentialsEmailError}`
       );
     }
 
-    router.push("/academic/parents");
+    // Tout s'est bien passé : retour à la liste. Sinon on reste, pour que le
+    // message ne disparaisse pas avec la page.
+    if (problems.length === 0) {
+      router.push("/academic/parents");
+      return;
+    }
+    setPartialOutcome(problems.join("\n\n"));
   };
 
   const isBusy = isSubmitting || createParent.isPending || assignMutation.isPending;
@@ -476,11 +489,31 @@ export default function NewParentPage() {
           </CardContent>
         </Card>
 
+        <FormMessage message={formError} />
+
+        {partialOutcome && (
+          <div className="space-y-3">
+            <FormMessage message={partialOutcome} variant="warning" />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => router.push("/academic/parents/assign")}>
+                Assigner des enfants
+              </Button>
+              <Button type="button" onClick={() => router.push("/academic/parents")}>
+                Continuer vers la liste
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-end gap-4">
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Annuler
           </Button>
-          <Button type="submit" disabled={isBusy} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+          <Button
+            type="submit"
+            disabled={isBusy || partialOutcome !== null}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
             {isBusy ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

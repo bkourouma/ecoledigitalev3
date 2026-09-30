@@ -22,6 +22,8 @@ import { ArrowLeft, Save, Loader2, Users, X } from "lucide-react";
 import { useStudents } from "@/lib/hooks/use-students";
 import { useParents, useAssignStudentToParent, useStudentParents, useUnassignStudentFromParent } from "@/lib/hooks/use-parents";
 import { StudentWithUser } from "@ecoledigitale/contracts";
+import { FormMessage } from "@/components/ui/form-message";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 export default function AssignStudentsToParentPage() {
   const router = useRouter();
@@ -31,6 +33,11 @@ export default function AssignStudentsToParentPage() {
   const [isPrimaryContact, setIsPrimaryContact] = useState(false);
   const [emergencyContact, setEmergencyContact] = useState(false);
   const [canPickup, setCanPickup] = useState(true);
+  // Résultat de la dernière action, affiché dans la page (et non dans une alerte
+  // du navigateur, qui bloque l'onglet et disparaît sans laisser de trace).
+  const [feedback, setFeedback] = useState<{ text: string; variant: "error" | "success" } | null>(null);
+  // Parent dont le retrait attend confirmation.
+  const [parentToUnassign, setParentToUnassign] = useState<string | null>(null);
 
   // Le rattachement parent-enfant n'a pas de dimension annuelle : la table de
   // liaison ne porte aucune année scolaire. Filtrer ces deux listes sur
@@ -54,8 +61,9 @@ export default function AssignStudentsToParentPage() {
   const studentParents = selectedStudentId ? (studentParentsData?.data?.parents || []) : [];
 
   const handleAssign = async () => {
+    setFeedback(null);
     if (!selectedStudentId || !selectedParentId) {
-      alert("Veuillez sélectionner un étudiant et un parent");
+      setFeedback({ text: "Veuillez sélectionner un étudiant et un parent", variant: "error" });
       return;
     }
 
@@ -70,32 +78,29 @@ export default function AssignStudentsToParentPage() {
           canPickup,
         },
       });
-      alert("Étudiant assigné au parent avec succès");
+      setFeedback({ text: "Étudiant assigné au parent avec succès", variant: "success" });
       setSelectedParentId("");
       setRelationshipType('parent');
       setIsPrimaryContact(false);
       setEmergencyContact(false);
       setCanPickup(true);
     } catch (error: any) {
-      alert(error.message || "Erreur lors de l'assignation");
+      setFeedback({ text: error.message || "Erreur lors de l'assignation", variant: "error" });
     }
   };
 
   const handleUnassign = async (parentId: string) => {
     if (!selectedStudentId) return;
-
-    if (!window.confirm("Êtes-vous sûr de vouloir retirer ce parent de l'étudiant ?")) {
-      return;
-    }
+    setFeedback(null);
 
     try {
       await unassignMutation.mutateAsync({
         studentId: selectedStudentId,
         parentId,
       });
-      alert("Parent retiré avec succès");
+      setFeedback({ text: "Parent retiré avec succès", variant: "success" });
     } catch (error: any) {
-      alert(error.message || "Erreur lors du retrait");
+      setFeedback({ text: error.message || "Erreur lors du retrait", variant: "error" });
     }
   };
 
@@ -124,6 +129,8 @@ export default function AssignStudentsToParentPage() {
       </div>
 
       <div className="space-y-6">
+        <FormMessage message={feedback?.text} variant={feedback?.variant} />
+
         {/* Student Selection */}
         <Card>
           <CardHeader>
@@ -203,7 +210,7 @@ export default function AssignStudentsToParentPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleUnassign(parent.id)}
+                        onClick={() => setParentToUnassign(parent.id)}
                         disabled={unassignMutation.isPending}
                       >
                         <X className="h-4 w-4 mr-2" />
@@ -346,6 +353,22 @@ export default function AssignStudentsToParentPage() {
           </Card>
         )}
       </div>
+
+      <ConfirmationDialog
+        open={parentToUnassign !== null}
+        onOpenChange={(open) => {
+          if (!open) setParentToUnassign(null);
+        }}
+        title="Retirer ce parent ?"
+        description="Êtes-vous sûr de vouloir retirer ce parent de l'étudiant ?"
+        confirmText="Retirer"
+        variant="destructive"
+        onConfirm={() => {
+          const id = parentToUnassign;
+          setParentToUnassign(null);
+          if (id) void handleUnassign(id);
+        }}
+      />
     </div>
   );
 }

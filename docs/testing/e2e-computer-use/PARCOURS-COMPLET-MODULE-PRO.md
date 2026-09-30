@@ -573,8 +573,10 @@ Si l'écran affiche « Enseignant créé, mais l'email n'est pas parti », cliqu
 envoyer**. C'est attendu : les adresses `.test` ne sont pas routables.
 
 **Contrôle de doublon** : recrée Awa avec le même e-mail. Attendu : « Un enseignant avec cet
-email existe déjà ». Ce message s'affiche dans une **alerte native** du navigateur : demande à
-l'humain de cliquer OK et de te lire le texte. Même chose pour le doublon de matricule (3.2).
+email existe déjà ». Ce message s'affiche **dans la page**, en rouge, au-dessus des boutons :
+lis-le toi-même, l'onglet reste utilisable. **Sur une version plus ancienne**, il s'affichait dans
+une alerte native du navigateur : demande alors à l'humain de cliquer OK et de te lire le texte.
+Même chose pour le doublon de matricule (3.2).
 
 ### 3.2 Trois étudiants
 
@@ -626,6 +628,16 @@ Carte « Enfants à assigner » :
 2. Étudiant **Chantal Ajournee <TAG>** → **Ajouter** → Type de relation **Parent**.
 
 Le bouton doit afficher **« Créer le parent et assigner 2 enfant(s) »**. Clique.
+
+**Attendu** :
+- Si l'envoi des e-mails n'est pas configuré (SMTP), la page **reste ouverte** et affiche un
+  bandeau jaune « Le parent a été créé, mais l'envoi de ses identifiants par email a échoué : … »,
+  avec deux boutons **« Assigner des enfants »** et **« Continuer vers la liste »**. Le bouton de
+  création est alors désactivé : tu ne peux pas recréer le parent. Clique **Continuer vers la
+  liste**.
+- Si les e-mails partent, la page retourne directement à la liste.
+- Sur une version plus ancienne, le même texte s'affichait dans une alerte native : un humain clique
+  OK et te lit le texte.
 
 **Contrôle du rattachement** : `/academic/parents/assign` → étudiant **Bakary** → « Parents
 actuels » doit afficher **« Aucun parent assigné »**. Ne rattache **pas** Bakary : c'est le
