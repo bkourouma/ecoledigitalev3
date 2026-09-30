@@ -207,10 +207,16 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   y += 1.5;
 
   // ---------- Bandeau « provisoire » ----------
-  // Un relevé dont le semestre n'est pas acquis est un document d'étape : il
-  // sera réédité après la session 2. Même règle que l'affichage HTML.
+  // Le bandeau ne s'affiche que si la session 2 est ENCORE À VENIR : le relevé
+  // est alors un document d'étape, réédité une fois les notes de rattrapage
+  // saisies. Un étudiant ajourné a déjà passé sa session 2 : son relevé est
+  // arrêté, la décision « AJOURNÉ » s'imprime d'elle-même et prétendre qu'il
+  // « attend la session 2 » serait faux.
+  // Repli si `statut_etudiant` est absent : la décision « rattrapage ».
   const isProvisoire =
-    bulletin.bulletin_statut === "provisoire" || bulletin.decision !== "admis";
+    bulletin.statut_etudiant != null
+      ? bulletin.statut_etudiant === "session2"
+      : bulletin.decision === "rattrapage";
   if (isProvisoire) {
     const bandH = 8;
     doc.setFillColor(254, 243, 199); // ambre pâle
@@ -398,6 +404,9 @@ async function drawBulletin(doc: jsPDF, bulletin: any, imgs: HeaderImages): Prom
   doc.setFont("times", "normal");
   doc.setFontSize(7);
   doc.setTextColor(60, 60, 60);
+  // Référence du relevé (REL-…) : calculée par l'API, jamais dessinée jusqu'ici.
+  // Sans elle, le document ne peut pas être rapproché du registre des bulletins.
+  if (bulletin.reference) doc.text(`Réf. ${bulletin.reference}`, M, 277.5);
   doc.setDrawColor(GREEN[0], GREEN[1], GREEN[2]);
   doc.line(M, 280, RIGHT, 280);
   doc.text(doc.splitTextToSize(FOOTER_NOTE, PAGE_W - 2 * M), PAGE_W / 2, 284, { align: "center" });

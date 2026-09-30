@@ -339,7 +339,9 @@ export default function BulletinEtudiantPage() {
               title={
                 bulletin.statut === "definitif"
                   ? "Bulletin définitif"
-                  : "Bulletin provisoire, en attente de la session 2"
+                  : bulletin.statut_etudiant === "session2"
+                  ? "Bulletin provisoire, en attente de la session 2"
+                  : "Bulletin provisoire : le semestre n'est pas validé"
               }
             >
               {bulletin.statut === "definitif" ? "Définitif" : "Provisoire"}

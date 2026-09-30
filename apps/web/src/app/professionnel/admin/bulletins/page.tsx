@@ -18,6 +18,7 @@ import {
   Lock,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useProfessionalSemestres } from "@/lib/hooks/use-professional-semestres";
 import {
   useBulletinsNoms,
@@ -61,6 +62,8 @@ export default function BulletinsPage() {
   const recomputeMut = useRecomputeBulletins();
   const generateMut = useGenerateBulletins();
   const cloturerMut = useCloturerBulletins();
+  // Confirmation de clôture affichée dans la page (et non par window.confirm).
+  const [confirmerCloture, setConfirmerCloture] = useState(false);
 
   // Noms restreints à ceux où il reste un semestre non clôturé : une fois la
   // dernière clôture faite, le nom sort du sélecteur.
@@ -141,20 +144,11 @@ export default function BulletinsPage() {
    * cet écran pour l'Historique, en lecture seule. Geste irréversible depuis
    * l'interface — d'où la confirmation.
    */
-  async function handleCloturer() {
-    const libelle = semestres.find((s: any) => s.id === semestreId)?.libelle ?? "ce semestre";
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm(
-        `Clôturer les bulletins de « ${libelle} » ?
+  const libelleSemestreCloture =
+    semestres.find((s: any) => s.id === semestreId)?.libelle ?? "ce semestre";
 
-` +
-          `Ils ne pourront plus être régénérés et le semestre basculera dans ` +
-          `l'Historique des bulletins, en lecture seule.`
-      )
-    ) {
-      return;
-    }
+  async function handleCloturer() {
+    setConfirmerCloture(false);
     setError(null);
     setGenInfo(null);
     try {
@@ -253,6 +247,19 @@ export default function BulletinsPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-6">
+      <ConfirmationDialog
+        open={confirmerCloture}
+        onOpenChange={setConfirmerCloture}
+        title={`Clôturer les bulletins de « ${libelleSemestreCloture} » ?`}
+        description={
+          "Ils ne pourront plus être régénérés et le semestre basculera dans " +
+          "l'Historique des bulletins, en lecture seule."
+        }
+        confirmText="Clôturer"
+        variant="destructive"
+        loading={cloturerMut.isPending}
+        onConfirm={() => void handleCloturer()}
+      />
       {/* Header — actions sous le titre : à droite, cinq boutons écrasaient le titre. */}
       <div className="flex flex-col gap-4">
         <div>
@@ -318,7 +325,7 @@ export default function BulletinsPage() {
               bulletin n'est généré, le bouton le dit avant le clic. */}
           <Button
             variant="outline"
-            onClick={handleCloturer}
+            onClick={() => setConfirmerCloture(true)}
             disabled={!semestreId || cloturerMut.isPending || nbSession2 > 0}
             title={
               !semestreId

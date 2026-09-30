@@ -145,15 +145,14 @@ relatives au jour du test) se remplacent par ces valeurs.
    - le volume horaire (rémunération).
 
    Sors toujours du champ, puis attends la coche ou le message « Enregistré ».
-5. **Boîtes de dialogue natives du navigateur** (confirm / prompt). Elles apparaissent sur :
-   - la suppression d'une séance ;
-   - « Clôturer le semestre » ;
-   - « Clôturer » les bulletins ;
-   - « Forcer l'octroi » ;
-   - la révocation d'un diplôme.
+5. **Confirmations.** Sur la version à jour, « Clôturer le semestre », « Clôturer » les bulletins,
+   « Forcer l'octroi » et la révocation d'un diplôme ouvrent une **boîte de dialogue dans la page**
+   (avec un champ « Motif » pour la révocation) : tu peux la lire et cliquer toi-même.
 
-   Si tu ne peux pas y répondre, **demande à l'humain de cliquer** et note-le. Ce n'est pas un
-   défaut du produit.
+   Seules restent des **boîtes natives du navigateur** (confirm / prompt), que tu ne peux pas
+   fermer : la suppression d'une séance (enseignant), et, sur une **version plus ancienne**, les
+   quatre confirmations ci-dessus. Si l'outil ne répond plus après un clic, c'est une boîte native :
+   **demande à l'humain de la lire et de cliquer OK**, note-le. Ce n'est pas un défaut du produit.
 6. **Upload de fichier**, obligatoire à la création d'un étudiant. Si tu ne peux pas joindre de
    fichier, **demande à l'humain de le faire** (n'importe quel petit PDF, par exemple
    `activite2_test.pdf` à la racine du dépôt).
@@ -1442,11 +1441,18 @@ Vérifie :
 - l'en-tête et l'identité (niveau **Licence**, pas « BTS ») ;
 - les notes conformes à l'écran ;
 - la **décision** imprimée ;
-- la référence `REL-…` ;
+- la référence **« Réf. REL-<année>-<code classe>-<matricule> »**, en petit, au-dessus de la ligne
+  de pied de page ; son absence est **MINEURE** (constat C18) ;
 - aucune zone vide.
 
-Selon le code, le bulletin de C porte le bandeau **« BULLETIN PROVISOIRE — en attente de Session
-2 »** alors que C est **ajournée après sa session 2**. Relève-le (constat C11).
+**Bandeau « BULLETIN PROVISOIRE — en attente de Session 2 »** : il ne doit apparaître que pour un
+étudiant dont la session 2 est **encore à venir**. **Chantal, ajournée après sa session 2, ne doit
+pas l'avoir**, la décision « AJOURNÉ » s'imprimant d'elle-même. Sur la version à jour, sa présence
+est **MINEURE** (constat C11) ; sur une version plus ancienne, c'était le comportement connu.
+
+**Identité de l'établissement.** L'en-tête et le pied de page portent le nom, le logo, l'adresse, le
+téléphone et le site de l'IPAM, **même dans un tenant de test** : ces éléments sont écrits en dur
+dans l'application. Relève-le une fois, sans le re-signaler à chaque document (constat C19).
 
 **Bulletin BTS** (bouton sur la ligne, réservé aux Licence 1 et 2) : ouvre-le pour A. Distinctions
 attendues selon le code :
@@ -1455,11 +1461,13 @@ attendues selon le code :
 
 ### 12.4 Clôture du semestre 1 — dans cet ordre
 
-1. **Notes** → **Clôturer le semestre**. Confirmation native : « Clôturer les notes de
-   « Semestre 1 <TAG> » ?… ». Si tu ne peux pas y répondre, demande à l'humain.
+1. **Notes** → **Clôturer le semestre**. Une boîte de dialogue de la page s'ouvre, titrée
+   « Clôturer les notes de « Semestre 1 <TAG> » ? », avec les boutons « Clôturer » et
+   « Annuler ». Lis-la, puis clique **Clôturer**. (Version plus ancienne : confirmation native,
+   demande à l'humain de cliquer OK.)
    - **Attendu** : les sessions du semestre 1 passent au statut **Terminé**.
-2. **Bulletins** → **Générer les bulletins** (une dernière fois), puis **Clôturer**. Confirmation
-   native.
+2. **Bulletins** → **Générer les bulletins** (une dernière fois), puis **Clôturer**. Même boîte de
+   dialogue dans la page : « Clôturer les bulletins de « Semestre 1 <TAG> » ? » → **Clôturer**.
    - **Attendu** : le semestre bascule dans l'**Historique des bulletins**
      (`/professionnel/admin/bulletins/historique`), colonne S1 « Définitif » pour A et B.
 3. **Verrou** : retour sur **Notes**, Semestre 1.
@@ -1652,13 +1660,15 @@ son nom et sa classe d'origine.
 
 ### 14.4 Octroi forcé puis révocation — Chantal
 
-1. Fiche du diplôme → ligne de Chantal → **Forcer l'octroi**. Une confirmation native est
-   attendue : « Cet étudiant n'a pas encore validé toutes les UE requises… ». Si rien ne demande
-   confirmation, c'est **MAJEURE**.
+1. Fiche du diplôme → ligne de Chantal → **Forcer l'octroi**. Une boîte de dialogue de la page
+   s'ouvre, titrée « Forcer l'octroi du diplôme ? » : « Cet étudiant n'a pas encore validé toutes
+   les UE requises… ». Clique **Forcer l'octroi**. Si rien ne demande confirmation, c'est
+   **MAJEURE**.
 2. Chantal apparaît **« Diplômé »**.
-3. **Révoquer** → invite native « Motif de la révocation (obligatoire) : » → `Octroi de test
-   <TAG>`. Si tu ne peux pas la remplir, **demande à l'humain**. Sinon, le diplôme forcé reste en
-   place : signale-le.
+3. **Révoquer** → une boîte de dialogue « Révoquer ce diplôme ? » avec un champ **« Motif de la
+   révocation (obligatoire) »**. **Refus à tester d'abord** : clique **Révoquer** avec le champ
+   vide → « Le motif de révocation est requis. », rien n'est révoqué. Puis saisis `Octroi de test
+   <TAG>` → **Révoquer**. (Version plus ancienne : invite native, à faire remplir par l'humain.)
 4. **Attendu** : le statut **« Révoqué »**, le motif visible, **plus aucune régénération**
    possible (« Diplôme révoqué »).
 
@@ -1900,13 +1910,15 @@ infirmé / non vérifié.
 | C8 | Codes bruts affichés : statut d'évaluation `publie`, statut de copie `note`, et options d'appel `present`/`absent` dans l'onglet admin « Séances & présence » | 7.3, 10 |
 | C9 | Le menu « Devoirs » de l'étudiant ne permet pas de rendre un devoir professionnel | 9.1 |
 | C10 | Le coefficient d'une évaluation est saisi mais ignoré dans la moyenne | 11.4 |
-| C11 | Un bulletin d'étudiant **ajourné** porte « BULLETIN PROVISOIRE — en attente de Session 2 » | 12.3 |
+| C11 | *(corrigé)* Un bulletin d'étudiant **ajourné** portait « BULLETIN PROVISOIRE — en attente de Session 2 » | 12.3 |
 | C12 | Un solde impayé ne bloque pas le diplôme | 14.4 |
 | C13 | Le parent ne peut pas télécharger le diplôme de son enfant | 17.2 |
 | C14 | Noter une copie après clôture du semestre modifie la note ECUE | 19.1 |
 | C15 | Les échéanciers ne sont pas reliés au module professionnel | 19.2 |
 | C16 | L'échéance et l'interdiction de rendu en retard d'un devoir ne sont pas contrôlées côté serveur | *non joué* |
 | C17 | La réinscription au semestre suivant réclame-t-elle de nouveaux frais d'inscription ? | 13.2 |
+| C18 | *(corrigé)* La référence `REL-…` du relevé n'était pas imprimée sur le PDF | 12.3 |
+| C19 | Nom, logo, adresse et contacts de l'IPAM sont écrits en dur sur tous les documents (bulletins, diplômes, reçus…) | 12.3 |
 
 ---
 

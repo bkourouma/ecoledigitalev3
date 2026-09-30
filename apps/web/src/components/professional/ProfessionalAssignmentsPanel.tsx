@@ -645,6 +645,10 @@ export function AssignmentForm({
                   value={coefficient}
                   onChange={(e) => setCoefficient(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Indicatif : n'entre pas dans le calcul de la note de la matière, qui prend la
+                  moyenne simple des devoirs.
+                </p>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Statut</label>

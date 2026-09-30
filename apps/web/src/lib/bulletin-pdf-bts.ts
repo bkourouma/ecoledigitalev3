@@ -378,6 +378,8 @@ async function drawBulletinBts(doc: jsPDF, data: any, imgs: HeaderImages): Promi
   doc.setFont("times", "normal");
   doc.setFontSize(7);
   doc.setTextColor(60, 60, 60);
+  // Référence du relevé (REL-…) : calculée par l'API, jamais dessinée jusqu'ici.
+  if (data?.reference) doc.text(`Réf. ${data.reference}`, M, 277.5);
   doc.setDrawColor(GREEN[0], GREEN[1], GREEN[2]);
   doc.line(M, 280, RIGHT, 280);
   doc.text(doc.splitTextToSize(FOOTER_NOTE, PAGE_W - 2 * M), PAGE_W / 2, 284, { align: "center" });

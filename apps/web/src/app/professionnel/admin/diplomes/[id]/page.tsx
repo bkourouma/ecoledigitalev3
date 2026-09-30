@@ -29,6 +29,9 @@ import { fetchSignataires, indexSignataires } from "@/lib/hooks/use-professional
 import { openAttestationPdf } from "@/lib/attestation-pdf";
 import { openDiplomePdf } from "@/lib/diplome-pdf";
 import { academicYearFromDate } from "@/lib/diplome-format";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 function statusBadge(statut: string | null, eligible: boolean) {
   if (statut === "obtenu") return { label: "Obtenu", cls: "bg-green-100 text-green-700" };
@@ -86,14 +89,24 @@ export default function DiplomaDetailPage() {
     }
   }
 
+  // Étudiants dont l'octroi forcé attend confirmation / révocation attend un motif :
+  // dialogues de la page, plutôt que window.confirm / window.prompt.
+  const [forcerOctroiPour, setForcerOctroiPour] = useState<string | null>(null);
+  const [revoquerPour, setRevoquerPour] = useState<string | null>(null);
+  const [motifRevocation, setMotifRevocation] = useState("");
+  const [motifErreur, setMotifErreur] = useState<string | null>(null);
+
+  /** Octroi ordinaire, ou demande de confirmation pour un octroi forcé. */
+  function demanderOctroi(studentId: string, force: boolean) {
+    if (force) {
+      setForcerOctroiPour(studentId);
+      return;
+    }
+    void handleAward(studentId, false);
+  }
+
   async function handleAward(studentId: string, force: boolean) {
     setError(null);
-    if (force) {
-      const ok = window.confirm(
-        "Cet étudiant n'a pas encore validé toutes les UE requises. Forcer l'octroi du diplôme malgré tout ?"
-      );
-      if (!ok) return;
-    }
     try {
       await awardMut.mutateAsync({ id, student_id: studentId, force });
       candidatesQuery.refetch();
@@ -103,9 +116,13 @@ export default function DiplomaDetailPage() {
     }
   }
 
-  async function handleRevoke(studentId: string) {
-    const motif = window.prompt("Motif de la révocation (obligatoire) :", "");
-    if (!motif || !motif.trim()) return;
+  function demanderRevocation(studentId: string) {
+    setMotifRevocation("");
+    setMotifErreur(null);
+    setRevoquerPour(studentId);
+  }
+
+  async function handleRevoke(studentId: string, motif: string) {
     setError(null);
     try {
       await revokeMut.mutateAsync({ id, student_id: studentId, motif: motif.trim() });
@@ -209,6 +226,75 @@ export default function DiplomaDetailPage() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-6">
+      <ConfirmationDialog
+        open={forcerOctroiPour !== null}
+        onOpenChange={(open) => {
+          if (!open) setForcerOctroiPour(null);
+        }}
+        title="Forcer l'octroi du diplôme ?"
+        description="Cet étudiant n'a pas encore validé toutes les UE requises. Forcer l'octroi du diplôme malgré tout ?"
+        confirmText="Forcer l'octroi"
+        variant="destructive"
+        onConfirm={() => {
+          const studentId = forcerOctroiPour;
+          setForcerOctroiPour(null);
+          if (studentId) void handleAward(studentId, true);
+        }}
+      />
+
+      <Dialog
+        open={revoquerPour !== null}
+        onOpenChange={(open) => {
+          if (!open) setRevoquerPour(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Révoquer ce diplôme ?</DialogTitle>
+            <DialogDescription>
+              La révocation est définitive : le diplôme ne pourra plus être régénéré. Le motif est
+              obligatoire et reste consigné.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="motif-revocation" className="text-sm font-medium">
+              Motif de la révocation (obligatoire)
+            </label>
+            <Textarea
+              id="motif-revocation"
+              value={motifRevocation}
+              onChange={(e) => setMotifRevocation(e.target.value)}
+              rows={3}
+            />
+            {motifErreur && (
+              <p role="alert" className="text-sm text-red-600">
+                {motifErreur}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevoquerPour(null)}>
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={revokeMut.isPending}
+              onClick={() => {
+                if (!motifRevocation.trim()) {
+                  setMotifErreur("Le motif de révocation est requis.");
+                  return;
+                }
+                const studentId = revoquerPour;
+                setRevoquerPour(null);
+                if (studentId) void handleRevoke(studentId, motifRevocation);
+              }}
+            >
+              Révoquer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
         <div className="mb-6 flex max-w-full flex-col items-start gap-2 overflow-x-auto md:mb-8 md:gap-3">
           <Button variant="outline" size="sm" onClick={() => router.push("/professionnel/admin/diplomes")}>
@@ -397,7 +483,7 @@ export default function DiplomaDetailPage() {
                                   variant="outline"
                                   className="h-8"
                                   disabled={awardMut.isPending}
-                                  onClick={() => handleAward(c.student_id, !c.eligible)}
+                                  onClick={() => demanderOctroi(c.student_id, !c.eligible)}
                                 >
                                   {c.eligible ? "Octroyer" : "Forcer l'octroi"}
                                 </Button>
@@ -497,7 +583,7 @@ export default function DiplomaDetailPage() {
                               variant="outline"
                               className="h-8"
                               disabled={revokeMut.isPending}
-                              onClick={() => handleRevoke(a.student_id)}
+                              onClick={() => demanderRevocation(a.student_id)}
                             >
                               Révoquer
                             </Button>

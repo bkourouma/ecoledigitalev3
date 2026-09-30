@@ -24,6 +24,7 @@ import {
   Lock,
 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
   useNotesNoms,
   useNotesSemestres,
@@ -86,6 +87,8 @@ export default function NotesPage() {
   const conduiteQuery = useSemestreConduite(isAdmin && semestreId ? semestreId : null);
   const recomputeMut = useRecomputeSession();
   const cloturerMut = useCloturerSemestre();
+  // Confirmation de clôture affichée dans la page (et non par window.confirm).
+  const [confirmerCloture, setConfirmerCloture] = useState(false);
 
   // Années scolaires des classes accessibles. L'API restreint déjà ces
   // lignes aux cohortes de l'enseignant connecté : un enseignant ne voit
@@ -213,19 +216,11 @@ export default function NotesPage() {
    * le semestre quitte cet écran pour l'historique, en lecture seule. Geste
    * irréversible depuis l'interface — d'où la confirmation.
    */
+  const libelleSemestreCloture =
+    visibleSemestres.find((s) => s.id === semestreId)?.libelle ?? "ce semestre";
+
   async function handleCloturer() {
-    const semestre = visibleSemestres.find((s) => s.id === semestreId);
-    const libelle = semestre?.libelle ?? "ce semestre";
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm(
-        `Clôturer les notes de « ${libelle} » ?\n\n` +
-          `Ses ${sessions.length} UE passeront en « Terminé » : la saisie ne sera plus possible ` +
-          `et le semestre basculera dans l'Historique des notes.`
-      )
-    ) {
-      return;
-    }
+    setConfirmerCloture(false);
     setError(null);
     try {
       await cloturerMut.mutateAsync(semestreId);
@@ -310,6 +305,19 @@ export default function NotesPage() {
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto p-6">
+      <ConfirmationDialog
+        open={confirmerCloture}
+        onOpenChange={setConfirmerCloture}
+        title={`Clôturer les notes de « ${libelleSemestreCloture} » ?`}
+        description={
+          `Ses ${sessions.length} UE passeront en « Terminé » : la saisie ne sera plus possible ` +
+          `et le semestre basculera dans l'Historique des notes.`
+        }
+        confirmText="Clôturer"
+        variant="destructive"
+        loading={cloturerMut.isPending}
+        onConfirm={() => void handleCloturer()}
+      />
       {/* Header — actions sous le titre : à droite, cinq boutons écrasaient le titre. */}
       <div className="flex flex-col gap-4">
         <div>
@@ -351,7 +359,7 @@ export default function NotesPage() {
           {isAdmin && (
             <Button
               variant="outline"
-              onClick={handleCloturer}
+              onClick={() => setConfirmerCloture(true)}
               disabled={
                 !semestreId ||
                 sessions.length === 0 ||

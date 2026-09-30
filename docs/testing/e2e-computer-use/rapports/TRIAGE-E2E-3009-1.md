@@ -124,3 +124,46 @@ retourne plus toute seule à la liste. Il faut cliquer « Continuer vers la list
 parents (suppression, export PDF/Word), modification d'un étudiant, fiche étudiant (ouverture du
 diplôme), et huit formulaires académiques génériques (« Erreur lors de l'enregistrement… »). À
 traiter au besoin.
+
+---
+
+# Actes 4 à 12.3 — tenant `test-30091`
+
+## Ce qui a fonctionné (versions corrigées vérifiées en production)
+- Doublons enseignant et matricule : bandeau rouge dans la page, aucun doublon créé.
+- Fenêtre « Nouveau commercial » qui se ferme ; confirmation « Supprimer ce créneau ? » ;
+  étudiants retirés de la liste après inscription ; signataires remplacés et persistants.
+- Encaissements : 5 reçus, refus (0, dépassement, référence en double), verrou « frais d'inscription »
+  (Chantal en attente après paiement partiel, confirmée après le second) ; commission 10 000.
+- Notes, conduite, rattrapages et décisions : toutes les valeurs attendues (14,60 · 14,77 · 11,17 ·
+  12,28 · 8,72) ; « Calcul bloqué » sans conduite.
+
+## Corrigé dans le code
+
+| Constat | Correction |
+|---|---|
+| L'agent bloqué sur la confirmation native « Clôturer le semestre » | Les confirmations « Clôturer le semestre » (Notes), « Clôturer » (Bulletins) et « Forcer l'octroi » (Diplômes) sont des dialogues de la page. La révocation d'un diplôme ouvre un dialogue avec un champ « Motif » obligatoire (refus « Le motif de révocation est requis. ») à la place de `window.prompt` |
+| **C11** — bandeau « BULLETIN PROVISOIRE — en attente de Session 2 » sur le relevé d'une étudiante ajournée | Le bandeau n'apparaît que si la session 2 est encore à venir (`statut_etudiant = session2`). Vérifié en générant de vrais PDF : ajournée = pas de bandeau, session 2 à venir = bandeau, admise = pas de bandeau. L'info-bulle du badge « Provisoire » ne promet plus la session 2 à un étudiant qui l'a déjà passée |
+| **C18** — référence `REL-…` du relevé absente du PDF | Calculée par l'API depuis toujours, jamais dessinée (même défaut que le diplôme, corrigé en campagne 1). Imprimée maintenant au pied du relevé, LMD et BTS. Vérifié sur PDF |
+| **C10** — coefficient d'un devoir saisi mais sans effet | Une mention l'annonce sous le champ : « Indicatif : n'entre pas dans le calcul de la note de la matière, qui prend la moyenne simple des devoirs ». Le calcul n'est pas modifié |
+
+## Pas corrigé, et pourquoi
+
+**C19 — l'identité de l'IPAM sur tous les documents d'un tenant de test.** Nom, logo, adresse, téléphone,
+site et e-mail sont des constantes du code (`bulletin-format.ts`, et leurs équivalents pour
+diplômes, attestations, reçus, fiches de paie, emploi du temps). Un nouvel établissement imprime donc
+les documents de l'IPAM. C'est une **fonctionnalité** (identité par établissement : stockage, écran
+d'administration, lecture par une dizaine de générateurs PDF), pas un correctif. À décider.
+
+**Lenteur des pages** (Présences 20 s, Conduite 40 s, Rattrapages 65 s, Corrections 10 à 25 s). Les
+requêtes en cause sont légères et le tenant de test ne contient que 3 étudiants : les données n'expliquent
+pas ces durées. Cause probable **hors code applicatif** (base, réseau entre les conteneurs, charge du
+serveur). Rien changé à l'aveugle. Mesure demandée à l'agent : durée de chaque appel API des pages lentes
+(`read_network_requests`), pour séparer « l'API répond lentement » de « la page attend autre chose ».
+
+**« ANNÉE ACADÉMIQUE 2025-2026 » sur le PDF du planning alors que le semestre court d'août à novembre
+2026.** Pas un défaut : l'année scolaire pivote au 1er septembre, et le paramètre `DEBUT` du run
+(J − 30) est tombé le **31/08/2026**, donc rattaché à 2025-2026. Choisir un début au 1er septembre
+ou après évite le cas.
+
+**Filtres non conservés et libellé de classe incohérent** (mineurs) : non traités.
