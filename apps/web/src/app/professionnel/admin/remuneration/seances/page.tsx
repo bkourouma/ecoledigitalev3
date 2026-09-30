@@ -341,6 +341,16 @@ export default function RemunerationSeancesPage() {
   const ecuesDeLaCohorte = ecuesQuery.data ?? [];
 
   /**
+   * Une session « en cours » au sens de la paie : ouverte, complète ou en cours.
+   * Une cohorte vient d'être ouverte au statut « ouvert » et rien ne la bascule en
+   * « en_cours » ; n'accepter que ce dernier statut rendait impossible d'ajouter une
+   * séance à une cohorte pourtant en activité. Seules les cohortes closes, annulées
+   * ou encore en brouillon sont écartées.
+   */
+  const estCohorteActive = (statut: string | null | undefined) =>
+    statut === "ouvert" || statut === "complet" || statut === "en_cours";
+
+  /**
    * Filières ayant au moins une session EN COURS.
    *
    * Déduites des sessions plutôt que chargées à part : proposer une filière
@@ -350,7 +360,7 @@ export default function RemunerationSeancesPage() {
   const filieresDuFormulaire = useMemo(() => {
     const parId = new Map<string, string>();
     for (const c of cohortes as any[]) {
-      if (c.statut !== "en_cours") continue;
+      if (!estCohorteActive(c.statut)) continue;
       if (c.filiere_id && !parId.has(c.filiere_id)) {
         parId.set(c.filiere_id, c.filiere_nom ?? c.filiere_code ?? "Filière");
       }
@@ -371,7 +381,7 @@ export default function RemunerationSeancesPage() {
   const sessionsDuFormulaire = useMemo(() => {
     if (!form.filiere_id) return [];
     return (cohortes as any[])
-      .filter((c) => c.filiere_id === form.filiere_id && c.statut === "en_cours")
+      .filter((c) => c.filiere_id === form.filiere_id && estCohorteActive(c.statut))
       .map((c) => ({ value: c.id, label: c.libelle }))
       .sort((a, b) => a.label.localeCompare(b.label, "fr"));
   }, [cohortes, form.filiere_id]);
