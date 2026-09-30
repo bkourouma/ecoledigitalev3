@@ -207,16 +207,18 @@ export default function InscritsGroupePage() {
         <CardHeader>
           <CardTitle>Récapitulatif</CardTitle>
           <CardDescription>
-            Cumul sur cette classe. Le montant payé est porté par la commande : une même
-            commande peut couvrir plusieurs UE.
+            Cumul des UE de cette classe uniquement : les frais d'inscription et les frais
+            annexes n'y figurent pas. La situation complète (barème, payé, reste) se lit
+            dans Scolarité. Le montant payé est porté par la commande : une même commande
+            peut couvrir plusieurs UE.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Info icon={Layers} label="Classe" value={first.filiere_nom ?? "—"} />
             <Info icon={BookOpen} label="UE inscrites" value={`${enrollments.length}`} />
-            <Info label="Total dû" value={fmtPrice(totaux.du)} />
-            <Info icon={Wallet} label="Payé (commandes liées)" value={fmtPrice(totaux.paye)} />
+            <Info label="Dû (UE inscrites)" value={fmtPrice(totaux.du)} />
+            <Info icon={Wallet} label="Payé (UE inscrites)" value={fmtPrice(totaux.paye)} />
           </div>
 
           {totaux.commandes.length > 0 && (

@@ -218,3 +218,19 @@ C11, C18, dialogues de clôture.
 1. Déployer, puis **rejouer** les points corrigés sur `test-30091` : A19-01 (refus attendu), A9-01,
    A13-01, A14-02/03, A18-02/03, A7-01.
 2. Nettoyer (suppression du tenant, puis répétition à blanc du script).
+
+---
+
+# Retest en ligne (commit a30d54a) : 3 non corrigés, 2 non testables
+
+| Test | Verdict | Suite |
+|---|---|---|
+| 1 A19-01, 2 reçus, 3 rang annuel, 4a révocation, 5 owner, 7 (C11, C18, A00-01) | **Corrigé en ligne** | — |
+| **4b année académique** (« 2026 - 2027 » sur attestation et diplôme) | Non corrigé | **Cause trouvée** : la route du diplôme (`getAttestation`, service des diplômes) ne renvoyait AUCUNE année de classe ; l'écran retombait sur la date d'octroi (30/09/2026, donc 2026-2027). Le correctif du 1er septembre ne pouvait pas agir. Corrigé : l'API renvoie l'année de la dernière cohorte de l'étudiant dans le cycle (même règle que les attestations) |
+| **6 Mes cours** (0 matière sous « En cours ») | Non testable dans cet état | Après l'acte 19, la clôture des semestres passe **toutes** les cohortes à « terminé » (`cloturerSemestre`) : leur place est sous « Terminée », conformément au code. Le correctif A7-01 (cohortes `ouvert` / `complet` sous « En cours ») ne se vérifie que **avant** clôture ; à rejouer sur un tenant neuf, aux actes 7 et 8 |
+| 4c dialogue « Forcer l'octroi » | Non testable | Plus aucun étudiant sans diplôme non révoqué |
+| **A19-02** fiche « inscrit » (100 000 / 340 000 pour Aminata) | Pas un défaut de calcul | Cette fiche ne totalise que les commandes liées aux UE ; les frais d'inscription et annexes (150 000 payés / 400 000 au barème au total) n'y figurent pas. Libellés précisés : « Dû (UE inscrites) », « Payé (UE inscrites) », avec renvoi vers Scolarité |
+
+Mesures : **A16-03** ne se reproduit plus (S2 de Bakary : 2 UE, 2 matières, moyenne 12,20, HTTP 200, 0,6 s) : le défaut venait des données du run avant nettoyage des statuts ou du correctif de clôture ; classé « non reproduit ». **Lenteur** : les API répondent en 0,3 à 0,9 s ; la lenteur est dans le rendu navigateur, pas dans l'API.
+
+Reste à revérifier après déploiement : 4b (année 2025-2026 et « Année d'obtention : 2026 » sur l'attestation d'authenticité, non ouverte au retest).

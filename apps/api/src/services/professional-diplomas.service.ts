@@ -14,6 +14,7 @@ import type {
   DiplomaAttestationDto,
 } from "@ecoledigitale/contracts";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
+import { anneeScolaireOf } from "./professional-annee-scolaire";
 import {
   loadAllValidatedUeIdsWithConduite,
   loadCycleGroups,
@@ -611,6 +612,21 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
       const mention = await loadMentionForFilieres(client, tenantId, filiereIds, studentId);
       const authenticiteReference = await this.getOrAssignAuthenticiteReference(client, tenantId, award);
 
+      // Année scolaire de la CLASSE (dernière cohorte de l'étudiant dans le cycle),
+      // et non celle du jour d'octroi : un diplôme octroyé en septembre 2026 pour une
+      // classe de 2025-2026 s'imprimait sur « 2026-2027 » faute de cette valeur.
+      const derniereCohorte = await client.query(
+        `SELECT MAX(s.date_debut)::text AS derniere
+           FROM professional_enrollments en
+           JOIN professional_ue_sessions s ON s.id = en.ue_session_id AND s.tenant_id = en.tenant_id
+           JOIN professional_ue ue ON ue.id = s.ue_id AND ue.tenant_id = s.tenant_id
+          WHERE en.tenant_id = $1 AND en.student_id = $2
+            AND en.statut IN ('confirmee','terminee')
+            AND ue.filiere_id = ANY($3::uuid[])`,
+        [tenantId, studentId, filiereIds]
+      );
+      const anneeAcademique = anneeScolaireOf(derniereCohorte.rows[0]?.derniere ?? null);
+
       // Signataires imprimes sur le document. Ils voyagent avec l'attestation
       // parce que la route /signataires est reservee a l'administration : sans
       // eux ici, un diplome telecharge par l'etudiant lui-meme sortirait sans
@@ -650,6 +666,7 @@ export class ProfessionalDiplomasService extends ProfessionalBaseService {
           lieu_naissance: info.place_of_birth ?? null,
         },
         date_obtention: award.date_obtention ?? "",
+        annee_academique: anneeAcademique,
         uv_total_validees: award.uv_total_validees,
         ue_validees,
         mention,

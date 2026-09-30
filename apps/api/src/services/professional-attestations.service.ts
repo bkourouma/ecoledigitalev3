@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import type { DiplomaAttestationDto } from "@ecoledigitale/contracts";
+import { anneeScolaireOf } from "./professional-annee-scolaire";
 import { ProfessionalBaseService, ok, fail, ServiceResult } from "./professional-base.service";
 import { loadValidatedUeIdsWithConduite, loadMentionForFilieres } from "./professional-cycle-groups";
 
@@ -30,19 +31,6 @@ export interface AttestationRosterStudent {
   ue_manquantes: AttestationRequiredUe[];
   /** Année scolaire d'obtention (« 2025-2026 ») dérivée de la dernière UE validée ; null si non éligible / dates absentes. */
   annee_scolaire: string | null;
-}
-
-/**
- * Année scolaire (« 2025-2026 ») d'une date, pivot au 1er septembre — identique à
- * `academicYearFromDate` du front (`diplome-format.ts`) qui alimente l'année
- * imprimée sur l'attestation, afin que le filtre corresponde au PDF.
- */
-function anneeScolaireOf(value: string | Date | null | undefined): string | null {
-  if (!value) return null;
-  const d = value instanceof Date ? value : new Date(value);
-  if (isNaN(d.getTime())) return null;
-  const y = d.getFullYear();
-  return d.getMonth() >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
 
 export interface AttestationRoster {
