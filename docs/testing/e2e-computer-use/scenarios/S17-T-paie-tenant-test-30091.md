@@ -290,8 +290,7 @@ l'étape 6 (Koné a des heures validées mais aucune configuration de paie).
 **Attendu** après chaque enregistrement :
 - Le message « Séance ajoutée et marquée réalisée. Elle reste à valider pour être payée. »
 
-**Attendu dans le tableau**, une fois les trois séances créées (filtre **Enseignant** sur Adjoua
-Brou) :
+**Attendu dans le tableau**, une fois les trois séances créées (filtre **Enseignant** sur Awa) :
 - Chaque séance apparaît avec la mention **« ajoutée en compta. »** sous le nom de l'enseignante.
 - Statut **« Réalisée »**.
 - Colonne Paie : **« Non validée »**.
