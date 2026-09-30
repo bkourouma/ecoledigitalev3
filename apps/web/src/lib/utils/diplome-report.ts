@@ -96,7 +96,7 @@ export function buildDiplomeReportSpec(
                   c.student_number || "—",
                   c.nom_complet || "—",
                   // L'année n'a de sens que pour un diplôme effectivement octroyé.
-                  c.statut_octroi === "obtenu" ? anneeDe(c.date_obtention) || "—" : "—",
+                  c.statut_octroi === "obtenu" ? c.annee_classe || anneeDe(c.date_obtention) || "—" : "—",
                   String(c.uv_validees ?? 0),
                   `${c.pourcentage ?? 0} %`,
                   statutOctroi(c),

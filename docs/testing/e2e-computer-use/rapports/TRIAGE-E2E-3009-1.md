@@ -234,3 +234,22 @@ C11, C18, dialogues de clôture.
 Mesures : **A16-03** ne se reproduit plus (S2 de Bakary : 2 UE, 2 matières, moyenne 12,20, HTTP 200, 0,6 s) : le défaut venait des données du run avant nettoyage des statuts ou du correctif de clôture ; classé « non reproduit ». **Lenteur** : les API répondent en 0,3 à 0,9 s ; la lenteur est dans le rendu navigateur, pas dans l'API.
 
 Reste à revérifier après déploiement : 4b (année 2025-2026 et « Année d'obtention : 2026 » sur l'attestation d'authenticité, non ouverte au retest).
+
+---
+
+# Retest 4b (commit 5461be6) : corrigé en ligne
+
+Attestations, diplômes et attestations d'authenticité d'Aminata et de Bakary : « 2025 - 2026 » et
+« Année d'obtention : 2026 » ; liste des attestations filtrée sous 2025-2026. **Corrigé.**
+
+Deux remarques de l'agent :
+
+- **Colonne « Année d'obtention » de la liste des diplômes** encore à « 2026-2027 » : elle lisait la
+  date d'octroi. Corrigé : elle lit l'année de la classe (`annee_classe`), sur l'écran et sur l'export PDF de la liste.
+- **Numéros d'authenticité 002 puis 004** : pas un numéro consommé à chaque téléchargement. La référence
+  n'est attribuée qu'une fois par diplôme, puis relue. Les « trous » viennent de la formule de départ
+  (`diplômes déjà obtenus + déjà numérotés + 1`), voulue pour reprendre un registre papier existant. Sur un
+  tenant neuf, elle produit des numéros non consécutifs. **À décider** : partir de 1 pour un tenant sans registre antérieur.
+
+**Bilan de la campagne E2E-3009-1** : tous les correctifs sont confirmés en ligne, sauf A7-01 (à rejouer
+sur un tenant neuf avant clôture) et le dialogue « Forcer l'octroi » (aucun étudiant éligible à tester).

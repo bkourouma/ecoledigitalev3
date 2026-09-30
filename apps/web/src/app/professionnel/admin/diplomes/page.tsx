@@ -517,7 +517,7 @@ export default function DiplomesPage() {
                           {obtenu && c.date_obtention ? (
                             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
                               <CalendarDays className="h-3 w-3" />
-                              {academicYearFromDate(c.date_obtention) || "—"}
+                              {c.annee_classe || academicYearFromDate(c.date_obtention) || "—"}
                             </span>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
