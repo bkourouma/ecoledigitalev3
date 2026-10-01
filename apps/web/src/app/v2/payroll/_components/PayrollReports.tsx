@@ -32,7 +32,8 @@ function CsvExport({ kind, query, filename }: { kind: "history" | "reports"; que
     setMessage(null);
     try {
       const text = await fetchPayrollCsv(kind, query);
-      downloadText(filename, text);
+      // `Response.text()` retire le BOM UTF-8 : on le remet pour que le tableur lise correctement les accents.
+      downloadText(filename, text.startsWith("﻿") ? text : `﻿${text}`);
       setState("idle");
     } catch (e) {
       setState("error");
