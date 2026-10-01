@@ -290,6 +290,8 @@ export function loadIamConfig(env: Record<string, string | undefined> = process.
       ...(num("IAM_REFRESH_IDLE_TTL_SEC") !== undefined ? { refreshIdleTtlSec: num("IAM_REFRESH_IDLE_TTL_SEC") as number } : {}),
       ...(num("IAM_SESSION_MAX_AGE_SEC") !== undefined ? { sessionMaxAgeSec: num("IAM_SESSION_MAX_AGE_SEC") as number } : {}),
       ...(num("IAM_IMPERSONATION_TTL_SEC") !== undefined ? { impersonationTtlSec: num("IAM_IMPERSONATION_TTL_SEC") as number } : {}),
+      ...(num("IAM_REFRESH_REUSE_GRACE_MS") !== undefined ? { refreshReuseGraceMs: num("IAM_REFRESH_REUSE_GRACE_MS") as number } : {}),
+      ...(num("IAM_REFRESH_REUSE_GRACE_MS") !== undefined ? { refreshReuseGraceMs: num("IAM_REFRESH_REUSE_GRACE_MS") as number } : {}),
       ...(num("IAM_PASSWORD_MIN_LENGTH") !== undefined ? { password: { minLength: num("IAM_PASSWORD_MIN_LENGTH") as number } } : {}),
       ...(num("IAM_SCRYPT_LOG_N") !== undefined ? { scrypt: { logN: num("IAM_SCRYPT_LOG_N") as number } } : {}),
       ...(mfaRoles ? { mfa: { requiredRoles: mfaRoles } } : {}),

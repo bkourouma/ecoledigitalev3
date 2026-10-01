@@ -139,6 +139,7 @@ export async function authenticateBearer(
   const principal: AuthenticatedPrincipal = {
     ctx,
     identityId: claims.userId,
+    email: row.identity_email,
     membershipId: claims.mid,
     sessionId: claims.sid,
     tenantSlug: claims.tenantSlug,
@@ -483,6 +484,73 @@ export async function switchTenant(
   if (inner.direct) {
     await revokeSourceSession(deps, principal.identityId, { id: principal.sessionId, tenantId: principal.ctx.tenantId }, requestId);
   }
+  return ok(inner.outcome);
+}
+
+// -----------------------------------------------------------------------------
+// Changement de rôle actif (même établissement)
+// -----------------------------------------------------------------------------
+
+/**
+ * Change le rôle ACTIF dans l'établissement courant (écran « choisir mon rôle »). Le rôle actif est figé dans la
+ * session (les permissions n'évaluent que lui) : on ouvre donc une NOUVELLE session et on révoque l'ancienne, dans
+ * la même transaction. Les facteurs déjà satisfaits sont conservés (le second facteur ne se redemande pas) ; la
+ * politique MFA est évaluée sur l'ensemble des rôles de l'accès (voir `authenticateBearer`), donc inchangée.
+ * Interdit pendant une impersonation.
+ */
+export async function switchRole(
+  deps: IamDeps,
+  principal: AuthenticatedPrincipal,
+  input: { activeRole: string; deviceName?: string | undefined; meta: RequestMeta },
+): Promise<Result<LoginOutcome, AppError>> {
+  if (principal.impersonatedBy) {
+    return err(new ForbiddenError("Action interdite pendant une impersonation.", { code: AuthErrorCodes.impersonationForbidden }));
+  }
+  const noRole = (): AppError => new ForbiddenError("Ce rôle n'est pas attribué à votre accès.", { code: AuthErrorCodes.forbidden });
+  const tenantId = principal.ctx.tenantId;
+  const requestId = input.meta.requestId;
+  const deviceName = cleanText(input.deviceName, 80);
+
+  type Inner = { kind: "no_role" } | { kind: "denied" } | { kind: "outcome"; outcome: LoginOutcome };
+  const inner = await deps.tenantDb.run(principal.ctx, async (tx): Promise<Inner> => {
+    const fresh = await identities.findIdentityById(tx, principal.identityId);
+    const membership = await memberships.findMembershipByIdentity(tx, tenantId, principal.identityId);
+    const tenant = await identities.findTenantById(tx, tenantId);
+    if (!fresh || fresh.status !== "active" || !membership || membership.status !== "active" || !tenant || tenant.status !== "active") return { kind: "denied" };
+    if (!membership.roles.includes(input.activeRole)) return { kind: "no_role" };
+
+    const mfa = fresh.mfa_enabled && principal.mfa;
+    const amr: Amr[] = mfa ? ["pwd", "otp"] : ["pwd"];
+    const issued = await startSession(deps, tx, {
+      identity: fresh,
+      membership,
+      tenant,
+      activeRole: input.activeRole,
+      mfaVerified: mfa,
+      amr,
+      meta: input.meta,
+      deviceName,
+      authEpoch: fresh.auth_epoch,
+    });
+    await publishLoggedIn(deps, tx, userContext(tenantId, principal.identityId, membership.roles, requestId), {
+      identityId: principal.identityId,
+      membershipId: membership.id,
+      sessionId: issued.sessionId,
+      mfa,
+      amr,
+      method: "switch_role",
+      meta: input.meta,
+    });
+    await revokeAndPublish(deps, tx, tenantId, principal.sessionId, "switch_role", principal.identityId, input.meta, { identityId: principal.identityId });
+    const tenants = await identities.listTenantsOfIdentity(tx, principal.identityId);
+    return {
+      kind: "outcome",
+      outcome: { status: "authenticated", session: issued, user: toUserSummary(fresh, tenant, membership.roles, input.activeRole), tenants: toTenantSummaries(tenants) },
+    };
+  });
+
+  if (inner.kind === "no_role") return err(noRole());
+  if (inner.kind === "denied") return err(new ForbiddenError("Aucun accès actif pour cet établissement.", { code: AuthErrorCodes.noActiveAccess }));
   return ok(inner.outcome);
 }
 

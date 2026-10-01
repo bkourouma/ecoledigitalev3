@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
-import { decodeToken, extractTokenFromHeader } from "../services/jwt.service";
-import { decodeSuperAdminToken } from "../services/super-admin-jwt.service";
+import { extractTokenFromHeader, verifyTokenQuiet } from "../services/jwt.service";
 import { setRlsContext } from "../services/rls-context.service";
+import { isIamAccessTokenShape, isLegacyTokenSunsetReached } from "../platform/legacy-iam-bridge";
 
 async function resolveTenant(
   fastify: FastifyInstance,
@@ -39,25 +39,28 @@ async function tenantContextPlugin(fastify: FastifyInstance) {
     request.tenantSlug = undefined;
     request.tenantSelectionSource = undefined;
 
+    // Le tenant d'un jeton n'est lu QU'APRÈS vérification (jamais d'un JWT simplement décodé, y compris sur les
+    // routes publiques) :
+    //  - jeton IAM v2 : `request.iamAuth`, posé par le crochet `onRequest` de platform/v2-auth.ts après signature,
+    //    session, révocation, époque, accès et tenant actifs ;
+    //  - jeton legacy : signature + expiration + émetteur, et seulement tant que LEGACY_TOKEN_SUNSET n'est pas atteinte.
+    // Un jeton invalide ne désigne aucun tenant : on retombe sur l'en-tête X-Tenant, exactement comme sans jeton
+    // (le middleware d'authentification répond 401 sur les routes protégées).
     const token = extractTokenFromHeader(request.headers.authorization as string | undefined);
     if (token) {
-      const tenantUserPayload = decodeToken(token);
-      if (tenantUserPayload?.scope === "tenant_user" && tenantUserPayload.tenantId) {
-        request.tenantId = tenantUserPayload.tenantId;
-        request.tenantSlug = tenantUserPayload.tenantSlug;
-        request.tenantSelectionSource = "token";
+      if (isIamAccessTokenShape(token)) {
+        const principal = request.iamAuth?.principal;
+        if (principal) {
+          request.tenantId = principal.ctx.tenantId;
+          request.tenantSlug = principal.tenantSlug;
+          request.tenantSelectionSource = "token";
+        }
       } else {
-        const superAdminPayload = decodeSuperAdminToken(token);
-        if (superAdminPayload?.scope === "super_admin") {
-          const selectedTenant = headerTenant(request);
-          if (selectedTenant) {
-            const resolved = await resolveTenant(fastify, selectedTenant);
-            if (resolved) {
-              request.tenantId = resolved.id;
-              request.tenantSlug = resolved.slug;
-              request.tenantSelectionSource = "header";
-            }
-          }
+        const tenantUserPayload = isLegacyTokenSunsetReached() ? null : verifyTokenQuiet(token);
+        if (tenantUserPayload?.scope === "tenant_user" && tenantUserPayload.tenantId) {
+          request.tenantId = tenantUserPayload.tenantId;
+          request.tenantSlug = tenantUserPayload.tenantSlug;
+          request.tenantSelectionSource = "token";
         }
       }
     }
@@ -122,8 +125,11 @@ async function tenantContextPlugin(fastify: FastifyInstance) {
       "/api/v1/professional",
     ];
 
+    // Un jeton présent mais NON vérifié (expiré, révoqué, forgé, d'un autre type…) ne désigne aucun tenant : la réponse
+    // attendue est le 401 de l'authentification (plugins/auth-middleware.ts, exécuté ensuite), pas « Tenant Required ».
+    // Avant, le tenant d'un jeton simplement décodé suffisait à passer ce contrôle ; il n'est plus lu sans vérification.
     const requiresTenant = tenantRequiredPrefixes.some((prefix) => request.url.startsWith(prefix));
-    if (requiresTenant && !request.tenantId && !request.url.startsWith("/api/v1/super-admin")) {
+    if (requiresTenant && !request.tenantId && !token && !request.url.startsWith("/api/v1/super-admin")) {
       return reply.status(400).send({
         error: "Tenant Required",
         message: "This endpoint requires tenant context via token or X-Tenant header",

@@ -28,6 +28,7 @@ import {
   PasswordResetRequestSchema,
   ProvisionMemberRequestSchema,
   RefreshRequestSchema,
+  SwitchRoleRequestSchema,
   SwitchTenantRequestSchema,
   UpdateMemberRequestSchema,
   type ImpersonationResponse,
@@ -268,6 +269,12 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
   app.post("/switch-tenant", auth, async (request, reply) => {
     const body = parse(SwitchTenantRequestSchema, request.body);
     const result = await iam.switchTenant(principalOf(request), { tenantId: body.tenantId, meta: requestMeta(request) });
+    return presentOutcome(reply, config, clock.now(), unwrap(result), body.client);
+  });
+
+  app.post("/switch-role", auth, async (request, reply) => {
+    const body = parse(SwitchRoleRequestSchema, request.body);
+    const result = await iam.switchRole(principalOf(request), { activeRole: body.activeRole, meta: requestMeta(request) });
     return presentOutcome(reply, config, clock.now(), unwrap(result), body.client);
   });
 

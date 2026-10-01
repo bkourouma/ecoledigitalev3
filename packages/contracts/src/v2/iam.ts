@@ -173,6 +173,11 @@ export const SwitchTenantRequestSchema = z
   .strict();
 export type SwitchTenantRequest = z.infer<typeof SwitchTenantRequestSchema>;
 
+export const SwitchRoleRequestSchema = z
+  .object({ activeRole: IamRoleKeySchema, client: IamClientSchema.default("web") })
+  .strict();
+export type SwitchRoleRequest = z.infer<typeof SwitchRoleRequestSchema>;
+
 export const SessionSummarySchema = z.object({
   id: uuid,
   current: z.boolean(),

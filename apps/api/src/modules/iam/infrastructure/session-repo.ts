@@ -44,6 +44,7 @@ export interface SessionCheckRow {
   session_epoch: number;
   expires_at: Date;
   revoked_at: Date | null;
+  identity_email: string;
   identity_status: "active" | "disabled";
   identity_epoch: number;
   identity_mfa_enabled: boolean;
@@ -58,7 +59,7 @@ export function findSessionForRequest(tx: Tx, tenantId: string, sessionId: strin
   return tx.queryOne<SessionCheckRow>(
     `SELECT s.id, s.identity_id, s.membership_id, s.kind, s.active_role, s.mfa_verified, s.actor_id,
             s.auth_epoch AS session_epoch, s.expires_at, s.revoked_at,
-            i.status AS identity_status, i.auth_epoch AS identity_epoch, i.mfa_enabled AS identity_mfa_enabled,
+            i.email AS identity_email, i.status AS identity_status, i.auth_epoch AS identity_epoch, i.mfa_enabled AS identity_mfa_enabled,
             m.status AS membership_status, m.roles AS membership_roles,
             t.status AS tenant_status, t.slug AS tenant_slug
        FROM iam.sessions s
