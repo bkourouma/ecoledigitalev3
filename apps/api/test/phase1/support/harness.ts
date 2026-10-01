@@ -8,6 +8,8 @@
  * Postgres (TEST_DATABASE_URL) et Redis (REDIS_URL) doivent être JETABLES.
  */
 import { randomBytes } from "node:crypto";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import Fastify, { type FastifyInstance } from "fastify";
 import { Redis } from "ioredis";
 import { noopLogger } from "@ecoledigitale/kernel";
@@ -25,6 +27,18 @@ import { FakeLegacyDb } from "./fake-legacy";
 
 export const REDIS_URL = process.env.REDIS_URL ?? process.env.TEST_REDIS_URL;
 
+const here = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Charge un module du code LEGACY (`apps/api/src/<chemin>`) sans le faire entrer dans le programme TypeScript
+ * strict de la plateforme v2 (`tsconfig.v2.json`) : le legacy n'est pas écrit pour ces options. Le chargement
+ * est tardif — après la pose des secrets de test — car `jwt.service` exige `JWT_SECRET` dès son import.
+ */
+export async function legacyModule<T>(relativeToSrc: string): Promise<T> {
+  const url = pathToFileURL(resolve(here, "../../../src", relativeToSrc)).href;
+  return (await import(/* @vite-ignore */ url)) as T;
+}
+
 export interface Invitation {
   kind: "invitation" | "password_reset";
   email: string;
@@ -39,23 +53,19 @@ export interface HttpResult<T = any> {
   raw: string;
 }
 
-export interface Phase1Env {
-  app: FastifyInstance;
+type LegacyTenantInput = { id: string; slug: string; name: string; is_active: boolean };
+
+/** Infrastructure partagée par une ou plusieurs instances de l'API : base migrée, secrets, base legacy simulée. */
+export interface Infra {
   db: EphemeralDb;
+  appUrl: string;
   legacy: FakeLegacyDb;
-  status: V2PlatformStatus;
   /** Variables passées à `registerV2Platform`. */
   env: Record<string, string>;
   queuePrefix: string;
-  worker: WorkerApp;
-  /** Jeton super-admin legacy (opérateur de la plateforme). */
-  operatorToken: string;
   operatorId: string;
-  /** Invitations « envoyées » par le notifieur de comptes (jamais écrites dans les journaux). */
   invitations: Invitation[];
-  http<T = any>(method: string, url: string, options?: { token?: string; body?: unknown; headers?: Record<string, string>; rawBody?: string }): Promise<HttpResult<T>>;
-  generateLegacyToken(user: { id: string; tenantId: string; tenantSlug: string; role: string }): string;
-  stop(): Promise<void>;
+  restoreEnv(): void;
 }
 
 const rand = (n = 16): string => randomBytes(n).toString("hex");
@@ -78,13 +88,11 @@ export async function waitFor<T>(
   throw new Error(`Délai dépassé (${timeoutMs} ms) : ${label}${last ? ` — ${String(last)}` : ""}`);
 }
 
-export async function startPhase1Platform(options: { startWorker?: boolean; legacyTenants?: Array<{ id: string; slug: string; name: string; is_active: boolean }> } = {}): Promise<Phase1Env> {
+/** Secrets de test (aléatoires, jamais écrits sur disque), base v2 migrée (migrations RÉELLES), base legacy simulée. */
+export async function prepareInfra(options: { legacyTenants?: LegacyTenantInput[] } = {}): Promise<Infra> {
   if (!REDIS_URL) throw new Error("REDIS_URL requis");
   const saved = { ...process.env };
-
-  // --- Secrets de test (aléatoires, jamais écrits sur disque) ---------------------------------------------
-  const legacySecret = rand(24);
-  process.env.JWT_SECRET = legacySecret;
+  process.env.JWT_SECRET = rand(24);
   process.env.SUPER_ADMIN_JWT_SECRET = rand(24);
   const queuePrefix = `p1${randomSuffix()}`;
   const auditKey = rand(16);
@@ -95,50 +103,60 @@ export async function startPhase1Platform(options: { startWorker?: boolean; lega
   resetRegistryForTests();
   resetPublicRoutesForTests();
 
-  // --- Base v2 : migrations RÉELLES (baseline, worker, tous les modules) ----------------------------------
   const roleName = `ed_p1_${randomSuffix()}`;
   const db = await createEphemeralDb("p1_test", [roleName]);
   await runV2Migrations({ url: db.adminUrl, logger: noopLogger });
   const appUrl = (await createLoginRole({ adminUrl: db.adminUrl, role: roleName })).applicationUrl;
 
-  // --- Base legacy simulée + VRAIS plugins legacy ---------------------------------------------------------
   const legacy = new FakeLegacyDb();
   for (const t of options.legacyTenants ?? []) legacy.tenants.push(t);
   const operatorId = "0192f0a4-7b1e-7c3a-8d2e-0000000000f1";
   legacy.superAdmins.set(operatorId, { active: true });
 
+  return {
+    db,
+    appUrl,
+    legacy,
+    queuePrefix,
+    operatorId,
+    invitations: [],
+    env: {
+      NODE_ENV: "test",
+      V2_DATABASE_URL: appUrl,
+      REDIS_URL,
+      WORKER_QUEUE_PREFIX: queuePrefix,
+      IAM_JWT_SECRET: rand(32),
+      IAM_MFA_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
+      IAM_SCRYPT_LOG_N: "10",
+      IAM_COOKIE_SECURE: "false",
+      AUDIT_HMAC_KEY: auditKey,
+    },
+    restoreEnv() {
+      for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key];
+      Object.assign(process.env, saved);
+    },
+  };
+}
+
+/** Une instance de l'API : Fastify + vrais plugins legacy + `registerV2Platform`, comme `src/index.ts`. */
+export async function bootInstance(infra: Infra, options: { extraEnv?: Record<string, string> } = {}): Promise<{ app: FastifyInstance; status: V2PlatformStatus }> {
   const app = Fastify({ logger: false });
-  app.decorate("pg", legacy.pool as never);
-  const { default: tenantContextPlugin } = await import("../../../src/plugins/tenant-context");
-  const { default: authMiddleware } = await import("../../../src/plugins/auth-middleware");
-  const { generateSuperAdminToken } = await import("../../../src/services/super-admin-jwt.service");
-  const { generateToken } = await import("../../../src/services/jwt.service");
+  app.decorate("pg", infra.legacy.pool as never);
+  const { default: tenantContextPlugin } = await legacyModule<{ default: never }>("plugins/tenant-context");
+  const { default: authMiddleware } = await legacyModule<{ default: never }>("plugins/auth-middleware");
   await app.register(tenantContextPlugin);
   await app.register(authMiddleware);
 
-  // --- Plateforme v2 --------------------------------------------------------------------------------------
-  const invitations: Invitation[] = [];
-  const env: Record<string, string> = {
-    NODE_ENV: "test",
-    V2_DATABASE_URL: appUrl,
-    REDIS_URL,
-    WORKER_QUEUE_PREFIX: queuePrefix,
-    IAM_JWT_SECRET: rand(32),
-    IAM_MFA_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
-    IAM_SCRYPT_LOG_N: "10",
-    IAM_COOKIE_SECURE: "false",
-    AUDIT_HMAC_KEY: auditKey,
-  };
   const status = await registerV2Platform(app, {
-    env: env as NodeJS.ProcessEnv,
-    legacyPool: legacy.pool as never,
+    env: { ...infra.env, ...(options.extraEnv ?? {}) } as NodeJS.ProcessEnv,
+    legacyPool: infra.legacy.pool as never,
     runtime: {
       accountNotifier: {
         async sendInvitation(m) {
-          invitations.push({ kind: "invitation", email: m.email, token: m.token, tenantName: m.tenantName });
+          infra.invitations.push({ kind: "invitation", email: m.email, token: m.token, tenantName: m.tenantName });
         },
         async sendPasswordReset(m) {
-          invitations.push({ kind: "password_reset", email: m.email, token: m.token });
+          infra.invitations.push({ kind: "password_reset", email: m.email, token: m.token });
         },
       },
     },
@@ -146,17 +164,46 @@ export async function startPhase1Platform(options: { startWorker?: boolean; lega
   // Une route legacy ordinaire, enregistrée APRÈS la plateforme comme dans index.ts.
   app.get("/api/v1/legacy-probe", async (request) => ({ userId: request.userId ?? null, role: request.user?.activeRole ?? null }));
   await app.ready();
+  return { app, status };
+}
 
-  // --- Worker (processus unique pour le test) -------------------------------------------------------------
-  const worker = new WorkerApp(
+export async function flushQueuePrefix(prefix: string): Promise<void> {
+  const redis = new Redis(REDIS_URL as string, { maxRetriesPerRequest: 1 });
+  try {
+    for await (const keys of redis.scanStream({ match: `${prefix}:*`, count: 500 }) as AsyncIterable<string[]>) if (keys.length > 0) await redis.del(...keys);
+  } finally {
+    await redis.quit().catch(() => undefined);
+  }
+}
+
+export interface Phase1Env {
+  app: FastifyInstance;
+  db: EphemeralDb;
+  legacy: FakeLegacyDb;
+  status: V2PlatformStatus;
+  env: Record<string, string>;
+  queuePrefix: string;
+  worker: WorkerApp;
+  /** Jeton super-admin legacy (opérateur de la plateforme). */
+  operatorToken: string;
+  operatorId: string;
+  /** Invitations « envoyées » par le notifieur de comptes (jamais écrites dans les journaux). */
+  invitations: Invitation[];
+  http<T = any>(method: string, url: string, options?: { token?: string; body?: unknown; headers?: Record<string, string>; rawBody?: string }): Promise<HttpResult<T>>;
+  generateLegacyToken(user: { id: string; tenantId: string; tenantSlug: string; role: string }): string;
+  stop(): Promise<void>;
+}
+
+export function workerFor(infra: Infra): WorkerApp {
+  return new WorkerApp(
     loadConfig({
       NODE_ENV: "test",
       LOG_LEVEL: "silent",
-      REDIS_URL,
-      WORKER_DATABASE_URL: appUrl,
+      REDIS_URL: REDIS_URL as string,
+      WORKER_DATABASE_URL: infra.appUrl,
       WORKER_HTTP_HOST: "127.0.0.1",
       WORKER_HTTP_PORT: "0",
-      WORKER_QUEUE_PREFIX: queuePrefix,
+      WORKER_QUEUE_PREFIX: infra.queuePrefix,
       WORKER_RELAY_SWEEP_INTERVAL_MS: "500",
       WORKER_RELAY_POLL_INTERVAL_MS: "100",
       WORKER_RELAY_BACKOFF_BASE_MS: "50",
@@ -165,9 +212,18 @@ export async function startPhase1Platform(options: { startWorker?: boolean; lega
     } as NodeJS.ProcessEnv),
     { logger: createLogger("silent") },
   );
+}
+
+export async function startPhase1Platform(options: { startWorker?: boolean; legacyTenants?: LegacyTenantInput[] } = {}): Promise<Phase1Env> {
+  const infra = await prepareInfra(options.legacyTenants ? { legacyTenants: options.legacyTenants } : {});
+  const { app, status } = await bootInstance(infra);
+
+  const worker = workerFor(infra);
   if (options.startWorker !== false) await worker.start();
 
-  const operatorToken = generateSuperAdminToken(operatorId, "ops@plateforme.test");
+  const { generateSuperAdminToken } = await legacyModule<{ generateSuperAdminToken(id: string, email: string): string }>("services/super-admin-jwt.service");
+  const { generateToken } = await legacyModule<{ generateToken(payload: Record<string, unknown>): string }>("services/jwt.service");
+  const operatorToken = generateSuperAdminToken(infra.operatorId, "ops@plateforme.test");
 
   const http: Phase1Env["http"] = async (method, url, opts = {}) => {
     const headers: Record<string, string> = { ...(opts.headers ?? {}) };
@@ -188,15 +244,15 @@ export async function startPhase1Platform(options: { startWorker?: boolean; lega
 
   return {
     app,
-    db,
-    legacy,
+    db: infra.db,
+    legacy: infra.legacy,
     status,
-    env,
-    queuePrefix,
+    env: infra.env,
+    queuePrefix: infra.queuePrefix,
     worker,
     operatorToken,
-    operatorId,
-    invitations,
+    operatorId: infra.operatorId,
+    invitations: infra.invitations,
     http,
     generateLegacyToken: (u) =>
       generateToken({
@@ -214,16 +270,9 @@ export async function startPhase1Platform(options: { startWorker?: boolean; lega
       await worker.stop("test").catch(() => undefined);
       configureTenantSync(null);
       await app.close().catch(() => undefined);
-      const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 1 });
-      try {
-        const stream = redis.scanStream({ match: `${queuePrefix}:*`, count: 500 });
-        for await (const keys of stream as AsyncIterable<string[]>) if (keys.length > 0) await redis.del(...keys);
-      } finally {
-        await redis.quit().catch(() => undefined);
-      }
-      await db.drop();
-      for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key];
-      Object.assign(process.env, saved);
+      await flushQueuePrefix(infra.queuePrefix);
+      await infra.db.drop();
+      infra.restoreEnv();
     },
   };
 }

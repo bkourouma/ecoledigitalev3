@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { resolveAuditHandler } from "../../src/modules/audit/domain/events";
 import { listPublicRoutes } from "../../src/platform/public-routes";
 import { describeIntegration } from "../helpers/fixtures";
-import { REDIS_URL, startPhase1Platform, waitFor, type Phase1Env } from "./support/harness";
+import { REDIS_URL, legacyModule, startPhase1Platform, waitFor, type Phase1Env } from "./support/harness";
 import { loginWithMfaEnrollment, provisionByConsole, readAuditLog, redeemInvitation, type ProvisionedOwner, type Session } from "./support/scenario";
 
 const LEGACY_TENANT = "0192f0a4-7b1e-7c3a-8d2e-0000000000a1";
@@ -126,7 +126,7 @@ describeIntegration.skipIf(!REDIS_URL)("assemblage : cohabitation legacy / v2 et
     expect((await p.http("GET", "/api/v1/entitlements/admin/catalog", { token: legacyToken })).status).toBe(401);
 
     // Jeton super-admin révoqué (liste noire legacy) : refusé sur GET aussi (le legacy ne contrôle que les écritures).
-    const { generateSuperAdminToken } = await import("../../src/services/super-admin-jwt.service");
+    const { generateSuperAdminToken } = await legacyModule<{ generateSuperAdminToken(id: string, email: string): string }>("services/super-admin-jwt.service");
     const revoked = generateSuperAdminToken(p.operatorId, "ops@plateforme.test");
     const payload = JSON.parse(Buffer.from(revoked.split(".")[1]!, "base64url").toString());
     p.legacy.blacklisted.add(payload.jti);

@@ -57,6 +57,10 @@ export async function ensureTenantFoundation(
   const countryCode = (input.countryCode ?? "CI").toUpperCase();
 
   return runResult(d.db, ctx, async (tx) => {
+    // Sérialise les rattrapages concurrents d'un même tenant (deux instances de l'API qui démarrent ensemble) :
+    // sans ce verrou, les deux voyaient « pas de profil » et la seconde échouait sur la clé primaire.
+    // Les requêtes suivantes lisent l'état validé par la première (instantané renouvelé à chaque énoncé).
+    await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`tenancy.ensure_foundation:${ctx.tenantId}`]);
     const tenant = await findTenant(tx, ctx.tenantId);
     if (!tenant) throw NotFoundError.of("Organisation", ctx.tenantId, { code: "tenancy.tenant_not_found" });
 

@@ -163,6 +163,49 @@ describe("chargement des plugins", () => {
     expect((await app.inject({ method: "GET", url: "/ping", headers: { "x-test-auth": "1" } })).statusCode).toBe(404);
   });
 
+  it("contrat uniforme : chaque plugin reçoit (app, runtime) ; `setup` décore la RACINE, donc visible des modules voisins", async () => {
+    const runtime = { marker: "runtime-de-test" } as never;
+    const received: unknown[] = [];
+    fake = makeFakeModules({
+      provider: {
+        plugin: true,
+      },
+      consumer: { manifest: { dependsOn: ["provider"] }, plugin: true },
+    });
+    const provider = {
+      // Posé dans un contexte ENCAPSULÉ, ce décorateur serait invisible du module voisin (défaut corrigé).
+      setup: (root: FastifyInstance, rt: unknown) => {
+        received.push(["setup", rt]);
+        root.decorate("sharedService", { name: "partagé" });
+      },
+      default: async (scope: FastifyInstance, rt: unknown) => {
+        received.push(["provider", rt]);
+        scope.get("/who", async () => ({ module: "provider" }));
+      },
+    };
+    const consumer = async (scope: FastifyInstance, rt: unknown) => {
+      received.push(["consumer", rt]);
+      scope.get("/service", async () => ({ seen: (scope as unknown as { sharedService?: { name: string } }).sharedService?.name ?? null }));
+    };
+    const importer = async (path: string) =>
+      path.includes("provider") && path.endsWith("plugin.ts") ? provider : path.includes("consumer") && path.endsWith("plugin.ts") ? { default: consumer } : fake!.importer(path);
+
+    await registerModules(app, { enabled: true, modulesDir: fake.dir, importer, runtime });
+    expect(received).toEqual([["setup", runtime], ["provider", runtime], ["consumer", runtime]]);
+    const res = await app.inject({ method: "GET", url: "/api/v1/consumer/service", headers: { "x-test-auth": "1" } });
+    expect(res.json()).toEqual({ seen: "partagé" });
+    expect(app.hasRoute({ method: "GET", url: "/api/v1/provider/who" })).toBe(true);
+  });
+
+  it("le runtime par défaut est `app.v2Runtime` (posé par la plateforme)", async () => {
+    const runtime = { marker: "decore" };
+    app.decorate("v2Runtime", runtime as never);
+    let got: unknown;
+    fake = makeFakeModules({ alpha: { plugin: async (_instance: FastifyInstance, rt: unknown) => void (got = rt) } });
+    await registerModules(app, { enabled: true, modulesDir: fake.dir, importer: fake.importer });
+    expect(got).toBe(runtime);
+  });
+
   it("expose getLoadedManifests() dans l'ordre topologique", async () => {
     expect(getLoadedManifests()).toEqual([]);
     fake = makeFakeModules({ alpha: { manifest: { dependsOn: ["zeta"] } }, zeta: {} });

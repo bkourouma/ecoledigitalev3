@@ -159,8 +159,10 @@ export async function ensureTenantServices(
       status: options.subscription.status,
       ...(options.subscription.endsAt ? { endsAt: options.subscription.endsAt.toISOString() } : {}),
     });
-    if (!created.ok) return created;
-    subscriptionCreated = true;
+    // Une autre instance a créé l'abonnement entre-temps (index unique « un seul abonnement vivant ») : le but
+    // — avoir un abonnement — est atteint, ce n'est pas un échec.
+    if (!created.ok && created.error.code !== "entitlements.subscription_conflict") return created;
+    subscriptionCreated = created.ok;
   }
 
   return ok({
