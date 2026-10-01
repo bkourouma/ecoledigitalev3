@@ -93,24 +93,13 @@ import { messagingCommonRoutes } from "./routes/messaging-common";
 import { adminEmailRoutes } from "./routes/admin-email";
 import { adminRolesRoutes } from "./routes/admin-roles";
 import { registrationRequestsRoutes } from "./routes/registration-requests";
-import { formationsProRoutes } from "./routes/formations-pro";
-import { sessionsProRoutes } from "./routes/sessions-pro";
-import { inscriptionsProRoutes } from "./routes/inscriptions-pro";
-import { codesPromoRoutes } from "./routes/codes-promo";
-import { paiementsProRoutes } from "./routes/paiements-pro";
-import { formateurRoutes } from "./routes/formateur";
 import { professionalRoutes } from "./routes/professional";
 import { professionalRemunerationRoutes } from "./routes/professional-remuneration";
 import { prospectionRoutes } from "./routes/prospection";
-import { documentsRoutes } from "./routes/documents";
-import { entreprisesRoutes } from "./routes/entreprises";
-import { exportsRoutes } from "./routes/exports";
-import { reportingRoutes } from "./routes/reporting";
 import { ownerRoutes } from "./routes/owner";
 import { liveSessionsRoutes } from "./routes/live-sessions";
 import { livekitWebhookRoutes } from "./routes/webhooks/livekit";
 import { notificationsInboxRoutes } from "./routes/notifications-inbox";
-import { initializeReservationCleanupJob } from "./jobs/reservation-cleanup.job";
 import { rsoActivityRoutes } from "./routes/rso/activities";
 import { bootstrapSuperAdmin } from "./services/super-admin-bootstrap.service";
 import { registerV2Platform } from "./platform/v2-bootstrap";
@@ -307,30 +296,7 @@ async function start() {
     // Self-registration validation routes (admin reviews public registration requests)
     await fastify.register(registrationRequestsRoutes, { prefix: "/api/v1/registration-requests" });
 
-    // Professional training catalog routes (public access)
-    await fastify.register(formationsProRoutes, { prefix: "/api/v1/formations-pro" });
-
-    // Professional training sessions routes (public and admin)
-    await fastify.register(sessionsProRoutes, { prefix: "/api/v1/sessions-pro" });
-    // Register admin routes with correct prefix
-    await fastify.register(sessionsProRoutes, { prefix: "/api/v1" });
-
-    // Professional training enrollment routes
-    await fastify.register(inscriptionsProRoutes, { prefix: "/api/v1/inscriptions-pro" });
-    // Register admin routes with correct prefix
-    await fastify.register(inscriptionsProRoutes, { prefix: "/api/v1" });
-
-    // Promotional code validation routes
-    await fastify.register(codesPromoRoutes, { prefix: "/api/v1/codes-promo" });
-
-    // Payment processing routes
-    await fastify.register(paiementsProRoutes, { prefix: "/api/v1/paiements-pro" });
-
-    // Trainer space routes (formateur)
-    await fastify.register(formateurRoutes, { prefix: "/api/v1/formateur" });
-
     // Module Professionnel (inscription à la carte) — feature 028.
-    // Module DISTINCT du module "formations professionnelles" ci-dessus.
     await fastify.register(professionalRoutes, { prefix: "/api/v1/professional" });
 
     // Rémunération des enseignants du Module Professionnel — feature 031.
@@ -343,11 +309,6 @@ async function start() {
     // Prospection : provenance des étudiants, commerciaux et commissions.
     await fastify.register(prospectionRoutes, { prefix: "/api/v1/prospection" });
 
-    // Admin routes for Phase 6 - Gestion Administrative & Documents
-    await fastify.register(documentsRoutes, { prefix: "/api/v1/admin/documents" });
-    await fastify.register(entreprisesRoutes, { prefix: "/api/v1/admin/entreprises" });
-    await fastify.register(exportsRoutes, { prefix: "/api/v1/admin/exports" });
-    await fastify.register(reportingRoutes, { prefix: "/api/v1/admin/reporting" });
     await fastify.register(ownerRoutes, { prefix: "/api/v1/owner" });
 
     // Rôles administratifs personnalisés + permissions sur les menus du sidebar admin
@@ -393,14 +354,6 @@ async function start() {
     await fastify.listen({ host, port });
     fastify.log.info(`🚀 API Server ready at http://${host}:${port}`);
 
-    // Start background jobs
-    const { initializeDocumentAutomationJob } = await import("./jobs/document-automation.job");
-    initializeDocumentAutomationJob(fastify.pg as any);
-    fastify.log.info("📅 Document automation jobs started");
-
-    // Start reservation cleanup job (runs every 5 minutes)
-    initializeReservationCleanupJob(fastify.pg as any, 5);
-    fastify.log.info("🧹 Reservation cleanup job started (runs every 5 minutes)");
 
 
   } catch (err) {

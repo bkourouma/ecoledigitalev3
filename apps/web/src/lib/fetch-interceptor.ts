@@ -413,8 +413,7 @@ if (typeof window !== 'undefined') {
       }
 
       // Add JWT token for authenticated endpoints (skip login/refresh/session/signin/callback)
-      // Also skip public routes like formations-pro catalog (public browsing)
-      // BUT admin routes always require authentication
+      // Admin routes always require authentication
       // RSO auth routes are excluded (they use separate RSO token system)
       const authExcludedPaths = [
         '/auth/login',
@@ -431,48 +430,12 @@ if (typeof window !== 'undefined') {
         '/rso/auth/reset-password',   // RSO password reset (public)
       ];
       
-      // Catalogue formations-pro en GET seulement (parcours public). Les POST/PUT/DELETE
-      // (ex. catalogue-support, création formation) doivent recevoir le JWT.
-      const isPublicFormationsRoute =
-        requestMethod === 'GET' &&
-        url.includes('/formations-pro') &&
-        !url.includes('/admin/') &&
-        !url.includes('/sessions-pro/calendrier'); // Calendar is public
-
       // Check if this is an RSO route (RSO has separate authentication system)
       const isRSORoute = url.includes('/api/v1/rso/');
       const isSuperAdminApiRoute = url.includes('/api/v1/super-admin/');
       const isSuperAdminAuthExcluded = url.includes('/api/v1/super-admin/auth/login');
 
-      // For logged-in users, always send the JWT — even on "public" formations-pro
-      // GET routes — so the backend can resolve the right tenant from the token.
-      // (The host nginx overrides X-Tenant from the subdomain, which is empty on
-      //  the main ecoledigitale.* domain, so the backend would otherwise 400.)
-      // Anonymous public users keep the original public-route handling below.
-      const hasUsableToken = (() => {
-        const t = getToken();
-        return !!t && !isTokenExpired(t);
-      })();
-      const isAuthExcluded =
-        authExcludedPaths.some(path => url.includes(path)) ||
-        (isPublicFormationsRoute && !hasUsableToken);
-      
-      // IMPORTANT: Even for public routes, we should ALWAYS update X-Tenant with tenantId from token if available
-      // This ensures that authenticated users see their tenant's data even on public routes
-      // Force update even if header is already set (to override slug-based fallback)
-      if (isPublicFormationsRoute) {
-        const currentToken = getToken();
-        if (currentToken && !isTokenExpired(currentToken)) {
-          const info = getUserFromToken(currentToken);
-          if (info && info.tenantId) {
-            // Force update X-Tenant with tenantId from token for public routes
-            // This overrides any slug-based fallback that was set earlier
-            const previousTenant = headers.get('X-Tenant');
-            headers.set('X-Tenant', info.tenantId);
-            console.log(`🏢 X-Tenant header FORCED update for public route from JWT: ${info.tenantId} (was: ${previousTenant})`);
-          }
-        }
-      }
+      const isAuthExcluded = authExcludedPaths.some(path => url.includes(path));
       
       // For RSO routes, skip main JWT token injection (RSO client handles its own auth)
       if (isRSORoute) {
@@ -547,7 +510,6 @@ if (typeof window !== 'undefined') {
           const info = getUserFromToken(token);
           if (info && info.tenantId) {
             const currentTenant = headers.get('X-Tenant');
-            const isAdminSessionsRoute = url.includes('/admin/sessions-pro');
             
             // Check if current tenant is a slug (not UUID) - slugs should always be replaced with JWT tenantId
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -563,9 +525,6 @@ if (typeof window !== 'undefined') {
               // Slug detected - always replace with JWT tenantId to ensure correct table access
               headers.set('X-Tenant', info.tenantId);
               console.log(`🏢 X-Tenant header updated from slug to JWT tenantId: ${info.tenantId} (was slug: ${currentTenant})`);
-            } else if (isAdminSessionsRoute && isCurrentTenantUuid && currentTenant !== info.tenantId) {
-              // If admin explicitly set a different tenant UUID, preserve it (for cross-tenant admin access)
-              console.log(`🏢 X-Tenant header preserved for admin sessions: ${currentTenant} (JWT tenant: ${info.tenantId})`);
             } else {
               // Always update X-Tenant with tenantId from token to ensure exact match and correct table access
               headers.set('X-Tenant', info.tenantId);
@@ -585,10 +544,7 @@ if (typeof window !== 'undefined') {
         } else {
           // No token available - only redirect for /api/v1/ endpoints (backend API)
           // Allow NextAuth endpoints (/api/auth/) to work without token
-          // Also allow public routes like formations-pro catalog (but not admin routes)
-          const isPublicRoute = isPublicFormationsRoute;
-          
-          if (url.includes('/api/v1/') && !isPublicRoute) {
+          if (url.includes('/api/v1/')) {
             console.error('❌ No valid JWT token available for backend API call');
             console.error('   URL:', url);
             
@@ -599,12 +555,8 @@ if (typeof window !== 'undefined') {
             }
             throw new Error('Authentication required');
           }
-          // For non-backend API calls or public routes without token, just log and continue
-          if (isPublicRoute) {
-            console.log('📖 Public route (formations-pro) - no authentication required');
-          } else {
-            console.warn('⚠️  No JWT token for API call (might be NextAuth internal):', url);
-          }
+          // For non-backend API calls without token, just log and continue
+          console.warn('⚠️  No JWT token for API call (might be NextAuth internal):', url);
         }
       }
 

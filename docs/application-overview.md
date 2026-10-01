@@ -15,7 +15,6 @@ L'application couvre :
 - assiduite et planning (presences, horaires, generation d'emploi du temps, salles)
 - finances (paiements eleves, echeanciers, recus, remuneration enseignants)
 - espaces par profil (administration, enseignant, etudiant, parent)
-- module de formations professionnelles (catalogue, sessions, inscriptions, paiements, formateurs)
 - module RSO (activites et tableaux de bord dedies)
 
 ## 2) Types de comptes et droits principaux
@@ -25,7 +24,6 @@ L'application couvre :
 - Gestion des utilisateurs, enseignants, etudiants, parents
 - Pilotage financier : echeanciers, paiements, rapports, recus
 - Communication institutionnelle : annonces, messages admin
-- Administration du catalogue de formations professionnelles
 
 ## Etudiant (`student`)
 - Consultation des cours, devoirs, notes, emploi du temps, profil
@@ -43,12 +41,10 @@ L'application couvre :
 - Suivi des devoirs, corrections, evaluations, progression
 - Suivi de ses heures d'enseignement et paiements
 
-## Formateur (`formateur`) - module formations pro
-- Gestion des supports, sessions, disponibilites, messagerie et suivi de presence
-
 > Notes techniques :
 > - Les roles explicites sont portes par `roles` + `user_roles`.
 > - Le role `teacher` peut aussi etre infere depuis la table metier `teachers`.
+> - Le role `formateur` n'a plus d'espace dedie : le portail formateur des formations professionnelles publiques a ete retire du code (le role reste en base, sans menu).
 > - Authentification par JWT avec controle de validite et gestion de blacklist de tokens.
 
 ## 3) Schema de base de donnees (par domaine)
@@ -89,13 +85,8 @@ Mecanismes :
 - configuration et paiement enseignant (`teacher_payment_configs`, `teacher_payments`)
 - recus, notifications et rapports financiers
 
-## Formations professionnelles
-- `formations_professionnelles`
-- `sessions_professionnelles`
-- `inscriptions_professionnelles`
-- `paiements_professionnels`
-- `formateurs` et tables associees (disponibilite, messagerie, supports)
-- `entreprises_clientes`, `documents`, `exports`, `reporting`
+## Formations professionnelles publiques (retirees)
+Le module « formations professionnelles » (catalogue public, sessions, inscriptions, paiements, portail formateur, portail public `apps/formation-pro-public`) a ete supprime du code. Ses tables (`formations_professionnelles`, `sessions_professionnelles`, `inscriptions_professionnelles`, `paiements_professionnels`, `formateurs`, `entreprises_clientes`, `documents`, `export_jobs`, etc.) restent en base jusqu'au reset de la Phase 2. Detail : `docs/inventory/imhotep-removal-report.md`. Ne pas confondre avec le **module Professionnel** (`professional_*`, voir `docs/module-professionnel-overview.md`), conserve.
 
 ## 4) Endpoints API principaux
 
@@ -189,18 +180,8 @@ Base API : `/api/v1`
 ## Administration institutionnelle
 - `/admin/announcements`
 - `/admin/messages`
-- `/admin/documents`
-- `/admin/entreprises`
-- `/admin/exports`
-- `/admin/reporting`
 
-## Formations professionnelles et RSO
-- `/formations-pro`
-- `/sessions-pro`
-- `/inscriptions-pro`
-- `/codes-promo`
-- `/paiements-pro`
-- `/formateur`
+## RSO
 - `/rso/*`
 
 ## 5) En-tetes et conventions importantes

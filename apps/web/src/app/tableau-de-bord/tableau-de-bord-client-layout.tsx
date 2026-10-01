@@ -10,7 +10,7 @@ import { isAdminRole } from "@/lib/role-landing";
  * Le tableau de bord est réservé à l'administration.
  *
  * Les autres profils ont chacun le leur (`/owner/dashboard`, `/teacher/dashboard`,
- * `/formateur/dashboard`, …) : ils sont renvoyés sur `/unauthorized` plutôt que
+ * …) : ils sont renvoyés sur `/unauthorized` plutôt que
  * de voir des indicateurs sur tout l'établissement.
  *
  * Le garde est côté client, comme celui de `app/owner/layout.tsx` : le middleware

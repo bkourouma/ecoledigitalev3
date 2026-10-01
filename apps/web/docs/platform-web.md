@@ -84,10 +84,8 @@ s'applique à l'entrée dans la section et au rechargement. Le contrôle par rou
 | `app/teacher/**` | aucun layout, pas de garde | teacher |
 | `app/student/**` | aucun layout, pas de garde | student |
 | `app/parent/**` | aucun layout, pas de garde | parent |
-| `app/formateur/layout.tsx` | passe-plat | formateur |
 | `app/payments/layout.tsx` | passe-plat | admin (+ owner) |
 | `app/(dashboard)/**`, `app/academic/**`, `app/annee-academique/**`, `app/evaluations/**`, `app/courses/**`, `app/dashboard/**` | aucun layout | selon section (admin / teacher) |
-| `app/formations-professionnelles/admin/layout.tsx` | passe-plat client | admin |
 | `app/_rso/**` (4 layouts) | layouts d'habillage, jeton RSO séparé | à traiter avec le module RSO |
 | `app/super-admin/**` | authentification séparée (jeton localStorage, pas NextAuth) | à traiter avec le module `iam` (impersonation) |
 | `app/live/**` | aucun layout | selon session |

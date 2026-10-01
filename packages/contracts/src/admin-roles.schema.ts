@@ -4,7 +4,7 @@ import { z } from "zod";
  * Catalogue des menus du sidebar ADMINISTRATEUR.
  *
  * Seuls les menus visibles par un administrateur d'établissement sont listés :
- * les espaces parent / élève / enseignant / formateur ne sont pas concernés par
+ * les espaces parent / élève / enseignant ne sont pas concernés par
  * les rôles administratifs et restent pilotés par les rôles socle.
  *
  * `key` est l'identifiant stocké en base (`admin_role_menus.menu_key`) : il doit
@@ -222,46 +222,6 @@ export const ADMIN_MENU_CATALOG: AdminMenuSectionDef[] = [
             key: "ops.schedule_stats",
             label: "Statistiques Planning",
             href: "/schedule-generation/stats",
-          },
-        ],
-      },
-      {
-        label: "Catalogue Formations",
-        items: [
-          {
-            key: "fpro.catalogue",
-            label: "Catalogue",
-            href: "/formations-professionnelles/catalogue",
-          },
-          {
-            key: "fpro.sessions",
-            label: "Calendrier des Sessions",
-            href: "/formations-professionnelles/sessions",
-          },
-          {
-            key: "fpro.public",
-            label: "Page Publique",
-            href: "/formations-professionnelles/public",
-          },
-        ],
-      },
-      {
-        label: "Administration Pro",
-        items: [
-          {
-            key: "fpro.admin_sessions",
-            label: "Gestion des Sessions",
-            href: "/formations-professionnelles/admin/sessions",
-          },
-          {
-            key: "fpro.admin_session_create",
-            label: "Créer une Session",
-            href: "/formations-professionnelles/admin/sessions/creer",
-          },
-          {
-            key: "fpro.admin_formateurs",
-            label: "Formateurs",
-            href: "/formations-professionnelles/admin/formateurs",
           },
         ],
       },
@@ -554,39 +514,11 @@ export const PARENT_MENU_CATALOG: AdminMenuSectionDef[] = [
   },
 ];
 
-export const FORMATEUR_MENU_CATALOG: AdminMenuSectionDef[] = [
-  {
-    label: "Espace formateur",
-    groups: [
-      {
-        label: "Espace formateur",
-        items: [
-          { key: "formateur.dashboard", label: "Tableau de bord", href: "/formateur/dashboard" },
-          { key: "formateur.planning", label: "Planning", href: "/formateur/planning" },
-          { key: "formateur.sessions", label: "Sessions", href: "/formateur/sessions" },
-          { key: "formateur.supports", label: "Supports", href: "/formateur/supports" },
-          {
-            key: "formateur.catalogue",
-            label: "Catalogue",
-            href: "/formations-professionnelles/catalogue",
-          },
-          {
-            key: "formateur.public",
-            label: "Page publique",
-            href: "/formations-professionnelles/public",
-          },
-          { key: "formateur.profil", label: "Profil", href: "/formateur/profil" },
-        ],
-      },
-    ],
-  },
-];
-
 /**
  * Rôles socle dont les menus sont configurables depuis « Accès → Menus par rôle ».
  * Même périmètre que les rôles attribuables sur cette page.
  */
-export const MENU_SCOPES = ["admin", "teacher", "student", "parent", "formateur"] as const;
+export const MENU_SCOPES = ["admin", "teacher", "student", "parent"] as const;
 export type MenuScope = (typeof MENU_SCOPES)[number];
 
 export const MENU_SCOPE_LABELS: Record<MenuScope, string> = {
@@ -594,7 +526,6 @@ export const MENU_SCOPE_LABELS: Record<MenuScope, string> = {
   teacher: "Enseignant",
   student: "Étudiant",
   parent: "Parent",
-  formateur: "Formateur",
 };
 
 export const MENU_CATALOG_BY_SCOPE: Record<MenuScope, AdminMenuSectionDef[]> = {
@@ -602,7 +533,6 @@ export const MENU_CATALOG_BY_SCOPE: Record<MenuScope, AdminMenuSectionDef[]> = {
   teacher: TEACHER_MENU_CATALOG,
   student: STUDENT_MENU_CATALOG,
   parent: PARENT_MENU_CATALOG,
-  formateur: FORMATEUR_MENU_CATALOG,
 };
 
 function flatten(sections: AdminMenuSectionDef[]): AdminMenuItemDef[] {
@@ -738,7 +668,7 @@ export const AdminMyMenusResponseSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Menus par défaut des rôles socle (admin, teacher, student, parent, formateur)
+// Menus par défaut des rôles socle (admin, teacher, student, parent)
 // ---------------------------------------------------------------------------
 
 export const RoleMenuScopeSchema = z.enum(MENU_SCOPES);

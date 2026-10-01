@@ -28,7 +28,6 @@ Port plan (host-side bindings, all to `127.0.0.1`):
 |------|-----------------------|----------------------------------|
 | 8011 | ecoledigitale-api          | Fastify                                  |
 | 3011 | ecoledigitale-web          | Next.js (3000/3010 taken by other apps)  |
-| 3012 | ecoledigitale-formation-pro| Next.js — formation-pro-public           |
 | 5433 | ecoledigitale-postgres     | host PG already on 5432                  |
 | 9000 | minio API                  |                                          |
 | 9001 | minio console              |                                          |
@@ -79,41 +78,6 @@ sudo systemctl reload nginx
 
 Wildcard for tenant subdomains needs DNS-01 (manual or registrar plugin) and is
 optional for first launch — add later if needed.
-
-### formation-pro vhost (second domain)
-
-Same flow for `formation-pro.allianceconsultants.net`. DNS first:
-```bash
-dig +short formation-pro.allianceconsultants.net   # 147.93.44.169
-```
-
-Stage 1 — drop a minimal HTTP-only vhost so certbot can issue:
-```bash
-sudo tee /etc/nginx/sites-available/formation-pro > /dev/null <<'NGINX'
-server {
-    listen 80;
-    listen [::]:80;
-    server_name formation-pro.allianceconsultants.net;
-    location /.well-known/acme-challenge/ { root /var/www/html; }
-    location / { return 200 "ok\n"; }
-}
-NGINX
-sudo ln -sf /etc/nginx/sites-available/formation-pro /etc/nginx/sites-enabled/formation-pro
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-Stage 2 — issue cert:
-```bash
-sudo certbot --nginx -d formation-pro.allianceconsultants.net \
-             --agree-tos -m admin@allianceconsultants.net --no-eff-email --redirect
-```
-
-Stage 3 — swap in the real vhost:
-```bash
-sudo cp /home/deployer/ecoledigitale/infra/nginx/formation-pro.conf \
-        /etc/nginx/sites-available/formation-pro
-sudo nginx -t && sudo systemctl reload nginx
-```
 
 ---
 
@@ -181,8 +145,8 @@ on a public repo will execute arbitrary code from any fork PR.
 Push to `main` (or **Run workflow** in the Actions tab). The runner will:
 
 1. Check out into `/home/deployer/actions-runner-ecoledigitale/_work/EcoleDigitaleV2/EcoleDigitaleV2`
-2. Build api + web + formation-pro images
-3. `docker compose up -d` (api, web, formation-pro, postgres, minio)
+2. Build api + web images
+3. `docker compose up -d` (api, web, postgres, minio)
 4. Wait for the API healthcheck
 5. Smoke-test `https://ecoledigitale.allianceconsultants.net/health`
 
@@ -198,42 +162,6 @@ docker compose -p ecoledigitale ps
 docker compose -p ecoledigitale logs --tail=100 ecoledigitale-api
 curl -s https://ecoledigitale.allianceconsultants.net/health
 ```
-
----
-
-## Google OAuth setup (formation-pro sign-in)
-
-formation-pro lets users sign in with Google via next-auth. You need a Google
-OAuth 2.0 Client ID + Secret, scoped to your formation-pro origin.
-
-1. Open https://console.cloud.google.com → top bar **Select a project** → **NEW PROJECT** (e.g. `alliance-formation-pro`). Wait ~30s, then select it.
-2. Left nav → **APIs & Services → OAuth consent screen** → choose **External** → fill in:
-   - **App name:** `Formation Pro Alliance`
-   - **User support email:** your email
-   - **App logo:** (optional)
-   - **App domain → Authorized domain:** `allianceconsultants.net`
-   - **Developer contact:** your email
-   - Click **Save and continue** through Scopes (no scopes to add) and Test users (add your email there if you keep the app in "Testing" status). Publish to "In production" to allow any Google user.
-3. Left nav → **APIs & Services → Credentials → Create credentials → OAuth client ID**
-   - **Application type:** Web application
-   - **Name:** `formation-pro production`
-   - **Authorized JavaScript origins:** `https://formation-pro.allianceconsultants.net`
-   - **Authorized redirect URIs:** `https://formation-pro.allianceconsultants.net/api/auth/callback/google`
-   - Click **Create**. Copy the **Client ID** and **Client secret**.
-4. Paste into `/home/deployer/ecoledigitale.env`:
-   ```
-   GOOGLE_CLIENT_ID=...apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=GOCSPX-...
-   ```
-5. Restart formation-pro to pick up the env:
-   ```bash
-   cd /home/deployer/ecoledigitale
-   ENV_FILE=/home/deployer/ecoledigitale.env \
-     docker compose --env-file $ENV_FILE -f infra/compose/docker-compose.yml \
-     -p ecoledigitale up -d --force-recreate ecoledigitale-formation-pro
-   ```
-
-Until step 4 is done, the "Sign in with Google" button is hidden and email-only sign-in is the only option.
 
 ---
 

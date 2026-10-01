@@ -1,7 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import type { FastifyBaseLogger } from "fastify";
 import type { OwnerStaffResponse } from "@ecoledigitale/contracts";
-import { getTableName, usesSessionBasedProfessionalTraining } from "../utils/table-names";
 
 async function safeQuery<T>(
   client: PoolClient,
@@ -111,19 +110,6 @@ export async function fetchOwnerStaff(
       "staffPayrollPending"
     );
 
-    let activeFormateurs = 0;
-    if (usesSessionBasedProfessionalTraining(tenantId)) {
-      const ft = getTableName(tenantId, "formateurs");
-      const fr = await safeQuery<{ c: string }>(
-        client,
-        `SELECT COUNT(*)::text AS c FROM ${ft} WHERE tenant_id = $1::uuid AND actif = true`,
-        [tenantId],
-        log,
-        "staffFormateurs"
-      );
-      if (fr.length) activeFormateurs = Math.round(parseFloat(fr[0].c) || 0);
-    }
-
     return {
       teachers: teacherRows.map((r) => ({
         teacherId: r.teacher_id,
@@ -147,7 +133,6 @@ export async function fetchOwnerStaff(
         status: r.status,
         calculatedAt: new Date(r.calculated_at).toISOString(),
       })),
-      activeFormateurs: usesSessionBasedProfessionalTraining(tenantId) ? activeFormateurs : undefined,
     };
   } finally {
     client.release();

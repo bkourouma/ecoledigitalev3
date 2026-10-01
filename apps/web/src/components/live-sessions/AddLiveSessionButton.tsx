@@ -5,18 +5,17 @@ import { useRouter } from "next/navigation";
 import { Video, Loader2 } from "lucide-react";
 
 /**
- * Button that creates (or finds the existing) live session for a parent session entity, then
- * navigates the user to the room page. Drop it anywhere a teacher/trainer manages a session:
+ * Button that creates (or finds the existing) live session for a school timetable session, then
+ * navigates the user to the room page. Drop it anywhere a teacher manages a session:
  *
  *   <AddLiveSessionButton parentType="instance" parentId={sessionInstanceId} />
- *   <AddLiveSessionButton parentType="professionnelle" parentId={sessionProId} />
  *
  * The create endpoint is idempotent: clicking twice returns the same live session.
  * The notification dispatch to enrolled students is fire-and-forget on the API side.
  */
 
 export interface AddLiveSessionButtonProps {
-  parentType: "instance" | "professionnelle";
+  parentType: "instance";
   parentId: string;
   recordingEnabled?: boolean;
   className?: string;

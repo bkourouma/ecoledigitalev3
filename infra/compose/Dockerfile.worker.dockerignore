@@ -17,7 +17,6 @@ specs
 tests
 assets
 apps/web
-apps/formation-pro-public
 apps/api/uploads
 apps/api/node_modules
 *.pdf

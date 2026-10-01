@@ -22,7 +22,7 @@ const TENANT_ID = "00000000-0000-0000-0000-000000000001";
 */
 
 vi.mock("../services/owner-users.service", () => ({
-  OWNER_ASSIGNABLE_ROLE_KEYS: ["admin", "teacher", "student", "parent", "formateur"],
+  OWNER_ASSIGNABLE_ROLE_KEYS: ["admin", "teacher", "student", "parent"],
   listOwnerTenantUsers: vi.fn().mockResolvedValue([]),
   patchUserRolesAsOwner: vi.fn().mockResolvedValue({
     ok: true,
@@ -108,7 +108,7 @@ describe("routes /api/v1/owner (gardes + accès)", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body)).toEqual({
-      roleKeys: ["admin", "teacher", "student", "parent", "formateur"],
+      roleKeys: ["admin", "teacher", "student", "parent"],
     });
   });
 

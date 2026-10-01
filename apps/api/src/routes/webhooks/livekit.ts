@@ -28,14 +28,13 @@ interface LiveSessionRow {
   id: string;
   tenant_id: string;
   session_instance_id: string | null;
-  session_professionnelle_id: string | null;
   room_name: string;
   status: "created" | "live" | "ended";
 }
 
 async function findLiveSessionByRoom(client: any, roomName: string): Promise<LiveSessionRow | null> {
   const res = await client.query<LiveSessionRow>(
-    `SELECT id, tenant_id, session_instance_id, session_professionnelle_id, room_name, status
+    `SELECT id, tenant_id, session_instance_id, room_name, status
        FROM live_sessions WHERE room_name = $1`,
     [roomName]
   );
@@ -62,11 +61,9 @@ async function recordEventOrSkip(client: any, eventId: string | undefined, event
  * The LiveKit identity carries the user kind as a prefix so we can route the row to the right
  * subject_kind without re-querying. Identities are minted in the form:
  *   tu_<uuid>      (tenant_user — apps/web)
- *   pu_<cuid>      (public_user — apps/formation-pro-public)
  * Anything else falls back to 'tenant_user' for back-compat.
  */
-function parseIdentity(identity: string): { kind: "tenant_user" | "public_user"; userId: string } {
-  if (identity.startsWith("pu_")) return { kind: "public_user", userId: identity.slice(3) };
+function parseIdentity(identity: string): { kind: "tenant_user"; userId: string } {
   if (identity.startsWith("tu_")) return { kind: "tenant_user", userId: identity.slice(3) };
   return { kind: "tenant_user", userId: identity };
 }
@@ -171,17 +168,6 @@ async function handleRoomFinished(
       [liveSession.session_instance_id]
     );
     scheduledSeconds = r.rows[0]?.seconds ?? null;
-  } else if (liveSession.session_professionnelle_id) {
-    // sessions_professionnelles store dates rather than datetimes, so fall back to actual room
-    // duration when no horaires are present.
-    const r = await client.query(
-      `SELECT EXTRACT(EPOCH FROM (
-                (date_fin::timestamp + interval '1 day') - date_debut::timestamp
-              ))::int AS seconds
-         FROM sessions_professionnelles WHERE id = $1`,
-      [liveSession.session_professionnelle_id]
-    );
-    scheduledSeconds = r.rows[0]?.seconds ?? null;
   }
 
   // Fallback: if we don't have a scheduled duration, compute from observed room lifetime.
@@ -215,7 +201,7 @@ async function handleRoomFinished(
 
   // For school-side sessions, bridge counted_present rows into the existing student_attendance
   // table so the LiveKit-marked attendance is visible alongside teacher-marked rows.
-  // This is a no-op for formation-pro sessions (no equivalent canonical attendance table).
+  // Les séances ECUE du Professionnel n'ont pas d'équivalent : aucun pont.
   if (liveSession.session_instance_id) {
     await bridgeSchoolAttendance(client, liveSession);
   }

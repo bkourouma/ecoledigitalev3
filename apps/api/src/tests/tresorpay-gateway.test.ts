@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { TresorPayGatewayService } from '../services/tresorpay-gateway.service';
-import { CreatePaymentTransaction } from '@ecoledigitale/contracts';
+import type { CreatePaymentTransaction } from '@ecoledigitale/contracts/src/student-payments';
 
 // Mock fetch globally
 global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;

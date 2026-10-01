@@ -145,7 +145,7 @@ type OwnerMenuSection = { label: string | null; items: OwnerMenuLink[] };
  * chaque dépli est un clic entre lui et un chiffre.
  *
  * Aucune page de l'espace n'est hors menu. Les adresses absorbées
- * (`/owner/academique`, `/owner/formations`, `/owner/finances/professionnel`)
+ * (`/owner/academique`, `/owner/finances/professionnel`)
  * survivent en redirections : les liens profonds du pouls y mènent encore.
  */
 const ownerMenuSections: OwnerMenuSection[] = [
@@ -258,32 +258,6 @@ const adminQuickMenuItems = [
   { icon: Shield, label: 'Accès', href: '/owner/acces' as const },
   { icon: List, label: 'Rôles', href: '/admin/roles' as const },
   { icon: Users, label: 'Utilisateurs', href: '/admin/utilisateurs' as const },
-];
-
-// Formateur space menu (rendered with the same global sidebar style)
-const formateurMenuItems = [
-  { icon: BarChart3, label: 'Tableau de bord', href: '/formateur/dashboard' as const },
-  { icon: Calendar, label: 'Planning', href: '/formateur/planning' as const },
-  { icon: BookOpen, label: 'Sessions', href: '/formateur/sessions' as const },
-  { icon: FileText, label: 'Supports', href: '/formateur/supports' as const },
-  { icon: BookOpen, label: 'Catalogue', href: '/formations-professionnelles/catalogue' as const },
-  { icon: Play, label: 'Page publique', href: '/formations-professionnelles/public' as const },
-  { icon: User, label: 'Profil', href: '/formateur/profil' as const },
-];
-
-// Formations Professionnelles Menu
-const formationsProMenuItems = [
-  { icon: BookOpen, label: 'Catalogue', href: '/formations-professionnelles/catalogue' as const },
-  { icon: Calendar, label: 'Calendrier des Sessions', href: '/formations-professionnelles/sessions' as const },
-  { icon: Play, label: 'Page Publique', href: '/formations-professionnelles/public' as const },
-];
-
-// Formations Professionnelles Admin Menu
-const formationsProAdminMenuItems = [
-  { icon: Calendar, label: 'Gestion des Sessions', href: '/formations-professionnelles/admin/sessions' as const },
-  { icon: Edit, label: 'Créer une Session', href: '/formations-professionnelles/admin/sessions/creer' as const },
-  { icon: User, label: 'Formateurs', href: '/formations-professionnelles/admin/formateurs' as const },
-  // { icon: FileText, label: 'Inscriptions', href: '/formations-professionnelles/admin/inscriptions' as const },
 ];
 
 // Core Academic Structure Management
@@ -679,7 +653,6 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const isStudent = Array.isArray(roles) && roles.some((r: string) => ['student', 'Étudiant'].includes(r));
   const isTeacher = Array.isArray(roles) && roles.some((r: string) => ['teacher', 'Enseignant'].includes(r));
   const isParent = Array.isArray(roles) && roles.some((r: string) => ['parent', 'Parent'].includes(r));
-  const isFormateur = Array.isArray(roles) && roles.some((r: string) => ['formateur', 'Formateur'].includes(r));
   const isOwner =
     Array.isArray(roles) && roles.some((r: string) => String(r).toLowerCase() === 'owner');
 
@@ -689,13 +662,6 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   // renvoie toujours true : le sidebar reste identique pour les comptes existants.
   const { canSeeHref } = useAdminMenuAccess();
   const canSeeAdmin = (href: string) => canSeeHref('admin', href);
-
-  // All admin tenants are equal: every admin sees the full Formation Pro menus,
-  // alongside the regular admin sidebar. No tenant-id gating.
-  const formationsProNavItems = formationsProMenuItems.filter((item) => canSeeAdmin(item.href));
-  const formationsProAdminNavItems = formationsProAdminMenuItems.filter((item) =>
-    canSeeAdmin(item.href)
-  );
 
   // Entrées du sidebar administrateur filtrées par les permissions du rôle.
   const visibleAcademicStructureItems = academicStructureMenuItems.filter((item) =>
@@ -746,11 +712,8 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   );
   const canSeeAdminMessages = canSeeAdmin('/admin/messages');
 
-  // Espaces enseignant / étudiant / parent / formateur : mêmes règles, appliquées
+  // Espaces enseignant / étudiant / parent : mêmes règles, appliquées
   // dans leur propre périmètre de catalogue.
-  const visibleFormateurItems = formateurMenuItems.filter((item) =>
-    canSeeHref('formateur', item.href)
-  );
   const visibleTeacherDashboardItems = teacherMenuItems.filter((item) =>
     canSeeHref('teacher', item.href)
   );
@@ -799,9 +762,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const showAcademicOperationsSection =
     visibleAcademicOperationsItems.length > 0 ||
     visibleBtsItems.length > 0 ||
-    visibleDailyOperationsItems.length > 0 ||
-    formationsProNavItems.length > 0 ||
-    formationsProAdminNavItems.length > 0;
+    visibleDailyOperationsItems.length > 0;
 
   const [isAcademicStructureExpanded, setIsAcademicStructureExpanded] = useState(
     pathname.startsWith('/academic/cycles') ||
@@ -876,14 +837,6 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const [isParentChildrenExpanded, setIsParentChildrenExpanded] = useState(
     pathname.startsWith('/parent/children')
   );
-  const [isFormationsProExpanded, setIsFormationsProExpanded] = useState(
-    pathname.startsWith('/formations-professionnelles')
-  );
-  const [isFormationsProAdminExpanded, setIsFormationsProAdminExpanded] = useState(
-    pathname.startsWith('/formations-professionnelles/admin')
-  );
-  const isFormateurSpace = pathname.startsWith('/formateur');
-  const showFormateurMenu = isFormateur || isFormateurSpace;
 
   const handleLogout = async () => {
     try {
@@ -1008,28 +961,7 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             </div>
           )}
 
-          {/* Formateur Section (for formateur accounts or /formateur routes) */}
-          {showFormateurMenu ? (
-            <div className="pt-2">
-              {visibleFormateurItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-                return (
-                  <NavLink
-                    key={item.href}
-                    href={item.href}
-                    onCloseMobileMenu={onCloseMobileMenu}
-                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                  >
-                    <Icon className="w-5 h-5 shrink-0" />
-                    <span>{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
-          ) : (
-            <>
+          <>
               {/* Student Navigation */}
               {isStudent && (
                 <>
@@ -1841,86 +1773,9 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             )}
 
             {/* Catalogue Formations Section */}
-            {formationsProNavItems.length > 0 && (
-            <div className="pt-2">
-              <button
-                onClick={() => setIsFormationsProExpanded(!isFormationsProExpanded)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isFormationsProExpanded ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-              >
-                <div className="flex items-center space-x-3">
-                  <BookOpen className="w-5 h-5 shrink-0" />
-                  <span>Catalogue Formations</span>
-                </div>
-                {isFormationsProExpanded ? (
-                  <ChevronDown className="w-5 h-5 shrink-0" />
-                ) : (
-                  <ChevronRight className="w-5 h-5 shrink-0" />
-                )}
-              </button>
-
-              {isFormationsProExpanded && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {formationsProNavItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = pathname === item.href;
-
-                    return (
-                      <NavLink
-                        key={item.href}
-                        href={item.href}
-                        onCloseMobileMenu={onCloseMobileMenu}
-                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                      >
-                        <Icon className="w-5 h-5 shrink-0" />
-                        <span>{item.label}</span>
-                      </NavLink>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            )}
 
             {/* Administration Pro Section */}
-            {formationsProAdminNavItems.length > 0 && (
-            <div className="pt-2">
-              <button
-                onClick={() => setIsFormationsProAdminExpanded(!isFormationsProAdminExpanded)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isFormationsProAdminExpanded ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-              >
-                <div className="flex items-center space-x-3">
-                  <Shield className="w-5 h-5 shrink-0" />
-                  <span>Administration Pro</span>
-                </div>
-                {isFormationsProAdminExpanded ? (
-                  <ChevronDown className="w-5 h-5 shrink-0" />
-                ) : (
-                  <ChevronRight className="w-5 h-5 shrink-0" />
-                )}
-              </button>
 
-              {isFormationsProAdminExpanded && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {formationsProAdminNavItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = pathname.startsWith(item.href);
-
-                    return (
-                      <NavLink
-                        key={item.href}
-                        href={item.href}
-                        onCloseMobileMenu={onCloseMobileMenu}
-                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-[16px] font-normal transition-colors ${isActive ? 'bg-blue-700 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
-                      >
-                        <Icon className="w-5 h-5 shrink-0" />
-                        <span>{item.label}</span>
-                      </NavLink>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            )}
           </div>
           )}
 
@@ -2121,7 +1976,6 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
             </div>
           )}
             </>
-          )}
         </nav>
       </div>
 

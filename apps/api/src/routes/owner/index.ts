@@ -8,7 +8,6 @@ import {
   OwnerPayrollValidateResponseSchema,
   OwnerAcademicResponseSchema,
   OwnerStaffResponseSchema,
-  OwnerFormationsResponseSchema,
   OwnerUsersListResponseSchema,
   OwnerAssignableRolesResponseSchema,
   OwnerUserRolesPatchBodySchema,
@@ -134,7 +133,6 @@ import { PDFGenerationService } from "../../services/pdf-generation.service";
 import { validateTeacherPaymentAsOwner } from "../../services/owner-payroll.service";
 import { fetchOwnerAcademic } from "../../services/owner-academic.service";
 import { fetchOwnerStaff } from "../../services/owner-staff.service";
-import { fetchOwnerFormations } from "../../services/owner-formations.service";
 import {
   OWNER_ASSIGNABLE_ROLE_KEYS,
   listOwnerTenantUsers,
@@ -1260,25 +1258,6 @@ export async function ownerRoutes(fastify: FastifyInstance) {
           success: false,
           error: "Internal Server Error",
           message: "Impossible de charger les données RH",
-        });
-      }
-    }
-  );
-
-  fastify.get(
-    "/formations",
-    { preHandler: requireOwner },
-    async (request, reply) => {
-      const tenantId = request.tenantId!;
-      try {
-        const data = await fetchOwnerFormations(fastify.pg as Pool, tenantId, request.log);
-        reply.send(OwnerFormationsResponseSchema.parse(data));
-      } catch (e) {
-        request.log.error({ err: e }, "owner formations failed");
-        reply.status(500).send({
-          success: false,
-          error: "Internal Server Error",
-          message: "Impossible de charger les formations professionnelles",
         });
       }
     }
