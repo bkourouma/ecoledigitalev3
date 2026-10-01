@@ -193,13 +193,21 @@ export async function peoplePlugin(app: FastifyInstance, options: PeoplePluginOp
       return unwrap(await studentsUc.changeStudentStatus(deps, ctxOf(req), id, parse(c.peopleChangeStatusBodySchema, req.body)));
     });
 
-    scope.get("/students/:id/history", { preHandler: perm("student.read") }, async (req) => {
+    /** Lecture « tous les élèves » exigée : un enseignant restreint à ses classes (garde-fou) n'y accède pas. */
+    const requireFull = async (req: FastifyRequest, reply: FastifyReply, id: string): Promise<void> => {
+      const access = unwrap(await resolveStudentAudience(deps, ctxOf(req), id, probeOf(req, reply)));
+      if (access !== "FULL") throw PeopleErrors.forbidden();
+    };
+
+    scope.get("/students/:id/history", { preHandler: perm("student.read") }, async (req, reply) => {
       const { id } = parse(idParams, req.params);
+      await requireFull(req, reply, id);
       return { items: unwrap(await studentsUc.getStatusHistory(deps, ctxOf(req), id)) };
     });
 
-    scope.get("/students/:id/enrollments", { preHandler: perm("student.read") }, async (req) => {
+    scope.get("/students/:id/enrollments", { preHandler: perm("student.read") }, async (req, reply) => {
       const { id } = parse(idParams, req.params);
+      await requireFull(req, reply, id);
       return { items: unwrap(await studentsUc.listStudentEnrollments(deps, ctxOf(req), id)) };
     });
 
@@ -251,6 +259,7 @@ export async function peoplePlugin(app: FastifyInstance, options: PeoplePluginOp
     // --- antécédents scolaires ------------------------------------------------------------------------------
     scope.get("/students/:id/prior-education", { preHandler: perm("student.read") }, async (req, reply) => {
       const { id } = parse(idParams, req.params);
+      await requireFull(req, reply, id);
       return { items: unwrap(await studentsUc.listPriorEducation(deps, ctxOf(req), id, { withSensitive: await probeOf(req, reply)("student.sensitive.read") })) };
     });
     scope.post("/students/:id/prior-education", { preHandler: perm("student.update") }, async (req, reply) => {

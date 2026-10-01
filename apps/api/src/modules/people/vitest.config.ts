@@ -26,7 +26,7 @@ export default defineConfig({
     ],
   },
   test: {
-    include: ["test/**/*.test.ts"],
+    include: ["test/unit/**/*.test.ts", "test/integration/**/*.test.ts"],
     environment: "node",
     // Les tests d'intégration créent chacun leur base : on les sérialise.
     fileParallelism: false,

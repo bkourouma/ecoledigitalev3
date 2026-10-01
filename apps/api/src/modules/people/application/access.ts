@@ -17,6 +17,7 @@ import { CLASS_ACCESS_ROLES } from "../domain/assignments";
 import { PeopleErrors } from "../domain/errors";
 import { listClassroomIdsOfStaff } from "../infrastructure/teaching-repo";
 import { findStaffByIdentity } from "../infrastructure/staff-repo";
+import { getStaffCategory } from "../infrastructure/reference-repo";
 import { todayOf, type PeopleDeps } from "./deps";
 import type { StudentScope } from "./students";
 import type { AccessLevel } from "./views";
@@ -48,10 +49,36 @@ export async function staffCanReadStudent(deps: PeopleDeps, ctx: RequestContext,
   return studentClassrooms.some((c) => classrooms.includes(c));
 }
 
+/**
+ * GARDE-FOU « enseignant » : un membre du personnel dont la catégorie PEUT ENSEIGNER ne lit que les élèves de ses classes,
+ * même si son rôle lui accorde `student.read` / `student.list` — sauf s'il détient aussi un droit d'ADMINISTRATION des
+ * dossiers (`student.update` : secrétariat, direction). Le modèle de rôle système `enseignant` d'rbac accorde encore ces
+ * deux permissions (le legacy ouvrait toutes les fiches à tout utilisateur authentifié) : tant que le modèle n'est pas
+ * remplacé par `student.class.read`, ce garde-fou garantit l'échec FERMÉ. Un membre `LEFT` ou `SUSPENDED` reste restreint
+ * (aucune classe ⇒ aucun élève).
+ */
+export async function isRestrictedTeacher(deps: PeopleDeps, ctx: RequestContext, can: PermissionProbe): Promise<boolean> {
+  if (!ctx.userId) return false;
+  const userId = ctx.userId;
+  if (await can("student.update")) return false;
+  return deps.db.run(
+    ctx,
+    async (tx) => {
+      const staff = await findStaffByIdentity(tx, ctx.tenantId, userId);
+      if (!staff) return false;
+      const category = await getStaffCategory(tx, ctx.tenantId, staff.categoryCode);
+      return category?.canTeach === true;
+    },
+    { readOnly: true },
+  );
+}
+
 /** Niveau d'accès à une fiche d'élève, ou `NotFound` (hors périmètre) / `Forbidden` (aucune permission de lecture). */
 export async function resolveStudentAudience(deps: PeopleDeps, ctx: RequestContext, studentId: string, can: PermissionProbe): Promise<Result<AccessLevel, AppError>> {
-  if (await can("student.read")) return ok("FULL");
-  if (await can("student.class.read")) {
+  const broad = await can("student.read");
+  const classScoped = broad ? await isRestrictedTeacher(deps, ctx, can) : await can("student.class.read");
+  if (broad && !classScoped) return ok("FULL");
+  if (classScoped) {
     return (await staffCanReadStudent(deps, ctx, studentId)) ? ok("CLASS") : err(PeopleErrors.studentNotFound());
   }
   return err(PeopleErrors.forbidden());
@@ -59,8 +86,10 @@ export async function resolveStudentAudience(deps: PeopleDeps, ctx: RequestConte
 
 /** Périmètre d'une liste d'élèves selon les permissions de l'acteur. */
 export async function resolveStudentListScope(deps: PeopleDeps, ctx: RequestContext, can: PermissionProbe): Promise<Result<StudentScope, AppError>> {
-  if (await can("student.list")) return ok({ kind: "ALL" });
-  if (await can("student.class.read")) {
+  const broad = (await can("student.list")) || (await can("student.read"));
+  const classScoped = broad ? await isRestrictedTeacher(deps, ctx, can) : await can("student.class.read");
+  if (broad && !classScoped) return ok({ kind: "ALL" });
+  if (classScoped) {
     const classrooms = await classroomsOfCurrentStaff(deps, ctx);
     if (classrooms.length === 0) return ok({ kind: "IDS", ids: [] });
     const ids = await deps.enrollments.listStudentIdsOfClassrooms(ctx, classrooms, { onDate: todayOf(deps) });

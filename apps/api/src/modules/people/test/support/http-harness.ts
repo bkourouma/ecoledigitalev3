@@ -20,9 +20,11 @@ export const TARGET_TEMPLATES: readonly SystemRoleTemplate[] = SYSTEM_ROLE_TEMPL
 
 const catalog = buildPermissionCatalog([rbacManifest, manifest]);
 const resolved = new Map(resolveSystemRoles(catalog, TARGET_TEMPLATES).map((r) => [r.template.key, new Set(r.permissions)]));
+/** Modèle d'enseignant ACTUEL d'rbac (student.read + student.list) : le garde-fou de people doit le restreindre à ses classes. */
+resolved.set("enseignant_actuel", new Set(resolveSystemRoles(catalog, SYSTEM_ROLE_TEMPLATES).find((r) => r.template.key === "enseignant")?.permissions ?? []));
 const sensitive = new Set(manifest.permissions.filter((p) => p.sensitive).map((p) => p.key));
 
-export type TestRole = "secretariat" | "directeur" | "directeur_etudes" | "econome" | "enseignant" | "educateur" | "parent" | "eleve" | "responsable_pedagogique" | "aucun";
+export type TestRole = "secretariat" | "directeur" | "directeur_etudes" | "econome" | "enseignant" | "enseignant_actuel" | "educateur" | "parent" | "eleve" | "responsable_pedagogique" | "aucun";
 
 export function permissionsOf(role: TestRole): ReadonlySet<string> {
   if (role === "aucun") return new Set();

@@ -630,9 +630,16 @@ export async function listPriorEducation(deps: PeopleDeps, ctx: RequestContext, 
     ctx,
     async (tx) => {
       if (!(await repo.getStudentRow(tx, ctx.tenantId, studentId))) return err(PeopleErrors.studentNotFound(studentId));
-      return ok((await repo.listPriorEducation(tx, ctx.tenantId, studentId)).map((p) => priorEducationView(p, options.withSensitive)));
+      const rows = await repo.listPriorEducation(tx, ctx.tenantId, studentId);
+      // Les numéros de diplôme sont sensibles : leur restitution est auditée (`notice`).
+      if (options.withSensitive && rows.some((r) => r.referenceNumber !== null)) {
+        const buffer = new EventBuffer(deps, ctx);
+        buffer.audit({ action: "people.student.prior_education_read", entity: "student", entityId: studentId, severity: "notice", metadata: { count: rows.length } });
+        await buffer.flush(tx);
+      }
+      return ok(rows.map((p) => priorEducationView(p, options.withSensitive)));
     },
-    { readOnly: true },
+    { readOnly: false },
   );
 }
 

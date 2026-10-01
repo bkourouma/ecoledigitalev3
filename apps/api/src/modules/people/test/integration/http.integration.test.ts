@@ -405,6 +405,28 @@ describeIntegration("API HTTP /api/v1/people/* (Fastify + Postgres réel) : matr
       expect(mine.json.items).toEqual([]);
     });
 
+    it("GARDE-FOU : avec le modèle d'enseignant ACTUEL d'rbac (student.read + student.list) il reste limité à ses classes", async () => {
+      const cur = { role: "enseignant_actuel" as const, user: teacherIdentity };
+      const list = await http.call("GET", "/students", cur);
+      expect(list.status).toBe(200);
+      expect(list.json.items.map((i: { id: string }) => i.id).sort()).toEqual([child.id, classmate.id].sort());
+      expect((await http.call("GET", `/students/${child.id}`, cur)).json.access).toBe("CLASS");
+      expect((await http.call("GET", `/students/${outsider.id}`, cur)).status).toBe(404);
+      // lectures « tous les élèves » (historique, inscriptions, antécédents) refusées même pour sa propre classe
+      for (const sub of ["history", "enrollments", "prior-education"]) {
+        expect((await http.call("GET", `/students/${child.id}/${sub}`, cur)).status, sub).toBe(403);
+      }
+      // un membre du personnel enseignant qui détient aussi student.update (administration) garde la lecture complète
+      const admin = await http.call("GET", `/students/${outsider.id}`, { role: "secretariat", user: teacherIdentity });
+      expect(admin.json.access).toBe("FULL");
+      // un enseignant parti (LEFT) reste restreint : plus aucune classe, plus aucun élève
+      const gone = await mkStaff(world.deps, ctx);
+      const goneId = await giveIdentity(db, gone.personId);
+      unwrap(await (await import("../../application/staff")).changeStaffStatus(world.deps, ctx, gone.id, { status: "LEFT", reasonText: "Départ" }));
+      expect((await http.call("GET", "/students", { role: "enseignant_actuel", user: goneId })).json.items).toEqual([]);
+      expect((await http.call("GET", `/students/${child.id}`, { role: "enseignant_actuel", user: goneId })).status).toBe(404);
+    });
+
     it("après la fin de son affectation il ne voit plus la classe ni ses élèves", async () => {
       const t = await mkStaff(world.deps, ctx);
       const id = await giveIdentity(db, t.personId);
