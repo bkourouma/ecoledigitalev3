@@ -1,0 +1,5858 @@
+{
+  "generated_by": "scripts/inventory/imhotep-deps.mjs",
+  "note": "Fichier généré. Graines et partagés : scripts/inventory/imhotep.config.mjs.",
+  "seed_files": {
+    "total": 376,
+    "by_group": {
+      "api": 41,
+      "public": 92,
+      "web": 191,
+      "packages": 37,
+      "repo-scripts": 15
+    },
+    "lines_total": 71828
+  },
+  "seeds": [
+    {
+      "file": "apps/api/src/jobs/document-automation.job.ts",
+      "kind": "api/job",
+      "lines": 430,
+      "inbound_imports": [
+        "apps/api/src/index.ts:401"
+      ]
+    },
+    {
+      "file": "apps/api/src/jobs/reservation-cleanup.job.ts",
+      "kind": "api/job",
+      "lines": 233,
+      "inbound_imports": [
+        "apps/api/src/index.ts:111"
+      ]
+    },
+    {
+      "file": "apps/api/src/middleware/formateurAuth.ts",
+      "kind": "api/middleware",
+      "lines": 121,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/routes/codes-promo.ts",
+      "kind": "api/route",
+      "lines": 125,
+      "inbound_imports": [
+        "apps/api/src/index.ts:97"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/documents.ts",
+      "kind": "api/route",
+      "lines": 454,
+      "inbound_imports": [
+        "apps/api/src/index.ts:103"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/entreprises.ts",
+      "kind": "api/route",
+      "lines": 313,
+      "inbound_imports": [
+        "apps/api/src/index.ts:104"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/exports.ts",
+      "kind": "api/route",
+      "lines": 377,
+      "inbound_imports": [
+        "apps/api/src/index.ts:105"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/formateur.ts",
+      "kind": "api/route",
+      "lines": 1609,
+      "inbound_imports": [
+        "apps/api/src/index.ts:99"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/formations-pro.ts",
+      "kind": "api/route",
+      "lines": 2160,
+      "inbound_imports": [
+        "apps/api/src/index.ts:94"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/inscriptions-pro.ts",
+      "kind": "api/route",
+      "lines": 1035,
+      "inbound_imports": [
+        "apps/api/src/index.ts:96"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/paiements-pro.ts",
+      "kind": "api/route",
+      "lines": 422,
+      "inbound_imports": [
+        "apps/api/src/index.ts:98"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/reporting.ts",
+      "kind": "api/route",
+      "lines": 180,
+      "inbound_imports": [
+        "apps/api/src/index.ts:106"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/sessions-pro.ts",
+      "kind": "api/route",
+      "lines": 2694,
+      "inbound_imports": [
+        "apps/api/src/index.ts:95"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/carte-bancaire.service.ts",
+      "kind": "api/service",
+      "lines": 213,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/code-promo.service.ts",
+      "kind": "api/service",
+      "lines": 248,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/document-generation.service.ts",
+      "kind": "api/service",
+      "lines": 1411,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/entreprise-cliente.service.ts",
+      "kind": "api/service",
+      "lines": 717,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/export.service.ts",
+      "kind": "api/service",
+      "lines": 751,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/formateur-attendance.service.ts",
+      "kind": "api/service",
+      "lines": 270,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/formateur-availability.service.ts",
+      "kind": "api/service",
+      "lines": 195,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/formateur-messaging.service.ts",
+      "kind": "api/service",
+      "lines": 214,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/formateur.service.ts",
+      "kind": "api/service",
+      "lines": 1733,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/formation-pro.service.ts",
+      "kind": "api/service",
+      "lines": 1750,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/inscription-pro.service.ts",
+      "kind": "api/service",
+      "lines": 2040,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/invoice.service.ts",
+      "kind": "api/service",
+      "lines": 269,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/mtn-money.service.ts",
+      "kind": "api/service",
+      "lines": 151,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/orange-money.service.ts",
+      "kind": "api/service",
+      "lines": 154,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/paiement-pro.service.ts",
+      "kind": "api/service",
+      "lines": 717,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/payment-provider.interface.ts",
+      "kind": "api/service",
+      "lines": 86,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/reporting.service.ts",
+      "kind": "api/service",
+      "lines": 554,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/session-pro.service.ts",
+      "kind": "api/service",
+      "lines": 3057,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/sms.service.ts",
+      "kind": "api/service",
+      "lines": 89,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/supports-cours.service.ts",
+      "kind": "api/service",
+      "lines": 792,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/tresorpay.service.ts",
+      "kind": "api/service",
+      "lines": 123,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/vimeo.service.ts",
+      "kind": "api/service",
+      "lines": 87,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/services/wave.service.ts",
+      "kind": "api/service",
+      "lines": 126,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/utils/audit-log.ts",
+      "kind": "api/util",
+      "lines": 62,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/utils/enrollment-number.util.ts",
+      "kind": "api/util",
+      "lines": 52,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/utils/sessionAccess.ts",
+      "kind": "api/util",
+      "lines": 78,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/api/src/utils/table-names.ts",
+      "kind": "api/util",
+      "lines": 45,
+      "inbound_imports": [
+        "apps/api/src/services/owner-formations.service.ts:4",
+        "apps/api/src/services/owner-staff.service.ts:4"
+      ]
+    },
+    {
+      "file": "apps/api/src/utils/transaction-number.util.ts",
+      "kind": "api/util",
+      "lines": 92,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/next.config.js",
+      "kind": "public/source",
+      "lines": 15,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/postcss.config.js",
+      "kind": "public/source",
+      "lines": 7,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(auth)/login/page.tsx",
+      "kind": "public/source",
+      "lines": 126,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(auth)/register/page.tsx",
+      "kind": "public/source",
+      "lines": 153,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(auth)/verify/page.tsx",
+      "kind": "public/source",
+      "lines": 71,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/affectations/page.tsx",
+      "kind": "public/source",
+      "lines": 44,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/certificats/page.tsx",
+      "kind": "public/source",
+      "lines": 22,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/compte/page.tsx",
+      "kind": "public/source",
+      "lines": 110,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/layout.tsx",
+      "kind": "public/source",
+      "lines": 59,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/live/[id]/page.tsx",
+      "kind": "public/source",
+      "lines": 39,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/mes-commandes/page.tsx",
+      "kind": "public/source",
+      "lines": 47,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/mes-formations/[slug]/contenus/[supportId]/page.tsx",
+      "kind": "public/source",
+      "lines": 32,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/mes-formations/[slug]/page.tsx",
+      "kind": "public/source",
+      "lines": 101,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/mes-formations/page.tsx",
+      "kind": "public/source",
+      "lines": 59,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/mes-videos/page.tsx",
+      "kind": "public/source",
+      "lines": 40,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(dashboard)/profil/page.tsx",
+      "kind": "public/source",
+      "lines": 40,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(public)/a-propos/page.tsx",
+      "kind": "public/source",
+      "lines": 32,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(public)/catalogue/[slug]/page.tsx",
+      "kind": "public/source",
+      "lines": 131,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(public)/catalogue/page.tsx",
+      "kind": "public/source",
+      "lines": 70,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(public)/contact/page.tsx",
+      "kind": "public/source",
+      "lines": 36,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(public)/page.tsx",
+      "kind": "public/source",
+      "lines": 163,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/(public)/paiement/retour/page.tsx",
+      "kind": "public/source",
+      "lines": 36,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/admin/formateurs/route.ts",
+      "kind": "public/source",
+      "lines": 67,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/admin/support-assignments/route.ts",
+      "kind": "public/source",
+      "lines": 90,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/apprenant/live-sessions/[id]/join-token/route.ts",
+      "kind": "public/source",
+      "lines": 129,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/apprenant/notifications/[id]/read/route.ts",
+      "kind": "public/source",
+      "lines": 28,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/apprenant/notifications/read-all/route.ts",
+      "kind": "public/source",
+      "lines": 23,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/apprenant/notifications/route.ts",
+      "kind": "public/source",
+      "lines": 81,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/apprenant/notifications/unread-count/route.ts",
+      "kind": "public/source",
+      "lines": 22,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/apprenant/supports/[supportId]/route.ts",
+      "kind": "public/source",
+      "lines": 196,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/auth/[...nextauth]/route.ts",
+      "kind": "public/source",
+      "lines": 4,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/auth/register/route.ts",
+      "kind": "public/source",
+      "lines": 52,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/auth/resend-verification/route.ts",
+      "kind": "public/source",
+      "lines": 47,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/formations/route.ts",
+      "kind": "public/source",
+      "lines": 19,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/paiement/callback/route.ts",
+      "kind": "public/source",
+      "lines": 54,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/api/paiement/initier/route.ts",
+      "kind": "public/source",
+      "lines": 106,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/layout.tsx",
+      "kind": "public/source",
+      "lines": 62,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/not-found.tsx",
+      "kind": "public/source",
+      "lines": 18,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/providers.tsx",
+      "kind": "public/source",
+      "lines": 26,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/robots.ts",
+      "kind": "public/source",
+      "lines": 12,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/app/sitemap.ts",
+      "kind": "public/source",
+      "lines": 32,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/auth/AuthProviderButtons.tsx",
+      "kind": "public/source",
+      "lines": 61,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/auth/ResendVerificationForm.tsx",
+      "kind": "public/source",
+      "lines": 69,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/catalogue/CatalogueExperience.tsx",
+      "kind": "public/source",
+      "lines": 157,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/catalogue/CatalogueGrid.tsx",
+      "kind": "public/source",
+      "lines": 40,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/catalogue/FiltersSidebar.tsx",
+      "kind": "public/source",
+      "lines": 115,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/catalogue/FormationCard.tsx",
+      "kind": "public/source",
+      "lines": 76,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/catalogue/SearchBar.tsx",
+      "kind": "public/source",
+      "lines": 26,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/dashboard/AffectationWorkspace.tsx",
+      "kind": "public/source",
+      "lines": 395,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/dashboard/FormationAcheteeCard.tsx",
+      "kind": "public/source",
+      "lines": 62,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/dashboard/LearningSupportCard.tsx",
+      "kind": "public/source",
+      "lines": 68,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/dashboard/OrderCard.tsx",
+      "kind": "public/source",
+      "lines": 83,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/dashboard/ProgressBar.tsx",
+      "kind": "public/source",
+      "lines": 11,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/dashboard/SupportReader.tsx",
+      "kind": "public/source",
+      "lines": 107,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/dashboard/VideoLibraryCard.tsx",
+      "kind": "public/source",
+      "lines": 61,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/formation/CTAInscription.tsx",
+      "kind": "public/source",
+      "lines": 103,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/formation/Formateurs.tsx",
+      "kind": "public/source",
+      "lines": 39,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/formation/HeroFormation.tsx",
+      "kind": "public/source",
+      "lines": 95,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/formation/ProgrammeAccordion.tsx",
+      "kind": "public/source",
+      "lines": 35,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/notifications/NotificationBellWidget.tsx",
+      "kind": "public/source",
+      "lines": 66,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/paiement/PaiementModal.tsx",
+      "kind": "public/source",
+      "lines": 114,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/paiement/PaiementStatus.tsx",
+      "kind": "public/source",
+      "lines": 83,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/shared/EmptyState.tsx",
+      "kind": "public/source",
+      "lines": 22,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/shared/Footer.tsx",
+      "kind": "public/source",
+      "lines": 42,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/shared/Navbar.tsx",
+      "kind": "public/source",
+      "lines": 150,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/shared/SkeletonCard.tsx",
+      "kind": "public/source",
+      "lines": 16,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/ui/badge.tsx",
+      "kind": "public/source",
+      "lines": 29,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/ui/button.tsx",
+      "kind": "public/source",
+      "lines": 55,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/ui/card.tsx",
+      "kind": "public/source",
+      "lines": 51,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/ui/input.tsx",
+      "kind": "public/source",
+      "lines": 20,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/ui/skeleton.tsx",
+      "kind": "public/source",
+      "lines": 6,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/components/ui/textarea.tsx",
+      "kind": "public/source",
+      "lines": 21,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/hooks/useFormations.ts",
+      "kind": "public/source",
+      "lines": 48,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/hooks/useInscription.ts",
+      "kind": "public/source",
+      "lines": 26,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/hooks/useUser.ts",
+      "kind": "public/source",
+      "lines": 14,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/account.ts",
+      "kind": "public/source",
+      "lines": 252,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/admin-assignments.ts",
+      "kind": "public/source",
+      "lines": 181,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/admin.ts",
+      "kind": "public/source",
+      "lines": 18,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/auth.ts",
+      "kind": "public/source",
+      "lines": 184,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/catalogue.ts",
+      "kind": "public/source",
+      "lines": 432,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/email.ts",
+      "kind": "public/source",
+      "lines": 247,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/learning.ts",
+      "kind": "public/source",
+      "lines": 259,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/payhubsecure.ts",
+      "kind": "public/source",
+      "lines": 66,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/prisma.ts",
+      "kind": "public/source",
+      "lines": 19,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/schemas.ts",
+      "kind": "public/source",
+      "lines": 52,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/utils.ts",
+      "kind": "public/source",
+      "lines": 33,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/lib/verification.ts",
+      "kind": "public/source",
+      "lines": 99,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/stores/cartStore.ts",
+      "kind": "public/source",
+      "lines": 16,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/types/formation.ts",
+      "kind": "public/source",
+      "lines": 62,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/types/paiement.ts",
+      "kind": "public/source",
+      "lines": 11,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/src/types/user.ts",
+      "kind": "public/source",
+      "lines": 9,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/formation-pro-public/tailwind.config.ts",
+      "kind": "public/source",
+      "lines": 91,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/scripts/README-test-formation-detail.md",
+      "kind": "web/script",
+      "lines": 155,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/__tests__/formation-detail-button-click-fix.test.tsx",
+      "kind": "web/test",
+      "lines": 341,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/[id]/catalogue-support/route.ts",
+      "kind": "web/route-handler",
+      "lines": 58,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/[id]/materials/[access]/route.ts",
+      "kind": "web/route-handler",
+      "lines": 53,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/[id]/programme-pdf/route.ts",
+      "kind": "web/route-handler",
+      "lines": 84,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/[id]/route.ts",
+      "kind": "web/route-handler",
+      "lines": 424,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/[id]/sessions/[sessionId]/route.ts",
+      "kind": "web/route-handler",
+      "lines": 146,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/[id]/sessions/route.ts",
+      "kind": "web/route-handler",
+      "lines": 119,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/[id]/similaires/route.ts",
+      "kind": "web/route-handler",
+      "lines": 44,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/route.ts",
+      "kind": "web/route-handler",
+      "lines": 186,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/stats/route.ts",
+      "kind": "web/route-handler",
+      "lines": 80,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/themes/route.ts",
+      "kind": "web/route-handler",
+      "lines": 80,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/api/v1/formations-pro/videos/[supportId]/playback/route.ts",
+      "kind": "web/route-handler",
+      "lines": 73,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formateur/dashboard/page.tsx",
+      "kind": "web/page",
+      "lines": 70,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formateur/layout.tsx",
+      "kind": "web/page",
+      "lines": 9,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formateur/planning/page.tsx",
+      "kind": "web/page",
+      "lines": 176,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formateur/profil/page.tsx",
+      "kind": "web/page",
+      "lines": 107,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formateur/sessions/[id]/details/page.tsx",
+      "kind": "web/page",
+      "lines": 124,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formateur/sessions/[id]/inscrits/page.tsx",
+      "kind": "web/page",
+      "lines": 208,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formateur/sessions/page.tsx",
+      "kind": "web/page",
+      "lines": 122,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formateur/supports/[id]/edit/page.tsx",
+      "kind": "web/page",
+      "lines": 279,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formateur/supports/page.tsx",
+      "kind": "web/page",
+      "lines": 134,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formateur/supports/upload/page.tsx",
+      "kind": "web/page",
+      "lines": 477,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/documents/attestations/page.tsx",
+      "kind": "web/page",
+      "lines": 22,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/documents/conventions/page.tsx",
+      "kind": "web/page",
+      "lines": 22,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/documents/devis/page.tsx",
+      "kind": "web/page",
+      "lines": 22,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/documents/page.tsx",
+      "kind": "web/page",
+      "lines": 21,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/entreprises/[id]/details/page.tsx",
+      "kind": "web/page",
+      "lines": 35,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/entreprises/[id]/modifier/page.tsx",
+      "kind": "web/page",
+      "lines": 78,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/entreprises/ajouter/page.tsx",
+      "kind": "web/page",
+      "lines": 36,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/entreprises/page.tsx",
+      "kind": "web/page",
+      "lines": 25,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/exports/inscriptions/page.tsx",
+      "kind": "web/page",
+      "lines": 26,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/exports/page.tsx",
+      "kind": "web/page",
+      "lines": 25,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/exports/paiements/page.tsx",
+      "kind": "web/page",
+      "lines": 26,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/exports/presences/page.tsx",
+      "kind": "web/page",
+      "lines": 26,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/formateurs/[id]/details/page.tsx",
+      "kind": "web/page",
+      "lines": 376,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/formateurs/[id]/modifier/page.tsx",
+      "kind": "web/page",
+      "lines": 409,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/formateurs/creer/page.tsx",
+      "kind": "web/page",
+      "lines": 46,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/formateurs/page.tsx",
+      "kind": "web/page",
+      "lines": 330,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/inscriptions/creer/page.tsx",
+      "kind": "web/page",
+      "lines": 150,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/inscriptions/page.tsx",
+      "kind": "web/page",
+      "lines": 303,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/layout.tsx",
+      "kind": "web/page",
+      "lines": 14,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/reporting/ca-previsionnel/page.tsx",
+      "kind": "web/page",
+      "lines": 26,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/reporting/dashboard/page.tsx",
+      "kind": "web/page",
+      "lines": 26,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/reporting/statistiques/page.tsx",
+      "kind": "web/page",
+      "lines": 26,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/sessions/[id]/details/page.tsx",
+      "kind": "web/page",
+      "lines": 122,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/sessions/[id]/modifier/page.tsx",
+      "kind": "web/page",
+      "lines": 65,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/sessions/creer/page.tsx",
+      "kind": "web/page",
+      "lines": 38,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/admin/sessions/page.tsx",
+      "kind": "web/page",
+      "lines": 191,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/catalogue/[slug]/edit/page.tsx",
+      "kind": "web/page",
+      "lines": 932,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/catalogue/[slug]/page.tsx",
+      "kind": "web/page",
+      "lines": 1090,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/catalogue/[slug]/sessions/[sessionId]/edit/page.tsx",
+      "kind": "web/page",
+      "lines": 516,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/catalogue/[slug]/sessions/new/page.tsx",
+      "kind": "web/page",
+      "lines": 469,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/catalogue/new/page.tsx",
+      "kind": "web/page",
+      "lines": 703,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/catalogue/page.tsx",
+      "kind": "web/page",
+      "lines": 47,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/inscription/callback/[provider]/page.tsx",
+      "kind": "web/page",
+      "lines": 153,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/inscription/catalogue/[slug]/page.tsx",
+      "kind": "web/page",
+      "lines": 98,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/inscription/confirmation/[inscriptionId]/page.tsx",
+      "kind": "web/page",
+      "lines": 111,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/inscription/paiement/[inscriptionId]/page.tsx",
+      "kind": "web/page",
+      "lines": 206,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/inscription/session/[sessionId]/page.tsx",
+      "kind": "web/page",
+      "lines": 72,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/mon-compte/inscriptions/page.tsx",
+      "kind": "web/page",
+      "lines": 46,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/public/[slug]/page.tsx",
+      "kind": "web/page",
+      "lines": 306,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/public/page.tsx",
+      "kind": "web/page",
+      "lines": 65,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/sessions/[id]/page.tsx",
+      "kind": "web/page",
+      "lines": 83,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/app/formations-professionnelles/sessions/page.tsx",
+      "kind": "web/page",
+      "lines": 47,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/documents/AdminDocuments.tsx",
+      "kind": "web/component",
+      "lines": 136,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/documents/BatchGenerationModal.tsx",
+      "kind": "web/component",
+      "lines": 104,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/documents/DocumentGenerationModal.tsx",
+      "kind": "web/component",
+      "lines": 229,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/documents/DocumentsTable.tsx",
+      "kind": "web/component",
+      "lines": 179,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/entreprises/AdminEntreprises.tsx",
+      "kind": "web/component",
+      "lines": 236,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/entreprises/EntrepriseCard.tsx",
+      "kind": "web/component",
+      "lines": 110,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/entreprises/EntrepriseDetailPage.tsx",
+      "kind": "web/component",
+      "lines": 307,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/entreprises/EntrepriseFormModal.tsx",
+      "kind": "web/component",
+      "lines": 336,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/entreprises/FacturationGroupeeModal.tsx",
+      "kind": "web/component",
+      "lines": 195,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/exports/AdminExports.tsx",
+      "kind": "web/component",
+      "lines": 82,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/exports/ExportCAFormationCard.tsx",
+      "kind": "web/component",
+      "lines": 116,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/exports/ExportInscriptionsCard.tsx",
+      "kind": "web/component",
+      "lines": 199,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/exports/ExportJobStatusModal.tsx",
+      "kind": "web/component",
+      "lines": 139,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/exports/ExportPaiementsCard.tsx",
+      "kind": "web/component",
+      "lines": 178,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/exports/ExportPresencesCard.tsx",
+      "kind": "web/component",
+      "lines": 100,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/formateurs/FormateurForm.tsx",
+      "kind": "web/component",
+      "lines": 328,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/reporting/CAPrevisionnel.tsx",
+      "kind": "web/component",
+      "lines": 186,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/reporting/MetricsCards.tsx",
+      "kind": "web/component",
+      "lines": 103,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/reporting/ReportingDashboard.tsx",
+      "kind": "web/component",
+      "lines": 144,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/reporting/StatisticsView.tsx",
+      "kind": "web/component",
+      "lines": 242,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/admin/reporting/TauxConversion.tsx",
+      "kind": "web/component",
+      "lines": 138,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/DashboardSkeleton.tsx",
+      "kind": "web/component",
+      "lines": 73,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/DashboardStats.tsx",
+      "kind": "web/component",
+      "lines": 72,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/FormateurInscritsList.tsx",
+      "kind": "web/component",
+      "lines": 187,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/FormateurSessionDetailContent.tsx",
+      "kind": "web/component",
+      "lines": 337,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/FormateurSessionsFilters.tsx",
+      "kind": "web/component",
+      "lines": 212,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/FormateurSessionsList.tsx",
+      "kind": "web/component",
+      "lines": 196,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/FormateurSupportsFilters.tsx",
+      "kind": "web/component",
+      "lines": 149,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/FormateurSupportsList.tsx",
+      "kind": "web/component",
+      "lines": 115,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/IndisponibiliteList.tsx",
+      "kind": "web/component",
+      "lines": 105,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/IndisponibiliteModal.tsx",
+      "kind": "web/component",
+      "lines": 162,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/MaterialCard.tsx",
+      "kind": "web/component",
+      "lines": 155,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/MaterialEditForm.tsx",
+      "kind": "web/component",
+      "lines": 220,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/MaterialStatsModal.tsx",
+      "kind": "web/component",
+      "lines": 129,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/MessageGroupeModal.tsx",
+      "kind": "web/component",
+      "lines": 277,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/NotificationsWidget.tsx",
+      "kind": "web/component",
+      "lines": 129,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/PhotoUpload.tsx",
+      "kind": "web/component",
+      "lines": 107,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/ProchainesSessionsWidget.tsx",
+      "kind": "web/component",
+      "lines": 63,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/ProfileEditForm.tsx",
+      "kind": "web/component",
+      "lines": 260,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/ProfileStats.tsx",
+      "kind": "web/component",
+      "lines": 68,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/SessionDetailModal.tsx",
+      "kind": "web/component",
+      "lines": 117,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/SessionListSkeleton.tsx",
+      "kind": "web/component",
+      "lines": 30,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/SessionNotesTab.tsx",
+      "kind": "web/component",
+      "lines": 116,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/SessionsRecentesWidget.tsx",
+      "kind": "web/component",
+      "lines": 53,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/SpecialitesEditor.tsx",
+      "kind": "web/component",
+      "lines": 72,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/SupportsRecentsWidget.tsx",
+      "kind": "web/component",
+      "lines": 62,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formateur/UploadSupportModal.tsx",
+      "kind": "web/component",
+      "lines": 424,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formations-pro/CatalogueFormationsPro.tsx",
+      "kind": "web/component",
+      "lines": 566,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formations-pro/FiltersSidebar.tsx",
+      "kind": "web/component",
+      "lines": 398,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formations-pro/FormationCard.tsx",
+      "kind": "web/component",
+      "lines": 389,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formations-pro/Pagination.tsx",
+      "kind": "web/component",
+      "lines": 125,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formations-pro/SearchBar.tsx",
+      "kind": "web/component",
+      "lines": 78,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formations-pro/SimilarFormations.tsx",
+      "kind": "web/component",
+      "lines": 90,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/formations-pro/SortDropdown.tsx",
+      "kind": "web/component",
+      "lines": 49,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/AdminInscriptionCard.tsx",
+      "kind": "web/component",
+      "lines": 185,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/CodePromoInput.tsx",
+      "kind": "web/component",
+      "lines": 150,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/EntrepriseAutocomplete.tsx",
+      "kind": "web/component",
+      "lines": 178,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/EntrepriseFormFields.tsx",
+      "kind": "web/component",
+      "lines": 184,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/FormationDisponibiliteChecker.tsx",
+      "kind": "web/component",
+      "lines": 96,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/IndividualFormFields.tsx",
+      "kind": "web/component",
+      "lines": 110,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/InscriptionCard.tsx",
+      "kind": "web/component",
+      "lines": 230,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/InscriptionFilters.tsx",
+      "kind": "web/component",
+      "lines": 147,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/InscriptionRecapCard.tsx",
+      "kind": "web/component",
+      "lines": 158,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/InscriptionWizard.tsx",
+      "kind": "web/component",
+      "lines": 93,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/MesInscriptionsPro.tsx",
+      "kind": "web/component",
+      "lines": 105,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/NextStepsCard.tsx",
+      "kind": "web/component",
+      "lines": 91,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/PaymentDetailsForm.tsx",
+      "kind": "web/component",
+      "lines": 84,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/PaymentMethodSelector.tsx",
+      "kind": "web/component",
+      "lines": 112,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/PaymentProcessingModal.tsx",
+      "kind": "web/component",
+      "lines": 225,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/PaymentRecapCard.tsx",
+      "kind": "web/component",
+      "lines": 66,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/ReservationTimer.tsx",
+      "kind": "web/component",
+      "lines": 66,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/SessionDisponibiliteChecker.tsx",
+      "kind": "web/component",
+      "lines": 67,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/Step1InfosForm.tsx",
+      "kind": "web/component",
+      "lines": 234,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/Step2RecapitulatifForm.tsx",
+      "kind": "web/component",
+      "lines": 253,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/SuccessHeader.tsx",
+      "kind": "web/component",
+      "lines": 36,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/inscriptions-pro/TypeInscriptionSelector.tsx",
+      "kind": "web/component",
+      "lines": 59,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/AdminSessionCard.tsx",
+      "kind": "web/component",
+      "lines": 244,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/AdminSessionsFilters.tsx",
+      "kind": "web/component",
+      "lines": 275,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/AdminSessionsHeader.tsx",
+      "kind": "web/component",
+      "lines": 66,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/AdminSessionsList.tsx",
+      "kind": "web/component",
+      "lines": 170,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/BulkActionsBar.tsx",
+      "kind": "web/component",
+      "lines": 71,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/CalendarComponent.tsx",
+      "kind": "web/component",
+      "lines": 341,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/CalendarToolbar.tsx",
+      "kind": "web/component",
+      "lines": 213,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/CatalogueSessionsPro.tsx",
+      "kind": "web/component",
+      "lines": 302,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/FormStep1GeneralInfo.tsx",
+      "kind": "web/component",
+      "lines": 226,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/FormStep2Formateurs.tsx",
+      "kind": "web/component",
+      "lines": 164,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/FormStep3Tarification.tsx",
+      "kind": "web/component",
+      "lines": 283,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/FormateursMultiSelect.tsx",
+      "kind": "web/component",
+      "lines": 149,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/InscritActionsMenu.tsx",
+      "kind": "web/component",
+      "lines": 136,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/InscritActionsToolbar.tsx",
+      "kind": "web/component",
+      "lines": 54,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/InscritListsTab.tsx",
+      "kind": "web/component",
+      "lines": 168,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/InscritTable.tsx",
+      "kind": "web/component",
+      "lines": 133,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/OtherSessionsCarousel.tsx",
+      "kind": "web/component",
+      "lines": 127,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/QuickStatsCards.tsx",
+      "kind": "web/component",
+      "lines": 110,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SelectedFormateursList.tsx",
+      "kind": "web/component",
+      "lines": 106,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionActionsMenu.tsx",
+      "kind": "web/component",
+      "lines": 174,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionCard.tsx",
+      "kind": "web/component",
+      "lines": 208,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionDetailModal.tsx",
+      "kind": "web/component",
+      "lines": 134,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionDetailPage.tsx",
+      "kind": "web/component",
+      "lines": 118,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionEventCard.tsx",
+      "kind": "web/component",
+      "lines": 187,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionFormWizard.tsx",
+      "kind": "web/component",
+      "lines": 544,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionFormateurs.tsx",
+      "kind": "web/component",
+      "lines": 84,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionHeader.tsx",
+      "kind": "web/component",
+      "lines": 101,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionInfoTab.tsx",
+      "kind": "web/component",
+      "lines": 144,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionInfos.tsx",
+      "kind": "web/component",
+      "lines": 119,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionInscriptionSidebar.tsx",
+      "kind": "web/component",
+      "lines": 193,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionStatusBanner.tsx",
+      "kind": "web/component",
+      "lines": 89,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/SessionsFilters.tsx",
+      "kind": "web/component",
+      "lines": 233,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/StatsTab.tsx",
+      "kind": "web/component",
+      "lines": 117,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/components/sessions-pro/StatusChangeDialog.tsx",
+      "kind": "web/component",
+      "lines": 185,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-documents.ts",
+      "kind": "web/lib",
+      "lines": 295,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-entreprises.ts",
+      "kind": "web/lib",
+      "lines": 238,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-exports.ts",
+      "kind": "web/lib",
+      "lines": 125,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-formateur-attendance.ts",
+      "kind": "web/lib",
+      "lines": 125,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-formateur-dashboard.ts",
+      "kind": "web/lib",
+      "lines": 35,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-formateur-messaging.ts",
+      "kind": "web/lib",
+      "lines": 58,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-formateur-notifications.ts",
+      "kind": "web/lib",
+      "lines": 80,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-formateur-profile.ts",
+      "kind": "web/lib",
+      "lines": 130,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-formateur-schedule.ts",
+      "kind": "web/lib",
+      "lines": 128,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-formateur-sessions.ts",
+      "kind": "web/lib",
+      "lines": 144,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-formateur-supports.ts",
+      "kind": "web/lib",
+      "lines": 254,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-formations-pro.ts",
+      "kind": "web/lib",
+      "lines": 536,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-inscriptions-pro.ts",
+      "kind": "web/lib",
+      "lines": 426,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-reporting.ts",
+      "kind": "web/lib",
+      "lines": 116,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-sessions-pro.ts",
+      "kind": "web/lib",
+      "lines": 1162,
+      "inbound_imports": []
+    },
+    {
+      "file": "apps/web/src/lib/pro-tenants.ts",
+      "kind": "web/lib",
+      "lines": 12,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/codes-promo/code-promo.schema.ts",
+      "kind": "packages/source",
+      "lines": 36,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/codes-promo/index.ts",
+      "kind": "packages/source",
+      "lines": 21,
+      "inbound_imports": [
+        "packages/contracts/src/index.ts:30"
+      ]
+    },
+    {
+      "file": "packages/contracts/src/codes-promo/types.ts",
+      "kind": "packages/source",
+      "lines": 39,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/documents/document.schema.ts",
+      "kind": "packages/source",
+      "lines": 136,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/documents/document.types.ts",
+      "kind": "packages/source",
+      "lines": 36,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/documents/index.ts",
+      "kind": "packages/source",
+      "lines": 10,
+      "inbound_imports": [
+        "packages/contracts/src/index.ts:80"
+      ]
+    },
+    {
+      "file": "packages/contracts/src/entreprises/entreprise.schema.ts",
+      "kind": "packages/source",
+      "lines": 129,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/entreprises/entreprise.types.ts",
+      "kind": "packages/source",
+      "lines": 30,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/entreprises/index.ts",
+      "kind": "packages/source",
+      "lines": 10,
+      "inbound_imports": [
+        "packages/contracts/src/index.ts:81"
+      ]
+    },
+    {
+      "file": "packages/contracts/src/exports/export.schema.ts",
+      "kind": "packages/source",
+      "lines": 111,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/exports/export.types.ts",
+      "kind": "packages/source",
+      "lines": 32,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/exports/index.ts",
+      "kind": "packages/source",
+      "lines": 10,
+      "inbound_imports": [
+        "packages/contracts/src/index.ts:82"
+      ]
+    },
+    {
+      "file": "packages/contracts/src/formateurs/attendance.schema.ts",
+      "kind": "packages/source",
+      "lines": 22,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/formateurs/dashboard.schema.ts",
+      "kind": "packages/source",
+      "lines": 69,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/formateurs/index.ts",
+      "kind": "packages/source",
+      "lines": 31,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/formateurs/messaging.schema.ts",
+      "kind": "packages/source",
+      "lines": 25,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/formateurs/notifications.schema.ts",
+      "kind": "packages/source",
+      "lines": 53,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/formateurs/profil.schema.ts",
+      "kind": "packages/source",
+      "lines": 54,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/formateurs/schedule.schema.ts",
+      "kind": "packages/source",
+      "lines": 67,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/formateurs/sessions.schema.ts",
+      "kind": "packages/source",
+      "lines": 116,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/formateurs/supports.schema.ts",
+      "kind": "packages/source",
+      "lines": 81,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/formations-pro.ts",
+      "kind": "packages/source",
+      "lines": 236,
+      "inbound_imports": [
+        "packages/contracts/src/index.ts:24"
+      ]
+    },
+    {
+      "file": "packages/contracts/src/inscriptions-pro/index.ts",
+      "kind": "packages/source",
+      "lines": 41,
+      "inbound_imports": [
+        "packages/contracts/src/index.ts:27"
+      ]
+    },
+    {
+      "file": "packages/contracts/src/inscriptions-pro/inscription-api.schema.ts",
+      "kind": "packages/source",
+      "lines": 61,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/inscriptions-pro/inscription.schema.ts",
+      "kind": "packages/source",
+      "lines": 178,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/inscriptions-pro/types.ts",
+      "kind": "packages/source",
+      "lines": 95,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/paiements-pro/index.ts",
+      "kind": "packages/source",
+      "lines": 25,
+      "inbound_imports": [
+        "packages/contracts/src/index.ts:33"
+      ]
+    },
+    {
+      "file": "packages/contracts/src/paiements-pro/paiement.schema.ts",
+      "kind": "packages/source",
+      "lines": 70,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/paiements-pro/types.ts",
+      "kind": "packages/source",
+      "lines": 41,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/reporting/index.ts",
+      "kind": "packages/source",
+      "lines": 10,
+      "inbound_imports": [
+        "packages/contracts/src/index.ts:83"
+      ]
+    },
+    {
+      "file": "packages/contracts/src/reporting/reporting.schema.ts",
+      "kind": "packages/source",
+      "lines": 160,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/reporting/reporting.types.ts",
+      "kind": "packages/source",
+      "lines": 30,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/sessions-pro/admin.schema.ts",
+      "kind": "packages/source",
+      "lines": 63,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/sessions-pro/calendar.schema.ts",
+      "kind": "packages/source",
+      "lines": 32,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/sessions-pro/index.ts",
+      "kind": "packages/source",
+      "lines": 19,
+      "inbound_imports": [
+        "packages/contracts/src/index.ts:61",
+        "packages/contracts/src/index.ts:77"
+      ]
+    },
+    {
+      "file": "packages/contracts/src/sessions-pro/session.schema.ts",
+      "kind": "packages/source",
+      "lines": 251,
+      "inbound_imports": []
+    },
+    {
+      "file": "packages/contracts/src/sessions-pro/types.ts",
+      "kind": "packages/source",
+      "lines": 187,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/IMHOTEP_DATA_MIGRATION_GUIDE.md",
+      "kind": "repo-scripts/script",
+      "lines": 230,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/IMHOTEP_DATA_NEXT_STEPS.md",
+      "kind": "repo-scripts/script",
+      "lines": 206,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/apply-aspci-migrations.js",
+      "kind": "repo-scripts/script",
+      "lines": 112,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/apply-aspci-tables-migration.js",
+      "kind": "repo-scripts/script",
+      "lines": 59,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/apply-price-precision-migration.js",
+      "kind": "repo-scripts/script",
+      "lines": 161,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/create-formations-diplomantes.ts",
+      "kind": "repo-scripts/script",
+      "lines": 244,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/create-formations-interentreprises.ts",
+      "kind": "repo-scripts/script",
+      "lines": 466,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/create-formations-pro.ts",
+      "kind": "repo-scripts/script",
+      "lines": 267,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/create-inscriptions-pro.ts",
+      "kind": "repo-scripts/script",
+      "lines": 294,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/create-sessions-pro.ts",
+      "kind": "repo-scripts/script",
+      "lines": 282,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/migrate-add-carriere.js",
+      "kind": "repo-scripts/script",
+      "lines": 89,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/migrate-imhotep-data.js",
+      "kind": "repo-scripts/script",
+      "lines": 99,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/migrate-reservations-temporaires.js",
+      "kind": "repo-scripts/script",
+      "lines": 93,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/prepare-formation-public-db.mjs",
+      "kind": "repo-scripts/script",
+      "lines": 98,
+      "inbound_imports": []
+    },
+    {
+      "file": "scripts/validate-imhotep-data-migration.js",
+      "kind": "repo-scripts/script",
+      "lines": 272,
+      "inbound_imports": []
+    }
+  ],
+  "shared_candidates": [
+    {
+      "file": "apps/api/src/routes/live-sessions.ts",
+      "kind": "api/route",
+      "lines": 659,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/index.ts:108"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/notifications-inbox.ts",
+      "kind": "api/route",
+      "lines": 200,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/index.ts:110"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/notifications.ts",
+      "kind": "api/route",
+      "lines": 390,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/index.ts:57"
+      ]
+    },
+    {
+      "file": "apps/api/src/routes/webhooks/livekit.ts",
+      "kind": "api/route",
+      "lines": 503,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/index.ts:109"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/email.service.ts",
+      "kind": "api/service",
+      "lines": 456,
+      "importers_imhotep": [
+        "apps/api/src/jobs/document-automation.job.ts:14",
+        "apps/api/src/services/document-generation.service.ts:13",
+        "apps/api/src/services/formateur-messaging.service.ts:11",
+        "apps/api/src/services/inscription-pro.service.ts:14",
+        "apps/api/src/services/paiement-pro.service.ts:20"
+      ],
+      "importers_other": [
+        "apps/api/src/routes/admin-email.ts:15",
+        "apps/api/src/routes/auth.ts:15",
+        "apps/api/src/routes/messaging-common.ts:12",
+        "apps/api/src/routes/parents.ts:4",
+        "apps/api/src/routes/registration-requests.ts:3",
+        "apps/api/src/routes/students.ts:16",
+        "apps/api/src/routes/teachers.ts:11",
+        "apps/api/src/services/message-delivery.ts:16",
+        "apps/api/src/services/notifications-dispatch.service.ts:24",
+        "apps/api/src/services/teacher-payslip-notification.service.ts:18"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/livekit.service.ts",
+      "kind": "api/service",
+      "lines": 259,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/routes/live-sessions.ts:3",
+        "apps/api/src/routes/webhooks/livekit.ts:2",
+        "apps/api/src/services/professional-live-sessions.service.ts:2"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/notification.service.ts",
+      "kind": "api/service",
+      "lines": 686,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/routes/notifications.ts:3"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/notifications-dispatch.service.ts",
+      "kind": "api/service",
+      "lines": 436,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/routes/live-sessions.ts:7"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/owner-formations.service.ts",
+      "kind": "api/service",
+      "lines": 111,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/routes/owner/index.ts:137"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/pdf-generation.service.ts",
+      "kind": "api/service",
+      "lines": 367,
+      "importers_imhotep": [
+        "apps/api/src/routes/formations-pro.ts:5"
+      ],
+      "importers_other": [
+        "apps/api/src/routes/owner/index.ts:133"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/professional-live-sessions.service.ts",
+      "kind": "api/service",
+      "lines": 193,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/routes/professional.ts:74"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/tresorpay-gateway.service.ts",
+      "kind": "api/service",
+      "lines": 411,
+      "importers_imhotep": [
+        "apps/api/src/services/tresorpay.service.ts:16"
+      ],
+      "importers_other": [
+        "apps/api/src/routes/student-payments.ts:4",
+        "apps/api/src/tests/tresorpay-gateway.test.ts:2"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/user-auth.service.ts",
+      "kind": "api/service",
+      "lines": 249,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/plugins/auth-middleware.ts:9",
+        "apps/api/src/routes/auth.ts:13"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/wasender.ts",
+      "kind": "api/service",
+      "lines": 132,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/services/notifications-dispatch.service.ts:25",
+        "apps/api/src/services/whatsapp-delivery-log.ts:2"
+      ]
+    },
+    {
+      "file": "apps/api/src/services/whatsapp-delivery-log.ts",
+      "kind": "api/service",
+      "lines": 137,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/api/src/services/message-delivery.ts:21",
+        "apps/api/src/services/notifications-dispatch.service.ts:26"
+      ]
+    },
+    {
+      "file": "apps/web/next.config.js",
+      "kind": "web/other",
+      "lines": 177,
+      "importers_imhotep": [],
+      "importers_other": []
+    },
+    {
+      "file": "apps/web/src/app/live/[id]/page.tsx",
+      "kind": "web/page",
+      "lines": 82,
+      "importers_imhotep": [],
+      "importers_other": []
+    },
+    {
+      "file": "apps/web/src/app/live/[id]/recordings/page.tsx",
+      "kind": "web/page",
+      "lines": 164,
+      "importers_imhotep": [],
+      "importers_other": []
+    },
+    {
+      "file": "apps/web/src/app/owner/formations/page.tsx",
+      "kind": "web/page",
+      "lines": 24,
+      "importers_imhotep": [],
+      "importers_other": []
+    },
+    {
+      "file": "apps/web/src/components/layout/AppLayout.tsx",
+      "kind": "web/component",
+      "lines": 53,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/web/src/app/providers.tsx:8"
+      ]
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "kind": "web/component",
+      "lines": 2177,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/web/src/components/layout/Layout.tsx:4"
+      ]
+    },
+    {
+      "file": "apps/web/src/components/live-sessions/AddLiveSessionButton.tsx",
+      "kind": "web/component",
+      "lines": 75,
+      "importers_imhotep": [
+        "apps/web/src/app/formateur/sessions/[id]/details/page.tsx:12"
+      ],
+      "importers_other": [
+        "apps/web/src/components/schedule/SessionDetails.tsx:5"
+      ]
+    },
+    {
+      "file": "apps/web/src/components/notifications/NotificationBellWidget.tsx",
+      "kind": "web/component",
+      "lines": 73,
+      "importers_imhotep": [
+        "apps/formation-pro-public/src/app/(dashboard)/layout.tsx:6"
+      ],
+      "importers_other": [
+        "apps/web/src/components/layout/Header.tsx:5"
+      ]
+    },
+    {
+      "file": "apps/web/src/lib/fetch-interceptor.ts",
+      "kind": "web/lib",
+      "lines": 697,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/web/src/app/providers.tsx:16"
+      ]
+    },
+    {
+      "file": "apps/web/src/lib/hooks/use-owner-formations.ts",
+      "kind": "web/lib",
+      "lines": 27,
+      "importers_imhotep": [],
+      "importers_other": []
+    },
+    {
+      "file": "apps/web/src/lib/role-landing.ts",
+      "kind": "web/lib",
+      "lines": 40,
+      "importers_imhotep": [],
+      "importers_other": [
+        "apps/web/src/app/login/page.tsx:19",
+        "apps/web/src/app/page.tsx:7",
+        "apps/web/src/app/select-role/page.tsx:9",
+        "apps/web/src/app/tableau-de-bord/layout.tsx:7",
+        "apps/web/src/components/layout/Sidebar.tsx:65"
+      ]
+    }
+  ],
+  "closure_candidates_only_imported_by_imhotep": [
+    {
+      "file": "apps/web/src/components/ui/breadcrumb.tsx",
+      "kind": "web/component",
+      "lines": 56,
+      "imported_only_by": [
+        "apps/web/src/app/formations-professionnelles/admin/documents/attestations/page.tsx",
+        "apps/web/src/app/formations-professionnelles/admin/documents/conventions/page.tsx",
+        "apps/web/src/app/formations-professionnelles/admin/documents/devis/page.tsx",
+        "apps/web/src/app/formations-professionnelles/admin/documents/page.tsx"
+      ]
+    }
+  ],
+  "inbound_imports": [
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/routes/formations-pro.ts",
+      "line": 94,
+      "spec": "./routes/formations-pro"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/routes/sessions-pro.ts",
+      "line": 95,
+      "spec": "./routes/sessions-pro"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/routes/inscriptions-pro.ts",
+      "line": 96,
+      "spec": "./routes/inscriptions-pro"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/routes/codes-promo.ts",
+      "line": 97,
+      "spec": "./routes/codes-promo"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/routes/paiements-pro.ts",
+      "line": 98,
+      "spec": "./routes/paiements-pro"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/routes/formateur.ts",
+      "line": 99,
+      "spec": "./routes/formateur"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/routes/documents.ts",
+      "line": 103,
+      "spec": "./routes/documents"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/routes/entreprises.ts",
+      "line": 104,
+      "spec": "./routes/entreprises"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/routes/exports.ts",
+      "line": 105,
+      "spec": "./routes/exports"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/routes/reporting.ts",
+      "line": 106,
+      "spec": "./routes/reporting"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/jobs/reservation-cleanup.job.ts",
+      "line": 111,
+      "spec": "./jobs/reservation-cleanup.job"
+    },
+    {
+      "from": "apps/api/src/index.ts",
+      "from_kind": "api/bootstrap",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/jobs/document-automation.job.ts",
+      "line": 401,
+      "spec": "./jobs/document-automation.job"
+    },
+    {
+      "from": "apps/api/src/services/owner-formations.service.ts",
+      "from_kind": "api/service",
+      "from_is_shared_candidate": true,
+      "to": "apps/api/src/utils/table-names.ts",
+      "line": 4,
+      "spec": "../utils/table-names"
+    },
+    {
+      "from": "apps/api/src/services/owner-staff.service.ts",
+      "from_kind": "api/service",
+      "from_is_shared_candidate": false,
+      "to": "apps/api/src/utils/table-names.ts",
+      "line": 4,
+      "spec": "../utils/table-names"
+    },
+    {
+      "from": "packages/contracts/src/index.ts",
+      "from_kind": "packages/source",
+      "from_is_shared_candidate": false,
+      "to": "packages/contracts/src/formations-pro.ts",
+      "line": 24,
+      "spec": "./formations-pro"
+    },
+    {
+      "from": "packages/contracts/src/index.ts",
+      "from_kind": "packages/source",
+      "from_is_shared_candidate": false,
+      "to": "packages/contracts/src/inscriptions-pro/index.ts",
+      "line": 27,
+      "spec": "./inscriptions-pro"
+    },
+    {
+      "from": "packages/contracts/src/index.ts",
+      "from_kind": "packages/source",
+      "from_is_shared_candidate": false,
+      "to": "packages/contracts/src/codes-promo/index.ts",
+      "line": 30,
+      "spec": "./codes-promo"
+    },
+    {
+      "from": "packages/contracts/src/index.ts",
+      "from_kind": "packages/source",
+      "from_is_shared_candidate": false,
+      "to": "packages/contracts/src/paiements-pro/index.ts",
+      "line": 33,
+      "spec": "./paiements-pro"
+    },
+    {
+      "from": "packages/contracts/src/index.ts",
+      "from_kind": "packages/source",
+      "from_is_shared_candidate": false,
+      "to": "packages/contracts/src/sessions-pro/index.ts",
+      "line": 61,
+      "spec": "./sessions-pro"
+    },
+    {
+      "from": "packages/contracts/src/index.ts",
+      "from_kind": "packages/source",
+      "from_is_shared_candidate": false,
+      "to": "packages/contracts/src/sessions-pro/index.ts",
+      "line": 77,
+      "spec": "./sessions-pro"
+    },
+    {
+      "from": "packages/contracts/src/index.ts",
+      "from_kind": "packages/source",
+      "from_is_shared_candidate": false,
+      "to": "packages/contracts/src/documents/index.ts",
+      "line": 80,
+      "spec": "./documents"
+    },
+    {
+      "from": "packages/contracts/src/index.ts",
+      "from_kind": "packages/source",
+      "from_is_shared_candidate": false,
+      "to": "packages/contracts/src/entreprises/index.ts",
+      "line": 81,
+      "spec": "./entreprises"
+    },
+    {
+      "from": "packages/contracts/src/index.ts",
+      "from_kind": "packages/source",
+      "from_is_shared_candidate": false,
+      "to": "packages/contracts/src/exports/index.ts",
+      "line": 82,
+      "spec": "./exports"
+    },
+    {
+      "from": "packages/contracts/src/index.ts",
+      "from_kind": "packages/source",
+      "from_is_shared_candidate": false,
+      "to": "packages/contracts/src/reporting/index.ts",
+      "line": 83,
+      "spec": "./reporting"
+    }
+  ],
+  "imhotep_tables": [
+    {
+      "name": "accounts",
+      "status": "prisma-only",
+      "tenant_id": "absent",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "codes_promo",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "documents",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "entreprises_clientes",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 1
+    },
+    {
+      "name": "export_jobs",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "formateur_indisponibilites",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "formateurs",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 3
+    },
+    {
+      "name": "formations_professionnelles",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "inscriptions_professionnelles",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 1
+    },
+    {
+      "name": "inscriptions_public",
+      "status": "prisma-only",
+      "tenant_id": "absent",
+      "fk_in_from_core": [],
+      "core_files_referencing": 1
+    },
+    {
+      "name": "live_session_attendances",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 1
+    },
+    {
+      "name": "live_session_recordings",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 3
+    },
+    {
+      "name": "live_session_webhook_events",
+      "status": "active",
+      "tenant_id": "absent",
+      "fk_in_from_core": [],
+      "core_files_referencing": 1
+    },
+    {
+      "name": "live_sessions",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 4
+    },
+    {
+      "name": "notifications_formateurs",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "paiements_professionnels",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 1
+    },
+    {
+      "name": "public_users",
+      "status": "prisma-only",
+      "tenant_id": "absent",
+      "fk_in_from_core": [],
+      "core_files_referencing": 2
+    },
+    {
+      "name": "reservations_temporaires",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "session_attendance",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "session_formateurs",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "sessions_professionnelles",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 3
+    },
+    {
+      "name": "support_session_associations",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "support_telechargements",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "supports_cours",
+      "status": "active",
+      "tenant_id": "required",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "user_sessions",
+      "status": "prisma-only",
+      "tenant_id": "absent",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    },
+    {
+      "name": "verification_tokens",
+      "status": "prisma-only",
+      "tenant_id": "absent",
+      "fk_in_from_core": [],
+      "core_files_referencing": 0
+    }
+  ],
+  "inbound_table_references": [
+    {
+      "table": "entreprises_clientes",
+      "file": "apps/api/src/services/owner-formations.service.ts",
+      "kind": "api/service",
+      "shared_candidate": true,
+      "lines": [
+        47
+      ],
+      "count": 1
+    },
+    {
+      "table": "formateurs",
+      "file": "apps/api/src/services/owner-formations.service.ts",
+      "kind": "api/service",
+      "shared_candidate": true,
+      "lines": [
+        48
+      ],
+      "count": 1
+    },
+    {
+      "table": "formateurs",
+      "file": "apps/api/src/services/owner-staff.service.ts",
+      "kind": "api/service",
+      "shared_candidate": false,
+      "lines": [
+        116
+      ],
+      "count": 1
+    },
+    {
+      "table": "formateurs",
+      "file": "apps/api/src/services/user-auth.service.ts",
+      "kind": "api/service",
+      "shared_candidate": true,
+      "lines": [
+        89
+      ],
+      "count": 1
+    },
+    {
+      "table": "inscriptions_professionnelles",
+      "file": "apps/api/src/services/owner-formations.service.ts",
+      "kind": "api/service",
+      "shared_candidate": true,
+      "lines": [
+        45
+      ],
+      "count": 1
+    },
+    {
+      "table": "inscriptions_public",
+      "file": "apps/api/src/routes/live-sessions.ts",
+      "kind": "api/route",
+      "shared_candidate": true,
+      "lines": [
+        643
+      ],
+      "count": 1
+    },
+    {
+      "table": "live_session_attendances",
+      "file": "apps/api/src/routes/webhooks/livekit.ts",
+      "kind": "api/route",
+      "shared_candidate": true,
+      "lines": [
+        81,
+        99,
+        128,
+        153,
+        200,
+        225,
+        300
+      ],
+      "count": 7
+    },
+    {
+      "table": "live_session_recordings",
+      "file": "apps/api/src/routes/live-sessions.ts",
+      "kind": "api/route",
+      "shared_candidate": true,
+      "lines": [
+        199,
+        467,
+        514
+      ],
+      "count": 3
+    },
+    {
+      "table": "live_session_recordings",
+      "file": "apps/api/src/routes/webhooks/livekit.ts",
+      "kind": "api/route",
+      "shared_candidate": true,
+      "lines": [
+        339,
+        368,
+        486
+      ],
+      "count": 3
+    },
+    {
+      "table": "live_session_recordings",
+      "file": "apps/api/src/services/livekit.service.ts",
+      "kind": "api/service",
+      "shared_candidate": true,
+      "lines": [
+        187
+      ],
+      "count": 1
+    },
+    {
+      "table": "live_session_webhook_events",
+      "file": "apps/api/src/routes/webhooks/livekit.ts",
+      "kind": "api/route",
+      "shared_candidate": true,
+      "lines": [
+        16,
+        52
+      ],
+      "count": 2
+    },
+    {
+      "table": "live_sessions",
+      "file": "apps/api/src/routes/live-sessions.ts",
+      "kind": "api/route",
+      "shared_candidate": true,
+      "lines": [
+        79,
+        155,
+        168,
+        182,
+        359
+      ],
+      "count": 5
+    },
+    {
+      "table": "live_sessions",
+      "file": "apps/api/src/routes/webhooks/livekit.ts",
+      "kind": "api/route",
+      "shared_candidate": true,
+      "lines": [
+        20,
+        39,
+        110,
+        191,
+        208,
+        264,
+        460
+      ],
+      "count": 7
+    },
+    {
+      "table": "live_sessions",
+      "file": "apps/api/src/services/professional-live-sessions.service.ts",
+      "kind": "api/service",
+      "shared_candidate": true,
+      "lines": [
+        5,
+        80,
+        113,
+        125,
+        147,
+        168,
+        183,
+        188
+      ],
+      "count": 8
+    },
+    {
+      "table": "live_sessions",
+      "file": "scripts/apply-migration-0066-professional-session-features.js",
+      "kind": "repo-scripts/script",
+      "shared_candidate": false,
+      "lines": [
+        7
+      ],
+      "count": 1
+    },
+    {
+      "table": "paiements_professionnels",
+      "file": "apps/api/src/services/owner-formations.service.ts",
+      "kind": "api/service",
+      "shared_candidate": true,
+      "lines": [
+        46
+      ],
+      "count": 1
+    },
+    {
+      "table": "public_users",
+      "file": "apps/api/src/routes/live-sessions.ts",
+      "kind": "api/route",
+      "shared_candidate": true,
+      "lines": [
+        644
+      ],
+      "count": 1
+    },
+    {
+      "table": "public_users",
+      "file": "apps/api/src/services/notifications-dispatch.service.ts",
+      "kind": "api/service",
+      "shared_candidate": true,
+      "lines": [
+        34
+      ],
+      "count": 1
+    },
+    {
+      "table": "sessions_professionnelles",
+      "file": "apps/api/src/routes/live-sessions.ts",
+      "kind": "api/route",
+      "shared_candidate": true,
+      "lines": [
+        73,
+        74
+      ],
+      "count": 2
+    },
+    {
+      "table": "sessions_professionnelles",
+      "file": "apps/api/src/routes/webhooks/livekit.ts",
+      "kind": "api/route",
+      "shared_candidate": true,
+      "lines": [
+        175,
+        181
+      ],
+      "count": 2
+    },
+    {
+      "table": "sessions_professionnelles",
+      "file": "apps/api/src/services/owner-formations.service.ts",
+      "kind": "api/service",
+      "shared_candidate": true,
+      "lines": [
+        44
+      ],
+      "count": 1
+    }
+  ],
+  "fk_inbound_from_core": [],
+  "fk_outbound_to_core": [
+    {
+      "table": "documents",
+      "references": "users",
+      "target_domain": "auth/rbac"
+    },
+    {
+      "table": "export_jobs",
+      "references": "users",
+      "target_domain": "auth/rbac"
+    },
+    {
+      "table": "formateurs",
+      "references": "users",
+      "target_domain": "auth/rbac"
+    },
+    {
+      "table": "formations_professionnelles",
+      "references": "users",
+      "target_domain": "auth/rbac"
+    },
+    {
+      "table": "inscriptions_professionnelles",
+      "references": "users",
+      "target_domain": "auth/rbac"
+    },
+    {
+      "table": "live_sessions",
+      "references": "users",
+      "target_domain": "auth/rbac"
+    },
+    {
+      "table": "support_telechargements",
+      "references": "users",
+      "target_domain": "auth/rbac"
+    }
+  ],
+  "inbound_http_calls": [
+    {
+      "file": "apps/web/next.config.js",
+      "kind": "web/other",
+      "shared_candidate": true,
+      "hits": [
+        {
+          "line": 120,
+          "prefix": "/formations-pro"
+        },
+        {
+          "line": 121,
+          "prefix": "/formations-pro"
+        },
+        {
+          "line": 124,
+          "prefix": "/formations-pro"
+        },
+        {
+          "line": 125,
+          "prefix": "/formations-pro"
+        }
+      ],
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/live/[id]/page.tsx",
+      "kind": "web/page",
+      "shared_candidate": true,
+      "hits": [
+        {
+          "line": 23,
+          "prefix": "/live-sessions"
+        },
+        {
+          "line": 36,
+          "prefix": "/live-sessions"
+        },
+        {
+          "line": 42,
+          "prefix": "/live-sessions"
+        },
+        {
+          "line": 52,
+          "prefix": "/live-sessions"
+        }
+      ],
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/live/[id]/recordings/page.tsx",
+      "kind": "web/page",
+      "shared_candidate": true,
+      "hits": [
+        {
+          "line": 49,
+          "prefix": "/live-sessions"
+        },
+        {
+          "line": 66,
+          "prefix": "/live-sessions"
+        }
+      ],
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/live-sessions/AddLiveSessionButton.tsx",
+      "kind": "web/component",
+      "shared_candidate": true,
+      "hits": [
+        {
+          "line": 41,
+          "prefix": "/live-sessions"
+        }
+      ],
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/notifications/NotificationBellWidget.tsx",
+      "kind": "web/component",
+      "shared_candidate": true,
+      "hits": [
+        {
+          "line": 14,
+          "prefix": "/notifications-inbox"
+        },
+        {
+          "line": 15,
+          "prefix": "/notifications-inbox"
+        },
+        {
+          "line": 24,
+          "prefix": "/notifications-inbox"
+        },
+        {
+          "line": 36,
+          "prefix": "/notifications-inbox"
+        },
+        {
+          "line": 46,
+          "prefix": "/notifications-inbox"
+        },
+        {
+          "line": 55,
+          "prefix": "/notifications-inbox"
+        }
+      ],
+      "count": 6
+    },
+    {
+      "file": "packages/ui/src/components/NotificationBell.tsx",
+      "kind": "packages/source",
+      "shared_candidate": false,
+      "hits": [
+        {
+          "line": 11,
+          "prefix": "/notifications-inbox"
+        }
+      ],
+      "count": 1
+    }
+  ],
+  "inbound_contract_symbols": [
+    {
+      "file": "apps/api/src/services/pdf-generation.service.ts",
+      "kind": "api/service",
+      "shared_candidate": true,
+      "symbols": [
+        "FormationDetail"
+      ],
+      "count": 1
+    }
+  ],
+  "npm": {
+    "apps/api/package.json": [
+      {
+        "dep": "@aws-sdk/client-s3",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/api/src/services/livekit.service.ts",
+          "apps/api/src/services/minio.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@aws-sdk/s3-request-presigner",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/api/src/services/livekit.service.ts",
+          "apps/api/src/services/minio.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@ecoledigitale/contracts",
+        "dev": false,
+        "importers": 113,
+        "imhotep_importers": 20,
+        "other_importers": 93,
+        "other_sample": [
+          "apps/api/src/__tests__/owner-prospection-canaux.test.ts",
+          "apps/api/src/__tests__/payment-calculator-academic.test.ts",
+          "apps/api/src/__tests__/payment-calculator-mixed.test.ts",
+          "apps/api/src/__tests__/payment-calculator-professional.test.ts"
+        ],
+        "imhotep_sample": [
+          "apps/api/src/routes/codes-promo.ts",
+          "apps/api/src/routes/documents.ts",
+          "apps/api/src/routes/entreprises.ts"
+        ]
+      },
+      {
+        "dep": "@fastify/cors",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/api/src/__tests__/api-endpoints.test.ts",
+          "apps/api/src/index.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@fastify/helmet",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/api/src/__tests__/api-endpoints.test.ts",
+          "apps/api/src/index.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@fastify/multipart",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/api/src/index.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@fastify/postgres",
+        "dev": false,
+        "importers": 3,
+        "imhotep_importers": 0,
+        "other_importers": 3,
+        "other_sample": [
+          "apps/api/src/__tests__/api-endpoints.test.ts",
+          "apps/api/src/__tests__/basic.test.ts",
+          "apps/api/src/index.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@prisma/client",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/bcryptjs",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/fluent-ffmpeg",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/jest",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/jsonwebtoken",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/mime-types",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/node",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/node-cron",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/nodemailer",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/pdf-parse",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/pdfkit",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/pg",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/supertest",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "axios",
+        "dev": false,
+        "importers": 5,
+        "imhotep_importers": 5,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/api/src/services/carte-bancaire.service.ts",
+          "apps/api/src/services/mtn-money.service.ts",
+          "apps/api/src/services/orange-money.service.ts"
+        ]
+      },
+      {
+        "dep": "bcryptjs",
+        "dev": false,
+        "importers": 21,
+        "imhotep_importers": 2,
+        "other_importers": 19,
+        "other_sample": [
+          "apps/api/scripts/ensure-owner-demo-user.ts",
+          "apps/api/scripts/seed-parents-lprigla-students.ts",
+          "apps/api/scripts/seed-students-academic-20.ts",
+          "apps/api/scripts/seed-students-bts-gerna-1-500.ts"
+        ],
+        "imhotep_sample": [
+          "apps/api/src/routes/sessions-pro.ts",
+          "apps/api/src/services/inscription-pro.service.ts"
+        ]
+      },
+      {
+        "dep": "bullmq",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "docx",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/api/src/services/attendance-certificate-template.service.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "docxtemplater",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/api/src/services/attendance-certificate-template.service.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "dotenv",
+        "dev": false,
+        "importers": 28,
+        "imhotep_importers": 0,
+        "other_importers": 28,
+        "other_sample": [
+          "apps/api/scripts/debug-student-grades.ts",
+          "apps/api/scripts/delete-assignments-by-title.js",
+          "apps/api/scripts/delete-eca-formation-ue-ecue.ts",
+          "apps/api/scripts/delete-tenant-programmes.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "exceljs",
+        "dev": false,
+        "importers": 3,
+        "imhotep_importers": 3,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/api/src/services/entreprise-cliente.service.ts",
+          "apps/api/src/services/export.service.ts",
+          "apps/api/src/services/session-pro.service.ts"
+        ]
+      },
+      {
+        "dep": "fastify",
+        "dev": false,
+        "importers": 151,
+        "imhotep_importers": 11,
+        "other_importers": 140,
+        "other_sample": [
+          "apps/api/src/__tests__/api-endpoints.test.ts",
+          "apps/api/src/__tests__/basic.test.ts",
+          "apps/api/src/__tests__/file-serving.test.ts",
+          "apps/api/src/__tests__/owner-routes.test.ts"
+        ],
+        "imhotep_sample": [
+          "apps/api/src/middleware/formateurAuth.ts",
+          "apps/api/src/routes/codes-promo.ts",
+          "apps/api/src/routes/documents.ts"
+        ]
+      },
+      {
+        "dep": "fastify-plugin",
+        "dev": false,
+        "importers": 5,
+        "imhotep_importers": 1,
+        "other_importers": 4,
+        "other_sample": [
+          "apps/api/src/plugins/auth-middleware.ts",
+          "apps/api/src/plugins/rls-context.ts",
+          "apps/api/src/plugins/super-admin-audit.ts",
+          "apps/api/src/plugins/tenant-context.ts"
+        ],
+        "imhotep_sample": [
+          "apps/api/src/middleware/formateurAuth.ts"
+        ]
+      },
+      {
+        "dep": "fluent-ffmpeg",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "ioredis",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "isomorphic-dompurify",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "jest",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "jsonwebtoken",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/api/src/services/jwt.service.ts",
+          "apps/api/src/services/super-admin-jwt.service.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "jszip",
+        "dev": false,
+        "importers": 3,
+        "imhotep_importers": 0,
+        "other_importers": 3,
+        "other_sample": [
+          "apps/api/src/__tests__/upload-management-complete.test.ts",
+          "apps/api/src/__tests__/upload-management.test.ts",
+          "apps/api/src/services/textExtraction.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "livekit-server-sdk",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/api/src/services/livekit.service.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "mammoth",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/api/src/services/attendance-certificate-template.service.ts",
+          "apps/api/src/services/textExtraction.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "mime-types",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/api/src/routes/materials.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "node-cron",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "nodemailer",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/api/src/services/email.service.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "openai",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/api/src/services/ai-evaluation.service.ts",
+          "apps/api/src/services/embeddings.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "pdf-lib",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/api/src/services/attendance-certificate-template.service.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "pdf-parse",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/api/src/services/textExtraction.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "pdfkit",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 2,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/api/src/services/document-generation.service.ts",
+          "apps/api/src/services/invoice.service.ts"
+        ]
+      },
+      {
+        "dep": "pg",
+        "dev": false,
+        "importers": 137,
+        "imhotep_importers": 18,
+        "other_importers": 119,
+        "other_sample": [
+          "apps/api/scripts/add-student-admin-fields.js",
+          "apps/api/scripts/appliquer-0112.ts",
+          "apps/api/scripts/appliquer-0114.ts",
+          "apps/api/scripts/calculate-and-create-payments.js"
+        ],
+        "imhotep_sample": [
+          "apps/api/src/jobs/document-automation.job.ts",
+          "apps/api/src/jobs/reservation-cleanup.job.ts",
+          "apps/api/src/services/code-promo.service.ts"
+        ]
+      },
+      {
+        "dep": "pizzip",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/api/src/services/attendance-certificate-template.service.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "prisma",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "puppeteer",
+        "dev": false,
+        "importers": 6,
+        "imhotep_importers": 0,
+        "other_importers": 6,
+        "other_sample": [
+          "apps/api/src/services/attendance-certificate-template.service.ts",
+          "apps/api/src/services/pdf-generation.service.ts",
+          "apps/api/src/services/receipt-generator.service.ts",
+          "apps/api/src/services/report-card-template.service.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "sharp",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "supertest",
+        "dev": true,
+        "importers": 4,
+        "imhotep_importers": 0,
+        "other_importers": 4,
+        "other_sample": [
+          "apps/api/src/__tests__/api-endpoints.test.ts",
+          "apps/api/src/__tests__/basic.test.ts",
+          "apps/api/src/__tests__/upload-management-complete.test.ts",
+          "apps/api/src/__tests__/upload-management.test.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "ts-jest",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "tsx",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "twilio",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 1,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/api/src/services/sms.service.ts"
+        ]
+      },
+      {
+        "dep": "typescript",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "zod",
+        "dev": false,
+        "importers": 53,
+        "imhotep_importers": 7,
+        "other_importers": 46,
+        "other_sample": [
+          "apps/api/src/routes/academic-calendar-events.ts",
+          "apps/api/src/routes/academic-years.ts",
+          "apps/api/src/routes/admin-announcements.ts",
+          "apps/api/src/routes/admin-roles.ts"
+        ],
+        "imhotep_sample": [
+          "apps/api/src/routes/codes-promo.ts",
+          "apps/api/src/routes/entreprises.ts",
+          "apps/api/src/routes/exports.ts"
+        ]
+      }
+    ],
+    "apps/web/package.json": [
+      {
+        "dep": "@ant-design/icons",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/web/src/app/test-antd/page.tsx",
+          "apps/web/src/components/academic/AntdProgrammeForm.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@ant-design/v5-patch-for-react-19",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/app/layout.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@dnd-kit/core",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@dnd-kit/sortable",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@dnd-kit/utilities",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@ecoledigitale/ui",
+        "dev": false,
+        "importers": 413,
+        "imhotep_importers": 142,
+        "other_importers": 271,
+        "other_sample": [
+          "apps/web/src/app/(dashboard)/admin/finances/analytics/page.tsx",
+          "apps/web/src/app/(dashboard)/admin/finances/page.tsx",
+          "apps/web/src/app/(dashboard)/admin/finances/payment-validation/page.tsx",
+          "apps/web/src/app/(dashboard)/admin/finances/reports/classes/page.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/app/formateur/dashboard/page.tsx",
+          "apps/web/src/app/formateur/planning/page.tsx",
+          "apps/web/src/app/formateur/profil/page.tsx"
+        ]
+      },
+      {
+        "dep": "@emotion/is-prop-valid",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@fullcalendar/core",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 1,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/schedule/Calendar.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/components/sessions-pro/CalendarComponent.tsx"
+        ]
+      },
+      {
+        "dep": "@fullcalendar/daygrid",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 1,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/schedule/Calendar.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/components/sessions-pro/CalendarComponent.tsx"
+        ]
+      },
+      {
+        "dep": "@fullcalendar/interaction",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 1,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/schedule/Calendar.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/components/sessions-pro/CalendarComponent.tsx"
+        ]
+      },
+      {
+        "dep": "@fullcalendar/list",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 1,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/web/src/components/sessions-pro/CalendarComponent.tsx"
+        ]
+      },
+      {
+        "dep": "@fullcalendar/react",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 1,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/schedule/Calendar.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/components/sessions-pro/CalendarComponent.tsx"
+        ]
+      },
+      {
+        "dep": "@fullcalendar/timegrid",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 1,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/schedule/Calendar.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/components/sessions-pro/CalendarComponent.tsx"
+        ]
+      },
+      {
+        "dep": "@hcaptcha/react-hcaptcha",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@hookform/resolvers",
+        "dev": false,
+        "importers": 32,
+        "imhotep_importers": 7,
+        "other_importers": 25,
+        "other_sample": [
+          "apps/web/src/app/academic/parents/[id]/edit/page.tsx",
+          "apps/web/src/app/academic/parents/new/page.tsx",
+          "apps/web/src/app/academic/students/[id]/edit/page.tsx",
+          "apps/web/src/app/academic/students/new/page.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/app/formations-professionnelles/admin/formateurs/[id]/modifier/page.tsx",
+          "apps/web/src/app/formations-professionnelles/catalogue/[slug]/edit/page.tsx",
+          "apps/web/src/app/formations-professionnelles/catalogue/[slug]/sessions/[sessionId]/edit/page.tsx"
+        ]
+      },
+      {
+        "dep": "@livekit/components-react",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@livekit/components-styles",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-alert-dialog",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/alert-dialog.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-avatar",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/avatar.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-checkbox",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/checkbox.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-dialog",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/dialog.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-dropdown-menu",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/dropdown-menu.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-form",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-label",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/label.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-progress",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/progress.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-radio-group",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/radio-group.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-select",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/select.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-separator",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/separator.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-slider",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/slider.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-slot",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/button.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-switch",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/switch.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-tabs",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/tabs.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@radix-ui/react-toast",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/ui/toast.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@react-pdf-viewer/core",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@react-pdf-viewer/default-layout",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@tanstack/react-query",
+        "dev": false,
+        "importers": 150,
+        "imhotep_importers": 21,
+        "other_importers": 129,
+        "other_sample": [
+          "apps/web/src/__tests__/assignment-detail-page.test.tsx",
+          "apps/web/src/__tests__/assignment-submission-api.test.ts",
+          "apps/web/src/__tests__/assignment-submission-components.test.tsx",
+          "apps/web/src/__tests__/file-download.test.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/__tests__/formation-detail-button-click-fix.test.tsx",
+          "apps/web/src/app/formations-professionnelles/admin/sessions/[id]/details/page.tsx",
+          "apps/web/src/app/formations-professionnelles/catalogue/[slug]/edit/page.tsx"
+        ]
+      },
+      {
+        "dep": "@tanstack/react-query-devtools",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/web/src/app/providers.tsx",
+          "apps/web/src/components/providers/QueryProvider.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@tinymce/tinymce-react",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/file-saver",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/node",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/qrcode",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/react",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/react-dom",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/react-grid-layout",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/react-resizable",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "antd",
+        "dev": false,
+        "importers": 5,
+        "imhotep_importers": 0,
+        "other_importers": 5,
+        "other_sample": [
+          "apps/web/src/app/test-antd/page.tsx",
+          "apps/web/src/components/DynamicLoader.tsx",
+          "apps/web/src/components/academic/AntdProgrammeForm.tsx",
+          "apps/web/src/components/antd/AntdWrapper.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "autoprefixer",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "class-variance-authority",
+        "dev": false,
+        "importers": 5,
+        "imhotep_importers": 0,
+        "other_importers": 5,
+        "other_sample": [
+          "apps/web/src/components/ui/alert.tsx",
+          "apps/web/src/components/ui/badge.tsx",
+          "apps/web/src/components/ui/button.tsx",
+          "apps/web/src/components/ui/label.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "clsx",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/lib/utils.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "date-fns",
+        "dev": false,
+        "importers": 49,
+        "imhotep_importers": 23,
+        "other_importers": 26,
+        "other_sample": [
+          "apps/web/src/app/_rso/formateur/activities/page.tsx",
+          "apps/web/src/app/academic/courses/[id]/page.tsx",
+          "apps/web/src/app/academic/evaluations/[id]/grading/[submissionId]/page.tsx",
+          "apps/web/src/app/academic/evaluations/[id]/page.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/app/formations-professionnelles/admin/inscriptions/creer/page.tsx",
+          "apps/web/src/components/admin/entreprises/EntrepriseDetailPage.tsx",
+          "apps/web/src/components/admin/entreprises/FacturationGroupeeModal.tsx"
+        ]
+      },
+      {
+        "dep": "docx",
+        "dev": false,
+        "importers": 3,
+        "imhotep_importers": 0,
+        "other_importers": 3,
+        "other_sample": [
+          "apps/web/src/lib/emploi-temps-docx.ts",
+          "apps/web/src/lib/utils/payment-export.ts",
+          "apps/web/src/lib/utils/report-docx.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "eslint",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "eslint-config-next",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "exceljs",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "file-saver",
+        "dev": false,
+        "importers": 4,
+        "imhotep_importers": 0,
+        "other_importers": 4,
+        "other_sample": [
+          "apps/web/src/lib/emploi-temps-docx.ts",
+          "apps/web/src/lib/utils/payment-export.ts",
+          "apps/web/src/lib/utils/report-docx.ts",
+          "apps/web/src/lib/utils/student-export.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "form-data",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/app/api/courses/[courseId]/materials/route.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "framer-motion",
+        "dev": false,
+        "importers": 22,
+        "imhotep_importers": 0,
+        "other_importers": 22,
+        "other_sample": [
+          "apps/web/src/app/(dashboard)/admin/finances/analytics/page.tsx",
+          "apps/web/src/app/(dashboard)/admin/finances/page.tsx",
+          "apps/web/src/app/(dashboard)/admin/finances/reports/classes/page.tsx",
+          "apps/web/src/app/(dashboard)/admin/finances/reports/monthly/page.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "isomorphic-dompurify",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "jspdf",
+        "dev": false,
+        "importers": 9,
+        "imhotep_importers": 0,
+        "other_importers": 9,
+        "other_sample": [
+          "apps/web/src/lib/attestation-authenticite-pdf.ts",
+          "apps/web/src/lib/attestation-pdf.ts",
+          "apps/web/src/lib/bulletin-pdf-bts.ts",
+          "apps/web/src/lib/bulletin-pdf.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "jspdf-autotable",
+        "dev": false,
+        "importers": 6,
+        "imhotep_importers": 0,
+        "other_importers": 6,
+        "other_sample": [
+          "apps/web/src/lib/bulletin-pdf-bts.ts",
+          "apps/web/src/lib/bulletin-pdf.ts",
+          "apps/web/src/lib/emploi-temps-pdf.ts",
+          "apps/web/src/lib/payslip-pdf.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "jwt-decode",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/lib/jwt-storage.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "livekit-client",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "lucide-react",
+        "dev": false,
+        "importers": 551,
+        "imhotep_importers": 132,
+        "other_importers": 419,
+        "other_sample": [
+          "apps/web/src/app/(dashboard)/admin/announcements/page.tsx",
+          "apps/web/src/app/(dashboard)/admin/components/messages/EmailComposer.tsx",
+          "apps/web/src/app/(dashboard)/admin/components/messages/EmailHistory.tsx",
+          "apps/web/src/app/(dashboard)/admin/components/messages/EmailInbox.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/app/formateur/dashboard/page.tsx",
+          "apps/web/src/app/formateur/planning/page.tsx",
+          "apps/web/src/app/formateur/profil/page.tsx"
+        ]
+      },
+      {
+        "dep": "next",
+        "dev": false,
+        "importers": 406,
+        "imhotep_importers": 67,
+        "other_importers": 339,
+        "other_sample": [
+          "apps/web/jest.config.js",
+          "apps/web/middleware.ts",
+          "apps/web/next.config.js",
+          "apps/web/src/__tests__/assignment-detail-page.test.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/__tests__/formation-detail-button-click-fix.test.tsx",
+          "apps/web/src/app/api/v1/formations-pro/[id]/catalogue-support/route.ts",
+          "apps/web/src/app/api/v1/formations-pro/[id]/materials/[access]/route.ts"
+        ]
+      },
+      {
+        "dep": "next-auth",
+        "dev": false,
+        "importers": 220,
+        "imhotep_importers": 15,
+        "other_importers": 205,
+        "other_sample": [
+          "apps/web/src/__tests__/assignment-detail-page.test.tsx",
+          "apps/web/src/__tests__/file-download.test.tsx",
+          "apps/web/src/__tests__/infinite-loop-fix.test.tsx",
+          "apps/web/src/__tests__/student-assignments-key-duplication.test.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/app/api/v1/formations-pro/[id]/materials/[access]/route.ts",
+          "apps/web/src/app/api/v1/formations-pro/[id]/programme-pdf/route.ts",
+          "apps/web/src/app/api/v1/formations-pro/[id]/route.ts"
+        ]
+      },
+      {
+        "dep": "pdfjs-dist",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "postcss",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "qrcode",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "react",
+        "dev": false,
+        "importers": 553,
+        "imhotep_importers": 92,
+        "other_importers": 461,
+        "other_sample": [
+          "apps/web/src/__tests__/assignment-detail-page.test.tsx",
+          "apps/web/src/__tests__/assignment-submission-api.test.ts",
+          "apps/web/src/__tests__/assignment-submission-components.test.tsx",
+          "apps/web/src/__tests__/document-selector-optimization.test.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/__tests__/formation-detail-button-click-fix.test.tsx",
+          "apps/web/src/app/formateur/planning/page.tsx",
+          "apps/web/src/app/formateur/profil/page.tsx"
+        ]
+      },
+      {
+        "dep": "react-day-picker",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/web/src/app/layout.tsx",
+          "apps/web/src/components/DatePickerFr.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "react-dom",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/DatePickerFr.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "react-dropzone",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/materials/MaterialsUpload.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "react-grid-layout",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "react-hook-form",
+        "dev": false,
+        "importers": 35,
+        "imhotep_importers": 10,
+        "other_importers": 25,
+        "other_sample": [
+          "apps/web/src/app/academic/parents/[id]/edit/page.tsx",
+          "apps/web/src/app/academic/parents/new/page.tsx",
+          "apps/web/src/app/academic/students/[id]/edit/page.tsx",
+          "apps/web/src/app/academic/students/new/page.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/app/formations-professionnelles/admin/formateurs/[id]/modifier/page.tsx",
+          "apps/web/src/app/formations-professionnelles/catalogue/[slug]/edit/page.tsx",
+          "apps/web/src/app/formations-professionnelles/catalogue/[slug]/sessions/[sessionId]/edit/page.tsx"
+        ]
+      },
+      {
+        "dep": "react-hot-toast",
+        "dev": false,
+        "importers": 40,
+        "imhotep_importers": 15,
+        "other_importers": 25,
+        "other_sample": [
+          "apps/web/src/app/_rso/formateur/activities/page.tsx",
+          "apps/web/src/app/annee-academique/rapports-de-presence/page.tsx",
+          "apps/web/src/app/annee-academique/releves-de-notes/page.tsx",
+          "apps/web/src/app/providers.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/app/formations-professionnelles/admin/formateurs/[id]/modifier/page.tsx",
+          "apps/web/src/app/formations-professionnelles/admin/formateurs/page.tsx",
+          "apps/web/src/app/formations-professionnelles/catalogue/[slug]/edit/page.tsx"
+        ]
+      },
+      {
+        "dep": "react-pdf",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/web/src/app/test/pdf-worker/page.tsx",
+          "apps/web/src/components/materials/viewers/PDFViewer.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "react-player",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/components/materials/viewers/VideoPlayer.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "react-resizable",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "react-use",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "recharts",
+        "dev": false,
+        "importers": 16,
+        "imhotep_importers": 0,
+        "other_importers": 16,
+        "other_sample": [
+          "apps/web/src/app/(dashboard)/admin/finances/analytics/page.tsx",
+          "apps/web/src/app/(dashboard)/admin/finances/page.tsx",
+          "apps/web/src/app/(dashboard)/admin/finances/reports/monthly/page.tsx",
+          "apps/web/src/app/(dashboard)/admin/finances/reports/revenue/page.tsx"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "rimraf",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "sonner",
+        "dev": false,
+        "importers": 27,
+        "imhotep_importers": 18,
+        "other_importers": 9,
+        "other_sample": [
+          "apps/web/src/app/(dashboard)/admin/components/messages/EmailComposer.tsx",
+          "apps/web/src/app/annee-academique/moyennes-semestre/page.tsx",
+          "apps/web/src/app/annee-academique/types-de-bilan/page.tsx",
+          "apps/web/src/app/parent/components/messages/SchoolMessageForm.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/app/formateur/supports/upload/page.tsx",
+          "apps/web/src/app/formations-professionnelles/inscription/paiement/[inscriptionId]/page.tsx",
+          "apps/web/src/components/formateur/FormateurSessionDetailContent.tsx"
+        ]
+      },
+      {
+        "dep": "tailwind-merge",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/src/lib/utils.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "tailwindcss",
+        "dev": true,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/tailwind.config.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "tailwindcss-animate",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 0,
+        "other_importers": 1,
+        "other_sample": [
+          "apps/web/tailwind.config.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "typescript",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "xlsx",
+        "dev": false,
+        "importers": 3,
+        "imhotep_importers": 0,
+        "other_importers": 3,
+        "other_sample": [
+          "apps/web/src/app/annee-academique/moyennes-semestre/page.tsx",
+          "apps/web/src/lib/utils/payment-export.ts",
+          "apps/web/src/lib/utils/student-export.ts"
+        ],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "zod",
+        "dev": false,
+        "importers": 53,
+        "imhotep_importers": 27,
+        "other_importers": 26,
+        "other_sample": [
+          "apps/web/src/__tests__/student-assignments-fix.test.ts",
+          "apps/web/src/app/academic/parents/[id]/edit/page.tsx",
+          "apps/web/src/app/academic/parents/new/page.tsx",
+          "apps/web/src/app/academic/students/[id]/edit/page.tsx"
+        ],
+        "imhotep_sample": [
+          "apps/web/src/app/formateur/sessions/page.tsx",
+          "apps/web/src/app/formateur/supports/page.tsx",
+          "apps/web/src/app/formations-professionnelles/admin/formateurs/[id]/modifier/page.tsx"
+        ]
+      },
+      {
+        "dep": "zustand",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 0,
+        "other_importers": 2,
+        "other_sample": [
+          "apps/web/src/lib/stores/schedule-generation-store.ts",
+          "apps/web/src/lib/stores/ui-store.ts"
+        ],
+        "imhotep_sample": []
+      }
+    ],
+    "apps/formation-pro-public/package.json": [
+      {
+        "dep": "@ecoledigitale/ui",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 2,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/(dashboard)/live/[id]/page.tsx",
+          "apps/formation-pro-public/src/components/notifications/NotificationBellWidget.tsx"
+        ]
+      },
+      {
+        "dep": "@hookform/resolvers",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 2,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/(auth)/login/page.tsx",
+          "apps/formation-pro-public/src/app/(auth)/register/page.tsx"
+        ]
+      },
+      {
+        "dep": "@livekit/components-react",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@livekit/components-styles",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@prisma/client",
+        "dev": false,
+        "importers": 13,
+        "imhotep_importers": 13,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/(dashboard)/mes-formations/page.tsx",
+          "apps/formation-pro-public/src/app/api/apprenant/live-sessions/[id]/join-token/route.ts",
+          "apps/formation-pro-public/src/app/api/apprenant/notifications/[id]/read/route.ts"
+        ]
+      },
+      {
+        "dep": "@tanstack/react-query",
+        "dev": false,
+        "importers": 4,
+        "imhotep_importers": 4,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/providers.tsx",
+          "apps/formation-pro-public/src/components/notifications/NotificationBellWidget.tsx",
+          "apps/formation-pro-public/src/hooks/useFormations.ts"
+        ]
+      },
+      {
+        "dep": "@types/bcryptjs",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/node",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/nodemailer",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/react",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "@types/react-dom",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "autoprefixer",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "bcryptjs",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 2,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/api/auth/register/route.ts",
+          "apps/formation-pro-public/src/lib/auth.ts"
+        ]
+      },
+      {
+        "dep": "eslint",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "eslint-config-next",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "livekit-client",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "livekit-server-sdk",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 1,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/api/apprenant/live-sessions/[id]/join-token/route.ts"
+        ]
+      },
+      {
+        "dep": "lucide-react",
+        "dev": false,
+        "importers": 11,
+        "imhotep_importers": 11,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/(dashboard)/compte/page.tsx",
+          "apps/formation-pro-public/src/app/(public)/page.tsx",
+          "apps/formation-pro-public/src/components/catalogue/FormationCard.tsx"
+        ]
+      },
+      {
+        "dep": "next",
+        "dev": false,
+        "importers": 47,
+        "imhotep_importers": 47,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/next.config.js",
+          "apps/formation-pro-public/src/app/(auth)/login/page.tsx",
+          "apps/formation-pro-public/src/app/(auth)/register/page.tsx"
+        ]
+      },
+      {
+        "dep": "next-auth",
+        "dev": false,
+        "importers": 26,
+        "imhotep_importers": 26,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/(auth)/login/page.tsx",
+          "apps/formation-pro-public/src/app/(dashboard)/affectations/page.tsx",
+          "apps/formation-pro-public/src/app/(dashboard)/compte/page.tsx"
+        ]
+      },
+      {
+        "dep": "nodemailer",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 1,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/lib/email.ts"
+        ]
+      },
+      {
+        "dep": "postcss",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "prisma",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "react",
+        "dev": false,
+        "importers": 17,
+        "imhotep_importers": 17,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/(auth)/login/page.tsx",
+          "apps/formation-pro-public/src/app/(auth)/register/page.tsx",
+          "apps/formation-pro-public/src/app/providers.tsx"
+        ]
+      },
+      {
+        "dep": "react-dom",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "react-hook-form",
+        "dev": false,
+        "importers": 2,
+        "imhotep_importers": 2,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/(auth)/login/page.tsx",
+          "apps/formation-pro-public/src/app/(auth)/register/page.tsx"
+        ]
+      },
+      {
+        "dep": "resend",
+        "dev": false,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "tailwindcss",
+        "dev": true,
+        "importers": 1,
+        "imhotep_importers": 1,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/tailwind.config.ts"
+        ]
+      },
+      {
+        "dep": "tailwindcss-animate",
+        "dev": true,
+        "importers": 1,
+        "imhotep_importers": 1,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/tailwind.config.ts"
+        ]
+      },
+      {
+        "dep": "typescript",
+        "dev": true,
+        "importers": 0,
+        "imhotep_importers": 0,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": []
+      },
+      {
+        "dep": "zod",
+        "dev": false,
+        "importers": 3,
+        "imhotep_importers": 3,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/app/(auth)/login/page.tsx",
+          "apps/formation-pro-public/src/app/(auth)/register/page.tsx",
+          "apps/formation-pro-public/src/lib/schemas.ts"
+        ]
+      },
+      {
+        "dep": "zustand",
+        "dev": false,
+        "importers": 1,
+        "imhotep_importers": 1,
+        "other_importers": 0,
+        "other_sample": [],
+        "imhotep_sample": [
+          "apps/formation-pro-public/src/stores/cartStore.ts"
+        ]
+      }
+    ]
+  },
+  "non_source": [
+    {
+      "file": "package.json",
+      "hits": [
+        {
+          "line": 13,
+          "text": "\"dev:formation-public\": \"pnpm --filter @ecoledigitale/formation-pro-public dev\","
+        },
+        {
+          "line": 14,
+          "text": "\"db:formation-public:apply\": \"node scripts/prepare-formation-public-db.mjs\","
+        },
+        {
+          "line": 15,
+          "text": "\"db:formation-public:generate\": \"corepack pnpm --filter @ecoledigitale/api prisma:generate\","
+        },
+        {
+          "line": 22,
+          "text": "\"migrate:imhotep-data\": \"node scripts/migrate-imhotep-data.js\","
+        },
+        {
+          "line": 29,
+          "text": "\"test:imhotep-data\": \"psql \\\"postgresql://<masqué>@localhost:5432/dbecoledigitale\\\" -f scripts/test-imhotep-data-migration.sql\","
+        },
+        {
+          "line": 30,
+          "text": "\"test:imhotep-data-insert\": \"node scripts/test-imhotep-data-insert.js\","
+        },
+        {
+          "line": 31,
+          "text": "\"validate:imhotep-data\": \"node scripts/validate-imhotep-data-migration.js\","
+        }
+      ],
+      "count": 7
+    },
+    {
+      "file": "infra/compose/docker-compose.yml",
+      "hits": [
+        {
+          "line": 29,
+          "text": "ecoledigitale-formation-pro:"
+        },
+        {
+          "line": 32,
+          "text": "dockerfile: infra/compose/Dockerfile.formation-pro-public"
+        },
+        {
+          "line": 33,
+          "text": "image: ecoledigitale-formation-pro:latest"
+        },
+        {
+          "line": 34,
+          "text": "container_name: ecoledigitale-formation-pro"
+        },
+        {
+          "line": 42,
+          "text": "NEXTAUTH_URL: https://formation-pro.allianceconsultants.net"
+        }
+      ],
+      "count": 5
+    },
+    {
+      "file": "infra/compose/Dockerfile.formation-pro-public",
+      "hits": [
+        {
+          "line": 1,
+          "text": "# Multi-stage build for formation-pro-public (Next.js, pnpm workspace, prisma)."
+        },
+        {
+          "line": 15,
+          "text": "COPY apps/formation-pro-public/package.json ./apps/formation-pro-public/"
+        },
+        {
+          "line": 27,
+          "text": "# Build — generates Prisma client (into the pnpm store) then runs next build"
+        },
+        {
+          "line": 33,
+          "text": "RUN cd apps/formation-pro-public && \\"
+        },
+        {
+          "line": 34,
+          "text": "pnpm exec prisma generate --schema ../api/prisma/schema.prisma"
+        },
+        {
+          "line": 35,
+          "text": "RUN pnpm --filter @ecoledigitale/formation-pro-public build"
+        },
+        {
+          "line": 37,
+          "text": "# Runtime — copy node_modules from the BUILDER stage so the prisma-"
+        },
+        {
+          "line": 38,
+          "text": "# generated files in node_modules/.pnpm/@prisma+client.../ travel with us."
+        },
+        {
+          "line": 46,
+          "text": "COPY --from=builder --chown=nodejs:nodejs /app/apps/formation-pro-public/node_modules ./apps/formation-pro-public/node_modules"
+        },
+        {
+          "line": 52,
+          "text": "COPY --chown=nodejs:nodejs apps/formation-pro-public/package.json ./apps/formation-pro-public/"
+        },
+        {
+          "line": 53,
+          "text": "COPY --chown=nodejs:nodejs apps/formation-pro-public/next.config.js ./apps/formation-pro-public/"
+        },
+        {
+          "line": 54,
+          "text": "COPY --chown=nodejs:nodejs apps/formation-pro-public/public ./apps/formation-pro-public/public"
+        },
+        {
+          "line": 55,
+          "text": "COPY --chown=nodejs:nodejs apps/api/prisma ./apps/api/prisma"
+        },
+        {
+          "line": 56,
+          "text": "COPY --from=builder --chown=nodejs:nodejs /app/apps/formation-pro-public/.next ./apps/formation-pro-public/.next"
+        }
+      ],
+      "count": 15
+    },
+    {
+      "file": "infra/nginx/formation-pro.conf",
+      "hits": [
+        {
+          "line": 1,
+          "text": "# Nginx vhost for formation-pro-public on alliance (srv917891)"
+        },
+        {
+          "line": 2,
+          "text": "# Domain: formation-pro.allianceconsultants.net"
+        },
+        {
+          "line": 3,
+          "text": "# Place at: /etc/nginx/sites-available/formation-pro"
+        },
+        {
+          "line": 4,
+          "text": "# Symlink:  /etc/nginx/sites-enabled/formation-pro"
+        },
+        {
+          "line": 10,
+          "text": "server_name formation-pro.allianceconsultants.net;"
+        },
+        {
+          "line": 25,
+          "text": "server_name formation-pro.allianceconsultants.net;"
+        },
+        {
+          "line": 27,
+          "text": "ssl_certificate     /etc/letsencrypt/live/formation-pro.allianceconsultants.net/fullchain.pem;"
+        },
+        {
+          "line": 28,
+          "text": "ssl_certificate_key /etc/letsencrypt/live/formation-pro.allianceconsultants.net/privkey.pem;"
+        },
+        {
+          "line": 41,
+          "text": "# stay on the formation-pro container."
+        },
+        {
+          "line": 65,
+          "text": "# Next.js app on 127.0.0.1:3012 (formation-pro container)"
+        }
+      ],
+      "count": 10
+    },
+    {
+      "file": "infra/scripts/deploy.sh",
+      "hits": [
+        {
+          "line": 29,
+          "text": "dc build --pull ecoledigitale-api ecoledigitale-web ecoledigitale-formation-pro"
+        },
+        {
+          "line": 35,
+          "text": "# y compris `_prisma_migrations` (journal interne du moteur Prisma). Prisma"
+        },
+        {
+          "line": 39,
+          "text": "echo \"== repair _prisma_migrations (drop tenant_id/RLS added by 0055) ==\""
+        },
+        {
+          "line": 63,
+          "text": "# n'existe pas encore (Prisma la crée au premier `migrate deploy`), et le"
+        },
+        {
+          "line": 68,
+          "text": "IF to_regclass('public._prisma_migrations') IS NULL THEN"
+        },
+        {
+          "line": 72,
+          "text": "EXECUTE 'ALTER TABLE \"_prisma_migrations\" NO FORCE ROW LEVEL SECURITY';"
+        },
+        {
+          "line": 73,
+          "text": "EXECUTE 'ALTER TABLE \"_prisma_migrations\" DISABLE ROW LEVEL SECURITY';"
+        },
+        {
+          "line": 74,
+          "text": "EXECUTE 'DROP POLICY IF EXISTS tenant_isolation_policy ON \"_prisma_migrations\"';"
+        },
+        {
+          "line": 75,
+          "text": "EXECUTE 'ALTER TABLE \"_prisma_migrations\" DROP CONSTRAINT IF EXISTS fk__prisma_migrations_tenant_id';"
+        },
+        {
+          "line": 76,
+          "text": "EXECUTE 'DROP INDEX IF EXISTS idx__prisma_migrations_tenant_id';"
+        },
+        {
+          "line": 77,
+          "text": "EXECUTE 'ALTER TABLE \"_prisma_migrations\" DROP COLUMN IF EXISTS tenant_id';"
+        },
+        {
+          "line": 110,
+          "text": "SELECT 1 FROM \\\"_prisma_migrations\\\""
+        },
+        {
+          "line": 118,
+          "text": "./node_modules/.bin/prisma migrate resolve \\"
+        },
+        {
+          "line": 120,
+          "text": "--schema prisma/schema.prisma"
+        }
+      ],
+      "count": 15
+    },
+    {
+      "file": "infra/scripts/bootstrap-server.md",
+      "hits": [
+        {
+          "line": 4,
+          "text": "(aspweb, gamrdigital, gestionrisques, imhotepformation, immotopia). This guide"
+        },
+        {
+          "line": 31,
+          "text": "| 3012 | ecoledigitale-formation-pro| Next.js — formation-pro-public           |"
+        },
+        {
+          "line": 51,
+          "text": "openssl rand -hex 32      # JWT_SECRET, NEXTAUTH_SECRET"
+        },
+        {
+          "line": 83,
+          "text": "### formation-pro vhost (second domain)"
+        },
+        {
+          "line": 85,
+          "text": "Same flow for `formation-pro.allianceconsultants.net`. DNS first:"
+        },
+        {
+          "line": 87,
+          "text": "dig +short formation-pro.allianceconsultants.net   # 147.93.44.169"
+        },
+        {
+          "line": 92,
+          "text": "sudo tee /etc/nginx/sites-available/formation-pro > /dev/null <<'NGINX'"
+        },
+        {
+          "line": 96,
+          "text": "server_name formation-pro.allianceconsultants.net;"
+        },
+        {
+          "line": 101,
+          "text": "sudo ln -sf /etc/nginx/sites-available/formation-pro /etc/nginx/sites-enabled/formation-pro"
+        },
+        {
+          "line": 107,
+          "text": "sudo certbot --nginx -d formation-pro.allianceconsultants.net \\"
+        },
+        {
+          "line": 113,
+          "text": "sudo cp /home/deployer/ecoledigitale/infra/nginx/formation-pro.conf \\"
+        },
+        {
+          "line": 114,
+          "text": "/etc/nginx/sites-available/formation-pro"
+        },
+        {
+          "line": 184,
+          "text": "2. Build api + web + formation-pro images"
+        },
+        {
+          "line": 185,
+          "text": "3. `docker compose up -d` (api, web, formation-pro, postgres, minio)"
+        }
+      ],
+      "count": 23
+    },
+    {
+      "file": "infra/scripts/bootstrap-staging-server.md",
+      "hits": [
+        {
+          "line": 76,
+          "text": "NEXTAUTH_URL=https://staging-ecoledigitale.allianceconsultants.net"
+        }
+      ],
+      "count": 1
+    },
+    {
+      "file": "infra/.env.example",
+      "hits": [
+        {
+          "line": 7,
+          "text": "# Optional integration vars (payments, SMTP, Twilio, etc.) — see"
+        },
+        {
+          "line": 23,
+          "text": "NEXTAUTH_URL=https://ecoledigitale.allianceconsultants.net"
+        },
+        {
+          "line": 24,
+          "text": "NEXTAUTH_SECRET=<masqué>"
+        },
+        {
+          "line": 32,
+          "text": "# Used by both the API and formation-pro-public (shared transport)."
+        },
+        {
+          "line": 40,
+          "text": "# --- formation-pro-public ---"
+        },
+        {
+          "line": 41,
+          "text": "NEXT_PUBLIC_APP_URL=https://formation-pro.allianceconsultants.net"
+        },
+        {
+          "line": 42,
+          "text": "# NEXTAUTH_URL is shared with the ecoledigitale web app above; if you need"
+        },
+        {
+          "line": 43,
+          "text": "# a separate one for formation-pro, that requires per-container env split."
+        },
+        {
+          "line": 49,
+          "text": "# PayHubSecure (production keys — leave blank to disable)"
+        },
+        {
+          "line": 50,
+          "text": "PAYHUBSECURE_API_KEY="
+        },
+        {
+          "line": 51,
+          "text": "PAYHUBSECURE_MERCHANT_ID="
+        },
+        {
+          "line": 52,
+          "text": "PAYHUBSECURE_BASE_URL=https://rest-airtime.paysecurehub.com"
+        },
+        {
+          "line": 53,
+          "text": "PAYHUBSECURE_HUB_URL=https://payx.paysecurehub.com"
+        }
+      ],
+      "count": 13
+    },
+    {
+      "file": "apps/api/ENV_EXAMPLE.md",
+      "hits": [
+        {
+          "line": 25,
+          "text": "NEXTAUTH_SECRET=<masqué>"
+        },
+        {
+          "line": 93,
+          "text": "# SMS SERVICE (Twilio)"
+        },
+        {
+          "line": 95,
+          "text": "TWILIO_ACCOUNT_SID=your-twilio-account-sid"
+        },
+        {
+          "line": 96,
+          "text": "TWILIO_AUTH_TOKEN=<masqué>"
+        },
+        {
+          "line": 97,
+          "text": "TWILIO_PHONE_NUMBER=+1234567890"
+        },
+        {
+          "line": 99,
+          "text": "# Alternative SMS Provider (if not using Twilio)"
+        },
+        {
+          "line": 177,
+          "text": "- Twilio credentials: Available from Twilio Console dashboard"
+        }
+      ],
+      "count": 7
+    },
+    {
+      "file": "apps/web/ENV_EXAMPLE.md",
+      "hits": [
+        {
+          "line": 13,
+          "text": "NEXT_PUBLIC_TENANT_SLUG=imhotepacademy"
+        },
+        {
+          "line": 24,
+          "text": "NEXTAUTH_URL=http://localhost:3000"
+        },
+        {
+          "line": 25,
+          "text": "NEXTAUTH_SECRET=<masqué>"
+        },
+        {
+          "line": 48,
+          "text": "- Generate NEXTAUTH_SECRET with: `openssl rand -base64 32`"
+        }
+      ],
+      "count": 4
+    },
+    {
+      "file": "apps/api/package.json",
+      "hits": [
+        {
+          "line": 18,
+          "text": "\"prisma:generate\": \"prisma generate --schema prisma/schema.prisma\","
+        },
+        {
+          "line": 19,
+          "text": "\"prisma:migrate:dev\": \"prisma migrate dev --schema prisma/schema.prisma\","
+        },
+        {
+          "line": 20,
+          "text": "\"prisma:migrate:deploy\": \"prisma migrate deploy --schema prisma/schema.prisma\","
+        },
+        {
+          "line": 37,
+          "text": "\"@prisma/client\": \"^6.19.3\","
+        },
+        {
+          "line": 55,
+          "text": "\"livekit-server-sdk\": \"^2.9.7\","
+        },
+        {
+          "line": 68,
+          "text": "\"twilio\": \"^5.10.5\","
+        },
+        {
+          "line": 82,
+          "text": "\"prisma\": \"^6.19.3\","
+        }
+      ],
+      "count": 7
+    },
+    {
+      "file": "apps/web/package.json",
+      "hits": [
+        {
+          "line": 49,
+          "text": "\"@livekit/components-react\": \"^2.6.0\","
+        },
+        {
+          "line": 50,
+          "text": "\"@livekit/components-styles\": \"^1.1.0\","
+        },
+        {
+          "line": 87,
+          "text": "\"livekit-client\": \"^2.7.0\","
+        }
+      ],
+      "count": 3
+    }
+  ]
+}
