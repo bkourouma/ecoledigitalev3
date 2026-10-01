@@ -50,7 +50,7 @@ export async function replayEvaluations(deps: RulesDeps, ctx: RequestContext, re
   for (const record of records) {
     let loaded = versions.get(record.ruleVersionId);
     if (!loaded) {
-      loaded = await deps.db.run(ctx, (tx) => loadVersionInTx(deps, tx, record.ruleVersionId), { readOnly: true });
+      loaded = await deps.db.run(ctx, (tx) => loadVersionInTx(deps, tx, record.ruleVersionId, { verify: true }), { readOnly: true });
       versions.set(record.ruleVersionId, loaded);
     }
     if (!loaded.ok) {

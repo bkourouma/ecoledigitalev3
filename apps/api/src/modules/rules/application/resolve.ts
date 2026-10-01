@@ -120,6 +120,8 @@ export async function resolve(deps: RulesDeps, ctx: { tenantId: string } & Param
 /* ------------------------------ chargement ------------------------------ */
 
 export interface LoadOptions {
+  /** Ignore les caches et RECALCULE le hash depuis la base (rejeu, vérification d'intégrité) : détecte une altération hors application. */
+  readonly verify?: boolean;
   /** Console de la plateforme : voit aussi les brouillons et versions en cours d'approbation du catalogue national. */
   readonly platform?: boolean;
 }
@@ -131,7 +133,7 @@ export async function loadVersionInTx(deps: Pick<RulesDeps, "cache">, tx: Tx, ve
     return err(notFound(RulesCode.VERSION_NOT_FOUND, "Version de règles", versionId));
   }
   const editable = version.status === "draft" || version.status === "simulated";
-  if (!editable && version.definitionHash) {
+  if (!editable && version.definitionHash && !options.verify) {
     const key = CompiledVersionCache.keyOf(version, version.definitionHash);
     const hit = deps.cache.get(key);
     if (hit) return ok(hit);
@@ -161,7 +163,7 @@ export async function loadVersionInTx(deps: Pick<RulesDeps, "cache">, tx: Tx, ve
 /** `loadVersion` autonome (transaction de lecture). */
 export async function loadVersion(deps: RulesDeps, ctx: Parameters<RulesDeps["db"]["run"]>[0], versionId: string, options: LoadOptions = {}): Promise<Result<CompiledVersion, AppError>> {
   // Chaud : aucune requête SQL (≤ 5 ms). Le mode plateforme relit toujours (visibilité élargie).
-  if (!options.platform) {
+  if (!options.platform && !options.verify) {
     const hit = deps.cache.getFast(ctx.tenantId, versionId);
     if (hit) return ok(hit);
   }
