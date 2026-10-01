@@ -245,18 +245,11 @@ async function authMiddleware(fastify: FastifyInstance) {
       "/api/v1/auth/register-request",
       "/api/v1/health",
       "/api/v1/files/",
-      "/api/v1/formations-pro",
       "/api/v1/super-admin/auth/login",
       "/api/v1/webhooks/livekit",
     ];
 
-    const isPublicSessionsPro =
-      request.url.startsWith("/api/v1/sessions-pro") &&
-      request.method === "GET" &&
-      !request.url.startsWith("/api/v1/admin/sessions-pro") &&
-      !request.url.startsWith("/api/v1/sessions-pro/admin/");
-
-    if (skipAuthRoutes.some((route) => request.url.startsWith(route)) || isPublicSessionsPro) {
+    if (skipAuthRoutes.some((route) => request.url.startsWith(route))) {
       return;
     }
 
