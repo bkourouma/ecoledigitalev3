@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-01
 
-**Status**: Rédigée — prête pour `/speckit.plan`. Module backend `attendance` (schéma Postgres `attendance`, migrations 0900-0903). DDL, parité et plan dans le dossier.
+**Status**: Rédigée — prête pour `/speckit.plan`. Module backend `attendance` (schéma Postgres `attendance`, migrations 0900-0904 dans la plage 0900-0949). Implémenté : voir l'addendum §16. DDL, parité et plan dans le dossier.
 
 **Sources**: `docs/PRD_EcoleDigitale_SaaS.md` §33, §34, §37, §43, §58-59 ; plan §3.7, §4 (tranche 2.3), §7 ; ADR-001, 002, 004, 006, 007 ; `docs/architecture/module-conventions.md` ; `rbac/templates/system-roles.ts` (`attendance.*`, `*.child.*`, `*.self.*`) ; legacy : `attendance_sessions` + `student_attendance`, `teacher_attendance_*`, `professional_ecue_attendance` (justificatifs 0100/0101), `student_period_attendance_summaries`, `attendance_reports`, `routes/attendance.ts`, `teacher-attendance.ts`, `semester-averages.ts`, `webhooks/livekit.ts`, `professional-seance-validation.service.ts`, `professional-seance-constat.ts` (inventaire exhaustif : `parity.md`).
 
@@ -146,7 +146,7 @@ En tant que parent, je veux justifier l'absence de mon enfant depuis mon télép
 
 ## 6. Modèle de données
 
-Voir `data-model.md` (15 tables, DDL testé, migrations **0900-0903**, plage 0900-0999 à inscrire dans `module-conventions.md`).
+Voir `data-model.md` (18 tables : 15 du DDL de référence + 3 de la migration 0904 ; migrations **0900-0904**, plage 0900-0949 inscrite dans `module-conventions.md`).
 
 ## 7. Interfaces publiées (`apps/api/src/modules/attendance/index.ts`)
 
@@ -225,10 +225,12 @@ Conventions : erreurs `attendance.*` stables ; entrées `strict` ; pagination �
 | `attendance.report.read` | Rapports | |
 | `attendance.settings.manage` | Paramètres et référentiels | |
 | `attendance.self.read` / `attendance.child.read` / `attendance.own.read` | Mes absences / celles de mes enfants / ma présence (personnel) | |
+| `attendance.child.justify` / `attendance.self.justify` | **Ajoutées** : déposer un justificatif pour son enfant / pour soi (le rôle « parent » n'a que `*.child.*` : sans elles il ne pouvait pas déposer) | |
+| `attendance.own.record` | **Ajoutée** : pointer sa propre présence (personnel) | |
 
 Alignement avec les rôles système : enseignant `attendance.read`, `attendance.take` ; éducateur `attendance.*` ; directeur des études `attendance.*` ; responsable pédagogique `attendance.read` ; parent `*.child.*` ; élève `*.self.*`.
 
-Features : `attendance.staff` (présence du personnel), `attendance.offline` (synchronisation, phase 6), `attendance.live-bridge` (pont visio). Les routes sont gardées par `requireFeature`.
+Features : `attendance.staff` (présence du personnel), `attendance.offline` (synchronisation, phase 6), `attendance.live-bridge` (pont visio). Les routes sont gardées par `requireFeature`. Les rôles système de rbac ne donnent pas encore `attendance.own.*` / `attendance.leave.request` au personnel : à ajouter au modèle de rôles (point à arbitrer).
 
 ## 11. Événements (outbox, `{ v: 1, … }`)
 
@@ -285,3 +287,21 @@ Payloads sans donnée sensible (identifiants, statuts, dates ; jamais le motif m
 5. Synchronisation hors-ligne : rejeu d'un lot = aucun doublon ; conflit sur séance validée en file.
 6. Les quatre systèmes legacy (`attendance_sessions`/`student_attendance`, `teacher_attendance_*`, `professional_ecue_attendance`, `student_period_attendance_summaries`/`attendance_reports`) et leurs routes sont supprimés dans la tranche 2.3, avec ceux de scheduling ; aucune route sans garde de rôle ne subsiste.
 7. Aucun seuil ni constante réglementaire dans `modules/attendance/**` (lint) ; couverture ≥ 90 % du domaine.
+
+## 16. Addendum d'implémentation (2026-10-01) — corrections et précisions
+
+Corrections d'incohérences de la spec par l'implémentation :
+
+1. **Plage de migrations** : 0900-0949 (et non 0900-0999, 0950+ appartient à scheduling). Ajout de `0904_attendance_sync_alerts.sql` : tables `sync_ops` (registre d'idempotence), `sync_conflicts` (file de conflits), `alert_states` ; colonnes `student_records.client_marked_at`, `settings.allow_future_justifications`, `settings.alert_rules`, `summary_overrides.removed_by`, `justifications.revoked_by/at/reason`, `record_history.seq` (ordre total fiable : `changed_at` = début de transaction).
+2. **Révocation d'un justificatif** : la décision d'acceptation (auteur, date, note) n'est plus réécrite ; la révocation est tracée à part (« une décision ne s'efface pas »).
+3. **Permissions** : `attendance.child.justify`, `attendance.self.justify`, `attendance.own.record` ajoutées (voir §10).
+4. **AC1.4 / E-16** : la soumission exige un pointage pour chaque élève du roster ; les non-marqués reçoivent `defaultStatus` (ou `allPresent`), sinon `attendance.unmarked_students`. Roster vide : soumission libre.
+5. **Politique d'appel absente** : tout est permis (`BOTH`), aucune fenêtre de correction. Le modèle de pack par défaut ne crée de politiques que pour les établissements fournis à l'amorçage.
+6. **Événements `academic.period.closed|reopened`** : la spec parlait de « verrou des récapitulatifs » alors que §13 exige qu'une excuse acceptée après clôture s'applique. Retenu : AUCUN verrou ; les récapitulatifs de la période sont rejoués.
+7. **`unmarked_count`** : colonne conservée, toujours 0 (la soumission couvre tout le roster ; un élève inscrit après la séance n'est pas « non pointé », R2).
+8. **Alertes** : R9 inchangée (aucun seuil dans le module), mais le module évalue des RÈGLES FOURNIES par l'établissement/le pack (`settings.alert_rules`, indicateurs `ABSENT_COUNT`, `UNEXCUSED_ABSENT_COUNT`, `LATE_COUNT`, `ABSENT_MINUTES`, `UNEXCUSED_ABSENT_MINUTES`, `ABSENCE_RATE_BPS`) via `AlertPolicyPort` et publie `attendance.alert.triggered|cleared` au franchissement seulement (état `alert_states`). Vide par défaut.
+9. **Événements ajoutés** : `attendance.alert.triggered|cleared`, `attendance.sync.conflict_recorded`.
+10. **Hors-ligne (AC6)** : contrat précisé — `clientId` par séance et par pointage (registre `sync_ops`), `clientMarkedAt` + `clockOffsetMs` ; conflits `SESSION_LOCKED`, `WINDOW_CLOSED`, `STALE` (pointage plus ancien que celui d'un autre auteur) ; arbitrage par `attendance.manage`.
+11. **Endpoints ajoutés** : `POST /sessions/:id/records/with-justification`, `GET /sync/conflicts`, `POST /sync/conflicts/:id/resolve`, `POST /summaries/recompute`, `GET /enrollments/:id/summary`, `GET /students/:id/certificate-data`, `PUT` des référentiels sous `/reference/*`.
+12. **Ports** : `EnrollmentRosterPort` (`getClassroom`, `getRoster`, `getEnrollment`, `findEnrollmentsOfStudent`), `OccurrencePort` (`getOccurrence`, `listExpectedOccurrences`), `PeriodPort`, `PeoplePort`, `StoragePort`, `AlertPolicyPort` — enregistrés par `registerAttendancePorts(app, ports)` ; sans port : échec fermé.
+13. **Pièces** : envoi en JSON base64 (plafond de transport 12 Mio ; taille métier = paramètres d'établissement) ; lecture par URL signée de 120 s, auditée.

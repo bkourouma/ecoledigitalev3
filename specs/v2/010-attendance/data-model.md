@@ -1,6 +1,6 @@
 # Modèle de données — 010-attendance (schéma Postgres `attendance`)
 
-**Statut** : DDL de référence, exécuté et testé sur PostgreSQL 17 (21 tests de comportement : statuts, justificatifs, verrou de validation et exception d'excuse, historique automatique, récapitulatif, congés, RLS). Migrations cibles `apps/api/src/modules/attendance/migrations/0900…0903` (plage 0900-0999 à inscrire dans `module-conventions.md`).
+**Statut** : DDL de référence, exécuté et testé sur PostgreSQL 17 (21 tests de comportement : statuts, justificatifs, verrou de validation et exception d'excuse, historique automatique, récapitulatif, congés, RLS). Migrations `apps/api/src/modules/attendance/migrations/0900…0904` (plage 0900-0949 de `module-conventions.md`). **0900-0903 = ce DDL de référence ; 0904 (synchronisation hors-ligne, alertes, `record_history.seq`, révocation tracée) est décrite dans le fichier de migration et dans `spec.md` §16.**
 
 **Sources** : `docs/architecture/module-conventions.md`, ADR-002/004/006/007, PRD §33-34 et §43, plan §3.7 et §4 (tranche 2.3), inventaire legacy (`parity.md`).
 
