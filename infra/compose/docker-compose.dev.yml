@@ -64,6 +64,33 @@ services:
       retries: 10
       start_period: 10s
 
+  # Worker v2 en conteneur : PROFIL OPTIONNEL (non demarre par defaut). En developpement on lance
+  # plutot `pnpm --filter @ecoledigitale/worker dev` hors Docker. Pour le conteneur :
+  #   docker compose -f infra/compose/docker-compose.dev.yml --profile worker up -d --build worker
+  # WORKER_DATABASE_URL : role de connexion membre de app_user (voir apps/worker/README.md),
+  # fourni par l environnement ou le .env du projet compose ; aucun secret n est ecrit ici.
+  worker:
+    profiles: ["worker"]
+    build:
+      context: ../../
+      dockerfile: infra/compose/Dockerfile.worker
+    init: true
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: ${WORKER_LOG_LEVEL:-debug}
+      REDIS_URL: redis://redis:6379
+      WORKER_DATABASE_URL: ${WORKER_DATABASE_URL:-}
+      WORKER_HTTP_HOST: 0.0.0.0
+      WORKER_HTTP_PORT: 8012
+    ports:
+      - "127.0.0.1:${WORKER_HTTP_PORT:-8012}:8012"
+    stop_grace_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   redis_data:

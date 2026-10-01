@@ -1,0 +1,38 @@
+{
+  "name": "@ecoledigitale/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Worker v2 : relais d'outbox, abonnés d'événements (BullMQ/Redis), jobs planifiés.",
+  "main": "./src/index.ts",
+  "exports": {
+    "./sdk": "./src/sdk.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.cjs",
+    "build": "node scripts/build.mjs",
+    "type-check": "tsc --noEmit",
+    "migrate": "tsx src/cli/migrate.ts",
+    "dlq": "tsx src/cli/dlq.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "node scripts/with-infra.mjs"
+  },
+  "dependencies": {
+    "@ecoledigitale/database": "workspace:*",
+    "@ecoledigitale/kernel": "workspace:*",
+    "bullmq": "^5.58.0",
+    "ioredis": "^5.7.0",
+    "pg": "^8.12.0",
+    "pino": "^9.9.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/pg": "^8.10.7",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

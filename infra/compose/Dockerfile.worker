@@ -1,0 +1,62 @@
+# Image du worker v2 (apps/worker) : relais d'outbox, abonnes d'evenements, jobs planifies.
+#
+# Strategie de build : bundle esbuild unique (dist/index.cjs). Les packages du workspace
+# (@ecoledigitale/kernel et @ecoledigitale/database) sont consommes EN SOURCE TypeScript ;
+# le bundle les embarque avec les dependances npm, si bien que l image d execution ne
+# contient AUCUN node_modules : seulement dist/ (serveur dist/index.cjs et CLI dist/dlq.cjs).
+#
+# Modules : les fichiers apps/api/src/modules/<cle>/subscribers.ts et jobs.ts presents AU
+# BUILD sont embarques dans le bundle (decouverte automatique, aucun fichier central). Un
+# nouveau module impose donc de reconstruire l image du worker.
+#
+# Prerequis : BuildKit (docker compose build l active) pour le --mount=type=bind ci-dessous.
+# pnpm-lock.yaml doit contenir apps/worker (pnpm install apres l ajout du package).
+#
+# Aucun secret dans l image : WORKER_DATABASE_URL et REDIS_URL arrivent par l environnement.
+
+FROM node:20-alpine AS base
+# Meme version de pnpm que Dockerfile.api (champ packageManager de package.json).
+RUN npm install -g pnpm@10.14.0
+
+# --- Dependances (build uniquement) -------------------------------------------------------
+FROM base AS deps
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/kernel/package.json ./packages/kernel/
+COPY packages/database/package.json ./packages/database/
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store,sharing=locked \
+    pnpm install --frozen-lockfile --filter "@ecoledigitale/worker..."
+
+# --- Build du bundle ----------------------------------------------------------------------
+FROM deps AS builder
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml ./
+COPY apps/worker ./apps/worker
+COPY packages/kernel ./packages/kernel
+COPY packages/database ./packages/database
+# Le code des modules (apps/api/src) est monte en lecture seule le temps du build : il n est
+# pas copie dans la couche, et le build ne casse pas tant qu aucun module n existe encore.
+RUN --mount=type=bind,source=apps/api/src,target=/app/apps/api/src \
+    pnpm --filter @ecoledigitale/worker build
+
+# --- Execution ----------------------------------------------------------------------------
+FROM node:20-alpine AS runner
+WORKDIR /app
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nodejs
+
+COPY --from=builder --chown=nodejs:nodejs /app/apps/worker/dist ./dist
+# Les migrations (apps/worker/migrations, plage 0600-0699) sont appliquees par le runner de la
+# plateforme avec le role migrator, pas par le worker : elles ne sont pas dans l image.
+
+USER nodejs
+ENV NODE_ENV=production
+ENV WORKER_HTTP_HOST=0.0.0.0
+ENV WORKER_HTTP_PORT=8012
+EXPOSE 8012
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=5 \
+    CMD wget -qO- http://127.0.0.1:8012/ready || exit 1
+
+# Le process intercepte SIGTERM / SIGINT (arret gracieux) ; compose ajoute init: true.
+CMD ["node", "dist/index.cjs"]
