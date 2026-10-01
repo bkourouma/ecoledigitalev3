@@ -97,10 +97,9 @@ export async function createCampus(
 
     await d.audit?.record(tx, {
       action: "tenancy.campus.create",
-      resource: "campus",
-      resourceId: campus.id,
+      entity: "campus",
+      entityId: campus.id,
       after: { institutionId, code: campus.code },
-      ctx,
     });
     return campus;
   });
@@ -140,11 +139,10 @@ export async function updateCampus(
 
     await d.audit?.record(tx, {
       action: "tenancy.campus.update",
-      resource: "campus",
-      resourceId: campusId,
+      entity: "campus",
+      entityId: campusId,
       before: { name: before.name, status: before.status, isDefault: before.isDefault },
       after: { name: current.name, status: current.status, isDefault: current.isDefault },
-      ctx,
     });
     return current;
   });
@@ -167,10 +165,9 @@ export async function deleteCampus(
     await deleteCampusRow(tx, campusId);
     await d.audit?.record(tx, {
       action: "tenancy.campus.delete",
-      resource: "campus",
-      resourceId: campusId,
+      entity: "campus",
+      entityId: campusId,
       before: { institutionId: campus.institutionId, code: campus.code },
-      ctx,
     });
     return { id: campusId };
   });

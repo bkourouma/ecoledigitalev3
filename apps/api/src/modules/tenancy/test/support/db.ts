@@ -14,6 +14,7 @@ const repo = resolve(__dirname, "../../../../../../../");
 
 export const BASELINE_DIR = resolve(repo, "packages/database/migrations");
 export const TENANCY_MIGRATIONS = resolve(repo, "apps/api/src/modules/tenancy/migrations");
+export const AUDIT_MIGRATIONS = resolve(repo, "apps/api/src/modules/audit/migrations");
 export const ENTITLEMENTS_MIGRATIONS = resolve(repo, "apps/api/src/modules/entitlements/migrations");
 
 export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;

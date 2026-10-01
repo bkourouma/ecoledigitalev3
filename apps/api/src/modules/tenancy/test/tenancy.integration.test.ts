@@ -29,7 +29,7 @@ import {
   updateTenantProfile,
   type TenancyDeps,
 } from "../index";
-import { TENANCY_ISOLATION_ALLOWLIST } from "../../isolation-allowlist.tenancy";
+import { TENANCY_ISOLATION_ALLOWLIST, tenancyIsolationFixtures } from "../../isolation-allowlist.tenancy";
 import { TENANCY_MIGRATIONS, createTestDb, describeIntegration, type TestDb } from "./support/db";
 
 /** Code de la première violation d'une ValidationError (undefined si succès ou autre erreur). */
@@ -316,12 +316,7 @@ describeIntegration("tenancy — intégration", () => {
         pool: db.appPool,
         schemas: ["tenancy"],
         allowlist: TENANCY_ISOLATION_ALLOWLIST.map((e) => e.key),
-        fixtures: {
-          "tenancy.tenant_profiles": { country_code: "CI" },
-          "tenancy.institutions": { code: (n: number) => `iso-${n}`, pack: "PRIMARY", country_code: "CI" },
-          "tenancy.campuses": { code: (n: number) => `iso-${n}` },
-          "tenancy.onboarding_steps": { step_key: "ACCOUNT" },
-        },
+        fixtures: tenancyIsolationFixtures,
       });
       expect(report.violations).toEqual([]);
       expect(report.staleAllowlist).toEqual([]);

@@ -151,10 +151,9 @@ export async function createInstitution(
     ]);
     await d.audit?.record(tx, {
       action: "tenancy.institution.create",
-      resource: "institution",
-      resourceId: institution.id,
+      entity: "institution",
+      entityId: institution.id,
       after: { code: institution.code, pack: institution.pack },
-      ctx,
     });
 
     return { institution, defaultCampus };
@@ -191,11 +190,10 @@ export async function updateInstitution(
 
     await d.audit?.record(tx, {
       action: "tenancy.institution.update",
-      resource: "institution",
-      resourceId: id,
+      entity: "institution",
+      entityId: id,
       before: { name: before.name, status: before.status, educationSystem: before.educationSystem },
       after: { name: after.name, status: after.status, educationSystem: after.educationSystem },
-      ctx,
     });
     return after;
   });

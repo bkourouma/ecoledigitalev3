@@ -84,11 +84,10 @@ export async function setFeatureOverride(
     ]);
     await d.audit?.record(tx, {
       action: "entitlements.override.set",
-      resource: "feature_override",
-      resourceId: key.value,
+      entity: "feature_override",
+      entityId: key.value,
       before: before ? { effect: before.effect, reason: before.reason, expiresAt: before.expiresAt } : null,
       after: { effect: after.effect, reason: after.reason, expiresAt: after.expiresAt },
-      ctx,
     });
     return after;
   });
@@ -118,10 +117,9 @@ export async function removeFeatureOverride(
     ]);
     await d.audit?.record(tx, {
       action: "entitlements.override.remove",
-      resource: "feature_override",
-      resourceId: key.value,
+      entity: "feature_override",
+      entityId: key.value,
       before: { effect: removed.effect, reason: removed.reason, expiresAt: removed.expiresAt },
-      ctx,
     });
     return removed;
   });

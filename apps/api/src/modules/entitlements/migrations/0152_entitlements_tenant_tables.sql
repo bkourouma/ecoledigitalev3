@@ -1,7 +1,7 @@
 -- =============================================================================
 -- 0152 — Module `entitlements` : tables de tenant (RLS forcée)
 -- =============================================================================
--- Références vers les catalogues par CLÉ (stable, lisible). Aucune FK vers le
+-- plan_key référence plans(key) ; feature_key est une clé de catalogue SANS FK (voir plus bas). Aucune FK vers le
 -- schéma d'un autre module ; seule kernel.tenants est référencée.
 -- =============================================================================
 
@@ -41,7 +41,10 @@ GRANT SELECT, INSERT, UPDATE ON entitlements.tenant_subscriptions TO app_user;
 CREATE TABLE entitlements.tenant_feature_overrides (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id   uuid NOT NULL REFERENCES kernel.tenants (id),
-  feature_key text NOT NULL REFERENCES entitlements.features (key),
+  -- Pas de FK vers features(key) : le catalogue est alimenté par syncFeatureCatalog ; setFeatureOverride
+  -- refuse les clés inconnues ou retirées, et resolveEntitlements ignore une surcharge sur une feature inconnue.
+  -- (Une FK rendrait le test d'isolation générique dépendant du contenu du catalogue.)
+  feature_key text NOT NULL CHECK (feature_key ~ '^[a-z][a-z0-9_]*(\.[a-z0-9][a-z0-9_-]*){1,3}$'),
   effect      text NOT NULL CHECK (effect IN ('GRANT', 'DENY')),
   reason      text NOT NULL CHECK (length(btrim(reason)) >= 5),
   expires_at  timestamptz,

@@ -18,17 +18,24 @@ import { ValidationError } from "@ecoledigitale/kernel";
 import type { PackTemplates } from "../templates";
 import { defaultPackTemplates } from "../templates";
 
-/** Audit de l'opération sensible, dans la MÊME transaction (convention 8). Branché par le module `audit`. */
+/**
+ * Audit de l'opération sensible, dans la MÊME transaction (convention 8). Port minimal, structurellement
+ * compatible avec `AuditService` du module `audit` (`audit.record(tx, { action, entity, entityId, before, after })`) :
+ * l'acteur, le tenant et la requête sont dérivés du RequestContext de la transaction.
+ */
 export interface AuditEntry {
+  /** `entité.verbe`, ex. `tenancy.institution.create`. */
   action: string;
-  resource: string;
-  resourceId?: string;
+  /** Type d'objet (snake_case), ex. `institution`. */
+  entity: string;
+  entityId?: string;
   before?: unknown;
   after?: unknown;
-  ctx: RequestContext;
+  reason?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 export interface AuditRecorder {
-  record(tx: Tx, entry: AuditEntry): Promise<void>;
+  record(tx: Tx, entry: AuditEntry): Promise<unknown>;
 }
 
 export interface TenancyDeps {

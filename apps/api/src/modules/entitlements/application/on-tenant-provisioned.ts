@@ -84,10 +84,9 @@ export async function onTenantProvisioned(
     ]);
     await d.audit?.record(tx, {
       action: "entitlements.subscription.trial_started",
-      resource: "subscription",
-      resourceId: sub.id,
+      entity: "subscription",
+      entityId: sub.id,
       after: { planKey: sub.planKey, packs: sub.packs },
-      ctx,
     });
     return { created: true, subscription: sub };
   });

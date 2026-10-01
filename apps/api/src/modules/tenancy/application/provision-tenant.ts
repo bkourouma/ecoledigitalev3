@@ -166,10 +166,9 @@ export async function provisionTenant(
 
     await d.audit?.record(tx, {
       action: "tenancy.tenant.provision",
-      resource: "tenant",
-      resourceId: tenantId,
+      entity: "tenant",
+      entityId: tenantId,
       after: { slug: input.slug, packs: plan.institutions.map((i) => i.pack) },
-      ctx,
     });
 
     return {

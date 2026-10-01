@@ -8,6 +8,7 @@ import {
   createRequestContext,
   defineModule,
   newId,
+  noopLogger,
   type RequestContext,
 } from "@ecoledigitale/kernel";
 import { provisionTenant } from "../../tenancy";
@@ -87,6 +88,7 @@ describeIntegration("entitlements — HTTP", () => {
     await app.register(entitlementsPlugin, {
       db: db.tenantDb,
       clock,
+      logger: noopLogger,
       requirePermission,
       resolveContext,
       superAdminAuthorizer,
@@ -101,7 +103,7 @@ describeIntegration("entitlements — HTTP", () => {
 
     // Plugin sans autorisateur ni garde de permissions branchés : tout est refusé.
     lockedApp = Fastify({ logger: false });
-    await lockedApp.register(entitlementsPlugin, { db: db.tenantDb, resolveContext });
+    await lockedApp.register(entitlementsPlugin, { db: db.tenantDb, logger: noopLogger, resolveContext });
     await lockedApp.ready();
   });
 
@@ -265,7 +267,7 @@ describeIntegration("entitlements — HTTP", () => {
   it("option adminRequiresPermission : exige AUSSI la permission sensible entitlements.manage", async () => {
     const strictApp = Fastify({ logger: false });
     await strictApp.register(entitlementsPlugin, {
-      db: db.tenantDb, clock, requirePermission, resolveContext, superAdminAuthorizer, adminRequiresPermission: true,
+      db: db.tenantDb, clock, logger: noopLogger, requirePermission, resolveContext, superAdminAuthorizer, adminRequiresPermission: true,
     });
     await strictApp.ready();
     const without = await strictApp.inject({ method: "GET", url: "/api/v1/entitlements/admin/catalog", headers: { ...asOperator, ...asTenant(A, "entitlements.read") } });

@@ -153,5 +153,8 @@ leurs sources car `apps/api/package.json` ne déclare pas encore `@ecoledigitale
   établissement, ni onboarding : il faudra un rattrapage (`ensure…`) lors de la tranche 2.0.
 - Pas de route HTTP de provisioning ni de statut : ce sont des opérations de la console plateforme
   (autorisation `SuperAdminAuthorizer` du module `entitlements`) qui appelleront `provisionTenant` / `setTenantStatus`.
-- L'audit (`audit.record`) est une dépendance **optionnelle** (`audit`) tant que le module `audit` n'existe pas.
+- L'audit est un port **optionnel** (`deps.audit`), structurellement compatible avec `createAuditService()` du
+  module `audit` (test `audit-port.integration.test.ts`) : à passer au câblage ; actions `tenancy.tenant.provision`,
+  `tenancy.institution.create|update`, `tenancy.campus.create|update|delete`, `tenancy.profile.update`,
+  `tenancy.onboarding.complete|skip`, `tenancy.tenant.status`.
 - Le domaine personnalisé est unique globalement mais n'est pas vérifié (DNS) ni résolu en tenant ici.

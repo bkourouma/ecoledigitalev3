@@ -51,9 +51,8 @@ async function advance(
     await saveSteps(tx, ctx.tenantId, next.value, ctx.userId, now);
     await d.audit?.record(tx, {
       action: `tenancy.onboarding.${action}`,
-      resource: "onboarding_step",
-      resourceId: step,
-      ctx,
+      entity: "onboarding_step",
+      entityId: step,
     });
     return computeOnboardingState(next.value);
   });

@@ -39,8 +39,8 @@ import {
   upsertPlan,
   type EntitlementsDeps,
 } from "../index";
-import { ENTITLEMENTS_ISOLATION_ALLOWLIST } from "../../isolation-allowlist.entitlements";
-import { TENANCY_ISOLATION_ALLOWLIST } from "../../isolation-allowlist.tenancy";
+import { ENTITLEMENTS_ISOLATION_ALLOWLIST, entitlementsIsolationFixtures } from "../../isolation-allowlist.entitlements";
+import { TENANCY_ISOLATION_ALLOWLIST, tenancyIsolationFixtures } from "../../isolation-allowlist.tenancy";
 import { createTestDb, describeIntegration, type TestDb } from "./support/db";
 
 /** Code de la première violation d'une ValidationError (undefined si succès ou autre erreur). */
@@ -631,20 +631,12 @@ describeIntegration("entitlements — intégration", () => {
     });
 
     it("test d'isolation générique (assertTenantIsolation) sur entitlements ET tenancy", async () => {
-      // Une feature existante sert de parent aux surcharges fabriquées par le test.
       const report = await assertTenantIsolation({
         pool: db.appPool,
         schemas: ["entitlements", "tenancy"],
         allowlist: [...ENTITLEMENTS_ISOLATION_ALLOWLIST, ...TENANCY_ISOLATION_ALLOWLIST].map((e) => e.key),
-        fixtures: {
-          "entitlements.tenant_subscriptions": { plan_key: "STARTER", status: "ACTIVE" },
-          "entitlements.tenant_feature_overrides": { feature_key: "academic.ue-ecue", effect: "GRANT", reason: "Motif de test" },
-          "entitlements.usage_counters": { metric: "SMS_SENT", period: "2026-10-01" },
-          "tenancy.tenant_profiles": { country_code: "CI" },
-          "tenancy.institutions": { code: (n: number) => `iso-${n}`, pack: "PRIMARY", country_code: "CI" },
-          "tenancy.campuses": { code: (n: number) => `iso-${n}` },
-          "tenancy.onboarding_steps": { step_key: "ACCOUNT" },
-        },
+        // Valeurs de fabrication fournies par les allowlists des modules (aucune précondition sur le catalogue).
+        fixtures: { ...entitlementsIsolationFixtures, ...tenancyIsolationFixtures },
       });
       expect(report.violations).toEqual([]);
       expect(report.staleAllowlist).toEqual([]);

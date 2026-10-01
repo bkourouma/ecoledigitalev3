@@ -74,11 +74,10 @@ export async function updateTenantProfile(
 
     await d.audit?.record(tx, {
       action: "tenancy.profile.update",
-      resource: "tenant_profile",
-      resourceId: ctx.tenantId,
+      entity: "tenant_profile",
+      entityId: ctx.tenantId,
       before: { legalName: before.legalName, countryCode: before.countryCode, customDomain: before.customDomain },
       after: { legalName: after.legalName, countryCode: after.countryCode, customDomain: after.customDomain },
-      ctx,
     });
     return after;
   });

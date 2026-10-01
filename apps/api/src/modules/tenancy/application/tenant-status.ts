@@ -81,11 +81,10 @@ export async function setTenantStatus(
     ]);
     await d.audit?.record(tx, {
       action: "tenancy.tenant.status",
-      resource: "tenant",
-      resourceId: ctx.tenantId,
+      entity: "tenant",
+      entityId: ctx.tenantId,
       before: { status: tenant.status },
       after: { status: status.data, reason: input.reason ?? null },
-      ctx,
     });
     return { tenantId: ctx.tenantId, previous: tenant.status, current: status.data };
   });

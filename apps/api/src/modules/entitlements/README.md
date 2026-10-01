@@ -15,7 +15,7 @@ Références : plan §3.5, ADR-001/002/004/006/007.
 | `features` | **globale** | alimentée par `syncFeatureCatalog(manifests)` ; jamais supprimée (`retired_at`) |
 | `plan_features` | **globale** | features accordées par un plan |
 | `tenant_subscriptions` | tenant, RLS | plan, packs souscrits, période, statut, tranche d'apprenants. Un seul abonnement « vivant » par tenant (index unique partiel) |
-| `tenant_feature_overrides` | tenant, RLS | GRANT / DENY, **motif obligatoire**, expiration facultative ; une par (tenant, feature) |
+| `tenant_feature_overrides` | tenant, RLS | GRANT / DENY, **motif obligatoire**, expiration facultative ; une par (tenant, feature). `feature_key` sans FK (le test d'isolation générique ne dépend pas du catalogue) : `setFeatureOverride` refuse les clés inconnues ou retirées, le calcul ignore une surcharge sur une clé inconnue |
 | `usage_counters` | tenant, RLS | apprenants actifs, stockage, SMS, par mois UTC |
 
 Migrations : `0151_entitlements_catalog.sql`, `0152_entitlements_tenant_tables.sql`
@@ -149,6 +149,13 @@ Publiés (outbox, `{ v: 1, … }`) : `entitlements.subscription.changed` (état 
 Consommés : `tenancy.tenant.provisioned` (→ `onTenantProvisioned` : essai `STARTER` de 30 jours avec
 les packs choisis, idempotent ; sans ce consommateur un tenant neuf n'a que CORE — comportement sûr),
 `tenancy.tenant.status_changed` (invalidation du cache).
+
+## Audit
+
+Les opérations sensibles (abonnement, surcharge, essai) appellent le port optionnel `deps.audit`
+(`audit.record(tx, { action, entity, entityId, before, after })`), dans la même transaction :
+passer `createAuditService()` du module `audit` (compatibilité vérifiée côté `tenancy`). Actions :
+`entitlements.subscription.set`, `entitlements.subscription.trial_started`, `entitlements.override.set|remove`.
 
 ## Permissions (manifeste)
 

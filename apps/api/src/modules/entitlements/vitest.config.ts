@@ -22,6 +22,8 @@ export default defineConfig({
       { find: /^@ecoledigitale\/kernel$/, replacement: `${repo}packages/kernel/src/index.ts` },
       { find: /^@ecoledigitale\/database$/, replacement: `${repo}packages/database/src/index.ts` },
       { find: /^@ecoledigitale\/contracts\/src\/(.*)$/, replacement: `${repo}packages/contracts/src/$1` },
+      // Forme courte utilisée par d'autres modules (`@ecoledigitale/contracts/v2`).
+      { find: /^@ecoledigitale\/contracts\/(?!src\/)(.*)$/, replacement: `${repo}packages/contracts/src/$1` },
     ],
   },
   test: {

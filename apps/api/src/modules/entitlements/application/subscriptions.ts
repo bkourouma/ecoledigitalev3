@@ -114,11 +114,10 @@ export async function setSubscription(
     ]);
     await d.audit?.record(tx, {
       action: "entitlements.subscription.set",
-      resource: "subscription",
-      resourceId: after.id,
+      entity: "subscription",
+      entityId: after.id,
       before: live ? snapshot(live) : null,
       after: snapshot(after),
-      ctx,
     });
     return after;
   });
