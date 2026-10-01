@@ -149,6 +149,7 @@ export async function bootPlatform(options: BootOptions = {}): Promise<Platform 
     user: request.user ?? null,
     tenantId: request.tenantId ?? null,
     tenantSlug: request.tenantSlug ?? null,
+    xUserId: request.headers["x-user-id"] ?? null,
   }));
   app.post("/api/v1/students/probe", async (request) => ({ userId: request.userId ?? null, role: request.user?.activeRole ?? null }));
   // Sous le préfixe « santé » : publique côté legacy (aucune authentification), elle expose le tenant résolu.

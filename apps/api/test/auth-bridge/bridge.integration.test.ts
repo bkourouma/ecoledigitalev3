@@ -59,6 +59,10 @@ describeIntegration("passerelle IAM -> legacy : authentification assemblée", ()
       expect(res.body.tenantSlug).toBe("ecole-a");
       expect(res.body.user).toMatchObject({ id: users.teacher!.legacyUserId, email: "prof@a.test", activeRole: "teacher", role: "teacher", roles: ["teacher"], availableRoles: ["teacher"], authSource: "iam" });
       expect(res.body.user.iamIdentityId).toBe(users.teacher!.identityId);
+      // L'en-tête X-User-Id (lu par certaines routes legacy) ne peut pas être imposé par le client : c'est le compte du jeton.
+      const spoofed = await probe(s.accessToken, { "x-user-id": users.admin!.legacyUserId! });
+      expect(spoofed.body.xUserId).toBe(users.teacher!.legacyUserId);
+      expect(spoofed.body.userId).toBe(users.teacher!.legacyUserId);
       // Les écritures passent aussi (POST).
       const post = await p.http("POST", "/api/v1/students/probe", { token: s.accessToken, body: {} });
       expect(post.status).toBe(200);

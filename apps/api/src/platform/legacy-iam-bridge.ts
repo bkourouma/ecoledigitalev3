@@ -212,6 +212,9 @@ export async function attachIamLegacyUser(fastify: FastifyInstance, request: Fas
     };
     request.userId = row.id;
     request.isAdmin = view.active === "admin";
+    // Des routes legacy lisent l'en-tête `X-User-Id` (injecté par le navigateur depuis le jeton : ici l'identité IAM).
+    // On y pose toujours l'identifiant du compte legacy déduit du jeton vérifié : jamais une valeur fournie par le client.
+    (request.headers as Record<string, string>)["x-user-id"] = row.id;
     if (principal.impersonatedBy) {
       // Chaque requête faite sous impersonation est journalisée par plugins/super-admin-audit.ts (acteur réel +
       // utilisateur imité). On ne pose PAS `request.superAdmin` : les routes `/super-admin/*` s'y fient.

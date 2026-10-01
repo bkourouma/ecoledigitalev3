@@ -12,8 +12,9 @@ interface AppLayoutProps {
 // Pages qui ne doivent pas avoir le layout principal (pages publiques)
 // Peut être un chemin exact ou un préfixe pour exclure toute une section
 // '/offline' : page du service worker (public/sw.js), affichée sans réseau ; ne doit pas attendre la session.
-const NO_LAYOUT_PAGES = ['/login', '/register', '/offline'];
-const NO_LAYOUT_PREFIXES = ['/rso/formateur', '/super-admin', '/live'];
+// Authentification V2 (module iam) : pages publiques de connexion, mot de passe oublié, réinitialisation, invitation.
+const NO_LAYOUT_PAGES = ['/login', '/register', '/offline', '/v2/login', '/v2/forgot-password', '/v2/reset-password'];
+const NO_LAYOUT_PREFIXES = ['/rso/formateur', '/super-admin', '/live', '/auth/'];
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { data: session, status } = useSession();

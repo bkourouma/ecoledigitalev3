@@ -9,10 +9,13 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   esbuild: { jsx: "automatic" },
   resolve: {
-    alias: {
-      "@ecoledigitale/contracts": path.resolve(__dirname, "../../packages/contracts/src/index.ts"),
-      "@": path.resolve(__dirname, "src"),
-    },
+    // Même résolution que tsconfig.json (`paths` : `@ecoledigitale/contracts/*` -> packages/contracts/src/*) ; le
+    // sous-chemin (`@ecoledigitale/contracts/v2/iam`) précède l'entrée seule.
+    alias: [
+      { find: /^@ecoledigitale\/contracts\/(.*)$/, replacement: `${path.resolve(__dirname, "../../packages/contracts/src")}/$1` },
+      { find: /^@ecoledigitale\/contracts$/, replacement: path.resolve(__dirname, "../../packages/contracts/src/index.ts") },
+      { find: /^@\//, replacement: `${path.resolve(__dirname, "src")}/` },
+    ],
   },
   test: {
     include: ["src/platform/**/*.test.{ts,tsx}", "src/lib/__tests__/env.server.test.ts"],
