@@ -593,8 +593,8 @@ if (typeof window !== 'undefined') {
             console.error('❌ No valid JWT token available for backend API call');
             console.error('   URL:', url);
             
-            // Don't redirect if already on login page or test-auth page
-            if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/test-auth')) {
+            // Don't redirect if already on login page
+            if (!window.location.pathname.includes('/login')) {
               console.log('🔄 Redirecting to login page...');
               window.location.href = '/login';
             }
