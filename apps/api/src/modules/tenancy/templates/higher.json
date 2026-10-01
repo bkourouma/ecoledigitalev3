@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "pack": "HIGHER",
+  "label": "Enseignement supérieur",
+  "institution": { "code": "higher", "nameTemplate": "{organisation} - Supérieur" },
+  "defaultCampus": { "code": "main", "name": "Campus principal" },
+  "levels": [],
+  "periods": []
+}

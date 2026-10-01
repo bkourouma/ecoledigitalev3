@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "pack": "VIRTUAL",
+  "label": "Établissement virtuel",
+  "institution": { "code": "virtual", "nameTemplate": "{organisation} - Virtuel" },
+  "defaultCampus": { "code": "online", "name": "Campus en ligne" },
+  "levels": [],
+  "periods": []
+}

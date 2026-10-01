@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "pack": "SECONDARY",
+  "label": "Collège et lycée",
+  "institution": { "code": "secondary", "nameTemplate": "{organisation} - Secondaire" },
+  "defaultCampus": { "code": "main", "name": "Campus principal" },
+  "levels": [],
+  "periods": []
+}

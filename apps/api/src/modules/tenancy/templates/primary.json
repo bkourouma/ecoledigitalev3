@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "pack": "PRIMARY",
+  "label": "École primaire",
+  "institution": { "code": "primary", "nameTemplate": "{organisation} - Primaire" },
+  "defaultCampus": { "code": "main", "name": "Campus principal" },
+  "levels": [],
+  "periods": []
+}
