@@ -14,6 +14,7 @@ import type { ClassroomEnrollmentFacts, ClassroomFacts, CycleEnrollmentFacts, Cy
 import * as cal from "../infrastructure/calendar-repository";
 import * as classroomsRepo from "../infrastructure/classroom-repository";
 import * as cur from "../infrastructure/curriculum-repository";
+import * as enr from "../infrastructure/enrollment-repository";
 import * as facts from "../infrastructure/facts-repository";
 import * as ref from "../infrastructure/reference-repository";
 import { inReadTx, inScope, type AcademicDeps } from "./deps";
@@ -183,4 +184,9 @@ export async function listStudentPlacements(deps: AcademicDeps, ctx: RequestCont
     }
     return ok({ classroomIds, offeringIds: p.offeringIds });
   });
+}
+
+/** L'apprenant a-t-il TERMINÉ une sélection de cours sur cette lignée ? (repli de `CompletionLookup`, lecture locale.) */
+export async function hasCompletedSelection(deps: AcademicDeps, ctx: RequestContext, input: { studentId: string; lineageId: string }): Promise<Result<boolean, AppError>> {
+  return inReadTx(deps, ctx, async (tx) => ok(await enr.hasCompletedLineage(tx, input.studentId, input.lineageId)));
 }

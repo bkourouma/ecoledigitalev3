@@ -101,6 +101,9 @@ export {
 export { createWorkerResultsDeps, setResultsWorkerPorts } from "./application/worker-ports";
 export { bindResultsRulesSources, createResultsReplaySource, createResultsSimulationSource } from "./application/replay";
 
+// Usage d'un nœud de curriculum (garde d'amendement structurel d'academic)
+export { isCurriculumNodeInResults } from "./application/usage";
+
 // Résultat d'année (dérivé des FINAL de période)
 export { getYearResult, type YearPeriodSummary, type YearResult } from "./application/year";
 

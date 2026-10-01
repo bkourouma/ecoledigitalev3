@@ -89,6 +89,9 @@ export {
   type GradeHistory,
 } from "./application/revisions";
 
+// Usage d'un nœud de curriculum (garde d'amendement structurel d'academic)
+export { isCurriculumNodeInUse } from "./application/usage";
+
 // API publique pour `results` / `higher` : verrous de période et lecture des notes publiées
 export {
   getPeriodLock,

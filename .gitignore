@@ -121,3 +121,6 @@ config/production.*
 
 # Sauvegardes locales (dumps, fichiers de campagnes E2E)
 infra/backups/
+
+# Repli disque du stockage d objets (developpement)
+.data/

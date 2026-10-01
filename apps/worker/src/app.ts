@@ -12,6 +12,7 @@ import type { WorkerConfig } from "./config";
 import { redactUrl } from "./config";
 import { bundledModules } from "./discovery/bundled";
 import { defaultModuleDirs, discoverModuleExtensions, type BundledModule } from "./discovery/discover";
+import { loadPlatformWiring, type PlatformWiring } from "./discovery/platform-wiring";
 import { EventConsumers } from "./events/consumers";
 import { PgNotificationListener } from "./events/notifications";
 import {
@@ -41,6 +42,12 @@ export interface WorkerAppOptions {
   bundled?: BundledModule[] | undefined;
   /** N'enregistre pas les jobs du socle (tests ciblés). */
   skipBuiltinJobs?: boolean;
+  /**
+   * Câblage des PORTS entre modules (adaptateurs de la plateforme). Défaut : chargé depuis l'API (sources en développement,
+   * bundle en production) SAUF quand les dossiers de modules sont remplacés (`moduleDirs`) — les tests du socle n'embarquent
+   * alors aucun module. `null` : aucun câblage.
+   */
+  platformWiring?: PlatformWiring | null;
 }
 
 export class WorkerApp {
@@ -106,6 +113,21 @@ export class WorkerApp {
       this.tenantDb = new TenantDb(this.pool, { statementTimeoutMs: config.WORKER_PG_STATEMENT_TIMEOUT_MS });
       this.systemDb = new SystemDb(this.tenantDb, { logger: systemDbLogger(logger) });
       logger.info({ role, db: redactUrl(config.WORKER_DATABASE_URL) }, "PostgreSQL : rôle applicatif vérifié (ni superuser, ni BYPASSRLS)");
+
+      // 1b. Ports entre modules : sans eux les abonnés (recalcul des résultats, capitalisation, confirmation d'inscription…)
+      //     échouent fermé. Branchés AVANT de démarrer les consommateurs et le planificateur.
+      const wiring =
+        this.options.platformWiring !== undefined
+          ? this.options.platformWiring
+          : this.options.moduleDirs !== undefined
+            ? null
+            : await loadPlatformWiring(resolve(__dirname, ".."));
+      if (wiring) {
+        await wiring({ tenantDb: this.tenantDb, systemDb: this.systemDb, logger, env: process.env });
+        logger.info({}, "ports entre modules branchés (adaptateurs de plateforme)");
+      } else {
+        logger.warn({}, "aucun adaptateur de ports entre modules chargé : les abonnés qui en dépendent échoueront fermé");
+      }
 
       // 2. Redis.
       this.blocking = createRedis(config.REDIS_URL, "blocking", logger);

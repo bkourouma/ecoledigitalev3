@@ -14,6 +14,8 @@
  *        relevé des routes publiques + authentification IAM v2 (hook `onRequest`) ;
  *     5. synchronisation du catalogue : permissions + rôles système (`syncRbac`), features (`syncFeatureCatalog`) ;
  *     6. plugins HTTP des modules, ordre topologique, `/api/v1/<clé>` (`setup` racine puis routes) ;
+ *     6b. ADAPTATEURS de ports entre modules (`platform/adapters`) : résultats, bulletins, présences, paie, finance,
+ *         enseignement supérieur… sans eux les modules échouent fermé (`*.port_unavailable`) ;
  *     7. invalidation des caches par les événements relayés par le worker (Redis, si `REDIS_URL`) ;
  *     8. RATTRAPAGE idempotent des tenants legacy (profil, établissement, rôles, abonnement — politique
  *        `V2_LEGACY_TENANT_DEFAULT_*`, voir legacy-catchup.ts) et hook de rattrapage à la création d'un tenant.
@@ -34,11 +36,15 @@ export interface RegisterV2Options {
   runtime?: Pick<BuildRuntimeOptions, "accountNotifier" | "rateLimiter" | "superAdminAuthDeps" | "superAdminAuthorizer" | "clock">;
   /** Ignore le rattrapage des tenants legacy (tests ciblés). */
   skipLegacyCatchUp?: boolean;
+  /** Ne branche PAS les adaptateurs de ports entre modules (tests d'un module isolé avec ses propres ports). */
+  skipAdapters?: boolean;
 }
 
 export interface V2PlatformStatus {
   enabled: boolean;
   modules: string[];
+  /** Les adaptateurs de ports entre modules sont branchés (`platform/adapters`). */
+  adapters?: boolean;
   /** Rapport du rattrapage des tenants legacy (absent s'il a été ignoré). */
   catchUp?: CatchUpReport;
 }
@@ -133,6 +139,12 @@ export async function registerV2Platform(app: FastifyInstance, options: Register
   // 6. Plugins HTTP des modules.
   const loaded = await registerModules(app, { enabled: true, discovered, runtime: built.runtime });
 
+  // 6b. Adaptateurs de ports entre modules : les registres de ports sont lus à la requête (ordre indifférent).
+  if (!options.skipAdapters) {
+    const { wireApiPorts } = await import("./adapters");
+    wireApiPorts(app, built.runtime);
+  }
+
   // 7. Caches : invalidation par les événements relayés par le worker (autres instances et worker compris).
   const redisUrl = env.REDIS_URL?.trim();
   if (redisUrl) {
@@ -167,5 +179,5 @@ export async function registerV2Platform(app: FastifyInstance, options: Register
     });
   }
 
-  return { enabled: true, modules: loaded.map((m) => m.key), ...(report ? { catchUp: report } : {}) };
+  return { enabled: true, modules: loaded.map((m) => m.key), adapters: !options.skipAdapters, ...(report ? { catchUp: report } : {}) };
 }

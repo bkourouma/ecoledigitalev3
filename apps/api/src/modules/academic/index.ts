@@ -179,6 +179,7 @@ export {
   getResultsStructure,
   getUeFacts,
   hasAttendedUe,
+  hasCompletedSelection,
   listClassroomEnrollments,
   listCycleEnrollments,
   listProgramUe,
