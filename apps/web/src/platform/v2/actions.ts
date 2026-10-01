@@ -12,7 +12,7 @@
 import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import type { ZodType, ZodTypeDef } from "zod";
 import type { ApiError } from "@/platform/api/errors";
-import type { HttpMethod } from "@/platform/api/client";
+import type { HttpMethod, QueryParams } from "@/platform/api/client";
 import { platformHooks } from "@/platform/api/default-client";
 
 export interface ActionOptions<TData, TVars> {
@@ -20,6 +20,8 @@ export interface ActionOptions<TData, TVars> {
   path: string | ((variables: TVars) => string);
   /** Corps JSON ; absent : aucune donnée envoyée (action sans paramètre). */
   body?: (variables: TVars) => unknown;
+  /** Paramètres de requête (par exemple `DELETE` avec motif : l'API les lit dans la chaîne de requête). */
+  query?: (variables: TVars) => QueryParams;
   schema?: ZodType<TData, ZodTypeDef, unknown>;
   invalidate?: ReadonlyArray<readonly unknown[]>;
 }
@@ -30,6 +32,7 @@ export function useApiAction<TData = unknown, TVars = void>(options: ActionOptio
     mutationFn: (variables) =>
       platformHooks.client.request<TData, ZodType<TData, ZodTypeDef, unknown> | undefined>(options.method ?? "POST", typeof options.path === "function" ? options.path(variables) : options.path, {
         body: options.body ? options.body(variables) : undefined,
+        query: options.query ? options.query(variables) : undefined,
         schema: options.schema,
       }) as Promise<TData>,
     onSuccess: async () => {

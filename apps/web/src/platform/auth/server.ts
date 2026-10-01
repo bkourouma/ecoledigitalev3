@@ -20,7 +20,7 @@ function apiBaseUrl(): string {
   return process.env.API_INTERNAL_URL || process.env.API_URL || "http://localhost:4000";
 }
 
-async function fetchPermissions(session: SessionLike): Promise<readonly string[] | null> {
+export async function fetchPermissions(session: SessionLike): Promise<readonly string[] | null> {
   const token = typeof session.jwtToken === "string" ? session.jwtToken : null;
   if (!token) return null;
   const tenant = resolveRequestTenant(null, {

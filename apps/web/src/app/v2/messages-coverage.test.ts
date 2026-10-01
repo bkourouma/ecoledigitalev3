@@ -17,6 +17,11 @@ import {
   ACADEMIC_YEAR_STATUSES,
 } from "@ecoledigitale/contracts/v2/academic";
 
+import { PEOPLE_ASSIGNMENT_ROLES, PEOPLE_STAFF_STATUSES, PEOPLE_STUDENT_STATUSES } from "@ecoledigitale/contracts/v2/people";
+
+const FLAGS = ["isPrimaryContact", "isEmergencyContact", "isFinancialResponsible", "hasLegalCustody", "canPickup", "portalAccess"] as const;
+void PEOPLE_STAFF_STATUSES;
+
 /**
  * Filet de sécurité i18n : toute clé passée à `t("…")` dans les écrans v2 et les composants partagés doit exister dans
  * `messages/fr-CI.json`. Les clés calculées (`t(\`status.${x}\`)`) sont couvertes par les listes d'énumérations ci-dessous.
@@ -79,6 +84,13 @@ describe("messages fr-CI", () => {
       ["v2Enrollments.detail.done", ["confirm", "resume", "reopen", "suspend", "complete", "withdraw", "cancel", "transfer", "funding"]],
       ["v2Enrollments.detail.reasonTitle", ["confirm", "resume", "reopen", "suspend", "complete", "withdraw", "cancel"]],
       ["v2Enrollments.detail.reasonDescription", ["confirm", "resume", "reopen", "suspend", "complete", "withdraw", "cancel"]],
+      ["v2Students.status", PEOPLE_STUDENT_STATUSES],
+      ["v2Students.guardianForm.flag", FLAGS],
+      ["v2Students.guardianForm.flagHint", FLAGS],
+      ["v2Students.detail.guardians.flagShort", FLAGS],
+      ["v2Students.detail.guardians.kind", ["existing", "new"]],
+      ["v2Students.detail.schooling.prior.kind", ["SCHOOL", "DIPLOMA", "CERTIFICATE", "OTHER"]],
+      ["v2Academic.classroomDetail.assignments.roles", PEOPLE_ASSIGNMENT_ROLES],
       ["v2Students.duplicates.match", ["EXACT", "NEAR", "NAME_ONLY", "EMAIL", "PHONE"]],
       ["v2Students.duplicates.role", ["STUDENT", "GUARDIAN", "STAFF"]],
     ];

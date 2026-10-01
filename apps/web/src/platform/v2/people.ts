@@ -257,7 +257,9 @@ export function useUpdateGuardianLink() {
 export function useUnlinkGuardian() {
   return useApiAction({
     method: "DELETE",
-    path: (v: { studentId: string; linkId: string }) => `${PEOPLE_BASE}/students/${v.studentId}/guardians/${v.linkId}`,
+    path: (v: { studentId: string; linkId: string; effectiveOn?: string; reason?: string }) => `${PEOPLE_BASE}/students/${v.studentId}/guardians/${v.linkId}`,
+    query: (v) => ({ effectiveOn: v.effectiveOn, reason: v.reason }),
+    schema: peopleGuardianLinkDtoSchema,
     invalidate: [GUARDIANS_KEY, STUDENTS_KEY],
   });
 }
@@ -289,6 +291,16 @@ export function useMyChildren(enabled = true) {
 
 export function useMyChild(studentId: string | null) {
   return hooks.useApiQuery(["people", "children", "one", studentId], `${PEOPLE_BASE}/children/${studentId}`, { schema: peopleChildDtoSchema, enabled: studentId !== null });
+}
+
+export function useUpdateChildEmergencyContact() {
+  return useApiAction({
+    method: "PATCH",
+    path: (v: { studentId: string; contactId: string; patch: Record<string, unknown> }) => `${PEOPLE_BASE}/children/${v.studentId}/emergency-contacts/${v.contactId}`,
+    body: (v) => v.patch,
+    schema: peopleEmergencyContactDtoSchema,
+    invalidate: [["people", "children"]],
+  });
 }
 
 export function useMyStudentRecord(enabled = true) {

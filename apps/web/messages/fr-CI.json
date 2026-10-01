@@ -926,6 +926,23 @@
     }
   },
   "v2Students": {
+    "nav": {
+      "label": "Élèves et tuteurs",
+      "students": "Élèves",
+      "new": "Nouvel élève",
+      "guardians": "Tuteurs",
+      "children": "Mes enfants"
+    },
+    "status": {
+      "ACTIVE": "Actif",
+      "INACTIVE": "Inactif",
+      "SUSPENDED": "Suspendu",
+      "GRADUATED": "Diplômé",
+      "WITHDRAWN": "Retiré",
+      "TRANSFERRED_OUT": "Transféré",
+      "EXCLUDED": "Exclu",
+      "ARCHIVED": "Archivé"
+    },
     "identity": {
       "lastName": "Nom",
       "firstName": "Prénoms",
@@ -967,6 +984,365 @@
       "acknowledge": "Ce n'est pas un doublon : créer quand même",
       "reason": "Motif de la création",
       "created": "{count, plural, one {# dossier similaire existe} other {# dossiers similaires existent}} : vérifiez la fiche créée."
+    },
+    "guardianForm": {
+      "relationship": "Lien de parenté",
+      "choose": "Choisir…",
+      "flags": "Droits et rôles du tuteur",
+      "flag": {
+        "isPrimaryContact": "Contact principal",
+        "isEmergencyContact": "Contact d'urgence",
+        "isFinancialResponsible": "Responsable financier",
+        "hasLegalCustody": "Autorité légale",
+        "canPickup": "Autorisé à récupérer l'enfant",
+        "portalAccess": "Accès au portail parents"
+      },
+      "flagHint": {
+        "isPrimaryContact": "Un seul contact principal par élève.",
+        "isEmergencyContact": "Appelé en cas d'urgence.",
+        "isFinancialResponsible": "Destinataire des factures et relances.",
+        "hasLegalCustody": "Décide pour l'élève. Faux par défaut.",
+        "canPickup": "Peut récupérer l'élève à la sortie. Faux par défaut.",
+        "portalAccess": "Peut consulter le dossier de l'enfant dans le portail."
+      }
+    },
+    "list": {
+      "title": "Élèves",
+      "description": "Dossiers permanents des élèves : recherche par nom, matricule ou numéro d'inscription.",
+      "new": "Nouvel élève",
+      "export": "Exporter (CSV)",
+      "filters": "Filtres des élèves",
+      "search": "Rechercher un élève",
+      "searchPlaceholder": "Nom, prénoms, matricule…",
+      "filterStatus": "Statut",
+      "filterYear": "Année",
+      "filterClassroom": "Classe",
+      "allClassrooms": "Toutes les classes",
+      "all": "Tous",
+      "includeArchived": "Inclure les dossiers archivés",
+      "tableCaption": "Liste des élèves",
+      "empty": "Aucun élève pour le moment.",
+      "emptyHint": "Créez le premier dossier avec « Nouvel élève ».",
+      "noResults": "Aucun élève ne correspond à votre recherche.",
+      "notEnrolled": "Non inscrit",
+      "columns": {
+        "name": "Élève",
+        "number": "Matricule",
+        "classroom": "Classe",
+        "enrollment": "Inscription",
+        "status": "Statut"
+      }
+    },
+    "create": {
+      "title": "Nouvel élève",
+      "description": "Identité, tuteurs puis vérification des doublons. Le matricule est attribué à la création et ne change plus.",
+      "identityStep": "Identité",
+      "identityHint": "Le sexe est obligatoire : il n'y a aucune valeur par défaut.",
+      "guardiansStep": "Tuteurs",
+      "guardiansHint": "Facultatif : ajoutez les tuteurs maintenant ou plus tard depuis la fiche.",
+      "reviewStep": "Récapitulatif",
+      "finish": "Créer le dossier",
+      "alreadyCreated": "Le dossier est déjà créé : seule la liaison des tuteurs peut encore être reprise.",
+      "duplicateBlocking": "Des dossiers similaires existent : confirmez la création avec un motif ou ouvrez le dossier existant.",
+      "doneTitle": "Dossier créé",
+      "doneBody": "{name} — matricule {number}.",
+      "openStudent": "Ouvrir la fiche",
+      "enrollNow": "Inscrire maintenant",
+      "retryGuardians": "Reprendre les tuteurs restants",
+      "guardians": {
+        "none": "Aucun tuteur ajouté.",
+        "entry": "Tuteur {n}",
+        "addExisting": "Ajouter un tuteur existant",
+        "addNew": "Ajouter un nouveau tuteur",
+        "search": "Tuteur",
+        "searchPlaceholder": "Rechercher un tuteur…",
+        "required": "Choisissez un tuteur.",
+        "relationshipRequired": "Choisissez le lien de parenté.",
+        "occupation": "Profession",
+        "remove": "Retirer ce tuteur",
+        "linked": "Tuteur lié.",
+        "failed": "La liaison de ce tuteur a échoué.",
+        "autoReason": "Doublon confirmé lors de la création de l'élève",
+        "duplicateGuardian": "Un tuteur similaire existe déjà ({name}) : liez-le depuis la fiche de l'élève.",
+        "partial": "{count, plural, one {# tuteur n'a pas pu être lié} other {# tuteurs n'ont pas pu être liés}} :",
+        "optionalNote": "Les tuteurs peuvent aussi être ajoutés plus tard depuis la fiche de l'élève."
+      },
+      "review": {
+        "name": "Élève",
+        "birthDate": "Date de naissance",
+        "guardians": "Tuteurs à lier",
+        "numberNote": "Le matricule est attribué automatiquement à la création."
+      }
+    },
+    "detail": {
+      "subtitle": "Matricule {number}",
+      "back": "Tous les élèves",
+      "enroll": "Inscrire",
+      "edit": "Modifier",
+      "editTitle": "Modifier {name}",
+      "save": "Enregistrer",
+      "updated": "La fiche a été mise à jour.",
+      "changeStatus": "Changer le statut",
+      "statusChanged": "Le statut a été modifié.",
+      "currentClass": "Classe actuelle",
+      "notEnrolled": "Non inscrit",
+      "reducedAccess": "Fiche réduite : vous voyez les informations nécessaires à votre classe, sans coordonnées ni historique complet.",
+      "documentsUnavailable": "Le dépôt de pièces (certificats, photos) n'est pas encore disponible : il dépend du service de stockage de l'établissement.",
+      "tabs": {
+        "identity": "Identité",
+        "guardians": "Tuteurs",
+        "emergency": "Urgences",
+        "schooling": "Parcours scolaire",
+        "status": "Statut",
+        "documents": "Pièces"
+      },
+      "identity": {
+        "civil": "État civil",
+        "contact": "Coordonnées",
+        "unknown": "Non renseigné",
+        "firstEnrolledOn": "Première inscription",
+        "portalAccount": "Compte du portail",
+        "noPortal": "Aucun compte",
+        "primaryGuardian": "Tuteur principal",
+        "sensitive": "Informations sensibles",
+        "sensitiveHint": "Identifiant national et pièces d'état civil. Chaque consultation est journalisée.",
+        "reveal": "Afficher les informations sensibles",
+        "hide": "Masquer",
+        "nationalId": "Identifiant national",
+        "birthCertificateNumber": "N° de l'acte de naissance",
+        "birthCertificateDate": "Date de l'acte",
+        "civilRegistryOffice": "Centre d'état civil"
+      },
+      "statusDialog": {
+        "title": "Changer le statut de {name}",
+        "description": "Le changement est conservé dans l'historique avec son auteur et son motif.",
+        "status": "Nouveau statut",
+        "choose": "Choisir…",
+        "reason": "Motif",
+        "reasonHint": "Obligatoire pour une sortie (retrait, exclusion, transfert).",
+        "effectiveOn": "Date d'effet",
+        "effectiveOnHint": "Par défaut : aujourd'hui.",
+        "submit": "Changer le statut"
+      },
+      "statusTab": {
+        "caption": "Historique des statuts",
+        "when": "Date d'effet",
+        "change": "Changement",
+        "reason": "Motif",
+        "empty": "Aucun changement de statut."
+      },
+      "guardians": {
+        "title": "Tuteurs",
+        "caption": "Tuteurs de l'élève",
+        "empty": "Aucun tuteur lié.",
+        "emptyHint": "Liez un tuteur existant ou créez-en un nouveau.",
+        "link": "Lier un tuteur",
+        "linkTitle": "Lier un tuteur",
+        "linkDescription": "Le lien porte les droits du tuteur (contact principal, autorité, retrait, accès au portail).",
+        "kindLabel": "Tuteur",
+        "kind": {
+          "existing": "Tuteur existant",
+          "new": "Nouveau tuteur"
+        },
+        "search": "Tuteur",
+        "searchPlaceholder": "Rechercher un tuteur…",
+        "guardianRequired": "Choisissez un tuteur.",
+        "relationshipRequired": "Choisissez le lien de parenté.",
+        "occupation": "Profession",
+        "linked": "Le tuteur est lié.",
+        "edit": "Modifier",
+        "editTitle": "Modifier le lien avec {name}",
+        "save": "Enregistrer",
+        "updated": "Le lien est mis à jour.",
+        "unlink": "Clôturer le lien",
+        "unlinkTitle": "Clôturer le lien avec {name}",
+        "unlinkDescription": "Le lien est clos, jamais supprimé : il reste dans l'historique.",
+        "unlinked": "Le lien est clos.",
+        "reason": "Motif (facultatif)",
+        "invite": "Inviter au portail",
+        "invited": "Invitation envoyée à {name}.",
+        "since": "Depuis le {date}",
+        "closedOn": "Clos le {date}",
+        "columns": {
+          "guardian": "Tuteur",
+          "relationship": "Lien",
+          "flags": "Rôles",
+          "validity": "Validité",
+          "actions": "Actions"
+        },
+        "flagShort": {
+          "isPrimaryContact": "Principal",
+          "isEmergencyContact": "Urgence",
+          "isFinancialResponsible": "Financier",
+          "hasLegalCustody": "Autorité",
+          "canPickup": "Retrait",
+          "portalAccess": "Portail"
+        }
+      },
+      "emergency": {
+        "title": "Contacts d'urgence",
+        "caption": "Contacts d'urgence de l'élève",
+        "empty": "Aucun contact d'urgence.",
+        "add": "Ajouter un contact",
+        "addTitle": "Ajouter un contact d'urgence",
+        "added": "Le contact a été ajouté.",
+        "remove": "Retirer",
+        "removed": "Le contact a été retiré.",
+        "columns": {
+          "name": "Nom",
+          "relationship": "Lien",
+          "phone": "Téléphone",
+          "priority": "Priorité",
+          "actions": "Actions"
+        },
+        "fields": {
+          "contactName": "Nom du contact",
+          "relationshipLabel": "Lien avec l'élève",
+          "phone": "Téléphone",
+          "phoneAlt": "Autre téléphone",
+          "email": "Adresse e-mail",
+          "priority": "Priorité",
+          "priorityHint": "0 = appelé en premier."
+        }
+      },
+      "schooling": {
+        "enrollments": {
+          "title": "Inscriptions",
+          "caption": "Inscriptions de l'élève",
+          "empty": "Aucune inscription.",
+          "enrolledOn": "Inscrit le",
+          "classroom": "Classe",
+          "program": "Programme et niveau",
+          "status": "Statut",
+          "actions": "Actions",
+          "open": "Ouvrir"
+        },
+        "prior": {
+          "title": "Antécédents scolaires",
+          "caption": "Parcours scolaire antérieur",
+          "empty": "Aucun antécédent enregistré.",
+          "add": "Ajouter un antécédent",
+          "addTitle": "Ajouter un antécédent scolaire",
+          "added": "L'antécédent a été ajouté.",
+          "remove": "Retirer",
+          "removed": "L'antécédent a été retiré.",
+          "label": "Intitulé",
+          "institution": "Établissement",
+          "schoolYear": "Année",
+          "level": "Niveau / série",
+          "actions": "Actions",
+          "kind": {
+            "SCHOOL": "Scolarité",
+            "DIPLOMA": "Diplôme",
+            "CERTIFICATE": "Attestation",
+            "OTHER": "Autre"
+          },
+          "fields": {
+            "kind": "Nature",
+            "label": "Intitulé",
+            "institutionName": "Établissement",
+            "schoolYear": "Année scolaire",
+            "levelLabel": "Niveau",
+            "seriesLabel": "Série",
+            "obtainedOn": "Date d'obtention"
+          }
+        }
+      }
+    },
+    "children": {
+      "title": "Mes enfants",
+      "description": "Les élèves dont vous êtes le tuteur. Vous ne voyez que vos propres enfants.",
+      "listLabel": "Mes enfants",
+      "empty": "Aucun enfant n'est rattaché à votre compte.",
+      "emptyHint": "Si vous pensez que c'est une erreur, contactez le secrétariat de l'établissement.",
+      "notEnrolled": "Non inscrit",
+      "open": "Ouvrir la fiche",
+      "detail": {
+        "back": "Mes enfants",
+        "subtitle": "Matricule {number}",
+        "summary": "Résumé",
+        "classroom": "Classe",
+        "notEnrolled": "Non inscrit",
+        "birthDate": "Date de naissance",
+        "registration": "N° d'inscription",
+        "guardians": "Tuteurs",
+        "primary": "Contact principal",
+        "emergency": {
+          "title": "Contacts d'urgence",
+          "hint": "Vous pouvez corriger les coordonnées des contacts d'urgence de votre enfant.",
+          "caption": "Contacts d'urgence",
+          "empty": "Aucun contact d'urgence.",
+          "name": "Nom",
+          "phone": "Téléphone",
+          "phoneAlt": "Autre téléphone",
+          "email": "Adresse e-mail",
+          "relationship": "Lien",
+          "actions": "Actions",
+          "edit": "Corriger",
+          "editTitle": "Corriger les coordonnées de {name}",
+          "save": "Enregistrer",
+          "updated": "Les coordonnées ont été mises à jour."
+        },
+        "enrollments": {
+          "title": "Inscriptions",
+          "empty": "Aucune inscription.",
+          "unavailable": "Les inscriptions ne sont pas disponibles pour votre compte."
+        }
+      }
+    }
+  },
+  "v2Guardians": {
+    "list": {
+      "title": "Tuteurs",
+      "description": "Parents et tuteurs légaux des élèves. Une personne peut être tuteur de plusieurs élèves.",
+      "new": "Nouveau tuteur",
+      "search": "Rechercher un tuteur",
+      "searchPlaceholder": "Nom, téléphone, e-mail…",
+      "tableCaption": "Liste des tuteurs",
+      "empty": "Aucun tuteur enregistré.",
+      "noResults": "Aucun tuteur ne correspond à votre recherche.",
+      "noPortal": "Sans compte",
+      "portalActive": "Compte actif",
+      "createTitle": "Créer un tuteur",
+      "create": "Créer",
+      "created": "Le tuteur {name} a été créé.",
+      "occupation": "Profession",
+      "columns": {
+        "name": "Tuteur",
+        "phone": "Téléphone",
+        "email": "E-mail",
+        "children": "Enfants",
+        "portal": "Portail"
+      }
+    },
+    "detail": {
+      "back": "Tous les tuteurs",
+      "edit": "Modifier",
+      "editTitle": "Modifier {name}",
+      "save": "Enregistrer",
+      "updated": "La fiche a été mise à jour.",
+      "invite": "Inviter au portail",
+      "invited": "L'invitation a été envoyée.",
+      "contact": "Coordonnées",
+      "noPortal": "Aucun compte",
+      "fields": {
+        "email": "Adresse e-mail",
+        "phone": "Téléphone",
+        "phoneAlt": "Autre téléphone",
+        "city": "Ville",
+        "addressLine": "Adresse",
+        "employer": "Employeur",
+        "occupation": "Profession",
+        "portal": "Compte du portail"
+      },
+      "children": {
+        "title": "Enfants liés",
+        "caption": "Élèves dont cette personne est tuteur",
+        "empty": "Aucun enfant lié.",
+        "name": "Élève",
+        "number": "Matricule",
+        "classroom": "Classe"
+      }
     }
   }
 }
