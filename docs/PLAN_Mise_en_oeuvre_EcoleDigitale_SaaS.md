@@ -1,6 +1,6 @@
 # Plan de mise en œuvre — EcoleDigitale SaaS
 
-**Référence :** `docs/PRD_ScolarFlow_SaaS.md` (à renommer `PRD_EcoleDigitale_SaaS.md` : le produit s'appelle **EcoleDigitale**, jamais ScolarFlow).
+**Référence :** `docs/PRD_EcoleDigitale_SaaS.md` (renommage effectué : le produit s'appelle **EcoleDigitale**).
 **Date :** 1er octobre 2026
 **Statut :** proposition à valider. Aucune modification de code n'a été faite.
 
@@ -237,7 +237,7 @@ Charge exprimée en tailles relatives (S ≈ 1–2 semaines, M ≈ 3–5, L ≈ 
 
 | Tâche | Détail |
 |-------|--------|
-| 0.1 Nommage | Renommer le PRD en `PRD_EcoleDigitale_SaaS.md`, remplacer ScolarFlow par EcoleDigitale (30 occurrences, 1 fichier). Noms de packs : « EcoleDigitale Primary / Secondary / Higher / Virtual ». |
+| 0.1 Nommage | **Fait** : PRD renommé en `PRD_EcoleDigitale_SaaS.md`, ancien nom du produit remplacé par EcoleDigitale. Noms de packs : « EcoleDigitale Primary / Secondary / Higher / Virtual ». |
 | 0.2 Spec Kit `specs/v2` | Les scripts `.specify/scripts/powershell/{common,create-new-feature}.ps1` figent le dossier `specs/` et calculent le numéro suivant sur ses seuls sous-dossiers. Les adapter (variable `SPECS_DIR` lue depuis `.specify/init-options.json`) pour qu'ils gèrent `specs/v2/`. Mettre à jour la constitution avec les principes du §3.1. |
 | 0.3 ADR | `docs/adr/` : ADR-001 modular monolith, 002 tenancy/RLS, 003 DSL de règles, 004 outbox et événements, 005 accès aux données et typage, 006 schémas Postgres par module, 007 conventions (UUID, montants entiers, UTC, i18n). |
 | 0.4 Sécurité immédiate | Retirer les secrets du dépôt, **les faire tourner**, imposer l'échec au démarrage sans `NEXTAUTH_SECRET`/`JWT_SECRET`, retirer les pages `test-*`/`debug-*`. |
@@ -430,7 +430,7 @@ Chaque spec suit le gabarit du PRD : objectifs, périmètre, acteurs, user stori
 
 ## 9. Premières actions proposées (dans l'ordre)
 
-1. Renommer le PRD et corriger le nom du produit (tâche 0.1).
+1. ~~Renommer le PRD et corriger le nom du produit (tâche 0.1).~~ Fait.
 2. Faire tourner les secrets exposés et retirer les mots de passe du dépôt (0.4).
 3. Adapter les scripts Spec Kit à `specs/v2/` (0.2).
 4. Lancer l'inventaire d'impact (0.6) et la sauvegarde (0.7).

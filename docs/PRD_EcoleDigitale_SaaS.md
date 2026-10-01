@@ -1,17 +1,17 @@
-# PRD --- ScolarFlow SaaS
+# PRD --- EcoleDigitale SaaS
 
 **Version :** 1.0\
 **Date :** 30 septembre 2026\
 **Marché initial :** Côte d'Ivoire\
 **Extension cible :** Afrique francophone\
-**Produit :** ScolarFlow\
+**Produit :** EcoleDigitale\
 **Type :** SaaS B2B2C de gestion éducative
 
 ------------------------------------------------------------------------
 
 ## 1. Vision du produit
 
-**ScolarFlow** est une plateforme SaaS unifiée permettant de gérer
+**EcoleDigitale** est une plateforme SaaS unifiée permettant de gérer
 l'ensemble des activités pédagogiques, administratives, financières et
 numériques d'un établissement d'enseignement.
 
@@ -19,10 +19,10 @@ Un seul produit doit pouvoir servir quatre catégories d'établissements :
 
   Pack                       Établissements
   -------------------------- -------------------------------------------
-  **ScolarFlow Primary**     Maternelle et primaire
-  **ScolarFlow Secondary**   Collège et lycée
-  **ScolarFlow Higher**      Grandes écoles, universités, BTS
-  **ScolarFlow Virtual**     Écoles virtuelles et centres de formation
+  **EcoleDigitale Primary**     Maternelle et primaire
+  **EcoleDigitale Secondary**   Collège et lycée
+  **EcoleDigitale Higher**      Grandes écoles, universités, BTS
+  **EcoleDigitale Virtual**     Écoles virtuelles et centres de formation
 
 Un même client peut activer plusieurs packs.
 
@@ -43,7 +43,7 @@ GROUPE SCOLAIRE EXCELLENCE
     └── Virtual
 ```
 
-ScolarFlow doit être pensé comme **le système d'exploitation de
+EcoleDigitale doit être pensé comme **le système d'exploitation de
 l'établissement**, et non comme un simple logiciel de calcul de notes.
 
 ------------------------------------------------------------------------
@@ -79,13 +79,13 @@ Cette fragmentation provoque :
 -   difficultés de communication avec les familles ;
 -   manque de traçabilité.
 
-ScolarFlow doit devenir le **système central de l'établissement**.
+EcoleDigitale doit devenir le **système central de l'établissement**.
 
 ------------------------------------------------------------------------
 
 ## 3. Objectifs produit
 
-ScolarFlow doit permettre de :
+EcoleDigitale doit permettre de :
 
 1.  Digitaliser l'ensemble du cycle de vie d'un apprenant.
 2.  Centraliser les activités pédagogiques, administratives et
@@ -105,11 +105,11 @@ ScolarFlow doit permettre de :
 
 ## 4. Principe architectural fondamental
 
-ScolarFlow ne doit pas être développé comme quatre applications
+EcoleDigitale ne doit pas être développé comme quatre applications
 indépendantes.
 
 ``` text
-                    SCOLARFLOW
+                    ECOLEDIGITALE
                          │
                  ┌───────┴───────┐
                  │   SaaS Core   │
@@ -160,7 +160,7 @@ Tenant
 Exemples :
 
 ``` text
-excellence.scolarflow.com
+excellence.ecoledigitale.com
 ```
 
 ou, pour une offre Enterprise :
@@ -174,7 +174,7 @@ portail.groupeexcellence.ci
 -   Toutes les données métier doivent appartenir à un `tenantId`.
 -   Aucun tenant ne doit accéder aux données d'un autre tenant.
 -   L'isolation doit être appliquée côté backend et base de données.
--   Les administrateurs ScolarFlow doivent disposer d'outils
+-   Les administrateurs EcoleDigitale doivent disposer d'outils
     d'administration contrôlés et audités.
 
 ------------------------------------------------------------------------
@@ -206,7 +206,7 @@ Une organisation peut donc gérer plusieurs :
 
 ## 7. Personas et rôles
 
-### 7.1 Super Admin ScolarFlow
+### 7.1 Super Admin EcoleDigitale
 
 Peut notamment :
 
@@ -298,7 +298,7 @@ Gère :
 
 ## 8. Domaines fonctionnels
 
-ScolarFlow est structuré autour d'au moins 24 modules.
+EcoleDigitale est structuré autour d'au moins 24 modules.
 
   \#   Module
   ---- ----------------------
@@ -325,7 +325,7 @@ ScolarFlow est structuré autour d'au moins 24 modules.
   21   Bibliothèque
   22   Transport / Cantine
   23   Analytics
-  24   ScolarFlow AI
+  24   EcoleDigitale AI
 
 Les modules peuvent être activés selon le pack et l'abonnement.
 
@@ -428,7 +428,7 @@ Aucune périodicité ne doit être codée en dur.
 
 # PARTIE II --- PACK PRIMARY
 
-## 12. ScolarFlow Primary
+## 12. EcoleDigitale Primary
 
 Le profil Côte d'Ivoire doit permettre de configurer notamment :
 
@@ -466,7 +466,7 @@ Primaire
 -   préparation CEPE ;
 -   archivage des années.
 
-Le fonctionnement existant de ScolarFlow doit être absorbé et migré vers
+Le fonctionnement existant de EcoleDigitale doit être absorbé et migré vers
 ce pack.
 
 ------------------------------------------------------------------------
@@ -527,7 +527,7 @@ Fonctions :
 
 # PARTIE III --- PACK SECONDARY
 
-## 15. ScolarFlow Secondary
+## 15. EcoleDigitale Secondary
 
 Structure générale :
 
@@ -709,7 +709,7 @@ Fonctions :
 
 # PARTIE IV --- PACK HIGHER
 
-## 22. ScolarFlow Higher
+## 22. EcoleDigitale Higher
 
 Structure :
 
@@ -890,7 +890,7 @@ Documents générés :
 
 # PARTIE V --- PACK VIRTUAL
 
-## 27. ScolarFlow Virtual
+## 27. EcoleDigitale Virtual
 
 Le pack Virtual constitue un véritable LMS.
 
@@ -959,7 +959,7 @@ VirtualClassProvider
 └── Custom
 ```
 
-ScolarFlow ne doit dépendre d'aucun fournisseur unique.
+EcoleDigitale ne doit dépendre d'aucun fournisseur unique.
 
 L'application doit gérer :
 
@@ -978,7 +978,7 @@ L'application doit gérer :
 
 ## 30. Finance
 
-Le module financier est un composant majeur de ScolarFlow.
+Le module financier est un composant majeur de EcoleDigitale.
 
 ### Catalogue de frais
 
@@ -1270,7 +1270,7 @@ Gestion :
 
 # PARTIE VII --- INTELLIGENCE ET ANALYTICS
 
-## 41. ScolarFlow AI
+## 41. EcoleDigitale AI
 
 L'IA doit être transversale mais rester un **assistant**.
 
@@ -1746,7 +1746,7 @@ ENTERPRISE
 Exemple :
 
 ``` text
-ScolarFlow Secondary Professional
+EcoleDigitale Secondary Professional
 ```
 
 Les Feature Flags contrôlent les fonctionnalités disponibles.
@@ -1972,7 +1972,7 @@ course.completed
 
 Il n'est pas recommandé de construire les quatre packs simultanément.
 
-### ScolarFlow V1
+### EcoleDigitale V1
 
 ``` text
 SaaS Core
@@ -1988,7 +1988,7 @@ Parents
 Teachers
 ```
 
-### ScolarFlow V1.5
+### EcoleDigitale V1.5
 
 ``` text
 Higher
@@ -2002,7 +2002,7 @@ Stages
 Soutenances
 ```
 
-### ScolarFlow V2
+### EcoleDigitale V2
 
 ``` text
 Virtual
@@ -2012,7 +2012,7 @@ LMS
 AI
 ```
 
-Cette stratégie permet de capitaliser sur l'application ScolarFlow
+Cette stratégie permet de capitaliser sur l'application EcoleDigitale
 existante et de réduire le risque projet.
 
 ------------------------------------------------------------------------
@@ -2057,7 +2057,7 @@ Le parent doit pouvoir consulter :
 ### SaaS
 
 Un nouvel établissement standard doit pouvoir être créé sans
-intervention d'un développeur ACC.
+intervention d'un développeur EcoleDigitale.
 
 ### Réglementation
 
@@ -2090,12 +2090,12 @@ Le produit doit viser :
 
 Positionnement recommandé :
 
-> **ScolarFlow --- Le système d'exploitation de votre établissement.**
+> **EcoleDigitale --- Le système d'exploitation de votre établissement.**
 
 Architecture fonctionnelle cible :
 
 ``` text
-                    SCOLARFLOW
+                    ECOLEDIGITALE
                          │
        ┌─────────────────┼──────────────────┐
        │                 │                  │
@@ -2198,7 +2198,7 @@ Chaque spécification devra ensuite contenir :
 
 ## 68. Conclusion
 
-ScolarFlow doit évoluer d'une application de gestion des compositions du
+EcoleDigitale doit évoluer d'une application de gestion des compositions du
 primaire vers une **plateforme éducative SaaS complète et modulaire**.
 
 Le cœur de la stratégie repose sur :
