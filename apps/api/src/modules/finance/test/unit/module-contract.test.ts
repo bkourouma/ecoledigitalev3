@@ -22,7 +22,7 @@ import {
 } from "@ecoledigitale/contracts/src/v2/finance";
 import * as contractsV2 from "@ecoledigitale/contracts/src/v2";
 import manifest from "../../manifest";
-import rbacManifest from "../../../rbac/manifest";
+import { rbacManifest } from "../../../rbac";
 import financeAllowlist, { financeIsolationAllowlist, financeTenantTables } from "../../../isolation-allowlist.finance";
 import { ALL_FINANCE_EVENT_TYPES, FinanceEvents } from "../../domain/events";
 import {
