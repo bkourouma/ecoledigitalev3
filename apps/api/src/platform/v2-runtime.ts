@@ -115,8 +115,16 @@ export async function buildModuleRuntime(app: FastifyInstance, services: V2Servi
   let superAdminAuthorizer = options.superAdminAuthorizer;
   if (!superAdminAuthorizer) {
     if (options.superAdminAuthDeps) superAdminAuthorizer = createSuperAdminAuthorizer(options.superAdminAuthDeps);
-    else if (options.legacyPool) superAdminAuthorizer = createSuperAdminAuthorizer(await legacySuperAdminAuthDeps(options.legacyPool));
-    else {
+    else if (options.legacyPool) {
+      try {
+        superAdminAuthorizer = createSuperAdminAuthorizer(await legacySuperAdminAuthDeps(options.legacyPool));
+      } catch (e) {
+        // Le legacy exige lui-même ces secrets au démarrage ; si le service est inchargeable (secret absent), on
+        // ferme l'accès opérateur (échec fermé) plutôt que d'empêcher tout le reste de la plateforme de démarrer.
+        superAdminAuthorizer = denyAllOperators;
+        logger.warn({ err: e instanceof Error ? e.message : String(e) }, "JWT super-admin legacy indisponible : console plateforme et impersonation REFUSÉES.");
+      }
+    } else {
       superAdminAuthorizer = denyAllOperators;
       logger.warn({}, "Aucun pool legacy : console plateforme et impersonation REFUSÉES (échec fermé).");
     }

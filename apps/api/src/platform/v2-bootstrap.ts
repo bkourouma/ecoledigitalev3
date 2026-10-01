@@ -118,11 +118,17 @@ export async function registerV2Platform(app: FastifyInstance, options: Register
   await app.register(auditRequestMetaPlugin);
   installV2Authentication(app, { moduleKeys: new Set(discovered.map((d) => d.key)) });
 
-  // 5. Catalogues : permissions + rôles système de chaque tenant, puis features.
-  const rbacSync = await syncRbac(app.v2.systemDb, manifests, { logger: app.v2.logger });
-  app.log.info({ permissions: rbacSync.catalog.total, reconciled: rbacSync.reconciled, tenantsFailed: rbacSync.tenants.failed.length }, "rbac : catalogue synchronisé");
-  const features = await syncFeatureCatalog({ db: app.v2.tenantDb, systemDb: app.v2.systemDb, logger: app.v2.logger }, manifests);
-  if (!features.ok) throw features.error;
+  // 5. Catalogues : permissions + rôles système de chaque tenant, puis features. Chaque étape suppose son module
+  //    (et ses tables) : un arbre de modules réduit (outillage, tests) ne les exécute pas.
+  const has = (key: string): boolean => discovered.some((d) => d.key === key);
+  if (has("rbac")) {
+    const rbacSync = await syncRbac(app.v2.systemDb, manifests, { logger: app.v2.logger });
+    app.log.info({ permissions: rbacSync.catalog.total, reconciled: rbacSync.reconciled, tenantsFailed: rbacSync.tenants.failed.length }, "rbac : catalogue synchronisé");
+  }
+  if (has("entitlements")) {
+    const features = await syncFeatureCatalog({ db: app.v2.tenantDb, systemDb: app.v2.systemDb, logger: app.v2.logger }, manifests);
+    if (!features.ok) throw features.error;
+  }
 
   // 6. Plugins HTTP des modules.
   const loaded = await registerModules(app, { enabled: true, discovered, runtime: built.runtime });
@@ -146,7 +152,8 @@ export async function registerV2Platform(app: FastifyInstance, options: Register
 
   // 8. Rattrapage des tenants legacy + hook de création.
   let report: CatchUpReport | undefined;
-  if (!options.skipLegacyCatchUp) {
+  const canCatchUp = ["tenancy", "rbac", "entitlements", "platform", "iam"].every(has);
+  if (!options.skipLegacyCatchUp && canCatchUp) {
     const deps = buildPlatformDeps(app, built.runtime);
     report = await catchUp.catchUpLegacyTenants(deps, catchUpPolicy, app.log as never);
     tenantSync.configureTenantSync({
