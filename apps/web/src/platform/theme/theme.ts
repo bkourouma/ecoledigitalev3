@@ -21,17 +21,38 @@ export const DEFAULT_BRAND = Object.freeze({
   logoUrl: null as string | null,
 });
 
-export const TenancyProfileSchema = z.object({
-  name: z.string().optional(),
-  theme: z
-    .object({
-      primaryColor: z.string().nullish(),
-      secondaryColor: z.string().nullish(),
-      logoUrl: z.string().nullish(),
-    })
-    .nullish(),
-});
-export type TenancyProfile = z.infer<typeof TenancyProfileSchema>;
+/**
+ * Deux formes sont acceptées : l'ancienne `{ name, theme: { primaryColor, secondaryColor, logoUrl } }` et le profil réel
+ * du module tenancy `{ tradeName, legalName, branding: { logoUrl, primaryColor, secondaryColor } }` (`TenantProfileSchema`).
+ * Les deux sont normalisées vers la première.
+ */
+const BrandingSchema = z
+  .object({
+    primaryColor: z.string().nullish(),
+    secondaryColor: z.string().nullish(),
+    logoUrl: z.string().nullish(),
+  })
+  .nullish();
+
+export interface TenancyProfile {
+  name?: string;
+  theme?: z.output<typeof BrandingSchema>;
+}
+
+export const TenancyProfileSchema = z
+  .object({
+    name: z.string().optional(),
+    tradeName: z.string().nullish(),
+    legalName: z.string().optional(),
+    theme: BrandingSchema,
+    branding: BrandingSchema,
+  })
+  .transform(
+    (value): TenancyProfile => ({
+      name: value.name ?? value.tradeName ?? value.legalName ?? undefined,
+      theme: value.theme ?? value.branding ?? null,
+    }),
+  );
 
 const HEX_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 

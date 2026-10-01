@@ -27,9 +27,22 @@ export const MenuItemSchema = z.object({
 });
 export type MenuItem = z.infer<typeof MenuItemSchema>;
 
+/**
+ * Formes acceptées : `{ items }`, un tableau nu, ou la réponse réelle du kernel
+ * `{ portals: { admin: [...], teacher: [...], ... }, availablePortals }` (contrat `rbacNavigationResponseSchema`),
+ * aplatie en une liste (chaque entrée porte déjà son `portal`).
+ */
 export const NavigationResponseSchema = z
-  .union([z.object({ items: z.array(MenuItemSchema) }), z.array(MenuItemSchema)])
-  .transform((value) => (Array.isArray(value) ? value : value.items));
+  .union([
+    z.object({ items: z.array(MenuItemSchema) }),
+    z.array(MenuItemSchema),
+    z.object({ portals: z.record(z.array(MenuItemSchema)) }),
+  ])
+  .transform((value): MenuItem[] => {
+    if (Array.isArray(value)) return value;
+    if ("items" in value) return value.items;
+    return Object.values(value.portals).flat();
+  });
 export type NavigationResponse = z.output<typeof NavigationResponseSchema>;
 
 export const NAVIGATION_ENDPOINT = "/api/v1/rbac/me/navigation";

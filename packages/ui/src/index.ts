@@ -53,6 +53,9 @@ export {
   TableCaption,
 } from "./table";
 
+// Briques des écrans d'administration v2 (états, champs, tableau responsive, confirmation)
+export * from "./admin";
+
 // Schedule Generation Components
 export { WeeklyScheduleGrid, type ScheduleSession } from "./components/WeeklyScheduleGrid";
 export { TimeSlotPicker, type TimeSlot } from "./components/TimeSlotPicker";
