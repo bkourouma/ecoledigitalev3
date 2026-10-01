@@ -26,6 +26,7 @@ import {
   resultsDeliberationsQuerySchema,
   resultsDeliberationUpdateBodySchema,
   resultsEnrollmentPeriodParamsSchema,
+  resultsEnrollmentYearParamsSchema,
   resultsIdParamsSchema,
   resultsLockBodySchema,
   resultsMatrixQuerySchema,
@@ -45,6 +46,7 @@ import { approveOverride, confirmDecisionUseCase, createDeliberation, getResults
 import { closePeriod, deliberatePeriod, lockPeriod, reopenPeriod, repinPeriod } from "../application/lifecycle";
 import type { ResultsPorts } from "../application/ports";
 import { recomputeNow } from "../application/recompute";
+import { getYearResult } from "../application/year";
 import { explainResult, getClassMatrix, getEnrollmentResult, getPeriodView, getStateView, listChildResults, listMyResults } from "../application/reads";
 import { createAssessDeps } from "../../assess";
 import { assessPortFrom } from "../infrastructure/assess-adapter";
@@ -176,7 +178,12 @@ export async function resultsPlugin(app: FastifyInstance, options: ResultsPlugin
       return { header: present.headerDto(r.header), lines: r.lines.map(present.lineDto), decisions: r.decisions.map(present.decisionDto) };
     });
 
-    scope.get("/results/:id/explain", { preHandler: kit.require(P.explain) }, async (req, reply) => {
+    scope.get("/enrollments/:enrollmentId/years/:yearId", { preHandler: kit.require(P.read) }, async (req, reply) => {
+      const p = parse(resultsEnrollmentYearParamsSchema, req.params);
+      return unwrapOrThrow(await getYearResult(deps, ctxOf(req), { enrollmentId: p.enrollmentId, academicYearId: p.yearId, caps: await caps(req, reply) }));
+    });
+
+    scope.get("/results/:id/explain",{ preHandler: kit.require(P.explain) }, async (req, reply) => {
       const { id } = parse(resultsIdParamsSchema, req.params);
       const r = unwrapOrThrow(await explainResult(deps, ctxOf(req), { resultId: id, caps: await caps(req, reply) }));
       return { header: present.headerDto(r.header), source: r.source, lines: r.lines };

@@ -43,6 +43,7 @@ export const resultsReopenKindSchema = z.enum(RESULTS_REOPEN_KINDS);
 export const resultsIdParamsSchema = z.object({ id: resultsUuidSchema }).strict();
 export const resultsPeriodParamsSchema = z.object({ classroomId: resultsUuidSchema, periodId: resultsUuidSchema }).strict();
 export const resultsEnrollmentPeriodParamsSchema = z.object({ enrollmentId: resultsUuidSchema, periodId: resultsUuidSchema }).strict();
+export const resultsEnrollmentYearParamsSchema = z.object({ enrollmentId: resultsUuidSchema, yearId: resultsUuidSchema }).strict();
 export const resultsChildParamsSchema = z.object({ studentId: resultsUuidSchema }).strict();
 
 // ---------------------------------------------------------------------------
@@ -146,6 +147,44 @@ export const resultsClassMatrixDtoSchema = z.object({
   decisions: z.array(z.unknown()),
 });
 export const resultsMatrixQuerySchema = z.object({ lines: boolQuery.optional() }).strict();
+
+/** Résultat d'année d'une inscription (dérivé des résultats FINAL des périodes ; `complete: false` tant qu'une période n'est pas clôturée). */
+export const resultsYearResultDtoSchema = z.object({
+  enrollmentId: resultsUuidSchema,
+  classroomId: resultsUuidSchema,
+  academicYearId: resultsUuidSchema,
+  contractId: z.string(),
+  complete: z.boolean(),
+  missingPeriodIds: z.array(resultsUuidSchema),
+  periods: z.array(
+    z.object({
+      academicPeriodId: resultsUuidSchema,
+      rankInYear: z.number().int(),
+      final: z.boolean(),
+      version: z.number().int().nullable(),
+      average: z.string().nullable(),
+      averageDisplay: z.string().nullable(),
+      creditsAcquired: z.string().nullable(),
+      creditsRequired: z.string().nullable(),
+      validated: z.boolean().nullable(),
+      decisionCode: z.string().nullable(),
+    }),
+  ),
+  ruleSetCode: z.string().nullable(),
+  ruleVersionNo: z.number().int().nullable(),
+  definitionHash: z.string().nullable(),
+  average: z.string().nullable(),
+  averageDisplay: z.string().nullable(),
+  rank: z.number().int().nullable(),
+  cohortSize: z.number().int().nullable(),
+  validated: z.boolean().nullable(),
+  creditsAcquired: z.string().nullable(),
+  creditsRequired: z.string().nullable(),
+  mentionCode: z.string().nullable(),
+  yearDecisionCode: z.string().nullable(),
+  inputsHash: z.string().nullable(),
+});
+export type ResultsYearResultDto = z.infer<typeof resultsYearResultDtoSchema>;
 
 export const resultsFamilyResultDtoSchema = z.object({
   academicPeriodId: resultsUuidSchema.nullable(),

@@ -96,6 +96,9 @@ export {
   type ResitCandidate,
 } from "./application/reads";
 
+// Résultat d'année (dérivé des FINAL de période)
+export { getYearResult, type YearPeriodSummary, type YearResult } from "./application/year";
+
 // Pipelines purs (testables sans base) et domaine
 export { computeCreditSemester } from "./domain/pipeline/credit";
 export { computeCoefSemester } from "./domain/pipeline/coef";

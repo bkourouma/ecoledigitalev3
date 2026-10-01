@@ -14,6 +14,7 @@ import {
   resultsOverrideDtoSchema,
   resultsSettingsDtoSchema,
   resultsStateDtoSchema,
+  resultsYearResultDtoSchema,
 } from "@ecoledigitale/contracts/src/v2/results";
 import manifest from "../../manifest";
 import { resultsPlugin } from "../../http/plugin";
@@ -204,6 +205,12 @@ describeIntegration("API HTTP /api/v1/results/* (Fastify + Postgres réel + règ
     expect((await call("director", "POST", `${base}/close`, {})).json).toMatchObject({ status: 409 });
     const matrix = resultsClassMatrixDtoSchema.parse(ok(await call("reader", "GET", base)));
     expect(matrix.rows.every((r) => r.header.status === "FINAL" && r.header.finalizedAt !== null)).toBe(true);
+    // l'année (une seule période requise ici) est complète : moyenne annuelle = celle du semestre, via les règles de l'étape « année »
+    const year = resultsYearResultDtoSchema.parse(ok(await call("reader", "GET", `/enrollments/${students[0]!.enrollmentId}/years/${yearId}`)));
+    expect(year).toMatchObject({ complete: true, contractId: "credit-semester@1", rank: 1, cohortSize: 3, ruleSetCode: "CI-HIGHER-LMD" });
+    expect(year.average).toBe("13.5");
+    expect((await call("nobody", "GET", `/enrollments/${students[0]!.enrollmentId}/years/${yearId}`)).status).toBe(403);
+    expect((await call("reader", "GET", `/enrollments/${newId()}/years/${yearId}`)).status).toBe(404);
     // une surcharge sur une période clôturée est refusée
     const late = await call("director", "POST", "/overrides", { stateId, enrollmentId: students[2]!.enrollmentId, level: "UE", curriculumNodeId: id("UE1"), ruleKey: "moyenne_ue", kind: "VALUE", value: "15", justification: "Correction demandée après la clôture de la période." });
     expect(late.json).toMatchObject({ status: 409, code: "results.state_closed" });
