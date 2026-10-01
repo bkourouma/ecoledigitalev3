@@ -62,7 +62,8 @@
     "db:v2:create-login-role": "tsx scripts/db/create-login-role.ts",
     "module:new": "tsx scripts/module-new.ts",
     "test:isolation": "node scripts/db/test-isolation.mjs",
-    "test:v2": "pnpm --filter @ecoledigitale/api test:v2"
+    "test:v2": "pnpm --filter @ecoledigitale/api test:v2",
+    "test:characterization": "node tests/characterization/run.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.864.0",

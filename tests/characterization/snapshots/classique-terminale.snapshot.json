@@ -1,0 +1,5192 @@
+{
+  "schemaVersion": 1,
+  "scenario": "classique-terminale",
+  "source": "legacy",
+  "knownLegacyDefects": [],
+  "defectCatalog": {},
+  "data": {
+    "steps": {
+      "01-bulletins S1": {
+        "documentCount": 19,
+        "documents": {
+          "e01": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 64
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 1,
+                    "weightedScore": 32
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 1,
+                    "weightedScore": 32
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 8,
+                "weightedTotal": 128
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 48
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 1,
+                    "weightedScore": 32
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 5,
+                "weightedTotal": 80
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 2,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 2,
+                "totalCoef": 1,
+                "weightedTotal": 16
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève01",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e01",
+              "studentNumber": "ETU-E01"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 16,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Très bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Excellent",
+              "overallAverage": 16,
+              "rank": 1,
+              "repeating": false,
+              "secondSemesterAverage": 16,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 224
+            }
+          },
+          "e02": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Très bien",
+                "average": 15.99,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 3,
+                    "weightedScore": 63.96
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 3,
+                    "weightedScore": 31.98
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 3,
+                    "weightedScore": 31.98
+                  }
+                ],
+                "rank": 3,
+                "totalCoef": 8,
+                "weightedTotal": 127.92
+              },
+              {
+                "appreciation": "Très bien",
+                "average": 15.99,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 3,
+                    "weightedScore": 47.97
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 3,
+                    "weightedScore": 31.98
+                  }
+                ],
+                "rank": 3,
+                "totalCoef": 5,
+                "weightedTotal": 79.95
+              },
+              {
+                "appreciation": "Très bien",
+                "average": 15.99,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 4,
+                    "weightedScore": 15.99
+                  }
+                ],
+                "rank": 4,
+                "totalCoef": 1,
+                "weightedTotal": 15.99
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève02",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e02",
+              "studentNumber": "ETU-E02"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 15.989999999999998,
+              "annualRank": 3,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Très bien",
+              "overallAverage": 15.989999999999998,
+              "rank": 3,
+              "repeating": false,
+              "secondSemesterAverage": 15.989999999999998,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 223.85999999999999
+            }
+          },
+          "e03": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Très bien",
+                "average": 14,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 4,
+                    "weightedScore": 56
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 4,
+                    "weightedScore": 28
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 5,
+                    "weightedScore": 28
+                  }
+                ],
+                "rank": 4,
+                "totalCoef": 8,
+                "weightedTotal": 112
+              },
+              {
+                "appreciation": "Très bien",
+                "average": 14,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 4,
+                    "weightedScore": 42
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 4,
+                    "weightedScore": 28
+                  }
+                ],
+                "rank": 4,
+                "totalCoef": 5,
+                "weightedTotal": 70
+              },
+              {
+                "appreciation": "Très bien",
+                "average": 14,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 5,
+                    "weightedScore": 14
+                  }
+                ],
+                "rank": 5,
+                "totalCoef": 1,
+                "weightedTotal": 14
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève03",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e03",
+              "studentNumber": "ETU-E03"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 14,
+              "annualRank": 4,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Très bien",
+              "overallAverage": 14,
+              "rank": 4,
+              "repeating": false,
+              "secondSemesterAverage": 14,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 196
+            }
+          },
+          "e04": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 13.99,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 6,
+                    "weightedScore": 55.96
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 6,
+                    "weightedScore": 27.98
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 7,
+                    "weightedScore": 27.98
+                  }
+                ],
+                "rank": 6,
+                "totalCoef": 8,
+                "weightedTotal": 111.92
+              },
+              {
+                "appreciation": "Bien",
+                "average": 13.99,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 6,
+                    "weightedScore": 41.97
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 6,
+                    "weightedScore": 27.98
+                  }
+                ],
+                "rank": 6,
+                "totalCoef": 5,
+                "weightedTotal": 69.95
+              },
+              {
+                "appreciation": "Bien",
+                "average": 13.99,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 7,
+                    "weightedScore": 13.99
+                  }
+                ],
+                "rank": 7,
+                "totalCoef": 1,
+                "weightedTotal": 13.99
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève04",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e04",
+              "studentNumber": "ETU-E04"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 13.989999999999998,
+              "annualRank": 6,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Bien",
+              "overallAverage": 13.989999999999998,
+              "rank": 6,
+              "repeating": false,
+              "secondSemesterAverage": 13.989999999999998,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 195.85999999999999
+            }
+          },
+          "e05": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 7,
+                    "weightedScore": 48
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 7,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 8,
+                    "weightedScore": 24
+                  }
+                ],
+                "rank": 7,
+                "totalCoef": 8,
+                "weightedTotal": 96
+              },
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 7,
+                    "weightedScore": 36
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 7,
+                    "weightedScore": 24
+                  }
+                ],
+                "rank": 7,
+                "totalCoef": 5,
+                "weightedTotal": 60
+              },
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 8,
+                    "weightedScore": 12
+                  }
+                ],
+                "rank": 8,
+                "totalCoef": 1,
+                "weightedTotal": 12
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève05",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e05",
+              "studentNumber": "ETU-E05"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 12,
+              "annualRank": 7,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Bien",
+              "overallAverage": 12,
+              "rank": 7,
+              "repeating": false,
+              "secondSemesterAverage": 12,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 168
+            }
+          },
+          "e06": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Assez bien",
+                "average": 11.99,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 10,
+                    "weightedScore": 47.96
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 9,
+                    "weightedScore": 23.98
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 10,
+                    "weightedScore": 23.98
+                  }
+                ],
+                "rank": 9,
+                "totalCoef": 8,
+                "weightedTotal": 95.92
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 11.99,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 9,
+                    "weightedScore": 35.97
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 9,
+                    "weightedScore": 23.98
+                  }
+                ],
+                "rank": 9,
+                "totalCoef": 5,
+                "weightedTotal": 59.95
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 11.99,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 10,
+                    "weightedScore": 11.99
+                  }
+                ],
+                "rank": 10,
+                "totalCoef": 1,
+                "weightedTotal": 11.99
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève06",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e06",
+              "studentNumber": "ETU-E06"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 11.989999999999998,
+              "annualRank": 9,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail passable.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Assez bien",
+              "overallAverage": 11.989999999999998,
+              "rank": 9,
+              "repeating": false,
+              "secondSemesterAverage": 11.989999999999998,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 167.85999999999999
+            }
+          },
+          "e07": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Assez bien",
+                "average": 10,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 12,
+                    "weightedScore": 40
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 11,
+                    "weightedScore": 20
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 12,
+                    "weightedScore": 20
+                  }
+                ],
+                "rank": 12,
+                "totalCoef": 8,
+                "weightedTotal": 80
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 10,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 11,
+                    "weightedScore": 30
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 11,
+                    "weightedScore": 20
+                  }
+                ],
+                "rank": 11,
+                "totalCoef": 5,
+                "weightedTotal": 50
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 10,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 12,
+                    "weightedScore": 10
+                  }
+                ],
+                "rank": 12,
+                "totalCoef": 1,
+                "weightedTotal": 10
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève07",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e07",
+              "studentNumber": "ETU-E07"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 10,
+              "annualRank": 12,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail passable.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Assez bien",
+              "overallAverage": 10,
+              "rank": 12,
+              "repeating": false,
+              "secondSemesterAverage": 10,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 140
+            }
+          },
+          "e08": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Passable",
+                "average": 9.99,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 13,
+                    "weightedScore": 39.96
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 12,
+                    "weightedScore": 19.98
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 13,
+                    "weightedScore": 19.98
+                  }
+                ],
+                "rank": 13,
+                "totalCoef": 8,
+                "weightedTotal": 79.92
+              },
+              {
+                "appreciation": "Passable",
+                "average": 9.99,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 12,
+                    "weightedScore": 29.97
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 13,
+                    "weightedScore": 19.98
+                  }
+                ],
+                "rank": 12,
+                "totalCoef": 5,
+                "weightedTotal": 49.95
+              },
+              {
+                "appreciation": "Passable",
+                "average": 9.99,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 13,
+                    "weightedScore": 9.99
+                  }
+                ],
+                "rank": 13,
+                "totalCoef": 1,
+                "weightedTotal": 9.99
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève08",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e08",
+              "studentNumber": "ETU-E08"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 9.99,
+              "annualRank": 13,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail fragile.",
+              "decision": "Renforcement recommande",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": null,
+              "mention": "Passable",
+              "overallAverage": 9.99,
+              "rank": 13,
+              "repeating": true,
+              "secondSemesterAverage": 9.99,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 139.86
+            }
+          },
+          "e09": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Passable",
+                "average": 8,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 16,
+                    "weightedScore": 32
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 15,
+                    "weightedScore": 16
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 16,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 16,
+                "totalCoef": 8,
+                "weightedTotal": 64
+              },
+              {
+                "appreciation": "Passable",
+                "average": 8,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 15,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 16,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 15,
+                "totalCoef": 5,
+                "weightedTotal": 40
+              },
+              {
+                "appreciation": "Passable",
+                "average": 8,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 16,
+                    "weightedScore": 8
+                  }
+                ],
+                "rank": 16,
+                "totalCoef": 1,
+                "weightedTotal": 8
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève09",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e09",
+              "studentNumber": "ETU-E09"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 8,
+              "annualRank": 16,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail fragile.",
+              "decision": "Renforcement recommande",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": null,
+              "mention": "Passable",
+              "overallAverage": 8,
+              "rank": 16,
+              "repeating": true,
+              "secondSemesterAverage": 8,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 112
+            }
+          },
+          "e10": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Insuffisant",
+                "average": 7.99,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 17,
+                    "weightedScore": 31.96
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 17,
+                    "weightedScore": 15.98
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 17,
+                    "weightedScore": 15.98
+                  }
+                ],
+                "rank": 17,
+                "totalCoef": 8,
+                "weightedTotal": 63.92
+              },
+              {
+                "appreciation": "Insuffisant",
+                "average": 7.99,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 16,
+                    "weightedScore": 23.97
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 17,
+                    "weightedScore": 15.98
+                  }
+                ],
+                "rank": 16,
+                "totalCoef": 5,
+                "weightedTotal": 39.95
+              },
+              {
+                "appreciation": "Insuffisant",
+                "average": 7.99,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 17,
+                    "weightedScore": 7.99
+                  }
+                ],
+                "rank": 17,
+                "totalCoef": 1,
+                "weightedTotal": 7.99
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève10",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e10",
+              "studentNumber": "ETU-E10"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 7.99,
+              "annualRank": 17,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail insuffisant.",
+              "decision": "Periode non validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": null,
+              "mention": "Insuffisant",
+              "overallAverage": 7.99,
+              "rank": 17,
+              "repeating": true,
+              "secondSemesterAverage": 7.99,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 111.86
+            }
+          },
+          "e11": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Assez bien",
+                "average": 11,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 11,
+                    "weightedScore": 44
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 10,
+                    "weightedScore": 22
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 11,
+                    "weightedScore": 22
+                  }
+                ],
+                "rank": 11,
+                "totalCoef": 8,
+                "weightedTotal": 88
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 11,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 10,
+                    "weightedScore": 33
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 10,
+                    "weightedScore": 22
+                  }
+                ],
+                "rank": 10,
+                "totalCoef": 5,
+                "weightedTotal": 55
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 11,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 11,
+                    "weightedScore": 11
+                  }
+                ],
+                "rank": 11,
+                "totalCoef": 1,
+                "weightedTotal": 11
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève11",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e11",
+              "studentNumber": "ETU-E11"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 11,
+              "annualRank": 10,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail passable.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Assez bien",
+              "overallAverage": 11,
+              "rank": 10,
+              "repeating": false,
+              "secondSemesterAverage": 11,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 154
+            }
+          },
+          "e12": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Très bien",
+                "average": 14,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 4,
+                    "weightedScore": 56
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 4,
+                    "weightedScore": 28
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 5,
+                    "weightedScore": 28
+                  }
+                ],
+                "rank": 4,
+                "totalCoef": 8,
+                "weightedTotal": 112
+              },
+              {
+                "appreciation": "Très bien",
+                "average": 14,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 4,
+                    "weightedScore": 42
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 4,
+                    "weightedScore": 28
+                  }
+                ],
+                "rank": 4,
+                "totalCoef": 5,
+                "weightedTotal": 70
+              },
+              {
+                "appreciation": "Très bien",
+                "average": 14,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 5,
+                    "weightedScore": 14
+                  }
+                ],
+                "rank": 5,
+                "totalCoef": 1,
+                "weightedTotal": 14
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève12",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e12",
+              "studentNumber": "ETU-E12"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 14,
+              "annualRank": 4,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Très bien",
+              "overallAverage": 14,
+              "rank": 4,
+              "repeating": false,
+              "secondSemesterAverage": 14,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 196
+            }
+          },
+          "e13": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 64
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 1,
+                    "weightedScore": 32
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 1,
+                    "weightedScore": 32
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 8,
+                "weightedTotal": 128
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 48
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 1,
+                    "weightedScore": 32
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 5,
+                "weightedTotal": 80
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 2,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 2,
+                "totalCoef": 1,
+                "weightedTotal": 16
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève13",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e13",
+              "studentNumber": "ETU-E13"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 16,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Très bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Excellent",
+              "overallAverage": 16,
+              "rank": 1,
+              "repeating": false,
+              "secondSemesterAverage": 16,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 224
+            }
+          },
+          "e14": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 7,
+                    "weightedScore": 48
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 7,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 8,
+                    "weightedScore": 24
+                  }
+                ],
+                "rank": 7,
+                "totalCoef": 8,
+                "weightedTotal": 96
+              },
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 7,
+                    "weightedScore": 36
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 7,
+                    "weightedScore": 24
+                  }
+                ],
+                "rank": 7,
+                "totalCoef": 5,
+                "weightedTotal": 60
+              },
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 8,
+                    "weightedScore": 12
+                  }
+                ],
+                "rank": 8,
+                "totalCoef": 1,
+                "weightedTotal": 12
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève14",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e14",
+              "studentNumber": "ETU-E14"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 12,
+              "annualRank": 7,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Bien",
+              "overallAverage": 12,
+              "rank": 7,
+              "repeating": false,
+              "secondSemesterAverage": 12,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 168
+            }
+          },
+          "e15": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": null,
+                    "weightedScore": null
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": null,
+                    "weightedScore": null
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              },
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": null,
+                    "weightedScore": null
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              },
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève15",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e15",
+              "studentNumber": "ETU-E15"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": null,
+              "annualRank": null,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "",
+              "decision": "Notes incompletes",
+              "distinctionSanctions": "",
+              "endYearDecision": "Décision en attente",
+              "firstSemesterAverage": null,
+              "mention": "En attente",
+              "overallAverage": null,
+              "rank": null,
+              "repeating": false,
+              "secondSemesterAverage": null,
+              "totalCoef": 0,
+              "totalStudents": 19,
+              "weightedTotal": 0
+            }
+          },
+          "e16": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Passable",
+                "average": 9,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 14,
+                    "weightedScore": 36
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 13,
+                    "weightedScore": 18
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 14,
+                    "weightedScore": 18
+                  }
+                ],
+                "rank": 14,
+                "totalCoef": 8,
+                "weightedTotal": 72
+              },
+              {
+                "appreciation": "Passable",
+                "average": 9,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 13,
+                    "weightedScore": 27
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 14,
+                    "weightedScore": 18
+                  }
+                ],
+                "rank": 13,
+                "totalCoef": 5,
+                "weightedTotal": 45
+              },
+              {
+                "appreciation": "Passable",
+                "average": 9,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 14,
+                    "weightedScore": 9
+                  }
+                ],
+                "rank": 14,
+                "totalCoef": 1,
+                "weightedTotal": 9
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève16",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e16",
+              "studentNumber": "ETU-E16"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 9,
+              "annualRank": 14,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail fragile.",
+              "decision": "Renforcement recommande",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": null,
+              "mention": "Passable",
+              "overallAverage": 9,
+              "rank": 14,
+              "repeating": true,
+              "secondSemesterAverage": 9,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 126
+            }
+          },
+          "e17": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Passable",
+                "average": 9,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 14,
+                    "weightedScore": 36
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 13,
+                    "weightedScore": 18
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 14,
+                    "weightedScore": 18
+                  }
+                ],
+                "rank": 14,
+                "totalCoef": 8,
+                "weightedTotal": 72
+              },
+              {
+                "appreciation": "Passable",
+                "average": 9,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 13,
+                    "weightedScore": 27
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 14,
+                    "weightedScore": 18
+                  }
+                ],
+                "rank": 13,
+                "totalCoef": 5,
+                "weightedTotal": 45
+              },
+              {
+                "appreciation": "Passable",
+                "average": 9,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 14,
+                    "weightedScore": 9
+                  }
+                ],
+                "rank": 14,
+                "totalCoef": 1,
+                "weightedTotal": 9
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève17",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e17",
+              "studentNumber": "ETU-E17"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 9,
+              "annualRank": 14,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail fragile.",
+              "decision": "Renforcement recommande",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": null,
+              "mention": "Passable",
+              "overallAverage": 9,
+              "rank": 14,
+              "repeating": true,
+              "secondSemesterAverage": 9,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 126
+            }
+          },
+          "e18": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Assez bien",
+                "average": 11.75,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 7,
+                    "weightedScore": 48
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 15,
+                    "weightedScore": 16
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 4,
+                    "weightedScore": 30
+                  }
+                ],
+                "rank": 10,
+                "totalCoef": 8,
+                "weightedTotal": 94
+              },
+              {
+                "appreciation": "Insuffisant",
+                "average": 7.6,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 6,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 17,
+                    "weightedScore": 18
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 11,
+                    "weightedScore": 20
+                  }
+                ],
+                "rank": 17,
+                "totalCoef": 5,
+                "weightedTotal": 38
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 20,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 1,
+                    "weightedScore": 20
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 1,
+                "weightedTotal": 20
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève18",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e18",
+              "studentNumber": "ETU-E18"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 10.857142857142858,
+              "annualRank": 11,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail passable.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Assez bien",
+              "overallAverage": 10.857142857142858,
+              "rank": 11,
+              "repeating": false,
+              "secondSemesterAverage": 10.857142857142858,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 152
+            }
+          },
+          "e19": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 1",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": null,
+                    "weightedScore": null
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": null,
+                    "weightedScore": null
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              },
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": null,
+                    "weightedScore": null
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              },
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève19",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e19",
+              "studentNumber": "ETU-E19"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": null,
+              "annualRank": null,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "",
+              "decision": "Notes incompletes",
+              "distinctionSanctions": "",
+              "endYearDecision": "Décision en attente",
+              "firstSemesterAverage": null,
+              "mention": "En attente",
+              "overallAverage": null,
+              "rank": null,
+              "repeating": false,
+              "secondSemesterAverage": null,
+              "totalCoef": 0,
+              "totalStudents": 19,
+              "weightedTotal": 0
+            }
+          }
+        },
+        "status": 200
+      },
+      "02-bulletins S2 (annuel)": {
+        "documentCount": 19,
+        "documents": {
+          "e01": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 4,
+                    "weightedScore": 64
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 4,
+                    "weightedScore": 32
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 4,
+                    "weightedScore": 32
+                  }
+                ],
+                "rank": 4,
+                "totalCoef": 8,
+                "weightedTotal": 128
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 4,
+                    "weightedScore": 48
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 4,
+                    "weightedScore": 32
+                  }
+                ],
+                "rank": 4,
+                "totalCoef": 5,
+                "weightedTotal": 80
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 5,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 5,
+                "totalCoef": 1,
+                "weightedTotal": 16
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève01",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e01",
+              "studentNumber": "ETU-E01"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 16,
+              "annualRank": 3,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Très bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 16,
+              "mention": "Excellent",
+              "overallAverage": 16,
+              "rank": 4,
+              "repeating": false,
+              "secondSemesterAverage": 16,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 224
+            }
+          },
+          "e02": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Très bien",
+                "average": 15.99,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 6,
+                    "weightedScore": 63.96
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 6,
+                    "weightedScore": 31.98
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 6,
+                    "weightedScore": 31.98
+                  }
+                ],
+                "rank": 6,
+                "totalCoef": 8,
+                "weightedTotal": 127.92
+              },
+              {
+                "appreciation": "Très bien",
+                "average": 15.99,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 6,
+                    "weightedScore": 47.97
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 6,
+                    "weightedScore": 31.98
+                  }
+                ],
+                "rank": 6,
+                "totalCoef": 5,
+                "weightedTotal": 79.95
+              },
+              {
+                "appreciation": "Très bien",
+                "average": 15.99,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 15.99,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 7,
+                    "weightedScore": 15.99
+                  }
+                ],
+                "rank": 7,
+                "totalCoef": 1,
+                "weightedTotal": 15.99
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève02",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e02",
+              "studentNumber": "ETU-E02"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 15.99,
+              "annualRank": 5,
+              "attendanceSummary": "2,5 heure(s) d'abscence (dont 01 justifiée(s))",
+              "councilAppreciation": "Bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 15.989999999999998,
+              "mention": "Très bien",
+              "overallAverage": 15.989999999999998,
+              "rank": 6,
+              "repeating": false,
+              "secondSemesterAverage": 15.989999999999998,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 223.85999999999999
+            }
+          },
+          "e03": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Très bien",
+                "average": 14,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 7,
+                    "weightedScore": 56
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 7,
+                    "weightedScore": 28
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 7,
+                    "weightedScore": 28
+                  }
+                ],
+                "rank": 7,
+                "totalCoef": 8,
+                "weightedTotal": 112
+              },
+              {
+                "appreciation": "Très bien",
+                "average": 14,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 7,
+                    "weightedScore": 42
+                  },
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 7,
+                    "weightedScore": 28
+                  }
+                ],
+                "rank": 7,
+                "totalCoef": 5,
+                "weightedTotal": 70
+              },
+              {
+                "appreciation": "Très bien",
+                "average": 14,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 8,
+                    "weightedScore": 14
+                  }
+                ],
+                "rank": 8,
+                "totalCoef": 1,
+                "weightedTotal": 14
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève03",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e03",
+              "studentNumber": "ETU-E03"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 14,
+              "annualRank": 7,
+              "attendanceSummary": "12 heure(s) d'abscence (dont 12 justifiée(s))",
+              "councilAppreciation": "Bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 14,
+              "mention": "Très bien",
+              "overallAverage": 14,
+              "rank": 7,
+              "repeating": false,
+              "secondSemesterAverage": 14,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 196
+            }
+          },
+          "e04": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 13.99,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 9,
+                    "weightedScore": 55.96
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 8,
+                    "weightedScore": 27.98
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 8,
+                    "weightedScore": 27.98
+                  }
+                ],
+                "rank": 8,
+                "totalCoef": 8,
+                "weightedTotal": 111.92
+              },
+              {
+                "appreciation": "Bien",
+                "average": 13.99,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 8,
+                    "weightedScore": 41.97
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 8,
+                    "weightedScore": 27.98
+                  }
+                ],
+                "rank": 8,
+                "totalCoef": 5,
+                "weightedTotal": 69.95
+              },
+              {
+                "appreciation": "Bien",
+                "average": 13.99,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.99,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 9,
+                    "weightedScore": 13.99
+                  }
+                ],
+                "rank": 9,
+                "totalCoef": 1,
+                "weightedTotal": 13.99
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève04",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e04",
+              "studentNumber": "ETU-E04"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 13.99,
+              "annualRank": 8,
+              "attendanceSummary": "0,33 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 13.989999999999998,
+              "mention": "Bien",
+              "overallAverage": 13.989999999999998,
+              "rank": 8,
+              "repeating": false,
+              "secondSemesterAverage": 13.989999999999998,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 195.85999999999999
+            }
+          },
+          "e05": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 12,
+                    "weightedScore": 48
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 10,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 10,
+                    "weightedScore": 24
+                  }
+                ],
+                "rank": 12,
+                "totalCoef": 8,
+                "weightedTotal": 96
+              },
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 11,
+                    "weightedScore": 36
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 10,
+                    "weightedScore": 24
+                  }
+                ],
+                "rank": 10,
+                "totalCoef": 5,
+                "weightedTotal": 60
+              },
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 11,
+                    "weightedScore": 12
+                  }
+                ],
+                "rank": 11,
+                "totalCoef": 1,
+                "weightedTotal": 12
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève05",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e05",
+              "studentNumber": "ETU-E05"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 12,
+              "annualRank": 9,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 12,
+              "mention": "Bien",
+              "overallAverage": 12,
+              "rank": 10,
+              "repeating": false,
+              "secondSemesterAverage": 12,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 168
+            }
+          },
+          "e06": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Assez bien",
+                "average": 11.99,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 14,
+                    "weightedScore": 47.96
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 12,
+                    "weightedScore": 23.98
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 12,
+                    "weightedScore": 23.98
+                  }
+                ],
+                "rank": 14,
+                "totalCoef": 8,
+                "weightedTotal": 95.92
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 11.99,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 13,
+                    "weightedScore": 35.97
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 12,
+                    "weightedScore": 23.98
+                  }
+                ],
+                "rank": 12,
+                "totalCoef": 5,
+                "weightedTotal": 59.95
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 11.99,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11.99,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 13,
+                    "weightedScore": 11.99
+                  }
+                ],
+                "rank": 13,
+                "totalCoef": 1,
+                "weightedTotal": 11.99
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève06",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e06",
+              "studentNumber": "ETU-E06"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 11.99,
+              "annualRank": 12,
+              "attendanceSummary": "100,5 heure(s) d'abscence (dont 0,5 justifiée(s))",
+              "councilAppreciation": "Travail passable.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 11.989999999999998,
+              "mention": "Assez bien",
+              "overallAverage": 11.989999999999998,
+              "rank": 12,
+              "repeating": false,
+              "secondSemesterAverage": 11.989999999999998,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 167.85999999999999
+            }
+          },
+          "e07": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Assez bien",
+                "average": 10,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 15,
+                    "weightedScore": 40
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 14,
+                    "weightedScore": 20
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 13,
+                    "weightedScore": 20
+                  }
+                ],
+                "rank": 15,
+                "totalCoef": 8,
+                "weightedTotal": 80
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 10,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 14,
+                    "weightedScore": 30
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 13,
+                    "weightedScore": 20
+                  }
+                ],
+                "rank": 14,
+                "totalCoef": 5,
+                "weightedTotal": 50
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 10,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 14,
+                    "weightedScore": 10
+                  }
+                ],
+                "rank": 14,
+                "totalCoef": 1,
+                "weightedTotal": 10
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève07",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e07",
+              "studentNumber": "ETU-E07"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 10,
+              "annualRank": 15,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail passable.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 10,
+              "mention": "Assez bien",
+              "overallAverage": 10,
+              "rank": 15,
+              "repeating": false,
+              "secondSemesterAverage": 10,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 140
+            }
+          },
+          "e08": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Passable",
+                "average": 9.99,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 16,
+                    "weightedScore": 39.96
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 15,
+                    "weightedScore": 19.98
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 14,
+                    "weightedScore": 19.98
+                  }
+                ],
+                "rank": 16,
+                "totalCoef": 8,
+                "weightedTotal": 79.92
+              },
+              {
+                "appreciation": "Passable",
+                "average": 9.99,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 15,
+                    "weightedScore": 29.97
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 14,
+                    "weightedScore": 19.98
+                  }
+                ],
+                "rank": 15,
+                "totalCoef": 5,
+                "weightedTotal": 49.95
+              },
+              {
+                "appreciation": "Passable",
+                "average": 9.99,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.99,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 15,
+                    "weightedScore": 9.99
+                  }
+                ],
+                "rank": 15,
+                "totalCoef": 1,
+                "weightedTotal": 9.99
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève08",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e08",
+              "studentNumber": "ETU-E08"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 9.99,
+              "annualRank": 16,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail fragile.",
+              "decision": "Renforcement recommande",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": 9.99,
+              "mention": "Passable",
+              "overallAverage": 9.99,
+              "rank": 16,
+              "repeating": true,
+              "secondSemesterAverage": 9.99,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 139.86
+            }
+          },
+          "e09": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Passable",
+                "average": 8,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 17,
+                    "weightedScore": 32
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 16,
+                    "weightedScore": 16
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 16,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 17,
+                "totalCoef": 8,
+                "weightedTotal": 64
+              },
+              {
+                "appreciation": "Passable",
+                "average": 8,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 16,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 15,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 16,
+                "totalCoef": 5,
+                "weightedTotal": 40
+              },
+              {
+                "appreciation": "Passable",
+                "average": 8,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 16,
+                    "weightedScore": 8
+                  }
+                ],
+                "rank": 16,
+                "totalCoef": 1,
+                "weightedTotal": 8
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève09",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e09",
+              "studentNumber": "ETU-E09"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 8,
+              "annualRank": 17,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail fragile.",
+              "decision": "Renforcement recommande",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": 8,
+              "mention": "Passable",
+              "overallAverage": 8,
+              "rank": 17,
+              "repeating": true,
+              "secondSemesterAverage": 8,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 112
+            }
+          },
+          "e10": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Insuffisant",
+                "average": 7.99,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 18,
+                    "weightedScore": 31.96
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 17,
+                    "weightedScore": 15.98
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 17,
+                    "weightedScore": 15.98
+                  }
+                ],
+                "rank": 18,
+                "totalCoef": 8,
+                "weightedTotal": 63.92
+              },
+              {
+                "appreciation": "Insuffisant",
+                "average": 7.99,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 18,
+                    "weightedScore": 23.97
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 16,
+                    "weightedScore": 15.98
+                  }
+                ],
+                "rank": 18,
+                "totalCoef": 5,
+                "weightedTotal": 39.95
+              },
+              {
+                "appreciation": "Insuffisant",
+                "average": 7.99,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7.99,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 17,
+                    "weightedScore": 7.99
+                  }
+                ],
+                "rank": 17,
+                "totalCoef": 1,
+                "weightedTotal": 7.99
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève10",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e10",
+              "studentNumber": "ETU-E10"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 7.989999999999999,
+              "annualRank": 18,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail insuffisant.",
+              "decision": "Periode non validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": 7.99,
+              "mention": "Insuffisant",
+              "overallAverage": 7.99,
+              "rank": 18,
+              "repeating": true,
+              "secondSemesterAverage": 7.99,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 111.86
+            }
+          },
+          "e11": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 20,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 80
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 1,
+                    "weightedScore": 40
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 1,
+                    "weightedScore": 40
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 8,
+                "weightedTotal": 160
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 20,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 60
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 1,
+                    "weightedScore": 40
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 5,
+                "weightedTotal": 100
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 20,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 1,
+                    "weightedScore": 20
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 1,
+                "weightedTotal": 20
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève11",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e11",
+              "studentNumber": "ETU-E11"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 17,
+              "annualRank": 2,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Très bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + félicitations",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 11,
+              "mention": "Excellent",
+              "overallAverage": 20,
+              "rank": 1,
+              "repeating": false,
+              "secondSemesterAverage": 20,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 280
+            }
+          },
+          "e12": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 20,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 80
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 1,
+                    "weightedScore": 40
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 1,
+                    "weightedScore": 40
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 8,
+                "weightedTotal": 160
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 20,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 60
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 1,
+                    "weightedScore": 40
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 5,
+                "weightedTotal": 100
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 20,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 20,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 1,
+                    "weightedScore": 20
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 1,
+                "weightedTotal": 20
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève12",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e12",
+              "studentNumber": "ETU-E12"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 18,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Excellent travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + félicitations",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 14,
+              "mention": "Excellent",
+              "overallAverage": 20,
+              "rank": 1,
+              "repeating": false,
+              "secondSemesterAverage": 20,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 280
+            }
+          },
+          "e13": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 4,
+                    "weightedScore": 64
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 4,
+                    "weightedScore": 32
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 4,
+                    "weightedScore": 32
+                  }
+                ],
+                "rank": 4,
+                "totalCoef": 8,
+                "weightedTotal": 128
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 4,
+                    "weightedScore": 48
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 4,
+                    "weightedScore": 32
+                  }
+                ],
+                "rank": 4,
+                "totalCoef": 5,
+                "weightedTotal": 80
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 5,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 5,
+                "totalCoef": 1,
+                "weightedTotal": 16
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève13",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e13",
+              "studentNumber": "ETU-E13"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 16,
+              "annualRank": 3,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Très bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 16,
+              "mention": "Excellent",
+              "overallAverage": 16,
+              "rank": 4,
+              "repeating": false,
+              "secondSemesterAverage": 16,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 224
+            }
+          },
+          "e14": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": null,
+                    "weightedScore": null
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": null,
+                    "weightedScore": null
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              },
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": null,
+                    "weightedScore": null
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              },
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève14",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e14",
+              "studentNumber": "ETU-E14"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": null,
+              "annualRank": null,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "",
+              "decision": "Notes incompletes",
+              "distinctionSanctions": "",
+              "endYearDecision": "Décision en attente",
+              "firstSemesterAverage": 12,
+              "mention": "En attente",
+              "overallAverage": null,
+              "rank": null,
+              "repeating": false,
+              "secondSemesterAverage": null,
+              "totalCoef": 0,
+              "totalStudents": 19,
+              "weightedTotal": 0
+            }
+          },
+          "e15": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 12,
+                    "weightedScore": 48
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 10,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 10,
+                    "weightedScore": 24
+                  }
+                ],
+                "rank": 12,
+                "totalCoef": 8,
+                "weightedTotal": 96
+              },
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 11,
+                    "weightedScore": 36
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 10,
+                    "weightedScore": 24
+                  }
+                ],
+                "rank": 10,
+                "totalCoef": 5,
+                "weightedTotal": 60
+              },
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 11,
+                    "weightedScore": 12
+                  }
+                ],
+                "rank": 11,
+                "totalCoef": 1,
+                "weightedTotal": 12
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève15",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e15",
+              "studentNumber": "ETU-E15"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 12,
+              "annualRank": 9,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Bien",
+              "overallAverage": 12,
+              "rank": 10,
+              "repeating": false,
+              "secondSemesterAverage": 12,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 168
+            }
+          },
+          "e16": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 13.5,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.5,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 10,
+                    "weightedScore": 54
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.5,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 9,
+                    "weightedScore": 27
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.5,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 9,
+                    "weightedScore": 27
+                  }
+                ],
+                "rank": 9,
+                "totalCoef": 8,
+                "weightedTotal": 108
+              },
+              {
+                "appreciation": "Bien",
+                "average": 13.5,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.5,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 9,
+                    "weightedScore": 40.5
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.5,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 9,
+                    "weightedScore": 27
+                  }
+                ],
+                "rank": 9,
+                "totalCoef": 5,
+                "weightedTotal": 67.5
+              },
+              {
+                "appreciation": "Bien",
+                "average": 13.5,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 13.5,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 10,
+                    "weightedScore": 13.5
+                  }
+                ],
+                "rank": 10,
+                "totalCoef": 1,
+                "weightedTotal": 13.5
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève16",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e16",
+              "studentNumber": "ETU-E16"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 12,
+              "annualRank": 9,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 9,
+              "mention": "Bien",
+              "overallAverage": 13.5,
+              "rank": 9,
+              "repeating": false,
+              "secondSemesterAverage": 13.5,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 189
+            }
+          },
+          "e17": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 18,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 18,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 3,
+                    "weightedScore": 72
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 18,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 3,
+                    "weightedScore": 36
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 18,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 3,
+                    "weightedScore": 36
+                  }
+                ],
+                "rank": 3,
+                "totalCoef": 8,
+                "weightedTotal": 144
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 18,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 18,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 3,
+                    "weightedScore": 54
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 18,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 3,
+                    "weightedScore": 36
+                  }
+                ],
+                "rank": 3,
+                "totalCoef": 5,
+                "weightedTotal": 90
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 18,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 18,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 3,
+                    "weightedScore": 18
+                  }
+                ],
+                "rank": 3,
+                "totalCoef": 1,
+                "weightedTotal": 18
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève17",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e17",
+              "studentNumber": "ETU-E17"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 15,
+              "annualRank": 6,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 9,
+              "mention": "Excellent",
+              "overallAverage": 18,
+              "rank": 3,
+              "repeating": false,
+              "secondSemesterAverage": 18,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 252
+            }
+          },
+          "e18": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 12.125,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 7,
+                    "weightedScore": 56
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 13,
+                    "weightedScore": 22
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.5,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 15,
+                    "weightedScore": 19
+                  }
+                ],
+                "rank": 11,
+                "totalCoef": 8,
+                "weightedTotal": 97
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 10.15,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12.25,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 10,
+                    "weightedScore": 36.75
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 17,
+                    "weightedScore": 14
+                  }
+                ],
+                "rank": 13,
+                "totalCoef": 5,
+                "weightedTotal": 50.75
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 18,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 18,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 3,
+                    "weightedScore": 18
+                  }
+                ],
+                "rank": 3,
+                "totalCoef": 1,
+                "weightedTotal": 18
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève18",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e18",
+              "studentNumber": "ETU-E18"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 11.511904761904761,
+              "annualRank": 13,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail passable.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 10.857142857142858,
+              "mention": "Assez bien",
+              "overallAverage": 11.839285714285714,
+              "rank": 13,
+              "repeating": false,
+              "secondSemesterAverage": 11.839285714285714,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 165.75
+            }
+          },
+          "e19": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 13,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 13,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 11,
+                    "weightedScore": 52
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": null,
+                    "weightedScore": null
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": 10,
+                "totalCoef": 4,
+                "weightedTotal": 52
+              },
+              {
+                "appreciation": "Passable",
+                "average": 8,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Passable",
+                    "average": 8,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 16,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": 16,
+                "totalCoef": 3,
+                "weightedTotal": 24
+              },
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève19",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e19",
+              "studentNumber": "ETU-E19"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 10.857142857142858,
+              "annualRank": 14,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail passable.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Assez bien",
+              "overallAverage": 10.857142857142858,
+              "rank": 14,
+              "repeating": false,
+              "secondSemesterAverage": 10.857142857142858,
+              "totalCoef": 7,
+              "totalStudents": 19,
+              "weightedTotal": 76
+            }
+          }
+        },
+        "status": 200
+      },
+      "03-bulletin S2 d'un seul élève (e18)": {
+        "documentCount": 1,
+        "documents": {
+          "e18": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 12.125,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Très bien",
+                    "average": 14,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 7,
+                    "weightedScore": 56
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 11,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 13,
+                    "weightedScore": 22
+                  },
+                  {
+                    "appreciation": "Passable",
+                    "average": 9.5,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 15,
+                    "weightedScore": 19
+                  }
+                ],
+                "rank": 11,
+                "totalCoef": 8,
+                "weightedTotal": 97
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 10.15,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12.25,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 10,
+                    "weightedScore": 36.75
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 17,
+                    "weightedScore": 14
+                  }
+                ],
+                "rank": 13,
+                "totalCoef": 5,
+                "weightedTotal": 50.75
+              },
+              {
+                "appreciation": "Excellent",
+                "average": 18,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 18,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": 3,
+                    "weightedScore": 18
+                  }
+                ],
+                "rank": 3,
+                "totalCoef": 1,
+                "weightedTotal": 18
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève18",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e18",
+              "studentNumber": "ETU-E18"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 11.511904761904761,
+              "annualRank": 13,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail passable.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 10.857142857142858,
+              "mention": "Assez bien",
+              "overallAverage": 11.839285714285714,
+              "rank": 13,
+              "repeating": false,
+              "secondSemesterAverage": 11.839285714285714,
+              "totalCoef": 14,
+              "totalStudents": 19,
+              "weightedTotal": 165.75
+            }
+          }
+        },
+        "status": 200
+      },
+      "04-matrice S2": {
+        "body": {
+          "data": {
+            "academicYearName": "2025-2026",
+            "attendance": {
+              "student:e02": {
+                "absenceHours": 2.5,
+                "justifiedHours": 1
+              },
+              "student:e03": {
+                "absenceHours": 12,
+                "justifiedHours": 12
+              },
+              "student:e04": {
+                "absenceHours": 0.33,
+                "justifiedHours": 0
+              },
+              "student:e05": {
+                "absenceHours": 0,
+                "justifiedHours": 0
+              },
+              "student:e06": {
+                "absenceHours": 100.5,
+                "justifiedHours": 0.5
+              }
+            },
+            "averages": {
+              "student:e01": {
+                "course:ANG": 16,
+                "course:EPS": 16,
+                "course:FRA": 16,
+                "course:HIG": 16,
+                "course:MAT": 16,
+                "course:PHY": 16
+              },
+              "student:e02": {
+                "course:ANG": 15.99,
+                "course:EPS": 15.99,
+                "course:FRA": 15.99,
+                "course:HIG": 15.99,
+                "course:MAT": 15.99,
+                "course:PHY": 15.99
+              },
+              "student:e03": {
+                "course:ANG": 14,
+                "course:EPS": 14,
+                "course:FRA": 14,
+                "course:HIG": 14,
+                "course:MAT": 14,
+                "course:PHY": 14
+              },
+              "student:e04": {
+                "course:ANG": 13.99,
+                "course:EPS": 13.99,
+                "course:FRA": 13.99,
+                "course:HIG": 13.99,
+                "course:MAT": 13.99,
+                "course:PHY": 13.99
+              },
+              "student:e05": {
+                "course:ANG": 12,
+                "course:EPS": 12,
+                "course:FRA": 12,
+                "course:HIG": 12,
+                "course:MAT": 12,
+                "course:PHY": 12
+              },
+              "student:e06": {
+                "course:ANG": 11.99,
+                "course:EPS": 11.99,
+                "course:FRA": 11.99,
+                "course:HIG": 11.99,
+                "course:MAT": 11.99,
+                "course:PHY": 11.99
+              },
+              "student:e07": {
+                "course:ANG": 10,
+                "course:EPS": 10,
+                "course:FRA": 10,
+                "course:HIG": 10,
+                "course:MAT": 10,
+                "course:PHY": 10
+              },
+              "student:e08": {
+                "course:ANG": 9.99,
+                "course:EPS": 9.99,
+                "course:FRA": 9.99,
+                "course:HIG": 9.99,
+                "course:MAT": 9.99,
+                "course:PHY": 9.99
+              },
+              "student:e09": {
+                "course:ANG": 8,
+                "course:EPS": 8,
+                "course:FRA": 8,
+                "course:HIG": 8,
+                "course:MAT": 8,
+                "course:PHY": 8
+              },
+              "student:e10": {
+                "course:ANG": 7.99,
+                "course:EPS": 7.99,
+                "course:FRA": 7.99,
+                "course:HIG": 7.99,
+                "course:MAT": 7.99,
+                "course:PHY": 7.99
+              },
+              "student:e11": {
+                "course:ANG": 20,
+                "course:EPS": 20,
+                "course:FRA": 20,
+                "course:HIG": 20,
+                "course:MAT": 20,
+                "course:PHY": 20
+              },
+              "student:e12": {
+                "course:ANG": 20,
+                "course:EPS": 20,
+                "course:FRA": 20,
+                "course:HIG": 20,
+                "course:MAT": 20,
+                "course:PHY": 20
+              },
+              "student:e13": {
+                "course:ANG": 16,
+                "course:EPS": 16,
+                "course:FRA": 16,
+                "course:HIG": 16,
+                "course:MAT": 16,
+                "course:PHY": 16
+              },
+              "student:e15": {
+                "course:ANG": 12,
+                "course:EPS": 12,
+                "course:FRA": 12,
+                "course:HIG": 12,
+                "course:MAT": 12,
+                "course:PHY": 12
+              },
+              "student:e16": {
+                "course:ANG": 13.5,
+                "course:EPS": 13.5,
+                "course:FRA": 13.5,
+                "course:HIG": 13.5,
+                "course:MAT": 13.5,
+                "course:PHY": 13.5
+              },
+              "student:e17": {
+                "course:ANG": 18,
+                "course:EPS": 18,
+                "course:FRA": 18,
+                "course:HIG": 18,
+                "course:MAT": 18,
+                "course:PHY": 18
+              },
+              "student:e18": {
+                "course:ANG": 9.5,
+                "course:EPS": 18,
+                "course:FRA": 14,
+                "course:HIG": 11,
+                "course:MAT": 12.25,
+                "course:PHY": 7
+              },
+              "student:e19": {
+                "course:FRA": 13,
+                "course:MAT": 8
+              }
+            },
+            "className": "Terminale A",
+            "courses": [
+              {
+                "code": "FRA",
+                "coef": 4,
+                "id": "course:FRA",
+                "name": "Français"
+              },
+              {
+                "code": "HIG",
+                "coef": 2,
+                "id": "course:HIG",
+                "name": "Histoire-Géographie"
+              },
+              {
+                "code": "ANG",
+                "coef": 2,
+                "id": "course:ANG",
+                "name": "Anglais"
+              },
+              {
+                "code": "MAT",
+                "coef": 3,
+                "id": "course:MAT",
+                "name": "Mathématiques"
+              },
+              {
+                "code": "PHY",
+                "coef": 2,
+                "id": "course:PHY",
+                "name": "Physique-Chimie"
+              },
+              {
+                "code": "EPS",
+                "coef": 1,
+                "id": "course:EPS",
+                "name": "Éducation physique"
+              }
+            ],
+            "periodName": "Semestre 2",
+            "students": [
+              {
+                "firstName": "Élève01",
+                "lastName": "Terminale",
+                "studentId": "student:e01",
+                "studentNumber": "ETU-E01"
+              },
+              {
+                "firstName": "Élève02",
+                "lastName": "Terminale",
+                "studentId": "student:e02",
+                "studentNumber": "ETU-E02"
+              },
+              {
+                "firstName": "Élève03",
+                "lastName": "Terminale",
+                "studentId": "student:e03",
+                "studentNumber": "ETU-E03"
+              },
+              {
+                "firstName": "Élève04",
+                "lastName": "Terminale",
+                "studentId": "student:e04",
+                "studentNumber": "ETU-E04"
+              },
+              {
+                "firstName": "Élève05",
+                "lastName": "Terminale",
+                "studentId": "student:e05",
+                "studentNumber": "ETU-E05"
+              },
+              {
+                "firstName": "Élève06",
+                "lastName": "Terminale",
+                "studentId": "student:e06",
+                "studentNumber": "ETU-E06"
+              },
+              {
+                "firstName": "Élève07",
+                "lastName": "Terminale",
+                "studentId": "student:e07",
+                "studentNumber": "ETU-E07"
+              },
+              {
+                "firstName": "Élève08",
+                "lastName": "Terminale",
+                "studentId": "student:e08",
+                "studentNumber": "ETU-E08"
+              },
+              {
+                "firstName": "Élève09",
+                "lastName": "Terminale",
+                "studentId": "student:e09",
+                "studentNumber": "ETU-E09"
+              },
+              {
+                "firstName": "Élève10",
+                "lastName": "Terminale",
+                "studentId": "student:e10",
+                "studentNumber": "ETU-E10"
+              },
+              {
+                "firstName": "Élève11",
+                "lastName": "Terminale",
+                "studentId": "student:e11",
+                "studentNumber": "ETU-E11"
+              },
+              {
+                "firstName": "Élève12",
+                "lastName": "Terminale",
+                "studentId": "student:e12",
+                "studentNumber": "ETU-E12"
+              },
+              {
+                "firstName": "Élève13",
+                "lastName": "Terminale",
+                "studentId": "student:e13",
+                "studentNumber": "ETU-E13"
+              },
+              {
+                "firstName": "Élève14",
+                "lastName": "Terminale",
+                "studentId": "student:e14",
+                "studentNumber": "ETU-E14"
+              },
+              {
+                "firstName": "Élève15",
+                "lastName": "Terminale",
+                "studentId": "student:e15",
+                "studentNumber": "ETU-E15"
+              },
+              {
+                "firstName": "Élève16",
+                "lastName": "Terminale",
+                "studentId": "student:e16",
+                "studentNumber": "ETU-E16"
+              },
+              {
+                "firstName": "Élève17",
+                "lastName": "Terminale",
+                "studentId": "student:e17",
+                "studentNumber": "ETU-E17"
+              },
+              {
+                "firstName": "Élève18",
+                "lastName": "Terminale",
+                "studentId": "student:e18",
+                "studentNumber": "ETU-E18"
+              },
+              {
+                "firstName": "Élève19",
+                "lastName": "Terminale",
+                "studentId": "student:e19",
+                "studentNumber": "ETU-E19"
+              }
+            ]
+          }
+        },
+        "status": 200
+      },
+      "05-refus : heures justifiées > absences": {
+        "body": {
+          "error": "Bad Request",
+          "message": "Les heures justifiees ne peuvent pas depasser les heures d'absence"
+        },
+        "status": 400
+      },
+      "06-refus : élève non inscrit dans la classe": {
+        "body": {
+          "error": "Bad Request",
+          "message": "Étudiant non inscrit dans cette classe"
+        },
+        "status": 400
+      },
+      "07-refus : moyenne supérieure à 20": {
+        "body": {
+          "error": "Validation Error",
+          "message": "[\n  {\n    \"code\": \"too_big\",\n    \"maximum\": 20,\n    \"type\": \"number\",\n    \"inclusive\": true,\n    \"exact\": false,\n    \"message\": \"Number must be less than or equal to 20\",\n    \"path\": [\n      \"cells\",\n      0,\n      \"average\"\n    ]\n  }\n]"
+        },
+        "status": 400
+      },
+      "08-saisie valide : e07 monte en FRA, EPS effacée ; absences e07": {
+        "body": {
+          "attendanceUpdated": 1,
+          "success": true,
+          "updated": 2
+        },
+        "status": 200
+      },
+      "09-bulletin S2 de e07 après saisie": {
+        "documentCount": 1,
+        "documents": {
+          "e07": {
+            "className": "Terminale A",
+            "filiereName": "Série A Lettres",
+            "periodName": "Semestre 2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Assez bien",
+                "average": 11.25,
+                "bilanTypeName": "Matières littéraires",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12.5,
+                    "coef": 4,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 12,
+                    "weightedScore": 50
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 2,
+                    "courseCode": "HIG",
+                    "courseName": "Histoire-Géographie",
+                    "rank": 14,
+                    "weightedScore": 20
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 2,
+                    "courseCode": "ANG",
+                    "courseName": "Anglais",
+                    "rank": 13,
+                    "weightedScore": 20
+                  }
+                ],
+                "rank": 15,
+                "totalCoef": 8,
+                "weightedTotal": 90
+              },
+              {
+                "appreciation": "Assez bien",
+                "average": 10,
+                "bilanTypeName": "Matières scientifiques",
+                "lines": [
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 3,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 14,
+                    "weightedScore": 30
+                  },
+                  {
+                    "appreciation": "Assez bien",
+                    "average": 10,
+                    "coef": 2,
+                    "courseCode": "PHY",
+                    "courseName": "Physique-Chimie",
+                    "rank": 13,
+                    "weightedScore": 20
+                  }
+                ],
+                "rank": 14,
+                "totalCoef": 5,
+                "weightedTotal": 50
+              },
+              {
+                "appreciation": "En attente",
+                "average": null,
+                "bilanTypeName": "Éducation physique et sportive",
+                "lines": [
+                  {
+                    "appreciation": "En attente",
+                    "average": null,
+                    "coef": 1,
+                    "courseCode": "EPS",
+                    "courseName": "Éducation physique",
+                    "rank": null,
+                    "weightedScore": null
+                  }
+                ],
+                "rank": null,
+                "totalCoef": 0,
+                "weightedTotal": 0
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "Élève07",
+              "lastName": "Terminale",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:e07",
+              "studentNumber": "ETU-E07"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 10.512820512820513,
+              "annualRank": 15,
+              "attendanceSummary": "03 heure(s) d'abscence (dont 01 justifiée(s))",
+              "councilAppreciation": "Travail passable.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 10,
+              "mention": "Assez bien",
+              "overallAverage": 10.76923076923077,
+              "rank": 15,
+              "repeating": false,
+              "secondSemesterAverage": 10.76923076923077,
+              "totalCoef": 13,
+              "totalStudents": 19,
+              "weightedTotal": 140
+            }
+          }
+        },
+        "status": 200
+      }
+    }
+  }
+}

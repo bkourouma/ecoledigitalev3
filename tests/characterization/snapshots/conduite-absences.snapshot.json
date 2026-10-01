@@ -1,0 +1,3113 @@
+{
+  "schemaVersion": 1,
+  "scenario": "conduite-absences",
+  "source": "legacy",
+  "knownLegacyDefects": [
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.S3.ana.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(6) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.ana.**",
+        "observations.final.studentRattrapages.ana.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.S3.ana.**",
+        "observations.final.bts.S3.ana.**",
+        "observations.final.rosters.S3.students.ana.**",
+        "observations.final.fullBulletins.S3.ana.**",
+        "observations.final.generated.S3.ana.**",
+        "observations.final.rattrapages.S3.ana/*.**",
+        "observations.final.bulletins.S3.*.data.rang",
+        "observations.final.fullBulletins.S3.*.rang",
+        "observations.final.rosters.S3.students.*.moyenne_session",
+        "observations.final.bts.S3.*.data.rang",
+        "observations.final.bts.S3.*.data.disciplines.**",
+        "observations.final.bts.S3.*.data.savoir_etre.**",
+        "observations.final.bts.S3.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "6 crédits acquis sur 6 ; décision du bulletin : admis"
+    },
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.S3.chi.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(6) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.chi.**",
+        "observations.final.studentRattrapages.chi.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.S3.chi.**",
+        "observations.final.bts.S3.chi.**",
+        "observations.final.rosters.S3.students.chi.**",
+        "observations.final.fullBulletins.S3.chi.**",
+        "observations.final.generated.S3.chi.**",
+        "observations.final.rattrapages.S3.chi/*.**",
+        "observations.final.bulletins.S3.*.data.rang",
+        "observations.final.fullBulletins.S3.*.rang",
+        "observations.final.rosters.S3.students.*.moyenne_session",
+        "observations.final.bts.S3.*.data.rang",
+        "observations.final.bts.S3.*.data.disciplines.**",
+        "observations.final.bts.S3.*.data.savoir_etre.**",
+        "observations.final.bts.S3.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "6 crédits acquis sur 6 ; décision du bulletin : admis"
+    },
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.S3.dan.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(4) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.dan.**",
+        "observations.final.studentRattrapages.dan.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.S3.dan.**",
+        "observations.final.bts.S3.dan.**",
+        "observations.final.rosters.S3.students.dan.**",
+        "observations.final.fullBulletins.S3.dan.**",
+        "observations.final.generated.S3.dan.**",
+        "observations.final.rattrapages.S3.dan/*.**",
+        "observations.final.bulletins.S3.*.data.rang",
+        "observations.final.fullBulletins.S3.*.rang",
+        "observations.final.rosters.S3.students.*.moyenne_session",
+        "observations.final.bts.S3.*.data.rang",
+        "observations.final.bts.S3.*.data.disciplines.**",
+        "observations.final.bts.S3.*.data.savoir_etre.**",
+        "observations.final.bts.S3.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "4 crédits acquis sur 4 ; décision du bulletin : admis"
+    },
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.S3.fay.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(6) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.fay.**",
+        "observations.final.studentRattrapages.fay.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.S3.fay.**",
+        "observations.final.bts.S3.fay.**",
+        "observations.final.rosters.S3.students.fay.**",
+        "observations.final.fullBulletins.S3.fay.**",
+        "observations.final.generated.S3.fay.**",
+        "observations.final.rattrapages.S3.fay/*.**",
+        "observations.final.bulletins.S3.*.data.rang",
+        "observations.final.fullBulletins.S3.*.rang",
+        "observations.final.rosters.S3.students.*.moyenne_session",
+        "observations.final.bts.S3.*.data.rang",
+        "observations.final.bts.S3.*.data.disciplines.**",
+        "observations.final.bts.S3.*.data.savoir_etre.**",
+        "observations.final.bts.S3.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "6 crédits acquis sur 6 ; décision du bulletin : admis"
+    }
+  ],
+  "defectCatalog": {
+    "RULES_NOT_WIRED_SEMESTER_20_CREDITS": {
+      "status": "dead",
+      "title": "La règle « semestre validé à 20 crédits » n'est pas celle que le bulletin applique"
+    }
+  },
+  "data": {
+    "observations": {
+      "final": {
+        "bts": {
+          "S3": {
+            "ana": {
+              "data": {
+                "absences": {
+                  "justifiees": 1,
+                  "non_justifiees": 2
+                },
+                "annee_academique": "2025-2026",
+                "annuel": null,
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "fondamentale",
+                    "ues": [
+                      {
+                        "categorie": "fondamentale",
+                        "code": "UE-MAT",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "L2C-M1",
+                            "credits": 2,
+                            "ecue_id": "ecue:M1",
+                            "libelle": "Gestion financière",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 14,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "L2C-M2",
+                            "credits": 2,
+                            "ecue_id": "ecue:M2",
+                            "libelle": "Droit des affaires",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 14,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "Matières",
+                        "motifs": [],
+                        "moyenne_ue": 14,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-MAT",
+                        "ue_session_id": "cohort:l2c:UE-MAT",
+                        "validee": true
+                      }
+                    ]
+                  },
+                  {
+                    "credits_obtenus": 2,
+                    "credits_ue": 2,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UE-COND",
+                        "credits": 2,
+                        "ecues": [
+                          {
+                            "code": "L2C-EC-CON-S3",
+                            "credits": 2,
+                            "ecue_id": "ecue:COND",
+                            "libelle": "Conduite",
+                            "moyenne_devoirs": null,
+                            "note_ecue": 16,
+                            "note_examen": 16,
+                            "result_id": null,
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "is_conduite": true,
+                        "libelle": "Conduite",
+                        "motifs": [],
+                        "moyenne_ue": 16,
+                        "nb_uv": 2,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-COND",
+                        "ue_session_id": "cohort:l2c:UE-COND",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 6,
+                "credits_valides": 6,
+                "decision": "admis",
+                "disciplines": [
+                  {
+                    "coeff": 4,
+                    "ecues": [
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne": 14,
+                        "moyenne_ponderee": 28,
+                        "rang": 2
+                      },
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne": 14,
+                        "moyenne_ponderee": 28,
+                        "rang": 2
+                      }
+                    ],
+                    "libelle": "Matières",
+                    "moyenne": 14,
+                    "moyenne_ponderee": 56,
+                    "rang": 2,
+                    "ue_id": "ue:UE-MAT"
+                  }
+                ],
+                "distinction": {
+                  "avertissement": false,
+                  "tableau_honneur": true,
+                  "tableau_honneur_encouragement": false
+                },
+                "effectif": 6,
+                "filiere": {
+                  "code": "L2COND",
+                  "domaine": "Gestion",
+                  "id": "programme:l2c",
+                  "name": "Licence 2 Conduite"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 14.67,
+                "nb_ue_total": 2,
+                "nb_ue_validees": 2,
+                "rang": 1,
+                "reference": "REL-2025-L2COND-L2COND-0001",
+                "savoir_etre": [
+                  {
+                    "coeff": 2,
+                    "ecues": [
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne": 16,
+                        "moyenne_ponderee": 32,
+                        "rang": 2
+                      }
+                    ],
+                    "key": "conduite",
+                    "libelle": "Conduite",
+                    "moyenne": 16,
+                    "moyenne_ponderee": 32,
+                    "rang": 2,
+                    "ue_id": "ue:UE-COND"
+                  }
+                ],
+                "semestre": {
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Ana",
+                  "gender": "masculin",
+                  "id": "student:ana",
+                  "is_repeating": false,
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0001",
+                  "place_of_birth": "Conakry"
+                },
+                "total_coeff": 6,
+                "total_points": 88,
+                "ues": [
+                  {
+                    "categorie": "fondamentale",
+                    "code": "UE-MAT",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "L2C-M1",
+                        "credits": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 14,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "L2C-M2",
+                        "credits": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 14,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "Matières",
+                    "motifs": [],
+                    "moyenne_ue": 14,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-MAT",
+                    "ue_session_id": "cohort:l2c:UE-MAT",
+                    "validee": true
+                  },
+                  {
+                    "categorie": null,
+                    "code": "UE-COND",
+                    "credits": 2,
+                    "ecues": [
+                      {
+                        "code": "L2C-EC-CON-S3",
+                        "credits": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne_devoirs": null,
+                        "note_ecue": 16,
+                        "note_examen": 16,
+                        "result_id": null,
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "is_conduite": true,
+                    "libelle": "Conduite",
+                    "motifs": [],
+                    "moyenne_ue": 16,
+                    "nb_uv": 2,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-COND",
+                    "ue_session_id": "cohort:l2c:UE-COND",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "ben": {
+              "data": {
+                "absences": {
+                  "justifiees": 3,
+                  "non_justifiees": 0
+                },
+                "annee_academique": "2025-2026",
+                "annuel": null,
+                "bulletin_statut": "provisoire",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "fondamentale",
+                    "ues": [
+                      {
+                        "categorie": "fondamentale",
+                        "code": "UE-MAT",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "L2C-M1",
+                            "credits": 2,
+                            "ecue_id": "ecue:M1",
+                            "libelle": "Gestion financière",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 14,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "L2C-M2",
+                            "credits": 2,
+                            "ecue_id": "ecue:M2",
+                            "libelle": "Droit des affaires",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 14,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "Matières",
+                        "motifs": [],
+                        "moyenne_ue": 14,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-MAT",
+                        "ue_session_id": "cohort:l2c:UE-MAT",
+                        "validee": true
+                      }
+                    ]
+                  },
+                  {
+                    "credits_obtenus": 0,
+                    "credits_ue": 2,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UE-COND",
+                        "credits": 2,
+                        "ecues": [
+                          {
+                            "code": "L2C-EC-CON-S3",
+                            "credits": 2,
+                            "ecue_id": "ecue:COND",
+                            "libelle": "Conduite",
+                            "moyenne_devoirs": null,
+                            "note_ecue": 9.99,
+                            "note_examen": 9.99,
+                            "result_id": null,
+                            "session_obtention": null,
+                            "statut": "insuffisant",
+                            "validee": false,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "dette",
+                        "is_conduite": true,
+                        "libelle": "Conduite",
+                        "motifs": [],
+                        "moyenne_ue": 9.99,
+                        "nb_uv": 2,
+                        "session_validation": null,
+                        "ue_id": "ue:UE-COND",
+                        "ue_session_id": "cohort:l2c:UE-COND",
+                        "validee": false
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 6,
+                "credits_valides": 4,
+                "decision": "ajourne",
+                "disciplines": [
+                  {
+                    "coeff": 4,
+                    "ecues": [
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne": 14,
+                        "moyenne_ponderee": 28,
+                        "rang": 2
+                      },
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne": 14,
+                        "moyenne_ponderee": 28,
+                        "rang": 2
+                      }
+                    ],
+                    "libelle": "Matières",
+                    "moyenne": 14,
+                    "moyenne_ponderee": 56,
+                    "rang": 2,
+                    "ue_id": "ue:UE-MAT"
+                  }
+                ],
+                "distinction": {
+                  "avertissement": false,
+                  "tableau_honneur": true,
+                  "tableau_honneur_encouragement": false
+                },
+                "effectif": 6,
+                "filiere": {
+                  "code": "L2COND",
+                  "domaine": "Gestion",
+                  "id": "programme:l2c",
+                  "name": "Licence 2 Conduite"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 12.66,
+                "nb_ue_total": 2,
+                "nb_ue_validees": 1,
+                "rang": 3,
+                "reference": "REL-2025-L2COND-L2COND-0002",
+                "savoir_etre": [
+                  {
+                    "coeff": 2,
+                    "ecues": [
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne": 9.99,
+                        "moyenne_ponderee": 19.98,
+                        "rang": 5
+                      }
+                    ],
+                    "key": "conduite",
+                    "libelle": "Conduite",
+                    "moyenne": 9.99,
+                    "moyenne_ponderee": 19.98,
+                    "rang": 5,
+                    "ue_id": "ue:UE-COND"
+                  }
+                ],
+                "semestre": {
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3"
+                },
+                "semestre_valide": false,
+                "session_globale": 1,
+                "statut_etudiant": "dette",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Ben",
+                  "gender": "masculin",
+                  "id": "student:ben",
+                  "is_repeating": false,
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0002",
+                  "place_of_birth": "Conakry"
+                },
+                "total_coeff": 6,
+                "total_points": 75.98,
+                "ues": [
+                  {
+                    "categorie": "fondamentale",
+                    "code": "UE-MAT",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "L2C-M1",
+                        "credits": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 14,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "L2C-M2",
+                        "credits": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 14,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "Matières",
+                    "motifs": [],
+                    "moyenne_ue": 14,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-MAT",
+                    "ue_session_id": "cohort:l2c:UE-MAT",
+                    "validee": true
+                  },
+                  {
+                    "categorie": null,
+                    "code": "UE-COND",
+                    "credits": 2,
+                    "ecues": [
+                      {
+                        "code": "L2C-EC-CON-S3",
+                        "credits": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne_devoirs": null,
+                        "note_ecue": 9.99,
+                        "note_examen": 9.99,
+                        "result_id": null,
+                        "session_obtention": null,
+                        "statut": "insuffisant",
+                        "validee": false,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "dette",
+                    "is_conduite": true,
+                    "libelle": "Conduite",
+                    "motifs": [],
+                    "moyenne_ue": 9.99,
+                    "nb_uv": 2,
+                    "session_validation": null,
+                    "ue_id": "ue:UE-COND",
+                    "ue_session_id": "cohort:l2c:UE-COND",
+                    "validee": false
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "chi": {
+              "data": {
+                "absences": {
+                  "justifiees": 0,
+                  "non_justifiees": 0
+                },
+                "annee_academique": "2025-2026",
+                "annuel": null,
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "fondamentale",
+                    "ues": [
+                      {
+                        "categorie": "fondamentale",
+                        "code": "UE-MAT",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "L2C-M1",
+                            "credits": 2,
+                            "ecue_id": "ecue:M1",
+                            "libelle": "Gestion financière",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "L2C-M2",
+                            "credits": 2,
+                            "ecue_id": "ecue:M2",
+                            "libelle": "Droit des affaires",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "Matières",
+                        "motifs": [],
+                        "moyenne_ue": 12,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-MAT",
+                        "ue_session_id": "cohort:l2c:UE-MAT",
+                        "validee": true
+                      }
+                    ]
+                  },
+                  {
+                    "credits_obtenus": 2,
+                    "credits_ue": 2,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UE-COND",
+                        "credits": 2,
+                        "ecues": [
+                          {
+                            "code": "L2C-EC-CON-S3",
+                            "credits": 2,
+                            "ecue_id": "ecue:COND",
+                            "libelle": "Conduite",
+                            "moyenne_devoirs": null,
+                            "note_ecue": 10,
+                            "note_examen": 10,
+                            "result_id": null,
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "is_conduite": true,
+                        "libelle": "Conduite",
+                        "motifs": [],
+                        "moyenne_ue": 10,
+                        "nb_uv": 2,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-COND",
+                        "ue_session_id": "cohort:l2c:UE-COND",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 6,
+                "credits_valides": 6,
+                "decision": "admis",
+                "disciplines": [
+                  {
+                    "coeff": 4,
+                    "ecues": [
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne": 12,
+                        "moyenne_ponderee": 24,
+                        "rang": 4
+                      },
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne": 12,
+                        "moyenne_ponderee": 24,
+                        "rang": 4
+                      }
+                    ],
+                    "libelle": "Matières",
+                    "moyenne": 12,
+                    "moyenne_ponderee": 48,
+                    "rang": 4,
+                    "ue_id": "ue:UE-MAT"
+                  }
+                ],
+                "distinction": {
+                  "avertissement": false,
+                  "tableau_honneur": false,
+                  "tableau_honneur_encouragement": false
+                },
+                "effectif": 6,
+                "filiere": {
+                  "code": "L2COND",
+                  "domaine": "Gestion",
+                  "id": "programme:l2c",
+                  "name": "Licence 2 Conduite"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 11.33,
+                "nb_ue_total": 2,
+                "nb_ue_validees": 2,
+                "rang": 5,
+                "reference": "REL-2025-L2COND-L2COND-0003",
+                "savoir_etre": [
+                  {
+                    "coeff": 2,
+                    "ecues": [
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne": 10,
+                        "moyenne_ponderee": 20,
+                        "rang": 3
+                      }
+                    ],
+                    "key": "conduite",
+                    "libelle": "Conduite",
+                    "moyenne": 10,
+                    "moyenne_ponderee": 20,
+                    "rang": 3,
+                    "ue_id": "ue:UE-COND"
+                  }
+                ],
+                "semestre": {
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Chi",
+                  "gender": "masculin",
+                  "id": "student:chi",
+                  "is_repeating": false,
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0003",
+                  "place_of_birth": "Conakry"
+                },
+                "total_coeff": 6,
+                "total_points": 68,
+                "ues": [
+                  {
+                    "categorie": "fondamentale",
+                    "code": "UE-MAT",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "L2C-M1",
+                        "credits": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "L2C-M2",
+                        "credits": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "Matières",
+                    "motifs": [],
+                    "moyenne_ue": 12,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-MAT",
+                    "ue_session_id": "cohort:l2c:UE-MAT",
+                    "validee": true
+                  },
+                  {
+                    "categorie": null,
+                    "code": "UE-COND",
+                    "credits": 2,
+                    "ecues": [
+                      {
+                        "code": "L2C-EC-CON-S3",
+                        "credits": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne_devoirs": null,
+                        "note_ecue": 10,
+                        "note_examen": 10,
+                        "result_id": null,
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "is_conduite": true,
+                    "libelle": "Conduite",
+                    "motifs": [],
+                    "moyenne_ue": 10,
+                    "nb_uv": 2,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-COND",
+                    "ue_session_id": "cohort:l2c:UE-COND",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "dan": {
+              "data": {
+                "absences": {
+                  "justifiees": 0,
+                  "non_justifiees": 0
+                },
+                "annee_academique": "2025-2026",
+                "annuel": null,
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "fondamentale",
+                    "ues": [
+                      {
+                        "categorie": "fondamentale",
+                        "code": "UE-MAT",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "L2C-M1",
+                            "credits": 2,
+                            "ecue_id": "ecue:M1",
+                            "libelle": "Gestion financière",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "L2C-M2",
+                            "credits": 2,
+                            "ecue_id": "ecue:M2",
+                            "libelle": "Droit des affaires",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "Matières",
+                        "motifs": [],
+                        "moyenne_ue": 12,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-MAT",
+                        "ue_session_id": "cohort:l2c:UE-MAT",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "disciplines": [
+                  {
+                    "coeff": 4,
+                    "ecues": [
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne": 12,
+                        "moyenne_ponderee": 24,
+                        "rang": 4
+                      },
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne": 12,
+                        "moyenne_ponderee": 24,
+                        "rang": 4
+                      }
+                    ],
+                    "libelle": "Matières",
+                    "moyenne": 12,
+                    "moyenne_ponderee": 48,
+                    "rang": 4,
+                    "ue_id": "ue:UE-MAT"
+                  }
+                ],
+                "distinction": {
+                  "avertissement": false,
+                  "tableau_honneur": true,
+                  "tableau_honneur_encouragement": false
+                },
+                "effectif": 6,
+                "filiere": {
+                  "code": "L2COND",
+                  "domaine": "Gestion",
+                  "id": "programme:l2c",
+                  "name": "Licence 2 Conduite"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 12,
+                "nb_ue_total": 1,
+                "nb_ue_validees": 1,
+                "rang": 4,
+                "reference": "REL-2025-L2COND-L2COND-0004",
+                "savoir_etre": [],
+                "semestre": {
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Dan",
+                  "gender": "masculin",
+                  "id": "student:dan",
+                  "is_repeating": false,
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0004",
+                  "place_of_birth": "Conakry"
+                },
+                "total_coeff": 4,
+                "total_points": 48,
+                "ues": [
+                  {
+                    "categorie": "fondamentale",
+                    "code": "UE-MAT",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "L2C-M1",
+                        "credits": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "L2C-M2",
+                        "credits": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "Matières",
+                    "motifs": [],
+                    "moyenne_ue": 12,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-MAT",
+                    "ue_session_id": "cohort:l2c:UE-MAT",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "eli": {
+              "error": "SESSION2_PENDING",
+              "message": "Bulletin indisponible : l'étudiant est en attente de Session 2 (rattrapage). Saisissez les notes de rattrapage pour arrêter la décision.",
+              "ok": false
+            },
+            "fay": {
+              "data": {
+                "absences": {
+                  "justifiees": 0,
+                  "non_justifiees": 0
+                },
+                "annee_academique": "2025-2026",
+                "annuel": null,
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "fondamentale",
+                    "ues": [
+                      {
+                        "categorie": "fondamentale",
+                        "code": "UE-MAT",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "L2C-M1",
+                            "credits": 2,
+                            "ecue_id": "ecue:M1",
+                            "libelle": "Gestion financière",
+                            "moyenne_devoirs": 15,
+                            "note_ecue": 15,
+                            "note_examen": 15,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "L2C-M2",
+                            "credits": 2,
+                            "ecue_id": "ecue:M2",
+                            "libelle": "Droit des affaires",
+                            "moyenne_devoirs": 15,
+                            "note_ecue": 15,
+                            "note_examen": 15,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "Matières",
+                        "motifs": [],
+                        "moyenne_ue": 15,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-MAT",
+                        "ue_session_id": "cohort:l2c:UE-MAT",
+                        "validee": true
+                      }
+                    ]
+                  },
+                  {
+                    "credits_obtenus": 2,
+                    "credits_ue": 2,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UE-COND",
+                        "credits": 2,
+                        "ecues": [
+                          {
+                            "code": "L2C-EC-CON-S3",
+                            "credits": 2,
+                            "ecue_id": "ecue:COND",
+                            "libelle": "Conduite",
+                            "moyenne_devoirs": null,
+                            "note_ecue": 10,
+                            "note_examen": 10,
+                            "result_id": null,
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "is_conduite": true,
+                        "libelle": "Conduite",
+                        "motifs": [],
+                        "moyenne_ue": 10,
+                        "nb_uv": 2,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-COND",
+                        "ue_session_id": "cohort:l2c:UE-COND",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 6,
+                "credits_valides": 6,
+                "decision": "admis",
+                "disciplines": [
+                  {
+                    "coeff": 4,
+                    "ecues": [
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne": 15,
+                        "moyenne_ponderee": 30,
+                        "rang": 1
+                      },
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne": 15,
+                        "moyenne_ponderee": 30,
+                        "rang": 1
+                      }
+                    ],
+                    "libelle": "Matières",
+                    "moyenne": 15,
+                    "moyenne_ponderee": 60,
+                    "rang": 1,
+                    "ue_id": "ue:UE-MAT"
+                  }
+                ],
+                "distinction": {
+                  "avertissement": false,
+                  "tableau_honneur": true,
+                  "tableau_honneur_encouragement": false
+                },
+                "effectif": 6,
+                "filiere": {
+                  "code": "L2COND",
+                  "domaine": "Gestion",
+                  "id": "programme:l2c",
+                  "name": "Licence 2 Conduite"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 13.33,
+                "nb_ue_total": 2,
+                "nb_ue_validees": 2,
+                "rang": 2,
+                "reference": "REL-2025-L2COND-L2COND-0006",
+                "savoir_etre": [
+                  {
+                    "coeff": 2,
+                    "ecues": [
+                      {
+                        "coeff": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne": 10,
+                        "moyenne_ponderee": 20,
+                        "rang": 3
+                      }
+                    ],
+                    "key": "conduite",
+                    "libelle": "Conduite",
+                    "moyenne": 10,
+                    "moyenne_ponderee": 20,
+                    "rang": 3,
+                    "ue_id": "ue:UE-COND"
+                  }
+                ],
+                "semestre": {
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Fay",
+                  "gender": "masculin",
+                  "id": "student:fay",
+                  "is_repeating": false,
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0006",
+                  "place_of_birth": "Conakry"
+                },
+                "total_coeff": 6,
+                "total_points": 80,
+                "ues": [
+                  {
+                    "categorie": "fondamentale",
+                    "code": "UE-MAT",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "L2C-M1",
+                        "credits": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne_devoirs": 15,
+                        "note_ecue": 15,
+                        "note_examen": 15,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "L2C-M2",
+                        "credits": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne_devoirs": 15,
+                        "note_ecue": 15,
+                        "note_examen": 15,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "Matières",
+                    "motifs": [],
+                    "moyenne_ue": 15,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-MAT",
+                    "ue_session_id": "cohort:l2c:UE-MAT",
+                    "validee": true
+                  },
+                  {
+                    "categorie": null,
+                    "code": "UE-COND",
+                    "credits": 2,
+                    "ecues": [
+                      {
+                        "code": "L2C-EC-CON-S3",
+                        "credits": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne_devoirs": null,
+                        "note_ecue": 10,
+                        "note_examen": 10,
+                        "result_id": null,
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "is_conduite": true,
+                    "libelle": "Conduite",
+                    "motifs": [],
+                    "moyenne_ue": 10,
+                    "nb_uv": 2,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-COND",
+                    "ue_session_id": "cohort:l2c:UE-COND",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            }
+          }
+        },
+        "bulletins": {
+          "S3": {
+            "ana": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "fondamentale",
+                    "ues": [
+                      {
+                        "categorie": "fondamentale",
+                        "code": "UE-MAT",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "L2C-M1",
+                            "credits": 2,
+                            "ecue_id": "ecue:M1",
+                            "libelle": "Gestion financière",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 14,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "L2C-M2",
+                            "credits": 2,
+                            "ecue_id": "ecue:M2",
+                            "libelle": "Droit des affaires",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 14,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "Matières",
+                        "motifs": [],
+                        "moyenne_ue": 14,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-MAT",
+                        "ue_session_id": "cohort:l2c:UE-MAT",
+                        "validee": true
+                      }
+                    ]
+                  },
+                  {
+                    "credits_obtenus": 2,
+                    "credits_ue": 2,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UE-COND",
+                        "credits": 2,
+                        "ecues": [
+                          {
+                            "code": "L2C-EC-CON-S3",
+                            "credits": 2,
+                            "ecue_id": "ecue:COND",
+                            "libelle": "Conduite",
+                            "moyenne_devoirs": null,
+                            "note_ecue": 16,
+                            "note_examen": 16,
+                            "result_id": null,
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "is_conduite": true,
+                        "libelle": "Conduite",
+                        "motifs": [],
+                        "moyenne_ue": 16,
+                        "nb_uv": 2,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-COND",
+                        "ue_session_id": "cohort:l2c:UE-COND",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 6,
+                "credits_valides": 6,
+                "decision": "admis",
+                "effectif": 6,
+                "filiere": {
+                  "code": "L2COND",
+                  "domaine": "Gestion",
+                  "id": "programme:l2c",
+                  "name": "Licence 2 Conduite"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 14.67,
+                "nb_ue_total": 2,
+                "nb_ue_validees": 2,
+                "rang": 1,
+                "reference": "REL-2025-L2COND-L2COND-0001",
+                "semestre": {
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Ana",
+                  "gender": "masculin",
+                  "id": "student:ana",
+                  "is_repeating": false,
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0001",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": "fondamentale",
+                    "code": "UE-MAT",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "L2C-M1",
+                        "credits": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 14,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "L2C-M2",
+                        "credits": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 14,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "Matières",
+                    "motifs": [],
+                    "moyenne_ue": 14,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-MAT",
+                    "ue_session_id": "cohort:l2c:UE-MAT",
+                    "validee": true
+                  },
+                  {
+                    "categorie": null,
+                    "code": "UE-COND",
+                    "credits": 2,
+                    "ecues": [
+                      {
+                        "code": "L2C-EC-CON-S3",
+                        "credits": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne_devoirs": null,
+                        "note_ecue": 16,
+                        "note_examen": 16,
+                        "result_id": null,
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "is_conduite": true,
+                    "libelle": "Conduite",
+                    "motifs": [],
+                    "moyenne_ue": 16,
+                    "nb_uv": 2,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-COND",
+                    "ue_session_id": "cohort:l2c:UE-COND",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "ben": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": "provisoire",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "fondamentale",
+                    "ues": [
+                      {
+                        "categorie": "fondamentale",
+                        "code": "UE-MAT",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "L2C-M1",
+                            "credits": 2,
+                            "ecue_id": "ecue:M1",
+                            "libelle": "Gestion financière",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 14,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "L2C-M2",
+                            "credits": 2,
+                            "ecue_id": "ecue:M2",
+                            "libelle": "Droit des affaires",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 14,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "Matières",
+                        "motifs": [],
+                        "moyenne_ue": 14,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-MAT",
+                        "ue_session_id": "cohort:l2c:UE-MAT",
+                        "validee": true
+                      }
+                    ]
+                  },
+                  {
+                    "credits_obtenus": 0,
+                    "credits_ue": 2,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UE-COND",
+                        "credits": 2,
+                        "ecues": [
+                          {
+                            "code": "L2C-EC-CON-S3",
+                            "credits": 2,
+                            "ecue_id": "ecue:COND",
+                            "libelle": "Conduite",
+                            "moyenne_devoirs": null,
+                            "note_ecue": 9.99,
+                            "note_examen": 9.99,
+                            "result_id": null,
+                            "session_obtention": null,
+                            "statut": "insuffisant",
+                            "validee": false,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "dette",
+                        "is_conduite": true,
+                        "libelle": "Conduite",
+                        "motifs": [],
+                        "moyenne_ue": 9.99,
+                        "nb_uv": 2,
+                        "session_validation": null,
+                        "ue_id": "ue:UE-COND",
+                        "ue_session_id": "cohort:l2c:UE-COND",
+                        "validee": false
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 6,
+                "credits_valides": 4,
+                "decision": "ajourne",
+                "effectif": 6,
+                "filiere": {
+                  "code": "L2COND",
+                  "domaine": "Gestion",
+                  "id": "programme:l2c",
+                  "name": "Licence 2 Conduite"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 12.66,
+                "nb_ue_total": 2,
+                "nb_ue_validees": 1,
+                "rang": 3,
+                "reference": "REL-2025-L2COND-L2COND-0002",
+                "semestre": {
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3"
+                },
+                "semestre_valide": false,
+                "session_globale": 1,
+                "statut_etudiant": "dette",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Ben",
+                  "gender": "masculin",
+                  "id": "student:ben",
+                  "is_repeating": false,
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0002",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": "fondamentale",
+                    "code": "UE-MAT",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "L2C-M1",
+                        "credits": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 14,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "L2C-M2",
+                        "credits": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 14,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "Matières",
+                    "motifs": [],
+                    "moyenne_ue": 14,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-MAT",
+                    "ue_session_id": "cohort:l2c:UE-MAT",
+                    "validee": true
+                  },
+                  {
+                    "categorie": null,
+                    "code": "UE-COND",
+                    "credits": 2,
+                    "ecues": [
+                      {
+                        "code": "L2C-EC-CON-S3",
+                        "credits": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne_devoirs": null,
+                        "note_ecue": 9.99,
+                        "note_examen": 9.99,
+                        "result_id": null,
+                        "session_obtention": null,
+                        "statut": "insuffisant",
+                        "validee": false,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "dette",
+                    "is_conduite": true,
+                    "libelle": "Conduite",
+                    "motifs": [],
+                    "moyenne_ue": 9.99,
+                    "nb_uv": 2,
+                    "session_validation": null,
+                    "ue_id": "ue:UE-COND",
+                    "ue_session_id": "cohort:l2c:UE-COND",
+                    "validee": false
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "chi": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "fondamentale",
+                    "ues": [
+                      {
+                        "categorie": "fondamentale",
+                        "code": "UE-MAT",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "L2C-M1",
+                            "credits": 2,
+                            "ecue_id": "ecue:M1",
+                            "libelle": "Gestion financière",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "L2C-M2",
+                            "credits": 2,
+                            "ecue_id": "ecue:M2",
+                            "libelle": "Droit des affaires",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "Matières",
+                        "motifs": [],
+                        "moyenne_ue": 12,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-MAT",
+                        "ue_session_id": "cohort:l2c:UE-MAT",
+                        "validee": true
+                      }
+                    ]
+                  },
+                  {
+                    "credits_obtenus": 2,
+                    "credits_ue": 2,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UE-COND",
+                        "credits": 2,
+                        "ecues": [
+                          {
+                            "code": "L2C-EC-CON-S3",
+                            "credits": 2,
+                            "ecue_id": "ecue:COND",
+                            "libelle": "Conduite",
+                            "moyenne_devoirs": null,
+                            "note_ecue": 10,
+                            "note_examen": 10,
+                            "result_id": null,
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "is_conduite": true,
+                        "libelle": "Conduite",
+                        "motifs": [],
+                        "moyenne_ue": 10,
+                        "nb_uv": 2,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-COND",
+                        "ue_session_id": "cohort:l2c:UE-COND",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 6,
+                "credits_valides": 6,
+                "decision": "admis",
+                "effectif": 6,
+                "filiere": {
+                  "code": "L2COND",
+                  "domaine": "Gestion",
+                  "id": "programme:l2c",
+                  "name": "Licence 2 Conduite"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 11.33,
+                "nb_ue_total": 2,
+                "nb_ue_validees": 2,
+                "rang": 5,
+                "reference": "REL-2025-L2COND-L2COND-0003",
+                "semestre": {
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Chi",
+                  "gender": "masculin",
+                  "id": "student:chi",
+                  "is_repeating": false,
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0003",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": "fondamentale",
+                    "code": "UE-MAT",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "L2C-M1",
+                        "credits": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "L2C-M2",
+                        "credits": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "Matières",
+                    "motifs": [],
+                    "moyenne_ue": 12,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-MAT",
+                    "ue_session_id": "cohort:l2c:UE-MAT",
+                    "validee": true
+                  },
+                  {
+                    "categorie": null,
+                    "code": "UE-COND",
+                    "credits": 2,
+                    "ecues": [
+                      {
+                        "code": "L2C-EC-CON-S3",
+                        "credits": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne_devoirs": null,
+                        "note_ecue": 10,
+                        "note_examen": 10,
+                        "result_id": null,
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "is_conduite": true,
+                    "libelle": "Conduite",
+                    "motifs": [],
+                    "moyenne_ue": 10,
+                    "nb_uv": 2,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-COND",
+                    "ue_session_id": "cohort:l2c:UE-COND",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "dan": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "fondamentale",
+                    "ues": [
+                      {
+                        "categorie": "fondamentale",
+                        "code": "UE-MAT",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "L2C-M1",
+                            "credits": 2,
+                            "ecue_id": "ecue:M1",
+                            "libelle": "Gestion financière",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "L2C-M2",
+                            "credits": 2,
+                            "ecue_id": "ecue:M2",
+                            "libelle": "Droit des affaires",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "Matières",
+                        "motifs": [],
+                        "moyenne_ue": 12,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-MAT",
+                        "ue_session_id": "cohort:l2c:UE-MAT",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "effectif": 6,
+                "filiere": {
+                  "code": "L2COND",
+                  "domaine": "Gestion",
+                  "id": "programme:l2c",
+                  "name": "Licence 2 Conduite"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 12,
+                "nb_ue_total": 1,
+                "nb_ue_validees": 1,
+                "rang": 4,
+                "reference": "REL-2025-L2COND-L2COND-0004",
+                "semestre": {
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Dan",
+                  "gender": "masculin",
+                  "id": "student:dan",
+                  "is_repeating": false,
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0004",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": "fondamentale",
+                    "code": "UE-MAT",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "L2C-M1",
+                        "credits": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "L2C-M2",
+                        "credits": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "Matières",
+                    "motifs": [],
+                    "moyenne_ue": 12,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-MAT",
+                    "ue_session_id": "cohort:l2c:UE-MAT",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "eli": {
+              "error": "SESSION2_PENDING",
+              "message": "Bulletin indisponible : l'étudiant est en attente de Session 2 (rattrapage). Saisissez les notes de rattrapage pour arrêter la décision.",
+              "ok": false
+            },
+            "fay": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "fondamentale",
+                    "ues": [
+                      {
+                        "categorie": "fondamentale",
+                        "code": "UE-MAT",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "L2C-M1",
+                            "credits": 2,
+                            "ecue_id": "ecue:M1",
+                            "libelle": "Gestion financière",
+                            "moyenne_devoirs": 15,
+                            "note_ecue": 15,
+                            "note_examen": 15,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "L2C-M2",
+                            "credits": 2,
+                            "ecue_id": "ecue:M2",
+                            "libelle": "Droit des affaires",
+                            "moyenne_devoirs": 15,
+                            "note_ecue": 15,
+                            "note_examen": 15,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "Matières",
+                        "motifs": [],
+                        "moyenne_ue": 15,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-MAT",
+                        "ue_session_id": "cohort:l2c:UE-MAT",
+                        "validee": true
+                      }
+                    ]
+                  },
+                  {
+                    "credits_obtenus": 2,
+                    "credits_ue": 2,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UE-COND",
+                        "credits": 2,
+                        "ecues": [
+                          {
+                            "code": "L2C-EC-CON-S3",
+                            "credits": 2,
+                            "ecue_id": "ecue:COND",
+                            "libelle": "Conduite",
+                            "moyenne_devoirs": null,
+                            "note_ecue": 10,
+                            "note_examen": 10,
+                            "result_id": null,
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "is_conduite": true,
+                        "libelle": "Conduite",
+                        "motifs": [],
+                        "moyenne_ue": 10,
+                        "nb_uv": 2,
+                        "session_validation": 1,
+                        "ue_id": "ue:UE-COND",
+                        "ue_session_id": "cohort:l2c:UE-COND",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 6,
+                "credits_valides": 6,
+                "decision": "admis",
+                "effectif": 6,
+                "filiere": {
+                  "code": "L2COND",
+                  "domaine": "Gestion",
+                  "id": "programme:l2c",
+                  "name": "Licence 2 Conduite"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 13.33,
+                "nb_ue_total": 2,
+                "nb_ue_validees": 2,
+                "rang": 2,
+                "reference": "REL-2025-L2COND-L2COND-0006",
+                "semestre": {
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Fay",
+                  "gender": "masculin",
+                  "id": "student:fay",
+                  "is_repeating": false,
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0006",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": "fondamentale",
+                    "code": "UE-MAT",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "L2C-M1",
+                        "credits": 2,
+                        "ecue_id": "ecue:M1",
+                        "libelle": "Gestion financière",
+                        "moyenne_devoirs": 15,
+                        "note_ecue": 15,
+                        "note_examen": 15,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "L2C-M2",
+                        "credits": 2,
+                        "ecue_id": "ecue:M2",
+                        "libelle": "Droit des affaires",
+                        "moyenne_devoirs": 15,
+                        "note_ecue": 15,
+                        "note_examen": 15,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "Matières",
+                    "motifs": [],
+                    "moyenne_ue": 15,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-MAT",
+                    "ue_session_id": "cohort:l2c:UE-MAT",
+                    "validee": true
+                  },
+                  {
+                    "categorie": null,
+                    "code": "UE-COND",
+                    "credits": 2,
+                    "ecues": [
+                      {
+                        "code": "L2C-EC-CON-S3",
+                        "credits": 2,
+                        "ecue_id": "ecue:COND",
+                        "libelle": "Conduite",
+                        "moyenne_devoirs": null,
+                        "note_ecue": 10,
+                        "note_examen": 10,
+                        "result_id": null,
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "is_conduite": true,
+                    "libelle": "Conduite",
+                    "motifs": [],
+                    "moyenne_ue": 10,
+                    "nb_uv": 2,
+                    "session_validation": 1,
+                    "ue_id": "ue:UE-COND",
+                    "ue_session_id": "cohort:l2c:UE-COND",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            }
+          }
+        },
+        "conduite": {
+          "filieres": {
+            "data": [
+              {
+                "code": "L2COND",
+                "id": "programme:l2c",
+                "name": "Licence 2 Conduite",
+                "nb_conduites_manquantes": 1
+              }
+            ],
+            "ok": true
+          },
+          "grille": {
+            "S3": {
+              "conduite": {
+                "credits": 2,
+                "ecue_code": "L2C-EC-CON-S3",
+                "ecue_id": "ecue:COND",
+                "ecue_libelle": "Conduite",
+                "note_max": 20,
+                "ue_session_id": "cohort:l2c:UE-COND"
+              },
+              "students": [
+                {
+                  "first_name": "Ana",
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0001",
+                  "note": 16,
+                  "note_id": "<id>",
+                  "student_id": "student:ana",
+                  "student_key": "ana"
+                },
+                {
+                  "first_name": "Ben",
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0002",
+                  "note": 9.99,
+                  "note_id": "<id>",
+                  "student_id": "student:ben",
+                  "student_key": "ben"
+                },
+                {
+                  "first_name": "Chi",
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0003",
+                  "note": 10,
+                  "note_id": "<id>",
+                  "student_id": "student:chi",
+                  "student_key": "chi"
+                },
+                {
+                  "first_name": "Dan",
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0004",
+                  "note": null,
+                  "note_id": null,
+                  "student_id": "student:dan",
+                  "student_key": "dan"
+                },
+                {
+                  "first_name": "Eli",
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0005",
+                  "note": 18,
+                  "note_id": "<id>",
+                  "student_id": "student:eli",
+                  "student_key": "eli"
+                },
+                {
+                  "first_name": "Fay",
+                  "last_name": "Conduite",
+                  "matricule": "L2COND-0006",
+                  "note": 10,
+                  "note_id": "<id>",
+                  "student_id": "student:fay",
+                  "student_key": "fay"
+                }
+              ]
+            }
+          },
+          "semestres": {
+            "l2c": {
+              "data": [
+                {
+                  "date_debut": "2025-09-15",
+                  "filiere_code": "L2COND",
+                  "filiere_id": "programme:l2c",
+                  "filiere_nom": "Licence 2 Conduite",
+                  "id": "semester:S3",
+                  "libelle": "Semestre 3",
+                  "nb_conduites_manquantes": 1,
+                  "nb_sessions": 2,
+                  "nb_sessions_actives": 1
+                }
+              ],
+              "ok": true
+            }
+          }
+        },
+        "ecueResults": {
+          "l2c:UE-MAT": {
+            "ana/M1": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "L2C-M1",
+              "ecue_id": "ecue:M1",
+              "ecue_libelle": "Gestion financière",
+              "eliminee": false,
+              "first_name": "Ana",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 14,
+              "moyenne_devoirs": 14,
+              "note_examen": 14,
+              "note_source": "manuel",
+              "student_id": "student:ana",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "ana/M2": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "L2C-M2",
+              "ecue_id": "ecue:M2",
+              "ecue_libelle": "Droit des affaires",
+              "eliminee": false,
+              "first_name": "Ana",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 14,
+              "moyenne_devoirs": 14,
+              "note_examen": 14,
+              "note_source": "manuel",
+              "student_id": "student:ana",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "ben/M1": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "L2C-M1",
+              "ecue_id": "ecue:M1",
+              "ecue_libelle": "Gestion financière",
+              "eliminee": false,
+              "first_name": "Ben",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 14,
+              "moyenne_devoirs": 14,
+              "note_examen": 14,
+              "note_source": "manuel",
+              "student_id": "student:ben",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "ben/M2": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "L2C-M2",
+              "ecue_id": "ecue:M2",
+              "ecue_libelle": "Droit des affaires",
+              "eliminee": false,
+              "first_name": "Ben",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 14,
+              "moyenne_devoirs": 14,
+              "note_examen": 14,
+              "note_source": "manuel",
+              "student_id": "student:ben",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "chi/M1": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "L2C-M1",
+              "ecue_id": "ecue:M1",
+              "ecue_libelle": "Gestion financière",
+              "eliminee": false,
+              "first_name": "Chi",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 12,
+              "moyenne_devoirs": 12,
+              "note_examen": 12,
+              "note_source": "manuel",
+              "student_id": "student:chi",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "chi/M2": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "L2C-M2",
+              "ecue_id": "ecue:M2",
+              "ecue_libelle": "Droit des affaires",
+              "eliminee": false,
+              "first_name": "Chi",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 12,
+              "moyenne_devoirs": 12,
+              "note_examen": 12,
+              "note_source": "manuel",
+              "student_id": "student:chi",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "dan/M1": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "L2C-M1",
+              "ecue_id": "ecue:M1",
+              "ecue_libelle": "Gestion financière",
+              "eliminee": false,
+              "first_name": "Dan",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 12,
+              "moyenne_devoirs": 12,
+              "note_examen": 12,
+              "note_source": "manuel",
+              "student_id": "student:dan",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "dan/M2": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "L2C-M2",
+              "ecue_id": "ecue:M2",
+              "ecue_libelle": "Droit des affaires",
+              "eliminee": false,
+              "first_name": "Dan",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 12,
+              "moyenne_devoirs": 12,
+              "note_examen": 12,
+              "note_source": "manuel",
+              "student_id": "student:dan",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "eli/M1": {
+              "date_validation": null,
+              "ecue_code": "L2C-M1",
+              "ecue_id": "ecue:M1",
+              "ecue_libelle": "Gestion financière",
+              "eliminee": false,
+              "first_name": "Eli",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 8,
+              "moyenne_devoirs": 8,
+              "note_examen": 8,
+              "note_source": "manuel",
+              "student_id": "student:eli",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": false,
+              "validee_manuellement": false
+            },
+            "eli/M2": {
+              "date_validation": null,
+              "ecue_code": "L2C-M2",
+              "ecue_id": "ecue:M2",
+              "ecue_libelle": "Droit des affaires",
+              "eliminee": false,
+              "first_name": "Eli",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 8,
+              "moyenne_devoirs": 8,
+              "note_examen": 8,
+              "note_source": "manuel",
+              "student_id": "student:eli",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": false,
+              "validee_manuellement": false
+            },
+            "fay/M1": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "L2C-M1",
+              "ecue_id": "ecue:M1",
+              "ecue_libelle": "Gestion financière",
+              "eliminee": false,
+              "first_name": "Fay",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 15,
+              "moyenne_devoirs": 15,
+              "note_examen": 15,
+              "note_source": "manuel",
+              "student_id": "student:fay",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "fay/M2": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "L2C-M2",
+              "ecue_id": "ecue:M2",
+              "ecue_libelle": "Droit des affaires",
+              "eliminee": false,
+              "first_name": "Fay",
+              "id": "<id>",
+              "last_name": "Conduite",
+              "moyenne": 15,
+              "moyenne_devoirs": 15,
+              "note_examen": 15,
+              "note_source": "manuel",
+              "student_id": "student:fay",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            }
+          }
+        },
+        "fullBulletins": {
+          "S3": {
+            "ana": {
+              "decision": "admis",
+              "effectif": 6,
+              "moyenne_session": 14.67,
+              "rang": 1,
+              "statut_etudiant": "valide"
+            },
+            "ben": {
+              "decision": "ajourne",
+              "effectif": 6,
+              "moyenne_session": 12.66,
+              "rang": 3,
+              "statut_etudiant": "dette"
+            },
+            "chi": {
+              "decision": "admis",
+              "effectif": 6,
+              "moyenne_session": 11.33,
+              "rang": 5,
+              "statut_etudiant": "valide"
+            },
+            "dan": {
+              "decision": "admis",
+              "effectif": 6,
+              "moyenne_session": 12,
+              "rang": 4,
+              "statut_etudiant": "valide"
+            },
+            "fay": {
+              "decision": "admis",
+              "effectif": 6,
+              "moyenne_session": 13.33,
+              "rang": 2,
+              "statut_etudiant": "valide"
+            }
+          }
+        },
+        "generated": {
+          "S3": {
+            "ana": {
+              "decision": "admis",
+              "moyenne_session": "14.67",
+              "statut": "definitif",
+              "statut_etudiant": "valide"
+            },
+            "ben": {
+              "decision": "ajourne",
+              "moyenne_session": "12.66",
+              "statut": "provisoire",
+              "statut_etudiant": "dette"
+            },
+            "chi": {
+              "decision": "admis",
+              "moyenne_session": "11.33",
+              "statut": "definitif",
+              "statut_etudiant": "valide"
+            },
+            "dan": {
+              "decision": "admis",
+              "moyenne_session": "12",
+              "statut": "definitif",
+              "statut_etudiant": "valide"
+            },
+            "fay": {
+              "decision": "admis",
+              "moyenne_session": "13.33",
+              "statut": "definitif",
+              "statut_etudiant": "valide"
+            }
+          }
+        },
+        "rattrapages": {
+          "S3": {
+            "eli/M1": {
+              "credits": 2,
+              "ecue_code": "L2C-M1",
+              "ecue_id": "ecue:M1",
+              "ecue_libelle": "Gestion financière",
+              "eliminee": false,
+              "first_name": "Eli",
+              "last_name": "Conduite",
+              "matricule": "L2COND-0005",
+              "moyenne": 8,
+              "moyenne_devoirs": 8,
+              "note_examen": 8,
+              "note_examen_s1": 8,
+              "note_examen_s2": null,
+              "note_s2_id": null,
+              "result_id": "<id>",
+              "session_libelle": "L2 Conduite 2025-2026 — Matières",
+              "session_statut": "en_cours",
+              "student_id": "student:eli",
+              "ue_code": "UE-MAT",
+              "ue_id": "ue:UE-MAT",
+              "ue_libelle": "Matières",
+              "ue_session_id": "cohort:l2c:UE-MAT"
+            },
+            "eli/M2": {
+              "credits": 2,
+              "ecue_code": "L2C-M2",
+              "ecue_id": "ecue:M2",
+              "ecue_libelle": "Droit des affaires",
+              "eliminee": false,
+              "first_name": "Eli",
+              "last_name": "Conduite",
+              "matricule": "L2COND-0005",
+              "moyenne": 8,
+              "moyenne_devoirs": 8,
+              "note_examen": 8,
+              "note_examen_s1": 8,
+              "note_examen_s2": null,
+              "note_s2_id": null,
+              "result_id": "<id>",
+              "session_libelle": "L2 Conduite 2025-2026 — Matières",
+              "session_statut": "en_cours",
+              "student_id": "student:eli",
+              "ue_code": "UE-MAT",
+              "ue_id": "ue:UE-MAT",
+              "ue_libelle": "Matières",
+              "ue_session_id": "cohort:l2c:UE-MAT"
+            }
+          }
+        },
+        "rosters": {
+          "S3": {
+            "filiere": {
+              "code": "L2COND",
+              "domaine": "Gestion",
+              "id": "programme:l2c",
+              "name": "Licence 2 Conduite"
+            },
+            "semestre": {
+              "id": "semester:S3",
+              "libelle": "Semestre 3"
+            },
+            "students": {
+              "ana": {
+                "bulletin_statut": "definitif",
+                "credits_total": 6,
+                "credits_valides": 6,
+                "decision": "admis",
+                "first_name": "Ana",
+                "generated_at": "<timestamp>",
+                "last_name": "Conduite",
+                "matricule": "L2COND-0001",
+                "moyenne_session": 14.67,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:ana"
+              },
+              "ben": {
+                "bulletin_statut": "provisoire",
+                "credits_total": 6,
+                "credits_valides": 4,
+                "decision": "ajourne",
+                "first_name": "Ben",
+                "generated_at": "<timestamp>",
+                "last_name": "Conduite",
+                "matricule": "L2COND-0002",
+                "moyenne_session": 12.66,
+                "semestre_valide": false,
+                "session_globale": 1,
+                "statut_etudiant": "dette",
+                "student_id": "student:ben"
+              },
+              "chi": {
+                "bulletin_statut": "definitif",
+                "credits_total": 6,
+                "credits_valides": 6,
+                "decision": "admis",
+                "first_name": "Chi",
+                "generated_at": "<timestamp>",
+                "last_name": "Conduite",
+                "matricule": "L2COND-0003",
+                "moyenne_session": 11.33,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:chi"
+              },
+              "dan": {
+                "bulletin_statut": "definitif",
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "first_name": "Dan",
+                "generated_at": "<timestamp>",
+                "last_name": "Conduite",
+                "matricule": "L2COND-0004",
+                "moyenne_session": 12,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:dan"
+              },
+              "eli": {
+                "bulletin_statut": null,
+                "credits_total": 6,
+                "credits_valides": 2,
+                "decision": "rattrapage",
+                "first_name": "Eli",
+                "generated_at": null,
+                "last_name": "Conduite",
+                "matricule": "L2COND-0005",
+                "moyenne_session": 11.33,
+                "semestre_valide": false,
+                "session_globale": 1,
+                "statut_etudiant": "session2",
+                "student_id": "student:eli"
+              },
+              "fay": {
+                "bulletin_statut": "definitif",
+                "credits_total": 6,
+                "credits_valides": 6,
+                "decision": "admis",
+                "first_name": "Fay",
+                "generated_at": "<timestamp>",
+                "last_name": "Conduite",
+                "matricule": "L2COND-0006",
+                "moyenne_session": 13.33,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:fay"
+              }
+            }
+          }
+        },
+        "studentRattrapages": {
+          "eli": [
+            {
+              "annee_scolaire": "2025-2026",
+              "classe_nom": "L2 Conduite 2025-2026",
+              "credits": 2,
+              "date_debut": "2025-09-15",
+              "date_fin": "2026-02-15",
+              "ecue_code": "L2C-M1",
+              "ecue_id": "ecue:M1",
+              "ecue_libelle": "Gestion financière",
+              "eliminee": false,
+              "etat": "a_repasser",
+              "filiere_code": "L2COND",
+              "filiere_nom": "Licence 2 Conduite",
+              "matricule": "L2COND-0005",
+              "moyenne": 8,
+              "moyenne_devoirs": 8,
+              "note_examen": 8,
+              "note_examen_s1": 8,
+              "note_examen_s2": null,
+              "result_id": "<id>",
+              "semestre_id": "semester:S3",
+              "semestre_libelle": "Semestre 3",
+              "session_libelle": "L2 Conduite 2025-2026 — Matières",
+              "session_statut": "en_cours",
+              "student_id": "student:eli",
+              "ue_code": "UE-MAT",
+              "ue_id": "ue:UE-MAT",
+              "ue_libelle": "Matières",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "validee": false
+            },
+            {
+              "annee_scolaire": "2025-2026",
+              "classe_nom": "L2 Conduite 2025-2026",
+              "credits": 2,
+              "date_debut": "2025-09-15",
+              "date_fin": "2026-02-15",
+              "ecue_code": "L2C-M2",
+              "ecue_id": "ecue:M2",
+              "ecue_libelle": "Droit des affaires",
+              "eliminee": false,
+              "etat": "a_repasser",
+              "filiere_code": "L2COND",
+              "filiere_nom": "Licence 2 Conduite",
+              "matricule": "L2COND-0005",
+              "moyenne": 8,
+              "moyenne_devoirs": 8,
+              "note_examen": 8,
+              "note_examen_s1": 8,
+              "note_examen_s2": null,
+              "result_id": "<id>",
+              "semestre_id": "semester:S3",
+              "semestre_libelle": "Semestre 3",
+              "session_libelle": "L2 Conduite 2025-2026 — Matières",
+              "session_statut": "en_cours",
+              "student_id": "student:eli",
+              "ue_code": "UE-MAT",
+              "ue_id": "ue:UE-MAT",
+              "ue_libelle": "Matières",
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "validee": false
+            }
+          ]
+        },
+        "ueResults": {
+          "ana": [
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:ana",
+              "ue_code": "UE-MAT",
+              "ue_id": "ue:UE-MAT",
+              "ue_libelle": "Matières",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "uv_acquises": 4
+            }
+          ],
+          "ben": [
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:ben",
+              "ue_code": "UE-MAT",
+              "ue_id": "ue:UE-MAT",
+              "ue_libelle": "Matières",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "uv_acquises": 4
+            }
+          ],
+          "chi": [
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:chi",
+              "ue_code": "UE-MAT",
+              "ue_id": "ue:UE-MAT",
+              "ue_libelle": "Matières",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "uv_acquises": 4
+            }
+          ],
+          "dan": [
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:dan",
+              "ue_code": "UE-MAT",
+              "ue_id": "ue:UE-MAT",
+              "ue_libelle": "Matières",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "uv_acquises": 4
+            }
+          ],
+          "eli": [
+            {
+              "date_validation": null,
+              "id": "<id>",
+              "statut": "echec",
+              "student_id": "student:eli",
+              "ue_code": "UE-MAT",
+              "ue_id": "ue:UE-MAT",
+              "ue_libelle": "Matières",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "uv_acquises": 0
+            }
+          ],
+          "fay": [
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:fay",
+              "ue_code": "UE-MAT",
+              "ue_id": "ue:UE-MAT",
+              "ue_libelle": "Matières",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:l2c:UE-MAT",
+              "uv_acquises": 4
+            }
+          ]
+        }
+      }
+    },
+    "steps": {
+      "01-calcul": {
+        "l2c:UE-COND": {
+          "data": {
+            "ecue_results_updated": 0,
+            "ue_session_id": "cohort:l2c:UE-COND"
+          },
+          "ok": true
+        },
+        "l2c:UE-MAT": {
+          "data": {
+            "ecue_results_updated": 12,
+            "ue_session_id": "cohort:l2c:UE-MAT"
+          },
+          "ok": true
+        }
+      },
+      "02-bulletins S3": {
+        "data": {
+          "definitifs": 4,
+          "generated": 5,
+          "ignores": 1,
+          "provisoires": 1
+        },
+        "ok": true
+      }
+    }
+  }
+}

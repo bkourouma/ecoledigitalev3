@@ -1,0 +1,2001 @@
+{
+  "schemaVersion": 1,
+  "scenario": "cloture-semestre",
+  "source": "legacy",
+  "knownLegacyDefects": [
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.SA1.ana.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(4) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.ana.**",
+        "observations.final.studentRattrapages.ana.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.SA1.ana.**",
+        "observations.final.bts.SA1.ana.**",
+        "observations.final.rosters.SA1.students.ana.**",
+        "observations.final.fullBulletins.SA1.ana.**",
+        "observations.final.generated.SA1.ana.**",
+        "observations.final.rattrapages.SA1.ana/*.**",
+        "observations.final.bulletins.SA1.*.data.rang",
+        "observations.final.fullBulletins.SA1.*.rang",
+        "observations.final.rosters.SA1.students.*.moyenne_session",
+        "observations.final.bts.SA1.*.data.rang",
+        "observations.final.bts.SA1.*.data.disciplines.**",
+        "observations.final.bts.SA1.*.data.savoir_etre.**",
+        "observations.final.bts.SA1.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "4 crédits acquis sur 4 ; décision du bulletin : admis"
+    },
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.SA1.ben.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(4) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.ben.**",
+        "observations.final.studentRattrapages.ben.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.SA1.ben.**",
+        "observations.final.bts.SA1.ben.**",
+        "observations.final.rosters.SA1.students.ben.**",
+        "observations.final.fullBulletins.SA1.ben.**",
+        "observations.final.generated.SA1.ben.**",
+        "observations.final.rattrapages.SA1.ben/*.**",
+        "observations.final.bulletins.SA1.*.data.rang",
+        "observations.final.fullBulletins.SA1.*.rang",
+        "observations.final.rosters.SA1.students.*.moyenne_session",
+        "observations.final.bts.SA1.*.data.rang",
+        "observations.final.bts.SA1.*.data.disciplines.**",
+        "observations.final.bts.SA1.*.data.savoir_etre.**",
+        "observations.final.bts.SA1.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "4 crédits acquis sur 4 ; décision du bulletin : admis"
+    },
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.SA1.chi.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(4) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.chi.**",
+        "observations.final.studentRattrapages.chi.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.SA1.chi.**",
+        "observations.final.bts.SA1.chi.**",
+        "observations.final.rosters.SA1.students.chi.**",
+        "observations.final.fullBulletins.SA1.chi.**",
+        "observations.final.generated.SA1.chi.**",
+        "observations.final.rattrapages.SA1.chi/*.**",
+        "observations.final.bulletins.SA1.*.data.rang",
+        "observations.final.fullBulletins.SA1.*.rang",
+        "observations.final.rosters.SA1.students.*.moyenne_session",
+        "observations.final.bts.SA1.*.data.rang",
+        "observations.final.bts.SA1.*.data.disciplines.**",
+        "observations.final.bts.SA1.*.data.savoir_etre.**",
+        "observations.final.bts.SA1.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "4 crédits acquis sur 4 ; décision du bulletin : admis"
+    },
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.SA2.ana.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(4) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.ana.**",
+        "observations.final.studentRattrapages.ana.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.SA2.ana.**",
+        "observations.final.bts.SA2.ana.**",
+        "observations.final.rosters.SA2.students.ana.**",
+        "observations.final.fullBulletins.SA2.ana.**",
+        "observations.final.generated.SA2.ana.**",
+        "observations.final.rattrapages.SA2.ana/*.**",
+        "observations.final.bulletins.SA2.*.data.rang",
+        "observations.final.fullBulletins.SA2.*.rang",
+        "observations.final.rosters.SA2.students.*.moyenne_session",
+        "observations.final.bts.SA2.*.data.rang",
+        "observations.final.bts.SA2.*.data.disciplines.**",
+        "observations.final.bts.SA2.*.data.savoir_etre.**",
+        "observations.final.bts.SA2.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "4 crédits acquis sur 4 ; décision du bulletin : admis"
+    },
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.SA2.ben.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(4) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.ben.**",
+        "observations.final.studentRattrapages.ben.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.SA2.ben.**",
+        "observations.final.bts.SA2.ben.**",
+        "observations.final.rosters.SA2.students.ben.**",
+        "observations.final.fullBulletins.SA2.ben.**",
+        "observations.final.generated.SA2.ben.**",
+        "observations.final.rattrapages.SA2.ben/*.**",
+        "observations.final.bulletins.SA2.*.data.rang",
+        "observations.final.fullBulletins.SA2.*.rang",
+        "observations.final.rosters.SA2.students.*.moyenne_session",
+        "observations.final.bts.SA2.*.data.rang",
+        "observations.final.bts.SA2.*.data.disciplines.**",
+        "observations.final.bts.SA2.*.data.savoir_etre.**",
+        "observations.final.bts.SA2.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "4 crédits acquis sur 4 ; décision du bulletin : admis"
+    },
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.SA2.chi.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(4) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.chi.**",
+        "observations.final.studentRattrapages.chi.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.SA2.chi.**",
+        "observations.final.bts.SA2.chi.**",
+        "observations.final.rosters.SA2.students.chi.**",
+        "observations.final.fullBulletins.SA2.chi.**",
+        "observations.final.generated.SA2.chi.**",
+        "observations.final.rattrapages.SA2.chi/*.**",
+        "observations.final.bulletins.SA2.*.data.rang",
+        "observations.final.fullBulletins.SA2.*.rang",
+        "observations.final.rosters.SA2.students.*.moyenne_session",
+        "observations.final.bts.SA2.*.data.rang",
+        "observations.final.bts.SA2.*.data.disciplines.**",
+        "observations.final.bts.SA2.*.data.savoir_etre.**",
+        "observations.final.bts.SA2.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "4 crédits acquis sur 4 ; décision du bulletin : admis"
+    },
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "observations.final.bulletins.SB1.dan.data.semestre_valide",
+      "legacy": true,
+      "correct": "à arbitrer (semestreValide(4) = false)",
+      "scope": [
+        "steps.**",
+        "observations.final.ueResults.dan.**",
+        "observations.final.studentRattrapages.dan.**",
+        "observations.final.conduite.**",
+        "observations.final.bulletins.SB1.dan.**",
+        "observations.final.bts.SB1.dan.**",
+        "observations.final.rosters.SB1.students.dan.**",
+        "observations.final.fullBulletins.SB1.dan.**",
+        "observations.final.generated.SB1.dan.**",
+        "observations.final.rattrapages.SB1.dan/*.**",
+        "observations.final.bulletins.SB1.*.data.rang",
+        "observations.final.fullBulletins.SB1.*.rang",
+        "observations.final.rosters.SB1.students.*.moyenne_session",
+        "observations.final.bts.SB1.*.data.rang",
+        "observations.final.bts.SB1.*.data.disciplines.**",
+        "observations.final.bts.SB1.*.data.savoir_etre.**",
+        "observations.final.bts.SB1.*.data.annuel.**"
+      ],
+      "comparable": false,
+      "note": "4 crédits acquis sur 4 ; décision du bulletin : admis"
+    }
+  ],
+  "defectCatalog": {
+    "RULES_NOT_WIRED_SEMESTER_20_CREDITS": {
+      "status": "dead",
+      "title": "La règle « semestre validé à 20 crédits » n'est pas celle que le bulletin applique"
+    }
+  },
+  "data": {
+    "observations": {
+      "final": {
+        "bts": {},
+        "bulletins": {
+          "SA1": {
+            "ana": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UA1",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "CLA-A1X",
+                            "credits": 2,
+                            "ecue_id": "ecue:A1X",
+                            "libelle": "A1 matière X",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 14,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "CLA-A1Y",
+                            "credits": 2,
+                            "ecue_id": "ecue:A1Y",
+                            "libelle": "A1 matière Y",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 14,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "UE A1",
+                        "motifs": [],
+                        "moyenne_ue": 14,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UA1",
+                        "ue_session_id": "cohort:cla:UA1",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "effectif": 3,
+                "filiere": {
+                  "code": "L3CLA",
+                  "domaine": null,
+                  "id": "programme:pa",
+                  "name": "Licence 3 Clôture A"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 14,
+                "nb_ue_total": 1,
+                "nb_ue_validees": 1,
+                "rang": 1,
+                "reference": "REL-2025-L3CLA-L3CLA-0001",
+                "semestre": {
+                  "id": "semester:SA1",
+                  "libelle": "Semestre A1"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Ana",
+                  "gender": "masculin",
+                  "id": "student:ana",
+                  "is_repeating": false,
+                  "last_name": "Clôture",
+                  "matricule": "L3CLA-0001",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": null,
+                    "code": "UA1",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "CLA-A1X",
+                        "credits": 2,
+                        "ecue_id": "ecue:A1X",
+                        "libelle": "A1 matière X",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 14,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "CLA-A1Y",
+                        "credits": 2,
+                        "ecue_id": "ecue:A1Y",
+                        "libelle": "A1 matière Y",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 14,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "UE A1",
+                    "motifs": [],
+                    "moyenne_ue": 14,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UA1",
+                    "ue_session_id": "cohort:cla:UA1",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "ben": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UA1",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "CLA-A1X",
+                            "credits": 2,
+                            "ecue_id": "ecue:A1X",
+                            "libelle": "A1 matière X",
+                            "moyenne_devoirs": 14,
+                            "note_ecue": 12.8,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "CLA-A1Y",
+                            "credits": 2,
+                            "ecue_id": "ecue:A1Y",
+                            "libelle": "A1 matière Y",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "UE A1",
+                        "motifs": [],
+                        "moyenne_ue": 12.4,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UA1",
+                        "ue_session_id": "cohort:cla:UA1",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "effectif": 3,
+                "filiere": {
+                  "code": "L3CLA",
+                  "domaine": null,
+                  "id": "programme:pa",
+                  "name": "Licence 3 Clôture A"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 12.4,
+                "nb_ue_total": 1,
+                "nb_ue_validees": 1,
+                "rang": 3,
+                "reference": "REL-2025-L3CLA-L3CLA-0002",
+                "semestre": {
+                  "id": "semester:SA1",
+                  "libelle": "Semestre A1"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Ben",
+                  "gender": "masculin",
+                  "id": "student:ben",
+                  "is_repeating": false,
+                  "last_name": "Clôture",
+                  "matricule": "L3CLA-0002",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": null,
+                    "code": "UA1",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "CLA-A1X",
+                        "credits": 2,
+                        "ecue_id": "ecue:A1X",
+                        "libelle": "A1 matière X",
+                        "moyenne_devoirs": 14,
+                        "note_ecue": 12.8,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "CLA-A1Y",
+                        "credits": 2,
+                        "ecue_id": "ecue:A1Y",
+                        "libelle": "A1 matière Y",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "UE A1",
+                    "motifs": [],
+                    "moyenne_ue": 12.4,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UA1",
+                    "ue_session_id": "cohort:cla:UA1",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "chi": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UA1",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "CLA-A1X",
+                            "credits": 2,
+                            "ecue_id": "ecue:A1X",
+                            "libelle": "A1 matière X",
+                            "moyenne_devoirs": 13,
+                            "note_ecue": 13,
+                            "note_examen": 13,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "CLA-A1Y",
+                            "credits": 2,
+                            "ecue_id": "ecue:A1Y",
+                            "libelle": "A1 matière Y",
+                            "moyenne_devoirs": 13,
+                            "note_ecue": 13,
+                            "note_examen": 13,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "UE A1",
+                        "motifs": [],
+                        "moyenne_ue": 13,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UA1",
+                        "ue_session_id": "cohort:cla:UA1",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "effectif": 3,
+                "filiere": {
+                  "code": "L3CLA",
+                  "domaine": null,
+                  "id": "programme:pa",
+                  "name": "Licence 3 Clôture A"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 13,
+                "nb_ue_total": 1,
+                "nb_ue_validees": 1,
+                "rang": 2,
+                "reference": "REL-2025-L3CLA-L3CLA-0003",
+                "semestre": {
+                  "id": "semester:SA1",
+                  "libelle": "Semestre A1"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Chi",
+                  "gender": "masculin",
+                  "id": "student:chi",
+                  "is_repeating": false,
+                  "last_name": "Clôture",
+                  "matricule": "L3CLA-0003",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": null,
+                    "code": "UA1",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "CLA-A1X",
+                        "credits": 2,
+                        "ecue_id": "ecue:A1X",
+                        "libelle": "A1 matière X",
+                        "moyenne_devoirs": 13,
+                        "note_ecue": 13,
+                        "note_examen": 13,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "CLA-A1Y",
+                        "credits": 2,
+                        "ecue_id": "ecue:A1Y",
+                        "libelle": "A1 matière Y",
+                        "moyenne_devoirs": 13,
+                        "note_ecue": 13,
+                        "note_examen": 13,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "UE A1",
+                    "motifs": [],
+                    "moyenne_ue": 13,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UA1",
+                    "ue_session_id": "cohort:cla:UA1",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            }
+          },
+          "SA2": {
+            "ana": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": null,
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UA2",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "CLA-A2X",
+                            "credits": 2,
+                            "ecue_id": "ecue:A2X",
+                            "libelle": "A2 matière X",
+                            "moyenne_devoirs": 16,
+                            "note_ecue": 14.8,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "CLA-A2Y",
+                            "credits": 2,
+                            "ecue_id": "ecue:A2Y",
+                            "libelle": "A2 matière Y",
+                            "moyenne_devoirs": 15.5,
+                            "note_ecue": 14.6,
+                            "note_examen": 14,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "UE A2",
+                        "motifs": [],
+                        "moyenne_ue": 14.7,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UA2",
+                        "ue_session_id": "cohort:cla:UA2",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "effectif": 3,
+                "filiere": {
+                  "code": "L3CLA",
+                  "domaine": null,
+                  "id": "programme:pa",
+                  "name": "Licence 3 Clôture A"
+                },
+                "generated_at": null,
+                "moyenne_session": 14.7,
+                "nb_ue_total": 1,
+                "nb_ue_validees": 1,
+                "rang": 1,
+                "reference": "REL-2025-L3CLA-L3CLA-0001",
+                "semestre": {
+                  "id": "semester:SA2",
+                  "libelle": "Semestre A2"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Ana",
+                  "gender": "masculin",
+                  "id": "student:ana",
+                  "is_repeating": false,
+                  "last_name": "Clôture",
+                  "matricule": "L3CLA-0001",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": null,
+                    "code": "UA2",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "CLA-A2X",
+                        "credits": 2,
+                        "ecue_id": "ecue:A2X",
+                        "libelle": "A2 matière X",
+                        "moyenne_devoirs": 16,
+                        "note_ecue": 14.8,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "CLA-A2Y",
+                        "credits": 2,
+                        "ecue_id": "ecue:A2Y",
+                        "libelle": "A2 matière Y",
+                        "moyenne_devoirs": 15.5,
+                        "note_ecue": 14.6,
+                        "note_examen": 14,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "UE A2",
+                    "motifs": [],
+                    "moyenne_ue": 14.7,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UA2",
+                    "ue_session_id": "cohort:cla:UA2",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "ben": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": null,
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UA2",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "CLA-A2X",
+                            "credits": 2,
+                            "ecue_id": "ecue:A2X",
+                            "libelle": "A2 matière X",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "CLA-A2Y",
+                            "credits": 2,
+                            "ecue_id": "ecue:A2Y",
+                            "libelle": "A2 matière Y",
+                            "moyenne_devoirs": 12,
+                            "note_ecue": 12,
+                            "note_examen": 12,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "UE A2",
+                        "motifs": [],
+                        "moyenne_ue": 12,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UA2",
+                        "ue_session_id": "cohort:cla:UA2",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "effectif": 3,
+                "filiere": {
+                  "code": "L3CLA",
+                  "domaine": null,
+                  "id": "programme:pa",
+                  "name": "Licence 3 Clôture A"
+                },
+                "generated_at": null,
+                "moyenne_session": 12,
+                "nb_ue_total": 1,
+                "nb_ue_validees": 1,
+                "rang": 3,
+                "reference": "REL-2025-L3CLA-L3CLA-0002",
+                "semestre": {
+                  "id": "semester:SA2",
+                  "libelle": "Semestre A2"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Ben",
+                  "gender": "masculin",
+                  "id": "student:ben",
+                  "is_repeating": false,
+                  "last_name": "Clôture",
+                  "matricule": "L3CLA-0002",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": null,
+                    "code": "UA2",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "CLA-A2X",
+                        "credits": 2,
+                        "ecue_id": "ecue:A2X",
+                        "libelle": "A2 matière X",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "CLA-A2Y",
+                        "credits": 2,
+                        "ecue_id": "ecue:A2Y",
+                        "libelle": "A2 matière Y",
+                        "moyenne_devoirs": 12,
+                        "note_ecue": 12,
+                        "note_examen": 12,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "UE A2",
+                    "motifs": [],
+                    "moyenne_ue": 12,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UA2",
+                    "ue_session_id": "cohort:cla:UA2",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            },
+            "chi": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": null,
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UA2",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "CLA-A2X",
+                            "credits": 2,
+                            "ecue_id": "ecue:A2X",
+                            "libelle": "A2 matière X",
+                            "moyenne_devoirs": 13,
+                            "note_ecue": 13,
+                            "note_examen": 13,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          },
+                          {
+                            "code": "CLA-A2Y",
+                            "credits": 2,
+                            "ecue_id": "ecue:A2Y",
+                            "libelle": "A2 matière Y",
+                            "moyenne_devoirs": 13,
+                            "note_ecue": 13,
+                            "note_examen": 13,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "UE A2",
+                        "motifs": [],
+                        "moyenne_ue": 13,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UA2",
+                        "ue_session_id": "cohort:cla:UA2",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "effectif": 3,
+                "filiere": {
+                  "code": "L3CLA",
+                  "domaine": null,
+                  "id": "programme:pa",
+                  "name": "Licence 3 Clôture A"
+                },
+                "generated_at": null,
+                "moyenne_session": 13,
+                "nb_ue_total": 1,
+                "nb_ue_validees": 1,
+                "rang": 2,
+                "reference": "REL-2025-L3CLA-L3CLA-0003",
+                "semestre": {
+                  "id": "semester:SA2",
+                  "libelle": "Semestre A2"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Chi",
+                  "gender": "masculin",
+                  "id": "student:chi",
+                  "is_repeating": false,
+                  "last_name": "Clôture",
+                  "matricule": "L3CLA-0003",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": null,
+                    "code": "UA2",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "CLA-A2X",
+                        "credits": 2,
+                        "ecue_id": "ecue:A2X",
+                        "libelle": "A2 matière X",
+                        "moyenne_devoirs": 13,
+                        "note_ecue": 13,
+                        "note_examen": 13,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      },
+                      {
+                        "code": "CLA-A2Y",
+                        "credits": 2,
+                        "ecue_id": "ecue:A2Y",
+                        "libelle": "A2 matière Y",
+                        "moyenne_devoirs": 13,
+                        "note_ecue": 13,
+                        "note_examen": 13,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "UE A2",
+                    "motifs": [],
+                    "moyenne_ue": 13,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UA2",
+                    "ue_session_id": "cohort:cla:UA2",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            }
+          },
+          "SB1": {
+            "dan": {
+              "data": {
+                "annee_academique": "2025-2026",
+                "bulletin_statut": "definitif",
+                "categories": [
+                  {
+                    "credits_obtenus": 4,
+                    "credits_ue": 4,
+                    "key": "_autres",
+                    "ues": [
+                      {
+                        "categorie": null,
+                        "code": "UB1",
+                        "credits": 4,
+                        "ecues": [
+                          {
+                            "code": "CLB-B1X",
+                            "credits": 4,
+                            "ecue_id": "ecue:B1X",
+                            "libelle": "B1 matière X",
+                            "moyenne_devoirs": 11,
+                            "note_ecue": 11,
+                            "note_examen": 11,
+                            "result_id": "<id>",
+                            "session_obtention": 1,
+                            "statut": "valide",
+                            "validee": true,
+                            "validee_manuellement": false
+                          }
+                        ],
+                        "etat": "validee",
+                        "libelle": "UE B1",
+                        "motifs": [],
+                        "moyenne_ue": 11,
+                        "nb_uv": 4,
+                        "session_validation": 1,
+                        "ue_id": "ue:UB1",
+                        "ue_session_id": "cohort:clb:UB1",
+                        "validee": true
+                      }
+                    ]
+                  }
+                ],
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "effectif": 1,
+                "filiere": {
+                  "code": "L3CLB",
+                  "domaine": null,
+                  "id": "programme:pb",
+                  "name": "Licence 3 Clôture B"
+                },
+                "generated_at": "<timestamp>",
+                "moyenne_session": 11,
+                "nb_ue_total": 1,
+                "nb_ue_validees": 1,
+                "rang": 1,
+                "reference": "REL-2025-L3CLB-L3CLB-0001",
+                "semestre": {
+                  "id": "semester:SB1",
+                  "libelle": "Semestre B1"
+                },
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student": {
+                  "date_of_birth": "2005-01-01",
+                  "first_name": "Dan",
+                  "gender": "masculin",
+                  "id": "student:dan",
+                  "is_repeating": false,
+                  "last_name": "Clôture",
+                  "matricule": "L3CLB-0001",
+                  "place_of_birth": "Conakry"
+                },
+                "ues": [
+                  {
+                    "categorie": null,
+                    "code": "UB1",
+                    "credits": 4,
+                    "ecues": [
+                      {
+                        "code": "CLB-B1X",
+                        "credits": 4,
+                        "ecue_id": "ecue:B1X",
+                        "libelle": "B1 matière X",
+                        "moyenne_devoirs": 11,
+                        "note_ecue": 11,
+                        "note_examen": 11,
+                        "result_id": "<id>",
+                        "session_obtention": 1,
+                        "statut": "valide",
+                        "validee": true,
+                        "validee_manuellement": false
+                      }
+                    ],
+                    "etat": "validee",
+                    "libelle": "UE B1",
+                    "motifs": [],
+                    "moyenne_ue": 11,
+                    "nb_uv": 4,
+                    "session_validation": 1,
+                    "ue_id": "ue:UB1",
+                    "ue_session_id": "cohort:clb:UB1",
+                    "validee": true
+                  }
+                ]
+              },
+              "ok": true
+            }
+          }
+        },
+        "conduite": {
+          "filieres": {
+            "data": [
+              {
+                "code": "L3CLA",
+                "id": "programme:pa",
+                "name": "Licence 3 Clôture A",
+                "nb_conduites_manquantes": 0
+              },
+              {
+                "code": "L3CLB",
+                "id": "programme:pb",
+                "name": "Licence 3 Clôture B",
+                "nb_conduites_manquantes": 0
+              }
+            ],
+            "ok": true
+          },
+          "grille": {},
+          "semestres": {
+            "pa": {
+              "data": [
+                {
+                  "date_debut": "2025-09-15",
+                  "filiere_code": "L3CLA",
+                  "filiere_id": "programme:pa",
+                  "filiere_nom": "Licence 3 Clôture A",
+                  "id": "semester:SA1",
+                  "libelle": "Semestre A1",
+                  "nb_conduites_manquantes": 0,
+                  "nb_sessions": 1,
+                  "nb_sessions_actives": 1
+                }
+              ],
+              "ok": true
+            },
+            "pb": {
+              "data": [
+                {
+                  "date_debut": "2025-09-15",
+                  "filiere_code": "L3CLB",
+                  "filiere_id": "programme:pb",
+                  "filiere_nom": "Licence 3 Clôture B",
+                  "id": "semester:SB1",
+                  "libelle": "Semestre B1",
+                  "nb_conduites_manquantes": 0,
+                  "nb_sessions": 1,
+                  "nb_sessions_actives": 1
+                }
+              ],
+              "ok": true
+            }
+          }
+        },
+        "ecueResults": {
+          "cla:UA1": {
+            "ana/A1X": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A1X",
+              "ecue_id": "ecue:A1X",
+              "ecue_libelle": "A1 matière X",
+              "eliminee": false,
+              "first_name": "Ana",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 14,
+              "moyenne_devoirs": 14,
+              "note_examen": 14,
+              "note_source": "manuel",
+              "student_id": "student:ana",
+              "ue_session_id": "cohort:cla:UA1",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "ana/A1Y": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A1Y",
+              "ecue_id": "ecue:A1Y",
+              "ecue_libelle": "A1 matière Y",
+              "eliminee": false,
+              "first_name": "Ana",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 14,
+              "moyenne_devoirs": 14,
+              "note_examen": 14,
+              "note_source": "manuel",
+              "student_id": "student:ana",
+              "ue_session_id": "cohort:cla:UA1",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "ben/A1X": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A1X",
+              "ecue_id": "ecue:A1X",
+              "ecue_libelle": "A1 matière X",
+              "eliminee": false,
+              "first_name": "Ben",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 12.8,
+              "moyenne_devoirs": 14,
+              "note_examen": 12,
+              "note_source": "manuel",
+              "student_id": "student:ben",
+              "ue_session_id": "cohort:cla:UA1",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "ben/A1Y": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A1Y",
+              "ecue_id": "ecue:A1Y",
+              "ecue_libelle": "A1 matière Y",
+              "eliminee": false,
+              "first_name": "Ben",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 12,
+              "moyenne_devoirs": 12,
+              "note_examen": 12,
+              "note_source": "manuel",
+              "student_id": "student:ben",
+              "ue_session_id": "cohort:cla:UA1",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "chi/A1X": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A1X",
+              "ecue_id": "ecue:A1X",
+              "ecue_libelle": "A1 matière X",
+              "eliminee": false,
+              "first_name": "Chi",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 13,
+              "moyenne_devoirs": 13,
+              "note_examen": 13,
+              "note_source": "auto",
+              "student_id": "student:chi",
+              "ue_session_id": "cohort:cla:UA1",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "chi/A1Y": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A1Y",
+              "ecue_id": "ecue:A1Y",
+              "ecue_libelle": "A1 matière Y",
+              "eliminee": false,
+              "first_name": "Chi",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 13,
+              "moyenne_devoirs": 13,
+              "note_examen": 13,
+              "note_source": "manuel",
+              "student_id": "student:chi",
+              "ue_session_id": "cohort:cla:UA1",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            }
+          },
+          "cla:UA2": {
+            "ana/A2X": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A2X",
+              "ecue_id": "ecue:A2X",
+              "ecue_libelle": "A2 matière X",
+              "eliminee": false,
+              "first_name": "Ana",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 14.8,
+              "moyenne_devoirs": 16,
+              "note_examen": 14,
+              "note_source": "manuel",
+              "student_id": "student:ana",
+              "ue_session_id": "cohort:cla:UA2",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "ana/A2Y": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A2Y",
+              "ecue_id": "ecue:A2Y",
+              "ecue_libelle": "A2 matière Y",
+              "eliminee": false,
+              "first_name": "Ana",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 14.6,
+              "moyenne_devoirs": 15.5,
+              "note_examen": 14,
+              "note_source": "manuel",
+              "student_id": "student:ana",
+              "ue_session_id": "cohort:cla:UA2",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "ben/A2X": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A2X",
+              "ecue_id": "ecue:A2X",
+              "ecue_libelle": "A2 matière X",
+              "eliminee": false,
+              "first_name": "Ben",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 12,
+              "moyenne_devoirs": 12,
+              "note_examen": 12,
+              "note_source": "manuel",
+              "student_id": "student:ben",
+              "ue_session_id": "cohort:cla:UA2",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "ben/A2Y": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A2Y",
+              "ecue_id": "ecue:A2Y",
+              "ecue_libelle": "A2 matière Y",
+              "eliminee": false,
+              "first_name": "Ben",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 12,
+              "moyenne_devoirs": 12,
+              "note_examen": 12,
+              "note_source": "manuel",
+              "student_id": "student:ben",
+              "ue_session_id": "cohort:cla:UA2",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "chi/A2X": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A2X",
+              "ecue_id": "ecue:A2X",
+              "ecue_libelle": "A2 matière X",
+              "eliminee": false,
+              "first_name": "Chi",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 13,
+              "moyenne_devoirs": 13,
+              "note_examen": 13,
+              "note_source": "manuel",
+              "student_id": "student:chi",
+              "ue_session_id": "cohort:cla:UA2",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            },
+            "chi/A2Y": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLA-A2Y",
+              "ecue_id": "ecue:A2Y",
+              "ecue_libelle": "A2 matière Y",
+              "eliminee": false,
+              "first_name": "Chi",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 13,
+              "moyenne_devoirs": 13,
+              "note_examen": 13,
+              "note_source": "manuel",
+              "student_id": "student:chi",
+              "ue_session_id": "cohort:cla:UA2",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            }
+          },
+          "clb:UB1": {
+            "dan/B1X": {
+              "date_validation": "<timestamp>",
+              "ecue_code": "CLB-B1X",
+              "ecue_id": "ecue:B1X",
+              "ecue_libelle": "B1 matière X",
+              "eliminee": false,
+              "first_name": "Dan",
+              "id": "<id>",
+              "last_name": "Clôture",
+              "moyenne": 11,
+              "moyenne_devoirs": 11,
+              "note_examen": 11,
+              "note_source": "manuel",
+              "student_id": "student:dan",
+              "ue_session_id": "cohort:clb:UB1",
+              "valide_par": null,
+              "validee": true,
+              "validee_manuellement": false
+            }
+          }
+        },
+        "fullBulletins": {
+          "SA1": {
+            "ana": {
+              "decision": "admis",
+              "effectif": 3,
+              "moyenne_session": 14,
+              "rang": 1,
+              "statut_etudiant": "valide"
+            },
+            "ben": {
+              "decision": "admis",
+              "effectif": 3,
+              "moyenne_session": 12.4,
+              "rang": 3,
+              "statut_etudiant": "valide"
+            },
+            "chi": {
+              "decision": "admis",
+              "effectif": 3,
+              "moyenne_session": 13,
+              "rang": 2,
+              "statut_etudiant": "valide"
+            }
+          },
+          "SA2": {
+            "ana": {
+              "decision": "admis",
+              "effectif": 3,
+              "moyenne_session": 14.7,
+              "rang": 1,
+              "statut_etudiant": "valide"
+            },
+            "ben": {
+              "decision": "admis",
+              "effectif": 3,
+              "moyenne_session": 12,
+              "rang": 3,
+              "statut_etudiant": "valide"
+            },
+            "chi": {
+              "decision": "admis",
+              "effectif": 3,
+              "moyenne_session": 13,
+              "rang": 2,
+              "statut_etudiant": "valide"
+            }
+          },
+          "SB1": {
+            "dan": {
+              "decision": "admis",
+              "effectif": 1,
+              "moyenne_session": 11,
+              "rang": 1,
+              "statut_etudiant": "valide"
+            }
+          }
+        },
+        "generated": {
+          "SA1": {
+            "ana": {
+              "decision": "admis",
+              "moyenne_session": "14",
+              "statut": "definitif",
+              "statut_etudiant": "valide"
+            },
+            "ben": {
+              "decision": "admis",
+              "moyenne_session": "12.4",
+              "statut": "definitif",
+              "statut_etudiant": "valide"
+            },
+            "chi": {
+              "decision": "admis",
+              "moyenne_session": "13",
+              "statut": "definitif",
+              "statut_etudiant": "valide"
+            }
+          },
+          "SB1": {
+            "dan": {
+              "decision": "admis",
+              "moyenne_session": "11",
+              "statut": "definitif",
+              "statut_etudiant": "valide"
+            }
+          }
+        },
+        "rattrapages": {},
+        "rosters": {
+          "SA1": {
+            "filiere": {
+              "code": "L3CLA",
+              "domaine": null,
+              "id": "programme:pa",
+              "name": "Licence 3 Clôture A"
+            },
+            "semestre": {
+              "id": "semester:SA1",
+              "libelle": "Semestre A1"
+            },
+            "students": {
+              "ana": {
+                "bulletin_statut": "definitif",
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "first_name": "Ana",
+                "generated_at": "<timestamp>",
+                "last_name": "Clôture",
+                "matricule": "L3CLA-0001",
+                "moyenne_session": 14,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:ana"
+              },
+              "ben": {
+                "bulletin_statut": "definitif",
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "first_name": "Ben",
+                "generated_at": "<timestamp>",
+                "last_name": "Clôture",
+                "matricule": "L3CLA-0002",
+                "moyenne_session": 12.4,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:ben"
+              },
+              "chi": {
+                "bulletin_statut": "definitif",
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "first_name": "Chi",
+                "generated_at": "<timestamp>",
+                "last_name": "Clôture",
+                "matricule": "L3CLA-0003",
+                "moyenne_session": 13,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:chi"
+              }
+            }
+          },
+          "SA2": {
+            "filiere": {
+              "code": "L3CLA",
+              "domaine": null,
+              "id": "programme:pa",
+              "name": "Licence 3 Clôture A"
+            },
+            "semestre": {
+              "id": "semester:SA2",
+              "libelle": "Semestre A2"
+            },
+            "students": {
+              "ana": {
+                "bulletin_statut": null,
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "first_name": "Ana",
+                "generated_at": null,
+                "last_name": "Clôture",
+                "matricule": "L3CLA-0001",
+                "moyenne_session": 14.7,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:ana"
+              },
+              "ben": {
+                "bulletin_statut": null,
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "first_name": "Ben",
+                "generated_at": null,
+                "last_name": "Clôture",
+                "matricule": "L3CLA-0002",
+                "moyenne_session": 12,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:ben"
+              },
+              "chi": {
+                "bulletin_statut": null,
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "first_name": "Chi",
+                "generated_at": null,
+                "last_name": "Clôture",
+                "matricule": "L3CLA-0003",
+                "moyenne_session": 13,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:chi"
+              }
+            }
+          },
+          "SB1": {
+            "filiere": {
+              "code": "L3CLB",
+              "domaine": null,
+              "id": "programme:pb",
+              "name": "Licence 3 Clôture B"
+            },
+            "semestre": {
+              "id": "semester:SB1",
+              "libelle": "Semestre B1"
+            },
+            "students": {
+              "dan": {
+                "bulletin_statut": "definitif",
+                "credits_total": 4,
+                "credits_valides": 4,
+                "decision": "admis",
+                "first_name": "Dan",
+                "generated_at": "<timestamp>",
+                "last_name": "Clôture",
+                "matricule": "L3CLB-0001",
+                "moyenne_session": 11,
+                "semestre_valide": true,
+                "session_globale": 1,
+                "statut_etudiant": "valide",
+                "student_id": "student:dan"
+              }
+            }
+          }
+        },
+        "studentRattrapages": {},
+        "ueResults": {
+          "ana": [
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:ana",
+              "ue_code": "UA1",
+              "ue_id": "ue:UA1",
+              "ue_libelle": "UE A1",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:cla:UA1",
+              "uv_acquises": 4
+            },
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:ana",
+              "ue_code": "UA2",
+              "ue_id": "ue:UA2",
+              "ue_libelle": "UE A2",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:cla:UA2",
+              "uv_acquises": 4
+            }
+          ],
+          "ben": [
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:ben",
+              "ue_code": "UA1",
+              "ue_id": "ue:UA1",
+              "ue_libelle": "UE A1",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:cla:UA1",
+              "uv_acquises": 4
+            },
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:ben",
+              "ue_code": "UA2",
+              "ue_id": "ue:UA2",
+              "ue_libelle": "UE A2",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:cla:UA2",
+              "uv_acquises": 4
+            }
+          ],
+          "chi": [
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:chi",
+              "ue_code": "UA1",
+              "ue_id": "ue:UA1",
+              "ue_libelle": "UE A1",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:cla:UA1",
+              "uv_acquises": 4
+            },
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:chi",
+              "ue_code": "UA2",
+              "ue_id": "ue:UA2",
+              "ue_libelle": "UE A2",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:cla:UA2",
+              "uv_acquises": 4
+            }
+          ],
+          "dan": [
+            {
+              "date_validation": "<timestamp>",
+              "id": "<id>",
+              "statut": "validee",
+              "student_id": "student:dan",
+              "ue_code": "UB1",
+              "ue_id": "ue:UB1",
+              "ue_libelle": "UE B1",
+              "ue_nb_uv": 4,
+              "ue_session_id": "cohort:clb:UB1",
+              "uv_acquises": 4
+            }
+          ]
+        }
+      }
+    },
+    "steps": {
+      "01-calcul initial": {
+        "cla:UA1": {
+          "data": {
+            "ecue_results_updated": 6,
+            "ue_session_id": "cohort:cla:UA1"
+          },
+          "ok": true
+        },
+        "cla:UA2": {
+          "data": {
+            "ecue_results_updated": 6,
+            "ue_session_id": "cohort:cla:UA2"
+          },
+          "ok": true
+        },
+        "clb:UB1": {
+          "data": {
+            "ecue_results_updated": 1,
+            "ue_session_id": "cohort:clb:UB1"
+          },
+          "ok": true
+        }
+      },
+      "02-refus : clôturer sans bulletin généré": {
+        "error": "AUCUN_BULLETIN",
+        "message": "Aucun bulletin généré pour ce semestre : générez-les avant de clôturer.",
+        "ok": false
+      },
+      "03-saisie avant clôture (ben A1X devoir 16) : acceptée": {
+        "data": {
+          "created_at": "<timestamp>",
+          "ecue_id": "ecue:A1X",
+          "id": "<id>",
+          "libelle": "Devoir 2",
+          "nature": "devoir",
+          "note": "16.00",
+          "note_max": "20.00",
+          "saisi_par": "user:admin",
+          "session": 1,
+          "student_id": "student:ben",
+          "tenant_id": "tenant:char-cloture",
+          "ue_session_id": "cohort:cla:UA1",
+          "updated_at": "<timestamp>"
+        },
+        "ok": true
+      },
+      "04-bulletins SA1": {
+        "data": {
+          "definitifs": 3,
+          "generated": 3,
+          "ignores": 0,
+          "provisoires": 0
+        },
+        "ok": true
+      },
+      "05-bulletins SB1": {
+        "data": {
+          "definitifs": 1,
+          "generated": 1,
+          "ignores": 0,
+          "provisoires": 0
+        },
+        "ok": true
+      },
+      "06-clôture SA1": {
+        "data": {
+          "bulletins": 3,
+          "bulletins_clotures_at": "<timestamp>",
+          "deja_cloture": false,
+          "id": "semester:SA1",
+          "libelle": "Semestre A1"
+        },
+        "ok": true
+      },
+      "07-seconde clôture SA1 : idempotente": {
+        "data": {
+          "bulletins_clotures_at": "<timestamp>",
+          "deja_cloture": true,
+          "id": "semester:SA1",
+          "libelle": "Semestre A1"
+        },
+        "ok": true
+      },
+      "08-clôture SB1 (rattachement par la cohorte)": {
+        "data": {
+          "bulletins": 1,
+          "bulletins_clotures_at": "<timestamp>",
+          "deja_cloture": false,
+          "id": "semester:SB1",
+          "libelle": "Semestre B1"
+        },
+        "ok": true
+      },
+      "09-saisie après clôture SA1 : refusée": {
+        "error": "SEMESTRE_CLOTURE",
+        "message": "Le semestre « Semestre A1 » a été clôturé le 31/01/2026 : ses notes ne sont plus modifiables, les bulletins étant arrêtés.",
+        "ok": false
+      },
+      "10-examen après clôture SA1 : refusé": {
+        "error": "SEMESTRE_CLOTURE",
+        "message": "Le semestre « Semestre A1 » a été clôturé le 31/01/2026 : ses notes ne sont plus modifiables, les bulletins étant arrêtés.",
+        "ok": false
+      },
+      "11-modification après clôture SA1 : refusée": {
+        "error": "SEMESTRE_CLOTURE",
+        "message": "Le semestre « Semestre A1 » a été clôturé le 31/01/2026 : ses notes ne sont plus modifiables, les bulletins étant arrêtés.",
+        "ok": false
+      },
+      "12-suppression après clôture SA1 : refusée": {
+        "error": "SEMESTRE_CLOTURE",
+        "message": "Le semestre « Semestre A1 » a été clôturé le 31/01/2026 : ses notes ne sont plus modifiables, les bulletins étant arrêtés.",
+        "ok": false
+      },
+      "13-correction d'une copie après clôture SA1 : refusée": {
+        "error": "SEMESTRE_CLOTURE",
+        "message": "Le semestre « Semestre A1 » a été clôturé le 31/01/2026 : ses notes ne sont plus modifiables, les bulletins étant arrêtés.",
+        "ok": false
+      },
+      "14-saisie après clôture SB1 (lien par la cohorte) : refusée": {
+        "error": "SEMESTRE_CLOTURE",
+        "message": "Le semestre « Semestre B1 » a été clôturé le 31/01/2026 : ses notes ne sont plus modifiables, les bulletins étant arrêtés.",
+        "ok": false
+      },
+      "15-recalcul de toutes les cohortes : SA1 et SB1 refusés, SA2 accepté": {
+        "cla:UA1": {
+          "error": "SEMESTRE_CLOTURE",
+          "message": "Le semestre « Semestre A1 » a été clôturé le 31/01/2026 : ses notes ne sont plus modifiables, les bulletins étant arrêtés.",
+          "ok": false
+        },
+        "cla:UA2": {
+          "data": {
+            "ecue_results_updated": 6,
+            "ue_session_id": "cohort:cla:UA2"
+          },
+          "ok": true
+        },
+        "clb:UB1": {
+          "error": "SEMESTRE_CLOTURE",
+          "message": "Le semestre « Semestre B1 » a été clôturé le 31/01/2026 : ses notes ne sont plus modifiables, les bulletins étant arrêtés.",
+          "ok": false
+        }
+      },
+      "16-régénération SA1 : refusée": {
+        "error": "BULLETINS_CLOTURES",
+        "message": "Les bulletins de ce semestre sont clôturés : ils ne peuvent plus être régénérés.",
+        "ok": false
+      },
+      "17-saisie dans SA2 (non clôturé) : acceptée": {
+        "data": {
+          "created_at": "<timestamp>",
+          "ecue_id": "ecue:A2X",
+          "id": "<id>",
+          "libelle": "Devoir S2",
+          "nature": "devoir",
+          "note": "18.00",
+          "note_max": "20.00",
+          "saisi_par": "user:admin",
+          "session": 1,
+          "student_id": "student:ana",
+          "tenant_id": "tenant:char-cloture",
+          "ue_session_id": "cohort:cla:UA2",
+          "updated_at": "<timestamp>"
+        },
+        "ok": true
+      },
+      "18-refus : clôturer SA2 sans bulletin généré": {
+        "error": "AUCUN_BULLETIN",
+        "message": "Aucun bulletin généré pour ce semestre : générez-les avant de clôturer.",
+        "ok": false
+      },
+      "19-clôture des NOTES de SA2 (cohortes terminées)": {
+        "data": {
+          "cloturees": 1,
+          "id": "semester:SA2",
+          "libelle": "Semestre A2"
+        },
+        "ok": true
+      },
+      "20-saisie dans SA2 après clôture des notes : toujours acceptée": {
+        "data": {
+          "created_at": "<timestamp>",
+          "ecue_id": "ecue:A2Y",
+          "id": "<id>",
+          "libelle": "Devoir après clôture des notes",
+          "nature": "devoir",
+          "note": "17.00",
+          "note_max": "20.00",
+          "saisi_par": "user:admin",
+          "session": 1,
+          "student_id": "student:ana",
+          "tenant_id": "tenant:char-cloture",
+          "ue_session_id": "cohort:cla:UA2",
+          "updated_at": "<timestamp>"
+        },
+        "ok": true
+      }
+    }
+  }
+}
