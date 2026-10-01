@@ -155,10 +155,35 @@ Arborescence `src/app/v2/` (pages minces) ; toute la logique est dans `src/platf
 - **Tests** : `pnpm --filter @ecoledigitale/web test` (Vitest/RTL, API simulée) ;
   `PW_CHANNEL=msedge pnpm exec playwright test -c playwright.admin.config.ts` (smoke console + gardes, 375 px et bureau, sans API).
 
+## 9. Authentification V2 (`NEXT_PUBLIC_AUTH_V2=1`)
+
+Absent (défaut) : authentification **legacy**, inchangée. Plan de bascule, drapeaux, retour arrière : `docs/architecture/auth-cutover.md`.
+
+- **NextAuth sur `/api/v1/iam/*`** (`platform/auth/iam-next-auth.ts`, `iam-server.ts`, `iam-token.ts`) : fournisseurs `credentials` (étape 1), `iam-mfa`
+  (défi TOTP / code de secours), `iam-enroll` (enrôlement MFA, codes de secours transmis UNE fois) et Google (route fédérée d'iam).
+  Le **refresh token vit dans le JWT chiffré de NextAuth (cookie HttpOnly)** et n'est jamais copié dans `session` ni dans le stockage de la page ;
+  le jeton d'accès (15 min) circule comme avant (`session.jwtToken`, `SessionAuthSync`, `lib/jwt-storage`, fetch-interceptor : **même forme de jeton**).
+- **Rotation côté serveur, jamais en rendu serveur** : elle n'a lieu que sur `useSession().update({ action: "refresh" })` (`POST /api/auth/session`,
+  seul endroit où NextAuth peut réécrire le cookie). `IamSessionKeeper` (dans `providers.tsx`) la planifie 2 min avant l'échéance, sous verrou Web Locks
+  inter-onglets (`lib/iam-session.ts`) ; l'intercepteur la déclenche aussi (jeton proche de l'échéance ou 401, un seul rejeu). Session sans support
+  serveur (révoquée, refresh réutilisé) : retour à `/login?expired=1`. `signOut()` révoque la session IAM (`events.signOut`).
+- **Actions de session** (`update({ action })`) : `refresh`, `switch-role` (utilisé par `/select-role`), `switch-tenant`, `change-password`, `disable-mfa`,
+  `ack-recovery-codes`, `mfa-enabled`, `clear-error`. Tout autre champ envoyé par le navigateur est **ignoré** (le legacy acceptait n'importe quel `jwtToken`).
+- **Pages** (`platform/auth/ui/*`, routes dans `app/v2/(auth)/…` et `app/auth/…`, 404 tant que le drapeau est absent) : `/login` (V2 : identifiants -> défi MFA ou
+  enrôlement + QR -> codes de secours), `/v2/forgot-password`, `/v2/reset-password` et `/auth/reset-password` / `/auth/invitation` (liens e-mail de l'API),
+  `/v2/account/sessions` (mes sessions actives, révocation), `/v2/account/security` (mot de passe, MFA), `/v2/account/tenants` (sélecteur d'établissement),
+  `/v2/admin/members` (invitation + droits RBAC équivalents, suspension, révocation de sessions, réinitialisation MFA ; permissions vérifiées par l'API).
+- **Accessibilité / mobile** : un `<main>` et un `<h1>` par page, champs étiquetés (`aria-describedby`), erreurs en `role="alert"`, cibles tactiles ≥ 44 px, focus
+  déplacé à chaque étape, aucun défilement horizontal (vérifié par le test e2e).
+- **Rôles** : `session.activeRole` / `roles` / `availableRoles` restent dans le vocabulaire de l'interface (legacy) ; `iamRoles` / `iamActiveRole` portent les rôles de
+  l'accès IAM (`platform/auth/iam-roles.ts`, inverse strict de `legacyRoleToTemplate`).
+- **Variables** : `NEXT_PUBLIC_AUTH_V2`, `NEXT_PUBLIC_GOOGLE_AUTH` (build), `IAM_SERVICE_SECRET`, `AUTH_SOCIAL_SHARED_SECRET` (serveur) — voir `ENV_EXAMPLE.md`.
+
 ## Tests
 
 ```bash
 pnpm --filter @ecoledigitale/web test                       # Vitest (logique pure + hooks, jsdom)
+pnpm test:e2e:auth                                          # Playwright V2 : connexion -> MFA -> navigation -> rotation -> déconnexion (faux iam, sans base ; PW_CHANNEL=msedge|chrome)
 cd apps/web && pnpm exec playwright test -c playwright.pwa.config.ts   # smoke PWA (Next seul, sans API ni base)
 ```
 Le smoke PWA utilise le Chromium de Playwright (`playwright install chromium`) ou `PW_CHANNEL=msedge|chrome`.

@@ -11,7 +11,23 @@ function getHeaderValue(value: string | string[] | undefined): string | null {
 
 async function superAdminAuditPlugin(fastify: FastifyInstance) {
   fastify.addHook("onResponse", async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!request.superAdmin) {
+    // Super-admin légacy (jeton super-admin) OU requête sous impersonation IAM v2 (acteur réel porté par le jeton).
+    const actor = request.superAdmin
+      ? {
+          id: request.superAdmin.id,
+          tenantId: request.superAdmin.selectedTenantId ?? null,
+          tenantSlug: request.superAdmin.selectedTenantSlug ?? null,
+          impersonatedUserId: request.superAdmin.impersonatedUserId ?? null,
+        }
+      : request.iamImpersonation
+        ? {
+            id: request.iamImpersonation.superAdminId,
+            tenantId: request.iamImpersonation.tenantId,
+            tenantSlug: request.iamImpersonation.tenantSlug,
+            impersonatedUserId: request.iamImpersonation.impersonatedUserId,
+          }
+        : null;
+    if (!actor) {
       return;
     }
 
@@ -35,10 +51,10 @@ async function superAdminAuditPlugin(fastify: FastifyInstance) {
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
         `,
         [
-          request.superAdmin.id,
-          request.superAdmin.selectedTenantId ?? null,
-          request.superAdmin.selectedTenantSlug ?? null,
-          request.superAdmin.impersonatedUserId ?? null,
+          actor.id,
+          actor.tenantId,
+          actor.tenantSlug,
+          actor.impersonatedUserId,
           `${request.method} ${(request as any).routerPath || request.url}`,
           request.method,
           request.url,

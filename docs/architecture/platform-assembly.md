@@ -90,8 +90,8 @@ Avant l'assemblage, le registre appelait `scope.register(plugin)` sans option : 
 | Jeton | Où | Résultat |
 |---|---|---|
 | IAM v2 (`typ` `at+jwt` / `imp+jwt`) sur une route de module | hook `onRequest` `v2-auth` | `request.ctx` (rôle actif seul, `mfa` lu en base), le middleware legacy s'efface |
-| Legacy (`typ: JWT`) | middleware legacy inchangé, puis `v2-context` | `request.ctx` dérivé (`userId`, `tenantId`, rôle actif) mais **aucune assignation RBAC** : refus par défaut sur les routes protégées par `requirePermission` (les comptes legacy ne sont migrés vers iam qu'en Phase 2) |
-| IAM v2 sur une route **legacy** | middleware legacy | 401 comme avant (jeton inconnu) |
+| Legacy (`typ: JWT`) | middleware legacy, puis `v2-context` | `request.ctx` dérivé (`userId`, `tenantId`, rôle actif) mais **aucune assignation RBAC** : refus par défaut sur les routes protégées par `requirePermission`. Accepté jusqu'à `LEGACY_TOKEN_SUNSET` (puis 401 `LEGACY_TOKEN_SUNSET`). Son tenant n'est lu qu'**après vérification** de la signature. |
+| IAM v2 sur une route **legacy** | hook `v2-auth` (`onRequest`) puis middleware legacy (`attachIamLegacyUser`) | Authentifié (révocation sur toutes les méthodes) ; `request.user` = compte **legacy** de même e-mail dans le tenant du jeton, rôles legacy par inverse strict de `legacyRoleToTemplate`. 401 si le jeton est invalide, 403 `LEGACY_ACCOUNT_MISSING` / `LEGACY_ROLE_UNMAPPED` sinon. `V2_LEGACY_IAM_BRIDGE=0` : 401 comme avant. Voir `auth-cutover.md`. |
 | JWT super-admin | `superAdminAuthorizer` sur `/platform/*`, `/entitlements/admin/*`, `/iam/impersonation` | opérateur ; vérifié aussi sur GET (liste noire, compte actif) |
 
 Routes **publiques** : une route de module déclare `config: { public: true }` pour échapper à la garde « contexte présent » du registre **et** au middleware legacy ; elle s'authentifie elle-même (mot de passe, jeton d'étape MFA, refresh token, signature de webhook, JWT super-admin). La liste est **dérivée** de ces déclarations (hook `onRoute`, `platform/public-routes.ts`) et lue par `auth-middleware.ts` (seule modification du legacy avec l'enregistrement dans `index.ts`) ; vide sans plateforme v2. Le test `[D3b]` parcourt toutes les routes publiques sans identifiants et exige un refus (hors `POST /iam/logout`, 204 par conception).
@@ -160,6 +160,13 @@ Les handlers reçoivent `ctx.tenantDb` (ajout au SDK du worker) pour appeler les
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL` | — | API | mêmes noms que l'e-mail legacy |
 | `V2_APP_BASE_URL` | — | API | base des liens `/auth/invitation?token=…` et `/auth/reset-password?token=…` |
 | `IAM_*` | voir `modules/iam/README.md` | API | cookie, TTL, MFA, politique de mot de passe |
+| `V2_LEGACY_IAM_BRIDGE` | actif | API | `0` : les routes legacy refusent à nouveau les jetons IAM |
+| `LEGACY_TOKEN_SUNSET` | — | API | date d'extinction des jetons legacy (ISO 8601) ; mal formée = démarrage refusé |
+| `TRUST_PROXY` | `false` | API | sauts de proxy / CIDR de confiance (`request.ip` réel : limiteur, audit, sessions) |
+| `IAM_SERVICE_SECRET` | — | API, web | active `POST /iam/federated-login` (Google) ; ≥ 32 caractères |
+| `AUTH_SOCIAL_SHARED_SECRET` | — | API, web | `/auth/social-login` legacy ; obligatoire en production |
+| `LEGACY_DATABASE_URL`, `IAM_IMPORT_TECHNICAL_PASSWORD` | `DATABASE_URL`, — | poste d'import | `pnpm iam:import-legacy` |
+| `NEXT_PUBLIC_AUTH_V2`, `NEXT_PUBLIC_GOOGLE_AUTH` | — | web (build) | connexion V2 ; bouton Google |
 
 Le worker garde ses propres variables (`WORKER_DATABASE_URL`, `WORKER_RELAY_*`…, voir `apps/worker/README.md`) et lit `AUDIT_*`, `ENTITLEMENTS_*`, `IAM_PURGE_*` depuis `process.env` (les abonnés et jobs des modules sont du code du module).
 
@@ -199,7 +206,7 @@ Contrôles : `pnpm check:boundaries`, `pnpm check:secrets`, `pnpm test:isolation
 
 ## 10. Limites connues et décisions
 
-- **Comptes legacy** : aucun import vers iam (Phase 2). Un jeton legacy donne un contexte sans droit RBAC.
+- **Comptes legacy** : importés par `pnpm iam:import-legacy` (identités, accès, assignations RBAC ; idempotent, lecture seule côté legacy, rapport des cas ambigus), puis authentifiés par iam. Un jeton legacy (tant que `LEGACY_TOKEN_SUNSET` n'est pas atteinte) donne un contexte sans droit RBAC. Les comptes créés dans le legacy après l'import doivent être réimportés (voir `auth-cutover.md` §6).
 - **`trustProxy`** : `index.ts` ne le règle pas ; derrière un proxy, `request.ip` (limiteur de débit IAM, audit) est celui du proxy. À régler au déploiement.
 - **Provisioning de la console** : étapes en transactions distinctes (un use case par module), reprise par `reconcile` ; pas de transaction globale.
 - **Caches** : TTL 30 s (droits), 5 s (arbre des périmètres) ; l'invalidation par événement exige Redis. Sans Redis, seuls le processus d'origine et le TTL jouent.

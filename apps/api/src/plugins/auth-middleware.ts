@@ -13,6 +13,13 @@ import {
 } from "../services/tenant-provisioning.service";
 import { setRlsContext } from "../services/rls-context.service";
 import { shouldBypassLegacyAuth } from "../platform/public-routes";
+import {
+  assertLegacySunsetConfig,
+  attachIamLegacyUser,
+  isIamAccessTokenShape,
+  isLegacyTokenSunsetReached,
+  legacyIamBridgeEnabled,
+} from "../platform/legacy-iam-bridge";
 
 function isSensitiveOperation(method: string): boolean {
   return ["POST", "PUT", "DELETE", "PATCH"].includes(method.toUpperCase());
@@ -28,6 +35,16 @@ async function attachTenantUser(
 
   if (payload.scope !== "tenant_user") {
     return false;
+  }
+
+  // Extinction des jetons legacy (LEGACY_TOKEN_SUNSET) : `iam` est la seule source d'authentification.
+  if (isLegacyTokenSunsetReached()) {
+    await reply.status(401).send({
+      error: "Token Retired",
+      message: "Legacy sessions are no longer accepted, please sign in again",
+      code: "LEGACY_TOKEN_SUNSET",
+    });
+    return true;
   }
 
   setRlsContext({
@@ -239,6 +256,9 @@ async function attachSuperAdmin(
 }
 
 async function authMiddleware(fastify: FastifyInstance) {
+  // Date d'extinction mal formée : refuser de démarrer plutôt que de deviner (voir parseLegacyTokenSunset).
+  assertLegacySunsetConfig();
+
   fastify.addHook("preHandler", async (request: FastifyRequest, reply: FastifyReply) => {
     // Plateforme v2 : routes de modules déclarées `config.public` (login/refresh IAM, webhooks signés,
     // console super-admin…) et requêtes déjà authentifiées par un jeton IAM v2. Liste DÉRIVÉE des
@@ -251,6 +271,9 @@ async function authMiddleware(fastify: FastifyInstance) {
       "/api/v1/auth/login",
       "/api/v1/auth/refresh",
       "/api/v1/auth/register-request",
+      // Connexion Google : appelée par le serveur web (NextAuth) SANS jeton ; protégée par le secret partagé
+      // AUTH_SOCIAL_SHARED_SECRET (routes/auth.ts), jamais ouverte.
+      "/api/v1/auth/social-login",
       "/api/v1/health",
       "/api/v1/files/",
       "/api/v1/super-admin/auth/login",
@@ -268,6 +291,14 @@ async function authMiddleware(fastify: FastifyInstance) {
         message: "No authentication token provided",
         code: "TOKEN_MISSING",
       });
+    }
+
+    // Jeton d'accès IAM v2 (en-tête `typ` at+jwt / imp+jwt) : déjà authentifié par le crochet `onRequest` de
+    // platform/v2-auth.ts (signature, session, révocation sur toutes les méthodes) ; on en tire `request.user`.
+    // Sans plateforme v2 ou avec V2_LEGACY_IAM_BRIDGE=0, le jeton reste inconnu du legacy (401 comme avant).
+    if (isIamAccessTokenShape(token) && fastify.hasDecorator("iam") && legacyIamBridgeEnabled()) {
+      await attachIamLegacyUser(fastify, request, reply);
+      return;
     }
 
     const decodedToken = decodeToken(token) as { scope?: string } | null;

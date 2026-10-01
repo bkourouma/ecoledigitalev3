@@ -28,6 +28,7 @@ import { issueStepToken } from "../domain/access-token";
 import { isPlausibleEmail, normalizeEmail } from "../domain/email";
 import { limiterKey } from "../domain/tokens";
 import * as identities from "../infrastructure/identity-repo";
+import type { IdentityRow, TenantRow } from "../infrastructure/identity-repo";
 import * as memberships from "../infrastructure/membership-repo";
 import * as sessions from "../infrastructure/session-repo";
 import {
@@ -49,6 +50,7 @@ import {
   startSession,
   toTenantSummaries,
   toUserSummary,
+  type Amr,
   type LoginOutcome,
 } from "./session-issue";
 
@@ -143,9 +145,47 @@ async function loginInner(deps: IamDeps, input: LoginInput): Promise<Result<Logi
   // Re-hachage transparent (bcrypt legacy ou paramètres scrypt plus faibles) : calculé HORS transaction.
   const upgradedHash = verification.needsRehash ? await deps.hasher.hash(input.password) : null;
 
-  const requestId = input.meta.requestId;
+  return finishLogin(deps, {
+    identity,
+    tenant,
+    tenants,
+    activeRole: input.activeRole,
+    deviceName: input.deviceName,
+    meta: input.meta,
+    upgradedHash,
+    method: "password",
+    amr: ["pwd"],
+  });
+}
+
+export interface FinishLoginArgs {
+  identity: IdentityRow;
+  tenant: TenantRow;
+  /** Tous les accès de l'identité (annuaire), pour la réponse. */
+  tenants: readonly TenantRow[];
+  activeRole?: string | undefined;
+  deviceName?: string | undefined;
+  meta: RequestMeta;
+  /** Nouveau hash à poser (re-hachage transparent) ; `null` sinon. */
+  upgradedHash: string | null;
+  /** Méthode d'authentification journalisée (`password`, `federated:google`). */
+  method: string;
+  /** Facteurs satisfaits PAR CETTE ÉTAPE (le second facteur éventuel s'ajoute au défi MFA). */
+  amr: Amr[];
+}
+
+/**
+ * Suite commune d'une authentification primaire réussie (mot de passe OU fédération) : accès sous RLS, politique MFA
+ * (défi ou enrôlement exigé AVANT toute session), ouverture de la session, événement `iam.user.logged_in`.
+ */
+export async function finishLogin(deps: IamDeps, a: FinishLoginArgs): Promise<Result<LoginOutcome, AppError>> {
+  const { config, clock } = deps;
+  const { identity, tenant, tenants } = a;
+  const input = { activeRole: a.activeRole, meta: a.meta };
+  const requestId = a.meta.requestId;
   const tenantCtx = userContext(tenant.id, identity.id, [], requestId);
-  const deviceName = cleanText(input.deviceName, 80);
+  const deviceName = cleanText(a.deviceName, 80);
+  const upgradedHash = a.upgradedHash;
 
   type Inner =
     | { kind: "no_access" }
@@ -211,7 +251,7 @@ async function loginInner(deps: IamDeps, input: LoginInput): Promise<Result<Logi
       tenant,
       activeRole,
       mfaVerified: false,
-      amr: ["pwd"],
+      amr: a.amr,
       meta: input.meta,
       deviceName,
       authEpoch: fresh.auth_epoch,
@@ -222,8 +262,8 @@ async function loginInner(deps: IamDeps, input: LoginInput): Promise<Result<Logi
       membershipId: membership.id,
       sessionId: issued.sessionId,
       mfa: false,
-      amr: ["pwd"],
-      method: "password",
+      amr: a.amr,
+      method: a.method,
       meta: input.meta,
     });
     return {
@@ -232,7 +272,7 @@ async function loginInner(deps: IamDeps, input: LoginInput): Promise<Result<Logi
         status: "authenticated",
         session: issued,
         user: toUserSummary(fresh, tenant, roles, activeRole),
-        tenants: toTenantSummaries(tenants),
+        tenants: toTenantSummaries([...tenants]),
       },
     };
   });

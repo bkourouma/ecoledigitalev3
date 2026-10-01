@@ -21,6 +21,7 @@ import { IntlProvider } from "@/platform/i18n/IntlProvider";
 import { TenantTheme } from "@/platform/theme/TenantTheme";
 import { RegisterServiceWorker } from "@/platform/pwa/RegisterServiceWorker";
 import { saveToken, removeToken } from "@/lib/jwt-storage";
+import { IamSessionKeeper } from "@/platform/auth/IamSessionKeeper";
 
 // Initialiser le gestionnaire d'erreurs de chunk immédiatement (avant React)
 // Cela garantit qu'il est actif dès le chargement du module
@@ -68,6 +69,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
       <TenantProvider>
         <SessionAuthSync />
+        <IamSessionKeeper />
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
             <AntdConfigProvider>

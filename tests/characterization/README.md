@@ -23,6 +23,10 @@ pnpm test:characterization -- tests/classique-terminale.test.ts   # un seul fich
 
 Durée mesurée : ~2 min (13 fichiers, 67 tests, 10 snapshots), dont ~6 s pour construire le schéma legacy une seule fois (base modèle, puis `CREATE DATABASE ... TEMPLATE` par fichier).
 
+> Le schéma legacy construit ici et le seeder (`harness/db.ts`, `harness/seeder.ts`) servent aussi de **base de preuve** à l'import des utilisateurs
+> legacy vers `iam` : `apps/api/test/iam-import` (`pnpm --filter @ecoledigitale/api test:auth-import`, voir `docs/architecture/auth-cutover.md` §4).
+> Ils sont chargés à l'exécution, sans modification.
+
 ## Ce qui est exécuté pour de vrai
 
 | Domaine | Code legacy réellement exécuté | Comment |

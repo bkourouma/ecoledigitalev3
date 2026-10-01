@@ -41,7 +41,7 @@ const baseClaims = {
   sid: uuid,
   mid: uuid,
   mfa: z.boolean(),
-  amr: z.array(z.enum(["pwd", "otp", "rcv", "imp"])).max(4),
+  amr: z.array(z.enum(["pwd", "otp", "rcv", "imp", "fed"])).max(4),
 };
 
 export const AccessClaimsSchema = z
@@ -76,7 +76,7 @@ export interface IssueAccessInput {
   sessionId: string;
   membershipId: string;
   mfa: boolean;
-  amr: readonly ("pwd" | "otp" | "rcv" | "imp")[];
+  amr: readonly ("pwd" | "otp" | "rcv" | "imp" | "fed")[];
   /** Présent = jeton d'impersonation. */
   actor?: { id: string };
   ttlSec?: number;

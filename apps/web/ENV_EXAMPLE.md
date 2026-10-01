@@ -46,6 +46,16 @@ NEXT_PUBLIC_PLATFORM_NAV=
 # 0 = interrupteur d'arrêt (désinscrit les service workers existants).
 NEXT_PUBLIC_PWA=
 NEXT_PUBLIC_DEMO_ACCOUNTS=
+# Authentification V2 (module iam : sessions révocables, MFA TOTP, refresh à rotation côté serveur). 1 = actif ;
+# absent = authentification LEGACY (défaut tant que la bascule n'est pas décidée). Inliné au build : redéployer pour changer.
+# Plan de bascule : docs/architecture/auth-cutover.md
+NEXT_PUBLIC_AUTH_V2=
+# V2 : affiche « Continuer avec Google » sur /login (nécessite GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET et IAM_SERVICE_SECRET).
+NEXT_PUBLIC_GOOGLE_AUTH=
+# V2 : secret de service partagé avec l'API (IAM_SERVICE_SECRET), pour la connexion Google via iam. Serveur uniquement.
+IAM_SERVICE_SECRET=
+# Legacy : secret partagé avec l'API pour /auth/social-login (AUTH_SOCIAL_SHARED_SECRET côté API, MÊME valeur). Serveur uniquement.
+AUTH_SOCIAL_SHARED_SECRET=
 # Panneau « Comptes par tenant » de /login (remplit email + mot de passe des
 # comptes techniques). Lu côté serveur, à l'exécution. Non renseigné : actif en
 # `next dev`, coupé en production. Ne JAMAIS mettre `true` sur un site public.

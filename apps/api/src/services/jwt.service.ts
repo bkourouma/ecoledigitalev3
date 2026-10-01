@@ -103,6 +103,19 @@ export function verifyToken(token: string): JWTPayload {
 }
 
 /**
+ * Vérification silencieuse (signature HS256, expiration, émetteur) : `null` si le jeton n'est pas valide, sans
+ * exception ni journal. Sert à décider si un jeton peut désigner un tenant (plugins/tenant-context.ts) : le tenant
+ * d'un jeton NON vérifié ne doit jamais être lu, même sur une route publique.
+ */
+export function verifyTokenQuiet(token: string): JWTPayload | null {
+  try {
+    return jwt.verify(token, JWT_SECRET!, { algorithms: ['HS256'], issuer: JWT_ISSUER }) as JWTPayload;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Decode a JWT token WITHOUT verification
  * 
  * Used for extracting claims when we need token info before validation

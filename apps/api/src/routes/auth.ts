@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { isLegacyTokenSunsetReached } from "../platform/legacy-iam-bridge";
 import { LoginResponseSchema, LogoutResponseSchema } from "@ecoledigitale/contracts";
 import { addToBlacklist, isBlacklisted } from "../services/blacklist.service";
 import { decodeToken, extractTokenFromHeader, verifyToken } from "../services/jwt.service";
@@ -104,7 +106,38 @@ async function ensureGlobalRole(
   return created.rows[0].id;
 }
 
+/**
+ * `/social-login` délivre un jeton pour N'IMPORTE QUEL e-mail qu'on lui présente : seul le serveur web (NextAuth,
+ * après vérification Google) peut l'appeler. Secret partagé `AUTH_SOCIAL_SHARED_SECRET` (en-tête
+ * `x-social-login-secret`), comparé en temps constant. Sans secret configuré : refusé en production, toléré en
+ * développement (avertissement). Ancien comportement : route ouverte -> prise de contrôle de compte par e-mail.
+ */
+function socialLoginAuthorized(request: { headers: Record<string, unknown> }): boolean {
+  const expected = process.env.AUTH_SOCIAL_SHARED_SECRET;
+  if (!expected) return process.env.NODE_ENV !== "production";
+  const given = request.headers["x-social-login-secret"];
+  if (typeof given !== "string") return false;
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Routes legacy qui ÉMETTENT un jeton legacy : fermées une fois LEGACY_TOKEN_SUNSET atteinte (le login se fait par iam). */
+const LEGACY_TOKEN_ISSUERS = ["/register", "/social-login", "/login", "/switch-role", "/refresh"];
+
 export async function authRoutes(fastify: FastifyInstance) {
+  fastify.addHook("onRequest", async (request, reply) => {
+    if (!isLegacyTokenSunsetReached()) return;
+    const url = request.routeOptions?.url ?? "";
+    if (LEGACY_TOKEN_ISSUERS.some((suffix) => url.endsWith(suffix))) {
+      return reply.status(410).send({
+        error: "Gone",
+        message: "Legacy sign-in is retired, use the new sign-in",
+        code: "LEGACY_AUTH_RETIRED",
+      });
+    }
+  });
+
   fastify.post("/register", {
     handler: async (request, reply) => {
       const { email, password, firstName, lastName } = registerSchema.parse(request.body);
@@ -355,6 +388,13 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   fastify.post("/social-login", {
     handler: async (request, reply) => {
+      if (!socialLoginAuthorized(request)) {
+        return reply.status(403).send({
+          error: "Forbidden",
+          message: "Social sign-in is only available through the web application",
+          code: "SOCIAL_LOGIN_FORBIDDEN",
+        });
+      }
       const { email, firstName, lastName } = socialLoginSchema.parse(request.body);
       const normalizedEmail = email.trim().toLowerCase();
 
@@ -510,6 +550,28 @@ export async function authRoutes(fastify: FastifyInstance) {
       } finally {
         client.release();
       }
+    },
+  });
+
+  // Qui suis-je pour l'API LEGACY ? Fonctionne avec un jeton legacy ET avec un jeton IAM v2 (passerelle) : renvoie le
+  // compte LEGACY (`users.id`) que les tables legacy référencent — pas l'identité IAM. Utilisé par le web V2 pour que
+  // `session.user.id` reste l'identifiant legacy attendu par les pages et routes proxy existantes.
+  fastify.get("/whoami", {
+    handler: async (request, reply) => {
+      if (!request.user) {
+        return reply.status(401).send({ error: "Authentication Required", message: "No authentication", code: "TOKEN_MISSING" });
+      }
+      reply.header("Cache-Control", "no-store");
+      return {
+        id: request.user.id,
+        email: request.user.email,
+        tenantId: request.user.tenantId ?? request.tenantId ?? null,
+        tenantSlug: request.user.tenantSlug ?? request.tenantSlug ?? null,
+        activeRole: request.user.activeRole ?? request.user.role ?? null,
+        roles: request.user.roles,
+        availableRoles: request.user.availableRoles ?? request.user.roles,
+        authSource: request.user.authSource ?? "legacy",
+      };
     },
   });
 

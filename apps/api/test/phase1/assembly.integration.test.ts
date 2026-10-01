@@ -43,6 +43,8 @@ describeIntegration.skipIf(!REDIS_URL)("assemblage : cohabitation legacy / v2 et
     ] as const) {
       expect(p.app.hasRoute({ method, url }), `${method} ${url}`).toBe(true);
     }
+    // La connexion fédérée n'existe que si IAM_SERVICE_SECRET est défini (échec fermé) : absente ici.
+    expect(p.app.hasRoute({ method: "POST", url: "/api/v1/iam/federated-login" })).toBe(false);
     // Avant la correction, tenancy/entitlements/rbac/finance posaient leur préfixe EN PLUS de celui du registre.
     expect(p.app.hasRoute({ method: "GET", url: "/api/v1/tenancy/api/v1/tenancy/institutions" })).toBe(false);
     expect(p.app.hasRoute({ method: "GET", url: "/api/v1/rbac/api/v1/rbac/roles" })).toBe(false);
@@ -124,11 +126,17 @@ describeIntegration.skipIf(!REDIS_URL)("assemblage : cohabitation legacy / v2 et
     // Révocation sur TOUTES les méthodes : une session IAM révoquée n'ouvre plus rien.
   });
 
-  it("[D5] les routes legacy sont inchangées : jeton legacy accepté, jeton IAM inconnu du legacy, pas de jeton refusé", async () => {
+  it("[D5] les routes legacy : jeton legacy accepté, jeton IAM accepté par la passerelle (compte legacy requis), pas de jeton refusé", async () => {
     const ok = await p.http("GET", "/api/v1/legacy-probe", { token: legacyToken });
     expect(ok.status).toBe(200);
     expect(ok.body).toEqual({ userId: LEGACY_USER, role: "admin" });
-    expect((await p.http("GET", "/api/v1/legacy-probe", { token: owner.accessToken })).status).toBe(401);
+    // Depuis la passerelle IAM -> legacy (platform/legacy-iam-bridge.ts), un jeton IAM n'est plus « inconnu » du legacy :
+    // il est authentifié, puis relié au compte legacy du même e-mail dans le tenant du jeton. Le propriétaire d'un tenant
+    // créé par la console n'a pas de compte legacy : 403 explicite (et non 401). Le cas nominal est couvert par
+    // test/auth-bridge/bridge.integration.test.ts.
+    const bridged = await p.http("GET", "/api/v1/legacy-probe", { token: owner.accessToken });
+    expect(bridged.status).toBe(403);
+    expect(bridged.body.code).toBe("LEGACY_ACCOUNT_MISSING");
     const anonymous = await p.http("GET", "/api/v1/legacy-probe");
     expect(anonymous.status).toBe(401);
     expect(anonymous.body.code).toBe("TOKEN_MISSING");

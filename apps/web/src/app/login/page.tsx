@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { getSession, signIn } from "next-auth/react";
+import { isAuthV2 } from "@/platform/auth/iam-config";
+import { LoginFlow } from "@/platform/auth/ui/LoginFlow";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -26,7 +28,22 @@ import {
 
 type Tenant = { slug: string; name: string };
 
+/**
+ * `NEXT_PUBLIC_AUTH_V2=1` : la connexion passe par le module iam (MFA, sessions révocables) — voir
+ * platform/auth/ui/LoginFlow.tsx. Sinon : page historique ci-dessous, inchangée (défaut tant que la bascule n'est pas décidée).
+ */
 export default function LoginPage() {
+  if (isAuthV2()) {
+    return (
+      <Suspense fallback={null}>
+        <LoginFlow />
+      </Suspense>
+    );
+  }
+  return <LegacyLoginPage />;
+}
+
+function LegacyLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

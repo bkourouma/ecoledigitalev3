@@ -121,6 +121,12 @@ processus d'origine) ; le TTL (30 s) borne le délai entre instances si un évé
 | `super_admin` | aucun (hors RBAC tenant) |
 | inconnu | aucun |
 
+**Sens inverse (rôles d'un accès IAM -> rôle legacy)**, utilisé par la passerelle IAM -> legacy et par le web
+(`packages/contracts/src/v2/iam-legacy-roles.ts`, vérifié contre `legacyRoleToTemplate` par `apps/api/test/legacy-iam-bridge.test.ts`) :
+une clé legacy vaut elle-même ; un modèle ne vaut un rôle legacy que si l'accès tient **tous** les modèles qui le composent
+(`admin` = `directeur` + `secretariat` + `econome`) ; un modèle partiel (`directeur` seul, `educateur`…) n'élève rien.
+L'import `pnpm iam:import-legacy` écrit les clés legacy dans l'accès et pose les assignations `legacyRoleToTemplate`.
+
 `admin` → trois modèles car l'« admin » legacy est fourre-tout (structure académique,
 inscriptions, finances, rémunération) ; l'union reproduit son périmètre **sans** les droits
 propriétaire (abonnement, définition des rôles : resserrement volontaire par rapport à
