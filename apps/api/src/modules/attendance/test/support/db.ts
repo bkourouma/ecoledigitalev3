@@ -13,6 +13,10 @@ import { createRequestContext, newId, noopLogger, type RequestContext } from "@e
 const here = fileURLToPath(new URL(".", import.meta.url));
 export const BASELINE_DIR = resolve(here, "../../../../../../../packages/database/migrations");
 export const ATTENDANCE_MIGRATIONS_DIR = resolve(here, "../../migrations");
+/** Migrations du worker (`kernel.processed_events` : idempotence des abonnés). */
+export const WORKER_MIGRATIONS_DIR = resolve(here, "../../../../../../worker/migrations");
+/** Migrations du module audit (journal chaîné) : pour prouver que l'adaptateur d'audit est accepté par le vrai service. */
+export const AUDIT_MIGRATIONS_DIR = resolve(here, "../../../audit/migrations");
 
 export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 export const hasDb = Boolean(TEST_DATABASE_URL);
@@ -48,7 +52,7 @@ export interface AttendanceTestDb {
   drop(): Promise<void>;
 }
 
-export async function createAttendanceTestDb(poolSize = 12): Promise<AttendanceTestDb> {
+export async function createAttendanceTestDb(poolSize = 12, options: { withWorker?: boolean; withAudit?: boolean } = {}): Promise<AttendanceTestDb> {
   const name = `ed_it_${suffix()}_att_test`;
   const maintenance = new Client({ connectionString: TEST_DATABASE_URL });
   await maintenance.connect();
@@ -56,12 +60,15 @@ export async function createAttendanceTestDb(poolSize = 12): Promise<AttendanceT
 
   const admin = new Client({ connectionString: urlFor(name) });
   await admin.connect();
-  await migrate({ client: admin, dirs: [BASELINE_DIR, ATTENDANCE_MIGRATIONS_DIR], role: "migrator", logger: noopLogger });
+  await migrate({ client: admin, dirs: [BASELINE_DIR, ...(options.withWorker ? [WORKER_MIGRATIONS_DIR] : []), ...(options.withAudit ? [AUDIT_MIGRATIONS_DIR] : []), ATTENDANCE_MIGRATIONS_DIR], role: "migrator", logger: noopLogger });
 
   const role = `it_app_${suffix()}`;
   const password = randomBytes(16).toString("hex");
   await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD '${password}' IN ROLE app_user`);
   const appPool = new Pool({ connectionString: urlFor(name, role, password), max: poolSize });
+  // `DROP DATABASE … WITH (FORCE)` coupe les connexions inactives : l'événement `error` qui en découle n'est pas une panne.
+  appPool.on("error", () => undefined);
+  admin.on("error", () => undefined);
   const tenantDb = new TenantDb(appPool);
   const systemDb = new SystemDb(tenantDb, { logger: noopLogger });
 

@@ -22,6 +22,7 @@ export default defineConfig({
       { find: /^@ecoledigitale\/kernel$/, replacement: here("../../../../../packages/kernel/src/index.ts") },
       { find: /^@ecoledigitale\/database$/, replacement: here("../../../../../packages/database/src/index.ts") },
       { find: /^@ecoledigitale\/contracts\/src\/(.*)$/, replacement: `${here("../../../../../packages/contracts/src")}/$1` },
+      { find: /^@ecoledigitale\/worker\/sdk$/, replacement: here("../../../../worker/src/sdk.ts") },
     ],
   },
   test: {

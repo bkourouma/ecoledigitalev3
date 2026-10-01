@@ -33,6 +33,7 @@ describeIntegration("synchronisation hors-ligne : idempotence, rejeu, conflits, 
     batchId: newId(), deviceId: "tablette-salle-12", clientSentAt: at("12:00"), sessions, caps: CAPS.teacher, ...extra,
   });
   const sync = (b: SyncBatchInput, who = school.teacher) => syncOfflineAttendance(world.deps, who.ctx, b);
+  type SyncValue = Extract<Awaited<ReturnType<typeof sync>>, { ok: true }>["value"];
   const count = async (sql: string, params: unknown[] = []) => Number((await adminOne<{ n: string }>(db, sql, params)).n);
   const records = (sessionId: string) =>
     adminRows<any>(db, "SELECT student_id, status_code, marked_by, source_detail, client_id, client_marked_at FROM attendance.student_records WHERE session_id = $1", [sessionId]);
@@ -222,7 +223,7 @@ describeIntegration("synchronisation hors-ligne : idempotence, rejeu, conflits, 
     const occ = addOccurrence(world, school);
     const mk = (who: typeof school.teacher, status: string) =>
       sync(batch([session(occ.occurrenceId, school.students.map((_, i) => rec(i, status, "11:30")))], { deviceId: `appareil-${who.staffId.slice(-4)}` }), who);
-    const [x, y] = await Promise.all([mk(school.teacher, "ABSENT"), mk(school.coTeacher, "LATE")].map(async (p) => unwrap(await p)));
+    const [x, y] = (await Promise.all([mk(school.teacher, "ABSENT"), mk(school.coTeacher, "LATE")].map(async (p) => unwrap(await p)))) as [SyncValue, SyncValue];
     const ids = new Set([x.sessions[0]!.sessionId, y.sessions[0]!.sessionId]);
     expect(ids.size).toBe(1);
     expect([x.sessions[0]!.outcome, y.sessions[0]!.outcome].sort()).toEqual(["EXISTING", "OPENED"]);

@@ -14,16 +14,32 @@
  * marquées dans la spec ; les identifiants sont lus avec tolérance (`occurrenceId`, `enrollmentId`, `periodId`).
  * Tous les abonnés sont idempotents (`idempotent()` : marque « traité » dans la transaction de l'effet).
  */
-import { defineSubscriber, idempotent, type EventHandlerContext } from "@ecoledigitale/worker/sdk";
+import { defineSubscriber, idempotent, type EventHandlerContext, type SubscriberDefinition } from "@ecoledigitale/worker/sdk";
 import { isUuid, type AppError } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
+import { audit, configureAuditFromEnv } from "../audit";
 import { createAttendanceDeps, type AttendanceDeps } from "./application/deps";
 import { isBenignConsumerError, onEnrollmentChanged, onOccurrenceCancelled, onPeriodChanged, onTenantProvisioned } from "./application/consumers";
 import { ConsumedEvents } from "./domain/events";
+import { attendanceAuditAdapter } from "./infrastructure/audit-adapter";
 
-function depsOf(ctx: EventHandlerContext): AttendanceDeps {
-  // Pas de port d'un autre module dans le worker : seules les données du module servent.
-  return createAttendanceDeps({ db: ctx.tenantDb, logger: ctx.logger });
+let auditConfigured = false;
+
+/**
+ * Dépendances d'un abonné : pas de port d'un autre module dans le worker (seules les données du module servent), mais
+ * l'AUDIT est branché — la réouverture automatique d'un appel validé ou l'annulation d'un appel soumis est tracée (R14),
+ * avec la même clé HMAC que l'API (`AUDIT_HMAC_KEY`).
+ */
+function defaultDepsOf(ctx: EventHandlerContext): AttendanceDeps {
+  if (!auditConfigured) {
+    configureAuditFromEnv(audit, process.env, { logger: ctx.logger });
+    auditConfigured = true;
+  }
+  return createAttendanceDeps({
+    db: ctx.tenantDb,
+    logger: ctx.logger,
+    audit: attendanceAuditAdapter({ record: (tx, entry) => audit.record(tx, entry as Parameters<typeof audit.record>[1]) }),
+  });
 }
 
 function pick(payload: unknown, ...keys: string[]): string | undefined {
@@ -44,54 +60,58 @@ function settle(result: { ok: true } | { ok: false; error: AppError }, ctx: Even
   throw result.error; // transitoire ou inattendu : le worker rejoue (reprises puis dead-letter)
 }
 
-export default [
-  defineSubscriber({
-    name: "attendance.cancel-session-on-occurrence-cancelled",
-    pattern: ConsumedEvents.OCCURRENCE_CANCELLED,
-    retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
-    handler: idempotent("attendance.cancel-session-on-occurrence-cancelled", async (event, ctx, _tx: Tx) => {
-      const occurrenceId = pick(event.payload, "occurrenceId", "sessionId", "id");
-      if (!occurrenceId) return ctx.logger.warn({ eventId: event.id }, "attendance : occurrenceId absent du payload");
-      settle(await onOccurrenceCancelled(depsOf(ctx), ctx.db.ctx, { occurrenceId }), ctx);
-    }),
-  }),
-  ...[ConsumedEvents.ENROLLMENT_WITHDRAWN, ConsumedEvents.ENROLLMENT_CANCELLED, ConsumedEvents.ENROLLMENT_TRANSFERRED].map((type) =>
+export function buildSubscribers(depsOf: (ctx: EventHandlerContext) => AttendanceDeps): SubscriberDefinition[] {
+  return [
     defineSubscriber({
-      name: `attendance.refresh-summaries-on-enrollment-change.${type.split(".").pop()}`,
-      pattern: type,
-      retry: { attempts: 5, backoffMs: 1_000, maxBackoffMs: 60_000 },
-      handler: idempotent(`attendance.refresh-summaries-on-enrollment-change.${type.split(".").pop()}`, async (event, ctx) => {
-        const enrollmentId = pick(event.payload, "enrollmentId", "id");
-        if (!enrollmentId) return ctx.logger.warn({ eventId: event.id }, "attendance : enrollmentId absent du payload");
-        settle(await onEnrollmentChanged(depsOf(ctx), ctx.db.ctx, { enrollmentId }), ctx);
+      name: "attendance.cancel-session-on-occurrence-cancelled",
+      pattern: ConsumedEvents.OCCURRENCE_CANCELLED,
+      retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
+      handler: idempotent("attendance.cancel-session-on-occurrence-cancelled", async (event, ctx, _tx: Tx) => {
+        const occurrenceId = pick(event.payload, "occurrenceId", "sessionId", "id");
+        if (!occurrenceId) return ctx.logger.warn({ eventId: event.id }, "attendance : occurrenceId absent du payload");
+        settle(await onOccurrenceCancelled(depsOf(ctx), ctx.db.ctx, { occurrenceId }), ctx);
       }),
     }),
-  ),
-  ...[ConsumedEvents.PERIOD_CLOSED, ConsumedEvents.PERIOD_REOPENED].map((type) =>
+    ...[ConsumedEvents.ENROLLMENT_WITHDRAWN, ConsumedEvents.ENROLLMENT_CANCELLED, ConsumedEvents.ENROLLMENT_TRANSFERRED].map((type) =>
+      defineSubscriber({
+        name: `attendance.refresh-summaries-on-enrollment-change.${type.split(".").pop()}`,
+        pattern: type,
+        retry: { attempts: 5, backoffMs: 1_000, maxBackoffMs: 60_000 },
+        handler: idempotent(`attendance.refresh-summaries-on-enrollment-change.${type.split(".").pop()}`, async (event, ctx) => {
+          const enrollmentId = pick(event.payload, "enrollmentId", "id");
+          if (!enrollmentId) return ctx.logger.warn({ eventId: event.id }, "attendance : enrollmentId absent du payload");
+          settle(await onEnrollmentChanged(depsOf(ctx), ctx.db.ctx, { enrollmentId }), ctx);
+        }),
+      }),
+    ),
+    ...[ConsumedEvents.PERIOD_CLOSED, ConsumedEvents.PERIOD_REOPENED].map((type) =>
+      defineSubscriber({
+        name: `attendance.refresh-summaries-on-period-change.${type.split(".").pop()}`,
+        pattern: type,
+        retry: { attempts: 5, backoffMs: 1_000, maxBackoffMs: 60_000 },
+        handler: idempotent(`attendance.refresh-summaries-on-period-change.${type.split(".").pop()}`, async (event, ctx) => {
+          const periodId = pick(event.payload, "periodId", "academicPeriodId", "id");
+          if (!periodId) return ctx.logger.warn({ eventId: event.id }, "attendance : periodId absent du payload");
+          settle(await onPeriodChanged(depsOf(ctx), ctx.db.ctx, { periodId }), ctx);
+        }),
+      }),
+    ),
     defineSubscriber({
-      name: `attendance.refresh-summaries-on-period-change.${type.split(".").pop()}`,
-      pattern: type,
-      retry: { attempts: 5, backoffMs: 1_000, maxBackoffMs: 60_000 },
-      handler: idempotent(`attendance.refresh-summaries-on-period-change.${type.split(".").pop()}`, async (event, ctx) => {
-        const periodId = pick(event.payload, "periodId", "academicPeriodId", "id");
-        if (!periodId) return ctx.logger.warn({ eventId: event.id }, "attendance : periodId absent du payload");
-        settle(await onPeriodChanged(depsOf(ctx), ctx.db.ctx, { periodId }), ctx);
+      name: "attendance.seed-reference-data",
+      pattern: ConsumedEvents.TENANT_PROVISIONED,
+      retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
+      handler: idempotent("attendance.seed-reference-data", async (event, ctx) => {
+        const p = event.payload as { institutionId?: unknown; institutionIds?: unknown } | null;
+        const ids = [
+          ...(typeof p?.institutionId === "string" && isUuid(p.institutionId) ? [p.institutionId] : []),
+          ...(Array.isArray(p?.institutionIds) ? p.institutionIds.filter((x): x is string => typeof x === "string" && isUuid(x)) : []),
+        ];
+        const r = await onTenantProvisioned(depsOf(ctx), ctx.db.ctx, { institutionIds: ids });
+        settle(r, ctx);
+        ctx.logger.info({ institutions: ids.length }, "attendance : référentiels du pack instanciés");
       }),
     }),
-  ),
-  defineSubscriber({
-    name: "attendance.seed-reference-data",
-    pattern: ConsumedEvents.TENANT_PROVISIONED,
-    retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
-    handler: idempotent("attendance.seed-reference-data", async (event, ctx) => {
-      const p = event.payload as { institutionId?: unknown; institutionIds?: unknown } | null;
-      const ids = [
-        ...(typeof p?.institutionId === "string" && isUuid(p.institutionId) ? [p.institutionId] : []),
-        ...(Array.isArray(p?.institutionIds) ? p.institutionIds.filter((x): x is string => typeof x === "string" && isUuid(x)) : []),
-      ];
-      const r = await onTenantProvisioned(depsOf(ctx), ctx.db.ctx, { institutionIds: ids });
-      settle(r, ctx);
-      ctx.logger.info({ institutions: ids.length }, "attendance : référentiels du pack instanciés");
-    }),
-  }),
-];
+  ];
+}
+
+export default buildSubscribers(defaultDepsOf);
