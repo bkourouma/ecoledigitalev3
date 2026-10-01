@@ -13,6 +13,8 @@ export class InMemoryAcademicQuery implements AcademicQuery {
   readonly nodes = new Map<string, CurriculumNodeInfo>();
   readonly periods = new Map<string, PeriodInfo>();
   readonly placements = new Map<string, StudentPlacements>();
+  /** inscription → apprenant */
+  readonly enrollments = new Map<string, string>();
   /** Résolution par défaut d'une date → année/période (un seul exercice). */
   yearForDates: { academicYearId: string; periodId: string | null; from: string; to: string } | null = null;
 
@@ -36,6 +38,10 @@ export class InMemoryAcademicQuery implements AcademicQuery {
     this.placements.set(studentId, placements);
     return this;
   }
+  enroll(enrollmentId: string, studentId: string): this {
+    this.enrollments.set(enrollmentId, studentId);
+    return this;
+  }
 
   async getClassroom(_ctx: RequestContext, id: string): Promise<ClassroomInfo | null> {
     return this.classrooms.get(id) ?? null;
@@ -56,6 +62,9 @@ export class InMemoryAcademicQuery implements AcademicQuery {
   }
   async listStudentPlacements(_ctx: RequestContext, studentId: string): Promise<StudentPlacements> {
     return this.placements.get(studentId) ?? { classroomIds: [], offeringIds: [] };
+  }
+  async getEnrollmentStudentId(_ctx: RequestContext, enrollmentId: string): Promise<string | null> {
+    return this.enrollments.get(enrollmentId) ?? null;
   }
 }
 

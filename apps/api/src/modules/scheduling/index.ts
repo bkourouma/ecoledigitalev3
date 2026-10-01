@@ -45,7 +45,7 @@ export type { AttendanceQuery } from "./application/ports/attendance";
 export { InMemoryAcademicQuery, InMemoryAttendanceQuery, InMemoryPeopleQuery } from "./application/ports/in-memory";
 
 // Port pour academic
-export { createScheduleConflictChecker, type ScheduleConflictChecker, type StudentOfferingCheck, type StudentScheduleConflict } from "./application/conflict-checker";
+export { createAcademicScheduleConflictChecker, createScheduleConflictChecker, type AcademicScheduleConflictChecker, type ScheduleConflictChecker, type StudentOfferingCheck, type StudentScheduleConflict } from "./application/conflict-checker";
 
 // Cas d'usage — séances
 export {

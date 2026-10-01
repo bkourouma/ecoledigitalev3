@@ -4,7 +4,8 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRequestContext, noopLogger, newId, type DomainEvent } from "@ecoledigitale/kernel";
-import { createScheduleConflictChecker } from "../../application/conflict-checker";
+import { readFileSync } from "node:fs";
+import { createAcademicScheduleConflictChecker, createScheduleConflictChecker, type AcademicScheduleConflictChecker } from "../../application/conflict-checker";
 import {
   onAttendanceSessionSubmitted,
   onClassroomCancelled,
@@ -223,6 +224,43 @@ describeIntegration("événements consommés, abonnés, jobs et ports", () => {
       expect(unwrap(await checker.checkStudentOffering(cw.ctx, { studentId, offeringId: carteC.offeringId })).conflicts).toEqual([]);
       expect(unwrap(await checker.checkStudentOffering(cw.ctx, { studentId: newId(), offeringId: carteA.offeringId })).conflicts).toEqual([]);
       void createRequestContext;
+    });
+
+    it("adaptateur conforme au port d'academic : appelé avec l'INSCRIPTION, renvoie des descriptions lisibles dans le fuseau de l'établissement ; échec ouvert", async () => {
+      // Garde de dérive : la forme du port déclaré par academic (spec 004) est celle que l'adaptateur sert.
+      const academicPorts = readFileSync(new URL("../../../academic/application/ports.ts", import.meta.url), "utf8");
+      expect(academicPorts).toContain(
+        "checkStudentOffering(ctx: RequestContext, input: { enrollmentId: string; offeringId: string }): Promise<{ conflicts: Array<{ description: string }> }>;",
+      );
+      const cw = await createWorld({ db, timezone: "Europe/Paris" });
+      const port: AcademicScheduleConflictChecker = createAcademicScheduleConflictChecker(cw.deps);
+      const studentId = newId();
+      const enrollmentId = newId();
+      const own = addClass(cw, "Terminale S1");
+      const carte = addClass(cw, "Atelier théâtre", { aLaCarte: true });
+      const t1 = addStaff(cw, "T1");
+      const t2 = addStaff(cw, "T2");
+      const mk = (c: typeof own, teacher: string, carteOffer: boolean) =>
+        createOccurrence(cw.deps, cw.ctx, {
+          kind: "LESSON",
+          classroomId: c.classroomId,
+          curriculumNodeId: c.nodeId,
+          ...(carteOffer ? { offeringId: c.offeringId, claimsClassroom: false } : {}),
+          date: D(19),
+          startTime: carteOffer ? "09:30" : "09:00",
+          endTime: carteOffer ? "11:00" : "10:00",
+          staff: [{ staffId: teacher }],
+        });
+      unwrap(await mk(own, t1, false));
+      unwrap(await mk(carte, t2, true));
+      cw.academic.place(studentId, { classroomIds: [own.classroomId], offeringIds: [] }).enroll(enrollmentId, studentId);
+      const r = await port.checkStudentOffering(cw.ctx, { enrollmentId, offeringId: carte.offeringId });
+      expect(r.conflicts).toEqual([{ description: "Chevauchement avec la classe « Terminale S1 » le 2026-10-19 de 09:30 à 10:00" }]);
+      // Inscription inconnue, offre sans séance, port academic absent : aucun avertissement, jamais d'exception.
+      expect((await port.checkStudentOffering(cw.ctx, { enrollmentId: newId(), offeringId: carte.offeringId })).conflicts).toEqual([]);
+      expect((await port.checkStudentOffering(cw.ctx, { enrollmentId, offeringId: newId() })).conflicts).toEqual([]);
+      const detached = createAcademicScheduleConflictChecker({ ...cw.deps, ports: { academic: null, people: null, attendance: null } });
+      expect((await detached.checkStudentOffering(cw.ctx, { enrollmentId, offeringId: carte.offeringId })).conflicts).toEqual([]);
     });
   });
 });
