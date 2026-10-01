@@ -1,0 +1,299 @@
+﻿
+[F1] Note ECUE = devoirs*0,4 + examen*0,6  (attendu 9.9)
+   cel-marc       FAUX               9.899999999999999 (0 ms)
+   cel-marc-dec   OK                 9.9 (1 ms)
+   cel-js         FAUX               9.899999999999999 (2 ms)
+   cel-bufbuild   FAUX               9.899999999999999 (1 ms)
+   jsonata        FAUX               9.899999999999999 (1 ms)
+   maison-peggy   OK                 9.9 (2 ms)
+   maison-pratt   OK                 9.9 (2 ms)
+
+[F2] Moyenne annuelle arrondie = round_half_up((S1+2*S2)/3, 2)  (attendu 13.57)
+   cel-marc       OK                 13.57 (1 ms)
+   cel-marc-dec   OK                 13.57 (2 ms)
+   cel-js         ERREUR_EVALUATION  CelTypeError: division operation cannot be applied to (float, uint) (3 ms)
+   cel-bufbuild   OK                 13.57 (1 ms)
+   jsonata        OK                 13.57 (2 ms)
+   maison-peggy   OK                 13.57 (4 ms)
+   maison-pratt   OK                 13.57 (4 ms)
+
+[D1] 0.1 + 0.2 == 0.3  (attendu true)
+   cel-marc       FAUX               false (0 ms)
+   cel-marc-dec   OK                 true (1 ms)
+   cel-js         FAUX               false (1 ms)
+   cel-bufbuild   FAUX               false (1 ms)
+   jsonata        FAUX               false (3 ms)
+   maison-peggy   OK                 true (1 ms)
+   maison-pratt   OK                 true (2 ms)
+
+[D2] round_half_up(9.995, 2)  (attendu 10)
+   cel-marc       OK                 10 (1 ms)
+   cel-marc-dec   OK                 10 (1 ms)
+   cel-js         OK                 10 (1 ms)
+   cel-bufbuild   OK                 10 (1 ms)
+   jsonata        OK                 10 (3 ms)
+   maison-peggy   OK                 10 (1 ms)
+   maison-pratt   OK                 10 (1 ms)
+
+[D3] Seuil : 0.7 + 0.1 >= 0.8  (attendu true)
+   cel-marc       FAUX               false (0 ms)
+   cel-marc-dec   OK                 true (1 ms)
+   cel-js         FAUX               false (1 ms)
+   cel-bufbuild   FAUX               false (2 ms)
+   jsonata        FAUX               false (1 ms)
+   maison-peggy   OK                 true (3 ms)
+   maison-pratt   OK                 true (1 ms)
+
+[D4] Calcul calculé puis arrondi : round_half_up(1.1*1.1*1.1*1.1*1.1*1.1*1.1*1.1, 4)  (attendu 2.1436)
+   cel-marc       OK                 2.1436 (0 ms)
+   cel-marc-dec   OK                 2.1436 (2 ms)
+   cel-js         OK                 2.1436 (1 ms)
+   cel-bufbuild   OK                 2.1436 (1 ms)
+   jsonata        OK                 2.1436 (1 ms)
+   maison-peggy   OK                 2.1436 (3 ms)
+   maison-pratt   OK                 2.1436 (2 ms)
+
+[D5] Seuil de validation sur valeur non arrondie : 9.995 >= 10  (attendu false)
+   cel-marc       OK                 false (0 ms)
+   cel-marc-dec   OK                 false (1 ms)
+   cel-js         OK                 false (3 ms)
+   cel-bufbuild   OK                 false (0 ms)
+   jsonata        OK                 false (1 ms)
+   maison-peggy   OK                 false (2 ms)
+   maison-pratt   OK                 false (4 ms)
+
+[D6] Seuil exact : 0.4*12.5 + 0.6*8.3333333333333333 >= 10 ? (exact = 9.99999999999999998 => false)
+   cel-marc       FAUX               true (0 ms)
+   cel-marc-dec   OK                 false (1 ms)
+   cel-js         FAUX               true (3 ms)
+   cel-bufbuild   FAUX               true (1 ms)
+   jsonata        FAUX               true (1 ms)
+   maison-peggy   OK                 false (1 ms)
+   maison-pratt   OK                 false (10 ms)
+
+[T1] Récursion infinie  f() = f()
+   cel-marc       NON_EXPRIMABLE      
+   cel-marc-dec   NON_EXPRIMABLE      
+   cel-js         NON_EXPRIMABLE      
+   cel-bufbuild   NON_EXPRIMABLE      
+   jsonata        TIMEOUT            >8000 ms (8006 ms)
+   maison-peggy   NON_EXPRIMABLE      
+   maison-pratt   NON_EXPRIMABLE      
+
+[T2] Boucle récursive terminale de 10^9 itérations (récursion « bornée » mais énorme)
+   cel-marc       NON_EXPRIMABLE      
+   cel-marc-dec   NON_EXPRIMABLE      
+   cel-js         NON_EXPRIMABLE      
+   cel-bufbuild   NON_EXPRIMABLE      
+   jsonata        TIMEOUT            >8000 ms (8004 ms)
+   maison-peggy   NON_EXPRIMABLE      
+   maison-pratt   NON_EXPRIMABLE      
+
+[T3] Imbrication de 5 000 parenthèses
+   cel-marc       ERREUR_COMPILATION Exceeded maxDepth (250) > 1 | (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((( (2 ms)
+   cel-marc-dec   ERREUR_COMPILATION Exceeded maxDepth (250) > 1 | (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((( (3 ms)
+   cel-js         ERREUR_COMPILATION Maximum call stack size exceeded (133 ms)
+   cel-bufbuild   ERREUR_COMPILATION Maximum call stack size exceeded (130 ms)
+   jsonata        VALEUR             1 (3077 ms)
+   maison-peggy   ERREUR_COMPILATION Maximum call stack size exceeded (13 ms)
+   maison-pratt   ERREUR_COMPILATION Expression trop longue : 10001 caractères (maximum 10000). (ligne 1, colonne 1) (20 ms)
+
+[T4] Imbrication de 200 000 parenthèses (pile du parseur)
+   cel-marc       ERREUR_COMPILATION Exceeded maxDepth (250) > 1 | (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((( (4 ms)
+   cel-marc-dec   ERREUR_COMPILATION Exceeded maxDepth (250) > 1 | (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((( (5 ms)
+   cel-js         ERREUR_COMPILATION Maximum call stack size exceeded (682 ms)
+   cel-bufbuild   ERREUR_COMPILATION Maximum call stack size exceeded (81 ms)
+   jsonata        ERREUR_COMPILATION Maximum call stack size exceeded (14 ms)
+   maison-peggy   ERREUR_COMPILATION Maximum call stack size exceeded (13 ms)
+   maison-pratt   ERREUR_COMPILATION Expression trop longue : 400001 caractères (maximum 10000). (ligne 1, colonne 1) (22 ms)
+
+[T5] Chaîne de 200 000 additions 1+1+1+…
+   cel-marc       ERREUR_COMPILATION Exceeded maxAstNodes (100000) > 1 | 1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+ (26 ms)
+   cel-marc-dec   ERREUR_COMPILATION Exceeded maxAstNodes (100000) > 1 | dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+de (77 ms)
+   cel-js         VALEUR             200000 (95 ms)
+   cel-bufbuild   ERREUR_COMPILATION Maximum call stack size exceeded (1468 ms)
+   jsonata        ERREUR_COMPILATION Maximum call stack size exceeded (244 ms)
+   maison-peggy   ERREUR_COMPILATION Maximum call stack size exceeded (582 ms)
+   maison-pratt   ERREUR_COMPILATION Expression trop longue : 399999 caractères (maximum 10000). (ligne 1, colonne 1) (21 ms)
+
+[T6] 9 comprehensions imbriquées de 10 éléments (10^9 évaluations)
+   cel-marc       TIMEOUT            >8000 ms (8016 ms)
+   cel-marc-dec   NON_EXPRIMABLE      
+   cel-js         ERREUR_COMPILATION Redundant input, expecting EOF but found: . (6 ms)
+   cel-bufbuild   TIMEOUT            >8000 ms (8002 ms)
+   jsonata        TIMEOUT            >8000 ms (8012 ms)
+   maison-peggy   NON_EXPRIMABLE      
+   maison-pratt   NON_EXPRIMABLE      
+
+[T7] ReDoS : (a+)+$ sur « aaaa…ab » (38 a)
+   cel-marc       TIMEOUT            >8000 ms (8007 ms)
+   cel-marc-dec   TIMEOUT            >8000 ms (8009 ms)
+   cel-js         ERREUR_EVALUATION  Unknown method: matches (1 ms)
+   cel-bufbuild   VALEUR             false (44 ms)
+   jsonata        TIMEOUT            >8000 ms (8007 ms)
+   maison-peggy   NON_EXPRIMABLE      
+   maison-pratt   NON_EXPRIMABLE      
+
+[E1] a.constructor
+   cel-marc       ERREUR_EVALUATION  No such key: constructor > 1 | a.constructor ^ (1 ms)
+   cel-marc-dec   ERREUR_EVALUATION  No such key: constructor > 1 | a.constructor ^ (1 ms)
+   cel-js         FUITE              function (2 ms)
+   cel-bufbuild   ERREUR_EVALUATION  field not found: constructor (1 ms)
+   jsonata        BLOQUE             undefined (1 ms)
+   maison-peggy   BLOQUE             undefined (1 ms)
+   maison-pratt   ERREUR_COMPILATION Le champ « constructor » n'existe pas. (ligne 1, colonne 3) (20 ms)
+
+[E2] a.__proto__
+   cel-marc       ERREUR_EVALUATION  No such key: __proto__ > 1 | a.__proto__ ^ (1 ms)
+   cel-marc-dec   ERREUR_EVALUATION  No such key: __proto__ > 1 | a.__proto__ ^ (1 ms)
+   cel-js         FUITE              {} (1 ms)
+   cel-bufbuild   ERREUR_EVALUATION  field not found: __proto__ (1 ms)
+   jsonata        BLOQUE             undefined (1 ms)
+   maison-peggy   BLOQUE             undefined (1 ms)
+   maison-pratt   ERREUR_COMPILATION Le champ « __proto__ » n'existe pas. (ligne 1, colonne 3) (33 ms)
+
+[E3] a.constructor.constructor("return process")()
+   cel-marc       ERREUR_COMPILATION Unexpected character: '(' > 1 | a.constructor.constructor("return process")() ^ (2 ms)
+   cel-marc-dec   ERREUR_COMPILATION Unexpected character: '(' > 1 | a.constructor.constructor("return process")() ^ (1 ms)
+   cel-js         ERREUR_COMPILATION Redundant input, expecting EOF but found: ( (4 ms)
+   cel-bufbuild   ERREUR_COMPILATION <input>:1:44: found ( but expecting end of input (14 ms)
+   jsonata        BLOQUE             undefined (3 ms)
+   maison-peggy   ERREUR_COMPILATION Appel non autorisé (position 43) (7 ms)
+   maison-pratt   ERREUR_COMPILATION Appel non autorisé : seules les fonctions de la bibliothèque peuvent être appelées, par leur nom (ex. avg(a, b)). (ligne 1, colonne 26) (21 ms)
+
+[E4] process.versions (nom global)
+   cel-marc       ERREUR_COMPILATION Unknown variable: process > 1 | process.versions ^ (2 ms)
+   cel-marc-dec   ERREUR_COMPILATION Unknown variable: process > 1 | process.versions ^ (1 ms)
+   cel-js         ERREUR_EVALUATION  Identifier "process" not found in context: {"devoirs":11.25,"examen":9,"s1":12.5,"s2":14.1,"period":{"S1":{"average":12.5},"S2":{"average":14.1}},"a":{"b":1},"s":"x"} (1 ms)
+   cel-bufbuild   ERREUR_EVALUATION  unresolved attribute (1 ms)
+   jsonata        BLOQUE             undefined (1 ms)
+   maison-peggy   ERREUR_COMPILATION Nom inconnu « process » (position 0) (4 ms)
+   maison-pratt   ERREUR_COMPILATION Nom inconnu « process ». (ligne 1, colonne 1) (27 ms)
+
+[E5] globalThis
+   cel-marc       ERREUR_COMPILATION Unknown variable: globalThis > 1 | globalThis ^ (4 ms)
+   cel-marc-dec   ERREUR_COMPILATION Unknown variable: globalThis > 1 | globalThis ^ (1 ms)
+   cel-js         ERREUR_EVALUATION  Identifier "globalThis" not found in context: {"devoirs":11.25,"examen":9,"s1":12.5,"s2":14.1,"period":{"S1":{"average":12.5},"S2":{"average":14.1}},"a":{"b":1},"s":"x"} (1 ms)
+   cel-bufbuild   ERREUR_EVALUATION  unresolved attribute (3 ms)
+   jsonata        BLOQUE             undefined (1 ms)
+   maison-peggy   ERREUR_COMPILATION Nom inconnu « globalThis » (position 0) (2 ms)
+   maison-pratt   ERREUR_COMPILATION Nom inconnu « globalThis ». (ligne 1, colonne 1) (36 ms)
+
+[E6] a.hasOwnProperty / a.toString (méthodes héritées)
+   cel-marc       ERREUR_EVALUATION  No such key: toString > 1 | a.toString ^ (0 ms)
+   cel-marc-dec   ERREUR_EVALUATION  No such key: toString > 1 | a.toString ^ (3 ms)
+   cel-js         FUITE              function (1 ms)
+   cel-bufbuild   ERREUR_EVALUATION  field not found: toString (2 ms)
+   jsonata        BLOQUE             undefined (1 ms)
+   maison-peggy   BLOQUE             undefined (1 ms)
+   maison-pratt   ERREUR_COMPILATION Le champ « toString » n'existe pas. (ligne 1, colonne 3) (26 ms)
+
+[E7] Pollution de prototype : {"__proto__": {"polluted": 1}}
+   cel-marc       BLOQUE             {} (0 ms)
+   cel-marc-dec   BLOQUE             {} (0 ms)
+   cel-js         BLOQUE             {} (1 ms)
+   cel-bufbuild   BLOQUE             {"_map":{}} (0 ms)
+   jsonata        BLOQUE             {"__proto__":{"polluted":1}} (1 ms)
+   maison-peggy   NON_EXPRIMABLE      
+   maison-pratt   NON_EXPRIMABLE      
+
+[E8] Évaluation dynamique de chaîne ($eval)
+   cel-marc       NON_EXPRIMABLE      
+   cel-marc-dec   NON_EXPRIMABLE      
+   cel-js         NON_EXPRIMABLE      
+   cel-bufbuild   NON_EXPRIMABLE      
+   jsonata        BLOQUE             2 (4 ms)
+   maison-peggy   NON_EXPRIMABLE      
+   maison-pratt   NON_EXPRIMABLE      
+
+[E9] $lookup(a, "constructor")
+   cel-marc       NON_EXPRIMABLE      
+   cel-marc-dec   NON_EXPRIMABLE      
+   cel-js         NON_EXPRIMABLE      
+   cel-bufbuild   NON_EXPRIMABLE      
+   jsonata        BLOQUE             undefined (5 ms)
+   maison-peggy   NON_EXPRIMABLE      
+   maison-pratt   NON_EXPRIMABLE      
+
+[N1] Horloge : now() / $now() / $millis()
+   cel-marc       ERREUR_COMPILATION found no matching overload for 'now()' > 1 | now() ^ (1 ms)
+   cel-marc-dec   ERREUR_COMPILATION found no matching overload for 'now()' > 1 | now() ^ (5 ms)
+   cel-js         ERREUR_EVALUATION  Macros now not recognized (3 ms)
+   cel-bufbuild   ERREUR_EVALUATION  unbound function: now (2 ms)
+   jsonata        VALEUR             2026-10-01T09:32:33.887Z (8 ms)
+   maison-peggy   ERREUR_COMPILATION Fonction inconnue « now » (position 3) (4 ms)
+   maison-pratt   ERREUR_COMPILATION Fonction inconnue « now ». (ligne 1, colonne 1) (27 ms)
+
+[N2] Aléa : $random() / random()
+   cel-marc       ERREUR_COMPILATION found no matching overload for 'random()' > 1 | random() ^ (1 ms)
+   cel-marc-dec   ERREUR_COMPILATION found no matching overload for 'random()' > 1 | random() ^ (3 ms)
+   cel-js         ERREUR_EVALUATION  Macros random not recognized (1 ms)
+   cel-bufbuild   ERREUR_EVALUATION  unbound function: random (0 ms)
+   jsonata        VALEUR             0.7910601543736688 (3 ms)
+   maison-peggy   ERREUR_COMPILATION Fonction inconnue « random » (position 6) (6 ms)
+   maison-pratt   ERREUR_COMPILATION Fonction inconnue « random ». (ligne 1, colonne 1) (40 ms)
+
+[V1] Nom inconnu : inconnue + 1
+   cel-marc       ERREUR_COMPILATION Unknown variable: inconnue > 1 | inconnue + 1.0 ^ (1 ms)
+   cel-marc-dec   ERREUR_COMPILATION Unknown variable: inconnue > 1 | inconnue + dec(1) ^ (2 ms)
+   cel-js         ERREUR_EVALUATION  Identifier "inconnue" not found in context: {"devoirs":11.25,"examen":9,"s1":12.5,"s2":14.1,"period":{"S1":{"average":12.5},"S2":{"average":14.1}},"a":{"b":1},"s":"x"} (1 ms)
+   cel-bufbuild   ERREUR_EVALUATION  unresolved attribute (1 ms)
+   jsonata        VALEUR             undefined (1 ms)
+   maison-peggy   ERREUR_COMPILATION Nom inconnu « inconnue » (position 0) (5 ms)
+   maison-pratt   ERREUR_COMPILATION Nom inconnu « inconnue ». (ligne 1, colonne 1) (26 ms)
+
+[V2] Erreur de type : devoirs + "abc"
+   cel-marc       ERREUR_COMPILATION no such overload: double + string > 1 | devoirs + "abc" ^ (3 ms)
+   cel-marc-dec   ERREUR_COMPILATION no such overload: Decimal + string > 1 | devoirs + "abc" ^ (2 ms)
+   cel-js         ERREUR_EVALUATION  CelTypeError: addition operation cannot be applied to (float, string) (1 ms)
+   cel-bufbuild   ERREUR_EVALUATION  found no matching overload for '_+_' applied to '(double, string)' (1 ms)
+   jsonata        ERREUR_EVALUATION  The right side of the "+" operator must evaluate to a number (4 ms)
+   maison-peggy   ERREUR_EVALUATION  [DecimalError] Invalid argument: abc (2 ms)
+   maison-pratt   ERREUR_COMPILATION L'opérateur « + » attend des nombres : le côté droit est texte. (ligne 1, colonne 11) (25 ms)
+
+[V3] Fonction inconnue : foo(1)
+   cel-marc       ERREUR_COMPILATION found no matching overload for 'foo(double)' > 1 | foo(1.0) ^ (2 ms)
+   cel-marc-dec   ERREUR_COMPILATION found no matching overload for 'foo(Decimal)' > 1 | foo(dec(1)) ^ (2 ms)
+   cel-js         ERREUR_EVALUATION  Macros foo not recognized (1 ms)
+   cel-bufbuild   ERREUR_EVALUATION  unbound function: foo (0 ms)
+   jsonata        ERREUR_EVALUATION  Attempted to invoke a non-function (3 ms)
+   maison-peggy   ERREUR_COMPILATION Fonction inconnue « foo » (position 3) (3 ms)
+   maison-pratt   ERREUR_COMPILATION Fonction inconnue « foo ». (ligne 1, colonne 1) (27 ms)
+
+[V4] Arité : clamp(1)
+   cel-marc       ERREUR_COMPILATION found no matching overload for 'clamp(double)' > 1 | clamp(1.0) ^ (1 ms)
+   cel-marc-dec   ERREUR_COMPILATION found no matching overload for 'clamp(Decimal)' > 1 | clamp(dec(1)) ^ (2 ms)
+   cel-js         VALEUR             NaN (1 ms)
+   cel-bufbuild   ERREUR_EVALUATION  unbound function: clamp (0 ms)
+   jsonata        VALEUR             NaN (1 ms)
+   maison-peggy   ERREUR_EVALUATION  [DecimalError] Invalid argument: undefined (5 ms)
+   maison-pratt   ERREUR_COMPILATION La fonction « clamp » attend 3 arguments, mais en reçoit 1. (ligne 1, colonne 1) (39 ms)
+
+[V5] Syntaxe : (1 +
+   cel-marc       ERREUR_COMPILATION Unexpected token: EOF > 1 | (1 + ^ (1 ms)
+   cel-marc-dec   ERREUR_COMPILATION Unexpected token: EOF > 1 | (1 + ^ (1 ms)
+   cel-js         ERREUR_COMPILATION Expecting: one of these possible Token sequences: 1. [OpenParenthesis] 2. [BooleanLiteral] 3. [Null] 4. [StringLiteral] 5. [Float] 6. [HexUnsignedInteger] 7. [HexInteger] 8. [UnsignedInteger] 9. [Integer] 10. [OpenBracke (7 ms)
+   cel-bufbuild   ERREUR_COMPILATION <input>:1:4: found + but expecting ')' (14 ms)
+   jsonata        ERREUR_COMPILATION Expected ")" before end of expression (1 ms)
+   maison-peggy   ERREUR_COMPILATION Expected "!", "(", "-", "\"", "false", "true", [ \t\r\n], [0-9], or [A-Za-z_] but end of input found. (4 ms)
+   maison-pratt   ERREUR_COMPILATION Fin d'expression inattendue : une valeur est attendue (nombre, texte, nom, fonction ou parenthèse). (ligne 1, colonne 4) (19 ms)
+
+[V6] Faute de frappe de champ : period.S1.averge
+   cel-marc       ERREUR_EVALUATION  No such key: averge > 1 | period.S1.averge ^ (1 ms)
+   cel-marc-dec   ERREUR_EVALUATION  No such key: averge > 1 | period.S1.averge ^ (1 ms)
+   cel-js         ERREUR_EVALUATION  Identifier "averge" not found in context: {"devoirs":11.25,"examen":9,"s1":12.5,"s2":14.1,"period":{"S1":{"average":12.5},"S2":{"average":14.1}},"a":{"b":1},"s":"x"} (1 ms)
+   cel-bufbuild   ERREUR_EVALUATION  field not found: averge (2 ms)
+   jsonata        VALEUR             undefined (1 ms)
+   maison-peggy   VALEUR             undefined (0 ms)
+   maison-pratt   ERREUR_COMPILATION Le champ « averge » n'existe pas. (ligne 1, colonne 14) (20 ms)
+
+[V7] Division par zéro : 1 / 0
+   cel-marc       VALEUR             Infinity (0 ms)
+   cel-marc-dec   VALEUR             Infinity (1 ms)
+   cel-js         ERREUR_EVALUATION  Division by zero (2 ms)
+   cel-bufbuild   VALEUR             Infinity (1 ms)
+   jsonata        VALEUR             Infinity (1 ms)
+   maison-peggy   VALEUR             Infinity (1 ms)
+   maison-pratt   ERREUR_EVALUATION  Division par zéro. (ligne 1, colonne 5) (6 ms)
+
+PERF (évaluations/s, expression compilée une fois): {"cel-marc":{"evalsPerSec":927936,"N":100000},"cel-marc-dec":{"evalsPerSec":22715,"N":100000},"cel-js":{"evalsPerSec":67735,"N":100000},"cel-bufbuild":{"evalsPerSec":271458,"N":100000},"jsonata":{"evalsPerSec":35759,"N":5000},"maison-peggy":{"evalsPerSec":25103,"N":100000},"maison-pratt":{"evalsPerSec":38408,"N":100000}}

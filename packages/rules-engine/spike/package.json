@@ -1,0 +1,15 @@
+{
+  "name": "rules-engine-spike",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Spike ADR-003 : comparaison CEL / JSONata / parseur maison. Hors workspace, hors build.",
+  "scripts": { "spike": "node run-spike.mjs" },
+  "dependencies": {
+    "@bufbuild/cel": "0.6.1",
+    "@marcbachmann/cel-js": "8.0.0",
+    "cel-js": "0.8.2",
+    "decimal.js": "10.6.0",
+    "jsonata": "2.2.2",
+    "peggy": "5.1.0"
+  }
+}
