@@ -1,0 +1,17 @@
+{
+  "extends": "../../../../../packages/kernel/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "baseUrl": ".",
+    "paths": {
+      "@ecoledigitale/kernel": ["../../../../../packages/kernel/src/index.ts"],
+      "@ecoledigitale/database": ["../../../../../packages/database/src/index.ts"],
+      "@ecoledigitale/contracts/*": ["../../../../../packages/contracts/src/*"]
+    }
+  },
+  "include": ["**/*.ts", "../isolation-allowlist.audit.ts"],
+  "exclude": ["node_modules", "vitest.config.ts"]
+}
