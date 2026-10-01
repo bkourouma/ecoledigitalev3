@@ -113,7 +113,7 @@ Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform
 
 ## 6. Rattrapage des tenants legacy
 
-`tenant-sync` recopie `public.tenants` dans `kernel.tenants` mais ne crée rien d'autre. Au démarrage (et à la création d'un tenant legacy, via `afterSync`), pour chaque tenant non archivé et **sans doublon** (verrou consultatif, rejouable à volonté — prouvé par test, y compris en concurrence) : profil d'organisation, **un** établissement + son campus par défaut, onboarding, 10 rôles système, abonnement **ACTIF sans échéance** s'il n'en a aucun (un abonnement annulé n'est pas recréé).
+`tenant-sync` recopie `public.tenants` dans `kernel.tenants` mais ne crée rien d'autre. Au démarrage (et à la création d'un tenant legacy, via `afterSync`), pour chaque tenant non archivé et **sans doublon** (verrou consultatif, rejouable à volonté — prouvé par test, y compris en concurrence) : profil d'organisation, **un** établissement + son campus par défaut, onboarding, 11 rôles système, abonnement **ACTIF sans échéance** s'il n'en a aucun (un abonnement annulé n'est pas recréé).
 
 > **HYPOTHÈSE DE PRODUIT À VALIDER PAR LE PROPRIÉTAIRE DU PRODUIT.** Plan `V2_LEGACY_TENANT_DEFAULT_PLAN` (défaut `PROFESSIONAL`), pack `V2_LEGACY_TENANT_DEFAULT_PACK` (défaut `HIGHER`, « l'application actuelle devient le pack Higher », décision D1), pays `V2_LEGACY_TENANT_DEFAULT_COUNTRY` (défaut `CI`). Ni le plan, ni le pack, ni l'absence d'échéance n'ont été arbitrés ; rien n'est facturé.
 

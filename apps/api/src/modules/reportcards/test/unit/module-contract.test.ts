@@ -89,11 +89,16 @@ describe("alignement avec les rôles système du module rbac", () => {
   const roles = new Map(resolveSystemRoles(catalog).map((r) => [r.template.key, new Set(r.permissions)]));
   const can = (role: string, perm: string): boolean => roles.get(role)?.has(perm) === true;
 
-  it("direction : tout ; parent : ses enfants seulement ; élève : lui-même seulement", () => {
+  it("direction : tout ; direction des études : émet et publie (ni révocation ni identité imprimée) ; parent : ses enfants seulement ; élève : lui-même seulement", () => {
     for (const p of manifest.permissions.map((x) => x.key)) {
-      expect(can("directeur_etudes", p), p).toBe(true);
+      expect(can("directeur", p), p).toBe(true);
       expect(can("owner", p), p).toBe(true);
     }
+    for (const p of ["reportcard.read", "reportcard.explain", "reportcard.generate", "reportcard.publish", "reportcard.template.manage"]) expect(can("directeur_etudes", p), p).toBe(true);
+    for (const p of ["reportcard.revoke", "reportcard.branding.manage", "reportcard.signatory.manage"]) expect(can("directeur_etudes", p), p).toBe(false);
+    expect(can("secretariat", "reportcard.generate")).toBe(true);
+    expect(can("secretariat", "reportcard.publish")).toBe(false);
+    expect(can("secretariat", "reportcard.revoke")).toBe(false);
     expect(can("parent", "reportcard.child.read")).toBe(true);
     expect(can("parent", "reportcard.read")).toBe(false);
     expect(can("parent", "reportcard.generate")).toBe(false);

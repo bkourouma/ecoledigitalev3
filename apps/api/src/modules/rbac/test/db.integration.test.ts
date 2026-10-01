@@ -294,7 +294,7 @@ describeIntegration("rbac — base de données réelle", () => {
 
   // -------------------------------------------------------------------------
   describe("instanciation des rôles système", () => {
-    it("crée les dix modèles par tenant, verrouillés, avec leurs permissions résolues", async () => {
+    it("crée les onze modèles par tenant, verrouillés, avec leurs permissions résolues", async () => {
       const ctx = createSystemContext(tenantA);
       const roles = await db.tenantDb.run(ctx, (tx) => tx.many<{ key: string; is_system: boolean; template_key: string; n: number }>(
         `SELECT r.key, r.is_system, r.template_key,
@@ -305,7 +305,7 @@ describeIntegration("rbac — base de données réelle", () => {
       expect(roles.every((r) => r.is_system && r.template_key === r.key)).toBe(true);
       const catalog = buildPermissionCatalog(ALL_MANIFESTS);
       expect(roles.find((r) => r.key === "owner")?.n).toBe(catalog.keys.length);
-      expect(roles.find((r) => r.key === "eleve")?.n).toBe(2);
+      expect(roles.find((r) => r.key === "eleve")?.n).toBe(1); // grade.self.read (le catalogue de test est partiel)
     });
 
     it("est idempotente : rejouer ne crée ni ne modifie rien", async () => {
@@ -352,8 +352,8 @@ describeIntegration("rbac — base de données réelle", () => {
           )).map((r) => r.permission_key),
         );
 
-      expect((await pendingOf("econome")).map((p) => p.pattern)).toContain("payroll.*");
-      expect(await permsOf("econome")).not.toContain("payroll.run");
+      expect((await pendingOf("econome")).map((p) => p.pattern)).toContain("payroll.payslip.pay");
+      expect(await permsOf("econome")).not.toContain("payroll.payslip.pay");
 
       // Le log signale ce qui est en attente.
       const warnings: Array<{ obj: Record<string, unknown>; msg?: string }> = [];
@@ -361,7 +361,7 @@ describeIntegration("rbac — base de données réelle", () => {
       await db.tenantDb.run(ctx, (tx) => instantiateSystemRoles(tx, tenantA, { logger: spyLogger }));
       expect(warnings).toHaveLength(1);
       expect(warnings[0]?.msg).toMatch(/en attente/);
-      expect((warnings[0]?.obj.pendingByRole as Record<string, string[]>).econome).toContain("payroll.*");
+      expect((warnings[0]?.obj.pendingByRole as Record<string, string[]>).econome).toContain("payroll.payslip.pay");
 
       // Un module « payroll » arrive : la synchro + re-résolution complète les rôles existants.
       const payroll = defineModule({
@@ -369,21 +369,22 @@ describeIntegration("rbac — base de données réelle", () => {
         title: "Paie",
         packs: ["CORE"],
         permissions: [
-          { key: "payroll.run", label: "Lancer la paie", sensitive: true },
-          { key: "payroll.own.read", label: "Consulter ses bulletins" },
+          { key: "payroll.payslip.pay", label: "Constater le versement", sensitive: true },
+          { key: "payroll.payslip.read_own", label: "Consulter ses bulletins" },
         ],
       });
       const manifests = [...ALL_MANIFESTS, payroll];
       const report = await syncRbac(db.systemDb, manifests, { logger: noopLogger });
-      expect(report.catalog.inserted).toEqual(["payroll.own.read", "payroll.run"]);
+      expect(report.catalog.inserted).toEqual(["payroll.payslip.pay", "payroll.payslip.read_own"]);
       expect(report.reconciled).toBe(true);
       expect(report.tenants.failed).toEqual([]);
 
-      expect(await permsOf("econome")).toEqual(expect.arrayContaining(["payroll.run", "payroll.own.read"]));
-      expect(await permsOf("enseignant")).toContain("payroll.own.read");
-      expect(await permsOf("enseignant")).not.toContain("payroll.run");
-      expect((await pendingOf("econome")).map((p) => p.pattern)).not.toContain("payroll.*");
-      expect(await permsOf("owner")).toContain("payroll.run");
+      expect(await permsOf("econome")).toContain("payroll.payslip.pay");
+      expect(await permsOf("econome")).not.toContain("payroll.payslip.read_own");
+      expect(await permsOf("enseignant")).toContain("payroll.payslip.read_own");
+      expect(await permsOf("enseignant")).not.toContain("payroll.payslip.pay");
+      expect((await pendingOf("econome")).map((p) => p.pattern)).not.toContain("payroll.payslip.pay");
+      expect(await permsOf("owner")).toContain("payroll.payslip.pay");
 
       // L'événement rbac.role.changed (resynced) est écrit dans l'outbox, dans la même transaction.
       const events = await db.admin.query(
@@ -392,12 +393,12 @@ describeIntegration("rbac — base de données réelle", () => {
       );
       expect(events.rows.length).toBeGreaterThanOrEqual(3);
       const owner = events.rows.map((r) => r.payload).find((p) => p.roleKey === "owner");
-      expect(owner.addedPermissions).toEqual(["payroll.own.read", "payroll.run"]);
+      expect(owner.addedPermissions).toEqual(["payroll.payslip.pay", "payroll.payslip.read_own"]);
 
       // Les autres tenants (déjà provisionnés) sont aussi mis à jour, sans fuite entre eux.
       const otherOwner = await db.tenantDb.run(createSystemContext(tenantB), (tx) =>
         tx.queryOne<{ n: number }>(
-          "SELECT count(*)::int AS n FROM rbac.role_permissions p JOIN rbac.roles r ON r.id = p.role_id WHERE r.key = 'owner' AND p.permission_key = 'payroll.run'",
+          "SELECT count(*)::int AS n FROM rbac.role_permissions p JOIN rbac.roles r ON r.id = p.role_id WHERE r.key = 'owner' AND p.permission_key = 'payroll.payslip.pay'",
         ),
       );
       expect(otherOwner?.n).toBe(1);
