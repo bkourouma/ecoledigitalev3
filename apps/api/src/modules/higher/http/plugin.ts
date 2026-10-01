@@ -66,7 +66,7 @@ import { checkPrerequisites, getPrerequisites, setPrerequisites } from "../appli
 import { closeResitWindow, getResitWindow, listResitCandidates, listResitWindows, listStudentResits, openResitWindow } from "../application/resit";
 import { getHigherSettings, updateHigherSettings } from "../application/settings";
 import { getStudentDiplomaView, getStudentPathway } from "../application/student-view";
-import { HigherCode, forbidden } from "../domain/errors";
+import { HigherCode, conflict, forbidden } from "../domain/errors";
 import type { Uuid } from "../domain/types";
 import { higherAuditAdapter } from "../infrastructure/audit-adapter";
 import { createRulesAdapter, type RulesApiLike } from "../infrastructure/rules-adapter";
@@ -265,7 +265,7 @@ export async function higherPlugin(app: FastifyInstance, options: HigherPluginOp
       const b = parse(higherAwardBodySchema, req.body);
       const c = await caps(req, reply, ["forceAward"]);
       const r = unwrapOrThrow(await awardDiploma(deps, ctxOf(req), { definitionId: id, studentId: b.studentId, via: "MANUAL", force: b.force, reason: b.reason, reawardDecision: b.reawardDecision, caps: c }));
-      if (r.status !== "AWARDED") throw forbidden(HigherCode.INVALID_INPUT, "Octroi non réalisé."); // jamais pour MANUAL : les conditions sont des erreurs
+      if (r.status !== "AWARDED") throw conflict(HigherCode.NOT_ELIGIBLE, "Octroi non réalisé.", { reason: r.reason }); // jamais pour MANUAL : chaque condition non remplie est déjà une erreur
       return reply.status(201).send({ award: present.awardDto(r.award) });
     });
 
