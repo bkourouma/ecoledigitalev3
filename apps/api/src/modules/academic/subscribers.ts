@@ -22,6 +22,7 @@ import {
 import { handleInvoicePaid, handleStudentStatusChanged } from "./application/confirmation";
 import { createAcademicDeps } from "./application/deps";
 import { instantiatePackReferenceData } from "./application/reference";
+import { academicWorkerPorts } from "./application/port-registry";
 import { ConsumedEvents } from "./domain/events";
 
 interface InstitutionCreatedPayload {
@@ -37,7 +38,7 @@ export default [
     retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
     handler: idempotent("academic.instantiate-reference-data", async (event, ctx) => {
       const { institutionId, pack, educationSystem } = event.payload;
-      const deps = createAcademicDeps({ db: ctx.tenantDb, logger: ctx.logger });
+      const deps = createAcademicDeps({ db: ctx.tenantDb, logger: ctx.logger, portsProvider: academicWorkerPorts });
       const r = await instantiatePackReferenceData(deps, ctx.db.ctx, institutionId, { pack, educationSystem });
       if (!r.ok) throw r.error;
       ctx.logger.info({ institutionId, pack, created: r.value.created, alreadyApplied: r.value.alreadyApplied }, "academic : référentiels instanciés");
@@ -53,7 +54,7 @@ export default [
         ctx.logger.warn({ eventId: event.id }, "academic : charge utile finance.invoice.paid illisible, ignorée");
         return;
       }
-      const deps = createAcademicDeps({ db: ctx.tenantDb, logger: ctx.logger });
+      const deps = createAcademicDeps({ db: ctx.tenantDb, logger: ctx.logger, portsProvider: academicWorkerPorts });
       const r = await handleInvoicePaid(deps, ctx.db.ctx, parsed.data);
       if (!r.ok) throw r.error;
       ctx.logger.info({ invoiceId: parsed.data.invoiceId, ...r.value }, "academic : facture soldée traitée");
@@ -69,7 +70,7 @@ export default [
         ctx.logger.warn({ eventId: event.id }, "academic : charge utile people.student.status_changed illisible, ignorée");
         return;
       }
-      const deps = createAcademicDeps({ db: ctx.tenantDb, logger: ctx.logger });
+      const deps = createAcademicDeps({ db: ctx.tenantDb, logger: ctx.logger, portsProvider: academicWorkerPorts });
       const r = await handleStudentStatusChanged(deps, ctx.db.ctx, parsed.data);
       if (!r.ok) throw r.error;
       if (r.value.withdrawn.length > 0) ctx.logger.info({ studentId: parsed.data.studentId, withdrawn: r.value.withdrawn.length }, "academic : inscriptions retirées");

@@ -28,6 +28,7 @@
 import { createSystemContext } from "@ecoledigitale/kernel";
 import { defineSubscriber, idempotent } from "@ecoledigitale/worker/sdk";
 import { createPeopleDeps } from "./application/deps";
+import { peopleWorkerPorts } from "./application/port-registry";
 import { applyEnrollmentEvent, applyMembershipEvent } from "./application/projection";
 import { instantiatePeopleReferenceData } from "./application/settings";
 import { endAssignmentsForScope } from "./application/teaching";
@@ -49,7 +50,7 @@ export default [
     retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
     concurrency: 4,
     handler: idempotent("people.project-enrollment", async (event, ctx, tx) => {
-      const deps = createPeopleDeps({ db: ctx.tenantDb, logger: ctx.logger });
+      const deps = createPeopleDeps({ db: ctx.tenantDb, logger: ctx.logger, portsProvider: peopleWorkerPorts });
       const outcome = await applyEnrollmentEvent(deps, tx, event);
       ctx.logger.info({ eventId: event.id, type: event.type, outcome }, "people : projection des inscriptions");
     }),
@@ -68,7 +69,7 @@ export default [
     pattern: "tenancy.tenant.provisioned",
     retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
     handler: idempotent("people.instantiate-reference-data", async (_event, ctx) => {
-      const deps = createPeopleDeps({ db: ctx.tenantDb, logger: ctx.logger });
+      const deps = createPeopleDeps({ db: ctx.tenantDb, logger: ctx.logger, portsProvider: peopleWorkerPorts });
       const res = await instantiatePeopleReferenceData(deps, createSystemContext(ctx.tenantId));
       if (!res.ok) throw res.error;
       ctx.logger.info({ created: res.value.created }, "people : référentiels instanciés");
@@ -81,7 +82,7 @@ export default [
     handler: idempotent("people.end-assignments-on-classroom-closed", async (event, ctx, tx) => {
       const classroomId = uuidOf(event.payload, "classroomId", "id");
       if (!classroomId) return;
-      const deps = createPeopleDeps({ db: ctx.tenantDb, logger: ctx.logger });
+      const deps = createPeopleDeps({ db: ctx.tenantDb, logger: ctx.logger, portsProvider: peopleWorkerPorts });
       const n = await endAssignmentsForScope(deps, tx, createSystemContext(ctx.tenantId), { classroomId }, { reason: event.type.endsWith("cancelled") ? "CLASSROOM_CANCELLED" : "CLASSROOM_COMPLETED" });
       ctx.logger.info({ eventId: event.id, ended: n }, "people : affectations de la classe terminées");
     }),
@@ -93,7 +94,7 @@ export default [
     handler: idempotent("people.end-assignments-on-year-closed", async (event, ctx, tx) => {
       const yearId = uuidOf(event.payload, "academicYearId", "yearId", "id");
       if (!yearId) return;
-      const deps = createPeopleDeps({ db: ctx.tenantDb, logger: ctx.logger });
+      const deps = createPeopleDeps({ db: ctx.tenantDb, logger: ctx.logger, portsProvider: peopleWorkerPorts });
       const n = await endAssignmentsForScope(deps, tx, createSystemContext(ctx.tenantId), { yearId }, { reason: "YEAR_CLOSED" });
       ctx.logger.info({ eventId: event.id, ended: n }, "people : affectations de l'année terminées");
     }),

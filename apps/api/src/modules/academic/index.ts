@@ -11,8 +11,9 @@
 // Manifeste (le registre le découvre via manifest.ts ; réexporté pour les tests d'assemblage)
 export { default as academicManifest } from "./manifest";
 
-// Plugin Fastify
-export { academicPlugin, ACADEMIC_ROUTES_PREFIX, type AcademicPluginOptions } from "./http/plugin";
+// Plugin Fastify et registres de ports (adaptateurs de plateforme)
+export { academicPlugin, ACADEMIC_ROUTES_PREFIX, registerAcademicPorts, type AcademicPluginOptions } from "./http/plugin";
+export { academicWorkerPorts, createAcademicPortRegistry, resetAcademicWorkerPorts, setAcademicWorkerPorts, type AcademicPortRegistry } from "./application/port-registry";
 
 // Dépendances, configuration, ports (repli sûr si non câblés)
 export { createAcademicDeps, DEFAULT_ACADEMIC_CONFIG, type AcademicConfig, type AcademicDeps, type AcademicDepsInput } from "./application/deps";

@@ -12,7 +12,8 @@
 export { default as financeManifest } from "./manifest";
 
 // Plugin Fastify
-export { financePlugin, financeEnvironmentOf, FINANCE_ROUTES_PREFIX, type FinancePluginOptions } from "./http/plugin";
+export { financePlugin, financeEnvironmentOf, FINANCE_ROUTES_PREFIX, registerFinancePorts, type FinancePluginOptions } from "./http/plugin";
+export { createFinancePortRegistry, type FinancePortRegistry, type FinancePortSet } from "./application/port-registry";
 
 // Dépendances et configuration
 export {

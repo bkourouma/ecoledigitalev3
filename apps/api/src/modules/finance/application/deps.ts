@@ -75,6 +75,8 @@ export interface FinanceDepsInput {
   config?: Partial<FinanceConfig>;
   newId?: () => string;
   logger?: Logger;
+  /** Annuaires branchés après la construction (adaptateurs de plateforme) : lus à chaque accès, prioritaires sur `learners` / `enrollments`. */
+  portsProvider?: () => Partial<{ learners: LearnerDirectory; enrollments: EnrollmentDirectory }>;
 }
 
 /**
@@ -89,8 +91,12 @@ export function createFinanceDeps(input: FinanceDepsInput): FinanceDeps {
     clock: input.clock ?? systemClock,
     audit: input.audit ?? noopAudit,
     providers: input.providers ?? createProviderRegistry({ environment: config.environment }),
-    learners: input.learners ?? passThroughLearners,
-    enrollments: input.enrollments ?? noEnrollments,
+    get learners() {
+      return input.portsProvider?.().learners ?? input.learners ?? passThroughLearners;
+    },
+    get enrollments() {
+      return input.portsProvider?.().enrollments ?? input.enrollments ?? noEnrollments;
+    },
     config,
     newId: input.newId ?? newId,
     logger: input.logger ?? noopLogger,

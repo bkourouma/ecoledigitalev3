@@ -14,7 +14,8 @@
 export { default as peopleManifest } from "./manifest";
 
 // Plugin Fastify
-export { peoplePlugin, default as peopleModulePlugin, type PeoplePluginOptions } from "./http/plugin";
+export { peoplePlugin, default as peopleModulePlugin, registerPeoplePorts, type PeoplePluginOptions } from "./http/plugin";
+export { createPeoplePortRegistry, peopleWorkerPorts, resetPeopleWorkerPorts, setPeopleWorkerPorts, type PeoplePortRegistry, type PeoplePortSet } from "./application/port-registry";
 
 // Dépendances et configuration
 export { createPeopleDeps, DEFAULT_PEOPLE_CONFIG, inTx as peopleInTx, type PeopleConfig, type PeopleDeps, type PeopleDepsInput } from "./application/deps";
