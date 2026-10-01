@@ -11,7 +11,7 @@ import { Client } from "pg";
 import bcrypt from "bcryptjs";
 
 const TENANT_SLUG = "ecoledigitale";
-const DEFAULT_PASSWORD = "Passw0rd!stu";
+const DEFAULT_PASSWORD = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
 const EMAIL_DOMAIN = "etudiant.ecoledigitale.ci";
 
 type SeedStudent = {

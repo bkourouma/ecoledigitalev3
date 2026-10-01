@@ -31,7 +31,7 @@ loadApiEnv();
 // Database configuration — DATABASE_URL prioritaire (souvent depuis apps/api/.env)
 const connectionString =
   process.env.DATABASE_URL ||
-  "postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 // Reference tenant used by the unified multi-tenant model
 const tenants = [
@@ -56,6 +56,9 @@ type SeedUser = {
   roleKey: string;
 };
 
+// Mot de passe commun des comptes de démonstration : à fournir par l'environnement (apps/api/.env ou shell).
+const SEED_PASSWORD: string = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
+
 // Comptes affichés sur apps/web/src/app/login/page.tsx (section démonstration)
 const usersToSeed: SeedUser[] = [
   {
@@ -63,7 +66,7 @@ const usersToSeed: SeedUser[] = [
     email: "admin@imhotepdata.fr",
     firstName: "Admin",
     lastName: "Imhotep Data",
-    password: "Passw0rd!admin",
+    password: SEED_PASSWORD,
     roleKey: "admin",
   },
   {
@@ -71,7 +74,7 @@ const usersToSeed: SeedUser[] = [
     email: "admin@aspci.fr",
     firstName: "Admin",
     lastName: "ASPCI",
-    password: "Passw0rd!admin",
+    password: SEED_PASSWORD,
     roleKey: "admin",
   },
   {
@@ -79,7 +82,7 @@ const usersToSeed: SeedUser[] = [
     email: "admin@imhotepacademy.fr",
     firstName: "Admin",
     lastName: "Imhotep Academy",
-    password: "Passw0rd!admin",
+    password: SEED_PASSWORD,
     roleKey: "admin",
   },
   {
@@ -87,7 +90,7 @@ const usersToSeed: SeedUser[] = [
     email: "owner@imhotepacademy.fr",
     firstName: "Propriétaire",
     lastName: "Démo",
-    password: "Passw0rd!owner",
+    password: SEED_PASSWORD,
     roleKey: "owner",
   },
   {
@@ -95,7 +98,7 @@ const usersToSeed: SeedUser[] = [
     email: "marie.kouame@imhotepacademy.ci",
     firstName: "Marie",
     lastName: "Kouamé",
-    password: "Enseignant2025!",
+    password: SEED_PASSWORD,
     roleKey: "teacher",
   },
   {
@@ -103,7 +106,7 @@ const usersToSeed: SeedUser[] = [
     email: "mickael.andjui.21@gmail.com",
     firstName: "Mickaël",
     lastName: "Andjui",
-    password: "M!zPChP6YQ4E",
+    password: SEED_PASSWORD,
     roleKey: "student",
   },
   {
@@ -111,7 +114,7 @@ const usersToSeed: SeedUser[] = [
     email: "mickael.andjui.221@gmail.com",
     firstName: "Ange",
     lastName: "Andjui",
-    password: "V!5mUFDZy$HJ",
+    password: SEED_PASSWORD,
     roleKey: "parent",
   },
 ];

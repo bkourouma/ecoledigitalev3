@@ -37,7 +37,7 @@ async function getTeacherSchedule() {
     
     const loginResponse = await makeRequest('POST', '/api/v1/auth/login', {
       email: 'kouadio.assi@ecoledigitale.ci',
-      password: 'imhotepacademy'
+      password: (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })())
     }, {
       'X-Tenant': 'imhotepacademy'
     });

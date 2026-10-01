@@ -9,7 +9,7 @@ require("dotenv").config({ path: ".env" });
     password:
       process.env.DB_PASSWORD ||
       process.env.POSTGRES_PASSWORD ||
-      "mysecretpassword",
+      (() => { throw new Error("DB_PASSWORD (ou POSTGRES_PASSWORD) est requis"); })(),
   });
   await c.connect();
   const content = `Énoncé du test :

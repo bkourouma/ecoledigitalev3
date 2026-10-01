@@ -11,7 +11,7 @@ const { Pool } = require('pg');
 // Database connection configuration
 const databaseUrl = process.env.DATABASE_URL || 
   process.env.PG_CONNECTION_STRING ||
-  'postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale';
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 const pool = new Pool({
   connectionString: databaseUrl,

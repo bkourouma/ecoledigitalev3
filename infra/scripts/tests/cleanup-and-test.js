@@ -15,7 +15,7 @@
 const { Pool } = require('pg');
 
 // Database connection - update if needed
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale';
+const DATABASE_URL = process.env.DATABASE_URL || (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 const pool = new Pool({
   connectionString: DATABASE_URL,

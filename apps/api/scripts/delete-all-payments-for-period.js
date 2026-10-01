@@ -1,7 +1,7 @@
 // Delete all payments for a specific period
 const { Pool } = require('pg');
 
-const DEFAULT_CONN = process.env.DATABASE_URL || 'postgresql://postgres:DevMick%402003@localhost:5432/dbecoledigitale';
+const DEFAULT_CONN = process.env.DATABASE_URL || (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function deleteAllPaymentsForPeriod() {
   const pool = new Pool({ connectionString: DEFAULT_CONN });

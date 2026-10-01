@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const connectionString = process.env.DATABASE_URL ||
-  'postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale';
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 const migrationFile = path.join(__dirname, '../infra/scripts/migrations/0047_increase_price_precision.sql');
 

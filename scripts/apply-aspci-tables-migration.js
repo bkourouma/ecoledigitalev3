@@ -2,7 +2,7 @@ const { Client } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
-const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale';
+const databaseUrl = process.env.DATABASE_URL || (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 const client = new Client({ connectionString: databaseUrl });
 
 async function applyMigration() {

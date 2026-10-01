@@ -6,7 +6,7 @@ const TEACHER_ID = '6f49850a-13bc-427a-93e0-38d894e12a5d'; // kouadio.assi@ecole
 
 const pool = new Pool({
   user: 'postgres',
-  password: 'mysecretpassword',
+  password: process.env.PGPASSWORD || (() => { throw new Error("PGPASSWORD est requis (mot de passe Postgres)"); })(),
   host: 'localhost',
   port: 5432,
   database: 'dbecoledigitale',

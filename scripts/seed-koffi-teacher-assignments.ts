@@ -23,9 +23,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 const TENANT_HEADER = 'imhotepacademy';
 
 const TEACHER_EMAIL = 'koffi.nguessan.ci@example.com';
-/** Mot de passe affiché sur /login pour ce compte ; préférez TEACHER_KOFFI_PASSWORD en prod. */
+/** Mot de passe de ce compte : fourni par TEACHER_KOFFI_PASSWORD (aucune valeur par défaut). */
 const TEACHER_PASSWORD =
-  process.env.TEACHER_KOFFI_PASSWORD || 'VbVVr@Ejp88$';
+  process.env.TEACHER_KOFFI_PASSWORD || (() => { throw new Error("TEACHER_KOFFI_PASSWORD est requis"); })();
 
 const TARGET_COURSES = [
   { code: 'ALG-BRE-LIN-AIRE-SOU', label: 'Algèbre Linéaire sous EXCEL' },

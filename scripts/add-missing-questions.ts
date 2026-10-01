@@ -12,7 +12,7 @@ dotenv.config({ path: path.join(__dirname, '../apps/api/.env') });
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 const TENANT_ID = '6eb9c106-b650-4398-b6fa-091b6828c4ba';
 const TEACHER_EMAIL = 'marie.kouame@imhotepacademy.ci';
-const TEACHER_PASSWORD = process.env.TEACHER_PASSWORD || 'Enseignant2025!';
+const TEACHER_PASSWORD = process.env.TEACHER_PASSWORD || (() => { throw new Error("TEACHER_PASSWORD est requis"); })();
 
 async function login(): Promise<{ token: string; userId: string }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {

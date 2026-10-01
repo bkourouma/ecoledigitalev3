@@ -2,7 +2,7 @@ import { Client } from "pg";
 
 // Database configuration
 const connectionString = process.env.DATABASE_URL ||
-  "postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function seedProgrammes() {
   const client = new Client({ connectionString });

@@ -10,7 +10,7 @@ The API backend is using the wrong database password, causing authentication to 
 Create or update `apps/api/.env` file with:
 
 ```env
-DATABASE_URL=postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale
+DATABASE_URL=postgresql://postgres:<mot-de-passe>@localhost:5432/dbecoledigitale
 PORT=4000
 NODE_ENV=development
 ```
@@ -45,6 +45,6 @@ You should see:
 
 - Database: `dbecoledigitale`
 - User: `postgres`
-- Password: `DevMick@2003`
+- Password: (celui de votre DATABASE_URL)
 - Host: `localhost:5432`
 

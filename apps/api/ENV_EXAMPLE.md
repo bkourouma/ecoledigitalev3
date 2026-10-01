@@ -10,7 +10,9 @@ Copy this content to `apps/api/.env`:
 # =================================================================
 # DATABASE CONFIGURATION
 # =================================================================
-DATABASE_URL=postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale
+# REQUIS : plus aucune URL par défaut dans le code. Encoder en %XX les caractères
+# spéciaux du mot de passe (ex. @ -> %40).
+DATABASE_URL=postgresql://postgres:<mot-de-passe-postgres>@localhost:5432/dbecoledigitale
 
 # =================================================================
 # SERVER CONFIGURATION
@@ -21,8 +23,16 @@ NODE_ENV=development
 # =================================================================
 # AUTHENTICATION & SECURITY
 # =================================================================
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-NEXTAUTH_SECRET=your-secret-key-here-change-in-production
+# REQUIS. En NODE_ENV=production l'API refuse de démarrer si ce secret fait moins de
+# 32 caractères ou est une valeur d'exemple (apps/api/src/config/env.ts).
+JWT_SECRET=<secret-aleatoire-32-caracteres-minimum>
+# Optionnel : secret distinct pour les JWT super-admin (sinon JWT_SECRET est utilisé)
+# SUPER_ADMIN_JWT_SECRET=<autre-secret-aleatoire-32-caracteres-minimum>
+
+# Mot de passe commun des comptes techniques (un par rôle et par tenant).
+# Absent : un mot de passe aléatoire est généré à la création d'un compte et affiché
+# une seule fois dans les logs. Mettre la même valeur côté web (apps/web/.env.local).
+# TECHNICAL_ACCOUNT_PASSWORD=<mot-de-passe-12-caracteres-minimum>
 
 # CRITICAL: Set to false in production!
 ENABLE_DEV_BYPASS=true
@@ -104,7 +114,7 @@ TWILIO_PHONE_NUMBER=+1234567890
 # RSO-PFSO MODULE CONFIGURATION
 # =================================================================
 # JWT Configuration for RSO module (can reuse existing JWT_SECRET or set RSO-specific)
-RSO_JWT_SECRET=your-rso-jwt-secret-key-here
+RSO_JWT_SECRET=<secret-aleatoire-32-caracteres-minimum>
 RSO_JWT_EXPIRES_IN=8h
 RSO_JWT_REMEMBER_ME_EXPIRES_IN=30d
 

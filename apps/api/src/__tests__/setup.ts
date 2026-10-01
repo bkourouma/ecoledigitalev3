@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 // Set test environment
 process.env.NODE_ENV = 'test';
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale_test';
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://localhost:5432/dbecoledigitale_test';
 
 // Global test timeout
 jest.setTimeout(30000);

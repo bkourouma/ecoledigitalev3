@@ -55,7 +55,7 @@ chmod +x scripts/test-rso-login.sh
 
 3. **Utilisateur de test**
    - Identifier: `admin@aspci.rso`
-   - Password: `AdminRSO@2024`
+   - Password: (défini par SEED_PASSWORD lors de `pnpm seed:rso-admin`)
 
 ## 📊 Ce que les scripts testent
 

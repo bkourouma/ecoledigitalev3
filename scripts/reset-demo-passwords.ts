@@ -2,7 +2,7 @@ import { Client } from "pg";
 import bcrypt from "bcryptjs";
 
 const connectionString = process.env.DATABASE_URL ||
-  "postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function resetDemoPasswords() {
   const client = new Client({ connectionString });
@@ -10,11 +10,11 @@ async function resetDemoPasswords() {
     await client.connect();
     console.log("🔗 Connected to database");
 
-    const password = "Passw0rd!admin";
+    const password = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
     const passwordHash = await bcrypt.hash(password, 12);
     
     // Special password for teacher account
-    const teacherPassword = "Passw0rd!teacher";
+    const teacherPassword = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
     const teacherPasswordHash = await bcrypt.hash(teacherPassword, 12);
 
     // Demo tenants and emails to update
@@ -55,8 +55,7 @@ async function resetDemoPasswords() {
     }
 
     console.log("\n🎉 All demo passwords reset:");
-    console.log("   - Admin/Student/Parent: Passw0rd!admin");
-    console.log("   - Teacher accounts: Passw0rd!teacher");
+    console.log("   - Tous les comptes : valeur de SEED_PASSWORD");
   } catch (err) {
     console.error("❌ Error resetting passwords:", err);
     process.exitCode = 1;

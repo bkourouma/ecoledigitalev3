@@ -1,7 +1,7 @@
 // Get teachers for imhotepacademy tenant
 const { Pool } = require('pg');
 
-const DEFAULT_CONN = process.env.DATABASE_URL || 'postgresql://postgres:DevMick%402003@localhost:5432/dbecoledigitale';
+const DEFAULT_CONN = process.env.DATABASE_URL || (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function getTeachers() {
   const pool = new Pool({ connectionString: DEFAULT_CONN });

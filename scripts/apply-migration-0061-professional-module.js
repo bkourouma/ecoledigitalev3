@@ -42,7 +42,7 @@ const DB_CONFIG = {
   port: parseInt(process.env.DB_PORT || "5432", 10),
   database: process.env.DB_NAME || "dbecoledigitale",
   user: process.env.DB_USER || "postgres",
-  password: process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD || "mysecretpassword",
+  password: process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD || (() => { throw new Error("DB_PASSWORD (ou POSTGRES_PASSWORD) est requis"); })(),
 };
 
 const DATABASE_URL = process.env.DATABASE_URL;

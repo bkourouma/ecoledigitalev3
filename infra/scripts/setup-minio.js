@@ -13,11 +13,15 @@ const { S3Client, CreateBucketCommand, PutBucketCorsCommand, HeadBucketCommand }
 async function setupMinIO() {
   const config = {
     endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
-    accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
-    secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
+    accessKey: process.env.MINIO_ACCESS_KEY || process.env.MINIO_USER || '',
+    secretKey: process.env.MINIO_SECRET_KEY || process.env.MINIO_PASSWORD || '',
     bucket: process.env.MINIO_BUCKET || 'course-materials',
     region: process.env.MINIO_REGION || 'us-east-1',
   };
+
+  if (!config.accessKey || !config.secretKey) {
+    throw new Error('MINIO_ACCESS_KEY et MINIO_SECRET_KEY (ou MINIO_USER et MINIO_PASSWORD) sont requis');
+  }
 
   console.log('Setting up MinIO bucket:', config.bucket);
   console.log('MinIO endpoint:', config.endpoint);

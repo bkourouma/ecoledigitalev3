@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 // Database configuration
 const connectionString = process.env.DATABASE_URL ||
-  "postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
@@ -47,7 +47,7 @@ async function seedTeacherUser() {
     // Insert teacher user
     console.log("\n👤 Creating teacher user...");
     const email = "teacher@imhotepacademy.fr";
-    const password = "Passw0rd!teacher";
+    const password = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
     const firstName = "Prof";
     const lastName = "Martin";
     const name = `${firstName} ${lastName}`;

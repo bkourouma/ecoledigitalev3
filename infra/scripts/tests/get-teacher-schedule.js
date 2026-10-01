@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
   user: 'postgres',
-  password: 'mysecretpassword',
+  password: process.env.PGPASSWORD || (() => { throw new Error("PGPASSWORD est requis (mot de passe Postgres)"); })(),
   host: 'localhost',
   port: 5432,
   database: 'dbecoledigitale'

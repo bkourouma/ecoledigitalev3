@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 
 // Mock environment variables for testing
 process.env.NODE_ENV = 'test';
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://test:test@localhost:5432/ecoledigitale_test';
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://localhost:5432/dbecoledigitale_test';
 process.env.JWT_SECRET = 'test-jwt-secret';
 process.env.TRESORPAY_API_KEY = 'test-tresorpay-api-key';
 process.env.TRESORPAY_SECRET_KEY = 'test-tresorpay-secret-key';

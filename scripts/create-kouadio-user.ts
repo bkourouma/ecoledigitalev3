@@ -2,7 +2,7 @@ import { Client } from "pg";
 import bcrypt from "bcryptjs";
 
 const connectionString = process.env.DATABASE_URL ||
-  "postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function createKouadioUser() {
   const client = new Client({ connectionString });
@@ -42,7 +42,7 @@ async function createKouadioUser() {
     // Create/update the kouadio.assi user
     console.log("\n👤 Creating/updating Kouadio ASSI user...");
     const email = "kouadio.assi@ecoledigitale.ci";
-    const password = "Passw0rd!teacher";
+    const password = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
     const firstName = "Kouadio";
     const lastName = "ASSI";
     const name = `${firstName} ${lastName}`;
