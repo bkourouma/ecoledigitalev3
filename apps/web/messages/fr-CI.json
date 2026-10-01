@@ -3262,5 +3262,243 @@
       "provisional": "Provisoire",
       "periodFallback": "Période {id}"
     }
+  },
+  "v2Rules": {
+    "status": {
+      "draft": "Brouillon",
+      "simulated": "Simulée",
+      "proposed": "Proposée",
+      "approved": "Approuvée",
+      "published": "Publiée",
+      "retired": "Retirée"
+    },
+    "ruleType": {
+      "grading_scale": "Barème",
+      "assessment_aggregation": "Agrégation des évaluations",
+      "period_average": "Moyenne de période",
+      "annual_average": "Moyenne annuelle",
+      "ranking": "Classement",
+      "rounding": "Arrondi",
+      "mention": "Mention",
+      "promotion": "Passage",
+      "repetition": "Redoublement",
+      "orientation": "Orientation",
+      "credit_validation": "Validation de crédits",
+      "compensation": "Compensation",
+      "eliminatory_grade": "Note éliminatoire"
+    },
+    "catalog": {
+      "title": "Règles de calcul",
+      "description": "Jeux de règles nationaux (lecture seule) et variantes de votre établissement. Publier une règle ne recalcule aucun résultat existant.",
+      "filters": "Filtres",
+      "search": "Rechercher un jeu de règles",
+      "origin": "Origine",
+      "allOrigins": "Toutes les origines",
+      "origins": {
+        "national": "National",
+        "tenant": "Établissement"
+      },
+      "variantCreated": "La variante est créée en brouillon.",
+      "openVariant": "Ouvrir la variante",
+      "empty": "Aucun jeu de règles.",
+      "emptyHint": "Modifiez la recherche ou le filtre.",
+      "listLabel": "Jeux de règles",
+      "readOnly": "Lecture seule",
+      "noVersion": "Aucune version visible.",
+      "versionsOf": "Versions de {name}",
+      "columns": {
+        "version": "Version",
+        "status": "État",
+        "effective": "Période d'effet",
+        "contract": "Contrat",
+        "actions": "Actions"
+      },
+      "versionNo": "Version {n}",
+      "effective": "Du {from} au {to}",
+      "openEnded": "sans fin",
+      "open": "Ouvrir",
+      "openVersion": "Ouvrir la version {n} de {name}",
+      "derive": "Créer une variante",
+      "deriveOf": "Créer une variante de la version {n} de {name}",
+      "deriveTitle": "Variante de {name}",
+      "deriveDescription": "Copie de la version nationale {n} que vous pourrez adapter, simuler puis proposer.",
+      "deriveSubmit": "Créer la variante",
+      "fields": {
+        "name": "Nom de la variante",
+        "nameHint": "Facultatif.",
+        "effectiveFrom": "Date d'effet",
+        "effectiveTo": "Fin d'effet",
+        "notes": "Notes"
+      },
+      "copyNotice": "La variante est une copie : elle ne suit pas les évolutions ultérieures de la version nationale."
+    },
+    "version": {
+      "back": "Retour au catalogue",
+      "versionNo": "version {n}",
+      "description": "Contrat de calcul {contract}",
+      "effectiveFrom": "Effet à partir du",
+      "effectiveTo": "Fin d'effet",
+      "openEnded": "sans fin",
+      "hash": "Empreinte",
+      "source": "Source",
+      "nationalReadOnly": "Version nationale : en lecture seule. Créez une variante de l'établissement pour adapter des paramètres ou des expressions.",
+      "tabs": "Rubriques de la version",
+      "tab": {
+        "rules": "Règles",
+        "simulation": "Simulation",
+        "journal": "Journal"
+      },
+      "expressionLocked": "Les paramètres sont modifiables ; la modification des expressions exige un droit et une option de l'offre supplémentaires.",
+      "notDraft": "Seule une version en brouillon est modifiable : repassez-la en brouillon pour la corriger.",
+      "validate": "Valider la version",
+      "noRules": "Cette version ne contient aucune règle.",
+      "validationTitle": "Résultat de la validation",
+      "validationOk": "La version est valide : toutes les expressions compilent et respectent le contrat.",
+      "validationKo": "La version contient des erreurs à corriger."
+    },
+    "workflow": {
+      "label": "Gouvernance de la version",
+      "steps": "Étapes de la gouvernance",
+      "current": "étape actuelle",
+      "operatorNote": "L'établissement propose ; l'approbation et la publication sont réservées à l'opérateur de la plateforme.",
+      "action": {
+        "draft": {
+          "simulated": "Marquer comme simulée"
+        },
+        "simulated": {
+          "proposed": "Proposer à l'approbation",
+          "draft": "Repasser en brouillon"
+        },
+        "proposed": {
+          "draft": "Retirer la proposition"
+        }
+      },
+      "done": "La version est passée à l'état « {status} ».",
+      "dialogTitle": "Passer à l'état « {status} »",
+      "dialogDescription": {
+        "draft": "La version redevient modifiable ; le rapport de simulation précédent n'est plus valable.",
+        "simulated": "Exige une simulation terminée sur la version courante.",
+        "proposed": "La version est soumise à l'approbation de l'opérateur de la plateforme.",
+        "approved": "Étape réservée à l'opérateur de la plateforme.",
+        "published": "Étape réservée à l'opérateur de la plateforme.",
+        "retired": "Étape réservée à l'opérateur de la plateforme."
+      },
+      "submit": "Confirmer",
+      "impact": "La simulation modifie {percent} % des décisions évaluées.",
+      "confirmImpact": "Je confirme avoir pris connaissance de l'impact sur les décisions",
+      "confirmImpactHint": "Obligatoire quand la simulation modifie des décisions de passage ou de validation.",
+      "comment": "Commentaire",
+      "commentHint": "Facultatif ; conservé dans le journal de la version."
+    },
+    "journal": {
+      "label": "Journal des versions",
+      "empty": "Aucun événement enregistré.",
+      "by": "Par {name} ({kind}) le {date}",
+      "actorKind": {
+        "tenant_admin": "établissement",
+        "super_admin": "opérateur de la plateforme",
+        "system": "système"
+      }
+    },
+    "editor": {
+      "position": "ligne {line}, colonne {column}",
+      "hint": "Aide : {hint}",
+      "optional": "Facultative",
+      "expression": "Expression",
+      "expressionHint": "L'expression est vérifiée par le serveur à l'enregistrement : une expression invalide est refusée avec sa position.",
+      "expressionReadOnly": "Lecture seule.",
+      "saved": "Modification enregistrée.",
+      "saveOf": "Enregistrer l'expression de {key}",
+      "save": "Enregistrer l'expression",
+      "reset": "Annuler les modifications",
+      "testOf": "Tester la règle {key}",
+      "test": "Tester",
+      "parameters": "Paramètres",
+      "parametersOf": "Paramètres de la règle {key}",
+      "saveParametersOf": "Enregistrer les paramètres de {key}",
+      "saveParameters": "Enregistrer les paramètres",
+      "paramNumber": "Saisissez un nombre.",
+      "paramMin": "Au moins {min}.",
+      "paramMax": "Au plus {max}.",
+      "paramValue": "Valeur de {name}",
+      "paramBounds": "Entre {min} et {max}.",
+      "contractHelp": "Aide du contrat",
+      "inputs": "Entrées disponibles",
+      "outputCodes": "Codes de sortie autorisés",
+      "testTitle": "Tester la règle {key}",
+      "testDescription": "Évalue la règle sur un contexte que vous saisissez ; rien n'est enregistré.",
+      "run": "Évaluer",
+      "jsonInvalid": "Saisissez un objet JSON valide.",
+      "variables": "Variables (JSON)",
+      "variablesHint": "Objet JSON : un champ par variable d'entrée de la règle. Les nombres sont des chaînes décimales (\"12.5\").",
+      "result": "Résultat du test",
+      "resultValue": "Valeur :",
+      "nodes": "{count} nœuds évalués",
+      "traceCaption": "Trace d'évaluation",
+      "traceLabel": "Étape",
+      "traceSource": "Expression",
+      "traceValue": "Valeur",
+      "traceTruncated": "La trace est tronquée."
+    },
+    "simulationStatus": {
+      "PENDING": "En attente",
+      "RUNNING": "En cours",
+      "COMPLETED": "Terminée",
+      "FAILED": "Échec",
+      "CANCELLED": "Annulée"
+    },
+    "differenceKind": {
+      "value_changed": "valeur modifiée",
+      "error_introduced": "erreur introduite",
+      "error_resolved": "erreur résolue",
+      "error_changed": "erreur modifiée"
+    },
+    "simulation": {
+      "noRight": "Vous n'avez pas le droit de lancer ou de consulter une simulation.",
+      "chooseBoth": "Choisissez une classe et une période.",
+      "needTarget": "Ajoutez au moins une classe et une période à simuler.",
+      "datasetTitle": "Données à rejouer",
+      "datasetHint": "La simulation rejoue les notes publiées de l'établissement avec cette version et la compare à la version de référence.",
+      "classroom": "Classe",
+      "period": "Période",
+      "add": "Ajouter",
+      "targets": "Classes et périodes à simuler",
+      "removeTarget": "Retirer {classroom} / {period}",
+      "remove": "Retirer",
+      "launch": "Lancer la simulation",
+      "none": "Aucune simulation pour cette version.",
+      "reportTitle": "Rapport de simulation",
+      "progress": "Progression de la simulation",
+      "running": "Simulation en cours : {percent} %",
+      "summary": {
+        "cases": "Cas rejoués",
+        "evaluations": "Évaluations",
+        "changed": "Modifiées",
+        "unchanged": "Inchangées",
+        "newErrors": "Nouvelles erreurs",
+        "resolvedErrors": "Erreurs résolues",
+        "changedErrors": "Erreurs modifiées",
+        "decisionChanged": "Décisions modifiées"
+      },
+      "rulesTable": "Effet par règle",
+      "columns": {
+        "rule": "Règle",
+        "evaluated": "Évaluées",
+        "changed": "Modifiées",
+        "newErrors": "Nouvelles erreurs",
+        "maxDelta": "Écart maximal",
+        "meanDelta": "Écart moyen",
+        "transitions": "Changements de valeur"
+      },
+      "presence": {
+        "added": "ajoutée",
+        "removed": "supprimée"
+      },
+      "differences": "{count, plural, =0 {Aucune différence détaillée} one {# différence détaillée} other {# différences détaillées}}",
+      "truncated": "La liste est tronquée : les compteurs restent exacts.",
+      "noDifference": "Aucune différence : la version produit les mêmes résultats.",
+      "outcomeError": "erreur {code}",
+      "outcomeAbsent": "absente"
+    }
   }
 }
