@@ -160,8 +160,10 @@ BEGIN
   IF v_status <> 'CALCULATED' THEN
     RAISE EXCEPTION 'payroll.payslip_locked: écriture dans % interdite pour un bulletin %', TG_TABLE_NAME, v_status USING ERRCODE = 'restrict_violation';
   END IF;
-  IF TG_TABLE_NAME IN ('payslip_lines', 'hour_claims', 'salary_day_claims') AND NEW.staff_id <> v_staff THEN
-    RAISE EXCEPTION 'payroll.integrity_violation: % d''un autre enseignant que le titulaire du bulletin', TG_TABLE_NAME USING ERRCODE = 'restrict_violation';
+  IF TG_TABLE_NAME IN ('payslip_lines', 'hour_claims', 'salary_day_claims') THEN
+    IF NEW.staff_id <> v_staff THEN
+      RAISE EXCEPTION 'payroll.integrity_violation: % d''un autre enseignant que le titulaire du bulletin', TG_TABLE_NAME USING ERRCODE = 'restrict_violation';
+    END IF;
   END IF;
   RETURN NEW;
 END
