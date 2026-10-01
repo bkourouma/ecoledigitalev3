@@ -6,6 +6,8 @@
 
 **Status**: Rédigée — à relire avec le propriétaire du produit (questions : `../012-rules-engine/open-questions.md` §B, Q-13, Q-21, Q-31, Q-32, Q-33, Q-34) avant `/speckit.plan`
 
+**Implémentation** : module `apps/api/src/modules/reportcards` (migrations 1300-1303, README du module) — révisée le 2026-10-01. Les incohérences relevées à l'implémentation sont corrigées dans ce document et listées en **§16**.
+
 **Sources**: `docs/PRD_EcoleDigitale_SaaS.md` §18, §39, §46, §50, §63 ; `docs/PLAN_Mise_en_oeuvre_EcoleDigitale_SaaS.md` §3.7 (« bulletins = snapshots immuables »), §3.10 (un seul générateur PDF, gabarits versionnés, branding par tenant), §4 (tranche 2.6) ; `docs/adr/ADR-002/003/004/006/007` ; `docs/inventory/legacy-dependents-by-slice.md` (tranche 2.6) ; legacy : `apps/api/src/routes/semester-averages.ts` (`/report-cards/pdf`), `report-cards.ts`, `transcripts.ts`, `services/report-card-template.service.ts`, `services/professional-bulletin.service.ts`, `apps/web/src/lib/{bulletin-format,bulletin-pdf,bulletin-pdf-bts}.ts`, `components/professional/BulletinView.tsx`. Gabarit : `specs/v2/000-platform-foundation/spec.md`.
 
 > **Principe** : un bulletin est un **instantané immuable** de résultats déjà calculés et clôturés (spec 011). Il porte l'identifiant de la **version de règle**, un **hash**, la **trace d'explicabilité** et une **signature** ; le PDF est rendu **côté serveur, dans le worker, depuis le snapshot seul** (jamais depuis des données vivantes), stocké via `StoragePort`, et vérifiable par QR code. Les gabarits (par pack) et l'identité de l'établissement (branding, signataires) sont des **données versionnées par tenant**, jamais du code.
@@ -87,10 +89,10 @@ En tant que directeur, une fois la période clôturée, j'émets les bulletins d
 En tant qu'employeur, je scanne le QR code d'un bulletin ou d'un diplôme.
 
 - **AC4.1** Le QR encode une URL de vérification `https://<domaine-vérification>/v/<code>` ; `code` = 128 bits aléatoires (base32, non devinable) ; le code texte est imprimé sous le QR.
-- **AC4.2** La page de vérification (non authentifiée) répond selon la politique Q-31 : par défaut statut, nature du document, établissement, intitulé, date d'émission, mention ; **ni notes, ni date de naissance, ni adresse**.
+- **AC4.2** La page de vérification (non authentifiée) répond selon la politique Q-31 : par défaut **statut, nature du document, établissement, intitulé, date d'émission** ; la **mention** n'est ajoutée que si l'établissement l'a explicitement activée (réglage `verificationShowsMention`, défaut `false` : la mention est une information scolaire d'un mineur) ; **ni notes, ni nom, ni matricule, ni date de naissance, ni adresse**. *(Révisé : la mention figurait dans le défaut ; voir §16.)*
 - **AC4.3** La signature Ed25519 de `(snapshot_hash, code, issued_at)` est stockée avec l'identifiant de clé ; l'endpoint `GET /public/verify/:code` renvoie aussi `keyId` et l'empreinte ; la clé publique est publiée (`/.well-known/ecoledigitale-keys.json`) pour vérification hors ligne.
-- **AC4.4** Téléverser un PDF (`POST /public/verify/upload`, ≤ 10 Mo) compare son SHA-256 aux rendus stockés : « ce fichier est identique à l'original émis le … » ou « ce fichier ne correspond à aucun original ».
-- **AC4.5** Limitation de débit : 30 requêtes/min/IP (429 au-delà) ; aucun message ne distingue un code inexistant d'un code mal formé ; journal des vérifications (IP tronquée, date, résultat).
+- **AC4.4** Téléverser un PDF (`POST /public/verify/upload`, corps brut `application/pdf`, ≤ 10 Mo ; au-delà 413) compare son SHA-256 aux rendus stockés (index global `file_hash_index`, alimenté au rendu) : « ce fichier est identique à l'original émis le … » (avec le statut : remplacé / révoqué le cas échéant) ou « ce fichier ne correspond à aucun original ».
+- **AC4.5** Limitation de débit : 30 requêtes/min/IP (429 au-delà) ; aucun message ne distingue un code inexistant, mal formé, trop long, provisoire ou d'une feature désactivée (même corps, même statut 404) ; journal des vérifications (IP tronquée /24 ou /48, date, résultat) ; le hash du snapshot est recalculé et la signature revérifiée à chaque consultation (écart ⇒ statut `INVALID` + événement `reportcards.integrity.mismatch`).
 - **AC4.6** Rotation des clés : deux clés actives possibles ; un document signé par une clé retirée reste vérifiable.
 
 ### US5 — Des gabarits par pack, configurés par l'établissement (P1)
@@ -141,7 +143,7 @@ En tant qu'employeur, je scanne le QR code d'un bulletin ou d'un diplôme.
 
 | # | Règle |
 |---|---|
-| R-RC-01 | On n'émet un document de période qu'à partir de résultats `FINAL` d'une période `CLOSED`. Une exception « bulletin provisoire » existe sous la forme d'un `REPORT_CARD` marqué `provisional = true` (filigrane obligatoire, jamais publié aux familles, non vérifiable publiquement). |
+| R-RC-01 | On n'émet un document de période qu'à partir de résultats `FINAL` d'une période `CLOSED`. Une exception « bulletin provisoire » existe sous la forme d'un `REPORT_CARD` marqué `provisional = true` (filigrane obligatoire, jamais publié aux familles, non vérifiable publiquement : pas de QR, pas d'entrée dans l'index public). Un provisoire n'est jamais supprimé (aucun `DELETE` sur `report_cards`) : on le **révoque** pour l'écarter. |
 | R-RC-02 | Un snapshot est immuable ; ses seuls champs modifiables sont ceux du rendu (`render_status`, `current_render_id`) et de la visibilité (`published_at`, `withdrawn_at`) et du statut (`ISSUED → PUBLISHED`, `→ SUPERSEDED|REVOKED`). |
 | R-RC-03 | Une version supérieure remplace la précédente sans la supprimer ; il n'y a **qu'une** version non remplacée et non révoquée par `(inscription, période, nature)`. |
 | R-RC-04 | Le hash et la signature sont calculés **à l'émission**, avant tout rendu ; le PDF n'est jamais source de vérité. |
@@ -163,6 +165,8 @@ Voir `data-model.md`. Schéma `reportcards` (migrations `1300-1399`, plage propo
 | `platform_templates` | Gabarits plateforme versionnés | globale (liste blanche) |
 | `signing_keys` | Clés publiques de signature (la clé privée n'est jamais en base) | globale |
 | `verification_index` | Code → tenant, document (aucune donnée personnelle) | globale |
+| `file_hash_index` | SHA-256 d'un PDF émis → code (comparaison d'un fichier téléversé) | globale |
+| `settings` | Réglages du tenant : blocage si impayé, délibération requise, politique de vérification | tenant |
 | `branding_versions` | Identité versionnée | tenant |
 | `signatories` | Signataires | tenant |
 | `template_configs` | Configuration de gabarit versionnée | tenant |
@@ -178,31 +182,34 @@ Préfixe `/api/v1/reportcards` ; publics sous `/api/v1/public`. Contrats Zod ava
 
 | Méthode | Chemin | Description | Permission |
 |---|---|---|---|
-| POST | `/batches` | Créer un lot `{ classroomId, academicPeriodId, kind, enrollmentIds?, provisional? }` → 202 | `reportcard.generate` |
+| POST | `/batches` | Créer un lot `{ classroomId, academicPeriodId, kind, enrollmentIds?, provisional?, reissueReason?, idempotencyKey? }` → 202 (200 si le lot existait : rejeu) ; 409 `reportcards.preflight_failed` + liste des manques | `reportcard.generate` |
+| POST | `/publish` | Publication par lot `{ batchId }` ou `{ reportCardIds }` (les bulletins non rendus sont ignorés et listés) | `reportcard.publish` |
+| GET / PUT | `/settings` | Réglages du tenant (`blockIfUnpaid` exige la feature `reportcard.block-unpaid`) | `reportcard.read` \| `reportcard.template.manage` / `reportcard.branding.manage` |
+| GET | `/me/report-cards` | Bulletins publiés de l'élève connecté ou de tous les enfants du tuteur connecté | `reportcard.self.read` \| `reportcard.child.read` |
 | GET | `/batches/:id` | Progression, exclusions, échecs | `reportcard.generate` |
 | POST | `/batches/:id/retry` | Reprise des rendus en échec | `reportcard.generate` |
 | GET | `/preflight` | Contrôle préalable (période, délibération, identité, signataires, gabarit) | `reportcard.generate` |
 | GET | `/report-cards` | Liste filtrée (classe, période, statut, version, `needsReissue`) | `reportcard.read` |
 | GET | `/report-cards/:id` | Détail (snapshot sans trace) | `reportcard.read` |
 | GET | `/report-cards/:id/explain` | Trace | `reportcard.explain` |
-| GET | `/report-cards/:id/pdf` | URL signée de téléchargement | `reportcard.read` (gestion) / session famille |
-| GET | `/classrooms/:id/periods/:pid/pdf` | PDF combiné de la classe (job) | `reportcard.read` |
+| GET | `/report-cards/:id/pdf` | URL signée de téléchargement (≤ 5 min) | `reportcard.read` (gestion) \| `reportcard.self.read` \| `reportcard.child.read` (famille : lien de tutelle revérifié à chaque appel ; un bulletin qui n'est pas le sien répond 404) |
+| GET | `/classrooms/:id/periods/:pid/pdf` | URL signée du PDF combiné de la classe (produit par le worker à `reportcards.batch.completed`) ; 409 tant qu'il n'est pas prêt | `reportcard.read` |
 | POST | `/report-cards/:id/publish` \| `/withdraw` | Visibilité aux familles | `reportcard.publish` |
 | POST | `/report-cards/:id/reissue` | `{ reason }` → nouvelle version | `reportcard.generate` |
 | POST | `/report-cards/:id/revoke` | `{ reason }` | `reportcard.revoke` |
 | POST | `/report-cards/:id/render` | Relancer un rendu | `reportcard.generate` |
 | POST | `/transcripts` | Relevé cumulé `{ studentId, scope }` | `reportcard.generate` |
 | GET / PUT | `/branding` | Identité (version) | `reportcard.branding.manage` |
-| POST | `/branding/assets` | URL de dépôt signée (logo/emblème) | `reportcard.branding.manage` |
+| POST | `/branding/assets` | URL de dépôt signée `PUT` (logo / emblème / signature, PNG-JPEG-WebP-GIF ≤ 2 Mo) ; le contenu est contrôlé par ses octets à l'enregistrement de l'identité ou du signataire (jamais de SVG) | `reportcard.branding.manage` \| `reportcard.signatory.manage` |
 | GET / POST / PATCH | `/signatories` | Signataires | `reportcard.signatory.manage` |
 | GET | `/templates` | Gabarits plateforme disponibles | `reportcard.template.manage` |
 | GET / PUT | `/template-configs` | Configuration par nature de document | `reportcard.template.manage` |
 | POST | `/template-configs/preview` | Aperçu fictif | `reportcard.template.manage` |
 | GET | `/me/report-cards`, `/children/:studentId/report-cards` | Bulletins publiés | session élève / tuteur |
-| GET | `/public/verify/:code` | Vérification (sans authentification) | — |
-| POST | `/public/verify/upload` | Comparaison d'un fichier | — |
-| GET | `/.well-known/ecoledigitale-keys.json` | Clés publiques de signature | — |
-| POST / GET | `/platform/templates`, `/platform/keys` | Gabarits globaux et clés (super-admin) | super-admin |
+| GET | `/api/v1/public/verify/:code` (et `/api/v1/reportcards/public/verify/:code`) | Vérification (sans authentification, 30 req/min/IP) | — |
+| POST | `/api/v1/public/verify/upload` (et `/api/v1/reportcards/public/verify/upload`) | Comparaison d'un fichier (corps brut PDF) | — |
+| GET | `/api/v1/public/keys`, `/.well-known/ecoledigitale-keys.json` | Clés publiques de signature (actives et retirées) | — |
+| POST / GET | `/platform/templates`, `/platform/templates/seed`, `/platform/keys`, `POST /platform/keys/:keyId/retire` | Gabarits globaux et clés (JWT super-admin séparé du JWT tenant) | super-admin |
 
 ## 9. Écrans
 
@@ -228,6 +235,10 @@ Préfixe `/api/v1/reportcards` ; publics sous `/api/v1/public`. Contrats Zod ava
 | `reportcard.template.manage` | Configurer les gabarits et leurs options | non |
 | `reportcard.branding.manage` | Gérer l'identité de l'établissement | oui |
 | `reportcard.signatory.manage` | Gérer les signataires | **oui** |
+| `reportcard.self.read` | Consulter et télécharger ses propres bulletins publiés (élève) | non |
+| `reportcard.child.read` | Consulter et télécharger les bulletins publiés de ses enfants (tuteur) | non |
+
+*(Les deux dernières suivent la convention `*.self.*` / `*.child.*` des modèles de rôles du module rbac : élèves et parents les reçoivent sans modification de rbac.)*
 
 Features : `reportcard.transcript` (relevé cumulé), `reportcard.public-verification`, `reportcard.block-unpaid` (Q-13). Exportable : `report.export` du plan §3.6 = `reportcard.read` pour les exports de liste.
 
@@ -237,15 +248,18 @@ Publiés :
 
 | Événement | Payload | Consommateurs |
 |---|---|---|
-| `reportcards.report_card.issued` | `reportCardId, enrollmentId, studentId, periodId, kind, version, snapshotHash` | audit, 025 |
-| `reportcards.report_card.rendered` | `reportCardId, renderId, pdfHash, sizeBytes` | notifications de la direction |
+| `reportcards.snapshot.created` *(remplace `report_card.issued`)* | `reportCardId, enrollmentId, studentId, periodId, kind, version, snapshotHash, batchId, provisional` | **worker (rendu PDF)**, audit, 025 |
+| `reportcards.report_card.render_requested` | `reportCardId` (reprise explicite d'un rendu ; filet de sécurité périodique) | worker (même abonné) |
+| `reportcards.report_card.rendered` | `reportCardId, renderId, pdfHash, sizeBytes, batchId` | notifications de la direction |
+| `reportcards.report_card.render_failed` | `reportCardId, renderId, error, batchId` (après 3 tentatives) | direction, exploitation |
 | `reportcards.report_card.published` | `reportCardId, studentId, version` | 016 (notification famille selon préférence), 029 |
-| `reportcards.report_card.superseded` | `reportCardId, newReportCardId, reason` | 016 |
-| `reportcards.report_card.revoked` | `reportCardId, reason` | 016, audit |
-| `reportcards.batch.completed` | `batchId, issued, excluded, failed` | notification direction |
-| `reportcards.integrity.mismatch` | `reportCardId` | exploitation (alerte) |
+| `reportcards.report_card.withdrawn` | `reportCardId, studentId, version` | 016 |
+| `reportcards.report_card.superseded` | `reportCardId, newReportCardId, studentId, reason` | 016 |
+| `reportcards.report_card.revoked` | `reportCardId, studentId, reason` | 016, audit |
+| `reportcards.batch.completed` | `batchId, issued, excluded, failed` | notification direction, **worker (PDF combiné de classe)** |
+| `reportcards.integrity.mismatch` | `reportCardId, expectedHash, actualHash, reason (HASH \| SIGNATURE)` | exploitation (alerte) |
 
-Consommés : `results.period.closed` (propose le lot : notification à la direction), `results.period.reopened` (marque « à rééditer »), `results.decision.confirmed`, `rules.version.retired` (aucune action ; information).
+Consommés en v1 : `tenancy.tenant.provisioned` (publication idempotente des gabarits de plateforme). `results.period.reopened` n'est **pas** consommé : « à rééditer » est calculé à la lecture en comparant la version des résultats du snapshot à la version courante publiée par `results` (`ResultsReadPort.getPeriodState`), ce qui reste exact même si un événement est perdu. `results.period.closed` (notification de la direction) relève de 016. `results.decision.confirmed` et `rules.version.retired` : aucune action.
 
 ## 12. Tests
 
@@ -291,3 +305,27 @@ Consommés : `results.period.closed` (propose le lot : notification à la direct
 5. Le test d'injection de gabarit ne produit aucune requête sortante ni lecture de fichier.
 6. Aucune mention « IPAM », « IMHOTEP » ni nom de personne n'existe dans le code ou les gabarits plateforme (grep CI).
 7. Les générateurs jsPDF du web, `report-card-template.service.ts`, `report-cards.ts`, `transcripts.ts` et les tables `report_cards`, `transcripts`, `professional_bulletins` sont supprimés dans la même tranche.
+
+## 16. Révisions d'implémentation (2026-10-01)
+
+Corrections apportées à cette spécification et à `data-model.md` lors de l'implémentation du backend (T-RC-DB, T-RC-SNAP-PURE, T-SIGN, T-STORAGE, T-TEMPLATES, T-RC-DOMAIN, T-RENDER, T-RC-HTTP, T-VERIFY). Rien n'a été retiré du périmètre ; les écrans web (T-WEB-*), l'E2E et le nettoyage du legacy (T-CLEAN) restent à faire.
+
+| # | Incohérence ou lacune | Correction |
+|---|---|---|
+| 1 | `data-model.md` §3.1 : supersession par un déclencheur **AFTER** INSERT, alors que l'index unique des versions vivantes fait échouer l'insertion avant qu'il ne tire | Déclencheur **BEFORE INSERT** (`report_cards_2_supersede`) : il passe l'ancienne version vivante en `SUPERSEDED` (et renseigne `superseded_by_id`) avant l'insertion, sous un réglage de transaction que seul ce déclencheur pose ; un `ISSUED → SUPERSEDED` direct est refusé |
+| 2 | `renders_hash_idx` « via SystemDb » pour comparer un fichier téléversé : impossible, `renders` est une table de tenant sous RLS forcée (le système sans tenant n'y voit rien) | Quatrième table **globale** `file_hash_index (pdf_hash → code, tenant_id)`, alimentée au rendu, même politique que `verification_index` (lecture système ou tenant propriétaire, insertion limitée au tenant courant, immuable) |
+| 3 | `verification_index` alimenté par une fonction `SECURITY DEFINER` `register_verification` | Politique RLS d'insertion `tenant_id = kernel.current_tenant_id()` + déclencheur de garde (le code doit désigner un document émis, non provisoire, du tenant) : même garantie, sans fonction à privilèges élevés |
+| 4 | Événement `reportcards.report_card.issued` : le déclencheur du rendu PDF dans le worker n'était pas nommé | Événement **`reportcards.snapshot.created`** (remplace `issued`) ; ajouts `render_requested` (reprise explicite et filet de sécurité), `render_failed`, `withdrawn` ; `integrity.mismatch` porte `reason` |
+| 5 | AC4.2 : la mention était dans le contenu public par défaut (Q-31 encore ouverte) | Défaut **sans mention** ; réglage de tenant `verificationShowsMention` pour l'activer. **À arbitrer avec le propriétaire du produit (Q-31)** |
+| 6 | Provisoire « supprimable » alors que R-RC-02 et AC2.1 interdisent tout `DELETE` | Un provisoire se **révoque** (`CHECK (NOT provisional OR status IN ('ISSUED','REVOKED'))`) |
+| 7 | Permissions : aucune permission pour les élèves et tuteurs (« session élève / tuteur ») | `reportcard.self.read` et `reportcard.child.read`, déjà couvertes par les motifs `*.self.*` / `*.child.*` des rôles système de rbac |
+| 8 | Hash canonique : « nombres exacts en chaînes décimales » sans règle pour les autres nombres | Le snapshot ne contient que chaînes, **entiers sûrs**, booléens et `null` (jamais de flottant) ; refus explicite côté TypeScript (`CanonicalizationError`) **et** SQL (`reportcards.canonical_json`), ordre des clés par octets UTF-8, NFC ; vecteurs partagés rejoués contre la base |
+| 9 | R-RC-09 (« le même `snapshot_hash` ne peut être émis deux fois ») sans mécanisme | Index unique `(tenant_id, snapshot_hash)` |
+| 10 | Réglages du tenant (délibération requise, blocage si impayé, politique de vérification) sans table | Table `settings` (1 ligne par tenant) |
+| 11 | « Consommés : `results.period.reopened` (marque à rééditer) » | « À rééditer » est dérivé à la lecture (version des résultats du snapshot < version courante) ; plus robuste qu'un indicateur écrit sur événement |
+| 12 | Journal des vérifications « rétention 24 mois (job) » alors que les journaux sont append-only | Suppression autorisée **uniquement** par le job de purge, sous réglage de transaction dédié, pour les lignes de plus de 24 mois |
+| 13 | `POST /branding/assets` « URL de dépôt signée » sans port de stockage correspondant | `StoragePort.signedUploadUrl` (S3 : `PutObject` pré-signé) ; contrôle des octets (PNG, JPEG, GIF, WebP ; jamais de SVG) à l'enregistrement |
+| 15 | AC1.2 « relancer le lot ne crée aucun doublon » sans dire ce que devient une inscription qui avait échoué ou n'avait pas encore de résultat | Rejouer le **même lot** (même clé d'idempotence) le **reprend** : seules les inscriptions non encore émises (échecs, exclusions réévaluées, inscrits tardifs) sont retraitées ; un bulletin déjà émis n'est jamais recréé ni modifié ; un rejeu qui ne change rien est neutre (aucune écriture, aucun événement) ; la clé par défaut inclut la version des résultats, le mode provisoire et la présence d'un motif de réémission |
+| 14 | Les droits de `report_cards` accordaient `UPDATE` sur toutes les colonnes | Le déclencheur `report_cards_immutable` fige tout sauf statut, publication, retrait, remplacement, révocation et rendu courant ; déclencheurs `ENABLE ALWAYS` (actifs même sous `session_replication_role = replica`) |
+
+**Ports** (le module `results` n'existe pas encore ; les ports sont définis ici, avec implémentations en mémoire exportées par `index.ts`) : `ResultsReadPort` (`getPeriodState`, `listRoster`, `getFinalBundle`, `getCumulativeBundle`), `GuardianshipPort`, `AttendanceSummaryPort` (optionnel), `LearnerStandingPort` (optionnel, échec fermé si le blocage est activé et le port absent), `UserDirectoryPort` (optionnel, nom affiché figé dans le snapshot), `StoragePort`, `PdfRenderer`, `PdfMerger`, `KeyProvider`.

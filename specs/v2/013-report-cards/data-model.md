@@ -1,6 +1,6 @@
 # Modèle de données — module `reportcards` (013-report-cards)
 
-**Statut** : DDL de **référence**. Schéma `reportcards`, migrations **`1300-1399`** (plage proposée, à inscrire dans `module-conventions.md`). Conventions : `tenant_id` + `kernel.enable_tenant_rls()` pour toute table de tenant ; `UNIQUE (tenant_id, id)` + FK composites intra-schéma ; références au cœur par **UUID sans FK** ; objets binaires (logos, signatures, PDF) **uniquement par clé d'objet** `StoragePort` (jamais de `bytea` volumineux en base) ; montants/notes exacts ; horodatages UTC.
+**Statut** : DDL de **référence**, **implémenté** (migrations `1300-1303` du module ; le DDL exécuté fait foi — voir `spec.md` §16 pour les écarts : supersession en `BEFORE INSERT`, table globale `file_hash_index`, table `settings`, `superseded_by_id`, unicité `(tenant_id, snapshot_hash)`, pas de fonction `SECURITY DEFINER`). Schéma `reportcards`, migrations **`1300-1399`** (plage inscrite dans `module-conventions.md`). Conventions : `tenant_id` + `kernel.enable_tenant_rls()` pour toute table de tenant ; `UNIQUE (tenant_id, id)` + FK composites intra-schéma ; références au cœur par **UUID sans FK** ; objets binaires (logos, signatures, PDF) **uniquement par clé d'objet** `StoragePort` (jamais de `bytea` volumineux en base) ; montants/notes exacts ; horodatages UTC.
 
 ## 1. Tables globales (liste blanche d'isolation, écriture `system`)
 
@@ -220,7 +220,8 @@ CREATE TABLE reportcards.renders (
   CHECK (status <> 'RENDERED' OR (object_key IS NOT NULL AND pdf_hash IS NOT NULL AND size_bytes IS NOT NULL))
 );
 CREATE INDEX renders_card_idx ON reportcards.renders (tenant_id, report_card_id, requested_at DESC);
-CREATE INDEX renders_hash_idx ON reportcards.renders (pdf_hash) WHERE pdf_hash IS NOT NULL;     -- comparaison de fichiers téléversés (via SystemDb)
+-- (implémentation : pas d'index inter-tenants sur `renders` — sous RLS forcée le système sans tenant n'y voit rien ;
+--  la comparaison d'un fichier téléversé passe par la table globale `file_hash_index`, voir spec §16 #2)
 SELECT kernel.enable_tenant_rls('reportcards.renders');
 GRANT SELECT, INSERT, UPDATE ON reportcards.renders TO app_user;
 ```
@@ -234,10 +235,10 @@ Codes d'erreur stables `reportcards.<code>`, `ERRCODE restrict_violation`.
 | `report_cards_immutable()` `BEFORE UPDATE` | Colonnes **figées** : tout sauf `status`, `published_*`, `withdrawn_at`, `superseded_at`, `supersede_reason`, `revoked_*`, `render_status`, `current_render_id`. Transitions de `status` : `ISSUED→PUBLISHED`, `ISSUED|PUBLISHED→SUPERSEDED|REVOKED`, `PUBLISHED→ISSUED` interdit (utiliser `withdrawn_at`). `REVOKED` et `SUPERSEDED` terminaux. |
 | `report_cards_no_delete()` `BEFORE DELETE` | Interdit (pour tout rôle applicatif). |
 | `report_cards_hash_check()` `BEFORE INSERT` | Recalcule `snapshot_hash` en SQL (fonction `reportcards.canonical_hash(snapshot, explain)`) et refuse si différent du hash fourni (test croisé avec l'implémentation applicative). |
-| `report_cards_supersede_pair()` `AFTER INSERT` | Une insertion `version > 1` passe l'ancienne version vivante en `SUPERSEDED` dans la même transaction (sinon `report_cards_live_uq` échouerait). |
+| `report_cards_2_supersede` `BEFORE INSERT` *(corrigé : `AFTER` ne pouvait pas fonctionner — l'index unique partiel refuse l'insertion avant que le déclencheur ne tire)* | Une insertion `version > 1` passe l'ancienne version vivante en `SUPERSEDED` (avec `superseded_at`, `superseded_by_id`) dans la même transaction, AVANT l'insertion ; vérifie que la version remplacée a la même clé fonctionnelle et la version `n-1`. |
 | `renders_immutable()` | Une ligne `RENDERED` est immuable (nouvelle tentative = nouvelle ligne). |
 | `branding_versions_immutable()`, `template_configs_immutable()` | Seul `is_current` change ; une version est immuable. |
-| `verification_index` | Insertion uniquement par la fonction `reportcards.register_verification(code, kind, id)` qui force `tenant_id = kernel.current_tenant_id()`. |
+| `verification_index`, `file_hash_index` | Insertion limitée au tenant courant par la RLS (`WITH CHECK tenant_id = kernel.current_tenant_id()`) + déclencheur de garde (le code désigne un document émis, non provisoire, du tenant) ; ni `UPDATE` ni `DELETE`. *(Corrigé : pas de fonction `register_verification` `SECURITY DEFINER`.)* |
 
 ## 4. Lots, journaux (migration `1304_reportcards_batches.sql`)
 

@@ -85,6 +85,10 @@ describeIntegration.skipIf(!REDIS_URL)("assemblage : cohabitation legacy / v2 et
     // `config.public` retire la garde « contexte présent » ET le middleware legacy : la route doit donc se défendre seule.
     const OPEN_BY_DESIGN = new Map([
       ["POST /api/v1/iam/logout", 204], // sans jeton ni cookie : simple effacement du cookie
+      // reportcards : clés PUBLIQUES de signature (vérification hors ligne d'un bulletin, spec 013 AC4.3) — publiques par conception.
+      ["GET /.well-known/ecoledigitale-keys.json", 200],
+      ["GET /api/v1/public/keys", 200],
+      ["GET /api/v1/reportcards/public/keys", 200],
     ]);
     const routes = listPublicRoutes().filter((r) => r.method !== "HEAD");
     expect(routes.length).toBeGreaterThanOrEqual(20);
