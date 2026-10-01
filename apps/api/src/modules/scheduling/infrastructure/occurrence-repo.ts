@@ -21,7 +21,7 @@ import type {
   DeliveryMode,
 } from "../domain/types";
 
-export const OCC_COLUMNS = `o.id, o.institution_id, o.campus_id, o.academic_year_id, o.timetable_entry_id, o.generated_for::text AS generated_for,
+export const OCC_COLUMNS = `o.id, o.institution_id, o.campus_id, o.academic_year_id, o.timetable_entry_id, o.generated_for::text AS generated_for, o.generated_from,
   o.kind, o.title, o.classroom_id, o.curriculum_node_id, o.offering_id, o.claims_classroom, o.room_id, o.starts_at, o.ends_at,
   o.occurs_on::text AS occurs_on, o.delivery_mode, o.virtual_session_ref, o.status, o.held_at, o.held_source, o.held_by, o.cancelled_at,
   o.cancel_reason, o.validated_at, o.validated_by, o.origin, o.conflict_override, o.conflict_override_reason, o.needs_replacement,
@@ -35,6 +35,7 @@ export function mapOccurrence(r: Record<string, any>): Occurrence {
     academicYearId: r.academic_year_id,
     timetableEntryId: r.timetable_entry_id,
     generatedFor: r.generated_for,
+    generatedFrom: r.generated_from ?? null,
     kind: r.kind as OccurrenceKind,
     title: r.title,
     classroomId: r.classroom_id,
@@ -162,6 +163,7 @@ export interface NewOccurrence {
   academicYearId: string;
   timetableEntryId: string | null;
   generatedFor: string | null;
+  generatedFrom?: { startMinute: number; endMinute: number; roomId: string | null } | null;
   kind: OccurrenceKind;
   title: string | null;
   classroomId: string | null;
@@ -188,7 +190,7 @@ export interface NewOccurrence {
 }
 
 const INSERT_COLUMNS = [
-  "id", "tenant_id", "institution_id", "campus_id", "academic_year_id", "timetable_entry_id", "generated_for", "kind", "title", "classroom_id",
+  "id", "tenant_id", "institution_id", "campus_id", "academic_year_id", "timetable_entry_id", "generated_for", "generated_from", "kind", "title", "classroom_id",
   "curriculum_node_id", "offering_id", "claims_classroom", "room_id", "starts_at", "ends_at", "occurs_on", "delivery_mode", "status", "held_at",
   "held_source", "held_by", "origin", "conflict_override", "conflict_override_reason", "conflict_override_by", "notes", "location_label",
   "attributes", "created_by",
@@ -196,7 +198,7 @@ const INSERT_COLUMNS = [
 
 function occurrenceParams(o: NewOccurrence): unknown[] {
   return [
-    o.id, o.tenantId, o.institutionId, o.campusId, o.academicYearId, o.timetableEntryId, o.generatedFor, o.kind, o.title, o.classroomId,
+    o.id, o.tenantId, o.institutionId, o.campusId, o.academicYearId, o.timetableEntryId, o.generatedFor, o.generatedFrom ? JSON.stringify(o.generatedFrom) : null, o.kind, o.title, o.classroomId,
     o.curriculumNodeId, o.offeringId, o.claimsClassroom, o.roomId, o.startsAt, o.endsAt, o.occursOn, o.deliveryMode, o.status, o.heldAt,
     o.heldSource, o.heldBy, o.origin, o.conflictOverride, o.conflictOverrideReason, o.conflictOverrideBy, o.notes, o.locationLabel,
     JSON.stringify(o.attributes), o.createdBy,
@@ -204,7 +206,7 @@ function occurrenceParams(o: NewOccurrence): unknown[] {
 }
 
 const placeholders = (offset: number): string =>
-  `(${INSERT_COLUMNS.map((c, i) => (c === "attributes" ? `$${offset + i + 1}::jsonb` : `$${offset + i + 1}`)).join(", ")})`;
+  `(${INSERT_COLUMNS.map((c, i) => (c === "attributes" || c === "generated_from" ? `$${offset + i + 1}::jsonb` : `$${offset + i + 1}`)).join(", ")})`;
 
 export async function insertOccurrence(tx: Tx, o: NewOccurrence): Promise<void> {
   await tx.query(`INSERT INTO scheduling.session_occurrences (${INSERT_COLUMNS.join(", ")}) VALUES ${placeholders(0)}`, occurrenceParams(o));
@@ -288,6 +290,11 @@ export async function updateTimes(tx: Tx, id: string, startsAt: Date, endsAt: Da
 
 export async function updateRoom(tx: Tx, id: string, roomId: string | null, at: Date): Promise<void> {
   await tx.query(`UPDATE scheduling.session_occurrences SET room_id = $2, updated_at = $3 WHERE tenant_id = kernel.current_tenant_id() AND id = $1`, [id, roomId, at]);
+}
+
+/** Met à jour l'instantané du patron (après une propagation) sans toucher à la planification de la séance. */
+export async function setGeneratedFrom(tx: Tx, id: string, snapshot: { startMinute: number; endMinute: number; roomId: string | null }, at: Date): Promise<void> {
+  await tx.query(`UPDATE scheduling.session_occurrences SET generated_from = $2::jsonb, updated_at = $3 WHERE tenant_id = kernel.current_tenant_id() AND id = $1`, [id, JSON.stringify(snapshot), at]);
 }
 
 export async function updateDescriptive(
@@ -485,7 +492,7 @@ export interface ChangeRow {
 export async function listChanges(tx: Tx, occurrenceId: string): Promise<ChangeRow[]> {
   const rows = await tx.many(
     `SELECT id, occurrence_id, kind, from_value, to_value, reason, actor_id, changed_at FROM scheduling.occurrence_changes
-      WHERE tenant_id = kernel.current_tenant_id() AND occurrence_id = $1 ORDER BY changed_at, id`,
+      WHERE tenant_id = kernel.current_tenant_id() AND occurrence_id = $1 ORDER BY seq`,
     [occurrenceId],
   );
   return rows.map((r) => ({

@@ -286,6 +286,11 @@ BEGIN
     INSERT INTO scheduling.occurrence_changes (id, tenant_id, occurrence_id, kind, to_value, reason, actor_id)
     VALUES (gen_random_uuid(), NEW.tenant_id, NEW.id, 'CREATED',
             jsonb_build_object('startsAt', NEW.starts_at, 'endsAt', NEW.ends_at, 'roomId', NEW.room_id, 'origin', NEW.origin), v_reason, v_actor);
+    -- Une séance créée AVEC dépassement motivé le dit dans le journal (les dérogations sont toutes tracées).
+    IF NEW.conflict_override THEN
+      INSERT INTO scheduling.occurrence_changes (id, tenant_id, occurrence_id, kind, to_value, reason, actor_id)
+      VALUES (gen_random_uuid(), NEW.tenant_id, NEW.id, 'OVERRIDE', jsonb_build_object('reason', NEW.conflict_override_reason), NEW.conflict_override_reason, NEW.conflict_override_by);
+    END IF;
     RETURN NULL;
   END IF;
   IF NEW.starts_at <> OLD.starts_at OR NEW.ends_at <> OLD.ends_at THEN

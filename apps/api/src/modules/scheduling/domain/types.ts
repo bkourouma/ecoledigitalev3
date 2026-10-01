@@ -201,6 +201,8 @@ export interface Occurrence {
   readonly academicYearId: string;
   readonly timetableEntryId: string | null;
   readonly generatedFor: string | null;
+  /** Horaire (minutes) et salle du patron au moment de la génération ; sert à repérer une modification à la main. */
+  readonly generatedFrom: { readonly startMinute: number; readonly endMinute: number; readonly roomId: string | null } | null;
   readonly kind: OccurrenceKind;
   readonly title: string | null;
   readonly classroomId: string | null;

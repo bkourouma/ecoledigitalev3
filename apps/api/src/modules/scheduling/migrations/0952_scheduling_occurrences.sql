@@ -28,6 +28,7 @@ CREATE TABLE scheduling.session_occurrences (
   academic_year_id         uuid NOT NULL,
   timetable_entry_id       uuid,
   generated_for            date,                              -- date du patron ayant produit l'occurrence (NULL hors génération)
+  generated_from           jsonb CHECK (generated_from IS NULL OR jsonb_typeof(generated_from) = 'object'),   -- horaire et salle du patron à la génération (détecte une modification à la main)
   kind                     text NOT NULL DEFAULT 'LESSON' CHECK (kind IN ('LESSON', 'EXAM', 'MEETING', 'EVENT', 'RESERVATION', 'COUNCIL', 'OTHER')),
   title                    text,
   classroom_id             uuid,                              -- academic.classrooms.id
@@ -166,6 +167,7 @@ GRANT SELECT ON scheduling.resource_claims TO app_user;
 -- le legacy ne gardait aucune trace des séances modifiées après validation. Append-only.
 CREATE TABLE scheduling.occurrence_changes (
   id             uuid PRIMARY KEY,
+  seq            bigint GENERATED ALWAYS AS IDENTITY,   -- ordre total du journal (plusieurs lignes dans une même transaction)
   tenant_id      uuid NOT NULL REFERENCES kernel.tenants (id),
   occurrence_id  uuid NOT NULL,
   kind           text NOT NULL CHECK (kind IN ('CREATED', 'RESCHEDULED', 'ROOM_CHANGED', 'STAFF_CHANGED', 'HELD', 'UNHELD', 'CANCELLED', 'VALIDATED', 'UNVALIDATED', 'PAID_MINUTES', 'OVERRIDE', 'LOCKED', 'UNLOCKED', 'OTHER')),
@@ -178,5 +180,5 @@ CREATE TABLE scheduling.occurrence_changes (
   FOREIGN KEY (tenant_id, occurrence_id) REFERENCES scheduling.session_occurrences (tenant_id, id)
 );
 SELECT kernel.enable_tenant_rls('scheduling.occurrence_changes');
-CREATE INDEX occurrence_changes_by_occurrence ON scheduling.occurrence_changes (tenant_id, occurrence_id, changed_at);
+CREATE INDEX occurrence_changes_by_occurrence ON scheduling.occurrence_changes (tenant_id, occurrence_id, seq);
 GRANT SELECT, INSERT ON scheduling.occurrence_changes TO app_user;

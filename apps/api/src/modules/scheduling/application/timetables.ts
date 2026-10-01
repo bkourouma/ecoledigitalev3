@@ -371,9 +371,13 @@ async function propagateEntry(deps: SchedulingDeps, ctx: RequestContext, tx: Tx,
   for (const { id } of rows) {
     const occ = await occRepo.getOccurrence(tx, id);
     if (!occ || !occ.generatedFor) continue;
-    const originalStart = localToInstant(occ.generatedFor, previous.startMinute, tz).getTime();
-    const originalEnd = localToInstant(occ.generatedFor, previous.endMinute, tz).getTime();
-    if (occ.startsAt.getTime() !== originalStart || occ.endsAt.getTime() !== originalEnd || occ.roomId !== previous.roomId) {
+    // Référence = le patron TEL QU'IL ÉTAIT À LA GÉNÉRATION de cette occurrence (instantané), pas le patron
+    // avant cette modification : une édition précédente sans propagation laisse des occurrences « en retard »
+    // qui, elles, doivent être mises à jour ; seule une modification à la main les distingue.
+    const base = occ.generatedFrom ?? { startMinute: previous.startMinute, endMinute: previous.endMinute, roomId: previous.roomId };
+    const originalStart = localToInstant(occ.generatedFor, base.startMinute, tz).getTime();
+    const originalEnd = localToInstant(occ.generatedFor, base.endMinute, tz).getTime();
+    if (occ.startsAt.getTime() !== originalStart || occ.endsAt.getTime() !== originalEnd || occ.roomId !== base.roomId) {
       report.skipped.push({ occurrenceId: id, occursOn: occ.occursOn, reason: "MANUALLY_MODIFIED", message: "Séance déplacée ou modifiée à la main : conservée telle quelle." });
       continue;
     }
@@ -414,6 +418,7 @@ async function propagateEntry(deps: SchedulingDeps, ctx: RequestContext, tx: Tx,
           await occRepo.insertStaff(sp, ctx.tenantId, add.map((a) => ({ id: deps.newId(), occurrenceId: id, staffId: a.staffId, role: a.role, replacesStaffId: null, isPaidRole: a.role !== "SUPERVISOR" || settings.supervisorsPaid })));
         }
         await occRepo.updateDescriptive(sp, id, { title: next.title, deliveryMode: next.deliveryMode }, now);
+        await occRepo.setGeneratedFrom(sp, id, { startMinute: next.startMinute, endMinute: next.endMinute, roomId: next.roomId }, now);
         await setChangeReason(sp, null);
       });
       report.updated += 1;

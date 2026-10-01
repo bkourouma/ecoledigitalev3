@@ -401,6 +401,7 @@ async function runBatch(
         academicYearId: p.timetable.academicYearId,
         timetableEntryId: e.id,
         generatedFor: c.generatedFor,
+        generatedFrom: { startMinute: e.startMinute, endMinute: e.endMinute, roomId: e.roomId },
         kind: e.kind,
         title: e.title,
         classroomId: e.classroomId,
