@@ -46,7 +46,9 @@ export function validateEntries(entries: unknown, source: string, schema: string
   return entries.map((raw, index) => {
     const where = `${source} [entrée ${index}]`;
     if (!raw || typeof raw !== "object") throw new AllowlistError(`${where} : objet { table, reason } attendu.`);
-    const { table, reason } = raw as Partial<AllowlistEntry>;
+    // `justification` est accepté comme alias de `reason` (modules rbac, tenancy, entitlements, audit).
+    const { table } = raw as Partial<AllowlistEntry>;
+    const reason = (raw as { reason?: unknown; justification?: unknown }).reason ?? (raw as { justification?: unknown }).justification;
     if (typeof table !== "string" || !TABLE_RE.test(table)) {
       throw new AllowlistError(`${where} : "table" doit être de la forme schema.table (minuscules).`);
     }
@@ -99,7 +101,11 @@ export async function loadIsolationAllowlist(
     const loaded = await importer(join(modulesDir, file));
     add(validateEntries(unwrapDefault(loaded), file, moduleKey), file);
 
-    const fixtures = (loaded as { fixtures?: unknown }).fixtures;
+    // Fixtures : export `fixtures`, ou l'unique export nommé `<module>IsolationFixtures`.
+    const loadedRecord = loaded as Record<string, unknown>;
+    const fixtures =
+      loadedRecord.fixtures ??
+      Object.entries(loadedRecord).find(([name]) => /IsolationFixtures$/.test(name))?.[1];
     if (fixtures !== undefined) {
       if (!fixtures || typeof fixtures !== "object" || Array.isArray(fixtures)) {
         throw new AllowlistError(`${file} : "fixtures" doit être un objet { "schema.table": { colonne: valeur } }.`);

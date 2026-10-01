@@ -41,3 +41,5 @@ export const auditIsolationFixtures: Record<string, Record<string, unknown>> = {
   },
   "audit.chain_heads": { last_seq: 1, last_hash: "1".repeat(64) },
 };
+
+export default AUDIT_ISOLATION_ALLOWLIST;

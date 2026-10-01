@@ -105,7 +105,23 @@ export async function runGlobalIsolationCheck(options: GlobalIsolationOptions): 
     const admin = new Client({ connectionString: dbAdminUrl });
     await admin.connect();
     try {
-      const allowedSchemas = new Set(["public", "information_schema", ...schemas]);
+      // Un module peut posséder un schéma d'archive `<clé>_archive` (partitions détachées, ex. audit_archive).
+      // Il contient des données de tous les tenants sans RLS : `app_user` ne doit y avoir AUCUN droit d'usage.
+      const archiveSchemas = schemas.map((s) => `${s}_archive`);
+      const allowedSchemas = new Set(["public", "information_schema", ...schemas, ...archiveSchemas]);
+      for (const archive of archiveSchemas) {
+        const { rows } = await admin.query(
+          `SELECT n.nspname FROM pg_namespace n
+            WHERE n.nspname = $1 AND has_schema_privilege('app_user', n.oid, 'USAGE')`,
+          [archive],
+        );
+        for (const row of rows as Array<{ nspname: string }>) {
+          violations.push({
+            table: `${row.nspname}.*`,
+            problem: `le schéma d'archive "${row.nspname}" est accessible à app_user (sans RLS, il contient des données de tous les tenants)`,
+          });
+        }
+      }
       const extraSchemas = (
         await admin.query(
           `SELECT nspname FROM pg_namespace
