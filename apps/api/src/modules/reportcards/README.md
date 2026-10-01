@@ -77,7 +77,7 @@ Publiés (payload `{ v: 1, … }`, schémas dans `packages/contracts/src/v2/repo
 
 ## Audit (`runtime.auditPort`, même transaction, en dernier)
 
-`reportcards.batch.generated`, `report_card.reissued`, `.published`, `.withdrawn`, `.revoked`, `.downloaded` (famille : sensible), `.explain_read`,
+`reportcards.batch.generated`, `batch.resumed`, `report_card.reissued`, `.published`, `.withdrawn`, `.revoked`, `.downloaded` (famille : sensible), `.explain_read`,
 `report_cards.published` (lot), `transcript.issued`, `branding.updated`, `signatory.created|updated`, `template_config.updated`, `settings.updated`,
 `integrity.mismatch` ; journal de plateforme : `template.published|retired`, `signing_key.retired`.
 
@@ -124,6 +124,9 @@ accès (gestion, élève, tuteur lié/non lié, autre tenant), vérification pub
 ## Limites connues
 
 - Écrans web, E2E « année simulée » et suppression du legacy (T-WEB-*, T-E2E, T-CLEAN) : hors de ce module.
+- Équité du rendu entre tenants (file limitée par tenant, plan §T-RENDER) : non implémentée — le rendu passe par la file BullMQ de l'abonné (concurrence 2 par instance) ; un très gros tenant peut retarder les autres. À traiter avec la capacité réelle du worker.
+- Un lot est écrit dans UNE transaction (≈ 12 à 25 ms par bulletin) : au-delà de quelques milliers d'inscriptions, découper par `enrollmentIds`.
+- Reprise : rejouer le même lot (même clé) ne retraite que les inscriptions non encore émises (échecs, exclusions réévaluées, inscrits tardifs) ; rien n'est recréé.
 - Gabarits **génériques** : les modèles officiels (primaire, secondaire) sont à fournir ; ils s'ajouteront comme nouvelles versions de gabarit sans livraison de code.
 - La vérification publique ne sait résoudre que `REPORT_CARD` et `TRANSCRIPT` ; 019 / 032 inscrivent leurs codes avec `registerVerificationFor` et devront fournir leur résolveur de statut.
 - Polices : familles génériques (Chromium embarque les glyphes utilisés dans le PDF) ; aucune police propriétaire n'est livrée.

@@ -14,6 +14,7 @@ import { REPORTCARDS_PACK_LIST } from "../domain/constants";
 import * as refRepo from "../infrastructure/reference-repository";
 import { actorLabel, inTx, EventBuffer, type ReportcardsDeps } from "./deps";
 import type { PreflightIssue } from "./context";
+import { ensureBuiltinTemplates } from "./platform";
 import { MAX_ASSET_BYTES, buildVerificationInfo, detectImageMime } from "./render-support";
 
 const userOf = (ctx: RequestContext): string => ctx.userId ?? ctx.tenantId;
@@ -191,7 +192,16 @@ export async function updateSignatory(
 // ---------------------------------------------------------------------------
 
 export async function listAvailableTemplates(deps: ReportcardsDeps, ctx: RequestContext): Promise<Result<PlatformTemplate[], AppError>> {
-  return inTx(deps, ctx, async (tx) => ok(await refRepo.listPlatformTemplates(tx, { status: "PUBLISHED" })), { readOnly: true });
+  const read = (): Promise<Result<PlatformTemplate[], AppError>> => inTx(deps, ctx, async (tx) => ok(await refRepo.listPlatformTemplates(tx, { status: "PUBLISHED" })), { readOnly: true });
+  const first = await read();
+  // Catalogue vide (l'amorçage `tenancy.tenant.provisioned` n'a pas eu lieu : tenant antérieur au module, worker arrêté) :
+  // les gabarits livrés sont publiés à la demande (idempotent, table globale, acteur système).
+  if (first.ok && first.value.length === 0 && deps.systemDb) {
+    const seeded = await ensureBuiltinTemplates(deps);
+    if (!seeded.ok) deps.logger.warn({ code: seeded.error.code }, "reportcards : amorçage des gabarits de plateforme impossible");
+    else return read();
+  }
+  return first;
 }
 
 export async function listTemplateConfigs(deps: ReportcardsDeps, ctx: RequestContext, input: { institutionId?: Uuid | null; documentKind?: DocumentKind; history?: boolean }): Promise<Result<TemplateConfig[], AppError>> {

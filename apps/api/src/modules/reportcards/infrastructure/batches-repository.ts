@@ -39,15 +39,29 @@ export async function insertBatch(tx: Tx, b: NewBatch): Promise<BatchRecord> {
   return toBatch(rows[0]!);
 }
 
-export async function insertBatchItem(
+/** Résultat d'une inscription dans le lot ; une REPRISE du lot remplace l'issue précédente (échec -> émis, exclu -> émis…). */
+export async function upsertBatchItem(
   tx: Tx,
   item: { id: Uuid; tenantId: Uuid; batchId: Uuid; enrollmentId: Uuid; reportCardId: Uuid | null; outcome: "ISSUED" | "EXCLUDED" | "FAILED"; reasonCode: string | null; message: string | null },
 ): Promise<void> {
   await tx.query(
     `INSERT INTO reportcards.batch_items (id, tenant_id, batch_id, enrollment_id, report_card_id, outcome, reason_code, message)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+     ON CONFLICT (batch_id, enrollment_id) DO UPDATE
+        SET report_card_id = EXCLUDED.report_card_id, outcome = EXCLUDED.outcome, reason_code = EXCLUDED.reason_code, message = EXCLUDED.message`,
     [item.id, item.tenantId, item.batchId, item.enrollmentId, item.reportCardId, item.outcome, item.reasonCode, item.message],
   );
+}
+
+export async function countBatchItems(tx: Tx, batchId: Uuid): Promise<{ issued: number; excluded: number; failed: number }> {
+  const row = await tx.queryOne<{ issued: string; excluded: string; failed: string }>(
+    `SELECT count(*) FILTER (WHERE outcome = 'ISSUED')::text AS issued,
+            count(*) FILTER (WHERE outcome = 'EXCLUDED')::text AS excluded,
+            count(*) FILTER (WHERE outcome = 'FAILED')::text AS failed
+       FROM reportcards.batch_items WHERE batch_id = $1`,
+    [batchId],
+  );
+  return { issued: Number(row?.issued ?? 0), excluded: Number(row?.excluded ?? 0), failed: Number(row?.failed ?? 0) };
 }
 
 export async function listBatchItems(tx: Tx, batchId: Uuid): Promise<BatchItemRecord[]> {
@@ -58,11 +72,11 @@ export async function listBatchItems(tx: Tx, batchId: Uuid): Promise<BatchItemRe
   return rows.map(toBatchItem);
 }
 
-export async function setBatchCounts(tx: Tx, id: Uuid, counts: { issued: number; excluded: number; failed: number; status: BatchStatus; finishedAt?: Date | null }): Promise<BatchRecord> {
+export async function setBatchCounts(tx: Tx, id: Uuid, counts: { issued: number; excluded: number; failed: number; total?: number; status: BatchStatus; finishedAt?: Date | null }): Promise<BatchRecord> {
   const rows = await tx.many(
-    `UPDATE reportcards.batches SET issued = $2, excluded = $3, failed = $4, status = $5, finished_at = coalesce($6, finished_at)
+    `UPDATE reportcards.batches SET issued = $2, excluded = $3, failed = $4, status = $5, total = coalesce($6, total), finished_at = CASE WHEN $5 = 'RENDERING' THEN NULL ELSE coalesce($7, finished_at) END
       WHERE id = $1 RETURNING ${BATCH_COLUMNS}`,
-    [id, counts.issued, counts.excluded, counts.failed, counts.status, counts.finishedAt ?? null],
+    [id, counts.issued, counts.excluded, counts.failed, counts.status, counts.total ?? null, counts.finishedAt ?? null],
   );
   return toBatch(rows[0]!);
 }

@@ -258,8 +258,26 @@ export async function createBatch(deps: ReportcardsDeps, ctx: RequestContext, in
   const scope = roster.filter((r) => !wanted || wanted.has(r.enrollmentId));
   const unknownIds = wanted ? [...wanted].filter((id) => !roster.some((r) => r.enrollmentId === id)) : [];
 
+  // Reprise : rejouer un lot (même clé) ne retraite que ce qui n'est pas encore ÉMIS — échecs, exclusions réévaluées, inscrits
+  // tardifs — sans jamais recréer ni toucher un bulletin déjà émis. Un rejeu qui ne change rien est neutre (aucune écriture).
+  const prior = await inTx(
+    deps,
+    ctx,
+    async (tx) => {
+      const b = await batchRepo.findBatchByKey(tx, idempotencyKey);
+      return ok(b ? { batch: b, items: await batchRepo.listBatchItems(tx, b.id) } : null);
+    },
+    { readOnly: true },
+  );
+  if (!prior.ok) return prior;
+  const issuedBefore = new Set((prior.value?.items ?? []).filter((i) => i.outcome === "ISSUED").map((i) => i.enrollmentId));
+  const pending = scope.filter((r) => !issuedBefore.has(r.enrollmentId));
+  const knownBefore = new Set((prior.value?.items ?? []).map((i) => i.enrollmentId));
+  const pendingUnknown = unknownIds.filter((id) => !knownBefore.has(id));
+  if (prior.value && pending.length === 0 && pendingUnknown.length === 0) return ok({ batch: prior.value.batch, items: prior.value.items, replayed: true });
+
   // Lecture des résultats (ports) AVANT la transaction d'écriture : aucun appel externe pendant qu'une transaction est ouverte.
-  const toRead = scope.filter((r) => r.outcome === "FINAL");
+  const toRead = pending.filter((r) => r.outcome === "FINAL");
   const bundles = new Map<Uuid, FinalResultBundle | null | "ERROR">();
   await mapLimit(toRead, 8, async (r) => {
     try {
@@ -273,38 +291,40 @@ export async function createBatch(deps: ReportcardsDeps, ctx: RequestContext, in
 
   return inTx<BatchView>(deps, ctx, async (tx) => {
     await lockKey(tx, ctx, "batch", `${input.classroomId}:${input.academicPeriodId}:${kind}`);
-    const replay = await batchRepo.findBatchByKey(tx, idempotencyKey);
-    if (replay) return ok({ batch: replay, items: await batchRepo.listBatchItems(tx, replay.id), replayed: true });
-
+    const existing = await batchRepo.findBatchByKey(tx, idempotencyKey);
+    const priorItems = existing ? await batchRepo.listBatchItems(tx, existing.id) : [];
+    const priorBy = new Map(priorItems.map((i) => [i.enrollmentId, i]));
     const events = new EventBuffer(deps, ctx);
     const issuedAt = deps.clock.now();
-    const batch = await batchRepo.insertBatch(tx, {
-      id: deps.newId(),
-      tenantId: ctx.tenantId,
-      documentKind: kind,
-      classroomId: input.classroomId,
-      academicPeriodId: input.academicPeriodId,
-      resultsStateId: state.stateId,
-      resultsVersion: state.resultsVersion,
-      idempotencyKey,
-      provisional,
-      total: scope.length + unknownIds.length,
-      requestedBy: ctx.userId,
-      requestedAt: issuedAt,
-    });
+    const batch =
+      existing ??
+      (await batchRepo.insertBatch(tx, {
+        id: deps.newId(),
+        tenantId: ctx.tenantId,
+        documentKind: kind,
+        classroomId: input.classroomId,
+        academicPeriodId: input.academicPeriodId,
+        resultsStateId: state.stateId,
+        resultsVersion: state.resultsVersion,
+        idempotencyKey,
+        provisional,
+        total: scope.length + unknownIds.length,
+        requestedBy: ctx.userId,
+        requestedAt: issuedAt,
+      }));
 
-    let issued = 0;
-    let excluded = 0;
-    let failed = 0;
+    let changed = !existing;
     const record = async (enrollmentId: Uuid, outcome: "ISSUED" | "EXCLUDED" | "FAILED", reportCardId: Uuid | null, reasonCode: string | null, message: string | null): Promise<void> => {
-      await batchRepo.insertBatchItem(tx, { id: deps.newId(), tenantId: ctx.tenantId, batchId: batch.id, enrollmentId, reportCardId, outcome, reasonCode, message });
-      if (outcome === "ISSUED") issued += 1;
-      else if (outcome === "EXCLUDED") excluded += 1;
-      else failed += 1;
+      const prev = priorBy.get(enrollmentId);
+      if (prev && prev.outcome === outcome && prev.reasonCode === reasonCode && prev.reportCardId === reportCardId) return;
+      changed = true;
+      await batchRepo.upsertBatchItem(tx, { id: deps.newId(), tenantId: ctx.tenantId, batchId: batch.id, enrollmentId, reportCardId, outcome, reasonCode, message });
     };
 
-    for (const id of unknownIds) await record(id, "EXCLUDED", null, "NOT_IN_CLASS", "Cette inscription n'appartient pas à la classe pour cette période.");
+    for (const id of unknownIds) if (!priorBy.has(id)) await record(id, "EXCLUDED", null, "NOT_IN_CLASS", "Cette inscription n'appartient pas à la classe pour cette période.");
     for (const entry of scope) {
+      if (priorBy.get(entry.enrollmentId)?.outcome === "ISSUED") continue; // déjà émis (par ce lot) : jamais retraité
+      if (entry.outcome === "FINAL" && !bundles.has(entry.enrollmentId)) continue; // devenu éligible entre-temps : traité au prochain rejeu
       if (entry.outcome !== "FINAL") {
         await record(entry.enrollmentId, "EXCLUDED", null, entry.outcome === "ERROR" ? "RESULT_ERROR" : "NO_FINAL_RESULT", entry.outcome === "ERROR" ? "Erreur de calcul : aucun bulletin n'est émis pour cette inscription." : "Aucun résultat définitif pour cette inscription.");
         continue;
@@ -358,13 +378,16 @@ export async function createBatch(deps: ReportcardsDeps, ctx: RequestContext, in
       }
     }
 
-    await batchRepo.setBatchCounts(tx, batch.id, { issued, excluded, failed, status: "RENDERING" });
+    if (existing && !changed) return ok({ batch: existing, items: priorItems, replayed: true }); // rejeu sans effet
+    const counts = await batchRepo.countBatchItems(tx, batch.id);
+    const { issued, excluded, failed } = counts;
+    await batchRepo.setBatchCounts(tx, batch.id, { ...counts, total: issued + excluded + failed, status: "RENDERING" });
     const progress = await batchRepo.refreshBatchProgress(tx, batch.id, issuedAt);
     if (progress.justCompleted) {
       events.add(ReportcardsEvents.BATCH_COMPLETED, { v: 1, batchId: batch.id, issued, excluded, failed }, { type: "batch", id: batch.id });
     }
     events.audit({
-      action: "reportcards.batch.generated",
+      action: existing ? "reportcards.batch.resumed" : "reportcards.batch.generated",
       resourceType: "batch",
       resourceId: batch.id,
       sensitive: true,
