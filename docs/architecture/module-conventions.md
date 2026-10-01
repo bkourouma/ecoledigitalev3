@@ -40,3 +40,21 @@ Le registre (`apps/api/src/modules/registry.ts`, agent « platform-api ») déco
 - L'API legacy continue de tourner sur le schéma `public` avec `DATABASE_URL`. Les modules v2 utilisent un pool distinct `V2_DATABASE_URL` (rôle de connexion héritant de `app_user`, jamais superuser).
 - `kernel.tenants` est la source de vérité des modules v2. Pendant la coexistence, elle est alimentée à sens unique depuis `public.tenants` (mêmes UUID) au démarrage et à la création d'un tenant legacy.
 - Le contexte (`RequestContext`) est construit depuis l'authentification legacy existante (JWT) tant que le module `iam` n'a pas pris le relais ; la forme du jeton (`userId`, `tenantId`, `roles`, `activeRole`) est conservée.
+
+## Numérotation des migrations (décision du lead)
+
+Les versions du runner (`schema_migrations.version`) sont **globales à tous les dossiers**. Chaque module reçoit une plage réservée de 100 numéros ; un fichier hors de sa plage est refusé en revue.
+
+| Plage | Propriétaire |
+|-------|--------------|
+| 0001-0099 | `packages/database` (baseline : rôles, kernel, outbox) |
+| 0100-0149 | `tenancy` |
+| 0150-0199 | `entitlements` |
+| 0200-0299 | `rbac` |
+| 0300-0399 | `audit` |
+| 0400-0499 | `iam` |
+| 0500-0599 | `finance` |
+| 0600-0699 | `apps/worker` |
+| 0700+ | modules suivants, attribués dans l'ordre de création (compléter ce tableau) |
+
+Un nouveau module prend la prochaine plage libre et l'inscrit ici dans la même PR.
