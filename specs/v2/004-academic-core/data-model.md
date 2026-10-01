@@ -1060,8 +1060,8 @@ CREATE TRIGGER classrooms_guard BEFORE INSERT OR UPDATE ON academic.classrooms
   FOR EACH ROW EXECUTE FUNCTION academic.classrooms_guard();
 
 -- -----------------------------------------------------------------------------
--- Clôture par classe : l'état EFFECTIF d'une période pour une classe est le plus avancé de
--- (statut de la période, statut de la classe dans la période). Permet de clore les notes d'une
+-- Clôture par classe : l'état EFFECTIF d'une période pour une classe est l'état EXPLICITE de la
+-- classe s'il existe, sinon celui de la période (règle R4 : la classe SURCHARGE). Permet de clore les notes d'une
 -- classe sans clore celles d'une autre (bug historique : la clôture d'un semestre fermait
 -- toutes les cohortes de l'UE, tous noms de classe confondus).
 -- -----------------------------------------------------------------------------
