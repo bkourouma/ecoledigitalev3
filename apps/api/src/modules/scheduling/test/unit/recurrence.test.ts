@@ -98,7 +98,7 @@ describe("expansion d'un patron en occurrences", () => {
     // Dimanche 2026-03-29 : 01:00 → 04:00 local traverse le saut de 02:00 à 03:00 : 2 h d'horloge, 3 h murales.
     const r = expandEntry(entry({ weekday: 7, startMinute: 60, endMinute: 4 * 60 }), timetable({ validFrom: "2026-03-01", validTo: "2026-06-30" }), { from: "2026-03-29", to: "2026-03-29" }, "Europe/Paris", []);
     expect(r.candidates).toHaveLength(1);
-    expect(r.candidates[0]?.endsAt.getTime() - (r.candidates[0]?.startsAt.getTime() ?? 0)).toBe(2 * 3_600_000);
+    expect((r.candidates[0]?.endsAt.getTime() ?? 0) - (r.candidates[0]?.startsAt.getTime() ?? 0)).toBe(2 * 3_600_000);
   });
 
   it("rejouer l'expansion donne exactement les mêmes clés d'idempotence", () => {

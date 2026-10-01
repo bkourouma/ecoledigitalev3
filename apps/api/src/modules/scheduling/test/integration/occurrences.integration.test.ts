@@ -129,13 +129,13 @@ describeIntegration("séances : conflits imposés, cycle de vie, remplacement", 
         "VALIDATION_FAILED",
       );
       const closed = addClass(w, "Master 2 — Droit", { aLaCarte: true });
-      w.academic.offerings.set(closed.offeringId, { ...(w.academic.offerings.get(closed.offeringId) as never), status: "CLOSED" });
+      w.academic.offerings.set(closed.offeringId, { ...(w.academic.offerings.get(closed.offeringId) as object), status: "CLOSED" } as never);
       await expectErr(
         createOccurrence(w.deps, w.ctx, { kind: "LESSON", classroomId: closed.classroomId, curriculumNodeId: closed.nodeId, offeringId: closed.offeringId, claimsClassroom: false, date: D(13), startTime: "08:00", endTime: "09:00", staff: [{ staffId: teacher }] }),
         "scheduling.offering_not_schedulable",
       );
       const windowed = addClass(w, "Master 3 — Droit", { aLaCarte: true });
-      w.academic.offerings.set(windowed.offeringId, { ...(w.academic.offerings.get(windowed.offeringId) as never), startsOn: "2026-11-01", endsOn: "2026-11-30" });
+      w.academic.offerings.set(windowed.offeringId, { ...(w.academic.offerings.get(windowed.offeringId) as object), startsOn: "2026-11-01", endsOn: "2026-11-30" } as never);
       await expectErr(
         createOccurrence(w.deps, w.ctx, { kind: "LESSON", classroomId: windowed.classroomId, curriculumNodeId: windowed.nodeId, offeringId: windowed.offeringId, claimsClassroom: false, date: D(13), startTime: "08:00", endTime: "09:00", staff: [{ staffId: teacher }] }),
         "scheduling.offering_not_schedulable",

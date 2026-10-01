@@ -57,7 +57,7 @@ export function parsePath(path: string): string[] {
   for (const m of path.matchAll(SEGMENT_RE)) {
     if (m[1] !== undefined) out.push(`[${m[1]}]`);
     else if (m[2] !== undefined) out.push(m[2].replace(/\\(.)/g, "$1"));
-    else out.push(m[3]);
+    else out.push(m[3] ?? "");
   }
   return out;
 }
@@ -95,9 +95,10 @@ export function pathMatches(pattern: string, path: string): boolean {
     if (p[i] === "**") return true;
     if (i >= s.length) return false;
     if (p[i] === "*") continue;
-    if (p[i].includes("*")) {
-      if (!segmentToRegex(p[i]).test(s[i])) return false;
-    } else if (p[i] !== s[i]) return false;
+    const pi = p[i] ?? "";
+    if (pi.includes("*")) {
+      if (!segmentToRegex(pi).test(s[i] ?? "")) return false;
+    } else if (pi !== s[i]) return false;
   }
   return i === s.length;
 }
