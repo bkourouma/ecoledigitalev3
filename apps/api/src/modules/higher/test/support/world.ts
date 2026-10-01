@@ -90,9 +90,9 @@ export const CAPS = {
 export async function seedSchool(
   db: HigherTestDb,
   world: TestWorld,
-  options: { students?: number; ues?: ReadonlyArray<{ code: string; credits: number }> } = {},
+  options: { students?: number; ues?: ReadonlyArray<{ code: string; credits: number }>; tenantId?: string } = {},
 ): Promise<School> {
-  const tenantId = await db.createTenant();
+  const tenantId = options.tenantId ?? (await db.createTenant());
   const institutionId = newId();
   const yearId = newId();
   const classroomId = newId();
