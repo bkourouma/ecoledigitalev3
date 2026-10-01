@@ -21,6 +21,8 @@
     "type-check": "echo 'Type check disabled temporarily'",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:v2": "vitest run",
+    "type-check:v2": "tsc -p tsconfig.v2.json",
     "test:coverage": "jest --coverage",
     "test:file-access": "tsx scripts/test-report-card-file-access.ts",
     "test:file-routes": "tsx scripts/test-file-routes.ts",
@@ -30,6 +32,8 @@
     "@aws-sdk/client-s3": "^3.864.0",
     "@aws-sdk/s3-request-presigner": "^3.864.0",
     "@ecoledigitale/contracts": "workspace:*",
+    "@ecoledigitale/database": "workspace:*",
+    "@ecoledigitale/kernel": "workspace:*",
     "@fastify/cors": "^9.0.1",
     "@fastify/helmet": "^11.1.1",
     "@fastify/multipart": "^7.7.3",
@@ -83,6 +87,7 @@
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.1",
     "tsx": "^4.20.4",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }

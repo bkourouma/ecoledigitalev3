@@ -113,6 +113,7 @@ import { notificationsInboxRoutes } from "./routes/notifications-inbox";
 import { initializeReservationCleanupJob } from "./jobs/reservation-cleanup.job";
 import { rsoActivityRoutes } from "./routes/rso/activities";
 import { bootstrapSuperAdmin } from "./services/super-admin-bootstrap.service";
+import { registerV2Platform } from "./platform/v2-bootstrap";
 import {
   ensureReferenceTenant,
   syncTechnicalAccountsForAllTenants,
@@ -183,6 +184,10 @@ async function start() {
     // Register auth and audit plugins after public auth routes.
     await fastify.register(authMiddleware);
     await fastify.register(superAdminAuditPlugin);
+
+    // Plateforme v2 (registre de modules, TenantDb, request.ctx) : sans aucun effet tant que
+    // V2_DATABASE_URL est absent ; enregistrée après l'authentification legacy dont elle dérive le contexte.
+    await registerV2Platform(fastify, { legacyPool: fastify.pg });
 
     // Super-admin routes
     await fastify.register(superAdminTenantsRoutes, { prefix: "/api/v1/super-admin/tenants" });

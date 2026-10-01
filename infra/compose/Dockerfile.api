@@ -34,6 +34,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/utils/package.json ./packages/utils/
+# Plateforme v2 : apps/api en depend (workspace:*) ; sans ces manifestes l'installation figee echoue.
+COPY packages/kernel/package.json ./packages/kernel/
+COPY packages/database/package.json ./packages/database/
 # Cache BuildKit du store pnpm, partage par les trois images via id=pnpm-store
 # (meme pnpm-lock.yaml). Sans lui : "reused 0, downloaded 1329" a chaque build,
 # le COPY . . de l etape builder invalidant la couche des qu une source change.
@@ -79,12 +82,16 @@ COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=deps --chown=nodejs:nodejs /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps --chown=nodejs:nodejs /app/packages/contracts/node_modules ./packages/contracts/node_modules
 COPY --from=deps --chown=nodejs:nodejs /app/packages/utils/node_modules ./packages/utils/node_modules
+COPY --from=deps --chown=nodejs:nodejs /app/packages/kernel/node_modules ./packages/kernel/node_modules
+COPY --from=deps --chown=nodejs:nodejs /app/packages/database/node_modules ./packages/database/node_modules
 
 # Source — tsx compiles on the fly from these
 COPY --chown=nodejs:nodejs package.json pnpm-workspace.yaml ./
 COPY --chown=nodejs:nodejs apps/api ./apps/api
 COPY --chown=nodejs:nodejs packages/contracts ./packages/contracts
 COPY --chown=nodejs:nodejs packages/utils ./packages/utils
+COPY --chown=nodejs:nodejs packages/kernel ./packages/kernel
+COPY --chown=nodejs:nodejs packages/database ./packages/database
 
 # Point de montage du volume api_uploads (FILE_STORAGE_PATH, voir
 # docker-compose.yml). Un volume nomme neuf herite du proprietaire du

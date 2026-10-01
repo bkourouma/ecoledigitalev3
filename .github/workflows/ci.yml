@@ -322,6 +322,91 @@ jobs:
         run: pnpm --filter ${{ matrix.filter }} build
 
   # ---------------------------------------------------------------------------
+  # Plateforme v2 (modular monolith) -- TOUS BLOQUANTS, aucune dette connue.
+  # ---------------------------------------------------------------------------
+
+  # Frontieres entre modules et purete des packages (.dependency-cruiser.cjs) :
+  # un module n'importe d'un autre que son index.ts ; domain/ sans pg/fastify/infrastructure ;
+  # aucun import du code legacy depuis modules/** ; kernel et rules-engine purs.
+  boundaries:
+    name: frontieres des modules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: dependency-cruiser
+        run: pnpm check:boundaries
+
+  # Tests unitaires des packages v2 et de l'outillage de l'API (Vitest, sans base de donnees :
+  # les tests d'integration s'ignorent sans TEST_DATABASE_URL, ils tournent dans `v2-isolation`).
+  packages-tests:
+    name: tests packages (kernel, rules-engine, database, api v2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: kernel
+        run: pnpm --filter @ecoledigitale/kernel test
+      - name: rules-engine
+        run: pnpm --filter @ecoledigitale/rules-engine test
+      - name: database (unitaires)
+        run: pnpm --filter @ecoledigitale/database test
+      - name: api v2 (registre, plateforme, outillage, modules)
+        run: pnpm --filter @ecoledigitale/api test:v2
+
+  # Isolation multi-tenant sur un vrai Postgres 17 : tests d'integration de packages/database
+  # (RLS, runner de migrations, TenantDb) puis test d'isolation GLOBAL de tous les modules
+  # (base ephemere, baseline + migrations des modules, allowlist centralisee), puis les tests
+  # d'integration de la plateforme API. Le service est JETABLE : les tests creent et suppriment
+  # leurs propres bases et roles (CREATE DATABASE / CREATE ROLE requis).
+  v2-isolation:
+    name: isolation v2 (Postgres 17)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: packages/database (unitaires + integration)
+        run: pnpm --filter @ecoledigitale/database test
+      - name: test d'isolation global
+        run: pnpm test:isolation
+      - name: api v2 (integration, migrations, roles, plateforme de bout en bout)
+        run: pnpm --filter @ecoledigitale/api test:v2
+
+  # ---------------------------------------------------------------------------
   # Agregat : une seule verification a exiger dans la protection de branche.
   # Les jobs `continue-on-error` apparaissent en succes ici, par construction.
   # ---------------------------------------------------------------------------
@@ -336,6 +421,9 @@ jobs:
       - test-web-unit
       - test-api-integration
       - build
+      - boundaries
+      - packages-tests
+      - v2-isolation
     runs-on: ubuntu-latest
     steps:
       - name: Verifier le resultat des jobs
