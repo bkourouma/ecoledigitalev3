@@ -11,6 +11,17 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 8011
+      # Surcharge la valeur du .env (redis://localhost:6379, valable en
+      # developpement local) : dans le reseau compose, Redis est joignable
+      # par le nom de service.
+      REDIS_URL: redis://redis:6379
+      # Repertoire des fichiers deposes (apps/api/src/services/fileStorage.ts
+      # lit FILE_STORAGE_PATH, avec `<cwd>/uploads` par defaut ; le cwd du
+      # conteneur est /app/apps/api). Monte sur le volume nomme ci-dessous pour
+      # survivre aux rebuilds de l'image.
+      FILE_STORAGE_PATH: /app/apps/api/uploads
+    volumes:
+      - api_uploads:/app/apps/api/uploads
     ports:
       - "127.0.0.1:8011:8011"
     restart: unless-stopped
@@ -18,6 +29,8 @@ services:
       - ecoledigitale-network
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8011/api/v1/health || exit 1"]
@@ -117,6 +130,27 @@ services:
       timeout: 5s
       retries: 10
 
+  # Redis : files BullMQ (worker), limitation de debit, cache. Aucun port publie :
+  # seuls les conteneurs du reseau ecoledigitale-network y accedent (redis://redis:6379).
+  # Pas de mot de passe tant que le port n'est pas expose ; en ajouter un
+  # (--requirepass + REDIS_URL) si Redis sort un jour de ce reseau.
+  redis:
+    image: redis:7-alpine
+    container_name: ecoledigitale-redis
+    # AOF : les jobs en file survivent a un redemarrage du conteneur.
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - ecoledigitale-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
   minio:
     image: minio/minio:latest
     container_name: ecoledigitale-minio
@@ -133,16 +167,23 @@ services:
     networks:
       - ecoledigitale-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
+      # `mc ready local` est fourni par l'image ; curl a disparu des images
+      # MinIO recentes, d'ou le repli.
+      test: ["CMD-SHELL", "mc ready local || curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
+      start_period: 15s
 
 volumes:
   postgres_data:
     name: ecoledigitale-postgres-data
   minio_data:
     name: ecoledigitale-minio-data
+  redis_data:
+    name: ecoledigitale-redis-data
+  api_uploads:
+    name: ecoledigitale-api-uploads
 
 networks:
   ecoledigitale-network:

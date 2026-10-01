@@ -1,0 +1,347 @@
+# Integration continue : typecheck, lint, tests unitaires, tests d'integration, build.
+# Le deploiement (self-hosted) reste dans deploy.yml.
+#
+# Politique de blocage
+#   - Tout ce qui passe aujourd'hui est BLOQUANT.
+#   - Ce qui echoue a cause de dette existante est declare `continue-on-error: true`
+#     avec un `# TODO dette:` chiffre. Ces jobs restent visibles (annotation
+#     orange) mais ne bloquent pas la fusion ; on les durcit par etapes :
+#     1. corriger la dette, 2. retirer `continue-on-error` / passer
+#     `allow-failure` a false, 3. retirer le TODO.
+#   - Le job `ci-ok` agrege tous les jobs : c'est lui qu'il faut exiger comme
+#     verification obligatoire dans la protection de branche.
+#
+# Versions : pnpm lue dans `packageManager` (package.json racine, pnpm@10.14.0),
+# Node 20 (les images Docker de prod restent en Node 18, cf. Dockerfile.*).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  # Le client Prisma est genere sans base ; aucune connexion n'est ouverte.
+  PRISMA_HIDE_UPDATE_MESSAGE: "1"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Typecheck (tsc --noEmit) par package.
+  # ---------------------------------------------------------------------------
+  typecheck:
+    name: typecheck (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: ${{ matrix.allow-failure }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: contracts
+            filter: "@ecoledigitale/contracts"
+            prisma: false
+            allow-failure: false
+          - name: ui
+            filter: "@ecoledigitale/ui"
+            prisma: false
+            allow-failure: false
+          - name: formation-pro-public
+            filter: "@ecoledigitale/formation-pro-public"
+            prisma: true
+            allow-failure: false
+          # TODO dette: 1 erreur (TS2307 : `zod` introuvable dans
+          # packages/utils/src/validation.ts, dependance non declaree dans le
+          # package.json du package).
+          - name: utils
+            filter: "@ecoledigitale/utils"
+            prisma: false
+            allow-failure: true
+          # TODO dette: 433 erreurs (tsconfig.json de l'API ; 415 avec
+          # tsconfig.build.json). Le script `type-check` du package est un echo
+          # desactive : on appelle donc tsc directement. Principaux codes :
+          # TS2345 (134), TS2769 (74), TS2352 (56), TS2339 (34).
+          - name: api
+            filter: "@ecoledigitale/api"
+            prisma: true
+            allow-failure: true
+          # TODO dette: ~625 erreurs (TS2339 ~350, TS2307 ~96, TS7006 ~95).
+          # `next build` les ignore (typescript.ignoreBuildErrors: true dans
+          # apps/web/next.config.*), seul ce job les rend visibles.
+          - name: web
+            filter: "@ecoledigitale/web"
+            prisma: false
+            allow-failure: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generer le client Prisma
+        if: ${{ matrix.prisma }}
+        run: pnpm --filter @ecoledigitale/api prisma:generate
+      - name: tsc --noEmit
+        run: pnpm --filter ${{ matrix.filter }} exec tsc --noEmit
+
+  # ---------------------------------------------------------------------------
+  # Lint. Le script `lint` de la racine n'est qu'un `echo` : il n'est PAS utilise
+  # (ce serait un faux succes). On lint les apps qui ont une vraie configuration
+  # ESLint (`next lint`). L'API et les packages n'ont pas d'ESLint.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: lint (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: ${{ matrix.allow-failure }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: formation-pro-public
+            filter: "@ecoledigitale/formation-pro-public"
+            prisma: true
+            allow-failure: false
+          # TODO dette: ~3 570 erreurs et ~210 avertissements (next/core-web-vitals
+          # + next/typescript ; `eslint.ignoreDuringBuilds: true` dans
+          # apps/web/next.config.*). A reduire par lots, puis bloquer.
+          - name: web
+            filter: "@ecoledigitale/web"
+            prisma: false
+            allow-failure: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generer le client Prisma
+        if: ${{ matrix.prisma }}
+        run: pnpm --filter @ecoledigitale/api prisma:generate
+      - name: next lint
+        run: pnpm --filter ${{ matrix.filter }} lint
+
+  # ---------------------------------------------------------------------------
+  # Tests unitaires de l'API (Jest + ts-jest, sans base de donnees).
+  # ---------------------------------------------------------------------------
+  test-api-unit:
+    name: tests unitaires API
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ecoledigitale/api prisma:generate
+      # Bloquant : 25 suites / 242 tests passent. Les 8 suites en echec connues
+      # sont exclues ici et suivies dans le job `test-api-unit-known-failing`.
+      - name: jest (suites saines)
+        working-directory: apps/api
+        run: >-
+          pnpm exec jest --ci
+          --testPathIgnorePatterns
+          "/__tests__/(upload-management|upload-management-complete|owner-routes|require-owner|api-endpoints|owner-prospection-canaux|owner-api-surface|file-serving)\\.test\\.ts$"
+
+  # TODO dette: 8 suites Jest en echec (4 tests en echec, 4 suites qui ne
+  # compilent pas) :
+  #   - owner-routes, require-owner, owner-api-surface : import de
+  #     `@jest/globals` (paquet absent des devDependencies de l'API) ;
+  #   - upload-management, upload-management-complete : `buildApp` n'est plus
+  #     exporte par src/index.ts ;
+  #   - api-endpoints : module ./utils/test-utils introuvable ;
+  #   - owner-prospection-canaux : 1 test en echec ("compteurs a zero") ;
+  #   - file-serving : 3 tests en echec (reponses 400/404 inattendues).
+  # Quand une suite est reparee, la retirer de la regex ci-dessus ET ci-dessous.
+  test-api-unit-known-failing:
+    name: tests unitaires API (suites en echec connues)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    env:
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ecoledigitale/api prisma:generate
+      - name: jest (suites en echec)
+        working-directory: apps/api
+        run: >-
+          pnpm exec jest --ci
+          --testPathPattern
+          "/__tests__/(upload-management|upload-management-complete|owner-routes|require-owner|api-endpoints|owner-prospection-canaux|owner-api-surface|file-serving)\\.test\\.ts$"
+
+  # TODO dette: les 29 fichiers de test du web (apps/web/src/**/__tests__) sont
+  # ecrits pour Jest + Testing Library, mais ni `jest`, ni `jest-environment-jsdom`,
+  # ni `@testing-library/*` ne sont declares dans apps/web/package.json et aucun
+  # script `test` n'existe : `pnpm exec jest` echoue avec "command not found".
+  # Remplacer par un vrai script `test` des que les dependances sont ajoutees.
+  test-web-unit:
+    name: tests unitaires web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: jest (web)
+        run: pnpm --filter @ecoledigitale/web exec jest --ci
+
+  # ---------------------------------------------------------------------------
+  # Integration API sur un vrai Postgres 17 : les migrations Prisma doivent
+  # s'appliquer sur une base vierge (bloquant, c'est le test de non-regression
+  # des migrations), puis on tente les suites qui ont besoin de la base.
+  # ---------------------------------------------------------------------------
+  test-api-integration:
+    name: integration API (Postgres 17)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dbecoledigitale_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dbecoledigitale_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dbecoledigitale_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dbecoledigitale_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ecoledigitale/api prisma:generate
+      - name: Appliquer les migrations Prisma sur base vierge
+        run: pnpm --filter @ecoledigitale/api exec prisma migrate deploy --schema prisma/schema.prisma
+      # TODO dette: aucune suite d'integration n'est executable aujourd'hui.
+      # Les 5 suites de apps/api/src/tests/ (payment-flow.integration,
+      # student-payments, payment-validation, parent-payment-balances,
+      # tresorpay-gateway) ne compilent pas : `@jest/globals` absent, module
+      # `../app` inexistant (buildApp), types de contrats obsoletes. Elles ne sont
+      # d'ailleurs pas dans le `testMatch` par defaut de jest.config.js. Les
+      # tests de tests/integration/ et tests/contract/ (racine du depot) n'ont
+      # aucun runner configure. Resultat actuel : 0 test execute.
+      - name: jest (suites necessitant la base)
+        continue-on-error: true
+        working-directory: apps/api
+        run: >-
+          pnpm exec jest --ci --rootDir .
+          --roots "<rootDir>/src"
+          --testMatch "**/src/tests/**/*.test.ts"
+
+  # ---------------------------------------------------------------------------
+  # Build.
+  # ---------------------------------------------------------------------------
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: ${{ matrix.allow-failure }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Attention : le script de build de l'API se termine par
+          # `|| echo 'Build completed with warnings'` et `--noEmitOnError false` :
+          # il reussit meme avec ~415 erreurs TS (voir job typecheck (api)).
+          # Ce job ne garantit donc que "tsc n'a pas plante".
+          # TODO dette: retirer le repli `|| echo` une fois le typecheck API a zero.
+          - name: api
+            filter: "@ecoledigitale/api"
+            prisma: true
+            allow-failure: false
+          - name: web
+            filter: "@ecoledigitale/web"
+            prisma: false
+            allow-failure: false
+          - name: formation-pro-public
+            filter: "@ecoledigitale/formation-pro-public"
+            prisma: true
+            allow-failure: false
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generer le client Prisma
+        if: ${{ matrix.prisma }}
+        run: pnpm --filter @ecoledigitale/api prisma:generate
+      - name: Cache Next.js
+        if: ${{ matrix.name != 'api' }}
+        uses: actions/cache@v4
+        with:
+          path: apps/${{ matrix.name }}/.next/cache
+          key: nextjs-${{ matrix.name }}-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles(format('apps/{0}/src/**', matrix.name)) }}
+          restore-keys: |
+            nextjs-${{ matrix.name }}-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: build
+        run: pnpm --filter ${{ matrix.filter }} build
+
+  # ---------------------------------------------------------------------------
+  # Agregat : une seule verification a exiger dans la protection de branche.
+  # Les jobs `continue-on-error` apparaissent en succes ici, par construction.
+  # ---------------------------------------------------------------------------
+  ci-ok:
+    name: ci-ok
+    if: ${{ always() }}
+    needs:
+      - typecheck
+      - lint
+      - test-api-unit
+      - test-api-unit-known-failing
+      - test-web-unit
+      - test-api-integration
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verifier le resultat des jobs
+        run: |
+          echo '${{ toJSON(needs) }}'
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "Au moins un job bloquant a echoue."
+            exit 1
+          fi

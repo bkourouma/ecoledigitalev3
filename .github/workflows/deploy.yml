@@ -1,3 +1,4 @@
+# Deploiement uniquement. La CI (typecheck, lint, tests, build) est dans ci.yml.
 name: Deploy to alliance
 
 on:
