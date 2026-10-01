@@ -64,8 +64,16 @@ describe("manifeste du module reportcards", () => {
     const names = Object.keys(own);
     expect(names.length).toBeGreaterThan(60);
     expect(names.filter((n) => !/^(reportcards?|REPORTCARD)/i.test(n))).toEqual([]);
-    const others = new Set(Object.keys(contractsIndex));
-    expect(names.filter((n) => others.has(n))).toEqual([]);
+    // L'index v2 contient désormais aussi ce module : on ne compare qu'aux exports des AUTRES modules.
+    const ownNames = new Set(names);
+    const contractsDir = resolve(__dirname, "../../../../../../../packages/contracts/src/v2");
+    const otherNames = new Set<string>();
+    for (const file of readdirSync(contractsDir).filter((x) => x.endsWith(".ts") && x !== "index.ts" && x !== "reportcards.ts")) {
+      const mod = await import(`@ecoledigitale/contracts/src/v2/${file.slice(0, -3)}`);
+      for (const n of Object.keys(mod)) otherNames.add(n);
+    }
+    expect(names.filter((n) => otherNames.has(n))).toEqual([]);
+    expect(Object.keys(contractsIndex).filter((n) => !ownNames.has(n) && n.startsWith("reportcards"))).toEqual([]);
   });
 
   it("fichiers conventionnels présents ; migrations dans la plage 1300-1399, numérotées, sans trou", () => {
@@ -141,7 +149,8 @@ describe("liste blanche d'isolation", () => {
     expect(reportcardsIsolationAllowlistTables).toEqual(["reportcards.platform_templates", "reportcards.signing_keys", "reportcards.verification_index", "reportcards.file_hash_index"]);
     for (const e of allowlist) expect(e.reason.length).toBeGreaterThanOrEqual(20);
     expect(validateEntries(allowlist, "isolation-allowlist.reportcards.ts", "reportcards")).toHaveLength(4);
-    const loaded = await loadIsolationAllowlist({ knownModules: ["reportcards", "rbac", "audit", "tenancy", "entitlements", "iam", "finance", "platform", "academic", "people", "attendance", "scheduling", "rules"] });
+    const knownModules = readdirSync(resolve(MODULE_DIR, "..")).filter((d) => existsSync(resolve(MODULE_DIR, "..", d, "manifest.ts")));
+    const loaded = await loadIsolationAllowlist({ knownModules });
     expect(loaded.tables).toEqual(expect.arrayContaining(reportcardsIsolationAllowlistTables as string[]));
     expect(Object.keys(fixtures).every((t) => t.startsWith("reportcards."))).toBe(true);
     expect(reportcardsTenantTables).toHaveLength(10);
