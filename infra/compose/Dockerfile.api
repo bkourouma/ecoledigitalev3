@@ -86,6 +86,12 @@ COPY --chown=nodejs:nodejs apps/api ./apps/api
 COPY --chown=nodejs:nodejs packages/contracts ./packages/contracts
 COPY --chown=nodejs:nodejs packages/utils ./packages/utils
 
+# Point de montage du volume api_uploads (FILE_STORAGE_PATH, voir
+# docker-compose.yml). Un volume nomme neuf herite du proprietaire du
+# repertoire de l'image : sans ce mkdir/chown il serait root:root et l'API
+# (utilisateur nodejs) ne pourrait pas y ecrire.
+RUN mkdir -p /app/apps/api/uploads && chown nodejs:nodejs /app/apps/api/uploads
+
 USER nodejs
 WORKDIR /app/apps/api
 
