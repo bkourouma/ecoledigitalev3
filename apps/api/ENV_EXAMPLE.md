@@ -60,33 +60,13 @@ LOG_LEVEL=info
 # =================================================================
 # PAYMENT PROVIDERS
 # =================================================================
-# Orange Money API Configuration
-ORANGE_MONEY_API_URL=https://api.orange.com
-ORANGE_MONEY_CLIENT_ID=your-orange-money-client-id
-ORANGE_MONEY_CLIENT_SECRET=your-orange-money-client-secret
-ORANGE_MONEY_MERCHANT_KEY=your-orange-money-merchant-key
-
-# MTN Money API Configuration
-MTN_MONEY_API_URL=https://api.mtn.com
-MTN_MONEY_SUBSCRIPTION_KEY=your-mtn-money-subscription-key
-MTN_MONEY_USER_ID=your-mtn-money-user-id
-MTN_MONEY_API_SECRET=your-mtn-money-api-secret
-
-# Wave API Configuration
-WAVE_API_URL=https://api.wave.com
-WAVE_API_KEY=your-wave-api-key
-WAVE_BUSINESS_ID=your-wave-business-id
-
-# Bank Card Gateway (CinetPay) Configuration
-CINETPAY_API_URL=https://api.cinetpay.com
-CINETPAY_SITE_ID=your-cinetpay-site-id
-CINETPAY_API_KEY=your-cinetpay-api-key
-
 # TresorPay Configuration
-TRESORPAY_API_URL=https://api.tresorpay.com
+# Paiement des frais de scolarité (services/tresorpay-gateway.service.ts)
+TRESORPAY_BASE_URL=https://api.tresorpay.com/v1
 TRESORPAY_MERCHANT_ID=your-tresorpay-merchant-id
 TRESORPAY_API_KEY=your-tresorpay-api-key
 TRESORPAY_SECRET_KEY=your-tresorpay-secret-key
+TRESORPAY_WEBHOOK_SECRET=your-tresorpay-webhook-secret
 
 # =================================================================
 # EMAIL SERVICE (SMTP)
@@ -100,15 +80,12 @@ SMTP_FROM_NAME=EcoleDigitale
 SMTP_FROM_EMAIL=noreply@ecoledigitale.com
 
 # =================================================================
-# SMS SERVICE (Twilio)
+# SMS SERVICE
 # =================================================================
-TWILIO_ACCOUNT_SID=your-twilio-account-sid
-TWILIO_AUTH_TOKEN=your-twilio-auth-token
-TWILIO_PHONE_NUMBER=+1234567890
-
-# Alternative SMS Provider (if not using Twilio)
-# SMS_PROVIDER_API_URL=https://api.sms-provider.com
-# SMS_PROVIDER_API_KEY=your-sms-provider-api-key
+# Aucun fournisseur SMS n'est branché : services/notification.service.ts simule l'envoi.
+# Le choix du fournisseur (Côte d'Ivoire) reste à faire.
+# SMS_API_KEY=
+# SMS_SENDER_ID=
 
 # =================================================================
 # RSO-PFSO MODULE CONFIGURATION
@@ -184,5 +161,4 @@ RSO_EXPORT_EXPIRY_DAYS=30
 - **MUST set `ENABLE_DEV_BYPASS=false` in production!**
 - Payment provider credentials must be obtained from respective providers
 - SMTP credentials: Use app-specific passwords for Gmail, not your regular password
-- Twilio credentials: Available from Twilio Console dashboard
 

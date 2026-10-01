@@ -45,7 +45,6 @@ Demandez l’adresse exacte à votre administrateur si besoin.
 | Rapport financier | Télécharger un fichier (tableur ou PDF) pour archives ou présentation. |
 | Académique | Lecture seule : moyennes, assiduité, réussite — sans modifier les notes ici. |
 | RH | Enseignants, heures, cours sans titulaire, validations de paie en attente. |
-| Formations | Synthèse des formations professionnelles (si votre établissement les utilise). |
 | Alertes | Points d’attention du système ; vous pouvez les marquer comme traités quand c’est réglé. |
 | Accès | Rôles des utilisateurs (enseignant, admin, parent, etc.), dans les limites du logiciel. |
 

@@ -107,9 +107,7 @@ Module Professionnel
 Opérations Académiques
   ├── Année Académique   → Démarrer Année · Classes · Affectations Cours · Inscriptions
   ├── BTS                → Moyennes semestre
-  ├── Post BTS           → Génération Planning · Calendrier Cours · Statistiques Planning
-  ├── Catalogue Formations → Catalogue · Calendrier des Sessions · Page Publique
-  └── Administration Pro → Gestion des Sessions · Créer une Session · Formateurs
+  └── Post BTS           → Génération Planning · Calendrier Cours · Statistiques Planning
 
 Rémunération
   └── Configuration · Validation des séances · Bulletin de paiement · Historique
@@ -678,82 +676,9 @@ Suivi des Enfants
 
 ---
 
-## A.11 Catalogue et Administration des formations professionnelles
+## A.11 (retirée) Catalogue et Administration des formations professionnelles
 
-*(Formations courtes / e-learning, distinctes du module LMD professionnel.)*
-
-### A.11.1 Catalogue
-
-| | |
-|---|---|
-| **Menu** | Opérations Académiques → Catalogue Formations → Catalogue |
-| **Route** | `/formations-professionnelles/catalogue` |
-
-**Fonctionnalités**
-
-- Parcourir le catalogue (recherche, filtres, tri, pagination).
-- **Créer / modifier** une formation (admin).
-- Consulter la fiche formation et ses sessions.
-
-### A.11.2 Calendrier des Sessions
-
-| | |
-|---|---|
-| **Menu** | Opérations Académiques → Catalogue Formations → Calendrier des Sessions |
-| **Route** | `/formations-professionnelles/sessions` |
-
-**Fonctionnalités**
-
-- Consulter les sessions ouvertes (filtres formation, mode, statut).
-- Accéder à la fiche session et au lien d’inscription.
-
-### A.11.3 Page Publique
-
-| | |
-|---|---|
-| **Menu** | Opérations Académiques → Catalogue Formations → Page Publique |
-| **Route** | `/formations-professionnelles/public` |
-
-**Fonctionnalités**
-
-- Vitrine publique des formations (présentation, achat en ligne).
-- Ouvrir la page publique d’une formation.
-
-### A.11.4 Gestion des Sessions
-
-| | |
-|---|---|
-| **Menu** | Opérations Académiques → Administration Pro → Gestion des Sessions |
-| **Route** | `/formations-professionnelles/admin/sessions` |
-
-**Fonctionnalités**
-
-- Back-office des sessions : filtres, tri, pagination, sélection multiple.
-- **Voir**, **modifier**, **supprimer**.
-
-### A.11.5 Créer une Session
-
-| | |
-|---|---|
-| **Menu** | Opérations Académiques → Administration Pro → Créer une Session |
-| **Route** | `/formations-professionnelles/admin/sessions/creer` |
-
-**Fonctionnalités**
-
-- Assistant (wizard) multi-étapes pour créer une session.
-
-### A.11.6 Formateurs
-
-| | |
-|---|---|
-| **Menu** | Opérations Académiques → Administration Pro → Formateurs |
-| **Route** | `/formations-professionnelles/admin/formateurs` |
-
-**Fonctionnalités**
-
-- Gérer les comptes formateurs des formations courtes.
-- **Créer**, **voir**, **modifier**, **supprimer**.
-- **Réinitialiser le mot de passe** (affichage temporaire).
+Les menus « Catalogue Formations » et « Administration Pro » (formations courtes publiques, sessions, formateurs) ont été supprimés avec le module Imhotep. Le module LMD professionnel (UE/ECUE) n'est pas concerné. Voir `docs/inventory/imhotep-removal-report.md`.
 
 ---
 
@@ -901,7 +826,7 @@ Suivi des Enfants
 
 **Fonctionnalités**
 
-- Onglet **Utilisateurs** : attribuer ou retirer les rôles socle (owner, admin, enseignant, étudiant, parent, formateur).
+- Onglet **Utilisateurs** : attribuer ou retirer les rôles socle (owner, admin, enseignant, étudiant, parent).
 - Onglet **Menus par rôle** : retirer des entrées de menu pour un rôle.
 - Sauvegarde par utilisateur / par rôle.
 
@@ -940,7 +865,6 @@ Suivi des Enfants
 | Structure | CRUD cycles, filières, enseignants, étudiants, parents |
 | Module pro | Catalogue UE/ECUE, cohortes, planning, inscriptions, encaissement, notes, bulletins, diplômes |
 | Année académique | Année, classes, affectations, inscriptions BTS / Post-BTS |
-| Formations courtes | Catalogue, sessions, formateurs |
 | Paie enseignants | Configurer, valider les séances, calculer, archiver, marquer versé |
 | Finances élèves | Barèmes, échéanciers, encaissement, rapports |
 | Gouvernance | Accès, rôles, utilisateurs, messagerie |
@@ -1831,7 +1755,7 @@ L’application fait cohabiter deux filières de gestion :
 
 ## F.5 Profil hors périmètre (rappel)
 
-Un sixième profil existe dans l’application : **Formateur** (`formateur`), dédié aux **formations professionnelles courtes** (planning, sessions, supports, catalogue). Il n’est pas détaillé ici, conformément à la demande (admin, owner, teacher, student, parent).
+Le profil **Formateur** (`formateur`), qui servait au portail des formations professionnelles courtes, n’a plus d’espace dédié : il a été supprimé avec le module Imhotep.
 
 ---
 

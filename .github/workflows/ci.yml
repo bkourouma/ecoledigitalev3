@@ -60,7 +60,7 @@ jobs:
             filter: "@ecoledigitale/utils"
             prisma: false
             allow-failure: true
-          # TODO dette: 433 erreurs (tsconfig.json de l'API ; 415 avec
+          # TODO dette: 344 erreurs (tsconfig.json de l'API ; 415 avec
           # tsconfig.build.json). Le script `type-check` du package est un echo
           # desactive : on appelle donc tsc directement. Principaux codes :
           # TS2345 (134), TS2769 (74), TS2352 (56), TS2339 (34).
