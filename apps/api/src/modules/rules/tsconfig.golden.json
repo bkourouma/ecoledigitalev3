@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Les golden tests importent `tests/characterization/compare.ts` (API de comparaison de la tranche 2.0, non modifiable ici),
+    // écrit sans `noUncheckedIndexedAccess`. Le code de production du module reste intégralement vérifié par `tsconfig.json`.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["test/golden/**/*.ts", "test/support/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

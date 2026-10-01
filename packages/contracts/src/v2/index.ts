@@ -7,5 +7,6 @@ export * from "./iam";
 export * from "./people";
 export * from "./platform";
 export * from "./rbac";
+export * from "./rules";
 export * from "./scheduling";
 export * from "./tenancy";
