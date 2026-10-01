@@ -6,6 +6,7 @@
 import type {
   AcademicConfirmationPolicy,
   AcademicCourseConfirmationPolicy,
+  AcademicCourseSource,
   AcademicCourseStatus,
   AcademicEnrollmentStatus,
 } from "@ecoledigitale/contracts/src/v2/academic";
@@ -152,6 +153,15 @@ export const COURSE_TRANSITIONS: Readonly<Record<AcademicCourseStatus, readonly 
 
 export function canTransitionCourse(from: AcademicCourseStatus, to: AcademicCourseStatus): boolean {
   return COURSE_TRANSITIONS[from].includes(to);
+}
+
+/**
+ * Politique de confirmation EFFECTIVE d'une sélection selon sa source : une option de classe ou une reprise de
+ * dette n'a pas de ligne de facture propre -> confirmée avec l'inscription (`AUTO`) ; une inscription à la carte
+ * ou de rattrapage suit la politique de l'établissement.
+ */
+export function courseConfirmationPolicyFor(source: AcademicCourseSource, policy: AcademicCourseConfirmationPolicy): AcademicCourseConfirmationPolicy {
+  return source === "OPTION" || source === "CARRY_OVER" ? "AUTO" : policy;
 }
 
 /**

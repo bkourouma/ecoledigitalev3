@@ -96,6 +96,15 @@ export async function getPeriod(tx: Tx, id: string, options: { forUpdate?: boole
   return r ? mapPeriod(r) : null;
 }
 
+/** Période du calendrier qui correspond à un créneau de nœud (type + numéro) : la plus haute d'abord. */
+export async function findPeriodBySlot(tx: Tx, yearId: string, typeCode: string, ordinal: number): Promise<AcademicPeriod | null> {
+  const r = await tx.queryOne(
+    `SELECT ${PERIOD_COLS} FROM academic.academic_periods WHERE academic_year_id = $1 AND period_type_code = $2 AND ordinal = $3 ORDER BY (parent_period_id IS NOT NULL), starts_on LIMIT 1`,
+    [yearId, typeCode, ordinal],
+  );
+  return r ? mapPeriod(r) : null;
+}
+
 export async function insertPeriod(
   tx: Tx,
   v: { id: string; academicYearId: string; parentPeriodId: string | null; periodTypeCode: string; ordinal: number; code: string; label: string; startsOn: string; endsOn: string },

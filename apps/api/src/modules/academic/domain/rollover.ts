@@ -67,7 +67,9 @@ export type RolloverAnomalyCode =
   | "funding_to_reconfirm"
   | "redirect_target_missing"
   | "target_classroom_missing"
-  | "target_classroom_full";
+  | "target_classroom_full"
+  | "enrollment_failed"
+  | "student_not_enrollable";
 
 export interface RolloverAnomaly {
   code: RolloverAnomalyCode;

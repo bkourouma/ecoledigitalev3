@@ -1237,10 +1237,10 @@ export const academicRolloverBodySchema = z
   })
   .strict();
 export type AcademicRolloverBody = z.infer<typeof academicRolloverBodySchema>;
-export const academicRolloverPreviewQuerySchema = z.object({ toAcademicYearId: academicUuidSchema });
+export const academicRolloverPreviewQuerySchema = z.object({ toAcademicYearId: academicUuidSchema, createMissingClassrooms: boolQuery.optional() });
 
 export const academicRolloverAnomalySchema = z.object({
-  code: z.enum(["outcome_missing", "next_level_missing", "curriculum_missing", "funding_to_reconfirm", "redirect_target_missing", "target_classroom_missing", "target_classroom_full"]),
+  code: z.enum(["outcome_missing", "next_level_missing", "curriculum_missing", "funding_to_reconfirm", "redirect_target_missing", "target_classroom_missing", "target_classroom_full", "enrollment_failed", "student_not_enrollable"]),
   enrollmentId: academicUuidSchema.nullable(),
   classroomId: academicUuidSchema.nullable(),
   message: z.string(),
