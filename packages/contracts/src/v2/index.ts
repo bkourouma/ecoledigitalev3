@@ -4,4 +4,5 @@ export * from "./finance";
 export * from "./iam";
 export * from "./platform";
 export * from "./rbac";
+export * from "./scheduling";
 export * from "./tenancy";
