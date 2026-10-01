@@ -191,14 +191,23 @@ export interface LastEnrollmentFacts {
 
 export interface ClassroomFacts {
   classroomId: string;
+  /** Nom de la classe (libellé imprimé sur les documents). */
+  name: string;
   institutionId: string;
   campusId: string | null;
   academicYearId: string;
   academicYearStartsOn: string;
   academicYearEndsOn: string;
   programId: string;
+  programCode: string;
+  programLabel: string;
+  academicYearCode: string;
+  academicYearLabel: string;
   educationLevelCode: string;
+  /** Pack du cycle d'enseignement (`PRIMARY`, `SECONDARY`, `HIGHER`, `VIRTUAL`) ; `null` si non renseigné. */
+  pack: "PRIMARY" | "SECONDARY" | "HIGHER" | "VIRTUAL" | null;
   gradeLevelCode: string;
+  gradeLevelLabel: string;
   kind: "CLASS" | "COHORT";
   status: string;
   headcount: number;
