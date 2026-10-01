@@ -3116,6 +3116,305 @@
         "categoriesHint": "Aucune case cochée : toutes les catégories.",
         "submit": "Créer la bourse"
       }
+    },
+    "allocation": {
+      "legend": "Imputation du paiement",
+      "modes": {
+        "AUTO": "Automatique",
+        "MANUAL": "Manuelle",
+        "NONE": "Aucune (acompte)"
+      },
+      "hints": {
+        "AUTO": "L'API impute le paiement sur les échéances ouvertes selon l'ordre choisi.",
+        "MANUAL": "Indiquez, échéance par échéance, le montant à imputer. L'API refuse un total supérieur au paiement ou au reste dû.",
+        "NONE": "Le paiement est enregistré sans être imputé ; il pourra l'être plus tard depuis sa fiche."
+      },
+      "order": "Ordre d'imputation",
+      "orderDefault": "Ordre par défaut de l'établissement",
+      "restrict": "Limiter à certaines factures",
+      "restrictHint": "Aucune case cochée : toutes les factures ouvertes de l'apprenant.",
+      "invoiceLabel": "Facture {number} — reste dû {balance}",
+      "noOpenInvoices": "Aucune facture ouverte pour cet apprenant.",
+      "manualEmpty": "Saisissez au moins un montant à imputer.",
+      "noOpenInstallments": "Aucune échéance ouverte.",
+      "installmentInfo": "Échéance du {due} — reste dû {remaining}",
+      "amountFor": "Montant à imputer — {label}"
+    },
+    "paymentForm": {
+      "title": "Encaisser un paiement",
+      "description": "Espèces, chèque, virement, carte ou mobile money. Le reçu et les imputations sont émis par l'API.",
+      "cancel": "Annuler",
+      "learner": {
+        "title": "Apprenant",
+        "label": "Apprenant",
+        "placeholder": "Rechercher un élève…"
+      },
+      "balance": {
+        "none": "Aucune facture ouverte pour cet apprenant.",
+        "title": "Factures ouvertes",
+        "remaining": "Reste dû {amount}"
+      },
+      "details": {
+        "title": "Paiement",
+        "amount": "Montant encaissé",
+        "method": "Mode de paiement",
+        "reference": "Référence",
+        "referenceHint": "Numéro de chèque, de virement ou de transaction mobile money.",
+        "payerName": "Nom du payeur",
+        "payerNameHint": "Figure sur le reçu.",
+        "payerKind": "Qui paie ?",
+        "payerRef": "Référence du financeur",
+        "payerRefHint": "Identifiant de la bourse ou de la prise en charge.",
+        "noSession": "Aucune session de caisse ouverte : un paiement en espèces doit être rattaché à votre session.",
+        "openSession": "Ouvrir une session de caisse"
+      },
+      "review": "Vérifier et encaisser",
+      "confirm": {
+        "title": "Confirmer l'encaissement",
+        "description": "Relisez avant de valider : un reçu numéroté va être émis et ne pourra plus être modifié.",
+        "learner": "Apprenant",
+        "amount": "Montant",
+        "method": "Mode",
+        "allocation": "Imputation",
+        "modes": {
+          "AUTO": "Automatique",
+          "MANUAL": "Manuelle",
+          "NONE": "Aucune (acompte)"
+        },
+        "retryHint": "Vous pouvez réessayer : la même demande est renvoyée, sans risque de doublon.",
+        "back": "Revenir au formulaire",
+        "sending": "Envoi en cours…",
+        "submit": "Confirmer l'encaissement"
+      },
+      "done": {
+        "title": "Paiement enregistré",
+        "replayed": "Ce paiement avait déjà été enregistré : aucun doublon n'a été créé.",
+        "message": "Le paiement de {amount} a été enregistré.",
+        "receipt": "Reçu",
+        "allocated": "Imputé",
+        "unallocated": "Non imputé",
+        "balanceAfter": "Reste dû après paiement",
+        "allocations": "{count, plural, one {# imputation} other {# imputations}} enregistrée(s).",
+        "printReceipt": "Voir et imprimer le reçu",
+        "details": "Fiche du paiement",
+        "another": "Nouvel encaissement"
+      }
+    },
+    "onlineForm": {
+      "title": "Initier un paiement en ligne",
+      "description": "Mobile money ou carte : le fournisseur confirme le paiement, le statut est suivi ici.",
+      "cancel": "Annuler",
+      "featureOff": "Le paiement en ligne n'est pas inclus dans l'offre de l'établissement.",
+      "learner": "Apprenant",
+      "learnerPlaceholder": "Rechercher un élève…",
+      "amount": "Montant",
+      "provider": "Fournisseur",
+      "providers": {
+        "orange_money": "Orange Money",
+        "mtn_momo": "MTN MoMo",
+        "wave": "Wave",
+        "cinetpay": "CinetPay",
+        "tresorpay": "TrésorPay",
+        "other": "Autre fournisseur"
+      },
+      "otherProvider": "Code du fournisseur",
+      "otherProviderHint": "Minuscules, chiffres et _ (par exemple moov_money).",
+      "invoice": "Facture visée",
+      "invoiceHint": "Facultatif : sinon l'imputation suit l'ordre de l'établissement.",
+      "invoiceAny": "Aucune en particulier",
+      "phone": "Téléphone du payeur",
+      "phoneHint": "Numéro mobile money, avec l'indicatif du pays.",
+      "payerName": "Nom du payeur",
+      "email": "Courriel du payeur",
+      "descriptionLabel": "Libellé",
+      "sending": "Envoi en cours…",
+      "submit": "Lancer le paiement",
+      "started": {
+        "title": "Paiement lancé",
+        "toList": "Retour aux encaissements",
+        "replayed": "Cette demande avait déjà été enregistrée : aucun doublon n'a été créé.",
+        "instructions": "Instructions pour le payeur",
+        "ussd": "Code USSD :",
+        "redirect": "Ouvrir la page de paiement",
+        "another": "Nouveau paiement en ligne"
+      }
+    },
+    "tracker": {
+      "title": "Suivi du paiement",
+      "amount": "Montant : {amount}",
+      "pending": "En attente de la confirmation du fournisseur. Cet écran vérifie régulièrement.",
+      "checkNow": "Vérifier maintenant",
+      "confirmed": "Paiement confirmé par le fournisseur.",
+      "failed": "Paiement échoué : {reason}",
+      "simulated": "Paiement simulé (environnement de test) : il ne peut pas être confirmé en production."
+    },
+    "payments": {
+      "title": "Encaissements",
+      "description": "Paiements reçus, leur imputation et leur reçu.",
+      "new": "Encaisser un paiement",
+      "online": "Paiement en ligne",
+      "export": "Exporter en CSV",
+      "caption": "Liste des paiements",
+      "columns": {
+        "date": "Date",
+        "learner": "Apprenant",
+        "method": "Mode",
+        "status": "Statut",
+        "amount": "Montant",
+        "unallocated": "Non imputé",
+        "reference": "Référence"
+      },
+      "filters": {
+        "learner": "Apprenant",
+        "learnerPlaceholder": "Rechercher un élève…",
+        "status": "Statut",
+        "method": "Mode",
+        "all": "Tous",
+        "from": "Du",
+        "to": "Au"
+      },
+      "empty": "Aucun paiement",
+      "emptyHint": "Modifiez les filtres ou enregistrez un encaissement.",
+      "csv": {
+        "date": "Date",
+        "learner": "Apprenant",
+        "method": "Mode",
+        "status": "Statut",
+        "amount": "Montant",
+        "allocated": "Imputé",
+        "unallocated": "Non imputé",
+        "refunded": "Remboursé",
+        "reference": "Référence"
+      }
+    },
+    "paymentDetail": {
+      "title": "Paiement de {amount}",
+      "subtitle": "{learner} · {method}",
+      "back": "Retour aux encaissements",
+      "receipt": "Reçu {number}",
+      "simulated": "Paiement simulé (environnement de test).",
+      "failed": "Paiement échoué : {reason}",
+      "summary": "Résumé",
+      "amount": "Montant",
+      "allocated": "Imputé",
+      "unallocated": "Non imputé",
+      "refunded": "Remboursé",
+      "receivedAt": "Reçu le",
+      "payer": "Payeur",
+      "reference": "Référence",
+      "cashSession": "Session de caisse",
+      "openSession": "Voir la session",
+      "allocations": {
+        "title": "Imputations",
+        "allocate": "Imputer le solde",
+        "caption": "Imputations du paiement",
+        "invoice": "Facture",
+        "amount": "Imputé",
+        "reversed": "Repris",
+        "net": "Net",
+        "empty": "Aucune imputation",
+        "done": "L'imputation a été enregistrée."
+      },
+      "refunds": {
+        "title": "Remboursements",
+        "request": "Demander un remboursement",
+        "unavailable": "Les remboursements ne sont pas consultables avec vos droits.",
+        "empty": "Aucun remboursement",
+        "requested": "La demande de remboursement a été enregistrée ; une autre personne doit l'approuver."
+      },
+      "allocateDialog": {
+        "title": "Imputer le solde du paiement",
+        "description": "Répartit la part non imputée sur les échéances ouvertes.",
+        "submit": "Imputer"
+      },
+      "refundDialog": {
+        "title": "Demander un remboursement",
+        "description": "Le montant remboursé ne peut pas dépasser ce qui reste du paiement.",
+        "amount": "Montant à rembourser",
+        "reason": "Motif",
+        "reasonHint": "Au moins 5 caractères.",
+        "submit": "Envoyer la demande",
+        "fourEyes": "Un remboursement exige l'approbation d'une autre personne : vous ne pouvez pas approuver votre propre demande."
+      }
+    },
+    "receipts": {
+      "title": "Reçus",
+      "description": "Reçus numérotés des paiements confirmés. Ils sont immuables.",
+      "caption": "Liste des reçus",
+      "columns": {
+        "number": "Numéro",
+        "date": "Date",
+        "learner": "Apprenant",
+        "method": "Mode",
+        "amount": "Montant"
+      },
+      "filters": {
+        "learner": "Apprenant",
+        "learnerPlaceholder": "Rechercher un élève…"
+      },
+      "empty": "Aucun reçu",
+      "emptyHint": "Un reçu est émis à chaque paiement confirmé."
+    },
+    "receiptDetail": {
+      "title": "Reçu {number}",
+      "back": "Retour aux reçus",
+      "print": "Imprimer ou enregistrer en PDF",
+      "document": "Reçu de paiement",
+      "heading": "Reçu de paiement",
+      "date": "Date",
+      "learner": "Apprenant",
+      "payer": "Payeur",
+      "method": "Mode de paiement",
+      "allocations": "Imputations du paiement",
+      "invoice": "Facture",
+      "label": "Échéance",
+      "amount": "Montant",
+      "noAllocations": "Paiement non imputé",
+      "unallocated": "Non imputé",
+      "balanceAfter": "Reste dû après ce paiement",
+      "total": "Montant reçu",
+      "footer": "Reçu émis automatiquement ; il ne peut pas être modifié."
+    },
+    "refunds": {
+      "title": "Remboursements",
+      "description": "Demandes de remboursement, approbation puis exécution.",
+      "fourEyes": "Règle des quatre yeux : la personne qui demande un remboursement ne peut pas l'approuver.",
+      "caption": "Liste des remboursements",
+      "columns": {
+        "requested": "Demandé le",
+        "payment": "Paiement",
+        "amount": "Montant",
+        "reason": "Motif",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "approve": "Approuver",
+      "reject": "Refuser",
+      "execute": "Exécuter",
+      "completed": "Le remboursement a été exécuté.",
+      "filters": {
+        "status": "Statut",
+        "all": "Tous"
+      },
+      "empty": "Aucun remboursement",
+      "emptyHint": "Les demandes apparaissent ici dès qu'elles sont enregistrées depuis la fiche d'un paiement.",
+      "approveDialog": {
+        "title": "Approuver le remboursement",
+        "description": "Vous approuvez un remboursement de {amount}.",
+        "submit": "Approuver",
+        "reason": "Motif de la demande : {reason}",
+        "executeNow": "Exécuter immédiatement",
+        "executeNowHint": "Sinon, le remboursement reste approuvé jusqu'à son exécution."
+      },
+      "approved": "Le remboursement est approuvé.",
+      "approvedAndCompleted": "Le remboursement est approuvé et exécuté.",
+      "rejectDialog": {
+        "title": "Refuser le remboursement",
+        "description": "Le refus est définitif et le motif est conservé.",
+        "reason": "Motif du refus",
+        "confirm": "Refuser"
+      },
+      "rejected": "Le remboursement est refusé."
     }
   }
 }
