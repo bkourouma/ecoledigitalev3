@@ -10,9 +10,6 @@
   "scripts": {
     "dev:api": "pnpm --filter @ecoledigitale/api dev",
     "dev:web": "pnpm --filter @ecoledigitale/web dev",
-    "dev:formation-public": "pnpm --filter @ecoledigitale/formation-pro-public dev",
-    "db:formation-public:apply": "node scripts/prepare-formation-public-db.mjs",
-    "db:formation-public:generate": "corepack pnpm --filter @ecoledigitale/api prisma:generate",
     "dev": "concurrently \"pnpm --filter @ecoledigitale/api dev\" \"pnpm --filter @ecoledigitale/web dev\"",
     "seed": "tsx infra/scripts/seed.ts",
     "seed:programmes": "tsx infra/scripts/seed-programmes.ts",

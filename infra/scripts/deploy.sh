@@ -26,7 +26,7 @@ export ENV_FILE
 dc() { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -p "$PROJECT" "$@"; }
 
 echo "== build images =="
-dc build --pull ecoledigitale-api ecoledigitale-web ecoledigitale-formation-pro
+dc build --pull ecoledigitale-api ecoledigitale-web
 
 echo "== start postgres =="
 dc up -d postgres

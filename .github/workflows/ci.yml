@@ -53,10 +53,6 @@ jobs:
             filter: "@ecoledigitale/ui"
             prisma: false
             allow-failure: false
-          - name: formation-pro-public
-            filter: "@ecoledigitale/formation-pro-public"
-            prisma: true
-            allow-failure: false
           # TODO dette: 1 erreur (TS2307 : `zod` introuvable dans
           # packages/utils/src/validation.ts, dependance non declaree dans le
           # package.json du package).
@@ -107,10 +103,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: formation-pro-public
-            filter: "@ecoledigitale/formation-pro-public"
-            prisma: true
-            allow-failure: false
           # TODO dette: ~3 570 erreurs et ~210 avertissements (next/core-web-vitals
           # + next/typescript ; `eslint.ignoreDuringBuilds: true` dans
           # apps/web/next.config.*). A reduire par lots, puis bloquer.
@@ -291,10 +283,6 @@ jobs:
           - name: web
             filter: "@ecoledigitale/web"
             prisma: false
-            allow-failure: false
-          - name: formation-pro-public
-            filter: "@ecoledigitale/formation-pro-public"
-            prisma: true
             allow-failure: false
     env:
       NEXT_TELEMETRY_DISABLED: "1"
