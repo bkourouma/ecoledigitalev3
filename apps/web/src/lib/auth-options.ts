@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { resolveNextAuthSecret } from "./env.server";
 import { isAuthV2 } from "@/platform/auth/iam-config";
-import { createIamCallbacks, createIamEvents, createIamProviders } from "@/platform/auth/iam-next-auth";
+import { createGoogleSignIn, createIamCallbacks, createIamEvents, createIamProviders } from "@/platform/auth/iam-next-auth";
 
 function apiBaseUrl(): string {
   // Honor an explicit override in any environment so devs running the API on a
@@ -29,6 +29,7 @@ function socialLoginHeaders(): Record<string, string> {
 // Authentification V2 (`NEXT_PUBLIC_AUTH_V2=1`) : identifiants, défi MFA et enrôlement passent par `/api/v1/iam/*`
 // (voir platform/auth/iam-next-auth.ts). Sinon : authentification legacy, inchangée (défaut).
 const AUTH_V2 = isAuthV2();
+const v2GoogleSignIn = createGoogleSignIn();
 
 const googleProvider = GoogleProvider({
   clientId: process.env.GOOGLE_CLIENT_ID || "",
@@ -176,7 +177,17 @@ export const authOptions: NextAuthOptions = {
   secret: resolveNextAuthSecret(),
   debug: process.env.NODE_ENV === "development",
   providers: AUTH_V2 ? [googleProvider, ...createIamProviders()] : [googleProvider, legacyCredentials],
-  callbacks: AUTH_V2 ? { ...createIamCallbacks(), signIn: googleSignIn } : legacyCallbacks,
+  // V2 : Google ouvre une session IAM (route fédérée, secret de service) ; sans `IAM_SERVICE_SECRET`, repli transitoire sur la
+  // connexion legacy (jeton legacy de 24 h valable jusqu'à LEGACY_TOKEN_SUNSET).
+  callbacks: AUTH_V2
+    ? {
+        ...createIamCallbacks(),
+        async signIn(params) {
+          const federated = await v2GoogleSignIn({ user: params.user, account: params.account, profile: params.profile });
+          return federated === null ? googleSignIn(params) : federated;
+        },
+      }
+    : legacyCallbacks,
   ...(AUTH_V2 ? { events: createIamEvents() } : {}),
   pages: {
     signIn: "/login",

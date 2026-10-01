@@ -12,10 +12,12 @@
  * `authenticateSuperAdmin` est fourni. Échec fermé : sans ces ports, ces routes n'existent pas.
  */
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from "fastify";
+import { timingSafeEqual } from "node:crypto";
 import { ZodError, type ZodTypeAny, type z } from "zod";
 import { UnauthorizedError, isAppError, toErrorBody, unwrap } from "@ecoledigitale/kernel";
 import {
   AuthErrorCodes,
+  FederatedLoginRequestSchema,
   ImpersonationRequestSchema,
   LoginRequestSchema,
   LogoutRequestSchema,
@@ -39,8 +41,8 @@ import { TooManyAttemptsError } from "../application/deps";
 import type { MfaSubject } from "../application/mfa";
 import type { AuthenticatedPrincipal, SuperAdminAuthenticator } from "../application/ports";
 import type { IamService } from "../application/service";
-import { peekJwtTyp } from "../domain/tokens";
-import { loadIamConfig } from "../config";
+import { limiterKey, peekJwtTyp } from "../domain/tokens";
+import { loadFederationSecret, loadIamConfig } from "../config";
 import { createIamService } from "../application/service";
 import type { ModuleRuntime } from "../../../platform/runtime";
 import {
@@ -70,6 +72,11 @@ export interface IamPluginOptions {
   authenticateSuperAdmin?: SuperAdminAuthenticator;
   /** Tenant attendu d'après la requête (sous-domaine, en-tête de l'API gateway) : s'il diffère du jeton, refus. */
   expectedTenantSlug?: (request: FastifyRequest) => string | undefined;
+  /**
+   * Connexion fédérée : secret de service du serveur web (`IAM_SERVICE_SECRET`). Sans lui, la route
+   * `/federated-login` n'est pas enregistrée (échec fermé : elle ouvrirait une session pour n'importe quel e-mail).
+   */
+  federationSecret?: string | null;
 }
 
 declare module "fastify" {
@@ -172,6 +179,33 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
     });
     return presentOutcome(reply, config, clock.now(), unwrap(result), body.client);
   });
+
+  // Connexion fédérée (Google) : appelée par le SERVEUR web après vérification OAuth, jamais par un navigateur.
+  const federationSecret = options.federationSecret ? Buffer.from(options.federationSecret) : null;
+  if (federationSecret) {
+    app.post("/federated-login", open, async (request, reply) => {
+      const meta = requestMeta(request);
+      const header = request.headers["x-iam-service-secret"];
+      const given = typeof header === "string" ? Buffer.from(header) : null;
+      const authorized = given !== null && given.length === federationSecret.length && timingSafeEqual(given, federationSecret);
+      if (!authorized) {
+        // Plafond de débit par IP aussi pour les mauvais secrets (devinette) ; réponse identique à un jeton invalide.
+        const hit = await iam.deps.limiter.hit(limiterKey(config.keys.tokenHash, "federated:secret", meta.ip ?? "unknown"), config.loginIpLimit);
+        if (!hit.allowed) throw new TooManyAttemptsError(hit.retryAfterMs);
+        throw new UnauthorizedError("Authentification requise.", { code: AuthErrorCodes.tokenInvalid });
+      }
+      const body = parse(FederatedLoginRequestSchema, request.body);
+      const result = await iam.federatedLogin({
+        provider: body.provider,
+        email: body.email,
+        tenantSlug: body.tenantSlug,
+        activeRole: body.activeRole,
+        deviceName: body.deviceName,
+        meta,
+      });
+      return presentOutcome(reply, config, clock.now(), unwrap(result), body.client);
+    });
+  }
 
   app.post("/mfa/challenge", open, async (request, reply) => {
     const body = parse(MfaChallengeRequestSchema, request.body);
@@ -498,6 +532,7 @@ export default async function iamModulePlugin(app: FastifyInstance, runtime: Mod
   if (!app.iam) throw new Error("iam : `setup` n'a pas été exécuté (app.iam absent).");
   await app.register(iamPlugin, {
     iam: app.iam,
+    federationSecret: loadFederationSecret(runtime.env),
     requirePermission: (permission) => runtime.requirePermission(permission),
     authenticateSuperAdmin: async (request) => {
       try {

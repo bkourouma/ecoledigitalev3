@@ -49,11 +49,13 @@ export function SessionsPage() {
     setBusy(row.id);
     setNotice("");
     try {
-      await iamApi.revokeSession(row.id);
       if (row.current) {
+        // Déconnexion de CET appareil : `signOut` révoque la session IAM côté serveur (events.signOut) puis efface le cookie.
+        // Révoquer d'abord par l'API laisserait des requêtes en vol avec un jeton mort (redirection brutale avant l'effacement du cookie).
         await signOut({ callbackUrl: "/login" });
         return;
       }
+      await iamApi.revokeSession(row.id);
       setNotice("Session révoquée.");
       await load();
     } catch (e) {

@@ -27,6 +27,7 @@
     "lint": "echo \"(optional) add eslint later\"",
     "type-check": "echo \"(optional) add tsc later\"",
     "test:e2e": "playwright test",
+    "test:e2e:auth": "playwright test -c apps/web/playwright.auth-v2.config.ts",
     "test:e2e:moyennes": "playwright test --config apps/web/playwright.config.ts apps/web/e2e/moyennes-semestre.spec.ts --project=chromium",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",

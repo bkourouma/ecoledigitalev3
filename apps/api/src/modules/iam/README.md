@@ -17,7 +17,9 @@ Tables globales justifiées dans `../isolation-allowlist.iam.ts` (à fusionner d
 
 ## Routes `/api/v1/iam`
 
-`POST login`, `mfa/challenge`, `refresh`, `logout`, `logout-all`, `switch-tenant`, `GET me`, `GET sessions`, `DELETE sessions/:id`, `POST password/change|forgot|reset`, `mfa/enroll|verify|disable`.
+`POST login`, `mfa/challenge`, `refresh`, `logout`, `logout-all`, `switch-tenant`, `switch-role`, `GET me`, `GET sessions`, `DELETE sessions/:id`, `POST password/change|forgot|reset`, `mfa/enroll|verify|disable`.
+`POST switch-role` : nouvelle session dans le même établissement avec un autre rôle de l'accès, ancienne révoquée (facteurs conservés ; interdit sous impersonation).
+`POST federated-login` (connexion Google, **seulement si `IAM_SERVICE_SECRET` est défini**, en-tête `x-iam-service-secret`) : appelée par le serveur web après vérification OAuth ; identité existante uniquement (aucune création), `emailVerified: true` exigé, MFA toujours appliquée, facteur `fed`.
 Administration (seulement si `requirePermission` du rbac est fourni) : `GET|POST admin/members`, `PATCH admin/members/:id`, `POST admin/members/:id/sessions/revoke`, `POST admin/members/:id/mfa/reset`.
 Impersonation (seulement si `authenticateSuperAdmin` est fourni) : `POST impersonation`.
 Schémas Zod : `packages/contracts/src/v2/iam.ts`.
@@ -52,6 +54,12 @@ Import legacy : `iam.provisionMember(ctx, { email, roles, passwordHash })` (bcry
 
 Hors module : ajouter `@ecoledigitale/kernel` et `@ecoledigitale/database` aux dépendances de `apps/api` (les tests utilisent des alias, cf. `vitest.config.ts`), un `AccountNotifier` SMTP, Redis.
 
+## Coexistence avec le legacy
+
+`AuthenticatedPrincipal.email` (e-mail normalisé de l'identité) relie l'accès au compte legacy du même tenant (`platform/legacy-iam-bridge.ts`).
+Le mapping des rôles est l'inverse strict de `legacyRoleToTemplate` (`packages/contracts/src/v2/iam-legacy-roles.ts`). Import des
+comptes : `pnpm iam:import-legacy` (`platform/legacy-import.ts`). Plan de bascule : `docs/architecture/auth-cutover.md`.
+
 ## Variables d'environnement (aucun défaut pour les secrets)
 
 | Variable | Rôle |
@@ -60,6 +68,8 @@ Hors module : ajouter `@ecoledigitale/kernel` et `@ecoledigitale/database` aux d
 | `IAM_MFA_ENCRYPTION_KEY` (obligatoire, 32 octets base64) | chiffrement des secrets TOTP ; `IAM_MFA_ENCRYPTION_KEY_PREVIOUS` pour la rotation |
 | `IAM_COOKIE_SECURE` (défaut `true`; `false` interdit en production), `IAM_COOKIE_DOMAIN`, `IAM_ALLOWED_ORIGINS` (liste séparée par des virgules) | cookie et contrôle d'Origin |
 | `IAM_MFA_REQUIRED_ROLES`, `IAM_MFA_TOTP_ISSUER` | politique MFA, libellé `otpauth://` |
+| `IAM_REFRESH_REUSE_GRACE_MS` (0, max 30000) | tolérance des doubles soumissions d'un refresh token ; 0 = toute réutilisation révoque la session |
+| `IAM_SERVICE_SECRET` (facultatif, ≥ 32 car.) | active `POST /federated-login` ; absent = la route n'existe pas |
 | `IAM_ACCESS_TTL_SEC` (900), `IAM_REFRESH_IDLE_TTL_SEC`, `IAM_SESSION_MAX_AGE_SEC`, `IAM_IMPERSONATION_TTL_SEC` (600), `IAM_PASSWORD_MIN_LENGTH` (12), `IAM_SCRYPT_LOG_N` (16) | réglages bornés |
 
 ## Tests

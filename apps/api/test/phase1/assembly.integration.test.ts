@@ -43,6 +43,8 @@ describeIntegration.skipIf(!REDIS_URL)("assemblage : cohabitation legacy / v2 et
     ] as const) {
       expect(p.app.hasRoute({ method, url }), `${method} ${url}`).toBe(true);
     }
+    // La connexion fédérée n'existe que si IAM_SERVICE_SECRET est défini (échec fermé) : absente ici.
+    expect(p.app.hasRoute({ method: "POST", url: "/api/v1/iam/federated-login" })).toBe(false);
     // Avant la correction, tenancy/entitlements/rbac/finance posaient leur préfixe EN PLUS de celui du registre.
     expect(p.app.hasRoute({ method: "GET", url: "/api/v1/tenancy/api/v1/tenancy/institutions" })).toBe(false);
     expect(p.app.hasRoute({ method: "GET", url: "/api/v1/rbac/api/v1/rbac/roles" })).toBe(false);

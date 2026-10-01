@@ -12,6 +12,7 @@ import { createMfaPolicy } from "../domain/mfa-policy";
 import { MemoryRateLimiter } from "../infrastructure/rate-limiter.memory";
 import type { IamDeps, RequestMeta } from "./deps";
 import { login, type LoginInput } from "./login";
+import { federatedLogin, type FederatedLoginInput } from "./federated";
 import * as mfa from "./mfa";
 import * as password from "./password";
 import * as members from "./members";
@@ -56,6 +57,8 @@ export interface IamServiceOptions {
 export interface IamService {
   readonly deps: IamDeps;
   login(input: LoginInput): ReturnType<typeof login>;
+  /** Connexion fédérée (identité déjà vérifiée par le serveur web) : voir application/federated.ts. */
+  federatedLogin(input: FederatedLoginInput): ReturnType<typeof federatedLogin>;
   completeMfaChallenge(input: mfa.ChallengeInput): ReturnType<typeof mfa.completeChallenge>;
   refresh(input: sessionsUc.RefreshInput): ReturnType<typeof sessionsUc.refresh>;
   authenticate(token: string, options?: sessionsUc.AuthenticateOptions): ReturnType<typeof sessionsUc.authenticateBearer>;
@@ -106,6 +109,7 @@ export function createIamService(options: IamServiceOptions): IamService {
   return {
     deps,
     login: (input) => login(deps, input),
+    federatedLogin: (input) => federatedLogin(deps, input),
     completeMfaChallenge: (input) => mfa.completeChallenge(deps, input),
     refresh: (input) => sessionsUc.refresh(deps, input),
     authenticate: (token, opts) => sessionsUc.authenticateBearer(deps, token, opts),

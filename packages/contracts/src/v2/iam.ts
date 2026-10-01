@@ -173,6 +173,23 @@ export const SwitchTenantRequestSchema = z
   .strict();
 export type SwitchTenantRequest = z.infer<typeof SwitchTenantRequestSchema>;
 
+/**
+ * Connexion fédérée (Google), appelée par le SERVEUR web après vérification OAuth. Route protégée par le secret de
+ * service `IAM_SERVICE_SECRET` (en-tête `x-iam-service-secret`) ; `emailVerified` doit valoir `true` (pas supposé).
+ */
+export const FederatedLoginRequestSchema = z
+  .object({
+    provider: z.enum(["google"]),
+    email: IamEmailSchema,
+    emailVerified: z.literal(true),
+    tenantSlug: IamSlugSchema.optional(),
+    activeRole: IamRoleKeySchema.optional(),
+    client: IamClientSchema.default("web"),
+    deviceName: IamDeviceNameSchema.optional(),
+  })
+  .strict();
+export type FederatedLoginRequest = z.infer<typeof FederatedLoginRequestSchema>;
+
 export const SwitchRoleRequestSchema = z
   .object({ activeRole: IamRoleKeySchema, client: IamClientSchema.default("web") })
   .strict();

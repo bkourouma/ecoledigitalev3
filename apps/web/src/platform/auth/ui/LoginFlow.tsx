@@ -43,7 +43,7 @@ export function describeSignInError(error: string): { message: string; step?: "c
 export function LoginFlow() {
   const router = useRouter();
   const params = useSearchParams();
-  const { update } = useSession();
+  const { update, status } = useSession();
   const [step, setStep] = useState<Step>({ kind: "credentials" });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,6 +54,7 @@ export function LoginFlow() {
   const [error, setError] = useState("");
   const heading = useRef<HTMLDivElement>(null);
   const expired = params?.get("expired") === "1";
+  const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "1";
 
   // Le focus suit l'étape (lecteurs d'écran et clavier) : le conteneur de l'étape reçoit le focus à chaque changement.
   useEffect(() => {
@@ -100,6 +101,43 @@ export function LoginFlow() {
     },
     [finish],
   );
+
+  // Retour de la connexion Google (voir iam-next-auth.ts, `createGoogleSignIn`) : la session est ouverte (`social=1`), ou une
+  // étape MFA / une erreur est portée par l'URL. Les jetons d'étape sont retirés de la barre d'adresse dès leur lecture.
+  useEffect(() => {
+    const mfa = params?.get("mfa");
+    const enroll = params?.get("enroll");
+    const err = params?.get("error");
+    if (mfa || enroll || err) window.history.replaceState(window.history.state, "", window.location.pathname);
+    if (mfa) {
+      setStep({ kind: "challenge", token: mfa });
+    } else if (enroll) {
+      void (async () => {
+        try {
+          const enrollment = await iamApi.beginMfaEnrollment(enroll);
+          const qr = await QRCode.toDataURL(enrollment.otpauthUri, { margin: 1, width: 192 });
+          setStep({ kind: "enroll", token: enroll, secret: enrollment.secret, uri: enrollment.otpauthUri, qr });
+        } catch (e) {
+          setError(explainIamError(e));
+        }
+      })();
+    } else if (err) {
+      setError(
+        err === "NO_ACCESS"
+          ? "Aucun compte actif n'est associé à cette adresse Google. Contactez votre établissement."
+          : err === "RATE_LIMITED"
+            ? "Trop de tentatives. Réessayez dans quelques minutes."
+            : err === "GOOGLE_UNVERIFIED"
+              ? "Votre adresse Google n'est pas vérifiée."
+              : "La connexion avec Google a échoué. Réessayez.",
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (params?.get("social") === "1" && status === "authenticated") void finish();
+  }, [params, status, finish]);
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -261,6 +299,11 @@ export function LoginFlow() {
         <Button type="submit" className="h-11 w-full" disabled={busy || !email || !password}>
           {busy ? "Connexion…" : "Se connecter"}
         </Button>
+        {googleEnabled ? (
+          <Button type="button" variant="outline" className="h-11 w-full" disabled={busy} onClick={() => void signIn("google", { callbackUrl: "/login?social=1" })}>
+            Continuer avec Google
+          </Button>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <Link href="/v2/forgot-password" className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">
             Mot de passe oublié ?

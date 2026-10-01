@@ -8,12 +8,15 @@
  * des rôles, impersonation auditée, changement de rôle, rotation du refresh, anti-énumération, verrouillage,
  * Origin/CSRF et MFA obligatoire.
  */
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { describeIntegration } from "../helpers/fixtures";
 import { totpAt } from "../phase1/support/totp";
 import { bootPlatform, type Platform } from "./support";
+
+/** Secret de service de test, aléatoire à chaque exécution (jamais dans le dépôt). */
+const SERVICE_SECRET = randomBytes(24).toString("base64url");
 
 const b64 = (value: unknown): string => Buffer.from(JSON.stringify(value)).toString("base64url");
 const decodePayload = (token: string): Record<string, any> => JSON.parse(Buffer.from(token.split(".")[1] as string, "base64url").toString("utf8"));
@@ -25,7 +28,7 @@ describeIntegration("passerelle IAM -> legacy : authentification assemblée", ()
   const users: Record<string, { identityId: string; legacyUserId: string | null; password: string | undefined; email: string }> = {};
 
   beforeAll(async () => {
-    p = await bootPlatform({ tenants: [{ slug: "ecole-a" }, { slug: "ecole-b" }], extraEnv: { IAM_ALLOWED_ORIGINS: "https://app.example.test" } });
+    p = await bootPlatform({ tenants: [{ slug: "ecole-a" }, { slug: "ecole-b" }], extraEnv: { IAM_ALLOWED_ORIGINS: "https://app.example.test", IAM_SERVICE_SECRET: SERVICE_SECRET } });
     [A, B] = p.tenants as [typeof A, typeof B];
     const add = async (key: string, tenant: typeof A, email: string, roles: string[], legacyRoles?: string[] | null) => {
       const m = await p.member({ tenant, email, roles, ...(legacyRoles !== undefined ? { legacyRoles } : {}) });
@@ -63,6 +66,13 @@ describeIntegration("passerelle IAM -> legacy : authentification assemblée", ()
       const spoofed = await probe(s.accessToken, { "x-user-id": users.admin!.legacyUserId! });
       expect(spoofed.body.xUserId).toBe(users.teacher!.legacyUserId);
       expect(spoofed.body.userId).toBe(users.teacher!.legacyUserId);
+      // /auth/whoami : le web V2 y lit le compte LEGACY du jeton (session.user.id) ; identique pour un jeton legacy ; 401 sans jeton.
+      const who = await p.http("GET", "/api/v1/auth/whoami", { token: s.accessToken });
+      expect(who.status, who.raw).toBe(200);
+      expect(who.body).toMatchObject({ id: users.teacher!.legacyUserId, email: "prof@a.test", activeRole: "teacher", authSource: "iam" });
+      const whoLegacy = await p.http("GET", "/api/v1/auth/whoami", { token: p.legacyToken({ id: users.teacher!.legacyUserId!, tenantId: A.id, tenantSlug: A.slug, role: "teacher" }) });
+      expect(whoLegacy.body).toMatchObject({ id: users.teacher!.legacyUserId, authSource: "legacy" });
+      expect((await p.http("GET", "/api/v1/auth/whoami")).status).toBe(401);
       // Les écritures passent aussi (POST).
       const post = await p.http("POST", "/api/v1/students/probe", { token: s.accessToken, body: {} });
       expect(post.status).toBe(200);
@@ -453,6 +463,52 @@ describeIntegration("passerelle IAM -> legacy : authentification assemblée", ()
   });
 
   // ---------------------------------------------------------------------------------------------------------------
+  describe("connexion fédérée (Google, vérifiée par le serveur web)", () => {
+    const federated = (body: Record<string, unknown>, secret: string | null = SERVICE_SECRET) =>
+      p.http("POST", "/api/v1/iam/federated-login", { body: { provider: "google", emailVerified: true, client: "mobile", ...body }, ...(secret !== null ? { headers: { "x-iam-service-secret": secret } } : {}) });
+
+    it("sans secret de service ou avec un mauvais : 401 identique, aucune session", async () => {
+      for (const secret of [null, "x".repeat(SERVICE_SECRET.length), "court"]) {
+        const res = await federated({ email: "prof@a.test" }, secret);
+        expect(res.status, String(secret)).toBe(401);
+        expect(res.body.code).toBe("iam.token_invalid");
+        expect(res.body.accessToken).toBeUndefined();
+      }
+    });
+
+    it("identité connue : session ouverte (facteur « fed »), utilisable sur les routes legacy ; aucun compte n'est créé", async () => {
+      const ok = await federated({ email: " Prof@A.test ", tenantSlug: "ecole-a" });
+      expect(ok.status, ok.raw).toBe(200);
+      expect(ok.body.status).toBe("authenticated");
+      expect(decodePayload(ok.body.accessToken).amr).toEqual(["fed"]);
+      expect((await probe(ok.body.accessToken)).body.userId).toBe(users.teacher!.legacyUserId);
+
+      const before = (await p.db.admin.query("SELECT count(*)::int AS n FROM iam.identities")).rows[0].n;
+      const unknown = await federated({ email: "inconnu@gmail.test" });
+      expect(unknown.status).toBe(403);
+      expect(unknown.body.code).toBe("iam.no_active_access");
+      expect((await p.db.admin.query("SELECT count(*)::int AS n FROM iam.identities")).rows[0].n).toBe(before);
+    });
+
+    it("la politique MFA s'applique aussi : un rôle sensible n'obtient PAS de session sans second facteur", async () => {
+      const res = await federated({ email: "owner@a.test", tenantSlug: "ecole-a" });
+      expect(res.status, res.raw).toBe(200);
+      expect(["mfa_required", "mfa_enrollment_required"]).toContain(res.body.status);
+      expect(res.body.accessToken).toBeUndefined();
+    });
+
+    it("e-mail non vérifié par le fournisseur ou champ inconnu : refusé par le contrat", async () => {
+      expect((await federated({ email: "prof@a.test", emailVerified: false })).status).toBe(400);
+      expect((await federated({ email: "prof@a.test", isAdmin: true })).status).toBe(400);
+    });
+
+    it("établissement où la personne n'a aucun accès : pas de session", async () => {
+      const denied = await federated({ email: "prof@a.test", tenantSlug: "ecole-b" });
+      expect(denied.status).toBe(403);
+    });
+  });
+
+  // ---------------------------------------------------------------------------------------------------------------
   describe("impersonation super-admin : auditée de bout en bout", () => {
     it("jeton distinct, motif obligatoire, session non renouvelable, interdictions, journal de chaque requête legacy", async () => {
       // Authentification de l'appelant : seul un JWT super-admin legacy ouvre /iam/impersonation.
@@ -483,6 +539,15 @@ describeIntegration("passerelle IAM -> legacy : authentification assemblée", ()
       expect(row[3]).toBe(users.teacher!.legacyUserId); // utilisateur imité
       expect(String(row[5])).toBe("GET");
       expect(String(row[6])).toContain("/api/v1/students/probe");
+
+      // Route d'un module v2 : même journal (acteur réel), l'utilisateur imité n'y figure pas (la FK vise users.id, pas l'identité).
+      const me = await p.http("GET", "/api/v1/iam/me", { token });
+      expect(me.body.impersonatedBy).toBe(p.operatorId);
+      await new Promise((r) => setTimeout(r, 200));
+      const v2Row = p.legacy.superAdminAuditLogs[p.legacy.superAdminAuditLogs.length - 1]!;
+      expect(v2Row[0]).toBe(p.operatorId);
+      expect(String(v2Row[6])).toContain("/api/v1/iam/me");
+      expect(v2Row[3]).toBeNull();
 
       // Une session d'impersonation ne donne pas accès aux routes /super-admin/* (request.superAdmin non posé).
       const superRoute = await p.http("GET", "/api/v1/super-admin/tenants", { token });

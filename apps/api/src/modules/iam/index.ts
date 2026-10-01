@@ -21,7 +21,7 @@ import { peekJwtTyp } from "./domain/tokens";
 export { default as manifest } from "./manifest";
 
 // Configuration
-export { loadIamConfig, buildIamConfig, IamConfigError, type IamConfig, type IamConfigInput } from "./config";
+export { loadIamConfig, loadFederationSecret, buildIamConfig, IamConfigError, type IamConfig, type IamConfigInput } from "./config";
 
 // Composition et use cases
 export { createIamService, createBackgroundTasks, type IamService, type IamServiceOptions } from "./application/service";

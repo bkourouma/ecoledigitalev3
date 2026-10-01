@@ -57,9 +57,9 @@ export function createIamServerClient(options: IamServerClientOptions) {
   async function call<S extends ZodTypeAny>(
     path: string,
     schema: S | null,
-    init: { body?: Json; bearer?: string; hints?: ClientHints; method?: string },
+    init: { body?: Json; bearer?: string; hints?: ClientHints; method?: string; extraHeaders?: Record<string, string>; absolute?: boolean },
   ): Promise<S extends ZodTypeAny ? z.output<S> : undefined> {
-    const headers: Record<string, string> = { Accept: "application/json" };
+    const headers: Record<string, string> = { Accept: "application/json", ...(init.extraHeaders ?? {}) };
     if (init.body !== undefined) headers["Content-Type"] = "application/json";
     if (init.bearer) headers.Authorization = `Bearer ${init.bearer}`;
     if (init.hints?.ip) headers["X-Forwarded-For"] = init.hints.ip;
@@ -69,7 +69,7 @@ export function createIamServerClient(options: IamServerClientOptions) {
     const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 15_000);
     let response: Response;
     try {
-      response = await doFetch(`${base}/api/v1/iam${path}`, {
+      response = await doFetch(init.absolute ? `${base}${path}` : `${base}/api/v1/iam${path}`, {
         method: init.method ?? "POST",
         headers,
         ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
@@ -111,6 +111,30 @@ export function createIamServerClient(options: IamServerClientOptions) {
     /** Enrôlement MFA consécutif à `mfa_enrollment_required` : `Authorization` = jeton d'enrôlement. */
     verifyEnrollment(input: { enrollmentToken: string; code: string }, hints?: ClientHints): Promise<MfaVerifyResponse> {
       return call("/mfa/verify", MfaVerifyResponseSchema, { body: { code: input.code, client: "mobile" }, bearer: input.enrollmentToken, ...(hints ? { hints } : {}) });
+    },
+    /**
+     * Compte LEGACY du jeton d'accès (`GET /api/v1/auth/whoami`, passerelle IAM -> legacy). `null` si l'API legacy ne le
+     * connaît pas (pas de compte legacy, route absente, panne) : l'identifiant de session reste alors celui de l'identité IAM.
+     */
+    async legacyUserId(accessToken: string, hints?: ClientHints): Promise<string | null> {
+      try {
+        const body = await call("/api/v1/auth/whoami", null, { method: "GET", bearer: accessToken, absolute: true, ...(hints ? { hints } : {}) });
+        const id = (body as { id?: unknown } | undefined)?.id;
+        return typeof id === "string" && id.length > 0 ? id : null;
+      } catch {
+        return null;
+      }
+    },
+    /**
+     * Connexion fédérée (Google) : le serveur web a vérifié l'identité (OAuth, `email_verified`) et présente le secret de
+     * service `IAM_SERVICE_SECRET`. iam n'ouvre la session que pour une identité EXISTANTE et applique la politique MFA.
+     */
+    federatedLogin(input: { provider: "google"; email: string; tenantSlug?: string }, serviceSecret: string, hints?: ClientHints): Promise<LoginResponse> {
+      return call("/federated-login", LoginResponseSchema, {
+        body: { ...input, emailVerified: true, client: "mobile" },
+        extraHeaders: { "x-iam-service-secret": serviceSecret },
+        ...(hints ? { hints } : {}),
+      });
     },
     refresh(refreshToken: string, hints?: ClientHints): Promise<RefreshResponse> {
       return call("/refresh", RefreshResponseSchema, { body: { refreshToken, client: "mobile" }, ...(hints ? { hints } : {}) });

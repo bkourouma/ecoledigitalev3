@@ -45,6 +45,12 @@ export interface IamSessionToken {
   jwtExpiresAt?: string;
   iamRefreshToken?: string;
   iamSessionId?: string;
+  /**
+   * Identifiant du compte LEGACY (`users.id`) du même e-mail dans l'établissement courant (`GET /api/v1/auth/whoami`).
+   * `session.user.id` le reprend : les pages et routes proxy existantes l'utilisent comme identifiant d'utilisateur
+   * (profils enseignant / élève, `X-User-Id`…). `userId` reste l'identité IAM globale.
+   */
+  legacyUserId?: string;
   tenants?: IamTenantRef[];
   mfaEnabled?: boolean;
   /** Codes de secours à montrer UNE fois (puis `ack-recovery-codes`). */
@@ -101,6 +107,16 @@ function applyOutcome(token: IamSessionToken, outcome: LoginResponse, now: numbe
   if (outcome.status === "authenticated") return applyAuthenticated(token, outcome, now);
   if (outcome.status === "mfa_required") return { ...token, iamPending: { kind: "mfa_required", token: outcome.challengeToken } };
   return { ...token, iamPending: { kind: "mfa_enrollment_required", token: outcome.enrollmentToken } };
+}
+
+/** Joint le compte legacy au jeton fraîchement émis (nouvelle session, éventuellement autre établissement). Tolérant aux pannes. */
+export async function withLegacyUserId(token: IamSessionToken, client: IamServerClient, hints?: ClientHints): Promise<IamSessionToken> {
+  if (!token.jwtToken || token.iamPending) return token;
+  const id = await client.legacyUserId(token.jwtToken, hints);
+  const next = { ...token };
+  if (id) next.legacyUserId = id;
+  else delete next.legacyUserId;
+  return next;
 }
 
 const inflight = new Map<string, Promise<IamSessionToken>>();
@@ -189,7 +205,7 @@ export async function handleUpdate(token: IamSessionToken, data: unknown, deps: 
       try {
         const next = applyOutcome(token, await deps.client.switchRole(access, iamRole, deps.hints), deps.now());
         // Le rôle vient d'être choisi explicitement : l'écran de choix n'a plus lieu d'être jusqu'à la prochaine connexion.
-        return next.iamPending ? next : { ...next, requiresRoleSelection: false };
+        return next.iamPending ? next : await withLegacyUserId({ ...next, requiresRoleSelection: false }, deps.client, deps.hints);
       } catch (e) {
         return failure(token, "switch-role", e);
       }
@@ -199,7 +215,7 @@ export async function handleUpdate(token: IamSessionToken, data: unknown, deps: 
       const tenantId = str(input.tenantId, 64);
       if (!tenantId || !access) return failure(token, "switch-tenant", new IamApiError({ status: 400, code: "iam.bad_request" }));
       try {
-        return applyOutcome(token, await deps.client.switchTenant(access, tenantId, deps.hints), deps.now());
+        return await withLegacyUserId(applyOutcome(token, await deps.client.switchTenant(access, tenantId, deps.hints), deps.now()), deps.client, deps.hints);
       } catch (e) {
         return failure(token, "switch-tenant", e);
       }
@@ -210,7 +226,7 @@ export async function handleUpdate(token: IamSessionToken, data: unknown, deps: 
       const newPassword = str(input.newPassword);
       if (!currentPassword || !newPassword || !access) return failure(token, "change-password", new IamApiError({ status: 400, code: "iam.bad_request" }));
       try {
-        return applyOutcome(token, await deps.client.changePassword(access, { currentPassword, newPassword }, deps.hints), deps.now());
+        return await withLegacyUserId(applyOutcome(token, await deps.client.changePassword(access, { currentPassword, newPassword }, deps.hints), deps.now()), deps.client, deps.hints);
       } catch (e) {
         return failure(token, "change-password", e);
       }
@@ -224,7 +240,7 @@ export async function handleUpdate(token: IamSessionToken, data: unknown, deps: 
       try {
         const outcome = await deps.client.disableMfa(access, { password, ...(code ? { code } : { recoveryCode: recoveryCode as string }) }, deps.hints);
         const next = applyOutcome(token, outcome, deps.now());
-        return outcome.status === "authenticated" ? { ...next, mfaEnabled: false } : next;
+        return outcome.status === "authenticated" ? await withLegacyUserId({ ...next, mfaEnabled: false }, deps.client, deps.hints) : next;
       } catch (e) {
         return failure(token, "disable-mfa", e);
       }

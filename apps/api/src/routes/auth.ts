@@ -553,6 +553,28 @@ export async function authRoutes(fastify: FastifyInstance) {
     },
   });
 
+  // Qui suis-je pour l'API LEGACY ? Fonctionne avec un jeton legacy ET avec un jeton IAM v2 (passerelle) : renvoie le
+  // compte LEGACY (`users.id`) que les tables legacy référencent — pas l'identité IAM. Utilisé par le web V2 pour que
+  // `session.user.id` reste l'identifiant legacy attendu par les pages et routes proxy existantes.
+  fastify.get("/whoami", {
+    handler: async (request, reply) => {
+      if (!request.user) {
+        return reply.status(401).send({ error: "Authentication Required", message: "No authentication", code: "TOKEN_MISSING" });
+      }
+      reply.header("Cache-Control", "no-store");
+      return {
+        id: request.user.id,
+        email: request.user.email,
+        tenantId: request.user.tenantId ?? request.tenantId ?? null,
+        tenantSlug: request.user.tenantSlug ?? request.tenantSlug ?? null,
+        activeRole: request.user.activeRole ?? request.user.role ?? null,
+        roles: request.user.roles,
+        availableRoles: request.user.availableRoles ?? request.user.roles,
+        authSource: request.user.authSource ?? "legacy",
+      };
+    },
+  });
+
   fastify.post("/switch-role", {
     handler: async (request, reply) => {
       const token = extractTokenFromHeader(request.headers.authorization as string | undefined);

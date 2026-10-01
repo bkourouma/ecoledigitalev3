@@ -265,6 +265,16 @@ export function buildIamConfig(input: IamConfigInput): IamConfig {
   });
 }
 
+/**
+ * Secret de service de la connexion fédérée (`POST /iam/federated-login`, appelée par le serveur web après vérification
+ * OAuth). Facultatif : absent -> la route N'EXISTE PAS (échec fermé). Présent mais faible -> démarrage refusé.
+ */
+export function loadFederationSecret(env: Record<string, string | undefined> = process.env): string | null {
+  const value = env.IAM_SERVICE_SECRET;
+  if (value === undefined || value === "") return null;
+  return assertStrongSecret("IAM_SERVICE_SECRET", value);
+}
+
 /** Lit la configuration depuis l'environnement. Lève `IamConfigError` si un secret manque. */
 export function loadIamConfig(env: Record<string, string | undefined> = process.env): IamConfig {
   const secure = env.IAM_COOKIE_SECURE === undefined ? true : env.IAM_COOKIE_SECURE !== "false";

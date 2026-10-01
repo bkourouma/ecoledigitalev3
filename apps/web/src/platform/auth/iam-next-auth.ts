@@ -19,7 +19,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { iamApiBaseUrl } from "./iam-config";
 import { IamApiError, clientHintsFromHeaders, createIamServerClient, type ClientHints, type IamServerClient } from "./iam-server";
-import { applyAuthenticated, handleUpdate, type IamSessionToken } from "./iam-token";
+import { applyAuthenticated, handleUpdate, withLegacyUserId, type IamSessionToken } from "./iam-token";
 
 type AuthorizeReq = { headers?: Record<string, string | string[] | undefined> } | undefined;
 
@@ -65,7 +65,7 @@ export function createIamProviders(getClient: () => IamServerClient = defaultIam
           const out = await getClient().login({ email: email.trim().toLowerCase(), password, ...(tenantSlug ? { tenantSlug } : {}) }, hints(req as AuthorizeReq));
           if (out.status === "mfa_required") return authError(`MFA_REQUIRED:${out.challengeToken}`);
           if (out.status === "mfa_enrollment_required") return authError(`MFA_ENROLLMENT_REQUIRED:${out.enrollmentToken}`);
-          return userFor(applyAuthenticated({}, out, now())) as never;
+          return userFor(await withLegacyUserId(applyAuthenticated({}, out, now()), getClient(), hints(req as AuthorizeReq))) as never;
         } catch (e) {
           if (e instanceof Error && !(e instanceof IamApiError)) throw e; // erreurs « métier » ci-dessus
           return loginError(e);
@@ -83,7 +83,7 @@ export function createIamProviders(getClient: () => IamServerClient = defaultIam
         if (!challengeToken || (code === null) === (recoveryCode === null)) return null;
         try {
           const out = await getClient().completeChallenge({ challengeToken, ...(code ? { code } : { recoveryCode: recoveryCode as string }) }, hints(req as AuthorizeReq));
-          return userFor(applyAuthenticated({}, out, now())) as never;
+          return userFor(await withLegacyUserId(applyAuthenticated({}, out, now()), getClient(), hints(req as AuthorizeReq))) as never;
         } catch (e) {
           if (e instanceof Error && !(e instanceof IamApiError)) throw e;
           return loginError(e);
@@ -101,7 +101,7 @@ export function createIamProviders(getClient: () => IamServerClient = defaultIam
         try {
           const out = await getClient().verifyEnrollment({ enrollmentToken, code }, hints(req as AuthorizeReq));
           if (!out.session) return null;
-          const token = applyAuthenticated({}, out.session, now());
+          const token = await withLegacyUserId(applyAuthenticated({}, out.session, now()), getClient(), hints(req as AuthorizeReq));
           return userFor({ ...token, recoveryCodes: out.recoveryCodes }) as never;
         } catch (e) {
           if (e instanceof Error && !(e instanceof IamApiError)) throw e;
@@ -110,6 +110,39 @@ export function createIamProviders(getClient: () => IamServerClient = defaultIam
       },
     }),
   ];
+}
+
+/**
+ * Callback `signIn` du fournisseur Google en V2 : vérifie `email_verified`, demande à iam d'ouvrir la session
+ * (`POST /iam/federated-login`, secret de service `IAM_SERVICE_SECRET`) et applique sa politique MFA.
+ *   - session ouverte -> l'état IAM est posé sur `user.iamToken` (lu par le callback `jwt`) ;
+ *   - second facteur requis -> abandon de la connexion OAuth et redirection vers `/login?mfa=<jeton>` / `?enroll=<jeton>`
+ *     (le formulaire reprend à l'étape voulue avec le fournisseur `iam-mfa` / `iam-enroll`) ;
+ *   - aucun accès -> `/login?error=NO_ACCESS`. AUCUN compte n'est créé à la volée.
+ * Renvoie `null` quand le secret de service n'est pas configuré : l'appelant retombe sur la connexion legacy transitoire.
+ */
+export function createGoogleSignIn(getClient: () => IamServerClient = defaultIamClient, now: () => number = Date.now, secretOf: () => string | undefined = () => process.env.IAM_SERVICE_SECRET) {
+  return async function googleSignIn({ user, account, profile }: { user: unknown; account: { provider?: string } | null; profile?: unknown }): Promise<boolean | string | null> {
+    if (account?.provider !== "google") return true;
+    const secret = secretOf();
+    if (!secret) return null;
+    const u = user as { email?: string | null; iamToken?: IamSessionToken } | undefined;
+    const verified = (profile as { email_verified?: unknown } | undefined)?.email_verified === true;
+    if (!u?.email || !verified) return "/login?error=GOOGLE_UNVERIFIED";
+    try {
+      const out = await getClient().federatedLogin({ provider: "google", email: u.email.trim().toLowerCase() }, secret);
+      if (out.status === "mfa_required") return `/login?mfa=${encodeURIComponent(out.challengeToken)}`;
+      if (out.status === "mfa_enrollment_required") return `/login?enroll=${encodeURIComponent(out.enrollmentToken)}`;
+      const token = await withLegacyUserId(applyAuthenticated({}, out, now()), getClient());
+      u.iamToken = token;
+      (user as { id?: string }).id = token.legacyUserId ?? token.userId;
+      return true;
+    } catch (e) {
+      if (e instanceof IamApiError && e.status === 429) return "/login?error=RATE_LIMITED";
+      if (e instanceof IamApiError && (e.code === "iam.no_active_access" || e.status === 403)) return "/login?error=NO_ACCESS";
+      return "/login?error=GOOGLE_FAILED";
+    }
+  };
 }
 
 /** Callbacks V2. `trigger: "update"` est le SEUL endroit qui fait tourner le refresh (voir iam-token.ts). */
@@ -142,7 +175,10 @@ export function createIamCallbacks(getClient: () => IamServerClient = defaultIam
       const t = token as IamSessionToken;
       const s = session as unknown as Record<string, unknown> & { user?: Record<string, unknown> };
       s.user ??= {};
-      s.user.id = t.userId;
+      // `session.user.id` = compte LEGACY quand il existe (les pages et routes proxy existantes s'en servent comme
+      // identifiant d'utilisateur) ; l'identité IAM globale reste disponible en `iamUserId`.
+      s.user.id = t.legacyUserId ?? t.userId;
+      s.iamUserId = t.userId;
       s.tenantId = t.tenantId;
       s.tenantSlug = t.tenantSlug;
       s.roles = t.roles;

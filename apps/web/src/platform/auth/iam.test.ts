@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createIamServerClient, clientHintsFromHeaders, IamApiError } from "./iam-server";
 import { iamRoleForLegacy, sessionRolesFromIam } from "./iam-roles";
 import { accessExpiresWithin, applyAuthenticated, handleUpdate, rotateRefresh, type IamSessionToken } from "./iam-token";
-import { createIamCallbacks, createIamEvents, createIamProviders } from "./iam-next-auth";
+import { createGoogleSignIn, createIamCallbacks, createIamEvents, createIamProviders } from "./iam-next-auth";
 
 const UUID = (n: number): string => `0192f0a4-7b1e-7c3a-8d2e-${String(n).padStart(12, "0")}`;
 const NOW = Date.parse("2026-10-01T10:00:00Z");
@@ -263,6 +263,27 @@ describe("NextAuth V2 : fournisseurs, callbacks, événements", () => {
     expect(enr.api.calls[0]?.headers.Authorization).toBe("Bearer enroll.token.value");
   });
 
+  it("compte LEGACY : session.user.id reprend l'identifiant legacy (whoami), l'identité IAM reste exposée à part ; panne = repli sur l'identité", async () => {
+    const legacyId = "0192f0a4-7b1e-7c3a-8d2e-00000000cafe";
+    const ok = providers([{ json: authenticated() }, { json: { id: legacyId, email: "prof@ecole.test" } }]);
+    const user = await ok.by("credentials")({ email: "prof@ecole.test", password: "mdp" }, req);
+    expect(user.iamToken.legacyUserId).toBe(legacyId);
+    expect(ok.api.calls[1]).toMatchObject({ url: expect.stringMatching(/\/api\/v1\/auth\/whoami$/), method: "GET" });
+    expect(ok.api.calls[1]?.headers.Authorization).toBe("Bearer access.jwt.one");
+    expect(ok.api.calls[1]?.headers["Content-Type"]).toBeUndefined();
+
+    const callbacks = createIamCallbacks(() => fakeApi([]).client, () => NOW);
+    const session = (await callbacks.session!({ session: { user: {}, expires: "" }, token: user.iamToken } as never)) as unknown as { user: { id: string }; iamUserId: string };
+    expect(session.user.id).toBe(legacyId);
+    expect(session.iamUserId).toBe(UUID(1));
+
+    const down = providers([{ json: authenticated() }, { throws: true }]);
+    const fallback = await down.by("credentials")({ email: "prof@ecole.test", password: "mdp" }, req);
+    expect(fallback.iamToken.legacyUserId).toBeUndefined();
+    const session2 = (await callbacks.session!({ session: { user: {}, expires: "" }, token: fallback.iamToken } as never)) as unknown as { user: { id: string } };
+    expect(session2.user.id).toBe(UUID(1));
+  });
+
   it("callback session : expose l'accès et les rôles, JAMAIS le refresh token", async () => {
     const callbacks = createIamCallbacks(() => fakeApi([]).client, () => NOW);
     const issued = applyAuthenticated({}, authenticated() as never, NOW);
@@ -300,6 +321,44 @@ describe("NextAuth V2 : fournisseurs, callbacks, événements", () => {
     const empty = fakeApi([]);
     await createIamEvents(() => empty.client).signOut!({ token: {} } as never);
     expect(empty.fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe("connexion Google en V2 (route fédérée d'iam)", () => {
+  const profile = { email_verified: true };
+  const google = { provider: "google" };
+  const sign = (api: ReturnType<typeof fakeApi>, over: { user?: Record<string, unknown>; profile?: unknown; account?: unknown; secret?: string | undefined } = {}) =>
+    createGoogleSignIn(() => api.client, () => NOW, () => ("secret" in over ? over.secret : "s".repeat(40)))({
+      user: over.user ?? { email: "Prof@Ecole.test", name: "Prof" },
+      account: (over.account ?? google) as never,
+      profile: "profile" in over ? over.profile : profile,
+    });
+
+  it("session ouverte : l'état IAM est posé sur l'utilisateur ; le secret de service et l'e-mail normalisé partent vers iam", async () => {
+    const api = fakeApi([{ json: authenticated() }]);
+    const user: Record<string, unknown> = { email: "Prof@Ecole.test" };
+    expect(await sign(api, { user })).toBe(true);
+    expect((user.iamToken as IamSessionToken).jwtToken).toBe("access.jwt.one");
+    expect(api.calls[0]?.headers["x-iam-service-secret"]).toBe("s".repeat(40));
+    expect(api.calls[0]?.body).toMatchObject({ provider: "google", email: "prof@ecole.test", emailVerified: true, client: "mobile" });
+  });
+
+  it("second facteur requis : pas de session, redirection vers l'étape (jeton encodé) ; aucun accès : message dédié", async () => {
+    expect(await sign(fakeApi([{ json: { status: "mfa_required", challengeToken: "step.tok/en=", expiresIn: 300, methods: ["totp"] } }]))).toBe("/login?mfa=step.tok%2Fen%3D");
+    expect(await sign(fakeApi([{ json: { status: "mfa_enrollment_required", enrollmentToken: "enr.tok.en", expiresIn: 600 } }]))).toBe("/login?enroll=enr.tok.en");
+    expect(await sign(fakeApi([{ status: 403, json: { code: "iam.no_active_access" } }]))).toBe("/login?error=NO_ACCESS");
+    expect(await sign(fakeApi([{ status: 429, json: { code: "iam.too_many_attempts" } }]))).toBe("/login?error=RATE_LIMITED");
+    expect(await sign(fakeApi([{ throws: true }]))).toBe("/login?error=GOOGLE_FAILED");
+  });
+
+  it("e-mail non vérifié par Google : aucun appel à iam ; autre fournisseur ignoré ; sans secret de service -> repli (null)", async () => {
+    const api = fakeApi([]);
+    expect(await sign(api, { profile: { email_verified: false } })).toBe("/login?error=GOOGLE_UNVERIFIED");
+    expect(await sign(api, { profile: undefined })).toBe("/login?error=GOOGLE_UNVERIFIED");
+    expect(await sign(api, { user: {} })).toBe("/login?error=GOOGLE_UNVERIFIED");
+    expect(await sign(api, { account: { provider: "credentials" } })).toBe(true);
+    expect(await sign(api, { secret: undefined })).toBeNull();
+    expect(api.fetchImpl).not.toHaveBeenCalled();
   });
 });
 
