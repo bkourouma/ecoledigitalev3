@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import "react-day-picker/dist/style.css";
@@ -33,6 +33,21 @@ const inter = localFont({
 export const metadata: Metadata = {
   title: "EcoleDigitale",
   description: "Plateforme éducative numérique multi-tenant",
+  // PWA : manifeste et icônes (public/manifest.webmanifest, public/icons) ; service worker : public/sw.js.
+  manifest: "/manifest.webmanifest",
+  applicationName: "EcoleDigitale",
+  appleWebApp: { capable: true, title: "EcoleDigitale", statusBarStyle: "default" },
+  icons: {
+    icon: [
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({

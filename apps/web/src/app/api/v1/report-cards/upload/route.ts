@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth-options';
 import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { tenantFallback } from '@/platform/tenant/server';
 
 export async function POST(request: NextRequest) {
   console.log('📤 Report card upload request received');
@@ -24,8 +25,8 @@ export async function POST(request: NextRequest) {
     // Prefer session.tenantId (UUID) over header (slug)
     const incomingTenant = request.headers.get('X-Tenant') || request.headers.get('x-tenant');
     // Use session.tenantId if available (UUID), otherwise use incomingTenant (slug)
-    // Fallback to 'imhotepacademy' for development
-    let tenantId = session.tenantId || incomingTenant || 'imhotepacademy';
+    // Dernier recours : tenant déduit de l'hôte / NEXT_PUBLIC_TENANT_SLUG (sinon vide)
+    let tenantId = session.tenantId || incomingTenant || tenantFallback(request);
     
     // If tenantId is a slug (not UUID), we need to resolve it to UUID
     // For now, we'll use the slug directly since files are stored with slug

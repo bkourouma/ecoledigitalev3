@@ -1,15 +1,23 @@
 "use client";
 
 import { createContext, useContext, ReactNode, useMemo } from 'react';
+import { SessionContext } from 'next-auth/react';
+import { resolveBrowserTenant } from '@/platform/tenant/browser';
+import type { TenantSource } from '@/platform/tenant/resolve-tenant';
 
 interface TenantContextType {
-  tenantSlug: string;
+  /** Slug du tenant, ou `null` quand il est inconnu (état explicite : aucun repli codé en dur). */
+  tenantSlug: string | null;
   tenantId?: string;
+  /** `unknown` : ni session, ni sous-domaine reconnu, ni NEXT_PUBLIC_TENANT_SLUG. */
+  status: 'resolved' | 'unknown';
+  source?: TenantSource;
 }
 
 const TenantContext = createContext<TenantContextType>({
-  tenantSlug: 'imhotepdata', // Use imhotepdata as it has the actual formations data
+  tenantSlug: null,
   tenantId: undefined,
+  status: 'unknown',
 });
 
 interface TenantProviderProps {
@@ -20,79 +28,55 @@ interface TenantProviderProps {
 
 /**
  * TenantProvider - Provides tenant context throughout the application
- * 
- * Resolves tenant from (in order of priority):
+ *
+ * Résolution UNIQUE, déléguée à `@/platform/tenant/resolve-tenant` :
  * 1. Props (for testing or explicit control)
- * 2. Environment variable NEXT_PUBLIC_TENANT_SLUG
- * 3. Subdomain (e.g., tenant.ecoledigitale.ci)
- * 4. Fallback to 'imhotepdata' (development only)
- * 
- * Note: Session-based tenant resolution should be handled in components
- * that have access to SessionProvider using useSession hook.
- * 
+ * 2. Session NextAuth (le provider doit être placé sous `SessionProvider`)
+ * 3. Sous-domaine `<slug>.ecoledigitale.allianceconsultants.net` / domaine personnalisé configuré
+ * 4. Variable d'environnement NEXT_PUBLIC_TENANT_SLUG (développement local)
+ *
+ * Aucun repli codé en dur : si rien ne correspond, `status === 'unknown'` et `tenantSlug === null`.
+ * L'interface doit alors afficher un état « tenant inconnu » plutôt que d'appeler l'API.
+ *
  * Usage:
  * ```tsx
  * import { TenantProvider, useTenant } from '@/contexts/TenantContext';
- * 
+ *
  * // In your layout or app:
  * <TenantProvider>
  *   <YourApp />
  * </TenantProvider>
- * 
+ *
  * // In any component:
- * const { tenantSlug } = useTenant();
+ * const { tenantSlug, status } = useTenant();
  * ```
  */
 export function TenantProvider({ children, tenantSlug: propsTenantSlug, tenantId: propsTenantId }: TenantProviderProps) {
-  const tenantSlug = useMemo(() => {
+  const session = useContext(SessionContext)?.data as
+    | { tenantSlug?: string; tenantId?: string }
+    | null
+    | undefined;
+  const sessionSlug = session?.tenantSlug;
+  const sessionId = session?.tenantId;
+
+  const value = useMemo<TenantContextType>(() => {
     // 1. Use props if provided (for testing or explicit control)
     if (propsTenantSlug) {
-      return propsTenantSlug;
+      return { tenantSlug: propsTenantSlug, tenantId: propsTenantId, status: 'resolved', source: 'override' };
     }
 
-    // Note: Session-based tenant resolution is handled by components that use useSession
-    // This avoids the need for SessionProvider to be available at TenantProvider level
-
-    // 2. Use environment variable
-    if (process.env.NEXT_PUBLIC_TENANT_SLUG) {
-      return process.env.NEXT_PUBLIC_TENANT_SLUG;
+    // 2-4. Session > sous-domaine > NEXT_PUBLIC_TENANT_SLUG (voir platform/tenant/resolve-tenant.ts)
+    const resolved = resolveBrowserTenant({ tenantSlug: sessionSlug, tenantId: sessionId });
+    if (!resolved) {
+      return { tenantSlug: null, tenantId: propsTenantId, status: 'unknown' };
     }
-
-    // 3. Try to resolve from subdomain (client-side only)
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      
-      // Extract subdomain from hostname
-      // Examples:
-      // - imhotepacademy.ecoledigitale.ci -> imhotepacademy
-      // - localhost -> null
-      // - imhotepacademy.localhost -> imhotepacademy
-      
-      const parts = hostname.split('.');
-      
-      // If we have a subdomain (more than 2 parts, or more than 1 for localhost)
-      if (parts.length > 2 || (parts.length > 1 && parts[parts.length - 1] === 'localhost')) {
-        const subdomain = parts[0];
-        
-        // Don't treat 'www' as a tenant
-        if (subdomain && subdomain !== 'www') {
-          console.log('🏢 Tenant resolved from subdomain:', subdomain);
-          return subdomain;
-        }
-      }
-    }
-
-    // 4. Fallback used during SSR / pre-render and as a dev default.
-    // On the client, subdomain detection above (#3) takes precedence and replaces
-    // this on hydration. Throwing here would break next build static generation
-    // since `window` is undefined and Host headers aren't available in useMemo.
-    return 'imhotepdata';
-  }, [propsTenantSlug]);
-
-  const value = useMemo(() => ({
-    tenantSlug,
-    tenantId: propsTenantId,
-  }), [tenantSlug, propsTenantId]);
+    return {
+      tenantSlug: resolved.slug ?? resolved.key,
+      tenantId: propsTenantId ?? resolved.id ?? undefined,
+      status: 'resolved',
+      source: resolved.source,
+    };
+  }, [propsTenantSlug, propsTenantId, sessionSlug, sessionId]);
 
   return (
     <TenantContext.Provider value={value}>
@@ -103,36 +87,32 @@ export function TenantProvider({ children, tenantSlug: propsTenantSlug, tenantId
 
 /**
  * useTenant hook - Access tenant context in any component
- * 
+ *
  * @returns {TenantContextType} Tenant context with tenantSlug and optional tenantId
  * @throws {Error} If used outside of TenantProvider
- * 
+ *
  * @example
  * ```tsx
- * const { tenantSlug } = useTenant();
- * 
- * // Use in API calls
- * headers: {
- *   'X-Tenant': tenantSlug,
- * }
+ * const { tenantSlug, status } = useTenant();
+ * if (status === 'unknown') return <TenantUnknownNotice />;
  * ```
  */
 export function useTenant(): TenantContextType {
   const context = useContext(TenantContext);
-  
+
   if (!context) {
     throw new Error('useTenant must be used within a TenantProvider');
   }
-  
+
   return context;
 }
 
 /**
  * withTenant HOC - Wrap a component to ensure it has tenant context
- * 
+ *
  * @param Component - Component to wrap
  * @returns Wrapped component with tenant context
- * 
+ *
  * @example
  * ```tsx
  * export default withTenant(MyComponent);
@@ -149,4 +129,3 @@ export function withTenant<P extends object>(
     );
   };
 }
-

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
+import { tenantFallback } from '@/platform/tenant/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     
     console.log('📊 STUDENT GRADES API: Request details:', {
       userId: session.user.id,
-      tenantId: session.tenantId || 'imhotepacademy',
+      tenantId: session.tenantId || tenantFallback(request),
       hasAuthHeader: !!authorization
     });
 
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     // Build headers for backend request
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      'X-Tenant': session.tenantId || 'imhotepacademy',
+      'X-Tenant': session.tenantId || tenantFallback(request),
       'X-User-Id': session.user.id,
     };
 

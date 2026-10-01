@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { SidebarGate } from '@/platform/navigation/SidebarGate';
 
 
 interface LayoutProps {
@@ -56,7 +57,8 @@ export function Layout({ children }: LayoutProps) {
             ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
           `}
         >
-          <Sidebar onCloseMobileMenu={closeMobileMenu} />
+          {/* Sidebar legacy par défaut ; menu piloté par l'API derrière NEXT_PUBLIC_PLATFORM_NAV (platform/navigation). */}
+          <SidebarGate legacy={<Sidebar onCloseMobileMenu={closeMobileMenu} />} onCloseMobileMenu={closeMobileMenu} />
         </div>
       )}
 

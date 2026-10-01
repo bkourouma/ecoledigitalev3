@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth-options';
+import { tenantFallback } from '@/platform/tenant/server';
 
 const API_BASE_URL = process.env.NODE_ENV === 'development'
   ? 'http://localhost:4000'
@@ -103,7 +104,7 @@ export async function POST(
       console.log('🔐 Upload auth check:', {
         hasAuthHeader: !!authorization,
         userId: session.user.id,
-        tenantId: session.tenantId || 'imhotepacademy'
+        tenantId: session.tenantId || tenantFallback(request)
       });
 
       // Create a new FormData for the backend request
@@ -113,7 +114,7 @@ export async function POST(
 
       // Build headers for backend request
       const headers: HeadersInit = {
-        'X-Tenant': session.tenantId || 'imhotepacademy',
+        'X-Tenant': session.tenantId || tenantFallback(request),
         'X-User-Id': session.user.id,
       };
 

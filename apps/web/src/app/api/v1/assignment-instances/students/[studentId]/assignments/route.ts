@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
+import { tenantFallback } from '@/platform/tenant/server';
 
 const API_BASE_URL = "";
 
@@ -38,7 +39,7 @@ export async function GET(
       method: 'GET',
       headers: {
       "Content-Type": "application/json",
-      "X-Tenant": "imhotepacademy",
+      "X-Tenant": (session as any)?.tenantId || tenantFallback(request),
             "X-User-Id": "634a57fe-2007-4ecb-ae5b-f9e3152a24fb"
     }
     });

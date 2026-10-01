@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
+import { tenantFallback } from '@/platform/tenant/server';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -26,7 +27,7 @@ export async function GET(
     const tenantId =
       request.headers.get('X-Tenant') ||
       (session as { tenantId?: string }).tenantId ||
-      'imhotepacademy';
+      tenantFallback(request);
     const authorization = request.headers.get('Authorization') || '';
 
     const baseHeaders: Record<string, string> = {
@@ -103,7 +104,7 @@ export async function DELETE(
     const tenantId =
       request.headers.get('X-Tenant') ||
       (session as { tenantId?: string }).tenantId ||
-      'imhotepacademy';
+      tenantFallback(request);
     const authorization =
       request.headers.get('Authorization') ||
       ((session as any)?.jwtToken ? `Bearer ${(session as any).jwtToken}` : '');

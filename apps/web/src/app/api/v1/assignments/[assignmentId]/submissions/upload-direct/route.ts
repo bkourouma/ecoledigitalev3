@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth-options';
 import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { tenantFallback } from '@/platform/tenant/server';
 
 export async function POST(
   request: NextRequest,
@@ -28,7 +29,7 @@ export async function POST(
     
     // Get tenant ID from session or headers
     const incomingTenant = request.headers.get('X-Tenant') || request.headers.get('x-tenant');
-    const tenantId = session.tenantId || incomingTenant || 'imhotepacademy';
+    const tenantId = session.tenantId || incomingTenant || tenantFallback(request);
 
     console.log('📤 Direct upload details:', {
       assignmentId,

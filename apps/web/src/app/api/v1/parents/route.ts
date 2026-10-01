@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { tenantFallback } from '@/platform/tenant/server';
 
 const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:4000";
 export const dynamic = "force-dynamic";
 
 function buildProxyHeaders(request: NextRequest, session: Awaited<ReturnType<typeof getServerSession>>) {
-  const tenant = session?.tenantId || request.headers.get("X-Tenant") || "imhotepacademy";
+  const tenant = session?.tenantId || request.headers.get("X-Tenant") || tenantFallback(request);
   const userId = session?.user?.id || request.headers.get("X-User-Id") || "";
   const sessionJwt = (session as any)?.jwtToken as string | undefined;
   const authorization = sessionJwt ? `Bearer ${sessionJwt}` : request.headers.get("Authorization");

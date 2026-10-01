@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import fs from 'fs/promises';
 import path from 'path';
+import { tenantFallback } from '@/platform/tenant/server';
 
 interface Grade {
   id: string;
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     // Get tenant ID from session or headers
     const incomingTenant = request.headers.get('X-Tenant') || request.headers.get('x-tenant');
-    const tenantId = session.tenantId || incomingTenant || 'imhotepacademy';
+    const tenantId = session.tenantId || incomingTenant || tenantFallback(request);
     const activeAcademicYearId = request.headers.get('X-Academic-Year-Id') || request.headers.get('x-academic-year-id');
 
     // Get Authorization header from request (added by fetch interceptor)

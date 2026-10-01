@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
+import { tenantFallback } from '@/platform/tenant/server';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -20,7 +21,7 @@ export async function GET(
     }
 
     const userId = (session as any).user?.id as string;
-    const tenantSlug = (session as any).tenantSlug || 'imhotepacademy';
+    const tenantSlug = (session as any).tenantSlug || tenantFallback(request);
     const jwtToken = (session as any).jwtToken;
 
     if (!jwtToken) {
