@@ -106,6 +106,7 @@ export interface PluginRateLimiter {
 
 export interface SchedulingPluginOptions {
   deps: SchedulingDeps;
+  /** Réservé à Fastify (`register(plugin, { prefix })`) : le préfixe est appliqué par Fastify lui-même, le plugin ne le répète pas. */
   prefix?: string;
   /** Garde de permission (défaut : celle du module rbac injectée par le runtime). */
   requirePermission: (permission: string) => preHandlerAsyncHookHandler;
@@ -425,17 +426,20 @@ export async function schedulingPlugin(app: FastifyInstance, options: Scheduling
       });
       scope.post("/occurrences", { preHandler: anyOf("schedule.manage", "schedule.room.book", "schedule.occurrence.declare") }, async (req, reply) => {
         const body = parse(schedulingCreateOccurrenceBodySchema, req.body);
-        const granted = grantOf(req);
         await requireOverridePermission(req, reply, body.override !== undefined);
+        // Décision par permission (jamais par rôle) : gestion complète, sinon réservation de salle, sinon déclaration.
         let mode: "MANAGE" | "DECLARE" = "MANAGE";
-        if (granted === "schedule.room.book") {
-          // Réserver une salle ne donne pas le droit de planifier un cours.
-          if (body.kind !== "RESERVATION") throw new ForbiddenError("« schedule.room.book » ne permet que les réservations de salle.", { details: { permission: "schedule.manage" } });
-        } else if (granted === "schedule.occurrence.declare") {
-          mode = "DECLARE";
-          // Un enseignant qui réserve une salle en plus de sa séance doit en avoir le droit explicite.
-          if (body.roomId && !(await has(req, reply, "schedule.room.book"))) {
-            throw new ForbiddenError("Réserver une salle exige la permission « schedule.room.book ».", { details: { permission: "schedule.room.book" } });
+        if (!(await has(req, reply, "schedule.manage"))) {
+          if (body.kind === "RESERVATION" && (await has(req, reply, "schedule.room.book"))) {
+            mode = "MANAGE"; // réserver une salle ne donne pas le droit de planifier un cours
+          } else if (await has(req, reply, "schedule.occurrence.declare")) {
+            mode = "DECLARE";
+            // Un enseignant qui réserve une salle en plus de sa séance doit en avoir le droit explicite.
+            if (body.roomId && !(await has(req, reply, "schedule.room.book"))) {
+              throw new ForbiddenError("Réserver une salle exige la permission « schedule.room.book ».", { details: { permission: "schedule.room.book" } });
+            }
+          } else {
+            throw new ForbiddenError("« schedule.room.book » ne permet que les réservations de salle.", { details: { permission: "schedule.manage" } });
           }
         }
         const r = unwrapOrThrow(await occ.createOccurrence(deps, ctxOf(req), { ...(stripUndefined(body) as unknown as occ.CreateOccurrenceInput), mode }));
@@ -634,7 +638,6 @@ export async function schedulingPlugin(app: FastifyInstance, options: Scheduling
         return reply.header("content-type", "text/calendar; charset=utf-8").header("cache-control", "private, max-age=300").send(feed.ics);
       });
     },
-    options.prefix !== undefined ? { prefix: options.prefix } : {},
   );
 }
 
