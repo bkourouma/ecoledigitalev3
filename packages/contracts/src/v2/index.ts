@@ -9,6 +9,7 @@ export * from "./payroll";
 export * from "./people";
 export * from "./platform";
 export * from "./rbac";
+export * from "./reportcards";
 export * from "./rules";
 export * from "./scheduling";
 export * from "./tenancy";
