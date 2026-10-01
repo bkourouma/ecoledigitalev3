@@ -95,6 +95,14 @@ describe("règles de frontières (dependency-cruiser)", () => {
     write(r, `${M}/beta/application/imports-legacy-service.ts`, 'import { legacySvc } from "../../../services/legacy-svc";\nexport const bad8 = legacySvc;\n');
     write(r, `${M}/isolation-allowlist.beta.ts`, 'import { repo } from "./beta/infrastructure/repo";\nexport default [repo];\n');
 
+    // --- adaptateurs de plateforme : seuls à connaître plusieurs modules, par leur index.ts uniquement ---
+    write(r, "apps/api/src/platform/adapters/ok-adapter.ts", 'import { secret } from "../../modules/alpha/index";\nimport { beta } from "../../modules/beta/index";\nexport const okAdapter = [secret, beta];\n');
+    write(r, "apps/api/src/platform/adapters/bad-internals.ts", 'import { secret } from "../../modules/alpha/internal/secret";\nexport const badAdapter1 = secret;\n');
+    write(r, "apps/api/src/platform/adapters/bad-legacy.ts", 'import { legacySvc } from "../../services/legacy-svc";\nexport const badAdapter2 = legacySvc;\n');
+    write(r, "apps/api/src/platform/adapters/bad-pg.ts", 'import "pg";\nexport const badAdapter3 = 1;\n');
+    write(r, `${M}/beta/application/imports-adapter.ts`, 'import { okAdapter } from "../../../platform/adapters/ok-adapter";\nexport const bad11 = okAdapter;\n');
+    write(r, "apps/api/src/platform/not-an-adapter.ts", 'import { secret } from "../modules/alpha/internal/secret";\nexport const notAdapter = secret;\n');
+
     // --- packages ---
     write(r, "packages/rules-engine/src/bad.ts", 'import "pg";\nimport { readFileSync } from "node:fs";\nexport const bad9 = readFileSync;\n');
     write(r, "packages/kernel/src/bad.ts", 'import { platformOk } from "../../../apps/api/src/platform/platform-ok";\nexport const bad10 = platformOk;\n');
@@ -141,6 +149,16 @@ describe("règles de frontières (dependency-cruiser)", () => {
     expect(has("no-legacy-in-modules", "beta/application/imports-legacy-route.ts", "routes/legacy-route.ts")).toBe(true);
     expect(has("no-legacy-in-modules", "beta/application/imports-legacy-service.ts", "services/legacy-svc.ts")).toBe(true);
     expect(violations.some((v) => v.rule === "no-legacy-in-modules" && v.from.includes("alpha/application"))).toBe(false);
+  });
+
+  it("platform/adapters : l'index.ts des modules seulement, ni legacy ni pg, et jamais importé par un module", () => {
+    expect(violations.some((v) => v.from.endsWith("platform/adapters/ok-adapter.ts"))).toBe(false);
+    expect(has("platform-adapters-only-via-index", "platform/adapters/bad-internals.ts", "alpha/internal/secret.ts")).toBe(true);
+    expect(has("platform-adapters-no-legacy-no-pg", "platform/adapters/bad-legacy.ts", "services/legacy-svc.ts")).toBe(true);
+    expect(has("platform-adapters-no-legacy-no-pg", "platform/adapters/bad-pg.ts")).toBe(true);
+    expect(has("modules-not-adapters", "beta/application/imports-adapter.ts", "platform/adapters/ok-adapter.ts")).toBe(true);
+    // Le reste de platform/ n'est pas concerné par la règle des adaptateurs (aucune exception créée).
+    expect(violations.some((v) => v.rule.startsWith("platform-adapters") && v.from.endsWith("platform/not-an-adapter.ts"))).toBe(false);
   });
 
   it("garde les packages purs (rules-engine sans pg / node:fs, kernel sans code d'app)", () => {
