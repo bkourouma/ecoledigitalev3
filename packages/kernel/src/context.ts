@@ -28,6 +28,12 @@ export interface RequestContext {
   readonly institutionId?: string;
   readonly campusId?: string;
   readonly actor: ActorType;
+  /**
+   * `true` si l'authentification forte (MFA) est satisfaite pour la session
+   * courante. Renseigné par l'authentification ; `false` par défaut. Exigé par
+   * les permissions sensibles (`PermissionDef.sensitive`, évaluées par le RBAC).
+   */
+  readonly mfa: boolean;
 }
 
 export interface RequestContextInput {
@@ -38,6 +44,8 @@ export interface RequestContextInput {
   institutionId?: string | null;
   campusId?: string | null;
   actor?: ActorType;
+  /** MFA satisfaite pour cette session (défaut `false`). */
+  mfa?: boolean;
 }
 
 const ACTORS: readonly ActorType[] = ["user", "system", "superAdmin"];
@@ -78,6 +86,7 @@ export function createRequestContext(input: RequestContextInput): RequestContext
     roles,
     requestId: input.requestId?.trim() || newId(),
     actor,
+    mfa: input.mfa === true,
     ...(institutionId ? { institutionId } : {}),
     ...(campusId ? { campusId } : {}),
   });
@@ -105,12 +114,15 @@ export function deriveContext(
     institutionId?: string | null;
     campusId?: string | null;
     requestId?: string;
+    /** Exceptionnel : élever la MFA relève de l'authentification, pas d'un module. */
+    mfa?: boolean;
   },
 ): RequestContext {
   return createRequestContext({
     tenantId: base.tenantId,
     userId: base.userId,
     actor: base.actor,
+    mfa: patch.mfa ?? base.mfa,
     roles: patch.roles ?? base.roles,
     requestId: patch.requestId ?? base.requestId,
     institutionId: patch.institutionId === undefined ? (base.institutionId ?? null) : patch.institutionId,
