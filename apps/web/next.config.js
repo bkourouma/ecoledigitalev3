@@ -173,4 +173,8 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+// i18n (next-intl) SANS préfixe d'URL : n'ajoute que l'alias `next-intl/config` vers la configuration
+// serveur ; aucune route, redirection ni réécriture n'est modifiée. Voir docs/i18n.md.
+const withNextIntl = require("next-intl/plugin")("./src/platform/i18n/request.ts");
+
+module.exports = withNextIntl(nextConfig);

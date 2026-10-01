@@ -244,3 +244,18 @@ describe("createApiClient — annulation et délai", () => {
     }
   });
 });
+
+describe("createApiClient — requireToken", () => {
+  it("échoue localement en 401, sans appel réseau, quand le jeton manque", async () => {
+    const fetchMock = vi.fn();
+    const client = makeClient(fetchMock, { getToken: () => null, requireToken: true });
+    await expect(client.get("/x")).rejects.toMatchObject({ code: "UNAUTHORIZED", status: 401 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("laisse passer les requêtes anonymes", async () => {
+    const fetchMock = vi.fn(async () => json({ ok: 1 }));
+    const client = makeClient(fetchMock, { getToken: () => null, requireToken: true });
+    await expect(client.get("/public", { anonymous: true })).resolves.toEqual({ ok: 1 });
+  });
+});

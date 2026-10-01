@@ -17,6 +17,9 @@ import "@/lib/fetch-interceptor";
 import { AntdConfigProvider } from "@/lib/antd-config";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { TenantProvider } from "@/contexts/TenantContext";
+import { IntlProvider } from "@/platform/i18n/IntlProvider";
+import { TenantTheme } from "@/platform/theme/TenantTheme";
+import { RegisterServiceWorker } from "@/platform/pwa/RegisterServiceWorker";
 import { saveToken, removeToken } from "@/lib/jwt-storage";
 
 // Initialiser le gestionnaire d'erreurs de chunk immédiatement (avant React)
@@ -61,15 +64,20 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }));
 
   return (
-    <TenantProvider>
-      <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
+    // SessionProvider AU-DESSUS de TenantProvider : le tenant de la session passe avant le sous-domaine.
+    <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
+      <TenantProvider>
         <SessionAuthSync />
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
             <AntdConfigProvider>
-              <AppLayout>
-                {children}
-              </AppLayout>
+              <IntlProvider>
+                <AppLayout>
+                  {children}
+                </AppLayout>
+              </IntlProvider>
+              <TenantTheme />
+              <RegisterServiceWorker />
               <Toaster />
               <HotToaster
                 position="top-right"
@@ -100,7 +108,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <ReactQueryDevtools initialIsOpen={false} />
           </ThemeProvider>
         </QueryClientProvider>
-      </SessionProvider>
-    </TenantProvider>
+      </TenantProvider>
+    </SessionProvider>
   );
 }

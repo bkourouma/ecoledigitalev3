@@ -22,6 +22,11 @@ export interface ApiClientOptions {
   /** Préfixe des URL ; `""` pour le même domaine (réécriture Next `/api/v1/*`). */
   baseUrl: string;
   getToken?: () => string | null | undefined | Promise<string | null | undefined>;
+  /**
+   * Vrai : une requête non anonyme sans jeton échoue localement (401) au lieu de partir sans
+   * `Authorization`. Évite, avec le patch historique de `window.fetch`, la redirection automatique vers /login.
+   */
+  requireToken?: boolean;
   /** Slug ou identifiant du tenant ; `null` = inconnu (les requêtes échouent avec TENANT_UNKNOWN). */
   getTenant?: () => string | null | undefined;
   /** Implémentation de fetch (tests). Défaut : `globalThis.fetch`, résolu à chaque appel. */
@@ -169,6 +174,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       headers["X-Tenant"] = tenant;
       const token = await options.getToken?.();
       if (token) headers.Authorization = `Bearer ${token}`;
+      else if (options.requireToken) {
+        throw new ApiError({ code: "UNAUTHORIZED", message: "Authentification requise.", status: 401 });
+      }
     }
 
     let payload: BodyInit | undefined;

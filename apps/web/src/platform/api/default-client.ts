@@ -12,6 +12,7 @@ import { createQueryHooks } from "./hooks";
 
 export const platformApi = createApiClient({
   baseUrl: "",
+  requireToken: true,
   getToken: () => {
     const token = getToken();
     return token && !isTokenExpired(token) ? token : null;
