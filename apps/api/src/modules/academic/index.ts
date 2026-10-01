@@ -1,0 +1,188 @@
+/**
+ * API PUBLIQUE du module `academic` — seul point d'import autorisé pour les autres modules (ADR-001).
+ *
+ *   import { createAcademicDeps, getRuleContext, createEnrollmentDirectory } from "../academic";
+ *
+ * Les cas d'usage sont des fonctions `(deps, ctx, input) => Promise<Result<T, AppError>>` (convention n° 4). Les noms
+ * de la section 7.2 de la spec 004 sont FIGÉS pour les modules 011, 012, 013, 019, 014 et 032. Les identifiants stables
+ * (`EnrollmentId`, `NodeId`/`lineageId`, `PeriodId`, `ClassroomId`, `OfferingId`) ne changent jamais pour une même chose.
+ */
+
+// Manifeste (le registre le découvre via manifest.ts ; réexporté pour les tests d'assemblage)
+export { default as academicManifest } from "./manifest";
+
+// Plugin Fastify
+export { academicPlugin, ACADEMIC_ROUTES_PREFIX, type AcademicPluginOptions } from "./http/plugin";
+
+// Dépendances, configuration, ports (repli sûr si non câblés)
+export { createAcademicDeps, DEFAULT_ACADEMIC_CONFIG, type AcademicConfig, type AcademicDeps, type AcademicDepsInput } from "./application/deps";
+export {
+  DEFAULT_PORTS,
+  InMemoryStudentDirectory,
+  RecordingAudit,
+  REGISTRATION_FEE_CATEGORY,
+  noopAudit,
+  type AcademicPorts,
+  type AuditEntry,
+  type AuditPort,
+  type CompletionLookup,
+  type CurriculumUsageGuard,
+  type GuardianshipPort,
+  type InstitutionDirectory,
+  type InstitutionInfo,
+  type InvoiceFacts,
+  type InvoiceFactsReader,
+  type OfferingReadinessGuard,
+  type PeriodClosureGuard,
+  type RegistrationFeeProbe,
+  type ScheduleConflictChecker,
+  type StudentDirectory,
+  type StudentSummary,
+  type TemplateProvider,
+} from "./application/ports";
+export { academicAuditAdapter } from "./infrastructure/audit-adapter";
+export { createTenancyInstitutionDirectory } from "./infrastructure/tenancy-directory";
+
+// Calendrier : années, périodes typées, clôture en deux temps et par classe
+export {
+  applyPeriodPlan,
+  archiveAcademicYear,
+  closeAcademicYear,
+  closeClassroomPeriod,
+  closeClassroomPeriodGrading,
+  closePeriod,
+  closePeriodGrading,
+  createAcademicYear,
+  createPeriod,
+  deletePeriod,
+  findYearGaps,
+  getAcademicPeriod,
+  getAcademicYear,
+  getCurrentAcademicYear,
+  getEffectivePeriodState,
+  listAcademicPeriods,
+  listAcademicYears,
+  openAcademicYear,
+  openPeriod,
+  reopenClassroomPeriod,
+  reopenPeriod,
+  resolvePeriodForDate,
+  setCurrentAcademicYear,
+  updateAcademicYear,
+  updatePeriod,
+  type EffectiveState,
+} from "./application/calendar";
+
+// Référentiels, paramètres, modèle de pack
+export {
+  getSettings as getAcademicSettings,
+  instantiatePackReferenceData,
+  listReference,
+  putReference,
+  updateSettings as updateAcademicSettings,
+  type InstantiateOptions,
+} from "./application/reference";
+export { buildAcademicTemplates, defaultAcademicTemplates, getAcademicTemplate } from "./templates";
+export { AcademicPackTemplateSchema, type AcademicPackTemplate } from "./domain/template";
+
+// Programmes et matières
+export { createProgram, createSubject, deleteSubject, getProgram, getSubject, listPrograms, listSubjects, setProgramGradeLevels, updateProgram, updateSubject } from "./application/programs";
+
+// Curriculum
+export {
+  addCurriculumNode,
+  amendPublishedCurriculum,
+  cloneCurriculumVersion,
+  createCurriculumVersion,
+  getCurriculumNode,
+  getCurriculumTree,
+  getCurriculumVersion,
+  getNodePrerequisiteStatus,
+  listCurriculumAmendments,
+  listCurriculumNodes,
+  listCurriculumVersions,
+  lockCurriculumVersion,
+  moveCurriculumNode,
+  publishCurriculumVersion,
+  removeCurriculumNode,
+  setNodePrerequisites,
+  updateCurriculumNode,
+  validateCurriculumVersion,
+  type PrerequisiteStatus,
+} from "./application/curriculum";
+
+// Classes et offres
+export {
+  classroomAction,
+  createClassroom,
+  createOffering,
+  finalizeEndedOfferings,
+  getClassroom,
+  getOffering,
+  listClassrooms,
+  listOfferings,
+  offeringAction,
+  openOfferingsForPeriod,
+  reopenOffering,
+  updateClassroom,
+  updateOffering,
+} from "./application/classrooms";
+
+// Inscriptions
+export {
+  changeEnrollmentFunding,
+  enrollStudent,
+  enrollStudentsBulk,
+  getEnrollment,
+  getEnrollmentDetail,
+  getEnrollmentHistory,
+  listEnrollments,
+  listEnrollmentsByStudent,
+  recordEnrollmentOutcome,
+  transferEnrollment,
+  transitionEnrollment,
+} from "./application/enrollments";
+
+// Sélections de cours, éligibilité, registre d'inscriptions aux cours
+export {
+  addEnrollmentCourse,
+  cancelEnrollmentCourse,
+  checkOfferingEligibility,
+  completeEnrollmentCourse,
+  confirmEnrollmentCourse,
+  expirePendingHolds,
+  listEnrollmentCourses,
+  registerCourse,
+  selfEnrollToOffering,
+  type EligibilityReport,
+} from "./application/courses";
+
+// Lectures pour 010, 011, 012, 013, 014, 017, 019
+export {
+  createEnrollmentDirectory,
+  getCatalog,
+  getRoster,
+  getRuleContext,
+  listChildEnrollments,
+  listCourseRegistrations,
+  listMyEnrollments,
+  listNodesForClassroom,
+  listNodesForEnrollment,
+} from "./application/reads";
+
+// Confirmation par événements, reconduction, jobs
+export { handleInvoicePaid, handleStudentStatusChanged, type InvoicePaidReport } from "./application/confirmation";
+export { previewRollover, rolloverAcademicYear } from "./application/rollover";
+export { expireHoldsForAllTenants, finalizeOfferingsForAllTenants } from "./application/jobs";
+
+// Domaine (types et fonctions pures utiles aux autres modules et au web)
+export { AcademicCode } from "./domain/errors";
+export { AcademicEvents, ALL_ACADEMIC_EVENT_TYPES, ConsumedEvents, type AcademicEventType } from "./domain/events";
+export type * from "./domain/records";
+export { effectivePeriodState, gradingIsClosed, resolvePeriodForDate as resolvePeriodFor, allocatePeriodPlan } from "./domain/calendar";
+export { checkNodeGrammar, followedNodes, planClone, validateCurriculum, type NodeTypeRules, type ValidationReportRecord } from "./domain/curriculum";
+export { evaluateEligibility, applyOverride, deriveOfferingStatus, holdsPlace, type EligibilityFacts, type EligibilityResult } from "./domain/offering";
+export { ENROLLMENT_TRANSITIONS, SCHOOLING_COURSE_STATUSES, SCHOOLING_ENROLLMENT_STATUSES, canTransitionEnrollment, opensSchooling } from "./domain/enrollment";
+export { formatRegistrationNumber, validateRegistrationPattern } from "./domain/registration-number";
+export { planRollover } from "./domain/rollover";
+export { buildRuleContext } from "./domain/rule-context";

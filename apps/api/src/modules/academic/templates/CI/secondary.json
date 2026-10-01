@@ -1,0 +1,76 @@
+{
+  "section": "academic",
+  "schemaVersion": 1,
+  "templateVersion": 1,
+  "educationSystem": "CI",
+  "pack": "SECONDARY",
+  "educationLevels": [
+    { "code": "LOWER_SECONDARY", "label": "Premier cycle du secondaire", "ordinal": 3 },
+    { "code": "UPPER_SECONDARY", "label": "Second cycle du secondaire", "ordinal": 4 }
+  ],
+  "gradeLevels": [
+    { "code": "6E", "label": "6e", "shortLabel": "6e", "educationLevel": "LOWER_SECONDARY", "ordinal": 1, "next": "5E" },
+    { "code": "5E", "label": "5e", "shortLabel": "5e", "educationLevel": "LOWER_SECONDARY", "ordinal": 2, "next": "4E" },
+    { "code": "4E", "label": "4e", "shortLabel": "4e", "educationLevel": "LOWER_SECONDARY", "ordinal": 3, "next": "3E" },
+    { "code": "3E", "label": "3e", "shortLabel": "3e", "educationLevel": "LOWER_SECONDARY", "ordinal": 4, "next": "2NDE" },
+    { "code": "2NDE", "label": "2nde", "shortLabel": "2nde", "educationLevel": "UPPER_SECONDARY", "ordinal": 1, "next": "1ERE" },
+    { "code": "1ERE", "label": "1ère", "shortLabel": "1ère", "educationLevel": "UPPER_SECONDARY", "ordinal": 2, "next": "TLE" },
+    { "code": "TLE", "label": "Terminale", "shortLabel": "Tle", "educationLevel": "UPPER_SECONDARY", "ordinal": 3, "next": null, "isFinal": true }
+  ],
+  "periodTypes": [
+    { "code": "TRIMESTER", "label": "Trimestre", "kind": "TEACHING_PERIOD" },
+    { "code": "SEMESTER", "label": "Semestre", "kind": "TEACHING_PERIOD" },
+    { "code": "COMPOSITION", "label": "Composition", "kind": "TEACHING_PERIOD" },
+    { "code": "MODULE", "label": "Module", "kind": "TEACHING_PERIOD" },
+    { "code": "NORMAL_SESSION", "label": "Session normale", "kind": "EXAM_SESSION" },
+    { "code": "MAKEUP_SESSION", "label": "Session de rattrapage", "kind": "EXAM_SESSION" }
+  ],
+  "periodPlans": [
+    {
+      "code": "THREE_TERMS",
+      "label": "Trois trimestres",
+      "slots": [
+        { "type": "TRIMESTER", "ordinal": 1, "label": "Trimestre 1" },
+        { "type": "TRIMESTER", "ordinal": 2, "label": "Trimestre 2" },
+        { "type": "TRIMESTER", "ordinal": 3, "label": "Trimestre 3" }
+      ]
+    },
+    {
+      "code": "TWO_SEMESTERS",
+      "label": "Deux semestres",
+      "slots": [
+        { "type": "SEMESTER", "ordinal": 1, "label": "Semestre 1" },
+        { "type": "SEMESTER", "ordinal": 2, "label": "Semestre 2" }
+      ]
+    }
+  ],
+  "nodeTypes": [
+    { "code": "LEVEL", "label": "Niveau", "allowedParents": ["ROOT"], "requiresGradeLevel": true, "system": true, "sortOrder": 10 },
+    { "code": "PERIOD", "label": "Période", "allowedParents": ["LEVEL"], "requiresPeriodSlot": true, "system": true, "sortOrder": 20 },
+    { "code": "GROUP", "label": "Groupe de matières", "allowedParents": ["LEVEL", "PERIOD"], "system": true, "sortOrder": 30 },
+    { "code": "UE", "label": "Unité d'enseignement", "allowedParents": ["PERIOD"], "allowsCredits": true, "creditsMustEqualChildren": true, "enrollable": true, "system": true, "sortOrder": 40 },
+    { "code": "ECUE", "label": "Élément constitutif d'unité d'enseignement", "allowedParents": ["UE"], "requiresSubject": true, "allowsCoefficient": true, "allowsCredits": true, "system": true, "sortOrder": 50 },
+    { "code": "SUBJECT", "label": "Matière", "allowedParents": ["LEVEL", "PERIOD", "GROUP"], "requiresSubject": true, "allowsCoefficient": true, "allowsCredits": true, "enrollable": true, "system": true, "sortOrder": 60 }
+  ],
+  "fundingTypes": [
+    { "code": "PRIVATE", "label": "Privé" },
+    { "code": "STATE_ASSIGNED", "label": "Affecté par l'État", "requiresReference": true },
+    { "code": "SCHOLARSHIP", "label": "Boursier", "requiresFunder": true },
+    { "code": "COMPANY", "label": "Pris en charge par une entreprise", "requiresFunder": true },
+    { "code": "STAFF_CHILD", "label": "Enfant du personnel" },
+    { "code": "OTHER", "label": "Autre" }
+  ],
+  "enrollmentOutcomes": [
+    { "code": "PROMOTED", "label": "Passage", "kind": "ADVANCE" },
+    { "code": "REPEATED", "label": "Redoublement", "kind": "REPEAT" },
+    { "code": "ORIENTED", "label": "Orientation", "kind": "REDIRECT" },
+    { "code": "REORIENTED", "label": "Réorientation", "kind": "REDIRECT" },
+    { "code": "EXCLUDED", "label": "Exclusion", "kind": "EXIT" },
+    { "code": "GRADUATED", "label": "Diplômé", "kind": "EXIT" }
+  ],
+  "programs": [
+    { "code": "COLLEGE", "label": "Enseignement secondaire — premier cycle", "educationLevel": "LOWER_SECONDARY", "gradeLevels": ["6E", "5E", "4E", "3E"] },
+    { "code": "LYCEE", "label": "Enseignement secondaire — second cycle", "educationLevel": "UPPER_SECONDARY", "gradeLevels": ["2NDE", "1ERE", "TLE"] }
+  ],
+  "settings": { "enrollmentConfirmationPolicy": "AUTO", "pendingHoldMinutes": null }
+}

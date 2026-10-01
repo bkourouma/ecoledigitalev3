@@ -1,0 +1,78 @@
+{
+  "section": "academic",
+  "schemaVersion": 1,
+  "templateVersion": 1,
+  "educationSystem": "CI",
+  "pack": "PRIMARY",
+  "educationLevels": [
+    { "code": "PRESCHOOL", "label": "Maternelle", "ordinal": 1 },
+    { "code": "PRIMARY", "label": "Primaire", "ordinal": 2 }
+  ],
+  "gradeLevels": [
+    { "code": "PS", "label": "Petite Section", "shortLabel": "PS", "educationLevel": "PRESCHOOL", "ordinal": 1, "next": "MS" },
+    { "code": "MS", "label": "Moyenne Section", "shortLabel": "MS", "educationLevel": "PRESCHOOL", "ordinal": 2, "next": "GS" },
+    { "code": "GS", "label": "Grande Section", "shortLabel": "GS", "educationLevel": "PRESCHOOL", "ordinal": 3, "next": "CP1" },
+    { "code": "CP1", "label": "CP1", "shortLabel": "CP1", "educationLevel": "PRIMARY", "ordinal": 1, "next": "CP2" },
+    { "code": "CP2", "label": "CP2", "shortLabel": "CP2", "educationLevel": "PRIMARY", "ordinal": 2, "next": "CE1" },
+    { "code": "CE1", "label": "CE1", "shortLabel": "CE1", "educationLevel": "PRIMARY", "ordinal": 3, "next": "CE2" },
+    { "code": "CE2", "label": "CE2", "shortLabel": "CE2", "educationLevel": "PRIMARY", "ordinal": 4, "next": "CM1" },
+    { "code": "CM1", "label": "CM1", "shortLabel": "CM1", "educationLevel": "PRIMARY", "ordinal": 5, "next": "CM2" },
+    { "code": "CM2", "label": "CM2", "shortLabel": "CM2", "educationLevel": "PRIMARY", "ordinal": 6, "next": null, "isFinal": true }
+  ],
+  "periodTypes": [
+    { "code": "TRIMESTER", "label": "Trimestre", "kind": "TEACHING_PERIOD" },
+    { "code": "SEMESTER", "label": "Semestre", "kind": "TEACHING_PERIOD" },
+    { "code": "COMPOSITION", "label": "Composition", "kind": "TEACHING_PERIOD" },
+    { "code": "MODULE", "label": "Module", "kind": "TEACHING_PERIOD" },
+    { "code": "NORMAL_SESSION", "label": "Session normale", "kind": "EXAM_SESSION" },
+    { "code": "MAKEUP_SESSION", "label": "Session de rattrapage", "kind": "EXAM_SESSION" }
+  ],
+  "periodPlans": [
+    {
+      "code": "THREE_TERMS",
+      "label": "Trois trimestres",
+      "slots": [
+        { "type": "TRIMESTER", "ordinal": 1, "label": "Trimestre 1" },
+        { "type": "TRIMESTER", "ordinal": 2, "label": "Trimestre 2" },
+        { "type": "TRIMESTER", "ordinal": 3, "label": "Trimestre 3" }
+      ]
+    },
+    {
+      "code": "TWO_SEMESTERS",
+      "label": "Deux semestres",
+      "slots": [
+        { "type": "SEMESTER", "ordinal": 1, "label": "Semestre 1" },
+        { "type": "SEMESTER", "ordinal": 2, "label": "Semestre 2" }
+      ]
+    }
+  ],
+  "nodeTypes": [
+    { "code": "LEVEL", "label": "Niveau", "allowedParents": ["ROOT"], "requiresGradeLevel": true, "system": true, "sortOrder": 10 },
+    { "code": "PERIOD", "label": "Période", "allowedParents": ["LEVEL"], "requiresPeriodSlot": true, "system": true, "sortOrder": 20 },
+    { "code": "GROUP", "label": "Groupe de matières", "allowedParents": ["LEVEL", "PERIOD"], "system": true, "sortOrder": 30 },
+    { "code": "UE", "label": "Unité d'enseignement", "allowedParents": ["PERIOD"], "allowsCredits": true, "creditsMustEqualChildren": true, "enrollable": true, "system": true, "sortOrder": 40 },
+    { "code": "ECUE", "label": "Élément constitutif d'unité d'enseignement", "allowedParents": ["UE"], "requiresSubject": true, "allowsCoefficient": true, "allowsCredits": true, "system": true, "sortOrder": 50 },
+    { "code": "SUBJECT", "label": "Matière", "allowedParents": ["LEVEL", "PERIOD", "GROUP"], "requiresSubject": true, "allowsCoefficient": true, "allowsCredits": true, "enrollable": true, "system": true, "sortOrder": 60 }
+  ],
+  "fundingTypes": [
+    { "code": "PRIVATE", "label": "Privé" },
+    { "code": "STATE_ASSIGNED", "label": "Affecté par l'État", "requiresReference": true },
+    { "code": "SCHOLARSHIP", "label": "Boursier", "requiresFunder": true },
+    { "code": "COMPANY", "label": "Pris en charge par une entreprise", "requiresFunder": true },
+    { "code": "STAFF_CHILD", "label": "Enfant du personnel" },
+    { "code": "OTHER", "label": "Autre" }
+  ],
+  "enrollmentOutcomes": [
+    { "code": "PROMOTED", "label": "Passage", "kind": "ADVANCE" },
+    { "code": "REPEATED", "label": "Redoublement", "kind": "REPEAT" },
+    { "code": "ORIENTED", "label": "Orientation", "kind": "REDIRECT" },
+    { "code": "REORIENTED", "label": "Réorientation", "kind": "REDIRECT" },
+    { "code": "EXCLUDED", "label": "Exclusion", "kind": "EXIT" },
+    { "code": "GRADUATED", "label": "Diplômé", "kind": "EXIT" }
+  ],
+  "programs": [
+    { "code": "MATERNELLE", "label": "Enseignement préscolaire", "educationLevel": "PRESCHOOL", "gradeLevels": ["PS", "MS", "GS"] },
+    { "code": "PRIMAIRE", "label": "Enseignement primaire", "educationLevel": "PRIMARY", "gradeLevels": ["CP1", "CP2", "CE1", "CE2", "CM1", "CM2"] }
+  ],
+  "settings": { "enrollmentConfirmationPolicy": "AUTO", "pendingHoldMinutes": null }
+}
