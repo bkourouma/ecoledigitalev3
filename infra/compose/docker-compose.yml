@@ -39,6 +39,49 @@ services:
       retries: 5
       start_period: 30s
 
+  # Worker v2 (apps/worker) : relais d'outbox -> BullMQ, abonnes d'evenements, jobs planifies.
+  # Profil "worker" : il n est ni construit ni demarre par un `docker compose up` ordinaire
+  # (la base v2 : schema kernel, role app_user, migrations du worker, doit exister d abord).
+  #   docker compose -f infra/compose/docker-compose.yml --profile worker up -d --build ecoledigitale-worker
+  # Une fois la base v2 en production, retirer la ligne `profiles` pour l inclure d office.
+  #
+  # Volontairement SANS env_file : il ne recoit ni DATABASE_URL (role privilegie de l ancienne
+  # API) ni aucun autre secret. Le worker refuse de demarrer si son role est superuser ou
+  # BYPASSRLS. WORKER_DATABASE_URL (role de connexion membre de app_user) vient du .env du
+  # projet compose ou de l environnement ; rien n est ecrit en dur ici.
+  ecoledigitale-worker:
+    profiles: ["worker"]
+    build:
+      context: ../../
+      dockerfile: infra/compose/Dockerfile.worker
+    image: ecoledigitale-worker:latest
+    container_name: ecoledigitale-worker
+    init: true
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${WORKER_LOG_LEVEL:-info}
+      REDIS_URL: redis://redis:6379
+      WORKER_DATABASE_URL: ${WORKER_DATABASE_URL:-}
+      WORKER_HTTP_HOST: 0.0.0.0
+      WORKER_HTTP_PORT: 8012
+      WORKER_QUEUE_PREFIX: ${WORKER_QUEUE_PREFIX:-ed}
+    restart: unless-stopped
+    # Arret gracieux : WORKER_SHUTDOWN_TIMEOUT_MS (25 s) + marge avant le SIGKILL de Docker.
+    stop_grace_period: 40s
+    networks:
+      - ecoledigitale-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8012/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   ecoledigitale-formation-pro:
     build:
       context: ../../

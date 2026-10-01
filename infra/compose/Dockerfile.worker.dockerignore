@@ -1,0 +1,25 @@
+# Applique uniquement a Dockerfile.worker (BuildKit : <Dockerfile>.dockerignore a cote du Dockerfile).
+# Garde hors du contexte : dependances de l hote (liens pnpm Windows), sorties de build, secrets, gros dossiers.
+**/node_modules
+**/dist
+**/.next
+**/coverage
+.git
+.claude
+.agents
+.specify
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+docs
+specs
+tests
+assets
+apps/web
+apps/formation-pro-public
+apps/api/uploads
+apps/api/node_modules
+*.pdf
+*.docx
+Postman_Collection*.json
