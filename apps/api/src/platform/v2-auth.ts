@@ -82,6 +82,7 @@ export function installV2Authentication(app: FastifyInstance, options: { moduleK
     const result = await app.iam.authenticate(token, { requestId: requestIdFrom(request.headers), allowImpersonation: true });
     if (result.ok) {
       request.iamAuth = { principal: result.value.principal };
+      request.iamTokenJti = result.value.claims.jti;
       request.ctx = result.value.principal.ctx;
       noteImpersonation(request, result.value.principal);
       return;

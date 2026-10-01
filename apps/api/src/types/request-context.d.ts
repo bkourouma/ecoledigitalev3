@@ -19,6 +19,8 @@ declare module "fastify" {
       impersonatedBySuperAdminId?: string;
       /** `iam` quand l'utilisateur a été construit par la passerelle IAM v2 (platform/legacy-iam-bridge.ts), sinon absent (jeton legacy). */
       authSource?: "iam";
+      /** `jti` du jeton d'accès IAM (passerelle). Un jeton IAM n'est pas révoqué par `jti` (liste noire) mais par sa session : voir `iamSessionId`. */
+      jti?: string;
       /** Session et identité IAM d'origine (passerelle) : l'identifiant `id` ci-dessus reste celui du compte LEGACY. */
       iamSessionId?: string;
       iamIdentityId?: string;

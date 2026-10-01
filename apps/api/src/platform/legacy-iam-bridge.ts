@@ -103,6 +103,8 @@ export function legacyIamBridgeEnabled(env: NodeJS.ProcessEnv = process.env): bo
 
 declare module "fastify" {
   interface FastifyRequest {
+    /** `jti` du jeton d'accès IAM authentifié (posé par `platform/v2-auth.ts`) : repris dans `request.user.jti`. */
+    iamTokenJti?: string;
     /**
      * Posé par `platform/v2-auth.ts` sur une route LEGACY quand un jeton IAM v2 porté par la requête n'a pas pu être
      * authentifié (signature, expiration, session révoquée, accès/tenant inactif, MFA requise…). Le middleware legacy
@@ -206,6 +208,7 @@ export async function attachIamLegacyUser(fastify: FastifyInstance, request: Fas
       roles: [view.active],
       availableRoles: view.available,
       authSource: "iam",
+      jti: request.iamTokenJti ?? principal.sessionId,
       iamSessionId: principal.sessionId,
       iamIdentityId: principal.identityId,
       ...(principal.impersonatedBy ? { impersonatedBySuperAdminId: principal.impersonatedBy } : {}),

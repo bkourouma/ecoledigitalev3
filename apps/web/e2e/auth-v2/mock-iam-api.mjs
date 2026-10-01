@@ -196,7 +196,7 @@ const server = createServer(async (req, res) => {
     const s = bearerSession(req);
     if (!s) return error(res, 401, "iam.token_invalid");
     if (!USERS[s.email].roles.includes(body.activeRole)) return error(res, 403, "iam.forbidden");
-    s.revoked = true;
+    sessions.get(s.sid).revoked = true; // l'ancienne session est révoquée (bearerSession renvoie une copie)
     const { sid, refresh } = newSession(s.email);
     return json(res, authenticated(s.email, sid, refresh, body.activeRole));
   }

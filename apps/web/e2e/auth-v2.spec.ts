@@ -25,17 +25,21 @@ interface MockState {
 }
 const mockState = async (request: APIRequestContext): Promise<MockState> => (await request.get(`${API}/__mock/state`)).json();
 
-async function fillCredentials(page: Page, email: string, password = PASSWORD): Promise<void> {
-  await page.goto("/login");
-  const submit = page.getByRole("button", { name: "Se connecter" });
+/** Saisit les identifiants sur la page de connexion déjà ouverte (sans valider). */
+async function typeCredentials(page: Page, email: string, password: string): Promise<void> {
   // Le serveur de développement compile la page à la demande : une saisie faite AVANT l'hydratation est effacée par React.
   // On resaisit jusqu'à ce que le formulaire (réellement hydraté) accepte les valeurs.
   await expect(async () => {
     await page.getByLabel("Adresse e-mail").fill(email);
     await page.getByLabel("Mot de passe").fill(password);
-    await expect(submit).toBeEnabled({ timeout: 1_000 });
-  }).toPass({ timeout: 60_000 });
-  await submit.click();
+    await expect(page.getByRole("button", { name: "Se connecter" })).toBeEnabled({ timeout: 1_000 });
+  }).toPass({ timeout: 120_000 });
+}
+
+async function fillCredentials(page: Page, email: string, password = PASSWORD): Promise<void> {
+  await page.goto("/login");
+  await typeCredentials(page, email, password);
+  await page.getByRole("button", { name: "Se connecter" }).click();
 }
 
 /** Message d'erreur du formulaire (le « route announcer » de Next porte aussi role=alert, hors de `<main>`). */
@@ -44,6 +48,15 @@ const formAlert = (page: Page) => page.locator("main").getByRole("alert");
 const sessionJson = (page: Page): Promise<Record<string, unknown>> => page.evaluate(async () => (await fetch("/api/auth/session")).json());
 
 test.describe.configure({ mode: "serial" });
+
+// `next dev` compile les pages à la première requête (plus d'une minute à froid, davantage sur une machine chargée) : on
+// les réchauffe une fois pour que le coût n'entre dans aucun test.
+test.beforeAll(async ({ request }) => {
+  test.setTimeout(360_000);
+  for (const path of ["/api/auth/providers", "/login", "/v2/account/sessions", "/select-role", "/teacher/dashboard", "/tableau-de-bord"]) {
+    await request.get(path, { timeout: 300_000 }).catch(() => undefined);
+  }
+});
 
 test("la page de connexion V2 est accessible : étiquettes liées, erreur annoncée, pas de défilement horizontal @mobile", async ({ page }) => {
   await page.goto("/login");
@@ -55,8 +68,7 @@ test("la page de connexion V2 est accessible : étiquettes liées, erreur annonc
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 
-  await page.getByLabel("Adresse e-mail").fill("prof@ecole.test");
-  await page.getByLabel("Mot de passe").fill("pas-le-bon-mot-de-passe");
+  await typeCredentials(page, "prof@ecole.test", "pas-le-bon-mot-de-passe");
   await page.getByRole("button", { name: "Se connecter" }).click();
   await expect(formAlert(page)).toContainText("Identifiants invalides");
 });
