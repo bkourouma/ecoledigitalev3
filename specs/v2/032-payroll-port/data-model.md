@@ -4,6 +4,25 @@
 
 Reprise de la portabilité (`docs/module-remuneration-portage-nouvelle-stack.md` §3) avec les changements : entiers/minutes, contraintes de base pour l'unicité d'une heure payée, transitions imposées par trigger, `academic_year_id` obligatoire, comptes rendus conservés, plus de table propre aux séances (elles vivent dans 017).
 
+## Errata — le DDL implémenté (`apps/api/src/modules/payroll/migrations/1500-1504`) fait foi
+
+Fichiers : `1500_payroll_settings_periods.sql`, `1501_payroll_config_rates.sql`, `1502_payroll_payslips.sql`, `1503_payroll_events_runs.sql`, `1504_payroll_guards.sql`. Différences avec le DDL de référence ci-dessous :
+
+| DDL de référence | Implémenté | Pourquoi |
+|---|---|---|
+| `session_validations` (+ garde) | **supprimée** | la validation et la dérogation de durée sont des actes de `scheduling` (017) |
+| `settings.hour_source_by_pack` | supprimée | features `payroll.session-source` / `payroll.attendance-source` |
+| `settings.currency` sans défaut | `DEFAULT 'XOF'`, ligne créée à la première utilisation ou au provisioning | |
+| — | **`salary_day_claims`** `(tenant, enseignant, jour)` + garde + intégrité | un jour de salaire ne se paie qu'une fois |
+| `payslips` sans `salary_amount` | `salary_amount`, `calculated_by_name`, CHECKs de piste de statut (`payslips_*_trail`) | totaux vérifiables ; identité figée |
+| `payslip_lines` `CHECK ((is_overtime AND mult > 1000) OR (NOT is_overtime AND mult = 1000))` | `is_overtime OR multiplier_permille = 1000` ; `UNIQUE (tenant, payslip, source, ref, is_overtime)` | ×1,0 permis ; séance à cheval = deux lignes |
+| `pay_period_targets` PK `(period_id, staff_id)` | PK `(tenant_id, period_id, staff_id)` | l'isolation exige un index qui commence par `tenant_id` |
+| `pay_periods` : règle « une seule en attente » par déclencheur | colonne `awaiting_calculation` + index unique partiel, maintenue par `payslips_guard` / `pay_periods_guard` / le cas d'usage | |
+| `calculation_run_items.skip_reason` | + `NOTHING_TO_PAY`, `ALREADY_CALCULATED` | |
+| `payslip_events.action` | `VIEWED_PDF` → `VIEWED` | pas de PDF ici |
+| Triggers du §5.1 | `payslips_guard` (colonnes modifiables **par transition**, séparation des tâches, seuil propriétaire via `payroll.actor_owner`), `payslips_cancel_releases`, `children_guard`, `payslip_integrity` (différé, une fois par bulletin et par transaction), `pay_periods_guard`, `pay_period_targets_guard`, `forbid_mutation` | |
+| Vue `v_payslip_breakdown WITH (security_invoker)` | sans l'option (PG 14) : la RLS FORCÉE des tables s'applique au propriétaire de la vue | |
+
 ## 1. Réglages (migration `1501_payroll_settings.sql`)
 
 ```sql

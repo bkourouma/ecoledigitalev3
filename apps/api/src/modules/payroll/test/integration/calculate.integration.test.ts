@@ -344,6 +344,23 @@ describeIntegration("calcul de la paie (Postgres réel)", () => {
     expect((await adminRows(db, "SELECT awaiting_calculation FROM payroll.pay_periods WHERE id=$1", [period.id]))[0]).toEqual({ awaiting_calculation: true });
   });
 
+  it("l'aperçu d'un bulletin déjà calculé montre ce que donnerait le recalcul (sans rien écrire)", async () => {
+    await fresh();
+    const s = addStaff(w, "Aperçu Existant");
+    await addConfig(w, { staffId: s });
+    const period = await addPeriod(w);
+    w.mem.sessions.add(session(s, "2026-01-06", 60));
+    await calc(period.id);
+    w.mem.sessions.add(session(s, "2026-01-07", 60)); // une heure validée après le calcul (risque R6)
+    const preview = await calc(period.id, { dryRun: true });
+    expect(item(preview, s)).toMatchObject({ outcome: "CALCULATED" });
+    expect(item(preview, s)?.total?.amount).toBe(20_000);
+    expect((await payslipRows(w))[0]?.total_amount).toBe("10000"); // inchangé
+    // sans aperçu ni « recalculer » : rien ne bouge non plus
+    expect(item(await calc(period.id), s)).toMatchObject({ skipReason: "ALREADY_CALCULATED" });
+    expect((await payslipRows(w))[0]?.total_amount).toBe("10000");
+  });
+
   it("AC2.12 — un enseignant désactivé garde ses séances validées non payées", async () => {
     await fresh();
     const gone = addStaff(w, "Parti Depuis", { active: false });

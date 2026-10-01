@@ -116,6 +116,8 @@ interface Shared {
   readonly hoursByStaff: ReadonlyMap<Uuid, readonly PayableHour[]>;
   readonly pendingValidation: ReadonlyMap<Uuid, number>;
   readonly recalculate: boolean;
+  /** Aperçu : prévisualise la reconstruction d'un bulletin CALCULATED même sans `recalculate` (rien n'est écrit). */
+  readonly dryRun: boolean;
   readonly actor: { id: Uuid; name: string };
   readonly names: ReadonlyMap<Uuid, string>;
 }
@@ -209,7 +211,7 @@ async function planStaff(tx: Tx, shared: Shared, staffId: Uuid, lock: boolean): 
       },
     };
   }
-  if (existing && !shared.recalculate) {
+  if (existing && !shared.recalculate && !shared.dryRun) {
     return skipped(shared, staffId, "ALREADY_CALCULATED", "Un bulletin calculé existe déjà : relancez avec « recalculer » pour le reconstruire.", { payslipId: existing.id, total: existing.totalAmount });
   }
 
@@ -519,6 +521,7 @@ export async function calculatePeriod(deps: PayrollDeps, ctx: RequestContext, in
     hoursByStaff,
     pendingValidation,
     recalculate,
+    dryRun,
     actor: { id: user.value, name: actor.name },
     names,
     // `names` est complété ci-dessous pour les hors périmètre

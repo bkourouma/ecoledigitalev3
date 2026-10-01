@@ -125,3 +125,44 @@ Tables legacy remplacées (tranche 2.7 / Phase 3) : `payment_periods`, `payment_
 8. Enseignants inactifs ignorés alors que la spec les paie.
 9. Compte rendu de calcul perdu après l'écran.
 10. Identité d'établissement et charte graphique d'un tenant codées en dur sur le bulletin ; `academic_year_id` nul ; liste de rôles « comptables » codée en dur.
+
+## 9. Parité chiffrée EXÉCUTABLE (module `payroll`, implémenté)
+
+`apps/api/src/modules/payroll/test/integration/parity.integration.test.ts` rejoue les **30 étapes** du scénario
+`tests/characterization/scenarios/paie-enseignants` (mêmes 9 enseignants, mêmes séances d'ECUE et présences, mêmes tarifs et configurations)
+sur le module et compare chaque résultat au snapshot du legacy (`snapshots/paie-enseignants.snapshot.json`). Aucun écart non expliqué n'est toléré :
+la table ci-dessous est exhaustive et vérifiée par le test (`inventaire des écarts`).
+
+### 9.1 Montants (aperçu étape 10 = calcul réel étape 11)
+
+| Enseignant | Legacy | v2 (XOF entier) | Nature |
+|---|---|---|---|
+| Alice Academique (horaire, présences) | 32 000 | 32 000 | identique |
+| Awa Sanogo (horaire, 2,5 h + 3 h) | 55 000 | 55 000 | identique |
+| Aissatou Diallo (salaire 400 000 × 20/22) | 363 636,3636 | 363 636 | **B** entier, demi-supérieur |
+| Maya Mixte (100 000 × 20/22 + 4 h × 9 000) | 126 909,0909 | 126 909 | **B** |
+| Marc Mixte (200 000 × 20/22 + 16 h dont 6 h majorées) | aperçu 344 818,1818 ; **aucun bulletin** (erreur d'unicité) | 344 818 | **B** + bogue 1 |
+| Cédric Centime (tarif 3 333,33 ; 10 h + 4 h majorées) | 53 333,28 | 53 328 | **C** tarif entier : 3 333,33 → 3 333 |
+| Ibrahim Koné / Nora Sanstarif / Victor Sansheure | écartés `NO_CONFIG` / `NO_RATE_RESOLVED` / `NO_HOURS` | idem, nommés et conservés | identique |
+
+### 9.2 Les 6 bogues du legacy CORRIGÉS (valeur legacy vs valeur correcte)
+
+| # | Bogue (id de la caractérisation) | Valeur legacy | Valeur v2 |
+|---|---|---|---|
+| 1 | `PAYSLIP_OVERTIME_SPLIT_VIOLATES_UNIQUE` — séance à cheval sur le seuil | Marc Mixte : **aucun bulletin** (compté en erreur) ; l'aperçu affichait 344 818,18 | bulletin produit, 344 818 : la séance `m2` est coupée en 120 min normales (18 000) + 120 min majorées (27 000) |
+| 2 | `PAYMENT_OVERLAPPING_PERIOD_DOUBLES_SALARY` — périodes chevauchantes | 2e période : salaires de **363 636,36** (diallo) et **90 909,09** (mixte2) versés une seconde fois | `NOTHING_TO_PAY` : aucun second salaire (`salary_day_claims`) ; heures déjà payées exclues |
+| 3 | `PAYMENT_ARCHIVE_REVIVES_CANCELLED` — « tout archiver » | bulletin `cancelled` d'acad → `approved` | reste `CANCELLED` (terminal) ; « tout arrêter » (`all: true`) ne prend que les `CALCULATED` |
+| 4 | `PAYMENT_STATUS_ENDPOINT_NO_STATE_MACHINE` — `PATCH /:id/status` libre, approbateur codé en dur | annulé → `paid` et calculé → `paid` acceptés, `approved_by` = UUID fixe | refusés (`409 payroll.invalid_transition`, trigger) ; aucune route ; auteur = utilisateur authentifié |
+| 5 | `PAYSLIP_LINES_ROUNDING` — arrondi des lignes incohérent avec le montant | ligne de 4 h : 4 × 5 000,00 = 20 000,00 mais **19 999,98** enregistré | `amount = floor((minutes × taux × ‰ + 30 000) / 60 000)` (CHECK) ; 4 h × 3 333 × 1,5 = **19 998** ; Σ lignes + salaire + primes − retenues = total pour TOUS les bulletins |
+| 6 | `PAYMENT_RECALCULATE_ERASES_ADJUSTMENTS` — recalcul | prime 5 000 et retenue 2 000 remises à **0** | conservées (table `payslip_adjustments`) : total 58 000 |
+
+### 9.3 Autres écarts acceptés
+
+| Id | Legacy | v2 | Raison |
+|---|---|---|---|
+| `REASON_AWA` (étape 26) | motif `NO_HOURS` pour awa et cent | `NOTHING_TO_PAY` | les heures existent mais sont déjà portées par un bulletin non annulé : motif plus précis |
+| `SINGLE_DAY_PERIOD` (étape 3) | période d'un jour refusée (400) | acceptée | le DDL de référence autorise `end_date >= start_date` (prorata d'un jour ouvré) |
+| étapes 7, 8, 19 | volume sans horaires / nul refusés ; annulation d'une séance rattachée refusée | mêmes refus, **portés par 017** (`setPaidMinutes`, verrous `lockHours`) et par le prédicat unique de la paie | la validation des séances est un acte de `scheduling` |
+
+Ordre des heures d'une même semaine : `(date, origine ATTENDANCE avant SESSION, heure de début [nulle en dernier], identifiant)` — l'ordre **de fait** du legacy
+(académique collecté avant professionnel) est conservé pour que 344 818 soit reproduit ; le legacy ne triait que par date (ordre arbitraire à date égale).
