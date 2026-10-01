@@ -283,18 +283,18 @@ describe("OutboxManager : hors ligne, reconnexion, rejeu, conflits", () => {
 
   it("modification pendant l'envoi : la version plus récente reste en file et repart", async () => {
     let first = true;
-    let manager_!: OutboxManager;
+    const holder: { m: OutboxManager | null } = { m: null };
     const { m, post } = manager({
       post: async (b) => {
         if (first) {
           first = false;
           // L'enseignant change d'avis pendant que le lot est en vol.
-          await manager_.mark({ target: OCC, date: "2026-10-01", studentId: uuid(11), statusCode: "PRESENT" });
+          await holder.m!.mark({ target: OCC, date: "2026-10-01", studentId: uuid(11), statusCode: "PRESENT" });
         }
         return answer(b);
       },
     });
-    manager_ = m;
+    holder.m = m;
     await m.init();
     await mark(m, uuid(11), "ABSENT");
     await m.syncNow();

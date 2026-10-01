@@ -257,8 +257,9 @@ export class AttendanceOutbox {
       const owner = this.owner();
       const call = await this.calls.get(callKey(target));
       if (!call || call.owner !== owner || !(studentId in call.records)) return call;
-      const { [studentId]: _removed, ...rest } = call.records;
-      const next = this.touch({ ...call, records: rest });
+      const records = { ...call.records };
+      delete records[studentId];
+      const next = this.touch({ ...call, records });
       await this.calls.put(next);
       return next;
     });
