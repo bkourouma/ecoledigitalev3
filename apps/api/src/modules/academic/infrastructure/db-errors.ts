@@ -88,8 +88,8 @@ export function mapDbError(e: unknown): AppError | null {
     case "23503": {
       const constraint = pg.constraint ?? "";
       // Suppression d'une ligne encore référencée.
-      if (/violates foreign key constraint .* on table/.test(message) && /is still referenced/.test(message)) {
-        if (pg.table === "subjects" || /subjects/.test(message)) return conflict(AcademicCode.SUBJECT_IN_USE, "La matière est encore référencée par un nœud de curriculum.");
+      if (/is still referenced|update or delete on table/.test(`${message} ${pg.detail ?? ""}`)) {
+        if (pg.table === "subjects" || /table "subjects"/.test(message)) return conflict(AcademicCode.SUBJECT_IN_USE, "La matière est encore référencée par un nœud de curriculum.");
         return conflict("academic.in_use", "L'élément est encore référencé.");
       }
       for (const [re, code, text] of FK_BY_CONSTRAINT) if (re.test(constraint)) return validation(code, text);

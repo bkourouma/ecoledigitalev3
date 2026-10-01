@@ -9,8 +9,7 @@ import {
   classroomAction,
   createAcademicYear,
   createAcademicDeps,
-  createClassroom,
-  createCurriculumVersion,
+  createClassroom,  createCurriculumVersion,
   createProgram,
   createSubject,
   InMemoryStudentDirectory,
@@ -54,6 +53,11 @@ export const todayOf = (w: World): string => w.clock.now().toISOString().slice(0
 export function currentYearDates(w: World): { startsOn: string; endsOn: string } {
   const startsOn = addDays(todayOf(w), -100);
   return { startsOn, endsOn: defaultYearEnd(startsOn) };
+}
+
+/** Année CONTIGUË à celle qui se termine le `afterEndsOn` (la règle « pas de trou » est appliquée par le cas d'usage). */
+export async function createNextYear(w: World, afterEndsOn: string, code: string) {
+  return unwrap(await createAcademicYear(w.deps, w.ctx, { institutionId: w.institutionId, code, label: code, startsOn: addDays(afterEndsOn, 1) }));
 }
 
 export function addStudent(w: World, overrides: Partial<StudentSummary> = {}, userId?: string): StudentSummary {
