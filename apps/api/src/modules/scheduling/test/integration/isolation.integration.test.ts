@@ -28,8 +28,11 @@ describeIntegration("isolation multi-tenant", () => {
     const covered = [...report.behavioural, ...report.structuralOnly.map((s) => s.table)].filter((t) => t.startsWith("scheduling."));
     expect(covered.sort()).toEqual([...schedulingTenantTables].sort());
     // Les tables simples sont aussi vérifiées en COMPORTEMENT (deux tenants) ; les autres le sont par sql-guards.
-    expect(report.behavioural.filter((t) => t.startsWith("scheduling.")).length).toBeGreaterThanOrEqual(6);
-    console.info(`[isolation] scheduling : comportement=${report.behavioural.filter((t) => t.startsWith("scheduling.")).join(", ")} ; structure seule=${report.structuralOnly.filter((s) => s.table.startsWith("scheduling.")).map((s) => s.table).join(", ")}`);
+    expect(report.behavioural.filter((t) => t.startsWith("scheduling.")).length).toBeGreaterThanOrEqual(9);
+    // La séance (agrégat central, CHECK de bornes horaires) est vérifiée en COMPORTEMENT grâce aux `fixtures`, pas en structure seule.
+    expect(report.behavioural).toContain("scheduling.session_occurrences");
+    expect(report.structuralOnly.filter((s) => s.table.startsWith("scheduling.")).map((s) => s.reason).filter((r) => /check constraint/.test(r))).toEqual([]);
+    console.info(`[isolation] scheduling : comportement=${report.behavioural.filter((t) => t.startsWith("scheduling.")).join(", ")} ; structure seule=${report.structuralOnly.filter((s) => s.table.startsWith("scheduling.")).map((s) => `${s.table} (${s.reason})`).join(" ; ")}`);
     await assertTenantIsolation({ pool: db.appPool, schemas: ["kernel", "scheduling"], allowlist: ["kernel.tenants"], fixtures });
   });
 
