@@ -2465,5 +2465,258 @@
       "allSubjects": "Toutes les matières",
       "subjects": "{count, plural, one {# affectation} other {# affectations}}"
     }
+  },
+  "v2Finance": {
+    "nav": {
+      "label": "Finance",
+      "overview": "Vue d'ensemble",
+      "invoices": "Factures",
+      "payments": "Encaissements",
+      "receipts": "Reçus",
+      "refunds": "Remboursements",
+      "cash": "Caisse",
+      "fees": "Frais et barèmes",
+      "funding": "Remises et bourses",
+      "reports": "Rapports",
+      "me": "Mes finances"
+    },
+    "common": {
+      "amountHint": "En francs, sans décimales (par exemple 150000).",
+      "allYears": "Toutes les années",
+      "choose": "Choisir…"
+    },
+    "errors": {
+      "amount": {
+        "empty": "Saisissez un montant.",
+        "decimal": "Le montant est un entier en francs : pas de virgule ni de point.",
+        "negative": "Le montant ne peut pas être négatif.",
+        "invalid": "Montant invalide : chiffres uniquement, strictement positif.",
+        "tooLarge": "Montant trop élevé."
+      },
+      "required": "Ce champ est obligatoire.",
+      "invalid": "Valeur invalide."
+    },
+    "category": {
+      "REGISTRATION": "Inscription",
+      "TUITION": "Scolarité",
+      "CANTEEN": "Cantine",
+      "TRANSPORT": "Transport",
+      "UNIFORM": "Uniforme",
+      "DOCUMENTS": "Documents",
+      "EXAMS": "Examens",
+      "ACTIVITIES": "Activités",
+      "DEFENSE": "Soutenance",
+      "LIBRARY": "Bibliothèque",
+      "OTHER": "Autres"
+    },
+    "catalog": {
+      "nav": {
+        "label": "Catalogue des frais",
+        "fees": "Frais",
+        "schedules": "Barèmes",
+        "plans": "Plans d'échéancier",
+        "discounts": "Remises"
+      },
+      "scope": {
+        "legend": "Périmètre du barème",
+        "hint": "Laissez vide pour appliquer le barème à tous. Le barème le plus précis l'emporte ; deux barèmes aussi précis l'un que l'autre sont refusés par l'API.",
+        "institutionLabel": "Établissement",
+        "campusLabel": "Campus",
+        "levelLabel": "Niveau (clé)",
+        "trackLabel": "Filière (clé)",
+        "learnerTypeLabel": "Type d'apprenant (clé)",
+        "all": "Tous"
+      },
+      "fees": {
+        "title": "Frais",
+        "description": "Ce qui peut être facturé : inscription, scolarité, cantine, transport… Les montants viennent des barèmes.",
+        "new": "Nouveau frais",
+        "caption": "Catalogue des frais",
+        "columns": {
+          "code": "Code",
+          "name": "Libellé",
+          "category": "Catégorie",
+          "status": "Statut",
+          "actions": "Actions"
+        },
+        "active": "Actif",
+        "inactive": "Inactif",
+        "activate": "Activer",
+        "deactivate": "Désactiver",
+        "activated": "Le frais « {name} » est actif.",
+        "deactivated": "Le frais « {name} » est désactivé.",
+        "created": "Le frais « {name} » a été créé.",
+        "filters": {
+          "category": "Catégorie",
+          "allCategories": "Toutes les catégories",
+          "activeOnly": "Frais actifs seulement"
+        },
+        "empty": "Aucun frais",
+        "emptyHint": "Créez les frais de l'établissement, puis leurs barèmes.",
+        "form": {
+          "title": "Nouveau frais",
+          "submit": "Créer",
+          "code": "Code",
+          "codeHint": "Court et unique (par exemple SCOL-6E).",
+          "name": "Libellé",
+          "category": "Catégorie",
+          "descriptionLabel": "Description"
+        }
+      },
+      "schedules": {
+        "title": "Barèmes",
+        "description": "Le montant d'un frais selon l'année, l'établissement, le campus, le niveau, la filière et le type d'apprenant, avec dates d'effet.",
+        "new": "Nouveau barème",
+        "caption": "Barèmes de frais",
+        "columns": {
+          "fee": "Frais",
+          "year": "Année",
+          "scope": "Périmètre",
+          "amount": "Montant",
+          "validity": "Validité",
+          "status": "Statut"
+        },
+        "active": "En vigueur",
+        "inactive": "Hors vigueur",
+        "scope": {
+          "all": "Tous les apprenants",
+          "institution": "Établissement",
+          "campus": "Campus",
+          "level": "Niveau {value}",
+          "track": "Filière {value}",
+          "learnerType": "Type {value}"
+        },
+        "validRange": "Du {from} au {to}",
+        "validFrom": "Depuis le {from}",
+        "filters": {
+          "fee": "Frais",
+          "allFees": "Tous les frais",
+          "year": "Année scolaire",
+          "activeOnly": "Barèmes en vigueur seulement"
+        },
+        "empty": "Aucun barème",
+        "emptyHint": "Un frais sans barème ne peut pas être facturé depuis le catalogue.",
+        "created": "Le barème a été créé.",
+        "form": {
+          "title": "Nouveau barème",
+          "description": "Le montant est un entier en francs. L'API refuse un chevauchement ambigu.",
+          "fee": "Frais",
+          "choose": "Choisir un frais…",
+          "year": "Année scolaire",
+          "amount": "Montant",
+          "from": "En vigueur à partir du",
+          "to": "Jusqu'au (facultatif)",
+          "plan": "Plan d'échéancier par défaut",
+          "planHint": "Proposé à l'émission des factures de ce frais.",
+          "noPlan": "Aucun",
+          "submit": "Créer le barème"
+        }
+      },
+      "resolver": {
+        "title": "Quel montant s'applique ?",
+        "description": "Interroge l'API : elle choisit le barème le plus précis pour ce contexte.",
+        "fee": "Frais",
+        "choose": "Choisir…",
+        "year": "Année scolaire",
+        "level": "Niveau (clé)",
+        "track": "Filière (clé)",
+        "learnerType": "Type d'apprenant (clé)",
+        "date": "À la date du",
+        "submit": "Résoudre",
+        "result": "Montant applicable : {amount} (année {year})."
+      },
+      "plans": {
+        "title": "Plans d'échéancier",
+        "description": "Modèles de répartition d'une facture en échéances : parts fixes ou pondérées, échéances en date, en jours ou en jour du mois.",
+        "new": "Nouveau plan",
+        "featureOff": "Les échéanciers ne sont pas inclus dans l'offre de l'établissement.",
+        "empty": "Aucun plan d'échéancier",
+        "listLabel": "Plans d'échéancier",
+        "shareFixed": "Part fixe {amount}",
+        "shareWeight": "Poids {weight}",
+        "dueDate": "échéance le {date}",
+        "dueOffset": "échéance à +{days} j",
+        "dueMonthDay": "échéance le {day}/{month}",
+        "created": "Le plan « {name} » a été créé.",
+        "form": {
+          "title": "Nouveau plan d'échéancier",
+          "description": "Le découpage exact au franc près est fait par l'API.",
+          "code": "Code",
+          "name": "Libellé",
+          "sharesHint": "Une part FIXE est un montant en francs ; une part PONDÉRÉE se partage le reste proportionnellement à son poids.",
+          "step": "Échéance {n}",
+          "removeStep": "Retirer",
+          "stepLabel": "Libellé de l'échéance",
+          "shareKind": "Type de part",
+          "kinds": {
+            "WEIGHT": "Pondérée",
+            "FIXED": "Montant fixe"
+          },
+          "shareAmount": "Montant fixe",
+          "shareWeight": "Poids",
+          "dueKind": "Échéance",
+          "dues": {
+            "OFFSET_DAYS": "Nombre de jours après la facture",
+            "DATE": "Date précise",
+            "MONTH_DAY": "Jour d'un mois"
+          },
+          "dueDate": "Date",
+          "dueDays": "Jours",
+          "dueDaysHint": "0 = à l'émission.",
+          "dueMonth": "Mois (1-12)",
+          "dueDay": "Jour (1-31)",
+          "addStep": "Ajouter une échéance",
+          "submit": "Créer le plan"
+        }
+      },
+      "discounts": {
+        "title": "Remises",
+        "description": "Réductions en pourcentage ou en montant, avec plafond, catégories visées et cumul.",
+        "new": "Nouvelle remise",
+        "caption": "Remises",
+        "columns": {
+          "code": "Code",
+          "name": "Libellé",
+          "value": "Valeur",
+          "cap": "Plafond",
+          "categories": "Catégories",
+          "stackable": "Cumulable",
+          "status": "Statut"
+        },
+        "allCategories": "Toutes",
+        "yes": "Oui",
+        "no": "Non",
+        "active": "Active",
+        "inactive": "Inactive",
+        "empty": "Aucune remise",
+        "emptyHint": "Créez des remises (fratrie, mérite, personnel…) à appliquer aux factures.",
+        "created": "La remise « {name} » a été créée.",
+        "form": {
+          "title": "Nouvelle remise",
+          "submit": "Créer",
+          "code": "Code",
+          "name": "Libellé",
+          "kind": "Type",
+          "kinds": {
+            "PERCENT": "Pourcentage",
+            "AMOUNT": "Montant fixe"
+          },
+          "percent": "Pourcentage",
+          "percentHint": "Par exemple 10 ou 12,5 (deux décimales au plus).",
+          "percentErrors": {
+            "empty": "Saisissez un pourcentage.",
+            "invalid": "Pourcentage invalide (par exemple 10 ou 12,5).",
+            "range": "Le pourcentage doit être compris entre 0,01 et 100."
+          },
+          "amount": "Montant",
+          "cap": "Plafond (facultatif)",
+          "capHint": "Montant maximal de la remise sur une facture.",
+          "categories": "Catégories concernées",
+          "categoriesHint": "Aucune case cochée : toutes les catégories.",
+          "stackable": "Cumulable avec d'autres remises",
+          "stackableHint": "Les règles de cumul sont appliquées par l'API à l'émission."
+        }
+      }
+    }
   }
 }
