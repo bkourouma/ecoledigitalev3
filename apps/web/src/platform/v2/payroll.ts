@@ -158,12 +158,12 @@ export function useResolveRate(query: { staffId: string; date: string; nodeId?: 
 // Périodes
 // ---------------------------------------------------------------------------
 
-export function usePayPeriods(query: { status?: string; academicYearId?: string; limit?: number; offset?: number } = {}) {
-  return hooks.useApiQuery(["payroll", "periods", "list"], `${PAYROLL_BASE}/periods`, { schema: payrollPeriodPageDtoSchema, query: query as Query });
+export function usePayPeriods(query: { status?: string; academicYearId?: string; limit?: number; offset?: number } = {}, options: { enabled?: boolean } = {}) {
+  return hooks.useApiQuery(["payroll", "periods", "list"], `${PAYROLL_BASE}/periods`, { schema: payrollPeriodPageDtoSchema, query: query as Query, enabled: options.enabled });
 }
 
-export function usePendingPeriod() {
-  return hooks.useApiQuery(["payroll", "periods", "pending"], `${PAYROLL_BASE}/periods/pending`, { schema: payrollPendingPeriodDtoSchema, select: (d) => d.pending });
+export function usePendingPeriod(options: { enabled?: boolean } = {}) {
+  return hooks.useApiQuery(["payroll", "periods", "pending"], `${PAYROLL_BASE}/periods/pending`, { schema: payrollPendingPeriodDtoSchema, select: (d) => d.pending, enabled: options.enabled });
 }
 
 export function usePayPeriod(id: string | null) {

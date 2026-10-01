@@ -3708,5 +3708,670 @@
         "phoneHint": "Numéro mobile money, avec l'indicatif du pays."
       }
     }
+  },
+  "v2Payroll": {
+    "nav": {
+      "label": "Paie",
+      "periods": "Périodes",
+      "payslips": "Bulletins",
+      "configuration": "Configuration",
+      "history": "Historique",
+      "reports": "Rapports",
+      "owner": "Masse salariale",
+      "my": "Mes bulletins"
+    },
+    "status": {
+      "payslip": {
+        "CALCULATED": "Calculé",
+        "APPROVED": "Arrêté (impayé)",
+        "PAID": "Versé",
+        "DISPUTED": "Contesté",
+        "CANCELLED": "Annulé"
+      },
+      "period": {
+        "DRAFT": "Brouillon",
+        "ACTIVE": "Active",
+        "CLOSED": "Clôturée",
+        "ARCHIVED": "Archivée"
+      }
+    },
+    "configType": {
+      "SALARY": "Salaire",
+      "HOURLY": "Horaire",
+      "MIXED": "Mixte"
+    },
+    "source": {
+      "SESSION": "Séances",
+      "ATTENDANCE": "Présences"
+    },
+    "scope": {
+      "ALL": "Toutes les origines",
+      "SESSION": "Séances seulement",
+      "ATTENDANCE": "Présences seulement"
+    },
+    "method": {
+      "CASH": "Espèces",
+      "MOBILE_MONEY": "Mobile money",
+      "BANK_TRANSFER": "Virement bancaire",
+      "CHEQUE": "Chèque",
+      "OTHER": "Autre"
+    },
+    "rateOrigin": {
+      "NODE_STAFF": "Tarif du cours pour cet enseignant",
+      "NODE_GENERIC": "Tarif générique du cours",
+      "CONFIG_DEFAULT": "Tarif par défaut de la configuration",
+      "SALARY_ZERO": "Salaire : taux horaire nul"
+    },
+    "skipReason": {
+      "NO_CONFIG": "Aucune configuration de paie valide sur la période.",
+      "NO_HOURS": "Aucune heure validée sur la période.",
+      "NO_RATE_RESOLVED": "Aucun tarif horaire applicable : ajoutez un tarif du cours ou un tarif par défaut.",
+      "PAYSLIP_LOCKED": "Bulletin déjà arrêté, versé ou annulé : un recalcul ne le réécrit jamais.",
+      "OUT_OF_SCOPE": "Hors du périmètre de la période.",
+      "STALE_SOURCE": "La source des heures a changé : relancez un recalcul.",
+      "NOTHING_TO_PAY": "Rien à verser : les jours ont déjà été payés par une autre période.",
+      "ALREADY_CALCULATED": "Déjà calculé : cochez « recalculer » pour le reconstruire."
+    },
+    "outcome": {
+      "CALCULATED": "Calculé",
+      "SKIPPED": "Écarté",
+      "LOCKED": "Verrouillé",
+      "FAILED": "Échec"
+    },
+    "configState": {
+      "ACTIVE": "Configuration en cours",
+      "EXPIRED": "Configuration expirée",
+      "FUTURE": "Configuration à venir",
+      "ABSENT": "Aucune configuration"
+    },
+    "adjustmentKind": {
+      "BONUS": "Prime",
+      "DEDUCTION": "Retenue"
+    },
+    "common": {
+      "amountHint": "En francs, sans décimales (par exemple 150000).",
+      "addStaff": "Ajouter un membre du personnel…",
+      "removeStaff": "Retirer {name}",
+      "loading": "Chargement…",
+      "chooseNode": "Choisir un cours…"
+    },
+    "errors": {
+      "required": "Ce champ est obligatoire.",
+      "invalid": "Valeur invalide.",
+      "amount": {
+        "empty": "Saisissez un montant.",
+        "decimal": "Le montant est un entier en francs : pas de virgule ni de point.",
+        "negative": "Le montant ne peut pas être négatif.",
+        "invalid": "Montant invalide : chiffres uniquement, strictement positif.",
+        "tooLarge": "Montant trop élevé."
+      }
+    },
+    "rejectionHints": {
+      "separation_of_duties": "Séparation des tâches : faites arrêter ce bulletin par une autre personne que celle qui l'a calculé.",
+      "owner_approval_required": "Montant au-dessus du seuil : seul le propriétaire peut l'arrêter, depuis « Masse salariale ».",
+      "invalid_transition": "Ce bulletin n'est pas dans l'état qui permet cette action.",
+      "payslip_locked": "Un bulletin arrêté ou versé n'est plus modifiable.",
+      "not_found": "Ce bulletin n'existe plus ou n'est pas accessible.",
+      "empty_selection": "Aucun bulletin sélectionné.",
+      "concurrent_update": "Le bulletin a été modifié entre-temps : rechargez la page."
+    },
+    "periods": {
+      "title": "Périodes de paie",
+      "description": "Une période regroupe les heures à payer entre deux dates. Calculez, arrêtez les montants puis versez.",
+      "new": "Nouvelle période",
+      "caption": "Périodes de paie",
+      "columns": {
+        "name": "Période",
+        "dates": "Dates",
+        "scope": "Périmètre",
+        "status": "Statut"
+      },
+      "range": "Du {from} au {to}",
+      "targeted": "Ciblée ({count, plural, one {# enseignant} other {# enseignants}})",
+      "collective": "Collective",
+      "awaiting": "En attente de calcul",
+      "pendingNotice": "La période « {name} » est en attente de calcul : calculez-la ou clôturez-la avant d'en créer une autre.",
+      "pendingOpen": "Ouvrir la période",
+      "empty": "Aucune période de paie",
+      "emptyHint": "Créez la première période pour calculer les bulletins.",
+      "created": "La période « {name} » a été créée.",
+      "noManage": "Votre rôle ne permet pas de gérer les périodes de paie.",
+      "toPayslips": "Voir les bulletins",
+      "form": {
+        "title": "Nouvelle période de paie",
+        "description": "Sans enseignant ciblé, la période est collective (tout le personnel payable).",
+        "submit": "Créer la période",
+        "name": "Nom",
+        "start": "Du",
+        "end": "Au",
+        "year": "Année scolaire",
+        "chooseYear": "Choisir une année…",
+        "descriptionLabel": "Description",
+        "targets": "Enseignants ciblés",
+        "targetsHint": "Laissez vide pour une période collective."
+      }
+    },
+    "periodDetail": {
+      "subtitle": "Du {from} au {to}",
+      "back": "Retour aux périodes",
+      "activate": "Activer la période",
+      "close": "Clôturer la période",
+      "archive": "Archiver la période",
+      "awaiting": "En attente de calcul",
+      "targeted": "Ciblée ({count, plural, one {# enseignant} other {# enseignants}})",
+      "collective": "Collective",
+      "statusDone": "Le statut de la période a été mis à jour.",
+      "statusDialog": {
+        "cancel": "Annuler",
+        "ACTIVE": {
+          "title": "Activer la période",
+          "description": "La période devient la période de travail courante.",
+          "confirm": "Activer"
+        },
+        "CLOSED": {
+          "title": "Clôturer la période",
+          "description": "Une période clôturée n'accepte plus de nouveau calcul.",
+          "confirm": "Clôturer"
+        },
+        "ARCHIVED": {
+          "title": "Archiver la période",
+          "description": "L'archivage est définitif.",
+          "confirm": "Archiver"
+        }
+      }
+    },
+    "calc": {
+      "title": "Calcul de la paie",
+      "description": "L'aperçu calcule sans rien enregistrer. Le calcul crée les bulletins ; un recalcul reconstruit les bulletins calculés en conservant leurs primes et retenues, et ne touche jamais un bulletin arrêté, versé ou annulé.",
+      "scope": "Origine des heures",
+      "scopeHint": "Les origines proposées dépendent de l'offre de l'établissement.",
+      "recalculate": "Recalculer les bulletins déjà calculés",
+      "recalculateHint": "Les primes et retenues déjà saisies sont préservées.",
+      "perimeter": "Limiter à certains membres du personnel",
+      "perimeterHint": "Vide : toute la période.",
+      "preview": "Aperçu (sans enregistrer)",
+      "run": "Lancer le calcul",
+      "runRecalculate": "Recalculer",
+      "running": "Calcul en cours…",
+      "confirm": {
+        "title": "Recalculer les bulletins",
+        "description": "Les bulletins « calculés » seront reconstruits à partir des heures actuelles. Primes et retenues sont conservées ; les bulletins arrêtés, versés ou annulés ne sont pas touchés.",
+        "cancel": "Annuler",
+        "submit": "Recalculer"
+      }
+    },
+    "report": {
+      "title": "Compte rendu du calcul",
+      "titlePreview": "Aperçu du calcul",
+      "previewNotice": "Aperçu : aucun bulletin n'a été créé ni modifié.",
+      "counters": {
+        "calculated": "Calculés",
+        "skipped": "Écartés",
+        "locked": "Verrouillés",
+        "failed": "En échec"
+      },
+      "items": "Résultat par enseignant",
+      "hideLines": "Masquer le détail",
+      "showLines": "Voir le détail ({count, plural, one {# ligne} other {# lignes}})",
+      "duration": "Calcul effectué en {ms} ms.",
+      "preview": {
+        "amounts": {
+          "salary": "Salaire",
+          "regularHours": "Heures normales",
+          "overtime": "Heures supplémentaires",
+          "bonus": "Primes",
+          "deduction": "Retenues"
+        },
+        "lines": "Lignes d'heures — {name}"
+      }
+    },
+    "lines": {
+      "columns": {
+        "date": "Date",
+        "source": "Origine",
+        "label": "Cours",
+        "duration": "Durée",
+        "rate": "Tarif horaire",
+        "multiplier": "Majoration",
+        "amount": "Montant"
+      },
+      "overtime": "Heures sup."
+    },
+    "periodPayslips": {
+      "title": "Bulletins de la période",
+      "caption": "Bulletins de la période",
+      "columns": {
+        "select": "Sélection",
+        "staff": "Enseignant",
+        "kind": "Type",
+        "status": "Statut",
+        "total": "Montant",
+        "reason": "Motif"
+      },
+      "selectOne": "Sélectionner {name}",
+      "approveSelected": "Arrêter la sélection ({count})",
+      "approveAll": "Tout arrêter",
+      "paySelected": "Verser la sélection ({count})",
+      "payAll": "Tout verser",
+      "separationHint": "Selon les réglages de l'établissement, la personne qui a calculé un bulletin ne peut pas l'arrêter, et au-delà d'un seuil seul le propriétaire le peut. Les refus sont expliqués ci-dessous.",
+      "result": {
+        "approve": "{done, plural, =0 {Aucun bulletin arrêté} one {# bulletin arrêté} other {# bulletins arrêtés}} · {unchanged} inchangé(s) · {rejected} refusé(s).",
+        "pay": "{done, plural, =0 {Aucun bulletin versé} one {# bulletin versé} other {# bulletins versés}} · {unchanged} inchangé(s) · {rejected} refusé(s).",
+        "rejectedList": "Bulletins refusés"
+      },
+      "empty": "Aucun bulletin",
+      "emptyHint": "Lancez le calcul de la période pour créer les bulletins.",
+      "truncated": "{shown} bulletins affichés sur {total}. « Tout arrêter » et « Tout verser » portent sur tous les bulletins de la période.",
+      "approveDialog": {
+        "title": "Arrêter les montants",
+        "allDescription": "Arrête tous les bulletins calculés de la période (sélection faite par le serveur). Arrêter n'est pas verser.",
+        "selectedDescription": "{count, plural, one {Arrête # bulletin sélectionné.} other {Arrête # bulletins sélectionnés.}} Arrêter n'est pas verser.",
+        "confirm": "Arrêter"
+      },
+      "dialogCancel": "Annuler",
+      "approveDone": "Opération d'arrêt terminée.",
+      "payDialog": {
+        "allDescription": "Constate le versement de tous les bulletins arrêtés de la période.",
+        "selectedDescription": "{count, plural, one {Constate le versement de # bulletin.} other {Constate le versement de # bulletins.}}"
+      },
+      "payDone": "Opération de versement terminée."
+    },
+    "payDialog": {
+      "title": "Constater le versement",
+      "method": "Mode de versement",
+      "reference": "Référence",
+      "referenceHint": "Numéro de virement, de chèque ou de transaction (facultatif).",
+      "submit": "Constater le versement"
+    },
+    "runs": {
+      "title": "Historique des calculs",
+      "empty": "Aucun calcul pour cette période",
+      "preview": "Aperçu",
+      "recalculation": "Recalcul",
+      "calculation": "Calcul",
+      "counts": "{calculated} calculés · {skipped} écartés · {locked} verrouillés · {failed} en échec"
+    },
+    "payslips": {
+      "title": "Bulletins de paie",
+      "description": "Tous les bulletins : calculés, arrêtés, versés, contestés ou annulés.",
+      "caption": "Liste des bulletins de paie",
+      "columns": {
+        "staff": "Enseignant",
+        "period": "Période",
+        "kind": "Type",
+        "status": "Statut",
+        "total": "Montant",
+        "calculated": "Calculé le"
+      },
+      "filters": {
+        "staff": "Enseignant",
+        "staffPlaceholder": "Rechercher un enseignant…",
+        "period": "Période",
+        "allPeriods": "Toutes les périodes",
+        "status": "Statut",
+        "allStatuses": "Tous les statuts"
+      },
+      "empty": "Aucun bulletin",
+      "emptyHint": "Modifiez les filtres ou lancez le calcul d'une période."
+    },
+    "payslipDetail": {
+      "title": "Bulletin de {name}",
+      "subtitle": "Rémunération de type {kind}",
+      "back": "Retour aux bulletins",
+      "approve": "Arrêter le montant",
+      "pay": "Constater le versement",
+      "dispute": "Contester",
+      "cancel": "Annuler le bulletin",
+      "notify": "Envoyer au titulaire",
+      "notified": "L'envoi du bulletin à son titulaire a été demandé.",
+      "approved": "Le montant du bulletin est arrêté.",
+      "paid": "Le versement est constaté.",
+      "cancelled": "Le bulletin est annulé.",
+      "disputed": "Le bulletin est contesté.",
+      "disputedNotice": "Ce bulletin est contesté. Motif : {reason}",
+      "cancelledNotice": "Ce bulletin est annulé. Motif : {reason}",
+      "summary": "Montants",
+      "amounts": {
+        "salary": "Salaire",
+        "base": "Base (salaire et heures normales)",
+        "overtime": "Heures supplémentaires",
+        "bonus": "Primes",
+        "deduction": "Retenues",
+        "total": "Total"
+      },
+      "regularMinutes": "Heures normales",
+      "overtimeMinutes": "Heures supplémentaires",
+      "calculatedBy": "Calculé",
+      "approvedBy": "Arrêté",
+      "paidBy": "Versé",
+      "byOn": "par {name}, le {date}",
+      "lines": "Lignes d'heures",
+      "noLines": "Aucune ligne d'heures (bulletin de salaire).",
+      "linesCaption": "Lignes d'heures du bulletin",
+      "documentUnavailable": "Le document arrêté n'est pas disponible pour le moment.",
+      "history": "Historique du bulletin",
+      "payDialogDescription": "Vous constatez le versement de {amount}.",
+      "cancelDialog": {
+        "title": "Annuler le bulletin",
+        "description": "Les heures du bulletin sont relâchées. Un bulletin versé ne peut pas être annulé.",
+        "reason": "Motif de l'annulation",
+        "confirm": "Annuler le bulletin"
+      },
+      "disputeDialog": {
+        "title": "Contester le bulletin",
+        "description": "Le bulletin est mis de côté de la masse salariale tant que la contestation n'est pas réglée.",
+        "reason": "Motif de la contestation",
+        "confirm": "Contester"
+      }
+    },
+    "adjustments": {
+      "title": "Primes et retenues",
+      "add": "Ajouter une prime ou une retenue",
+      "hint": "Les primes et retenues sont conservées quand le bulletin est recalculé.",
+      "locked": "Seul un bulletin « calculé » accepte des primes ou retenues.",
+      "empty": "Aucune prime ni retenue",
+      "by": "Saisie par {name}, le {date}",
+      "remove": "Retirer",
+      "removed": "L'ajustement a été retiré.",
+      "added": "L'ajustement a été ajouté.",
+      "dialog": {
+        "title": "Prime ou retenue",
+        "description": "Le total du bulletin est recalculé par le serveur.",
+        "submit": "Ajouter",
+        "kind": "Nature",
+        "amount": "Montant",
+        "label": "Libellé",
+        "reason": "Motif"
+      }
+    },
+    "document": {
+      "title": "Bulletin arrêté",
+      "intact": "Intégrité vérifiée",
+      "tampered": "Empreinte non conforme",
+      "tamperedNotice": "L'empreinte du document ne correspond plus à celle enregistrée à l'arrêt du montant : signalez-le à l'administrateur.",
+      "unreadable": "Le contenu du document n'a pas pu être lu.",
+      "print": "Imprimer",
+      "staff": "Bénéficiaire",
+      "period": "Période",
+      "periodValue": "{name} (du {from} au {to})",
+      "amountsCaption": "Montants du bulletin",
+      "amounts": {
+        "salary": "Salaire",
+        "regularHours": "Heures normales",
+        "overtime": "Heures supplémentaires",
+        "bonus": "Primes",
+        "deduction": "Retenues",
+        "total": "Total"
+      },
+      "minutes": "Heures normales : {regular} · heures supplémentaires : {overtime}",
+      "payment": "Versé le {date} par {name} ({method})",
+      "hash": "Empreinte SHA-256 :"
+    },
+    "config": {
+      "nav": {
+        "label": "Configuration de la paie",
+        "configs": "Configurations",
+        "rates": "Tarifs horaires",
+        "settings": "Réglages"
+      },
+      "configs": {
+        "title": "Configurations de paie",
+        "description": "Salaire, tarif horaire ou mixte de chaque enseignant, avec dates d'effet.",
+        "new": "Nouvelle configuration",
+        "caption": "Configurations de paie",
+        "columns": {
+          "staff": "Enseignant",
+          "type": "Type",
+          "monthly": "Salaire mensuel",
+          "annual": "Salaire annuel",
+          "hourly": "Tarif horaire par défaut",
+          "overtime": "Heures supplémentaires",
+          "validity": "Validité",
+          "actions": "Actions"
+        },
+        "overtimeValue": "au-delà de {threshold}/semaine, {multiplier}",
+        "validRange": "Du {from} au {to}",
+        "validFrom": "Depuis le {from}",
+        "edit": "Modifier",
+        "saved": "La configuration a été enregistrée.",
+        "filters": {
+          "staff": "Enseignant",
+          "staffPlaceholder": "Rechercher un enseignant…",
+          "activeOn": "En vigueur le",
+          "activeOnHint": "Filtre sur les configurations actives à cette date."
+        },
+        "empty": "Aucune configuration",
+        "emptyHint": "Un enseignant sans configuration est écarté du calcul de la paie."
+      },
+      "situation": {
+        "title": "Situation d'un enseignant",
+        "staff": "Enseignant",
+        "placeholder": "Rechercher un enseignant…",
+        "perHour": "{amount} par heure",
+        "none": "Aucune configuration applicable aujourd'hui."
+      },
+      "configDialog": {
+        "newTitle": "Nouvelle configuration de paie",
+        "editTitle": "Modifier la configuration",
+        "description": "Les montants sont des entiers en francs. L'API refuse deux configurations qui se chevauchent pour un même enseignant.",
+        "submit": "Enregistrer",
+        "staff": "Enseignant",
+        "staffPlaceholder": "Rechercher un enseignant…",
+        "type": "Type de rémunération",
+        "monthly": "Salaire mensuel",
+        "monthlyHint": "Prorata calculé par l'API selon les jours de la période.",
+        "annual": "Salaire annuel",
+        "hourly": "Tarif horaire par défaut",
+        "hourlyHint": "0 est une valeur (taux nul) ; vide : pas de tarif par défaut.",
+        "threshold": "Seuil d'heures supplémentaires (minutes par semaine)",
+        "thresholdHint": "Vide : valeur par défaut de l'établissement. 2400 minutes = 40 h.",
+        "thresholdInvalid": "Saisissez un nombre entier de minutes supérieur à 0.",
+        "multiplier": "Majoration des heures supplémentaires",
+        "multiplierHint": "Par exemple 1,5 pour ×1,5 ; vide : valeur par défaut.",
+        "multiplierErrors": {
+          "empty": "Saisissez un coefficient.",
+          "invalid": "Coefficient invalide (par exemple 1,5).",
+          "range": "Le coefficient doit être compris entre 1 et 5."
+        },
+        "from": "En vigueur à partir du",
+        "to": "Jusqu'au (facultatif)"
+      },
+      "rates": {
+        "title": "Tarifs horaires",
+        "description": "Tarif par cours, générique ou propre à un enseignant, daté. Le tarif retenu pour une séance est celui valide à sa date.",
+        "new": "Nouveau tarif",
+        "caption": "Tarifs horaires",
+        "columns": {
+          "node": "Cours",
+          "staff": "Enseignant",
+          "rate": "Tarif horaire",
+          "validity": "Validité",
+          "notes": "Notes",
+          "actions": "Actions"
+        },
+        "generic": "Générique",
+        "validRange": "Du {from} au {to}",
+        "validFrom": "Depuis le {from}",
+        "edit": "Modifier",
+        "delete": "Supprimer",
+        "filters": {
+          "staff": "Enseignant",
+          "staffPlaceholder": "Rechercher un enseignant…",
+          "node": "Cours",
+          "kind": "Type de tarif",
+          "all": "Tous",
+          "generic": "Génériques",
+          "named": "Nominatifs"
+        },
+        "empty": "Aucun tarif",
+        "emptyHint": "Sans tarif applicable, les heures d'un enseignant horaire sont écartées du calcul.",
+        "saved": "Le tarif a été enregistré.",
+        "deleted": "Le tarif a été supprimé.",
+        "deleteDialog": {
+          "title": "Supprimer le tarif",
+          "description": "Les bulletins déjà calculés ne sont pas modifiés.",
+          "cancel": "Annuler",
+          "confirm": "Supprimer"
+        }
+      },
+      "rateDialog": {
+        "newTitle": "Nouveau tarif horaire",
+        "editTitle": "Modifier le tarif",
+        "description": "Un tarif sans enseignant est générique pour le cours. L'API refuse un chevauchement.",
+        "submit": "Enregistrer",
+        "fixedScope": "Le cours et l'enseignant d'un tarif ne se modifient pas : créez un nouveau tarif pour changer de périmètre.",
+        "node": "Cours",
+        "staff": "Enseignant (tarif nominatif)",
+        "staffHint": "Laissez vide pour un tarif générique.",
+        "staffPlaceholder": "Rechercher un enseignant…",
+        "rate": "Tarif horaire",
+        "rateHint": "0 est une valeur (taux nul).",
+        "from": "Valide à partir du",
+        "to": "Jusqu'au (facultatif)",
+        "notes": "Notes"
+      },
+      "simulator": {
+        "title": "Simulateur de tarif",
+        "description": "Pour un enseignant, un cours et une date, indique le tarif retenu et son origine selon l'ordre de l'API.",
+        "staff": "Enseignant",
+        "staffPlaceholder": "Rechercher un enseignant…",
+        "node": "Cours",
+        "nodeHint": "Facultatif : sans cours, seul le tarif par défaut de la configuration est cherché.",
+        "date": "À la date du",
+        "submit": "Simuler",
+        "noRate": "Aucun tarif applicable. {state}.",
+        "result": "Tarif retenu : {rate} par heure — {origin}. {state}."
+      },
+      "settings": {
+        "title": "Réglages de la paie",
+        "description": "Valeurs par défaut de l'établissement, séparation des tâches et seuil du propriétaire.",
+        "currency": "Devise : {currency}",
+        "threshold": "Seuil d'heures supplémentaires par défaut (minutes par semaine)",
+        "thresholdHint": "Soit {hours} par semaine.",
+        "thresholdInvalid": "Saisissez un nombre entier de minutes supérieur à 0.",
+        "multiplier": "Majoration par défaut",
+        "multiplierHint": "Par exemple 1,5 pour ×1,5.",
+        "multiplierErrors": {
+          "empty": "Saisissez un coefficient.",
+          "invalid": "Coefficient invalide (par exemple 1,5).",
+          "range": "Le coefficient doit être compris entre 1 et 5."
+        },
+        "separate": "Séparation des tâches",
+        "separateHint": "La personne qui a calculé un bulletin ne peut pas l'arrêter.",
+        "ownerThreshold": "Seuil de validation par le propriétaire",
+        "ownerThresholdHint": "Au-delà de ce montant, seul le propriétaire arrête le bulletin. Vide : aucun seuil.",
+        "submit": "Enregistrer les réglages",
+        "saved": "Les réglages ont été enregistrés."
+      }
+    },
+    "history": {
+      "title": "Historique des paiements",
+      "description": "Bulletins arrêtés et versés. « Arrêté (impayé) » signifie arrêté mais pas encore versé.",
+      "caption": "Historique des bulletins arrêtés",
+      "columns": {
+        "staff": "Enseignant",
+        "status": "Statut",
+        "approved": "Arrêté",
+        "paid": "Versé",
+        "total": "Montant"
+      },
+      "onBy": "{date}, par {name}",
+      "paidOnBy": "{date}, par {name} ({method})",
+      "filters": {
+        "year": "Année scolaire",
+        "allYears": "Toutes les années",
+        "period": "Période",
+        "allPeriods": "Toutes les périodes",
+        "staff": "Enseignant",
+        "staffPlaceholder": "Rechercher un enseignant…"
+      },
+      "empty": "Aucun bulletin arrêté",
+      "emptyHint": "Les bulletins apparaissent ici une fois leur montant arrêté."
+    },
+    "export": {
+      "button": "Exporter en CSV",
+      "loading": "Export en cours…",
+      "error": "L'export a échoué."
+    },
+    "reports": {
+      "title": "Rapports de paie",
+      "description": "Montants par statut et par origine des heures (présences, séances, hors heures).",
+      "caption": "Bulletins par statut",
+      "sourcesCaption": "Heures par origine",
+      "filters": {
+        "label": "Filtres des rapports de paie",
+        "year": "Année scolaire",
+        "allYears": "Toutes les années",
+        "period": "Période",
+        "allPeriods": "Toutes les périodes",
+        "source": "Origine des heures",
+        "sourceHint": "Alimente la colonne « Origine filtrée ».",
+        "from": "Du",
+        "to": "Au",
+        "staff": "Enseignant",
+        "staffPlaceholder": "Rechercher un enseignant…"
+      },
+      "columns": {
+        "status": "Statut",
+        "payslips": "Bulletins",
+        "attendance": "Présences",
+        "session": "Séances",
+        "outOfHours": "Hors heures",
+        "total": "Total",
+        "filtered": "Origine filtrée"
+      },
+      "empty": "Aucune donnée pour ces filtres",
+      "filteredTotal": "Total de l'origine filtrée :",
+      "sources": {
+        "kind": "Origine",
+        "minutes": "Durée",
+        "amount": "Montant"
+      }
+    },
+    "owner": {
+      "title": "Masse salariale",
+      "description": "Montants par période et par statut ; les bulletins annulés et contestés sont exclus du total et montrés à part.",
+      "featureOff": "La masse salariale et la validation par le propriétaire ne sont pas incluses dans l'offre de l'établissement.",
+      "total": "Masse salariale comptée",
+      "totalNote": "{count, plural, one {# bulletin compté} other {# bulletins comptés}} (hors annulés et contestés).",
+      "empty": "Aucune période",
+      "periods": "Périodes",
+      "range": "du {from} au {to}",
+      "hideToValidate": "Masquer les bulletins à valider",
+      "showToValidate": "Bulletins à valider",
+      "counted": "Compté",
+      "apart": "À part — annulés : {cancelled} ({cancelledCount}) · contestés : {disputed} ({disputedCount}).",
+      "validate": {
+        "hint": "Valider arrête le montant du bulletin, comme sur l'écran du gestionnaire (même action).",
+        "done": "Le bulletin est validé.",
+        "none": "Aucun bulletin calculé à valider.",
+        "list": "Bulletins calculés à valider",
+        "button": "Valider"
+      }
+    },
+    "my": {
+      "title": "Mes bulletins",
+      "description": "Vos bulletins de paie une fois le montant arrêté.",
+      "visibility": "Vous voyez vos bulletins à partir de l'arrêt du montant : un brouillon calculé reste réservé à la gestion.",
+      "caption": "Mes bulletins de paie",
+      "columns": {
+        "date": "Date",
+        "status": "Statut",
+        "bonus": "Primes",
+        "deduction": "Retenues",
+        "total": "Montant",
+        "paid": "Versé le"
+      },
+      "notPaid": "Pas encore versé",
+      "empty": "Aucun bulletin",
+      "emptyHint": "Vos bulletins apparaîtront ici dès que leur montant sera arrêté.",
+      "disputedNotice": "Un de vos bulletins est contesté : la gestion vous recontactera.",
+      "detail": {
+        "title": "Mon bulletin",
+        "back": "Retour à mes bulletins",
+        "disputed": "Ce bulletin est contesté ; le montant n'est pas définitif.",
+        "contest": "Une erreur ? Contactez la gestion de l'établissement : la contestation est enregistrée par un gestionnaire."
+      }
+    }
   }
 }

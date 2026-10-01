@@ -73,6 +73,22 @@ export function parseAmountInput(text: string, { allowZero = false }: { allowZer
   return { ok: true, amount };
 }
 
+export type MultiplierParse = { ok: true; permille: number } | { ok: false; reason: "empty" | "invalid" | "range" };
+
+/**
+ * Lit un COEFFICIENT de majoration saisi (« 1,5 », « 1.25 », « 2 ») et le convertit en millièmes entiers (×1,5 = 1500) par
+ * lecture de chaîne, sans flottant. 3 décimales au plus ; de ×1 à ×5 (bornes du contrat de paie).
+ */
+export function parseMultiplierToPermille(text: string): MultiplierParse {
+  const cleaned = text.replace(/[\s  ×x]/g, "").replace(",", ".");
+  if (cleaned === "") return { ok: false, reason: "empty" };
+  const match = /^(\d{1,2})(?:\.(\d{1,3}))?$/.exec(cleaned);
+  if (!match) return { ok: false, reason: "invalid" };
+  const permille = Number(match[1]) * 1000 + Number((match[2] ?? "").padEnd(3, "0") || "0");
+  if (permille < 1000 || permille > 5000) return { ok: false, reason: "range" };
+  return { ok: true, permille };
+}
+
 export type PercentParse = { ok: true; bps: number } | { ok: false; reason: "empty" | "invalid" | "range" };
 
 /**

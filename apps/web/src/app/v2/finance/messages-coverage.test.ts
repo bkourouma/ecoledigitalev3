@@ -28,7 +28,7 @@ import {
  */
 
 /** Préfixes dont le lot n'est pas encore livré (retirés au fil des lots) : le test les exige dès qu'ils sont retirés. */
-const PENDING: string[] = ["v2Payroll"];
+const PENDING: string[] = [];
 
 const ROOT = path.resolve(__dirname, "../..");
 const SOURCES = [path.join(ROOT, "app/v2/finance"), path.join(ROOT, "app/v2/payroll")];
@@ -106,6 +106,15 @@ describe("messages fr-CI (finance et paie)", () => {
       ["v2Payroll.configState", ["ACTIVE", "EXPIRED", "FUTURE", "ABSENT"]],
       ["v2Payroll.scope", ["ALL", "SESSION", "ATTENDANCE"]],
       ["v2Payroll.adjustmentKind", ["BONUS", "DEDUCTION"]],
+      ["v2Payroll.report.counters", ["calculated", "skipped", "locked", "failed"]],
+      ["v2Payroll.report.preview.amounts", ["salary", "regularHours", "overtime", "bonus", "deduction"]],
+      ["v2Payroll.payslipDetail.amounts", ["salary", "base", "overtime", "bonus", "deduction", "total"]],
+      ["v2Payroll.document.amounts", ["salary", "regularHours", "overtime", "bonus", "deduction", "total"]],
+      ["v2Payroll.lines.columns", ["date", "source", "label", "duration", "rate", "multiplier", "amount"]],
+      ["v2Payroll.periodDetail.statusDialog", ["ACTIVE", "CLOSED", "ARCHIVED"].flatMap((k) => [`${k}.title`, `${k}.description`, `${k}.confirm`])],
+      ["v2Payroll.config.configDialog.multiplierErrors", ["empty", "invalid", "range"]],
+      ["v2Payroll.config.settings.multiplierErrors", ["empty", "invalid", "range"]],
+      ["v2Payroll.rejectionHints", ["separation_of_duties", "owner_approval_required", "invalid_transition", "payslip_locked", "not_found", "empty_selection", "concurrent_update"]],
     ];
     const missing: string[] = [];
     for (const [ns, values] of expectations) for (const v of values) if (typeof lookup(ns, v) !== "string") missing.push(`${ns}.${v}`);
