@@ -63,7 +63,7 @@
     "module:new": "tsx scripts/module-new.ts",
     "test:isolation": "node scripts/db/test-isolation.mjs",
     "test:v2": "pnpm --filter @ecoledigitale/api test:v2",
-"test:characterization": "node tests/characterization/run.mjs",
+    "test:characterization": "node tests/characterization/run.mjs",
     "test:phase1": "pnpm --filter @ecoledigitale/api test:phase1"
   },
   "dependencies": {
