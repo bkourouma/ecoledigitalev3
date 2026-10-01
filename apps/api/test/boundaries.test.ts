@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { renderModuleFiles } from "../src/platform/module-scaffold";
+import { renderModuleFiles, renderModulesRootFiles } from "../src/platform/module-scaffold";
 import { makeTmpDir } from "./helpers/fixtures";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -161,11 +161,21 @@ describe("squelette généré par module:new", () => {
 
   it("respecte toutes les règles de frontières", () => {
     stubPackages(tmp.dir);
-    for (const key of ["gen_one", "gen_two"]) {
-      for (const [relative, content] of Object.entries(renderModuleFiles(key))) {
-        if (relative.endsWith(".sql")) continue;
+    // Fichiers que le squelette importe en dehors de son dossier : plateforme (types du runtime), registre (test),
+    // liste blanche centrale (type). Sans eux, l'import ne serait pas résolu donc pas contrôlé par les règles.
+    write(tmp.dir, "apps/api/src/platform/runtime.ts", "export interface ModuleRuntime { readonly tenantDb: unknown }\n");
+    write(
+      tmp.dir,
+      "apps/api/src/modules/registry.ts",
+      "export const registerModules = 1;\nexport const resetRegistryForTests = 1;\nexport type DiscoveredModule = unknown;\n",
+    );
+    write(tmp.dir, "apps/api/src/modules/isolation-allowlist.ts", "export interface AllowlistEntry { table: string; reason: string }\n");
+    for (const [index, key] of ["gen_one", "gen_two"].entries()) {
+      for (const [relative, content] of Object.entries(renderModuleFiles(key, { rangeStart: 1600 + index * 100 }))) {
+        if (relative.endsWith(".sql") || relative.endsWith(".md")) continue;
         write(tmp.dir, `${M}/${key}/${relative}`, content);
       }
+      for (const [relative, content] of Object.entries(renderModulesRootFiles(key))) write(tmp.dir, `${M}/${relative}`, content);
     }
     const result = cruise(tmp.dir);
     expect(result.violations).toEqual([]);

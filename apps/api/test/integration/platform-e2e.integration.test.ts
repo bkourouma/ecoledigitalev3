@@ -8,8 +8,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from "vitest";
-import { noopLogger } from "@ecoledigitale/kernel";
+import { migrate } from "@ecoledigitale/database";
+import { noopLogger, systemClock } from "@ecoledigitale/kernel";
 import { getLoadedManifests, resetRegistryForTests } from "../../src/modules/registry";
+import { buildPermissionSet } from "../../src/modules/rbac/domain/permission-set";
+import { EMPTY_SCOPE_TREE, TENANT_SCOPE } from "../../src/modules/rbac/domain/scope";
 import { scaffoldModule } from "../../src/platform/module-scaffold";
 import { UnsafeDatabaseRoleError } from "../../src/platform/v2-context";
 import { createLoginRole } from "../../src/platform/v2-login-role";
@@ -25,6 +28,8 @@ const USER_B = "0192f0a4-7b1e-7c3a-8d2e-0000000000b1";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const sandbox = resolve(here, `.tmp-e2e-${process.pid}`);
+const AUDIT_MIGRATIONS_DIR = resolve(here, "../../src/modules/audit/migrations");
+const GENERATED_PERMISSIONS = ["e2e_demo.item.read", "e2e_demo.item.create"];
 
 describeIntegration("plateforme v2 de bout en bout", () => {
   let db: EphemeralDb;
@@ -49,6 +54,8 @@ describeIntegration("plateforme v2 de bout en bout", () => {
     scaffoldModule({ key: "e2e_demo", modulesDir: sandbox });
     db = await createEphemeralDb("test", [roleName]);
     await runV2Migrations({ url: db.adminUrl, modulesDir: sandbox, logger: noopLogger });
+    // Le module généré audite par runtime.auditPort (= le vrai module audit) : ses tables doivent exister.
+    await migrate({ client: db.admin, dirs: [AUDIT_MIGRATIONS_DIR], table: "schema_migrations_audit", role: "migrator", logger: noopLogger });
     appUrl = (await createLoginRole({ adminUrl: db.adminUrl, role: roleName })).applicationUrl;
   }, 120_000);
 
@@ -61,6 +68,25 @@ describeIntegration("plateforme v2 de bout en bout", () => {
   beforeEach(() => {
     resetRegistryForTests();
     app = Fastify({ logger: false });
+    // Le module généré se protège par runtime.requirePermission (rbac). Le module rbac n'est pas chargé dans ce bac à
+    // sable : on pose sa décoration racine (app.rbac) avec un rôle fictif qui accorde les permissions du module généré
+    // à tout utilisateur authentifié. Le comportement réel du RBAC est couvert par les tests du module rbac.
+    app.decorate("rbac", {
+      clock: systemClock,
+      logger: noopLogger,
+      scopeTrees: { forTenant: async () => EMPTY_SCOPE_TREE },
+      permissions: {
+        get: async (ctx: { tenantId: string; userId: string | null }) =>
+          buildPermissionSet({
+            tenantId: ctx.tenantId,
+            userId: ctx.userId as string,
+            assignments: [{ assignmentId: "e2e-assignment", roleId: "e2e-role", scope: TENANT_SCOPE, validFrom: null, validUntil: null }],
+            rolePermissions: new Map([["e2e-role", GENERATED_PERMISSIONS]]),
+            sensitive: [],
+            now: systemClock.now(),
+          }),
+      },
+    } as never);
     // Simule l'authentification legacy (auth-middleware) : en-têtes -> request.user / tenantId.
     app.addHook("preHandler", async (request) => {
       const user = request.headers["x-legacy-user"];
@@ -136,6 +162,12 @@ describeIntegration("plateforme v2 de bout en bout", () => {
     expect(events.rows.filter((r) => r.tenant_id === TENANT_A)).toHaveLength(2);
     expect(events.rows.filter((r) => r.tenant_id === TENANT_B)).toHaveLength(1);
     expect(events.rows[0]).toMatchObject({ type: "e2e_demo.item.created", v: "1" });
+
+    // L'audit (runtime.auditPort -> audit.record) a été écrit dans la même transaction, pour le bon tenant.
+    const audited = await db.admin.query("SELECT tenant_id, action, entity FROM audit.audit_log WHERE action = 'e2e_demo.item.create'");
+    expect(audited.rows.filter((r) => r.tenant_id === TENANT_A)).toHaveLength(2);
+    expect(audited.rows.filter((r) => r.tenant_id === TENANT_B)).toHaveLength(1);
+    expect(audited.rows[0]).toMatchObject({ entity: "item" });
   });
 
   it("syncTenantToKernel : statut suspendu, jamais de désarchivage, collision de slug désambiguïsée", async () => {
