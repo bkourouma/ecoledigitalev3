@@ -1,11 +1,14 @@
 import crypto from 'crypto';
-import {
+// Les types viennent de `student-payments` : ce fichier n'est pas ré-exporté par la racine du paquet
+// (conflit de noms), et la racine ne fournissait que `PaymentInitiationResponse` — via le contrat
+// des paiements de formation professionnelle, aujourd'hui retiré.
+import type {
   PaymentInitiationResponse,
   PaymentWebhook,
   CreatePaymentTransaction,
   TransactionStatus,
   PaymentMethodType,
-} from '@ecoledigitale/contracts';
+} from '@ecoledigitale/contracts/src/student-payments';
 
 interface TresorPayConfig {
   apiKey: string;

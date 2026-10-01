@@ -249,16 +249,6 @@ export const OwnerStaffResponseSchema = z.object({
   teachers: z.array(OwnerStaffTeacherSchema),
   coursesWithoutTeacher: z.array(OwnerStaffCourseGapSchema),
   payrollPending: z.array(OwnerStaffPayrollPendingSchema),
-  activeFormateurs: z.number().int().nonnegative().optional(),
-});
-
-export const OwnerFormationsResponseSchema = z.object({
-  usesSessionBasedProfessionalTraining: z.boolean(),
-  activeSessions: z.number().int().nonnegative(),
-  enrollments: z.number().int().nonnegative(),
-  revenue: z.number(),
-  companies: z.number().int().nonnegative(),
-  activeFormateurs: z.number().int().nonnegative().optional(),
 });
 
 export const OwnerUserListItemSchema = z.object({
@@ -298,4 +288,3 @@ export type OwnerUserRolesPatchResponse = z.infer<typeof OwnerUserRolesPatchResp
 export type OwnerUsersListResponse = z.infer<typeof OwnerUsersListResponseSchema>;
 export type OwnerAssignableRolesResponse = z.infer<typeof OwnerAssignableRolesResponseSchema>;
 export type OwnerStaffResponse = z.infer<typeof OwnerStaffResponseSchema>;
-export type OwnerFormationsResponse = z.infer<typeof OwnerFormationsResponseSchema>;

@@ -8,7 +8,6 @@ export const OWNER_ASSIGNABLE_ROLE_KEYS = [
   "teacher",
   "student",
   "parent",
-  "formateur",
 ] as const;
 
 export type OwnerAssignableRoleKey = (typeof OWNER_ASSIGNABLE_ROLE_KEYS)[number];
