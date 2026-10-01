@@ -6,6 +6,8 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    // Briques de la fondation web (navigation, écrans d'administration v2) : sans ce motif, leurs classes ne sont pas générées.
+    "./src/platform/**/*.{js,ts,jsx,tsx,mdx}",
     "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
   ],
   prefix: "",

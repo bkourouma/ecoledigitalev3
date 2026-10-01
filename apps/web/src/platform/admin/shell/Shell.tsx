@@ -57,7 +57,7 @@ export function Shell({ items, isLoading, navUnavailable, navLabel, title, heade
     <div className="flex h-dvh overflow-hidden bg-background text-foreground" data-testid="v2-shell">
       <a
         href="#v2-main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-lg focus:outline focus:outline-2"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-16 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-lg focus:outline focus:outline-2"
       >
         {t("skipToContent")}
       </a>

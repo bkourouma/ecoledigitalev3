@@ -19,10 +19,12 @@ function jsonBody(body: unknown, status = 200) {
 }
 
 async function mockOperatorApi(page: Page) {
-  await page.route("**/api/v1/super-admin/auth/login", (route) =>
-    route.fulfill(jsonBody({ token: "e2e-operator-token", superAdmin: { email: "ops@ecoledigitale.net" } })),
+  // Prédicats sur le chemin (plus fiables que les globs avec requête et sous-chemins).
+  await page.route(
+    (url) => url.pathname === "/api/v1/super-admin/auth/login",
+    (route) => route.fulfill(jsonBody({ token: "e2e-operator-token", superAdmin: { email: "ops@ecoledigitale.net" } })),
   );
-  await page.route("**/api/v1/platform/tenants**", (route) => {
+  await page.route((url) => url.pathname.startsWith("/api/v1/platform/tenants"), (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith(`/tenants/${TENANT_ID}`)) return route.fulfill(jsonBody({ code: "NOT_FOUND", message: "Organisation introuvable." }, 404));
     return route.fulfill(
@@ -47,6 +49,17 @@ async function expectNoHorizontalScroll(page: Page) {
   });
   expect(overflow).toBeLessThanOrEqual(1);
 }
+
+// `next dev` compile chaque route à la première visite (jusqu'à plusieurs minutes à froid) : on les réchauffe une fois.
+test.beforeAll(async ({ browser }) => {
+  test.setTimeout(420 * 1000);
+  const page = await browser.newPage();
+  for (const path of ["/v2/platform/login", "/v2/platform/tenants", "/v2/audit"]) {
+    await page.goto(path, { timeout: 200 * 1000, waitUntil: "load" }).catch(() => undefined);
+    await page.waitForTimeout(500);
+  }
+  await page.close();
+});
 
 test.describe("console plateforme", () => {
   test("sans jeton, la console renvoie vers la connexion de l'opérateur", async ({ page }) => {

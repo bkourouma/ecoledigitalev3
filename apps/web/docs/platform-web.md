@@ -127,6 +127,34 @@ Voir `docs/i18n.md`.
 - Déconnexion : `navigator.serviceWorker.controller?.postMessage({ type: "CLEAR_CACHES" })` purge les caches `ed-*`.
 - Changer `CACHE_VERSION` dans `sw.js` quand `/offline`, le manifeste ou les icônes changent.
 
+## 8. Écrans d'administration v2 (`/v2/...`)
+
+Arborescence `src/app/v2/` (pages minces) ; toute la logique est dans `src/platform/admin/**` (testée). Aucune page legacy touchée.
+
+| Zone | Routes | Garde |
+|------|--------|-------|
+| Console opérateur | `/v2/platform/login`, `tenants`, `tenants/new`, `tenants/[id]`, `plans`, `audit` | jeton super-admin (client, `OperatorShell`) ; l'API (`SuperAdminAuthorizer`) reste la barrière |
+| Établissement | `/v2/settings` (profil/marque), `institutions`, `onboarding`, `subscription` | `requirePermission("tenancy.institution.read")` |
+| Rôles et accès | `/v2/access/roles` (+ `new`, `[id]`), `/v2/access/assignments` | `requirePermission("rbac.role.read")` |
+| Audit | `/v2/audit`, `/v2/audit/[id]` | `requirePermission("audit.read")` + `FeatureGate("audit.log")` |
+
+- **Coquille** : `admin/shell/Shell` (lien d'évitement, tiroir mobile `aria-expanded`, Échap, `PlatformSidebar`). Menu tenant =
+  `rbac/me/navigation` (hrefs historiques `/admin/...` réécrits vers `/v2/...`, entrées v2 manquantes ajoutées **seulement** si la
+  permission est détenue — `admin/menu.ts`). `AppLayout` n'enveloppe pas `/v2`.
+- **Console** : client API **sans tenant** (`createApiClient({ tenantless: true })`, clé de cache `["api","platform",…]`), jeton
+  `superAdminToken` (stockage séparé). `fetch-interceptor` traite `/api/v1/platform/*` et `/api/v1/entitlements/admin/*` comme des
+  routes opérateur.
+- **Extensions rétro-compatibles de `platform/`** : `useApiInfiniteQuery`, corps de mutation calculé (`body`), `tenantless` ;
+  schémas alignés sur les réponses réelles (`/rbac/me/permissions` = `[{key,sensitive,scopes}]`, `/rbac/me/navigation` =
+  `{portals}`, `/tenancy/profile` = `{branding}`) tout en acceptant les anciennes formes.
+- **Briques** `packages/ui/src/admin` : `PageHeader`, `LoadingState/EmptyState/ErrorState`, `Notice`, `StatusBadge`, `Field`,
+  `NativeSelect`, `ConfirmDialog`, `ProgressBar`, `ResponsiveTable` (tableau ≥ md, cartes en dessous).
+- **Erreurs** : `admin/errors.ts` (anti-escalade, dernier propriétaire, rôle verrouillé, MFA…) ; notifications = `sonner` existant.
+- **Limites** : pas de téléversement de logo (URL https) ; journal de plateforme : route de lecture absente côté API
+  (`GET /api/v1/platform/audit/logs` attendue) ; périmètres « campus » affichés par identifiant court.
+- **Tests** : `pnpm --filter @ecoledigitale/web test` (Vitest/RTL, API simulée) ;
+  `PW_CHANNEL=msedge pnpm exec playwright test -c playwright.admin.config.ts` (smoke console + gardes, 375 px et bureau, sans API).
+
 ## Tests
 
 ```bash

@@ -18,10 +18,14 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: /admin-v2\.spec\.ts/,
   fullyParallel: false,
+  // Un seul worker : `next dev` compile les routes à la demande, deux navigateurs en parallèle se disputent la compilation.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: [["list"]],
-  timeout: 90 * 1000,
+  // `next dev` compile chaque route à la première visite : délais larges (la CI utilise `next start`).
+  timeout: 150 * 1000,
+  expect: { timeout: 30 * 1000 },
   use: {
     baseURL: `http://localhost:${port}`,
     trace: "on-first-retry",
