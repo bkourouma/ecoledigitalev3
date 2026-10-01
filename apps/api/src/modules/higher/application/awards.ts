@@ -176,7 +176,7 @@ export async function awardDiploma(deps: HigherDeps, ctx: RequestContext, input:
             ...(cycleEval ? { cycle: { average: cycleEval.average, mentionCode: cycleEval.mentionCode, rule: cycleEval.rule } } : { cycle: { complete: false } }),
           },
           cycleAverage, mentionCode, ruleSetCode: eligibility.rule.ruleSetCode, ruleVersionId: eligibility.rule.ruleVersionId, ruleVersionNo: eligibility.rule.versionNo,
-          definitionHash, awardedAt: now, awardedBy: ctx.userId, awardedByName: byName, acquiredDate, predecessorAwardId: predecessor?.id ?? null,
+          definitionHash, awardedAt: now, awardedBy: auto ? null : ctx.userId, awardedByName: byName, acquiredDate, predecessorAwardId: predecessor?.id ?? null,
           reawardDecision: predecessor ? (input.reawardDecision?.trim() ?? null) : null,
         }),
       () => conflict(HigherCode.ALREADY_AWARDED, "Cet étudiant a déjà ce diplôme."),

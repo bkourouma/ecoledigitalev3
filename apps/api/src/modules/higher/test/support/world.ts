@@ -18,18 +18,20 @@ export interface TestWorld {
   readonly ports: InMemoryWorld;
 }
 
+/** Compteur global : le code de vérification est unique pour toute la base (vérification publique). */
+let verificationSeq = 0;
+
 export function makeWorld(db: HigherTestDb, startsAt = "2026-10-01T12:00:00.000Z"): TestWorld {
   const clock = new ManualClock(startsAt);
   const audit = new RecordingAudit();
   const ports = inMemoryPorts();
-  let seq = 0;
   const deps = createHigherDeps({
     db: db.tenantDb,
     clock,
     audit,
     ports,
     // Code de vérification déterministe, unique.
-    newVerificationCode: () => `VERIFCODE${String(++seq).padStart(10, "0")}`,
+    newVerificationCode: () => `VERIFCODE${String(++verificationSeq).padStart(10, "0")}`,
   });
   return { deps, clock, audit, ports };
 }
