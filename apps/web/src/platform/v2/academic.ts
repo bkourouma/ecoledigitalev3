@@ -19,6 +19,7 @@ import {
   academicCurriculumVersionDtoSchema,
   academicEducationLevelDtoSchema,
   academicEnrollmentCourseDtoSchema,
+  academicEnrollmentNodeViewSchema,
   academicEnrollmentDetailDtoSchema,
   academicEnrollmentDtoSchema,
   academicEnrollmentOutcomeDtoSchema,
@@ -564,5 +565,15 @@ export function useAddEnrollmentCourse() {
     body: (v) => ({ ...(v.offeringId ? { offeringId: v.offeringId } : {}), ...(v.curriculumNodeId ? { curriculumNodeId: v.curriculumNodeId } : {}), ...(v.override ? { override: v.override } : {}) }),
     schema: academicEnrollmentCourseDtoSchema,
     invalidate: [ENROLLMENTS_KEY, OFFERINGS_KEY],
+  });
+}
+
+/** Nœuds du curriculum d'une classe (matières, UE…), vus par l'inscription : sert de lignes à la matrice des affectations. */
+export function useClassroomNodes(classroomId: string | null) {
+  return hooks.useApiQuery(["academic", "classrooms", "nodes", classroomId], `${ACADEMIC_BASE}/classrooms/${classroomId}/nodes`, {
+    schema: itemsOf(academicEnrollmentNodeViewSchema),
+    select: pickItems,
+    enabled: classroomId !== null,
+    retry: false,
   });
 }

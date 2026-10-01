@@ -1344,5 +1344,350 @@
         "classroom": "Classe"
       }
     }
+  },
+  "v2Staff": {
+    "nav": {
+      "label": "Personnel et affectations",
+      "staff": "Personnel",
+      "new": "Nouveau membre",
+      "assignments": "Affectations",
+      "me": "Mon espace"
+    },
+    "status": {
+      "ACTIVE": "En poste",
+      "ON_LEAVE": "En congé",
+      "SUSPENDED": "Suspendu",
+      "LEFT": "Parti"
+    },
+    "contractStatus": {
+      "DRAFT": "Brouillon",
+      "ACTIVE": "En cours",
+      "ENDED": "Terminé",
+      "CANCELLED": "Annulé"
+    },
+    "roles": {
+      "LEAD": "Responsable",
+      "CO_TEACHER": "Co-enseignant",
+      "HOMEROOM": "Titulaire de classe",
+      "SUBSTITUTE": "Suppléant",
+      "SUPERVISOR": "Surveillant"
+    },
+    "list": {
+      "title": "Personnel",
+      "description": "Enseignants, éducateurs et personnel administratif : catégories, statut et charge horaire.",
+      "assignments": "Affectations d'enseignement",
+      "new": "Nouveau membre",
+      "filters": "Filtres du personnel",
+      "search": "Rechercher un membre du personnel",
+      "searchPlaceholder": "Nom, matricule…",
+      "filterCategory": "Catégorie",
+      "filterStatus": "Statut",
+      "filterTeaching": "Enseigne",
+      "teachingYes": "Peut enseigner",
+      "teachingNo": "Ne peut pas enseigner",
+      "filterYear": "Année (charge)",
+      "allYears": "Toutes les années",
+      "yearForLoad": "Choisissez une année pour trier par charge horaire.",
+      "all": "Tous",
+      "tableCaption": "Liste du personnel",
+      "empty": "Aucun membre du personnel.",
+      "emptyHint": "Créez la première fiche avec « Nouveau membre ».",
+      "noResults": "Aucun membre ne correspond à votre recherche.",
+      "hours": "{value} h",
+      "columns": {
+        "name": "Nom",
+        "number": "Matricule",
+        "category": "Catégorie",
+        "jobTitle": "Fonction",
+        "load": "Charge prévue",
+        "status": "Statut"
+      }
+    },
+    "expiring": {
+      "title": "{count, plural, one {# qualification arrive à échéance} other {# qualifications arrivent à échéance}}",
+      "expiresOn": "Échéance : {date}",
+      "daysLeft": "{count, plural, =0 {Aujourd'hui} one {Dans # jour} other {Dans # jours}}",
+      "expired": "Expirée"
+    },
+    "create": {
+      "title": "Nouveau membre du personnel",
+      "description": "Identité, catégorie et fonction. Le matricule est attribué à la création.",
+      "job": "Fonction",
+      "category": "Catégorie",
+      "choose": "Choisir…",
+      "jobTitle": "Intitulé du poste",
+      "hiredOn": "Date d'embauche",
+      "submit": "Créer la fiche",
+      "doneTitle": "Fiche créée",
+      "doneBody": "{name} — matricule {number}.",
+      "open": "Ouvrir la fiche",
+      "backToList": "Retour à la liste"
+    },
+    "detail": {
+      "subtitle": "Matricule {number} — {category} — {jobTitle}",
+      "back": "Tout le personnel",
+      "edit": "Modifier",
+      "editTitle": "Modifier {name}",
+      "save": "Enregistrer",
+      "updated": "La fiche a été mise à jour.",
+      "invite": "Inviter au portail",
+      "invited": "L'invitation a été envoyée.",
+      "changeStatus": "Changer le statut",
+      "statusChanged": "Le statut a été modifié.",
+      "job": "Poste",
+      "category": "Catégorie",
+      "jobTitle": "Intitulé du poste",
+      "hiredOn": "Date d'embauche",
+      "tabs": {
+        "identity": "Identité",
+        "contracts": "Contrats",
+        "qualifications": "Qualifications",
+        "competencies": "Compétences",
+        "availabilities": "Disponibilités",
+        "load": "Charge horaire",
+        "history": "Historique"
+      },
+      "identity": {
+        "civil": "Identité et coordonnées",
+        "hiredOn": "Embauché le",
+        "leftOn": "Parti le",
+        "portalAccount": "Compte du portail",
+        "noPortal": "Aucun compte",
+        "affiliations": "Établissements",
+        "noAffiliations": "Aucun établissement de rattachement.",
+        "ongoing": "en cours"
+      },
+      "statusDialog": {
+        "title": "Changer le statut de {name}",
+        "description": "Le changement est conservé dans l'historique. Un départ met fin aux affectations en cours.",
+        "status": "Nouveau statut",
+        "choose": "Choisir…",
+        "reason": "Motif",
+        "effectiveOn": "Date d'effet",
+        "leftOn": "Date de départ",
+        "submit": "Changer le statut"
+      },
+      "history": {
+        "caption": "Historique des statuts",
+        "when": "Date d'effet",
+        "change": "Changement",
+        "reason": "Motif",
+        "empty": "Aucun changement de statut."
+      }
+    },
+    "contracts": {
+      "title": "Contrats",
+      "caption": "Contrats du membre du personnel",
+      "noSalary": "Les contrats ne portent ni tarif ni salaire : la rémunération relève du module Paie.",
+      "empty": "Aucun contrat.",
+      "add": "Ajouter un contrat",
+      "addTitle": "Ajouter un contrat",
+      "added": "Le contrat a été ajouté.",
+      "end": "Terminer",
+      "ended": "Le contrat est terminé.",
+      "choose": "Choisir…",
+      "openEnded": "durée indéterminée",
+      "perWeek": "{value} h / semaine",
+      "perYear": "{value} h / an",
+      "columns": {
+        "type": "Type",
+        "period": "Période",
+        "hours": "Volume horaire",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "fields": {
+        "type": "Type de contrat",
+        "status": "Statut initial",
+        "statusActive": "En cours",
+        "statusDraft": "Brouillon",
+        "startsOn": "Début",
+        "endsOn": "Fin",
+        "committedHours": "Volume horaire contractuel",
+        "unit": "Unité",
+        "perWeek": "Par semaine",
+        "perYear": "Par an",
+        "note": "Note"
+      }
+    },
+    "qualifications": {
+      "title": "Qualifications",
+      "caption": "Diplômes, certifications et habilitations",
+      "empty": "Aucune qualification.",
+      "add": "Ajouter une qualification",
+      "addTitle": "Ajouter une qualification",
+      "added": "La qualification a été ajoutée.",
+      "remove": "Retirer",
+      "removed": "La qualification a été retirée.",
+      "noExpiry": "sans échéance",
+      "expired": "Expirée",
+      "expiresSoon": "{count, plural, =0 {Expire aujourd'hui} one {Expire dans # jour} other {Expire dans # jours}}",
+      "kind": {
+        "DIPLOMA": "Diplôme",
+        "CERTIFICATION": "Certification",
+        "AUTHORIZATION": "Habilitation",
+        "OTHER": "Autre"
+      },
+      "columns": {
+        "label": "Intitulé",
+        "issuer": "Délivré par",
+        "obtainedOn": "Obtenue le",
+        "expiresOn": "Échéance",
+        "actions": "Actions"
+      },
+      "fields": {
+        "kind": "Nature",
+        "label": "Intitulé",
+        "issuer": "Délivré par",
+        "obtainedOn": "Date d'obtention",
+        "expiresOn": "Date d'échéance",
+        "expiresOnHint": "Une alerte est émise avant l'échéance."
+      }
+    },
+    "competencies": {
+      "title": "Compétences",
+      "empty": "Aucune compétence déclarée.",
+      "emptyHint": "Les compétences aident à choisir un enseignant pour une matière ; elles n'empêchent pas une affectation.",
+      "allLevels": "Tous niveaux",
+      "add": "Ajouter une compétence",
+      "addTitle": "Ajouter une compétence",
+      "addDescription": "Matière et niveaux concernés (aucun niveau coché = tous).",
+      "added": "La compétence a été ajoutée.",
+      "remove": "Retirer",
+      "removed": "La compétence a été retirée.",
+      "subject": "Matière",
+      "subjectPlaceholder": "Rechercher une matière…",
+      "subjectRequired": "Choisissez une matière.",
+      "alreadyListed": "Cette matière est déjà dans la liste.",
+      "levels": "Niveaux",
+      "levelsHint": "Laisser vide pour tous les niveaux."
+    },
+    "availabilities": {
+      "title": "Disponibilités",
+      "hint": "Créneaux hebdomadaires où le membre du personnel est disponible ou indisponible. Ils servent à construire l'emploi du temps.",
+      "gridLabel": "Semaine type",
+      "none": "Aucun créneau",
+      "add": "Ajouter un créneau",
+      "addTitle": "Ajouter un créneau",
+      "addDescription": "Un créneau ne chevauche pas minuit : la fin suit le début.",
+      "remove": "Retirer",
+      "saved": "Les disponibilités sont enregistrées.",
+      "kind": {
+        "AVAILABLE": "Disponible",
+        "UNAVAILABLE": "Indisponible"
+      },
+      "weekday": {
+        "1": "Lundi",
+        "2": "Mardi",
+        "3": "Mercredi",
+        "4": "Jeudi",
+        "5": "Vendredi",
+        "6": "Samedi",
+        "7": "Dimanche"
+      },
+      "fields": {
+        "weekday": "Jour",
+        "kind": "Nature",
+        "startTime": "Début",
+        "endTime": "Fin",
+        "reason": "Motif"
+      }
+    },
+    "load": {
+      "title": "Charge horaire et affectations",
+      "year": "Année",
+      "planned": "Heures prévues (affectations)",
+      "contractualWeek": "Volume contractuel par semaine",
+      "contractualYear": "Volume contractuel par an",
+      "noWeeks": "Le volume hebdomadaire n'est pas converti en année : le nombre de semaines de l'année n'est pas configuré.",
+      "hours": "{value} h",
+      "caption": "Affectations du membre du personnel",
+      "empty": "Aucune affectation cette année.",
+      "allSubjects": "Toutes les matières",
+      "oneSubject": "Une matière",
+      "manage": "Gérer les affectations",
+      "columns": {
+        "classroom": "Classe",
+        "role": "Rôle",
+        "scope": "Portée",
+        "hours": "Heures prévues",
+        "period": "Période"
+      }
+    },
+    "assignments": {
+      "title": "Affectations d'enseignement",
+      "description": "Qui enseigne quelle matière dans quelle classe. Une matière sans responsable bloque l'ouverture de l'offre correspondante.",
+      "tabs": {
+        "classroom": "Par classe",
+        "teacher": "Par enseignant"
+      },
+      "year": "Année",
+      "allYears": "Toutes les années",
+      "classroom": "Classe",
+      "classroomPlaceholder": "Rechercher une classe…",
+      "pickClassroom": "Choisissez une classe pour afficher sa matrice d'affectations.",
+      "teacher": "Enseignant",
+      "teacherPlaceholder": "Rechercher un enseignant…",
+      "pickTeacher": "Choisissez un enseignant pour voir sa charge et ses affectations.",
+      "matrixTitle": "Affectations de {name}",
+      "matrixCaption": "Matrice matière par rôle d'enseignement",
+      "columns": {
+        "subject": "Matière"
+      },
+      "allStaffed": "Toutes les matières ont un responsable",
+      "unstaffedCount": "{count, plural, one {# matière sans responsable} other {# matières sans responsable}}",
+      "unstaffedUnavailable": "Le contrôle des matières sans responsable n'est pas disponible.",
+      "noLead": "Sans responsable",
+      "generalist": "Enseignant généraliste",
+      "none": "Aucun",
+      "noSubjects": "Aucune matière dans le curriculum de cette classe.",
+      "noSubjectsHint": "Rattachez un curriculum publié à la classe pour pouvoir affecter des enseignants.",
+      "assign": "Affecter",
+      "addCo": "Ajouter",
+      "assignHomeroom": "Désigner",
+      "assignTitle": "Affecter un enseignant à {subject}",
+      "assignHomeroomTitle": "Désigner le titulaire de la classe",
+      "assignDescription": "Le serveur vérifie qu'il n'y a qu'un responsable actif par matière et par période, et signale les écarts de compétence ou de contrat.",
+      "assigned": "L'affectation est enregistrée.",
+      "staff": "Enseignant",
+      "staffPlaceholder": "Rechercher un enseignant…",
+      "staffRequired": "Choisissez un enseignant.",
+      "role": "Rôle",
+      "period": "Période",
+      "periodHint": "Laisser vide pour toute l'année.",
+      "wholeYear": "Toute l'année",
+      "startsOn": "Début",
+      "endsOn": "Fin",
+      "plannedHours": "Heures prévues",
+      "coversAll": "Enseignant généraliste (toutes les matières)",
+      "coversAllHint": "Pour l'enseignement primaire : un seul enseignant pour toute la classe.",
+      "note": "Note",
+      "replace": "Remplacer",
+      "replaceTitle": "Remplacer {name}",
+      "replaceDescription": "Le remplacement termine l'affectation actuelle et crée la nouvelle en une seule opération.",
+      "replaced": "Le remplacement est enregistré.",
+      "newStaff": "Nouvel enseignant",
+      "sameStaff": "Choisissez un autre enseignant.",
+      "effectiveOn": "Date d'effet",
+      "dateRequired": "Indiquez la date d'effet.",
+      "reason": "Motif",
+      "reasonRequired": "Le motif est obligatoire.",
+      "reasonOptional": "Motif (facultatif)",
+      "end": "Terminer",
+      "endTitle": "Terminer l'affectation de {name}",
+      "endDescription": "L'affectation reste dans l'historique.",
+      "ended": "L'affectation est terminée."
+    },
+    "me": {
+      "title": "Mon espace",
+      "description": "Votre fiche et les classes où vous enseignez.",
+      "number": "Matricule",
+      "jobTitle": "Fonction",
+      "hiredOn": "Embauché le",
+      "classes": "Mes classes",
+      "noClasses": "Vous n'êtes affecté à aucune classe pour le moment.",
+      "allSubjects": "Toutes les matières",
+      "subjects": "{count, plural, one {# affectation} other {# affectations}}"
+    }
   }
 }

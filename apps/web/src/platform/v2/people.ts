@@ -551,3 +551,22 @@ export function duplicateCandidatesOf(error: unknown): z.infer<typeof peopleDupl
   const parsed = z.array(peopleDuplicateCandidateDtoSchema).safeParse(raw);
   return parsed.success ? parsed.data : [];
 }
+
+/** Ma fiche de personnel (enseignant) et mes disponibilités. */
+export function useMyStaff(enabled = true) {
+  return hooks.useApiQuery(["people", "me", "staff"], `${PEOPLE_BASE}/me/staff`, { schema: peopleStaffDetailDtoSchema, enabled, retry: false });
+}
+
+export function useMyAssignments(enabled = true) {
+  return hooks.useApiQuery(["people", "me", "assignments"], `${PEOPLE_BASE}/me/assignments`, { schema: itemsOf(peopleAssignmentDtoSchema), select: pickItems, enabled, retry: false });
+}
+
+export function useUpdateMyAvailabilities() {
+  return useApiAction({
+    method: "PATCH",
+    path: `${PEOPLE_BASE}/me/staff`,
+    body: (v: { availabilities: Array<Record<string, unknown>> }) => ({ availabilities: v.availabilities }),
+    schema: peopleStaffDetailDtoSchema,
+    invalidate: [["people", "me"], ["people", "staff", "availabilities"]],
+  });
+}

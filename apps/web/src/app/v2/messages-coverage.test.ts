@@ -20,7 +20,6 @@ import {
 import { PEOPLE_ASSIGNMENT_ROLES, PEOPLE_STAFF_STATUSES, PEOPLE_STUDENT_STATUSES } from "@ecoledigitale/contracts/v2/people";
 
 const FLAGS = ["isPrimaryContact", "isEmergencyContact", "isFinancialResponsible", "hasLegalCustody", "canPickup", "portalAccess"] as const;
-void PEOPLE_STAFF_STATUSES;
 
 /**
  * Filet de sécurité i18n : toute clé passée à `t("…")` dans les écrans v2 et les composants partagés doit exister dans
@@ -91,6 +90,12 @@ describe("messages fr-CI", () => {
       ["v2Students.detail.guardians.kind", ["existing", "new"]],
       ["v2Students.detail.schooling.prior.kind", ["SCHOOL", "DIPLOMA", "CERTIFICATE", "OTHER"]],
       ["v2Academic.classroomDetail.assignments.roles", PEOPLE_ASSIGNMENT_ROLES],
+      ["v2Staff.status", PEOPLE_STAFF_STATUSES],
+      ["v2Staff.contractStatus", ["DRAFT", "ACTIVE", "ENDED", "CANCELLED"]],
+      ["v2Staff.roles", PEOPLE_ASSIGNMENT_ROLES],
+      ["v2Staff.qualifications.kind", ["DIPLOMA", "CERTIFICATION", "AUTHORIZATION", "OTHER"]],
+      ["v2Staff.availabilities.kind", ["AVAILABLE", "UNAVAILABLE"]],
+      ["v2Staff.availabilities.weekday", ["1", "2", "3", "4", "5", "6", "7"]],
       ["v2Students.duplicates.match", ["EXACT", "NEAR", "NAME_ONLY", "EMAIL", "PHONE"]],
       ["v2Students.duplicates.role", ["STUDENT", "GUARDIAN", "STAFF"]],
     ];
