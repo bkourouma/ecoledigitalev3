@@ -290,13 +290,18 @@ export async function futurePlannedForStaff(
   return rows.map((r) => ({ occurrenceId: r.occurrence_id, staffId: r.staff_id }));
 }
 
-/** Identifiants des séances futures PLANNED non validées d'une offre ou d'une classe (annulation en cascade). */
+/**
+ * Identifiants des séances futures PLANNED non validées d'une offre ou d'une classe (annulation en cascade).
+ * Lecture SANS verrou : elle s'exécute en transaction en lecture seule (un `FOR UPDATE` y est refusé par
+ * Postgres) ; chaque séance est ensuite verrouillée et revérifiée par `cancelOccurrence`, qui est idempotent
+ * et ne touche ni une séance validée ni des heures verrouillées (gel).
+ */
 export async function futurePlannedByTarget(tx: Tx, target: { offeringId?: string; classroomId?: string }, after: Date): Promise<string[]> {
   const rows = await tx.many<{ id: string }>(
     `SELECT id FROM scheduling.session_occurrences
       WHERE tenant_id = kernel.current_tenant_id() AND status = 'PLANNED' AND validated_at IS NULL AND starts_at >= $1::timestamptz
         AND (($2::uuid IS NOT NULL AND offering_id = $2::uuid) OR ($3::uuid IS NOT NULL AND classroom_id = $3::uuid))
-      ORDER BY starts_at, id FOR UPDATE`,
+      ORDER BY starts_at, id`,
     [after, target.offeringId ?? null, target.classroomId ?? null],
   );
   return rows.map((r) => r.id);
