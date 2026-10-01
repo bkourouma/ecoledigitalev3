@@ -128,7 +128,10 @@ export class ProviderRegistry {
     const settings = (await this.configSource.get(tenantId, name)) ?? {};
 
     if (def.sandbox) {
-      if (!isDevLikeEnvironment(this.environment) && settings.allowSandbox !== "true") {
+      // `EnvProviderConfigSource` met les clés en minuscules (`allowsandbox`) : on accepte les deux écritures,
+      // sinon l'autorisation d'un tenant de démonstration ne pouvait jamais être exprimée par l'environnement.
+      const allowSandbox = settings.allowSandbox === "true" || settings.allowsandbox === "true";
+      if (!isDevLikeEnvironment(this.environment) && !allowSandbox) {
         return err(
           conflict(
             FinanceCode.PROVIDER_SANDBOX_FORBIDDEN,

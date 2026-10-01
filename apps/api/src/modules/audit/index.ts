@@ -55,7 +55,8 @@ export {
 export { listAuditLogs, getAuditLog, exportLogsCsv, toCsv, csvCell } from "./application/queries";
 
 // Plugins Fastify
-export { default as auditHttpPlugin, type AuditHttpOptions } from "./http/plugin";
+export { auditPlugin as auditHttpPlugin, type AuditHttpOptions } from "./http/plugin";
+export { configureAuditFromEnv, auditHmacFromEnv, type AuditEnv } from "./config";
 export { default as auditRequestMetaPlugin } from "./http/request-meta-plugin";
 
 // Helpers de test d'architecture

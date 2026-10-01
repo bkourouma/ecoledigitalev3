@@ -9,7 +9,8 @@
     "paths": {
       "@ecoledigitale/kernel": ["../../../../../packages/kernel/src/index.ts"],
       "@ecoledigitale/database": ["../../../../../packages/database/src/index.ts"],
-      "@ecoledigitale/contracts/*": ["../../../../../packages/contracts/src/*"]
+      "@ecoledigitale/contracts/*": ["../../../../../packages/contracts/src/*"],
+      "@ecoledigitale/worker/sdk": ["../../../../worker/src/sdk.ts"]
     }
   },
   "include": ["**/*.ts", "../isolation-allowlist.audit.ts"],

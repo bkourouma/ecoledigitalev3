@@ -20,7 +20,7 @@ import {
   getRetentionMonths,
   setRetentionMonths,
 } from "../application/retention";
-import auditPlugin from "../http/plugin";
+import { auditPlugin } from "../http/plugin";
 import auditRequestMetaPlugin from "../http/request-meta-plugin";
 import { expectAudited, expectAuditRolledBack } from "../testing";
 import { mapRow, ROW_COLUMNS_TENANT } from "../infrastructure/chain-repository";

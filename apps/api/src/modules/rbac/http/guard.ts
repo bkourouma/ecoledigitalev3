@@ -37,6 +37,7 @@ import {
   type PermissionSet,
 } from "../domain/permission-set";
 import type { ScopeTarget, ScopeTreeProvider } from "../domain/scope";
+import type { PermissionSetCache } from "../application/permission-cache";
 
 /** Ce que le plugin `rbac` publie sur l'instance Fastify (`fastify.rbac`). */
 export interface RbacRuntime {
@@ -44,6 +45,8 @@ export interface RbacRuntime {
   readonly scopeTrees: ScopeTreeProvider;
   readonly clock: Clock;
   readonly logger: Logger;
+  /** Cache des droits du processus (invalidé par les événements relayés : `subscribeCacheInvalidation`). */
+  readonly cache?: PermissionSetCache;
 }
 
 export type ScopeSelector =

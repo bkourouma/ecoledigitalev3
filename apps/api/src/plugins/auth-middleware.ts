@@ -12,6 +12,7 @@ import {
   resolveTenantTechnicalUser,
 } from "../services/tenant-provisioning.service";
 import { setRlsContext } from "../services/rls-context.service";
+import { shouldBypassLegacyAuth } from "../platform/public-routes";
 
 function isSensitiveOperation(method: string): boolean {
   return ["POST", "PUT", "DELETE", "PATCH"].includes(method.toUpperCase());
@@ -239,6 +240,13 @@ async function attachSuperAdmin(
 
 async function authMiddleware(fastify: FastifyInstance) {
   fastify.addHook("preHandler", async (request: FastifyRequest, reply: FastifyReply) => {
+    // Plateforme v2 : routes de modules déclarées `config.public` (login/refresh IAM, webhooks signés,
+    // console super-admin…) et requêtes déjà authentifiées par un jeton IAM v2. Liste DÉRIVÉE des
+    // déclarations de routes (platform/public-routes.ts), vide tant que la plateforme v2 est désactivée.
+    if (shouldBypassLegacyAuth(request)) {
+      return;
+    }
+
     const skipAuthRoutes = [
       "/api/v1/auth/login",
       "/api/v1/auth/refresh",

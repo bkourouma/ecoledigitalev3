@@ -16,7 +16,8 @@
     "paths": {
       "@ecoledigitale/contracts": ["../../packages/contracts/src/index.ts"],
       "@ecoledigitale/contracts/*": ["../../packages/contracts/src/*"],
-      "@ecoledigitale/utils": ["../../packages/utils/src"]
+      "@ecoledigitale/utils": ["../../packages/utils/src"],
+      "@ecoledigitale/worker/sdk": ["../worker/src/sdk.ts"]
     }
   },
   "include": ["src/**/*"],

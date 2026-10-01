@@ -85,7 +85,10 @@ import {
   setFeeStatus,
   setLearnerFunding,
 } from "../application/catalog";
-import type { FinanceDeps } from "../application/deps";
+import { createFinanceDeps, type FinanceDeps } from "../application/deps";
+import { financeAuditAdapter } from "../infrastructure/audit-adapter";
+import { createProviderRegistry, EnvProviderConfigSource, type AppEnvironment } from "../infrastructure/providers/registry";
+import type { ModuleRuntime } from "../../../platform/runtime";
 import {
   cancelInvoice,
   createInvoice,
@@ -125,6 +128,11 @@ export interface FinancePluginOptions {
   prefix?: string;
   /** Garde de permission (défaut : celle du module rbac). */
   requirePermission?: (permission: string) => preHandlerAsyncHookHandler;
+  /**
+   * Garde de route `requireFeature(key)` du module entitlements (preHandler Fastify) : appliquée aux routes de
+   * paiement en ligne. Prime sur `isFeatureEnabled` pour ces routes (403 `entitlements.feature_not_available`).
+   */
+  requireFeature?: (featureKey: string) => preHandlerAsyncHookHandler;
   /** Entitlements : `finance.online-payment`, `finance.installments`, `finance.state-assigned`. */
   isFeatureEnabled?: (ctx: RequestContext, featureKey: string) => Promise<boolean>;
 }
@@ -168,6 +176,24 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
   const perm = options.requirePermission ?? ((p: string) => rbacRequirePermission(p));
   const currency = deps.config.defaultCurrency;
   const m = (amount: number | string, c?: CurrencyCode): Money => moneyOf(amount, c, currency);
+
+  /**
+   * Garde de route « permission PUIS feature » : avec la garde `requireFeature` du module entitlements, un
+   * établissement qui n'a pas souscrit la feature reçoit 403 `entitlements.feature_not_available` (avec la
+   * raison) AVANT toute lecture du corps. Sans cette garde (tests autonomes), le contrôle en ligne ci-dessous
+   * s'applique avec `isFeatureEnabled`.
+   */
+  const withFeature = (permission: string, feature: string) => {
+    const guards: preHandlerAsyncHookHandler[] = [perm(permission)];
+    if (options.requireFeature) {
+      const featureGuard = options.requireFeature(feature);
+      // La garde ENVOIE elle-même le 403 et renvoie la réponse : un preHandler asynchrone doit la retourner.
+      guards.push(async function featureGate(request, reply) {
+        return featureGuard.call(request.server, request, reply);
+      });
+    }
+    return guards;
+  };
 
   const requireFeature = async (ctx: RequestContext, feature: string): Promise<void> => {
     if (options.isFeatureEnabled && !(await options.isFeatureEnabled(ctx, feature))) {
@@ -466,7 +492,7 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
         );
         return reply.status(view.replayed ? 200 : 201).send(present.paymentViewDto(view));
       });
-      scope.post("/payments/online", { preHandler: perm("finance.payment.create") }, async (req, reply) => {
+      scope.post("/payments/online", { preHandler: withFeature("finance.payment.create", "finance.online-payment") }, async (req, reply) => {
         const ctx = ctxOf(req);
         await requireFeature(ctx, "finance.online-payment");
         const b = parse(financeInitiateOnlinePaymentBodySchema, req.body);
@@ -488,7 +514,7 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
         );
         return reply.status(view.replayed ? 200 : 201).send(present.onlinePaymentDto(view));
       });
-      scope.post("/payments/:id/verify", { preHandler: perm("finance.payment.create") }, async (req) => {
+      scope.post("/payments/:id/verify", { preHandler: withFeature("finance.payment.create", "finance.online-payment") }, async (req) => {
         const ctx = ctxOf(req);
         await requireFeature(ctx, "finance.online-payment");
         const { id } = parse(financeIdParamsSchema, req.params);
@@ -631,7 +657,7 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
       hooks.setErrorHandler((error, request, reply) => handleError(error, request, reply));
       // Le corps JSON est conservé BRUT : la signature se vérifie sur les octets reçus.
       hooks.addContentTypeParser("application/json", { parseAs: "string", bodyLimit: 262_144 }, (_req, body, done) => done(null, body));
-      hooks.post("/webhooks/:provider/:tenantId", async (req, reply) => {
+      hooks.post("/webhooks/:provider/:tenantId", { config: { public: true } }, async (req, reply) => {
         const { provider, tenantId } = parse(financeWebhookParamsSchema, req.params);
         const rawBody = typeof req.body === "string" ? req.body : "";
         const result = unwrapOrThrow(
@@ -741,4 +767,39 @@ function invoicesResultDto(result: { invoices: Parameters<typeof present.invoice
   return { replayed: result.replayed, invoices: result.invoices.map((d) => present.invoiceDetailDto(d, today)) };
 }
 
-export default financePlugin;
+/** Environnement d'exécution des fournisseurs de paiement : `FINANCE_ENV`, sinon dérivé de `NODE_ENV` (défaut SÛR : production). */
+export function financeEnvironmentOf(env: Readonly<Record<string, string | undefined>>): AppEnvironment {
+  const raw = (env.FINANCE_ENV ?? env.NODE_ENV ?? "").trim().toLowerCase();
+  return raw === "development" || raw === "test" || raw === "staging" || raw === "production" ? raw : "production";
+}
+
+/**
+ * Contrat d'assemblage uniforme (`platform/runtime.ts`) : `(app, runtime)`, routes sans préfixe (le registre
+ * applique `/api/v1/finance`). Le webhook `POST /webhooks/:provider/:tenantId` est déclaré `public` : il ne
+ * porte aucun jeton, la signature fait foi (voir README).
+ *
+ * Variables : `FINANCE_ENV` (development|test|staging|production, défaut dérivé de NODE_ENV, sinon production —
+ * aucune simulation), `FINANCE_WEBHOOK_BASE_URL`, `FINANCE_PROVIDER_<NOM>_<CLÉ>` (configuration des fournisseurs).
+ */
+export default async function financeModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
+  const environment = financeEnvironmentOf(runtime.env);
+  const deps = createFinanceDeps({
+    db: runtime.tenantDb,
+    clock: runtime.clock,
+    audit: financeAuditAdapter(runtime.auditPort),
+    logger: runtime.logger,
+    providers: createProviderRegistry({
+      environment,
+      logger: runtime.logger,
+      configSource: new EnvProviderConfigSource(runtime.env),
+    }),
+    config: { environment, webhookBaseUrl: runtime.env.FINANCE_WEBHOOK_BASE_URL?.trim() || null },
+  });
+  await app.register(financePlugin, {
+    deps,
+    prefix: "",
+    requirePermission: (permission) => runtime.requirePermission(permission),
+    requireFeature: (featureKey) => runtime.entitlements.requireFeature(featureKey),
+    isFeatureEnabled: (ctx, featureKey) => runtime.entitlements.isFeatureEnabled(ctx, featureKey),
+  });
+}

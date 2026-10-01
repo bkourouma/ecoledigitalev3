@@ -39,6 +39,9 @@ import type { MfaSubject } from "../application/mfa";
 import type { AuthenticatedPrincipal, SuperAdminAuthenticator } from "../application/ports";
 import type { IamService } from "../application/service";
 import { peekJwtTyp } from "../domain/tokens";
+import { loadIamConfig } from "../config";
+import { createIamService } from "../application/service";
+import type { ModuleRuntime } from "../../../platform/runtime";
 import {
   assertAllowedOrigin,
   bearerToken,
@@ -91,6 +94,9 @@ function parse<S extends ZodTypeAny>(schema: S, value: unknown): z.output<S> {
  */
 export function iamAuthHook(iam: IamService, options: Pick<IamPluginOptions, "expectedTenantSlug"> & { allowImpersonation?: boolean } = {}) {
   return async (request: FastifyRequest): Promise<void> => {
+    // Déjà authentifiée par la plateforme (hook `onRequest` de `platform/v2-auth.ts`) : une seule vérification
+    // de session par requête (chaque vérification coûte une requête SQL).
+    if (request.iamAuth) return;
     const token = bearerToken(request);
     if (!token) throw new UnauthorizedError("Authentification requise.", { code: AuthErrorCodes.tokenInvalid });
     const expected = options.expectedTenantSlug?.(request);
@@ -140,6 +146,11 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
   });
 
   const auth = { preHandler: authHook };
+  // Routes qui s'authentifient elles-mêmes (mot de passe, jeton d'étape MFA, refresh token, jeton de reset,
+  // JWT super-admin) ou qui doivent rester joignables sans session : `public` dispense de la garde « contexte
+  // présent » du registre ET de l'authentification legacy (`platform/public-routes.ts`). Sans cette
+  // déclaration, `POST /api/v1/iam/login` répondait 401 (TOKEN_MISSING) avant même d'atteindre le module.
+  const open = { config: { public: true } };
   const principalOf = (request: FastifyRequest): AuthenticatedPrincipal => {
     if (!request.iamAuth) throw new UnauthorizedError("Authentification requise.", { code: AuthErrorCodes.tokenInvalid });
     return request.iamAuth.principal;
@@ -148,7 +159,7 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
   // ---------------------------------------------------------------------------
   // Authentification
   // ---------------------------------------------------------------------------
-  app.post("/login", async (request, reply) => {
+  app.post("/login", open, async (request, reply) => {
     const body = parse(LoginRequestSchema, request.body);
     const result = await iam.login({
       email: body.email,
@@ -161,7 +172,7 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
     return presentOutcome(reply, config, clock.now(), unwrap(result), body.client);
   });
 
-  app.post("/mfa/challenge", async (request, reply) => {
+  app.post("/mfa/challenge", open, async (request, reply) => {
     const body = parse(MfaChallengeRequestSchema, request.body);
     const result = await iam.completeMfaChallenge({
       challengeToken: body.challengeToken,
@@ -172,7 +183,7 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
     return presentOutcome(reply, config, clock.now(), unwrap(result), body.client);
   });
 
-  app.post("/refresh", async (request, reply) => {
+  app.post("/refresh", open, async (request, reply) => {
     const body = parse(RefreshRequestSchema, request.body);
     const fromCookie = body.refreshToken === undefined;
     if (fromCookie) {
@@ -207,7 +218,7 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
     };
   });
 
-  app.post("/logout", async (request, reply) => {
+  app.post("/logout", open, async (request, reply) => {
     const body = parse(LogoutRequestSchema, request.body);
     noStore(reply);
     const meta = requestMeta(request);
@@ -304,7 +315,7 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
     return presentOutcome(reply, config, clock.now(), unwrap(result), body.client);
   });
 
-  app.post("/password/forgot", async (request, reply) => {
+  app.post("/password/forgot", open, async (request, reply) => {
     const body = parse(PasswordForgotRequestSchema, request.body);
     await iam.forgotPassword({ email: body.email, meta: requestMeta(request) });
     noStore(reply);
@@ -312,7 +323,7 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
     return reply.status(202).send({ message: "Si un compte existe pour cette adresse, un e-mail vient d'être envoyé." });
   });
 
-  app.post("/password/reset", async (request, reply) => {
+  app.post("/password/reset", open, async (request, reply) => {
     const body = parse(PasswordResetRequestSchema, request.body);
     unwrap(await iam.resetPassword({ token: body.token, newPassword: body.newPassword, meta: requestMeta(request) }));
     noStore(reply);
@@ -333,7 +344,7 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
     return { via: "session", principal: principalOf(request) };
   }
 
-  app.post("/mfa/enroll", async (request, reply) => {
+  app.post("/mfa/enroll", open, async (request, reply) => {
     const body = parse(MfaEnrollRequestSchema, request.body);
     const result = await iam.beginMfaEnrollment(await mfaSubject(request), { password: body.password, meta: requestMeta(request) });
     noStore(reply);
@@ -341,7 +352,7 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
     return { otpauthUri: v.otpauthUri, secret: v.secret, issuer: v.issuer, accountName: v.accountName, digits: 6 as const, period: 30 as const, algorithm: "SHA1" as const };
   });
 
-  app.post("/mfa/verify", async (request, reply) => {
+  app.post("/mfa/verify", open, async (request, reply) => {
     const body = parse(MfaVerifyRequestSchema, request.body);
     const result = await iam.confirmMfaEnrollment(await mfaSubject(request), { code: body.code, meta: requestMeta(request) });
     const v = unwrap(result);
@@ -420,7 +431,7 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
   // ---------------------------------------------------------------------------
   const authenticateSuperAdmin = options.authenticateSuperAdmin;
   if (authenticateSuperAdmin) {
-    app.post("/impersonation", async (request, reply): Promise<ImpersonationResponse> => {
+    app.post("/impersonation", open, async (request, reply): Promise<ImpersonationResponse> => {
       const actor = await authenticateSuperAdmin({ headers: request.headers });
       if (!actor) throw new UnauthorizedError("Authentification requise.", { code: AuthErrorCodes.tokenInvalid });
       const body = parse(ImpersonationRequestSchema, request.body);
@@ -442,4 +453,52 @@ export async function registerIam(app: FastifyInstance, options: IamPluginOption
   await app.register(iamPlugin, { ...options, prefix: IAM_PREFIX } as IamPluginOptions & { prefix: string });
 }
 
-export default iamPlugin;
+declare module "fastify" {
+  interface FastifyInstance {
+    /** Service d'identité (posé à la racine par `setup`) : lu par l'authentification de la plateforme. */
+    iam: IamService;
+  }
+}
+
+/**
+ * Assemblage, étape 1 (instance RACINE) : construit le service d'identité à partir de l'environnement
+ * (`IAM_JWT_SECRET`, `IAM_MFA_ENCRYPTION_KEY`… : le démarrage est REFUSÉ si un secret manque — ADR-008), du
+ * limiteur de débit (Redis si `REDIS_URL`, sinon mémoire) et du notifieur de comptes du runtime, puis le décore
+ * (`app.iam`) pour le hook d'authentification de la plateforme.
+ */
+export function setup(app: FastifyInstance, runtime: ModuleRuntime): void {
+  const iam = createIamService({
+    config: loadIamConfig(runtime.env),
+    tenantDb: runtime.tenantDb,
+    systemDb: runtime.systemDb,
+    limiter: runtime.rateLimiter,
+    notifier: runtime.accountNotifier,
+    clock: runtime.clock,
+    logger: runtime.logger,
+  });
+  app.decorate("iam", iam);
+  app.addHook("onClose", async () => {
+    await iam.drainBackground();
+  });
+}
+
+/**
+ * Assemblage, étape 2 : routes `/login`, `/refresh`, `/me`… (le registre applique `/api/v1/iam`).
+ * L'administration des membres s'appuie sur `requirePermission` du rbac ; l'impersonation sur le
+ * `SuperAdminAuthorizer` du runtime (JWT super-admin legacy, séparé du JWT tenant).
+ */
+export default async function iamModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
+  if (!app.iam) throw new Error("iam : `setup` n'a pas été exécuté (app.iam absent).");
+  await app.register(iamPlugin, {
+    iam: app.iam,
+    requirePermission: (permission) => runtime.requirePermission(permission),
+    authenticateSuperAdmin: async (request) => {
+      try {
+        const identity = await runtime.superAdminAuthorizer.authorize(request);
+        return { id: identity.actorId, email: identity.email ?? "" };
+      } catch {
+        return null;
+      }
+    },
+  });
+}

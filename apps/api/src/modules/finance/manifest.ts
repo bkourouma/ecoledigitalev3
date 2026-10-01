@@ -54,6 +54,10 @@ export default defineModule({
     { key: "finance.cash", label: "Caisse", href: "/admin/finance/caisse", permission: "finance.cashregister.open", portal: "admin", icon: "banknote", order: 420 },
     { key: "finance.fees", label: "Frais et barèmes", href: "/admin/finance/frais", permission: "finance.fee.read", portal: "admin", icon: "tags", order: 430 },
     { key: "finance.reports", label: "Tableau de bord financier", href: "/admin/finance/rapports", permission: "finance.report.read", portal: "admin", icon: "bar-chart", order: 440 },
+    // Entrées conditionnées par une feature du plan/pack : la navigation (`GET /rbac/me/navigation`) les masque
+    // tant que l'établissement n'a pas souscrit la feature (le test de sortie de phase 1 s'appuie dessus).
+    { key: "finance.online-payments", label: "Paiements en ligne", href: "/admin/finance/paiements-en-ligne", permission: "finance.payment.read", feature: "finance.online-payment", portal: "admin", icon: "smartphone", order: 415 },
+    { key: "finance.state-assigned", label: "Élèves affectés par l'État", href: "/admin/finance/affectes-etat", permission: "finance.fee.read", feature: "finance.state-assigned", portal: "admin", icon: "landmark", order: 435 },
   ],
   events: {
     publishes: [...ALL_FINANCE_EVENT_TYPES],

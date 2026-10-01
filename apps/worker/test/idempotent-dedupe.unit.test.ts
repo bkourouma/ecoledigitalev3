@@ -33,7 +33,7 @@ function fakeScopedDb(store: Set<string>): ScopedTenantDb {
 }
 
 function handlerCtx(store: Set<string>): EventHandlerContext {
-  return { tenantId, db: fakeScopedDb(store), systemDb: {} as never, logger: noopLogger, subscriber: "billing.receipt", attempt: 1, jobId: "j1" };
+  return { tenantId, db: fakeScopedDb(store), systemDb: {} as never, tenantDb: {} as never, logger: noopLogger, subscriber: "billing.receipt", attempt: 1, jobId: "j1" };
 }
 
 describe("idempotent() : wrapper d'idempotence", () => {

@@ -94,14 +94,17 @@ Défaut 5 ans, **jamais moins de 12 mois** (CHECK `retention_policies_floor` + p
 
 ## Événements consommés
 
-`iam.impersonation.started` (critique), `iam.login.failed`, `iam.session.revoked`, `rbac.role.changed`, `rbac.assignment.changed`, `tenancy.*`, `entitlements.*` — handlers **purs** `(event) => AuditEntry | null` (`domain/events.ts`), lus de façon défensive. L'entrée reprend l'`id` et l'`occurredAt` de l'événement : la clé primaire fait le dédoublonnage (livraison « au moins une fois »). Un événement sans tenant exploitable (vide, UUID nul, absent) va au journal de plateforme via `SystemDb.run`.
+`iam.impersonation.started` (critique), `iam.login.failed`, `iam.session.revoked`, `rbac.role.changed`, `rbac.assignment.changed`, `tenancy.*`, `entitlements.*`, `iam.mfa.*`, `iam.password.*`, `iam.membership.*` (les trois derniers ajoutés à l'assemblage : activer ou réinitialiser la MFA ne laissait aucune trace) — handlers **purs** `(event) => AuditEntry | null` (`domain/events.ts`), lus de façon défensive. L'entrée reprend l'`id` et l'`occurredAt` de l'événement : la clé primaire fait le dédoublonnage (livraison « au moins une fois »). Un événement sans tenant exploitable (vide, UUID nul, absent) va au journal de plateforme via `SystemDb.run`.
 
-## Intégration (à faire par le lead)
+## Intégration (assemblée — voir `docs/architecture/platform-assembly.md`)
 
-* `apps/api/package.json` : dépendances `@ecoledigitale/kernel`, `@ecoledigitale/database` (workspace) ; `tsconfig` : `paths` vers `packages/kernel/src`, `packages/database/src` (le module a son propre `tsconfig.json` de vérification).
+* `apps/api/package.json` : dépendances `@ecoledigitale/kernel`, `@ecoledigitale/database` (workspace) ; `tsconfig` : `paths` vers `packages/kernel/src`, `packages/database/src` et `@ecoledigitale/worker/sdk` (le module a son propre `tsconfig.json` de vérification — **et c'est lui qu'esbuild lit** pour embarquer `subscribers.ts` / `jobs.ts` dans le bundle du worker).
 * Numéros de migration : plage `0300-0399` réservée à `audit` (les versions sont globales à tous les dossiers) ; baseline `0001-0003` requise (`kernel.tenants`, `kernel.enable_tenant_rls`).
-* Enregistrer `auditRequestMetaPlugin` à la racine, `auditHttpPlugin` avec `prefix: "/api/v1/audit"`, `contextOf` (iam) et `requirePermission` (rbac). Appeler `audit.configure({ hmac })` au démarrage avec un secret du gestionnaire de secrets.
-* Planifier `ensureAuditPartitions` (quotidien) et `detachExpiredAuditPartitions` (mensuel, simulation puis réel) ; abonner `AUDIT_EVENT_SUBSCRIPTIONS` au registre du worker.
+* HTTP : `http/plugin.ts` exporte par défaut `(app, runtime)` (routes sans préfixe : le registre applique `/api/v1/audit`) ; `auditPlugin` / `auditHttpPlugin` restent exportés avec leurs options. `contextOf` = `runtime.resolveContext`, `requirePermission` = garde du rbac. La portée `ip/user-agent` (`auditRequestMetaPlugin`) est posée à la racine par la plateforme.
+* HMAC : `configureAuditFromEnv` (`config.ts`) lit `AUDIT_HMAC_KEY` (+ `_ID`, `_PREVIOUS`, `_PREVIOUS_ID`) ; appelé par l'API **et** par les abonnés / jobs du worker pour que les deux processus écrivent la chaîne avec la même clé.
+* Worker : `subscribers.ts` (un abonné par entrée de `AUDIT_EVENT_SUBSCRIPTIONS` ; `tenancy.*` devient `tenancy.**`) et `jobs.ts` (`audit.ensure-partitions` quotidien ; `audit.detach-expired-partitions` mensuel, **simulation** sauf `AUDIT_DETACH_MODE=apply`).
+* Mapping depuis les ports des autres modules : tenancy / entitlements passent `audit.record` tel quel ; rbac (`entityType` → `entity` `role` / `role_assignment`) et finance (`resourceType` → `entity`, `sensitive` → `severity`) via un adaptateur du module ; la console plateforme écrit dans le journal de plateforme (`recordPlatform`).
+* Donnée personnelle : le contact du fondateur (`adminContact`) de `tenancy.tenant.provisioned` n'est **pas** recopié dans le journal immuable.
 * Test d'isolation : `allowlist: auditIsolationAllowlist`, `fixtures: auditIsolationFixtures` (`modules/isolation-allowlist.audit.ts`) ; les partitions et `chain_heads` y sont « structure seule » par conception (pas de droit d'insertion pour `app_user`).
 * `utils/audit-log.ts` (legacy, `console.log` seulement) et `plugins/super-admin-audit.ts` sont remplacés par ce module en Phase 1/2.
 

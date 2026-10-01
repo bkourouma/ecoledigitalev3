@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { loadMigrations } from "@ecoledigitale/database";
 import { discoverModules } from "../src/modules/registry-discovery";
-import { BASELINE_MIGRATIONS_DIR, planMigrationSteps, redactUrl, trackingTableFor } from "../src/platform/v2-migrations";
+import {
+  BASELINE_MIGRATIONS_DIR,
+  WORKER_MIGRATIONS_DIR,
+  planMigrationSteps,
+  redactUrl,
+  trackingTableFor,
+} from "../src/platform/v2-migrations";
 import { makeFakeModules, type FakeModules } from "./helpers/fixtures";
 
 let fake: FakeModules | undefined;
@@ -35,7 +41,7 @@ describe("plan de migration v2", () => {
 
   it("utilise une table de suivi distincte par dossier (les versions 0001 de deux modules ne collisionnent pas)", async () => {
     fake = makeFakeModules({ a: { migrations: sql("0001_init.sql") }, b: { migrations: sql("0001_init.sql") } });
-    const steps = planMigrationSteps(await discoverModules({ modulesDir: fake.dir, importer: fake.importer }));
+    const steps = planMigrationSteps(await discoverModules({ modulesDir: fake.dir, importer: fake.importer }), undefined, null);
     expect(steps.map((s) => s.table)).toEqual(["schema_migrations", "schema_migrations_a", "schema_migrations_b"]);
     expect(trackingTableFor("finance")).toBe("schema_migrations_finance");
     expect(new Set(steps.map((s) => s.table)).size).toBe(steps.length);
@@ -49,10 +55,21 @@ describe("plan de migration v2", () => {
       empty_dir: { migrations: { "README.md": "rien" } },
       real: { migrations: sql("0001_init.sql") },
     });
-    const steps = planMigrationSteps(await discoverModules({ modulesDir: fake.dir, importer: fake.importer }));
+    const steps = planMigrationSteps(await discoverModules({ modulesDir: fake.dir, importer: fake.importer }), undefined, null);
     expect(steps.map((s) => s.id)).toEqual(["baseline", "real"]);
 
-    expect(planMigrationSteps([]).map((s) => s.id)).toEqual(["baseline"]);
+    expect(planMigrationSteps([], undefined, null).map((s) => s.id)).toEqual(["baseline"]);
+  });
+
+  it("inclut les migrations du worker (kernel.processed_events…) juste après la baseline, avec sa propre table de suivi", async () => {
+    fake = makeFakeModules({ a: { migrations: sql("0001_init.sql") } });
+    const steps = planMigrationSteps(await discoverModules({ modulesDir: fake.dir, importer: fake.importer }));
+    expect(steps.map((s) => s.id)).toEqual(["baseline", "worker", "a"]);
+    const worker = steps[1]!;
+    expect(worker).toMatchObject({ kind: "worker", table: "schema_migrations_worker", dir: WORKER_MIGRATIONS_DIR });
+    // Le worker refuse de démarrer sans `kernel.processed_events` : la migration doit bien faire partie du plan.
+    expect(loadMigrations([worker.dir]).map((f) => f.filename)).toContain("0601_processed_events.sql");
+    expect(planMigrationSteps([], undefined, "/chemin/inexistant").map((s) => s.id)).toEqual(["baseline"]);
   });
 
   it("la baseline pointe sur packages/database/migrations (0001_roles, 0002_kernel, 0003_outbox)", () => {

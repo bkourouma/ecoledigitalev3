@@ -12,10 +12,35 @@ import {
   type RequestContext,
 } from "@ecoledigitale/kernel";
 
-/** Garde `requirePermission('ressource.action')` fournie par le module `rbac`. */
+/**
+ * Périmètre visé par une route (cible d'un contrôle de permission). Structurellement identique au `ScopeTarget`
+ * du module `rbac` (qui n'est pas importé : ADR-001, `tenancy` ne dépend pas de `rbac`).
+ */
+export type GuardScope =
+  | { readonly type: "tenant" }
+  | { readonly type: "institution"; readonly id: string }
+  | { readonly type: "campus"; readonly id: string };
+export type GuardScopeSelector = (request: FastifyRequest) => GuardScope | undefined;
+
+/** Garde `requirePermission('ressource.action', { scope? })` fournie par le module `rbac`. */
 export type PermissionGuardFactory = (
   permission: string,
+  options?: { scope?: GuardScopeSelector },
 ) => (request: FastifyRequest, reply: FastifyReply) => Promise<void> | void;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Périmètre d'une ressource désignée par `:id` dans l'URL : `campus` ou `institution`. Sans identifiant valide,
+ * on retombe sur le périmètre TENANT (le plus strict : seule une assignation de tout le tenant passe) ; c'est
+ * la validation du paramètre, juste après, qui répond 400 — jamais une 500 dans la garde.
+ */
+export function scopeFromIdParam(type: "campus" | "institution"): GuardScopeSelector {
+  return (request) => {
+    const id = (request.params as { id?: unknown } | undefined)?.id;
+    return typeof id === "string" && UUID_RE.test(id) ? { type, id: id.toLowerCase() } : { type: "tenant" };
+  };
+}
 
 export type ContextResolver = (request: FastifyRequest) => RequestContext;
 

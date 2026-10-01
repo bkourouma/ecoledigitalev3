@@ -207,15 +207,18 @@ Sans `TEST_DATABASE_URL`, les tests d'intégration s'ignorent avec un message. `
 
 Couverture mesurée (v8, `--coverage` exige `@vitest/coverage-v8`, non encore une dépendance du dépôt ; 388 tests) : domaine ≈ 99 % des lignes / 96 % des branches, module ≈ 97 % des lignes.
 
+## Assemblage (fait — `docs/architecture/platform-assembly.md`)
+
+1. `http/plugin.ts` exporte par défaut `(app, runtime)` : `createFinanceDeps` avec `runtime.tenantDb`, l'adaptateur d'audit (`financeAuditAdapter`, table de correspondance dans son en-tête : `resourceType` → `entity`, `resourceId` → `entityId`, `sensitive` → `severity notice`), le registre de fournisseurs (`FINANCE_ENV`, `FINANCE_PROVIDER_<NOM>_<CLÉ>`, `FINANCE_WEBHOOK_BASE_URL`) ; routes **sans préfixe** (le registre applique `/api/v1/finance`). `financePlugin` garde l'option `prefix` pour les tests.
+2. Entitlements : `POST /payments/online` et `POST /payments/:id/verify` sont gardées par `requireFeature('finance.online-payment')` (403 `entitlements.feature_not_available`) ; les contrôles dépendant du corps (échéanciers, `STATE_ASSIGNED`) restent en ligne via `isFeatureEnabled`. Deux entrées de menu conditionnées par une feature (`finance.online-payments`, `finance.state-assigned`).
+3. Le webhook `POST /webhooks/:provider/:tenantId` est déclaré `config: { public: true }` (la signature fait foi) : ni le registre ni le middleware legacy ne le rejettent.
+4. `apps/worker` : `jobs.ts` — `finance.mark-overdue-invoices` (quotidien 01:15, `markOverdueForAllTenants`, échec d'un tenant signalé). Les consommateurs de `finance.*` (notifications de retard, reçus PDF) restent à écrire (Phase 3) ; l'audit de finance est écrit directement dans la transaction (le module audit ne s'abonne pas aux événements `finance.*`).
+5. `EnvProviderConfigSource` met les clés en minuscules : `allowSandbox` s'exprime donc aussi `allowsandbox`.
+
 ## Câblage restant (hors périmètre de ce module)
 
-1. `apps/api/package.json` : dépendances workspace `@ecoledigitale/kernel` et `@ecoledigitale/database` ; `tsconfig` avec leurs `paths`.
-2. Enregistrer `financePlugin` avec `createFinanceDeps({ db: tenantDb, audit: <adaptateur>, providers, config: { environment, webhookBaseUrl } })`
-   et injecter `isFeatureEnabled` (entitlements).
-3. `apps/worker` : job répétable quotidien `markOverdueForAllTenants(deps, systemDb)` ; consommateurs de `finance.*`
-   (notifications de retard, reçus PDF) idempotents par `event.id`.
-4. Annuaires : un adaptateur appelant l'API publique du module `academic` pour `LearnerDirectory` / `EnrollmentDirectory`.
-5. Enregistrer les adaptateurs de paiement réels dans le `ProviderRegistry` (`register({ name, requiredSettings, create })`) et fournir la
+1. Annuaires : un adaptateur appelant l'API publique du module `academic` pour `LearnerDirectory` / `EnrollmentDirectory`.
+2. Enregistrer les adaptateurs de paiement réels dans le `ProviderRegistry` (`register({ name, requiredSettings, create })`) et fournir la
    configuration par tenant (`ProviderConfigSource`).
 
 ## Décisions et limites connues

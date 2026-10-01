@@ -51,7 +51,7 @@ describeIntegration("migrations v2", () => {
       },
     });
 
-    const report = await runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger });
+    const report = await runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger, workerDir: null });
     expect(report.database).toBe(db.name);
     expect(report.steps.map((s) => s.step.id)).toEqual(["baseline", "a", "b"]);
     expect(report.steps[0]?.result.applied).toEqual(["0001_roles.sql", "0002_kernel.sql", "0003_outbox.sql"]);
@@ -74,27 +74,27 @@ describeIntegration("migrations v2", () => {
 
   it("est idempotent : un second passage n'applique rien", async () => {
     fake = makeFakeModules({ a: { migrations: { "0001_init.sql": `${grants("a")}CREATE TABLE a.t (id int);\n` } } });
-    await runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger });
-    const second = await runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger });
+    await runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger, workerDir: null });
+    const second = await runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger, workerDir: null });
     for (const { result } of second.steps) expect(result.applied).toEqual([]);
     expect(second.steps[1]?.result.alreadyApplied).toEqual(["0001_init.sql"]);
   });
 
   it("refuse la modification d'une migration déjà appliquée (checksum)", async () => {
     fake = makeFakeModules({ a: { migrations: { "0001_init.sql": `${grants("a")}CREATE TABLE a.t (id int);\n` } } });
-    await runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger });
+    await runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger, workerDir: null });
 
     const { writeFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     writeFileSync(join(fake.dir, "a", "migrations", "0001_init.sql"), `${grants("a")}CREATE TABLE a.t (id bigint);\n`);
     await expect(
-      runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger }),
+      runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger, workerDir: null }),
     ).rejects.toBeInstanceOf(MigrationChecksumError);
   });
 
   it("--dry-run liste ce qui serait appliqué sans rien écrire", async () => {
     fake = makeFakeModules({ a: { migrations: { "0001_init.sql": `${grants("a")}CREATE TABLE a.t (id int);\n` } } });
-    const report = await runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, dryRun: true, logger: noopLogger });
+    const report = await runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, dryRun: true, logger: noopLogger, workerDir: null });
     expect(report.steps[0]?.result.pending).toHaveLength(3);
     expect(report.steps[1]?.result.pending).toEqual(["0001_init.sql"]);
     const schemas = await db.admin.query("SELECT 1 FROM pg_namespace WHERE nspname IN ('kernel', 'a')");
@@ -104,7 +104,7 @@ describeIntegration("migrations v2", () => {
   it("n'applique rien si les manifestes sont invalides (cycle) : validation AVANT toute connexion", async () => {
     fake = makeFakeModules({ a: { manifest: { dependsOn: ["b"] } }, b: { manifest: { dependsOn: ["a"] } } });
     await expect(
-      runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger }),
+      runV2Migrations({ url: db.adminUrl, modulesDir: fake.dir, importer: fake.importer, logger: noopLogger, workerDir: null }),
     ).rejects.toThrow(/Cycle/);
     const schemas = await db.admin.query("SELECT 1 FROM pg_namespace WHERE nspname = 'kernel'");
     expect(schemas.rows).toHaveLength(0);

@@ -6,7 +6,13 @@
 export { default as manifest } from "./manifest";
 
 // --- Plugin HTTP (/api/v1/entitlements/*) + garde de feature -----------------
-export { entitlementsPlugin, ENTITLEMENTS_ROUTE_PREFIX, type EntitlementsPluginOptions } from "./http/plugin";
+export {
+  entitlementsPlugin,
+  createEntitlementsService,
+  buildEntitlementsDeps,
+  ENTITLEMENTS_ROUTE_PREFIX,
+  type EntitlementsPluginOptions,
+} from "./http/plugin";
 export {
   requireFeature,
   createRequireFeature,
@@ -21,6 +27,17 @@ export {
   type PermissionGuardFactory,
   type ContextResolver,
 } from "./http/common";
+
+// --- Sérialiseurs DTO (console plateforme) ----------------------------------------
+export {
+  toEntitlementsDto,
+  toFeatureDto,
+  toOverrideDto,
+  toPackDto,
+  toPlanDto,
+  toSubscriptionDto,
+  toUsageDto,
+} from "./http/serializers";
 
 // --- Droits effectifs ---------------------------------------------------------
 export { resolveEntitlements, hasFeature } from "./application/resolve-entitlements";

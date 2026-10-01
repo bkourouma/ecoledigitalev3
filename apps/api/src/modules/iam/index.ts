@@ -16,6 +16,7 @@ import { resolve } from "node:path";
 import type { RequestContext, Result, AppError } from "@ecoledigitale/kernel";
 import type { AuthenticateOptions, AuthenticatedRequest } from "./application/sessions";
 import type { IamService } from "./application/service";
+import { peekJwtTyp } from "./domain/tokens";
 
 export { default as manifest } from "./manifest";
 
@@ -57,6 +58,16 @@ export { RedisRateLimiter, type RedisLike } from "./infrastructure/rate-limiter.
 
 // HTTP
 export { iamPlugin, iamAuthHook, registerIam, IAM_PREFIX, type IamPluginOptions } from "./http/plugin";
+
+/**
+ * Ce jeton est-il un jeton porteur IAM v2 (accès ou impersonation) ? Lecture de l'en-tête SEULEMENT, sans
+ * rien accorder : sert à la plateforme à aiguiller un jeton vers l'authentification IAM ou legacy (les JWT
+ * legacy portent `typ: "JWT"`). La vérification réelle (signature, session, révocation) reste à `authenticate`.
+ */
+export function isIamBearerToken(token: string): boolean {
+  const typ = peekJwtTyp(token);
+  return typ === "at+jwt" || typ === "imp+jwt";
+}
 
 /** Dossier des migrations SQL du module (schéma `iam`), à passer au runner de `@ecoledigitale/database`. */
 export const IAM_MIGRATIONS_DIR = resolve(__dirname, "migrations");

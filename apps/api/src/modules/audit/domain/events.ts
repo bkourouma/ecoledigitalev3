@@ -173,7 +173,7 @@ export const onAssignmentChanged: AuditEventHandler = (event) => {
 // tenancy.* / entitlements.* — traitement générique
 // ---------------------------------------------------------------------------
 
-const RISKY_VERBS = /(suspend|archiv|delet|remov|revok|disabl|overrid|downgrad|expire|cancel)/;
+const RISKY_VERBS = /(suspend|archiv|delet|remov|revok|disabl|overrid|downgrad|expire|cancel|reset)/;
 
 function severityForVerb(verb: string): AuditSeverity {
   if (RISKY_VERBS.test(verb)) return "warning";
@@ -204,7 +204,9 @@ export function genericEventHandler(event: DomainEvent): AuditEntry | null {
     before: p.before,
     after: p.after,
     reason: asText(p.reason, 1000),
-    metadata: metadataWithout(p, "before", "after", "reason", "ip", "userAgent"),
+    // `adminContact` (nom, e-mail, téléphone du fondateur) n'est PAS recopié : le journal est immuable, une donnée
+    // personnelle qui y entrerait ne pourrait plus être effacée (le profil de l'organisation la porte déjà).
+    metadata: metadataWithout(p, "before", "after", "reason", "ip", "userAgent", "adminContact"),
     request: requestOf(event, p),
   };
 }
@@ -218,6 +220,12 @@ export const AUDIT_EVENT_SUBSCRIPTIONS: readonly AuditSubscription[] = Object.fr
   { pattern: "rbac.assignment.changed", handle: onAssignmentChanged },
   { pattern: "tenancy.*", handle: genericEventHandler },
   { pattern: "entitlements.*", handle: genericEventHandler },
+  // Opérations de sécurité de l'identité (enrôlement/désactivation/réinitialisation de la MFA, changement de
+  // mot de passe, accès créés ou modifiés) : sans ces abonnements, activer la MFA ne laissait aucune trace
+  // (défaut d'assemblage révélé par le test de sortie de phase 1). Les payloads d'iam ne portent aucun secret.
+  { pattern: "iam.mfa.*", handle: genericEventHandler },
+  { pattern: "iam.password.*", handle: genericEventHandler },
+  { pattern: "iam.membership.*", handle: genericEventHandler },
 ]);
 
 export function patternMatches(pattern: string, type: string): boolean {

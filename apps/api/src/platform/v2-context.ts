@@ -147,7 +147,7 @@ export interface LegacyAuthSnapshot {
 
 const REQUEST_ID_RE = /^[A-Za-z0-9._-]{8,100}$/;
 
-function requestIdFrom(headers: Record<string, unknown> | undefined): string {
+export function requestIdFrom(headers: Record<string, unknown> | undefined): string {
   const raw = headers?.["x-request-id"];
   const value = Array.isArray(raw) ? raw[0] : raw;
   return typeof value === "string" && REQUEST_ID_RE.test(value) ? value : newId();
@@ -246,6 +246,9 @@ const plugin: FastifyPluginAsync<V2ContextOptions> = async (app: FastifyInstance
 
   // Enregistré après les hooks d'authentification legacy ⇒ exécuté après eux.
   app.addHook("preHandler", async (request: FastifyRequest) => {
+    // Un jeton IAM v2 valide a déjà posé `request.ctx` (hook `onRequest` de platform/v2-auth.ts) : le contexte
+    // legacy ne l'écrase JAMAIS (sinon un utilisateur IAM, sans état legacy, perdait son contexte ici).
+    if (request.ctx) return;
     request.ctx = buildRequestContextFromLegacy({
       tenantId: request.tenantId,
       userId: request.userId,

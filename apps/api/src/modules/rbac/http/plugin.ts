@@ -76,7 +76,8 @@ import {
   listRolesUseCase,
   updateRoleUseCase,
 } from "../application/roles";
-import { buildNavigation, coreOnlyEntitlements } from "../domain/navigation";
+import { buildNavigation, coreOnlyEntitlements, entitlementsFromKeys } from "../domain/navigation";
+import type { ModuleRuntime } from "../../../platform/runtime";
 import { ANY_SCOPE, TENANT_SCOPE, emptyScopeTreeProvider, scopeFromParts, type ScopeTreeProvider } from "../domain/scope";
 import {
   getRequestCtx,
@@ -332,34 +333,47 @@ interface RoutesDeps {
   installErrorHandler: boolean;
 }
 
-async function rbacPluginImpl(app: FastifyInstance, options: RbacPluginOptions): Promise<void> {
+/**
+ * Construit le runtime des droits (service de chargement + cache + arbre des périmètres). Sépare la CRÉATION de
+ * la décoration de l'instance : sous le registre de modules, la décoration se fait à la RACINE (`setup`), car
+ * `requirePermission` des AUTRES modules lit `request.server.rbac` et un décorateur posé dans le contexte
+ * encapsulé du module rbac leur serait invisible (tous les modules gardés répondaient alors 500
+ * `rbac.not_configured`).
+ */
+export function createRbacRuntime(
+  options: Pick<RbacPluginOptions, "tenantDb" | "scopeTrees" | "clock" | "logger" | "cache">,
+): RbacRuntime & { readonly cache: PermissionSetCache } {
   const clock = options.clock ?? systemClock;
   const logger = options.logger ?? consoleLogger;
   const cache = options.cache ?? new PermissionSetCache({ clock });
-
-  const runtime: RbacRuntime = {
+  return {
     permissions: new PermissionSetService({ tenantDb: options.tenantDb, cache, clock }),
     scopeTrees: options.scopeTrees ?? emptyScopeTreeProvider,
     clock,
     logger,
+    cache,
   };
+}
+
+async function rbacPluginImpl(app: FastifyInstance, options: RbacPluginOptions): Promise<void> {
+  const runtime = createRbacRuntime(options);
   if (app.hasDecorator("rbac")) {
     throw new Error("Le plugin rbac est déjà enregistré sur cette instance.");
   }
   app.decorate("rbac", runtime);
 
   if (options.eventBus) {
-    const unsubscribe = subscribeCacheInvalidation(options.eventBus, cache);
+    const unsubscribe = subscribeCacheInvalidation(options.eventBus, runtime.cache);
     app.addHook("onClose", async () => unsubscribe());
   }
 
   await app.register(routes, {
     prefix: options.prefix ?? DEFAULT_PREFIX,
     tenantDb: options.tenantDb,
-    clock,
-    logger,
+    clock: runtime.clock,
+    logger: runtime.logger,
     audit: options.audit ?? noopAudit,
-    cache,
+    cache: runtime.cache,
     manifests: options.manifests,
     entitlements: options.entitlements,
     installErrorHandler: options.errorHandler !== false,
@@ -367,4 +381,60 @@ async function rbacPluginImpl(app: FastifyInstance, options: RbacPluginOptions):
 }
 
 export const rbacPlugin = fp(rbacPluginImpl, { name: "rbac" });
-export default rbacPlugin;
+
+/**
+ * Assemblage, étape 1 (instance RACINE) : décore `app.rbac`. Le module reçoit son arbre de périmètres de la
+ * tenancy (`runtime.scopeTrees`) : sans lui, une assignation d'établissement ne couvrirait aucun campus.
+ */
+export function setup(app: FastifyInstance, runtime: ModuleRuntime): void {
+  app.decorate(
+    "rbac",
+    createRbacRuntime({
+      tenantDb: runtime.tenantDb,
+      clock: runtime.clock,
+      logger: runtime.logger,
+      scopeTrees: runtime.scopeTrees as unknown as ScopeTreeProvider,
+    }),
+  );
+}
+
+/**
+ * Port d'audit du rbac -> `audit.record` (mapping documenté dans le README) :
+ *   entityType `role` | `assignment`  ->  entity `role` | `role_assignment`
+ *   action `rbac.role.created`        ->  inchangée (`entité.verbe`, déjà conforme)
+ *   actorId / requestId / tenantId    ->  ignorés : l'audit les dérive du RequestContext de la transaction
+ */
+export function auditAdapter(audit: ModuleRuntime["auditPort"]): AuditPort {
+  return {
+    async record(tx, entry) {
+      await audit.record(tx, {
+        action: entry.action,
+        entity: entry.entityType === "assignment" ? "role_assignment" : "role",
+        entityId: entry.entityId,
+        ...(entry.before !== undefined ? { before: entry.before } : {}),
+        ...(entry.after !== undefined ? { after: entry.after } : {}),
+        ...(entry.metadata ? { metadata: { ...entry.metadata } } : {}),
+      });
+    },
+  };
+}
+
+/** Assemblage, étape 2 : routes `/permissions`, `/roles`, `/assignments`, `/me/*` (le registre applique `/api/v1/rbac`). */
+export default async function rbacModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
+  const rbac = (app as unknown as { rbac?: RbacRuntime & { cache: PermissionSetCache } }).rbac;
+  if (!rbac?.cache) throw new Error("rbac : `setup` n'a pas été exécuté (app.rbac absent).");
+  await app.register(routes, {
+    prefix: "",
+    tenantDb: runtime.tenantDb,
+    clock: runtime.clock,
+    logger: runtime.logger,
+    audit: auditAdapter(runtime.auditPort),
+    cache: rbac.cache,
+    manifests: runtime.manifests as readonly ModuleManifest[],
+    entitlements: {
+      forTenant: async (tenantId) => entitlementsFromKeys((await runtime.entitlements.reader.getEntitlements(tenantId)).features),
+    },
+    // Le registre installe déjà le gestionnaire d'erreurs du kernel ; celui de rbac reste actif (même format).
+    installErrorHandler: true,
+  } satisfies RoutesDeps & { prefix: string });
+}

@@ -11,7 +11,7 @@
  * en ajouter un. Toutes les routes passent par : garde de permission -> use case
  * -> repository ; aucune SQL ici.
  */
-import type { FastifyInstance, FastifyPluginAsync } from "fastify";
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { unwrap, type Clock } from "@ecoledigitale/kernel";
 import type { TenantDb } from "@ecoledigitale/database";
@@ -30,10 +30,13 @@ import {
 } from "../application/onboarding";
 import { getTenantProfile, listCountries, updateTenantProfile } from "../application/profile";
 import { parseWith, type AuditRecorder, type TenancyDeps } from "../application/support";
+import { permissionGuardFactory } from "../../../platform/guards";
+import type { ModuleRuntime } from "../../../platform/runtime";
 import {
   defaultContextResolver,
   installErrorHandler,
   resolvePermissionGuard,
+  scopeFromIdParam,
   type ContextResolver,
   type PermissionGuardFactory,
 } from "./common";
@@ -52,6 +55,13 @@ export interface TenancyPluginOptions {
   audit?: AuditRecorder;
   requirePermission?: PermissionGuardFactory;
   resolveContext?: ContextResolver;
+  /**
+   * Préfixe des routes. Défaut `/api/v1/tenancy` (enregistrement autonome, tests). Sous le registre de modules,
+   * qui applique lui-même `/api/v1/tenancy`, le plugin d'assemblage (`default`) passe `""` : plus de double préfixe.
+   */
+  prefix?: string;
+  /** Appelé après toute modification de la structure (établissement, campus) : invalide l'arbre de périmètres du RBAC. */
+  onStructureChanged?: (tenantId: string) => void;
 }
 
 const IdParams = z.object({ id: z.string().uuid("Identifiant invalide.") });
@@ -66,9 +76,18 @@ const tenancyRoutes: FastifyPluginAsync<TenancyPluginOptions> = async (app: Fast
 
   installErrorHandler(app);
 
+  /** La structure (établissements, campus) a changé : l'instantané de périmètres du RBAC doit être relu. */
+  const structureChanged = (req: FastifyRequest): void => opts.onStructureChanged?.(ctxOf(req).tenantId);
+
   const READ = guard("tenancy.institution.read");
   const MANAGE = guard("tenancy.institution.manage");
-  const CAMPUS = guard("tenancy.campus.manage");
+  // Routes visant UNE ressource (`:id`) : la garde reçoit le périmètre de la cible. Sans cela, une assignation
+  // limitée à un campus ou à un établissement ne passait JAMAIS (la garde évaluait toujours « tout le tenant »)
+  // et les périmètres du RBAC restaient lettre morte au niveau HTTP.
+  const READ_INSTITUTION = guard("tenancy.institution.read", { scope: scopeFromIdParam("institution") });
+  const MANAGE_INSTITUTION = guard("tenancy.institution.manage", { scope: scopeFromIdParam("institution") });
+  const CAMPUS_OF_INSTITUTION = guard("tenancy.campus.manage", { scope: scopeFromIdParam("institution") });
+  const CAMPUS_ITSELF = guard("tenancy.campus.manage", { scope: scopeFromIdParam("campus") });
 
   // ---- Référentiel -----------------------------------------------------------
   app.get("/countries", { preHandler: READ }, async (req) => {
@@ -92,45 +111,52 @@ const tenancyRoutes: FastifyPluginAsync<TenancyPluginOptions> = async (app: Fast
     return { items: items.map(toInstitutionDto) };
   });
 
-  app.get("/institutions/:id", { preHandler: READ }, async (req) => {
+  app.get("/institutions/:id", { preHandler: READ_INSTITUTION }, async (req) => {
     const { id } = unwrap(parseWith(IdParams, req.params));
     return toInstitutionDto(unwrap(await getInstitution(deps, ctxOf(req), id)));
   });
 
   app.post("/institutions", { preHandler: MANAGE }, async (req, reply) => {
     const created = unwrap(await createInstitution(deps, ctxOf(req), req.body));
+    structureChanged(req);
     return reply.status(201).send({
       ...toInstitutionDto(created.institution),
       defaultCampus: toCampusDto(created.defaultCampus),
     });
   });
 
-  app.patch("/institutions/:id", { preHandler: MANAGE }, async (req) => {
+  app.patch("/institutions/:id", { preHandler: MANAGE_INSTITUTION }, async (req) => {
     const { id } = unwrap(parseWith(IdParams, req.params));
-    return toInstitutionDto(unwrap(await updateInstitution(deps, ctxOf(req), id, req.body)));
+    const updated = toInstitutionDto(unwrap(await updateInstitution(deps, ctxOf(req), id, req.body)));
+    structureChanged(req);
+    return updated;
   });
 
   // ---- Campus ----------------------------------------------------------------
-  app.get("/institutions/:id/campuses", { preHandler: READ }, async (req) => {
+  app.get("/institutions/:id/campuses", { preHandler: READ_INSTITUTION }, async (req) => {
     const { id } = unwrap(parseWith(IdParams, req.params));
     const items = unwrap(await listCampuses(deps, ctxOf(req), id));
     return { items: items.map(toCampusDto) };
   });
 
-  app.post("/institutions/:id/campuses", { preHandler: CAMPUS }, async (req, reply) => {
+  app.post("/institutions/:id/campuses", { preHandler: CAMPUS_OF_INSTITUTION }, async (req, reply) => {
     const { id } = unwrap(parseWith(IdParams, req.params));
     const campus = unwrap(await createCampus(deps, ctxOf(req), id, req.body));
+    structureChanged(req);
     return reply.status(201).send(toCampusDto(campus));
   });
 
-  app.patch("/campuses/:id", { preHandler: CAMPUS }, async (req) => {
+  app.patch("/campuses/:id", { preHandler: CAMPUS_ITSELF }, async (req) => {
     const { id } = unwrap(parseWith(IdParams, req.params));
-    return toCampusDto(unwrap(await updateCampus(deps, ctxOf(req), id, req.body)));
+    const updated = toCampusDto(unwrap(await updateCampus(deps, ctxOf(req), id, req.body)));
+    structureChanged(req);
+    return updated;
   });
 
-  app.delete("/campuses/:id", { preHandler: CAMPUS }, async (req, reply) => {
+  app.delete("/campuses/:id", { preHandler: CAMPUS_ITSELF }, async (req, reply) => {
     const { id } = unwrap(parseWith(IdParams, req.params));
     unwrap(await deleteCampus(deps, ctxOf(req), id));
+    structureChanged(req);
     return reply.status(204).send();
   });
 
@@ -153,7 +179,23 @@ const tenancyRoutes: FastifyPluginAsync<TenancyPluginOptions> = async (app: Fast
  * contexte encapsulé (gestionnaire d'erreurs propre au module).
  */
 export const tenancyPlugin: FastifyPluginAsync<TenancyPluginOptions> = async (app, opts) => {
-  await app.register(tenancyRoutes, { ...opts, prefix: TENANCY_ROUTE_PREFIX } as TenancyPluginOptions & { prefix: string });
+  await app.register(tenancyRoutes, { ...opts, prefix: opts.prefix ?? TENANCY_ROUTE_PREFIX } as TenancyPluginOptions & { prefix: string });
 };
 
-export default tenancyPlugin;
+/**
+ * Contrat d'assemblage uniforme (`platform/runtime.ts`) : `(app, runtime)`, routes sans préfixe (le registre
+ * applique `/api/v1/tenancy`). Audit : `runtime.auditPort` est structurellement un `AuditRecorder`
+ * (`record(tx, { action, entity, entityId, before, after, reason, metadata })`, acteur et tenant dérivés du
+ * contexte de la transaction) : aucun adaptateur n'est nécessaire.
+ */
+export default async function tenancyModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
+  await app.register(tenancyPlugin, {
+    db: runtime.tenantDb,
+    clock: runtime.clock,
+    audit: runtime.auditPort,
+    requirePermission: permissionGuardFactory(runtime),
+    resolveContext: (request) => runtime.resolveContext(request),
+    onStructureChanged: (tenantId) => runtime.scopeTrees.invalidate(tenantId),
+    prefix: "",
+  });
+}

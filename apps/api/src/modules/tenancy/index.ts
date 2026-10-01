@@ -8,6 +8,7 @@ export { default as manifest } from "./manifest";
 // --- Plugin HTTP (/api/v1/tenancy/*) ---------------------------------------
 export { tenancyPlugin, TENANCY_ROUTE_PREFIX, type TenancyPluginOptions } from "./http/plugin";
 export type { PermissionGuardFactory, ContextResolver } from "./http/common";
+export { toTenantProfileDto, toInstitutionDto, toCampusDto } from "./http/serializers";
 
 // --- Use cases --------------------------------------------------------------
 export { provisionTenant, type ProvisionOptions } from "./application/provision-tenant";
@@ -16,6 +17,19 @@ export { listInstitutions, getInstitution, createInstitution, updateInstitution 
 export { listCampuses, createCampus, updateCampus, deleteCampus } from "./application/campuses";
 export { getOnboarding, completeOnboardingStep, skipOnboardingStep } from "./application/onboarding";
 export { getTenantStatus, setTenantStatus, type SetTenantStatusInput } from "./application/tenant-status";
+export {
+  ensureTenantFoundation,
+  type EnsureFoundationInput,
+  type EnsureFoundationReport,
+} from "./application/ensure-foundation";
+export { listTenants, getTenantSummary, type TenantListFilter, type TenantListPage, type TenantSummary } from "./application/tenants";
+export {
+  createTenancyScopeTreeProvider,
+  buildScopeTree,
+  type TenancyScopeRef,
+  type TenancyScopeTree,
+  type TenancyScopeTreeProvider,
+} from "./application/scope-tree";
 export type { TenancyDeps, AuditRecorder, AuditEntry } from "./application/support";
 
 // --- Domaine pur (machine d'onboarding, plan de provisioning, événements) ---

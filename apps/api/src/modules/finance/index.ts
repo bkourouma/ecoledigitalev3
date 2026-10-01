@@ -12,7 +12,7 @@
 export { default as financeManifest } from "./manifest";
 
 // Plugin Fastify
-export { financePlugin, FINANCE_ROUTES_PREFIX, type FinancePluginOptions } from "./http/plugin";
+export { financePlugin, financeEnvironmentOf, FINANCE_ROUTES_PREFIX, type FinancePluginOptions } from "./http/plugin";
 
 // Dépendances et configuration
 export {
@@ -26,6 +26,7 @@ export {
 
 // Ports
 export { noopAudit, RecordingAudit, type AuditEntry, type AuditPort } from "./application/ports/audit";
+export { financeAuditAdapter } from "./infrastructure/audit-adapter";
 export {
   InMemoryEnrollmentDirectory,
   InMemoryLearnerDirectory,

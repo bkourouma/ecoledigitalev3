@@ -24,7 +24,19 @@ Schémas Zod : `packages/contracts/src/v2/iam.ts`.
 
 Transport du refresh token : web = cookie `HttpOnly; Secure; SameSite=Lax; Path=/api/v1/iam` (`client: "web"`, défaut, envoyer un corps `{}` en JSON) ; mobile = corps (`client: "mobile"`). Accès : `Authorization: Bearer`.
 
-## Câblage (à faire par le lead / platform-api)
+## Assemblage (fait — `docs/architecture/platform-assembly.md`)
+
+Sous le registre de modules, `http/plugin.ts` exporte `setup(app, runtime)` (crée l'`IamService` avec `loadIamConfig(runtime.env)`,
+le limiteur Redis ou mémoire, le notifieur et décore `app.iam` sur l'instance **racine**, lue par le crochet d'authentification
+v2) puis `default(app, runtime)` qui déclare les routes sans préfixe (le registre applique `/api/v1/iam`).
+Les routes qui s'appellent sans jeton (`login`, `mfa/challenge`, `refresh`, `logout`, `password/forgot|reset`, `mfa/enroll|verify`,
+`impersonation`) portent `config: { public: true }` : le registre ne leur impose pas de `request.ctx`, et l'authentification
+legacy les laisse passer (liste dérivée de ces déclarations, pas codée en dur). `iamAuthHook` court-circuite si
+`request.iamAuth` est déjà posé par le crochet global. `isIamBearerToken(token)` distingue un jeton v2 (`typ` `at+jwt` /
+`imp+jwt`) d'un jeton legacy. L'impersonation s'appuie sur le `SuperAdminAuthorizer` du runtime. Job planifié du worker
+(`jobs.ts`) : `iam.purge-expired-data` (quotidien, échoue si un tenant échoue — `purgeExpiredData` renvoie `failed`).
+
+## Câblage manuel (forme historique, tests du module)
 
 ```ts
 import { loadIamConfig, createIamService, registerIam, RedisRateLimiter, IAM_MIGRATIONS_DIR } from "./modules/iam";

@@ -126,6 +126,12 @@ export interface TenantSyncConfig {
   logger: Pick<Logger, "info" | "warn" | "error">;
   /** Utilisé quand l'appelant ne fournit pas de source (au démarrage, rattrapage). */
   legacyPool?: LegacyPoolLike;
+  /**
+   * Appelé après la synchronisation RÉUSSIE d'UN tenant (création d'un tenant legacy) : la plateforme y branche le
+   * rattrapage (profil, établissement, rôles système, abonnement) pour que le tenant soit utilisable sans attendre
+   * le prochain démarrage. Au mieux : une erreur est journalisée et n'affecte ni la synchronisation ni le legacy.
+   */
+  afterSync?: (tenantId: string) => Promise<void>;
 }
 
 let config: TenantSyncConfig | null = null;
@@ -195,6 +201,16 @@ export async function syncTenantToKernel(
     const [written] = await writeTenants(cfg, rows, "tenant-sync-one");
     if (written?.disambiguated) {
       cfg.logger.warn({ tenantId, slug: written.slug }, "tenant-sync : slug en collision dans kernel.tenants, suffixé par l'UUID");
+    }
+    if (cfg.afterSync) {
+      try {
+        await cfg.afterSync(tenantId);
+      } catch (error) {
+        cfg.logger.error(
+          { tenantId, err: error instanceof Error ? error.message : String(error) },
+          "tenant-sync : rattrapage v2 du tenant en échec (il sera retenté au prochain démarrage)",
+        );
+      }
     }
     return "synced";
   } catch (error) {

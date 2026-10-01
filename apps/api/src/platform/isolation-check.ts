@@ -88,6 +88,10 @@ export async function runGlobalIsolationCheck(options: GlobalIsolationOptions): 
 
     const login = await createLoginRole({ adminUrl: dbAdminUrl, role: loginRole });
     pool = new Pool({ connectionString: login.applicationUrl, max: 4 });
+    // La base est supprimée de force (`DROP DATABASE … WITH (FORCE)`) juste après `pool.end()` : une connexion
+    // encore en cours de fermeture reçoit alors 57P01, émis sur le pool. Sans écouteur, cette erreur d'un pool
+    // qu'on ferme faisait échouer l'exécution de vitest (« Unhandled error ») bien que tous les tests passent.
+    pool.on("error", () => undefined);
 
     const schemas = ["kernel", ...keys];
     const report = await checkTenantIsolation({
