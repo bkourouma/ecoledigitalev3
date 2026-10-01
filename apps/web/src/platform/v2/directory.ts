@@ -7,7 +7,7 @@
 
 import { usePermission } from "@/platform/access";
 import { useClassrooms } from "./academic";
-import { useStaffList } from "./people";
+import { useStaffList, useStudents } from "./people";
 import { useRooms } from "./scheduling";
 
 export const shortId = (id: string): string => `…${id.slice(-4)}`;
@@ -35,5 +35,14 @@ export function useRoomDirectory(): Directory {
   const canRead = usePermission("schedule.read").allowed;
   const q = useRooms({}, canRead);
   const map = new Map((q.data ?? []).map((r) => [r.id, r.name]));
+  return { name: (id) => (id ? (map.get(id) ?? shortId(id)) : "—"), isLoading: q.isFetching };
+}
+
+/** Noms des élèves d'une classe (l'API des présences ne renvoie que des identifiants dans ses rapports). */
+export function useStudentDirectory(classroomId: string | null | undefined): Directory {
+  const byList = usePermission("student.list").allowed;
+  const byClass = usePermission("student.class.read").allowed;
+  const q = useStudents({ classroomId: classroomId ?? undefined, limit: 200 }, { enabled: Boolean(classroomId) && (byList || byClass) });
+  const map = new Map((q.data?.items ?? []).map((s) => [s.id, s.displayName]));
   return { name: (id) => (id ? (map.get(id) ?? shortId(id)) : "—"), isLoading: q.isFetching };
 }

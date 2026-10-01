@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import catalog from "../../../../messages/fr-CI.json";
-import { ATTENDANCE_SESSION_STATUSES } from "@ecoledigitale/contracts/v2/attendance";
+import { ATTENDANCE_ALERT_METRICS, ATTENDANCE_JUSTIFICATION_STATUSES, ATTENDANCE_LEAVE_STATUSES, ATTENDANCE_SESSION_STATUSES, ATTENDANCE_SUBMITTER_KINDS, ATTENDANCE_SYNC_CONFLICT_KINDS } from "@ecoledigitale/contracts/v2/attendance";
 
 /**
  * Filet de sécurité i18n des présences et de l'emploi du temps : toute clé statique passée à `t("…")` existe dans
@@ -47,6 +47,17 @@ describe("messages fr-CI : présences et emploi du temps", () => {
       ["v2Attendance.status", ["PRESENT", "ABSENT", "LATE", "EXCUSED", "EARLY_LEAVE", "ON_LEAVE"]],
       ["v2Attendance.call.session", ATTENDANCE_SESSION_STATUSES],
       ["v2Attendance.callList.outbox.state", ["PENDING", "SYNCING", "DONE", "ATTENTION"]],
+      ["v2Attendance.sessions.status", ATTENDANCE_SESSION_STATUSES],
+      ["v2Attendance.sessions.scope", ["DAILY", "SESSION"]],
+      ["v2Attendance.justifications.status", ATTENDANCE_JUSTIFICATION_STATUSES],
+      ["v2Attendance.justifications.submitter", ATTENDANCE_SUBMITTER_KINDS],
+      ["v2Attendance.staff.leaveStatus", ATTENDANCE_LEAVE_STATUSES],
+      ["v2Attendance.alerts.metrics", ATTENDANCE_ALERT_METRICS],
+      ["v2Attendance.conflicts.kind", ATTENDANCE_SYNC_CONFLICT_KINDS],
+      ["v2Attendance.conflicts.kindHint", ATTENDANCE_SYNC_CONFLICT_KINDS],
+      ["v2Attendance.conflicts.resolution", ["ACCEPT_INCOMING", "KEEP_EXISTING"]],
+      ["v2Attendance.reasonFallback", ["ILLNESS", "FAMILY_EVENT", "TRANSPORT", "OFFICIAL_ACTIVITY", "OTHER"]],
+      ["v2Attendance.leaveFallback", ["ANNUAL", "SICK", "MATERNITY", "UNPAID", "AUTHORIZED_ABSENCE"]],
       ["v2Attendance.outcome.codes", ["attendance_unmarked_students", "attendance_occurrence_cancelled", "attendance_forbidden", "attendance_session_locked", "local_invalid_batch"]],
     ];
     const missing: string[] = [];

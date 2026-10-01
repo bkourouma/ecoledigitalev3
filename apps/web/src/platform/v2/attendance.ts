@@ -109,6 +109,17 @@ export function useAttendanceSessions(query: SessionsQuery, options: { enabled?:
   return hooks.useApiQuery([...KEY, "sessions", "list"], `${ATTENDANCE_BASE}/sessions`, { schema: cursorPage(attendanceSessionDtoSchema), query: query as Query, enabled: options.enabled, retry: false });
 }
 
+/** Liste paginée par curseur (suivi des appels) : « Afficher plus » accumule les pages. */
+export function useAttendanceSessionsInfinite(query: SessionsQuery, enabled = true) {
+  return hooks.useApiInfiniteQuery([...KEY, "sessions", "list"], `${ATTENDANCE_BASE}/sessions`, {
+    query: query as Query,
+    schema: cursorPage(attendanceSessionDtoSchema),
+    getNextCursor: (p) => p.nextCursor,
+    enabled,
+    retry: false,
+  });
+}
+
 export function useAttendanceSession(id: string | null) {
   return hooks.useApiQuery([...KEY, "sessions", "one", id], `${ATTENDANCE_BASE}/sessions/${id}`, { schema: attendanceSessionDetailDtoSchema, enabled: id !== null, retry: false });
 }
@@ -389,9 +400,37 @@ export function useChildAttendance(studentId: string | null, query: { periodId?:
   return hooks.useApiQuery([...KEY, "portal", "child", studentId], `${ATTENDANCE_BASE}/children/${studentId}/attendance`, { schema: attendancePortalDtoSchema, query, enabled: studentId !== null, retry: false });
 }
 
+/** Pointages d'un élève (fiche d'absences). */
+export function useStudentRecords(studentId: string | null, query: { from?: string; to?: string } = {}) {
+  return hooks.useApiInfiniteQuery([...KEY, "student-records", studentId], `${ATTENDANCE_BASE}/students/${studentId}/records`, {
+    query: query as Query,
+    schema: attendanceAbsencesPageDtoSchema,
+    getNextCursor: (p) => p.nextCursor,
+    enabled: studentId !== null,
+    retry: false,
+  });
+}
+
+export function useStudentSummary(studentId: string | null, periodId: string | null) {
+  return hooks.useApiQuery([...KEY, "summary", "student", studentId, periodId], `${ATTENDANCE_BASE}/students/${studentId}/summary`, {
+    schema: attendanceSummaryDtoSchema,
+    query: { periodId: periodId ?? undefined },
+    enabled: studentId !== null && periodId !== null,
+    retry: false,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Personnel : présence et congés (fonction `attendance.staff`)
 // ---------------------------------------------------------------------------
+
+export function useMyStaffAttendance(enabled = true) {
+  return hooks.useApiQuery([...KEY, "staff", "me"], `${ATTENDANCE_BASE}/me/staff-attendance`, {
+    schema: z.object({ records: z.array(attendanceStaffRecordDtoSchema), leaves: z.array(attendanceLeaveDtoSchema), nextCursor: z.string().nullable() }),
+    enabled,
+    retry: false,
+  });
+}
 
 export function useStaffRecords(query: { from: string; to: string; staffId?: string; statusCode?: string }, enabled = true) {
   return hooks.useApiQuery([...KEY, "staff", "records"], `${ATTENDANCE_BASE}/staff/records`, { schema: cursorPage(attendanceStaffRecordDtoSchema), query: query as Query, enabled, retry: false });

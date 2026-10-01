@@ -108,3 +108,120 @@ export function syncAnswer(
     totals: { applied: count("APPLIED"), unchanged: count("UNCHANGED"), replayed: count("REPLAYED"), conflicts: count("CONFLICT"), rejected: count("REJECTED") },
   };
 }
+
+const counts = (over: Record<string, number> = {}) => ({
+  sessionsTotal: 40,
+  presentCount: 36,
+  absentCount: 3,
+  excusedCount: 1,
+  lateCount: 2,
+  excusedLateCount: 0,
+  earlyLeaveCount: 0,
+  unmarkedCount: 0,
+  absentMinutes: 360,
+  excusedMinutes: 120,
+  lateMinutes: 25,
+  ...over,
+});
+
+export function summaryDto(studentId: string, over: Record<string, unknown> = {}) {
+  return {
+    enrollmentId: uuid(600 + Number(studentId.slice(-2))),
+    periodId: IDS.period,
+    studentId,
+    windowFrom: "2026-09-01",
+    windowTo: "2027-01-31",
+    derived: counts(),
+    override: null,
+    effective: counts(),
+    overridden: false,
+    computedAt: "2026-10-01T02:50:00.000Z",
+    ...over,
+  };
+}
+
+export function justificationDto(over: Record<string, unknown> = {}) {
+  return {
+    id: uuid(7000),
+    studentId: STUDENTS[0]!.id,
+    enrollmentId: uuid(611),
+    fromDate: "2026-09-28",
+    toDate: "2026-09-29",
+    reasonCode: "ILLNESS",
+    comment: "Fièvre, certificat joint.",
+    submittedByKind: "GUARDIAN",
+    submittedByUser: uuid(9),
+    submittedAt: "2026-09-29T07:00:00.000Z",
+    status: "PENDING",
+    decidedBy: null,
+    decidedAt: null,
+    decisionNote: null,
+    revokedBy: null,
+    revokedAt: null,
+    revocationReason: null,
+    attachments: [{ id: uuid(7100), justificationId: uuid(7000), fileName: "certificat.pdf", detectedMime: "application/pdf", sizeBytes: 20480, sha256: "a".repeat(64), uploadedBy: uuid(9), uploadedAt: "2026-09-29T07:01:00.000Z" }],
+    coveredRecordCount: 0,
+    ...over,
+  };
+}
+
+export function absenceRow(studentId: string, over: Record<string, unknown> = {}) {
+  return {
+    recordId: uuid(8200 + Number(studentId.slice(-2))),
+    sessionId: IDS.session,
+    studentId,
+    enrollmentId: uuid(600 + Number(studentId.slice(-2))),
+    classroomId: IDS.classroom,
+    sessionDate: "2026-09-28",
+    statusCode: "ABSENT",
+    excused: false,
+    countedMinutes: 60,
+    minutesLate: null,
+    justificationId: null,
+    ...over,
+  };
+}
+
+export function conflictDto(over: Record<string, unknown> = {}) {
+  return {
+    id: uuid(9100),
+    kind: "SESSION_LOCKED",
+    sessionId: IDS.session,
+    enrollmentId: uuid(612),
+    studentId: STUDENTS[1]!.id,
+    clientOpId: uuid(9200),
+    incoming: { statusCode: "ABSENT", clientMarkedAt: "2026-10-01T08:10:00.000Z" },
+    existing: { statusCode: "PRESENT", markedAt: "2026-10-01T08:20:00.000Z" },
+    deviceId: "web-1",
+    submittedBy: uuid(9),
+    clientMarkedAt: "2026-10-01T08:10:00.000Z",
+    receivedAt: "2026-10-01T10:00:00.000Z",
+    status: "OPEN",
+    resolution: null,
+    resolvedBy: null,
+    resolvedAt: null,
+    resolutionNote: null,
+    ...over,
+  };
+}
+
+export function leaveDto(over: Record<string, unknown> = {}) {
+  return {
+    id: uuid(9300),
+    staffId: uuid(4000),
+    leaveTypeCode: "ANNUAL",
+    startsOn: "2026-10-12",
+    endsOn: "2026-10-16",
+    halfDayStart: false,
+    halfDayEnd: false,
+    reason: "Vacances",
+    status: "REQUESTED",
+    requestedBy: uuid(9),
+    requestedAt: "2026-10-01T09:00:00.000Z",
+    decidedBy: null,
+    decidedAt: null,
+    decisionNote: null,
+    documentRef: null,
+    ...over,
+  };
+}
