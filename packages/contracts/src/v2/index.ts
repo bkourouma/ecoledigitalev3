@@ -3,6 +3,7 @@ export * from "./attendance";
 export * from "./audit";
 export * from "./entitlements";
 export * from "./finance";
+export * from "./higher";
 export * from "./iam";
 export * from "./people";
 export * from "./platform";
