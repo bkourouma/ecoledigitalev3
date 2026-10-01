@@ -105,7 +105,10 @@ describeIntegration("accès aux bulletins : gestion, élève, tuteur lié, tuteu
     it("l'URL signée expire (≤ 5 min) : refusée une seconde après, altérée refusée", async () => {
       const r = unwrap(await download(guardian0, ids[0]!, { manage: false, family: { child: true } }));
       expect(world.storage.verifySignedUrl(r.url).ok).toBe(true);
-      expect(world.storage.verifySignedUrl(r.url.replace(/sig=[0-9a-f]/, "sig=0"))).toEqual({ ok: false, reason: "bad_signature" });
+      // Altération déterministe : le premier caractère hexadécimal de la signature est changé (jamais identique à l'original).
+      const tampered = r.url.replace(/sig=([0-9a-f])/, (_m, c: string) => `sig=${c === "0" ? "1" : "0"}`);
+      expect(tampered).not.toBe(r.url);
+      expect(world.storage.verifySignedUrl(tampered)).toEqual({ ok: false, reason: "bad_signature" });
       world.clock.advance(301_000);
       expect(world.storage.verifySignedUrl(r.url)).toEqual({ ok: false, reason: "expired" });
       world.clock.advance(-301_000);
