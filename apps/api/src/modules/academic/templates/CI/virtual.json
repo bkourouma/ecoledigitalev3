@@ -1,0 +1,62 @@
+{
+  "section": "academic",
+  "schemaVersion": 1,
+  "templateVersion": 1,
+  "educationSystem": "CI",
+  "pack": "VIRTUAL",
+  "educationLevels": [{ "code": "ONLINE", "label": "Formation en ligne", "ordinal": 20 }],
+  "gradeLevels": [],
+  "periodTypes": [
+    { "code": "TRIMESTER", "label": "Trimestre", "kind": "TEACHING_PERIOD" },
+    { "code": "SEMESTER", "label": "Semestre", "kind": "TEACHING_PERIOD" },
+    { "code": "COMPOSITION", "label": "Composition", "kind": "TEACHING_PERIOD" },
+    { "code": "MODULE", "label": "Module", "kind": "TEACHING_PERIOD" },
+    { "code": "NORMAL_SESSION", "label": "Session normale", "kind": "EXAM_SESSION" },
+    { "code": "MAKEUP_SESSION", "label": "Session de rattrapage", "kind": "EXAM_SESSION" }
+  ],
+  "periodPlans": [
+    {
+      "code": "TWO_SEMESTERS",
+      "label": "Deux semestres",
+      "slots": [
+        { "type": "SEMESTER", "ordinal": 1, "label": "Semestre 1" },
+        { "type": "SEMESTER", "ordinal": 2, "label": "Semestre 2" }
+      ]
+    },
+    {
+      "code": "THREE_TERMS",
+      "label": "Trois trimestres",
+      "slots": [
+        { "type": "TRIMESTER", "ordinal": 1, "label": "Trimestre 1" },
+        { "type": "TRIMESTER", "ordinal": 2, "label": "Trimestre 2" },
+        { "type": "TRIMESTER", "ordinal": 3, "label": "Trimestre 3" }
+      ]
+    }
+  ],
+  "nodeTypes": [
+    { "code": "LEVEL", "label": "Niveau", "allowedParents": ["ROOT"], "requiresGradeLevel": true, "system": true, "sortOrder": 10 },
+    { "code": "PERIOD", "label": "Période", "allowedParents": ["LEVEL"], "requiresPeriodSlot": true, "system": true, "sortOrder": 20 },
+    { "code": "GROUP", "label": "Groupe de matières", "allowedParents": ["LEVEL", "PERIOD"], "system": true, "sortOrder": 30 },
+    { "code": "UE", "label": "Unité d'enseignement", "allowedParents": ["PERIOD"], "allowsCredits": true, "creditsMustEqualChildren": true, "enrollable": true, "system": true, "sortOrder": 40 },
+    { "code": "ECUE", "label": "Élément constitutif d'unité d'enseignement", "allowedParents": ["UE"], "requiresSubject": true, "allowsCoefficient": true, "allowsCredits": true, "system": true, "sortOrder": 50 },
+    { "code": "SUBJECT", "label": "Matière", "allowedParents": ["LEVEL", "PERIOD", "GROUP"], "requiresSubject": true, "allowsCoefficient": true, "allowsCredits": true, "enrollable": true, "system": true, "sortOrder": 60 }
+  ],
+  "fundingTypes": [
+    { "code": "PRIVATE", "label": "Privé" },
+    { "code": "STATE_ASSIGNED", "label": "Affecté par l'État", "requiresReference": true },
+    { "code": "SCHOLARSHIP", "label": "Boursier", "requiresFunder": true },
+    { "code": "COMPANY", "label": "Pris en charge par une entreprise", "requiresFunder": true },
+    { "code": "STAFF_CHILD", "label": "Enfant du personnel" },
+    { "code": "OTHER", "label": "Autre" }
+  ],
+  "enrollmentOutcomes": [
+    { "code": "PROMOTED", "label": "Passage", "kind": "ADVANCE" },
+    { "code": "REPEATED", "label": "Redoublement", "kind": "REPEAT" },
+    { "code": "ORIENTED", "label": "Orientation", "kind": "REDIRECT" },
+    { "code": "REORIENTED", "label": "Réorientation", "kind": "REDIRECT" },
+    { "code": "EXCLUDED", "label": "Exclusion", "kind": "EXIT" },
+    { "code": "GRADUATED", "label": "Diplômé", "kind": "EXIT" }
+  ],
+  "programs": [],
+  "settings": { "enrollmentConfirmationPolicy": "AUTO", "pendingHoldMinutes": null }
+}

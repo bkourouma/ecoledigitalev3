@@ -12,7 +12,9 @@
 --   2. `enrollment_courses.source` accepte `RESIT` : inscription de rattrapage créée par le module
 --                            higher (`registerCourse`), distincte de la reprise de dette `CARRY_OVER`
 --                            (interfaces-publiees.md §4, registre d'inscriptions aux cours).
---   3. Idempotence de la reconduction annuelle sous concurrence : une inscription de reconduction par
+--   3. `enrollment_courses.line_paid_at` : solde d'une ligne de facture reçu avant la confirmation de
+--                            l'inscription (confirmation différée, aucun encaissement perdu).
+--   4. Idempotence de la reconduction annuelle sous concurrence : une inscription de reconduction par
 --                            inscription d'origine (index unique partiel).
 -- =============================================================================
 
@@ -41,6 +43,19 @@ GRANT SELECT, INSERT, UPDATE ON academic.period_plans TO app_user;
 ALTER TABLE academic.enrollment_courses DROP CONSTRAINT enrollment_courses_source_check;
 ALTER TABLE academic.enrollment_courses
   ADD CONSTRAINT enrollment_courses_source_check CHECK (source IN ('OPTION', 'A_LA_CARTE', 'CARRY_OVER', 'RESIT'));
+
+-- -----------------------------------------------------------------------------
+-- 2 bis. Paiement d'une ligne de facture reçu AVANT la confirmation de l'inscription (`ON_LINE_PAID`) : la
+--        sélection ne peut être CONFIRMED que si l'inscription est ACTIVE (garde 0704) ; le solde de la ligne est
+--        mémorisé ici et la sélection est confirmée dès que l'inscription l'est — aucun encaissement perdu.
+-- -----------------------------------------------------------------------------
+ALTER TABLE academic.enrollment_courses ADD COLUMN line_paid_at timestamptz;
+
+-- -----------------------------------------------------------------------------
+-- 2 ter. Suppression d'une matière du catalogue (AC2.6) : refusée par la clé étrangère composite tant qu'un nœud
+--        de curriculum la référence (`academic.subject_in_use`) ; permise sinon.
+-- -----------------------------------------------------------------------------
+GRANT DELETE ON academic.subjects TO app_user;
 
 -- -----------------------------------------------------------------------------
 -- 3. Reconduction idempotente : au plus une inscription de reconduction vivante par inscription d'origine.
