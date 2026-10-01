@@ -16,6 +16,7 @@
  */
 import { defineSubscriber, idempotent } from "@ecoledigitale/worker/sdk";
 import {
+  academicConsumedInstitutionCreatedSchema,
   academicConsumedInvoicePaidSchema,
   academicConsumedStudentStatusChangedSchema,
 } from "@ecoledigitale/contracts/src/v2/academic";
@@ -24,19 +25,18 @@ import { createAcademicDeps } from "./application/deps";
 import { instantiatePackReferenceData } from "./application/reference";
 import { ConsumedEvents } from "./domain/events";
 
-interface InstitutionCreatedPayload {
-  institutionId: string;
-  pack: "PRIMARY" | "SECONDARY" | "HIGHER" | "VIRTUAL";
-  educationSystem: string;
-}
-
 export default [
-  defineSubscriber<InstitutionCreatedPayload>({
+  defineSubscriber({
     name: "academic.instantiate-reference-data",
     pattern: ConsumedEvents.INSTITUTION_CREATED,
     retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
     handler: idempotent("academic.instantiate-reference-data", async (event, ctx) => {
-      const { institutionId, pack, educationSystem } = event.payload;
+      const parsed = academicConsumedInstitutionCreatedSchema.safeParse(event.payload);
+      if (!parsed.success) {
+        ctx.logger.warn({ eventId: event.id }, "academic : charge utile tenancy.institution.created illisible, ignorée");
+        return;
+      }
+      const { institutionId, pack, educationSystem } = parsed.data;
       const deps = createAcademicDeps({ db: ctx.tenantDb, logger: ctx.logger });
       const r = await instantiatePackReferenceData(deps, ctx.db.ctx, institutionId, { pack, educationSystem });
       if (!r.ok) throw r.error;

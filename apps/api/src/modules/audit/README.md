@@ -94,7 +94,7 @@ Défaut 5 ans, **jamais moins de 12 mois** (CHECK `retention_policies_floor` + p
 
 ## Événements consommés
 
-`iam.impersonation.started` (critique), `iam.login.failed`, `iam.session.revoked`, `rbac.role.changed`, `rbac.assignment.changed`, `tenancy.*`, `entitlements.*`, `iam.mfa.*`, `iam.password.*`, `iam.membership.*` (les trois derniers ajoutés à l'assemblage : activer ou réinitialiser la MFA ne laissait aucune trace) — handlers **purs** `(event) => AuditEntry | null` (`domain/events.ts`), lus de façon défensive. L'entrée reprend l'`id` et l'`occurredAt` de l'événement : la clé primaire fait le dédoublonnage (livraison « au moins une fois »). Un événement sans tenant exploitable (vide, UUID nul, absent) va au journal de plateforme via `SystemDb.run`.
+`iam.impersonation.started` (critique), `iam.login.failed`, `iam.session.revoked`, `rbac.role.changed`, `rbac.assignment.changed`, `tenancy.**`, `entitlements.**`, `iam.mfa.**`, `iam.password.**`, `iam.membership.**` (motifs du manifeste, même langage que le worker : `*` = un segment, `**` = un ou plusieurs ; les trois derniers ajoutés à l'assemblage : activer ou réinitialiser la MFA ne laissait aucune trace) — handlers **purs** `(event) => AuditEntry | null` (`domain/events.ts`), lus de façon défensive. L'entrée reprend l'`id` et l'`occurredAt` de l'événement : la clé primaire fait le dédoublonnage (livraison « au moins une fois »). Un événement sans tenant exploitable (vide, UUID nul, absent) va au journal de plateforme via `SystemDb.run`.
 
 ## Intégration (assemblée — voir `docs/architecture/platform-assembly.md`)
 

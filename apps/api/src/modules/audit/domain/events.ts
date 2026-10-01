@@ -236,5 +236,11 @@ export function resolveAuditHandler(type: string): AuditEventHandler | undefined
   return AUDIT_EVENT_SUBSCRIPTIONS.find((s) => patternMatches(s.pattern, type))?.handle;
 }
 
-/** Types déclarés dans le manifeste (`events.consumes`). */
-export const AUDIT_CONSUMED_EVENTS: readonly string[] = AUDIT_EVENT_SUBSCRIPTIONS.map((s) => s.pattern);
+/**
+ * Types déclarés dans le manifeste (`events.consumes`). Le manifeste et le worker parlent la même langue de motifs
+ * (`*` = UN segment, `**` = un ou plusieurs) : le motif « préfixe » d'audit (`tenancy.*`) y devient `tenancy.**`
+ * (garde-fou : `apps/api/test/events-catalog.test.ts`).
+ */
+export const AUDIT_CONSUMED_EVENTS: readonly string[] = AUDIT_EVENT_SUBSCRIPTIONS.map((s) =>
+  s.pattern.endsWith(".*") ? `${s.pattern.slice(0, -2)}.**` : s.pattern,
+);

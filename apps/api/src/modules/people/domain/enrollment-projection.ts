@@ -83,7 +83,9 @@ export function parseEnrollmentPayload(payload: unknown): EnrollmentFacts | null
   set("gradeLevelLabel", str(p.gradeLevelLabel));
   set("mode", str(p.mode));
   set("status", str(p.status));
-  set("fundingType", str(p.fundingType));
+  // `academic.enrollment.funding_changed` porte le NOUVEAU financement dans `to.fundingType` (et non `fundingType`).
+  const to = typeof p.to === "object" && p.to !== null ? (p.to as Record<string, unknown>) : undefined;
+  set("fundingType", str(p.fundingType) ?? str(to?.fundingType));
   set("registrationNumber", str(p.registrationNumber));
   const enrolledOn = str(p.enrolledOn);
   set("enrolledOn", enrolledOn && /^\d{4}-\d{2}-\d{2}/.test(enrolledOn) ? enrolledOn.slice(0, 10) : undefined);

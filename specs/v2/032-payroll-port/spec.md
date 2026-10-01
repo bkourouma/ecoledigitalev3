@@ -259,7 +259,7 @@ Features : `payroll.core`, `payroll.owner-validation`, `payroll.attendance-sourc
 
 Publiés : `payroll.period.created|closed|archived` ; `payroll.run.completed` (`periodId, calculated, skipped[], locked[]`) ; `payroll.payslip.calculated` ; `payroll.payslip.approved` ; `payroll.payslip.paid` (`payslipId, staffId, amount, currency, paidAt, method, reference`) → 014 (décaissement/dépense), 016 (notification), 025 ; `payroll.payslip.disputed` ; `payroll.payslip.cancelled` ; `payroll.session.validated|unvalidated` ; `payroll.claim.source_changed` (une séance réclamée a été modifiée dans sa source).
 
-Consommés : `scheduling.session.cancelled|updated|deleted` (invalider la validation d'une séance non réclamée ; **alerter** si réclamée), `attendance.teacher_session.*` (rafraîchissement), `people.staff.deactivated`, `tenancy.tenant.provisioned` (réglages par pack), `academic.academic_year.closed` (clôture des périodes de l'année).
+Consommés : `scheduling.occurrence.cancelled|unvalidated|rescheduled|paid_minutes_changed` (invalider la validation d'une séance non réclamée ; **alerter** si réclamée), `attendance.teacher_session.*` (rafraîchissement), `people.staff.deactivated`, `tenancy.tenant.provisioned` (réglages par pack), `academic.year.closed` (clôture des périodes de l'année).
 
 ## 11. Tests
 

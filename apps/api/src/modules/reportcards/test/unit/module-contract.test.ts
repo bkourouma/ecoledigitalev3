@@ -46,9 +46,13 @@ describe("manifeste du module reportcards", () => {
   it("événements publiés = schémas du contrat, noms `<module>.<entité>.<verbe-passé>` ; événements consommés = ceux des abonnés", () => {
     expect([...manifest.events.publishes].sort()).toEqual(Object.keys(reportcardsEventPayloadSchemas).sort());
     for (const type of manifest.events.publishes) expect(type).toMatch(/^reportcards\.[a-z_]+\.[a-z_]+$/);
-    expect([...manifest.events.consumes].sort()).toEqual([ConsumedEvents.TENANT_PROVISIONED]);
+    // Un module consomme aussi ses propres événements de rendu (abonnés du worker) : manifeste = abonnés, ni plus ni moins.
+    expect([...manifest.events.consumes].sort()).toEqual(
+      [ConsumedEvents.TENANT_PROVISIONED, "reportcards.snapshot.created", "reportcards.report_card.render_requested", "reportcards.batch.completed"].sort(),
+    );
     const patterns = subscribers.map((s) => String(s.pattern));
     for (const consumed of manifest.events.consumes) expect(patterns).toContain(consumed);
+    for (const pattern of patterns) expect(manifest.events.consumes).toContain(pattern);
   });
 
   it("menus : permission et feature déclarées ; features rattachées aux packs", () => {

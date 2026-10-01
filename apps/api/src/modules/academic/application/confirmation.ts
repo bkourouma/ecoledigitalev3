@@ -128,15 +128,15 @@ async function recordOrphan(deps: AcademicDeps, ctx: RequestContext, tx: Tx, eve
 // ---------------------------------------------------------------------------
 
 export async function handleStudentStatusChanged(deps: AcademicDeps, ctx: RequestContext, payload: AcademicConsumedStudentStatusChanged): Promise<Result<{ withdrawn: string[] }, AppError>> {
-  if (!STUDENT_STATUSES_THAT_WITHDRAW.includes(payload.status)) return ok({ withdrawn: [] });
+  if (!STUDENT_STATUSES_THAT_WITHDRAW.includes(payload.toStatus)) return ok({ withdrawn: [] });
   return inTx(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);
     const withdrawn: string[] = [];
     for (const e of await enr.listLiveEnrollmentsOfStudent(tx, payload.studentId)) {
       const locked = (await enr.getEnrollment(tx, e.id, { forUpdate: true })) as Enrollment;
-      const reason = `statut apprenant : ${payload.status}${payload.reason ? ` (${payload.reason})` : ""}`;
+      const reason = `statut apprenant : ${payload.toStatus}${payload.reasonCode ? ` (${payload.reasonCode})` : ""}`;
       // Un départ vers un autre établissement se note TRANSFERRED_OUT ; une inscription pas encore active est simplement retirée.
-      const toTransferred = payload.status === "TRANSFERRED_OUT" && (locked.status === "ACTIVE" || locked.status === "SUSPENDED");
+      const toTransferred = payload.toStatus === "TRANSFERRED_OUT" && (locked.status === "ACTIVE" || locked.status === "SUSPENDED");
       const r = await transitionEnrollmentInTx(deps, ctx, tx, events, locked, "withdraw", reason, toTransferred ? { toStatus: "TRANSFERRED_OUT" } : {});
       if (!r.ok) return err(r.error);
       withdrawn.push(e.id);

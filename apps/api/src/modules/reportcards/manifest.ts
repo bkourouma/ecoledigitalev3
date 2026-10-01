@@ -1,5 +1,5 @@
 import { defineModule } from "@ecoledigitale/kernel";
-import { ALL_REPORTCARDS_EVENT_TYPES, ConsumedEvents } from "./domain/events";
+import { ALL_REPORTCARDS_EVENT_TYPES, ConsumedEvents, ReportcardsEvents } from "./domain/events";
 
 /**
  * Module `reportcards` — bulletins, relevés et rendu PDF serveur (spec v2/013).
@@ -73,6 +73,13 @@ export default defineModule({
   ],
   events: {
     publishes: [...ALL_REPORTCARDS_EVENT_TYPES],
-    consumes: [ConsumedEvents.TENANT_PROVISIONED],
+    // Ses propres événements déclenchent le rendu des PDF (abonnés du worker) ; les événements `results.*` ci-dessous
+    // ne sont pas encore consommés (voir `ConsumedEvents`).
+    consumes: [
+      ConsumedEvents.TENANT_PROVISIONED,
+      ReportcardsEvents.SNAPSHOT_CREATED,
+      ReportcardsEvents.RENDER_REQUESTED,
+      ReportcardsEvents.BATCH_COMPLETED,
+    ],
   },
 });

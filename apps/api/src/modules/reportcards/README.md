@@ -73,7 +73,7 @@ Permissions sensibles (MFA) : `generate`, `publish`, `revoke`, `branding.manage`
 
 Publiés (payload `{ v: 1, … }`, schémas dans `packages/contracts/src/v2/reportcards.ts`) : `reportcards.snapshot.created` (déclenche le rendu),
 `report_card.render_requested`, `.rendered`, `.render_failed`, `.published`, `.withdrawn`, `.superseded`, `.revoked`, `reportcards.batch.completed`,
-`reportcards.integrity.mismatch`. Consommé : `tenancy.tenant.provisioned` (publication idempotente des gabarits de plateforme).
+`reportcards.integrity.mismatch`. Consommés : `tenancy.tenant.provisioned` (publication idempotente des gabarits de plateforme) et ses propres `reportcards.snapshot.created`, `reportcards.report_card.render_requested` (rendu du PDF) et `reportcards.batch.completed` (PDF combiné du lot).
 
 ## Audit (`runtime.auditPort`, même transaction, en dernier)
 

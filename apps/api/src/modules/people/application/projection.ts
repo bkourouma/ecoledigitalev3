@@ -7,7 +7,7 @@ import { err, ok, ValidationError, type AppError, type DomainEvent, type Request
 import type { Tx } from "@ecoledigitale/database";
 import { isEnrollmentEvent, parseEnrollmentPayload, statusForEvent } from "../domain/enrollment-projection";
 import { PeopleErrors } from "../domain/errors";
-import { deleteAllEnrollmentSummaries, getMembership, snapshotEnrollmentSummaries, studentExists, upsertEnrollmentSummary, upsertMembership } from "../infrastructure/projection-repo";
+import { deleteAllEnrollmentSummaries, getMembership, type MembershipFacts, snapshotEnrollmentSummaries, studentExists, upsertEnrollmentSummary, upsertMembership } from "../infrastructure/projection-repo";
 import { setFirstEnrolledOn } from "../infrastructure/students-repo";
 import { inTx, type PeopleDeps } from "./deps";
 
@@ -40,16 +40,26 @@ export interface MembershipEventPayload {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = ["active", "suspended", "revoked", "invited"] as const;
 
-/** Applique `iam.membership.created|changed` à la projection des accès (liaison identité <-> personne). */
-export async function applyMembershipEvent(tx: Tx, event: DomainEvent): Promise<ProjectionOutcome> {
-  const p = (event.payload ?? {}) as MembershipEventPayload;
-  if (typeof p.identityId !== "string" || !UUID_RE.test(p.identityId)) return "ignored_unusable";
-  const rawStatus = event.type.endsWith(".changed") ? (p.after?.status ?? p.status) : p.status;
+/**
+ * Lit `iam.membership.created` (`identityId`, `membershipId`, `roles`, `status`) ou `iam.membership.changed`
+ * (`identityId`, `membershipId`, `after: { status, roles }`) ; `null` si l'identité est illisible.
+ */
+export function readMembershipEvent(type: string, payload: unknown): MembershipFacts | null {
+  const p = (payload ?? {}) as MembershipEventPayload;
+  if (typeof p.identityId !== "string" || !UUID_RE.test(p.identityId)) return null;
+  const rawStatus = type.endsWith(".changed") ? (p.after?.status ?? p.status) : p.status;
   const status = typeof rawStatus === "string" && (STATUSES as readonly string[]).includes(rawStatus) ? (rawStatus as (typeof STATUSES)[number]) : "unknown";
-  const rawRoles = event.type.endsWith(".changed") ? (p.after?.roles ?? p.roles) : p.roles;
+  const rawRoles = type.endsWith(".changed") ? (p.after?.roles ?? p.roles) : p.roles;
   const roles = Array.isArray(rawRoles) ? rawRoles.filter((r): r is string => typeof r === "string") : null;
   const membershipId = typeof p.membershipId === "string" && UUID_RE.test(p.membershipId) ? p.membershipId : null;
-  const applied = await upsertMembership(tx, event.tenantId, { identityId: p.identityId, membershipId, status, roles }, event.id, new Date(event.occurredAt));
+  return { identityId: p.identityId, membershipId, status, roles };
+}
+
+/** Applique `iam.membership.created|changed` à la projection des accès (liaison identité <-> personne). */
+export async function applyMembershipEvent(tx: Tx, event: DomainEvent): Promise<ProjectionOutcome> {
+  const facts = readMembershipEvent(event.type, event.payload);
+  if (!facts) return "ignored_unusable";
+  const applied = await upsertMembership(tx, event.tenantId, facts, event.id, new Date(event.occurredAt));
   return applied ? "applied" : "ignored_old";
 }
 

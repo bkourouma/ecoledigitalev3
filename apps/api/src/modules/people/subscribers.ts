@@ -17,30 +17,22 @@
  *    liens, catégories de personnel, types de contrat), sans écraser une ligne existante.
  *
  *  - `people.end-assignments-on-classroom-closed`  `academic.classroom.cancelled|completed`  et
- *    `people.end-assignments-on-year-closed`  `academic.year.closed` / `academic.academic_year.closed`
+ *    `people.end-assignments-on-year-closed`  `academic.year.closed`
  *    -> les affectations d'enseignement actives de la classe / de l'année sont terminées (événements
  *    `people.teaching_assignment.ended` publiés).
  *
- * Les événements PUBLIÉS par ce module que d'autres modules doivent consommer (non implémenté ici, demande aux modules
- * concernés) : `people.student.status_changed` -> iam (suspension de l'accès d'un élève sorti), academic (retrait des
- * inscriptions) ; `people.staff.status_changed|deactivated` -> iam (révocation de l'accès d'un membre parti).
+ * Les événements PUBLIÉS par ce module sont consommés par : academic (`people.student.status_changed` : retrait des
+ * inscriptions, charge `toStatus`) et scheduling (`people.staff.status_changed`, `people.teaching_assignment.ended`).
+ * Restent à demander à iam (non implémenté) : `people.student.status_changed` -> suspension de l'accès d'un élève sorti,
+ * `people.staff.status_changed|deactivated` -> révocation de l'accès d'un membre parti.
  */
 import { createSystemContext } from "@ecoledigitale/kernel";
 import { defineSubscriber, idempotent } from "@ecoledigitale/worker/sdk";
 import { createPeopleDeps } from "./application/deps";
+import { readClosedClassroomId, readClosedYearId } from "./application/consumers";
 import { applyEnrollmentEvent, applyMembershipEvent } from "./application/projection";
 import { instantiatePeopleReferenceData } from "./application/settings";
 import { endAssignmentsForScope } from "./application/teaching";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const uuidOf = (payload: unknown, ...keys: string[]): string | undefined => {
-  const p = (payload ?? {}) as Record<string, unknown>;
-  for (const k of keys) {
-    const v = p[k];
-    if (typeof v === "string" && UUID_RE.test(v)) return v;
-  }
-  return undefined;
-};
 
 export default [
   defineSubscriber({
@@ -79,7 +71,7 @@ export default [
     pattern: /^academic\.classroom\.(cancelled|completed)$/,
     retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
     handler: idempotent("people.end-assignments-on-classroom-closed", async (event, ctx, tx) => {
-      const classroomId = uuidOf(event.payload, "classroomId", "id");
+      const classroomId = readClosedClassroomId(event.payload);
       if (!classroomId) return;
       const deps = createPeopleDeps({ db: ctx.tenantDb, logger: ctx.logger });
       const n = await endAssignmentsForScope(deps, tx, createSystemContext(ctx.tenantId), { classroomId }, { reason: event.type.endsWith("cancelled") ? "CLASSROOM_CANCELLED" : "CLASSROOM_COMPLETED" });
@@ -88,10 +80,10 @@ export default [
   }),
   defineSubscriber({
     name: "people.end-assignments-on-year-closed",
-    pattern: /^academic\.(year|academic_year)\.closed$/,
+    pattern: "academic.year.closed",
     retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
     handler: idempotent("people.end-assignments-on-year-closed", async (event, ctx, tx) => {
-      const yearId = uuidOf(event.payload, "academicYearId", "yearId", "id");
+      const yearId = readClosedYearId(event.payload);
       if (!yearId) return;
       const deps = createPeopleDeps({ db: ctx.tenantDb, logger: ctx.logger });
       const n = await endAssignmentsForScope(deps, tx, createSystemContext(ctx.tenantId), { yearId }, { reason: "YEAR_CLOSED" });
