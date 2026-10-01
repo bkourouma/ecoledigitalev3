@@ -50,4 +50,18 @@ export const peopleTenantTables: readonly string[] = Object.freeze([
   "people.identity_memberships",
 ]);
 
+/**
+ * Valeurs imposées au test d'isolation GÉNÉRIQUE pour les tables dont un CHECK empêche le générateur de fabriquer une ligne
+ * (sans elles la table n'est vérifiée qu'en structure). Les tables à clé étrangère composite interne ne sont pas
+ * fabricables par le générateur : leur isolation COMPORTEMENTALE est prouvée avec de vraies données par
+ * `test/integration/isolation.integration.test.ts` du module.
+ */
+export const fixtures: Record<string, Record<string, unknown>> = {
+  "people.relationship_types": { code: "ISO_TEST", label: "Test", kind: "OTHER" },
+  "people.staff_categories": { code: "ISO_TEST", label: "Test" },
+  "people.contract_types": { code: "ISO_TEST", label: "Test", kind: "OTHER" },
+  "people.number_sequences": { kind: "STUDENT" },
+  "people.identity_memberships": { status: "active" },
+};
+
 export default peopleIsolationAllowlist;

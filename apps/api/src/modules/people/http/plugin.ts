@@ -432,7 +432,8 @@ export async function peoplePlugin(app: FastifyInstance, options: PeoplePluginOp
     // =============================================================================================================
     // Personnel
     // =============================================================================================================
-    scope.get("/staff", { preHandler: perm("staff.list") }, async (req) => unwrap(await staffUc.listStaff(deps, ctxOf(req), parse(c.peopleListStaffQuerySchema, req.query))));
+    // `staff.read` suffit à lister : les modèles de rôles de l'économe et du directeur des études n'accordent que `staff.read`.
+    scope.get("/staff", { preHandler: anyOf("staff.list", "staff.read") }, async (req) => unwrap(await staffUc.listStaff(deps, ctxOf(req), parse(c.peopleListStaffQuerySchema, req.query))));
     scope.post("/staff", { preHandler: perm("staff.create") }, async (req, reply) => {
       const out = unwrap(await staffUc.createStaff(deps, ctxOf(req), parse(c.peopleCreateStaffBodySchema, req.body), { visibility: await visibilityOf(probeOf(req, reply)) }));
       if (out.kind === "validated") return { valid: true, duplicates: out.duplicates };
