@@ -110,7 +110,7 @@ async function firstSemesterAverages(tx: Tx, structure: ClassStructure): Promise
   if (!structure.firstPeriodId || structure.firstPeriodId === structure.period.id) return out;
   const first = await getStateByKey(tx, { classroomId: structure.classroomId, academicPeriodId: structure.firstPeriodId, academicYearId: structure.academicYearId, scope: "PERIOD" });
   if (!first) return out;
-  for (const h of await listCurrentHeaders(tx, first.id)) out.set(h.enrollmentId, h.average);
+  for (const h of await listCurrentHeaders(tx, first.id, "FINAL")) out.set(h.enrollmentId, h.average);
   return out;
 }
 

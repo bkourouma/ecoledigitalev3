@@ -6,13 +6,18 @@ import type { LineRecord, ResultHeader } from "../domain/records";
 import type { ComputedHeader, ComputedLine, ResultStatus } from "../domain/types";
 import { HEADER_COLUMNS, LINE_COLUMNS, toHeader, toLine } from "./rows";
 
-/** Résultats COURANTS d'une période : le FINAL s'il existe, sinon le brouillon / l'erreur courant. */
-export async function listCurrentHeaders(tx: Tx, stateId: string): Promise<ResultHeader[]> {
+/**
+ * Résultats COURANTS d'une période.
+ *  - `LATEST` (vues de travail) : la version la plus récente non remplacée — après une réouverture, le brouillon de correction
+ *    prime sur le FINAL qu'il remplacera ; période clôturée, c'est le FINAL (aucun brouillon plus récent n'existe) ;
+ *  - `FINAL` (résultat OFFICIEL) : le FINAL s'il existe, sinon la version la plus récente.
+ */
+export async function listCurrentHeaders(tx: Tx, stateId: string, prefer: "LATEST" | "FINAL" = "LATEST"): Promise<ResultHeader[]> {
   const rows = await tx.many(
     `SELECT DISTINCT ON (r.enrollment_id) ${HEADER_COLUMNS}
        FROM results.period_results r
       WHERE r.state_id = $1 AND r.status IN ('FINAL', 'DRAFT', 'ERROR')
-      ORDER BY r.enrollment_id, CASE r.status WHEN 'FINAL' THEN 0 ELSE 1 END, r.version DESC`,
+      ORDER BY r.enrollment_id, ${prefer === "FINAL" ? "CASE r.status WHEN 'FINAL' THEN 0 ELSE 1 END," : ""} r.version DESC`,
     [stateId],
   );
   return rows.map(toHeader);

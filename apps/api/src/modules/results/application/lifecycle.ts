@@ -226,7 +226,7 @@ export async function closePeriod(deps: ResultsDeps, ctx: RequestContext, input:
     );
 
     // Anciens résultats : le FINAL précédent devient SUPERSEDED (consultable), les brouillons aussi.
-    const current = await listCurrentHeaders(tx, state.id);
+    const current = await listCurrentHeaders(tx, state.id, "FINAL");
     const previousFinal = (await listFinalHeaders(tx, state.id)).map((h) => h.id);
     await guarded(() => markSuperseded(tx, previousFinal, now));
     const drafts = (await listDraftHeaders(tx, state.id)).map((h) => h.id);

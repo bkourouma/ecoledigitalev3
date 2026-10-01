@@ -131,14 +131,14 @@ export async function processAllTenants(deps: ResultsDeps, systemDb: SystemDb): 
 }
 
 /** Un événement qui touche une classe sans nommer la période (inscription créée / mutée / retirée) : toutes ses périodes non clôturées. */
-export async function requestRecomputeForClassroom(deps: ResultsDeps, ctx: RequestContext, input: { classroomId: string; enrollmentId?: string | undefined; cause: { event: string; id: string | null } }): Promise<Result<number, AppError>> {
+export async function requestRecomputeForClassroom(deps: ResultsDeps, ctx: RequestContext, input: { classroomId: string; enrollmentId?: string | undefined; cause: { event: string; id: string | null }; tx?: Tx | undefined }): Promise<Result<number, AppError>> {
   return inTx(deps, ctx, async (tx) => {
     const states = (await listStatesOfClassroom(tx, input.classroomId)).filter((s) => s.scope === "PERIOD" && s.status !== "CLOSED" && s.academicPeriodId);
     for (const s of states) {
       await requestRecompute(deps, ctx, { classroomId: input.classroomId, academicPeriodId: s.academicPeriodId as string, enrollmentIds: input.enrollmentId ? [input.enrollmentId] : undefined, cause: input.cause, tx });
     }
     return ok(states.length);
-  });
+  }, { tx: input.tx });
 }
 
 export async function listRecomputeRequests(deps: ResultsDeps, ctx: RequestContext, input: { classroomId?: string | undefined; academicPeriodId?: string | undefined; status?: string | undefined }) {

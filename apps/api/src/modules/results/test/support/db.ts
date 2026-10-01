@@ -16,6 +16,8 @@ export const RULES_MIGRATIONS_DIR = resolve(here, "../../../rules/migrations");
 export const ASSESS_MIGRATIONS_DIR = resolve(here, "../../../assess/migrations");
 export const RESULTS_MIGRATIONS_DIR = resolve(here, "../../migrations");
 export const AUDIT_MIGRATIONS_DIR = resolve(here, "../../../audit/migrations");
+/** Migrations du worker (`kernel.processed_events` : idempotence des abonnés). */
+export const WORKER_MIGRATIONS_DIR = resolve(here, "../../../../../../worker/migrations");
 
 export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 export const hasDb = Boolean(TEST_DATABASE_URL);
@@ -49,7 +51,7 @@ export interface ResultsTestDb {
   drop(): Promise<void>;
 }
 
-export async function createResultsTestDb(options: { poolSize?: number } = {}): Promise<ResultsTestDb> {
+export async function createResultsTestDb(options: { poolSize?: number; withWorker?: boolean } = {}): Promise<ResultsTestDb> {
   const name = `ed_it_${suffix()}_results_test`;
   const maintenance = new Client({ connectionString: TEST_DATABASE_URL });
   await maintenance.connect();
@@ -57,7 +59,7 @@ export async function createResultsTestDb(options: { poolSize?: number } = {}): 
 
   const admin = new Client({ connectionString: urlFor(name) });
   await admin.connect();
-  await migrate({ client: admin, dirs: [BASELINE_DIR, RULES_MIGRATIONS_DIR, ASSESS_MIGRATIONS_DIR, RESULTS_MIGRATIONS_DIR], role: "migrator", logger: noopLogger });
+  await migrate({ client: admin, dirs: [BASELINE_DIR, ...(options.withWorker ? [WORKER_MIGRATIONS_DIR] : []), RULES_MIGRATIONS_DIR, ASSESS_MIGRATIONS_DIR, RESULTS_MIGRATIONS_DIR], role: "migrator", logger: noopLogger });
 
   const role = `it_app_${suffix()}`;
   const password = randomBytes(16).toString("hex");

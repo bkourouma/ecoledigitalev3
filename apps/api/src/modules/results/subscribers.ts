@@ -46,7 +46,7 @@ export function buildSubscribers(depsOf: (ctx: EventHandlerContext) => ResultsDe
       name,
       pattern: type,
       retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
-      handler: idempotent(name, async (event, ctx) => {
+      handler: idempotent(name, async (event, ctx, tx) => {
         const classroomId = pick(event.payload, "classroomId");
         const periodId = pick(event.payload, "academicPeriodId", "periodId");
         if (!classroomId || !periodId) return ctx.logger.warn({ eventId: event.id }, "results : classe ou période absente du payload");
@@ -57,6 +57,7 @@ export function buildSubscribers(depsOf: (ctx: EventHandlerContext) => ResultsDe
           academicPeriodId: periodId,
           enrollmentIds: ids ?? (enrollmentId ? [enrollmentId] : undefined),
           cause: { event: event.type, id: event.id },
+          tx, // la marque « traité » et la demande de recalcul sont atomiques
         });
         if (!r.ok) throw r.error;
       }),
@@ -68,14 +69,14 @@ export function buildSubscribers(depsOf: (ctx: EventHandlerContext) => ResultsDe
       name,
       pattern: type,
       retry: { attempts: 5, backoffMs: 1_000, maxBackoffMs: 60_000 },
-      handler: idempotent(name, async (event, ctx) => {
+      handler: idempotent(name, async (event, ctx, tx) => {
         const classroomId = pick(event.payload, "classroomId", "toClassroomId", "fromClassroomId");
         if (!classroomId) return ctx.logger.warn({ eventId: event.id }, "results : classe absente du payload d'inscription");
         const from = pick(event.payload, "fromClassroomId");
         const enrollmentId = pick(event.payload, "enrollmentId", "id");
         const deps = depsOf(ctx);
         for (const room of new Set([classroomId, ...(from ? [from] : [])])) {
-          const r = await requestRecomputeForClassroom(deps, createSystemContext(ctx.tenantId), { classroomId: room, enrollmentId, cause: { event: event.type, id: event.id } });
+          const r = await requestRecomputeForClassroom(deps, createSystemContext(ctx.tenantId), { classroomId: room, enrollmentId, cause: { event: event.type, id: event.id }, tx });
           if (!r.ok) throw r.error;
         }
       }),

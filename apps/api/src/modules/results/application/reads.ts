@@ -88,7 +88,8 @@ export interface EnrollmentResult {
 
 async function currentOf(tx: Tx, enrollmentId: string, periodId: string): Promise<ResultHeader | null> {
   const all = (await listHeadersOfEnrollment(tx, enrollmentId)).filter((h) => h.academicPeriodId === periodId && h.status !== "SUPERSEDED");
-  return all.find((h) => h.status === "FINAL") ?? all.sort((a, b) => b.version - a.version)[0] ?? null;
+  // vue de travail : la version la plus récente (après réouverture, le brouillon de correction prime sur le FINAL à remplacer)
+  return all.sort((a, b) => b.version - a.version)[0] ?? null;
 }
 
 export async function getEnrollmentResult(deps: ResultsDeps, ctx: RequestContext, input: { enrollmentId: string; academicPeriodId: string; caps?: ResultsCaps | undefined }): Promise<Result<EnrollmentResult, AppError>> {
