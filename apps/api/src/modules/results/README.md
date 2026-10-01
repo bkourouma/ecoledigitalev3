@@ -116,3 +116,9 @@ doit les avoir CORRIGÉS, jamais reproduits — et deux divergences documentées
 - Une surcharge approuvée s'applique à l'étape ciblée, est rejouée par chaque recalcul et tracée ; l'approbation exige une seconde personne
   (réglage `require_separate_approver`).
 - `effectif` (taille de la classe, `summary.classSize`) est distinct de `cohortSize` (inscriptions classées, avec moyenne).
+
+## Assemblage
+
+- `isCurriculumNodeInResults` : garde d'usage d'un nœud de curriculum (`platform/adapters/academic-guards.ts`) ;
+- la structure de calcul vient des **données** du curriculum (`platform/adapters/academic-results.ts`) : contrat (`program.calculation_contract ?? education_level.calculation_contract ?? null`, aucun défaut), rang de période, crédits, parents, `levelCode` = code du niveau ;
+- ports du worker : `setResultsWorkerPorts` (recalcul sur notes publiées).

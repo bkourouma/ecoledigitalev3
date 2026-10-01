@@ -329,3 +329,8 @@ Corrections apportées à cette spécification et à `data-model.md` lors de l'i
 | 14 | Les droits de `report_cards` accordaient `UPDATE` sur toutes les colonnes | Le déclencheur `report_cards_immutable` fige tout sauf statut, publication, retrait, remplacement, révocation et rendu courant ; déclencheurs `ENABLE ALWAYS` (actifs même sous `session_replication_role = replica`) |
 
 **Ports** (le module `results` n'existe pas encore ; les ports sont définis ici, avec implémentations en mémoire exportées par `index.ts`) : `ResultsReadPort` (`getPeriodState`, `listRoster`, `getFinalBundle`, `getCumulativeBundle`), `GuardianshipPort`, `AttendanceSummaryPort` (optionnel), `LearnerStandingPort` (optionnel, échec fermé si le blocage est activé et le port absent), `UserDirectoryPort` (optionnel, nom affiché figé dans le snapshot), `StoragePort`, `PdfRenderer`, `PdfMerger`, `KeyProvider`.
+
+## Addendum d'assemblage (additif)
+
+- Ports consommés, branchés par `apps/api/src/platform/adapters/` : `ResultsReadPort` (results + academic + people + rules), `GuardianshipPort` et `UserDirectoryPort` (people, iam), `AttendanceSummaryPort` (minutes justifiées / non justifiées et retards effectifs), `LearnerStandingPort` (impayé exigible, sans montant), `StoragePort` (S3 / MinIO par `STORAGE_S3_*`, repli `REPORTCARDS_S3_*`, repli disque en développement).
+- Le worker reçoit le stockage et les ressources de rendu par `setReportcardsWorkerResources` ; les valeurs décimales sont normalisées (`6`, pas `6.00`) avant d'entrer dans l'instantané signé.

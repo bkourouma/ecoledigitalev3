@@ -45,3 +45,9 @@ pnpm exec tsc -p apps/api/src/modules/attendance/tsconfig.json
 ```
 
 Données de pack : `domain/reference-pack.ts` (statuts, motifs, types de congé, politiques d'appel par cycle, pièces acceptées) — politiques d'établissement modifiables, aucun seuil.
+
+## Assemblage
+
+- `listCompletedStaffPresence` : présences du personnel terminées (heures de la paie d'origine ATTENDANCE) ;
+- les ports de `academic` sont appelés **en séquence** dans `loadSessionContext` : chacun ouvre un SAVEPOINT sur la connexion partagée de la transaction, des appels entrelacés (`Promise.all`) libèrent des points de sauvegarde inexistants. Ne pas les paralléliser.
+- ports branchés par `platform/adapters` : `academic-attendance`, `scheduling-attendance`, `people-attendance`, `storage`.
