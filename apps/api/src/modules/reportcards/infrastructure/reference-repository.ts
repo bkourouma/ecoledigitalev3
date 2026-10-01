@@ -172,11 +172,11 @@ export async function getCurrentTemplateConfig(
 
 export async function listTemplateConfigs(tx: Tx, filter: { institutionId?: Uuid | null; documentKind?: DocumentKind; history?: boolean }): Promise<TemplateConfig[]> {
   const where: string[] = [];
-  const params: unknown[] = [NIL];
+  const params: unknown[] = [];
   if (!filter.history) where.push("is_current");
   if (filter.institutionId !== undefined) {
-    params.push(filter.institutionId ?? NIL);
-    where.push(`coalesce(institution_id, $1::uuid) = $${params.length}::uuid`);
+    params.push(NIL, filter.institutionId ?? NIL);
+    where.push(`coalesce(institution_id, $1::uuid) = $2::uuid`);
   }
   if (filter.documentKind) {
     params.push(filter.documentKind);

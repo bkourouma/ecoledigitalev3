@@ -62,7 +62,7 @@ import {
   updateSignatory,
 } from "../application/reference";
 import { requestRender, retryBatchRenders } from "../application/render";
-import { truncateIp, verifyByCode, verifyByFile } from "../application/verify";
+import { UNKNOWN_VERIFICATION, truncateIp, verifyByCode, verifyByFile } from "../application/verify";
 import { MAX_UPLOAD_BYTES } from "../domain/constants";
 import { ReportcardsCode } from "../domain/errors";
 import { reportcardsAuditAdapter } from "../infrastructure/audit-adapter";
@@ -135,6 +135,19 @@ function maybeFastifyValidation(error: unknown): unknown {
 }
 
 const handleError = (error: unknown, request: FastifyRequest, reply: FastifyReply): void => {
+  // Corps trop volumineux / type non supporté : le statut HTTP d'origine est conservé (413, 415) avec le format d'erreur du kernel.
+  const raw = error as { statusCode?: number } | null;
+  if (raw && (raw.statusCode === 413 || raw.statusCode === 415)) {
+    const code = raw.statusCode === 413 ? ReportcardsCode.FILE_TOO_LARGE : "reportcards.unsupported_media_type";
+    void reply.status(raw.statusCode).send({
+      status: raw.statusCode,
+      code,
+      kind: "validation",
+      message: raw.statusCode === 413 ? "Corps de requête trop volumineux (10 Mo maximum)." : "Type de contenu non supporté : envoyez le PDF en corps brut.",
+      requestId: String(request.id),
+    });
+    return;
+  }
   const appError = error instanceof ZodError ? zodToValidation(error) : toAppError(maybeFastifyValidation(error));
   if (appError.httpStatus >= 500) request.log.error({ err: error }, "reportcards : erreur inattendue");
   void reply.status(appError.httpStatus).send(toErrorBody(appError, String(request.id)));
@@ -162,6 +175,11 @@ export async function registerPublicRoutes(app: FastifyInstance, options: Public
         return payload;
       });
       scope.addContentTypeParser(["application/pdf", "application/octet-stream"], { parseAs: "buffer", bodyLimit: MAX_UPLOAD_BYTES }, (_req, body, done) => done(null, body));
+      // Uniformité : une URL sous ce préfixe qui ne correspond à aucune route (code trop long pour le routeur, chemin inconnu)
+      // reçoit la MÊME réponse qu'un code inexistant — rien ne distingue un code mal formé d'un code inconnu (AC4.5).
+      scope.setNotFoundHandler((_req, reply) => {
+        void reply.status(404).send(present.verificationDto(UNKNOWN_VERIFICATION));
+      });
 
       const limited = async (request: FastifyRequest, reply: FastifyReply): Promise<boolean> => {
         if (!options.rateLimiter) return false;
