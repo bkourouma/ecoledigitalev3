@@ -158,6 +158,9 @@ CREATE TABLE people.staff_qualifications (
   issuer       text,
   obtained_on  date,
   expires_on   date,
+  -- Date d'expiration pour laquelle l'alerte `people.staff_qualification.expiring` a déjà été publiée : une alerte par
+  -- franchissement de seuil (idempotence du job) ; si l'expiration est repoussée, une nouvelle alerte redevient possible.
+  expiry_alerted_for date,
   document_ref uuid,
   note         text,
   created_at   timestamptz NOT NULL DEFAULT now(),

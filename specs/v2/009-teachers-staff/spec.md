@@ -10,6 +10,8 @@
 
 > Cette spec fournit le **personnel** (identifiant stable `people.staff.id`) et les **affectations d'enseignement** (qui est responsable de quoi). Elle ne calcule aucune rémunération et ne désigne **pas** le bénéficiaire de la paie : celui-ci est l'intervenant réel d'une séance (`scheduling.occurrence_staff`, spec 017). Le legacy confondait les deux (cause d'incohérences : séance affichée avec un enseignant mais impayable).
 
+> **Erratum d'implémentation (voir `apps/api/src/modules/people/README.md` §Écarts)** : `GET /staff` accepte `staff.read` (les modèles de rôles de l'économe et du directeur des études n'accordent pas `staff.list`) ; `getTeachingLoad` ne convertit `PER_WEEK` en année que si l'appelant fournit `weeksPerYear` (aucun nombre de semaines codé) ; `listUnstaffedNodes` et la garde d'offre comptent un `LEAD` explicite ou un généraliste, jamais un simple titulaire ou co-enseignant ; un `SUBSTITUTE` actif prend la place de l'affectation qu'il remplace dans `getResponsibleForNode` ; le port `AcademicQuery` ajoute `getOffering` et `listClassrooms` (facultatifs) ; création d'un compte de personnel : `POST /staff/:id/portal-invitation` accorde le rôle système `enseignant` ou `educateur` selon la catégorie.
+
 ## 1. Objectifs
 
 1. **Une seule entité `staff`** pour enseignants, éducateurs, administratifs, direction et personnel d'appui (le legacy n'avait que `teachers`, rien pour le non-enseignant), fondée sur la même `persons` que les élèves et tuteurs.
