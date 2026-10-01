@@ -176,6 +176,15 @@ export async function confirmDecision(
   return row ? toDecision(row) : null;
 }
 
+/**
+ * Réouverture : les décisions CONFIRMÉES reposent sur l'ancienne version des résultats ; elles sont RETIRÉES (conservées,
+ * consultables) et de nouvelles propositions seront créées par le recalcul. Les décisions PUBLIÉES (bulletin) ne bougent pas.
+ */
+export async function withdrawConfirmedDecisions(tx: Tx, stateId: string): Promise<number> {
+  const res = await tx.query("UPDATE results.decisions SET status = 'WITHDRAWN' WHERE state_id = $1 AND status = 'CONFIRMED'", [stateId]);
+  return res.rowCount;
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Appréciations
 // ---------------------------------------------------------------------------------------------------------------------
@@ -248,8 +257,8 @@ export async function claimDueRequests(tx: Tx, now: Date, limit: number): Promis
 
 export async function finishRequest(tx: Tx, id: string, status: "DONE" | "BLOCKED" | "FAILED" | "PENDING", now: Date, extra: { blockedReason?: string | null; lastError?: string | null; notBefore?: Date } = {}): Promise<void> {
   await tx.query(
-    `UPDATE results.recompute_requests SET status = $2, finished_at = CASE WHEN $2 = 'PENDING' THEN NULL ELSE $3 END, blocked_reason = $4, last_error = $5,
-        not_before = coalesce($6, not_before), started_at = CASE WHEN $2 = 'PENDING' THEN NULL ELSE started_at END
+    `UPDATE results.recompute_requests SET status = $2::text, finished_at = CASE WHEN $2::text = 'PENDING' THEN NULL ELSE $3::timestamptz END, blocked_reason = $4, last_error = $5,
+        not_before = coalesce($6::timestamptz, not_before), started_at = CASE WHEN $2::text = 'PENDING' THEN NULL ELSE started_at END
       WHERE id = $1`,
     [id, status, now, extra.blockedReason ?? null, extra.lastError ?? null, extra.notBefore ?? null],
   );

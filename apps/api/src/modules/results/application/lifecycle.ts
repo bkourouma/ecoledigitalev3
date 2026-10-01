@@ -21,8 +21,8 @@ import { planClose, planDeliberate, planLock, planReopen } from "../domain/perio
 import type { DecisionRecord, PeriodState } from "../domain/records";
 import type { ReopenKind } from "../domain/types";
 import { guarded } from "../infrastructure/db-errors";
-import { confirmDecision, listDecisions, listDeliberations, upsertProposal } from "../infrastructure/governance-repository";
-import { insertHeader, insertLines, listCurrentHeaders, listFinalHeaders, markSuperseded, maxVersion } from "../infrastructure/results-repository";
+import { confirmDecision, listDecisions, listDeliberations, upsertProposal, withdrawConfirmedDecisions } from "../infrastructure/governance-repository";
+import { insertHeader, insertLines, listCurrentHeaders, listDraftHeaders, listFinalHeaders, markSuperseded, maxVersion } from "../infrastructure/results-repository";
 import { getSettingsRow, getStateByKey, getStateById, insertClosure, repinState, transitionState } from "../infrastructure/states-repository";
 import { computeDraftInTx, prepare, proposalsOf, runPipeline } from "./compute";
 import { EventBuffer, inTx, lockKey, type ResultsCaps, type ResultsDeps } from "./deps";
@@ -229,7 +229,7 @@ export async function closePeriod(deps: ResultsDeps, ctx: RequestContext, input:
     const current = await listCurrentHeaders(tx, state.id);
     const previousFinal = (await listFinalHeaders(tx, state.id)).map((h) => h.id);
     await guarded(() => markSuperseded(tx, previousFinal, now));
-    const drafts = current.filter((h) => h.status === "DRAFT" || h.status === "ERROR").map((h) => h.id);
+    const drafts = (await listDraftHeaders(tx, state.id)).map((h) => h.id);
     await guarded(() => markSuperseded(tx, drafts, now));
     const supersedes = new Map(current.map((h) => [h.enrollmentId, h.id]));
 
@@ -337,6 +337,7 @@ export async function reopenPeriod(deps: ResultsDeps, ctx: RequestContext, input
 
     const next = await guarded(() => transitionState(tx, state.id, state.rowVersion, { to: "OPEN", now: deps.clock.now(), reopen: { kind: input.kind, reason: input.reason.trim() } }));
     if (!next) return err(conflict(ResultsCode.STALE_STATE, "La période a été modifiée entre-temps : rechargez-la."));
+    const withdrawn = await guarded(() => withdrawConfirmedDecisions(tx, state.id));
     const events = new EventBuffer(deps, ctx);
     events.add(
       ResultsEvents.PERIOD_REOPENED,
@@ -348,7 +349,7 @@ export async function reopenPeriod(deps: ResultsDeps, ctx: RequestContext, input
       entity: "period_state",
       entityId: state.id,
       before: { status: state.status, resultsVersion: state.resultsVersion },
-      after: { status: next.status, reopenCount: next.reopenCount, kind: input.kind },
+      after: { status: next.status, reopenCount: next.reopenCount, kind: input.kind, decisionsWithdrawn: withdrawn },
       reason: input.reason.trim(),
       severity: "critical",
     });
