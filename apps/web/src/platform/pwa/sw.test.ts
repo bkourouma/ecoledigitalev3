@@ -87,8 +87,8 @@ function loadWorker(fetchImpl: (input: unknown, init?: unknown) => Promise<unkno
     }
   }
 
-  const module = { exports: {} as Record<string, unknown> };
-  const sandbox = { self, caches, fetch: fetchImpl, URL, Response: FakeResponse, Promise, module, Array, Set };
+  const cjsModule = { exports: {} as Record<string, unknown> };
+  const sandbox = { self, caches, fetch: fetchImpl, URL, Response: FakeResponse, Promise, module: cjsModule, Array, Set };
   vm.runInNewContext(SW_SOURCE, sandbox);
 
   /** Simule un événement `fetch` ; renvoie la promesse passée à respondWith, ou null si le SW n'est pas intervenu. */
@@ -103,7 +103,7 @@ function loadWorker(fetchImpl: (input: unknown, init?: unknown) => Promise<unkno
     return responded as Promise<unknown> | null;
   }
 
-  return { listeners, caches, stores, puts, self, module, dispatchFetch, FakeResponse };
+  return { listeners, caches, stores, puts, self, cjsModule, dispatchFetch, FakeResponse };
 }
 
 const HASHED_CHUNK = `${ORIGIN}/_next/static/chunks/app/page-3f9a1c2b7d8e4f60.js`;
@@ -230,8 +230,8 @@ describe("sw.js — cycle de vie", () => {
 });
 
 describe("sw.js — prédicats exportés", () => {
-  const { module } = loadWorker(vi.fn());
-  const api = module.exports as {
+  const { cjsModule } = loadWorker(vi.fn());
+  const api = cjsModule.exports as {
     isVersionedStaticAsset(url: URL): boolean;
     PRECACHE_URLS: string[];
   };
