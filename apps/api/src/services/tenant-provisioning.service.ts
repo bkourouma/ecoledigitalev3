@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import type { PoolClient } from "pg";
+import { syncTenantToKernel } from "../platform/tenant-sync";
 
 export const DEFAULT_REFERENCE_TENANT_SLUG = "ecoledigitale";
 export const DEFAULT_REFERENCE_TENANT_NAME = "ecoledigitale";
@@ -493,6 +494,9 @@ export async function createTenant(
   await ensureTechnicalAccountsForTenant(client, tenant.id, tenant.slug);
   await cloneReferenceDataFromReferenceTenant(client, tenant.id);
 
+  // Miroir v2 (sens unique, mêmes UUID). Au mieux : ne lève jamais ; sans effet si la plateforme v2 est inactive.
+  await syncTenantToKernel(tenant.id, { source: client });
+
   return tenant;
 }
 
@@ -513,4 +517,7 @@ export async function setTenantActiveState(
   if (!isActive) {
     await client.query("UPDATE users SET is_active = false, updated_at = NOW() WHERE tenant_id = $1", [tenantId]);
   }
+
+  // Miroir v2 du statut (actif / suspendu). Au mieux, sans effet si la plateforme v2 est inactive.
+  await syncTenantToKernel(tenantId, { source: client });
 }

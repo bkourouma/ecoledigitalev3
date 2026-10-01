@@ -64,7 +64,13 @@
     "seed:algebre-pdf-submissions-lprigla": "tsx scripts/seed-remaining-submissions-algebre-pdf-lprigla.ts",
     "remove:technical-parent": "tsx scripts/remove-technical-parent.ts",
     "rotate:technical-passwords": "tsx scripts/rotate-technical-passwords.ts",
-    "check:secrets": "node scripts/check-secrets.mjs"
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check:boundaries": "depcruise apps/api/src/modules apps/api/src/platform packages/kernel/src packages/rules-engine/src packages/database/src --config .dependency-cruiser.cjs",
+    "db:v2:migrate": "tsx scripts/db/v2-migrate.ts",
+    "db:v2:create-login-role": "tsx scripts/db/create-login-role.ts",
+    "module:new": "tsx scripts/module-new.ts",
+    "test:isolation": "node scripts/db/test-isolation.mjs",
+    "test:v2": "pnpm --filter @ecoledigitale/api test:v2"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.864.0",
@@ -80,7 +86,9 @@
     "@types/node": "^24.3.0",
     "@types/pg": "^8.11.6",
     "concurrently": "^8.2.2",
+    "dependency-cruiser": "^18.5.0",
     "tsx": "^4.20.4",
+    "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }
 }
