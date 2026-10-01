@@ -344,17 +344,21 @@ export function computeCreditSemester(input: CreditInput, evaluator: BatchEvalua
   states.forEach((st, i) =>
     st.ues.forEach((ue) => {
       if (ue.validee === null) return;
-      // une UE dont AUCUNE ECUE n'accepte de session 2 ne peut pas être « à repasser » : sa non-validation est une dette
-      const resitPossible = ue.ecues.some((e) => e.node.resitAllowed);
-      const session2Tried = ue.ecues.some((e) => e.examS2 !== null) || !resitPossible;
-      s6.push({ owner: i, ruleKey: "etat_ue", variables: { validee: ue.validee, session2_tentee: session2Tried }, tag: { ue, e: null, what: "etat_ue" }, nodeId: ue.node.id });
-      s6.push({
-        owner: i,
-        ruleKey: "session_validation_ue",
-        variables: { validee: ue.validee, sessions: ue.ecues.map((e) => e.sessionRetenue ?? (e.vm ? 2 : 1)) },
-        tag: { ue, e: null, what: "session_validation" },
-        nodeId: ue.node.id,
-      });
+      // Une UE SANS AUCUN résultat (aucune moyenne : rien de noté) est « en attente », pas « en dette » : elle n'a ni état LMD ni
+      // session de validation, et le semestre reste sans décision tant qu'elle n'a pas de résultat (étape 8).
+      if (ue.moyenne !== null) {
+        // une UE dont AUCUNE ECUE n'accepte de session 2 ne peut pas être « à repasser » : sa non-validation est une dette
+        const resitPossible = ue.ecues.some((e) => e.node.resitAllowed);
+        const session2Tried = ue.ecues.some((e) => e.examS2 !== null) || !resitPossible;
+        s6.push({ owner: i, ruleKey: "etat_ue", variables: { validee: ue.validee, session2_tentee: session2Tried }, tag: { ue, e: null, what: "etat_ue" }, nodeId: ue.node.id });
+        s6.push({
+          owner: i,
+          ruleKey: "session_validation_ue",
+          variables: { validee: ue.validee, sessions: ue.ecues.map((e) => e.sessionRetenue ?? (e.vm ? 2 : 1)) },
+          tag: { ue, e: null, what: "session_validation" },
+          nodeId: ue.node.id,
+        });
+      }
       for (const e of ue.ecues) {
         s6.push({ owner: i, ruleKey: "statut_ecue", variables: { note: e.noteEcue, ue_validee: ue.validee }, tag: { ue, e, what: "statut" }, nodeId: e.node.id });
         s6.push({
@@ -413,7 +417,8 @@ export function computeCreditSemester(input: CreditInput, evaluator: BatchEvalua
   const s8: Array<StageItem<{ st: EnrollmentState; ue: UeState | null; e: EcueState | null; what: string }>> = [];
   states.forEach((st, i) => {
     if (st.semestreValide === null) return;
-    if (st.moyenne !== null) {
+    // décision du semestre : seulement quand TOUTES les UE ont un résultat (sinon « en attente », jamais « ajourné » faute de note)
+    if (st.moyenne !== null && st.ues.every((u) => u.moyenne !== null)) {
       const enResit = st.ues.filter((u) => u.etat === "RESIT").length;
       s8.push({ owner: i, ruleKey: "decision_semestre", variables: { semestre_valide: st.semestreValide, ue_en_rattrapage: enResit }, tag: { st, ue: null, e: null, what: "decision" } });
     }
@@ -514,7 +519,7 @@ export function computeCreditSemester(input: CreditInput, evaluator: BatchEvalua
       displayValue: st.display,
       credits: st.creditsTotal,
       coefficient: null,
-      validated: st.semestreValide,
+      validated: st.moyenne === null || st.ues.some((u) => u.moyenne === null) ? null : st.semestreValide,
       statusCode: st.decision,
       sessionObtained: null,
       resitEligible: null,
@@ -537,8 +542,9 @@ export function computeCreditSemester(input: CreditInput, evaluator: BatchEvalua
       decisionOutcome: st.decision === null ? ("PENDING" as const) : outcomeOf(st.decision),
       creditsAcquired: st.creditsValides,
       creditsRequired: st.creditsTotal,
-      validated: st.moyenne === null ? null : st.semestreValide,
-      summary: { appreciation: st.appreciation, distinction: st.distinction, uesInResit: st.ues.filter((u) => u.etat === "RESIT").length, uesValidated: st.ues.filter((u) => u.validee === true).length, uesTotal: st.ues.length, pending: st.moyenne === null },
+      validated: st.moyenne === null || st.ues.some((u) => u.moyenne === null) ? null : st.semestreValide,
+      // `classSize` = effectif de la classe (inscriptions calculées) ; `cohortSize` = nombre d'inscriptions CLASSÉES (avec moyenne).
+      summary: { classSize: states.length, appreciation: st.appreciation, distinction: st.distinction, uesInResit: st.ues.filter((u) => u.etat === "RESIT").length, uesValidated: st.ues.filter((u) => u.validee === true).length, uesTotal: st.ues.length, pending: st.moyenne === null || st.ues.some((u) => u.moyenne === null), uesWithoutResult: st.ues.filter((u) => u.moyenne === null).length },
     };
     const outputsHash = hashOf({ header, lines: lines.map((l) => ({ ...l, trace: undefined })) });
     return { enrollmentId: st.ref.enrollmentId, studentId: st.ref.studentId, error: null, inputsHash, inputs: st.inputs, header, lines, outputsHash };

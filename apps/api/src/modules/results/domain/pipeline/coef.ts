@@ -353,8 +353,8 @@ export function computeCoefSemester(input: CoefInput, evaluator: BatchEvaluator)
       creditsRequired: null,
       validated: null,
       summary: second
-        ? { annual: { average: st.annual, display: st.annualDisplay, rank: st.annualRank, cohortSize: st.annualRank === null ? null : annualCohort }, yearDecision: st.yearDecision, distinction: st.distinction, appreciation: st.appreciation, pending: st.moyenne === null }
-        : { pending: st.moyenne === null },
+        ? { classSize: states.length, annual: { average: st.annual, display: st.annualDisplay, rank: st.annualRank, cohortSize: st.annualRank === null ? null : annualCohort }, yearDecision: st.yearDecision, distinction: st.distinction, appreciation: st.appreciation, pending: st.moyenne === null }
+        : { classSize: states.length, pending: st.moyenne === null },
     };
     const outputsHash = hashOf({ header, lines: lines.map((l) => ({ ...l, trace: undefined })) });
     return { enrollmentId: st.ref.enrollmentId, studentId: st.ref.studentId, error: null, inputsHash, inputs: st.inputs, header, lines, outputsHash };
