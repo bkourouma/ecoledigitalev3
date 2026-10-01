@@ -125,6 +125,25 @@ describeIntegration.skipIf(!REDIS_URL)("bundle de production du worker : build +
     expect(line.jobs).toEqual(expect.arrayContaining(["audit.ensure-partitions", "audit.detach-expired-partitions", "finance.mark-overdue-invoices", "iam.purge-expired-data"]));
   });
 
+  it("le bundle enregistre TOUS les abonnés et jobs des modules (parité avec la découverte sur les sources) et branche les ports entre modules", async () => {
+    const { discoverModuleExtensions, defaultModuleDirs } = await import("../../../worker/src/discovery/discover");
+    const source = await discoverModuleExtensions({ dirs: defaultModuleDirs(WORKER_ROOT) });
+    expect(source.subscribers.length, "les modules déclarent des abonnés").toBeGreaterThan(20);
+    expect(source.jobs.length, "les modules déclarent des jobs").toBeGreaterThan(10);
+
+    const line = logs.map((l) => safeJson(l)).find((l) => l?.msg === "extensions des modules chargées");
+    expect(line, logs.slice(-5).join("\n")).toBeDefined();
+    const missingSubscribers = source.subscribers.map((x) => x.definition.name).filter((n) => !line.subscribers.includes(n));
+    const missingJobs = source.jobs.map((x) => x.definition.name).filter((n) => !line.jobs.includes(n));
+    expect(missingSubscribers, "abonnés absents du bundle").toEqual([]);
+    expect(missingJobs, "jobs absents du bundle").toEqual([]);
+    expect(line.modules).toEqual(expect.arrayContaining(source.modules));
+
+    // Les adaptateurs de ports sont embarqués et branchés AVANT les consommateurs (sinon `*.port_unavailable`).
+    expect(logs.some((l) => safeJson(l)?.msg === "ports entre modules branchés (adaptateurs de plateforme)"), logs.slice(-8).join("\n")).toBe(true);
+    expect(logs.some((l) => safeJson(l)?.msg?.includes("aucun adaptateur de ports"))).toBe(false);
+  });
+
   it("un événement de l'outbox est relayé puis traité par les abonnés embarqués (rôles, essai, audit chaîné en HMAC)", async () => {
     const tenantId = newId();
     await db.admin.query("INSERT INTO kernel.tenants (id, slug, name) VALUES ($1, $2, $3)", [tenantId, `wb-${randomSuffix()}`, "Tenant bundle"]);

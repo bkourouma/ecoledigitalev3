@@ -192,4 +192,27 @@ describeIntegration.skipIf(!REDIS_URL)("assemblage : cohabitation legacy / v2 et
       expect(resolveAuditHandler(type), type).toBeDefined();
     }
   });
+  it("[D9] les adaptateurs de ports entre modules sont branchés : plus aucun port obligatoire ne manque (échec fermé `*.port_unavailable`)", () => {
+    expect(p.status.adapters).toBe(true);
+    // Ports que chaque module CONSOMMATEUR exige d'un voisin (les ports de stockage restent facultatifs : repli disque en dev).
+    const required: Record<string, string[]> = {
+      academic: ["students", "guardianship", "readiness", "schedule", "usageGuard", "completion", "registrationFee", "invoiceFacts"],
+      people: ["academic"],
+      finance: ["learners", "enrollments"],
+      assess: ["roster", "periods", "curriculum", "teaching", "guardianship", "names"],
+      attendance: ["roster", "periods", "occurrences", "people"],
+      payroll: ["sessionHours", "attendanceHours", "staff", "curriculum"],
+      results: ["curriculum", "roster", "guardianship", "names"],
+      reportcards: ["results", "guardianship", "attendance", "standing", "directory"],
+      higher: ["credits", "resitSession", "cycleResults", "curriculum", "enrollments", "students", "actors", "signatories", "institution"],
+    };
+    const app = p.app as unknown as Record<string, { current?: Record<string, unknown> } | undefined>;
+    for (const [module, keys] of Object.entries(required)) {
+      const registry = app[`${module}Ports`];
+      expect(registry, `registre ${module}Ports`).toBeDefined();
+      const current = registry!.current ?? {};
+      const missing = keys.filter((k) => current[k] === undefined || current[k] === null);
+      expect(missing, `${module} : ports non branchés`).toEqual([]);
+    }
+  });
 });
