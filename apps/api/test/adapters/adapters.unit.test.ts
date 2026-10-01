@@ -72,7 +72,7 @@ describe("conversions", () => {
     expect(fitDecimal("0.0000005")).toBe("0.000001");
     expect(fitDecimal("0.0000004")).toBe("0");
     expect(fitDecimal("-3.1234565")).toBe("-3.123457");
-    expect(fitDecimal("007.50")).toBe("7.50");
+    expect(fitDecimal("007.50")).toBe("7.5"); // forme canonique : sans zéros de fin
     expect(fitDecimal(null)).toBeNull();
     expect(fitDecimal("pas un nombre")).toBeNull();
   });
