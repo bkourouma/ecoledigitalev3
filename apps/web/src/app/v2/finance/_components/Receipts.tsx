@@ -83,7 +83,7 @@ export function ReceiptsScreen() {
  * imputations, solde après paiement) : le web ne le recompose pas. « Imprimer » ouvre la boîte d'impression du navigateur
  * (enregistrement en PDF possible) ; le rendu PDF côté serveur n'existe pas encore dans l'API.
  */
-export function ReceiptDetailScreen({ id }: { id: string }) {
+export function ReceiptDetailScreen({ id, backHref = "/v2/finance/receipts" }: { id: string; backHref?: string }) {
   const t = useTranslations("v2Finance.receiptDetail");
   const tMethod = useTranslations("v2Finance.method");
   const tPayer = useTranslations("v2Finance.payer");
@@ -107,7 +107,7 @@ export function ReceiptDetailScreen({ id }: { id: string }) {
           title={t("title", { number: r.number })}
           actions={
             <>
-              <Link href="/v2/finance/receipts" className={buttonClass.secondary}>
+              <Link href={backHref} className={buttonClass.secondary}>
                 {t("back")}
               </Link>
               <button type="button" className={buttonClass.primary} onClick={() => window.print()}>

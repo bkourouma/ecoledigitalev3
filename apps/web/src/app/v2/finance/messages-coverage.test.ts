@@ -72,6 +72,7 @@ describe("messages fr-CI (finance et paie)", () => {
       ["v2Finance.reports.anchors", ["groups", "learners", "aged", "trend"]],
       ["v2Finance.reports.trend.granularity", ["day", "week", "month"]],
       ["v2Finance.overview.links", ["collect", "invoice", "cash", "reports", "overdue", "refunds"].flatMap((k) => [`${k}.title`, `${k}.hint`])],
+      ["v2Finance.me.detail.totals", ["title", "billed", "credited", "collected", "outstanding"]],
       ["v2Finance.allocation.modes", ["AUTO", "MANUAL", "NONE"]],
       ["v2Finance.allocation.hints", ["AUTO", "MANUAL", "NONE"]],
       ["v2Finance.paymentForm.confirm.modes", ["AUTO", "MANUAL", "NONE"]],

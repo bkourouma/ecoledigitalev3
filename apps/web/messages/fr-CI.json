@@ -3637,6 +3637,76 @@
           "count": "Paiements"
         }
       }
+    },
+    "me": {
+      "title": "Mes finances",
+      "description": "Situation financière, échéances et reçus de vos enfants (ou de votre dossier d'élève).",
+      "empty": "Aucun apprenant",
+      "emptyHint": "Aucun enfant n'est lié à votre compte avec accès au portail.",
+      "listLabel": "Apprenants",
+      "card": {
+        "notEnrolled": "Sans inscription en cours",
+        "unavailable": "La situation financière n'est pas disponible pour le moment.",
+        "billed": "Facturé",
+        "collected": "Payé",
+        "outstanding": "Reste à payer",
+        "open": "Voir le détail"
+      },
+      "detail": {
+        "forbiddenTitle": "Accès refusé",
+        "forbidden": "Cet apprenant n'est pas rattaché à votre compte : ses informations financières ne peuvent pas être affichées.",
+        "back": "Retour à mes finances",
+        "notEnrolled": "Sans inscription en cours",
+        "pay": "Payer en ligne",
+        "totals": {
+          "title": "Situation",
+          "billed": "Facturé",
+          "credited": "Avoirs",
+          "collected": "Payé",
+          "outstanding": "Reste à payer"
+        },
+        "invoices": {
+          "title": "Factures et échéances",
+          "empty": "Aucune facture",
+          "draft": "Facture en préparation",
+          "balance": "Reste à payer : {amount}",
+          "installments": "Échéances de la facture {number}",
+          "columns": {
+            "label": "Échéance",
+            "due": "Date limite",
+            "amount": "Montant",
+            "remaining": "Reste à payer",
+            "status": "Statut"
+          },
+          "noInstallments": "Paiement en une fois"
+        },
+        "payments": {
+          "title": "Paiements",
+          "caption": "Paiements de l'apprenant",
+          "date": "Date",
+          "amount": "Montant",
+          "status": "Statut",
+          "empty": "Aucun paiement"
+        },
+        "receipts": {
+          "title": "Reçus",
+          "unavailable": "Les reçus ne sont pas disponibles pour le moment.",
+          "empty": "Aucun reçu"
+        }
+      },
+      "payDialog": {
+        "title": "Payer en ligne",
+        "description": "Vous recevrez les instructions de votre opérateur ; le statut est suivi sur cette page.",
+        "submit": "Lancer le paiement",
+        "invoice": "Facture à régler",
+        "anyInvoice": "Aucune en particulier",
+        "invoiceOption": "{number} — reste à payer {balance}",
+        "amount": "Montant à payer",
+        "amountHint": "Pré-rempli avec le reste à payer de la facture ; vous pouvez payer une partie.",
+        "provider": "Opérateur",
+        "phone": "Numéro de téléphone",
+        "phoneHint": "Numéro mobile money, avec l'indicatif du pays."
+      }
     }
   }
 }
