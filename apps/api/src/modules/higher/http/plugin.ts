@@ -314,9 +314,16 @@ export async function higherPlugin(app: FastifyInstance, options: HigherPluginOp
     scope.get("/documents/:id", async (req, reply) => {
       const { id } = parse(higherIdParamsSchema, req.params);
       const ctx = ctxOf(req);
-      const doc = unwrapOrThrow(await getDocument(deps, ctx, id));
-      // Personnel habilité : tout document ; étudiant / tuteur : ses documents PUBLIÉS seulement (AC7.5).
-      if (await kit.has(scope, req, reply, P.documentRead)) return present.documentDetailDto(doc);
+      // Personnel habilité : tout document (404 si inconnu). Autre appelant : un document inconnu et un document d'autrui
+      // se ressemblent (403) — aucune énumération possible ; étudiant / tuteur : ses documents PUBLIÉS seulement (AC7.5).
+      const staff = await kit.has(scope, req, reply, P.documentRead);
+      const found = await getDocument(deps, ctx, id);
+      if (!found.ok) {
+        if (staff) throw found.error;
+        throw new ForbiddenError("Action non autorisée.");
+      }
+      const doc = found.value;
+      if (staff) return present.documentDetailDto(doc);
       const relation = await relationTo(req, reply, doc.studentId, P.documentRead);
       if (relation !== "STAFF" && !doc.publishedAt) throw new ForbiddenError("Ce document n'est pas encore publié.");
       return present.documentDetailDto(doc);
