@@ -15,6 +15,7 @@ Un ADR n'est jamais réécrit après acceptation : on en ouvre un nouveau qui le
 | [ADR-005](ADR-005-acces-donnees-typage.md) | Accès aux données : `pg` + SQL et stratégie de typage | Proposé (spike d'une demi-journée) |
 | [ADR-006](ADR-006-schemas-par-module-reset-base.md) | Un schéma Postgres par module et reset de la base | Accepté |
 | [ADR-007](ADR-007-conventions.md) | Conventions : UUID, montants, dates, i18n, nommage | Accepté |
+| [ADR-008](ADR-008-identite-et-sessions.md) | Identité globale, accès par tenant, sessions et MFA | Accepté |
 
 
 ## Statuts possibles
