@@ -101,6 +101,15 @@ module.exports = {
       to: { path: ["(^|/)node_modules/(@prisma|\\.prisma)/", "^@prisma/", "^apps/api/prisma/"] },
     },
     {
+      name: "rules-engine-only-in-rules-module",
+      severity: "error",
+      comment:
+        "Seul le module `rules` importe @ecoledigitale/rules-engine (spec 012, A-01) : `results`, `higher` et `reportcards` passent par " +
+        "modules/rules/index.ts (résolution, cache, journal d'erreurs, épinglage). Vaut pour le nom du paquet ET pour son chemin dans le dépôt.",
+      from: { path: "^(apps|packages)/", pathNot: ["^apps/api/src/modules/rules/", "^packages/rules-engine/"] },
+      to: { path: ["^packages/rules-engine/", "^@ecoledigitale/rules-engine(/|$)", "(^|/)node_modules/@ecoledigitale/rules-engine/"] },
+    },
+    {
       name: "kernel-pure",
       severity: "error",
       comment: "@ecoledigitale/kernel est pur : ni pg, ni fastify, ni autre package du monorepo, ni code d'app.",
