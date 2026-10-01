@@ -14,10 +14,14 @@ param(
     [int]   $DbPort     = 5432,
     [string]$DbName     = "dbecoledigitale",
     [string]$DbUser     = "postgres",
-    [string]$DbPassword = "mysecretpassword"
+    [string]$DbPassword = $env:PGPASSWORD
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not $DbPassword) {
+    throw "Mot de passe Postgres requis : definir PGPASSWORD ou passer -DbPassword."
+}
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $dumpDir  = Join-Path $repoRoot "infra\scripts\dumps"

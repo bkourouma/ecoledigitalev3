@@ -67,7 +67,7 @@ async function applyMigrations() {
         port: parseInt(process.env.DB_PORT || "5432", 10),
         database: process.env.DB_NAME || "dbecoledigitale",
         user: process.env.DB_USER || "postgres",
-        password: process.env.DB_PASSWORD || "mysecretpassword",
+        password: process.env.DB_PASSWORD || (() => { throw new Error("DB_PASSWORD (ou POSTGRES_PASSWORD) est requis"); })(),
       });
 
   console.log("Applying lot 6 migrations (economie)");

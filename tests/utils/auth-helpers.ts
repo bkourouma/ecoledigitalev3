@@ -1,14 +1,15 @@
 import { Page, expect } from '@playwright/test';
 
+// Mots de passe fournis par l'environnement : E2E_TEACHER_PASSWORD, E2E_STUDENT_PASSWORD.
 export const TEST_ACCOUNTS = {
   teacher: {
     email: 'kouadio.assi@ecoledigitale.ci',
-    password: 'teacher123',
+    password: process.env.E2E_TEACHER_PASSWORD ?? '',
     role: 'teacher'
   },
   student: {
     email: 'kacoucelestin@gmail.com',
-    password: 'sUQgv9@MGT58',
+    password: process.env.E2E_STUDENT_PASSWORD ?? '',
     role: 'student'
   }
 };

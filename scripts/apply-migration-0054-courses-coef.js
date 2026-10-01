@@ -35,13 +35,13 @@ const DB_CONFIG = {
   password:
     process.env.DB_PASSWORD ||
     process.env.POSTGRES_PASSWORD ||
-    "mysecretpassword",
+    (() => { throw new Error("DB_PASSWORD (ou POSTGRES_PASSWORD) est requis"); })(),
 };
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
 /**
- * postgresql://user:pass@word@host:port/db — le @ du mot de passe casse new URL().
+ * postgresql://utilisateur:motdepasse@hôte:port/db — un @ dans le mot de passe casse new URL().
  * Le dernier @ sépare (user + mot de passe) et (hôte…).
  */
 function pgConfigFromDatabaseUrl(url) {

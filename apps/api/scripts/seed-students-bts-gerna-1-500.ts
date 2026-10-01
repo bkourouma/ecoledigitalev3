@@ -9,7 +9,7 @@ import { Client } from "pg";
 import bcrypt from "bcryptjs";
 
 const CLASS_CODE = "BTS-GERNA-1-500";
-const DEFAULT_PASSWORD = "Passw0rd!stu";
+const DEFAULT_PASSWORD = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
 
 type SeedStudent = {
   firstName: string;

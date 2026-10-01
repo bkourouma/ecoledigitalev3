@@ -9,7 +9,7 @@ import bcrypt from "bcryptjs";
 
 const TENANT_SLUG = "imhotepacademy";
 const DEMO_EMAIL = "owner@imhotepacademy.fr";
-const DEMO_PASSWORD = "Passw0rd!owner";
+const DEMO_PASSWORD = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
 
 async function main() {
   const connectionString = process.env.DATABASE_URL;

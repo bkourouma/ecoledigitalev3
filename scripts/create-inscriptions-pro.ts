@@ -2,7 +2,7 @@ import { Client } from "pg";
 import bcrypt from "bcryptjs";
 
 const connectionString = process.env.DATABASE_URL ||
-  "postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 interface ApprenantData {
   prenom: string;
@@ -147,7 +147,7 @@ async function createInscriptions() {
       } else {
         // Create user
         const fullName = `${apprenant.prenom} ${apprenant.nom}`;
-        const passwordHash = await hashPassword("Passw0rd!123");
+        const passwordHash = await hashPassword(process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis"); })());
         
         const createUser = await client.query(
           `INSERT INTO users (

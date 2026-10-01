@@ -28,7 +28,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function resolveConnectionString(): string {
-  return process.env.DATABASE_URL || "postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale";
+  return process.env.DATABASE_URL || (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 }
 
 async function main() {

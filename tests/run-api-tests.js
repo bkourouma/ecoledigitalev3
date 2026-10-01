@@ -77,8 +77,8 @@ async function main() {
     console.log('   - Backend: http://localhost:4000');
     console.log('2. Check that the database is properly set up');
     console.log('3. Verify that test accounts exist:');
-    console.log('   - Teacher: kouadio.assi@ecoledigitale.ci / teacher123');
-    console.log('   - Student: kouadio.assi@ecoledigitale.ci / sUQgv9@MGT58');
+    console.log('   - Teacher: kouadio.assi@ecoledigitale.ci (E2E_TEACHER_PASSWORD)');
+    console.log('   - Student: voir E2E_STUDENT_PASSWORD');
     
     process.exit(1);
   }

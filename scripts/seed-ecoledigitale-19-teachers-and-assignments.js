@@ -22,7 +22,7 @@ const { Client } = require("pg");
 
 const TENANT_SLUG = "ecoledigitale";
 const TARGET_CLASS_CODE = "J-LP-RIGLA-A-717";
-const DEFAULT_PASSWORD = "Password@2025";
+const DEFAULT_PASSWORD = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
 const TARGET_COURSE_LIMIT = 20;
 
 const TEACHER_SEEDS = [

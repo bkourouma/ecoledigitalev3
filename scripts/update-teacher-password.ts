@@ -1,7 +1,9 @@
 import { Client } from "pg";
 import bcrypt from "bcryptjs";
 
-const connectionString = "postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale";
+const connectionString =
+  process.env.DATABASE_URL ||
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function updateTeacherPassword() {
   const client = new Client({ connectionString });
@@ -11,7 +13,7 @@ async function updateTeacherPassword() {
     console.log("🔗 Connected to database");
 
     const email = "kouadio.assi@ecoledigitale.ci";
-    const password = "Passw0rd!teacher";
+    const password = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
     const passwordHash = await bcrypt.hash(password, 12);
 
     const result = await client.query(

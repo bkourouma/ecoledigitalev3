@@ -1,9 +1,47 @@
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import type { PoolClient } from "pg";
 
 export const DEFAULT_REFERENCE_TENANT_SLUG = "ecoledigitale";
 export const DEFAULT_REFERENCE_TENANT_NAME = "ecoledigitale";
-export const DEFAULT_TECHNICAL_PASSWORD = "Password@2025";
+
+/**
+ * Mot de passe des comptes techniques créés à la volée (un par rôle et par tenant).
+ *
+ * Plus aucune valeur par défaut dans le code :
+ *   - `TECHNICAL_ACCOUNT_PASSWORD` (environnement) est utilisé s'il est défini ;
+ *     c'est la valeur à saisir aussi côté web pour le panneau de la page /login ;
+ *   - sinon un mot de passe aléatoire est généré une fois par process, et affiché
+ *     UNE SEULE FOIS dans les logs, au moment de la première création d'un compte.
+ *
+ * Il est calculé à la demande : tant qu'aucun compte n'est à créer, rien n'est
+ * généré ni haché.
+ */
+let technicalPasswordCache: { plain: string; hash: string; generated: boolean } | null = null;
+let generatedPasswordAnnounced = false;
+
+async function resolveTechnicalPassword(): Promise<{ plain: string; hash: string; generated: boolean }> {
+  if (technicalPasswordCache) return technicalPasswordCache;
+
+  const fromEnv = process.env.TECHNICAL_ACCOUNT_PASSWORD?.trim();
+  const plain = fromEnv || randomBytes(18).toString("base64url");
+  technicalPasswordCache = {
+    plain,
+    hash: await bcrypt.hash(plain, 10),
+    generated: !fromEnv,
+  };
+  return technicalPasswordCache;
+}
+
+/** Annonce (une fois) le mot de passe généré ; sans effet s'il vient de l'environnement. */
+function announceGeneratedPasswordOnce(password: { plain: string; generated: boolean }): void {
+  if (!password.generated || generatedPasswordAnnounced) return;
+  generatedPasswordAnnounced = true;
+  console.warn(
+    "[technical-accounts] TECHNICAL_ACCOUNT_PASSWORD n'est pas défini : mot de passe aléatoire généré " +
+      `pour les comptes techniques créés par ce process. Il ne sera plus affiché : ${password.plain}`
+  );
+}
 const REFERENCE_TABLES = ["cycles", "filieres", "programmes", "courses", "time_slots"] as const;
 
 type TenantSummary = {
@@ -197,7 +235,6 @@ export async function ensureTechnicalAccountsForTenant(
   tenantSlug: string
 ): Promise<void> {
   const roles = await listGlobalRoles(client);
-  const passwordHash = await bcrypt.hash(DEFAULT_TECHNICAL_PASSWORD, 10);
 
   for (const role of roles) {
     const existingUserResult = await client.query<{ id: string; email: string }>(
@@ -217,6 +254,8 @@ export async function ensureTechnicalAccountsForTenant(
 
     if (!userId) {
       const email = getTechnicalAccountEmail(role.key, tenantSlug);
+      const technicalPassword = await resolveTechnicalPassword();
+      announceGeneratedPasswordOnce(technicalPassword);
       const insertedUser = await client.query<{ id: string }>(
         `
           INSERT INTO users (
@@ -252,8 +291,9 @@ export async function ensureTechnicalAccountsForTenant(
           `${role.name} Technique`,
           role.name,
           "Technique",
-          passwordHash,
-          DEFAULT_TECHNICAL_PASSWORD,
+          technicalPassword.hash,
+          // Le mot de passe en clair n'est jamais stocké (colonne initial_password).
+          null,
           role.is_active,
           role.key,
         ]

@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { resolveNextAuthSecret } from "./env.server";
 
 function apiBaseUrl(): string {
   // Honor an explicit override in any environment so devs running the API on a
@@ -12,7 +13,9 @@ function apiBaseUrl(): string {
 }
 
 export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET || "your-secret-key-here-change-in-production",
+  // Jamais de valeur par défaut : voir `env.server.ts` (production : erreur si
+  // absent/faible ; développement : secret aléatoire par process + avertissement).
+  secret: resolveNextAuthSecret(),
   debug: process.env.NODE_ENV === "development",
   providers: [
     GoogleProvider({

@@ -2,7 +2,7 @@ import { Client } from "pg";
 import bcrypt from "bcryptjs";
 
 const connectionString = process.env.DATABASE_URL ||
-  "postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function hashPassword(password: string): Promise<string> {
   return await bcrypt.hash(password, 12);
@@ -21,7 +21,7 @@ const demoAccounts: DemoAccount[] = [
   {
     tenant: "imhotepdata",
     email: "admin@imhotepdata.fr",
-    password: "Passw0rd!admin",
+    password: (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })()),
     role: "admin",
     firstName: "Admin",
     lastName: "Imhotep Data"

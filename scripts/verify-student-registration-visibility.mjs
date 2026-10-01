@@ -151,7 +151,7 @@ async function createSmokeStudent({ apiBaseUrl, token, tenantId }) {
       firstName: "Smoke",
       lastName: `Student${stamp.slice(-4)}`,
       email,
-      password: "SmokeTest@123",
+      password: (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })()),
       currentYear: 1,
       status: "active",
       dateOfBirth: "2010-01-15",

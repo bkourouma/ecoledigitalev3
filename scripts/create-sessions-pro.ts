@@ -1,7 +1,7 @@
 import { Client } from "pg";
 
 const connectionString = process.env.DATABASE_URL ||
-  "postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 interface SessionData {
   formation_id: string;

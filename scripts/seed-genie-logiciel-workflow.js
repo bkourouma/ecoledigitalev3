@@ -16,13 +16,13 @@
 const { Client } = require("pg");
 const bcrypt = require("bcryptjs");
 
-const CONNECTION_CANDIDATES = [
-  process.env.DATABASE_URL,
-  "postgresql://postgres:29122003@localhost:5432/dbecoledigitale",
-].filter(Boolean);
+const CONNECTION_CANDIDATES = [process.env.DATABASE_URL].filter(Boolean);
+if (CONNECTION_CANDIDATES.length === 0) {
+  throw new Error("DATABASE_URL est requis (voir .env.example)");
+}
 
 const TENANT_SLUG = "ecoledigitale";
-const PASSWORD = "Passw0rd!wfgl";
+const PASSWORD = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
 const FILIERE_CODES = ["L1GL", "L2GL", "L3GL", "M1GL", "M2GL"];
 const SEMESTRES = ["Semestre 1", "Semestre 2", "Semestre 3"];
 

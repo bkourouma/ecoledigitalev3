@@ -17,7 +17,7 @@ interface PageAudit {
 
 const ADMIN_CREDENTIALS = {
   email: 'admin@imhotepacademy.fr',
-  password: 'Passw0rd!admin',
+  password: (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })()),
 };
 
 const BASE_URL = 'http://localhost:3000';

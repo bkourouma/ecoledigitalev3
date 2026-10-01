@@ -6,7 +6,7 @@ const { Pool } = require("pg");
 
 const DEFAULT_CONN =
   process.env.DATABASE_URL ||
-  "postgresql://postgres:DevMick%402003@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 const tenantSlug = process.argv[2] || "imhotepacademy";
 
 async function resolveTenantId(client, slug) {

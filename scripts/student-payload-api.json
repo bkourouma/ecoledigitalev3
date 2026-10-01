@@ -2,7 +2,7 @@
   "firstName": "Aminata",
   "lastName": "BAMBA",
   "email": "etudiant.api.20260331083500@ecoledigitale.ci",
-  "password": "Test@2026!",
+  "password": "<mot-de-passe-etudiant>",
   "currentYear": 1,
   "status": "active",
   "bio": "Creation via curl API complete",

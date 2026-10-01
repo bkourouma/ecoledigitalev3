@@ -81,7 +81,7 @@ To delete all schedules without creating new ones:
 cd apps/api
 node -e "
 const { Pool } = require('pg');
-const pool = new Pool({ connectionString: 'postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale' });
+const pool = new Pool({ connectionString: 'postgresql://postgres:<mot-de-passe>@localhost:5432/dbecoledigitale' });
 (async () => {
   const TENANT_ID = '6eb9c106-b650-4398-b6fa-091b6828c4ba';
   await pool.query('DELETE FROM scheduled_sessions WHERE tenant_id = \$1', [TENANT_ID]);

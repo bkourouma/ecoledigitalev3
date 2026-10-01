@@ -6,7 +6,7 @@ const { Client } = require("pg");
 
 const CONN =
   process.env.DATABASE_URL ||
-  "postgresql://postgres:29122003@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function main() {
   const client = new Client({ connectionString: CONN });

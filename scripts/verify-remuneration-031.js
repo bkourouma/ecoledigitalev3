@@ -42,7 +42,7 @@ loadEnv(".env");
 loadEnv(path.join("apps", "api", ".env"));
 
 const API_URL = process.env.API_URL || `http://localhost:${process.env.API_PORT || 4000}`;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Passw0rd!admin";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (() => { throw new Error("ADMIN_PASSWORD est requis"); })();
 const DATABASE_URL = process.env.DATABASE_URL;
 
 function pgConfigFromDatabaseUrl(url) {

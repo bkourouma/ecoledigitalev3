@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 // Database configuration
 const connectionString = process.env.DATABASE_URL ||
-  "postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function checkParentAccount() {
   const client = new Client({ connectionString });
@@ -61,7 +61,7 @@ async function checkParentAccount() {
     }
 
     // Test password
-    const testPassword = "Passw0rd!parent";
+    const testPassword = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
     const passwordValid = await bcrypt.compare(testPassword, user.password_hash);
     
     console.log(`\n🔐 Password test:`);

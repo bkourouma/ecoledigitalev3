@@ -11,7 +11,7 @@ const bcrypt = require('bcryptjs');
 // Database connection configuration
 const databaseUrl = process.env.DATABASE_URL || 
   process.env.PG_CONNECTION_STRING ||
-  'postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale';
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 const pool = new Pool({
   connectionString: databaseUrl,
@@ -54,7 +54,7 @@ async function seedRSOAdmin() {
       nom: 'Administrateur',
       prenoms: 'RSO',
       email: 'admin@aspci.rso',
-      password: 'AdminRSO@2024', // Change this in production!
+      password: (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })()), // Change this in production!
       role: 'administrateur',
       statut: 'actif',
     };

@@ -23,7 +23,7 @@
 
 ### Étape 1: Configurer la Connexion à la Base de Données
 
-Si votre mot de passe PostgreSQL n'est pas `mysecretpassword`, configurez la variable d'environnement :
+Configurez la variable d'environnement :
 
 **Windows PowerShell:**
 ```powershell

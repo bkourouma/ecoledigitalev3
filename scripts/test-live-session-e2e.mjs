@@ -9,8 +9,8 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 const WEB = process.env.WEB || "http://localhost:3010";
-const TEACHER = { email: "koffi.nguessan.ci@example.com", password: "Password@2025" };
-const STUDENT = { email: "fabrice.kouadio.lprigla01@example.com", password: "?DbFJ3EkSmA9" };
+const TEACHER = { email: "koffi.nguessan.ci@example.com", password: (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })()) };
+const STUDENT = { email: "fabrice.kouadio.lprigla01@example.com", password: (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })()) };
 const SHOTS = "./e2e-screenshots";
 mkdirSync(SHOTS, { recursive: true });
 

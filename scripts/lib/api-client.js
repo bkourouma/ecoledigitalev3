@@ -29,9 +29,8 @@ function loadEnv() {
 loadEnv();
 
 const API_URL = process.env.API_URL || "http://localhost:4000";
-// Même défaut que verify-remuneration-031.js : deux valeurs différentes
-// donneraient un 401 selon le script utilisé.
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Passw0rd!admin";
+// Même variable que verify-remuneration-031.js : aucune valeur par défaut.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (() => { throw new Error("ADMIN_PASSWORD est requis"); })();
 
 /** Contexte du tenant : identifiants, slug, année académique. */
 async function resolveTenant(client, tenantSlug) {

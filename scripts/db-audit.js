@@ -13,23 +13,26 @@ const path = require('path');
 const API_BASE = process.env.API_URL || 'http://localhost:4000';
 const WEB_BASE = process.env.WEB_URL || 'http://localhost:3000';
 
+// Mot de passe commun des comptes de démonstration : à fournir par l'environnement (apps/api/.env ou shell).
+const SEED_PASSWORD = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
+
 // Test accounts
 const ACCOUNTS = {
   admin: {
     email: 'admin@imhotepacademy.fr',
-    password: 'Passw0rd!admin',
+    password: SEED_PASSWORD,
     tenant: 'imhotepacademy',
     role: 'admin'
   },
   teacher: {
     email: 'teacher@imhotepacademy.fr', // Need to find actual teacher account
-    password: 'Passw0rd!teacher',
+    password: SEED_PASSWORD,
     tenant: 'imhotepacademy',
     role: 'teacher'
   },
   student: {
     email: 'student@imhotepacademy.fr',
-    password: 'Passw0rd!student',
+    password: SEED_PASSWORD,
     tenant: 'imhotepacademy',
     role: 'student'
   }

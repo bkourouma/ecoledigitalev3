@@ -2,7 +2,7 @@ import { Client } from "pg";
 import bcrypt from "bcryptjs";
 
 const connectionString = process.env.DATABASE_URL ||
-  "postgresql://postgres:DevMick@2003@localhost:5432/dbecoledigitale";
+  (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 
 async function hashPassword(password: string): Promise<string> {
   return await bcrypt.hash(password, 12);
@@ -55,7 +55,7 @@ async function createParentUser() {
     // Create or update user
     console.log("\n👤 Creating/updating parent user...");
     const email = "mickael@imhotepacademy.ci";
-    const password = "Passw0rd!parent";
+    const password = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
     const firstName = "Mickael";
     const lastName = "";
     const name = firstName;

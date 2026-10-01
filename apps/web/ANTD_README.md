@@ -18,15 +18,7 @@ Ant Design a été installé avec succès dans le projet EcoleDigitale.
 - `src/components/academic/AntdCycleForm.tsx` - Formulaire de cycle avec Ant Design
 - `src/components/academic/AntdProgrammeForm.tsx` - Formulaire de programme avec Ant Design
 
-### 3. Page de test
-- `src/app/test-antd/page.tsx` - Page de démonstration des composants
-
 ## Utilisation
-
-### Accéder à la page de test :
-```
-http://localhost:3000/test-antd
-```
 
 ### Intégrer dans vos composants :
 
@@ -64,9 +56,8 @@ export default function MyPage() {
 
 ## Prochaines étapes
 
-1. Tester la page `/test-antd` pour voir les composants en action
-2. Remplacer progressivement les formulaires existants par les versions Ant Design
-3. Personnaliser davantage le thème selon vos besoins
+1. Remplacer progressivement les formulaires existants par les versions Ant Design
+2. Personnaliser davantage le thème selon vos besoins
 4. Ajouter d'autres composants Ant Design (tables, modales, etc.)
 
 ## Notes importantes

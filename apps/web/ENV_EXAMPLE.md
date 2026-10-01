@@ -22,7 +22,10 @@ API_BASE_URL=http://localhost:4000
 # AUTHENTICATION
 # =================================================================
 NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-secret-key-here-change-in-production
+# REQUIS en production (>= 32 caractères aléatoires) : le web refuse de démarrer sinon.
+# En développement, s'il est absent, un secret aléatoire est généré par process
+# (avertissement dans la console ; les sessions sautent au redémarrage).
+NEXTAUTH_SECRET=<secret-aleatoire-32-caracteres-minimum>
 
 # =================================================================
 # FEATURE FLAGS
@@ -33,6 +36,12 @@ NEXT_PUBLIC_DEMO_ACCOUNTS=
 # comptes techniques). Lu côté serveur, à l'exécution. Non renseigné : actif en
 # `next dev`, coupé en production. Ne JAMAIS mettre `true` sur un site public.
 SHOW_TECHNICAL_ACCOUNTS=
+# Mot de passe commun des comptes techniques (même valeur que côté API). Aucune
+# valeur par défaut : absent, le panneau liste les comptes sans mot de passe.
+TECHNICAL_ACCOUNT_PASSWORD=
+# Surcharges de comptes réels par tenant (JSON, lu côté serveur uniquement) :
+# {"mon-tenant":{"teacher":{"email":"prenom.nom@exemple.test","password":"<...>"}}}
+TECHNICAL_ACCOUNT_OVERRIDES=
 
 # =================================================================
 # RSO-PFSO ACTIVITIES MODULE (Phase 3)

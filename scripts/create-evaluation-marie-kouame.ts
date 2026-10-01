@@ -16,7 +16,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 const TENANT_SLUG = 'imhotepacademy';
 const TENANT_ID = '6eb9c106-b650-4398-b6fa-091b6828c4ba'; // UUID pour imhotepacademy
 const TEACHER_EMAIL = 'marie.kouame@imhotepacademy.ci';
-const TEACHER_PASSWORD = process.env.TEACHER_PASSWORD || 'Enseignant2025!'; // Mot de passe par défaut ou depuis .env
+const TEACHER_PASSWORD = process.env.TEACHER_PASSWORD || (() => { throw new Error("TEACHER_PASSWORD est requis"); })(); // Fourni par l'environnement (.env)
 
 interface Question {
   type: 'single_choice' | 'multiple_choice' | 'true_false' | 'short_text' | 'fill_blank';

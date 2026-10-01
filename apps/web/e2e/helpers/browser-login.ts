@@ -1,15 +1,17 @@
 import type { Page } from "@playwright/test";
 
 const DEFAULT_ADMIN_EMAIL = "admin@imhotepacademy.fr";
-const DEFAULT_ADMIN_PASSWORD = "Passw0rd!admin";
 
 /**
  * Connexion navigateur (page /login, NextAuth credentials + JWT en localStorage).
- * Identifiants : E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD ou valeurs seed Imhotep Academy.
+ * Identifiants : E2E_ADMIN_PASSWORD (obligatoire) et E2E_ADMIN_EMAIL (optionnel).
  */
 export async function loginAsAdmin(page: Page) {
   const email = process.env.E2E_ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL;
-  const password = process.env.E2E_ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
+  const password = process.env.E2E_ADMIN_PASSWORD;
+  if (!password) {
+    throw new Error("E2E_ADMIN_PASSWORD est requis (aucun mot de passe par défaut).");
+  }
 
   await page.goto("/login");
   await page.waitForLoadState("domcontentloaded");

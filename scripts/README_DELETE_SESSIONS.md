@@ -17,7 +17,7 @@ This PowerShell script provides a safe and controlled way to delete all sessions
 .\scripts\delete-all-sessions.ps1
 
 # Use explicit database URL
-.\scripts\delete-all-sessions.ps1 -DatabaseUrl "postgresql://postgres:password@localhost:5432/dbecoledigitale"
+.\scripts\delete-all-sessions.ps1 -DatabaseUrl "postgresql://postgres:<mot-de-passe>@localhost:5432/dbecoledigitale"
 ```
 
 ### Advanced Options
@@ -100,7 +100,7 @@ FINAL STATE:
 You can set `DATABASE_URL` environment variable instead of using `-DatabaseUrl`:
 
 ```powershell
-$env:DATABASE_URL = "postgresql://postgres:password@localhost:5432/dbecoledigitale"
+$env:DATABASE_URL = "postgresql://postgres:<mot-de-passe>@localhost:5432/dbecoledigitale"
 .\scripts\delete-all-sessions.ps1
 ```
 
@@ -108,7 +108,7 @@ $env:DATABASE_URL = "postgresql://postgres:password@localhost:5432/dbecoledigita
 
 ### Example 1: Preview deletion
 ```powershell
-PS> .\scripts\delete-all-sessions.ps1 -DatabaseUrl "postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale" -WhatIf
+PS> .\scripts\delete-all-sessions.ps1 -DatabaseUrl "postgresql://postgres:<mot-de-passe>@localhost:5432/dbecoledigitale" -WhatIf
 
 ============================================
 DELETE ALL SCHEDULE-RELATED SESSIONS
@@ -144,7 +144,7 @@ NOTICE:  DELETE COMPLETED
 
 ### Example 3: Delete everything
 ```powershell
-PS> .\scripts\delete-all-sessions.ps1 -DeleteAll -DatabaseUrl "postgresql://postgres:password@localhost:5432/dbecoledigitale"
+PS> .\scripts\delete-all-sessions.ps1 -DeleteAll -DatabaseUrl "postgresql://postgres:<mot-de-passe>@localhost:5432/dbecoledigitale"
 Mode: DELETE ALL (including generation requests)
 Are you sure you want to continue? (yes/no): yes
 ...
@@ -158,7 +158,7 @@ Common errors and solutions:
 **Solution**: Provide `-DatabaseUrl` or set `DATABASE_URL` environment variable
 
 ### Error: "Invalid database URL format"
-**Solution**: Use format: `postgresql://user:password@host:port/database`
+**Solution**: Use format: `postgresql://user:<mot-de-passe>@host:port/database`
 
 ### Error: "psql not found"
 **Solution**: Install PostgreSQL client tools or add to PATH

@@ -1,4 +1,6 @@
-import "dotenv/config";
+// Doit rester le premier import : charge .env puis valide l'environnement
+// (JWT_SECRET, DATABASE_URL…) et arrête le process si la configuration est invalide.
+import { env } from "./config/bootstrap-env";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
@@ -141,21 +143,10 @@ async function start() {
       credentials: true,
     });
 
-    // Load config
-    let dbConnectionString: string = process.env.DATABASE_URL || "";
-    
-    // If no environment variable, try to load from config file
-    if (!dbConnectionString) {
-      try {
-        const config = require('../config.js');
-        dbConnectionString = config.DATABASE_URL || "";
-        console.log('📝 Loaded DATABASE_URL from config.js');
-      } catch (err) {
-        dbConnectionString = "postgresql://postgres:DevMick%402003@localhost:5432/dbecoledigitale";
-        console.log('⚠️  Using default DATABASE_URL');
-      }
-    }
-    
+    // DATABASE_URL est validé (présent, schéma postgres) par config/env.ts :
+    // plus aucune URL par défaut ni fichier config.js.
+    const dbConnectionString: string = env.DATABASE_URL;
+
     console.log(`🔗 Connecting to database at: ${dbConnectionString.replace(/:[^:@]+@/, ':***@')}`);
     
     // Register PostgreSQL plugin

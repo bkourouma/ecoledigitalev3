@@ -9,7 +9,7 @@ import { Client } from "pg";
 import bcrypt from "bcryptjs";
 
 const TENANT_SLUG = "imhotepacademy";
-const PARENT_PASSWORD = "Passw0rd!par";
+const PARENT_PASSWORD = (process.env.SEED_PASSWORD || (() => { throw new Error("SEED_PASSWORD est requis (mot de passe des comptes de démonstration)"); })());
 
 /** E-mails étudiants (seed-students-lprigla-class-a), ordre = index 0..9 */
 const STUDENT_EMAILS = [

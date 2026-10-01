@@ -20,7 +20,7 @@ const TENANT_LOGIN = 'imhotepacademy';
 
 const TEACHER_EMAIL = 'koffi.nguessan.ci@example.com';
 const TEACHER_PASSWORD =
-  process.env.TEACHER_KOFFI_PASSWORD || 'VbVVr@Ejp88$';
+  process.env.TEACHER_KOFFI_PASSWORD || (() => { throw new Error("TEACHER_KOFFI_PASSWORD est requis"); })();
 
 type Auth = { token: string; userId: string };
 

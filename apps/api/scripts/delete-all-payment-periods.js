@@ -4,7 +4,7 @@
 
 const { Pool } = require('pg');
 
-const DEFAULT_CONN = process.env.DATABASE_URL || 'postgresql://postgres:mysecretpassword@localhost:5432/dbecoledigitale';
+const DEFAULT_CONN = process.env.DATABASE_URL || (() => { throw new Error("DATABASE_URL est requis (voir .env.example)"); })();
 const tenantSlug = process.argv[2] || 'imhotepacademy';
 
 async function resolveTenantId(client, slugOrCode) {
