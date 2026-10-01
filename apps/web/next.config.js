@@ -117,14 +117,6 @@ const nextConfig = {
         destination: '/api/v1/parents/:id', // Let Next.js API route handle it
       },
       {
-        source: '/api/v1/formations-pro/:id',
-        destination: '/api/v1/formations-pro/:id', // Let Next.js API route handle it
-      },
-      {
-        source: '/api/v1/formations-pro/:id/:path*',
-        destination: '/api/v1/formations-pro/:id/:path*', // Let Next.js API route handle nested routes
-      },
-      {
         source: '/api/v1/files/:path*',
         destination: '/api/v1/files/:path*', // Let Next.js file proxy route handle auth headers
       },

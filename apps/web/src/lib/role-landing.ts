@@ -13,7 +13,6 @@ export function routeForRole(role?: string): string {
   if (normalized === "teacher") return "/teacher/dashboard";
   if (normalized === "parent") return "/parent/children";
   if (normalized === "student") return "/student/courses";
-  if (normalized === "formateur") return "/formateur/dashboard";
   return "/tableau-de-bord";
 }
 
