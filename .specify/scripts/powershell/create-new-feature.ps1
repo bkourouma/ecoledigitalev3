@@ -174,7 +174,8 @@ $hasGit = Test-HasGit
 
 Set-Location $repoRoot
 
-$specsDir = Join-Path $repoRoot 'specs'
+# Specs directory is configurable: SPECIFY_SPECS_DIR env var > init-options.json "specs_dir" > "specs"
+$specsDir = Get-SpecsDir -RepoRoot $repoRoot
 if (-not $DryRun) {
     New-Item -ItemType Directory -Path $specsDir -Force | Out-Null
 }

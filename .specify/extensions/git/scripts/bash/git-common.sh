@@ -52,3 +52,24 @@ check_feature_branch() {
 
     return 0
 }
+
+# Resolve the specs directory (absolute path).
+# Priority: SPECIFY_SPECS_DIR env var > "specs_dir" in .specify/init-options.json > "specs".
+# Relative values are resolved against the repo root.
+get_specs_dir() {
+    local repo_root="$1"
+    local setting="specs"
+    if [ -n "${SPECIFY_SPECS_DIR:-}" ]; then
+        setting="$SPECIFY_SPECS_DIR"
+    elif [ -f "$repo_root/.specify/init-options.json" ]; then
+        local v
+        v=$(sed -n 's/.*"specs_dir"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$repo_root/.specify/init-options.json" | head -n 1 | tr -d '\r')
+        [ -n "$v" ] && setting="$v"
+    fi
+    setting="${setting//\\//}"   # backslashes -> slashes
+    setting="${setting%/}"       # no trailing slash
+    case "$setting" in
+        /*|[A-Za-z]:/*) printf '%s\n' "$setting" ;;
+        *) printf '%s\n' "$repo_root/$setting" ;;
+    esac
+}
