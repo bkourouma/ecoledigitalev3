@@ -1,6 +1,6 @@
 # ADR-003 — DSL des règles académiques (Rules Engine)
 
-- **Statut** : Accepté (à confirmer en revue d'architecture, cf. « Points à valider »)
+- **Statut** : Accepté (revue du 2026-10-01 : itérations bornées, statuts actifs et classement validés)
 - **Date** : 2026-10-01
 - **Décideurs** : équipe plateforme ; contexte : décision D5 du plan de mise en œuvre (§3.8), tâche 0.8 « Spike DSL »
 - **Preuves** : `packages/rules-engine/spike/` (code, résultats, README) ; implémentation `packages/rules-engine/`

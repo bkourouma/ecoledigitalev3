@@ -10,13 +10,12 @@ Un ADR n'est jamais réécrit après acceptation : on en ouvre un nouveau qui le
 |-----|-------|--------|
 | [ADR-001](ADR-001-modular-monolith.md) | Modular monolith : modules, manifeste, frontières | Accepté |
 | [ADR-002](ADR-002-tenancy-rls.md) | Multi-tenancy et Row-Level Security | Accepté |
-| ADR-003 | Langage de règles (DSL) du Rules Engine | en cours (spike DSL) |
+| [ADR-003](ADR-003-dsl-regles-academiques.md) | Langage de règles (DSL) du Rules Engine | Accepté |
 | [ADR-004](ADR-004-evenements-outbox.md) | Événements : transactional outbox, BullMQ/Redis, `apps/worker` | Accepté |
 | [ADR-005](ADR-005-acces-donnees-typage.md) | Accès aux données : `pg` + SQL et stratégie de typage | Proposé (spike d'une demi-journée) |
 | [ADR-006](ADR-006-schemas-par-module-reset-base.md) | Un schéma Postgres par module et reset de la base | Accepté |
 | [ADR-007](ADR-007-conventions.md) | Conventions : UUID, montants, dates, i18n, nommage | Accepté |
 
-ADR-003 – en cours (spike DSL).
 
 ## Statuts possibles
 
