@@ -30,11 +30,9 @@ export function createAcademicInvoiceFactsReader(finance: FinanceDeps): InvoiceF
 export function createAcademicRegistrationFeeProbe(finance: FinanceDeps, academic: AcademicDeps, clock: Clock): RegistrationFeeProbe {
   return {
     async registrationFeeDue(ctx: RequestContext, input) {
-      const [classroom, year, program] = await Promise.all([
-        getClassroomFacts(academic, ctx, input.classroomId),
-        getAcademicYear(academic, ctx, input.academicYearId),
-        getProgram(academic, ctx, input.programId),
-      ]);
+      const classroom = await getClassroomFacts(academic, ctx, input.classroomId);
+      const year = await getAcademicYear(academic, ctx, input.academicYearId);
+      const program = await getProgram(academic, ctx, input.programId);
       if (!classroom.ok || !year.ok || !program.ok) return null;
       const r = await isRegistrationFeeDue(finance, ctx, {
         academicYear: year.value.code,

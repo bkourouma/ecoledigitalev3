@@ -98,7 +98,8 @@ export function createHigherCreditsSource(results: ResultsDeps, academic: Academ
         if (header.status !== "FINAL") continue;
         for (const line of lines) {
           if (line.level !== "ECUE" || line.resitEligible !== true || !line.curriculumNodeId || !line.parentNodeId) continue;
-          const [ecueNodeId, ueNodeId] = await Promise.all([lineage(line.curriculumNodeId), lineage(line.parentNodeId)]);
+          const ecueNodeId = await lineage(line.curriculumNodeId);
+          const ueNodeId = await lineage(line.parentNodeId);
           if (!ecueNodeId || !ueNodeId) continue;
           const s1 = line.outputs?.note_s1;
           candidates.push({ enrollmentId: header.enrollmentId, studentId: header.studentId, ecueNodeId, ueNodeId, session1Average: typeof s1 === "string" ? s1 : line.value });

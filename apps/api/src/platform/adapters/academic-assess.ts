@@ -42,7 +42,8 @@ export function createAssessCurriculumPort(academic: AcademicDeps): AssessCurric
     },
     /** Le nœud fait partie de la version de curriculum de la classe (donc du programme suivi). */
     async nodeInClassroom(ctx: RequestContext, nodeId, classroomId) {
-      const [node, classroom] = await Promise.all([getCurriculumNode(academic, ctx, nodeId), getClassroom(academic, ctx, classroomId)]);
+      const node = await getCurriculumNode(academic, ctx, nodeId);
+      const classroom = await getClassroom(academic, ctx, classroomId);
       return node.ok && classroom.ok && classroom.value.curriculumVersionId !== null && node.value.versionId === classroom.value.curriculumVersionId;
     },
   };

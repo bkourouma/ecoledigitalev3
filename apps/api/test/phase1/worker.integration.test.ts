@@ -12,7 +12,7 @@ import { provisionTenant } from "../../src/modules/tenancy";
 import { setSubscription } from "../../src/modules/entitlements";
 import { describeIntegration } from "../helpers/fixtures";
 import { REDIS_URL, startPhase1Platform, waitFor, type Phase1Env } from "./support/harness";
-import { PASSWORD, loginPlain, loginWithMfaEnrollment, provisionByConsole, redeemInvitation, type ProvisionedOwner, type Session } from "./support/scenario";
+import { PASSWORD, loginPlain, loginWithMfaEnrollment, provisionByConsole, redeemInvitation, seedLearner, type ProvisionedOwner, type Session } from "./support/scenario";
 
 const EXPECTED_SUBSCRIBERS = [
   "audit.iam-impersonation-started",
@@ -48,6 +48,8 @@ describeIntegration.skipIf(!REDIS_URL)("worker assemblé avec les modules (abonn
     T = await provisionByConsole(p, { name: "Tenant Worker", slug: "workerco", packs: ["HIGHER"], ownerEmail: "owner@workerco.test" });
     await redeemInvitation(p, T.ownerEmail);
     owner = await loginWithMfaEnrollment(p, T.ownerEmail, T.slug);
+    // finance verifie l'apprenant dans people (adaptateurs de plateforme).
+    for (const id of ["0192f0a4-7b1e-7c3a-8d2e-00000000a001", "0192f0a4-7b1e-7c3a-8d2e-00000000a222"]) await seedLearner(p, T.tenantId, id);
   }, 240_000);
   afterAll(async () => {
     await p?.stop();

@@ -11,10 +11,10 @@ export function createPayrollCurriculumLabelPort(academic: AcademicDeps): Curric
     async getLabels(ctx: RequestContext, nodeIds): Promise<ReadonlyMap<string, CurriculumLabel>> {
       const unique = [...new Set(nodeIds)];
       const out = new Map<string, CurriculumLabel>();
-      const resolved = await Promise.all(unique.map((id) => getCurriculumNode(academic, ctx, id)));
-      resolved.forEach((r, i) => {
-        if (r.ok) out.set(unique[i] as string, { label: r.value.label, code: r.value.code });
-      });
+      for (const id of unique) {
+        const r = await getCurriculumNode(academic, ctx, id);
+        if (r.ok) out.set(id, { label: r.value.label, code: r.value.code });
+      }
       return out;
     },
   };

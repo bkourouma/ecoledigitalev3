@@ -63,7 +63,9 @@ export function createAttendanceRosterPort(academic: AcademicDeps): EnrollmentRo
       const r = await listEnrollmentsByStudent(academic, ctx, studentId);
       if (!r.ok) return [];
       const overlapping = r.value.filter((e) => ["ACTIVE", "COMPLETED"].includes(e.status) && e.enrolledOn <= window.to && (e.endedOn === null || e.endedOn >= window.from));
-      return Promise.all(overlapping.map((e) => enrollmentInfo(ctx, e)));
+      const out: EnrollmentInfo[] = [];
+      for (const e of overlapping) out.push(await enrollmentInfo(ctx, e));
+      return out;
     },
   };
 }

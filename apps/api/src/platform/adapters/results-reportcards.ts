@@ -62,7 +62,10 @@ export function fitDecimal(value: string | null, scale = 6): string | null {
   const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value.trim());
   if (!m) return null;
   const [, sign = "", int = "0", frac = ""] = m;
-  if (frac.length <= scale) return `${sign}${int.replace(/^0+(?=\d)/, "")}${frac ? `.${frac}` : ""}`;
+  if (frac.length <= scale) {
+    const f = frac.replace(/0+$/, "");
+    return `${sign}${int.replace(/^0+(?=\d)/, "")}${f ? `.${f}` : ""}`;
+  }
   const keep = frac.slice(0, scale);
   const roundUp = Number(frac[scale]) >= 5;
   let digits = BigInt(int + keep);
@@ -170,10 +173,8 @@ export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): Resu
 
   return {
     async getPeriodState(ctx, query): Promise<PeriodState | null> {
-      const [view, facts] = await Promise.all([
-        getPeriodView(results, ctx, { classroomId: query.classroomId, academicPeriodId: query.academicPeriodId, caps: READ }),
-        getClassroomFacts(academic, ctx, query.classroomId),
-      ]);
+      const view = await getPeriodView(results, ctx, { classroomId: query.classroomId, academicPeriodId: query.academicPeriodId, caps: READ });
+      const facts = await getClassroomFacts(academic, ctx, query.classroomId);
       if (!view.ok || !facts.ok) return null;
       const { state, closures, deliberations } = view.value;
       const closure = closures.find((c) => c.resultsVersion === state.resultsVersion) ?? closures[closures.length - 1];
@@ -194,10 +195,8 @@ export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): Resu
     },
 
     async listRoster(ctx, query): Promise<readonly RosterEntry[]> {
-      const [enrollments, matrix] = await Promise.all([
-        listClassroomEnrollments(academic, ctx, query.classroomId),
-        getClassMatrix(results, ctx, { classroomId: query.classroomId, academicPeriodId: query.academicPeriodId, caps: READ }),
-      ]);
+      const enrollments = await listClassroomEnrollments(academic, ctx, query.classroomId);
+      const matrix = await getClassMatrix(results, ctx, { classroomId: query.classroomId, academicPeriodId: query.academicPeriodId, caps: READ });
       if (!enrollments.ok) return [];
       const byEnrollment = new Map(matrix.ok ? matrix.value.rows.map((r) => [r.header.enrollmentId, r.header] as const) : []);
       return enrollments.value
@@ -267,14 +266,12 @@ export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): Resu
   }
 
   async function buildBundle(ctx: RequestContext, header: ResultHeader & { lines: LineRecord[] }, periodId: string): Promise<FinalResultBundle> {
-    const [state, facts, structure, studentR, enrollmentR, period] = await Promise.all([
-      getStateView(results, ctx, { stateId: header.stateId }),
-      getClassroomFacts(academic, ctx, header.classroomId),
-      structureOf(ctx, header),
-      getStudent(people, ctx, header.studentId, "FULL"),
-      getEnrollment(academic, ctx, header.enrollmentId),
-      getAcademicPeriod(academic, ctx, periodId),
-    ]);
+    const state = await getStateView(results, ctx, { stateId: header.stateId });
+    const facts = await getClassroomFacts(academic, ctx, header.classroomId);
+    const structure = await structureOf(ctx, header);
+    const studentR = await getStudent(people, ctx, header.studentId, "FULL");
+    const enrollmentR = await getEnrollment(academic, ctx, header.enrollmentId);
+    const period = await getAcademicPeriod(academic, ctx, periodId);
     const s = must(state);
     const f: ClassroomFacts | null = facts.ok ? facts.value : null;
     const student = studentR.ok ? studentR.value : null;

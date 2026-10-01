@@ -18,7 +18,8 @@ import { createAcademicScheduleConflictChecker, type SchedulingDeps } from "../.
 export function createAcademicUsageGuard(assess: AssessDeps, results: ResultsDeps): CurriculumUsageGuard {
   return {
     async isNodeInUse(ctx: RequestContext, nodeId) {
-      const [a, r] = await Promise.all([isCurriculumNodeInUse(assess, ctx, nodeId), isCurriculumNodeInResults(results, ctx, nodeId)]);
+      const a = await isCurriculumNodeInUse(assess, ctx, nodeId);
+      const r = await isCurriculumNodeInResults(results, ctx, nodeId);
       // Échec fermé : si l'une des deux lectures échoue, le nœud est réputé utilisé.
       return !a.ok || !r.ok || a.value || r.value;
     },
