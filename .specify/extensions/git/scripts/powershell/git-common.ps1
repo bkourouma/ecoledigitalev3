@@ -49,3 +49,29 @@ function Test-FeatureBranch {
     }
     return $true
 }
+
+# Specs directory (relative to the repo root, or absolute).
+# Priority: SPECIFY_SPECS_DIR env var > "specs_dir" in .specify/init-options.json > "specs".
+function Get-SpecsDir {
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+
+    $setting = 'specs'
+    if (-not [string]::IsNullOrWhiteSpace($env:SPECIFY_SPECS_DIR)) {
+        $setting = $env:SPECIFY_SPECS_DIR.Trim()
+    } else {
+        $opts = Join-Path (Join-Path $RepoRoot '.specify') 'init-options.json'
+        if (Test-Path -LiteralPath $opts -PathType Leaf) {
+            try {
+                $cfg = (Get-Content -LiteralPath $opts -Raw) | ConvertFrom-Json
+                $value = $cfg.specs_dir
+                if (($value -is [string]) -and (-not [string]::IsNullOrWhiteSpace($value))) {
+                    $setting = $value.Trim()
+                }
+            } catch { }
+        }
+    }
+    if (-not [System.IO.Path]::IsPathRooted($setting)) {
+        $setting = Join-Path $RepoRoot $setting
+    }
+    return [System.IO.Path]::GetFullPath($setting)
+}

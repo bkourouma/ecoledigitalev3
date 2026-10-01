@@ -221,7 +221,12 @@ if (Get-Command Test-HasGit -ErrorAction SilentlyContinue) {
 
 Set-Location $repoRoot
 
-$specsDir = Join-Path $repoRoot 'specs'
+# Specs directory is configurable: SPECIFY_SPECS_DIR env var > init-options.json "specs_dir" > "specs"
+if (Get-Command Get-SpecsDir -ErrorAction SilentlyContinue) {
+    $specsDir = Get-SpecsDir -RepoRoot $repoRoot
+} else {
+    $specsDir = Join-Path $repoRoot 'specs'
+}
 
 function Get-BranchName {
     param([string]$Description)

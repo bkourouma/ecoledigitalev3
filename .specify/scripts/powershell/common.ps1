@@ -48,6 +48,43 @@ function Get-RepoRoot {
     return (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "../../..")).Path
 }
 
+# Specs directory (relative to the repo root, or absolute).
+# Priority: SPECIFY_SPECS_DIR env var > "specs_dir" in .specify/init-options.json > "specs".
+function Get-SpecsDirSetting {
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+
+    if (-not [string]::IsNullOrWhiteSpace($env:SPECIFY_SPECS_DIR)) {
+        return $env:SPECIFY_SPECS_DIR.Trim()
+    }
+
+    $opts = Join-Path (Join-Path $RepoRoot '.specify') 'init-options.json'
+    if (Test-Path -LiteralPath $opts -PathType Leaf) {
+        try {
+            $cfg = (Get-Content -LiteralPath $opts -Raw) | ConvertFrom-Json
+            $value = $cfg.specs_dir
+            if (($value -is [string]) -and (-not [string]::IsNullOrWhiteSpace($value))) {
+                return $value.Trim()
+            }
+        } catch {
+            Write-Warning "[specify] Could not parse .specify/init-options.json; using default specs directory"
+        }
+    }
+
+    return 'specs'
+}
+
+# Absolute path of the specs directory (does not require it to exist).
+function Get-SpecsDir {
+    param([string]$RepoRoot)
+
+    if ([string]::IsNullOrEmpty($RepoRoot)) { $RepoRoot = Get-RepoRoot }
+    $setting = Get-SpecsDirSetting -RepoRoot $RepoRoot
+    if (-not [System.IO.Path]::IsPathRooted($setting)) {
+        $setting = Join-Path $RepoRoot $setting
+    }
+    return [System.IO.Path]::GetFullPath($setting)
+}
+
 function Get-CurrentBranch {
     # First check if SPECIFY_FEATURE environment variable is set
     if ($env:SPECIFY_FEATURE) {
@@ -68,8 +105,8 @@ function Get-CurrentBranch {
     }
 
     # For non-git repos, try to find the latest feature directory
-    $specsDir = Join-Path $repoRoot "specs"
-    
+    $specsDir = Get-SpecsDir -RepoRoot $repoRoot
+
     if (Test-Path $specsDir) {
         $latestFeature = ""
         $highest = 0
@@ -232,13 +269,13 @@ function Test-FeatureJsonMatchesFeatureDir {
     return [string]::Equals($normJson, $normActive, $comparison)
 }
 
-# Resolve specs/<feature-dir> by numeric/timestamp prefix (mirrors scripts/bash/common.sh find_feature_dir_by_prefix).
+# Resolve <specs-dir>/<feature-dir> (specs dir is configurable, see Get-SpecsDir) by numeric/timestamp prefix (mirrors scripts/bash/common.sh find_feature_dir_by_prefix).
 function Find-FeatureDirByPrefix {
     param(
         [Parameter(Mandatory = $true)][string]$RepoRoot,
         [Parameter(Mandatory = $true)][string]$Branch
     )
-    $specsDir = Join-Path $RepoRoot 'specs'
+    $specsDir = Get-SpecsDir -RepoRoot $RepoRoot
     $branchName = Get-SpecKitEffectiveBranchName $Branch
 
     $prefix = $null
