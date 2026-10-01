@@ -67,8 +67,11 @@ export function planTransition(input: {
 
 /* ------------------------- impact sur les décisions ------------------------- */
 
-/** Types de règle dont la sortie est une DÉCISION (passage, validation, redoublement…) : AC2.5. */
-export const DECISION_RULE_TYPES: readonly RuleType[] = Object.freeze(["promotion", "repetition", "orientation", "credit_validation"]);
+/**
+ * Types de règle dont la sortie est une DÉCISION (passage, validation, redoublement, note éliminatoire qui verrouille une UE…) :
+ * AC2.5. Les mentions, arrondis, rangs et moyennes ne sont pas des décisions.
+ */
+export const DECISION_RULE_TYPES: readonly RuleType[] = Object.freeze(["promotion", "repetition", "orientation", "credit_validation", "eliminatory_grade"]);
 
 export const isDecisionRule = (type: RuleType): boolean => DECISION_RULE_TYPES.includes(type);
 

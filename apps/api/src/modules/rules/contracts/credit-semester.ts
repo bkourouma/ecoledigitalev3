@@ -239,8 +239,8 @@ export const creditSemesterContract: RuleContract = Object.freeze({
   pipeline: Object.freeze([
     {
       stage: "ecue",
-      rules: [R.MOYENNE_DEVOIRS, R.NOTE_EXAMEN_RETENUE, R.SESSION_EXAMEN_RETENUE, R.NOTE_ECUE, R.NOTE_ECUE_DIRECTE],
-      description: "Pour chaque ECUE du semestre : moyenne des devoirs, examen retenu, note d'ECUE (ou saisie directe).",
+      rules: [R.NOTE_SUR_20, R.MOYENNE_DEVOIRS, R.NOTE_EXAMEN_RETENUE, R.SESSION_EXAMEN_RETENUE, R.NOTE_ECUE, R.NOTE_ECUE_DIRECTE],
+      description: "Pour chaque ECUE du semestre : notes ramenées sur 20, moyenne des devoirs, examen retenu, note d'ECUE (ou saisie directe).",
     },
     {
       stage: "ue",
