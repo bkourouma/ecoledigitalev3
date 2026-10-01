@@ -32,8 +32,10 @@ CREATE TABLE academic.classrooms (
   created_at             timestamptz NOT NULL DEFAULT now(),
   updated_at             timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, id),
-  UNIQUE (tenant_id, academic_year_id, program_id, grade_level_id, code),
-  UNIQUE (tenant_id, academic_year_id, program_id, grade_level_id, name),
+  -- Contraintes NOMMÉES : le nom auto-généré est tronqué à 63 caractères (…_key / …_key1) et ne dit plus quelle
+  -- colonne est en cause ; `mapDbError` distingue code / nom d'après ces noms.
+  CONSTRAINT classrooms_code_unique UNIQUE (tenant_id, academic_year_id, program_id, grade_level_id, code),
+  CONSTRAINT classrooms_name_unique UNIQUE (tenant_id, academic_year_id, program_id, grade_level_id, name),
   -- Une classe n'est active qu'avec un curriculum choisi (publié : contrôlé par le déclencheur).
   CHECK (status IN ('DRAFT', 'CANCELLED') OR curriculum_version_id IS NOT NULL),
   CHECK (starts_on IS NULL OR ends_on IS NULL OR ends_on >= starts_on),

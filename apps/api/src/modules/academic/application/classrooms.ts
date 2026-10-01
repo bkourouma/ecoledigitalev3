@@ -65,6 +65,10 @@ function classroomEventPayload(c: Classroom): Record<string, unknown> & { v: 1 }
 export async function createClassroom(deps: AcademicDeps, ctx: RequestContext, input: AcademicCreateClassroomBody): Promise<Result<Classroom, AppError>> {
   const scope = assertInstitutionScope(ctx, input.institutionId);
   if (!scope.ok) return scope;
+  // Même garde que createAcademicYear / createProgram : un établissement inconnu est « introuvable », pas une
+  // incohérence année/établissement.
+  const info = await deps.ports.institutions.getInstitution(ctx, input.institutionId);
+  if (!info) return err(notFound(AcademicCode.INSTITUTION_NOT_FOUND, "Établissement", input.institutionId));
   return inTx(deps, ctx, async (tx) => {
     const year = await cal.getYear(tx, input.academicYearId);
     if (!year || year.institutionId !== input.institutionId) {

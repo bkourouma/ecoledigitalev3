@@ -56,7 +56,13 @@ describeIntegration("classes, offres et inscriptions (Postgres réel)", () => {
       const m2 = grades.find((g) => g.code === "M2")!;
       const base = { institutionId: w.institutionId, academicYearId: s.yearId, programId: s.programId, gradeLevelId: s.gradeLevelId, code: "B", name: "B" };
       expect(codeOf(await createClassroom(w.deps, w.ctx, { ...base, gradeLevelId: m2.id }))).toBe("academic.classroom_level_not_in_program");
-      expect(codeOf(await createClassroom(w.deps, w.ctx, { ...base, institutionId: newId() }))).toBe("academic.institution_not_found");
+      // un établissement que l'annuaire ne connaît pas est introuvable (et non « année d'un autre établissement »)
+      const known = await w.deps.ports.institutions.getInstitution(w.ctx, w.institutionId);
+      const directory = { getInstitution: async (_c: unknown, id: string) => (id === w.institutionId ? known : null) };
+      const strictDeps = { ...w.deps, ports: { ...w.deps.ports, institutions: directory } } as typeof w.deps;
+      expect(codeOf(await createClassroom(strictDeps, w.ctx, { ...base, institutionId: newId() }))).toBe("academic.institution_not_found");
+      // année d'un autre établissement (établissement connu)
+      expect(codeOf(await createClassroom(w.deps, w.ctx, { ...base, institutionId: newId() }))).toBe("academic.classroom_year_institution");
       expect(codeOf(await createClassroom(w.deps, w.ctx, { ...base, curriculumVersionId: newId() }))).toBe("academic.curriculum_not_found");
       const draftClass = unwrap(await createClassroom(w.deps, w.ctx, base));
       expect(draftClass).toMatchObject({ status: "DRAFT", curriculumVersionId: null, capacityIsHard: true, enrolledCount: 0 });
@@ -76,7 +82,8 @@ describeIntegration("classes, offres et inscriptions (Postgres réel)", () => {
       const list = unwrap(await listClassrooms(w.deps, w.ctx, { academicYearId: s.yearId, pageSize: 1 }));
       expect(list).toMatchObject({ total: 2, pageSize: 1, page: 1 });
       expect(list.items).toHaveLength(1);
-      expect((await eventsOf(w, "academic.classroom.created")).length).toBe(4);
+      // classe du jeu d'essai + brouillon « B » + « C2 » (année 2) ; les refus n'émettent rien
+      expect((await eventsOf(w, "academic.classroom.created")).length).toBe(3);
       await assertEventsValid(w);
     });
     it("cycle : activer, terminer, rouvrir ; annuler exige un motif et l'absence d'inscrits vivants ; modification de capacité contrôlée", async () => {
@@ -132,10 +139,12 @@ describeIntegration("classes, offres et inscriptions (Postgres réel)", () => {
       const bare = unwrap(await createClassroom(w.deps, w.ctx, { institutionId: w.institutionId, academicYearId: s.yearId, programId: s.programId, gradeLevelId: s.gradeLevelId, code: "NUE", name: "Nue" }));
       const body = { periodNodeId: s.periodNodeId, startsOn: todayOf(w), endsOn: addDays(todayOf(w), 30) };
       expect(codeOf(await openOfferingsForPeriod(w.deps, w.ctx, bare.id, body))).toBe("academic.classroom_curriculum_required");
-      const dates = { label: "x", startsOn: body.startsOn, endsOn: body.endsOn };
+      const dates = { startsOn: body.startsOn, endsOn: body.endsOn };
       expect(codeOf(await createOffering(w.deps, w.ctx, s.classroomId, { ...dates, curriculumNodeId: s.ue1.ecueIds[0]! }))).toBe("academic.offering_node_not_enrollable");
       expect(codeOf(await createOffering(w.deps, w.ctx, s.classroomId, { ...dates, curriculumNodeId: newId() }))).toBe("academic.offering_node_not_in_curriculum");
+      // sans libellé : celui du nœud ; avec libellé : celui qui est fourni
       expect(unwrap(await createOffering(w.deps, w.ctx, s.classroomId, { ...dates, curriculumNodeId: s.ue1.id })).label).toBe("UE UE1");
+      expect(unwrap(await createOffering(w.deps, w.ctx, s.classroomId, { ...dates, label: "x", curriculumNodeId: s.ue2.id })).label).toBe("x");
       expect(codeOf(await createOffering(w.deps, w.ctx, s.classroomId, { ...dates, curriculumNodeId: s.ue1.id }))).toBe("academic.offering_exists");
     });
     it("OfferingReadinessGuard : même garde pour TOUS les chemins d'ouverture (bug legacy P-010), tout ou rien", async () => {
@@ -182,9 +191,9 @@ describeIntegration("classes, offres et inscriptions (Postgres réel)", () => {
       expect(codeOf(await updateOffering(w.deps, w.ctx, o1!.id, { label: "x" }))).toBe("academic.offering_closed");
       // réouverture motivée : CANCELLED -> DRAFT
       expect(codeOf(await reopenOffering(w.deps, w.ctx, o1!.id, { reason: "ok", endsOn: addDays(todayOf(w), 30) }))).toBe("academic.enrollment_reason_required");
+      expect(codeOf(await reopenOffering(w.deps, w.ctx, o1!.id, { reason: "Hors année volontaire", endsOn: "2999-01-01" }))).toBe("academic.offering_outside_year");
       expect(unwrap(await reopenOffering(w.deps, w.ctx, o1!.id, { reason: "Effectif atteint finalement", endsOn: addDays(todayOf(w), 40) }))).toMatchObject({ status: "DRAFT", endsOn: addDays(todayOf(w), 40) });
       expect(codeOf(await reopenOffering(w.deps, w.ctx, o1!.id, { reason: "Pas terminée du tout", endsOn: addDays(todayOf(w), 40) }))).toBe("academic.offering_transition");
-      expect(codeOf(await reopenOffering(w.deps, w.ctx, o1!.id, { reason: "Hors année volontaire", endsOn: "2999-01-01" }))).toBe("academic.offering_outside_year");
       await assertEventsValid(w);
     });
     it("finalizeEndedOfferings : OPEN/FULL/IN_PROGRESS échues -> COMPLETED ; JAMAIS DRAFT ni CANCELLED ; date civile de l'établissement", async () => {
@@ -297,7 +306,7 @@ describeIntegration("classes, offres et inscriptions (Postgres réel)", () => {
       expect(active).toMatchObject({ status: "ACTIVE" });
       expect(active.confirmedAt).not.toBeNull();
       expect(codeOf(await t("confirm"))).toBe("academic.enrollment_transition");
-      expect(codeOf(await t("suspend", "court"))).toBe("academic.enrollment_reason_required");
+      expect(codeOf(await t("suspend", "bref"))).toBe("academic.enrollment_reason_required");
       expect(unwrap(await t("suspend", "Impayé de la scolarité en cours")).status).toBe("SUSPENDED");
       expect(unwrap(await t("resume")).status).toBe("ACTIVE");
       expect(unwrap(await t("complete")).endedOn).toBe(todayOf(w));
@@ -429,8 +438,10 @@ describeIntegration("classes, offres et inscriptions (Postgres réel)", () => {
       const noSeq = addStudent(w, { sequenceNumber: null });
       expect(codeOf(await enrollStudent(w.deps, w.ctx, { studentId: noSeq.studentId, classroomId: s.classroomId }))).toBe("academic.registration_sequence_missing");
       // sans motif configuré : pas de numéro
+      // (le pack « enseignement supérieur » en fournit un par défaut : on le retire explicitement)
       const w2 = await newWorld();
       const s2 = await seedHigher(w2);
+      unwrap(await updateAcademicSettings(w2.deps, w2.ctx, w2.institutionId, { registrationNumberPattern: null }));
       expect(unwrap(await enrollStudent(w2.deps, w2.ctx, { studentId: addStudent(w2).studentId, classroomId: s2.classroomId })).registrationNumber).toBeNull();
     });
     it("50 inscriptions CONCURRENTES de 50 apprenants : 50 numéros distincts et contigus ; même apprenant en parallèle : un seul numéro", async () => {
@@ -465,7 +476,10 @@ describeIntegration("classes, offres et inscriptions (Postgres réel)", () => {
       const refused = results.filter((r) => !r.ok);
       expect(ok).toHaveLength(100);
       expect(refused).toHaveLength(100);
-      expect(refused.every((r) => !r.ok && r.error.code === "academic.classroom_full" && r.error.httpStatus === 409)).toBe(true);
+      // distribution des refus : un autre code (interblocage, doublon de numéro…) est un défaut, pas du bruit
+      const refusals: Record<string, number> = {};
+      for (const r of refused) if (!r.ok) refusals[`${r.error.code}/${r.error.httpStatus}`] = (refusals[`${r.error.code}/${r.error.httpStatus}`] ?? 0) + 1;
+      expect(refusals).toEqual({ "academic.classroom_full/409": 100 });
       const live = await adminOne<{ n: number }>(db, "SELECT count(*)::int n FROM academic.enrollments WHERE classroom_id = $1 AND status IN ('PENDING','ACTIVE','SUSPENDED')", [s.classroomId]);
       expect(live.n).toBe(100);
       expect(unwrap(await getClassroom(w.deps, w.ctx, s.classroomId)).enrolledCount).toBe(100);

@@ -77,7 +77,7 @@ export function mapDbError(e: unknown): AppError | null {
       const constraint = pg.constraint ?? "";
       for (const [re, code, text] of UNIQUE_BY_CONSTRAINT) if (re.test(constraint)) return conflict(code, text);
       if (pg.table === "classrooms") {
-        return /name/.test(constraint)
+        return /classrooms_name_unique/.test(constraint)
           ? conflict(AcademicCode.CLASSROOM_NAME_TAKEN, "Ce nom de classe existe déjà pour ce programme et ce niveau.")
           : conflict(AcademicCode.CLASSROOM_CODE_TAKEN, "Ce code de classe existe déjà pour ce programme et ce niveau.");
       }

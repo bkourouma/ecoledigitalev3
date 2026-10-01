@@ -60,9 +60,17 @@ export async function createNextYear(w: World, afterEndsOn: string, code: string
   return unwrap(await createAcademicYear(w.deps, w.ctx, { institutionId: w.institutionId, code, label: code, startsOn: addDays(afterEndsOn, 1) }));
 }
 
+/**
+ * Numéros d'ordre des dossiers (spec 008) : UNIQUES par établissement, donc jamais tirés au hasard — un tirage dans
+ * [1, 90 000] fait collisionner deux élèves de 200 (anniversaire, ≈ 20 %), donc deux numéros d'inscription égaux
+ * (`academic.registration_number_conflict`) : un test intermittent dont la cause est la donnée, pas le module.
+ * Départ à 100 000 pour ne jamais heurter les numéros explicites (`sequenceNumber: 7`…).
+ */
+let nextStudentSequence = 100_000;
+
 export function addStudent(w: World, overrides: Partial<StudentSummary> = {}, userId?: string): StudentSummary {
   const id = overrides.studentId ?? newId();
-  const s: StudentSummary = { studentId: id, status: "ACTIVE", displayName: `Élève ${id.slice(-4)}`, studentNumber: null, sequenceNumber: Math.floor(Math.random() * 90_000) + 1, ...overrides };
+  const s: StudentSummary = { studentId: id, status: "ACTIVE", displayName: `Élève ${id.slice(-4)}`, studentNumber: null, sequenceNumber: (nextStudentSequence += 1), ...overrides };
   w.students.add(s, userId);
   return s;
 }
