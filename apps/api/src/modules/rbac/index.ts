@@ -105,8 +105,26 @@ export {
   type LegacyPermissionResult,
 } from "./domain/legacy";
 
+// Use cases (provisioning : attribuer `owner` au fondateur ; scripts d'administration)
+export {
+  assignRoleUseCase,
+  revokeAssignmentUseCase,
+  updateAssignmentUseCase,
+  listAssignmentsUseCase,
+  type AssignRoleInput,
+} from "./application/assignments";
+export {
+  createRoleUseCase,
+  cloneRoleUseCase,
+  updateRoleUseCase,
+  deleteRoleUseCase,
+  getRoleUseCase,
+  listRolesUseCase,
+  type RoleDetail,
+} from "./application/roles";
+
 // Ports
-export { noopAudit, type AuditPort, type AuditEntry, type EntitlementsPort } from "./application/ports";
+export { noopAudit, type AuditPort, type AuditEntry, type EntitlementsPort, type UseCaseDeps } from "./application/ports";
 
 // Événements
 export {

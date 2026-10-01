@@ -36,7 +36,7 @@ import {
 } from "../infrastructure/repository";
 import { loadPermissionCatalog } from "./catalog";
 import type { UseCaseDeps } from "./ports";
-import { audit, authorizeActor, err, ok, publish } from "./support";
+import { audit, authorizeActor, err, invalid, ok, publish } from "./support";
 
 type R<T> = Promise<Result<T, AppError>>;
 
@@ -51,10 +51,10 @@ export interface AssignRoleInput {
 
 function checkValidity(validFrom: Date | null, validUntil: Date | null, now: Date, requireFuture: boolean): ValidationError | null {
   if (validFrom && validUntil && validUntil.getTime() <= validFrom.getTime()) {
-    return ValidationError.field("validUntil", "La fin de validité doit suivre le début.", "rbac.invalid_validity");
+    return invalid("validUntil", "La fin de validité doit suivre le début.", "rbac.invalid_validity");
   }
   if (requireFuture && validUntil && validUntil.getTime() <= now.getTime()) {
-    return ValidationError.field("validUntil", "La fin de validité est déjà passée.", "rbac.invalid_validity");
+    return invalid("validUntil", "La fin de validité est déjà passée.", "rbac.invalid_validity");
   }
   return null;
 }
@@ -111,7 +111,7 @@ export async function assignRoleUseCase(deps: UseCaseDeps, ctx: RequestContext, 
 
   if (deps.scopeTree?.knows && !deps.scopeTree.knows(input.scope)) {
     return err(
-      ValidationError.field("scope", "Ce périmètre n'existe pas dans cette organisation.", "rbac.unknown_scope"),
+      invalid("scope", "Ce périmètre n'existe pas dans cette organisation.", "rbac.unknown_scope"),
     );
   }
 

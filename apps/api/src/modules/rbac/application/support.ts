@@ -3,6 +3,7 @@
  */
 import {
   ForbiddenError,
+  ValidationError,
   createDomainEvent,
   err,
   ok,
@@ -76,4 +77,9 @@ export async function audit(
     requestId: ctx.requestId,
     ...entry,
   });
+}
+
+/** Erreur de validation à code stable (rbac.*) : le code sert aux clients, le message à l'humain. */
+export function invalid(path: string, message: string, code: string): ValidationError {
+  return new ValidationError(message, [{ path: [path], message, code }], { code });
 }

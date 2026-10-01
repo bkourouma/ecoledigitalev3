@@ -42,7 +42,7 @@ import {
 import { isReservedRoleKey } from "../templates/system-roles";
 import { loadPermissionCatalog } from "./catalog";
 import type { UseCaseDeps } from "./ports";
-import { audit, authorizeActor, err, ok, publish } from "./support";
+import { audit, authorizeActor, err, invalid, ok, publish } from "./support";
 
 export interface RoleDetail {
   readonly role: RoleRow;
@@ -59,7 +59,7 @@ const LABEL_MAX = 120;
 
 function validateLabel(label: unknown): ValidationError | null {
   if (typeof label !== "string" || label.trim().length === 0 || label.trim().length > LABEL_MAX) {
-    return ValidationError.field("label", `Le libellé est obligatoire (1 à ${LABEL_MAX} caractères).`, "rbac.invalid_label");
+    return invalid("label", `Le libellé est obligatoire (1 à ${LABEL_MAX} caractères).`, "rbac.invalid_label");
   }
   return null;
 }
@@ -100,11 +100,11 @@ async function chooseKey(
   if (explicitKey !== undefined) {
     if (!ROLE_KEY_RE.test(explicitKey)) {
       return err(
-        ValidationError.field("key", "La clé doit être en minuscules, chiffres et « _ » (2 à 63 caractères).", "rbac.invalid_key"),
+        invalid("key", "La clé doit être en minuscules, chiffres et « _ » (2 à 63 caractères).", "rbac.invalid_key"),
       );
     }
     if (isReservedRoleKey(explicitKey)) {
-      return err(ValidationError.field("key", `La clé "${explicitKey}" est réservée à un modèle système.`, "rbac.role_key_reserved"));
+      return err(invalid("key", `La clé "${explicitKey}" est réservée à un modèle système.`, "rbac.role_key_reserved"));
     }
     if (await findRoleByKey(deps.tx, tenantId, explicitKey)) {
       return err(new ConflictError(`Un rôle "${explicitKey}" existe déjà.`, { code: "rbac.role_key_taken", details: { key: explicitKey } }));
