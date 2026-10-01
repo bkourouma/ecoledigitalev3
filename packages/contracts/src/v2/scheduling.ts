@@ -616,20 +616,38 @@ export const schedulingSettingsDtoSchema = z.object({
 export const schedulingOccurrenceEventSchema = z
   .object({
     v: z.literal(1),
-    occurrenceId: z.string(),
+    occurrenceId: schedulingUuidSchema,
     kind: schedulingOccurrenceKindSchema,
-    classroomId: z.string().nullable(),
-    offeringId: z.string().nullable(),
-    curriculumNodeId: z.string().nullable(),
-    roomId: z.string().nullable(),
+    classroomId: schedulingUuidSchema.nullable(),
+    offeringId: schedulingUuidSchema.nullable(),
+    curriculumNodeId: schedulingUuidSchema.nullable(),
+    roomId: schedulingUuidSchema.nullable(),
     startsAt: z.string(),
     endsAt: z.string(),
     occursOn: z.string(),
     status: schedulingOccurrenceStatusSchema,
-    staffIds: z.array(z.string()),
+    staffIds: z.array(schedulingUuidSchema),
   })
   .passthrough();
 export const schedulingReplacementNeededEventSchema = z
-  .object({ v: z.literal(1), occurrenceId: z.string(), reason: z.string(), occursOn: z.string() })
+  .object({ v: z.literal(1), occurrenceId: schedulingUuidSchema, reason: z.string(), occursOn: z.string() })
   .passthrough();
 export const schedulingHoursLockedEventSchema = z.object({ v: z.literal(1), lockRef: z.string(), lines: z.number().int() });
+/** `scheduling.occurrence.paid_minutes_changed` : minutes payées d'un intervenant sur une séance (consommé par payroll). */
+export const schedulingPaidMinutesChangedEventSchema = z.object({ v: z.literal(1), occurrenceId: z.string().uuid(), staffId: z.string().uuid(), minutes: z.number().int() }).passthrough();
+
+/**
+ * Schéma de charge utile des événements PUBLIÉS par scheduling consommés par d'autres modules (attendance, payroll),
+ * plus les événements de séance qui partagent la même forme (`occurrenceEventPayload`). Additif.
+ */
+export const schedulingEventPayloadSchemas = {
+  "scheduling.occurrence.created": schedulingOccurrenceEventSchema,
+  "scheduling.occurrence.rescheduled": schedulingOccurrenceEventSchema,
+  "scheduling.occurrence.held": schedulingOccurrenceEventSchema,
+  "scheduling.occurrence.cancelled": schedulingOccurrenceEventSchema,
+  "scheduling.occurrence.validated": schedulingOccurrenceEventSchema,
+  "scheduling.occurrence.unvalidated": schedulingOccurrenceEventSchema,
+  "scheduling.occurrence.paid_minutes_changed": schedulingPaidMinutesChangedEventSchema,
+  "scheduling.occurrence.replacement_needed": schedulingReplacementNeededEventSchema,
+  "scheduling.hours.locked": schedulingHoursLockedEventSchema,
+} as const;

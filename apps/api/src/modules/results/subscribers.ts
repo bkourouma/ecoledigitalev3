@@ -11,12 +11,13 @@
  *  - `results.note-binding-change`            `rules.binding.changed` -> AUCUN recalcul (publier une règle ne recalcule rien, A-13) ;
  *                                             l'alerte « retard de version de règle » se lit dans la vue de période
  *
- * Les formes de payload des événements d'`academic` sont des hypothèses de travail (lues avec tolérance). Idempotents
+ * Les formes de payload d'`assess`, `academic` et `rules` sont celles de leurs producteurs (lecteurs de `application/consumers.ts`, test de contrat `apps/api/test/events-contracts/results.test.ts`). Idempotents
  * (`idempotent()` : marque « traité » dans la transaction de l'effet).
  */
 import { defineSubscriber, idempotent, type EventHandlerContext, type SubscriberDefinition } from "@ecoledigitale/worker/sdk";
-import { createSystemContext, isUuid } from "@ecoledigitale/kernel";
+import { createSystemContext } from "@ecoledigitale/kernel";
 import { audit, configureAuditFromEnv } from "../audit";
+import { readEnrollmentEvent, readGradeEvent } from "./application/consumers";
 import { createResultsDeps, type ResultsDeps } from "./application/deps";
 import { requestRecompute, requestRecomputeForClassroom } from "./application/recompute";
 import { ConsumedEvents } from "./domain/events";
@@ -31,15 +32,6 @@ function defaultDepsOf(ctx: EventHandlerContext): ResultsDeps {
   return createResultsDeps({ db: ctx.tenantDb, logger: ctx.logger, audit: { record: (tx, entry) => audit.record(tx, entry as Parameters<typeof audit.record>[1]) } });
 }
 
-function pick(payload: unknown, ...keys: string[]): string | undefined {
-  if (!payload || typeof payload !== "object") return undefined;
-  for (const k of keys) {
-    const v = (payload as Record<string, unknown>)[k];
-    if (typeof v === "string" && isUuid(v)) return v;
-  }
-  return undefined;
-}
-
 export function buildSubscribers(depsOf: (ctx: EventHandlerContext) => ResultsDeps): SubscriberDefinition[] {
   const gradeEvent = (name: string, type: string, listsEnrollments: boolean): SubscriberDefinition =>
     defineSubscriber({
@@ -47,15 +39,12 @@ export function buildSubscribers(depsOf: (ctx: EventHandlerContext) => ResultsDe
       pattern: type,
       retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
       handler: idempotent(name, async (event, ctx, tx) => {
-        const classroomId = pick(event.payload, "classroomId");
-        const periodId = pick(event.payload, "academicPeriodId", "periodId");
-        if (!classroomId || !periodId) return ctx.logger.warn({ eventId: event.id }, "results : classe ou période absente du payload");
-        const ids = listsEnrollments && Array.isArray((event.payload as { enrollmentIds?: unknown }).enrollmentIds) ? ((event.payload as { enrollmentIds: unknown[] }).enrollmentIds.filter((x): x is string => typeof x === "string" && isUuid(x))) : undefined;
-        const enrollmentId = pick(event.payload, "enrollmentId");
+        const ref = readGradeEvent(event.payload, listsEnrollments);
+        if (!ref) return ctx.logger.warn({ eventId: event.id }, "results : classe ou période absente du payload");
         const r = await requestRecompute(depsOf(ctx), createSystemContext(ctx.tenantId), {
-          classroomId,
-          academicPeriodId: periodId,
-          enrollmentIds: ids ?? (enrollmentId ? [enrollmentId] : undefined),
+          classroomId: ref.classroomId,
+          academicPeriodId: ref.academicPeriodId,
+          enrollmentIds: ref.enrollmentIds,
           cause: { event: event.type, id: event.id },
           tx, // la marque « traité » et la demande de recalcul sont atomiques
         });
@@ -70,13 +59,11 @@ export function buildSubscribers(depsOf: (ctx: EventHandlerContext) => ResultsDe
       pattern: type,
       retry: { attempts: 5, backoffMs: 1_000, maxBackoffMs: 60_000 },
       handler: idempotent(name, async (event, ctx, tx) => {
-        const classroomId = pick(event.payload, "classroomId", "toClassroomId", "fromClassroomId");
-        if (!classroomId) return ctx.logger.warn({ eventId: event.id }, "results : classe absente du payload d'inscription");
-        const from = pick(event.payload, "fromClassroomId");
-        const enrollmentId = pick(event.payload, "enrollmentId", "id");
+        const ref = readEnrollmentEvent(event.payload);
+        if (!ref) return ctx.logger.warn({ eventId: event.id }, "results : classe absente du payload d'inscription");
         const deps = depsOf(ctx);
-        for (const room of new Set([classroomId, ...(from ? [from] : [])])) {
-          const r = await requestRecomputeForClassroom(deps, createSystemContext(ctx.tenantId), { classroomId: room, enrollmentId, cause: { event: event.type, id: event.id }, tx });
+        for (const room of ref.classroomIds) {
+          const r = await requestRecomputeForClassroom(deps, createSystemContext(ctx.tenantId), { classroomId: room, enrollmentId: ref.enrollmentId, cause: { event: event.type, id: event.id }, tx });
           if (!r.ok) throw r.error;
         }
       }),

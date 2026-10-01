@@ -3,7 +3,7 @@
  * idempotente et tourne sous un contexte `system` ; elle n'utilise AUCUN port d'un autre module (le worker n'en a pas) :
  * seules les données du module servent (fenêtres de période mémorisées dans `period_summaries`).
  */
-import { createSystemContext, ok, unwrap, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
+import { createSystemContext, isUuid, ok, unwrap, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import type { ForEachTenantReport, SystemDb } from "@ecoledigitale/database";
 import { AttendanceCode } from "../domain/errors";
 import type { Uuid } from "../domain/types";
@@ -13,6 +13,35 @@ import { EventBuffer, inTx, type AttendanceDeps } from "./deps";
 import { instantiateAttendancePack } from "./reference";
 import { cancelSessionInTx } from "./sessions";
 import { recomputeAffected, refreshStaleSummaries } from "./summaries";
+
+// ---------------------------------------------------------------------------
+// Lecteurs purs des charges consommées (alignés sur les schémas des producteurs ; testés par
+// `apps/api/test/events-contracts/attendance.test.ts`)
+// ---------------------------------------------------------------------------
+
+function uuidField(payload: unknown, key: string): Uuid | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+  const v = (payload as Record<string, unknown>)[key];
+  return typeof v === "string" && isUuid(v) ? v : undefined;
+}
+
+/** `scheduling.occurrence.cancelled` : la séance annulée (`occurrenceId`). */
+export const readCancelledOccurrenceId = (payload: unknown): Uuid | undefined => uuidField(payload, "occurrenceId");
+
+/** `academic.enrollment.withdrawn|cancelled|transferred` : l'inscription concernée (`enrollmentId`). */
+export const readChangedEnrollmentId = (payload: unknown): Uuid | undefined => uuidField(payload, "enrollmentId");
+
+/** `academic.period.closed|reopened` : la période concernée (`periodId`). */
+export const readChangedPeriodId = (payload: unknown): Uuid | undefined => uuidField(payload, "periodId");
+
+/** `tenancy.tenant.provisioned` : établissements créés (`institutionIds`) ; `institutionId` reste toléré pour un événement unitaire. */
+export function readProvisionedInstitutionIds(payload: unknown): Uuid[] {
+  const p = (payload && typeof payload === "object" ? payload : {}) as { institutionId?: unknown; institutionIds?: unknown };
+  return [
+    ...(typeof p.institutionId === "string" && isUuid(p.institutionId) ? [p.institutionId] : []),
+    ...(Array.isArray(p.institutionIds) ? p.institutionIds.filter((x): x is string => typeof x === "string" && isUuid(x)) : []),
+  ];
+}
 
 /**
  * `scheduling.occurrence.cancelled` : l'appel non validé est annulé ; un appel déjà VALIDÉ est annulé par réouverture

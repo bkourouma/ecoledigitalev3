@@ -228,3 +228,37 @@ export const rbacNavigationResponseSchema = z.object({
   availablePortals: z.array(rbacPortalSchema),
 });
 export type RbacNavigationResponse = z.infer<typeof rbacNavigationResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Événements publiés (outbox, payload `{ v: 1, … }`) — alignés sur `modules/rbac/domain/events.ts`
+// ---------------------------------------------------------------------------
+
+export const rbacRoleChangedPayloadSchema = z.object({
+  v: z.literal(1),
+  change: z.enum(["created", "cloned", "updated", "deleted", "resynced"]),
+  roleId: rbacUuidSchema,
+  roleKey: z.string(),
+  isSystem: z.boolean(),
+  label: z.string().optional(),
+  addedPermissions: z.array(z.string()).optional(),
+  removedPermissions: z.array(z.string()).optional(),
+  clonedFromRoleId: rbacUuidSchema.optional(),
+});
+
+export const rbacAssignmentChangedPayloadSchema = z.object({
+  v: z.literal(1),
+  change: z.enum(["granted", "updated", "revoked"]),
+  assignmentId: rbacUuidSchema,
+  userId: rbacUuidSchema,
+  roleId: rbacUuidSchema,
+  roleKey: z.string(),
+  scope: z.object({ type: z.enum(["tenant", "institution", "campus"]), id: rbacUuidSchema.nullable() }),
+  validFrom: z.string().nullable(),
+  validUntil: z.string().nullable(),
+});
+
+/** Schéma de charge utile de chaque événement PUBLIÉ par rbac (validé par les tests de contrat). */
+export const rbacEventPayloadSchemas = {
+  "rbac.role.changed": rbacRoleChangedPayloadSchema,
+  "rbac.assignment.changed": rbacAssignmentChangedPayloadSchema,
+} as const;

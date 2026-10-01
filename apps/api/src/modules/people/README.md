@@ -67,7 +67,7 @@ Consommés (`subscribers.ts`, idempotents, insensibles à l'ordre) :
 | `people.project-membership` | `iam.membership.created\|changed` | projection des accès (`identity_memberships`) |
 | `people.instantiate-reference-data` | `tenancy.tenant.provisioned` | types de liens, catégories, types de contrat (sans écraser) |
 | `people.end-assignments-on-classroom-closed` | `academic.classroom.cancelled\|completed` | termine les affectations de la classe |
-| `people.end-assignments-on-year-closed` | `academic.year.closed` / `academic.academic_year.closed` | termine les affectations de l'année |
+| `people.end-assignments-on-year-closed` | `academic.year.closed` | termine les affectations de l'année |
 
 Job : `people.emit-expiring-qualifications` (06:30, par tenant) — une alerte par franchissement de seuil (`expiry_alerted_for`), préavis = `settings.expiry_alert_days`.
 

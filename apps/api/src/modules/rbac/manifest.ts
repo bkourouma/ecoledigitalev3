@@ -54,7 +54,8 @@ export default defineModule({
   ],
   events: {
     publishes: ["rbac.role.changed", "rbac.assignment.changed"],
-    // Consommés par le cache de permissions (invalidation) de chaque instance de l'API.
-    consumes: ["rbac.role.changed", "rbac.assignment.changed"],
+    // rbac.* : cache de permissions (invalidation) de chaque instance de l'API.
+    // tenancy.* : rôles système à l'activation d'un tenant, rattrapage à la réactivation, invalidation du cache (subscribers.ts).
+    consumes: ["rbac.role.changed", "rbac.assignment.changed", "tenancy.tenant.provisioned", "tenancy.tenant.status_changed"],
   },
 });

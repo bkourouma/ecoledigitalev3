@@ -28,6 +28,7 @@ export default defineModule({
   menus: [],
   events: {
     publishes: [ENTITLEMENTS_EVENTS.subscriptionChanged, ENTITLEMENTS_EVENTS.overrideChanged],
-    consumes: ["tenancy.tenant.provisioned", "tenancy.tenant.status_changed"],
+    // Ses propres événements invalident le cache de droits de chaque instance (subscribers.ts).
+    consumes: ["tenancy.tenant.provisioned", "tenancy.tenant.status_changed", ENTITLEMENTS_EVENTS.subscriptionChanged, ENTITLEMENTS_EVENTS.overrideChanged],
   },
 });

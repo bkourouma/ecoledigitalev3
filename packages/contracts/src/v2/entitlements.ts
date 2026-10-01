@@ -234,3 +234,9 @@ export const EntitlementsOverrideChangedPayloadSchema = z.object({
   expiresAt: IsoDate.nullable(),
 });
 export type EntitlementsOverrideChangedPayload = z.infer<typeof EntitlementsOverrideChangedPayloadSchema>;
+
+/** Schéma de charge utile de chaque événement PUBLIÉ par entitlements (validé par les tests de contrat). */
+export const entitlementsEventPayloadSchemas = {
+  "entitlements.subscription.changed": EntitlementsSubscriptionChangedPayloadSchema,
+  "entitlements.override.changed": EntitlementsOverrideChangedPayloadSchema,
+} as const;

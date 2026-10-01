@@ -1341,14 +1341,24 @@ const eventBase = {
   institutionId: academicUuidSchema.nullable(),
   academicYearId: academicUuidSchema.nullable(),
 };
+/** Inscriptions, classes, offres : établissement et année sont TOUJOURS renseignés par le producteur. */
+const scopedEventBase = { ...eventBase, institutionId: academicUuidSchema, academicYearId: academicUuidSchema };
 const enrollmentEventBase = {
-  ...eventBase,
+  ...scopedEventBase,
   enrollmentId: academicUuidSchema,
   studentId: academicUuidSchema,
   classroomId: academicUuidSchema,
 };
 
-export const academicYearEventPayloadSchema = z.object({ ...eventBase, yearId: academicUuidSchema, code: z.string(), status: academicYearStatusSchema });
+/** Événements d'année : `institutionId` et `academicYearId` (= `yearId`) sont TOUJOURS renseignés (consommateurs : people, scheduling, payroll). */
+export const academicYearEventPayloadSchema = z.object({
+  ...eventBase,
+  institutionId: academicUuidSchema,
+  academicYearId: academicUuidSchema,
+  yearId: academicUuidSchema,
+  code: z.string(),
+  status: academicYearStatusSchema,
+});
 export const academicPeriodEventPayloadSchema = z.object({
   ...eventBase,
   periodId: academicUuidSchema,
@@ -1368,14 +1378,14 @@ export const academicCurriculumEventPayloadSchema = z.object({
   reason: z.string().nullable().optional(),
 });
 export const academicClassroomEventPayloadSchema = z.object({
-  ...eventBase,
+  ...scopedEventBase,
   classroomId: academicUuidSchema,
   programId: academicUuidSchema,
   gradeLevelId: academicUuidSchema,
   status: academicClassroomStatusSchema,
 });
 export const academicOfferingEventPayloadSchema = z.object({
-  ...eventBase,
+  ...scopedEventBase,
   offeringId: academicUuidSchema,
   classroomId: academicUuidSchema,
   curriculumNodeId: academicUuidSchema,
@@ -1439,6 +1449,11 @@ export const academicPaymentOrphanEventPayloadSchema = z.object({
 });
 
 /** Événements CONSOMMÉS par academic (payloads tolérants : seuls les champs lus sont déclarés). */
+export const academicConsumedInstitutionCreatedSchema = z
+  .object({ v: z.number().int(), institutionId: academicUuidSchema, pack: academicPackSchema, educationSystem: z.string() })
+  .passthrough();
+export type AcademicConsumedInstitutionCreated = z.infer<typeof academicConsumedInstitutionCreatedSchema>;
+
 export const academicConsumedInvoicePaidSchema = z
   .object({
     v: z.number().int(),
@@ -1452,8 +1467,12 @@ export const academicConsumedInvoicePaidSchema = z
   .passthrough();
 export type AcademicConsumedInvoicePaid = z.infer<typeof academicConsumedInvoicePaidSchema>;
 
+/**
+ * `people.student.status_changed` tel que people le publie (`peopleStudentStatusChangedPayloadSchema`) : le nouveau statut
+ * est `toStatus` (et non `status`), l'ancien `fromStatus`, le motif codé `reasonCode` (jamais de texte libre).
+ */
 export const academicConsumedStudentStatusChangedSchema = z
-  .object({ v: z.number().int(), studentId: academicUuidSchema, status: z.string(), previousStatus: z.string().nullable().optional(), reason: z.string().nullable().optional() })
+  .object({ v: z.number().int(), studentId: academicUuidSchema, toStatus: z.string(), fromStatus: z.string().nullable().optional(), reasonCode: z.string().nullable().optional() })
   .passthrough();
 export type AcademicConsumedStudentStatusChanged = z.infer<typeof academicConsumedStudentStatusChangedSchema>;
 

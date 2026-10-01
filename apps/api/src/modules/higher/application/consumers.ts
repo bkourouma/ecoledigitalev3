@@ -46,11 +46,17 @@ export async function onResultsPeriodClosed(deps: HigherDeps, ctx: RequestContex
   return capitalizePeriod(deps, ctx, parsed);
 }
 
-export async function onCreditsCapitalized(deps: HigherDeps, ctx: RequestContext, payload: unknown): Promise<Result<RecomputeReport, AppError>> {
+/** `higher.credits.capitalized` : l'étudiant et l'UE dont les crédits viennent d'être capitalisés. */
+export function parseCreditsCapitalized(payload: unknown): { studentId: Uuid; ueNodeId: Uuid } | null {
   const studentId = pickUuid(payload, "studentId");
   const ueNodeId = pickUuid(payload, "ueNodeId");
-  if (!studentId || !ueNodeId) return err(validation(HigherCode.INVALID_INPUT, "Payload higher.credits.capitalized inexploitable.", "payload"));
-  return evaluateStudentDiplomas(deps, ctx, { studentId, ueNodeId });
+  return studentId && ueNodeId ? { studentId, ueNodeId } : null;
+}
+
+export async function onCreditsCapitalized(deps: HigherDeps, ctx: RequestContext, payload: unknown): Promise<Result<RecomputeReport, AppError>> {
+  const parsed = parseCreditsCapitalized(payload);
+  if (!parsed) return err(validation(HigherCode.INVALID_INPUT, "Payload higher.credits.capitalized inexploitable.", "payload"));
+  return evaluateStudentDiplomas(deps, ctx, parsed);
 }
 
 /**

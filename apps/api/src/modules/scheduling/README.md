@@ -58,6 +58,6 @@ pnpm --filter @ecoledigitale/api type-check:v2
 
 - **Numérotation** : migrations `0950-0955` (plage du dépôt) au lieu de `1000-1003` ; **19 tables** (18 + `ics_tokens`, AC6.4) ; 0955 ajoute les déclencheurs en lot (performance).
 - **Unicité de génération** sur `(patron, generated_for)` et non `(patron, date, heure)` : un report n'est pas régénéré à son créneau d'origine (question Q3 de `parity.md`). Colonne `replacement_reason` ajoutée.
-- **Noms d'événements** : `scheduling.occurrence.*` (spec 017 §11) et non `scheduling.session.*` (hypothèse de `011/interfaces-publiees.md` §3) : la paie doit s'aligner sur 017. Les noms et charges des événements d'autres modules sont des hypothèses de travail (en-tête de `application/consumers.ts`).
+- **Noms d'événements** : `scheduling.occurrence.*` (spec 017 §11) et non `scheduling.session.*` (hypothèse de `011/interfaces-publiees.md` §3) : la paie doit s'aligner sur 017. Les charges des événements d'autres modules sont alignées sur leurs producteurs (lecteurs `read*` de `application/consumers.ts`, test de contrat `apps/api/test/events-contracts/scheduling.test.ts`) : p. ex. `people.staff.status_changed` porte le nouveau statut dans `toStatus`.
 - **Job « signalement des séances non constatées »** (plan §4) : remplacé par la lecture `listUnrealizedOccurrences` (aucun état à matérialiser).
 - **Hors de ce module** (plan T15, T16, e2e Playwright) : écrans web, suppression du legacy, e2e. Les contrats Zod sont dans `packages/contracts/src/v2/scheduling.ts`.

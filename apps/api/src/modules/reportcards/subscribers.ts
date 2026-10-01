@@ -58,7 +58,8 @@ const defaultDeps: DepsFactory = (ctx) => {
   });
 };
 
-function pickUuid(payload: unknown, key: string): string | undefined {
+/** Lit un identifiant UUID dans une charge d'événement (`reportCardId`, `batchId`). Exporté pour le test de contrat. */
+export function pickUuid(payload: unknown, key: string): string | undefined {
   const v = payload && typeof payload === "object" ? (payload as Record<string, unknown>)[key] : undefined;
   return typeof v === "string" && isUuid(v) ? v : undefined;
 }
