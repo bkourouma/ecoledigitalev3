@@ -2,6 +2,23 @@
 
 **Statut** : DDL de **référence**. Schéma `higher` (pack `HIGHER`), migrations **`1400-1499`** (plage proposée, à inscrire dans `module-conventions.md`). Conventions : `tenant_id uuid NOT NULL REFERENCES kernel.tenants(id)` + `kernel.enable_tenant_rls()` ; `UNIQUE (tenant_id, id)` + FK composites **intra-schéma** ; références au cœur par **UUID sans FK** (`curriculum_node_id`, `student_id`, `enrollment_id`, `academic_period_id`, `academic_year_id`, `classroom_id`) ; références aux autres modules (`reportcards.signatories`, `results.period_results`, `assess.*`) par UUID sans FK ; notes et crédits exacts (`numeric`) ; horodatages UTC ; ids UUID v7.
 
+> **Corrections apportées à l'implémentation (2026-10-01) — les migrations `apps/api/src/modules/higher/migrations/1400-1408` font foi.** Le DDL ci-dessous est conservé comme référence de conception ; il s'écarte des migrations sur les points suivants, tous des incohérences de la spec corrigées à l'écriture du module :
+>
+> | # | Incohérence de la spec | Correction |
+> |---|---|---|
+> | 1 | `credit_ledger.valid_until` (Q-25) sans mécanisme : une acquisition périmée bloquait la recapitalisation (index unique) | statut `EXPIRED` + `expired_at` ; table **`higher.settings`** (`credit_validity_months`, NULL = sans limite) ; recapitalisation qui remplace une écriture périmée ; job `higher.expire-credits` ; une écriture soutenant un octroi n'expire jamais |
+> | 2 | AC9.1 et l'événement `higher.ue.debt_detected` sans table de dettes | table **`higher.ue_debts`** (`OPEN` / `CLEARED`, une dette ouverte par (étudiant, UE), levée à l'acquisition) |
+> | 3 | AC3.6 (« pas deux inscriptions de la même ECUE et de la même période ») non garanti : `UNIQUE (window_id, enrollment_id, ecue_node_id)` laisse passer deux fenêtres | `resit_registrations.academic_period_id` + index unique `(tenant, enrollment_id, ecue_node_id, academic_period_id)` |
+> | 4 | `diploma_awards.academic_year_id` et `acquired_date` `NOT NULL` : impossibles pour un octroi **forcé** sans acquisition, et la spec interdit de fabriquer une date | colonnes nullables, `CHECK (acquired_date IS NOT NULL OR awarded_via = 'FORCED')` ; la référence accepte plus de 6 chiffres (`DIP-AAAA-NNNNNN+`) |
+> | 5 | Ré-octroi (Q-22) : la spec dit « décision écrite du DG avec référence » sans colonne pour la porter | `diploma_awards.reaward_decision` (≥ 20 caractères) obligatoire avec `predecessor_award_id` ; déclencheur d'insertion (prédécesseur révoqué, même définition, même étudiant, jamais en `AUTO`) |
+> | 6 | `official_documents.signature`, `signing_key_id`, `template_*` `NOT NULL` alors que le scellement est fait **après** par 013 | colonnes nullables, écrites une seule fois par `recordDocumentSeal` (déclencheur) ; ce module produit le snapshot, son SHA-256 et un `verification_code` |
+> | 7 | Un duplicata (« nouvelle émission liée à l'originale », spec §12) heurte `UNIQUE (tenant, document_kind, reference)` | référence du duplicata suffixée `/Dn` ; l'original passe `SUPERSEDED` |
+> | 8 | `diploma_requirements` ne portait ni libellé ni crédits : la liste des exigences exigeait un appel au curriculum | `ue_code`, `ue_label`, `credits` copiés à la synchronisation ; les crédits **comptés** pour un diplôme sont ceux **figés** du registre (R-HIG-03) |
+> | 9 | `resit_windows.results_state_id NOT NULL` alors que l'état est celui du port `results` | renseigné à l'ouverture (nullable en base) |
+> | 10 | `credit_ledger.acquired_at DEFAULT now()` : date de validation non pilotable | alimentée par la date de validation de la ligne de résultat (`validatedAt`), à défaut l'instant de capitalisation |
+>
+> Autres choix d'implémentation : `diploma_definitions` accepte un nœud « programme » comme un nœud « cycle » (BTS) ; une exigence **retirée** du curriculum n'est plus exigée de qui ne l'a pas acquise mais compte pour qui l'a acquise (« l'écriture reste », §12).
+
 ## 1. Diplômes et exigences (migration `1401_higher_diplomas.sql`)
 
 ```sql
