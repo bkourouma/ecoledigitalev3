@@ -1,0 +1,143 @@
+/**
+ * Contexte de requête et sa propagation (AsyncLocalStorage).
+ *
+ * Le contexte est IMMUABLE (gelé) : pour « changer de campus », on dérive un
+ * nouveau contexte (`deriveContext`). `tenantId` est obligatoire dans tous les
+ * cas : il n'existe pas de contexte « sans tenant ». Une opération globale
+ * (job, super-admin sur la plateforme) passe par `SystemDb` (package database),
+ * pas par un contexte à tenant vide.
+ */
+import { AsyncLocalStorage } from "node:async_hooks";
+import { InternalError, ValidationError } from "./errors";
+import { newId, parseUuid } from "./id";
+
+/**
+ * - `user`       : utilisateur du tenant authentifié ;
+ * - `system`     : tâche interne (job, relais d'outbox), jamais déclenchée par un humain ;
+ * - `superAdmin` : opérateur de la plateforme agissant SUR un tenant désigné
+ *                  (sélection ou impersonation) — toujours à auditer.
+ */
+export type ActorType = "user" | "system" | "superAdmin";
+
+export interface RequestContext {
+  readonly tenantId: string;
+  /** `null` pour un acteur `system`. */
+  readonly userId: string | null;
+  readonly roles: readonly string[];
+  readonly requestId: string;
+  readonly institutionId?: string;
+  readonly campusId?: string;
+  readonly actor: ActorType;
+}
+
+export interface RequestContextInput {
+  tenantId: string;
+  userId?: string | null;
+  roles?: readonly string[];
+  requestId?: string;
+  institutionId?: string | null;
+  campusId?: string | null;
+  actor?: ActorType;
+}
+
+const ACTORS: readonly ActorType[] = ["user", "system", "superAdmin"];
+
+function optionalUuid(value: string | null | undefined, field: string): string | undefined {
+  return value === undefined || value === null ? undefined : parseUuid(value, field);
+}
+
+/**
+ * Construit un contexte validé :
+ *  - `tenantId` (et `userId`, `institutionId`, `campusId` s'ils sont fournis) doivent être des UUID ;
+ *  - `user` et `superAdmin` exigent un `userId` ; `system` n'en a pas ;
+ *  - `requestId` est généré (UUID v7) s'il manque.
+ */
+export function createRequestContext(input: RequestContextInput): RequestContext {
+  const actor: ActorType = input.actor ?? "user";
+  if (!ACTORS.includes(actor)) {
+    throw ValidationError.field("actor", `actor inconnu : "${String(actor)}".`, "invalid_actor");
+  }
+
+  const tenantId = parseUuid(input.tenantId, "tenantId");
+  const userId = optionalUuid(input.userId, "userId") ?? null;
+
+  if (actor === "system" && userId !== null) {
+    throw ValidationError.field("userId", "Un acteur system n'a pas de userId.", "system_has_user");
+  }
+  if (actor !== "system" && userId === null) {
+    throw ValidationError.field("userId", `Un acteur ${actor} exige un userId.`, "user_required");
+  }
+
+  const roles = Object.freeze([...new Set((input.roles ?? []).map((r) => r.trim()).filter(Boolean))]);
+  const institutionId = optionalUuid(input.institutionId, "institutionId");
+  const campusId = optionalUuid(input.campusId, "campusId");
+
+  return Object.freeze({
+    tenantId,
+    userId,
+    roles,
+    requestId: input.requestId?.trim() || newId(),
+    actor,
+    ...(institutionId ? { institutionId } : {}),
+    ...(campusId ? { campusId } : {}),
+  });
+}
+
+/** Contexte d'une tâche interne sur un tenant donné. */
+export function createSystemContext(tenantId: string, requestId?: string): RequestContext {
+  return createRequestContext({
+    tenantId,
+    actor: "system",
+    userId: null,
+    ...(requestId ? { requestId } : {}),
+  });
+}
+
+/**
+ * Dérive un contexte (ex. restreindre à un campus). Le `tenantId` et l'`actor`
+ * ne sont volontairement PAS modifiables : changer de tenant = nouveau contexte
+ * explicite via `createRequestContext`.
+ */
+export function deriveContext(
+  base: RequestContext,
+  patch: {
+    roles?: readonly string[];
+    institutionId?: string | null;
+    campusId?: string | null;
+    requestId?: string;
+  },
+): RequestContext {
+  return createRequestContext({
+    tenantId: base.tenantId,
+    userId: base.userId,
+    actor: base.actor,
+    roles: patch.roles ?? base.roles,
+    requestId: patch.requestId ?? base.requestId,
+    institutionId: patch.institutionId === undefined ? (base.institutionId ?? null) : patch.institutionId,
+    campusId: patch.campusId === undefined ? (base.campusId ?? null) : patch.campusId,
+  });
+}
+
+const storage = new AsyncLocalStorage<RequestContext>();
+
+/** Exécute `fn` avec `ctx` disponible via `getRequestContext()` pour tout son arbre asynchrone. */
+export function runWithContext<T>(ctx: RequestContext, fn: () => T): T {
+  return storage.run(ctx, fn);
+}
+
+export function getRequestContext(): RequestContext | undefined {
+  return storage.getStore();
+}
+
+/** Comme `getRequestContext` mais lève si aucun contexte n'est actif (bug de câblage). */
+export function requireRequestContext(): RequestContext {
+  const ctx = storage.getStore();
+  if (!ctx) {
+    throw new InternalError("Aucun RequestContext actif.", { code: "CONTEXT_MISSING" });
+  }
+  return ctx;
+}
+
+export function hasRole(ctx: RequestContext, role: string): boolean {
+  return ctx.roles.includes(role);
+}

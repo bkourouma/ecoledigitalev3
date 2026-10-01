@@ -1,0 +1,26 @@
+{
+  "name": "@ecoledigitale/database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Accès aux données v2 : TenantDb/SystemDb, runner de migrations à checksum, baseline RLS, test d'isolation.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "node scripts/with-postgres.mjs",
+    "migrate": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@ecoledigitale/kernel": "workspace:*",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/pg": "^8.10.7",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
