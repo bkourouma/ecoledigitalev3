@@ -22,6 +22,10 @@ export interface ActionOptions<TData, TVars> {
   body?: (variables: TVars) => unknown;
   /** Paramètres de requête (par exemple `DELETE` avec motif : l'API les lit dans la chaîne de requête). */
   query?: (variables: TVars) => QueryParams;
+  /** En-tête `Idempotency-Key` : le client peut alors rejouer l'appel sans doubler l'écriture (saisie de notes en lot). */
+  idempotencyKey?: (variables: TVars) => string | undefined;
+  /** En-têtes supplémentaires (rare). */
+  headers?: (variables: TVars) => Record<string, string>;
   schema?: ZodType<TData, ZodTypeDef, unknown>;
   invalidate?: ReadonlyArray<readonly unknown[]>;
 }
@@ -33,6 +37,8 @@ export function useApiAction<TData = unknown, TVars = void>(options: ActionOptio
       platformHooks.client.request<TData, ZodType<TData, ZodTypeDef, unknown> | undefined>(options.method ?? "POST", typeof options.path === "function" ? options.path(variables) : options.path, {
         body: options.body ? options.body(variables) : undefined,
         query: options.query ? options.query(variables) : undefined,
+        idempotencyKey: options.idempotencyKey ? options.idempotencyKey(variables) : undefined,
+        headers: options.headers ? options.headers(variables) : undefined,
         schema: options.schema,
       }) as Promise<TData>,
     onSuccess: async () => {

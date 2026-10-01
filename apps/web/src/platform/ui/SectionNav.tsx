@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -12,11 +13,30 @@ export interface SectionNavItem {
   permission?: string;
   /** Faire correspondre seulement le chemin exact (entrée « racine » de la section). */
   exact?: boolean;
+  /** Au moins une de ces permissions suffit (liste constante de l'écran : nombre de hooks fixe). */
+  anyPermission?: ReadonlyArray<string>;
+}
+
+function AnyOf({ permissions, children }: { permissions: ReadonlyArray<string>; children: ReactNode }) {
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- la liste est une constante de l'écran
+  const allowed = permissions.map((p) => usePermission(p).allowed).some(Boolean);
+  return allowed ? <>{children}</> : null;
 }
 
 function Item({ item, pathname }: { item: SectionNavItem; pathname: string }) {
   const { allowed } = usePermission(item.permission ?? "__none__");
   if (item.permission && !allowed) return null;
+  if (item.anyPermission && item.anyPermission.length > 0) {
+    return (
+      <AnyOf permissions={item.anyPermission}>
+        <ItemLink item={item} pathname={pathname} />
+      </AnyOf>
+    );
+  }
+  return <ItemLink item={item} pathname={pathname} />;
+}
+
+function ItemLink({ item, pathname }: { item: SectionNavItem; pathname: string }) {
   const active = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
   return (
     <li>
