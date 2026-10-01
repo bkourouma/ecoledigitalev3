@@ -125,7 +125,13 @@ describeIntegration("liaisons, résolution, épinglage, évaluation", () => {
       // Avant le premier jour d'effet : rien, avec la raison.
       const before = await resolve(world.deps, ctxA, { contractId: "credit-semester@1", date: "2024-08-31" });
       expect(before.ok && before.value.resolved).toBeNull();
-      expect(before.ok && before.value.considered[0]!.reason).toMatch(/hors période d'effet/);
+      // Date antérieure à la liaison : aucune règle applicable.
+      expect(before.ok && before.value.considered).toEqual([]);
+      // Liaison valide mais version hors de sa période d'effet : la raison est donnée.
+      await putBinding(world.deps, ctxA, { contractId: "coef-semester@1", ruleSetCode: "CI-CLASSIC-SEMESTRE", effectiveFrom: "2000-01-01" });
+      const early = await resolve(world.deps, ctxA, { contractId: "coef-semester@1", date: "2024-08-31" });
+      expect(early.ok && early.value.resolved).toBeNull();
+      expect(early.ok && early.value.considered[0]?.reason).toMatch(/hors période d'effet/);
     });
 
     it("scénario de bout en bout (T-E2E) : une variante est utilisée par les périodes SUIVANTES sans livraison de code ; les périodes antérieures ne changent pas", async () => {

@@ -97,6 +97,7 @@ export function effectiveSchemaOf(entry: CompiledRuleEntry): RuleSchemaSpec {
  */
 export class CompiledVersionCache {
   private readonly entries = new Map<string, CompiledVersion>();
+  private readonly fast = new Map<string, CompiledVersion>();
 
   constructor(private readonly capacity = 200) {}
 
@@ -123,13 +124,33 @@ export class CompiledVersionCache {
     }
   }
 
+  /**
+   * Chemin RAPIDE (sans SQL) d'une version figée déjà chargée : clé `(tenant visible, identifiant)`. Le contenu d'une version
+   * non-brouillon est immuable et son hash a été vérifié au chargement à froid ; la visibilité est portée par la clé (une variante
+   * n'est jamais servie à un autre établissement ; une version nationale n'y entre que publiée ou retirée, statuts irréversibles).
+   */
+  getFast(tenantId: string, versionId: string): CompiledVersion | undefined {
+    return this.fast.get(`${tenantId}:${versionId}`) ?? this.fast.get(`*:${versionId}`);
+  }
+
+  setFast(tenantId: string | null, versionId: string, value: CompiledVersion): void {
+    this.fast.set(`${tenantId ?? "*"}:${versionId}`, value);
+    while (this.fast.size > this.capacity * 2) {
+      const oldest = this.fast.keys().next().value as string | undefined;
+      if (oldest === undefined) break;
+      this.fast.delete(oldest);
+    }
+  }
+
   /** Libère les entrées d'une version (retrait) — jamais nécessaire à la justesse. */
   evictVersion(versionId: string): void {
     for (const key of [...this.entries.keys()]) if (key.split(":")[2] === versionId) this.entries.delete(key);
+    for (const key of [...this.fast.keys()]) if (key.endsWith(`:${versionId}`)) this.fast.delete(key);
   }
 
   clear(): void {
     this.entries.clear();
+    this.fast.clear();
   }
 
   get size(): number {

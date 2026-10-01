@@ -148,11 +148,22 @@ export async function loadVersionInTx(deps: Pick<RulesDeps, "cache">, tx: Tx, ve
     );
   }
   const compiled = createCompiledVersion(version, rules, actual);
-  if (!editable) deps.cache.set(CompiledVersionCache.keyOf(version, actual), compiled);
+  if (!editable) {
+    deps.cache.set(CompiledVersionCache.keyOf(version, actual), compiled);
+    // Version nationale : chemin rapide seulement si visible des établissements (publiée ou retirée).
+    if (version.kind === "TENANT" || (NATIONAL_VISIBLE_STATUSES as readonly string[]).includes(version.status)) {
+      deps.cache.setFast(version.kind === "TENANT" ? version.tenantId : null, version.id, compiled);
+    }
+  }
   return ok(compiled);
 }
 
 /** `loadVersion` autonome (transaction de lecture). */
 export async function loadVersion(deps: RulesDeps, ctx: Parameters<RulesDeps["db"]["run"]>[0], versionId: string, options: LoadOptions = {}): Promise<Result<CompiledVersion, AppError>> {
+  // Chaud : aucune requête SQL (≤ 5 ms). Le mode plateforme relit toujours (visibilité élargie).
+  if (!options.platform) {
+    const hit = deps.cache.getFast(ctx.tenantId, versionId);
+    if (hit) return ok(hit);
+  }
   return deps.db.run(ctx, (tx) => loadVersionInTx(deps, tx, versionId, options), { readOnly: true });
 }
