@@ -47,15 +47,15 @@ Phases du plan §4 : 0 = cadrage, 1 = socle SaaS, 2 = cœur académique et migra
 | 008 | students-guardians | 2 | À écrire |
 | 009 | teachers-staff | 2 | À écrire |
 | 010 | attendance | 2 | À écrire |
-| 011 | assessments-grades | 2 | À écrire |
-| 012 | rules-engine | 2 (spike en phase 0) | À écrire |
-| 013 | report-cards | 2 | À écrire |
+| 011 | assessments-grades | 2 | Rédigée (`011-assessments-grades/` : spec, data-model, plan, parity, interfaces-publiees ; modules `assess` + `results`) |
+| 012 | rules-engine | 2 (spike en phase 0) | Rédigée (`012-rules-engine/` : spec, data-model, plan, parity, rule-contracts, rulesets-de-depart, regulatory-sources-needed, open-questions) |
+| 013 | report-cards | 2 | Rédigée (`013-report-cards/` : spec, data-model, plan, parity) |
 | 014 | finance | 1 puis 3 | À écrire |
 | 015 | payments | 1 puis 3 | À écrire |
 | 016 | communications | 3 | À écrire |
 | 017 | scheduling | 2 | À écrire |
 | 018 | examinations | 4 | À écrire |
-| 019 | higher-education | 2 | À écrire |
+| 019 | higher-education | 2 | Rédigée (`019-higher-education/` : spec, data-model, plan, parity) |
 | 020 | bts | Après V1 | À écrire |
 | 021 | internships-defenses | Après V1 | À écrire |
 | 022 | lms | Après V1 | À écrire |
@@ -68,7 +68,7 @@ Phases du plan §4 : 0 = cadrage, 1 = socle SaaS, 2 = cœur académique et migra
 | 029 | mobile-offline | 1 (squelette), 6 | À écrire |
 | 030 | security-audit | 1, 6 | À écrire |
 | 031 | imports | 3 | À écrire |
-| 032 | payroll-port | 2.7 / 3 | À écrire |
+| 032 | payroll-port | 2.7 / 3 | Rédigée (`032-payroll-port/` : spec, data-model, plan, parity) |
 | 033 | web-foundation | 1 | À écrire |
 
 Les noms complets des dossiers seront `NNN-<nom>` (par exemple `001-saas-core`).
