@@ -331,7 +331,7 @@ export function computeCreditSemester(input: CreditInput, evaluator: BatchEvalua
         if (e) {
           e.validee = asBool(o.value);
           if (e.vmOverride) {
-            const mark = overrideMark(e.vmOverride, o.value);
+            const mark = overrideMark(e.vmOverride, null) /* la validation manuelle est une ENTRÉE de la règle : pas de valeur « d'origine » à ce niveau */;
             if (mark) e.records.push(mark);
           }
         }
