@@ -1,0 +1,1485 @@
+{
+  "schemaVersion": 1,
+  "scenario": "classique-nommage-periodes",
+  "source": "legacy",
+  "knownLegacyDefects": [
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.01-bts2g période « S2 ».documents.g1.summary.annualAverage",
+      "legacy": 16,
+      "correct": "15.333333333333",
+      "scope": [
+        "steps.01-bts2g période « S2 ».documents.g1.**",
+        "steps.01-bts2g période « S2 ».documents.*.summary.rank",
+        "steps.01-bts2g période « S2 ».documents.*.summary.annualRank",
+        "steps.01-bts2g période « S2 ».documents.*.sections.**"
+      ],
+      "note": "période « S2 » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.01-bts2g période « S2 ».documents.g1.summary.councilAppreciation",
+      "legacy": "Très bon travail.",
+      "correct": "Bon travail.",
+      "scope": [
+        "steps.01-bts2g période « S2 ».documents.g1.**",
+        "steps.01-bts2g période « S2 ».documents.*.summary.rank",
+        "steps.01-bts2g période « S2 ».documents.*.summary.annualRank",
+        "steps.01-bts2g période « S2 ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 15.333333333333 ; legacy 16"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.01-bts2g période « S2 ».documents.g1.summary.endYearDecision",
+      "legacy": "Admis(e) en année supérieure",
+      "correct": "Redouble en cas d'échec au BTS",
+      "scope": [
+        "steps.01-bts2g période « S2 ».documents.g1.**",
+        "steps.01-bts2g période « S2 ».documents.*.summary.rank",
+        "steps.01-bts2g période « S2 ».documents.*.summary.annualRank",
+        "steps.01-bts2g période « S2 ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 15.333333333333 ; legacy 16"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.01-bts2g période « S2 ».documents.g2.summary.annualAverage",
+      "legacy": 7,
+      "correct": "6.666666666667",
+      "scope": [
+        "steps.01-bts2g période « S2 ».documents.g2.**",
+        "steps.01-bts2g période « S2 ».documents.*.summary.rank",
+        "steps.01-bts2g période « S2 ».documents.*.summary.annualRank",
+        "steps.01-bts2g période « S2 ».documents.*.sections.**"
+      ],
+      "note": "période « S2 » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.01-bts2g période « S2 ».documents.g2.summary.endYearDecision",
+      "legacy": "Redoublement",
+      "correct": "Redouble en cas d'échec au BTS",
+      "scope": [
+        "steps.01-bts2g période « S2 ».documents.g2.**",
+        "steps.01-bts2g période « S2 ».documents.*.summary.rank",
+        "steps.01-bts2g période « S2 ».documents.*.summary.annualRank",
+        "steps.01-bts2g période « S2 ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 6.666666666667 ; legacy 7"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.02-bts2g période « Deuxième semestre ».documents.g1.summary.annualAverage",
+      "legacy": 13.333333333333334,
+      "correct": "12.666666666667",
+      "scope": [
+        "steps.02-bts2g période « Deuxième semestre ».documents.g1.**",
+        "steps.02-bts2g période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.02-bts2g période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.02-bts2g période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "note": "période « Deuxième semestre » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_REPEATING_FROM_DECISION_TEXT",
+      "path": "steps.02-bts2g période « Deuxième semestre ».documents.g1.summary.repeating",
+      "legacy": true,
+      "correct": "à arbitrer (admis selon la moyenne)",
+      "scope": [
+        "steps.02-bts2g période « Deuxième semestre ».documents.g1.**",
+        "steps.02-bts2g période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.02-bts2g période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.02-bts2g période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "comparable": false,
+      "note": "décision « Redouble en cas d'échec au BTS » ; moyenne annuelle 12.666666666667"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.02-bts2g période « Deuxième semestre ».documents.g2.summary.annualAverage",
+      "legacy": 5.666666666666667,
+      "correct": "5.333333333333",
+      "scope": [
+        "steps.02-bts2g période « Deuxième semestre ».documents.g2.**",
+        "steps.02-bts2g période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.02-bts2g période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.02-bts2g période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "note": "période « Deuxième semestre » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.03-bts2c période « S2 ».documents.c1.summary.annualAverage",
+      "legacy": 16,
+      "correct": "15.333333333333",
+      "scope": [
+        "steps.03-bts2c période « S2 ».documents.c1.**",
+        "steps.03-bts2c période « S2 ».documents.*.summary.rank",
+        "steps.03-bts2c période « S2 ».documents.*.summary.annualRank",
+        "steps.03-bts2c période « S2 ».documents.*.sections.**"
+      ],
+      "note": "période « S2 » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.03-bts2c période « S2 ».documents.c1.summary.councilAppreciation",
+      "legacy": "Très bon travail.",
+      "correct": "Bon travail.",
+      "scope": [
+        "steps.03-bts2c période « S2 ».documents.c1.**",
+        "steps.03-bts2c période « S2 ».documents.*.summary.rank",
+        "steps.03-bts2c période « S2 ».documents.*.summary.annualRank",
+        "steps.03-bts2c période « S2 ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 15.333333333333 ; legacy 16"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.03-bts2c période « S2 ».documents.c1.summary.endYearDecision",
+      "legacy": "Admis(e) en année supérieure",
+      "correct": "Redouble en cas d'échec au BTS",
+      "scope": [
+        "steps.03-bts2c période « S2 ».documents.c1.**",
+        "steps.03-bts2c période « S2 ».documents.*.summary.rank",
+        "steps.03-bts2c période « S2 ».documents.*.summary.annualRank",
+        "steps.03-bts2c période « S2 ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 15.333333333333 ; legacy 16"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.03-bts2c période « S2 ».documents.c2.summary.annualAverage",
+      "legacy": 7,
+      "correct": "6.666666666667",
+      "scope": [
+        "steps.03-bts2c période « S2 ».documents.c2.**",
+        "steps.03-bts2c période « S2 ».documents.*.summary.rank",
+        "steps.03-bts2c période « S2 ».documents.*.summary.annualRank",
+        "steps.03-bts2c période « S2 ».documents.*.sections.**"
+      ],
+      "note": "période « S2 » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.03-bts2c période « S2 ».documents.c2.summary.endYearDecision",
+      "legacy": "Redoublement",
+      "correct": "Redouble en cas d'échec au BTS",
+      "scope": [
+        "steps.03-bts2c période « S2 ».documents.c2.**",
+        "steps.03-bts2c période « S2 ».documents.*.summary.rank",
+        "steps.03-bts2c période « S2 ».documents.*.summary.annualRank",
+        "steps.03-bts2c période « S2 ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 6.666666666667 ; legacy 7"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.04-bts2c période « Deuxième semestre ».documents.c1.summary.annualAverage",
+      "legacy": 13.333333333333334,
+      "correct": "12.666666666667",
+      "scope": [
+        "steps.04-bts2c période « Deuxième semestre ».documents.c1.**",
+        "steps.04-bts2c période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.04-bts2c période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.04-bts2c période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "note": "période « Deuxième semestre » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_REPEATING_FROM_DECISION_TEXT",
+      "path": "steps.04-bts2c période « Deuxième semestre ».documents.c1.summary.repeating",
+      "legacy": true,
+      "correct": "à arbitrer (admis selon la moyenne)",
+      "scope": [
+        "steps.04-bts2c période « Deuxième semestre ».documents.c1.**",
+        "steps.04-bts2c période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.04-bts2c période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.04-bts2c période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "comparable": false,
+      "note": "décision « Redouble en cas d'échec au BTS » ; moyenne annuelle 12.666666666667"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.04-bts2c période « Deuxième semestre ».documents.c2.summary.annualAverage",
+      "legacy": 5.666666666666667,
+      "correct": "5.333333333333",
+      "scope": [
+        "steps.04-bts2c période « Deuxième semestre ».documents.c2.**",
+        "steps.04-bts2c période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.04-bts2c période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.04-bts2c période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "note": "période « Deuxième semestre » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.05-bts2i période « S2 ».documents.i1.summary.annualAverage",
+      "legacy": 16,
+      "correct": "15.333333333333",
+      "scope": [
+        "steps.05-bts2i période « S2 ».documents.i1.**",
+        "steps.05-bts2i période « S2 ».documents.*.summary.rank",
+        "steps.05-bts2i période « S2 ».documents.*.summary.annualRank",
+        "steps.05-bts2i période « S2 ».documents.*.sections.**"
+      ],
+      "note": "période « S2 » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.05-bts2i période « S2 ».documents.i1.summary.councilAppreciation",
+      "legacy": "Très bon travail.",
+      "correct": "Bon travail.",
+      "scope": [
+        "steps.05-bts2i période « S2 ».documents.i1.**",
+        "steps.05-bts2i période « S2 ».documents.*.summary.rank",
+        "steps.05-bts2i période « S2 ».documents.*.summary.annualRank",
+        "steps.05-bts2i période « S2 ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 15.333333333333 ; legacy 16"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.05-bts2i période « S2 ».documents.i1.summary.endYearDecision",
+      "legacy": "Admis(e) en année supérieure",
+      "correct": "Redouble en cas d'échec au BTS",
+      "scope": [
+        "steps.05-bts2i période « S2 ».documents.i1.**",
+        "steps.05-bts2i période « S2 ».documents.*.summary.rank",
+        "steps.05-bts2i période « S2 ».documents.*.summary.annualRank",
+        "steps.05-bts2i période « S2 ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 15.333333333333 ; legacy 16"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.05-bts2i période « S2 ».documents.i2.summary.annualAverage",
+      "legacy": 7,
+      "correct": "6.666666666667",
+      "scope": [
+        "steps.05-bts2i période « S2 ».documents.i2.**",
+        "steps.05-bts2i période « S2 ».documents.*.summary.rank",
+        "steps.05-bts2i période « S2 ».documents.*.summary.annualRank",
+        "steps.05-bts2i période « S2 ».documents.*.sections.**"
+      ],
+      "note": "période « S2 » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.05-bts2i période « S2 ».documents.i2.summary.endYearDecision",
+      "legacy": "Redoublement",
+      "correct": "Redouble en cas d'échec au BTS",
+      "scope": [
+        "steps.05-bts2i période « S2 ».documents.i2.**",
+        "steps.05-bts2i période « S2 ».documents.*.summary.rank",
+        "steps.05-bts2i période « S2 ».documents.*.summary.annualRank",
+        "steps.05-bts2i période « S2 ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 6.666666666667 ; legacy 7"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.06-bts2i période « Deuxième semestre ».documents.i1.summary.annualAverage",
+      "legacy": 13.333333333333334,
+      "correct": "12.666666666667",
+      "scope": [
+        "steps.06-bts2i période « Deuxième semestre ».documents.i1.**",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "note": "période « Deuxième semestre » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.06-bts2i période « Deuxième semestre ».documents.i1.summary.endYearDecision",
+      "legacy": "Admis(e) en année supérieure",
+      "correct": "Redouble en cas d'échec au BTS",
+      "scope": [
+        "steps.06-bts2i période « Deuxième semestre ».documents.i1.**",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 12.666666666667 ; legacy 13.333333333333334"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.06-bts2i période « Deuxième semestre ».documents.i2.summary.annualAverage",
+      "legacy": 5.666666666666667,
+      "correct": "5.333333333333",
+      "scope": [
+        "steps.06-bts2i période « Deuxième semestre ».documents.i2.**",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "note": "période « Deuxième semestre » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.06-bts2i période « Deuxième semestre ».documents.i2.summary.endYearDecision",
+      "legacy": "Redoublement",
+      "correct": "Redouble en cas d'échec au BTS",
+      "scope": [
+        "steps.06-bts2i période « Deuxième semestre ».documents.i2.**",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.06-bts2i période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 5.333333333333 ; legacy 5.666666666666667"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.07-bts1g période « S2 ».documents.p1.summary.annualAverage",
+      "legacy": 16,
+      "correct": "15.333333333333",
+      "scope": [
+        "steps.07-bts1g période « S2 ».documents.p1.**",
+        "steps.07-bts1g période « S2 ».documents.*.summary.rank",
+        "steps.07-bts1g période « S2 ».documents.*.summary.annualRank",
+        "steps.07-bts1g période « S2 ».documents.*.sections.**"
+      ],
+      "note": "période « S2 » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.07-bts1g période « S2 ».documents.p1.summary.councilAppreciation",
+      "legacy": "Très bon travail.",
+      "correct": "Bon travail.",
+      "scope": [
+        "steps.07-bts1g période « S2 ».documents.p1.**",
+        "steps.07-bts1g période « S2 ».documents.*.summary.rank",
+        "steps.07-bts1g période « S2 ».documents.*.summary.annualRank",
+        "steps.07-bts1g période « S2 ».documents.*.sections.**"
+      ],
+      "note": "moyenne annuelle exacte 15.333333333333 ; legacy 16"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.07-bts1g période « S2 ».documents.p2.summary.annualAverage",
+      "legacy": 7,
+      "correct": "6.666666666667",
+      "scope": [
+        "steps.07-bts1g période « S2 ».documents.p2.**",
+        "steps.07-bts1g période « S2 ».documents.*.summary.rank",
+        "steps.07-bts1g période « S2 ».documents.*.summary.annualRank",
+        "steps.07-bts1g période « S2 ».documents.*.sections.**"
+      ],
+      "note": "période « S2 » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.08-bts1g période « Deuxième semestre ».documents.p1.summary.annualAverage",
+      "legacy": 13.333333333333334,
+      "correct": "12.666666666667",
+      "scope": [
+        "steps.08-bts1g période « Deuxième semestre ».documents.p1.**",
+        "steps.08-bts1g période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.08-bts1g période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.08-bts1g période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "note": "période « Deuxième semestre » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    },
+    {
+      "id": "CLASSIC_SEMESTER_DETECTED_BY_NAME",
+      "path": "steps.08-bts1g période « Deuxième semestre ».documents.p2.summary.annualAverage",
+      "legacy": 5.666666666666667,
+      "correct": "5.333333333333",
+      "scope": [
+        "steps.08-bts1g période « Deuxième semestre ».documents.p2.**",
+        "steps.08-bts1g période « Deuxième semestre ».documents.*.summary.rank",
+        "steps.08-bts1g période « Deuxième semestre ».documents.*.summary.annualRank",
+        "steps.08-bts1g période « Deuxième semestre ».documents.*.sections.**"
+      ],
+      "note": "période « Deuxième semestre » (rôle second-semester) : le legacy ne la reconnaît pas comme deuxième semestre"
+    }
+  ],
+  "defectCatalog": {
+    "CLASSIC_SEMESTER_DETECTED_BY_NAME": {
+      "status": "quirk",
+      "title": "Le deuxième semestre et le BTS 2 sont détectés par le NOM de la période et de la classe"
+    },
+    "CLASSIC_REPEATING_FROM_DECISION_TEXT": {
+      "status": "quirk",
+      "title": "Redoublant déduit en cherchant « REDOUBL » dans le texte de la décision"
+    }
+  },
+  "data": {
+    "steps": {
+      "01-bts2g période « S2 »": {
+        "documentCount": 2,
+        "documents": {
+          "g1": {
+            "className": "BTS 2 Gestion",
+            "filiereName": "Programme nommage",
+            "periodName": "S2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 32
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 3,
+                "weightedTotal": 48
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "G1",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:g1",
+              "studentNumber": "ETU-G1"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 16,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Très bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Excellent",
+              "overallAverage": 16,
+              "rank": 1,
+              "repeating": false,
+              "secondSemesterAverage": 16,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 48
+            }
+          },
+          "g2": {
+            "className": "BTS 2 Gestion",
+            "filiereName": "Programme nommage",
+            "periodName": "S2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Insuffisant",
+                "average": 7,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 2,
+                    "weightedScore": 14
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 2,
+                    "weightedScore": 7
+                  }
+                ],
+                "rank": 2,
+                "totalCoef": 3,
+                "weightedTotal": 21
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "G2",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:g2",
+              "studentNumber": "ETU-G2"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 7,
+              "annualRank": 2,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail insuffisant.",
+              "decision": "Periode non validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": null,
+              "mention": "Insuffisant",
+              "overallAverage": 7,
+              "rank": 2,
+              "repeating": true,
+              "secondSemesterAverage": 7,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 21
+            }
+          }
+        },
+        "status": 200
+      },
+      "02-bts2g période « Deuxième semestre »": {
+        "documentCount": 2,
+        "documents": {
+          "g1": {
+            "className": "BTS 2 Gestion",
+            "filiereName": "Programme nommage",
+            "periodName": "Deuxième semestre",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 12
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 3,
+                "weightedTotal": 36
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "G1",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:g1",
+              "studentNumber": "ETU-G1"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 13.333333333333334,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Redouble en cas d'échec au BTS",
+              "firstSemesterAverage": 16,
+              "mention": "Bien",
+              "overallAverage": 12,
+              "rank": 1,
+              "repeating": true,
+              "secondSemesterAverage": 12,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 36
+            }
+          },
+          "g2": {
+            "className": "BTS 2 Gestion",
+            "filiereName": "Programme nommage",
+            "periodName": "Deuxième semestre",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Insuffisant",
+                "average": 5,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 5,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 2,
+                    "weightedScore": 10
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 5,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 2,
+                    "weightedScore": 5
+                  }
+                ],
+                "rank": 2,
+                "totalCoef": 3,
+                "weightedTotal": 15
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "G2",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:g2",
+              "studentNumber": "ETU-G2"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 5.666666666666667,
+              "annualRank": 2,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail insuffisant.",
+              "decision": "Periode non validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redouble en cas d'échec au BTS",
+              "firstSemesterAverage": 7,
+              "mention": "Insuffisant",
+              "overallAverage": 5,
+              "rank": 2,
+              "repeating": true,
+              "secondSemesterAverage": 5,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 15
+            }
+          }
+        },
+        "status": 200
+      },
+      "03-bts2c période « S2 »": {
+        "documentCount": 2,
+        "documents": {
+          "c1": {
+            "className": "BTS Deuxième année Compta",
+            "filiereName": "Programme nommage",
+            "periodName": "S2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 32
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 3,
+                "weightedTotal": 48
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "C1",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:c1",
+              "studentNumber": "ETU-C1"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 16,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Très bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Excellent",
+              "overallAverage": 16,
+              "rank": 1,
+              "repeating": false,
+              "secondSemesterAverage": 16,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 48
+            }
+          },
+          "c2": {
+            "className": "BTS Deuxième année Compta",
+            "filiereName": "Programme nommage",
+            "periodName": "S2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Insuffisant",
+                "average": 7,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 2,
+                    "weightedScore": 14
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 2,
+                    "weightedScore": 7
+                  }
+                ],
+                "rank": 2,
+                "totalCoef": 3,
+                "weightedTotal": 21
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "C2",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:c2",
+              "studentNumber": "ETU-C2"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 7,
+              "annualRank": 2,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail insuffisant.",
+              "decision": "Periode non validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": null,
+              "mention": "Insuffisant",
+              "overallAverage": 7,
+              "rank": 2,
+              "repeating": true,
+              "secondSemesterAverage": 7,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 21
+            }
+          }
+        },
+        "status": 200
+      },
+      "04-bts2c période « Deuxième semestre »": {
+        "documentCount": 2,
+        "documents": {
+          "c1": {
+            "className": "BTS Deuxième année Compta",
+            "filiereName": "Programme nommage",
+            "periodName": "Deuxième semestre",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 12
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 3,
+                "weightedTotal": 36
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "C1",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:c1",
+              "studentNumber": "ETU-C1"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 13.333333333333334,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Redouble en cas d'échec au BTS",
+              "firstSemesterAverage": 16,
+              "mention": "Bien",
+              "overallAverage": 12,
+              "rank": 1,
+              "repeating": true,
+              "secondSemesterAverage": 12,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 36
+            }
+          },
+          "c2": {
+            "className": "BTS Deuxième année Compta",
+            "filiereName": "Programme nommage",
+            "periodName": "Deuxième semestre",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Insuffisant",
+                "average": 5,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 5,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 2,
+                    "weightedScore": 10
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 5,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 2,
+                    "weightedScore": 5
+                  }
+                ],
+                "rank": 2,
+                "totalCoef": 3,
+                "weightedTotal": 15
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "C2",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:c2",
+              "studentNumber": "ETU-C2"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 5.666666666666667,
+              "annualRank": 2,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail insuffisant.",
+              "decision": "Periode non validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redouble en cas d'échec au BTS",
+              "firstSemesterAverage": 7,
+              "mention": "Insuffisant",
+              "overallAverage": 5,
+              "rank": 2,
+              "repeating": true,
+              "secondSemesterAverage": 5,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 15
+            }
+          }
+        },
+        "status": 200
+      },
+      "05-bts2i période « S2 »": {
+        "documentCount": 2,
+        "documents": {
+          "i1": {
+            "className": "BTS2 Info",
+            "filiereName": "Programme nommage",
+            "periodName": "S2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 32
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 3,
+                "weightedTotal": 48
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "I1",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:i1",
+              "studentNumber": "ETU-I1"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 16,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Très bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Excellent",
+              "overallAverage": 16,
+              "rank": 1,
+              "repeating": false,
+              "secondSemesterAverage": 16,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 48
+            }
+          },
+          "i2": {
+            "className": "BTS2 Info",
+            "filiereName": "Programme nommage",
+            "periodName": "S2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Insuffisant",
+                "average": 7,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 2,
+                    "weightedScore": 14
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 2,
+                    "weightedScore": 7
+                  }
+                ],
+                "rank": 2,
+                "totalCoef": 3,
+                "weightedTotal": 21
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "I2",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:i2",
+              "studentNumber": "ETU-I2"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 7,
+              "annualRank": 2,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail insuffisant.",
+              "decision": "Periode non validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": null,
+              "mention": "Insuffisant",
+              "overallAverage": 7,
+              "rank": 2,
+              "repeating": true,
+              "secondSemesterAverage": 7,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 21
+            }
+          }
+        },
+        "status": 200
+      },
+      "06-bts2i période « Deuxième semestre »": {
+        "documentCount": 2,
+        "documents": {
+          "i1": {
+            "className": "BTS2 Info",
+            "filiereName": "Programme nommage",
+            "periodName": "Deuxième semestre",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 12
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 3,
+                "weightedTotal": 36
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "I1",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:i1",
+              "studentNumber": "ETU-I1"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 13.333333333333334,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 16,
+              "mention": "Bien",
+              "overallAverage": 12,
+              "rank": 1,
+              "repeating": false,
+              "secondSemesterAverage": 12,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 36
+            }
+          },
+          "i2": {
+            "className": "BTS2 Info",
+            "filiereName": "Programme nommage",
+            "periodName": "Deuxième semestre",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Insuffisant",
+                "average": 5,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 5,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 2,
+                    "weightedScore": 10
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 5,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 2,
+                    "weightedScore": 5
+                  }
+                ],
+                "rank": 2,
+                "totalCoef": 3,
+                "weightedTotal": 15
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "I2",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:i2",
+              "studentNumber": "ETU-I2"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 5.666666666666667,
+              "annualRank": 2,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail insuffisant.",
+              "decision": "Periode non validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": 7,
+              "mention": "Insuffisant",
+              "overallAverage": 5,
+              "rank": 2,
+              "repeating": true,
+              "secondSemesterAverage": 5,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 15
+            }
+          }
+        },
+        "status": 200
+      },
+      "07-bts1g période « S2 »": {
+        "documentCount": 2,
+        "documents": {
+          "p1": {
+            "className": "BTS 1 Gestion",
+            "filiereName": "Programme nommage",
+            "periodName": "S2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Excellent",
+                "average": 16,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 32
+                  },
+                  {
+                    "appreciation": "Excellent",
+                    "average": 16,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 16
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 3,
+                "weightedTotal": 48
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "P1",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:p1",
+              "studentNumber": "ETU-P1"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 16,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Très bon travail.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur + Encouragement",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": null,
+              "mention": "Excellent",
+              "overallAverage": 16,
+              "rank": 1,
+              "repeating": false,
+              "secondSemesterAverage": 16,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 48
+            }
+          },
+          "p2": {
+            "className": "BTS 1 Gestion",
+            "filiereName": "Programme nommage",
+            "periodName": "S2",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Insuffisant",
+                "average": 7,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 2,
+                    "weightedScore": 14
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 7,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 2,
+                    "weightedScore": 7
+                  }
+                ],
+                "rank": 2,
+                "totalCoef": 3,
+                "weightedTotal": 21
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "P2",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:p2",
+              "studentNumber": "ETU-P2"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 7,
+              "annualRank": 2,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail insuffisant.",
+              "decision": "Periode non validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": null,
+              "mention": "Insuffisant",
+              "overallAverage": 7,
+              "rank": 2,
+              "repeating": true,
+              "secondSemesterAverage": 7,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 21
+            }
+          }
+        },
+        "status": 200
+      },
+      "08-bts1g période « Deuxième semestre »": {
+        "documentCount": 2,
+        "documents": {
+          "p1": {
+            "className": "BTS 1 Gestion",
+            "filiereName": "Programme nommage",
+            "periodName": "Deuxième semestre",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Bien",
+                "average": 12,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 1,
+                    "weightedScore": 24
+                  },
+                  {
+                    "appreciation": "Bien",
+                    "average": 12,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 1,
+                    "weightedScore": 12
+                  }
+                ],
+                "rank": 1,
+                "totalCoef": 3,
+                "weightedTotal": 36
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "P1",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:p1",
+              "studentNumber": "ETU-P1"
+            },
+            "summary": {
+              "affected": true,
+              "annualAverage": 13.333333333333334,
+              "annualRank": 1,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail assez bon.",
+              "decision": "Periode validee",
+              "distinctionSanctions": "Tableau d'honneur",
+              "endYearDecision": "Admis(e) en année supérieure",
+              "firstSemesterAverage": 16,
+              "mention": "Bien",
+              "overallAverage": 12,
+              "rank": 1,
+              "repeating": false,
+              "secondSemesterAverage": 12,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 36
+            }
+          },
+          "p2": {
+            "className": "BTS 1 Gestion",
+            "filiereName": "Programme nommage",
+            "periodName": "Deuxième semestre",
+            "schoolYearName": "2025-2026",
+            "sections": [
+              {
+                "appreciation": "Insuffisant",
+                "average": 5,
+                "bilanTypeName": "Bilan",
+                "lines": [
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 5,
+                    "coef": 2,
+                    "courseCode": "MAT",
+                    "courseName": "Mathématiques",
+                    "rank": 2,
+                    "weightedScore": 10
+                  },
+                  {
+                    "appreciation": "Insuffisant",
+                    "average": 5,
+                    "coef": 1,
+                    "courseCode": "FRA",
+                    "courseName": "Français",
+                    "rank": 2,
+                    "weightedScore": 5
+                  }
+                ],
+                "rank": 2,
+                "totalCoef": 3,
+                "weightedTotal": 15
+              }
+            ],
+            "student": {
+              "dateOfBirth": "<timestamp>",
+              "firstName": "P2",
+              "lastName": "Nom",
+              "nationality": null,
+              "placeOfBirth": "Conakry",
+              "studentId": "student:p2",
+              "studentNumber": "ETU-P2"
+            },
+            "summary": {
+              "affected": false,
+              "annualAverage": 5.666666666666667,
+              "annualRank": 2,
+              "attendanceSummary": "00 heure(s) d'abscence (dont 00 justifiée(s))",
+              "councilAppreciation": "Travail insuffisant.",
+              "decision": "Periode non validee",
+              "distinctionSanctions": "",
+              "endYearDecision": "Redoublement",
+              "firstSemesterAverage": 7,
+              "mention": "Insuffisant",
+              "overallAverage": 5,
+              "rank": 2,
+              "repeating": true,
+              "secondSemesterAverage": 5,
+              "totalCoef": 3,
+              "totalStudents": 2,
+              "weightedTotal": 15
+            }
+          }
+        },
+        "status": 200
+      }
+    }
+  }
+}

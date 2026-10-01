@@ -1,0 +1,906 @@
+{
+  "schemaVersion": 1,
+  "scenario": "bulletin-calc-pure",
+  "source": "legacy",
+  "knownLegacyDefects": [
+    {
+      "id": "DISPLAY_ROUNDING_NOT_HALF_UP",
+      "path": "arrondi[\"1.005\"]",
+      "legacy": 1,
+      "correct": 1.01,
+      "scope": [],
+      "note": "demi-supérieur décimal de 1.005 = 1.01"
+    },
+    {
+      "id": "DISPLAY_ROUNDING_NOT_HALF_UP",
+      "path": "arrondi[\"1.255\"]",
+      "legacy": 1.25,
+      "correct": 1.26,
+      "scope": [],
+      "note": "demi-supérieur décimal de 1.255 = 1.26"
+    },
+    {
+      "id": "DISPLAY_ROUNDING_NOT_HALF_UP",
+      "path": "arrondi[\"9.995\"]",
+      "legacy": 9.99,
+      "correct": 10,
+      "scope": [],
+      "note": "demi-supérieur décimal de 9.995 = 10"
+    },
+    {
+      "id": "FLOAT_ECUE_ELIMINATOIRE_5",
+      "path": "ecue[\"devoirs 0.08 / examen 8.28\"].eliminee",
+      "legacy": true,
+      "correct": false,
+      "scope": [],
+      "note": "note exacte 5 ; flottant 4.999999999999999"
+    },
+    {
+      "id": "FLOAT_ECUE_ELIMINATOIRE_5",
+      "path": "ecue[\"devoirs 0.11 / examen 8.26\"].eliminee",
+      "legacy": true,
+      "correct": false,
+      "scope": [],
+      "note": "note exacte 5 ; flottant 4.999999999999999"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 0.13 / examen 16.58\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 0.16 / examen 16.56\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_ELIMINATOIRE_5",
+      "path": "ecue[\"devoirs 0.2 / examen 8.2\"].eliminee",
+      "legacy": true,
+      "correct": false,
+      "scope": [],
+      "note": "note exacte 5 ; flottant 4.999999999999999"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 0.22 / examen 16.52\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_ELIMINATOIRE_5",
+      "path": "ecue[\"devoirs 0.23 / examen 8.18\"].eliminee",
+      "legacy": true,
+      "correct": false,
+      "scope": [],
+      "note": "note exacte 5 ; flottant 4.999999999999999"
+    },
+    {
+      "id": "FLOAT_ECUE_ELIMINATOIRE_5",
+      "path": "ecue[\"devoirs 0.32 / examen 8.12\"].eliminee",
+      "legacy": true,
+      "correct": false,
+      "scope": [],
+      "note": "note exacte 5 ; flottant 4.999999999999999"
+    },
+    {
+      "id": "FLOAT_ECUE_ELIMINATOIRE_5",
+      "path": "ecue[\"devoirs 0.35 / examen 8.1\"].eliminee",
+      "legacy": true,
+      "correct": false,
+      "scope": [],
+      "note": "note exacte 5 ; flottant 4.999999999999999"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 0.4 / examen 16.4\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_ELIMINATOIRE_5",
+      "path": "ecue[\"devoirs 0.44 / examen 8.04\"].eliminee",
+      "legacy": true,
+      "correct": false,
+      "scope": [],
+      "note": "note exacte 5 ; flottant 4.999999999999999"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 0.46 / examen 16.36\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_ELIMINATOIRE_5",
+      "path": "ecue[\"devoirs 0.47 / examen 8.02\"].eliminee",
+      "legacy": true,
+      "correct": false,
+      "scope": [],
+      "note": "note exacte 5 ; flottant 4.999999999999999"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 0.64 / examen 16.24\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 0.7 / examen 16.2\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 0.88 / examen 16.08\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 0.94 / examen 16.04\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 1.39 / examen 15.74\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 1.63 / examen 15.58\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 1.75 / examen 15.5\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 1.87 / examen 15.42\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 1.99 / examen 15.34\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 2.11 / examen 15.26\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 2.23 / examen 15.18\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 2.35 / examen 15.1\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 2.47 / examen 15.02\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 2.59 / examen 14.94\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 2.71 / examen 14.86\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 2.83 / examen 14.78\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 2.95 / examen 14.7\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 3.07 / examen 14.62\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_ECUE_VALIDATION_10",
+      "path": "ecue[\"devoirs 3.19 / examen 14.54\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "note exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "RULES_NOT_WIRED_YEAR_48_CREDITS",
+      "path": "peutPasserAnneeSuperieure",
+      "legacy": "fonction exportée, jamais appelée",
+      "correct": "à arbitrer (aucune décision de passage annuel n'existe dans le legacy)",
+      "scope": [],
+      "comparable": false,
+      "note": "voir bts-premiere-annee : 56 crédits à l'année, aucune décision de passage dans le bulletin BTS"
+    },
+    {
+      "id": "RULES_NOT_WIRED_SEMESTER_20_CREDITS",
+      "path": "semestreValide",
+      "legacy": "fonction exportée, jamais appelée",
+      "correct": "à arbitrer (la v2 doit choisir entre 20 crédits et toutes les UE validées)",
+      "scope": [],
+      "comparable": false,
+      "note": "le bulletin applique ues.every(validee) ; voir bts-premiere-annee (bako, S2 : 30 crédits acquis, semestre non validé)"
+    },
+    {
+      "id": "DISPLAYED_AVERAGE_10_NOT_VALIDATED",
+      "path": "ue[\"moyenne 9,995 (9,99 et 10 à crédits égaux)\"].moyenneAffichee",
+      "legacy": 10,
+      "correct": "règle voulue (ADR-003) : validation sur la valeur non arrondie ; affichage à arbitrer",
+      "scope": [],
+      "comparable": false,
+      "note": "moyenne exacte 9.995000000000001"
+    },
+    {
+      "id": "DISPLAYED_AVERAGE_10_NOT_VALIDATED",
+      "path": "ue[\"moyenne 9,996 (affichée 10) : devoirs 9,99 et examen 10\"].moyenneAffichee",
+      "legacy": 10,
+      "correct": "règle voulue (ADR-003) : validation sur la valeur non arrondie ; affichage à arbitrer",
+      "scope": [],
+      "comparable": false,
+      "note": "moyenne exacte 9.996"
+    },
+    {
+      "id": "DISPLAYED_AVERAGE_10_NOT_VALIDATED",
+      "path": "ue[\"moyenne exactement 10 : 6,4 (1 crédit) et 11,2 (3 crédits)\"].moyenneAffichee",
+      "legacy": 10,
+      "correct": "règle voulue (ADR-003) : validation sur la valeur non arrondie ; affichage à arbitrer",
+      "scope": [],
+      "comparable": false,
+      "note": "moyenne exacte 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_UE_VALIDATION_10",
+      "path": "ue[\"moyenne exactement 10 : 6,4 (1 crédit) et 11,2 (3 crédits)\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "moyenne d'UE exacte 10 ; flottant 9.999999999999998"
+    },
+    {
+      "id": "DISPLAYED_AVERAGE_10_NOT_VALIDATED",
+      "path": "ue[\"moyenne exactement 10 : 7,15 (1 crédit) et 10,95 (3 crédits)\"].moyenneAffichee",
+      "legacy": 10,
+      "correct": "règle voulue (ADR-003) : validation sur la valeur non arrondie ; affichage à arbitrer",
+      "scope": [],
+      "comparable": false,
+      "note": "moyenne exacte 9.999999999999998"
+    },
+    {
+      "id": "FLOAT_UE_VALIDATION_10",
+      "path": "ue[\"moyenne exactement 10 : 7,15 (1 crédit) et 10,95 (3 crédits)\"].validee",
+      "legacy": false,
+      "correct": true,
+      "scope": [],
+      "note": "moyenne d'UE exacte 10 ; flottant 9.999999999999998"
+    }
+  ],
+  "defectCatalog": {
+    "DISPLAY_ROUNDING_NOT_HALF_UP": {
+      "status": "bug",
+      "title": "arrondi d'affichage = Math.round(x*100)/100, pas un demi-supérieur décimal"
+    },
+    "FLOAT_ECUE_ELIMINATOIRE_5": {
+      "status": "bug",
+      "title": "Seuil éliminatoire (< 5) testé sur un flottant binaire"
+    },
+    "FLOAT_ECUE_VALIDATION_10": {
+      "status": "bug",
+      "title": "Seuil de validation d'ECUE (10) testé sur un flottant binaire"
+    },
+    "RULES_NOT_WIRED_YEAR_48_CREDITS": {
+      "status": "dead",
+      "title": "La règle « passage en année supérieure : plus de 48 crédits » n'est appelée nulle part"
+    },
+    "RULES_NOT_WIRED_SEMESTER_20_CREDITS": {
+      "status": "dead",
+      "title": "La règle « semestre validé à 20 crédits » n'est pas celle que le bulletin applique"
+    },
+    "DISPLAYED_AVERAGE_10_NOT_VALIDATED": {
+      "status": "quirk",
+      "title": "Une moyenne affichée 10 peut ne pas valider l'UE (validation sur la valeur NON arrondie, affichage arrondi)"
+    },
+    "FLOAT_UE_VALIDATION_10": {
+      "status": "bug",
+      "title": "Seuil de validation d'UE (10) testé sur une moyenne pondérée flottante"
+    }
+  },
+  "data": {
+    "constants": {
+      "POIDS_DEVOIRS": 0.4,
+      "POIDS_EXAMEN": 0.6,
+      "SEUIL_VALIDATION": 10,
+      "SEUIL_ELIMINATOIRE": 5,
+      "SEMESTRE_CREDITS_REQUIS": 20,
+      "ANNEE_SUP_CREDITS": 48
+    },
+    "ecue": {
+      "devoirs 0.13 / examen 16.58": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0.16 / examen 16.56": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0.22 / examen 16.52": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0.4 / examen 16.4": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0.46 / examen 16.36": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0.64 / examen 16.24": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0.7 / examen 16.2": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0.88 / examen 16.08": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0.94 / examen 16.04": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 1.39 / examen 15.74": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 1.63 / examen 15.58": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 1.75 / examen 15.5": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 1.87 / examen 15.42": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 1.99 / examen 15.34": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 2.11 / examen 15.26": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 2.23 / examen 15.18": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 2.35 / examen 15.1": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 2.47 / examen 15.02": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 2.59 / examen 14.94": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 2.71 / examen 14.86": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 2.83 / examen 14.78": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 2.95 / examen 14.7": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 3.07 / examen 14.62": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 3.19 / examen 14.54": {
+        "note": 9.999999999999998,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0.08 / examen 8.28": {
+        "note": 4.999999999999999,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 0.11 / examen 8.26": {
+        "note": 4.999999999999999,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 0.2 / examen 8.2": {
+        "note": 4.999999999999999,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 0.23 / examen 8.18": {
+        "note": 4.999999999999999,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 0.32 / examen 8.12": {
+        "note": 4.999999999999999,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 0.35 / examen 8.1": {
+        "note": 4.999999999999999,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 0.44 / examen 8.04": {
+        "note": 4.999999999999999,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 0.47 / examen 8.02": {
+        "note": 4.999999999999999,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 0 / examen 0": {
+        "note": 0,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 20 / examen 20": {
+        "note": 20,
+        "eliminee": false,
+        "validee": true,
+        "statut": "valide"
+      },
+      "devoirs 10 / examen 10": {
+        "note": 10,
+        "eliminee": false,
+        "validee": true,
+        "statut": "valide"
+      },
+      "devoirs 9.99 / examen 9.99": {
+        "note": 9.99,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 10.01 / examen 10.01": {
+        "note": 10.01,
+        "eliminee": false,
+        "validee": true,
+        "statut": "valide"
+      },
+      "devoirs 5 / examen 5": {
+        "note": 5,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 4.99 / examen 4.99": {
+        "note": 4.99,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 5.01 / examen 5.01": {
+        "note": 5.01,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0 / examen 16.67": {
+        "note": 10.002,
+        "eliminee": false,
+        "validee": true,
+        "statut": "valide"
+      },
+      "devoirs 0 / examen 16.66": {
+        "note": 9.996,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 12 / examen 14": {
+        "note": 13.200000000000001,
+        "eliminee": false,
+        "validee": true,
+        "statut": "valide"
+      },
+      "devoirs 11.25 / examen 9": {
+        "note": 9.899999999999999,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 13.75 / examen 12.5": {
+        "note": 13,
+        "eliminee": false,
+        "validee": true,
+        "statut": "valide"
+      },
+      "devoirs 20 / examen 0": {
+        "note": 8,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 0 / examen 20": {
+        "note": 12,
+        "eliminee": false,
+        "validee": true,
+        "statut": "valide"
+      },
+      "devoirs 15 / examen 5": {
+        "note": 9,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 3 / examen 3": {
+        "note": 3,
+        "eliminee": true,
+        "validee": false,
+        "statut": "eliminatoire"
+      },
+      "devoirs 8 / examen 8": {
+        "note": 8,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      },
+      "devoirs 10.5 / examen 9.5": {
+        "note": 9.9,
+        "eliminee": false,
+        "validee": false,
+        "statut": "insuffisant"
+      }
+    },
+    "noteEcue": {
+      "sans examen": null,
+      "sans devoir": 6,
+      "sans rien": null,
+      "devoirs 0 examen 0": 0
+    },
+    "ue": {
+      "compensation (14 pondéré 4, 7,6 pondéré 2)": {
+        "moyenne": 11.866666666666667,
+        "moyenneAffichee": 11.87,
+        "validee": true,
+        "motifs": [],
+        "credits": 6,
+        "statuts": [
+          "valide",
+          "compense"
+        ]
+      },
+      "éliminatoire malgré une moyenne de 14": {
+        "moyenne": 14.933333333333332,
+        "moyenneAffichee": 14.93,
+        "validee": false,
+        "motifs": [
+          "NOTE_ELIMINATOIRE"
+        ],
+        "credits": 6,
+        "statuts": [
+          "valide",
+          "eliminatoire"
+        ]
+      },
+      "éliminatoire levée par le jury": {
+        "moyenne": 14.933333333333332,
+        "moyenneAffichee": 14.93,
+        "validee": true,
+        "motifs": [],
+        "credits": 6,
+        "statuts": [
+          "valide",
+          "eliminatoire"
+        ]
+      },
+      "incomplète (examen manquant)": {
+        "moyenne": 18,
+        "moyenneAffichee": 18,
+        "validee": false,
+        "motifs": [
+          "INCOMPLET"
+        ],
+        "credits": 6,
+        "statuts": [
+          "valide",
+          "en_cours"
+        ]
+      },
+      "crédits nuls ignorés": {
+        "moyenne": 10,
+        "moyenneAffichee": 10,
+        "validee": true,
+        "motifs": [],
+        "credits": 5,
+        "statuts": [
+          "valide",
+          "valide"
+        ]
+      },
+      "aucune ECUE": {
+        "moyenne": null,
+        "moyenneAffichee": null,
+        "validee": false,
+        "motifs": [
+          "MOYENNE_INSUFFISANTE"
+        ],
+        "credits": 0,
+        "statuts": []
+      },
+      "moyenne 9,995 (9,99 et 10 à crédits égaux)": {
+        "moyenne": 9.995000000000001,
+        "moyenneAffichee": 10,
+        "validee": false,
+        "motifs": [
+          "MOYENNE_INSUFFISANTE"
+        ],
+        "credits": 2,
+        "statuts": [
+          "insuffisant",
+          "valide"
+        ]
+      },
+      "moyenne 9,996 (affichée 10) : devoirs 9,99 et examen 10": {
+        "moyenne": 9.996,
+        "moyenneAffichee": 10,
+        "validee": false,
+        "motifs": [
+          "MOYENNE_INSUFFISANTE"
+        ],
+        "credits": 1,
+        "statuts": [
+          "insuffisant"
+        ]
+      },
+      "moyenne exactement 10 : 6,4 (1 crédit) et 11,2 (3 crédits)": {
+        "moyenne": 9.999999999999998,
+        "moyenneAffichee": 10,
+        "validee": false,
+        "motifs": [
+          "MOYENNE_INSUFFISANTE"
+        ],
+        "credits": 4,
+        "statuts": [
+          "insuffisant",
+          "valide"
+        ]
+      },
+      "moyenne exactement 10 : 7,15 (1 crédit) et 10,95 (3 crédits)": {
+        "moyenne": 9.999999999999998,
+        "moyenneAffichee": 10,
+        "validee": false,
+        "motifs": [
+          "MOYENNE_INSUFFISANTE"
+        ],
+        "credits": 4,
+        "statuts": [
+          "insuffisant",
+          "valide"
+        ]
+      },
+      "témoin exactement représentable : 7 et 11 (1 et 3 crédits)": {
+        "moyenne": 10,
+        "moyenneAffichee": 10,
+        "validee": true,
+        "motifs": [],
+        "credits": 4,
+        "statuts": [
+          "compense",
+          "valide"
+        ]
+      }
+    },
+    "session": {
+      "moyenneSession": 12.9,
+      "moyenneSessionVide": null,
+      "creditsValides": 16,
+      "creditsTotal": 25
+    },
+    "semestreValide": {
+      "0": false,
+      "19": false,
+      "20": true,
+      "21": true,
+      "28": true,
+      "30": true,
+      "36": true,
+      "19.99": false
+    },
+    "peutPasserAnneeSuperieure": {
+      "0": false,
+      "47": false,
+      "48": false,
+      "49": true,
+      "50": true,
+      "56": true,
+      "60": true,
+      "48.5": true
+    },
+    "moyenneDevoirs": {
+      "vide": null,
+      "[10, 11]": 10.5,
+      "[9.99, 10]": 9.995000000000001,
+      "[1, 2, 2]": 1.6666666666666667
+    },
+    "normaliserNote": {
+      "7/10": 14,
+      "14/20": 14,
+      "36/40": 18,
+      "1/3": 6.666666666666666,
+      "2/3": 13.333333333333332,
+      "0.7/1": 14,
+      "13/30": 8.666666666666668,
+      "17.5/25": 14,
+      "5/0": 0,
+      "5/-1": 0
+    },
+    "arrondi": {
+      "1.005": 1,
+      "2.675": 2.68,
+      "9.995": 9.99,
+      "10.005": 10.01,
+      "0.125": 0.13,
+      "1.255": 1.25,
+      "8.345": 8.35,
+      "12.345": 12.35,
+      "13.5666666666": 13.57,
+      "9.994999": 9.99,
+      "0.005": 0.01,
+      "0.015": 0.02,
+      "0.025": 0.03,
+      "4.995": 5,
+      "14.285": 14.29,
+      "null": null
+    }
+  }
+}

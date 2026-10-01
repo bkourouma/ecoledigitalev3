@@ -407,6 +407,49 @@ jobs:
         run: pnpm --filter @ecoledigitale/api test:v2
 
   # ---------------------------------------------------------------------------
+  # Tests de caracterisation du code legacy (tranche 2.0 du plan, tests/characterization/).
+  # Rejoue 9 scenarios deterministes sur le VRAI code legacy (services Professional, route des
+  # bulletins classiques, paie) contre un Postgres jetable, et echoue si la sortie derive de la
+  # snapshot figee. NON BLOQUANT pour l'instant : `continue-on-error` garde le job visible (annotation
+  # orange) sans bloquer la fusion, et il n'est volontairement PAS dans `needs` de `ci-ok`.
+  # Duree mesuree : ~2 min d'execution locale (Postgres 17 Docker) ; le job reste bien sous les 10 min.
+  # Pour le durcir : retirer `continue-on-error` puis ajouter `characterization` aux `needs` de `ci-ok`.
+  # Regenerer les snapshots est un geste explicite : `pnpm test:characterization -- -u`, jamais en CI.
+  # ---------------------------------------------------------------------------
+  characterization:
+    name: caracterisation legacy (Postgres 17)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Service JETABLE : le harnais cree et supprime ses propres bases `char_*` (CREATE DATABASE requis).
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: tests de caracterisation
+        run: pnpm test:characterization
+
+  # ---------------------------------------------------------------------------
   # Agregat : une seule verification a exiger dans la protection de branche.
   # Les jobs `continue-on-error` apparaissent en succes ici, par construction.
   # ---------------------------------------------------------------------------
