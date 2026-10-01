@@ -9,7 +9,7 @@
 #   docker compose -f infra/compose/docker-compose.dev.yml down -v   # efface les donnees
 #
 # Valeurs correspondantes du .env de l'API :
-#   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dbecoledigitale
+#   DATABASE_URL=postgresql://postgres:<mot-de-passe>@localhost:5432/dbecoledigitale
 #   REDIS_URL=redis://localhost:6379
 #   MINIO_ENDPOINT=localhost:9000   MINIO_USER/MINIO_PASSWORD=minioadmin
 # Tous les ports sont lies a 127.0.0.1 et surchargeables (POSTGRES_PORT,

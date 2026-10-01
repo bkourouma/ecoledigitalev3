@@ -113,7 +113,7 @@ describe("garde-fou sur le nom de base", () => {
 
 describe("CLI", () => {
   it("redactUrl masque le mot de passe", () => {
-    const out = redactUrl("postgres://user:s3cr3t@localhost:5432/db_test");
+    const out = redactUrl("postgres://user:s3cr3t@localhost:5432/db_test"); // secret-scan:allow (valeur factice de test)
     expect(out).not.toContain("s3cr3t");
     expect(out).toContain("***");
     expect(redactUrl("pas une url")).toBe("<url illisible>");

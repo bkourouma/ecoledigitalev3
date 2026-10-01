@@ -16,8 +16,8 @@
 -- connexion se créent HORS migrations, par l'exploitation, avec un secret
 -- injecté (gestionnaire de secrets), par exemple :
 --
---     CREATE ROLE api_login   LOGIN PASSWORD :'secret' IN ROLE app_user;
---     CREATE ROLE deploy_login LOGIN PASSWORD :'secret' IN ROLE migrator;
+--     CREATE ROLE api_login   LOGIN PASSWORD :'secret' IN ROLE app_user; -- secret-scan:allow (placeholder psql)
+--     CREATE ROLE deploy_login LOGIN PASSWORD :'secret' IN ROLE migrator; -- secret-scan:allow (placeholder psql)
 --
 -- Les rôles sont GLOBAUX au cluster Postgres (pas à la base) : ce script est
 -- idempotent et converge les attributs vers l'état attendu à chaque exécution.
