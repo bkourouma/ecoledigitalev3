@@ -26,12 +26,17 @@ import { isWasenderConfigured, normalizeToE164, wasenderSendText } from "./wasen
 import { resolveUserPhone } from "./whatsapp-delivery-log";
 
 export type NotificationChannel = "inapp" | "email" | "whatsapp";
-export type SubjectKind = "tenant_user" | "public_user";
+/**
+ * Seul destinataire supporté : l'utilisateur du tenant. L'ancien second sujet (apprenants du
+ * portail public de formations professionnelles) a été retiré avec ce portail ; les CHECK SQL de
+ * `app_notifications` / `app_email_delivery_log` l'acceptent encore jusqu'au reset de la Phase 2.
+ */
+export type SubjectKind = "tenant_user";
 
 export interface NotificationRecipient {
-  /** 'tenant_user' for school-side users (apps/web), 'public_user' for formation-pro learners. */
+  /** 'tenant_user' for school-side users (apps/web). */
   subjectKind: SubjectKind;
-  /** Either users.id (UUID, tenant_user) or public_users.id (cuid, public_user). */
+  /** users.id (UUID). */
   subjectUserId: string;
   email?: string | null;
   phone?: string | null;
@@ -178,8 +183,7 @@ async function logWhatsappDelivery(
 ): Promise<void> {
   // Reuse the existing app_whatsapp_delivery_log table; source_type 'notification_dispatch'
   // distinguishes these rows from chat-driven sends. recipient_user_id is constrained to
-  // users(id), so we only populate it for tenant_user recipients — for public_user we leave
-  // it NULL (the message_preview + tenant_id is enough for retry/audit).
+  // users(id), which is what subjectUserId holds for a tenant_user.
   await client.query(
     `INSERT INTO app_whatsapp_delivery_log (
         tenant_id, source_type, source_id, recipient_user_id, phone_e164,
@@ -188,7 +192,7 @@ async function logWhatsappDelivery(
      VALUES ($1, 'notification_dispatch', NULL, $2, $3, $4, $5, $6::jsonb, $7)`,
     [
       tenantId,
-      recipient.subjectKind === "tenant_user" ? recipient.subjectUserId : null,
+      recipient.subjectUserId,
       phone,
       preview.slice(0, 500),
       status,
@@ -292,9 +296,8 @@ async function tryWhatsapp(
     return { ok: false, reason: "wasender_not_configured" };
   }
   // Prefer explicit phone if given; otherwise derive from teachers/student_profiles via the helper
-  // (only available for tenant_user — public_user must always provide phone explicitly).
   let phone = normalizeToE164(recipient.phone ?? null);
-  if (!phone && recipient.subjectKind === "tenant_user") {
+  if (!phone) {
     phone = await resolveUserPhone(pool, input.tenantId, recipient.subjectUserId);
   }
   if (!phone) {

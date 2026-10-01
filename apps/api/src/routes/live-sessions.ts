@@ -18,11 +18,15 @@ import {
  *   GET    /:id/recordings                           list recordings for the session
  *
  * Author/moderator detection is intentionally minimal in PR 1 — the creator + tenant admin
- * count as moderator; richer rules (e.g. assigned formateur for SessionProfessionnelle) can
- * be layered in PR 3/5 once the front-end exposes them.
+ * count as moderator; richer rules can be layered in PR 3/5 once the front-end exposes them.
+ *
+ * Cette route ne sert que la séance de l'emploi du temps scolaire (`session_instances`). Les séances
+ * ECUE du module Professionnel passent par `professional-live-sessions.service.ts`. L'ancienne branche
+ * « formation professionnelle publique » (Imhotep) a été retirée ; la colonne
+ * `live_sessions.session_professionnelle_id` reste en base jusqu'au reset de la Phase 2.
  */
 
-const ParentTypeSchema = z.enum(["instance", "professionnelle"]);
+const ParentTypeSchema = z.enum(["instance"]);
 
 type ParentType = z.infer<typeof ParentTypeSchema>;
 
@@ -38,7 +42,6 @@ interface LiveSessionRow {
   id: string;
   tenant_id: string;
   session_instance_id: string | null;
-  session_professionnelle_id: string | null;
   room_name: string;
   status: "created" | "live" | "ended";
   recording_enabled: boolean;
@@ -54,7 +57,6 @@ function rowToDto(row: LiveSessionRow) {
     id: row.id,
     tenantId: row.tenant_id,
     sessionInstanceId: row.session_instance_id,
-    sessionProfessionnelleId: row.session_professionnelle_id,
     roomName: row.room_name,
     status: row.status,
     recordingEnabled: row.recording_enabled,
@@ -66,12 +68,12 @@ function rowToDto(row: LiveSessionRow) {
   };
 }
 
-function parentColumn(type: ParentType): "session_instance_id" | "session_professionnelle_id" {
-  return type === "instance" ? "session_instance_id" : "session_professionnelle_id";
+function parentColumn(_type: ParentType): "session_instance_id" {
+  return "session_instance_id";
 }
 
-function parentTable(type: ParentType): "session_instances" | "sessions_professionnelles" {
-  return type === "instance" ? "session_instances" : "sessions_professionnelles";
+function parentTable(_type: ParentType): "session_instances" {
+  return "session_instances";
 }
 
 async function loadLiveSession(client: any, tenantId: string, id: string): Promise<LiveSessionRow | null> {
@@ -117,7 +119,7 @@ export async function liveSessionsRoutes(fastify: FastifyInstance) {
 
   // ===========================================================
   // POST /api/v1/live-sessions
-  // Body: { parentType: 'instance' | 'professionnelle', parentId, recordingEnabled? }
+  // Body: { parentType: 'instance', parentId, recordingEnabled? }
   // Idempotent: returns the existing live session if one already exists for this parent.
   // ===========================================================
   fastify.post("/", async (request: any, reply) => {
@@ -290,7 +292,7 @@ export async function liveSessionsRoutes(fastify: FastifyInstance) {
         request.userId;
 
       // Identities are prefixed so the LiveKit webhook can route attendance rows to the right
-      // subject_kind without an extra DB lookup. Public users use 'pu_'; tenant users 'tu_'.
+      // subject_kind without an extra DB lookup. Tenant users use 'tu_'.
       const identity = `tu_${request.userId}`;
       const token = await lk.mintToken({
         roomName: row.room_name,
@@ -555,10 +557,7 @@ async function notifyEnrolledRecipients(
   parentId: string
 ): Promise<void> {
   const pg = fastify.pg as any;
-  const recipients =
-    parentType === "instance"
-      ? await resolveSchoolRecipients(pg, tenantId, parentId)
-      : await resolvePublicRecipients(pg, tenantId, parentId);
+  const recipients = await resolveSchoolRecipients(pg, tenantId, parentId);
 
   if (recipients.length === 0) {
     fastify.log.info(
@@ -568,10 +567,7 @@ async function notifyEnrolledRecipients(
     return;
   }
 
-  const baseUrl =
-    parentType === "instance"
-      ? process.env.PUBLIC_WEB_URL ?? process.env.NEXTAUTH_URL ?? ""
-      : process.env.PUBLIC_FORMATION_PRO_URL ?? "";
+  const baseUrl = process.env.PUBLIC_WEB_URL ?? process.env.NEXTAUTH_URL ?? "";
   const actionUrl = baseUrl
     ? `${baseUrl.replace(/\/$/, "")}/live/${liveSessionId}`
     : undefined;
@@ -618,39 +614,6 @@ async function resolveSchoolRecipients(
       email: row.email,
       phone: row.phone,
       displayName: row.name,
-    }));
-  } finally {
-    client.release();
-  }
-}
-
-async function resolvePublicRecipients(
-  pool: any,
-  tenantId: string,
-  sessionProId: string
-): Promise<NotificationRecipient[]> {
-  const client = await pool.connect();
-  try {
-    await client.query("SELECT set_config($1, $2, true)", ["app.tenant_id", tenantId]);
-    const r = await client.query<{
-      user_id: string;
-      email: string;
-      phone: string | null;
-      nom: string | null;
-      prenom: string | null;
-    }>(
-      `SELECT pu.id AS user_id, pu.email, pu.telephone AS phone, pu.nom, pu.prenom
-         FROM inscriptions_public ip
-         JOIN public_users pu ON pu.id = ip.user_id
-        WHERE ip.session_id = $1 AND ip.statut = 'CONFIRME'`,
-      [sessionProId]
-    );
-    return r.rows.map((row) => ({
-      subjectKind: "public_user",
-      subjectUserId: row.user_id,
-      email: row.email,
-      phone: row.phone,
-      displayName: [row.prenom, row.nom].filter(Boolean).join(" ") || row.email,
     }));
   } finally {
     client.release();
