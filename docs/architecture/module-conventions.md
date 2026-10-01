@@ -55,6 +55,18 @@ Les versions du runner (`schema_migrations.version`) sont **globales à tous les
 | 0400-0499 | `iam` |
 | 0500-0599 | `finance` |
 | 0600-0699 | `apps/worker` |
-| 0700+ | modules suivants, attribués dans l'ordre de création (compléter ce tableau) |
+| 0700-0799 | `academic` |
+| 0800-0899 | `people` |
+| 0900-0949 | `attendance` |
+| 0950-0999 | `scheduling` |
+| 1000-1099 | `rules` |
+| 1100-1199 | `assess` |
+| 1200-1299 | `results` |
+| 1300-1399 | `reportcards` |
+| 1400-1499 | `higher` |
+| 1500-1599 | `payroll` |
+| 1600+ | modules suivants, attribués dans l'ordre de création (compléter ce tableau) |
 
 Un nouveau module prend la prochaine plage libre et l'inscrit ici dans la même PR.
+
+Note : le script `db:v2:migrate` suit les versions par dossier (`schema_migrations_<module>`), donc une collision n'est pas bloquante techniquement ; les plages gardent les numéros lisibles et évitent toute ambiguïté dans les journaux.
