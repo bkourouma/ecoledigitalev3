@@ -40,20 +40,20 @@ Phases du plan §4 : 0 = cadrage, 1 = socle SaaS, 2 = cœur académique et migra
 | 001 | saas-core | 1 | À écrire |
 | 002 | auth-rbac | 1 | À écrire |
 | 003 | organization-campus | 1 | À écrire |
-| 004 | academic-core | 2 | À écrire |
+| 004 | academic-core | 2 | Rédigée (`004-academic-core/`) |
 | 005 | primary | 4 | À écrire |
 | 006 | secondary | 5 | À écrire |
 | 007 | admissions | 4 | À écrire |
-| 008 | students-guardians | 2 | À écrire |
-| 009 | teachers-staff | 2 | À écrire |
-| 010 | attendance | 2 | À écrire |
+| 008 | students-guardians | 2 | Rédigée (`008-students-guardians/`) |
+| 009 | teachers-staff | 2 | Rédigée (`009-teachers-staff/`) |
+| 010 | attendance | 2 | Rédigée (`010-attendance/`) |
 | 011 | assessments-grades | 2 | À écrire |
 | 012 | rules-engine | 2 (spike en phase 0) | À écrire |
 | 013 | report-cards | 2 | À écrire |
 | 014 | finance | 1 puis 3 | À écrire |
 | 015 | payments | 1 puis 3 | À écrire |
 | 016 | communications | 3 | À écrire |
-| 017 | scheduling | 2 | À écrire |
+| 017 | scheduling | 2 | Rédigée (`017-scheduling/`) |
 | 018 | examinations | 4 | À écrire |
 | 019 | higher-education | 2 | À écrire |
 | 020 | bts | Après V1 | À écrire |
