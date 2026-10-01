@@ -1,0 +1,138 @@
+# Fondation web (`src/platform`) — piste C de la Phase 1
+
+Tout ce qui est décrit ici est **additif** : aucune page existante n'a été migrée. Les pages passeront par tranches
+verticales vers ces briques (voir `docs/PLAN_Mise_en_oeuvre_EcoleDigitale_SaaS.md`, § 3.14 et Phase 1, piste C).
+
+## 1. Tenant : une seule résolution
+
+`src/platform/tenant/resolve-tenant.ts` (fonction pure, testée). Ordre :
+
+1. `override` explicite (choix super-admin) ;
+2. **session** (slug, sinon identifiant) ;
+3. **domaine** : domaine personnalisé configuré, puis `<slug>.ecoledigitale.allianceconsultants.net` (et `<slug>.localhost` en dev) ;
+4. **`NEXT_PUBLIC_TENANT_SLUG`** (développement local, déploiement mono-tenant).
+
+Aucun repli codé en dur : sans correspondance, le résultat est `null` (« tenant inconnu »). Adaptateurs :
+
+| Contexte | Module |
+|----------|--------|
+| Navigateur (`TenantContext`, `api-utils`, `fetch-interceptor`) | `platform/tenant/browser.ts` |
+| Routes proxy Next (`app/api/**`) | `platform/tenant/server.ts` → `tenantFallback(request)` (dernier recours d'une chaîne `request.headers.get('X-Tenant') \|\| session.tenantId \|\| tenantFallback(request)` ; chaîne vide si inconnu) |
+
+`useTenant()` renvoie `{ tenantSlug: string | null, status: 'resolved' | 'unknown', source }` ; l'UI doit gérer `unknown`.
+`getTenantSlug()` (api-utils) **lève** `TenantUnknownError` quand le tenant est inconnu (ses appelants avaient déjà un `try/catch`).
+
+Variables : `NEXT_PUBLIC_TENANT_SLUG`, `NEXT_PUBLIC_TENANT_BASE_DOMAINS` (domaines de base supplémentaires, séparés par des
+virgules), `NEXT_PUBLIC_TENANT_CUSTOM_DOMAINS` (`hote=slug,hote2=slug2`). Voir `ENV_EXAMPLE.md`.
+
+**Reste à migrer** (hors périmètre de cette tâche) : ~40 composants / hooks / pages qui écrivent en dur
+`'X-Tenant': 'imhotepacademy'` dans leurs appels (`lib/hooks/*`, `components/assignments/*`, `components/academic/EnrollmentForm.tsx`,
+`app/(dashboard)/**`, `app/payments/periods`, `app/academic/evaluations/[id]`…). L'intercepteur remplace aujourd'hui ce slug par
+l'identifiant du jeton quand l'utilisateur est connecté ; ces lignes disparaîtront avec la migration du client API.
+Autre valeur en dur à traiter : `'aspci'` (module RSO) dans `fetch-interceptor.ts`.
+
+## 2. Client API typé (`src/platform/api`)
+
+```ts
+import { createApiClient, createQueryHooks } from "@/platform/api";
+
+const client = createApiClient({ baseUrl: "", getToken, getTenant });
+const hooks = createQueryHooks(client);
+
+const { data } = hooks.useApiQuery(["students"], "/api/v1/students", { schema: StudentListSchema, query: { page: 1 } });
+const create = hooks.useApiMutation({ path: "/api/v1/students", schema: StudentSchema, invalidate: [["students"]] });
+```
+
+- erreurs normalisées `ApiError { code, message, status, details, requestId }` (formats kernel, enveloppe `{error:{…}}` et anciens formats) ;
+- réponse validée par un schéma Zod (`packages/contracts/src/v2/*` dès qu'ils existent) ; violation = `RESPONSE_INVALID` ;
+- retries (2 par défaut, backoff exponentiel + jitter, `Retry-After`) pour GET/HEAD/PUT/DELETE et POST avec `idempotencyKey` ;
+- annulation (`signal`, branchée sur react-query) et délai (`timeoutMs`) ;
+- clés de cache `["api", <tenant>, ...clé]` ; aucune requête sans tenant (`TENANT_UNKNOWN`).
+
+Instance du navigateur : `platform/api/default-client.ts` (`platformApi`, `platformHooks`) — jeton du stockage JWT historique,
+`requireToken: true` (sans jeton, échec 401 local au lieu d'un appel qui déclencherait la redirection de l'intercepteur vers `/login`).
+Le patch de `window.fetch` n'est **pas** retiré.
+
+## 3. Gardes serveur (`src/platform/auth`)
+
+```ts
+// layout.tsx (server component)
+import { requireRole, requirePermission, requireAccess } from "@/platform/auth/server";
+
+await requireRole("admin", "owner");                    // /login si pas de session, /unauthorized sinon
+await requirePermission("finance.payment.read");        // via GET /api/v1/rbac/me/permissions (fail-closed)
+await requireAccess((session, pathname) => canAccessOwnerPath(session, pathname));
+```
+
+Le middleware pose l'en-tête interne `x-pathname` (toujours écrasé, jamais accepté du client) pour que les layouts connaissent
+la route. Les gardes **complètent** les gardes client (conservés) ; la barrière réelle sur les données reste l'API.
+`/select-role` n'est pas affecté : les gardes lisent `roles` comme les gardes client, et `requireSession({ requireRoleSelected: true })`
+est disponible mais non activé.
+
+Appliqué à : `app/owner/layout.tsx`, `app/tableau-de-bord/layout.tsx`, `app/professionnel/admin/layout.tsx` (nouveau).
+Les anciens layouts clients ont été renommés `owner-client-layout.tsx` / `tableau-de-bord-client-layout.tsx` (contenu inchangé).
+
+Limite App Router : un layout n'est pas ré-exécuté pour une navigation interne entre deux pages qu'il enveloppe déjà ; la garde
+s'applique à l'entrée dans la section et au rechargement. Le contrôle par route (middleware avec jeton signé) viendra avec le module `iam`.
+
+`/professionnel/admin/notes` reste ouvert aux enseignants (c'est leur écran de notation, entrée « Notes » de leur menu).
+
+### Layouts / sections qui restent à protéger côté serveur
+
+| Section | État actuel | Rôle attendu |
+|---------|-------------|--------------|
+| `app/teacher/**` | aucun layout, pas de garde | teacher |
+| `app/student/**` | aucun layout, pas de garde | student |
+| `app/parent/**` | aucun layout, pas de garde | parent |
+| `app/formateur/layout.tsx` | passe-plat | formateur |
+| `app/payments/layout.tsx` | passe-plat | admin (+ owner) |
+| `app/(dashboard)/**`, `app/academic/**`, `app/annee-academique/**`, `app/evaluations/**`, `app/courses/**`, `app/dashboard/**` | aucun layout | selon section (admin / teacher) |
+| `app/formations-professionnelles/admin/layout.tsx` | passe-plat client | admin |
+| `app/_rso/**` (4 layouts) | layouts d'habillage, jeton RSO séparé | à traiter avec le module RSO |
+| `app/super-admin/**` | authentification séparée (jeton localStorage, pas NextAuth) | à traiter avec le module `iam` (impersonation) |
+| `app/live/**` | aucun layout | selon session |
+
+## 4. Navigation pilotée par l'API (`src/platform/navigation`)
+
+`GET /api/v1/rbac/me/navigation` → `MenuItem[]` (`key, label, href, permission, feature?, portal, icon?, order?`, aligné sur
+`MenuDef` du kernel). L'API renvoie le menu déjà filtré par permissions et entitlements.
+
+- `useNavigation({ portal })` : `source: "api" | "legacy"` ; endpoint absent, en erreur ou menu vide ⇒ `legacy`.
+- `PlatformSidebar` : composant accessible, mobile-first.
+- `SidebarGate` (branché dans `components/layout/Layout.tsx`) : **éteint par défaut**. `NEXT_PUBLIC_PLATFORM_NAV=1` l'active
+  pour tous les portails, `NEXT_PUBLIC_PLATFORM_NAV=admin,teacher` pour certains seulement. Éteint : le Sidebar legacy est rendu tel
+  quel et **aucune requête** n'est émise. Allumé mais API indisponible : retour au Sidebar legacy.
+
+`usePermission(key)` / `useFeature(key)` (`src/platform/access`) lisent `GET /api/v1/rbac/me/permissions` et
+`GET /api/v1/entitlements/me`, avec cache partagé ; fail-closed (`allowed: false`, `isUnavailable: true` si l'endpoint échoue).
+
+## 5. Thème de tenant (`src/platform/theme`)
+
+`TenantTheme` (branché dans `providers.tsx`) pose `--brand-primary`, `--brand-secondary`, `--brand-*-rgb`, `--brand-logo-url`
+sur `:root` depuis `GET /api/v1/tenancy/profile` (`{ name?, theme: { primaryColor, secondaryColor, logoUrl } }`).
+Valeurs validées (hex strict, logo https ou chemin interne) ; défauts EcoleDigitale (`#2563eb` / `#059669`) si le profil est absent
+ou invalide. Ne touche pas à `[data-role]` / `--role-primary`. Aucun appel pour un visiteur non connecté.
+
+## 6. i18n
+
+Voir `docs/i18n.md`.
+
+## 7. PWA
+
+- `public/manifest.webmanifest`, icônes `public/icons/*` (source `icon.svg`, régénérables avec `scripts/generate-pwa-icons.mjs`).
+- `public/sw.js` : met en cache **uniquement** l'app shell (`/offline`, manifeste, icônes) et les fichiers statiques Next
+  **versionnés** (nom haché). Il n'intervient jamais sur `/api/`, les requêtes avec `Authorization`, les non-GET, le cross-origin,
+  les flux RSC ; les navigations passent par le réseau et, hors ligne, redirigent vers `/offline?from=<page>`. Aucune page
+  privée n'est écrite dans le cache. Test de non-régression : `src/platform/pwa/sw.test.ts`.
+- Enregistrement (`platform/pwa/RegisterServiceWorker`) : production uniquement, ou `NEXT_PUBLIC_PWA=1`. `NEXT_PUBLIC_PWA=0` =
+  interrupteur d'arrêt (désinscrit les service workers existants).
+- Déconnexion : `navigator.serviceWorker.controller?.postMessage({ type: "CLEAR_CACHES" })` purge les caches `ed-*`.
+- Changer `CACHE_VERSION` dans `sw.js` quand `/offline`, le manifeste ou les icônes changent.
+
+## Tests
+
+```bash
+pnpm --filter @ecoledigitale/web test                       # Vitest (logique pure + hooks, jsdom)
+cd apps/web && pnpm exec playwright test -c playwright.pwa.config.ts   # smoke PWA (Next seul, sans API ni base)
+```
+Le smoke PWA utilise le Chromium de Playwright (`playwright install chromium`) ou `PW_CHANNEL=msedge|chrome`.

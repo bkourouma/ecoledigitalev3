@@ -11,7 +11,8 @@ interface AppLayoutProps {
 
 // Pages qui ne doivent pas avoir le layout principal (pages publiques)
 // Peut être un chemin exact ou un préfixe pour exclure toute une section
-const NO_LAYOUT_PAGES = ['/login', '/register'];
+// '/offline' : page du service worker (public/sw.js), affichée sans réseau ; ne doit pas attendre la session.
+const NO_LAYOUT_PAGES = ['/login', '/register', '/offline'];
 const NO_LAYOUT_PREFIXES = ['/rso/formateur', '/super-admin', '/live'];
 
 export function AppLayout({ children }: AppLayoutProps) {

@@ -54,8 +54,9 @@ function loadWorker(fetchImpl: (input: unknown, init?: unknown) => Promise<unkno
 
   const caches = {
     open: vi.fn(async (name: string) => openCache(name)),
-    match: vi.fn(async (req: unknown, opts?: { cacheName?: string }) => {
-      const key = (typeof req === "string" ? req : (req as { url: string }).url).replace(ORIGIN, "");
+    match: vi.fn(async (req: unknown, opts?: { cacheName?: string; ignoreSearch?: boolean }) => {
+      let key = (typeof req === "string" ? req : (req as { url: string }).url).replace(ORIGIN, "");
+      if (opts?.ignoreSearch) key = key.split("?")[0];
       for (const [name, store] of stores) {
         if (opts?.cacheName && opts.cacheName !== name) continue;
         if (store.has(key)) return store.get(key);
@@ -80,6 +81,9 @@ function loadWorker(fetchImpl: (input: unknown, init?: unknown) => Promise<unkno
     ) {}
     get status() {
       return this.init.status ?? 200;
+    }
+    static redirect(location: string, status = 302) {
+      return { redirected: true, location, status };
     }
   }
 
@@ -134,7 +138,7 @@ describe("sw.js — ne met jamais en cache l'API ni les pages privées", () => {
     expect(sw.caches.open).not.toHaveBeenCalled();
   });
 
-  it("navigation hors ligne : sert /offline pré-cachée, jamais la page demandée", async () => {
+  it("navigation hors ligne : redirige vers /offline pré-cachée (page demandée dans ?from=), sans servir la page privée", async () => {
     const offline = okResponse({}, { marker: "offline" });
     const fetchSpy = vi.fn(async (input: unknown) => {
       if (String(input).endsWith("/offline")) return offline;
@@ -144,9 +148,13 @@ describe("sw.js — ne met jamais en cache l'API ni les pages privées", () => {
     await (sw.listeners.get("install")!({ waitUntil: (p: Promise<unknown>) => p }) as unknown);
     // l'installation est asynchrone : on attend le pré-cache
     await vi.waitFor(() => expect(sw.puts.some((p) => p.url === "/offline")).toBe(true));
-    const result = await sw.dispatchFetch({ url: `${ORIGIN}/owner/dashboard`, mode: "navigate" });
-    expect(result).toBe(offline);
+    const result = await sw.dispatchFetch({ url: `${ORIGIN}/owner/dashboard?vue=1`, mode: "navigate" });
+    expect(result).toEqual({ redirected: true, status: 302, location: `${ORIGIN}/offline?from=%2Fowner%2Fdashboard%3Fvue%3D1` });
     expect(sw.puts.every((p) => !p.url.includes("/owner"))).toBe(true);
+
+    // La navigation vers /offline elle-même (hors ligne) sert la page pré-cachée, sans boucle de redirection.
+    const direct = await sw.dispatchFetch({ url: `${ORIGIN}/offline?from=%2Fowner`, mode: "navigate" });
+    expect(direct).toBe(offline);
   });
 
   it("navigation hors ligne sans pré-cache : page de secours intégrée (503)", async () => {

@@ -46,7 +46,8 @@ export interface RequirePermissionOptions extends RequireSessionOptions {
 export function createGuards<S extends SessionLike = SessionLike>(deps: GuardDeps<S>) {
   async function requireSession(options: RequireSessionOptions = {}): Promise<S> {
     const session = await deps.getSession();
-    if (!session || !session.user?.id) return deps.redirect(LOGIN_PATH);
+    // Même critère que les gardes client (`if (!session)`) : pas de boucle /login <-> page si le jeton est atypique.
+    if (!session) return deps.redirect(LOGIN_PATH);
     if (options.requireRoleSelected && session.requiresRoleSelection === true) {
       return deps.redirect(SELECT_ROLE_PATH);
     }

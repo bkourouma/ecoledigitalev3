@@ -10,17 +10,20 @@ import { resolveBrowserTenant } from "@/platform/tenant/browser";
 import { createApiClient } from "./client";
 import { createQueryHooks } from "./hooks";
 
+/** Jeton valide du stockage navigateur ; `null` côté serveur (SSR) où il n'existe pas (évite le bruit de jwt-storage). */
+function currentToken(): string | null {
+  if (typeof window === "undefined") return null;
+  const token = getToken();
+  return token && !isTokenExpired(token) ? token : null;
+}
+
 export const platformApi = createApiClient({
   baseUrl: "",
   requireToken: true,
-  getToken: () => {
-    const token = getToken();
-    return token && !isTokenExpired(token) ? token : null;
-  },
+  getToken: currentToken,
   getTenant: () => {
-    const token = getToken();
-    const claims = token && !isTokenExpired(token) ? getUserFromToken(token) : null;
-    return resolveBrowserTenant(claims)?.key ?? null;
+    const token = currentToken();
+    return resolveBrowserTenant(token ? getUserFromToken(token) : null)?.key ?? null;
   },
 });
 

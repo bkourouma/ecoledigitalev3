@@ -76,7 +76,8 @@ async function precacheShell() {
     PRECACHE_URLS.map(async (url) => {
       try {
         const response = await fetch(url, { credentials: "omit", cache: "reload" });
-        if (!isCacheableResponse(response)) return;
+        // Liste blanche publique : seul le statut compte (le serveur de développement renvoie no-store).
+        if (response.status !== 200 || response.type !== "basic") return;
         await cache.put(url, response.clone());
         // La page hors ligne a besoin de ses fichiers versionnés pour s'afficher sans réseau.
         if (url === OFFLINE_URL) {
@@ -115,13 +116,25 @@ async function cacheFirstStatic(request) {
   return response;
 }
 
-/** Navigation : réseau uniquement. Hors ligne, page /offline pré-cachée (jamais une page privée). */
+/**
+ * Navigation : réseau uniquement. Hors ligne, redirection vers /offline (pré-cachée) en gardant la page
+ * demandée dans ?from= ; jamais une page privée servie depuis le cache. La redirection (plutôt que de servir
+ * le HTML hors ligne à l'URL d'origine) évite que l'application hydratée sur une route privée attende une
+ * session qu'elle ne peut pas charger sans réseau.
+ */
 async function networkOrOffline(request) {
   try {
     return await fetch(request);
   } catch (_) {
-    const cached = await caches.match(OFFLINE_URL, { cacheName: SHELL_CACHE });
-    return cached || new Response(FALLBACK_HTML, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } });
+    const cached = await caches.match(OFFLINE_URL, { cacheName: SHELL_CACHE, ignoreSearch: true });
+    if (!cached) {
+      return new Response(FALLBACK_HTML, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
+    const url = new URL(request.url);
+    if (url.pathname === OFFLINE_URL) return cached;
+    const target = new URL(OFFLINE_URL, self.location.origin);
+    target.searchParams.set("from", (url.pathname + url.search).slice(0, 512));
+    return Response.redirect(target.href, 302);
   }
 }
 

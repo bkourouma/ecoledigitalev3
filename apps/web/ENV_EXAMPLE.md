@@ -10,7 +10,15 @@ Copy this content to `apps/web/.env.local`:
 # =================================================================
 # TENANT CONFIGURATION
 # =================================================================
-NEXT_PUBLIC_TENANT_SLUG=imhotepacademy
+# Résolution UNIQUE du tenant (src/platform/tenant/resolve-tenant.ts), dans cet ordre :
+#   session > sous-domaine (<slug>.ecoledigitale.allianceconsultants.net, <slug>.localhost) > NEXT_PUBLIC_TENANT_SLUG.
+# Plus AUCUN repli codé en dur : sans correspondance, le tenant est « inconnu » et l'interface l'indique.
+# En développement local (localhost sans sous-domaine) : indiquer le slug du tenant de dev.
+NEXT_PUBLIC_TENANT_SLUG=<slug-du-tenant-de-dev>
+# Facultatif : domaines de base supplémentaires (<slug>.<domaine>), séparés par des virgules.
+NEXT_PUBLIC_TENANT_BASE_DOMAINS=
+# Facultatif : domaines personnalisés, hote=slug séparés par des virgules (ex. portail.monecole.ci=monecole).
+NEXT_PUBLIC_TENANT_CUSTOM_DOMAINS=
 
 # =================================================================
 # API CONFIGURATION  
@@ -31,6 +39,12 @@ NEXTAUTH_SECRET=<secret-aleatoire-32-caracteres-minimum>
 # FEATURE FLAGS
 # =================================================================
 NEXT_PUBLIC_ENABLE_DEV_TOOLS=true
+# Menu latéral piloté par l'API (GET /api/v1/rbac/me/navigation). Éteint par défaut (Sidebar legacy).
+# 1 = tous les portails ; admin,teacher,parent,student,owner = portails nommés. Repli sur le legacy si l'API échoue.
+NEXT_PUBLIC_PLATFORM_NAV=
+# PWA / service worker (public/sw.js). Actif en production par défaut ; 1 = forcer en développement ;
+# 0 = interrupteur d'arrêt (désinscrit les service workers existants).
+NEXT_PUBLIC_PWA=
 NEXT_PUBLIC_DEMO_ACCOUNTS=
 # Panneau « Comptes par tenant » de /login (remplit email + mot de passe des
 # comptes techniques). Lu côté serveur, à l'exécution. Non renseigné : actif en
