@@ -506,3 +506,23 @@ Conservation : `FINAL`, `closures`, révisions, surcharges, décisions : **duré
 ## 4. Événements et outbox
 
 Les événements de la spec §11 sont écrits via `PgOutboxWriter(tx)` dans la même transaction que la donnée ; versions `{ v: 1 }`. `assess.grade.published` ne transporte **aucune note** (seulement ids et métadonnées) : pas de donnée personnelle dans l'outbox.
+
+## 5. Écarts d'implémentation (modules `assess` et `results`, 2026-10-01)
+
+Ajouts ou précisions par rapport aux DDL ci-dessus (tous justifiés par une exigence de la spec ; migrations `1100-1105` et `1200-1203`) :
+
+- `assess.assessment_transitions` : historique append-only de chaque transition (acteur, date, commentaire) — AC2.4.
+- `assess.batch_receipts` : clés `Idempotency-Key` des saisies en lot — AC1.3 (purge quotidienne).
+- `assess.grade_revisions.student_id` : nécessaire à une révision de type ADDITION (élève absent de la feuille à la publication).
+- `assess.apply_revision(uuid, timestamptz)` : voie unique de modification d'une note publiée ; la révision APPROUVÉE correspondante est relue en base.
+- `results.period_results.closure_id`, `line_count` : une clôture scelle les lignes de ses en-têtes FINAL ; `summary` jsonb porte `classSize`
+  (effectif de la classe), distinct de `cohort_size` (inscriptions classées, avec moyenne).
+- `results.line_results.trace` des FINAL conserve, pour chaque appel de règle, le contexte exact (`variables`, hors `rang`) : base du rejeu
+  de reproductibilité et des cas de simulation du module `rules`.
+- Les résultats d'ANNÉE (`scope = 'YEAR'`) ne sont pas persistés : `getYearResult` les DÉRIVE des résultats FINAL de période (immuables) sous
+  la version de règle épinglée du dernier semestre (contrat à crédits : règles de l'étape « année » ; contrat à coefficients : ligne `YEAR`
+  du 2ᵉ semestre). Les colonnes `scope = 'YEAR'` restent disponibles pour une persistance ultérieure (diplôme, 019).
+- Une UE sans aucun résultat n'a ni état LMD ni session de validation, et le semestre reste sans décision (en attente) : la décision
+  `ADJOURNED` n'est jamais prononcée faute de note.
+- Vue de travail d'une période : version la plus récente non remplacée (après réouverture, le brouillon de correction prime sur le FINAL) ;
+  résultat officiel et lectures famille : FINAL seulement.

@@ -74,3 +74,36 @@ Tables legacy remplacées (tranche 2.5) : `professional_assignments`, `professio
 8. Deux piles de saisie divergentes, deux moteurs de QCM.
 9. `DELETE`/`UPDATE` libres sur une évaluation dont des notes ont été publiées.
 10. `coef || 1` : un coefficient absent ne vaut plus 1 en silence.
+
+## 6. Preuve par les snapshots de caractérisation (implémentation `results`, 2026-10-01)
+
+Les scénarios déclaratifs de `tests/characterization/scenarios` sont rejoués à travers `results` et les VRAIES règles du catalogue national
+(adaptateurs documentés dans `apps/api/src/modules/results/test/parity/`), puis comparés champ à champ aux snapshots du legacy par
+`compareWithTolerance`. Écarts tolérés : uniquement les bogues catalogués de statut `bug` (la v2 doit les avoir corrigés — `corrected` —
+jamais reproduits — `stillDefective` vide) et les divergences documentées ci-dessous. Les défauts `dead` (`RULES_NOT_WIRED_*`) ne sont pas tolérés
+(leur portée masquerait des écarts réels).
+
+| Scénario | Jeu de règles | Feuilles comparées | Résultat |
+|---|---|---|---|
+| `licence-rattrapage` | CI-HIGHER-LMD | ≈ 1 700 | **parité exacte** (session 2 remplace, dette, décisions admis/rattrapage/ajourné, rang, jury) |
+| `bts-premiere-annee` | CI-HIGHER-LMD | ≈ 2 100 | parité ; 3 bogues flottants corrigés (`FLOAT_ECUE_VALIDATION_10`, `FLOAT_ECUE_ELIMINATOIRE_5`) |
+| `notes-limites` | CI-HIGHER-LMD | ≈ 2 600 | parité ; 34 bogues corrigés (24 couples exactement à 10, 8 à 5, UE à 10, entrées arrondies) |
+| `conduite-absences` | CI-HIGHER-LMD | ≈ 330 | parité sauf 2 divergences documentées (ci-dessous) |
+| `cloture-semestre` | CI-HIGHER-LMD | ≈ 340 | **parité exacte** (verrou de période appliqué par `assess` via `results.lockPeriod`) |
+| `classique-terminale` | CI-CLASSIC-SEMESTRE | > 1 500 | **parité exacte** (sections, (S1+2·S2)/3, rangs avec ex æquo, mentions, distinctions, décisions) |
+| `classique-flottants` | CI-CLASSIC-SEMESTRE | — | parité ; `CLASSIC_FLOAT_WEIGHTED_MEAN` corrigé (mention, décision, distinction à tort) |
+| `classique-nommage-periodes` | CI-HIGHER-BTS | — | rôle du semestre et examen terminal lus dans la DONNÉE : `CLASSIC_SEMESTER_DETECTED_BY_NAME` corrigé |
+
+Divergences documentées (décisions v2 volontaires, à arbitrer par le métier) :
+
+1. **UE de conduite non notée** (`conduite-absences`, étudiant `dan`) : le legacy ignore silencieusement l'UE (4 crédits au lieu de 6) et déclare
+   le semestre « admis ». La v2 laisse le semestre **sans décision** (en attente) tant qu'une UE n'a aucun résultat : ni validé, ni ajourné faute de note.
+2. **Note saisie 9,995** (`fay`) : le legacy l'enregistre 10,00 (`numeric(6,2)`) et valide la conduite. La v2 conserve la note SAISIE (3 décimales,
+   aucun arrondi à l'enregistrement) et décide sur la valeur exacte : 9,995 < 10, UE non validée (ADR-003). Précision de saisie à arbitrer.
+
+Autres points de projection (pas des écarts de calcul) : l'effectif du legacy est la taille de la classe (`summary.classSize`), distinct du
+nombre d'inscriptions classées (`cohortSize`) ; le legacy refuse le BULLETIN d'un étudiant « en attente de session 2 » (politique de
+disponibilité du document, projetée depuis la décision `RESIT`/en attente) ; les libellés viennent des `label_map` du jeu de règles. En 1ᵉʳ
+semestre, le legacy affiche aussi des verdicts « de fin d'année » calculés sur la moyenne du semestre ; le contrat à coefficients ne les
+produit qu'au 2ᵉ semestre (spec 012) : ces champs ne sont comparés qu'au 2ᵉ semestre. Non comparés (hors périmètre calculé) : appréciation par
+matière / section, cumuls `totalCoef` / `weightedTotal`, récapitulatif d'absences.
