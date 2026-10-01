@@ -50,6 +50,8 @@ export interface ReportcardsDeps {
   readonly audit: AuditPort;
   readonly ports: ReportcardsPorts;
   readonly keys: KeyProvider | null;
+  /** Feature `reportcard.public-verification` du tenant propriétaire d'un document (absent = toujours active). */
+  readonly verificationEnabled: ((tenantId: string) => Promise<boolean>) | null;
   readonly config: ReportcardsConfig;
   readonly newId: () => string;
   readonly logger: Logger;
@@ -66,6 +68,7 @@ export interface ReportcardsDepsInput {
   /** Fournisseur de la clé de signature (lue à chaque émission : rotation sans redémarrage). */
   keysProvider?: () => KeyProvider | null;
   keys?: KeyProvider | null;
+  verificationEnabled?: (tenantId: string) => Promise<boolean>;
   config?: Partial<ReportcardsConfig>;
   newId?: () => string;
   logger?: Logger;
@@ -100,6 +103,7 @@ export function createReportcardsDeps(input: ReportcardsDepsInput): ReportcardsD
     audit: input.audit ?? noopAudit,
     ports,
     get keys() { return input.keysProvider ? input.keysProvider() : (input.keys ?? null); },
+    verificationEnabled: input.verificationEnabled ?? null,
     config: { ...DEFAULT_REPORTCARDS_CONFIG, ...input.config },
     newId: input.newId ?? newId,
     logger: input.logger ?? noopLogger,

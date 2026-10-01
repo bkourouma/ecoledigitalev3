@@ -72,14 +72,14 @@ $$;
 -- Journal des vérifications : append-only ; la purge de rétention (24 mois) est la SEULE suppression permise, sous le
 -- réglage de transaction `reportcards.retention = on` posé par le job de purge, et seulement pour des lignes échues.
 CREATE FUNCTION reportcards.verification_events_guard() RETURNS trigger
-LANGUAGE plpgsql AS $
+LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP = 'DELETE' AND coalesce(current_setting('reportcards.retention', true), '') = 'on' AND OLD.occurred_at < now() - interval '24 months' THEN
     RETURN OLD;
   END IF;
   RAISE EXCEPTION 'reportcards.immutable: verification_events est immuable (% interdit)', TG_OP USING ERRCODE = 'restrict_violation';
 END
-$;
+$$;
 CREATE TRIGGER verification_events_immutable BEFORE UPDATE OR DELETE ON reportcards.verification_events
   FOR EACH ROW EXECUTE FUNCTION reportcards.verification_events_guard();
 CREATE TRIGGER access_log_immutable BEFORE UPDATE OR DELETE ON reportcards.access_log
@@ -332,3 +332,30 @@ END
 $$;
 CREATE TRIGGER file_hash_index_guard BEFORE INSERT ON reportcards.file_hash_index
   FOR EACH ROW EXECUTE FUNCTION reportcards.file_hash_index_guard();
+
+-- -----------------------------------------------------------------------------
+-- Durcissement : par défaut un superutilisateur peut neutraliser les déclencheurs ordinaires avec
+-- `SET session_replication_role = replica`. `ENABLE ALWAYS` les fait tirer MÊME dans ce mode : seule une action DDL explicite
+-- (DISABLE TRIGGER / DROP, réservée au propriétaire du schéma et tracée par les journaux Postgres) peut les retirer.
+-- -----------------------------------------------------------------------------
+ALTER TABLE reportcards.report_cards ENABLE ALWAYS TRIGGER report_cards_1_insert_check;
+ALTER TABLE reportcards.report_cards ENABLE ALWAYS TRIGGER report_cards_2_supersede;
+ALTER TABLE reportcards.report_cards ENABLE ALWAYS TRIGGER report_cards_immutable;
+ALTER TABLE reportcards.report_cards ENABLE ALWAYS TRIGGER report_cards_no_delete;
+ALTER TABLE reportcards.renders ENABLE ALWAYS TRIGGER renders_guard;
+ALTER TABLE reportcards.renders ENABLE ALWAYS TRIGGER renders_no_delete;
+ALTER TABLE reportcards.verification_events ENABLE ALWAYS TRIGGER verification_events_immutable;
+ALTER TABLE reportcards.access_log ENABLE ALWAYS TRIGGER access_log_immutable;
+ALTER TABLE reportcards.verification_index ENABLE ALWAYS TRIGGER verification_index_immutable;
+ALTER TABLE reportcards.verification_index ENABLE ALWAYS TRIGGER verification_index_guard;
+ALTER TABLE reportcards.file_hash_index ENABLE ALWAYS TRIGGER file_hash_index_immutable;
+ALTER TABLE reportcards.file_hash_index ENABLE ALWAYS TRIGGER file_hash_index_guard;
+ALTER TABLE reportcards.platform_templates ENABLE ALWAYS TRIGGER platform_templates_guard;
+ALTER TABLE reportcards.platform_templates ENABLE ALWAYS TRIGGER platform_templates_no_delete;
+ALTER TABLE reportcards.signing_keys ENABLE ALWAYS TRIGGER signing_keys_guard;
+ALTER TABLE reportcards.signing_keys ENABLE ALWAYS TRIGGER signing_keys_no_delete;
+ALTER TABLE reportcards.branding_versions ENABLE ALWAYS TRIGGER branding_versions_guard;
+ALTER TABLE reportcards.branding_versions ENABLE ALWAYS TRIGGER branding_versions_no_delete;
+ALTER TABLE reportcards.template_configs ENABLE ALWAYS TRIGGER template_configs_guard;
+ALTER TABLE reportcards.template_configs ENABLE ALWAYS TRIGGER template_configs_no_delete;
+ALTER TABLE reportcards.signatories ENABLE ALWAYS TRIGGER signatories_no_delete;

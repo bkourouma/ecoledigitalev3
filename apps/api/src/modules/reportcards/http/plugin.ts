@@ -504,6 +504,7 @@ function depsFromRuntime(app: FastifyInstance, runtime: ModuleRuntime): Reportca
     audit: reportcardsAuditAdapter(runtime.auditPort as RuntimeAuditPort),
     logger: runtime.logger,
     keys,
+    verificationEnabled: (tenantId) => runtime.entitlements.reader.hasFeature(tenantId, "reportcard.public-verification"),
     portsProvider: () => ({ ...(s3 ? { storage: s3 } : {}), ...app.reportcardsPorts.current }),
     config: { verificationBaseUrl: verificationBaseUrl || null },
   });

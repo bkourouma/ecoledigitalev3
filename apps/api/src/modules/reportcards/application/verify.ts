@@ -91,6 +91,8 @@ interface Resolved {
 async function describe(deps: ReportcardsDeps, tenantId: string, cardId: string, code: string): Promise<{ result: PublicVerification; card: ReportCardRecord } | null> {
   const system = deps.systemDb;
   if (!system) throw portUnavailable("SystemDb");
+  // Feature `reportcard.public-verification` du tenant propriétaire : désactivée => réponse uniforme « inconnu ».
+  if (deps.verificationEnabled && !(await deps.verificationEnabled(tenantId))) return null;
   return system.runForTenant("public-verification", tenantId, async (tx) => {
     const content = await cardsRepo.getCardContent(tx, cardId);
     if (!content || content.record.verificationCode !== code || content.record.provisional) return null;

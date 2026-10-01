@@ -191,6 +191,17 @@ async function issueSnapshot(deps: ReportcardsDeps, tx: Tx, ctx: RequestContext,
   return ok(card);
 }
 
+/**
+ * Résultats FINAL d'une inscription (port `results`) + absences lues au moment de l'émission (port `attendance`, qui prime sur
+ * celles que le bundle porterait) : tout est figé dans le snapshot, jamais relu au rendu (spec 013 §5, parité P-RC-07).
+ */
+async function readBundle(deps: ReportcardsDeps, ctx: RequestContext, enrollmentId: Uuid, academicPeriodId: Uuid): Promise<FinalResultBundle | null> {
+  const bundle = await deps.ports.results.getFinalBundle(ctx, { enrollmentId, academicPeriodId });
+  if (!bundle || !deps.ports.attendance) return bundle;
+  const summary = await deps.ports.attendance.getSummary(ctx, { enrollmentId, academicPeriodId });
+  return summary ? { ...bundle, attendance: { justifiedMinutes: summary.justifiedMinutes, unjustifiedMinutes: summary.unjustifiedMinutes, lateCount: summary.lateCount } } : bundle;
+}
+
 const lockKey = async (tx: Tx, ctx: RequestContext, scope: string, key: string): Promise<void> => {
   await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`reportcards:${scope}:${ctx.tenantId}:${key}`]);
 };
@@ -242,7 +253,7 @@ export async function createBatch(deps: ReportcardsDeps, ctx: RequestContext, in
   const keyOk = await ensureSigningKeyRegistered(deps);
   if (!keyOk.ok) return keyOk;
 
-  const idempotencyKey = input.idempotencyKey ?? `${kind}:${input.classroomId}:${input.academicPeriodId}:v${state.resultsVersion}:${provisional ? "provisional" : "final"}`;
+  const idempotencyKey = input.idempotencyKey ?? `${kind}:${input.classroomId}:${input.academicPeriodId}:v${state.resultsVersion}:${provisional ? "provisional" : "final"}${input.reissueReason ? ":reissue" : ""}`;
   const wanted = input.enrollmentIds ? new Set(input.enrollmentIds) : null;
   const scope = roster.filter((r) => !wanted || wanted.has(r.enrollmentId));
   const unknownIds = wanted ? [...wanted].filter((id) => !roster.some((r) => r.enrollmentId === id)) : [];
@@ -252,7 +263,7 @@ export async function createBatch(deps: ReportcardsDeps, ctx: RequestContext, in
   const bundles = new Map<Uuid, FinalResultBundle | null | "ERROR">();
   await mapLimit(toRead, 8, async (r) => {
     try {
-      bundles.set(r.enrollmentId, await deps.ports.results.getFinalBundle(ctx, { enrollmentId: r.enrollmentId, academicPeriodId: input.academicPeriodId }));
+      bundles.set(r.enrollmentId, await readBundle(deps, ctx, r.enrollmentId, input.academicPeriodId));
     } catch (e) {
       deps.logger.warn({ enrollmentId: r.enrollmentId, err: e instanceof Error ? e.message : String(e) }, "reportcards : lecture des résultats en échec");
       bundles.set(r.enrollmentId, "ERROR");
@@ -399,7 +410,7 @@ export async function reissueReportCard(deps: ReportcardsDeps, ctx: RequestConte
   if (state.status !== "CLOSED") return err(conflict("La période n'est pas clôturée : réémission impossible.", ReportcardsCode.PERIOD_NOT_CLOSED));
   const keyOk = await ensureSigningKeyRegistered(deps);
   if (!keyOk.ok) return keyOk;
-  const bundle = await deps.ports.results.getFinalBundle(ctx, { enrollmentId: old.enrollmentId!, academicPeriodId: old.academicPeriodId! });
+  const bundle = await readBundle(deps, ctx, old.enrollmentId!, old.academicPeriodId!);
   if (!bundle) return err(conflict("Aucun résultat définitif à figer pour cette inscription.", ReportcardsCode.NO_FINAL_RESULT));
   if (bundle.enrollment.id !== old.enrollmentId || bundle.student.id !== old.studentId) return err(conflict("Les résultats reçus ne correspondent pas à ce bulletin.", ReportcardsCode.NO_FINAL_RESULT));
   const issuer = { id: ctx.userId, name: await actorLabel(deps, ctx) };
