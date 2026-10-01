@@ -18,8 +18,16 @@ export function middleware(request: NextRequest) {
   // instead of being rewritten to the backend
   const isNextJsApiRoute = pathname.match(/^\/api\/v1\/parents\/[^/]+$/);
   
-  const response = NextResponse.next();
-  
+  // Transmet le chemin aux layouts serveur (platform/auth/server.ts) : ils n'ont pas accès à l'URL.
+  // En-tête de REQUÊTE interne (non renvoyé au navigateur) ; absent des appels /api/ (rewrites vers l'API).
+  const requestHeaders = new Headers(request.headers);
+  if (!pathname.startsWith('/api/')) {
+    requestHeaders.set('x-pathname', pathname);
+  } else {
+    requestHeaders.delete('x-pathname');
+  }
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+
   // Add a custom header to indicate this should not be rewritten
   // (This is just for debugging - Next.js API routes should have priority anyway)
   if (isNextJsApiRoute) {
