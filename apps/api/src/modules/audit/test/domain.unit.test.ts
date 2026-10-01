@@ -94,7 +94,7 @@ describe("masquage", () => {
     const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdEFGH";
     expect(masker.maskString(`jeton ${jwt} fin`)).toBe(`jeton ${MASK} fin`);
     expect(masker.maskString("Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345")).toBe(`Authorization: ${MASK}`);
-    expect(masker.maskString("-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----")).toBe(MASK);
+    expect(masker.maskString("-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----")).toBe(MASK); // secret-scan:allow (valeur factice de test)
   });
 
   it("la liste est configurable", () => {

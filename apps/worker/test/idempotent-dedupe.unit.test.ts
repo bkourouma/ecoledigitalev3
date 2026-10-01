@@ -142,7 +142,7 @@ describe("dédoublonnage : jobId = id d'événement", () => {
 });
 
 describe("configuration (Zod, échec au démarrage)", () => {
-  const ok = { REDIS_URL: "redis://localhost:6379", WORKER_DATABASE_URL: "postgres://u:p@localhost:5432/db" };
+  const ok = { REDIS_URL: "redis://localhost:6379", WORKER_DATABASE_URL: "postgres://u:p@localhost:5432/db" }; // secret-scan:allow (URL factice de test)
 
   it("accepte une configuration minimale et applique les défauts", () => {
     const c = loadConfig(ok);

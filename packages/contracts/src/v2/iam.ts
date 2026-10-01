@@ -29,7 +29,7 @@ export const AuthErrorCodes = {
   mfaAlreadyEnabled: "iam.mfa_already_enabled",
   mfaNotEnabled: "iam.mfa_not_enabled",
   mfaMandatory: "iam.mfa_mandatory",
-  passwordPolicy: "iam.password_policy",
+  passwordPolicy: "iam.password_policy", // secret-scan:allow (cle de configuration, pas un secret)
   resetTokenInvalid: "iam.reset_token_invalid",
   forbidden: "iam.forbidden",
   impersonationForbidden: "iam.impersonation_forbidden",

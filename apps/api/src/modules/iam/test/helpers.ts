@@ -91,7 +91,7 @@ export interface HarnessOptions {
   startTime?: string;
 }
 
-const PASSWORD = "Correct-Horse-Battery-9";
+const PASSWORD = "Correct-Horse-Battery-9"; // secret-scan:allow (mot de passe factice de test)
 export const TEST_PASSWORD = PASSWORD;
 
 /** Base éphémère `ed_it_*_test` + baseline v2 + migrations iam, connexion applicative non propriétaire. */

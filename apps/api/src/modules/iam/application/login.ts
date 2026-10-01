@@ -118,7 +118,7 @@ async function loginInner(deps: IamDeps, input: LoginInput): Promise<Result<Logi
     : (activeTenants.find((t) => t.id === identity?.last_tenant_id) ?? activeTenants[0]);
 
   if (!credentialsOk || !identity) {
-    const reason: FailureReason = !identity ? "unknown_identity" : identity.status !== "active" ? "identity_disabled" : !identity.password_hash ? "no_password" : "bad_password";
+    const reason: FailureReason = !identity ? "unknown_identity" : identity.status !== "active" ? "identity_disabled" : !identity.password_hash ? "no_password" : "bad_password"; // secret-scan:allow (code de raison, pas un secret)
     const [pairState, idState] = await Promise.all([limiter.recordFailure(pairKey, config.loginPairLockout), limiter.recordFailure(idKey, config.loginIdentityLockout)]);
     recordFailureInBackground(deps, {
       locked: pairState.blocked || idState.blocked,
