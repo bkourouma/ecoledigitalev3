@@ -1,5 +1,5 @@
 /** Définition des contrats d'événements consommés par `academic` (abonnés : `modules/academic/subscribers.ts`). */
-import { academicConsumedInstitutionCreatedSchema, academicConsumedStudentStatusChangedSchema } from "@ecoledigitale/contracts/v2";
+import { academicConsumedInstitutionCreatedSchema, academicConsumedInvoicePaidSchema, academicConsumedStudentStatusChangedSchema } from "@ecoledigitale/contracts/v2";
 import type { EventContract } from "./support";
 
 export const contracts: EventContract[] = [
@@ -25,9 +25,24 @@ export const contracts: EventContract[] = [
     ],
     reader: (p) => academicConsumedStudentStatusChangedSchema.safeParse(p).success,
   },
+  {
+    consumer: "academic",
+    event: "finance.invoice.paid",
+    reads: [
+      { field: "invoiceId", kind: "uuid" },
+      // Additifs (décision métier 2026-10-01) : l'inscription visée, les frais d'inscription, les objets soldés.
+      { field: "enrollmentId", kind: "uuid", required: false, nullable: true },
+      { field: "containsRegistrationFee", kind: "boolean", required: false },
+      { field: "sourceRefs", kind: "array", required: false },
+    ],
+    reader: (p) => academicConsumedInvoicePaidSchema.safeParse(p).success,
+    readerOk: (result, payload) => {
+      // La charge réelle porte de quoi CONFIRMER : une inscription visée ou des objets soldés, et l'indicateur de frais.
+      const p = payload as { enrollmentId?: string | null; sourceRefs?: unknown[]; containsRegistrationFee?: boolean };
+      return result === true && typeof p.containsRegistrationFee === "boolean" && Array.isArray(p.sourceRefs);
+    },
+  },
 ];
 
 /** Paires validées ailleurs (le test de couverture les accepte sans contrat complet). */
-export const exemptions: Array<{ event: string; reason: string }> = [
-  { event: "finance.invoice.paid", reason: "traitée par l'assemblage (branche platform/adapters) : enrichissement additif de la charge + adaptateur InvoiceFactsReader" },
-];
+export const exemptions: Array<{ event: string; reason: string }> = [];

@@ -862,3 +862,30 @@ export const financeLearnerStatementDtoSchema = z.object({
 
 export const financePageDtoSchema = <T extends z.ZodTypeAny>(item: T) =>
   z.object({ items: z.array(item), total: z.number().int().nonnegative() });
+
+// ---------------------------------------------------------------------------
+// Charges utiles des événements PUBLIÉS (consommées par academic : confirmation automatique d'une inscription)
+// ---------------------------------------------------------------------------
+
+const financeEventMoneySchema = z.object({ amount: z.number().int(), currency: z.string().min(1) });
+
+/**
+ * `finance.invoice.paid` : publié quand une facture émise devient entièrement payée. La charge est ENRICHIE (additive) pour
+ * `academic` : `enrollmentId` (inscription visée), `containsRegistrationFee` (au moins une ligne `REGISTRATION`) et
+ * `sourceRefs` (objets d'autres modules soldés, ex. sélection de cours à la carte). Décision métier 2026-10-01.
+ */
+export const financeInvoicePaidEventPayloadSchema = z.object({
+  v: z.literal(1),
+  invoiceId: financeUuidSchema,
+  number: z.string().min(1),
+  learnerId: financeUuidSchema,
+  total: financeEventMoneySchema,
+  enrollmentId: financeUuidSchema.nullable(),
+  containsRegistrationFee: z.boolean(),
+  sourceRefs: z.array(z.object({ sourceRef: financeUuidSchema, category: financeFeeCategorySchema })),
+});
+export type FinanceInvoicePaidEventPayload = z.infer<typeof financeInvoicePaidEventPayloadSchema>;
+
+export const financeEventPayloadSchemas = {
+  "finance.invoice.paid": financeInvoicePaidEventPayloadSchema,
+} as const;
