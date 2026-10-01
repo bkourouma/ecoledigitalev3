@@ -66,6 +66,10 @@ Le contexte d'auth (`harness/app.ts`) lit `x-test-tenant`, `x-test-user` et `x-t
    base (résultats, notes) deviennent `<id>`. Un test interdit tout UUID ou horodatage résiduel.
 7. **Ordres** : quand le legacy ne trie pas (liste des résultats de calcul de paie), le harnais trie ; les cartes sont indexées par clé de scénario, jamais par position.
 8. `console.log` bruyant de `payment-periods.ts` coupé dans le test de paie ; `Email service not configured` (import de `email.service`) est inoffensif.
+9. **Coefficients** : le coefficient d'une ECUE (`professional_ue_ecue.coefficient`) n'est lu par aucun calcul (la pondération réelle est `professional_ecue.credits`, cf. `owner-pedagogie.service.ts` §4.4-7) ;
+   le scénario ne le déclare donc pas et le seeder pose 1. Les coefficients du legacy sont ceux des **matières classiques** (`ClassicCourseDecl.coefficient`, décimaux admis) et les **crédits** des ECUE
+   (`EcueDecl.credits`) ; `UeDecl.declaredCredits` (`professional_ue.nb_uv`) ne sert qu'aux UV acquises, pas à la moyenne.
+10. Sans Postgres, les suites qui en ont besoin **échouent** (jamais de succès silencieux) ; seuls les tests sans base (`compare`, `snapshots-integrity`, `bulletin-calc-pure`) tournent seuls.
 
 ## Structure
 

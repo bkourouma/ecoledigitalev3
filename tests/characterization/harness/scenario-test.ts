@@ -14,7 +14,16 @@ export function scenarioSuite<T extends { data: unknown; defects: DefectCollecto
   extra?: (result: () => T) => void,
 ): void {
   const templateDb = inject("templateDb");
-  describe.skipIf(!templateDb)(`scénario ${scenario.meta.name}`, () => {
+  if (!templateDb) {
+    // Jamais de succès silencieux : sans Postgres, la caractérisation n'a pas eu lieu.
+    describe(`scénario ${scenario.meta.name}`, () => {
+      it("nécessite un Postgres éphémère", () => {
+        throw new Error("TEST_DATABASE_URL absent : lancez `pnpm test:characterization` (Postgres éphémère dans Docker).");
+      });
+    });
+    return;
+  }
+  describe(`scénario ${scenario.meta.name}`, () => {
     let db: ScenarioDatabase;
     let result: T;
 

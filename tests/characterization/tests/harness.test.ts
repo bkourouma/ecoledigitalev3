@@ -10,7 +10,11 @@ import { createScenarioDatabase } from "../harness/db";
 const templateDb = inject("templateDb");
 const outcomes = inject("migrationOutcomes");
 
-describe.skipIf(!templateDb)("harnais : schéma legacy", () => {
+describe("harnais : schéma legacy", () => {
+  it("dispose d'un Postgres éphémère", () => {
+    expect(templateDb, "TEST_DATABASE_URL absent : lancez `pnpm test:characterization`").toBeTruthy();
+  });
+
   it("la chaîne Prisma s'applique intégralement", () => {
     const prisma = outcomes.filter((o) => o.chain === "prisma");
     expect(prisma.length).toBeGreaterThanOrEqual(16);
