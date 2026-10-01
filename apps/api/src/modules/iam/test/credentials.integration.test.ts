@@ -4,7 +4,7 @@
  * contre un Postgres réel.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import { base32Decode, totp } from "../domain/totp";
 import { createHarness, describeIntegration, meta, TEST_PASSWORD, type Harness } from "./helpers";
 import type { AuthenticatedPrincipal } from "../application/ports";

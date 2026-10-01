@@ -33,7 +33,7 @@ import {
   type ImpersonationResponse,
   type MemberListResponse,
   type SessionListResponse,
-} from "@ecoledigitale/contracts/v2/iam";
+} from "@ecoledigitale/contracts/src/v2/iam";
 import { TooManyAttemptsError } from "../application/deps";
 import type { MfaSubject } from "../application/mfa";
 import type { AuthenticatedPrincipal, SuperAdminAuthenticator } from "../application/ports";

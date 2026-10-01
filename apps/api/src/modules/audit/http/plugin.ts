@@ -26,7 +26,7 @@ import {
   type AuditChainVerificationDto,
   type AuditLogEntryDto,
   type AuditLogSummaryDto,
-} from "@ecoledigitale/contracts/v2";
+} from "@ecoledigitale/contracts/src/v2";
 import { AuditService } from "../application/audit-service";
 import { exportLogsCsv, getAuditLog, listAuditLogs } from "../application/queries";
 import type { StoredAuditEntry } from "../domain/types";

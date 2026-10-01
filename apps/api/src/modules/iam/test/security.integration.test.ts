@@ -4,7 +4,7 @@
  */
 import { createHmac, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import { issueBearerToken } from "../domain/access-token";
 import { signJwt } from "../domain/tokens";
 import { createHarness, describeIntegration, meta, TEST_PASSWORD, type Harness } from "./helpers";

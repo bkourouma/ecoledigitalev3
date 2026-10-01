@@ -18,7 +18,7 @@
  * passe par défaut disparaît (plan §3.15).
  */
 import { ForbiddenError, createRequestContext, err, newId, ok, type AppError, type Result } from "@ecoledigitale/kernel";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import { issueBearerToken } from "../domain/access-token";
 import { limiterKey } from "../domain/tokens";
 import * as identities from "../infrastructure/identity-repo";

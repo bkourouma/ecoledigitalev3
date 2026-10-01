@@ -4,7 +4,7 @@
  */
 import bcrypt from "bcryptjs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import { createRequestContext } from "@ecoledigitale/kernel";
 import { buildRequestContextFromToken } from "../index";
 import { createHarness, describeIntegration, meta, TEST_PASSWORD, type Harness } from "./helpers";

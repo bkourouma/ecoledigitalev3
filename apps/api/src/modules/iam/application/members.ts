@@ -9,7 +9,7 @@
  * que l'administrateur du tenant sait déjà.
  */
 import { ConflictError, ForbiddenError, ValidationError, err, newId, ok, type AppError, type Result, type RequestContext } from "@ecoledigitale/kernel";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import { hashOpaqueToken, randomSecret } from "../domain/tokens";
 import { isPlausibleEmail, normalizeEmail } from "../domain/email";
 import * as credentials from "../infrastructure/credential-repo";

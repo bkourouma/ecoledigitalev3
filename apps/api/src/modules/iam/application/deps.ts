@@ -15,7 +15,7 @@ import {
   type RequestContext,
 } from "@ecoledigitale/kernel";
 import { PgOutboxWriter, type SystemDb, type TenantDb, type Tx } from "@ecoledigitale/database";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import type { IamConfig } from "../config";
 import type { PasswordHasher } from "../domain/password-hash";
 import type { PasswordPolicy } from "../domain/password-policy";

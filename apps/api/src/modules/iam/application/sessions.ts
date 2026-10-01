@@ -27,7 +27,7 @@ import {
   type Result,
 } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import { issueBearerToken, issueStepToken, verifyAccessToken, type BearerClaims } from "../domain/access-token";
 import { hashOpaqueToken, limiterKey, parseRefreshToken } from "../domain/tokens";
 import * as identities from "../infrastructure/identity-repo";

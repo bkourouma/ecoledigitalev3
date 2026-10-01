@@ -17,7 +17,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { UnauthorizedError, type Clock, type Result, err, ok } from "@ecoledigitale/kernel";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import type { IamConfig } from "../config";
 import { JwtError, peekJwtTyp, signJwt, verifyJwt, type JwtTyp } from "./tokens";
 

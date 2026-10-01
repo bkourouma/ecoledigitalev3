@@ -14,7 +14,7 @@ import {
   type AppError,
   type Result,
 } from "@ecoledigitale/kernel";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import { isPlausibleEmail, normalizeEmail } from "../domain/email";
 import { hashOpaqueToken, limiterKey, randomSecret } from "../domain/tokens";
 import type { PasswordIssue } from "../domain/password-policy";

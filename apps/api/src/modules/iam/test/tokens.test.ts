@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { ManualClock } from "@ecoledigitale/kernel";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import { issueBearerToken, issueStepToken, verifyAccessToken, verifyStepToken, type IssueAccessInput } from "../domain/access-token";
 import { decryptSecret, encryptSecret, needsReencrypt, SecretBoxError } from "../domain/secret-box";
 import {

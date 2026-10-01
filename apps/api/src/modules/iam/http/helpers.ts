@@ -14,7 +14,7 @@
  */
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { ForbiddenError, newId, type AppError } from "@ecoledigitale/kernel";
-import { AuthErrorCodes, type LoginResponse, type MfaVerifyResponse } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes, type LoginResponse, type MfaVerifyResponse } from "@ecoledigitale/contracts/src/v2/iam";
 import type { IamConfig } from "../config";
 import { cleanIp, cleanText, type RequestMeta } from "../application/deps";
 import type { LoginOutcome, AuthenticatedOutcome } from "../application/session-issue";

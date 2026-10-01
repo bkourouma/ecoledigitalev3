@@ -11,7 +11,7 @@ import {
   auditChainVerificationSchema,
   auditLogEntrySchema,
   auditLogListResponseSchema,
-} from "@ecoledigitale/contracts/v2";
+} from "@ecoledigitale/contracts/src/v2";
 import { AuditService } from "../application/audit-service";
 import { listAuditPartitions } from "../application/partitions";
 import {

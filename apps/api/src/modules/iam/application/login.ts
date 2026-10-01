@@ -23,7 +23,7 @@ import {
   type Result,
   type AppError,
 } from "@ecoledigitale/kernel";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import { issueStepToken } from "../domain/access-token";
 import { isPlausibleEmail, normalizeEmail } from "../domain/email";
 import { limiterKey } from "../domain/tokens";

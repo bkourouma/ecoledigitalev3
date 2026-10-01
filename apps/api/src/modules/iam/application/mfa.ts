@@ -28,7 +28,7 @@ import {
   type Result,
 } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
-import { AuthErrorCodes } from "@ecoledigitale/contracts/v2/iam";
+import { AuthErrorCodes } from "@ecoledigitale/contracts/src/v2/iam";
 import { verifyStepToken } from "../domain/access-token";
 import { decryptSecret, encryptSecret, needsReencrypt, SecretBoxError } from "../domain/secret-box";
 import { base32Encode, generateTotpSecret, otpauthUri, verifyTotp } from "../domain/totp";
