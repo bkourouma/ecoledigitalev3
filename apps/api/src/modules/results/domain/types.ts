@@ -113,6 +113,8 @@ export interface TraceRecord {
   readonly outputsHash: string;
   readonly nodesEvaluated: number;
   readonly trace?: unknown;
+  /** Contexte exact de l'appel (résultats FINAL seulement, sauf `rang`) : base du rejeu de reproductibilité. */
+  readonly variables?: Readonly<Record<string, unknown>> | undefined;
   readonly overridden?: { overrideId: string; original: RuleValue } | undefined;
 }
 

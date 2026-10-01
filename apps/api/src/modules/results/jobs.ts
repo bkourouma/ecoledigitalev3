@@ -7,11 +7,15 @@
  *  - `results.purge`  quotidien (04:40) : demandes terminées > 30 j, brouillons remplacés > 90 j. Jamais un résultat FINAL,
  *    une clôture, une surcharge ou une décision (valeur probante, durée de vie du tenant).
  *
- * Le rejeu de reproductibilité des résultats FINAL (échantillon nocturne) est confié au module `rules`
- * (`registerReplaySource`) ; voir le README.
+ * Le rejeu de reproductibilité des résultats FINAL (échantillon nocturne) est confié au module `rules` : `results` branche sa source
+ * de rejeu et de simulation (`bindResultsRulesSources`, application/replay.ts) dans les registres du processus, au démarrage de l'API
+ * (`setup`) et à chaque exécution des jobs du worker. Les ports `assess` et `rules` sont construits sur leur API publique ;
+ * `curriculum` et `roster` (academic) se branchent par `setResultsWorkerPorts` (voir README).
  */
 import { defineScheduledJob } from "@ecoledigitale/worker/sdk";
 import { createResultsDeps } from "./application/deps";
+import { bindResultsRulesSources } from "./application/replay";
+import { createWorkerResultsDeps } from "./application/worker-ports";
 import { processAllTenants, purgeAllTenants } from "./application/recompute";
 
 export default [
@@ -20,7 +24,8 @@ export default [
     cron: "*/10 * * * * *",
     lockTtlMs: 5 * 60_000,
     handler: async ({ systemDb, tenantDb, logger }) => {
-      const deps = createResultsDeps({ db: tenantDb, logger });
+      const deps = createWorkerResultsDeps({ db: tenantDb, systemDb, logger });
+      bindResultsRulesSources(deps);
       const report = await processAllTenants(deps, systemDb);
       const done = report.succeeded.reduce((n, s) => n + s.result.done, 0);
       const blocked = report.succeeded.reduce((n, s) => n + s.result.blocked, 0);

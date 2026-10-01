@@ -47,6 +47,7 @@ import { closePeriod, deliberatePeriod, lockPeriod, reopenPeriod, repinPeriod } 
 import type { ResultsPorts } from "../application/ports";
 import { recomputeNow } from "../application/recompute";
 import { getYearResult } from "../application/year";
+import { bindResultsRulesSources } from "../application/replay";
 import { explainResult, getClassMatrix, getEnrollmentResult, getPeriodView, getStateView, listChildResults, listMyResults } from "../application/reads";
 import { createAssessDeps } from "../../assess";
 import { assessPortFrom } from "../infrastructure/assess-adapter";
@@ -311,8 +312,10 @@ export async function resultsPlugin(app: FastifyInstance, options: ResultsPlugin
 // ---------------------------------------------------------------------------
 
 /** Instance RACINE : pose le registre de ports que les modules voisins renseignent (ordre de chargement indifférent). */
-export function setup(app: FastifyInstance, _runtime: ModuleRuntime): void {
+export function setup(app: FastifyInstance, runtime: ModuleRuntime): void {
   if (!app.hasDecorator("resultsPorts")) app.decorate("resultsPorts", createPortRegistry());
+  // source de rejeu de reproductibilité (consommée par le module rules, API et worker nocturne)
+  bindResultsRulesSources(createResultsDeps({ db: runtime.tenantDb, clock: runtime.clock, audit: runtime.auditPort, logger: runtime.logger }));
 }
 
 /** Routes du module, SANS préfixe (le registre applique `/api/v1/results`). */

@@ -97,6 +97,10 @@ export {
   type ResitCandidate,
 } from "./application/reads";
 
+// Worker : ports d'autres modules (curriculum, roster…) et sources de rejeu / simulation branchées dans `rules`
+export { createWorkerResultsDeps, setResultsWorkerPorts } from "./application/worker-ports";
+export { bindResultsRulesSources, createResultsReplaySource, createResultsSimulationSource } from "./application/replay";
+
 // Résultat d'année (dérivé des FINAL de période)
 export { getYearResult, type YearPeriodSummary, type YearResult } from "./application/year";
 

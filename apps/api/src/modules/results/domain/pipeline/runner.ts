@@ -85,6 +85,9 @@ export class StageRunner {
           outputsHash: r.outputsHash,
           nodesEvaluated: r.nodesEvaluated,
           ...(this.withTrace && r.trace !== undefined ? { trace: r.trace } : {}),
+          // Résultats FINAL : le contexte exact de l'appel est conservé pour le REJEU de reproductibilité (module rules). Le rang est
+          // exclu : son contexte porte toute la cohorte (la reproductibilité du classement est couverte par le hash de clôture).
+          ...(this.withTrace && item.ruleKey !== "rang" ? { variables: item.variables } : {}),
         },
       });
     });
