@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { newId, unwrap } from "@ecoledigitale/kernel";
-import { createDiscount, createFeeSchedule, createScholarship, setLearnerFunding, changeScholarshipStatus } from "../../application/catalog";
+import { createDiscount, createFee, createFeeSchedule, createScholarship, setLearnerFunding, changeScholarshipStatus } from "../../application/catalog";
 import {
   cancelInvoice,
   createInvoice,
@@ -14,21 +14,20 @@ import {
 } from "../../application/invoices";
 import { summarizeStateSplit, splitFunding } from "../../domain/scholarship";
 import { adminRows, createFinanceTestDb, ctxFor, describeIntegration, makeWorld, type FinanceTestDb, type TestWorld } from "../support/db";
-import { learnerId, nextKey, pay, seedCatalog, simpleInvoice, tuitionInvoice, xof, YEAR, type Catalog } from "../support/scenario";
+import { learnerId, nextKey, pay, seedCatalog, simpleInvoice, tuitionInvoice, xof, YEAR } from "../support/scenario";
 
 describeIntegration("facturation avancée : remises, financement État/parent, échéanciers, retards (Postgres réel)", () => {
   let db: FinanceTestDb;
   let world: TestWorld;
   let tenantId: string;
   let ctx: ReturnType<typeof ctxFor>;
-  let catalog: Catalog;
 
   beforeAll(async () => {
     db = await createFinanceTestDb(24);
     world = makeWorld(db);
     tenantId = await db.createTenant();
     ctx = ctxFor(tenantId);
-    catalog = await seedCatalog(world.deps, ctx);
+    await seedCatalog(world.deps, ctx);
   });
   afterAll(async () => {
     await db.drop();
@@ -451,6 +450,37 @@ describeIntegration("facturation avancée : remises, financement État/parent, �
       expect(rows.map((r) => Number(r.seq))).toEqual(Array.from({ length: 40 }, (_, i) => i + 1));
       expect(new Set(rows.map((r) => r.number)).size).toBe(40);
       expect(rows[0]!.number).toBe("FAC-2025-000001");
+    });
+
+    it("12 créations concurrentes avec la même clé d'idempotence : une seule facture, les autres sont des rejeux", async () => {
+      const t = await db.createTenant();
+      const c = ctxFor(t);
+      await seedCatalog(world.deps, c);
+      const learner = learnerId();
+      const key = nextKey("race-inv");
+      const results = await Promise.all(
+        Array.from({ length: 12 }, () => issueInvoiceFromSchedule(world.deps, c, { learnerId: learner, academicYear: YEAR, items: [{ feeCode: "SCOL" }], idempotencyKey: key })),
+      );
+      const values = results.map((r) => unwrap(r));
+      expect(values.filter((v) => !v.replayed)).toHaveLength(1);
+      expect(new Set(values.map((v) => v.invoices[0]!.invoice.id)).size).toBe(1);
+      expect(await adminRows(db, "SELECT 1 FROM finance.invoices WHERE tenant_id = $1", [t])).toHaveLength(1);
+    });
+
+    it("créations concurrentes : un seul frais par code, un seul barème par période et périmètre", async () => {
+      const t = await db.createTenant();
+      const c = ctxFor(t);
+      const w = world;
+      const fees = await Promise.all(Array.from({ length: 6 }, () => createFee(w.deps, c, { code: "COURSE", name: "Frais concurrent", category: "OTHER" })));
+      expect(fees.filter((f) => f.ok)).toHaveLength(1);
+      for (const f of fees.filter((x) => !x.ok)) if (!f.ok) expect(f.error.httpStatus).toBe(409);
+      const fee = unwrap(fees.find((f) => f.ok)!);
+      const schedules = await Promise.all(
+        Array.from({ length: 6 }, (_, i) => createFeeSchedule(w.deps, c, { feeId: fee.id, academicYear: YEAR, amount: xof(1_000 + i), effectiveFrom: "2025-06-01" })),
+      );
+      expect(schedules.filter((s) => s.ok)).toHaveLength(1);
+      const discounts = await Promise.all(Array.from({ length: 4 }, () => createDiscount(w.deps, c, { code: "DUP", name: "Remise", kind: "AMOUNT", amount: xof(100) })));
+      expect(discounts.filter((d) => d.ok)).toHaveLength(1);
     });
 
     it("deux tenants ont chacun leur numérotation", async () => {

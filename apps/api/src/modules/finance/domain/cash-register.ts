@@ -9,7 +9,7 @@
  * caissier non plus. Les paiements espèces sont rattachés à la session ouverte du
  * caissier qui les saisit.
  */
-import { err, ok, Money, type AppError, type Result } from "@ecoledigitale/kernel";
+import { err, ok, type AppError, type Money, type Result } from "@ecoledigitale/kernel";
 import { FinanceCode, invalidTransition, validation } from "./errors";
 import type { CashSessionStatus } from "./types";
 
@@ -62,5 +62,3 @@ export function validateOpeningFloat(openingFloat: Money): Result<Money, AppErro
 export function requiresJustification(variance: Money, toleranceAmount: Money): boolean {
   return variance.abs().gt(toleranceAmount);
 }
-
-export const zeroLike = (m: Money): Money => Money.zero(m.currency);

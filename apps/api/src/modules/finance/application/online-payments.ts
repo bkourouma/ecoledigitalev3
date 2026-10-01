@@ -19,7 +19,7 @@ import {
   type RequestContext,
   type Result,
 } from "@ecoledigitale/kernel";
-import type { Tx } from "@ecoledigitale/database";
+import { isForeignKeyViolation, type Tx } from "@ecoledigitale/database";
 import { FinanceCode, conflict, notFound, validation } from "../domain/errors";
 import { FinanceEvents } from "../domain/events";
 import { idempotencyConflict, paymentFingerprint, validateIdempotencyKey } from "../domain/payment";
@@ -428,7 +428,7 @@ export async function handleProviderWebhook(deps: FinanceDeps, input: HandleWebh
   if (!parsed.ok) return parsed;
   const event = parsed.value;
 
-  return inTx<WebhookResult>(deps, ctx, async (tx) => {
+  const processed = inTx<WebhookResult>(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);
     const now = deps.clock.now();
 
@@ -499,6 +499,13 @@ export async function handleProviderWebhook(deps: FinanceDeps, input: HandleWebh
       paymentStatus: applied.value.status,
     });
   });
+  try {
+    return await processed;
+  } catch (e) {
+    // Tenant inexistant (identifiant d'URL inventé) : introuvable, pas une erreur 500.
+    if (isForeignKeyViolation(e)) return err(notFound(FinanceCode.NOT_FOUND, "Établissement", input.tenantId));
+    throw e;
+  }
 }
 
 function safeJson(raw: string): unknown {

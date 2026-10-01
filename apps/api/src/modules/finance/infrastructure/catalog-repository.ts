@@ -38,8 +38,8 @@ export async function insertFee(tx: Tx, tenantId: string, fee: Omit<Fee, "active
   return feeOf(row);
 }
 
-export async function getFee(tx: Tx, id: string): Promise<Fee | null> {
-  const row = await tx.queryOne(`SELECT ${FEE_COLS} FROM finance.fees WHERE id = $1`, [id]);
+export async function getFee(tx: Tx, id: string, options: { forUpdate?: boolean } = {}): Promise<Fee | null> {
+  const row = await tx.queryOne(`SELECT ${FEE_COLS} FROM finance.fees WHERE id = $1${options.forUpdate ? " FOR UPDATE" : ""}`, [id]);
   return row ? feeOf(row) : null;
 }
 

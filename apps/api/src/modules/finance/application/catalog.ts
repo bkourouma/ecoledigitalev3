@@ -39,7 +39,7 @@ import {
   upsertLearnerAccount,
   getPlan,
 } from "../infrastructure/catalog-repository";
-import { audit, inTx, type FinanceDeps } from "./deps";
+import { audit, inTx, insertOrConflict, type FinanceDeps } from "./deps";
 
 // --- Frais -------------------------------------------------------------------
 
@@ -50,7 +50,13 @@ export async function createFee(deps: FinanceDeps, ctx: RequestContext, input: F
     if (await getFeeByCode(tx, draft.value.code)) {
       return err(conflict(FinanceCode.INVALID_INPUT, `Le code de frais "${draft.value.code}" existe déjà.`, { code: draft.value.code }));
     }
-    const fee = await insertFee(tx, ctx.tenantId, { id: deps.newId(), ...draft.value });
+    const inserted = await insertOrConflict(
+      tx,
+      (sp) => insertFee(sp, ctx.tenantId, { id: deps.newId(), ...draft.value }),
+      () => conflict(FinanceCode.INVALID_INPUT, `Le code de frais "${draft.value.code}" existe déjà.`, { code: draft.value.code }),
+    );
+    if (!inserted.ok) return inserted;
+    const fee = inserted.value;
     await audit(deps, tx, ctx, { action: "finance.fee.created", resourceType: "fee", resourceId: fee.id, after: fee });
     return ok(fee);
   });
@@ -102,7 +108,8 @@ export async function createFeeSchedule(
     return err(validation(FinanceCode.INVALID_INPUT, "Date d'effet invalide.", "effectiveFrom"));
   }
   return inTx(deps, ctx, async (tx) => {
-    const fee = await getFee(tx, input.feeId);
+    // Verrou du frais : deux créations concurrentes de barèmes ne peuvent pas se chevaucher.
+    const fee = await getFee(tx, input.feeId, { forUpdate: true });
     if (!fee) return err(notFound(FinanceCode.NOT_FOUND, "Frais", input.feeId));
     if (input.amount.currency !== fee.currency) {
       return err(validation(FinanceCode.CURRENCY_MISMATCH, "La devise du barème diffère de celle du frais.", "amount"));
@@ -174,7 +181,13 @@ export async function createInstallmentPlan(
   const steps = validatePlanSteps(input.steps, currency);
   if (!steps.ok) return steps;
   return inTx(deps, ctx, async (tx) => {
-    const plan = await insertPlan(tx, ctx.tenantId, { id: deps.newId(), code, name, currency, steps: steps.value });
+    const inserted = await insertOrConflict(
+      tx,
+      (sp) => insertPlan(sp, ctx.tenantId, { id: deps.newId(), code, name, currency, steps: steps.value }),
+      () => conflict(FinanceCode.INVALID_INPUT, `Le code de plan "${code}" existe déjà.`, { code }),
+    );
+    if (!inserted.ok) return inserted;
+    const plan = inserted.value;
     await audit(deps, tx, ctx, { action: "finance.installment_plan.created", resourceType: "installment_plan", resourceId: plan.id });
     return ok(plan);
   });
@@ -195,7 +208,13 @@ export async function createDiscount(
   if (!draft.ok) return draft;
   const currency = draft.value.amount?.currency ?? draft.value.capAmount?.currency ?? deps.config.defaultCurrency;
   return inTx(deps, ctx, async (tx) => {
-    const d = await insertDiscount(tx, ctx.tenantId, { id: deps.newId(), ...draft.value }, currency);
+    const inserted = await insertOrConflict(
+      tx,
+      (sp) => insertDiscount(sp, ctx.tenantId, { id: deps.newId(), ...draft.value }, currency),
+      () => conflict(FinanceCode.INVALID_INPUT, `Le code de remise "${draft.value.code}" existe déjà.`, { code: draft.value.code }),
+    );
+    if (!inserted.ok) return inserted;
+    const d = inserted.value;
     await audit(deps, tx, ctx, { action: "finance.discount.created", resourceType: "discount", resourceId: d.id });
     return ok(d);
   });

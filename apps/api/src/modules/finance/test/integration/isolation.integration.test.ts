@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it } from "vitest";
 import { newId, unwrap } from "@ecoledigitale/kernel";
 import { assertTenantIsolation, checkTenantIsolation } from "@ecoledigitale/database";
 import { financeIsolationAllowlistTables, financeTenantTables } from "../../../isolation-allowlist.finance";

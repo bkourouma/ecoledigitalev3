@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it } from "vitest";
 import { Money, unwrap } from "@ecoledigitale/kernel";
 import { createDiscount } from "../../application/catalog";
 import { issueCreditNote, issueInvoiceFromSchedule } from "../../application/invoices";

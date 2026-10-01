@@ -164,6 +164,9 @@ export {
   type OpenCashSessionInput,
 } from "./application/cash";
 
+// Tâches planifiées (apps/worker)
+export { markOverdueForAllTenants, type OverdueJobResult } from "./application/jobs";
+
 // Reporting
 export {
   getAgedBalance,

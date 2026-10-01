@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it } from "vitest";
 import { unwrap } from "@ecoledigitale/kernel";
 import { issueInvoiceFromSchedule } from "../../application/invoices";
 import { adminRows, ctxFor, createFinanceTestDb, describeIntegration, makeWorld, type FinanceTestDb, type TestWorld } from "../support/db";

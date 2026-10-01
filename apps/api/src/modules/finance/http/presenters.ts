@@ -2,7 +2,7 @@
  * Domaine → DTO (contrats `packages/contracts/src/v2/finance.ts`).
  * Montants : `{ amount, currency }` ; dates calendaires `YYYY-MM-DD` ; instants ISO UTC.
  */
-import type { Money } from "@ecoledigitale/kernel";
+import { Money } from "@ecoledigitale/kernel";
 import type { Discount } from "../domain/discount";
 import type { Fee } from "../domain/fee";
 import type { FeeSchedule } from "../domain/fee-schedule";
@@ -203,7 +203,7 @@ export const paymentDto = (p: PaymentRecord) => ({
   amount: money(p.amount),
   allocated: money(p.allocated),
   refunded: money(p.refunded),
-  unallocated: money(p.status === "CONFIRMED" ? unallocatedAmount(p) : p.amount.subtract(p.amount)),
+  unallocated: money(p.status === "CONFIRMED" ? unallocatedAmount(p) : Money.zero(p.amount.currency)),
   provider: p.provider,
   providerRef: p.providerRef,
   simulated: p.simulated,

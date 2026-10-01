@@ -2,11 +2,8 @@
  * Aides autour de `Money` (kernel). Toute l'arithmétique passe par `Money` :
  * entiers, jamais de flottant, devise vérifiée.
  */
-import { Money, MoneyError, type CurrencyCode } from "@ecoledigitale/kernel";
+import { Money, MoneyError, err, ok, type AppError, type CurrencyCode, type Result } from "@ecoledigitale/kernel";
 import { FinanceCode, validation } from "./errors";
-import type { Result } from "@ecoledigitale/kernel";
-import { err, ok } from "@ecoledigitale/kernel";
-import type { AppError } from "@ecoledigitale/kernel";
 
 export function sumMoney(values: ReadonlyArray<Money>, currency: CurrencyCode): Money {
   return values.reduce((acc, m) => acc.add(m), Money.zero(currency));

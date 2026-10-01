@@ -63,11 +63,3 @@ export async function markWebhookProcessed(
 export async function bumpWebhookAttempts(tx: Tx, id: Uuid): Promise<void> {
   await tx.query("UPDATE finance.webhook_events SET attempts = attempts + 1 WHERE id = $1", [id]);
 }
-
-export async function listWebhookEvents(tx: Tx, f: { paymentId?: Uuid; limit: number }): Promise<WebhookEventRecord[]> {
-  const rows = await tx.many(
-    `SELECT ${COLS} FROM finance.webhook_events WHERE ($1::uuid IS NULL OR payment_id = $1) ORDER BY received_at DESC LIMIT $2`,
-    [f.paymentId ?? null, f.limit],
-  );
-  return rows.map(webhookOf);
-}

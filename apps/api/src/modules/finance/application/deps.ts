@@ -11,6 +11,7 @@ import {
   isAppError,
   newId,
   err,
+  ok,
   noopLogger,
   systemClock,
   type AppError,
@@ -21,7 +22,7 @@ import {
   type RequestContext,
   type Result,
 } from "@ecoledigitale/kernel";
-import { PgOutboxWriter, type TenantDb, type Tx } from "@ecoledigitale/database";
+import { PgOutboxWriter, isUniqueViolation, type TenantDb, type Tx } from "@ecoledigitale/database";
 import { DEFAULT_ALLOCATION_ORDER, type AllocationOrder } from "../domain/types";
 import { noopAudit, type AuditEntry, type AuditPort } from "./ports/audit";
 import { noEnrollments, passThroughLearners, type EnrollmentDirectory, type LearnerDirectory } from "./ports/directories";
@@ -191,3 +192,30 @@ export const moneyPayload = (m: { amount: number; currency: string }): { amount:
 
 /** Utilisateur agissant (le contexte `system` n'en a pas). */
 export const actorId = (ctx: RequestContext): string | null => ctx.userId;
+
+/**
+ * Insertion « unique par construction » : une violation d'unicité (course entre deux requêtes,
+ * code déjà pris) devient un conflit métier explicite (409) au lieu d'une erreur 500. L'insertion
+ * s'exécute dans un SAVEPOINT pour ne pas empoisonner la transaction englobante.
+ */
+export async function insertOrConflict<T>(
+  tx: Tx,
+  insert: (tx: Tx) => Promise<T>,
+  conflictError: () => AppError,
+): Promise<Result<T, AppError>> {
+  try {
+    return ok(await tx.transaction(insert));
+  } catch (e) {
+    if (isUniqueViolation(e)) return err(conflictError());
+    throw e;
+  }
+}
+
+/**
+ * Sérialise les requêtes concurrentes portant la MÊME clé d'idempotence (verrou consultatif de
+ * transaction) : la seconde attend la fin de la première puis relit son résultat committé au lieu
+ * d'échouer sur la contrainte d'unicité.
+ */
+export async function lockIdempotencyKey(tx: Tx, ctx: RequestContext, scope: string, key: string): Promise<void> {
+  await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`finance:${scope}:${ctx.tenantId}:${key}`]);
+}

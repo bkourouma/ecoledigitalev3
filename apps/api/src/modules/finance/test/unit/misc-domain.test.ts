@@ -27,7 +27,7 @@ import {
   EMPTY_SCOPE,
   type FeeSchedule,
 } from "../../domain/fee-schedule";
-import { parseMoney, subtractFloor } from "../../domain/money-utils";
+import { assertSameCurrency, maxMoney, minMoney, parseMoney, subtractFloor, sumMoney } from "../../domain/money-utils";
 import { installment, xof } from "../support/factories";
 import { forAll } from "../support/rng";
 
@@ -304,6 +304,15 @@ describe("money-utils", () => {
     expect(parseMoney(0, "XOF", "m", { allowZero: true }).ok).toBe(true);
     expect(parseMoney(undefined, "XOF", "m").ok).toBe(false);
     expect(parseMoney(Number.MAX_SAFE_INTEGER + 2, "XOF", "m").ok).toBe(false);
+  });
+  it("min / max / somme / garde de devise", () => {
+    expect(maxMoney(xof(3), xof(7)).amount).toBe(7);
+    expect(maxMoney(xof(9), xof(7)).amount).toBe(9);
+    expect(minMoney(xof(3), xof(7)).amount).toBe(3);
+    expect(sumMoney([xof(1), xof(2), xof(3)], "XOF").amount).toBe(6);
+    expect(sumMoney([], "XOF").amount).toBe(0);
+    expect(() => assertSameCurrency("XOF", xof(1), Money.of(1, "EUR"))).toThrow(/Devises différentes/);
+    expect(() => assertSameCurrency("XOF", xof(1))).not.toThrow();
   });
   it("subtractFloor ne descend jamais sous zéro", () => {
     expect(subtractFloor(xof(5), xof(9)).amount).toBe(0);

@@ -171,6 +171,21 @@ describeIntegration("paiement en ligne : sandbox, webhooks idempotents, registre
       expect(row).toMatchObject({ status: "FAILED", error: "finance.provider_amount_mismatch" });
     });
 
+    it("un événement enregistré FAILED est ré-évalué à chaque livraison (tentatives comptées), sans jamais encaisser", async () => {
+      const { view, sandbox, ref } = await pendingPayment();
+      sandbox.settle(ref, "success");
+      const wh = sandbox.buildWebhook(ref, { amount: xof(1_000), eventId: "evt_rejoue_failed" });
+      expect(unwrap(await send(wh)).status).toBe("FAILED");
+      const second = unwrap(await send(wh));
+      expect(second).toMatchObject({ status: "FAILED", replayed: false });
+      const [row] = await adminRows<{ attempts: number; status: string }>(db, "SELECT attempts, status FROM finance.webhook_events WHERE event_id = 'evt_rejoue_failed'");
+      expect(row).toEqual({ attempts: 2, status: "FAILED" });
+      expect(unwrap(await getPaymentView(world.deps, ctx, view.payment.id)).payment.status).toBe("PENDING");
+      // l'événement correct (autre identifiant) réussit ensuite
+      const good = unwrap(await send(sandbox.buildWebhook(ref, { eventId: "evt_correct" })));
+      expect(good.status).toBe("PROCESSED");
+    });
+
     it("succès sans montant : refusé (jamais d'encaissement non vérifiable)", async () => {
       const { view, sandbox, ref } = await pendingPayment();
       sandbox.settle(ref, "success");
@@ -220,6 +235,18 @@ describeIntegration("paiement en ligne : sandbox, webhooks idempotents, registre
       const r = await handleProviderWebhook(world.deps, { tenantId, provider: "inconnu", rawBody: "{}", headers: {} });
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.error.code).toBe("finance.provider_unknown");
+    });
+
+    it("identifiant de tenant inexistant : introuvable (404), jamais une erreur interne", async () => {
+      const ghost = newId();
+      const sandbox = await sandboxOf(world, ghost);
+      const init = await sandbox.initiate({ tenantId: ghost, paymentId: newId(), amount: xof(25_001) });
+      const ref = init.ok ? init.value.providerRef! : "";
+      sandbox.settle(ref, "success");
+      const wh = sandbox.buildWebhook(ref);
+      const r = await handleProviderWebhook(world.deps, { tenantId: ghost, provider: "sandbox", rawBody: wh.rawBody, headers: wh.headers });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.httpStatus).toBe(404);
     });
 
     it("un webhook ne traverse pas les tenants : l'identifiant d'un autre tenant ne trouve rien", async () => {

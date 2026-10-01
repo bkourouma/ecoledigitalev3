@@ -20,7 +20,7 @@ import {
   listCashSessions,
   sessionCashMovements,
 } from "../infrastructure/cash-repository";
-import { EventBuffer, inTx, moneyPayload, type FinanceDeps } from "./deps";
+import { EventBuffer, inTx, insertOrConflict, moneyPayload, type FinanceDeps } from "./deps";
 
 export async function createCashRegister(
   deps: FinanceDeps,
@@ -33,7 +33,13 @@ export async function createCashRegister(
   if (!name) return err(validation(FinanceCode.INVALID_INPUT, "Libellé de caisse requis.", "name"));
   return inTx(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);
-    const register = await insertCashRegister(tx, ctx.tenantId, { id: deps.newId(), code, name, campusId: input.campusId ?? null });
+    const inserted = await insertOrConflict(
+      tx,
+      (sp) => insertCashRegister(sp, ctx.tenantId, { id: deps.newId(), code, name, campusId: input.campusId ?? null }),
+      () => conflict(FinanceCode.INVALID_INPUT, `Le code de caisse "${code}" existe déjà.`, { code }),
+    );
+    if (!inserted.ok) return inserted;
+    const register = inserted.value;
     events.audit({ action: "finance.cash_register.created", resourceType: "cash_register", resourceId: register.id, after: register });
     await events.flush(tx);
     return ok(register);

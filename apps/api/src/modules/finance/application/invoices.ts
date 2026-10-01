@@ -18,7 +18,7 @@ import {
   type Result,
 } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
-import { assertIsoDate, addDays, compareDates } from "../domain/dates";
+import { addDays } from "../domain/dates";
 import { applyDiscounts, DEFAULT_DISCOUNT_POLICY, type Discount } from "../domain/discount";
 import { FinanceCode, conflict, notFound, validation } from "../domain/errors";
 import { FinanceEvents } from "../domain/events";
@@ -27,7 +27,6 @@ import { checkFundingConsistency } from "../domain/funding";
 import {
   distributeCredit,
   generateInstallments,
-  installmentRemaining,
   singleInstallment,
   type GeneratedInstallment,
   type InstallmentPlan,
@@ -39,7 +38,6 @@ import {
   canCancelInvoice,
   canIssueInvoice,
   computeInvoiceTotals,
-  invoiceBalance,
   type InvoiceLine,
   type InvoiceLineInput,
 } from "../domain/invoice";
@@ -52,7 +50,7 @@ import { sumMoney } from "../domain/money-utils";
 import type { EnrollmentRef } from "../domain/refs";
 import { splitFunding, type Scholarship } from "../domain/scholarship";
 import { summarizeReceivables } from "../domain/reporting";
-import type { FeeCategory, FundingType, InvoiceStatus, IsoDate, PayerKind, Uuid } from "../domain/types";
+import type { FeeCategory, FundingType, IsoDate, PayerKind, Uuid } from "../domain/types";
 import {
   addInstallmentCumuls,
   addInvoiceCumuls,
@@ -87,7 +85,7 @@ import {
 } from "../infrastructure/catalog-repository";
 import { insertCreditNote, listPayments, nextSequence } from "../infrastructure/payments-repository";
 import { refreshInvoiceStatus, todayOf } from "./billing-core";
-import { EventBuffer, inTx, moneyPayload, type FinanceDeps } from "./deps";
+import { EventBuffer, inTx, lockIdempotencyKey, moneyPayload, type FinanceDeps } from "./deps";
 
 // ---------------------------------------------------------------------------
 // Construction d'un plan de facturation (lecture seule) puis persistance
@@ -460,7 +458,6 @@ function scheduleFingerprint(input: InvoiceFromScheduleInput, enrollment: Enroll
 
 async function prepareFromSchedule(
   deps: FinanceDeps,
-  ctx: RequestContext,
   tx: Tx,
   input: InvoiceFromScheduleInput,
   enrollment: EnrollmentRef | null,
@@ -560,13 +557,14 @@ export async function issueInvoiceFromSchedule(
   return inTx<InvoicesResult>(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);
     if (input.idempotencyKey) {
+      await lockIdempotencyKey(tx, ctx, "invoice", input.idempotencyKey);
       const existing = await getInvoiceByIdempotencyKey(tx, input.idempotencyKey);
       if (existing) {
         if (existing.requestFingerprint !== scheduleFingerprint(input, enrollment.value)) return err(idempotencyConflict(input.idempotencyKey));
         return ok({ invoices: await replayGroup(tx, existing), replayed: true });
       }
     }
-    const spec = await prepareFromSchedule(deps, ctx, tx, input, enrollment.value);
+    const spec = await prepareFromSchedule(deps, tx, input, enrollment.value);
     if (!spec.ok) return spec;
     const planned = await planInvoices(deps, ctx, tx, spec.value);
     if (!planned.ok) return planned;
@@ -604,7 +602,7 @@ export async function previewInvoiceFromSchedule(
     deps,
     ctx,
     async (tx) => {
-      const spec = await prepareFromSchedule(deps, ctx, tx, { ...input, idempotencyKey: undefined }, enrollment.value);
+      const spec = await prepareFromSchedule(deps, tx, { ...input, idempotencyKey: undefined }, enrollment.value);
       if (!spec.ok) return spec;
       const planned = await planInvoices(deps, ctx, tx, spec.value);
       if (!planned.ok) return planned;
@@ -676,6 +674,7 @@ export async function createInvoice(
   return inTx<InvoicesResult>(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);
     if (input.idempotencyKey) {
+      await lockIdempotencyKey(tx, ctx, "invoice", input.idempotencyKey);
       const existing = await getInvoiceByIdempotencyKey(tx, input.idempotencyKey);
       if (existing) {
         if (existing.requestFingerprint !== fingerprint) return err(idempotencyConflict(input.idempotencyKey));
