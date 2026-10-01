@@ -55,7 +55,7 @@ Constatés dans le code (exploration du 1er octobre 2026). Chacun est un écart 
 - Pas d'import Excel/CSV.
 
 ### Plateforme
-- 164 migrations SQL **plus** un Prisma partiel (tables Imhotep uniquement) avec un contournement `_prisma_migrations` dans le script de déploiement.
+- 164 migrations SQL **plus** un Prisma partiel (Imhotep + 9 tables du cœur absentes du SQL) avec un contournement `_prisma_migrations` dans le script de déploiement.
 - Aucune CI de tests ni de lint (seul workflow : `deploy.yml`). Tests API en Jest nécessitant un vrai Postgres. Tests web probablement non exécutables (`jest.config.js` invalide).
 - Web : 1 001 fichiers, `Sidebar.tsx` de 2 176 lignes, `ignoreBuildErrors` activé, gardes **uniquement côté client**, résolution du tenant dupliquée à quatre endroits avec quatre fallbacks différents (`imhotepdata`, `ecoledigitale`, `imhotepacademy`), pas de PWA, pas d'i18n, trois bibliothèques de toasts, logos Imhotep/IPAM codés en dur dans les PDF.
 
@@ -118,7 +118,7 @@ Règles :
 - **Test d'isolation générique** : pour chaque table, se connecter comme tenant A et vérifier qu'on ne lit ni n'écrit rien de B. C'est un blocage CI.
 - **Hiérarchie** : `Tenant` (= Organisation, 1:1) → `Institution` (pack, pays, système éducatif) → `Campus`. `tenant_id` reste la clé d'isolation ; `institution_id` et `campus_id` sont des dimensions de périmètre. Les rôles s'assignent par périmètre (tenant / établissement / campus).
 - **`CountryProfile`** (CI : XOF, `fr-CI`, `Africa/Abidjan`, +225, système éducatif CI) en table, pas en constante.
-- **Migrations** : fichiers SQL conservés, avec un runner à checksum (`node-pg-migrate` en mode SQL ou runner maison). Suppression de Prisma et de `_prisma_migrations`.
+- **Migrations** : fichiers SQL conservés, avec un runner à checksum (`node-pg-migrate` en mode SQL ou runner maison). Prisma et `_prisma_migrations` disparaissent avec le reset de la Phase 2, pas avant.
 - **Conventions** : UUID partout ; montants en **entiers** (XOF n'a pas de sous-unité) ; horodatages en UTC, affichage `Africa/Abidjan`.
 - **Typage SQL** : à trancher dans l'ADR-005 (générer les types depuis le schéma avec `kysely-codegen`, ou rester sur du SQL typé à la main avec des types de ligne). À décider sur un spike d'une demi-journée.
 
@@ -350,14 +350,14 @@ Stages et soutenances (021), BTS complet (020), pack Virtual et LMS (022/023, à
 | `tenants.settings_json` (adresse, logo, gabarits d'e-mail) | tables typées : profil d'établissement, branding, gabarits de notification |
 | `jobs/*.job.ts` en `setInterval` | `apps/worker` |
 | `fileStorage.ts`, `minio.ts` inutilisé | `StoragePort` S3/MinIO |
-| Prisma + `_prisma_migrations` | supprimés avec Imhotep |
+| Prisma + `_prisma_migrations` | **conservés jusqu'au reset de la Phase 2** (inventaire 0.6 : `deploy.sh` exécute `prisma migrate deploy`, et Prisma crée 9 tables du cœur absentes du SQL). Supprimés avec la baseline v2, pas avec Imhotep |
 | Générateurs jsPDF du web | rendu PDF serveur depuis snapshot |
 
 ### 5.2 Suppression d'Imhotep (D7)
 
 À conduire comme une tâche à part, en trois temps :
-1. **Inventaire des dépendances** (Phase 0.6). Points à vérifier avant de supprimer : le rôle `formateur` (utilisé aussi par la pile Professional ?), les sessions LiveKit (`live-sessions.ts` sert-il le scolaire ?), `entreprises`, `codes-promo`, la prospection et les commissions (migration `0125`), `subject_kind=public_user` dans les notifications.
-2. **Retrait du code** : `apps/formation-pro-public`, routes/services `formations-pro`, `sessions-pro`, `inscriptions-pro`, `paiements-pro`, `formateur`, pages `formations-professionnelles/*`, Prisma, scripts `migrate:imhotep-data`.
+1. **Inventaire des dépendances** (Phase 0.6). Points à vérifier avant de supprimer : le rôle `formateur` (utilisé aussi par la pile Professional ?), les sessions LiveKit (**partagées avec le scolaire : à conserver**, retirer seulement la branche `professionnelle`/`public_user`), `entreprises`, `codes-promo`, la prospection et les commissions (migration `0125`), `subject_kind=public_user` dans les notifications.
+2. **Retrait du code** : `apps/formation-pro-public`, routes/services `formations-pro`, `sessions-pro`, `inscriptions-pro`, `paiements-pro`, `formateur`, pages `formations-professionnelles/*`, scripts `migrate:imhotep-data`. **Prisma n'en fait pas partie** (voir §5.1).
 3. **Retrait des tables et données** : migration de suppression après sauvegarde. **Exécution en production soumise à votre confirmation explicite.**
 
 ### 5.3 Reset de la base (D8)

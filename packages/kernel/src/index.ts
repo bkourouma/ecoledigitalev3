@@ -6,3 +6,4 @@ export * from "./clock";
 export * from "./money";
 export * from "./logger";
 export * from "./events";
+export * from "./module";
