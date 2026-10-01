@@ -130,3 +130,10 @@ export async function adminRows<R = Record<string, any>>(db: FinanceTestDb, sql:
   const res = await db.admin.query(sql, params);
   return res.rows as R[];
 }
+
+/** Première ligne d'une requête de vérification (lève si aucune). */
+export async function adminOne<R = Record<string, any>>(db: FinanceTestDb, sql: string, params: unknown[] = []): Promise<R> {
+  const rows = await adminRows<R>(db, sql, params);
+  if (rows.length === 0) throw new Error(`Aucune ligne pour : ${sql}`);
+  return rows[0] as R;
+}

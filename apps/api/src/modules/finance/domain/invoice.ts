@@ -205,15 +205,16 @@ export function nextInvoiceStatus(input: DerivationInput): Result<InvoiceStatus,
 }
 
 export function canCancelInvoice(invoice: { status: InvoiceStatus; amounts: InvoiceAmounts }): Result<true, AppError> {
-  if (!canTransitionInvoice(invoice.status, "CANCELLED")) {
-    return err(invalidTransition("la facture", invoice.status, "CANCELLED"));
-  }
+  // Motif le plus parlant d'abord : une facture encaissée se corrige par remboursement + avoir.
   if (invoice.amounts.paid.isPositive()) {
     return err(
       conflict(FinanceCode.INVOICE_HAS_PAYMENTS, "Une facture encaissée ne s'annule pas : remboursez puis émettez un avoir.", {
         paid: invoice.amounts.paid.amount,
       }),
     );
+  }
+  if (!canTransitionInvoice(invoice.status, "CANCELLED")) {
+    return err(invalidTransition("la facture", invoice.status, "CANCELLED"));
   }
   if (invoice.amounts.credited.isPositive()) {
     return err(conflict(FinanceCode.INVOICE_HAS_PAYMENTS, "Une facture ayant des avoirs ne s'annule pas.", {}));

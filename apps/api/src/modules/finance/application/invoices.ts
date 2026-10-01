@@ -428,6 +428,36 @@ export interface InvoiceFromScheduleInput {
   idempotencyKey?: string;
 }
 
+/**
+ * Empreinte de la DEMANDE (entrée + périmètre de l'inscription), calculable sans lire le catalogue :
+ * un rejeu avec la même clé est reconnu même si le catalogue a changé depuis, et une demande
+ * différente avec la même clé est un conflit d'idempotence, pas une « frais introuvable ».
+ */
+function scheduleFingerprint(input: InvoiceFromScheduleInput, enrollment: EnrollmentRef | null): string {
+  return sha({
+    kind: "from-schedule",
+    learnerId: input.learnerId,
+    enrollmentId: input.enrollmentId ?? null,
+    academicYear: (input.academicYear ?? enrollment?.academicYear ?? "").trim(),
+    items: input.items,
+    scope: {
+      institutionId: input.scope?.institutionId ?? enrollment?.institutionId ?? null,
+      campusId: input.scope?.campusId ?? enrollment?.campusId ?? null,
+      levelKey: input.scope?.levelKey ?? enrollment?.levelKey ?? null,
+      trackKey: input.scope?.trackKey ?? enrollment?.trackKey ?? null,
+      learnerType: input.scope?.learnerType ?? enrollment?.learnerType ?? null,
+    },
+    groupKey: input.groupKey ?? null,
+    groupLabel: input.groupLabel ?? null,
+    effectiveOn: input.effectiveOn ?? null,
+    discountIds: [...(input.discountIds ?? [])].sort(),
+    dueDate: input.dueDate ?? null,
+    installments: input.installments ?? null,
+    issue: input.issue ?? true,
+    ignoreFunding: input.ignoreFunding ?? false,
+  });
+}
+
 async function prepareFromSchedule(
   deps: FinanceDeps,
   ctx: RequestContext,
@@ -475,18 +505,7 @@ async function prepareFromSchedule(
     });
   }
 
-  const fingerprint = sha({
-    kind: "from-schedule",
-    learnerId: input.learnerId,
-    enrollmentId: input.enrollmentId ?? null,
-    academicYear,
-    items: input.items,
-    scope,
-    discountIds: [...(input.discountIds ?? [])].sort(),
-    dueDate: input.dueDate ?? null,
-    installments: input.installments ?? null,
-    issue: input.issue ?? true,
-  });
+  const fingerprint = scheduleFingerprint(input, enrollment);
 
   return ok({
     learnerId: input.learnerId,
@@ -540,15 +559,15 @@ export async function issueInvoiceFromSchedule(
   if (!enrollment.ok) return enrollment;
   return inTx<InvoicesResult>(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);
-    const spec = await prepareFromSchedule(deps, ctx, tx, input, enrollment.value);
-    if (!spec.ok) return spec;
-    if (spec.value.idempotencyKey) {
-      const existing = await getInvoiceByIdempotencyKey(tx, spec.value.idempotencyKey);
+    if (input.idempotencyKey) {
+      const existing = await getInvoiceByIdempotencyKey(tx, input.idempotencyKey);
       if (existing) {
-        if (existing.requestFingerprint !== spec.value.fingerprint) return err(idempotencyConflict(spec.value.idempotencyKey));
+        if (existing.requestFingerprint !== scheduleFingerprint(input, enrollment.value)) return err(idempotencyConflict(input.idempotencyKey));
         return ok({ invoices: await replayGroup(tx, existing), replayed: true });
       }
     }
+    const spec = await prepareFromSchedule(deps, ctx, tx, input, enrollment.value);
+    if (!spec.ok) return spec;
     const planned = await planInvoices(deps, ctx, tx, spec.value);
     if (!planned.ok) return planned;
     const details = await persistInvoices(deps, ctx, tx, events, planned.value, input.issue ?? true);
