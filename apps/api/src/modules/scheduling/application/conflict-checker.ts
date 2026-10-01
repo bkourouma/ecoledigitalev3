@@ -6,7 +6,9 @@
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import { SchedulingCodes, academicUnavailable } from "../domain/errors";
 import { studentOfferingOverlaps } from "../infrastructure/read-queries";
+import { formatTimeOfDay, localDateOf, localMinuteOf } from "../domain/time";
 import { inTx, type SchedulingDeps } from "./deps";
+import { loadSettings } from "./support";
 import { NotFoundError } from "@ecoledigitale/kernel";
 
 export interface StudentScheduleConflict {
@@ -58,4 +60,57 @@ export function createScheduleConflictChecker(deps: SchedulingDeps): ScheduleCon
       );
     },
   };
+}
+
+/**
+ * Forme EXACTE du port `ScheduleConflictChecker` déclaré par academic (spec 004,
+ * `academic/application/ports.ts`) : appelé avec l'INSCRIPTION, il renvoie des descriptions lisibles et n'a pas de
+ * canal d'erreur (un avertissement ne doit jamais empêcher l'inscription).
+ */
+export interface AcademicScheduleConflictChecker {
+  checkStudentOffering(ctx: RequestContext, input: { enrollmentId: string; offeringId: string }): Promise<{ conflicts: Array<{ description: string }> }>;
+}
+
+/**
+ * Adaptateur conforme au port d'academic (spec 017 §7) : résout l'apprenant de l'inscription, délègue à
+ * `createScheduleConflictChecker` et formule chaque chevauchement dans le fuseau de l'établissement.
+ * Échec OUVERT : sans port academic, inscription ou offre inconnue, erreur de lecture — aucun avertissement
+ * (l'inscription ne dépend jamais du planning), l'erreur est journalisée.
+ */
+export function createAcademicScheduleConflictChecker(deps: SchedulingDeps): AcademicScheduleConflictChecker {
+  const checker = createScheduleConflictChecker(deps);
+  return {
+    async checkStudentOffering(ctx, input) {
+      const academic = deps.ports.academic;
+      if (!academic) return { conflicts: [] };
+      try {
+        const studentId = await academic.getEnrollmentStudentId(ctx, input.enrollmentId);
+        if (!studentId) return { conflicts: [] };
+        const result = await checker.checkStudentOffering(ctx, { studentId, offeringId: input.offeringId });
+        if (!result.ok) {
+          deps.logger.warn({ code: result.error.code, offeringId: input.offeringId }, "scheduling.conflict_checker.failed");
+          return { conflicts: [] };
+        }
+        if (result.value.conflicts.length === 0) return { conflicts: [] };
+        const offering = await academic.getOffering(ctx, input.offeringId);
+        const institutionId = offering ? ((await academic.getClassroom(ctx, offering.classroomId))?.institutionId ?? null) : null;
+        const timeZone = institutionId ? await deps.db.run(ctx, async (tx) => (await loadSettings(tx, institutionId)).timezone, { readOnly: true }) : null;
+        const conflicts: Array<{ description: string }> = [];
+        for (const c of result.value.conflicts) {
+          const other = c.with.kind === "OFFERING" ? (await academic.getOffering(ctx, c.with.id))?.label : (await academic.getClassroom(ctx, c.with.id))?.name;
+          const label = other ?? (c.with.kind === "OFFERING" ? "une autre offre" : "sa classe");
+          conflicts.push({ description: `Chevauchement avec ${c.with.kind === "OFFERING" ? "l'offre" : "la classe"} « ${label} » ${when(c.startsAt, c.endsAt, timeZone)}` });
+        }
+        return { conflicts };
+      } catch (error) {
+        deps.logger.warn({ error: error instanceof Error ? error.message : String(error), offeringId: input.offeringId }, "scheduling.conflict_checker.failed");
+        return { conflicts: [] };
+      }
+    },
+  };
+}
+
+function when(start: Date, end: Date, timeZone: string | null): string {
+  if (!timeZone) return `le ${start.toISOString().slice(0, 10)} (${start.toISOString().slice(11, 16)}-${end.toISOString().slice(11, 16)} UTC)`;
+  return `le ${localDateOf(start, timeZone)} de ${formatTimeOfDay(localMinuteOf(start, timeZone))} à ${formatTimeOfDay(localMinuteOf(end, timeZone))}`;
 }

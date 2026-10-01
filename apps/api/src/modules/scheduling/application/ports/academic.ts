@@ -68,4 +68,9 @@ export interface AcademicQuery {
   resolvePeriodForDate(ctx: RequestContext, institutionId: string, date: string): Promise<{ academicYearId: string; periodId: string | null } | null>;
   /** Placements ACTIFS d'un apprenant (classes et offres), pour l'emploi du temps élève/parent. */
   listStudentPlacements(ctx: RequestContext, studentId: string): Promise<StudentPlacements>;
+  /**
+   * Apprenant d'une inscription (le port `ScheduleConflictChecker` d'academic est appelé avec un `enrollmentId`) ;
+   * `null` si l'inscription est inconnue.
+   */
+  getEnrollmentStudentId(ctx: RequestContext, enrollmentId: string): Promise<string | null>;
 }
