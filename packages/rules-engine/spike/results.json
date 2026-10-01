@@ -1,0 +1,1194 @@
+{
+  "at": "2026-10-01T09:37:11.348Z",
+  "timeoutMs": 8000,
+  "results": {
+    "cel-marc": {
+      "F1": {
+        "status": "FAUX",
+        "detail": "9.899999999999999",
+        "ms": 0
+      },
+      "F2": {
+        "status": "OK",
+        "detail": "13.57",
+        "ms": 1
+      },
+      "D1": {
+        "status": "FAUX",
+        "detail": "false",
+        "ms": 0
+      },
+      "D2": {
+        "status": "OK",
+        "detail": "10",
+        "ms": 1
+      },
+      "D3": {
+        "status": "FAUX",
+        "detail": "false",
+        "ms": 0
+      },
+      "D4": {
+        "status": "OK",
+        "detail": "2.1436",
+        "ms": 0
+      },
+      "D5": {
+        "status": "OK",
+        "detail": "false",
+        "ms": 0
+      },
+      "D6": {
+        "status": "FAUX",
+        "detail": "true",
+        "ms": 0
+      },
+      "T1": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T2": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Exceeded maxDepth (250) > 1 | ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((",
+        "ms": 2
+      },
+      "T4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Exceeded maxDepth (250) > 1 | ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((",
+        "ms": 4
+      },
+      "T5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Exceeded maxAstNodes (100000) > 1 | 1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+",
+        "ms": 26
+      },
+      "T6": {
+        "status": "TIMEOUT",
+        "detail": ">8000 ms",
+        "ms": 8016
+      },
+      "T7": {
+        "status": "TIMEOUT",
+        "detail": ">8000 ms",
+        "ms": 8007
+      },
+      "E1": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "No such key: constructor > 1 | a.constructor ^",
+        "ms": 1,
+        "compileMs": 1
+      },
+      "E2": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "No such key: __proto__ > 1 | a.__proto__ ^",
+        "ms": 1,
+        "compileMs": 4
+      },
+      "E3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Unexpected character: '(' > 1 | a.constructor.constructor(\"return process\")() ^",
+        "ms": 2
+      },
+      "E4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Unknown variable: process > 1 | process.versions ^",
+        "ms": 2
+      },
+      "E5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Unknown variable: globalThis > 1 | globalThis ^",
+        "ms": 4
+      },
+      "E6": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "No such key: toString > 1 | a.toString ^",
+        "ms": 0,
+        "compileMs": 1
+      },
+      "E7": {
+        "status": "BLOQUE",
+        "detail": "{}",
+        "ms": 0
+      },
+      "E8": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "E9": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "N1": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "found no matching overload for 'now()' > 1 | now() ^",
+        "ms": 1
+      },
+      "N2": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "found no matching overload for 'random()' > 1 | random() ^",
+        "ms": 1
+      },
+      "V1": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Unknown variable: inconnue > 1 | inconnue + 1.0 ^",
+        "ms": 1
+      },
+      "V2": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "no such overload: double + string > 1 | devoirs + \"abc\" ^",
+        "ms": 3
+      },
+      "V3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "found no matching overload for 'foo(double)' > 1 | foo(1.0) ^",
+        "ms": 2
+      },
+      "V4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "found no matching overload for 'clamp(double)' > 1 | clamp(1.0) ^",
+        "ms": 1
+      },
+      "V5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Unexpected token: EOF > 1 | (1 + ^",
+        "ms": 1
+      },
+      "V6": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "No such key: averge > 1 | period.S1.averge ^",
+        "ms": 1,
+        "compileMs": 1
+      },
+      "V7": {
+        "status": "VALEUR",
+        "detail": "Infinity",
+        "ms": 0,
+        "compileMs": 2
+      }
+    },
+    "cel-marc-dec": {
+      "F1": {
+        "status": "OK",
+        "detail": "9.9",
+        "ms": 1
+      },
+      "F2": {
+        "status": "OK",
+        "detail": "13.57",
+        "ms": 2
+      },
+      "D1": {
+        "status": "OK",
+        "detail": "true",
+        "ms": 1
+      },
+      "D2": {
+        "status": "OK",
+        "detail": "10",
+        "ms": 1
+      },
+      "D3": {
+        "status": "OK",
+        "detail": "true",
+        "ms": 1
+      },
+      "D4": {
+        "status": "OK",
+        "detail": "2.1436",
+        "ms": 2
+      },
+      "D5": {
+        "status": "OK",
+        "detail": "false",
+        "ms": 1
+      },
+      "D6": {
+        "status": "OK",
+        "detail": "false",
+        "ms": 1
+      },
+      "T1": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T2": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Exceeded maxDepth (250) > 1 | ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((",
+        "ms": 3
+      },
+      "T4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Exceeded maxDepth (250) > 1 | ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((",
+        "ms": 5
+      },
+      "T5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Exceeded maxAstNodes (100000) > 1 | dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+dec(1)+de",
+        "ms": 77
+      },
+      "T6": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T7": {
+        "status": "TIMEOUT",
+        "detail": ">8000 ms",
+        "ms": 8009
+      },
+      "E1": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "No such key: constructor > 1 | a.constructor ^",
+        "ms": 1,
+        "compileMs": 1
+      },
+      "E2": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "No such key: __proto__ > 1 | a.__proto__ ^",
+        "ms": 1,
+        "compileMs": 1
+      },
+      "E3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Unexpected character: '(' > 1 | a.constructor.constructor(\"return process\")() ^",
+        "ms": 1
+      },
+      "E4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Unknown variable: process > 1 | process.versions ^",
+        "ms": 1
+      },
+      "E5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Unknown variable: globalThis > 1 | globalThis ^",
+        "ms": 1
+      },
+      "E6": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "No such key: toString > 1 | a.toString ^",
+        "ms": 3,
+        "compileMs": 4
+      },
+      "E7": {
+        "status": "BLOQUE",
+        "detail": "{}",
+        "ms": 0
+      },
+      "E8": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "E9": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "N1": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "found no matching overload for 'now()' > 1 | now() ^",
+        "ms": 5
+      },
+      "N2": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "found no matching overload for 'random()' > 1 | random() ^",
+        "ms": 3
+      },
+      "V1": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Unknown variable: inconnue > 1 | inconnue + dec(1) ^",
+        "ms": 2
+      },
+      "V2": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "no such overload: Decimal + string > 1 | devoirs + \"abc\" ^",
+        "ms": 2
+      },
+      "V3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "found no matching overload for 'foo(Decimal)' > 1 | foo(dec(1)) ^",
+        "ms": 2
+      },
+      "V4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "found no matching overload for 'clamp(Decimal)' > 1 | clamp(dec(1)) ^",
+        "ms": 2
+      },
+      "V5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Unexpected token: EOF > 1 | (1 + ^",
+        "ms": 1
+      },
+      "V6": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "No such key: averge > 1 | period.S1.averge ^",
+        "ms": 1,
+        "compileMs": 2
+      },
+      "V7": {
+        "status": "VALEUR",
+        "detail": "Infinity",
+        "ms": 1,
+        "compileMs": 3
+      }
+    },
+    "cel-js": {
+      "F1": {
+        "status": "FAUX",
+        "detail": "9.899999999999999",
+        "ms": 2
+      },
+      "F2": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "CelTypeError: division operation cannot be applied to (float, uint)",
+        "ms": 3,
+        "compileMs": 4
+      },
+      "D1": {
+        "status": "FAUX",
+        "detail": "false",
+        "ms": 1
+      },
+      "D2": {
+        "status": "OK",
+        "detail": "10",
+        "ms": 1
+      },
+      "D3": {
+        "status": "FAUX",
+        "detail": "false",
+        "ms": 1
+      },
+      "D4": {
+        "status": "OK",
+        "detail": "2.1436",
+        "ms": 1
+      },
+      "D5": {
+        "status": "OK",
+        "detail": "false",
+        "ms": 3
+      },
+      "D6": {
+        "status": "FAUX",
+        "detail": "true",
+        "ms": 3
+      },
+      "T1": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T2": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Maximum call stack size exceeded",
+        "ms": 133
+      },
+      "T4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Maximum call stack size exceeded",
+        "ms": 682
+      },
+      "T5": {
+        "status": "VALEUR",
+        "detail": "200000",
+        "ms": 95,
+        "compileMs": 974
+      },
+      "T6": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Redundant input, expecting EOF but found: .",
+        "ms": 6
+      },
+      "T7": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Unknown method: matches",
+        "ms": 1,
+        "compileMs": 2
+      },
+      "E1": {
+        "status": "FUITE",
+        "detail": "function",
+        "ms": 2
+      },
+      "E2": {
+        "status": "FUITE",
+        "detail": "{}",
+        "ms": 1
+      },
+      "E3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Redundant input, expecting EOF but found: (",
+        "ms": 4
+      },
+      "E4": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Identifier \"process\" not found in context: {\"devoirs\":11.25,\"examen\":9,\"s1\":12.5,\"s2\":14.1,\"period\":{\"S1\":{\"average\":12.5},\"S2\":{\"average\":14.1}},\"a\":{\"b\":1},\"s\":\"x\"}",
+        "ms": 1,
+        "compileMs": 2
+      },
+      "E5": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Identifier \"globalThis\" not found in context: {\"devoirs\":11.25,\"examen\":9,\"s1\":12.5,\"s2\":14.1,\"period\":{\"S1\":{\"average\":12.5},\"S2\":{\"average\":14.1}},\"a\":{\"b\":1},\"s\":\"x\"}",
+        "ms": 1,
+        "compileMs": 1
+      },
+      "E6": {
+        "status": "FUITE",
+        "detail": "function",
+        "ms": 1
+      },
+      "E7": {
+        "status": "BLOQUE",
+        "detail": "{}",
+        "ms": 1
+      },
+      "E8": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "E9": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "N1": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Macros now not recognized",
+        "ms": 3,
+        "compileMs": 6
+      },
+      "N2": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Macros random not recognized",
+        "ms": 1,
+        "compileMs": 4
+      },
+      "V1": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Identifier \"inconnue\" not found in context: {\"devoirs\":11.25,\"examen\":9,\"s1\":12.5,\"s2\":14.1,\"period\":{\"S1\":{\"average\":12.5},\"S2\":{\"average\":14.1}},\"a\":{\"b\":1},\"s\":\"x\"}",
+        "ms": 1,
+        "compileMs": 3
+      },
+      "V2": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "CelTypeError: addition operation cannot be applied to (float, string)",
+        "ms": 1,
+        "compileMs": 2
+      },
+      "V3": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Macros foo not recognized",
+        "ms": 1,
+        "compileMs": 4
+      },
+      "V4": {
+        "status": "VALEUR",
+        "detail": "NaN",
+        "ms": 1,
+        "compileMs": 4
+      },
+      "V5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Expecting: one of these possible Token sequences: 1. [OpenParenthesis] 2. [BooleanLiteral] 3. [Null] 4. [StringLiteral] 5. [Float] 6. [HexUnsignedInteger] 7. [HexInteger] 8. [UnsignedInteger] 9. [Integer] 10. [OpenBracke",
+        "ms": 7
+      },
+      "V6": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Identifier \"averge\" not found in context: {\"devoirs\":11.25,\"examen\":9,\"s1\":12.5,\"s2\":14.1,\"period\":{\"S1\":{\"average\":12.5},\"S2\":{\"average\":14.1}},\"a\":{\"b\":1},\"s\":\"x\"}",
+        "ms": 1,
+        "compileMs": 3
+      },
+      "V7": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Division by zero",
+        "ms": 2,
+        "compileMs": 8
+      }
+    },
+    "cel-bufbuild": {
+      "F1": {
+        "status": "FAUX",
+        "detail": "9.899999999999999",
+        "ms": 1
+      },
+      "F2": {
+        "status": "OK",
+        "detail": "13.57",
+        "ms": 1
+      },
+      "D1": {
+        "status": "FAUX",
+        "detail": "false",
+        "ms": 1
+      },
+      "D2": {
+        "status": "OK",
+        "detail": "10",
+        "ms": 1
+      },
+      "D3": {
+        "status": "FAUX",
+        "detail": "false",
+        "ms": 2
+      },
+      "D4": {
+        "status": "OK",
+        "detail": "2.1436",
+        "ms": 1
+      },
+      "D5": {
+        "status": "OK",
+        "detail": "false",
+        "ms": 0
+      },
+      "D6": {
+        "status": "FAUX",
+        "detail": "true",
+        "ms": 1
+      },
+      "T1": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T2": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Maximum call stack size exceeded",
+        "ms": 130
+      },
+      "T4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Maximum call stack size exceeded",
+        "ms": 81
+      },
+      "T5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Maximum call stack size exceeded",
+        "ms": 1468
+      },
+      "T6": {
+        "status": "TIMEOUT",
+        "detail": ">8000 ms",
+        "ms": 8002
+      },
+      "T7": {
+        "status": "VALEUR",
+        "detail": "false",
+        "ms": 44,
+        "compileMs": 29
+      },
+      "E1": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "field not found: constructor",
+        "ms": 1,
+        "compileMs": 15
+      },
+      "E2": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "field not found: __proto__",
+        "ms": 1,
+        "compileMs": 17
+      },
+      "E3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "<input>:1:44: found ( but expecting end of input",
+        "ms": 14
+      },
+      "E4": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "unresolved attribute",
+        "ms": 1,
+        "compileMs": 11
+      },
+      "E5": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "unresolved attribute",
+        "ms": 3,
+        "compileMs": 23
+      },
+      "E6": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "field not found: toString",
+        "ms": 2,
+        "compileMs": 16
+      },
+      "E7": {
+        "status": "BLOQUE",
+        "detail": "{\"_map\":{}}",
+        "ms": 0
+      },
+      "E8": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "E9": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "N1": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "unbound function: now",
+        "ms": 2,
+        "compileMs": 14
+      },
+      "N2": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "unbound function: random",
+        "ms": 0,
+        "compileMs": 5
+      },
+      "V1": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "unresolved attribute",
+        "ms": 1,
+        "compileMs": 10
+      },
+      "V2": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "found no matching overload for '_+_' applied to '(double, string)'",
+        "ms": 1,
+        "compileMs": 8
+      },
+      "V3": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "unbound function: foo",
+        "ms": 0,
+        "compileMs": 10
+      },
+      "V4": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "unbound function: clamp",
+        "ms": 0,
+        "compileMs": 6
+      },
+      "V5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "<input>:1:4: found + but expecting ')'",
+        "ms": 14
+      },
+      "V6": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "field not found: averge",
+        "ms": 2,
+        "compileMs": 11
+      },
+      "V7": {
+        "status": "VALEUR",
+        "detail": "Infinity",
+        "ms": 1,
+        "compileMs": 6
+      }
+    },
+    "jsonata": {
+      "F1": {
+        "status": "FAUX",
+        "detail": "9.899999999999999",
+        "ms": 1
+      },
+      "F2": {
+        "status": "OK",
+        "detail": "13.57",
+        "ms": 2
+      },
+      "D1": {
+        "status": "FAUX",
+        "detail": "false",
+        "ms": 3
+      },
+      "D2": {
+        "status": "OK",
+        "detail": "10",
+        "ms": 3
+      },
+      "D3": {
+        "status": "FAUX",
+        "detail": "false",
+        "ms": 1
+      },
+      "D4": {
+        "status": "OK",
+        "detail": "2.1436",
+        "ms": 1
+      },
+      "D5": {
+        "status": "OK",
+        "detail": "false",
+        "ms": 1
+      },
+      "D6": {
+        "status": "FAUX",
+        "detail": "true",
+        "ms": 1
+      },
+      "T1": {
+        "status": "TIMEOUT",
+        "detail": ">8000 ms",
+        "ms": 8006
+      },
+      "T2": {
+        "status": "TIMEOUT",
+        "detail": ">8000 ms",
+        "ms": 8004
+      },
+      "T3": {
+        "status": "VALEUR",
+        "detail": "1",
+        "ms": 3077,
+        "compileMs": 24
+      },
+      "T4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Maximum call stack size exceeded",
+        "ms": 14
+      },
+      "T5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Maximum call stack size exceeded",
+        "ms": 244
+      },
+      "T6": {
+        "status": "TIMEOUT",
+        "detail": ">8000 ms",
+        "ms": 8012
+      },
+      "T7": {
+        "status": "TIMEOUT",
+        "detail": ">8000 ms",
+        "ms": 8007
+      },
+      "E1": {
+        "status": "BLOQUE",
+        "detail": "undefined",
+        "ms": 1
+      },
+      "E2": {
+        "status": "BLOQUE",
+        "detail": "undefined",
+        "ms": 1
+      },
+      "E3": {
+        "status": "BLOQUE",
+        "detail": "undefined",
+        "ms": 3
+      },
+      "E4": {
+        "status": "BLOQUE",
+        "detail": "undefined",
+        "ms": 1
+      },
+      "E5": {
+        "status": "BLOQUE",
+        "detail": "undefined",
+        "ms": 1
+      },
+      "E6": {
+        "status": "BLOQUE",
+        "detail": "undefined",
+        "ms": 1
+      },
+      "E7": {
+        "status": "BLOQUE",
+        "detail": "{\"__proto__\":{\"polluted\":1}}",
+        "ms": 1
+      },
+      "E8": {
+        "status": "BLOQUE",
+        "detail": "2",
+        "ms": 4
+      },
+      "E9": {
+        "status": "BLOQUE",
+        "detail": "undefined",
+        "ms": 5
+      },
+      "N1": {
+        "status": "VALEUR",
+        "detail": "2026-10-01T09:32:33.887Z",
+        "ms": 8,
+        "compileMs": 2
+      },
+      "N2": {
+        "status": "VALEUR",
+        "detail": "0.7910601543736688",
+        "ms": 3,
+        "compileMs": 1
+      },
+      "V1": {
+        "status": "VALEUR",
+        "detail": "undefined",
+        "ms": 1,
+        "compileMs": 0
+      },
+      "V2": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "The right side of the \"+\" operator must evaluate to a number",
+        "ms": 4,
+        "compileMs": 2
+      },
+      "V3": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Attempted to invoke a non-function",
+        "ms": 3,
+        "compileMs": 1
+      },
+      "V4": {
+        "status": "VALEUR",
+        "detail": "NaN",
+        "ms": 1,
+        "compileMs": 0
+      },
+      "V5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Expected \")\" before end of expression",
+        "ms": 1
+      },
+      "V6": {
+        "status": "VALEUR",
+        "detail": "undefined",
+        "ms": 1,
+        "compileMs": 1
+      },
+      "V7": {
+        "status": "VALEUR",
+        "detail": "Infinity",
+        "ms": 1,
+        "compileMs": 0
+      }
+    },
+    "maison-peggy": {
+      "F1": {
+        "status": "OK",
+        "detail": "9.9",
+        "ms": 2
+      },
+      "F2": {
+        "status": "OK",
+        "detail": "13.57",
+        "ms": 4
+      },
+      "D1": {
+        "status": "OK",
+        "detail": "true",
+        "ms": 1
+      },
+      "D2": {
+        "status": "OK",
+        "detail": "10",
+        "ms": 1
+      },
+      "D3": {
+        "status": "OK",
+        "detail": "true",
+        "ms": 3
+      },
+      "D4": {
+        "status": "OK",
+        "detail": "2.1436",
+        "ms": 3
+      },
+      "D5": {
+        "status": "OK",
+        "detail": "false",
+        "ms": 2
+      },
+      "D6": {
+        "status": "OK",
+        "detail": "false",
+        "ms": 1
+      },
+      "T1": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T2": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Maximum call stack size exceeded",
+        "ms": 13
+      },
+      "T4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Maximum call stack size exceeded",
+        "ms": 13
+      },
+      "T5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Maximum call stack size exceeded",
+        "ms": 582
+      },
+      "T6": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T7": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "E1": {
+        "status": "BLOQUE",
+        "detail": "undefined",
+        "ms": 1
+      },
+      "E2": {
+        "status": "BLOQUE",
+        "detail": "undefined",
+        "ms": 1
+      },
+      "E3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Appel non autorisé (position 43)",
+        "ms": 7
+      },
+      "E4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Nom inconnu « process » (position 0)",
+        "ms": 4
+      },
+      "E5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Nom inconnu « globalThis » (position 0)",
+        "ms": 2
+      },
+      "E6": {
+        "status": "BLOQUE",
+        "detail": "undefined",
+        "ms": 1
+      },
+      "E7": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "E8": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "E9": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "N1": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Fonction inconnue « now » (position 3)",
+        "ms": 4
+      },
+      "N2": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Fonction inconnue « random » (position 6)",
+        "ms": 6
+      },
+      "V1": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Nom inconnu « inconnue » (position 0)",
+        "ms": 5
+      },
+      "V2": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "[DecimalError] Invalid argument: abc",
+        "ms": 2,
+        "compileMs": 7
+      },
+      "V3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Fonction inconnue « foo » (position 3)",
+        "ms": 3
+      },
+      "V4": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "[DecimalError] Invalid argument: undefined",
+        "ms": 5,
+        "compileMs": 6
+      },
+      "V5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Expected \"!\", \"(\", \"-\", \"\\\"\", \"false\", \"true\", [ \\t\\r\\n], [0-9], or [A-Za-z_] but end of input found.",
+        "ms": 4
+      },
+      "V6": {
+        "status": "VALEUR",
+        "detail": "undefined",
+        "ms": 0,
+        "compileMs": 3
+      },
+      "V7": {
+        "status": "VALEUR",
+        "detail": "Infinity",
+        "ms": 1,
+        "compileMs": 2
+      }
+    },
+    "maison-pratt": {
+      "F1": {
+        "status": "OK",
+        "detail": "9.9",
+        "ms": 2
+      },
+      "F2": {
+        "status": "OK",
+        "detail": "13.57",
+        "ms": 4
+      },
+      "D1": {
+        "status": "OK",
+        "detail": "true",
+        "ms": 2
+      },
+      "D2": {
+        "status": "OK",
+        "detail": "10",
+        "ms": 1
+      },
+      "D3": {
+        "status": "OK",
+        "detail": "true",
+        "ms": 1
+      },
+      "D4": {
+        "status": "OK",
+        "detail": "2.1436",
+        "ms": 2
+      },
+      "D5": {
+        "status": "OK",
+        "detail": "false",
+        "ms": 4
+      },
+      "D6": {
+        "status": "OK",
+        "detail": "false",
+        "ms": 10
+      },
+      "T1": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T2": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Expression trop longue : 10001 caractères (maximum 10000). (ligne 1, colonne 1)",
+        "ms": 20
+      },
+      "T4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Expression trop longue : 400001 caractères (maximum 10000). (ligne 1, colonne 1)",
+        "ms": 22
+      },
+      "T5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Expression trop longue : 399999 caractères (maximum 10000). (ligne 1, colonne 1)",
+        "ms": 21
+      },
+      "T6": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "T7": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "E1": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Le champ « constructor » n'existe pas. (ligne 1, colonne 3)",
+        "ms": 20
+      },
+      "E2": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Le champ « __proto__ » n'existe pas. (ligne 1, colonne 3)",
+        "ms": 33
+      },
+      "E3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Appel non autorisé : seules les fonctions de la bibliothèque peuvent être appelées, par leur nom (ex. avg(a, b)). (ligne 1, colonne 26)",
+        "ms": 21
+      },
+      "E4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Nom inconnu « process ». (ligne 1, colonne 1)",
+        "ms": 27
+      },
+      "E5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Nom inconnu « globalThis ». (ligne 1, colonne 1)",
+        "ms": 36
+      },
+      "E6": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Le champ « toString » n'existe pas. (ligne 1, colonne 3)",
+        "ms": 26
+      },
+      "E7": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "E8": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "E9": {
+        "status": "NON_EXPRIMABLE"
+      },
+      "N1": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Fonction inconnue « now ». (ligne 1, colonne 1)",
+        "ms": 27
+      },
+      "N2": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Fonction inconnue « random ». (ligne 1, colonne 1)",
+        "ms": 40
+      },
+      "V1": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Nom inconnu « inconnue ». (ligne 1, colonne 1)",
+        "ms": 26
+      },
+      "V2": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "L'opérateur « + » attend des nombres : le côté droit est texte. (ligne 1, colonne 11)",
+        "ms": 25
+      },
+      "V3": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Fonction inconnue « foo ». (ligne 1, colonne 1)",
+        "ms": 27
+      },
+      "V4": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "La fonction « clamp » attend 3 arguments, mais en reçoit 1. (ligne 1, colonne 1)",
+        "ms": 39
+      },
+      "V5": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Fin d'expression inattendue : une valeur est attendue (nombre, texte, nom, fonction ou parenthèse). (ligne 1, colonne 4)",
+        "ms": 19
+      },
+      "V6": {
+        "status": "ERREUR_COMPILATION",
+        "detail": "Le champ « averge » n'existe pas. (ligne 1, colonne 14)",
+        "ms": 20
+      },
+      "V7": {
+        "status": "ERREUR_EVALUATION",
+        "detail": "Division par zéro. (ligne 1, colonne 5)",
+        "ms": 6,
+        "compileMs": 22
+      }
+    }
+  },
+  "perf": {
+    "cel-marc": {
+      "evalsPerSec": 927936,
+      "N": 100000
+    },
+    "cel-marc-dec": {
+      "evalsPerSec": 22715,
+      "N": 100000
+    },
+    "cel-js": {
+      "evalsPerSec": 67735,
+      "N": 100000
+    },
+    "cel-bufbuild": {
+      "evalsPerSec": 271458,
+      "N": 100000
+    },
+    "jsonata": {
+      "evalsPerSec": 35759,
+      "N": 5000
+    },
+    "maison-peggy": {
+      "evalsPerSec": 25103,
+      "N": 100000
+    },
+    "maison-pratt": {
+      "evalsPerSec": 38408,
+      "N": 100000
+    }
+  }
+}
