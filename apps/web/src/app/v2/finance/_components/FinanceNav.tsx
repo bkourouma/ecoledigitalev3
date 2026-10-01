@@ -17,7 +17,7 @@ export function FinanceNav() {
     { href: "/v2/finance/refunds", label: t("refunds"), permission: "finance.payment.read" },
     { href: "/v2/finance/cash", label: t("cash"), permission: "finance.cashregister.open" },
     { href: "/v2/finance/fees", label: t("fees"), permission: "finance.fee.read" },
-    { href: "/v2/finance/funding", label: t("funding"), permission: "finance.fee.read" },
+    { href: "/v2/finance/funding", label: t("funding"), permission: "finance.invoice.read" },
     { href: "/v2/finance/reports", label: t("reports"), permission: "finance.report.read" },
   ];
   // « Mes finances » : parent (liens de tutelle) ou élève ; sans permission déclarée l'entrée serait toujours visible.

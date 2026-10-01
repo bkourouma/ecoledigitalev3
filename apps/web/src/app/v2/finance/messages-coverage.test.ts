@@ -28,7 +28,7 @@ import {
  */
 
 /** Préfixes dont le lot n'est pas encore livré (retirés au fil des lots) : le test les exige dès qu'ils sont retirés. */
-const PENDING: string[] = ["v2Finance.funding", "v2Finance.method", "v2Finance.status", "v2Finance.aging", "v2Finance.funder", "v2Finance.payer", "v2Finance.allocationOrder", "v2Finance.currency", "v2Payroll"];
+const PENDING: string[] = ["v2Payroll"];
 
 const ROOT = path.resolve(__dirname, "../..");
 const SOURCES = [path.join(ROOT, "app/v2/finance"), path.join(ROOT, "app/v2/payroll")];
@@ -66,7 +66,14 @@ describe("messages fr-CI (finance et paie)", () => {
   it("les libellés d'énumération sont tous traduits", () => {
     const expectations: Array<[string, readonly string[]]> = [
       ["v2Finance.category", FINANCE_FEE_CATEGORIES],
-      ["v2Finance.funding", FINANCE_FUNDING_TYPES],
+      ["v2Finance.funding.type", FINANCE_FUNDING_TYPES],
+      ["v2Finance.invoiceForm.categories", FINANCE_FEE_CATEGORIES],
+      ["v2Finance.invoiceForm.scope", ["levelKey", "trackKey", "learnerType"]],
+      ["v2Finance.invoiceForm.mode", ["catalog", "manual", "catalogHint", "manualHint"]],
+      ["v2Finance.invoiceForm.preview.totals", ["subtotal", "discount", "scholarship", "total"]],
+      ["v2Finance.invoiceDetail.amounts", ["subtotal", "discount", "scholarship", "total", "paid", "credited", "balance"]],
+      ["v2Finance.catalog.discounts.form.percentErrors", ["empty", "invalid", "range"]],
+      ["v2Finance.funding.scholarshipDialog.percentErrors", ["empty", "invalid", "range"]],
       ["v2Finance.method", FINANCE_PAYMENT_METHODS],
       ["v2Finance.status.invoice", FINANCE_INVOICE_STATUSES],
       ["v2Finance.status.payment", FINANCE_PAYMENT_STATUSES],

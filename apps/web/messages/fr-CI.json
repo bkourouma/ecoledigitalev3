@@ -2717,6 +2717,405 @@
           "stackableHint": "Les règles de cumul sont appliquées par l'API à l'émission."
         }
       }
+    },
+    "status": {
+      "invoice": {
+        "DRAFT": "Brouillon",
+        "ISSUED": "Émise",
+        "PARTIALLY_PAID": "Partiellement payée",
+        "PAID": "Payée",
+        "OVERDUE": "En retard",
+        "CANCELLED": "Annulée",
+        "CREDITED": "Créditée"
+      },
+      "installment": {
+        "PENDING": "À payer",
+        "PARTIALLY_PAID": "Partiellement payée",
+        "PAID": "Payée",
+        "OVERDUE": "En retard",
+        "CREDITED": "Créditée"
+      },
+      "payment": {
+        "PENDING": "En attente",
+        "CONFIRMED": "Confirmé",
+        "FAILED": "Échoué",
+        "REFUNDED": "Remboursé"
+      },
+      "refund": {
+        "REQUESTED": "Demandé",
+        "APPROVED": "Approuvé",
+        "COMPLETED": "Exécuté",
+        "REJECTED": "Refusé"
+      },
+      "scholarship": {
+        "ACTIVE": "Active",
+        "SUSPENDED": "Suspendue",
+        "ENDED": "Terminée"
+      },
+      "cashSession": {
+        "OPEN": "Ouverte",
+        "CLOSED": "Clôturée"
+      }
+    },
+    "funder": {
+      "STATE": "État",
+      "COMPANY": "Entreprise",
+      "INSTITUTION": "Établissement",
+      "FOUNDATION": "Fondation",
+      "OTHER": "Autre"
+    },
+    "payer": {
+      "LEARNER": "Famille",
+      "FUNDER": "Financeur"
+    },
+    "method": {
+      "CASH": "Espèces",
+      "CHEQUE": "Chèque",
+      "TRANSFER": "Virement",
+      "CARD": "Carte bancaire",
+      "MOBILE_MONEY": "Mobile money",
+      "ONLINE": "En ligne"
+    },
+    "allocationOrder": {
+      "OLDEST_DUE_FIRST": "Échéance la plus ancienne d'abord",
+      "NEWEST_DUE_FIRST": "Échéance la plus récente d'abord",
+      "SMALLEST_REMAINING_FIRST": "Plus petit reste dû d'abord",
+      "LARGEST_REMAINING_FIRST": "Plus grand reste dû d'abord",
+      "PROPORTIONAL": "Au prorata des restes dus"
+    },
+    "currency": {
+      "XOF": "Franc CFA (XOF)",
+      "XAF": "Franc CFA (XAF)",
+      "EUR": "Euro",
+      "USD": "Dollar US"
+    },
+    "aging": {
+      "NOT_DUE": "Non échu",
+      "D1_30": "1 à 30 jours",
+      "D31_60": "31 à 60 jours",
+      "D61_90": "61 à 90 jours",
+      "D91_PLUS": "Plus de 90 jours"
+    },
+    "invoices": {
+      "title": "Factures",
+      "description": "Factures émises aux familles et aux financeurs, avec leur reste dû. Les montants sont calculés par l'API.",
+      "new": "Nouvelle facture",
+      "caption": "Liste des factures",
+      "draft": "Brouillon",
+      "columns": {
+        "number": "Numéro",
+        "learner": "Apprenant",
+        "year": "Année",
+        "payer": "Payeur",
+        "status": "Statut",
+        "total": "Total",
+        "paid": "Payé",
+        "balance": "Reste dû",
+        "due": "Échéance"
+      },
+      "filters": {
+        "learner": "Apprenant",
+        "learnerPlaceholder": "Rechercher un élève…",
+        "status": "Statut",
+        "allStatuses": "Tous les statuts",
+        "payer": "Payeur",
+        "allPayers": "Tous",
+        "year": "Année scolaire",
+        "groupActive": "Filtre sur le groupe « {group} ».",
+        "clearGroup": "Retirer le filtre"
+      },
+      "empty": "Aucune facture",
+      "emptyHint": "Modifiez les filtres ou émettez une nouvelle facture."
+    },
+    "invoiceDetail": {
+      "draftTitle": "Facture (brouillon)",
+      "subtitle": "{learner} · année {year}",
+      "back": "Retour aux factures",
+      "print": "Imprimer",
+      "issue": "Émettre la facture",
+      "issued": "La facture {number} a été émise.",
+      "collect": "Encaisser",
+      "cancelledNotice": "Cette facture est annulée. Motif : {reason}",
+      "funderInvoice": "Part prise en charge par le financeur « {funder} » : payable séparément de la part de la famille.",
+      "familyInvoice": "Part de la famille : une facture liée existe pour la part du financeur.",
+      "summary": "Montants",
+      "amounts": {
+        "subtotal": "Sous-total",
+        "discount": "Remises",
+        "scholarship": "Bourses et prises en charge",
+        "total": "Total",
+        "paid": "Payé",
+        "credited": "Avoirs",
+        "balance": "Reste dû"
+      },
+      "dueDate": "Échéance de la facture",
+      "lines": {
+        "title": "Lignes",
+        "caption": "Lignes de la facture",
+        "description": "Désignation",
+        "category": "Catégorie",
+        "quantity": "Qté",
+        "unit": "Prix unitaire",
+        "discount": "Remise",
+        "scholarship": "Bourse",
+        "total": "Total"
+      },
+      "installments": {
+        "title": "Échéancier",
+        "caption": "Échéancier de la facture",
+        "generate": "Générer un échéancier",
+        "seq": "N°",
+        "label": "Échéance",
+        "due": "Date limite",
+        "amount": "Montant",
+        "paid": "Payé",
+        "remaining": "Reste dû",
+        "status": "Statut",
+        "empty": "Aucune échéance"
+      },
+      "danger": {
+        "title": "Correction de la facture",
+        "hint": "Un avoir réduit définitivement le reste dû. Pour annuler une somme déjà encaissée, remboursez d'abord le paiement.",
+        "credit": "Émettre un avoir",
+        "cancel": "Annuler la facture"
+      },
+      "cancelDialog": {
+        "title": "Annuler la facture",
+        "description": "L'annulation est définitive et tracée.",
+        "reason": "Motif de l'annulation",
+        "confirm": "Annuler la facture"
+      },
+      "cancelled": "La facture a été annulée.",
+      "creditIssued": "L'avoir {number} a été émis.",
+      "installmentsGenerated": "L'échéancier a été généré.",
+      "creditDialog": {
+        "title": "Émettre un avoir",
+        "description": "L'avoir porte sur le reste dû (actuellement {balance}).",
+        "amount": "Montant de l'avoir",
+        "reason": "Motif",
+        "reasonHint": "Au moins 5 caractères.",
+        "submit": "Émettre l'avoir"
+      },
+      "installmentsDialog": {
+        "title": "Générer un échéancier",
+        "description": "Répartit le total de la facture selon un plan ; le découpage au franc près est fait par l'API.",
+        "plan": "Plan d'échéancier",
+        "choose": "Choisir un plan…",
+        "baseDate": "Date de départ",
+        "baseDateHint": "Par défaut : la date du jour.",
+        "submit": "Générer"
+      }
+    },
+    "invoiceForm": {
+      "title": "Nouvelle facture",
+      "description": "Choisissez l'apprenant et les frais ; l'aperçu est calculé par l'API avant toute émission.",
+      "cancel": "Annuler",
+      "mode": {
+        "legend": "Mode de création",
+        "catalog": "Depuis le catalogue",
+        "manual": "Saisie libre",
+        "catalogHint": "Les montants viennent des barèmes ; remises, bourses et part de l'État sont appliquées par l'API.",
+        "manualHint": "Lignes et montants saisis à la main ; la facture est enregistrée en brouillon puis relue avant émission."
+      },
+      "learner": {
+        "title": "Apprenant",
+        "label": "Apprenant",
+        "placeholder": "Rechercher un élève…",
+        "enrollment": "Inscription",
+        "enrollmentHint": "Détermine la classe (créances par classe) et le niveau de tarification.",
+        "loading": "Chargement…",
+        "noEnrollment": "Aucune",
+        "year": "Année scolaire"
+      },
+      "items": {
+        "title": "Frais à facturer",
+        "hint": "Un barème applicable doit exister pour chaque frais (année, niveau, type d'apprenant).",
+        "fee": "Frais",
+        "choose": "Choisir un frais…",
+        "quantity": "Quantité",
+        "description": "Désignation (facultatif)",
+        "remove": "Retirer",
+        "add": "Ajouter un frais"
+      },
+      "scope": {
+        "title": "Contexte de tarification (avancé)",
+        "hint": "À renseigner seulement pour forcer le niveau, la filière ou le type d'apprenant ; sinon l'API les déduit de l'inscription.",
+        "levelKey": "Niveau (clé)",
+        "trackKey": "Filière (clé)",
+        "learnerType": "Type d'apprenant (clé)"
+      },
+      "lines": {
+        "title": "Lignes de la facture",
+        "category": "Catégorie",
+        "description": "Désignation",
+        "quantity": "Quantité",
+        "unitAmount": "Prix unitaire",
+        "remove": "Retirer la ligne",
+        "add": "Ajouter une ligne"
+      },
+      "categories": {
+        "REGISTRATION": "Inscription",
+        "TUITION": "Scolarité",
+        "CANTEEN": "Cantine",
+        "TRANSPORT": "Transport",
+        "UNIFORM": "Uniforme",
+        "DOCUMENTS": "Documents",
+        "EXAMS": "Examens",
+        "ACTIVITIES": "Activités",
+        "DEFENSE": "Soutenance",
+        "LIBRARY": "Bibliothèque",
+        "OTHER": "Autres"
+      },
+      "options": {
+        "title": "Remises et échéancier",
+        "discounts": "Remises à appliquer",
+        "noDiscounts": "Aucune remise dans le catalogue.",
+        "dueDate": "Échéance de la facture",
+        "dueDateHint": "Par défaut : définie par l'API.",
+        "plan": "Plan d'échéancier",
+        "planHint": "Fonction incluse selon l'offre de l'établissement.",
+        "noPlan": "Aucun (paiement en une fois)",
+        "baseDate": "Date de départ du plan",
+        "ignoreFunding": "Ne pas appliquer le financement de l'apprenant",
+        "ignoreFundingHint": "Par défaut, la part de l'État ou du financeur est séparée en une facture liée."
+      },
+      "preview": {
+        "title": "Aperçu avant émission",
+        "loading": "Calcul de l'aperçu…",
+        "hint": "Calculé par l'API ; rien n'est encore enregistré.",
+        "stale": "Le formulaire a changé depuis l'aperçu : recalculez-le avant d'émettre.",
+        "required": "Calculez l'aperçu pour pouvoir émettre ou enregistrer la facture.",
+        "lines": "Lignes — {label}",
+        "installments": "Échéances — {label}",
+        "noInstallments": "Paiement en une fois, échéance {due}",
+        "columns": {
+          "description": "Désignation",
+          "quantity": "Qté",
+          "unit": "Prix unitaire",
+          "discount": "Remise",
+          "scholarship": "Bourse",
+          "total": "Total",
+          "seq": "N°",
+          "label": "Échéance",
+          "due": "Date limite",
+          "amount": "Montant"
+        },
+        "totals": {
+          "subtotal": "Sous-total",
+          "discount": "Remises",
+          "scholarship": "Bourses et prises en charge",
+          "total": "Total"
+        }
+      },
+      "actions": {
+        "preview": "Calculer l'aperçu",
+        "draft": "Enregistrer en brouillon",
+        "issue": "Émettre la facture",
+        "saveDraft": "Enregistrer en brouillon"
+      },
+      "done": {
+        "title": "Facture enregistrée",
+        "message": "{count, plural, one {# facture a été enregistrée.} other {# factures ont été enregistrées (part de la famille et part du financeur).}}",
+        "list": "Factures créées",
+        "draft": "Brouillon",
+        "toList": "Retour aux factures"
+      }
+    },
+    "funding": {
+      "title": "Remises et bourses",
+      "description": "Financement d'un apprenant, bourses et prises en charge (part de l'État, d'une entreprise…), et répartition des factures entre la famille et les financeurs.",
+      "learner": "Apprenant",
+      "learnerPlaceholder": "Rechercher un élève…",
+      "pick": "Choisissez un apprenant",
+      "pickHint": "Sa situation de financement et la répartition de ses factures s'afficheront ici.",
+      "typeTitle": "Type de financement",
+      "change": "Modifier",
+      "typeLabel": "Financement",
+      "assignmentRef": "Référence d'affectation",
+      "stateHint": "Élève affecté par l'État : la facture est répartie en une part de l'État et une part de la famille, calculées par l'API.",
+      "type": {
+        "PRIVATE": "Privé (famille)",
+        "STATE_ASSIGNED": "Affecté par l'État",
+        "SCHOLARSHIP": "Boursier",
+        "COMPANY": "Pris en charge par une entreprise",
+        "STAFF_CHILD": "Enfant de personnel",
+        "OTHER": "Autre"
+      },
+      "typeSaved": "Le type de financement a été enregistré.",
+      "scholarships": {
+        "title": "Bourses et prises en charge",
+        "new": "Nouvelle bourse",
+        "caption": "Bourses et prises en charge",
+        "funder": "Financeur",
+        "year": "Année",
+        "coverage": "Couverture",
+        "cap": "Plafond",
+        "categories": "Catégories",
+        "allCategories": "Toutes",
+        "status": "Statut",
+        "actions": "Actions",
+        "reactivate": "Réactiver",
+        "reactivated": "La bourse est de nouveau active.",
+        "suspend": "Suspendre",
+        "suspended": "La bourse est suspendue.",
+        "end": "Terminer",
+        "ended": "La bourse est terminée.",
+        "empty": "Aucune bourse",
+        "emptyHint": "Ajoutez une prise en charge (État, entreprise, fondation…) pour que sa part soit facturée séparément.",
+        "created": "La bourse a été créée."
+      },
+      "split": {
+        "title": "Répartition des factures",
+        "hint": "La part de chaque financeur est une facture liée, payable séparément ; la famille garde sa part.",
+        "unavailable": "Le relevé de cet apprenant n'est pas disponible.",
+        "caption": "Factures de l'apprenant par payeur",
+        "invoice": "Facture",
+        "payer": "Payeur",
+        "status": "Statut",
+        "total": "Total",
+        "balance": "Reste dû",
+        "empty": "Aucune facture",
+        "draft": "Brouillon",
+        "funderShare": "Part {funder}",
+        "familyShare": "Part de la famille"
+      },
+      "typeDialog": {
+        "title": "Type de financement",
+        "description": "Appliqué aux prochaines factures de l'apprenant.",
+        "type": "Financement",
+        "stateOff": "L'affectation par l'État n'est pas incluse dans l'offre de l'établissement.",
+        "ref": "Référence d'affectation",
+        "refHint": "Numéro d'affectation ou de décision (facultatif).",
+        "submit": "Enregistrer"
+      },
+      "scholarshipDialog": {
+        "title": "Nouvelle bourse ou prise en charge",
+        "description": "La couverture est appliquée par l'API aux factures de l'année indiquée.",
+        "funderKind": "Type de financeur",
+        "funderName": "Nom du financeur",
+        "reference": "Référence",
+        "year": "Année scolaire",
+        "coverageKind": "Couverture",
+        "kinds": {
+          "PERCENT": "Pourcentage",
+          "FIXED": "Montant fixe"
+        },
+        "percent": "Pourcentage couvert",
+        "percentHint": "Par exemple 70 pour une prise en charge de 70 %.",
+        "percentErrors": {
+          "empty": "Saisissez un pourcentage.",
+          "invalid": "Pourcentage invalide (par exemple 70 ou 12,5).",
+          "range": "Le pourcentage doit être compris entre 0,01 et 100."
+        },
+        "amount": "Montant couvert",
+        "cap": "Plafond (facultatif)",
+        "capHint": "Montant maximal pris en charge.",
+        "priority": "Priorité",
+        "priorityHint": "Les bourses de plus petite priorité s'appliquent d'abord.",
+        "categories": "Catégories couvertes",
+        "categoriesHint": "Aucune case cochée : toutes les catégories.",
+        "submit": "Créer la bourse"
+      }
     }
   }
 }
