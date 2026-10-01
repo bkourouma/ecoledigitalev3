@@ -39,7 +39,9 @@ export const AcademicCode = {
   PERIOD_CLOSED: "academic.period_closed",
   PERIOD_CLOSE_REFUSED: "academic.period_close_refused",
   PERIOD_NOT_OPEN: "academic.period_not_open",
+  PERIOD_IDENTITY_IMMUTABLE: "academic.period_identity_immutable",
   CLASSROOM_PERIOD_TRANSITION: "academic.classroom_period_transition",
+  CLASSROOM_PERIOD_OTHER_YEAR: "academic.classroom_period_other_year",
   // Programmes, matières, référentiels
   PROGRAM_NOT_FOUND: "academic.program_not_found",
   PROGRAM_CODE_TAKEN: "academic.program_code_taken",
@@ -63,6 +65,7 @@ export const AcademicCode = {
   CURRICULUM_LOCKED: "academic.curriculum_locked",
   CURRICULUM_INVALID: "academic.curriculum_invalid",
   CURRICULUM_TRANSITION: "academic.version_transition",
+  VERSION_IDENTITY_IMMUTABLE: "academic.version_identity_immutable",
   NODE_NOT_FOUND: "academic.node_not_found",
   NODE_TYPE_UNKNOWN: "academic.node_type_unknown",
   NODE_BAD_PARENT: "academic.node_bad_parent",

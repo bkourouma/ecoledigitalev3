@@ -21,7 +21,7 @@ import {
   type RequestContext,
   type Result,
 } from "@ecoledigitale/kernel";
-import { PgOutboxWriter, type TenantDb, type Tx } from "@ecoledigitale/database";
+import { PgOutboxWriter, isDeadlock, isSerializationFailure, type TenantDb, type Tx } from "@ecoledigitale/database";
 import { civilDateOf } from "../domain/dates";
 import { DEFAULT_ENROLLABLE_STUDENT_STATUSES } from "../domain/enrollment";
 import { AcademicCode, forbidden, notFound, validation } from "../domain/errors";
@@ -97,24 +97,34 @@ export async function inTx<T>(
   fn: (tx: Tx) => Promise<Result<T, AppError>>,
   options?: { readOnly?: boolean },
 ): Promise<Result<T, AppError>> {
-  try {
-    return await deps.db.run(
-      ctx,
-      async (tx) => {
-        const result = await fn(tx);
-        if (!result.ok) throw new AbortTransaction(result.error);
-        return result;
-      },
-      options,
-    );
-  } catch (e) {
-    if (e instanceof AbortTransaction) return err(e.error);
-    if (isAppError(e)) return err(e);
-    const mapped = mapDbError(e);
-    if (mapped) return err(mapped);
-    throw e;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await deps.db.run(
+        ctx,
+        async (tx) => {
+          const result = await fn(tx);
+          if (!result.ok) throw new AbortTransaction(result.error);
+          return result;
+        },
+        options,
+      );
+    } catch (e) {
+      if (e instanceof AbortTransaction) return err(e.error);
+      if (isAppError(e)) return err(e);
+      // Interblocage / échec de sérialisation (contraintes d'exclusion, verrous de capacité) : on rejoue la
+      // transaction ENTIÈRE ; la seconde tentative voit l'état committé et échoue (ou réussit) de façon déterministe.
+      if ((isDeadlock(e) || isSerializationFailure(e)) && attempt < MAX_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, 5 * attempt + Math.floor(Math.random() * 15)));
+        continue;
+      }
+      const mapped = mapDbError(e);
+      if (mapped) return err(mapped);
+      throw e;
+    }
   }
 }
+
+const MAX_ATTEMPTS = 4;
 
 /** Lecture seule (aucun événement, aucun audit). */
 export function inReadTx<T>(deps: AcademicDeps, ctx: RequestContext, fn: (tx: Tx) => Promise<Result<T, AppError>>): Promise<Result<T, AppError>> {

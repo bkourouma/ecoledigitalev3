@@ -578,7 +578,7 @@ async function classroomPeriodAction(
     if (!p.ok) return p;
     const { period, year } = p.value;
     if (period.academicYearId !== classroom.academicYearId) {
-      return err(validation("academic.classroom_period_other_year", "La période n'appartient pas à l'année de la classe.", "periodId"));
+      return err(validation(AcademicCode.CLASSROOM_PERIOD_OTHER_YEAR, "La période n'appartient pas à l'année de la classe.", "periodId"));
     }
     // Une classe annulée est ignorée (aucune clôture à poser).
     if (classroom.status === "CANCELLED") return ok({ classroomId: classroom.id, periodId: period.id, state: period.status, explicit: false });

@@ -158,6 +158,40 @@ export async function seedHigher(w: World, options: { capacity?: number | null; 
   };
 }
 
+/** Code d'erreur d'un résultat (`null` s'il a réussi). */
+export const codeOf = (r: { ok: boolean; error?: { code: string } }): string | null => (r.ok ? null : (r.error?.code ?? "?"));
+
+export interface PublishedEvent {
+  id: string;
+  type: string;
+  version: number;
+  payload: Record<string, any>;
+  aggregateType: string | null;
+  aggregateId: string | null;
+}
+
+/** Événements écrits dans l'outbox du tenant (lecture administrateur), du plus ancien au plus récent. */
+export async function eventsOf(w: World, type?: string | RegExp): Promise<PublishedEvent[]> {
+  const res = await w.db.admin.query("SELECT id, type, version, payload, aggregate_type, aggregate_id FROM kernel.domain_events WHERE tenant_id = $1 ORDER BY id", [w.tenantId]);
+  const all: PublishedEvent[] = res.rows.map((r: any) => ({ id: r.id, type: r.type, version: r.version, payload: r.payload, aggregateType: r.aggregate_type, aggregateId: r.aggregate_id }));
+  if (!type) return all;
+  return all.filter((e) => (typeof type === "string" ? e.type === type : type.test(e.type)));
+}
+
+/** Chaque événement publié respecte son schéma versionné `{ v: 1, … }` (contrat d'API pour les consommateurs). */
+export async function assertEventsValid(w: World): Promise<number> {
+  const { academicEventPayloadSchemas } = await import("@ecoledigitale/contracts/src/v2/academic");
+  const events = await eventsOf(w, /^academic\./);
+  for (const e of events) {
+    const schema = (academicEventPayloadSchemas as Record<string, { safeParse(v: unknown): { success: boolean; error?: unknown } }>)[e.type];
+    if (!schema) throw new Error(`Événement sans schéma : ${e.type}`);
+    const r = schema.safeParse(e.payload);
+    if (!r.success) throw new Error(`Charge utile invalide pour ${e.type} : ${JSON.stringify((r as { error: unknown }).error)} — ${JSON.stringify(e.payload)}`);
+    if (e.version !== 1 || e.payload.v !== 1) throw new Error(`Version inattendue pour ${e.type}`);
+  }
+  return events.length;
+}
+
 /** Lit toutes les lignes d'une table sous le tenant du monde (RLS), pour des vérifications indépendantes des cas d'usage. */
 export async function rows<R = Record<string, any>>(w: World, sql: string, params: unknown[] = []): Promise<R[]> {
   return w.deps.db.run(w.ctx, (tx) => tx.many<R>(sql, params));
