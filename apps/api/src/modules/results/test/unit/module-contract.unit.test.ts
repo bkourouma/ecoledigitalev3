@@ -10,8 +10,8 @@ import { closureHashOf, canonicalJson, hashOf } from "../../domain/hash";
 import { findOverridable, outcomeOf, DECISION_RULES } from "../../domain/catalog";
 import { isLegalStateTransition, planClose, planDeliberate, planLock, planReopen, sessionsKeptLocked } from "../../domain/period-state";
 import { buildPermissionCatalog, rbacManifest, resolveSystemRoles } from "../../../rbac";
-import assessManifest from "../../../assess/manifest";
-import rulesManifest from "../../../rules/manifest";
+import { assessManifest } from "../../../assess";
+import { rulesManifest } from "../../../rules";
 import { resultsTenantTables } from "../../../isolation-allowlist.results";
 import { round2 } from "../parity/decimal";
 
