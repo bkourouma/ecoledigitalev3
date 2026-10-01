@@ -400,6 +400,7 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
             ...(b.academicYear ? { academicYear: b.academicYear } : {}),
             lines: b.lines.map((l) => ({
               ...(l.feeId ? { feeId: l.feeId } : {}),
+              ...(l.sourceRef ? { sourceRef: l.sourceRef } : {}),
               category: l.category,
               description: l.description,
               ...(l.quantity ? { quantity: l.quantity } : {}),

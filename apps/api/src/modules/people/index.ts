@@ -46,6 +46,7 @@ export { createProjectionEnrollmentDirectory } from "./infrastructure/projection
 export {
   createLearnerDirectory,
   createStudentDirectory,
+  getDisplayNamesOfIdentities,
   type LearnerDirectoryPort,
   type LearnerRefShape,
   type StudentDirectoryPort,

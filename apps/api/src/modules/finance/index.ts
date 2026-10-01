@@ -75,6 +75,17 @@ export {
   type SandboxWebhook,
 } from "./infrastructure/providers/sandbox-provider";
 
+// Faits publiés pour les adaptateurs de plateforme (academic, reportcards) : frais d'inscription soldés, facture, impayé
+export {
+  getInvoiceFacts,
+  getRegistrationFeeStatus,
+  hasOverdueBalance,
+  isRegistrationFeeDue,
+  type InvoiceFacts,
+  type RegistrationFeeQuery,
+  type RegistrationFeeStatus,
+} from "./application/facts";
+
 // Cas d'usage — catalogue
 export {
   changeScholarshipStatus,

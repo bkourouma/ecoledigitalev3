@@ -6,6 +6,7 @@
  */
 import type { RequestContext } from "@ecoledigitale/kernel";
 import { displayName } from "../domain/normalize";
+import { listNamesByIdentity } from "../infrastructure/persons-repo";
 import { getStudentRow } from "../infrastructure/students-repo";
 import type { PeopleDeps } from "./deps";
 
@@ -48,4 +49,13 @@ export function createStudentDirectory(deps: Pick<PeopleDeps, "db">): StudentDir
       return row ? { studentId: row.studentId, status: row.status, displayName: displayName(row.lastName, row.firstName), studentNumber: row.studentNumber, sequenceNumber: row.sequenceNumber } : null;
     },
   };
+}
+
+/**
+ * Noms d'affichage (« NOM Prénom ») des identités IAM liées à une personne du tenant (élève, tuteur, personnel).
+ * Les identités sans personne liée, ou anonymisée, sont absentes du résultat. Aucune coordonnée n'est lue.
+ */
+export async function getDisplayNamesOfIdentities(deps: Pick<PeopleDeps, "db">, ctx: RequestContext, identityIds: readonly string[]): Promise<Map<string, string>> {
+  const rows = await deps.db.run(ctx, (tx) => listNamesByIdentity(tx, ctx.tenantId, [...new Set(identityIds)]), { readOnly: true });
+  return new Map(rows.map((r) => [r.identityId, displayName(r.lastName, r.firstName)]));
 }

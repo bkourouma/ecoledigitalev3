@@ -113,8 +113,8 @@ export async function insertInvoiceLines(tx: Tx, tenantId: string, invoiceId: Uu
     await tx.query(
       `INSERT INTO finance.invoice_lines
          (id, tenant_id, invoice_id, position, fee_id, category, description, quantity, unit_amount, gross_amount,
-          discount_amount, scholarship_amount, total_amount)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+          discount_amount, scholarship_amount, total_amount, source_ref)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
       [
         l.id,
         tenantId,
@@ -129,6 +129,7 @@ export async function insertInvoiceLines(tx: Tx, tenantId: string, invoiceId: Uu
         l.discount.amount,
         l.scholarship.amount,
         l.total.amount,
+        l.sourceRef,
       ],
     );
   }
@@ -200,7 +201,7 @@ export async function getInvoiceLines(tx: Tx, invoiceId: Uuid): Promise<InvoiceL
     `SELECT l.id, l.position, l.fee_id, l.category, l.description, l.quantity, inv.currency,
             l.unit_amount::text AS unit_amount, l.gross_amount::text AS gross_amount,
             l.discount_amount::text AS discount_amount, l.scholarship_amount::text AS scholarship_amount,
-            l.total_amount::text AS total_amount
+            l.total_amount::text AS total_amount, l.source_ref
        FROM finance.invoice_lines l JOIN finance.invoices inv ON inv.id = l.invoice_id
       WHERE l.invoice_id = $1 ORDER BY l.position`,
     [invoiceId],
@@ -217,6 +218,7 @@ export async function getInvoiceLines(tx: Tx, invoiceId: Uuid): Promise<InvoiceL
     discount: money(r.discount_amount, r.currency),
     scholarship: money(r.scholarship_amount, r.currency),
     total: money(r.total_amount, r.currency),
+    sourceRef: r.source_ref ?? null,
   }));
 }
 

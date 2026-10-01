@@ -47,6 +47,9 @@ export {
   type BearerClaims,
 } from "./domain/access-token";
 
+// Annuaire minimal des accès (repli de nom d'affichage pour les adaptateurs de plateforme)
+export { getMemberEmails } from "./application/directory";
+
 // Politiques
 export { createMfaPolicy, mfaRequiredFor, type MfaPolicy } from "./domain/mfa-policy";
 export { PasswordPolicy, type PasswordIssue } from "./domain/password-policy";

@@ -326,6 +326,8 @@ export const financeInvoiceLineBodySchema = z
     description: optionalText(300),
     quantity: z.number().int().min(1).max(10_000).optional(),
     unitAmount: financeAmountSchema,
+    /** Objet d'un autre module qui produit la ligne (ex. sélection de cours à la carte d'academic) ; sans clé étrangère. */
+    sourceRef: financeUuidSchema.optional(),
   })
   .strict();
 
@@ -418,6 +420,7 @@ export const financeInvoiceLineDtoSchema = z.object({
   discount: financeMoneyDtoSchema,
   scholarship: financeMoneyDtoSchema,
   total: financeMoneyDtoSchema,
+  sourceRef: financeUuidSchema.nullable(),
 });
 
 export const financeInstallmentDtoSchema = z.object({
