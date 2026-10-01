@@ -242,7 +242,7 @@ describeIntegration("justificatifs : dépôt, pièces, décision, révocation (P
     expect(sum.derived).toMatchObject({ absentCount: 3, excusedCount: 0, excusedMinutes: 0 });
     // L'historique du pointage conserve ABSENT -> EXCUSED -> ABSENT (jamais d'écrasement sans trace).
     const rec = await adminOne<{ id: string }>(db, "SELECT id FROM attendance.student_records WHERE session_id = $1 AND student_id = $2", [s0930, stu(A).studentId]);
-    const hist = await adminRows<any>(db, "SELECT from_status, to_status FROM attendance.record_history WHERE record_id = $1 ORDER BY changed_at, id", [rec.id]);
+    const hist = await adminRows<any>(db, "SELECT from_status, to_status FROM attendance.record_history WHERE record_id = $1 ORDER BY seq", [rec.id]);
     expect(hist.map((h) => [h.from_status, h.to_status])).toEqual([[null, "ABSENT"], ["ABSENT", "EXCUSED"], ["EXCUSED", "ABSENT"]]);
     // Une révocation n'est pas rejouable.
     expect((await revokeJustification(world.deps, school.admin.ctx, { justificationId, reason: "Encore une fois", caps: CAPS.admin })).ok).toBe(false);

@@ -99,6 +99,7 @@ export async function recomputeForPeriod(
        SELECT $1, e.enrollment_id, $2, e.student_id, $3::date, $4::date, s.sessions_total, s.present_count, s.absent_count, s.excused_count,
               s.late_count, s.excused_late_count, s.early_leave_count, 0, s.absent_minutes, s.excused_minutes, s.late_minutes, now()
          FROM enr e CROSS JOIN LATERAL attendance.summarize_enrollment(e.enrollment_id, $3::date, $4::date) s
+        ORDER BY e.enrollment_id
        ON CONFLICT (tenant_id, enrollment_id, period_id) DO UPDATE SET
               student_id = EXCLUDED.student_id, window_from = EXCLUDED.window_from, window_to = EXCLUDED.window_to,
               sessions_total = EXCLUDED.sessions_total, present_count = EXCLUDED.present_count, absent_count = EXCLUDED.absent_count,

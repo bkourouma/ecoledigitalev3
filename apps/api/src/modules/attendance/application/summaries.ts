@@ -135,7 +135,10 @@ async function recomputeWindow(
   cause: string,
 ): Promise<number> {
   const before = new Map((await getStoredSummaries(tx, enrollmentIds, w.periodId)).map((s) => [s.enrollmentId, s]));
-  const after = await recomputeForPeriod(tx, ctx.tenantId, enrollmentIds, { periodId: w.periodId, from: w.from, to: w.to });
+  // Ordre de verrouillage déterministe (inscriptions triées) : deux recalculs concurrents ne s'interbloquent pas.
+  const after = [...(await recomputeForPeriod(tx, ctx.tenantId, enrollmentIds, { periodId: w.periodId, from: w.from, to: w.to }))].sort((a, b) =>
+    a.enrollmentId < b.enrollmentId ? -1 : a.enrollmentId > b.enrollmentId ? 1 : 0,
+  );
   const overrides = await getLiveOverrides(tx, after.map((a) => a.enrollmentId), w.periodId);
 
   const changedRows = after.filter((a) => {

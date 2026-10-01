@@ -39,6 +39,28 @@ ALTER TABLE attendance.justifications ADD CONSTRAINT justifications_revocation_t
   CHECK (status <> 'REVOKED' OR (revoked_by IS NOT NULL AND revoked_at IS NOT NULL AND length(btrim(revocation_reason)) >= 5));
 
 -- -----------------------------------------------------------------------------
+-- Historique des pointages : ordre TOTAL fiable. `changed_at` (now()) est l'instant de DÉBUT de transaction : deux
+-- transactions concurrentes sur le même pointage peuvent donc s'entrelacer ; `seq` suit l'ordre réel d'écriture (les
+-- mises à jour d'une même ligne sont sérialisées par son verrou) et `changed_at` devient l'instant réel de la modification.
+-- -----------------------------------------------------------------------------
+ALTER TABLE attendance.record_history ADD COLUMN seq bigint GENERATED ALWAYS AS IDENTITY;
+CREATE INDEX record_history_by_seq ON attendance.record_history (tenant_id, record_id, seq);
+
+CREATE OR REPLACE FUNCTION attendance.student_records_history() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    INSERT INTO attendance.record_history (id, tenant_id, record_id, session_id, from_status, to_status, actor_id, changed_at)
+    VALUES (gen_random_uuid(), NEW.tenant_id, NEW.id, NEW.session_id, NULL, NEW.status_code, kernel.current_user_id(), clock_timestamp());
+  ELSIF NEW.status_code <> OLD.status_code THEN
+    INSERT INTO attendance.record_history (id, tenant_id, record_id, session_id, from_status, to_status, actor_id, changed_at)
+    VALUES (gen_random_uuid(), NEW.tenant_id, NEW.id, NEW.session_id, OLD.status_code, NEW.status_code, kernel.current_user_id(), clock_timestamp());
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+-- -----------------------------------------------------------------------------
 -- Registre d'idempotence de la synchronisation hors-ligne
 -- -----------------------------------------------------------------------------
 CREATE TABLE attendance.sync_ops (

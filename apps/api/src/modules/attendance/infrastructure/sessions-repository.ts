@@ -310,7 +310,7 @@ export interface HistoryRow {
 
 export async function listRecordHistory(tx: Tx, recordId: Uuid): Promise<HistoryRow[]> {
   return tx.many<HistoryRow>(
-    "SELECT id, record_id, from_status, to_status, actor_id, reason, changed_at FROM attendance.record_history WHERE record_id = $1 ORDER BY changed_at, id",
+    "SELECT id, record_id, from_status, to_status, actor_id, reason, changed_at FROM attendance.record_history WHERE record_id = $1 ORDER BY seq",
     [recordId],
   );
 }

@@ -2,7 +2,7 @@
  * Tables GLOBALES du module `attendance` (hors RLS « tenant »), à joindre à la liste blanche du test d'isolation avec la
  * justification de chaque entrée (ADR-002 §5).
  *
- * AUCUNE : les 19 tables du schéma `attendance` portent `tenant_id uuid NOT NULL` et la policy `tenant_isolation`
+ * AUCUNE : les 18 tables du schéma `attendance` (15 du DDL de référence + 3 de 0904) portent `tenant_id uuid NOT NULL` et la policy `tenant_isolation`
  * (référentiels de pack comme données : status_definitions, justification_reasons, leave_types, call_policies, settings ;
  * séances et pointages : sessions, student_records, record_history ; justificatifs : justifications,
  * justification_attachments, justification_records ; récapitulatifs : period_summaries, summary_overrides, alert_states ;
