@@ -599,8 +599,14 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 1 — plateforme
       expect(actions).toEqual(
         expect.arrayContaining(["platform.tenant.provisioned", "platform.subscription.set", "platform.override.set", "platform.override.removed", "platform.tenant.status_changed"]),
       );
-      expect(new Set(rows.rows.map((r) => r.actor_type))).toEqual(new Set(["superAdmin"]));
-      expect(new Set(rows.rows.map((r) => r.actor_id))).toEqual(new Set([p.operatorId]));
+      // Actions de la console : toutes réalisées par l'opérateur super-admin. Les modules peuvent aussi journaliser des
+      // actions automatiques de plateforme (acteur `system`, ex. initialisation de clés ou de catalogues) : tolérées,
+      // mais jamais d'acteur `user` dans le journal de plateforme.
+      const consoleRows = rows.rows.filter((r) => String(r.action).startsWith("platform."));
+      expect(consoleRows.length).toBeGreaterThan(0);
+      expect(new Set(consoleRows.map((r) => r.actor_type))).toEqual(new Set(["superAdmin"]));
+      expect(new Set(consoleRows.map((r) => r.actor_id))).toEqual(new Set([p.operatorId]));
+      expect(rows.rows.every((r) => r.actor_type === "superAdmin" || r.actor_type === "system")).toBe(true);
       const verification = await p.app.v2.systemDb.run("test-verify-platform-chain", (tx) => audit.verifyPlatformChain(tx));
       expect(verification.ok, JSON.stringify(verification)).toBe(true);
     });
