@@ -26,6 +26,7 @@ import { scopeFromParts, scopeId, type ScopeRef } from "../domain/scope";
 import {
   countOtherActiveOwners,
   deleteAssignmentRow,
+  findRoleByTemplate,
   findAssignmentById,
   findRoleById,
   listAssignments,
@@ -250,4 +251,34 @@ export async function revokeAssignmentUseCase(
     },
   });
   return ok({ revoked: true, userId: current.userId });
+}
+
+// ---------------------------------------------------------------------------
+// Attribution d'un rôle SYSTÈME par sa clé de modèle (provisioning)
+// ---------------------------------------------------------------------------
+
+/**
+ * Attribue à `userId` le rôle système issu du modèle `templateKey` (ex. `owner`), par défaut sur tout le
+ * tenant. Réservé au provisioning : l'acteur est `system` (aucune comparaison de droits). Les rôles système
+ * doivent déjà être instanciés (`instantiateSystemRoles`), sinon `NotFoundError`. Idempotent (ré-attribuer
+ * met simplement à jour la validité, voir `assignRoleUseCase`).
+ */
+export async function assignSystemRoleUseCase(
+  deps: UseCaseDeps,
+  ctx: RequestContext,
+  input: { templateKey: string; userId: string; identityId?: string | null; scope?: ScopeRef },
+): R<AssignmentRow> {
+  if (ctx.actor !== "system") {
+    return err(new ForbiddenError("L'attribution d'un rôle système par modèle est réservée au provisioning.", { code: "rbac.system_actor_required" }));
+  }
+  const role = await findRoleByTemplate(deps.tx, ctx.tenantId, input.templateKey);
+  if (!role) {
+    return err(NotFoundError.of("Rôle système", input.templateKey, { code: "rbac.system_role_missing" }));
+  }
+  return assignRoleUseCase(deps, ctx, {
+    userId: input.userId,
+    roleId: role.id,
+    scope: input.scope ?? scopeFromParts("tenant", null),
+    ...(input.identityId ? { identityId: input.identityId } : {}),
+  });
 }

@@ -32,6 +32,7 @@ import { exportLogsCsv, getAuditLog, listAuditLogs } from "../application/querie
 import type { StoredAuditEntry } from "../domain/types";
 import type { LogFilter } from "../infrastructure/log-repository";
 import { audit as defaultAudit } from "../service";
+import type { ModuleRuntime } from "../../../platform/runtime";
 
 export interface AuditHttpOptions {
   tenantDb: TenantDb;
@@ -89,7 +90,7 @@ function parse<T>(schema: ZodType<T, ZodTypeDef, unknown>, value: unknown): T {
   return result.data;
 }
 
-export default async function auditPlugin(app: FastifyInstance, options: AuditHttpOptions): Promise<void> {
+export async function auditPlugin(app: FastifyInstance, options: AuditHttpOptions): Promise<void> {
   if (!options?.tenantDb || typeof options.contextOf !== "function" || typeof options.requirePermission !== "function") {
     throw new InternalError("Plugin audit : tenantDb, contextOf et requirePermission sont obligatoires.", {
       code: "AUDIT_HTTP_MISCONFIGURED",
@@ -192,4 +193,18 @@ export default async function auditPlugin(app: FastifyInstance, options: AuditHt
       ) as Promise<AuditChainVerificationDto>;
     }),
   );
+}
+
+/**
+ * Contrat d'assemblage uniforme (voir `platform/runtime.ts`) : `(app, runtime)`, routes sans préfixe
+ * (le registre applique `/api/v1/audit`). Le singleton `audit` est configuré par la plateforme
+ * (`configureAuditFromEnv`) ; les routes sont gardées par `requirePermission` du module rbac et lisent
+ * le contexte `request.ctx` posé par l'authentification (IAM v2 ou legacy).
+ */
+export default async function auditModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
+  await app.register(auditPlugin, {
+    tenantDb: runtime.tenantDb,
+    contextOf: (request) => runtime.resolveContext(request),
+    requirePermission: (permission) => runtime.requirePermission(permission),
+  });
 }

@@ -129,7 +129,7 @@ export class ScheduledJobsRuntime {
           const tlog = log.child({ tenantId: tenant.id, tenant: tenant.slug });
           try {
             const db = scopeDb(tenantDb, tenant.id, `job-${name}-${runId}`.slice(0, 200));
-            await def.handler({ name, logger: tlog, systemDb, tenant, db });
+            await def.handler({ name, logger: tlog, systemDb, tenantDb, tenant, db });
             ok += 1;
           } catch (err) {
             failed += 1;
@@ -141,7 +141,7 @@ export class ScheduledJobsRuntime {
         return { status: "completed", tenants: { ok, failed } };
       }
 
-      await def.handler({ name, logger: log, systemDb });
+      await def.handler({ name, logger: log, systemDb, tenantDb });
       log.info({ durationMs: Date.now() - startedAt }, "job planifié : fin");
       return { status: "completed" };
     } catch (err) {

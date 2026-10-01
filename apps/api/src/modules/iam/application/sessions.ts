@@ -491,12 +491,13 @@ export async function switchTenant(
 // -----------------------------------------------------------------------------
 
 /** Purge les sessions expirées/révoquées et les challenges périmés depuis plus de `retentionDays` (tâche planifiée). */
-export async function purgeExpiredData(deps: IamDeps, retentionDays = 30): Promise<{ tenants: number; sessions: number; challenges: number }> {
+export async function purgeExpiredData(deps: Pick<IamDeps, "clock" | "systemDb">, retentionDays = 30): Promise<{ tenants: number; sessions: number; challenges: number; failed: number }> {
   const cutoff = new Date(deps.clock.now().getTime() - retentionDays * 86_400_000);
   const report = await deps.systemDb.forEachTenant("iam.purge-expired", (tx, tenant) => sessions.purgeExpired(tx, tenant.id, cutoff));
   return {
     tenants: report.succeeded.length,
     sessions: report.succeeded.reduce((n, r) => n + r.result.sessions, 0),
     challenges: report.succeeded.reduce((n, r) => n + r.result.challenges, 0),
+    failed: report.failed.length,
   };
 }

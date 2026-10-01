@@ -1,7 +1,7 @@
 /**
  * Dépendances communes des use cases `tenancy` et petits utilitaires.
  */
-import type { TenantDb, Tx } from "@ecoledigitale/database";
+import { SystemDb, type TenantDb, type Tx } from "@ecoledigitale/database";
 import {
   err,
   isAppError,
@@ -40,6 +40,8 @@ export interface AuditRecorder {
 
 export interface TenancyDeps {
   db: TenantDb;
+  /** Accès système (liste des tenants de la console). Défaut : `new SystemDb(db)`. */
+  systemDb?: SystemDb;
   clock?: Clock;
   audit?: AuditRecorder;
   /** Modèles de pack ; défaut : ceux livrés dans `templates/`. */
@@ -50,6 +52,7 @@ export interface TenancyDeps {
 
 export interface ResolvedDeps {
   db: TenantDb;
+  systemDb: SystemDb;
   clock: Clock;
   audit: AuditRecorder | undefined;
   templates: PackTemplates;
@@ -59,6 +62,7 @@ export interface ResolvedDeps {
 export function resolveDeps(deps: TenancyDeps): ResolvedDeps {
   return {
     db: deps.db,
+    systemDb: deps.systemDb ?? new SystemDb(deps.db),
     clock: deps.clock ?? systemClock,
     audit: deps.audit,
     templates: deps.templates ?? defaultPackTemplates(),
@@ -76,6 +80,21 @@ export function parseWith<S extends ZodTypeAny>(schema: S, data: unknown): Resul
       parsed.error.issues.map((i) => ({ path: i.path, message: i.message, code: i.code })),
     ),
   );
+}
+
+/** Idem pour une transaction système sans tenant (tables globales, console plateforme). */
+export async function runSystemResult<T>(
+  systemDb: SystemDb,
+  reason: string,
+  fn: (tx: Tx) => Promise<T>,
+  options?: { readOnly?: boolean },
+): Promise<Result<T, AppError>> {
+  try {
+    return ok(await systemDb.run(reason, fn, options));
+  } catch (e) {
+    if (isAppError(e)) return err(e);
+    throw e;
+  }
 }
 
 /**

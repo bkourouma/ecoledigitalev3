@@ -42,6 +42,8 @@ import {
   type SuperAdminIdentity,
 } from "./common";
 import { createRequireFeature, type EntitlementsService } from "./require-feature";
+import { permissionGuardFactory } from "../../../platform/guards";
+import type { ModuleRuntime } from "../../../platform/runtime";
 import {
   toEntitlementsDto,
   toFeatureDto,
@@ -66,6 +68,8 @@ export interface EntitlementsPluginOptions {
   requirePermission?: PermissionGuardFactory;
   resolveContext?: ContextResolver;
   superAdminAuthorizer?: SuperAdminAuthorizer;
+  /** Préfixe des routes. Défaut `/api/v1/entitlements` ; `""` sous le registre de modules (qui applique le préfixe). */
+  prefix?: string;
   /** Exige AUSSI `entitlements.manage` sur les routes /admin (défaut : non, le super-admin plateforme n'a pas de rôle de tenant). */
   adminRequiresPermission?: boolean;
 }
@@ -98,6 +102,10 @@ const routes: FastifyPluginAsync<EntitlementsPluginOptions & { service: Entitlem
   const ADMIN = opts.adminRequiresPermission
     ? [authorizeOperator, MANAGE]
     : [authorizeOperator];
+  // Routes d'administration plateforme : authentifiées par le `SuperAdminAuthorizer` (JWT super-admin), PAS par
+  // le contexte de tenant ni par l'authentification legacy — d'où `public` (voir platform/runtime.ts) : sans
+  // cela, le registre répondait 401 (aucun `request.ctx`) et le middleware legacy 400/401 à tout opérateur.
+  const ADMIN_ROUTE = { preHandler: ADMIN, config: { public: true } };
 
   /** Contexte d'une opération d'administration SUR un tenant : acteur `superAdmin`, RLS sur ce seul tenant. */
   const adminCtx = (req: FastifyRequest, tenantId: string): RequestContext => {
@@ -116,55 +124,55 @@ const routes: FastifyPluginAsync<EntitlementsPluginOptions & { service: Entitlem
   );
 
   // ---- Administration plateforme ---------------------------------------------
-  app.get("/admin/catalog", { preHandler: ADMIN }, async () => {
+  app.get("/admin/catalog", ADMIN_ROUTE, async () => {
     const catalog = unwrap(await getCatalog(deps));
     return { plans: catalog.plans.map(toPlanDto), packs: catalog.packs.map(toPackDto), features: catalog.features.map(toFeatureDto) };
   });
 
-  app.put("/admin/plans/:key", { preHandler: ADMIN }, async (req) => {
+  app.put("/admin/plans/:key", ADMIN_ROUTE, async (req) => {
     const { key } = unwrap(parseWith(PlanParams, req.params));
     return toPlanDto(unwrap(await upsertPlan(deps, key, req.body)));
   });
 
-  app.put("/admin/plans/:key/features", { preHandler: ADMIN }, async (req) => {
+  app.put("/admin/plans/:key/features", ADMIN_ROUTE, async (req) => {
     const { key } = unwrap(parseWith(PlanParams, req.params));
     return toPlanDto(unwrap(await setPlanFeatures(deps, key, req.body)));
   });
 
-  app.get("/admin/tenants/:tenantId/entitlements", { preHandler: ADMIN }, async (req) => {
+  app.get("/admin/tenants/:tenantId/entitlements", ADMIN_ROUTE, async (req) => {
     const { tenantId } = unwrap(parseWith(TenantParams, req.params));
     // Lecture directe (sans cache) : la console doit voir la vérité courante.
     return toEntitlementsDto(await new PgEntitlementsReader(deps.db, deps.clock).getEntitlements(tenantId));
   });
 
-  app.get("/admin/tenants/:tenantId/subscription", { preHandler: ADMIN }, async (req) => {
+  app.get("/admin/tenants/:tenantId/subscription", ADMIN_ROUTE, async (req) => {
     const { tenantId } = unwrap(parseWith(TenantParams, req.params));
     const sub = unwrap(await getSubscription(deps, adminCtx(req, tenantId)));
     return { subscription: sub ? toSubscriptionDto(sub) : null };
   });
 
-  app.put("/admin/tenants/:tenantId/subscription", { preHandler: ADMIN }, async (req) => {
+  app.put("/admin/tenants/:tenantId/subscription", ADMIN_ROUTE, async (req) => {
     const { tenantId } = unwrap(parseWith(TenantParams, req.params));
     return toSubscriptionDto(unwrap(await setSubscription(deps, adminCtx(req, tenantId), req.body)));
   });
 
-  app.get("/admin/tenants/:tenantId/overrides", { preHandler: ADMIN }, async (req) => {
+  app.get("/admin/tenants/:tenantId/overrides", ADMIN_ROUTE, async (req) => {
     const { tenantId } = unwrap(parseWith(TenantParams, req.params));
     return { items: unwrap(await listFeatureOverrides(deps, adminCtx(req, tenantId))).map(toOverrideDto) };
   });
 
-  app.put("/admin/tenants/:tenantId/overrides/:featureKey", { preHandler: ADMIN }, async (req) => {
+  app.put("/admin/tenants/:tenantId/overrides/:featureKey", ADMIN_ROUTE, async (req) => {
     const { tenantId, featureKey } = unwrap(parseWith(OverrideParams, req.params));
     return toOverrideDto(unwrap(await setFeatureOverride(deps, adminCtx(req, tenantId), featureKey, req.body)));
   });
 
-  app.delete("/admin/tenants/:tenantId/overrides/:featureKey", { preHandler: ADMIN }, async (req, reply) => {
+  app.delete("/admin/tenants/:tenantId/overrides/:featureKey", ADMIN_ROUTE, async (req, reply) => {
     const { tenantId, featureKey } = unwrap(parseWith(OverrideParams, req.params));
     unwrap(await removeFeatureOverride(deps, adminCtx(req, tenantId), featureKey));
     return reply.status(204).send();
   });
 
-  app.get("/admin/tenants/:tenantId/usage", { preHandler: ADMIN }, async (req) => {
+  app.get("/admin/tenants/:tenantId/usage", ADMIN_ROUTE, async (req) => {
     const { tenantId } = unwrap(parseWith(TenantParams, req.params));
     return { items: unwrap(await getUsage(deps, adminCtx(req, tenantId), req.query ?? {})).map(toUsageDto) };
   });
@@ -175,8 +183,23 @@ const routes: FastifyPluginAsync<EntitlementsPluginOptions & { service: Entitlem
  * les routes vivent dans un contexte enfant (préfixe + gestionnaire d'erreurs propres).
  */
 export const entitlementsPlugin: FastifyPluginAsync<EntitlementsPluginOptions> = async (app, opts) => {
-  if (!opts?.db) throw new Error("entitlements: l'option `db` (TenantDb) est obligatoire.");
+  const service = createEntitlementsService(opts);
+  app.decorate("entitlements", service);
+  await app.register(routes, {
+    ...opts,
+    service,
+    deps: buildEntitlementsDeps(opts, service),
+    prefix: opts.prefix ?? ENTITLEMENTS_ROUTE_PREFIX,
+  } as never);
+};
 
+/**
+ * Construit le service de droits (lecteur mis en cache + garde `requireFeature`). Sépare la CRÉATION de la
+ * décoration de l'instance : sous le registre de modules, la décoration se fait à la RACINE (`setup`), car un
+ * décorateur posé dans le contexte encapsulé d'un module serait invisible de `finance` & co.
+ */
+export function createEntitlementsService(opts: EntitlementsPluginOptions): EntitlementsService {
+  if (!opts?.db) throw new Error("entitlements: l'option `db` (TenantDb) est obligatoire.");
   const reader =
     opts.reader ??
     new CachedEntitlementsReader(new PgEntitlementsReader(opts.db, opts.clock), {
@@ -184,25 +207,68 @@ export const entitlementsPlugin: FastifyPluginAsync<EntitlementsPluginOptions> =
       ...(opts.clock ? { clock: opts.clock } : {}),
     });
   const resolveContext = opts.resolveContext ?? defaultContextResolver;
-
-  const service: EntitlementsService = {
+  return {
     reader,
     resolveContext,
     requireFeature: createRequireFeature(reader, resolveContext),
   };
-  const deps: EntitlementsDeps = {
+}
+
+/** Dépendances des use cases : le lecteur en cache sert d'invalidateur (invalidation immédiate dans le process). */
+export function buildEntitlementsDeps(opts: EntitlementsPluginOptions, service: EntitlementsService): EntitlementsDeps {
+  return {
     db: opts.db,
     ...(opts.clock ? { clock: opts.clock } : {}),
     ...(opts.audit ? { audit: opts.audit } : {}),
     ...(opts.logger ? { logger: opts.logger } : {}),
-    ...(isInvalidator(reader) ? { cache: reader } : {}),
+    ...(isInvalidator(service.reader) ? { cache: service.reader } : {}),
   };
+}
 
+/** Options communes de l'assemblage, dérivées du runtime. */
+function optionsFromRuntime(runtime: ModuleRuntime): EntitlementsPluginOptions {
+  return {
+    db: runtime.tenantDb,
+    clock: runtime.clock,
+    audit: runtime.auditPort,
+    logger: runtime.logger,
+    requirePermission: permissionGuardFactory(runtime),
+    resolveContext: (request) => runtime.resolveContext(request),
+    superAdminAuthorizer: {
+      authorize: async (request) => {
+        const identity = await runtime.superAdminAuthorizer.authorize(request);
+        return { actorId: identity.actorId };
+      },
+    },
+  };
+}
+
+/**
+ * Assemblage, étape 1 (instance RACINE) : décore `app.entitlements`, lu à la requête par `requireFeature(...)`
+ * depuis n'importe quel module. Les routes (étape 2) réutilisent CE service : même lecteur en cache, donc
+ * même invalidation.
+ */
+export function setup(app: FastifyInstance, runtime: ModuleRuntime): void {
+  const options = optionsFromRuntime(runtime);
+  const service = createEntitlementsService(options);
   app.decorate("entitlements", service);
-  await app.register(routes, { ...opts, service, deps, prefix: ENTITLEMENTS_ROUTE_PREFIX } as never);
-};
+}
+
+/**
+ * Assemblage, étape 2 : routes `/me`, `/admin/*` (le registre applique `/api/v1/entitlements`). Réutilise le
+ * service décoré par `setup`.
+ */
+export default async function entitlementsModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
+  const options = optionsFromRuntime(runtime);
+  const service = (app as unknown as { entitlements?: EntitlementsService }).entitlements;
+  if (!service) throw new Error("entitlements : `setup` n'a pas été exécuté (app.entitlements absent).");
+  await app.register(routes, {
+    ...options,
+    service,
+    deps: buildEntitlementsDeps(options, service),
+    prefix: "",
+  } as never);
+}
 
 // Fastify : ne pas encapsuler ce plugin, pour que `app.entitlements` soit visible des autres modules.
 (entitlementsPlugin as unknown as Record<symbol, unknown>)[Symbol.for("skip-override")] = true;
-
-export default entitlementsPlugin;

@@ -18,7 +18,7 @@
  *   ];
  */
 import type { DomainEvent, Logger, RequestContext } from "@ecoledigitale/kernel";
-import type { RunOptions, SystemDb, TenantRef, Tx } from "@ecoledigitale/database";
+import type { RunOptions, SystemDb, TenantDb, TenantRef, Tx } from "@ecoledigitale/database";
 
 /** `TenantDb` déjà lié au tenant de l'événement : impossible d'agir sur un autre tenant. */
 export interface ScopedTenantDb {
@@ -34,6 +34,13 @@ export interface EventHandlerContext {
    * (ADR-004 §5). Par défaut, utilisez `db` : lié au tenant de l'événement.
    */
   readonly systemDb: SystemDb;
+  /**
+   * `TenantDb` du worker, pour les use cases des modules qui prennent un `TenantDb` en dépendance
+   * (`createFinanceDeps({ db })`, `onTenantProvisioned({ db })`…). Chaque use case ouvre sa transaction
+   * sous le contexte qu'on lui passe : utilisez `createSystemContext(ctx.tenantId)` pour le tenant de
+   * l'événement, jamais le contexte d'un autre tenant. Pour de simples requêtes SQL, préférez `db`.
+   */
+  readonly tenantDb: TenantDb;
   /** Logger enfant : porte déjà jobId, tenantId, eventId, eventType, subscriber. */
   readonly logger: Logger;
   readonly subscriber: string;
@@ -141,6 +148,8 @@ export interface GlobalJobContext {
   readonly logger: Logger;
   /** Accès explicite et audité (tables globales ; `forEachTenant` / `runForTenant` pour les tenants). */
   readonly systemDb: SystemDb;
+  /** `TenantDb` du worker, pour les use cases des modules (voir `EventHandlerContext.tenantDb`). */
+  readonly tenantDb: TenantDb;
 }
 
 export interface TenantJobContext extends GlobalJobContext {

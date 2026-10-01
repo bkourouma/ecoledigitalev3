@@ -218,7 +218,7 @@ export class EventConsumers {
           }
           await withTimeout(
             Promise.resolve(
-              sub.handler(event, { tenantId: event.tenantId, db, systemDb, logger: log, subscriber: sub.name, attempt, jobId: String(job.id) }),
+              sub.handler(event, { tenantId: event.tenantId, db, systemDb, tenantDb, logger: log, subscriber: sub.name, attempt, jobId: String(job.id) }),
             ),
             sub.timeoutMs,
             `abonné ${sub.name}`,

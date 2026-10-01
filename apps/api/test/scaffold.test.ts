@@ -73,7 +73,7 @@ describe("squelette de module", () => {
     expect(found[0]?.manifest.permissions.every((p) => p.key.startsWith("gen_demo."))).toBe(true);
     expect(() => resolveModuleOrder(found.map((m) => m.manifest))).not.toThrow();
 
-    expect(planMigrationSteps(found).map((s) => s.id)).toEqual(["baseline", "gen_demo"]);
+    expect(planMigrationSteps(found, undefined, null).map((s) => s.id)).toEqual(["baseline", "gen_demo"]);
   });
 
   it("le domaine généré se comporte comme annoncé", async () => {

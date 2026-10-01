@@ -11,7 +11,13 @@
 export { default as rbacManifest } from "./manifest";
 
 // Plugin Fastify + garde
-export { rbacPlugin, DEFAULT_PREFIX as RBAC_ROUTES_PREFIX, type RbacPluginOptions } from "./http/plugin";
+export {
+  rbacPlugin,
+  createRbacRuntime,
+  auditAdapter as rbacAuditAdapter,
+  DEFAULT_PREFIX as RBAC_ROUTES_PREFIX,
+  type RbacPluginOptions,
+} from "./http/plugin";
 export {
   requirePermission,
   loadAuthorization,
@@ -108,6 +114,7 @@ export {
 // Use cases (provisioning : attribuer `owner` au fondateur ; scripts d'administration)
 export {
   assignRoleUseCase,
+  assignSystemRoleUseCase,
   revokeAssignmentUseCase,
   updateAssignmentUseCase,
   listAssignmentsUseCase,
