@@ -52,7 +52,7 @@ export {
 
 // Calcul, cycle de période
 export { computePeriod, type ComputeReport } from "./application/compute";
-export { closePeriod, deliberatePeriod, lockPeriod, reopenPeriod, repinPeriod, type CloseInput, type CloseOutcome, type DeliberateInput, type LockInput, type PeriodRef, type ReopenInput } from "./application/lifecycle";
+export { closePeriod, deliberatePeriod, lockPeriod, reopenPeriod, repinPeriod, type CloseInput, type CloseOutcome, type DeliberateInput, type LockInput, type PeriodRef, type RepinSimulation, type ReopenInput } from "./application/lifecycle";
 export { processAllTenants as processAllResultsRecomputes, processDueRecomputes, purgeAllTenants as purgeAllResults, purgeOld as purgeOldResults, recomputeNow, requestRecompute, requestRecomputeForClassroom, listRecomputeRequests, type ProcessReport } from "./application/recompute";
 
 // Gouvernance : surcharges, décisions, délibérations, appréciations, réglages
@@ -93,6 +93,7 @@ export {
   type Explanation,
   type FamilyResult,
   type PeriodView,
+  type RuleLag,
   type ResitCandidate,
 } from "./application/reads";
 

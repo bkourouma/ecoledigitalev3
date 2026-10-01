@@ -21,8 +21,16 @@ import type { PendingAssessmentInfo } from "./ports";
 
 const deny = (message: string): Result<never, AppError> => err(forbidden(ResultsCode.FORBIDDEN, message));
 
+/** Retard de version de règle d'une période (AC8.4) : la version épinglée n'est plus la version active à la date de début de la période. */
+export interface RuleLag {
+  pinned: { ruleSetCode: string; ruleVersionNo: number; definitionHash: string };
+  active: { ruleSetCode: string; ruleVersionNo: number; definitionHash: string } | null;
+  behind: boolean;
+}
+
 export interface PeriodView {
   state: PeriodState;
+  ruleLag: RuleLag;
   closures: ClosureRecord[];
   deliberations: DeliberationRecord[];
   pendingAssessments: PendingAssessmentInfo[];
@@ -41,8 +49,16 @@ export async function getPeriodView(deps: ResultsDeps, ctx: RequestContext, inpu
       const state = await getStateByKey(tx, { classroomId: input.classroomId, academicPeriodId: input.academicPeriodId, academicYearId: structure.academicYearId, scope: "PERIOD" });
       if (!state) return err(notFound(ResultsCode.STATE_NOT_FOUND, "État de la période", `${input.classroomId}/${input.academicPeriodId}`));
       const headers = await listCurrentHeaders(tx, state.id);
+      // la résolution sert au DIAGNOSTIC seulement : elle n'épingle ni ne recalcule rien (publier une règle ne recalcule jamais, A-13)
+      const resolved = await deps.ports.rules.resolve(ctx, { contractId: state.contractId, institutionId: structure.institutionId, levelCode: structure.levelCode, date: structure.period.startsOn });
+      const active = resolved.ok && resolved.value ? { ruleSetCode: resolved.value.ruleSetCode, ruleVersionNo: resolved.value.ruleVersionNo, definitionHash: resolved.value.definitionHash } : null;
       return ok({
         state,
+        ruleLag: {
+          pinned: { ruleSetCode: state.ruleSetCode, ruleVersionNo: state.ruleVersionNo, definitionHash: state.definitionHash },
+          active,
+          behind: active !== null && (active.definitionHash !== state.definitionHash || active.ruleSetCode !== state.ruleSetCode),
+        },
         closures: await listClosures(tx, state.id),
         deliberations: await listDeliberations(tx, state.id),
         pendingAssessments: [...(await deps.ports.assess.listPending(ctx, tx, input))],

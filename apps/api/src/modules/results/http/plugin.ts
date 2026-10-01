@@ -164,6 +164,7 @@ export async function resultsPlugin(app: FastifyInstance, options: ResultsPlugin
       const v = unwrapOrThrow(await getPeriodView(deps, ctxOf(req), { classroomId: p.classroomId, academicPeriodId: p.periodId, caps: await caps(req, reply) }));
       return {
         state: present.stateDto(v.state),
+        ruleLag: v.ruleLag,
         counts: v.counts,
         pendingAssessments: v.pendingAssessments,
         closures: v.closures.map((c) => ({ id: c.id, resultsVersion: c.resultsVersion, resultsCount: c.resultsCount, closureHash: c.closureHash, closedAt: c.closedAt.toISOString(), forcedReason: c.forcedReason })),
@@ -226,7 +227,7 @@ export async function resultsPlugin(app: FastifyInstance, options: ResultsPlugin
       const state = unwrapOrThrow(await getStateView(deps, ctxOf(req), { stateId: id }));
       if (!state.academicPeriodId) throw new ValidationError("Un état d'année ne se re-pinne pas.", [], { code: "results.repin_not_allowed" });
       const r = unwrapOrThrow(await repinPeriod(deps, ctxOf(req), { classroomId: state.classroomId, academicPeriodId: state.academicPeriodId, caps: await caps(req, reply) }));
-      return { state: present.stateDto(r.state), changed: r.changed };
+      return { state: present.stateDto(r.state), changed: r.changed, simulation: r.simulation };
     });
 
     // ===== Surcharges =======================================================================================

@@ -26,6 +26,7 @@ import { insertHeader, insertLines, listCurrentHeaders, listDraftHeaders, listFi
 import { getSettingsRow, getStateByKey, getStateById, insertClosure, repinState, transitionState } from "../infrastructure/states-repository";
 import { computeDraftInTx, prepare, proposalsOf, runPipeline } from "./compute";
 import { EventBuffer, inTx, lockKey, type ResultsCaps, type ResultsDeps } from "./deps";
+import type { RulePin } from "./ports";
 import { requestRecompute } from "./recompute";
 
 const needCap = (ok1: boolean | undefined, message: string): Result<void, AppError> => (ok1 ? ok(undefined) : err(forbidden(ResultsCode.FORBIDDEN, message)));
@@ -365,10 +366,63 @@ export async function reopenPeriod(deps: ResultsDeps, ctx: RequestContext, input
 // Re-pin sur la version de règle active
 // ---------------------------------------------------------------------------------------------------------------------
 
-export async function repinPeriod(deps: ResultsDeps, ctx: RequestContext, input: PeriodRef): Promise<Result<{ state: PeriodState; changed: boolean }, AppError>> {
+/** Effet d'un changement de version de règle sur les résultats courants de la classe (SIMULATION : rien n'est écrit). */
+export interface RepinSimulation {
+  from: { ruleSetCode: string; ruleVersionNo: number; definitionHash: string };
+  to: { ruleSetCode: string; ruleVersionNo: number; definitionHash: string };
+  computed: number;
+  changed: number;
+  unchanged: number;
+  errors: number;
+  /** Premières différences (au plus 20) : inscription, champ, avant, après. */
+  samples: Array<{ enrollmentId: string; field: string; before: string | number | boolean | null; after: string | number | boolean | null }>;
+}
+
+const SIMULATED_FIELDS = ["average", "rank", "decisionCode", "validated", "mentionCode", "creditsAcquired"] as const;
+
+/**
+ * Rejoue le pipeline de la classe sous la version de règle ACTIVE et la compare à la version épinglée, sans rien écrire.
+ * Les données (notes publiées, surcharges) sont celles du moment : seule la version de règle change.
+ */
+async function simulateRepin(deps: ResultsDeps, ctx: RequestContext, tx: Tx, input: PeriodRef, pin: RulePin & { contractId: string }): Promise<Result<RepinSimulation, AppError>> {
+  const prepared = await prepare(deps, ctx, tx, input);
+  if (!prepared.ok) return prepared;
+  const before = await runPipeline(deps, ctx, tx, prepared.value, { withTrace: false });
+  if (!before.ok) return before;
+  const session = await deps.ports.rules.open(ctx, pin);
+  if (!session.ok) return session;
+  const after = await runPipeline(deps, ctx, tx, { ...prepared.value, session: session.value }, { withTrace: false });
+  if (!after.ok) return after;
+  const afterOf = new Map(after.value.enrollments.map((c) => [c.enrollmentId, c]));
+  const sim: RepinSimulation = {
+    from: { ruleSetCode: prepared.value.state.ruleSetCode, ruleVersionNo: prepared.value.state.ruleVersionNo, definitionHash: prepared.value.state.definitionHash },
+    to: { ruleSetCode: pin.ruleSetCode, ruleVersionNo: pin.ruleVersionNo, definitionHash: pin.definitionHash },
+    computed: before.value.enrollments.length,
+    changed: 0,
+    unchanged: 0,
+    errors: 0,
+    samples: [],
+  };
+  for (const b of before.value.enrollments) {
+    const a = afterOf.get(b.enrollmentId);
+    if (!a || a.error) {
+      sim.errors += 1;
+      continue;
+    }
+    const diffs = SIMULATED_FIELDS.filter((f) => (b.header?.[f] ?? null) !== (a.header?.[f] ?? null));
+    if (diffs.length === 0) sim.unchanged += 1;
+    else {
+      sim.changed += 1;
+      for (const f of diffs) if (sim.samples.length < 20) sim.samples.push({ enrollmentId: b.enrollmentId, field: f, before: b.header?.[f] ?? null, after: a.header?.[f] ?? null });
+    }
+  }
+  return ok(sim);
+}
+
+export async function repinPeriod(deps: ResultsDeps, ctx: RequestContext, input: PeriodRef): Promise<Result<{ state: PeriodState; changed: boolean; simulation: RepinSimulation | null }, AppError>> {
   const caps = needCap(input.caps?.repin, "Vous n'avez pas le droit de changer la version de règle d'une période.");
   if (!caps.ok) return caps;
-  return inTx<{ state: PeriodState; changed: boolean }>(deps, ctx, async (tx) => {
+  return inTx<{ state: PeriodState; changed: boolean; simulation: RepinSimulation | null }>(deps, ctx, async (tx) => {
     await lockKey(tx, ctx, input.classroomId, input.academicPeriodId);
     const structure = await deps.ports.curriculum.getStructure(ctx, input);
     if (!structure) return err(notFound(ResultsCode.CURRICULUM_UNAVAILABLE, "Structure du curriculum", `${input.classroomId}/${input.academicPeriodId}`));
@@ -379,7 +433,10 @@ export async function repinPeriod(deps: ResultsDeps, ctx: RequestContext, input:
     if (!resolved.ok) return resolved;
     if (!resolved.value) return err(conflict(ResultsCode.NO_ACTIVE_RULESET, "Aucun jeu de règles actif pour cette période.", { contractId: state.contractId }));
     const pin = resolved.value;
-    if (pin.ruleVersionId === state.ruleVersionId && pin.definitionHash === state.definitionHash) return ok({ state, changed: false });
+    if (pin.ruleVersionId === state.ruleVersionId && pin.definitionHash === state.definitionHash) return ok({ state, changed: false, simulation: null });
+    // simulation préalable, jointe à la réponse : l'effet sur les résultats est connu AVANT que le recalcul ne les remplace
+    const simulation = await simulateRepin(deps, ctx, tx, input, pin);
+    if (!simulation.ok) return simulation;
     const next = await guarded(() => repinState(tx, state.id, pin, ctx.userId, deps.clock.now()));
     const events = new EventBuffer(deps, ctx);
     events.audit({
@@ -388,11 +445,12 @@ export async function repinPeriod(deps: ResultsDeps, ctx: RequestContext, input:
       entityId: state.id,
       before: { ruleVersionId: state.ruleVersionId, ruleVersionNo: state.ruleVersionNo },
       after: { ruleVersionId: next.ruleVersionId, ruleVersionNo: next.ruleVersionNo },
+      metadata: { changed: simulation.value.changed, unchanged: simulation.value.unchanged, errors: simulation.value.errors },
       severity: "warning",
     });
     await events.flush(tx);
     await requestRecompute(deps, ctx, { classroomId: input.classroomId, academicPeriodId: input.academicPeriodId, cause: { event: "results.period.repinned", id: state.id }, tx });
-    return ok({ state: next, changed: true });
+    return ok({ state: next, changed: true, simulation: simulation.value });
   });
 }
 
