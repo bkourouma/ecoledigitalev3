@@ -32,7 +32,7 @@ export const ConsumedEvents = {
 
 export const CONSUMED_EVENT_TYPES: readonly string[] = Object.freeze(Object.values(ConsumedEvents));
 
-export interface PayslipEventPayload {
+export type PayslipEventPayload = {
   readonly v: 1;
   readonly payslipId: string;
   readonly periodId: string;
@@ -41,4 +41,4 @@ export interface PayslipEventPayload {
   readonly recipientUserId: string | null;
   readonly amount: number;
   readonly currency: string;
-}
+};

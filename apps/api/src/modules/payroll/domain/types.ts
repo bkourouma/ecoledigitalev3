@@ -35,8 +35,9 @@ export type AdjustmentKind = (typeof ADJUSTMENT_KINDS)[number];
  * Motifs pour lesquels un enseignant est écarté d'un calcul (jamais absent en silence, AC2.4).
  * `NOTHING_TO_PAY` : tout ce qui était payable l'est déjà (salaire d'une période qui en recouvre une autre,
  * heures déjà réclamées) — correction du défaut « périodes chevauchantes payant deux fois ».
+ * `ALREADY_CALCULATED` : un bulletin CALCULATED existe et le calcul n'a pas demandé `recalculate` (rien n'est réécrit).
  */
-export const SKIP_REASONS = ["NO_CONFIG", "NO_HOURS", "NO_RATE_RESOLVED", "PAYSLIP_LOCKED", "OUT_OF_SCOPE", "STALE_SOURCE", "NOTHING_TO_PAY"] as const;
+export const SKIP_REASONS = ["NO_CONFIG", "NO_HOURS", "NO_RATE_RESOLVED", "PAYSLIP_LOCKED", "OUT_OF_SCOPE", "STALE_SOURCE", "NOTHING_TO_PAY", "ALREADY_CALCULATED"] as const;
 export type SkipReason = (typeof SKIP_REASONS)[number];
 
 /**

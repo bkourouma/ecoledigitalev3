@@ -125,13 +125,13 @@ describe("prédicat de payabilité : réalisée ∧ validée ∧ enseignant ∧ 
 
 describe("résolution du tarif (ordre figé, à la date de la séance)", () => {
   const node = uuid(300);
-  const rule = (o: Partial<HourlyRateRule> & { id: string; rate: number }): HourlyRateRule => ({
+  const rule = (o: { id: string; rate: number; staffId?: string | null; validFrom?: string; validTo?: string | null }): HourlyRateRule => ({
+    id: o.id,
     nodeId: node,
-    staffId: null,
-    validFrom: "2025-09-01",
-    validTo: null,
-    ...o,
+    staffId: o.staffId ?? null,
     rate: xof(o.rate),
+    validFrom: o.validFrom ?? "2025-09-01",
+    validTo: o.validTo ?? null,
   });
   const resolve = (index: RateIndex, date: string, def: number | null = 1000, type: "HOURLY" | "SALARY" | "MIXED" = "HOURLY", nodeId: string | null = node) =>
     resolveRate({ index, nodeId, staffId: STAFF, date, configType: type, configDefaultRate: def === null ? null : xof(def), zero: Money.zero("XOF") });
