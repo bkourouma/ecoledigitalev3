@@ -5,4 +5,5 @@ export { StatusBadge, type StatusBadgeProps, type StatusTone } from "./status-ba
 export { Field, type FieldProps, type FieldControlProps } from "./field";
 export { NativeSelect, type NativeSelectProps } from "./native-select";
 export { ConfirmDialog, type ConfirmDialogProps } from "./confirm-dialog";
+export { ProgressBar, type ProgressBarProps } from "./progress-bar";
 export { ResponsiveTable, type Column, type ResponsiveTableProps } from "./responsive-table";

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { PageHeader } from "@ecoledigitale/ui";
+import { FeatureGate } from "../FeatureGate";
 import { AuditExportButton } from "./AuditExportButton";
 import { AuditFiltersForm } from "./AuditFiltersForm";
 import { AuditLogList } from "./AuditLogList";
@@ -18,16 +19,20 @@ export function AuditPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("title")} description={t("description")} actions={<AuditExportButton filters={filters} onErrors={setExportErrors} />} />
-      <AuditFiltersForm
-        value={filters}
-        externalErrors={exportErrors}
-        onApply={(next) => {
-          setExportErrors({});
-          setFilters(next);
-        }}
-      />
-      <AuditVerifyPanel filters={filters} />
-      <AuditLogList filters={filters} />
+      <FeatureGate feature="audit.log">
+        <AuditFiltersForm
+          value={filters}
+          externalErrors={exportErrors}
+          onApply={(next) => {
+            setExportErrors({});
+            setFilters(next);
+          }}
+        />
+        <div className="mt-6 space-y-6">
+          <AuditVerifyPanel filters={filters} />
+          <AuditLogList filters={filters} />
+        </div>
+      </FeatureGate>
     </div>
   );
 }
