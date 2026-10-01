@@ -56,7 +56,7 @@ describe("compatibilité legacy", () => {
     const admin = permissionsForLegacyRoles(["admin"], catalog);
     expect(admin).toEqual(expect.arrayContaining(["student.create", "finance.payment.create", "grade.publish"]));
     expect(admin).not.toContain("rbac.role.manage");
-    expect(admin).not.toContain("tenant.billing.manage");
+    expect(admin).not.toContain("entitlements.manage");
     expect(admin).toEqual([...admin].sort());
 
     const teacher = permissionsForLegacyRoles(["teacher"], catalog);

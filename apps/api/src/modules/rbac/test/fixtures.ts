@@ -91,8 +91,7 @@ export const tenantManifest = defineModule({
   title: "Organisation",
   packs: ["CORE"],
   permissions: [
-    { key: "tenant.billing.manage", label: "Gérer l'abonnement", sensitive: true },
-    { key: "tenant.close", label: "Clore l'organisation", sensitive: true },
+    { key: "entitlements.manage", label: "Administrer plans, abonnements et surcharges", sensitive: true },
   ],
 });
 

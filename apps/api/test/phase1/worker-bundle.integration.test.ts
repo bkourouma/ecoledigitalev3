@@ -151,7 +151,7 @@ describeIntegration.skipIf(!REDIS_URL)("bundle de production du worker : build +
         const roles = await db.admin.query("SELECT count(*)::int AS n FROM rbac.roles WHERE tenant_id = $1 AND is_system", [tenantId]);
         const subs = await db.admin.query("SELECT plan_key, status FROM entitlements.tenant_subscriptions WHERE tenant_id = $1", [tenantId]);
         const auditRows = await db.admin.query("SELECT hash_alg FROM audit.audit_log WHERE tenant_id = $1 AND id = $2", [tenantId, event.id]);
-        return roles.rows[0].n === 10 && subs.rows.length === 1 && auditRows.rows.length === 1 ? { subs: subs.rows[0], alg: auditRows.rows[0].hash_alg } : false;
+        return roles.rows[0].n === 11 && subs.rows.length === 1 && auditRows.rows.length === 1 ? { subs: subs.rows[0], alg: auditRows.rows[0].hash_alg } : false;
       },
       { label: "effets des abonnés embarqués", timeoutMs: 60_000 },
     ).then((r) => {

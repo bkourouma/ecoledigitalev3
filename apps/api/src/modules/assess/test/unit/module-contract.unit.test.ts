@@ -67,10 +67,16 @@ describe("alignement avec les rôles système du module rbac", () => {
     expect(can("eleve", "grade.self.read")).toBe(true);
     expect(can("eleve", "grade.child.read")).toBe(false);
   });
-  it("direction des études et direction : tout le module", () => {
+  it("direction : tout le module ; direction des études : supervise, relit, valide, publie, approuve les corrections (séparation des tâches)", () => {
     for (const k of manifest.permissions.map((p) => p.key)) {
-      expect(can("directeur_etudes", k) || k.startsWith("assessment.type") || k === "grade.self.read" || k === "grade.child.read", k).toBe(true);
       expect(can("directeur", k), k).toBe(true);
+    }
+    for (const k of ["assessment.type.read", "assessment.read", "assessment.manage", "grade.read", "grade.review", "grade.validate", "grade.publish", "grade.revise.approve"]) {
+      expect(can("directeur_etudes", k), k).toBe(true);
+    }
+    // elle ne saisit pas et ne demande pas de correction (c'est ce qu'elle valide/approuve), ne règle pas les types ni les portails famille
+    for (const k of ["assessment.create", "assessment.update", "grade.enter", "grade.revise.request", "assessment.type.manage", "grade.self.read", "grade.child.read"]) {
+      expect(can("directeur_etudes", k), k).toBe(false);
     }
   });
   it("le catalogue connaît les rôles système", () => {

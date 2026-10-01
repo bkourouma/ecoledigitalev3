@@ -77,7 +77,7 @@ describeIntegration.skipIf(!REDIS_URL)("worker assemblé avec les modules (abonn
       async () => {
         const roles = await p.db.admin.query("SELECT count(*)::int AS n FROM rbac.roles WHERE tenant_id = $1 AND is_system", [tenantId]);
         const sub = await p.db.admin.query("SELECT plan_key, status, packs FROM entitlements.tenant_subscriptions WHERE tenant_id = $1", [tenantId]);
-        return roles.rows[0].n === 10 && sub.rows.length === 1 ? sub.rows[0] : false;
+        return roles.rows[0].n === 11 && sub.rows.length === 1 ? sub.rows[0] : false;
       },
       { label: "rôles système + abonnement d'essai créés par le worker", timeoutMs: 45_000 },
     ).then((sub) => {
@@ -113,7 +113,7 @@ describeIntegration.skipIf(!REDIS_URL)("worker assemblé avec les modules (abonn
       await sub.handler(event, { ...ctx, subscriber: name });
     }
     const roles = await p.db.admin.query("SELECT count(*)::int AS n FROM rbac.roles WHERE tenant_id = $1", [T.tenantId]);
-    expect(roles.rows[0].n).toBe(10);
+    expect(roles.rows[0].n).toBe(11);
     const subs = await p.db.admin.query("SELECT count(*)::int AS n FROM entitlements.tenant_subscriptions WHERE tenant_id = $1", [T.tenantId]);
     expect(subs.rows[0].n).toBe(1);
     const audits = await p.db.admin.query("SELECT count(*)::int AS n FROM audit.audit_log WHERE tenant_id = $1 AND id = $2", [T.tenantId, e.id]);

@@ -154,17 +154,17 @@ describeIntegration("rbac — routes HTTP (Fastify + base réelle)", () => {
     expect(parsed.permissions.find((p) => p.key === "rbac.role.read")?.moduleTitle).toBe("Rôles et permissions");
   });
 
-  it("GET /roles : les dix modèles système, verrouillés ; détail avec permissions", async () => {
+  it("GET /roles : les onze modèles système, verrouillés ; détail avec permissions", async () => {
     const res = await call("GET", "/roles", as(tenantA, OWNER));
     const list = rbacRoleListResponseSchema.parse(res.body);
-    expect(list.roles.filter((r) => r.isSystem)).toHaveLength(10);
+    expect(list.roles.filter((r) => r.isSystem)).toHaveLength(11);
     expect(list.roles.filter((r) => r.isSystem).every((r) => r.locked)).toBe(true);
     const econome = list.roles.find((r) => r.key === "econome");
-    expect(econome?.pendingCount).toBeGreaterThan(0); // `payroll.*` n'existe pas encore dans ce catalogue
+    expect(econome?.pendingCount).toBeGreaterThan(0); // `payroll.payslip.pay` n'existe pas encore dans ce catalogue
 
     const detail = rbacRoleDetailSchema.parse((await call("GET", `/roles/${econome?.id}`, as(tenantA, OWNER))).body);
     expect(detail.permissions).toContain("finance.payment.create");
-    expect(detail.pendingPermissions).toContain("payroll.*");
+    expect(detail.pendingPermissions).toContain("payroll.payslip.pay");
   });
 
   it("création / clonage / modification / suppression d'un rôle personnalisé, avec MFA", async () => {
@@ -310,7 +310,7 @@ describeIntegration("rbac — routes HTTP (Fastify + base réelle)", () => {
     const listB = rbacRoleListResponseSchema.parse((await call("GET", "/roles", as(tenantB, OWNER_B))).body);
     const idsA = new Set(listA.roles.map((r) => r.id));
     expect(listB.roles.some((r) => idsA.has(r.id))).toBe(false);
-    expect(listB.roles.filter((r) => r.isSystem)).toHaveLength(10);
+    expect(listB.roles.filter((r) => r.isSystem)).toHaveLength(11);
     expect(listB.roles.every((r) => r.key !== "comptable")).toBe(true); // rôle personnalisé de A invisible
 
     const foreign = listA.roles.find((r) => r.key === "econome")?.id;

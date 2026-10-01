@@ -30,7 +30,7 @@ describeIntegration.skipIf(!REDIS_URL)("démarrage simultané de deux instances 
         expect(await n("SELECT count(*)::int AS n FROM tenancy.institutions WHERE tenant_id = $1", t.id)).toBe(1);
         expect(await n("SELECT count(*)::int AS n FROM tenancy.campuses WHERE tenant_id = $1", t.id)).toBe(1);
         expect(await n("SELECT count(*)::int AS n FROM tenancy.onboarding_steps WHERE tenant_id = $1", t.id)).toBe(11);
-        expect(await n("SELECT count(*)::int AS n FROM rbac.roles WHERE tenant_id = $1 AND is_system", t.id)).toBe(10);
+        expect(await n("SELECT count(*)::int AS n FROM rbac.roles WHERE tenant_id = $1 AND is_system", t.id)).toBe(11);
         expect(await n("SELECT count(*)::int AS n FROM entitlements.tenant_subscriptions WHERE tenant_id = $1", t.id)).toBe(1);
       }
       // Catalogues : une ligne par permission / feature déclarée, partagées par les deux instances.
