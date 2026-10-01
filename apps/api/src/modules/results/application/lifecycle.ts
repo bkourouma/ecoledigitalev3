@@ -22,7 +22,7 @@ import type { DecisionRecord, PeriodState } from "../domain/records";
 import type { ReopenKind } from "../domain/types";
 import { guarded } from "../infrastructure/db-errors";
 import { confirmDecision, listDecisions, listDeliberations, upsertProposal, withdrawConfirmedDecisions } from "../infrastructure/governance-repository";
-import { insertHeader, insertLines, listCurrentHeaders, listDraftHeaders, listFinalHeaders, markSuperseded, maxVersion } from "../infrastructure/results-repository";
+import { insertHeader, insertLines, listCurrentHeaders, listDraftHeaders, listFinalHeaders, markSuperseded, maxVersions } from "../infrastructure/results-repository";
 import { getSettingsRow, getStateByKey, getStateById, insertClosure, repinState, transitionState } from "../infrastructure/states-repository";
 import { computeDraftInTx, prepare, proposalsOf, runPipeline } from "./compute";
 import { EventBuffer, inTx, lockKey, type ResultsCaps, type ResultsDeps } from "./deps";
@@ -232,10 +232,11 @@ export async function closePeriod(deps: ResultsDeps, ctx: RequestContext, input:
     const drafts = (await listDraftHeaders(tx, state.id)).map((h) => h.id);
     await guarded(() => markSuperseded(tx, drafts, now));
     const supersedes = new Map(current.map((h) => [h.enrollmentId, h.id]));
+    const versions = await maxVersions(tx, state.id);
 
     for (const comp of good) {
       const id = deps.newId();
-      const version = (await maxVersion(tx, state.id, comp.enrollmentId)) + 1;
+      const version = (versions.get(comp.enrollmentId) ?? 0) + 1;
       await guarded(async () => {
         await insertHeader(tx, {
           id,

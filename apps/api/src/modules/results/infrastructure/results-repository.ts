@@ -50,6 +50,12 @@ export async function maxVersion(tx: Tx, stateId: string, enrollmentId: string):
   return row?.v ?? 0;
 }
 
+/** Plus haute version de chaque inscription de l'état, en UNE requête (évite une requête par élève). */
+export async function maxVersions(tx: Tx, stateId: string): Promise<Map<string, number>> {
+  const rows = await tx.many<{ enrollment_id: string; v: number }>("SELECT enrollment_id, max(version)::int AS v FROM results.period_results WHERE state_id = $1 GROUP BY enrollment_id", [stateId]);
+  return new Map(rows.map((r) => [r.enrollment_id, r.v]));
+}
+
 export interface HeaderInsert {
   id: string;
   tenantId: string;

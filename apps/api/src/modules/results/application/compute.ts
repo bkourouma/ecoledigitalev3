@@ -22,7 +22,7 @@ import type { ClassComputation, ClassStructure, EnrollmentComputation, Enrollmen
 import { SUPPORTED_CONTRACTS } from "../domain/types";
 import { guarded } from "../infrastructure/db-errors";
 import { listApprovedOverrides, upsertProposal } from "../infrastructure/governance-repository";
-import { deleteLines, insertHeader, insertLines, listCurrentHeaders, listDraftHeaders, markSuperseded, maxVersion, updateDraftSummary } from "../infrastructure/results-repository";
+import { deleteLines, insertHeader, insertLines, listCurrentHeaders, listDraftHeaders, markSuperseded, maxVersions, updateDraftSummary } from "../infrastructure/results-repository";
 import { getStateByKey, insertState } from "../infrastructure/states-repository";
 import { EventBuffer, inTx, lockKey, type ResultsDeps } from "./deps";
 import type { RuleSession } from "./ports";
@@ -157,6 +157,7 @@ export async function computeDraftInTx(deps: ResultsDeps, ctx: RequestContext, t
   const computed = await runPipeline(deps, ctx, tx, prepared, { withTrace: false });
   if (!computed.ok) return computed;
   const existing = new Map((await listDraftHeaders(tx, state.id)).map((h) => [h.enrollmentId, h]));
+  const versions = await maxVersions(tx, state.id);
   const now = deps.clock.now();
   const report: ComputeReport = { stateId: state.id, contractId: state.contractId, status: state.status, computed: computed.value.enrollments.length, created: 0, rankUpdated: 0, unchanged: 0, errors: 0 };
 
@@ -182,7 +183,7 @@ export async function computeDraftInTx(deps: ResultsDeps, ctx: RequestContext, t
 
     if (prev) await markSuperseded(tx, [prev.id], now);
     const id = deps.newId();
-    const version = (await maxVersion(tx, state.id, comp.enrollmentId)) + 1;
+    const version = (versions.get(comp.enrollmentId) ?? 0) + 1;
     await guarded(async () => {
       await insertHeader(tx, {
         id,

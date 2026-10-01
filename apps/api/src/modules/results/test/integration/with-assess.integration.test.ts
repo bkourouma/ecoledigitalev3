@@ -212,8 +212,8 @@ describeIntegration("assess -> results de bout en bout (adaptateur réel, évén
 
   let revisionGradeId: string;
   it("correction d'une note publiée : demande → approbation ; période verrouillée ⇒ approuvée mais NON appliquée, résultats inchangés", async () => {
-    const [{ id }] = await adminRows<{ id: string }>(db, "SELECT g.id FROM assess.grades g JOIN assess.assessments a ON a.id = g.assessment_id WHERE a.curriculum_node_id = $1 AND g.enrollment_id = $2 AND a.title = 'EXAMEN E2'", [node("E2"), students[1]!.enrollmentId]);
-    revisionGradeId = id as string;
+    const found = await adminRows<{ id: string }>(db, "SELECT g.id FROM assess.grades g JOIN assess.assessments a ON a.id = g.assessment_id WHERE a.curriculum_node_id = $1 AND g.enrollment_id = $2 AND a.title = 'EXAMEN E2'", [node("E2"), students[1]!.enrollmentId]);
+    revisionGradeId = found[0]!.id;
     const req = unwrap(await requestRevision(aDeps, teacher, { gradeId: revisionGradeId, newScore: "12", reason: "Erreur de report sur la copie de l'étudiant.", caps: TEACHER }));
     const outcome = unwrap(await approveRevision(aDeps, director, { revisionId: req.id, comment: "Vérifié sur la copie.", caps: ADMIN }));
     expect(outcome.applied).toBe(false);
