@@ -85,9 +85,9 @@ CREATE SCHEMA IF NOT EXISTS people;
 REVOKE ALL ON SCHEMA people FROM PUBLIC;
 GRANT USAGE ON SCHEMA people TO app_user;
 
-CREATE EXTENSION IF NOT EXISTS unaccent;
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE EXTENSION IF NOT EXISTS btree_gist;   -- contraintes d'exclusion (contrats, affiliations)
+CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;   -- contraintes d'exclusion (contrats, affiliations)
 
 -- Clé de recherche normalisée : minuscules, sans accents (« Kouamé » = « kouame »).
 -- IMMUTABLE par construction (dictionnaire fixé) pour pouvoir servir de colonne générée.
@@ -160,6 +160,10 @@ CREATE TABLE people.settings (
   -- Préavis (en jours) des alertes de qualification qui expire ; NULL = alertes désactivées tant
   -- que le modèle de pack ou le tenant n'a pas fixé de valeur (aucune durée en dur dans le code).
   expiry_alert_days       integer CHECK (expiry_alert_days IS NULL OR expiry_alert_days BETWEEN 1 AND 365),
+  -- Délai de conservation (en jours) d'un dossier ARCHIVED avant anonymisation possible (droit à
+  -- l'effacement, spec 008 AC3.6). NULL = durée non fixée par le tenant : l'anonymisation est refusée
+  -- (aucune durée légale n'est codée ici, question O-15).
+  student_retention_days  integer CHECK (student_retention_days IS NULL OR student_retention_days BETWEEN 0 AND 36500),
   created_at              timestamptz NOT NULL DEFAULT now(),
   updated_at              timestamptz NOT NULL DEFAULT now()
 );
@@ -242,6 +246,7 @@ CREATE TABLE people.persons (
   external_ref  text CHECK (external_ref IS NULL OR length(btrim(external_ref)) > 0),
   attributes    jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(attributes) = 'object'),
   status        text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ARCHIVED')),
+  anonymized_at timestamptz,
   search_key    text GENERATED ALWAYS AS (people.normalize_search(last_name || ' ' || first_name || ' ' || coalesce(other_names, ''))) STORED,
   created_at    timestamptz NOT NULL DEFAULT now(),
   updated_at    timestamptz NOT NULL DEFAULT now(),
@@ -253,6 +258,7 @@ CREATE UNIQUE INDEX persons_external_ref_unique ON people.persons (tenant_id, ex
 CREATE INDEX persons_search_trgm ON people.persons USING gin (search_key gin_trgm_ops);
 CREATE INDEX persons_duplicate_probe ON people.persons (tenant_id, search_key, birth_date);
 CREATE INDEX persons_email ON people.persons (tenant_id, lower(email)) WHERE email IS NOT NULL;
+CREATE INDEX persons_phone ON people.persons (tenant_id, phone) WHERE phone IS NOT NULL;
 GRANT SELECT, INSERT, UPDATE ON people.persons TO app_user;
 ```
 
@@ -390,7 +396,6 @@ CREATE TABLE people.student_guardians (
   created_at              timestamptz NOT NULL DEFAULT now(),
   updated_at              timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, id),
-  UNIQUE (tenant_id, student_id, guardian_id),
   CHECK (valid_to IS NULL OR valid_to >= valid_from),
   FOREIGN KEY (tenant_id, student_id) REFERENCES people.students (tenant_id, id),
   FOREIGN KEY (tenant_id, guardian_id) REFERENCES people.guardians (tenant_id, id),
@@ -400,6 +405,12 @@ SELECT kernel.enable_tenant_rls('people.student_guardians');
 -- Un seul contact principal vivant par élève (le legacy n'imposait rien).
 CREATE UNIQUE INDEX student_guardians_one_primary
   ON people.student_guardians (tenant_id, student_id) WHERE is_primary_contact AND valid_to IS NULL;
+-- Un seul lien VIVANT par couple (élève, tuteur). Les liens clos restent (historique des tuteurs successifs) et un
+-- lien clos puis rétabli donne une NOUVELLE ligne (correction de la spec : UNIQUE (tenant_id, student_id,
+-- guardian_id) empêchait de rétablir un lien clos).
+CREATE UNIQUE INDEX student_guardians_one_alive
+  ON people.student_guardians (tenant_id, student_id, guardian_id) WHERE valid_to IS NULL;
+CREATE INDEX student_guardians_by_student ON people.student_guardians (tenant_id, student_id, valid_to);
 CREATE INDEX student_guardians_by_guardian ON people.student_guardians (tenant_id, guardian_id) WHERE valid_to IS NULL;
 -- Pas de DELETE : un lien se clôt par valid_to (l'historique des tuteurs successifs est conservé).
 GRANT SELECT, INSERT, UPDATE ON people.student_guardians TO app_user;
@@ -437,17 +448,22 @@ CREATE TABLE people.student_enrollment_summaries (
   academic_year_id   uuid NOT NULL,
   institution_id     uuid NOT NULL,
   classroom_id       uuid NOT NULL,
-  classroom_name     text NOT NULL,
-  program_id         uuid NOT NULL,
-  program_label      text NOT NULL,
-  grade_level_id     uuid NOT NULL,
-  grade_level_label  text NOT NULL,
-  mode               text NOT NULL,
+  -- Libellés et références facultatifs : les payloads `academic.enrollment.*` sont minimaux (correction de la spec,
+  -- qui les déclarait NOT NULL) ; la projection ne contient que ce que l'événement porte.
+  classroom_name     text,
+  program_id         uuid,
+  program_label      text,
+  grade_level_id     uuid,
+  grade_level_label  text,
+  mode               text NOT NULL DEFAULT 'CLASS',
   status             text NOT NULL,
-  funding_type       text NOT NULL,
+  funding_type       text NOT NULL DEFAULT 'PRIVATE',
   registration_number text,
   enrolled_on        date NOT NULL,
   source_event_id    uuid NOT NULL,
+  -- Instant de l'événement source : un événement plus ancien que l'état projeté est ignoré (l'ordre de livraison
+  -- n'est pas garanti).
+  source_occurred_at timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant_id, enrollment_id),
   FOREIGN KEY (tenant_id, student_id) REFERENCES people.students (tenant_id, id)
@@ -519,6 +535,40 @@ $$;
 CREATE TRIGGER students_guard BEFORE UPDATE ON people.students
   FOR EACH ROW EXECUTE FUNCTION people.students_guard();
 ```
+
+### 5.4 Projection des accès IAM (liaison identité <-> personne)
+
+<!-- migration: 0806_people_identity_links.sql -->
+```sql
+-- =============================================================================
+-- 0806 — Module people : projection des accès IAM (liaison identité <-> personne)
+-- =============================================================================
+--
+-- `persons.identity_id` désigne l'identité de connexion (module `iam`, schéma qu'on ne lit jamais : ADR-001/006).
+-- Pour pouvoir (1) refuser de lier une personne à une identité qui n'a aucun accès dans CE tenant, (2) afficher
+-- l'état du compte de portail d'une personne (actif / suspendu / aucun) sans jointure inter-schémas, le module
+-- tient une PROJECTION minimale des accès, alimentée par les événements `iam.membership.created|changed`
+-- (abonné `people.project-membership`, idempotent, insensible à l'ordre de livraison).
+--
+-- Aucune donnée personnelle : des UUID, un statut et des clés de rôle. Table de tenant (RLS forcée).
+-- =============================================================================
+
+CREATE TABLE people.identity_memberships (
+  tenant_id          uuid NOT NULL REFERENCES kernel.tenants (id),
+  identity_id        uuid NOT NULL,
+  membership_id      uuid,
+  status             text NOT NULL CHECK (status IN ('active', 'suspended', 'revoked', 'invited', 'unknown')),
+  roles              text[] NOT NULL DEFAULT '{}',
+  source_event_id    uuid NOT NULL,
+  source_occurred_at timestamptz NOT NULL,
+  updated_at         timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, identity_id)
+);
+SELECT kernel.enable_tenant_rls('people.identity_memberships');
+GRANT SELECT, INSERT, UPDATE ON people.identity_memberships TO app_user;
+```
+
+> **Corrections apportées à la spec au moment de l'implémentation** (voir `apps/api/src/modules/people/README.md` §Écarts) : (1) `student_guardians` n'a plus `UNIQUE (tenant_id, student_id, guardian_id)` mais un index unique partiel sur les liens VIVANTS (un lien clos puis rétabli donne une nouvelle ligne) ; (2) `student_enrollment_summaries` : libellés et références facultatifs, `source_occurred_at` (insensibilité à l'ordre de livraison) ; (3) `settings.student_retention_days` (durée de conservation, donnée du tenant) ; (4) `persons.anonymized_at` ; (5) `staff_qualifications.expiry_alerted_for` (une alerte par franchissement de seuil) ; (6) extensions créées `WITH SCHEMA public` ; (7) index `persons_phone`.
 
 ## 6. Invariants : qui les garantit
 

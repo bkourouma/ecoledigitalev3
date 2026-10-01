@@ -10,6 +10,8 @@
 
 > Principe cardinal (PRD §10) : **un changement de classe ou d'année ne crée jamais un nouvel élève.** Le dossier permanent est ici ; l'historique des inscriptions est dans `academic.enrollments` (spec 004). Les identifiants stables publiés sont `people.students.id` et `people.persons.id`.
 
+> **Erratum d'implémentation (module livré, voir `apps/api/src/modules/people/README.md` §Écarts)** : permissions ajoutées `student.child.update` et `student.self.update` (modifier des coordonnées exige un droit d'écriture, pas `*.read`) ; `GET /staff` accepte `staff.read` ; les routes `PATCH /me/guardian`, `PATCH /me/student`, `PATCH /me/contact` remplacent `PATCH /me/contact` seul ; un enseignant dont la catégorie peut enseigner est limité à ses classes même si son rôle accorde `student.read` (garde-fou tant que rbac n'a pas remplacé le modèle) ; l'anonymisation exige `settings.student_retention_days` (donnée du tenant, question O-15) ; un lien clos puis rétabli crée une nouvelle ligne ; la liaison identité <-> personne est explicite (aucun rapprochement par e-mail : les événements iam n'en portent pas) et s'appuie sur une projection des accès (`identity_memberships`, migration 0806).
+
 ## 1. Objectifs
 
 1. **Dossier permanent unique** de l'apprenant (identité, naissance, nationalité, matricules, contacts, adresse, historique scolaire, documents, contacts d'urgence), indépendant de toute année.
