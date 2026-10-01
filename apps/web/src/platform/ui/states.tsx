@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Inbox, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,12 @@ export function Notice({ kind, children, className }: { kind: "success" | "error
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
+}
+
+/** Message de succès d'une action, annoncé (`role="status"`) ; `show(null)` l'efface. */
+export function useFlash() {
+  const [message, show] = useState<string | null>(null);
+  return { message, show, node: message ? <Notice kind="success">{message}</Notice> : null };
 }
 
 function TenantUnknownNotice() {

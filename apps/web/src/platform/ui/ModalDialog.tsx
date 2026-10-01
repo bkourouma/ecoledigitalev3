@@ -160,3 +160,62 @@ export function ReasonDialog({
     </ModalDialog>
   );
 }
+
+/**
+ * Formulaire en fenêtre modale : pied de page Annuler / Valider, état d'envoi, erreur de l'API (message du serveur) au-dessus
+ * des boutons. Les erreurs PAR CHAMP sont affichées par les champs eux-mêmes (`FormField`).
+ */
+export function FormDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  submitLabel,
+  onSubmit,
+  isPending = false,
+  error,
+  children,
+  wide = false,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description?: string;
+  submitLabel: string;
+  onSubmit: () => void;
+  isPending?: boolean;
+  error?: unknown;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  const tActions = useTranslations("actions");
+  const describe = useDescribeError();
+  return (
+    <ModalDialog open={open} onOpenChange={onOpenChange} title={title} description={description} className={wide ? "sm:max-w-2xl" : undefined}>
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit();
+        }}
+        className="space-y-4"
+      >
+        {children}
+        {error ? (
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            {describe(error)}
+          </p>
+        ) : null}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={() => onOpenChange(false)} disabled={isPending} className="inline-flex h-11 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+            {tActions("cancel")}
+          </button>
+          <button type="submit" disabled={isPending} className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            {submitLabel}
+          </button>
+        </div>
+      </form>
+    </ModalDialog>
+  );
+}
