@@ -1,4 +1,5 @@
 export * from "./academic";
+export * from "./assess";
 export * from "./attendance";
 export * from "./audit";
 export * from "./entitlements";
@@ -10,6 +11,7 @@ export * from "./people";
 export * from "./platform";
 export * from "./rbac";
 export * from "./reportcards";
+export * from "./results";
 export * from "./rules";
 export * from "./scheduling";
 export * from "./tenancy";
