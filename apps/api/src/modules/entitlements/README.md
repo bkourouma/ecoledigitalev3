@@ -138,9 +138,19 @@ await app.register(entitlementsPlugin, {
 // ailleurs : { preHandler: requireFeature("finance.online-payment") }
 ```
 
-Le plugin pose lui-même le préfixe `/api/v1/entitlements` (ne pas en ajouter un) et **décore
+Le plugin pose lui-même le préfixe `/api/v1/entitlements` (option `prefix`, ne pas en ajouter un) et **décore
 l'instance racine** (`app.entitlements`) : il n'est pas encapsulé, pour que `requireFeature`
 fonctionne depuis n'importe quel autre plugin.
+
+**Sous le registre de modules** (`docs/architecture/platform-assembly.md`) : `http/plugin.ts` exporte `setup(app, runtime)`
+(crée le service via `createEntitlementsService` / `buildEntitlementsDeps` et décore `app.entitlements` sur la racine,
+car un décorateur posé dans le contexte encapsulé du module serait invisible des autres modules) puis
+`default(app, runtime)` qui déclare les routes sans préfixe. Le `SuperAdminAuthorizer` vient du runtime.
+Les routes d'administration portent `config: { public: true }` : elles ne s'authentifient pas par un contexte
+tenant mais par le JWT opérateur (authorizer) ; elles échappent donc aussi à l'authentification legacy.
+Worker (`subscribers.ts`) : `entitlements.start-trial` sur `tenancy.tenant.provisioned` (variables
+`ENTITLEMENTS_TRIAL_PLAN` / `ENTITLEMENTS_TRIAL_DAYS`) et `entitlements.invalidate-cache.*` sur les événements
+de `INVALIDATING_EVENT_TYPES` (diffusion Redis vers les API).
 
 ## Événements
 
@@ -185,7 +195,8 @@ expiration, suspension, usage, HTTP de bout en bout, et `assertTenantIsolation` 
 - Les écritures du catalogue global ne sont protégées que par l'application (`SuperAdminAuthorizer`) :
   la base accorde `INSERT/UPDATE` sur les catalogues à `app_user` (pas de `DELETE`), faute de pouvoir
   distinguer un opérateur d'un tenant à ce niveau.
-- Le cache est par process : sans relais d'outbox branché sur `handleEvent`, une autre instance
-  attend l'expiration du TTL (30 s) pour voir un changement.
+- Le cache est par process : l'assemblage relaie les invalidations par Redis pub/sub (`event-fanout`) ;
+  sans `REDIS_URL`, une autre instance attend l'expiration du TTL (30 s) pour voir un changement.
 - Pas de plafonnement par tranche d'apprenants ni de facturation (spec 027).
-- Les droits d'un tenant legacy (sans abonnement) se limitent à CORE tant qu'un abonnement n'est pas posé.
+- Les droits d'un tenant legacy (sans abonnement) se limitent à CORE tant qu'un abonnement n'est pas posé :
+  le rattrapage au démarrage (`V2_LEGACY_TENANT_DEFAULT_PLAN`, hypothèse à valider) pose un abonnement.

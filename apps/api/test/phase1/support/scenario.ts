@@ -2,6 +2,7 @@
  * Gestes réutilisés par les tests d'assemblage : provisionner par la console, activer un compte invité,
  * se connecter avec ou sans MFA. Tout passe par HTTP (`app.inject`), jamais par les use cases.
  */
+import { randomBytes } from "node:crypto";
 import { expect } from "vitest";
 import { totpAt } from "./totp";
 import type { HttpResult, Phase1Env } from "./harness";
@@ -22,7 +23,20 @@ export interface Session {
   totpSecret?: string;
 }
 
-export const PASSWORD = "Cobalt-Brume-4821-Zeta";
+/**
+ * Mot de passe de test ALÉATOIRE (jamais dans le dépôt), conforme à la politique : 12+ caractères, ni courant ni
+ * dérivé de l'e-mail, sans répétition ni suite de 3 caractères (tirage rejeté sinon : pas de test instable).
+ */
+function randomPassword(): string {
+  for (;;) {
+    const candidate = `Zq${randomBytes(12).toString("base64url")}-9a`;
+    const codes = [...candidate].map((c) => c.charCodeAt(0));
+    const flat = codes.some((c, i) => i >= 2 && c === codes[i - 1] && c === codes[i - 2]);
+    const run = codes.some((c, i) => i >= 2 && Math.abs(c - (codes[i - 1] as number)) === 1 && c - (codes[i - 1] as number) === (codes[i - 1] as number) - (codes[i - 2] as number));
+    if (!flat && !run) return candidate;
+  }
+}
+export const PASSWORD = randomPassword();
 
 export async function provisionByConsole(
   p: Phase1Env,

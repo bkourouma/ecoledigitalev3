@@ -33,7 +33,19 @@ app.post("/campus/:id/students", {
 }, handler);
 ```
 
-## Assemblage (à faire par `platform-api`)
+## Assemblage (fait — `docs/architecture/platform-assembly.md`)
+
+Sous le registre de modules, `http/plugin.ts` exporte `setup(app, runtime)` — qui décore l'instance **racine**
+(`app.rbac` : service de droits, cache, arbre des périmètres de `tenancy`), car `requirePermission` des *autres*
+modules lit `request.server.rbac` et un décorateur posé dans le contexte encapsulé du module leur serait invisible —
+puis `default(app, runtime)` qui déclare les routes **sans préfixe** (le registre applique `/api/v1/rbac`).
+Audit : `rbacAuditAdapter` (`entityType` `role` / `assignment` → `entity` `role` / `role_assignment` ; tenant, acteur
+et requête dérivés du contexte de la transaction). `assignSystemRoleUseCase` attribue un rôle système par sa clé de
+modèle (propriétaire du fondateur, acteur `system`). Worker (`subscribers.ts`) : rôles système sur
+`tenancy.tenant.provisioned` (et à la réactivation d'un tenant), diffusion Redis des invalidations de cache sur
+`rbac.*.changed` / `tenancy.tenant.status_changed`.
+
+Forme historique (tests du module, enregistrement autonome) :
 
 ```ts
 await syncRbac(systemDb, allManifests);              // au démarrage : catalogue + rôles système

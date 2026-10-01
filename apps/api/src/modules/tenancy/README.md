@@ -103,9 +103,20 @@ await app.register(tenancyPlugin, {
 });
 ```
 
-Le plugin pose **lui-même** le préfixe `/api/v1/tenancy` : ne pas en ajouter un.
+Le plugin pose **lui-même** le préfixe `/api/v1/tenancy` (option `prefix`, défaut cette valeur) : ne pas en ajouter un.
 **Échec fermé** : sans garde de permissions câblée, toutes les routes répondent 403
 (`tenancy.permission_guard_missing`) ; sans contexte authentifié : 401.
+
+**Sous le registre de modules** (assemblage, `docs/architecture/platform-assembly.md`), `http/plugin.ts` exporte par
+défaut `(app, runtime)` qui appelle `tenancyPlugin` avec `prefix: ""` (le registre applique `/api/v1/tenancy`),
+`audit: runtime.auditPort` (structurellement un `AuditRecorder` : aucun adaptateur), `requirePermission`
+= `runtime.requirePermission` et `onStructureChanged` (invalide l'arbre des périmètres du RBAC).
+
+**Périmètres** : les routes visant une ressource (`:id`) passent à la garde le périmètre de la **cible**
+(`PATCH|DELETE /campuses/:id` → campus ; `/institutions/:id[/campuses]` → établissement ; les autres → tenant). Un rôle
+limité à un campus peut donc modifier **ce** campus et pas un autre. `createTenancyScopeTreeProvider` fournit au
+module rbac l'arbre établissement → campus (instantané 5 s, invalidé par les routes qui modifient la structure) :
+sans lui une assignation d'établissement ne couvrirait aucun campus et un campus inexistant ne serait pas refusé.
 
 ## Événements publiés (outbox, payload `{ v: 1, … }`)
 
@@ -149,12 +160,16 @@ leurs sources car `apps/api/package.json` ne déclare pas encore `@ecoledigitale
 
 ## Limites connues
 
-- Les tenants **legacy** (miroir de `public.tenants` dans `kernel.tenants`) n'ont ni profil, ni
-  établissement, ni onboarding : il faudra un rattrapage (`ensure…`) lors de la tranche 2.0.
-- Pas de route HTTP de provisioning ni de statut : ce sont des opérations de la console plateforme
-  (autorisation `SuperAdminAuthorizer` du module `entitlements`) qui appelleront `provisionTenant` / `setTenantStatus`.
+- Les tenants **legacy** (miroir de `public.tenants` dans `kernel.tenants`) sont rattrapés par
+  `ensureTenantFoundation(deps, ctx, { pack, countryCode })` : profil, **un** établissement + campus par défaut,
+  onboarding — idempotent et sérialisé par un verrou consultatif par tenant (deux instances de l'API qui démarrent
+  ensemble ne se marchent pas dessus). Pack et pays viennent de la politique `V2_LEGACY_TENANT_DEFAULT_*`
+  (**hypothèse de produit à valider**, voir `platform-assembly.md` §6). Aucun événement `tenant.provisioned`.
+- Pas de route HTTP de provisioning ni de statut dans CE module : ce sont des opérations de la console plateforme
+  (`modules/platform`, `/api/v1/platform/*`, autorisation `SuperAdminAuthorizer`) qui appellent `provisionTenant`,
+  `setTenantStatus`, `listTenants`, `getTenantSummary`.
 - L'audit est un port **optionnel** (`deps.audit`), structurellement compatible avec `createAuditService()` du
-  module `audit` (test `audit-port.integration.test.ts`) : à passer au câblage ; actions `tenancy.tenant.provision`,
+  module `audit` (test `audit-port.integration.test.ts`) : passé tel quel par l'assemblage ; actions `tenancy.tenant.provision`,
   `tenancy.institution.create|update`, `tenancy.campus.create|update|delete`, `tenancy.profile.update`,
   `tenancy.onboarding.complete|skip`, `tenancy.tenant.status`.
 - Le domaine personnalisé est unique globalement mais n'est pas vérifié (DNS) ni résolu en tenant ici.

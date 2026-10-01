@@ -81,6 +81,28 @@ describeIntegration.skipIf(!REDIS_URL)("assemblage : cohabitation legacy / v2 et
     expect(derived).not.toContain("/api/v1/iam/me");
   });
 
+  it("[D3b] garde-fou : AUCUNE route publique ne répond favorablement sans identifiants, hors celles ouvertes par conception", async () => {
+    // `config.public` retire la garde « contexte présent » ET le middleware legacy : la route doit donc se défendre seule.
+    const OPEN_BY_DESIGN = new Map([
+      ["POST /api/v1/iam/logout", 204], // sans jeton ni cookie : simple effacement du cookie
+    ]);
+    const routes = listPublicRoutes().filter((r) => r.method !== "HEAD");
+    expect(routes.length).toBeGreaterThanOrEqual(20);
+    const fill: Record<string, string> = { provider: "sandbox", key: "STARTER", featureKey: "finance.online-payment", tenantId: T.tenantId };
+    for (const r of routes) {
+      const url = r.url.replace(/:([A-Za-z]+)/g, (_m, name: string) => fill[name] ?? "0192f0a4-7b1e-7c3a-8d2e-0000000000ee");
+      const hasBody = ["POST", "PUT", "PATCH"].includes(r.method);
+      const res = await p.http(r.method, url, hasBody ? { body: {} } : {});
+      const label = `${r.method} ${r.url} -> ${res.status} ${res.raw.slice(0, 120)}`;
+      const expected = OPEN_BY_DESIGN.get(`${r.method} ${r.url}`);
+      if (expected) expect(res.status, label).toBe(expected);
+      else {
+        expect(res.status, label).toBeGreaterThanOrEqual(400);
+        expect(res.status, label).toBeLessThan(500);
+      }
+    }
+  });
+
   it("[D4] jeton legacy valide -> request.ctx (aucun droit RBAC) ; jeton IAM v2 valide -> request.ctx ; les deux cohabitent", async () => {
     const viaLegacy = await p.http("GET", "/api/v1/rbac/me/permissions", { token: legacyToken });
     expect(viaLegacy.status, JSON.stringify(viaLegacy.body)).toBe(200);

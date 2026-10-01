@@ -566,7 +566,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 1 — plateforme
       expect(entries.find((e) => e.action === "rbac.role.created").actorType).toBe("user");
       // Aucun secret n'est journalisé.
       const dump = JSON.stringify(entries);
-      expect(dump).not.toMatch(/Cobalt-Brume/);
+      expect(dump).not.toContain(PASSWORD);
       expect(dump).not.toMatch(/otpauth:\/\//);
     });
 

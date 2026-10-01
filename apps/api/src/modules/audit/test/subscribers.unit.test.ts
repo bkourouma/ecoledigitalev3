@@ -30,6 +30,21 @@ describe("abonnés d'audit (apps/worker)", () => {
     expect(resolveAuditHandler("iam.user.logged_in")).toBeUndefined();
   });
 
+  it("le contact du fondateur (donnée personnelle) n'entre PAS dans le journal immuable à la création d'un tenant", () => {
+    const type = "tenancy.tenant.provisioned";
+    const entry = resolveAuditHandler(type)!({
+      id: "0192f0a4-7b1e-7c3a-8d2e-000000000002",
+      type,
+      version: 1,
+      tenantId: "0192f0a4-7b1e-7c3a-8d2e-0000000000aa",
+      occurredAt: "2026-10-01T10:00:00Z",
+      payload: { v: 1, slug: "alpha", packs: ["HIGHER"], adminContact: { name: "Awa Koné", email: "awa@alpha.test", phone: "+225 07 00 00 00 00" } },
+    });
+    expect(entry?.metadata).toMatchObject({ slug: "alpha", packs: ["HIGHER"] });
+    expect(JSON.stringify(entry)).not.toContain("awa@alpha.test");
+    expect(JSON.stringify(entry)).not.toContain("+225");
+  });
+
   it("une réinitialisation de MFA est un événement de sévérité « warning » ; l'activation, « notice »", () => {
     const entry = (type: string) =>
       resolveAuditHandler(type)!({ id: "0192f0a4-7b1e-7c3a-8d2e-000000000001", type, version: 1, tenantId: "0192f0a4-7b1e-7c3a-8d2e-0000000000aa", occurredAt: "2026-10-01T10:00:00Z", payload: { identityId: "x" } });

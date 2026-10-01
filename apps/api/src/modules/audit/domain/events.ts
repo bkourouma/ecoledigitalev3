@@ -204,7 +204,9 @@ export function genericEventHandler(event: DomainEvent): AuditEntry | null {
     before: p.before,
     after: p.after,
     reason: asText(p.reason, 1000),
-    metadata: metadataWithout(p, "before", "after", "reason", "ip", "userAgent"),
+    // `adminContact` (nom, e-mail, téléphone du fondateur) n'est PAS recopié : le journal est immuable, une donnée
+    // personnelle qui y entrerait ne pourrait plus être effacée (le profil de l'organisation la porte déjà).
+    metadata: metadataWithout(p, "before", "after", "reason", "ip", "userAgent", "adminContact"),
     request: requestOf(event, p),
   };
 }

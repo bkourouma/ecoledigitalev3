@@ -181,12 +181,20 @@ export default [
 * **`idempotent(subscriber, handler)`** réserve `(subscriber, event_id)` dans `kernel.processed_events` **dans la transaction** du handler :
   un doublon est ignoré, un échec annule la marque **et** les écritures (l'événement redevient rejouable). Effets externes (e-mail,
   HTTP) : non annulables, donnez-leur `event.id` comme clé d'idempotence ou faites-les après le commit.
-* Le handler reçoit `ctx = { tenantId, db, systemDb, logger, subscriber, attempt, jobId }`. `ctx.db.run(fn)` est lié au tenant de l'événement ;
+* Le handler reçoit `ctx = { tenantId, db, tenantDb, systemDb, logger, subscriber, attempt, jobId }`. `ctx.db.run(fn)` est lié au tenant de l'événement ;
+  `ctx.tenantDb` est le `TenantDb` complet (ouvrir une transaction pour un **autre** contexte, p. ex. un use case de module qui construit lui-même son
+  `RequestContext` ; les jobs globaux le reçoivent aussi) ;
   `systemDb` est réservé aux rares traitements transverses (raison obligatoire, audité). Le logger porte déjà `jobId`, `tenantId`, `eventId`, `subscriber`.
 * Impératif (tests, abonnés du socle) : `registerSubscriber("student.enrolled", handler, { name, retry, concurrency })`.
 * Un module ne doit importer que `@ecoledigitale/worker/sdk`, le kernel, le package database, `zod`… (les dépendances propres à l'API ne sont pas
   installées dans l'image du worker).
 * Déclarer le type dans `events.consumes` du manifeste du module.
+* **Bundle esbuild** : esbuild lit le `tsconfig.json` le **plus proche** du fichier. Un module qui possède son propre `tsconfig.json`
+  (audit, iam, rbac, finance) doit y déclarer le chemin `@ecoledigitale/worker/sdk` → `../../../../worker/src/sdk.ts`, sinon le build
+  échoue (« Could not resolve @ecoledigitale/worker/sdk »). Le test `apps/api/test/phase1/worker-bundle.integration.test.ts` construit
+  et démarre le vrai bundle pour le prouver.
+* Abonnés et jobs réels livrés par les modules : audit (un abonné par `AUDIT_EVENT_SUBSCRIPTIONS`, jobs de partitions), rbac, entitlements,
+  finance (`mark-overdue-invoices`), iam (`purge-expired-data`) — voir `docs/architecture/platform-assembly.md` §7.
 
 ## Ajouter un job planifié
 

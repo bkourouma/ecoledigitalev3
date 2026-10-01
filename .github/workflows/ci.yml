@@ -344,7 +344,7 @@ jobs:
         run: pnpm check:boundaries
 
   # Tests unitaires des packages v2 et de l'outillage de l'API (Vitest, sans base de donnees :
-  # les tests d'integration s'ignorent sans TEST_DATABASE_URL, ils tournent dans `v2-isolation`).
+  # les tests d'integration s'ignorent sans TEST_DATABASE_URL, ils tournent dans `v2-isolation` et `v2-modules`).
   packages-tests:
     name: tests packages (kernel, rules-engine, database, api v2)
     runs-on: ubuntu-latest
@@ -368,9 +368,9 @@ jobs:
 
   # Isolation multi-tenant sur un vrai Postgres 17 : tests d'integration de packages/database
   # (RLS, runner de migrations, TenantDb) puis test d'isolation GLOBAL de tous les modules
-  # (base ephemere, baseline + migrations des modules, allowlist centralisee), puis les tests
-  # d'integration de la plateforme API. Le service est JETABLE : les tests creent et suppriment
-  # leurs propres bases et roles (CREATE DATABASE / CREATE ROLE requis).
+  # (base ephemere, baseline + migrations des modules, allowlist centralisee). Les tests d'integration
+  # de la plateforme API tournent dans `v2-modules` (avec Redis). Le service est JETABLE : les tests
+  # creent et suppriment leurs propres bases et roles (CREATE DATABASE / CREATE ROLE requis).
   v2-isolation:
     name: isolation v2 (Postgres 17)
     runs-on: ubuntu-latest
@@ -403,8 +403,59 @@ jobs:
         run: pnpm --filter @ecoledigitale/database test
       - name: test d'isolation global
         run: pnpm test:isolation
-      - name: api v2 (integration, migrations, roles, plateforme de bout en bout)
+      # La suite complete d'apps/api (migrations, roles, plateforme, modules) tourne desormais dans `v2-modules`,
+      # avec Redis : ne pas la rejouer ici.
+
+  # ---------------------------------------------------------------------------
+  # Modules v2 ASSEMBLES (Postgres 17 + Redis 7) : la suite COMPLETE d'apps/api (vitest : unitaires, integration de
+  # chaque module, migrations, plateforme, TEST DE SORTIE DE PHASE 1 `test/phase1/`, bundle de production du
+  # worker construit et demarre pour de bon) puis les tests d'apps/worker (relais d'outbox, abonnes, planificateur).
+  # Les deux services sont JETABLES : les tests y creent et suppriment leurs propres bases, roles et cles Redis
+  # (prefixe aleatoire).
+  # ---------------------------------------------------------------------------
+  v2-modules:
+    name: modules v2 assembles (Postgres 17 + Redis 7)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      REDIS_URL: redis://localhost:6379
+      TEST_REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: apps/api (suite complete, dont le test de sortie de phase 1)
         run: pnpm --filter @ecoledigitale/api test:v2
+      - name: apps/worker (unitaires + integration)
+        run: pnpm --filter @ecoledigitale/worker test
 
   # ---------------------------------------------------------------------------
   # Agregat : une seule verification a exiger dans la protection de branche.
@@ -424,6 +475,7 @@ jobs:
       - boundaries
       - packages-tests
       - v2-isolation
+      - v2-modules
     runs-on: ubuntu-latest
     steps:
       - name: Verifier le resultat des jobs
