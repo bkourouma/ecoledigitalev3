@@ -10,12 +10,15 @@ export default defineConfig({
   esbuild: { jsx: "automatic" },
   resolve: {
     alias: {
+      // Sous-chemins des contrats v2 (`@ecoledigitale/contracts/v2/rbac`, comme dans tsconfig.json) : AVANT l'alias de
+      // l'index (premier gagnant).
+      "@ecoledigitale/contracts/v2": path.resolve(__dirname, "../../packages/contracts/src/v2"),
       "@ecoledigitale/contracts": path.resolve(__dirname, "../../packages/contracts/src/index.ts"),
       "@": path.resolve(__dirname, "src"),
     },
   },
   test: {
-    include: ["src/platform/**/*.test.{ts,tsx}", "src/lib/__tests__/env.server.test.ts"],
+    include: ["src/platform/**/*.test.{ts,tsx}", "src/app/v2/**/*.test.{ts,tsx}", "src/lib/__tests__/env.server.test.ts"],
     environment: "node",
     setupFiles: ["src/platform/test/setup.ts"],
     // Les fichiers de test qui ont besoin du DOM le demandent avec `// @vitest-environment jsdom`.

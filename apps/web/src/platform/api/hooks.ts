@@ -6,7 +6,17 @@
  * naturellement les données affichées.
  */
 
-import { useMutation, useQuery, useQueryClient, type QueryKey, type UseMutationResult, type UseQueryResult } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type QueryKey,
+  type UseInfiniteQueryResult,
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import type { ZodType, ZodTypeAny, ZodTypeDef } from "zod";
 import type { ApiClient, HttpMethod, QueryParams } from "./client";
 import type { ApiError } from "./errors";
@@ -30,6 +40,11 @@ export interface ApiMutationOptions<TData, TVariables> {
   method?: Exclude<HttpMethod, "GET" | "HEAD" | "OPTIONS">;
   /** Chemin fixe ou calculé depuis les variables. */
   path: string | ((variables: TVariables) => string);
+  /**
+   * Corps de la requête calculé depuis les variables (défaut : les variables elles-mêmes). Permet de sortir un
+   * identifiant du chemin sans l'envoyer dans le corps ; renvoyer `undefined` n'envoie aucun corps (DELETE).
+   */
+  body?: (variables: TVariables) => unknown;
   schema?: ZodType<TData, ZodTypeDef, unknown>;
   /** Préfixes de clés (sans tenant) à invalider après succès. */
   invalidate?: readonly (readonly unknown[])[];
@@ -39,10 +54,28 @@ export interface ApiMutationOptions<TData, TVariables> {
   onError?: (error: ApiError, variables: TVariables) => void;
 }
 
+export interface ApiInfiniteQueryOptions<TPage> {
+  query?: QueryParams;
+  schema?: ZodType<TPage, ZodTypeDef, unknown>;
+  /** Curseur de la page suivante, ou `null`/`undefined` à la fin. */
+  getNextCursor: (lastPage: TPage) => string | null | undefined;
+  /** Nom du paramètre de requête portant le curseur (défaut `cursor`). */
+  cursorParam?: string;
+  enabled?: boolean;
+  staleTime?: number;
+  retry?: boolean | number;
+}
+
 export interface QueryHooks {
   client: ApiClient;
   /** `["api", tenant, ...parts]` pour le tenant courant du client. */
   queryKey(...parts: readonly unknown[]): QueryKey;
+  /** Liste paginée par curseur (journal d'audit…) : `data.pages` s'accumule à chaque `fetchNextPage()`. */
+  useApiInfiniteQuery<TPage = unknown>(
+    key: readonly unknown[],
+    path: string,
+    options: ApiInfiniteQueryOptions<TPage>,
+  ): UseInfiniteQueryResult<InfiniteData<TPage, string | null>, ApiError>;
   useApiQuery<TData = unknown, TSelected = TData>(
     key: readonly unknown[],
     path: string,
@@ -82,6 +115,29 @@ export function createQueryHooks(client: ApiClient): QueryHooks {
     });
   }
 
+  function useApiInfiniteQuery<TPage = unknown>(
+    key: readonly unknown[],
+    path: string,
+    options: ApiInfiniteQueryOptions<TPage>,
+  ): UseInfiniteQueryResult<InfiniteData<TPage, string | null>, ApiError> {
+    const tenant = client.getTenant();
+    const cursorParam = options.cursorParam ?? "cursor";
+    return useInfiniteQuery<TPage, ApiError, InfiniteData<TPage, string | null>, QueryKey, string | null>({
+      queryKey: buildQueryKey(tenant, options.query ? [...key, "infinite", options.query] : [...key, "infinite"]),
+      initialPageParam: null,
+      queryFn: ({ signal, pageParam }) =>
+        client.request<TPage, ZodTypeAny | undefined>("GET", path, {
+          query: { ...options.query, ...(pageParam ? { [cursorParam]: pageParam } : {}) },
+          schema: options.schema,
+          signal,
+        }) as Promise<TPage>,
+      getNextPageParam: (lastPage) => options.getNextCursor(lastPage) ?? undefined,
+      enabled: (options.enabled ?? true) && tenant !== null,
+      staleTime: options.staleTime,
+      retry: options.retry ?? ((count, error) => count < 1 && !isClientError(error)),
+    });
+  }
+
   function useApiMutation<TData = unknown, TVariables = void>(
     options: ApiMutationOptions<TData, TVariables>,
   ): UseMutationResult<TData, ApiError, TVariables> {
@@ -89,7 +145,7 @@ export function createQueryHooks(client: ApiClient): QueryHooks {
     return useMutation<TData, ApiError, TVariables>({
       mutationFn: (variables) =>
         client.request<TData, ZodTypeAny | undefined>(options.method ?? "POST", typeof options.path === "function" ? options.path(variables) : options.path, {
-          body: variables,
+          body: options.body ? options.body(variables) : variables,
           schema: options.schema,
           idempotencyKey: options.idempotencyKey?.(variables),
         }) as Promise<TData>,
@@ -101,7 +157,7 @@ export function createQueryHooks(client: ApiClient): QueryHooks {
     });
   }
 
-  return { client, queryKey, useApiQuery, useApiMutation };
+  return { client, queryKey, useApiQuery, useApiInfiniteQuery, useApiMutation };
 }
 
 function isClientError(error: ApiError): boolean {

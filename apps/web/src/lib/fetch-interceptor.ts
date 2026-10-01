@@ -208,6 +208,11 @@ if (typeof window !== 'undefined') {
     localStorage.removeItem('superAdminSelectedTenant');
   }
 
+  /** Routes réservées aux opérateurs de la plateforme v2 (`/api/v1/platform/*`, `/api/v1/entitlements/admin/*`). */
+  function isOperatorConsoleRoute(url: string): boolean {
+    return url.includes('/api/v1/platform/') || url.includes('/api/v1/entitlements/admin/');
+  }
+
   function redirectToSuperAdminLogin(): void {
     if (!window.location.pathname.startsWith('/super-admin/login')) {
       window.location.href = '/super-admin/login';
@@ -432,7 +437,8 @@ if (typeof window !== 'undefined') {
       
       // Check if this is an RSO route (RSO has separate authentication system)
       const isRSORoute = url.includes('/api/v1/rso/');
-      const isSuperAdminApiRoute = url.includes('/api/v1/super-admin/');
+      // Console plateforme v2 (opérateurs) : mêmes jeton et règles que les routes super-admin historiques.
+      const isSuperAdminApiRoute = url.includes('/api/v1/super-admin/') || isOperatorConsoleRoute(url);
       const isSuperAdminAuthExcluded = url.includes('/api/v1/super-admin/auth/login');
 
       const isAuthExcluded = authExcludedPaths.some(path => url.includes(path));
@@ -624,6 +630,9 @@ if (typeof window !== 'undefined') {
             console.warn('🔄 Redirecting to login page...');
             window.location.href = '/login';
           }
+        } else if (isOperatorConsoleRoute(url)) {
+          // Console v2 : le client de la console (platform/admin/operator.ts) redirige lui-même vers /v2/platform/login.
+          clearSuperAdminSession();
         } else if (isSuperAdminApiRoute) {
           clearSuperAdminSession();
           redirectToSuperAdminLogin();

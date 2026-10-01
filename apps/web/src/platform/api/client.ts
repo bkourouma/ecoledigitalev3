@@ -14,6 +14,9 @@
 import type { ZodTypeAny, z } from "zod";
 import { ApiError, ClientErrorCode, normalizeErrorResponse } from "./errors";
 
+/** Portée de cache du client sans tenant (console plateforme). */
+export const PLATFORM_SCOPE = "platform";
+
 export type HttpMethod = "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
 export type QueryValue = string | number | boolean | Date | null | undefined;
 export type QueryParams = Record<string, QueryValue | readonly QueryValue[]>;
@@ -29,6 +32,12 @@ export interface ApiClientOptions {
   requireToken?: boolean;
   /** Slug ou identifiant du tenant ; `null` = inconnu (les requêtes échouent avec TENANT_UNKNOWN). */
   getTenant?: () => string | null | undefined;
+  /**
+   * Console plateforme (opérateur super-admin) : les routes `/api/v1/platform/*` ne sont pas rattachées à un tenant.
+   * Le client n'exige alors aucun tenant et n'envoie pas `X-Tenant` ; `getTenant()` renvoie `PLATFORM_SCOPE`
+   * (clé de cache stable, jamais confondue avec un vrai tenant). Le jeton reste exigé / envoyé.
+   */
+  tenantless?: boolean;
   /** Implémentation de fetch (tests). Défaut : `globalThis.fetch`, résolu à chaque appel. */
   fetch?: typeof fetch;
   /** Nombre maximal de nouvelles tentatives (défaut 2). */
@@ -151,6 +160,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
   const defaultTimeout = options.timeoutMs ?? 30_000;
 
   const currentTenant = (): string | null => {
+    if (options.tenantless) return PLATFORM_SCOPE;
     const tenant = options.getTenant?.();
     return typeof tenant === "string" && tenant.trim() !== "" ? tenant.trim() : null;
   };
@@ -165,13 +175,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     const headers: Record<string, string> = { Accept: "application/json", ...opts.headers };
     if (!opts.anonymous) {
       const tenant = currentTenant();
-      if (!tenant) {
+      if (!tenant && !options.tenantless) {
         throw new ApiError({
           code: ClientErrorCode.TENANT_UNKNOWN,
           message: "Établissement inconnu : impossible d'appeler l'API sans tenant.",
         });
       }
-      headers["X-Tenant"] = tenant;
+      if (tenant && !options.tenantless) headers["X-Tenant"] = tenant;
       const token = await options.getToken?.();
       if (token) headers.Authorization = `Bearer ${token}`;
       else if (options.requireToken) {
