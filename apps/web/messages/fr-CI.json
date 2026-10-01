@@ -626,5 +626,347 @@
         "done": "{created, plural, =0 {Aucune offre créée} one {# offre créée} other {# offres créées}} ; {existing, plural, =0 {aucune déjà existante} one {# déjà existante} other {# déjà existantes}}."
       }
     }
+  },
+  "v2Enrollments": {
+    "nav": {
+      "label": "Inscriptions",
+      "list": "Liste des inscriptions",
+      "new": "Nouvelle inscription"
+    },
+    "status": {
+      "PENDING": "En attente",
+      "ACTIVE": "Active",
+      "SUSPENDED": "Suspendue",
+      "COMPLETED": "Terminée",
+      "WITHDRAWN": "Retirée",
+      "TRANSFERRED_OUT": "Transférée",
+      "CANCELLED": "Annulée"
+    },
+    "courseStatus": {
+      "PENDING": "En attente",
+      "CONFIRMED": "Confirmé",
+      "COMPLETED": "Terminé",
+      "CANCELLED": "Annulé"
+    },
+    "funding": {
+      "PRIVATE": "Privé",
+      "STATE_ASSIGNED": "Affecté par l'État",
+      "SCHOLARSHIP": "Bourse",
+      "COMPANY": "Entreprise",
+      "STAFF_CHILD": "Enfant de personnel",
+      "OTHER": "Autre"
+    },
+    "mode": {
+      "CLASS": "Par classe",
+      "A_LA_CARTE": "À la carte"
+    },
+    "list": {
+      "title": "Inscriptions",
+      "description": "Inscriptions de l'année : recherche par classe, état, financement ou numéro d'inscription.",
+      "new": "Nouvelle inscription",
+      "filters": "Filtres des inscriptions",
+      "filterYear": "Année",
+      "filterClassroom": "Classe",
+      "allClassrooms": "Toutes les classes",
+      "filterStatus": "Statut",
+      "filterFunding": "Financement",
+      "filterMode": "Mode",
+      "filterRegistration": "N° d'inscription",
+      "all": "Tous",
+      "tableCaption": "Liste des inscriptions",
+      "empty": "Aucune inscription ne correspond.",
+      "emptyHint": "Modifiez les filtres ou créez une nouvelle inscription.",
+      "see": "Ouvrir",
+      "open": "Ouvrir l'inscription {id}",
+      "columns": {
+        "student": "Élève",
+        "classroom": "Classe",
+        "registration": "N° d'inscription",
+        "enrolledOn": "Inscrit le",
+        "funding": "Financement",
+        "mode": "Mode",
+        "status": "Statut",
+        "actions": "Actions"
+      }
+    },
+    "wizard": {
+      "title": "Nouvelle inscription",
+      "description": "Choisissez l'élève, sa classe puis son financement. Le serveur vérifie la capacité, les doublons et les règles d'éligibilité.",
+      "finish": "Inscrire",
+      "another": "Inscrire un autre élève",
+      "openEnrollment": "Ouvrir l'inscription",
+      "backToList": "Retour à la liste",
+      "doneTitle": "Inscription enregistrée",
+      "doneBody": "N° d'inscription : {registration}. Statut : {status}.",
+      "doneStatus": {
+        "PENDING": "en attente de confirmation",
+        "ACTIVE": "active",
+        "SUSPENDED": "suspendue",
+        "COMPLETED": "terminée",
+        "WITHDRAWN": "retirée",
+        "TRANSFERRED_OUT": "transférée",
+        "CANCELLED": "annulée"
+      },
+      "student": {
+        "title": "Élève",
+        "description": "Un élève déjà connu, ou un nouveau dossier.",
+        "modeLabel": "Type de dossier",
+        "mode": {
+          "existing": "Élève existant",
+          "new": "Nouvel élève"
+        },
+        "search": "Élève",
+        "searchPlaceholder": "Rechercher par nom ou matricule…",
+        "required": "Choisissez un élève.",
+        "alreadyCreated": "Le dossier de l'élève a été créé ; l'inscription peut être relancée sans le recréer.",
+        "duplicateBlocking": "Des dossiers similaires existent : confirmez la création avec un motif, ou choisissez « Élève existant »."
+      },
+      "classroom": {
+        "title": "Classe",
+        "description": "Année, classe et mode d'inscription.",
+        "year": "Année",
+        "classroom": "Classe",
+        "choose": "Choisir…",
+        "searchPlaceholder": "Rechercher une classe…",
+        "required": "Choisissez une classe.",
+        "modeLabel": "Mode d'inscription",
+        "mode": {
+          "CLASS": "Par classe (cursus complet)",
+          "A_LA_CARTE": "À la carte (cours choisis)"
+        },
+        "aLaCarteHint": "Les cours se choisissent après l'inscription, depuis sa fiche.",
+        "enrolledOn": "Date d'inscription",
+        "enrolledOnHint": "Par défaut : aujourd'hui.",
+        "repeating": "Redoublement",
+        "transferIn": "Élève venant d'un autre établissement",
+        "originSchool": "Établissement d'origine",
+        "originRequired": "Indiquez l'établissement d'origine.",
+        "capacityHard": "Effectif : {count} sur {capacity}. La capacité est bloquante.",
+        "capacitySoft": "Effectif : {count} sur {capacity}. La capacité est indicative.",
+        "noCapacity": "Effectif actuel : {count}. Pas de capacité définie.",
+        "alreadyEnrolled": "{count, plural, one {Cet élève a déjà une inscription en cours cette année.} other {Cet élève a déjà # inscriptions en cours cette année.}} Le serveur refusera un doublon dans la même classe."
+      },
+      "funding": {
+        "title": "Financement",
+        "description": "Qui prend en charge la scolarité.",
+        "type": "Type de financement",
+        "required": "Choisissez un financement.",
+        "reference": "Référence d'affectation",
+        "referenceHint": "Numéro de la décision d'affectation (obligatoire pour ce financement).",
+        "referenceRequired": "La référence d'affectation est obligatoire pour ce financement.",
+        "issuedOn": "Date de la décision",
+        "funder": "Financeur",
+        "funderRequired": "Le financeur est obligatoire pour ce financement.",
+        "notes": "Notes"
+      },
+      "review": {
+        "title": "Récapitulatif",
+        "student": "Élève",
+        "classroom": "Classe",
+        "mode": "Mode",
+        "funding": "Financement",
+        "newStudentNote": "Le dossier de l'élève sera créé, puis son inscription.",
+        "statusNote": "Selon la politique de l'établissement, l'inscription peut rester en attente jusqu'au paiement des frais ou à sa confirmation."
+      }
+    },
+    "detail": {
+      "title": "Inscription {registration}",
+      "noRegistration": "sans numéro",
+      "back": "Toutes les inscriptions",
+      "summary": "Résumé",
+      "student": "Élève",
+      "classroom": "Classe",
+      "mode": "Mode",
+      "enrolledOn": "Inscrit le",
+      "endedOn": "Fin d'inscription",
+      "flags": "Particularités",
+      "repeating": "Redoublement",
+      "transferIn": "Vient de {school}",
+      "reason": "Motif",
+      "actions": {
+        "confirm": "Confirmer",
+        "resume": "Reprendre",
+        "reopen": "Rouvrir",
+        "suspend": "Suspendre",
+        "complete": "Terminer",
+        "withdraw": "Retirer l'élève",
+        "cancel": "Annuler",
+        "transfer": "Transférer"
+      },
+      "done": {
+        "confirm": "L'inscription est confirmée.",
+        "resume": "L'inscription est reprise.",
+        "reopen": "L'inscription est rouverte.",
+        "suspend": "L'inscription est suspendue.",
+        "complete": "L'inscription est terminée.",
+        "withdraw": "L'élève est retiré.",
+        "cancel": "L'inscription est annulée.",
+        "transfer": "L'élève est transféré.",
+        "funding": "Le financement est modifié."
+      },
+      "reasonTitle": {
+        "confirm": "Confirmer l'inscription",
+        "resume": "Reprendre l'inscription",
+        "reopen": "Rouvrir l'inscription",
+        "suspend": "Suspendre l'inscription",
+        "complete": "Terminer l'inscription",
+        "withdraw": "Retirer l'élève",
+        "cancel": "Annuler l'inscription"
+      },
+      "reasonDescription": {
+        "confirm": "La confirmation ouvre la scolarité de l'élève.",
+        "resume": "L'élève reprend sa scolarité.",
+        "reopen": "La réouverture d'une inscription terminée est exceptionnelle et journalisée.",
+        "suspend": "L'élève n'est plus compté dans les présences et les notes tant que l'inscription est suspendue.",
+        "complete": "L'inscription est terminée pour l'année.",
+        "withdraw": "Le retrait met fin à l'inscription : le motif est conservé dans l'historique.",
+        "cancel": "L'annulation est définitive : le motif est conservé dans l'historique."
+      },
+      "confirmation": {
+        "title": "Confirmation et frais d'inscription",
+        "policy": "Politique de confirmation : {policy}.",
+        "policies": {
+          "AUTO": "confirmation automatique",
+          "ON_REGISTRATION_FEE_PAID": "confirmée au paiement des frais d'inscription",
+          "ON_FULL_PAYMENT": "confirmée au paiement intégral",
+          "MANUAL": "confirmation manuelle par le secrétariat"
+        },
+        "pending": "L'inscription attend sa confirmation, selon la politique ci-dessus.",
+        "confirmedAt": "Confirmée le {date}.",
+        "cancelledAt": "Annulée le {date}.",
+        "feesNote": "Le détail des frais et des paiements est géré par le module Finance."
+      },
+      "funding": {
+        "title": "Financement",
+        "change": "Changer le financement",
+        "type": "Type",
+        "reference": "Référence d'affectation",
+        "issuedOn": "Date de la décision",
+        "funder": "Financeur"
+      },
+      "fundingDialog": {
+        "title": "Changer le financement",
+        "description": "Le changement est journalisé avec son motif.",
+        "type": "Type de financement",
+        "reference": "Référence d'affectation",
+        "referenceRequired": "La référence d'affectation est obligatoire pour ce financement.",
+        "issuedOn": "Date de la décision",
+        "funder": "Financeur",
+        "funderRequired": "Le financeur est obligatoire pour ce financement.",
+        "reason": "Motif",
+        "submit": "Enregistrer"
+      },
+      "transfer": {
+        "title": "Transférer vers une autre classe",
+        "description": "L'élève change de classe ; son historique de placements est conservé.",
+        "target": "Classe de destination",
+        "targetPlaceholder": "Rechercher une classe…",
+        "targetRequired": "Choisissez la classe de destination.",
+        "sameClassroom": "L'élève est déjà dans cette classe.",
+        "effectiveOn": "Date d'effet",
+        "effectiveOnHint": "Par défaut : aujourd'hui.",
+        "reason": "Motif",
+        "reasonTooShort": "Le motif doit comporter au moins 5 caractères.",
+        "submit": "Transférer"
+      },
+      "placements": {
+        "title": "Historique des classes",
+        "caption": "Placements de l'élève dans les classes",
+        "classroom": "Classe",
+        "period": "Période",
+        "reason": "Motif",
+        "ongoing": "en cours",
+        "empty": "Aucun placement enregistré."
+      },
+      "history": {
+        "title": "Historique de l'inscription",
+        "empty": "Aucun événement enregistré.",
+        "kind": {
+          "CREATED": "Création",
+          "STATUS": "Changement d'état",
+          "FUNDING": "Changement de financement",
+          "PLACEMENT": "Changement de classe",
+          "COURSE": "Cours",
+          "OUTCOME": "Décision de fin d'année",
+          "NOTE": "Note"
+        }
+      },
+      "courses": {
+        "title": "Cours suivis",
+        "caption": "Cours de l'inscription",
+        "empty": "Aucun cours sélectionné.",
+        "add": "Ajouter un cours",
+        "addTitle": "Ajouter un cours",
+        "addDescription": "Offres ouvertes pour cet élève. Le serveur indique celles qui ne sont pas accessibles (prérequis, places, fenêtre).",
+        "catalogEmpty": "Aucune offre ouverte.",
+        "offeringRequired": "Choisissez une offre.",
+        "added": "Le cours est ajouté.",
+        "confirm": "Confirmer",
+        "confirmed": "Le cours est confirmé.",
+        "cancel": "Annuler",
+        "cancelTitle": "Annuler le cours",
+        "cancelled": "Le cours est annulé.",
+        "reason": "Motif",
+        "remaining": "{count, plural, =0 {complet} one {# place restante} other {# places restantes}}",
+        "credits": "{value} crédits",
+        "columns": {
+          "course": "Cours",
+          "source": "Origine",
+          "requested": "Demandé le",
+          "status": "Statut",
+          "actions": "Actions"
+        },
+        "source": {
+          "OPTION": "Option",
+          "A_LA_CARTE": "À la carte",
+          "CARRY_OVER": "Report",
+          "RESIT": "Rattrapage"
+        }
+      }
+    }
+  },
+  "v2Students": {
+    "identity": {
+      "lastName": "Nom",
+      "firstName": "Prénoms",
+      "otherNames": "Autres noms",
+      "sex": "Sexe",
+      "sexHint": "Obligatoire pour un élève, sans valeur par défaut.",
+      "sexF": "Féminin",
+      "sexM": "Masculin",
+      "choose": "Choisir…",
+      "birthDate": "Date de naissance",
+      "birthPlace": "Lieu de naissance",
+      "nationality": "Nationalité (code pays)",
+      "nationalityHint": "Code à deux lettres, par exemple CI. Aucune valeur par défaut.",
+      "contact": "Coordonnées",
+      "email": "Adresse e-mail",
+      "phone": "Téléphone",
+      "phoneAlt": "Autre téléphone",
+      "city": "Ville",
+      "addressLine": "Adresse",
+      "residence": "Lieu de résidence"
+    },
+    "duplicates": {
+      "title": "{count, plural, one {# dossier ressemble} other {# dossiers ressemblent}} à cette personne",
+      "explain": "Vérifiez qu'il ne s'agit pas de la même personne avant de créer un nouveau dossier.",
+      "noBirthDate": "date de naissance inconnue",
+      "match": {
+        "EXACT": "Même nom et même date",
+        "NEAR": "Nom proche",
+        "NAME_ONLY": "Même nom",
+        "EMAIL": "Même e-mail",
+        "PHONE": "Même téléphone"
+      },
+      "role": {
+        "STUDENT": "Élève",
+        "GUARDIAN": "Tuteur",
+        "STAFF": "Personnel"
+      },
+      "open": "Ouvrir la fiche",
+      "acknowledge": "Ce n'est pas un doublon : créer quand même",
+      "reason": "Motif de la création",
+      "created": "{count, plural, one {# dossier similaire existe} other {# dossiers similaires existent}} : vérifiez la fiche créée."
+    }
   }
 }

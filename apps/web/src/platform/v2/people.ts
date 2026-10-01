@@ -7,6 +7,7 @@
  */
 
 import { z } from "zod";
+import { ApiError } from "@/platform/api/errors";
 import { platformHooks as hooks } from "@/platform/api/default-client";
 import {
   peopleAssignmentDtoSchema,
@@ -529,4 +530,12 @@ export function useReplaceAssignment() {
     body: (v) => ({ newStaffId: v.newStaffId, effectiveOn: v.effectiveOn, reason: v.reason }),
     invalidate: [ASSIGNMENTS_KEY, ["people", "staff", "load"]],
   });
+}
+
+/** Candidats d'un doublon signalé par l'API (409 `people.possible_duplicate`, `details.candidates`). Vide pour toute autre erreur. */
+export function duplicateCandidatesOf(error: unknown): z.infer<typeof peopleDuplicateCandidateDtoSchema>[] {
+  if (!(error instanceof ApiError) || error.code !== "people.possible_duplicate") return [];
+  const raw = (error.details as { candidates?: unknown } | null | undefined)?.candidates;
+  const parsed = z.array(peopleDuplicateCandidateDtoSchema).safeParse(raw);
+  return parsed.success ? parsed.data : [];
 }

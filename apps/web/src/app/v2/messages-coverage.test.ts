@@ -4,6 +4,13 @@ import { describe, expect, it } from "vitest";
 import catalog from "../../../messages/fr-CI.json";
 import {
   ACADEMIC_CLASSROOM_STATUSES,
+  ACADEMIC_COURSE_SOURCES,
+  ACADEMIC_COURSE_STATUSES,
+  ACADEMIC_CONFIRMATION_POLICIES,
+  ACADEMIC_ENROLLMENT_MODES,
+  ACADEMIC_ENROLLMENT_STATUSES,
+  ACADEMIC_FUNDING_CODES,
+  ACADEMIC_HISTORY_KINDS,
   ACADEMIC_OFFERING_STATUSES,
   ACADEMIC_PERIOD_STATUSES,
   ACADEMIC_VERSION_STATUSES,
@@ -59,6 +66,21 @@ describe("messages fr-CI", () => {
       ["v2Academic.status.classroom", ACADEMIC_CLASSROOM_STATUSES],
       ["v2Academic.status.offering", ACADEMIC_OFFERING_STATUSES],
       ["v2Academic.status.program", ["ACTIVE", "ARCHIVED"]],
+      ["v2Enrollments.status", ACADEMIC_ENROLLMENT_STATUSES],
+      ["v2Enrollments.wizard.doneStatus", ACADEMIC_ENROLLMENT_STATUSES],
+      ["v2Enrollments.courseStatus", ACADEMIC_COURSE_STATUSES],
+      ["v2Enrollments.funding", ACADEMIC_FUNDING_CODES],
+      ["v2Enrollments.mode", ACADEMIC_ENROLLMENT_MODES],
+      ["v2Enrollments.wizard.classroom.mode", ACADEMIC_ENROLLMENT_MODES],
+      ["v2Enrollments.detail.history.kind", ACADEMIC_HISTORY_KINDS],
+      ["v2Enrollments.detail.courses.source", ACADEMIC_COURSE_SOURCES],
+      ["v2Enrollments.detail.confirmation.policies", ACADEMIC_CONFIRMATION_POLICIES],
+      ["v2Enrollments.detail.actions", ["confirm", "resume", "reopen", "suspend", "complete", "withdraw", "cancel", "transfer"]],
+      ["v2Enrollments.detail.done", ["confirm", "resume", "reopen", "suspend", "complete", "withdraw", "cancel", "transfer", "funding"]],
+      ["v2Enrollments.detail.reasonTitle", ["confirm", "resume", "reopen", "suspend", "complete", "withdraw", "cancel"]],
+      ["v2Enrollments.detail.reasonDescription", ["confirm", "resume", "reopen", "suspend", "complete", "withdraw", "cancel"]],
+      ["v2Students.duplicates.match", ["EXACT", "NEAR", "NAME_ONLY", "EMAIL", "PHONE"]],
+      ["v2Students.duplicates.role", ["STUDENT", "GUARDIAN", "STAFF"]],
     ];
     const missing: string[] = [];
     for (const [ns, values] of expectations) for (const v of values) if (typeof lookup(ns, v) !== "string") missing.push(`${ns}.${v}`);

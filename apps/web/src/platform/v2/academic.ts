@@ -12,6 +12,7 @@ import { z } from "zod";
 import { platformHooks as hooks } from "@/platform/api/default-client";
 import {
   academicAmendmentDtoSchema,
+  academicCatalogItemDtoSchema,
   academicClassroomDtoSchema,
   academicCurriculumNodeDtoSchema,
   academicCurriculumTreeDtoSchema,
@@ -549,5 +550,19 @@ export function useCancelEnrollmentCourse() {
     path: (v: { id: string; reason: string }) => `${ACADEMIC_BASE}/enrollment-courses/${v.id}/cancel`,
     body: (v) => ({ reason: v.reason }),
     invalidate: [ENROLLMENTS_KEY],
+  });
+}
+
+/** Catalogue des offres ouvertes (inscription à la carte), avec l'éligibilité de l'étudiant évaluée par le serveur. */
+export function useCatalog(query: { studentId?: string; programId?: string }, enabled = true) {
+  return hooks.useApiQuery(["academic", "catalog"], `${ACADEMIC_BASE}/catalog`, { schema: itemsOf(academicCatalogItemDtoSchema), select: pickItems, query, enabled, retry: false });
+}
+
+export function useAddEnrollmentCourse() {
+  return useApiAction({
+    path: (v: { enrollmentId: string; offeringId?: string; curriculumNodeId?: string; override?: { reason: string } }) => `${ACADEMIC_BASE}/enrollments/${v.enrollmentId}/courses`,
+    body: (v) => ({ ...(v.offeringId ? { offeringId: v.offeringId } : {}), ...(v.curriculumNodeId ? { curriculumNodeId: v.curriculumNodeId } : {}), ...(v.override ? { override: v.override } : {}) }),
+    schema: academicEnrollmentCourseDtoSchema,
+    invalidate: [ENROLLMENTS_KEY, OFFERINGS_KEY],
   });
 }
