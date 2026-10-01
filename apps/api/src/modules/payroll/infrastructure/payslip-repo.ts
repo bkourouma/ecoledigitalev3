@@ -378,6 +378,33 @@ export async function insertRunItems(tx: Tx, tenantId: Uuid, runId: Uuid, items:
   );
 }
 
+/** Périodes qui ont un calcul réel « en cours » (RUNNING) — tâche d'abandon des calculs interrompus. */
+export async function periodsWithRunningRuns(tx: Tx): Promise<Uuid[]> {
+  const rows = await tx.many<Row>("SELECT DISTINCT period_id FROM payroll.calculation_runs WHERE status = 'RUNNING' AND NOT dry_run");
+  return rows.map((r) => r.period_id as string);
+}
+
+export interface SessionClaim {
+  readonly payslipId: Uuid;
+  readonly staffId: Uuid;
+  readonly status: PayslipStatus;
+}
+
+/** Bulletins qui portent une séance (origine SESSION) : alerte quand la source change après coup. */
+export async function claimsOfSession(tx: Tx, sessionId: Uuid): Promise<SessionClaim[]> {
+  const rows = await tx.many<Row>(
+    `SELECT c.payslip_id, c.staff_id, p.status FROM payroll.hour_claims c JOIN payroll.payslips p ON p.id = c.payslip_id AND p.tenant_id = c.tenant_id
+      WHERE c.source_kind = 'SESSION' AND c.source_ref_id = $1 ORDER BY c.payslip_id`,
+    [sessionId],
+  );
+  return rows.map((r) => ({ payslipId: r.payslip_id, staffId: r.staff_id, status: r.status }));
+}
+
+/** L'événement (identifiant déterministe) est-il déjà dans l'outbox ? — idempotence d'une alerte rejouée. */
+export async function outboxHasEvent(tx: Tx, eventId: Uuid): Promise<boolean> {
+  return (await tx.queryOne("SELECT 1 AS x FROM kernel.domain_events WHERE id = $1", [eventId])) !== null;
+}
+
 export async function getRun(tx: Tx, id: Uuid): Promise<CalculationRunRecord | null> {
   const r = await tx.queryOne<Row>(`SELECT ${RUN_COLUMNS} FROM payroll.calculation_runs r WHERE r.id = $1`, [id]);
   return r ? toRun(r) : null;

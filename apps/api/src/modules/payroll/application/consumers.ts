@@ -46,11 +46,7 @@ export async function onSessionSourceChanged(deps: PayrollDeps, tenantId: string
   if (!occurrenceId) return ignored("charge sans occurrenceId");
   const ctx = createSystemContext(tenantId);
   return inTx(deps, ctx, async (tx) => {
-    const claims = await tx.many<{ payslip_id: string; staff_id: string; status: string }>(
-      `SELECT c.payslip_id, c.staff_id, p.status FROM payroll.hour_claims c JOIN payroll.payslips p ON p.id = c.payslip_id AND p.tenant_id = c.tenant_id
-        WHERE c.source_kind = 'SESSION' AND c.source_ref_id = $1`,
-      [occurrenceId],
-    );
+    const claims = await repo.claimsOfSession(tx, occurrenceId);
     if (claims.length === 0) return ok({ affected: 0, ignored: "séance non réclamée" });
     const event = createDomainEvent({
       id: derivedEventId(eventId, "payroll.claim.source_changed"),
@@ -58,17 +54,17 @@ export async function onSessionSourceChanged(deps: PayrollDeps, tenantId: string
       ctx,
       clock: deps.clock,
       aggregateType: "payslip",
-      aggregateId: claims[0]?.payslip_id as string,
+      aggregateId: claims[0]?.payslipId as string,
       payload: {
         v: 1,
         sourceKind: "SESSION",
         sourceRefId: occurrenceId,
         sourceEvent: eventType,
-        payslips: claims.map((c) => ({ payslipId: c.payslip_id, staffId: c.staff_id, status: c.status })),
+        payslips: claims.map((c) => ({ payslipId: c.payslipId, staffId: c.staffId, status: c.status })),
       },
     });
     // idempotence : l'identifiant déterministe est la clé primaire de l'outbox
-    const exists = await tx.queryOne("SELECT 1 AS x FROM kernel.domain_events WHERE id = $1", [event.id]);
+    const exists = await repo.outboxHasEvent(tx, event.id);
     if (!exists) await new PgOutboxWriter(tx).append([event]);
     return ok({ affected: exists ? 0 : claims.length });
   });
@@ -98,9 +94,8 @@ export async function failStaleRunsForTenant(deps: PayrollDeps, tenantId: string
   const ctx = createSystemContext(tenantId);
   return inTx(deps, ctx, async (tx) => {
     const now = deps.clock.now();
-    const rows = await tx.many<{ period_id: string }>("SELECT DISTINCT period_id FROM payroll.calculation_runs WHERE status = 'RUNNING' AND NOT dry_run");
     let affected = 0;
-    for (const r of rows) affected += await repo.failStaleRuns(tx, r.period_id, new Date(now.getTime() - olderThanMs), now);
+    for (const periodId of await repo.periodsWithRunningRuns(tx)) affected += await repo.failStaleRuns(tx, periodId, new Date(now.getTime() - olderThanMs), now);
     return ok({ affected });
   });
 }

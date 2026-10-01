@@ -38,7 +38,7 @@ describeIntegration("cycle de vie des bulletins (Postgres réel)", () => {
     const [p] = await payslipRows(w);
     return { staff, period, payslipId: p?.id as string };
   }
-  const approve = (ids: string[], caps = NO_OWNER, user?: string) => approvePayslips(w.deps, w.ctxOf(user), { selection: { payslipIds: ids }, caps });
+  const approve = (ids: string[], caps: { ownerApproval: boolean } = NO_OWNER, user?: string) => approvePayslips(w.deps, w.ctxOf(user), { selection: { payslipIds: ids }, caps });
   const pay = (ids: string[], user?: string) => payPayslips(w.deps, w.ctxOf(user), { selection: { payslipIds: ids }, method: "MOBILE_MONEY", reference: "OM-2026-0001" });
 
   it("T14 — arrêter : CALCULATED → APPROVED, approved_at/by posés, paid_at NON renseigné, snapshot figé, idempotent (ne redate pas)", async () => {

@@ -290,10 +290,6 @@ export async function listHourlyRates(
   );
 }
 
-export interface RateResolution extends ResolvedRate {
-  readonly configId: Uuid | null;
-}
-
 /** Simulateur (`GET /rates/resolve`) : le montant retenu et son origine pour (nœud, enseignant, date). */
 export async function simulateRate(deps: PayrollDeps, ctx: RequestContext, input: { nodeId: Uuid | null; staffId: Uuid; date: IsoDate }): Promise<Result<{ rate: number | null; origin: ResolvedRate["origin"] | null; configState: ConfigState }, AppError>> {
   if (!isIsoDate(input.date)) return err(invalid("date", "Date invalide (AAAA-MM-JJ)."));

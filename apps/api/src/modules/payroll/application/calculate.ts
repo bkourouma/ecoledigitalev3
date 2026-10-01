@@ -21,10 +21,10 @@
 import { Money, err, isAppError, ok, type AppError, type CurrencyCode, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
 import { computePayslip, isEmptyComputation, type CalcDetails, type PayslipComputation } from "../domain/calculation";
-import { PayrollCodes, conflict, internalIntegrity, notFound, portUnavailable } from "../domain/errors";
+import { PayrollCodes, conflict, notFound, portUnavailable } from "../domain/errors";
 import { PayrollEvents } from "../domain/events";
 import { RateIndex, resolveRate } from "../domain/rates";
-import { collectPayable, hourKey, payabilityBlockers } from "../domain/payability";
+import { collectPayable, hourKey } from "../domain/payability";
 import type { PayConfigRecord, PayPeriodRecord, PayslipRecord, RunOutcome, RunScope } from "../domain/records";
 import { HOUR_SOURCE_KINDS, type HourFact, type HourSourceKind, type PayConfig, type PayableHour, type PayslipLineDraft, type PricedHour, type SkipReason, type Uuid } from "../domain/types";
 import { isClaimCollision, mapDbError } from "../infrastructure/db-errors";
@@ -37,6 +37,23 @@ import { PAYSLIP_AGGREGATE, RUN_AGGREGATE, fallbackStaffName, requireUser, resol
 /** Un calcul « mort » (processus interrompu) est abandonné après ce délai : il libère le verrou fonctionnel. */
 export const STALE_RUN_MS = 15 * 60_000;
 const MAX_CLAIM_RETRIES = 3;
+/** Enseignants calculés en parallèle (une transaction chacun) : borne le nombre de connexions utilisées par un calcul. */
+const STAFF_CONCURRENCY = 4;
+
+/** `Promise.all` borné : au plus `limit` tâches simultanées, résultats DANS L'ORDRE des entrées. */
+async function mapPool<T, R>(inputs: readonly T[], limit: number, fn: (input: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(inputs.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const i = next++;
+      if (i >= inputs.length) return;
+      out[i] = await fn(inputs[i] as T);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, inputs.length) }, worker));
+  return out;
+}
 
 export interface CalculateInput {
   periodId: Uuid;
@@ -430,7 +447,7 @@ export async function calculatePeriod(deps: PayrollDeps, ctx: RequestContext, in
     deps,
     ctx,
     async (tx) => {
-      const settings = (await repo0(tx)) ?? null;
+      const settings = (await settingsCurrency(tx)) ?? null;
       const currency = settings ?? "XOF";
       const period = await setup.getPeriod(tx, input.periodId);
       if (!period) return err(notFound("Période de paie", input.periodId));
@@ -548,7 +565,8 @@ export async function calculatePeriod(deps: PayrollDeps, ctx: RequestContext, in
   if (!started.ok) return started;
 
   try {
-    for (const staffId of staffIds) items.push(await persistStaff(deps, ctx, shared, staffId));
+    // quelques enseignants en parallèle (chacun dans SA transaction, sous SON verrou) ; l'ordre du compte rendu reste celui des identifiants
+    items.push(...(await mapPool(staffIds, STAFF_CONCURRENCY, (staffId) => persistStaff(deps, ctx, shared, staffId))));
   } catch (e) {
     await inTx(deps, ctx, async (tx) => {
       await repo.finishRun(tx, runId, { status: "FAILED", calculated: 0, skipped: 0, locked: 0, failed: 0, durationMs: deps.clock.now().getTime() - startedAt, error: e instanceof Error ? e.message.slice(0, 500) : "Erreur inattendue", now: deps.clock.now() });
@@ -605,8 +623,8 @@ export async function calculatePeriod(deps: PayrollDeps, ctx: RequestContext, in
   return ok(final);
 }
 
-/** Lecture de la devise des réglages sans créer la ligne (aperçu en lecture seule). */
-async function repo0(tx: Tx): Promise<CurrencyCode | null> {
+/** Devise des réglages, lue SANS créer la ligne (aperçu en lecture seule) ; `null` si les réglages n'existent pas encore. */
+async function settingsCurrency(tx: Tx): Promise<CurrencyCode | null> {
   const s = await setup.getSettings(tx);
   return s ? s.currency : null;
 }
@@ -615,8 +633,3 @@ function report(runId: string | null, periodId: Uuid, dryRun: boolean, scope: Ru
   const count = (o: RunOutcome): number => items.filter((i) => i.outcome === o).length;
   return { runId, periodId, dryRun, scope, recalculate, calculated: count("CALCULATED"), skipped: count("SKIPPED"), locked: count("LOCKED"), failed: count("FAILED"), durationMs, items, warnings: [] };
 }
-
-/** Pourquoi une heure n'est pas payée (écran de validation / compte rendu) : motifs de blocage du prédicat unique. */
-export const explainHour = (fact: HourFact): readonly string[] => payabilityBlockers(fact);
-
-void internalIntegrity;

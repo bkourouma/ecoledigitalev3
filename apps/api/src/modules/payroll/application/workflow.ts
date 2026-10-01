@@ -15,8 +15,8 @@
  *  - séparation des tâches (réglable) et seuil propriétaire : contrôlés ici ET par la base ;
  *  - identité de l'acteur FIGÉE dans le journal ; événements outbox ; audit dans la même transaction.
  */
-import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
-import { PayrollCodes, conflict, forbidden, invalid, invalidTransition, notFound, payslipLocked, reasonRequired } from "../domain/errors";
+import { err, isAppError, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
+import { PayrollCodes, conflict, invalid, invalidTransition, notFound, payslipLocked, reasonRequired } from "../domain/errors";
 import { PayrollEvents, type PayslipEventPayload } from "../domain/events";
 import type { PayPeriodRecord, PayslipRecord } from "../domain/records";
 import { canTransition, requiresOwnerApproval, separationOfDutiesAllows } from "../domain/state";
@@ -28,7 +28,6 @@ import { EventBuffer, inTx, setOwnerApproval, type PayrollDeps } from "./deps";
 import type { HoursSourcePort } from "./ports";
 import { buildSnapshot, snapshotHash } from "./snapshots";
 import { MIN_REASON_LENGTH, PAYSLIP_AGGREGATE, requireUser, resolveActor, staffInfoMap, trimReason } from "./support";
-import { isAppError } from "@ecoledigitale/kernel";
 
 export const MAX_BATCH = 500;
 
@@ -430,4 +429,3 @@ export async function notifyPayslip(deps: PayrollDeps, ctx: RequestContext, pays
   });
 }
 
-void forbidden;

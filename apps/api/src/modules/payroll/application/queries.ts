@@ -11,7 +11,7 @@
  */
 import { Money, err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import { ForbiddenError } from "@ecoledigitale/kernel";
-import { PayrollCodes, forbidden, notFound, portUnavailable } from "../domain/errors";
+import { PayrollCodes, forbidden, invalid, notFound, portUnavailable } from "../domain/errors";
 import type { AdjustmentRecord, CalculationRunItemRecord, CalculationRunRecord, PayslipEventRecord, PayslipLineRecord, PayslipRecord } from "../domain/records";
 import type { PayslipSnapshot } from "../domain/snapshot";
 import type { HourSourceKind, IsoDate, PayslipStatus, Uuid } from "../domain/types";
@@ -320,7 +320,7 @@ export async function exportPayslipsCsv(deps: PayrollDeps, ctx: RequestContext, 
     return ok(await reports.exportRows(tx, { ...input, limit: CSV_MAX_ROWS + 1 }, settings?.currency ?? "XOF"));
   }, { readOnly: true });
   if (!rows.ok) return rows;
-  if (rows.value.length > CSV_MAX_ROWS) return err(new ForbiddenError(`L'export dépasse ${CSV_MAX_ROWS} lignes : affinez les filtres.`, { code: PayrollCodes.invalidInput }));
+  if (rows.value.length > CSV_MAX_ROWS) return err(invalid("filters", `L'export dépasse ${CSV_MAX_ROWS} lignes : affinez les filtres.`));
   const infos = await staffInfoMap(deps, ctx, rows.value.map((r) => r.staffId));
   // Filtre d'origine : appliqué à l'affichage, aux totaux et à l'export (AC10.1).
   const kept = rows.value.filter((r) => source === "ALL" || pick(r, source).amount > 0);
