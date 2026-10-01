@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
+import { tenantFallback } from '@/platform/tenant/server';
 
 export async function POST(
   request: NextRequest,
@@ -28,7 +29,7 @@ export async function POST(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Tenant': 'imhotepacademy',
+        'X-Tenant': (session as any)?.tenantId || tenantFallback(request),
                       },
       body: JSON.stringify(body),
     });

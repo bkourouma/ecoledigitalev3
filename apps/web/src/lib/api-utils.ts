@@ -6,37 +6,15 @@
  */
 
 import { Session } from 'next-auth';
+import { requireBrowserTenant } from '@/platform/tenant/browser';
 
 /**
- * Get tenant slug from environment or error
- * This is a client-side utility that works with the fetch interceptor
+ * Get tenant slug : sous-domaine, puis NEXT_PUBLIC_TENANT_SLUG (voir platform/tenant/resolve-tenant.ts).
+ * Lève `TenantUnknownError` quand le tenant est inconnu : plus aucun repli codé en dur.
+ * Les appelants existants l'entourent déjà d'un try/catch.
  */
 export function getTenantSlug(): string {
-  if (typeof window === 'undefined') {
-    // Server-side: use environment variable
-    // Default to 'imhotepdata' as it has the actual formations data
-    return process.env.NEXT_PUBLIC_TENANT_SLUG || 'imhotepdata';
-  }
-
-  // Client-side: use environment variable first
-  if (process.env.NEXT_PUBLIC_TENANT_SLUG) {
-    return process.env.NEXT_PUBLIC_TENANT_SLUG;
-  }
-
-  // Try to extract from subdomain
-  const hostname = window.location.hostname;
-  const parts = hostname.split('.');
-  
-  if (parts.length > 2 || (parts.length > 1 && parts[parts.length - 1] === 'localhost')) {
-    const subdomain = parts[0];
-    if (subdomain && subdomain !== 'www') {
-      return subdomain;
-    }
-  }
-
-  // Fallback when no subdomain is detectable (e.g. during SSR / pre-render
-  // on the client-side path). Throwing here would break next build.
-  return 'imhotepdata';
+  return requireBrowserTenant().key;
 }
 
 /**

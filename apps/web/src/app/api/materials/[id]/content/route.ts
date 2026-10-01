@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
+import { tenantFallback } from '@/platform/tenant/server';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
   (process.env.NODE_ENV === 'development' ? 'http://localhost:4000' : '');
@@ -23,7 +24,7 @@ export async function GET(
     const { id: materialId } = await params;
 
     // Prefer tenant_id (UUID) over tenantSlug for better backend resolution
-    const tenantIdentifier = (session as any)?.tenantId || (session as any)?.tenantSlug || 'imhotepacademy';
+    const tenantIdentifier = (session as any)?.tenantId || (session as any)?.tenantSlug || tenantFallback(request);
 
     // Build headers for backend request
     const backendHeaders: Record<string, string> = {

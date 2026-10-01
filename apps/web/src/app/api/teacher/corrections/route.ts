@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { tenantFallback } from '@/platform/tenant/server';
 
 const API_BASE_URL = process.env.NODE_ENV === 'development'
   ? 'http://localhost:4000'
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
   try {
     // Extract JWT from Authorization header
     const authorization = request.headers.get('Authorization') || '';
-    const tenantId = request.headers.get('X-Tenant') || 'imhotepacademy';
+    const tenantId = request.headers.get('X-Tenant') || tenantFallback(request);
     const userId = request.headers.get('X-User-Id') || extractUserIdFromAuth(authorization) || '';
     const activeAcademicYearId = request.headers.get('X-Academic-Year-Id') || '';
 

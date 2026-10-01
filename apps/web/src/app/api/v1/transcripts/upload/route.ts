@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth-options';
 import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { tenantFallback } from '@/platform/tenant/server';
 
 export async function POST(request: NextRequest) {
   console.log('📤 Transcript upload request received');
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // Get tenant ID from session or headers
     const incomingTenant = request.headers.get('X-Tenant') || request.headers.get('x-tenant');
-    let tenantId = session.tenantId || incomingTenant || 'imhotepacademy';
+    let tenantId = session.tenantId || incomingTenant || tenantFallback(request);
     
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId);
 

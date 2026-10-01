@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
+import { tenantFallback } from '@/platform/tenant/server';
 
 const API_BASE_URL = process.env.NODE_ENV === 'development'
   ? 'http://localhost:4000'
@@ -15,7 +16,7 @@ export async function GET(
     const session = await getServerSession(authOptions);
     
     // Get tenant and user ID from session or headers
-    const tenant = session?.tenantId || request.headers.get('X-Tenant') || 'imhotepacademy';
+    const tenant = session?.tenantId || request.headers.get('X-Tenant') || tenantFallback(request);
     const userId = session?.user?.id || request.headers.get('X-User-Id') || '634a57fe-2007-4ecb-ae5b-f9e3152a24fb';
     const auth = request.headers.get('Authorization');
 

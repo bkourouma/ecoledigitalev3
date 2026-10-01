@@ -3,6 +3,7 @@
 import { getToken, isTokenExpired, isTokenExpiringSoon, removeToken, saveToken, getUserFromToken } from './jwt-storage';
 import { getRSOToken, isRSOTokenExpired, isRSOTokenExpiringSoon, refreshRSOToken } from './rso/auth';
 import { getActiveAcademicYearId } from './academic-year-storage';
+import { resolveBrowserTenant } from '@/platform/tenant/browser';
 
 // Global fetch interceptor to automatically add tenant header, JWT auth, and redirect API calls
 if (typeof window !== 'undefined') {
@@ -27,11 +28,13 @@ if (typeof window !== 'undefined') {
     console.log('🔄 Refreshing JWT token (expires soon)...');
     
     try {
+      // Tenant du jeton en priorité ; aucun repli codé en dur (en-tête omis si inconnu).
+      const refreshTenant = resolveBrowserTenant(getUserFromToken(currentToken))?.key;
       const response = await originalFetch('/api/v1/auth/refresh', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${currentToken}`,
-          'X-Tenant': getTenantSlug(),
+          ...(refreshTenant ? { 'X-Tenant': refreshTenant } : {}),
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -193,18 +196,10 @@ if (typeof window !== 'undefined') {
     return token;
   }
 
-  // Function to get tenant from explicit UI selection or environment.
-  function getTenantSlug(): string {
-    const selectedTenant = localStorage.getItem('superAdminSelectedTenant');
-    if (selectedTenant) {
-      return selectedTenant;
-    }
-
-    if (process.env.NEXT_PUBLIC_TENANT_SLUG) {
-      return process.env.NEXT_PUBLIC_TENANT_SLUG;
-    }
-
-    return 'ecoledigitale';
+  // Tenant : choix explicite (super-admin) > sous-domaine > NEXT_PUBLIC_TENANT_SLUG.
+  // `null` si inconnu : plus aucun repli codé en dur (voir platform/tenant/resolve-tenant.ts).
+  function getTenantSlug(): string | null {
+    return resolveBrowserTenant()?.key ?? null;
   }
 
   function clearSuperAdminSession(): void {
@@ -376,8 +371,12 @@ if (typeof window !== 'undefined') {
         if (!tenantIdSet) {
           try {
             const tenantSlug = getTenantSlug();
-            headers.set('X-Tenant', tenantSlug);
-            console.log(`🏢 X-Tenant header set from slug fallback: ${tenantSlug}`);
+            if (tenantSlug) {
+              headers.set('X-Tenant', tenantSlug);
+              console.log(`🏢 X-Tenant header set from slug fallback: ${tenantSlug}`);
+            } else {
+              console.warn('⚠️ Tenant inconnu : en-tête X-Tenant non défini');
+            }
           } catch (error) {
             console.error('❌ Failed to get tenant:', error);
           }

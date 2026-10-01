@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
+import { tenantFallback } from '@/platform/tenant/server';
 
 const API_BASE_URL = process.env.NODE_ENV === 'development'
   ? 'http://localhost:4000'
@@ -23,8 +24,8 @@ export async function GET(
       (session as any)?.tenantId ||
       (session as any)?.tenantSlug ||
       pathTenant ||
-      'imhotepacademy';
-    const tenantIdentifier = String(rawTenant || 'imhotepacademy').trim();
+      tenantFallback(request);
+    const tenantIdentifier = String(rawTenant || tenantFallback(request)).trim();
 
     // Backend exige X-User-Id et X-Tenant non vides (sinon 401 � Authentification requise �).
     const requestUserId = String((session as any)?.user?.id || 'public-file-access').trim() || 'public-file-access';

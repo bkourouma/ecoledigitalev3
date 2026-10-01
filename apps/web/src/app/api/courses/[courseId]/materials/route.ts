@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import FormData from 'form-data';
+import { tenantFallback } from '@/platform/tenant/server';
 
 export const runtime = 'nodejs';
 const API_BASE_URL = process.env.API_BASE_URL ?? 'http://localhost:4000';
@@ -13,7 +14,7 @@ export async function GET(
 
     const auth = request.headers.get('authorization') ?? '';
     const host = request.headers.get('host') ?? '';
-    const tenant = host.includes('localhost') ? 'imhotepacademy' : host.split('.')[0];
+    const tenant = request.headers.get('x-tenant') || tenantFallback(request);
     const userId = request.headers.get('x-user-id') ?? '';
 
 
@@ -59,7 +60,7 @@ export async function POST(
     const host = request.headers.get('host') ?? '';
     const userId = request.headers.get('x-user-id') ?? '';
 
-    const tenant = host.includes('localhost') ? 'imhotepacademy' : host.split('.')[0];
+    const tenant = request.headers.get('x-tenant') || tenantFallback(request);
 
     // Forward the raw multipart body directly to the backend
     const response = await fetch(`${API_BASE_URL}/api/v1/courses/${courseId}/materials`, {

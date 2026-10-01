@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import fs from 'fs/promises';
 import path from 'path';
+import { tenantFallback } from '@/platform/tenant/server';
 
 export async function POST(request: NextRequest) {
   console.log('📁 Direct file download request received');
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
       const response = await fetch(backendFileUrl, {
         method: 'GET',
         headers: {
-          'X-Tenant': session.tenantId || 'imhotepacademy',
+          'X-Tenant': session.tenantId || tenantFallback(request),
         },
       });
 
