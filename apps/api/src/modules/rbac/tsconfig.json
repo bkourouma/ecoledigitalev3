@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ecoledigitale/kernel": ["../../../../../packages/kernel/src/index.ts"],
+      "@ecoledigitale/database": ["../../../../../packages/database/src/index.ts"],
+      "@ecoledigitale/contracts/src/*": ["../../../../../packages/contracts/src/*"]
+    }
+  },
+  "include": ["**/*.ts", "../isolation-allowlist.rbac.ts"],
+  "exclude": ["node_modules", "dist"]
+}
