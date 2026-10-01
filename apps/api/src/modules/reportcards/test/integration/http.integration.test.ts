@@ -118,9 +118,9 @@ describeIntegration("API HTTP /api/v1/reportcards/* (Fastify + Postgres réel)",
         async function gate() {
           if (!features.has(feature)) throw new ForbiddenError("Fonctionnalité non disponible.", { code: "entitlements.feature_not_available", details: { feature } });
         },
-      isFeatureEnabled: async (_ctx, feature) => features.has(feature),
+      isFeatureEnabled: async (_ctx: RequestContext, feature: string) => features.has(feature),
       rateLimiter: limiter,
-      authorizeSuperAdmin: async (req) => {
+      authorizeSuperAdmin: async (req: FastifyRequest) => {
         const token = String(req.headers.authorization ?? "").replace(/^Bearer /, "");
         if (!superAdmins.has(token)) throw new UnauthorizedError("Authentification opérateur requise.");
         return { actorId: newId() };

@@ -23,7 +23,7 @@ describeIntegration("accès aux bulletins : gestion, élève, tuteur lié, tuteu
   let stranger: ReturnType<typeof newActor>; // aucun lien
   let otherTenantAdmin: ReturnType<typeof newActor>;
 
-  const download = (ctx: ReturnType<typeof newActor>, id: string, caps: Parameters<typeof getDownloadUrl>[2]) => getDownloadUrl(world.deps, ctx.ctx, { ...caps, reportCardId: id });
+  const download = (ctx: ReturnType<typeof newActor>, id: string, caps: Omit<Parameters<typeof getDownloadUrl>[2], "reportCardId">) => getDownloadUrl(world.deps, ctx.ctx, { ...caps, reportCardId: id });
   const code = async (r: Awaited<ReturnType<typeof download>>): Promise<string> => (r.ok ? "ok" : r.error.code);
 
   beforeAll(async () => {
