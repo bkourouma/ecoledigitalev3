@@ -85,5 +85,48 @@
     "offlineRetry": "Réessayer la connexion",
     "updateAvailable": "Une nouvelle version est disponible.",
     "installApp": "Installer l'application"
+  },
+  "v2Ui": {
+    "form": {
+      "required": "obligatoire"
+    },
+    "table": {
+      "loading": "Chargement des données…",
+      "empty": "Aucune donnée à afficher.",
+      "sortAscending": "Trier par {column}, ordre croissant",
+      "sortDescending": "Trier par {column}, ordre décroissant",
+      "sortClear": "Supprimer le tri sur {column}",
+      "pagination": "Pagination",
+      "range": "{first}–{last} sur {total}",
+      "pageOf": "Page {page} sur {pageCount}",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "rowsPerPage": "Lignes par page"
+    },
+    "select": {
+      "placeholder": "Rechercher…",
+      "clear": "Effacer la sélection",
+      "noResults": "Aucun résultat.",
+      "error": "Impossible de charger les choix.",
+      "count": "{count, plural, =0 {Aucun résultat} one {# résultat} other {# résultats}}"
+    },
+    "tree": {
+      "empty": "Aucun élément.",
+      "expand": "Déplier",
+      "collapse": "Replier"
+    },
+    "wizard": {
+      "steps": "Étapes",
+      "progress": "Étape {current} sur {total}",
+      "done": "terminée",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "cancel": "Annuler"
+    },
+    "reason": {
+      "required": "obligatoire",
+      "hint": "Entre {min} et {max} caractères. Le motif est conservé dans l'historique.",
+      "tooShort": "Le motif doit comporter au moins {min} caractères."
+    }
   }
 }
