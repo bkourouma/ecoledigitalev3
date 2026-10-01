@@ -435,8 +435,13 @@ export function useReceivablesByLearner(query: ReportQuery & { limit?: number; o
   });
 }
 
-export function useCollectionsTrend(query: { from: string; to: string; granularity?: "day" | "week" | "month" }) {
-  return hooks.useApiQuery(["finance", "reports", "trend"], `${FINANCE_BASE}/reports/collections-trend`, { schema: itemsOf(financeTrendPointDtoSchema), select: pickItems, query: query as Query });
+export function useCollectionsTrend(query: { from: string; to: string; granularity?: "day" | "week" | "month" }, options: { enabled?: boolean } = {}) {
+  return hooks.useApiQuery(["finance", "reports", "trend"], `${FINANCE_BASE}/reports/collections-trend`, {
+    schema: itemsOf(financeTrendPointDtoSchema),
+    select: pickItems,
+    query: query as Query,
+    enabled: options.enabled,
+  });
 }
 
 export function useAgedBalance(query: ReportQuery & { byLearner?: number } = {}) {

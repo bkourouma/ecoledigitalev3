@@ -3415,6 +3415,228 @@
         "confirm": "Refuser"
       },
       "rejected": "Le remboursement est refusé."
+    },
+    "overview": {
+      "title": "Finance",
+      "description": "Situation des frais et accès rapide aux opérations. Les montants sont calculés par l'API.",
+      "shortcuts": "Accès rapides",
+      "links": {
+        "collect": {
+          "title": "Encaisser un paiement",
+          "hint": "Espèces, chèque, virement, mobile money."
+        },
+        "invoice": {
+          "title": "Émettre une facture",
+          "hint": "Depuis le catalogue, avec aperçu avant émission."
+        },
+        "cash": {
+          "title": "Caisse",
+          "hint": "Ouvrir ou clôturer une session de caisse."
+        },
+        "reports": {
+          "title": "Rapports",
+          "hint": "Créances, balance âgée, évolution des encaissements."
+        },
+        "overdue": {
+          "title": "Factures en retard",
+          "hint": "Liste filtrée sur les factures échues."
+        },
+        "refunds": {
+          "title": "Remboursements",
+          "hint": "Approuver ou exécuter les demandes."
+        }
+      }
+    },
+    "cash": {
+      "title": "Caisse",
+      "description": "Sessions de caisse : fonds de caisse, encaissements en espèces, clôture avec comptage.",
+      "newRegister": "Nouvelle caisse",
+      "closed": "La session est clôturée.",
+      "opened": "La session de caisse est ouverte.",
+      "registerCreated": "La caisse a été créée.",
+      "mine": {
+        "title": "Ma session",
+        "none": "Aucune session ouverte. Choisissez une caisse pour commencer à encaisser des espèces.",
+        "open": "Ouvrir une session",
+        "register": "Caisse",
+        "openBadge": "Ouverte",
+        "close": "Clôturer la session",
+        "openedAt": "Ouverte le",
+        "float": "Fonds de caisse",
+        "received": "Encaissé",
+        "refunded": "Remboursé",
+        "paymentCount": "Nombre d'encaissements",
+        "blindHint": "À la clôture, comptez l'argent en caisse avant de saisir le montant : l'attendu et l'écart sont calculés par le système.",
+        "collect": "Encaisser un paiement"
+      },
+      "registers": {
+        "title": "Caisses",
+        "empty": "Aucune caisse",
+        "emptyHint": "Un gestionnaire doit d'abord créer une caisse."
+      },
+      "openDialog": {
+        "title": "Ouvrir une session de caisse",
+        "description": "Indiquez le fonds de caisse remis au caissier.",
+        "submit": "Ouvrir la session",
+        "float": "Fonds de caisse",
+        "floatHint": "0 si la caisse démarre à vide."
+      },
+      "closeDialog": {
+        "title": "Clôturer la session",
+        "description": "Saisissez le montant réellement compté. La clôture est définitive.",
+        "submit": "Clôturer",
+        "counted": "Montant compté en caisse",
+        "countedHint": "Fonds de caisse compris.",
+        "note": "Observation",
+        "noteHint": "Facultatif : à renseigner en cas d'écart."
+      },
+      "registerDialog": {
+        "title": "Nouvelle caisse",
+        "submit": "Créer",
+        "required": "Ce champ est obligatoire.",
+        "code": "Code",
+        "name": "Libellé",
+        "campus": "Campus",
+        "noCampus": "Tous les campus"
+      },
+      "closedSummary": {
+        "title": "Résultat de la clôture",
+        "dismiss": "Fermer"
+      },
+      "summary": {
+        "opened": "Ouverte le",
+        "closedAt": "Clôturée le",
+        "float": "Fonds de caisse",
+        "movements": "Mouvements",
+        "movementsValue": "{received} encaissés, {refunded} remboursés ({count, plural, one {# paiement} other {# paiements}})",
+        "expected": "Montant attendu",
+        "counted": "Montant compté",
+        "varianceZero": "Aucun écart : la caisse est juste.",
+        "varianceMissing": "Écart : il manque {amount} en caisse.",
+        "varianceExcess": "Écart : {amount} de trop en caisse.",
+        "note": "Observation : {note}"
+      },
+      "history": {
+        "title": "Historique des sessions",
+        "filter": "Statut",
+        "all": "Toutes",
+        "caption": "Sessions de caisse",
+        "empty": "Aucune session",
+        "details": "Détails",
+        "columns": {
+          "opened": "Ouverte le",
+          "register": "Caisse",
+          "status": "Statut",
+          "expected": "Attendu",
+          "counted": "Compté",
+          "variance": "Écart",
+          "detail": "Détails"
+        }
+      },
+      "detail": {
+        "title": "Détail de la session"
+      }
+    },
+    "reports": {
+      "title": "Rapports financiers",
+      "description": "Facturé, encaissé, restant dû, retards et taux de recouvrement. Tous les chiffres sont calculés par l'API.",
+      "export": "Exporter en CSV",
+      "filters": {
+        "label": "Filtres des rapports",
+        "year": "Année scolaire",
+        "asOf": "Situation au",
+        "asOfHint": "Par défaut : aujourd'hui.",
+        "group": "Groupe (classe)",
+        "groupHint": "Clé de regroupement exacte."
+      },
+      "anchors": {
+        "label": "Sections du rapport",
+        "groups": "Créances par classe",
+        "learners": "Créances par apprenant",
+        "aged": "Balance âgée",
+        "trend": "Évolution"
+      },
+      "summary": {
+        "title": "Synthèse",
+        "asOf": "au {date} · {count, plural, one {# facture} other {# factures}}",
+        "cards": {
+          "billed": "Facturé",
+          "credited": "Avoirs",
+          "netBilled": "Facturé net",
+          "collected": "Encaissé",
+          "outstanding": "Restant dû",
+          "overdue": "En retard",
+          "unallocated": "Paiements non imputés",
+          "rate": "Taux de recouvrement"
+        },
+        "overdueCount": "{count, plural, one {# facture en retard} other {# factures en retard}}",
+        "rateNone": "Sans objet"
+      },
+      "groups": {
+        "title": "Créances par classe",
+        "caption": "Créances par classe",
+        "noGroup": "Sans classe",
+        "empty": "Aucune créance",
+        "columns": {
+          "group": "Classe",
+          "learners": "Apprenants",
+          "billed": "Facturé",
+          "collected": "Encaissé",
+          "outstanding": "Restant dû",
+          "overdue": "En retard",
+          "rate": "Taux"
+        }
+      },
+      "learners": {
+        "title": "Créances par apprenant",
+        "caption": "Créances par apprenant",
+        "onlyOutstanding": "Apprenants avec un restant dû seulement",
+        "empty": "Aucun apprenant à relancer",
+        "columns": {
+          "learner": "Apprenant",
+          "billed": "Facturé",
+          "collected": "Encaissé",
+          "outstanding": "Restant dû",
+          "overdue": "En retard",
+          "rate": "Taux",
+          "oldest": "Plus ancien retard"
+        }
+      },
+      "aged": {
+        "title": "Balance âgée",
+        "caption": "Balance âgée par ancienneté",
+        "total": "Total du restant dû :",
+        "topLearners": "Apprenants les plus en retard",
+        "learnersCaption": "Balance âgée par apprenant",
+        "columns": {
+          "bucket": "Ancienneté",
+          "amount": "Restant dû",
+          "invoices": "Factures",
+          "learner": "Apprenant",
+          "total": "Total"
+        }
+      },
+      "trend": {
+        "title": "Évolution des encaissements",
+        "caption": "Encaissements par période",
+        "from": "Du",
+        "to": "Au",
+        "granularityLabel": "Période",
+        "granularity": {
+          "day": "Jour",
+          "week": "Semaine",
+          "month": "Mois"
+        },
+        "invalidRange": "La date de début doit précéder la date de fin.",
+        "empty": "Aucun encaissement sur la période",
+        "columns": {
+          "bucket": "Période",
+          "collected": "Encaissé",
+          "refunded": "Remboursé",
+          "net": "Net",
+          "count": "Paiements"
+        }
+      }
     }
   }
 }
