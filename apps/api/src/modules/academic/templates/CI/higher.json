@@ -5,9 +5,9 @@
   "educationSystem": "CI",
   "pack": "HIGHER",
   "educationLevels": [
-    { "code": "LICENCE", "label": "Licence", "ordinal": 10 },
-    { "code": "MASTER", "label": "Master", "ordinal": 11 },
-    { "code": "BTS", "label": "Brevet de technicien supérieur", "ordinal": 12 }
+    { "code": "LICENCE", "label": "Licence", "ordinal": 10, "calculationContract": "credit-semester@1" },
+    { "code": "MASTER", "label": "Master", "ordinal": 11, "calculationContract": "credit-semester@1" },
+    { "code": "BTS", "label": "Brevet de technicien supérieur", "ordinal": 12, "calculationContract": "coef-semester@1" }
   ],
   "gradeLevels": [
     { "code": "L1", "label": "Licence 1", "shortLabel": "L1", "educationLevel": "LICENCE", "ordinal": 1, "next": "L2" },

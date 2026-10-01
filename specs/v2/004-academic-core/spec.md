@@ -272,6 +272,21 @@ Un port non câblé a un **comportement de repli explicite et sûr** (`StudentDi
 - **003-organization-campus** : expose `getPackTemplateSection` et publie `tenancy.tenant.provisioned` / `tenancy.institution.created` ; le schéma de modèle de pack accepte des sections par module.
 - **032-payroll-port** : n'utilise pas academic directement (voir 017 `listPayableHours`).
 
+### 7.5 Extension d'assemblage (migration `0706`, faits pour results / higher / attendance / scheduling)
+
+Ajout ADDITIF (aucune colonne existante modifiée, valeurs par défaut = comportement antérieur) pour que les adaptateurs de `apps/api/src/platform/adapters` puissent servir les ports de `results` et `higher` sans rien deviner par un libellé :
+
+| Donnée | Où | Rôle |
+|---|---|---|
+| `grading_mode` (`COMPOSED` / `DIRECT`), `resit_allowed`, `counts_in_average`, `section_key` | `curriculum_nodes` (création, modification en brouillon, **amendement journalisé** `OTHER` sur un curriculum publié) | structure de calcul de `results` (mode de saisie, session 2, nœud compté dans la moyenne, section de bilan) ; `resit_allowed` lu aussi par `assess` |
+| `calculation_contract` | `programs` (prioritaire) et `education_levels` (défaut du modèle de pack : `credit-semester@1` pour Licence / Master, `coef-semester@1` pour BTS, primaire et secondaire) | contrat de calcul des résultats ; **aucune valeur par défaut** : sans contrat, `results` échoue fermé |
+| `terminal_exam_required` | `grade_levels` (PUT `/reference/grade-levels`, modèle de pack : faux partout) | drapeau d'examen terminal (règle `decision_fin_annee`) ; à renseigner par l'établissement |
+| `is_cycle` | `programs` | « nœud de cycle » de `higher` : un programme qui conduit à un diplôme et couvre plusieurs niveaux ; **l'identifiant de cycle de `higher` est l'id du programme**, celui d'une UE est sa **lignée** (`lineage_id`, stable d'une année à l'autre — les nœuds sont recréés par le clonage) |
+
+Lectures publiées (`index.ts`, sans effet de bord, périmètre du contexte, 404 hors périmètre) : `getResultsStructure({classroomId, periodId})` (nœuds UE / ECUE / SUBJECT suivis en mode classe pour la période, avec crédits, coefficients, faits de rang de période — « dernière période » = dernier semestre d'enseignement d'une année qui en compte au moins deux, jamais le libellé —, contrat effectif, examen terminal), `getClassroomFacts`, `listClassroomEnrollments` (actives ou non), `getCycleFacts`, `listProgramUe`, `getUeFacts`, `listCycleEnrollments`, `getLastEnrollmentInProgram`, `listUeRegistrants`, `hasAttendedUe`, `listStudentPlacements`.
+
+Limites : la structure de calcul couvre le mode « classe » (tronc commun) ; les sélections à la carte d'une inscription ne sont pas reflétées dans la structure de classe (à traiter avec l'issue Q-39 des mutations de classe).
+
 ## 8. Endpoints (`/api/v1/academic`, plugin Fastify, schémas Zod de `packages/contracts/src/v2/academic.ts`)
 
 | Méthode | Chemin | Description | Permission |

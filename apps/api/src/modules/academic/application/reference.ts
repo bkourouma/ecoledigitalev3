@@ -58,14 +58,14 @@ export async function putReference(deps: AcademicDeps, ctx: RequestContext, kind
     };
     switch (kind) {
       case "education-levels":
-        for (const i of items) count(await ref.upsertEducationLevel(tx, deps.newId(), { code: i.code, label: i.label, ordinal: i.ordinal, pack: i.pack ?? null, active: i.active ?? true }));
+        for (const i of items) count(await ref.upsertEducationLevel(tx, deps.newId(), { code: i.code, label: i.label, ordinal: i.ordinal, pack: i.pack ?? null, active: i.active ?? true, calculationContract: i.calculationContract }));
         break;
       case "grade-levels": {
         const levels = new Map((await ref.listEducationLevels(tx)).map((l) => [l.code, l.id]));
         for (const i of items) {
           const educationLevelId = levels.get(i.educationLevelCode);
           if (!educationLevelId) return err(validation(AcademicCode.EDUCATION_LEVEL_NOT_FOUND, `Cycle inconnu : ${i.educationLevelCode}.`, ["items", i.code]));
-          count(await ref.upsertGradeLevel(tx, deps.newId(), { code: i.code, label: i.label, shortLabel: i.shortLabel ?? null, educationLevelId, ordinal: i.ordinal, isFinal: i.isFinal ?? false, active: i.active ?? true }));
+          count(await ref.upsertGradeLevel(tx, deps.newId(), { code: i.code, label: i.label, shortLabel: i.shortLabel ?? null, educationLevelId, ordinal: i.ordinal, isFinal: i.isFinal ?? false, active: i.active ?? true, terminalExamRequired: i.terminalExamRequired }));
         }
         // Niveaux suivants dans un second temps (références croisées possibles dans le même lot).
         const known = new Set((await ref.listGradeLevels(tx)).map((g) => g.code));
@@ -220,9 +220,9 @@ export async function instantiatePackReferenceData(
       }
     };
 
-    for (const l of template.educationLevels) tally("educationLevels", l.code, await ref.tplEducationLevel(tx, deps.newId(), pack, l));
+    for (const l of template.educationLevels) tally("educationLevels", l.code, await ref.tplEducationLevel(tx, deps.newId(), pack, { code: l.code, label: l.label, ordinal: l.ordinal, calculationContract: l.calculationContract ?? null }));
     for (const g of template.gradeLevels) {
-      tally("gradeLevels", g.code, await ref.tplGradeLevel(tx, deps.newId(), { code: g.code, label: g.label, shortLabel: g.shortLabel ?? null, educationLevelCode: g.educationLevel, ordinal: g.ordinal }));
+      tally("gradeLevels", g.code, await ref.tplGradeLevel(tx, deps.newId(), { code: g.code, label: g.label, shortLabel: g.shortLabel ?? null, educationLevelCode: g.educationLevel, ordinal: g.ordinal, terminalExamRequired: g.terminalExamRequired ?? false }));
     }
     for (const g of template.gradeLevels) await ref.tplGradeLevelNext(tx, g.code, g.next, g.isFinal ?? false);
     for (const t of template.periodTypes) tally("periodTypes", t.code, await ref.tplPeriodType(tx, deps.newId(), t));

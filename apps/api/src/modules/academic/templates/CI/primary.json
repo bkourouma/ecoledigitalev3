@@ -6,7 +6,7 @@
   "pack": "PRIMARY",
   "educationLevels": [
     { "code": "PRESCHOOL", "label": "Maternelle", "ordinal": 1 },
-    { "code": "PRIMARY", "label": "Primaire", "ordinal": 2 }
+    { "code": "PRIMARY", "label": "Primaire", "ordinal": 2, "calculationContract": "coef-semester@1" }
   ],
   "gradeLevels": [
     { "code": "PS", "label": "Petite Section", "shortLabel": "PS", "educationLevel": "PRESCHOOL", "ordinal": 1, "next": "MS" },

@@ -170,6 +170,37 @@ export {
   listNodesForEnrollment,
 } from "./application/reads";
 
+// Faits publiés pour les adaptateurs de la plateforme (results, higher, attendance, scheduling, payroll)
+export {
+  getClassroomFacts,
+  getCycleFacts,
+  getLastEnrollmentInProgram,
+  getResultsStructure,
+  getUeFacts,
+  hasAttendedUe,
+  listClassroomEnrollments,
+  listCycleEnrollments,
+  listProgramUe,
+  listStudentPlacements,
+  listUeRegistrants,
+} from "./application/facts";
+export {
+  effectiveContract,
+  periodFactsOf,
+  structureNodesOf,
+  RESULT_NODE_KINDS,
+  type ClassroomEnrollmentFacts,
+  type ClassroomFacts,
+  type CycleEnrollmentFacts,
+  type CycleFacts,
+  type LastEnrollmentFacts,
+  type ResultNodeKind,
+  type ResultsPeriodFacts,
+  type ResultsStructure,
+  type ResultsStructureNode,
+  type UeFacts,
+} from "./domain/facts";
+
 // Confirmation par événements, reconduction, jobs
 export { handleInvoicePaid, handleStudentStatusChanged, type InvoicePaidReport } from "./application/confirmation";
 export { previewRollover, rolloverAcademicYear } from "./application/rollover";

@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import {
+  academicCalculationContractSchema,
   academicConfirmationPolicySchema,
   academicCourseConfirmationPolicySchema,
   academicFundingCodeSchema,
@@ -26,7 +27,7 @@ export const AcademicPackTemplateSchema = z
     templateVersion: z.number().int().min(1),
     educationSystem: z.string().regex(/^[A-Z0-9_]{1,20}$/),
     pack: academicPackSchema,
-    educationLevels: z.array(z.object({ code, label, ordinal: z.number().int().min(0) }).strict()),
+    educationLevels: z.array(z.object({ code, label, ordinal: z.number().int().min(0), calculationContract: academicCalculationContractSchema.optional() }).strict()),
     gradeLevels: z.array(
       z
         .object({
@@ -37,6 +38,7 @@ export const AcademicPackTemplateSchema = z
           ordinal: z.number().int().min(0),
           next: code.nullable(),
           isFinal: z.boolean().optional(),
+          terminalExamRequired: z.boolean().optional(),
         })
         .strict(),
     ),
