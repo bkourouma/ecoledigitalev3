@@ -12,6 +12,11 @@ import type { EnrollmentRef, LearnerRef } from "../../domain/refs";
 export interface LearnerDirectory {
   /** `null` si l'apprenant n'existe pas (dans le tenant du contexte). */
   getLearner(ctx: RequestContext, learnerId: string): Promise<LearnerRef | null>;
+  /**
+   * Facultatif — « NOM Prénom » de PLUSIEURS apprenants en UNE lecture (listes, exports : jamais une requête par apprenant).
+   * Les identifiants inconnus ou invisibles sont absents du résultat. Décoration seulement : un échec ne casse jamais une liste.
+   */
+  getLearnerNames?(ctx: RequestContext, learnerIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
 }
 
 export interface EnrollmentDirectory {
@@ -56,5 +61,14 @@ export class InMemoryLearnerDirectory implements LearnerDirectory {
   }
   async getLearner(_ctx: RequestContext, learnerId: string): Promise<LearnerRef | null> {
     return this.byId.get(learnerId) ?? null;
+  }
+  /** Lecture par lot : « NOM Prénom » des apprenants connus qui en ont un. */
+  async getLearnerNames(_ctx: RequestContext, learnerIds: readonly string[]): Promise<ReadonlyMap<string, string>> {
+    const out = new Map<string, string>();
+    for (const id of learnerIds) {
+      const name = this.byId.get(id)?.displayName;
+      if (name) out.set(id, name);
+    }
+    return out;
   }
 }

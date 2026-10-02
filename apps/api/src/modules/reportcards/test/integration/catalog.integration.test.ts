@@ -26,9 +26,9 @@ describeIntegration("catalogue de gabarits de plateforme : amorçage, publicatio
     const listed = unwrap(await listAvailableTemplates(world.deps, ctx));
     expect(listed.map((t) => t.key).sort()).toEqual(BUILTIN_TEMPLATES.map((t) => t.key).sort());
     expect(listed.every((t) => t.status === "PUBLISHED" && /^[0-9a-f]{64}$/.test(t.contentHash ?? ""))).toBe(true);
-    expect(unwrap(await listAvailableTemplates(world.deps, ctx))).toHaveLength(5);
+    expect(unwrap(await listAvailableTemplates(world.deps, ctx))).toHaveLength(7);
     expect(unwrap(await ensureBuiltinTemplates(world.deps)).published).toEqual([]);
-    expect(Number((await adminRows<any>(db, "SELECT count(*) AS n FROM reportcards.platform_templates"))[0].n)).toBe(5);
+    expect(Number((await adminRows<any>(db, "SELECT count(*) AS n FROM reportcards.platform_templates"))[0].n)).toBe(7);
   });
 
   it("nouvelle version d'un gabarit : numéro suivant, l'ancienne reste PUBLISHED et rendable ; hash de contenu distinct", async () => {

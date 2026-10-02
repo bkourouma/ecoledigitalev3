@@ -33,11 +33,11 @@ Mesures de référence : API v2 environ 2 940 tests, critères de sortie Phase 1
 
 ## Manques d'API identifiés par les écrans (à traiter dans le backlog C)
 
-- Finance : routes parent/élève filtrées par lien de tutelle (permission `finance.child.read` / `finance.self.read` avec contrôle de propriété) ; sans elles `/v2/finance/me` renvoie 403 aux parents.
-- Paie : contestation d'un bulletin par l'enseignant lui-même (aujourd'hui `dispute` exige `payroll.payslip.approve`).
-- Finance : export CSV serveur complet pour gros volumes (aujourd'hui produit côté web à partir de la page affichée) ; route de lecture du rapprochement des webhooks en échec ; rendu PDF des reçus et des bulletins de paie via `reportcards`/worker (aujourd'hui impression navigateur).
-- Lectures par lots (noms d'élèves/apprenants par identifiants multiples) pour éviter une requête par élève dans les listes.
-- Adaptateur d'inscriptions : sens des clés libres des barèmes (`levelKey`, `trackKey`, `learnerType`) à définir côté `academic`.
+- ~~Finance : routes parent/élève~~ **Livré** : `/api/v1/finance/me/*` (`finance.child.read|pay`, `finance.self.read|pay`, propriété relue côté serveur, 404 uniforme, paiement en ligne initié par le parent). Les écrans `/v2/finance/me` doivent migrer de `/learners/:id/*` vers ces routes.
+- ~~Paie : contestation par l'enseignant~~ **Livré** : `POST /api/v1/payroll/my/payslips/:id/dispute` (`payroll.my.dispute`).
+- ~~Finance : export CSV serveur~~ **Livré** (`/finance/exports/*`, plafond `FINANCE_EXPORT_MAX_ROWS`, troncature signalée). ~~Rendu PDF des reçus et bulletins de paie~~ **Livré** (`GET /receipts/:id/pdf`, `GET /payslips/:id/pdf`, `/my/…`). **Reste** : route de lecture du rapprochement des webhooks en échec.
+- ~~Lectures par lots~~ **Livré** : `GET /people/students/lookup`, `/people/staff/lookup` (et `getDisplayNamesOfStudents|Staff`). Reste à les consommer dans les écrans et DTO.
+- ~~Adaptateur d'inscriptions : sens des clés libres des barèmes~~ **Défini et testé** (`levelKey` = niveau, `trackKey` = programme, `learnerType` = type de financement ; spec 004 AC8.1, README finance).
 - Parité legacy manquante côté finance : saisie des charges et tableaux de bord propriétaire (trésorerie, scolarité), commandes/lots du parcours « professionnel », commissions de prospection.
 
 ## Dette connue

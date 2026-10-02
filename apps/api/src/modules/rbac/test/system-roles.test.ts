@@ -101,7 +101,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "attendance.read", "attendance.take", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
       "student.class.read", "staff.own.read", "staff.own.update",
       "schedule.own.read", "schedule.occurrence.declare",
-      "payroll.payslip.read_own",
+      "payroll.payslip.read_own", "payroll.my.dispute",
     ],
   },
 
@@ -130,7 +130,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
   personnel: {
     can: [
       "staff.own.read", "staff.own.update", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
-      "payroll.payslip.read_own", "schedule.own.read",
+      "payroll.payslip.read_own", "payroll.my.dispute", "schedule.own.read",
     ],
   },
 
@@ -138,6 +138,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
     can: [
       "student.child.read", "student.child.update", "enrollment.child.read", "grade.child.read", "result.child.read", "reportcard.child.read",
       "attendance.child.read", "attendance.child.justify", "schedule.child.read", "higher.child.read",
+      "finance.child.read", "finance.child.pay",
     ],
   },
 
@@ -145,6 +146,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
     can: [
       "student.self.read", "student.self.update", "enrollment.self.read", "enrollment.self.create", "grade.self.read", "result.self.read",
       "reportcard.self.read", "attendance.self.read", "attendance.self.justify", "schedule.self.read", "higher.self.read",
+      "finance.self.read", "finance.self.pay",
     ],
   },
 };
@@ -347,6 +349,7 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["attendance.read", "idem"],
       ["finance.invoice.read", "factures : lecture de gestion"],
       ["finance.payment.create", "aucune finance de gestion"],
+      ["finance.self.read", "pas la situation financière d'un élève (uniquement `finance.child.read`)"],
     ],
     eleve: [
       ["student.read", "uniquement son propre dossier (`student.self.read`)"],
@@ -355,6 +358,7 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["grade.read", "uniquement ses notes publiées"],
       ["attendance.take", "aucune saisie d'appel"],
       ["finance.invoice.read", "factures : lecture de gestion"],
+      ["finance.child.read", "pas la situation financière d'un enfant (uniquement `finance.self.read`)"],
     ],
     directeur: [
       ["entitlements.manage", "abonnement : propriétaire"],

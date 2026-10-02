@@ -21,7 +21,9 @@ export default defineConfig({
     alias: [
       { find: /^@ecoledigitale\/kernel$/, replacement: resolve(repo, "packages/kernel/src/index.ts") },
       { find: /^@ecoledigitale\/database$/, replacement: resolve(repo, "packages/database/src/index.ts") },
+      { find: /^@ecoledigitale\/contracts\/src\/(.*)$/, replacement: `${resolve(repo, "packages/contracts/src")}/$1` },
       { find: /^@ecoledigitale\/contracts\/(.*)$/, replacement: `${resolve(repo, "packages/contracts/src")}/$1` },
+      { find: /^@ecoledigitale\/worker\/sdk$/, replacement: resolve(repo, "apps/worker/src/sdk.ts") },
     ],
   },
   test: {

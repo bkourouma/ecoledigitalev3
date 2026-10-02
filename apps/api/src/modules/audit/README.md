@@ -40,6 +40,8 @@ await audit.withAudit(tx, {
 | `AUDIT_EVENT_SUBSCRIPTIONS`, `consumeAuditEvent(deps, event)` | abonnements pour le futur registre du worker |
 | `ensureAuditPartitions(systemDb, months)` | job : crée les partitions à l'avance |
 | `detachExpiredAuditPartitions(systemDb, audit, { dryRun })`, `setRetentionMonths`, `getRetentionMonths` | rétention |
+| `listAuditLogs(tx, tenantId, filter, { cursor, limit })` | page du journal d'un tenant (curseur sur `seq`, décroissant) |
+| `listPlatformAuditLogs(tx, filter, { cursor, limit })`, `toAuditSummaryDto(entry)` | page du journal de **plateforme** (même curseur, mêmes filtres, `tenantId: null`) ; à appeler dans `SystemDb.run(…, { readOnly: true })` ; l'appelant authentifie (la console plateforme : `GET /api/v1/platform/audit/logs`) ; la projection publique n'expose que `seq` et `hash` de la chaîne |
 | `auditHttpPlugin`, `auditRequestMetaPlugin` | plugins Fastify |
 | `testing.expectAudited`, `testing.expectAuditRolledBack` | tests d'architecture |
 

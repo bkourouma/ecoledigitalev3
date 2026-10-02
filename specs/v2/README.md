@@ -50,7 +50,7 @@ Phases du plan §4 : 0 = cadrage, 1 = socle SaaS, 2 = cœur académique et migra
 | 011 | assessments-grades | 2 | Rédigée (`011-assessments-grades/` : spec, data-model, plan, parity, interfaces-publiees ; modules `assess` + `results`) |
 | 012 | rules-engine | 2 (spike en phase 0) | Rédigée (`012-rules-engine/` : spec, data-model, plan, parity, rule-contracts, rulesets-de-depart, regulatory-sources-needed, open-questions) |
 | 013 | report-cards | 2 | Rédigée (`013-report-cards/` : spec, data-model, plan, parity) |
-| 014 | finance | 1 puis 3 | À écrire |
+| 014 | finance | 1 puis 3 | Extensions d'API rédigées (`014-finance/` : routes famille, exports, PDF, clés de barèmes) ; spec complète à écrire |
 | 015 | payments | 1 puis 3 | À écrire |
 | 016 | communications | 3 | À écrire |
 | 017 | scheduling | 2 | Rédigée (`017-scheduling/`) |

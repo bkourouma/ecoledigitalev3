@@ -32,6 +32,9 @@ export const ConsumedEvents = {
 
 export const CONSUMED_EVENT_TYPES: readonly string[] = Object.freeze(Object.values(ConsumedEvents));
 
+/** `payroll.payslip.disputed` : `reason`, et `initiatedBy` = qui conteste (la gestion ou le titulaire du bulletin). */
+export type PayslipDisputedPayload = PayslipEventPayload & { readonly reason: string; readonly initiatedBy: "MANAGER" | "HOLDER" };
+
 export type PayslipEventPayload = {
   readonly v: 1;
   readonly payslipId: string;

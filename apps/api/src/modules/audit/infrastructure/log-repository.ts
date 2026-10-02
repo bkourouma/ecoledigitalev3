@@ -4,7 +4,7 @@
  */
 import type { Tx } from "@ecoledigitale/database";
 import type { AuditSeverity, StoredAuditEntry } from "../domain/types";
-import { ROW_COLUMNS_TENANT, mapRow } from "./chain-repository";
+import { ROW_COLUMNS_PLATFORM, ROW_COLUMNS_TENANT, mapRow } from "./chain-repository";
 
 export interface LogFilter {
   actorId?: string;
@@ -20,9 +20,10 @@ export interface LogFilter {
 /** Échappe `%`, `_` et `\` pour un LIKE. */
 const likeEscape = (s: string): string => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-function buildWhere(tenantId: string, filter: LogFilter, extra: Array<{ sql: string; value: unknown }> = []) {
-  const params: unknown[] = [tenantId];
-  const clauses: string[] = ["tenant_id = $1"];
+function buildWhere(tenantId: string | null, filter: LogFilter, extra: Array<{ sql: string; value: unknown }> = []) {
+  // tenantId = null : journal de PLATEFORME (table globale, sans colonne tenant_id).
+  const params: unknown[] = tenantId === null ? [] : [tenantId];
+  const clauses: string[] = tenantId === null ? [] : ["tenant_id = $1"];
   const add = (sql: (n: string) => string, value: unknown): void => {
     params.push(value);
     clauses.push(sql(`$${params.length}`));
@@ -38,7 +39,7 @@ function buildWhere(tenantId: string, filter: LogFilter, extra: Array<{ sql: str
   if (filter.from) add((n) => `occurred_at >= ${n}::timestamptz`, filter.from);
   if (filter.to) add((n) => `occurred_at <= ${n}::timestamptz`, filter.to);
   for (const e of extra) add((n) => e.sql.replace("?", n), e.value);
-  return { where: clauses.join(" AND "), params };
+  return { where: clauses.length > 0 ? clauses.join(" AND ") : "TRUE", params };
 }
 
 /** Page décroissante par seq (le plus récent d'abord) ; `beforeSeq` = curseur. */
@@ -54,6 +55,21 @@ export async function listLogs(
   params.push(limit);
   const rows = await tx.many(
     `SELECT ${ROW_COLUMNS_TENANT} FROM audit.audit_log WHERE ${where} ORDER BY seq DESC LIMIT $${params.length}`,
+    params,
+  );
+  return rows.map((r) => mapRow(r as never));
+}
+
+/**
+ * Page décroissante du journal de PLATEFORME (`audit.platform_audit_log`, table globale hors RLS : à n'appeler que
+ * depuis `SystemDb.run`). `seq` est sans trou et unique : le curseur `seq < beforeSeq` ne double ni n'omet aucune ligne.
+ */
+export async function listPlatformLogs(tx: Tx, filter: LogFilter, beforeSeq: number | null, limit: number): Promise<StoredAuditEntry[]> {
+  const extra = beforeSeq === null ? [] : [{ sql: "seq < ?::bigint", value: beforeSeq }];
+  const { where, params } = buildWhere(null, filter, extra);
+  params.push(limit);
+  const rows = await tx.many(
+    `SELECT ${ROW_COLUMNS_PLATFORM} FROM audit.platform_audit_log WHERE ${where} ORDER BY seq DESC LIMIT $${params.length}`,
     params,
   );
   return rows.map((r) => mapRow(r as never));

@@ -26,6 +26,7 @@ import * as repo from "../infrastructure/payslip-repo";
 import * as setup from "../infrastructure/setup-repo";
 import { EventBuffer, inTx, setOwnerApproval, type PayrollDeps } from "./deps";
 import type { HoursSourcePort } from "./ports";
+import { OWN_VISIBLE_STATUSES, ownStaffId } from "./queries";
 import { buildSnapshot, snapshotHash } from "./snapshots";
 import { MIN_REASON_LENGTH, PAYSLIP_AGGREGATE, requireUser, resolveActor, staffInfoMap, trimReason } from "./support";
 
@@ -307,26 +308,54 @@ export async function cancelPayslip(deps: PayrollDeps, ctx: RequestContext, inpu
   return ok(result.value.updated);
 }
 
-/** Conteste un bulletin arrêté (motif obligatoire) : APPROVED → DISPUTED ; il se ré-arrête ou s'annule ensuite. */
-export async function disputePayslip(deps: PayrollDeps, ctx: RequestContext, input: { payslipId: Uuid; reason: string }): Promise<Result<PayslipRecord, AppError>> {
+export interface DisputeInput {
+  payslipId: Uuid;
+  reason: string;
+  /**
+   * Contestation par le TITULAIRE (`POST /my/payslips/:id/dispute`) : identifiant du membre du personnel résolu
+   * depuis son compte. Le bulletin d'un autre, ou un bulletin que le titulaire n'a pas le droit de voir (brouillon
+   * calculé, annulé), répond `404` — indiscernable d'un identifiant inconnu. Absent : contestation de la gestion.
+   */
+  holderStaffId?: Uuid | undefined;
+}
+
+/**
+ * Conteste un bulletin arrêté (motif obligatoire) : APPROVED → DISPUTED ; il se ré-arrête ou s'annule ensuite.
+ * UN SEUL cas d'usage pour la gestion et pour le titulaire : mêmes états, mêmes écritures, même événement, même audit ;
+ * seul `initiatedBy` (`MANAGER` | `HOLDER`) les distingue.
+ */
+export async function disputePayslip(deps: PayrollDeps, ctx: RequestContext, input: DisputeInput): Promise<Result<PayslipRecord, AppError>> {
   const user = requireUser(ctx);
   if (!user.ok) return user;
   const reason = trimReason(input.reason);
   if (reason.length < MIN_REASON_LENGTH) return err(reasonRequired("contester un bulletin"));
   const actor = await resolveActor(deps, ctx);
+  const initiatedBy = input.holderStaffId ? ("HOLDER" as const) : ("MANAGER" as const);
   return inTx(deps, ctx, async (tx) => {
     const buf = new EventBuffer(deps, ctx);
     const p = await repo.getPayslip(tx, input.payslipId, { forUpdate: true });
     if (!p) return err(notFound("Bulletin de paie", input.payslipId));
+    // titulaire : jamais le bulletin d'autrui, jamais un bulletin qu'il ne peut pas lire — même réponse que « inconnu »
+    if (input.holderStaffId && (p.staffId !== input.holderStaffId || !OWN_VISIBLE_STATUSES.includes(p.status))) return err(notFound("Bulletin de paie", input.payslipId));
     if (!canTransition(p.status, "DISPUTED")) return err(invalidTransition(p.status, "DISPUTED"));
     const now = deps.clock.now();
     if (!(await repo.markDisputed(tx, p.id, now, reason))) return err(conflict(PayrollCodes.concurrentUpdate, "Le bulletin a changé pendant l'opération : réessayez."));
-    await repo.insertEvent(tx, { id: deps.newId(), tenantId: ctx.tenantId, payslipId: p.id, action: "DISPUTED", oldValues: { status: p.status }, newValues: { status: "DISPUTED" }, reason, actor, at: now });
-    buf.add(PayrollEvents.payslipDisputed, { ...eventPayload(p, null), reason }, { type: PAYSLIP_AGGREGATE, id: p.id });
-    buf.audit({ action: "payroll.payslip.disputed", resourceType: "payslip", resourceId: p.id, sensitive: true, reason, before: { status: p.status }, after: { status: "DISPUTED" } });
+    await repo.insertEvent(tx, { id: deps.newId(), tenantId: ctx.tenantId, payslipId: p.id, action: "DISPUTED", oldValues: { status: p.status }, newValues: { status: "DISPUTED", initiatedBy }, reason, actor, at: now });
+    buf.add(PayrollEvents.payslipDisputed, { ...eventPayload(p, null), reason, initiatedBy }, { type: PAYSLIP_AGGREGATE, id: p.id });
+    buf.audit({ action: "payroll.payslip.disputed", resourceType: "payslip", resourceId: p.id, sensitive: true, reason, before: { status: p.status }, after: { status: "DISPUTED", initiatedBy } });
     await buf.flush(tx);
     return ok((await repo.getPayslip(tx, p.id)) as PayslipRecord);
   });
+}
+
+/**
+ * Contestation de SON PROPRE bulletin par l'enseignant : le titulaire est résolu depuis SON COMPTE (port personnel,
+ * `persons.identity_id` côté `people`), jamais depuis la requête ni un courriel. Ne suppose PAS `payroll.payslip.approve`.
+ */
+export async function disputeOwnPayslip(deps: PayrollDeps, ctx: RequestContext, input: { payslipId: Uuid; reason: string }): Promise<Result<PayslipRecord, AppError>> {
+  const own = await ownStaffId(deps, ctx);
+  if (!own.ok) return own;
+  return disputePayslip(deps, ctx, { payslipId: input.payslipId, reason: input.reason, holderStaffId: own.value });
 }
 
 // ---------------------------------------------------------------------------

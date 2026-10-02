@@ -28,6 +28,8 @@ export const PayrollCodes = {
   emptySelection: "payroll.empty_selection",
   concurrentUpdate: "payroll.concurrent_update",
   integrity: "payroll.integrity_violation",
+  payslipNotPaid: "payroll.payslip_not_paid",
+  documentRenderFailed: "payroll.document_render_failed",
 } as const;
 
 export type PayrollCode = (typeof PayrollCodes)[keyof typeof PayrollCodes];

@@ -21,6 +21,7 @@ import { isVerificationCode, publicKeyFingerprint, verifyDocumentSignature } fro
 import { formatDateFr } from "../domain/template-engine";
 import type { ReportCardRecord } from "../domain/types";
 import * as cardsRepo from "../infrastructure/cards-repository";
+import * as officialRepo from "../infrastructure/official-documents-repository";
 import * as platformRepo from "../infrastructure/platform-repository";
 import { getSettings } from "../infrastructure/reference-repository";
 import type { ReportcardsDeps } from "./deps";
@@ -163,19 +164,70 @@ async function describe(deps: ReportcardsDeps, tenantId: string, cardId: string,
   });
 }
 
+/**
+ * Documents officiels d'autres modules (reçu de paiement, bulletin de paie) : même contrôle d'intégrité que les bulletins
+ * (hash recalculé + signature revérifiée à chaque consultation), même réponse minimale. Pas de remplacement ni de révocation :
+ * `AUTHENTIC` ou `INVALID`. Le titre scellé ne contient aucune donnée personnelle.
+ */
+async function describeOfficial(deps: ReportcardsDeps, tenantId: string, documentId: string, code: string): Promise<{ result: PublicVerification; card: LoggedDocument } | null> {
+  const system = deps.systemDb;
+  if (!system) throw portUnavailable("SystemDb");
+  if (deps.verificationEnabled && !(await deps.verificationEnabled(tenantId))) return null;
+  return system.runForTenant("public-verification", tenantId, async (tx) => {
+    const content = await officialRepo.getOfficialDocumentContent(tx, documentId);
+    if (!content || content.record.verificationCode !== code) return null;
+    const { record, snapshot, explain } = content;
+    const key = await platformRepo.getSigningKey(tx, record.signingKeyId);
+    const hashValid = snapshotHash(snapshot, explain) === record.snapshotHash;
+    const signatureValid = Boolean(key) && verifyDocumentSignature(key!.publicKey, { snapshotHash: record.snapshotHash, verificationCode: record.verificationCode, issuedAt: record.issuedAt }, record.signature);
+    const intact = hashValid && signatureValid;
+    const result: PublicVerification = {
+      status: intact ? "AUTHENTIC" : "INVALID",
+      documentKind: record.documentKind,
+      institutionName: String(snapshot?.institution?.legalName ?? ""),
+      title: record.title,
+      issuedAt: record.issuedAt,
+      mention: null,
+      supersededByIssuedAt: null,
+      revokedAt: null,
+      keyId: record.signingKeyId,
+      keyFingerprint: key ? publicKeyFingerprint(key.publicKey) : null,
+      snapshotHash: record.snapshotHash,
+      signature: record.signature,
+      message: intact ? MESSAGES.AUTHENTIC : MESSAGES.INVALID,
+    };
+    return { result, card: { id: record.id, documentKind: record.documentKind } };
+  });
+}
+
+const OFFICIAL_KINDS: ReadonlySet<string> = new Set(["RECEIPT", "PAYSLIP"]);
+
+/** Résout un code vers un bulletin / relevé OU un document officiel d'un autre module. */
+async function describeAny(deps: ReportcardsDeps, target: { tenantId: string; documentKind: string; documentId: string }, code: string): Promise<{ result: PublicVerification; card: LoggedDocument } | null> {
+  if (OFFICIAL_KINDS.has(target.documentKind)) return describeOfficial(deps, target.tenantId, target.documentId, code);
+  if (target.documentKind !== "REPORT_CARD" && target.documentKind !== "TRANSCRIPT") return null;
+  const described = await describe(deps, target.tenantId, target.documentId, code);
+  return described ? { result: described.result, card: { id: described.card.id, documentKind: described.card.documentKind } } : null;
+}
+
+interface LoggedDocument {
+  id: string;
+  documentKind: string;
+}
+
 export async function verifyByCode(deps: ReportcardsDeps, input: { code: string; ipPrefix?: string | null }): Promise<Result<PublicVerification, AppError>> {
   const system = deps.systemDb;
   if (!system) return err(portUnavailable("SystemDb"));
   if (!isVerificationCode(input.code)) return ok(UNKNOWN_VERIFICATION);
   const target = await system.run("public-verification", (tx) => cardsRepo.lookupVerification(tx, input.code), { readOnly: true });
-  if (!target || (target.documentKind !== "REPORT_CARD" && target.documentKind !== "TRANSCRIPT")) return ok(UNKNOWN_VERIFICATION);
-  const described = await describe(deps, target.tenantId, target.documentId, input.code);
+  if (!target) return ok(UNKNOWN_VERIFICATION);
+  const described = await describeAny(deps, target, input.code);
   if (!described) return ok(UNKNOWN_VERIFICATION);
   await logResult(deps, target.tenantId, described.card, described.result.status, input.ipPrefix ?? null);
   return ok(described.result);
 }
 
-async function logResult(deps: ReportcardsDeps, tenantId: string, card: ReportCardRecord, result: string, ipPrefix: string | null): Promise<void> {
+async function logResult(deps: ReportcardsDeps, tenantId: string, card: LoggedDocument, result: string, ipPrefix: string | null): Promise<void> {
   try {
     await deps.systemDb!.runForTenant("public-verification-log", tenantId, (tx) =>
       cardsRepo.logVerification(tx, { id: deps.newId(), tenantId, reportCardId: card.id, documentKind: card.documentKind, result, ipPrefix }),
@@ -207,7 +259,7 @@ export async function verifyByFile(deps: ReportcardsDeps, input: { bytes: Uint8A
   if (!found) return ok(mismatch);
   const target = await system.run("public-verification", (tx) => cardsRepo.lookupVerification(tx, found.code), { readOnly: true });
   if (!target) return ok(mismatch);
-  const described = await describe(deps, target.tenantId, target.documentId, found.code);
+  const described = await describeAny(deps, target, found.code);
   if (!described) return ok(mismatch);
   await logResult(deps, target.tenantId, described.card, "FILE_MATCH", input.ipPrefix ?? null);
   const { result } = described;

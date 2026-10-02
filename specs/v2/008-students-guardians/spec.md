@@ -117,6 +117,7 @@ En tant que secrétariat, je veux retrouver un élève par nom, matricule, class
 - **AC6.1** `createLearnerDirectory(deps)` renvoie `{ getLearner(ctx, learnerId) → { learnerId, displayName, registrationNumber } | null }` conforme au port `LearnerDirectory` de finance ; `displayName` = « NOM Prénom » ; `registrationNumber` = `student_number`.
 - **AC6.2** `createStudentDirectory(deps)` renvoie `{ getStudent(ctx, studentId) → { studentId, status, displayName, studentNumber, sequenceNumber } }` conforme au port `StudentDirectory` de academic.
 - **AC6.3** `getStudentsByIds(ctx, ids[≤500])` renvoie les dossiers résumés en une requête (pour 010/011/013/014/016) ; ids inconnus ignorés, ordre non garanti.
+- **AC6.4** (résolution de noms par lots) `GET /students/lookup?ids=a,b,c` et `lookupStudents(deps, ctx, ids, { scope? })` renvoient `{ items: [{ id, displayName, studentNumber, status }], missing: [id…] }` en UNE instruction SQL : ids dédoublonnés (ordre de première apparition), **≤ 100 distincts en HTTP** (`PEOPLE_LOOKUP_MAX_IDS`, 400 au-delà ; 500 pour l'API publique), UUID mal formé → 400. Réponse minimale (ni naissance, ni contact, ni photo, ni inscription, ni identifiant national). Périmètre : `student.list`/`student.read` → tous les élèves du tenant ; `student.class.read` (et l'ancien modèle d'enseignant, par le garde-fou) → élèves de SES classes ; `student.child.read` → SES enfants ; `student.self.read` → son dossier ; les périmètres d'une même personne se cumulent ; aucune permission applicable → 403. `missing` regroupe inconnus, autre tenant (RLS) et hors périmètre, **indiscernables** (jamais 403/404 par identifiant). `getDisplayNamesOfStudents(deps, ctx, ids)` : `Map<studentId, « NOM Prénom »>` pour les adaptateurs (découpe en lots de 500, ignore inconnus et invalides, sans contrôle de périmètre : l'appelant a autorisé sa route).
 
 ### US7 — Données sensibles et conformité (P1)
 
@@ -196,6 +197,7 @@ DTO dans `packages/contracts/src/v2/people.ts`. Les noms ci-dessus sont figés p
 | GET | `/students/duplicates?lastName&firstName&birthDate` | Candidats doublons | `student.create` |
 | GET/POST/PATCH | `/guardians`, `/guardians/:id` | Tuteurs | `guardian.read` / `guardian.manage` |
 | GET | `/students/export` | Export CSV (≤ 5 000 lignes, audité) | `student.export` |
+| GET | `/students/lookup?ids=a,b,c` | Noms par lots `{ items, missing }`, ≤ 100 ids distincts, périmètre de l'appelant (AC6.4) | `student.list` ou `student.read` ou `student.class.read` ou `student.child.read` ou `student.self.read` |
 | POST | `/students/:id/anonymize` | Anonymisation d'un dossier archivé | `student.anonymize` |
 | PATCH | `/me/guardian` | Un tuteur met à jour ses propres coordonnées | `student.child.read` + règle de champs |
 | POST | `/persons/:id/portal-invitation` | Inviter au portail | `guardian.manage` / `student.update` |

@@ -35,7 +35,7 @@ export interface ReportFilter {
   currency?: CurrencyCode;
 }
 
-function scopeOf(deps: FinanceDeps, filter: ReportFilter): Result<ReportScope, AppError> {
+export function scopeOf(deps: FinanceDeps, filter: ReportFilter): Result<ReportScope, AppError> {
   const asOf = filter.asOf ?? todayOf(deps);
   try {
     assertIsoDate(asOf, "asOf");

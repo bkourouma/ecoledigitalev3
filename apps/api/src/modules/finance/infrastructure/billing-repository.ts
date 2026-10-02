@@ -378,22 +378,47 @@ export interface InvoiceListFilter {
   status?: InvoiceStatus;
   groupKey?: string;
   payerKind?: PayerKind;
+  /** Exclut les brouillons (et annulations de brouillons) : une facture « émise » porte un numéro (vues famille). */
+  issuedOnly?: boolean;
   limit: number;
   offset: number;
 }
 
 export async function listInvoices(tx: Tx, f: InvoiceListFilter): Promise<{ items: InvoiceRecord[]; total: number }> {
-  const params = [f.learnerId ?? null, f.academicYear ?? null, f.status ?? null, f.groupKey ?? null, f.payerKind ?? null];
+  const params = [f.learnerId ?? null, f.academicYear ?? null, f.status ?? null, f.groupKey ?? null, f.payerKind ?? null, f.issuedOnly === true];
   const where = `($1::uuid IS NULL OR learner_id = $1) AND ($2::text IS NULL OR academic_year = $2)
                  AND ($3::text IS NULL OR status = $3) AND ($4::text IS NULL OR group_key = $4)
-                 AND ($5::text IS NULL OR payer_kind = $5)`;
+                 AND ($5::text IS NULL OR payer_kind = $5) AND (NOT $6::boolean OR number IS NOT NULL)`;
   const rows = await tx.many(
     `SELECT ${INVOICE_COLS} FROM finance.invoices WHERE ${where}
-      ORDER BY created_at DESC, id DESC LIMIT $6 OFFSET $7`,
+      ORDER BY created_at DESC, id DESC LIMIT $7 OFFSET $8`,
     [...params, f.limit, f.offset],
   );
   const count = await tx.queryOne<{ n: string }>(`SELECT count(*)::text AS n FROM finance.invoices WHERE ${where}`, params);
   return { items: rows.map(invoiceOf), total: Number(count?.n ?? 0) };
+}
+
+export interface LearnerInstallmentRow {
+  readonly installment: Installment;
+  readonly invoiceNumber: string;
+  readonly invoiceStatus: InvoiceStatus;
+  readonly academicYear: string;
+}
+
+/**
+ * Échéances d'un apprenant sur ses factures ÉMISES à sa charge (`payer_kind = 'LEARNER'`, numérotées, non annulées),
+ * triées par date d'échéance. `openOnly` : reste dû > 0. Vue famille : aucune échéance de brouillon ni de financeur.
+ */
+export async function listInstallmentsOfLearner(tx: Tx, learnerId: Uuid, opts: { openOnly?: boolean; limit?: number } = {}): Promise<LearnerInstallmentRow[]> {
+  const rows = await tx.many(
+    `SELECT ${INSTALLMENT_COLS}, inv.number AS invoice_number, inv.status AS invoice_status, inv.academic_year
+       FROM finance.installments i JOIN finance.invoices inv ON inv.id = i.invoice_id
+      WHERE inv.learner_id = $1 AND inv.payer_kind = 'LEARNER' AND inv.number IS NOT NULL AND inv.status <> 'CANCELLED'
+        AND (NOT $2::boolean OR i.paid_amount + i.credited_amount < i.amount)
+      ORDER BY i.due_date, inv.number, i.seq LIMIT $3`,
+    [learnerId, opts.openOnly === true, Math.min(Math.max(opts.limit ?? 500, 1), 500)],
+  );
+  return rows.map((r) => ({ installment: installmentOf(r), invoiceNumber: r.invoice_number, invoiceStatus: r.invoice_status as InvoiceStatus, academicYear: r.academic_year }));
 }
 
 /** Factures actives dont une échéance est échue à `asOf` avec un reste dû (candidates à OVERDUE). */

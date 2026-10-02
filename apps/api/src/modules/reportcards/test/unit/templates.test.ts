@@ -1,14 +1,14 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PARTIAL_NAMES, renderDocumentHtml } from "../../domain/document-html";
+import { PARTIAL_NAMES, renderContextHtml, renderDocumentHtml } from "../../domain/document-html";
 import { resolveOptions, validateOptionsSchema } from "../../domain/options-schema";
 import { escapeHtml, formatDateFr, formatNumberFr, parseTemplate, renderTemplate, TemplateError, type RenderEnvironment } from "../../domain/template-engine";
 import { validateCss, validateTemplate } from "../../domain/template-validation";
 import { PARTIAL_SOURCES } from "../../templates/partials";
 import { BUILTIN_TEMPLATES } from "../../templates/builtin";
 import { encodeQr, qrToSvg } from "../../domain/qr";
-import { ALL_BUILTIN_KEYS, snapshotFor } from "../support/fixtures";
+import { ALL_BUILTIN_KEYS, OFFICIAL_BUILTIN_KEYS, officialContext, snapshotFor } from "../support/fixtures";
 
 const ENV: RenderEnvironment = { partials: {}, components: {} };
 const render = (src: string, ctx: unknown, env: RenderEnvironment = ENV): string => renderTemplate(parseTemplate(src), ctx, env);
@@ -159,8 +159,9 @@ describe("validation d'un gabarit à la publication (liste noire / blanche)", ()
     expect(validateCss("@page { size: A4; margin: 10mm; } .a > .b { color: red }", "t").length).toBeGreaterThan(0); // « > » interdit
   });
 
-  it("les 5 gabarits livrés et tous les composants passent la validation de sécurité", () => {
-    expect(ALL_BUILTIN_KEYS.sort()).toEqual(["higher-bulletin-coef", "higher-bulletin-credits", "primary-bulletin", "secondary-bulletin", "transcript-credits"]);
+  it("les 7 gabarits livrés (5 bulletins/relevés + reçu + bulletin de paie) et tous les composants passent la validation de sécurité", () => {
+    expect([...ALL_BUILTIN_KEYS].sort()).toEqual(["higher-bulletin-coef", "higher-bulletin-credits", "primary-bulletin", "secondary-bulletin", "transcript-credits"]);
+    expect([...OFFICIAL_BUILTIN_KEYS].sort()).toEqual(["payslip-standard", "receipt-standard"]);
     for (const t of BUILTIN_TEMPLATES) {
       const r = validateTemplate({ body: t.body, css: t.css, partialNames: PARTIAL_NAMES });
       expect(r.problems, t.key).toEqual([]);
@@ -294,5 +295,45 @@ describe("rendu HTML déterministe des 5 gabarits", () => {
     const s = snapshotFor("secondary-bulletin");
     expect(() => renderDocumentHtml({ snapshot: s.snapshot, template: { body: `${s.template.body}<script>alert(1)</script>`, css: s.template.css }, verification: null })).toThrow(/refusé au rendu/);
     expect(() => renderDocumentHtml({ snapshot: s.snapshot, template: { body: s.template.body, css: `${s.template.css} @import url(http://x);` }, verification: null })).toThrow(/refusé au rendu/);
+  });
+});
+
+describe("rendu HTML des documents officiels d'autres modules (reçu, bulletin de paie)", () => {
+  const code = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const qr = qrToSvg(encodeQr(`https://verif.example.test/v/${code}`));
+  const htmlOf = (key: string, hostile = false): string => {
+    const t = BUILTIN_TEMPLATES.find((x) => x.key === key)!;
+    const ctx = officialContext(key, { hostile });
+    return renderContextHtml({ template: { body: t.body, css: t.css }, context: ctx, title: String(ctx.title), colors: { primary: "#14532D", secondary: "#5b7aa3" }, qrSvg: qr, provisional: false });
+  };
+
+  for (const key of OFFICIAL_BUILTIN_KEYS) {
+    it(`${key} : identité, contenu, QR, code, CSP, aucun script, déterministe`, () => {
+      const html = htmlOf(key);
+      expect(html).toBe(htmlOf(key));
+      expect(html).toContain("ÉTABLISSEMENT DE DÉMONSTRATION");
+      expect(html).toContain("KOUASSI Aya Fictive");
+      expect(html).toContain(`Code : ${code}`);
+      expect(html).toContain("<svg xmlns");
+      expect(html).toContain("default-src 'none'");
+      expect(html).toContain("Pied de page de démonstration.");
+      expect(html).not.toMatch(/<script|<iframe|<link|<object|onerror|javascript:/i);
+      expect(html.replace('xmlns="http://www.w3.org/2000/svg"', "")).not.toMatch(/https?:\/\/(?!verif\.example\.test)/);
+    });
+    it(`${key} : un nom hostile (balises, guillemets, script) est échappé partout`, () => {
+      const html = htmlOf(key, true);
+      expect(html).not.toContain("<script>alert");
+      expect(html).not.toContain("<b>\"O'Brien");
+      expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+      expect(html).toContain("&quot;O&#39;Brien&quot;");
+    });
+  }
+
+  it("reçu : imputations et reste dû ; bulletin de paie : lignes, ajustements et net à payer", () => {
+    const r = htmlOf("receipt-standard");
+    for (const s of ["REC-2026-000042", "MAT-0042", "Espèces", "25 000 F CFA", "FAC-2026-000007", "1re tranche", "75 000 F CFA"]) expect(r).toContain(s);
+    expect(r).not.toContain("Non imputé"); // champ vide : ligne omise
+    const p = htmlOf("payslip-standard");
+    for (const s of ["ENS-007", "Septembre 2025", "Mathématiques — 6e A", "Prime — Prime d&#39;assiduité", "280 000 F CFA", "Net à payer"]) expect(p).toContain(s);
   });
 });

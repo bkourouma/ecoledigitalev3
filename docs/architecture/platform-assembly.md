@@ -107,8 +107,11 @@ Module et non code technique de `src/platform/` parce qu'il **orchestre** des us
 | `POST /tenants` | `tenancy.provisionTenant` → `rbac.instantiateSystemRoles` → abonnement d'essai (`entitlements.setSubscription`, TRIALING) → propriétaire (`iam.provisionMember` `owner`, invitation) → rôle système `owner` (`rbac.assignSystemRoleUseCase`) → audit de plateforme |
 | `PATCH /tenants/:id/status` | suspension / réactivation / archivage (effet immédiat : l'accès IAM vérifie l'état du tenant à chaque requête) |
 | `POST /tenants/:id/reconcile` | reprise idempotente des rôles et de l'abonnement |
+| `GET /audit/logs` | journal d'audit de **plateforme** (`audit.platform_audit_log`) : même enveloppe que l'audit d'un tenant (`{ items, nextCursor }`, curseur opaque, plus récent d'abord), filtres `action` (exact ou préfixe `x.*`), `actorId`, `entity`, `entityId`, `severity`, `from`, `to`, `limit` ≤ 200 ; lecture seule via l'API publique du module `audit` (`listPlatformAuditLogs`), transaction système en lecture seule ; seuls `seq` et `hash` de la chaîne sortent |
 | `GET /plans`, `PUT /plans/:key`, `PUT /plans/:key/features` | catalogue |
 | `GET\|PUT /tenants/:id/subscription`, `GET /tenants/:id/overrides`, `PUT\|DELETE …/overrides/:feature` | abonnement et surcharges |
+
+Contrats de réponse (`packages/contracts/src/v2/platform.ts`) : `PlatformProvisionTenantResponseSchema` (`POST /tenants`, 201 : `tenantId`, `slug`, `institutions[]`, `owner`, `subscription` — le résultat de la console, distinct de `ProvisionTenantResultSchema` du module tenancy qui porte `onboarding`), `PlatformSetTenantStatusResponseSchema` (`PATCH …/status` : `{ tenantId, previous, current }`), `PlatformTenantListResponseSchema` ; validés contre les réponses HTTP réelles par `apps/api/test/phase1/platform-console.integration.test.ts`.
 
 Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform_audit_log`, chaîné) en plus de l'audit du tenant visé fait par les use cases. Un provisioning interrompu laisse un tenant **partiel**, signalé par `platform.provisioning_partial` (étape en cause) ; `reconcile` reprend rôles et abonnement.
 
@@ -254,7 +257,9 @@ Chaque module déclare des **ports** (ce qu'il attend de ses voisins) et échoue
 | `people-higher`, `people-reportcards` | people/iam -> higher, reportcards | `StudentDirectory`, `ActorDirectory`, `GuardianshipPort`, `UserDirectoryPort` |
 | `directories-finance` | people, academic -> finance | `LearnerDirectory` (un apprenant inconnu est refusé), `EnrollmentDirectory` |
 | `finance-academic` | finance -> academic | `InvoiceFactsReader`, `RegistrationFeeProbe` : **confirmation automatique de l'inscription** après paiement des frais d'inscription (décision métier du 2026-10-01) |
-| `finance-reportcards` | finance -> reportcards | `LearnerStandingPort` (impayé exigible, sans montant) |
+| `finance-reportcards` | finance -> reportcards ; reportcards -> finance | `LearnerStandingPort` (impayé exigible, sans montant) ; `ReceiptDocumentPort` (PDF du reçu : scellement, rendu par le worker, vérification publique) |
+| `payroll-reportcards` | reportcards -> payroll | `PayslipDocumentPort` (PDF du bulletin de paie versé) |
+| `people-finance` | people -> finance | `GuardianshipPort` (lien de tutelle / identité de l'élève : routes famille `/finance/me/*`, relu à chaque requête) |
 | `attendance-reportcards` | attendance -> reportcards | `AttendanceSummaryPort` (minutes justifiées / non justifiées, retards) |
 | `scheduling-attendance` | scheduling <-> attendance | `OccurrencePort` ; `AttendanceQuery` (l'appel est-il soumis ?) |
 | `payroll-sources` | scheduling, attendance -> payroll | `HoursSourcePort` d'origine SESSION (heures payables, **gel atomique** par bulletin) et ATTENDANCE |

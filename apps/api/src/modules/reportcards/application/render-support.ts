@@ -43,6 +43,23 @@ async function toDataUri(deps: ReportcardsDeps, key: string, what: string): Prom
   return ok(`data:${mime};base64,${Buffer.from(object.bytes).toString("base64")}`);
 }
 
+/** Logo et emblème d'une identité d'établissement (documents officiels d'autres modules : pas de signataires). */
+export async function loadInstitutionAssets(deps: ReportcardsDeps, input: { logoKey: string | null; emblemKey: string | null }): Promise<Result<RenderAssets, AppError>> {
+  let logo: string | null = null;
+  let emblem: string | null = null;
+  if (input.logoKey) {
+    const r = await toDataUri(deps, input.logoKey, "logo");
+    if (!r.ok) return r;
+    logo = r.value;
+  }
+  if (input.emblemKey) {
+    const r = await toDataUri(deps, input.emblemKey, "emblème");
+    if (!r.ok) return r;
+    emblem = r.value;
+  }
+  return ok({ logo, emblem, signatures: {} });
+}
+
 export async function loadRenderAssets(deps: ReportcardsDeps, snapshot: ReportcardSnapshot): Promise<Result<RenderAssets, AppError>> {
   let logo: string | null = null;
   let emblem: string | null = null;

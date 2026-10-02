@@ -17,6 +17,10 @@ export const ReportcardsEvents = {
   REVOKED: "reportcards.report_card.revoked",
   BATCH_COMPLETED: "reportcards.batch.completed",
   INTEGRITY_MISMATCH: "reportcards.integrity.mismatch",
+  /** Document officiel d'un autre module (reçu, bulletin de paie) scellé : le worker rend le PDF (demande initiale ou reprise). */
+  OFFICIAL_RENDER_REQUESTED: "reportcards.official_document.render_requested",
+  OFFICIAL_RENDERED: "reportcards.official_document.rendered",
+  OFFICIAL_RENDER_FAILED: "reportcards.official_document.render_failed",
 } as const;
 
 export const ALL_REPORTCARDS_EVENT_TYPES = Object.freeze(Object.keys(reportcardsEventPayloadSchemas)) as readonly string[];

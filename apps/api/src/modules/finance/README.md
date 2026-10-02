@@ -174,10 +174,68 @@ Contexte : `request.ctx` posé en amont (iam / authentification historique). Per
 | `POST /cash-sessions/:id/close` | `finance.cashregister.close` |
 | `GET /reports/summary\|receivables-by-group\|receivables-by-learner\|collections-trend\|aged-balance` | `finance.report.read` |
 | `GET /receipts`, `GET /receipts/:id`, `GET /payments/:id/receipt` | `finance.receipt.read` |
+| `GET /exports/invoices\|payments\|receivables` (CSV complet) et `…/meta` (JSON) | `finance.invoice.read` / `finance.payment.read` / `finance.report.read` |
+| `GET /me/learners`, `GET /me/learners/:learnerId/statement\|invoices[/:id]\|installments\|payments[/:id]\|receipts[/:id]` | `finance.child.read` (parent) ou `finance.self.read` (élève) + **propriété** relue côté serveur |
+| `POST /me/learners/:learnerId/payments/online`, `POST /me/learners/:learnerId/payments/:id/verify` *(feature `finance.online-payment`)* | `finance.child.pay` (parent) ou `finance.self.pay` (élève) + propriété |
+| `GET /receipts/:id/pdf` (PDF du reçu), `GET /me/learners/:learnerId/receipts/:id/pdf` (famille) | `finance.receipt.read` ; `finance.child.read` / `finance.self.read` + propriété |
 | `POST /webhooks/:provider/:tenantId` | publique (signature) |
 
 Contrats Zod : `packages/contracts/src/v2/finance.ts` (réexportés par `v2/index.ts`). Entrées : montants entiers ou
 chaînes de chiffres, jamais de décimale ; champs inconnus refusés (`strict`).
+
+## Routes famille `/me/*` — parent et élève
+
+Un parent lit la situation financière de SES enfants, un élève la sienne ; le parent peut payer en ligne pour son enfant.
+
+* **Deux couches** : (1) RBAC — `finance.child.read|pay` (modèle de rôle `parent`) ou `finance.self.read|pay` (modèle `eleve`) ; (2) **propriété** relue à
+  chaque requête par le port `GuardianshipPort` (adaptateur `platform/adapters/people-finance.ts` → `people`) : l'apprenant est la fiche liée au compte
+  (`persons.identity_id`, jamais l'e-mail) ou l'enfant d'un tuteur VIVANT (lien non clos, portail ouvert, nature `GUARDIAN`). La permission doit correspondre à
+  la relation (un parent n'ouvre pas un enfant avec la seule `finance.self.read`). Port non branché : échec fermé (personne ne voit rien).
+* **404 uniforme** : enfant non lié, lien clos, apprenant inconnu, facture / paiement / reçu d'un autre apprenant, brouillon, part d'un financeur : même
+  réponse (`finance.not_found`, « Ressource introuvable. », sans identifiant). Seul un identifiant mal formé donne un 400 de validation.
+* **Périmètre exposé** : factures ÉMISES (numérotées) et paiements/reçus à la charge de la FAMILLE (`payerKind = LEARNER`). Jamais un brouillon ni une facture ou
+  un paiement de financeur (État, entreprise). DTO sans champs internes (`payerRef`, `cancelReason`, `providerRef`, `simulated`, `cashSessionId`).
+  Totaux du relevé calculés sur ce seul périmètre.
+* **Paiement en ligne** : `invoiceId` OBLIGATOIRE ; avant tout appel fournisseur, finance contrôle que la facture est celle de l'apprenant, émise, à la charge de
+  la famille et encaissable, que la devise est la sienne et que le montant ne dépasse pas le reste dû. Clé d'idempotence **propre à l'utilisateur**
+  (`fam:` + SHA-256 de `userId + clé`) : la clé d'un parent ne rejoue ni ne heurte le paiement d'un autre compte. Le paiement porte `created_by` = le compte
+  initiateur ; l'initiation est auditée (`finance.payment.family_initiated`, relation `SELF` ou `GUARDIAN`). `verify` interroge le fournisseur pour un paiement
+  en attente de l'apprenant lié.
+
+## PDF des reçus
+
+Le reçu est un snapshot IMMUABLE (déclencheur SQL) : `GET /receipts/:id/pdf` (gestion) et `GET /me/learners/:learnerId/receipts/:id/pdf`
+(famille : même contrôle de propriété, reçu d'un financeur ou d'un autre apprenant = 404 uniforme) le confient au module `reportcards`
+par le port `documents` (`platform/adapters/finance-reportcards.ts`) : contenu figé (`domain/receipt-document.ts`, nom de l'apprenant lu dans
+`people` et FIGÉ à la première demande) -> scellement (hash SHA-256 du JSON canonique, code de vérification de 128 bits, signature Ed25519)
+-> rendu par le worker (Chromium, JavaScript coupé, réseau coupé) depuis ce contenu seul -> stockage objet -> **page publique de
+vérification** (`/v/<code>`, QR imprimé sur le PDF ; code et fichier reconnus, aucune donnée personnelle publiée : le titre ne porte que le
+numéro du reçu). Réponses : `200` PDF (`Cache-Control: private, no-store`, `X-Document-Verification-Code`), `202` + `Retry-After` pendant le
+rendu (1re demande : le document est scellé et le rendu publié), `409 finance.document_render_failed` si le rendu a échoué définitivement
+(la demande suivante le redemande), `409 reportcards.branding_missing` sans identité d'établissement, `500 finance.port_unavailable` si le
+service de documents n'est pas branché. Chaque téléchargement abouti est audité (`finance.receipt.downloaded`). Variables : voir
+`reportcards/README.md` (`REPORTCARDS_SIGNING_KEY`, `REPORTCARDS_VERIFICATION_BASE_URL`, stockage objet).
+
+## Clés libres des barèmes (`levelKey`, `trackKey`, `learnerType`)
+
+Finance ne les interprète pas ; leur SENS est fixé par l'adaptateur d'inscriptions d'`academic` (`createEnrollmentDirectory`, branché par
+`platform/adapters/directories-finance.ts`) : `levelKey` = code du niveau de la classe (ex. `L1`), `trackKey` = code du programme (ex. `INFO`),
+`learnerType` = code du type de FINANCEMENT de l'inscription (`PRIVATE`, `STATE_ASSIGNED`, `SCHOLARSHIP`, `COMPANY`, `STAFF_CHILD`, `OTHER` : le
+même vocabulaire des deux côtés), `groupKey` = classe, `academicYear` = code de l'année. Le barème se résout depuis l'inscription (le plus
+spécifique gagne) ; une portée explicite de la demande prime clé par clé, une clé absente retombe sur l'inscription ; la sonde de frais
+d'inscription d'`academic` dérive le MÊME périmètre. Test : `apps/api/test/adapters/fee-scope.integration.test.ts` (vraies inscriptions).
+
+## Exports CSV serveur
+
+`GET /exports/invoices|payments|receivables` (filtres des listes, sans pagination) et `GET /exports/<jeu>/meta` (JSON `financeExportMetaDtoSchema`).
+Le fichier contient TOUTES les lignes du filtre (une seule requête = instantané cohérent) jusqu'au plafond **`FINANCE_EXPORT_MAX_ROWS`** (défaut **50 000**,
+borné à 500 000). Au-delà, il est tronqué ET signalé : en-têtes `X-Export-Truncated` (`true|false`), `X-Export-Row-Count`, `X-Export-Total-Count`,
+`X-Export-Max-Rows` (exposés par `Access-Control-Expose-Headers`) et route `/meta` — lisible par le client typé sans accès aux en-têtes
+(`parseFinanceExportHeaders` du contrat ; un en-tête manquant = potentiellement tronqué, jamais « complet »). Format : UTF-8 avec BOM, séparateur `;`, CRLF,
+anti-injection de formule, montants entiers en unités mineures + colonne `devise`. Chaque export est audité (`finance.export.generated`).
+La colonne `apprenant` (« NOM Prénom ») est lue par LOT dans `people` (port facultatif `learners.getLearnerNames`, une lecture pour N apprenants) ; elle est
+vide si le port est absent ou indisponible. Le même port alimente `displayName` de `GET /me/learners` et `learnerName` de
+`GET /reports/receivables-by-learner` (décoration : un échec ne casse jamais la liste).
 
 ## Reporting — définitions
 

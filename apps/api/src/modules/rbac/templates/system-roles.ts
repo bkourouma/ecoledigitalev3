@@ -435,6 +435,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.own.record",
       "attendance.leave.request",
       "payroll.payslip.read_own",
+      "payroll.my.dispute",
     ],
   },
 
@@ -538,6 +539,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.own.record",
       "attendance.leave.request",
       "payroll.payslip.read_own",
+      "payroll.my.dispute",
       "schedule.own.read",
     ],
   },
@@ -546,7 +548,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
   // PARENT — ses ENFANTS uniquement (relation de tutelle vérifiée par chaque module) : toutes les
   // permissions `*.child.*` du catalogue, aucune permission de gestion. Énumérées (et non `*.child.*`) :
   // un test vérifie l'égalité avec l'ensemble des clés `*.child.*` du catalogue.
-  // Manque connu : finance ne déclare aucune permission `finance.child.*` (factures et solde des enfants).
+  // Finance : `finance.child.read` (situation financière des enfants) et `finance.child.pay` (paiement en
+  // ligne initié par le parent) ; la tutelle est relue par finance à chaque requête (routes `/finance/me/*`).
   // ------------------------------------------------------------------------------------------------
   {
     key: "parent",
@@ -563,6 +566,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.child.justify",
       "schedule.child.read",
       "higher.child.read",
+      "finance.child.read",
+      "finance.child.pay",
     ],
   },
 
@@ -587,6 +592,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.self.justify",
       "schedule.self.read",
       "higher.self.read",
+      "finance.self.read",
+      "finance.self.pay",
     ],
   },
 ]);

@@ -38,6 +38,7 @@ describe("manifeste", () => {
         "payroll.run.calculate",
         "payroll.payslip.read",
         "payroll.payslip.read_own",
+        "payroll.my.dispute",
         "payroll.payslip.adjust",
         "payroll.payslip.approve",
         "payroll.payslip.approve_owner",
@@ -52,6 +53,7 @@ describe("manifeste", () => {
     const sensitive = new Set(manifest.permissions.filter((p) => p.sensitive).map((p) => p.key));
     for (const k of ["payroll.payslip.approve", "payroll.payslip.approve_owner", "payroll.payslip.pay", "payroll.payslip.cancel", "payroll.payslip.read", "payroll.payslip.adjust", "payroll.settings.manage"]) expect(sensitive.has(k), k).toBe(true);
     expect(sensitive.has("payroll.payslip.read_own")).toBe(false);
+    expect(sensitive.has("payroll.my.dispute")).toBe(false);
     expect(manifest.features.map((f) => f.key).sort()).toEqual(["payroll.attendance-source", "payroll.core", "payroll.owner-validation", "payroll.session-source"]);
     // Q-36 : sources d'heures par pack
     const packsOf = (key: string) => manifest.features.find((f) => f.key === key)?.packs;

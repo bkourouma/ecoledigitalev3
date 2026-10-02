@@ -47,7 +47,7 @@ export interface AuditHttpOptions {
 export function toSummaryDto(e: StoredAuditEntry): AuditLogSummaryDto {
   return {
     id: e.id,
-    tenantId: e.tenantId as string,
+    tenantId: e.tenantId,
     seq: e.seq,
     occurredAt: e.occurredAt,
     recordedAt: e.recordedAt,

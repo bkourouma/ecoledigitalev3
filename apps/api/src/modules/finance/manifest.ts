@@ -42,6 +42,15 @@ export default defineModule({
     { key: "finance.cashregister.close", label: "Clôturer une session de caisse (comptage et écart)" },
     { key: "finance.report.read", label: "Consulter les tableaux de bord et rapports financiers" },
     { key: "finance.receipt.read", label: "Consulter et réimprimer les reçus" },
+    // Portails famille : accès filtré par lien de tutelle / identité de l'élève (relu côté serveur à chaque requête).
+    { key: "finance.child.read", label: "Consulter la situation financière de ses enfants (factures, échéances, paiements, reçus)" },
+    {
+      key: "finance.child.pay",
+      label: "Payer en ligne la scolarité de ses enfants",
+      description: "Initier un paiement en ligne sur une facture d'un enfant lié ; sans effet si la fonctionnalité de paiement en ligne n'est pas souscrite.",
+    },
+    { key: "finance.self.read", label: "Consulter sa propre situation financière (élève : factures, échéances, paiements, reçus)" },
+    { key: "finance.self.pay", label: "Payer en ligne sa propre scolarité (élève)" },
   ],
   features: [
     { key: "finance.installments", label: "Échéanciers de paiement", packs: ["CORE"] },
@@ -58,6 +67,8 @@ export default defineModule({
     // tant que l'établissement n'a pas souscrit la feature (le test de sortie de phase 1 s'appuie dessus).
     { key: "finance.online-payments", label: "Paiements en ligne", href: "/admin/finance/paiements-en-ligne", permission: "finance.payment.read", feature: "finance.online-payment", portal: "admin", icon: "smartphone", order: 415 },
     { key: "finance.state-assigned", label: "Élèves affectés par l'État", href: "/admin/finance/affectes-etat", permission: "finance.fee.read", feature: "finance.state-assigned", portal: "admin", icon: "landmark", order: 435 },
+    { key: "finance.child", label: "Scolarité de mes enfants", href: "/parent/finance", permission: "finance.child.read", portal: "parent", icon: "wallet", order: 500 },
+    { key: "finance.self", label: "Ma scolarité", href: "/student/finance", permission: "finance.self.read", portal: "student", icon: "wallet", order: 500 },
   ],
   events: {
     publishes: [...ALL_FINANCE_EVENT_TYPES],

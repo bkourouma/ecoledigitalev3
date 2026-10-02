@@ -769,6 +769,66 @@ export const peopleStaffSummaryDtoSchema = z.object({
 });
 export type PeopleStaffSummaryDto = z.infer<typeof peopleStaffSummaryDtoSchema>;
 
+// ---------------------------------------------------------------------------
+// Résolution de noms par lots : `GET /students/lookup?ids=…`, `GET /staff/lookup?ids=…`
+// ---------------------------------------------------------------------------
+
+/** Plafond d'identifiants DISTINCTS par appel HTTP (URL bornée : 100 UUID ≈ 3,7 Ko). L'API publique `lookup*` accepte 500. */
+export const PEOPLE_LOOKUP_MAX_IDS = 100;
+
+/**
+ * `ids` : UUID séparés par des virgules (ou paramètre répété). Les doublons sont ignorés ; au plus
+ * {@link PEOPLE_LOOKUP_MAX_IDS} identifiants DISTINCTS ; un segment vide ou mal formé refuse la requête (400).
+ */
+export const peopleLookupQuerySchema = z
+  .object({
+    ids: z
+      .union([z.string(), z.array(z.string())])
+      .transform((v) => (Array.isArray(v) ? v.join(",") : v))
+      .pipe(z.string().min(1, "Au moins un identifiant est requis.").max(8_000, "Liste d'identifiants trop longue."))
+      .transform((s) => s.split(",").map((x) => x.trim()))
+      .pipe(z.array(peopleUuidSchema))
+      .transform((list) => [...new Set(list)])
+      .pipe(z.array(peopleUuidSchema).min(1).max(PEOPLE_LOOKUP_MAX_IDS, `Au plus ${PEOPLE_LOOKUP_MAX_IDS} identifiants distincts par appel.`)),
+  })
+  .strict();
+export type PeopleLookupQuery = z.infer<typeof peopleLookupQuerySchema>;
+
+/** Résumé MINIMAL d'un élève : ni naissance, ni contact, ni photo, ni inscription, ni identifiant national. */
+export const peopleStudentLookupItemSchema = z.object({
+  id: peopleUuidSchema,
+  /** « NOM Prénom ». */
+  displayName: z.string(),
+  studentNumber: z.string(),
+  status: peopleStudentStatusSchema,
+});
+export type PeopleStudentLookupItem = z.infer<typeof peopleStudentLookupItemSchema>;
+
+/**
+ * `items` suit l'ordre des identifiants demandés (dédoublonnés). `missing` = demandés mais non restitués : inconnus,
+ * d'un autre tenant OU hors du périmètre de l'appelant — volontairement INDISCERNABLES (aucune fuite d'existence).
+ */
+export const peopleStudentLookupResponseSchema = z.object({
+  items: z.array(peopleStudentLookupItemSchema),
+  missing: z.array(peopleUuidSchema),
+});
+export type PeopleStudentLookupResponse = z.infer<typeof peopleStudentLookupResponseSchema>;
+
+/** Résumé MINIMAL d'un membre du personnel : ni contact, ni compte lié, ni contrat, ni rémunération. */
+export const peopleStaffLookupItemSchema = z.object({
+  id: peopleUuidSchema,
+  displayName: z.string(),
+  staffNumber: z.string(),
+  status: peopleStaffStatusSchema,
+});
+export type PeopleStaffLookupItem = z.infer<typeof peopleStaffLookupItemSchema>;
+
+export const peopleStaffLookupResponseSchema = z.object({
+  items: z.array(peopleStaffLookupItemSchema),
+  missing: z.array(peopleUuidSchema),
+});
+export type PeopleStaffLookupResponse = z.infer<typeof peopleStaffLookupResponseSchema>;
+
 export const peopleStaffAffiliationDtoSchema = z.object({
   id: peopleUuidSchema,
   institutionId: peopleUuidSchema,
