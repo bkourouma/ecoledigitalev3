@@ -10,8 +10,9 @@ import { usePlatformAudit } from "./hooks";
 const TONE: Record<AuditLogSummaryDto["severity"], StatusTone> = { info: "neutral", notice: "info", warning: "warning", critical: "danger" };
 
 /**
- * `/v2/platform/audit` : journal d'audit de plateforme (actions des opérateurs). L'API n'expose pas encore la route de
- * lecture : tant qu'elle répond 404/501, l'écran l'explique au lieu d'afficher une panne.
+ * `/v2/platform/audit` : journal d'audit de plateforme (actions des opérateurs), lu par `GET /api/v1/platform/audit/logs`
+ * (curseur). Seul un serveur dont l'API est antérieure à cette route répond 404/501 : l'écran l'explique alors au lieu
+ * d'afficher une panne.
  */
 export function PlatformAuditPage() {
   const t = useTranslations("platform.audit");

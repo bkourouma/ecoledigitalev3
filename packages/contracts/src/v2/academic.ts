@@ -1011,6 +1011,43 @@ export const academicEnrollmentDtoSchema = z.object({
 });
 export type AcademicEnrollmentDto = z.infer<typeof academicEnrollmentDtoSchema>;
 
+/**
+ * Libellés lisibles par la FAMILLE (`GET /academic/me/labels`, `GET /academic/children/:studentId/labels`) : classes, périodes
+ * et matières (nœuds du curriculum) des inscriptions de l'élève, pour nommer les identifiants que portent les notes, résultats,
+ * présences et séances. Lecture seule, permissions `enrollment.self.read` / `enrollment.child.read` + lien de tutelle ;
+ * aucune donnée de gestion (pas de statut de publication, d'effectif ni de montant).
+ */
+export const academicFamilyLabelsDtoSchema = z.object({
+  classrooms: z.array(z.object({ id: academicUuidSchema, name: z.string(), code: z.string(), academicYearId: academicUuidSchema })),
+  periods: z.array(
+    z.object({
+      id: academicUuidSchema,
+      academicYearId: academicUuidSchema,
+      parentPeriodId: academicUuidSchema.nullable(),
+      periodTypeCode: z.string(),
+      ordinal: z.number().int(),
+      code: z.string(),
+      label: z.string(),
+      startsOn: academicDateSchema,
+      endsOn: academicDateSchema,
+    }),
+  ),
+  nodes: z.array(
+    z.object({
+      id: academicUuidSchema,
+      parentId: academicUuidSchema.nullable(),
+      nodeTypeCode: z.string(),
+      code: z.string(),
+      label: z.string(),
+      ordinal: z.number().int(),
+      coefficient: z.string().nullable(),
+      credits: z.string().nullable(),
+      isTransversal: z.boolean(),
+    }),
+  ),
+});
+export type AcademicFamilyLabelsDto = z.infer<typeof academicFamilyLabelsDtoSchema>;
+
 export const academicEnrollmentCourseDtoSchema = z.object({
   id: academicUuidSchema,
   enrollmentId: academicUuidSchema,

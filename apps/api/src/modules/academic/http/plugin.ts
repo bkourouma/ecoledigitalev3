@@ -614,6 +614,14 @@ export async function academicPlugin(app: FastifyInstance, options: AcademicPlug
         return { items: unwrapOrThrow(await reads.listChildEnrollments(deps, ctxOf(req), studentId)) };
       });
 
+      // Libellés (classes, périodes, matières) des inscriptions de l'élève / de l'enfant : nomme les identifiants des notes,
+      // résultats, présences et séances côté portail. Mêmes permissions et même contrôle de tutelle que les inscriptions.
+      scope.get("/me/labels", { preHandler: perm("enrollment.self.read") }, async (req) => unwrapOrThrow(await reads.getMyLabels(deps, ctxOf(req))));
+      scope.get("/children/:studentId/labels", { preHandler: perm("enrollment.child.read") }, async (req) => {
+        const { studentId } = parse(c.academicChildParamsSchema, req.params);
+        return unwrapOrThrow(await reads.getChildLabels(deps, ctxOf(req), studentId));
+      });
+
       // ===== Reconduction annuelle ============================================================================
       scope.get("/years/:id/rollover/preview", { preHandler: withFeature("academic.year.rollover", "academic.rollover") }, async (req) => {
         const { id } = parse(c.academicIdParamsSchema, req.params);

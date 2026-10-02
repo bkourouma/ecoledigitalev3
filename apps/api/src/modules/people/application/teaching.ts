@@ -386,10 +386,14 @@ export async function listAssignmentsForStaff(
   return inTx(deps, ctx, async (tx) => ok((await repo.listAssignmentRows(tx, ctx.tenantId, { staffId, yearId: options.yearId, onDate: options.onDate, status: options.status })).map(assignmentView)), { readOnly: true });
 }
 
-/** Classes où le membre du personnel est affecté à la date du jour (portail « mes classes ») avec ses affectations. */
+/**
+ * Classes où le membre du personnel est affecté à la date du jour (portail « mes classes ») avec ses affectations.
+ * Le nom de la classe et le libellé de chaque matière sont ajoutés quand `academic` est branché (lecture hors transaction,
+ * jamais bloquante : un nom absent n'empêche pas la liste).
+ */
 export async function listMyClasses(deps: PeopleDeps, ctx: RequestContext, staffId: string, onDate?: string) {
   const date = onDate ?? todayOf(deps);
-  return inTx(
+  const base = await inTx(
     deps,
     ctx,
     async (tx) => {
@@ -404,6 +408,39 @@ export async function listMyClasses(deps: PeopleDeps, ctx: RequestContext, staff
     },
     { readOnly: true },
   );
+  if (!base.ok) return base;
+  type Out = {
+    classroomId: string;
+    academicYearId: string;
+    classroomName: string | null;
+    classroomCode: string | null;
+    periods: Array<{ id: string; label: string; startsOn: string; endsOn: string }>;
+    nodes: Array<{ id: string; label: string }>;
+    assignments: Array<{ assignmentId: string; roleCode: string; curriculumNodeId: string | null; nodeLabel: string | null; coversAllSubjects: boolean }>;
+  };
+  const academic = deps.academic;
+  if (!academic) return ok(base.value.map((c): Out => ({ ...c, classroomName: null, classroomCode: null, periods: [], nodes: [], assignments: c.assignments.map((a) => ({ ...a, nodeLabel: null })) })));
+  const nodeLabels = new Map<string, string | null>();
+  const labelOf = async (nodeId: string): Promise<string | null> => {
+    if (!nodeLabels.has(nodeId)) nodeLabels.set(nodeId, await academic.getCurriculumNode(ctx, nodeId).then((n) => n?.label ?? null, () => null));
+    return nodeLabels.get(nodeId) ?? null;
+  };
+  const periodsOfYear = new Map<string, Out["periods"]>();
+  const enriched: Out[] = [];
+  for (const c of base.value) {
+    const classroom = await academic.getClassroom(ctx, c.classroomId).catch(() => null);
+    const assignments: Out["assignments"] = [];
+    for (const a of c.assignments) assignments.push({ ...a, nodeLabel: a.curriculumNodeId ? await labelOf(a.curriculumNodeId) : null });
+    if (!periodsOfYear.has(c.academicYearId)) periodsOfYear.set(c.academicYearId, academic.listPeriodsOfYear ? await academic.listPeriodsOfYear(ctx, c.academicYearId).catch(() => []) : []);
+    // Matières que l'enseignant peut évaluer dans cette classe : celles de ses affectations ; un généraliste (toutes matières) voit les matières de la classe.
+    const nodes = new Map<string, string>();
+    for (const a of assignments) if (a.curriculumNodeId && a.nodeLabel) nodes.set(a.curriculumNodeId, a.nodeLabel);
+    if (assignments.some((a) => a.coversAllSubjects)) {
+      for (const n of await academic.listNodesForClassroom(ctx, c.classroomId).catch(() => [])) if (n.subjectId && !n.isTransversal && n.label) nodes.set(n.id, n.label);
+    }
+    enriched.push({ ...c, classroomName: classroom?.name ?? null, classroomCode: classroom?.code ?? null, periods: periodsOfYear.get(c.academicYearId) ?? [], nodes: [...nodes].map(([id, label]) => ({ id, label })), assignments });
+  }
+  return ok(enriched);
 }
 
 /** Le responsable d'un nœud dans une classe : `LEAD` explicite > généraliste > titulaire ; « aucun » pour un nœud transversal. */

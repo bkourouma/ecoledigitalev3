@@ -114,7 +114,7 @@ avec l'infrastructure complète (appel avec `context.setOffline(true)`, reconnex
 4. **`/scheduling/me/today` ne porte pas `attendanceSubmitted`** : l'état de l'appel est reconstitué par `GET /attendance/sessions?date=`
    (requête en plus, droits `attendance.read` ou `.take`).
 5. **Export CSV** : le client API ne renvoie que le corps ; `x-export-truncated` (5 000 lignes) n'est pas lisible, l'avertissement est permanent.
-6. **Menus des manifestes** : les entrées des portails enseignant, parent et élève (`/teacher/attendance`, `/enseignant/aujourdhui`,
+6. **Menus des manifestes** (portails livrés : `v2-portals.md`, menus statiques filtrés par permissions) : les entrées des portails enseignant, parent et élève (`/teacher/attendance`, `/enseignant/aujourdhui`,
    `/parent/attendance`, `/student/attendance`, `/parent/emploi-du-temps`…) pointent encore vers l'ancien site ; au basculement elles
    doivent viser `/v2/attendance/call`, `/v2/schedule/today`, `/v2/attendance/children`, `/v2/attendance/me`, `/v2/schedule`.
    « Saisir les notes » pointe vers `/teacher/evaluations` (entrée `assess.mine`) en attendant les écrans v2 du module d'évaluation.

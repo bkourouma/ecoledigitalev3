@@ -7,7 +7,7 @@
 
 import { usePermission } from "@/platform/access";
 import { useClassrooms } from "./academic";
-import { useStaffList, useStudents } from "./people";
+import { useMyClasses, useStaffList, useStudents } from "./people";
 import { useRooms } from "./scheduling";
 
 export const shortId = (id: string): string => `…${id.slice(-4)}`;
@@ -30,9 +30,14 @@ function directoryOf(map: ReadonlyMap<string, string>, isLoading: boolean): Dire
 
 export function useClassroomDirectory(): Directory {
   const canRead = usePermission("academic.classroom.read").allowed;
+  const teacher = usePermission("staff.own.read").allowed;
   const q = useClassrooms({ pageSize: 200 }, { enabled: canRead });
-  const map = new Map((q.data?.items ?? []).map((c) => [c.id, c.name]));
-  return directoryOf(map, q.isFetching);
+  // Enseignant sans lecture académique : « mes classes » (`/people/me/classes`) nomme ses propres classes.
+  const mine = useMyClasses(teacher && !canRead);
+  const map = new Map<string, string>();
+  for (const c of mine.data ?? []) if (c.classroomName) map.set(c.classroomId, c.classroomName);
+  for (const c of q.data?.items ?? []) map.set(c.id, c.name);
+  return directoryOf(map, q.isFetching || mine.isFetching);
 }
 
 export function useStaffDirectory(): Directory {

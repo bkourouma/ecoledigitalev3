@@ -16,6 +16,7 @@ import { ModalDialog } from "@/platform/ui/ModalDialog";
 import { ErrorBlock, LoadingBlock, Notice, QueryBoundary, useFlash } from "@/platform/ui/states";
 import { apiErrorToFieldErrors, validateWith, type FieldErrors } from "@/platform/ui/validation";
 import { useClassroom } from "@/platform/v2/academic";
+import { useTeachingScope } from "@/platform/v2/teaching";
 import { applyPaste, buildBatch, isDirty, issueOf, mergeSaved, nextIndex, parseCell, progressOf, rowFromGrade, rowFromPending, STATUS_CODE, type CellContext, type EntryStatus, type GridRow } from "./grid-model";
 import { toneOfStatus, useStudentLabel, useStudentNames } from "./shared";
 import { WorkflowBar } from "./WorkflowBar";
@@ -37,7 +38,7 @@ function statusOfText(text: string, hasBase: boolean, ctx: CellContext): EntrySt
   return hasBase ? "NOT_GRADED" : "";
 }
 
-export function GradeEntryScreen({ assessmentId }: { assessmentId: string }) {
+export function GradeEntryScreen({ assessmentId, detailHref }: { assessmentId: string; detailHref?: string }) {
   const t = useTranslations("v2Assess.grid");
   const tCommon = useTranslations("v2Assess.common");
   const sheet = useGradeSheet(assessmentId);
@@ -47,7 +48,7 @@ export function GradeEntryScreen({ assessmentId }: { assessmentId: string }) {
         {sheet.data ? <GradeSheetView key={assessmentId} sheet={sheet.data} onReload={() => sheet.refetch()} isReloading={sheet.isFetching} /> : <LoadingBlock label={tCommon("loading")} />}
       </QueryBoundary>
       <p className="mt-6 text-sm">
-        <Link href={`/v2/assessments/${assessmentId}`} className="font-medium text-primary underline-offset-4 hover:underline">
+        <Link href={detailHref ?? `/v2/assessments/${assessmentId}`} className="font-medium text-primary underline-offset-4 hover:underline">
           {t("backToAssessment")}
         </Link>
       </p>
@@ -63,7 +64,8 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
   const assessment = sheet.assessment;
   const settings = useAssessSettings();
   const types = useAssessmentTypes();
-  const classroom = useClassroom(assessment.classroomId);
+  const scope = useTeachingScope();
+  const classroom = useClassroom(!scope.useMine && !scope.isLoading ? assessment.classroomId : null);
   const nodeLabels = useNodeLabels(assessment.classroomId);
   const lock = usePeriodLock(assessment.classroomId, assessment.academicPeriodId);
   const { names, truncated } = useStudentNames(assessment.classroomId);
@@ -271,7 +273,7 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
     <div>
       <PageHeader
         title={assessment.title}
-        description={[classroom.data?.name, nodeLabels.get(assessment.curriculumNodeId), typeLabel].filter(Boolean).join(" · ")}
+        description={[classroom.data?.name ?? scope.classroomName(assessment.classroomId), nodeLabels.get(assessment.curriculumNodeId), typeLabel].filter(Boolean).join(" · ")}
         actions={
           <>
             <StatusBadge label={tStatus(assessment.status)} tone={toneOfStatus(assessment.status)} />

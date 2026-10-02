@@ -24,7 +24,7 @@ interface Target {
   curriculumNodeId: string;
 }
 
-export function AssessmentCreate({ initialClassroomId = "" }: { initialClassroomId?: string }) {
+export function AssessmentCreate({ initialClassroomId = "", basePath = "/v2/assessments" }: { initialClassroomId?: string; basePath?: string }) {
   const t = useTranslations("v2Assess.create");
   const types = useAssessmentTypes();
   const create = useCreateAssessment();
@@ -79,7 +79,7 @@ export function AssessmentCreate({ initialClassroomId = "" }: { initialClassroom
           {created.map((a) => (
             <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
               <span className="font-medium">{a.title}</span>
-              <Link href={`/v2/assessments/${a.id}/grades`} className={buttonClass.primary}>
+              <Link href={`${basePath}/${a.id}/grades`} className={buttonClass.primary}>
                 {t("enterGrades")}
               </Link>
             </li>
@@ -209,7 +209,7 @@ export function AssessmentCreate({ initialClassroomId = "" }: { initialClassroom
 
         {mutation.error && Object.keys(errors).length === 0 ? <ErrorBlock error={mutation.error} /> : null}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Link href="/v2/assessments" className={buttonClass.secondary}>
+          <Link href={basePath} className={buttonClass.secondary}>
             {t("cancel")}
           </Link>
           <button type="submit" className={buttonClass.primary} disabled={mutation.isPending}>

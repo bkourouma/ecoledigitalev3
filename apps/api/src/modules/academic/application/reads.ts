@@ -11,6 +11,7 @@ import type { Tx } from "@ecoledigitale/database";
 import type { ACADEMIC_ELIGIBILITY_CODES } from "@ecoledigitale/contracts/src/v2/academic";
 import type {
   AcademicCatalogItemDto,
+  AcademicFamilyLabelsDto,
   AcademicCourseRegistrationDto,
   AcademicEnrollmentNodeView,
   AcademicEnrollmentRefDto,
@@ -326,6 +327,59 @@ export async function listChildEnrollments(deps: AcademicDeps, ctx: RequestConte
   const allowed = await deps.ports.guardianship.isGuardianOfStudent(ctx, ctx.userId, studentId);
   if (!allowed) return err(notFound(AcademicCode.STUDENT_NOT_FOUND, "Apprenant", studentId));
   return inReadTx(deps, ctx, async (tx) => ok((await enr.listEnrollmentsByStudent(tx, studentId)).filter((e) => inScope(ctx, e))));
+}
+
+/**
+ * Libellés d'un élève pour les portails famille : classes, périodes et nœuds de curriculum de SES inscriptions (+ nœuds de
+ * ses sélections de cours), de quoi nommer les identifiants que portent notes, résultats, présences et séances. Aucune donnée
+ * de gestion n'est exposée (ni statut de publication, ni effectif, ni montant). Le périmètre est celui de `listMy…` /
+ * `listChild…` : élève lui-même ou tuteur lié (404 hors lien).
+ */
+async function familyLabelsOf(deps: AcademicDeps, ctx: RequestContext, studentId: string): Promise<Result<AcademicFamilyLabelsDto, AppError>> {
+  return inReadTx(deps, ctx, async (tx) => {
+    const enrollments = (await enr.listEnrollmentsByStudent(tx, studentId)).filter((e) => inScope(ctx, e));
+    const classrooms = new Map<string, Classroom>();
+    for (const e of enrollments) {
+      if (classrooms.has(e.classroomId)) continue;
+      const c = await classroomsRepo.getClassroom(tx, e.classroomId);
+      if (c) classrooms.set(c.id, c);
+    }
+    const yearIds = [...new Set([...classrooms.values()].map((c) => c.academicYearId))];
+    const periods: AcademicPeriod[] = [];
+    for (const yearId of yearIds) periods.push(...(await cal.listPeriods(tx, yearId)));
+    const nodes = new Map<string, CurriculumNode>();
+    for (const versionId of new Set([...classrooms.values()].map((c) => c.curriculumVersionId).filter((v): v is string => v !== null))) {
+      for (const n of await cur.listNodes(tx, versionId)) nodes.set(n.id, n);
+    }
+    // Sélections de cours (à la carte) : leurs nœuds peuvent appartenir à une autre version que celle de la classe.
+    for (const e of enrollments) {
+      for (const course of await enr.listCourses(tx, e.id)) {
+        if (nodes.has(course.curriculumNodeId)) continue;
+        const n = await cur.getNode(tx, course.curriculumNodeId);
+        if (n) nodes.set(n.id, n);
+      }
+    }
+    return ok({
+      classrooms: [...classrooms.values()].map((c) => ({ id: c.id, name: c.name, code: c.code, academicYearId: c.academicYearId })),
+      periods: periods.map((p) => ({ id: p.id, academicYearId: p.academicYearId, parentPeriodId: p.parentPeriodId, periodTypeCode: p.periodTypeCode, ordinal: p.ordinal, code: p.code, label: p.label, startsOn: p.startsOn, endsOn: p.endsOn })),
+      nodes: [...nodes.values()].map((n) => ({ id: n.id, parentId: n.parentId, nodeTypeCode: n.nodeTypeCode, code: n.code, label: n.label, ordinal: n.ordinal, coefficient: n.coefficient, credits: n.credits, isTransversal: n.isTransversal })),
+    });
+  });
+}
+
+export async function getMyLabels(deps: AcademicDeps, ctx: RequestContext): Promise<Result<AcademicFamilyLabelsDto, AppError>> {
+  if (!ctx.userId) return err(forbidden(AcademicCode.FORBIDDEN_SCOPE, "Un utilisateur est requis."));
+  const lookup = deps.ports.students.findStudentByUserId;
+  const mine = lookup ? await lookup.call(deps.ports.students, ctx, ctx.userId) : null;
+  if (!mine) return ok({ classrooms: [], periods: [], nodes: [] });
+  return familyLabelsOf(deps, ctx, mine.studentId);
+}
+
+export async function getChildLabels(deps: AcademicDeps, ctx: RequestContext, studentId: string): Promise<Result<AcademicFamilyLabelsDto, AppError>> {
+  if (!ctx.userId) return err(forbidden(AcademicCode.FORBIDDEN_SCOPE, "Un utilisateur est requis."));
+  const allowed = await deps.ports.guardianship.isGuardianOfStudent(ctx, ctx.userId, studentId);
+  if (!allowed) return err(notFound(AcademicCode.STUDENT_NOT_FOUND, "Apprenant", studentId));
+  return familyLabelsOf(deps, ctx, studentId);
 }
 
 // ---------------------------------------------------------------------------

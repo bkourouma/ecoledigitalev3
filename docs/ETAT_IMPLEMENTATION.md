@@ -12,7 +12,7 @@ Décisions métier validées : `specs/v2/DECISIONS-METIER.md`. Décisions d'arch
 | Plateforme | Registre de modules auto-découvert, `ModuleRuntime`, frontières `dependency-cruiser`, générateur `pnpm module:new`, test d'isolation global, `apps/worker` (BullMQ, outbox, jobs) |
 | Modules backend | `tenancy`, `entitlements`, `iam`, `rbac`, `audit`, `platform`, `finance`, `academic`, `people`, `attendance`, `scheduling`, `rules`, `assess`, `results`, `reportcards`, `higher`, `payroll` |
 | Authentification | Passerelle IAM <-> legacy, import des utilisateurs (`pnpm iam:import-legacy`), pages web derrière `NEXT_PUBLIC_AUTH_V2`, plan de bascule `docs/architecture/auth-cutover.md` |
-| Web `/v2` | Fondation (tenant unique, client API typé, gardes serveur, PWA, i18n), administration (plateforme, établissement, rôles, audit), cœur académique et personnes, authentification V2 |
+| Web `/v2` | Fondation (tenant unique, client API typé, gardes serveur, PWA, i18n), administration (plateforme, établissement, rôles, audit), cœur académique et personnes, authentification V2, **portails parent, élève et enseignant** (`/v2/parent|student|teacher`, accès strictement limité, finance famille `/finance/me/*`, contestation de bulletin de paie : `apps/web/docs/v2-portals.md`) |
 | Qualité | Caractérisation du legacy (`tests/characterization`, 68 tests, 19 anomalies cataloguées), parité démontrée de `results` et `payroll` |
 
 Mesures de référence : API v2 environ 2 940 tests, critères de sortie Phase 1 61/61 (`pnpm test:phase1`, Redis requis), web 419 tests, `check:boundaries`, `check:secrets` et `type-check:v2` propres.
@@ -24,7 +24,7 @@ Mesures de référence : API v2 environ 2 940 tests, critères de sortie Phase 1
 
 ## Reste à faire (par priorité)
 
-1. **Terminer l'assemblage de la Phase 2** : intégrer les chantiers ci-dessus ; test de bout en bout « année simulée » (provisionnement -> structure académique -> inscriptions -> paiement des frais d'inscription -> emploi du temps -> appels -> évaluations -> notes -> résultats -> bulletin PDF -> paie) ; tableaux de bord propriétaire et portails parent, élève, enseignant sur le nouveau modèle ; route de lecture du journal d'audit de plateforme (`GET /api/v1/platform/audit/logs`) ; alignement du contrat `POST /platform/tenants` ; écrans manquants (reconduction annuelle, paramètres académiques, « mon dossier » élève, pièces d'élève).
+1. **Terminer l'assemblage de la Phase 2** : intégrer les chantiers ci-dessus ; test de bout en bout « année simulée » (provisionnement -> structure académique -> inscriptions -> paiement des frais d'inscription -> emploi du temps -> appels -> évaluations -> notes -> résultats -> bulletin PDF -> paie) ; tableaux de bord propriétaire (portails parent, élève, enseignant : livrés, voir ci-dessus) ; route de lecture du journal d'audit de plateforme (`GET /api/v1/platform/audit/logs`) ; alignement du contrat `POST /platform/tenants` ; écrans manquants (reconduction annuelle, paramètres académiques, pièces d'élève).
 2. **Phase 3** : fournisseurs de paiement réels (Orange Money, MTN MoMo, Wave, CinetPay) derrière `PaymentProvider` (mode sandbox explicite, webhooks signés) ; notifications réelles (SMTP, SMS, WhatsApp, push) et gabarits par tenant (spec 016) ; gestion documentaire (spec 024) ; import Excel/CSV (spec 031 : upload, mapping, validation, aperçu, import, rapport) ; relances d'impayés automatiques.
 3. **Phase 4, pack Primary** : specs 005, 007, 018 à rédiger puis implémenter (maternelle, primaire, admissions, moteur d'examens générique dont CEPE, élèves affectés par l'État). Les règles officielles ne s'inventent pas : voir `specs/v2/012-rules-engine/regulatory-sources-needed.md`.
 4. **Phase 5, pack Secondary** : spec 006 (collège/lycée, séries, conseil de classe avec PV, vie scolaire, BEPC, BAC).
@@ -33,7 +33,7 @@ Mesures de référence : API v2 environ 2 940 tests, critères de sortie Phase 1
 
 ## Manques d'API identifiés par les écrans (à traiter dans le backlog C)
 
-- ~~Finance : routes parent/élève~~ **Livré** : `/api/v1/finance/me/*` (`finance.child.read|pay`, `finance.self.read|pay`, propriété relue côté serveur, 404 uniforme, paiement en ligne initié par le parent). Les écrans `/v2/finance/me` doivent migrer de `/learners/:id/*` vers ces routes.
+- ~~Finance : routes parent/élève~~ **Livré** : `/api/v1/finance/me/*` (`finance.child.read|pay`, `finance.self.read|pay`, propriété relue côté serveur, 404 uniforme, paiement en ligne initié par le parent). Les écrans `/v2/finance/me` et les portails utilisent ces routes (migration faite).
 - ~~Paie : contestation par l'enseignant~~ **Livré** : `POST /api/v1/payroll/my/payslips/:id/dispute` (`payroll.my.dispute`).
 - ~~Finance : export CSV serveur~~ **Livré** (`/finance/exports/*`, plafond `FINANCE_EXPORT_MAX_ROWS`, troncature signalée). ~~Rendu PDF des reçus et bulletins de paie~~ **Livré** (`GET /receipts/:id/pdf`, `GET /payslips/:id/pdf`, `/my/…`). **Reste** : route de lecture du rapprochement des webhooks en échec.
 - ~~Lectures par lots~~ **Livré** : `GET /people/students/lookup`, `/people/staff/lookup` (et `getDisplayNamesOfStudents|Staff`). Reste à les consommer dans les écrans et DTO.

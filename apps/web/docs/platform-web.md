@@ -81,9 +81,9 @@ s'applique à l'entrée dans la section et au rechargement. Le contrôle par rou
 
 | Section | État actuel | Rôle attendu |
 |---------|-------------|--------------|
-| `app/teacher/**` | aucun layout, pas de garde | teacher |
-| `app/student/**` | aucun layout, pas de garde | student |
-| `app/parent/**` | aucun layout, pas de garde | parent |
+| `app/teacher/**` | aucun layout, pas de garde (legacy) ; **`app/v2/teacher/**` gardé** (voir `v2-portals.md`) | teacher |
+| `app/student/**` | aucun layout, pas de garde (legacy) ; **`app/v2/student/**` gardé** | student |
+| `app/parent/**` | aucun layout, pas de garde (legacy) ; **`app/v2/parent/**` gardé** | parent |
 | `app/payments/layout.tsx` | passe-plat | admin (+ owner) |
 | `app/(dashboard)/**`, `app/academic/**`, `app/annee-academique/**`, `app/evaluations/**`, `app/courses/**`, `app/dashboard/**` | aucun layout | selon section (admin / teacher) |
 | `app/_rso/**` (4 layouts) | layouts d'habillage, jeton RSO séparé | à traiter avec le module RSO |
@@ -139,6 +139,7 @@ Arborescence `src/app/v2/` (pages minces) ; toute la logique est dans `src/platf
 | Établissement | `/v2/settings` (profil/marque), `institutions`, `onboarding`, `subscription` | `requirePermission("tenancy.institution.read")` |
 | Rôles et accès | `/v2/access/roles` (+ `new`, `[id]`), `/v2/access/assignments` | `requirePermission("rbac.role.read")` |
 | Audit | `/v2/audit`, `/v2/audit/[id]` | `requirePermission("audit.read")` + `FeatureGate("audit.log")` |
+| Portails | `/v2/parent/*`, `/v2/student/*`, `/v2/teacher/*` | `requireAnyPermission` par layout (`student.child.read`, `student.self.read`, `staff.own.read`/`schedule.own.read`) + permission de chaque page ; détail dans `v2-portals.md` |
 
 - **Coquille** : `admin/shell/Shell` (lien d'évitement, tiroir mobile `aria-expanded`, Échap, `PlatformSidebar`). Menu tenant =
   `rbac/me/navigation` (hrefs historiques `/admin/...` réécrits vers `/v2/...`, entrées v2 manquantes ajoutées **seulement** si la
@@ -152,8 +153,8 @@ Arborescence `src/app/v2/` (pages minces) ; toute la logique est dans `src/platf
 - **Briques** `packages/ui/src/admin` : `PageHeader`, `LoadingState/EmptyState/ErrorState`, `Notice`, `StatusBadge`, `Field`,
   `NativeSelect`, `ConfirmDialog`, `ProgressBar`, `ResponsiveTable` (tableau ≥ md, cartes en dessous).
 - **Erreurs** : `admin/errors.ts` (anti-escalade, dernier propriétaire, rôle verrouillé, MFA…) ; notifications = `sonner` existant.
-- **Limites** : pas de téléversement de logo (URL https) ; journal de plateforme : route de lecture absente côté API
-  (`GET /api/v1/platform/audit/logs` attendue) ; périmètres « campus » affichés par identifiant court.
+- **Limites** : pas de téléversement de logo (URL https) ; journal de plateforme : lu par `GET /api/v1/platform/audit/logs` (livrée ; seule une API plus ancienne répond 404 et l’écran l’explique)
+  ; périmètres « campus » affichés par identifiant court.
 - **Tests** : `pnpm --filter @ecoledigitale/web test` (Vitest/RTL, API simulée) ;
   `PW_CHANNEL=msedge pnpm exec playwright test -c playwright.admin.config.ts` (smoke console + gardes, 375 px et bureau, sans API).
 

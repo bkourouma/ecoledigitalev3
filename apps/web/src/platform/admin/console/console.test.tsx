@@ -534,10 +534,10 @@ describe("plans et catalogue", () => {
 describe("journal de plateforme", () => {
   beforeEach(() => h.fetchMock.mockReset());
 
-  it("route de lecture absente (404) : explication, pas une panne", async () => {
+  it("API antérieure à la route de lecture (404) : explication, pas une panne", async () => {
     routes(h.fetchMock, {});
     renderScreen(<PlatformAuditPage />);
-    expect(await screen.findByText("Le journal de plateforme n'est pas encore consultable")).toBeTruthy();
+    expect(await screen.findByText("Le journal de plateforme n'est pas disponible sur ce serveur")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Réessayer" })).toBeNull();
   });
 

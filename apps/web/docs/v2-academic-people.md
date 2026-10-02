@@ -45,5 +45,5 @@ existant (`playwright.pwa.config.ts`) tourne sans infrastructure et n'est pas ad
 - Documents / pièces de l'élève : message d'indisponibilité (aucun fournisseur de stockage dans la plateforme).
 - Fusion de dossiers en double : non disponible côté API (O-07) ; avertissement et confirmation motivée uniquement.
 - Statut des frais d'inscription : politique de confirmation et état affichés ; le détail des paiements relève de Finance.
-- « Mon dossier » (élève) et disponibilités propres de l'enseignant : l'API n'expose pas la lecture de ses propres disponibilités sans `staff.read`.
+- « Mon dossier » (élève) : livré par `/v2/student` (`v2-portals.md`). Disponibilités propres de l'enseignant : l'API n'expose pas leur lecture sans `staff.read`.
 - Reconduction annuelle et paramètres académiques / référentiels : hors périmètre de cette livraison.

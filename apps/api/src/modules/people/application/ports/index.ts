@@ -84,6 +84,9 @@ export interface AcademicClassroom {
   academicYearId: string;
   /** Statut de la classe côté academic (`DRAFT`, `ACTIVE`, `CLOSED`…) : `DRAFT` ⇒ pas de nœud stable. */
   status?: string;
+  /** Nom et code lisibles (portail « mes classes ») ; facultatifs : un adaptateur ancien ne les fournit pas. */
+  name?: string | null;
+  code?: string | null;
 }
 export interface AcademicNode {
   id: string;
@@ -122,6 +125,8 @@ export interface AcademicQuery {
   listNodesForClassroom(ctx: RequestContext, classroomId: string, options?: { periodId?: string }): Promise<AcademicNode[]>;
   /** Classes de l'année (rapport « matières sans enseignant »). Facultatif. */
   listClassrooms?(ctx: RequestContext, filter: { academicYearId: string; programId?: string }): Promise<AcademicClassroom[]>;
+  /** Périodes d'une année (portail enseignant : choisir la période d'une évaluation sans `academic.year.read`). Facultatif. */
+  listPeriodsOfYear?(ctx: RequestContext, academicYearId: string): Promise<Array<{ id: string; label: string; startsOn: string; endsOn: string }>>;
   /** Offre = classe × nœuds (garde d'ouverture). Facultatif. */
   getOffering?(ctx: RequestContext, offeringId: string): Promise<{ id: string; classroomId: string; periodId?: string | null; nodeIds: string[] } | null>;
   /** Inscriptions d'un élève (reconstruction de la projection). Facultatif. */

@@ -20,7 +20,7 @@ import { EmptyBlock, ErrorBlock, LoadingBlock, Notice } from "@/platform/ui/stat
 import { OfflineIndicator } from "./OfflineIndicator";
 
 /** « Mes séances à faire » : les séances du jour de l'enseignant, l'appel journalier de ses classes, la file hors ligne. */
-export function CallListScreen() {
+export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?: string } = {}) {
   const t = useTranslations("v2Attendance.callList");
   const tSession = useTranslations("v2Attendance.call.session");
   const format = useFormatter();
@@ -68,7 +68,7 @@ export function CallListScreen() {
                       <StatusBadge label={s ? tSession(s.status) : t("notDone")} tone={s ? (s.status === "OPEN" ? "info" : s.status === "CANCELLED" ? "neutral" : "success") : "warning"} />
                     </p>
                   </div>
-                  <Link href={`/v2/attendance/call/occurrence/${o.id}`} className={buttonClass.primary}>
+                  <Link href={`${basePath}/occurrence/${o.id}`} className={buttonClass.primary}>
                     {s && s.status !== "OPEN" ? t("view") : t("doCall")}
                   </Link>
                 </li>
@@ -93,7 +93,7 @@ export function CallListScreen() {
                     <p className="truncate text-sm font-semibold">{classrooms.name(c.classroomId)}</p>
                     {done ? <StatusBadge label={tSession(done.status)} tone={done.status === "OPEN" ? "info" : "success"} /> : null}
                   </div>
-                  <Link href={`/v2/attendance/call/daily/${c.classroomId}?date=${date}`} className={buttonClass.secondary}>
+                  <Link href={`${basePath}/daily/${c.classroomId}?date=${date}`} className={buttonClass.secondary}>
                     {t("dailyCall")}
                   </Link>
                 </li>
@@ -106,7 +106,7 @@ export function CallListScreen() {
         </Can>
       </section>
 
-      <OutboxList />
+      <OutboxList basePath={basePath} />
     </div>
   );
 }
@@ -134,7 +134,7 @@ function OtherCall({ date }: { date: string }) {
 }
 
 /** Appels saisis sur cet appareil (identifiants seulement) : état d'envoi, reprise, abandon. */
-function OutboxList() {
+function OutboxList({ basePath }: { basePath: string }) {
   const t = useTranslations("v2Attendance.callList.outbox");
   const dateFmt = useDateFormat();
   const manager = useOutboxManager();
@@ -149,7 +149,7 @@ function OutboxList() {
       <ul className="space-y-2">
         {status.calls.map((c) => {
           const count = Object.keys(c.records).length;
-          const href = c.target.kind === "occurrence" ? `/v2/attendance/call/occurrence/${c.target.occurrenceId}` : `/v2/attendance/call/daily/${c.target.classroomId}?date=${c.target.date}`;
+          const href = c.target.kind === "occurrence" ? `${basePath}/occurrence/${c.target.occurrenceId}` : `${basePath}/daily/${c.target.classroomId}?date=${c.target.date}`;
           return (
             <li key={c.key} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 text-sm">
