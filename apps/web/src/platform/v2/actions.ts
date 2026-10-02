@@ -44,7 +44,6 @@ export function useApiAction<TData = unknown, TVars = void>(options: ActionOptio
         idempotencyKey: options.idempotencyKey ? options.idempotencyKey(variables) : undefined,
         headers: options.headers ? options.headers(variables) : undefined,
         schema: options.schema,
-        idempotencyKey: options.idempotencyKey?.(variables),
         responseType: options.responseType,
       }) as Promise<TData>,
     onSuccess: async () => {
