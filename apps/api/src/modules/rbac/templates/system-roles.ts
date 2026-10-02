@@ -18,8 +18,8 @@
  *      CLÉS EXACTES, jamais `module.*` (une permission ajoutée plus tard à un module,
  *      surtout sensible, ne doit pas être accordée d'office). Seuls `parent` et
  *      `eleve` s'appuient sur la convention de nommage, et un test vérifie qu'ils
- *      reçoivent TOUTES les permissions `*.child.*` / `*.self.*` du catalogue et
- *      rien d'autre.
+ *      reçoivent TOUTES les permissions `child` / `self` du catalogue (à trois ET quatre
+ *      segments : `student.child.read`, `primary.competency.child.read`) et rien d'autre.
  *   2. Séparation des tâches : ce qui se demande/saisit/calcule n'est pas détenu
  *      avec ce qui approuve/arrête/révoque (saisie de note ≠ validation ≠ publication ;
  *      demande de surcharge ≠ approbation ; calcul de paie ≠ arrêt du bulletin ;
@@ -38,10 +38,16 @@
  *      dans le rôle `personnel`, à CUMULER avec un rôle de fonction (secrétariat,
  *      économe, éducateur…) ; `enseignant` et `educateur` les embarquent déjà.
  *
+ * Permissions de modules PAS ENCORE livrés (Primary, conseils, vie scolaire, affectation d'État,
+ * admissions, examens) : clés exactes listées dans `reserved-permissions.ts` (liste blanche versionnée,
+ * avec module futur et spec). Elles restent « en attente » (sans échec) jusqu'à la livraison du manifeste
+ * du module ; tout autre motif en attente fait échouer les tests.
+ *
  * Conventions de nommage des modules (respectées par leurs manifestes) :
  *   - `<ressource>.<action>` : `student.read`, `grade.enter`, `finance.payment.create` ;
  *   - données PROPRES à l'élève   : `<ressource>.self.<action>`  (`grade.self.read`) ;
  *   - données des ENFANTS du parent : `<ressource>.child.<action>` (`grade.child.read`) ;
+ *     (une clé à quatre segments est admise : `primary.competency.child.read`) ;
  *   - données PROPRES au personnel : `<ressource>.own.<action>`   (`staff.own.read`)
  *     ou `payroll.payslip.read_own`.
  * Le contrôle « cet élève est bien l'enfant de ce parent » est une règle de
@@ -137,6 +143,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "period.*": "Verrouiller, clôturer, rouvrir une période, changer sa version de règle.",
       "decision.*": "Modifier une décision proposée par la règle (délibération).",
       "schedule.*": "Valider les séances pour la paie, dépasser un conflit, créer une séance comptable, verrouiller les heures.",
+      "imports.*": "Reprise de données (soldes financiers d'ouverture : factures et avoirs de reprise, MFA exigée, audité) : acte de direction ; les autres rôles n'ont aucun droit d'import tant que le plan de rôles du module n'est pas arrêté.",
       "messaging.*": "Modérer les signalements, restreindre l'envoi et superviser les conversations avec motif obligatoire (audité) : responsabilité de direction.",
     },
   },
@@ -258,9 +265,37 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       // Règles de calcul : lecture et simulation seulement (la liaison et l'édition d'expressions = direction).
       "rules.ruleset.read",
       "rules.version.simulate",
+      // RÉSERVÉES (pack Secondary, spec 006 §10 ; `reserved-permissions.ts`, en attente jusqu'à la livraison des
+      // modules) : conseils de classe (`council.*` SAUF l'approbation d'un déverrouillage, qui est à la direction,
+      // et la révocation d'un procès-verbal : émission/signature ≠ révocation), vie scolaire en lecture,
+      // affectation d'État en lecture.
+      "council.read",
+      "council.manage",
+      "council.prepare",
+      "council.session.run",
+      "council.proposal.write",
+      "council.decision.record",
+      "council.minutes.generate",
+      "council.minutes.read",
+      "council.minutes.sign",
+      "council.unlock.request",
+      "council.effect.manage",
+      "council.exclusion.apply",
+      "council.settings.manage",
+      "council.orientation.read",
+      "council.orientation.manage",
+      "council.orientation.override",
+      "schoollife.read",
+      "stateassign.read",
     ],
     mfaRecommended: true,
     sensitiveJustifications: {
+      "council.session.run": "Ouvrir et clore une séance de conseil de classe (quorum, valeur probante du procès-verbal) : acte de la direction des études.",
+      "council.decision.record": "Enregistrer la décision HUMAINE du conseil (passage, redoublement, exclusion) : jamais prise par la règle.",
+      "council.minutes.sign": "Signer le procès-verbal du conseil : engage l'établissement ; la révocation reste à la direction.",
+      "council.exclusion.apply": "Appliquer l'effet d'une décision d'exclusion décidée par le conseil (le changement de statut exige en plus `student.status.update`).",
+      "council.settings.manage": "Régler les types de conseil, rôles et types de décision : conditionne la validité des délibérations.",
+      "council.orientation.override": "Déroger à un parcours d'orientation autorisé : décision pédagogique motivée et tracée.",
       "grade.validate": "Approuver une feuille de notes relue : étape du circuit de validation, après la saisie par l'enseignant.",
       "grade.publish": "Publier les notes aux familles : acte final du circuit (immuable ensuite), tenu par un autre que celui qui saisit.",
       "grade.revise.approve": "Approuver une correction de note publiée : l'enseignant la demande, la direction des études l'approuve.",
@@ -334,9 +369,38 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "finance.invoice.read",
       "finance.payment.read",
       "finance.receipt.read",
+      // RÉSERVÉES (`reserved-permissions.ts`, en attente jusqu'à la livraison des modules).
+      // Admissions (spec 007 §11 : le « chargé d'admissions » est le secrétariat) : tout le traitement d'un dossier,
+      // JAMAIS la décision (`admission.decide`), le dépassement de capacité, les campagnes/réglages/workflows,
+      // l'export ni l'anonymisation : direction.
+      "admission.read",
+      "admission.create",
+      "admission.update",
+      "admission.document.upload",
+      "admission.document.review",
+      "admission.interview.manage",
+      "admission.offer.manage",
+      "admission.duplicate.resolve",
+      "admission.waitlist.manage",
+      "admission.prospect.manage",
+      "admission.enroll",
+      "admission.report.read",
+      // Conseils de classe (spec 006 §10) : planifier/convoquer, générer, lire et signer les procès-verbaux ;
+      // pas la révocation (émission ≠ révocation), pas la tenue de séance ni les décisions.
+      "council.read",
+      "council.manage",
+      "council.minutes.generate",
+      "council.minutes.read",
+      "council.minutes.sign",
+      // Affectation d'État : enregistrer les dossiers et gérer les références de pièces ; vérifier, activer,
+      // suspendre, amender = direction.
+      "stateassign.read",
+      "stateassign.record",
+      "stateassign.document.manage",
     ],
     mfaRecommended: true,
     sensitiveJustifications: {
+      "council.minutes.sign": "Signer les procès-verbaux de conseil en tant que secrétaire de séance ; la révocation reste à la direction.",
       "student.status.update": "Retrait, transfert ou clôture d'un dossier : opération courante de la scolarité, tracée.",
       "student.sensitive.read": "Pièces d'état civil et identifiant national nécessaires à l'inscription ; chaque lecture est auditée.",
       "student.export": "Listes d'élèves pour les administrations et les classes ; export plafonné et audité.",
@@ -399,6 +463,11 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "academic.year.read",
       "academic.program.read",
       "academic.classroom.read",
+      // RÉSERVÉES (spec 006 §10 ; `reserved-permissions.ts`) : affectation d'État — lecture, rapprochement avec la
+      // facturation, contrôles. Ni enregistrement ni vérification des dossiers.
+      "stateassign.read",
+      "stateassign.reconcile",
+      "stateassign.control.perform",
     ],
     mfaRecommended: true,
     sensitiveJustifications: {
@@ -454,6 +523,74 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.leave.request",
       "payroll.payslip.read_own",
       "payroll.my.dispute",
+      // RÉSERVÉES (spec 006 §10 ; `reserved-permissions.ts`) : proposer au conseil de classe, signaler et noter
+      // la vie scolaire de SES classes (le module vérifie l'affectation). Aucune validation de sanction.
+      "council.proposal.write",
+      "schoollife.read",
+      "schoollife.incident.write",
+      "schoollife.note.write",
+    ],
+  },
+
+  // ------------------------------------------------------------------------------------------------
+  // INSTITUTEUR — NOUVEAU (spec 005 pack-template §7, US2) : titulaire UNIQUE d'une classe du primaire
+  // (maternelle, CP1-CM2), enseignant de toutes les matières. Patron : `enseignant` (même expression de
+  // « sa classe » : le module vérifie l'affectation, `student.class.read`, jamais `student.read`/`student.list`
+  // globaux, `*.own.*` pour ses données de personnel) + évaluation par compétences et conseil des maîtres.
+  // Clés de la spec mappées sur les clés RÉELLES des manifestes : `attendance.take|read`, `assessment.create|update`,
+  // `grade.enter`, `student.class.read`, `messaging.*`, `reportcard.read` existent telles quelles ; le patron
+  // enseignant ajoute ce qu'une saisie réelle exige (`assessment.read`, `assessment.type.read`, `grade.read`,
+  // `grade.revise.request`, `appreciation.write`, emploi du temps et données de personnel).
+  // ABSENTES volontairement (spec) : `grade.validate`, `grade.publish`, `grade.revise.approve`,
+  // `primary.competency.revise`, `primary.bilan.seal`, `period.close`, toute permission `finance.*`
+  // (une classe à titulaire unique saisit et PRÉPARE ; la validation finale, le scellé du bilan et la
+  // clôture de période sont à la direction). `primary.*` sont RÉSERVÉES jusqu'à la livraison du module
+  // `primary_school` (`reserved-permissions.ts`). Aucune permission sensible ⇒ pas de MFA recommandée.
+  // ------------------------------------------------------------------------------------------------
+  {
+    key: "instituteur",
+    label: "Instituteur",
+    description: "Titulaire unique d'une classe du primaire : appel, évaluations, notes, compétences et conseil des maîtres de sa classe ; ses données de personnel.",
+    permissions: [
+      // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
+      "messaging.read",
+      "messaging.send",
+      "messaging.announcement.publish_class",
+      // Évaluations chiffrées et notes de SA classe (le module vérifie l'affectation : assess.not_assigned).
+      "assessment.type.read",
+      "assessment.read",
+      "assessment.create",
+      "assessment.update",
+      "grade.read",
+      "grade.enter",
+      "grade.revise.request",
+      // Appréciations ; bulletins de sa classe en lecture (l'émission et la publication sont à d'autres rôles).
+      "appreciation.write",
+      "reportcard.read",
+      // Appel journalier de sa classe.
+      "attendance.read",
+      "attendance.take",
+      // Élèves de SA classe seulement (fiche réduite, 404 hors périmètre).
+      "student.class.read",
+      // Emploi du temps personnel et déclaration d'une séance ponctuelle de sa classe.
+      "schedule.own.read",
+      "schedule.occurrence.declare",
+      // Ses données de personnel : fiche, présence, congés, bulletins de paie.
+      "staff.own.read",
+      "staff.own.update",
+      "attendance.own.read",
+      "attendance.own.record",
+      "attendance.leave.request",
+      "payroll.payslip.read_own",
+      "payroll.my.dispute",
+      // RÉSERVÉES (module `primary_school`, spec 005 §10) : compétences (lecture, saisie, validation ; JAMAIS la
+      // révision après validation), banque d'appréciations, conseil des maîtres (lecture et préparation).
+      "primary.competency.read",
+      "primary.competency.record",
+      "primary.competency.validate",
+      "primary.phrase.read",
+      "primary.council.read",
+      "primary.council.prepare",
     ],
   },
 
@@ -496,6 +633,14 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.own.read",
       "attendance.own.record",
       "attendance.leave.request",
+      // RÉSERVÉES (spec 006 §10 ; `reserved-permissions.ts`) : vie scolaire — saisie (incidents, observations,
+      // PROPOSITION de mesure, convocation des tuteurs). SANS validation de sanction ni d'exclusion, ni
+      // révocation, ni recours (séparation proposition ≠ validation).
+      "schoollife.read",
+      "schoollife.incident.write",
+      "schoollife.measure.propose",
+      "schoollife.note.write",
+      "schoollife.convocation.manage",
     ],
   },
 
@@ -597,6 +742,15 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "higher.child.read",
       "finance.child.read",
       "finance.child.pay",
+      // RÉSERVÉES (`reserved-permissions.ts`, en attente jusqu'à la livraison des modules) : compétences et bilan
+      // annuel du primaire (spec 005), décisions du conseil, vie scolaire partageable, statut d'affectation
+      // d'État (spec 006), documents d'examen (spec 018).
+      "primary.competency.child.read",
+      "primary.bilan.child.read",
+      "council.child.read",
+      "schoollife.child.read",
+      "stateassign.child.read",
+      "exam.document.child.read",
     ],
   },
 
@@ -626,6 +780,13 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "higher.self.read",
       "finance.self.read",
       "finance.self.pay",
+      // RÉSERVÉES (`reserved-permissions.ts`) : ses compétences et son bilan (spec 005), les décisions de son
+      // conseil et sa vie scolaire partageable (spec 006), ses documents d'examen (spec 018).
+      "primary.competency.self.read",
+      "primary.bilan.self.read",
+      "council.self.read",
+      "schoollife.self.read",
+      "exam.document.self.read",
     ],
   },
 ]);
