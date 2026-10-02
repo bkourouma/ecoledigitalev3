@@ -28,8 +28,8 @@ const money = (amount: number, currency: string): string => Money.of(amount, cur
 
 /** `150` -> « 2 h 30 », `120` -> « 2 h », `45` -> « 45 min ». */
 export function durationText(minutes: number): string {
-  const h = Math.floor(minutes / 60);
   const m = minutes % 60;
+  const h = (minutes - m) / 60; // division entière sans Math.floor (aucun arrondi dans le domaine de paie)
   if (h === 0) return `${m} min`;
   return m === 0 ? `${h} h` : `${h} h ${String(m).padStart(2, "0")}`;
 }
