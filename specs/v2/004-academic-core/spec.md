@@ -461,3 +461,48 @@ La spec est terminée lorsque :
 7. Les golden tests de caractérisation du legacy (éligibilité, capacité, prérequis, garde de clôture) passent ; les divergences assumées sont toutes listées dans `parity.md`.
 8. Aucune constante réglementaire dans `modules/academic/**` (lint) ; aucun SQL hors `infrastructure/` ; aucun `new Date()` ; couverture des cas d'usage ≥ 90 % des lignes du domaine.
 9. L'ancien code et les anciennes tables remplacés (tranches 2.1 et 2.2 : `cycles`, `filieres`, `programmes`, `classes`, `academic_years`, `academic_year_periods`, `courses`, `class_courses`, `professional_ue*`, `professional_ecue*`, `professional_semestre*`, `professional_classe_noms`, `student_enrollments`, `professional_enrollments`) sont supprimés dans la même tranche, et aucun accès web ne calcule de moyenne, de rang ou de mention.
+
+## 16. Extensions Phase 4-5 (livrées, additives et rétro-compatibles)
+
+Demandes de changement des specs **005** (§14.2), **006** (§7.4, data-model §11), **007** (§16) et **018** (§16) à `academic`. Aucune migration, aucun test existant modifié ; les quatre packs partagent toujours le même cœur. Tout est exporté par `modules/academic/index.ts`.
+
+### 16.1 Modèles de pack (données, jamais de code)
+
+| Élément | Livraison |
+|---|---|
+| `calculationContract` par cycle | `PRESCHOOL` → `competency-period@1`, `PRIMARY` → `coef-period@1` (005), `LOWER_SECONDARY` et `UPPER_SECONDARY` → `secondary-annual@1` (006 §6.4/§7.4). `coef-semester@1` reste utilisable (par programme : `updateProgram`, ou par cycle : `putReference`) pour un établissement à deux périodes ; le contrat du programme l'emporte sur celui du cycle (`effectiveContract`). Le supérieur est inchangé (`credit-semester@1`, `coef-semester@1` pour le BTS). |
+| `terminalExamRequired` | `true` seulement pour `3E` (BEPC) et `TLE` (BAC), **informatif, jamais décisionnel**, marqué `placeholder` (à confirmer, Q6-27). `CM2` reste faux (question Q-P09). |
+| Poids de créneau | `period_plans.slots[].weight` existait déjà (entier 1..1000, optionnel, lu par `allocatePeriodPlan`) : aucune migration. Les plans `THREE_TERMS` (3 × `TRIMESTER`) et `TWO_SEMESTERS` (2 × `SEMESTER`) des quatre packs portent `weight: 1` (neutre : même répartition de dates qu'avant). Remarque : la spec 005 montre un poids en chaîne (`"1"`) ; le contrat existant est un **entier** et le reste. |
+| Provenance | Champs facultatifs `sourceKind` (`neutral` \| `placeholder` \| `regulation`), `sourceReference`, `sourceNote` sur `educationLevels[]`, `gradeLevels[]`, `periodPlans[]`. `regulation` exige `sourceReference` (et inversement). **Test de cohérence** : tout contrat de calcul, tout `terminalExamRequired: true` et tout poids est marqué ; aucun modèle livré ne contient `regulation`. `templateVersion` passe à 2 (ré-application idempotente : seules les lignes jamais modifiées par le tenant sont mises à jour). |
+| Séries, options, langues | **Jamais livrées** : seuls les programmes génériques (`MATERNELLE`, `PRIMAIRE`, `COLLEGE`, `LYCEE`) existent ; séries (sous-programmes), options et langues se configurent (`createProgram`, sélections de cours). |
+| Sections par module | `tenancy` : `PackTemplateSchema.sections` (clé facultative `sections[<section>][<système éducatif>]`, contenu **opaque** pour le noyau) et `getPackTemplateSection(pack, educationSystem, section, templates?)` → JSON brut ou `undefined`. Une section inconnue du noyau est acceptée ; le module propriétaire la valide avec son schéma. Aucun modèle livré n'en contient. |
+
+### 16.2 Garde d'activation de classe (005, T-P11)
+
+- Port `ClassroomActivationGuard { check(ctx, classroomId): Promise<Result<void, { code: string; reason?: string; details?: Record<string, unknown> }>> }` dans `AcademicPorts.classroomActivation` ; repli `neverBlockActivation` (aucun refus). Branchement : `registerAcademicPorts(app, { classroomActivation })`, `createAcademicDeps({ ports })` ou `setAcademicWorkerPorts`.
+- `activateClassroom(deps, ctx, classroomId)` (raccourci de `classroomAction(…, "activate")`, route inchangée `POST /classrooms/:id/activate`) appelle le garde **après** les contrôles du cœur (curriculum choisi et publié). Un refus laisse la classe en `DRAFT`, ne publie rien et renvoie un **conflit (409) dont `code` est celui du garde** (`details.guardCode`, `details.refusedBy = "classroomActivation"`, `details` du garde conservés — jamais de donnée personnelle). Code vide : `academic.classroom_activation_refused`.
+
+### 16.3 Annulation d'une inscription en attente (007 §16)
+
+- `cancelEnrollment(deps, ctx, enrollmentId, { reason? })` : `PENDING` → `CANCELLED` (place libérée, sélections vivantes annulées, historique `STATUS`), événement **`academic.enrollment.cancelled`** (déjà déclaré au manifeste et au catalogue ; charge utile `{ v: 1, institutionId, academicYearId, enrollmentId, studentId, classroomId, status, previousStatus, mode, fundingType, registrationNumber, reason }`, sans donnée d'identité), audit `academic.enrollment.cancelled`.
+- **Idempotent** : une inscription déjà `CANCELLED` est renvoyée telle quelle (aucun événement, aucune ligne d'historique supplémentaires). Toute autre situation (`ACTIVE`, `SUSPENDED`, `COMPLETED`, `WITHDRAWN`, `TRANSFERRED_OUT`) : conflit **`academic.enrollment_not_pending`** (une inscription confirmée se **retire** : `transitionEnrollment(…, "withdraw")`). Motif facultatif (défaut « Annulation d'une inscription en attente ») ; un motif de moins de 5 caractères : `academic.enrollment_reason_required`.
+- Route `POST /api/v1/academic/enrollments/:id/cancel-pending` (permission `enrollment.cancel`, corps `{ reason? }`). La route générique `POST /enrollments/:id/cancel` est inchangée (annule aussi une inscription active, non idempotente).
+
+### 16.4 Faits d'éligibilité et redoublements (018 §16, 005 `cas_deja_redoublant`)
+
+- `getEligibilityFacts(deps, ctx, enrollmentId): Result<EnrollmentEligibilityFacts>` : `enrollmentId`, `studentId` (identifiant opaque), `institutionId`, `academicYearId`, `academicYearCode`, `classroomId`, `gradeLevelCode`, `educationLevelCode`, `pack`, `terminalExamRequired` (informatif), `status`, `mode`, `isRepeating`, `repeatsInCycle`, `repeatsBeforeYear`. **Aucune donnée d'identité** (ni nom, ni date de naissance : l'âge reste un fait de `people`). 404 `academic.enrollment_not_found` hors périmètre. Route `GET /enrollments/:id/eligibility-facts` (permission `enrollment.read`).
+- `countRepeatsInCycle(deps, ctx, { studentId, educationLevelCode, academicYearId?, beforeYear? }): Result<number>` et la fonction pure `countRepeatYears`. Une **année de redoublement** est une inscription (hors `CANCELLED` et `PENDING`) du cycle d'enseignement marquée `is_repeating` **ou** qui prolonge (`previous_enrollment_id`) une inscription terminée par une issue de type `REPEAT` ; les deux signalements d'un même redoublement comptent **une fois**. Sans `academicYearId` : toutes les années ; avec : jusqu'à l'année incluse (`beforeYear: true` : strictement avant). Erreurs : `academic.education_level_not_found`, `academic.year_not_found`.
+
+### 16.5 Vérifications sans changement de code
+
+| Demande | Constat |
+|---|---|
+| 007 : `enrollStudent` source `ADMISSION` | Déjà prévu : le corps accepte `sourceKind: "ADMISSION"` et `sourceRef` (UUID de la candidature) ; le champ s'appelle `sourceKind` (pas `source`). Couvert par un test. |
+| 007 : `academic.enrollment.confirmed` | Porte `enrollmentId` et `studentId` (charge utile de toute inscription). Couvert par un test. |
+| 006 : `changeEnrollmentFunding` appelable par `stateassign` | Existe et est exporté (`changeEnrollmentFunding(deps, ctx, id, { fundingType, assignmentReference?, …, reason })`, permission `enrollment.funding.update`, événement `academic.enrollment.funding_changed`, audit sensible). |
+| 006 : transfert entre programmes d'un même niveau en cours d'année | `transferEnrollment` accepte déjà toute classe du même établissement et de la même année (placements historisés, même `enrollmentId`) : un changement de série en cours d'année est donc possible ; couvert par un test. Aucune contrainte « même niveau » n'est imposée (décision humaine côté `councils`). |
+
+### 16.6 Codes d'erreur ajoutés
+
+`academic.enrollment_not_pending` (409), `academic.classroom_activation_refused` (409, repli quand le garde ne donne pas de code). Les codes d'un garde d'activation câblé sont ceux de son module (ex. `primary_school.homeroom_required`).
+

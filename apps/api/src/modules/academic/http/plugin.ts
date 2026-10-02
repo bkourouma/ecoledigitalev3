@@ -32,6 +32,7 @@ import * as classrooms from "../application/classrooms";
 import * as courses from "../application/courses";
 import * as curriculum from "../application/curriculum";
 import * as enrollments from "../application/enrollments";
+import * as facts from "../application/facts";
 import * as holidays from "../application/holidays";
 import * as programs from "../application/programs";
 import * as reads from "../application/reads";
@@ -546,7 +547,12 @@ export async function academicPlugin(app: FastifyInstance, options: AcademicPlug
         const q = parse(c.academicRuleContextQuerySchema, req.query);
         return unwrapOrThrow(await reads.getRuleContext(deps, ctxOf(req), { enrollmentId: id, periodId: q.periodId ?? null }));
       });
-      scope.get("/enrollments/:id/registrations", { preHandler: perm("enrollment.read") }, async (req) => {
+      // Faits d'éligibilité (niveau, examen terminal informatif, redoublements du cycle) : lecture, aucune donnée d'identité.
+      scope.get("/enrollments/:id/eligibility-facts", { preHandler: perm("enrollment.read") }, async (req) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        return unwrapOrThrow(await facts.getEligibilityFacts(deps, ctxOf(req), id));
+      });
+      scope.get("/enrollments/:id/registrations",{ preHandler: perm("enrollment.read") }, async (req) => {
         const { id } = parse(c.academicIdParamsSchema, req.params);
         const q = parse(c.academicRuleContextQuerySchema, req.query);
         return { items: unwrapOrThrow(await reads.listCourseRegistrations(deps, ctxOf(req), { enrollmentId: id, periodId: q.periodId ?? null })) };
