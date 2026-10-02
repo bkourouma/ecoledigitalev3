@@ -14,6 +14,7 @@
  * Les adaptateurs réels (Orange Money, MTN MoMo, Wave, CinetPay, TresorPay) se branchent
  * en Phase 3 par `register({ name, requiredSettings, create })` ; aucun n'est écrit ici.
  */
+import { createHash } from "node:crypto";
 import { err, noopLogger, ok, type AppError, type Logger, type Result } from "@ecoledigitale/kernel";
 import { FinanceCode, conflict } from "../../domain/errors";
 import type { PaymentProvider } from "../../application/ports/payment-provider";
@@ -72,6 +73,11 @@ export interface ProviderDefinition {
   readonly requiredSettings: readonly string[];
   /** Marque un fournisseur simulé : soumis à la règle sandbox. */
   readonly sandbox?: boolean;
+  /**
+   * Adaptateur RÉEL à deux modes (`settings.mode` = `sandbox` | `production`, explicite, sans défaut) : le mode
+   * `sandbox` (serveurs de test du fournisseur) est refusé en environnement `production`.
+   */
+  readonly modeAware?: boolean;
   create(context: ProviderFactoryContext): PaymentProvider;
 }
 
@@ -126,6 +132,26 @@ export class ProviderRegistry {
       return err(conflict(FinanceCode.PROVIDER_UNKNOWN, `Fournisseur de paiement inconnu : "${name}".`, { provider: name }));
     }
     const settings = (await this.configSource.get(tenantId, name)) ?? {};
+    return this.resolveWith(tenantId, name, settings);
+  }
+
+  /**
+   * Mêmes règles que `resolve`, avec des réglages fournis par l'appelant (test de connexion de l'écran d'administration :
+   * un fournisseur désactivé peut être testé, jamais utilisé pour un paiement).
+   */
+  async resolveWith(
+    tenantId: string,
+    name: string,
+    settings: ProviderSettings,
+    options: { ignoreDisabled?: boolean } = {},
+  ): Promise<Result<PaymentProvider, AppError>> {
+    const def = this.definitions.get(name);
+    if (!def) {
+      return err(conflict(FinanceCode.PROVIDER_UNKNOWN, `Fournisseur de paiement inconnu : "${name}".`, { provider: name }));
+    }
+    if (!def.sandbox && settings.enabled === "false" && !options.ignoreDisabled) {
+      return err(conflict(FinanceCode.PROVIDER_DISABLED, `Le fournisseur "${name}" est désactivé pour cet établissement.`, { provider: name }));
+    }
 
     if (def.sandbox) {
       // `EnvProviderConfigSource` met les clés en minuscules (`allowsandbox`) : on accepte les deux écritures,
@@ -144,6 +170,20 @@ export class ProviderRegistry {
     }
 
     const missing = def.requiredSettings.filter((k) => !settings[k] || String(settings[k]).trim() === "");
+    if (def.modeAware && missing.length === 0) {
+      const mode = settings.mode;
+      if (mode !== "sandbox" && mode !== "production") {
+        return err(conflict(FinanceCode.PROVIDER_CONFIG_INVALID, `Le mode du fournisseur "${name}" doit être "sandbox" ou "production".`, { provider: name }));
+      }
+      if (mode === "sandbox" && this.environment === "production") {
+        return err(
+          conflict(FinanceCode.PROVIDER_SANDBOX_FORBIDDEN, "Le mode sandbox d'un fournisseur est interdit en environnement de production.", {
+            provider: name,
+            environment: this.environment,
+          }),
+        );
+      }
+    }
     if (missing.length > 0) {
       const sandboxDef = this.devSandboxFallback ? this.definitions.get(SANDBOX_PROVIDER_NAME) : undefined;
       if (sandboxDef) {
@@ -167,10 +207,15 @@ export class ProviderRegistry {
   private instance(tenantId: string, def: ProviderDefinition, settings: ProviderSettings): PaymentProvider {
     // L'instance est mise en cache par (tenant, fournisseur, configuration) : une
     // configuration modifiée produit une nouvelle instance ; la sandbox garde son état.
-    const fingerprint = Object.keys(settings)
-      .sort()
-      .map((k) => `${k}=${settings[k] ?? ""}`)
-      .join("&");
+    // Empreinte HACHÉE : aucun secret ne traîne en clair dans les clés de la table.
+    const fingerprint = createHash("sha256")
+      .update(
+        Object.keys(settings)
+          .sort()
+          .map((k) => `${k}=${settings[k] ?? ""}`)
+          .join("&"),
+      )
+      .digest("hex");
     const key = `${tenantId}|${def.name}|${fingerprint}`;
     let instance = this.instances.get(key);
     if (!instance) {

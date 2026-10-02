@@ -889,20 +889,33 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
       hooks.setErrorHandler((error, request, reply) => handleError(error, request, reply));
       // Le corps JSON est conservé BRUT : la signature se vérifie sur les octets reçus.
       hooks.addContentTypeParser("application/json", { parseAs: "string", bodyLimit: 262_144 }, (_req, body, done) => done(null, body));
-      hooks.post("/webhooks/:provider/:tenantId", { config: { public: true } }, async (req, reply) => {
-        const { provider, tenantId } = parse(financeWebhookParamsSchema, req.params);
-        const rawBody = typeof req.body === "string" ? req.body : "";
-        const result = unwrapOrThrow(
-          await handleProviderWebhook(deps, {
-            tenantId,
-            provider,
-            rawBody,
-            headers: req.headers as Record<string, string | string[] | undefined>,
-            requestId: String(req.id),
-          }),
-        );
-        return reply.status(200).send({ status: result.status, replayed: result.replayed, paymentId: result.paymentId });
+      // CinetPay notifie en `application/x-www-form-urlencoded` ; l'adaptateur relit le corps BRUT.
+      hooks.addContentTypeParser("application/x-www-form-urlencoded", { parseAs: "string", bodyLimit: 262_144 }, (_req, body, done) => done(null, body));
+      // POST (Wave, Orange, CinetPay, TresorPay) et PUT (rappel MTN MoMo).
+      hooks.route({
+        method: ["POST", "PUT"],
+        url: "/webhooks/:provider/:tenantId",
+        config: { public: true },
+        handler: async (req, reply) => {
+          const { provider, tenantId } = parse(financeWebhookParamsSchema, req.params);
+          const rawBody = typeof req.body === "string" ? req.body : "";
+          const query: Record<string, string> = {};
+          for (const [k, v] of Object.entries((req.query ?? {}) as Record<string, unknown>)) if (typeof v === "string") query[k] = v;
+          const result = unwrapOrThrow(
+            await handleProviderWebhook(deps, {
+              tenantId,
+              provider,
+              rawBody,
+              headers: req.headers as Record<string, string | string[] | undefined>,
+              query,
+              requestId: String(req.id),
+            }),
+          );
+          return reply.status(200).send({ status: result.status, replayed: result.replayed, paymentId: result.paymentId });
+        },
       });
+      // CinetPay vérifie l'accessibilité de l'URL de notification par un GET : réponse statique, aucun effet.
+      hooks.get("/webhooks/:provider/:tenantId", { config: { public: true } }, async (_req, reply) => reply.status(200).send({ status: "ok" }));
     },
     { prefix: options.prefix ?? FINANCE_ROUTES_PREFIX },
   );
