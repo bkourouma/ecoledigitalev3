@@ -86,6 +86,14 @@ const envSchema = z.object({
   // Absent : un mot de passe aléatoire est généré à la création (voir
   // `tenant-provisioning.service.ts`) et affiché une seule fois dans les logs.
   TECHNICAL_ACCOUNT_PASSWORD: optionalString,
+  // Panneau de comptes techniques de /login (web) : interdit en production.
+  SHOW_TECHNICAL_ACCOUNTS: optionalString,
+  // Identifiants MinIO / S3 : les valeurs par défaut publiques sont interdites en production.
+  MINIO_ACCESS_KEY: optionalString,
+  MINIO_SECRET_KEY: optionalString,
+  MINIO_USER: optionalString,
+  MINIO_PASSWORD: optionalString,
+  TRUST_PROXY: optionalString,
 });
 
 export type ApiEnv = z.infer<typeof envSchema>;
@@ -134,6 +142,26 @@ export function validateEnv(source: Record<string, string | undefined>): EnvVali
     const message = `${name} : ${problems.join(" et ")}`;
     if (isProduction) errors.push(message);
     else if (!isTest) warnings.push(`${message} (toléré hors production)`);
+  }
+
+  if (isProduction) {
+    if (env.TRUST_PROXY?.toLowerCase() === "true") {
+      warnings.push("TRUST_PROXY=true fait confiance à tout X-Forwarded-For (adresse falsifiable) : préférer un nombre de sauts (1) ou des CIDR");
+    }
+    if (env.SHOW_TECHNICAL_ACCOUNTS?.toLowerCase() === "true") {
+      errors.push(
+        "SHOW_TECHNICAL_ACCOUNTS=true est interdit en production (le panneau de comptes de /login exposerait des identifiants) ; " +
+          "retirer la variable ou la mettre à false"
+      );
+    }
+    const minioAccess = env.MINIO_ACCESS_KEY ?? env.MINIO_USER;
+    const minioSecret = env.MINIO_SECRET_KEY ?? env.MINIO_PASSWORD;
+    if (minioAccess?.toLowerCase() === "minioadmin") {
+      errors.push("MINIO_ACCESS_KEY / MINIO_USER : identifiant MinIO par défaut interdit en production");
+    }
+    if (minioSecret !== undefined && isWeakSecret(minioSecret)) {
+      errors.push("MINIO_SECRET_KEY / MINIO_PASSWORD : valeur d'exemple ou faible connue (MinIO par défaut interdit en production)");
+    }
   }
 
   if (errors.length > 0) return { ok: false, errors, warnings };

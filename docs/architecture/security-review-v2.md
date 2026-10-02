@@ -148,3 +148,32 @@ Tests préexistants : trois échecs de `src/__tests__/file-serving.test.ts` (500
 - D-6 : URL signées de courte durée pour `/api/v1/files/*` (LEG-1) ; second facteur et secret dédié pour le super-admin (LEG-3).
 - D-7 : anti-escalade complète par comparaison de permissions pour `iam.user.invite` / `iam.user.manage` (au-delà de `owner`/`admin`), et séparation `app_user` / `system_user` en base (M-7).
 - D-8 : activer `SHOW_TECHNICAL_ACCOUNTS=true` seulement sur la démonstration ; faire échouer le démarrage de production si le drapeau est actif.
+
+## 8. Suites (2026-10-02, arbitrages de l'utilisateur)
+
+### Décisions appliquées
+
+| Id | Décision | Réalisation |
+|---|---|---|
+| D-3 | `/auth/social-login` conservé, secret partagé obligatoire | `AUTH_SOCIAL_SHARED_SECRET` obligatoire hors `development`/`test` (SEC-05) ; dit explicitement dans `runbook-exploitation.md` (§2, « Sécurité de la configuration »), `auth-cutover.md` (§2) et `.env.example` (aucune valeur réelle) |
+| D-2 | Extinction du legacy 90 jours après la bascule | `AUTH_CUTOVER_AT` (date ISO) + `LEGACY_TOKEN_SUNSET_DAYS` (défaut 90) ; `LEGACY_TOKEN_SUNSET` explicite reste prioritaire ; **aucune extinction tant que `AUTH_CUTOVER_AT` est absente** ; tests dans `apps/api/test/legacy-iam-bridge.test.ts` ; procédure dans `auth-cutover.md` §3 bis |
+| D-8 | Refus de démarrer en production avec `SHOW_TECHNICAL_ACCOUNTS=true` | API (`apps/api/src/config/env.ts`, `loadEnvOrExit`) et web (`env.server.ts`, `assertWebEnv`) ; tests `env-config.test.ts` et `env.server.test.ts` |
+| M-4 | MinIO par défaut en production | même contrôle de configuration API : `minioadmin` ou valeur d'exemple dans `MINIO_USER`/`MINIO_PASSWORD` (ou `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY`) refusé en production ; tests ajoutés ; les défauts du `docker-compose.yml` restent un repli de développement |
+| D-5 | `TRUST_PROXY` / nginx | `infra/nginx/ecoledigitale*.conf` : `X-Forwarded-For $remote_addr` ; `TRUST_PROXY=1` documenté (`.env.example`, `auth-cutover.md`) ; `TRUST_PROXY=true` déclenche un avertissement au démarrage en production (pas un refus). Aucun serveur réel ni `deploy.sh` touché |
+
+### Dépendances (`pnpm audit --prod`)
+
+| | Faibles | Modérés | Élevés | Critiques | Total |
+|---|---|---|---|---|---|
+| Avant | 15 | 100 | 141 | 7 | 263 |
+| Après | 2 | 16 | 18 | 0 | 36 |
+
+Mises à jour faites (correctifs et mineures, une famille par commit) :
+- `next` 15.0.0 -> 15.5.27 (+ `eslint-config-next`), `next-auth` -> 4.24.15 ;
+- `@fastify/multipart` 7.7.3 -> 8.3.1 (la ligne 8.x est celle de fastify 4 ; `fastify` reste en 4.29.1, dernier 4.x) ;
+- `pnpm.overrides` racine (même majeure, 0.x : même mineure) : `fast-xml-parser` 5.11.2, `basic-ftp` 5.3.1, `axios` 1.20.0, puis `js-yaml`, `lodash`, `follow-redirects`, `form-data`, `ws`, `nodemailer` 7.0.13, `jws`, `glob`, `tar-fs`, `tmp`, `preact`, `picomatch`, `minimatch`, `brace-expansion`, `postcss`, `mammoth`, `@xmldom/xmldom`, `underscore`, `ip-address`, `nanoid`, `dompurify`, `fast-uri`, `ajv`, `yaml`, `postcss-selector-parser`, `@smithy/config-resolver`.
+
+Mises à jour refusées (saut de version majeure ou pas de correctif disponible) : `fastify` 4 -> 5 (9 avis), `@fastify/static` (correctif seulement en 10.x, fastify 5), `nodemailer` 7 -> 8+ (13 avis), `next-intl` 3 -> 4, `uuid` -> 11, `js-cookie` 2 -> 3, `find-my-way` 8 -> 9 (via fastify), `deepmerge-ts` 7 -> 8, `basic-ftp` 5 -> 6 (1 avis restant), `sharp` 0.34 -> 0.35 (mineure instable en 0.x), `xlsx` et `extract-zip` (aucune version corrigée publiée). À planifier avec la montée de fastify 5.
+
+Vérifications : tests web 1616 verts ; `tsc -p tsconfig.v2.json` = 0 ; suite vitest API hors intégration ; intégration documents, admissions, IAM, auth-bridge et imports sur Postgres Docker éphémère ; `pnpm check:boundaries` et `scripts/check-secrets.mjs` verts. Le build web compile et génère les 448 pages ; seule la copie `standalone` échoue sous Windows (symlinks, EPERM), sans lien avec les versions.
+Échecs observés non liés aux dépendances : `test/events-catalog.test.ts` (nommage `councils.effect.awaiting_human`, abonné `councils.render-minutes`), `test/events-contracts/coverage.test.ts`, `test/scaffold-gates.test.ts` (module `councils` et gabarit), et un test de tri par collation de `documents/access.integration.test.ts`.

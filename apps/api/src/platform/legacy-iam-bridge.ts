@@ -56,8 +56,38 @@ export function parseLegacyTokenSunset(raw: string | undefined): Date | null {
   return date;
 }
 
+/** Délai d'extinction par défaut, en jours après la bascule de l'authentification v2 (décision produit). */
+export const DEFAULT_LEGACY_TOKEN_SUNSET_DAYS = 90;
+
+/**
+ * Date d'extinction effective. Priorité :
+ *   1. `LEGACY_TOKEN_SUNSET` (date explicite, prioritaire) ;
+ *   2. `AUTH_CUTOVER_AT` (date ISO 8601 de la bascule) + `LEGACY_TOKEN_SUNSET_DAYS` (entier >= 0, défaut 90) ;
+ *   3. aucune des deux : pas d'extinction (comportement historique).
+ * Valeur mal formée : erreur (démarrage refusé via `assertLegacySunsetConfig`).
+ */
 export function legacyTokenSunsetDate(env: NodeJS.ProcessEnv = process.env): Date | null {
-  return parseLegacyTokenSunset(env.LEGACY_TOKEN_SUNSET);
+  const explicit = parseLegacyTokenSunset(env.LEGACY_TOKEN_SUNSET);
+  if (explicit) return explicit;
+  const cutover = parseIsoDate(env.AUTH_CUTOVER_AT, "AUTH_CUTOVER_AT");
+  if (!cutover) return null;
+  const rawDays = env.LEGACY_TOKEN_SUNSET_DAYS?.trim();
+  let days = DEFAULT_LEGACY_TOKEN_SUNSET_DAYS;
+  if (rawDays) {
+    if (!/^\d{1,4}$/.test(rawDays)) throw new LegacySunsetConfigError("LEGACY_TOKEN_SUNSET_DAYS doit être un entier de jours (0 à 9999).");
+    days = Number(rawDays);
+  }
+  return new Date(cutover.getTime() + days * 86_400_000);
+}
+
+function parseIsoDate(raw: string | undefined, name: string): Date | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00Z` : value;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(iso) || Number.isNaN(new Date(iso).getTime())) {
+    throw new LegacySunsetConfigError(`${name} doit être une date ISO 8601 avec fuseau (ex. 2026-11-02 ou 2026-11-02T00:00:00Z).`);
+  }
+  return new Date(iso);
 }
 
 /** Vrai quand les jetons legacy de tenant ne sont plus acceptés (la date est atteinte). */

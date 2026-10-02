@@ -69,6 +69,11 @@ describe("env.server — assertWebEnv", () => {
     expect(() => assertWebEnv({ NODE_ENV: "production", NEXTAUTH_SECRET: STRONG })).not.toThrow();
   });
 
+  it("production : refuse de démarrer avec SHOW_TECHNICAL_ACCOUNTS=true", () => {
+    expect(() => assertWebEnv({ NODE_ENV: "production", NEXTAUTH_SECRET: STRONG, SHOW_TECHNICAL_ACCOUNTS: "true" })).toThrow(/SHOW_TECHNICAL_ACCOUNTS/);
+    expect(() => assertWebEnv({ NODE_ENV: "production", NEXTAUTH_SECRET: STRONG, SHOW_TECHNICAL_ACCOUNTS: "false" })).not.toThrow();
+  });
+
   it("phase de build : ne lève jamais", () => {
     expect(() => assertWebEnv({ NODE_ENV: "production", NEXT_PHASE: "phase-production-build" })).not.toThrow();
   });

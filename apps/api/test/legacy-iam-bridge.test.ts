@@ -13,6 +13,7 @@ import {
   isLegacyTokenSunsetReached,
   legacyCodeForIamError,
   legacyIamBridgeEnabled,
+  legacyTokenSunsetDate,
   parseLegacyTokenSunset,
   peekJwtTyp,
 } from "../src/platform/legacy-iam-bridge";
@@ -97,6 +98,40 @@ describe("LEGACY_TOKEN_SUNSET", () => {
     }
     expect(() => assertLegacySunsetConfig({ LEGACY_TOKEN_SUNSET: "bientôt" } as NodeJS.ProcessEnv)).toThrow(LegacySunsetConfigError);
     expect(() => assertLegacySunsetConfig({} as NodeJS.ProcessEnv)).not.toThrow();
+  });
+});
+
+describe("extinction calculée : AUTH_CUTOVER_AT + LEGACY_TOKEN_SUNSET_DAYS", () => {
+  const env = (o: Record<string, string | undefined>) => o as unknown as NodeJS.ProcessEnv;
+
+  it("aucune extinction tant que AUTH_CUTOVER_AT n'est pas défini (même avec un nombre de jours)", () => {
+    expect(legacyTokenSunsetDate(env({}))).toBeNull();
+    expect(legacyTokenSunsetDate(env({ LEGACY_TOKEN_SUNSET_DAYS: "90" }))).toBeNull();
+    expect(isLegacyTokenSunsetReached(new Date("2099-01-01"), env({ LEGACY_TOKEN_SUNSET_DAYS: "90" }))).toBe(false);
+  });
+
+  it("90 jours par défaut après la bascule, atteinte à l'instant exact", () => {
+    const e = env({ AUTH_CUTOVER_AT: "2026-11-02" });
+    expect(legacyTokenSunsetDate(e)?.toISOString()).toBe("2027-01-31T00:00:00.000Z");
+    expect(isLegacyTokenSunsetReached(new Date("2027-01-30T23:59:59.999Z"), e)).toBe(false);
+    expect(isLegacyTokenSunsetReached(new Date("2027-01-31T00:00:00.000Z"), e)).toBe(true);
+  });
+
+  it("nombre de jours configurable, date-heure avec fuseau", () => {
+    const e = env({ AUTH_CUTOVER_AT: "2026-11-02T10:00:00+01:00", LEGACY_TOKEN_SUNSET_DAYS: "30" });
+    expect(legacyTokenSunsetDate(e)?.toISOString()).toBe("2026-12-02T09:00:00.000Z");
+    expect(legacyTokenSunsetDate(env({ AUTH_CUTOVER_AT: "2026-11-02", LEGACY_TOKEN_SUNSET_DAYS: "0" }))?.toISOString()).toBe("2026-11-02T00:00:00.000Z");
+  });
+
+  it("LEGACY_TOKEN_SUNSET explicite reste prioritaire", () => {
+    const e = env({ LEGACY_TOKEN_SUNSET: "2026-12-01", AUTH_CUTOVER_AT: "2026-11-02" });
+    expect(legacyTokenSunsetDate(e)?.toISOString()).toBe("2026-12-01T00:00:00.000Z");
+  });
+
+  it("valeurs mal formées : démarrage refusé", () => {
+    for (const bad of [{ AUTH_CUTOVER_AT: "bientôt" }, { AUTH_CUTOVER_AT: "2026-11-02", LEGACY_TOKEN_SUNSET_DAYS: "-5" }, { AUTH_CUTOVER_AT: "2026-11-02", LEGACY_TOKEN_SUNSET_DAYS: "quatre-vingt-dix" }]) {
+      expect(() => assertLegacySunsetConfig(env(bad))).toThrow(LegacySunsetConfigError);
+    }
   });
 });
 

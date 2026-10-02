@@ -41,10 +41,11 @@ compte legacy du jeton vérifié (jamais une valeur du client).
 | `V2_DATABASE_URL`, `IAM_JWT_SECRET`, `IAM_MFA_ENCRYPTION_KEY` | API | — | Active la plateforme v2 (prérequis de tout le reste). |
 | `V2_LEGACY_IAM_BRIDGE` | API | actif | `0`/`false`/`off` : les routes legacy refusent à nouveau les jetons IAM (retour au comportement antérieur). Lu à chaque requête. |
 | `LEGACY_TOKEN_SUNSET` | API | absente (jamais) | Date ISO 8601 (`2026-11-16` = minuit UTC). Mal formée : **démarrage refusé**. Lue à chaque requête : la repousser ou la retirer rouvre le legacy. |
-| `TRUST_PROXY` | API | `false` | Sauts de proxy de confiance (ou CIDR). **Requis** derrière nginx + serveur web : sinon toutes les connexions partagent l'IP du proxy (limiteur de débit, verrouillage, audit, liste « mes sessions »). Le serveur web relaie `X-Forwarded-For` / `User-Agent` du navigateur. |
+| `AUTH_CUTOVER_AT`, `LEGACY_TOKEN_SUNSET_DAYS` | API | absentes (aucune extinction) ; jours : `90` | Extinction **calculée** : `AUTH_CUTOVER_AT` (date ISO 8601 de la bascule, minuit UTC si date seule) + `LEGACY_TOKEN_SUNSET_DAYS` jours (entier, défaut 90). Sans `AUTH_CUTOVER_AT`, rien ne change. `LEGACY_TOKEN_SUNSET` explicite, s'il est posé, reste prioritaire. Valeur mal formée : démarrage refusé. Voir §3 bis. |
+| `TRUST_PROXY` | API | `false` | Sauts de proxy de confiance (ou CIDR). **Valeur recommandée derrière nginx : `1`** (nginx pose `X-Forwarded-For` = `$remote_addr`, jamais la chaîne fournie par le client) ; `true` est déconseillé (avertissement au démarrage en production). **Requis** derrière nginx + serveur web : sinon toutes les connexions partagent l'IP du proxy (limiteur de débit, verrouillage, audit, liste « mes sessions »). Le serveur web relaie `X-Forwarded-For` / `User-Agent` du navigateur. |
 | `IAM_REFRESH_REUSE_GRACE_MS` | API | `0` | Tolérance (0–30000 ms) des doubles soumissions d'un refresh token. Recommandé web : `0` (la rotation est sérialisée par Web Locks) ; mobile : `3000`. |
 | `IAM_SERVICE_SECRET` | API + web | absent | Active `POST /iam/federated-login` (Google). Même valeur des deux côtés. Absent : la route n'existe pas. |
-| `AUTH_SOCIAL_SHARED_SECRET` | API + web | absent | `/auth/social-login` legacy exige le secret (en-tête `x-social-login-secret`). **Refusé en production s'il est absent** : la route délivrait un jeton pour n'importe quel e-mail. |
+| `AUTH_SOCIAL_SHARED_SECRET` | API + web | absent | `/auth/social-login` legacy est **conservé** (le web l'appelle en repli) mais exige ce secret partagé (en-tête `x-social-login-secret`, même valeur côté API et web, >= 32 caractères aléatoires, jamais dans le dépôt). Sans secret, la route n'est tolérée que si `NODE_ENV` vaut explicitement `development` ou `test` : **obligatoire en production et en staging** (la route délivrait un jeton pour n'importe quel e-mail). Elle est fermée (410) à l'extinction du legacy. |
 | `NEXT_PUBLIC_AUTH_V2` | web (build) | absent | `1` : connexion V2. Inliné au build -> un déploiement par valeur. |
 | `NEXT_PUBLIC_GOOGLE_AUTH` | web (build) | absent | `1` : bouton « Continuer avec Google » sur la page de connexion V2. |
 | `LEGACY_DATABASE_URL`, `IAM_IMPORT_TECHNICAL_PASSWORD` | poste d'import | `DATABASE_URL` / absent | Voir §4. |
@@ -60,6 +61,16 @@ compte legacy du jeton vérifié (jamais une valeur du client).
 | 4. Bascule générale | J (2026-11-02) | Relancer l'import (nouveaux comptes créés depuis), `NEXT_PUBLIC_AUTH_V2=1` partout, redéployer. Geler la création de comptes côté legacy pendant la fenêtre (ou relancer l'import toutes les 5 min). | Aucune 401/403 `LEGACY_ACCOUNT_MISSING` inattendue dans les journaux. |
 | 5. Coexistence | J à J+14 | Les sessions legacy en cours (24 h max) continuent ; le login legacy reste possible (retour arrière). Surveiller `LEGACY_ROLE_UNMAPPED`, `LEGACY_ACCOUNT_MISSING`, 429. | Plus de jeton legacy émis depuis J+1. |
 | 6. Extinction | **J+14 (2026-11-16, minuit UTC)** | `LEGACY_TOKEN_SUNSET=2026-11-16`. Login / refresh legacy fermés (410), jetons legacy refusés. Le super-admin legacy (JWT séparé) n'est pas concerné. | Taux de `LEGACY_TOKEN_SUNSET` -> 0. Étape suivante (hors périmètre) : retirer le code de login legacy. |
+
+### 3 bis. Procédure d'extinction à 90 jours
+
+Décision : le legacy s'éteint **90 jours après la bascule** de l'authentification v2.
+
+1. Le jour de la bascule générale (étape 4), poser `AUTH_CUTOVER_AT=<date ISO de la bascule>` (ex. `2026-11-02`) dans l'environnement de l'API, et redémarrer l'API (la variable est validée au démarrage, puis lue à chaque requête). `LEGACY_TOKEN_SUNSET_DAYS` vaut 90 par défaut : ne le poser que pour changer le délai.
+2. L'extinction effective est `AUTH_CUTOVER_AT + LEGACY_TOKEN_SUNSET_DAYS` (ex. bascule 2026-11-02 -> extinction 2027-01-31 minuit UTC). Elle a les mêmes effets que `LEGACY_TOKEN_SUNSET` (§1).
+3. Tant que `AUTH_CUTOVER_AT` et `LEGACY_TOKEN_SUNSET` sont absentes, aucune extinction : aucun changement de comportement.
+4. Pour avancer ou reculer la date : modifier `LEGACY_TOKEN_SUNSET_DAYS`, ou poser `LEGACY_TOKEN_SUNSET` (prioritaire). Pour annuler : retirer les variables.
+5. Cette valeur calculée remplace la date J+14 du tableau ci-dessus lorsque la décision des 90 jours s'applique.
 
 ### Retour arrière (à chaque étape)
 
