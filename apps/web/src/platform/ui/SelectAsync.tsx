@@ -133,7 +133,7 @@ export function SelectAsync({ value, onChange, useOptions, placeholder, clearabl
                 setText("");
                 inputRef.current?.focus();
               }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex h-10 w-10 items-center justify-center rounded text-muted-foreground sm:h-8 sm:w-8 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
