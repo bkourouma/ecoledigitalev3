@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { newId, unwrap } from "@ecoledigitale/kernel";
 import { reportcardsPublicVerificationDtoSchema } from "@ecoledigitale/contracts/src/v2/reportcards";
-import { renderOfficialDocument, requestOfficialDocument } from "../../application/official-documents";
+import { renderOfficialDocument, requestOfficialDocument, supersedeOfficialDocument } from "../../application/official-documents";
 import { verifyByCode, verifyByFile, DEMONSTRATION_VERIFICATION_NOTE } from "../../application/verify";
 import { DEMONSTRATION_NOTICE, DEMONSTRATION_WATERMARK, type PackDocumentKind } from "../../domain/constants";
 import { verificationDto } from "../../http/presenters";
@@ -120,6 +120,49 @@ describeIntegration("documents des packs : scellement, rendu, vérification (Pos
     it("le PDF téléversé est reconnu pour un document de démonstration (même contrôle d'intégrité)", async () => {
       const f = unwrap(await verifyByFile(world.deps, { bytes: demoBytes }));
       expect(f).toMatchObject({ match: true, status: "AUTHENTIC" });
+    });
+  });
+  describe("PV de conseil remplacé (séance rouverte)", () => {
+    it("l'ancien document est CONSERVÉ mais la vérification publique le dit « remplacé » ; idempotent ; un document inconnu n'est rien", async () => {
+      const sourceId = newId();
+      const sealed = unwrap(await requestOfficialDocument(world.deps, ctx(), input("COUNCIL_MINUTES", sourceId)));
+      unwrap(await renderOfficialDocument(world.deps, ctx(), { documentId: sealed.record.id }));
+      const before = unwrap(await verifyByCode(world.deps, { code: sealed.record.verificationCode }));
+      expect(before.status).toBe("AUTHENTIC");
+
+      const reasonRef = newId();
+      const r = unwrap(await supersedeOfficialDocument(world.deps, ctx(), { kind: "COUNCIL_MINUTES", sourceId, reasonCode: "COUNCIL_REOPENED", reasonRef }));
+      expect(r).toEqual({ superseded: true, documentId: sealed.record.id });
+      const after = unwrap(await verifyByCode(world.deps, { code: sealed.record.verificationCode }));
+      expect(after).toMatchObject({ status: "SUPERSEDED", documentKind: "COUNCIL_MINUTES", snapshotHash: before.snapshotHash, signature: before.signature });
+      expect(after.message).toMatch(/remplacé par une version plus récente/);
+      expect(after.supersededByIssuedAt).toBeInstanceOf(Date);
+      // le DTO public reste conforme au contrat et sans donnée personnelle
+      expect(reportcardsPublicVerificationDtoSchema.safeParse(verificationDto(after)).success).toBe(true);
+      // le document lui-même n'a pas bougé (immuable) : empreinte, signature, PDF
+      const row = (await adminRows<{ snapshot_hash: string; render_status: string }>(db, "SELECT snapshot_hash, render_status FROM reportcards.official_documents WHERE id = $1", [sealed.record.id]))[0]!;
+      expect(row).toMatchObject({ snapshot_hash: before.snapshotHash, render_status: "RENDERED" });
+
+      // idempotent : un rejeu ne refait rien et n'émet pas deux fois
+      expect(unwrap(await supersedeOfficialDocument(world.deps, ctx(), { kind: "COUNCIL_MINUTES", sourceId, reasonCode: "COUNCIL_REOPENED", reasonRef }))).toEqual({ superseded: false, documentId: sealed.record.id });
+      expect(await adminRows(db, "SELECT 1 FROM kernel.domain_events WHERE type = 'reportcards.official_document.superseded' AND aggregate_id = $1", [sealed.record.id])).toHaveLength(1);
+      expect(await adminRows(db, "SELECT 1 FROM reportcards.official_document_supersessions WHERE document_id = $1", [sealed.record.id])).toHaveLength(1);
+      // une version plus récente du PV (autre source) reste authentique
+      const next = unwrap(await requestOfficialDocument(world.deps, ctx(), input("COUNCIL_MINUTES", newId())));
+      expect(unwrap(await verifyByCode(world.deps, { code: next.record.verificationCode })).status).toBe("AUTHENTIC");
+      // document inconnu : rien à remplacer
+      expect(unwrap(await supersedeOfficialDocument(world.deps, ctx(), { kind: "COUNCIL_MINUTES", sourceId: newId(), reasonCode: "COUNCIL_REOPENED" }))).toEqual({ superseded: false, documentId: null });
+    });
+
+    it("RLS A/B : un autre établissement ne peut pas marquer ce document, et l'append-only est tenu", async () => {
+      const sourceId = newId();
+      const sealed = unwrap(await requestOfficialDocument(world.deps, ctx(), input("COUNCIL_MINUTES", sourceId)));
+      const other = await seedSchool(world, await db.createTenant(), { students: 1 });
+      expect(unwrap(await supersedeOfficialDocument(world.deps, other.admin.ctx, { kind: "COUNCIL_MINUTES", sourceId, reasonCode: "COUNCIL_REOPENED" }))).toEqual({ superseded: false, documentId: null });
+      expect(unwrap(await verifyByCode(world.deps, { code: sealed.record.verificationCode })).status).toBe("AUTHENTIC");
+      unwrap(await supersedeOfficialDocument(world.deps, ctx(), { kind: "COUNCIL_MINUTES", sourceId, reasonCode: "COUNCIL_REOPENED" }));
+      await expect(db.tenantDb.run(ctx(), (tx) => tx.query("DELETE FROM reportcards.official_document_supersessions WHERE document_id = $1", [sealed.record.id]))).rejects.toThrow(/permission denied|42501/);
+      await expect(db.tenantDb.run(ctx(), (tx) => tx.query("UPDATE reportcards.official_document_supersessions SET reason_ref = NULL WHERE document_id = $1", [sealed.record.id]))).rejects.toThrow(/permission denied|42501/);
     });
   });
 });

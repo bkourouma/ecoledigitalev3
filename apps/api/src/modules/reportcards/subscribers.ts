@@ -14,12 +14,12 @@
  * (ou `V2_APP_BASE_URL`), `REPORTCARDS_CHROME_PATH`, `REPORTCARDS_CHROME_NO_SANDBOX`, `REPORTCARDS_RENDER_CONCURRENCY`.
  * `puppeteer` n'est pas embarqué dans le bundle : l'image du worker l'installe avec Chromium.
  */
-import { defineSubscriber, type EventHandlerContext, type SubscriberDefinition } from "@ecoledigitale/worker/sdk";
+import { defineSubscriber, idempotent, type EventHandlerContext, type SubscriberDefinition } from "@ecoledigitale/worker/sdk";
 import { isUuid, type AppError } from "@ecoledigitale/kernel";
 import { createReportcardsDeps, type ReportcardsDeps } from "./application/deps";
 import { ensureBuiltinTemplates } from "./application/platform";
 import type { PdfMerger, PdfRenderer, StoragePort } from "./application/ports";
-import { renderOfficialDocument, OFFICIAL_RENDER_ATTEMPTS } from "./application/official-documents";
+import { renderOfficialDocument, supersedeOfficialDocument, OFFICIAL_RENDER_ATTEMPTS } from "./application/official-documents";
 import { buildCombinedPdf, renderReportCard } from "./application/render";
 import { ConsumedEvents, ReportcardsEvents } from "./domain/events";
 import { PdfLibMerger } from "./infrastructure/pdf-merger";
@@ -126,6 +126,19 @@ export function buildSubscribers(depsOf: DepsFactory): SubscriberDefinition[] {
       concurrency: 2,
       timeoutMs: 120_000,
       handler: handleOfficialRender(depsOf),
+    }),
+    defineSubscriber({
+      name: "reportcards.supersede-council-minutes",
+      pattern: ConsumedEvents.COUNCIL_MINUTES_SUPERSEDED,
+      retry: { attempts: 5, backoffMs: 2_000, maxBackoffMs: 60_000 },
+      concurrency: 1,
+      handler: idempotent("reportcards.supersede-council-minutes", async (event, ctx) => {
+        // `councils.minutes.superseded` est émis dans la MÊME transaction que `councils.council.reopened` : `minutesId` est la source du PV remplacé.
+        const sourceId = pickUuid(event.payload, "minutesId");
+        if (!sourceId) return ctx.logger.warn({ eventId: event.id }, "reportcards : minutesId absent du payload") as unknown as void;
+        const result = await supersedeOfficialDocument(depsOf(ctx), ctx.db.ctx, { kind: "COUNCIL_MINUTES", sourceId, reasonCode: "COUNCIL_REOPENED", reasonRef: pickUuid(event.payload, "reasonRef") ?? null, sourceEventId: isUuid(event.id) ? event.id : null });
+        if (!result.ok) throw result.error; // transitoire : la file rejoue
+      }),
     }),
     defineSubscriber({
       name: "reportcards.combine-batch",

@@ -48,7 +48,7 @@ describe("manifeste du module reportcards", () => {
     for (const type of manifest.events.publishes) expect(type).toMatch(/^reportcards\.[a-z_]+\.[a-z_]+$/);
     // Un module consomme aussi ses propres événements de rendu (abonnés du worker) : manifeste = abonnés, ni plus ni moins.
     expect([...manifest.events.consumes].sort()).toEqual(
-      [ConsumedEvents.TENANT_PROVISIONED, "reportcards.snapshot.created", "reportcards.report_card.render_requested", "reportcards.batch.completed", "reportcards.official_document.render_requested"].sort(),
+      [ConsumedEvents.TENANT_PROVISIONED, "reportcards.snapshot.created", "reportcards.report_card.render_requested", "reportcards.batch.completed", "reportcards.official_document.render_requested", "councils.minutes.superseded"].sort(),
     );
     const patterns = subscribers.map((s) => String(s.pattern));
     for (const consumed of manifest.events.consumes) expect(patterns).toContain(consumed);
@@ -119,7 +119,7 @@ describe("abonnés et jobs du worker", () => {
   it("abonnés : noms stables et uniques, motifs exacts, 3 tentatives de rendu, concurrence bornée", () => {
     const names = subscribers.map((s) => s.name);
     expect(new Set(names).size).toBe(names.length);
-    expect(names.sort()).toEqual(["reportcards.combine-batch", "reportcards.render-official-document", "reportcards.render-requested", "reportcards.render-snapshot", "reportcards.seed-templates"]);
+    expect(names.sort()).toEqual(["reportcards.combine-batch", "reportcards.render-official-document", "reportcards.render-requested", "reportcards.render-snapshot", "reportcards.seed-templates", "reportcards.supersede-council-minutes"]);
     const render = subscribers.find((s) => s.name === "reportcards.render-snapshot")!;
     expect(render.pattern).toBe("reportcards.snapshot.created");
     expect(render.retry?.attempts).toBe(RENDER_ATTEMPTS);
@@ -127,7 +127,7 @@ describe("abonnés et jobs du worker", () => {
     expect(render.concurrency).toBeLessThanOrEqual(2);
     expect(subscribers.find((s) => s.name === "reportcards.render-requested")!.pattern).toBe("reportcards.report_card.render_requested");
     expect(subscribers.find((s) => s.name === "reportcards.combine-batch")!.pattern).toBe("reportcards.batch.completed");
-    for (const s of subscribers) expect([...manifest.events.publishes, ConsumedEvents.TENANT_PROVISIONED]).toContain(String(s.pattern));
+    for (const s of subscribers) expect([...manifest.events.publishes, ConsumedEvents.TENANT_PROVISIONED, ConsumedEvents.COUNCIL_MINUTES_SUPERSEDED]).toContain(String(s.pattern));
   });
 
   it("jobs : intégrité nocturne, filet de rendu, purge du journal ; par tenant ; cron valides", () => {
@@ -162,7 +162,7 @@ describe("liste blanche d'isolation", () => {
     const loaded = await loadIsolationAllowlist({ knownModules });
     expect(loaded.tables).toEqual(expect.arrayContaining(reportcardsIsolationAllowlistTables as string[]));
     expect(Object.keys(fixtures).every((t) => t.startsWith("reportcards."))).toBe(true);
-    expect(reportcardsTenantTables).toHaveLength(11);
+    expect(reportcardsTenantTables).toHaveLength(12);
   });
 });
 

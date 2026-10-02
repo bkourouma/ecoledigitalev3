@@ -10,6 +10,16 @@ export const contracts: EventContract[] = [
   { consumer: "reportcards", event: "reportcards.official_document.render_requested", reads: [{ field: "documentId", kind: "uuid" }], reader: (p) => pickUuid(p, "documentId") },
   // PDF combiné d'un lot : `batchId`.
   { consumer: "reportcards", event: "reportcards.batch.completed", reads: [{ field: "batchId", kind: "uuid" }], reader: (p) => pickUuid(p, "batchId") },
+  // PV de conseil remplacé (séance rouverte) : `minutesId` = source du document officiel à marquer « remplacé » ; `reasonRef` facultatif.
+  {
+    consumer: "reportcards",
+    event: "councils.minutes.superseded",
+    reads: [
+      { field: "minutesId", kind: "uuid" },
+      { field: "reasonRef", kind: "uuid", required: false },
+    ],
+    reader: (p) => pickUuid(p, "minutesId"),
+  },
   // Gabarits de plateforme : seul le type compte.
   { consumer: "reportcards", event: "tenancy.tenant.provisioned", reads: [] },
 ];

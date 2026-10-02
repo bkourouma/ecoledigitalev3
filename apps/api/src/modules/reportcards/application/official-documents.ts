@@ -296,6 +296,41 @@ export async function sweepPendingOfficialDocuments(deps: ReportcardsDeps, ctx: 
   return ok({ requested });
 }
 
+/** Motifs normalisés d'un remplacement de document officiel. */
+export type OfficialSupersessionReason = "COUNCIL_REOPENED";
+
+/**
+ * Le module propriétaire remplace le contenu d'un document officiel (PV de conseil : séance rouverte, nouvelle version). L'ANCIEN document
+ * est CONSERVÉ (code, empreinte, signature, PDF intacts) mais marqué « remplacé » : la vérification publique le dit. IDEMPOTENT (rejeu de
+ * l'événement : rien de plus) ; un document pas encore émis (rendu en retard) n'a rien à remplacer.
+ */
+export async function supersedeOfficialDocument(
+  deps: ReportcardsDeps,
+  ctx: RequestContext,
+  input: { kind: OfficialDocumentKind; sourceId: Uuid; reasonCode: OfficialSupersessionReason; reasonRef?: Uuid | null; sourceEventId?: Uuid | null },
+): Promise<Result<{ superseded: boolean; documentId: Uuid | null }, AppError>> {
+  return inTx<{ superseded: boolean; documentId: Uuid | null }>(deps, ctx, async (tx) => {
+    const doc = await repo.getOfficialDocumentBySource(tx, input.kind, input.sourceId, { forUpdate: true });
+    if (!doc) return ok({ superseded: false, documentId: null });
+    const inserted = await repo.insertOfficialSupersession(tx, {
+      id: deps.newId(),
+      tenantId: ctx.tenantId,
+      documentId: doc.id,
+      documentKind: doc.documentKind,
+      reasonCode: input.reasonCode,
+      reasonRef: input.reasonRef ?? null,
+      sourceEventId: input.sourceEventId ?? null,
+      at: deps.clock.now(),
+    });
+    if (!inserted) return ok({ superseded: false, documentId: doc.id });
+    const events = new EventBuffer(deps, ctx);
+    events.add(ReportcardsEvents.OFFICIAL_SUPERSEDED, { v: 1, documentId: doc.id, documentKind: doc.documentKind, sourceId: doc.sourceId, reasonCode: input.reasonCode }, { type: "official_document", id: doc.id });
+    events.audit({ action: "reportcards.official_document.superseded", resourceType: "official_document", resourceId: doc.id, sensitive: true, after: { kind: doc.documentKind, reasonCode: input.reasonCode }, metadata: { reasonRef: input.reasonRef ?? null } });
+    await events.flush(tx);
+    return ok({ superseded: true, documentId: doc.id });
+  });
+}
+
 export async function getOfficialDocumentRecord(deps: ReportcardsDeps, ctx: RequestContext, input: { kind: OfficialDocumentKind; sourceId: Uuid }): Promise<Result<repo.OfficialDocumentRecord | null, AppError>> {
   return inTx(deps, ctx, async (tx) => ok(await repo.getOfficialDocumentBySource(tx, input.kind, input.sourceId)), { readOnly: true });
 }

@@ -174,8 +174,8 @@ async function describe(deps: ReportcardsDeps, tenantId: string, cardId: string,
 
 /**
  * Documents officiels d'autres modules (reçu de paiement, bulletin de paie) : même contrôle d'intégrité que les bulletins
- * (hash recalculé + signature revérifiée à chaque consultation), même réponse minimale. Pas de remplacement ni de révocation :
- * `AUTHENTIC` ou `INVALID`. Le titre scellé ne contient aucune donnée personnelle.
+ * (hash recalculé + signature revérifiée à chaque consultation), même réponse minimale. Pas de révocation : `AUTHENTIC`, `INVALID`, ou
+ * `SUPERSEDED` quand le module propriétaire a remplacé le document (PV de conseil rouvert : registre `official_document_supersessions`). Le titre scellé ne contient aucune donnée personnelle.
  */
 async function describeOfficial(deps: ReportcardsDeps, tenantId: string, documentId: string, code: string): Promise<{ result: PublicVerification; card: LoggedDocument } | null> {
   const system = deps.systemDb;
@@ -189,20 +189,22 @@ async function describeOfficial(deps: ReportcardsDeps, tenantId: string, documen
     const hashValid = snapshotHash(snapshot, explain) === record.snapshotHash;
     const signatureValid = Boolean(key) && verifyDocumentSignature(key!.publicKey, { snapshotHash: record.snapshotHash, verificationCode: record.verificationCode, issuedAt: record.issuedAt }, record.signature);
     const intact = hashValid && signatureValid;
+    // Remplacé par le module propriétaire (PV de conseil rouvert puis régénéré) : l'ancien document reste vérifiable, mais dit qu'il est remplacé.
+    const supersession = intact ? await officialRepo.getOfficialSupersession(tx, record.id) : null;
     const result: PublicVerification = {
-      status: intact ? "AUTHENTIC" : "INVALID",
+      status: !intact ? "INVALID" : supersession ? "SUPERSEDED" : "AUTHENTIC",
       documentKind: record.documentKind,
       institutionName: String(snapshot?.institution?.legalName ?? ""),
       title: record.title,
       issuedAt: record.issuedAt,
       mention: null,
-      supersededByIssuedAt: null,
+      supersededByIssuedAt: supersession ? supersession.supersededAt : null,
       revokedAt: null,
       keyId: record.signingKeyId,
       keyFingerprint: key ? publicKeyFingerprint(key.publicKey) : null,
       snapshotHash: record.snapshotHash,
       signature: record.signature,
-      message: intact ? MESSAGES.AUTHENTIC : MESSAGES.INVALID,
+      message: !intact ? MESSAGES.INVALID : supersession ? `Document remplacé par une version plus récente (${formatDateFr(supersession.supersededAt.toISOString())}).` : MESSAGES.AUTHENTIC,
     };
     return { result: withDemonstration(result, isDemonstrationSource((snapshot as Record<string, unknown> | null)?.ruleSourceKind)), card: { id: record.id, documentKind: record.documentKind } };
   });

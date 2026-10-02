@@ -81,6 +81,7 @@ export default defineModule({
       ReportcardsEvents.RENDER_REQUESTED,
       ReportcardsEvents.BATCH_COMPLETED,
       ReportcardsEvents.OFFICIAL_RENDER_REQUESTED,
+      ConsumedEvents.COUNCIL_MINUTES_SUPERSEDED,
     ],
   },
 });
