@@ -8,6 +8,15 @@ import type { Directory } from "@/platform/v2/directory";
 import type { OccurrenceDto } from "@/platform/v2/scheduling";
 import { StatusBadge } from "@/platform/ui/PageHeader";
 
+/**
+ * Ce que la carte lit d'une séance : `OccurrenceDto` convient, et la copie hors ligne (qui n'a ni intervenants ni motif d'annulation,
+ * champs potentiellement personnels) aussi.
+ */
+export type OccurrenceView = Pick<OccurrenceDto, "id" | "kind" | "title" | "classroomId" | "roomId" | "startsAt" | "endsAt" | "occursOn" | "status" | "needsReplacement" | "conflictOverride" | "deliveryMode" | "locationLabel"> & {
+  staff?: OccurrenceDto["staff"];
+  cancelReason?: string | null;
+};
+
 export interface Directories {
   classrooms: Directory;
   staff: Directory;
@@ -24,10 +33,10 @@ export function useTimeRange() {
  * Séance dans une vue d'emploi du temps : heure, intitulé, classe, salle, intervenants (quand l'utilisateur peut les
  * nommer), états (annulée, constatée, à remplacer, dérogation). `actions` : boutons propres à l'écran appelant.
  */
-export function OccurrenceCard({ o, dirs, actions, compact = false }: { o: OccurrenceDto; dirs: Directories; actions?: ReactNode; compact?: boolean }) {
+export function OccurrenceCard({ o, dirs, actions, compact = false }: { o: OccurrenceView; dirs: Directories; actions?: ReactNode; compact?: boolean }) {
   const t = useTranslations("v2Schedule");
   const range = useTimeRange();
-  const staffNames = o.staff.map((s) => dirs.staff.find(s.staffId)).filter((n): n is string => n !== null);
+  const staffNames = (o.staff ?? []).map((s) => dirs.staff.find(s.staffId)).filter((n): n is string => n !== null);
   const roomName = o.roomId ? dirs.rooms.find(o.roomId) : null;
   const cancelled = o.status === "CANCELLED";
   const classroom = o.classroomId ? dirs.classrooms.find(o.classroomId) : null;

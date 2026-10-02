@@ -128,6 +128,8 @@ Voir `docs/i18n.md`.
 - Changer `CACHE_VERSION` dans `sw.js` quand `/offline`, le manifeste ou les icônes changent.
 - File d'appel hors ligne (IndexedDB, identifiants non nominatifs, synchronisation par lot) : `src/platform/offline/`, voir `docs/v2-attendance-schedule.md`.
   Ce n'est pas un cache de réponses : le service worker reste inchangé.
+- Hors ligne avancé (copie de l'emploi du temps en lecture seule, brouillons de notes, conflits, purge à la déconnexion, page `/offline` enrichie) :
+  `docs/offline-advanced.md`. `CACHE_VERSION` = `v2` (la page `/offline` a changé).
 
 ## 8. Écrans d'administration v2 (`/v2/...`)
 

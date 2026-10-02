@@ -59,6 +59,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { purgeOfflineDataBestEffort } from '@/platform/offline/purge';
 import Link from 'next/link';
 import { removeToken, getToken } from '@/lib/jwt-storage';
 import { useAdminMenuAccess } from '@/lib/hooks/use-admin-roles';
@@ -860,6 +861,9 @@ export function Sidebar({ onCloseMobileMenu }: SidebarProps) {
         }
       }
       
+      // Efface la copie hors ligne de l'emploi du temps (les brouillons de notes non envoyés sont conservés, voir offline/purge.ts)
+      await purgeOfflineDataBestEffort();
+
       // Remove JWT token from localStorage
       removeToken();
       console.log('ðŸ§¹ JWT token removed from localStorage');

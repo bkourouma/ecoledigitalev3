@@ -17,11 +17,17 @@ import { ErrorBlock, LoadingBlock, Notice, QueryBoundary, useFlash } from "@/pla
 import { apiErrorToFieldErrors, validateWith, type FieldErrors } from "@/platform/ui/validation";
 import { useClassroom } from "@/platform/v2/academic";
 import { useTeachingScope } from "@/platform/v2/teaching";
-import { applyPaste, buildBatch, isDirty, issueOf, mergeSaved, nextIndex, parseCell, progressOf, rowFromGrade, rowFromPending, STATUS_CODE, type CellContext, type EntryStatus, type GridRow } from "./grid-model";
+import { useGradeSync, useGradeSyncStatus } from "@/platform/offline/GradeSyncProvider";
+import type { ServerGrade } from "@/platform/offline/grade-drafts";
+import { applyApplied, applyPaste, applyRestored, buildBatch, isDirty, issueOf, mergeSaved, nextIndex, parseCell, progressOf, rowFromGrade, rowFromPending, STATUS_CODE, textOf, toDraftEntries, type CellContext, type EntryStatus, type GridRow } from "./grid-model";
+import { GradeConflictResolver } from "./GradeConflictResolver";
+import { GradeSyncIndicator } from "./GradeSyncIndicator";
 import { toneOfStatus, useStudentLabel, useStudentNames } from "./shared";
 import { WorkflowBar } from "./WorkflowBar";
 
-type SaveState = "idle" | "saving" | "saved" | "retry" | "conflict" | "rejected";
+type SaveState = "idle" | "saving" | "saved" | "queued" | "retry" | "conflict" | "rejected";
+
+const toServerGrade = (g: GradeSheet["grades"][number]): ServerGrade => ({ id: g.id, enrollmentId: g.enrollmentId, score: g.score, entryStatus: g.entryStatus, comment: g.comment, rowVersion: g.rowVersion });
 
 const STATUS_OPTIONS: EntryStatus[] = ["ENTERED", "ABSENT_EXCUSED", "ABSENT_UNEXCUSED", "EXEMPT", "NOT_GRADED"];
 
@@ -94,6 +100,21 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
   const pendingRef = useRef<{ key: string; entries: ReturnType<typeof buildBatch>["entries"]; sentTexts: Map<string, string> } | null>(null);
   const savingRef = useRef(false);
   const inputs = useRef(new Map<string, HTMLInputElement>());
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+  const sheetRef = useRef(sheet);
+  sheetRef.current = sheet;
+
+  // ----- hors ligne : brouillons locaux (fournisseur optionnel ; sans lui, comportement en ligne seulement) ------
+  const sync = useGradeSync();
+  const syncStatus = useGradeSyncStatus();
+  const tOff = useTranslations("v2Offline.grades");
+  const myDraft = syncStatus.drafts.find((d) => d.assessmentId === assessment.id);
+  const [reconciled, setReconciled] = useState(sync === null);
+  const [restoredCount, setRestoredCount] = useState(0);
+  const conflictIds = useMemo(() => new Set((myDraft?.conflicts ?? []).map((c) => c.enrollmentId)), [myDraft?.conflicts]);
+  const hasPendingSync = Boolean(myDraft && (myDraft.pending > 0 || myDraft.inflight));
+  const persistRef = useRef<() => void>(() => undefined);
 
   const editable = canEnter.allowed && assessment.status === "DRAFT";
   const published = assessment.status === "PUBLISHED";
@@ -111,6 +132,42 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
   const doSave = useCallback(async (): Promise<boolean> => {
     if (savingRef.current) return false;
     const current = rowsRef.current;
+    if (sync) {
+      // Mode hors ligne tolérant : la saisie est d'abord gardée sur l'appareil (brouillon), puis envoyée par le gestionnaire
+      // (lot idempotent, versions de ligne, conflits sans écrasement). Renvoie vrai SEULEMENT si le serveur a tout reçu.
+      const built = buildBatch(current, ctx);
+      if (built.invalid.length > 0) {
+        setSaveState("rejected");
+        setSaveError(null);
+        inputs.current.get(built.invalid[0]!)?.focus();
+        return false;
+      }
+      savingRef.current = true;
+      setSaveError(null);
+      try {
+        await sync.recordEntries(assessment.id, assessment.title, toDraftEntries(built.entries));
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          setSaveState(built.entries.length > 0 ? "queued" : "idle");
+          return built.entries.length === 0;
+        }
+        setSaveState("saving");
+        const r = await sync.syncAssessment(assessment.id);
+        if (r.outcome === "synced") {
+          setLastSavedAt(new Date());
+          setLastResult({ created: r.created, updated: r.updated, unchanged: r.unchanged, replayed: r.replayed });
+          setSaveState("saved");
+          return true;
+        }
+        if (r.outcome === "nothing") {
+          setSaveState((s) => (s === "saving" ? "idle" : s));
+          return true;
+        }
+        setSaveState(r.outcome === "conflict" ? "conflict" : r.outcome === "blocked" ? "rejected" : r.outcome === "offline" ? "queued" : "retry");
+        return false;
+      } finally {
+        savingRef.current = false;
+      }
+    }
     let batch = pendingRef.current;
     if (!batch) {
       const built = buildBatch(current, ctx);
@@ -163,7 +220,64 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
     } finally {
       savingRef.current = false;
     }
-  }, [assessment.id, ctx, save]);
+  }, [assessment.id, assessment.title, ctx, save, sync]);
+
+  // Rapprochement unique à l'ouverture : les saisies hors ligne retrouvées sont restituées dans la grille ; celles dont la
+  // note a changé sur le serveur entre-temps deviennent des CONFLITS (la grille garde la valeur du serveur).
+  useEffect(() => {
+    if (!sync) return;
+    let alive = true;
+    const data = sheetRef.current;
+    void sync
+      .reconcile(data.assessment.id, {
+        status: data.assessment.status,
+        grades: data.grades.map(toServerGrade),
+        enrollmentIds: [...data.grades.map((g) => g.enrollmentId), ...data.pending.map((p) => p.enrollmentId)],
+      })
+      .then((res) => {
+        if (!alive || res.restored.length === 0) return;
+        setRows((prev) => applyRestored(prev, res.restored));
+        setRestoredCount(res.restored.length);
+      })
+      .finally(() => alive && setReconciled(true));
+    return () => {
+      alive = false;
+    };
+  }, [sync]);
+
+  // Garde sur l'appareil, après une courte pause, tout ce qui diffère du serveur (jamais avant le rapprochement ci-dessus).
+  useEffect(() => {
+    if (!sync || !reconciled || !editable) return;
+    const run = () => {
+      const built = buildBatch(rowsRef.current, ctxRef.current);
+      void sync.recordEntries(assessment.id, assessment.title, toDraftEntries(built.entries));
+    };
+    persistRef.current = run;
+    const handle = setTimeout(run, 200);
+    return () => clearTimeout(handle);
+  }, [rows, sync, reconciled, editable, assessment.id, assessment.title]);
+
+  // Dernière écriture locale quand la page se cache ou se ferme.
+  useEffect(() => {
+    if (!sync) return;
+    const flush = () => persistRef.current();
+    const onHide = () => document.visibilityState === "hidden" && flush();
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [sync]);
+
+  // Notes enregistrées en arrière-plan (reprise après coupure) ou lignes passées en conflit : la grille suit, sans écraser la saisie en cours.
+  useEffect(() => {
+    if (!sync) return;
+    return sync.onApplied((e) => {
+      if (e.assessmentId !== assessment.id) return;
+      setRows((prev) => applyApplied(prev, e.grades, new Set(e.resetEnrollmentIds), ctxRef.current));
+    });
+  }, [sync, assessment.id]);
 
   // Enregistrement automatique après une pause de saisie (sauf lignes invalides ou hors ligne).
   useEffect(() => {
@@ -191,15 +305,17 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
   }, [editable, doSave]);
 
   // Avertit avant de quitter avec des saisies non enregistrées.
+  // (Avec le stockage local actif, les saisies sont déjà gardées sur l'appareil : plus d'alerte, sauf si ce stockage échoue.)
+  const keptOnDevice = sync !== null && syncStatus.persistent && !syncStatus.storageFailed && !syncStatus.limitReached;
   useEffect(() => {
-    if (dirtyCount === 0) return;
+    if (dirtyCount === 0 || keptOnDevice) return;
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [dirtyCount]);
+  }, [dirtyCount, keptOnDevice]);
 
   // ----- édition ----------------------------------------------------------------------------------------------
   function setText(enrollmentId: string, text: string) {
@@ -253,17 +369,48 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
     }
   }
 
-  function reload() {
-    if (dirtyCount > 0 && !window.confirm(t("confirmReload"))) return;
+  function reloadFromServer() {
     pendingRef.current = null;
-    void Promise.resolve(onReload()).then((res) => {
+    void Promise.resolve(onReload()).then(async (res) => {
       const data = (res as { data?: GradeSheet } | undefined)?.data;
       if (data) {
         setRows([...data.grades.map(rowFromGrade), ...data.pending.map(rowFromPending)]);
         setSaveState("idle");
         setSaveError(null);
+        setRestoredCount(0);
+        if (sync) {
+          // Les saisies locales ont été abandonnées : le brouillon aussi (les conflits à arbitrer, eux, restent).
+          await sync.recordEntries(data.assessment.id, data.assessment.title, []);
+          await sync.reconcile(data.assessment.id, {
+            status: data.assessment.status,
+            grades: data.grades.map(toServerGrade),
+            enrollmentIds: [...data.grades.map((g) => g.enrollmentId), ...data.pending.map((p) => p.enrollmentId)],
+          });
+        }
       }
     });
+  }
+
+  function reload() {
+    if (dirtyCount > 0 && !window.confirm(t("confirmReload"))) return;
+    reloadFromServer();
+  }
+
+  function discardOffline() {
+    if (!sync || !window.confirm(tOff("confirmDiscard"))) return;
+    void sync.discard(assessment.id).then(reloadFromServer);
+  }
+
+  async function resolveConflict(enrollmentId: string, choice: "mine" | "server"): Promise<boolean> {
+    if (!sync) return false;
+    const r = await sync.resolveConflict(assessment.id, enrollmentId, choice);
+    if (!r) return false;
+    const entry = r.entry;
+    if (choice === "mine" && entry) {
+      // Choix explicite : la saisie repart, basée sur la version COURANTE du serveur (celle de la ligne affichée).
+      setRows((prev) => prev.map((row) => (row.enrollmentId === enrollmentId ? { ...row, text: textOf(entry.entryStatus as EntryStatus, entry.score), comment: entry.comment ?? "", rowVersion: entry.baseVersion, apiError: null } : row)));
+    }
+    return true;
   }
 
   const typeLabel = types.data?.find((x) => x.id === assessment.typeId)?.label ?? assessment.typeCode ?? "";
@@ -294,7 +441,8 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
         {truncated ? <Notice kind="info">{t("namesTruncated")}</Notice> : null}
         {!online && editable ? <Notice kind="warning">{t("offline")}</Notice> : null}
 
-        <WorkflowBar assessment={assessment} unsaved={dirtyCount > 0 || pendingRef.current !== null} onSaveRequest={() => doSave()} onMessage={flash.show} />
+        <WorkflowBar assessment={assessment} unsaved={dirtyCount > 0 || pendingRef.current !== null || hasPendingSync} onSaveRequest={() => doSave()} onMessage={flash.show} />
+        {restoredCount > 0 ? <Notice kind="info">{tOff("restored", { count: restoredCount })}</Notice> : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div role="status" aria-live="polite" className="text-sm" data-testid="save-indicator">
@@ -309,14 +457,24 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
               <button type="button" className={buttonClass.secondary} onClick={reload} disabled={isReloading}>
                 {t("reload")}
               </button>
-              <button type="button" className={buttonClass.primary} onClick={() => void doSave()} disabled={save.isPending || (dirtyCount === 0 && !pendingRef.current)}>
+              <button type="button" className={buttonClass.primary} onClick={() => void doSave()} disabled={save.isPending || (dirtyCount === 0 && !pendingRef.current && !hasPendingSync)}>
                 {saveState === "retry" ? t("retrySave") : t("save")}
               </button>
             </div>
           ) : null}
         </div>
 
-        {saveState === "conflict" ? (
+        {sync ? <GradeSyncIndicator assessmentId={assessment.id} onDiscard={discardOffline} /> : null}
+        {sync && myDraft && myDraft.conflicts.length > 0 ? (
+          <GradeConflictResolver
+            conflicts={myDraft.conflicts}
+            scaleMax={assessment.scaleMax}
+            studentLabel={(enrollmentId) => studentLabel(rows.find((r) => r.enrollmentId === enrollmentId)?.studentId ?? enrollmentId)}
+            onResolve={resolveConflict}
+          />
+        ) : null}
+
+        {saveState === "conflict" && !sync ? (
           <Notice kind="error">
             <p>{t("conflict")}</p>
             <button type="button" className={`${buttonClass.secondary} mt-2`} onClick={reload}>
@@ -382,7 +540,7 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
                         <span className="block">{name}</span>
                         {number ? <span className="block text-xs font-normal text-muted-foreground">{number}</span> : null}
                         <span className="mt-1 flex flex-wrap items-center gap-1 font-normal">
-                          {editable ? <RowMark dirty={dirty} saved={row.base !== null && !dirty} error={Boolean(message)} /> : null}
+                          {editable ? <RowMark dirty={dirty} saved={row.base !== null && !dirty} error={Boolean(message)} conflict={conflictIds.has(row.enrollmentId)} /> : null}
                           {published && row.base ? (
                             <span className="flex flex-wrap justify-end gap-1">
                               {canRevise.allowed ? (
@@ -479,8 +637,10 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
   );
 }
 
-function RowMark({ dirty, saved, error }: { dirty: boolean; saved: boolean; error: boolean }) {
+function RowMark({ dirty, saved, error, conflict = false }: { dirty: boolean; saved: boolean; error: boolean; conflict?: boolean }) {
   const t = useTranslations("v2Assess.grid");
+  const tConflict = useTranslations("v2Offline.grades.conflicts");
+  if (conflict) return <span className="text-xs font-medium text-destructive">{tConflict("rowMark")}</span>;
   if (error) return <span className="text-xs font-medium text-destructive">{t("rowError")}</span>;
   if (dirty) return <span className="text-xs font-medium text-amber-700">{t("rowDirty")}</span>;
   if (saved) return <span className="text-xs text-emerald-700">{t("rowSaved")}</span>;
@@ -490,7 +650,9 @@ function RowMark({ dirty, saved, error }: { dirty: boolean; saved: boolean; erro
 function SaveIndicator({ state, dirty, invalid, at, result }: { state: SaveState; dirty: number; invalid: number; at: Date | null; result: { created: number; updated: number; unchanged: number; replayed: boolean } | null }) {
   const t = useTranslations("v2Assess.grid");
   const date = useDateFormat();
+  const tOff = useTranslations("v2Offline.grades");
   if (state === "saving") return <span>{t("saving")}</span>;
+  if (state === "queued") return <span className="font-medium text-amber-700">{tOff("queued")}</span>;
   if (state === "retry") return <span className="font-medium text-amber-700">{t("retryPending")}</span>;
   if (state === "conflict") return <span className="font-medium text-destructive">{t("conflictShort")}</span>;
   if (invalid > 0) return <span className="font-medium text-destructive">{t("invalidRows", { count: invalid })}</span>;

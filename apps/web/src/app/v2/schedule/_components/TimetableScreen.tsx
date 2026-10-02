@@ -10,18 +10,19 @@ import { addDays, mondayOf, todayCivil, weekDays } from "@/platform/v2/dates";
 import { useClassroomDirectory, useRoomDirectory, useStaffDirectory } from "@/platform/v2/directory";
 import { useClassroomOptions, useStaffOptions, useStudentOptions } from "@/platform/v2/lookups";
 import { useMyChildren } from "@/platform/v2/people";
-import { useChildTimetable, useMyTimetable, useRooms, useViewOccurrences, type OccurrenceDto } from "@/platform/v2/scheduling";
+import { useChildTimetable, useMyTimetable, useRooms, useViewOccurrences } from "@/platform/v2/scheduling";
 import { CheckControl, FormField, NativeSelect } from "@/platform/ui/FormField";
 import { buttonClass, PageHeader } from "@/platform/ui/PageHeader";
 import { SelectAsync, type SelectOption } from "@/platform/ui/SelectAsync";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice } from "@/platform/ui/states";
-import { OccurrenceCard, type Directories } from "./OccurrenceCard";
+import { OccurrenceCard, type Directories, type OccurrenceView } from "./OccurrenceCard";
+import { OfflineCopyNotice, useOfflineTimetable } from "./offline-timetable";
 
 type Mode = "mine" | "children" | "classroom" | "staff" | "room" | "student";
 
 /** Séances groupées par jour civil (`occursOn` renvoyé par l'API) et triées par heure : aucune règle d'horaire côté client. */
-export function groupByDay(items: ReadonlyArray<OccurrenceDto>): Map<string, OccurrenceDto[]> {
-  const map = new Map<string, OccurrenceDto[]>();
+export function groupByDay<T extends Pick<OccurrenceView, "startsAt" | "occursOn">>(items: ReadonlyArray<T>): Map<string, T[]> {
+  const map = new Map<string, T[]>();
   for (const o of [...items].sort((a, b) => a.startsAt.localeCompare(b.startsAt))) {
     const list = map.get(o.occursOn) ?? [];
     list.push(o);
@@ -36,6 +37,7 @@ export function groupByDay(items: ReadonlyArray<OccurrenceDto>): Map<string, Occ
  */
 export function TimetableScreen({ exportHref = "/v2/schedule/export" }: { exportHref?: string } = {}) {
   const t = useTranslations("v2Schedule.viewer");
+  const tOffline = useTranslations("v2Offline.schedule");
   const format = useFormatter();
   const own = usePermission("schedule.own.read").allowed;
   const self = usePermission("schedule.self.read").allowed;
@@ -75,8 +77,13 @@ export function TimetableScreen({ exportHref = "/v2/schedule/export" }: { export
   const query = mode === "mine" ? mine : mode === "children" ? kids : mode === "classroom" ? byClass : mode === "staff" ? byStaff : mode === "room" ? byRoom : byStudent;
   const subjectChosen = mode === "mine" || (mode === "children" && childId !== "") || (mode === "classroom" && classroom) || (mode === "staff" && person) || (mode === "room" && roomId !== "") || (mode === "student" && student);
 
-  const dirs: Directories = { classrooms: useClassroomDirectory(), staff: useStaffDirectory(), rooms: useRoomDirectory() };
-  const grouped = groupByDay(query.data?.items ?? []);
+  const liveDirs: Directories = { classrooms: useClassroomDirectory(), staff: useStaffDirectory(), rooms: useRoomDirectory() };
+  // Hors ligne (ou réseau défaillant) : « mon » emploi du temps se lit depuis la copie enregistrée sur l'appareil, en lecture seule.
+  const offline = useOfflineTimetable({ active: mode === "mine", window, query: mine, dirs: liveDirs });
+  const cachedMode = mode === "mine" && offline.fromCache && offline.directories !== null;
+  const dirs: Directories = cachedMode && offline.directories ? offline.directories : liveDirs;
+  const shownItems: ReadonlyArray<OccurrenceView> = cachedMode ? offline.items : (query.data?.items ?? []);
+  const grouped = groupByDay(shownItems);
   const shift = (n: number) => setAnchor((a) => addDays(view === "week" ? mondayOf(a) : a, n * (view === "week" ? 7 : 1)));
   const dayLabel = (d: string) => format.dateTime(new Date(`${d}T12:00:00Z`), { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
   const dayShort = (d: string) => format.dateTime(new Date(`${d}T12:00:00Z`), { weekday: "short", day: "numeric", timeZone: "UTC" });
@@ -149,15 +156,24 @@ export function TimetableScreen({ exportHref = "/v2/schedule/export" }: { export
 
       {!subjectChosen ? (
         <EmptyBlock title={t("chooseSubject")} description={t("chooseSubjectHint")} />
-      ) : query.isPending ? (
+      ) : mode === "mine" && offline.missing ? (
+        <div className="space-y-3">
+          <Notice kind="warning">{tOffline("noCopy")}</Notice>
+          {query.isError ? <ErrorBlock error={query.error} onRetry={() => void query.refetch()} /> : null}
+        </div>
+      ) : !cachedMode && query.isPending ? (
         <LoadingBlock />
-      ) : query.isError ? (
+      ) : !cachedMode && query.isError ? (
         <ErrorBlock error={query.error} onRetry={() => void query.refetch()} />
-      ) : (query.data?.items.length ?? 0) === 0 ? (
-        <EmptyBlock title={view === "week" ? t("emptyWeek") : t("emptyDay")} description={t("emptyHint")} />
+      ) : shownItems.length === 0 ? (
+        <>
+          {cachedMode && offline.snapshot ? <OfflineCopyNotice snapshot={offline.snapshot} /> : null}
+          <EmptyBlock title={view === "week" ? t("emptyWeek") : t("emptyDay")} description={t("emptyHint")} />
+        </>
       ) : (
         <>
-          {query.data?.hasMore ? <Notice kind="info">{t("truncated")}</Notice> : null}
+          {cachedMode && offline.snapshot ? <OfflineCopyNotice snapshot={offline.snapshot} /> : null}
+          {!cachedMode && query.data?.hasMore ? <Notice kind="info">{t("truncated")}</Notice> : null}
           {query.isPlaceholderData ? (
             <p role="status" className="text-xs text-muted-foreground">
               {t("updating")}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, type ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { purgeOfflineDataBestEffort } from "@/platform/offline/purge";
 import { useTranslations } from "next-intl";
 import { useMyEntitlements, useMyPermissions } from "@/platform/access";
 import { Shell } from "@/platform/admin/shell/Shell";
@@ -58,7 +59,7 @@ export function PortalShell({ portal, children, activePath }: { portal: PortalKe
           ) : null}
           <button
             type="button"
-            onClick={() => void signOut({ callbackUrl: "/login" })}
+            onClick={() => void purgeOfflineDataBestEffort().then(() => signOut({ callbackUrl: "/login" }))}
             className="inline-flex h-11 items-center gap-2 rounded-md px-3 text-sm hover:bg-accent focus-visible:outline focus-visible:outline-2"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />

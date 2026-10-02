@@ -67,7 +67,7 @@ function pendingSignature(calls: ReadonlyArray<OutboxCall>): string {
     .join(";");
 }
 
-function classify(error: unknown): { failure: Exclude<SyncFailure, null>; retry: boolean; code: string } {
+export function classify(error: unknown): { failure: Exclude<SyncFailure, null>; retry: boolean; code: string } {
   if (error instanceof ApiError) {
     if (error.code === ClientErrorCode.NETWORK || error.code === ClientErrorCode.TIMEOUT || error.status === 0) return { failure: "network", retry: true, code: error.code };
     if (error.status === 401) return { failure: "auth", retry: false, code: error.code };

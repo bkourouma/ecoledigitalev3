@@ -16,7 +16,7 @@
  * Changer CACHE_VERSION invalide les anciens caches `ed-*` à l'activation.
  */
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const SHELL_CACHE = "ed-shell-" + CACHE_VERSION;
 const STATIC_CACHE = "ed-static-" + CACHE_VERSION;
 const MAX_STATIC_ENTRIES = 200;

@@ -25,9 +25,12 @@ export interface OfflineDb {
 }
 
 export const OFFLINE_DB_NAME = "ed-offline";
-export const OFFLINE_DB_VERSION = 1;
-/** Magasins (clé = champ `key`). */
-export const OFFLINE_STORES = ["attendance_calls", "meta"] as const;
+export const OFFLINE_DB_VERSION = 2;
+/**
+ * Magasins (clé = champ `key`). Version 2 : `schedule_cache` (copie en lecture seule de l'emploi du temps de l'enseignant)
+ * et `grade_drafts` (brouillons de notes par évaluation). Une base v1 existante est migrée sans toucher à `attendance_calls`.
+ */
+export const OFFLINE_STORES = ["attendance_calls", "meta", "schedule_cache", "grade_drafts"] as const;
 
 function request<T>(r: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {

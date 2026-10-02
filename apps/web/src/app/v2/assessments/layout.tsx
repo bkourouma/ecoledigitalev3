@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { requireSession } from "@/platform/auth/server";
+import { GradeSyncProvider } from "@/platform/offline/GradeSyncProvider";
 import { AssessmentsNav } from "./_components/AssessmentsNav";
 
 /**
@@ -12,7 +13,7 @@ export default async function AssessmentsLayout({ children }: { children: ReactN
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
       <AssessmentsNav />
-      {children}
+      <GradeSyncProvider>{children}</GradeSyncProvider>
     </div>
   );
 }
