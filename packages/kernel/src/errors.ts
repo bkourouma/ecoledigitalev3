@@ -17,6 +17,7 @@ export type ErrorKind =
   | "conflict"
   | "validation"
   | "unauthorized"
+  | "unavailable"
   | "internal";
 
 /** Codes par défaut des catégories. Ils sont partie intégrante du contrat d'API. */
@@ -26,6 +27,7 @@ export const ErrorCode = {
   CONFLICT: "CONFLICT",
   VALIDATION_FAILED: "VALIDATION_FAILED",
   UNAUTHORIZED: "UNAUTHORIZED",
+  UNAVAILABLE: "UNAVAILABLE",
   INTERNAL: "INTERNAL",
 } as const;
 
@@ -43,6 +45,7 @@ export const HTTP_STATUS_BY_KIND: Readonly<Record<ErrorKind, number>> = Object.f
   conflict: 409,
   validation: 400,
   unauthorized: 401,
+  unavailable: 503,
   internal: 500,
 });
 
@@ -52,6 +55,7 @@ const DEFAULT_CODE_BY_KIND: Readonly<Record<ErrorKind, string>> = Object.freeze(
   conflict: ErrorCode.CONFLICT,
   validation: ErrorCode.VALIDATION_FAILED,
   unauthorized: ErrorCode.UNAUTHORIZED,
+  unavailable: ErrorCode.UNAVAILABLE,
   internal: ErrorCode.INTERNAL,
 });
 
@@ -119,6 +123,23 @@ export class UnauthorizedError extends AppError {
   readonly kind = "unauthorized" as const;
   constructor(message = "Authentification requise.", options?: AppErrorOptions) {
     super("unauthorized", message, options);
+  }
+}
+
+/**
+ * Service momentanément saturé (503) : la requête est valide, elle peut être rejouée plus tard.
+ * `details.retryAfterSeconds` (entier > 0), s'il est présent, alimente l'en-tête `Retry-After`.
+ */
+export class UnavailableError extends AppError {
+  readonly kind = "unavailable" as const;
+  constructor(message = "Service momentanément indisponible.", options?: AppErrorOptions) {
+    super("unavailable", message, options);
+  }
+
+  /** Secondes à attendre avant de réessayer, si l'erreur le précise. */
+  get retryAfterSeconds(): number | undefined {
+    const v = this.details?.retryAfterSeconds;
+    return typeof v === "number" && Number.isInteger(v) && v > 0 ? v : undefined;
   }
 }
 

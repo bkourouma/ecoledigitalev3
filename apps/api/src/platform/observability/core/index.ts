@@ -1,3 +1,4 @@
+export * from "./bulkhead-metrics";
 export * from "./config";
 export * from "./correlation";
 export * from "./health";

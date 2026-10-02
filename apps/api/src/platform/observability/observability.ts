@@ -10,6 +10,7 @@ import type { FastifyServerOptions } from "fastify";
 import { buildPinoOptions, newId, type PinoOptionsLike } from "@ecoledigitale/kernel";
 import { loadObservabilityConfig, type EnvLike, type ObservabilityConfig, type ServiceKind } from "./core/config";
 import { correlationMixin, enableAmbientRequestId } from "./core/correlation";
+import { createBulkheadMetrics, type BulkheadMetrics } from "./core/bulkhead-metrics";
 import { createHttpMetrics, createMetricsKit, createPoolMetrics, type HttpMetrics, type MetricsKit, type PoolMetrics } from "./core/metrics";
 import { initTracing, shutdownTracing, type InitTracingOptions, type TracingHandle } from "./core/tracing";
 
@@ -27,6 +28,7 @@ export interface Observability {
   readonly kit: MetricsKit;
   readonly http: HttpMetrics;
   readonly pools: PoolMetrics;
+  readonly bulkheads: BulkheadMetrics;
   readonly tracing: TracingHandle;
   readonly loggerOptions: PinoOptionsLike;
   /** À répartir dans `Fastify({ ... })` : journal pino commun, identifiant de requête, journal d'accès unique. */
@@ -57,12 +59,14 @@ export function createObservability(service: ServiceKind, options: CreateObserva
   const kit = createMetricsKit(service, options.version ? { version: options.version } : {});
   const http = createHttpMetrics(kit, config.metrics);
   const pools = createPoolMetrics(kit);
+  const bulkheads = createBulkheadMetrics(kit);
   const loggerOptions = buildPinoOptions({ service, level: config.logLevel, mixin: correlationMixin });
   return {
     config,
     kit,
     http,
     pools,
+    bulkheads,
     tracing,
     loggerOptions,
     fastifyOptions: {

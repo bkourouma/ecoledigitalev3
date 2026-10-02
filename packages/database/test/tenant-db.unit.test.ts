@@ -113,8 +113,10 @@ describe("TenantDb.run — séquence SQL", () => {
     const f = fakePool();
     await new TenantDb(f.pool, { statementTimeoutMs: 1500 }).run(userCtx(), async () => 1, { readOnly: true });
     expect(f.sqls()[0]).toBe("BEGIN READ ONLY");
-    expect(f.sqls()[2]).toMatch(/statement_timeout/);
-    expect(f.calls[2]?.params).toEqual(["1500"]);
+    // fusionné avec les variables de session : une seule instruction entre BEGIN et la requête
+    expect(f.sqls()[1]).toMatch(/set_config\('app\.tenant_id'.*set_config\('statement_timeout', \$6, true\)/);
+    expect(f.calls[1]?.params?.[5]).toBe("1500");
+    expect(f.sqls()).toEqual(["BEGIN READ ONLY", f.sqls()[1], "COMMIT"]);
     expect(() => new TenantDb(f.pool, { statementTimeoutMs: -1 })).toThrow();
   });
 

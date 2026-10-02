@@ -191,6 +191,8 @@ const plugin: FastifyPluginAsync<ObservabilityPluginOptions> = async (app, optio
     const loose = app as unknown as Loose;
     if (loose.pg) observability.pools.track("legacy", loose.pg.pool ?? loose.pg);
     if (loose.v2?.pool) observability.pools.track("v2", loose.v2.pool);
+    const bulkhead = loose.v2?.tenantDb?.bulkhead;
+    if (bulkhead) observability.bulkheads.track("v2", bulkhead);
     // Contexte de trace dans l'outbox : seulement si le traçage est actif et la colonne présente.
     if (loose.v2?.pool) {
       outboxTraceEnabled = await enableOutboxTraceContext(loose.v2.pool, { tracingEnabled: observability.tracing.enabled, logger: app.log });
