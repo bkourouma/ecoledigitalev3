@@ -83,6 +83,10 @@ node specs/v2/007-admissions/ddl/run.mjs                                        
 
 Couverture : manifeste, domaine et contrats Zod stricts ; hygiène (aucun `Math.random`, `new Date()`, constante de capacité) ; RLS A/B ; concurrence (dernière place, publication, jeton à usage unique, promotion) ; saga (succès, échec à **chaque** étape avec annulation totale, rejeu, ports absents, délégation, doublons, ENROLLED dérivé une seule fois) ; formulaire public (aucune fuite, neutralité, limiteur, leurre, jeton, consentement) ; matrice de permissions HTTP ; aucune donnée personnelle dans événements et audit.
 
+## Écrans web
+
+Personnel (`apps/web/src/app/v2/admissions/*`, garde serveur `requireSession` + permission par page, `usePermission` / `useFeature` pour masquer) : pipeline kanban (déplacement par bouton, accessible au clavier), liste filtrée, saisie et dossier (décisions journalisées, pièces, entretiens, offres, doublons, historique, export, anonymisation), listes d'attente, prospects, campagnes et capacités, rapports, paramètres (politiques, lien public, textes de consentement, pièces, motifs, priorités) et éditeur de workflow. Public (`apps/web/src/app/v2/apply/[school]`, sans authentification, non indexé, sans `Referer`) : formulaire, suivi par code (dans le corps), réponse à une offre (jeton dans le fragment de l'adresse). Client typé : `apps/web/src/platform/v2/admissions.ts` ; messages `v2Admissions*` de `fr-CI.json` ; tests Vitest + RTL (`Admissions.test.tsx`, `Public.test.tsx`, `admissions-coverage.test.ts`).
+
 ## Limites connues
 
 - Les capacités ne se suppriment pas (aucun `DELETE` accordé) : une ligne se met à jour ; l'absence de ligne = pas de plafond.
