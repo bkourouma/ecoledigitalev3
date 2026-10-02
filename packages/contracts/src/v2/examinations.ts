@@ -471,227 +471,389 @@ export const examRevokeDocumentBodySchema = z.object({ reason: z.string().trim()
 export const examIssuedDocumentListQuerySchema = z.object({ kind: examDocumentKindSchema.optional(), status: z.enum(["REQUESTED", "ISSUED", "REVOKED"]).optional(), page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(500).default(100) }).strict();
 
 // ---------------------------------------------------------------------------
-// Réponses (formes lues par le client typé du web)
+// Réponses (schémas lus et validés par le client typé du web)
 // ---------------------------------------------------------------------------
 
+const decStr = z.string();
+const nullableStr = z.string().nullable();
+
+export const examPageSchema = <T extends z.ZodTypeAny>(item: T) => z.object({ items: z.array(item), total: z.number().int(), page: z.number().int(), pageSize: z.number().int() });
 export interface ExamPage<T> {
   items: T[];
   total: number;
   page: number;
   pageSize: number;
 }
+export const examItemsSchema = <T extends z.ZodTypeAny>(item: T) => z.object({ items: z.array(item) });
 
-export interface ExamTypeDto {
-  id: string;
-  code: string;
-  label: string;
-  educationLevelCode: string;
-  gradeLevelCode: string | null;
-  resultContractId: string;
-  candidateNumberPattern: string;
-  sourceKind: ExamSourceKind;
-  sourceReference: string | null;
-  status: "ACTIVE" | "ARCHIVED";
+export const examTypeDtoSchema = z.object({
+  id: examUuidSchema,
+  code: z.string(),
+  label: z.string(),
+  educationLevelCode: z.string(),
+  gradeLevelCode: nullableStr,
+  resultContractId: z.string(),
+  candidateNumberPattern: z.string(),
+  sourceKind: examSourceKindSchema,
+  sourceReference: nullableStr,
+  status: z.enum(["ACTIVE", "ARCHIVED"]),
   /** Vrai si les données du type sont des valeurs FICTIVES de démonstration (bandeau « Règles de démonstration »). */
-  placeholder: boolean;
-}
-export interface ExamTrackDto { id: string; code: string; label: string; sourceKind: ExamSourceKind; active: boolean }
-export interface ExamPaperDto {
-  id: string;
-  trackCode: string | null;
-  code: string;
-  label: string;
-  coefficient: string;
-  scaleMax: string;
-  isOptional: boolean;
-  ordinal: number;
-  sourceKind: ExamSourceKind;
-  active: boolean;
-}
-export interface ExamRequirementDto { id: string; code: string; label: string; required: boolean; sortOrder: number; sourceKind: ExamSourceKind; active: boolean }
-export interface ExamTypeDetailDto extends ExamTypeDto {
-  tracks: ExamTrackDto[];
-  papers: ExamPaperDto[];
-  requirements: ExamRequirementDto[];
-}
+  placeholder: z.boolean(),
+});
+export type ExamTypeDto = z.infer<typeof examTypeDtoSchema>;
+export const examTrackDtoSchema = z.object({ id: examUuidSchema, code: z.string(), label: z.string(), sourceKind: examSourceKindSchema, active: z.boolean() });
+export type ExamTrackDto = z.infer<typeof examTrackDtoSchema>;
+export const examPaperDtoSchema = z.object({
+  id: examUuidSchema,
+  trackCode: nullableStr,
+  code: z.string(),
+  label: z.string(),
+  coefficient: decStr,
+  scaleMax: decStr,
+  isOptional: z.boolean(),
+  ordinal: z.number().int(),
+  sourceKind: examSourceKindSchema,
+  active: z.boolean(),
+});
+export type ExamPaperDto = z.infer<typeof examPaperDtoSchema>;
+export const examRequirementDtoSchema = z.object({ id: examUuidSchema, code: z.string(), label: z.string(), required: z.boolean(), sortOrder: z.number().int(), sourceKind: examSourceKindSchema, active: z.boolean() });
+export type ExamRequirementDto = z.infer<typeof examRequirementDtoSchema>;
+export const examTypeDetailDtoSchema = examTypeDtoSchema.extend({ tracks: z.array(examTrackDtoSchema), papers: z.array(examPaperDtoSchema), requirements: z.array(examRequirementDtoSchema) });
+export type ExamTypeDetailDto = z.infer<typeof examTypeDetailDtoSchema>;
 
-export interface ExamCenterDto { id: string; code: string; name: string; kind: "OWN" | "HOST"; authorityCode: string | null; locality: string | null; status: "ACTIVE" | "INACTIVE"; rooms?: ExamRoomDto[] }
-export interface ExamRoomDto { id: string; centerId: string; code: string; label: string | null; capacity: number; active: boolean }
+export const examRoomDtoSchema = z.object({ id: examUuidSchema, centerId: examUuidSchema, code: z.string(), label: nullableStr, capacity: z.number().int(), active: z.boolean() });
+export type ExamRoomDto = z.infer<typeof examRoomDtoSchema>;
+export const examCenterDtoSchema = z.object({
+  id: examUuidSchema,
+  code: z.string(),
+  name: z.string(),
+  kind: z.enum(["OWN", "HOST"]),
+  authorityCode: nullableStr,
+  locality: nullableStr,
+  status: z.enum(["ACTIVE", "INACTIVE"]),
+  rooms: z.array(examRoomDtoSchema).optional(),
+});
+export type ExamCenterDto = z.infer<typeof examCenterDtoSchema>;
 
-export interface ExamSessionProgressDto {
-  index: number;
-  total: number;
-  percent: number;
-  next: ExamSessionStatus | null;
-  allowedNext: ExamSessionStatus[];
-}
-
-export interface ExamSessionDto {
-  id: string;
-  examTypeId: string;
-  examTypeCode: string;
-  examTypeLabel: string;
-  institutionId: string;
-  academicYearId: string | null;
-  code: string;
-  label: string;
-  sessionKind: ExamSessionKind;
-  attemptKind: "NORMAL" | "MAKEUP";
-  sessionYear: number;
-  mockOfSessionId: string | null;
-  registrationOpensOn: string | null;
-  registrationClosesOn: string | null;
-  startsOn: string | null;
-  endsOn: string | null;
-  status: ExamSessionStatus;
-  definitionLockedAt: string | null;
-  ruleVersionRef: string | null;
-  sourceKind: ExamSourceKind;
+export const examSessionProgressDtoSchema = z.object({ index: z.number().int(), total: z.number().int(), percent: z.number().int(), next: examSessionStatusSchema.nullable(), allowedNext: z.array(examSessionStatusSchema) });
+export type ExamSessionProgressDto = z.infer<typeof examSessionProgressDtoSchema>;
+export const examSessionDtoSchema = z.object({
+  id: examUuidSchema,
+  examTypeId: examUuidSchema,
+  examTypeCode: z.string(),
+  examTypeLabel: z.string(),
+  institutionId: examUuidSchema,
+  academicYearId: examUuidSchema.nullable(),
+  code: z.string(),
+  label: z.string(),
+  sessionKind: examSessionKindSchema,
+  attemptKind: examAttemptKindSchema,
+  sessionYear: z.number().int(),
+  mockOfSessionId: examUuidSchema.nullable(),
+  registrationOpensOn: nullableStr,
+  registrationClosesOn: nullableStr,
+  startsOn: nullableStr,
+  endsOn: nullableStr,
+  status: examSessionStatusSchema,
+  definitionLockedAt: nullableStr,
+  ruleVersionRef: examUuidSchema.nullable(),
+  sourceKind: examSourceKindSchema,
   /** Règles ou données de DÉMONSTRATION en usage : le client affiche le bandeau et le filigrane. */
-  demoRules: boolean;
-  progress: ExamSessionProgressDto;
-  createdAt: string;
-}
-export interface ExamSessionCountsDto { candidates: number; registered: number; withdrawn: number; eligible: number; withResult: number; published: number; assigned: number }
-export interface ExamSessionDetailDto extends ExamSessionDto {
-  tracks: Array<{ id: string; code: string; label: string }>;
-  papers: Array<{ id: string; trackCode: string | null; code: string; label: string; coefficient: string; scaleMax: string; isOptional: boolean; ordinal: number; sourceKind: ExamSourceKind }>;
-  counts: ExamSessionCountsDto;
+  demoRules: z.boolean(),
+  progress: examSessionProgressDtoSchema,
+  createdAt: z.string(),
+});
+export type ExamSessionDto = z.infer<typeof examSessionDtoSchema>;
+export const examSessionCountsDtoSchema = z.object({ candidates: z.number().int(), registered: z.number().int(), withdrawn: z.number().int(), eligible: z.number().int(), withResult: z.number().int(), published: z.number().int(), assigned: z.number().int() });
+export type ExamSessionCountsDto = z.infer<typeof examSessionCountsDtoSchema>;
+export const examSessionDetailDtoSchema = examSessionDtoSchema.extend({
+  tracks: z.array(z.object({ id: examUuidSchema, code: z.string(), label: z.string() })),
+  papers: z.array(z.object({ id: examUuidSchema, trackCode: nullableStr, code: z.string(), label: z.string(), coefficient: decStr, scaleMax: decStr, isOptional: z.boolean(), ordinal: z.number().int(), sourceKind: examSourceKindSchema })),
+  counts: examSessionCountsDtoSchema,
   /** Raisons qui bloquent chaque transition possible (vide = aucune raison connue ; la base reste juge). */
-  blockers: Partial<Record<ExamSessionStatus, string[]>>;
-}
+  blockers: z.record(z.array(z.string())),
+});
+export type ExamSessionDetailDto = z.infer<typeof examSessionDetailDtoSchema>;
 
-export interface ExamCandidateDto {
-  id: string;
-  sessionId: string;
-  studentId: string;
-  enrollmentId: string | null;
-  gradeLevelCode: string | null;
-  trackCode: string | null;
-  lastName: string | null;
-  firstName: string | null;
-  birthDate: string | null;
-  birthPlace: string | null;
-  sex: "F" | "M" | null;
-  registrationStatus: ExamRegistrationStatus;
-  eligibilityStatus: ExamEligibilityStatus;
-  outcome: ExamOutcome;
-  candidateNumber: string | null;
-  officialNumber: string | null;
-  registeredAt: string | null;
-  withdrawnReason: string | null;
+export const examCandidateDtoSchema = z.object({
+  id: examUuidSchema,
+  sessionId: examUuidSchema,
+  studentId: examUuidSchema,
+  enrollmentId: examUuidSchema.nullable(),
+  gradeLevelCode: nullableStr,
+  trackCode: nullableStr,
+  lastName: nullableStr,
+  firstName: nullableStr,
+  birthDate: nullableStr,
+  birthPlace: nullableStr,
+  sex: z.enum(["F", "M"]).nullable(),
+  registrationStatus: examRegistrationStatusSchema,
+  eligibilityStatus: examEligibilityStatusSchema,
+  outcome: examOutcomeSchema,
+  candidateNumber: nullableStr,
+  officialNumber: nullableStr,
+  registeredAt: nullableStr,
+  withdrawnReason: nullableStr,
   /** Codes des pièces obligatoires non acceptées (vide = dossier complet). */
-  missingPieces: string[];
+  missingPieces: z.array(z.string()),
   /** Nom d'affichage tiré de l'état civil figé, sinon de l'annuaire (jamais enregistré hors du candidat). */
-  displayName: string | null;
-  rowVersion: number;
-}
+  displayName: nullableStr,
+  rowVersion: z.number().int(),
+});
+export type ExamCandidateDto = z.infer<typeof examCandidateDtoSchema>;
+export const examEligibilityCheckDtoSchema = z.object({
+  id: examUuidSchema,
+  result: z.enum(["ELIGIBLE", "INELIGIBLE", "NEEDS_REVIEW"]),
+  reasons: z.array(z.string()),
+  ruleVersionRef: examUuidSchema.nullable(),
+  evaluatedBy: examUuidSchema.nullable(),
+  evaluatedAt: z.string(),
+  overridden: z.boolean(),
+  overrideReason: nullableStr,
+});
+export type ExamEligibilityCheckDto = z.infer<typeof examEligibilityCheckDtoSchema>;
+export const examPieceDtoSchema = z.object({ requirementId: examUuidSchema, code: z.string(), label: z.string(), required: z.boolean(), status: examPieceStatusSchema, documentRef: examUuidSchema.nullable(), rejectionReason: nullableStr, reviewedAt: nullableStr });
+export type ExamPieceDto = z.infer<typeof examPieceDtoSchema>;
+export const examPiecesDtoSchema = z.object({ pieces: z.array(examPieceDtoSchema), missing: z.array(z.string()) });
+export const examIdentifierDtoSchema = z.object({ id: examUuidSchema, kind: z.string(), value: z.string(), source: z.enum(["MANUAL", "IMPORT", "MIGRATION"]) });
+export type ExamIdentifierDto = z.infer<typeof examIdentifierDtoSchema>;
+export const examAssignmentDtoSchema = z.object({
+  candidateId: examUuidSchema,
+  candidateNumber: nullableStr,
+  displayName: nullableStr,
+  centerId: examUuidSchema,
+  centerCode: z.string(),
+  centerName: z.string(),
+  roomId: examUuidSchema,
+  roomCode: z.string(),
+  seatNumber: z.number().int(),
+  tableNumber: nullableStr,
+});
+export type ExamAssignmentDto = z.infer<typeof examAssignmentDtoSchema>;
+export const examHistoryDtoSchema = z.object({ id: examUuidSchema, kind: z.string(), fromValue: nullableStr, toValue: nullableStr, reason: nullableStr, actorId: examUuidSchema.nullable(), occurredAt: z.string() });
+export type ExamHistoryDto = z.infer<typeof examHistoryDtoSchema>;
+export const examScoreDtoSchema = z.object({ id: examUuidSchema, candidateId: examUuidSchema, paperId: examUuidSchema, status: examScoreStatusSchema, score: nullableStr, source: z.enum(["MANUAL", "IMPORT", "ASSESS"]) });
+export type ExamScoreDto = z.infer<typeof examScoreDtoSchema>;
+export const examResultDtoSchema = z.object({
+  id: examUuidSchema,
+  sessionId: examUuidSchema,
+  candidateId: examUuidSchema,
+  candidateNumber: nullableStr,
+  displayName: nullableStr,
+  resultCode: examResultCodeSchema,
+  average: nullableStr,
+  totalPoints: nullableStr,
+  rank: z.number().int().nullable(),
+  mentionCode: nullableStr,
+  source: z.enum(["IMPORTED", "ENTERED", "COMPUTED"]),
+  ruleVersionRef: examUuidSchema.nullable(),
+  status: z.enum(["DRAFT", "PUBLISHED"]),
+  publishedAt: nullableStr,
+});
+export type ExamResultDto = z.infer<typeof examResultDtoSchema>;
+export const examIssuedDocumentDtoSchema = z.object({
+  id: examUuidSchema,
+  sessionId: examUuidSchema,
+  candidateId: examUuidSchema,
+  candidateNumber: nullableStr,
+  kind: examDocumentKindSchema,
+  version: z.number().int(),
+  status: z.enum(["REQUESTED", "ISSUED", "REVOKED"]),
+  officialDocumentId: examUuidSchema.nullable(),
+  issuedAt: nullableStr,
+  revokedReason: nullableStr,
+  createdAt: z.string(),
+});
+export type ExamIssuedDocumentDto = z.infer<typeof examIssuedDocumentDtoSchema>;
+export const examCandidateDetailDtoSchema = z.object({
+  candidate: examCandidateDtoSchema,
+  eligibilityChecks: z.array(examEligibilityCheckDtoSchema),
+  pieces: z.array(examPieceDtoSchema),
+  identifiers: z.array(examIdentifierDtoSchema),
+  assignment: examAssignmentDtoSchema.nullable(),
+  history: z.array(examHistoryDtoSchema),
+  scores: z.array(examScoreDtoSchema),
+  result: examResultDtoSchema.nullable(),
+  documents: z.array(examIssuedDocumentDtoSchema),
+});
+export type ExamCandidateDetailDto = z.infer<typeof examCandidateDetailDtoSchema>;
 
-export interface ExamEligibilityCheckDto {
-  id: string;
-  result: "ELIGIBLE" | "INELIGIBLE" | "NEEDS_REVIEW";
-  reasons: string[];
-  ruleVersionRef: string | null;
-  evaluatedBy: string | null;
-  evaluatedAt: string;
-  overridden: boolean;
-  overrideReason: string | null;
-}
-export interface ExamPieceDto { requirementId: string; code: string; label: string; required: boolean; status: z.infer<typeof examPieceStatusSchema>; documentRef: string | null; rejectionReason: string | null; reviewedAt: string | null }
-export interface ExamIdentifierDto { id: string; kind: string; value: string; source: "MANUAL" | "IMPORT" | "MIGRATION" }
-export interface ExamAssignmentDto { candidateId: string; candidateNumber: string | null; displayName: string | null; centerId: string; centerCode: string; centerName: string; roomId: string; roomCode: string; seatNumber: number; tableNumber: string | null }
-export interface ExamHistoryDto { id: string; kind: string; fromValue: string | null; toValue: string | null; reason: string | null; actorId: string | null; occurredAt: string }
-export interface ExamScoreDto { id: string; candidateId: string; paperId: string; status: ExamScoreStatus; score: string | null; source: "MANUAL" | "IMPORT" | "ASSESS" }
-export interface ExamResultDto {
-  id: string;
-  sessionId: string;
-  candidateId: string;
-  candidateNumber: string | null;
-  displayName: string | null;
-  resultCode: ExamResultCode;
-  average: string | null;
-  totalPoints: string | null;
-  rank: number | null;
-  mentionCode: string | null;
-  source: "IMPORTED" | "ENTERED" | "COMPUTED";
-  ruleVersionRef: string | null;
-  status: "DRAFT" | "PUBLISHED";
-  publishedAt: string | null;
-}
-export interface ExamCandidateDetailDto {
-  candidate: ExamCandidateDto;
-  eligibilityChecks: ExamEligibilityCheckDto[];
-  pieces: ExamPieceDto[];
-  identifiers: ExamIdentifierDto[];
-  assignment: ExamAssignmentDto | null;
-  history: ExamHistoryDto[];
-  scores: ExamScoreDto[];
-  result: ExamResultDto | null;
-  documents: ExamIssuedDocumentDto[];
-}
+export const examBatchDtoSchema = z.object({
+  id: examUuidSchema,
+  sessionId: examUuidSchema,
+  kind: examBatchKindSchema,
+  fileName: z.string(),
+  sha256: z.string(),
+  formatCode: nullableStr,
+  rowCount: z.number().int(),
+  okCount: z.number().int(),
+  errorCount: z.number().int(),
+  status: z.enum(["UPLOADED", "VALIDATED", "APPLIED", "REJECTED"]),
+  uploadedBy: examUuidSchema,
+  appliedAt: nullableStr,
+  createdAt: z.string(),
+});
+export type ExamBatchDto = z.infer<typeof examBatchDtoSchema>;
+export const examImportRowDtoSchema = z.object({ id: examUuidSchema, lineNo: z.number().int(), status: z.enum(["OK", "ERROR", "SKIPPED"]), errorCode: nullableStr, candidateNumber: nullableStr, payload: z.record(z.unknown()) });
+export type ExamImportRowDto = z.infer<typeof examImportRowDtoSchema>;
+export const examBatchDetailDtoSchema = z.object({ batch: examBatchDtoSchema, rows: examPageSchema(examImportRowDtoSchema) });
+export const examValidateReportDtoSchema = z.object({ batch: examBatchDtoSchema, fileError: nullableStr, ignoredHeaders: z.array(z.string()), errorsByCode: z.record(z.number().int()) });
+export type ExamValidateReportDto = z.infer<typeof examValidateReportDtoSchema>;
+export const examImportFormatDtoSchema = z.object({
+  id: examUuidSchema,
+  code: z.string(),
+  version: z.number().int(),
+  label: z.string(),
+  examTypeId: examUuidSchema.nullable(),
+  kind: examBatchKindSchema,
+  encoding: z.string(),
+  delimiter: z.string(),
+  decimalSeparator: z.enum([".", ","]),
+  hasHeader: z.boolean(),
+  columns: z.array(z.object({ header: z.string(), target: z.string(), paper: z.string().optional() })),
+  valueMap: z.record(z.record(z.string())),
+  status: examFormatStatusSchema,
+  sourceKind: examSourceKindSchema,
+  sourceReference: nullableStr,
+  placeholder: z.boolean(),
+});
+export type ExamImportFormatDto = z.infer<typeof examImportFormatDtoSchema>;
+export const examExportColumnDtoSchema = z.object({ header: z.string(), source: z.string(), transform: z.string().optional(), paper: z.string().optional(), width: z.number().int().optional(), value: z.string().optional() });
+export const examExportFormatDtoSchema = z.object({
+  id: examUuidSchema,
+  code: z.string(),
+  version: z.number().int(),
+  label: z.string(),
+  examTypeId: examUuidSchema.nullable(),
+  kind: examExportKindSchema,
+  fileFormat: examFileFormatSchema,
+  encoding: z.string(),
+  delimiter: nullableStr,
+  columns: z.array(examExportColumnDtoSchema),
+  status: examFormatStatusSchema,
+  sourceKind: examSourceKindSchema,
+  sourceReference: nullableStr,
+  placeholder: z.boolean(),
+});
+export type ExamExportFormatDto = z.infer<typeof examExportFormatDtoSchema>;
+export const examExportRunDtoSchema = z.object({
+  id: examUuidSchema,
+  sessionId: examUuidSchema,
+  formatId: examUuidSchema,
+  formatCode: nullableStr,
+  formatVersion: z.number().int(),
+  status: z.enum(["RUNNING", "DONE", "FAILED"]),
+  rowCount: z.number().int().nullable(),
+  fileSha256: nullableStr,
+  errorCode: nullableStr,
+  requestedBy: examUuidSchema,
+  createdAt: z.string(),
+  completedAt: nullableStr,
+});
+export type ExamExportRunDto = z.infer<typeof examExportRunDtoSchema>;
+export const examExportDownloadDtoSchema = z.object({ url: z.string(), expiresAt: z.string(), fileName: z.string(), contentType: z.string(), sha256: z.string(), rowCount: z.number().int() });
 
-export interface ExamBatchDto { id: string; sessionId: string; kind: ExamBatchKind; fileName: string; sha256: string; formatCode: string | null; rowCount: number; okCount: number; errorCount: number; status: "UPLOADED" | "VALIDATED" | "APPLIED" | "REJECTED"; uploadedBy: string; appliedAt: string | null; createdAt: string }
-export interface ExamImportRowDto { id: string; lineNo: number; status: "OK" | "ERROR" | "SKIPPED"; errorCode: string | null; candidateNumber: string | null; payload: Record<string, unknown> }
-export interface ExamImportFormatDto { id: string; code: string; version: number; label: string; examTypeId: string | null; kind: ExamBatchKind; encoding: string; delimiter: string; decimalSeparator: "." | ","; hasHeader: boolean; columns: Array<{ header: string; target: string; paper?: string }>; valueMap: Record<string, Record<string, string>>; status: "DRAFT" | "PUBLISHED" | "RETIRED"; sourceKind: ExamSourceKind; sourceReference: string | null; placeholder: boolean }
-export interface ExamExportFormatDto { id: string; code: string; version: number; label: string; examTypeId: string | null; kind: ExamExportKind; fileFormat: z.infer<typeof examFileFormatSchema>; encoding: string; delimiter: string | null; columns: ExamExportColumnDto[]; status: "DRAFT" | "PUBLISHED" | "RETIRED"; sourceKind: ExamSourceKind; sourceReference: string | null; placeholder: boolean }
-export interface ExamExportRunDto { id: string; sessionId: string; formatId: string; formatCode: string | null; formatVersion: number; status: "RUNNING" | "DONE" | "FAILED"; rowCount: number | null; fileSha256: string | null; errorCode: string | null; requestedBy: string; createdAt: string; completedAt: string | null }
+export const examRevisionRequestDtoSchema = z.object({
+  id: examUuidSchema,
+  sessionId: examUuidSchema,
+  targetKind: z.enum(["SCORE", "RESULT"]),
+  scoreId: examUuidSchema.nullable(),
+  resultId: examUuidSchema.nullable(),
+  candidateId: examUuidSchema.nullable(),
+  candidateNumber: nullableStr,
+  proposed: z.record(z.unknown()),
+  current: z.record(z.unknown()),
+  reason: z.string(),
+  requestedBy: examUuidSchema,
+  requestedAt: z.string(),
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]),
+  decidedBy: examUuidSchema.nullable(),
+  decidedAt: nullableStr,
+  decisionNote: nullableStr,
+});
+export type ExamRevisionRequestDto = z.infer<typeof examRevisionRequestDtoSchema>;
 
-export interface ExamRevisionRequestDto {
-  id: string;
-  sessionId: string;
-  targetKind: "SCORE" | "RESULT";
-  scoreId: string | null;
-  resultId: string | null;
-  candidateId: string | null;
-  candidateNumber: string | null;
-  proposed: Record<string, unknown>;
-  current: Record<string, unknown>;
-  reason: string;
-  requestedBy: string;
-  requestedAt: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  decidedBy: string | null;
-  decidedAt: string | null;
-  decisionNote: string | null;
-}
-
-export interface ExamStatisticsGroupDto { groupKey: string; registered: number; present: number; admitted: number; failed: number; absent: number; excluded: number; deferred: number; /** Taux calculé PAR LA RÈGLE `taux_reussite` (décimal exact), `null` si indisponible. */ rate: string | null }
-export interface ExamStatisticsDto {
-  sessionId: string;
-  groupBy: ExamCountGroup;
-  groups: ExamStatisticsGroupDto[];
-  total: ExamStatisticsGroupDto;
-  rateAvailable: boolean;
+export const examStatisticsGroupDtoSchema = z.object({
+  groupKey: z.string(),
+  registered: z.number().int(),
+  present: z.number().int(),
+  admitted: z.number().int(),
+  failed: z.number().int(),
+  absent: z.number().int(),
+  excluded: z.number().int(),
+  deferred: z.number().int(),
+  /** Taux calculé PAR LA RÈGLE `taux_reussite` (décimal exact), `null` si indisponible. */
+  rate: nullableStr,
+});
+export type ExamStatisticsGroupDto = z.infer<typeof examStatisticsGroupDtoSchema>;
+export const examStatisticsDtoSchema = z.object({
+  sessionId: examUuidSchema,
+  groupBy: examCountGroupSchema,
+  groups: z.array(examStatisticsGroupDtoSchema),
+  total: examStatisticsGroupDtoSchema,
+  rateAvailable: z.boolean(),
   /** Explication quand le taux n'est pas calculé (aucune règle épinglée, règle indisponible). */
-  rateNote: string | null;
-  demoRules: boolean;
-  compare?: { label: string; sessionId: string; groups: ExamStatisticsGroupDto[]; total: ExamStatisticsGroupDto } | null;
-}
+  rateNote: nullableStr,
+  demoRules: z.boolean(),
+  compare: z.object({ label: z.string(), sessionId: examUuidSchema, groups: z.array(examStatisticsGroupDtoSchema), total: examStatisticsGroupDtoSchema }).nullable().optional(),
+});
+export type ExamStatisticsDto = z.infer<typeof examStatisticsDtoSchema>;
 
-export interface ExamIssuedDocumentDto { id: string; sessionId: string; candidateId: string; candidateNumber: string | null; kind: ExamDocumentKind; version: number; status: "REQUESTED" | "ISSUED" | "REVOKED"; officialDocumentId: string | null; issuedAt: string | null; revokedReason: string | null; createdAt: string }
+export const examLinkDtoSchema = z.object({ id: examUuidSchema, paperId: examUuidSchema, paperCode: z.string(), classroomId: examUuidSchema, assessmentId: examUuidSchema, linkedAt: z.string() });
+export type ExamLinkDto = z.infer<typeof examLinkDtoSchema>;
 
-export interface ExamLinkDto { id: string; paperId: string; paperCode: string; classroomId: string; assessmentId: string; linkedAt: string }
-
-export interface ExamFamilyExamDto {
-  candidateId: string;
-  studentId: string;
-  displayName: string | null;
-  sessionId: string;
-  sessionLabel: string;
-  examTypeCode: string;
-  examTypeLabel: string;
-  sessionYear: number;
-  sessionKind: ExamSessionKind;
-  registrationStatus: ExamRegistrationStatus;
-  candidateNumber: string | null;
-  startsOn: string | null;
+export const examFamilyExamDtoSchema = z.object({
+  candidateId: examUuidSchema,
+  studentId: examUuidSchema,
+  displayName: nullableStr,
+  sessionId: examUuidSchema,
+  sessionLabel: z.string(),
+  examTypeCode: z.string(),
+  examTypeLabel: z.string(),
+  sessionYear: z.number().int(),
+  sessionKind: examSessionKindSchema,
+  registrationStatus: examRegistrationStatusSchema,
+  candidateNumber: nullableStr,
+  startsOn: nullableStr,
   /** Place attribuée (convocation) : centre, salle, place. */
-  assignment: { centerName: string; roomCode: string; seatNumber: number } | null;
+  assignment: z.object({ centerName: z.string(), roomCode: z.string(), seatNumber: z.number().int() }).nullable(),
   /** Issue : visible UNIQUEMENT une fois le résultat publié, jamais la moyenne ni les notes. */
-  outcome: ExamOutcome | null;
-  documents: ExamIssuedDocumentDto[];
-  demoRules: boolean;
-}
+  outcome: examOutcomeSchema.nullable(),
+  documents: z.array(examIssuedDocumentDtoSchema),
+  demoRules: z.boolean(),
+});
+export type ExamFamilyExamDto = z.infer<typeof examFamilyExamDtoSchema>;
+
+// Rapports d'opérations en lot et vues de lecture composées
+export const examFromClassroomReportSchema = z.object({ created: z.number().int(), skipped: z.array(z.object({ studentId: examUuidSchema, reason: z.string() })), failed: z.array(z.object({ studentId: examUuidSchema, code: z.string(), message: z.string() })) });
+export const examRegisterBatchReportSchema = z.object({ registered: z.array(z.object({ candidateId: examUuidSchema, candidateNumber: nullableStr })), failed: z.array(z.object({ candidateId: examUuidSchema, code: z.string(), message: z.string() })) });
+export const examEvaluateAllReportSchema = z.object({ evaluated: z.number().int(), byResult: z.record(z.number().int()), failed: z.array(z.object({ candidateId: examUuidSchema, code: z.string(), message: z.string() })) });
+export const examEvaluateOneResultSchema = z.object({ candidate: examCandidateDtoSchema, check: examEligibilityCheckDtoSchema });
+export const examBulkScoresReportSchema = z.object({ saved: z.number().int(), unchanged: z.number().int(), failed: z.array(z.object({ index: z.number().int(), candidateId: examUuidSchema, paperId: examUuidSchema, code: z.string(), message: z.string() })) });
+export const examBulkResultsReportSchema = z.object({ saved: z.number().int(), failed: z.array(z.object({ index: z.number().int(), candidateId: examUuidSchema, code: z.string(), message: z.string() })) });
+export const examScoreMatrixSchema = z.object({
+  sessionId: examUuidSchema,
+  papers: z.array(z.object({ id: examUuidSchema, code: z.string(), label: z.string(), trackCode: nullableStr, scaleMax: decStr, ordinal: z.number().int() })),
+  rows: z.array(z.object({ candidateId: examUuidSchema, candidateNumber: nullableStr, displayName: nullableStr, trackCode: nullableStr, scores: z.record(z.object({ id: examUuidSchema, status: examScoreStatusSchema, score: nullableStr, source: z.string() })) })),
+});
+export type ExamScoreMatrixDto = z.infer<typeof examScoreMatrixSchema>;
+export const examAssignmentsOverviewSchema = z.object({
+  centerIds: z.array(examUuidSchema),
+  centers: z.array(examCenterDtoSchema),
+  rooms: z.array(z.object({ roomId: examUuidSchema, centerId: examUuidSchema, centerCode: z.string(), centerName: z.string(), code: z.string(), capacity: z.number().int(), active: z.boolean(), used: z.number().int() })),
+  assignments: z.array(examAssignmentDtoSchema),
+  registered: z.number().int(),
+  unassigned: z.number().int(),
+  capacity: z.number().int(),
+  frozen: z.boolean(),
+});
+export type ExamAssignmentsOverviewDto = z.infer<typeof examAssignmentsOverviewSchema>;
+export const examAutoAssignReportSchema = z.object({ assigned: z.number().int(), alreadyAssigned: z.number().int(), capacity: z.number().int() });
+export const examImportFromAssessReportSchema = z.object({ saved: z.number().int(), unchanged: z.number().int(), noCandidate: z.number().int(), skipped: z.number().int(), failed: z.array(z.object({ candidateId: examUuidSchema, paperId: examUuidSchema, code: z.string(), message: z.string() })) });
+export const examComputeMockReportSchema = z.object({ computed: z.number().int(), skippedPublished: z.number().int(), failed: z.array(z.object({ candidateId: examUuidSchema, code: z.string(), message: z.string() })), ruleVersionId: examUuidSchema, ruleSetCode: z.string(), demoRules: z.boolean() });
+export const examIssueBatchReportSchema = z.object({ issued: z.number().int(), skipped: z.array(z.object({ candidateId: examUuidSchema, reason: z.string() })), failed: z.array(z.object({ candidateId: examUuidSchema, code: z.string(), message: z.string() })) });
+export const examPackReportSchema = z.object({ pack: z.string(), notice: z.string(), createdTypes: z.array(z.string()), existingTypes: z.array(z.string()), createdExportFormats: z.array(z.string()), createdImportFormats: z.array(z.string()) });
+export const examSessionInstantiateSchema = z.object({ session: examSessionDtoSchema, paperCount: z.number().int() });
 
 export const EXAMINATIONS_ERROR_CODES = [
   "examinations.invalid_input", "examinations.forbidden", "examinations.port_unavailable", "examinations.not_found", "examinations.type_not_found",

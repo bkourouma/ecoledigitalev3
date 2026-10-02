@@ -368,7 +368,7 @@ export async function examinationsPlugin(app: FastifyInstance, options: Examinat
 
 function sendFile(reply: FastifyReply, file: { fileName: string; bytes: Uint8Array; verificationCode: string | null } | null): FastifyReply {
   noStore(reply);
-  if (!file) return reply.status(202).send({ status: "PENDING", message: "Le document est en cours de rendu : réessayer dans un instant." });
+  if (!file) return reply.status(202).send({ status: "PENDING", retryAfterSeconds: 2, message: "Le document est en cours de rendu : réessayer dans un instant." });
   const ascii = file.fileName.replace(/[^\x20-\x7e]+/g, "_").replace(/["\\]/g, "_");
   return reply.header("Content-Type", "application/pdf").header("Content-Disposition", `attachment; filename="${ascii}"`).header("X-Content-Type-Options", "nosniff").send(Buffer.from(file.bytes));
 }

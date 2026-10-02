@@ -238,6 +238,7 @@ describeIntegration("examinations : HTTP", () => {
     const mine = await call("GET", `/children/${pupils[0]!.studentId}/exams`, { perms, user: parentOfFirst });
     expect(mine.statusCode).toBe(200);
     const item = mine.json().items[0];
+    (await import("@ecoledigitale/contracts/src/v2/examinations")).examFamilyExamDtoSchema.parse(item);
     expect(item).toMatchObject({ candidateNumber: "CEPE2027-00001", outcome: null, assignment: { roomCode: "SF", seatNumber: 1 }, demoRules: true });
     expect(item.documents).toHaveLength(1);
     // pas de note, de moyenne ni de rang dans ce que voit la famille

@@ -199,6 +199,27 @@ describeIntegration("examinations : parcours officiel (CEPE fictif)", () => {
     expect(stats.groups.map((g) => g.groupKey).sort()).toEqual(["F", "M"]);
   });
 
+  it("les réponses du module respectent les schémas partagés du contrat (le web les valide à la réception)", async () => {
+    const c = await import("@ecoledigitale/contracts/src/v2/examinations");
+    const deps = env.deps();
+    const ctx = env.ctxA();
+    c.examTypeDetailDtoSchema.parse(unwrap(await (await import("../../application/reference")).getExamType(deps, ctx, (await env.db.admin.query("SELECT id FROM examinations.exam_types WHERE tenant_id = $1", [env.tenantA])).rows[0].id)));
+    c.examSessionDetailDtoSchema.parse(unwrap(await getSessionDetail(deps, ctx, sessionId)));
+    c.examPageSchema(c.examSessionDtoSchema).parse(unwrap(await (await import("../../application/sessions")).listSessions(deps, ctx, { page: 1, pageSize: 50 })));
+    const cands = unwrap(await listCandidates(deps, ctx, sessionId, { page: 1, pageSize: 50 }));
+    c.examPageSchema(c.examCandidateDtoSchema).parse(cands);
+    c.examCandidateDetailDtoSchema.parse(unwrap(await getCandidateDetail(deps, ctx, cands.items[0]!.id)));
+    c.examPageSchema(c.examResultDtoSchema).parse(unwrap(await listResults(deps, ctx, sessionId, { page: 1, pageSize: 50 })));
+    c.examStatisticsDtoSchema.parse(unwrap(await getStatistics(deps, ctx, sessionId, { groupBy: "SEX", compare: "previous_year" })));
+    c.examAssignmentsOverviewSchema.parse(unwrap(await getAssignmentsOverview(deps, ctx, sessionId)));
+    c.examScoreMatrixSchema.parse(unwrap(await (await import("../../application/scores")).getScoreMatrix(deps, ctx, sessionId)));
+    c.examItemsSchema(c.examExportFormatDtoSchema).parse({ items: unwrap(await listExportFormats(deps, ctx)) });
+    c.examItemsSchema(c.examImportFormatDtoSchema).parse({ items: unwrap(await (await import("../../application/formats")).listImportFormats(deps, ctx)) });
+    c.examItemsSchema(c.examCenterDtoSchema).parse({ items: unwrap(await (await import("../../application/reference")).listCenters(deps, ctx)) });
+    c.examPageSchema(c.examIssuedDocumentDtoSchema).parse(unwrap(await (await import("../../application/issued-documents")).listIssuedDocuments(deps, ctx, sessionId, { page: 1, pageSize: 50 })));
+    c.examItemsSchema(c.examExportRunDtoSchema).parse({ items: unwrap(await (await import("../../application/exports")).listExports(deps, ctx, sessionId)) });
+  });
+
   it("exporte la liste et les résultats avec les formats fictifs publiés ; fichier tracé (empreinte, effectif, version)", async () => {
     const formats = unwrap(await listExportFormats(env.deps(), env.ctxA(), { status: "PUBLISHED" }));
     const results = formats.find((f) => f.code === "RESULTATS_FICTIF")!;
