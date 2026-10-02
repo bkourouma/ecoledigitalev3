@@ -44,6 +44,9 @@ export class FakeAcademic implements AcademicQuery {
   async listNodesForClassroom(_ctx: RequestContext, classroomId: string) {
     return (this.classroomNodes.get(classroomId) ?? []).map((id) => this.nodes.get(id) as AcademicNode);
   }
+  async listPeriodsOfYear(_ctx: RequestContext, academicYearId: string) {
+    return [...this.periods.values()].filter((p) => p.academicYearId === academicYearId).map((p, i) => ({ id: p.id, label: `Semestre ${i + 1}`, startsOn: "2025-09-01", endsOn: "2026-01-31" }));
+  }
   async listClassrooms(_ctx: RequestContext, filter: { academicYearId: string }) {
     return [...this.classrooms.values()].filter((c) => c.academicYearId === filter.academicYearId);
   }

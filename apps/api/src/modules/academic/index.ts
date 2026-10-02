@@ -162,6 +162,8 @@ export {
 export {
   createEnrollmentDirectory,
   getCatalog,
+  getChildLabels,
+  getMyLabels,
   getRoster,
   getRuleContext,
   listChildEnrollments,

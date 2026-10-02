@@ -330,6 +330,7 @@ Limites : la structure de calcul couvre le mode « classe » (tronc commun) ; le
 | POST | `/enrollments/:id/outcome` | Issue de fin d'année | `enrollment.outcome.record` |
 | GET/POST | `/enrollments/:id/courses` ; POST `/enrollment-courses/:id/{confirm,cancel,complete}` | Sélections | `enrollment.course.manage` (self : `enrollment.self.read` + règle) |
 | GET | `/me/enrollments`, `/children/:studentId/enrollments` | Portails | `enrollment.self.read` / `enrollment.child.read` |
+| GET | `/me/labels`, `/children/:studentId/labels` | Portails : libellés (classes, périodes, matières des inscriptions de l'élève) pour nommer les identifiants des notes, résultats, présences et séances ; lecture seule, sans donnée de gestion (extension additive, portails 033) | `enrollment.self.read` / `enrollment.child.read` + lien de tutelle (404 hors lien) |
 | GET/POST | `/years/:id/rollover/preview`, `/years/:id/rollover` | Reconduction | `academic.year.manage` (sensible) |
 
 Conventions : erreurs `{ status, code, kind, message, issues?, requestId }` (`toErrorBody`) ; codes `academic.*` stables ; pagination `page/pageSize ≤ 200` ; aucun `500` pour une violation d'unicité ou de CHECK prévisible ; entrées `strict` (champs inconnus refusés).

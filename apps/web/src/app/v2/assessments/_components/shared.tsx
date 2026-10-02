@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useClassroom, useClassroomOfferings, useYearPeriods } from "@/platform/v2/academic";
-import { useClassroomOptions } from "@/platform/v2/lookups";
 import { useStudents } from "@/platform/v2/people";
+import { useAssessmentClassroomOptions, useTeachingScope } from "@/platform/v2/teaching";
 import { NativeSelect } from "@/platform/ui/FormField";
 import { SelectAsync, type SelectOption } from "@/platform/ui/SelectAsync";
 import type { Tone } from "@/platform/ui/PageHeader";
@@ -87,8 +87,20 @@ export function ClassroomPicker({
 }) {
   const t = useTranslations("v2Assess.common");
   const [chosen, setChosen] = useState<SelectOption | null>(null);
-  const fromValue = useClassroom(value && chosen?.value !== value ? value : null);
-  const option: SelectOption | null = chosen && chosen.value === value ? chosen : fromValue.data ? { value, label: fromValue.data.name, description: fromValue.data.code } : value ? { value, label: t("classroomFallback", { id: value.slice(0, 4) }) } : null;
+  // Enseignant sans lecture académique : la classe est nommée par « mes classes » (aucun appel à `/academic/classrooms/:id`).
+  const scope = useTeachingScope();
+  const fromValue = useClassroom(!scope.useMine && !scope.isLoading && value && chosen?.value !== value ? value : null);
+  const mineName = scope.classroomName(value);
+  const option: SelectOption | null =
+    chosen && chosen.value === value
+      ? chosen
+      : fromValue.data
+        ? { value, label: fromValue.data.name, description: fromValue.data.code }
+        : mineName
+          ? { value, label: mineName, description: scope.classroomCode(value) ?? undefined }
+          : value
+            ? { value, label: t("classroomFallback", { id: value.slice(0, 4) }) }
+            : null;
   return (
     <SelectAsync
       {...aria}
@@ -99,7 +111,7 @@ export function ClassroomPicker({
         setChosen(o);
         onChange(o?.value ?? "");
       }}
-      useOptions={useClassroomOptions}
+      useOptions={useAssessmentClassroomOptions}
       placeholder={t("classroomPlaceholder")}
     />
   );
@@ -107,8 +119,11 @@ export function ClassroomPicker({
 
 /** Périodes de l'année de la classe choisie. */
 export function usePeriodsOfClassroom(classroomId: string | null) {
-  const classroom = useClassroom(classroomId || null);
+  const scope = useTeachingScope();
+  const direct = !scope.useMine && !scope.isLoading;
+  const classroom = useClassroom(direct ? classroomId || null : null);
   const periods = useYearPeriods(classroom.data?.academicYearId ?? null);
+  if (scope.useMine || scope.isLoading) return { classroom: null, periods: scope.periodsOf(classroomId), isLoading: scope.isLoading, error: scope.error };
   return { classroom: classroom.data ?? null, periods: periods.data ?? [], isLoading: (classroom.isPending && classroom.fetchStatus !== "idle") || (periods.isPending && periods.fetchStatus !== "idle"), error: classroom.error ?? periods.error };
 }
 
@@ -159,18 +174,21 @@ export function NodePicker({
   "aria-required"?: true;
 }) {
   const t = useTranslations("v2Assess.common");
-  const offerings = useClassroomOfferings(classroomId || null);
+  const scope = useTeachingScope();
+  const offerings = useClassroomOfferings(!scope.useMine && !scope.isLoading ? classroomId || null : null);
   const options = useMemo(() => {
+    if (scope.useMine) return scope.nodesOf(classroomId).map((n) => ({ value: n.id, label: n.label }));
     const seen = new Set<string>();
     return (offerings.data ?? []).filter((o) => (seen.has(o.curriculumNodeId) ? false : (seen.add(o.curriculumNodeId), true))).map((o) => ({ value: o.curriculumNodeId, label: o.label }));
-  }, [offerings.data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `scope` est recréé à chaque rendu : on dépend de ses données
+  }, [offerings.data, scope.useMine, scope.classes, classroomId]);
   return (
     <NativeSelect
       {...aria}
       id={id}
       value={value}
       onChange={onChange}
-      disabled={!classroomId || offerings.isPending}
+      disabled={!classroomId || (!scope.useMine && offerings.isPending)}
       placeholder={classroomId ? t("nodePlaceholder") : t("chooseClassroomFirst")}
       options={options}
     />
@@ -179,6 +197,11 @@ export function NodePicker({
 
 /** Libellés de cours d'une classe (id de nœud -> intitulé). */
 export function useNodeLabels(classroomId: string | null) {
-  const offerings = useClassroomOfferings(classroomId || null);
-  return useMemo(() => new Map((offerings.data ?? []).map((o) => [o.curriculumNodeId, o.label] as const)), [offerings.data]);
+  const scope = useTeachingScope();
+  const offerings = useClassroomOfferings(!scope.useMine && !scope.isLoading ? classroomId || null : null);
+  return useMemo(
+    () => (scope.useMine ? new Map(scope.nodesOf(classroomId).map((n) => [n.id, n.label] as const)) : new Map((offerings.data ?? []).map((o) => [o.curriculumNodeId, o.label] as const))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `scope` est recréé à chaque rendu : on dépend de ses données
+    [offerings.data, scope.useMine, scope.classes, classroomId],
+  );
 }

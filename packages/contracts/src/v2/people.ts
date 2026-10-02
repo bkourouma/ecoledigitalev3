@@ -1085,7 +1085,23 @@ export const peopleUnstaffedNodeDtoSchema = z.object({
 export const peopleMyClassDtoSchema = z.object({
   classroomId: peopleUuidSchema,
   academicYearId: peopleUuidSchema,
-  assignments: z.array(z.object({ assignmentId: peopleUuidSchema, roleCode: peopleAssignmentRoleSchema, curriculumNodeId: peopleUuidSchema.nullable(), coversAllSubjects: z.boolean() })),
+  /** Nom et code de la classe (ajoutés quand `academic` est branché ; `null` sinon) : de quoi nommer « mes classes » sans `academic.classroom.read`. */
+  classroomName: z.string().nullable().optional(),
+  classroomCode: z.string().nullable().optional(),
+  /** Périodes de l'année de la classe : de quoi choisir la période d'une évaluation sans `academic.year.read`. */
+  periods: z.array(z.object({ id: peopleUuidSchema, label: z.string(), startsOn: peopleDateSchema, endsOn: peopleDateSchema })).optional(),
+  /** Matières que l'enseignant peut évaluer dans la classe (ses affectations ; toutes les matières pour un généraliste). */
+  nodes: z.array(z.object({ id: peopleUuidSchema, label: z.string() })).optional(),
+  assignments: z.array(
+    z.object({
+      assignmentId: peopleUuidSchema,
+      roleCode: peopleAssignmentRoleSchema,
+      curriculumNodeId: peopleUuidSchema.nullable(),
+      /** Libellé de la matière / de l'ECUE (nœud de curriculum), `null` pour une affectation à toutes les matières. */
+      nodeLabel: z.string().nullable().optional(),
+      coversAllSubjects: z.boolean(),
+    }),
+  ),
 });
 
 // ---------------------------------------------------------------------------

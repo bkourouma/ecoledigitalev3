@@ -29,7 +29,7 @@ import { StatusPicker, type StatusOption } from "./StatusPicker";
  * écrits dans la file locale (identifiants seulement) et envoyés par lot, avec clés d'idempotence, dès que le
  * réseau revient. L'écran doit avoir été ouvert en ligne (une navigation hors ligne ne peut pas charger la liste).
  */
-export function CallScreen({ kind, id, date }: { kind: "occurrence" | "daily"; id: string; date: string }) {
+export function CallScreen({ kind, id, date, backHref = "/v2/attendance/call" }: { kind: "occurrence" | "daily"; id: string; date: string; backHref?: string }) {
   const t = useTranslations("v2Attendance.call");
   const tStatus = useTranslations("v2Attendance.status");
   const dateFmt = useDateFormat();
@@ -174,7 +174,7 @@ export function CallScreen({ kind, id, date }: { kind: "occurrence" | "daily"; i
       title={t("title")}
       description={label ?? (kind === "daily" ? t("dailyDescription") : t("sessionDescription"))}
       actions={
-        <Link href="/v2/attendance/call" className={buttonClass.secondary}>
+        <Link href={backHref} className={buttonClass.secondary}>
           {t("back")}
         </Link>
       }

@@ -11,6 +11,7 @@ import {
   getClassroom,
   getCurriculumNode,
   getOffering,
+  listAcademicPeriods,
   listClassrooms,
   listEnrollmentsByStudent,
   listNodesForClassroom,
@@ -22,7 +23,7 @@ export function createPeopleAcademicQuery(academic: AcademicDeps): AcademicQuery
   return {
     async getClassroom(ctx: RequestContext, classroomId) {
       const r = await getClassroom(academic, ctx, classroomId);
-      return r.ok ? { id: r.value.id, academicYearId: r.value.academicYearId, status: r.value.status } : null;
+      return r.ok ? { id: r.value.id, academicYearId: r.value.academicYearId, status: r.value.status, name: r.value.name, code: r.value.code } : null;
     },
     async getCurriculumNode(ctx, nodeId) {
       const r = await getCurriculumNode(academic, ctx, nodeId);
@@ -46,6 +47,10 @@ export function createPeopleAcademicQuery(academic: AcademicDeps): AcademicQuery
         if (out.length >= r.value.total || r.value.items.length === 0) break;
       }
       return out;
+    },
+    async listPeriodsOfYear(ctx, academicYearId) {
+      const r = await listAcademicPeriods(academic, ctx, academicYearId);
+      return r.ok ? r.value.map((p) => ({ id: p.id, label: p.label, startsOn: p.startsOn, endsOn: p.endsOn })) : [];
     },
     async getOffering(ctx, offeringId) {
       const r = await getOffering(academic, ctx, offeringId);

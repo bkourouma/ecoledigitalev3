@@ -152,8 +152,8 @@ Arborescence `src/app/v2/` (pages minces) ; toute la logique est dans `src/platf
 - **Briques** `packages/ui/src/admin` : `PageHeader`, `LoadingState/EmptyState/ErrorState`, `Notice`, `StatusBadge`, `Field`,
   `NativeSelect`, `ConfirmDialog`, `ProgressBar`, `ResponsiveTable` (tableau ≥ md, cartes en dessous).
 - **Erreurs** : `admin/errors.ts` (anti-escalade, dernier propriétaire, rôle verrouillé, MFA…) ; notifications = `sonner` existant.
-- **Limites** : pas de téléversement de logo (URL https) ; journal de plateforme : route de lecture absente côté API
-  (`GET /api/v1/platform/audit/logs` attendue) ; périmètres « campus » affichés par identifiant court.
+- **Limites** : pas de téléversement de logo (URL https) ; journal de plateforme : lu par `GET /api/v1/platform/audit/logs` (livrée ; seule une API plus ancienne répond 404 et l’écran l’explique)
+  ; périmètres « campus » affichés par identifiant court.
 - **Tests** : `pnpm --filter @ecoledigitale/web test` (Vitest/RTL, API simulée) ;
   `PW_CHANNEL=msedge pnpm exec playwright test -c playwright.admin.config.ts` (smoke console + gardes, 375 px et bureau, sans API).
 

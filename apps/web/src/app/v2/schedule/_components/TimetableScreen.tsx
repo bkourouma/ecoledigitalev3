@@ -34,7 +34,7 @@ export function groupByDay(items: ReadonlyArray<OccurrenceDto>): Map<string, Occ
  * Emploi du temps lisible : la semaine en colonnes sur écran large, en liste par jour sur téléphone ; vue « Jour »
  * partout. Sujets : moi, mes enfants (parent), une classe, un enseignant, une salle, un élève (selon les droits).
  */
-export function TimetableScreen() {
+export function TimetableScreen({ exportHref = "/v2/schedule/export" }: { exportHref?: string } = {}) {
   const t = useTranslations("v2Schedule.viewer");
   const format = useFormatter();
   const own = usePermission("schedule.own.read").allowed;
@@ -101,7 +101,7 @@ export function TimetableScreen() {
         title={t("title")}
         description={t("description")}
         actions={
-          <Link href="/v2/schedule/export" className={buttonClass.secondary}>
+          <Link href={exportHref} className={buttonClass.secondary}>
             {t("export")}
           </Link>
         }

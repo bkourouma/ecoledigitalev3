@@ -461,8 +461,8 @@
     "audit": {
       "title": "Journal de plateforme",
       "description": "Actions des opérateurs : provisionnement, statuts, plans, abonnements et dérogations.",
-      "unavailableTitle": "Le journal de plateforme n'est pas encore consultable",
-      "unavailableBody": "L'API n'expose pas encore la lecture du journal de plateforme. Les actions sont bien enregistrées ; leur consultation arrivera avec la route de lecture correspondante.",
+      "unavailableTitle": "Le journal de plateforme n'est pas disponible sur ce serveur",
+      "unavailableBody": "Ce serveur ne répond pas à la lecture du journal de plateforme (version de l'API antérieure à la route de lecture). Les actions sont bien enregistrées ; mettez l'API à jour pour les consulter.",
       "caption": "Entrées du journal de plateforme",
       "empty": "Aucune entrée dans le journal de plateforme."
     }
@@ -6996,7 +6996,8 @@
       "DIPLOMA": "Diplôme",
       "ATTESTATION_SUCCESS": "Attestation de réussite",
       "ATTESTATION_AUTHENTICITY": "Attestation d'authenticité",
-      "PAYSLIP": "Bulletin de paie"
+      "PAYSLIP": "Bulletin de paie",
+      "RECEIPT": "Reçu de paiement"
     },
     "file": {
       "title": "Comparer un fichier PDF",
@@ -7960,6 +7961,532 @@
         "absent": "Absences",
         "late": "Retards",
         "records": "Pointages"
+      }
+    }
+  },
+  "v2Portal": {
+    "shell": {
+      "brand": "EcoleDigitale",
+      "account": "Mon compte",
+      "signOut": "Se déconnecter",
+      "navLabel": {
+        "parent": "Navigation de l'espace parent",
+        "student": "Navigation de l'espace élève",
+        "teacher": "Navigation de l'espace enseignant"
+      },
+      "portal": {
+        "parent": "Espace parent",
+        "student": "Espace élève",
+        "teacher": "Espace enseignant"
+      }
+    },
+    "menu": {
+      "parent": {
+        "children": "Mes enfants",
+        "messages": "Messages",
+        "announcements": "Annonces",
+        "account": "Paramètres du compte"
+      },
+      "student": {
+        "home": "Mon dossier",
+        "results": "Mes résultats",
+        "reportcards": "Mes bulletins",
+        "schedule": "Mon emploi du temps",
+        "upcoming": "Évaluations à venir",
+        "attendance": "Mes absences",
+        "finance": "Ma scolarité",
+        "documents": "Mes documents",
+        "messages": "Messages",
+        "announcements": "Annonces",
+        "profile": "Mon profil"
+      },
+      "teacher": {
+        "today": "Aujourd'hui",
+        "classes": "Mes classes",
+        "assessments": "Mes évaluations",
+        "attendance": "Mes appels",
+        "schedule": "Mon emploi du temps",
+        "payslips": "Mes bulletins de paie",
+        "leaves": "Mes congés et ma présence",
+        "messages": "Messages",
+        "announcements": "Annonces",
+        "profile": "Mon profil"
+      }
+    },
+    "child": {
+      "notLinked": "Cet enfant n'est pas rattaché à votre compte (ou le lien a pris fin). Aucune information ne peut être affichée.",
+      "backToChildren": "Retour à mes enfants",
+      "switcherLabel": "Enfant",
+      "switcherPlaceholder": "Choisir un enfant",
+      "tabsLabel": "Sections de l'enfant",
+      "sections": {
+        "dashboard": "Tableau de bord",
+        "results": "Résultats",
+        "reportcards": "Bulletins",
+        "attendance": "Absences",
+        "schedule": "Emploi du temps",
+        "upcoming": "Évaluations à venir",
+        "finance": "Scolarité",
+        "documents": "Documents",
+        "emergency": "Dossier et contacts"
+      }
+    },
+    "pdf": {
+      "preparing": "Préparation…",
+      "pending": "Le document est en cours de préparation. Réessayez dans quelques instants."
+    },
+    "contact": {
+      "formLabel": "Mes coordonnées",
+      "blankHint": "Les champs sont vides : seuls ceux que vous renseignez seront modifiés.",
+      "nothingToSave": "Aucune modification à enregistrer.",
+      "saved": "Coordonnées enregistrées.",
+      "saving": "Enregistrement…",
+      "save": "Enregistrer",
+      "email": "Adresse e-mail",
+      "phone": "Téléphone",
+      "phoneAlt": "Autre téléphone",
+      "addressLine": "Adresse",
+      "city": "Ville",
+      "residence": "Quartier / résidence"
+    },
+    "family": {
+      "results": {
+        "description": "Résultats officiels de chaque période et de l'année, puis notes des évaluations publiées par l'établissement.",
+        "official": {
+          "title": "Résultats officiels",
+          "empty": "Aucun résultat publié pour le moment.",
+          "emptyHint": "Les résultats apparaissent ici lorsque l'établissement clôture une période.",
+          "yearScope": "Année",
+          "periodFallback": "Période",
+          "validated": "Validé",
+          "notValidated": "Non validé",
+          "average": "Moyenne",
+          "rank": "Rang",
+          "rankOf": "{rank} sur {size}",
+          "credits": "Crédits",
+          "creditsOf": "{acquired} sur {required}",
+          "mention": "Mention",
+          "decision": "Décision : {code}",
+          "finalizedOn": "Résultat arrêté le {date}"
+        },
+        "lines": {
+          "summary": "Détail par matière ({count})",
+          "caption": "Détail des résultats par matière",
+          "subject": "Matière",
+          "value": "Note",
+          "coefficient": "Coef.",
+          "credits": "Crédits",
+          "state": "État",
+          "unnamed": "{level}",
+          "validated": "Validé",
+          "notValidated": "Non validé"
+        },
+        "grades": {
+          "title": "Notes des évaluations",
+          "hint": "Seules les notes publiées par l'établissement sont visibles ici.",
+          "period": "Période",
+          "allPeriods": "Toutes les périodes",
+          "periodFallback": "Période",
+          "caption": "Notes publiées",
+          "empty": "Aucune note publiée.",
+          "emptyHint": "Les notes apparaissent ici une fois publiées par l'établissement.",
+          "more": "Afficher plus",
+          "note": "Une absence ou une dispense n'est jamais comptée comme un zéro.",
+          "scoreOf": "{score} / {max}",
+          "columns": {
+            "title": "Évaluation",
+            "subject": "Matière",
+            "type": "Type",
+            "date": "Date",
+            "score": "Note",
+            "weight": "Poids"
+          }
+        }
+      },
+      "reportcards": {
+        "description": "Bulletins publiés par l'établissement. Le téléchargement est contrôlé et journalisé.",
+        "empty": "Aucun bulletin publié.",
+        "emptyHint": "Les bulletins apparaissent ici lorsque l'établissement les publie.",
+        "more": "Afficher plus",
+        "downloadNote": "Le lien de téléchargement est valable quelques minutes et n'est jamais affiché.",
+        "publishedOn": "Publié le {date}",
+        "provisional": "Provisoire",
+        "download": "Télécharger le PDF",
+        "downloadOf": "Télécharger le bulletin {title}",
+        "verification": "Vérifier l'authenticité",
+        "qrLabel": "QR code de vérification du bulletin",
+        "code": "Code de vérification",
+        "openVerify": "Ouvrir la page de vérification",
+        "verifyHint": "Toute personne disposant de ce code ou du QR peut confirmer que le bulletin est authentique, sans voir de donnée personnelle."
+      },
+      "schedule": {
+        "description": "Séances de la semaine, telles que planifiées par l'établissement.",
+        "navigation": "Navigation dans le calendrier",
+        "previousWeek": "Semaine précédente",
+        "previousDay": "Jour précédent",
+        "today": "Aujourd'hui",
+        "nextWeek": "Semaine suivante",
+        "nextDay": "Jour suivant",
+        "viewDay": "Vue jour",
+        "viewWeek": "Vue semaine",
+        "showCancelled": "Afficher les séances annulées",
+        "weekOf": "Du {from} au {to}",
+        "emptyWeek": "Aucune séance cette semaine.",
+        "emptyDay": "Aucune séance ce jour.",
+        "emptyHint": "Changez de semaine avec les flèches.",
+        "truncated": "La liste est tronquée : réduisez la période pour tout voir.",
+        "weekGrid": "Semaine",
+        "agenda": "Séances par jour",
+        "nothingThatDay": "Rien de prévu ce jour."
+      },
+      "upcoming": {
+        "description": "Examens et contrôles planifiés dans les {days} prochains jours.",
+        "empty": "Aucune évaluation planifiée.",
+        "emptyHint": "Les évaluations apparaissent ici dès qu'elles sont inscrites à l'emploi du temps.",
+        "truncated": "La liste est tronquée.",
+        "homeworkNote": "Seules les évaluations planifiées à l'emploi du temps sont annoncées ici ; les devoirs à rendre ne sont pas encore disponibles dans cet espace."
+      },
+      "finance": {
+        "pay": "Payer en ligne",
+        "totals": {
+          "title": "Situation",
+          "billed": "Facturé",
+          "credited": "Avoirs",
+          "collected": "Payé",
+          "outstanding": "Reste à payer"
+        },
+        "installments": {
+          "title": "Prochaines échéances",
+          "unavailable": "Les échéances ne sont pas disponibles pour le moment.",
+          "empty": "Aucune échéance à payer.",
+          "caption": "Échéances à payer",
+          "invoice": "Facture",
+          "label": "Échéance",
+          "due": "Date limite",
+          "remaining": "Reste dû",
+          "status": "Statut"
+        },
+        "invoices": {
+          "title": "Factures",
+          "empty": "Aucune facture émise.",
+          "draft": "Brouillon",
+          "balance": "Reste à payer : {amount}",
+          "installments": "Échéances de la facture {number}",
+          "noInstallments": "Aucune échéance.",
+          "columns": {
+            "label": "Échéance",
+            "due": "Date limite",
+            "amount": "Montant",
+            "remaining": "Reste dû",
+            "status": "Statut"
+          }
+        },
+        "payments": {
+          "title": "Paiements",
+          "caption": "Paiements effectués",
+          "date": "Date",
+          "amount": "Montant",
+          "status": "Statut",
+          "empty": "Aucun paiement."
+        },
+        "receipts": {
+          "title": "Reçus",
+          "empty": "Aucun reçu.",
+          "pdf": "PDF",
+          "pdfOf": "Télécharger le reçu {number} en PDF"
+        },
+        "payDialog": {
+          "title": "Payer en ligne",
+          "description": "Le paiement est initié auprès de votre opérateur ; confirmez-le sur votre téléphone. Le montant ne peut pas dépasser le reste dû de la facture.",
+          "submit": "Payer",
+          "invoice": "Facture à payer",
+          "invoiceOption": "{number} — reste {balance}",
+          "amount": "Montant (F CFA)",
+          "amountHint": "Montant entier, sans décimale.",
+          "provider": "Moyen de paiement",
+          "phone": "Numéro de téléphone du payeur",
+          "phoneHint": "Numéro qui recevra la demande de confirmation."
+        },
+        "tracker": {
+          "title": "Suivi du paiement",
+          "amount": "Montant : {amount}",
+          "ussd": "Code à composer :",
+          "redirect": "Poursuivre le paiement",
+          "pending": "En attente de confirmation par l'opérateur. Cette page se met à jour toute seule.",
+          "checkNow": "Vérifier maintenant",
+          "confirmed": "Paiement confirmé. Votre reçu est disponible ci-dessous.",
+          "failed": "Le paiement a échoué : {reason}",
+          "dismiss": "Fermer"
+        },
+        "receipt": {
+          "title": "Reçu {number}",
+          "back": "Retour à la scolarité",
+          "pdf": "Télécharger le PDF",
+          "print": "Imprimer",
+          "document": "Reçu de paiement",
+          "heading": "Reçu de paiement",
+          "date": "Date",
+          "method": "Mode de paiement",
+          "amount": "Montant reçu",
+          "balanceAfter": "Reste à payer après ce paiement",
+          "allocations": "Imputation du paiement",
+          "noAllocations": "Ce paiement n'est pas encore imputé à une échéance."
+        }
+      },
+      "snapshot": {
+        "unavailable": "Information indisponible pour le moment.",
+        "average": {
+          "title": "Dernière moyenne publiée",
+          "details": "Voir les résultats",
+          "rank": "rang {rank} sur {size}",
+          "publishedOn": "Publiée le {date}",
+          "none": "Aucune moyenne publiée."
+        },
+        "attendance": {
+          "title": "Absences",
+          "details": "Voir les absences",
+          "absences": "{absent} absence(s), {late} retard(s)",
+          "toJustify": "{count} à justifier",
+          "none": "Aucune donnée d'assiduité."
+        },
+        "finance": {
+          "title": "Scolarité restante",
+          "details": "Voir la scolarité",
+          "billed": "Facturé : {amount}"
+        },
+        "upcoming": {
+          "title": "Prochaines séances",
+          "details": "Voir l'emploi du temps",
+          "none": "Aucune séance dans les 7 prochains jours.",
+          "session": "Séance"
+        },
+        "announcements": {
+          "title": "Annonces",
+          "open": "Ouvrir les annonces",
+          "soon": "Les annonces de l'établissement arriveront dans cet espace."
+        }
+      },
+      "documents": {
+        "description": "Bulletins, reçus, diplômes et attestations publiés.",
+        "none": "Aucun document accessible.",
+        "cards": {
+          "title": "Bulletins",
+          "empty": "Aucun bulletin publié.",
+          "download": "Télécharger",
+          "downloadOf": "Télécharger le bulletin {title}"
+        },
+        "receipts": {
+          "title": "Reçus de paiement",
+          "empty": "Aucun reçu.",
+          "pdf": "PDF",
+          "pdfOf": "Télécharger le reçu {number} en PDF"
+        },
+        "higher": {
+          "title": "Diplômes et attestations",
+          "meta": "{reference} — {date}",
+          "verify": "Vérifier"
+        }
+      }
+    },
+    "parent": {
+      "home": {
+        "title": "Mes enfants",
+        "description": "Un aperçu de chacun de vos enfants. Ouvrez un enfant pour ses résultats, bulletins, absences, emploi du temps et scolarité.",
+        "empty": "Aucun enfant n'est rattaché à votre compte.",
+        "emptyHint": "Si vous pensez qu'il s'agit d'une erreur, contactez le secrétariat de l'établissement.",
+        "listLabel": "Mes enfants",
+        "notEnrolled": "Non inscrit",
+        "open": "Ouvrir"
+      },
+      "dashboard": {
+        "notEnrolled": "Non inscrit"
+      },
+      "titles": {
+        "results": "Résultats de {name}",
+        "reportcards": "Bulletins de {name}",
+        "schedule": "Emploi du temps de {name}",
+        "upcoming": "Évaluations à venir de {name}",
+        "finance": "Scolarité de {name}",
+        "documents": "Documents de {name}"
+      },
+      "file": {
+        "subtitle": "Matricule {number}",
+        "summary": "Dossier",
+        "classroom": "Classe",
+        "notEnrolled": "Non inscrit",
+        "birthDate": "Date de naissance",
+        "registration": "Numéro d'inscription",
+        "guardians": "Responsables",
+        "primary": "Contact principal",
+        "emergency": {
+          "title": "Contacts d'urgence",
+          "hint": "Ces personnes sont jointes en cas d'urgence. Vous pouvez corriger leurs coordonnées.",
+          "caption": "Contacts d'urgence",
+          "empty": "Aucun contact d'urgence.",
+          "name": "Nom",
+          "phone": "Téléphone",
+          "relationship": "Lien",
+          "actions": "Actions",
+          "edit": "Modifier",
+          "updated": "Contact mis à jour.",
+          "editTitle": "Modifier {name}",
+          "save": "Enregistrer",
+          "phoneAlt": "Autre téléphone",
+          "email": "Adresse e-mail"
+        },
+        "enrollments": {
+          "title": "Inscriptions",
+          "unavailable": "Les inscriptions ne sont pas disponibles pour le moment.",
+          "empty": "Aucune inscription."
+        }
+      },
+      "account": {
+        "title": "Paramètres du compte",
+        "description": "Vos coordonnées et la sécurité de votre compte.",
+        "identity": "Identité",
+        "name": "Nom",
+        "loginEmail": "Adresse de connexion",
+        "identityHint": "Votre identité est gérée par l'établissement ; pour la corriger, contactez le secrétariat.",
+        "contact": "Mes coordonnées",
+        "security": "Sécurité et établissements",
+        "securityLink": "Mot de passe et double authentification",
+        "sessionsLink": "Mes sessions",
+        "tenantsLink": "Mes établissements"
+      }
+    },
+    "student": {
+      "noRecord": "Aucun dossier d'élève n'est lié à votre compte. Contactez le secrétariat de l'établissement.",
+      "home": {
+        "subtitle": "Matricule {number}",
+        "profile": "Mon profil",
+        "file": "Mon dossier",
+        "classroom": "Classe",
+        "notEnrolled": "Non inscrit",
+        "registration": "Numéro d'inscription",
+        "birthDate": "Date de naissance",
+        "enrollments": "Mes inscriptions",
+        "enrollmentsUnavailable": "Les inscriptions ne sont pas disponibles pour le moment.",
+        "noEnrollments": "Aucune inscription."
+      },
+      "titles": {
+        "results": "Mes résultats",
+        "reportcards": "Mes bulletins",
+        "schedule": "Mon emploi du temps",
+        "upcoming": "Évaluations à venir",
+        "finance": "Ma scolarité",
+        "documents": "Mes documents"
+      },
+      "profile": {
+        "title": "Mon profil",
+        "description": "Votre fiche et vos coordonnées.",
+        "identity": "Identité",
+        "lastName": "Nom",
+        "firstName": "Prénom",
+        "number": "Matricule",
+        "birthDate": "Date de naissance",
+        "classroom": "Classe",
+        "identityHint": "Votre identité est gérée par l'établissement ; pour la corriger, contactez le secrétariat.",
+        "contact": "Mes coordonnées"
+      }
+    },
+    "teacher": {
+      "today": {
+        "title": "Aujourd'hui",
+        "description": "Vos séances du {date}.",
+        "descriptionNoDate": "Vos séances du jour.",
+        "sessions": "Séances",
+        "callsToDo": "Appels à faire",
+        "empty": "Aucune séance aujourd'hui.",
+        "emptyHint": "Votre emploi du temps du jour est vide. Consultez la semaine dans « Mon emploi du temps ».",
+        "callToDo": "Appel à faire",
+        "seeCall": "Voir l'appel",
+        "doCall": "Faire l'appel",
+        "enterGrades": "Saisir les notes"
+      },
+      "classes": {
+        "title": "Mes classes",
+        "description": "Les classes où vous êtes affecté aujourd'hui, avec vos matières.",
+        "empty": "Aucune classe ne vous est affectée aujourd'hui.",
+        "emptyHint": "Si vous pensez qu'il s'agit d'une erreur, contactez la direction des études.",
+        "listLabel": "Mes classes",
+        "unnamed": "Classe",
+        "allSubjects": "Toutes les matières",
+        "students": "Élèves",
+        "assessments": "Évaluations",
+        "call": "Faire l'appel",
+        "detail": {
+          "notYours": "Cette classe ne fait pas partie de vos classes. Aucune information ne peut être affichée.",
+          "back": "Retour à mes classes",
+          "unnamed": "Classe",
+          "assessments": "Évaluations",
+          "call": "Faire l'appel",
+          "count": "{count} élève(s)",
+          "caption": "Élèves de {name}",
+          "empty": "Aucun élève inscrit.",
+          "emptyHint": "Les élèves apparaissent ici dès que leur inscription est confirmée.",
+          "truncated": "{shown} élèves affichés sur {total}.",
+          "columns": {
+            "name": "Élève",
+            "number": "Matricule",
+            "status": "Statut"
+          }
+        }
+      },
+      "assessments": {
+        "title": "Mes évaluations",
+        "description": "Évaluations de vos classes : créez, saisissez les notes et suivez le circuit de validation.",
+        "allClasses": "Toutes mes classes",
+        "noClasses": "Aucune classe ne vous est affectée : vous ne pouvez pas créer d'évaluation.",
+        "columns": {
+          "subject": "Matière"
+        }
+      },
+      "attendance": {
+        "history": {
+          "title": "Mes appels des 30 derniers jours",
+          "caption": "Historique de mes appels",
+          "empty": "Aucun appel sur la période.",
+          "emptyHint": "Les appels que vous faites apparaissent ici.",
+          "daily": "Journalier",
+          "session": "Séance",
+          "open": "Ouvrir",
+          "columns": {
+            "date": "Date",
+            "classroom": "Classe",
+            "scope": "Type",
+            "status": "État",
+            "actions": "Actions"
+          }
+        }
+      },
+      "payslips": {
+        "title": "Mes bulletins de paie",
+        "description": "Vos bulletins arrêtés, leur état de versement et la possibilité de les contester.",
+        "detail": {
+          "title": "Bulletin de paie",
+          "back": "Retour à mes bulletins",
+          "pdf": "Télécharger le PDF",
+          "dispute": "Contester ce bulletin",
+          "disputed": "Votre contestation a été transmise à la gestion de la paie.",
+          "disputedState": "Ce bulletin est contesté : la gestion de la paie l'examine.",
+          "disputeHint": "Vous pouvez contester un bulletin arrêté tant qu'il n'est pas versé, en indiquant le motif.",
+          "disputeTitle": "Contester le bulletin",
+          "disputeDescription": "Expliquez ce qui ne vous semble pas correct (heures, tarif, primes…). La gestion de la paie examinera votre demande.",
+          "disputeReason": "Motif de la contestation",
+          "disputeConfirm": "Envoyer la contestation"
+        }
+      },
+      "profile": {
+        "title": "Mon profil",
+        "description": "Votre fiche et vos coordonnées.",
+        "number": "Matricule",
+        "jobTitle": "Fonction",
+        "hiredOn": "Date d'embauche",
+        "classes": "Mes affectations",
+        "noClasses": "Aucune affectation en cours.",
+        "unnamed": "Classe",
+        "allSubjects": "Toutes les matières",
+        "contact": "Mes coordonnées"
       }
     }
   }
