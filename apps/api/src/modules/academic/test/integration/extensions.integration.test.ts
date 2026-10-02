@@ -188,6 +188,22 @@ describeIntegration("extensions d'academic pour les modules de packs (Postgres r
       const confirmed = (await eventsOf(w, "academic.enrollment.confirmed")).find((x) => x.payload.enrollmentId === e.id)!;
       expect(confirmed.payload).toMatchObject({ v: 1, enrollmentId: e.id, studentId: student.studentId });
     });
+
+    it("un dossier d'élève INACTIF n'est inscriptible QUE par une admission (activé à la confirmation) ; les autres parcours le refusent", async () => {
+      const w = makeWorld(db, await db.createTenant());
+      const s = await seedHigher(w);
+      await policy(w, "AUTO");
+      const inactive = addStudent(w, { status: "INACTIVE" });
+      expect(codeOf(await enrollStudent(w.deps, w.ctx, { studentId: inactive.studentId, classroomId: s.classroomId }))).toBe("academic.student_not_enrollable");
+      expect(codeOf(await enrollStudent(w.deps, w.ctx, { studentId: inactive.studentId, classroomId: s.classroomId, sourceKind: "MANUAL" }))).toBe("academic.student_not_enrollable");
+      const admitted = unwrap(await enrollStudent(w.deps, w.ctx, { studentId: inactive.studentId, classroomId: s.classroomId, sourceKind: "ADMISSION", sourceRef: newId() }));
+      expect(admitted.sourceKind).toBe("ADMISSION");
+      // les autres statuts (suspendu, exclu, retiré, archivé) restent refusés même pour une admission
+      for (const status of ["SUSPENDED", "EXCLUDED", "WITHDRAWN", "ARCHIVED"]) {
+        const other = addStudent(w, { status });
+        expect(codeOf(await enrollStudent(w.deps, w.ctx, { studentId: other.studentId, classroomId: s.classroomId, sourceKind: "ADMISSION", sourceRef: newId() })), status).toBe("academic.student_not_enrollable");
+      }
+    });
   });
 
   describe("getEligibilityFacts et countRepeatsInCycle (specs 018 §16 et 005 `cas_deja_redoublant`)", () => {

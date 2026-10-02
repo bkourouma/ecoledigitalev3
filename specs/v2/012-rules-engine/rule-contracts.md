@@ -130,12 +130,21 @@ Pipeline : `moyenne_matiere` (par matière) → `moyenne_section` / `moyenne_pon
 
 Contraintes de contexte (moteur) : tailles de listes bornées par le budget (100 000 nœuds par évaluation) ; `rang` sur une cohorte ≤ 5 000 valeurs par évaluation (au-delà : découpage du groupe de classement, voir spec §13) ; aucune donnée personnelle superflue (le contexte ne contient **ni nom ni identifiant d'élève**, seulement les nombres et booléens utiles ; l'élève est repéré par la clé d'appel, pas par le contexte).
 
-## 5. Contrats à venir (hors périmètre de cette spec)
+## 5. Contrats des packs Primaire, Secondaire et Examens (livrés — Phase 4-5)
 
-| Contrat | Spec | Condition |
-|---|---|---|
-| `coef-period@1` (primaire : compositions, MGA, passage, redoublement, conseil des maîtres) | 005-primary | **textes officiels à obtenir** (`regulatory-sources-needed.md` §2) |
-| `coef-period@2` / `secondary-annual@1` (secondaire : BEPC, BAC, séries, conseil de classe) | 006-secondary | idem (§3) |
-| `exam-national@1` | 018-examinations | idem (§4) |
+Les contrats ci-dessous sont des **structures** (clés, types, entrées, codes de sortie, chaînage) ; **aucune valeur officielle** n'y figure. Leur définition normative est dans `specs/v2/005-primary/rule-contract.md` (`coef-period@1`, `competency-period@1`), `specs/v2/006-secondary/spec.md` §6.4 (`secondary-annual@1`) et `specs/v2/018-examinations/rule-contract.md` (`exam-national@1`) ; leur code est dans `apps/api/src/modules/rules/contracts/`.
 
-Aucune règle réglementaire ivoirienne officielle n'est inventée ici : seuls les contrats ci-dessus, issus de **formules déjà en production** dans le code legacy, sont formalisés.
+| Contrat | Spec | Livré | Jeu fictif livré |
+|---|---|---|---|
+| `coef-period@1` (primaire : N périodes pondérées, moyenne générale annuelle, décision en 4 codes dont `COUNCIL_REVIEW`, cas à examiner, quorum) | 005-primary | oui | `CI-PRIMARY-PLACEHOLDER` v1 |
+| `competency-period@1` (maternelle : évaluation par compétences sans note ; la règle ne décide jamais seule) | 005-primary | oui | `CI-PRIMARY-PLACEHOLDER` v2 |
+| `secondary-annual@1` (secondaire : même pipeline que `coef-semester@1` pour un nombre quelconque de périodes pondérées) | 006-secondary | oui | `CI-SECONDARY-PLACEHOLDER` v2 (v1 : copie de démonstration de `coef-semester@1`) |
+| `exam-national@1` (éligibilité, examen blanc, taux de réussite) | 018-examinations | oui | `CI-EXAM-PLACEHOLDER` v1 |
+
+**Adaptations par rapport aux textes des specs 005 et 006** (décisions d'implémentation, à confirmer) :
+
+- le DSL n'a que des paramètres scalaires : le paramètre `poids_par_type` (objet code → poids) de `moyenne_matiere` n'existe pas ; une version qui pondère par type d'évaluation le fait **dans l'expression** (`if(n.type == "CODE", …)`), sans nouveau contrat ;
+- `poids_periodes` (006) est la **donnée** `poids` de chaque période (champ `average_weight` de `academic.academic_periods`, copié du créneau de plan `slots[].averageWeight`, défaut 1), pas un paramètre : le poids de **répartition des dates** d'un créneau (`slots[].weight`) est une autre notion ;
+- `secondary-annual@1` : `decision_fin_annee` reçoit `derniere_periode` (donnée de calendrier) à la place de `second_semestre` ; les codes de sortie sont ceux de `coef-semester@1` (`PENDING`, `EXAM_REFERRAL`, `PROMOTED`, `REPEAT`).
+
+Aucune règle réglementaire ivoirienne officielle n'est inventée : les jeux `*-PLACEHOLDER` sont des jeux de **démonstration**, et les autres contrats sont issus de **formules déjà en production** dans le code legacy.

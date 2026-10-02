@@ -72,3 +72,7 @@ Phases du plan §4 : 0 = cadrage, 1 = socle SaaS, 2 = cœur académique et migra
 | 033 | web-foundation | 1 | À écrire |
 
 Les noms complets des dossiers seront `NNN-<nom>` (par exemple `001-saas-core`).
+
+## Demandes de changement des specs de la Phase 4-5 : statut
+
+Les demandes additives de 005, 006, 007 et 018 aux specs du cœur sont **livrées** (sections « Extensions Phase 4-5 » des specs 004, 008, 010, 011, 012, 013, 014 ; vue d'ensemble : `docs/architecture/platform-assembly.md`, « Extensions des modules du cœur pour les packs »). Écarts assumés à confirmer par les propriétaires de specs : le paramètre `poids_par_type` de `moyenne_matiere` n'existe pas (le DSL n'a que des paramètres scalaires : la pondération par type se fait dans l'expression) ; `poids_periodes` est une donnée de la période (`average_weight`) et non un paramètre ; le poids de répartition des dates d'un créneau de plan (`weight`) est distinct du poids de moyenne (`averageWeight`) ; la décision `COUNCIL_REVIEW` n'est jamais une décision finale. Restent à la charge des specs concernées : `FinancePort` de stateassign (`getLearnerStanding`, `getLinkedInvoicesTotals`, `getBilledAmounts`, absents de finance), le raccordement de `instantiateFinancePack` et `applyPackPlaceholderBindings` au provisioning, et le branchement des ports `competencyCounters` et `classroomActivation` par `primary_school`.

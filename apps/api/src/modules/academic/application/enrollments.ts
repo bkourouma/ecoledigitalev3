@@ -137,10 +137,12 @@ async function allocateRegistrationNumber(
 // Création
 // ---------------------------------------------------------------------------
 
-export async function checkStudentEnrollable(deps: AcademicDeps, ctx: RequestContext, studentId: string): Promise<Result<StudentSummary, AppError>> {
+export async function checkStudentEnrollable(deps: AcademicDeps, ctx: RequestContext, studentId: string, options: { admission?: boolean } = {}): Promise<Result<StudentSummary, AppError>> {
   const student = await deps.ports.students.getStudent(ctx, studentId);
   if (!student) return err(notFound(AcademicCode.STUDENT_NOT_FOUND, "Apprenant", studentId));
-  if (!deps.config.enrollableStudentStatuses.includes(student.status)) {
+  // Une admission inscrit un dossier encore INACTIF (activé à la confirmation, spec 007) ; les autres parcours exigent un dossier actif.
+  const allowed = options.admission ? deps.config.admissionEnrollableStudentStatuses : deps.config.enrollableStudentStatuses;
+  if (!allowed.includes(student.status)) {
     return err(conflict(AcademicCode.STUDENT_NOT_ENROLLABLE, `Le dossier de l'apprenant est ${student.status} : il ne peut pas être inscrit.`, { status: student.status }));
   }
   return ok(student);
@@ -152,7 +154,7 @@ export async function checkStudentEnrollable(deps: AcademicDeps, ctx: RequestCon
  * le financement et la capacité dure (déclencheur). Chaque refus renvoie un code `academic.*` stable.
  */
 export async function enrollStudent(deps: AcademicDeps, ctx: RequestContext, input: AcademicEnrollStudentBody): Promise<Result<Enrollment, AppError>> {
-  const student = await checkStudentEnrollable(deps, ctx, input.studentId);
+  const student = await checkStudentEnrollable(deps, ctx, input.studentId, { admission: input.sourceKind === "ADMISSION" });
   if (!student.ok) return student;
   return inTx(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);

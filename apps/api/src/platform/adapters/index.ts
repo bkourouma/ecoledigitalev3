@@ -67,6 +67,7 @@ import { createHigherInstitutionPort, createHigherSignatoryDirectory } from "./r
 import { createHigherDocumentFiles, createHigherDocumentVerifier } from "./reportcards-higher-documents";
 import { createAcademicPromotionDecisions } from "./results-academic";
 import { createReportcardsResultsRead } from "./results-reportcards";
+import { createResultsYearFactsPort } from "./results-year-facts";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
 import { asAttendanceStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
@@ -164,6 +165,8 @@ export function buildPlatformPorts(
       roster: createResultsRosterPort(academic),
       guardianship: createResultsGuardianshipPort(lookups),
       names: createResultsActorNamePort(lookups),
+      // faits de fin d année des règles `cas_absences` et `cas_deja_redoublant` (contrat coef-period@1) : attendance + academic
+      yearFacts: createResultsYearFactsPort({ attendance, academic }),
     },
     reportcards: {
       results: createReportcardsResultsRead({ results, academic, people, rules }),
