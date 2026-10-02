@@ -241,6 +241,8 @@ export const councilsFactsSuggestionSchema = z.object({
   code: z.string(),
   /** Référence de la version de règle (`CODE@n`), `null` si inconnue. */
   ref: z.string().nullable(),
+  /** Libellé français du code (`label_map` de la version de règle), pour l'AFFICHAGE seulement ; absent si la règle n'en définit pas. */
+  label: z.string().nullable().optional(),
 });
 export const councilsFactsSchema = z.object({
   schema: z.literal(COUNCIL_FACTS_SCHEMA),
@@ -901,7 +903,8 @@ export const councilsEventPayloadSchemas = {
   "councils.minutes.generated": minutesEv,
   "councils.minutes.rendered": minutesEv.extend({ renderHash: hash64 }),
   "councils.minutes.signed": minutesEv,
-  "councils.minutes.superseded": minutesEv,
+  /** `reasonRef` : demande de déverrouillage approuvée (le motif en clair se lit côté councils) ; consommé par reportcards pour marquer l'ancien PV « remplacé ». */
+  "councils.minutes.superseded": minutesEv.extend({ reasonRef: councilsUuidSchema, reopenCount: z.number().int() }),
   "councils.minutes.revoked": minutesEv,
   "councils.unlock.requested": unlockEv,
   "councils.unlock.approved": unlockEv,

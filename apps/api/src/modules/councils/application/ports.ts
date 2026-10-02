@@ -120,6 +120,11 @@ export interface ResultsWritePort {
   publishYearDecision(ctx: RequestContext, input: CouncilWriteRef & { stateId: Uuid; enrollmentId: Uuid; finalCode: string; deliberationId: Uuid | null; justification: string | null }): Promise<{ decisionId: Uuid }>;
   recordDistinction(ctx: RequestContext, input: CouncilWriteRef & { stateId: Uuid; enrollmentId: Uuid; distinctionCode: string; scope: "PERIOD" | "YEAR"; deliberationId: Uuid | null }): Promise<{ decisionId: Uuid }>;
   writeAppreciation(ctx: RequestContext, input: CouncilWriteRef & { stateId: Uuid; enrollmentId: Uuid; authorStaffId: Uuid; body: string }): Promise<{ appreciationId: Uuid }>;
+  /**
+   * Retire UNE décision ou distinction de `results` (motif tracé, audité ; refusé sur une période clôturée ou pour une décision publiée).
+   * Facultatif : un adaptateur qui ne l'offre pas garde l'ancien comportement (annulation par la réouverture de la période de résultats).
+   */
+  withdrawDecision?(ctx: RequestContext, input: CouncilWriteRef & { decisionId: Uuid; reason: string }): Promise<void>;
 }
 
 /** Codes finaux de décision de fin d'année PERMIS par le contrat de règles (validation à la configuration d'un type de décision). */

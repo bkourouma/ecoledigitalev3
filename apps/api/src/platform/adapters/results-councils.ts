@@ -8,7 +8,7 @@
  *    Un bilan de fin d'année (`academicPeriodId = null`) lit la DERNIÈRE période d'enseignement de l'année (là où vivent la moyenne
  *    annuelle et la proposition de fin d'année). Les décimaux restent des chaînes exactes ; les suggestions sont des CODES.
  *  - Écriture : l'API d'écriture des conseils de `results` (`openCouncilDeliberation`, `markDeliberationHeld`, `publishYearDecision`,
- *    `recordDistinction`, `writeCouncilAppreciation`) : acteur humain, module appelant et référence OPAQUE de l'acte source tracés et audités,
+ *    `recordDistinction`, `withdrawCouncilDecision`, `writeCouncilAppreciation`) : acteur humain, module appelant et référence OPAQUE de l'acte source tracés et audités,
  *    idempotente, refusée sur une période clôturée. Les erreurs de `results` sont relancées telles quelles (code `results.*`).
  */
 import type { AppError, RequestContext } from "@ecoledigitale/kernel";
@@ -23,10 +23,11 @@ import {
   publishYearDecision,
   recordDistinction,
   updateDeliberation,
+  withdrawCouncilDecision,
   writeCouncilAppreciation,
   type ResultsDeps,
 } from "../../modules/results";
-import type { RulesApi } from "../../modules/rules";
+import { outputLabelOf, type LabelledRule, type RulesApi } from "../../modules/rules";
 import type { CouncilsResultsReadPort, CouncilsResultsWritePort, CouncilsRuleCodesPort } from "../../modules/councils";
 
 const READ = { read: true } as const;
@@ -100,6 +101,17 @@ export function createCouncilsResultsRead(input: { results: ResultsDeps; academi
       const ruleVersionRef = view.ok ? `${view.value.ruleLag.pinned.ruleSetCode}@${view.value.ruleLag.pinned.ruleVersionNo}` : null;
       const ruleSourceKind = view.ok ? (view.value.ruleSourceKind ?? null) : null;
       const appreciations = must(await listAppreciations(results, ctx, { stateId: matrix.value.state.id, caps: READ }));
+      // Libellés d'AFFICHAGE des codes proposés : `label_map` de la version de règle épinglée (spec 012). Jamais comparés par la logique ;
+      // une version illisible ou sans libellé laisse le code seul (aucun libellé n'est inventé).
+      let labelRules: readonly LabelledRule[] = [];
+      if (view.ok) {
+        const compiled = await rules.loadVersion(ctx, view.value.state.ruleVersionId);
+        if (compiled.ok) labelRules = compiled.value.rules;
+      }
+      const labelled = <T extends { code: string }>(s: T): T & { label?: string } => {
+        const label = outputLabelOf(labelRules, s.code);
+        return label ? { ...s, label } : s;
+      };
       const wanted = new Set(enrollmentIds);
       for (const row of matrix.value.rows) {
         const h = row.header;
@@ -107,16 +119,16 @@ export function createCouncilsResultsRead(input: { results: ResultsDeps; academi
         const summary = (h.summary ?? {}) as Record<string, unknown>;
         const annual = (summary.annual ?? null) as Record<string, unknown> | null;
         const useAnnual = yearScope && annual !== null;
-        const suggestions: Array<{ kind: "DECISION" | "DISTINCTION" | "APPRECIATION"; code: string; ref: string | null }> = [];
+        const suggestions: Array<{ kind: "DECISION" | "DISTINCTION" | "APPRECIATION"; code: string; ref: string | null; label?: string }> = [];
         for (const d of matrix.value.decisions.filter((x) => x.enrollmentId === h.enrollmentId && x.status === "PROPOSED" && x.proposedCode !== null)) {
           // La proposition de fin d'année prime pour un bilan ; la proposition de période pour un conseil de période.
           const wantedKind = yearScope ? "YEAR_END" : "COUNCIL";
-          if (d.kind === wantedKind && !NOT_FINAL.has(d.proposedCode as string)) suggestions.push({ kind: "DECISION", code: d.proposedCode as string, ref: ruleVersionRef });
+          if (d.kind === wantedKind && !NOT_FINAL.has(d.proposedCode as string)) suggestions.push(labelled({ kind: "DECISION", code: d.proposedCode as string, ref: ruleVersionRef }));
         }
         const distinction = asString(summary.distinction);
         const appreciation = asString(summary.appreciation);
-        if (distinction) suggestions.push({ kind: "DISTINCTION", code: distinction, ref: ruleVersionRef });
-        if (appreciation) suggestions.push({ kind: "APPRECIATION", code: appreciation, ref: ruleVersionRef });
+        if (distinction) suggestions.push(labelled({ kind: "DISTINCTION", code: distinction, ref: ruleVersionRef }));
+        if (appreciation) suggestions.push(labelled({ kind: "APPRECIATION", code: appreciation, ref: ruleVersionRef }));
         out.set(h.enrollmentId, {
           status: h.status,
           average: asDecimal(useAnnual ? annual?.average : h.average),
@@ -180,6 +192,9 @@ export function createCouncilsResultsWrite(results: ResultsDeps): CouncilsResult
     async recordDistinction(ctx, { stateId, enrollmentId, distinctionCode, scope, deliberationId, councilRef }) {
       const d = must(await recordDistinction(results, ctx, { stateId, enrollmentId, distinctionCode, scope, ...(deliberationId ? { deliberationId } : {}), actor: actor(councilRef) }));
       return { decisionId: d.id };
+    },
+    async withdrawDecision(ctx, { decisionId, reason, councilRef }) {
+      must(await withdrawCouncilDecision(results, ctx, { decisionId, reason, actor: actor(councilRef) }));
     },
     async writeAppreciation(ctx, { stateId, enrollmentId, authorStaffId, body, councilRef }) {
       const a = must(await writeCouncilAppreciation(results, ctx, { stateId, enrollmentId, authorStaffId, body, actor: actor(councilRef) }));

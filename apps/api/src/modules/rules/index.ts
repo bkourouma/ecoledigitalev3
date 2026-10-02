@@ -127,3 +127,6 @@ export { isProductionEnvironment } from "./domain/environment";
 
 // Données de départ (jeux fictifs : `source.kind = "placeholder"`, voir `PLACEHOLDER_RULE_SET_CODES`)
 export { PLACEHOLDER_EFFECTIVE_FROM, PLACEHOLDER_RULE_SET_CODES, SEED_RULE_SETS } from "./seed/rulesets";
+
+// Libellés d'affichage des codes de sortie (`label_map`)
+export { outputLabelOf, type LabelledRule } from "./domain/labels";

@@ -39,7 +39,8 @@ export function createSchoollifeNotificationPort(notifications: NotificationsDep
       const variables = isConvocation
         ? { date: input.variables.date ?? "", time: input.variables.time ?? "", place: input.variables.place ?? "", studentName: input.variables.studentName ?? "votre enfant" }
         : { studentName: input.variables.studentName ?? "votre enfant" };
-      const body = { templateCode: isConvocation ? "schoollife_convocation" : "schoollife_measure_notified", audience, variables, channels: [...input.channels], strategy: "ALL" as const, urgent: false, clientKey: `schoollife:${input.clientKey}` };
+      const templateCode = isConvocation ? ("schoollife_convocation" as const) : ("schoollife_measure_notified" as const);
+      const body = { templateCode, audience, variables, channels: [...input.channels], strategy: "ALL" as const, urgent: false, clientKey: `schoollife:${input.clientKey}` };
       // Utilisateur : envoi manuel (permission `notifications.send` déjà contrôlée par schoollife). Job planifié (contexte SYSTÈME,
       // sans utilisateur) : envoi automatique, source `EVENT`, jamais urgent ; mêmes contrôles de gabarit, consentements et plafonds.
       const r = ctx.userId ? await sendManualNotification(notifications, ctx, body, { urgent: false }) : await sendAutomaticNotification(notifications, ctx, body);
