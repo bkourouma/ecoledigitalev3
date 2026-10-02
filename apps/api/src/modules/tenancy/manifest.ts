@@ -36,6 +36,7 @@ export default defineModule({
       TENANCY_EVENTS.tenantProvisioned,
       TENANCY_EVENTS.tenantStatusChanged,
     ],
-    consumes: [],
+    // Étapes d'onboarding complétées par un import terminé (spec 031) : voir `subscribers.ts`.
+    consumes: ["imports.run.completed"],
   },
 });

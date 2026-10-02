@@ -2,7 +2,7 @@
 
 **Feature Branch**: `031-imports`
 **Created**: 2026-10-02
-**Status**: Rédigée et implémentée (module backend `imports`, schéma Postgres `imports`, migrations `1800-1899`, écrans `/v2/imports/*`). DDL : `data-model.md` ; plan : `plan.md` ; parité : `parity.md` ; décisions à arbitrer : `open-questions.md`.
+**Status**: Rédigée et implémentée (module backend `imports`, schéma Postgres `imports`, migrations `2400-2499`, écrans `/v2/imports/*`). DDL : `data-model.md` ; plan : `plan.md` ; parité : `parity.md` ; décisions à arbitrer : `open-questions.md`.
 
 **Sources** : `docs/PRD_EcoleDigitale_SaaS.md` §56 (onboarding) et §57 (import Excel) ; plan §3.13 ; `docs/architecture/module-conventions.md`, `new-module-guide.md`, `platform-assembly.md` ; `apps/worker/README.md` ; specs 004 (`enrollStudentsBulk`), 008 (`createStudent` : `externalRef`, `validateOnly`), 009, 011 (API en lot des notes), 014 (`idempotencyKey` des factures).
 
@@ -107,7 +107,7 @@ Un importeur = un fichier `modules/imports/importers/<clé>.ts` (colonnes, alias
 | `grades` | notes d'**une évaluation** par élève : nombre ou code `ABS` / `ABJ` / `DISP` ; commentaire | `assess` (`saveGrades`) | `grade.enter` | évaluation + élève | `saveGrades` (upsert par inscription) |
 | `opening_balances` | soldes d'ouverture : factures de reprise et avoirs de reprise, montants **entiers XOF** | `finance` (`createInvoice`, `issueCreditNote`) | `finance.invoice.create` ; **MFA** (`imports.import.opening_balances` est sensible) | référence de la ligne | `idempotencyKey` de la facture |
 
-Règles propres : pas de décimales pour les montants XOF (`imports.amount_not_integer`) ; une note n'est jamais calculée ni arrondie par l'import ; un code d'absence ne porte pas de note ; l'élève d'une note est identifié par son matricule d'origine, son numéro d'inscription ou son numéro d'élève, dans la classe de l'évaluation ; un lien tuteur-élève référence un élève par son matricule d'origine.
+Règles propres : pas de décimales pour les montants XOF (`imports.amount_not_integer`) ; une note n'est jamais calculée ni arrondie par l'import ; un code d'absence ne porte pas de note ; l'élève d'une note est identifié par son matricule d'origine ou son matricule de la plateforme (`people.resolveStudentRefs`), dans la classe de l'évaluation ; un lien tuteur-élève référence un élève par son matricule d'origine.
 
 ## 6. Permissions, features, menus
 
@@ -117,7 +117,7 @@ Permissions déclarées dans `manifest.ts` :
 |---|---|
 | `imports.read` | voir l'historique, les rapports, les modèles de fichier |
 | `imports.create` | téléverser, mapper, valider, prévisualiser (aucune écriture dans les modules cibles) |
-| `imports.import.students`, `.guardians`, `.staff`, `.classrooms`, `.curriculum`, `.grades` | **lancer** l'import (ET détenir les permissions du module cible, tableau §5) |
+| `imports.import.students`, `.guardians`, `.staff`, `.classrooms`, `.curriculum`, `.grades` (celui-ci exige aussi `assessment.manage`) | **lancer** l'import (ET détenir les permissions du module cible, tableau §5) |
 | `imports.import.opening_balances` | idem, **sensible** : MFA exigée, audit renforcé |
 | `imports.cancel` | annuler un import en cours (le sien, ou tout import avec `imports.manage`) |
 | `imports.template.manage` | gérer les modèles de mapping du tenant |
@@ -125,7 +125,7 @@ Permissions déclarées dans `manifest.ts` :
 
 L'accès à un importeur exige `imports.create` **et** les permissions d'écriture du module cible dès l'upload (un utilisateur ne peut pas prévisualiser ce qu'il ne pourrait pas créer). Les permissions du module cible sont vérifiées **à la création** et **au lancement** de l'import ; la décision d'accès (rôles, MFA) est figée avec le contexte de l'auteur pour l'exécution dans le worker.
 
-Feature `imports.excel` (pack `CORE`) ; menu `/v2/imports`. Aucune permission n'est accordée à un rôle système par ce module (`owner` et `directeur` ont `*`) : l'attribution aux autres rôles est une demande de changement du module `rbac`.
+Module du socle (`CORE`) : pas de feature commerciale en v1 ; menu `/v2/imports`. Aucune permission n'est accordée à un rôle système par ce module (`owner` et `directeur` ont `*`) : l'attribution aux autres rôles est une demande de changement du module `rbac`.
 
 ## 7. Événements
 

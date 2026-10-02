@@ -122,6 +122,7 @@ function descriptorOf(importer: ImporterDef, canUse: boolean, canRun: boolean): 
     label: importer.label,
     description: importer.description,
     sensitive: importer.sensitive,
+    supportsUpdate: importer.supportsUpdate,
     columns: importer.columns.map((c) => ({ key: c.key, label: c.label, required: c.required, type: c.type, description: c.description, example: c.example })),
     options: importer.options.map((o) => ({ ...o })),
     importPermission: importer.importPermission,

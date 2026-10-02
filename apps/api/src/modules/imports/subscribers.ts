@@ -15,12 +15,12 @@
 import { newId } from "@ecoledigitale/kernel";
 import { defineSubscriber } from "@ecoledigitale/worker/sdk";
 import { handleRunRequested, handleValidationRequested } from "./application/consumers";
-import { createImportsDeps } from "./application/deps";
+import { createImportsDeps, importsConfigFromEnv } from "./application/deps";
 import { importsWorkerPorts } from "./application/port-registry";
 import { IMPORT_EVENTS } from "@ecoledigitale/contracts/src/v2/imports";
 
 const depsFor = (ctx: Parameters<Parameters<typeof defineSubscriber>[0]["handler"]>[1]) =>
-  createImportsDeps({ db: ctx.tenantDb, logger: ctx.logger, portsProvider: importsWorkerPorts });
+  createImportsDeps({ db: ctx.tenantDb, logger: ctx.logger, portsProvider: importsWorkerPorts, config: importsConfigFromEnv() });
 
 /** Identité d'un exécutant : UNE par livraison (jamais partagée : un zombie ne doit pas pouvoir reprendre le bail d'un autre). */
 const workerIdFor = (ctx: { attempt: number }): string => `${process.pid}:${ctx.attempt}:${newId()}`;

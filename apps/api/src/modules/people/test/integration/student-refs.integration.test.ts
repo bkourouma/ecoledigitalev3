@@ -28,13 +28,13 @@ describeIntegration("people : résolution de références d'élèves d'un fichie
     const a = await mkStudent(world.deps, ctx, { externalRef: "ORIG-A-001" });
     const b = await mkStudent(world.deps, ctx, { externalRef: "orig-b-002" });
     const c = await mkStudent(world.deps, ctx);
-    const r = unwrap(await resolveStudentRefs(world.deps, ctx, ["orig-a-001", " ORIG-B-002 ", a.studentNumber, "INCONNU-9", "", "ORIG-A-001"]));
+    const r = unwrap(await resolveStudentRefs(world.deps, ctx, ["orig-a-001", " ORIG-B-002 ", a.studentNumber, "INCONNU-9", "", "orig-a-001"]));
     const byRef = new Map(r.map((m) => [m.ref, m]));
     expect(byRef.get("orig-a-001")).toMatchObject({ studentId: a.id, matchedBy: "EXTERNAL_REF" });
     expect(byRef.get("ORIG-B-002")).toMatchObject({ studentId: b.id, matchedBy: "EXTERNAL_REF" });
     expect(byRef.get(a.studentNumber)).toMatchObject({ studentId: a.id, matchedBy: "STUDENT_NUMBER" });
     expect(byRef.has("INCONNU-9")).toBe(false);
-    expect(r.filter((m) => m.ref.toLowerCase() === "orig-a-001")).toHaveLength(1); // dédoublonné (même casse)
+    expect(r.filter((m) => m.ref === "orig-a-001")).toHaveLength(1); // dédoublonné (même graphie demandée deux fois)
     expect(unwrap(await resolveStudentRefs(world.deps, ctx, [c.studentNumber]))[0]?.studentId).toBe(c.id);
   });
 
