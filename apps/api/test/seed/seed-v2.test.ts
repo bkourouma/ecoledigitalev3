@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset, createPrng, defaultYearStart, STUDENT_COUNT } from "../../../../scripts/seed-v2/dataset";
 import { assertSeedAllowed, assertSeedEnvironment, databaseNameOf, parseSeedArgs, SeedRefusedError } from "../../../../scripts/seed-v2/guards";
 
-const URL_OF = (db: string): string => `postgres://ed_v2_app:secret@localhost:5432/${db}`;
+const URL_OF = (db: string): string => `postgres://ed_v2_app@localhost:5432/${db}`;
 
 describe("seed v2 — garde-fous (refus par défaut)", () => {
   it("refuse sans ALLOW_SEED=1, même sur une base _dev", () => {
@@ -31,7 +31,7 @@ describe("seed v2 — garde-fous (refus par défaut)", () => {
     expect(() => assertSeedAllowed({ ALLOW_SEED: "1" }, undefined)).toThrowError(/V2_DATABASE_URL/);
     expect(() => assertSeedAllowed({ ALLOW_SEED: "1" }, "pas une url")).toThrowError(SeedRefusedError);
     expect(() => assertSeedAllowed({ ALLOW_SEED: "1" }, "mysql://u:p@h/ecole_dev")).toThrowError(SeedRefusedError);
-    expect(databaseNameOf("postgres://u:p@h:5432/")).toBeNull();
+    expect(databaseNameOf("postgres://h:5432/")).toBeNull();
   });
 
   it("les secrets de l'API et Redis sont exigés (les secrets MFA créés doivent être ceux de l'API)", () => {
