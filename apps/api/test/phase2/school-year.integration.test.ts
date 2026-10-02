@@ -1560,7 +1560,13 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       const failures: string[] = [];
       for (const name of names) {
         try {
-          const outcome = await scheduler.run(name, `p2-${name}`.slice(0, 80));
+          // Un job planifié à la minute peut être en cours d'exécution PAR LE PLANIFICATEUR au moment du déclenchement manuel :
+          // `skipped/locked` n'est pas un échec (le verrou fait son travail), on réessaie un court instant.
+          let outcome = await scheduler.run(name, `p2-${name}`.slice(0, 80));
+          for (let attempt = 0; attempt < 10 && outcome.status === "skipped" && (outcome as { reason?: string }).reason === "locked"; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            outcome = await scheduler.run(name, `p2-${name}`.slice(0, 80));
+          }
           if (outcome.status !== "completed") failures.push(`${name} : ${JSON.stringify(outcome)}`);
         } catch (e) {
           failures.push(`${name} : ${e instanceof Error ? e.message : String(e)}`);
