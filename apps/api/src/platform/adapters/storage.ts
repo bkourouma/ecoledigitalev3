@@ -26,6 +26,7 @@ import { dirname, resolve, sep } from "node:path";
 import type { FastifyInstance } from "fastify";
 import { s3StorageFromEnv, type StorageObject, type StoragePort as ReportcardsStoragePort } from "../../modules/reportcards";
 import type { StoragePort as AttendanceStoragePort } from "../../modules/attendance";
+import type { StoragePort as MessagingStoragePort } from "../../modules/messaging";
 import type { StoragePort as PeopleStoragePort } from "../../modules/people";
 
 /** Port de base de la plateforme : celui de `reportcards` (le plus complet) + suppression. */
@@ -200,6 +201,17 @@ export function registerDiskStorageRoute(app: FastifyInstance, storage: DiskStor
 
 /** `attendance` : `put` sans empreinte, URL signée avec durée en secondes. */
 export function asAttendanceStorage(storage: ObjectStorage): AttendanceStoragePort {
+  return {
+    async put(key, data, options) {
+      await storage.put(key, data, options);
+    },
+    delete: (key) => storage.delete(key),
+    signedUrl: (key, ttlSeconds) => storage.signedUrl(key, { ttlSeconds }),
+  };
+}
+
+/** `messaging` : `put` sans empreinte, URL signée avec durée en secondes. */
+export function asMessagingStorage(storage: ObjectStorage): MessagingStoragePort {
   return {
     async put(key, data, options) {
       await storage.put(key, data, options);

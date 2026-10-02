@@ -143,6 +143,7 @@ Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform
 | scheduling | `scheduling.hold-on-attendance`, `scheduling.flag-on-staff-leave`, `scheduling.flag-on-staff-status`, `scheduling.flag-on-assignment-ended`, `scheduling.cancel-on-offering-cancelled`, `scheduling.cancel-on-classroom-cancelled`, `scheduling.archive-on-year-closed`, `scheduling.seed-reference-data` | `scheduling.generate-occurrences` 02:30 |
 | payroll | `payroll.seed-settings`, `payroll.flag-claim-source-changed.*` (séance annulée / invalidée / replanifiée / minutes payées modifiées), `payroll.close-periods-on-year-closed` | `payroll.fail-stale-runs` */10 |
 | analytics | `analytics.refresh-on-academic`, `-people`, `-results`, `-attendance`, `-finance`, `-payroll` : un abonné par source, ne calcule rien, **demande** un rafraîchissement coalescé (`analytics.refresh_requests`) | `analytics.process-refreshes` */30 s (lit les sources par ports, remplace le périmètre) ; `analytics.nightly-rebuild` 03:10 (reconstruction idempotente de chaque tenant) |
+| messaging | `messaging.system-message-on-absence` (`attendance.absence.recorded`), `messaging.system-message-on-late` (`attendance.late.recorded`) : message système dans le fil d'alertes de tous les tuteurs joignables, gabarit du tenant, idempotents (`evt:<id>`) | `messaging.publish-scheduled-announcements` chaque minute, `messaging.housekeeping` 04:50 (notifications lues périmées, pièces jamais liées) |
 | socle du worker | | `outbox-cleanup`, `ensure-partitions` (recoupe `audit.ensure-partitions`, idempotent) |
 
 Cette liste est celle que **découvre** le worker (`discoverModuleExtensions`) ; le test `worker-bundle.integration.test.ts` exige que le bundle de production enregistre exactement les mêmes abonnés et jobs que les sources, et qu'il ait branché les ports entre modules (`ports entre modules branchés (adaptateurs de plateforme)`).
@@ -270,6 +271,8 @@ Chaque module déclare des **ports** (ce qu'il attend de ses voisins) et échoue
 | `results-academic` | results -> academic | `PromotionDecisionPort` (décisions de passage lues dans `results` pour la reconduction annuelle : jamais calculées par academic) |
 | `analytics-sources` | tenancy, academic, people, results, attendance, finance, payroll -> analytics | `AnalyticsSourcePorts` (périmètres, calendrier, inscriptions + sexe, résultats FINAL + décisions confirmées, appels et présences du personnel, reporting financier, caisse, masse salariale, charge d'enseignement) : lectures seules, séquentielles ; un port manquant = passe `UNAVAILABLE` et manque déclaré |
 | `storage` | stockage d'objets -> attendance, people, reportcards | S3 / MinIO configurable par l'environnement, repli disque en développement |
+| `people-messaging`, `academic-messaging` | people, academic, rbac, iam -> messaging | `PeopleDirectory` (profils d'acteurs : élève, tuteur, personnel affecté ; personnes joignables d'une classe ; titulaires de rôles ; tuteurs d'un élève), `AudienceDirectory` (cibles d'annonce -> comptes) : liens réels, comptes suspendus exclus |
+| `storage` | stockage d'objets -> attendance, people, reportcards, messaging | S3 / MinIO configurable par l'environnement, repli disque en développement |
 
 ### Règles à respecter dans un adaptateur
 
@@ -289,6 +292,8 @@ Chaque module déclare des **ports** (ce qu'il attend de ses voisins) et échoue
 | iam | `getMemberEmails` | `UserDirectoryPort` des bulletins |
 | assess, results | `isCurriculumNodeInUse`, `isCurriculumNodeInResults` | garde d'usage d'un nœud de curriculum |
 | reportcards | `infrastructure/worker-resources.ts` (stockage et ressources de rendu du worker) | le worker n'a pas de Fastify |
+| people | `application/audience.ts` (`listAudienceOfStudents`, `searchAudienceIdentities`) | la messagerie joint les tuteurs et les élèves par leur COMPTE (`persons.identity_id`) : le DTO des tuteurs ne portait pas l'identité |
+| messaging | registre de ports (`registerMessagingPorts`, `setMessagingWorkerPorts`) ; spec `016-communications` | annuaire des personnes, audiences, stockage ; abonnés et jobs du worker |
 
 ### Vérification
 

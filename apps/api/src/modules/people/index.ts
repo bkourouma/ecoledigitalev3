@@ -65,6 +65,15 @@ export {
   type LookupResult,
   type LookupScope,
 } from "./application/lookup";
+// Audience de la messagerie (016) : comptes joignables d'élèves / tuteurs, recherche par nom (lectures seules)
+export {
+  AUDIENCE_MAX_STUDENTS,
+  listAudienceOfStudents,
+  searchAudienceIdentities,
+  type AudienceIdentity,
+  type IdentityMatch,
+  type StudentAudience,
+} from "./application/audience";
 
 // Élèves
 export {

@@ -34,6 +34,7 @@ const IRREGULAR_VERBS = new Set([
   "reset", // iam.mfa.reset (participe passé invariable)
   "eligible", // higher.diploma.eligible — constat d'éligibilité (nom conservé : déjà consommé par les pages)
   "overlap", // scheduling.calendar_event.blocking_overlap — constat de chevauchement
+  "sent", // messaging.message.sent — participe passé irrégulier (nom demandé par la spec 016)
 ]);
 
 function verbOf(name: string): string {
