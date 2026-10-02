@@ -63,6 +63,8 @@ export interface Actor {
   patch(url: string, body?: unknown, expected?: number | number[]): Promise<HttpResult>;
   /** Appel brut : aucune assertion (pour sonder). */
   raw(method: string, url: string, body?: unknown, headers?: Record<string, string>): Promise<HttpResult>;
+  /** Corps BRUT (téléversement de fichier), sans sérialisation JSON. */
+  upload(method: string, url: string, rawBody: string | Buffer, headers: Record<string, string>): Promise<HttpResult>;
 }
 
 export interface Session {
@@ -94,6 +96,7 @@ export function actorFrom(http: Http, label: string, email: string, session: Ses
     put: (url, body = {}, expected = 200, headers) => call("PUT", url, body, expected, headers),
     patch: (url, body = {}, expected = 200) => call("PATCH", url, body, expected),
     raw: (method, url, body, headers) => http(method, url, { token, ...(body !== undefined ? { body } : {}), ...(headers ? { headers } : {}) }),
+    upload: (method, url, rawBody, headers) => http(method, url, { token, rawBody, headers }),
   };
 }
 
@@ -144,7 +147,7 @@ export class Accounts {
   }
 
   /** Membre du personnel invité par le propriétaire (rôle SYSTÈME rbac), avec MFA : le défi du second facteur exige le pas SUIVANT (anti-rejeu). */
-  async staff(owner: Actor, role: string, email: string, systemRole: string): Promise<Actor> {
+  async staff(owner: Actor, role: string, email: string, systemRole: string, options: { mfa?: boolean } = {}): Promise<Actor> {
     expectStatus(await owner.raw("POST", "/api/v1/iam/admin/members", { email, roles: [systemRole], sendInvitation: true }), 201, `invitation de ${email}`);
     const password = randomPassword();
     await this.redeem(email, password);
@@ -153,6 +156,11 @@ export class Accounts {
     const found = (roles.body.roles as Array<{ id: string; templateKey: string | null }>).find((r) => r.templateKey === systemRole);
     if (!found) throw new SeedStepError(`Rôle système introuvable : ${systemRole}`);
     await owner.post("/api/v1/rbac/assignments", { userId: plain.identityId, roleId: found.id, scope: { type: "tenant" } }, 201);
+    if (options.mfa === false) {
+      // Rôle sans permission sensible : la session simple suffit (la MFA reste activable depuis /v2/account/security).
+      this.secrets.set(role, { email, password });
+      return actorFrom(this.http, role, email, plain);
+    }
     const enroll = expectStatus(await this.http("POST", "/api/v1/iam/mfa/enroll", { token: plain.accessToken, body: { password } }), 200, `enrôlement MFA de ${email}`);
     const secret = enroll.body.secret as string;
     expectStatus(await this.http("POST", "/api/v1/iam/mfa/verify", { token: plain.accessToken, body: { code: totpAt(secret, Date.now()), client: "mobile" } }), 200, `validation MFA de ${email}`);

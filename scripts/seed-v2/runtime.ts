@@ -27,8 +27,10 @@ export interface HttpResult {
   status: number;
   body: any;
   headers: Record<string, unknown>;
+  /** Octets bruts de la réponse (fichiers : XLSX, PDF). */
+  raw?: Buffer;
 }
-export type Http = (method: string, url: string, options?: { token?: string; body?: unknown; headers?: Record<string, string> }) => Promise<HttpResult>;
+export type Http = (method: string, url: string, options?: { token?: string; body?: unknown; rawBody?: string | Buffer; headers?: Record<string, string> }) => Promise<HttpResult>;
 
 export interface Invitation {
   kind: "invitation" | "password_reset";
@@ -46,7 +48,7 @@ export interface SeedPlatform {
 }
 
 interface FastifyLike {
-  inject(opts: { method: string; url: string; headers?: Record<string, string>; payload?: string }): Promise<{ statusCode: number; body: string; headers: Record<string, unknown> }>;
+  inject(opts: { method: string; url: string; headers?: Record<string, string>; payload?: string | Buffer }): Promise<{ statusCode: number; body: string; headers: Record<string, unknown>; rawPayload?: Buffer }>;
   ready(): Promise<unknown>;
   close(): Promise<unknown>;
 }
@@ -131,7 +133,7 @@ export async function startSeedPlatform(env: NodeJS.ProcessEnv): Promise<SeedPla
   const http: Http = async (method, url, options = {}) => {
     const headers: Record<string, string> = { ...(options.headers ?? {}) };
     if (options.token) headers.authorization = `Bearer ${options.token}`;
-    const payload = options.body !== undefined ? JSON.stringify(options.body) : undefined;
+    const payload = options.rawBody !== undefined ? options.rawBody : options.body !== undefined ? JSON.stringify(options.body) : undefined;
     if (payload !== undefined && !headers["content-type"]) headers["content-type"] = "application/json";
     const res = await app.inject({ method, url, headers, ...(payload !== undefined ? { payload } : {}) });
     let body: any = res.body;
@@ -140,7 +142,7 @@ export async function startSeedPlatform(env: NodeJS.ProcessEnv): Promise<SeedPla
     } catch {
       /* corps non JSON conservé tel quel */
     }
-    return { status: res.statusCode, body, headers: res.headers };
+    return { status: res.statusCode, body, headers: res.headers, ...(res.rawPayload ? { raw: res.rawPayload } : {}) };
   };
 
   return {

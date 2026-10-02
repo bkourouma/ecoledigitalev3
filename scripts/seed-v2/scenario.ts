@@ -10,7 +10,7 @@
  * calculés par `rules` (moyennes, délibérations) ne sont créés que pour HIGHER ; PRIMARY/SECONDARY s'arrêtent aux notes publiées.
  */
 import { createHash } from "node:crypto";
-import { Accounts, SeedStepError, expectStatus } from "./actors";
+import { Accounts, SeedStepError, expectStatus, type Actor } from "./actors";
 import { addDays, type SeedDataset } from "./dataset";
 import { waitFor, type SeedPlatform } from "./runtime";
 
@@ -35,7 +35,49 @@ const stable = (value: unknown): string =>
 
 const iso = (d: Date): string => d.toISOString().slice(0, 10);
 
-export async function runScenario(platform: SeedPlatform, data: SeedDataset, log: Log): Promise<SeedReport> {
+/**
+ * État du scénario de base, remis à un prolongement facultatif (`options.extend`) : la démonstration (`scripts/demo`) y ajoute les
+ * autres rôles, les parcours propres à chaque pack, les résultats, bulletins, admissions, vie scolaire, examens… Sans prolongement
+ * (cas de `pnpm seed:v2`), le comportement est inchangé.
+ */
+export interface ScenarioContext {
+  platform: SeedPlatform;
+  data: SeedDataset;
+  log: Log;
+  accounts: Accounts;
+  owner: Actor;
+  directeur: Actor;
+  pedago: Actor;
+  teacher: Actor;
+  parent: Actor;
+  learner: Actor;
+  tenantId: string;
+  institutionId: string;
+  yearId: string;
+  periodIds: string[];
+  programId: string;
+  gradeLevelId: string;
+  versionId: string;
+  classroomId: string;
+  /** Nœuds évaluables du curriculum (ECUE en HIGHER, matières ailleurs), dans l'ordre de `data.subjects`. */
+  teachable: string[];
+  subjectIds: string[];
+  students: Array<{ id: string; personId: string; studentNumber: string; enrollmentId?: string; registrationNumber?: string }>;
+  guardianIds: string[];
+  guardianPersonIds: string[];
+  teacherStaffIds: string[];
+  timetableId: string;
+  /** Résumé libre que le prolongement complète (affiché dans le rapport). */
+  notes: string[];
+  counts: Record<string, number>;
+}
+
+export interface ScenarioOptions {
+  /** Appelé une fois le scénario de base terminé (tout est publié, inscriptions confirmées). */
+  extend?: (ctx: ScenarioContext) => Promise<void>;
+}
+
+export async function runScenario(platform: SeedPlatform, data: SeedDataset, log: Log, options: ScenarioOptions = {}): Promise<SeedReport> {
   const { http } = platform;
   const step = (name: string): void => log(`• ${name}`);
 
@@ -144,7 +186,9 @@ export async function runScenario(platform: SeedPlatform, data: SeedDataset, log
     await owner.post("/api/v1/academic/classrooms", { institutionId, academicYearId: yearId, programId, gradeLevelId, curriculumVersionId: versionId, code: data.classroomCode, name: data.classroomName, capacity: 40 }, 201)
   ).body;
   const classroomId = classroom.id as string;
-  await owner.post(`/api/v1/academic/classrooms/${classroomId}/activate`, {});
+  // Pack PRIMARY : l'activation d'une classe exige un titulaire (garde de `primary_school`) : elle a lieu après son affectation.
+  const isPrimary = data.pack === "PRIMARY";
+  if (!isPrimary) await owner.post(`/api/v1/academic/classrooms/${classroomId}/activate`, {});
 
   // ------------------------------------------------------------------------------------------------ 3. personnes
   step(`${data.students.length} élèves, ${data.guardians.length} tuteurs (fratries), ${data.teachers.length} enseignants`);
@@ -180,14 +224,18 @@ export async function runScenario(platform: SeedPlatform, data: SeedDataset, log
   const leadStaffId = teacherStaffIds[0] as string;
 
   step("comptes de portail : enseignant, tuteur, élève");
-  await owner.post(`/api/v1/people/staff/${leadStaffId}/portal-invitation`, { role: "enseignant" }, [200, 201]);
-  const teacher = await accounts.portal("enseignant", data.accounts.enseignant);
+  // Primaire : le titulaire est un « instituteur » (rôle système dédié), affecté HOMEROOM ; ailleurs un « enseignant » (LEAD).
+  const teacherRole = isPrimary ? "instituteur" : "enseignant";
+  await owner.post(`/api/v1/people/staff/${leadStaffId}/portal-invitation`, { role: teacherRole }, [200, 201]);
+  const teacher = await accounts.portal(teacherRole, data.accounts.enseignant);
   for (const staffId of teacherStaffIds) {
     await owner.post(
       "/api/v1/people/teaching-assignments",
-      { staffId, academicYearId: yearId, classroomId, roleCode: staffId === leadStaffId ? "LEAD" : "CO_TEACHER", coversAllSubjects: true, startsOn: data.yearStart },
+      { staffId, academicYearId: yearId, classroomId, roleCode: staffId === leadStaffId ? (isPrimary ? "HOMEROOM" : "LEAD") : "CO_TEACHER", coversAllSubjects: true, startsOn: data.yearStart },
       [200, 201],
     );
+    // Primaire : une classe en brouillon n'accepte que son titulaire ; elle s'active dès qu'il est affecté, puis viennent les autres.
+    if (isPrimary && staffId === leadStaffId) await owner.post(`/api/v1/academic/classrooms/${classroomId}/activate`, {});
   }
   await owner.post(`/api/v1/people/persons/${guardianPersonIds[0]}/portal-invitation`, { quality: "GUARDIAN" }, [200, 201]);
   const parent = await accounts.portal("parent", data.accounts.parent);
@@ -326,11 +374,20 @@ export async function runScenario(platform: SeedPlatform, data: SeedDataset, log
   const family = await parent.raw("GET", "/api/v1/people/children");
 
   const notes: string[] = [...attendanceNotes];
+  const extraCounts: Record<string, number> = {};
+  if (options.extend) {
+    await options.extend({
+      platform, data, log, accounts, owner, directeur, pedago, teacher, parent, learner,
+      tenantId, institutionId, yearId, periodIds, programId: programId as string, gradeLevelId, versionId, classroomId,
+      teachable, subjectIds, students, guardianIds, guardianPersonIds, teacherStaffIds, timetableId: timetable.id as string,
+      notes, counts: extraCounts,
+    });
+  }
   if (data.pack === "HIGHER") {
     notes.push("HIGHER : programme, curriculum UE/ECUE crédité, classe, inscriptions, factures, emploi du temps, appels, notes publiées. Les résultats de semestre (moteur de règles CI-HIGHER-LMD) se lancent depuis /v2/results.");
   } else {
     notes.push(`${data.pack} : la STRUCTURE disponible est créée (année, ${periodIds.length} périodes, programme, curriculum par matière, classe, personnes, inscriptions, factures, emploi du temps, appels, notes publiées).`);
-    notes.push(`${data.pack} : pas de jeu de règles de calcul national pour ce pack dans cette version : aucun résultat, moyenne ni bulletin n'est généré (à configurer dans /v2/rules).`);
+    if (!options.extend) notes.push(`${data.pack} : pas de jeu de règles de calcul national pour ce pack dans cette version : aucun résultat, moyenne ni bulletin n'est généré (à configurer dans /v2/rules).`);
   }
 
   const counts = {
@@ -346,6 +403,7 @@ export async function runScenario(platform: SeedPlatform, data: SeedDataset, log
     assessments: targets.length,
     grades: grades.length,
     periods: periodIds.length,
+    ...extraCounts,
   };
 
   const fingerprint = createHash("sha256")
