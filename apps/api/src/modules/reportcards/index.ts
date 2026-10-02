@@ -74,7 +74,7 @@ export { S3Storage, s3ConfigFromEnv, s3StorageFromEnv, safeFileName } from "./in
 export { StaticKeyProvider, generateSigningKeyPair, keyProviderFromEnv } from "./infrastructure/key-provider";
 export { PuppeteerPdfRenderer, findChromeExecutable, findPuppeteerCachedChrome, puppeteerRendererFromEnv } from "./infrastructure/puppeteer-renderer";
 export { PdfLibMerger, stampPdfMetadata } from "./infrastructure/pdf-merger";
-export { resetReportcardsWorkerResources, setReportcardsWorkerResources, type WorkerResourceOverrides } from "./infrastructure/worker-resources";
+export { reportcardsWorkerOverrides, resetReportcardsWorkerResources, setReportcardsWorkerResources, type WorkerResourceOverrides } from "./infrastructure/worker-resources";
 
 // Cas d'usage — émission, cycle de vie, lecture, rendu, vérification
 export { createBatch, createTranscript, getBatchView, preflight, reissueReportCard, type BatchView, type CreateBatchInput, type PreflightInput, type PreflightView } from "./application/issue";
@@ -108,7 +108,8 @@ export {
 } from "./application/platform";
 
 // Port générique de scellement / rendu pour 019 (diplômes, attestations) et 032 (bulletin de paie)
-export { registerVerificationFor, renderDocumentPdf, sealDocument, type RenderDocumentInput, type SealedDocument } from "./application/documents";
+export { registerFileHashFor, registerVerificationFor, renderDocumentPdf, sealDocument, signDocumentHash, type RenderDocumentInput, type SealedDocument } from "./application/documents";
+export type { ExternalDocumentFacts, ExternalDocumentVerifier } from "./application/ports";
 // Documents officiels d'autres modules : reçu de paiement (finance), bulletin de paie (payroll)
 export {
   OFFICIAL_RENDER_ATTEMPTS,
@@ -136,7 +137,7 @@ export { buildSnapshot, resolveSignatories } from "./domain/snapshot";
 export { parseTemplate, renderTemplate } from "./domain/template-engine";
 export { validateTemplate } from "./domain/template-validation";
 export { renderDocumentHtml, type RenderAssets } from "./domain/document-html";
-export { BUILTIN_TEMPLATES } from "./templates/builtin";
+export { ALL_PLATFORM_TEMPLATES, BUILTIN_TEMPLATES, PLATFORM_DOCUMENT_TEMPLATES } from "./templates/builtin";
 export type {
   BatchRecord,
   Branding,

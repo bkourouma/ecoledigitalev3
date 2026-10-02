@@ -60,6 +60,7 @@ import {
   updateDiploma,
 } from "../application/diplomas";
 import { assignSlot, getAttestationRoster, getDocument, issueAwardDocument, issueSuccessAttestation, listDocuments, listSlots, listStudentDocuments, publishDocument, revokeDocument } from "../application/documents";
+import { getDocumentDownload, requestDocumentRender } from "../application/files";
 import { getCreditSummary, getLedgerHistory, listDebts } from "../application/ledger";
 import type { HigherPorts } from "../application/ports";
 import { checkPrerequisites, getPrerequisites, setPrerequisites } from "../application/prerequisites";
@@ -67,7 +68,7 @@ import { closeResitWindow, getResitWindow, listResitCandidates, listResitWindows
 import { getHigherSettings, updateHigherSettings } from "../application/settings";
 import { getStudentDiplomaView, getStudentPathway } from "../application/student-view";
 import { HigherCode, conflict, forbidden } from "../domain/errors";
-import type { Uuid } from "../domain/types";
+import type { OfficialDocument, Uuid } from "../domain/types";
 import { higherAuditAdapter } from "../infrastructure/audit-adapter";
 import { createRulesAdapter, type RulesApiLike } from "../infrastructure/rules-adapter";
 import { createPermissionKit, PERMISSIONS as P, type PermissionKit } from "./guards";
@@ -311,11 +312,13 @@ export async function higherPlugin(app: FastifyInstance, options: HigherPluginOp
       return { items: page.items.map(present.documentDto), nextCursor: page.nextCursor };
     });
 
-    scope.get("/documents/:id", async (req, reply) => {
-      const { id } = parse(higherIdParamsSchema, req.params);
+    /**
+     * Document accessible à l'appelant. Personnel habilité : tout document (404 si inconnu). Autre appelant : un document
+     * inconnu et un document d'autrui se ressemblent (403) — aucune énumération possible ; étudiant / tuteur : ses documents
+     * PUBLIÉS seulement (AC7.5).
+     */
+    const accessibleDocument = async (req: FastifyRequest, reply: FastifyReply, id: Uuid): Promise<OfficialDocument> => {
       const ctx = ctxOf(req);
-      // Personnel habilité : tout document (404 si inconnu). Autre appelant : un document inconnu et un document d'autrui
-      // se ressemblent (403) — aucune énumération possible ; étudiant / tuteur : ses documents PUBLIÉS seulement (AC7.5).
       const staff = await kit.has(scope, req, reply, P.documentRead);
       const found = await getDocument(deps, ctx, id);
       if (!found.ok) {
@@ -323,10 +326,31 @@ export async function higherPlugin(app: FastifyInstance, options: HigherPluginOp
         throw new ForbiddenError("Action non autorisée.");
       }
       const doc = found.value;
-      if (staff) return present.documentDetailDto(doc);
+      if (staff) return doc;
       const relation = await relationTo(req, reply, doc.studentId, P.documentRead);
       if (relation !== "STAFF" && !doc.publishedAt) throw new ForbiddenError("Ce document n'est pas encore publié.");
-      return present.documentDetailDto(doc);
+      return doc;
+    };
+
+    scope.get("/documents/:id", async (req, reply) => {
+      const { id } = parse(higherIdParamsSchema, req.params);
+      return present.documentDetailDto(await accessibleDocument(req, reply, id));
+    });
+
+    // PDF : URL signée à durée courte (PDF prêt) ou état du rendu (`PENDING` / `RENDERING` / `FAILED`) ; même contrôle d'accès
+    // que la lecture du document ; l'émission de l'URL est auditée ; un document révoqué n'est plus servi (409).
+    scope.get("/documents/:id/pdf", async (req, reply) => {
+      const { id } = parse(higherIdParamsSchema, req.params);
+      await accessibleDocument(req, reply, id);
+      const download = unwrapOrThrow(await getDocumentDownload(deps, ctxOf(req), id));
+      if (download.status !== "READY") void reply.status(202);
+      return download;
+    });
+
+    // Reprise explicite du scellement et du rendu (PDF en échec ou jamais produit).
+    scope.post("/documents/:id/render", { preHandler: [...diplomas, kit.require(P.documentIssue)] }, async (req, reply) => {
+      const { id } = parse(higherIdParamsSchema, req.params);
+      return reply.status(202).send(present.documentDto(unwrapOrThrow(await requestDocumentRender(deps, ctxOf(req), id))));
     });
 
     scope.post("/documents/:id/publish", { preHandler: [...diplomas, kit.require(P.documentIssue)] }, async (req) => {

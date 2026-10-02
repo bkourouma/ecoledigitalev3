@@ -32,10 +32,12 @@ import * as classrooms from "../application/classrooms";
 import * as courses from "../application/courses";
 import * as curriculum from "../application/curriculum";
 import * as enrollments from "../application/enrollments";
+import * as holidays from "../application/holidays";
 import * as programs from "../application/programs";
 import * as reads from "../application/reads";
 import * as reference from "../application/reference";
 import * as rollover from "../application/rollover";
+import * as rolloverRun from "../application/rollover-run";
 import { CLASSROOM_ACTION_TARGETS, type ClassroomAction } from "../domain/classroom";
 import { ENROLLMENT_ACTION_TARGETS, type EnrollmentAction } from "../domain/enrollment";
 import { AcademicCode } from "../domain/errors";
@@ -631,6 +633,52 @@ export async function academicPlugin(app: FastifyInstance, options: AcademicPlug
       scope.post("/years/:id/rollover", { preHandler: withFeature("academic.year.rollover", "academic.rollover") }, async (req) => {
         const { id } = parse(c.academicIdParamsSchema, req.params);
         return unwrapOrThrow(await rollover.rolloverAcademicYear(deps, ctxOf(req), id, parse(c.academicRolloverBodySchema, req.body)));
+      });
+
+      // ----- Assistant de reconduction : aperçu complet, exécution en tâche de fond (worker), progression, rapport -----
+      const offeringsEnabled = async (ctx: RequestContext): Promise<boolean> => (options.isFeatureEnabled ? options.isFeatureEnabled(ctx, "academic.a-la-carte") : true);
+      scope.get("/years/:id/rollover/plan", { preHandler: withFeature("academic.year.rollover", "academic.rollover") }, async (req) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        const q = parse(c.academicRolloverPlanQuerySchema, req.query);
+        const ctx = ctxOf(req);
+        return unwrapOrThrow(await rolloverRun.previewRolloverPlan(deps, ctx, id, q, { offeringsEnabled: await offeringsEnabled(ctx) }));
+      });
+      scope.post("/years/:id/rollover/runs", { preHandler: withFeature("academic.year.rollover", "academic.rollover") }, async (req, reply) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        const body = parse(c.academicRolloverRunBodySchema, req.body);
+        const ctx = ctxOf(req);
+        const r = unwrapOrThrow(await rolloverRun.startRolloverRun(deps, ctx, id, body, { offeringsEnabled: await offeringsEnabled(ctx) }));
+        return reply.status(r.created ? 202 : 200).send(r.run);
+      });
+      scope.get("/years/:id/rollover/runs", { preHandler: withFeature("academic.year.rollover", "academic.rollover") }, async (req) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        return { items: unwrapOrThrow(await rolloverRun.listRolloverRuns(deps, ctxOf(req), id)) };
+      });
+      scope.get("/rollover/runs/:id", { preHandler: withFeature("academic.year.rollover", "academic.rollover") }, async (req) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        return unwrapOrThrow(await rolloverRun.getRolloverRun(deps, ctxOf(req), id));
+      });
+      scope.post("/rollover/runs/:id/retry", { preHandler: withFeature("academic.year.rollover", "academic.rollover") }, async (req, reply) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        return reply.status(202).send(unwrapOrThrow(await rolloverRun.retryRolloverRun(deps, ctxOf(req), id)));
+      });
+
+      // ===== Calendrier de l'établissement (jours fériés, vacances, fermetures) ===================================
+      scope.get("/holidays", { preHandler: perm("academic.read") }, async (req) => {
+        const q = parse(c.academicListHolidaysQuerySchema, req.query);
+        return { items: unwrapOrThrow(await holidays.listHolidays(deps, ctxOf(req), q)) };
+      });
+      scope.post("/holidays", { preHandler: perm("academic.settings.manage") }, async (req, reply) => {
+        return reply.status(201).send(unwrapOrThrow(await holidays.createHoliday(deps, ctxOf(req), parse(c.academicCreateHolidayBodySchema, req.body))));
+      });
+      scope.patch("/holidays/:id", { preHandler: perm("academic.settings.manage") }, async (req) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        return unwrapOrThrow(await holidays.updateHoliday(deps, ctxOf(req), id, parse(c.academicUpdateHolidayBodySchema, req.body)));
+      });
+      scope.delete("/holidays/:id", { preHandler: perm("academic.settings.manage") }, async (req, reply) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        unwrapOrThrow(await holidays.deleteHoliday(deps, ctxOf(req), id));
+        return reply.status(204).send();
       });
     },
     { prefix: "" },

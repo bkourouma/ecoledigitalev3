@@ -149,6 +149,21 @@ export async function listDecisions(tx: Tx, f: { stateId?: string | undefined; e
   return rows.map(toDecision);
 }
 
+/**
+ * Décisions de FIN D'ANNÉE confirmées (ou publiées) des inscriptions données, pour une année : la plus récente par
+ * inscription (lecture seule, pour la reconduction annuelle d'academic).
+ */
+export async function listYearEndDecisions(tx: Tx, academicYearId: string, enrollmentIds: readonly string[]): Promise<Array<{ enrollmentId: string; finalCode: string }>> {
+  const rows = await tx.many<{ enrollment_id: string; final_code: string }>(
+    `SELECT DISTINCT ON (d.enrollment_id) d.enrollment_id, d.final_code
+       FROM results.decisions d JOIN results.period_states s ON s.tenant_id = d.tenant_id AND s.id = d.state_id
+      WHERE s.academic_year_id = $1 AND d.enrollment_id = ANY($2::uuid[]) AND d.scope = 'YEAR' AND d.status IN ('CONFIRMED', 'PUBLISHED') AND d.final_code IS NOT NULL
+      ORDER BY d.enrollment_id, d.decided_at DESC NULLS LAST, d.created_at DESC, d.id DESC`,
+    [academicYearId, [...enrollmentIds]],
+  );
+  return rows.map((r) => ({ enrollmentId: r.enrollment_id, finalCode: r.final_code }));
+}
+
 /** Matérialise la proposition d'une règle (une décision active par (période, inscription, nature)). Confirmée : conservée. */
 export async function upsertProposal(
   tx: Tx,

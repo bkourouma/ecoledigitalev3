@@ -7438,6 +7438,760 @@
       "validToHint": "Facultatif."
     }
   },
+  "v2Rollover": {
+    "nav": "Reconduction",
+    "featureOff": "La reconduction annuelle n'est pas incluse dans l'offre de votre établissement.",
+    "step": {
+      "PERIODS": "Calendrier et périodes",
+      "HOLIDAYS": "Jours fériés et vacances",
+      "CURRICULUM": "Curriculum des programmes",
+      "CLASSROOMS": "Classes",
+      "OFFERINGS": "Offres de cours à la carte",
+      "ENROLLMENTS": "Réinscriptions des élèves"
+    },
+    "stepHint": {
+      "PERIODS": "Reporte les périodes (semestres, trimestres…) de l'année source sur l'année cible, avec les dates décalées.",
+      "HOLIDAYS": "Reporte les jours fériés, vacances et fermetures marqués « se répète chaque année ». Les fêtes mobiles sont à ressaisir.",
+      "CURRICULUM": "Clone la version de curriculum de chaque programme pour l'année cible.",
+      "CLASSROOMS": "Crée les classes de l'année cible à partir de celles de l'année source.",
+      "OFFERINGS": "Recrée les offres de cours ouvertes à l'inscription à la carte.",
+      "ENROLLMENTS": "Réinscrit les élèves selon la décision de passage de fin d'année (passage, redoublement, réorientation, sortie)."
+    },
+    "stepStatus": {
+      "PENDING": "En attente",
+      "RUNNING": "En cours",
+      "DONE": "Terminée",
+      "SKIPPED": "Ignorée",
+      "FAILED": "En échec"
+    },
+    "runStatus": {
+      "PENDING": "En attente du worker",
+      "RUNNING": "En cours",
+      "COMPLETED": "Terminée",
+      "FAILED": "En échec"
+    },
+    "holidayKind": {
+      "HOLIDAY": "Jour férié",
+      "BREAK": "Vacances",
+      "CLOSURE": "Fermeture"
+    },
+    "wizard": {
+      "title": "Reconduction annuelle",
+      "description": "Prépare l'année suivante à partir d'une année existante : calendrier, curriculum, classes, offres et réinscriptions. Rien n'est écrit avant votre confirmation.",
+      "history": "Historique des reconductions",
+      "choose": "Choisir…",
+      "years": {
+        "title": "Années",
+        "description": "Choisissez l'année de départ et l'année à préparer.",
+        "from": "Année source",
+        "to": "Année cible",
+        "toHint": "Une année en brouillon ou ouverte, postérieure à l'année source.",
+        "fromRequired": "Choisissez l'année source.",
+        "toRequired": "Choisissez l'année cible.",
+        "noTarget": "Aucune année cible possible : créez d'abord l'année suivante (brouillon) dans « Années et périodes »."
+      },
+      "steps": {
+        "title": "Éléments à reconduire",
+        "description": "Cochez ce que vous voulez copier. Chaque étape peut être refaite sans doublon.",
+        "required": "Retenez au moins une étape.",
+        "createMissing": "Créer les classes de destination qui manquent",
+        "createMissingHint": "Pour les réinscriptions : une classe est créée lorsque le niveau suivant n'en a pas encore dans l'année cible."
+      },
+      "preview": {
+        "title": "Aperçu",
+        "description": "Ce que la reconduction ferait, calculé par le serveur sans rien écrire.",
+        "loading": "Calcul de l'aperçu…",
+        "refresh": "Actualiser l'aperçu",
+        "liveRun": "Une reconduction est déjà en attente ou en cours pour ces deux années.",
+        "resume": "Reprendre son suivi"
+      },
+      "confirm": {
+        "title": "Confirmation",
+        "description": "Relisez le récapitulatif avant de lancer l'exécution.",
+        "from": "Année source",
+        "to": "Année cible",
+        "steps": "Étapes retenues",
+        "warnings": "{count, plural, one {L'aperçu contient # avertissement.} other {L'aperçu contient # avertissements.}} Vérifiez-les avant de continuer.",
+        "liveRun": "Une exécution est déjà en cours pour ces années : le lancement reprendra son suivi au lieu d'en créer une seconde.",
+        "reviewed": "J'ai vérifié l'aperçu",
+        "reviewedHint": "La reconduction crée des données dans l'année cible. Elle s'exécute en tâche de fond ; vous pourrez suivre sa progression.",
+        "reviewedRequired": "Confirmez que vous avez vérifié l'aperçu.",
+        "launch": "Lancer la reconduction"
+      }
+    },
+    "plan": {
+      "readOnly": "Aperçu en lecture seule : aucune donnée n'a été modifiée.",
+      "toCreate": "À créer",
+      "existing": "Déjà présents",
+      "more": "… et {count} autres non affichés.",
+      "periods": {
+        "caption": "Périodes à créer",
+        "label": "Période",
+        "code": "Code",
+        "dates": "Dates"
+      },
+      "holidays": {
+        "caption": "Jours fériés et vacances à créer",
+        "label": "Libellé",
+        "kind": "Nature",
+        "dates": "Dates",
+        "notRecurring": "Non répétés (à ressaisir)",
+        "notRecurringHint": "{count, plural, one {# jour de l'année source ne se répète pas chaque année} other {# jours de l'année source ne se répètent pas chaque année}} (fêtes mobiles, fermetures ponctuelles) : à saisir pour l'année cible.",
+        "openCalendar": "Ouvrir le calendrier de l'établissement"
+      },
+      "curriculum": {
+        "caption": "Curriculum par programme",
+        "empty": "Aucun programme à reconduire.",
+        "program": "Programme",
+        "source": "Version source",
+        "nodes": "Éléments",
+        "actionLabel": "Action",
+        "action": {
+          "CLONE": "Sera cloné",
+          "EXISTS": "Existe déjà",
+          "NO_SOURCE": "Aucune source"
+        }
+      },
+      "classrooms": {
+        "caption": "Classes à créer",
+        "name": "Classe",
+        "code": "Code",
+        "capacity": "Capacité"
+      },
+      "enrollments": {
+        "toCreate": "Réinscriptions à créer",
+        "alreadyRolledOver": "Déjà reconduites",
+        "classroomsToCreate": "Classes à créer",
+        "anomalies": "Anomalies",
+        "byOutcome": "Répartition par issue de fin d'année",
+        "kind": {
+          "ADVANCE": "Passage",
+          "REPEAT": "Redoublement",
+          "REDIRECT": "Réorientation",
+          "EXIT": "Sortie"
+        }
+      }
+    },
+    "warnings": {
+      "title": {
+        "plan": "{count, plural, one {# avertissement à examiner avant de lancer} other {# avertissements à examiner avant de lancer}}",
+        "report": "{count, plural, one {# avertissement signalé pendant l'exécution} other {# avertissements signalés pendant l'exécution}}"
+      },
+      "fix": "Ouvrir l'écran de correction",
+      "code": {
+        "target_year_has_periods": "L'année cible a déjà des périodes",
+        "target_year_has_classrooms": "L'année cible a déjà des classes",
+        "target_year_has_curriculum": "L'année cible a déjà un curriculum",
+        "target_year_not_empty": "L'année cible n'est pas vide",
+        "periods_dates_clamped": "Dates de périodes ajustées",
+        "periods_source_missing": "Aucune période dans l'année source",
+        "holidays_not_recurring": "Jours à ressaisir (fêtes mobiles)",
+        "curriculum_source_missing": "Curriculum source manquant",
+        "curriculum_source_draft": "Curriculum source en brouillon",
+        "classrooms_source_missing": "Aucune classe dans l'année source",
+        "offerings_need_curriculum": "Les offres exigent un curriculum",
+        "offerings_feature_disabled": "Offres à la carte non incluses dans l'offre",
+        "promotion_decisions_missing": "Décisions de passage manquantes",
+        "conflict": "Conflit avec des données existantes",
+        "item_failed": "Élément en échec"
+      }
+    },
+    "anomalies": {
+      "group": "{label} : {count}",
+      "more": "… et {count} autres non affichées.",
+      "openEnrollment": "Ouvrir l'inscription",
+      "openClassroom": "Ouvrir la classe",
+      "code": {
+        "outcome_missing": "Décision de fin d'année manquante",
+        "next_level_missing": "Niveau suivant non défini",
+        "curriculum_missing": "Curriculum manquant pour la classe cible",
+        "funding_to_reconfirm": "Financement à reconfirmer",
+        "redirect_target_missing": "Destination de réorientation absente",
+        "target_classroom_missing": "Classe cible absente",
+        "target_classroom_full": "Classe cible complète",
+        "enrollment_failed": "Réinscription en échec",
+        "student_not_enrollable": "Élève non réinscriptible"
+      }
+    },
+    "run": {
+      "title": "Suivi de la reconduction",
+      "subtitle": "De {from} vers {to}",
+      "refresh": "Actualiser",
+      "history": "Historique",
+      "requestedAt": "Demandée le {date}",
+      "finishedAt": "terminée le {date}",
+      "attempts": "{count} tentatives",
+      "pendingHint": "En attente du worker : la tâche est enregistrée et démarrera dès qu'un worker de l'établissement sera disponible. Vous pouvez quitter cette page, la reconduction continue.",
+      "autoRefresh": "L'état est relu automatiquement toutes les 2 secondes.",
+      "failedTitle": "La reconduction s'est arrêtée sur une erreur.",
+      "failedUnknown": "Aucun détail n'a été fourni par le serveur.",
+      "failedHint": "Les éléments déjà créés sont conservés ; « Relancer » reprend sans rien dupliquer.",
+      "retry": "Relancer",
+      "stepsTitle": "Progression par étape",
+      "noProgress": "Aucune étape n'a encore démarré.",
+      "progressLabel": "Progression : {step}",
+      "progressText": "{done} sur {total}",
+      "noReport": "L'exécution est terminée mais aucun rapport n'a été fourni."
+    },
+    "report": {
+      "title": "Rapport de reconduction",
+      "created": "Créés : {step}",
+      "alreadyRolledOver": "Réinscriptions déjà présentes",
+      "skipped": "Éléments ignorés",
+      "anomalies": "{count, plural, one {# anomalie à traiter} other {# anomalies à traiter}}",
+      "noAnomaly": "Aucune anomalie."
+    },
+    "history": {
+      "title": "Historique des reconductions",
+      "description": "Les exécutions lancées depuis une année source. Une exécution en attente ou en cours peut être reprise.",
+      "new": "Nouvelle reconduction",
+      "from": "Année source",
+      "choose": "Choisir une année…",
+      "selectYear": "Choisissez une année source pour voir ses reconductions.",
+      "caption": "Reconductions de l'année source",
+      "empty": "Aucune reconduction pour cette année.",
+      "emptyHint": "Lancez-en une avec l'assistant.",
+      "liveRun": "Une reconduction est en attente ou en cours.",
+      "resume": "Reprendre le suivi",
+      "open": "Ouvrir",
+      "columns": {
+        "requestedAt": "Demandée",
+        "to": "Année cible",
+        "status": "État",
+        "steps": "Étapes",
+        "attempts": "Tentatives",
+        "actions": "Actions"
+      }
+    }
+  },
+  "v2AcademicSettings": {
+    "nav": "Paramètres",
+    "title": "Paramètres académiques",
+    "description": "Périodes, niveaux, statuts, politiques d'inscription, numérotation et calendrier de l'établissement. Les référentiels s'ajoutent et se modifient par code : ils ne se suppriment jamais, on les désactive.",
+    "readOnly": "Lecture seule : vous pouvez consulter ces paramètres mais pas les modifier.",
+    "institution": "Établissement",
+    "tabs": {
+      "label": "Rubriques des paramètres",
+      "periods": "Périodes",
+      "levels": "Niveaux",
+      "funding": "Statuts et financements",
+      "enrollments": "Inscriptions",
+      "numbering": "Numérotation",
+      "calendar": "Calendrier"
+    },
+    "common": {
+      "active": "Actif",
+      "inactive": "Inactif",
+      "activate": "Activer",
+      "deactivate": "Désactiver",
+      "activeLabel": "Actif (proposé dans les écrans de saisie)",
+      "edit": "Modifier",
+      "save": "Enregistrer",
+      "choose": "Choisir…",
+      "noChange": "Aucune modification à enregistrer."
+    },
+    "pack": {
+      "PRIMARY": "Primaire",
+      "SECONDARY": "Secondaire",
+      "HIGHER": "Supérieur",
+      "VIRTUAL": "Formation en ligne"
+    },
+    "periods": {
+      "kind": {
+        "TEACHING_PERIOD": "Période d'enseignement",
+        "EXAM_SESSION": "Session d'examen"
+      },
+      "types": {
+        "title": "Types de périodes",
+        "description": "Les natures de périodes que l'établissement utilise (semestre, trimestre, session d'examen…).",
+        "add": "Ajouter un type",
+        "empty": "Aucun type de période.",
+        "activated": "Le type « {label} » est activé.",
+        "deactivated": "Le type « {label} » est désactivé.",
+        "saved": "Le type « {label} » est enregistré.",
+        "editTitle": "Modifier le type « {label} »",
+        "addTitle": "Ajouter un type de période",
+        "dialogHint": "Un code déjà existant est mis à jour ; un nouveau code crée le type.",
+        "fields": {
+          "code": "Code",
+          "codeHint": "Majuscules, chiffres et _ (40 caractères maximum). Non modifiable une fois créé.",
+          "label": "Libellé",
+          "kind": "Nature"
+        }
+      },
+      "plans": {
+        "title": "Plans de périodes",
+        "description": "Des découpages d'année prêts à appliquer (par exemple deux semestres) : l'application d'un plan crée les périodes d'une année.",
+        "add": "Ajouter un plan",
+        "empty": "Aucun plan de périodes.",
+        "slotCount": "{count, plural, one {# période} other {# périodes}}",
+        "activated": "Le plan « {label} » est activé.",
+        "deactivated": "Le plan « {label} » est désactivé.",
+        "saved": "Le plan « {label} » est enregistré.",
+        "editTitle": "Modifier le plan « {label} »",
+        "addTitle": "Ajouter un plan de périodes",
+        "dialogHint": "Un code déjà existant est mis à jour ; un nouveau code crée le plan.",
+        "fields": {
+          "code": "Code",
+          "codeHint": "Majuscules, chiffres et _ (40 caractères maximum). Non modifiable une fois créé.",
+          "label": "Libellé"
+        },
+        "slots": {
+          "legend": "Périodes du plan",
+          "hint": "Chaque ligne devient une période. Le poids règle la part de l'année (parts égales si vide).",
+          "type": "Type de période",
+          "label": "Libellé",
+          "ordinal": "Numéro d'ordre",
+          "weight": "Poids",
+          "weightHint": "Facultatif, entier de 1 à 1000.",
+          "remove": "Retirer la période {n}",
+          "removeLabel": "Retirer cette période",
+          "add": "Ajouter une période"
+        }
+      }
+    },
+    "levels": {
+      "cycles": {
+        "title": "Cycles d'enseignement",
+        "description": "Les grands cycles de l'établissement (primaire, collège, licence…) et le contrat de calcul des résultats par défaut de leurs programmes.",
+        "add": "Ajouter un cycle",
+        "empty": "Aucun cycle d'enseignement.",
+        "activated": "Le cycle « {label} » est activé.",
+        "deactivated": "Le cycle « {label} » est désactivé.",
+        "saved": "Le cycle « {label} » est enregistré.",
+        "editTitle": "Modifier le cycle « {label} »",
+        "addTitle": "Ajouter un cycle d'enseignement",
+        "order": "Ordre : {ordinal}",
+        "contract": "Contrat de calcul : {contract}",
+        "fields": {
+          "code": "Code",
+          "codeHint": "Majuscules, chiffres et _ (40 caractères maximum). Non modifiable une fois créé.",
+          "label": "Libellé",
+          "ordinal": "Ordre",
+          "ordinalHint": "Position du cycle dans le parcours (0 et plus).",
+          "pack": "Famille d'enseignement",
+          "noPack": "Aucune",
+          "contract": "Contrat de calcul par défaut",
+          "contractHint": "Facultatif, au format « code@version » (par exemple credit-semester@1)."
+        }
+      },
+      "grades": {
+        "title": "Niveaux",
+        "description": "Les niveaux de chaque cycle, leur ordre, le niveau suivant (utilisé par la reconduction), le niveau final et l'examen terminal.",
+        "add": "Ajouter un niveau",
+        "empty": "Aucun niveau.",
+        "unknownCycle": "Cycle inconnu",
+        "final": "Niveau final",
+        "terminalExam": "Examen terminal",
+        "order": "Ordre : {ordinal}",
+        "next": "Niveau suivant : {label}",
+        "noNext": "Aucun niveau suivant",
+        "activated": "Le niveau « {label} » est activé.",
+        "deactivated": "Le niveau « {label} » est désactivé.",
+        "saved": "Le niveau « {label} » est enregistré.",
+        "editTitle": "Modifier le niveau « {label} »",
+        "addTitle": "Ajouter un niveau",
+        "fields": {
+          "code": "Code",
+          "codeHint": "Majuscules, chiffres et _ (40 caractères maximum). Non modifiable une fois créé.",
+          "cycle": "Cycle d'enseignement",
+          "label": "Libellé",
+          "shortLabel": "Libellé court",
+          "ordinal": "Ordre",
+          "ordinalHint": "Position du niveau dans son cycle (0 et plus).",
+          "next": "Niveau suivant",
+          "nextHint": "Le niveau où passent les élèves admis. Vide pour un niveau final.",
+          "isFinal": "Niveau final du cycle",
+          "isFinalHint": "Les élèves admis sortent du cycle : aucun niveau suivant.",
+          "terminalExam": "Se conclut par un examen terminal",
+          "terminalExamHint": "Le niveau prépare à un examen national ou de sortie."
+        }
+      }
+    },
+    "funding": {
+      "types": {
+        "title": "Types de financement",
+        "description": "Qui finance l'inscription d'un élève (famille, État, bourse, entreprise…). Un type peut exiger une référence de dossier ou un financeur.",
+        "add": "Ajouter un type de financement",
+        "empty": "Aucun type de financement.",
+        "requiresReference": "Référence exigée",
+        "requiresFunder": "Financeur exigé",
+        "activated": "Le financement « {label} » est activé.",
+        "deactivated": "Le financement « {label} » est désactivé.",
+        "saved": "Le financement « {label} » est enregistré.",
+        "editTitle": "Modifier le financement « {label} »",
+        "addTitle": "Ajouter un type de financement",
+        "fields": {
+          "code": "Code",
+          "codeHint": "Les codes de financement sont définis par la plateforme ; seuls ceux qui ne sont pas encore utilisés sont proposés.",
+          "label": "Libellé",
+          "sortOrder": "Ordre d'affichage",
+          "sortOrderHint": "Les petits nombres s'affichent en premier.",
+          "requiresReference": "Une référence de dossier est exigée",
+          "requiresReferenceHint": "Par exemple le numéro d'affectation de l'État ou de la bourse.",
+          "requiresFunder": "Un financeur est exigé",
+          "requiresFunderHint": "Le nom de l'organisme ou de l'entreprise qui finance."
+        }
+      },
+      "outcomes": {
+        "title": "Issues de fin d'année",
+        "description": "Les décisions de passage possibles à la fin d'une année. La nature de chaque issue guide la reconduction des élèves.",
+        "add": "Ajouter une issue",
+        "empty": "Aucune issue de fin d'année.",
+        "activated": "L'issue « {label} » est activée.",
+        "deactivated": "L'issue « {label} » est désactivée.",
+        "saved": "L'issue « {label} » est enregistrée.",
+        "editTitle": "Modifier l'issue « {label} »",
+        "addTitle": "Ajouter une issue de fin d'année",
+        "fields": {
+          "code": "Code",
+          "codeHint": "Majuscules, chiffres et _ (40 caractères maximum). Non modifiable une fois créé.",
+          "label": "Libellé",
+          "kind": "Nature",
+          "kindHint": "Ce que devient l'élève à la reconduction."
+        },
+        "kindHelp": {
+          "ADVANCE": "passe au niveau suivant",
+          "REPEAT": "reste dans le même niveau",
+          "REDIRECT": "est orienté vers un autre programme",
+          "EXIT": "quitte l'établissement"
+        }
+      },
+      "outcomeKind": {
+        "ADVANCE": "Passage",
+        "REPEAT": "Redoublement",
+        "REDIRECT": "Réorientation",
+        "EXIT": "Sortie"
+      },
+      "statuses": {
+        "title": "États gérés par le serveur",
+        "description": "Les états d'une inscription et d'un élève forment des machines d'états définies par la plateforme : ils s'affichent ici pour information et ne se modifient pas.",
+        "enrollment": "États d'une inscription",
+        "learner": "États d'un élève"
+      }
+    },
+    "enrollments": {
+      "title": "Politiques d'inscription",
+      "description": "Quand une inscription ou un cours à la carte passe-t-il automatiquement à « confirmé » ? Le choix est propre à chaque établissement.",
+      "noInstitution": "Aucun établissement n'est disponible.",
+      "saved": "Les politiques d'inscription sont enregistrées.",
+      "enrollmentPolicy": {
+        "legend": "Confirmation des inscriptions",
+        "hint": "S'applique à toute nouvelle inscription en classe."
+      },
+      "coursePolicy": {
+        "legend": "Confirmation des cours à la carte",
+        "hint": "S'applique à chaque cours ajouté à une inscription à la carte."
+      },
+      "policyLabel": {
+        "AUTO": "Automatique",
+        "ON_REGISTRATION_FEE_PAID": "Après paiement des frais d'inscription",
+        "ON_FULL_PAYMENT": "Après paiement intégral",
+        "MANUAL": "Manuelle"
+      },
+      "policyHelp": {
+        "AUTO": "L'inscription est confirmée dès sa création, sans condition de paiement.",
+        "ON_REGISTRATION_FEE_PAID": "L'inscription reste en attente jusqu'au paiement des frais d'inscription.",
+        "ON_FULL_PAYMENT": "L'inscription reste en attente jusqu'au paiement de la totalité des frais.",
+        "MANUAL": "Un responsable confirme chaque inscription à la main."
+      },
+      "coursePolicyLabel": {
+        "AUTO": "Automatique",
+        "ON_LINE_PAID": "Après paiement du cours",
+        "MANUAL": "Manuelle"
+      },
+      "coursePolicyHelp": {
+        "AUTO": "Le cours est confirmé dès son ajout.",
+        "ON_LINE_PAID": "Le cours reste en attente jusqu'au paiement de sa ligne de facture.",
+        "MANUAL": "Un responsable confirme chaque cours à la main."
+      },
+      "holdMinutes": {
+        "label": "Durée de réservation (minutes)",
+        "hint": "Temps pendant lequel une inscription en attente garde sa place. Vide : aucune limite."
+      }
+    },
+    "numbering": {
+      "noInstitution": "Aucun établissement n'est disponible.",
+      "registration": {
+        "title": "Numéro d'inscription",
+        "description": "Le numéro attribué à chaque inscription de l'année. Il est généré par le serveur à partir de ce motif.",
+        "pattern": "Motif du numéro d'inscription",
+        "patternHint": "Jetons possibles : '{'PREFIX'}', '{'PROGRAM'}', '{'LEVEL'}', '{'YEAR'}' et '{'STUDENT_SEQ:n'}' (numéro d'ordre sur n chiffres, obligatoire).",
+        "prefix": "Préfixe",
+        "prefixHint": "Lettres majuscules et chiffres, 12 caractères au plus. Utilisé par le jeton '{'PREFIX'}'.",
+        "saved": "La numérotation des inscriptions est enregistrée."
+      },
+      "people": {
+        "title": "Matricules et dossiers",
+        "description": "Matricule des élèves et du personnel, contrôle des doublons et durée de conservation des dossiers.",
+        "noPermission": "Les matricules et la conservation des dossiers relèvent d'une autre permission (paramètres des personnes).",
+        "studentPattern": "Motif du matricule élève",
+        "staffPattern": "Motif du matricule du personnel",
+        "patternHint": "Jetons possibles : '{'SEQ:n'}' (numéro d'ordre sur n chiffres, obligatoire), '{'YYYY'}', '{'YY'}' et '{'PREFIX'}'.",
+        "prefix": "Préfixe commun",
+        "prefixHint": "Lettres majuscules et chiffres, 12 caractères au plus. Utilisé par le jeton '{'PREFIX'}'.",
+        "duplicates": "Rechercher les doublons à la création",
+        "duplicatesHint": "Avertit lorsqu'un élève ou un tuteur ressemble à un dossier existant.",
+        "expiryAlertDays": "Alerte avant expiration des pièces (jours)",
+        "expiryAlertDaysHint": "Nombre de jours avant l'échéance d'une pièce pour la signaler. Vide : pas d'alerte.",
+        "retentionDays": "Conservation des dossiers d'élèves sortis (jours)",
+        "retentionDaysHint": "Durée de conservation après la sortie. Vide : pas de limite fixée.",
+        "saved": "Les paramètres des personnes sont enregistrés."
+      },
+      "preview": {
+        "title": "Aperçu de forme du motif",
+        "empty": "Aucun motif saisi.",
+        "fixedText": "texte fixe",
+        "strayBrace": "accolade isolée",
+        "unknownToken": "Jeton inconnu",
+        "problem": "Le motif contient un jeton inconnu ou une accolade isolée : le serveur le refusera.",
+        "missingSequence": "Le jeton {token} manque : sans lui, deux numéros pourraient être identiques.",
+        "serverNumbers": "Cet aperçu ne montre que la forme du motif. Les numéros réels sont attribués par le serveur."
+      },
+      "token": {
+        "PREFIX": "préfixe",
+        "PROGRAM": "code du programme",
+        "LEVEL": "code du niveau",
+        "YEAR": "année académique",
+        "STUDENT_SEQ": "numéro d'ordre sur {digits} chiffres",
+        "YYYY": "année sur 4 chiffres",
+        "YY": "année sur 2 chiffres",
+        "SEQ": "numéro d'ordre sur {digits} chiffres"
+      }
+    },
+    "calendar": {
+      "title": "Jours fériés, vacances et fermetures",
+      "description": "Le calendrier propre à l'établissement. Aucune date n'est fournie par défaut : saisissez celles de votre pays et de votre établissement.",
+      "add": "Ajouter une date",
+      "movableNote": "Les fêtes mobiles (dont la date change chaque année) ne se reportent pas d'une année à l'autre : ressaisissez-les pour chaque année. Seules les dates marquées « se répète chaque année » sont reconduites.",
+      "noYear": "Aucune année académique.",
+      "noYearHint": "Créez d'abord une année dans « Années et périodes ».",
+      "year": "Année",
+      "empty": "Aucune date pour cette année.",
+      "emptyHint": "Ajoutez les jours fériés, vacances et fermetures.",
+      "listLabel": "Calendrier de l'année {year}",
+      "recurs": "Se répète chaque année",
+      "oneOff": "Date ponctuelle",
+      "blocksTeaching": "Les cours sont suspendus.",
+      "noBlock": "Les cours ne sont pas suspendus.",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "deleteTitle": "Supprimer « {label} » ?",
+      "deleteDescription": "Cette date sera retirée du calendrier de l'établissement.",
+      "cancel": "Annuler",
+      "confirmDelete": "Supprimer cette date",
+      "saved": "« {label} » est enregistré.",
+      "deleted": "« {label} » est supprimé.",
+      "editTitle": "Modifier « {label} »",
+      "addTitle": "Ajouter une date à l'année {year}",
+      "dialogHint": "Pour une période de plusieurs jours (vacances), renseignez aussi la date de fin.",
+      "save": "Enregistrer",
+      "fields": {
+        "label": "Libellé",
+        "kind": "Nature",
+        "startsOn": "Premier jour",
+        "endsOn": "Dernier jour",
+        "endsOnHint": "Laissez vide pour un seul jour.",
+        "recursYearly": "Se répète chaque année à la même date",
+        "recursYearlyHint": "Pour une fête fixe. Ne cochez pas une fête mobile.",
+        "blocksTeaching": "Les cours sont suspendus ce jour-là",
+        "blocksTeachingHint": "Décochez pour un événement qui n'empêche pas les cours."
+      }
+    }
+  },
+  "v2RulesBindings": {
+    "nav": {
+      "label": "Règles de calcul",
+      "catalog": "Catalogue des jeux de règles",
+      "bindings": "Liaisons aux programmes"
+    },
+    "title": "Liaisons des règles",
+    "description": "Pour chaque contrat de calcul, le jeu de règles appliqué à l'établissement, à un programme ou à un niveau, avec ses dates d'effet. La résolution se fait toujours côté serveur.",
+    "add": "Ajouter une liaison",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "caption": "Liaisons du contrat {contract}",
+    "empty": "Aucune liaison pour ce contrat.",
+    "emptyHint": "Sans liaison, aucun jeu de règles n'est appliqué à ce contrat.",
+    "created": "La liaison est créée.",
+    "updated": "La liaison est enregistrée.",
+    "deleted": "La liaison est supprimée.",
+    "period": "Du {from} au {to}",
+    "since": "Depuis le {from}, sans fin",
+    "cancel": "Annuler",
+    "confirmDelete": "Supprimer la liaison",
+    "deleteTitle": "Supprimer cette liaison ?",
+    "deleteDescription": "Le jeu de règles {ruleSet} ne s'appliquera plus à : {scope}. Les résultats déjà calculés ne sont pas modifiés.",
+    "columns": {
+      "ruleSet": "Jeu de règles",
+      "scope": "Périmètre",
+      "effect": "Dates d'effet",
+      "actions": "Actions"
+    },
+    "state": {
+      "active": "En vigueur",
+      "upcoming": "À venir",
+      "expired": "Échue"
+    },
+    "scope": {
+      "tenant": "Tout l'établissement (par défaut)",
+      "institution": "Établissement : {name}",
+      "program": "Programme : {label}",
+      "level": "Niveau : {code}",
+      "combined": "Programme {label} et niveau {code}",
+      "unknownProgram": "programme inconnu",
+      "unknownInstitution": "établissement inconnu"
+    },
+    "uncovered": {
+      "title": "{count, plural, one {# programme sans règle active} other {# programmes sans règle active}}",
+      "item": "Le programme « {program} » n'a aucune règle active pour le contrat « {contract} ».",
+      "hint": "Indicateur de vigilance : ajoutez une liaison pour ce programme ou une liaison générale. Seul le serveur détermine la règle réellement appliquée."
+    },
+    "dialog": {
+      "addTitle": "Ajouter une liaison",
+      "editTitle": "Modifier la liaison",
+      "addHint": "Une liaison associe un jeu de règles à un contrat de calcul, pour un périmètre et à partir d'une date.",
+      "editHint": "Seuls le jeu de règles et la date de fin se modifient. Pour changer le périmètre ou la date de début, créez une nouvelle liaison puis supprimez l'ancienne.",
+      "save": "Enregistrer",
+      "choose": "Choisir…",
+      "contract": "Contrat de calcul",
+      "ruleSet": "Jeu de règles",
+      "scope": "Périmètre",
+      "scopeChoice": {
+        "tenant": "Tout l'établissement",
+        "tenantHelp": "S'applique à tous les programmes de l'établissement.",
+        "program": "Un programme",
+        "programHelp": "S'applique à un seul programme.",
+        "level": "Un niveau",
+        "levelHelp": "S'applique à tous les programmes d'un niveau d'enseignement."
+      },
+      "program": "Programme",
+      "programRequired": "Choisissez le programme.",
+      "level": "Code du niveau",
+      "levelHint": "Le code du niveau ou du cycle d'enseignement (par exemple HIGHER).",
+      "levelRequired": "Saisissez le code du niveau.",
+      "institution": "Établissement",
+      "institutionHint": "Laissez vide pour tous les établissements.",
+      "allInstitutions": "Tous les établissements",
+      "effectiveFrom": "En vigueur à partir du",
+      "effectiveTo": "Jusqu'au (inclus)",
+      "effectiveToHint": "Laissez vide pour une liaison sans fin."
+    }
+  },
+  "v2HigherPrerequisites": {
+    "nav": "Prérequis",
+    "title": "Prérequis entre UE",
+    "description": "Les UE à avoir validées ou suivies avant de s'inscrire à une UE. Le serveur refuse les cycles et les prérequis hors programme, et décide si un étudiant les satisfait.",
+    "featureOff": "Les prérequis entre UE ne sont pas inclus dans l'offre de votre établissement.",
+    "selection": "Choix du curriculum",
+    "program": "Programme",
+    "chooseProgram": "Choisir un programme…",
+    "year": "Année",
+    "chooseYear": "Choisir une année…",
+    "version": "Version du curriculum",
+    "versionOption": "Version {n} ({status})",
+    "noVersion": "Aucune version de curriculum pour ce programme cette année-là.",
+    "choose": "Choisissez un programme et une année pour afficher ses UE.",
+    "ueList": "UE du programme",
+    "showAll": "Afficher tous les éléments du curriculum",
+    "showAllHint": "Par défaut, seuls les éléments qui portent des crédits sont proposés comme UE.",
+    "noUe": "Aucune UE à afficher.",
+    "noUeHint": "Cochez « Afficher tous les éléments » si votre curriculum n'utilise pas de crédits.",
+    "credits": "{credits} crédits",
+    "selectUe": "Choisissez une UE pour voir et modifier ses prérequis.",
+    "panelTitle": "Prérequis de {label}",
+    "editorLabel": "Prérequis de {label}",
+    "editorHint": "Logique ET : l'étudiant doit satisfaire tous les prérequis listés. Les inscriptions déjà prises ne changent pas.",
+    "none": "Cette UE n'a aucun prérequis.",
+    "prerequisites": "Prérequis",
+    "prerequisiteUe": "UE prérequise",
+    "chooseUe": "Choisir une UE…",
+    "modeLabel": "Condition",
+    "minAverage": "Moyenne minimale",
+    "minAverageHint": "Une moyenne sur 20 (par exemple 10 ou 12,5).",
+    "minAverageValue": "moyenne d'au moins {value}",
+    "otherVersion": "UE d'une autre version ({id})",
+    "add": "Ajouter un prérequis",
+    "remove": "Retirer le prérequis {label}",
+    "removeLabel": "Retirer ce prérequis",
+    "save": "Enregistrer les prérequis",
+    "saved": "Les prérequis de {label} sont enregistrés.",
+    "mode": {
+      "VALIDATED": "UE validée",
+      "VALIDATEDHelp": "l'étudiant a acquis l'UE",
+      "ATTENDED": "UE suivie",
+      "ATTENDEDHelp": "l'étudiant a suivi l'UE, même sans l'avoir validée",
+      "MIN_AVERAGE": "Moyenne minimale",
+      "MIN_AVERAGEHelp": "l'étudiant a obtenu au moins une moyenne donnée à l'UE"
+    },
+    "reason": {
+      "NOT_ACQUIRED": "UE non acquise",
+      "NOT_ATTENDED": "UE non suivie",
+      "AVERAGE_TOO_LOW": "moyenne insuffisante"
+    },
+    "warnings": {
+      "title": "{count, plural, one {# étudiant inscrit ne satisferait plus ces prérequis} other {# étudiants inscrits ne satisferaient plus ces prérequis}}",
+      "hint": "Leurs inscriptions à l'UE ne sont pas modifiées : à vous de les accompagner."
+    },
+    "check": {
+      "title": "Un étudiant satisfait-il les prérequis ?",
+      "description": "Le serveur compare le parcours de l'étudiant aux prérequis de {label}.",
+      "student": "Étudiant",
+      "placeholder": "Rechercher un étudiant…",
+      "satisfied": "Prérequis satisfaits",
+      "notSatisfied": "Prérequis non satisfaits",
+      "missing": "Prérequis manquants",
+      "minAverage": "moyenne minimale {value}"
+    }
+  },
+  "v2StudentSelf": {
+    "nav": {
+      "label": "Mon espace élève",
+      "myRecord": "Mon dossier"
+    },
+    "title": "Mon dossier",
+    "description": "Vos informations telles que l'établissement les connaît. Vous pouvez mettre à jour vos coordonnées ; pour toute autre correction, contactez le secrétariat.",
+    "studentNumber": "Matricule",
+    "otherNames": "Autres prénoms",
+    "sexLabel": "Sexe",
+    "birthDate": "Date de naissance",
+    "birthPlace": "Lieu de naissance",
+    "nationality": "Nationalité",
+    "firstEnrolledOn": "Première inscription",
+    "sex": {
+      "F": "Féminin",
+      "M": "Masculin"
+    },
+    "classTitle": "Ma classe",
+    "classroom": "Classe",
+    "registration": "Numéro d'inscription",
+    "enrollmentStatus": "État de l'inscription",
+    "notEnrolled": "Vous n'êtes inscrit dans aucune classe pour le moment.",
+    "guardianTitle": "Mon tuteur principal",
+    "guardianName": "Nom",
+    "guardianPhone": "Téléphone",
+    "contact": {
+      "title": "Mes coordonnées",
+      "edit": "Mettre à jour mes coordonnées",
+      "editTitle": "Mettre à jour mes coordonnées",
+      "editHint": "Seules vos coordonnées de contact sont modifiables ici. Laissez un champ vide pour l'effacer.",
+      "save": "Enregistrer",
+      "updated": "Vos coordonnées ont été mises à jour.",
+      "empty": "Non renseigné",
+      "email": "Adresse e-mail",
+      "phone": "Téléphone",
+      "phoneAlt": "Autre téléphone",
+      "addressLine": "Adresse",
+      "city": "Ville",
+      "residence": "Quartier ou résidence"
+    },
+    "enrollments": {
+      "title": "Mes inscriptions",
+      "empty": "Aucune inscription.",
+      "unavailable": "Vos inscriptions ne sont pas disponibles pour le moment.",
+      "repeating": "Redoublement"
+    }
+  },
   "v2Owner": {
     "nav": {
       "label": "Pilotage",
@@ -7964,6 +8718,142 @@
         "late": "Retards",
         "records": "Pointages"
       }
+    }
+  },
+  "v2StudentDocuments": {
+    "audited": "Chaque consultation de ces pièces est enregistrée dans le journal d'audit de l'établissement.",
+    "restricted": {
+      "title": "Accès restreint",
+      "body": "Les pièces de l'élève (pièces d'identité, certificats, bulletins antérieurs) sont des données sensibles. Leur consultation exige une habilitation spécifique et une authentification renforcée."
+    },
+    "title": "Pièces de l'élève",
+    "description": "Pièces d'identité, certificats et justificatifs déposés au dossier. Un nouveau dépôt du même type crée une nouvelle version.",
+    "upload": "Déposer une pièce",
+    "filter": {
+      "label": "Échéance",
+      "all": "Toutes les pièces",
+      "expiring": "À renouveler bientôt",
+      "expired": "Échues"
+    },
+    "history": "Afficher l'historique des versions",
+    "historyHint": "Versions remplacées et pièces retirées.",
+    "uploaded": "La pièce « {label} » est déposée.",
+    "replaced": "La pièce « {label} » est remplacée par une nouvelle version.",
+    "updated": "Les informations de la pièce sont enregistrées.",
+    "removeTitle": "Retirer la pièce « {label} » ?",
+    "removeDescription": "La pièce n'est plus proposée ni consultable. Elle reste tracée dans l'historique avec le motif du retrait.",
+    "reason": "Motif du retrait",
+    "remove": "Retirer",
+    "removed": "La pièce « {label} » est retirée.",
+    "empty": "Aucune pièce au dossier.",
+    "emptyFiltered": "Aucune pièce ne correspond à ce filtre.",
+    "emptyHint": "Déposez une première pièce avec le bouton « Déposer une pièce ».",
+    "type": {
+      "ID_CARD": "Pièce d'identité",
+      "BIRTH_CERTIFICATE": "Acte de naissance",
+      "MEDICAL_CERTIFICATE": "Certificat médical",
+      "PRIOR_REPORT": "Bulletin ou relevé antérieur",
+      "TRANSFER_CERTIFICATE": "Certificat de transfert",
+      "PHOTO_ID": "Photo d'identité",
+      "OTHER": "Autre pièce"
+    },
+    "version": "Version {n}",
+    "size": "Taille",
+    "uploadedAt": "Déposée le",
+    "issuedOn": "Émise le",
+    "expiresOn": "Expire le",
+    "daysLeft": "{count, plural, =0 {expire aujourd'hui} one {encore # jour} other {encore # jours}}",
+    "daysOver": "{count, plural, one {échue depuis # jour} other {échue depuis # jours}}",
+    "removedReason": "Motif du retrait : {reason}",
+    "replacedNote": "Version remplacée par une plus récente.",
+    "open": "Ouvrir",
+    "replace": "Remplacer",
+    "edit": "Modifier",
+    "expiry": {
+      "NO_EXPIRY": "Sans échéance",
+      "VALID": "Valide",
+      "EXPIRING": "Bientôt échue",
+      "EXPIRED": "Échue"
+    },
+    "status": {
+      "ACTIVE": "Active",
+      "REPLACED": "Remplacée",
+      "REMOVED": "Retirée"
+    },
+    "file": {
+      "label": "Fichier",
+      "hint": "Un seul fichier : PDF, JPEG, PNG ou WebP, 8 Mo au plus. Le serveur vérifie le contenu réel du fichier.",
+      "error": {
+        "required": "Choisissez un fichier.",
+        "badType": "Format non accepté : PDF, JPEG, PNG ou WebP uniquement.",
+        "tooLarge": "Le fichier dépasse 8 Mo."
+      }
+    },
+    "fields": {
+      "title": "Intitulé",
+      "titleHint": "Facultatif. Par défaut, le nom du fichier.",
+      "issuedOn": "Date d'émission",
+      "expiresOn": "Date d'expiration",
+      "expiresOnHint": "Facultative. Une pièce sans échéance n'est jamais signalée."
+    },
+    "uploadDialog": {
+      "title": "Déposer une pièce",
+      "description": "Le fichier est transmis tel quel au service de stockage de l'établissement.",
+      "submit": "Déposer",
+      "type": "Type de pièce",
+      "chooseType": "Choisir un type…",
+      "duplicateHint": "Une pièce de ce type est déjà au dossier. Vous pouvez la remplacer : l'ancienne version est conservée dans l'historique.",
+      "replaceExisting": "Remplacer la pièce existante"
+    },
+    "replaceDialog": {
+      "title": "Remplacer « {label} »",
+      "description": "Le nouveau fichier devient la version {n}. L'ancienne reste consultable dans l'historique.",
+      "submit": "Remplacer"
+    },
+    "editDialog": {
+      "title": "Modifier « {label} »",
+      "description": "Intitulé et dates uniquement ; le fichier ne change pas.",
+      "submit": "Enregistrer"
+    }
+  },
+  "v2HigherPdf": {
+    "nav": "Mes documents",
+    "state": {
+      "ready": "PDF prêt",
+      "preparing": "PDF en préparation",
+      "failed": "PDF en échec",
+      "revoked": "Révoqué"
+    },
+    "sealed": "Scellé",
+    "notSealed": "Non scellé",
+    "verify": "Page de vérification publique",
+    "download": "Télécharger le PDF",
+    "retry": "Relancer",
+    "revokedNote": "Document révoqué : le PDF n'est plus fourni.",
+    "preparing": "Le PDF est en préparation (scellement puis mise en page). Cette page se met à jour toute seule.",
+    "nowReady": "Le PDF est prêt : cliquez sur « Télécharger le PDF ».",
+    "timeout": "Le PDF est toujours en préparation. Revenez dans quelques minutes.",
+    "failed": "La production du PDF a échoué. Vous pouvez relancer la préparation.",
+    "failedNoRetry": "La production du PDF a échoué. Contactez le secrétariat pour la relancer.",
+    "award": {
+      "show": "Documents émis",
+      "hide": "Masquer les documents",
+      "none": "Aucun document n'a encore été émis pour cet octroi.",
+      "listLabel": "Documents de l'octroi {reference}",
+      "version": "version {n}"
+    },
+    "mine": {
+      "title": "Mes documents officiels",
+      "description": "Diplômes et attestations publiés par l'établissement. Le lien de vérification publique permet à un tiers de contrôler leur authenticité.",
+      "own": "Mes documents",
+      "noChild": "Aucun enfant n'est rattaché à votre compte.",
+      "child": "Documents de {name}",
+      "empty": "Aucun document publié.",
+      "emptyHint": "Les documents apparaissent ici dès que l'établissement les publie.",
+      "version": "version {n}",
+      "issuedOn": "Émis le {date}",
+      "revoked": "Document révoqué : {reason}",
+      "verifyHint": "Partagez cette page pour prouver l'authenticité du document : elle ne montre aucune donnée personnelle."
     }
   },
   "v2Messaging": {

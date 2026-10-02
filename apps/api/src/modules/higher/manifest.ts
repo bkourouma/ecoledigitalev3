@@ -71,10 +71,12 @@ export default defineModule({
     { key: "higher.prerequisites", label: "Prérequis", href: "/admin/higher/prerequis", permission: "higher.prerequisite.manage", feature: "higher.prerequisites", portal: "admin", icon: "git-branch", order: 430 },
     { key: "higher.signatories", label: "Signataires", href: "/admin/higher/signataires", permission: "higher.slot.manage", feature: "higher.diplomas", portal: "admin", icon: "pen-line", order: 440 },
     { key: "higher.pathway", label: "Mon parcours", href: "/student/higher", permission: "higher.self.read", portal: "student", icon: "route", order: 400 },
+    { key: "higher.my-documents", label: "Mes documents", href: "/v2/higher/me/documents", permission: "higher.self.read", feature: "higher.diplomas", portal: "student", icon: "file-badge", order: 410 },
     { key: "higher.child", label: "Parcours de mon enfant", href: "/parent/higher", permission: "higher.child.read", portal: "parent", icon: "route", order: 400 },
+    { key: "higher.child-documents", label: "Documents de mon enfant", href: "/v2/higher/me/documents", permission: "higher.child.read", feature: "higher.diplomas", portal: "parent", icon: "file-badge", order: 410 },
   ],
   events: {
     publishes: [...ALL_HIGHER_EVENT_TYPES],
-    consumes: [ConsumedEvents.RESULTS_PERIOD_CLOSED, ConsumedEvents.CREDITS_CAPITALIZED],
+    consumes: [ConsumedEvents.RESULTS_PERIOD_CLOSED, ConsumedEvents.CREDITS_CAPITALIZED, ConsumedEvents.DOCUMENT_ISSUED, ConsumedEvents.DOCUMENT_RENDER_REQUESTED],
   },
 });

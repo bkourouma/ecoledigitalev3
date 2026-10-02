@@ -127,6 +127,18 @@ export {
 } from "./application/guardians";
 export { getPersonQualities, linkPersonToIdentity, provisionPortalAccount, type AccountOutcome, type PersonQuality } from "./application/accounts";
 
+// Pièces de l'élève (stockage objet, URL signées, lectures auditées)
+export {
+  emitExpiringStudentDocuments,
+  getStudentDocumentUrl,
+  listStudentDocuments,
+  removeStudentDocument,
+  replaceStudentDocument,
+  updateStudentDocument,
+  uploadStudentDocument,
+} from "./application/documents";
+export { safeDocumentFileName, sniffDocument, documentExpiryState } from "./domain/files";
+
 // Contrôle d'accès fin
 export { classroomsOfCurrentStaff, resolveStaffLookupScope, resolveStudentAudience, resolveStudentListScope, resolveStudentLookupScope, staffCanReadStudent, type PermissionProbe } from "./application/access";
 

@@ -48,6 +48,7 @@ export const peopleTenantTables: readonly string[] = Object.freeze([
   "people.teaching_assignments",
   "people.teaching_assignment_history",
   "people.identity_memberships",
+  "people.student_documents",
 ]);
 
 /**

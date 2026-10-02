@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { unwrap } from "@ecoledigitale/kernel";
 import { ensureBuiltinTemplates, publishPlatformTemplate, retirePlatformTemplate, validatePlatformTemplate } from "../../application/platform";
 import { listAvailableTemplates, putTemplateConfig } from "../../application/reference";
-import { BUILTIN_TEMPLATES } from "../../templates/builtin";
+import { ALL_PLATFORM_TEMPLATES, BUILTIN_TEMPLATES } from "../../templates/builtin";
 import { createReportcardsTestDb, ctxFor, describeIntegration, adminRows, type ReportcardsTestDb } from "../support/db";
 import { makeWorld, type TestWorld } from "../support/world";
 
@@ -20,15 +20,15 @@ describeIntegration("catalogue de gabarits de plateforme : amorçage, publicatio
     await db.drop();
   });
 
-  it("catalogue vide : le gabarit est introuvable ; la liste publie les 5 gabarits livrés à la demande (idempotent)", async () => {
+  it("catalogue vide : le gabarit est introuvable ; la liste publie les gabarits livrés (bulletins + documents du supérieur) à la demande (idempotent)", async () => {
     const early = await putTemplateConfig(world.deps, ctx, { documentKind: "REPORT_CARD", pack: "SECONDARY", templateKey: "secondary-bulletin" });
     expect(early.ok).toBe(false);
     const listed = unwrap(await listAvailableTemplates(world.deps, ctx));
-    expect(listed.map((t) => t.key).sort()).toEqual(BUILTIN_TEMPLATES.map((t) => t.key).sort());
+    expect(listed.map((t) => t.key).sort()).toEqual(ALL_PLATFORM_TEMPLATES.map((t) => t.key).sort());
     expect(listed.every((t) => t.status === "PUBLISHED" && /^[0-9a-f]{64}$/.test(t.contentHash ?? ""))).toBe(true);
-    expect(unwrap(await listAvailableTemplates(world.deps, ctx))).toHaveLength(7);
+    expect(unwrap(await listAvailableTemplates(world.deps, ctx))).toHaveLength(ALL_PLATFORM_TEMPLATES.length);
     expect(unwrap(await ensureBuiltinTemplates(world.deps)).published).toEqual([]);
-    expect(Number((await adminRows<any>(db, "SELECT count(*) AS n FROM reportcards.platform_templates"))[0].n)).toBe(7);
+    expect(Number((await adminRows<any>(db, "SELECT count(*) AS n FROM reportcards.platform_templates"))[0].n)).toBe(ALL_PLATFORM_TEMPLATES.length);
   });
 
   it("nouvelle version d'un gabarit : numéro suivant, l'ancienne reste PUBLISHED et rendable ; hash de contenu distinct", async () => {

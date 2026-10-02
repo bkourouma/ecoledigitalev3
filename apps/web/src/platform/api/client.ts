@@ -152,6 +152,11 @@ async function readBody(response: Response, responseType: "json" | "text" | "blo
   }
 }
 
+/** Corps binaire (fichier, tampon) : jamais sérialisé en JSON. */
+function isBinaryBody(body: unknown): boolean {
+  return (typeof Blob !== "undefined" && body instanceof Blob) || body instanceof ArrayBuffer || ArrayBuffer.isView(body);
+}
+
 export function createApiClient(options: ApiClientOptions): ApiClient {
   const sleep = options.sleep ?? defaultSleep;
   const random = options.random ?? Math.random;
@@ -191,7 +196,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
 
     let payload: BodyInit | undefined;
     if (opts.body !== undefined && method !== "GET" && method !== "HEAD") {
-      if (typeof FormData !== "undefined" && opts.body instanceof FormData) {
+      if (isBinaryBody(opts.body)) {
+        // Fichier envoyé tel quel (pièces d'élève) : le `Content-Type` est celui du fichier, fixé par l'appelant dans `headers`.
+        payload = opts.body as BodyInit;
+      } else if (typeof FormData !== "undefined" && opts.body instanceof FormData) {
         payload = opts.body; // le navigateur fixe le Content-Type multipart
       } else {
         payload = typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);

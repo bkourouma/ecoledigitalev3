@@ -195,6 +195,7 @@ export interface OfficialDocument {
   readonly templateKey: string | null;
   readonly renderStatus: "PENDING" | "RENDERING" | "RENDERED" | "FAILED";
   readonly objectKey: string | null;
+  readonly pdfHash: string | null;
   readonly issuedAt: Date;
   readonly issuedBy: Uuid;
   readonly issuedByName: string;

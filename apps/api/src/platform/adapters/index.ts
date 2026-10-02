@@ -30,7 +30,7 @@ import { registerHigherPorts, registerHigherWorkerPorts, type HigherPorts } from
 import { registerMessagingPorts, setMessagingWorkerPorts, type MessagingPorts } from "../../modules/messaging";
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
-import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorkerResources, type ReportcardsPorts } from "../../modules/reportcards";
+import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorkerResources, type PdfRenderer, type ReportcardsPorts } from "../../modules/reportcards";
 import { createOfficialDocumentDeps, type OfficialDocumentDepsOptions } from "./official-documents";
 import { registerResultsPorts, setResultsWorkerPorts, type ResultsPorts } from "../../modules/results";
 import { registerSchedulingPorts } from "../../modules/scheduling";
@@ -62,6 +62,8 @@ import { createResultsActorNamePort, createResultsGuardianshipPort } from "./peo
 import { createSchedulingPeopleQuery } from "./people-scheduling";
 import { createPayrollAttendanceHours, createPayrollSessionHours } from "./payroll-sources";
 import { createHigherInstitutionPort, createHigherSignatoryDirectory } from "./reportcards-higher";
+import { createHigherDocumentFiles, createHigherDocumentVerifier } from "./reportcards-higher-documents";
+import { createAcademicPromotionDecisions } from "./results-academic";
 import { createReportcardsResultsRead } from "./results-reportcards";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
@@ -89,8 +91,9 @@ export interface PlatformPorts {
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
-export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | null, documents: OfficialDocumentDepsOptions = {}): PlatformPorts {
+export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | null, documents: OfficialDocumentDepsOptions = {}, extras: { documentRenderer?: PdfRenderer } = {}): PlatformPorts {
   const officialDocuments = createOfficialDocumentDeps(kit, storage, documents);
+  const documentRenderer = extras.documentRenderer;
   const { academic, people, finance, attendance, scheduling, results, reportcards, assess, higher, rules, lookups, clock } = kit;
   const messagingDirectory = createMessagingPeopleDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock });
   return {
@@ -103,6 +106,7 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
       completion: createAcademicCompletionLookup(higher, academic),
       registrationFee: createAcademicRegistrationFeeProbe(finance, academic, clock),
       invoiceFacts: createAcademicInvoiceFactsReader(finance),
+      promotions: createAcademicPromotionDecisions(results),
     },
     people: {
       academic: createPeopleAcademicQuery(academic),
@@ -152,6 +156,12 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
       guardianship: createReportcardsGuardianshipPort(lookups),
       attendance: createReportcardsAttendanceSummary(attendance),
       standing: createReportcardsLearnerStanding(finance),
+      // Vérification publique des diplômes et attestations : higher lit, reportcards revérifie signature et empreinte.
+      external: {
+        DIPLOMA: createHigherDocumentVerifier(higher),
+        ATTESTATION_SUCCESS: createHigherDocumentVerifier(higher),
+        ATTESTATION_AUTHENTICITY: createHigherDocumentVerifier(higher),
+      },
       directory: createReportcardsUserDirectory(lookups),
       ...(storage ? { storage } : {}),
     },
@@ -165,6 +175,7 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
       actors: createHigherActorDirectory(lookups),
       signatories: createHigherSignatoryDirectory(reportcards),
       institution: createHigherInstitutionPort(reportcards),
+      documents: createHigherDocumentFiles(kit, storage, documentRenderer ? { renderer: documentRenderer } : {}),
     },
     analytics: createAnalyticsSources(kit),
     messaging: {

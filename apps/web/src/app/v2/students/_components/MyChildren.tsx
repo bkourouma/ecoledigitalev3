@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { peopleEmergencyContactPatchSchema, type PeopleEmergencyContactDto } from "@ecoledigitale/contracts/v2/people";
 import { useChildEnrollments } from "@/platform/v2/academic";
 import { useMyChild, useMyChildren, useUpdateChildEmergencyContact } from "@/platform/v2/people";
+import { Can } from "@/platform/ui/AccessGate";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
 import { FormField, TextControl } from "@/platform/ui/FormField";
 import { useDateFormat } from "@/platform/ui/format";
@@ -75,7 +76,19 @@ export function ChildDetail({ id }: { id: string }) {
     { id: "name", header: t("emergency.name"), rowHeader: true, cell: (c) => c.contactName },
     { id: "phone", header: t("emergency.phone"), cell: (c) => <a href={`tel:${c.phone}`} className="text-primary underline-offset-4 hover:underline">{c.phone}</a> },
     { id: "relationship", header: t("emergency.relationship"), cell: (c) => c.relationshipLabel ?? "—", className: "hidden sm:table-cell" },
-    { id: "edit", header: <span className="sr-only">{t("emergency.actions")}</span>, align: "right", cell: (c) => (<button type="button" className={buttonClass.ghost} onClick={() => setEditing(c)} aria-label={`${t("emergency.edit")} — ${c.contactName}`}>{t("emergency.edit")}</button>) },
+    {
+      id: "edit",
+      header: <span className="sr-only">{t("emergency.actions")}</span>,
+      align: "right",
+      cell: (c) => (
+        // Correction réservée au tuteur autorisé (`student.child.update`) ; l'API revérifie le lien vivant avec l'enfant.
+        <Can permission="student.child.update">
+          <button type="button" className={buttonClass.ghost} onClick={() => setEditing(c)} aria-label={`${t("emergency.edit")} — ${c.contactName}`}>
+            {t("emergency.edit")}
+          </button>
+        </Can>
+      ),
+    },
   ];
 
   return (
@@ -129,7 +142,9 @@ export function ChildDetail({ id }: { id: string }) {
         <h2 id="child-emergency" className="text-lg font-semibold">
           {t("emergency.title")}
         </h2>
-        <p className="text-sm text-muted-foreground">{t("emergency.hint")}</p>
+        <Can permission="student.child.update">
+          <p className="text-sm text-muted-foreground">{t("emergency.hint")}</p>
+        </Can>
         <DataTable caption={t("emergency.caption")} columns={emergencyColumns} rows={emergencyContacts} getRowId={(c) => c.id} emptyTitle={t("emergency.empty")} />
       </section>
 

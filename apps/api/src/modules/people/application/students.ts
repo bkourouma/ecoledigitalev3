@@ -39,6 +39,7 @@ import {
 import { ensureTenantDefaults, nextNumber } from "../infrastructure/reference-repo";
 import { listPrimaryGuardians } from "../infrastructure/guardians-repo";
 import * as repo from "../infrastructure/students-repo";
+import * as documentsRepo from "../infrastructure/documents-repo";
 import { actorId, clampPage, EventBuffer, inTx, todayOf, type PeopleDeps } from "./deps";
 import { detectDuplicates, defaultCountryOf, lockKey, loadSettings, normalizePersonInput, toNewPerson, changedPersonFields, SEE_NO_ROLE, type RoleVisibility } from "./support";
 import {
@@ -731,6 +732,7 @@ export async function anonymizeStudent(deps: PeopleDeps, ctx: RequestContext, st
     const keys: string[] = [];
     if (row.photoObjectKey) keys.push(row.photoObjectKey);
     keys.push(...(await repo.neutralizePriorEducation(tx, ctx.tenantId, studentId, now)));
+    keys.push(...(await documentsRepo.wipeAllDocuments(tx, ctx.tenantId, studentId, "Anonymisation du dossier", now)));
     await repo.deleteAllEmergencyContacts(tx, ctx.tenantId, studentId);
     await repo.wipeStudentSensitive(tx, ctx.tenantId, studentId, now);
     await anonymizePerson(tx, ctx.tenantId, locked.personId, now);

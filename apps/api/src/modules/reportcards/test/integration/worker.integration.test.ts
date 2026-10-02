@@ -115,6 +115,6 @@ describeIntegration("abonnés du worker : rendu sur `reportcards.snapshot.create
     const event = eventOf(ConsumedEvents.TENANT_PROVISIONED, { tenantId: school.tenantId });
     await handler(event as never, handlerCtx(1));
     await handler(event as never, handlerCtx(1));
-    expect(Number((await adminOne<any>(db, "SELECT count(*) AS n FROM reportcards.platform_templates WHERE status = 'PUBLISHED'")).n)).toBe(7);
+    expect(Number((await adminOne<any>(db, "SELECT count(*) AS n FROM reportcards.platform_templates WHERE status = 'PUBLISHED'")).n)).toBe(10);
   });
 });

@@ -62,7 +62,8 @@ describe("manifeste du module higher", () => {
     for (const consumed of manifest.events.consumes) expect(patterns, consumed).toContain(consumed);
     expect(new Set(subscribers.map((s) => s.name)).size).toBe(subscribers.length);
     // L'éligibilité et la capitalisation sont deux abonnés DISTINCTS (R-HIG-10).
-    expect(subscribers.map((s) => s.name).sort()).toEqual(["higher.capitalize-on-period-closed", "higher.evaluate-diplomas-on-capitalized"]);
+    // Le scellement et le rendu PDF des documents sont deux abonnés dédiés (Chromium : jamais dans la transaction d'un autre effet).
+    expect(subscribers.map((s) => s.name).sort()).toEqual(["higher.capitalize-on-period-closed", "higher.evaluate-diplomas-on-capitalized", "higher.render-document", "higher.render-document-requested"]);
     expect(jobs.map((j) => j.name)).toEqual(["higher.expire-credits"]);
   });
 

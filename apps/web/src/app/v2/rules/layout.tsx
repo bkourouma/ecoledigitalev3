@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { requireSession } from "@/platform/auth/server";
+import { RulesNav } from "./_components/RulesNav";
 
 /**
  * Habillage des règles de calcul (`/v2/rules/*`). Session exigée côté serveur ; la permission `rules.ruleset.read` est
@@ -8,5 +9,10 @@ import { requireSession } from "@/platform/auth/server";
  */
 export default async function RulesLayout({ children }: { children: ReactNode }) {
   await requireSession();
-  return <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">{children}</div>;
+  return (
+    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+      <RulesNav />
+      {children}
+    </div>
+  );
 }

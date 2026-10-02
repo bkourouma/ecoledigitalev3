@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { newId, unwrap } from "@ecoledigitale/kernel";
 import { updateResultsSettings } from "../../application/governance";
 import { closePeriod, lockPeriod, reopenPeriod } from "../../application/lifecycle";
+import { listPromotionOutcomes } from "../../application/promotion";
 import { getYearResult } from "../../application/year";
 import type { ClassStructure, EnrollmentRef } from "../../domain/types";
 import { createResultsTestDb, describeIntegration, type ResultsTestDb } from "../support/db";
@@ -107,6 +108,13 @@ describeIntegration("résultat d'année (Postgres réel + règles réelles)", ()
       expect(c.periods[1]).toMatchObject({ final: true, average: null });
     });
 
+    it("décision de PASSAGE lue par academic : année validée (toutes les UE, règle du jeu de règles) ⇒ passage ; année non validée ou incomplète ⇒ aucune décision (la direction tranche)", async () => {
+      const outcomes = unwrap(await listPromotionOutcomes(w.deps, w.director, { academicYearId: yearId, enrollmentIds: students.map((s) => s.enrollmentId) }));
+      expect(outcomes).toEqual([{ enrollmentId: students[0]!.enrollmentId, kind: "ADVANCE", code: "YEAR_VALIDATED" }]);
+      expect(unwrap(await listPromotionOutcomes(w.deps, w.director, { academicYearId: yearId, enrollmentIds: [] }))).toEqual([]);
+      expect(unwrap(await listPromotionOutcomes(w.deps, w.director, { academicYearId: newId(), enrollmentIds: students.map((s) => s.enrollmentId) }))).toEqual([]);
+    });
+
     it("reproductible : même résultat tant que les FINAL ne changent pas ; une période réouverte garde son FINAL officiel jusqu'à son remplacement", async () => {
       const before = await yearOf(students[0]!, yearId);
       const again = await yearOf(students[0]!, yearId);
@@ -153,6 +161,13 @@ describeIntegration("résultat d'année (Postgres réel + règles réelles)", ()
       const y1 = await yearOf(students[1]!, yearId);
       expect(y1.average).toMatch(/^7\.666666/); // (7 + 2×8)/3
       expect(y1).toMatchObject({ yearDecisionCode: "REPEAT", rank: 2 });
+    });
+
+    it("décision de PASSAGE : la décision de fin d'année confirmée (conseil) donne le passage ou le redoublement ; jamais déduite d'une moyenne", async () => {
+      const outcomes = unwrap(await listPromotionOutcomes(w.deps, w.director, { academicYearId: yearId, enrollmentIds: students.map((s) => s.enrollmentId) }));
+      const byEnrollment = new Map(outcomes.map((o) => [o.enrollmentId, o]));
+      expect(byEnrollment.get(students[0]!.enrollmentId)).toMatchObject({ kind: "ADVANCE", code: "PROMOTED" });
+      expect(byEnrollment.get(students[1]!.enrollmentId)).toMatchObject({ kind: "REPEAT", code: "REPEAT" });
     });
   });
 });

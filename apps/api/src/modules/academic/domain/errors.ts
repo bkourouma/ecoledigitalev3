@@ -160,6 +160,13 @@ export const AcademicCode = {
   // Reconduction
   ROLLOVER_INVALID: "academic.rollover_invalid",
   ROLLOVER_YEAR_ORDER: "academic.rollover_year_order",
+  ROLLOVER_RUN_NOT_FOUND: "academic.rollover_run_not_found",
+  ROLLOVER_RUN_LIVE: "academic.rollover_run_live",
+  ROLLOVER_RUN_NOT_RETRYABLE: "academic.rollover_run_not_retryable",
+  // Calendrier de l'établissement
+  HOLIDAY_NOT_FOUND: "academic.holiday_not_found",
+  HOLIDAY_DUPLICATE: "academic.holiday_duplicate",
+  HOLIDAY_DATES_INVALID: "academic.holiday_dates_invalid",
   // Technique
   IMMUTABLE: "academic.immutable",
   FORBIDDEN_SCOPE: "academic.forbidden_scope",

@@ -33,6 +33,8 @@ export interface ActionOptions<TData, TVars> {
   idempotencyKey?: (variables: TVars) => string | undefined;
   /** `text` pour un export (CSV) : la réponse n'est pas du JSON. */
   responseType?: "json" | "text" | "blob";
+  /** Délai maximal de la requête en ms (envoi d'un fichier : plus long que les 30 s par défaut). */
+  timeoutMs?: number;
 }
 
 export function useApiAction<TData = unknown, TVars = void>(options: ActionOptions<TData, TVars>): UseMutationResult<TData, ApiError, TVars> {
@@ -46,6 +48,7 @@ export function useApiAction<TData = unknown, TVars = void>(options: ActionOptio
         headers: options.headers ? options.headers(variables) : undefined,
         schema: options.schema,
         responseType: options.responseType,
+        timeoutMs: options.timeoutMs,
       }) as Promise<TData>,
     onSuccess: async () => {
       await Promise.all((options.invalidate ?? []).map((parts) => queryClient.invalidateQueries({ queryKey: platformHooks.queryKey(...parts) })));

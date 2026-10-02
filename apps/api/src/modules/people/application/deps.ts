@@ -36,6 +36,8 @@ import {
 export interface PeopleConfig {
   /** Taille maximale d'une photo (octets) — R13 : 2 Mo par défaut, configurable. */
   photoMaxBytes: number;
+  /** Taille maximale d'une pièce d'élève (PDF ou image), en octets : 8 Mo par défaut, configurable. */
+  documentMaxBytes: number;
   /** Plafond de l'export CSV (AC7.4). */
   exportMaxRows: number;
   /** Plafond de pagination des listes (AC4.3). */
@@ -48,6 +50,7 @@ export interface PeopleConfig {
 
 export const DEFAULT_PEOPLE_CONFIG: PeopleConfig = Object.freeze({
   photoMaxBytes: 2 * 1024 * 1024,
+  documentMaxBytes: 8 * 1024 * 1024,
   exportMaxRows: 5_000,
   maxPageSize: 200,
   signedUrlTtlSec: 120,

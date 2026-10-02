@@ -42,6 +42,15 @@ export async function listFinalHeadersOfClassroomYear(tx: Tx, classroomId: strin
   return rows.map(toHeader);
 }
 
+/** Résultats FINAL de PÉRIODE de ces inscriptions pour une année (lecture seule : décision de passage lue par academic). */
+export async function listFinalPeriodHeadersOfEnrollments(tx: Tx, academicYearId: string, enrollmentIds: readonly string[]): Promise<ResultHeader[]> {
+  const rows = await tx.many(
+    `SELECT ${HEADER_COLUMNS} FROM results.period_results r WHERE r.academic_year_id = $1 AND r.enrollment_id = ANY($2::uuid[]) AND r.scope = 'PERIOD' AND r.status = 'FINAL' ORDER BY r.enrollment_id, r.academic_period_id`,
+    [academicYearId, [...enrollmentIds]],
+  );
+  return rows.map(toHeader);
+}
+
 export async function getHeaderById(tx: Tx, id: string): Promise<ResultHeader | null> {
   const row = await tx.queryOne(`SELECT ${HEADER_COLUMNS} FROM results.period_results r WHERE r.id = $1`, [id]);
   return row ? toHeader(row) : null;
