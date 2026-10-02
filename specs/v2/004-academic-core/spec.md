@@ -353,6 +353,12 @@ Portail admin (`/admin/academique/*`, route group `(admin)` de la spec 033) ; me
 
 Accessibilité et mobile : tables à défilement, actions principales utilisables sur smartphone ; textes via catalogues i18n `fr-CI`.
 
+### 9.1 Assistant de reconduction (`/v2/academic/rollover`) et paramètres (livrés)
+
+Routes ajoutées (feature `academic.rollover`, permission `academic.year.rollover`) : `GET /years/:id/rollover/plan` (aperçu avec avertissements, sans écriture), `POST /years/:id/rollover/runs` (crée l'exécution et publie `academic.rollover.requested`), `GET /years/:id/rollover/runs`, `GET /rollover/runs/:id` (progression par étape et rapport), `POST /rollover/runs/:id/retry`. Calendrier d'établissement : `GET|POST /holidays`, `PATCH|DELETE /holidays/:id` (`academic.settings.manage`).
+
+Exécution : un abonné du worker (`academic.run-rollover`) rejoue les étapes dans l'ordre, chacune idempotente — calendrier et périodes (dates décalées d'un an), curriculum publié -> brouillon de l'année cible, classes (clé programme + niveau + code), offres (hors de l'année cible : ignorées et listées), jours fériés, puis réinscription en lot des élèves promus. La décision de passage n'est JAMAIS calculée par academic : elle est lue dans `results` par le port `PromotionDecisionPort` (adaptateur `results-academic` : décision d'année confirmée PROMOTED/ADMITTED -> ADVANCE, REPEAT -> REPEAT ; contrat à crédits : année validée -> ADVANCE `YEAR_VALIDATED`, sinon aucune décision, signalée). Une exécution RUNNING sans signe de vie depuis 10 minutes est reprise ; le rejeu ne crée rien en double. Migrations `0707` (exécutions) et `0708` (jours fériés).
+
 ## 10. Permissions (déclarées dans `manifest.ts`)
 
 | Clé | Libellé | Sensible |

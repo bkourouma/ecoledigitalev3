@@ -9,7 +9,7 @@
  * `{{> verification}}`…), liste blanche de balises, CSS sans URL. Un modèle officiel d'un établissement s'ajoutera comme une
  * nouvelle VERSION du gabarit, sans livraison de code.
  */
-import type { BuiltinTemplate } from "./builtin";
+import type { BuiltinTemplate } from "./types";
 
 const CSS = `
 .doc { position: relative; padding: 0; color: #1d2433; font-family: "Georgia", "Times New Roman", serif; font-size: 11pt; line-height: 1.4; }

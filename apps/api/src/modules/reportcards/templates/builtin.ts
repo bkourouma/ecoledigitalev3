@@ -9,18 +9,9 @@
  */
 import type { Pack, SignatureSlot, TemplateDocumentKind } from "../domain/types";
 import { HIGHER_DOCUMENT_TEMPLATES } from "./higher-documents";
+import type { BuiltinTemplate } from "./types";
 
-export interface BuiltinTemplate {
-  readonly key: string;
-  readonly version: number;
-  readonly documentKind: TemplateDocumentKind;
-  readonly pack: Pack;
-  readonly title: string;
-  readonly body: string;
-  readonly css: string;
-  readonly optionsSchema: Record<string, unknown>;
-  readonly signatureSlots: readonly SignatureSlot[];
-}
+export type { BuiltinTemplate } from "./types";
 
 const COMMON_CSS = `
 .doc { position: relative; padding: 0; color: #1d2433; font-family: "Georgia", "Times New Roman", serif; font-size: 9.5pt; line-height: 1.3; }
