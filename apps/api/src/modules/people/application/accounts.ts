@@ -82,7 +82,7 @@ export async function getPersonQualities(deps: PeopleDeps, ctx: RequestContext, 
  * Rôles que l'invitation de portail peut accorder. SEC-06 : le rôle est attribué sous un contexte `system` (sans contrôle
  * anti-escalade) ; accepter n'importe quelle clé permettait à un secrétariat (`guardian.manage`) de s'attribuer `owner`.
  */
-export const PORTAL_ROLES: readonly string[] = Object.freeze(["parent", "eleve", "enseignant", "educateur"]);
+export const PORTAL_ROLES: readonly string[] = Object.freeze(["parent", "eleve", "enseignant", "educateur", "instituteur"]);
 
 export async function provisionPortalAccount(
   deps: PeopleDeps,

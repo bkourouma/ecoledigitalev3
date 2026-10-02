@@ -15,6 +15,6 @@ describe("provisionPortalAccount : liste blanche de rôles de portail", () => {
   });
 
   it("la liste blanche ne contient aucun rôle d'administration", () => {
-    expect([...PORTAL_ROLES].sort()).toEqual(["educateur", "eleve", "enseignant", "parent"]);
+    expect([...PORTAL_ROLES].sort()).toEqual(["educateur", "eleve", "enseignant", "instituteur", "parent"]);
   });
 });
