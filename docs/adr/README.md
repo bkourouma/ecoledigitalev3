@@ -16,6 +16,7 @@ Un ADR n'est jamais réécrit après acceptation : on en ouvre un nouveau qui le
 | [ADR-006](ADR-006-schemas-par-module-reset-base.md) | Un schéma Postgres par module et reset de la base | Accepté |
 | [ADR-007](ADR-007-conventions.md) | Conventions : UUID, montants, dates, i18n, nommage | Accepté |
 | [ADR-008](ADR-008-identite-et-sessions.md) | Identité globale, accès par tenant, sessions et MFA | Accepté |
+| [ADR-009](ADR-009-observabilite.md) | Observabilité : journaux structurés, traces OpenTelemetry, métriques Prometheus, santé | Accepté |
 
 
 ## Statuts possibles

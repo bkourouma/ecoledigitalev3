@@ -26,6 +26,11 @@ export interface DomainEvent<TType extends string = string, TPayload = unknown> 
   readonly aggregateId?: string;
   readonly actorId?: string | null;
   readonly requestId?: string;
+  /**
+   * Contexte de trace W3C (`00-<trace>-<span>-<flags>`) de la requête qui a émis l'événement. Renseigné par
+   * l'outbox quand le traçage est actif (ADR-009) ; jamais de donnée personnelle. Absent sinon.
+   */
+  readonly traceparent?: string;
 }
 
 export interface CreateEventInput<TType extends string, TPayload> {
