@@ -59,7 +59,7 @@ export async function insertDeliveries(tx: Tx, tenantId: string, drafts: readonl
           template_code, template_version, locale, category, urgent, channel, subject_key, alias_keys, recipient_user_id, recipient_masked,
           recipient_address, address_hash, content, context, status, skip_reason, attempts, max_attempts, available_at, last_error_code, last_error, created_by)
        SELECT x.id, $1, x.created_at, x.created_at, x.dedupe_key, x.group_key, x.source_kind, x.source_event_id, x.rule_key,
-              x.template_code, x.template_version, x.locale, x.category, x.urgent, x.channel, x.subject_key, string_to_array(nullif(x.alias_keys, ''), ','),
+              x.template_code, x.template_version, x.locale, x.category, x.urgent, x.channel, x.subject_key, COALESCE(string_to_array(nullif(x.alias_keys, ''), ','), ARRAY[]::text[]),
               x.recipient_user_id, x.recipient_masked, x.recipient_address, x.address_hash, x.content::jsonb, x.context::jsonb, x.status, x.skip_reason, 0,
               x.max_attempts, x.available_at, x.last_error_code, x.last_error, x.created_by
          FROM unnest($2::uuid[], $3::timestamptz[], $4::text[], $5::text[], $6::text[], $7::uuid[], $8::text[], $9::text[], $10::int[], $11::text[],

@@ -16,8 +16,16 @@ export function normalizeEmail(raw: string | null | undefined): string | null {
 }
 
 /**
- * Numéro normalisé au format E.164 (`+22507070707`). `defaultDialCode` (sans `+`) complète un numéro national.
- * Reprend la règle de normalisation du legacy (`wasender.ts`) : `00…` = `+…`, un `0` initial est un préfixe national.
+ * Indicatifs dont le plan de numérotation GARDE le « 0 » initial dans le numéro international (Côte d'Ivoire depuis 2021 :
+ * `+225 07 07 07 07 07`, 10 chiffres). Pour les autres pays, un « 0 » initial est un préfixe national qu'on retire
+ * (`0707070707` au Sénégal -> `+221 707070707`). Donnée de plan de numérotation, pas une règle réglementaire du module.
+ */
+const KEEP_TRUNK_ZERO: ReadonlySet<string> = new Set(["225"]);
+
+/**
+ * Numéro normalisé au format E.164 (`+2250707070707`). `defaultDialCode` (sans `+`) complète un numéro national.
+ * Reprend la normalisation du legacy (`wasender.ts`) — `00…` = `+…`, un numéro international `+…` est conservé — en
+ * corrigeant le « 0 » initial selon le plan de numérotation du pays.
  */
 export function normalizePhone(raw: string | null | undefined, defaultDialCode = "225"): string | null {
   if (!raw || typeof raw !== "string") return null;
@@ -30,7 +38,9 @@ export function normalizePhone(raw: string | null | undefined, defaultDialCode =
     const national = s.replace(/[^0-9]/g, "");
     if (!national) return null;
     const cc = defaultDialCode.replace(/^\+/, "");
-    digits = national.startsWith("0") && national.length >= 9 ? `${cc}${national.replace(/^0+/, "")}` : national.length >= 10 ? `${cc}${national}` : national;
+    if (national.startsWith(cc) && national.length >= cc.length + 8) digits = national; // indicatif déjà présent, sans « + »
+    else if (KEEP_TRUNK_ZERO.has(cc)) digits = national.length === 10 && national.startsWith("0") ? `${cc}${national}` : national.length >= 11 ? national : ""; // 8 chiffres = ancien plan : préfixe inconnu, refusé
+    else digits = national.length >= 8 ? `${cc}${national.replace(/^0+/, "")}` : "";
   }
   if (digits.length < 8 || digits.length > 15) return null;
   return `+${digits}`;
@@ -43,12 +53,11 @@ export function maskEmail(email: string): string {
   return `${email[0]}***${email.slice(at)}`;
 }
 
-/** `+2250707070734` -> `+225 ** ** ** 34` (indicatif conservé : utile au support, 2 derniers chiffres). */
+/** `+2250707070734` -> `+225 ** ** ** 34` (3 premiers chiffres = indicatif, utile au support ; 2 derniers chiffres). */
 export function maskPhone(e164: string): string {
   const digits = e164.replace(/[^0-9]/g, "");
   if (digits.length < 8) return "***";
-  const dial = digits.length > 10 ? digits.slice(0, digits.length - 10) : digits.slice(0, 1);
-  return `+${dial} ** ** ** ${digits.slice(-2)}`;
+  return `+${digits.slice(0, 3)} ** ** ** ${digits.slice(-2)}`;
 }
 
 /** Masque l'adresse d'un canal ; compte (in-app, push) : identifiant tronqué. */

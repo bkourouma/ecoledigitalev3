@@ -23,6 +23,9 @@ function repoRoot(): string {
 
 export const BASELINE_DIR = resolve(repoRoot(), "packages/database/migrations");
 export const MODULE_MIGRATIONS = resolve(__dirname, "../../migrations");
+/** Le canal in-app écrit dans `messaging` ; les abonnés idempotents ont besoin de `kernel.processed_events` (worker). */
+export const MESSAGING_MIGRATIONS = resolve(__dirname, "../../../messaging/migrations");
+export const WORKER_MIGRATIONS = resolve(repoRoot(), "apps/worker/migrations");
 
 export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 export const describeIntegration: typeof describe = describe.skipIf(!TEST_DATABASE_URL) as unknown as typeof describe;
@@ -47,7 +50,7 @@ export interface ModuleTestDb {
   drop(): Promise<void>;
 }
 
-export async function createModuleTestDb(): Promise<ModuleTestDb> {
+export async function createModuleTestDb(options: { extraDirs?: readonly string[] } = {}): Promise<ModuleTestDb> {
   const name = "ed_it_" + rand() + "_test";
   const maintenance = new Client({ connectionString: TEST_DATABASE_URL });
   await maintenance.connect();
@@ -55,7 +58,7 @@ export async function createModuleTestDb(): Promise<ModuleTestDb> {
 
   const admin = new Client({ connectionString: urlFor(name) });
   await admin.connect();
-  await migrate({ client: admin, dirs: [BASELINE_DIR, MODULE_MIGRATIONS], role: "migrator", logger: noopLogger });
+  await migrate({ client: admin, dirs: [BASELINE_DIR, ...(options.extraDirs ?? [WORKER_MIGRATIONS, MESSAGING_MIGRATIONS]), MODULE_MIGRATIONS], role: "migrator", logger: noopLogger });
 
   const role = "it_app_" + rand();
   const password = rand(16);

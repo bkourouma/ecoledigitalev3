@@ -18,10 +18,12 @@ const U2 = "0190aaaa-0000-7000-8000-000000000002";
 
 describe("adresses : normalisation, masquage, empreinte", () => {
   it("normalise le numéro en E.164 comme le legacy (national, 00, +)", () => {
-    expect(normalizePhone("07 07 07 07 07")).toBe("+225707070707");
+    expect(normalizePhone("07 07 07 07 07")).toBe("+2250707070707"); // Côte d'Ivoire : le 0 initial fait partie du numéro (plan 2021)
     expect(normalizePhone("0022507070707")).toBe("+22507070707");
     expect(normalizePhone("+225 07-07-07-07-07")).toBe("+2250707070707");
-    expect(normalizePhone("0707070707", "221")).toBe("+221707070707");
+    expect(normalizePhone("0707070707", "221")).toBe("+221707070707"); // ailleurs : le 0 est un préfixe national
+    expect(normalizePhone("07070707")).toBeNull(); // ancien plan à 8 chiffres : préfixe opérateur inconnu
+    expect(normalizePhone("2250707070707")).toBe("+2250707070707");
     expect(normalizePhone("123")).toBeNull();
     expect(normalizePhone(null)).toBeNull();
   });
