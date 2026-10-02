@@ -65,6 +65,6 @@ export { listRules, saveRule, resetRule } from "./application/rules";
 export { getNotificationSettings, updateNotificationSettings } from "./application/settings";
 export { getMyNotificationPreferences, updateMyNotificationPreferences, setSubjectConsent, getConsentLog, applyUnsubscribe } from "./application/preferences";
 export { listDeliveries, deliveryStats } from "./application/journal";
-export { sendManualNotification } from "./application/send";
+export { sendAutomaticNotification, sendManualNotification } from "./application/send";
 export { getChannelsHealth, sendChannelTest } from "./application/health";
 export { applyDeliveryStatusWebhook } from "./application/webhooks";

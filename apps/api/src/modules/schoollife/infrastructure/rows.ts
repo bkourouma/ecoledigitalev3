@@ -7,6 +7,10 @@ export interface SettingsRow {
   conductPointsEnabled: boolean;
   confidentialReadRequiresPurpose: boolean;
   retentionDays: number | null;
+  /** Rappel d'une convocation N heures avant l'échéance ; `null` = pas de rappel (réglage VIDE par défaut). */
+  convocationReminderHours: number | null;
+  /** Avis aux tuteurs au début et à la fin d'une exclusion temporaire (éteint par défaut). */
+  exclusionBoundaryNotices: boolean;
 }
 
 export interface SeverityRow {

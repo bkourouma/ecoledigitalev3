@@ -10,7 +10,7 @@
  *    aucun destinataire joignable = ÉCHEC explicite (le statut de la convocation ou de la mesure ne change pas).
  */
 import type { NotifManualAudience } from "@ecoledigitale/contracts/src/v2/notifications";
-import { createNotificationsDeps, sendManualNotification, type NotificationsDeps } from "../../modules/notifications";
+import { createNotificationsDeps, sendAutomaticNotification, sendManualNotification, type NotificationsDeps } from "../../modules/notifications";
 import type { NotificationPort, PeoplePort } from "../../modules/schoollife";
 import type { AdapterKit } from "./kit";
 import { createNotificationsDirectory } from "./people-notifications";
@@ -39,12 +39,10 @@ export function createSchoollifeNotificationPort(notifications: NotificationsDep
       const variables = isConvocation
         ? { date: input.variables.date ?? "", time: input.variables.time ?? "", place: input.variables.place ?? "", studentName: input.variables.studentName ?? "votre enfant" }
         : { studentName: input.variables.studentName ?? "votre enfant" };
-      const r = await sendManualNotification(
-        notifications,
-        ctx,
-        { templateCode: isConvocation ? "schoollife_convocation" : "schoollife_measure_notified", audience, variables, channels: [...input.channels], strategy: "ALL", urgent: false, clientKey: `schoollife:${input.clientKey}` },
-        { urgent: false },
-      );
+      const body = { templateCode: isConvocation ? "schoollife_convocation" : "schoollife_measure_notified", audience, variables, channels: [...input.channels], strategy: "ALL" as const, urgent: false, clientKey: `schoollife:${input.clientKey}` };
+      // Utilisateur : envoi manuel (permission `notifications.send` déjà contrôlée par schoollife). Job planifié (contexte SYSTÈME,
+      // sans utilisateur) : envoi automatique, source `EVENT`, jamais urgent ; mêmes contrôles de gabarit, consentements et plafonds.
+      const r = ctx.userId ? await sendManualNotification(notifications, ctx, body, { urgent: false }) : await sendAutomaticNotification(notifications, ctx, body);
       if (!r.ok) {
         if (/port_unavailable$/.test(r.error.code)) throw r.error;
         throw new Error(r.error.message);

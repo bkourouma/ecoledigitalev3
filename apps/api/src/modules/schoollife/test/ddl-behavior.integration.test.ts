@@ -65,7 +65,7 @@ const asValidator = (tx) => tx.as({ userId: VALIDATOR });
 const asProposer = (tx) => tx.as({ userId: PROPOSER });
 
 describeDb("isolation et droits", () => {
-  it("RLS forcée sur les 15 tables ; isolation entre tenants ; FK composites", async () => {
+  it("RLS forcée sur les 16 tables ; isolation entre tenants ; FK composites", async () => {
     const a = await newTenant(d.db, "a");
     const b = await newTenant(d.db, "b");
     const typeA = await inTenant(d.db, { tenantId: a, userId: PROPOSER }, async (tx) => (await seed(tx)).WARN, { commit: true });
@@ -78,7 +78,7 @@ describeDb("isolation et droits", () => {
       );
     });
     const { tables, problems } = await structuralIsolationViolations(d.db, "schoollife");
-    assert.equal(tables.length, 15);
+    assert.equal(tables.length, 16);
     assert.deepEqual(problems, []);
   });
 

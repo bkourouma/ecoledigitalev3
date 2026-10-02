@@ -3,7 +3,8 @@ import type { Tx } from "@ecoledigitale/database";
 import type { EventTypeRow, SettingsRow, SeverityRow } from "./rows";
 
 const SETTINGS_COLS = `institution_id AS "institutionId", conduct_points_enabled AS "conductPointsEnabled",
-  confidential_read_requires_purpose AS "confidentialReadRequiresPurpose", retention_days AS "retentionDays"`;
+  confidential_read_requires_purpose AS "confidentialReadRequiresPurpose", retention_days AS "retentionDays",
+  convocation_reminder_hours AS "convocationReminderHours", exclusion_boundary_notices AS "exclusionBoundaryNotices"`;
 
 export const listSettings = (tx: Tx): Promise<SettingsRow[]> => tx.many<SettingsRow>(`SELECT ${SETTINGS_COLS} FROM schoollife.settings ORDER BY institution_id`);
 
@@ -14,19 +15,22 @@ export interface SettingsPatch {
   conductPointsEnabled?: boolean | undefined;
   confidentialReadRequiresPurpose?: boolean | undefined;
   retentionDays?: number | null | undefined;
+  convocationReminderHours?: number | null | undefined;
+  exclusionBoundaryNotices?: boolean | undefined;
 }
 
 export async function upsertSettings(tx: Tx, tenantId: string, institutionId: string, patch: SettingsPatch): Promise<SettingsRow> {
   const existing = await getSettings(tx, institutionId);
   if (!existing) {
     await tx.query(
-      `INSERT INTO schoollife.settings (tenant_id, institution_id, conduct_points_enabled, confidential_read_requires_purpose, retention_days)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [tenantId, institutionId, patch.conductPointsEnabled ?? false, patch.confidentialReadRequiresPurpose ?? true, patch.retentionDays ?? null],
+      `INSERT INTO schoollife.settings (tenant_id, institution_id, conduct_points_enabled, confidential_read_requires_purpose, retention_days, convocation_reminder_hours, exclusion_boundary_notices)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [tenantId, institutionId, patch.conductPointsEnabled ?? false, patch.confidentialReadRequiresPurpose ?? true, patch.retentionDays ?? null, patch.convocationReminderHours ?? null, patch.exclusionBoundaryNotices ?? false],
     );
   } else {
     await tx.query(
-      `UPDATE schoollife.settings SET conduct_points_enabled = $3, confidential_read_requires_purpose = $4, retention_days = $5, updated_at = now()
+      `UPDATE schoollife.settings SET conduct_points_enabled = $3, confidential_read_requires_purpose = $4, retention_days = $5,
+              convocation_reminder_hours = $6, exclusion_boundary_notices = $7, updated_at = now()
         WHERE tenant_id = $1 AND institution_id = $2`,
       [
         tenantId,
@@ -34,6 +38,8 @@ export async function upsertSettings(tx: Tx, tenantId: string, institutionId: st
         patch.conductPointsEnabled ?? existing.conductPointsEnabled,
         patch.confidentialReadRequiresPurpose ?? existing.confidentialReadRequiresPurpose,
         patch.retentionDays === undefined ? existing.retentionDays : patch.retentionDays,
+        patch.convocationReminderHours === undefined ? existing.convocationReminderHours : patch.convocationReminderHours,
+        patch.exclusionBoundaryNotices ?? existing.exclusionBoundaryNotices,
       ],
     );
   }

@@ -22,6 +22,7 @@ const TABLES = [
   "schoollife.event_types",
   "schoollife.incident_involvements",
   "schoollife.incidents",
+  "schoollife.job_notifications",
   "schoollife.life_events",
   "schoollife.measure_appeals",
   "schoollife.measure_effects",
@@ -53,7 +54,7 @@ describeIntegration("vie scolaire : isolation multi-tenant (Postgres réel)", ()
     await db?.drop();
   });
 
-  it("test générique de la plateforme : 15 tables, RLS forcée, allowlist VIDE (aucune table globale)", async () => {
+  it("test générique de la plateforme : 16 tables, RLS forcée, allowlist VIDE (aucune table globale)", async () => {
     expect(allowlist).toEqual([]);
     const options = { pool: db.appPool, schemas: ["schoollife"], allowlist: [] as string[] };
     const report = await checkTenantIsolation(options);

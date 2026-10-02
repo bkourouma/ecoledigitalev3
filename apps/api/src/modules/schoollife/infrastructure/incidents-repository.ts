@@ -25,14 +25,24 @@ export interface NewIncident {
   reportedBy: string;
   reportedByName: string;
   attendanceSessionId: string | null;
+  clientKey?: string | null;
+  clientFingerprint?: string | null;
 }
 
 export async function insertIncident(tx: Tx, i: NewIncident): Promise<void> {
   await tx.query(
     `INSERT INTO schoollife.incidents (id, tenant_id, institution_id, academic_year_id, type_id, severity_code, occurred_at, location, description, context_note,
-        confidentiality, reported_by, reported_by_name, attendance_session_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-    [i.id, i.tenantId, i.institutionId, i.academicYearId, i.typeId, i.severityCode, i.occurredAt, i.location, i.description, i.contextNote, i.confidentiality, i.reportedBy, i.reportedByName, i.attendanceSessionId],
+        confidentiality, reported_by, reported_by_name, attendance_session_id, client_key, client_fingerprint)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+    [i.id, i.tenantId, i.institutionId, i.academicYearId, i.typeId, i.severityCode, i.occurredAt, i.location, i.description, i.contextNote, i.confidentiality, i.reportedBy, i.reportedByName, i.attendanceSessionId, i.clientKey ?? null, i.clientFingerprint ?? null],
+  );
+}
+
+/** Incident déjà créé par ce déclarant avec cette clé de saisie (rejeu), avec l'empreinte de son contenu. */
+export async function findIncidentByClientKey(tx: Tx, reportedBy: string, clientKey: string): Promise<{ id: string; fingerprint: string } | null> {
+  return tx.queryOne<{ id: string; fingerprint: string }>(
+    `SELECT id, client_fingerprint AS fingerprint FROM schoollife.incidents WHERE reported_by = $1 AND client_key = $2`,
+    [reportedBy, clientKey],
   );
 }
 

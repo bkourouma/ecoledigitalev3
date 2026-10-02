@@ -33,6 +33,7 @@ export const SchoolLifeCode = {
   NO_GUARDIANS: "schoollife.no_guardians",
   NOT_A_GUARDIAN: "schoollife.not_a_guardian",
   NOTIFICATION_FAILED: "schoollife.notification_failed",
+  IDEMPOTENCY_KEY_REUSED: "schoollife.idempotency_key_reused",
   STUDENT_STATUS_FAILED: "schoollife.student_status_failed",
 } as const;
 

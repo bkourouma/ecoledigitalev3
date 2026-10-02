@@ -3,11 +3,12 @@
  * (déclencheurs de la base). Le déclarant est l'utilisateur de la session ; l'élève n'est jamais fourni par le client :
  * il est dérivé de l'inscription (port `academic`). Un incident n'est jamais visible d'une famille (règle SQL).
  */
+import { createHash } from "node:crypto";
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import type { SchoolLifeIncidentCreate, SchoolLifeIncidentDto, SchoolLifeInvolvementInput } from "@ecoledigitale/contracts/src/v2/schoollife";
 import { confidentialityRank } from "../domain/confidentiality";
 import { SchoolLifeEvents } from "../domain/events";
-import { invalid, notFound, SchoolLifeCode } from "../domain/errors";
+import { conflict, invalid, notFound, SchoolLifeCode } from "../domain/errors";
 import { canTransition, INCIDENT_TRANSITIONS } from "../domain/machines";
 import * as repo from "../infrastructure/incidents-repository";
 import * as reference from "../infrastructure/reference-repository";
@@ -24,10 +25,36 @@ async function viewOf(deps: SchoolLifeDeps, ctx: RequestContext, tx: import("@ec
   return rows.map((r) => incidentDto(r, involvements, { types, names }, { unmask: options.unmask === true, showStatements: caps.incidentReview === true }));
 }
 
-export async function declareIncident(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: SchoolLifeIncidentCreate): Promise<Result<SchoolLifeIncidentDto, AppError>> {
+/** Empreinte du CONTENU d'une saisie (hors clé) : détecte la réutilisation d'une clé d'idempotence avec une autre saisie. */
+export function incidentFingerprint(input: SchoolLifeIncidentCreate): string {
+  const { clientKey: _ignored, ...content } = input;
+  const canonical = (v: unknown): unknown =>
+    Array.isArray(v) ? v.map(canonical) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([, x]) => x !== undefined).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, x]) => [k, canonical(x)])) : v;
+  return createHash("sha256").update(JSON.stringify(canonical({ ...content, occurredAt: new Date(content.occurredAt).toISOString() }))).digest("hex");
+}
+
+export async function declareIncident(
+  deps: SchoolLifeDeps,
+  ctx: RequestContext,
+  caps: CallerCaps,
+  input: SchoolLifeIncidentCreate,
+  options: { onReplay?: () => void } = {},
+): Promise<Result<SchoolLifeIncidentDto, AppError>> {
   const human = requireHuman(ctx);
   if (!human.ok) return human;
   return inTx(deps, ctx, async (tx) => {
+    // Rejeu d'une saisie rapide (clé d'idempotence) : sérialisé par (déclarant, clé), puis l'incident déjà créé est renvoyé tel quel.
+    const fingerprint = input.clientKey ? incidentFingerprint(input) : null;
+    if (input.clientKey) {
+      await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`schoollife.incident:${ctx.tenantId}:${human.value}:${input.clientKey}`]);
+      const previous = await repo.findIncidentByClientKey(tx, human.value, input.clientKey);
+      if (previous) {
+        if (previous.fingerprint !== fingerprint) return err(conflict(SchoolLifeCode.IDEMPOTENCY_KEY_REUSED, "Cette clé de saisie a déjà servi pour un autre contenu.", { clientKey: input.clientKey }));
+        const existing = (await repo.getIncident(tx, previous.id)) as IncidentRow;
+        options.onReplay?.();
+        return ok((await viewOf(deps, ctx, tx, [existing], caps, { unmask: true }))[0] as SchoolLifeIncidentDto);
+      }
+    }
     const reporterName = await actorNameOf(deps, ctx);
     const type = (await loadTypes(tx, [input.typeId])).get(input.typeId);
     if (!type) return err(notFound(SchoolLifeCode.TYPE_NOT_FOUND, "Type d'événement", input.typeId));
@@ -70,6 +97,8 @@ export async function declareIncident(deps: SchoolLifeDeps, ctx: RequestContext,
       reportedBy: human.value,
       reportedByName: reporterName,
       attendanceSessionId: input.attendanceSessionId ?? null,
+      clientKey: input.clientKey ?? null,
+      clientFingerprint: fingerprint,
     });
     for (const [i, v] of input.involvements.entries()) {
       const e = enrollments[i] as EnrollmentInfo;

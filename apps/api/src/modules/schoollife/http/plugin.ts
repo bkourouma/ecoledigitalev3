@@ -68,6 +68,12 @@ export function registerSchoolLifePorts(app: FastifyInstance, ports: Partial<Sch
 // Utilitaires
 // ---------------------------------------------------------------------------
 
+/** Clé d'idempotence portée par l'en-tête `Idempotency-Key` (équivalent du champ `clientKey`). */
+function headerKey(req: { headers: Record<string, unknown> }): string | undefined {
+  const v = req.headers["idempotency-key"];
+  return typeof v === "string" && v.trim() !== "" ? v.trim() : undefined;
+}
+
 function zodToValidation(error: ZodError): ValidationError {
   return new ValidationError("Données invalides.", error.issues.map((i) => ({ path: i.path, message: i.message, code: i.code })));
 }
@@ -154,9 +160,13 @@ export async function schoollifePlugin(app: FastifyInstance, options: SchoolLife
       return { items: unwrapOrThrow(await listIncidentsView(deps, ctxOf(req), await caps(req, reply), q)) };
     });
     scope.get("/incidents/:id", { preHandler: [...core, staffRead] }, async (req, reply) => unwrapOrThrow(await getIncidentView(deps, ctxOf(req), await caps(req, reply), idOf(req))));
-    scope.post("/incidents", { preHandler: [...core, kit.require(P.incidentWrite)] }, async (req, reply) =>
-      reply.status(201).send(unwrapOrThrow(await declareIncident(deps, ctxOf(req), await caps(req, reply), parse(C.schoollifeIncidentCreateSchema, req.body)))),
-    );
+    scope.post("/incidents", { preHandler: [...core, kit.require(P.incidentWrite)] }, async (req, reply) => {
+      const body = parse(C.schoollifeIncidentCreateSchema, { ...(req.body as object | undefined), ...(headerKey(req) && !(req.body as { clientKey?: unknown } | undefined)?.clientKey ? { clientKey: headerKey(req) } : {}) });
+      let replayed = false;
+      const dto = unwrapOrThrow(await declareIncident(deps, ctxOf(req), await caps(req, reply), body, { onReplay: () => { replayed = true; } }));
+      // Rejeu d'une saisie déjà enregistrée : 200 (et non 201), même corps.
+      return reply.status(replayed ? 200 : 201).header("Idempotent-Replay", replayed ? "true" : "false").send(dto);
+    });
     scope.post("/incidents/:id/involvements", { preHandler: [...core, kit.require(P.incidentWrite)] }, async (req, reply) =>
       reply.status(201).send(unwrapOrThrow(await addInvolvement(deps, ctxOf(req), await caps(req, reply), idOf(req), parse(C.schoollifeInvolvementInputSchema, req.body)))),
     );
