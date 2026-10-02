@@ -78,30 +78,63 @@ export async function createDatabase(label, prefixes) {
   const url = withDatabase(base, dbName);
   const db = new Client({ connectionString: url });
   await db.connect();
-  for (const mig of [...kernelMigrations(), ...loadMigrationsFor(prefixes)]) {
-    const noRole = /^--\s*no-role/m.test(mig.sql);
-    try {
-      await db.query("BEGIN");
-      if (!noRole) await db.query("SET LOCAL ROLE migrator");
-      await db.query(mig.sql);
-      await db.query("COMMIT");
-    } catch (e) {
-      await db.query("ROLLBACK").catch(() => undefined);
-      throw new Error(`Migration ${mig.name} en échec : ${e.message}${e.position ? ` (position ${e.position})` : ""}`);
-    }
-  }
-  return {
-    url,
-    db,
-    async close() {
-      await db.end();
-      await admin.query(`DROP DATABASE IF EXISTS ${dbName} WITH (FORCE)`).catch(() => undefined);
-      await admin.end();
-    },
+  const close = async () => {
+    await db.end().catch(() => undefined);
+    await admin.query(`DROP DATABASE IF EXISTS ${dbName} WITH (FORCE)`).catch(() => undefined);
+    await admin.end().catch(() => undefined);
   };
+  try {
+    for (const mig of [...kernelMigrations(), ...loadMigrationsFor(prefixes)]) {
+      const noRole = /^--\s*no-role/m.test(mig.sql);
+      try {
+        await db.query("BEGIN");
+        if (!noRole) await db.query("SET LOCAL ROLE migrator");
+        await db.query(mig.sql);
+        await db.query("COMMIT");
+      } catch (e) {
+        await db.query("ROLLBACK").catch(() => undefined);
+        throw new Error(`Migration ${mig.name} en échec : ${e.message}${e.position ? ` (position ${e.position})` : ""}`);
+      }
+    }
+  } catch (e) {
+    await close(); // jamais de connexion orpheline : un échec de migration ne doit pas bloquer le processus de test
+    throw e;
+  }
+  return { url, db, close };
 }
 
 export const uuid = () => randomUUID();
+
+/**
+ * Contrôle STRUCTUREL d'isolation d'un schéma, identique à celui du test générique de la plateforme
+ * (`assertTenantIsolation`) : `tenant_id uuid NOT NULL`, RLS activée ET forcée, policy `tenant_isolation` UNIQUE,
+ * index dont la 1re colonne est `tenant_id`, droit SELECT pour `app_user`. Retourne les tables en infraction.
+ */
+export async function structuralIsolationViolations(db, schema) {
+  const { rows } = await db.query(
+    `SELECT c.relname AS table_name,
+            c.relrowsecurity AS rls, c.relforcerowsecurity AS forced,
+            (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid = c.oid) AS policies,
+            (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid = c.oid AND p.polname = 'tenant_isolation') AS own_policy,
+            EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND a.attnotnull AND a.atttypid = 'uuid'::regtype AND NOT a.attisdropped) AS has_tenant_id,
+            EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.oid AND i.indisvalid AND i.indpred IS NULL
+                      AND i.indkey[0] = (SELECT attnum FROM pg_attribute WHERE attrelid = c.oid AND attname = 'tenant_id')) AS has_tenant_index,
+            has_table_privilege('app_user', c.oid, 'SELECT') AS app_can_select
+       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = $1 AND c.relkind IN ('r', 'p')
+      ORDER BY c.relname`,
+    [schema],
+  );
+  const problems = [];
+  for (const r of rows) {
+    if (!r.has_tenant_id) problems.push(`${schema}.${r.table_name} : tenant_id uuid NOT NULL absent`);
+    if (!r.rls || !r.forced) problems.push(`${schema}.${r.table_name} : RLS non forcée`);
+    if (r.policies !== 1 || r.own_policy !== 1) problems.push(`${schema}.${r.table_name} : la policy tenant_isolation doit être la seule`);
+    if (!r.has_tenant_index) problems.push(`${schema}.${r.table_name} : aucun index en tête sur tenant_id`);
+    if (!r.app_can_select) problems.push(`${schema}.${r.table_name} : app_user sans SELECT`);
+  }
+  return { tables: rows.map((r) => r.table_name), problems };
+}
 
 /** Crée un tenant (table globale kernel.tenants). */
 export async function newTenant(db, slug) {

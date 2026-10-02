@@ -49,6 +49,7 @@ T6-GUARDS (lints, tests de contenu) ─► T6-E2E ─► T6-CLEAN (indicateur «
 ### T6-DB-C — Module `councils` : migrations (S)
 - **Fichiers** : `pnpm module:new councils --range 1800` ; `modules/councils/migrations/1800-1804_*.sql` (extraites de `data-model.md` §5.1-5.5), `isolation-allowlist.councils.ts` (vide), ligne de plage dans `module-conventions.md`.
 - **Fin** : migrations appliquées de zéro avec `migrator` ; test d'isolation générique (18 tables) ; **les tests de `ddl-test/councils.test.mjs` portés** dans `modules/councils/test/integration/` (mêmes assertions, `TEST_DATABASE_URL`) ; allowlist vide.
+- **À savoir** : les gardes exigent un **acteur humain** (`app.actor = 'user'` + `app.user_id`) ; le contrôle comportemental du test générique ne fabrique pas ce contexte et rapportera donc « structure seule » (jamais « testée ») pour les tables à garde, sans échec. Le contrôle **structurel** (tenant_id, RLS forcée, policy unique, index) est complet (`structuralIsolationViolations` du harnais le rejoue) et la preuve A/B est apportée par les tests propres du module.
 
 ### T6-DB-V — Module `schoollife` : migrations (S)
 - **Fichiers** : `modules/schoollife/migrations/1900-1902_*.sql`, allowlist vide, plage dans `module-conventions.md`.

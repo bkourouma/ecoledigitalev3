@@ -2,7 +2,7 @@
 // Exécution : node specs/v2/006-secondary/ddl-test/run.mjs
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createDatabase, inTenant, insert, newTenant, uuid } from "./harness.mjs";
+import { createDatabase, inTenant, insert, newTenant, structuralIsolationViolations, uuid } from "./harness.mjs";
 
 let d;
 const PROPOSER = uuid();
@@ -73,9 +73,9 @@ describe("isolation et droits", () => {
         /foreign key|23503|violates/,
       );
     });
-    const tables = (await d.db.query("SELECT c.relname, c.relrowsecurity AS rls, c.relforcerowsecurity AS frls FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'schoollife' AND c.relkind = 'r'")).rows;
+    const { tables, problems } = await structuralIsolationViolations(d.db, "schoollife");
     assert.equal(tables.length, 14);
-    assert.ok(tables.every((t) => t.rls && t.frls));
+    assert.deepEqual(problems, []);
   });
 
   it("aucun DELETE accordé ; pas de DDL pour app_user", async () => {

@@ -2,7 +2,7 @@
 // Exécution : node specs/v2/006-secondary/ddl-test/run.mjs
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createDatabase, inTenant, insert, newTenant, uuid } from "./harness.mjs";
+import { createDatabase, inTenant, insert, newTenant, structuralIsolationViolations, uuid } from "./harness.mjs";
 
 let d;
 const SECRETARY = uuid();
@@ -63,9 +63,9 @@ describe("isolation, droits, aucune valeur livrée", () => {
       await tx.fail("DELETE FROM stateassign.assignment_events", [], /permission denied|42501/);
       assert.equal((await tx.q("SELECT count(*)::int AS n FROM stateassign.settings"))[0].n, 0);
     });
-    const tables = (await d.db.query("SELECT c.relname, c.relrowsecurity AS rls, c.relforcerowsecurity AS frls FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'stateassign' AND c.relkind = 'r'")).rows;
+    const { tables, problems } = await structuralIsolationViolations(d.db, "stateassign");
     assert.equal(tables.length, 5);
-    assert.ok(tables.every((t) => t.rls && t.frls));
+    assert.deepEqual(problems, []);
   });
 });
 

@@ -80,7 +80,7 @@ const files = process.argv.slice(2).length
 
 async function runTests(url) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, ["--test", "--test-concurrency=1", ...files], {
+    const child = spawn(process.execPath, ["--test", "--test-concurrency=1", "--test-timeout=120000", ...files], {
       stdio: "inherit",
       env: { ...process.env, TEST_DATABASE_URL: url },
     });

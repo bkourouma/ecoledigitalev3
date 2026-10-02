@@ -2,7 +2,7 @@
 // Exécution : node specs/v2/006-secondary/ddl-test/run.mjs
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { Client, createDatabase, inTenant, insert, newTenant, uuid } from "./harness.mjs";
+import { Client, createDatabase, inTenant, insert, newTenant, structuralIsolationViolations, uuid } from "./harness.mjs";
 
 let d; // { db, close }
 const USER_A = uuid();
@@ -119,11 +119,9 @@ describe("isolation et droits", () => {
         /row-level security|42501/,
       );
     });
-    const tables = (await d.db.query("SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'councils' AND c.relkind = 'r'")).rows;
+    const { tables, problems } = await structuralIsolationViolations(d.db, "councils");
     assert.equal(tables.length, 18);
-    for (const t of tables) {
-      assert.ok(t.relrowsecurity && t.relforcerowsecurity, `RLS forcée attendue sur councils.${t.relname}`);
-    }
+    assert.deepEqual(problems, []);
   });
 
   it("FK composites : une séance ne peut pas désigner le type de conseil d'un autre tenant", async () => {
