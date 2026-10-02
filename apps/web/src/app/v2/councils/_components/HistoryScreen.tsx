@@ -19,7 +19,7 @@ export function HistoryScreen({ councilId }: { councilId: string }) {
   const list = [...(events.data ?? [])].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
   const requests = unlocks.data ?? [];
   const label = (kind: string) => {
-    const key = kind.replace(/^councils\./, "").replace(/\./g, "_");
+    const key = /^[A-Z_]+$/.test(kind) ? (kind === "RESULTS_REOPENED" ? "results_reopened" : `council_${kind.toLowerCase()}`) : kind.replace(/^councils\./, "").replace(/\./g, "_");
     return te.has(key) ? te(key) : kind;
   };
   return (
