@@ -24,6 +24,9 @@ export default defineConfig({
   test: {
     include: ["src/platform/**/*.test.{ts,tsx}", "src/app/v2/**/*.test.{ts,tsx}", "src/lib/__tests__/env.server.test.ts"],
     environment: "node",
+    // Les écrans RTL (jsdom + Radix + react-query) dépassent parfois 5 s sur une machine chargée (plusieurs agents / CI partagée).
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     setupFiles: ["src/platform/test/setup.ts"],
     // Les fichiers de test qui ont besoin du DOM le demandent avec `// @vitest-environment jsdom`.
     restoreMocks: true,

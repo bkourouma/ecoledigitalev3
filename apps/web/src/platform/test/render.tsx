@@ -44,8 +44,7 @@ export function createTestApi(routes: Record<string, RouteHandler | unknown>): {
       }
     }
     const query = Object.fromEntries(url.searchParams.entries());
-    const headers = Object.fromEntries(Object.entries((init?.headers ?? {}) as Record<string, string>).map(([k, v]) => [k.toLowerCase(), v]));
-    calls.push({ method, path: url.pathname, query, body, headers });
+    calls.push({ method, path: url.pathname, query, body, headers: Object.fromEntries(new Headers(init?.headers).entries()) });
     const handler = routes[`${method} ${url.pathname}`];
     if (handler === undefined) return json({ code: "NOT_FOUND", message: `Route de test absente : ${method} ${url.pathname}` }, { status: 404 });
     if (typeof handler === "function") {

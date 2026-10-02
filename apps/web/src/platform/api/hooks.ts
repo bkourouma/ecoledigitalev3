@@ -36,6 +36,8 @@ export interface ApiQueryOptions<TData, TSelected = TData> {
   refetchOnWindowFocus?: boolean;
   /** Garde les données de la clé précédente pendant le chargement de la nouvelle (navigation par semaine, pagination). */
   keepPreviousData?: boolean;
+  /** Relecture périodique (ms), ou calculée depuis la donnée (suivi d'une tâche de fond : simulation, rendu) ; `false` : arrêt. */
+  refetchInterval?: number | false | ((data: TData | undefined) => number | false);
 }
 
 export interface ApiMutationOptions<TData, TVariables> {
@@ -118,6 +120,10 @@ export function createQueryHooks(client: ApiClient): QueryHooks {
       select: options.select,
       refetchOnWindowFocus: options.refetchOnWindowFocus,
       placeholderData: options.keepPreviousData && options.query ? (previous, previousQuery) => (previousQuery && sameResource(previousQuery.queryKey) ? previous : undefined) : undefined,
+      refetchInterval:
+        typeof options.refetchInterval === "function"
+          ? (query) => (options.refetchInterval as (data: TData | undefined) => number | false)(query.state.data)
+          : options.refetchInterval,
       retry: options.retry ?? ((count, error) => count < 1 && !isClientError(error)),
     });
   }
