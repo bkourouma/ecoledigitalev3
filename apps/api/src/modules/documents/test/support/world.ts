@@ -26,6 +26,7 @@ export const USERS = {
   doctor: uuid(0x108),
   stranger: uuid(0x109),
   econome: uuid(0x10a),
+  directeurEtudes: uuid(0x10b),
 } as const;
 
 export const PEOPLE = {
