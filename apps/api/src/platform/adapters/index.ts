@@ -17,6 +17,7 @@
 import type { FastifyInstance } from "fastify";
 import type { Clock, Logger } from "@ecoledigitale/kernel";
 import type { SystemDb, TenantDb } from "@ecoledigitale/database";
+import { registerAdmissionsPorts, setAdmissionsWorkerPorts, type AdmissionsPorts } from "../../modules/admissions";
 import {
   registerAcademicPorts,
   setAcademicWorkerPorts,
@@ -80,6 +81,12 @@ import { createGradesImportPort } from "./imports-assess";
 import { createOpeningBalancesImportPort } from "./imports-finance";
 import { createGuardiansImportPort, createImportActorNames, createStaffImportPort, createStudentsImportPort } from "./imports-people";
 import { createImportWriteEnv } from "./imports-support";
+import { createAdmissionsCatalog, createAdmissionsEnrollmentService } from "./admissions-academic";
+import { createAdmissionsDocumentStore } from "./admissions-documents";
+import { createAdmissionsRegistrationFees } from "./admissions-finance";
+import { createAdmissionsApplicantNotifier } from "./admissions-notifier";
+import { createAdmissionsActorDirectory, createAdmissionsStudentRegistry } from "./admissions-people";
+import { createAdmissionsWriteEnv } from "./admissions-support";
 
 export { createAdapterKit, type AdapterKit, type AdapterKitInput } from "./kit";
 export { createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
@@ -103,6 +110,8 @@ export interface PlatformPorts {
   readonly imports: Partial<ImportPorts>;
   /** Gestion documentaire (024) : stockage, annuaire des propriétaires (people, iam), antivirus et conversion (environnement), usage. */
   readonly documents: Partial<DocumentsPorts>;
+  /** Admissions (007) : élève INACTIF, tuteurs, doublons (people), inscription (academic), facture (finance), catalogue, pièces, notifications. */
+  readonly admissions: Partial<AdmissionsPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -120,6 +129,8 @@ export function buildPlatformPorts(
   // fichiers (messagerie, photos, justificatifs) l'appliquent par enveloppe de leur vue de stockage (aucune modification de leur code).
   const scan = scanPolicyFromEnv(kit.env, { warn: (m) => kit.logger.warn({}, m) });
   const scanned = () => scan;
+  // Admissions : écriture par les cas d'usage publics de people, academic, finance (avec le VRAI audit), dans la transaction du module.
+  const admissionsEnv = createAdmissionsWriteEnv(kit, () => base, extras.audit);
   const base: Omit<PlatformPorts, "imports"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
@@ -214,6 +225,16 @@ export function buildPlatformPorts(
       converter: officeConverterFromEnv(kit.env),
       ...(storage ? { storage: asDocumentsStorage(storage) } : {}),
     },
+    admissions: {
+      students: createAdmissionsStudentRegistry(admissionsEnv),
+      enrollments: createAdmissionsEnrollmentService(admissionsEnv),
+      fees: createAdmissionsRegistrationFees(admissionsEnv),
+      catalog: createAdmissionsCatalog(admissionsEnv),
+      documents: createAdmissionsDocumentStore(storage, scanned),
+      actors: createAdmissionsActorDirectory(admissionsEnv),
+      // Canal de notification : le module notifications est un chantier distinct (échec fermé documenté dans admissions-notifier.ts).
+      notifier: createAdmissionsApplicantNotifier(null),
+    },
   };
   // Imports (031) : écriture par les cas d'usage publics des modules cibles, avec le VRAI audit (l'API : `runtime.auditPort` ;
   // le worker : le service d'audit du processus). Sans audit fourni (tests ciblés), l'audit est no-op.
@@ -263,6 +284,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerMessagingPorts(app, ports.messaging);
   registerImportsPorts(app, ports.imports);
   registerDocumentsPorts(app, ports.documents);
+  registerAdmissionsPorts(app, ports.admissions);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -294,6 +316,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   setMessagingWorkerPorts(ports.messaging);
   setImportsWorkerPorts(ports.imports);
   setDocumentsWorkerPorts(ports.documents);
+  setAdmissionsWorkerPorts(ports.admissions);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }
