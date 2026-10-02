@@ -9,7 +9,7 @@
  * Jamais d'e-mail ni de nom : `user_id` est l'identifiant d'identité (UUID).
  */
 import { AsyncLocalStorage } from "node:async_hooks";
-import { getRequestContext, LOG_CORRELATION_FIELDS, type LogCorrelationField } from "@ecoledigitale/kernel";
+import { getRequestContext, LOG_CORRELATION_FIELDS, setAmbientRequestIdProvider, type LogCorrelationField } from "@ecoledigitale/kernel";
 import { isSpanContextValid, trace } from "@opentelemetry/api";
 
 export type CorrelationFields = Partial<Record<Exclude<LogCorrelationField, "trace_id" | "span_id">, string>>;
@@ -86,4 +86,12 @@ export function activeTraceFields(): { trace_id?: string; span_id?: string } {
 /** `mixin` pino : à passer à `buildPinoOptions({ mixin })`. */
 export function correlationMixin(): Record<string, unknown> {
   return { ...getCorrelation(), ...activeTraceFields() };
+}
+
+/**
+ * Branche le `request_id` ambiant sur les contextes créés sans identifiant explicite (voir `setAmbientRequestIdProvider`) :
+ * un événement émis par un abonné du worker garde le `request_id` de la requête HTTP d'origine. Idempotent.
+ */
+export function enableAmbientRequestId(): void {
+  setAmbientRequestIdProvider(() => getCorrelation().request_id);
 }

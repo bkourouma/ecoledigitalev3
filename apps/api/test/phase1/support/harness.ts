@@ -206,8 +206,8 @@ export interface Phase1Env {
 
 export interface WorkerForOptions {
   logger?: WorkerLogger;
-  /** `undefined` : observabilité par défaut (environnement) ; `null` : aucune. */
-  observability?: WorkerObservability | null;
+  /** `undefined` : observabilité par défaut (environnement) ; `null` : aucune ; fonction : construite avec l'infrastructure (préfixe de files). */
+  observability?: WorkerObservability | null | ((infra: Infra) => WorkerObservability);
 }
 
 export function workerFor(infra: Infra, options: WorkerForOptions = {}): WorkerApp {
@@ -228,7 +228,7 @@ export function workerFor(infra: Infra, options: WorkerForOptions = {}): WorkerA
     } as NodeJS.ProcessEnv),
     {
       logger: options.logger ?? createLogger("silent"),
-      ...(options.observability !== undefined ? { observability: options.observability } : {}),
+      ...(options.observability !== undefined ? { observability: typeof options.observability === "function" ? options.observability(infra) : options.observability } : {}),
     },
   );
 }

@@ -28,6 +28,7 @@ import {
   type Probe,
 } from "./core/health";
 import { identityAttributes, recordSafeException, tracer } from "./core/tracing";
+import { trackPublicRoutes } from "../public-routes";
 import { disableOutboxTraceContext, enableOutboxTraceContext } from "./outbox-trace";
 import { expectedSchemaFromModules, storageProbeFromEnv } from "./probes";
 import type { Observability } from "./observability";
@@ -125,8 +126,38 @@ export function lazyRedis(url: string | undefined): { client: any; close(): Prom
     retryStrategy: (times: number) => Math.min(times * 500, 5_000),
   });
   client.on("error", () => undefined);
+  // Connexion paresseuse : la première commande ouvre la connexion (la file hors ligne est désactivée pour échouer vite).
+  // Les sondes s'exécutent en parallèle : une seule ouverture de connexion, les autres attendent l'état « ready » (2 s au plus).
+  let pending: Promise<void> | null = null;
+  const ensureReady = (): Promise<void> => {
+    if (client.status === "ready") return Promise.resolve();
+    pending ??= (
+      client.status === "wait"
+        ? client.connect()
+        : new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error("Redis : connexion non prête")), 2_000);
+            client.once("ready", () => {
+              clearTimeout(timer);
+              resolve();
+            });
+          })
+    ).finally(() => {
+      pending = null;
+    });
+    return pending;
+  };
+  const facade = {
+    async ping(): Promise<string> {
+      await ensureReady();
+      return client.ping();
+    },
+    async zcount(key: string, min: number | string, max: number | string): Promise<number> {
+      await ensureReady();
+      return client.zcount(key, min, max);
+    },
+  };
   return {
-    client,
+    client: facade,
     close: async () => {
       if (client.status !== "end") await client.quit().catch(() => client.disconnect());
     },
@@ -241,6 +272,9 @@ const plugin: FastifyPluginAsync<ObservabilityPluginOptions> = async (app, optio
   }
 
   // --- santé
+  // Les routes ci-dessous sont déclarées publiques (config.public) : le middleware d'authentification legacy ne doit pas les
+  // refuser. Le relevé des routes publiques est idempotent ; il doit exister AVANT leur déclaration (plugin enregistré en premier).
+  trackPublicRoutes(app);
   const probes = (): Probe[] => (options.probes ? options.probes(app) : defaultApiProbes(app, { redis: probeRedis, env, ...(options.modulesDir ? { modulesDir: options.modulesDir } : {}) }));
   const publicRoute = { config: { public: true } };
   app.get("/health", publicRoute, async (_request, reply) => {

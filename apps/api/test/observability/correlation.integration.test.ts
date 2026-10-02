@@ -13,7 +13,7 @@
 import { randomBytes } from "node:crypto";
 import { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { assertNoForbiddenLogContent } from "@ecoledigitale/kernel";
+import { assertNoForbiddenLogContent, newId } from "@ecoledigitale/kernel";
 import { createLogger } from "../../../worker/src/logger";
 import { createWorkerObservability } from "../../../worker/src/observability";
 import { createObservability, observabilityPlugin, shutdownTracing, type Observability } from "../../src/platform/observability";
@@ -37,7 +37,7 @@ describeIntegration.skipIf(!REDIS_URL)("observabilité — corrélation requête
 
   beforeAll(async () => {
     obs = createObservability("api", {
-      env: { NODE_ENV: "test", LOG_LEVEL: "debug", METRICS_TOKEN },
+      env: { NODE_ENV: "test", LOG_LEVEL: "debug", METRICS_TOKEN, OBS_HEALTH_DETAILS: "true" },
       logStream: sink(apiLines),
       tracing: { exporter, instrumentations: false, synchronous: true, sampleRatio: 1 },
     });
@@ -51,7 +51,14 @@ describeIntegration.skipIf(!REDIS_URL)("observabilité — corrélation requête
       },
       worker: {
         logger: workerLogger,
-        observability: createWorkerObservability({ logger: workerLogger, prefix: process.env.WORKER_QUEUE_PREFIX ?? "ed", businessIntervalMs: 0 }),
+        // Cache de collecte à 0 : chaque lecture de /metrics relit les files et les dernières réussites (test déterministe).
+        observability: (infra) =>
+          createWorkerObservability({
+            logger: workerLogger,
+            prefix: infra.queuePrefix,
+            env: { ...process.env, OBS_COLLECT_CACHE_MS: "0" },
+            businessIntervalMs: 3_600_000,
+          }),
       },
     });
   }, 240_000);
@@ -143,14 +150,25 @@ describeIntegration.skipIf(!REDIS_URL)("observabilité — corrélation requête
     const byId = new Map(spans.map((s) => [s.spanContext().spanId, s]));
     const handles = spans.filter((s) => s.name.startsWith("handle "));
     expect(handles.length).toBeGreaterThanOrEqual(2);
+    // Chaîne causale : handle -> route -> outbox publish -> (span HTTP | handle d'un événement précédent) ; tout remonte au span HTTP.
+    let direct = 0;
     for (const handle of handles) {
-      const route = byId.get(handle.parentSpanContext?.spanId ?? "");
-      expect(route?.name, `parent de ${handle.name}`).toMatch(/^route /);
-      const publish = byId.get(route?.parentSpanContext?.spanId ?? "");
-      expect(publish?.name).toMatch(/^outbox publish /);
-      expect(publish?.parentSpanContext?.spanId).toBe(server.spanContext().spanId);
+      let cursor = handle;
+      for (let hops = 0; hops < 20 && cursor !== server; hops += 1) {
+        const parent = byId.get(cursor.parentSpanContext?.spanId ?? "");
+        expect(parent, `parent de ${cursor.name}`).toBeDefined();
+        if (cursor.name.startsWith("handle ")) expect(parent?.name).toMatch(/^route /);
+        else if (cursor.name.startsWith("route ")) expect(parent?.name).toMatch(/^outbox publish /);
+        else if (cursor.name.startsWith("outbox publish ")) {
+          expect(parent === server || parent?.name.startsWith("handle ")).toBe(true);
+          if (parent === server && cursor === byId.get(byId.get(handle.parentSpanContext?.spanId ?? "")?.parentSpanContext?.spanId ?? "")) direct += 1;
+        }
+        cursor = parent as typeof cursor;
+      }
+      expect(cursor).toBe(server);
       expect(handle.attributes).toMatchObject({ "tenant.id": tenant1, "request.id": R1, "messaging.system": "bullmq" });
     }
+    expect(direct).toBeGreaterThanOrEqual(2); // les abonnés du provisioning sont enfants DIRECTS de la publication du span HTTP
     // Aucune donnée personnelle dans les attributs de spans.
     const blob = JSON.stringify(spans.map((s) => s.attributes));
     expect(blob).not.toMatch(/@[a-z0-9-]+\.test/i);
@@ -183,7 +201,7 @@ describeIntegration.skipIf(!REDIS_URL)("observabilité — corrélation requête
     const ready = await p.app.inject({ method: "GET", url: "/ready" });
     expect(ready.statusCode, ready.body).toBe(200);
     const body = ready.json();
-    expect(body.status).toBe("ready");
+    expect(body.status, ready.body).toBe("ready");
     const names = body.checks.map((c: any) => c.name);
     expect(names).toEqual(expect.arrayContaining(["postgres", "redis", "migrations", "worker", "storage"]));
     for (const c of body.checks) expect(c.ok, c.name).toBe(true);
@@ -196,7 +214,7 @@ describeIntegration.skipIf(!REDIS_URL)("observabilité — corrélation requête
     expect((await fetch(`${base}/health`)).status).toBe(200);
     const wr = await fetch(`${base}/ready`);
     expect(wr.status).toBe(200);
-    expect((await wr.json()).checks.map((c: any) => c.name)).toEqual(["redis", "postgres", "migrations", "storage"]);
+    expect(((await wr.json()) as { checks: Array<{ name: string }> }).checks.map((c) => c.name)).toEqual(["redis", "postgres", "migrations", "storage"]);
   });
 
   it("/metrics de l'API : 401 sans jeton, métriques par module avec le jeton ; aucune étiquette tenant", async () => {
@@ -218,6 +236,30 @@ describeIntegration.skipIf(!REDIS_URL)("observabilité — corrélation requête
     expect(text).toMatch(/ed_queue_jobs\{queue="domain-events",state="waiting",service="worker"\} 0/);
     expect(text).toContain("ed_outbox_oldest_pending_age_seconds");
     expect(text).not.toContain(tenant1);
+  });
+
+  it("jauges métier : paiements PENDING anciens (contrat figé avec le schéma finance) ; dernière réussite persistée d'un job planifié", async () => {
+    await p.db.admin.query(
+      `INSERT INTO finance.payments (id, tenant_id, learner_id, method, amount, idempotency_key, request_fingerprint, received_at, created_at)
+       VALUES ($1, $2, $3, 'TRANSFER', 5000, $4, 'fp', now() - interval '3 hours', now() - interval '3 hours')`,
+      [newId(), tenant1, newId(), `idem-${randomBytes(6).toString("hex")}`],
+    );
+    await p.worker.observability!.refreshBusinessGauges();
+    let text = await p.worker.observability!.kit.registry.metrics();
+    expect(text).toMatch(/ed_finance_payments_pending{service="worker"} 1/);
+    expect(text).toMatch(/ed_finance_payments_pending_stale{service="worker"} 1/);
+    expect(Number(/ed_finance_payments_pending_oldest_age_seconds{service="worker"} ([0-9.]+)/.exec(text)?.[1])).toBeGreaterThan(3 * 3600 - 60);
+    expect(text).not.toContain(tenant1);
+
+    const before = Math.floor(Date.now() / 1000) - 2;
+    expect((await p.worker.scheduler!.run("finance.mark-overdue-invoices")).status).toBe("completed");
+    await waitFor(async () => {
+      text = await p.worker.observability!.kit.registry.metrics();
+      return /ed_scheduled_job_last_success_timestamp_seconds\{[^}]*job="finance.mark-overdue-invoices"[^}]*\} \d+/.test(text);
+    }, { label: "dernière réussite du job exposée (lue dans Redis)" });
+    const ts = Number(/ed_scheduled_job_last_success_timestamp_seconds\{[^}]*job="finance.mark-overdue-invoices"[^}]*\} (\d+)/.exec(text)?.[1]);
+    expect(ts).toBeGreaterThanOrEqual(before);
+    expect(text).toMatch(/ed_scheduled_job_runs_total\{[^}]*job="finance.mark-overdue-invoices"[^}]*outcome="success"[^}]*\} 1/);
   });
 
   it("/ready : 200 « degraded » quand plus aucun worker ne bat (API toujours utile), 503 si PostgreSQL tombe", async () => {

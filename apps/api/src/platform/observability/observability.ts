@@ -9,7 +9,7 @@
 import type { FastifyServerOptions } from "fastify";
 import { buildPinoOptions, newId, type PinoOptionsLike } from "@ecoledigitale/kernel";
 import { loadObservabilityConfig, type EnvLike, type ObservabilityConfig, type ServiceKind } from "./core/config";
-import { correlationMixin } from "./core/correlation";
+import { correlationMixin, enableAmbientRequestId } from "./core/correlation";
 import { createHttpMetrics, createMetricsKit, createPoolMetrics, type HttpMetrics, type MetricsKit, type PoolMetrics } from "./core/metrics";
 import { initTracing, shutdownTracing, type InitTracingOptions, type TracingHandle } from "./core/tracing";
 
@@ -53,6 +53,7 @@ export function resolveRequestId(headers: Record<string, string | string[] | und
 export function createObservability(service: ServiceKind, options: CreateObservabilityOptions = {}): Observability {
   const config = loadObservabilityConfig(service, options.env ?? process.env);
   const tracing = initTracing(config, options.tracing);
+  enableAmbientRequestId();
   const kit = createMetricsKit(service, options.version ? { version: options.version } : {});
   const http = createHttpMetrics(kit, config.metrics);
   const pools = createPoolMetrics(kit);

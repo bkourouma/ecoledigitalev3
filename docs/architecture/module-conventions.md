@@ -30,6 +30,7 @@ apps/api/src/modules/<key>/
 10. **Code et libellés** : identifiants de code en anglais, messages utilisateur en français.
 11. **Aucune constante réglementaire ou de seuil académique** dans un module : elle appartient à un RuleSet (`packages/rules-engine`).
 12. **Tests** : Vitest. Les tests d'intégration lisent `TEST_DATABASE_URL` et s'ignorent proprement sans elle ; utiliser `packages/database/scripts/with-postgres.mjs` pour un Postgres éphémère.
+13. **Journaux et observabilité** (ADR-009) : journaliser via `runtime.logger` (routes) ou `ctx.logger` (abonnés, jobs), jamais `console.*`. `request_id`, `tenant_id`, `user_id`, `module`, `job_id`, `event_id`, `trace_id` sont ajoutés **automatiquement** à chaque ligne : ne pas les recopier dans les champs. Aucune donnée personnelle dans un journal (e-mail, nom, téléphone, contenu de message, corps de requête, mot de passe, jeton) : la redaction filtre les clés et valeurs courantes mais n'est qu'un filet ; journaliser des identifiants (`user_id`, `student_id`), pas des personnes. Un événement émis par un abonné hérite du `request_id` de la requête d'origine ; ne pas fabriquer de `requestId` sauf besoin explicite. Les métriques (module, route, abonné, job) et les spans sont posés par la plateforme autour de vos routes, abonnés et jobs : rien à instrumenter.
 
 ## Découverte et chargement
 

@@ -160,9 +160,10 @@ export function createPoolMetrics(kit: MetricsKit): PoolMetrics {
     collect() {
       this.reset();
       for (const [name, pool] of pools) {
+        if (!Number.isFinite(pool.totalCount)) continue; // objet qui n'est pas un vrai pool : jamais d'erreur au scrape
         this.set({ pool: name, state: "total" }, pool.totalCount);
-        this.set({ pool: name, state: "idle" }, pool.idleCount);
-        this.set({ pool: name, state: "waiting" }, pool.waitingCount);
+        this.set({ pool: name, state: "idle" }, Number.isFinite(pool.idleCount) ? pool.idleCount : 0);
+        this.set({ pool: name, state: "waiting" }, Number.isFinite(pool.waitingCount) ? pool.waitingCount : 0);
         this.set({ pool: name, state: "max" }, pool.options?.max ?? 0);
       }
     },
@@ -176,7 +177,7 @@ export function createPoolMetrics(kit: MetricsKit): PoolMetrics {
       this.reset();
       for (const [name, pool] of pools) {
         const max = pool.options?.max ?? 0;
-        if (max > 0) this.set({ pool: name }, Math.min(1, (pool.totalCount - pool.idleCount) / max));
+        if (max > 0 && Number.isFinite(pool.totalCount)) this.set({ pool: name }, Math.min(1, (pool.totalCount - pool.idleCount) / max));
       }
     },
   });

@@ -50,6 +50,27 @@ export interface RequestContextInput {
 
 const ACTORS: readonly ActorType[] = ["user", "system", "superAdmin"];
 
+let ambientRequestId: (() => string | undefined) | undefined;
+
+/**
+ * Observabilité (ADR-009) : fournisseur du `request_id` AMBIANT (celui de la requête HTTP ou de l'événement en cours de
+ * traitement). Un contexte créé SANS `requestId` explicite (`createSystemContext(tenantId)` dans un abonné du worker) en hérite au
+ * lieu de générer un identifiant neuf : les événements, lignes d'audit et journaux qu'il produit restent corrélés à la requête
+ * d'origine. Sans fournisseur, comportement inchangé (UUID v7 généré). Posé par la plateforme, jamais par un module.
+ */
+export function setAmbientRequestIdProvider(provider: (() => string | undefined) | undefined): void {
+  ambientRequestId = provider;
+}
+
+function ambientId(): string | undefined {
+  try {
+    const id = ambientRequestId?.();
+    return typeof id === "string" && id.length > 0 && id.length <= 200 ? id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function optionalUuid(value: string | null | undefined, field: string): string | undefined {
   return value === undefined || value === null ? undefined : parseUuid(value, field);
 }
@@ -84,7 +105,7 @@ export function createRequestContext(input: RequestContextInput): RequestContext
     tenantId,
     userId,
     roles,
-    requestId: input.requestId?.trim() || newId(),
+    requestId: input.requestId?.trim() || ambientId() || newId(),
     actor,
     mfa: input.mfa === true,
     ...(institutionId ? { institutionId } : {}),

@@ -17,7 +17,7 @@ import {
   type EnvLike,
   type ObservabilityConfig,
 } from "../../../api/src/platform/observability/core/config";
-import { runWithCorrelation } from "../../../api/src/platform/observability/core/correlation";
+import { enableAmbientRequestId, runWithCorrelation } from "../../../api/src/platform/observability/core/correlation";
 import { createMetricsKit, type MetricsKit } from "../../../api/src/platform/observability/core/metrics";
 import {
   SpanKind,
@@ -344,6 +344,7 @@ export function createWorkerObservability(options: CreateWorkerObservabilityOpti
   const env = options.env ?? process.env;
   const config = loadObservabilityConfig("worker", env);
   const tracing = initTracing(config, options.tracing);
+  enableAmbientRequestId();
   const staleRaw = Number(env.OBS_PAYMENTS_STALE_MINUTES);
   const intervalRaw = Number(env.OBS_BUSINESS_GAUGES_INTERVAL_MS);
   return new WorkerObservability({

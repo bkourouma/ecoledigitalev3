@@ -9,7 +9,8 @@ Preuve exécutable : `apps/api/test/phase1/` — en particulier `exit-criteria.i
 ```
 Client ── HTTP ──▶ Fastify (apps/api/src/index.ts)
   │
-  │  onRequest   rls-context (legacy)  ·  audit request-meta (ip, user-agent → AsyncLocalStorage)
+  │  onRequest   observability ... request_id (x-request-id), contexte de corrélation (journaux), span serveur, métriques HTTP (§12)
+  │              rls-context (legacy)  ·  audit request-meta (ip, user-agent → AsyncLocalStorage)
   │              v2-auth ........ jeton IAM v2 (en-tête typ at+jwt|imp+jwt) sur une route de module non publique :
   │                               signature + session + révocation + époque + accès/tenant actifs (1 requête SQL)
   │                               → request.ctx, request.iamAuth, request.v2Authenticated
@@ -185,6 +186,10 @@ Les handlers reçoivent `ctx.tenantDb` (ajout au SDK du worker) pour appeler les
 | `REPORTCARDS_VERIFICATION_BASE_URL` | `V2_APP_BASE_URL` | API **et** worker | domaine public de vérification (QR `<base>/v/<code>`) |
 | `REPORTCARDS_S3_*` | — | API **et** worker | ancien nom du stockage d'objets (repli de `STORAGE_S3_*`) |
 | `REPORTCARDS_CHROME_PATH`, `REPORTCARDS_CHROME_NO_SANDBOX=1`, `REPORTCARDS_RENDER_CONCURRENCY` (2) | — | worker | moteur de rendu PDF |
+| `LOG_LEVEL` | `info` (production), `debug` sinon | API, worker | niveau des journaux JSON (§12) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_TRACES_SAMPLER_ARG`, `OTEL_SDK_DISABLED` | absent = traçage **désactivé** | API, worker | traces OpenTelemetry ; aucun appel réseau sans point d'accès (§12) |
+| `METRICS_TOKEN`, `METRICS_PORT`, `METRICS_HOST`, `METRICS_TENANT_LABEL_MAX` | absents = pas de `/metrics` | API (worker : `METRICS_TOKEN`) | métriques Prometheus ; **jamais publiques sans authentification** (§12) |
+| `OBS_READY_REQUIRE`, `OBS_HEALTH_DETAILS`, `OBS_TRUST_INBOUND_TRACEPARENT`, `OBS_ROUTE_LABEL_LIMIT`, `OBS_COLLECT_CACHE_MS`, `OBS_BUSINESS_GAUGES_INTERVAL_MS`, `OBS_PAYMENTS_STALE_MINUTES` | voir le runbook | API, worker | santé, traces, cardinalité (docs/architecture/runbook-exploitation.md §2) |
 
 Le worker garde ses propres variables (`WORKER_DATABASE_URL`, `WORKER_RELAY_*`…, voir `apps/worker/README.md`) et lit `AUDIT_*`, `ENTITLEMENTS_*`, `IAM_PURGE_*` depuis `process.env` (les abonnés et jobs des modules sont du code du module).
 
@@ -302,3 +307,19 @@ Chaque module déclare des **ports** (ce qu'il attend de ses voisins) et échoue
 ### Données de démonstration (`pnpm seed:v2`)
 
 `ALLOW_SEED=1 pnpm seed:v2 --pack HIGHER|PRIMARY|SECONDARY [--seed n] [--slug s] [--year-start AAAA-MM-JJ]` (`scripts/seed-v2.ts`) démarre la plateforme EN PROCESSUS (API + worker) et crée un établissement complet par l'API HTTP publique, sans SQL direct : organisation et abonnement, année et périodes, programme et curriculum publié, classe, élèves, tuteurs et enseignants, inscriptions confirmées par les règlements, factures, emploi du temps, appels, notes publiées, comptes de test par rôle. Il REFUSE de s'exécuter sans `ALLOW_SEED=1` et si le nom de la base de `V2_DATABASE_URL` ne finit pas par `_dev`, `_test` ou `_local`. Il exige `REDIS_URL` et les secrets de l'API (`IAM_JWT_SECRET`, `IAM_MFA_ENCRYPTION_KEY`, `AUDIT_HMAC_KEY`). Les mots de passe des comptes de test (et les secrets TOTP des rôles à MFA) sont générés à l'exécution et affichés une seule fois. Relancé sur le même `--slug`, il ne crée rien. Mêmes graine et début d'année = mêmes données métier (empreinte affichée). PRIMARY et SECONDARY : structure et données disponibles, sans résultats ni bulletins (pas de jeu de règles dans cette version). Test : `test/seed/seed-v2.integration.test.ts`.
+
+## 12. Observabilité (ADR-009)
+
+Décision : `docs/adr/ADR-009-observabilite.md` ; exploitation (SLO, alertes, procédures) : `runbook-exploitation.md` ; règles et tableau de bord : `infra/observability/`. Code : `apps/api/src/platform/observability/` (cœur sans Fastify dans `core/`, partagé avec `apps/worker/src/observability/`) et `packages/kernel/src/logger.ts` (redaction pure).
+
+| Besoin | Mécanisme |
+|---|---|
+| Une ligne de journal retrouve la requête, l'événement et le job | `request_id` (`x-request-id` ou UUID v7) = `RequestContext.requestId` = `kernel.domain_events.request_id` ; le relais le transmet au job ; un contexte créé sans identifiant dans un abonné (`createSystemContext`) hérite du `request_id` ambiant (`setAmbientRequestIdProvider`) |
+| Une trace relie HTTP -> outbox -> worker | colonne `kernel.domain_events.traceparent` (migration worker `0604`), écrite par `PgOutboxWriter` quand le traçage est actif ; spans `METHOD <route>` -> `outbox publish` -> `route` -> `handle <abonné>` |
+| Aucune donnée personnelle | `sanitizeForLog` (clés et valeurs), journal d'accès sans URL ni requête, exportateur de spans filtrant ; `assertNoForbiddenLogContent` dans les tests |
+| Santé | `GET /health` (liveness), `GET /ready` (PG, Redis, migrations, worker, stockage) sur l'API et sur le worker |
+| Métriques | `/metrics` protégé (jeton ou port dédié loopback) ; modules = étiquette `module` dérivée du préfixe `/api/v1/<clé>` |
+
+Ordre d'amorçage de l'API (`src/index.ts`) : `config/bootstrap-env` (charge `.env`) puis **`platform/observability/bootstrap`** (avant Fastify et `pg` : les instrumentations ne patchent que les modules chargés après elles), puis le plugin `observability` **en premier** (ses hooks ne couvrent que les routes déclarées après lui ; ses routes `/health`, `/ready`, `/metrics` sont déclarées publiques pour le middleware d'authentification legacy). Le serveur de santé du worker est rattaché au même cœur.
+
+Le plugin n'est pas enregistré par `registerV2Platform` : les tests d'assemblage (`test/phase1`, `test/phase2`) bootent sans lui, sauf `test/observability/correlation.integration.test.ts`, qui boote la plateforme complète **avec** observabilité et vérifie la corrélation de bout en bout (même `request_id` et même trace de la requête HTTP aux abonnés du worker, aucun champ interdit dans les journaux, `/ready`, `/metrics`, jauges).

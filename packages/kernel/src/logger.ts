@@ -291,6 +291,12 @@ export function sanitizeForLog(value: unknown, options: SanitizeOptions = {}): u
 
 /** Renomme les clés de corrélation camelCase vers le schéma snake_case (la forme snake_case explicite l'emporte). */
 export function normalizeCorrelationKeys(obj: Record<string, unknown>): Record<string, unknown> {
+  // Lignes de SystemDb (`event: "system_db"`) : `requestId` est l'identifiant de la TRANSACTION système (nouveau à chaque appel),
+  // pas celui de la requête HTTP qui a déclenché le travail : il ne doit pas masquer le `request_id` de corrélation.
+  if (obj.event === "system_db" && "requestId" in obj) {
+    const { requestId, ...rest } = obj;
+    obj = { ...rest, tx_request_id: requestId };
+  }
   let out: Record<string, unknown> | undefined;
   for (const [alias, canonical] of Object.entries(CORRELATION_ALIASES)) {
     if (!(alias in obj)) continue;

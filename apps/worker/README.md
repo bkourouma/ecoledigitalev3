@@ -5,7 +5,7 @@ Processus de fond de la plateforme v2 (ADR-004, plan §3.9). Il héberge :
 1. le **relais d'outbox** : `kernel.domain_events` (non publiés) -> file BullMQ `domain-events` ;
 2. les **abonnés d'événements** des modules (`modules/<key>/subscribers.ts`), avec reprises, concurrence et dead-letter ;
 3. les **jobs planifiés** (`modules/<key>/jobs.ts`) à la place des `setInterval` du process API ;
-4. un serveur de santé minimal (`/health`, `/ready`).
+4. un serveur de santé minimal (`/health`, `/ready`, `/metrics` protégé).
 
 Il est **distinct de l'API** : on peut redémarrer ou dupliquer l'un sans l'autre. Les `setInterval` de
 `apps/api/src/jobs/*.job.ts` ne sont pas touchés ici ; ils migreront module par module vers `jobs.ts`.
@@ -42,7 +42,8 @@ Il est **distinct de l'API** : on peut redémarrer ou dupliquer l'un sans l'autr
 | `src/jobs/` | jobs du socle : `outbox-cleanup`, `ensure-partitions` |
 | `src/discovery/` | découverte de `modules/*/subscribers.ts` et `jobs.ts` |
 | `src/sdk.ts` | **l'API pour les modules** : `defineSubscriber`, `idempotent`, `defineScheduledJob` (types seuls, aucune dépendance d'exécution) |
-| `migrations/` | `0601`-`0603` (plage 0600-0699) |
+| `src/observability/` | corrélation, spans, métriques Prometheus, battement de cœur, jauges métier (ADR-009) |
+| `migrations/` | `0601`-`0604` (plage 0600-0699) |
 
 ### Garanties
 
@@ -108,7 +109,8 @@ Redis : `maxmemory-policy noeviction` recommandé (BullMQ le vérifie) ; le comp
 2. Migrations du worker `apps/worker/migrations` (**plage 0600-0699**, versions globales) :
    * `0601` `kernel.processed_events` (idempotence, RLS forcée) ;
    * `0602` trigger `NOTIFY ed_domain_events` (payload = `tenant_id` du lot) ;
-   * `0603` index partiel de purge des événements publiés.
+   * `0603` index partiel de purge des événements publiés ;
+   * `0604` colonne `kernel.domain_events.traceparent` (contexte de trace W3C, nullable, ADR-009).
    Le runner de la plateforme les applique avec tous les autres dossiers. Raccourci de développement
    (baseline + worker seulement, rôle capable de `SET ROLE migrator`) :
    `pnpm --filter @ecoledigitale/worker migrate -- --url "$MIGRATOR_DATABASE_URL"`.
@@ -139,8 +141,30 @@ Arrêt gracieux (`SIGTERM`/`SIGINT`) : `/ready` passe à 503, le relais termine 
 (jusqu'à `WORKER_SHUTDOWN_TIMEOUT_MS`, puis fermeture forcée : les jobs seront repris), puis fermeture de Redis, des pools PG et du
 serveur HTTP. Un second signal force la sortie.
 
-Santé : `GET /health` (liveness, toujours 200 tant que le process répond) ; `GET /ready` (200 si démarré, pas en arrêt, Redis **et**
-PostgreSQL répondent ; 503 sinon, avec le détail par sonde).
+Santé : `GET /health` (liveness, toujours 200 tant que le process répond, aucune dépendance sondée) ; `GET /ready` (readiness : 503 si
+le démarrage n'est pas terminé, si un arrêt est en cours ou si une sonde **requise** échoue — Redis, PostgreSQL, migrations par défaut ;
+200 `degraded` si seule la sonde facultative `storage` échoue). La réponse ne contient que des noms de sonde et des booléens
+(`OBS_HEALTH_DETAILS=true` ajoute les messages). `GET /metrics` : métriques Prometheus, **404 par défaut** ; jeton `METRICS_TOKEN`
+(`Authorization: Bearer`) ou, sans jeton, uniquement si `WORKER_HTTP_HOST` est une adresse loopback (dans l'image, `0.0.0.0` : jeton obligatoire).
+
+## Observabilité (ADR-009)
+
+Le worker partage le cœur d'observabilité de l'API (`apps/api/src/platform/observability/core`) ; son instrumentation est dans `src/observability/`.
+
+* **Journaux** (pino, JSON) au schéma commun avec l'API : `service: "worker"`, `request_id`, `tenant_id`, `module`, `job_id`, `event_id`, `trace_id`,
+  `span_id`, ajoutés automatiquement (y compris aux lignes des modules via `ctx.logger`). Le `request_id` est celui de la **requête HTTP qui a émis
+  l'événement** (colonne `kernel.domain_events.request_id`) ; un événement émis à son tour par un abonné garde ce `request_id`. Redaction
+  systématique (mots de passe, jetons, e-mails, contenu de messages…). Les clés camelCase de `logger.child(...)` sont normalisées en snake_case.
+* **Traces** : désactivées sans `OTEL_EXPORTER_OTLP_ENDPOINT`. Spans `outbox publish <type>` (producteur, enfant du span HTTP via `traceparent`),
+  `route <type>`, `handle <abonné>`, `job <nom>`. Le `traceparent` voyage dans les données du job BullMQ (`{ event, trace }`).
+* **Métriques** (`/metrics`) : relais (`ed_outbox_publish_lag_seconds`, `ed_outbox_pending_events`, `ed_outbox_oldest_pending_age_seconds`,
+  échecs, dead, pannes Redis, dernier balayage), files (`ed_queue_jobs{queue,state}`, `ed_queue_oldest_waiting_age_seconds`, DLQ =
+  `domain-events-dead`), abonnés (`ed_subscriber_jobs_total{module,subscriber,outcome}`, durée), jobs planifiés (`ed_scheduled_job_*`, dernière réussite
+  persistée dans Redis), `ed_finance_payments_pending*`, `ed_pdf_render_*` (abonnés dont le nom contient `render`), `ed_worker_heartbeat_timestamp_seconds`.
+  Chaque réplica expose les mêmes files : agréger par `max`, jamais par `sum`.
+* **Battement de cœur** : `ZADD <préfixe>:obs:workers` toutes les 10 s ; l'API le lit pour la sonde `worker` de son `/ready`.
+* Variables : `LOG_LEVEL`, `OTEL_*`, `METRICS_TOKEN`, `OBS_*` (voir `docs/architecture/runbook-exploitation.md` §2). Un module n'a rien à
+  faire : corrélation, spans et métriques entourent ses abonnés et jobs.
 
 ### Docker
 

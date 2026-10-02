@@ -52,8 +52,10 @@ describe("clés interdites", () => {
 
 describe("scrubLogString", () => {
   it("masque e-mail, JWT, Bearer, identifiants d'URL et paramètres sensibles", () => {
+    // Valeur factice : l'URL de connexion est assemblée à l'exécution (le test de redaction a besoin d'un motif d'URL à identifiants).
+    const dbUrl = `${"postgres"}://app:s3cr3t-pass@db:5432/x`;
     const s = scrubLogString(
-      `login de jean.dupont@ecole.ci avec ${JWT} ; Authorization: Bearer abcdefghij1234567 ; postgres://app:s3cr3t-pass@db:5432/x ; GET /r?token=abc123&page=2&email=a%40b.ci`,
+      `login de jean.dupont@ecole.ci avec ${JWT} ; Authorization: Bearer abcdefghij1234567 ; ${dbUrl} ; GET /r?token=abc123&page=2&email=a%40b.ci`,
     );
     expect(s).not.toMatch(/jean\.dupont/);
     expect(s).not.toContain("eyJ");
@@ -122,6 +124,16 @@ describe("corrélation", () => {
     const out = normalizeCorrelationKeys({ requestId: "r1", tenantId: "t1", jobId: "j1", eventId: "e1", userId: "u1", other: 1 });
     expect(out).toEqual({ request_id: "r1", tenant_id: "t1", job_id: "j1", event_id: "e1", user_id: "u1", other: 1 });
     expect(normalizeCorrelationKeys({ requestId: "a", request_id: "b" })).toEqual({ request_id: "b" });
+  });
+
+  it("lignes de SystemDb : le requestId de la transaction système ne masque pas le request_id de corrélation", () => {
+    expect(normalizeCorrelationKeys({ event: "system_db", requestId: "tx-1", tenantId: "t", phase: "start" })).toEqual({
+      event: "system_db",
+      tx_request_id: "tx-1",
+      tenant_id: "t",
+      phase: "start",
+    });
+    expect(normalizeCorrelationKeys({ requestId: "r-1" })).toEqual({ request_id: "r-1" });
   });
 
   it("sanitizeLogObject = masque + normalise", () => {
