@@ -728,6 +728,7 @@ export const STATEASSIGN_ERROR_CODES = [
   "stateassign.control_not_found",
   "stateassign.document_not_found",
   "stateassign.export_format_not_found",
+  "stateassign.institution_not_found",
   "stateassign.enrollment_not_found",
   "stateassign.enrollment_not_eligible",
   "stateassign.enrollment_funding_refused",

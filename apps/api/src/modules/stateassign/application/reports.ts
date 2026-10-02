@@ -114,7 +114,7 @@ export async function listFormats(deps: StateassignDeps, ctx: RequestContext, qu
 export async function createFormat(deps: StateassignDeps, ctx: RequestContext, body: CreateExportFormatBody): Promise<Result<ExportFormatDto, AppError>> {
   const h = requireHuman(ctx);
   if (!h.ok) return h;
-  if (!inScope(ctx, body.institutionId)) return err(notFound(StateassignCode.INVALID_INPUT, "Établissement", body.institutionId));
+  if (!inScope(ctx, body.institutionId)) return err(notFound(StateassignCode.INSTITUTION_NOT_FOUND, "Établissement", body.institutionId));
   let columns: ExportColumn[];
   try {
     columns = validateColumns(body.dataset, body.columns);
@@ -179,7 +179,7 @@ export async function exportCsv(deps: StateassignDeps, ctx: RequestContext, inpu
   const today = todayOf(deps);
   const max = deps.config.exportMaxRows;
   const institutionId = ctx.institutionId ?? input.institutionId;
-  if (ctx.institutionId && input.institutionId && input.institutionId !== ctx.institutionId) return err(notFound(StateassignCode.INVALID_INPUT, "Établissement", input.institutionId));
+  if (ctx.institutionId && input.institutionId && input.institutionId !== ctx.institutionId) return err(notFound(StateassignCode.INSTITUTION_NOT_FOUND, "Établissement", input.institutionId));
 
   const gathered = await inTx(
     deps,

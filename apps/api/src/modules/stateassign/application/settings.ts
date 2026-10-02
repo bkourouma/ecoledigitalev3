@@ -13,14 +13,14 @@ import { settingsDto } from "./presenters";
 import { inScope } from "./support";
 
 export async function getInstitutionSettings(deps: StateassignDeps, ctx: RequestContext, institutionId: Uuid): Promise<Result<StateassignSettingsDto, AppError>> {
-  if (!inScope(ctx, institutionId)) return err(notFound(StateassignCode.INVALID_INPUT, "Établissement", institutionId));
+  if (!inScope(ctx, institutionId)) return err(notFound(StateassignCode.INSTITUTION_NOT_FOUND, "Établissement", institutionId));
   return inTx(deps, ctx, async (tx) => ok(settingsDto(await repo.getSettings(tx, institutionId))), { readOnly: true });
 }
 
 export async function updateInstitutionSettings(deps: StateassignDeps, ctx: RequestContext, institutionId: Uuid, body: StateassignUpdateSettingsBody): Promise<Result<StateassignSettingsDto, AppError>> {
   const h = requireHuman(ctx);
   if (!h.ok) return h;
-  if (!inScope(ctx, institutionId)) return err(notFound(StateassignCode.INVALID_INPUT, "Établissement", institutionId));
+  if (!inScope(ctx, institutionId)) return err(notFound(StateassignCode.INSTITUTION_NOT_FOUND, "Établissement", institutionId));
   return inTx(deps, ctx, async (tx) => {
     const before = await repo.getSettings(tx, institutionId);
     const saved = await repo.upsertSettings(tx, ctx.tenantId, institutionId, {

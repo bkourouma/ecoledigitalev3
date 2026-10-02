@@ -118,19 +118,19 @@ export async function cancelReceivable(tx: Tx, id: Uuid, reason: string, expecte
 }
 
 /** Montant reçu rapproché (la base recalcule le statut). N'écrit rien si le montant ne change pas. */
-export async function applyReceived(tx: Tx, id: Uuid, received: Money): Promise<boolean> {
+export async function applyReceived(tx: Tx, id: Uuid, received: Money, at: Date): Promise<boolean> {
   return translating(async () => {
     const r = await tx.query(
-      `UPDATE stateassign.receivables SET received_amount = $2, last_reconciled_at = now()
+      `UPDATE stateassign.receivables SET received_amount = $2, last_reconciled_at = $3
         WHERE id = $1 AND status <> 'CANCELLED' AND (received_amount <> $2 OR last_reconciled_at IS NULL)`,
-      [id, received.amount],
+      [id, received.amount, at],
     );
     return r.rowCount === 1;
   });
 }
 
-export async function flagOverdue(tx: Tx, id: Uuid): Promise<boolean> {
-  const r = await tx.query(`UPDATE stateassign.receivables SET overdue_flagged_at = now() WHERE id = $1 AND overdue_flagged_at IS NULL AND status IN ('OPEN','PARTIALLY_RECEIVED')`, [id]);
+export async function flagOverdue(tx: Tx, id: Uuid, at: Date): Promise<boolean> {
+  const r = await tx.query(`UPDATE stateassign.receivables SET overdue_flagged_at = $2 WHERE id = $1 AND overdue_flagged_at IS NULL AND status IN ('OPEN','PARTIALLY_RECEIVED')`, [id, at]);
   return r.rowCount === 1;
 }
 

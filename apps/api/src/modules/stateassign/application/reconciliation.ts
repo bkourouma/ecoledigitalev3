@@ -88,7 +88,7 @@ export async function reconcileInTx(
 
   let updated = a;
   if (!skipWrite) {
-    updated = await repo.writeReconciliation(tx, a.id, { stateDelta: outcome.stateDelta, parentDelta: outcome.parentDelta, scholarshipId, stateInvoiceId, parentInvoiceId });
+    updated = await repo.writeReconciliation(tx, a.id, { stateDelta: outcome.stateDelta, parentDelta: outcome.parentDelta, scholarshipId, stateInvoiceId, parentInvoiceId, at: deps.clock.now() });
   }
 
   // Versements de l'État -> échéances, dans l'ordre.
@@ -102,7 +102,7 @@ export async function reconcileInTx(
     if (row.receivable.status === "CANCELLED") continue;
     if (alloc.received.amount === row.receivable.received.amount && row.receivable.lastReconciledAt !== null) continue;
     const wasSettled = row.receivable.status === "RECEIVED";
-    await recRepo.applyReceived(tx, alloc.id, alloc.received);
+    await recRepo.applyReceived(tx, alloc.id, alloc.received, deps.clock.now());
     if (alloc.received.amount !== row.receivable.received.amount) receivablesChanged += 1;
     const fresh = (await recRepo.getReceivable(tx, alloc.id))!.receivable;
     if (!wasSettled && fresh.status === "RECEIVED") events.add(StateassignEvents.RECEIVABLE_RECEIVED, receivablePayload(fresh, 0), { type: "stateassign.receivable", id: fresh.id });

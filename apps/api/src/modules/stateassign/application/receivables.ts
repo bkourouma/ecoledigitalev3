@@ -239,7 +239,7 @@ export async function flagOverdueReceivables(deps: StateassignDeps, ctx: Request
       const events = new EventBuffer(deps, ctx);
       let n = 0;
       for (const row of rows) {
-        if (!(await recRepo.flagOverdue(tx, row.receivable.id))) continue;
+        if (!(await recRepo.flagOverdue(tx, row.receivable.id, deps.clock.now()))) continue;
         n += 1;
         events.add(StateassignEvents.RECEIVABLE_OVERDUE, receivablePayload(row.receivable, daysOverdueOf(row.receivable.dueOn, asOf, row.graceDays)), { type: "stateassign.receivable", id: row.receivable.id });
       }

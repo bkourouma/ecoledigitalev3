@@ -240,14 +240,14 @@ export async function transitionAssignment(tx: Tx, id: Uuid, patch: TransitionPa
 export async function writeReconciliation(
   tx: Tx,
   id: Uuid,
-  r: { stateDelta: Money; parentDelta: Money; scholarshipId: Uuid | null; stateInvoiceId: Uuid | null; parentInvoiceId: Uuid | null },
+  r: { stateDelta: Money; parentDelta: Money; scholarshipId: Uuid | null; stateInvoiceId: Uuid | null; parentInvoiceId: Uuid | null; at: Date },
 ): Promise<AssignmentRecord> {
   return translating(async () => {
     const row = await tx.queryOne(
-      `UPDATE stateassign.assignments SET last_reconciled_at = now(), reconciled_state_delta = $2, reconciled_parent_delta = $3,
+      `UPDATE stateassign.assignments SET last_reconciled_at = $7, reconciled_state_delta = $2, reconciled_parent_delta = $3,
          finance_scholarship_id = $4, finance_state_invoice_id = $5, finance_parent_invoice_id = $6
        WHERE id = $1 RETURNING ${ASSIGNMENT_COLS}`,
-      [id, r.stateDelta.amount, r.parentDelta.amount, r.scholarshipId, r.stateInvoiceId, r.parentInvoiceId],
+      [id, r.stateDelta.amount, r.parentDelta.amount, r.scholarshipId, r.stateInvoiceId, r.parentInvoiceId, r.at],
     );
     return assignmentOf(row!);
   });
@@ -350,8 +350,8 @@ export async function resolveControl(
   });
 }
 
-export async function markControlDueNotified(tx: Tx, id: Uuid): Promise<boolean> {
-  const r = await tx.query(`UPDATE stateassign.controls SET due_notified_at = now() WHERE id = $1 AND due_notified_at IS NULL AND status = 'PENDING'`, [id]);
+export async function markControlDueNotified(tx: Tx, id: Uuid, at: Date): Promise<boolean> {
+  const r = await tx.query(`UPDATE stateassign.controls SET due_notified_at = $2 WHERE id = $1 AND due_notified_at IS NULL AND status = 'PENDING'`, [id, at]);
   return r.rowCount === 1;
 }
 

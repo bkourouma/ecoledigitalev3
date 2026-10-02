@@ -279,7 +279,7 @@ export async function notifyDueControls(deps: StateassignDeps, ctx: RequestConte
       const events = new EventBuffer(deps, ctx);
       let n = 0;
       for (const c of rows) {
-        if (!(await repo.markControlDueNotified(tx, c.id))) continue;
+        if (!(await repo.markControlDueNotified(tx, c.id, deps.clock.now()))) continue;
         n += 1;
         events.add(
           StateassignEvents.CONTROL_DUE,

@@ -71,7 +71,7 @@ CREATE TABLE stateassign.receivable_events (
   actor_kind    text CHECK (actor_kind IS NULL OR actor_kind IN ('user', 'system', 'superAdmin')),
   reason        text,
   data          jsonb NOT NULL DEFAULT '{}'::jsonb,
-  occurred_at   timestamptz NOT NULL DEFAULT now(),
+  occurred_at   timestamptz NOT NULL DEFAULT clock_timestamp(),
   UNIQUE (tenant_id, id),
   FOREIGN KEY (tenant_id, receivable_id) REFERENCES stateassign.receivables (tenant_id, id)
 );

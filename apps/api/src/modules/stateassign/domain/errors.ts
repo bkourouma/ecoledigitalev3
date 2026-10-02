@@ -15,6 +15,7 @@ export const StateassignCode = {
   CONTROL_NOT_FOUND: "stateassign.control_not_found",
   DOCUMENT_NOT_FOUND: "stateassign.document_not_found",
   EXPORT_FORMAT_NOT_FOUND: "stateassign.export_format_not_found",
+  INSTITUTION_NOT_FOUND: "stateassign.institution_not_found",
   ENROLLMENT_NOT_FOUND: "stateassign.enrollment_not_found",
   ENROLLMENT_NOT_ELIGIBLE: "stateassign.enrollment_not_eligible",
   ENROLLMENT_FUNDING_REFUSED: "stateassign.enrollment_funding_refused",

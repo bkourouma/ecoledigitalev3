@@ -35,6 +35,8 @@ const IRREGULAR_VERBS = new Set([
   "eligible", // higher.diploma.eligible — constat d'éligibilité (nom conservé : déjà consommé par les pages)
   "overlap", // scheduling.calendar_event.blocking_overlap — constat de chevauchement
   "sent", // messaging.message.sent — participe passé irrégulier (nom demandé par la spec 016)
+  "due", // stateassign.control.due — contrôle arrivé à échéance (nom de la spec 006, comme `overdue`)
+  "discrepancy", // stateassign.reconciliation.discrepancy — constat d'écart (nom de la spec 006, comme `mismatch`)
 ]);
 
 function verbOf(name: string): string {
