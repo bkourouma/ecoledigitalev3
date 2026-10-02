@@ -130,7 +130,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "grade.*": "Valider, publier et corriger après publication les notes : responsabilité de direction (garde-fou final).",
       "attendance.*": "Rouvrir un appel validé, surcharger un récapitulatif, décider des congés du personnel.",
       "audit.*": "Exporter le journal d'audit : contrôle de direction.",
-      "finance.*": "Rembourser (quatre yeux à l'exécution) : la direction supervise la caisse.",
+      "finance.*": "Rembourser (quatre yeux à l'exécution), rapprocher les paiements et rejouer un webhook de paiement en échec (re-vérification auprès du fournisseur, audité, MFA) : la direction supervise la caisse.",
       "rules.*": "Choisir et faire évoluer les règles de calcul de l'établissement (la console nationale reste à la plateforme).",
       "higher.*": "Octroyer, forcer et révoquer les diplômes, émettre les documents officiels, affecter les signataires.",
       "iam.*": "Réinitialiser la double authentification d'un membre : gestion des accès par la direction.",
@@ -446,6 +446,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "admission.update",
       "admission.document.upload",
       "admission.document.review",
+      // Rattachement des pièces acceptées d'un dossier inscrit à la GED (exige aussi `documents.upload`, route relue côté serveur).
+      "admission.document.attach",
       "admission.interview.manage",
       "admission.offer.manage",
       "admission.duplicate.resolve",
@@ -518,6 +520,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "finance.invoice.create",
       "finance.invoice.cancel",
       "finance.payment.read",
+      // Webhooks de paiement en échec : LECTURE seule (sans charge brute). Le rejeu (sensible, MFA) reste à la direction.
+      "finance.webhook.read",
       "finance.payment.create",
       "finance.payment.refund",
       "finance.cashregister.open",
@@ -891,6 +895,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "admission.update",
       "admission.document.upload",
       "admission.document.review",
+      // Rattachement des pièces acceptées d'un dossier inscrit à la GED (exige aussi `documents.upload`, route relue côté serveur).
+      "admission.document.attach",
       "admission.interview.manage",
       "admission.offer.manage",
       "admission.duplicate.resolve",
