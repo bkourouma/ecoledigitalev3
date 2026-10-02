@@ -821,6 +821,8 @@ export const financeReceivableRowDtoSchema = z.object({
 
 export const financeLearnerReceivableRowDtoSchema = financeReceivableRowDtoSchema.extend({
   learnerId: financeUuidSchema,
+  /** « NOM Prénom » (lecture par lot dans `people`) ; `null` si inconnu ou indisponible. */
+  learnerName: z.string().nullable().optional(),
   oldestOverdueDate: financeDateSchema.nullable(),
 });
 
@@ -880,7 +882,7 @@ export const financeFamilyInstallmentsQuerySchema = z.object({ open: boolQuery.o
 export const financeFamilyPaymentsQuerySchema = financePageQuerySchema.extend({ status: financePaymentStatusSchema.optional() });
 export const financeFamilyReceiptsQuerySchema = financePageQuerySchema;
 
-export const financeFamilyLearnerDtoSchema = z.object({ learnerId: financeUuidSchema, relation: financeFamilyRelationSchema });
+export const financeFamilyLearnerDtoSchema = z.object({ learnerId: financeUuidSchema, relation: financeFamilyRelationSchema, displayName: z.string().nullable().optional() });
 export type FinanceFamilyLearnerDto = z.infer<typeof financeFamilyLearnerDtoSchema>;
 export const financeFamilyLearnersDtoSchema = z.object({ items: z.array(financeFamilyLearnerDtoSchema) });
 

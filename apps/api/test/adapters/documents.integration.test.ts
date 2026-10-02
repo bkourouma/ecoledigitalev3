@@ -57,6 +57,9 @@ describeIntegration("documents officiels : reçu (finance) et bulletin de paie (
     fin = createFinanceDeps({ db: w.tenantDb, clock, logger: w.kit.logger, portsProvider: () => ({ ...w.ports.finance, documents: createFinanceReceiptDocuments(rc) }) });
     const learner = await w.ports.finance.learners!.getLearner(ctx, school.pupils[0]!.studentId);
     studentName = learner!.displayName!;
+    // lecture PAR LOT des noms (listes, exports) : une seule lecture, l'inconnu est absent
+    const names = await w.ports.finance.learners!.getLearnerNames!(ctx, [school.pupils[0]!.studentId, newId()]);
+    expect([...names.entries()]).toEqual([[school.pupils[0]!.studentId, studentName]]);
   }, 300_000);
   afterAll(async () => {
     await w?.drop();

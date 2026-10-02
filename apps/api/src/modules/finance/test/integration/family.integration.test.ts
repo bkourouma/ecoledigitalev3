@@ -20,6 +20,7 @@ import { createFinanceDeps } from "../../application/deps";
 import { createInvoice, issueInvoiceFromSchedule } from "../../application/invoices";
 import { familyIdempotencyKey } from "../../application/family";
 import { InMemoryGuardianship } from "../../application/ports/guardianship";
+import { InMemoryLearnerDirectory } from "../../application/ports/directories";
 import { RecordingAudit } from "../../application/ports/audit";
 import { financePlugin } from "../../http/plugin";
 import manifest from "../../manifest";
@@ -92,6 +93,7 @@ describeIntegration("finance : routes famille /me/* (parent, élève) — autori
       audit,
       providers: world.providers,
       enrollments: world.enrollments,
+      learners: new InMemoryLearnerDirectory([{ learnerId: L1, displayName: "KOUASSI Aya" }, { learnerId: L2, displayName: "DIALLO Moussa" }, { learnerId: L3, displayName: "NE DOIT PAS APPARAITRE" }, { learnerId: L4, displayName: "TOURE Fanta" }]),
       guardianship,
       config: { environment: "test" },
     });
@@ -196,12 +198,15 @@ describeIntegration("finance : routes famille /me/* (parent, élève) — autori
       const dto = financeFamilyLearnersDtoSchema.parse(r.json);
       expect(dto.items.map((i) => i.learnerId).sort()).toEqual([L1, L2].sort());
       expect(dto.items.every((i) => i.relation === "GUARDIAN")).toBe(true);
+      // noms lus par LOT ; jamais celui d'un apprenant non lié
+      expect(Object.fromEntries(dto.items.map((i) => [i.learnerId, i.displayName]))).toEqual({ [L1]: "KOUASSI Aya", [L2]: "DIALLO Moussa" });
+      expect(JSON.stringify(r.json)).not.toContain("NE DOIT PAS");
       const r2 = await call("GET", "/me/learners", asParent(p2));
       expect(r2.json.items.map((i: any) => i.learnerId)).toEqual([L2]);
     });
     it("l'élève voit lui-même (SELF) ; un inconnu ne voit personne", async () => {
       const r = await call("GET", "/me/learners", asStudent());
-      expect(r.json.items).toEqual([{ learnerId: L4, relation: "SELF" }]);
+      expect(r.json.items).toEqual([{ learnerId: L4, relation: "SELF", displayName: "TOURE Fanta" }]);
       const none = await call("GET", "/me/learners", { user: stranger, perms: [...PARENT_PERMS, ...STUDENT_PERMS] });
       expect(none.status).toBe(200);
       expect(none.json.items).toEqual([]);

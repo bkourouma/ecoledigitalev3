@@ -335,9 +335,10 @@ export const receivableRowDto = (r: ReceivableRow) => ({
   collectionRateBps: r.collectionRateBps,
 });
 
-export const learnerReceivableRowDto = (r: LearnerReceivableRow) => ({
+export const learnerReceivableRowDto = (r: LearnerReceivableRow, names: ReadonlyMap<string, string> = new Map()) => ({
   ...receivableRowDto(r),
   learnerId: r.learnerId,
+  learnerName: names.get(r.learnerId) ?? null,
   oldestOverdueDate: r.oldestOverdueDate,
 });
 
@@ -379,7 +380,7 @@ export const learnerStatementDto = (s: LearnerStatement) => ({
 // Vues FAMILLE (`/finance/me/*`) : mêmes formes que l'administration, SANS les champs internes
 // ---------------------------------------------------------------------------------------------------------------------
 
-export const familyLearnerDto = (a: FamilyAccess) => ({ learnerId: a.learnerId, relation: a.relation });
+export const familyLearnerDto = (a: FamilyAccess, names: ReadonlyMap<string, string> = new Map()) => ({ learnerId: a.learnerId, relation: a.relation, displayName: names.get(a.learnerId) ?? null });
 
 export const familyInvoiceSummaryDto = (i: InvoiceRecord) => {
   const { payerRef: _payerRef, cancelReason: _cancelReason, ...rest } = invoiceSummaryDto(i);

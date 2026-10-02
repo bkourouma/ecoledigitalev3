@@ -126,6 +126,7 @@ import {
   type PermissionProbe,
 } from "../application/family";
 import type { OfficialDocumentState } from "../application/ports/documents";
+import { learnerNames } from "../application/learner-names";
 import { getReceiptPdf } from "../application/receipt-document";
 import { createFinancePortRegistry, type FinancePortRegistry, type FinancePortSet } from "../application/port-registry";
 import { financeAuditAdapter } from "../infrastructure/audit-adapter";
@@ -682,7 +683,8 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
       scope.get("/me/learners", { preHandler: familyGuard("read") }, async (req, reply) => {
         const ctx = ctxOf(req);
         const items = unwrapOrThrow(await listMyLearners(deps, ctx, probeOf(req, reply)));
-        return { items: items.map(present.familyLearnerDto) };
+        const names = await learnerNames(deps, ctx, items.map((i) => i.learnerId));
+        return { items: items.map((i) => present.familyLearnerDto(i, names)) };
       });
       scope.get("/me/learners/:learnerId/statement", { preHandler: familyGuard("read") }, async (req, reply) => {
         const ctx = ctxOf(req);
@@ -863,7 +865,8 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
         const page = unwrapOrThrow(
           await getReceivablesByLearner(deps, ctxOf(req), { ...reportFilter(q), limit: q.limit, offset: q.offset, ...(q.onlyOutstanding !== undefined ? { onlyOutstanding: q.onlyOutstanding } : {}) }),
         );
-        return { items: page.items.map(present.learnerReceivableRowDto), total: page.total };
+        const names = await learnerNames(deps, ctxOf(req), page.items.map((r) => r.learnerId));
+        return { items: page.items.map((r) => present.learnerReceivableRowDto(r, names)), total: page.total };
       });
       scope.get("/reports/collections-trend", { preHandler: perm("finance.report.read") }, async (req) => {
         const q = parse(financeCollectionsTrendQuerySchema, req.query);

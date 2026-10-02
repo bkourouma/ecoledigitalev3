@@ -233,6 +233,9 @@ borné à 500 000). Au-delà, il est tronqué ET signalé : en-têtes `X-Export-
 `X-Export-Max-Rows` (exposés par `Access-Control-Expose-Headers`) et route `/meta` — lisible par le client typé sans accès aux en-têtes
 (`parseFinanceExportHeaders` du contrat ; un en-tête manquant = potentiellement tronqué, jamais « complet »). Format : UTF-8 avec BOM, séparateur `;`, CRLF,
 anti-injection de formule, montants entiers en unités mineures + colonne `devise`. Chaque export est audité (`finance.export.generated`).
+La colonne `apprenant` (« NOM Prénom ») est lue par LOT dans `people` (port facultatif `learners.getLearnerNames`, une lecture pour N apprenants) ; elle est
+vide si le port est absent ou indisponible. Le même port alimente `displayName` de `GET /me/learners` et `learnerName` de
+`GET /reports/receivables-by-learner` (décoration : un échec ne casse jamais la liste).
 
 ## Reporting — définitions
 

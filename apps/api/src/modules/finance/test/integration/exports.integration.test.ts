@@ -7,6 +7,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { ForbiddenError, UnauthorizedError, createRequestContext, newId, unwrap } from "@ecoledigitale/kernel";
 import { FINANCE_EXPORT_HEADERS, financeExportMetaDtoSchema, parseFinanceExportHeaders } from "@ecoledigitale/contracts/src/v2/finance";
 import { createFinanceDeps } from "../../application/deps";
+import { InMemoryLearnerDirectory } from "../../application/ports/directories";
 import { RecordingAudit } from "../../application/ports/audit";
 import { EXPORT_COLUMNS } from "../../application/exports";
 import { financePlugin } from "../../http/plugin";
@@ -25,6 +26,8 @@ describeIntegration("finance : exports CSV serveur — complets, plafonnés, tro
   const audit = new RecordingAudit();
   const user = newId();
   const evil = "=HYPERLINK(\"http://x\";\"y\")";
+  const evilLearner = learnerId();
+  const names = new InMemoryLearnerDirectory([{ learnerId: evilLearner, displayName: "=CMD|' /C calc'!A0" }]);
 
   beforeAll(async () => {
     db = await createFinanceTestDb();
@@ -34,14 +37,14 @@ describeIntegration("finance : exports CSV serveur — complets, plafonnés, tro
     const admin = ctxFor(tenantId);
     await openCashier(world.deps, admin, 0, "CAISSE-EXP");
     for (let i = 0; i < TOTAL; i++) {
-      const l = learnerId();
+      const l = i === 0 ? evilLearner : learnerId();
       await simpleInvoice(world.deps, admin, l, 10_000 + i, "2025-10-15", i === 0 ? { groupKey: "G-EVIL", groupLabel: evil } : { groupKey: "G1", groupLabel: "6e A" });
       if (i % 3 === 0) unwrap(await pay(world.deps, admin, l, 4_000, { method: "TRANSFER" }));
     }
     // une facture dans un autre tenant : ne doit jamais apparaître
     await simpleInvoice(world.deps, ctxFor(otherTenant), learnerId(), 999_999);
 
-    const deps = createFinanceDeps({ db: db.tenantDb, clock: world.clock, audit, providers: world.providers, config: { environment: "test", exportMaxRows: MAX } });
+    const deps = createFinanceDeps({ db: db.tenantDb, clock: world.clock, audit, providers: world.providers, learners: names, config: { environment: "test", exportMaxRows: MAX } });
     app = Fastify({ logger: false });
     app.addHook("onRequest", async (req) => {
       const tenant = req.headers["x-test-tenant"];
@@ -109,6 +112,16 @@ describeIntegration("finance : exports CSV serveur — complets, plafonnés, tro
     const res = await get("/exports/invoices?groupKey=G-EVIL");
     expect(res.body).toContain("\"'=HYPERLINK(");
     expect(res.body).not.toMatch(/;=HYPERLINK/);
+  });
+
+  it("colonne `apprenant` : nom lu par lot ; un nom commençant par `=` est neutralisé comme toute cellule ; vide pour un inconnu", async () => {
+    const res = await get("/exports/invoices?groupKey=G-EVIL");
+    const row = lines(res.body)[1]!;
+    expect(row).toContain("'=CMD|' /C calc'!A0");
+    expect(row).not.toMatch(/;=CMD/);
+    expect(row.split(";")[EXPORT_COLUMNS.invoices.indexOf("apprenant_id") + 1]).not.toBe("");
+    const other = lines((await get("/exports/invoices?groupKey=G1&status=ISSUED")).body)[1]!.split(";");
+    expect(other[EXPORT_COLUMNS.invoices.indexOf("apprenant")]).toBe("");
   });
 
   it("paiements et créances : mêmes garanties (jeu complet, plafond, en-têtes)", async () => {
