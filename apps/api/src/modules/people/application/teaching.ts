@@ -443,7 +443,14 @@ export async function listMyClasses(deps: PeopleDeps, ctx: RequestContext, staff
   return ok(enriched);
 }
 
-/** Le responsable d'un nœud dans une classe : `LEAD` explicite > généraliste > titulaire ; « aucun » pour un nœud transversal. */
+/**
+ * Le responsable d'un nœud dans une classe : `LEAD` explicite > généraliste (`LEAD` + `covers_all_subjects`) > titulaire
+ * généraliste (`HOMEROOM` + `covers_all_subjects`) > titulaire ; « aucun » (`null`) pour un nœud transversal.
+ *
+ * CAS GÉNÉRALISTE (primaire, spec 005 T-P10 / AC2.3) : l'instituteur est le titulaire `HOMEROOM` avec `covers_all_subjects` ;
+ * pour N'IMPORTE QUEL nœud non transversal de la classe, la fonction renvoie ce titulaire (`coversAllSubjects: true`) ; son
+ * remplaçant (`SUBSTITUTE` couvrant toutes les matières, ou `replaceTeachingAssignment`) hérite à la date d'effet.
+ */
 export async function getResponsibleForNode(
   deps: PeopleDeps,
   ctx: RequestContext,

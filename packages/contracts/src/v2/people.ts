@@ -90,6 +90,10 @@ export const PEOPLE_ERROR_CODES = [
   "people.national_id_conflict",
   "people.number_pattern_invalid",
   "people.reference_in_use",
+  // Extensions Phase 4-5 (additives)
+  "people.human_actor_required",
+  "people.student_id_conflict",
+  "people.invalid_reference_date",
 ] as const;
 export type PeopleErrorCode = (typeof PEOPLE_ERROR_CODES)[number];
 
@@ -192,12 +196,25 @@ export const peopleDuplicateQuerySchema = z.object({
   birthDate: peopleDateSchema.optional(),
 });
 
+/**
+ * Raisons d'un rapprochement (CODES stables, aucune donnée personnelle) : `SAME_NAME` (mêmes mots, permutation admise),
+ * `SIMILAR_NAME` (une faute de frappe par mot), `SAME_BIRTHDATE`, `BIRTHDATE_UNKNOWN` (une des deux dates manque : on ne peut
+ * pas départager), `SAME_EMAIL`, `SAME_PHONE` (signaux de contact, personnel et tuteurs).
+ */
+export const PEOPLE_DUPLICATE_REASONS = ["SAME_NAME", "SIMILAR_NAME", "SAME_BIRTHDATE", "BIRTHDATE_UNKNOWN", "SAME_EMAIL", "SAME_PHONE"] as const;
+export const peopleDuplicateReasonSchema = z.enum(PEOPLE_DUPLICATE_REASONS);
+export type PeopleDuplicateReason = z.infer<typeof peopleDuplicateReasonSchema>;
+
 export const peopleDuplicateCandidateDtoSchema = z.object({
   personId: peopleUuidSchema,
   displayName: z.string(),
   birthDate: peopleDateSchema.nullable(),
   /** `EXACT` : même nom (permutation admise) et même date ; `NEAR` : fautes de frappe ; `NAME_ONLY` : une date manque. */
   match: z.enum(["EXACT", "NEAR", "NAME_ONLY", "EMAIL", "PHONE"]),
+  /** Confiance du rapprochement, entier de 0 à 100 (indicative, jamais un seuil de décision : l'arbitrage reste humain). `0` si un serveur plus ancien ne la fournit pas. */
+  score: z.number().int().min(0).max(100).default(0),
+  /** Signaux qui expliquent le rapprochement (codes). */
+  reasons: z.array(peopleDuplicateReasonSchema).default([]),
   /** Rôles visibles pour l'acteur (filtrés par ses permissions). */
   roles: z.array(z.enum(["STUDENT", "GUARDIAN", "STAFF"])),
   studentId: peopleUuidSchema.nullable(),
@@ -228,6 +245,11 @@ export const peopleCreateStudentBodySchema = z
     civilRegistryOffice: text(160).optional(),
     attributes: attributesSchema.optional(),
     externalRef: text(120).optional(),
+    /**
+     * Statut à la création : `ACTIVE` (défaut) ou `INACTIVE` (dossier créé avant la confirmation de l'inscription, ex. admissions ;
+     * il passe `ACTIVE` par `changeStudentStatus`). Aucun autre statut n'est accepté à la création.
+     */
+    initialStatus: z.enum(["ACTIVE", "INACTIVE"]).optional(),
     /** Valide sans écrire (import 031) : renvoie les erreurs par champ et les doublons. */
     validateOnly: z.boolean().optional(),
     ...duplicateAckSchema,
@@ -371,6 +393,19 @@ export const peopleStudentSensitiveDtoSchema = z.object({
   attributes: z.record(z.unknown()),
 });
 export type PeopleStudentSensitiveDto = z.infer<typeof peopleStudentSensitiveDtoSchema>;
+
+/**
+ * Âge d'un élève à une date de référence FOURNIE (années révolues). `ageYears = null` si la date de naissance est inconnue
+ * (`birthDateKnown = false`) ou postérieure à la date de référence (`bornAfterReference = true`). Jamais l'horloge.
+ */
+export const peopleStudentAgeDtoSchema = z.object({
+  studentId: peopleUuidSchema,
+  referenceDate: peopleDateSchema,
+  birthDateKnown: z.boolean(),
+  bornAfterReference: z.boolean(),
+  ageYears: z.number().int().min(0).nullable(),
+});
+export type PeopleStudentAgeDto = z.infer<typeof peopleStudentAgeDtoSchema>;
 
 // ---------------------------------------------------------------------------
 // Pièces de l'élève (stockage objet, type réel contrôlé par octets magiques, URL signées, lectures auditées)
@@ -1256,7 +1291,8 @@ export const peopleTeachingAssignmentEndedPayloadSchema = peopleEv({ ...peopleAs
  * `apps/api/test/events-contracts`). Aucune donnée personnelle ni texte libre.
  */
 export const peopleEventPayloadSchemas = {
-  "people.student.created": peopleEv({ studentId: peopleUuidSchema, personId: peopleUuidSchema }),
+  // `initialStatus` n'est présent que pour un dossier créé `INACTIVE` (absent = `ACTIVE`).
+  "people.student.created": peopleEv({ studentId: peopleUuidSchema, personId: peopleUuidSchema, initialStatus: z.enum(["ACTIVE", "INACTIVE"]).optional() }),
   "people.student.updated": peopleEv({ studentId: peopleUuidSchema, fields: z.array(z.string()) }),
   "people.student.status_changed": peopleStudentStatusChangedPayloadSchema,
   "people.student.anonymized": peopleEv({ studentId: peopleUuidSchema }),

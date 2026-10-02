@@ -245,3 +245,51 @@ export async function saveAlertState(
     [s.tenantId, s.enrollmentId, s.periodId, s.ruleCode, s.studentId, s.metric, s.threshold, s.value, s.at.toISOString(), s.kind],
   );
 }
+
+// --- journées (appel journalier) ---------------------------------------------
+
+export interface DailyDaysRow {
+  readonly enrollmentId: Uuid;
+  readonly calledDays: number;
+  readonly presentDays: number;
+  readonly absentDays: number;
+  readonly excusedAbsentDays: number;
+  readonly lateDays: number;
+}
+
+/**
+ * JOURNÉES par inscription sur `[from, to]` : seuls les appels `DAILY` soumis ou validés comptent (un appel par classe et par
+ * jour) ; une journée est comptée une fois même si l'élève a changé de classe. Lecture seule, aucune minute supposée.
+ */
+export async function countDailyDays(tx: Tx, enrollmentIds: readonly Uuid[], from: IsoDate, to: IsoDate): Promise<Map<Uuid, DailyDaysRow>> {
+  const rows = await tx.many<{ enrollment_id: Uuid; called_days: number; present_days: number; absent_days: number; excused_absent_days: number; late_days: number }>(
+    `SELECT r.enrollment_id,
+            count(DISTINCT s.session_date)::integer AS called_days,
+            count(DISTINCT s.session_date) FILTER (WHERE d.counts_as_present)::integer AS present_days,
+            count(DISTINCT s.session_date) FILTER (WHERE d.counts_as_absence)::integer AS absent_days,
+            count(DISTINCT s.session_date) FILTER (WHERE d.counts_as_absence AND r.excused)::integer AS excused_absent_days,
+            count(DISTINCT s.session_date) FILTER (WHERE d.counts_as_late)::integer AS late_days
+       FROM attendance.student_records r
+       JOIN attendance.sessions s ON s.tenant_id = r.tenant_id AND s.id = r.session_id
+       JOIN attendance.status_definitions d ON d.tenant_id = r.tenant_id AND d.subject_kind = r.subject_kind AND d.code = r.status_code
+      WHERE r.tenant_id = kernel.current_tenant_id()
+        AND r.enrollment_id = ANY($1::uuid[])
+        AND s.scope = 'DAILY'
+        AND s.status IN ('SUBMITTED', 'VALIDATED')
+        AND s.session_date BETWEEN $2::date AND $3::date
+      GROUP BY r.enrollment_id`,
+    [[...enrollmentIds], from, to],
+  );
+  const out = new Map<Uuid, DailyDaysRow>();
+  for (const r of rows) {
+    out.set(r.enrollment_id, {
+      enrollmentId: r.enrollment_id,
+      calledDays: r.called_days,
+      presentDays: r.present_days,
+      absentDays: r.absent_days,
+      excusedAbsentDays: r.excused_absent_days,
+      lateDays: r.late_days,
+    });
+  }
+  return out;
+}

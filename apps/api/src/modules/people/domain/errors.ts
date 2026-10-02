@@ -83,5 +83,11 @@ export const PeopleErrors = {
   nationalIdConflict: (): AppError => conflict("people.national_id_conflict", "Cet identifiant national est déjà attribué à un autre élève."),
   numberPatternInvalid: (message: string): AppError => invalid("people.number_pattern_invalid", message, "pattern"),
   referenceInUse: (message: string): AppError => conflict("people.reference_in_use", message),
+  /** Un acte (suspension, exclusion) est toujours le fait d'un utilisateur identifié : jamais un acteur système (spec 006 §11.5). */
+  humanActorRequired: (what: string): AppError => new ForbiddenError(`Un utilisateur identifié est requis (${what}).`, { code: "people.human_actor_required" }),
+  /** L'identifiant fourni à la création désigne déjà une autre ressource (spec 007 §16 : `id` fourni par l'appelant). */
+  studentIdConflict: (): AppError => conflict("people.student_id_conflict", "Cet identifiant d'élève est déjà utilisé."),
+  invalidReferenceDate: (path: string | ReadonlyArray<string | number> = "referenceDate"): AppError =>
+    invalid("people.invalid_reference_date", "Date de référence invalide : une date AAAA-MM-JJ du calendrier est attendue.", path),
   forbidden: (message = "Action non autorisée."): AppError => new ForbiddenError(message),
 } as const;

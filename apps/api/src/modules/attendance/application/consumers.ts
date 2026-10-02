@@ -6,7 +6,9 @@
 import { createSystemContext, isUuid, ok, unwrap, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import type { ForEachTenantReport, SystemDb } from "@ecoledigitale/database";
 import { AttendanceCode } from "../domain/errors";
+import { DEFAULT_ATTENDANCE_PACK, type AttendancePackTemplate } from "../domain/reference-pack";
 import type { Uuid } from "../domain/types";
+import { getAttendancePackTemplate } from "../templates";
 import { listStoredForPeriod } from "../infrastructure/summaries-repository";
 import { findSessionByOccurrence } from "../infrastructure/sessions-repository";
 import { EventBuffer, inTx, type AttendanceDeps } from "./deps";
@@ -41,6 +43,18 @@ export function readProvisionedInstitutionIds(payload: unknown): Uuid[] {
     ...(typeof p.institutionId === "string" && isUuid(p.institutionId) ? [p.institutionId] : []),
     ...(Array.isArray(p.institutionIds) ? p.institutionIds.filter((x): x is string => typeof x === "string" && isUuid(x)) : []),
   ];
+}
+
+/** `tenancy.tenant.provisioned` : packs activés (`packs`) ; valeurs inconnues ignorées. */
+export function readProvisionedPacks(payload: unknown): string[] {
+  const p = (payload && typeof payload === "object" ? payload : {}) as { packs?: unknown };
+  return Array.isArray(p.packs) ? [...new Set(p.packs.filter((x): x is string => typeof x === "string" && x.length > 0))] : [];
+}
+
+/** `tenancy.tenant.provisioned` : système éducatif déduit du pays (`countryCode`, ex. `CI`) ; `CI` à défaut. */
+export function readProvisionedEducationSystem(payload: unknown): string {
+  const p = (payload && typeof payload === "object" ? payload : {}) as { countryCode?: unknown };
+  return typeof p.countryCode === "string" && /^[A-Za-z]{2}$/.test(p.countryCode) ? p.countryCode.toUpperCase() : "CI";
 }
 
 /**
@@ -90,10 +104,23 @@ export async function onPeriodChanged(deps: AttendanceDeps, ctx: RequestContext,
 }
 
 /** `tenancy.tenant.provisioned` : amorçage des référentiels du pack (idempotent, non destructif). */
-export async function onTenantProvisioned(deps: AttendanceDeps, ctx: RequestContext, input: { institutionIds?: readonly Uuid[] } = {}): Promise<Result<{ statuses: number }, AppError>> {
-  const seeded = await instantiateAttendancePack(deps, ctx, { institutionIds: input.institutionIds ?? [] });
-  if (!seeded.ok) return seeded;
-  return ok({ statuses: seeded.value.statuses });
+export async function onTenantProvisioned(
+  deps: AttendanceDeps,
+  ctx: RequestContext,
+  input: { institutionIds?: readonly Uuid[]; packs?: readonly string[]; educationSystem?: string } = {},
+): Promise<Result<{ statuses: number }, AppError>> {
+  // Un modèle par pack activé (ex. `PRIMARY` : politique d'appel journalière) ; sans pack connu, la base. Non destructif :
+  // la première politique posée pour un niveau l'emporte, rejouer ne change rien.
+  const templates = new Set<AttendancePackTemplate>();
+  for (const pack of input.packs ?? []) templates.add(getAttendancePackTemplate(input.educationSystem ?? "CI", pack));
+  if (templates.size === 0) templates.add(DEFAULT_ATTENDANCE_PACK);
+  let statuses = 0;
+  for (const pack of templates) {
+    const seeded = await instantiateAttendancePack(deps, ctx, { pack, institutionIds: input.institutionIds ?? [] });
+    if (!seeded.ok) return seeded;
+    statuses += seeded.value.statuses;
+  }
+  return ok({ statuses });
 }
 
 /** Erreurs métier à ignorer par un consommateur (rien à faire ; rejouer ne servirait à rien). */

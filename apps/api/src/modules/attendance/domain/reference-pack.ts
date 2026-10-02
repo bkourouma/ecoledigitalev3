@@ -34,7 +34,20 @@ export interface AttendancePackTemplate {
   readonly statusDefinitions: readonly PackStatus[];
   readonly justificationReasons: ReadonlyArray<{ code: string; label: string; requiresAttachment?: boolean }>;
   readonly leaveTypes: ReadonlyArray<{ code: string; label: string; paid?: boolean; requiresApproval?: boolean; requiresAttachment?: boolean }>;
-  readonly callPolicies: ReadonlyArray<{ educationLevel: string; callScope: CallScope; editWindowMinutes?: number; dailyMinutes?: number; lateRequiresMinutes?: boolean }>;
+  /**
+   * Politiques d'appel NORMALISÉES (une ligne par niveau d'enseignement). Un fichier de gabarit peut les déclarer sous la forme
+   * `{ code, label, scope, educationLevels: [...], dailyMinutes }` (voir `PackCallPolicyDeclaration`) : `validatePackTemplate`
+   * les développe. `dailyMinutes = null` : aucune conversion en minutes (les récapitulatifs ne comptent que des jours).
+   */
+  readonly callPolicies: ReadonlyArray<{
+    code?: string;
+    label?: string;
+    educationLevel: string;
+    callScope: CallScope;
+    editWindowMinutes?: number | null;
+    dailyMinutes?: number | null;
+    lateRequiresMinutes?: boolean;
+  }>;
   readonly settings: {
     readonly attachmentMaxBytes?: number;
     readonly allowedAttachmentTypes?: readonly AttachmentType[];
@@ -82,6 +95,59 @@ export const DEFAULT_ATTENDANCE_PACK: AttendancePackTemplate = Object.freeze({
 } satisfies AttendancePackTemplate);
 
 const CODE_RE = /^[A-Z][A-Z0-9_]{0,39}$/;
+const CALL_SCOPES: readonly CallScope[] = ["DAILY", "SESSION", "BOTH"];
+
+/** Forme DÉCLARATIVE d'une politique d'appel dans un fichier de gabarit (`templates/CI/primary.json`). */
+export interface PackCallPolicyDeclaration {
+  readonly code: string;
+  readonly label: string;
+  readonly scope: CallScope;
+  readonly educationLevels: readonly string[];
+  readonly dailyMinutes?: number | null;
+  readonly editWindowMinutes?: number | null;
+  readonly lateRequiresMinutes?: boolean;
+}
+
+type NormalizedCallPolicy = AttendancePackTemplate["callPolicies"][number];
+
+/**
+ * Normalise les politiques d'appel d'un gabarit : accepte la forme déclarative (`scope` + `educationLevels`) ET la forme
+ * normalisée (`callScope` + `educationLevel`). Un niveau n'apparaît qu'une fois. Aucune valeur réglementaire : une durée
+ * (`dailyMinutes`) absente ou `null` signifie « on ne compte que des jours ».
+ */
+export function normalizeCallPolicies(raw: unknown): Result<NormalizedCallPolicy[], AppError> {
+  const bad = (m: string): Result<never, AppError> => err(validation(AttendanceCode.INVALID_INPUT, `Modèle de pack attendance invalide : politique d'appel ${m}`, "callPolicies"));
+  if (raw === undefined || raw === null) return ok([]);
+  if (!Array.isArray(raw)) return bad("(liste attendue).");
+  const out: NormalizedCallPolicy[] = [];
+  const seen = new Set<string>();
+  for (const item of raw as Array<Record<string, unknown>>) {
+    if (!item || typeof item !== "object") return bad("(objet attendu).");
+    const who = String(item.code ?? item.educationLevel ?? "?");
+    const scope = (item.scope ?? item.callScope) as CallScope;
+    if (!CALL_SCOPES.includes(scope)) return bad(`« ${who} » : portée ${String(scope)} inconnue.`);
+    const levels: unknown[] = Array.isArray(item.educationLevels) ? item.educationLevels : item.educationLevel !== undefined ? [item.educationLevel] : [];
+    if (levels.length === 0 || levels.some((l) => typeof l !== "string" || l.trim() === "")) return bad(`« ${who} » : niveaux d'enseignement manquants.`);
+    const daily = item.dailyMinutes;
+    if (daily !== undefined && daily !== null && (typeof daily !== "number" || !Number.isInteger(daily) || daily <= 0)) return bad(`« ${who} » : dailyMinutes doit être null ou un entier positif.`);
+    const edit = item.editWindowMinutes;
+    if (edit !== undefined && edit !== null && (typeof edit !== "number" || !Number.isInteger(edit) || edit < 0)) return bad(`« ${who} » : editWindowMinutes invalide.`);
+    for (const level of levels as string[]) {
+      if (seen.has(level)) return bad(`: niveau « ${level} » déclaré deux fois.`);
+      seen.add(level);
+      out.push({
+        ...(typeof item.code === "string" ? { code: item.code } : {}),
+        ...(typeof item.label === "string" ? { label: item.label } : {}),
+        educationLevel: level,
+        callScope: scope,
+        ...(edit !== undefined ? { editWindowMinutes: edit as number | null } : {}),
+        ...(daily !== undefined ? { dailyMinutes: daily as number | null } : {}),
+        ...(item.lateRequiresMinutes === true ? { lateRequiresMinutes: true } : {}),
+      });
+    }
+  }
+  return ok(out);
+}
 
 /** Valide un modèle de pack (JSON d'un fichier de gabarit) avant instanciation. */
 export function validatePackTemplate(raw: unknown): Result<AttendancePackTemplate, AppError> {
@@ -99,6 +165,8 @@ export function validatePackTemplate(raw: unknown): Result<AttendancePackTemplat
   for (const l of t.leaveTypes ?? []) if (!CODE_RE.test(l.code) || l.label.trim() === "") return bad(`type de congé ${String(l.code)}.`);
   const rules = parseAlertRules(t.settings?.alertRules ?? []);
   if (!rules.ok) return rules;
+  const policies = normalizeCallPolicies(t.callPolicies);
+  if (!policies.ok) return policies;
   return ok({
     section: "attendance",
     schemaVersion: 1,
@@ -106,7 +174,7 @@ export function validatePackTemplate(raw: unknown): Result<AttendancePackTemplat
     statusDefinitions: t.statusDefinitions ?? [],
     justificationReasons: t.justificationReasons ?? [],
     leaveTypes: t.leaveTypes ?? [],
-    callPolicies: t.callPolicies ?? [],
+    callPolicies: policies.value,
     settings: { ...(t.settings ?? {}), alertRules: rules.value },
   });
 }

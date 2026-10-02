@@ -128,6 +128,9 @@ export {
   setSummaryOverride,
   type SummaryView,
 } from "./application/summaries";
+// Absences en JOURNÉES et jours ouverts (appel journalier ; entrées `absences_journees` / `jours_ouverts` de la règle `cas_absences`)
+export { ATTENDANCE_DAYS_MAX_ENROLLMENTS, getAttendanceDays, getAttendanceDaysForEnrollments, type AttendanceDaysQuery } from "./application/days";
+export { buildAttendanceDays, EMPTY_DAY_COUNTS, type AttendanceDays, type CasAbsencesInputs, type DailyDayCounts, type DaysOptions, type OpenDaysSource } from "./domain/days";
 export {
   csvCell,
   exportAbsencesCsv,
@@ -174,12 +177,15 @@ export {
 } from "./application/reference";
 
 // Consommateurs et jobs (utilisables par les tests d'assemblage)
-export { onEnrollmentChanged, onOccurrenceCancelled, onPeriodChanged, onTenantProvisioned, recomputeAllTenants } from "./application/consumers";
+export { onEnrollmentChanged, onOccurrenceCancelled, onPeriodChanged, onTenantProvisioned, readProvisionedEducationSystem, readProvisionedPacks, recomputeAllTenants } from "./application/consumers";
+
+// Modèles de pack (section `attendance`) : `CI/primary.json` = politique d'appel journalière `PRIMARY_DAILY`
+export { attendanceTemplateKey, buildAttendanceTemplates, defaultAttendanceTemplates, getAttendancePackTemplate, type AttendanceTemplates } from "./templates";
 
 // Domaine : événements, codes d'erreur, types
 export { AttendanceEvents, ALL_ATTENDANCE_EVENT_TYPES, ConsumedEvents, type AttendanceEventType } from "./domain/events";
 export { AttendanceCode, type AttendanceCodeValue } from "./domain/errors";
-export { DEFAULT_ATTENDANCE_PACK, validatePackTemplate, type AttendancePackTemplate } from "./domain/reference-pack";
+export { DEFAULT_ATTENDANCE_PACK, normalizeCallPolicies, validatePackTemplate, type AttendancePackTemplate, type PackCallPolicyDeclaration } from "./domain/reference-pack";
 export { computeSummary, effectiveSummary, absenceRateBps } from "./domain/summary";
 export { evaluateAlerts, metricValue, parseAlertRules, ALERT_METRICS, type AlertMetric, type AlertRule } from "./domain/alerts";
 export type {

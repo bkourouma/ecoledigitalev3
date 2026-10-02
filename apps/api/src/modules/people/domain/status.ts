@@ -13,7 +13,16 @@ export const STUDENT_STATUSES: readonly PeopleStudentStatus[] = ["ACTIVE", "INAC
 export const FINAL_STUDENT_STATUSES: readonly PeopleStudentStatus[] = ["GRADUATED", "WITHDRAWN", "TRANSFERRED_OUT", "EXCLUDED"];
 
 /** Statuts qui exigent un motif (AC3.1). */
-const REASON_REQUIRED_TARGETS: readonly PeopleStudentStatus[] = ["EXCLUDED", "WITHDRAWN", "TRANSFERRED_OUT"];
+const REASON_REQUIRED_TARGETS: readonly PeopleStudentStatus[] = ["EXCLUDED", "WITHDRAWN", "TRANSFERRED_OUT", "SUSPENDED"];
+
+/**
+ * Statuts qui sanctionnent : suspension et exclusion sont l'ACTE d'un utilisateur identifié (jamais d'un acteur système) et
+ * portent toujours un motif (spec 006 §7.4 / §11.5 : appelés par l'acte humain qui applique une mesure de vie scolaire).
+ */
+const HUMAN_ACT_TARGETS: readonly PeopleStudentStatus[] = ["SUSPENDED", "EXCLUDED"];
+export function requiresHumanActor(to: PeopleStudentStatus): boolean {
+  return HUMAN_ACT_TARGETS.includes(to);
+}
 
 const STUDENT_TRANSITIONS: Readonly<Record<PeopleStudentStatus, readonly PeopleStudentStatus[]>> = {
   ACTIVE: ["INACTIVE", "SUSPENDED", "GRADUATED", "WITHDRAWN", "TRANSFERRED_OUT", "EXCLUDED"],
@@ -39,7 +48,7 @@ export function isFinalStudentStatus(status: PeopleStudentStatus): boolean {
 }
 
 /**
- * Un motif est exigé pour `EXCLUDED`, `WITHDRAWN`, `TRANSFERRED_OUT` et pour tout retour vers `ACTIVE` depuis un statut
+ * Un motif est exigé pour `SUSPENDED`, `EXCLUDED`, `WITHDRAWN`, `TRANSFERRED_OUT` et pour tout retour vers `ACTIVE` depuis un statut
  * final ou `ARCHIVED` (réinscription).
  */
 export function studentReasonRequired(from: PeopleStudentStatus, to: PeopleStudentStatus): boolean {
