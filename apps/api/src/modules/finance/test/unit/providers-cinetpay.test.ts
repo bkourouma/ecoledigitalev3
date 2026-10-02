@@ -239,7 +239,7 @@ describe("CinetPay Checkout v2 (serveur simulé conforme à la documentation)", 
   });
 
   it("aucun remboursement documenté", () => {
-    expect(make().p.refund).toBeUndefined();
+    expect((make().p as { refund?: unknown }).refund).toBeUndefined();
   });
 
   it("utilitaires : notification JSON ou formulaire, date de Côte d'Ivoire (UTC+0), description", () => {

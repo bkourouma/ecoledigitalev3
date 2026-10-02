@@ -279,7 +279,7 @@ describe("Orange Money Web Payment (serveur simulé conforme à la documentation
   });
 
   it("aucun remboursement (API Web Payment sans remboursement documenté)", () => {
-    expect(make().p.refund).toBeUndefined();
+    expect((make().p as { refund?: unknown }).refund).toBeUndefined();
   });
 
   it("aucun secret ni numéro complet dans les journaux d'un parcours complet", async () => {
