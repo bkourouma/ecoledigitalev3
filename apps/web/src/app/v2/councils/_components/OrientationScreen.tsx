@@ -28,6 +28,7 @@ import { FormDialog, ReasonDialog } from "@/platform/ui/ModalDialog";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, useFlash } from "@/platform/ui/states";
 import { apiErrorToFieldErrors, compact, validateWith, type FieldErrors } from "@/platform/ui/validation";
+import { canExpressWishes, WishDialog } from "./WishDialog";
 import { ActionError, CouncilsBoundary, EnumLabel, ScrollTable, Section, StudentPicker, TD, TH, useClassChoices, useDateTime, useEnumText, type PickedStudent } from "./shared";
 
 /** Libellés des programmes (séries) et niveaux : DONNÉES de l'API, jamais codés en dur. */
@@ -39,7 +40,7 @@ function useLookups() {
   return { programs: programs.data ?? [], grades: (grades.data ?? []).filter((g) => g.active), programLabel, gradeLabel };
 }
 
-type Dialog = { kind: "path"; row: CouncilsOrientationPathDto | null } | { kind: "file" } | { kind: "transfer" } | { kind: "cancelTransfer"; row: CouncilsSeriesTransferDto } | null;
+type Dialog = { kind: "path"; row: CouncilsOrientationPathDto | null } | { kind: "file" } | { kind: "wish"; file: CouncilsOrientationFileDto } | { kind: "transfer" } | { kind: "cancelTransfer"; row: CouncilsSeriesTransferDto } | null;
 
 /**
  * Orientation : parcours autorisés (données d'établissement), dossiers d'orientation (vœux, consentement du tuteur) et
@@ -47,6 +48,7 @@ type Dialog = { kind: "path"; row: CouncilsOrientationPathDto | null } | { kind:
  */
 export function OrientationScreen() {
   const t = useTranslations("v2Councils.orientation");
+  const tWish = useTranslations("v2CouncilsExtra.wish");
   const flash = useFlash();
   const [dialog, setDialog] = useState<Dialog>(null);
   const done = (key: string) => flash.show(t(key));
@@ -55,10 +57,11 @@ export function OrientationScreen() {
       <PageHeader title={t("title")} description={t("description")} />
       {flash.node}
       <PathsSection onEdit={(row) => setDialog({ kind: "path", row })} />
-      <FilesSection onCreate={() => setDialog({ kind: "file" })} onDone={done} />
+      <FilesSection onCreate={() => setDialog({ kind: "file" })} onWish={(file) => setDialog({ kind: "wish", file })} onDone={done} />
       <TransfersSection onCreate={() => setDialog({ kind: "transfer" })} onCancel={(row) => setDialog({ kind: "cancelTransfer", row })} onDone={done} />
       {dialog?.kind === "path" ? <PathDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => done("done.pathSaved")} /> : null}
       {dialog?.kind === "file" ? <FileDialog onClose={() => setDialog(null)} onDone={() => done("done.fileCreated")} /> : null}
+      {dialog?.kind === "wish" ? <WishDialog file={dialog.file} onClose={() => setDialog(null)} onDone={() => flash.show(tWish("saved"))} /> : null}
       {dialog?.kind === "transfer" ? <TransferDialog onClose={() => setDialog(null)} onDone={() => done("done.transferCreated")} /> : null}
       {dialog?.kind === "cancelTransfer" ? <CancelTransferDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => done("done.transferCancelled")} /> : null}
     </div>
@@ -124,8 +127,9 @@ function PathsSection({ onEdit }: { onEdit: (row: CouncilsOrientationPathDto | n
   );
 }
 
-function FilesSection({ onCreate, onDone }: { onCreate: () => void; onDone: (key: string) => void }) {
+function FilesSection({ onCreate, onWish, onDone }: { onCreate: () => void; onWish: (file: CouncilsOrientationFileDto) => void; onDone: (key: string) => void }) {
   const t = useTranslations("v2Councils.orientation.files");
+  const tWish = useTranslations("v2CouncilsExtra.wish");
   const files = useOrientationFiles({ pageSize: 100 });
   const consent = useRecordConsent();
   const list = files.data?.items ?? [];
@@ -161,9 +165,18 @@ function FilesSection({ onCreate, onDone }: { onCreate: () => void; onDone: (key
                 <td className={TD}>{f.wishes.filter((w) => w.withdrawnAt === null).length}</td>
                 <td className={TD}><EnumLabel group="consent" value={f.guardianConsent} /></td>
                 <td className={TD}>
+                  <Can permission="council.orientation.manage">
+                    <div className="flex flex-wrap gap-2">
+                      {canExpressWishes(f) ? (
+                        <button type="button" className={buttonClass.secondary} onClick={() => onWish(f)} aria-label={tWish("addFor", { name: f.studentName ?? "—" })}>
+                          {tWish("add")}
+                        </button>
+                      ) : null}
+                    </div>
+                  </Can>
                   {f.guardianConsent === "PENDING" ? (
                     <Can permission="council.orientation.manage">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <button type="button" className={buttonClass.secondary} disabled={consent.isPending} onClick={() => consent.mutate({ id: f.id, state: "GIVEN" }, { onSuccess: () => onDone("done.consentGiven") })}>
                           {t("consentGiven")}
                         </button>
