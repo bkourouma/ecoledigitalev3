@@ -19,6 +19,7 @@ import {
   useSetPresence,
   useUpdateCouncil,
 } from "@/platform/v2/councils";
+import { usePermission } from "@/platform/access";
 import { Can } from "@/platform/ui/AccessGate";
 import { FormField, NativeSelect, TextControl } from "@/platform/ui/FormField";
 import { FormDialog, ReasonDialog } from "@/platform/ui/ModalDialog";
@@ -26,6 +27,7 @@ import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, useFlash } from "@/platform/ui/states";
 import { apiErrorToFieldErrors, compact, nullifyEmpty, validateWith, type FieldErrors } from "@/platform/ui/validation";
 import { CouncilStatusBar, CouncilWarnings } from "./CouncilParts";
+import { ExternalParticipantPicker, type PickedPerson } from "./ExternalParticipantPicker";
 import { ActionError, CouncilSubNav, CouncilsBoundary, EnumLabel, PlaceholderBanner, ScrollTable, Section, TD, TH, councilTitle, localToIso, useDateTime, useEnumText } from "./shared";
 
 type Dialog = "open" | "close" | "cancel" | "edit" | null;
@@ -337,6 +339,10 @@ function AddParticipantDialog({ councilId, participants, initialStaffId, onClose
   const [roleCode, setRoleCode] = useState(initial?.roleCode ?? "");
   const [fn, setFn] = useState(initial?.councilFunction ?? "");
   const [errors, setErrors] = useState<FieldErrors>({});
+  const tExt = useTranslations("v2CouncilsExtra.external");
+  const canExternal = usePermission("guardian.read").allowed;
+  const [kind, setKind] = useState<"staff" | "external">("staff");
+  const [person, setPerson] = useState<PickedPerson | null>(null);
   const taken = new Set(participants.map((p) => p.staffId).filter(Boolean));
   const staff = (proposed.data ?? []).filter((p) => !taken.has(p.staffId) || p.staffId === initialStaffId);
   function pickStaff(id: string) {
@@ -346,7 +352,7 @@ function AddParticipantDialog({ councilId, participants, initialStaffId, onClose
     if (p?.councilFunction) setFn(p.councilFunction);
   }
   function submit() {
-    const v = validateWith(councilsParticipantInputSchema, compact({ roleCode, staffId, councilFunction: fn }));
+    const v = validateWith(councilsParticipantInputSchema, kind === "external" ? compact({ roleCode, personId: person?.personId, displayName: person?.displayName, councilFunction: fn }) : compact({ roleCode, staffId, councilFunction: fn }));
     if (!v.ok) return setErrors(v.errors);
     setErrors({});
     add.mutate(
@@ -362,9 +368,18 @@ function AddParticipantDialog({ councilId, participants, initialStaffId, onClose
   }
   return (
     <FormDialog open onOpenChange={(o) => !o && onClose()} title={t("title")} description={t("description")} submitLabel={t("submit")} onSubmit={submit} isPending={add.isPending} error={add.error && Object.keys(apiErrorToFieldErrors(add.error)).length === 0 ? add.error : undefined}>
-      <FormField label={t("staff")} required error={errors.staffId ?? null}>
-        {(c) => <NativeSelect {...c} value={staffId} placeholder={t("chooseStaff")} onChange={pickStaff} options={staff.map((p) => ({ value: p.staffId, label: p.displayName }))} />}
-      </FormField>
+      {canExternal && !initialStaffId ? (
+        <FormField label={tExt("kind")}>
+          {(c) => <NativeSelect {...c} value={kind} onChange={(v) => setKind(v === "external" ? "external" : "staff")} options={[{ value: "staff", label: tExt("staff") }, { value: "external", label: tExt("externalOption") }]} />}
+        </FormField>
+      ) : null}
+      {kind === "external" ? (
+        <ExternalParticipantPicker value={person} onChange={setPerson} error={errors.staffId ?? errors.personId ?? null} excludePersonIds={participants.map((p) => p.personId).filter((x): x is string => x !== null)} />
+      ) : (
+        <FormField label={t("staff")} required error={errors.staffId ?? null}>
+          {(c) => <NativeSelect {...c} value={staffId} placeholder={t("chooseStaff")} onChange={pickStaff} options={staff.map((p) => ({ value: p.staffId, label: p.displayName }))} />}
+        </FormField>
+      )}
       <FormField label={t("role")} required error={errors.roleCode ?? null}>
         {(c) => <NativeSelect {...c} value={roleCode} placeholder={t("chooseRole")} onChange={setRoleCode} options={(ref.data?.roles ?? []).filter((r) => r.active).map((r) => ({ value: r.code, label: r.label }))} />}
       </FormField>
