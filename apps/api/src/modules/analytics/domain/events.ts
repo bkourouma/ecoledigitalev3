@@ -4,7 +4,7 @@
  *
  * `analytics` PUBLIE peu : un instantané rafraîchi (pour que le web invalide ses caches et que les autres modules
  * sachent qu'un chiffre a changé) et la demande de reconstruction (traçabilité). Il CONSOMME beaucoup
- * (`CONSUMED_EVENT_PATTERNS`) : voir `refresh-plan.ts`.
+ * (`CONSUMED_EVENTS`) : voir `refresh-plan.ts`.
  */
 export const AnalyticsEvents = {
   SNAPSHOT_REFRESHED: "analytics.snapshot.refreshed",
@@ -35,31 +35,27 @@ export interface RebuildPayload {
   kinds: string[];
 }
 
-/** Événements d'AUTRES modules écoutés (documentation du manifeste ; les motifs réels sont dans `subscribers.ts`). */
-export const CONSUMED_EVENT_PATTERNS: readonly string[] = [
-  "academic.year.*",
-  "academic.period.*",
-  "academic.classroom.*",
-  "academic.classroom_period.*",
-  "academic.enrollment.*",
-  "people.student.status_changed",
-  "people.student.updated",
-  "people.student.anonymized",
-  "people.teaching_assignment.*",
-  "results.period.closed",
-  "results.period.reopened",
-  "results.decision.confirmed",
-  "attendance.session.*",
-  "attendance.absence.recorded",
-  "attendance.late.recorded",
-  "attendance.staff_absence.recorded",
-  "attendance.staff_leave.*",
-  "finance.invoice.*",
-  "finance.credit_note.issued",
-  "finance.payment.*",
-  "finance.refund.*",
-  "finance.cash_session.*",
-  "payroll.period.*",
-  "payroll.run.completed",
-  "payroll.payslip.*",
+/**
+ * Événements d'AUTRES modules consommés (liste EXACTE : ceux que `planRefreshes` traduit en demande ; les abonnés ont un
+ * motif plus large mais ignorent le reste). Un contrat par événement : `apps/api/test/events-contracts/analytics.contracts.ts`.
+ */
+export const CONSUMED_EVENTS: readonly string[] = [
+  "academic.year.opened", "academic.year.closed", "academic.year.archived",
+  "academic.period.opened", "academic.period.grading_closed", "academic.period.closed", "academic.period.reopened",
+  "academic.classroom.created", "academic.classroom.activated", "academic.classroom.completed", "academic.classroom.cancelled",
+  "academic.classroom_period.grading_closed", "academic.classroom_period.closed", "academic.classroom_period.reopened",
+  "academic.enrollment.created", "academic.enrollment.confirmed", "academic.enrollment.suspended", "academic.enrollment.resumed",
+  "academic.enrollment.withdrawn", "academic.enrollment.cancelled", "academic.enrollment.transferred", "academic.enrollment.completed",
+  "academic.enrollment.reopened", "academic.enrollment.funding_changed", "academic.enrollment.outcome_recorded",
+  "people.student.status_changed", "people.student.updated", "people.student.anonymized",
+  "people.teaching_assignment.created", "people.teaching_assignment.ended", "people.teaching_assignment.replaced",
+  "results.period.closed", "results.period.reopened", "results.decision.confirmed",
+  "attendance.session.submitted", "attendance.session.validated", "attendance.session.reopened", "attendance.session.cancelled",
+  "attendance.absence.recorded", "attendance.late.recorded", "attendance.staff_absence.recorded",
+  "attendance.staff_leave.approved", "attendance.staff_leave.cancelled",
+  "finance.invoice.issued", "finance.invoice.paid", "finance.invoice.overdue", "finance.invoice.cancelled",
+  "finance.credit_note.issued", "finance.payment.completed", "finance.payment.allocated", "finance.refund.completed",
+  "finance.cash_session.opened", "finance.cash_session.closed",
+  "payroll.period.created", "payroll.period.closed", "payroll.period.archived", "payroll.run.completed",
+  "payroll.payslip.calculated", "payroll.payslip.approved", "payroll.payslip.paid", "payroll.payslip.disputed", "payroll.payslip.cancelled", "payroll.payslip.adjusted",
 ];

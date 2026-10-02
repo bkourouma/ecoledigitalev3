@@ -6,6 +6,7 @@
  * rend les read-models indépendants de la forme exacte des payloads (un champ absent dégrade en périmètre plus large,
  * jamais en chiffre faux) et rend la reconstruction identique au flux courant (même chemin de lecture).
  */
+import { CONSUMED_EVENTS } from "./events";
 import { ALL_SCOPE, type RefreshKind, type ScopeKey } from "./types";
 
 export interface RefreshRequestPlan {
@@ -151,12 +152,17 @@ export function planRefreshes(eventType: string, payload: unknown, occurredAt: s
   return out;
 }
 
-/** Familles d'abonnement du worker (un abonné par source) : le motif est large, `planRefreshes` décide de ce qui compte. */
-export const SUBSCRIPTION_GROUPS: ReadonlyArray<{ name: string; pattern: RegExp }> = [
-  { name: "analytics.refresh-on-academic", pattern: /^academic\.(year|period|classroom|classroom_period|enrollment)\.[a-z_]+$/ },
-  { name: "analytics.refresh-on-people", pattern: /^people\.(student\.(status_changed|updated|anonymized)|teaching_assignment\.[a-z_]+)$/ },
-  { name: "analytics.refresh-on-results", pattern: /^results\.(period\.(closed|reopened)|decision\.confirmed)$/ },
-  { name: "analytics.refresh-on-attendance", pattern: /^attendance\.(session\.[a-z_]+|absence\.recorded|late\.recorded|staff_absence\.recorded|staff_leave\.[a-z_]+)$/ },
-  { name: "analytics.refresh-on-finance", pattern: /^finance\.(invoice\.[a-z_]+|credit_note\.issued|payment\.[a-z_]+|refund\.[a-z_]+|cash_session\.[a-z_]+)$/ },
-  { name: "analytics.refresh-on-payroll", pattern: /^payroll\.(period\.[a-z_]+|run\.completed|payslip\.[a-z_]+)$/ },
+/** Familles d'abonnement du worker (un abonné par source) : motifs EXACTS tirés de `CONSUMED_EVENTS` (aucun événement non déclaré). */
+const escapeRe = (e: string): string => e.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const SOURCES: ReadonlyArray<readonly [string, string]> = [
+  ["analytics.refresh-on-academic", "academic"],
+  ["analytics.refresh-on-people", "people"],
+  ["analytics.refresh-on-results", "results"],
+  ["analytics.refresh-on-attendance", "attendance"],
+  ["analytics.refresh-on-finance", "finance"],
+  ["analytics.refresh-on-payroll", "payroll"],
 ];
+export const SUBSCRIPTION_GROUPS: ReadonlyArray<{ name: string; pattern: RegExp }> = SOURCES.map(([name, source]) => ({
+  name,
+  pattern: new RegExp(`^(${CONSUMED_EVENTS.filter((e) => e.startsWith(`${source}.`)).map(escapeRe).join("|")})$`),
+}));

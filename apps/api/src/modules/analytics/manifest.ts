@@ -1,5 +1,5 @@
 import { defineModule } from "@ecoledigitale/kernel";
-import { ALL_EVENT_TYPES, CONSUMED_EVENT_PATTERNS } from "./domain/events";
+import { ALL_EVENT_TYPES, CONSUMED_EVENTS } from "./domain/events";
 
 /**
  * Module `analytics` — read-models de direction et du propriétaire (spec v2/025) : effectifs, présences, résultats FINAL,
@@ -45,6 +45,6 @@ export default defineModule({
   ],
   events: {
     publishes: [...ALL_EVENT_TYPES],
-    consumes: [...CONSUMED_EVENT_PATTERNS],
+    consumes: [...CONSUMED_EVENTS],
   },
 });

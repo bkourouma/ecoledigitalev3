@@ -15,7 +15,7 @@ import { EXPORT_PERMISSIONS } from "../application/exports";
 import { clampRange } from "../application/refresh";
 import { retryDelayMs } from "../application/requests";
 import { csvCell, toCsv } from "../domain/csv";
-import { AnalyticsEvents } from "../domain/events";
+import { AnalyticsEvents, CONSUMED_EVENTS } from "../domain/events";
 import { binCount, binIndex, buildBins, canonicalJson, contentHash, rateBps, readingStatus } from "../domain/metrics";
 import { addDays, monthRange, parseRange, planRefreshes, SUBSCRIPTION_GROUPS } from "../domain/refresh-plan";
 import { KIND_ORDER, REFRESH_KINDS } from "../domain/types";
@@ -130,6 +130,9 @@ describe("plan de rafraîchissement : événement -> demandes", () => {
       expect(matchers.some((m) => m.test(type)), type).toBe(true);
     }
     expect(matchers.some((m) => m.test("results.period_result.computed"))).toBe(false);
+    // Les motifs sont EXACTS : tout événement déclaré est écouté une fois, aucun autre ne l'est.
+    for (const e of CONSUMED_EVENTS) expect(matchers.filter((m) => m.test(e)), e).toHaveLength(1);
+    for (const e of ["finance.payment.initiated", "finance.payment.failed", "attendance.staff_leave.requested", "academicXyear.opened", "payroll.claim.source_changed"]) expect(matchers.some((m) => m.test(e)), e).toBe(false);
     expect(new Set(SUBSCRIPTION_GROUPS.map((g) => g.name)).size).toBe(SUBSCRIPTION_GROUPS.length);
     expect(buildSubscribers().map((s) => s.name)).toEqual(SUBSCRIPTION_GROUPS.map((g) => g.name));
   });
