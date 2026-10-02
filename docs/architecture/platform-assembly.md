@@ -139,6 +139,7 @@ Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform
 | attendance | `attendance.cancel-session-on-occurrence-cancelled`, `attendance.refresh-summaries-on-enrollment-change.*`, `attendance.refresh-summaries-on-period-change.*`, `attendance.seed-reference-data` | `attendance.recompute-summaries` 02:50 |
 | scheduling | `scheduling.hold-on-attendance`, `scheduling.flag-on-staff-leave`, `scheduling.flag-on-staff-status`, `scheduling.flag-on-assignment-ended`, `scheduling.cancel-on-offering-cancelled`, `scheduling.cancel-on-classroom-cancelled`, `scheduling.archive-on-year-closed`, `scheduling.seed-reference-data` | `scheduling.generate-occurrences` 02:30 |
 | payroll | `payroll.seed-settings`, `payroll.flag-claim-source-changed.*` (séance annulée / invalidée / replanifiée / minutes payées modifiées), `payroll.close-periods-on-year-closed` | `payroll.fail-stale-runs` */10 |
+| analytics | `analytics.refresh-on-academic`, `-people`, `-results`, `-attendance`, `-finance`, `-payroll` : un abonné par source, ne calcule rien, **demande** un rafraîchissement coalescé (`analytics.refresh_requests`) | `analytics.process-refreshes` */30 s (lit les sources par ports, remplace le périmètre) ; `analytics.nightly-rebuild` 03:10 (reconstruction idempotente de chaque tenant) |
 | socle du worker | | `outbox-cleanup`, `ensure-partitions` (recoupe `audit.ensure-partitions`, idempotent) |
 
 Cette liste est celle que **découvre** le worker (`discoverModuleExtensions`) ; le test `worker-bundle.integration.test.ts` exige que le bundle de production enregistre exactement les mêmes abonnés et jobs que les sources, et qu'il ait branché les ports entre modules (`ports entre modules branchés (adaptateurs de plateforme)`).
@@ -260,6 +261,7 @@ Chaque module déclare des **ports** (ce qu'il attend de ses voisins) et échoue
 | `results-reportcards` | results -> reportcards | `ResultsReadPort` (état de période, effectif, bundle de résultats figé : noms, libellés, règles, trace) |
 | `results-higher` | results -> higher | `CreditsSourcePort`, `ResitSessionPort`, `CycleResultsPort` (UE identifiées par lignée) |
 | `reportcards-higher` | reportcards -> higher | `SignatoryDirectory`, `InstitutionPort` |
+| `analytics-sources` | tenancy, academic, people, results, attendance, finance, payroll -> analytics | `AnalyticsSourcePorts` (périmètres, calendrier, inscriptions + sexe, résultats FINAL + décisions confirmées, appels et présences du personnel, reporting financier, caisse, masse salariale, charge d'enseignement) : lectures seules, séquentielles ; un port manquant = passe `UNAVAILABLE` et manque déclaré |
 | `storage` | stockage d'objets -> attendance, people, reportcards | S3 / MinIO configurable par l'environnement, repli disque en développement |
 
 ### Règles à respecter dans un adaptateur

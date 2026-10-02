@@ -22,6 +22,7 @@ import {
   setAcademicWorkerPorts,
   type AcademicPorts,
 } from "../../modules/academic";
+import { registerAnalyticsPorts, setAnalyticsWorkerPorts, type AnalyticsSourcePorts } from "../../modules/analytics";
 import { registerAssessPorts, type AssessPorts } from "../../modules/assess";
 import { registerAttendancePorts, type AttendancePorts } from "../../modules/attendance";
 import { registerFinancePorts, type FinancePortSet } from "../../modules/finance";
@@ -33,6 +34,7 @@ import { registerResultsPorts, setResultsWorkerPorts, type ResultsPorts } from "
 import { registerSchedulingPorts } from "../../modules/scheduling";
 import type { ModuleRuntime } from "../runtime";
 import { createAcademicCompletionLookup, createAcademicScheduleChecker, createAcademicUsageGuard } from "./academic-guards";
+import { createAnalyticsSources } from "./analytics-sources";
 import { createAssessCurriculumPort, createAssessPeriodPort, createAssessRosterPort } from "./academic-assess";
 import { createAttendancePeriodPort, createAttendanceRosterPort } from "./academic-attendance";
 import { createHigherCurriculumPort, createHigherEnrollmentDirectory } from "./academic-higher";
@@ -75,6 +77,8 @@ export interface PlatformPorts {
   readonly results: Partial<ResultsPorts>;
   readonly reportcards: Partial<ReportcardsPorts>;
   readonly higher: Partial<HigherPorts>;
+  /** Sources des read-models de direction (025) : lectures de tenancy, academic, people, results, attendance, finance, payroll. */
+  readonly analytics: AnalyticsSourcePorts;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -150,6 +154,7 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
       signatories: createHigherSignatoryDirectory(reportcards),
       institution: createHigherInstitutionPort(reportcards),
     },
+    analytics: createAnalyticsSources(kit),
   };
 }
 
@@ -177,6 +182,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerResultsPorts(app, ports.results);
   registerReportcardsPorts(app, ports.reportcards);
   registerHigherPorts(app, ports.higher);
+  registerAnalyticsPorts(app, ports.analytics);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -204,6 +210,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   setResultsWorkerPorts(ports.results);
   registerHigherWorkerPorts(ports.higher);
   registerSchedulingPorts(ports.scheduling);
+  setAnalyticsWorkerPorts(ports.analytics);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }
