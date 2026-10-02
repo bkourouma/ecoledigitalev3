@@ -52,6 +52,9 @@ $$;
 --   capacity_policy   HARD  : refus au-delà de la capacité (défaut) ; SOFT : dépassement motivé ; NONE : pas de contrôle
 --   duplicate_policy  BLOCK : un doublon non tranché empêche l'inscription ; WARN : simple alerte ; OFF
 --   offer_validity_days : durée de validité d'une offre d'admission (politique de l'établissement)
+--   payment_deadline_days : délai de paiement des frais d'inscription après acceptation de l'offre ; NULL = pas de délai
+--                           (question métier) ; passé ce délai, le travail planifié annule l'inscription en attente
+--   waitlist_promotion  MANUAL : le secrétariat propose la place libérée ; AUTO : proposée au premier de la liste
 --   rejected_retention_months : NULL = durée de conservation d'un dossier refusé NON DÉTERMINÉE (question métier)
 -- -----------------------------------------------------------------------------
 CREATE TABLE admissions.settings (
@@ -64,6 +67,8 @@ CREATE TABLE admissions.settings (
   consent_required          boolean NOT NULL DEFAULT true,
   consent_text_version      text,
   offer_validity_days       integer NOT NULL DEFAULT 14 CHECK (offer_validity_days BETWEEN 1 AND 365),
+  payment_deadline_days     integer CHECK (payment_deadline_days IS NULL OR payment_deadline_days BETWEEN 1 AND 365),
+  waitlist_promotion        text NOT NULL DEFAULT 'MANUAL' CHECK (waitlist_promotion IN ('MANUAL', 'AUTO')),
   minimum_form_seconds      integer NOT NULL DEFAULT 5 CHECK (minimum_form_seconds BETWEEN 0 AND 600),
   rejected_retention_months integer CHECK (rejected_retention_months IS NULL OR rejected_retention_months > 0),
   application_number_pattern text NOT NULL DEFAULT '{YEAR}-{SEQ:5}'
@@ -133,6 +138,47 @@ CREATE TABLE admissions.decision_reasons (
 );
 SELECT kernel.enable_tenant_rls('admissions.decision_reasons');
 GRANT SELECT, INSERT, UPDATE ON admissions.decision_reasons TO app_user;
+
+-- -----------------------------------------------------------------------------
+-- Textes de consentement : la PREUVE de ce que le parent a accepté. Chaque version est publiée une fois
+-- et ne change plus ; `consents.text_version` la désigne. Un texte retiré reste lisible.
+-- -----------------------------------------------------------------------------
+CREATE TABLE admissions.consent_texts (
+  id             uuid PRIMARY KEY,
+  tenant_id      uuid NOT NULL REFERENCES kernel.tenants (id),
+  institution_id uuid NOT NULL,
+  kind           text NOT NULL CHECK (kind IN ('DATA_PROCESSING', 'PHOTO', 'ADMISSION_TERMS', 'COMMUNICATIONS')),
+  version        text NOT NULL CHECK (version ~ '^[A-Za-z0-9._-]{1,20}$'),
+  language       text NOT NULL DEFAULT 'fr' CHECK (language ~ '^[a-z]{2}(-[A-Z]{2})?$'),
+  body           text NOT NULL CHECK (length(btrim(body)) BETWEEN 20 AND 20000),
+  published_at   timestamptz NOT NULL DEFAULT now(),
+  published_by   uuid,
+  retired_at     timestamptz,
+  UNIQUE (tenant_id, id),
+  UNIQUE (tenant_id, institution_id, kind, version)
+);
+SELECT kernel.enable_tenant_rls('admissions.consent_texts');
+GRANT SELECT, INSERT, UPDATE ON admissions.consent_texts TO app_user;
+
+-- Le corps d'un texte publié ne change jamais ; seul son retrait (une fois) est permis ; pas de suppression.
+CREATE FUNCTION admissions.consent_texts_guard() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'admissions.consent_text_immutable: un texte de consentement ne se supprime pas (le retirer)' USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF NEW.body <> OLD.body OR NEW.kind <> OLD.kind OR NEW.version <> OLD.version OR NEW.language <> OLD.language
+     OR NEW.institution_id <> OLD.institution_id OR NEW.published_at <> OLD.published_at THEN
+    RAISE EXCEPTION 'admissions.consent_text_immutable: un texte publié ne change pas (publier une nouvelle version)' USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF OLD.retired_at IS NOT NULL THEN
+    RAISE EXCEPTION 'admissions.consent_text_retired: un texte retiré est figé' USING ERRCODE = 'restrict_violation';
+  END IF;
+  RETURN NEW;
+END
+$$;
+CREATE TRIGGER consent_texts_guard BEFORE UPDATE OR DELETE ON admissions.consent_texts
+  FOR EACH ROW EXECUTE FUNCTION admissions.consent_texts_guard();
 
 -- -----------------------------------------------------------------------------
 -- Workflow : étapes + transitions, VERSIONNÉ. Brouillon librement modifiable ; publié, il est figé

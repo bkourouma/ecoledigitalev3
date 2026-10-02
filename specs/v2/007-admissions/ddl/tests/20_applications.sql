@@ -23,6 +23,16 @@ BEGIN
        AND (r.applies_to_funding IS NULL OR r.applies_to_funding = a.funding_type_requested);
 END $$;
 
+-- Aide : offre ACCEPTÉE par le tuteur principal, avec la classe visée.
+CREATE OR REPLACE FUNCTION ddltest.accept_offer(p_app uuid) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE a admissions.applications%ROWTYPE; g uuid;
+BEGIN
+  SELECT * INTO a FROM admissions.applications WHERE id = p_app;
+  SELECT id INTO g FROM admissions.application_guardians WHERE application_id = p_app ORDER BY is_primary DESC LIMIT 1;
+  INSERT INTO admissions.offers (id, tenant_id, application_id, status, grade_level_code, expires_at, responded_at, responded_by_guardian_id, classroom_id)
+    VALUES (gen_random_uuid(), a.tenant_id, a.id, 'ACCEPTED', a.desired_grade_level_code, now() + interval '7 days', now(), g, gen_random_uuid());
+END $$;
+
 -- ---------------------------------------------------------------- jeu de départ
 DO $do$
 DECLARE
@@ -226,6 +236,8 @@ DECLARE
   A2 constant uuid := 'a2500000-0000-4000-8000-0000000000a2';
 BEGIN
   PERFORM ddltest.as_tenant(J);
+  PERFORM ddltest.throws(format($q$SELECT ddltest.move(%L, 'AWAITING_PAYMENT')$q$, A2), 'offer_not_accepted', 'l''inscription exige une offre acceptée portant la classe visée');
+  PERFORM ddltest.accept_offer(A2);
   PERFORM ddltest.throws(format($q$SELECT ddltest.move(%L, 'AWAITING_PAYMENT')$q$, A2), 'enrollment_missing', 'l''étape de paiement exige l''élève et l''inscription créés');
   UPDATE admissions.applications SET student_id = gen_random_uuid(), enrollment_id = gen_random_uuid(), invoice_id = gen_random_uuid(),
          stage_id = ddltest.sid(workflow_id, 'AWAITING_PAYMENT') WHERE id = A2;
@@ -247,6 +259,7 @@ DECLARE
 BEGIN
   PERFORM ddltest.as_tenant(J);
   UPDATE admissions.settings SET duplicate_policy = 'BLOCK' WHERE tenant_id = J AND institution_id = I;
+  PERFORM ddltest.accept_offer(A4);
   INSERT INTO admissions.duplicate_candidates (id, tenant_id, application_id, matched_kind, matched_id, score, reasons)
     VALUES (d, J, A4, 'STUDENT', gen_random_uuid(), 92, ARRAY['NAME_AND_BIRTHDATE']);
   PERFORM ddltest.throws(format($q$UPDATE admissions.applications SET student_id = gen_random_uuid(), enrollment_id = gen_random_uuid(),
@@ -320,6 +333,12 @@ BEGIN
   PERFORM ddltest.throws(format($q$INSERT INTO admissions.offers (id, tenant_id, application_id, grade_level_code, expires_at) VALUES (gen_random_uuid(), %L, %L, 'CP1', now() + interval '7 days')$q$, J, A3),
      '23505', 'une seule offre en attente par candidature');
   PERFORM ddltest.throws($q$UPDATE admissions.offers SET status = 'ACCEPTED'$q$, 'check', 'accepter une offre exige la date et le tuteur répondant');
+  PERFORM ddltest.throws(format($q$UPDATE admissions.offers SET status = 'ACCEPTED', responded_at = now(), responded_by_guardian_id = gen_random_uuid() WHERE application_id = %L AND status = 'PENDING'$q$, A3),
+     'check', 'accepter une offre exige la classe visée');
+  UPDATE admissions.offers SET response_token_hash = repeat('7', 64) WHERE application_id = A3 AND status = 'PENDING';
+  PERFORM ddltest.throws(format($q$INSERT INTO admissions.offers (id, tenant_id, application_id, status, grade_level_code, expires_at, response_token_hash)
+     VALUES (gen_random_uuid(), %L, %L, 'EXPIRED', 'CP1', now() + interval '1 day', repeat('7', 64))$q$, J, A3), '23505', 'un lien de réponse désigne une seule offre');
+  PERFORM ddltest.throws($q$UPDATE admissions.offers SET response_token_hash = 'pas-une-empreinte'$q$, 'check', 'seule l''empreinte du lien de réponse est stockée');
   PERFORM ddltest.throws(format($q$INSERT INTO admissions.offers (id, tenant_id, application_id, grade_level_code, issued_at, expires_at) VALUES (gen_random_uuid(), %L, %L, 'CP1', now(), now() - interval '1 day')$q$, J, A3),
      'check', 'une offre expire après son émission');
 
@@ -353,6 +372,46 @@ BEGIN
   END;
   n3 := admissions.next_number('app:test');
   PERFORM ddltest.ok(n3 = n1 + 1, 'numérotation sans trou : un numéro annulé est rendu');
+END $do$;
+
+-- ---------------------------------------------------------------- 8 bis. textes de consentement, anonymisation, paramètres
+DO $do$
+DECLARE
+  J constant uuid := 'a2000000-0000-4000-8000-0000000000a1';
+  I constant uuid := 'a2100000-0000-4000-8000-000000000001';
+  W constant uuid := 'a2200000-0000-4000-8000-000000000001';
+  C1 constant uuid := 'a2400000-0000-4000-8000-000000000001';
+  R1 constant uuid := 'a2500000-0000-4000-8000-0000000000d1';
+  R2 constant uuid := 'a2500000-0000-4000-8000-0000000000d2';
+BEGIN
+  PERFORM ddltest.as_tenant(J);
+  -- paramètres
+  PERFORM ddltest.throws(format($q$INSERT INTO admissions.settings (tenant_id, institution_id, waitlist_promotion) VALUES (%L, gen_random_uuid(), 'SOMETIMES')$q$, J), 'check', 'promotion de la liste d''attente : MANUAL ou AUTO');
+  PERFORM ddltest.throws(format($q$INSERT INTO admissions.settings (tenant_id, institution_id, payment_deadline_days) VALUES (%L, gen_random_uuid(), 0)$q$, J), 'check', 'délai de paiement strictement positif (ou absent)');
+
+  -- textes de consentement : publiés une fois, jamais modifiés
+  INSERT INTO admissions.consent_texts (id, tenant_id, institution_id, kind, version, body)
+    VALUES ('a2900000-0000-4000-8000-000000000001', J, I, 'DATA_PROCESSING', 'v1', 'Texte de démonstration du consentement au traitement des données de l''enfant.');
+  PERFORM ddltest.throws(format($q$INSERT INTO admissions.consent_texts (id, tenant_id, institution_id, kind, version, body) VALUES (gen_random_uuid(), %L, %L, 'DATA_PROCESSING', 'v1', 'Un autre texte pour la même version, de longueur suffisante.')$q$, J, I), '23505', 'une version de texte par nature et établissement');
+  PERFORM ddltest.throws($q$UPDATE admissions.consent_texts SET body = 'Texte réécrit après coup, de longueur suffisante pour passer le contrôle.'$q$, 'consent_text_immutable', 'un texte publié ne change pas');
+  PERFORM ddltest.throws($q$DELETE FROM admissions.consent_texts$q$, 'consent_text_immutable', 'un texte de consentement ne se supprime pas');
+  PERFORM ddltest.runs($q$UPDATE admissions.consent_texts SET retired_at = now()$q$, 'un texte se retire (une fois)');
+  PERFORM ddltest.throws($q$UPDATE admissions.consent_texts SET retired_at = now() + interval '1 day'$q$, 'consent_text_retired', 'un texte retiré est figé');
+  PERFORM ddltest.throws(format($q$INSERT INTO admissions.consent_texts (id, tenant_id, institution_id, kind, version, body) VALUES (gen_random_uuid(), %L, %L, 'PHOTO', 'v 2', 'Texte suffisamment long pour le contrôle de longueur.')$q$, J, I), 'check', 'identifiant de version sans espace');
+
+  -- anonymisation : réservée aux dossiers clos sans inscription
+  PERFORM ddltest.new_application(R1, J, I, C1, W, '2026-00071', 'Marie', 'Dupont', DATE '2018-04-20');
+  PERFORM ddltest.to_review(R1);
+  PERFORM ddltest.throws(format($q$SELECT admissions.anonymize_application(%L)$q$, R1), 'anonymize_forbidden', 'un dossier en cours ne s''anonymise pas');
+  PERFORM ddltest.decide(R1, 'REJECT', 'REJECTED', 'NO_PLACE', 'Aucune place disponible dans le niveau demandé');
+  PERFORM ddltest.move(R1, 'REJECTED');
+  PERFORM admissions.anonymize_application(R1);
+  PERFORM ddltest.ok((SELECT applicant_last_name = 'ANONYMISÉ' AND anonymized_at IS NOT NULL AND extract(month FROM applicant_birth_date) = 1 FROM admissions.applications WHERE id = R1), 'anonymisation : identité remplacée, naissance généralisée à l''année');
+  PERFORM ddltest.ok((SELECT bool_and(first_name = 'ANONYMISÉ' AND email IS NULL) FROM admissions.application_guardians WHERE application_id = R1), 'anonymisation : tuteurs neutralisés');
+  PERFORM ddltest.ok((SELECT bool_and(storage_key IS NULL AND status = 'MISSING') FROM admissions.application_documents WHERE application_id = R1), 'anonymisation : références de pièces effacées');
+  PERFORM ddltest.ok((SELECT count(*) FROM admissions.decisions WHERE application_id = R1) = 1, 'anonymisation : la décision (sans nom) reste au journal');
+  PERFORM admissions.anonymize_application(R1);   -- idempotent
+  PERFORM ddltest.throws(format($q$SELECT admissions.anonymize_application(%L)$q$, 'a2500000-0000-4000-8000-0000000000a2'), 'anonymize_forbidden', 'un dossier inscrit ne s''anonymise jamais');
 END $do$;
 
 -- ---------------------------------------------------------------- 9. isolation et privilèges

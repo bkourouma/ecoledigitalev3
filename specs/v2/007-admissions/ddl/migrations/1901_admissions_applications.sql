@@ -121,6 +121,7 @@ CREATE TABLE admissions.applications (
   invoice_id                 uuid,
   enrollment_confirmed_at    timestamptz,
   enrolled_at                timestamptz,
+  anonymized_at              timestamptz,
   created_by                 uuid,
   row_version                integer NOT NULL DEFAULT 1 CHECK (row_version >= 1),
   created_at                 timestamptz NOT NULL DEFAULT now(),
@@ -326,15 +327,20 @@ CREATE TABLE admissions.offers (
   expires_at                  timestamptz NOT NULL,
   responded_at                timestamptz,
   responded_by_guardian_id    uuid,
+  classroom_id                uuid,                              -- academic.classrooms.id : classe visée (sans FK), exigée pour accepter
+  response_token_hash         text CHECK (response_token_hash IS NULL OR response_token_hash ~ '^[0-9a-f]{64}$'),   -- empreinte du lien de réponse à usage unique envoyé au tuteur
+  response_token_consumed_at  timestamptz,
   conditions                  text CHECK (conditions IS NULL OR length(conditions) <= 2000),
   created_at                  timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, id),
   CHECK (expires_at > issued_at),
+  CHECK (status <> 'ACCEPTED' OR classroom_id IS NOT NULL),
   CHECK (status NOT IN ('ACCEPTED', 'DECLINED') OR (responded_at IS NOT NULL AND responded_by_guardian_id IS NOT NULL)),
   FOREIGN KEY (tenant_id, application_id) REFERENCES admissions.applications (tenant_id, id)
 );
 SELECT kernel.enable_tenant_rls('admissions.offers');
 CREATE UNIQUE INDEX offers_one_pending ON admissions.offers (tenant_id, application_id) WHERE status = 'PENDING';
+CREATE UNIQUE INDEX offers_response_token ON admissions.offers (tenant_id, response_token_hash) WHERE response_token_hash IS NOT NULL;
 CREATE INDEX offers_to_expire ON admissions.offers (tenant_id, expires_at) WHERE status = 'PENDING';
 GRANT SELECT, INSERT, UPDATE ON admissions.offers TO app_user;
 
@@ -482,6 +488,9 @@ BEGIN
        OR NEW.student_id IS DISTINCT FROM OLD.student_id OR NEW.enrollment_id IS DISTINCT FROM OLD.enrollment_id) THEN
     RAISE EXCEPTION 'admissions.application_frozen_after_enrollment: l''identité est portée par le dossier de l''élève (people) une fois créé' USING ERRCODE = 'restrict_violation';
   END IF;
+  IF OLD.anonymized_at IS NOT NULL AND NEW.anonymized_at IS NOT DISTINCT FROM OLD.anonymized_at AND NEW.stage_id <> OLD.stage_id THEN
+    RAISE EXCEPTION 'admissions.application_anonymized: une candidature anonymisée ne change plus' USING ERRCODE = 'restrict_violation';
+  END IF;
   IF OLD.enrolled_at IS NOT NULL AND NEW.status <> 'ENROLLED' THEN
     RAISE EXCEPTION 'admissions.application_enrolled_final: une candidature inscrite ne change plus d''étape' USING ERRCODE = 'restrict_violation';
   END IF;
@@ -520,6 +529,10 @@ BEGIN
       NEW.decided_at := now();
     END IF;
     IF v_stage.creates_enrollment THEN
+      IF NOT EXISTS (SELECT 1 FROM admissions.offers o WHERE o.tenant_id = NEW.tenant_id AND o.application_id = NEW.id
+                        AND o.status = 'ACCEPTED' AND o.classroom_id IS NOT NULL) THEN
+        RAISE EXCEPTION 'admissions.offer_not_accepted: l''inscription exige une offre acceptée portant la classe visée' USING ERRCODE = 'check_violation';
+      END IF;
       IF NEW.student_id IS NULL OR NEW.enrollment_id IS NULL THEN
         RAISE EXCEPTION 'admissions.enrollment_missing: l''élève et l''inscription doivent être créés avant l''étape %', v_stage.code USING ERRCODE = 'check_violation';
       END IF;
@@ -662,3 +675,46 @@ LANGUAGE sql STABLE AS $$
    ORDER BY (c.program_id IS NULL) ASC LIMIT 1
 $$;
 GRANT EXECUTE ON FUNCTION admissions.seats_left(uuid, text, uuid) TO app_user;
+
+-- -----------------------------------------------------------------------------
+-- Anonymisation (droit à l'effacement, fin de conservation) : remplace l'identité du candidat et les
+-- coordonnées des tuteurs par des valeurs neutres, vide les champs libres et les références de pièces.
+-- Réservée aux dossiers CLOS SANS inscription (REJECTED, y compris retraits et offres expirées) ; les
+-- compteurs, statuts, dates et décisions (sans nom) sont conservés pour les statistiques. Les fichiers
+-- eux-mêmes sont purgés par l'application (StoragePort / documents) AVANT l'appel.
+-- -----------------------------------------------------------------------------
+CREATE FUNCTION admissions.anonymize_application(p_application uuid) RETURNS void
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_app admissions.applications%ROWTYPE;
+BEGIN
+  SELECT * INTO v_app FROM admissions.applications a
+   WHERE a.tenant_id = kernel.current_tenant_id() AND a.id = p_application FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'admissions.application_not_found' USING ERRCODE = 'no_data_found';
+  END IF;
+  IF v_app.status <> 'REJECTED' OR v_app.student_id IS NOT NULL OR v_app.closed_at IS NULL THEN
+    RAISE EXCEPTION 'admissions.anonymize_forbidden: seule une candidature close sans inscription s''anonymise (statut %)', v_app.status USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF v_app.anonymized_at IS NOT NULL THEN RETURN; END IF;
+  UPDATE admissions.applications
+     SET applicant_first_name = 'ANONYMISÉ', applicant_last_name = 'ANONYMISÉ',
+         applicant_birth_date = date_trunc('year', applicant_birth_date)::date,
+         applicant_birth_place = NULL, applicant_nationality = NULL, previous_school = NULL, referrer_label = NULL,
+         assignment_reference = CASE WHEN funding_type_requested = 'STATE_ASSIGNED' THEN 'ANONYMISÉ' ELSE NULL END,
+         extra = '{}'::jsonb, tracking_code_hash = NULL, capacity_override_reason = NULL,
+         anonymized_at = now()
+   WHERE tenant_id = v_app.tenant_id AND id = v_app.id;
+  UPDATE admissions.application_guardians
+     SET first_name = 'ANONYMISÉ', last_name = 'ANONYMISÉ', phone = '000000', email = NULL, profession = NULL
+   WHERE tenant_id = v_app.tenant_id AND application_id = v_app.id;
+  UPDATE admissions.application_documents
+     SET status = 'MISSING', document_ref = NULL, storage_key = NULL, content_type = NULL, size_bytes = NULL, sha256 = NULL,
+         rejection_reason = NULL, reviewed_by = NULL, reviewed_at = NULL
+   WHERE tenant_id = v_app.tenant_id AND application_id = v_app.id;
+  UPDATE admissions.interviews SET notes = NULL, venue = NULL WHERE tenant_id = v_app.tenant_id AND application_id = v_app.id;
+  UPDATE admissions.offers SET conditions = NULL, response_token_hash = NULL WHERE tenant_id = v_app.tenant_id AND application_id = v_app.id;
+  UPDATE admissions.duplicate_candidates SET reasons = '{}' WHERE tenant_id = v_app.tenant_id AND application_id = v_app.id;
+END
+$$;
+GRANT EXECUTE ON FUNCTION admissions.anonymize_application(uuid) TO app_user;

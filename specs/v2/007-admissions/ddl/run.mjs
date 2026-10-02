@@ -124,6 +124,7 @@ try {
     const passes = lines.filter((l) => /PASS: /.test(l));
     for (const l of passes) console.log(l.replace(/^.*?(PASS: )/, "  PASS: "));
     pass += passes.length;
+    console.log(`[test] ${f} : ${passes.length} tests`);
     if (r.status !== 0) {
       console.error(lines.filter((l) => !/PASS: /.test(l) && l.trim()).join("\n"));
       throw new Error(`${f} : ÉCHEC`);
