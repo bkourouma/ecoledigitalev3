@@ -22,13 +22,14 @@ export interface ActionOptions<TData, TVars> {
   body?: (variables: TVars) => unknown;
   /** Paramètres de requête (par exemple `DELETE` avec motif : l'API les lit dans la chaîne de requête). */
   query?: (variables: TVars) => QueryParams;
-  /** En-tête `Idempotency-Key` : le client peut alors rejouer l'appel sans doubler l'écriture (saisie de notes en lot). */
-  idempotencyKey?: (variables: TVars) => string | undefined;
   /** En-têtes supplémentaires (rare). */
   headers?: (variables: TVars) => Record<string, string>;
   schema?: ZodType<TData, ZodTypeDef, unknown>;
   invalidate?: ReadonlyArray<readonly unknown[]>;
-  /** Clé d'idempotence (en-tête `Idempotency-Key`) : autorise aussi les nouvelles tentatives d'un POST. */
+  /**
+   * Clé d'idempotence (en-tête `Idempotency-Key`) : autorise aussi les nouvelles tentatives d'un POST / PUT sans doubler l'écriture
+   * (saisie de notes en lot : rejouer le même lot ne réécrit rien).
+   */
   idempotencyKey?: (variables: TVars) => string | undefined;
   /** `text` pour un export (CSV) : la réponse n'est pas du JSON. */
   responseType?: "json" | "text" | "blob";
