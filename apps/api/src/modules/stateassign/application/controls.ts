@@ -40,6 +40,10 @@ export async function planControl(
 ): Promise<Result<ControlDto, AppError>> {
   const h = requireHuman(ctx);
   if (!h.ok) return h;
+  if (body.kind === "ATTENDANCE" && !body.academicPeriodId) {
+    // les faits de présence d'`attendance` sont publiés PAR PÉRIODE : un contrôle de présence vise une période
+    return err(validation(StateassignCode.INVALID_INPUT, "Un contrôle de présence vise une période de l'année.", "academicPeriodId"));
+  }
   const today = todayOf(deps);
   return inTx(deps, ctx, async (tx) => {
     const loaded = await loadAssignmentInScope(tx, ctx, assignmentId, true);

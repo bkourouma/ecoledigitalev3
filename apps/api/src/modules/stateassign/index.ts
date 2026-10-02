@@ -111,7 +111,7 @@ export {
 export { getAssignmentFacts, listAssignmentsByStatus, type AssignmentFacts } from "./application/facts";
 
 // Domaine (types et fonctions pures utiles aux autres modules et au web)
-export { StateassignCode, HTTP_STATUS_BY_STATEASSIGN_CODE } from "./domain/errors";
+export { StateassignCode, HTTP_STATUS_BY_STATEASSIGN_CODE, portUnavailable } from "./domain/errors";
 export { ALL_STATEASSIGN_EVENT_TYPES, StateassignEvents, type StateassignEventType } from "./domain/events";
 export { ASSIGNMENT_ACTS, ASSIGNMENT_TRANSITIONS, canTransitionAssignment, FINAL_ASSIGNMENT_STATUSES, type AssignmentAct } from "./domain/assignment";
 export { CONTROL_TRANSITIONS, canTransitionControl, planControls } from "./domain/controls";

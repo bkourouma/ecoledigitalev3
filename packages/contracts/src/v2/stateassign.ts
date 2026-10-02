@@ -262,6 +262,8 @@ export const receivableDtoSchema = z.object({
   lastReconciledAt: stateassignInstantSchema.nullable(),
   overdueFlaggedAt: stateassignInstantSchema.nullable(),
   cancelReason: z.string().nullable(),
+  /** Version de la ligne : à renvoyer pour modifier ou annuler (concurrence optimiste). */
+  rowVersion: z.number().int().min(1),
   createdAt: stateassignInstantSchema,
 });
 export type ReceivableDto = z.infer<typeof receivableDtoSchema>;

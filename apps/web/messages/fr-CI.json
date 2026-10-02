@@ -10469,6 +10469,684 @@
       "required": "obligatoire"
     }
   },
+  "v2Stateassign": {
+    "nav": {
+      "label": "Élèves affectés par l'État",
+      "assignments": "Dossiers",
+      "verification": "Vérification",
+      "reconciliation": "Rapprochement",
+      "receivables": "Créances",
+      "reports": "États",
+      "settings": "Paramètres"
+    },
+    "common": {
+      "scope": "Périmètre",
+      "institution": "Établissement",
+      "allInstitutions": "Tous les établissements",
+      "year": "Année scolaire",
+      "allYears": "Toutes les années"
+    },
+    "status": {
+      "RECEIVED": "Enregistré",
+      "VERIFIED": "Vérifié",
+      "ACTIVE": "Actif",
+      "SUSPENDED": "Suspendu",
+      "ENDED": "Terminé",
+      "REJECTED": "Rejeté",
+      "TRANSFERRED": "Transféré",
+      "SUPERSEDED": "Remplacé"
+    },
+    "source": {
+      "MANUAL": "Saisie",
+      "IMPORT": "Import",
+      "GATEWAY": "Passerelle"
+    },
+    "reconciliation": {
+      "NEVER": "Jamais rapproché",
+      "BALANCED": "Conforme",
+      "DISCREPANCY": "Écart"
+    },
+    "receivableStatus": {
+      "OPEN": "À recevoir",
+      "PARTIALLY_RECEIVED": "Partiellement reçu",
+      "RECEIVED": "Reçu",
+      "CANCELLED": "Annulé"
+    },
+    "controlStatus": {
+      "PENDING": "À faire",
+      "OK": "Conforme",
+      "ANOMALY": "Anomalie",
+      "WAIVED": "Dispensé"
+    },
+    "controlKind": {
+      "ATTENDANCE": "Présence",
+      "IDENTITY": "Identité",
+      "FINANCE_RECONCILIATION": "Rapprochement financier",
+      "DOCUMENTS": "Pièces",
+      "OTHER": "Autre"
+    },
+    "documentKind": {
+      "ASSIGNMENT_ORDER": "Acte d'affectation",
+      "ATTENDANCE_CERTIFICATE": "Certificat de présence",
+      "RECEIPT": "Reçu",
+      "CORRESPONDENCE": "Courrier",
+      "OTHER": "Autre pièce"
+    },
+    "agingBucket": {
+      "NOT_DUE": "Non échu",
+      "D1_30": "1 à 30 jours de retard",
+      "D31_60": "31 à 60 jours de retard",
+      "D61_90": "61 à 90 jours de retard",
+      "D91_PLUS": "Plus de 90 jours de retard"
+    },
+    "dataset": {
+      "ASSIGNMENTS": "Dossiers d'affectation",
+      "RECEIVABLES": "Créances sur l'État",
+      "CONTROLS": "Contrôles"
+    },
+    "list": {
+      "title": "Élèves affectés par l'État",
+      "description": "Dossiers d'affectation : un dossier par inscription, vérifié par une personne, versionné par avenant. Les montants affichés sont ceux de l'acte d'affectation (déclarés) ; la facturation reste dans les finances.",
+      "record": "Enregistrer un dossier",
+      "caption": "Dossiers d'affectation",
+      "empty": "Aucun dossier ne correspond.",
+      "emptyHint": "Enregistrez l'acte d'affectation d'un élève pour ouvrir son dossier.",
+      "unknownStudent": "Élève inconnu",
+      "filters": {
+        "status": "Statut",
+        "allStatuses": "Tous les statuts",
+        "search": "Référence",
+        "searchPlaceholder": "Rechercher une référence d'affectation",
+        "history": "Inclure les versions remplacées et les dossiers rejetés"
+      },
+      "columns": {
+        "reference": "Référence",
+        "student": "Élève",
+        "status": "Statut",
+        "declaredState": "Part de l'État (acte)",
+        "declaredParent": "Part de la famille (acte)",
+        "reconciliation": "Rapprochement"
+      }
+    },
+    "record": {
+      "title": "Enregistrer un dossier d'affectation",
+      "description": "Saisissez ce que dit l'acte d'affectation. Le dossier reste « Enregistré » jusqu'à sa vérification par une autre personne.",
+      "submit": "Enregistrer le dossier",
+      "student": "Élève",
+      "studentPlaceholder": "Rechercher un élève",
+      "enrollment": "Inscription",
+      "enrollmentHint": "Choisissez d'abord l'élève.",
+      "choose": "Choisir une inscription",
+      "reference": "Référence d'affectation",
+      "issuedOn": "Date de l'acte",
+      "dateHint": "Format AAAA-MM-JJ.",
+      "authority": "Autorité émettrice",
+      "authorityHint": "Libellé libre, tel qu'il figure sur l'acte.",
+      "stateAmount": "Part de l'État (montant déclaré)",
+      "parentAmount": "Part de la famille (montant déclaré)",
+      "amountHint": "Nombre entier de francs, sans décimale. Laisser vide si l'acte n'en dit rien.",
+      "notes": "Notes",
+      "humanNote": "L'enregistrement ne vaut pas vérification : un autre membre du personnel doit vérifier le dossier avant que la référence d'affectation soit portée sur l'inscription.",
+      "errors": {
+        "enrollment": "Choisissez l'inscription concernée.",
+        "reference": "La référence d'affectation est obligatoire.",
+        "date": "Date invalide (AAAA-MM-JJ).",
+        "amount": "Saisissez un nombre entier de francs (sans décimale ni signe)."
+      }
+    },
+    "actions": {
+      "label": "Actes sur le dossier",
+      "none": "Aucun acte n'est disponible pour vous sur ce dossier dans son état actuel.",
+      "verify": {
+        "button": "Vérifier le dossier",
+        "title": "Vérifier le dossier d'affectation",
+        "description": "La vérification est un acte humain, audité : elle fixe la référence d'affectation de l'inscription.",
+        "fourEyes": "Vous ne pouvez pas vérifier un dossier que vous avez vous-même enregistré (sauf réglage de l'établissement).",
+        "note": "Note de vérification (facultative)",
+        "submit": "Vérifier",
+        "done": "Dossier vérifié : la référence d'affectation est portée sur l'inscription."
+      },
+      "reject": {
+        "button": "Rejeter",
+        "title": "Rejeter le dossier",
+        "description": "Le rejet est motivé et définitif pour cette version ; la référence redevient disponible.",
+        "reason": "Motif du rejet",
+        "submit": "Rejeter le dossier",
+        "done": "Dossier rejeté."
+      },
+      "activate": {
+        "button": "Activer",
+        "done": "Dossier activé."
+      },
+      "suspend": {
+        "button": "Suspendre",
+        "title": "Suspendre le dossier",
+        "description": "La suspension est motivée ; le dossier pourra être repris.",
+        "reason": "Motif de la suspension",
+        "submit": "Suspendre",
+        "done": "Dossier suspendu."
+      },
+      "resume": {
+        "button": "Reprendre",
+        "done": "Dossier repris."
+      },
+      "end": {
+        "button": "Terminer",
+        "title": "Terminer le dossier",
+        "description": "La fin d'un dossier est datée et motivée ; elle ne se défait pas.",
+        "endedOn": "Date de fin",
+        "reason": "Motif",
+        "submit": "Terminer le dossier",
+        "done": "Dossier terminé.",
+        "errors": {
+          "date": "Date invalide (AAAA-MM-JJ).",
+          "reason": "Un motif de 5 caractères minimum est requis."
+        }
+      },
+      "transfer": {
+        "button": "Transférer",
+        "title": "Transférer l'élève hors de l'établissement",
+        "description": "Le transfert clôt le dossier : il est daté et motivé.",
+        "endedOn": "Date du transfert",
+        "reason": "Motif",
+        "submit": "Transférer",
+        "done": "Dossier clos par transfert.",
+        "errors": {
+          "date": "Date invalide (AAAA-MM-JJ).",
+          "reason": "Un motif de 5 caractères minimum est requis."
+        }
+      },
+      "amend": {
+        "button": "Amender",
+        "title": "Avenant : version {version}",
+        "description": "L'avenant remplace le dossier actuel puis crée une nouvelle version, à vérifier à son tour.",
+        "explain": "Le contenu d'un dossier vérifié ne se modifie pas : tout changement de référence, d'autorité, de date ou de montant passe par un avenant. L'inscription garde la référence actuelle jusqu'à la vérification de la nouvelle version.",
+        "reason": "Motif de l'avenant",
+        "effectiveOn": "Date d'effet",
+        "reference": "Nouvelle référence",
+        "unchanged": "Laisser vide pour conserver « {value} ».",
+        "authority": "Nouvelle autorité émettrice",
+        "unchangedAuthority": "Laisser vide pour conserver l'autorité actuelle.",
+        "stateAmount": "Part de l'État (nouveau montant déclaré)",
+        "parentAmount": "Part de la famille (nouveau montant déclaré)",
+        "amountHint": "Nombre entier de francs. Laisser vide pour conserver le montant actuel.",
+        "submit": "Créer l'avenant",
+        "done": "Avenant créé : la nouvelle version attend sa vérification.",
+        "errors": {
+          "reason": "Un motif de 5 caractères minimum est requis.",
+          "date": "Date invalide (AAAA-MM-JJ).",
+          "amount": "Saisissez un nombre entier de francs (sans décimale ni signe)."
+        }
+      },
+      "edit": {
+        "button": "Corriger",
+        "title": "Corriger le dossier (avant vérification)",
+        "reference": "Référence d'affectation",
+        "issuedOn": "Date de l'acte",
+        "authority": "Autorité émettrice",
+        "stateAmount": "Part de l'État (montant déclaré)",
+        "parentAmount": "Part de la famille (montant déclaré)",
+        "amountHint": "Nombre entier de francs, sans décimale.",
+        "notes": "Notes",
+        "submit": "Enregistrer",
+        "done": "Dossier corrigé.",
+        "errors": {
+          "reference": "La référence d'affectation est obligatoire.",
+          "date": "Date invalide (AAAA-MM-JJ).",
+          "amount": "Saisissez un nombre entier de francs (sans décimale ni signe)."
+        }
+      },
+      "reconcile": {
+        "button": "Rapprocher avec la facturation",
+        "balanced": "Rapprochement fait : la facturation est conforme à l'acte.",
+        "discrepancy": "Rapprochement fait : un écart subsiste entre l'acte et la facturation."
+      }
+    },
+    "detail": {
+      "title": "Dossier {reference} (version {version})",
+      "unknownStudent": "Élève inconnu",
+      "back": "Retour à la liste",
+      "summary": "Dossier",
+      "fields": {
+        "authority": "Autorité émettrice",
+        "issuedOn": "Date de l'acte",
+        "source": "Source",
+        "received": "Enregistré le",
+        "verified": "Vérifié le",
+        "note": "Note de vérification",
+        "endedOn": "Date de fin",
+        "endReason": "Motif de fin",
+        "suspension": "Motif de suspension",
+        "rejection": "Motif de rejet",
+        "notes": "Notes"
+      },
+      "enrollment": {
+        "matches": "L'inscription porte la référence d'affectation de ce dossier (« {reference} »).",
+        "pending": "Dossier non vérifié : l'inscription ne porte pas encore sa référence d'affectation.",
+        "mismatch": "Attention : l'inscription est « {funding} » avec la référence « {reference} », qui n'est pas celle de ce dossier."
+      },
+      "shares": {
+        "title": "Parts de l'État et de la famille",
+        "explain": "Montants déclarés par l'acte face aux montants facturés dans les finances (nets d'avoirs). L'écart est facturé moins déclaré ; la facture de la famille ne doit porter que la part de la famille.",
+        "caption": "Montants déclarés, facturés et écarts par part",
+        "share": "Part",
+        "declared": "Déclaré",
+        "billed": "Facturé",
+        "delta": "Écart",
+        "state": "État",
+        "parent": "Famille",
+        "lastReconciled": "Dernier rapprochement : {date}.",
+        "never": "Ce dossier n'a pas encore été rapproché avec la facturation.",
+        "discrepancy": "Les montants facturés ne correspondent pas à l'acte (au-delà de la tolérance de l'établissement) : corrigez la facturation ou créez un avenant si l'acte a changé."
+      },
+      "history": {
+        "title": "Versions et historique",
+        "versions": "Versions du dossier",
+        "versionsList": "Versions",
+        "version": "Version {n}",
+        "amounts": "État : {state} · Famille : {parent}",
+        "endedOn": "fin le {date}",
+        "open": "Ouvrir",
+        "events": "Historique",
+        "eventsList": "Événements du dossier",
+        "actions": {
+          "CREATED": "Dossier créé",
+          "STATUS_CHANGED": "Changement de statut",
+          "RECONCILED": "Rapprochement avec la facturation",
+          "LINKED": "Liens avec la facturation mis à jour"
+        },
+        "actors": {
+          "user": "par une personne",
+          "system": "par le système",
+          "superAdmin": "par un opérateur de la plateforme",
+          "unknown": "auteur inconnu"
+        }
+      }
+    },
+    "receivables": {
+      "title": "Créances sur l'État",
+      "explain": "Échéances attendues de l'État pour ce dossier. Le montant reçu vient des paiements enregistrés dans les finances ; le statut et le retard sont calculés, jamais saisis.",
+      "schedule": "Planifier une échéance",
+      "caption": "Échéances de la créance sur l'État",
+      "empty": "Aucune échéance planifiée.",
+      "emptyHint": "Planifiez les versements attendus de l'État. Leur total ne peut pas dépasser la part de l'État déclarée.",
+      "overdue": "En retard de {days} j",
+      "summary": {
+        "expected": "Attendu",
+        "received": "Reçu",
+        "outstanding": "Reste à recevoir",
+        "overdue": "En retard",
+        "unscheduled": "Non planifié"
+      },
+      "columns": {
+        "seq": "Échéance",
+        "dueOn": "Date",
+        "expected": "Attendu",
+        "received": "Reçu",
+        "outstanding": "Reste",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "actions": {
+        "history": "Historique",
+        "edit": "Modifier",
+        "cancel": "Annuler"
+      },
+      "cancel": {
+        "title": "Annuler l'échéance",
+        "description": "Une échéance déjà (en partie) reçue ne s'annule pas. L'annulation est motivée et l'historique est conservé.",
+        "reason": "Motif de l'annulation",
+        "submit": "Annuler l'échéance"
+      },
+      "form": {
+        "title": "Planifier une échéance",
+        "editTitle": "Modifier l'échéance",
+        "description": "Une échéance est un versement attendu de l'État : son libellé, sa date et son montant.",
+        "label": "Libellé",
+        "dueOn": "Date d'échéance",
+        "amount": "Montant attendu",
+        "amountHint": "Nombre entier de francs.",
+        "submit": "Planifier",
+        "save": "Enregistrer",
+        "errors": {
+          "label": "Le libellé est obligatoire.",
+          "date": "Date invalide (AAAA-MM-JJ).",
+          "amount": "Saisissez un nombre entier de francs, supérieur à zéro."
+        }
+      },
+      "history": {
+        "title": "Historique de l'échéance « {label} »",
+        "list": "Événements de l'échéance",
+        "actions": {
+          "CREATED": "Échéance planifiée",
+          "RESCHEDULED": "Date reportée",
+          "AMOUNT_CHANGED": "Montant attendu modifié",
+          "RECEIVED_UPDATED": "Montant reçu mis à jour",
+          "STATUS_CHANGED": "Changement de statut",
+          "OVERDUE_FLAGGED": "Retard signalé",
+          "CANCELLED": "Échéance annulée"
+        },
+        "actor": {
+          "user": "par une personne",
+          "system": "par le système",
+          "superAdmin": "par un opérateur de la plateforme",
+          "unknown": "auteur inconnu"
+        }
+      }
+    },
+    "controls": {
+      "title": "Contrôles",
+      "caption": "Contrôles du dossier",
+      "humanNote": "L'application planifie, une personne réalise : un contrôle n'est jamais réalisé automatiquement. Les faits de présence viennent du module des présences et sont consignés tels quels.",
+      "empty": "Aucun contrôle.",
+      "emptyHint": "Aucun contrôle n'est exigé par défaut : l'établissement choisit les natures et le rythme dans ses paramètres.",
+      "overdue": "En retard",
+      "resolution": "Résolution : {text}",
+      "columns": {
+        "kind": "Nature",
+        "dueOn": "Échéance",
+        "status": "Statut",
+        "findings": "Constat",
+        "actions": "Actions"
+      },
+      "actions": {
+        "complete": "Réaliser",
+        "waive": "Dispenser",
+        "resolve": "Résoudre"
+      },
+      "plan": {
+        "button": "Planifier un contrôle",
+        "title": "Planifier un contrôle",
+        "description": "Un contrôle par nature et par période.",
+        "kind": "Nature du contrôle",
+        "choose": "Choisir une nature",
+        "period": "Période",
+        "noPeriod": "Aucune période",
+        "periodHint": "Un contrôle de présence vise une période de l'année.",
+        "dueOn": "Date d'échéance",
+        "submit": "Planifier",
+        "errors": {
+          "kind": "Choisissez la nature du contrôle.",
+          "period": "Choisissez la période à contrôler.",
+          "date": "Date invalide (AAAA-MM-JJ)."
+        }
+      },
+      "complete": {
+        "title": "Réaliser le contrôle",
+        "description": "Consignez le résultat du contrôle. Une anomalie exige un constat.",
+        "attendanceNote": "Les faits de présence de la période sont lus dans le module des présences au moment de la validation.",
+        "outcome": "Résultat",
+        "outcomes": {
+          "OK": "Conforme",
+          "ANOMALY": "Anomalie"
+        },
+        "findings": "Constat",
+        "submit": "Consigner le résultat",
+        "errors": {
+          "findings": "Un constat de 5 caractères minimum est requis pour une anomalie."
+        }
+      },
+      "waive": {
+        "title": "Dispenser le contrôle",
+        "description": "La dispense est motivée et auditée.",
+        "reason": "Motif de la dispense",
+        "submit": "Dispenser"
+      },
+      "resolve": {
+        "title": "Résoudre l'anomalie",
+        "description": "La résolution est motivée et auditée.",
+        "reason": "Résolution",
+        "submit": "Résoudre l'anomalie"
+      },
+      "evidence": {
+        "attendance": "Faits de présence : absences {absent} (dont justifiées {excused}), {late} retard(s).",
+        "attendanceUnavailable": "Aucun fait de présence n'était disponible au moment du contrôle.",
+        "reconciliation": "Rapprochement au moment du contrôle : {status} (écart État {state}, écart famille {parent})."
+      }
+    },
+    "documents": {
+      "title": "Pièces du dossier",
+      "explain": "Références vers la gestion documentaire : acte d'affectation, certificat de présence, reçu, courrier. Le fichier lui-même reste dans les documents.",
+      "list": "Pièces du dossier",
+      "empty": "Aucune pièce rattachée.",
+      "emptyHint": "Rattachez l'acte d'affectation et les pièces utiles au contrôle.",
+      "receivedOn": "reçue le {date}",
+      "withdrawnReason": "Retirée : {reason}",
+      "status": {
+        "ACTIVE": "Active",
+        "WITHDRAWN": "Retirée"
+      },
+      "add": {
+        "button": "Rattacher une pièce",
+        "title": "Rattacher une pièce",
+        "description": "Choisissez un document de la gestion documentaire (ou déposez-en un nouveau).",
+        "kind": "Nature de la pièce",
+        "document": "Document",
+        "documentHint": "Vous ne pouvez rattacher qu'un document que vous avez le droit de lire.",
+        "label": "Libellé",
+        "receivedOn": "Reçue le",
+        "submit": "Rattacher",
+        "errors": {
+          "document": "Choisissez un document.",
+          "date": "Date invalide (AAAA-MM-JJ)."
+        }
+      },
+      "withdraw": {
+        "button": "Retirer",
+        "title": "Retirer la pièce",
+        "description": "Le retrait est motivé ; la ligne reste dans l'historique.",
+        "reason": "Motif du retrait",
+        "submit": "Retirer la pièce"
+      }
+    },
+    "verification": {
+      "title": "Vérification des affectations",
+      "description": "Les dossiers qui attendent une personne. La vérification fixe la référence d'affectation de l'inscription ; elle se fait sur la fiche du dossier, pièces sous les yeux.",
+      "fourEyes": "Par défaut, vous ne pouvez pas vérifier un dossier que vous avez enregistré vous-même : une deuxième personne est exigée. Aucune vérification n'est jamais automatique.",
+      "show": "Afficher",
+      "toVerify": "À vérifier",
+      "toActivate": "Vérifiés, à activer",
+      "caption": "Dossiers en attente d'un acte",
+      "emptyReceived": "Aucun dossier n'attend de vérification.",
+      "emptyVerified": "Aucun dossier vérifié n'attend son activation.",
+      "examine": "Examiner",
+      "columns": {
+        "reference": "Référence",
+        "student": "Élève",
+        "authority": "Autorité émettrice",
+        "amounts": "État / famille (acte)",
+        "received": "Enregistré le",
+        "status": "Statut",
+        "open": "Ouvrir"
+      }
+    },
+    "reconciliationScreen": {
+      "title": "Rapprochement des affectations",
+      "description": "Pour chaque dossier, l'écart entre les montants de l'acte et ceux de la facturation, par part (État, famille).",
+      "explain": "L'écart est facturé moins déclaré. Le statut « Conforme » ou « Écart » est calculé avec la tolérance de l'établissement (zéro par défaut) : il ne se saisit pas.",
+      "counts": "Dossiers actifs par statut de rapprochement",
+      "show": "Afficher les dossiers",
+      "caption": "Dossiers et écarts de rapprochement",
+      "empty": "Aucun dossier dans cet état.",
+      "reconcile": "Rapprocher",
+      "reconciled": "Dossier {reference} rapproché.",
+      "columns": {
+        "reference": "Référence",
+        "student": "Élève",
+        "state": "État : facturé / déclaré",
+        "stateDelta": "Écart État",
+        "parent": "Famille : facturé / déclaré",
+        "parentDelta": "Écart famille",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "controls": {
+        "title": "Contrôles à faire et anomalies",
+        "onlyOverdue": "Seulement les contrôles dont l'échéance est dépassée",
+        "pending": "Contrôles à faire ({count})",
+        "pendingList": "Contrôles à faire",
+        "nonePending": "Aucun contrôle à faire.",
+        "anomalies": "Anomalies à résoudre ({count})",
+        "anomaliesList": "Anomalies",
+        "noneAnomalies": "Aucune anomalie en cours.",
+        "dueOn": "échéance {date}",
+        "open": "Ouvrir"
+      }
+    },
+    "receivablesScreen": {
+      "title": "Créances sur l'État",
+      "description": "Versements attendus de l'État pour tous les élèves affectés, reçus, retards et ancienneté.",
+      "explain": "Le grand livre reste celui des finances : ici, ce que l'État doit verser et quand. Le montant reçu est rapproché des paiements enregistrés ; le retard tient compte du délai de grâce de l'établissement.",
+      "caption": "Échéances des créances sur l'État",
+      "empty": "Aucune échéance ne correspond.",
+      "emptyHint": "Les échéances se planifient sur la fiche de chaque dossier.",
+      "unknown": "Dossier",
+      "overdue": "En retard de {days} j",
+      "filters": {
+        "status": "Statut",
+        "allStatuses": "Tous les statuts",
+        "dueFrom": "Échéance à partir du",
+        "dueTo": "Échéance jusqu'au",
+        "overdueOnly": "Seulement les échéances en retard"
+      },
+      "columns": {
+        "student": "Élève",
+        "reference": "Dossier",
+        "label": "Échéance",
+        "dueOn": "Date",
+        "expected": "Attendu",
+        "received": "Reçu",
+        "outstanding": "Reste",
+        "status": "Statut"
+      },
+      "aging": {
+        "title": "Ancienneté des créances",
+        "asOf": "Situation au {date}.",
+        "expected": "Attendu",
+        "received": "Reçu",
+        "outstanding": "Reste à recevoir",
+        "overdue": "En retard ({count} échéance(s))",
+        "caption": "Reste à recevoir par tranche de retard",
+        "bucket": "Tranche",
+        "count": "Échéances",
+        "amount": "Reste à recevoir"
+      }
+    },
+    "reportsScreen": {
+      "title": "États des affectations",
+      "description": "Tableau de bord et exports pour l'administration.",
+      "summary": {
+        "asOf": "Situation au {date}.",
+        "assignments": "Dossiers par statut",
+        "declaredState": "Total déclaré — État",
+        "declaredParent": "Total déclaré — familles",
+        "receivables": "Créances sur l'État",
+        "expected": "Attendu",
+        "received": "Reçu",
+        "outstanding": "Reste à recevoir",
+        "overdue": "En retard",
+        "follow": "Suivi",
+        "controlsPending": "Contrôles à faire",
+        "controlsOverdue": "Contrôles en retard",
+        "controlsAnomalies": "Anomalies"
+      },
+      "exports": {
+        "title": "Exports",
+        "explain": "Le fichier CSV est produit par le serveur avec le format de l'établissement (colonnes et en-têtes choisis dans les paramètres) ou, à défaut, avec un format neutre. Les montants sont des entiers de francs.",
+        "dataset": "Jeu de données",
+        "format": "Format",
+        "formatHint": "Les formats se composent dans les paramètres.",
+        "standard": "Format neutre (toutes les colonnes)",
+        "download": "Télécharger le CSV",
+        "running": "Préparation du fichier…",
+        "done": "Fichier téléchargé : {rows} ligne(s).",
+        "truncated": "Fichier tronqué : {rows} ligne(s) sur {total} (plafond : {max}). Affinez le filtre pour obtenir le reste."
+      },
+      "gateway": {
+        "title": "Passerelle vers la plateforme publique",
+        "notConfigured": "Aucune passerelle n'est configurée : la saisie et l'import sont manuels, aucun échange externe n'a lieu.",
+        "configured": "Passerelle configurée ({adapter})."
+      }
+    },
+    "settingsScreen": {
+      "title": "Paramètres des affectations",
+      "description": "Réglages de l'établissement. Aucune règle officielle ni aucun barème n'est livré : tout est vide ou à zéro tant que vous ne l'avez pas choisi.",
+      "noOfficialRules": "Les tolérances, délais et contrôles ci-dessous sont des choix de l'établissement ; ils ne reprennent aucun texte officiel.",
+      "institution": "Établissement",
+      "form": {
+        "title": "Réglages",
+        "defaults": "Aucun réglage enregistré : les valeurs prudentes ci-dessous s'appliquent.",
+        "separate": "Exiger une autre personne pour la vérification",
+        "separateHint": "Recommandé : celui qui enregistre un dossier ne le vérifie pas.",
+        "tolerance": "Tolérance d'écart (francs)",
+        "toleranceHint": "Écart accepté entre l'acte et la facturation, par part. Valeur actuelle : {current}.",
+        "kinds": "Contrôles à planifier pour tout dossier",
+        "kindsHint": "Aucun par défaut. L'application planifie, une personne réalise.",
+        "offset": "Délai d'échéance d'un contrôle (jours)",
+        "offsetHint": "Après la fin de la période (ou la vérification). Vide : aucune planification automatique.",
+        "grace": "Délai de grâce des créances (jours)",
+        "graceHint": "Jours après l'échéance avant qu'une créance soit en retard. 0 par défaut.",
+        "save": "Enregistrer les réglages",
+        "saving": "Enregistrement…",
+        "saved": "Réglages enregistrés.",
+        "errors": {
+          "tolerance": "Saisissez un nombre entier de francs (zéro autorisé).",
+          "days": "Saisissez un nombre entier de jours (0 à 366).",
+          "offsetNeeded": "Indiquez le délai d'échéance pour que les contrôles choisis soient planifiés."
+        }
+      },
+      "formats": {
+        "title": "Formats d'export",
+        "explain": "Composez les fichiers attendus par l'administration : colonnes, ordre, en-têtes, séparateur. Aucun format officiel n'est livré.",
+        "create": "Nouveau format",
+        "list": "Formats d'export",
+        "empty": "Aucun format enregistré.",
+        "emptyHint": "Sans format, l'export utilise un format neutre qui reprend toutes les colonnes.",
+        "columnsCount": "{count} colonne(s)",
+        "active": "Actif",
+        "inactive": "Inactif",
+        "activate": "Activer",
+        "deactivate": "Désactiver",
+        "form": {
+          "title": "Nouveau format d'export",
+          "description": "Choisissez le jeu de données puis les colonnes à exporter.",
+          "code": "Code",
+          "codeHint": "Minuscules, chiffres, tiret et tiret bas (2 à 40 caractères).",
+          "label": "Libellé",
+          "dataset": "Jeu de données",
+          "delimiter": "Séparateur",
+          "delimiters": {
+            "semicolon": "Point-virgule",
+            "comma": "Virgule",
+            "tab": "Tabulation"
+          },
+          "bom": "Marque d'ordre des octets (BOM)",
+          "bomHint": "Recommandé pour une ouverture correcte des accents dans un tableur.",
+          "columns": "Colonnes",
+          "columnsHint": "Cochez les colonnes dans l'ordre souhaité ; l'en-tête peut être modifié.",
+          "headerPlaceholder": "En-tête de la colonne",
+          "submit": "Créer le format",
+          "errors": {
+            "code": "Code invalide : minuscules, chiffres, tiret et tiret bas.",
+            "label": "Le libellé est obligatoire.",
+            "columns": "Choisissez au moins une colonne."
+          }
+        }
+      }
+    },
+    "family": {
+      "title": "Affectation de mon enfant",
+      "description": "Le statut du dossier d'affectation par l'État de chacun de vos enfants.",
+      "list": "Enfants",
+      "noChildren": "Aucun enfant n'est lié à votre compte.",
+      "none": "Aucun dossier d'affectation pour cet enfant.",
+      "status": "Statut",
+      "reference": "Référence",
+      "issuedOn": "Date de l'acte",
+      "verified": "Le dossier a été vérifié par l'établissement.",
+      "notVerified": "Le dossier est en attente de vérification par l'établissement."
+    }
+  },
   "v2Notifications": {
     "nav": {
       "label": "Navigation des notifications",

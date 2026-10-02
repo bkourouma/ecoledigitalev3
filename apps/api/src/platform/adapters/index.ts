@@ -23,7 +23,7 @@ import {
   type AcademicPorts,
 } from "../../modules/academic";
 import { registerAnalyticsPorts, setAnalyticsWorkerPorts, type AnalyticsSourcePorts } from "../../modules/analytics";
-import { officeConverterFromEnv, registerDocumentsPorts, scanPolicyFromEnv, setDocumentsWorkerPorts, type DocumentsPorts } from "../../modules/documents";
+import { createDocumentsDeps, documentsAuditAdapter, officeConverterFromEnv, registerDocumentsPorts, scanPolicyFromEnv, setDocumentsWorkerPorts, type DocumentsPorts } from "../../modules/documents";
 import { registerAssessPorts, type AssessPorts } from "../../modules/assess";
 import { registerAttendancePorts, type AttendancePorts } from "../../modules/attendance";
 import { registerFinancePorts, type FinancePortSet } from "../../modules/finance";
@@ -32,6 +32,7 @@ import { importsAuditAdapter, registerImportsPorts, setImportsWorkerPorts, type 
 import { audit as auditService } from "../../modules/audit";
 import { registerMessagingPorts, setMessagingWorkerPorts, type MessagingPorts } from "../../modules/messaging";
 import { registerNotificationsPorts, setNotificationsWorkerPorts, type NotificationsPorts } from "../../modules/notifications";
+import { registerStateassignPorts, setStateassignWorkerPorts, type StateassignPorts } from "../../modules/stateassign";
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
 import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorkerResources, type PdfRenderer, type ReportcardsPorts } from "../../modules/reportcards";
@@ -83,6 +84,11 @@ import { createGradesImportPort } from "./imports-assess";
 import { createOpeningBalancesImportPort } from "./imports-finance";
 import { createGuardiansImportPort, createImportActorNames, createStaffImportPort, createStudentsImportPort } from "./imports-people";
 import { createImportWriteEnv } from "./imports-support";
+import { createStateassignEnrollmentPort, createStateassignFundingPort } from "./academic-stateassign";
+import { createStateassignAttendanceFacts } from "./attendance-stateassign";
+import { createStateassignDocumentRefs } from "./documents-stateassign";
+import { createStateassignFinancePort } from "./finance-stateassign";
+import { createStateassignGuardianshipPort, createStateassignStudentNames } from "./people-stateassign";
 
 export { createAdapterKit, type AdapterKit, type AdapterKitInput } from "./kit";
 export { createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
@@ -108,6 +114,8 @@ export interface PlatformPorts {
   readonly documents: Partial<DocumentsPorts>;
   /** Canaux externes (016) : coordonnées de remise, échéances en retard, résultats FINAL, charge d'enseignement, annonces. */
   readonly notifications: Partial<NotificationsPorts>;
+  /** Élèves affectés par l'État (006) : inscription et financement (academic), facturation (finance), présence (attendance), pièces (documents), noms et tutelle (people). La passerelle reste `NotConfigured`. */
+  readonly stateassign: Partial<StateassignPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -125,7 +133,7 @@ export function buildPlatformPorts(
   // fichiers (messagerie, photos, justificatifs) l'appliquent par enveloppe de leur vue de stockage (aucune modification de leur code).
   const scan = scanPolicyFromEnv(kit.env, { warn: (m) => kit.logger.warn({}, m) });
   const scanned = () => scan;
-  const base: Omit<PlatformPorts, "imports"> = {
+  const base: Omit<PlatformPorts, "imports" | "stateassign"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
       guardianship: createAcademicGuardianship(people),
@@ -244,7 +252,25 @@ export function buildPlatformPorts(
     ...(storage ? { storage } : {}),
     ...(extras.audit ? { audit: importsAuditAdapter(extras.audit) } : {}),
   };
-  return { ...base, imports };
+  // Élèves affectés par l'État (006) : lectures et écriture du financement par les cas d'usage PUBLICS d'academic, finance,
+  // attendance, documents, people. La passerelle vers une plateforme publique n'est pas branchée : `NotConfigured` (aucun appel externe).
+  const documentsDeps = createDocumentsDeps({
+    db: kit.tenantDb,
+    clock: kit.clock,
+    logger: kit.logger,
+    portsProvider: () => base.documents,
+    ...(extras.audit ? { audit: documentsAuditAdapter(extras.audit) } : {}),
+  });
+  const stateassign: Partial<StateassignPorts> = {
+    enrollments: createStateassignEnrollmentPort(academic),
+    funding: createStateassignFundingPort(academic),
+    finance: createStateassignFinancePort(finance, academic),
+    attendance: createStateassignAttendanceFacts(attendance),
+    documents: createStateassignDocumentRefs(documentsDeps),
+    students: createStateassignStudentNames(people),
+    guardianship: createStateassignGuardianshipPort(lookups),
+  };
+  return { ...base, imports, stateassign };
 }
 
 export interface WiredPlatform {
@@ -276,6 +302,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerImportsPorts(app, ports.imports);
   registerDocumentsPorts(app, ports.documents);
   registerNotificationsPorts(app, ports.notifications);
+  registerStateassignPorts(app, ports.stateassign);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -308,6 +335,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   setImportsWorkerPorts(ports.imports);
   setDocumentsWorkerPorts(ports.documents);
   setNotificationsWorkerPorts(ports.notifications);
+  setStateassignWorkerPorts(ports.stateassign);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }

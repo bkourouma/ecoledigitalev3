@@ -141,6 +141,7 @@ export function receivableDto(r: ReceivableRecord, ctx: { asOf: IsoDate; graceDa
     lastReconciledAt: isoOrNull(r.lastReconciledAt),
     overdueFlaggedAt: isoOrNull(r.overdueFlaggedAt),
     cancelReason: r.cancelReason,
+    rowVersion: r.rowVersion,
     createdAt: iso(r.createdAt),
   };
 }
