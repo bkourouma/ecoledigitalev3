@@ -61,7 +61,7 @@ Phases du plan §4 : 0 = cadrage, 1 = socle SaaS, 2 = cœur académique et migra
 | 022 | lms | Après V1 | À écrire |
 | 023 | virtual-school | Après V1 | À écrire |
 | 024 | documents | 3 | Rédigée (`024-documents/` : spec, data-model, plan, parity, open-questions ; module `documents`) |
-| 025 | analytics | 6 | Écrite et implémentée (partie direction / propriétaire : `025-analytics/`) |
+| 025 | analytics | 6 | Écrite et implémentée (partie A direction / propriétaire, partie B indicateurs transverses et alertes de direction : `025-analytics/`) |
 | 026 | ai | Après V1 | À écrire |
 | 027 | subscriptions-billing | Après V1 | À écrire |
 | 028 | integrations | Après V1 | À écrire |

@@ -180,9 +180,9 @@ describeIntegration("module notifications : alertes de direction d'analytics (ba
     expect(await journal()).toEqual([]);
   });
 
-  it("le rôle destinataire d'une règle d'établissement reste respecté quand l'alerte n'en porte aucun valable : jamais de repli silencieux vers tout le monde", async () => {
+  it("une alerte sans aucun rôle valable est ignorée : jamais de repli silencieux vers tout le monde", async () => {
     await reset();
-    // Pas de rôle dans l'alerte : l'événement est ignoré (le repli de la règle n'est utilisé que si l'émetteur ne fournit rien du tout).
+    // Pas de rôle dans l'alerte : l'événement est ignoré (la liste de la règle livrée n'est qu'indicative).
     expect(unwrap(await event(RAISED({ recipientRoles: [] }))).ignored).toBe("no_recipient_role");
     expect(await journal()).toEqual([]);
   });
