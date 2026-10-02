@@ -12215,5 +12215,746 @@
       "download": "Télécharger",
       "downloadAria": "Télécharger {kind} de {name}"
     }
+  },
+  "v2PrimaryNav": {
+    "label": "Pack Primaire",
+    "classe": "Ma classe",
+    "competences": "Compétences",
+    "appreciations": "Appréciations",
+    "conseil": "Conseil des maîtres",
+    "direction": "Avancement",
+    "bilans": "Bilans annuels",
+    "archives": "Archives",
+    "etats": "États",
+    "parametres": "Paramètres",
+    "monEnfant": "Bulletin et compétences"
+  },
+  "v2PrimaryCommon": {
+    "cancel": "Annuler",
+    "working": "Traitement en cours…",
+    "studentFallback": "Élève …{id}",
+    "featureUnavailable": "Cette fonctionnalité n'est pas incluse dans l'offre de votre établissement.",
+    "notFoundNeutral": "Cet élément est introuvable ou hors de votre périmètre.",
+    "blockersTitle": "Points à corriger avant de continuer :",
+    "ruleBanner": {
+      "label": "Règles de démonstration",
+      "explain": "Les règles de calcul liées à cet établissement sont un jeu fictif : ne les utilisez pas comme référence officielle.",
+      "unknown": "Impossible de vérifier si les règles employées sont des règles de démonstration. Considérez les résultats comme non officiels tant que ce n'est pas confirmé."
+    },
+    "pickers": {
+      "classroom": "Classe",
+      "chooseClassroom": "Choisir une classe",
+      "period": "Période",
+      "choosePeriod": "Choisir une période",
+      "periodLocked": "{label} (verrouillée)",
+      "yearFallback": "Année {id}"
+    },
+    "summary": {
+      "region": "Synthèse des compétences par domaine et niveau",
+      "caption": "Nombre de compétences validées par domaine et par niveau de maîtrise",
+      "domain": "Domaine",
+      "empty": "Aucune compétence validée à afficher pour le moment."
+    },
+    "reviewStatus": {
+      "DRAFT": "Brouillon",
+      "READY": "Prêt à sceller",
+      "SEALED": "Scellé",
+      "SUPERSEDED": "Remplacé par une version plus récente"
+    },
+    "archiveStatus": {
+      "PREPARING": "En préparation",
+      "READY": "Prête à geler",
+      "FROZEN": "Gelée"
+    },
+    "caseStatus": {
+      "OPEN": "À examiner",
+      "DECIDED": "Décidé",
+      "DEFERRED": "Reporté"
+    },
+    "councilRole": {
+      "CHAIR": "Président",
+      "HOMEROOM": "Titulaire de la classe",
+      "TEACHER": "Maître",
+      "SPECIALIST": "Intervenant spécialiste",
+      "DIRECTOR": "Directeur",
+      "SECRETARY": "Secrétaire",
+      "OTHER": "Autre participant"
+    },
+    "reasonCode": {
+      "BORDERLINE": "Cas limite",
+      "LONG_ABSENCE": "Absences prolongées",
+      "ALREADY_REPEATED": "Déjà redoublant",
+      "RULE_REVIEW": "La règle ne tranche pas",
+      "MANUAL": "Ajouté à la main"
+    },
+    "ruleProposal": {
+      "PENDING": "En attente de calcul",
+      "PROMOTED": "Passage en classe supérieure",
+      "REPEAT": "Redoublement",
+      "COUNCIL_REVIEW": "Le conseil décide"
+    },
+    "outcomeCode": {
+      "PROMOTED": "Passage en classe supérieure",
+      "REPEATED": "Redoublement",
+      "REPEAT": "Redoublement",
+      "PENDING": "En attente de calcul",
+      "COUNCIL_REVIEW": "Le conseil décide"
+    },
+    "phraseScope": {
+      "PERIOD": "Période",
+      "YEAR": "Année",
+      "COMPETENCY": "Compétence"
+    },
+    "sourceKind": {
+      "regulation": "Texte réglementaire",
+      "institution": "Établissement",
+      "platform": "Plateforme",
+      "placeholder": "Démonstration (fictif)"
+    },
+    "reportKey": {
+      "class-list": "Liste de classe",
+      "enrollment-stats": "Effectifs par niveau et par classe",
+      "attendance-register": "Registre d'appel mensuel",
+      "repeaters": "Redoublants",
+      "competency-coverage": "Couverture des compétences",
+      "council-pack": "Dossier du conseil des maîtres",
+      "progress": "Avancement des classes"
+    },
+    "assessmentStatus": {
+      "DRAFT": "Brouillon",
+      "VALIDATED": "Validée"
+    },
+    "frameworkStatus": {
+      "DRAFT": "Brouillon",
+      "PUBLISHED": "Publié",
+      "RETIRED": "Retiré"
+    },
+    "errorHints": {
+      "invalid_input": "Corrigez les champs signalés puis réessayez.",
+      "forbidden": "Votre profil n'a pas le droit d'effectuer cette action.",
+      "port_unavailable": "Ce document ou ce service n'est pas disponible pour le moment : rien n'a été enregistré. Réessayez plus tard ou contactez l'administrateur.",
+      "template_unavailable": "Le modèle de pack n'est pas disponible : demandez à l'administrateur de la plateforme de le charger.",
+      "framework_not_published": "Seul un référentiel publié peut servir à évaluer.",
+      "scale_mismatch": "Le niveau choisi n'appartient pas à l'échelle du référentiel.",
+      "period_locked": "La saisie est arrêtée pour cette période : vos saisies restent affichées mais ne peuvent pas être enregistrées.",
+      "validated_frozen": "Une compétence validée ne se corrige que par une révision motivée.",
+      "review_needs_results": "Toutes les périodes de l'année doivent être closes avec un résultat d'année définitif.",
+      "review_needs_decision": "La décision du conseil des maîtres doit être confirmée avant de sceller.",
+      "review_sealed": "Un bilan scellé ne change plus : réémettez une nouvelle version.",
+      "year_frozen": "L'année est gelée : plus aucun bilan ne peut être écrit.",
+      "archive_frozen": "Une année gelée ne peut plus être modifiée.",
+      "homeroom_required": "Un titulaire doit être affecté à la classe avant son activation.",
+      "row_version_conflict": "Une ligne a été modifiée par quelqu'un d'autre depuis votre lecture : rechargez la grille sans perdre vos saisies.",
+      "minutes_not_ready": "Complétez la feuille de présence, la date de séance et au moins une décision avant de demander le procès-verbal."
+    }
+  },
+  "v2PrimaryClass": {
+    "title": "Ma classe",
+    "description": "Vos classes, leurs périodes et les gestes du quotidien : appel du jour, compétences, conseil.",
+    "list": "Mes classes",
+    "empty": "Aucune classe ne vous est affectée.",
+    "emptyHint": "Demandez à la direction de vous affecter comme titulaire d'une classe.",
+    "students": "{count, plural, =0 {Aucun élève} one {# élève} other {# élèves}}",
+    "homeroomYes": "Titulaire",
+    "homeroomNo": "Non titulaire",
+    "periods": "Périodes",
+    "noPeriod": "Aucune période n'est définie pour cette année.",
+    "periodLocked": "verrouillée",
+    "periodOpen": "ouverte",
+    "dailyCall": "Appel du jour",
+    "competencies": "Compétences",
+    "council": "Conseil",
+    "daily": {
+      "label": "Appel du jour",
+      "title": "Appel du {date}",
+      "close": "Fermer l'appel",
+      "loading": "Ouverture de l'appel…",
+      "retry": "Réessayer",
+      "notEditable": "L'appel de ce jour ne peut plus être modifié (validé, annulé ou délai de correction dépassé).",
+      "counts": "{present} présents · {absent} absents",
+      "hint": "Tout le monde est présent par défaut : touchez un élève pour le marquer absent, puis transmettez l'appel.",
+      "alreadySubmitted": "L'appel du jour est déjà transmis : vous pouvez encore corriger un élève.",
+      "empty": "Aucun élève dans cette classe pour cette date.",
+      "list": "Élèves de la classe",
+      "studentFallback": "Élève …{id}",
+      "markAbsent": "Marquer {name} absent",
+      "markPresent": "Marquer {name} présent",
+      "present": "Présent",
+      "absent": "Absent",
+      "pending": "Non transmis",
+      "submit": "Transmettre l'appel",
+      "saveCorrections": "Enregistrer les corrections",
+      "sending": "Envoi…",
+      "submitted": "Appel transmis : {absent, plural, =0 {aucun absent} one {# absent} other {# absents}}.",
+      "corrected": "Corrections enregistrées.",
+      "failed": "L'appel n'a pas pu être envoyé : vos saisies sont conservées, réessayez."
+    }
+  },
+  "v2PrimaryCompetencies": {
+    "title": "Compétences",
+    "description": "Évaluez le niveau de maîtrise de chaque compétence, par élève et par période. Une compétence non saisie reste « non évaluée ».",
+    "pickers": "Classe, période et référentiel",
+    "pickersLocked": "Enregistrez ou annulez vos saisies avant de changer de classe ou de période.",
+    "noClassroom": "Aucune classe ne vous est accessible.",
+    "choosePeriod": "Choisissez une période pour afficher la grille.",
+    "framework": "Référentiel",
+    "frameworkPlaceholder": "{label} (démonstration)",
+    "noFramework": "Aucun référentiel publié ne s'applique à cette classe et à cette période.",
+    "noStudents": "Aucun élève dans cette classe.",
+    "lockedSheet": "La saisie est arrêtée pour cette classe et cette période : la grille est en lecture seule.",
+    "lockedByApi": "La saisie vient d'être arrêtée pour cette période. Vos saisies restent affichées mais ne peuvent plus être enregistrées.",
+    "readOnlyNoRight": "Vous pouvez consulter la grille, mais pas la modifier.",
+    "droppedValidated": "{count, plural, one {# saisie a été abandonnée car la compétence a été validée entre-temps} other {# saisies ont été abandonnées car les compétences ont été validées entre-temps}} : seule une révision motivée peut les corriger.",
+    "validated": "Grille validée : {validated, plural, =0 {aucune compétence validée} one {# compétence validée} other {# compétences validées}}, {missing, plural, =0 {aucune restée non évaluée} one {# restée non évaluée} other {# restées non évaluées}}.",
+    "counters": {
+      "label": "Complétude de la saisie",
+      "recorded": "{recorded} sur {expected} compétences renseignées",
+      "pending": "{count, plural, =0 {aucune saisie en attente} one {# saisie en attente} other {# saisies en attente}}",
+      "validated": "{count, plural, =0 {aucune validée} one {# validée} other {# validées}}",
+      "unassessedHint": "{count, plural, =0 {Aucune compétence « non évaluée ».} one {# compétence reste « non évaluée » (ni zéro, ni niveau par défaut).} other {# compétences restent « non évaluées » (ni zéro, ni niveau par défaut).}}"
+    },
+    "view": {
+      "label": "Affichage de la grille",
+      "card": "Fiche élève",
+      "table": "Tableau"
+    },
+    "fill": {
+      "legend": "Tous au niveau… sauf",
+      "hint": "Applique un niveau à toutes les compétences non saisies ; corrigez ensuite les exceptions une par une. Les compétences déjà renseignées ne changent pas.",
+      "level": "Niveau à appliquer",
+      "chooseLevel": "Choisir un niveau",
+      "scope": "Portée",
+      "scopeClass": "Toute la classe",
+      "scopeStudent": "L'élève affiché",
+      "apply": "Appliquer aux compétences non saisies"
+    },
+    "discard": "{count, plural, one {Annuler ma saisie non enregistrée} other {Annuler mes # saisies non enregistrées}}",
+    "card": {
+      "label": "Fiche de l'élève",
+      "student": "Élève",
+      "previous": "Élève précédent",
+      "next": "Élève suivant",
+      "progress": "{recorded} sur {expected} compétences renseignées · élève {position} sur {total}",
+      "repeating": "redoublant",
+      "levelButton": "{code} — {label}, pour {competency}"
+    },
+    "cell": {
+      "unassessed": "Non évaluée",
+      "saved": "Enregistrée",
+      "validated": "Validée",
+      "pending": "À enregistrer",
+      "revise": "Réviser"
+    },
+    "table": {
+      "label": "Tableau élèves par compétences",
+      "legend": "Légende des compétences",
+      "scrollRegion": "Tableau des compétences (défilement horizontal)",
+      "caption": "Niveau de maîtrise de chaque élève pour chaque compétence",
+      "student": "Élève",
+      "cellLabel": "{student}, {competency}",
+      "reviseCell": "Réviser {competency} pour {student}"
+    },
+    "save": {
+      "button": "Enregistrer",
+      "saving": "Enregistrement…",
+      "nothing": "Aucune saisie en attente.",
+      "pending": "{count, plural, one {# saisie en attente d'enregistrement} other {# saisies en attente d'enregistrement}}",
+      "savedAt": "Enregistré le {time}",
+      "auto": "Enregistrement automatique",
+      "offline": "Vous êtes hors ligne : vos saisies sont conservées sur cette page et seront envoyées au retour de la connexion. Ne fermez pas la page.",
+      "retry": "L'envoi a échoué (réseau ou serveur) : vos saisies sont conservées. Le même lot sera rejoué sans doublon.",
+      "retryNow": "Réessayer maintenant",
+      "conflictHint": "Rechargez la grille : vos saisies seront conservées, la valeur enregistrée de chaque ligne sera mise à jour.",
+      "frozenHint": "Certaines lignes ont été validées entre-temps. Rechargez la grille : vos saisies sur les autres lignes sont conservées.",
+      "rejectedHint": "Aucune ligne n'a été enregistrée (tout ou rien). Les lignes en erreur sont signalées dans la grille.",
+      "reloadKeep": "Recharger sans écraser mes saisies"
+    },
+    "validate": {
+      "button": "Valider la grille",
+      "needsSave": "Enregistrez d'abord vos saisies.",
+      "title": "Valider la grille de compétences",
+      "description": "Les compétences saisies seront figées : seule une révision motivée pourra ensuite les corriger.",
+      "missing": "{count, plural, =0 {Toutes les compétences sont renseignées.} one {# compétence reste non évaluée : elle le restera.} other {# compétences restent non évaluées : elles le resteront.}}",
+      "confirm": "Valider la grille"
+    },
+    "summary": {
+      "label": "Synthèse d'un élève",
+      "title": "Synthèse par compteurs",
+      "hint": "Nombre de compétences validées par domaine et par niveau. Aucune moyenne ni pourcentage n'est calculé.",
+      "student": "Élève à synthétiser",
+      "choose": "Choisir un élève"
+    },
+    "revise": {
+      "title": "Réviser une compétence validée",
+      "description": "{student} — {competency} (niveau actuel : {level}). La correction est tracée avec son motif.",
+      "newLevel": "Nouveau niveau",
+      "chooseLevel": "Choisir un niveau",
+      "reason": "Motif de la révision",
+      "reasonHint": "10 caractères au moins. Le motif est conservé dans l'historique.",
+      "submit": "Réviser",
+      "history": "Historique des révisions",
+      "historyEmpty": "Aucune révision pour cette compétence.",
+      "historyLine": "{from} vers {to} le {date} : {reason}"
+    }
+  },
+  "v2PrimaryAppreciations": {
+    "title": "Appréciations",
+    "description": "Banque de phrases pour rédiger vos appréciations. Une phrase propose du texte : elle n'est jamais appliquée seule.",
+    "list": "Phrases de la banque",
+    "empty": "Aucune phrase ne correspond à ces critères.",
+    "emptyHint": "Élargissez les filtres ou demandez à la direction d'enrichir la banque.",
+    "readOnly": "Vous pouvez consulter la banque ; sa gestion est réservée à la direction.",
+    "placeholder": "Démonstration",
+    "inactive": "Désactivée",
+    "levelBadge": "Niveau {code}",
+    "gradeBadge": "Classe {code}",
+    "insert": "Ajouter la phrase {code} à ma rédaction",
+    "insertShort": "Ajouter à ma rédaction",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "draft": {
+      "label": "Ma rédaction",
+      "title": "Ma rédaction",
+      "field": "Texte de l'appréciation",
+      "hint": "Ajoutez des phrases, relisez et modifiez le texte. 1 000 caractères au plus.",
+      "reviewed": "J'ai relu et je valide ce texte",
+      "copy": "Copier le texte validé",
+      "clear": "Effacer",
+      "copied": "Texte copié : collez-le dans l'appréciation du bulletin.",
+      "copyFailed": "La copie a échoué : sélectionnez le texte et copiez-le manuellement.",
+      "notice": "Ce texte n'est enregistré nulle part ici. L'appréciation générale s'écrit dans le module Résultats (appréciations de la période)."
+    },
+    "filters": {
+      "legend": "Filtres",
+      "scope": "Portée",
+      "level": "Niveau de maîtrise",
+      "grade": "Niveau de classe",
+      "all": "Tous",
+      "inactive": "Afficher aussi les phrases désactivées"
+    },
+    "create": {
+      "open": "Nouvelle phrase",
+      "title": "Nouvelle phrase",
+      "code": "Code",
+      "codeHint": "Majuscules, chiffres et _ (2 à 60 caractères).",
+      "scope": "Portée",
+      "body": "Texte de la phrase",
+      "bodyHint": "300 caractères au plus.",
+      "level": "Niveau de maîtrise",
+      "grade": "Niveau de classe",
+      "any": "Tous",
+      "submit": "Créer la phrase",
+      "done": "Phrase créée."
+    }
+  },
+  "v2PrimaryCouncil": {
+    "title": "Conseil des maîtres",
+    "description": "Préparation, présence, dossiers élève par élève, décisions et procès-verbal. La règle propose, le conseil confirme.",
+    "back": "Retour à la liste des conseils",
+    "prepared": "Conseil préparé : un dossier par élève a été créé.",
+    "prepare": {
+      "label": "Préparer un conseil",
+      "title": "Préparer un conseil",
+      "hint": "Choisissez la classe et la période : un dossier est créé pour chaque élève, avec les motifs d'examen fournis par les règles.",
+      "heldOn": "Date de la séance (facultative)",
+      "heldOnHint": "La date réelle de séance est exigée pour demander le procès-verbal.",
+      "button": "Préparer le conseil",
+      "working": "Préparation…"
+    },
+    "list": {
+      "label": "Conseils",
+      "title": "Mes conseils",
+      "empty": "Aucun conseil n'a encore été préparé.",
+      "emptyHint": "Préparez le conseil d'une classe pour une période.",
+      "counts": "{total} dossiers · {open} à examiner · {decided} décidés",
+      "open": "Ouvrir",
+      "openFor": "Ouvrir le conseil {name}"
+    },
+    "session": {
+      "counts": "{total} dossiers : {open} à examiner, {decided} décidés, {deferred} reportés."
+    },
+    "attendance": {
+      "label": "Feuille de présence",
+      "title": "Feuille de présence",
+      "empty": "Aucun participant convoqué pour le moment.",
+      "staffFallback": "Membre …{id}",
+      "roleFor": "Rôle de {name}",
+      "presenceFor": "Présence de {name}",
+      "presenceUnknown": "Non renseignée",
+      "present": "Présent",
+      "absent": "Absent",
+      "convenedFor": "{name} est convoqué",
+      "signFor": "Signature de {name}",
+      "signedAt": "Signée le {date}",
+      "signedFrozen": "Une présence signée est figée : elle ne peut plus être modifiée.",
+      "signNeedsPresence": "Une signature exige que la personne soit marquée présente.",
+      "invalid": "La feuille de présence est incomplète.",
+      "addStaff": "Ajouter un participant",
+      "addStaffChoose": "Choisir un membre du personnel",
+      "role": "Rôle",
+      "add": "Ajouter",
+      "save": "Enregistrer la feuille de présence",
+      "saving": "Enregistrement…",
+      "saved": "Feuille de présence enregistrée.",
+      "readOnly": "La feuille de présence est tenue par la présidence du conseil.",
+      "quorumNone": "Aucun quorum bloquant : {convened} convoqués, {present} présents.",
+      "quorumMet": "Quorum atteint selon la règle : {present} présents sur {convened} convoqués.",
+      "quorumUnmet": "Quorum non atteint selon la règle : {present} présents sur {convened} convoqués."
+    },
+    "cases": {
+      "label": "Dossiers de la séance",
+      "title": "Dossiers, un par un",
+      "empty": "Aucun dossier dans ce conseil.",
+      "pick": "Dossier",
+      "previous": "Dossier précédent",
+      "next": "Dossier suivant",
+      "position": "Dossier {position} sur {total}",
+      "studentFallback": "Élève …{id}",
+      "articleLabel": "Dossier de {name}",
+      "reasons": "Motifs d'examen",
+      "noReason": "Aucun motif signalé.",
+      "compare": "Proposition de la règle et décision du conseil",
+      "ruleProposal": "Proposition de la règle",
+      "ruleProposalHint": "Produite par le jeu de règles lié à l'établissement.",
+      "noRuleProposal": "Aucune proposition",
+      "councilDecision": "Décision du conseil",
+      "noDecision": "Pas encore décidé",
+      "justificationShown": "Justification : {text}",
+      "myProposal": {
+        "legend": "Ma proposition",
+        "code": "Ma proposition",
+        "none": "Aucune proposition",
+        "note": "Notes et observations",
+        "save": "Enregistrer ma proposition",
+        "saved": "Proposition enregistrée.",
+        "defer": "Reporter ce dossier",
+        "reopen": "Remettre à l'examen",
+        "shown": "Proposition de l'instituteur : {code}"
+      },
+      "decision": {
+        "legend": "Décision du conseil",
+        "mode": "Mode de décision",
+        "confirm": "Confirmer la proposition de la règle",
+        "confirmUnavailable": "La règle ne tranche pas : choisissez une décision.",
+        "other": "Retenir un autre code",
+        "code": "Décision retenue",
+        "chooseCode": "Choisir une décision",
+        "justification": "Justification",
+        "justificationHint": "Obligatoire si la décision diffère de la proposition de la règle ({min} caractères au moins).",
+        "justificationShort": "La justification compte au moins {min} caractères.",
+        "codeRequired": "Choisissez la décision retenue.",
+        "cannotConfirm": "La règle ne propose pas de décision à confirmer : choisissez un autre code.",
+        "submit": "Confirmer la décision",
+        "saving": "Enregistrement…",
+        "done": "Décision enregistrée : {code}.",
+        "changed": "Elle diffère de la proposition de la règle ; la justification est conservée.",
+        "outcome": "Issue d'inscription enregistrée : {code}."
+      }
+    },
+    "minutes": {
+      "label": "Procès-verbal",
+      "title": "Procès-verbal",
+      "hint": "Le procès-verbal est généré à partir du contenu figé de la séance : date réelle, participants, décisions et justifications.",
+      "heldOn": "Date réelle de la séance",
+      "heldOnHint": "Obligatoire.",
+      "heldOnRequired": "Indiquez la date réelle de la séance.",
+      "request": "Demander le procès-verbal",
+      "working": "Demande en cours…",
+      "alreadyRequested": "Un procès-verbal a déjà été demandé pour ce conseil.",
+      "requested": "Procès-verbal demandé : il sera disponible dans les documents officiels.",
+      "requestedPending": "Procès-verbal demandé : le document est en cours de préparation."
+    }
+  },
+  "v2PrimaryDirection": {
+    "title": "Avancement des classes",
+    "description": "Où en est chaque classe : saisie et validation des compétences, bilans scellés. Les feux se déduisent des comptages affichés.",
+    "year": "Année",
+    "yearDefault": "Année en cours",
+    "rule": "Rouge : rien n'est saisi. Vert : tout est saisi et validé, et les bilans existants sont scellés. Orange : le reste. Règle d'affichage, sans valeur réglementaire.",
+    "caption": "Avancement par classe et par période",
+    "empty": "Aucune classe à afficher.",
+    "emptyHint": "Aucune classe n'est ouverte pour cette année.",
+    "fraction": "{a} sur {b}",
+    "locked": "Verrouillée",
+    "open": "Ouverte",
+    "columns": {
+      "class": "Classe",
+      "period": "Période",
+      "status": "État",
+      "students": "Élèves",
+      "entered": "Saisies",
+      "validated": "Validées",
+      "reviews": "Bilans scellés",
+      "locked": "Période"
+    },
+    "light": {
+      "nothing_entered": "Rien de saisi",
+      "in_progress": "En cours",
+      "complete": "Complet",
+      "no_expectation": "Sans objet"
+    },
+    "links": {
+      "label": "Accès rapides",
+      "council": "Conseil des maîtres",
+      "reviews": "Bilans annuels",
+      "archives": "Archives",
+      "reports": "États",
+      "settings": "Paramètres"
+    }
+  },
+  "v2PrimaryReviews": {
+    "title": "Bilans annuels",
+    "description": "Préparez, scellez et réémettez les bilans annuels d'une classe. Un bilan scellé est immuable.",
+    "pickers": "Année et classe",
+    "year": "Année",
+    "chooseYear": "Choisir une année",
+    "classroom": "Classe",
+    "chooseClassroom": "Choisir une classe",
+    "chooseBoth": "Choisissez une année et une classe pour afficher les bilans.",
+    "prepare": "Préparer les brouillons",
+    "preparing": "Préparation…",
+    "prepareHint": "Crée un brouillon par élève à partir du résultat d'année, des compétences et de la décision du conseil. Un bilan scellé n'est jamais touché.",
+    "prepared": "Brouillons préparés : {created} créés, {refreshed} actualisés, {skipped} scellés laissés intacts.",
+    "caption": "Bilans annuels de la classe",
+    "empty": "Aucun bilan pour cette classe et cette année.",
+    "emptyHint": "Préparez les brouillons pour commencer.",
+    "version": "Version {n}",
+    "placeholder": "Règles de démonstration",
+    "sealedAt": "Scellé le {date}",
+    "columns": {
+      "student": "Élève",
+      "version": "Version",
+      "status": "Statut",
+      "outcome": "Décision",
+      "hash": "Empreinte",
+      "rules": "Règles",
+      "actions": "Actions"
+    },
+    "seal": "Sceller",
+    "sealFor": "Sceller le bilan de {name}",
+    "sealed": "Bilan de {name} scellé.",
+    "sealDialog": {
+      "title": "Sceller ce bilan",
+      "description": "Le bilan devient immuable : contenu, décision et empreinte ne pourront plus changer. Une correction créera une nouvelle version.",
+      "confirm": "Sceller le bilan"
+    },
+    "reissue": "Réémettre",
+    "reissueFor": "Réémettre le bilan de {name}",
+    "reissued": "Nouvelle version du bilan de {name} créée : elle doit être scellée à son tour.",
+    "reissueDialog": {
+      "title": "Réémettre le bilan",
+      "description": "Une version n+1 est créée en brouillon et l'ancienne version est remplacée. La famille ne voit pas le bilan tant que la nouvelle version n'est pas scellée.",
+      "reason": "Motif de la réémission",
+      "confirm": "Réémettre"
+    }
+  },
+  "v2PrimaryArchives": {
+    "title": "Archives d'année",
+    "description": "Préparez l'archive d'une année, vérifiez son manifeste puis gelez-la. Rien n'est déplacé ni supprimé : c'est un gel logique.",
+    "pickers": "Année",
+    "year": "Année",
+    "chooseYear": "Choisir une année",
+    "chooseYearFirst": "Choisissez une année pour afficher ses archives.",
+    "prepare": "Préparer l'archive",
+    "preparing": "Préparation…",
+    "prepared": "Archive préparée.",
+    "list": "Archives de l'année",
+    "empty": "Aucune archive pour cette année.",
+    "emptyHint": "Préparez l'archive une fois l'année close et les bilans scellés.",
+    "archiveLabel": "Archive : {status}",
+    "sealedCount": "{sealed} bilans scellés sur {total}",
+    "manifest": "Empreinte du manifeste",
+    "preparedAt": "Préparée le",
+    "frozenAt": "Gelée le",
+    "blockers": "Ce qui empêche le gel :",
+    "frozenNote": "Cette année est gelée : plus aucun bilan ne peut être écrit.",
+    "freeze": "Geler l'archive",
+    "frozen": "Archive gelée.",
+    "freezeDialog": {
+      "title": "Geler l'archive de l'année",
+      "description": "Le gel fige définitivement les bilans de l'année.",
+      "irreversible": "Action irréversible : une fois l'archive gelée, plus aucun bilan de cette année ne pourra être écrit.",
+      "ack": "Je comprends que le gel est irréversible",
+      "confirm": "Geler définitivement"
+    }
+  },
+  "v2PrimaryReports": {
+    "title": "États du primaire",
+    "description": "Aperçu en tableau et export CSV. Les paramètres du rapport sont rappelés avec le résultat.",
+    "yes": "Oui",
+    "no": "Non",
+    "form": {
+      "legend": "Rapport à produire",
+      "report": "Rapport",
+      "choose": "Choisir",
+      "classroom": "Classe",
+      "period": "Période",
+      "year": "Année",
+      "yearDefault": "Année en cours",
+      "month": "Mois",
+      "monthHint": "Au format AAAA-MM.",
+      "council": "Conseil",
+      "show": "Afficher l'aperçu",
+      "exportCsv": "Exporter en CSV",
+      "exporting": "Export en cours…",
+      "missing": "Renseignez les paramètres obligatoires pour produire ce rapport."
+    },
+    "result": {
+      "hint": "Choisissez un rapport puis affichez l'aperçu.",
+      "label": "Résultat du rapport",
+      "generatedAt": "Produit le {date}",
+      "parameters": "Paramètres du rapport",
+      "empty": "Ce rapport ne contient aucune ligne.",
+      "param": {
+        "classroomId": "Classe",
+        "periodId": "Période",
+        "yearId": "Année",
+        "month": "Mois",
+        "deliberationId": "Conseil"
+      }
+    }
+  },
+  "v2PrimarySettings": {
+    "title": "Paramètres du pack Primaire",
+    "description": "Réglages de l'établissement, modèle de pack, échelles d'appréciation et référentiels de compétences.",
+    "form": {
+      "title": "Réglages de l'établissement",
+      "homeroom": "Exiger un titulaire pour activer une classe",
+      "homeroomHint": "Si vous désactivez cette règle, l'action est auditée.",
+      "council": "Exiger la décision du conseil pour sceller un bilan",
+      "councilHint": "Le bilan ne se scelle qu'avec la décision confirmée du conseil des maîtres.",
+      "phrases": "Activer la banque d'appréciations",
+      "defaultScale": "Échelle d'appréciation par défaut",
+      "noDefaultScale": "Aucune",
+      "retention": "Durée de conservation des archives (années)",
+      "retentionHint": "Laissez vide tant que la durée n'est pas fixée : aucune purge n'a alors lieu.",
+      "save": "Enregistrer les réglages",
+      "saving": "Enregistrement…",
+      "saved": "Réglages enregistrés."
+    },
+    "template": {
+      "title": "Modèle de pack",
+      "hint": "Crée les échelles, référentiels de démonstration et phrases du pack. Ne remplace jamais une donnée que vous avez personnalisée.",
+      "apply": "Appliquer le modèle de pack",
+      "alreadyApplied": "Le modèle était déjà appliqué : rien n'a été modifié.",
+      "done": "Modèle appliqué : {scales} échelles, {frameworks} référentiels et {phrases} phrases créés.",
+      "dialog": {
+        "title": "Appliquer le modèle de pack",
+        "description": "Cette action sensible instancie les données de démonstration du pack Primaire pour votre établissement.",
+        "confirm": "Appliquer le modèle"
+      }
+    },
+    "scales": {
+      "title": "Échelles d'appréciation",
+      "hint": "Niveaux de maîtrise utilisés par les référentiels. Une échelle employée par un référentiel publié ne se modifie plus.",
+      "create": "Nouvelle échelle",
+      "created": "Échelle créée.",
+      "empty": "Aucune échelle.",
+      "placeholder": "Démonstration",
+      "locked": "Verrouillée",
+      "archived": "Archivée",
+      "meets": "(attendu atteint)",
+      "form": {
+        "title": "Nouvelle échelle",
+        "code": "Code de l'échelle",
+        "codeHint": "Majuscules, chiffres et _ (2 à 40 caractères).",
+        "label": "Libellé",
+        "levels": "Niveaux, du plus faible au plus élevé",
+        "levelCode": "Code du niveau {n}",
+        "levelLabel": "Libellé du niveau {n}",
+        "meets": "Attendu atteint",
+        "addLevel": "Ajouter un niveau",
+        "removeLevel": "Retirer le dernier niveau",
+        "submit": "Créer l'échelle"
+      }
+    },
+    "frameworks": {
+      "title": "Référentiels de compétences",
+      "hint": "Brouillon, structure, puis publication. Un référentiel publié est immuable : créez une nouvelle version pour le modifier.",
+      "create": "Nouveau référentiel",
+      "created": "Référentiel créé en brouillon.",
+      "empty": "Aucun référentiel.",
+      "version": "version {n}",
+      "placeholder": "Démonstration",
+      "competencyCount": "{count, plural, =0 {Aucune compétence} one {# compétence} other {# compétences}}",
+      "open": "Ouvrir",
+      "close": "Fermer",
+      "openFor": "Détail du référentiel {label}, version {n}",
+      "immutable": "Référentiel publié : immuable. Créez une nouvelle version pour le modifier.",
+      "scaleLine": "Niveaux de l'échelle : {levels}",
+      "blockers": "Ce qui empêche la publication :",
+      "editStructure": "Modifier la structure",
+      "structureSaved": "Structure enregistrée.",
+      "publish": "Publier",
+      "published": "Référentiel publié.",
+      "delete": "Supprimer le brouillon",
+      "deleted": "Brouillon supprimé.",
+      "newVersion": "Créer une nouvelle version",
+      "newVersionDone": "Version {n} créée en brouillon.",
+      "publishDialog": {
+        "title": "Publier le référentiel",
+        "description": "Une fois publié, le référentiel devient immuable : il ne pourra plus être modifié.",
+        "ack": "Je comprends que la publication est définitive",
+        "confirm": "Publier"
+      },
+      "deleteDialog": {
+        "title": "Supprimer le brouillon",
+        "description": "Le brouillon sera supprimé définitivement.",
+        "confirm": "Supprimer"
+      },
+      "form": {
+        "title": "Nouveau référentiel",
+        "code": "Code du référentiel",
+        "codeHint": "Majuscules, chiffres et _ (2 à 40 caractères).",
+        "label": "Libellé",
+        "scale": "Échelle d'appréciation",
+        "chooseScale": "Choisir une échelle",
+        "grades": "Niveaux de classe concernés",
+        "gradesHint": "Codes séparés par des virgules, par exemple CP1, CP2.",
+        "submit": "Créer le brouillon"
+      },
+      "structure": {
+        "title": "Structure du référentiel",
+        "description": "Domaines et compétences du brouillon.",
+        "domain": "Domaine {n}",
+        "domainCode": "Code du domaine {n}",
+        "domainLabel": "Libellé du domaine {n}",
+        "competencyCode": "Code de la compétence {d}.{n}",
+        "competencyLabel": "Libellé de la compétence {d}.{n}",
+        "addCompetency": "Ajouter une compétence",
+        "removeDomain": "Retirer le domaine {n}",
+        "addDomain": "Ajouter un domaine",
+        "save": "Enregistrer la structure"
+      }
+    }
+  },
+  "v2PrimaryParent": {
+    "title": "Bulletin et compétences de mon enfant",
+    "description": "Bilans annuels publiés et compétences des périodes dont le bulletin est publié.",
+    "titleSelf": "Mon bilan et mes compétences",
+    "descriptionSelf": "Mes bilans annuels publiés et mes compétences des périodes dont le bulletin est publié.",
+    "noAccess": "Votre profil n'a pas accès à cet espace.",
+    "child": "Enfant",
+    "chooseChild": "Choisir un enfant",
+    "chooseChildFirst": "Choisissez un enfant pour afficher son bilan et ses compétences.",
+    "noChild": "Aucun enfant n'est lié à votre compte.",
+    "noChildHint": "Contactez l'établissement pour lier votre compte à celui de votre enfant.",
+    "reviews": {
+      "title": "Bilans annuels",
+      "empty": "Aucun bilan annuel publié pour le moment.",
+      "emptyHint": "Le bilan apparaît ici dès que l'établissement l'a scellé et publié.",
+      "articleLabel": "Bilan annuel {level}, version {version}",
+      "level": "Classe {level}",
+      "version": "Version {n}",
+      "placeholder": "Règles de démonstration",
+      "outcome": "Décision",
+      "sealedAt": "Scellé le",
+      "hash": "Empreinte",
+      "competencies": "Compétences de l'année (compteurs)"
+    },
+    "summary": {
+      "title": "Compétences des périodes publiées",
+      "hint": "Nombre de compétences par domaine et par niveau, pour les périodes dont le bulletin est publié."
+    }
   }
 }

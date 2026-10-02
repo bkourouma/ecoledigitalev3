@@ -11,7 +11,8 @@ import { pathToFileURL } from "node:url";
 import { discoverModules, type DiscoveredModule } from "../../src/modules/registry-discovery";
 import { compilePattern, type TypeMatcher } from "../../../worker/src/events/pattern";
 
-export const EVENT_NAME_RE = /^([a-z][a-z0-9]*)\.([a-z][a-z0-9_]*)\.([a-z][a-z0-9_]*)$/;
+// Le module peut porter un « _ » dans sa clé (convention des modules : `primary_school`).
+export const EVENT_NAME_RE = /^([a-z][a-z0-9_]*)\.([a-z][a-z0-9_]*)\.([a-z][a-z0-9_]*)$/;
 
 export interface SubscriberInfo {
   module: string;

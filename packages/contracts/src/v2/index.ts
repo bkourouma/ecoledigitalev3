@@ -16,6 +16,7 @@ export * from "./notifications";
 export * from "./payroll";
 export * from "./people";
 export * from "./platform";
+export * from "./primary_school";
 export * from "./rbac";
 export * from "./reportcards";
 export * from "./results";

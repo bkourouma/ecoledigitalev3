@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-02
 
-**Status**: Rédigée — DDL de référence exécuté et testé (104 tests de comportement, `ddl/`), prête pour `/speckit.plan`
+**Status**: Rédigée — DDL de référence exécuté et testé (118 tests de comportement, `ddl/`), prête pour `/speckit.plan`
 
 **Sources**: `docs/PRD_EcoleDigitale_SaaS.md` §11, §12, §13, §14 (renvoyé à 018), §20 ; `docs/PLAN_Mise_en_oeuvre_EcoleDigitale_SaaS.md` §3.7, §3.8, §4 (Phase 4), §8 ; `specs/v2/DECISIONS-METIER.md` ; `docs/architecture/module-conventions.md` ; specs `004`, `008`, `009`, `010`, `011`, `012` (+ `regulatory-sources-needed.md`, `rulesets-de-depart.md`, `rule-contracts.md`), `013`, `014`, `016` ; READMEs des modules `academic`, `people`, `results`, `rules`, `reportcards`, `tenancy` ; `docs/inventory/`.
 
@@ -116,7 +116,7 @@ En tant que directeur, je veux qu'une classe du primaire ait un instituteur titu
 En tant qu'instituteur (maternelle ou primaire), je veux évaluer le niveau de maîtrise de chaque compétence par élève et par période.
 
 - **AC5.1** Un référentiel (`competency_frameworks`) a un code, une version, une échelle et des niveaux d'application ; il se publie seulement s'il compte ≥ 1 compétence, ≥ 1 niveau d'application et une échelle d'au moins 2 niveaux ; **publié, il est immuable** (créer la version suivante par copie). Vérifié par déclencheurs SQL (tests 10_reference).
-- **AC5.2** `PUT /competency-assessments/bulk` est idempotent (`Idempotency-Key`), « tout ou rien », par lot de ≤ 500 lignes ; une ligne existante dont la valeur diffère exige `rowVersion` (verrou optimiste, comme 011).
+- **AC5.2** `PUT /competency-assessments/bulk` est idempotent (`Idempotency-Key`), « tout ou rien », par lot de ≤ 500 lignes ; une ligne existante dont la valeur diffère exige `rowVersion` (verrou optimiste, comme 011). *Implémentation : idempotence par CONVERGENCE (rejouer un lot identique = `unchanged`, rien n'est écrit) ; l'en-tête `Idempotency-Key` n'est pas stocké (pas de table de reçus).*
 - **AC5.3** Une appréciation ne s'écrit que pour un référentiel `PUBLISHED`, un niveau de **l'échelle du référentiel** et une classe × période **non verrouillée** (`period_locks`) ; trois refus distincts : `primary_school.framework_not_published`, `primary_school.scale_mismatch`, `primary_school.period_locked`.
 - **AC5.4** `validate` (instituteur ou direction) fige la ligne ; ensuite seule une **révision** (motif ≥ 10 caractères, droit sensible `primary.competency.revise`) la corrige, dans la même transaction que sa trace (`competency_revisions`, append-only). Aucune suppression d'une appréciation validée.
 - **AC5.5** La synthèse d'un élève (`summarize_competencies`) renvoie des **compteurs** `{domaine: {niveau: n}}` sur les seules lignes validées ; **aucune moyenne, aucun seuil**. p95 < 100 ms pour 40 compétences × 3 périodes.
@@ -146,7 +146,7 @@ En tant qu'instituteur (maternelle ou primaire), je veux évaluer le niveau de m
 - **AC9.1** `prepareAnnualReviews({ classroomId, academicYearId })` crée un brouillon par inscription active avec : référence du résultat d'année FINAL (`results.getYearResult`), synthèse de compétences (compteurs), résumé d'assiduité, décision du conseil.
 - **AC9.2** `seal` (permission sensible `primary.bilan.seal`, MFA) exige : toutes les périodes de l'année `CLOSED`, un résultat d'année FINAL, et — si `council_required_for_bilan` — la décision confirmée du conseil. Sinon `primary_school.review_needs_results` / `review_needs_decision`. Le scellement calcule l'empreinte canonique et fige la ligne (déclencheur).
 - **AC9.3** Un bilan scellé est **immuable** (contenu, empreinte, décision) ; seul l'identifiant du PDF émis se renseigne, une seule fois. Une correction crée la **version n+1** (motif ≥ 10 caractères), l'ancienne passe `SUPERSEDED` dans la même transaction (une seule version vivante par inscription et par année).
-- **AC9.4** Le PDF du bilan est rendu par `reportcards` depuis l'instantané, avec QR de vérification ; les familles ne voient que les bilans scellés et publiés.
+- **AC9.4** Le PDF du bilan est rendu par `reportcards` depuis l'instantané, avec QR de vérification ; les familles ne voient que les bilans scellés et publiés. *Implémentation : « publié » = scellé ET PDF émis (`reportcard_id` renseigné par l'événement de rendu `reportcards.official_document.rendered`, nature `ANNUAL_REVIEW`) ; le PDF est demandé par un abonné du worker à `primary_school.annual_review.sealed` : le scellement ne dépend jamais du rendu.*
 - **AC9.5** 1 000 bilans préparés en ≤ 60 s (job).
 
 ### US10 — Passage, redoublement, reconduction (P1)
@@ -158,7 +158,7 @@ En tant qu'instituteur (maternelle ou primaire), je veux évaluer le niveau de m
 ### US11 — Archivage de l'année (P2)
 
 - **AC11.1** `prepareYearArchive` exige `academic.closeAcademicYear` accompli ; il dénombre `reviews_total` / `reviews_sealed` et produit un **manifeste** (classes, effectifs, hashes des bilans) dont l'empreinte est stockée.
-- **AC11.2** `READY` exige 100 % des bilans scellés ; `FROZEN` est irréversible : plus aucun bilan de cet établissement et de cette année ne peut être écrit (déclencheur), l'archive n'est pas supprimable.
+- **AC11.2** `READY` exige 100 % des bilans scellés ; `FROZEN` est irréversible : plus aucun bilan de cet établissement et de cette année ne peut être écrit (déclencheur), l'archive n'est pas supprimable. *Implémentation : `READY` exige aussi que chaque inscription ait son bilan et que chaque bilan scellé ait son PDF émis (l'identifiant du PDF ne se renseigne plus une fois l'année gelée).*
 - **AC11.3** Les données archivées restent lisibles (bilans, compétences) pour la direction et les familles concernées ; l'archivage est un **gel logique**, aucune donnée n'est déplacée ni purgée.
 - **AC11.4** La durée de conservation est une donnée de l'établissement (`archive_retention_years`, **vide par défaut** : question métier Q-P11) ; aucune purge n'existe tant qu'elle n'est pas fixée.
 
@@ -191,7 +191,7 @@ Un **jeu de démonstration** (seeds déterministes, jamais en production) ajoute
 
 ## 7. Modèle de données
 
-Voir `data-model.md` (DDL de référence **exécuté et testé** sur PostgreSQL 17, 104 tests). Schéma `primary_school`, migrations `1800`–`1802` (plage `1800–1899`, à inscrire dans `module-conventions.md`).
+Voir `data-model.md` (DDL de référence **exécuté et testé** sur PostgreSQL 17, 118 tests). Schéma `primary_school`, migrations `1800`–`1802` (plage `1800–1899`, à inscrire dans `module-conventions.md`).
 
 | Table | Rôle |
 |---|---|
@@ -240,7 +240,7 @@ Portail **instituteur** (mobile d'abord) : « Ma classe » (liste, appel du jour
 
 ## 10. Permissions (déclarées dans `manifest.ts`)
 
-`primary.settings.manage`, `primary.scale.manage`, `primary.framework.read|manage|publish`, `primary.competency.read|record|validate|revise` (**revise sensible**), `primary.competency.child.read`, `primary.competency.self.read`, `primary.phrase.read|manage`, `primary.council.read|prepare|manage`, `primary.bilan.read|prepare|seal|reissue` (**seal et reissue sensibles**), `primary.bilan.child.read`, `primary.bilan.self.read`, `primary.archive.prepare|freeze` (**freeze sensible**), `primary.report.read`, `primary.template.apply` (**sensible**). Features : `primary.competencies` (packs `PRIMARY`), `primary.council`, `primary.annual-review`, `primary.year-archive`, `primary.reports`. Modèles de rôles : `instituteur` (US2), `directeur` (tout), `secretariat` (rapports, lecture), `parent` (`*.child.read`).
+`primary.settings.manage`, `primary.scale.manage`, `primary.framework.read|manage|publish`, `primary.competency.read|record|validate|revise` (**revise sensible**), `primary.competency.child.read`, `primary.competency.self.read`, `primary.phrase.read|manage`, `primary.council.read|prepare|manage`, `primary.bilan.read|prepare|seal|reissue` (**seal et reissue sensibles**), `primary.bilan.child.read`, `primary.bilan.self.read`, `primary.archive.prepare|freeze` (**freeze sensible**), `primary.report.read`, `primary.template.apply` (**sensible**), **`primary.class.read_all`** (ajout de l'implémentation : sans elle, un instituteur n'accède qu'aux classes auxquelles il est affecté ; direction et secrétariat la portent). Features : `primary.competencies` (packs `PRIMARY`), `primary.council`, `primary.annual-review`, `primary.year-archive`, `primary.reports`. Modèles de rôles : `instituteur` (US2), `directeur` (tout), `secretariat` (rapports, lecture), `parent` (`*.child.read`).
 
 ## 11. Événements (outbox, `{ v: 1, … }`, aucune donnée d'appréciation ni de note)
 
@@ -254,11 +254,11 @@ Portail **instituteur** (mobile d'abord) : « Ma classe » (liste, appel du jour
 | `primary_school.annual_review.sealed` / `.superseded` | bilan | 013 (rendu), 016, 025 |
 | `primary_school.year_archive.ready` / `.frozen` | archive | 025 |
 
-**Consommés** : `tenancy.institution.created` (instanciation), `academic.classroom_period.grading_closed|closed|reopened` et `academic.period.*` (verrous `period_locks`), `results.decision.confirmed` (alimente le dossier et `recordEnrollmentOutcome`), `results.period.closed` (compteur d'avancement), `academic.year.closed|archived`, `reportcards.report_card.rendered` (renseigne `reportcard_id`). Consommateurs idempotents par `event.id`.
+**Consommés** : `tenancy.institution.created` (instanciation), `academic.classroom_period.grading_closed|closed|reopened` et `academic.period.*` (verrous `period_locks`), `results.decision.confirmed` (alimente le dossier et `recordEnrollmentOutcome`), `results.period.closed` (compteur d'avancement), `academic.year.closed|archived`, `reportcards.official_document.rendered` (nature `ANNUAL_REVIEW` : renseigne `reportcard_id`), `primary_school.annual_review.sealed` (demande du PDF). Consommateurs idempotents par `event.id`.
 
 ## 12. Tests
 
-- **DDL** (livrés) : 104 tests de comportement sur PostgreSQL 17 (`ddl/run.mjs`) : publication des référentiels, immuabilité, FK composites, verrou de période, révisions à trace obligatoire, synthèse par compteurs, bilan scellé et versions, archive gelée, RLS A/B.
+- **DDL** (livrés) : 118 tests de comportement sur PostgreSQL 17 (`ddl/run.mjs`) : publication des référentiels, immuabilité, FK composites, verrou de période, révisions à trace obligatoire, synthèse par compteurs, bilan scellé et versions, archive gelée, RLS A/B.
 - **Unitaires** (Vitest) : schémas Zod, `summarize` côté TypeScript (parité avec la fonction SQL), banque de phrases (filtre), calcul d'avancement.
 - **Golden tests de mécanisme** : `golden-primary-mechanism` (contrat `coef-period@1`, RuleSet fictif) — cas : note absente ≠ 0, arrondi `round_half_up` exact, rang à égalité (4 décimales), MGA sur 2 et 3 périodes, `COUNCIL_REVIEW` dans la marge, élève sans note de période.
 - **Intégration** : activation du pack idempotente ; classe sans titulaire refusée ; flux complet évaluations → clôture → conseil → bilan → archive avec RuleSet fictif ; interdiction de lier un placeholder en production sans accusé ; isolation tenant A/B sur chaque table.
@@ -296,15 +296,43 @@ Portail **instituteur** (mobile d'abord) : « Ma classe » (liste, appel du jour
 | 009 / 002 | Modèle de rôle système `instituteur` (permissions US2) ; `getResponsibleForNode` documente le cas généraliste |
 | 003 | Sections de modèle de pack par module : `primary_school` |
 | 010 | Politique d'appel `DAILY` dans le modèle de pack PRIMARY |
-| `module-conventions.md` | Plage `1800–1899` pour `primary_school` (la ligne ouverte devient `1900+`) |
+| `module-conventions.md` | Plage `1800–1899` pour `primary_school` (la ligne ouverte devient `2000+`) |
 
 ## 15. Critères de sortie (mesurables)
 
 La spec est terminée lorsque :
 
-1. Les migrations `1800`–`1802` s'appliquent sur base vide et les 104 tests de comportement passent ; l'allowlist d'isolation du module est vide et le test d'isolation générique passe avec deux tenants.
+1. Les migrations `1800`–`1802` s'appliquent sur base vide et les 118 tests de comportement passent ; l'allowlist d'isolation du module est vide et le test d'isolation générique passe avec deux tenants.
 2. Un établissement `PRIMARY` créé par le provisioning contient, sans intervention, niveaux, périodes, rôle d'instituteur, politique d'appel, types d'évaluation, échelle et référentiels de démonstration ; la ré-exécution ne change rien.
 3. Le flux « une classe, une année » (évaluations, compétences, appel, clôture des trois périodes, conseil, bilans scellés, archive gelée) passe en intégration avec le RuleSet **fictif**, bulletins marqués « règles de démonstration ».
 4. Aucune constante de seuil, coefficient ou formule dans `apps/api/src/modules/primary_school/**` (lint R2 vert) ; aucun libellé affiché n'est comparé en logique.
 5. Les demandes de changement du §14.2 sont acceptées ou refusées par écrit par les propriétaires de specs.
 6. `regulatory-sources-needed.md` est transmis au propriétaire du produit ; tant que les textes ne sont pas fournis, **aucun RuleSet `regulation` n'est publié** pour le primaire.
+
+## 16. État d'implémentation et écarts constatés (module `primary_school`, écrans `/v2/primary/*`)
+
+Livré : module `apps/api/src/modules/primary_school` (migrations 1800-1803, domaine, cas d'usage, HTTP, abonnés, job), contrats `packages/contracts/src/v2/primary_school.ts`, adaptateurs de plateforme
+(`academic-primary`, `people-primary`, `results-primary`, `attendance-primary`, `reportcards-primary`), écrans web (voir `apps/web/docs/v2-primary.md`). Détail, ports et interfaces attendues : `apps/api/src/modules/primary_school/README.md`.
+
+**Écarts avec les sections précédentes (la présente section prévaut) :**
+
+| Sujet | Spec initiale | Implémentation |
+|---|---|---|
+| Plage de migrations | `1800–1899` | **`1800–1899`** (inchangée ; `imports` est en `2400`) ; DDL de la spec renommé en miroir (`ddl/migrations/1800…1803`) |
+| Tables | 16 | **17** : `council_minutes` (procès-verbal FIGÉ : contenu, empreinte, version, document émis une fois) et `council_cases.academic_period_id` (migration `1803`, `ddl/tests/40_council_minutes.sql`, **118** tests de comportement au total) |
+| Permissions | §10 | + `primary.class.read_all` (direction, secrétariat) ; un instituteur doit pouvoir **lire les bilans de sa classe** (`primary.bilan.read` au modèle de rôle `instituteur`, absent de `pack-template.md` §7) |
+| Routes ajoutées | §8 | `GET /my-classrooms`, `GET /rule-banner`, `GET /progress`, `GET /councils`, `POST /councils/:id/cases/:caseId/decide`, `GET /children/:studentId/enrollments/:id/competency-summary`, `GET /competency-assessments/:id/revisions`, `DELETE /frameworks/:id` (brouillon) |
+| Idempotence de la saisie en lot (AC5.2) | `Idempotency-Key` | par convergence (rejeu identique = `unchanged`), sans table de reçus |
+| Famille (AC9.4) | « scellés et publiés » | scellés ET PDF émis |
+| Archive (AC11.2) | tous les bilans scellés | + chaque inscription a son bilan + chaque PDF est émis (le gel interdit ensuite d'écrire `reportcard_id`) |
+| Événement de rendu consommé | `reportcards.report_card.rendered` | `reportcards.official_document.rendered` (natures de documents officiels, source = bilan) |
+| Calendrier d'un conseil | non précisé | **le conseil se tient AVANT la clôture de la période** : `results` refuse de créer une délibération ou de confirmer une décision sur une période `CLOSED` ; le bilan se scelle APRÈS la clôture de toutes les périodes |
+| Réémission d'un bilan | version n+1 | l'index « une seule version vivante » impose de remplacer l'ancienne version dans la même transaction : entre la réémission et le nouveau scellement, la famille ne voit pas le bilan |
+| R2 du rapport (effectifs) | sexe, âge, financement | niveau, classe, effectif, redoublants (le sexe, l'âge et le financement attendent un port de statistiques d'inscription) |
+| R8 (états pour l'administration) | colonnes configurables | non livré (formats officiels inconnus, Q-P12) |
+| Quorum | règle `quorum_conseil` | évalué par la règle du RuleSet lié ; **sans règle liée : aucun quorum bloquant** (présence comptée et affichée) |
+| Motifs d'examen | règles booléennes | `cas_limite`, `cas_absences`, `cas_deja_redoublant` si le contrat est publié ; sinon `RULE_REVIEW` quand la règle de fin d'année propose `COUNCIL_REVIEW` ; `redoublements_cycle` = nombre d'inscriptions `is_repeating` de l'élève (approximation de « cycle ») |
+
+**Non branché tant que les demandes de changement du §14.2 ne sont pas livrées** (l'adaptateur échoue fermé, `primary_school.port_unavailable`, rien n'est écrit) : contrats `coef-period@1` / `competency-period@1` et RuleSet `CI-PRIMARY-PLACEHOLDER` (012) ; pipeline `results` correspondant et `ruleSourceKind` (011) ;
+natures `COUNCIL_MINUTES` / `ANNUAL_REVIEW` et filigrane (013) ; `ClassroomActivationGuard` (004, la règle `checkHomeroomForActivation` existe et est testée) ; rôle système `instituteur` (002) ; `calculationContract` du modèle `academic` (004).
+Les parties du modèle de pack qui appartiennent à d'autres modules (plans de périodes, politique d'appel `DAILY`, liaison de règle, rôle) restent à leurs propriétaires : `primary_school` n'instancie que SA section (échelle, référentiels de démonstration, phrases, paramètres).

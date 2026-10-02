@@ -1,6 +1,6 @@
 # Modèle de données — 005-primary (schéma Postgres `primary_school`)
 
-**Statut** : DDL de référence, **exécuté et testé** sur PostgreSQL 17 (`ddl/run.mjs` : 104 tests de comportement — publication et immuabilité des référentiels, FK composites, verrou de période, révisions à trace obligatoire, synthèse par compteurs, bilan scellé et versions, archive gelée, RLS A/B). Les fichiers ci-dessous sont les migrations cibles `apps/api/src/modules/primary_school/migrations/1800…1802` ; ils font foi sur les noms et les contraintes. Les blocs `<!-- migration: … -->` sont **générés** depuis `ddl/migrations/*.sql` (`node ddl/run.mjs --sync-doc`) et vérifiés par `--check-doc`.
+**Statut** : DDL de référence, **exécuté et testé** sur PostgreSQL 17 (`ddl/run.mjs` : 118 tests de comportement, dont 14 pour l'ajout `1803` — publication et immuabilité des référentiels, FK composites, verrou de période, révisions à trace obligatoire, synthèse par compteurs, bilan scellé et versions, archive gelée, RLS A/B). Les fichiers ci-dessous sont les migrations cibles `apps/api/src/modules/primary_school/migrations/1800…1803` (plage `1800–1899` : `imports` a pris `1800`) ; ils font foi sur les noms et les contraintes. Les blocs `<!-- migration: … -->` sont **générés** depuis `ddl/migrations/*.sql` (`node ddl/run.mjs --sync-doc`) et vérifiés par `--check-doc`.
 
 **Sources** : `docs/architecture/module-conventions.md`, ADR-002 (RLS), ADR-005 (types de ligne à la main), ADR-006 (un schéma par module), ADR-007 (UUID, UTC, snake_case anglais), `specs/v2/004-academic-core/data-model.md` (patron), `specs/v2/011-assessments-grades` (révisions), `specs/v2/013-report-cards` (instantanés).
 
@@ -49,6 +49,7 @@ appreciation_phrases    settings    template_applications
 | `period_locks` | Verrous de saisie | 15 classes × 3 périodes |
 | `appreciation_phrases` | Banque de phrases | 20 à 200 |
 | `council_cases`, `council_attendance` | Dossiers et présence du conseil | 600 dossiers par conseil de fin d'année ; 20 présences |
+| `council_minutes` | Procès-verbal FIGÉ du conseil (contenu, empreinte, versions) — ajout `1803` | 1 à 3 par conseil |
 | `annual_reviews` | Bilans annuels | 600 par an (+ réémissions) |
 | `year_archives` | Archives | 1 par an et établissement |
 | `settings`, `template_applications` | Paramètres, idempotence | quelques lignes |
@@ -847,6 +848,68 @@ CREATE TRIGGER year_archives_no_delete BEFORE DELETE ON primary_school.year_arch
   FOR EACH ROW EXECUTE FUNCTION primary_school.forbid_mutation();
 ```
 
+### 5.4 Période du conseil et procès-verbal figé (ajout de l'implémentation)
+
+<!-- migration: 1803_primary_school_council_minutes.sql -->
+```sql
+-- =============================================================================
+-- 1803 — Module primary_school : période du conseil des maîtres et procès-verbal FIGÉ
+-- =============================================================================
+--
+-- Additif à 1802 (ajouté à l'implémentation, spec 005 §7) :
+--   - `council_cases.academic_period_id` : la délibération de `results` est portée par une classe × période ; le dossier
+--     retient la période pour que la liste et la lecture d'un conseil ne demandent pas au module `results` de la retrouver.
+--     Colonne NULLABLE (les lignes antérieures à cette migration n'ont pas de période).
+--   - `council_minutes` : le contenu FIGÉ du procès-verbal (date réelle de séance, participants, décisions, justifications) et
+--     son empreinte. Le document est rendu par `reportcards` depuis ce contenu, jamais depuis les tables vivantes. Ajout seul :
+--     seul l'identifiant du document émis se renseigne, UNE fois ; un nouveau contenu est la version n+1.
+-- =============================================================================
+
+ALTER TABLE primary_school.council_cases ADD COLUMN academic_period_id uuid;      -- academic.academic_periods.id (sans FK)
+CREATE INDEX council_cases_by_class_period ON primary_school.council_cases (tenant_id, classroom_id, academic_period_id);
+
+CREATE TABLE primary_school.council_minutes (
+  id                  uuid PRIMARY KEY,
+  tenant_id           uuid NOT NULL REFERENCES kernel.tenants (id),
+  deliberation_id     uuid NOT NULL,                  -- results.deliberations.id (sans FK)
+  classroom_id        uuid NOT NULL,
+  academic_period_id  uuid,
+  version             integer NOT NULL DEFAULT 1 CHECK (version >= 1),
+  content             jsonb NOT NULL CHECK (jsonb_typeof(content) = 'object'),
+  content_hash        text NOT NULL CHECK (content_hash ~ '^[0-9a-f]{64}$'),
+  rule_source_kind    text CHECK (rule_source_kind IS NULL OR rule_source_kind IN ('regulation', 'institution', 'platform', 'placeholder')),
+  document_id         uuid,                           -- reportcards : document officiel émis (renseigné une fois)
+  requested_by        uuid NOT NULL,
+  requested_at        timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, id),
+  UNIQUE (tenant_id, deliberation_id, version),
+  UNIQUE (tenant_id, deliberation_id, content_hash)
+);
+SELECT kernel.enable_tenant_rls('primary_school.council_minutes');
+CREATE INDEX council_minutes_by_deliberation ON primary_school.council_minutes (tenant_id, deliberation_id, version DESC);
+GRANT SELECT, INSERT, UPDATE ON primary_school.council_minutes TO app_user;
+
+CREATE FUNCTION primary_school.council_minutes_guard() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'primary_school.append_only: les procès-verbaux ne se suppriment pas' USING ERRCODE = 'restrict_violation';
+  END IF;
+  -- seul permis : renseigner UNE fois l'identifiant du document émis
+  IF OLD.document_id IS NULL
+     AND NEW.document_id IS NOT NULL
+     AND ROW(NEW.deliberation_id, NEW.classroom_id, NEW.academic_period_id, NEW.version, NEW.content, NEW.content_hash, NEW.rule_source_kind, NEW.requested_by, NEW.requested_at)
+         IS NOT DISTINCT FROM
+         ROW(OLD.deliberation_id, OLD.classroom_id, OLD.academic_period_id, OLD.version, OLD.content, OLD.content_hash, OLD.rule_source_kind, OLD.requested_by, OLD.requested_at) THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION 'primary_school.append_only: un procès-verbal est figé (nouvelle version pour un nouveau contenu)' USING ERRCODE = 'restrict_violation';
+END
+$$;
+CREATE TRIGGER council_minutes_guard BEFORE UPDATE OR DELETE ON primary_school.council_minutes
+  FOR EACH ROW EXECUTE FUNCTION primary_school.council_minutes_guard();
+```
+
 ## 6. Invariants : qui les garantit
 
 | Invariant | Base (DDL) | Domaine / cas d'usage |
@@ -870,6 +933,7 @@ CREATE TRIGGER year_archives_no_delete BEFORE DELETE ON primary_school.year_arch
 | `10_reference.sql` | 29 | origine des données, FK composites inter-tenants, publication (manques), immuabilité (structure, échelle, identité), une version publiée, RLS et `GRANT` |
 | `20_competency_assessments.sql` | 34 | échelle et référentiel cohérents, unicité, validation, gel, révisions (même transaction seulement, ajout seul), verrou de période, brouillon supprimable, synthèse par compteurs, RLS |
 | `30_council_bilan.sql` | 41 | dossier de conseil, présence (président, secrétaire, signature), bilan (conditions de scellement, immuabilité, version n+1, réglage de l'établissement), archive (READY, FROZEN, année gelée), RLS et `GRANT` |
+| `40_council_minutes.sql` | 14 | période du dossier, procès-verbal figé (unicité de version et d'empreinte, contenu et empreinte immuables, document émis renseigné une fois, suppression refusée), RLS et `GRANT` |
 
 Exécution : `node specs/v2/005-primary/ddl/run.mjs` (Docker requis ; conteneur éphémère supprimé en fin d'essai ; `ED_PG_IMAGE=postgres:17-alpine`). Contrôle documentaire : `node ddl/run.mjs --check-doc`.
 

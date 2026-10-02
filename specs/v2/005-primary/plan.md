@@ -50,7 +50,7 @@ Chemin critique : T0 → T7 → T8 → T5 → T6 → T16. T3/T4 (compétences) s
 
 | Niveau | Contenu | Bloquant en CI |
 |---|---|---|
-| DDL | `ddl/run.mjs` (104 tests) rejoué sur les migrations réelles ; `--check-doc` | Oui |
+| DDL | `ddl/run.mjs` (118 tests) rejoué sur les migrations réelles ; `--check-doc` | Oui |
 | Unitaires | Zod, synthèse TS ↔ SQL, banque de phrases, avancement | Oui |
 | Golden de mécanisme | `golden-primary-mechanism` G1–G18 | Oui |
 | Intégration | Activation idempotente ; garde « titulaire » ; flux complet avec RuleSet fictif ; refus de liaison `placeholder` en production sans accusé ; isolation A/B de chaque table | Oui |
@@ -78,4 +78,28 @@ Chemin critique : T0 → T7 → T8 → T5 → T6 → T16. T3/T4 (compétences) s
 
 ## 7. Sortie de phase (Phase 4, volet primaire)
 
-Reprise des critères de `spec.md` §15 : migrations et 104 tests ; établissement `PRIMARY` provisionné sans intervention ; flux annuel complet avec le jeu fictif, bulletins marqués ; lint R2 vert ; demandes de changement acquittées ; textes transmis. **Le passage au réglementaire** (RuleSet officiel, golden tests officiels, gabarits officiels) est un **second jalon**, déclenché par la réception des textes, et ne bloque pas la sortie de phase technique.
+Reprise des critères de `spec.md` §15 : migrations et 118 tests ; établissement `PRIMARY` provisionné sans intervention ; flux annuel complet avec le jeu fictif, bulletins marqués ; lint R2 vert ; demandes de changement acquittées ; textes transmis. **Le passage au réglementaire** (RuleSet officiel, golden tests officiels, gabarits officiels) est un **second jalon**, déclenché par la réception des textes, et ne bloque pas la sortie de phase technique.
+
+## 8. Avancement de l'implémentation
+
+| Tâche | État | Remarque |
+|---|---|---|
+| T0 Demandes de changement | **à acter** | listées dans `spec.md` §16 (« Non branché ») ; le module les attend par des ports qui échouent fermé |
+| T1 Migrations | fait | `1800`–`1802` identiques au DDL testé (test de conformité) + `1803` (ajout) ; plage `1800–1899` inscrite dans `module-conventions.md` |
+| T2 Squelette | fait | manifeste, `index.ts`, contrats `primary_school.ts`, codes `primary_school.*` |
+| T3 Échelles et référentiels | fait | publication avec liste des manques, nouvelle version par copie, brouillon supprimable ; import par `imports` (031) non fait |
+| T4 Compétences | fait | grille, lot idempotent par convergence, validation, révision tracée, synthèse (parité SQL ↔ TypeScript), `PeriodStatePort` |
+| T5 Conseil | fait | dossiers, présence, décisions via `results`, procès-verbal figé ; motifs et quorum par règles (dès que le contrat est publié) |
+| T6 Bilan | fait | préparation, scellement, réémission, abonnés de rendu et de renseignement du PDF, lecture famille |
+| T7 Contrats de règles et RuleSet fictif | **non fait ici** | livraison de l'agent « fondations » (012) ; golden tests de mécanisme à écrire avec lui |
+| T8 Pipeline `results` | **non fait ici** | idem (011) |
+| T9 Modèle de pack | partiel | section `primary_school` (JSON + schéma Zod + instanciation idempotente + abonné) ; `academic`, `attendance`, `rules`, `rbac`, `reportcards` : propriétaires |
+| T10 Rôle `instituteur` et garde | partiel | garde `checkHomeroomForActivation` testée ; rôle système et appel par `activateClassroom` à livrer (002, 004) |
+| T11 Gabarits `reportcards` | **non fait ici** | 013 |
+| T12 Rapports | fait (R1, R2 partiel, R3 à R7) | R8 non livré |
+| T13 Plugin HTTP | fait | matrice de rôles et contrats testés |
+| T14 Jobs et abonnés | fait | verrous de période, décisions, document rendu, modèle de pack, purge des brouillons ; la préparation en masse (> 500) reste une requête de l'API (une classe à la fois) |
+| T15 Écrans web | fait | `apps/web/docs/v2-primary.md` |
+| T16 Seeds et E2E | non fait | jeu de démonstration de bout en bout et Playwright à faire avec les fondations |
+| T17 Qualité | fait | lint R2 (test), allowlist vide, isolation A/B, README, plage inscrite |
+| T18 Suppression du legacy | sans objet | aucun code primaire legacy |

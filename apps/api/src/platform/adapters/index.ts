@@ -83,6 +83,13 @@ import { createReportcardsResultsRead } from "./results-reportcards";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
 import { asAttendanceStorage, asDocumentsStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
+import { asAttendanceStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
+import { registerPrimarySchoolPorts, setPrimarySchoolWorkerPorts, type PrimarySchoolPorts } from "../../modules/primary_school";
+import { createPrimaryClassroomPort, createPrimaryOutcomePort, createPrimaryPeriodStatePort } from "./academic-primary";
+import { createPrimaryGuardianshipPort, createPrimaryTeachingPort } from "./people-primary";
+import { createPrimaryResultsPort, createPrimaryRulesPort } from "./results-primary";
+import { createPrimaryAttendancePort } from "./attendance-primary";
+import { createPrimaryDocumentsPort } from "./reportcards-primary";
 import { createAdapterKit, type AdapterKit } from "./kit";
 import { createClassroomsImportPort, createCurriculumImportPort } from "./imports-academic";
 import { createGradesImportPort } from "./imports-assess";
@@ -116,6 +123,8 @@ export interface PlatformPorts {
   readonly notifications: Partial<NotificationsPorts>;
   /** Examens nationaux (018) : élèves et inscriptions, règles `exam-national@1`, évaluations, pièces, documents officiels scellés, stockage. */
   readonly examinations: Partial<ExaminationsPorts>;
+  /** Pack Primary (005) : classes, périodes, affectations, résultats, règles, assiduité, documents officiels. */
+  readonly primary_school: Partial<PrimarySchoolPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -134,6 +143,8 @@ export function buildPlatformPorts(
   const scan = scanPolicyFromEnv(kit.env, { warn: (m) => kit.logger.warn({}, m) });
   const scanned = () => scan;
   const base: Omit<PlatformPorts, "imports" | "examinations"> = {
+  const primaryAttendance = createPrimaryAttendancePort({ attendance, academic });
+  const base: Omit<PlatformPorts, "imports"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
       guardianship: createAcademicGuardianship(people),
@@ -234,6 +245,17 @@ export function buildPlatformPorts(
       teachingLoad: createNotificationsTeachingLoad(kit),
       announcements: createNotificationsAnnouncements(kit),
     },
+    primary_school: {
+      classrooms: createPrimaryClassroomPort({ academic, people, tenantDb: kit.tenantDb, clock }),
+      periods: createPrimaryPeriodStatePort(academic),
+      outcomes: createPrimaryOutcomePort(academic),
+      teaching: createPrimaryTeachingPort({ people, lookups, clock }),
+      guardianship: createPrimaryGuardianshipPort(lookups),
+      results: createPrimaryResultsPort({ results, academic, rules }),
+      rules: createPrimaryRulesPort({ academic, rules, results, attendance: primaryAttendance }),
+      attendance: primaryAttendance,
+      documents: createPrimaryDocumentsPort(officialDocuments),
+    },
   };
   // Imports (031) : écriture par les cas d'usage publics des modules cibles, avec le VRAI audit (l'API : `runtime.auditPort` ;
   // le worker : le service d'audit du processus). Sans audit fourni (tests ciblés), l'audit est no-op.
@@ -294,6 +316,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerHigherPorts(app, ports.higher);
   registerAnalyticsPorts(app, ports.analytics);
   registerMessagingPorts(app, ports.messaging);
+  registerPrimarySchoolPorts(app, ports.primary_school);
   registerImportsPorts(app, ports.imports);
   registerDocumentsPorts(app, ports.documents);
   registerNotificationsPorts(app, ports.notifications);
@@ -327,6 +350,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   registerSchedulingPorts(ports.scheduling);
   setAnalyticsWorkerPorts(ports.analytics);
   setMessagingWorkerPorts(ports.messaging);
+  setPrimarySchoolWorkerPorts(ports.primary_school);
   setImportsWorkerPorts(ports.imports);
   setDocumentsWorkerPorts(ports.documents);
   setNotificationsWorkerPorts(ports.notifications);
