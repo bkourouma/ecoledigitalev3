@@ -19,6 +19,12 @@ import { buildPlatformPorts, createAdapterKit } from "../../src/platform/adapter
 import { emailLocalPart } from "../../src/platform/adapters/people-lookups";
 import { fitDecimal } from "../../src/platform/adapters/results-reportcards";
 import { toOccurrenceInfo } from "../../src/platform/adapters/scheduling-attendance";
+import { admissionsMessageText, createAdmissionsApplicantNotifier } from "../../src/platform/adapters/admissions-notifier";
+import { unavailablePorts as unavailableAdmissionsPorts } from "../../src/modules/admissions";
+import { unavailablePorts as unavailableExaminationsPorts } from "../../src/modules/examinations";
+import { unavailablePrimaryPorts } from "../../src/modules/primary_school";
+import { unavailablePorts as unavailableSchoolLifePorts } from "../../src/modules/schoollife";
+import { unavailablePorts as unavailableStateassignPorts } from "../../src/modules/stateassign";
 import { DiskStorage, asAttendanceStorage, asPeopleStorage, createObjectStorage, registerDiskStorageRoute, s3EnvFrom, assertSafeKey } from "../../src/platform/adapters/storage";
 import type { ResultsStructure } from "../../src/modules/academic";
 
@@ -219,7 +225,7 @@ describe("complétude des ports branchés par la plateforme", () => {
 
   it("chaque port que ses modules déclarent indisponible est fourni (sinon `*.port_unavailable` en production)", () => {
     // yearFacts : port optionnel des packs (faits de fin d'annee), branche par la plateforme sans etre « indisponible » par defaut.
-    expect(keys(withStorage.results)).toEqual([...keys(unavailableResultsPorts()).filter((k) => !["assess", "rules"].includes(k)), "yearFacts"].sort());
+    expect(keys(withStorage.results)).toEqual([...keys(unavailableResultsPorts()).filter((k) => !["assess", "rules"].includes(k)), "yearFacts", "competencyCounters"].sort());
     expect(keys(withStorage.assess)).toEqual(keys(unavailableAssessPorts()));
     expect(keys(withStorage.attendance)).toEqual(keys(unavailableAttendancePorts()).filter((k) => k !== "alertPolicy"));
     // higher : le port des règles est branché par défaut sur le module rules.
@@ -229,7 +235,35 @@ describe("complétude des ports branchés par la plateforme", () => {
     expect(keys(withStorage.finance)).toEqual(["documents", "enrollments", "guardianship", "learners"]);
     expect(keys(withStorage.people)).toEqual(["academic", "storage"]);
     expect(keys(withStorage.reportcards)).toEqual(["attendance", "directory", "external", "guardianship", "results", "standing", "storage"]);
-    expect(keys(withStorage.academic)).toEqual(["completion", "guardianship", "invoiceFacts", "promotions", "readiness", "registrationFee", "schedule", "students", "usageGuard"]);
+    expect(keys(withStorage.academic)).toEqual(["classroomActivation", "completion", "guardianship", "invoiceFacts", "promotions", "readiness", "registrationFee", "schedule", "students", "usageGuard"]);
+  });
+
+  it("modules de packs : tous les ports déclarés « indisponibles » sont branchés, sauf exceptions JUSTIFIÉES (aucun `port_unavailable` résiduel)", () => {
+    // Exceptions assumées : `templates` (primary_school : modèle livré avec le module), `captcha` (admissions : prestataire non choisi, le
+    // formulaire public reste fermé), `gateway` (stateassign : passerelle publique future, `NotConfigured`, aucun appel externe).
+    const missing = (consumer: string, declared: object, wired: object, allowed: readonly string[] = []): string[] =>
+      keys(declared).filter((k) => !(k in wired) && !allowed.includes(k)).map((k) => `${consumer}.${k}`);
+    expect([
+      ...missing("primary_school", unavailablePrimaryPorts(), withStorage.primary_school, ["templates"]),
+      ...missing("admissions", unavailableAdmissionsPorts(), withStorage.admissions, ["captcha"]),
+      ...missing("schoollife", unavailableSchoolLifePorts(), withStorage.schoollife),
+      ...missing("stateassign", unavailableStateassignPorts(), withStorage.stateassign, ["gateway"]),
+      ...missing("examinations", unavailableExaminationsPorts(), withStorage.examinations, ["storage"]), // stockage : sans bucket ni disque, refus (échec fermé)
+    ]).toEqual([]);
+  });
+
+  it("admissions -> notifications : textes NEUTRES (aucun motif de refus), repli générique, échec FERMÉ sans canal ni coordonnée", async () => {
+    const rejected = admissionsMessageText("APPLICATION_REJECTED", "Awa", { reasonCode: "NO_SEAT" });
+    expect(rejected.summary).not.toMatch(/NO_SEAT|capacité|refus/i);
+    expect(admissionsMessageText("DOCUMENTS_MISSING", "Awa", { missingDocuments: ["Acte de naissance", "Photo"] }).summary).toContain("Acte de naissance, Photo");
+    expect(admissionsMessageText("OFFER_ISSUED", "", { link: "https://app.test/v2/apply/x/offer#t=abc" }).summary).toContain("https://app.test/v2/apply/x/offer#t=abc");
+    expect(admissionsMessageText("CODE_PERSONNALISE", "Awa", {}).title).toBe("Information sur votre candidature");
+    const message = { applicationId: "a", guardianId: "g", templateCode: "APPLICATION_RECEIVED", recipient: { firstName: "Awa", email: null, phone: null }, data: {}, dedupeKey: "k" };
+    await expect(createAdmissionsApplicantNotifier(null).send({} as never, message)).rejects.toMatchObject({ code: "admissions.channel_unavailable" });
+    const sender = { send: async () => ({ channel: "SMS" as const, status: "QUEUED" as const }) };
+    await expect(createAdmissionsApplicantNotifier(sender).send({} as never, message)).rejects.toMatchObject({ code: "admissions.channel_unavailable" }); // aucune coordonnée
+    const receipt = await createAdmissionsApplicantNotifier(sender).send({} as never, { ...message, recipient: { firstName: "Awa", email: null, phone: "+22507000000" } });
+    expect(receipt).toMatchObject({ channel: "SMS", status: "QUEUED" });
   });
 
   it("sans stockage d'objets configuré, aucun port de stockage n'est branché (échec fermé, pas de disque implicite)", () => {

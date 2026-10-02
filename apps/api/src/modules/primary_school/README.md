@@ -80,18 +80,21 @@ Job : `primary_school.purge-draft-reviews` (04:35, par tenant, brouillons intact
 Enregistrés par `registerPrimarySchoolPorts(app, ports)` (API) / `setPrimarySchoolWorkerPorts(ports)` (worker) ; adaptateurs :
 `apps/api/src/platform/adapters/*-primary.ts` (sur les **API publiques** des modules, jamais de SQL). Implémentations en mémoire : `InMemoryWorld`.
 
-### Interfaces attendues d'autres modules, NON encore livrées (l'adaptateur échoue fermé, aucun module voisin n'a été modifié)
+### État des interfaces avec les modules voisins (phase 3 : branchées et prouvées par `apps/api/test/phase3/primary.integration.test.ts`)
 
-| Attendu | Module | Effet tant qu'il manque |
+| Interface | Module | État |
 |---|---|---|
-| Contrats de règles `coef-period@1` et `competency-period@1` + RuleSet `CI-PRIMARY-PLACEHOLDER` (`source_kind = placeholder` accepté par `rules`) | rules (012) | `ResultsPort.openCouncil` / `listProposals` échouent fermé (`results.*` : aucun contrat) ; la maternelle décide au conseil sans proposition (R6 du plan) |
-| Pipeline `results` pour ces contrats ; `ruleSourceKind` dans le bundle FINAL ; `createDeliberation` portant `participants` | results (011) | pas de propositions de règle, pas de `getRuleSourceKind` : `null`, aucun filigrane déduit |
-| Natures de document `COUNCIL_MINUTES` et `ANNUAL_REVIEW` (`OFFICIAL_DOCUMENT_KINDS`), gabarits `council-minutes` / `annual-review-primary` / `report-primary`, filigrane conditionnel | reportcards (013) | `requestCouncilMinutes` refuse (409/500 `port_unavailable`, rien n'est écrit) ; l'abonné `request-review-document` rejoue ; les familles ne voient pas les bilans (pas de `reportcard_id`) |
-| `ClassroomActivationGuard` appelé par `activateClassroom` | academic (004) | la règle existe (`checkHomeroomForActivation`, testée) mais n'est pas appelée à l'activation |
-| Rôle système `instituteur` (+ `primary.bilan.read`, `primary.class.read_all` pour direction et secrétariat) | rbac (002) | l'instituteur doit être doté à la main des permissions ci-dessus |
-| `calculationContract` `coef-period@1` / `competency-period@1` dans `academic/templates/CI/primary.json`, poids de période | academic (004) | le pipeline de `results` ne sait pas quel contrat appliquer |
-| Sexe, âge et financement dans un port de statistiques d'inscription (rapport R2) | people / academic | R2 n'a que niveau, classe, effectif, redoublants |
+| Contrats `coef-period@1` et `competency-period@1`, jeu `CI-PRIMARY-PLACEHOLDER` (`source_kind = placeholder`) | rules (012) | livrés ; **liés par défaut** à l'établissement par l'abonné `rules.apply-pack-bindings` (`tenancy.institution.created`, hors production seulement ; en production : accusé explicite d'un utilisateur, le refus est journalisé et ignoré) |
+| Pipeline `results`, `ruleSourceKind` (vue de période et bundle FINAL), conseil COUNCIL | results (011) | livrés ; **compteurs de compétences** : `results.competencyCounters` <- `getCompetencyCounters` de ce module (adaptateur `platform/adapters/primary-results.ts`) : évaluées = compétences distinctes validées du référentiel applicable, attendues = ses compétences |
+| Natures `COUNCIL_MINUTES` et `ANNUAL_REVIEW`, gabarits, filigrane conditionnel | reportcards (013) | livrés ; l'adaptateur transmet `ruleSourceKind` (provenance SCELLÉE avec le document) : la vérification publique annonce `demonstration: true` et le rendu impose le filigrane ; clé de signature et gabarits préparés au démarrage hors transaction |
+| `ClassroomActivationGuard` appelé par `activateClassroom` | academic (004) | **branché** (`platform/adapters/primary-academic.ts`) : 409 `primary_school.homeroom_required` sans titulaire ; un titulaire `HOMEROOM` (sans nœud) est accepté sur une classe en BROUILLON (sinon la garde serait insatisfiable) |
+| Rôle système `instituteur` (+ `primary.bilan.read`, `primary.class.read_all` pour direction et secrétariat) | rbac (002) | livré |
+| `calculationContract` dans `academic/templates/CI/primary.json`, poids de période | academic (004) | livrés |
+| Catégories de frais `REGISTRATION` / `TUITION` du modèle de pack | finance (014) | **branchées** : abonné `finance.instantiate-pack` (`tenancy.institution.created`), libellés seulement |
+| Sexe, âge et financement dans un port de statistiques d'inscription (rapport R2) | people / academic | NON livré : R2 n'a que niveau, classe, effectif, redoublants |
 | `getPackTemplateSection('PRIMARY', 'CI', 'primary_school')` | tenancy (003) | modèle livré avec le module (`TemplatePort` par défaut), remplaçable sans toucher au module |
+
+**Dates d'effet** : les versions des jeux de démonstration sont effectives à partir du 2026-09-01 (`PLACEHOLDER_EFFECTIVE_FROM`, `rules/seed/rulesets.ts`) ; une année qui commence avant n'a aucune règle applicable (`results.no_active_ruleset`, jamais de valeur par défaut). Les liaisons posées à la création de l'établissement valent depuis 2000-01-01 (origine des temps de la plateforme) : seule la date de la version borne l'application.
 
 ## Décisions de conception à connaître
 
