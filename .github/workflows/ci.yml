@@ -440,10 +440,62 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Le test de sortie de phase 2 (annee scolaire simulee, ~1 min, Chrome) a son job dedie `phase2` : il est exclu ici
+      # pour ne pas tourner deux fois.
       - name: apps/api (suite complete, dont le test de sortie de phase 1)
-        run: pnpm --filter @ecoledigitale/api test:v2
+        run: pnpm --filter @ecoledigitale/api test:v2 --exclude "test/phase2/**"
       - name: apps/worker (unitaires + integration)
         run: pnpm --filter @ecoledigitale/worker test
+
+  # ---------------------------------------------------------------------------
+  # TEST DE SORTIE DE PHASE 2 (BLOQUANT) : une ANNEE SCOLAIRE SIMULEE de bout en bout, par HTTP, sur la plateforme assemblee
+  # (vrais plugins, vrais adaptateurs inter-modules, vrai worker en processus : relais d'outbox, abonnes, jobs), Postgres 17 +
+  # Redis 7 jetables. Provisionnement HIGHER -> annees, curriculum, classe -> inscription confirmee par le paiement des frais
+  # (evenement) -> emploi du temps, appels hors-ligne -> notes, resultats `rules` (CI-HIGHER-LMD), bulletins signes + PDF ->
+  # diplome -> paie -> audit chaine -> isolation entre tenants -> acces parent. Voir docs/architecture/phase2-exit.md.
+  # Le rendu PDF est reel si Chrome est present (google-chrome est preinstalle sur ubuntu-latest), deterministe sinon.
+  # ---------------------------------------------------------------------------
+  phase2:
+    name: test de sortie phase 2 - annee scolaire simulee (Postgres 17 + Redis 7)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      REDIS_URL: redis://localhost:6379
+      TEST_REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: annee scolaire simulee (apps/api/test/phase2)
+        run: pnpm --filter @ecoledigitale/api exec vitest run test/phase2
 
   # ---------------------------------------------------------------------------
   # Tests de caracterisation du code legacy (tranche 2.0 du plan, tests/characterization/).
@@ -507,6 +559,7 @@ jobs:
       - packages-tests
       - v2-isolation
       - v2-modules
+      - phase2
     runs-on: ubuntu-latest
     steps:
       - name: Verifier le resultat des jobs

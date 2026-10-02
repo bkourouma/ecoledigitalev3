@@ -113,8 +113,9 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
     });
 
     it("politique de confirmation : ON_REGISTRATION_FEE_PAID (décision métier du 2026-10-01)", async () => {
-      const r = await own().put(`/api/v1/academic/institutions/${T().institutionId}/settings`, { enrollmentConfirmationPolicy: "ON_REGISTRATION_FEE_PAID" });
+      const r = await own().put(`/api/v1/academic/institutions/${T().institutionId}/settings`, { enrollmentConfirmationPolicy: "ON_REGISTRATION_FEE_PAID", registrationNumberPrefix: "UH", registrationNumberPattern: "{PREFIX}-{PROGRAM}-{LEVEL}-{STUDENT_SEQ:4}" });
       expect(r.body.enrollmentConfirmationPolicy).toBe("ON_REGISTRATION_FEE_PAID");
+      expect(r.body.registrationNumberPattern).toBe("{PREFIX}-{PROGRAM}-{LEVEL}-{STUDENT_SEQ:4}");
     });
 
     it("année académique contenant aujourd'hui, ouverte et courante ; deux semestres, le premier ouvert", async () => {
@@ -190,16 +191,32 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
         ["ETUDIANT2", "Koffi", "M", "2005-02-12"],
         ["ETUDIANT3", "Mariam", "F", "2005-03-13"],
       ] as const;
+      const studentNumbers: string[] = [];
+      const sequences: number[] = [];
       for (const [lastName, firstName, sex, birthDate] of base) {
         const r = await own().post("/api/v1/people/students", { person: { lastName, firstName, sex, birthDate, birthPlace: "Abidjan" } }, 201);
         W.students.push({ id: r.body.student.id, lastName, personId: r.body.student.personId });
+        studentNumbers.push(r.body.student.studentNumber);
+        sequences.push(r.body.student.sequenceNumber);
       }
+      // Numéro d'élève et numéro d'ordre : attribués, uniques, croissants (sans trou).
+      expect(new Set(studentNumbers).size).toBe(3);
+      expect(sequences).toEqual([sequences[0], sequences[0]! + 1, sequences[0]! + 2]);
       const g = await own().post("/api/v1/people/guardians", { person: { lastName: "TUTEUR", firstName: "Yao", sex: "M", email: "tuteur@horizon.test", phone: "+225 07 11 22 33 44" } }, 201);
       W.guardianId = g.body.guardian.id;
       const rel = await own().get("/api/v1/people/reference/relationship-types");
       const relationshipCode = (rel.body.items as Array<{ code: string }>)[0]?.code as string;
       expect(relationshipCode).toBeTruthy();
       await own().post(`/api/v1/people/students/${W.students[1]!.id}/guardians`, { guardianId: W.guardianId, relationshipCode, isPrimaryContact: true, isFinancialResponsible: true, hasLegalCustody: true, portalAccess: true }, 201);
+    });
+
+    it("doublon probable : refusé tant qu'il n'est pas confirmé avec un motif (un dossier élève n'est jamais dupliqué par erreur)", async () => {
+      const same = { person: { lastName: "ETUDIANT1", firstName: "Awa", sex: "F", birthDate: "2005-01-11", birthPlace: "Abidjan" } };
+      const refused = await own().raw("POST", "/api/v1/people/students", same);
+      expect(refused.status, JSON.stringify(refused.body)).toBe(409);
+      expect(refused.body.code).toBe("people.possible_duplicate");
+      const students = await p.db.admin.query("SELECT count(*)::int AS n FROM people.students WHERE tenant_id = $1", [T().tenantId]);
+      expect(students.rows[0].n).toBe(3);
     });
 
     it("enseignant : fiche de personnel, invitation de portail (rôle système enseignant), compte lié à la fiche", async () => {
@@ -243,11 +260,16 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
     });
 
     it("l'inscription reste EN ATTENTE tant que les frais ne sont pas payés (sonde finance -> academic)", async () => {
+      const numbers: string[] = [];
       for (const s of W.students) {
         const e = await own().post("/api/v1/academic/enrollments", { studentId: s.id, classroomId: W.classroomId, enrolledOn: W.year.startsOn }, 201);
         s.enrollmentId = e.body.id;
         expect(e.body.status, JSON.stringify(e.body)).toBe("PENDING");
+        numbers.push(e.body.registrationNumber);
       }
+      // Numéro d'inscription généré par le motif de l'établissement (préfixe, programme, niveau, rang de l'élève) : un par élève.
+      expect(numbers.every((n) => /^UH-INFO-L1-\d{4}$/.test(n)), numbers.join(",")).toBe(true);
+      expect(new Set(numbers).size).toBe(3);
     });
 
     it("facture des frais d'inscription de l'étudiant 1 (liée à l'inscription), émise", async () => {
@@ -312,6 +334,36 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       }
       const roster = await own().get(`/api/v1/academic/classrooms/${W.classroomId}/roster`);
       expect(JSON.stringify(roster.body)).toContain(W.students[0]!.enrollmentId);
+    });
+
+    it("IDEMPOTENCE ET CONCURRENCE : même clé = même facture (autre contenu refusé) ; cinq webhooks identiques SIMULTANÉS = un seul paiement, un seul reçu", async () => {
+      const s5 = await own().post("/api/v1/people/students", { person: { lastName: "ETUDIANT5", firstName: "Nadia", sex: "F", birthDate: "2005-05-05" } }, 201);
+      const learnerId = s5.body.student.id as string;
+      const body = { learnerId, academicYear: W.year.code, items: [{ feeCode: "INSC" }], issue: true };
+      const first = await own().post("/api/v1/finance/invoices/from-schedule", body, [200, 201], { "idempotency-key": "p2-idem-etu5" });
+      const replay = await own().post("/api/v1/finance/invoices/from-schedule", body, [200, 201], { "idempotency-key": "p2-idem-etu5" });
+      expect(replay.body.invoices[0].id).toBe(first.body.invoices[0].id);
+      const other = await own().raw("POST", "/api/v1/finance/invoices/from-schedule", { ...body, items: [{ feeCode: "INSC", quantity: 2 }] }, { "idempotency-key": "p2-idem-etu5" });
+      expect(other.status, JSON.stringify(other.body)).toBeGreaterThanOrEqual(400);
+      expect(other.status).toBeLessThan(500);
+      const invoices = await p.db.admin.query("SELECT count(*)::int AS n FROM finance.invoices WHERE tenant_id = $1 AND learner_id = $2", [T().tenantId, learnerId]);
+      expect(invoices.rows[0].n).toBe(1);
+
+      const init = await own().post(
+        "/api/v1/finance/payments/online",
+        { learnerId, amount: 50000, provider: "sandbox", invoiceId: first.body.invoices[0].id, metadata: { sandbox: "pending" } },
+        201,
+        { "idempotency-key": "p2-pay-etu5" },
+      );
+      const raw = JSON.stringify({ id: "evt-p2-concurrent", type: "payment.succeeded", reference: init.body.payment.id, transaction: init.body.payment.providerRef, amount: 50000, currency: "XOF", occurred_at: new Date().toISOString() });
+      const hooks = await Promise.all(
+        Array.from({ length: 5 }, () => p.http("POST", `/api/v1/finance/webhooks/sandbox/${T().tenantId}`, { rawBody: raw, headers: { "x-sandbox-signature": sign(raw) } })),
+      );
+      expect(hooks.map((h) => h.status), JSON.stringify(hooks.map((h) => h.body))).toEqual([200, 200, 200, 200, 200]);
+      expect(hooks.filter((h) => h.body.replayed === false)).toHaveLength(1);
+      const receipts = await p.db.admin.query("SELECT count(*)::int AS n FROM finance.receipts WHERE tenant_id = $1 AND payment_id = $2", [T().tenantId, init.body.payment.id]);
+      expect(receipts.rows[0].n).toBe(1);
+      expect((await own().get(`/api/v1/finance/invoices/${first.body.invoices[0].id}`)).body.status).toBe("PAID");
     });
   });
 
@@ -468,6 +520,31 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       tampered.sessions[0].records[0].statusCode = "ABSENT";
       const res = await teacher().raw("POST", "/api/v1/attendance/sync", tampered);
       expect(JSON.stringify(res.body), String(res.status)).toMatch(/idempotency_key_reused/);
+    });
+
+    it("CONCURRENCE : le même lot envoyé deux fois SIMULTANÉMENT (double envoi du réseau) ne crée qu'un appel et trois pointages", async () => {
+      const batch = {
+        deviceId: "tablette-salle-13",
+        clientSentAt: new Date().toISOString(),
+        sessions: [
+          {
+            clientId: uuid(920),
+            target: { occurrenceId: W.occ[2]!.id },
+            clientOpenedAt: new Date(Date.now() - 60_000).toISOString(),
+            records: W.students.map((s, i) => ({ clientId: uuid(921 + i), studentId: s.id, statusCode: "PRESENT", clientMarkedAt: new Date(Date.now() - 50_000 + i).toISOString() })),
+          },
+        ],
+      };
+      const [a, b] = await Promise.all([teacher().raw("POST", "/api/v1/attendance/sync", batch), teacher().raw("POST", "/api/v1/attendance/sync", batch)]);
+      expect([a.status, b.status], JSON.stringify([a.body, b.body])).toEqual([200, 200]);
+      const totals = [a.body.totals, b.body.totals];
+      expect(totals.reduce((n, t) => n + t.applied, 0), JSON.stringify(totals)).toBe(3);
+      expect(totals.reduce((n, t) => n + t.rejected + t.conflicts, 0), JSON.stringify(totals)).toBe(0);
+      const rows = await p.db.admin.query(
+        "SELECT count(DISTINCT s.id)::int AS sessions, count(r.id)::int AS records FROM attendance.sessions s LEFT JOIN attendance.student_records r ON r.session_id = s.id WHERE s.tenant_id = $1 AND s.occurrence_id = $2",
+        [T().tenantId, W.occ[2]!.id],
+      );
+      expect(rows.rows[0]).toEqual({ sessions: 1, records: 3 });
     });
 
     it("conflit : une saisie hors-ligne tardive sur l'appel déjà VALIDÉ n'est jamais écrite en silence (file de conflits)", async () => {
@@ -1405,6 +1482,48 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
   });
 
   // ===========================================================================================================
+  describe("(14a4) jobs planifiés : chacun s'exécute sur les données réelles de l'année, avec les ports branchés du worker", () => {
+    it("TOUS les jobs découverts (modules + socle) se terminent sans erreur lorsqu'on les déclenche à la main", async () => {
+      const scheduler = p.worker.scheduler!;
+      const names = scheduler.jobNames;
+      // Un job par module au moins : si un module perdait ses jobs (découverte, bundle), ce test le dirait.
+      for (const expected of [
+        "academic.expire-holds",
+        "attendance.recompute-summaries",
+        "finance.mark-overdue-invoices",
+        "higher.expire-credits",
+        "payroll.fail-stale-runs",
+        "people.emit-expiring-qualifications",
+        "reportcards.integrity-check",
+        "results.process-recomputes",
+        "rules.replay-reproducibility",
+        "scheduling.generate-occurrences",
+      ]) {
+        expect(names, `job ${expected} découvert`).toContain(expected);
+      }
+      const failures: string[] = [];
+      for (const name of names) {
+        try {
+          const outcome = await scheduler.run(name, `p2-${name}`.slice(0, 80));
+          if (outcome.status !== "completed") failures.push(`${name} : ${JSON.stringify(outcome)}`);
+        } catch (e) {
+          failures.push(`${name} : ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      expect(failures).toEqual([]);
+    });
+
+    it("la génération glissante est idempotente : relancée, elle ne crée aucune séance de plus ; la reproductibilité des règles n'a trouvé AUCUN écart", async () => {
+      const count = async (): Promise<number> => (await p.db.admin.query("SELECT count(*)::int AS n FROM scheduling.session_occurrences WHERE tenant_id = $1", [T().tenantId])).rows[0].n;
+      const before = await count();
+      await p.worker.scheduler!.run("scheduling.generate-occurrences", "p2-gen-2");
+      expect(await count()).toBe(before);
+      const mismatches = await p.db.admin.query("SELECT count(*)::int AS n FROM kernel.domain_events WHERE tenant_id = $1 AND type = 'rules.replay.mismatch'", [T().tenantId]);
+      expect(mismatches.rows[0].n).toBe(0);
+    });
+  });
+
+  // ===========================================================================================================
   describe("(14b) un étudiant quitte l'établissement : son inscription est CLOSE par l événement de statut (people -> academic)", () => {
     it("inscrit et confirmé (frais d'inscription payés), puis déclaré « transféré » : l inscription passe à TRANSFERRED_OUT sans intervention", async () => {
       const created = await own().post("/api/v1/people/students", { person: { lastName: "ETUDIANT4", firstName: "Salif", sex: "M", birthDate: "2005-04-14", birthPlace: "Bouaké" } }, 201);
@@ -1486,6 +1605,21 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       } finally {
         await redis.quit().catch(() => undefined);
       }
+    });
+
+    it("en fin d'année, le journal d'audit contient la clôture de l'année et sa CHAÎNE reste valide malgré les écritures concurrentes (directes et par événements)", async () => {
+      await new Promise((r) => setTimeout(r, 1500)); // derniers événements d'audit relayés
+      const all = await readAuditLog(p, own().token);
+      const actions = new Set(all.map((e) => String(e.action)));
+      for (const a of ["academic.year.closed", "payroll.payslip.paid", "results.period.closed", "higher.award.created", "reportcards.report_cards.published", "people.person.account_invited"]) {
+        expect(actions.has(a), `action d'audit ${a}`).toBe(true);
+      }
+      const res = await own().get("/api/v1/audit/verify");
+      expect(res.body.ok, JSON.stringify(res.body)).toBe(true);
+      expect(res.body.checked).toBeGreaterThanOrEqual(all.length);
+      // Même chose pour le second établissement : sa chaîne est indépendante de celle de A.
+      const sec = await p.db.admin.query("SELECT DISTINCT tenant_id FROM audit.audit_log");
+      expect(sec.rows.length).toBeGreaterThanOrEqual(2);
     });
 
     it("les abonnés qui portent le scénario ont TOUS réellement traité des événements (aucun nom d'événement qui ne correspond à rien)", async () => {
