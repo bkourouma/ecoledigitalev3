@@ -23,6 +23,7 @@ import {
   type AcademicPorts,
 } from "../../modules/academic";
 import { registerAnalyticsPorts, setAnalyticsWorkerPorts, type AnalyticsSourcePorts } from "../../modules/analytics";
+import { officeConverterFromEnv, registerDocumentsPorts, scanPolicyFromEnv, setDocumentsWorkerPorts, type DocumentsPorts } from "../../modules/documents";
 import { registerAssessPorts, type AssessPorts } from "../../modules/assess";
 import { registerAttendancePorts, type AttendancePorts } from "../../modules/attendance";
 import { registerFinancePorts, type FinancePortSet } from "../../modules/finance";
@@ -39,6 +40,9 @@ import { createAcademicCompletionLookup, createAcademicScheduleChecker, createAc
 import { createAnalyticsSources } from "./analytics-sources";
 import { createAssessCurriculumPort, createAssessPeriodPort, createAssessRosterPort } from "./academic-assess";
 import { createAttendancePeriodPort, createAttendanceRosterPort } from "./academic-attendance";
+import { createDocumentsUsageReporter } from "./entitlements-documents";
+import { createDocumentsOwnerDirectory } from "./people-documents";
+import { withMalwareScan } from "./storage-scan";
 import { createHigherCurriculumPort, createHigherEnrollmentDirectory } from "./academic-higher";
 import { createPayrollCurriculumLabelPort } from "./academic-payroll";
 import { createPeopleAcademicQuery } from "./academic-people";
@@ -65,7 +69,7 @@ import { createHigherInstitutionPort, createHigherSignatoryDirectory } from "./r
 import { createReportcardsResultsRead } from "./results-reportcards";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
-import { asAttendanceStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
+import { asAttendanceStorage, asDocumentsStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
 import { createAdapterKit, type AdapterKit } from "./kit";
 
 export { createAdapterKit, type AdapterKit, type AdapterKitInput } from "./kit";
@@ -86,6 +90,8 @@ export interface PlatformPorts {
   /** Sources des read-models de direction (025) : lectures de tenancy, academic, people, results, attendance, finance, payroll. */
   readonly analytics: AnalyticsSourcePorts;
   readonly messaging: Partial<MessagingPorts>;
+  /** Gestion documentaire (024) : stockage, annuaire des propriétaires (people, iam), antivirus et conversion (environnement), usage. */
+  readonly documents: Partial<DocumentsPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -93,6 +99,10 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
   const officialDocuments = createOfficialDocumentDeps(kit, storage, documents);
   const { academic, people, finance, attendance, scheduling, results, reportcards, assess, higher, rules, lookups, clock } = kit;
   const messagingDirectory = createMessagingPeopleDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock });
+  // Politique antivirus UNIQUE de la plateforme : `documents` l'applique avec quarantaine ; les autres modules qui stockent des
+  // fichiers (messagerie, photos, justificatifs) l'appliquent par enveloppe de leur vue de stockage (aucune modification de leur code).
+  const scan = scanPolicyFromEnv(kit.env, { warn: (m) => kit.logger.warn({}, m) });
+  const scanned = () => scan;
   return {
     academic: {
       students: createAcademicStudentDirectory(people),
@@ -106,7 +116,7 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
     },
     people: {
       academic: createPeopleAcademicQuery(academic),
-      ...(storage ? { storage: asPeopleStorage(storage) } : {}),
+      ...(storage ? { storage: withMalwareScan(asPeopleStorage(storage), scanned) } : {}),
     },
     finance: {
       learners: createFinanceLearnerDirectory(people),
@@ -127,7 +137,7 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
       periods: createAttendancePeriodPort(academic),
       occurrences: createAttendanceOccurrencePort(scheduling),
       people: createAttendancePeoplePort(people, lookups),
-      ...(storage ? { storage: asAttendanceStorage(storage) } : {}),
+      ...(storage ? { storage: withMalwareScan(asAttendanceStorage(storage), scanned) } : {}),
     },
     scheduling: {
       academic: createSchedulingAcademicQuery(academic),
@@ -170,7 +180,14 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
     messaging: {
       directory: messagingDirectory,
       audience: createMessagingAudienceDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock, directory: messagingDirectory }),
-      ...(storage ? { storage: asMessagingStorage(storage) } : {}),
+      ...(storage ? { storage: withMalwareScan(asMessagingStorage(storage), scanned) } : {}),
+    },
+    documents: {
+      owners: createDocumentsOwnerDirectory({ people, lookups, tenantDb: kit.tenantDb }),
+      usage: createDocumentsUsageReporter(kit.tenantDb),
+      scan,
+      converter: officeConverterFromEnv(kit.env),
+      ...(storage ? { storage: asDocumentsStorage(storage) } : {}),
     },
   };
 }
@@ -201,6 +218,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerHigherPorts(app, ports.higher);
   registerAnalyticsPorts(app, ports.analytics);
   registerMessagingPorts(app, ports.messaging);
+  registerDocumentsPorts(app, ports.documents);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -230,6 +248,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   registerSchedulingPorts(ports.scheduling);
   setAnalyticsWorkerPorts(ports.analytics);
   setMessagingWorkerPorts(ports.messaging);
+  setDocumentsWorkerPorts(ports.documents);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }

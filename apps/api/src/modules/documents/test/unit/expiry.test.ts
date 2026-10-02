@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { addDays, daysBetween, dueAlert, effectiveAlertDays, expiryStatus, isValidCalendarDay } from "../../domain/expiry";
 import { buildSearchText, checkOwnerCoherence, normalizeAlertDays, normalizeTags, quarantineStorageKey, versionStorageKey } from "../../domain/descriptors";
 import { DEFAULT_CATEGORIES } from "../../domain/default-categories";
-import { DOCUMENT_KINDS, DOCUMENT_SUPPORTED_EXTENSIONS } from "@ecoledigitale/contracts/src/v2/documents";
+import { DOCUMENT_KINDS, DOCUMENT_SUPPORTED_EXTENSIONS, DOCUMENTS_EVENTS } from "@ecoledigitale/contracts/src/v2/documents";
+import { DocumentsEvents } from "../../domain/events";
 
 describe("expiration", () => {
   it("jours calendaires, échéance incluse", () => {
@@ -79,5 +80,12 @@ describe("descripteurs", () => {
     for (const kind of DOCUMENT_KINDS) expect(DEFAULT_CATEGORIES.some((c) => c.kind === kind)).toBe(true);
     // le dossier médical est confidentiel et jamais lisible par l'élève lui-même
     expect(DEFAULT_CATEGORIES.find((c) => c.code === "STUDENT_MEDICAL")).toMatchObject({ confidentiality: "CONFIDENTIAL", audienceOwner: false });
+  });
+});
+
+describe("événements", () => {
+  it("les noms du domaine sont ceux des contrats, sans doublon", () => {
+    expect({ ...DocumentsEvents }).toEqual({ ...DOCUMENTS_EVENTS });
+    expect(new Set(Object.values(DocumentsEvents)).size).toBe(Object.values(DocumentsEvents).length);
   });
 });
