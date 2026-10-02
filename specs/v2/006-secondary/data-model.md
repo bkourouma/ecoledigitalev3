@@ -22,7 +22,7 @@ TEST_DATABASE_URL=postgres://… node specs/v2/006-secondary/ddl-test/run.mjs   
 | Acteur humain | Les actes réglementaires et disciplinaires (décision, résolution de proposition, signature, ouverture/clôture/annulation de séance, déverrouillage, mesure, validation, vérification d'affectation…) exigent `app.actor = 'user'` **et** un `app.user_id` : un job, une règle ou un super-administrateur « système » est **refusé par la base** (`*.human_decision_required` / `*.human_actor_required`). La personne enregistrée (`recorded_by`, `proposed_by`, `verified_by`…) est **toujours** l'utilisateur de la session, recopié par la base. |
 | Audit | Les cas d'usage sensibles appellent `audit.record(tx, …)` dans la même transaction (liste en spec §Audit). L'historique propre au module (`councils.events`, `schoollife.life_events`, `stateassign.assignment_events`) est **append-only**, alimenté par déclencheurs, indépendamment de l'audit. |
 | Événements | Écrits dans `kernel.domain_events` par `PgOutboxWriter(tx)` dans la transaction de la donnée (spec §Événements). |
-| Plages de migrations (proposées) | `councils` 1800-1899, `schoollife` 1900-1999, `stateassign` 2000-2099. Le générateur `pnpm module:new` attribue la plage définitive dans l'ordre de création ; **renuméroter les fichiers** si une autre spec (005, 007, 018) a pris la plage entre-temps (voir `plan.md` R-3). |
+| Plages de migrations | Attribuées dans `docs/architecture/module-conventions.md` : `councils` 2100-2199, **`schoollife` 2200-2299 (migrations 2200-2203, livrées)**, `stateassign` 2300-2399. Les anciens numéros proposés (1800 / 1900 / 2000) sont OBSOLÈTES. `ddl-test/` extrait les blocs `22xx` de ce document ; les migrations du module (`apps/api/src/modules/schoollife/migrations/`) en sont la copie exécutée (un test de synchronisation compare les deux). |
 
 ## 2. Vue d'ensemble
 
@@ -76,6 +76,7 @@ stateassign.assignments (versionné) ─< controls ; documents (références) ; 
 | | `convocations` | Convocations des tuteurs | 200 à 1 500 / an |
 | | `conduct_movements` | Registre des points | 1 par mesure ou encouragement valorisé |
 | | `life_events`, `confidential_reads` | Historique et lectures confidentielles | ≈ 3 lignes par événement ; lectures auditées |
+| | `measure_effects` | Effets d'une exclusion validée sur le statut de l'élève : toujours `AWAITING_HUMAN` jusqu'à l'acte d'un humain habilité (migration 2203) | 1 par exclusion validée |
 | `stateassign` | `settings` | Réglages d'établissement | 1 par établissement |
 | | `assignments` | Dossiers d'affectation (versionnés) | 0 à 100 % des élèves selon l'établissement |
 | | `controls`, `documents`, `assignment_events` | Contrôles, références de pièces, historique | ≈ 3 contrôles par an et par dossier |
@@ -1683,14 +1684,13 @@ CREATE TRIGGER council_types_no_delete BEFORE DELETE ON councils.council_types
 
 ### 5.6 `schoollife` — paramètres, types d'événements, barèmes de conduite
 
-<!-- migration: 1900_schoollife_reference.sql -->
+<!-- migration: 2200_schoollife_reference.sql -->
 ```sql
 -- =============================================================================
--- 1900 — Module schoollife : schéma, paramètres, types d'événements, barèmes de points de conduite
+-- 2200 — Module schoollife : schéma, paramètres, types d'événements, barèmes de points de conduite
 -- =============================================================================
 --
--- Plage de numéros proposée au module schoollife : 1900–1999 (plage définitive attribuée par
--- `pnpm module:new` dans l'ordre de création ; voir docs/architecture/module-conventions.md).
+-- Plage de numéros du module schoollife : 2200–2299 (docs/architecture/module-conventions.md).
 --
 -- Vie scolaire (PRD §34) : incidents, avertissements, sanctions, exclusions temporaires, encouragements,
 -- observations, convocations, points de conduite. Les retards et absences NE sont PAS dupliqués : ils
@@ -1873,15 +1873,15 @@ CREATE TABLE schoollife.conduct_scale_items (
   FOREIGN KEY (tenant_id, event_type_id) REFERENCES schoollife.event_types (tenant_id, id)
 );
 SELECT kernel.enable_tenant_rls('schoollife.conduct_scale_items');
-GRANT SELECT, INSERT, UPDATE, DELETE ON schoollife.conduct_scale_items TO app_user;   -- brouillon seulement (déclencheur 1902)
+GRANT SELECT, INSERT, UPDATE, DELETE ON schoollife.conduct_scale_items TO app_user;   -- brouillon seulement (déclencheur 2202)
 ```
 
 ### 5.7 `schoollife` — incidents, mesures, recours, notes, convocations, registre, historique
 
-<!-- migration: 1901_schoollife_records.sql -->
+<!-- migration: 2201_schoollife_records.sql -->
 ```sql
 -- =============================================================================
--- 1901 — Module schoollife : incidents, mesures, observations, convocations, points de conduite,
+-- 2201 — Module schoollife : incidents, mesures, observations, convocations, points de conduite,
 --        recours, historique, journal des lectures confidentielles
 -- =============================================================================
 --
@@ -2138,7 +2138,7 @@ CREATE UNIQUE INDEX conduct_movements_one_per_source ON schoollife.conduct_movem
 CREATE INDEX conduct_movements_by_student ON schoollife.conduct_movements (tenant_id, student_id, scale_id, academic_year_id);
 GRANT SELECT, INSERT ON schoollife.conduct_movements TO app_user;      -- append-only
 
--- Historique (ajout seul) : alimenté par les déclencheurs (1902) à chaque création et changement de statut.
+-- Historique (ajout seul) : alimenté par les déclencheurs (2202) à chaque création et changement de statut.
 CREATE TABLE schoollife.life_events (
   id          uuid PRIMARY KEY,
   tenant_id   uuid NOT NULL REFERENCES kernel.tenants (id),
@@ -2177,10 +2177,10 @@ GRANT SELECT, INSERT ON schoollife.confidential_reads TO app_user;      -- appen
 
 ### 5.8 `schoollife` — invariants imposés par la base
 
-<!-- migration: 1902_schoollife_guards.sql -->
+<!-- migration: 2202_schoollife_guards.sql -->
 ```sql
 -- =============================================================================
--- 1902 — Module schoollife : invariants imposés par la base
+-- 2202 — Module schoollife : invariants imposés par la base
 -- =============================================================================
 --
 -- Valables pour tout rôle, superutilisateur compris (déclencheurs) :
@@ -2194,16 +2194,23 @@ GRANT SELECT, INSERT ON schoollife.confidential_reads TO app_user;      -- appen
 
 -- -----------------------------------------------------------------------------
 -- Visibilité : QUI VOIT QUOI (source unique de la règle, appelée par les lectures des portails)
---   audience : 'GUARDIAN' ou 'STUDENT'
+--   audience : 'GUARDIAN' ou 'STUDENT' (familles) ; 'STAFF_STANDARD' | 'STAFF_RESTRICTED' | 'STAFF_CONFIDENTIAL'
+--              (personnel : l'habilitation découle des permissions schoollife.read / .restricted.read / .confidential.read,
+--              que l'application traduit en audience ; la PORTÉE — quelles classes — reste un contrôle d'application)
+--   personnel : voit tout élément dont la confidentialité n'excède pas son habilitation (STANDARD < RESTRICTED < CONFIDENTIAL)
 --   élément CONFIDENTIAL : jamais visible d'un tuteur ni d'un élève ; incident : jamais visible d'une famille ;
 --   mesure : visible une fois NOTIFIÉE (puis exécutée / en recours), si l'événement est partageable ;
 --   note : visibilité choisie par l'auteur (GUARDIANS ou STUDENT_AND_GUARDIANS) ; convocation : envoyée.
+--   audience inconnue : refus.
 -- -----------------------------------------------------------------------------
 CREATE FUNCTION schoollife.audience_may_see(
   p_audience text, p_kind text, p_confidentiality text, p_shareable boolean, p_status text, p_note_visibility text DEFAULT NULL
 ) RETURNS boolean
 LANGUAGE sql IMMUTABLE AS $$
-  SELECT CASE
+  SELECT coalesce(CASE
+    WHEN p_audience IN ('STAFF_STANDARD', 'STAFF_RESTRICTED', 'STAFF_CONFIDENTIAL') THEN
+      coalesce(schoollife.confidentiality_rank(p_confidentiality), 99)
+        <= CASE p_audience WHEN 'STAFF_STANDARD' THEN 1 WHEN 'STAFF_RESTRICTED' THEN 2 ELSE 3 END
     WHEN p_audience NOT IN ('GUARDIAN', 'STUDENT') THEN false
     WHEN p_confidentiality = 'CONFIDENTIAL' THEN false
     WHEN NOT coalesce(p_shareable, false) THEN false
@@ -2214,7 +2221,7 @@ LANGUAGE sql IMMUTABLE AS $$
       OR (p_audience = 'STUDENT' AND p_note_visibility = 'STUDENT_AND_GUARDIANS'))
     WHEN p_kind = 'CONVOCATION' THEN p_audience = 'GUARDIAN' AND p_status IN ('SENT', 'ACKNOWLEDGED', 'HELD', 'NO_SHOW', 'RESCHEDULED')
     ELSE false
-  END
+  END, false)  -- une donnée absente (NULL) vaut TOUJOURS refus
 $$;
 
 -- Solde de points de conduite : points initiaux + mouvements du périmètre de remise à zéro du barème, borné.
@@ -2807,6 +2814,114 @@ CREATE TRIGGER confidential_reads_guard BEFORE INSERT ON schoollife.confidential
   FOR EACH ROW EXECUTE FUNCTION schoollife.confidential_reads_guard();
 ```
 
+### 5.8 bis `schoollife` — effets d'une exclusion temporaire (toujours en attente d'un humain)
+
+<!-- migration: 2203_schoollife_effects.sql -->
+```sql
+-- =============================================================================
+-- 2203 — Module schoollife : effets d'une exclusion temporaire (toujours en attente d'un HUMAIN)
+-- =============================================================================
+--
+-- Une exclusion temporaire VALIDÉE ne change JAMAIS d'elle-même le statut de l'élève (suspension) dans `people` :
+-- la base crée un effet `STUDENT_STATUS_REQUEST` en `AWAITING_HUMAN`. Il ne passe `APPLIED` que par l'acte d'un utilisateur
+-- identifié et habilité (`applied_by` posé par la base, un job ou le système est refusé) ; il peut être écarté
+-- (`SKIPPED`, motivé) ou, une fois appliqué, annulé (`REVERTED`, motivé) par un humain. La révocation ou l'annulation de la
+-- mesure écarte l'effet encore en attente. Même schéma que `councils.effects` (spec 006, R-C8).
+-- =============================================================================
+
+CREATE TABLE schoollife.measure_effects (
+  id             uuid PRIMARY KEY,
+  tenant_id      uuid NOT NULL REFERENCES kernel.tenants (id),
+  measure_id     uuid NOT NULL,
+  student_id     uuid NOT NULL,
+  effect_kind    text NOT NULL CHECK (effect_kind IN ('STUDENT_STATUS_REQUEST')),
+  status         text NOT NULL DEFAULT 'AWAITING_HUMAN' CHECK (status IN ('AWAITING_HUMAN', 'APPLIED', 'FAILED', 'SKIPPED', 'REVERTED')),
+  applied_status text CHECK (applied_status IS NULL OR applied_status IN ('SUSPENDED', 'EXCLUDED')),   -- statut `people` choisi par l'humain
+  attempts       integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  last_error     text,
+  applied_at     timestamptz,
+  applied_by     uuid,
+  skipped_reason text,
+  reverted_at    timestamptz,
+  reverted_by    uuid,
+  revert_reason  text,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, id),
+  FOREIGN KEY (tenant_id, measure_id) REFERENCES schoollife.measures (tenant_id, id),
+  CHECK (status <> 'APPLIED' OR (applied_at IS NOT NULL AND applied_by IS NOT NULL AND applied_status IS NOT NULL)),
+  CHECK (status <> 'SKIPPED' OR length(btrim(coalesce(skipped_reason, ''))) >= 5),
+  CHECK (status <> 'REVERTED' OR (reverted_by IS NOT NULL AND length(btrim(coalesce(revert_reason, ''))) >= 5))
+);
+SELECT kernel.enable_tenant_rls('schoollife.measure_effects');
+CREATE UNIQUE INDEX measure_effects_one_live ON schoollife.measure_effects (tenant_id, measure_id, effect_kind) WHERE status IN ('AWAITING_HUMAN', 'APPLIED', 'FAILED');
+CREATE INDEX measure_effects_open ON schoollife.measure_effects (tenant_id, status, created_at) WHERE status IN ('AWAITING_HUMAN', 'FAILED');
+GRANT SELECT, INSERT, UPDATE ON schoollife.measure_effects TO app_user;
+
+CREATE FUNCTION schoollife.measure_effects_guard() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_user uuid;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'schoollife.immutable: un effet ne se supprime pas (l''écarter avec un motif)' USING ERRCODE = 'restrict_violation';
+  END IF;
+  v_user := schoollife.require_human_actor();
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status <> 'AWAITING_HUMAN' THEN
+      RAISE EXCEPTION 'schoollife.human_application_required: cet effet naît en attente d''un humain habilité' USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF NEW.measure_id <> OLD.measure_id OR NEW.student_id <> OLD.student_id OR NEW.effect_kind <> OLD.effect_kind THEN
+    RAISE EXCEPTION 'schoollife.effect_identity_immutable' USING ERRCODE = 'restrict_violation';
+  END IF;
+  NEW.updated_at := now();
+  IF NEW.status = OLD.status THEN
+    -- tentative échouée : seuls compteur et dernière erreur évoluent
+    IF NEW.applied_status IS DISTINCT FROM OLD.applied_status OR NEW.applied_by IS DISTINCT FROM OLD.applied_by THEN
+      RAISE EXCEPTION 'schoollife.effect_frozen' USING ERRCODE = 'restrict_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF NOT ((OLD.status, NEW.status) IN (
+        ('AWAITING_HUMAN', 'APPLIED'), ('AWAITING_HUMAN', 'SKIPPED'), ('AWAITING_HUMAN', 'FAILED'),
+        ('FAILED', 'APPLIED'), ('FAILED', 'SKIPPED'), ('APPLIED', 'REVERTED'))) THEN
+    RAISE EXCEPTION 'schoollife.effect_transition: % -> % interdit', OLD.status, NEW.status USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF NEW.status = 'APPLIED' THEN
+    NEW.applied_by := v_user;
+    NEW.applied_at := now();
+  ELSIF NEW.status = 'REVERTED' THEN
+    NEW.reverted_by := v_user;
+    NEW.reverted_at := now();
+  END IF;
+  RETURN NEW;
+END
+$$;
+CREATE TRIGGER measure_effects_guard BEFORE INSERT OR UPDATE OR DELETE ON schoollife.measure_effects
+  FOR EACH ROW EXECUTE FUNCTION schoollife.measure_effects_guard();
+
+-- Une exclusion temporaire validée crée l'effet en attente d'un humain ; la révocation / l'annulation de la mesure écarte
+-- l'effet encore en attente (jamais un effet déjà appliqué : il se lève par un acte humain).
+CREATE FUNCTION schoollife.measures_effects_after() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.kind = 'TEMP_EXCLUSION' AND NEW.status = 'VALIDATED' AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'VALIDATED') THEN
+    INSERT INTO schoollife.measure_effects (id, tenant_id, measure_id, student_id, effect_kind)
+    VALUES (gen_random_uuid(), NEW.tenant_id, NEW.id, NEW.student_id, 'STUDENT_STATUS_REQUEST');
+  ELSIF TG_OP = 'UPDATE' AND NEW.status IN ('REVOKED', 'CANCELLED') AND OLD.status IS DISTINCT FROM NEW.status THEN
+    UPDATE schoollife.measure_effects
+       SET status = 'SKIPPED', skipped_reason = 'Mesure ' || CASE NEW.status WHEN 'REVOKED' THEN 'révoquée' ELSE 'annulée' END
+     WHERE tenant_id = NEW.tenant_id AND measure_id = NEW.id AND status IN ('AWAITING_HUMAN', 'FAILED');
+  END IF;
+  RETURN NEW;
+END
+$$;
+CREATE TRIGGER measures_effects_after AFTER INSERT OR UPDATE ON schoollife.measures
+  FOR EACH ROW EXECUTE FUNCTION schoollife.measures_effects_after();
+```
+
 ### 5.9 `stateassign` — dossiers d'affectation, contrôles, documents
 
 <!-- migration: 2000_stateassign_init.sql -->
@@ -3260,7 +3375,7 @@ CREATE TRIGGER documents_guard BEFORE INSERT OR UPDATE OR DELETE ON stateassign.
 
 | Invariant | Base | Domaine (TypeScript) | Test |
 |---|---|---|---|
-| Isolation par tenant, FK composites | RLS forcée, `kernel.enable_tenant_rls`, FK `(tenant_id, id)` | `TenantDb` uniquement | `councils` : isolation et droits ; test d'isolation générique de la plateforme (37 tables, allowlists vides) |
+| Isolation par tenant, FK composites | RLS forcée, `kernel.enable_tenant_rls`, FK `(tenant_id, id)` | `TenantDb` uniquement | `councils` : isolation et droits ; test d'isolation générique de la plateforme (38 tables, allowlists vides) |
 | Aucune décision sans humain | `require_human_actor` dans chaque garde ; `recorded_by` = `kernel.current_user_id()` | refus 403 `*.human_decision_required` avant même la requête | acteur `system` / `superAdmin` refusé sur ouverture, décision, résolution, signature, mesure, vérification |
 | Décideur présent et habilité | `decisions_guard` (présence, `can_decide`, appartenance à la séance) | contrôle de rôle d'`rbac` (`council.decision.record`) | « le décideur est un participant PRÉSENT et habilité » |
 | Écart avec la suggestion justifié | CHECK ≥ 20 caractères | affichage de la suggestion | « écart avec la suggestion de la règle… » |
@@ -3387,4 +3502,4 @@ Partitionnement : non nécessaire en V1 (< 100 000 lignes par table et par an) ;
 
 ## 12. Tests de comportement (exécutés)
 
-`ddl-test/` : `harness.mjs` (base dédiée par fichier, baseline réelle `packages/database/migrations/0001-0003`, migrations extraites de ce document, exécution sous `app_user`), `councils.test.mjs` (45), `schoollife.test.mjs` (28), `stateassign.test.mjs` (12). Correspondance avec les critères de la spec : AC1.x (préparation, hash des faits), AC2.x (quorum, président, rôles), AC3.x (propositions, décisions, humain décideur), AC4.x (clôture, PV, signatures), AC5.x (déverrouillage motivé), AC6.x (effets, exclusion humaine), AC7.x (orientation), AC8.x (mesures, recours, convocations), AC9.x (barèmes, solde), AC10.x (affectation, rapprochement, contrôles) — voir `spec.md` §4 pour le détail. Le test d'isolation générique de la plateforme (`pnpm test:isolation`) s'applique aux 37 tables (18 + 14 + 5) avec trois allowlists vides.
+`ddl-test/` : `harness.mjs` (base dédiée par fichier, baseline réelle `packages/database/migrations/0001-0003`, migrations extraites de ce document, exécution sous `app_user`), `councils.test.mjs` (45), `schoollife.test.mjs` (28), `stateassign.test.mjs` (12). Correspondance avec les critères de la spec : AC1.x (préparation, hash des faits), AC2.x (quorum, président, rôles), AC3.x (propositions, décisions, humain décideur), AC4.x (clôture, PV, signatures), AC5.x (déverrouillage motivé), AC6.x (effets, exclusion humaine), AC7.x (orientation), AC8.x (mesures, recours, convocations), AC9.x (barèmes, solde), AC10.x (affectation, rapprochement, contrôles) — voir `spec.md` §4 pour le détail. Le test d'isolation générique de la plateforme (`pnpm test:isolation`) s'applique aux 38 tables (18 + 15 + 5) avec trois allowlists vides.

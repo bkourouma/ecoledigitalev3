@@ -52,7 +52,7 @@ T6-GUARDS (lints, tests de contenu) ─► T6-E2E ─► T6-CLEAN (indicateur «
 - **À savoir** : les gardes exigent un **acteur humain** (`app.actor = 'user'` + `app.user_id`) ; le contrôle comportemental du test générique ne fabrique pas ce contexte et rapportera donc « structure seule » (jamais « testée ») pour les tables à garde, sans échec. Le contrôle **structurel** (tenant_id, RLS forcée, policy unique, index) est complet (`structuralIsolationViolations` du harnais le rejoue) et la preuve A/B est apportée par les tests propres du module.
 
 ### T6-DB-V — Module `schoollife` : migrations (S)
-- **Fichiers** : `modules/schoollife/migrations/1900-1902_*.sql`, allowlist vide, plage dans `module-conventions.md`.
+- **Fichiers** : `modules/schoollife/migrations/2200-2203_*.sql`, allowlist vide, plage dans `module-conventions.md`.
 - **Fin** : 14 tables, tests de `schoollife.test.mjs` portés ; fonctions `audience_may_see` et `conduct_balance` couvertes.
 
 ### T6-DB-S — Module `stateassign` : migrations (S)
@@ -178,7 +178,7 @@ Aucune simulation silencieuse en production (plan §3.11-3.12) ; les implémenta
 |---|---|---|
 | R-1 | **Textes officiels indisponibles** (composition et quorum du conseil, passage, redoublement, orientation, BEPC/BAC, discipline, affectation) | Mécanisme + jeu `placeholder` ; aucune valeur réglementaire par défaut ; liste de collecte `regulatory-sources-needed.md` ; un RuleSet `regulation` n'est écrit qu'avec texte **et** exemple chiffré validé par un référent |
 | R-2 | Confusion entre jeu fictif et règlement | Mention imprimée sur PV, résultats, bulletins ; avertissement bloquant à la première séance ; marquage `placeholder` des types, barèmes, modèles |
-| R-3 | **Collision de plages de migrations** avec 005, 007, 018 (plage 1800+ libre à ce jour) | Plages 1800/1900/2000 **proposées** ; `pnpm module:new` attribue dans l'ordre ; renuméroter les fichiers `*.sql` à la pose si nécessaire (le contenu est indépendant des numéros) ; ligne dans `module-conventions.md` dans la même PR |
+| R-3 | **Collision de plages de migrations** avec 005, 007, 018 (RÉSOLU : plages attribuées dans `module-conventions.md` — councils 2100, schoollife 2200, stateassign 2300) | Plages 1800/1900/2000 **proposées à l'origine, obsolètes** ; `pnpm module:new` attribue dans l'ordre ; renuméroter les fichiers `*.sql` à la pose si nécessaire (le contenu est indépendant des numéros) ; ligne dans `module-conventions.md` dans la même PR |
 | R-4 | Écriture de `results.decisions` par un autre module (changement d'un contrat de 011) | Demande formalisée (§7.4 de la spec) ; port étroit ; tests de contrat ; `results` reste seule source lue par `academic` |
 | R-5 | Reproductibilité du hash `jsonb::text` d'une version de PostgreSQL à l'autre | Le hash est **calculé par la base** et vérifié par le job d'intégrité nocturne ; un test fige des vecteurs ; fonction de repli `canonical_json` de 013 envisageable si le format changeait (migration de rejeu) |
 | R-6 | Pic de rendu PDF en fin de période (tous les PV et bulletins) | File équitable par tenant (013) ; PV légers ; rendu asynchrone ; signature possible avant rendu |

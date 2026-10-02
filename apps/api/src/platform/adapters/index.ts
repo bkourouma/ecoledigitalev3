@@ -45,6 +45,7 @@ import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorker
 import { createOfficialDocumentDeps, type OfficialDocumentDepsOptions } from "./official-documents";
 import { registerResultsPorts, setResultsWorkerPorts, type ResultsPorts } from "../../modules/results";
 import { registerSchedulingPorts } from "../../modules/scheduling";
+import { registerSchoolLifePorts, type SchoolLifePorts } from "../../modules/schoollife";
 import type { ModuleRuntime, RuntimeAuditPort } from "../runtime";
 import { createAcademicCompletionLookup, createAcademicScheduleChecker, createAcademicUsageGuard } from "./academic-guards";
 import { createAnalyticsSources } from "./analytics-sources";
@@ -103,6 +104,10 @@ import { createAdmissionsRegistrationFees } from "./admissions-finance";
 import { createAdmissionsApplicantNotifier } from "./admissions-notifier";
 import { createAdmissionsActorDirectory, createAdmissionsStudentRegistry } from "./admissions-people";
 import { createAdmissionsWriteEnv } from "./admissions-support";
+import { createSchoollifeEnrollmentPort, createSchoollifePeriodPort } from "./academic-schoollife";
+import { createSchoollifeAttendanceView } from "./attendance-schoollife";
+import { createSchoollifeNotificationPort, createSchoollifeNotificationsDeps } from "./notifications-schoollife";
+import { createSchoollifePeoplePort, createSchoollifeStudentStatusPort } from "./people-schoollife";
 
 export { createAdapterKit, type AdapterKit, type AdapterKitInput } from "./kit";
 export { createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
@@ -134,6 +139,8 @@ export interface PlatformPorts {
   readonly primary_school: Partial<PrimarySchoolPorts>;
   /** Admissions (007) : élève INACTIF, tuteurs, doublons (people), inscription (academic), facture (finance), catalogue, pièces, notifications. */
   readonly admissions: Partial<AdmissionsPorts>;
+  /** Vie scolaire (006) : inscriptions et périodes (academic), tuteurs et périmètre (people), vue d'assiduité (attendance), information des tuteurs (notifications), statut d'élève (people). */
+  readonly schoollife: Partial<SchoolLifePorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -154,6 +161,7 @@ export function buildPlatformPorts(
   const primaryAttendance = createPrimaryAttendancePort({ attendance, academic });
   // Admissions : écriture par les cas d'usage publics de people, academic, finance (avec le VRAI audit), dans la transaction du module.
   const admissionsEnv = createAdmissionsWriteEnv(kit, () => base, extras.audit);
+  const schoollifePeople = createSchoollifePeoplePort(people, academic, lookups);
   const base: Omit<PlatformPorts, "imports" | "examinations"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
@@ -278,6 +286,14 @@ export function buildPlatformPorts(
       // Canal de notification : le module notifications est un chantier distinct (échec fermé documenté dans admissions-notifier.ts).
       notifier: createAdmissionsApplicantNotifier(null),
     },
+    schoollife: {
+      enrollments: createSchoollifeEnrollmentPort(academic),
+      periods: createSchoollifePeriodPort(academic),
+      people: schoollifePeople,
+      attendance: createSchoollifeAttendanceView(attendance),
+      notifications: createSchoollifeNotificationPort(createSchoollifeNotificationsDeps(kit), schoollifePeople),
+      studentStatus: createSchoollifeStudentStatusPort(people),
+    },
   };
   // Imports (031) : écriture par les cas d'usage publics des modules cibles, avec le VRAI audit (l'API : `runtime.auditPort` ;
   // le worker : le service d'audit du processus). Sans audit fourni (tests ciblés), l'audit est no-op.
@@ -344,6 +360,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerNotificationsPorts(app, ports.notifications);
   registerExaminationsPorts(app, ports.examinations);
   registerAdmissionsPorts(app, ports.admissions);
+  registerSchoolLifePorts(app, ports.schoollife);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }

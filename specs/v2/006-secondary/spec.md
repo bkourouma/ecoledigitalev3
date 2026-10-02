@@ -26,7 +26,7 @@
 
 ### Inclus
 
-- Modules **`councils`** (schéma `councils`, migrations 1800-1804), **`schoollife`** (schéma `schoollife`, 1900-1902), **`stateassign`** (schéma `stateassign`, 2000-2001) : 37 tables, DDL et gardes de `data-model.md`.
+- Modules **`councils`** (schéma `councils`, migrations 1800-1804), **`schoollife`** (schéma `schoollife`, **2200-2203**, plage attribuée 2200-2299), **`stateassign`** (schéma `stateassign`, 2000-2001) : 38 tables, DDL et gardes de `data-model.md`.
 - Modèles de pack `SECONDARY` pour les sections `councils` et `schoollife` (génériques, marqués de démonstration), RuleSet `CI-SECONDARY-PLACEHOLDER` (§6.4), exigences vers `academic`, `results`, `rules`, `reportcards`, `people`, `messaging`, `rbac`, `tenancy` (§7.4).
 - API `/api/v1/councils`, `/api/v1/schoollife`, `/api/v1/stateassign` (contrats Zod `packages/contracts/src/v2/{councils,schoollife,stateassign}.ts`), écrans (portails admin, enseignant, éducateur, parent, élève), événements, abonnés et jobs, permissions et features.
 - Ports : lecture des résultats / absences / discipline, écriture des effets (`results`, `academic`, `people`), notifications, rendu de documents, finance, passerelle État (§7.3).
@@ -190,6 +190,7 @@ En tant qu'éducateur, je déclare un incident, je propose une mesure ; en tant 
 - **AC8.8** **Convocations** : `DRAFT → SENT → ACKNOWLEDGED → HELD` (ou `NO_SHOW`, `CANCELLED`, `RESCHEDULED`) ; l'envoi passe par `messaging` (`notification_ref`) ; l'accusé de réception vient d'un **tuteur convoqué** (`acknowledged_by_guardian_id` ∈ destinataires) ; destinataires et motif sont figés après l'envoi ; un report crée une nouvelle convocation qui référence l'ancienne ; un rappel (job) est envoyé avant l'échéance si le tenant l'a activé.
 - **AC8.9** **Historique** : chaque création et chaque changement de statut écrit une ligne de `life_events` **par la base** (acteur, motif), en ajout seul ; la lecture d'un élément `CONFIDENTIAL` écrit une ligne de `confidential_reads` (lecteur = utilisateur de la session, motif ≥ 5 caractères) **avant** de renvoyer le contenu.
 - **AC8.10** **Aucun seuil ni équivalence** (« 3 retards = 1 absence ») n'est codé : des comptages et des alertes **paramétrables** (`attendance.alert.triggered` peut proposer une convocation que l'éducateur confirme) ; le pack n'invente aucune sanction automatique.
+- **AC8.12** **Effets d'une exclusion** : la validation d'une exclusion temporaire crée (déclencheur) un effet `STUDENT_STATUS_REQUEST` en `AWAITING_HUMAN` (`measure_effects`) ; il ne passe `APPLIED` que par l'acte d'un utilisateur habilité (`schoollife.exclusion.apply`, `applied_by` posé par la base, un job ou le système est refusé) qui appelle `people.changeStudentStatus` ; la révocation ou l'annulation de la mesure écarte l'effet en attente ; un effet appliqué se lève par un acte humain motivé.
 - **AC8.11** Les **retards et absences** sont affichés dans la fiche de vie scolaire par **lecture** d'`attendance` (`getAttendanceSummary`, `listAbsences`) ; le pack ne les stocke pas.
 
 ### US9 — Points de conduite : barèmes en paramètres (P2)
@@ -226,7 +227,7 @@ En tant que directeur des études, je prépare les candidats BEPC et BAC avec le
 
 ### US12 — Portails : parents, élèves, enseignants ; confidentialité (P1)
 
-- **AC12.1** **Source unique de « qui voit quoi »** : la fonction SQL `schoollife.audience_may_see` (testée sur une table de vérité de 19 cas) est celle des lectures de portail : jamais un élément `CONFIDENTIAL` ; jamais un incident brut ; une mesure est visible **après notification** si l'événement est partageable ; une note selon la visibilité choisie par son auteur ; une convocation une fois envoyée ; un élève ne voit que ce que la politique de l'établissement lui ouvre.
+- **AC12.1** **Source unique de « qui voit quoi »** : la fonction SQL `schoollife.audience_may_see` (testée sur une table de vérité de 19 cas, puis sur TOUT l'espace des arguments contre un miroir pur) est celle de TOUTES les lectures — portails ET personnel : les audiences `STAFF_STANDARD`, `STAFF_RESTRICTED`, `STAFF_CONFIDENTIAL` traduisent l'habilitation (`schoollife.restricted.read`, `schoollife.confidential.read`) ; une donnée absente (NULL) vaut refus. Pour les familles : jamais un élément `CONFIDENTIAL` ; jamais un incident brut ; une mesure est visible **après notification** si l'événement est partageable ; une note selon la visibilité choisie par son auteur ; une convocation une fois envoyée ; un élève ne voit que ce que la politique de l'établissement lui ouvre.
 - **AC12.2** Le tuteur voit les **décisions du conseil de son enfant** selon `guardian_visibility` (`NEVER`, `AFTER_SIGNATURE`, `AFTER_NOTIFICATION` : défaut) : jamais le détail des autres élèves, jamais les suggestions de règles, jamais les justifications internes ni les votes.
 - **AC12.3** Un **enseignant** voit la vie scolaire des élèves de **ses classes** (lien d'affectation vérifié par `people`, comme `student.class.read`), au niveau `STANDARD` ; `RESTRICTED` et `CONFIDENTIAL` exigent des permissions dédiées (`schoollife.restricted.read`, `schoollife.confidential.read` sensible, journalisée).
 - **AC12.4** Le tuteur lit uniquement les données des enfants avec lesquels il a un lien vivant (`people.isGuardianOfStudent`, revérifié à chaque lecture) ; hors lien : `404`, jamais `403`.
@@ -288,12 +289,12 @@ En tant que directeur des études, je prépare les candidats BEPC et BAC avec le
 
 ## 6. Modèle de données
 
-Voir `data-model.md` (37 tables, DDL testé). Plages de migrations proposées : `councils` 1800-1804, `schoollife` 1900-1902, `stateassign` 2000-2001.
+Voir `data-model.md` (38 tables, DDL testé). Plages attribuées (`module-conventions.md`) : `councils` 2100-2199, `schoollife` 2200-2299 (livrées : 2200-2203), `stateassign` 2300-2399 ; les numéros 1800 / 1900 / 2000 de la première rédaction sont obsolètes.
 
 | Schéma | Tables |
 |---|---|
 | `councils` (18) | `participant_roles`, `council_types`, `decision_types`, `settings`, `councils`, `participants`, `agenda_items`, `proposals`, `decisions`, `effects`, `minutes`, `minute_signatures`, `unlock_requests`, `events`, `orientation_paths`, `orientation_files`, `orientation_wishes`, `series_transfers` |
-| `schoollife` (14) | `settings`, `severity_levels`, `event_types`, `conduct_scales`, `conduct_scale_items`, `incidents`, `incident_involvements`, `measures`, `measure_appeals`, `notes`, `convocations`, `conduct_movements`, `life_events`, `confidential_reads` |
+| `schoollife` (15) | `settings`, `severity_levels`, `event_types`, `conduct_scales`, `conduct_scale_items`, `incidents`, `incident_involvements`, `measures`, `measure_appeals`, `notes`, `convocations`, `conduct_movements`, `life_events`, `confidential_reads`, `measure_effects` |
 | `stateassign` (5) | `settings`, `assignments`, `controls`, `documents`, `assignment_events` |
 
 ### 6.1 Cycle de vie d'une séance
@@ -425,7 +426,10 @@ Préfixes `/api/v1/councils`, `/api/v1/schoollife`, `/api/v1/stateassign` (plugi
 | GET / POST | `/conduct-scales` ; PUT `/conduct-scales/:id/items` ; POST `/conduct-scales/:id/{activate,retire}` | Barèmes | `schoollife.conduct.manage` (activation sensible) |
 | GET / POST | `/students/:id/conduct` ; `/conduct-movements` | Solde dérivé ; ajustement manuel | `schoollife.read` ; `schoollife.conduct.adjust` (sensible) |
 | GET | `/students/:id/life`, `/classrooms/:id/summary`, `/students/:id/absences` | Fiche de vie scolaire (avec **vue** d'`attendance`), synthèse de classe | `schoollife.read` (périmètre de classe pour un enseignant) |
-| GET | `/me/life`, `/children/:studentId/life` | Portails (règle `audience_may_see`) | `schoollife.self.read` / `schoollife.child.read` + lien |
+| GET | `/me/life`, `/me/children`, `/children/:studentId/life` | Portails (règle `audience_may_see`) | `schoollife.self.read` / `schoollife.child.read` + lien |
+| GET / POST | `/measure-effects` ; POST `/measure-effects/:id/{apply,skip,revert}` | Effets d'une exclusion sur le statut de l'élève : toujours en attente d'un humain | `schoollife.exclusion.apply` (sensible) |
+| POST / GET | `/confidential-reads` | Lecture d'un élément confidentiel (motif, journalisée) / journal des lectures | `schoollife.confidential.read` / `schoollife.confidential.audit` (sensibles) |
+| GET | `/dashboard` | Tableau de bord (comptages et files, bornés par l'habilitation) | `schoollife.read.all` |
 
 ### 8.3 `stateassign`
 
@@ -500,6 +504,10 @@ Accessibilité et mobile : tables à défilement, actions principales utilisable
 | `schoollife.conduct.adjust` | Ajustement manuel de points | **oui** |
 | `schoollife.settings.manage` | Types d'événements, gravités, réglages | oui |
 | `schoollife.self.read` / `schoollife.child.read` | Vie scolaire partageable de l'élève / de ses enfants | |
+| `schoollife.read.all` | Lire la vie scolaire de TOUS les élèves (niveau standard) ; sans elle `schoollife.read` ne couvre que les classes de l'enseignant | |
+| `schoollife.exclusion.apply` | Appliquer, écarter ou lever l'effet d'une exclusion sur le statut de l'élève (acte humain) | **oui** |
+| `schoollife.confidential.audit` | Consulter le journal des lectures confidentielles | **oui** |
+| `schoollife.self.appeal` / `schoollife.child.appeal` / `schoollife.child.acknowledge` | Recours de l'élève / du parent ; accusé de réception d'une convocation | |
 | `stateassign.read` | Consulter les dossiers d'affectation | |
 | `stateassign.record` | Enregistrer un dossier | |
 | `stateassign.verify` | Vérifier ou rejeter un dossier | **oui** |
@@ -530,8 +538,10 @@ Features (`manifest.features`, packs `SECONDARY`) : `councils.core`, `councils.o
 | `schoollife.measure.proposed` / `validated` / `notified` / `executed` / `revoked` / `rejected` / `cancelled` | mesures | 016 (famille), 010 (exclusion), 025, `councils` (information) |
 | `schoollife.appeal.filed` / `decided` | recours | direction, 016 |
 | `schoollife.note.created` / `withdrawn` | notes | 025 |
-| `schoollife.convocation.sent` / `acknowledged` / `held` / `no_show` / `cancelled` | convocations | 016, direction |
+| `schoollife.convocation.sent` / `acknowledged` / `held` / `missed` / `cancelled` (`missed` remplace `no_show` : le catalogue des événements impose un participe passé) | convocations | 016, direction |
 | `schoollife.conduct.movement_recorded` | points | 025 |
+| `schoollife.exclusion_effect.requested` / `applied` / `skipped` / `reverted` | effets d'une exclusion sur le statut de l'élève (`AWAITING_HUMAN` -> acte humain) | direction (cloche), audit |
+| `schoollife.confidential.accessed` | lecture d'un élément confidentiel (identifiants seulement, jamais le contenu) | direction, audit |
 | `stateassign.assignment.received` / `verified` / `activated` / `suspended` / `ended` / `superseded` / `rejected` | dossiers | 014, `academic` (financement), 016, 025 |
 | `stateassign.control.due` / `performed` / `anomaly_detected` | contrôles | économe, direction |
 | `stateassign.reconciliation.discrepancy` | rapprochement | économe |
@@ -541,7 +551,7 @@ Consommés : `results.period.locked|deliberated|closed|reopened` (alerte « cons
 ## 12. Tests
 
 - **Comportement du DDL (exécuté)** : `ddl-test/` — 85 tests sur PostgreSQL 17 (acteur humain, quorum, signatures, déverrouillage, séparation des tâches, exclusions sans chevauchement, barèmes, rapprochement, RLS, concurrence). Bloquant.
-- **Isolation générique (spec 000, bloquant)** : 37 tables, trois allowlists vides.
+- **Isolation générique (spec 000, bloquant)** : 38 tables, trois allowlists vides.
 - **Unitaires purs (Vitest)** : machines d'états (séance, mesure, recours, convocation, barème, affectation, effets) en miroir de la base (test de parité SQL ↔ domaine), règle `audience_may_see`, calcul de solde de conduite (miroir de `conduct_balance`), construction de l'instantané `council-facts/1` (aucun flottant ; aucun calcul), construction du PV (snapshot déterministe, aucun flottant, mention `placeholder`), mapping décision → effets, validation des types de décision (codes permis par le contrat), génération des participants proposés.
 - **Intégration (Postgres jetable, `TEST_DATABASE_URL`)** : parcours complet **préparer → convoquer → ouvrir → décider → clore → PV → signer → effets → réouverture motivée → reclôture (version 2)** ; concurrence (deux signataires, deux créations de conseil, deux validations d'exclusions chevauchantes) ; adaptateurs réels `results`, `academic`, `people`, `attendance`.
 - **Contrat de ports** : `ResultsWritePort`, `EnrollmentOutcomePort`, `FinancePort`, `NotificationPort`, `DocumentRenderPort` compilés contre les adaptateurs ; schémas Zod des événements.
@@ -587,7 +597,7 @@ Consommés : `results.period.locked|deliberated|closed|reopened` (alerte « cons
 
 La spec est terminée lorsque :
 
-1. Les migrations 1800-1804, 1900-1902, 2000-2001 s'appliquent de zéro avec `migrator` ; le test d'isolation générique passe sur les **37 tables** avec deux tenants (zéro fuite) ; les trois allowlists sont vides ; les **85 tests de comportement** passent.
+1. Les migrations 2100-21xx (councils), 2200-2203 (schoollife), 2300-23xx (stateassign) s'appliquent de zéro avec `migrator` ; le test d'isolation générique passe sur les **38 tables** avec deux tenants (zéro fuite) ; les trois allowlists sont vides ; les **85 tests de comportement** passent.
 2. Un conseil de test parcourt **préparation → convocation → ouverture → décisions → clôture → PV → signatures → effets** : la décision de passage ou de redoublement apparaît dans `results.decisions`, l'issue dans `academic`, l'appréciation générale dans `results.appreciations` ; un acteur système ne peut ni décider, ni signer, ni appliquer une exclusion (tests sur les trois).
 3. Un conseil signé est rouvert par une demande motivée approuvée par une autre personne ; le PV est remplacé (version 2) ; un effet appliqué bloque la réouverture tant qu'il n'est pas annulé.
 4. Le PV est rendu par le worker depuis son snapshot ; le hash recalculé par la base égale le hash stocké pour 100 % des PV de test ; deux signatures simultanées donnent `SIGNED`.

@@ -101,7 +101,7 @@
 | D6-17 | Passerelle de l'État = **port** avec adaptateur `NotConfigured` ; `source` et empreinte d'échange déjà prévues | PRD §20 : couche d'intégration future |
 | D6-18 | Retards et absences : **vue** d'`attendance`, aucune copie ni équivalence | Une seule source de présence |
 | D6-19 | Jeu de règles **`CI-SECONDARY-PLACEHOLDER`** (copie de démonstration de `CI-CLASSIC-SEMESTRE`) + contrat demandé `secondary-annual@1` ; valeur `placeholder` demandée à 012 | Mécanisme + jeu fictif, mention imprimée |
-| D6-20 | Plages de migrations **proposées** 1800 / 1900 / 2000 | Prochaines plages libres du tableau de `module-conventions.md` ; à renuméroter si 005/007/018 les prennent |
+| D6-20 | Plages de migrations : **attribuées** (councils 2100, schoollife 2200, stateassign 2300) ; les numéros 1800 / 1900 / 2000 de la première rédaction sont obsolètes | Prochaines plages libres du tableau de `module-conventions.md` ; à renuméroter si 005/007/018 les prennent |
 | D6-21 | `effects_trigger = SIGNED`, `guardian_visibility = AFTER_NOTIFICATION`, `require_separate_unlocker = true`, `allow_quorum_waiver = true`, `require_separate_verifier = true` (défauts réglables) | Défauts prudents ; aucun n'est une règle officielle |
 | D6-22 | `retention_days = NULL` | Aucune durée légale codée (Q6-17) |
 
