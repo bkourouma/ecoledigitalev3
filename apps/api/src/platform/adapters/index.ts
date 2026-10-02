@@ -70,6 +70,12 @@ import { createReportcardsResultsRead } from "./results-reportcards";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
 import { asAttendanceStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
+import { registerPrimarySchoolPorts, setPrimarySchoolWorkerPorts, type PrimarySchoolPorts } from "../../modules/primary_school";
+import { createPrimaryClassroomPort, createPrimaryOutcomePort, createPrimaryPeriodStatePort } from "./academic-primary";
+import { createPrimaryGuardianshipPort, createPrimaryTeachingPort } from "./people-primary";
+import { createPrimaryResultsPort, createPrimaryRulesPort } from "./results-primary";
+import { createPrimaryAttendancePort } from "./attendance-primary";
+import { createPrimaryDocumentsPort } from "./reportcards-primary";
 import { createAdapterKit, type AdapterKit } from "./kit";
 import { createClassroomsImportPort, createCurriculumImportPort } from "./imports-academic";
 import { createGradesImportPort } from "./imports-assess";
@@ -97,6 +103,8 @@ export interface PlatformPorts {
   readonly messaging: Partial<MessagingPorts>;
   /** Imports Excel / CSV (031) : un port d'écriture par importeur, bâti sur l'API publique des modules cibles. */
   readonly imports: Partial<ImportPorts>;
+  /** Pack Primary (005) : classes, périodes, affectations, résultats, règles, assiduité, documents officiels. */
+  readonly primary_school: Partial<PrimarySchoolPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -110,6 +118,7 @@ export function buildPlatformPorts(
   const documentRenderer = extras.documentRenderer;
   const { academic, people, finance, attendance, scheduling, results, reportcards, assess, higher, rules, lookups, clock } = kit;
   const messagingDirectory = createMessagingPeopleDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock });
+  const primaryAttendance = createPrimaryAttendancePort({ attendance, academic });
   const base: Omit<PlatformPorts, "imports"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
@@ -197,6 +206,17 @@ export function buildPlatformPorts(
       audience: createMessagingAudienceDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock, directory: messagingDirectory }),
       ...(storage ? { storage: asMessagingStorage(storage) } : {}),
     },
+    primary_school: {
+      classrooms: createPrimaryClassroomPort({ academic, people, tenantDb: kit.tenantDb, clock }),
+      periods: createPrimaryPeriodStatePort(academic),
+      outcomes: createPrimaryOutcomePort(academic),
+      teaching: createPrimaryTeachingPort({ people, lookups, clock }),
+      guardianship: createPrimaryGuardianshipPort(lookups),
+      results: createPrimaryResultsPort({ results, academic, rules }),
+      rules: createPrimaryRulesPort({ academic, rules, results, attendance: primaryAttendance }),
+      attendance: primaryAttendance,
+      documents: createPrimaryDocumentsPort(officialDocuments),
+    },
   };
   // Imports (031) : écriture par les cas d'usage publics des modules cibles, avec le VRAI audit (l'API : `runtime.auditPort` ;
   // le worker : le service d'audit du processus). Sans audit fourni (tests ciblés), l'audit est no-op.
@@ -244,6 +264,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerHigherPorts(app, ports.higher);
   registerAnalyticsPorts(app, ports.analytics);
   registerMessagingPorts(app, ports.messaging);
+  registerPrimarySchoolPorts(app, ports.primary_school);
   registerImportsPorts(app, ports.imports);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
@@ -274,6 +295,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   registerSchedulingPorts(ports.scheduling);
   setAnalyticsWorkerPorts(ports.analytics);
   setMessagingWorkerPorts(ports.messaging);
+  setPrimarySchoolWorkerPorts(ports.primary_school);
   setImportsWorkerPorts(ports.imports);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };

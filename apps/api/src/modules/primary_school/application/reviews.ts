@@ -50,9 +50,10 @@ interface Gathered {
 }
 
 /** Rassemble ce que le bilan fige (lectures de ports PUIS compteurs SQL), pour une inscription. */
-async function gather(deps: PrimarySchoolDeps, ctx: RequestContext, tx: Tx, enrollmentId: Uuid, yearId: Uuid): Promise<Gathered> {
-  const year = await deps.ports.results.getYearResult(ctx, { enrollmentId, academicYearId: yearId });
-  const decision = await deps.ports.results.getConfirmedYearDecision(ctx, { enrollmentId, academicYearId: yearId });
+async function gather(deps: PrimarySchoolDeps, ctx: RequestContext, tx: Tx, scope: { enrollmentId: Uuid; classroomId: Uuid; yearId: Uuid; lastPeriodId: Uuid | null }): Promise<Gathered> {
+  const { enrollmentId, yearId } = scope;
+  const year = await deps.ports.results.getYearResult(ctx, { enrollmentId, academicYearId: yearId, lastPeriodId: scope.lastPeriodId });
+  const decision = scope.lastPeriodId ? await deps.ports.results.getConfirmedYearDecision(ctx, { enrollmentId, classroomId: scope.classroomId, periodId: scope.lastPeriodId }) : null;
   const attendance = await deps.ports.attendance.summarize(ctx, { enrollmentId, academicYearId: yearId });
   const competencySummary = await summarizeInSql(tx, enrollmentId, null);
   return {
@@ -63,6 +64,12 @@ async function gather(deps: PrimarySchoolDeps, ctx: RequestContext, tx: Tx, enro
     attendanceSummary: { openDays: attendance.openDays, absentDays: attendance.absentDays, justifiedAbsentDays: attendance.justifiedAbsentDays, lateCount: attendance.lateCount },
     competencySummary,
   };
+}
+
+/** Dernière période de l'année (celle qui porte la décision de fin d'année). */
+async function lastPeriodOf(deps: PrimarySchoolDeps, ctx: RequestContext, yearId: Uuid): Promise<Uuid | null> {
+  const periods = [...(await deps.ports.classrooms.listPeriods(ctx, yearId))].sort((a, b) => b.ordinal - a.ordinal);
+  return periods[0]?.id ?? null;
 }
 
 /** Origine du jeu de règles : lue UNE fois par classe, sur la dernière période de l'année. */
@@ -112,6 +119,7 @@ export async function prepareAnnualReviews(deps: PrimarySchoolDeps, ctx: Request
   if (classroom.academicYearId !== input.academicYearId) return err(validation(PrimaryCode.INVALID_INPUT, "Cette année n'est pas celle de la classe.", "academicYearId"));
   const roster = await deps.ports.classrooms.listRoster(ctx, classroom.id);
   const closed = await deps.ports.periods.allPeriodsClosed(ctx, { classroomId: classroom.id, academicYearId: input.academicYearId });
+  const lastPeriodId = await lastPeriodOf(deps, ctx, input.academicYearId);
 
   const result = await inTx(deps, ctx, async (tx) => {
     const settings = await settingsOf(tx, classroom.institutionId);
@@ -120,7 +128,7 @@ export async function prepareAnnualReviews(deps: PrimarySchoolDeps, ctx: Request
     let skippedSealed = 0;
     const ids: Uuid[] = [];
     for (const r of roster) {
-      const g = await gather(deps, ctx, tx, r.enrollmentId, input.academicYearId);
+      const g = await gather(deps, ctx, tx, { enrollmentId: r.enrollmentId, classroomId: classroom.id, yearId: input.academicYearId, lastPeriodId });
       const live = await getLiveReview(tx, r.enrollmentId, input.academicYearId, true);
       const base = { classroomId: classroom.id, gradeLevelCode: classroom.gradeLevelCode ?? "", yearResultRef: g.yearResultRef, decisionRef: g.decisionRef, outcomeCode: g.outcomeCode, competencySummary: g.competencySummary, attendanceSummary: g.attendanceSummary, ruleVersionRef: g.ruleVersionRef };
       if (!live) {
@@ -195,6 +203,7 @@ export async function sealAnnualReview(deps: PrimarySchoolDeps, ctx: RequestCont
   const access = await requireClassAccess(deps, ctx, probe.value.classroomId, caps);
   if (!access.ok) return access;
   const closed = await deps.ports.periods.allPeriodsClosed(ctx, { classroomId: probe.value.classroomId, academicYearId: probe.value.academicYearId });
+  const lastPeriodId = await lastPeriodOf(deps, ctx, probe.value.academicYearId);
 
   const sealed = await inTx(deps, ctx, async (tx) => {
     const current = await getReviewRow(tx, id, true);
@@ -202,7 +211,7 @@ export async function sealAnnualReview(deps: PrimarySchoolDeps, ctx: RequestCont
     if (current.status === "SEALED" || current.status === "SUPERSEDED") return err(conflict(PrimaryCode.REVIEW_SEALED, "Ce bilan est déjà scellé.", { status: current.status }));
     const settings = await settingsOf(tx, current.institutionId);
     // Données FRAÎCHES : le scellement fige l'état courant des résultats, de la décision et des compteurs.
-    const g = await gather(deps, ctx, tx, current.enrollmentId, current.academicYearId);
+    const g = await gather(deps, ctx, tx, { enrollmentId: current.enrollmentId, classroomId: current.classroomId, yearId: current.academicYearId, lastPeriodId });
     const next = { ...current, ...g };
     const blockers = sealBlockers(next, { councilRequired: settings.councilRequiredForBilan, allPeriodsClosed: closed });
     if (blockers.length > 0) {
@@ -240,12 +249,13 @@ export async function reissueAnnualReview(deps: PrimarySchoolDeps, ctx: RequestC
   if (!access.ok) return access;
   const reason = input.reason.trim();
   if (reason.length < 10) return err(validation(PrimaryCode.INVALID_INPUT, "Le motif compte au moins 10 caractères.", "reason"));
+  const lastPeriodId = await lastPeriodOf(deps, ctx, probe.value.academicYearId);
 
   const created = await inTx(deps, ctx, async (tx) => {
     const old = await getReviewRow(tx, id, true);
     if (!old) return err(notFound(PrimaryCode.REVIEW_NOT_FOUND, "Bilan annuel", id));
     if (old.status !== "SEALED") return err(conflict(PrimaryCode.REVIEW_NOT_SEALED, "Seul un bilan scellé se réémet : un brouillon se prépare à nouveau.", { status: old.status }));
-    const g = await gather(deps, ctx, tx, old.enrollmentId, old.academicYearId);
+    const g = await gather(deps, ctx, tx, { enrollmentId: old.enrollmentId, classroomId: old.classroomId, yearId: old.academicYearId, lastPeriodId });
     // Une seule version vivante : l'ancienne passe SUPERSEDED AVANT l'insertion de la suivante, dans la même transaction.
     const superseded = await guarded(() => supersedeReviewRow(tx, old.id));
     const next = await guarded(() =>

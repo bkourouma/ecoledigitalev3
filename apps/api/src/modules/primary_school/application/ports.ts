@@ -115,7 +115,7 @@ export interface PeriodStatePort {
 
 /** Issue d'inscription (`academic.recordEnrollmentOutcome`) : la décision confirmée du conseil l'alimente sans saisie manuelle. */
 export interface OutcomePort {
-  recordOutcome(ctx: RequestContext, input: { enrollmentId: Uuid; outcomeCode: string }): Promise<void>;
+  recordOutcome(ctx: RequestContext, input: { enrollmentId: Uuid; outcomeCode: string; decisionRef?: Uuid | undefined }): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,15 +204,17 @@ export interface YearResultInfo {
 export interface ResultsPort {
   /** Crée (ou retrouve) la délibération `COUNCIL` de la classe × période. */
   openCouncil(ctx: RequestContext, input: { classroomId: Uuid; periodId: Uuid; heldOn?: IsoDate | undefined; participants: ReadonlyArray<{ staffId: Uuid; role: string }> }): Promise<CouncilOpening>;
-  getDeliberation(ctx: RequestContext, deliberationId: Uuid): Promise<DeliberationInfo | null>;
+  /** Délibération retrouvée par son identifiant ; la classe et la période (connues du dossier) évitent une recherche inter-modules. */
+  getDeliberation(ctx: RequestContext, input: { deliberationId: Uuid; classroomId: Uuid; periodId: Uuid }): Promise<DeliberationInfo | null>;
   /** Propositions de la règle (décisions `PROPOSED`) et décisions confirmées de la classe × période. */
   listProposals(ctx: RequestContext, input: { classroomId: Uuid; periodId: Uuid }): Promise<readonly ProposalInfo[]>;
   confirmDecision(ctx: RequestContext, input: { decisionId: Uuid; deliberationId: Uuid; finalCode?: string | undefined; justification?: string | undefined }): Promise<ConfirmedDecision>;
-  getYearResult(ctx: RequestContext, input: { enrollmentId: Uuid; academicYearId: Uuid }): Promise<YearResultInfo>;
+  /** Résultat d'année d'une inscription ; `lastPeriodId` : dernière période de l'année (porte le résultat d'année FINAL et la décision). */
+  getYearResult(ctx: RequestContext, input: { enrollmentId: Uuid; academicYearId: Uuid; lastPeriodId: Uuid | null }): Promise<YearResultInfo>;
   /** Origine du jeu de règles épinglé sur la période (pour le bandeau « règles de démonstration »). */
   getRuleSourceKind(ctx: RequestContext, input: { classroomId: Uuid; periodId: Uuid }): Promise<SourceKind | null>;
-  /** Décision confirmée d'une inscription pour l'année (dernière période), si elle existe. */
-  getConfirmedYearDecision(ctx: RequestContext, input: { enrollmentId: Uuid; academicYearId: Uuid }): Promise<{ decisionId: Uuid; finalCode: string } | null>;
+  /** Décision de FIN D'ANNÉE confirmée d'une inscription (portée par la dernière période de l'année de la classe), si elle existe. */
+  getConfirmedYearDecision(ctx: RequestContext, input: { enrollmentId: Uuid; classroomId: Uuid; periodId: Uuid }): Promise<{ decisionId: Uuid; finalCode: string } | null>;
 }
 
 export interface RulesPort {
@@ -249,6 +251,8 @@ export interface AttendancePort {
 }
 
 export interface MinutesRequest {
+  /** Version du procès-verbal (`council_minutes.id`) : source du document ; une nouvelle version = un nouveau document. */
+  readonly minutesId: Uuid;
   readonly deliberationId: Uuid;
   readonly classroomId: Uuid;
   readonly title: string;

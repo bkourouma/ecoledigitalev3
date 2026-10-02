@@ -1,5 +1,5 @@
 import { defineModule } from "@ecoledigitale/kernel";
-import { ALL_PRIMARY_EVENT_TYPES, ConsumedEvents } from "./domain/events";
+import { ALL_PRIMARY_EVENT_TYPES, ConsumedEvents, PrimaryEvents } from "./domain/events";
 
 /**
  * Module `primary_school` — pack Primary (spec v2/005) : évaluation par compétences (maternelle sans note, primaire), banque
@@ -101,6 +101,8 @@ export default defineModule({
       ConsumedEvents.CLASSROOM_PERIOD_REOPENED,
       ConsumedEvents.DECISION_CONFIRMED,
       ConsumedEvents.OFFICIAL_DOCUMENT_RENDERED,
+      // Abonné du module à son propre événement : le PDF du bilan est demandé hors de la transaction de scellement.
+      PrimaryEvents.ANNUAL_REVIEW_SEALED,
     ],
   },
 });

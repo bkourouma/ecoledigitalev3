@@ -298,8 +298,8 @@ export class InMemoryWorld {
           });
           return { deliberationId: id, stateId, academicYearId: classroom.academicYearId };
         },
-        async getDeliberation(_c, id): Promise<DeliberationInfo | null> {
-          return w.deliberations.get(id) ?? null;
+        async getDeliberation(_c, { deliberationId }): Promise<DeliberationInfo | null> {
+          return w.deliberations.get(deliberationId) ?? null;
         },
         async listProposals(_c, { classroomId, periodId }) {
           return w.decisions.get(key2(classroomId, periodId)) ?? [];
@@ -329,8 +329,9 @@ export class InMemoryWorld {
         async getRuleSourceKind() {
           return w.ruleSourceKind;
         },
-        async getConfirmedYearDecision(_c, { enrollmentId, academicYearId }) {
-          return w.confirmedYearDecisions.get(key2(enrollmentId, academicYearId)) ?? null;
+        async getConfirmedYearDecision(_c, { enrollmentId, classroomId }) {
+          const yearId = w.classrooms.get(classroomId)?.academicYearId;
+          return yearId ? (w.confirmedYearDecisions.get(key2(enrollmentId, yearId)) ?? null) : null;
         },
       },
       rules: {

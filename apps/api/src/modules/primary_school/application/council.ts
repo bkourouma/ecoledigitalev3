@@ -91,8 +91,9 @@ async function tolerant<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 
 async function overviewOf(deps: PrimarySchoolDeps, ctx: RequestContext, tx: Tx, deliberationId: Uuid, cases: Array<CouncilCase & { academicPeriodId: string | null }>): Promise<Result<CouncilOverview, AppError>> {
   const first = cases[0];
-  const delib = await deps.ports.results.getDeliberation(ctx, deliberationId);
-  if (!first || !delib) return err(notFound(PrimaryCode.COUNCIL_NOT_FOUND, "Conseil", deliberationId));
+  if (!first || !first.academicPeriodId) return err(notFound(PrimaryCode.COUNCIL_NOT_FOUND, "Conseil", deliberationId));
+  const delib = await deps.ports.results.getDeliberation(ctx, { deliberationId, classroomId: first.classroomId, periodId: first.academicPeriodId });
+  if (!delib) return err(notFound(PrimaryCode.COUNCIL_NOT_FOUND, "Conseil", deliberationId));
   const roster = await deps.ports.classrooms.listRoster(ctx, first.classroomId);
   const names = new Map(roster.map((r) => [r.enrollmentId, r.displayName]));
   const proposals = await deps.ports.results.listProposals(ctx, { classroomId: first.classroomId, periodId: delib.periodId });
@@ -275,7 +276,8 @@ export async function decideCouncilCase(deps: PrimarySchoolDeps, ctx: RequestCon
     const current = await getCaseRow(tx, caseId, true);
     if (!current) return err(notFound(PrimaryCode.COUNCIL_CASE_NOT_FOUND, "Dossier de conseil", caseId));
     if (current.status === "DECIDED") return err(conflict(PrimaryCode.CASE_ALREADY_DECIDED, "Ce dossier est déjà décidé.", { caseId }));
-    const delib = await deps.ports.results.getDeliberation(ctx, current.deliberationId);
+    if (!current.academicPeriodId) return err(notFound(PrimaryCode.COUNCIL_NOT_FOUND, "Conseil", current.deliberationId));
+    const delib = await deps.ports.results.getDeliberation(ctx, { deliberationId: current.deliberationId, classroomId: current.classroomId, periodId: current.academicPeriodId });
     if (!delib) return err(notFound(PrimaryCode.COUNCIL_NOT_FOUND, "Conseil", current.deliberationId));
     const proposals = await deps.ports.results.listProposals(ctx, { classroomId: current.classroomId, periodId: delib.periodId });
     const proposal = proposals.find((p) => p.enrollmentId === current.enrollmentId);
@@ -293,7 +295,7 @@ export async function decideCouncilCase(deps: PrimarySchoolDeps, ctx: RequestCon
     const periods = await deps.ports.classrooms.listPeriods(ctx, classroom.academicYearId);
     const outcomeCode = outcomeCodeOfDecision(confirmed.finalCode);
     if (outcomeCode && isLastPeriod(periods, delib.periodId)) {
-      await deps.ports.outcomes.recordOutcome(ctx, { enrollmentId: current.enrollmentId, outcomeCode });
+      await deps.ports.outcomes.recordOutcome(ctx, { enrollmentId: current.enrollmentId, outcomeCode, decisionRef: confirmed.decisionId });
       outcomeRecorded = outcomeCode;
     }
     const events = new EventBuffer(deps, ctx);
@@ -330,7 +332,7 @@ export async function onDecisionConfirmed(deps: PrimarySchoolDeps, ctx: RequestC
       if (classroom && outcomeCode && input.periodId) {
         const periods = await deps.ports.classrooms.listPeriods(ctx, classroom.academicYearId);
         if (isLastPeriod(periods, input.periodId)) {
-          await deps.ports.outcomes.recordOutcome(ctx, { enrollmentId: input.enrollmentId, outcomeCode });
+          await deps.ports.outcomes.recordOutcome(ctx, { enrollmentId: input.enrollmentId, outcomeCode, decisionRef: input.decisionId });
           outcomeRecorded = outcomeCode;
         }
       }
@@ -413,6 +415,7 @@ export async function requestCouncilMinutes(deps: PrimarySchoolDeps, ctx: Reques
     );
     // Le document est demandé à reportcards depuis le contenu FIGÉ ; si la nature n'est pas livrée, tout est annulé (échec fermé).
     const doc = await deps.ports.documents.requestCouncilMinutes(ctx, {
+      minutesId: row.id,
       deliberationId,
       classroomId: o.classroomId,
       title: "Procès-verbal du conseil des maîtres",
