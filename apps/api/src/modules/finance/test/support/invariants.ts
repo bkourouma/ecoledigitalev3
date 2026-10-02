@@ -3,7 +3,12 @@
  * passer par le code du module), les invariants comptables. Sert aux tests de propriétés : quelles
  * que soient les opérations enchaînées (y compris concurrentes), ces égalités doivent tenir.
  */
-import { adminRows, type FinanceTestDb } from "./db";
+import type { FinanceTestDb } from "./db";
+
+/** Local (et non importé de ./db) : ce module doit rester chargeable hors vitest (exercice de restauration, infra/scripts/restore-drill). */
+async function adminRows<R = Record<string, any>>(db: Pick<FinanceTestDb, "admin">, sql: string, params: unknown[] = []): Promise<R[]> {
+  return (await db.admin.query(sql, params)).rows as R[];
+}
 
 export interface LedgerReport {
   payments: number;
@@ -15,12 +20,12 @@ export interface LedgerReport {
   refunded: number;
 }
 
-async function violations(db: FinanceTestDb, label: string, sql: string, params: unknown[]): Promise<string[]> {
+async function violations(db: Pick<FinanceTestDb, "admin">, label: string, sql: string, params: unknown[]): Promise<string[]> {
   const rows = await adminRows<Record<string, unknown>>(db, sql, params);
   return rows.map((r) => `${label}: ${JSON.stringify(r)}`);
 }
 
-export async function ledgerViolations(db: FinanceTestDb, tenantId: string): Promise<string[]> {
+export async function ledgerViolations(db: Pick<FinanceTestDb, "admin">, tenantId: string): Promise<string[]> {
   const t = [tenantId];
   const out: string[] = [];
 
@@ -164,7 +169,7 @@ export async function ledgerViolations(db: FinanceTestDb, tenantId: string): Pro
   return out;
 }
 
-export async function ledgerReport(db: FinanceTestDb, tenantId: string): Promise<LedgerReport> {
+export async function ledgerReport(db: Pick<FinanceTestDb, "admin">, tenantId: string): Promise<LedgerReport> {
   const [r] = await adminRows<Record<string, string>>(
     db,
     `SELECT

@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "noEmit": true, "types": ["node"], "moduleResolution": "bundler", "module": "ESNext", "noUncheckedIndexedAccess": true },
-  "include": ["src/platform/**/*", "src/modules/**/*", "test/**/*", "vitest.config.ts", "../../scripts/db/*.ts", "../../scripts/iam/*.ts", "../../scripts/module-new.ts", "../../scripts/seed-v2.ts", "../../scripts/seed-v2/*.ts", "src/types/*.d.ts"],
+  "include": ["src/platform/**/*", "src/modules/**/*", "test/**/*", "vitest.config.ts", "../../scripts/db/*.ts", "../../scripts/iam/*.ts", "../../scripts/module-new.ts", "../../scripts/seed-v2.ts", "../../scripts/seed-v2/*.ts", "../../infra/scripts/restore-drill/*.ts", "src/types/*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }
