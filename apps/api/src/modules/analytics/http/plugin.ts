@@ -10,11 +10,17 @@
 import { createHash } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { ZodTypeAny, z } from "zod";
-import { ValidationError, type AppError, type Result } from "@ecoledigitale/kernel";
+import { ForbiddenError, NotFoundError, ValidationError, isUuid, type AppError, type Result } from "@ecoledigitale/kernel";
 import {
   ANALYTICS_FEATURES,
   ANALYTICS_PERMISSIONS as P,
+  analyticsAdmissionsFunnelQuerySchema,
+  analyticsAlertAcknowledgeBodySchema,
+  analyticsAlertRuleCreateSchema,
+  analyticsAlertRuleUpdateSchema,
+  analyticsAlertsQuerySchema,
   analyticsCollectionsQuerySchema,
+  analyticsCompareQuerySchema,
   analyticsExportDatasetSchema,
   analyticsRebuildBodySchema,
   analyticsReceivablesQuerySchema,
@@ -24,6 +30,9 @@ import {
 } from "@ecoledigitale/contracts/src/v2/analytics";
 import type { ModuleRuntime } from "../../../platform/runtime";
 import * as admin from "../application/admin";
+import * as alerts from "../application/alerts";
+import { ALERT_METRICS } from "../domain/alert-metrics";
+import * as indicators from "../application/indicators";
 import { createAnalyticsDeps } from "../application/deps";
 import { EXPORT_PERMISSIONS, exportDataset } from "../application/exports";
 import { createAnalyticsPortRegistry, type AnalyticsPortRegistry } from "../application/port-registry";
@@ -81,6 +90,33 @@ export default async function modulePlugin(app: FastifyInstance, runtime: Module
   const feature = runtime.entitlements.requireFeature(ANALYTICS_FEATURES.direction);
   const guard = (permission: string) => [runtime.requirePermission(permission), feature];
 
+  /** L'appelant détient-il cette permission ? (garde du module rbac exécutée à la main ; toute autre erreur remonte.) */
+  const has = async (request: FastifyRequest, reply: FastifyReply, permission: string): Promise<boolean> => {
+    try {
+      await runtime.requirePermission(permission).call(app, request, reply);
+      return true;
+    } catch (e) {
+      if (e instanceof ForbiddenError) return false;
+      throw e;
+    }
+  };
+  /** Indicateurs d'alerte dont l'appelant détient la permission de DONNÉES (voir, configurer, acquitter). */
+  const allowedMetrics = async (request: FastifyRequest, reply: FastifyReply): Promise<string[]> => {
+    const cache = new Map<string, boolean>();
+    const out: string[] = [];
+    for (const m of ALERT_METRICS) {
+      if (!cache.has(m.permission)) cache.set(m.permission, await has(request, reply, m.permission));
+      if (cache.get(m.permission)) out.push(m.metric);
+    }
+    return out;
+  };
+  /** Identifiant de ressource : un identifiant mal formé est INDISCERNABLE d'une ressource absente (404 uniforme). */
+  const idParam = (request: FastifyRequest, what: "alert" | "rule"): string => {
+    const id = (request.params as { id?: string }).id ?? "";
+    if (!isUuid(id)) throw what === "alert" ? new NotFoundError("Alerte introuvable.", { code: "analytics.alert_not_found" }) : new NotFoundError("Règle d'alerte introuvable.", { code: "analytics.alert_rule_not_found" });
+    return id;
+  };
+
   // --- Filtres et fraîcheur ---------------------------------------------------------------------------------------
   app.get("/scopes", { preHandler: guard(P.read) }, async (request, reply) => sendCached(request, reply, unwrap(await q.getScopes(deps, ctxOf(request), parse(analyticsScopeQuerySchema, request.query)))));
   app.get("/freshness", { preHandler: guard(P.read) }, async (request, reply) => sendCached(request, reply, unwrap(await q.getFreshness(deps, ctxOf(request)))));
@@ -115,6 +151,26 @@ export default async function modulePlugin(app: FastifyInstance, runtime: Module
   );
   app.get("/charges", { preHandler: guard(P.charges) }, async (request, reply) => sendCached(request, reply, unwrap(await q.getCharges(deps, ctxOf(request)))));
 
+  // --- Indicateurs transverses : admissions, vie scolaire agrégée, comparaisons -----------------------------------------
+  app.get("/admissions/funnel", { preHandler: guard(P.admissions) }, async (request, reply) => sendCached(request, reply, unwrap(await indicators.getAdmissionsFunnel(deps, ctxOf(request), parse(analyticsAdmissionsFunnelQuerySchema, request.query)))));
+  app.get("/schoollife/summary", { preHandler: guard(P.schoollife) }, async (request, reply) => sendCached(request, reply, unwrap(await indicators.getSchoolLife(deps, ctxOf(request), parse(analyticsScopeQuerySchema.pick({ institutionId: true }), request.query)))));
+  app.get("/compare/enrollment", { preHandler: guard(P.read) }, async (request, reply) => sendCached(request, reply, unwrap(await indicators.compareEnrollment(deps, ctxOf(request), parse(analyticsCompareQuerySchema, request.query)))));
+  app.get("/compare/attendance", { preHandler: guard(P.attendance) }, async (request, reply) => sendCached(request, reply, unwrap(await indicators.compareAttendance(deps, ctxOf(request), parse(analyticsCompareQuerySchema, request.query)))));
+  app.get("/compare/results", { preHandler: guard(P.pedagogy) }, async (request, reply) => sendCached(request, reply, unwrap(await indicators.compareResults(deps, ctxOf(request), parse(analyticsCompareQuerySchema, request.query)))));
+  app.get("/compare/finance", { preHandler: guard(P.finance) }, async (request, reply) => sendCached(request, reply, unwrap(await indicators.compareFinance(deps, ctxOf(request), parse(analyticsCompareQuerySchema, request.query)))));
+
+  // --- Alertes configurables : catalogue, règles, alertes, historique, accusé de réception -----------------------------
+  // Les réponses d'alertes ne sont PAS mises en cache (état vivant : acquittement, résolution).
+  app.get("/alerts/metrics", { preHandler: guard(P.alertsRead) }, async (request, reply) => alerts.listMetrics(await allowedMetrics(request, reply)));
+  app.get("/alerts/rules", { preHandler: guard(P.alertsRead) }, async (request, reply) => unwrap(await alerts.listRules(deps, ctxOf(request), await allowedMetrics(request, reply))));
+  app.post("/alerts/rules", { preHandler: guard(P.alertsManage) }, async (request, reply) => reply.status(201).send(unwrap(await alerts.createRule(deps, ctxOf(request), parse(analyticsAlertRuleCreateSchema, request.body), await allowedMetrics(request, reply)))));
+  app.put("/alerts/rules/:id", { preHandler: guard(P.alertsManage) }, async (request, reply) => unwrap(await alerts.updateRule(deps, ctxOf(request), idParam(request, "rule"), parse(analyticsAlertRuleUpdateSchema, request.body), await allowedMetrics(request, reply))));
+  app.get("/alerts", { preHandler: guard(P.alertsRead) }, async (request, reply) => unwrap(await alerts.listAlerts(deps, ctxOf(request), parse(analyticsAlertsQuerySchema, request.query), await allowedMetrics(request, reply))));
+  app.get("/alerts/:id", { preHandler: guard(P.alertsRead) }, async (request, reply) => unwrap(await alerts.getAlert(deps, ctxOf(request), idParam(request, "alert"), await allowedMetrics(request, reply))));
+  app.post("/alerts/:id/acknowledge", { preHandler: guard(P.alertsAcknowledge) }, async (request, reply) =>
+    unwrap(await alerts.acknowledgeAlert(deps, ctxOf(request), idParam(request, "alert"), parse(analyticsAlertAcknowledgeBodySchema, request.body ?? {}), await allowedMetrics(request, reply))),
+  );
+
   // --- Réglages et reconstruction ---------------------------------------------------------------------------------
   app.get("/settings", { preHandler: guard(P.read) }, async (request) => unwrap(await admin.getSettings(deps, ctxOf(request))));
   app.put("/settings", { preHandler: guard(P.settings) }, async (request) => unwrap(await admin.updateSettings(deps, ctxOf(request), parse(analyticsSettingsUpdateSchema, request.body))));
@@ -129,7 +185,8 @@ export default async function modulePlugin(app: FastifyInstance, runtime: Module
     const preHandler = dataset === "payroll-mass" ? [runtime.requirePermission(P.export), runtime.requirePermission(permission), runtime.entitlements.requireFeature(ANALYTICS_FEATURES.payroll)] : [runtime.requirePermission(P.export), runtime.requirePermission(permission), feature];
     app.get(`/export/${dataset}.csv`, { preHandler }, async (request, reply) => {
       const query = parse(analyticsScopeQuerySchema.extend({ granularity: analyticsCollectionsQuerySchema.shape.granularity }), request.query);
-      const out = unwrap(await exportDataset(deps, ctxOf(request), dataset, query));
+      const alertMetrics = dataset === "alerts-history" ? await allowedMetrics(request, reply) : undefined;
+      const out = unwrap(await exportDataset(deps, ctxOf(request), dataset, { ...query, alertMetrics }));
       reply
         .header("content-type", "text/csv; charset=utf-8")
         .header("content-disposition", `attachment; filename="${out.filename}"`)

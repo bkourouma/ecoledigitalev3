@@ -43,6 +43,12 @@ export interface EventFacts {
   readonly context: Readonly<Record<string, string>>;
   /** Chemin interne vers lequel pointent les notifications in-app et push (alertes internes). */
   readonly linkPath?: string;
+  /**
+   * Rôles destinataires CHOISIS PAR L'ÉMETTEUR de l'événement (alertes de direction : configurés par l'établissement dans analytics).
+   * Ils remplacent les rôles de la règle pour une audience `ROLES` ; ni les préférences, ni les consentements, ni les heures calmes
+   * ne sont touchés (ils s'appliquent à chaque destinataire résolu).
+   */
+  readonly audienceRoles?: readonly string[];
 }
 
 export type ReadOutcome = { readonly kind: "facts"; readonly facts: EventFacts } | { readonly kind: "skip"; readonly reason: string } | { readonly kind: "unreadable" };
@@ -229,6 +235,36 @@ export function readEvent(eventType: string, payload: unknown): ReadOutcome {
         linkPath: "/v2/stateassign",
       });
     }
+    case ConsumedEvents.ANALYTICS_ALERT_RAISED: {
+      // Alerte interne : libellé NEUTRE de l'indicateur (catalogue d'analytics), valeur, seuil, rôles. Ni élève, ni nom.
+      const alertId = uuid(p.alertId);
+      const metricLabel = str(p.metricLabel, 120);
+      const severity = p.severity === "CRITICAL" ? "critique" : p.severity === "WARNING" ? "d'attention" : null;
+      const unit = p.unit === "BPS" || p.unit === "AMOUNT" || p.unit === "COUNT" ? p.unit : null;
+      const value = int(p.value);
+      const threshold = int(p.threshold);
+      const dedupeKey = str(p.dedupeKey, 200);
+      if (!alertId || !metricLabel || !severity || !unit || value === null || threshold === null || !dedupeKey) return { kind: "unreadable" };
+      const roles = Array.isArray(p.recipientRoles) ? p.recipientRoles.filter((r): r is string => typeof r === "string" && /^[a-z][a-z0-9_]{1,59}$/.test(r)).slice(0, 10) : [];
+      if (roles.length === 0) return { kind: "skip", reason: "no_recipient_role" };
+      const currency = str(p.currency, 3);
+      const below = p.comparator === "BELOW";
+      return facts({
+        eventType,
+        refs: {},
+        values: {
+          alertLabel: `Alerte ${severity} : ${metricLabel}`,
+          currentValue: formatAlertFigure(unit, value, currency),
+          thresholdValue: formatAlertFigure(unit, threshold, currency),
+          directionLabel: below ? "sous le seuil" : "au-dessus du seuil",
+        },
+        // Une notification par créneau de fréquence, décidée par analytics : sa clé UNIQUE sert aussi de clé de remise.
+        dedupeId: dedupeKey,
+        context: { alertId },
+        linkPath: "/v2/analytics/alertes",
+        audienceRoles: roles,
+      });
+    }
     case ConsumedEvents.MEASURE_NOTIFIED: {
       // Texte NEUTRE : seuls l'élève et l'existence d'une décision comptent (ni nature, ni gravité, ni dates, ni motif).
       const studentId = uuid(p.studentId);
@@ -270,6 +306,14 @@ export function readEvent(eventType: string, payload: unknown): ReadOutcome {
     default:
       return { kind: "unreadable" };
   }
+}
+
+/** Valeur lisible d'une mesure d'alerte : `78,5 %` (points de base), `1 250 000 XOF`, `12`. */
+function formatAlertFigure(unit: "BPS" | "AMOUNT" | "COUNT", value: number, currency: string | null): string {
+  const nf = (n: number): string => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(n).replace(/[\u202f\u00a0]/g, " ");
+  if (unit === "BPS") return `${nf(value / 100)} %`;
+  if (unit === "AMOUNT") return `${nf(value)}${currency ? ` ${currency}` : ""}`;
+  return nf(value);
 }
 
 /** Libellés (français, neutres) des codes de motif d'une alerte de rapprochement publiés par `finance` ; un code inconnu n'affiche pas de motif. */

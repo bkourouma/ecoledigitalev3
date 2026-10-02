@@ -22,6 +22,7 @@ export {
   noopAudit as analyticsNoopAudit,
   type AnalyticsDeps,
   type AnalyticsSourcePorts,
+  type AdmissionsSource,
   type AttendanceSource,
   type AuditEntry as AnalyticsAuditEntry,
   type AuditPort as AnalyticsAuditPort,
@@ -30,6 +31,7 @@ export {
   type FinanceSource,
   type PayrollSource,
   type ResultsSource,
+  type SchoolLifeSource,
   type ScopeSource,
   type SourcePortName,
   type StaffPresenceSource,
@@ -42,6 +44,10 @@ export { enqueueFromEvent, enqueueRefresh, processAllTenants as processAllAnalyt
 export { rebuildAllTenants as rebuildAllAnalytics, rebuildTenant, refreshKind, summarize as summarizeRebuild, type RebuildReport } from "./application/rebuild";
 export { refreshLeaf, PortUnavailable, REQUIRED_PORTS, type RefreshOutcome } from "./application/refresh";
 export * as analyticsQueries from "./application/queries";
+export * as analyticsIndicators from "./application/indicators";
+export * as analyticsAlerts from "./application/alerts";
+export { evaluateAllTenants as evaluateAllAnalyticsAlerts, evaluateRule as evaluateAnalyticsAlertRule, evaluateTenant as evaluateAnalyticsAlerts, type EvaluationReport as AnalyticsAlertsEvaluationReport, type RuleEvaluation as AnalyticsAlertRuleEvaluation } from "./application/alerts";
+export { ALERT_METRICS as ANALYTICS_ALERT_METRIC_CATALOG, alertMetricDef } from "./domain/alert-metrics";
 export { exportDataset, EXPORT_PERMISSIONS, type ExportResult } from "./application/exports";
 export { getSettings as getAnalyticsSettings, requestRebuild, updateSettings as updateAnalyticsSettings } from "./application/admin";
 

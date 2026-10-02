@@ -206,6 +206,20 @@ export const TEMPLATE_CATALOG: readonly CatalogEntry[] = Object.freeze<CatalogEn
     staffFacing: true,
   },
   {
+    code: "analytics_alert",
+    label: "Alerte de direction (indicateur hors seuil)",
+    description: "Alerte interne : un indicateur de pilotage a franchi un seuil fixé par l'établissement. Libellé de l'indicateur, valeur et seuil ; aucun nom, aucune donnée d'élève.",
+    category: "ALERT",
+    variables: [
+      v("alertLabel", "Nature de l'alerte", "string", "Alerte critique : Taux de présence des élèves"),
+      v("currentValue", "Valeur mesurée", "string", "62,5 %"),
+      v("thresholdValue", "Seuil franchi", "string", "70 %"),
+      v("directionLabel", "Sens du dépassement", "string", "sous le seuil"),
+    ],
+    manual: false,
+    staffFacing: true,
+  },
+  {
     code: "schoollife_convocation",
     label: "Convocation (vie scolaire)",
     description: "Informe les tuteurs d'une convocation de leur enfant. Texte neutre : jamais le motif disciplinaire.",

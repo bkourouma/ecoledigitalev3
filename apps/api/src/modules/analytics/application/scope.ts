@@ -47,6 +47,8 @@ export const SOURCE_LABELS: Readonly<Record<RefreshKind, string>> = {
   CASH: "Sessions de caisse",
   PAYROLL: "Paie",
   TEACHING_LOAD: "Charge d'enseignement",
+  ADMISSIONS: "Admissions",
+  SCHOOLLIFE: "Vie scolaire",
 };
 
 const forbidden = (message: string): AppError => new ForbiddenError(message, { code: "analytics.scope_forbidden" });

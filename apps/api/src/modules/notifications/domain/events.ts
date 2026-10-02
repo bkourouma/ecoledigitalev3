@@ -38,6 +38,8 @@ export const ConsumedEvents = {
   STATE_RECEIVABLE_OVERDUE: "stateassign.receivable.overdue",
   STATE_CONTROL_DUE: "stateassign.control.due",
   STATE_CONTROL_ANOMALY: "stateassign.control.anomaly_detected",
+  /** Alertes configurables de direction (analytics) : le payload porte les rôles destinataires choisis par l'établissement. */
+  ANALYTICS_ALERT_RAISED: "analytics.alert.raised",
   /** Vie scolaire : information des tuteurs, texte neutre (jamais de motif). */
   MEASURE_NOTIFIED: "schoollife.measure.notified",
   CONVOCATION_SENT: "schoollife.convocation.sent",

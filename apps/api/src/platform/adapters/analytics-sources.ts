@@ -19,7 +19,9 @@ import { getAttendanceSession, listAttendanceSessions, listStaffLeaves, listStaf
 import { getAgedBalance, getCollectionsTrend, getFinanceSummary, getReceivablesByGroup, getReceivablesByLearner, listSessionPage, type LearnerReceivableRow } from "../../modules/finance";
 import { getStudentsByIds, getTeachingLoad, listStaff } from "../../modules/people";
 import { ownerMass } from "../../modules/payroll";
-import { getClassMatrix, getFinalResult } from "../../modules/results";
+import { getClassMatrix, getFinalResult, getPeriodView } from "../../modules/results";
+import { createAdmissionsDeps, getBoard, listCampaigns, type AdmissionsDeps } from "../../modules/admissions";
+import { createSchoolLifeDeps, getSchoolLifeAggregateCounts } from "../../modules/schoollife";
 import { listCampuses, listInstitutions } from "../../modules/tenancy";
 import type { AdapterKit } from "./kit";
 
@@ -140,12 +142,16 @@ export function createAnalyticsSources(kit: AdapterKit): AnalyticsSourcePorts {
         }
         if (finals.length === 0) return { ...empty, yearId: state.academicYearId };
 
+        // Provenance des règles épinglées : `placeholder` = règles de DÉMONSTRATION (bandeau). Illisible -> `null` (jamais « officielle »).
+        const view = await getPeriodView(results, ctx, { classroomId: input.classroomId, academicPeriodId: input.periodId, caps: { read: true } });
+        const rulesSourceKind = view.ok ? view.value.ruleSourceKind : null;
+
         const structure = await getResultsStructure(academic, ctx, { classroomId: input.classroomId, periodId: input.periodId });
         const nodes = new Map((structure.ok ? structure.value.nodes : []).map((n) => [n.id, n]));
         const decisionOf = (enrollmentId: string, scope: "PERIOD" | "YEAR") =>
           matrix.value.decisions.find((d) => d.enrollmentId === enrollmentId && d.scope === scope && (d.status === "CONFIRMED" || d.status === "PUBLISHED") && d.finalCode !== null);
 
-        const rows: Awaited<ReturnType<AnalyticsSourcePorts["results"]["readClassPeriod"]>> = { classroomId: input.classroomId, periodId: input.periodId, yearId: state.academicYearId, state: "FINAL", results: [], lines: [] };
+        const rows: Awaited<ReturnType<AnalyticsSourcePorts["results"]["readClassPeriod"]>> = { classroomId: input.classroomId, periodId: input.periodId, yearId: state.academicYearId, state: "FINAL", rulesSourceKind, results: [], lines: [] };
         for (const { header, lines } of finals) {
           const period = decisionOf(header.enrollmentId, "PERIOD");
           const year = decisionOf(header.enrollmentId, "YEAR");
@@ -313,6 +319,54 @@ export function createAnalyticsSources(kit: AdapterKit): AnalyticsSourcePorts {
             if (!v) continue;
             out.push({ periodId: p.periodId, status, yearId: p.academicYearId, periodName: p.periodName, startsOn: p.startDate, endsOn: p.endDate, currency: v.total.currency, payslipCount: v.payslips, total: v.total.amount });
           }
+        }
+        return out;
+      },
+    },
+
+    admissions: {
+      // COMPTAGES seulement : le tableau (kanban) d'admissions est lu pour ses colonnes (étape + total) ; les cartes de candidats
+      // qu'il renvoie aussi ne sont ni conservées ni transmises (aucun nom, aucun contact ne sort de cet adaptateur).
+      async readFunnel(ctx) {
+        const tenancy = { db: kit.tenantDb, clock: kit.clock };
+        const institutions = unwrap(await listInstitutions(tenancy, ctx));
+        const catalog = {
+          listInstitutions: async () => institutions.map((i) => ({ id: i.id, name: i.name })),
+          getInstitution: async (_c: RequestContext, id: string) => institutions.filter((i) => i.id === id).map((i) => ({ id: i.id, name: i.name }))[0] ?? null,
+        } as never;
+        const deps: AdmissionsDeps = createAdmissionsDeps({ db: kit.tenantDb, clock: kit.clock, logger: kit.logger, ports: { catalog } });
+        const out: Awaited<ReturnType<AnalyticsSourcePorts["admissions"]["readFunnel"]>> = [];
+        for (const inst of institutions) {
+          for (const c of unwrap(await listCampaigns(deps, ctx, { institutionId: inst.id }))) {
+            const board = unwrap(await getBoard(deps, ctx, { campaignId: c.id }));
+            const seats = c.capacities.length > 0 ? c.capacities.reduce((n, x) => n + x.seats, 0) : null;
+            const left = c.capacities.length > 0 && c.capacities.every((x) => x.seatsLeft !== null) ? c.capacities.reduce((n, x) => n + (x.seatsLeft ?? 0), 0) : null;
+            out.push({
+              campaignId: c.id,
+              institutionId: c.institutionId,
+              yearId: c.academicYearId,
+              code: c.code,
+              label: c.label,
+              status: c.status,
+              seats,
+              seatsLeft: left,
+              stages: board.columns.map((col) => ({ code: col.stage.code, label: col.stage.label, canonicalStatus: col.stage.canonicalStatus, ordinal: col.stage.ordinal, isTerminal: col.stage.isTerminal, applications: col.total })),
+            });
+          }
+        }
+        return out;
+      },
+    },
+
+    schoollife: {
+      // Comptages de la confidentialité STANDARD (fonction publique additive de schoollife) : le type de retour ne peut porter aucun élève.
+      async readCounts(ctx) {
+        const deps = createSchoolLifeDeps({ db: kit.tenantDb, clock: kit.clock, logger: kit.logger });
+        const keys: Array<string | null> = [null, ...unwrap(await listInstitutions({ db: kit.tenantDb, clock: kit.clock }, ctx)).map((i) => i.id)];
+        const out: Awaited<ReturnType<AnalyticsSourcePorts["schoollife"]["readCounts"]>> = [];
+        for (const institutionId of keys) {
+          const c = await getSchoolLifeAggregateCounts(deps, ctx, { institutionId });
+          out.push({ institutionKey: institutionId ?? "*", values: { OPEN_INCIDENTS: c.openIncidents, MEASURES_TO_VALIDATE: c.measuresToValidate, ACTIVE_EXCLUSIONS: c.activeExclusions, CONVOCATIONS_TO_HOLD: c.convocationsToHold } });
         }
         return out;
       },

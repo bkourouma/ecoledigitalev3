@@ -256,6 +256,23 @@ export async function getClassroomLifeSummary(deps: SchoolLifeDeps, ctx: Request
   return deps.db.run(ctx, (tx) => history.classroomCounts(tx, FACTS_AUDIENCE, input.enrollmentIds), { readOnly: true });
 }
 
+/**
+ * Comptages AGRÉGÉS de la vie scolaire pour les tableaux de bord de direction (module `analytics`, spec v2/025) : aucun
+ * identifiant d'élève, aucun texte libre, et SEULS les éléments de confidentialité STANDARD sont comptés (le restreint et le
+ * confidentiel ne sortent jamais d'un agrégat de pilotage). `institutionId` absent : tous les établissements du tenant.
+ */
+export interface SchoolLifeAggregateCounts {
+  openIncidents: number;
+  measuresToValidate: number;
+  activeExclusions: number;
+  convocationsToHold: number;
+}
+
+export async function getAggregateCounts(deps: SchoolLifeDeps, ctx: RequestContext, input: { institutionId?: string | null | undefined }): Promise<SchoolLifeAggregateCounts> {
+  const counts = await deps.db.run(ctx, (tx) => history.dashboardCounts(tx, "STAFF_STANDARD", input.institutionId ?? null, todayOf(deps), deps.clock.now()), { readOnly: true });
+  return { openIncidents: counts.openIncidents, measuresToValidate: counts.measuresToValidate, activeExclusions: counts.activeExclusions, convocationsToHold: counts.convocationsToHold };
+}
+
 export async function getDisciplineFacts(deps: SchoolLifeDeps, ctx: RequestContext, input: { enrollmentId: string }): Promise<factsRepo.DisciplineBreakdownRow[]> {
   return deps.db.run(ctx, (tx) => factsRepo.disciplineBreakdown(tx, FACTS_AUDIENCE, input.enrollmentId), { readOnly: true });
 }

@@ -14,6 +14,7 @@
 import type { Clock, Logger, RequestContext } from "@ecoledigitale/kernel";
 import type { TenantDb, Tx } from "@ecoledigitale/database";
 import type {
+  AdmissionsCampaignFact,
   AttendanceDayFact,
   CashSessionFact,
   ClassPeriodResults,
@@ -23,6 +24,7 @@ import type {
   FinanceScopeFacts,
   PayrollStatusFact,
   PeriodFact,
+  SchoolLifeFact,
   ScopeFact,
   StaffPresenceFact,
   TeachingLoadFact,
@@ -103,6 +105,19 @@ export interface TeachingLoadSource {
   readLoads(ctx: RequestContext, input: { yearId: Uuid }): Promise<TeachingLoadFact[]>;
 }
 
+/** Entonnoir d'admission (admissions) : campagnes, places et nombre de dossiers par étape. COMPTAGES seulement, aucune candidature. */
+export interface AdmissionsSource {
+  readFunnel(ctx: RequestContext): Promise<AdmissionsCampaignFact[]>;
+}
+
+/**
+ * Vie scolaire AGRÉGÉE (schoollife) : quatre comptages par établissement et pour le tenant entier, sur la seule
+ * confidentialité STANDARD. Le port ne peut rien porter d'individuel : le type de retour est un tableau de nombres.
+ */
+export interface SchoolLifeSource {
+  readCounts(ctx: RequestContext): Promise<SchoolLifeFact[]>;
+}
+
 export interface AnalyticsSourcePorts {
   scopes: ScopeSource;
   calendar: CalendarSource;
@@ -113,6 +128,8 @@ export interface AnalyticsSourcePorts {
   finance: FinanceSource;
   payroll: PayrollSource;
   teachingLoad: TeachingLoadSource;
+  admissions: AdmissionsSource;
+  schoollife: SchoolLifeSource;
 }
 
 /** Nom d'un port, pour la déclaration des manques. */

@@ -114,6 +114,11 @@ export const SHIPPED_TEXTS: Readonly<Record<NotifTemplateCode, ShippedText>> = O
     short: "{{alertLabel}}{{#dueDate}} (échéance : {{dueDate}}){{/dueDate}}{{#daysOverdue}}, {{daysOverdue}} jours de retard{{/daysOverdue}}{{#amount}}, reste à recevoir : {{amount}}{{/amount}}. Détails dans l'application.",
     long: "Bonjour,\n\n{{alertLabel}}.{{#dueDate}}\nÉchéance : {{dueDate}}{{/dueDate}}{{#daysOverdue}}\nRetard : {{daysOverdue}} jours{{/daysOverdue}}{{#amount}}\nReste à recevoir : {{amount}}{{/amount}}\n\nVoir le détail : {{appUrl}}/v2/stateassign" + SIGN,
   },
+  analytics_alert: {
+    title: "{{alertLabel}}",
+    short: "{{alertLabel}} : {{currentValue}}, {{directionLabel}} ({{thresholdValue}}). Détails dans les alertes de direction.",
+    long: "Bonjour,\n\n{{alertLabel}}.\nValeur mesurée : {{currentValue}} ({{directionLabel}} fixé à {{thresholdValue}}).\n\nVoir les alertes de direction : {{appUrl}}/v2/analytics/alertes" + SIGN,
+  },
   schoollife_convocation: {
     title: "Convocation{{#statusLabel}} {{statusLabel}}{{/statusLabel}} : {{studentName}}",
     short: "Convocation{{#statusLabel}} {{statusLabel}}{{/statusLabel}} concernant {{studentName}} : le {{date}} à {{time}}{{#place}} ({{place}}){{/place}}. Détails dans l'application.",

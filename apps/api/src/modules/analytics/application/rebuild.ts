@@ -82,6 +82,8 @@ export async function rebuildTenant(deps: AnalyticsDeps, ctx: RequestContext, op
   await run("CASH");
   await run("PAYROLL");
   await run("TEACHING_LOAD");
+  await run("ADMISSIONS");
+  await run("SCHOOLLIFE");
   return outcomes;
 }
 

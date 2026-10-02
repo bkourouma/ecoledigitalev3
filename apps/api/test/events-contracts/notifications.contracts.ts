@@ -44,6 +44,8 @@ const READS: Record<string, FieldRead[]> = {
   "schoollife.measure.notified": [uuid("studentId"), uuid("measureId"), optional("visibleToGuardians", "boolean"), optional("confidentiality", "string")],
   "schoollife.convocation.sent": [uuid("studentId"), uuid("convocationId"), { field: "scheduledAt", kind: "string" }],
   "schoollife.convocation.cancelled": [uuid("studentId"), uuid("convocationId"), { field: "scheduledAt", kind: "string" }],
+  // analytics : alerte de direction interne ; libellé neutre, valeurs entières, rôles destinataires, clé de dédoublonnage.
+  "analytics.alert.raised": [uuid("alertId"), { field: "metricLabel", kind: "string" }, { field: "severity", kind: "string" }, { field: "unit", kind: "string" }, { field: "comparator", kind: "string" }, { field: "value", kind: "number" }, { field: "threshold", kind: "number" }, { field: "dedupeKey", kind: "string" }, { field: "recipientRoles", kind: "array" }, optional("currency", "string")],
   // admissions : identifiants seulement (les coordonnées viennent du port `applicants`).
   "admissions.application.submitted": [uuid("applicationId"), { field: "via", kind: "string" }],
   "admissions.offer.issued": [uuid("applicationId"), uuid("offerId")],

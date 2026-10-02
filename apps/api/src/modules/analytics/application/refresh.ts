@@ -52,6 +52,8 @@ export const REQUIRED_PORTS: Readonly<Record<RefreshKind, readonly SourcePortNam
   CASH: ["finance"],
   PAYROLL: ["payroll"],
   TEACHING_LOAD: ["teachingLoad"],
+  ADMISSIONS: ["admissions"],
+  SCHOOLLIFE: ["schoollife"],
 };
 
 export class PortUnavailable extends Error {
@@ -183,6 +185,14 @@ async function prepare(deps: AnalyticsDeps, ctx: RequestContext, kind: RefreshKi
           return n;
         },
       };
+    }
+    case "ADMISSIONS": {
+      const campaigns = await need(deps, "admissions").readFunnel(ctx);
+      return { content: campaigns, rows: campaigns.reduce((n, c) => n + 1 + c.stages.length, 0), write: (tx, now) => facts.replaceAdmissionsFunnel(tx, tenantId, campaigns, now) };
+    }
+    case "SCHOOLLIFE": {
+      const counts = await need(deps, "schoollife").readCounts(ctx);
+      return { content: counts, rows: counts.length, write: (tx, now) => facts.replaceSchoolLife(tx, tenantId, counts, now) };
     }
     case "REBUILD":
       return null;
