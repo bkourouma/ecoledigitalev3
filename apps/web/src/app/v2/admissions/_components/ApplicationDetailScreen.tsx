@@ -13,6 +13,7 @@ import { useDescribeError } from "@/platform/ui/errors";
 import { Can } from "@/platform/ui/AccessGate";
 import { DecisionDialog } from "./DecisionDialog";
 import { EditApplicationDialog } from "./EditApplicationDialog";
+import { DossierAttach } from "./DossierAttach";
 import { DossierDocuments } from "./DossierDocuments";
 import { DossierInterviews } from "./DossierInterviews";
 import { DossierDuplicates, DossierGuardians, DossierHistory, DossierPrivacy } from "./DossierMisc";
@@ -97,6 +98,7 @@ function Dossier({ application, backLabel, onReload }: { application: Admissions
       </div>
 
       <DossierDocuments application={application} />
+      <DossierAttach application={application} />
       <DossierInterviews application={application} />
       <DossierOffers application={application} />
       <DossierDuplicates application={application} />

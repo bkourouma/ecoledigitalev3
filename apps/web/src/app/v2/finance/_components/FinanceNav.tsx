@@ -8,6 +8,7 @@ import { SectionNav, type SectionNavItem } from "@/platform/ui/SectionNav";
 export function FinanceNav() {
   const t = useTranslations("v2Finance.nav");
   const tProviders = useTranslations("v2FinanceProviders");
+  const tWebhooks = useTranslations("v2FinanceWebhooks");
   const child = usePermission("finance.child.read");
   const self = usePermission("finance.self.read");
   const items: SectionNavItem[] = [
@@ -21,6 +22,7 @@ export function FinanceNav() {
     { href: "/v2/finance/fees", label: t("fees"), permission: "finance.fee.read" },
     { href: "/v2/finance/funding", label: t("funding"), permission: "finance.invoice.read" },
     { href: "/v2/finance/reports", label: t("reports"), permission: "finance.report.read" },
+    { href: "/v2/finance/webhooks", label: tWebhooks("navLabel"), permission: "finance.webhook.read" },
     { href: "/v2/finance/providers", label: tProviders("navLabel"), permission: "finance.provider.manage" },
   ];
   // « Mes finances » : parent (`finance.child.read`) ou élève (`finance.self.read`), routes famille `/finance/me/*`.
