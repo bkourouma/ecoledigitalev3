@@ -42,6 +42,9 @@ export function createTestApi(routes: Record<string, RouteHandler | unknown>): {
       } catch {
         body = init.body;
       }
+    } else if (typeof FormData !== "undefined" && init?.body instanceof FormData) {
+      // Dépôt multipart : champs texte tels quels, fichier résumé (nom, taille, type) pour les assertions.
+      body = Object.fromEntries([...init.body.entries()].map(([key, value]) => [key, typeof value === "string" ? value : { fileName: value.name, size: value.size, type: value.type }]));
     }
     const query = Object.fromEntries(url.searchParams.entries());
     calls.push({ method, path: url.pathname, query, body, headers: Object.fromEntries(new Headers(init?.headers).entries()) });

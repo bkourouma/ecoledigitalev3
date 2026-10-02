@@ -12,5 +12,6 @@ export * from "./SectionNav";
 export * from "./SelectAsync";
 export * from "./states";
 export * from "./TreeEditor";
+export * from "./UploadDropzone";
 export * from "./validation";
 export * from "./Wizard";
