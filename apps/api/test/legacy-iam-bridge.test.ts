@@ -102,7 +102,7 @@ describe("LEGACY_TOKEN_SUNSET", () => {
 });
 
 describe("extinction calculée : AUTH_CUTOVER_AT + LEGACY_TOKEN_SUNSET_DAYS", () => {
-  const env = (o: Record<string, string>) => o as unknown as NodeJS.ProcessEnv;
+  const env = (o: Record<string, string | undefined>) => o as unknown as NodeJS.ProcessEnv;
 
   it("aucune extinction tant que AUTH_CUTOVER_AT n'est pas défini (même avec un nombre de jours)", () => {
     expect(legacyTokenSunsetDate(env({}))).toBeNull();
