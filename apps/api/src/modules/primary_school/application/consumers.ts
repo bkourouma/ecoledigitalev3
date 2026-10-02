@@ -21,11 +21,11 @@ import { instantiatePrimaryReferenceData } from "./template";
 
 const uuid = z.string().uuid();
 
-const institutionCreated = z.object({ institutionId: uuid, pack: z.string(), educationSystem: z.string().optional() }).passthrough();
-const classroomPeriod = z.object({ classroomId: uuid, periodId: uuid }).passthrough();
-const decisionConfirmed = z.object({ enrollmentId: uuid, finalCode: z.string().nullable().optional(), academicPeriodId: uuid.nullable().optional() }).passthrough();
-const documentRendered = z.object({ documentId: uuid, documentKind: z.string(), sourceId: uuid }).passthrough();
-const reviewSealed = z.object({ reviewId: uuid }).passthrough();
+export const institutionCreatedReader = z.object({ institutionId: uuid, pack: z.string(), educationSystem: z.string().optional() }).passthrough();
+export const classroomPeriodReader = z.object({ classroomId: uuid, periodId: uuid }).passthrough();
+export const decisionConfirmedReader = z.object({ enrollmentId: uuid, finalCode: z.string().nullable().optional(), academicPeriodId: uuid.nullable().optional() }).passthrough();
+export const documentRenderedReader = z.object({ documentId: uuid, documentKind: z.string(), sourceId: uuid }).passthrough();
+export const reviewSealedReader = z.object({ reviewId: uuid }).passthrough();
 
 export interface IncomingEvent {
   id: string;
@@ -42,7 +42,7 @@ export function isBenignConsumerError(e: AppError): boolean {
 }
 
 export async function onInstitutionCreated(deps: PrimarySchoolDeps, ctx: RequestContext, event: IncomingEvent): Promise<Result<{ applied: boolean }, AppError>> {
-  const p = institutionCreated.safeParse(event.payload);
+  const p = institutionCreatedReader.safeParse(event.payload);
   if (!p.success) return ok({ applied: false });
   if (p.data.pack !== "PRIMARY") return ok({ applied: false });
   const r = await instantiatePrimaryReferenceData(deps, ctx, { institutionId: p.data.institutionId, educationSystem: p.data.educationSystem });
@@ -50,7 +50,7 @@ export async function onInstitutionCreated(deps: PrimarySchoolDeps, ctx: Request
 }
 
 export async function onClassroomPeriodEvent(deps: PrimarySchoolDeps, ctx: RequestContext, event: IncomingEvent): Promise<Result<{ updated: boolean }, AppError>> {
-  const p = classroomPeriod.safeParse(event.payload);
+  const p = classroomPeriodReader.safeParse(event.payload);
   if (!p.success) return ok({ updated: false });
   const status = event.type === ConsumedEvents.CLASSROOM_PERIOD_REOPENED ? "OPEN" : event.type === ConsumedEvents.CLASSROOM_PERIOD_GRADING_CLOSED || event.type === ConsumedEvents.CLASSROOM_PERIOD_CLOSED ? "LOCKED" : null;
   if (status === null) return ok({ updated: false });
@@ -62,20 +62,20 @@ export async function onClassroomPeriodEvent(deps: PrimarySchoolDeps, ctx: Reque
 }
 
 export async function onResultsDecisionConfirmed(deps: PrimarySchoolDeps, ctx: RequestContext, event: IncomingEvent): Promise<Result<{ caseUpdated: boolean; outcomeRecorded: string | null }, AppError>> {
-  const p = decisionConfirmed.safeParse(event.payload);
+  const p = decisionConfirmedReader.safeParse(event.payload);
   const decisionId = event.aggregateId && uuid.safeParse(event.aggregateId).success ? event.aggregateId : null;
   if (!p.success || !decisionId) return ok({ caseUpdated: false, outcomeRecorded: null });
   return onDecisionConfirmed(deps, ctx, { decisionId, enrollmentId: p.data.enrollmentId, finalCode: p.data.finalCode ?? null, periodId: p.data.academicPeriodId ?? null });
 }
 
 export async function onOfficialDocumentRendered(deps: PrimarySchoolDeps, ctx: RequestContext, event: IncomingEvent): Promise<Result<{ updated: boolean }, AppError>> {
-  const p = documentRendered.safeParse(event.payload);
+  const p = documentRenderedReader.safeParse(event.payload);
   if (!p.success || p.data.documentKind !== "ANNUAL_REVIEW") return ok({ updated: false });
   return onReviewDocumentRendered(deps, ctx, { reviewId: p.data.sourceId, documentId: p.data.documentId });
 }
 
 export async function onAnnualReviewSealed(deps: PrimarySchoolDeps, ctx: RequestContext, event: IncomingEvent): Promise<Result<{ requested: boolean }, AppError>> {
-  const p = reviewSealed.safeParse(event.payload);
+  const p = reviewSealedReader.safeParse(event.payload);
   if (!p.success) return ok({ requested: false });
   const r = await requestReviewDocument(deps, ctx, p.data.reviewId);
   return r.ok ? ok({ requested: r.value.requested }) : r;

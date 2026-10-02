@@ -14,7 +14,7 @@ import { createFinanceDeps } from "./application/deps";
 import { instantiateFinancePack } from "./application/pack";
 import { financeAuditAdapter } from "./infrastructure/audit-adapter";
 
-const institutionCreated = z.object({ institutionId: z.string().uuid(), pack: z.string() }).passthrough();
+export const institutionCreatedReader = z.object({ institutionId: z.string().uuid(), pack: z.string() }).passthrough();
 
 let auditConfigured = false;
 
@@ -24,7 +24,7 @@ export default [
     pattern: "tenancy.institution.created",
     retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
     handler: idempotent("finance.instantiate-pack", async (event, ctx) => {
-      const parsed = institutionCreated.safeParse(event.payload);
+      const parsed = institutionCreatedReader.safeParse(event.payload);
       if (!parsed.success) {
         ctx.logger.warn({ eventId: event.id }, "finance : charge utile tenancy.institution.created illisible, ignorée");
         return;

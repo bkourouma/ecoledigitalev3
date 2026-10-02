@@ -730,3 +730,31 @@ export const PRIMARY_ERROR_CODES = [
   "primary_school.archive_frozen",
   "primary_school.homeroom_required",
 ] as const;
+
+/**
+ * Charge utile de chaque événement PUBLIÉ par primary_school (`{ v: 1, … }`). Source de vérité des tests de contrat
+ * (`apps/api/test/events-contracts`) : elle suit exactement les appels `events.add` du module. Aucune appréciation, aucun niveau de
+ * maîtrise, aucune note, aucun nom d'élève : seulement des identifiants, des comptages, des codes et des empreintes.
+ */
+const primaryEventHash = z.string().regex(/^[0-9a-f]{64}$/);
+export const primaryEventPayloadSchemas = {
+  "primary_school.template.applied": z.object({
+    v: z.literal(1),
+    institutionId: primaryUuidSchema,
+    educationSystem: z.string(),
+    templateVersion: z.number().int().min(1),
+    scales: z.number().int(),
+    frameworks: z.number().int(),
+    phrases: z.number().int(),
+    settings: z.number().int(),
+  }),
+  "primary_school.framework.published": z.object({ v: z.literal(1), frameworkId: primaryUuidSchema, code: z.string(), version: z.number().int(), retiredVersions: z.number().int() }),
+  "primary_school.competency.validated": z.object({ v: z.literal(1), classroomId: primaryUuidSchema, periodId: primaryUuidSchema, frameworkId: primaryUuidSchema.nullable(), validated: z.number().int(), missing: z.number().int() }),
+  "primary_school.competency.revised": z.object({ v: z.literal(1), assessmentId: primaryUuidSchema, revisionId: primaryUuidSchema, classroomId: primaryUuidSchema, periodId: primaryUuidSchema, enrollmentId: primaryUuidSchema }),
+  "primary_school.council.prepared": z.object({ v: z.literal(1), deliberationId: primaryUuidSchema, classroomId: primaryUuidSchema, periodId: primaryUuidSchema, cases: z.number().int() }),
+  "primary_school.council.minutes_requested": z.object({ v: z.literal(1), deliberationId: primaryUuidSchema, classroomId: primaryUuidSchema, periodId: primaryUuidSchema, version: z.number().int(), documentId: primaryUuidSchema }),
+  "primary_school.annual_review.sealed": z.object({ v: z.literal(1), reviewId: primaryUuidSchema, enrollmentId: primaryUuidSchema, classroomId: primaryUuidSchema, academicYearId: primaryUuidSchema, version: z.number().int(), contentHash: primaryEventHash }),
+  "primary_school.annual_review.superseded": z.object({ v: z.literal(1), reviewId: primaryUuidSchema, replacedByReviewId: primaryUuidSchema, enrollmentId: primaryUuidSchema, academicYearId: primaryUuidSchema, version: z.number().int() }),
+  "primary_school.year_archive.ready": z.object({ v: z.literal(1), archiveId: primaryUuidSchema, institutionId: primaryUuidSchema, academicYearId: primaryUuidSchema, reviews: z.number().int(), manifestHash: primaryEventHash.nullable() }),
+  "primary_school.year_archive.frozen": z.object({ v: z.literal(1), archiveId: primaryUuidSchema, institutionId: primaryUuidSchema, academicYearId: primaryUuidSchema, reviews: z.number().int(), manifestHash: primaryEventHash.nullable() }),
+} as const;
