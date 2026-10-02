@@ -69,6 +69,8 @@ Publiés (`{ v: 1, … }`, **sans note ni identité**) : `examinations.session.o
 
 ## Ports et INTERFACES ATTENDUES des autres modules (non branchées tant qu'elles manquent : échec fermé `examinations.port_unavailable`)
 
+**État en phase 3** (parcours Secondary, `apps/api/test/phase3/secondary.integration.test.ts`) : `exam-national@1` et le jeu `CI-EXAM-PLACEHOLDER` existent et sont **liés** à l'établissement SECONDARY par le modèle de pack (abonné `rules.apply-pack-bindings`) ; les natures `EXAM_*` de `reportcards` existent ; `academic.getEligibilityFacts` existe. Un défaut d'adaptateur a été corrigé : `getEligibilityFacts(deps, ctx, enrollmentId)` prend l'**identifiant** de l'inscription (l'adaptateur passait un objet `{ enrollmentId }` et rendait donc `port_unavailable` en permanence ; les tests ne le voyaient pas car ils injectaient un faux `academic`). Aucun `port_unavailable` ne subsiste dans le parcours : éligibilité évaluée (faits + règle), examen blanc calculé par la règle de démonstration (`demoRules: true`). Les documents officiels d'un examen dont le type ou la session est `placeholder` transmettent désormais `ruleSourceKind: "placeholder"` à `reportcards` (filigrane imposé, vérification publique « démonstration »). Reste non branché : le stockage sans bucket (`STORAGE_*`), comme pour tous les modules.
+
 Le module n'importe aucun autre module. Les adaptateurs `apps/api/src/platform/adapters/examinations-*.ts` traduisent leurs API publiques ; **s'ils ne trouvent pas l'interface attendue, le port échoue fermé** (aucun module fournisseur n'est modifié) :
 
 | Port | Fournisseur | Interface attendue | Repli |

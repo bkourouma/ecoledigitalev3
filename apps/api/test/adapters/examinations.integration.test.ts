@@ -86,6 +86,17 @@ describeIntegration("adaptateurs d'examinations sur les vrais modules", () => {
     expect(ageAt(null, "2026-06-10")).toBeNull();
   });
 
+  it("faits d'éligibilité : l'API RÉELLE d'academic est branchée (plus de port_unavailable) ; inscription inconnue : échec fermé", async () => {
+    const real = w.ports.examinations.eligibility!;
+    const facts = unwrap(await real.getEligibilityFacts(w.director, { enrollmentId: school.pupils[0]!.enrollmentId, studentId: school.pupils[0]!.studentId, examGradeLevelCode: "L1", referenceDate: "2026-06-01" }));
+    expect(facts.ageYears).toBe(21);
+    expect(typeof facts.inExamGrade).toBe("boolean");
+    const other = unwrap(await real.getEligibilityFacts(w.director, { enrollmentId: school.pupils[0]!.enrollmentId, studentId: school.pupils[0]!.studentId, examGradeLevelCode: null, referenceDate: null }));
+    expect(other).toEqual({ inExamGrade: false, ageYears: null });
+    const unknown = await real.getEligibilityFacts(w.director, { enrollmentId: newId(), studentId: school.pupils[0]!.studentId, examGradeLevelCode: "L1", referenceDate: null });
+    expect(unknown.ok).toBe(false);
+  });
+
   it("documents officiels : jamais d'exception ni de document « presque officiel » (échec fermé tant que les natures d'examen manquent)", async () => {
     const reportcards = createOfficialDocumentDeps(w.kit, null);
     const port = createExaminationsOfficialDocuments(reportcards);

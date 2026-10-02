@@ -179,7 +179,7 @@ export async function ensureBuiltinTemplates(deps: ReportcardsDeps): Promise<Res
         signatureSlots: t.signatureSlots,
         contentHash: contentHashOf({ ...t, snapshotSchema: "reportcard/1" }),
         publishedAt: deps.clock.now(),
-      });
+      }, { ifAbsent: true });
       published.push(`${t.key}@${t.version}`);
     }
   });

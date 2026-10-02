@@ -112,7 +112,7 @@ describeIntegration.skipIf(!REDIS_URL)("bundle de production du worker : build +
   });
 
   it("le build embarque les modules qui déclarent des abonnés ou des jobs", () => {
-    for (const expected of ["audit[subscribers,jobs]", "entitlements[subscribers]", "finance[jobs]", "iam[jobs]", "rbac[subscribers]"]) {
+    for (const expected of ["audit[subscribers,jobs]", "entitlements[subscribers]", "finance[subscribers,jobs]", "rules[subscribers,jobs]", "iam[jobs]", "rbac[subscribers]"]) {
       expect(buildOutput, expected).toContain(expected);
     }
   });

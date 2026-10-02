@@ -52,17 +52,24 @@ export async function nextTemplateVersion(tx: Tx, key: string): Promise<number> 
   return Number(row!.v);
 }
 
+/**
+ * Publie une version de gabarit. `ifAbsent` : amorçage CONCURRENT (API et worker démarrent ensemble) — qui perd la course relit
+ * la version déjà publiée au lieu d'échouer sur la clé primaire.
+ */
 export async function insertPublishedTemplate(
   tx: Tx,
   t: Omit<PlatformTemplate, "status" | "publishedAt" | "contentHash"> & { contentHash: string; publishedAt: Date },
+  options: { ifAbsent?: boolean } = {},
 ): Promise<PlatformTemplate> {
   const rows = await tx.many(
     `INSERT INTO reportcards.platform_templates
        (key, version, document_kind, pack, snapshot_schema, title, body, css, options_schema, signature_slots, status, content_hash, published_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,'PUBLISHED',$11,$12)
+     ${options.ifAbsent ? "ON CONFLICT (key, version) DO NOTHING" : ""}
      RETURNING ${TEMPLATE_COLUMNS}`,
     [t.key, t.version, t.documentKind, t.pack, t.snapshotSchema, t.title, t.body, t.css, JSON.stringify(t.optionsSchema), JSON.stringify(t.signatureSlots), t.contentHash, t.publishedAt],
   );
+  if (rows.length === 0) return (await getTemplateVersion(tx, t.key, t.version)) as PlatformTemplate;
   return toPlatformTemplate(rows[0]!);
 }
 

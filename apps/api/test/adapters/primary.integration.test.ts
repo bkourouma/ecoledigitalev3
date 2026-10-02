@@ -133,12 +133,12 @@ describeIntegration("adaptateurs du pack Primary : academic, people, results, ru
     expect(reg).toEqual({ days: [], rows: [] });
   });
 
-  it("reportcards -> DocumentsPort : natures COUNCIL_MINUTES / ANNUAL_REVIEW non livrées => échec FERMÉ, jamais un faux document ; périodes publiées vides", async () => {
+  it("reportcards -> DocumentsPort : natures livrées ; sans clé de signature configurée => échec FERMÉ (aucun faux document) ; périodes publiées vides", async () => {
     const d = ports().documents!;
     await expect(
       d.requestCouncilMinutes(w.director, { minutesId: newId(), deliberationId: newId(), classroomId: school.ref.classroomId, title: "PV", issuedAt: new Date(), content: { schema: 1 }, contentHash: "a".repeat(64), ruleSourceKind: "placeholder" }),
-    ).rejects.toMatchObject({ code: "primary_school.port_unavailable" });
-    await expect(d.requestAnnualReview(w.director, { reviewId: newId(), title: "Bilan", issuedAt: new Date(), content: { schema: 1 }, contentHash: "b".repeat(64), ruleSourceKind: null })).rejects.toMatchObject({ code: "primary_school.port_unavailable" });
+    ).rejects.toMatchObject({ code: "reportcards.signing_key_missing" });
+    await expect(d.requestAnnualReview(w.director, { reviewId: newId(), title: "Bilan", issuedAt: new Date(), content: { schema: 1 }, contentHash: "b".repeat(64), ruleSourceKind: null })).rejects.toMatchObject({ code: "reportcards.signing_key_missing" });
     expect(await d.publishedPeriodIds(w.director, { studentId: school.pupils[0]!.studentId, enrollmentId: school.pupils[0]!.enrollmentId })).toEqual([]);
   });
 });

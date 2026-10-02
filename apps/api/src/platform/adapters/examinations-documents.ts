@@ -13,6 +13,7 @@ import { getDocument, type DocumentsDeps } from "../../modules/documents";
 import { readOfficialDocument, requestOfficialDocument, type ReportcardsDeps } from "../../modules/reportcards";
 import { ExamCode } from "../../modules/examinations";
 import type { OfficialDocumentPort, PieceDocumentPort } from "../../modules/examinations";
+import { warmOfficialDocuments } from "./official-documents";
 
 export function createExaminationsPieceDocuments(documents: DocumentsDeps): PieceDocumentPort {
   return {
@@ -37,6 +38,7 @@ const KNOWN_KIND_REFUSALS = new Set(["reportcards.unknown_document_kind", "repor
 export function createExaminationsOfficialDocuments(reportcards: ReportcardsDeps): OfficialDocumentPort {
   return {
     async request(ctx: RequestContext, input): Promise<Result<{ documentId: string }, AppError>> {
+      await warmOfficialDocuments(reportcards).catch(() => undefined); // voir `warmOfficialDocuments` : jamais dans la transaction du module
       const r = await requestOfficialDocument(reportcards, ctx, {
         kind: input.kind as never,
         sourceId: input.sourceId,
@@ -45,6 +47,7 @@ export function createExaminationsOfficialDocuments(reportcards: ReportcardsDeps
         content: input.content,
         context: input.context,
         institutionId: input.institutionId,
+        ...(input.ruleSourceKind ? { ruleSourceKind: input.ruleSourceKind } : {}),
       });
       if (!r.ok) return err(KNOWN_KIND_REFUSALS.has(r.error.code) ? unavailable(r.error.code) : r.error);
       return ok({ documentId: r.value.record.id });

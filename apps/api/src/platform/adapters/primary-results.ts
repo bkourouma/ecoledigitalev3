@@ -1,0 +1,19 @@
+/**
+ * primary_school -> results : `CompetencyCountersPort` — compteurs de compétences (évaluées / attendues) par inscription,
+ * entrée de la règle `decision_fin_annee` du contrat `competency-period@1` (spec 005).
+ *
+ * `primary_school` COMPTE les lignes validées (jamais de niveau ni de note) ; `results` n'en tire qu'une PROPOSITION
+ * (`PENDING` / `COUNCIL_REVIEW`) : le conseil décide. Un échec de lecture est propagé (échec fermé : jamais de décision sans compteur).
+ */
+import type { CompetencyCounters, CompetencyCountersPort } from "../../modules/results";
+import { getCompetencyCounters, type PrimarySchoolDeps } from "../../modules/primary_school";
+
+export function createResultsCompetencyCounters(primary: PrimarySchoolDeps): CompetencyCountersPort {
+  return {
+    async getCompetencyCounters(ctx, input): Promise<ReadonlyMap<string, CompetencyCounters>> {
+      const r = await getCompetencyCounters(primary, ctx, { classroomId: input.classroomId, enrollmentIds: input.enrollmentIds });
+      if (!r.ok) throw r.error;
+      return r.value;
+    },
+  };
+}

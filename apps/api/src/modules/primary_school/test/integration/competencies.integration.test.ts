@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { unwrap } from "@ecoledigitale/kernel";
 import type { PrimaryBulkLine } from "@ecoledigitale/contracts/src/v2/primary_school";
-import { bulkRecordCompetencies, getCompetencySheet, getCompetencySummary, getFamilyCompetencySummary, reviseCompetencyAssessment, validateCompetencies } from "../../application/competencies";
+import { bulkRecordCompetencies, getCompetencyCounters, getCompetencySheet, getCompetencySummary, getFamilyCompetencySummary, reviseCompetencyAssessment, validateCompetencies } from "../../application/competencies";
 import { createFramework, publishFramework, putStructure } from "../../application/frameworks";
 import { instantiatePrimaryReferenceData } from "../../application/template";
 import { summarizeCompetencies } from "../../domain/competency";
@@ -220,6 +220,25 @@ describeIntegration("primary_school : évaluation par compétences (base réelle
     // le tenant B ne voit rien (RLS) : même identifiant d'inscription, base commune
     const other = await db.tenantDb.run(ctxOf(tenantB, IDS.admin), (tx) => summaryRowsOf(tx, enrollmentId, null), { readOnly: true });
     expect(other).toEqual([]);
+  });
+
+  it("compteurs pour `results` (decision_fin_annee, competency-period@1) : on COMPTE les compétences distinctes validées contre les attendues, jamais un niveau ; autre tenant : zéros ; classe inconnue : 404", async () => {
+    const ids = [w.students.s1, w.students.s2, w.students.s3].map((s) => s.enrollmentId);
+    const counters = unwrap(await getCompetencyCounters(deps, teacherA(), { classroomId: w.classA, enrollmentIds: ids }));
+    expect([...counters.keys()].sort()).toEqual([...ids].sort());
+    const sheet = unwrap(await getCompetencySheet(deps, teacherA(), { classroomId: w.classA, periodId: w.periods[0] as string }, TEACHER_CAPS));
+    const expected = (sheet.framework?.domains ?? []).reduce((n, d) => n + d.competencies.length, 0);
+    for (const c of counters.values()) {
+      expect(Object.keys(c).sort()).toEqual(["evaluated", "expected"]); // deux compteurs, aucune valeur de maîtrise
+      expect(c.expected).toBe(expected);
+      expect(c.evaluated).toBeLessThanOrEqual(c.expected);
+    }
+    // l'élève 2 a ses trois compétences du référentiel de test validées (ligne par ligne, périodes confondues : comptées UNE fois)
+    if (sheet.framework?.id === frameworkId) expect(counters.get(w.students.s2.enrollmentId)).toEqual({ evaluated: 3, expected: 3 });
+    // RLS : un autre tenant ne lit ni les référentiels ni les lignes du tenant A
+    const other = unwrap(await getCompetencyCounters(deps, ctxOf(tenantB, IDS.admin), { classroomId: w.classA, enrollmentIds: ids }));
+    for (const c of other.values()) expect(c).toEqual({ evaluated: 0, expected: 0 });
+    expect((await getCompetencyCounters(deps, teacherA(), { classroomId: "0192f0a4-7b1e-7c3a-8d2e-00000000dead", enrollmentIds: ids })).ok).toBe(false);
   });
 
   it("famille : le parent ne voit les compétences d'une période qu'APRÈS publication du bulletin, et seulement pour son enfant", async () => {

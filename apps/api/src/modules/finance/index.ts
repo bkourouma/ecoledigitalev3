@@ -84,12 +84,18 @@ export {
 
 // Faits publiés pour les adaptateurs de plateforme (academic, reportcards) : frais d'inscription soldés, facture, impayé
 export {
+  getBilledAmounts,
   getInvoiceFacts,
+  getLearnerStanding,
+  getLinkedInvoicesTotals,
   getRegistrationFeeStatus,
   hasOverdueBalance,
   isRegistrationFeeDue,
   registrationFeeStateOf,
+  type BilledAmounts,
   type InvoiceFacts,
+  type InvoiceTotals,
+  type LearnerStanding,
   type RegistrationFeeQuery,
   type RegistrationFeeState,
   type RegistrationFeeStatus,

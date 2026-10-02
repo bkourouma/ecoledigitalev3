@@ -221,6 +221,8 @@ export interface OfficialDocumentRequest {
   content: Record<string, unknown>;
   /** Contexte d'impression (chaînes déjà mises en forme). */
   context: Record<string, unknown>;
+  /** `placeholder` : données ou règle de DÉMONSTRATION — scellé avec le document, impose le filigrane et la mention (jamais retirable par un gabarit). */
+  ruleSourceKind?: "placeholder" | null;
 }
 
 export interface OfficialDocumentState {
