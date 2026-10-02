@@ -7,7 +7,7 @@
  */
 import { z } from "zod";
 import { CatalogKeySchema } from "./entitlements";
-import { ProvisionTenantInputSchema, TenantStatusSchema } from "./tenancy";
+import { InstitutionPackSchema, ProvisionTenantInputSchema, TenantStatusSchema } from "./tenancy";
 
 const UuidSchema = z.string().uuid();
 
@@ -60,3 +60,30 @@ export const PlatformTenantListResponseSchema = z.object({
   offset: z.number().int(),
 });
 export type PlatformTenantListResponse = z.infer<typeof PlatformTenantListResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Réponses RÉELLES de la console (validées contre l'API réelle : test `platform-console.integration.test.ts`)
+// ---------------------------------------------------------------------------
+
+/**
+ * Réponse de `POST /platform/tenants` (201) : le résultat de la CONSOLE (`provisionPlatformTenant`) — organisation,
+ * établissements et campus par défaut, propriétaire invité, abonnement d'essai. Ce n'est PAS `ProvisionTenantResultSchema`
+ * (module tenancy, qui porte l'`onboarding` et ignore le propriétaire et l'abonnement) : la console enchaîne plusieurs
+ * modules. Aucun mot de passe ni jeton d'invitation n'y figure (l'invitation part par e-mail).
+ */
+export const PlatformProvisionTenantResponseSchema = z.object({
+  tenantId: UuidSchema,
+  slug: z.string(),
+  institutions: z.array(z.object({ id: UuidSchema, code: z.string(), pack: InstitutionPackSchema, defaultCampusId: UuidSchema })),
+  owner: z.object({ identityId: UuidSchema, membershipId: UuidSchema, email: z.string().email() }),
+  subscription: z.object({ planKey: CatalogKeySchema, status: z.literal("TRIALING"), endsAt: z.string().datetime({ offset: true }).nullable() }),
+});
+export type PlatformProvisionTenantResponse = z.infer<typeof PlatformProvisionTenantResponseSchema>;
+
+/** Réponse de `PATCH /platform/tenants/:tenantId/status` (200) : la transition effectuée. */
+export const PlatformSetTenantStatusResponseSchema = z.object({
+  tenantId: UuidSchema,
+  previous: TenantStatusSchema,
+  current: TenantStatusSchema,
+});
+export type PlatformSetTenantStatusResponse = z.infer<typeof PlatformSetTenantStatusResponseSchema>;

@@ -4,7 +4,7 @@
  */
 import { NotFoundError, ValidationError } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
-import { getLogById, listLogs, exportLogs, type LogFilter } from "../infrastructure/log-repository";
+import { getLogById, listLogs, listPlatformLogs, exportLogs, type LogFilter } from "../infrastructure/log-repository";
 import type { StoredAuditEntry } from "../domain/types";
 import type { AuditService } from "./audit-service";
 
@@ -41,6 +41,20 @@ export async function listAuditLogs(
   const before = options.cursor ? decodeCursor(options.cursor) : null;
   // On lit une ligne de plus pour savoir s'il y a une page suivante, sans COUNT.
   const rows = await listLogs(tx, tenantId, filter, before, limit + 1);
+  const items = rows.slice(0, limit);
+  const last = items[items.length - 1];
+  return { items, nextCursor: rows.length > limit && last ? encodeCursor(last.seq) : null };
+}
+
+/**
+ * Journal de PLATEFORME (événements sans tenant : console des opérateurs, événements sans tenant exploitable).
+ * Même pagination par curseur que `listAuditLogs`. À appeler dans `SystemDb.run` (table globale hors RLS) ; l'appelant
+ * (console plateforme) authentifie l'opérateur — ce module ne décide pas qui peut lire.
+ */
+export async function listPlatformAuditLogs(tx: Tx, filter: LogFilter, options: { cursor?: string; limit?: number } = {}): Promise<LogPage> {
+  const limit = Math.min(Math.max(options.limit ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
+  const before = options.cursor ? decodeCursor(options.cursor) : null;
+  const rows = await listPlatformLogs(tx, filter, before, limit + 1);
   const items = rows.slice(0, limit);
   const last = items[items.length - 1];
   return { items, nextCursor: rows.length > limit && last ? encodeCursor(last.seq) : null };

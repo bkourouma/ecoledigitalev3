@@ -26,7 +26,8 @@ const jsonObject = z.record(z.unknown());
 /** Entrée complète (détail). */
 export const auditLogEntrySchema = z.object({
   id: z.string().uuid(),
-  tenantId: z.string().uuid(),
+  /** `null` pour une entrée du journal de PLATEFORME (`GET /api/v1/platform/audit/logs`), jamais pour un tenant. */
+  tenantId: z.string().uuid().nullable(),
   seq: z.number().int().positive(),
   occurredAt: isoInstant,
   recordedAt: isoInstant,
@@ -102,6 +103,29 @@ export const auditLogListResponseSchema = z.object({
 export type AuditLogListResponseDto = z.infer<typeof auditLogListResponseSchema>;
 
 export const auditLogIdParamsSchema = z.object({ id: z.string().uuid() });
+
+// ---------------------------------------------------------------------------
+// Journal de PLATEFORME (`GET /api/v1/platform/audit/logs`, opérateurs super-admin)
+// ---------------------------------------------------------------------------
+
+/**
+ * Entrée du journal de plateforme : celle d'un tenant, sans tenant (`tenantId: null`). Comme pour le tenant, la liste
+ * ne montre PAS `before`/`after`/`metadata`/`userAgent` ni `prevHash`/`hashAlg`/`keyId` : seul `hash` (empreinte de
+ * l'entrée, publique par construction) et `seq` (ordre) sont exposés ; le contrôle d'intégrité se fait côté serveur.
+ */
+export const platformAuditLogSummarySchema = auditLogSummarySchema.extend({ tenantId: z.null() });
+export type PlatformAuditLogSummaryDto = z.infer<typeof platformAuditLogSummarySchema>;
+
+/** Mêmes filtres et même pagination par curseur que l'audit d'un tenant (`GET /api/v1/audit/logs`). */
+export const platformAuditLogListQuerySchema = auditLogListQuerySchema;
+export type PlatformAuditLogListQueryDto = z.infer<typeof platformAuditLogListQuerySchema>;
+
+/** MÊME enveloppe que `auditLogListResponseSchema` : `{ items, nextCursor }`. */
+export const platformAuditLogListResponseSchema = z.object({
+  items: z.array(platformAuditLogSummarySchema),
+  nextCursor: z.string().nullable(),
+});
+export type PlatformAuditLogListResponseDto = z.infer<typeof platformAuditLogListResponseSchema>;
 
 /** Export CSV borné : période obligatoire (<= 31 jours) et plafond de lignes. */
 export const AUDIT_EXPORT_MAX_ROWS = 10_000;

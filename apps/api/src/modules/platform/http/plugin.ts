@@ -11,6 +11,7 @@
  *   GET    /tenants/:tenantId                          vue d'ensemble (profil, établissements, abonnement)
  *   PATCH  /tenants/:tenantId/status                   suspension / réactivation / archivage
  *   POST   /tenants/:tenantId/reconcile                reprise idempotente (rôles, abonnement)
+ *   GET    /audit/logs                                 journal d'audit de PLATEFORME (curseur, filtres)
  *   GET    /plans                                      catalogue (plans, packs, features)
  *   PUT    /plans/:key · PUT /plans/:key/features      plan ; features du plan
  *   GET|PUT /tenants/:tenantId/subscription            abonnement
@@ -20,6 +21,7 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z, type ZodTypeAny } from "zod";
 import { UnauthorizedError, ValidationError, unwrap } from "@ecoledigitale/kernel";
+import { platformAuditLogListQuerySchema } from "@ecoledigitale/contracts/src/v2/audit";
 import {
   PlatformListTenantsQuerySchema,
   PlatformProvisionTenantBodySchema,
@@ -27,6 +29,7 @@ import {
   PlatformTenantParamsSchema,
 } from "@ecoledigitale/contracts/src/v2/platform";
 import { CatalogKeySchema, FeatureKeySchema } from "@ecoledigitale/contracts/src/v2/entitlements";
+import { listPlatformAuditLogs, toAuditSummaryDto } from "../../audit";
 import {
   toFeatureDto,
   toOverrideDto,
@@ -171,6 +174,34 @@ export default async function platformModulePlugin(app: FastifyInstance, runtime
     noStore(reply);
     const { tenantId } = parse(PlatformTenantParamsSchema, request.params);
     return unwrap(await reconcileTenant(deps, operatorOf(request), tenantId, metaOf(request)));
+  });
+
+  // ------------------------------------------------------------------ journal d'audit de plateforme
+  // LECTURE SEULE de `audit.platform_audit_log` (table globale, hors RLS) par l'API PUBLIQUE du module audit, dans une
+  // transaction système en lecture seule. Même enveloppe que l'audit d'un tenant : `{ items, nextCursor }`, curseur opaque,
+  // plus récent d'abord ; filtres action (exacte ou préfixe `x.*`), acteur, entité, sévérité, période.
+  app.get("/audit/logs", route, async (request, reply) => {
+    noStore(reply);
+    const q = parse(platformAuditLogListQuerySchema, request.query);
+    const page = await deps.systemDb.run(
+      "platform-console-audit-read",
+      (tx) =>
+        listPlatformAuditLogs(
+          tx,
+          {
+            ...(q.actorId ? { actorId: q.actorId } : {}),
+            ...(q.entity ? { entity: q.entity } : {}),
+            ...(q.entityId ? { entityId: q.entityId } : {}),
+            ...(q.action ? { action: q.action } : {}),
+            ...(q.severity ? { severity: q.severity } : {}),
+            ...(q.from ? { from: q.from } : {}),
+            ...(q.to ? { to: q.to } : {}),
+          },
+          { ...(q.cursor ? { cursor: q.cursor } : {}), limit: q.limit },
+        ),
+      { readOnly: true },
+    );
+    return { items: page.items.map(toAuditSummaryDto), nextCursor: page.nextCursor };
   });
 
   // ------------------------------------------------------------------ plans
