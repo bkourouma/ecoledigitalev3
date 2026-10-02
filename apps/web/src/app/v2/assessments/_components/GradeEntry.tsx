@@ -362,9 +362,6 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
                   <th scope="col" className="hidden px-3 py-2 md:table-cell">
                     {t("columns.comment")}
                   </th>
-                  <th scope="col" className="px-3 py-2">
-                    <span className="sr-only">{t("columns.row")}</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -379,9 +376,31 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
                   const current = statusOfText(row.text, row.base !== null, ctx);
                   return (
                     <tr key={row.enrollmentId} className="border-t align-top">
-                      <th scope="row" className="min-w-[8rem] px-3 py-2 text-left font-medium">
+                      <th scope="row" className="min-w-[6rem] px-2 py-2 text-left font-medium sm:min-w-[8rem] sm:px-3">
                         <span className="block">{name}</span>
                         {number ? <span className="block text-xs font-normal text-muted-foreground">{number}</span> : null}
+                        <span className="mt-1 flex flex-wrap items-center gap-1 font-normal">
+                          {editable ? <RowMark dirty={dirty} saved={row.base !== null && !dirty} error={Boolean(message)} /> : null}
+                          {published && row.base ? (
+                            <span className="flex flex-wrap justify-end gap-1">
+                              {canRevise.allowed ? (
+                                <button type="button" className={buttonClass.ghost} onClick={() => setReviseRow(row)} aria-label={t("reviseOf", { name })}>
+                                  {t("revise")}
+                                </button>
+                              ) : null}
+                              {canHistory.allowed || canHistory2.allowed ? (
+                                <button type="button" className={buttonClass.ghost} onClick={() => setHistoryRow(row)} aria-label={t("historyOf", { name })}>
+                                  {t("history")}
+                                </button>
+                              ) : null}
+                            </span>
+                          ) : null}
+                          {published && !row.base && canRevise.allowed ? (
+                            <button type="button" className={buttonClass.ghost} onClick={() => setReviseRow(row)} aria-label={t("addOf", { name })}>
+                              {t("add")}
+                            </button>
+                          ) : null}
+                        </span>
                       </th>
                       <td className="px-3 py-2">
                         <input
@@ -401,7 +420,7 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
                           onKeyDown={(e) => onKeyDown(e, displayIndex)}
                           onPaste={(e) => onPaste(e, displayIndex)}
                           onFocus={(e) => e.currentTarget.select()}
-                          className="h-11 w-24 rounded-md border border-input bg-background px-2 text-right tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive read-only:bg-muted/40 sm:h-10"
+                          className="h-11 w-20 rounded-md border border-input bg-background px-2 text-right tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive read-only:bg-muted/40 sm:h-10 sm:w-24"
                         />
                         {message ? (
                           <p id={errId} role="alert" className="mt-1 max-w-[12rem] text-xs font-medium text-destructive">
@@ -417,7 +436,7 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
                           onChange={(v) => onStatusChange(row, v as EntryStatus | "")}
                           placeholder={current === "" ? t("noEntry") : undefined}
                           options={STATUS_OPTIONS.map((s) => ({ value: s, label: tEntry(s) }))}
-                          className="w-40"
+                          className="w-28 px-2 text-xs sm:w-40 sm:text-sm"
                         />
                       </td>
                       <td className="hidden px-3 py-2 md:table-cell">
@@ -430,28 +449,6 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
                           onChange={(e) => setComment(row.enrollmentId, e.target.value)}
                           className="h-10 w-full min-w-[8rem] rounded-md border border-input bg-background px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring read-only:bg-muted/40"
                         />
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right">
-                        {editable ? <RowMark dirty={dirty} saved={row.base !== null && !dirty} error={Boolean(message)} /> : null}
-                        {published && row.base ? (
-                          <span className="flex flex-wrap justify-end gap-1">
-                            {canRevise.allowed ? (
-                              <button type="button" className={buttonClass.ghost} onClick={() => setReviseRow(row)} aria-label={t("reviseOf", { name })}>
-                                {t("revise")}
-                              </button>
-                            ) : null}
-                            {canHistory.allowed || canHistory2.allowed ? (
-                              <button type="button" className={buttonClass.ghost} onClick={() => setHistoryRow(row)} aria-label={t("historyOf", { name })}>
-                                {t("history")}
-                              </button>
-                            ) : null}
-                          </span>
-                        ) : null}
-                        {published && !row.base && canRevise.allowed ? (
-                          <button type="button" className={buttonClass.ghost} onClick={() => setReviseRow(row)} aria-label={t("addOf", { name })}>
-                            {t("add")}
-                          </button>
-                        ) : null}
                       </td>
                     </tr>
                   );

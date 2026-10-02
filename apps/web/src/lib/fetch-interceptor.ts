@@ -327,8 +327,12 @@ if (typeof window !== 'undefined') {
     ];
     
     const isNextAuthCall = nextAuthPaths.some(path => url.includes(path));
-    
-    if (url.includes('/api/') && !isNextAuthCall) {
+
+    // Routes PUBLIQUES de l'API (vérification d'un document par QR code) : aucun jeton, aucun établissement imposé, et surtout
+    // aucune redirection vers /login quand le visiteur n'est pas connecté.
+    const isPublicApiCall = /\/api\/v1\/(?:public|reportcards\/public)\//.test(url);
+
+    if (url.includes('/api/') && !isNextAuthCall && !isPublicApiCall) {
       const requestMethod = (
         input instanceof Request ? input.method : init?.method || 'GET'
       ).toUpperCase();
