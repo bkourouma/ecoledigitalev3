@@ -306,7 +306,8 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
   const ctx = useMyDocumentsContext();
   const archive = useArchiveDocument(documentId);
   const restore = useRestoreDocument(documentId);
-  const [selected, setSelected] = useState<number | null>(null);
+  // Version dont l'aperçu est demandé (aucune requête tant que l'utilisateur n'a pas cliqué : chaque aperçu est un accès journalisé).
+  const [previewing, setPreviewing] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const [versioning, setVersioning] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -316,7 +317,7 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
   if (query.isError) return <ErrorBlock error={query.error} onRetry={() => void query.refetch()} />;
   const doc = query.data;
   const current = doc.versions.find((v) => v.current) ?? doc.versions[0]!;
-  const shown = doc.versions.find((v) => v.versionNo === selected) ?? current;
+  const shown = previewing === null ? null : (doc.versions.find((v) => v.versionNo === previewing) ?? null);
   const staffLike = Boolean(ctx.data?.caps.upload || ctx.data?.caps.manage);
   const manager = Boolean(ctx.data?.caps.manage);
   const archived = doc.status === "ARCHIVED";
@@ -411,7 +412,7 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" aria-pressed={shown.versionNo === v.versionNo} onClick={() => setSelected(v.versionNo)} className={buttonClass.ghost}>
+                <button type="button" aria-pressed={previewing === v.versionNo} onClick={() => setPreviewing(v.versionNo)} className={buttonClass.ghost}>
                   {t("versions.select", { version: v.versionNo })}
                 </button>
                 <DownloadButton documentId={doc.id} version={v} label={t("versions.download", { version: v.versionNo })} variant="ghost" />
@@ -419,7 +420,7 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
             </li>
           ))}
         </ol>
-        <PreviewPanel documentId={doc.id} version={shown} />
+        {shown ? <PreviewPanel documentId={doc.id} version={shown} /> : null}
       </section>
 
       {doc.shares !== null && !archived ? <SharesSection doc={doc} /> : null}

@@ -9128,8 +9128,7 @@
       "purged": "Fichier purgé"
     },
     "preview": {
-      "title": "Prévisualisation",
-      "show": "Prévisualiser la version {version}",
+      "title": "Aperçu de la version {version}",
       "loading": "Chargement de l'aperçu…",
       "unavailable": "Aucune prévisualisation pour ce type de fichier : téléchargez-le.",
       "imageAlt": "Aperçu de {name}",

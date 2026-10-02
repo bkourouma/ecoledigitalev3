@@ -1,60 +1,73 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { DocumentVersionDto } from "@ecoledigitale/contracts/v2/documents";
 import { fetchPreviewBlob } from "@/platform/v2/documents";
-import { buttonClass } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice } from "@/platform/ui/states";
 
-type Loaded = { kind: "IMAGE" | "PDF"; url: string } | { kind: "TEXT"; text: string };
+/** `Blob.text()` n'existe pas partout (anciens navigateurs, jsdom) : repli par `FileReader`. */
+function readBlobText(blob: Blob): Promise<string> {
+  if (typeof blob.text === "function") return blob.text();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("lecture impossible"));
+    reader.readAsText(blob);
+  });
+}
+
+type Loaded ={ kind: "IMAGE" | "PDF"; url: string } | { kind: "TEXT"; text: string };
+type State = { status: "loading" } | { status: "error"; error: unknown } | { status: "ready"; value: Loaded };
 
 /**
  * Prévisualisation SÛRE d'une version : les octets sont servis par l'API (type réel, `nosniff`, aucun HTML ni SVG) puis lus en
  * `blob` ; une image s'affiche dans `<img>`, un PDF dans le visionneur du navigateur, un texte dans `<pre>` (échappé par React).
- * Chaque prévisualisation est un accès journalisé : elle ne part que sur demande explicite de l'utilisateur.
+ * Chaque prévisualisation est un accès journalisé : ce composant n'est monté qu'à la demande explicite de l'utilisateur
+ * (bouton « Prévisualiser la version N » de la liste des versions).
  */
 export function PreviewPanel({ documentId, version }: { documentId: string; version: DocumentVersionDto }) {
   const t = useTranslations("v2Documents.preview");
-  const [state, setState] = useState<{ status: "idle" } | { status: "loading" } | { status: "error"; error: unknown } | { status: "ready"; value: Loaded }>({ status: "idle" });
+  const [state, setState] = useState<State>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  const previewable = version.state !== "PURGED" && version.previewKind !== "NONE";
 
-  // Changer de version ou de document remet l'aperçu à zéro et libère l'URL d'objet.
   useEffect(() => {
-    setState({ status: "idle" });
-  }, [documentId, version.versionNo]);
-  useEffect(
-    () => () => {
-      if (state.status === "ready" && state.value.kind !== "TEXT") URL.revokeObjectURL(state.value.url);
-    },
-    [state],
-  );
-
-  async function load(): Promise<void> {
+    if (!previewable) return;
+    let cancelled = false;
+    let objectUrl: string | null = null;
     setState({ status: "loading" });
-    try {
-      const blob = await fetchPreviewBlob(documentId, version.versionNo);
-      const type = blob.type.split(";")[0]?.trim().toLowerCase() ?? "";
-      if (type === "text/plain" || type === "text/csv") return setState({ status: "ready", value: { kind: "TEXT", text: await blob.text() } });
-      if (type.startsWith("image/")) return setState({ status: "ready", value: { kind: "IMAGE", url: URL.createObjectURL(blob) } });
-      if (type === "application/pdf") return setState({ status: "ready", value: { kind: "PDF", url: URL.createObjectURL(blob) } });
-      setState({ status: "error", error: new Error("type") });
-    } catch (error) {
-      setState({ status: "error", error });
-    }
-  }
+    void (async () => {
+      try {
+        const blob = await fetchPreviewBlob(documentId, version.versionNo);
+        if (cancelled) return;
+        const type = blob.type.split(";")[0]?.trim().toLowerCase() ?? "";
+        if (type === "text/plain" || type === "text/csv") {
+          const text = await readBlobText(blob);
+          if (!cancelled) setState({ status: "ready", value: { kind: "TEXT", text } });
+        } else if (type.startsWith("image/") || type === "application/pdf") {
+          objectUrl = URL.createObjectURL(blob);
+          setState({ status: "ready", value: { kind: type === "application/pdf" ? "PDF" : "IMAGE", url: objectUrl } });
+        } else {
+          setState({ status: "error", error: new Error("type") });
+        }
+      } catch (error) {
+        if (!cancelled) setState({ status: "error", error });
+      }
+    })();
+    // Changer de version, de document ou quitter l'écran libère l'URL d'objet.
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [documentId, version.versionNo, previewable, attempt]);
 
-  if (version.state === "PURGED" || version.previewKind === "NONE") return <Notice kind="info">{t("unavailable")}</Notice>;
+  if (!previewable) return <Notice kind="info">{t("unavailable")}</Notice>;
   return (
-    <section aria-label={t("title")} className="space-y-3">
-      {state.status === "idle" ? (
-        <button type="button" onClick={() => void load()} className={buttonClass.secondary}>
-          <Eye className="h-4 w-4" aria-hidden="true" />
-          {t("show", { version: version.versionNo })}
-        </button>
-      ) : null}
+    <section aria-label={t("title", { version: version.versionNo })} className="space-y-3">
+      <h3 className="text-sm font-semibold">{t("title", { version: version.versionNo })}</h3>
       {state.status === "loading" ? <LoadingBlock label={t("loading")} /> : null}
-      {state.status === "error" ? <ErrorBlock error={state.error} onRetry={() => void load()} /> : null}
+      {state.status === "error" ? <ErrorBlock error={state.error} onRetry={() => setAttempt((n) => n + 1)} /> : null}
       {state.status === "ready" && state.value.kind === "IMAGE" ? (
         // eslint-disable-next-line @next/next/no-img-element -- blob local : next/image ne s'applique pas
         <img src={state.value.url} alt={t("imageAlt", { name: version.fileName })} className="max-h-[70vh] max-w-full rounded-md border object-contain" />
