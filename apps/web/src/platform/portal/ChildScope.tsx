@@ -20,7 +20,10 @@ import { childSectionHref, switchChildPath, visibleChildSections } from "./menus
  */
 export function ChildScope({ childId, children }: { childId: string; children: (child: PeopleStudentSummaryDto) => ReactNode }) {
   const t = useTranslations("v2Portal.child");
+  const tCommon = useTranslations("common");
   const list = useMyChildren();
+  // Établissement inconnu : la requête est suspendue (aucune lecture sans tenant), on le dit au lieu d'attendre sans fin.
+  if (list.isPending && list.fetchStatus === "idle") return <Notice kind="warning">{tCommon("tenantUnknown")}</Notice>;
   if (list.isPending) return <LoadingBlock />;
   if (list.isError) return <ErrorBlock error={list.error} onRetry={() => void list.refetch()} />;
   const child = list.data.find((c) => c.id === childId);

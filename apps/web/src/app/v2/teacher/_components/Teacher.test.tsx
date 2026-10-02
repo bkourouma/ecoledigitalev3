@@ -5,6 +5,8 @@ import { accessRoutes, setTestApi } from "@/platform/test/api-mock";
 import { json, renderWithProviders } from "@/platform/test/render";
 import { sessionDto } from "../../attendance/_test/fixtures";
 import { AssessmentCreate } from "../../assessments/_components/AssessmentCreate";
+import { AssessmentDetail } from "../../assessments/_components/AssessmentDetail";
+import { GradeEntryScreen } from "../../assessments/_components/GradeEntry";
 import { assessment, assessmentType } from "../../assessments/_test/fixtures";
 import { occurrence } from "../../schedule/_test/fixtures";
 import { payslip, payslipData, pid } from "../../_test/fixtures-payroll";
@@ -165,6 +167,32 @@ describe("Mes évaluations", () => {
     await waitFor(() => expect(api.calls.some((c) => c.path === "/api/v1/assess/assessments" && c.query.classroomId === MINE)).toBe(true));
   });
 
+  it("détail d'une évaluation : classe et matière nommées par « mes classes », aucune lecture de la structure académique", async () => {
+    const api = setTestApi(
+      base({
+        [`GET /api/v1/assess/assessments/${uuid(800)}`]: assessment({ classroomId: MINE, curriculumNodeId: MATHS, status: "DRAFT" }),
+        [`GET /api/v1/assess/assessments/${uuid(800)}/transitions`]: { items: [] },
+        "GET /api/v1/assess/assessment-types": { items: [assessmentType()] },
+      }),
+    );
+    renderWithProviders(<AssessmentDetail id={uuid(800)} />);
+    expect(await screen.findByText(/6e A · Mathématiques/)).toBeTruthy();
+    expect(calls(api).some((c) => c.path.startsWith("/api/v1/academic"))).toBe(false);
+  });
+
+  it("grille de notes d'une évaluation d'une classe étrangère : le refus de l'API est affiché, aucune note", async () => {
+    setTestApi(
+      base({
+        [`GET /api/v1/assess/assessments/${uuid(801)}/grades`]: () => json({ code: "assess.not_assigned", message: "Vous n'êtes pas affecté à cette matière dans cette classe." }, { status: 403 }),
+        "GET /api/v1/assess/settings": { requireSeparateReviewer: true, requireSeparateApprover: true, maxScoreDecimals: 2, lateGradePolicy: "REVISION", updatedAt: null },
+        "GET /api/v1/assess/assessment-types": { items: [assessmentType()] },
+      }),
+    );
+    renderWithProviders(<GradeEntryScreen assessmentId={uuid(801)} detailHref={`/v2/teacher/assessments/${uuid(801)}`} />);
+    expect(await screen.findByText("Vous n'êtes pas affecté à cette matière dans cette classe.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Retour à l'évaluation/ }).getAttribute("href")).toBe(`/v2/teacher/assessments/${uuid(801)}`);
+  });
+
   it("création sans lecture académique : classes, matières et périodes viennent de « mes classes » ; corps exact envoyé", async () => {
     const api = setTestApi(
       base({
@@ -172,7 +200,7 @@ describe("Mes évaluations", () => {
         "POST /api/v1/assess/assessments": () => json(assessment({ title: "Devoir 2" }), { status: 201 }),
       }),
     );
-    renderWithProviders(<AssessmentCreate initialClassroomId={MINE} />);
+    renderWithProviders(<AssessmentCreate initialClassroomId={MINE} basePath="/v2/teacher/assessments" />);
     await screen.findByRole("option", { name: "Devoir" });
     fireEvent.change(screen.getByLabelText(/Type d'évaluation/), { target: { value: uuid(700) } });
     fireEvent.change(screen.getByLabelText(/Intitulé/), { target: { value: "Devoir 2" } });
@@ -183,6 +211,7 @@ describe("Mes évaluations", () => {
     fireEvent.change(screen.getByLabelText(/^Période/), { target: { value: PERIOD } });
     fireEvent.click(screen.getByRole("button", { name: "Créer l'évaluation" }));
     await screen.findByText("1 évaluation créée.");
+    expect(screen.getByRole("link", { name: "Saisir les notes" }).getAttribute("href")).toBe(`/v2/teacher/assessments/${uuid(800)}/grades`);
     expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ typeId: uuid(700), academicPeriodId: PERIOD, title: "Devoir 2", assessedOn: "2026-10-15", classroomId: MINE, curriculumNodeId: MATHS });
     expect(calls(api).some((c) => c.path.startsWith("/api/v1/academic"))).toBe(false);
   });

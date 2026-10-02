@@ -5,5 +5,5 @@ import { AssessmentCreate } from "../../../assessments/_components/AssessmentCre
 export default async function TeacherAssessmentNewPage({ searchParams }: { searchParams: Promise<{ classroom?: string }> }) {
   await requirePermission("assessment.create");
   const { classroom } = await searchParams;
-  return <AssessmentCreate initialClassroomId={classroom ?? ""} />;
+  return <AssessmentCreate initialClassroomId={classroom ?? ""} basePath="/v2/teacher/assessments" />;
 }

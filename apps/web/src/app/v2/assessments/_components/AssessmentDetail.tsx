@@ -11,6 +11,7 @@ import { LoadingBlock, Notice, QueryBoundary, useFlash } from "@/platform/ui/sta
 import { usePermission } from "@/platform/access";
 import { toneOfStatus, useNodeLabels, usePeriodsOfClassroom } from "./shared";
 import { WorkflowBar } from "./WorkflowBar";
+import { useTeachingScope } from "@/platform/v2/teaching";
 import { RevisionList } from "./RevisionsScreen";
 
 export function AssessmentDetail({ id }: { id: string }) {
@@ -19,7 +20,8 @@ export function AssessmentDetail({ id }: { id: string }) {
   const date = useDateFormat();
   const query = useAssessment(id);
   const a = query.data;
-  const classroom = useClassroom(a?.classroomId ?? null);
+  const scope = useTeachingScope();
+  const classroom = useClassroom(!scope.useMine && !scope.isLoading ? (a?.classroomId ?? null) : null);
   const { periods } = usePeriodsOfClassroom(a?.classroomId ?? null);
   const nodeLabels = useNodeLabels(a?.classroomId ?? null);
   const types = useAssessmentTypes();
@@ -35,7 +37,7 @@ export function AssessmentDetail({ id }: { id: string }) {
         <div className="space-y-6">
           <PageHeader
             title={a.title}
-            description={[classroom.data?.name, nodeLabels.get(a.curriculumNodeId)].filter(Boolean).join(" · ")}
+            description={[classroom.data?.name ?? scope.classroomName(a.classroomId), nodeLabels.get(a.curriculumNodeId)].filter(Boolean).join(" · ")}
             actions={
               <>
                 <StatusBadge label={tStatus(a.status)} tone={toneOfStatus(a.status)} />

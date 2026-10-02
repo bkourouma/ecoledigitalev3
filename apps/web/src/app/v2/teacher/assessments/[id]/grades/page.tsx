@@ -8,5 +8,5 @@ export default async function TeacherGradeEntryPage({ params }: { params: Promis
   await requireAnyPermission("grade.read", "grade.enter");
   const { id } = await params;
   if (!isUuid(id)) notFound();
-  return <GradeEntryScreen assessmentId={id} />;
+  return <GradeEntryScreen assessmentId={id} detailHref={`/v2/teacher/assessments/${id}`} />;
 }

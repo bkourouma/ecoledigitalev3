@@ -81,6 +81,7 @@ direction : l'enseignant le voit dans « Mes appels » sans pouvoir l'écraser.
 ### Modifications additives de fichiers existants
 
 `attendance/_components/CallScreen` (`backHref`), `CallListScreen` (`basePath`), `schedule/_components/TimetableScreen` (`exportHref`),
+`assessments/_components/{GradeEntry (detailHref), AssessmentCreate (basePath), AssessmentDetail}` (liens restant dans le portail, classe nommée par « mes classes »),
 `platform/v2/directory.ts` (`useClassroomDirectory` : repli sur « mes classes » pour un enseignant sans `academic.classroom.read`),
 `assessments/_components/shared.tsx` (sélecteurs de classe, période et matière : repli sur « mes classes » pour un enseignant sans lecture
 académique ; comportement inchangé pour tout autre profil). Défauts inchangés : aucun autre écran n'est affecté.
@@ -117,7 +118,6 @@ académique ; comportement inchangé pour tout autre profil). Défauts inchangé
 2. Ouvrir à la famille la liste des évaluations annoncées (aujourd'hui seules les séances d'évaluation planifiées le sont).
 3. Pièces jointes d'un justificatif déposé par un parent : l'écran existant reste celui de `attendance` ; le dépôt de fichiers dépend du stockage.
 4. Salles : le nom de la salle d'une séance n'est pas lisible sans `schedule.read` (seul `locationLabel` est affiché) ; proposer `roomName` dans le DTO.
-5. Formulaire de création d'évaluation : `AssessmentCreate` renvoie encore vers `/v2/assessments/...` après création (hors portail).
 
 ## Tests
 

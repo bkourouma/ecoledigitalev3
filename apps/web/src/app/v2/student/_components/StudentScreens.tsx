@@ -28,7 +28,9 @@ import { OwnContactForm } from "../../_family/OwnContactForm";
  */
 function WithStudent({ children }: { children: (student: PeopleStudentDetailDto, subject: FamilySubject) => ReactNode }) {
   const t = useTranslations("v2Portal.student");
+  const tCommon = useTranslations("common");
   const me = useMyStudentRecord();
+  if (me.isPending && me.fetchStatus === "idle") return <Notice kind="warning">{tCommon("tenantUnknown")}</Notice>;
   if (me.isPending) return <LoadingBlock />;
   if (me.isError) {
     return me.error.status === 404 || me.error.status === 403 ? <Notice kind="warning">{t("noRecord")}</Notice> : <ErrorBlock error={me.error} onRetry={() => void me.refetch()} />;
