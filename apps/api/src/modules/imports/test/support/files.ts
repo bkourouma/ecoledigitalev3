@@ -22,7 +22,7 @@ export function studentRows(count: number, prefix = "A", start = 1): string[][] 
     rows.push([
       `T${prefix}-${String(n).padStart(5, "0")}`,
       LAST_NAMES[n % LAST_NAMES.length] as string,
-      `${FIRST_NAMES[(n * 7) % FIRST_NAMES.length]} ${n}`,
+      `${FIRST_NAMES[(n * 7) % FIRST_NAMES.length]} ${prefix}${n}`,
       n % 2 === 0 ? "F" : "M",
       `${day}/${month}/${2008 + (n % 8)}`,
       "Abidjan",

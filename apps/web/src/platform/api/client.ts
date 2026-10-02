@@ -193,6 +193,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     if (opts.body !== undefined && method !== "GET" && method !== "HEAD") {
       if (typeof FormData !== "undefined" && opts.body instanceof FormData) {
         payload = opts.body; // le navigateur fixe le Content-Type multipart
+      } else if ((typeof Blob !== "undefined" && opts.body instanceof Blob) || opts.body instanceof ArrayBuffer || ArrayBuffer.isView(opts.body)) {
+        // Fichier envoyé BRUT (imports 031) : ni JSON ni multipart ; le type réel est contrôlé par le serveur sur les octets.
+        payload = opts.body as BodyInit;
+        headers["Content-Type"] ??= "application/octet-stream";
       } else {
         payload = typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);
         headers["Content-Type"] ??= "application/json";

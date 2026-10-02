@@ -56,6 +56,26 @@ export const DEFAULT_IMPORTS_CONFIG: ImportsConfig = Object.freeze({
   hardMaxFileBytes: 20 * 1024 * 1024,
 });
 
+/** Entier d'environnement borné ; absent ou invalide -> `fallback` (jamais d'échec au démarrage pour un réglage d'exploitation). */
+function envInt(value: string | undefined, fallback: number, min: number, max: number): number {
+  const n = value === undefined ? Number.NaN : Number(value.trim());
+  return Number.isInteger(n) && n >= min && n <= max ? n : fallback;
+}
+
+/**
+ * Réglages d'exploitation du worker par l'environnement (tous facultatifs) :
+ *   IMPORTS_LEASE_SECONDS (3-600, défaut 45), IMPORTS_HEARTBEAT_MS (200-60000, défaut 5000),
+ *   IMPORTS_MAX_RUN_ATTEMPTS (1-20, défaut 5), IMPORTS_STALE_AFTER_SECONDS (3-3600, défaut 90).
+ */
+export function importsConfigFromEnv(env: Readonly<Record<string, string | undefined>> = process.env): Partial<ImportsConfig> {
+  return {
+    leaseSeconds: envInt(env["IMPORTS_LEASE_SECONDS"], DEFAULT_IMPORTS_CONFIG.leaseSeconds, 3, 600),
+    heartbeatMs: envInt(env["IMPORTS_HEARTBEAT_MS"], DEFAULT_IMPORTS_CONFIG.heartbeatMs, 200, 60_000),
+    maxRunAttempts: envInt(env["IMPORTS_MAX_RUN_ATTEMPTS"], DEFAULT_IMPORTS_CONFIG.maxRunAttempts, 1, 20),
+    staleAfterSeconds: envInt(env["IMPORTS_STALE_AFTER_SECONDS"], DEFAULT_IMPORTS_CONFIG.staleAfterSeconds, 3, 3600),
+  };
+}
+
 export interface ImportsDeps {
   readonly db: TenantDb;
   readonly clock: Clock;

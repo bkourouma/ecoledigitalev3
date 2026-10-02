@@ -9,7 +9,7 @@
  */
 import { defineScheduledJob } from "@ecoledigitale/worker/sdk";
 import { purgeExpiredImports, resumeStalledImports } from "./application/consumers";
-import { createImportsDeps } from "./application/deps";
+import { createImportsDeps, importsConfigFromEnv } from "./application/deps";
 import { importsWorkerPorts } from "./application/port-registry";
 
 export default [
@@ -18,7 +18,7 @@ export default [
     cron: "*/30 * * * * *",
     lockTtlMs: 5 * 60_000,
     handler: async ({ systemDb, tenantDb, logger }) => {
-      const deps = createImportsDeps({ db: tenantDb, logger, portsProvider: importsWorkerPorts });
+      const deps = createImportsDeps({ db: tenantDb, logger, portsProvider: importsWorkerPorts, config: importsConfigFromEnv() });
       const report = await resumeStalledImports(deps, systemDb);
       const republished = report.succeeded.reduce((n, s) => n + s.result.republished, 0);
       if (republished > 0) logger.info({ tenants: report.succeeded.length, republished }, "imports : imports interrompus relancés");
@@ -31,7 +31,7 @@ export default [
     cron: "25 4 * * *",
     lockTtlMs: 30 * 60_000,
     handler: async ({ systemDb, tenantDb, logger }) => {
-      const deps = createImportsDeps({ db: tenantDb, logger, portsProvider: importsWorkerPorts });
+      const deps = createImportsDeps({ db: tenantDb, logger, portsProvider: importsWorkerPorts, config: importsConfigFromEnv() });
       const report = await purgeExpiredImports(deps, systemDb);
       const cancelled = report.succeeded.reduce((n, s) => n + s.result.cancelledDrafts, 0);
       const purged = report.succeeded.reduce((n, s) => n + s.result.purged, 0);
