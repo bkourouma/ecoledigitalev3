@@ -11,8 +11,11 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { configureTenantSync } from "../../../src/platform/tenant-sync";
-import { findPuppeteerCachedChrome } from "../../../src/modules/reportcards";
-import { bootInstance, flushQueuePrefix, legacyModule, prepareInfra, workerFor, type HttpResult, type Phase1Env } from "../../phase1/support/harness";
+import { FakePdfRenderer, findPuppeteerCachedChrome, resetReportcardsWorkerResources, setReportcardsWorkerResources } from "../../../src/modules/reportcards";
+import { WorkerApp } from "../../../../worker/src/app";
+import { loadConfig } from "../../../../worker/src/config";
+import { createLogger } from "../../../../worker/src/logger";
+import { bootInstance, flushQueuePrefix, legacyModule, prepareInfra, REDIS_URL, type HttpResult, type Phase1Env } from "../../phase1/support/harness";
 
 export type Phase2Env = Phase1Env & {
   /** Dossier du stockage d'objets (repli disque), partagé par l'API et le worker. */
@@ -20,6 +23,8 @@ export type Phase2Env = Phase1Env & {
   /** `true` si un Chrome a été trouvé : le rendu PDF est alors RÉEL. */
   realPdf: boolean;
   chromePath: string | null;
+  /** Lignes de journal du worker (warn, error). */
+  workerLog: string[];
   /** Empreinte publique de la clé de signature des bulletins. */
   signingKeyId: string;
 };
@@ -65,8 +70,28 @@ export async function startPhase2Platform(): Promise<Phase2Env> {
   // Le worker lit `process.env` (restauré par `infra.restoreEnv()`).
   Object.assign(process.env, extra);
 
+  // Sans Chrome (poste ou CI minimal) : rendu DÉTERMINISTE (PDF produit depuis le titre et la taille du HTML), jamais de faux succès.
+  if (!chromePath) setReportcardsWorkerResources({ renderer: new FakePdfRenderer() });
   const { app, status } = await bootInstance(infra, { extraEnv: extra });
-  const worker = workerFor(infra);
+  // Journal du worker : lignes de niveau warn et au-dessus (JSON pino). Une panne d abonné y apparaît (job en échec) même si une reprise réussit ensuite.
+  const workerLog: string[] = [];
+  const worker = new WorkerApp(
+    loadConfig({
+      NODE_ENV: "test",
+      LOG_LEVEL: "warn",
+      REDIS_URL: REDIS_URL as string,
+      WORKER_DATABASE_URL: infra.appUrl,
+      WORKER_HTTP_HOST: "127.0.0.1",
+      WORKER_HTTP_PORT: "0",
+      WORKER_QUEUE_PREFIX: infra.queuePrefix,
+      WORKER_RELAY_SWEEP_INTERVAL_MS: "500",
+      WORKER_RELAY_POLL_INTERVAL_MS: "100",
+      WORKER_RELAY_BACKOFF_BASE_MS: "50",
+      WORKER_RELAY_BACKOFF_MAX_MS: "500",
+      WORKER_SHUTDOWN_TIMEOUT_MS: "10000",
+    } as NodeJS.ProcessEnv),
+    { logger: createLogger("warn", { write: (line: string) => void workerLog.push(line) }) },
+  );
   await worker.start();
 
   const { generateSuperAdminToken } = await legacyModule<{ generateSuperAdminToken(id: string, email: string): string }>("services/super-admin-jwt.service");
@@ -98,6 +123,7 @@ export async function startPhase2Platform(): Promise<Phase2Env> {
     env: { ...infra.env, ...extra },
     queuePrefix: infra.queuePrefix,
     worker,
+    workerLog,
     operatorToken,
     operatorId: infra.operatorId,
     invitations: infra.invitations,
@@ -121,6 +147,7 @@ export async function startPhase2Platform(): Promise<Phase2Env> {
     async stop() {
       await worker.stop("test").catch(() => undefined);
       configureTenantSync(null);
+      resetReportcardsWorkerResources();
       await app.close().catch(() => undefined);
       await flushQueuePrefix(infra.queuePrefix);
       await infra.db.drop();

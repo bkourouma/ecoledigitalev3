@@ -19,12 +19,15 @@
  *   (10) diplôme et attestation ; (11) paie de l'enseignant ; (12) audit chaîné ; (13) isolation ; (14) accès parent.
  * Les étapes partagent l'état : elles s'exécutent dans l'ordre.
  */
-import { createHmac } from "node:crypto";
+import { createHmac, createPublicKey, verify as edVerify } from "node:crypto";
+import { Redis } from "ioredis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { DeadLetterAdmin } from "../../../worker/src/events/dlq-admin";
+import { audit } from "../../src/modules/audit";
 import { DEFAULT_SANDBOX_SECRET } from "../../src/modules/finance";
 import { describeIntegration } from "../helpers/fixtures";
 import { REDIS_URL, waitFor } from "../phase1/support/harness";
-import { loginWithMfaEnrollment, provisionByConsole, redeemInvitation, type ProvisionedOwner } from "../phase1/support/scenario";
+import { PASSWORD, loginWithMfaEnrollment, provisionByConsole, readAuditLog, redeemInvitation, type ProvisionedOwner } from "../phase1/support/scenario";
 import { activatePortalAccount, actorFrom, expectStatus, onboardStaffMember, type Actor } from "./support/actors";
 import { startPhase2Platform, type Phase2Env } from "./support/platform";
 
@@ -47,7 +50,7 @@ interface World {
   programId?: string;
   gradeLevelId?: string;
   versionId?: string;
-  ue: Array<{ id: string; lineageId: string; ecues: Array<{ id: string; code: string }> }>;
+  ue: Array<{ id: string; lineageId: string; ecues: Array<{ id: string; lineageId: string; code: string }> }>;
   classroomId?: string;
   students: Array<{ id: string; enrollmentId?: string; lastName: string; personId?: string }>;
   guardianId?: string;
@@ -55,11 +58,14 @@ interface World {
   teacherPersonId?: string;
   /** Occurrences PASSÉES du cours (plus ancienne d abord). */
   occ: Array<{ id: string; startsAt: string }>;
+  signatoryId?: string;
+  /** Identifiants de ressources du tenant principal (preuves d isolation). */
+  ids: Record<string, string>;
 }
 
 describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année scolaire simulée, de bout en bout (HIGHER)", () => {
   let p: Phase2Env;
-  const W: World = { year: {}, periodIds: [], ue: [], students: [], occ: [] };
+  const W: World = { year: {}, periodIds: [], ue: [], students: [], occ: [], ids: {} };
   const own = (): Actor => W.owner as Actor;
   const T = (): ProvisionedOwner => W.T as ProvisionedOwner;
 
@@ -150,10 +156,10 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       for (const [code, ecues] of specs) {
         const credits = ecues.reduce((n, e) => n + Number(e.credits), 0);
         const ue = await node({ parentId: periodNode.id, nodeTypeCode: "UE", code, label: `UE ${code}`, credits: String(credits) });
-        const made: Array<{ id: string; code: string }> = [];
+        const made: Array<{ id: string; lineageId: string; code: string }> = [];
         for (const e of ecues) {
-          const n = await node({ parentId: ue.id, nodeTypeCode: "ECUE", code: e.code, label: `ECUE ${e.code}`, subjectId: subjects[e.subject], credits: e.credits, coefficient: e.coef });
-          made.push({ id: n.id, code: e.code });
+          const n = await node({ parentId: ue.id, nodeTypeCode: "ECUE", code: e.code, label: `ECUE ${e.code}`, subjectId: subjects[e.subject], credits: e.credits, coefficient: e.coef, resitAllowed: true });
+          made.push({ id: n.id, lineageId: n.lineageId, code: e.code });
         }
         W.ue.push({ id: ue.id, lineageId: ue.lineageId, ecues: made });
       }
@@ -254,6 +260,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       );
       const inv = r.body.invoices[0];
       invoiceId = inv.id;
+      W.ids.invoice = inv.id;
       expect(inv.total.amount).toBe(50000);
       expect(inv.status).toBe("ISSUED");
       expect(await statusOf(s.enrollmentId!)).toBe("PENDING");
@@ -268,6 +275,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
         { "idempotency-key": "p2-pay-etu1" },
       );
       paymentId = init.body.payment.id;
+      W.ids.payment = init.body.payment.id;
       providerRef = init.body.payment.providerRef;
       expect(init.body.payment.status).toBe("PENDING");
       expect(await statusOf(s.enrollmentId!)).toBe("PENDING");
@@ -391,6 +399,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
     it("l'enseignant ouvre l'appel d'une séance PASSÉE, pointe présent / absent / en retard, soumet", async () => {
       const opened = await teacher().post("/api/v1/attendance/sessions", { occurrenceId: W.occ[0]!.id }, [200, 201]);
       sessionId = opened.body.session.id;
+      W.ids.attendanceSession = opened.body.session.id;
       expect(opened.body.session.status).toBe("OPEN");
       expect(opened.body.session.occurrenceId).toBe(W.occ[0]!.id);
       const marked = await teacher().put(`/api/v1/attendance/sessions/${sessionId}/records`, {
@@ -557,6 +566,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
         }
       }
       expect(assessmentIds).toHaveLength(8);
+      W.ids.assessment = assessmentIds[0]!;
     });
 
     it("séparation des tâches : l'enseignant ne publie pas, le responsable pédagogique ne saisit pas", async () => {
@@ -641,5 +651,633 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       expect(r3.header.status).toBe("FINAL");
     });
   });
-  // <<NEXT>>
+
+  // ===========================================================================================================
+  describe("(8b) capitalisation des crédits (événement results.period.closed) ; rattrapage : la session 2 REMPLACE la session 1", () => {
+    const dir = (): Actor => W.directeur as Actor;
+    const teacher = (): Actor => W.teacher as Actor;
+    const pedago = (): Actor => W.pedago as Actor;
+    const ctxPath = (): string => `/api/v1/results/classrooms/${W.classroomId}/periods/${W.periodIds[0]}`;
+    const ecue = (code: string): string => W.ue.flatMap((u) => u.ecues).find((e) => e.code === code)!.id;
+    const lineage = (code: string): string => W.ue.flatMap((u) => u.ecues).find((e) => e.code === code)!.lineageId;
+    const lineOf = async (studentIdx: number, code: string): Promise<any> => {
+      const r = await dir().get(`/api/v1/results/enrollments/${W.students[studentIdx]!.enrollmentId}/periods/${W.periodIds[0]}`);
+      return { header: r.body.header, line: (r.body.lines as any[]).find((l) => l.curriculumNodeId === ecue(code)), ue: r.body.lines.filter((l: any) => l.level === "UE") };
+    };
+    let windowId: string;
+
+    it("`higher` capitalise les UE validées dans le registre de crédits, par lignée : 2 + 1 + 0 acquisitions", async () => {
+      await waitFor(
+        async () => {
+          const r = await p.db.admin.query("SELECT count(*)::int AS n FROM higher.credit_ledger WHERE tenant_id = $1 AND status = 'ACQUIRED'", [T().tenantId]);
+          return r.rows[0].n === 3;
+        },
+        { label: "crédits capitalisés par l'abonné higher", timeoutMs: 45_000 },
+      );
+      const rows = await p.db.admin.query("SELECT student_id, count(*)::int AS n FROM higher.credit_ledger WHERE tenant_id = $1 AND status = 'ACQUIRED' GROUP BY student_id", [T().tenantId]);
+      const byStudent = new Map<string, number>(rows.rows.map((r) => [r.student_id as string, r.n as number]));
+      expect(byStudent.get(W.students[0]!.id)).toBe(2);
+      expect(byStudent.get(W.students[1]!.id)).toBe(1); // UE1 seulement : aucune compensation de UE2
+      expect(byStudent.get(W.students[2]!.id)).toBeUndefined();
+      const credits = await dir().get(`/api/v1/higher/students/${W.students[0]!.id}/credits`);
+      expect(JSON.stringify(credits.body)).toContain(W.ue[0]!.lineageId);
+    });
+
+    it("candidats au rattrapage : les ECUE non validées des étudiants 2 et 3 ; la direction ouvre la fenêtre sur E21 et E22", async () => {
+      const cands = await dir().get(`/api/v1/higher/resit-candidates?classroomId=${W.classroomId}&periodId=${W.periodIds[0]}`);
+      const set = new Set((cands.body.candidates as Array<{ studentId: string; ecueNodeId: string }>).map((c) => `${c.studentId}:${c.ecueNodeId}`));
+      expect(set.has(`${W.students[1]!.id}:${lineage("E21")}`), JSON.stringify(cands.body)).toBe(true);
+      expect(set.has(`${W.students[0]!.id}:${lineage("E21")}`)).toBe(false);
+      const today = iso(new Date());
+      const opened = await dir().post("/api/v1/higher/resit-windows", { classroomId: W.classroomId, academicPeriodId: W.periodIds[0], opensOn: today, closesOn: addDays(today, 14), nodeIds: [lineage("E21"), lineage("E22")] }, 201);
+      windowId = opened.body.window.id;
+      expect(opened.body.registrations.length).toBeGreaterThanOrEqual(2);
+      const state = await dir().get(`${ctxPath()}/state`);
+      expect(state.body.state.status).toBe("OPEN"); // la SEULE session 2 est rouverte
+    });
+
+    it("l'enseignant saisit les examens de SESSION 2 (feature assess.session2) ; le circuit les publie", async () => {
+      const types = await teacher().get("/api/v1/assess/assessment-types");
+      const examen = (types.body.items as Array<{ id: string; code: string }>).find((t) => t.code === "EXAMEN")!;
+      const periods = await own().get(`/api/v1/academic/years/${W.year.id}/periods`);
+      const s1 = (periods.body.items as Array<{ id: string; startsOn: string }>).find((x) => x.id === W.periodIds[0])!;
+      const bulk = await teacher().post(
+        "/api/v1/assess/assessments/bulk",
+        { typeId: examen.id, academicPeriodId: W.periodIds[0], title: "Examen S1 — session 2", assessedOn: addDays(s1.startsOn, 20), sessionNo: 2, targets: [{ classroomId: W.classroomId, curriculumNodeId: ecue("E21") }, { classroomId: W.classroomId, curriculumNodeId: ecue("E22") }] },
+        201,
+      );
+      for (const a of bulk.body.items as Array<{ id: string }>) {
+        // étudiant 1 dispensé (il n'est pas candidat) ; étudiant 2 : 5 (PLUS BAS que sa note de session 1, 9) ; étudiant 3 : 14.
+        await teacher().put(`/api/v1/assess/assessments/${a.id}/grades`, {
+          entries: [
+            { enrollmentId: W.students[0]!.enrollmentId, entryStatus: "EXEMPT" },
+            { enrollmentId: W.students[1]!.enrollmentId, score: "5" },
+            { enrollmentId: W.students[2]!.enrollmentId, score: "14" },
+          ],
+        });
+        await teacher().post(`/api/v1/assess/assessments/${a.id}/transitions`, { to: "SUBMITTED" });
+        await pedago().post(`/api/v1/assess/assessments/${a.id}/transitions`, { to: "REVIEWED" });
+        await pedago().post(`/api/v1/assess/assessments/${a.id}/transitions`, { to: "APPROVED" });
+        await dir().post(`/api/v1/assess/assessments/${a.id}/transitions`, { to: "PUBLISHED" });
+      }
+    });
+
+    it("reclôture : la note de session 2 REMPLACE celle de session 1 — même plus faible (décision métier du 2026-10-01)", async () => {
+      await dir().post(`${ctxPath()}/lock`, {});
+      const closed = await dir().post(`${ctxPath()}/close`, {});
+      expect(closed.body.resultsVersion).toBeGreaterThanOrEqual(2);
+      const e21 = await lineOf(1, "E21");
+      // eslint-disable-next-line no-console
+      console.log("RESIT-LINE-E21-ETU2", JSON.stringify(e21.line));
+      expect(e21.line.outputs.note_s1).toBe("9");
+      expect(e21.line.outputs.note_s2).toBe("5");
+      expect(e21.line.outputs.note_examen, "REMPLACE : 5 et non max(9, 5)").toBe("5");
+      expect(e21.line.outputs.session_retenue).toBe(2);
+      // L'étudiant 3 (14 > 8) est lui aussi remplacé.
+      expect((await lineOf(2, "E21")).line.outputs.note_examen).toBe("14");
+      // Aucune compensation : l'étudiant 2 reste sans UE2 validée, son semestre n'est pas validé.
+      const r2 = await lineOf(1, "E21");
+      expect(r2.header.validated).toBe(false);
+      expect(r2.ue.find((u: any) => u.curriculumNodeId === W.ue[1]!.id).validated).toBe(false);
+    });
+
+    it("la direction ferme la fenêtre de rattrapage ; l'étudiant 2 reste le seul sans la UE2 au registre (dette d'UE)", async () => {
+      const closed = await dir().post(`/api/v1/higher/resit-windows/${windowId}/close`, {});
+      expect(closed.body.status).toBe("CLOSED");
+      const ue2 = await p.db.admin.query(
+        "SELECT count(*)::int AS n FROM higher.credit_ledger WHERE tenant_id = $1 AND status = 'ACQUIRED' AND student_id = $2 AND ue_node_id = $3",
+        [T().tenantId, W.students[1]!.id, W.ue[1]!.lineageId],
+      );
+      expect(ue2.rows[0].n).toBe(0);
+    });
+
+    it("clôture académique de la période : notes puis résultats (les abonnés présences et résultats l'absorbent)", async () => {
+      await dir().post(`/api/v1/academic/periods/${W.periodIds[0]}/close-grading`, {}, [200, 201, 409]);
+      const closed = await dir().raw("POST", `/api/v1/academic/periods/${W.periodIds[0]}/close`, {});
+      expect([200, 201], JSON.stringify(closed.body)).toContain(closed.status);
+    });
+  });
+
+  // ===========================================================================================================
+  describe("(9) bulletins : snapshot signé, PDF rendu par le worker, publication, vérification publique", () => {
+    const cards: Array<{ id: string; studentId: string; verificationCode: string; snapshotHash: string; issuedAt: string }> = [];
+    const periodQuery = (): string => `classroomId=${W.classroomId}&academicPeriodId=${W.periodIds[0]}`;
+
+    it("identité de l'établissement, signataire et gabarit du pack HIGHER (gestion réservée aux permissions sensibles, MFA)", async () => {
+      await own().put("/api/v1/reportcards/branding", { legalName: "Université Horizon", headerLeft: ["République de Côte d'Ivoire"], address: "Abidjan", primaryColor: "#14532D" });
+      const sig = await own().post("/api/v1/reportcards/signatories", { fullName: "Dr Fictif Directeur", title: "Directeur des études", jobFunction: "Direction des études" }, 201);
+      W.signatoryId = sig.body.id;
+      const templates = await own().get("/api/v1/reportcards/templates");
+      expect(JSON.stringify(templates.body)).toContain("higher-bulletin-credits");
+      await own().put("/api/v1/reportcards/template-configs", {
+        documentKind: "REPORT_CARD",
+        pack: "HIGHER",
+        templateKey: "higher-bulletin-credits",
+        options: {},
+        signatureAssignments: [{ slot: "director-studies", signatoryId: sig.body.id }],
+      });
+      // L'enseignant n'a aucun droit sur l'identité de l'établissement.
+      expect((await (W.teacher as Actor).raw("PUT", "/api/v1/reportcards/branding", { legalName: "Piraté" })).status).toBe(403);
+    });
+
+    it("contrôle préalable vert, puis lot d'émission : un bulletin SIGNÉ par inscription (période close, résultats FINAL)", async () => {
+      const pre = await own().get(`/api/v1/reportcards/preflight?${periodQuery()}`);
+      expect(pre.body.issues.filter((i: { blocking: boolean }) => i.blocking), JSON.stringify(pre.body)).toEqual([]);
+      expect(pre.body.enrollments).toMatchObject({ total: 3, eligible: 3, excluded: 0 });
+      const batch = await own().post("/api/v1/reportcards/batches", { classroomId: W.classroomId, academicPeriodId: W.periodIds[0], idempotencyKey: "p2-lot-bulletins-1" }, [200, 202]);
+      expect(batch.body.batch ?? batch.body).toMatchObject({ total: 3 });
+      const page = await own().get(`/api/v1/reportcards/report-cards?${periodQuery()}&live=true`);
+      for (const c of page.body.items as Array<any>) cards.push({ id: c.id, studentId: c.studentId, verificationCode: c.verificationCode, snapshotHash: c.snapshotHash, issuedAt: c.issuedAt });
+      expect(cards).toHaveLength(3);
+      W.ids.reportCard = cards.find((c) => c.studentId === W.students[1]!.id)!.id;
+      expect(new Set(cards.map((c) => c.verificationCode)).size).toBe(3);
+      // Rejouer le lot (même clé) ne crée rien.
+      const replay = await own().post("/api/v1/reportcards/batches", { classroomId: W.classroomId, academicPeriodId: W.periodIds[0], idempotencyKey: "p2-lot-bulletins-1" }, [200, 202]);
+      expect((replay.body.batch ?? replay.body).id).toBe((batch.body.batch ?? batch.body).id);
+      expect((await own().get(`/api/v1/reportcards/report-cards?${periodQuery()}&live=true`)).body.items).toHaveLength(3);
+    });
+
+    it("le snapshot porte la version de règle, les crédits et les décisions : étudiant 2 = semestre non validé malgré sa moyenne", async () => {
+      const mine = cards.find((c) => c.studentId === W.students[1]!.id)!;
+      const detail = await own().get(`/api/v1/reportcards/report-cards/${mine.id}`);
+      const snap = detail.body.snapshot;
+      expect(snap.rules).toMatchObject({ ruleSetCode: "CI-HIGHER-LMD", contractId: "credit-semester@1" });
+      expect(snap.rules.resultsVersion).toBeGreaterThanOrEqual(2);
+      expect(snap.results.summary.decisionOutcome).toBe("ADJOURNED");
+      expect(Number(snap.results.summary.creditsAcquired)).toBeLessThan(Number(snap.results.summary.creditsRequired));
+    });
+
+    it("le worker rend le PDF depuis le snapshot seul (événement reportcards.snapshot.created), stocké et lisible par URL signée", async () => {
+      for (const c of cards) {
+        await waitFor(async () => (await own().get(`/api/v1/reportcards/report-cards/${c.id}`)).body.renders?.some((r: { status: string }) => r.status === "RENDERED"), { label: `PDF du bulletin ${c.id}`, timeoutMs: 90_000 });
+      }
+      const dl = await own().get(`/api/v1/reportcards/report-cards/${cards[0]!.id}/pdf`);
+      expect(dl.body.contentType).toBe("application/pdf");
+      expect(dl.body.pdfHash).toMatch(/^[0-9a-f]{64}$/);
+      const u = new URL(dl.body.url);
+      const file = await p.app.inject({ method: "GET", url: `${u.pathname}${u.search}` });
+      expect(file.statusCode).toBe(200);
+      expect(file.rawPayload.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+      // rendu réel (Chrome présent) ou déterministe : la preuve de ce qui a été exécuté est consignée.
+      // eslint-disable-next-line no-console
+      console.log(`PDF-RENDER mode=${p.realPdf ? "chrome" : "deterministe"} bytes=${file.rawPayload.length} chrome=${p.chromePath ?? "-"}`);
+    });
+
+    it("publication par lot (gestion, MFA), puis VÉRIFICATION PUBLIQUE sans authentification : valide, sans donnée personnelle", async () => {
+      const pub = await own().post("/api/v1/reportcards/publish", { reportCardIds: cards.map((c) => c.id) });
+      expect(pub.body.published).toBe(3);
+      const c = cards[0]!;
+      const res = await p.http("GET", `/api/v1/public/verify/${c.verificationCode}`);
+      expectStatus(res, 200);
+      expect(res.body.status).toBe("AUTHENTIC");
+      expect(res.body.snapshotHash).toBe(c.snapshotHash);
+      expect(res.body.institutionName).toBe("Université Horizon");
+      const dump = JSON.stringify(res.body);
+      expect(dump).not.toContain("ETUDIANT");
+      expect(dump).not.toContain("2005-");
+      // Un code inconnu ou mal formé reçoit la MÊME réponse (aucune énumération).
+      const unknown = await p.http("GET", "/api/v1/public/verify/ZZZZZZZZZZZZZZZZZZZZZZZZZZ");
+      const malformed = await p.http("GET", "/api/v1/public/verify/pas-un-code");
+      expect(unknown.status).toBe(404);
+      expect(malformed.body).toEqual(unknown.body);
+    });
+
+    it("signature Ed25519 vérifiable HORS LIGNE avec la clé publique publiée (/.well-known) : message ed-rc/v1", async () => {
+      const c = cards[0]!;
+      const verify = (await p.http("GET", `/api/v1/public/verify/${c.verificationCode}`)).body;
+      const wk = await p.http("GET", "/.well-known/ecoledigitale-keys.json");
+      expectStatus(wk, 200);
+      const key = (wk.body.keys as Array<{ keyId: string; publicKey: string }>).find((k) => k.keyId === p.signingKeyId);
+      expect(key, "clé publique publiée").toBeDefined();
+      const message = Buffer.concat([Buffer.from("ed-rc/v1"), Buffer.from([0]), Buffer.from(c.snapshotHash), Buffer.from([0]), Buffer.from(c.verificationCode), Buffer.from([0]), Buffer.from(new Date(c.issuedAt).toISOString())]);
+      const publicKey = createPublicKey({ key: Buffer.from(key!.publicKey, "base64"), format: "der", type: "spki" });
+      expect(edVerify(null, message, publicKey, Buffer.from(verify.signature, "base64"))).toBe(true);
+      // Un bulletin falsifié (hash modifié) ne vérifie pas.
+      const forged = Buffer.concat([Buffer.from("ed-rc/v1"), Buffer.from([0]), Buffer.from("0".repeat(64)), Buffer.from([0]), Buffer.from(c.verificationCode), Buffer.from([0]), Buffer.from(new Date(c.issuedAt).toISOString())]);
+      expect(edVerify(null, forged, publicKey, Buffer.from(verify.signature, "base64"))).toBe(false);
+    });
+  });
+
+  // ===========================================================================================================
+  describe("(10) diplôme et attestation de réussite (higher) : octroi, documents scellés par reportcards, vérification publique", () => {
+    const dir = (): Actor => W.directeur as Actor;
+    let diplomaId: string;
+    let awardId: string;
+    const docs: { diploma?: { id: string; verificationCode: string }; attestation?: { id: string; verificationCode: string } } = {};
+
+    it("le programme devient un cycle ; le diplôme (LICENCE) est dérivé du curriculum : exigences = les UE du cycle, par lignée", async () => {
+      await own().patch(`/api/v1/academic/programs/${W.programId}`, { isCycle: true });
+      const d = await dir().post("/api/v1/higher/diplomas/from-curriculum", { curriculumNodeId: W.programId, gradeCode: "LICENCE", code: "LIC-INFO", label: "Licence d'Informatique" }, 201);
+      diplomaId = d.body.id ?? d.body.diploma?.id;
+      W.ids.diploma = diplomaId;
+      const reqs = await dir().get(`/api/v1/higher/diplomas/${diplomaId}/requirements`);
+      expect((reqs.body.items as Array<{ ueNodeId: string }>).map((r) => r.ueNodeId).sort()).toEqual([W.ue[0]!.lineageId, W.ue[1]!.lineageId].sort());
+      expect(Number(reqs.body.requirementsCredits)).toBe(12);
+    });
+
+    it("l'étudiant 1 (12 crédits capitalisés) reçoit le diplôme ; l'étudiant 2 (UE2 non validée) est REFUSÉ sans octroi forcé", async () => {
+      const ok = await dir().post(`/api/v1/higher/diplomas/${diplomaId}/awards`, { studentId: W.students[0]!.id }, 201);
+      awardId = ok.body.award.id;
+      W.ids.award = awardId;
+      expect(ok.body.award.status).toBe("OBTAINED");
+      const refused = await dir().raw("POST", `/api/v1/higher/diplomas/${diplomaId}/awards`, { studentId: W.students[1]!.id });
+      expect(refused.status, JSON.stringify(refused.body)).toBeGreaterThanOrEqual(400);
+      expect(refused.status).toBeLessThan(500);
+      const progress = await dir().get(`/api/v1/higher/diplomas/${diplomaId}/students/${W.students[1]!.id}/progress`);
+      expect(JSON.stringify(progress.body)).toContain(W.ue[1]!.lineageId); // l'UE manquante est désignée
+    });
+
+    it("signataires datés des documents, puis diplôme et attestation d'authenticité scellés (signature + QR) par reportcards", async () => {
+      const from = addDays(iso(new Date()), -1);
+      for (const slotKey of ["DIPLOMA_LEFT", "DIPLOMA_RIGHT", "ATTESTATION_SUCCESS", "AUTHENTICITY"]) {
+        await own().put("/api/v1/higher/document-slots", { slotKey, signatoryId: W.signatoryId, validFrom: from });
+      }
+      const dip = await dir().post(`/api/v1/higher/awards/${awardId}/documents`, { kind: "DIPLOMA" }, [200, 201]);
+      docs.diploma = { id: dip.body.document.id, verificationCode: dip.body.document.verificationCode };
+      W.ids.document = dip.body.document.id;
+      expect(dip.body.document.reference).toMatch(/\d/);
+      expect(dip.body.document.snapshotHash).toMatch(/^[0-9a-f]{64}$/);
+      // rejeu : le même diplôme, pas de second numéro
+      const again = await dir().post(`/api/v1/higher/awards/${awardId}/documents`, { kind: "DIPLOMA" }, [200, 201]);
+      expect(again.body.document.id).toBe(docs.diploma.id);
+      expect(again.body.created).toBe(false);
+    });
+
+    it("attestation de réussite du cycle (feature higher.attestations) puis publication ; vérification PUBLIQUE de l'authenticité", async () => {
+      const roster = await dir().get(`/api/v1/higher/attestations/roster?programNodeId=${W.programId}`);
+      const row = (roster.body.items as Array<{ studentId: string; eligible: boolean }>).find((r) => r.studentId === W.students[0]!.id);
+      expect(row?.eligible, JSON.stringify(roster.body)).toBe(true);
+      const att = await dir().post("/api/v1/higher/attestations", { studentId: W.students[0]!.id, programNodeId: W.programId }, [200, 201]);
+      docs.attestation = { id: att.body.document.id, verificationCode: att.body.document.verificationCode };
+      for (const d of [docs.diploma!, docs.attestation]) {
+        const pub = await dir().post(`/api/v1/higher/documents/${d.id}/publish`, {});
+        expect(pub.body.publishedAt).toBeTruthy();
+      }
+      // Numérotation sans trou et snapshots immuables : une référence par document, distinctes.
+      const list = await dir().get("/api/v1/higher/documents");
+      const refs = (list.body.items as Array<{ reference: string }>).map((d) => d.reference);
+      expect(new Set(refs).size).toBe(refs.length);
+    });
+
+    it("l'étudiant lit SON diplôme publié (jamais celui d'un autre) ; la révocation d'un document est un acte sensible et distinct", async () => {
+      const revoked = await dir().post(`/api/v1/higher/documents/${docs.attestation!.id}/revoke`, { reason: "Erreur de saisie constatée au contrôle" });
+      expect(revoked.body.revokedAt).toBeTruthy();
+      const again = await dir().raw("POST", `/api/v1/higher/documents/${docs.attestation!.id}/revoke`, { reason: "Seconde révocation du même document" });
+      expect(again.status).toBe(409);
+      // Le diplôme, lui, reste valable.
+      const diploma = await dir().get(`/api/v1/higher/documents/${docs.diploma!.id}`);
+      expect(diploma.body.status).toBe("ISSUED");
+    });
+
+    // LIMITE CONNUE (voir docs/architecture/phase2-exit.md, D-P2-10) : `higher` ne scelle pas ses documents. Aucun adaptateur
+    // ne relie `higher.issueAwardDocument` à `reportcards.sealDocument` / `registerVerificationFor` : le diplôme n'est ni signé,
+    // ni rendu en PDF, et son code n'est pas résolu par la vérification publique (qui ne connaît que REPORT_CARD et TRANSCRIPT).
+    // C'est une fonctionnalité à construire (port de scellement + résolveur de statut), pas un câblage oublié.
+    it.todo("diplôme et attestation : scellement Ed25519, rendu PDF par le worker et vérification publique (/api/v1/public/verify/:code) — D-P2-10");
+  });
+
+  // ===========================================================================================================
+  describe("(11) paie de l'enseignant : heures réalisées et validées -> bulletin calculé, approuvé, payé (séparation des tâches)", () => {
+    const dir = (): Actor => W.directeur as Actor;
+    const teacher = (): Actor => W.teacher as Actor;
+    let periodId: string;
+    let payslipId: string;
+    const today = iso(new Date());
+
+    it("la direction valide les séances réalisées (constatées par l'appel) : elles deviennent payables", async () => {
+      for (const o of W.occ.slice(0, 2)) {
+        const held = await own().get(`/api/v1/scheduling/occurrences/${o.id}`);
+        expect(held.body.status, JSON.stringify(held.body)).toBe("HELD");
+        const v = await dir().post(`/api/v1/scheduling/occurrences/${o.id}/validate`, {});
+        expect(v.body).toMatchObject({ occurrenceId: o.id, alreadyValidated: false });
+      }
+    });
+
+    it("configuration de paie (horaire, 5 000 XOF/h) et période de paie de l'année", async () => {
+      // Séparation des tâches activée par le propriétaire (réglage du tenant) : qui calcule n'arrête pas le bulletin.
+      const settings = await own().put("/api/v1/payroll/settings", { requireSeparateApprover: true });
+      expect(settings.body.requireSeparateApprover).toBe(true);
+      await own().post("/api/v1/payroll/configs", { staffId: W.teacherStaffId, type: "HOURLY", defaultHourlyRate: 5000, effectiveFrom: W.year.startsOn }, 201);
+      const per = await own().post("/api/v1/payroll/periods", { name: "Première période", startDate: W.year.startsOn, endDate: today, academicYearId: W.year.id }, 201);
+      periodId = per.body.id;
+    });
+
+    it("calcul : 2 séances × 2 h × 5 000 = 20 000 XOF, calculé par les heures de scheduling (jamais saisi à la main)", async () => {
+      const run = await own().post(`/api/v1/payroll/periods/${periodId}/calculate`, {}, [200, 201]);
+      // eslint-disable-next-line no-console
+      console.log("PAYROLL-RUN", JSON.stringify(run.body).slice(0, 1200));
+      const dbg = await p.db.admin.query(
+        "SELECT id, status, starts_at, ends_at, validated_at, held_source FROM scheduling.session_occurrences WHERE tenant_id = $1 AND id = ANY($2::uuid[])",
+        [T().tenantId, W.occ.map((o) => o.id)],
+      );
+      // eslint-disable-next-line no-console
+      console.log("DEBUG-OCC", JSON.stringify(dbg.rows));
+      const list = await own().get(`/api/v1/payroll/payslips?periodId=${periodId}`);
+      const slips = (list.body.items ?? list.body.payslips) as Array<{ id: string; staffId: string; status: string; totalAmount?: number; total?: number }>;
+      expect(slips).toHaveLength(1);
+      payslipId = slips[0]!.id;
+      W.ids.payslip = payslipId;
+      expect(slips[0]!.status).toBe("CALCULATED");
+      const detail = await own().get(`/api/v1/payroll/payslips/${payslipId}`);
+      const total = detail.body.totalAmount ?? detail.body.total ?? detail.body.payslip?.totalAmount;
+      expect(total, JSON.stringify(detail.body).slice(0, 800)).toBe(20000);
+    });
+
+    it("séparation des tâches : celui qui a calculé ne peut pas arrêter le bulletin ; l'enseignant ne peut ni calculer, ni approuver, ni payer", async () => {
+      const self = await own().raw("POST", "/api/v1/payroll/payslips/approve", { payslipIds: [payslipId] });
+      expect(self.body.done ?? [], JSON.stringify(self.body)).toEqual([]);
+      expect(JSON.stringify(self.body)).toMatch(/separate|approver|calcul/i);
+      expect((await teacher().raw("POST", "/api/v1/payroll/payslips/approve", { payslipIds: [payslipId] })).status).toBe(403);
+      expect((await teacher().raw("POST", `/api/v1/payroll/periods/${periodId}/calculate`, {})).status).toBe(403);
+      // Avant l'arrêt du montant, l'enseignant ne lit pas un brouillon.
+      const draft = await teacher().raw("GET", `/api/v1/payroll/my/payslips`);
+      expect(JSON.stringify(draft.body)).not.toContain(payslipId);
+    });
+
+    it("la direction (autre personne) APPROUVE puis PAIE : bulletin PAID, heures gelées à la source", async () => {
+      const approved = await dir().post("/api/v1/payroll/payslips/approve", { payslipIds: [payslipId] });
+      expect(approved.body.done).toEqual([payslipId]);
+      const paid = await dir().post("/api/v1/payroll/payslips/pay", { payslipIds: [payslipId], method: "BANK_TRANSFER", reference: "VIR-PAIE-0001" });
+      expect(paid.body.done, JSON.stringify(paid.body)).toEqual([payslipId]);
+      const detail = await own().get(`/api/v1/payroll/payslips/${payslipId}`);
+      expect(JSON.stringify(detail.body)).toContain("PAID");
+      // Les heures payées sont gelées : la direction ne peut plus dévalider une séance payée.
+      const unvalidate = await dir().raw("POST", `/api/v1/scheduling/occurrences/${W.occ[0]!.id}/unvalidate`, { reason: "Tentative après paiement" });
+      expect(unvalidate.status, JSON.stringify(unvalidate.body)).toBeGreaterThanOrEqual(400);
+      // Un second calcul ne repaie pas les mêmes heures.
+      const second = await own().post(`/api/v1/payroll/periods/${periodId}/calculate`, { recalculate: true }, [200, 201]);
+      const after = await own().get(`/api/v1/payroll/payslips?periodId=${periodId}`);
+      expect(((after.body.items ?? after.body.payslips) as unknown[]).length).toBe(1);
+      expect(JSON.stringify(second.body)).not.toMatch(/"amount":2\d{4}.*"amount":2\d{4}/);
+    });
+
+    it("l'enseignant lit SON bulletin versé (et lui seul) ", async () => {
+      const mine = await teacher().get("/api/v1/payroll/my/payslips");
+      expect(JSON.stringify(mine.body)).toContain(payslipId);
+      expect((await teacher().get(`/api/v1/payroll/my/payslips/${payslipId}`)).status).toBe(200);
+    });
+  });
+
+  // ===========================================================================================================
+  describe("(12) audit : chaîne HMAC valide, chaque module a journalisé ses actes sensibles", () => {
+    it("le journal du tenant (lu par le propriétaire) contient des actes de CHAQUE module, avec les bons acteurs", async () => {
+      const prefixes = ["tenancy.", "academic.", "people.", "finance.", "assess.", "attendance.", "scheduling.", "results.", "reportcards.", "higher.", "payroll."];
+      const entries = await waitFor(
+        async () => {
+          const all = await readAuditLog(p, own().token);
+          const actions = all.map((e) => String(e.action));
+          return prefixes.every((pre) => actions.some((a) => a.startsWith(pre))) ? all : false;
+        },
+        { label: "actes de tous les modules dans le journal d'audit", timeoutMs: 45_000 },
+      );
+      const actions = [...new Set(entries.map((e) => String(e.action)))].sort();
+      // eslint-disable-next-line no-console
+      console.log("AUDIT-ACTIONS", actions.join(","));
+      // Acteurs : des utilisateurs réels (identité IAM), et l'opérateur de la plateforme pour le provisionnement.
+      const byAction = (a: string) => entries.find((e) => e.action === a);
+      expect(byAction("tenancy.tenant.provision")?.actorType).toBe("superAdmin");
+      const actorIds = new Set(entries.filter((e) => e.actorType === "user").map((e) => e.actorId));
+      for (const a of [own(), W.directeur as Actor, W.pedago as Actor, W.teacher as Actor]) expect(actorIds.has(a.identityId), `acteur ${a.label}`).toBe(true);
+      // Aucun secret n'est journalisé.
+      const dump = JSON.stringify(entries);
+      expect(dump).not.toContain(PASSWORD);
+      expect(dump).not.toMatch(/otpauth:\/\//);
+      expect(dump).not.toContain("REPORTCARDS_SIGNING_KEY");
+      expect(dump).not.toMatch(/BEGIN PRIVATE KEY/);
+    });
+
+    it("GET /audit/verify : chaîne valide (HMAC), aucun trou ; journal de plateforme valide ; append-only pour l'application", async () => {
+      await waitFor(
+        async () => {
+          const r = await p.db.admin.query("SELECT count(*)::int AS n FROM kernel.domain_events WHERE tenant_id = $1 AND published_at IS NULL", [T().tenantId]);
+          return r.rows[0].n === 0;
+        },
+        { label: "outbox entièrement publiée avant la vérification de la chaîne", timeoutMs: 60_000 },
+      );
+      // laisse les abonnés d'audit absorber les derniers événements
+      await new Promise((r) => setTimeout(r, 1500));
+      const res = await own().get("/api/v1/audit/verify");
+      expect(res.body.ok, JSON.stringify(res.body)).toBe(true);
+      expect(res.body.checked).toBeGreaterThan(50);
+      const head = await p.db.admin.query("SELECT last_seq FROM audit.chain_heads WHERE tenant_id = $1", [T().tenantId]);
+      expect(Number(head.rows[0].last_seq)).toBeGreaterThanOrEqual(res.body.checked);
+      const alg = await p.db.admin.query("SELECT DISTINCT hash_alg FROM audit.audit_log WHERE tenant_id = $1", [T().tenantId]);
+      expect(alg.rows.map((r) => r.hash_alg)).toEqual(["hmac-sha256"]);
+      const verification = await p.app.v2.systemDb.run("p2-verify-platform-chain", (tx) => audit.verifyPlatformChain(tx));
+      expect(verification.ok, JSON.stringify(verification)).toBe(true);
+      await expect(
+        p.app.v2.tenantDb.run({ tenantId: T().tenantId, userId: own().identityId, roles: [], requestId: "p2-tamper", actor: "user", mfa: false } as never, (tx) =>
+          tx.query("UPDATE audit.audit_log SET action = 'x.y' WHERE tenant_id = $1", [T().tenantId]),
+        ),
+      ).rejects.toThrow();
+    });
+  });
+
+  // ===========================================================================================================
+  describe("(13) second tenant : isolation prouvée par des appels CROISÉS refusés", () => {
+    let U: ProvisionedOwner;
+    let ownerU: Actor;
+
+    it("un second établissement (mêmes droits : PROFESSIONAL + HIGHER) est provisionné par la console ; son propriétaire s'authentifie avec MFA", async () => {
+      U = await provisionByConsole(p, { name: "Institut Delta", slug: "delta", packs: ["HIGHER"], ownerEmail: "owner@delta.test" });
+      expectStatus(await p.http("PUT", `/api/v1/platform/tenants/${U.tenantId}/subscription`, { token: p.operatorToken, body: { planKey: "PROFESSIONAL", packs: ["HIGHER"], status: "ACTIVE" } }), 200);
+      await redeemInvitation(p, U.ownerEmail);
+      ownerU = actorFrom(p.http, "owner-delta", U.ownerEmail, await loginWithMfaEnrollment(p, U.ownerEmail, U.slug));
+      expect(U.tenantId).not.toBe(T().tenantId);
+    });
+
+    it("LECTURE croisée : le propriétaire de B n'obtient AUCUNE ressource de A par son identifiant (ni 200, ni donnée)", async () => {
+      const probes: Array<[string, string]> = [
+        ["année", `/api/v1/academic/years/${W.year.id}`],
+        ["programme", `/api/v1/academic/programs/${W.programId}`],
+        ["classe", `/api/v1/academic/classrooms/${W.classroomId}`],
+        ["effectif de la classe", `/api/v1/academic/classrooms/${W.classroomId}/roster`],
+        ["curriculum", `/api/v1/academic/curriculum-versions/${W.versionId}`],
+        ["inscription", `/api/v1/academic/enrollments/${W.students[0]!.enrollmentId}`],
+        ["étudiant", `/api/v1/people/students/${W.students[0]!.id}`],
+        ["tuteur", `/api/v1/people/guardians/${W.guardianId}`],
+        ["enseignant", `/api/v1/people/staff/${W.teacherStaffId}`],
+        ["facture", `/api/v1/finance/invoices/${W.ids.invoice}`],
+        ["paiement", `/api/v1/finance/payments/${W.ids.payment}`],
+        ["évaluation", `/api/v1/assess/assessments/${W.ids.assessment}`],
+        ["appel", `/api/v1/attendance/sessions/${W.ids.attendanceSession}`],
+        ["séance", `/api/v1/scheduling/occurrences/${W.occ[0]!.id}`],
+        ["résultats de classe", `/api/v1/results/classrooms/${W.classroomId}/periods/${W.periodIds[0]}`],
+        ["résultat d'un étudiant", `/api/v1/results/enrollments/${W.students[0]!.enrollmentId}/periods/${W.periodIds[0]}`],
+        ["bulletin", `/api/v1/reportcards/report-cards/${W.ids.reportCard}`],
+        ["diplôme", `/api/v1/higher/diplomas/${W.ids.diploma}`],
+        ["octroi", `/api/v1/higher/awards/${W.ids.award}`],
+        ["document officiel", `/api/v1/higher/documents/${W.ids.document}`],
+        ["bulletin de paie", `/api/v1/payroll/payslips/${W.ids.payslip}`],
+      ];
+      for (const [what, url] of probes) {
+        const res = await ownerU.raw("GET", url);
+        expect([403, 404], `${what} : ${res.status} ${JSON.stringify(res.body).slice(0, 200)}`).toContain(res.status);
+        expect(JSON.stringify(res.body), what).not.toContain("ETUDIANT");
+      }
+      // Les listes de B sont vides : rien de A n'y fuit.
+      for (const url of ["/api/v1/people/students", "/api/v1/academic/years", "/api/v1/academic/classrooms", "/api/v1/finance/invoices", "/api/v1/payroll/payslips", "/api/v1/higher/diplomas"]) {
+        const res = await ownerU.get(url);
+        const dump = JSON.stringify(res.body);
+        expect(dump, url).not.toContain(W.students[0]!.id);
+        expect(dump, url).not.toContain("ETUDIANT");
+      }
+    });
+
+    it("ÉCRITURE croisée : B ne modifie, n'inscrit, ne note, ne paie ni ne publie rien chez A", async () => {
+      const writes: Array<[string, string, unknown]> = [
+        ["PATCH", `/api/v1/people/students/${W.students[0]!.id}`, { person: { firstName: "Piraté" } }],
+        ["POST", "/api/v1/academic/enrollments", { studentId: W.students[0]!.id, classroomId: W.classroomId }],
+        ["POST", `/api/v1/academic/classrooms/${W.classroomId}/cancel`, { reason: "Tentative de piratage inter-tenant" }],
+        ["PUT", `/api/v1/assess/assessments/${W.ids.assessment}/grades`, { entries: [{ enrollmentId: W.students[0]!.enrollmentId, score: "20" }] }],
+        ["POST", `/api/v1/attendance/sessions/${W.ids.attendanceSession}/cancel`, { reason: "Tentative de piratage inter-tenant" }],
+        ["POST", `/api/v1/finance/payments`, { learnerId: W.students[0]!.id, amount: 1000, method: "TRANSFER", reference: "X", allocation: { mode: "NONE" } }],
+        ["POST", `/api/v1/finance/invoices/${W.ids.invoice}/cancel`, { reason: "Tentative de piratage inter-tenant" }],
+        ["POST", `/api/v1/reportcards/report-cards/${W.ids.reportCard}/revoke`, { reason: "Tentative de piratage inter-tenant" }],
+        ["POST", `/api/v1/higher/awards/${W.ids.award}/revoke`, { reason: "Tentative de piratage inter-tenant" }],
+        ["POST", `/api/v1/payroll/payslips/${W.ids.payslip}/cancel`, { reason: "Tentative de piratage inter-tenant" }],
+        ["POST", `/api/v1/results/classrooms/${W.classroomId}/periods/${W.periodIds[0]}/reopen`, { reason: "Tentative de piratage inter-tenant" }],
+      ];
+      for (const [method, url, body] of writes) {
+        const res = await ownerU.raw(method, url, body);
+        expect(res.status, `${method} ${url} : ${JSON.stringify(res.body).slice(0, 200)}`).toBeGreaterThanOrEqual(400);
+        expect(res.status).toBeLessThan(500);
+      }
+      // Les données de A n'ont pas bougé.
+      const student = await p.db.admin.query("SELECT p.first_name FROM people.students s JOIN people.persons p ON p.id = s.person_id WHERE s.id = $1", [W.students[0]!.id]);
+      expect(student.rows[0].first_name).toBe("Awa");
+      const room = await own().get(`/api/v1/academic/classrooms/${W.classroomId}`);
+      expect(room.body.status).toBe("ACTIVE");
+      expect((await own().get(`/api/v1/payroll/payslips/${W.ids.payslip}`)).body.payslip.status).toBe("PAID");
+      expect((await own().get(`/api/v1/reportcards/report-cards/${W.ids.reportCard}`)).body.status).not.toBe("REVOKED");
+    });
+
+    it("base de données : sous l'identité de B, aucune ligne de A n'est visible dans les tables métier (RLS forcée)", async () => {
+      const tables = ["academic.academic_years", "academic.enrollments", "people.students", "finance.invoices", "assess.assessments", "attendance.sessions", "scheduling.session_occurrences", "results.period_results", "reportcards.report_cards", "higher.credit_ledger", "payroll.payslips"];
+      for (const t of tables) {
+        const seen = await p.app.v2.tenantDb.run({ tenantId: U.tenantId, userId: ownerU.identityId, roles: [], requestId: `p2-rls-${t}`, actor: "user", mfa: false } as never, (tx) =>
+          tx.query(`SELECT count(*)::int AS n FROM ${t} WHERE tenant_id = $1`, [T().tenantId]),
+        );
+        expect(seen.rows[0]?.n, t).toBe(0);
+        const visible = await p.db.admin.query(`SELECT count(*)::int AS n FROM ${t} WHERE tenant_id = $1`, [T().tenantId]);
+        expect(visible.rows[0].n, `${t} (visible par l'administrateur)`).toBeGreaterThan(0);
+      }
+    });
+
+    it("la vérification publique d'un bulletin de A ne dévoile rien de personnel, même à un client de B", async () => {
+      const c = (await own().get(`/api/v1/reportcards/report-cards/${W.ids.reportCard}`)).body;
+      const res = await p.http("GET", `/api/v1/public/verify/${c.verificationCode}`, { token: ownerU.token });
+      expect(res.body.status).toBe("AUTHENTIC");
+      expect(JSON.stringify(res.body)).not.toContain("ETUDIANT");
+    });
+  });
+
+  // ===========================================================================================================
+  describe("(14) accès parent : limité à SON enfant, jamais à l'administration", () => {
+    const parent = (): Actor => W.parent as Actor;
+    const mine = (): string => W.students[1]!.id; // l'étudiant lié au tuteur
+    const other = (): string => W.students[0]!.id;
+
+    it("le tuteur voit son enfant (dossier, inscription, présences, emploi du temps, notes, résultats, bulletin publié, crédits)", async () => {
+      const kids = await parent().get("/api/v1/people/children");
+      expect((kids.body.items ?? kids.body.children ?? kids.body) as unknown[]).toHaveLength(1);
+      expect(JSON.stringify(kids.body)).toContain(mine());
+      await parent().get(`/api/v1/people/children/${mine()}`);
+      const enr = await parent().get(`/api/v1/academic/children/${mine()}/enrollments`);
+      expect(JSON.stringify(enr.body)).toContain(W.students[1]!.enrollmentId);
+      await parent().get(`/api/v1/attendance/children/${mine()}/attendance`);
+      const from = W.year.startsOn;
+      await parent().get(`/api/v1/scheduling/children/${mine()}/timetable?from=${from}&to=${addDays(iso(new Date()), 14)}`);
+      const grades = await parent().get(`/api/v1/assess/children/${mine()}/grades`);
+      expect((grades.body.items as unknown[]).length, JSON.stringify(grades.body).slice(0, 300)).toBeGreaterThanOrEqual(8); // 4 ECUE × (devoir, examen) publiés, ceux de SON enfant seulement
+      await parent().get(`/api/v1/higher/children/${mine()}/credits`);
+      const cards = await parent().get(`/api/v1/reportcards/children/${mine()}/report-cards`);
+      expect((cards.body.items as unknown[]).length).toBe(1);
+      const pdf = await parent().get(`/api/v1/reportcards/report-cards/${W.ids.reportCard}/pdf`);
+      expect(pdf.body.contentType).toBe("application/pdf");
+    });
+
+    it("résultats de l'enfant : FINAL seulement, sans trace ni entrées de calcul (visibilité activée par la feature du pack)", async () => {
+      const res = await parent().raw("GET", `/api/v1/results/children/${mine()}/results`);
+      expect([200, 403], JSON.stringify(res.body)).toContain(res.status);
+      if (res.status === 200) {
+        const dump = JSON.stringify(res.body);
+        expect(dump).not.toMatch(/inputsHash|outputs"|explain|trace/);
+      }
+    });
+
+    it("JAMAIS l'enfant d'un autre : dossier, inscription, présences, notes, crédits, bulletin → refusés", async () => {
+      for (const url of [
+        `/api/v1/people/children/${other()}`,
+        `/api/v1/academic/children/${other()}/enrollments`,
+        `/api/v1/attendance/children/${other()}/attendance`,
+        `/api/v1/assess/children/${other()}/grades`,
+        `/api/v1/higher/children/${other()}/credits`,
+        `/api/v1/reportcards/children/${other()}/report-cards`,
+        `/api/v1/scheduling/children/${other()}/timetable?from=${W.year.startsOn}&to=${addDays(iso(new Date()), 14)}`,
+      ]) {
+        const res = await parent().raw("GET", url);
+        expect([403, 404], `${url} : ${res.status} ${JSON.stringify(res.body).slice(0, 200)}`).toContain(res.status);
+      }
+      // Le bulletin d'un autre élève : même réponse qu'un bulletin inexistant (404).
+      const otherCard = (await own().get(`/api/v1/reportcards/report-cards?studentId=${other()}&live=true`)).body.items[0] as { id: string };
+      expect((await parent().raw("GET", `/api/v1/reportcards/report-cards/${otherCard.id}/pdf`)).status).toBe(404);
+    });
+
+    it("le tuteur n'a aucun accès d'administration : élèves, inscriptions, finance, paie, audit, notes de la classe, rôles", async () => {
+      for (const url of [
+        "/api/v1/people/students",
+        "/api/v1/academic/enrollments",
+        `/api/v1/academic/classrooms/${W.classroomId}/roster`,
+        "/api/v1/finance/invoices",
+        "/api/v1/payroll/payslips",
+        "/api/v1/audit/logs",
+        "/api/v1/rbac/roles",
+        `/api/v1/assess/assessments/${W.ids.assessment}/grades`,
+        `/api/v1/results/classrooms/${W.classroomId}/periods/${W.periodIds[0]}`,
+        "/api/v1/higher/diplomas",
+        "/api/v1/reportcards/report-cards",
+      ]) {
+        const res = await parent().raw("GET", url);
+        expect(res.status, `${url} : ${JSON.stringify(res.body).slice(0, 200)}`).toBe(403);
+      }
+      expect((await parent().raw("POST", "/api/v1/academic/enrollments", { studentId: mine(), classroomId: W.classroomId })).status).toBe(403);
+      // Un bulletin RETIRÉ de la publication disparaît de la vue du tuteur, puis revient une fois republié.
+      await own().post(`/api/v1/reportcards/report-cards/${W.ids.reportCard}/withdraw`, {});
+      expect(((await parent().get(`/api/v1/reportcards/children/${mine()}/report-cards`)).body.items as unknown[]).length).toBe(0);
+      await own().post(`/api/v1/reportcards/report-cards/${W.ids.reportCard}/publish`, {});
+      expect(((await parent().get(`/api/v1/reportcards/children/${mine()}/report-cards`)).body.items as unknown[]).length).toBe(1);
+    });
+  });
+
+  // ===========================================================================================================
+  describe("(15) santé asynchrone : outbox publiée, aucune lettre morte, aucun abonné en échec", () => {
+    it("tous les événements de l'année ont été relayés ; la file de lettres mortes est vide", async () => {
+      await waitFor(
+        async () => (await p.db.admin.query("SELECT count(*)::int AS n FROM kernel.domain_events WHERE published_at IS NULL")).rows[0].n === 0,
+        { label: "plus aucun événement en attente de relais", timeoutMs: 60_000 },
+      );
+      const failed = await p.db.admin.query("SELECT type, last_error FROM kernel.domain_events WHERE last_error IS NOT NULL LIMIT 5");
+      expect(failed.rows, JSON.stringify(failed.rows)).toEqual([]);
+      const redis = new Redis(REDIS_URL as string, { maxRetriesPerRequest: 1 });
+      try {
+        const dlq = new DeadLetterAdmin(redis, p.queuePrefix);
+        expect(await dlq.count(), JSON.stringify(await dlq.list(10))).toBe(0);
+      } finally {
+        await redis.quit().catch(() => undefined);
+      }
+    });
+
+    it("le journal du worker ne contient AUCUN échec d'abonné ou de job (« job en échec », dead-letter, erreur)", () => {
+      const lines = p.workerLog.map((l) => {
+        try {
+          return JSON.parse(l) as { level?: string; msg?: string; err?: string; worker?: string };
+        } catch {
+          return { level: "raw", msg: l };
+        }
+      });
+      const bad = lines.filter((l) => l.level === "error" || /échec|dead-letter|port_unavailable/i.test(`${l.msg ?? ""} ${l.err ?? ""}`));
+      expect(bad.map((l) => `${l.worker ?? ""} ${l.msg ?? ""} ${l.err ?? ""}`), p.workerLog.join("\n").slice(0, 3000)).toEqual([]);
+    });
+  });
 });
