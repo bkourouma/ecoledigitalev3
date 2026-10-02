@@ -466,4 +466,44 @@ export async function listMyClassrooms(deps: PrimarySchoolDeps, ctx: RequestCont
   return ok(out);
 }
 
+/**
+ * Compteurs de compétences par inscription (entrée de `decision_fin_annee`, contrat `competency-period@1`) : lecture seule,
+ * destinée au port `CompetencyCountersPort` de `results` (adaptateur de plateforme). On COMPTE, on ne note jamais :
+ *  - `expected` : compétences du référentiel PUBLIÉ applicable au niveau de la classe (le premier, comme la grille) ;
+ *  - `evaluated` : compétences distinctes de ce référentiel ayant au moins une ligne VALIDÉE pour l'inscription dans la classe
+ *    (toutes périodes de l'année confondues). Sans référentiel publié : `{ evaluated: 0, expected: 0 }`.
+ * Aucun contrôle de droit : le consommateur (`results`) est appelé après les siens.
+ */
+export async function getCompetencyCounters(
+  deps: PrimarySchoolDeps,
+  ctx: RequestContext,
+  input: { classroomId: Uuid; enrollmentIds: readonly Uuid[] },
+): Promise<Result<ReadonlyMap<string, { evaluated: number; expected: number }>, AppError>> {
+  const classroom = await deps.ports.classrooms.getClassroom(ctx, input.classroomId);
+  if (!classroom) return err(notFound(PrimaryCode.CLASSROOM_NOT_FOUND, "Classe", input.classroomId));
+  return inTx(
+    deps,
+    ctx,
+    async (tx) => {
+      const out = new Map<string, { evaluated: number; expected: number }>(input.enrollmentIds.map((id) => [id, { evaluated: 0, expected: 0 }]));
+      const published = (await listFrameworkRows(tx, { status: "PUBLISHED" })).filter((f) => appliesTo(f, classroom.gradeLevelCode));
+      const chosen = published[0];
+      if (!chosen || input.enrollmentIds.length === 0) return ok(out);
+      const detail = await frameworkDetailOf(tx, chosen);
+      const expected = detail.domains.reduce((n, d) => n + d.competencies.length, 0);
+      const rows = await tx.many<{ enrollment_id: string; n: string }>(
+        `SELECT a.enrollment_id, count(DISTINCT a.competency_id)::text AS n
+           FROM primary_school.competency_assessments a
+          WHERE a.classroom_id = $1 AND a.framework_id = $2 AND a.status = 'VALIDATED' AND a.enrollment_id = ANY($3::uuid[])
+          GROUP BY a.enrollment_id`,
+        [input.classroomId, chosen.id, [...input.enrollmentIds]],
+      );
+      const evaluated = new Map(rows.map((r) => [r.enrollment_id, Number(r.n)]));
+      for (const id of input.enrollmentIds) out.set(id, { evaluated: evaluated.get(id) ?? 0, expected });
+      return ok(out);
+    },
+    { readOnly: true },
+  );
+}
+
 export { summarizeCompetencies, actorOf };

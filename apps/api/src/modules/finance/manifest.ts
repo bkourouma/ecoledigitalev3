@@ -86,6 +86,6 @@ export default defineModule({
   ],
   events: {
     publishes: [...ALL_FINANCE_EVENT_TYPES],
-    consumes: [],
+    consumes: ["tenancy.institution.created"],
   },
 });

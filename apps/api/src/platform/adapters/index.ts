@@ -42,7 +42,7 @@ import { registerStateassignPorts, setStateassignWorkerPorts, type StateassignPo
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
 import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorkerResources, type PdfRenderer, type ReportcardsPorts } from "../../modules/reportcards";
-import { createOfficialDocumentDeps, type OfficialDocumentDepsOptions } from "./official-documents";
+import { createOfficialDocumentDeps, warmOfficialDocuments, type OfficialDocumentDepsOptions } from "./official-documents";
 import { registerResultsPorts, setResultsWorkerPorts, type ResultsPorts } from "../../modules/results";
 import { registerSchedulingPorts } from "../../modules/scheduling";
 import { registerSchoolLifePorts, type SchoolLifePorts } from "../../modules/schoollife";
@@ -86,7 +86,9 @@ import { createResultsYearFactsPort } from "./results-year-facts";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
 import { asAttendanceStorage, asDocumentsStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
-import { registerPrimarySchoolPorts, setPrimarySchoolWorkerPorts, type PrimarySchoolPorts } from "../../modules/primary_school";
+import { createPrimarySchoolDeps, primarySchoolAuditAdapter, registerPrimarySchoolPorts, setPrimarySchoolWorkerPorts, type PrimarySchoolPorts } from "../../modules/primary_school";
+import { createAcademicClassroomActivationGuard } from "./primary-academic";
+import { createResultsCompetencyCounters } from "./primary-results";
 import { createPrimaryClassroomPort, createPrimaryOutcomePort, createPrimaryPeriodStatePort } from "./academic-primary";
 import { createPrimaryGuardianshipPort, createPrimaryTeachingPort } from "./people-primary";
 import { createPrimaryResultsPort, createPrimaryRulesPort } from "./results-primary";
@@ -101,7 +103,7 @@ import { createImportWriteEnv } from "./imports-support";
 import { createAdmissionsCatalog, createAdmissionsEnrollmentService } from "./admissions-academic";
 import { createAdmissionsDocumentStore } from "./admissions-documents";
 import { createAdmissionsRegistrationFees } from "./admissions-finance";
-import { createAdmissionsApplicantNotifier } from "./admissions-notifier";
+import { createAdmissionsApplicantNotifier, createAdmissionsNotificationSender } from "./admissions-notifier";
 import { createAdmissionsActorDirectory, createAdmissionsStudentRegistry } from "./admissions-people";
 import { createAdmissionsWriteEnv } from "./admissions-support";
 import { createSchoollifeEnrollmentPort, createSchoollifePeriodPort } from "./academic-schoollife";
@@ -148,6 +150,8 @@ export interface PlatformPorts {
   readonly schoollife: Partial<SchoolLifePorts>;
   /** Élèves affectés par l'État (006) : inscription et financement (academic), facturation (finance), présence (attendance), pièces (documents), noms et tutelle (people). La passerelle reste `NotConfigured`. */
   readonly stateassign: Partial<StateassignPorts>;
+  /** Prépare le scellement des documents officiels (clé, gabarits) hors transaction : à lancer au démarrage (voir `warmOfficialDocuments`). */
+  readonly warmup: () => Promise<void>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -165,11 +169,20 @@ export function buildPlatformPorts(
   // fichiers (messagerie, photos, justificatifs) l'appliquent par enveloppe de leur vue de stockage (aucune modification de leur code).
   const scan = scanPolicyFromEnv(kit.env, { warn: (m) => kit.logger.warn({}, m) });
   const scanned = () => scan;
-  const primaryAttendance = createPrimaryAttendancePort({ attendance, academic });
+  const primaryAttendance = createPrimaryAttendancePort({ attendance, academic, people });
+  // Dépendances de primary_school pour ce qu'il FOURNIT aux autres modules (garde d'activation de classe, compteurs de compétences) :
+  // ports résolus paresseusement sur ceux du pack, VRAI audit quand il est fourni (dérogation « sans titulaire » auditée).
+  const primaryDeps = createPrimarySchoolDeps({
+    db: kit.tenantDb,
+    clock: kit.clock,
+    logger: kit.logger,
+    portsProvider: () => base.primary_school,
+    ...(extras.audit ? { audit: primarySchoolAuditAdapter(extras.audit) } : {}),
+  });
   // Admissions : écriture par les cas d'usage publics de people, academic, finance (avec le VRAI audit), dans la transaction du module.
   const admissionsEnv = createAdmissionsWriteEnv(kit, () => base, extras.audit);
   const schoollifePeople = createSchoollifePeoplePort(people, academic, lookups);
-  const base: Omit<PlatformPorts, "imports" | "examinations" | "stateassign"> = {
+  const base: Omit<PlatformPorts, "imports" | "examinations" | "stateassign" | "warmup"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
       guardianship: createAcademicGuardianship(people),
@@ -180,6 +193,8 @@ export function buildPlatformPorts(
       registrationFee: createAcademicRegistrationFeeProbe(finance, academic, clock),
       invoiceFacts: createAcademicInvoiceFactsReader(finance),
       promotions: createAcademicPromotionDecisions(results),
+      // « classe du primaire active => titulaire » (spec 005) : règle de primary_school, appelée par academic à l'activation.
+      classroomActivation: createAcademicClassroomActivationGuard(primaryDeps),
     },
     people: {
       academic: createPeopleAcademicQuery(academic),
@@ -225,6 +240,8 @@ export function buildPlatformPorts(
       names: createResultsActorNamePort(lookups),
       // faits de fin d année des règles `cas_absences` et `cas_deja_redoublant` (contrat coef-period@1) : attendance + academic
       yearFacts: createResultsYearFactsPort({ attendance, academic }),
+      // compteurs de compétences (contrat competency-period@1, décision de fin d'année de la maternelle) : primary_school
+      competencyCounters: createResultsCompetencyCounters(primaryDeps),
     },
     reportcards: {
       results: createReportcardsResultsRead({ results, academic, people, rules }),
@@ -290,8 +307,8 @@ export function buildPlatformPorts(
       catalog: createAdmissionsCatalog(admissionsEnv),
       documents: createAdmissionsDocumentStore(storage, scanned),
       actors: createAdmissionsActorDirectory(admissionsEnv),
-      // Canal de notification : le module notifications est un chantier distinct (échec fermé documenté dans admissions-notifier.ts).
-      notifier: createAdmissionsApplicantNotifier(null),
+      // Canal de notification : `notifications` met le message en file (e-mail, SMS, WhatsApp) ; aucun canal joignable = échec FERMÉ.
+      notifier: createAdmissionsApplicantNotifier(createAdmissionsNotificationSender(createSchoollifeNotificationsDeps(kit))),
     },
     schoollife: {
       enrollments: createSchoollifeEnrollmentPort(academic),
@@ -350,7 +367,7 @@ export function buildPlatformPorts(
     students: createStateassignStudentNames(people),
     guardianship: createStateassignGuardianshipPort(lookups),
   };
-  return { ...base, imports, examinations, stateassign };
+  return { ...base, imports, examinations, stateassign, warmup: () => warmOfficialDocuments(officialDocuments) };
 }
 
 export interface WiredPlatform {
@@ -388,6 +405,8 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerSchoolLifePorts(app, ports.schoollife);
   registerStateassignPorts(app, ports.stateassign);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
+  // Clé de signature et gabarits des documents officiels : préparés ICI (hors transaction), les modules des packs scellent dans la leur.
+  void ports.warmup().catch((e: unknown) => (e as { code?: string })?.code === "reportcards.signing_key_missing" ? undefined : runtime.logger.warn({ err: e instanceof Error ? e.message : String(e) }, "documents officiels : préparation du scellement impossible (échec fermé à la demande)"));
   return { kit, ports, storage };
 }
 
@@ -424,5 +443,6 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   setAdmissionsWorkerPorts(ports.admissions);
   setStateassignWorkerPorts(ports.stateassign);
   if (storage) setReportcardsWorkerResources({ storage });
+  void ports.warmup().catch((e: unknown) => (e as { code?: string })?.code === "reportcards.signing_key_missing" ? undefined : input.logger.warn({ err: e instanceof Error ? e.message : String(e) }, "documents officiels : préparation du scellement impossible (échec fermé à la demande)"));
   return { kit, ports, storage };
 }

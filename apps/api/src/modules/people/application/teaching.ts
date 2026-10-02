@@ -81,7 +81,11 @@ async function validateTarget(deps: PeopleDeps, ctx: RequestContext, tx: Tx, t: 
   const classroom = await academic.getClassroom(ctx, t.classroomId);
   if (!classroom) return err(PeopleErrors.classroomNotFound(t.classroomId));
   if (classroom.academicYearId !== t.academicYearId) return err(PeopleErrors.assignmentInvalid("La classe n'appartient pas à cette année.", "academicYearId"));
-  if (classroom.status === "DRAFT") return err(PeopleErrors.assignmentInvalid("La classe est en brouillon : son curriculum n'est pas encore stable.", "classroomId"));
+  // Une classe en brouillon n'a pas de curriculum stable : aucune affectation à une matière. EXCEPTION : le titulaire d'une classe
+  // (`HOMEROOM`, sans nœud) ne dépend pas du curriculum ; il est d'ailleurs EXIGÉ AVANT l'activation d'une classe du primaire
+  // (garde `primary_school.homeroom_required`) : le refuser en brouillon rendrait l'activation impossible.
+  const classLevelHomeroom = t.roleCode === "HOMEROOM" && !t.curriculumNodeId;
+  if (classroom.status === "DRAFT" && !classLevelHomeroom) return err(PeopleErrors.assignmentInvalid("La classe est en brouillon : son curriculum n'est pas encore stable.", "classroomId"));
 
   let node: AcademicNode | null = null;
   if (t.curriculumNodeId) {

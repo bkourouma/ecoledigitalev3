@@ -10,10 +10,11 @@
 import type { RequestContext } from "@ecoledigitale/kernel";
 import { listAcademicPeriods, type AcademicDeps } from "../../modules/academic";
 import { getAttendanceSession, getAttendanceSummary, listAttendanceSessions, type AttendanceDeps } from "../../modules/attendance";
+import { getStudentsByIds, type PeopleDeps } from "../../modules/people";
 import type { AttendancePort } from "../../modules/primary_school";
 
-export function createPrimaryAttendancePort(input: { attendance: AttendanceDeps; academic: AcademicDeps }): AttendancePort {
-  const { attendance, academic } = input;
+export function createPrimaryAttendancePort(input: { attendance: AttendanceDeps; academic: AcademicDeps; people?: PeopleDeps }): AttendancePort {
+  const { attendance, academic, people } = input;
   return {
     async summarize(ctx, { enrollmentId, academicYearId }) {
       const periods = await listAcademicPeriods(academic, ctx, academicYearId);
@@ -53,6 +54,16 @@ export function createPrimaryAttendancePort(input: { attendance: AttendanceDeps;
           if (st.record) row.days[s.sessionDate] = st.record.statusCode;
           byEnrollment.set(st.enrollmentId, row);
         }
+      }
+      // Les noms ne viennent pas d'academic (liste d'appel sans identité) : ils sont lus dans `people` (lots de 500, appels séquentiels).
+      if (people) {
+        const missing = [...new Set([...byEnrollment.values()].filter((r) => r.displayName === null).map((r) => r.studentId))];
+        const names = new Map<string, string>();
+        for (let i = 0; i < missing.length; i += 500) {
+          const r = await getStudentsByIds(people, ctx, missing.slice(i, i + 500));
+          if (r.ok) for (const s of r.value) names.set(s.id, s.displayName);
+        }
+        for (const row of byEnrollment.values()) if (row.displayName === null) row.displayName = names.get(row.studentId) ?? null;
       }
       return { days: [...days].sort(), rows: [...byEnrollment.values()].sort((a, b) => (a.displayName ?? "").localeCompare(b.displayName ?? "")) };
     },

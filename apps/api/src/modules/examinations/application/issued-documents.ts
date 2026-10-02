@@ -94,7 +94,7 @@ async function buildRequest(
       content.rank = result.rank;
     }
   }
-  return ok({ kind: OFFICIAL_KIND[input.kind], sourceId: input.documentId, title: `${TITLE[input.kind]} — ${(c.lastName ?? "").toLocaleUpperCase("fr-FR")} ${c.firstName ?? ""}`.trim(), issuedAt: deps.clock.now(), institutionId: s.institutionId, content, context });
+  return ok({ kind: OFFICIAL_KIND[input.kind], sourceId: input.documentId, title: `${TITLE[input.kind]} — ${(c.lastName ?? "").toLocaleUpperCase("fr-FR")} ${c.firstName ?? ""}`.trim(), issuedAt: deps.clock.now(), institutionId: s.institutionId, content, context, ...(input.demoRules ? { ruleSourceKind: "placeholder" as const } : {}) });
 }
 
 async function issueInTx(deps: ExaminationsDeps, ctx: RequestContext, tx: Tx, actor: string, candidateId: string, kind: DocumentKind, institutionName: string | null): Promise<Result<IssuedDocumentRow, AppError>> {

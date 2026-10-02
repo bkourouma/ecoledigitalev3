@@ -62,6 +62,11 @@ describeIntegration("affectations d'enseignement (Postgres réel, academic simul
     expect(await codes(assign(t.id, otherYear.id, math.id))).toBe("people.assignment_invalid");
     const draft = academic.addClassroom(year, [math], { status: "DRAFT" });
     expect(await codes(assign(t.id, draft.id, math.id))).toBe("people.assignment_invalid");
+    // Le titulaire généraliste d'une classe en BROUILLON est accepté (aucun nœud : rien d'instable) — il est même exigé AVANT
+    // l'activation d'une classe du primaire ; une matière, elle, reste refusée tant que la classe est en brouillon.
+    const homeroomOnDraft = await assign(t.id, draft.id, undefined, { roleCode: "HOMEROOM", coversAllSubjects: true });
+    expect(homeroomOnDraft.ok).toBe(true);
+    expect(await codes(assign(t.id, draft.id, math.id, { roleCode: "CO_TEACHER" }))).toBe("people.assignment_invalid");
     expect(await codes(assign(t.id, classroom.id, math.id, { roleCode: "CO_TEACHER", periodId: newId() }))).toBe("people.period_outside_year");
     const period = academic.addPeriod(year);
     expect((await assign(t.id, classroom.id, math.id, { roleCode: "CO_TEACHER", periodId: period.id })).ok).toBe(true);

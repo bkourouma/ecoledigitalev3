@@ -65,6 +65,6 @@ export default defineModule({
   ],
   events: {
     publishes: [...ALL_RULES_EVENT_TYPES],
-    consumes: [],
+    consumes: ["tenancy.institution.created"],
   },
 });

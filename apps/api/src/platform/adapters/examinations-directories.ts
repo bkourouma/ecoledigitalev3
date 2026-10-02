@@ -12,7 +12,7 @@
  * Appels SÉQUENTIELS (connexion partagée dans une transaction).
  *
  * Interface attendue d'`academic` (README d'`examinations`) :
- *   getEligibilityFacts(deps: AcademicDeps, ctx: RequestContext, input: { enrollmentId: string })
+ *   getEligibilityFacts(deps: AcademicDeps, ctx: RequestContext, enrollmentId: string)
  *     -> Result<{ gradeLevelCode: string | null; repeatedYears?: number }, AppError>
  */
 import { err, InternalError, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
@@ -25,7 +25,7 @@ import type { EligibilityFacts, EligibilityFactsPort, FamilyLinks, InstitutionDi
 import type { AdapterKit } from "./kit";
 import type { PeopleLookups } from "./people-lookups";
 
-const EXPECTED_ELIGIBILITY_FACTS = "academic.getEligibilityFacts(deps, ctx, { enrollmentId }) -> Result<{ gradeLevelCode: string | null; repeatedYears?: number }>";
+const EXPECTED_ELIGIBILITY_FACTS = "academic.getEligibilityFacts(deps, ctx, enrollmentId) -> Result<{ gradeLevelCode, repeatsInCycle, ... }>";
 
 const unavailable = (detail?: string): AppError =>
   new InternalError("Le service « faits d'éligibilité » n'est pas disponible : opération refusée.", {
@@ -85,12 +85,18 @@ export function ageAt(birthDate: string | null, referenceDate: string | null): n
 type FactsFn = (deps: unknown, ctx: RequestContext, input: { enrollmentId: string }) => Promise<Result<{ gradeLevelCode?: string | null }, AppError>>;
 
 export function createExaminationsEligibilityFacts(kit: Pick<AdapterKit, "academic" | "people">, options: { academicApi?: Record<string, unknown> } = {}): EligibilityFactsPort {
-  const academic = (options.academicApi ?? (academicApi as unknown as Record<string, unknown>)) as Record<string, unknown>;
   return {
     async getEligibilityFacts(ctx, input): Promise<Result<EligibilityFacts, AppError>> {
-      const fn = academic.getEligibilityFacts;
-      if (typeof fn !== "function") return err(unavailable("interface absente du module academic"));
-      const r = await (fn as FactsFn)(kit.academic, ctx, { enrollmentId: input.enrollmentId });
+      // Par défaut : l'API PUBLIQUE réelle d'academic (`getEligibilityFacts(deps, ctx, enrollmentId)`). `options.academicApi` ne sert
+      // qu'aux tests (un module simulé qui reçoit `{ enrollmentId }`).
+      let r: Result<{ gradeLevelCode?: string | null }, AppError>;
+      if (options.academicApi) {
+        const fn = options.academicApi.getEligibilityFacts;
+        if (typeof fn !== "function") return err(unavailable("interface absente du module academic"));
+        r = await (fn as FactsFn)(kit.academic, ctx, { enrollmentId: input.enrollmentId });
+      } else {
+        r = await academicApi.getEligibilityFacts(kit.academic, ctx, input.enrollmentId);
+      }
       if (!r.ok) return err(unavailable(r.error.code));
       const level = r.value.gradeLevelCode;
       if (level === undefined) return err(unavailable("réponse sans gradeLevelCode"));
