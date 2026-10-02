@@ -278,10 +278,13 @@ describeIntegration("module documents : matrice d'accès", () => {
     expect(must(await listDocuments(w.deps, w.ctxA(USERS.pupil), { caps: CAPS.pupil, query: { scope: "self" } })).items.every((i) => i.ownerId === PEOPLE.pupil)).toBe(true);
     // tri par titre et curseur cohérents
     const asc = must(await listDocuments(w.deps, w.ctxA(USERS.secretary), { caps: CAPS.secretary, query: { sort: "title", dir: "asc", limit: 3 } }));
-    const titles = asc.items.map((i) => i.title.toLowerCase());
-    expect([...titles].sort()).toEqual(titles);
+    // Ordre attendu : clé normalisée (minuscules, sans accents) comparée par octets, indépendante de la locale de Postgres
+    // (« cni élève » avant « cni enfant » car « eleve » < « enfant »). Même normalisation que `documents.normalize_search`.
+    const key = (title: string): string => title.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const titles = asc.items.map((i) => key(i.title));
+    expect([...titles].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))).toEqual(titles);
     const more = must(await listDocuments(w.deps, w.ctxA(USERS.secretary), { caps: CAPS.secretary, query: { sort: "title", dir: "asc", limit: 3, cursor: asc.nextCursor! } }));
-    expect(more.items[0]!.title.toLowerCase() >= titles[2]!).toBe(true);
+    expect(key(more.items[0]!.title) >= titles[2]!).toBe(true);
   });
 
   it("métadonnées : un parent ne peut pas modifier la visibilité d'un document qu'il voit, le secrétariat le peut (audité)", async () => {
