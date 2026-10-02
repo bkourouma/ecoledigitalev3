@@ -27,6 +27,8 @@ export interface ResolveInput {
   readonly institutionId?: string | undefined;
   readonly curriculumNodeId?: string | undefined;
   readonly levelCode?: string | undefined;
+  /** Code du cycle d'enseignement : une liaison par niveau peut viser le cycle (ex. `PRIMARY`) aussi bien que le niveau fin (`CP1`). */
+  readonly educationLevelCode?: string | undefined;
   /** Date de DÉBUT de la période, « AAAA-MM-JJ ». */
   readonly date: string;
 }

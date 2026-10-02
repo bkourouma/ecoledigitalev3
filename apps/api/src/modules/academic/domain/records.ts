@@ -54,6 +54,8 @@ export interface AcademicPeriod {
   closedAt: IsoInstant | null;
   closedBy: Uuid | null;
   reopenedCount: number;
+  /** Poids de la période dans la moyenne annuelle (entier 1..1000, défaut 1) ; distinct du poids de RÉPARTITION des dates d'un créneau de plan. */
+  averageWeight?: number | undefined;
 }
 
 export interface EducationLevel {
@@ -93,7 +95,10 @@ export interface PeriodPlanSlot {
   type: string;
   ordinal: number;
   label: string;
+  /** Poids relatif dans la répartition des DATES de l'année (durée proportionnelle, défaut 1). */
   weight?: number | undefined;
+  /** Poids de la période dans la moyenne annuelle (défaut 1) : copié sur la période créée. */
+  averageWeight?: number | undefined;
 }
 
 export interface PeriodPlan {

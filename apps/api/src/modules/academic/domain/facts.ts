@@ -23,6 +23,8 @@ export interface ResultsPeriodFacts {
   isLast: boolean;
   startsOn: string;
   endsOn: string;
+  /** Poids de la période dans la moyenne annuelle (donnée du calendrier, défaut 1). */
+  averageWeight?: number | undefined;
 }
 
 export interface ResultsStructureNode {
@@ -81,11 +83,12 @@ export function periodFactsOf(periods: readonly AcademicPeriod[], periodId: stri
     isLast: countInYear >= 2 && index === countInYear - 1,
     startsOn: p.startsOn,
     endsOn: p.endsOn,
+    averageWeight: p.averageWeight,
   });
   const yearPeriods = siblings.map(toFacts);
   const own = yearPeriods.find((p) => p.id === periodId);
   // Une période d'examen (hors rang) est décrite sans rang : rang = nombre de sœurs, pas « dernière ».
-  const period = own ?? { id: target.id, typeCode: target.periodTypeCode, rankInYear: countInYear, countInYear, isLast: false, startsOn: target.startsOn, endsOn: target.endsOn };
+  const period = own ?? { id: target.id, typeCode: target.periodTypeCode, rankInYear: countInYear, countInYear, isLast: false, startsOn: target.startsOn, endsOn: target.endsOn, averageWeight: target.averageWeight };
   return { period, yearPeriods };
 }
 

@@ -54,7 +54,7 @@ export async function ensureState(deps: ResultsDeps, ctx: RequestContext, tx: Tx
   if (!(SUPPORTED_CONTRACTS as readonly string[]).includes(structure.contractId)) {
     return err(validation(ResultsCode.UNSUPPORTED_CONTRACT, `Le contrat de règles « ${structure.contractId} » n'est pas pris en charge par le calcul des résultats.`, "contractId"));
   }
-  const resolved = await deps.ports.rules.resolve(ctx, { contractId: structure.contractId, institutionId: structure.institutionId, levelCode: structure.levelCode, date: structure.period.startsOn });
+  const resolved = await deps.ports.rules.resolve(ctx, { contractId: structure.contractId, institutionId: structure.institutionId, levelCode: structure.levelCode, educationLevelCode: structure.educationLevelCode, date: structure.period.startsOn });
   if (!resolved.ok) return resolved;
   if (!resolved.value) {
     return err(

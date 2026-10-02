@@ -134,6 +134,7 @@ export interface ResolveRequest {
   readonly contractId: string;
   readonly institutionId?: string | undefined;
   readonly levelCode?: string | undefined;
+  readonly educationLevelCode?: string | undefined;
   /** Date de DÉBUT de la période (jamais l'horloge, R-RUL-05). */
   readonly date: string;
 }

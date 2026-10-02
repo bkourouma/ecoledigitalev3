@@ -107,6 +107,7 @@ export { closeVersionPeriod, transitionAsOperator, transitionTenantVersion, fanO
 export { deriveVariant, editExpression, editParameters, validateExpression, validateVersion } from "./application/variants";
 export { createNationalRuleSet, createNationalVersion, getPlatformSettings, replaceNationalDraftRules, updatePlatformSettings } from "./application/national";
 export { listTenantBindings, putBinding, removeBinding, type BindingInput } from "./application/bindings";
+export { applyPackPlaceholderBindings, PACK_PLACEHOLDER_BINDINGS, type ApplyPackBindingsInput, type PackBindingKey, type PackDefaultBinding } from "./application/pack-bindings";
 export { cancelSimulation, getSimulationView, recordSimulationCases, recordSimulationReport, requestSimulation, runSimulation, startSimulation } from "./application/simulations";
 export { replayEvaluations, replaySampleForTenant, verifyCatalogHashes, type HashIssue, type ReplayMismatch, type ReplayReport } from "./application/replay";
 export { getPlatformVersionDetail, getVersionDetail, getVersionEvents, listApprovalQueue, listPlatformCatalog, listPlatformImpact, listTenantCatalog } from "./application/catalog";

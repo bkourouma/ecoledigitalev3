@@ -16,6 +16,7 @@ export function rulesPortFrom(api: RulesApi): RulesPort {
         contractId: request.contractId,
         ...(request.institutionId ? { institutionId: request.institutionId } : {}),
         ...(request.levelCode ? { levelCode: request.levelCode } : {}),
+        ...(request.educationLevelCode ? { educationLevelCode: request.educationLevelCode } : {}),
         date: request.date,
       });
       if (!r.ok) return r;

@@ -10,6 +10,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { putBinding } from "../application/bindings";
+import { applyPackPlaceholderBindings } from "../application/pack-bindings";
 import { loadVersion, resolve } from "../application/resolve";
 import { createRulesDeps } from "../application/deps";
 import { isProductionEnvironment } from "../domain/environment";
@@ -128,6 +129,43 @@ describeIntegration("jeux de règles fictifs (placeholder)", () => {
         .then(() => "ok")
         .catch((e: { message: string }) => e.message);
       expect(incomplete).toMatch(/rule_bindings_placeholder_ack_ck/);
+    });
+  });
+
+  describe("liaisons par défaut des packs", () => {
+    it("PRIMARY : cycle PRIMARY -> coef-period@1, cycle PRESCHOOL -> competency-period@1 (hors production : libre)", async () => {
+      const tenant = await db.createTenant("pack-primary");
+      const ctx = adminCtx(tenant);
+      const r = await applyPackPlaceholderBindings(world.deps, ctx, { pack: "PRIMARY", effectiveFrom: "2026-09-01" });
+      expect(r.ok && r.value.map((b) => `${b.contractId}:${b.levelCode}`)).toEqual(["coef-period@1:PRIMARY", "competency-period@1:PRESCHOOL"]);
+      const primary = await resolve(world.deps, ctx, { contractId: "coef-period@1", levelCode: "CM2", educationLevelCode: "PRIMARY", date: "2026-10-01" });
+      expect(primary.ok && primary.value.resolved).toMatchObject({ ruleSetCode: "CI-PRIMARY-PLACEHOLDER", sourceKind: "placeholder", contractId: "coef-period@1" });
+      const preschool = await resolve(world.deps, ctx, { contractId: "competency-period@1", levelCode: "GS", educationLevelCode: "PRESCHOOL", date: "2026-10-01" });
+      expect(preschool.ok && preschool.value.resolved?.contractId).toBe("competency-period@1");
+      // un autre cycle n'est pas lié
+      const other = await resolve(world.deps, ctx, { contractId: "coef-period@1", levelCode: "6E", educationLevelCode: "LOWER_SECONDARY", date: "2026-10-01" });
+      expect(other.ok && other.value.resolved).toBeNull();
+      // idempotent : même identité ⇒ mise à jour, pas de doublon
+      expect((await applyPackPlaceholderBindings(world.deps, ctx, { pack: "PRIMARY", effectiveFrom: "2026-09-01" })).ok).toBe(true);
+      expect((await adminRows(db, "SELECT 1 FROM rules.rule_bindings WHERE tenant_id = $1", [tenant])).length).toBe(2);
+    });
+
+    it("en production : refusées sans accusé, posées avec un accusé motivé", async () => {
+      const tenant = await db.createTenant("pack-secondary");
+      const ctx = adminCtx(tenant);
+      const refused = await applyPackPlaceholderBindings(prod.deps, ctx, { pack: "SECONDARY", effectiveFrom: "2026-09-01" });
+      expect(!refused.ok && refused.error.code).toBe("rules.placeholder_requires_ack");
+      expect((await adminRows(db, "SELECT 1 FROM rules.rule_bindings WHERE tenant_id = $1", [tenant])).length).toBe(0);
+      const ok = await applyPackPlaceholderBindings(prod.deps, ctx, { pack: "SECONDARY", effectiveFrom: "2026-09-01", placeholderAck: { reason: "Établissement pilote, démonstration." } });
+      expect(ok.ok && ok.value.map((b) => b.levelCode)).toEqual(["LOWER_SECONDARY", "UPPER_SECONDARY"]);
+      expect(ok.ok && ok.value.every((b) => b.placeholderAck !== null)).toBe(true);
+    });
+
+    it("EXAMINATIONS : exam-national@1 lié à CI-EXAM-PLACEHOLDER pour tout l'établissement", async () => {
+      const tenant = await db.createTenant("pack-exam");
+      const ctx = adminCtx(tenant);
+      const r = await applyPackPlaceholderBindings(world.deps, ctx, { pack: "EXAMINATIONS", effectiveFrom: "2026-09-01" });
+      expect(r.ok && r.value[0]).toMatchObject({ contractId: "exam-national@1", ruleSetCode: "CI-EXAM-PLACEHOLDER", levelCode: null });
     });
   });
 

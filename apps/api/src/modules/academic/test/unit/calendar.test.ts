@@ -136,6 +136,14 @@ describe("plan de périodes (AC1.3)", () => {
     expect(r.periods.map((p) => inclusiveDays(p.startsOn, p.endsOn))).toEqual([91, 274]);
     covers(r.periods, "2026-01-01", "2026-12-31");
   });
+  it("poids de MOYENNE d'un créneau (`averageWeight`) : copié sur la période, distinct du poids de répartition des dates ; défaut 1", () => {
+    const plain = allocatePeriodPlan("2026-09-01", "2027-08-31", slots(3));
+    expect(plain.ok && plain.periods.map((p) => p.averageWeight)).toEqual([1, 1, 1]);
+    const weighted = allocatePeriodPlan("2026-09-01", "2027-08-31", slots(3).map((s, i) => ({ ...s, averageWeight: [1, 2, 3][i] as number })));
+    expect(weighted.ok && weighted.periods.map((p) => p.averageWeight)).toEqual([1, 2, 3]);
+    // les dates restent réparties à parts égales : le poids de moyenne ne déplace aucune date
+    expect(weighted.ok && plain.ok && weighted.periods.map((p) => p.startsOn)).toEqual(plain.ok ? plain.periods.map((p) => p.startsOn) : []);
+  });
   it("refuse un plan impossible", () => {
     expect(allocatePeriodPlan("2026-01-01", "2026-01-02", slots(3)).ok).toBe(false);
     expect(allocatePeriodPlan("2026-01-01", "2026-12-31", []).ok).toBe(false);

@@ -60,6 +60,8 @@ export interface ClassStructure {
   readonly academicYearId: Uuid;
   readonly institutionId?: string | undefined;
   readonly levelCode?: string | undefined;
+  /** Code du cycle d'enseignement (`PRESCHOOL`, `PRIMARY`…) : une liaison de règles peut viser le cycle. */
+  readonly educationLevelCode?: string | undefined;
   /** Contrat de calcul de la classe (donnée du curriculum / du pack). */
   readonly contractId: string;
   readonly period: PeriodFacts;

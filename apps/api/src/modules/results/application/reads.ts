@@ -52,7 +52,7 @@ export async function getPeriodView(deps: ResultsDeps, ctx: RequestContext, inpu
       if (!state) return err(notFound(ResultsCode.STATE_NOT_FOUND, "État de la période", `${input.classroomId}/${input.academicPeriodId}`));
       const headers = await listCurrentHeaders(tx, state.id);
       // la résolution sert au DIAGNOSTIC seulement : elle n'épingle ni ne recalcule rien (publier une règle ne recalcule jamais, A-13)
-      const resolved = await deps.ports.rules.resolve(ctx, { contractId: state.contractId, institutionId: structure.institutionId, levelCode: structure.levelCode, date: structure.period.startsOn });
+      const resolved = await deps.ports.rules.resolve(ctx, { contractId: state.contractId, institutionId: structure.institutionId, levelCode: structure.levelCode, educationLevelCode: structure.educationLevelCode, date: structure.period.startsOn });
       const active = resolved.ok && resolved.value ? { ruleSetCode: resolved.value.ruleSetCode, ruleVersionNo: resolved.value.ruleVersionNo, definitionHash: resolved.value.definitionHash } : null;
       const ruleSourceKind = deps.ports.rules.sourceKindOf ? await deps.ports.rules.sourceKindOf(ctx, state) : null;
       return ok({

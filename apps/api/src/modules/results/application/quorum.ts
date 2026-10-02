@@ -48,7 +48,7 @@ export async function evaluateCouncilQuorum(deps: ResultsDeps, ctx: RequestConte
       if (state) {
         pin = { ruleVersionKind: state.ruleVersionKind, ruleVersionId: state.ruleVersionId, ruleSetCode: state.ruleSetCode, ruleVersionNo: state.ruleVersionNo, definitionHash: state.definitionHash, contractId: state.contractId };
       } else {
-        const resolved = await deps.ports.rules.resolve(ctx, { contractId: structure.contractId, institutionId: structure.institutionId, levelCode: structure.levelCode, date: structure.period.startsOn });
+        const resolved = await deps.ports.rules.resolve(ctx, { contractId: structure.contractId, institutionId: structure.institutionId, levelCode: structure.levelCode, educationLevelCode: structure.educationLevelCode, date: structure.period.startsOn });
         if (!resolved.ok) return resolved;
         pin = resolved.value;
       }
