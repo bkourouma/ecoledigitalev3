@@ -67,9 +67,16 @@ Les versions du runner (`schema_migrations.version`) sont **globales à tous les
 | 1500-1599 | `payroll` |
 | 1600-1699 | `analytics` |
 | 1700-1799 | `messaging` |
-| 1800-1899 | `imports` |
-| 1900+ | modules suivants, attribués dans l'ordre de création (compléter ce tableau) |
+| 1800-1899 | `primary_school` |
+| 1900-1999 | `admissions` |
+| 2000-2099 | `examinations` |
+| 2100-2199 | `councils` |
+| 2200-2299 | `schoollife` |
+| 2300-2399 | `stateassign` |
+| 2400-2499 | `imports` |
+| 2500-2599 | `documents` |
+| 2600+ | modules suivants, attribués dans l'ordre de création (compléter ce tableau) |
 
-Un nouveau module prend la prochaine plage libre et l'inscrit ici dans la même PR. `pnpm module:new <clé>` le fait pour vous : il lit ce tableau (ligne ouverte `NNNN+`), réserve 100 numéros (`--range 1800` pour imposer le début), nomme la migration initiale dans la plage (`1800_<clé>_init.sql`), insère la ligne du module et décale la ligne ouverte. Voir `docs/architecture/new-module-guide.md`.
+Un nouveau module prend la prochaine plage libre et l'inscrit ici dans la même PR. `pnpm module:new <clé>` le fait pour vous : il lit ce tableau (ligne ouverte `NNNN+`), réserve 100 numéros (`--range 2600` pour imposer le début), nomme la migration initiale dans la plage (`2600_<clé>_init.sql`), insère la ligne du module et décale la ligne ouverte. Voir `docs/architecture/new-module-guide.md`.
 
 Note : le script `db:v2:migrate` suit les versions par dossier (`schema_migrations_<module>`), donc une collision n'est pas bloquante techniquement ; les plages gardent les numéros lisibles et évitent toute ambiguïté dans les journaux.

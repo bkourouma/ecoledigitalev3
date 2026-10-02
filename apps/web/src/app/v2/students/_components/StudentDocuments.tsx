@@ -23,7 +23,7 @@ import {
   useUpdateStudentDocument,
   useUploadStudentDocument,
   type DocumentExpiryFilter,
-} from "@/platform/v2/documents";
+} from "@/platform/v2/student-documents";
 import { Can } from "@/platform/ui/AccessGate";
 import { useDescribeError } from "@/platform/ui/errors";
 import { CheckControl, FormField, NativeSelect, TextControl } from "@/platform/ui/FormField";

@@ -28,6 +28,7 @@ import { s3StorageFromEnv, type StorageObject, type StoragePort as ReportcardsSt
 import type { StoragePort as AttendanceStoragePort } from "../../modules/attendance";
 import type { StoragePort as MessagingStoragePort } from "../../modules/messaging";
 import type { StoragePort as PeopleStoragePort } from "../../modules/people";
+import type { StoragePort as DocumentsStoragePort } from "../../modules/documents";
 
 /** Port de base de la plateforme : celui de `reportcards` (le plus complet) + suppression. */
 export interface ObjectStorage extends ReportcardsStoragePort {
@@ -231,5 +232,20 @@ export function asPeopleStorage(storage: ObjectStorage): PeopleStoragePort {
     async signedUrl(key, options) {
       return (await storage.signedUrl(key, { ttlSeconds: options.ttlSec })).url;
     },
+  };
+}
+
+/** `documents` : `get` pour la prévisualisation et le contrôle d'intégrité, URL signée avec nom et type du fichier. */
+export function asDocumentsStorage(storage: ObjectStorage): DocumentsStoragePort {
+  return {
+    async put(key, bytes, options) {
+      await storage.put(key, bytes, options);
+    },
+    async get(key) {
+      const object = await storage.get(key);
+      return object ? { bytes: object.bytes, contentType: object.contentType } : null;
+    },
+    delete: (key) => storage.delete(key),
+    signedUrl: (key, options) => storage.signedUrl(key, options),
   };
 }
