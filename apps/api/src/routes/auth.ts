@@ -112,9 +112,14 @@ async function ensureGlobalRole(
  * `x-social-login-secret`), comparé en temps constant. Sans secret configuré : refusé en production, toléré en
  * développement (avertissement). Ancien comportement : route ouverte -> prise de contrôle de compte par e-mail.
  */
-function socialLoginAuthorized(request: { headers: Record<string, unknown> }): boolean {
-  const expected = process.env.AUTH_SOCIAL_SHARED_SECRET;
-  if (!expected) return process.env.NODE_ENV !== "production";
+export function socialLoginAuthorized(
+  request: { headers: Record<string, unknown> },
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  const expected = env.AUTH_SOCIAL_SHARED_SECRET;
+  // SEC-05 : sans secret, tolérance limitée à development/test explicites. Un NODE_ENV absent ou « staging »
+  // (mal renseigné) ne doit pas rouvrir la prise de contrôle de compte par e-mail.
+  if (!expected) return env.NODE_ENV === "development" || env.NODE_ENV === "test";
   const given = request.headers["x-social-login-secret"];
   if (typeof given !== "string") return false;
   const a = Buffer.from(given);

@@ -17,7 +17,7 @@
  * sans défaut) ; `sandbox` est refusé en environnement `production`. Un fournisseur désactivé par le
  * tenant (`settings.enabled = "false"`) répond `finance.provider_disabled`.
  */
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { err, noopLogger, ok, type AppError, type Logger, type Result } from "@ecoledigitale/kernel";
 import { FinanceCode, conflict } from "../../domain/errors";
 import type { PaymentProvider } from "../../application/ports/payment-provider";
@@ -234,8 +234,16 @@ export const sandboxDefinition: ProviderDefinition = Object.freeze({
   name: SANDBOX_PROVIDER_NAME,
   requiredSettings: [],
   sandbox: true,
-  create: ({ settings }: ProviderFactoryContext): PaymentProvider =>
-    new SandboxProvider(settings.secret ? { secret: settings.secret } : {}),
+  // Hors dev/test, jamais de secret par défaut public : sans `secret` explicite, un secret aléatoire propre au
+  // processus est tiré (un webhook sandbox signé avec la valeur publique est alors rejeté).
+  create: ({ settings, environment }: ProviderFactoryContext): PaymentProvider =>
+    new SandboxProvider(
+      settings.secret
+        ? { secret: settings.secret }
+        : isDevLikeEnvironment(environment)
+          ? {}
+          : { secret: randomBytes(32).toString("hex") },
+    ),
 });
 
 /** Registre prêt à l'emploi : sandbox enregistrée (donc refusée hors dev), aucun adaptateur réel. */
