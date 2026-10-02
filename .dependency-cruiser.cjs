@@ -8,6 +8,8 @@
  *
  * Règles
  *  - modules-only-via-index        un module n'importe d'un autre module que son index.ts ;
+ *  - platform-adapters-*          platform/adapters/ = seul endroit qui connaît plusieurs modules, par leurs index.ts uniquement
+ *                                  (ni legacy, ni pg) ; un module n'importe jamais platform/adapters/ ;
  *  - domain-is-pure                domain/ n'importe ni pg, ni fastify, ni database, ni infrastructure,
  *                                  application, http, ni platform ;
  *  - application-no-http           application/ n'importe ni http/ ni fastify ;
@@ -52,6 +54,34 @@ module.exports = {
         path: "^apps/api/src/modules/[^/]+/",
         pathNot: "^apps/api/src/modules/[^/]+/index\\.(ts|js)$",
       },
+    },
+    {
+      name: "platform-adapters-only-via-index",
+      severity: "error",
+      comment:
+        "apps/api/src/platform/adapters/ est le SEUL endroit qui connaît plusieurs modules (adaptateurs de ports entre modules). " +
+        "Il importe uniquement leurs index.ts (API publique) : aucune autre exception, aucun accès aux fichiers internes d'un module.",
+      from: { path: "^apps/api/src/platform/adapters/" },
+      to: {
+        path: "^apps/api/src/modules/",
+        pathNot: ["^apps/api/src/modules/[^/]+/index\\.(ts|js)$", "^apps/api/src/modules/registry-discovery\\.(ts|js)$"],
+      },
+    },
+    {
+      name: "platform-adapters-no-legacy-no-pg",
+      severity: "error",
+      comment:
+        "Les adaptateurs de plateforme ne touchent ni le code legacy (routes, services, middleware…) ni `pg` : ils appellent l'API publique des modules (qui passe par TenantDb).",
+      from: { path: "^apps/api/src/platform/adapters/", pathNot: TESTS },
+      to: { path: [PG, "^apps/api/src/(?!(modules|platform)/)"] },
+    },
+    {
+      name: "modules-not-adapters",
+      severity: "error",
+      comment:
+        "Un module n'importe jamais platform/adapters/ : ce sont les adaptateurs qui dépendent des modules, jamais l'inverse (sinon le découplage par ports est perdu).",
+      from: { path: "^apps/api/src/modules/" },
+      to: { path: "^apps/api/src/platform/adapters/" },
     },
     {
       name: "domain-is-pure",

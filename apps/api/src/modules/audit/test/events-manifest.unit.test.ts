@@ -125,7 +125,7 @@ describe("manifeste", () => {
     expect(perms["audit.read"]?.sensitive).toBeFalsy();
     expect(manifest.events.consumes).toEqual([...AUDIT_CONSUMED_EVENTS]);
     expect(manifest.events.consumes).toEqual(
-      expect.arrayContaining(["iam.impersonation.started", "iam.login.failed", "iam.session.revoked", "rbac.role.changed", "rbac.assignment.changed", "tenancy.*", "entitlements.*"]),
+      expect.arrayContaining(["iam.impersonation.started", "iam.login.failed", "iam.session.revoked", "rbac.role.changed", "rbac.assignment.changed", "tenancy.**", "entitlements.**"]),
     );
     expect(resolveModuleOrder([manifest]).map((m) => m.key)).toEqual(["audit"]);
   });

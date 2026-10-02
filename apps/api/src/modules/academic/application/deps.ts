@@ -61,6 +61,11 @@ export interface AcademicDepsInput {
   clock?: Clock;
   audit?: AuditPort;
   ports?: Partial<AcademicPorts>;
+  /**
+   * Ports branchés APRÈS la construction (adaptateurs de plateforme) : lus à CHAQUE accès à `deps.ports.<port>` ; un port
+   * absent du fournisseur garde `ports` puis son repli sûr.
+   */
+  portsProvider?: () => Partial<AcademicPorts>;
   config?: Partial<AcademicConfig>;
   newId?: () => string;
   logger?: Logger;
@@ -68,15 +73,28 @@ export interface AcademicDepsInput {
 
 /** Assemble les dépendances avec des valeurs par défaut SÛRES (voir `ports.ts` pour chaque repli). */
 export function createAcademicDeps(input: AcademicDepsInput): AcademicDeps {
+  const base: AcademicPorts = { ...DEFAULT_PORTS, ...input.ports };
   return {
     db: input.db,
     clock: input.clock ?? systemClock,
     audit: input.audit ?? noopAudit,
-    ports: { ...DEFAULT_PORTS, ...input.ports },
+    ports: input.portsProvider ? lazyPorts(base, input.portsProvider) : base,
     config: { ...DEFAULT_ACADEMIC_CONFIG, ...input.config },
     newId: input.newId ?? newId,
     logger: input.logger ?? noopLogger,
   };
+}
+
+/** Ports résolus à l'accès : le fournisseur prime, sinon la valeur de base (ports injectés puis replis sûrs). */
+function lazyPorts(base: AcademicPorts, provider: () => Partial<AcademicPorts>): AcademicPorts {
+  const out = {} as AcademicPorts;
+  for (const key of Object.keys(base) as Array<keyof AcademicPorts>) {
+    Object.defineProperty(out, key, {
+      enumerable: true,
+      get: () => (provider()[key] ?? base[key]) as never,
+    });
+  }
+  return Object.freeze(out);
 }
 
 /** Signal interne : annule la transaction en portant l'erreur métier. */

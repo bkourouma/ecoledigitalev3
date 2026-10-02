@@ -12,9 +12,9 @@ interface AppLayoutProps {
 // Pages qui ne doivent pas avoir le layout principal (pages publiques)
 // Peut être un chemin exact ou un préfixe pour exclure toute une section
 // '/offline' : page du service worker (public/sw.js), affichée sans réseau ; ne doit pas attendre la session.
+// '/v2' : écrans v2 (coquille propre : app/v2/**, platform/admin/shell, pages d'authentification V2). '/auth/' : liens e-mail IAM.
 const NO_LAYOUT_PAGES = ['/login', '/register', '/offline'];
-// '/v2' : écrans d'administration de la plateforme v2, qui posent leur propre coquille (app/v2/**, platform/admin/shell).
-const NO_LAYOUT_PREFIXES = ['/rso/formateur', '/super-admin', '/live', '/v2'];
+const NO_LAYOUT_PREFIXES = ['/rso/formateur', '/super-admin', '/live', '/v2', '/auth/'];
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { data: session, status } = useSession();

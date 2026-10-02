@@ -1,8 +1,9 @@
 /**
  * Réactions du module payroll aux événements des autres modules (abonnés du worker) et tâches périodiques.
  * Tous sont IDEMPOTENTS par construction : un rejeu ne change rien (réglages déjà là, alerte à identifiant
- * déterministe, période déjà clôturée). ⚠ Les noms et charges des événements des autres modules sont des
- * hypothèses de travail (`occurrenceId`, `academicYearId`/`yearId`), comme dans scheduling.
+ * déterministe, période déjà clôturée). Les noms et charges des événements des autres modules sont ceux de leurs
+ * producteurs (`occurrenceId` de scheduling, `academicYearId` d'academic ; test de contrat
+ * `apps/api/test/events-contracts/payroll.test.ts`).
  */
 import { createHash } from "node:crypto";
 import { createDomainEvent, createSystemContext, ok, type AppError, type Result } from "@ecoledigitale/kernel";
@@ -36,13 +37,19 @@ export async function onTenantProvisioned(deps: PayrollDeps, tenantId: string): 
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.length > 0 ? v : null);
 
+/** `scheduling.occurrence.cancelled|unvalidated|rescheduled|paid_minutes_changed` : la séance concernée (`occurrenceId`). */
+export const readSourceOccurrenceId = (payload: unknown): string | null => str((payload as { occurrenceId?: unknown } | null)?.occurrenceId);
+
+/** `academic.year.closed` : l'année clôturée (`academicYearId`, égal à `yearId`). */
+export const readClosedYearId = (payload: unknown): string | null => str((payload as { academicYearId?: unknown } | null)?.academicYearId);
+
 /**
  * `scheduling.occurrence.cancelled|unvalidated|rescheduled|paid_minutes_changed` : si la séance est PORTÉE par un
  * bulletin, la paie ne réécrit rien (le bulletin arrêté est opposable) mais ALERTE la gestion par
  * `payroll.claim.source_changed`. Une séance non réclamée ne concerne pas la paie (elle sera lue au prochain calcul).
  */
 export async function onSessionSourceChanged(deps: PayrollDeps, tenantId: string, eventId: string, eventType: string, payload: unknown): Promise<Result<ConsumeReport, AppError>> {
-  const occurrenceId = str((payload as { occurrenceId?: unknown } | null)?.occurrenceId);
+  const occurrenceId = readSourceOccurrenceId(payload);
   if (!occurrenceId) return ignored("charge sans occurrenceId");
   const ctx = createSystemContext(tenantId);
   return inTx(deps, ctx, async (tx) => {
@@ -72,8 +79,7 @@ export async function onSessionSourceChanged(deps: PayrollDeps, tenantId: string
 
 /** `academic.year.closed` : clôt les périodes ACTIVES de l'année (plus de nouveau calcul ; les bulletins restent). */
 export async function onYearClosed(deps: PayrollDeps, tenantId: string, payload: unknown): Promise<Result<ConsumeReport, AppError>> {
-  const p = payload as { academicYearId?: unknown; yearId?: unknown } | null;
-  const yearId = str(p?.academicYearId) ?? str(p?.yearId);
+  const yearId = readClosedYearId(payload);
   if (!yearId) return ignored("charge sans identifiant d'année");
   const ctx = createSystemContext(tenantId);
   return inTx(deps, ctx, async (tx) => {

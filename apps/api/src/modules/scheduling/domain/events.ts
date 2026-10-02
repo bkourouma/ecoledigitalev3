@@ -32,7 +32,7 @@ export const SchedulingEvents = {
 
 export const ALL_SCHEDULING_EVENT_TYPES: readonly string[] = Object.freeze(Object.values(SchedulingEvents));
 
-/** Événements des autres modules que scheduling consomme (⚠ noms de travail, voir README). */
+/** Événements des autres modules que scheduling consomme (alignés sur les producteurs : apps/api/test/events-catalog.test.ts). */
 export const ConsumedEvents = {
   attendanceSessionSubmitted: "attendance.session.submitted",
   staffLeaveApproved: "attendance.staff_leave.approved",

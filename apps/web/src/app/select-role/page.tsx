@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { saveToken } from "@/lib/jwt-storage";
 import { routeForRole } from "@/lib/role-landing";
+import { isAuthV2 } from "@/platform/auth/iam-config";
+import { explainIamCode } from "@/platform/auth/ui/iam-api";
 
 function apiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -30,6 +32,22 @@ export default function SelectRolePage() {
       const jwtToken = (currentSession as any)?.jwtToken;
       if (!jwtToken) {
         router.push("/login");
+        return;
+      }
+
+      if (isAuthV2()) {
+        // Module iam : nouvelle session dans le même établissement avec le rôle choisi, l'ancienne est révoquée. Le
+        // renouvellement des jetons se fait côté serveur (platform/auth/iam-token.ts, action `switch-role`).
+        const updated = (await update({ action: "switch-role", activeRole: role })) as any;
+        if (updated?.iamError) {
+          await update({ action: "clear-error" });
+          setError(explainIamCode(updated.iamError.code, updated.iamError.retryAfterSec));
+          return;
+        }
+        const fresh = (await getSession()) as any;
+        if (fresh?.jwtToken) saveToken(fresh.jwtToken);
+        router.replace(routeForRole(fresh?.activeRole ?? role));
+        router.refresh();
         return;
       }
 

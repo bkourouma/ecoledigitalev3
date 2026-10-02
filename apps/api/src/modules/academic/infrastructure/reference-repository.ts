@@ -75,14 +75,16 @@ export interface UpsertOutcome {
 export async function upsertEducationLevel(
   tx: Tx,
   id: string,
-  v: { code: string; label: string; ordinal: number; pack: AcademicPack | null; active: boolean },
+  v: { code: string; label: string; ordinal: number; pack: AcademicPack | null; active: boolean; calculationContract?: string | null | undefined },
 ): Promise<UpsertOutcome> {
+  // `calculationContract` omis = valeur conservee (un PUT qui ne le connait pas ne l'efface pas).
   const r = await tx.queryOne<{ inserted: boolean }>(
-    `INSERT INTO academic.education_levels (id, tenant_id, code, label, ordinal, pack, active)
-     VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6)
-     ON CONFLICT (tenant_id, code) DO UPDATE SET label = EXCLUDED.label, ordinal = EXCLUDED.ordinal, pack = EXCLUDED.pack, active = EXCLUDED.active, updated_at = now()
+    `INSERT INTO academic.education_levels (id, tenant_id, code, label, ordinal, pack, active, calculation_contract)
+     VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6, $8)
+     ON CONFLICT (tenant_id, code) DO UPDATE SET label = EXCLUDED.label, ordinal = EXCLUDED.ordinal, pack = EXCLUDED.pack, active = EXCLUDED.active,
+       calculation_contract = CASE WHEN $7::boolean THEN EXCLUDED.calculation_contract ELSE academic.education_levels.calculation_contract END, updated_at = now()
      RETURNING (xmax = 0) AS inserted`,
-    [id, v.code, v.label, v.ordinal, v.pack, v.active],
+    [id, v.code, v.label, v.ordinal, v.pack, v.active, v.calculationContract !== undefined, v.calculationContract ?? null],
   );
   return { inserted: r?.inserted === true };
 }
@@ -90,15 +92,16 @@ export async function upsertEducationLevel(
 export async function upsertGradeLevel(
   tx: Tx,
   id: string,
-  v: { code: string; label: string; shortLabel: string | null; educationLevelId: string; ordinal: number; isFinal: boolean; active: boolean },
+  v: { code: string; label: string; shortLabel: string | null; educationLevelId: string; ordinal: number; isFinal: boolean; active: boolean; terminalExamRequired?: boolean | undefined },
 ): Promise<UpsertOutcome> {
   const r = await tx.queryOne<{ inserted: boolean }>(
-    `INSERT INTO academic.grade_levels (id, tenant_id, code, label, short_label, education_level_id, ordinal, is_final, active)
-     VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO academic.grade_levels (id, tenant_id, code, label, short_label, education_level_id, ordinal, is_final, active, terminal_exam_required)
+     VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6, $7, $8, COALESCE($9::boolean, false))
      ON CONFLICT (tenant_id, code) DO UPDATE SET label = EXCLUDED.label, short_label = EXCLUDED.short_label, education_level_id = EXCLUDED.education_level_id,
-       ordinal = EXCLUDED.ordinal, is_final = EXCLUDED.is_final, active = EXCLUDED.active, updated_at = now()
+       ordinal = EXCLUDED.ordinal, is_final = EXCLUDED.is_final, active = EXCLUDED.active,
+       terminal_exam_required = COALESCE($9::boolean, academic.grade_levels.terminal_exam_required), updated_at = now()
      RETURNING (xmax = 0) AS inserted`,
-    [id, v.code, v.label, v.shortLabel, v.educationLevelId, v.ordinal, v.isFinal, v.active],
+    [id, v.code, v.label, v.shortLabel, v.educationLevelId, v.ordinal, v.isFinal, v.active, v.terminalExamRequired ?? null],
   );
   return { inserted: r?.inserted === true };
 }
@@ -205,15 +208,16 @@ function tplResult(row: { inserted: boolean } | null): TplResult {
   return row.inserted ? "created" : "updated";
 }
 
-export async function tplEducationLevel(tx: Tx, id: string, pack: AcademicPack, v: { code: string; label: string; ordinal: number }): Promise<TplResult> {
+export async function tplEducationLevel(tx: Tx, id: string, pack: AcademicPack, v: { code: string; label: string; ordinal: number; calculationContract?: string | null | undefined }): Promise<TplResult> {
   return tplResult(
     await tx.queryOne<{ inserted: boolean }>(
-      `INSERT INTO academic.education_levels (id, tenant_id, code, label, ordinal, pack)
-       VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5)
-       ON CONFLICT (tenant_id, code) DO UPDATE SET label = EXCLUDED.label, ordinal = EXCLUDED.ordinal, pack = EXCLUDED.pack, updated_at = academic.education_levels.created_at
+      `INSERT INTO academic.education_levels (id, tenant_id, code, label, ordinal, pack, calculation_contract)
+       VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6)
+       ON CONFLICT (tenant_id, code) DO UPDATE SET label = EXCLUDED.label, ordinal = EXCLUDED.ordinal, pack = EXCLUDED.pack,
+          calculation_contract = EXCLUDED.calculation_contract, updated_at = academic.education_levels.created_at
         WHERE academic.education_levels.updated_at = academic.education_levels.created_at
        RETURNING (xmax = 0) AS inserted`,
-      [id, v.code, v.label, v.ordinal, pack],
+      [id, v.code, v.label, v.ordinal, pack, v.calculationContract ?? null],
     ),
   );
 }
@@ -221,17 +225,17 @@ export async function tplEducationLevel(tx: Tx, id: string, pack: AcademicPack, 
 export async function tplGradeLevel(
   tx: Tx,
   id: string,
-  v: { code: string; label: string; shortLabel: string | null; educationLevelCode: string; ordinal: number },
+  v: { code: string; label: string; shortLabel: string | null; educationLevelCode: string; ordinal: number; terminalExamRequired?: boolean | undefined },
 ): Promise<TplResult> {
   return tplResult(
     await tx.queryOne<{ inserted: boolean }>(
-      `INSERT INTO academic.grade_levels (id, tenant_id, code, label, short_label, education_level_id, ordinal)
-       SELECT $1, kernel.current_tenant_id(), $2, $3, $4, el.id, $6 FROM academic.education_levels el WHERE el.code = $5
+      `INSERT INTO academic.grade_levels (id, tenant_id, code, label, short_label, education_level_id, ordinal, terminal_exam_required)
+       SELECT $1, kernel.current_tenant_id(), $2, $3, $4, el.id, $6, $7 FROM academic.education_levels el WHERE el.code = $5
        ON CONFLICT (tenant_id, code) DO UPDATE SET label = EXCLUDED.label, short_label = EXCLUDED.short_label, education_level_id = EXCLUDED.education_level_id,
-          ordinal = EXCLUDED.ordinal, updated_at = academic.grade_levels.created_at
+          ordinal = EXCLUDED.ordinal, terminal_exam_required = EXCLUDED.terminal_exam_required, updated_at = academic.grade_levels.created_at
         WHERE academic.grade_levels.updated_at = academic.grade_levels.created_at
        RETURNING (xmax = 0) AS inserted`,
-      [id, v.code, v.label, v.shortLabel, v.educationLevelCode, v.ordinal],
+      [id, v.code, v.label, v.shortLabel, v.educationLevelCode, v.ordinal, v.terminalExamRequired ?? false],
     ),
   );
 }

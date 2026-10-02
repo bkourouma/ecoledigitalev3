@@ -89,6 +89,16 @@ export async function getPerson(tx: Tx, tenantId: string, personId: string, opti
   );
 }
 
+/** Noms (état civil) des personnes liées aux identités données : une ligne par identité liée, jamais de donnée de contact. */
+export async function listNamesByIdentity(tx: Tx, tenantId: string, identityIds: readonly string[]): Promise<Array<{ identityId: string; lastName: string; firstName: string }>> {
+  if (identityIds.length === 0) return [];
+  return tx.many(
+    `SELECT p.identity_id AS "identityId", p.last_name AS "lastName", p.first_name AS "firstName"
+       FROM people.persons p WHERE p.tenant_id = $1 AND p.identity_id = ANY($2::uuid[]) AND p.anonymized_at IS NULL`,
+    [tenantId, [...identityIds]],
+  );
+}
+
 export async function findPersonByIdentity(tx: Tx, tenantId: string, identityId: string): Promise<PersonRow | null> {
   return tx.queryOne<PersonRow>(`SELECT ${PERSON_COLUMNS} FROM people.persons p WHERE p.tenant_id = $1 AND p.identity_id = $2`, [tenantId, identityId]);
 }

@@ -28,7 +28,7 @@ Cas d'usage `(deps, ctx, input) => Promise<Result>` : `openAttendanceSession`, `
 
 `attendance.session.opened|submitted|validated|reopened|cancelled` · `attendance.absence.recorded` · `attendance.late.recorded` (à la soumission, republiés avec `correction: true`) · `attendance.justification.submitted|accepted|rejected|revoked` · `attendance.staff_leave.requested|approved|rejected|cancelled` · `attendance.staff_absence.recorded` · `attendance.summary.recomputed` · `attendance.alert.triggered|cleared` · `attendance.sync.conflict_recorded`.
 
-Consommés (`subscribers.ts`, hypothèses de payload à confirmer) : `scheduling.occurrence.cancelled`, `academic.enrollment.withdrawn|cancelled|transferred`, `academic.period.closed|reopened`, `tenancy.tenant.provisioned`. Job : `attendance.recompute-summaries` (02:50).
+Consommés (`subscribers.ts` ; charges alignées sur leurs producteurs, test de contrat `apps/api/test/events-contracts/attendance.test.ts`) : `scheduling.occurrence.cancelled`, `academic.enrollment.withdrawn|cancelled|transferred`, `academic.period.closed|reopened`, `tenancy.tenant.provisioned`. Job : `attendance.recompute-summaries` (02:50).
 
 ## Permissions (voir `manifest.ts`)
 
@@ -45,3 +45,9 @@ pnpm exec tsc -p apps/api/src/modules/attendance/tsconfig.json
 ```
 
 Données de pack : `domain/reference-pack.ts` (statuts, motifs, types de congé, politiques d'appel par cycle, pièces acceptées) — politiques d'établissement modifiables, aucun seuil.
+
+## Assemblage
+
+- `listCompletedStaffPresence` : présences du personnel terminées (heures de la paie d'origine ATTENDANCE) ;
+- les ports de `academic` sont appelés **en séquence** dans `loadSessionContext` : chacun ouvre un SAVEPOINT sur la connexion partagée de la transaction, des appels entrelacés (`Promise.all`) libèrent des points de sauvegarde inexistants. Ne pas les paralléliser.
+- ports branchés par `platform/adapters` : `academic-attendance`, `scheduling-attendance`, `people-attendance`, `storage`.

@@ -173,6 +173,28 @@ export const SwitchTenantRequestSchema = z
   .strict();
 export type SwitchTenantRequest = z.infer<typeof SwitchTenantRequestSchema>;
 
+/**
+ * Connexion fédérée (Google), appelée par le SERVEUR web après vérification OAuth. Route protégée par le secret de
+ * service `IAM_SERVICE_SECRET` (en-tête `x-iam-service-secret`) ; `emailVerified` doit valoir `true` (pas supposé).
+ */
+export const FederatedLoginRequestSchema = z
+  .object({
+    provider: z.enum(["google"]),
+    email: IamEmailSchema,
+    emailVerified: z.literal(true),
+    tenantSlug: IamSlugSchema.optional(),
+    activeRole: IamRoleKeySchema.optional(),
+    client: IamClientSchema.default("web"),
+    deviceName: IamDeviceNameSchema.optional(),
+  })
+  .strict();
+export type FederatedLoginRequest = z.infer<typeof FederatedLoginRequestSchema>;
+
+export const SwitchRoleRequestSchema = z
+  .object({ activeRole: IamRoleKeySchema, client: IamClientSchema.default("web") })
+  .strict();
+export type SwitchRoleRequest = z.infer<typeof SwitchRoleRequestSchema>;
+
 export const SessionSummarySchema = z.object({
   id: uuid,
   current: z.boolean(),
@@ -312,3 +334,75 @@ export const ImpersonationResponseSchema = z.object({
   user: IamUserSummarySchema,
 });
 export type ImpersonationResponse = z.infer<typeof ImpersonationResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Événements publiés (outbox ; payload `{ v: 1, … }`). Aucun secret ni adresse e-mail en clair (sauf
+// `iam.impersonation.started`, journal de sécurité de la plateforme). `userId` = alias de `identityId`
+// (le module audit le lit) : `publish()` d'iam l'ajoute toujours.
+// ---------------------------------------------------------------------------
+
+const iamEvUuid = z.string().uuid();
+const iamEvRequestMeta = { ip: z.string().nullable().optional(), userAgent: z.string().nullable().optional() };
+const iamEv = <T extends z.ZodRawShape>(shape: T) => z.object({ v: z.literal(1), ...shape });
+const iamIdentityEv = <T extends z.ZodRawShape>(shape: T) => iamEv({ identityId: iamEvUuid, userId: iamEvUuid, ...shape });
+
+export const IamMembershipCreatedPayloadSchema = iamIdentityEv({
+  membershipId: iamEvUuid,
+  roles: z.array(z.string()),
+  status: MemberStatusSchema,
+});
+export const IamMembershipChangedPayloadSchema = iamIdentityEv({
+  membershipId: iamEvUuid,
+  before: z.object({ status: MemberStatusSchema, roles: z.array(z.string()) }),
+  after: z.object({ status: MemberStatusSchema, roles: z.array(z.string()) }),
+  changedBy: iamEvUuid,
+});
+
+/** Schéma de charge utile de chaque événement PUBLIÉ par iam (validé par les tests de contrat). */
+export const iamEventPayloadSchemas = {
+  "iam.user.logged_in": iamIdentityEv({
+    membershipId: iamEvUuid,
+    sessionId: iamEvUuid,
+    mfa: z.boolean(),
+    amr: z.array(z.string()),
+    method: z.string(),
+    ...iamEvRequestMeta,
+  }),
+  "iam.login.failed": iamEv({
+    reason: z.string(),
+    identityId: iamEvUuid.nullable().optional(),
+    userId: iamEvUuid.optional(),
+    /** Empreinte de l'identifiant saisi (jamais l'adresse brute). */
+    identifier: z.string().optional(),
+    emailHash: z.string().optional(),
+    locked: z.boolean(),
+    ...iamEvRequestMeta,
+  }),
+  "iam.session.revoked": iamEv({
+    identityId: iamEvUuid,
+    userId: iamEvUuid,
+    reason: z.string(),
+    scope: z.enum(["one", "all", "family", "member"]),
+    sessionId: iamEvUuid.optional(),
+    sessionIds: z.array(iamEvUuid).optional(),
+    revokedBy: iamEvUuid.nullable().optional(),
+    ...iamEvRequestMeta,
+  }),
+  "iam.mfa.enabled": iamIdentityEv({ method: z.string(), via: z.string() }),
+  "iam.mfa.disabled": iamIdentityEv({}),
+  "iam.mfa.reset": iamIdentityEv({ membershipId: iamEvUuid, resetBy: iamEvUuid }),
+  "iam.password.changed": iamIdentityEv({ via: z.string(), ip: z.string().nullable().optional() }),
+  "iam.impersonation.started": iamEv({
+    sessionId: iamEvUuid,
+    superAdminId: iamEvUuid,
+    actorType: z.literal("superAdmin"),
+    targetUserId: iamEvUuid,
+    actor: z.object({ id: iamEvUuid, email: z.string(), type: z.string() }),
+    target: z.object({ identityId: iamEvUuid, membershipId: iamEvUuid, tenantId: iamEvUuid, activeRole: z.string() }),
+    reason: z.string(),
+    expiresAt: z.string(),
+    ...iamEvRequestMeta,
+  }),
+  "iam.membership.created": IamMembershipCreatedPayloadSchema,
+  "iam.membership.changed": IamMembershipChangedPayloadSchema,
+} as const;

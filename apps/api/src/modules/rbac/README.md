@@ -89,17 +89,58 @@ Prérequis hors module : l'authentification pose `request.ctx` (`RequestContext`
 
 * Catalogue : `rbac.permissions` (globale) est le reflet des manifestes ; une permission retirée
   est marquée `retired_at`, jamais supprimée (les rôles ne perdent rien en silence).
-* Modèles système (`templates/system-roles.ts`) : `owner`, `directeur`, `directeur_etudes`,
-  `secretariat`, `econome`, `enseignant`, `educateur`, `responsable_pedagogique`, `parent`,
-  `eleve`. Listes de clés **et motifs** (`finance.*`, `*.self.*`), résolus contre le catalogue.
-  Un motif sans correspondance reste **en attente** (`rbac.role_pending_permissions`), signalé
-  par un `warn` unique par instanciation, re-résolu à la prochaine `syncRbac` ; jamais perdu.
+* Modèles système (`templates/system-roles.ts`), **onze** : `owner`, `directeur`, `directeur_etudes`,
+  `secretariat`, `econome`, `enseignant`, `educateur`, `responsable_pedagogique`, `personnel`
+  (nouveau), `parent`, `eleve`. Les rôles autres que `owner`/`directeur` énumèrent des **clés
+  exactes** issues des manifestes (jamais `module.*` : une permission ajoutée plus tard à un module,
+  surtout sensible, n'est pas accordée d'office). Un motif sans correspondance reste **en attente**
+  à l'exécution (`rbac.role_pending_permissions`, un `warn` par instanciation, re-résolu à la
+  prochaine `syncRbac`) ; **les tests échouent** s'il en reste un contre le catalogue complet des
+  modules livrés (`test/system-roles.test.ts`, `test/system-roles.integration.test.ts`).
 * Rôles système verrouillés (trigger SQL + use cases) : on les **clone** pour les adapter.
   Rôles personnalisés : création, clonage, modification, suppression (refusée tant qu'assigné ;
   FK `RESTRICT` en base).
 * Conventions de nommage attendues des manifestes : données de l'élève `<ressource>.self.<action>`,
-  des enfants du parent `<ressource>.child.<action>`, du personnel `<ressource>.own.<action>`,
-  portails `portal.<portail>.access`.
+  des enfants du parent `<ressource>.child.<action>`, du personnel `<ressource>.own.<action>`
+  (et `payroll.payslip.read_own`). Il n'existe pas de permission `portal.*` : l'accès aux portails
+  est porté par les menus (`portal` dans les manifestes) filtrés par permission.
+
+### Table des rôles système
+
+| Rôle | Périmètre (permissions réelles des manifestes) | Ne peut pas (séparation des tâches / moindre privilège) |
+|---|---|---|
+| `owner` | `*` sauf `rules.platform.manage` (console plateforme). Abonnement, définition des rôles, validation de paie au-delà du seuil, réglages de paie | — |
+| `directeur` | `*` sauf `entitlements.manage`, `rbac.role.manage`, `payroll.payslip.approve_owner`, `payroll.settings.manage`, `rules.platform.manage`. Détient les contreparties (approuver une surcharge, rouvrir une période, révoquer un document, rouvrir un appel, arrêter/annuler un bulletin) | cumule par construction : l'exigence « une autre personne » est imposée à l'exécution (réglages `require_separate_approver`, `payroll.settings`, quatre yeux des remboursements) |
+| `directeur_etudes` | académique, curriculum, inscriptions (suivi), évaluations, `grade.review/validate/publish/revise.approve`, résultats (calcul, délibération, `period.lock/close`, **demande** de surcharge), bulletins (émission + publication), higher (octroi, émission), emplois du temps (+ validation des séances pour la paie), présences (supervision, décision sur justificatifs, personnel, congés), élèves/personnel en lecture, affectations d'enseignement | saisir une note, demander une correction, approuver une surcharge, rouvrir une période, révoquer un bulletin/diplôme, rouvrir un appel, contrats du personnel, finance, paie |
+| `secretariat` | inscriptions (création/annulation), dossiers élèves et tuteurs (dont champs sensibles, export, statut), émission des bulletins/relevés, attestations (`higher.document.*`), présences (lecture, saisie, dépôt de justificatifs), emploi du temps en lecture, factures/paiements/reçus en **lecture seule** | publier/révoquer un document, décider d'un justificatif, encaisser, anonymiser, dérogation, personnel |
+| `econome` | finance complète, financement des inscriptions, paie : configurations, tarifs, périodes, **calcul**, ajustements, notification, **versement**, rapports ; lecture élèves, tuteurs, inscriptions, personnel | arrêter/annuler un bulletin (direction), réglages et validation propriétaire de la paie, contrats, notes, validation des heures |
+| `enseignant` | SES classes : évaluations, notes (`grade.enter`, demande de correction), appréciations de matière, appel ; `student.class.read` (pas `student.read`/`student.list`) ; emploi du temps personnel + déclaration de séance ; `staff.own.*`, `attendance.own.*`, `attendance.leave.request`, `payroll.payslip.read_own` | relire/valider/publier/approuver, évaluations d'autrui, justificatifs, higher, finance, gestion de paie, résultats |
+| `educateur` | appel et suivi des présences (saisie, validation, correction, justificatifs : dépôt et lecture), constatation des séances, élèves/tuteurs/inscriptions en lecture ; ses données de personnel | décider d'un justificatif, rouvrir un appel, surcharger un récapitulatif, congés/présence du personnel, valider les séances pour la paie (aucune permission disciplinaire n'existe encore) |
+| `responsable_pedagogique` | curriculum (édition), évaluations et notes en lecture, `grade.review` + `grade.validate`, résultats et bulletins en lecture, contexte (emplois du temps, enseignement, présences, personnel) | saisir, publier, approuver une correction, publier un curriculum, émettre |
+| `personnel` | uniquement SES données : `staff.own.*`, `attendance.own.*`, `attendance.leave.request`, `payroll.payslip.read_own`, `schedule.own.read` ; à **cumuler** avec un rôle de fonction | tout le reste |
+| `parent` | exactement toutes les permissions `*.child.*` du catalogue (élève, inscriptions, notes, résultats, bulletins, absences + justificatif, emploi du temps, parcours supérieur) | toute permission de gestion ; finance (voir ci-dessous) |
+| `eleve` | exactement toutes les permissions `*.self.*` du catalogue (dossier, inscriptions, notes, résultats, bulletins, absences, emploi du temps, parcours) | toute permission de gestion ; finance |
+
+Garde-fous vérifiés par test (`test/system-roles.test.ts`, catalogue **réel** issu de `discoverModules`) :
+
+* pour chaque rôle et chaque module, ensemble exact de ce qui est permis / interdit (oracle écrit à
+  part ; un module ou une permission sans décision explicite fait échouer le test) ;
+* paires de tâches incompatibles (saisie ≠ validation/publication, demande ≠ approbation de surcharge,
+  clôture ≠ réouverture, calcul/ajustement ≠ arrêt du bulletin, versement ≠ arrêt, validation des
+  heures ≠ constatation/calcul, émission ≠ révocation, octroi ≠ révocation de diplôme, validation d'un
+  appel ≠ réouverture, dépôt ≠ décision de justificatif, demande ≠ décision de congé…) : aucun rôle
+  autre que `owner`/`directeur` ne détient les deux côtés ;
+* toute permission `sensitive` d'un rôle autre que `owner` est justifiée (`sensitiveJustifications`
+  du modèle, texte obligatoire, pas de justification périmée) ; `mfaRecommended` ⇔ le rôle porte une
+  permission sensible ;
+* seuls `owner` et `directeur` ont `*` ; `parent`/`eleve` = exactement `*.child.*`/`*.self.*` ; aucune
+  fuite de ces permissions vers un rôle de gestion ;
+* aucun motif en attente, aucune permission `rules.platform.manage` (console plateforme) dans un rôle de tenant.
+
+Manques constatés dans les manifestes (voir le rapport de la tâche) : `finance` ne déclare aucune
+permission `finance.child.*` / `finance.self.*` (le parent et l'élève ne voient ni facture ni solde) ;
+aucun module `discipline`/`comms`/`document`/`report` n'existe encore (les anciens motifs
+`discipline.*`, `comms.*`, `document.*`, `report.*`, `portal.*` ont été retirés).
 
 ## Événements (outbox, `{ v: 1, … }`)
 
@@ -120,6 +161,12 @@ processus d'origine) ; le TTL (30 s) borne le délai entre instances si un évé
 | `parent` | `parent` |
 | `super_admin` | aucun (hors RBAC tenant) |
 | inconnu | aucun |
+
+**Sens inverse (rôles d'un accès IAM -> rôle legacy)**, utilisé par la passerelle IAM -> legacy et par le web
+(`packages/contracts/src/v2/iam-legacy-roles.ts`, vérifié contre `legacyRoleToTemplate` par `apps/api/test/legacy-iam-bridge.test.ts`) :
+une clé legacy vaut elle-même ; un modèle ne vaut un rôle legacy que si l'accès tient **tous** les modèles qui le composent
+(`admin` = `directeur` + `secretariat` + `econome`) ; un modèle partiel (`directeur` seul, `educateur`…) n'élève rien.
+L'import `pnpm iam:import-legacy` écrit les clés legacy dans l'accès et pose les assignations `legacyRoleToTemplate`.
 
 `admin` → trois modèles car l'« admin » legacy est fourre-tout (structure académique,
 inscriptions, finances, rémunération) ; l'union reproduit son périmètre **sans** les droits

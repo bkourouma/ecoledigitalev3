@@ -17,7 +17,7 @@
  * `WORKER_BUILD_OUTDIR` change le dossier de sortie (tests).
  */
 import { build } from "esbuild";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -66,7 +66,19 @@ function bundledSource() {
   return `${lines.join("\n")}\nexport const bundledModules = [\n${items.join("\n")}\n];\n`;
 }
 
-/** Remplace src/discovery/bundled.ts par la liste statique des modules découverts au build. */
+/** Câblage des ports entre modules (adaptateurs de plateforme de l'API) : embarqué dans le bundle s'il existe. */
+const wiringFile = join(repoRoot, "apps", "api", "src", "platform", "adapters", "worker.ts");
+
+function platformWiringSource(source) {
+  if (!existsSync(wiringFile)) return source;
+  const target = JSON.stringify(wiringFile.replace(/\\/g, "/"));
+  return source.replace(
+    "export const bundledPlatformWiring: PlatformWiring | undefined = undefined;",
+    `import { installWorkerAdapters } from ${target};\nexport const bundledPlatformWiring: PlatformWiring | undefined = installWorkerAdapters as unknown as PlatformWiring;`,
+  );
+}
+
+/** Remplace src/discovery/bundled.ts par la liste statique des modules découverts au build, et embarque le câblage des ports. */
 const bundleModulesPlugin = {
   name: "bundle-modules",
   setup(b) {
@@ -74,6 +86,11 @@ const bundleModulesPlugin = {
       contents: bundledSource(),
       loader: "ts",
       resolveDir: root,
+    }));
+    b.onLoad({ filter: /discovery[\\/]platform-wiring\.ts$/ }, (args) => ({
+      contents: platformWiringSource(readFileSync(args.path, "utf8")),
+      loader: "ts",
+      resolveDir: dirname(args.path),
     }));
   },
 };
@@ -98,6 +115,7 @@ await build({
   plugins: [bundleModulesPlugin],
 });
 
+console.log(`[build] câblage des ports entre modules : ${existsSync(wiringFile) ? "embarqué" : "(absent)"}`);
 console.log(
   `[build] modules embarqués : ${modules.length === 0 ? "(aucun)" : modules.map((m) => `${m.module}[${[m.subscribers && "subscribers", m.jobs && "jobs"].filter(Boolean).join(",")}]`).join(" ")}`,
 );

@@ -73,7 +73,7 @@ Permissions sensibles (MFA) : `generate`, `publish`, `revoke`, `branding.manage`
 
 Publiés (payload `{ v: 1, … }`, schémas dans `packages/contracts/src/v2/reportcards.ts`) : `reportcards.snapshot.created` (déclenche le rendu),
 `report_card.render_requested`, `.rendered`, `.render_failed`, `.published`, `.withdrawn`, `.superseded`, `.revoked`, `reportcards.batch.completed`,
-`reportcards.integrity.mismatch`. Consommé : `tenancy.tenant.provisioned` (publication idempotente des gabarits de plateforme).
+`reportcards.integrity.mismatch`. Consommés : `tenancy.tenant.provisioned` (publication idempotente des gabarits de plateforme) et ses propres `reportcards.snapshot.created`, `reportcards.report_card.render_requested` (rendu du PDF) et `reportcards.batch.completed` (PDF combiné du lot).
 
 ## Audit (`runtime.auditPort`, même transaction, en dernier)
 
@@ -131,3 +131,9 @@ accès (gestion, élève, tuteur lié/non lié, autre tenant), vérification pub
 - La vérification publique ne sait résoudre que `REPORT_CARD` et `TRANSCRIPT` ; 019 / 032 inscrivent leurs codes avec `registerVerificationFor` et devront fournir leur résolveur de statut.
 - Polices : familles génériques (Chromium embarque les glyphes utilisés dans le PDF) ; aucune police propriétaire n'est livrée.
 - Non-régression visuelle : comparaison par extraction de texte, pages, métadonnées et octets (rendu reproductible) — pas de comparaison d'images (dépendante des polices du poste).
+
+## Assemblage
+
+- `ResultsReadPort` : `platform/adapters/results-reportcards.ts` (état de période, effectif, bundle de résultats figé — noms, libellés, règles, trace) ; les valeurs décimales sont normalisées avant d'entrer dans l'instantané signé ;
+- `GuardianshipPort`, `UserDirectoryPort`, `AttendanceSummaryPort`, `LearnerStandingPort` : adaptateurs `people-reportcards`, `attendance-reportcards`, `finance-reportcards` ;
+- stockage et ressources de rendu du worker : `setReportcardsWorkerResources` (`infrastructure/worker-resources.ts`) ; stockage S3 / MinIO par `STORAGE_S3_*` (repli `REPORTCARDS_S3_*`), repli disque en développement.

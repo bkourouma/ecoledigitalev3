@@ -209,6 +209,10 @@ async function copyNodes(deps: AcademicDeps, tx: Tx, sourceNodes: readonly Curri
         isMandatory: n.isMandatory,
         isTransversal: n.isTransversal,
         categoryCode: n.categoryCode,
+        gradingMode: n.gradingMode,
+        resitAllowed: n.resitAllowed,
+        countsInAverage: n.countsInAverage,
+        sectionKey: n.sectionKey,
         hoursTotal: n.hoursTotal,
         hoursLecture: n.hoursLecture,
         hoursTutorial: n.hoursTutorial,
@@ -324,6 +328,10 @@ async function buildNode(
     isMandatory: body.isMandatory ?? true,
     isTransversal: body.isTransversal ?? false,
     categoryCode: body.categoryCode ?? null,
+    gradingMode: body.gradingMode ?? "COMPOSED",
+    resitAllowed: body.resitAllowed ?? false,
+    countsInAverage: body.countsInAverage ?? true,
+    sectionKey: body.sectionKey ?? null,
     hoursTotal: decimals.value.hoursTotal ?? null,
     hoursLecture: decimals.value.hoursLecture ?? null,
     hoursTutorial: decimals.value.hoursTutorial ?? null,
@@ -378,7 +386,7 @@ async function applyNodePatch(
   const violations = checkNodeGrammar(after, toRules(type), parent?.nodeTypeCode ?? null, new Set(program.gradeLevelIds));
   if (violations[0]) return err(validation(violations[0].code, violations[0].message, "node", { violations }));
   const update: Parameters<typeof cur.updateNode>[2] = {};
-  for (const key of ["code", "label", "subjectId", "gradeLevelId", "periodTypeCode", "periodOrdinal", "ordinal", "isMandatory", "isTransversal", "categoryCode", "attributes", "status"] as const) {
+  for (const key of ["code", "label", "subjectId", "gradeLevelId", "periodTypeCode", "periodOrdinal", "ordinal", "isMandatory", "isTransversal", "categoryCode", "gradingMode", "resitAllowed", "countsInAverage", "sectionKey", "attributes", "status"] as const) {
     if (patch[key] !== undefined) (update as Record<string, unknown>)[key] = patch[key];
   }
   for (const key of ["coefficient", "credits", "hoursTotal", "hoursLecture", "hoursTutorial", "hoursPractical"] as const) {
@@ -583,7 +591,7 @@ export async function amendPublishedCurriculum(deps: AcademicDeps, ctx: RequestC
         if (before.credits !== after.credits) journal.push({ nodeId: node.id, kind: "CREDITS", oldValue: { credits: before.credits }, newValue: { credits: after.credits } });
         if (before.isMandatory !== after.isMandatory) journal.push({ nodeId: node.id, kind: "MANDATORY", oldValue: { isMandatory: before.isMandatory }, newValue: { isMandatory: after.isMandatory } });
         const others: Record<string, [unknown, unknown]> = {};
-        for (const k of ["label", "categoryCode", "hoursTotal", "hoursLecture", "hoursTutorial", "hoursPractical", "status"] as const) {
+        for (const k of ["label", "categoryCode", "gradingMode", "resitAllowed", "countsInAverage", "sectionKey", "hoursTotal", "hoursLecture", "hoursTutorial", "hoursPractical", "status"] as const) {
           if (before[k] !== after[k]) others[k] = [before[k], after[k]];
         }
         if (Object.keys(others).length > 0) {

@@ -158,7 +158,8 @@ Publiés (outbox, `{ v: 1, … }`) : `entitlements.subscription.changed` (état 
 `entitlements.override.changed` (`effect` `null` = surcharge supprimée).
 Consommés : `tenancy.tenant.provisioned` (→ `onTenantProvisioned` : essai `STARTER` de 30 jours avec
 les packs choisis, idempotent ; sans ce consommateur un tenant neuf n'a que CORE — comportement sûr),
-`tenancy.tenant.status_changed` (invalidation du cache).
+`tenancy.tenant.status_changed` (invalidation du cache) et ses propres `entitlements.subscription.changed` / `entitlements.override.changed`
+(invalidation du cache de droits de chaque instance de l'API, diffusée via Redis).
 
 ## Audit
 

@@ -122,8 +122,8 @@ describeIntegration("plateforme v2 de bout en bout", () => {
   });
 
   it("charge le module généré, synchronise les tenants, pose request.ctx et isole A / B via la RLS", async () => {
-    const status = await registerV2Platform(app, { env: { V2_DATABASE_URL: appUrl }, modulesDir: sandbox, legacyPool });
-    expect(status).toEqual({ enabled: true, modules: ["e2e_demo"] });
+    const status = await registerV2Platform(app, { env: { V2_DATABASE_URL: appUrl }, modulesDir: sandbox, legacyPool, skipAdapters: true });
+    expect(status).toEqual({ enabled: true, modules: ["e2e_demo"], adapters: false });
     expect(getLoadedManifests().map((m) => m.key)).toEqual(["e2e_demo"]);
     expect(app.v2.manifests.map((m) => m.key)).toEqual(["e2e_demo"]);
 
@@ -171,7 +171,7 @@ describeIntegration("plateforme v2 de bout en bout", () => {
   });
 
   it("syncTenantToKernel : statut suspendu, jamais de désarchivage, collision de slug désambiguïsée", async () => {
-    await registerV2Platform(app, { env: { V2_DATABASE_URL: appUrl }, modulesDir: sandbox, legacyPool });
+    await registerV2Platform(app, { env: { V2_DATABASE_URL: appUrl }, modulesDir: sandbox, legacyPool, skipAdapters: true });
 
     // Suspension côté legacy -> 'suspended' côté v2.
     legacyTenants[1] = { ...legacyTenants[1]!, is_active: false };

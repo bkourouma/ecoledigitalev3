@@ -132,3 +132,21 @@ export async function readAuditLog(p: Phase1Env, token: string, query = ""): Pro
   }
   return items;
 }
+
+/**
+ * Crée directement (administrateur de la base) le dossier d'un apprenant du tenant, avec l'identifiant voulu : depuis le
+ * branchement des adaptateurs (`platform/adapters`), finance vérifie l'apprenant dans `people` (plus de passe-plat) — un
+ * identifiant fantaisiste est refusé (`finance.learner_not_found`). Idempotent.
+ */
+export async function seedLearner(p: Phase1Env, tenantId: string, learnerId: string): Promise<void> {
+  await p.db.admin.query(
+    "INSERT INTO people.persons (id, tenant_id, last_name, first_name, sex) VALUES ($1, $2, 'ELEVE', 'Phase1', 'F') ON CONFLICT DO NOTHING",
+    [learnerId, tenantId],
+  );
+  await p.db.admin.query(
+    `INSERT INTO people.students (id, tenant_id, person_id, student_number, sequence_number)
+     SELECT $1, $2, $1, 'PH1-' || (coalesce(max(sequence_number), 0) + 1), coalesce(max(sequence_number), 0) + 1 FROM people.students WHERE tenant_id = $2
+     ON CONFLICT DO NOTHING`,
+    [learnerId, tenantId],
+  );
+}

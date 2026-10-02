@@ -46,9 +46,13 @@ describe("manifeste du module reportcards", () => {
   it("événements publiés = schémas du contrat, noms `<module>.<entité>.<verbe-passé>` ; événements consommés = ceux des abonnés", () => {
     expect([...manifest.events.publishes].sort()).toEqual(Object.keys(reportcardsEventPayloadSchemas).sort());
     for (const type of manifest.events.publishes) expect(type).toMatch(/^reportcards\.[a-z_]+\.[a-z_]+$/);
-    expect([...manifest.events.consumes].sort()).toEqual([ConsumedEvents.TENANT_PROVISIONED]);
+    // Un module consomme aussi ses propres événements de rendu (abonnés du worker) : manifeste = abonnés, ni plus ni moins.
+    expect([...manifest.events.consumes].sort()).toEqual(
+      [ConsumedEvents.TENANT_PROVISIONED, "reportcards.snapshot.created", "reportcards.report_card.render_requested", "reportcards.batch.completed"].sort(),
+    );
     const patterns = subscribers.map((s) => String(s.pattern));
     for (const consumed of manifest.events.consumes) expect(patterns).toContain(consumed);
+    for (const pattern of patterns) expect(manifest.events.consumes).toContain(pattern);
   });
 
   it("menus : permission et feature déclarées ; features rattachées aux packs", () => {
@@ -89,11 +93,16 @@ describe("alignement avec les rôles système du module rbac", () => {
   const roles = new Map(resolveSystemRoles(catalog).map((r) => [r.template.key, new Set(r.permissions)]));
   const can = (role: string, perm: string): boolean => roles.get(role)?.has(perm) === true;
 
-  it("direction : tout ; parent : ses enfants seulement ; élève : lui-même seulement", () => {
+  it("direction : tout ; direction des études : émet et publie (ni révocation ni identité imprimée) ; parent : ses enfants seulement ; élève : lui-même seulement", () => {
     for (const p of manifest.permissions.map((x) => x.key)) {
-      expect(can("directeur_etudes", p), p).toBe(true);
+      expect(can("directeur", p), p).toBe(true);
       expect(can("owner", p), p).toBe(true);
     }
+    for (const p of ["reportcard.read", "reportcard.explain", "reportcard.generate", "reportcard.publish", "reportcard.template.manage"]) expect(can("directeur_etudes", p), p).toBe(true);
+    for (const p of ["reportcard.revoke", "reportcard.branding.manage", "reportcard.signatory.manage"]) expect(can("directeur_etudes", p), p).toBe(false);
+    expect(can("secretariat", "reportcard.generate")).toBe(true);
+    expect(can("secretariat", "reportcard.publish")).toBe(false);
+    expect(can("secretariat", "reportcard.revoke")).toBe(false);
     expect(can("parent", "reportcard.child.read")).toBe(true);
     expect(can("parent", "reportcard.read")).toBe(false);
     expect(can("parent", "reportcard.generate")).toBe(false);

@@ -112,4 +112,56 @@ describe("ProgramsScreen", () => {
     await screen.findByText("Les niveaux couverts ont été enregistrés.");
     expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ gradeLevelIds: [uuid(600), uuid(601)] });
   });
+
+  it("détail : cycle diplômant, contrat de calcul propre ou hérité du niveau d'enseignement, niveau à examen terminal", async () => {
+    const own = program({ id: uuid(300), code: "LIC", label: "Licences", isCycle: true, calculationContract: "coef-semester@1", gradeLevelIds: [uuid(600)] });
+    const inheriting = program({ id: uuid(301), code: "LIC_INFO", label: "Licence Informatique", parentProgramId: uuid(300), isCycle: false, calculationContract: null });
+    setTestApi({
+      ...accessRoutes(["academic.program.read"]),
+      ...base,
+      "GET /api/v1/academic/programs": { items: [own, inheriting] },
+      "GET /api/v1/academic/reference/grade-levels": { items: [{ ...gradeLevels[0], terminalExamRequired: true }, gradeLevels[1]] },
+    });
+    renderWithProviders(<ProgramsScreen />);
+    const tree = await screen.findByRole("tree", { name: "Programmes" });
+    const [first, second] = within(tree).getAllByRole("treeitem");
+    expect(first!.textContent).toContain("Cycle diplômant");
+    expect(second!.textContent).not.toContain("Cycle diplômant");
+
+    fireEvent.click(first!);
+    const detail = await screen.findByRole("article");
+    const fact = (label: string) => within(detail).getByText(label, { selector: "dt" }).closest("div")!.textContent;
+    expect(fact("Cycle diplômant")).toContain("Oui");
+    expect(fact("Contrat de calcul des résultats")).toContain("coef-semester@1");
+    expect((await within(detail).findByRole("checkbox", { name: /Licence 1/ })).closest("div")!.textContent).toContain("Examen terminal");
+
+    fireEvent.click(second!);
+    await waitFor(() => expect(within(screen.getByRole("article")).getByText("Contrat de calcul des résultats", { selector: "dt" }).closest("div")!.textContent).toContain("Hérité du niveau d'enseignement : credit-semester@1"));
+    expect(within(screen.getByRole("article")).getByText("Cycle diplômant", { selector: "dt" }).closest("div")!.textContent).toContain("Non");
+  });
+
+  it("édition : cycle et contrat de calcul envoyés ; un contrat mal formé est refusé sans appel ; vide = hérité (null)", async () => {
+    const parent = program({ id: uuid(300), code: "LIC", label: "Licences", gradeLevelIds: [uuid(600)] });
+    const api = setTestApi({
+      ...accessRoutes(["academic.program.read", "academic.program.manage"]),
+      ...base,
+      "GET /api/v1/academic/programs": { items: [parent] },
+      [`PATCH /api/v1/academic/programs/${uuid(300)}`]: () => json({ ...parent, isCycle: true, calculationContract: "credit-semester@1" }),
+    });
+    renderWithProviders(<ProgramsScreen />);
+    const tree = await screen.findByRole("tree", { name: "Programmes" });
+    fireEvent.click(within(tree).getAllByRole("treeitem")[0]!);
+    fireEvent.click(await screen.findByRole("button", { name: "Modifier" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/Contrat de calcul des résultats/), { target: { value: "credit semestre" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(within(dialog).getAllByRole("alert").length).toBeGreaterThan(0));
+    expect(api.calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
+
+    fireEvent.change(within(dialog).getByLabelText(/Contrat de calcul des résultats/), { target: { value: "Credit-Semester@1" } });
+    fireEvent.click(within(dialog).getByLabelText(/Cycle diplômant/));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Enregistrer" }));
+    await screen.findByText("Le programme a été mis à jour.");
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toMatchObject({ isCycle: true, calculationContract: "credit-semester@1" });
+  });
 });

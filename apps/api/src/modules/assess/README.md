@@ -60,3 +60,7 @@ Consommé : `tenancy.tenant.provisioned` (types du pack). Job : `assess.purge-ba
 - Approuver une révision l'applique aussitôt, sauf période verrouillée pour la session : elle reste APPROUVÉE et
   s'applique à la libération du verrou (`applyApprovedRevisionsInTx`).
 - La session 2 exige type `allows_session2`, nœud `resit_allowed` et la feature `assess.session2`.
+
+## Assemblage
+
+`isCurriculumNodeInUse` : un nœud de curriculum portant une évaluation est « utilisé » (garde d'amendement structurel d'`academic`, branchée par `platform/adapters/academic-guards.ts`). Ports `roster`, `periods`, `curriculum` (rattrapage autorisé = **donnée** du nœud), `teaching`, `guardianship`, `names` : `platform/adapters`.

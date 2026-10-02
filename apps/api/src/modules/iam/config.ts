@@ -265,6 +265,16 @@ export function buildIamConfig(input: IamConfigInput): IamConfig {
   });
 }
 
+/**
+ * Secret de service de la connexion fédérée (`POST /iam/federated-login`, appelée par le serveur web après vérification
+ * OAuth). Facultatif : absent -> la route N'EXISTE PAS (échec fermé). Présent mais faible -> démarrage refusé.
+ */
+export function loadFederationSecret(env: Record<string, string | undefined> = process.env): string | null {
+  const value = env.IAM_SERVICE_SECRET;
+  if (value === undefined || value === "") return null;
+  return assertStrongSecret("IAM_SERVICE_SECRET", value);
+}
+
 /** Lit la configuration depuis l'environnement. Lève `IamConfigError` si un secret manque. */
 export function loadIamConfig(env: Record<string, string | undefined> = process.env): IamConfig {
   const secure = env.IAM_COOKIE_SECURE === undefined ? true : env.IAM_COOKIE_SECURE !== "false";
@@ -290,6 +300,8 @@ export function loadIamConfig(env: Record<string, string | undefined> = process.
       ...(num("IAM_REFRESH_IDLE_TTL_SEC") !== undefined ? { refreshIdleTtlSec: num("IAM_REFRESH_IDLE_TTL_SEC") as number } : {}),
       ...(num("IAM_SESSION_MAX_AGE_SEC") !== undefined ? { sessionMaxAgeSec: num("IAM_SESSION_MAX_AGE_SEC") as number } : {}),
       ...(num("IAM_IMPERSONATION_TTL_SEC") !== undefined ? { impersonationTtlSec: num("IAM_IMPERSONATION_TTL_SEC") as number } : {}),
+      ...(num("IAM_REFRESH_REUSE_GRACE_MS") !== undefined ? { refreshReuseGraceMs: num("IAM_REFRESH_REUSE_GRACE_MS") as number } : {}),
+      ...(num("IAM_REFRESH_REUSE_GRACE_MS") !== undefined ? { refreshReuseGraceMs: num("IAM_REFRESH_REUSE_GRACE_MS") as number } : {}),
       ...(num("IAM_PASSWORD_MIN_LENGTH") !== undefined ? { password: { minLength: num("IAM_PASSWORD_MIN_LENGTH") as number } } : {}),
       ...(num("IAM_SCRYPT_LOG_N") !== undefined ? { scrypt: { logN: num("IAM_SCRYPT_LOG_N") as number } } : {}),
       ...(mfaRoles ? { mfa: { requiredRoles: mfaRoles } } : {}),

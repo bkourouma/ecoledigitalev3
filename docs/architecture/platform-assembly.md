@@ -47,6 +47,7 @@ Sans `V2_DATABASE_URL`, rien n'est chargé (les paquets v2 ne sont même pas imp
 4. **Runtime** (`v2-runtime.ts`) → `app.v2Runtime` ; portée `ip/user-agent` de l'audit ; relevé des routes publiques (`onRoute`) ; hook `v2-auth`.
 5. **Catalogues** : `syncRbac` (permissions + rôles système des tenants actifs), `syncFeatureCatalog(manifests)` — seulement si les modules `rbac` / `entitlements` sont présents.
 6. **Modules** (`registerModules`) dans l'ordre topologique des `dependsOn` (aujourd'hui : audit, tenancy, entitlements, rbac, finance, iam, platform). Pour chaque module : `setup(app, runtime)` à la **racine**, puis `default(app, runtime)` dans un contexte encapsulé préfixé `/api/v1/<clé>`.
+6b. **Adaptateurs de ports entre modules** (`platform/adapters`, `wireApiPorts`) : construits sur les dépendances de lecture des modules fournisseurs, enregistrés dans les registres de ports par application Fastify (`app.academicPorts`, `app.financePorts`…). Résolution paresseuse : l'ordre de chargement n'a pas d'importance. `skipAdapters: true` (tests ciblés) laisse les modules en échec fermé. Voir §11.
 7. **Caches** : abonnement Redis (`REDIS_URL`) aux événements relayés par le worker → invalidation des caches RBAC et entitlements des autres instances.
 8. **Rattrapage des tenants legacy** (§6) puis hook de rattrapage à la création d'un tenant legacy.
 
@@ -90,8 +91,8 @@ Avant l'assemblage, le registre appelait `scope.register(plugin)` sans option : 
 | Jeton | Où | Résultat |
 |---|---|---|
 | IAM v2 (`typ` `at+jwt` / `imp+jwt`) sur une route de module | hook `onRequest` `v2-auth` | `request.ctx` (rôle actif seul, `mfa` lu en base), le middleware legacy s'efface |
-| Legacy (`typ: JWT`) | middleware legacy inchangé, puis `v2-context` | `request.ctx` dérivé (`userId`, `tenantId`, rôle actif) mais **aucune assignation RBAC** : refus par défaut sur les routes protégées par `requirePermission` (les comptes legacy ne sont migrés vers iam qu'en Phase 2) |
-| IAM v2 sur une route **legacy** | middleware legacy | 401 comme avant (jeton inconnu) |
+| Legacy (`typ: JWT`) | middleware legacy, puis `v2-context` | `request.ctx` dérivé (`userId`, `tenantId`, rôle actif) mais **aucune assignation RBAC** : refus par défaut sur les routes protégées par `requirePermission`. Accepté jusqu'à `LEGACY_TOKEN_SUNSET` (puis 401 `LEGACY_TOKEN_SUNSET`). Son tenant n'est lu qu'**après vérification** de la signature. |
+| IAM v2 sur une route **legacy** | hook `v2-auth` (`onRequest`) puis middleware legacy (`attachIamLegacyUser`) | Authentifié (révocation sur toutes les méthodes) ; `request.user` = compte **legacy** de même e-mail dans le tenant du jeton, rôles legacy par inverse strict de `legacyRoleToTemplate`. 401 si le jeton est invalide, 403 `LEGACY_ACCOUNT_MISSING` / `LEGACY_ROLE_UNMAPPED` sinon. `V2_LEGACY_IAM_BRIDGE=0` : 401 comme avant. Voir `auth-cutover.md`. |
 | JWT super-admin | `superAdminAuthorizer` sur `/platform/*`, `/entitlements/admin/*`, `/iam/impersonation` | opérateur ; vérifié aussi sur GET (liste noire, compte actif) |
 
 Routes **publiques** : une route de module déclare `config: { public: true }` pour échapper à la garde « contexte présent » du registre **et** au middleware legacy ; elle s'authentifie elle-même (mot de passe, jeton d'étape MFA, refresh token, signature de webhook, JWT super-admin). La liste est **dérivée** de ces déclarations (hook `onRoute`, `platform/public-routes.ts`) et lue par `auth-middleware.ts` (seule modification du legacy avec l'enregistrement dans `index.ts`) ; vide sans plateforme v2. Le test `[D3b]` parcourt toutes les routes publiques sans identifiants et exige un refus (hors `POST /iam/logout`, 204 par conception).
@@ -113,7 +114,7 @@ Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform
 
 ## 6. Rattrapage des tenants legacy
 
-`tenant-sync` recopie `public.tenants` dans `kernel.tenants` mais ne crée rien d'autre. Au démarrage (et à la création d'un tenant legacy, via `afterSync`), pour chaque tenant non archivé et **sans doublon** (verrou consultatif, rejouable à volonté — prouvé par test, y compris en concurrence) : profil d'organisation, **un** établissement + son campus par défaut, onboarding, 10 rôles système, abonnement **ACTIF sans échéance** s'il n'en a aucun (un abonnement annulé n'est pas recréé).
+`tenant-sync` recopie `public.tenants` dans `kernel.tenants` mais ne crée rien d'autre. Au démarrage (et à la création d'un tenant legacy, via `afterSync`), pour chaque tenant non archivé et **sans doublon** (verrou consultatif, rejouable à volonté — prouvé par test, y compris en concurrence) : profil d'organisation, **un** établissement + son campus par défaut, onboarding, 11 rôles système, abonnement **ACTIF sans échéance** s'il n'en a aucun (un abonnement annulé n'est pas recréé).
 
 > **HYPOTHÈSE DE PRODUIT À VALIDER PAR LE PROPRIÉTAIRE DU PRODUIT.** Plan `V2_LEGACY_TENANT_DEFAULT_PLAN` (défaut `PROFESSIONAL`), pack `V2_LEGACY_TENANT_DEFAULT_PACK` (défaut `HIGHER`, « l'application actuelle devient le pack Higher », décision D1), pays `V2_LEGACY_TENANT_DEFAULT_COUNTRY` (défaut `CI`). Ni le plan, ni le pack, ni l'absence d'échéance n'ont été arbitrés ; rien n'est facturé.
 
@@ -121,22 +122,28 @@ Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform
 
 `modules/<clé>/subscribers.ts` et `jobs.ts` sont découverts par le worker (disque en développement ; **embarqués dans le bundle** en production — `pnpm --filter @ecoledigitale/worker build`, preuve : `worker-bundle.integration.test.ts` construit et démarre le vrai bundle ; **un nouveau module impose de reconstruire**).
 
-| Abonné | Motif | Effet |
+| Module | Abonnés (motif) | Jobs (planification `WORKER_TZ`) |
 |---|---|---|
-| `audit.<motif>` (10) | `iam.impersonation.started`, `iam.login.failed`, `iam.session.revoked`, `rbac.role.changed`, `rbac.assignment.changed`, `tenancy.**`, `entitlements.**`, `iam.mfa.**`, `iam.password.**`, `iam.membership.**` | journal d'audit (id de l'événement = clé primaire : idempotent) ; le contact du fondateur n'est pas recopié |
-| `rbac.instantiate-system-roles` | `tenancy.tenant.provisioned` | rôles système (idempotent, verrouillé) |
-| `rbac.reconcile-roles-on-reactivation` | `tenancy.tenant.status_changed` → `active` | rôles système re-résolus |
-| `rbac.invalidate-permission-cache.*` | `rbac.role.changed`, `rbac.assignment.changed`, `tenancy.tenant.status_changed` | diffusion Redis aux instances de l'API |
-| `entitlements.start-trial` | `tenancy.tenant.provisioned` | abonnement d'essai (`ENTITLEMENTS_TRIAL_*`), no-op si un abonnement existe |
-| `entitlements.invalidate-cache.*` | changements d'abonnement / surcharge / statut / provisioning | diffusion Redis |
+| audit | `audit.iam-impersonation-started`, `audit.iam-login-failed`, `audit.iam-session-revoked`, `audit.rbac-role-changed`, `audit.rbac-assignment-changed`, `audit.tenancy` (`tenancy.**`), `audit.entitlements` (`entitlements.**`), `audit.iam-mfa`, `audit.iam-password`, `audit.iam-membership` : journal d'audit (id de l'événement = clé primaire, idempotent) | `audit.ensure-partitions` 02:10 ; `audit.detach-expired-partitions` 03:30 le 1er (**simulation** sauf `AUDIT_DETACH_MODE=apply`) |
+| rbac | `rbac.instantiate-system-roles` (`tenancy.tenant.provisioned`), `rbac.reconcile-roles-on-reactivation`, `rbac.invalidate-permission-cache.*` | |
+| entitlements | `entitlements.start-trial` (`tenancy.tenant.provisioned`, `ENTITLEMENTS_TRIAL_*`), `entitlements.invalidate-cache.*` | |
+| iam | | `iam.purge-expired-data` 03:40 (`IAM_PURGE_RETENTION_DAYS`) |
+| finance | | `finance.mark-overdue-invoices` 01:15 |
+| academic | `academic.instantiate-reference-data` (`tenancy.institution.created`), **`academic.confirm-on-invoice-paid` (`finance.invoice.paid`)**, `academic.withdraw-on-student-status` (`people.student.status_changed`) | `academic.expire-holds` chaque minute, `academic.finalize-offerings` 01:00 |
+| people | `people.project-enrollment` (`academic.enrollment.*`), `people.project-membership`, `people.instantiate-reference-data`, `people.end-assignments-on-classroom-closed`, `people.end-assignments-on-year-closed` | `people.emit-expiring-qualifications` 06:30 |
+| assess | `assess.seed-assessment-types` | `assess.purge-batch-receipts` 04:20 |
+| results | `results.recompute-on-grade-published` / `-revised` / `-assessment-cancelled` / `-enrollment-created` / `-enrollment-transferred` / `-enrollment-withdrawn`, `results.note-binding-change` (`rules.binding.changed`) | `results.process-recomputes` toutes les 10 s, `results.purge` 04:40 |
+| rules | | `rules.replay-reproducibility` 02:50, `rules.purge-evaluation-failures` 04:30 |
+| reportcards | `reportcards.render-snapshot`, `reportcards.render-requested`, `reportcards.combine-batch`, `reportcards.seed-templates` | `reportcards.integrity-check` 03:20, `reportcards.sweep-renders` */10, `reportcards.purge-verification-log` 04:10 le 1er |
+| higher | `higher.capitalize-on-period-closed` (`results.period.closed`), `higher.evaluate-diplomas-on-capitalized` | `higher.expire-credits` 03:20 |
+| attendance | `attendance.cancel-session-on-occurrence-cancelled`, `attendance.refresh-summaries-on-enrollment-change.*`, `attendance.refresh-summaries-on-period-change.*`, `attendance.seed-reference-data` | `attendance.recompute-summaries` 02:50 |
+| scheduling | `scheduling.hold-on-attendance`, `scheduling.flag-on-staff-leave`, `scheduling.flag-on-staff-status`, `scheduling.flag-on-assignment-ended`, `scheduling.cancel-on-offering-cancelled`, `scheduling.cancel-on-classroom-cancelled`, `scheduling.archive-on-year-closed`, `scheduling.seed-reference-data` | `scheduling.generate-occurrences` 02:30 |
+| payroll | `payroll.seed-settings`, `payroll.flag-claim-source-changed.*` (séance annulée / invalidée / replanifiée / minutes payées modifiées), `payroll.close-periods-on-year-closed` | `payroll.fail-stale-runs` */10 |
+| socle du worker | | `outbox-cleanup`, `ensure-partitions` (recoupe `audit.ensure-partitions`, idempotent) |
 
-| Job | Planification (`WORKER_TZ`) | Effet |
-|---|---|---|
-| `finance.mark-overdue-invoices` | 01:15 chaque jour | factures échues → OVERDUE, un `finance.invoice.overdue` par transition |
-| `audit.ensure-partitions` | 02:10 chaque jour | partitions d'audit créées à l'avance |
-| `iam.purge-expired-data` | 03:40 chaque jour | sessions / challenges périmés (`IAM_PURGE_RETENTION_DAYS`) |
-| `audit.detach-expired-partitions` | 03:30 le 1er du mois | **simulation** (journalisée) ; détachement réel seulement si `AUDIT_DETACH_MODE=apply` |
-| `outbox-cleanup`, `ensure-partitions` | socle du worker | purge de l'outbox ; (recoupe `audit.ensure-partitions`, idempotent) |
+Cette liste est celle que **découvre** le worker (`discoverModuleExtensions`) ; le test `worker-bundle.integration.test.ts` exige que le bundle de production enregistre exactement les mêmes abonnés et jobs que les sources, et qu'il ait branché les ports entre modules (`ports entre modules branchés (adaptateurs de plateforme)`).
+
+**Le worker n'a pas de Fastify** : les abonnés et jobs lisent des registres **par processus** (`setAcademicWorkerPorts`, `setPeopleWorkerPorts`, `setResultsWorkerPorts`, `registerHigherWorkerPorts`, `registerSchedulingPorts`, `setReportcardsWorkerResources`) que `installWorkerAdapters` remplit au démarrage (`App.start`, étape 1b), AVANT les consommateurs et le planificateur. En développement le câblage est chargé depuis `apps/api/src/platform/adapters/worker.ts` ; en production `apps/worker/scripts/build.mjs` remplace `discovery/platform-wiring.ts` par une version qui l'importe statiquement : **le bundle est autonome**.
 
 Les handlers reçoivent `ctx.tenantDb` (ajout au SDK du worker) pour appeler les use cases des modules, qui prennent un `TenantDb`.
 
@@ -160,6 +167,19 @@ Les handlers reçoivent `ctx.tenantDb` (ajout au SDK du worker) pour appeler les
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL` | — | API | mêmes noms que l'e-mail legacy |
 | `V2_APP_BASE_URL` | — | API | base des liens `/auth/invitation?token=…` et `/auth/reset-password?token=…` |
 | `IAM_*` | voir `modules/iam/README.md` | API | cookie, TTL, MFA, politique de mot de passe |
+| `V2_LEGACY_IAM_BRIDGE` | actif | API | `0` : les routes legacy refusent à nouveau les jetons IAM |
+| `LEGACY_TOKEN_SUNSET` | — | API | date d'extinction des jetons legacy (ISO 8601) ; mal formée = démarrage refusé |
+| `TRUST_PROXY` | `false` | API | sauts de proxy / CIDR de confiance (`request.ip` réel : limiteur, audit, sessions) |
+| `IAM_SERVICE_SECRET` | — | API, web | active `POST /iam/federated-login` (Google) ; ≥ 32 caractères |
+| `AUTH_SOCIAL_SHARED_SECRET` | — | API, web | `/auth/social-login` legacy ; obligatoire en production |
+| `LEGACY_DATABASE_URL`, `IAM_IMPORT_TECHNICAL_PASSWORD` | `DATABASE_URL`, — | poste d'import | `pnpm iam:import-legacy` |
+| `NEXT_PUBLIC_AUTH_V2`, `NEXT_PUBLIC_GOOGLE_AUTH` | — | web (build) | connexion V2 ; bouton Google |
+| `STORAGE_S3_BUCKET`, `_REGION` (`us-east-1`), `_ENDPOINT` (MinIO, force le style chemin), `_FORCE_PATH_STYLE`, `_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY`, `_SSE` (`AES256`, `aws:kms`, `none`), `_KMS_KEY_ID`, `_PREFIX` | — | API **et** worker | stockage d'objets partagé (bulletins, justificatifs de présence, pièces des personnes). Chaque variable retombe sur son homologue `REPORTCARDS_S3_*` |
+| `STORAGE_DISK_DIR`, `STORAGE_PUBLIC_BASE_URL`, `STORAGE_SIGNING_SECRET` | `./.data/objects` hors production, URL `http://localhost:<PORT>` | API **et** worker | **repli disque, développement seulement** : sans bucket, disque si `STORAGE_DISK_DIR` est défini ou si `NODE_ENV` n'est pas `production` ; sinon aucun stockage (les fonctions qui en dépendent échouent fermé). URL signées HMAC à durée courte servies par `GET /api/v1/storage/object`. Secret absent : aléatoire PAR processus (les URL de l'API ne sont pas valides côté worker : fixer `STORAGE_SIGNING_SECRET` si les deux partagent le disque) |
+| `REPORTCARDS_SIGNING_KEY` / `_FILE` / `_ID` | — | API **et** worker | clé privée Ed25519 PKCS#8 de signature des bulletins (voir `modules/reportcards/README.md`) |
+| `REPORTCARDS_VERIFICATION_BASE_URL` | `V2_APP_BASE_URL` | API **et** worker | domaine public de vérification (QR `<base>/v/<code>`) |
+| `REPORTCARDS_S3_*` | — | API **et** worker | ancien nom du stockage d'objets (repli de `STORAGE_S3_*`) |
+| `REPORTCARDS_CHROME_PATH`, `REPORTCARDS_CHROME_NO_SANDBOX=1`, `REPORTCARDS_RENDER_CONCURRENCY` (2) | — | worker | moteur de rendu PDF |
 
 Le worker garde ses propres variables (`WORKER_DATABASE_URL`, `WORKER_RELAY_*`…, voir `apps/worker/README.md`) et lit `AUDIT_*`, `ENTITLEMENTS_*`, `IAM_PURGE_*` depuis `process.env` (les abonnés et jobs des modules sont du code du module).
 
@@ -199,10 +219,68 @@ Contrôles : `pnpm check:boundaries`, `pnpm check:secrets`, `pnpm test:isolation
 
 ## 10. Limites connues et décisions
 
-- **Comptes legacy** : aucun import vers iam (Phase 2). Un jeton legacy donne un contexte sans droit RBAC.
+- **Comptes legacy** : importés par `pnpm iam:import-legacy` (identités, accès, assignations RBAC ; idempotent, lecture seule côté legacy, rapport des cas ambigus), puis authentifiés par iam. Un jeton legacy (tant que `LEGACY_TOKEN_SUNSET` n'est pas atteinte) donne un contexte sans droit RBAC. Les comptes créés dans le legacy après l'import doivent être réimportés (voir `auth-cutover.md` §6).
 - **`trustProxy`** : `index.ts` ne le règle pas ; derrière un proxy, `request.ip` (limiteur de débit IAM, audit) est celui du proxy. À régler au déploiement.
 - **Provisioning de la console** : étapes en transactions distinctes (un use case par module), reprise par `reconcile` ; pas de transaction globale.
 - **Caches** : TTL 30 s (droits), 5 s (arbre des périmètres) ; l'invalidation par événement exige Redis. Sans Redis, seuls le processus d'origine et le TTL jouent.
 - **Audit des événements de finance** : par écriture directe uniquement (pas de souscription `finance.*`) ; les événements sont relayés mais non consommés par audit.
 - **Production de l'API** : l'image exécute `tsx src/index.ts` ; les dossiers `apps/worker` ne sont pas nécessaires à l'API (les `subscribers.ts` ne sont chargés que par le worker). Les migrations v2 s'exécutent depuis un poste ou une étape de déploiement (`pnpm db:v2:migrate`), pas depuis l'image.
 - **Fournisseurs de paiement réels** : seul `sandbox` existe (Phase 3) ; son secret de webhook par défaut est public — refusé hors `development`/`test` sauf autorisation explicite du tenant.
+- **Stockage disque** : le repli disque (`STORAGE_DISK_DIR`) est un confort de développement (pas de réplication, URL signées servies par l'API) ; en production, configurer `STORAGE_S3_BUCKET`.
+- **Frais d'inscription** : ils doivent être facturés séparément de la scolarité (catégorie `REGISTRATION`) pour que le paiement confirme l'inscription ; sans barème applicable l'inscription est confirmée immédiatement.
+- **Identité de l'établissement** : le bulletin exige une identité d'établissement (`putBranding`) ; son absence est une erreur explicite du contrôle préalable, pas une valeur par défaut.
+- **Totaux des bulletins** : `weighted` / `totalCoefficient` restent `null` tant que le moteur de règles ne les publie pas ; le relevé cumulé n'affiche pas de totaux.
+
+## 11. Ports entre modules : adaptateurs (`platform/adapters`)
+
+Chaque module déclare des **ports** (ce qu'il attend de ses voisins) et échoue **fermé** (`*.port_unavailable`) tant qu'ils ne sont pas branchés. Un module n'importe jamais un autre autrement que par son `index.ts` ; les adaptateurs de `apps/api/src/platform/adapters/` sont le **seul** endroit qui connaît plusieurs modules (règles `platform-adapters-only-via-index`, `platform-adapters-no-legacy-no-pg` et `modules-not-adapters` de `.dependency-cruiser.cjs`, éprouvées par `test/boundaries.test.ts`). Un adaptateur traduit l'API **publique** du fournisseur vers le port du consommateur : jamais de SQL, jamais d'import du legacy.
+
+`createAdapterKit` (`kit.ts`) construit les dépendances de **lecture** de chaque fournisseur (mêmes adaptateurs côté API et côté worker) ; `buildPlatformPorts(kit, storage)` renvoie les ports PAR MODULE CONSOMMATEUR ; `wireApiPorts` les enregistre dans l'API, `installWorkerAdapters` dans le worker.
+
+| Fichier | Fournisseur -> consommateur | Port(s) |
+|---|---|---|
+| `academic-results` | academic -> results | `CurriculumPort` (structure de calcul tirée des **données** du curriculum : contrat, rang de période, crédits, coefficients, parents), `RosterPort` |
+| `academic-assess` | academic -> assess | `RosterPort`, `PeriodPort`, `CurriculumPort` (rattrapage autorisé = donnée du nœud) |
+| `academic-attendance` | academic -> attendance | `EnrollmentRosterPort` (classe, effectif à une date, inscription), `PeriodPort` |
+| `academic-scheduling` | academic -> scheduling | `AcademicQuery` (classe, nœud, offre, année d'une date) |
+| `academic-payroll` | academic -> payroll | `CurriculumLabelPort` |
+| `academic-higher` | academic -> higher | `CurriculumPort` (nœud-cycle = programme `is_cycle`, UE par **lignée**), `EnrollmentDirectory` |
+| `academic-people` | academic -> people | `AcademicQuery` (affectations, ouverture d'offre) |
+| `academic-guards` | assess, results, higher, scheduling -> academic | `CurriculumUsageGuard`, `CompletionLookup`, `ScheduleConflictChecker` |
+| `people-academic` | people -> academic | `StudentDirectory`, `GuardianshipPort`, `OfferingReadiness` |
+| `people-results`, `people-assess` | people/iam -> results, assess | `GuardianshipPort`, `ActorNamePort`, `TeachingAssignmentPort` |
+| `people-attendance`, `people-scheduling`, `people-payroll` | people -> attendance, scheduling, payroll | `PeoplePort`, `PeopleQuery`, `StaffDirectoryPort` (le titulaire d'un compte est résolu par `persons.identity_id`, jamais par e-mail) |
+| `people-higher`, `people-reportcards` | people/iam -> higher, reportcards | `StudentDirectory`, `ActorDirectory`, `GuardianshipPort`, `UserDirectoryPort` |
+| `directories-finance` | people, academic -> finance | `LearnerDirectory` (un apprenant inconnu est refusé), `EnrollmentDirectory` |
+| `finance-academic` | finance -> academic | `InvoiceFactsReader`, `RegistrationFeeProbe` : **confirmation automatique de l'inscription** après paiement des frais d'inscription (décision métier du 2026-10-01) |
+| `finance-reportcards` | finance -> reportcards | `LearnerStandingPort` (impayé exigible, sans montant) |
+| `attendance-reportcards` | attendance -> reportcards | `AttendanceSummaryPort` (minutes justifiées / non justifiées, retards) |
+| `scheduling-attendance` | scheduling <-> attendance | `OccurrencePort` ; `AttendanceQuery` (l'appel est-il soumis ?) |
+| `payroll-sources` | scheduling, attendance -> payroll | `HoursSourcePort` d'origine SESSION (heures payables, **gel atomique** par bulletin) et ATTENDANCE |
+| `results-reportcards` | results -> reportcards | `ResultsReadPort` (état de période, effectif, bundle de résultats figé : noms, libellés, règles, trace) |
+| `results-higher` | results -> higher | `CreditsSourcePort`, `ResitSessionPort`, `CycleResultsPort` (UE identifiées par lignée) |
+| `reportcards-higher` | reportcards -> higher | `SignatoryDirectory`, `InstitutionPort` |
+| `storage` | stockage d'objets -> attendance, people, reportcards | S3 / MinIO configurable par l'environnement, repli disque en développement |
+
+### Règles à respecter dans un adaptateur
+
+- **Appels SÉQUENTIELS.** `TenantDb.run` imbrique les exécutions du même contexte en `SAVEPOINT` sur **une seule connexion**. Un port appelé depuis la transaction d'un module partage donc cette connexion : deux appels entrelacés (`Promise.all`) libèrent des points de sauvegarde qui n'existent plus (`savepoint "ed_sp_n" does not exist`). Aucun `Promise.all` sur des lectures de modules, ni dans un adaptateur ni dans un module qui appelle un port dans sa transaction (cas corrigé dans `attendance/application/session-support.ts`).
+- **Échec fermé.** Une lecture impossible ne devient jamais « autorisé » : `CurriculumUsageGuard` répond « utilisé », une sonde de frais d'inscription inconnue renvoie `null` (l'inscription reste en attente), un compte sans fiche liée n'a aucun droit « élève » ni « tuteur ».
+- **Identités.** Le « nœud-cycle » de `higher` est l'identifiant du **programme** académique (`programs.is_cycle`) ; une UE de `higher` est identifiée par sa **lignée** (stable d'une année à l'autre, malgré le clonage annuel du curriculum) ; le `levelCode` des résultats est le code du niveau (`grade level`) ; le contrat de calcul est `program.calculation_contract ?? education_level.calculation_contract ?? null` (aucun contrat par défaut).
+- **Décimaux.** Les crédits et valeurs exactes sont normalisés en chaînes canoniques (`6`, pas `6.00`) avant d'entrer dans un instantané signé.
+
+### Extensions additives des modules fournisseurs
+
+| Module | Extension | Raison |
+|---|---|---|
+| academic | migration `0706_academic_results_facts` (contrat de calcul, drapeaux de fin de cycle et de rattrapage, crédits, rangs de période portés par le curriculum) ; `application/facts.ts` (`getClassroomFacts`…) ; registre de ports (`registerAcademicPorts`, `setAcademicWorkerPorts`) ; spec `004-academic-core` §7.5 | results/assess/reportcards lisaient ces faits dans des libellés ou des constantes |
+| finance | migration `0504_finance_line_source` (`sourceRef` d'une ligne) ; `finance.invoice.paid` **enrichi** (`enrollmentId`, `containsRegistrationFee`, `sourceRefs`) ; `application/facts.ts` (frais d'inscription dus / soldés, faits d'une facture, impayé) ; registre de ports | producteur et consommateur de l'événement ne partageaient aucun contrat ; la confirmation automatique en dépend |
+| people | `getDisplayNamesOfIdentities`, `StaffBrief.identityId`, registre de ports (API et worker) | noms d'affichage et compte lié sans accès à la table |
+| attendance | `listCompletedStaffPresence` (heures de présence pour la paie) ; appels de ports séquentiels | origine ATTENDANCE de la paie ; bug de savepoints |
+| iam | `getMemberEmails` | `UserDirectoryPort` des bulletins |
+| assess, results | `isCurriculumNodeInUse`, `isCurriculumNodeInResults` | garde d'usage d'un nœud de curriculum |
+| reportcards | `infrastructure/worker-resources.ts` (stockage et ressources de rendu du worker) | le worker n'a pas de Fastify |
+
+### Vérification
+
+`test/adapters/adapters.unit.test.ts` (traductions pures), `test/adapters/chain.integration.test.ts` (people + academic -> assess -> results -> reportcards / higher, avec les **vraies** règles nationales sur une base migrée par toutes les migrations v2), `test/adapters/operations.integration.test.ts` (finance -> academic, scheduling <-> attendance <-> payroll, bulletins) et, dans `test/phase1/`, `assembly.integration.test.ts` [D9] (aucun port obligatoire ne manque) et `worker-bundle.integration.test.ts` (build et démarrage réels du bundle).

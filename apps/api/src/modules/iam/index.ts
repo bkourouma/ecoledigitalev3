@@ -21,7 +21,7 @@ import { peekJwtTyp } from "./domain/tokens";
 export { default as manifest } from "./manifest";
 
 // Configuration
-export { loadIamConfig, buildIamConfig, IamConfigError, type IamConfig, type IamConfigInput } from "./config";
+export { loadIamConfig, loadFederationSecret, buildIamConfig, IamConfigError, type IamConfig, type IamConfigInput } from "./config";
 
 // Composition et use cases
 export { createIamService, createBackgroundTasks, type IamService, type IamServiceOptions } from "./application/service";
@@ -46,6 +46,9 @@ export {
   type ImpersonationClaims,
   type BearerClaims,
 } from "./domain/access-token";
+
+// Annuaire minimal des accès (repli de nom d'affichage pour les adaptateurs de plateforme)
+export { getMemberEmails } from "./application/directory";
 
 // Politiques
 export { createMfaPolicy, mfaRequiredFor, type MfaPolicy } from "./domain/mfa-policy";

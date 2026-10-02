@@ -73,10 +73,21 @@ describe("alignement avec les rôles système du module rbac", () => {
     expect(can("eleve", "attendance.child.read")).toBe(false);
   });
 
-  it("éducateur et direction des études : tout le module ; responsable pédagogique et secrétariat : lecture", () => {
-    for (const k of manifest.permissions.map((p) => p.key)) {
+  it("éducateur : appel, validation, justificatifs (dépôt/lecture) ; direction des études : supervision, décisions, personnel ; responsable pédagogique et secrétariat : lecture", () => {
+    for (const k of ["attendance.read", "attendance.take", "attendance.manage", "attendance.validate", "attendance.justification.submit", "attendance.justification.read", "attendance.report.read"]) {
       expect(can("educateur", k), k).toBe(true);
+    }
+    // l'éducateur ne décide pas, ne rouvre pas, ne surcharge pas, ne gère ni le personnel ni les réglages
+    for (const k of ["attendance.justification.decide", "attendance.session.reopen", "attendance.summary.override", "attendance.leave.decide", "attendance.staff.record", "attendance.settings.manage"]) {
+      expect(can("educateur", k), k).toBe(false);
+    }
+    for (const k of ["attendance.read", "attendance.manage", "attendance.validate", "attendance.justification.read", "attendance.justification.decide", "attendance.staff.read", "attendance.staff.record", "attendance.leave.decide", "attendance.report.read", "attendance.settings.manage"]) {
       expect(can("directeur_etudes", k), k).toBe(true);
+    }
+    // rouvrir un appel validé et surcharger un récapitulatif : direction seulement (validation ≠ réouverture)
+    for (const k of ["attendance.session.reopen", "attendance.summary.override"]) {
+      expect(can("directeur_etudes", k), k).toBe(false);
+      expect(can("directeur", k), k).toBe(true);
     }
     expect(can("responsable_pedagogique", "attendance.read")).toBe(true);
     expect(can("responsable_pedagogique", "attendance.take")).toBe(false);
@@ -85,10 +96,11 @@ describe("alignement avec les rôles système du module rbac", () => {
     expect(SYSTEM_ROLE_TEMPLATES.length).toBeGreaterThan(5);
   });
 
-  it("limite connue : aucun rôle système ne donne attendance.own.* au personnel (à ajouter au modèle de rôles de rbac)", () => {
-    expect(can("enseignant", "attendance.own.read")).toBe(false);
-    expect(can("enseignant", "attendance.own.record")).toBe(false);
-    expect(can("enseignant", "attendance.leave.request")).toBe(false);
+  it("le personnel (rôle `personnel`, enseignant, éducateur) pointe sa présence et demande ses congés ; il ne les décide pas", () => {
+    for (const role of ["personnel", "enseignant", "educateur"]) {
+      for (const k of ["attendance.own.read", "attendance.own.record", "attendance.leave.request"]) expect(can(role, k), `${role} ${k}`).toBe(true);
+      expect(can(role, "attendance.leave.decide"), role).toBe(false);
+    }
   });
 });
 

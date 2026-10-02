@@ -230,3 +230,12 @@ Couverture mesurée (v8, `--coverage` exige `@vitest/coverage-v8`, non encore un
   jamais sur la facture d'un autre payeur.
 * Un avoir porte sur le **reste dû** : pour annuler une somme déjà encaissée, rembourser d'abord (reprise d'imputation), puis créditer.
 * La clé de regroupement « classe » et le type d'apprenant sont des clés libres : le sens vient de l'adaptateur `EnrollmentDirectory`.
+
+## Faits publiés pour la plateforme
+
+Extension additive de l'assemblage `platform/adapters` (voir `docs/architecture/platform-assembly.md` §11) :
+
+- migration `0504_finance_line_source` : `invoice_lines.source_ref` (objet source de la ligne : sélection de cours…), exposé en `sourceRef` ;
+- `finance.invoice.paid` est **enrichi** (`enrollmentId`, `containsRegistrationFee`, `sourceRefs[{ sourceRef, category }]`, schéma `financeInvoicePaidEventPayloadSchema`) : academic confirme l'inscription VISÉE après paiement des frais d'inscription (décision métier du 2026-10-01) ;
+- `application/facts.ts` : `getInvoiceFacts`, `getRegistrationFeeStatus` (frais d'inscription facturés / soldés), `isRegistrationFeeDue` (un barème applicable existe ; `false` = aucun frais, confirmation immédiate), `hasOverdueBalance` (impayé exigible, **sans montant**) ;
+- ports `learners` / `enrollments` : registre `registerFinancePorts` (`app.financePorts`), branchés par `platform/adapters/directories-finance.ts`. Les frais d'inscription doivent être facturés **séparément** de la scolarité (ligne de catégorie `REGISTRATION`).

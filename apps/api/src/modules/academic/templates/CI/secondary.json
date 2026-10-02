@@ -5,8 +5,8 @@
   "educationSystem": "CI",
   "pack": "SECONDARY",
   "educationLevels": [
-    { "code": "LOWER_SECONDARY", "label": "Premier cycle du secondaire", "ordinal": 3 },
-    { "code": "UPPER_SECONDARY", "label": "Second cycle du secondaire", "ordinal": 4 }
+    { "code": "LOWER_SECONDARY", "label": "Premier cycle du secondaire", "ordinal": 3, "calculationContract": "coef-semester@1" },
+    { "code": "UPPER_SECONDARY", "label": "Second cycle du secondaire", "ordinal": 4, "calculationContract": "coef-semester@1" }
   ],
   "gradeLevels": [
     { "code": "6E", "label": "6e", "shortLabel": "6e", "educationLevel": "LOWER_SECONDARY", "ordinal": 1, "next": "5E" },

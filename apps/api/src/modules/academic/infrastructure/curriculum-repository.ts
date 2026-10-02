@@ -36,19 +36,21 @@ export async function insertProgram(
     description: string | null;
     durationMonths: number | null;
     attributes: Record<string, unknown>;
+    isCycle?: boolean;
+    calculationContract?: string | null;
   },
 ): Promise<void> {
   await tx.query(
-    `INSERT INTO academic.programs (id, tenant_id, institution_id, education_level_id, parent_program_id, code, label, kind_code, domain_code, description, duration_months, attributes)
-     VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)`,
-    [v.id, v.institutionId, v.educationLevelId, v.parentProgramId, v.code, v.label, v.kindCode, v.domainCode, v.description, v.durationMonths, JSON.stringify(v.attributes)],
+    `INSERT INTO academic.programs (id, tenant_id, institution_id, education_level_id, parent_program_id, code, label, kind_code, domain_code, description, duration_months, attributes, is_cycle, calculation_contract)
+     VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13)`,
+    [v.id, v.institutionId, v.educationLevelId, v.parentProgramId, v.code, v.label, v.kindCode, v.domainCode, v.description, v.durationMonths, JSON.stringify(v.attributes), v.isCycle ?? false, v.calculationContract ?? null],
   );
 }
 
 export async function updateProgram(
   tx: Tx,
   id: string,
-  v: { label?: string; kindCode?: string; domainCode?: string | null; description?: string | null; durationMonths?: number | null; attributes?: Record<string, unknown>; status?: string },
+  v: { label?: string; kindCode?: string; domainCode?: string | null; description?: string | null; durationMonths?: number | null; attributes?: Record<string, unknown>; status?: string; isCycle?: boolean; calculationContract?: string | null },
 ): Promise<void> {
   await tx.query(
     `UPDATE academic.programs SET
@@ -56,7 +58,9 @@ export async function updateProgram(
         domain_code = CASE WHEN $4::boolean THEN $5 ELSE domain_code END,
         description = CASE WHEN $6::boolean THEN $7 ELSE description END,
         duration_months = CASE WHEN $8::boolean THEN $9::integer ELSE duration_months END,
-        attributes = COALESCE($10::jsonb, attributes), status = COALESCE($11, status), updated_at = now()
+        attributes = COALESCE($10::jsonb, attributes), status = COALESCE($11, status),
+        is_cycle = COALESCE($12::boolean, is_cycle),
+        calculation_contract = CASE WHEN $13::boolean THEN $14::text ELSE calculation_contract END, updated_at = now()
       WHERE id = $1`,
     [
       id,
@@ -70,6 +74,9 @@ export async function updateProgram(
       v.durationMonths ?? null,
       v.attributes ? JSON.stringify(v.attributes) : null,
       v.status ?? null,
+      v.isCycle ?? null,
+      v.calculationContract !== undefined,
+      v.calculationContract ?? null,
     ],
   );
 }
@@ -242,6 +249,10 @@ export interface NodeInsert {
   isMandatory: boolean;
   isTransversal: boolean;
   categoryCode: string | null;
+  gradingMode?: "COMPOSED" | "DIRECT";
+  resitAllowed?: boolean;
+  countsInAverage?: boolean;
+  sectionKey?: string | null;
   hoursTotal: string | null;
   hoursLecture: string | null;
   hoursTutorial: string | null;
@@ -251,19 +262,20 @@ export interface NodeInsert {
 }
 
 const INSERT_NODE_COLS =
-  "id, tenant_id, version_id, parent_id, node_type_code, lineage_id, subject_id, grade_level_id, period_type_code, period_ordinal, code, label, ordinal, coefficient, credits, is_mandatory, is_transversal, category_code, hours_total, hours_lecture, hours_tutorial, hours_practical, attributes, status";
-const NODE_PARAM_COUNT = 23;
+  "id, tenant_id, version_id, parent_id, node_type_code, lineage_id, subject_id, grade_level_id, period_type_code, period_ordinal, code, label, ordinal, coefficient, credits, is_mandatory, is_transversal, category_code, hours_total, hours_lecture, hours_tutorial, hours_practical, attributes, status, grading_mode, resit_allowed, counts_in_average, section_key";
+const NODE_PARAM_COUNT = 27;
 
 function nodeParams(n: NodeInsert): unknown[] {
   return [
     n.id, n.versionId, n.parentId, n.nodeTypeCode, n.lineageId, n.subjectId, n.gradeLevelId, n.periodTypeCode, n.periodOrdinal, n.code, n.label, n.ordinal,
     n.coefficient, n.credits, n.isMandatory, n.isTransversal, n.categoryCode, n.hoursTotal, n.hoursLecture, n.hoursTutorial, n.hoursPractical, JSON.stringify(n.attributes), n.status,
+    n.gradingMode ?? "COMPOSED", n.resitAllowed ?? false, n.countsInAverage ?? true, n.sectionKey ?? null,
   ];
 }
 
 function nodeValuesSql(offset: number): string {
   const p = (i: number): string => `$${offset + i}`;
-  return `(${p(1)}, kernel.current_tenant_id(), ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}, ${p(6)}, ${p(7)}, ${p(8)}, ${p(9)}, ${p(10)}, ${p(11)}, ${p(12)}, ${p(13)}::numeric, ${p(14)}::numeric, ${p(15)}, ${p(16)}, ${p(17)}, ${p(18)}::numeric, ${p(19)}::numeric, ${p(20)}::numeric, ${p(21)}::numeric, ${p(22)}::jsonb, ${p(23)})`;
+  return `(${p(1)}, kernel.current_tenant_id(), ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}, ${p(6)}, ${p(7)}, ${p(8)}, ${p(9)}, ${p(10)}, ${p(11)}, ${p(12)}, ${p(13)}::numeric, ${p(14)}::numeric, ${p(15)}, ${p(16)}, ${p(17)}, ${p(18)}::numeric, ${p(19)}::numeric, ${p(20)}::numeric, ${p(21)}::numeric, ${p(22)}::jsonb, ${p(23)}, ${p(24)}, ${p(25)}, ${p(26)}, ${p(27)})`;
 }
 
 export async function insertNode(tx: Tx, n: NodeInsert): Promise<void> {
@@ -299,6 +311,10 @@ export async function updateNode(
     isMandatory?: boolean;
     isTransversal?: boolean;
     categoryCode?: string | null;
+    gradingMode?: "COMPOSED" | "DIRECT";
+    resitAllowed?: boolean;
+    countsInAverage?: boolean;
+    sectionKey?: string | null;
     hoursTotal?: string | null;
     hoursLecture?: string | null;
     hoursTutorial?: string | null;
@@ -324,7 +340,10 @@ export async function updateNode(
         hours_lecture = CASE WHEN $23::boolean THEN $24::numeric ELSE hours_lecture END,
         hours_tutorial = CASE WHEN $25::boolean THEN $26::numeric ELSE hours_tutorial END,
         hours_practical = CASE WHEN $27::boolean THEN $28::numeric ELSE hours_practical END,
-        attributes = COALESCE($29::jsonb, attributes), status = COALESCE($30::text, status), updated_at = now()
+        attributes = COALESCE($29::jsonb, attributes), status = COALESCE($30::text, status),
+        grading_mode = COALESCE($31::text, grading_mode), resit_allowed = COALESCE($32::boolean, resit_allowed),
+        counts_in_average = COALESCE($33::boolean, counts_in_average),
+        section_key = CASE WHEN $34::boolean THEN $35::text ELSE section_key END, updated_at = now()
       WHERE id = $1`,
     [
       id,
@@ -346,6 +365,10 @@ export async function updateNode(
       has("hoursPractical"), v.hoursPractical ?? null,
       v.attributes ? JSON.stringify(v.attributes) : null,
       v.status ?? null,
+      v.gradingMode ?? null,
+      v.resitAllowed ?? null,
+      v.countsInAverage ?? null,
+      has("sectionKey"), v.sectionKey ?? null,
     ],
   );
 }

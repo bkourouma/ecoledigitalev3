@@ -10,6 +10,19 @@ import { purgeReceiptsOlderThan } from "../infrastructure/grades-repository";
 import { inTx, type AssessDeps } from "./deps";
 import { instantiateAssessPack } from "./types";
 
+/**
+ * Pack dont le modèle d'évaluation est instancié, lu dans `tenancy.tenant.provisioned` (`packs[]` du producteur) :
+ * `HIGHER` s'il fait partie des packs, sinon le premier ; `null` si aucun (le modèle par défaut s'applique).
+ */
+export function packOfTenantProvisioned(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const packs = (payload as { packs?: unknown }).packs;
+  if (!Array.isArray(packs)) return null;
+  const names = packs.filter((x): x is string => typeof x === "string");
+  if (names.includes("HIGHER")) return "HIGHER";
+  return names[0] ?? null;
+}
+
 export async function onTenantProvisioned(deps: AssessDeps, ctx: RequestContext, input: { pack?: string | null | undefined } = {}): Promise<Result<{ created: number }, AppError>> {
   const seeded = await instantiateAssessPack(deps, ctx, input);
   if (!seeded.ok) return seeded;

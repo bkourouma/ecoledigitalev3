@@ -19,6 +19,7 @@ import * as c from "@ecoledigitale/contracts/src/v2/people";
 import type { ModuleRuntime } from "../../../platform/runtime";
 import { getRequestCtx } from "../../rbac";
 import { createPeopleDeps, type PeopleDeps } from "../application/deps";
+import { createPeoplePortRegistry, type PeoplePortRegistry, type PeoplePortSet } from "../application/port-registry";
 import { PeopleErrors } from "../domain/errors";
 import { resolveStudentAudience, resolveStudentListScope, type PermissionProbe } from "../application/access";
 import { getPersonQualities, linkPersonToIdentity, provisionPortalAccount, type PersonQuality } from "../application/accounts";
@@ -580,6 +581,24 @@ function maybeFastifyValidation(error: unknown): unknown {
   return error;
 }
 
+declare module "fastify" {
+  interface FastifyInstance {
+    /** Registre des ports de people (posé par `setup`, renseigné par `registerPeoplePorts`). */
+    peoplePorts: PeoplePortRegistry;
+  }
+}
+
+/** Décore la RACINE avec le registre de ports (visible des adaptateurs de plateforme, quel que soit l'ordre de chargement). */
+export function setup(app: FastifyInstance, _runtime: ModuleRuntime): void {
+  if (!app.hasDecorator("peoplePorts")) app.decorate("peoplePorts", createPeoplePortRegistry());
+}
+
+/** À appeler par la plateforme (adaptateurs) : `academic`, `storage`, `enrollments`, `country`, `accounts`. */
+export function registerPeoplePorts(app: FastifyInstance, ports: Partial<PeoplePortSet>): void {
+  if (!app.hasDecorator("peoplePorts")) app.decorate("peoplePorts", createPeoplePortRegistry());
+  app.peoplePorts.register(ports);
+}
+
 /**
  * Contrat d'assemblage uniforme (`platform/runtime.ts`) : `(app, runtime)`, routes sans préfixe (le registre applique
  * `/api/v1/people`). L'audit passe par `runtime.auditPort` ; la création de comptes par `app.iam` (module iam, posé à la
@@ -588,8 +607,10 @@ function maybeFastifyValidation(error: unknown): unknown {
  * leurs cas d'usage répondent par un refus explicite (voir README).
  */
 export default async function peopleModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
+  if (!app.hasDecorator("peoplePorts")) app.decorate("peoplePorts", createPeoplePortRegistry());
   const iam = (app as unknown as { iam?: Parameters<typeof createIamAccountProvisioner>[0]["iam"] }).iam;
   const deps = createPeopleDeps({
+    portsProvider: () => app.peoplePorts.current,
     db: runtime.tenantDb,
     clock: runtime.clock,
     logger: runtime.logger,

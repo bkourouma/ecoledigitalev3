@@ -75,6 +75,44 @@ describe("CurriculumScreen", () => {
     expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ coefficient: "2.5" });
   });
 
+  it("faits de calcul : affichés dans le détail ; l'édition n'envoie que les écarts (mode, section normalisée, rattrapage)", async () => {
+    const direct = node({ id: uuid(802), parentId: uuid(801), nodeTypeCode: "ECUE", code: "ALGO", label: "Algorithmique", coefficient: "2", credits: "3", gradingMode: "DIRECT", sectionKey: "SCIENCES", resitAllowed: false, countsInAverage: true });
+    const tree = { version: VERSION, roots: [node({ id: uuid(801), code: "UE1", label: "Fondamentaux", children: [direct] })] };
+    const api = setTestApi(routes({ [`GET /api/v1/academic/curriculum-versions/${uuid(700)}`]: tree, [`PATCH /api/v1/academic/curriculum-nodes/${uuid(802)}`]: () => json({ ...direct, gradingMode: "COMPOSED", sectionKey: null, resitAllowed: true }) }));
+    renderWithProviders(<CurriculumScreen />);
+    const treeEl = await openTree();
+    fireEvent.click(within(treeEl).getByRole("treeitem", { name: /Algorithmique/ }));
+    const panel = await screen.findByRole("article");
+    const fact = (label: string) => within(panel).getByText(label).closest("div")!.textContent;
+    expect(fact("Mode de saisie des notes")).toContain("Directe");
+    expect(fact("Section du bulletin")).toContain("SCIENCES");
+    expect(fact("Rattrapage autorisé")).toContain("Non");
+    expect(fact("Compte dans la moyenne")).toContain("Oui");
+
+    fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
+    const form = await screen.findByRole("form", { name: "Modification du nœud" });
+    fireEvent.change(within(form).getByLabelText("Mode de saisie des notes"), { target: { value: "COMPOSED" } });
+    fireEvent.change(within(form).getByLabelText(/Section du bulletin/), { target: { value: "" } });
+    fireEvent.click(within(form).getByLabelText("Rattrapage autorisé"));
+    fireEvent.click(within(form).getByRole("button", { name: "Enregistrer" }));
+    await screen.findByText("Le nœud a été mis à jour.");
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ gradingMode: "COMPOSED", sectionKey: null, resitAllowed: true });
+  });
+
+  it("une section invalide (hors format du contrat) est refusée localement", async () => {
+    const api = setTestApi(routes());
+    renderWithProviders(<CurriculumScreen />);
+    const tree = await openTree();
+    fireEvent.click(within(tree).getByRole("treeitem", { name: /Algorithmique/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Modifier" }));
+    const form = await screen.findByRole("form", { name: "Modification du nœud" });
+    // L'interface met en majuscules ; un chiffre en tête reste invalide pour le contrat (A-Z puis A-Z0-9_).
+    fireEvent.change(within(form).getByLabelText(/Section du bulletin/), { target: { value: "1 section" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(within(form).getAllByRole("alert").length).toBeGreaterThan(0));
+    expect(api.calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
+  });
+
   it("une valeur décimale invalide est refusée localement par le contrat", async () => {
     const api = setTestApi(routes());
     renderWithProviders(<CurriculumScreen />);
@@ -125,6 +163,44 @@ describe("CurriculumScreen", () => {
     fireEvent.click(within(reasonDialog).getByRole("button", { name: "Amender" }));
     await screen.findByText("L'amendement a été enregistré.");
     expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ reason: "Décision du conseil pédagogique", operations: [{ op: "UPDATE_NODE", nodeId: uuid(802), patch: { coefficient: "3" } }] });
+  });
+
+  it("ajout d'un enfant : les faits de calcul non défaut (mode direct, hors moyenne, rattrapage refusé, section) sont envoyés", async () => {
+    const api = setTestApi(routes({ [`POST /api/v1/academic/curriculum-versions/${uuid(700)}/nodes`]: () => json(node({ id: uuid(851), nodeTypeCode: "ECUE", code: "CONDUITE", label: "Conduite" }), { status: 201 }) }));
+    renderWithProviders(<CurriculumScreen />);
+    const tree = await openTree();
+    fireEvent.click(within(tree).getByRole("treeitem", { name: /Fondamentaux/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ajouter un enfant" }));
+    const dialog = await screen.findByRole("dialog");
+    const select = await within(dialog).findByLabelText(/Type de nœud/);
+    await waitFor(() => expect(within(select).getAllByRole("option")).toHaveLength(2));
+    fireEvent.change(select, { target: { value: "ECUE" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Code/), { target: { value: "conduite" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Libellé/), { target: { value: "Conduite" } });
+    fireEvent.change(within(dialog).getByLabelText("Mode de saisie des notes"), { target: { value: "DIRECT" } });
+    fireEvent.change(within(dialog).getByLabelText(/Section du bulletin/), { target: { value: "vie_scolaire" } });
+    fireEvent.click(within(dialog).getByLabelText("Rattrapage autorisé"));
+    fireEvent.click(within(dialog).getByLabelText("Compte dans la moyenne"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Ajouter" }));
+    await screen.findByText("Le nœud Conduite a été ajouté.");
+    expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ parentId: uuid(801), nodeTypeCode: "ECUE", code: "CONDUITE", label: "Conduite", isMandatory: true, gradingMode: "DIRECT", resitAllowed: false, countsInAverage: false, sectionKey: "VIE_SCOLAIRE" });
+  });
+
+  it("amendement : le drapeau « compte dans la moyenne » fait partie des champs amendables", async () => {
+    const published = { version: version({ id: uuid(700), status: "PUBLISHED" }), roots: [ue] };
+    const api = setTestApi(routes({ [`GET /api/v1/academic/curriculum-versions/${uuid(700)}`]: published, [`POST /api/v1/academic/curriculum-versions/${uuid(700)}/amend`]: {} }));
+    renderWithProviders(<CurriculumScreen />);
+    const tree = await openTree();
+    fireEvent.click(within(tree).getByRole("treeitem", { name: /Algorithmique/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Amender" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByLabelText("Compte dans la moyenne"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Continuer" }));
+    const reasonDialog = await screen.findByRole("dialog");
+    fireEvent.change(within(reasonDialog).getByLabelText(/Motif/), { target: { value: "Matière facultative cette année" } });
+    fireEvent.click(within(reasonDialog).getByRole("button", { name: "Amender" }));
+    await screen.findByText("L'amendement a été enregistré.");
+    expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ reason: "Matière facultative cette année", operations: [{ op: "UPDATE_NODE", nodeId: uuid(802), patch: { countsInAverage: false } }] });
   });
 
   it("clonage : aperçu du contenu copié, avertissement si l'année cible a déjà une version", async () => {

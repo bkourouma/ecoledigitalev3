@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
+  ACADEMIC_GRADING_MODES,
   academicAmendBodySchema,
   academicCreateNodeBodySchema,
   academicUpdateNodeBodySchema,
@@ -32,6 +33,7 @@ import { apiErrorToFieldErrors, validateWith, type FieldErrors } from "@/platfor
 import { computeReorder, flattenForest } from "./tree-utils";
 
 type TreeNode = AcademicCurriculumTreeNodeDto;
+type AcademicGradingMode = (typeof ACADEMIC_GRADING_MODES)[number];
 
 function findParent(roots: ReadonlyArray<TreeNode>, id: string): TreeNode | null {
   for (const n of roots) {
@@ -58,6 +60,7 @@ const decimalInput = (value: string) => value.trim().replace(",", ".");
 
 export function CurriculumNodePanel({ node, tree, onFlash, onSelect }: { node: TreeNode; tree: AcademicCurriculumTreeDto; onFlash: (message: string) => void; onSelect: (id: string | null) => void }) {
   const t = useTranslations("v2Academic.curriculum");
+  const tCommon = useTranslations("v2Academic.common");
   const nodeTypes = useReference("node-types");
   const type = (nodeTypes.data ?? []).find((x) => x.code === node.nodeTypeCode);
   const { version } = tree;
@@ -108,6 +111,10 @@ export function CurriculumNodePanel({ node, tree, onFlash, onSelect }: { node: T
         <Row label={t("fields.hoursLecture")} value={showDecimal(node.hoursLecture)} />
         <Row label={t("fields.hoursTutorial")} value={showDecimal(node.hoursTutorial)} />
         <Row label={t("fields.hoursPractical")} value={showDecimal(node.hoursPractical)} />
+        <Row label={t("fields.gradingMode")} value={t(`gradingModes.${node.gradingMode}`)} />
+        <Row label={t("fields.sectionKey")} value={node.sectionKey ?? "—"} />
+        <Row label={t("fields.resitAllowed")} value={node.resitAllowed ? tCommon("yes") : tCommon("no")} />
+        <Row label={t("fields.countsInAverage")} value={node.countsInAverage ? tCommon("yes") : tCommon("no")} />
         <div className="sm:col-span-2">
           <dt className="text-muted-foreground">{t("prerequisites")}</dt>
           <dd>
@@ -207,8 +214,12 @@ interface NodeForm {
   hoursTutorial: string;
   hoursPractical: string;
   categoryCode: string;
+  gradingMode: AcademicGradingMode;
+  sectionKey: string;
   isMandatory: boolean;
   isTransversal: boolean;
+  resitAllowed: boolean;
+  countsInAverage: boolean;
 }
 
 function formOf(node: TreeNode): NodeForm {
@@ -222,8 +233,12 @@ function formOf(node: TreeNode): NodeForm {
     hoursTutorial: node.hoursTutorial ?? "",
     hoursPractical: node.hoursPractical ?? "",
     categoryCode: node.categoryCode ?? "",
+    gradingMode: node.gradingMode,
+    sectionKey: node.sectionKey ?? "",
     isMandatory: node.isMandatory,
     isTransversal: node.isTransversal,
+    resitAllowed: node.resitAllowed,
+    countsInAverage: node.countsInAverage,
   };
 }
 
@@ -239,7 +254,7 @@ function diffPatch(form: NodeForm, node: TreeNode, only?: ReadonlyArray<keyof No
     const v = form[k];
     if (typeof v === "boolean") patch[k] = v;
     else if ((DECIMAL_KEYS as readonly string[]).includes(k)) patch[k] = v.trim() === "" ? null : decimalInput(v);
-    else if (k === "categoryCode") patch[k] = v.trim() === "" ? null : v.trim();
+    else if (k === "categoryCode" || k === "sectionKey") patch[k] = v.trim() === "" ? null : v.trim();
     else patch[k] = v.trim();
   });
   return patch;
@@ -284,9 +299,19 @@ function NodeFields({ form, set, errors, type, only }: { form: NodeForm; set: <K
           </FormField>
         ))}
       </div>
-      <div className="flex flex-col sm:flex-row sm:gap-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label={t("fields.gradingMode")} error={errors.gradingMode}>
+          {(c) => <NativeSelect {...c} value={form.gradingMode} onChange={(v) => set("gradingMode", v as AcademicGradingMode)} options={ACADEMIC_GRADING_MODES.map((m) => ({ value: m, label: t(`gradingModes.${m}`) }))} />}
+        </FormField>
+        <FormField label={t("fields.sectionKey")} hint={t("fields.sectionKeyHint")} error={errors.sectionKey}>
+          {(c) => <TextControl {...c} value={form.sectionKey} onChange={(v) => set("sectionKey", v.toUpperCase())} maxLength={40} />}
+        </FormField>
+      </div>
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:gap-6">
         <CheckControl checked={form.isMandatory} onChange={(v) => set("isMandatory", v)} label={t("fields.isMandatory")} />
         <CheckControl checked={form.isTransversal} onChange={(v) => set("isTransversal", v)} label={t("fields.isTransversal")} />
+        <CheckControl checked={form.resitAllowed} onChange={(v) => set("resitAllowed", v)} label={t("fields.resitAllowed")} />
+        <CheckControl checked={form.countsInAverage} onChange={(v) => set("countsInAverage", v)} label={t("fields.countsInAverage")} />
       </div>
     </div>
   );
@@ -336,7 +361,7 @@ function NodeEditForm({ node, type, onDone }: { node: TreeNode; type?: AcademicN
 // Amendement d'une version publiée (motif obligatoire, opération UPDATE_NODE)
 // ---------------------------------------------------------------------------
 
-const AMENDABLE: ReadonlyArray<keyof NodeForm> = ["label", "coefficient", "credits", "hoursTotal", "hoursLecture", "hoursTutorial", "hoursPractical", "categoryCode", "isMandatory"];
+const AMENDABLE: ReadonlyArray<keyof NodeForm> = ["label", "coefficient", "credits", "hoursTotal", "hoursLecture", "hoursTutorial", "hoursPractical", "categoryCode", "isMandatory", "gradingMode", "sectionKey", "resitAllowed", "countsInAverage"];
 
 function AmendDialog({ node, type, versionId, onClose, onDone }: { node: TreeNode; type?: AcademicNodeTypeDto; versionId: string; onClose: () => void; onDone: () => void }) {
   const t = useTranslations("v2Academic.curriculum");
@@ -417,7 +442,7 @@ function AddNodeDialog({ version, parent, onClose, onDone }: { version: Academic
   const periodTypes = useReference("period-types");
   const add = useAddCurriculumNode();
   const [typeCode, setTypeCode] = useState("");
-  const [form, setForm] = useState({ code: "", label: "", coefficient: "", credits: "", gradeLevelId: "", periodTypeCode: "", periodOrdinal: "1", isMandatory: true });
+  const [form, setForm] = useState({ code: "", label: "", coefficient: "", credits: "", gradeLevelId: "", periodTypeCode: "", periodOrdinal: "1", isMandatory: true, gradingMode: "COMPOSED" as AcademicGradingMode, sectionKey: "", resitAllowed: true, countsInAverage: true });
   const [subject, setSubject] = useState<SelectOption | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
   const parentCode = parent ? parent.nodeTypeCode : "ROOT";
@@ -433,6 +458,11 @@ function AddNodeDialog({ version, parent, onClose, onDone }: { version: Academic
       label: form.label.trim(),
       isMandatory: form.isMandatory,
     };
+    // Faits de calcul : seuls les écarts avec les valeurs par défaut de l'API sont envoyés.
+    if (form.gradingMode !== "COMPOSED") body.gradingMode = form.gradingMode;
+    if (!form.resitAllowed) body.resitAllowed = false;
+    if (!form.countsInAverage) body.countsInAverage = false;
+    if (form.sectionKey.trim()) body.sectionKey = form.sectionKey.trim();
     if (type.allowsCoefficient && form.coefficient.trim()) body.coefficient = decimalInput(form.coefficient);
     if (type.allowsCredits && form.credits.trim()) body.credits = decimalInput(form.credits);
     if (type.requiresSubject && subject) body.subjectId = subject.value;
@@ -508,7 +538,19 @@ function AddNodeDialog({ version, parent, onClose, onDone }: { version: Academic
           </FormField>
         ) : null}
       </div>
-      <CheckControl checked={form.isMandatory} onChange={(v) => setForm((f) => ({ ...f, isMandatory: v }))} label={t("fields.isMandatory")} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label={t("fields.gradingMode")} error={errors.gradingMode}>
+          {(c) => <NativeSelect {...c} value={form.gradingMode} onChange={(v) => setForm((f) => ({ ...f, gradingMode: v as AcademicGradingMode }))} options={ACADEMIC_GRADING_MODES.map((m) => ({ value: m, label: t(`gradingModes.${m}`) }))} />}
+        </FormField>
+        <FormField label={t("fields.sectionKey")} hint={t("fields.sectionKeyHint")} error={errors.sectionKey}>
+          {(c) => <TextControl {...c} value={form.sectionKey} onChange={(v) => setForm((f) => ({ ...f, sectionKey: v.toUpperCase() }))} maxLength={40} />}
+        </FormField>
+      </div>
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:gap-6">
+        <CheckControl checked={form.isMandatory} onChange={(v) => setForm((f) => ({ ...f, isMandatory: v }))} label={t("fields.isMandatory")} />
+        <CheckControl checked={form.resitAllowed} onChange={(v) => setForm((f) => ({ ...f, resitAllowed: v }))} label={t("fields.resitAllowed")} />
+        <CheckControl checked={form.countsInAverage} onChange={(v) => setForm((f) => ({ ...f, countsInAverage: v }))} label={t("fields.countsInAverage")} />
+      </div>
     </FormDialog>
   );
 }

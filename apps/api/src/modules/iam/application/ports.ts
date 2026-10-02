@@ -81,6 +81,8 @@ export interface BackgroundTasks {
 export interface AuthenticatedPrincipal {
   ctx: RequestContext;
   identityId: string;
+  /** E-mail normalisé de l'identité (lu avec la session) : sert à relier l'identité à un compte legacy pendant la coexistence. */
+  email: string;
   membershipId: string;
   sessionId: string;
   tenantSlug: string;

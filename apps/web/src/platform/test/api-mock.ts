@@ -32,8 +32,8 @@ const delegatingHooks: QueryHooks = {
     return active().hooks.client;
   },
   queryKey: (...parts) => active().hooks.queryKey(...parts),
-  useApiQuery: (...args) => active().hooks.useApiQuery(...args),
   useApiInfiniteQuery: (...args) => active().hooks.useApiInfiniteQuery(...args),
+  useApiQuery: (...args) => active().hooks.useApiQuery(...args),
   useApiMutation: (...args) => active().hooks.useApiMutation(...args),
 };
 

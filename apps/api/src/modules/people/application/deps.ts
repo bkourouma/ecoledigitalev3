@@ -81,6 +81,14 @@ export interface PeopleDepsInput {
   /** Défaut : la projection des inscriptions du module (voir `infrastructure/projection-enrollment-directory`). */
   enrollments?: EnrollmentDirectory;
   country?: CountryProfileProvider;
+  /** Ports branchés après la construction (adaptateurs de plateforme) : lus à chaque accès, prioritaires sur les ports injectés. */
+  portsProvider?: () => Partial<{
+    accounts: AccountProvisioner;
+    storage: StoragePort;
+    academic: AcademicQuery;
+    enrollments: EnrollmentDirectory;
+    country: CountryProfileProvider;
+  }>;
 }
 
 /**
@@ -88,6 +96,8 @@ export interface PeopleDepsInput {
  * en a besoin répond par une erreur explicite) ; l'annuaire d'inscriptions est la projection du module.
  */
 export function createPeopleDeps(input: PeopleDepsInput): PeopleDeps {
+  const projection = input.enrollments ?? createProjectionEnrollmentDirectory(input.db);
+  const provided = (): NonNullable<ReturnType<NonNullable<PeopleDepsInput["portsProvider"]>>> => input.portsProvider?.() ?? {};
   return {
     db: input.db,
     clock: input.clock ?? systemClock,
@@ -95,11 +105,21 @@ export function createPeopleDeps(input: PeopleDepsInput): PeopleDeps {
     logger: input.logger ?? noopLogger,
     newId: input.newId ?? newId,
     config: { ...DEFAULT_PEOPLE_CONFIG, ...input.config },
-    accounts: input.accounts ?? null,
-    storage: input.storage ?? null,
-    academic: input.academic ?? null,
-    enrollments: input.enrollments ?? createProjectionEnrollmentDirectory(input.db),
-    country: input.country ?? null,
+    get accounts() {
+      return provided().accounts ?? input.accounts ?? null;
+    },
+    get storage() {
+      return provided().storage ?? input.storage ?? null;
+    },
+    get academic() {
+      return provided().academic ?? input.academic ?? null;
+    },
+    get enrollments() {
+      return provided().enrollments ?? projection;
+    },
+    get country() {
+      return provided().country ?? input.country ?? null;
+    },
   };
 }
 

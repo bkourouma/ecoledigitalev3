@@ -4,6 +4,7 @@ import { getToken, isTokenExpired, isTokenExpiringSoon, removeToken, saveToken, 
 import { getRSOToken, isRSOTokenExpired, isRSOTokenExpiringSoon, refreshRSOToken } from './rso/auth';
 import { getActiveAcademicYearId } from './academic-year-storage';
 import { resolveBrowserTenant } from '@/platform/tenant/browser';
+import { isIamAccessToken, refreshIamAccessToken } from './iam-session';
 
 // Global fetch interceptor to automatically add tenant header, JWT auth, and redirect API calls
 if (typeof window !== 'undefined') {
@@ -75,9 +76,23 @@ if (typeof window !== 'undefined') {
    */
   async function getValidToken(): Promise<string | null> {
     const token = getToken();
-    
+
     if (!token) {
       return null;
+    }
+
+    // Jeton d'accès IAM v2 (15 min) : renouvelé PAR LE SERVEUR (refresh à rotation, jamais exposé au navigateur),
+    // sous verrou inter-onglets — voir lib/iam-session.ts. Le refresh legacy ci-dessous ne le connaît pas.
+    if (isIamAccessToken(token)) {
+      if (isTokenExpired(token) || isTokenExpiringSoon(token, 2)) {
+        const fresh = await refreshIamAccessToken();
+        if (!fresh) {
+          removeToken();
+          return null;
+        }
+        return fresh;
+      }
+      return token;
     }
     
     // Check if token is already expired
@@ -433,6 +448,16 @@ if (typeof window !== 'undefined') {
         '/auth/providers',
         '/auth/csrf',
         '/auth/register-request',  // Public self-registration (no token yet)
+        // Module iam (NEXT_PUBLIC_AUTH_V2=1) : routes qui s'appellent sans jeton d'accès (mot de passe oublié, jeton de
+        // réinitialisation / d'invitation, jeton d'étape MFA) ou avec leur propre jeton (enrôlement).
+        '/iam/login',
+        '/iam/refresh',
+        '/iam/logout',
+        '/iam/password/forgot',
+        '/iam/password/reset',
+        '/iam/mfa/challenge',
+        '/iam/mfa/enroll',
+        '/iam/mfa/verify',
         '/super-admin/auth/login',
         '/rso/auth/login',      // RSO login (public)
         '/rso/auth/forgot-password',  // RSO password reset (public)
@@ -596,6 +621,31 @@ if (typeof window !== 'undefined') {
 
       // Make the request
       let response = await originalFetch(finalUrl, newInit);
+
+      // Jeton IAM refusé (expiré entre-temps, horloge, session renouvelée dans un autre onglet) : UN renouvellement
+      // forcé côté serveur puis UNE nouvelle tentative. Si la session IAM est révoquée, le renouvellement échoue et la
+      // 401 est traitée plus bas (jeton effacé) ; l'interface est prévenue pour rediriger vers la connexion.
+      if (
+        response.status === 401 &&
+        !isAuthExcluded &&
+        isIamAccessToken(headers.get('Authorization')?.replace(/^Bearer /, ''))
+      ) {
+        const body = newInit.body as unknown;
+        const replayable =
+          body === undefined || body === null || typeof body === 'string' ||
+          body instanceof FormData || body instanceof URLSearchParams || body instanceof Blob;
+        if (replayable) {
+          const rejected = headers.get('Authorization')?.replace(/^Bearer /, '');
+          const fresh = await refreshIamAccessToken(rejected ? { rejectedToken: rejected } : {});
+          if (fresh) {
+            const retryHeaders = new Headers(headers);
+            retryHeaders.set('Authorization', `Bearer ${fresh}`);
+            response = await originalFetch(finalUrl, { ...newInit, headers: retryHeaders });
+          } else {
+            window.dispatchEvent(new CustomEvent('ed:iam-session-ended'));
+          }
+        }
+      }
 
       if (response.status === 404 && shouldRetrySemesterPdfDirect(url)) {
         console.warn(`[Fetch Interceptor] Next.js proxy 404 for PDF route, retrying direct API call: ${url}`);

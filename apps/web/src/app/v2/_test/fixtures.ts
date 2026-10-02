@@ -56,6 +56,8 @@ export function program(over: Partial<Record<string, unknown>> = {}) {
     durationMonths: 36,
     attributes: {},
     status: "ACTIVE",
+    isCycle: false,
+    calculationContract: null,
     gradeLevelIds: [],
     ...over,
   };
@@ -119,6 +121,10 @@ export function node(over: Partial<Record<string, unknown>> = {}) {
     isMandatory: true,
     isTransversal: false,
     categoryCode: null,
+    gradingMode: "COMPOSED",
+    resitAllowed: true,
+    countsInAverage: true,
+    sectionKey: null,
     hoursTotal: null,
     hoursLecture: null,
     hoursTutorial: null,
@@ -138,11 +144,11 @@ export const nodeTypes = [
 ];
 
 export const gradeLevels = [
-  { id: uuid(600), educationLevelId: uuid(400), code: "L1", label: "Licence 1", shortLabel: "L1", ordinal: 1, nextGradeLevelId: null, isFinal: false, active: true },
-  { id: uuid(601), educationLevelId: uuid(400), code: "L2", label: "Licence 2", shortLabel: "L2", ordinal: 2, nextGradeLevelId: null, isFinal: false, active: true },
+  { id: uuid(600), educationLevelId: uuid(400), code: "L1", label: "Licence 1", shortLabel: "L1", ordinal: 1, nextGradeLevelId: null, isFinal: false, terminalExamRequired: false, active: true },
+  { id: uuid(601), educationLevelId: uuid(400), code: "L2", label: "Licence 2", shortLabel: "L2", ordinal: 2, nextGradeLevelId: null, isFinal: false, terminalExamRequired: false, active: true },
 ];
 
-export const educationLevels = [{ id: uuid(400), code: "HIGHER", label: "Enseignement supérieur", ordinal: 5, pack: "HIGHER", active: true }];
+export const educationLevels = [{ id: uuid(400), code: "HIGHER", label: "Enseignement supérieur", ordinal: 5, pack: "HIGHER", calculationContract: "credit-semester@1", active: true }];
 
 export const institution = {
   id: INSTITUTION,

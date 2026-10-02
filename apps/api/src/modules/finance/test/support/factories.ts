@@ -48,5 +48,6 @@ export const line = (over: Partial<InvoiceLine> & { gross?: number }): InvoiceLi
     discount: xof(0),
     scholarship: xof(0),
     total: gross,
+    sourceRef: over.sourceRef ?? null,
   };
 };

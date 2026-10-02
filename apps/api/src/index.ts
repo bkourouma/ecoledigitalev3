@@ -103,6 +103,7 @@ import { notificationsInboxRoutes } from "./routes/notifications-inbox";
 import { rsoActivityRoutes } from "./routes/rso/activities";
 import { bootstrapSuperAdmin } from "./services/super-admin-bootstrap.service";
 import { registerV2Platform } from "./platform/v2-bootstrap";
+import { parseTrustProxy } from "./platform/trust-proxy";
 import {
   ensureReferenceTenant,
   syncTechnicalAccountsForAllTenants,
@@ -120,6 +121,8 @@ const fastify = Fastify({
   // → on dépasse facilement la limite et la route remonte un 404.
   // On élève la limite à 1024 pour tenir compte de toute combinaison réaliste.
   maxParamLength: 1024,
+  // Adresse réelle du client derrière nginx / le serveur web (limiteur de débit et audit d'iam) : TRUST_PROXY.
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
 });
 
 async function start() {

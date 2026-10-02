@@ -12,6 +12,7 @@ import { createMfaPolicy } from "../domain/mfa-policy";
 import { MemoryRateLimiter } from "../infrastructure/rate-limiter.memory";
 import type { IamDeps, RequestMeta } from "./deps";
 import { login, type LoginInput } from "./login";
+import { federatedLogin, type FederatedLoginInput } from "./federated";
 import * as mfa from "./mfa";
 import * as password from "./password";
 import * as members from "./members";
@@ -56,6 +57,8 @@ export interface IamServiceOptions {
 export interface IamService {
   readonly deps: IamDeps;
   login(input: LoginInput): ReturnType<typeof login>;
+  /** Connexion fédérée (identité déjà vérifiée par le serveur web) : voir application/federated.ts. */
+  federatedLogin(input: FederatedLoginInput): ReturnType<typeof federatedLogin>;
   completeMfaChallenge(input: mfa.ChallengeInput): ReturnType<typeof mfa.completeChallenge>;
   refresh(input: sessionsUc.RefreshInput): ReturnType<typeof sessionsUc.refresh>;
   authenticate(token: string, options?: sessionsUc.AuthenticateOptions): ReturnType<typeof sessionsUc.authenticateBearer>;
@@ -63,6 +66,7 @@ export interface IamService {
   logoutByRefreshToken(refreshToken: string, meta: RequestMeta): Promise<void>;
   logoutAll(principal: AuthenticatedPrincipal, meta: RequestMeta): ReturnType<typeof sessionsUc.logoutAll>;
   switchTenant(principal: AuthenticatedPrincipal, input: Parameters<typeof sessionsUc.switchTenant>[2]): ReturnType<typeof sessionsUc.switchTenant>;
+  switchRole(principal: AuthenticatedPrincipal, input: Parameters<typeof sessionsUc.switchRole>[2]): ReturnType<typeof sessionsUc.switchRole>;
   listSessions(principal: AuthenticatedPrincipal): ReturnType<typeof sessionsUc.listMySessions>;
   revokeSession(principal: AuthenticatedPrincipal, sessionId: string, meta: RequestMeta): ReturnType<typeof sessionsUc.revokeMySession>;
   adminRevokeMemberSessions(principal: AuthenticatedPrincipal, membershipId: string, meta: RequestMeta): ReturnType<typeof sessionsUc.adminRevokeMemberSessions>;
@@ -105,6 +109,7 @@ export function createIamService(options: IamServiceOptions): IamService {
   return {
     deps,
     login: (input) => login(deps, input),
+    federatedLogin: (input) => federatedLogin(deps, input),
     completeMfaChallenge: (input) => mfa.completeChallenge(deps, input),
     refresh: (input) => sessionsUc.refresh(deps, input),
     authenticate: (token, opts) => sessionsUc.authenticateBearer(deps, token, opts),
@@ -112,6 +117,7 @@ export function createIamService(options: IamServiceOptions): IamService {
     logoutByRefreshToken: (t, meta) => sessionsUc.logoutByRefreshToken(deps, t, meta),
     logoutAll: (p, meta) => sessionsUc.logoutAll(deps, p, meta),
     switchTenant: (p, input) => sessionsUc.switchTenant(deps, p, input),
+    switchRole: (p, input) => sessionsUc.switchRole(deps, p, input),
     listSessions: (p) => sessionsUc.listMySessions(deps, p),
     revokeSession: (p, id, meta) => sessionsUc.revokeMySession(deps, p, id, meta),
     adminRevokeMemberSessions: (p, id, meta) => sessionsUc.adminRevokeMemberSessions(deps, p, id, meta),

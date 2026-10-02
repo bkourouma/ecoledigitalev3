@@ -15,6 +15,27 @@ export const LEGACY_TO_V2_HREF: Readonly<Record<string, string>> = Object.freeze
   "/admin/roles": "/v2/access/roles",
   "/admin/roles/attributions": "/v2/access/assignments",
   "/admin/audit": "/v2/audit",
+  // Finance (écrans `app/v2/finance`) et paie (`app/v2/payroll`).
+  "/admin/finance/factures": "/v2/finance/invoices",
+  "/admin/finance/paiements": "/v2/finance/payments",
+  "/admin/finance/paiements-en-ligne": "/v2/finance/payments/online",
+  "/admin/finance/caisse": "/v2/finance/cash",
+  "/admin/finance/frais": "/v2/finance/fees",
+  "/admin/finance/rapports": "/v2/finance/reports",
+  "/admin/finance/affectes-etat": "/v2/finance/funding",
+  "/admin/paie": "/v2/payroll",
+  "/admin/paie/configuration": "/v2/payroll/configuration",
+  "/admin/paie/historique": "/v2/payroll/history",
+  "/admin/paie/rapports": "/v2/payroll/reports",
+  "/owner/masse-salariale": "/v2/payroll/owner",
+  "/enseignant/remuneration": "/v2/payroll/my",
+  // Présences et emploi du temps (manifestes `attendance` et `scheduling`).
+  "/admin/attendance": "/v2/attendance/sessions",
+  "/admin/attendance/justificatifs": "/v2/attendance/justifications",
+  "/admin/attendance/personnel": "/v2/attendance/staff",
+  "/admin/emploi-du-temps": "/v2/schedule/timetables",
+  "/admin/emploi-du-temps/salles": "/v2/schedule/rooms",
+  "/admin/emploi-du-temps/remplacements": "/v2/schedule/replacements",
 });
 
 export function mapToV2Href(href: string): string {

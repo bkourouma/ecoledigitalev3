@@ -29,7 +29,7 @@ export type RouteHandler = (request: { method: string; url: URL; body: unknown }
 export function createTestApi(routes: Record<string, RouteHandler | unknown>): {
   client: ApiClient;
   hooks: QueryHooks;
-  calls: Array<{ method: string; path: string; query: Record<string, string>; body: unknown }>;
+  calls: Array<{ method: string; path: string; query: Record<string, string>; body: unknown; headers: Record<string, string> }>;
 } {
   const calls: Array<{ method: string; path: string; query: Record<string, string>; body: unknown; headers: Record<string, string> }> = [];
   const fetchMock = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {

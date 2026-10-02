@@ -62,6 +62,8 @@ export interface EducationLevel {
   label: string;
   ordinal: number;
   pack: AcademicPack | null;
+  /** Contrat de calcul par défaut des programmes du cycle d'enseignement (`credit-semester@1`…) ; `null` = aucun. */
+  calculationContract: string | null;
   active: boolean;
 }
 
@@ -74,6 +76,8 @@ export interface GradeLevel {
   ordinal: number;
   nextGradeLevelId: Uuid | null;
   isFinal: boolean;
+  /** Le niveau se conclut par un examen terminal (donnée du niveau, jamais un nom de classe). */
+  terminalExamRequired: boolean;
   active: boolean;
 }
 
@@ -156,6 +160,10 @@ export interface Program {
   durationMonths: number | null;
   attributes: Record<string, unknown>;
   status: "ACTIVE" | "ARCHIVED";
+  /** Programme = cycle conduisant à un diplôme (couvre plusieurs niveaux) : « nœud de cycle » de higher. */
+  isCycle: boolean;
+  /** Contrat de calcul des résultats (priment sur celui du cycle d'enseignement) ; `null` = celui du cycle d'enseignement. */
+  calculationContract: string | null;
   gradeLevelIds: Uuid[];
 }
 
@@ -202,6 +210,14 @@ export interface CurriculumNode {
   isMandatory: boolean;
   isTransversal: boolean;
   categoryCode: string | null;
+  /** `COMPOSED` (moyenne d'évaluations) ou `DIRECT` (note saisie directement). */
+  gradingMode: "COMPOSED" | "DIRECT";
+  /** Le nœud accepte une session 2 (rattrapage). */
+  resitAllowed: boolean;
+  /** Le nœud compte dans la moyenne. */
+  countsInAverage: boolean;
+  /** Section du bulletin / type de bilan. */
+  sectionKey: string | null;
   hoursTotal: string | null;
   hoursLecture: string | null;
   hoursTutorial: string | null;

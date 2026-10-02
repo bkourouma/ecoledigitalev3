@@ -916,7 +916,9 @@
     },
     "common": {
       "choose": "Choisir…",
-      "institution": "Établissement"
+      "institution": "Établissement",
+      "yes": "Oui",
+      "no": "Non"
     },
     "status": {
       "year": {
@@ -1092,6 +1094,10 @@
       "saveGradeLevels": "Enregistrer les niveaux",
       "gradesSaved": "Les niveaux couverts ont été enregistrés.",
       "checkFields": "Vérifiez les champs signalés.",
+      "cycleBadge": "Cycle diplômant",
+      "calculationContractInherited": "Hérité du niveau d'enseignement : {contract}",
+      "calculationContractNone": "Aucun (le niveau d'enseignement n'en définit pas par défaut)",
+      "terminalExam": "Examen terminal",
       "fields": {
         "code": "Code",
         "codeHint": "Majuscules, chiffres, _ . - (40 caractères au plus).",
@@ -1102,11 +1108,19 @@
         "kindCode": "Nature",
         "domainCode": "Domaine",
         "durationMonths": "Durée (mois)",
-        "description": "Description"
+        "description": "Description",
+        "isCycle": "Cycle diplômant",
+        "isCycleHint": "Ce programme conduit à un diplôme (cycle de l'enseignement supérieur).",
+        "calculationContract": "Contrat de calcul des résultats",
+        "calculationContractHint": "Format code@version, par exemple credit-semester@1. Laissez vide pour hériter de celui du niveau d'enseignement."
       }
     },
     "curriculum": {
       "title": "Éditeur de curriculum",
+      "gradingModes": {
+        "COMPOSED": "Composée (moyenne d'évaluations)",
+        "DIRECT": "Directe (note saisie telle quelle)"
+      },
       "description": "Arbre des matières, unités d'enseignement et éléments constitutifs d'un programme pour une année, avec coefficients et crédits.",
       "program": "Programme",
       "year": "Année",
@@ -1226,7 +1240,12 @@
         "hoursTutorial": "Travaux dirigés",
         "hoursPractical": "Travaux pratiques",
         "isMandatory": "Obligatoire",
-        "isTransversal": "Transversal"
+        "isTransversal": "Transversal",
+        "gradingMode": "Mode de saisie des notes",
+        "resitAllowed": "Rattrapage autorisé",
+        "countsInAverage": "Compte dans la moyenne",
+        "sectionKey": "Section du bulletin",
+        "sectionKeyHint": "Code en majuscules (A-Z, 0-9, _) regroupant des matières dans une même section. Vide : aucune section."
       }
     },
     "classrooms": {
@@ -2464,6 +2483,3117 @@
       "noClasses": "Vous n'êtes affecté à aucune classe pour le moment.",
       "allSubjects": "Toutes les matières",
       "subjects": "{count, plural, one {# affectation} other {# affectations}}"
+    }
+  },
+  "v2Finance": {
+    "nav": {
+      "label": "Finance",
+      "overview": "Vue d'ensemble",
+      "invoices": "Factures",
+      "payments": "Encaissements",
+      "receipts": "Reçus",
+      "refunds": "Remboursements",
+      "cash": "Caisse",
+      "fees": "Frais et barèmes",
+      "funding": "Remises et bourses",
+      "reports": "Rapports",
+      "me": "Mes finances"
+    },
+    "common": {
+      "amountHint": "En francs, sans décimales (par exemple 150000).",
+      "allYears": "Toutes les années",
+      "choose": "Choisir…"
+    },
+    "errors": {
+      "amount": {
+        "empty": "Saisissez un montant.",
+        "decimal": "Le montant est un entier en francs : pas de virgule ni de point.",
+        "negative": "Le montant ne peut pas être négatif.",
+        "invalid": "Montant invalide : chiffres uniquement, strictement positif.",
+        "tooLarge": "Montant trop élevé."
+      },
+      "required": "Ce champ est obligatoire.",
+      "invalid": "Valeur invalide."
+    },
+    "category": {
+      "REGISTRATION": "Inscription",
+      "TUITION": "Scolarité",
+      "CANTEEN": "Cantine",
+      "TRANSPORT": "Transport",
+      "UNIFORM": "Uniforme",
+      "DOCUMENTS": "Documents",
+      "EXAMS": "Examens",
+      "ACTIVITIES": "Activités",
+      "DEFENSE": "Soutenance",
+      "LIBRARY": "Bibliothèque",
+      "OTHER": "Autres"
+    },
+    "catalog": {
+      "nav": {
+        "label": "Catalogue des frais",
+        "fees": "Frais",
+        "schedules": "Barèmes",
+        "plans": "Plans d'échéancier",
+        "discounts": "Remises"
+      },
+      "scope": {
+        "legend": "Périmètre du barème",
+        "hint": "Laissez vide pour appliquer le barème à tous. Le barème le plus précis l'emporte ; deux barèmes aussi précis l'un que l'autre sont refusés par l'API.",
+        "institutionLabel": "Établissement",
+        "campusLabel": "Campus",
+        "levelLabel": "Niveau (clé)",
+        "trackLabel": "Filière (clé)",
+        "learnerTypeLabel": "Type d'apprenant (clé)",
+        "all": "Tous"
+      },
+      "fees": {
+        "title": "Frais",
+        "description": "Ce qui peut être facturé : inscription, scolarité, cantine, transport… Les montants viennent des barèmes.",
+        "new": "Nouveau frais",
+        "caption": "Catalogue des frais",
+        "columns": {
+          "code": "Code",
+          "name": "Libellé",
+          "category": "Catégorie",
+          "status": "Statut",
+          "actions": "Actions"
+        },
+        "active": "Actif",
+        "inactive": "Inactif",
+        "activate": "Activer",
+        "deactivate": "Désactiver",
+        "activated": "Le frais « {name} » est actif.",
+        "deactivated": "Le frais « {name} » est désactivé.",
+        "created": "Le frais « {name} » a été créé.",
+        "filters": {
+          "category": "Catégorie",
+          "allCategories": "Toutes les catégories",
+          "activeOnly": "Frais actifs seulement"
+        },
+        "empty": "Aucun frais",
+        "emptyHint": "Créez les frais de l'établissement, puis leurs barèmes.",
+        "form": {
+          "title": "Nouveau frais",
+          "submit": "Créer",
+          "code": "Code",
+          "codeHint": "Court et unique (par exemple SCOL-6E).",
+          "name": "Libellé",
+          "category": "Catégorie",
+          "descriptionLabel": "Description"
+        }
+      },
+      "schedules": {
+        "title": "Barèmes",
+        "description": "Le montant d'un frais selon l'année, l'établissement, le campus, le niveau, la filière et le type d'apprenant, avec dates d'effet.",
+        "new": "Nouveau barème",
+        "caption": "Barèmes de frais",
+        "columns": {
+          "fee": "Frais",
+          "year": "Année",
+          "scope": "Périmètre",
+          "amount": "Montant",
+          "validity": "Validité",
+          "status": "Statut"
+        },
+        "active": "En vigueur",
+        "inactive": "Hors vigueur",
+        "scope": {
+          "all": "Tous les apprenants",
+          "institution": "Établissement",
+          "campus": "Campus",
+          "level": "Niveau {value}",
+          "track": "Filière {value}",
+          "learnerType": "Type {value}"
+        },
+        "validRange": "Du {from} au {to}",
+        "validFrom": "Depuis le {from}",
+        "filters": {
+          "fee": "Frais",
+          "allFees": "Tous les frais",
+          "year": "Année scolaire",
+          "activeOnly": "Barèmes en vigueur seulement"
+        },
+        "empty": "Aucun barème",
+        "emptyHint": "Un frais sans barème ne peut pas être facturé depuis le catalogue.",
+        "created": "Le barème a été créé.",
+        "form": {
+          "title": "Nouveau barème",
+          "description": "Le montant est un entier en francs. L'API refuse un chevauchement ambigu.",
+          "fee": "Frais",
+          "choose": "Choisir un frais…",
+          "year": "Année scolaire",
+          "amount": "Montant",
+          "from": "En vigueur à partir du",
+          "to": "Jusqu'au (facultatif)",
+          "plan": "Plan d'échéancier par défaut",
+          "planHint": "Proposé à l'émission des factures de ce frais.",
+          "noPlan": "Aucun",
+          "submit": "Créer le barème"
+        }
+      },
+      "resolver": {
+        "title": "Quel montant s'applique ?",
+        "description": "Interroge l'API : elle choisit le barème le plus précis pour ce contexte.",
+        "fee": "Frais",
+        "choose": "Choisir…",
+        "year": "Année scolaire",
+        "level": "Niveau (clé)",
+        "track": "Filière (clé)",
+        "learnerType": "Type d'apprenant (clé)",
+        "date": "À la date du",
+        "submit": "Résoudre",
+        "result": "Montant applicable : {amount} (année {year})."
+      },
+      "plans": {
+        "title": "Plans d'échéancier",
+        "description": "Modèles de répartition d'une facture en échéances : parts fixes ou pondérées, échéances en date, en jours ou en jour du mois.",
+        "new": "Nouveau plan",
+        "featureOff": "Les échéanciers ne sont pas inclus dans l'offre de l'établissement.",
+        "empty": "Aucun plan d'échéancier",
+        "listLabel": "Plans d'échéancier",
+        "shareFixed": "Part fixe {amount}",
+        "shareWeight": "Poids {weight}",
+        "dueDate": "échéance le {date}",
+        "dueOffset": "échéance à +{days} j",
+        "dueMonthDay": "échéance le {day}/{month}",
+        "created": "Le plan « {name} » a été créé.",
+        "form": {
+          "title": "Nouveau plan d'échéancier",
+          "description": "Le découpage exact au franc près est fait par l'API.",
+          "code": "Code",
+          "name": "Libellé",
+          "sharesHint": "Une part FIXE est un montant en francs ; une part PONDÉRÉE se partage le reste proportionnellement à son poids.",
+          "step": "Échéance {n}",
+          "removeStep": "Retirer",
+          "stepLabel": "Libellé de l'échéance",
+          "shareKind": "Type de part",
+          "kinds": {
+            "WEIGHT": "Pondérée",
+            "FIXED": "Montant fixe"
+          },
+          "shareAmount": "Montant fixe",
+          "shareWeight": "Poids",
+          "dueKind": "Échéance",
+          "dues": {
+            "OFFSET_DAYS": "Nombre de jours après la facture",
+            "DATE": "Date précise",
+            "MONTH_DAY": "Jour d'un mois"
+          },
+          "dueDate": "Date",
+          "dueDays": "Jours",
+          "dueDaysHint": "0 = à l'émission.",
+          "dueMonth": "Mois (1-12)",
+          "dueDay": "Jour (1-31)",
+          "addStep": "Ajouter une échéance",
+          "submit": "Créer le plan"
+        }
+      },
+      "discounts": {
+        "title": "Remises",
+        "description": "Réductions en pourcentage ou en montant, avec plafond, catégories visées et cumul.",
+        "new": "Nouvelle remise",
+        "caption": "Remises",
+        "columns": {
+          "code": "Code",
+          "name": "Libellé",
+          "value": "Valeur",
+          "cap": "Plafond",
+          "categories": "Catégories",
+          "stackable": "Cumulable",
+          "status": "Statut"
+        },
+        "allCategories": "Toutes",
+        "yes": "Oui",
+        "no": "Non",
+        "active": "Active",
+        "inactive": "Inactive",
+        "empty": "Aucune remise",
+        "emptyHint": "Créez des remises (fratrie, mérite, personnel…) à appliquer aux factures.",
+        "created": "La remise « {name} » a été créée.",
+        "form": {
+          "title": "Nouvelle remise",
+          "submit": "Créer",
+          "code": "Code",
+          "name": "Libellé",
+          "kind": "Type",
+          "kinds": {
+            "PERCENT": "Pourcentage",
+            "AMOUNT": "Montant fixe"
+          },
+          "percent": "Pourcentage",
+          "percentHint": "Par exemple 10 ou 12,5 (deux décimales au plus).",
+          "percentErrors": {
+            "empty": "Saisissez un pourcentage.",
+            "invalid": "Pourcentage invalide (par exemple 10 ou 12,5).",
+            "range": "Le pourcentage doit être compris entre 0,01 et 100."
+          },
+          "amount": "Montant",
+          "cap": "Plafond (facultatif)",
+          "capHint": "Montant maximal de la remise sur une facture.",
+          "categories": "Catégories concernées",
+          "categoriesHint": "Aucune case cochée : toutes les catégories.",
+          "stackable": "Cumulable avec d'autres remises",
+          "stackableHint": "Les règles de cumul sont appliquées par l'API à l'émission."
+        }
+      }
+    },
+    "status": {
+      "invoice": {
+        "DRAFT": "Brouillon",
+        "ISSUED": "Émise",
+        "PARTIALLY_PAID": "Partiellement payée",
+        "PAID": "Payée",
+        "OVERDUE": "En retard",
+        "CANCELLED": "Annulée",
+        "CREDITED": "Créditée"
+      },
+      "installment": {
+        "PENDING": "À payer",
+        "PARTIALLY_PAID": "Partiellement payée",
+        "PAID": "Payée",
+        "OVERDUE": "En retard",
+        "CREDITED": "Créditée"
+      },
+      "payment": {
+        "PENDING": "En attente",
+        "CONFIRMED": "Confirmé",
+        "FAILED": "Échoué",
+        "REFUNDED": "Remboursé"
+      },
+      "refund": {
+        "REQUESTED": "Demandé",
+        "APPROVED": "Approuvé",
+        "COMPLETED": "Exécuté",
+        "REJECTED": "Refusé"
+      },
+      "scholarship": {
+        "ACTIVE": "Active",
+        "SUSPENDED": "Suspendue",
+        "ENDED": "Terminée"
+      },
+      "cashSession": {
+        "OPEN": "Ouverte",
+        "CLOSED": "Clôturée"
+      }
+    },
+    "funder": {
+      "STATE": "État",
+      "COMPANY": "Entreprise",
+      "INSTITUTION": "Établissement",
+      "FOUNDATION": "Fondation",
+      "OTHER": "Autre"
+    },
+    "payer": {
+      "LEARNER": "Famille",
+      "FUNDER": "Financeur"
+    },
+    "method": {
+      "CASH": "Espèces",
+      "CHEQUE": "Chèque",
+      "TRANSFER": "Virement",
+      "CARD": "Carte bancaire",
+      "MOBILE_MONEY": "Mobile money",
+      "ONLINE": "En ligne"
+    },
+    "allocationOrder": {
+      "OLDEST_DUE_FIRST": "Échéance la plus ancienne d'abord",
+      "NEWEST_DUE_FIRST": "Échéance la plus récente d'abord",
+      "SMALLEST_REMAINING_FIRST": "Plus petit reste dû d'abord",
+      "LARGEST_REMAINING_FIRST": "Plus grand reste dû d'abord",
+      "PROPORTIONAL": "Au prorata des restes dus"
+    },
+    "currency": {
+      "XOF": "Franc CFA (XOF)",
+      "XAF": "Franc CFA (XAF)",
+      "EUR": "Euro",
+      "USD": "Dollar US"
+    },
+    "aging": {
+      "NOT_DUE": "Non échu",
+      "D1_30": "1 à 30 jours",
+      "D31_60": "31 à 60 jours",
+      "D61_90": "61 à 90 jours",
+      "D91_PLUS": "Plus de 90 jours"
+    },
+    "invoices": {
+      "title": "Factures",
+      "description": "Factures émises aux familles et aux financeurs, avec leur reste dû. Les montants sont calculés par l'API.",
+      "new": "Nouvelle facture",
+      "caption": "Liste des factures",
+      "draft": "Brouillon",
+      "columns": {
+        "number": "Numéro",
+        "learner": "Apprenant",
+        "year": "Année",
+        "payer": "Payeur",
+        "status": "Statut",
+        "total": "Total",
+        "paid": "Payé",
+        "balance": "Reste dû",
+        "due": "Échéance"
+      },
+      "filters": {
+        "learner": "Apprenant",
+        "learnerPlaceholder": "Rechercher un élève…",
+        "status": "Statut",
+        "allStatuses": "Tous les statuts",
+        "payer": "Payeur",
+        "allPayers": "Tous",
+        "year": "Année scolaire",
+        "groupActive": "Filtre sur le groupe « {group} ».",
+        "clearGroup": "Retirer le filtre"
+      },
+      "empty": "Aucune facture",
+      "emptyHint": "Modifiez les filtres ou émettez une nouvelle facture."
+    },
+    "invoiceDetail": {
+      "draftTitle": "Facture (brouillon)",
+      "subtitle": "{learner} · année {year}",
+      "back": "Retour aux factures",
+      "print": "Imprimer",
+      "issue": "Émettre la facture",
+      "issued": "La facture {number} a été émise.",
+      "collect": "Encaisser",
+      "cancelledNotice": "Cette facture est annulée. Motif : {reason}",
+      "funderInvoice": "Part prise en charge par le financeur « {funder} » : payable séparément de la part de la famille.",
+      "familyInvoice": "Part de la famille : une facture liée existe pour la part du financeur.",
+      "summary": "Montants",
+      "amounts": {
+        "subtotal": "Sous-total",
+        "discount": "Remises",
+        "scholarship": "Bourses et prises en charge",
+        "total": "Total",
+        "paid": "Payé",
+        "credited": "Avoirs",
+        "balance": "Reste dû"
+      },
+      "dueDate": "Échéance de la facture",
+      "lines": {
+        "title": "Lignes",
+        "caption": "Lignes de la facture",
+        "description": "Désignation",
+        "category": "Catégorie",
+        "quantity": "Qté",
+        "unit": "Prix unitaire",
+        "discount": "Remise",
+        "scholarship": "Bourse",
+        "total": "Total"
+      },
+      "installments": {
+        "title": "Échéancier",
+        "caption": "Échéancier de la facture",
+        "generate": "Générer un échéancier",
+        "seq": "N°",
+        "label": "Échéance",
+        "due": "Date limite",
+        "amount": "Montant",
+        "paid": "Payé",
+        "remaining": "Reste dû",
+        "status": "Statut",
+        "empty": "Aucune échéance"
+      },
+      "danger": {
+        "title": "Correction de la facture",
+        "hint": "Un avoir réduit définitivement le reste dû. Pour annuler une somme déjà encaissée, remboursez d'abord le paiement.",
+        "credit": "Émettre un avoir",
+        "cancel": "Annuler la facture"
+      },
+      "cancelDialog": {
+        "title": "Annuler la facture",
+        "description": "L'annulation est définitive et tracée.",
+        "reason": "Motif de l'annulation",
+        "confirm": "Annuler la facture"
+      },
+      "cancelled": "La facture a été annulée.",
+      "creditIssued": "L'avoir {number} a été émis.",
+      "installmentsGenerated": "L'échéancier a été généré.",
+      "creditDialog": {
+        "title": "Émettre un avoir",
+        "description": "L'avoir porte sur le reste dû (actuellement {balance}).",
+        "amount": "Montant de l'avoir",
+        "reason": "Motif",
+        "reasonHint": "Au moins 5 caractères.",
+        "submit": "Émettre l'avoir"
+      },
+      "installmentsDialog": {
+        "title": "Générer un échéancier",
+        "description": "Répartit le total de la facture selon un plan ; le découpage au franc près est fait par l'API.",
+        "plan": "Plan d'échéancier",
+        "choose": "Choisir un plan…",
+        "baseDate": "Date de départ",
+        "baseDateHint": "Par défaut : la date du jour.",
+        "submit": "Générer"
+      }
+    },
+    "invoiceForm": {
+      "title": "Nouvelle facture",
+      "description": "Choisissez l'apprenant et les frais ; l'aperçu est calculé par l'API avant toute émission.",
+      "cancel": "Annuler",
+      "mode": {
+        "legend": "Mode de création",
+        "catalog": "Depuis le catalogue",
+        "manual": "Saisie libre",
+        "catalogHint": "Les montants viennent des barèmes ; remises, bourses et part de l'État sont appliquées par l'API.",
+        "manualHint": "Lignes et montants saisis à la main ; la facture est enregistrée en brouillon puis relue avant émission."
+      },
+      "learner": {
+        "title": "Apprenant",
+        "label": "Apprenant",
+        "placeholder": "Rechercher un élève…",
+        "enrollment": "Inscription",
+        "enrollmentHint": "Détermine la classe (créances par classe) et le niveau de tarification.",
+        "loading": "Chargement…",
+        "noEnrollment": "Aucune",
+        "year": "Année scolaire"
+      },
+      "items": {
+        "title": "Frais à facturer",
+        "hint": "Un barème applicable doit exister pour chaque frais (année, niveau, type d'apprenant).",
+        "fee": "Frais",
+        "choose": "Choisir un frais…",
+        "quantity": "Quantité",
+        "description": "Désignation (facultatif)",
+        "remove": "Retirer",
+        "add": "Ajouter un frais"
+      },
+      "scope": {
+        "title": "Contexte de tarification (avancé)",
+        "hint": "À renseigner seulement pour forcer le niveau, la filière ou le type d'apprenant ; sinon l'API les déduit de l'inscription.",
+        "levelKey": "Niveau (clé)",
+        "trackKey": "Filière (clé)",
+        "learnerType": "Type d'apprenant (clé)"
+      },
+      "lines": {
+        "title": "Lignes de la facture",
+        "category": "Catégorie",
+        "description": "Désignation",
+        "quantity": "Quantité",
+        "unitAmount": "Prix unitaire",
+        "remove": "Retirer la ligne",
+        "add": "Ajouter une ligne"
+      },
+      "categories": {
+        "REGISTRATION": "Inscription",
+        "TUITION": "Scolarité",
+        "CANTEEN": "Cantine",
+        "TRANSPORT": "Transport",
+        "UNIFORM": "Uniforme",
+        "DOCUMENTS": "Documents",
+        "EXAMS": "Examens",
+        "ACTIVITIES": "Activités",
+        "DEFENSE": "Soutenance",
+        "LIBRARY": "Bibliothèque",
+        "OTHER": "Autres"
+      },
+      "options": {
+        "title": "Remises et échéancier",
+        "discounts": "Remises à appliquer",
+        "noDiscounts": "Aucune remise dans le catalogue.",
+        "dueDate": "Échéance de la facture",
+        "dueDateHint": "Par défaut : définie par l'API.",
+        "plan": "Plan d'échéancier",
+        "planHint": "Fonction incluse selon l'offre de l'établissement.",
+        "noPlan": "Aucun (paiement en une fois)",
+        "baseDate": "Date de départ du plan",
+        "ignoreFunding": "Ne pas appliquer le financement de l'apprenant",
+        "ignoreFundingHint": "Par défaut, la part de l'État ou du financeur est séparée en une facture liée."
+      },
+      "preview": {
+        "title": "Aperçu avant émission",
+        "loading": "Calcul de l'aperçu…",
+        "hint": "Calculé par l'API ; rien n'est encore enregistré.",
+        "stale": "Le formulaire a changé depuis l'aperçu : recalculez-le avant d'émettre.",
+        "required": "Calculez l'aperçu pour pouvoir émettre ou enregistrer la facture.",
+        "lines": "Lignes — {label}",
+        "installments": "Échéances — {label}",
+        "noInstallments": "Paiement en une fois, échéance {due}",
+        "columns": {
+          "description": "Désignation",
+          "quantity": "Qté",
+          "unit": "Prix unitaire",
+          "discount": "Remise",
+          "scholarship": "Bourse",
+          "total": "Total",
+          "seq": "N°",
+          "label": "Échéance",
+          "due": "Date limite",
+          "amount": "Montant"
+        },
+        "totals": {
+          "subtotal": "Sous-total",
+          "discount": "Remises",
+          "scholarship": "Bourses et prises en charge",
+          "total": "Total"
+        }
+      },
+      "actions": {
+        "preview": "Calculer l'aperçu",
+        "draft": "Enregistrer en brouillon",
+        "issue": "Émettre la facture",
+        "saveDraft": "Enregistrer en brouillon"
+      },
+      "done": {
+        "title": "Facture enregistrée",
+        "message": "{count, plural, one {# facture a été enregistrée.} other {# factures ont été enregistrées (part de la famille et part du financeur).}}",
+        "list": "Factures créées",
+        "draft": "Brouillon",
+        "toList": "Retour aux factures"
+      }
+    },
+    "funding": {
+      "title": "Remises et bourses",
+      "description": "Financement d'un apprenant, bourses et prises en charge (part de l'État, d'une entreprise…), et répartition des factures entre la famille et les financeurs.",
+      "learner": "Apprenant",
+      "learnerPlaceholder": "Rechercher un élève…",
+      "pick": "Choisissez un apprenant",
+      "pickHint": "Sa situation de financement et la répartition de ses factures s'afficheront ici.",
+      "typeTitle": "Type de financement",
+      "change": "Modifier",
+      "typeLabel": "Financement",
+      "assignmentRef": "Référence d'affectation",
+      "stateHint": "Élève affecté par l'État : la facture est répartie en une part de l'État et une part de la famille, calculées par l'API.",
+      "type": {
+        "PRIVATE": "Privé (famille)",
+        "STATE_ASSIGNED": "Affecté par l'État",
+        "SCHOLARSHIP": "Boursier",
+        "COMPANY": "Pris en charge par une entreprise",
+        "STAFF_CHILD": "Enfant de personnel",
+        "OTHER": "Autre"
+      },
+      "typeSaved": "Le type de financement a été enregistré.",
+      "scholarships": {
+        "title": "Bourses et prises en charge",
+        "new": "Nouvelle bourse",
+        "caption": "Bourses et prises en charge",
+        "funder": "Financeur",
+        "year": "Année",
+        "coverage": "Couverture",
+        "cap": "Plafond",
+        "categories": "Catégories",
+        "allCategories": "Toutes",
+        "status": "Statut",
+        "actions": "Actions",
+        "reactivate": "Réactiver",
+        "reactivated": "La bourse est de nouveau active.",
+        "suspend": "Suspendre",
+        "suspended": "La bourse est suspendue.",
+        "end": "Terminer",
+        "ended": "La bourse est terminée.",
+        "empty": "Aucune bourse",
+        "emptyHint": "Ajoutez une prise en charge (État, entreprise, fondation…) pour que sa part soit facturée séparément.",
+        "created": "La bourse a été créée."
+      },
+      "split": {
+        "title": "Répartition des factures",
+        "hint": "La part de chaque financeur est une facture liée, payable séparément ; la famille garde sa part.",
+        "unavailable": "Le relevé de cet apprenant n'est pas disponible.",
+        "caption": "Factures de l'apprenant par payeur",
+        "invoice": "Facture",
+        "payer": "Payeur",
+        "status": "Statut",
+        "total": "Total",
+        "balance": "Reste dû",
+        "empty": "Aucune facture",
+        "draft": "Brouillon",
+        "funderShare": "Part {funder}",
+        "familyShare": "Part de la famille"
+      },
+      "typeDialog": {
+        "title": "Type de financement",
+        "description": "Appliqué aux prochaines factures de l'apprenant.",
+        "type": "Financement",
+        "stateOff": "L'affectation par l'État n'est pas incluse dans l'offre de l'établissement.",
+        "ref": "Référence d'affectation",
+        "refHint": "Numéro d'affectation ou de décision (facultatif).",
+        "submit": "Enregistrer"
+      },
+      "scholarshipDialog": {
+        "title": "Nouvelle bourse ou prise en charge",
+        "description": "La couverture est appliquée par l'API aux factures de l'année indiquée.",
+        "funderKind": "Type de financeur",
+        "funderName": "Nom du financeur",
+        "reference": "Référence",
+        "year": "Année scolaire",
+        "coverageKind": "Couverture",
+        "kinds": {
+          "PERCENT": "Pourcentage",
+          "FIXED": "Montant fixe"
+        },
+        "percent": "Pourcentage couvert",
+        "percentHint": "Par exemple 70 pour une prise en charge de 70 %.",
+        "percentErrors": {
+          "empty": "Saisissez un pourcentage.",
+          "invalid": "Pourcentage invalide (par exemple 70 ou 12,5).",
+          "range": "Le pourcentage doit être compris entre 0,01 et 100."
+        },
+        "amount": "Montant couvert",
+        "cap": "Plafond (facultatif)",
+        "capHint": "Montant maximal pris en charge.",
+        "priority": "Priorité",
+        "priorityHint": "Les bourses de plus petite priorité s'appliquent d'abord.",
+        "categories": "Catégories couvertes",
+        "categoriesHint": "Aucune case cochée : toutes les catégories.",
+        "submit": "Créer la bourse"
+      }
+    },
+    "allocation": {
+      "legend": "Imputation du paiement",
+      "modes": {
+        "AUTO": "Automatique",
+        "MANUAL": "Manuelle",
+        "NONE": "Aucune (acompte)"
+      },
+      "hints": {
+        "AUTO": "L'API impute le paiement sur les échéances ouvertes selon l'ordre choisi.",
+        "MANUAL": "Indiquez, échéance par échéance, le montant à imputer. L'API refuse un total supérieur au paiement ou au reste dû.",
+        "NONE": "Le paiement est enregistré sans être imputé ; il pourra l'être plus tard depuis sa fiche."
+      },
+      "order": "Ordre d'imputation",
+      "orderDefault": "Ordre par défaut de l'établissement",
+      "restrict": "Limiter à certaines factures",
+      "restrictHint": "Aucune case cochée : toutes les factures ouvertes de l'apprenant.",
+      "invoiceLabel": "Facture {number} — reste dû {balance}",
+      "noOpenInvoices": "Aucune facture ouverte pour cet apprenant.",
+      "manualEmpty": "Saisissez au moins un montant à imputer.",
+      "noOpenInstallments": "Aucune échéance ouverte.",
+      "installmentInfo": "Échéance du {due} — reste dû {remaining}",
+      "amountFor": "Montant à imputer — {label}"
+    },
+    "paymentForm": {
+      "title": "Encaisser un paiement",
+      "description": "Espèces, chèque, virement, carte ou mobile money. Le reçu et les imputations sont émis par l'API.",
+      "cancel": "Annuler",
+      "learner": {
+        "title": "Apprenant",
+        "label": "Apprenant",
+        "placeholder": "Rechercher un élève…"
+      },
+      "balance": {
+        "none": "Aucune facture ouverte pour cet apprenant.",
+        "title": "Factures ouvertes",
+        "remaining": "Reste dû {amount}"
+      },
+      "details": {
+        "title": "Paiement",
+        "amount": "Montant encaissé",
+        "method": "Mode de paiement",
+        "reference": "Référence",
+        "referenceHint": "Numéro de chèque, de virement ou de transaction mobile money.",
+        "payerName": "Nom du payeur",
+        "payerNameHint": "Figure sur le reçu.",
+        "payerKind": "Qui paie ?",
+        "payerRef": "Référence du financeur",
+        "payerRefHint": "Identifiant de la bourse ou de la prise en charge.",
+        "noSession": "Aucune session de caisse ouverte : un paiement en espèces doit être rattaché à votre session.",
+        "openSession": "Ouvrir une session de caisse"
+      },
+      "review": "Vérifier et encaisser",
+      "confirm": {
+        "title": "Confirmer l'encaissement",
+        "description": "Relisez avant de valider : un reçu numéroté va être émis et ne pourra plus être modifié.",
+        "learner": "Apprenant",
+        "amount": "Montant",
+        "method": "Mode",
+        "allocation": "Imputation",
+        "modes": {
+          "AUTO": "Automatique",
+          "MANUAL": "Manuelle",
+          "NONE": "Aucune (acompte)"
+        },
+        "retryHint": "Vous pouvez réessayer : la même demande est renvoyée, sans risque de doublon.",
+        "back": "Revenir au formulaire",
+        "sending": "Envoi en cours…",
+        "submit": "Confirmer l'encaissement"
+      },
+      "done": {
+        "title": "Paiement enregistré",
+        "replayed": "Ce paiement avait déjà été enregistré : aucun doublon n'a été créé.",
+        "message": "Le paiement de {amount} a été enregistré.",
+        "receipt": "Reçu",
+        "allocated": "Imputé",
+        "unallocated": "Non imputé",
+        "balanceAfter": "Reste dû après paiement",
+        "allocations": "{count, plural, one {# imputation} other {# imputations}} enregistrée(s).",
+        "printReceipt": "Voir et imprimer le reçu",
+        "details": "Fiche du paiement",
+        "another": "Nouvel encaissement"
+      }
+    },
+    "onlineForm": {
+      "title": "Initier un paiement en ligne",
+      "description": "Mobile money ou carte : le fournisseur confirme le paiement, le statut est suivi ici.",
+      "cancel": "Annuler",
+      "featureOff": "Le paiement en ligne n'est pas inclus dans l'offre de l'établissement.",
+      "learner": "Apprenant",
+      "learnerPlaceholder": "Rechercher un élève…",
+      "amount": "Montant",
+      "provider": "Fournisseur",
+      "providers": {
+        "orange_money": "Orange Money",
+        "mtn_momo": "MTN MoMo",
+        "wave": "Wave",
+        "cinetpay": "CinetPay",
+        "tresorpay": "TrésorPay",
+        "other": "Autre fournisseur"
+      },
+      "otherProvider": "Code du fournisseur",
+      "otherProviderHint": "Minuscules, chiffres et _ (par exemple moov_money).",
+      "invoice": "Facture visée",
+      "invoiceHint": "Facultatif : sinon l'imputation suit l'ordre de l'établissement.",
+      "invoiceAny": "Aucune en particulier",
+      "phone": "Téléphone du payeur",
+      "phoneHint": "Numéro mobile money, avec l'indicatif du pays.",
+      "payerName": "Nom du payeur",
+      "email": "Courriel du payeur",
+      "descriptionLabel": "Libellé",
+      "sending": "Envoi en cours…",
+      "submit": "Lancer le paiement",
+      "started": {
+        "title": "Paiement lancé",
+        "toList": "Retour aux encaissements",
+        "replayed": "Cette demande avait déjà été enregistrée : aucun doublon n'a été créé.",
+        "instructions": "Instructions pour le payeur",
+        "ussd": "Code USSD :",
+        "redirect": "Ouvrir la page de paiement",
+        "another": "Nouveau paiement en ligne"
+      }
+    },
+    "tracker": {
+      "title": "Suivi du paiement",
+      "amount": "Montant : {amount}",
+      "pending": "En attente de la confirmation du fournisseur. Cet écran vérifie régulièrement.",
+      "checkNow": "Vérifier maintenant",
+      "confirmed": "Paiement confirmé par le fournisseur.",
+      "failed": "Paiement échoué : {reason}",
+      "simulated": "Paiement simulé (environnement de test) : il ne peut pas être confirmé en production."
+    },
+    "payments": {
+      "title": "Encaissements",
+      "description": "Paiements reçus, leur imputation et leur reçu.",
+      "new": "Encaisser un paiement",
+      "online": "Paiement en ligne",
+      "export": "Exporter en CSV",
+      "caption": "Liste des paiements",
+      "columns": {
+        "date": "Date",
+        "learner": "Apprenant",
+        "method": "Mode",
+        "status": "Statut",
+        "amount": "Montant",
+        "unallocated": "Non imputé",
+        "reference": "Référence"
+      },
+      "filters": {
+        "learner": "Apprenant",
+        "learnerPlaceholder": "Rechercher un élève…",
+        "status": "Statut",
+        "method": "Mode",
+        "all": "Tous",
+        "from": "Du",
+        "to": "Au"
+      },
+      "empty": "Aucun paiement",
+      "emptyHint": "Modifiez les filtres ou enregistrez un encaissement.",
+      "csv": {
+        "date": "Date",
+        "learner": "Apprenant",
+        "method": "Mode",
+        "status": "Statut",
+        "amount": "Montant",
+        "allocated": "Imputé",
+        "unallocated": "Non imputé",
+        "refunded": "Remboursé",
+        "reference": "Référence"
+      }
+    },
+    "paymentDetail": {
+      "title": "Paiement de {amount}",
+      "subtitle": "{learner} · {method}",
+      "back": "Retour aux encaissements",
+      "receipt": "Reçu {number}",
+      "simulated": "Paiement simulé (environnement de test).",
+      "failed": "Paiement échoué : {reason}",
+      "summary": "Résumé",
+      "amount": "Montant",
+      "allocated": "Imputé",
+      "unallocated": "Non imputé",
+      "refunded": "Remboursé",
+      "receivedAt": "Reçu le",
+      "payer": "Payeur",
+      "reference": "Référence",
+      "cashSession": "Session de caisse",
+      "openSession": "Voir la session",
+      "allocations": {
+        "title": "Imputations",
+        "allocate": "Imputer le solde",
+        "caption": "Imputations du paiement",
+        "invoice": "Facture",
+        "amount": "Imputé",
+        "reversed": "Repris",
+        "net": "Net",
+        "empty": "Aucune imputation",
+        "done": "L'imputation a été enregistrée."
+      },
+      "refunds": {
+        "title": "Remboursements",
+        "request": "Demander un remboursement",
+        "unavailable": "Les remboursements ne sont pas consultables avec vos droits.",
+        "empty": "Aucun remboursement",
+        "requested": "La demande de remboursement a été enregistrée ; une autre personne doit l'approuver."
+      },
+      "allocateDialog": {
+        "title": "Imputer le solde du paiement",
+        "description": "Répartit la part non imputée sur les échéances ouvertes.",
+        "submit": "Imputer"
+      },
+      "refundDialog": {
+        "title": "Demander un remboursement",
+        "description": "Le montant remboursé ne peut pas dépasser ce qui reste du paiement.",
+        "amount": "Montant à rembourser",
+        "reason": "Motif",
+        "reasonHint": "Au moins 5 caractères.",
+        "submit": "Envoyer la demande",
+        "fourEyes": "Un remboursement exige l'approbation d'une autre personne : vous ne pouvez pas approuver votre propre demande."
+      }
+    },
+    "receipts": {
+      "title": "Reçus",
+      "description": "Reçus numérotés des paiements confirmés. Ils sont immuables.",
+      "caption": "Liste des reçus",
+      "columns": {
+        "number": "Numéro",
+        "date": "Date",
+        "learner": "Apprenant",
+        "method": "Mode",
+        "amount": "Montant"
+      },
+      "filters": {
+        "learner": "Apprenant",
+        "learnerPlaceholder": "Rechercher un élève…"
+      },
+      "empty": "Aucun reçu",
+      "emptyHint": "Un reçu est émis à chaque paiement confirmé."
+    },
+    "receiptDetail": {
+      "title": "Reçu {number}",
+      "back": "Retour aux reçus",
+      "print": "Imprimer ou enregistrer en PDF",
+      "document": "Reçu de paiement",
+      "heading": "Reçu de paiement",
+      "date": "Date",
+      "learner": "Apprenant",
+      "payer": "Payeur",
+      "method": "Mode de paiement",
+      "allocations": "Imputations du paiement",
+      "invoice": "Facture",
+      "label": "Échéance",
+      "amount": "Montant",
+      "noAllocations": "Paiement non imputé",
+      "unallocated": "Non imputé",
+      "balanceAfter": "Reste dû après ce paiement",
+      "total": "Montant reçu",
+      "footer": "Reçu émis automatiquement ; il ne peut pas être modifié."
+    },
+    "refunds": {
+      "title": "Remboursements",
+      "description": "Demandes de remboursement, approbation puis exécution.",
+      "fourEyes": "Règle des quatre yeux : la personne qui demande un remboursement ne peut pas l'approuver.",
+      "caption": "Liste des remboursements",
+      "columns": {
+        "requested": "Demandé le",
+        "payment": "Paiement",
+        "amount": "Montant",
+        "reason": "Motif",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "approve": "Approuver",
+      "reject": "Refuser",
+      "execute": "Exécuter",
+      "completed": "Le remboursement a été exécuté.",
+      "filters": {
+        "status": "Statut",
+        "all": "Tous"
+      },
+      "empty": "Aucun remboursement",
+      "emptyHint": "Les demandes apparaissent ici dès qu'elles sont enregistrées depuis la fiche d'un paiement.",
+      "approveDialog": {
+        "title": "Approuver le remboursement",
+        "description": "Vous approuvez un remboursement de {amount}.",
+        "submit": "Approuver",
+        "reason": "Motif de la demande : {reason}",
+        "executeNow": "Exécuter immédiatement",
+        "executeNowHint": "Sinon, le remboursement reste approuvé jusqu'à son exécution."
+      },
+      "approved": "Le remboursement est approuvé.",
+      "approvedAndCompleted": "Le remboursement est approuvé et exécuté.",
+      "rejectDialog": {
+        "title": "Refuser le remboursement",
+        "description": "Le refus est définitif et le motif est conservé.",
+        "reason": "Motif du refus",
+        "confirm": "Refuser"
+      },
+      "rejected": "Le remboursement est refusé."
+    },
+    "overview": {
+      "title": "Finance",
+      "description": "Situation des frais et accès rapide aux opérations. Les montants sont calculés par l'API.",
+      "shortcuts": "Accès rapides",
+      "links": {
+        "collect": {
+          "title": "Encaisser un paiement",
+          "hint": "Espèces, chèque, virement, mobile money."
+        },
+        "invoice": {
+          "title": "Émettre une facture",
+          "hint": "Depuis le catalogue, avec aperçu avant émission."
+        },
+        "cash": {
+          "title": "Caisse",
+          "hint": "Ouvrir ou clôturer une session de caisse."
+        },
+        "reports": {
+          "title": "Rapports",
+          "hint": "Créances, balance âgée, évolution des encaissements."
+        },
+        "overdue": {
+          "title": "Factures en retard",
+          "hint": "Liste filtrée sur les factures échues."
+        },
+        "refunds": {
+          "title": "Remboursements",
+          "hint": "Approuver ou exécuter les demandes."
+        }
+      }
+    },
+    "cash": {
+      "title": "Caisse",
+      "description": "Sessions de caisse : fonds de caisse, encaissements en espèces, clôture avec comptage.",
+      "newRegister": "Nouvelle caisse",
+      "closed": "La session est clôturée.",
+      "opened": "La session de caisse est ouverte.",
+      "registerCreated": "La caisse a été créée.",
+      "mine": {
+        "title": "Ma session",
+        "none": "Aucune session ouverte. Choisissez une caisse pour commencer à encaisser des espèces.",
+        "open": "Ouvrir une session",
+        "register": "Caisse",
+        "openBadge": "Ouverte",
+        "close": "Clôturer la session",
+        "openedAt": "Ouverte le",
+        "float": "Fonds de caisse",
+        "received": "Encaissé",
+        "refunded": "Remboursé",
+        "paymentCount": "Nombre d'encaissements",
+        "blindHint": "À la clôture, comptez l'argent en caisse avant de saisir le montant : l'attendu et l'écart sont calculés par le système.",
+        "collect": "Encaisser un paiement"
+      },
+      "registers": {
+        "title": "Caisses",
+        "empty": "Aucune caisse",
+        "emptyHint": "Un gestionnaire doit d'abord créer une caisse."
+      },
+      "openDialog": {
+        "title": "Ouvrir une session de caisse",
+        "description": "Indiquez le fonds de caisse remis au caissier.",
+        "submit": "Ouvrir la session",
+        "float": "Fonds de caisse",
+        "floatHint": "0 si la caisse démarre à vide."
+      },
+      "closeDialog": {
+        "title": "Clôturer la session",
+        "description": "Saisissez le montant réellement compté. La clôture est définitive.",
+        "submit": "Clôturer",
+        "counted": "Montant compté en caisse",
+        "countedHint": "Fonds de caisse compris.",
+        "note": "Observation",
+        "noteHint": "Facultatif : à renseigner en cas d'écart."
+      },
+      "registerDialog": {
+        "title": "Nouvelle caisse",
+        "submit": "Créer",
+        "required": "Ce champ est obligatoire.",
+        "code": "Code",
+        "name": "Libellé",
+        "campus": "Campus",
+        "noCampus": "Tous les campus"
+      },
+      "closedSummary": {
+        "title": "Résultat de la clôture",
+        "dismiss": "Fermer"
+      },
+      "summary": {
+        "opened": "Ouverte le",
+        "closedAt": "Clôturée le",
+        "float": "Fonds de caisse",
+        "movements": "Mouvements",
+        "movementsValue": "{received} encaissés, {refunded} remboursés ({count, plural, one {# paiement} other {# paiements}})",
+        "expected": "Montant attendu",
+        "counted": "Montant compté",
+        "varianceZero": "Aucun écart : la caisse est juste.",
+        "varianceMissing": "Écart : il manque {amount} en caisse.",
+        "varianceExcess": "Écart : {amount} de trop en caisse.",
+        "note": "Observation : {note}"
+      },
+      "history": {
+        "title": "Historique des sessions",
+        "filter": "Statut",
+        "all": "Toutes",
+        "caption": "Sessions de caisse",
+        "empty": "Aucune session",
+        "details": "Détails",
+        "columns": {
+          "opened": "Ouverte le",
+          "register": "Caisse",
+          "status": "Statut",
+          "expected": "Attendu",
+          "counted": "Compté",
+          "variance": "Écart",
+          "detail": "Détails"
+        }
+      },
+      "detail": {
+        "title": "Détail de la session"
+      }
+    },
+    "reports": {
+      "title": "Rapports financiers",
+      "description": "Facturé, encaissé, restant dû, retards et taux de recouvrement. Tous les chiffres sont calculés par l'API.",
+      "export": "Exporter en CSV",
+      "filters": {
+        "label": "Filtres des rapports",
+        "year": "Année scolaire",
+        "asOf": "Situation au",
+        "asOfHint": "Par défaut : aujourd'hui.",
+        "group": "Groupe (classe)",
+        "groupHint": "Clé de regroupement exacte."
+      },
+      "anchors": {
+        "label": "Sections du rapport",
+        "groups": "Créances par classe",
+        "learners": "Créances par apprenant",
+        "aged": "Balance âgée",
+        "trend": "Évolution"
+      },
+      "summary": {
+        "title": "Synthèse",
+        "asOf": "au {date} · {count, plural, one {# facture} other {# factures}}",
+        "cards": {
+          "billed": "Facturé",
+          "credited": "Avoirs",
+          "netBilled": "Facturé net",
+          "collected": "Encaissé",
+          "outstanding": "Restant dû",
+          "overdue": "En retard",
+          "unallocated": "Paiements non imputés",
+          "rate": "Taux de recouvrement"
+        },
+        "overdueCount": "{count, plural, one {# facture en retard} other {# factures en retard}}",
+        "rateNone": "Sans objet"
+      },
+      "groups": {
+        "title": "Créances par classe",
+        "caption": "Créances par classe",
+        "noGroup": "Sans classe",
+        "empty": "Aucune créance",
+        "columns": {
+          "group": "Classe",
+          "learners": "Apprenants",
+          "billed": "Facturé",
+          "collected": "Encaissé",
+          "outstanding": "Restant dû",
+          "overdue": "En retard",
+          "rate": "Taux"
+        }
+      },
+      "learners": {
+        "title": "Créances par apprenant",
+        "caption": "Créances par apprenant",
+        "onlyOutstanding": "Apprenants avec un restant dû seulement",
+        "empty": "Aucun apprenant à relancer",
+        "columns": {
+          "learner": "Apprenant",
+          "billed": "Facturé",
+          "collected": "Encaissé",
+          "outstanding": "Restant dû",
+          "overdue": "En retard",
+          "rate": "Taux",
+          "oldest": "Plus ancien retard"
+        }
+      },
+      "aged": {
+        "title": "Balance âgée",
+        "caption": "Balance âgée par ancienneté",
+        "total": "Total du restant dû :",
+        "topLearners": "Apprenants les plus en retard",
+        "learnersCaption": "Balance âgée par apprenant",
+        "columns": {
+          "bucket": "Ancienneté",
+          "amount": "Restant dû",
+          "invoices": "Factures",
+          "learner": "Apprenant",
+          "total": "Total"
+        }
+      },
+      "trend": {
+        "title": "Évolution des encaissements",
+        "caption": "Encaissements par période",
+        "from": "Du",
+        "to": "Au",
+        "granularityLabel": "Période",
+        "granularity": {
+          "day": "Jour",
+          "week": "Semaine",
+          "month": "Mois"
+        },
+        "invalidRange": "La date de début doit précéder la date de fin.",
+        "empty": "Aucun encaissement sur la période",
+        "columns": {
+          "bucket": "Période",
+          "collected": "Encaissé",
+          "refunded": "Remboursé",
+          "net": "Net",
+          "count": "Paiements"
+        }
+      }
+    },
+    "me": {
+      "title": "Mes finances",
+      "description": "Situation financière, échéances et reçus de vos enfants (ou de votre dossier d'élève).",
+      "empty": "Aucun apprenant",
+      "emptyHint": "Aucun enfant n'est lié à votre compte avec accès au portail.",
+      "listLabel": "Apprenants",
+      "card": {
+        "notEnrolled": "Sans inscription en cours",
+        "unavailable": "La situation financière n'est pas disponible pour le moment.",
+        "billed": "Facturé",
+        "collected": "Payé",
+        "outstanding": "Reste à payer",
+        "open": "Voir le détail"
+      },
+      "detail": {
+        "forbiddenTitle": "Accès refusé",
+        "forbidden": "Cet apprenant n'est pas rattaché à votre compte : ses informations financières ne peuvent pas être affichées.",
+        "back": "Retour à mes finances",
+        "notEnrolled": "Sans inscription en cours",
+        "pay": "Payer en ligne",
+        "totals": {
+          "title": "Situation",
+          "billed": "Facturé",
+          "credited": "Avoirs",
+          "collected": "Payé",
+          "outstanding": "Reste à payer"
+        },
+        "invoices": {
+          "title": "Factures et échéances",
+          "empty": "Aucune facture",
+          "draft": "Facture en préparation",
+          "balance": "Reste à payer : {amount}",
+          "installments": "Échéances de la facture {number}",
+          "columns": {
+            "label": "Échéance",
+            "due": "Date limite",
+            "amount": "Montant",
+            "remaining": "Reste à payer",
+            "status": "Statut"
+          },
+          "noInstallments": "Paiement en une fois"
+        },
+        "payments": {
+          "title": "Paiements",
+          "caption": "Paiements de l'apprenant",
+          "date": "Date",
+          "amount": "Montant",
+          "status": "Statut",
+          "empty": "Aucun paiement"
+        },
+        "receipts": {
+          "title": "Reçus",
+          "unavailable": "Les reçus ne sont pas disponibles pour le moment.",
+          "empty": "Aucun reçu"
+        }
+      },
+      "payDialog": {
+        "title": "Payer en ligne",
+        "description": "Vous recevrez les instructions de votre opérateur ; le statut est suivi sur cette page.",
+        "submit": "Lancer le paiement",
+        "invoice": "Facture à régler",
+        "anyInvoice": "Aucune en particulier",
+        "invoiceOption": "{number} — reste à payer {balance}",
+        "amount": "Montant à payer",
+        "amountHint": "Pré-rempli avec le reste à payer de la facture ; vous pouvez payer une partie.",
+        "provider": "Opérateur",
+        "phone": "Numéro de téléphone",
+        "phoneHint": "Numéro mobile money, avec l'indicatif du pays."
+      }
+    }
+  },
+  "v2Payroll": {
+    "nav": {
+      "label": "Paie",
+      "periods": "Périodes",
+      "payslips": "Bulletins",
+      "configuration": "Configuration",
+      "history": "Historique",
+      "reports": "Rapports",
+      "owner": "Masse salariale",
+      "my": "Mes bulletins"
+    },
+    "status": {
+      "payslip": {
+        "CALCULATED": "Calculé",
+        "APPROVED": "Arrêté (impayé)",
+        "PAID": "Versé",
+        "DISPUTED": "Contesté",
+        "CANCELLED": "Annulé"
+      },
+      "period": {
+        "DRAFT": "Brouillon",
+        "ACTIVE": "Active",
+        "CLOSED": "Clôturée",
+        "ARCHIVED": "Archivée"
+      }
+    },
+    "configType": {
+      "SALARY": "Salaire",
+      "HOURLY": "Horaire",
+      "MIXED": "Mixte"
+    },
+    "source": {
+      "SESSION": "Séances",
+      "ATTENDANCE": "Présences"
+    },
+    "scope": {
+      "ALL": "Toutes les origines",
+      "SESSION": "Séances seulement",
+      "ATTENDANCE": "Présences seulement"
+    },
+    "method": {
+      "CASH": "Espèces",
+      "MOBILE_MONEY": "Mobile money",
+      "BANK_TRANSFER": "Virement bancaire",
+      "CHEQUE": "Chèque",
+      "OTHER": "Autre"
+    },
+    "rateOrigin": {
+      "NODE_STAFF": "Tarif du cours pour cet enseignant",
+      "NODE_GENERIC": "Tarif générique du cours",
+      "CONFIG_DEFAULT": "Tarif par défaut de la configuration",
+      "SALARY_ZERO": "Salaire : taux horaire nul"
+    },
+    "skipReason": {
+      "NO_CONFIG": "Aucune configuration de paie valide sur la période.",
+      "NO_HOURS": "Aucune heure validée sur la période.",
+      "NO_RATE_RESOLVED": "Aucun tarif horaire applicable : ajoutez un tarif du cours ou un tarif par défaut.",
+      "PAYSLIP_LOCKED": "Bulletin déjà arrêté, versé ou annulé : un recalcul ne le réécrit jamais.",
+      "OUT_OF_SCOPE": "Hors du périmètre de la période.",
+      "STALE_SOURCE": "La source des heures a changé : relancez un recalcul.",
+      "NOTHING_TO_PAY": "Rien à verser : les jours ont déjà été payés par une autre période.",
+      "ALREADY_CALCULATED": "Déjà calculé : cochez « recalculer » pour le reconstruire."
+    },
+    "outcome": {
+      "CALCULATED": "Calculé",
+      "SKIPPED": "Écarté",
+      "LOCKED": "Verrouillé",
+      "FAILED": "Échec"
+    },
+    "configState": {
+      "ACTIVE": "Configuration en cours",
+      "EXPIRED": "Configuration expirée",
+      "FUTURE": "Configuration à venir",
+      "ABSENT": "Aucune configuration"
+    },
+    "adjustmentKind": {
+      "BONUS": "Prime",
+      "DEDUCTION": "Retenue"
+    },
+    "common": {
+      "amountHint": "En francs, sans décimales (par exemple 150000).",
+      "addStaff": "Ajouter un membre du personnel…",
+      "removeStaff": "Retirer {name}",
+      "loading": "Chargement…",
+      "chooseNode": "Choisir un cours…"
+    },
+    "errors": {
+      "required": "Ce champ est obligatoire.",
+      "invalid": "Valeur invalide.",
+      "amount": {
+        "empty": "Saisissez un montant.",
+        "decimal": "Le montant est un entier en francs : pas de virgule ni de point.",
+        "negative": "Le montant ne peut pas être négatif.",
+        "invalid": "Montant invalide : chiffres uniquement, strictement positif.",
+        "tooLarge": "Montant trop élevé."
+      }
+    },
+    "rejectionHints": {
+      "separation_of_duties": "Séparation des tâches : faites arrêter ce bulletin par une autre personne que celle qui l'a calculé.",
+      "owner_approval_required": "Montant au-dessus du seuil : seul le propriétaire peut l'arrêter, depuis « Masse salariale ».",
+      "invalid_transition": "Ce bulletin n'est pas dans l'état qui permet cette action.",
+      "payslip_locked": "Un bulletin arrêté ou versé n'est plus modifiable.",
+      "not_found": "Ce bulletin n'existe plus ou n'est pas accessible.",
+      "empty_selection": "Aucun bulletin sélectionné.",
+      "concurrent_update": "Le bulletin a été modifié entre-temps : rechargez la page."
+    },
+    "periods": {
+      "title": "Périodes de paie",
+      "description": "Une période regroupe les heures à payer entre deux dates. Calculez, arrêtez les montants puis versez.",
+      "new": "Nouvelle période",
+      "caption": "Périodes de paie",
+      "columns": {
+        "name": "Période",
+        "dates": "Dates",
+        "scope": "Périmètre",
+        "status": "Statut"
+      },
+      "range": "Du {from} au {to}",
+      "targeted": "Ciblée ({count, plural, one {# enseignant} other {# enseignants}})",
+      "collective": "Collective",
+      "awaiting": "En attente de calcul",
+      "pendingNotice": "La période « {name} » est en attente de calcul : calculez-la ou clôturez-la avant d'en créer une autre.",
+      "pendingOpen": "Ouvrir la période",
+      "empty": "Aucune période de paie",
+      "emptyHint": "Créez la première période pour calculer les bulletins.",
+      "created": "La période « {name} » a été créée.",
+      "noManage": "Votre rôle ne permet pas de gérer les périodes de paie.",
+      "toPayslips": "Voir les bulletins",
+      "form": {
+        "title": "Nouvelle période de paie",
+        "description": "Sans enseignant ciblé, la période est collective (tout le personnel payable).",
+        "submit": "Créer la période",
+        "name": "Nom",
+        "start": "Du",
+        "end": "Au",
+        "year": "Année scolaire",
+        "chooseYear": "Choisir une année…",
+        "descriptionLabel": "Description",
+        "targets": "Enseignants ciblés",
+        "targetsHint": "Laissez vide pour une période collective."
+      }
+    },
+    "periodDetail": {
+      "subtitle": "Du {from} au {to}",
+      "back": "Retour aux périodes",
+      "activate": "Activer la période",
+      "close": "Clôturer la période",
+      "archive": "Archiver la période",
+      "awaiting": "En attente de calcul",
+      "targeted": "Ciblée ({count, plural, one {# enseignant} other {# enseignants}})",
+      "collective": "Collective",
+      "statusDone": "Le statut de la période a été mis à jour.",
+      "statusDialog": {
+        "cancel": "Annuler",
+        "ACTIVE": {
+          "title": "Activer la période",
+          "description": "La période devient la période de travail courante.",
+          "confirm": "Activer"
+        },
+        "CLOSED": {
+          "title": "Clôturer la période",
+          "description": "Une période clôturée n'accepte plus de nouveau calcul.",
+          "confirm": "Clôturer"
+        },
+        "ARCHIVED": {
+          "title": "Archiver la période",
+          "description": "L'archivage est définitif.",
+          "confirm": "Archiver"
+        }
+      }
+    },
+    "calc": {
+      "title": "Calcul de la paie",
+      "description": "L'aperçu calcule sans rien enregistrer. Le calcul crée les bulletins ; un recalcul reconstruit les bulletins calculés en conservant leurs primes et retenues, et ne touche jamais un bulletin arrêté, versé ou annulé.",
+      "scope": "Origine des heures",
+      "scopeHint": "Les origines proposées dépendent de l'offre de l'établissement.",
+      "recalculate": "Recalculer les bulletins déjà calculés",
+      "recalculateHint": "Les primes et retenues déjà saisies sont préservées.",
+      "perimeter": "Limiter à certains membres du personnel",
+      "perimeterHint": "Vide : toute la période.",
+      "preview": "Aperçu (sans enregistrer)",
+      "run": "Lancer le calcul",
+      "runRecalculate": "Recalculer",
+      "running": "Calcul en cours…",
+      "confirm": {
+        "title": "Recalculer les bulletins",
+        "description": "Les bulletins « calculés » seront reconstruits à partir des heures actuelles. Primes et retenues sont conservées ; les bulletins arrêtés, versés ou annulés ne sont pas touchés.",
+        "cancel": "Annuler",
+        "submit": "Recalculer"
+      }
+    },
+    "report": {
+      "title": "Compte rendu du calcul",
+      "titlePreview": "Aperçu du calcul",
+      "previewNotice": "Aperçu : aucun bulletin n'a été créé ni modifié.",
+      "counters": {
+        "calculated": "Calculés",
+        "skipped": "Écartés",
+        "locked": "Verrouillés",
+        "failed": "En échec"
+      },
+      "items": "Résultat par enseignant",
+      "hideLines": "Masquer le détail",
+      "showLines": "Voir le détail ({count, plural, one {# ligne} other {# lignes}})",
+      "duration": "Calcul effectué en {ms} ms.",
+      "preview": {
+        "amounts": {
+          "salary": "Salaire",
+          "regularHours": "Heures normales",
+          "overtime": "Heures supplémentaires",
+          "bonus": "Primes",
+          "deduction": "Retenues"
+        },
+        "lines": "Lignes d'heures — {name}"
+      }
+    },
+    "lines": {
+      "columns": {
+        "date": "Date",
+        "source": "Origine",
+        "label": "Cours",
+        "duration": "Durée",
+        "rate": "Tarif horaire",
+        "multiplier": "Majoration",
+        "amount": "Montant"
+      },
+      "overtime": "Heures sup."
+    },
+    "periodPayslips": {
+      "title": "Bulletins de la période",
+      "caption": "Bulletins de la période",
+      "columns": {
+        "select": "Sélection",
+        "staff": "Enseignant",
+        "kind": "Type",
+        "status": "Statut",
+        "total": "Montant",
+        "reason": "Motif"
+      },
+      "selectOne": "Sélectionner {name}",
+      "approveSelected": "Arrêter la sélection ({count})",
+      "approveAll": "Tout arrêter",
+      "paySelected": "Verser la sélection ({count})",
+      "payAll": "Tout verser",
+      "separationHint": "Selon les réglages de l'établissement, la personne qui a calculé un bulletin ne peut pas l'arrêter, et au-delà d'un seuil seul le propriétaire le peut. Les refus sont expliqués ci-dessous.",
+      "result": {
+        "approve": "{done, plural, =0 {Aucun bulletin arrêté} one {# bulletin arrêté} other {# bulletins arrêtés}} · {unchanged} inchangé(s) · {rejected} refusé(s).",
+        "pay": "{done, plural, =0 {Aucun bulletin versé} one {# bulletin versé} other {# bulletins versés}} · {unchanged} inchangé(s) · {rejected} refusé(s).",
+        "rejectedList": "Bulletins refusés"
+      },
+      "empty": "Aucun bulletin",
+      "emptyHint": "Lancez le calcul de la période pour créer les bulletins.",
+      "truncated": "{shown} bulletins affichés sur {total}. « Tout arrêter » et « Tout verser » portent sur tous les bulletins de la période.",
+      "approveDialog": {
+        "title": "Arrêter les montants",
+        "allDescription": "Arrête tous les bulletins calculés de la période (sélection faite par le serveur). Arrêter n'est pas verser.",
+        "selectedDescription": "{count, plural, one {Arrête # bulletin sélectionné.} other {Arrête # bulletins sélectionnés.}} Arrêter n'est pas verser.",
+        "confirm": "Arrêter"
+      },
+      "dialogCancel": "Annuler",
+      "approveDone": "Opération d'arrêt terminée.",
+      "payDialog": {
+        "allDescription": "Constate le versement de tous les bulletins arrêtés de la période.",
+        "selectedDescription": "{count, plural, one {Constate le versement de # bulletin.} other {Constate le versement de # bulletins.}}"
+      },
+      "payDone": "Opération de versement terminée."
+    },
+    "payDialog": {
+      "title": "Constater le versement",
+      "method": "Mode de versement",
+      "reference": "Référence",
+      "referenceHint": "Numéro de virement, de chèque ou de transaction (facultatif).",
+      "submit": "Constater le versement"
+    },
+    "runs": {
+      "title": "Historique des calculs",
+      "empty": "Aucun calcul pour cette période",
+      "preview": "Aperçu",
+      "recalculation": "Recalcul",
+      "calculation": "Calcul",
+      "counts": "{calculated} calculés · {skipped} écartés · {locked} verrouillés · {failed} en échec"
+    },
+    "payslips": {
+      "title": "Bulletins de paie",
+      "description": "Tous les bulletins : calculés, arrêtés, versés, contestés ou annulés.",
+      "caption": "Liste des bulletins de paie",
+      "columns": {
+        "staff": "Enseignant",
+        "period": "Période",
+        "kind": "Type",
+        "status": "Statut",
+        "total": "Montant",
+        "calculated": "Calculé le"
+      },
+      "filters": {
+        "staff": "Enseignant",
+        "staffPlaceholder": "Rechercher un enseignant…",
+        "period": "Période",
+        "allPeriods": "Toutes les périodes",
+        "status": "Statut",
+        "allStatuses": "Tous les statuts"
+      },
+      "empty": "Aucun bulletin",
+      "emptyHint": "Modifiez les filtres ou lancez le calcul d'une période."
+    },
+    "payslipDetail": {
+      "title": "Bulletin de {name}",
+      "subtitle": "Rémunération de type {kind}",
+      "back": "Retour aux bulletins",
+      "approve": "Arrêter le montant",
+      "pay": "Constater le versement",
+      "dispute": "Contester",
+      "cancel": "Annuler le bulletin",
+      "notify": "Envoyer au titulaire",
+      "notified": "L'envoi du bulletin à son titulaire a été demandé.",
+      "approved": "Le montant du bulletin est arrêté.",
+      "paid": "Le versement est constaté.",
+      "cancelled": "Le bulletin est annulé.",
+      "disputed": "Le bulletin est contesté.",
+      "disputedNotice": "Ce bulletin est contesté. Motif : {reason}",
+      "cancelledNotice": "Ce bulletin est annulé. Motif : {reason}",
+      "summary": "Montants",
+      "amounts": {
+        "salary": "Salaire",
+        "base": "Base (salaire et heures normales)",
+        "overtime": "Heures supplémentaires",
+        "bonus": "Primes",
+        "deduction": "Retenues",
+        "total": "Total"
+      },
+      "regularMinutes": "Heures normales",
+      "overtimeMinutes": "Heures supplémentaires",
+      "calculatedBy": "Calculé",
+      "approvedBy": "Arrêté",
+      "paidBy": "Versé",
+      "byOn": "par {name}, le {date}",
+      "lines": "Lignes d'heures",
+      "noLines": "Aucune ligne d'heures (bulletin de salaire).",
+      "linesCaption": "Lignes d'heures du bulletin",
+      "documentUnavailable": "Le document arrêté n'est pas disponible pour le moment.",
+      "history": "Historique du bulletin",
+      "payDialogDescription": "Vous constatez le versement de {amount}.",
+      "cancelDialog": {
+        "title": "Annuler le bulletin",
+        "description": "Les heures du bulletin sont relâchées. Un bulletin versé ne peut pas être annulé.",
+        "reason": "Motif de l'annulation",
+        "confirm": "Annuler le bulletin"
+      },
+      "disputeDialog": {
+        "title": "Contester le bulletin",
+        "description": "Le bulletin est mis de côté de la masse salariale tant que la contestation n'est pas réglée.",
+        "reason": "Motif de la contestation",
+        "confirm": "Contester"
+      }
+    },
+    "adjustments": {
+      "title": "Primes et retenues",
+      "add": "Ajouter une prime ou une retenue",
+      "hint": "Les primes et retenues sont conservées quand le bulletin est recalculé.",
+      "locked": "Seul un bulletin « calculé » accepte des primes ou retenues.",
+      "empty": "Aucune prime ni retenue",
+      "by": "Saisie par {name}, le {date}",
+      "remove": "Retirer",
+      "removed": "L'ajustement a été retiré.",
+      "added": "L'ajustement a été ajouté.",
+      "dialog": {
+        "title": "Prime ou retenue",
+        "description": "Le total du bulletin est recalculé par le serveur.",
+        "submit": "Ajouter",
+        "kind": "Nature",
+        "amount": "Montant",
+        "label": "Libellé",
+        "reason": "Motif"
+      }
+    },
+    "document": {
+      "title": "Bulletin arrêté",
+      "intact": "Intégrité vérifiée",
+      "tampered": "Empreinte non conforme",
+      "tamperedNotice": "L'empreinte du document ne correspond plus à celle enregistrée à l'arrêt du montant : signalez-le à l'administrateur.",
+      "unreadable": "Le contenu du document n'a pas pu être lu.",
+      "print": "Imprimer",
+      "staff": "Bénéficiaire",
+      "period": "Période",
+      "periodValue": "{name} (du {from} au {to})",
+      "amountsCaption": "Montants du bulletin",
+      "amounts": {
+        "salary": "Salaire",
+        "regularHours": "Heures normales",
+        "overtime": "Heures supplémentaires",
+        "bonus": "Primes",
+        "deduction": "Retenues",
+        "total": "Total"
+      },
+      "minutes": "Heures normales : {regular} · heures supplémentaires : {overtime}",
+      "payment": "Versé le {date} par {name} ({method})",
+      "hash": "Empreinte SHA-256 :"
+    },
+    "config": {
+      "nav": {
+        "label": "Configuration de la paie",
+        "configs": "Configurations",
+        "rates": "Tarifs horaires",
+        "settings": "Réglages"
+      },
+      "configs": {
+        "title": "Configurations de paie",
+        "description": "Salaire, tarif horaire ou mixte de chaque enseignant, avec dates d'effet.",
+        "new": "Nouvelle configuration",
+        "caption": "Configurations de paie",
+        "columns": {
+          "staff": "Enseignant",
+          "type": "Type",
+          "monthly": "Salaire mensuel",
+          "annual": "Salaire annuel",
+          "hourly": "Tarif horaire par défaut",
+          "overtime": "Heures supplémentaires",
+          "validity": "Validité",
+          "actions": "Actions"
+        },
+        "overtimeValue": "au-delà de {threshold}/semaine, {multiplier}",
+        "validRange": "Du {from} au {to}",
+        "validFrom": "Depuis le {from}",
+        "edit": "Modifier",
+        "saved": "La configuration a été enregistrée.",
+        "filters": {
+          "staff": "Enseignant",
+          "staffPlaceholder": "Rechercher un enseignant…",
+          "activeOn": "En vigueur le",
+          "activeOnHint": "Filtre sur les configurations actives à cette date."
+        },
+        "empty": "Aucune configuration",
+        "emptyHint": "Un enseignant sans configuration est écarté du calcul de la paie."
+      },
+      "situation": {
+        "title": "Situation d'un enseignant",
+        "staff": "Enseignant",
+        "placeholder": "Rechercher un enseignant…",
+        "perHour": "{amount} par heure",
+        "none": "Aucune configuration applicable aujourd'hui."
+      },
+      "configDialog": {
+        "newTitle": "Nouvelle configuration de paie",
+        "editTitle": "Modifier la configuration",
+        "description": "Les montants sont des entiers en francs. L'API refuse deux configurations qui se chevauchent pour un même enseignant.",
+        "submit": "Enregistrer",
+        "staff": "Enseignant",
+        "staffPlaceholder": "Rechercher un enseignant…",
+        "type": "Type de rémunération",
+        "monthly": "Salaire mensuel",
+        "monthlyHint": "Prorata calculé par l'API selon les jours de la période.",
+        "annual": "Salaire annuel",
+        "hourly": "Tarif horaire par défaut",
+        "hourlyHint": "0 est une valeur (taux nul) ; vide : pas de tarif par défaut.",
+        "threshold": "Seuil d'heures supplémentaires (minutes par semaine)",
+        "thresholdHint": "Vide : valeur par défaut de l'établissement. 2400 minutes = 40 h.",
+        "thresholdInvalid": "Saisissez un nombre entier de minutes supérieur à 0.",
+        "multiplier": "Majoration des heures supplémentaires",
+        "multiplierHint": "Par exemple 1,5 pour ×1,5 ; vide : valeur par défaut.",
+        "multiplierErrors": {
+          "empty": "Saisissez un coefficient.",
+          "invalid": "Coefficient invalide (par exemple 1,5).",
+          "range": "Le coefficient doit être compris entre 1 et 5."
+        },
+        "from": "En vigueur à partir du",
+        "to": "Jusqu'au (facultatif)"
+      },
+      "rates": {
+        "title": "Tarifs horaires",
+        "description": "Tarif par cours, générique ou propre à un enseignant, daté. Le tarif retenu pour une séance est celui valide à sa date.",
+        "new": "Nouveau tarif",
+        "caption": "Tarifs horaires",
+        "columns": {
+          "node": "Cours",
+          "staff": "Enseignant",
+          "rate": "Tarif horaire",
+          "validity": "Validité",
+          "notes": "Notes",
+          "actions": "Actions"
+        },
+        "generic": "Générique",
+        "validRange": "Du {from} au {to}",
+        "validFrom": "Depuis le {from}",
+        "edit": "Modifier",
+        "delete": "Supprimer",
+        "filters": {
+          "staff": "Enseignant",
+          "staffPlaceholder": "Rechercher un enseignant…",
+          "node": "Cours",
+          "kind": "Type de tarif",
+          "all": "Tous",
+          "generic": "Génériques",
+          "named": "Nominatifs"
+        },
+        "empty": "Aucun tarif",
+        "emptyHint": "Sans tarif applicable, les heures d'un enseignant horaire sont écartées du calcul.",
+        "saved": "Le tarif a été enregistré.",
+        "deleted": "Le tarif a été supprimé.",
+        "deleteDialog": {
+          "title": "Supprimer le tarif",
+          "description": "Les bulletins déjà calculés ne sont pas modifiés.",
+          "cancel": "Annuler",
+          "confirm": "Supprimer"
+        }
+      },
+      "rateDialog": {
+        "newTitle": "Nouveau tarif horaire",
+        "editTitle": "Modifier le tarif",
+        "description": "Un tarif sans enseignant est générique pour le cours. L'API refuse un chevauchement.",
+        "submit": "Enregistrer",
+        "fixedScope": "Le cours et l'enseignant d'un tarif ne se modifient pas : créez un nouveau tarif pour changer de périmètre.",
+        "node": "Cours",
+        "staff": "Enseignant (tarif nominatif)",
+        "staffHint": "Laissez vide pour un tarif générique.",
+        "staffPlaceholder": "Rechercher un enseignant…",
+        "rate": "Tarif horaire",
+        "rateHint": "0 est une valeur (taux nul).",
+        "from": "Valide à partir du",
+        "to": "Jusqu'au (facultatif)",
+        "notes": "Notes"
+      },
+      "simulator": {
+        "title": "Simulateur de tarif",
+        "description": "Pour un enseignant, un cours et une date, indique le tarif retenu et son origine selon l'ordre de l'API.",
+        "staff": "Enseignant",
+        "staffPlaceholder": "Rechercher un enseignant…",
+        "node": "Cours",
+        "nodeHint": "Facultatif : sans cours, seul le tarif par défaut de la configuration est cherché.",
+        "date": "À la date du",
+        "submit": "Simuler",
+        "noRate": "Aucun tarif applicable. {state}.",
+        "result": "Tarif retenu : {rate} par heure — {origin}. {state}."
+      },
+      "settings": {
+        "title": "Réglages de la paie",
+        "description": "Valeurs par défaut de l'établissement, séparation des tâches et seuil du propriétaire.",
+        "currency": "Devise : {currency}",
+        "threshold": "Seuil d'heures supplémentaires par défaut (minutes par semaine)",
+        "thresholdHint": "Soit {hours} par semaine.",
+        "thresholdInvalid": "Saisissez un nombre entier de minutes supérieur à 0.",
+        "multiplier": "Majoration par défaut",
+        "multiplierHint": "Par exemple 1,5 pour ×1,5.",
+        "multiplierErrors": {
+          "empty": "Saisissez un coefficient.",
+          "invalid": "Coefficient invalide (par exemple 1,5).",
+          "range": "Le coefficient doit être compris entre 1 et 5."
+        },
+        "separate": "Séparation des tâches",
+        "separateHint": "La personne qui a calculé un bulletin ne peut pas l'arrêter.",
+        "ownerThreshold": "Seuil de validation par le propriétaire",
+        "ownerThresholdHint": "Au-delà de ce montant, seul le propriétaire arrête le bulletin. Vide : aucun seuil.",
+        "submit": "Enregistrer les réglages",
+        "saved": "Les réglages ont été enregistrés."
+      }
+    },
+    "history": {
+      "title": "Historique des paiements",
+      "description": "Bulletins arrêtés et versés. « Arrêté (impayé) » signifie arrêté mais pas encore versé.",
+      "caption": "Historique des bulletins arrêtés",
+      "columns": {
+        "staff": "Enseignant",
+        "status": "Statut",
+        "approved": "Arrêté",
+        "paid": "Versé",
+        "total": "Montant"
+      },
+      "onBy": "{date}, par {name}",
+      "paidOnBy": "{date}, par {name} ({method})",
+      "filters": {
+        "year": "Année scolaire",
+        "allYears": "Toutes les années",
+        "period": "Période",
+        "allPeriods": "Toutes les périodes",
+        "staff": "Enseignant",
+        "staffPlaceholder": "Rechercher un enseignant…"
+      },
+      "empty": "Aucun bulletin arrêté",
+      "emptyHint": "Les bulletins apparaissent ici une fois leur montant arrêté."
+    },
+    "export": {
+      "button": "Exporter en CSV",
+      "loading": "Export en cours…",
+      "error": "L'export a échoué."
+    },
+    "reports": {
+      "title": "Rapports de paie",
+      "description": "Montants par statut et par origine des heures (présences, séances, hors heures).",
+      "caption": "Bulletins par statut",
+      "sourcesCaption": "Heures par origine",
+      "filters": {
+        "label": "Filtres des rapports de paie",
+        "year": "Année scolaire",
+        "allYears": "Toutes les années",
+        "period": "Période",
+        "allPeriods": "Toutes les périodes",
+        "source": "Origine des heures",
+        "sourceHint": "Alimente la colonne « Origine filtrée ».",
+        "from": "Du",
+        "to": "Au",
+        "staff": "Enseignant",
+        "staffPlaceholder": "Rechercher un enseignant…"
+      },
+      "columns": {
+        "status": "Statut",
+        "payslips": "Bulletins",
+        "attendance": "Présences",
+        "session": "Séances",
+        "outOfHours": "Hors heures",
+        "total": "Total",
+        "filtered": "Origine filtrée"
+      },
+      "empty": "Aucune donnée pour ces filtres",
+      "filteredTotal": "Total de l'origine filtrée :",
+      "sources": {
+        "kind": "Origine",
+        "minutes": "Durée",
+        "amount": "Montant"
+      }
+    },
+    "owner": {
+      "title": "Masse salariale",
+      "description": "Montants par période et par statut ; les bulletins annulés et contestés sont exclus du total et montrés à part.",
+      "featureOff": "La masse salariale et la validation par le propriétaire ne sont pas incluses dans l'offre de l'établissement.",
+      "total": "Masse salariale comptée",
+      "totalNote": "{count, plural, one {# bulletin compté} other {# bulletins comptés}} (hors annulés et contestés).",
+      "empty": "Aucune période",
+      "periods": "Périodes",
+      "range": "du {from} au {to}",
+      "hideToValidate": "Masquer les bulletins à valider",
+      "showToValidate": "Bulletins à valider",
+      "counted": "Compté",
+      "apart": "À part — annulés : {cancelled} ({cancelledCount}) · contestés : {disputed} ({disputedCount}).",
+      "validate": {
+        "hint": "Valider arrête le montant du bulletin, comme sur l'écran du gestionnaire (même action).",
+        "done": "Le bulletin est validé.",
+        "none": "Aucun bulletin calculé à valider.",
+        "list": "Bulletins calculés à valider",
+        "button": "Valider"
+      }
+    },
+    "my": {
+      "title": "Mes bulletins",
+      "description": "Vos bulletins de paie une fois le montant arrêté.",
+      "visibility": "Vous voyez vos bulletins à partir de l'arrêt du montant : un brouillon calculé reste réservé à la gestion.",
+      "caption": "Mes bulletins de paie",
+      "columns": {
+        "date": "Date",
+        "status": "Statut",
+        "bonus": "Primes",
+        "deduction": "Retenues",
+        "total": "Montant",
+        "paid": "Versé le"
+      },
+      "notPaid": "Pas encore versé",
+      "empty": "Aucun bulletin",
+      "emptyHint": "Vos bulletins apparaîtront ici dès que leur montant sera arrêté.",
+      "disputedNotice": "Un de vos bulletins est contesté : la gestion vous recontactera.",
+      "detail": {
+        "title": "Mon bulletin",
+        "back": "Retour à mes bulletins",
+        "disputed": "Ce bulletin est contesté ; le montant n'est pas définitif.",
+        "contest": "Une erreur ? Contactez la gestion de l'établissement : la contestation est enregistrée par un gestionnaire."
+      }
+    }
+  },
+  "v2Attendance": {
+    "nav": {
+      "label": "Navigation des présences",
+      "call": "Faire l'appel",
+      "dashboard": "Tableau de bord",
+      "sessions": "Suivi des appels",
+      "absences": "Absences",
+      "justifications": "Justificatifs",
+      "compliance": "Appels non faits",
+      "alerts": "Alertes",
+      "conflicts": "Conflits de synchronisation",
+      "staff": "Personnel",
+      "staffMe": "Ma présence",
+      "children": "Mes enfants",
+      "me": "Mes absences"
+    },
+    "offline": {
+      "upToDate": "En ligne : tout est à jour.",
+      "synced": "En ligne : synchronisé à {time}.",
+      "noUser": "Aucun utilisateur identifié : reconnectez-vous pour utiliser la file hors ligne.",
+      "offline": "Hors ligne : vous pouvez continuer, les pointages seront envoyés à la reconnexion.",
+      "offlinePending": "Hors ligne : {count, plural, =0 {appel en attente d'envoi} one {# pointage gardé sur cet appareil} other {# pointages gardés sur cet appareil}}, envoi à la reconnexion.",
+      "syncing": "Synchronisation en cours…",
+      "pending": "{count, plural, =0 {Appel en attente d'envoi} one {# pointage en attente d'envoi} other {# pointages en attente d'envoi}}.",
+      "failed": "Envoi impossible pour le moment ({count, plural, =0 {appel conservé} one {# pointage conservé} other {# pointages conservés}}).",
+      "failedRetryAt": "Envoi impossible pour le moment ({count, plural, =0 {appel conservé} one {# pointage conservé} other {# pointages conservés}}). Nouvel essai vers {time}.",
+      "authExpired": "Session expirée : reconnectez-vous pour envoyer ({count, plural, =0 {appel conservé} one {# pointage conservé} other {# pointages conservés}} sur cet appareil).",
+      "syncNow": "Synchroniser",
+      "retryNow": "Réessayer maintenant",
+      "volatile": "Le stockage de cet appareil est indisponible (navigation privée ?). Les pointages seront perdus si vous fermez cette page avant l'envoi."
+    },
+    "status": {
+      "PRESENT": "Présent",
+      "ABSENT": "Absent",
+      "LATE": "En retard",
+      "EXCUSED": "Absent justifié",
+      "EARLY_LEAVE": "Départ anticipé",
+      "ON_LEAVE": "En congé"
+    },
+    "picker": {
+      "title": "Statut de {name}",
+      "description": "Choisissez le statut de cet élève pour cet appel.",
+      "legend": "Statut",
+      "minutesLate": "Minutes de retard",
+      "minutesHint": "Facultatif selon la politique de l'établissement.",
+      "minutesInvalid": "Entrez un nombre entier de minutes entre 1 et 1440.",
+      "justify": "Enregistrer une absence justifiée…",
+      "excusedHint": "Une absence se justifie par un justificatif accepté (ou par la direction, en ligne).",
+      "cancel": "Annuler",
+      "apply": "Appliquer"
+    },
+    "call": {
+      "title": "Faire l'appel",
+      "dailyDescription": "Appel de la journée",
+      "sessionDescription": "Appel de la séance",
+      "back": "Mes séances",
+      "retry": "Réessayer",
+      "loading": "Ouverture de l'appel…",
+      "noRosterOffline": "Vous êtes hors ligne : la liste de la classe ne peut pas être chargée. Rouvrez cet appel dès que le réseau revient ; les pointages déjà saisis sur cet appareil sont conservés.",
+      "studentFallback": "Élève …{id}",
+      "localSaveFailed": "Ce pointage n'a pas pu être gardé sur l'appareil (stockage plein ou indisponible).",
+      "queuedOffline": "Appel enregistré sur cet appareil. Il sera envoyé automatiquement dès que le réseau reviendra.",
+      "queuedFailure": "Appel enregistré sur cet appareil. L'envoi a échoué, une nouvelle tentative aura lieu automatiquement.",
+      "submitted": "Appel soumis.",
+      "submittedCounts": "Appel soumis : {absent, plural, =0 {aucun absent} one {# absent} other {# absents}}, {late, plural, =0 {aucun retard} one {# retard} other {# retards}}.",
+      "corrected": "Corrections enregistrées.",
+      "submitFailed": "L'appel n'a pas pu être soumis. Réessayez.",
+      "lockedValidated": "Cet appel est validé : il ne peut plus être modifié ici. La direction peut le rouvrir avec un motif.",
+      "lockedCancelled": "Cet appel est annulé.",
+      "lockedWindow": "Le délai de correction de cet appel est dépassé ou vous n'avez pas le droit de le modifier.",
+      "summary": "Résumé de l'appel",
+      "session": {
+        "OPEN": "Appel ouvert",
+        "SUBMITTED": "Appel soumis",
+        "VALIDATED": "Appel validé",
+        "CANCELLED": "Appel annulé"
+      },
+      "defaultHint": "Tout le monde est présent par défaut : touchez uniquement les exceptions.",
+      "emptyRoster": "Aucun élève dans la liste d'appel de cette séance.",
+      "listLabel": "Élèves de la classe",
+      "rowToggle": "{name} : {status}. Toucher pour basculer entre présent et absent.",
+      "rowOther": "Autre statut pour {name}",
+      "outOfRoster": "Hors de la liste de la classe",
+      "excused": "Justifié",
+      "pendingRow": "En attente d'envoi",
+      "pendingSummary": "{count, plural, one {# modification à envoyer} other {# modifications à envoyer}}",
+      "nothingChanged": "Aucune exception : tous présents.",
+      "alreadySubmitted": "Appel déjà soumis.",
+      "saving": "Enregistrement…",
+      "submit": "Soumettre l'appel",
+      "saveCorrections": "Enregistrer les corrections",
+      "justifiedDone": "Absence justifiée enregistrée.",
+      "justify": {
+        "title": "Absence justifiée : {name}",
+        "description": "Crée et accepte un justificatif pour cet élève et cette séance.",
+        "submit": "Enregistrer",
+        "reason": "Motif",
+        "reasonRequired": "Choisissez un motif.",
+        "choose": "Choisir un motif",
+        "comment": "Commentaire"
+      }
+    },
+    "outcome": {
+      "student": "Élève …{id}",
+      "conflictsTitle": "{count, plural, one {# pointage n'a pas été appliqué} other {# pointages n'ont pas été appliqués}}",
+      "conflictsBody": "L'appel avait été modifié ou verrouillé entre-temps. Ces saisies sont conservées pour arbitrage par la direction ; rien n'est perdu.",
+      "openConflicts": "Ouvrir les conflits à arbitrer",
+      "rejectedTitle": "{count, plural, one {# pointage refusé par le serveur} other {# pointages refusés par le serveur}}",
+      "codes": {
+        "attendance_unmarked_students": "L'appel n'a pas pu être soumis : des élèves ne sont pas pointés.",
+        "attendance_occurrence_cancelled": "Cette séance a été annulée : l'appel ne peut plus être enregistré.",
+        "attendance_forbidden": "Vous n'avez pas le droit de faire l'appel de cette séance.",
+        "attendance_session_locked": "Cet appel est verrouillé.",
+        "local_invalid_batch": "Données locales invalides : cet appel ne peut pas être envoyé."
+      },
+      "errorGeneric": "Le serveur a refusé cet appel ({code}).",
+      "errorKept": "Vos pointages sont conservés sur cet appareil.",
+      "errorSessionOnly": "Les pointages sont enregistrés ; rouvrez l'appel pour le soumettre.",
+      "retry": "Réessayer l'envoi",
+      "discard": "Abandonner cet appel local",
+      "acknowledge": "Compris"
+    },
+    "callList": {
+      "title": "Mes séances à faire",
+      "description": "Les séances du jour et les appels en cours sur cet appareil.",
+      "todayTitle": "Aujourd'hui",
+      "noScheduleAccess": "L'emploi du temps n'est pas disponible pour votre profil : ouvrez l'appel de votre classe ci-dessous.",
+      "emptyToday": "Aucune séance prévue aujourd'hui.",
+      "emptyTodayHint": "Vos séances du jour apparaîtront ici avec leur état d'appel.",
+      "untitled": "Séance",
+      "notDone": "Appel à faire",
+      "view": "Voir l'appel",
+      "doCall": "Faire l'appel",
+      "dailyTitle": "Appel de la journée",
+      "dailyHint": "Pour les classes à appel journalier (une seule fois par jour).",
+      "dailyCall": "Appel du jour",
+      "otherClass": "Autre classe",
+      "chooseClass": "Choisir une classe",
+      "otherDate": "Date",
+      "open": "Ouvrir",
+      "outbox": {
+        "title": "Sur cet appareil",
+        "hint": "Ces appels sont gardés sur l'appareil (identifiants seulement, sans nom d'élève) jusqu'à leur envoi.",
+        "untitled": "Appel du {date}",
+        "state": {
+          "PENDING": "En attente d'envoi",
+          "SYNCING": "Envoi en cours",
+          "DONE": "Envoyé",
+          "ATTENTION": "À vérifier"
+        },
+        "records": "{count, plural, one {# pointage} other {# pointages}}",
+        "conflicts": "{count, plural, one {# conflit} other {# conflits}}",
+        "open": "Ouvrir",
+        "discard": "Abandonner",
+        "remove": "Retirer"
+      }
+    },
+    "filters": {
+      "label": "Filtres",
+      "year": "Année scolaire",
+      "period": "Période",
+      "classroom": "Classe",
+      "chooseClassroom": "Choisir une classe"
+    },
+    "reasonFallback": {
+      "ILLNESS": "Maladie",
+      "FAMILY_EVENT": "Événement familial",
+      "TRANSPORT": "Difficulté de transport",
+      "OFFICIAL_ACTIVITY": "Activité officielle",
+      "OTHER": "Autre"
+    },
+    "leaveFallback": {
+      "ANNUAL": "Congé annuel",
+      "SICK": "Congé maladie",
+      "MATERNITY": "Congé de maternité",
+      "UNPAID": "Congé sans solde",
+      "AUTHORIZED_ABSENCE": "Absence autorisée"
+    },
+    "dashboard": {
+      "title": "Assiduité par classe",
+      "description": "Comptages d'assiduité d'une classe sur une période : valeur effective (surcharge tracée, sinon dérivée des appels).",
+      "chooseClass": "Choisissez une classe",
+      "chooseClassHint": "Sélectionnez l'année, la période et la classe pour afficher le récapitulatif.",
+      "caption": "Récapitulatif d'assiduité de la classe",
+      "empty": "Aucun récapitulatif pour cette classe et cette période.",
+      "emptyHint": "Les récapitulatifs apparaissent dès qu'un appel est soumis.",
+      "recompute": "Recalculer la période",
+      "recomputed": "Recalcul demandé : les récapitulatifs sont à jour.",
+      "hours": "{value} h",
+      "absentOf": "{total} dont {excused} justifiée(s)",
+      "minutesOf": "{total} dont {excused} justifiée(s)",
+      "unknownStudent": "Élève inconnu",
+      "overridden": "Surchargé",
+      "derived": "Calculé",
+      "override": "Surcharger",
+      "removeOverride": "Retirer la surcharge",
+      "overrideSaved": "Surcharge enregistrée (motif et auteur conservés).",
+      "overrideRemoved": "Surcharge retirée : la valeur calculée à partir des appels s'applique de nouveau.",
+      "removeTitle": "Retirer la surcharge de {name}",
+      "removeDescription": "Le récapitulatif revient aux comptages dérivés des appels. L'historique de la surcharge est conservé.",
+      "removeConfirm": "Retirer la surcharge",
+      "reason": "Motif (facultatif)",
+      "columns": {
+        "student": "Élève",
+        "sessions": "Séances",
+        "absent": "Absences",
+        "late": "Retards",
+        "early": "Départs anticipés",
+        "unmarked": "Non pointés",
+        "minutes": "Absence",
+        "state": "Valeur",
+        "actions": "Actions"
+      },
+      "overrideForm": {
+        "title": "Surcharger le récapitulatif de {name}",
+        "description": "Remplace les minutes d'absence calculées. Le motif et l'auteur sont conservés dans l'historique.",
+        "submit": "Enregistrer la surcharge",
+        "absentMinutes": "Minutes d'absence (total)",
+        "excusedMinutes": "dont minutes justifiées",
+        "excusedHint": "Ne peut pas dépasser le total des minutes d'absence.",
+        "reason": "Motif de la surcharge",
+        "reasonHint": "Au moins 5 caractères."
+      }
+    },
+    "sessions": {
+      "title": "Suivi des appels",
+      "description": "Appels ouverts, soumis et validés : validation, réouverture et annulation motivées.",
+      "filters": "Filtres des appels",
+      "from": "Du",
+      "to": "Au",
+      "statusFilter": "État",
+      "all": "Tous",
+      "classroomFilter": "Classe",
+      "anyClassroom": "Toutes les classes",
+      "caption": "Liste des appels",
+      "empty": "Aucun appel sur cette période.",
+      "emptyHint": "Élargissez les dates ou retirez un filtre.",
+      "loadMore": "Afficher plus",
+      "open": "Ouvrir",
+      "validate": "Valider",
+      "validated": "Appel validé.",
+      "validateSelected": "{count, plural, one {Valider la séance sélectionnée} other {Valider les # séances sélectionnées}}",
+      "validatedCount": "{count, plural, one {# appel validé} other {# appels validés}}.",
+      "batchErrors": "{count, plural, one {# appel n'a pas pu être validé} other {# appels n'ont pas pu être validés}}",
+      "batchFailed": "Validation impossible.",
+      "selectOne": "Sélectionner l'appel de {classroom} du {date}",
+      "reopen": "Rouvrir",
+      "reopenTitle": "Rouvrir l'appel",
+      "reopenDescription": "Acte sensible : l'appel validé repasse en correction. Le motif est conservé et l'action est auditée.",
+      "reopened": "Appel rouvert.",
+      "cancel": "Annuler",
+      "cancelTitle": "Annuler l'appel",
+      "cancelDescription": "L'appel annulé ne compte plus dans les récapitulatifs. Le motif est conservé.",
+      "cancelled": "Appel annulé.",
+      "reason": "Motif",
+      "scope": {
+        "DAILY": "Journalier",
+        "SESSION": "Par séance"
+      },
+      "status": {
+        "OPEN": "Ouvert",
+        "SUBMITTED": "Soumis",
+        "VALIDATED": "Validé",
+        "CANCELLED": "Annulé"
+      },
+      "columns": {
+        "select": "Sélection",
+        "date": "Date",
+        "classroom": "Classe",
+        "kind": "Type",
+        "by": "Pris par",
+        "status": "État",
+        "actions": "Actions"
+      }
+    },
+    "absences": {
+      "title": "Absences et retards",
+      "description": "Pointages d'absence et de retard, avec ceux à justifier en premier.",
+      "filters": "Filtres des absences",
+      "from": "Du",
+      "to": "Au",
+      "justification": "Justification",
+      "statusFilter": "Statut",
+      "all": "Tous",
+      "toJustify": "À justifier",
+      "excused": "Justifiée",
+      "justify": "Justifier",
+      "justifySaved": "Justificatif déposé.",
+      "caption": "Liste des absences et retards",
+      "empty": "Aucune absence correspondante.",
+      "emptyHint": "Modifiez les filtres pour élargir la recherche.",
+      "loadMore": "Afficher plus",
+      "loadingMore": "Chargement…",
+      "exportCsv": "Exporter en CSV",
+      "exporting": "Export en cours…",
+      "exported": "Export téléchargé.",
+      "exportFailed": "L'export n'a pas pu être généré.",
+      "exportHint": "Les noms s'affichent lorsqu'une classe est choisie. L'export CSV est limité à 5 000 lignes et journalisé.",
+      "columns": {
+        "date": "Date",
+        "student": "Élève",
+        "classroom": "Classe",
+        "status": "Statut",
+        "minutes": "Minutes",
+        "excused": "Justification",
+        "actions": "Actions"
+      }
+    },
+    "justifications": {
+      "title": "Justificatifs d'absence",
+      "description": "File de décision : acceptation, rejet motivé, révocation motivée, pièces jointes.",
+      "deposit": "Déposer un justificatif",
+      "deposited": "Justificatif déposé.",
+      "filters": "Filtres des justificatifs",
+      "statusFilter": "État",
+      "all": "Tous",
+      "studentFilter": "Élève",
+      "anyStudent": "Tous les élèves",
+      "from": "Du",
+      "to": "Au",
+      "caption": "Liste des justificatifs",
+      "empty": "Aucun justificatif.",
+      "emptyHint": "Modifiez les filtres pour voir d'autres justificatifs.",
+      "loadMore": "Afficher plus",
+      "windowRange": "du {from} au {to}",
+      "status": {
+        "PENDING": "En attente",
+        "ACCEPTED": "Accepté",
+        "REJECTED": "Rejeté",
+        "WITHDRAWN": "Retiré",
+        "REVOKED": "Révoqué"
+      },
+      "submitter": {
+        "GUARDIAN": "Parent",
+        "STUDENT": "Élève",
+        "STAFF": "Personnel"
+      },
+      "columns": {
+        "student": "Élève",
+        "window": "Période",
+        "reason": "Motif",
+        "by": "Déposé par",
+        "files": "Pièces",
+        "status": "État"
+      },
+      "detail": {
+        "title": "Justificatif d'absence",
+        "student": "Élève",
+        "window": "Période",
+        "windowValue": "du {from} au {to}",
+        "reason": "Motif",
+        "comment": "Commentaire",
+        "submitted": "Déposé",
+        "submittedValue": "{by}, le {at}",
+        "status": "État",
+        "covered": "{count, plural, =0 {Aucun pointage couvert} one {# pointage couvert} other {# pointages couverts}}",
+        "decision": "Décision",
+        "revocation": "Révocation",
+        "files": "Pièces jointes",
+        "noFiles": "Aucune pièce jointe.",
+        "openFile": "Ouvrir",
+        "fileError": "La pièce n'a pas pu être ouverte.",
+        "filesHint": "L'ouverture d'une pièce est journalisée (elle peut contenir des informations médicales). Le lien est temporaire.",
+        "accept": "Accepter",
+        "acceptTitle": "Accepter le justificatif",
+        "acceptDescription": "Les absences et retards de la période seront marqués justifiés et les récapitulatifs recalculés.",
+        "noteOptional": "Note (facultative)",
+        "accepted": "Justificatif accepté.",
+        "reject": "Rejeter",
+        "rejectTitle": "Rejeter le justificatif",
+        "rejectDescription": "Le motif du rejet est communiqué au déposant et conservé.",
+        "rejectReason": "Motif du rejet",
+        "rejected": "Justificatif rejeté.",
+        "revoke": "Révoquer",
+        "revokeTitle": "Révoquer le justificatif",
+        "revokeDescription": "Les pointages redeviennent injustifiés. Le motif est conservé dans l'historique.",
+        "revokeReason": "Motif de la révocation",
+        "revoked": "Justificatif révoqué."
+      }
+    },
+    "justifyForm": {
+      "title": "Déposer un justificatif",
+      "description": "Indiquez la période d'absence et le motif. Une pièce (PDF ou image) peut être jointe.",
+      "submit": "Déposer",
+      "student": "Élève",
+      "chooseStudent": "Choisir un élève",
+      "from": "Premier jour d'absence",
+      "to": "Dernier jour d'absence",
+      "reason": "Motif",
+      "chooseReason": "Choisir un motif",
+      "comment": "Commentaire",
+      "file": "Pièce jointe (facultative)",
+      "fileHint": "Formats acceptés : {types}.",
+      "fileTooLarge": "Le fichier dépasse la taille autorisée ({max} Ko).",
+      "attachFailed": "La pièce n'a pas pu être envoyée.",
+      "attachPartial": "Le justificatif est déposé mais la pièce n'a pas pu être jointe : {message}"
+    },
+    "compliance": {
+      "title": "Appels non faits",
+      "description": "Séances passées sans appel soumis, par enseignant et par classe (données brutes, sans seuil).",
+      "filters": "Période",
+      "from": "Du",
+      "to": "Au",
+      "expected": "Attendus",
+      "taken": "Faits",
+      "missing": "Non faits",
+      "rate": "Taux d'appel",
+      "noData": "Sans objet",
+      "byStaff": "Par enseignant",
+      "byStaffCaption": "Taux d'appel par enseignant",
+      "staff": "Enseignant",
+      "noStaff": "Sans intervenant",
+      "byClassroom": "Par classe",
+      "byClassroomCaption": "Taux d'appel par classe",
+      "classroom": "Classe",
+      "empty": "Aucune séance attendue sur cette période.",
+      "missingList": "Séances sans appel",
+      "noneMissing": "Tous les appels attendus ont été faits.",
+      "doCall": "Faire l'appel"
+    },
+    "alerts": {
+      "title": "Alertes d'assiduité",
+      "description": "Règles d'alerte de l'établissement : indicateur et seuil, évalués par le serveur.",
+      "info": "Une alerte est notifiée au franchissement d'un seuil (et à son retour sous le seuil). Les seuils sont ceux de votre établissement : aucun n'est imposé par défaut.",
+      "rules": "Règles en vigueur",
+      "noRules": "Aucune règle d'alerte.",
+      "noRulesHint": "Sans règle, aucune alerte n'est émise. Ajoutez-en une ci-dessous.",
+      "active": "Active",
+      "inactive": "Inactive",
+      "ruleSummary": "{metric} — seuil : {threshold}",
+      "activate": "Activer",
+      "deactivate": "Désactiver",
+      "activated": "Règle activée.",
+      "deactivated": "Règle désactivée.",
+      "remove": "Supprimer",
+      "removed": "Règle supprimée.",
+      "added": "Règle ajoutée.",
+      "addTitle": "Ajouter une règle",
+      "code": "Code de la règle",
+      "codeHint": "Majuscules, chiffres et _ (ex. ABSENCES_NON_JUSTIFIEES).",
+      "codeExists": "Une règle porte déjà ce code.",
+      "metric": "Indicateur",
+      "chooseMetric": "Choisir un indicateur",
+      "threshold": "Seuil",
+      "thresholdBps": "En points de base : 2 000 = 20 %.",
+      "activeOnCreate": "Activer la règle dès sa création",
+      "add": "Ajouter la règle",
+      "metrics": {
+        "ABSENT_COUNT": "Nombre d'absences",
+        "UNEXCUSED_ABSENT_COUNT": "Nombre d'absences non justifiées",
+        "LATE_COUNT": "Nombre de retards",
+        "ABSENT_MINUTES": "Minutes d'absence",
+        "UNEXCUSED_ABSENT_MINUTES": "Minutes d'absence non justifiées",
+        "ABSENCE_RATE_BPS": "Taux d'absence"
+      }
+    },
+    "conflicts": {
+      "title": "Conflits de synchronisation",
+      "description": "Pointages saisis hors ligne que le serveur n'a pas appliqués : à arbitrer par la direction.",
+      "featureOff": "La synchronisation hors ligne n'est pas incluse dans votre offre.",
+      "show": "Afficher",
+      "stateOpen": "À arbitrer",
+      "stateResolved": "Arbitrés",
+      "emptyOpen": "Aucun conflit à arbitrer.",
+      "emptyOpenHint": "Les saisies hors ligne en conflit apparaissent ici.",
+      "emptyResolved": "Aucun conflit arbitré.",
+      "incoming": "Saisie de l'appareil",
+      "existing": "Pointage actuel",
+      "noExisting": "Aucun pointage",
+      "markedAt": "saisi le {at}",
+      "keepExisting": "Conserver le pointage actuel",
+      "acceptIncoming": "Appliquer la saisie de l'appareil",
+      "acceptTitle": "Appliquer la saisie de l'appareil",
+      "acceptDescription": "Le pointage actuel est remplacé. Impossible tant que l'appel est validé ou annulé : rouvrez-le d'abord.",
+      "keepTitle": "Conserver le pointage actuel",
+      "keepDescription": "La saisie de l'appareil est écartée et le conflit est clos.",
+      "noteOptional": "Note (facultative)",
+      "note": "Note : {note}",
+      "resolved": "Conflit arbitré.",
+      "kind": {
+        "SESSION_LOCKED": "Appel verrouillé",
+        "WINDOW_CLOSED": "Délai de correction dépassé",
+        "STALE": "Saisie plus ancienne"
+      },
+      "kindHint": {
+        "SESSION_LOCKED": "L'appel était validé ou annulé quand la saisie est arrivée.",
+        "WINDOW_CLOSED": "Le délai de correction de l'appel était dépassé.",
+        "STALE": "Un autre pointage, plus récent, existait déjà pour cet élève."
+      },
+      "resolution": {
+        "ACCEPT_INCOMING": "Saisie appliquée",
+        "KEEP_EXISTING": "Pointage conservé"
+      }
+    },
+    "staff": {
+      "title": "Présence du personnel",
+      "description": "Pointage du jour, congés et récapitulatif de présence.",
+      "ownTitle": "Ma présence",
+      "ownDescription": "Votre pointage, vos congés et leur état.",
+      "featureOff": "La présence du personnel n'est pas incluse dans votre offre.",
+      "mark": "Enregistrer une présence",
+      "requestLeave": "Demander un congé",
+      "filters": "Période",
+      "from": "Du",
+      "to": "Au",
+      "summary": "Récapitulatif",
+      "summaryCaption": "Récapitulatif de présence du personnel",
+      "emptySummary": "Aucune présence enregistrée sur cette période.",
+      "records": "Présences",
+      "recordsCaption": "Présences du personnel",
+      "emptyRecords": "Aucune présence enregistrée.",
+      "leaves": "Congés",
+      "leavesCaption": "Congés du personnel",
+      "emptyLeaves": "Aucun congé.",
+      "leaveStatusFilter": "État des congés",
+      "all": "Tous",
+      "marked": "Présence enregistrée.",
+      "leaveRequested": "Demande de congé envoyée.",
+      "clock": "Pointer",
+      "checkIn": "Arrivée",
+      "checkOut": "Départ",
+      "checkedIn": "Arrivée enregistrée.",
+      "checkedOut": "Départ enregistré.",
+      "approve": "Approuver",
+      "reject": "Refuser",
+      "cancelLeave": "Annuler",
+      "leaveApproved": "Congé approuvé.",
+      "leaveRejected": "Congé refusé.",
+      "leaveCancelled": "Congé annulé.",
+      "rejectTitle": "Refuser le congé",
+      "rejectDescription": "Le motif du refus est communiqué au demandeur et conservé.",
+      "rejectReason": "Motif du refus",
+      "periodValue": "du {from} au {to}",
+      "leaveStatus": {
+        "REQUESTED": "Demandé",
+        "APPROVED": "Approuvé",
+        "REJECTED": "Refusé",
+        "CANCELLED": "Annulé"
+      },
+      "columns": {
+        "staff": "Personnel",
+        "days": "Jours",
+        "byStatus": "Par statut",
+        "lateMinutes": "Minutes de retard",
+        "leaveDays": "Jours de congé",
+        "date": "Date",
+        "status": "Statut",
+        "checkIn": "Arrivée",
+        "checkOut": "Départ",
+        "leaveType": "Type",
+        "period": "Période",
+        "reason": "Motif",
+        "actions": "Actions"
+      },
+      "markForm": {
+        "title": "Enregistrer une présence",
+        "description": "Une ligne par membre du personnel et par jour. Un jour de congé approuvé exige une correction explicite.",
+        "submit": "Enregistrer",
+        "person": "Membre du personnel",
+        "choosePerson": "Choisir une personne",
+        "day": "Jour",
+        "status": "Statut",
+        "chooseStatus": "Choisir un statut",
+        "note": "Note",
+        "overrideLeave": "Corriger un jour de congé approuvé",
+        "overrideLeaveHint": "À cocher seulement pour contredire un congé approuvé.",
+        "required": "Ce champ est obligatoire."
+      },
+      "leaveForm": {
+        "title": "Demander un congé",
+        "description": "Le congé est soumis à décision.",
+        "submit": "Envoyer la demande",
+        "person": "Membre du personnel",
+        "choosePerson": "Choisir une personne",
+        "type": "Type de congé",
+        "chooseType": "Choisir un type",
+        "starts": "Premier jour",
+        "ends": "Dernier jour",
+        "halfStart": "Demi-journée le premier jour",
+        "halfEnd": "Demi-journée le dernier jour",
+        "reason": "Motif",
+        "required": "Ce champ est obligatoire."
+      }
+    },
+    "portal": {
+      "childrenTitle": "Absences de mes enfants",
+      "childrenDescription": "Choisissez un enfant pour voir ses absences et déposer un justificatif.",
+      "noChildren": "Aucun enfant n'est lié à votre compte.",
+      "seeAbsences": "Voir les absences",
+      "meTitle": "Mes absences",
+      "childTitle": "Absences de l'enfant",
+      "description": "Absences, retards et justificatifs.",
+      "deposit": "Déposer un justificatif",
+      "deposited": "Justificatif déposé.",
+      "withdrawn": "Justificatif retiré.",
+      "withdraw": "Retirer ce justificatif",
+      "records": "Absences et retards",
+      "recordsCaption": "Absences et retards",
+      "noRecords": "Aucune absence ni retard.",
+      "noRecordsHint": "Tout est en règle.",
+      "justifications": "Justificatifs déposés",
+      "noJustifications": "Aucun justificatif déposé.",
+      "excused": "Justifiée",
+      "toJustify": "À justifier",
+      "justify": "Justifier",
+      "window": "du {from} au {to}",
+      "reasonLine": "Motif : {reason}",
+      "decisionNote": "Décision : {note}",
+      "revocationNote": "Révocation : {note}",
+      "columns": {
+        "date": "Date",
+        "status": "Statut",
+        "minutes": "Minutes",
+        "justification": "Justification",
+        "actions": "Actions"
+      },
+      "summary": {
+        "title": "Récapitulatif",
+        "sessions": "Séances",
+        "absent": "Absences",
+        "excused": "dont justifiées",
+        "late": "Retards",
+        "early": "Départs anticipés",
+        "overridden": "Valeur ajustée par la direction (motif conservé)."
+      }
+    },
+    "student": {
+      "title": "Assiduité de {name}",
+      "description": "Récapitulatif de la période, pointages, justificatifs et attestation.",
+      "summary": "Récapitulatif",
+      "choosePeriod": "Choisissez une période pour voir le récapitulatif.",
+      "overrideNote": "Valeur ajustée : {reason} (le {at}).",
+      "records": "Pointages",
+      "recordsCaption": "Absences et retards de l'élève",
+      "noRecords": "Aucune absence ni retard.",
+      "loadMore": "Afficher plus",
+      "justifications": "Justificatifs",
+      "noJustifications": "Aucun justificatif.",
+      "openJustification": "Ouvrir",
+      "window": "du {from} au {to}",
+      "excused": "Justifiée",
+      "certificate": "Attestation d'assiduité",
+      "showCertificate": "Afficher l'attestation",
+      "hideCertificate": "Masquer l'attestation",
+      "certificateLabel": "Attestation d'assiduité",
+      "certificateTitle": "Attestation d'assiduité",
+      "certificateIntro": "Données d'assiduité de {name} pour la période choisie.",
+      "certificateWindow": "Période : du {from} au {to}.",
+      "certificateHint": "Ce sont les données de l'attestation ; le document officiel est produit par la génération documentaire.",
+      "print": "Imprimer",
+      "columns": {
+        "date": "Date",
+        "status": "Statut",
+        "minutes": "Minutes",
+        "justification": "Justification"
+      }
+    }
+  },
+  "v2Schedule": {
+    "nav": {
+      "label": "Navigation de l'emploi du temps",
+      "timetable": "Emploi du temps",
+      "today": "Aujourd'hui",
+      "occurrences": "Séances",
+      "timetables": "Patrons récurrents",
+      "replacements": "Remplacements",
+      "rooms": "Salles et équipements",
+      "export": "Export calendrier"
+    },
+    "kind": {
+      "LESSON": "Cours",
+      "EXAM": "Examen",
+      "MEETING": "Réunion",
+      "EVENT": "Événement",
+      "RESERVATION": "Réservation de salle",
+      "COUNCIL": "Conseil",
+      "OTHER": "Autre"
+    },
+    "status": {
+      "PLANNED": "Prévue",
+      "HELD": "Constatée",
+      "CANCELLED": "Annulée"
+    },
+    "delivery": {
+      "IN_PERSON": "Présentiel",
+      "ONLINE": "En ligne",
+      "HYBRID": "Hybride"
+    },
+    "staffRole": {
+      "LEAD": "Responsable",
+      "CO_TEACHER": "Co-intervenant",
+      "SUBSTITUTE": "Remplaçant",
+      "SUPERVISOR": "Surveillant"
+    },
+    "resourceStatus": {
+      "AVAILABLE": "Disponible",
+      "OUT_OF_SERVICE": "Hors service",
+      "ARCHIVED": "Archivée"
+    },
+    "weekdayLong": {
+      "1": "Lundi",
+      "2": "Mardi",
+      "3": "Mercredi",
+      "4": "Jeudi",
+      "5": "Vendredi",
+      "6": "Samedi",
+      "7": "Dimanche"
+    },
+    "weekdayShort": {
+      "1": "Lun",
+      "2": "Mar",
+      "3": "Mer",
+      "4": "Jeu",
+      "5": "Ven",
+      "6": "Sam",
+      "7": "Dim"
+    },
+    "needsReplacement": "À remplacer",
+    "overridden": "Dérogation",
+    "cancelReason": "Motif : {reason}",
+    "conflicts": {
+      "title": "Conflits de planification",
+      "blocking": "{count, plural, one {# conflit bloquant} other {# conflits bloquants}}",
+      "warnings": "{count, plural, one {# avertissement} other {# avertissements}}",
+      "resource": {
+        "STAFF": "Intervenant",
+        "CLASSROOM": "Classe",
+        "ROOM": "Salle",
+        "EQUIPMENT": "Équipement"
+      }
+    },
+    "preview": {
+      "incomplete": "Renseignez la date et les heures pour vérifier les conflits.",
+      "checking": "Vérification des conflits…",
+      "none": "Aucun conflit détecté sur ce créneau.",
+      "override": "Dépasser les conflits bloquants",
+      "overrideHint": "Réservé aux personnes habilitées : le dépassement est motivé, journalisé et audité.",
+      "overrideReason": "Motif du dépassement",
+      "overrideReasonShort": "Le motif du dépassement doit faire au moins 5 caractères.",
+      "blockedNoOverride": "Ce créneau est en conflit : choisissez-en un autre ou demandez un dépassement motivé à une personne habilitée."
+    },
+    "slots": {
+      "title": "Aide au placement",
+      "hint": "Propose les premiers créneaux libres pour cette durée, ces intervenants et cette classe. C'est une aide : vérifiez le créneau choisi.",
+      "duration": "Durée (minutes)",
+      "from": "À partir du",
+      "to": "Jusqu'au",
+      "search": "Chercher des créneaux",
+      "searching": "Recherche…",
+      "none": "Aucun créneau libre sur cette période.",
+      "preferred": "Disponibilités déclarées",
+      "use": "Utiliser ce créneau",
+      "durationInvalid": "La durée doit être un nombre entier de minutes entre 5 et 1440.",
+      "noInstitution": "Aucun établissement n'est disponible pour la recherche."
+    },
+    "viewer": {
+      "title": "Emploi du temps",
+      "description": "Semaine ou jour, par classe, enseignant, salle ou élève selon vos droits.",
+      "noAccess": "Aucun emploi du temps n'est accessible avec votre profil.",
+      "export": "Exporter le calendrier",
+      "filters": "Filtres de l'emploi du temps",
+      "show": "Afficher",
+      "modes": {
+        "mine": "Mon emploi du temps",
+        "children": "Mes enfants",
+        "classroom": "Classe",
+        "staff": "Enseignant",
+        "room": "Salle",
+        "student": "Élève"
+      },
+      "chooseClassroom": "Choisir une classe",
+      "chooseStaff": "Choisir une personne",
+      "chooseStudent": "Choisir un élève",
+      "chooseRoom": "Choisir une salle",
+      "chooseChild": "Choisir un enfant",
+      "view": "Vue",
+      "viewWeek": "Semaine",
+      "viewDay": "Jour",
+      "navigation": "Navigation dans le calendrier",
+      "previousWeek": "Semaine précédente",
+      "nextWeek": "Semaine suivante",
+      "previousDay": "Jour précédent",
+      "nextDay": "Jour suivant",
+      "today": "Aujourd'hui",
+      "weekOf": "Semaine du {from} au {to}",
+      "showCancelled": "Afficher les séances annulées",
+      "chooseSubject": "Choisissez ce que vous voulez consulter",
+      "chooseSubjectHint": "Sélectionnez une classe, une personne, une salle ou un élève.",
+      "emptyWeek": "Aucune séance cette semaine.",
+      "emptyDay": "Aucune séance ce jour.",
+      "emptyHint": "Changez de période ou de sujet.",
+      "truncated": "La liste est tronquée : réduisez la période.",
+      "weekGrid": "Semaine",
+      "agenda": "Séances par jour",
+      "nothingThatDay": "Aucune séance.",
+      "updating": "Mise à jour…"
+    },
+    "today": {
+      "title": "Aujourd'hui",
+      "description": "Vos séances du {date}.",
+      "descriptionNoDate": "Vos séances du jour.",
+      "empty": "Aucune séance aujourd'hui.",
+      "emptyHint": "Vos séances du jour apparaissent ici avec les actions rapides.",
+      "callToDo": "Appel à faire",
+      "doCall": "Faire l'appel",
+      "seeCall": "Voir l'appel",
+      "enterGrades": "Saisir les notes"
+    },
+    "occurrences": {
+      "title": "Séances",
+      "description": "Cours ajoutés, examens, réunions et réservations de salle ; report, changement de salle, remplacement et annulation motivés.",
+      "create": "Nouvelle séance",
+      "filters": "Filtres des séances",
+      "from": "Du",
+      "to": "Au",
+      "classroomFilter": "Classe",
+      "anyClassroom": "Toutes les classes",
+      "statusFilter": "État",
+      "kindFilter": "Type",
+      "all": "Tous",
+      "caption": "Liste des séances",
+      "empty": "Aucune séance sur cette période.",
+      "emptyHint": "Élargissez les dates ou créez une séance.",
+      "needsReplacement": "À remplacer",
+      "validated": "Validée",
+      "move": "Déplacer",
+      "changeRoom": "Salle",
+      "substitute": "Remplacer",
+      "cancel": "Annuler",
+      "restore": "Rétablir",
+      "hold": "Constater",
+      "held": "Séance constatée.",
+      "cancelTitle": "Annuler la séance",
+      "cancelDescription": "Le créneau est libéré. Le motif est conservé et communiqué.",
+      "cancelled": "Séance annulée.",
+      "reason": "Motif",
+      "restoreTitle": "Rétablir la séance",
+      "restoreDescription": "La séance annulée redevient prévue, sous réserve de l'absence de conflit.",
+      "reasonOptional": "Motif (facultatif)",
+      "restored": "Séance rétablie.",
+      "warningsTitle": "Avertissements de planification",
+      "columns": {
+        "date": "Date",
+        "time": "Horaire",
+        "title": "Intitulé",
+        "classroom": "Classe",
+        "room": "Salle",
+        "staff": "Intervenants",
+        "status": "État",
+        "actions": "Actions"
+      }
+    },
+    "form": {
+      "title": "Nouvelle séance",
+      "description": "L'aperçu des conflits se met à jour pendant la saisie ; l'enregistrement est contrôlé par le serveur.",
+      "submit": "Créer la séance",
+      "created": "Séance créée.",
+      "kind": "Type",
+      "titleField": "Intitulé",
+      "classroom": "Classe",
+      "chooseClassroom": "Choisir une classe",
+      "classroomRequired": "Une classe est obligatoire pour un cours.",
+      "node": "Cours (programme)",
+      "nodeHint": "Choisissez d'abord une classe.",
+      "chooseNode": "Choisir un cours",
+      "date": "Date",
+      "start": "Début",
+      "end": "Fin",
+      "room": "Salle",
+      "noRoom": "Aucune salle",
+      "staff": "Intervenants",
+      "staffMember": "Intervenant {n}",
+      "chooseStaff": "Choisir une personne",
+      "role": "Rôle",
+      "removeStaff": "Retirer l'intervenant {n}",
+      "addStaff": "Ajouter un intervenant",
+      "notes": "Notes",
+      "required": "Ce champ est obligatoire.",
+      "overrideShort": "Le motif du dépassement doit faire au moins 5 caractères."
+    },
+    "reschedule": {
+      "title": "Déplacer la séance",
+      "description": "Choisissez le nouveau créneau ; les conflits sont vérifiés avant l'enregistrement.",
+      "submit": "Déplacer",
+      "done": "Séance déplacée.",
+      "date": "Nouvelle date",
+      "start": "Début",
+      "end": "Fin",
+      "reason": "Motif",
+      "required": "Renseignez la date et les heures.",
+      "overrideShort": "Le motif du dépassement doit faire au moins 5 caractères."
+    },
+    "room": {
+      "title": "Changer de salle",
+      "description": "La salle libérée redevient disponible ; la nouvelle est contrôlée.",
+      "submit": "Changer la salle",
+      "done": "Salle modifiée.",
+      "room": "Salle",
+      "noRoom": "Aucune salle",
+      "reason": "Motif"
+    },
+    "substitute": {
+      "title": "Remplacer un intervenant",
+      "description": "Séance du {time}. Le remplaçant est contrôlé (disponibilité, conflits) et devient le bénéficiaire de la séance.",
+      "submit": "Remplacer",
+      "done": "Remplacement enregistré.",
+      "original": "Intervenant remplacé",
+      "chooseOriginal": "Choisir l'intervenant remplacé",
+      "suggestions": "Remplaçants proposés",
+      "suggest": "Proposer des remplaçants",
+      "searching": "Recherche…",
+      "noSuggestions": "Aucun remplaçant à proposer.",
+      "eligible": "Disponible",
+      "notEligible": "Non recommandé",
+      "competent": "Compétent",
+      "load": "Charge de la semaine : {hours} h",
+      "choose": "Choisir",
+      "substitute": "Remplaçant",
+      "chooseSubstitute": "Choisir le remplaçant",
+      "reason": "Motif du remplacement",
+      "required": "Ce champ est obligatoire.",
+      "reasonShort": "Le motif doit faire au moins 3 caractères.",
+      "overrideShort": "Le motif du dépassement doit faire au moins 5 caractères."
+    },
+    "replacements": {
+      "title": "Remplacements",
+      "description": "Séances à remplacer (congé approuvé, fin d'affectation, salle indisponible…) avec propositions de remplaçants.",
+      "filters": "Période",
+      "from": "Du",
+      "to": "Au",
+      "empty": "Aucune séance à remplacer.",
+      "emptyHint": "Les séances à remplacer apparaissent ici.",
+      "reason": "Cause : {reason}",
+      "replace": "Remplacer",
+      "warningsTitle": "Avertissements du remplacement"
+    },
+    "timetables": {
+      "title": "Patrons récurrents",
+      "description": "Emplois du temps types (par jour de semaine, avec alternance A/B) qui génèrent les séances datées.",
+      "create": "Nouvel emploi du temps",
+      "created": "Emploi du temps créé en brouillon.",
+      "statusFilter": "État",
+      "all": "Tous",
+      "caption": "Emplois du temps",
+      "empty": "Aucun emploi du temps.",
+      "emptyHint": "Créez un brouillon pour y placer des créneaux récurrents.",
+      "validityValue": "du {from} au {to}",
+      "status": {
+        "DRAFT": "Brouillon",
+        "PUBLISHED": "Publié",
+        "ARCHIVED": "Archivé"
+      },
+      "columns": {
+        "name": "Nom",
+        "validity": "Validité",
+        "abAnchor": "Semaine A (lundi)",
+        "published": "Publié le",
+        "status": "État"
+      },
+      "form": {
+        "title": "Nouvel emploi du temps",
+        "description": "Un brouillon vide, modifiable jusqu'à sa publication.",
+        "submit": "Créer",
+        "year": "Année scolaire",
+        "name": "Nom",
+        "validFrom": "Valable du",
+        "validTo": "Valable jusqu'au",
+        "defaultYear": "Par défaut : début de l'année.",
+        "anchor": "Premier lundi de la semaine A",
+        "anchorHint": "Pour l'alternance semaine A / semaine B (facultatif)."
+      }
+    },
+    "editor": {
+      "subtitle": "Valable du {from} au {to}",
+      "back": "Retour",
+      "status": {
+        "DRAFT": "Brouillon",
+        "PUBLISHED": "Publié",
+        "ARCHIVED": "Archivé"
+      },
+      "addEntry": "Ajouter un créneau",
+      "publish": "Publier",
+      "published": "Emploi du temps publié.",
+      "archive": "Archiver",
+      "archived": "Emploi du temps archivé.",
+      "generate": "Générer les séances",
+      "readOnly": "Seul un brouillon est modifiable.",
+      "warningsTitle": "Avertissements du dernier enregistrement",
+      "patterns": "Créneaux récurrents",
+      "emptyEntries": "Aucun créneau.",
+      "emptyEntriesHint": "Ajoutez des créneaux : classe, jour, heures, salle et intervenants.",
+      "pattern": {
+        "EVERY": "Chaque semaine",
+        "WEEK_A": "Semaine A",
+        "WEEK_B": "Semaine B"
+      },
+      "bounded": "Bornes propres",
+      "edit": "Modifier",
+      "removeEntry": "Supprimer le créneau de {time}",
+      "removed": "Créneau supprimé.",
+      "conflictsTitle": "Conflits du brouillon",
+      "refreshConflicts": "Actualiser",
+      "noConflicts": "Aucun conflit dans ce brouillon.",
+      "report": {
+        "title": "Génération du {from} au {to}",
+        "close": "Fermer",
+        "created": "Créées",
+        "skippedExisting": "Déjà existantes",
+        "skippedBlocked": "Jours bloqués",
+        "skippedConflict": "En conflit",
+        "skippedCapped": "Plafonnées",
+        "conflicts": "{count, plural, one {# conflit signalé} other {# conflits signalés}}"
+      },
+      "generateDialog": {
+        "title": "Générer les séances",
+        "description": "Crée les séances datées de la période à partir des créneaux. La génération est rejouable sans doublon et saute les jours bloquants du calendrier.",
+        "from": "Du",
+        "to": "Au",
+        "cap": "Plafonner au volume horaire des cours",
+        "capHint": "Limite le cumul généré par cours et par classe au volume horaire prévu au programme.",
+        "cancel": "Annuler",
+        "run": "Générer",
+        "running": "Génération…"
+      }
+    },
+    "entry": {
+      "addTitle": "Ajouter un créneau",
+      "editTitle": "Modifier le créneau",
+      "description": "Le placement est contrôlé par le serveur ; les conflits éventuels sont expliqués.",
+      "submit": "Enregistrer",
+      "created": "Créneau ajouté.",
+      "updated": "Créneau modifié.",
+      "kind": "Type",
+      "titleField": "Intitulé",
+      "classroom": "Classe",
+      "chooseClassroom": "Choisir une classe",
+      "classroomRequired": "Une classe est obligatoire pour un cours.",
+      "node": "Cours (programme)",
+      "nodeHint": "Choisissez d'abord une classe.",
+      "chooseNode": "Choisir un cours",
+      "weekday": "Jour",
+      "start": "Début",
+      "end": "Fin",
+      "room": "Salle",
+      "noRoom": "Aucune salle",
+      "pattern": "Alternance",
+      "patternHint": "Semaine A / B : voir le premier lundi de la semaine A de l'emploi du temps.",
+      "patterns": {
+        "EVERY": "Chaque semaine",
+        "WEEK_A": "Semaine A seulement",
+        "WEEK_B": "Semaine B seulement"
+      },
+      "validFrom": "Valable à partir du",
+      "validTo": "Valable jusqu'au",
+      "delivery": "Mode",
+      "deliveryModes": {
+        "IN_PERSON": "Présentiel",
+        "ONLINE": "En ligne",
+        "HYBRID": "Hybride"
+      },
+      "propagate": "Séances déjà générées",
+      "propagateHint": "Mettre à jour les séances futures prévues (jamais celles déjà constatées).",
+      "propagation": {
+        "NONE": "Ne pas modifier",
+        "FUTURE_PLANNED": "Mettre à jour les séances futures prévues"
+      },
+      "staff": "Intervenants",
+      "staffMember": "Intervenant {n}",
+      "chooseStaff": "Choisir une personne",
+      "role": "Rôle",
+      "removeStaff": "Retirer l'intervenant {n}",
+      "addStaff": "Ajouter un intervenant",
+      "overrideReason": "Motif du dépassement",
+      "overrideHint": "Pour passer outre les conflits bloquants (au moins 5 caractères) ; journalisé et audité.",
+      "noOverride": "Seule une personne habilitée peut dépasser un conflit bloquant.",
+      "overrideShort": "Le motif du dépassement doit faire au moins 5 caractères."
+    },
+    "rooms": {
+      "title": "Salles et équipements",
+      "description": "Salles, état de service, équipements par campus et occupation de la semaine.",
+      "addRoom": "Ajouter une salle",
+      "filters": "Établissement et campus",
+      "institution": "Établissement",
+      "campus": "Campus",
+      "rooms": "Salles",
+      "roomsCaption": "Salles du campus",
+      "emptyRooms": "Aucune salle.",
+      "emptyRoomsHint": "Ajoutez les salles du campus.",
+      "occupancy": "Occupation de la semaine",
+      "occupancyCaption": "Occupation des salles cette semaine",
+      "hours": "{value} h",
+      "noOpening": "Horaires d'ouverture non renseignés",
+      "equipment": "Équipements",
+      "addEquipment": "Ajouter un équipement",
+      "editEquipment": "Modifier",
+      "equipmentOff": "La réservation d'équipements n'est pas incluse dans votre offre.",
+      "equipmentCaption": "Équipements du campus",
+      "emptyEquipment": "Aucun équipement.",
+      "roomSaved": "Salle enregistrée.",
+      "equipmentSaved": "Équipement enregistré.",
+      "statusSaved": "État de la salle modifié.",
+      "statusTitle": "{room} : passer à « {status} »",
+      "statusDescriptionOn": "La salle redevient réservable.",
+      "statusDescriptionOff": "La salle n'est plus réservable. Les séances futures concernées sont signalées « à remplacer », sans annulation automatique.",
+      "reasonOptional": "Motif (facultatif)",
+      "confirmStatus": "Confirmer",
+      "setStatus": {
+        "AVAILABLE": "Remettre en service",
+        "OUT_OF_SERVICE": "Mettre hors service",
+        "ARCHIVED": "Archiver"
+      },
+      "columns": {
+        "name": "Nom",
+        "code": "Code",
+        "type": "Type",
+        "capacity": "Capacité",
+        "building": "Bâtiment",
+        "status": "État",
+        "quantity": "Quantité",
+        "occupied": "Heures occupées",
+        "rate": "Taux d'occupation",
+        "actions": "Actions"
+      },
+      "roomForm": {
+        "title": "Ajouter une salle",
+        "description": "La salle est rattachée au campus choisi.",
+        "submit": "Ajouter",
+        "code": "Code",
+        "name": "Nom",
+        "type": "Type de salle",
+        "chooseType": "Choisir un type",
+        "capacity": "Capacité",
+        "building": "Bâtiment",
+        "features": "Équipements fixes",
+        "featuresHint": "Séparés par des virgules (ex. vidéoprojecteur, laboratoire)."
+      },
+      "equipmentForm": {
+        "title": "Ajouter un équipement",
+        "description": "Le stock est réservé par séance : la somme des quantités sur un même créneau ne dépasse pas le stock.",
+        "submit": "Ajouter",
+        "code": "Code",
+        "label": "Libellé",
+        "quantity": "Quantité en stock",
+        "status": "État",
+        "save": "Enregistrer",
+        "editTitle": "Modifier {label}"
+      }
+    },
+    "export": {
+      "title": "Export calendrier",
+      "description": "Téléchargez votre emploi du temps ou abonnez votre agenda (Google Agenda, Outlook, téléphone) avec un lien révocable.",
+      "noAccess": "Aucun emploi du temps n'est exportable avec votre profil.",
+      "subject": "Sujet de l'export",
+      "source": "Exporter",
+      "sources": {
+        "mine": "Mon emploi du temps",
+        "children": "Mes enfants",
+        "classroom": "Classe",
+        "staff": "Enseignant",
+        "student": "Élève",
+        "room": "Salle"
+      },
+      "choose": "Choisir",
+      "chooseSubject": "Choisissez le sujet à exporter.",
+      "downloadTitle": "Télécharger",
+      "downloadHint": "Fichier .ics des 4 prochains mois, à importer une fois (il ne se met pas à jour).",
+      "download": "Télécharger le fichier .ics",
+      "downloadFailed": "Le fichier n'a pas pu être généré.",
+      "subscribeTitle": "S'abonner (mise à jour automatique)",
+      "subscribeHint": "Le lien d'abonnement est secret, limité à ce seul emploi du temps et en lecture seule. Vous pouvez le révoquer à tout moment.",
+      "tokenLabel": "Nom du lien",
+      "tokenLabelPlaceholder": "Ex. Téléphone",
+      "expiresInDays": "Validité (jours)",
+      "expiresHint": "Vide : sans expiration.",
+      "createToken": "Créer un lien d'abonnement",
+      "createdTitle": "Lien créé : copiez-le maintenant.",
+      "createdLabel": "Lien d'abonnement",
+      "copy": "Copier le lien",
+      "copied": "Lien copié.",
+      "copyFailed": "Copie impossible : sélectionnez le lien et copiez-le à la main.",
+      "createdWarning": "Ce lien ne sera plus affiché. S'il est perdu ou partagé par erreur, révoquez-le et créez-en un autre.",
+      "tokensCaption": "Liens d'abonnement",
+      "noTokens": "Aucun lien d'abonnement.",
+      "noLabel": "Sans nom",
+      "never": "Jamais",
+      "neverUsed": "Jamais utilisé",
+      "active": "Actif",
+      "revoked": "Révoqué",
+      "revoke": "Révoquer",
+      "revokeTitle": "Révoquer ce lien",
+      "revokeDescription": "Les agendas abonnés avec ce lien cesseront de se mettre à jour. Cette action est définitive.",
+      "cancel": "Annuler",
+      "revokedDone": "Lien révoqué.",
+      "columns": {
+        "label": "Nom",
+        "created": "Créé le",
+        "expires": "Expire le",
+        "lastUsed": "Dernière utilisation",
+        "status": "État",
+        "actions": "Actions"
+      }
     }
   },
   "v2Assess": {

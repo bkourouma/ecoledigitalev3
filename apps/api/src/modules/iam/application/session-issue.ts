@@ -11,7 +11,8 @@ import type { IdentityRow, TenantRow } from "../infrastructure/identity-repo";
 import type { MembershipRow } from "../infrastructure/membership-repo";
 import { IAM_EVENT, publish, type IamDeps, type RequestMeta } from "./deps";
 
-export type Amr = "pwd" | "otp" | "rcv" | "imp";
+/** Facteurs : mot de passe, TOTP, code de secours, impersonation, identité fédérée (Google, vérifiée par le serveur web). */
+export type Amr = "pwd" | "otp" | "rcv" | "imp" | "fed";
 
 export interface IssuedSession {
   sessionId: string;

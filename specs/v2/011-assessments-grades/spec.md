@@ -370,3 +370,8 @@ Consommés : `academic.enrollment.created|transferred|withdrawn` (recalcul/inscr
 5. Aucune moyenne, rang ou mention n'est calculé dans `apps/web/src` (grep CI vert) ; aucune constante de seuil dans `assess`/`results` (lint R2).
 6. Les anciens services `professional-assignments`, `professional-results`, `semester-averages` (moyennes), `student_period_course_averages`, `professional_ecue_notes/results` sont supprimés dans la même tranche (règle de sortie du plan §4).
 7. Le test d'isolation générique couvre les 15 tables ; les événements sont déclarés dans les manifestes.
+
+## Addendum d'assemblage (additif)
+
+- `assess.isCurriculumNodeInUse` et `results.isCurriculumNodeInResults` : un nœud de curriculum portant une évaluation, une note ou un résultat est « utilisé » ; academic refuse alors un amendement STRUCTUREL d'un curriculum publié (garde `CurriculumUsageGuard`, échec fermé).
+- Le rattrapage autorisé est une **donnée** du nœud de curriculum (`resitAllowed`, migration académique 0706) ; la structure de calcul de `results` (contrat, rang de période, crédits, parents) est lue dans academic par `platform/adapters/academic-results.ts`.

@@ -144,6 +144,7 @@ export const lineDto = (l: InvoiceLine) => ({
   discount: money(l.discount),
   scholarship: money(l.scholarship),
   total: money(l.total),
+  sourceRef: l.sourceRef,
 });
 
 export const installmentDto = (i: Installment, today: IsoDate) => ({

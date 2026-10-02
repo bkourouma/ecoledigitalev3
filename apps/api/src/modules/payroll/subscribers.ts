@@ -8,8 +8,8 @@
  *  - `payroll.close-periods-on-year-closed` `academic.year.closed` → périodes actives de l'année clôturées.
  *
  * Idempotence par CONSTRUCTION (voir `application/consumers.ts`) : un rejeu ne change rien. Un échec est relancé par
- * le worker (reprises puis dead-letter). ⚠ Les noms et charges des événements des autres modules sont des hypothèses
- * de travail (`occurrenceId`, `academicYearId`).
+ * le worker (reprises puis dead-letter). Les noms et charges des événements des autres modules sont ceux de leurs
+ * producteurs (`occurrenceId`, `academicYearId` ; test de contrat `apps/api/test/events-contracts/payroll.test.ts`).
  */
 import { defineSubscriber } from "@ecoledigitale/worker/sdk";
 import type { AppError, Result } from "@ecoledigitale/kernel";
