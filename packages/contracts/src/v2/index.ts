@@ -20,4 +20,5 @@ export * from "./reportcards";
 export * from "./results";
 export * from "./rules";
 export * from "./scheduling";
+export * from "./schoollife";
 export * from "./tenancy";
