@@ -110,7 +110,7 @@ job envoi (15 s) ─ réclamation SKIP LOCKED ─ relecture (consentement, relan
 | messaging | `application/delivery-feed.ts` : `readAnnouncementForDelivery` | titre, extrait et destinataires figés d'une annonce, sans droit d'appelant (contexte système) |
 | rbac | `templates/system-roles.ts` : `notifications.*` accordées (lecture / envoi au secrétariat et à la direction des études, lecture à l'économe, `own.manage` au personnel / enseignant / éducateur, `child.manage` aux parents, `self.manage` aux élèves) + justification de `notifications.*` pour la direction (urgence sensible) ; oracle de test aligné | la suite complète refuse un module sans matrice de rôles |
 | plateforme | `platform/adapters/index.ts` (ports `notifications` API et worker), `test/events-contracts/notifications.contracts.ts` | assemblage et contrats d'événements |
-| web | portails parent / élève / enseignant : le drapeau `NEXT_PUBLIC_V2_MESSAGING` est remplacé par la vérification de permission du module `messaging` | la messagerie est livrée |
+| web | portails parent / élève / enseignant : le drapeau `NEXT_PUBLIC_V2_MESSAGING` est remplacé par la vérification de permission du module `messaging` (`messaging.child.read`, `.self.read`, `.read`) — fait ; carte « Annonces » masquée sans la permission ; `public/sw.js` : gestionnaires `push` et `notificationclick` (lien de même origine uniquement) | la messagerie est livrée |
 
 ## 11. Risques et parades
 
