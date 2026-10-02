@@ -26,6 +26,9 @@ export {
   type AcademicPorts,
   type AuditEntry,
   type AuditPort,
+  type ClassroomActivationGuard,
+  type ClassroomActivationRefusal,
+  neverBlockActivation,
   type CompletionLookup,
   type CurriculumUsageGuard,
   type GuardianshipPort,
@@ -84,7 +87,7 @@ export {
   type InstantiateOptions,
 } from "./application/reference";
 export { buildAcademicTemplates, defaultAcademicTemplates, getAcademicTemplate } from "./templates";
-export { AcademicPackTemplateSchema, type AcademicPackTemplate } from "./domain/template";
+export { AcademicPackTemplateSchema, TEMPLATE_SOURCE_KINDS, type AcademicPackTemplate, type TemplateSourceKind } from "./domain/template";
 
 // Programmes et matières
 export { createProgram, createSubject, deleteSubject, getProgram, getSubject, listPrograms, listSubjects, setProgramGradeLevels, updateProgram, updateSubject } from "./application/programs";
@@ -114,6 +117,7 @@ export {
 
 // Classes et offres
 export {
+  activateClassroom,
   classroomAction,
   createClassroom,
   createOffering,
@@ -131,6 +135,7 @@ export {
 
 // Inscriptions
 export {
+  cancelEnrollment,
   changeEnrollmentFunding,
   enrollStudent,
   enrollStudentsBulk,
@@ -175,8 +180,10 @@ export {
 
 // Faits publiés pour les adaptateurs de la plateforme (results, higher, attendance, scheduling, payroll)
 export {
+  countRepeatsInCycle,
   getClassroomFacts,
   getCycleFacts,
+  getEligibilityFacts,
   getLastEnrollmentInProgram,
   getResultsStructure,
   getUeFacts,
@@ -189,6 +196,7 @@ export {
   listUeRegistrants,
 } from "./application/facts";
 export {
+  countRepeatYears,
   effectiveContract,
   periodFactsOf,
   structureNodesOf,
@@ -197,6 +205,7 @@ export {
   type ClassroomFacts,
   type CycleEnrollmentFacts,
   type CycleFacts,
+  type EnrollmentEligibilityFacts,
   type LastEnrollmentFacts,
   type ResultNodeKind,
   type ResultsPeriodFacts,

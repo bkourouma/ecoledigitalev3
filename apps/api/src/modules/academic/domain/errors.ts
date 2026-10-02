@@ -99,6 +99,8 @@ export const AcademicCode = {
   CLASSROOM_CURRICULUM_DRAFT: "academic.classroom_curriculum_draft",
   CLASSROOM_CURRICULUM_REQUIRED: "academic.classroom_curriculum_required",
   CLASSROOM_TRANSITION: "academic.classroom_transition",
+  /** Refus du garde d'activation sans code propre ; un garde câblé renvoie normalement SON code. */
+  CLASSROOM_ACTIVATION_REFUSED: "academic.classroom_activation_refused",
   CLASSROOM_NOT_OPEN: "academic.classroom_not_open",
   CLASSROOM_FULL: "academic.classroom_full",
   CLASSROOM_IDENTITY_IMMUTABLE: "academic.classroom_identity_immutable",
@@ -124,6 +126,7 @@ export const AcademicCode = {
   ENROLLMENT_NOT_FOUND: "academic.enrollment_not_found",
   ENROLLMENT_TRANSITION: "academic.enrollment_transition",
   ENROLLMENT_REASON_REQUIRED: "academic.enrollment_reason_required",
+  ENROLLMENT_NOT_PENDING: "academic.enrollment_not_pending",
   ENROLLMENT_IDENTITY_IMMUTABLE: "academic.enrollment_identity_immutable",
   ENROLLMENT_CLASS_MISMATCH: "academic.enrollment_class_mismatch",
   ALREADY_ENROLLED: "academic.already_enrolled",

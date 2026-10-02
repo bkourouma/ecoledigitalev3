@@ -559,7 +559,13 @@ export async function academicPlugin(app: FastifyInstance, options: AcademicPlug
           return unwrapOrThrow(await enrollments.transitionEnrollment(deps, ctxOf(req), id, action, b.reason));
         });
       }
-      scope.post("/enrollments/:id/transfer", { preHandler: perm("enrollment.update") }, async (req) => {
+      // Annulation d'une inscription EN ATTENTE (spec 007 §16) : idempotente ; une inscription confirmée se retire (`/withdraw`).
+      scope.post("/enrollments/:id/cancel-pending", { preHandler: perm("enrollment.cancel") }, async (req) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        const b = parse(c.academicEnrollmentActionBodySchema, req.body ?? {});
+        return unwrapOrThrow(await enrollments.cancelEnrollment(deps, ctxOf(req), id, { reason: b.reason }));
+      });
+      scope.post("/enrollments/:id/transfer",{ preHandler: perm("enrollment.update") }, async (req) => {
         const { id } = parse(c.academicIdParamsSchema, req.params);
         return unwrapOrThrow(await enrollments.transferEnrollment(deps, ctxOf(req), id, parse(c.academicTransferBodySchema, req.body)));
       });

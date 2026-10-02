@@ -15,6 +15,11 @@ import secondary from "./secondary.json";
 import higher from "./higher.json";
 import virtual from "./virtual.json";
 
+/** Clé de section : nom de module en `snake_case` (`academic`, `primary_school`, `schoollife`…). */
+export const PackTemplateSectionKeySchema = z.string().regex(/^[a-z][a-z0-9_]{0,39}$/, "Clé de section attendue : minuscules, chiffres et « _ ».");
+/** Système éducatif : code en majuscules (`CI`…), même forme que `educationSystem` des sections de module. */
+export const EducationSystemKeySchema = z.string().regex(/^[A-Z0-9_]{1,20}$/, "Code de système éducatif attendu (ex. CI).");
+
 export const PackTemplateSchema = z
   .object({
     version: z.literal(1),
@@ -31,6 +36,14 @@ export const PackTemplateSchema = z
     levels: z.array(z.object({ code: z.string(), label: z.string() })).default([]),
     /** Réservé : périodes types (trimestres, semestres…). */
     periods: z.array(z.object({ code: z.string(), label: z.string() })).default([]),
+    /**
+     * Sections de modèle PAR MODULE (`academic`, `primary_school`, `councils`, `schoollife`, `admissions`, `examinations`…) :
+     * `sections[<section>][<système éducatif>]` = contenu OPAQUE pour le noyau. Le module propriétaire de la section en est le
+     * seul à connaître le schéma et le valide à la lecture (`getPackTemplateSection` ne renvoie que du JSON brut). Une section
+     * inconnue du noyau est donc acceptée telle quelle ; aucun modèle livré n'en contient pour l'instant (clé facultative,
+     * rétro-compatible). Aucune donnée réglementaire n'y a sa place sans source (specs 005 pack-template §1, 006 data-model §7).
+     */
+    sections: z.record(PackTemplateSectionKeySchema, z.record(EducationSystemKeySchema, z.unknown())).optional(),
   })
   .strict();
 
@@ -57,4 +70,14 @@ let cached: PackTemplates | undefined;
 export function defaultPackTemplates(): PackTemplates {
   cached ??= buildPackTemplates([primary, secondary, higher, virtual]);
   return cached;
+}
+
+/**
+ * Section de modèle d'un module pour (pack, système éducatif) — contrat de la spec 004 §6 / 003 : renvoie le contenu BRUT
+ * (`unknown`) de `sections[section][educationSystem]` du modèle du pack, ou `undefined` si le pack, la section ou le système
+ * n'existent pas. Aucune section n'est connue du noyau : n'importe quel module peut en déclarer une sans modifier ce fichier ;
+ * le module propriétaire valide le contenu avec son propre schéma (ex. `AcademicPackTemplateSchema`).
+ */
+export function getPackTemplateSection(pack: InstitutionPack, educationSystem: string, section: string, templates: PackTemplates = defaultPackTemplates()): unknown {
+  return templates.get(pack)?.sections?.[section]?.[educationSystem];
 }

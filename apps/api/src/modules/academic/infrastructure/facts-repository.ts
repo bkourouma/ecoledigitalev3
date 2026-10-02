@@ -4,7 +4,7 @@
  */
 import type { Tx } from "@ecoledigitale/database";
 import { normalizeDecimal } from "../domain/decimal";
-import type { ClassroomEnrollmentFacts, CycleEnrollmentFacts, LastEnrollmentFacts, UeFacts } from "../domain/facts";
+import type { ClassroomEnrollmentFacts, CycleEnrollmentFacts, LastEnrollmentFacts, RepeatYearFact, UeFacts } from "../domain/facts";
 
 /** Statuts d'inscription qui comptent pour une scolarité suivie (voir `SCHOOLING_ENROLLMENT_STATUSES`). */
 const SCHOOLING = ["ACTIVE", "COMPLETED"];
@@ -141,6 +141,33 @@ export async function listEnrollmentsOfClassroom(tx: Tx, classroomId: string): P
     status: r.status,
     active: r.classroom_id === classroomId && SCHOOLING.includes(r.status),
   }));
+}
+
+/**
+ * Années de redoublement de l'élève dans un cycle d'enseignement (`education_level_id` du niveau de la classe).
+ * Une année est un redoublement si l'inscription est marquée `is_repeating`, OU si l'inscription qu'elle prolonge
+ * (`previous_enrollment_id`) s'est conclue par une issue de type `REPEAT` : les deux signalements d'un MÊME redoublement ne
+ * comptent qu'une fois (une ligne par inscription). Les inscriptions annulées ou en attente ne comptent pas.
+ */
+export async function listRepeatYearsInCycle(tx: Tx, input: { studentId: string; educationLevelId: string; institutionId: string | null }): Promise<RepeatYearFact[]> {
+  const rows = await tx.many<{ id: string; academic_year_id: string; starts_on: string }>(
+    `WITH cyc AS (
+       SELECT e.id, e.academic_year_id, e.is_repeating, e.previous_enrollment_id, y.starts_on::text AS starts_on, o.kind AS outcome_kind
+         FROM academic.enrollments e
+         JOIN academic.classrooms c ON c.tenant_id = e.tenant_id AND c.id = e.classroom_id
+         JOIN academic.grade_levels g ON g.tenant_id = c.tenant_id AND g.id = c.grade_level_id
+         JOIN academic.academic_years y ON y.tenant_id = e.tenant_id AND y.id = e.academic_year_id
+         LEFT JOIN academic.enrollment_outcomes o ON o.tenant_id = e.tenant_id AND o.code = e.outcome_code
+        WHERE e.student_id = $1 AND g.education_level_id = $2 AND e.status NOT IN ('CANCELLED', 'PENDING')
+          AND ($3::uuid IS NULL OR e.institution_id = $3::uuid)
+     )
+     SELECT e.id, e.academic_year_id, e.starts_on
+       FROM cyc e
+      WHERE e.is_repeating OR EXISTS (SELECT 1 FROM cyc p WHERE p.id = e.previous_enrollment_id AND p.outcome_kind = 'REPEAT')
+      ORDER BY e.starts_on, e.id`,
+    [input.studentId, input.educationLevelId, input.institutionId],
+  );
+  return rows.map((r) => ({ enrollmentId: r.id, academicYearId: r.academic_year_id, startsOn: r.starts_on }));
 }
 
 /** Classes où l'apprenant a une inscription ACTIVE, et offres suivies (sélections confirmées). */
