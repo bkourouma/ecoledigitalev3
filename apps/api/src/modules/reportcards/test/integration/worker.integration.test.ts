@@ -53,6 +53,7 @@ describeIntegration("abonnés du worker : rendu sur `reportcards.snapshot.create
     expect(buildSubscribers(() => world.deps).map((s) => [s.name, s.pattern])).toEqual([
       ["reportcards.render-snapshot", "reportcards.snapshot.created"],
       ["reportcards.render-requested", "reportcards.report_card.render_requested"],
+      ["reportcards.render-official-document", "reportcards.official_document.render_requested"],
       ["reportcards.combine-batch", "reportcards.batch.completed"],
       ["reportcards.seed-templates", "tenancy.tenant.provisioned"],
     ]);
@@ -114,6 +115,6 @@ describeIntegration("abonnés du worker : rendu sur `reportcards.snapshot.create
     const event = eventOf(ConsumedEvents.TENANT_PROVISIONED, { tenantId: school.tenantId });
     await handler(event as never, handlerCtx(1));
     await handler(event as never, handlerCtx(1));
-    expect(Number((await adminOne<any>(db, "SELECT count(*) AS n FROM reportcards.platform_templates WHERE status = 'PUBLISHED'")).n)).toBe(8);
+    expect(Number((await adminOne<any>(db, "SELECT count(*) AS n FROM reportcards.platform_templates WHERE status = 'PUBLISHED'")).n)).toBe(10);
   });
 });

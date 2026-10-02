@@ -101,6 +101,7 @@ En tant que directeur des études, je veux savoir qui est responsable de chaque 
 ### US6 — Annuaires pour les consommateurs (P1)
 
 - **AC6.1** `getStaffByIds(ctx, ids≤500)` renvoie `{staffId, displayName, categoryCode, status, staffNumber, email, phone}` pour scheduling, attendance, paie et évaluations.
+- **AC6.1b** (résolution de noms par lots) `GET /staff/lookup?ids=a,b,c` et `lookupStaff(deps, ctx, ids, { scope? })` renvoient `{ items: [{ id, displayName, staffNumber, status }], missing: [id…] }` en UNE instruction SQL : ids dédoublonnés, ≤ 100 distincts en HTTP (500 en API publique), réponse minimale (ni contact, ni compte lié, ni contrat, ni rémunération). `staff.list` / `staff.read` → tout le personnel du tenant ; `staff.own.read` seul → uniquement SA fiche (`persons.identity_id`) ; sinon 403. `missing` : inconnus, autre tenant ou hors périmètre, indiscernables. `getDisplayNamesOfStaff(deps, ctx, ids)` : `Map<staffId, « NOM Prénom »>` pour les adaptateurs.
 - **AC6.2** `listAssignmentsForClassroom(ctx, classroomId, {onDate})` et `listAssignmentsForStaff(ctx, staffId, {yearId, onDate})` servent 011 (qui peut saisir les notes d'une classe) et 010 (qui peut faire l'appel) ; la règle d'autorisation « cet enseignant est bien affecté à cette classe » est une règle de domaine de ce module (`isStaffAssignedToClassroom`).
 - **AC6.3** `resolveStaffForIdentity(ctx, identityId)` → `staffId | null`.
 
@@ -156,6 +157,7 @@ Ports consommés : `AcademicQuery` (`getClassroom`, `getCurriculumNode`, `getAca
 | GET | `/teaching-assignments/unstaffed?yearId&classroomId` | Nœuds obligatoires sans responsable | `teaching.read` |
 | PATCH | `/me/staff` | Mes coordonnées et disponibilités | `staff.own.update` |
 | GET | `/staff/expiring-qualifications?withinDays` | Alertes | `staff.read` |
+| GET | `/staff/lookup?ids=a,b,c` | Noms par lots `{ items, missing }`, ≤ 100 ids distincts (AC6.1b) | `staff.list` ou `staff.read` ou `staff.own.read` (soi seul) |
 | GET/POST | `/teaching-assignments`, `/classrooms/:id/assignments` | Lister / affecter | `teaching.read` / `teaching.assign` |
 | PATCH | `/teaching-assignments/:id` | Heures prévues, dates, note | `teaching.assign` |
 | POST | `/teaching-assignments/:id/end`, `/teaching-assignments/:id/replace` | Terminer / remplacer | `teaching.assign` |

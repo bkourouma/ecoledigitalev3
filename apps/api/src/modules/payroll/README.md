@@ -71,15 +71,35 @@ Chemins statiques déclarés avant les chemins paramétrés. Aucune route de pur
 | `GET /history`, `GET /history/export` | `payroll.payslip.read` |
 | `GET /reports/summary`, `GET /reports/export` | `payroll.report.read` |
 | `GET /my/payslips`, `GET /my/payslips/:id` (identité dérivée du compte) | `payroll.payslip.read_own` |
+| `GET /payslips/:id/pdf` (gestion ou titulaire), `GET /my/payslips/:id/pdf` (titulaire seulement) | `payroll.payslip.read` ou `.read_own` ; `payroll.payslip.read_own` |
+| `POST /my/payslips/:id/dispute` `{ reason }` — l'enseignant conteste SON bulletin | `payroll.my.dispute` (sans `payroll.payslip.approve`) |
 | `GET /owner/mass`, `POST /owner/payslips/:id/validate` | `payroll.report.read` / `.approve` + feature `payroll.owner-validation` |
 
-Le rendu PDF passe plus tard par `reportcards`/le worker : `GET /payslips/:id/data` fournit le **snapshot** figé à l'arrêt du montant
+Le rendu PDF passe par `reportcards`/le worker (voir « PDF du bulletin de paie ») : `GET /payslips/:id/data` fournit le **snapshot** figé à l'arrêt du montant
 (`final`, `watermark` « NON VERSÉ » tant que non payé, empreinte SHA-256 vérifiée).
+
+### PDF du bulletin de paie
+
+`GET /payslips/:id/pdf` et `GET /my/payslips/:id/pdf` : mêmes règles d'accès que `/data` (gestion, ou titulaire d'un bulletin arrêté) mais le bulletin
+d'autrui, inconnu ou illisible répond une **404 uniforme** (aucun oracle d'existence). Le PDF OFFICIEL n'existe que pour un bulletin **versé**
+(`PAID`) : avant, `409 payroll.payslip_not_paid` (l'aperçu imprimable `/data`, filigrane « NON VERSÉ », reste disponible). Le contenu scellé
+(`domain/payslip-document.ts`) est le snapshot immuable posé à l'arrêt du montant + le versement (empreinte du snapshot de paie incluse) ; le titre
+publié par la vérification ne porte que la période. Rendu, stockage, QR et vérification publique : `reportcards` (port `documents`, adaptateur
+`platform/adapters/payroll-reportcards.ts`). Réponses : `200` PDF, `202` + `Retry-After` en cours de rendu, `409 payroll.document_render_failed`,
+`409 payroll.port_unavailable` si le service de documents n'est pas branché. Chaque téléchargement abouti est audité (`payroll.payslip.pdf_downloaded`).
+
+### Contestation par le titulaire (`payroll.my.dispute`)
+
+Même cas d'usage que la gestion (`workflow.disputePayslip`, paramètre `holderStaffId`) : une seule machine d'états (`APPROVED → DISPUTED`), un seul événement,
+un seul audit ; `initiatedBy` (`HOLDER` | `MANAGER`) figure dans le journal du bulletin, l'audit et l'événement. Le titulaire est résolu par le port
+personnel (`getStaffIdForUser` ← `persons.identity_id`), jamais par courriel ni paramètre. Réponses : motif absent/trop court `400` ; compte sans fiche `403` ;
+bulletin d'autrui, inconnu, brouillon calculé ou annulé `404` (message identique) ; payé ou déjà contesté `409 payroll.invalid_transition` ; succès `200` + bulletin `DISPUTED`.
+La permission (non sensible) est portée par les rôles système `enseignant` et `personnel` (module `rbac`).
 
 ## Événements (outbox, `{ v: 1, … }`, montants entiers, identifiants seulement)
 
 Publiés : `payroll.period.created|closed|archived`, `payroll.run.completed`, `payroll.payslip.calculated|approved|paid|disputed|cancelled|adjusted|notification_requested`
-(`approved`/`paid` portent `recipientUserId` pour la notification du titulaire, 016), `payroll.claim.source_changed` (alerte : une séance
+(`disputed` porte `reason` et `initiatedBy` ; `approved`/`paid` portent `recipientUserId` pour la notification du titulaire, 016), `payroll.claim.source_changed` (alerte : une séance
 réclamée a changé à la source — le bulletin arrêté n'est jamais réécrit).
 Consommés (charges alignées sur leurs producteurs, test de contrat `apps/api/test/events-contracts/payroll.test.ts`) : `tenancy.tenant.provisioned`, `scheduling.occurrence.cancelled|unvalidated|rescheduled|paid_minutes_changed`, `academic.year.closed`.
 Job : `payroll.fail-stale-runs` (abandonne les calculs interrompus). **Reconstruire le worker** après modification (`pnpm --filter @ecoledigitale/worker build`).

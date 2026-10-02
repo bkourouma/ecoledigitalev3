@@ -74,7 +74,7 @@ export { S3Storage, s3ConfigFromEnv, s3StorageFromEnv, safeFileName } from "./in
 export { StaticKeyProvider, generateSigningKeyPair, keyProviderFromEnv } from "./infrastructure/key-provider";
 export { PuppeteerPdfRenderer, findChromeExecutable, findPuppeteerCachedChrome, puppeteerRendererFromEnv } from "./infrastructure/puppeteer-renderer";
 export { PdfLibMerger, stampPdfMetadata } from "./infrastructure/pdf-merger";
-export { resetReportcardsWorkerResources, setReportcardsWorkerResources, type WorkerResourceOverrides } from "./infrastructure/worker-resources";
+export { reportcardsWorkerOverrides, resetReportcardsWorkerResources, setReportcardsWorkerResources, type WorkerResourceOverrides } from "./infrastructure/worker-resources";
 
 // Cas d'usage — émission, cycle de vie, lecture, rendu, vérification
 export { createBatch, createTranscript, getBatchView, preflight, reissueReportCard, type BatchView, type CreateBatchInput, type PreflightInput, type PreflightView } from "./application/issue";
@@ -110,6 +110,22 @@ export {
 // Port générique de scellement / rendu pour 019 (diplômes, attestations) et 032 (bulletin de paie)
 export { registerFileHashFor, registerVerificationFor, renderDocumentPdf, sealDocument, signDocumentHash, type RenderDocumentInput, type SealedDocument } from "./application/documents";
 export type { ExternalDocumentFacts, ExternalDocumentVerifier } from "./application/ports";
+// Documents officiels d'autres modules : reçu de paiement (finance), bulletin de paie (payroll)
+export {
+  OFFICIAL_RENDER_ATTEMPTS,
+  getOfficialDocumentRecord,
+  readOfficialDocument,
+  renderOfficialDocument,
+  requestOfficialDocument,
+  requestOfficialDocumentRender,
+  sweepPendingOfficialDocuments,
+  type OfficialDocumentFile,
+  type OfficialDocumentRecord,
+  type OfficialDocumentRequestResult,
+  type OfficialRenderOutcome,
+  type RequestOfficialDocumentInput,
+} from "./application/official-documents";
+export { OFFICIAL_DOCUMENT_KINDS, isOfficialDocumentKind, type OfficialDocumentKind } from "./domain/constants";
 
 // Domaine : événements, codes d'erreur, canonisation, signature, QR, moteur de gabarit
 export { ALL_REPORTCARDS_EVENT_TYPES, ConsumedEvents, ReportcardsEvents } from "./domain/events";

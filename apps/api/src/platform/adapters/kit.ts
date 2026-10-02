@@ -16,6 +16,7 @@ import { createAssessDeps, type AssessDeps } from "../../modules/assess";
 import { createAttendanceDeps, type AttendanceDeps } from "../../modules/attendance";
 import { createFinanceDeps, type FinanceDeps } from "../../modules/finance";
 import { createHigherDeps, type HigherDeps } from "../../modules/higher";
+import { createPayrollDeps, type PayrollDeps } from "../../modules/payroll";
 import { createPeopleDeps, type PeopleDeps } from "../../modules/people";
 import { createReportcardsDeps, type ReportcardsDeps } from "../../modules/reportcards";
 import { assessPortFrom, createResultsDeps, rulesPortFrom, type ResultsDeps } from "../../modules/results";
@@ -49,6 +50,8 @@ export interface AdapterKit {
   readonly people: PeopleDeps;
   readonly finance: FinanceDeps;
   readonly attendance: AttendanceDeps;
+  /** Lecture seule (vue « masse salariale » d'analytics) : aucun port de sources d'heures n'est nécessaire. */
+  readonly payroll: PayrollDeps;
   readonly scheduling: SchedulingDeps;
   readonly results: ResultsDeps;
   readonly assess: AssessDeps;
@@ -118,6 +121,7 @@ export function createAdapterKit(input: AdapterKitInput): AdapterKit {
   });
   const reportcards = createReportcardsDeps({ db, systemDb: input.systemDb, clock, logger });
   const higher = createHigherDeps({ db, clock, logger, portsProvider: () => ({}) });
+  const payroll = createPayrollDeps({ db, clock, logger });
 
-  return { tenantDb: db, systemDb: input.systemDb, clock, logger, env, academic, people, finance, attendance, scheduling, results, assess: assessDeps, higher, reportcards, rules, lookups };
+  return { tenantDb: db, systemDb: input.systemDb, clock, logger, env, academic, people, finance, attendance, payroll, scheduling, results, assess: assessDeps, higher, reportcards, rules, lookups };
 }

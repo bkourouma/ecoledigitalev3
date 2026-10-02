@@ -27,6 +27,7 @@ import {
   financeTrendPointDtoSchema,
 } from "@ecoledigitale/contracts/src/v2/finance";
 import manifest from "../../manifest";
+import { FAMILY_PERMISSIONS } from "../../application/family";
 import { financePlugin } from "../../http/plugin";
 import { SANDBOX_PROVIDER_NAME, type SandboxProvider } from "../../infrastructure/providers/sandbox-provider";
 import { createFinanceDeps } from "../../application/deps";
@@ -497,7 +498,9 @@ describeIntegration("API HTTP /api/v1/finance/* (Fastify + Postgres réel)", () 
     const source = readFileSync(resolve(here, "../../http/plugin.ts"), "utf8");
 
     it("toute permission utilisée par une route est déclarée au manifeste, et inversement", () => {
-      const used = new Set([...source.matchAll(/perm\("([a-z_.]+)"\)/g)].map((m) => m[1]!));
+      // Permissions des routes famille : calculées par `FAMILY_PERMISSIONS` (application/family.ts, vérifié par family.integration.test.ts).
+      const family = Object.values(FAMILY_PERMISSIONS).flatMap((r) => Object.values(r));
+      const used = new Set([...[...source.matchAll(/perm\("([a-z_.]+)"\)/g)].map((m) => m[1]!), ...family]);
       const declared = new Set(ALL_PERMISSIONS);
       expect([...used].filter((p) => !declared.has(p))).toEqual([]);
       expect([...declared].filter((p) => !used.has(p))).toEqual([]);

@@ -52,7 +52,10 @@ export {
 } from "./application/retention";
 
 // Lecture (usage interne : tableaux de bord, rapports)
-export { listAuditLogs, getAuditLog, exportLogsCsv, toCsv, csvCell } from "./application/queries";
+export { listAuditLogs, listPlatformAuditLogs, getAuditLog, exportLogsCsv, toCsv, csvCell, type LogPage } from "./application/queries";
+export type { LogFilter } from "./infrastructure/log-repository";
+// Projection publique d'une entrée en ligne de liste (sans before/after/metadata ni maillon précédent de la chaîne)
+export { toSummaryDto as toAuditSummaryDto } from "./http/plugin";
 
 // Plugins Fastify
 export { auditPlugin as auditHttpPlugin, type AuditHttpOptions } from "./http/plugin";

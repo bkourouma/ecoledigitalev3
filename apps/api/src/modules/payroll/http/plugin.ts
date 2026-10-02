@@ -35,6 +35,7 @@ import {
   payrollListPeriodsQuerySchema,
   payrollListRatesQuerySchema,
   payrollMassQuerySchema,
+  payrollMyDisputeBodySchema,
   payrollMyPayslipsQuerySchema,
   payrollPayBodySchema,
   payrollRateBodySchema,
@@ -52,6 +53,9 @@ import * as calc from "../application/calculate";
 import * as cfg from "../application/configs";
 import * as periods from "../application/periods";
 import * as q from "../application/queries";
+import { getPayslipPdf } from "../application/payslip-document";
+import type { OfficialDocumentState } from "../application/ports";
+import { PayrollCodes } from "../domain/errors";
 import * as settings from "../application/settings";
 import * as wf from "../application/workflow";
 import { fallbackStaffName, staffInfoMap } from "../application/support";
@@ -99,6 +103,25 @@ function zodToValidation(error: ZodError): ValidationError {
 function unwrapOrThrow<T>(result: Result<T>): T {
   if (!result.ok) throw result.error;
   return result.value;
+}
+
+/** Délai suggéré avant de redemander un PDF dont le rendu est en cours (secondes). */
+const DOCUMENT_RETRY_AFTER_SECONDS = 3;
+
+/** PDF prêt : 200 + pièce jointe, jamais mis en cache ; en cours : 202 + `Retry-After` ; rendu définitivement échoué : 409. */
+function sendDocument(reply: FastifyReply, state: OfficialDocumentState) {
+  if (state.status === "RENDERED" && state.bytes) {
+    return reply
+      .status(200)
+      .header("Content-Type", "application/pdf")
+      .header("Content-Disposition", `attachment; filename="${state.fileName}"`)
+      .header("Cache-Control", "private, no-store")
+      .header("X-Content-Type-Options", "nosniff")
+      .header("X-Document-Verification-Code", state.verificationCode)
+      .send(Buffer.from(state.bytes));
+  }
+  if (state.status === "FAILED") throw new ConflictError("Le rendu du document a échoué ; réessayez dans quelques instants.", { code: PayrollCodes.documentRenderFailed });
+  return reply.status(202).header("Retry-After", String(DOCUMENT_RETRY_AFTER_SECONDS)).send({ status: state.status, retryAfterSeconds: DOCUMENT_RETRY_AFTER_SECONDS });
 }
 
 function maybeFastifyValidation(error: unknown): unknown {
@@ -321,6 +344,11 @@ export async function payrollPlugin(app: FastifyInstance, options: PayrollPlugin
         const { id } = parse(payrollIdParamsSchema, req.params);
         return present.dataDto(unwrapOrThrow(await q.getPayslipData(deps, ctxOf(req), { payslipId: id, caps: readCaps(req) })));
       });
+      // PDF officiel (bulletin VERSÉ) : même contrôle d'accès que `/data` (gestion ou titulaire), rendu par reportcards / le worker.
+      scope.get("/payslips/:id/pdf", { preHandler: guard(["payroll.payslip.read", "payroll.payslip.read_own"]) }, async (req, reply) => {
+        const { id } = parse(payrollIdParamsSchema, req.params);
+        return sendDocument(reply, unwrapOrThrow(await getPayslipPdf(deps, ctxOf(req), { payslipId: id, caps: readCaps(req) })));
+      });
       scope.post("/payslips/:id/cancel", { preHandler: guard("payroll.payslip.cancel") }, async (req) => {
         const { id } = parse(payrollIdParamsSchema, req.params);
         const { reason } = parse(payrollReasonBodySchema, req.body);
@@ -378,6 +406,21 @@ export async function payrollPlugin(app: FastifyInstance, options: PayrollPlugin
         const { id } = parse(payrollIdParamsSchema, req.params);
         // même cas d'usage que la gestion, mais SEULEMENT en tant que titulaire : un compte de gestion passe par /payslips/:id
         return present.dataDto(unwrapOrThrow(await q.getPayslipData(deps, ctxOf(req), { payslipId: id, caps: { readAll: false, readOwn: true } })));
+      });
+
+      scope.get("/my/payslips/:id/pdf", { preHandler: guard("payroll.payslip.read_own") }, async (req, reply) => {
+        const { id } = parse(payrollIdParamsSchema, req.params);
+        // SEULEMENT en tant que titulaire (un compte de gestion passe par /payslips/:id/pdf)
+        return sendDocument(reply, unwrapOrThrow(await getPayslipPdf(deps, ctxOf(req), { payslipId: id, caps: { readAll: false, readOwn: true } })));
+      });
+
+      // Contester SON bulletin : `payroll.my.dispute` seule (sans `payroll.payslip.approve`) ; titulaire résolu depuis le compte,
+      // bulletin d'autrui ou illisible → 404 uniforme ; seul un bulletin arrêté et non payé est contestable (409 sinon).
+      scope.post("/my/payslips/:id/dispute", { preHandler: guard("payroll.my.dispute") }, async (req) => {
+        const { id } = parse(payrollIdParamsSchema, req.params);
+        const { reason } = parse(payrollMyDisputeBodySchema, req.body);
+        const ctx = ctxOf(req);
+        return named(ctx, unwrapOrThrow(await wf.disputeOwnPayslip(deps, ctx, { payslipId: id, reason })));
       });
 
       // ===== Propriétaire =====================================================================================================

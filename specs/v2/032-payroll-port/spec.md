@@ -19,8 +19,9 @@
 > 4. **Sources d'heures par pack (Q-36)** : par les features `payroll.session-source` (HIGHER, VIRTUAL) et `payroll.attendance-source` (PRIMARY, SECONDARY) ; la colonne `settings.hour_source_by_pack` est supprimée.
 > 5. **AC6.8** : le seuil propriétaire se lit via la permission `payroll.payslip.approve_owner` (sensible), jamais un rôle codé en dur ; la séparation des tâches et le seuil sont aussi imposés par le trigger `payslips_guard`.
 > 6. **Motifs d'écart** ajoutés : `NOTHING_TO_PAY` (tout est déjà payé), `ALREADY_CALCULATED` (bulletin calculé et pas de `recalculate`). Le multiplicateur d'une ligne peut valoir ×1,0 (1 000 ‰). Une période d'**un seul jour** est licite.
-> 7. **AC8.1/8.3** : l'enseignant lit ses bulletins **une fois le montant arrêté** (APPROVED, DISPUTED, PAID) ; le brouillon calculé reste réservé à la gestion. `/payslips/:id/pdf` est remplacé par `/payslips/:id/data` (snapshot figé + empreinte) tant que le rendu PDF (013/worker) n'existe pas.
-> 8. **Reporté** : vue d'ensemble `GET /staff` (US9), notification e-mail (événements `payroll.payslip.approved|paid|notification_requested` publiés pour 016), rendu PDF.
+> 7. **AC8.1/8.3** : l'enseignant lit ses bulletins **une fois le montant arrêté** (APPROVED, DISPUTED, PAID) ; le brouillon calculé reste réservé à la gestion. `/payslips/:id/data` fournit le snapshot figé + son empreinte (aperçu imprimable, filigrane « NON VERSÉ ») ; **`/payslips/:id/pdf` et `/my/payslips/:id/pdf` livrent le PDF OFFICIEL d'un bulletin VERSÉ** (rendu par `reportcards`/le worker, scellé, QR de vérification publique ; 404 uniforme pour le bulletin d'autrui ; 409 `payroll.payslip_not_paid` avant versement) — voir `apps/api/src/modules/payroll/README.md` § « PDF du bulletin de paie ».
+> 9. **Contestation par le titulaire (AC6.9)** : `POST /my/payslips/:id/dispute` (permission `payroll.my.dispute`, non sensible, portée par les rôles système `enseignant` et `personnel`) — voir §4 AC6.9.
+> 8. **Reporté** : vue d'ensemble `GET /staff` (US9), notification e-mail (événements `payroll.payslip.approved|paid|notification_requested` publiés pour 016). Le rendu PDF est livré (voir le point 7).
 
 ## 1. Objectifs
 
@@ -129,6 +130,7 @@ En tant que gestionnaire, je transforme un planning en heures payables : constat
 - **AC6.5** Annuler (motif obligatoire) relâche les heures (suppression des réclamations d'heures dans la même transaction) ; un bulletin `PAID` ne peut pas être annulé.
 - **AC6.6** Primes et retenues sont saisies manuellement, uniquement sur un bulletin `CALCULATED`, sous forme de lignes tracées (libellé, motif) ; aucune règle automatique.
 - **AC6.7** Chaque transition écrit une entrée de journal avec le **nom de l'auteur figé** et une entrée d'audit générique ; le journal survit à toute modification du compte utilisateur.
+- **AC6.9** **Contestation par le titulaire** (`POST /my/payslips/:id/dispute`, permission `payroll.my.dispute`, SANS `payroll.payslip.approve`). Le titulaire est résolu depuis son compte (`persons.identity_id` via le port du personnel), jamais depuis la requête ni un courriel. Corps `{ reason }` : motif **obligatoire** (3 à 500 caractères après rognage), sinon `400`. Seul le bulletin du titulaire est concerné : celui d'un autre, un identifiant inconnu, un brouillon calculé ou un bulletin annulé (que le titulaire ne peut pas lire) répondent un **`404` uniforme** ; un compte sans fiche du personnel reçoit `403`. États : `APPROVED → DISPUTED` seulement ; un bulletin payé ou déjà contesté répond `409 payroll.invalid_transition`. Même cas d'usage que la contestation de la gestion (`disputePayslip`, une seule implémentation) : journal du bulletin à auteur figé, audit sensible `payroll.payslip.disputed`, événement `payroll.payslip.disputed` ; le champ `initiatedBy` (`HOLDER` | `MANAGER`) les distingue. La gestion ré-arrête (`DISPUTED → APPROVED`) ou annule ensuite (AC6.4).
 - **AC6.8** Option d'établissement (Q-30) : séparation des tâches (la personne qui a calculé ne peut pas arrêter) et seuil au-delà duquel seul le propriétaire arrête.
 
 ### US7 — Validation par le propriétaire (P2)
@@ -220,6 +222,7 @@ Préfixe `/api/v1/payroll`. Chemins statiques déclarés avant les chemins param
 | GET | `/payslips`, `/payslips/:id`, `/payslips/:id/data`, `/payslips/:id/pdf` | Bulletins | `payroll.payslip.read` / `.read_own` |
 | POST | `/payslips/approve`, `/payslips/pay` | `{ payslipIds[] } \| { all: true, periodId }` | `payroll.payslip.approve` / `.pay` |
 | POST | `/payslips/:id/cancel`, `/payslips/:id/dispute` | Annulation / contestation (motif) | `payroll.payslip.cancel` / `.approve` |
+| POST | `/my/payslips/:id/dispute` | Contestation de SON bulletin par le titulaire (motif obligatoire) | `payroll.my.dispute` |
 | PATCH | `/payslips/:id/adjustments` | Primes / retenues | `payroll.payslip.adjust` |
 | POST | `/payslips/:id/notify` | Envoi au titulaire | `payroll.payslip.notify` |
 | GET | `/history`, `/history/export` | Historique des bulletins arrêtés | `payroll.payslip.read` |
@@ -246,6 +249,7 @@ Les quatre écrans de la portabilité, plus rapports et espace enseignant : **Co
 | `payroll.run.calculate` | Lancer un calcul ou un aperçu | oui |
 | `payroll.payslip.read` | Consulter tous les bulletins de paie | oui |
 | `payroll.payslip.read_own` | Consulter **ses** bulletins et séances | non |
+| `payroll.my.dispute` | Contester **son** bulletin arrêté et non payé (personnel) | non |
 | `payroll.payslip.adjust` | Saisir primes et retenues | oui |
 | `payroll.payslip.approve` | Arrêter le montant d'un bulletin ; contester | **oui** (MFA) |
 | `payroll.payslip.pay` | Constater le versement | **oui** (MFA) |

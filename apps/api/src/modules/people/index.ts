@@ -53,6 +53,19 @@ export {
   type StudentRefShape,
 } from "./application/directories";
 
+// Résolution de noms par lots (réponse minimale, ids dédoublonnés, `missing` indiscernable, périmètre optionnel)
+export {
+  dedupeIds,
+  getDisplayNamesOfStaff,
+  getDisplayNamesOfStudents,
+  LOOKUP_MAX_IDS,
+  lookupStaff,
+  lookupStudents,
+  type LookupOptions,
+  type LookupResult,
+  type LookupScope,
+} from "./application/lookup";
+
 // Élèves
 export {
   addEmergencyContact,
@@ -118,7 +131,7 @@ export {
 export { safeDocumentFileName, sniffDocument, documentExpiryState } from "./domain/files";
 
 // Contrôle d'accès fin
-export { classroomsOfCurrentStaff, resolveStudentAudience, resolveStudentListScope, staffCanReadStudent, type PermissionProbe } from "./application/access";
+export { classroomsOfCurrentStaff, resolveStaffLookupScope, resolveStudentAudience, resolveStudentListScope, resolveStudentLookupScope, staffCanReadStudent, type PermissionProbe } from "./application/access";
 
 // Personnel
 export {

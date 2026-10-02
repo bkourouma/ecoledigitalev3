@@ -66,7 +66,8 @@
     "test:isolation": "node scripts/db/test-isolation.mjs",
     "test:v2": "pnpm --filter @ecoledigitale/api test:v2",
     "test:characterization": "node tests/characterization/run.mjs",
-    "test:phase1": "pnpm --filter @ecoledigitale/api test:phase1"
+    "test:phase1": "pnpm --filter @ecoledigitale/api test:phase1",
+    "test:phase2": "pnpm --filter @ecoledigitale/api test:phase2"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.864.0",

@@ -21,7 +21,8 @@ import { getRequestCtx } from "../../rbac";
 import { createPeopleDeps, type PeopleDeps } from "../application/deps";
 import { createPeoplePortRegistry, type PeoplePortRegistry, type PeoplePortSet } from "../application/port-registry";
 import { PeopleErrors } from "../domain/errors";
-import { resolveStudentAudience, resolveStudentListScope, type PermissionProbe } from "../application/access";
+import { resolveStaffLookupScope, resolveStudentAudience, resolveStudentListScope, resolveStudentLookupScope, type PermissionProbe } from "../application/access";
+import { lookupStaff, lookupStudents } from "../application/lookup";
 import { getPersonQualities, linkPersonToIdentity, provisionPortalAccount, type PersonQuality } from "../application/accounts";
 import * as documentsUc from "../application/documents";
 import * as guardiansUc from "../application/guardians";
@@ -154,6 +155,18 @@ export async function peoplePlugin(app: FastifyInstance, options: PeoplePluginOp
       const ctx = ctxOf(req);
       const q = parse(c.peopleDuplicateQuerySchema, req.query);
       return { items: unwrap(await studentsUc.findDuplicateStudents(deps, ctx, q, await visibilityOf(probeOf(req, reply)))) };
+    });
+
+    /**
+     * Résolution de noms par lots (`?ids=a,b,c`, ≤ 100 distincts) : `{ items, missing }`, réponse minimale. Périmètre : tous
+     * les élèves (secrétariat), les élèves de SES classes (enseignant), SES enfants (parent), SON dossier (élève) ; hors
+     * périmètre ≡ inconnu ≡ autre tenant : `missing`, jamais 403/404 par identifiant. Déclarée avant `/students/:id`.
+     */
+    scope.get("/students/lookup", { preHandler: anyOf("student.list", "student.read", "student.class.read", "student.child.read", "student.self.read") }, async (req, reply) => {
+      const ctx = ctxOf(req);
+      const { ids } = parse(c.peopleLookupQuerySchema, req.query);
+      const audience = unwrap(await resolveStudentLookupScope(deps, ctx, probeOf(req, reply)));
+      return unwrap(await lookupStudents(deps, ctx, ids, { scope: audience }));
     });
 
     scope.get("/students/export", { preHandler: perm("student.export") }, async (req, reply) => {
@@ -486,6 +499,13 @@ export async function peoplePlugin(app: FastifyInstance, options: PeoplePluginOp
       const out = unwrap(await staffUc.createStaff(deps, ctxOf(req), parse(c.peopleCreateStaffBodySchema, req.body), { visibility: await visibilityOf(probeOf(req, reply)) }));
       if (out.kind === "validated") return { valid: true, duplicates: out.duplicates };
       return reply.status(out.replayed ? 200 : 201).send({ staff: out.staff, replayed: out.replayed });
+    });
+    /** Résolution de noms du personnel par lots (`?ids=…`, ≤ 100 distincts) : `staff.list`/`staff.read` : tous ; `staff.own.read` : soi seul. */
+    scope.get("/staff/lookup", { preHandler: anyOf("staff.list", "staff.read", "staff.own.read") }, async (req, reply) => {
+      const ctx = ctxOf(req);
+      const { ids } = parse(c.peopleLookupQuerySchema, req.query);
+      const audience = unwrap(await resolveStaffLookupScope(deps, ctx, probeOf(req, reply)));
+      return unwrap(await lookupStaff(deps, ctx, ids, { scope: audience }));
     });
     scope.get("/staff/expiring-qualifications", { preHandler: perm("staff.read") }, async (req) => {
       const q = parse(c.peopleExpiringQuerySchema, req.query);

@@ -13,6 +13,7 @@ import { defineScheduledJob } from "@ecoledigitale/worker/sdk";
 import { createSystemContext } from "@ecoledigitale/kernel";
 import { createReportcardsDeps } from "./application/deps";
 import { checkIntegrity } from "./application/integrity";
+import { sweepPendingOfficialDocuments } from "./application/official-documents";
 import { sweepPendingRenders } from "./application/render";
 import { purgeExpiredVerificationEvents } from "./infrastructure/cards-repository";
 
@@ -49,6 +50,9 @@ export default [
       const result = await sweepPendingRenders(deps, createSystemContext(tenant.id), { olderThanMs: 10 * 60_000, limit: 200 });
       if (!result.ok) throw result.error;
       if (result.value.requested > 0) logger.info({ tenant: tenant.slug, requested: result.value.requested }, "reportcards : rendus en attente redemandés");
+      const official = await sweepPendingOfficialDocuments(deps, createSystemContext(tenant.id), { olderThanMs: 10 * 60_000, limit: 200 });
+      if (!official.ok) throw official.error;
+      if (official.value.requested > 0) logger.info({ tenant: tenant.slug, requested: official.value.requested }, "reportcards : rendus de documents officiels redemandés");
     },
   }),
   defineScheduledJob({

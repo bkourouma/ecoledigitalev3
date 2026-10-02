@@ -128,6 +128,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "rules.*": "Choisir et faire évoluer les règles de calcul de l'établissement (la console nationale reste à la plateforme).",
       "higher.*": "Octroyer, forcer et révoquer les diplômes, émettre les documents officiels, affecter les signataires.",
       "iam.*": "Réinitialiser la double authentification d'un membre : gestion des accès par la direction.",
+      "analytics.*": "Consulter la masse salariale par période dans les tableaux de bord de direction (lecture seule, MFA exigée, chaque lecture est auditée).",
       "payroll.*": "Gérer les configurations de paie, arrêter, verser et annuler les bulletins (le seuil propriétaire et les réglages restent au propriétaire).",
       "student.*": "Changer le statut, lire les champs sensibles, exporter et anonymiser les dossiers élèves.",
       "staff.*": "Gérer les statuts et les contrats du personnel.",
@@ -434,6 +435,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.own.record",
       "attendance.leave.request",
       "payroll.payslip.read_own",
+      "payroll.my.dispute",
     ],
   },
 
@@ -537,6 +539,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.own.record",
       "attendance.leave.request",
       "payroll.payslip.read_own",
+      "payroll.my.dispute",
       "schedule.own.read",
     ],
   },
@@ -545,7 +548,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
   // PARENT — ses ENFANTS uniquement (relation de tutelle vérifiée par chaque module) : toutes les
   // permissions `*.child.*` du catalogue, aucune permission de gestion. Énumérées (et non `*.child.*`) :
   // un test vérifie l'égalité avec l'ensemble des clés `*.child.*` du catalogue.
-  // Manque connu : finance ne déclare aucune permission `finance.child.*` (factures et solde des enfants).
+  // Finance : `finance.child.read` (situation financière des enfants) et `finance.child.pay` (paiement en
+  // ligne initié par le parent) ; la tutelle est relue par finance à chaque requête (routes `/finance/me/*`).
   // ------------------------------------------------------------------------------------------------
   {
     key: "parent",
@@ -562,6 +566,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.child.justify",
       "schedule.child.read",
       "higher.child.read",
+      "finance.child.read",
+      "finance.child.pay",
     ],
   },
 
@@ -586,6 +592,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.self.justify",
       "schedule.self.read",
       "higher.self.read",
+      "finance.self.read",
+      "finance.self.pay",
     ],
   },
 ]);

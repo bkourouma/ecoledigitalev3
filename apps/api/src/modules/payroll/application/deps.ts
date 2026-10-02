@@ -58,6 +58,9 @@ function normalizePorts(p: Partial<PayrollPorts> | undefined): PayrollPorts {
     get curriculum() {
       return p?.curriculum ?? null;
     },
+    get documents() {
+      return p?.documents ?? null;
+    },
   };
 }
 

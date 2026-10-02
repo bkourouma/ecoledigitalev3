@@ -12,7 +12,7 @@
  * d'expliquer pourquoi une heure n'est pas payée). Un fournisseur qui ne peut renvoyer que le payable
  * (p. ex. `scheduling.listPayableHours`) marque ses faits `realized: true, validated: true`.
  */
-import type { RequestContext } from "@ecoledigitale/kernel";
+import type { AppError, RequestContext, Result } from "@ecoledigitale/kernel";
 import type { HourFact, HourSourceKind, IsoDate, Uuid } from "../domain/types";
 
 export interface HoursQuery {
@@ -70,11 +70,48 @@ export interface CurriculumLabelPort {
   getLabels(ctx: RequestContext, nodeIds: readonly Uuid[]): Promise<ReadonlyMap<Uuid, CurriculumLabel>>;
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Document officiel (PDF du bulletin de paie) : rendu par le module `reportcards`
+// ---------------------------------------------------------------------------------------------------------------------
+
+export interface OfficialDocumentInput {
+  /** Objet source (identifiant du bulletin). */
+  readonly sourceId: string;
+  /** Intitulé scellé ET publié par la vérification publique : jamais le nom de l'enseignant. */
+  readonly title: string;
+  readonly issuedAt: Date;
+  /** Contenu figé (JSON canonique : chaînes, entiers, booléens, null). */
+  readonly content: Record<string, unknown>;
+  /** Contexte d'impression (chaînes déjà mises en forme). */
+  readonly context: Record<string, unknown>;
+}
+
+export type OfficialDocumentStatus = "PENDING" | "RENDERING" | "RENDERED" | "FAILED";
+
+export interface OfficialDocumentState {
+  readonly status: OfficialDocumentStatus;
+  readonly fileName: string;
+  readonly bytes: Uint8Array | null;
+  readonly verificationCode: string;
+  readonly pdfHash: string | null;
+  readonly lastError: string | null;
+}
+
+/**
+ * Scelle (idempotent) le bulletin versé, demande son rendu au worker et renvoie l'état / les octets du PDF. Ne contrôle PAS
+ * l'accès : payroll l'a déjà fait (titulaire ou gestion). Branché par `platform/adapters/payroll-reportcards.ts`.
+ */
+export interface PayslipDocumentPort {
+  fetchOrRequest(ctx: RequestContext, input: OfficialDocumentInput): Promise<Result<OfficialDocumentState, AppError>>;
+}
+
 export interface PayrollPorts {
   readonly sessionHours: HoursSourcePort | null;
   readonly attendanceHours: HoursSourcePort | null;
   readonly staff: StaffDirectoryPort | null;
   readonly curriculum: CurriculumLabelPort | null;
+  /** PDF du bulletin versé (reportcards) ; absent : téléchargement indisponible (`payroll.port_unavailable`). */
+  readonly documents: PayslipDocumentPort | null;
 }
 
 export type PayrollPortsInput = Partial<{ [K in keyof PayrollPorts]: PayrollPorts[K] | undefined }>;
@@ -86,8 +123,9 @@ export interface PayrollPortRegistry {
 }
 
 export function createPortRegistry(initial: PayrollPortsInput = {}): PayrollPortRegistry {
-  const state: { -readonly [K in keyof PayrollPorts]: PayrollPorts[K] } = { sessionHours: null, attendanceHours: null, staff: null, curriculum: null };
+  const state: { -readonly [K in keyof PayrollPorts]: PayrollPorts[K] } = { sessionHours: null, attendanceHours: null, staff: null, curriculum: null, documents: null };
   const apply = (ports: PayrollPortsInput): void => {
+    if (ports.documents) state.documents = ports.documents;
     if (ports.sessionHours) state.sessionHours = ports.sessionHours;
     if (ports.attendanceHours) state.attendanceHours = ports.attendanceHours;
     if (ports.staff) state.staff = ports.staff;
@@ -106,6 +144,9 @@ export function createPortRegistry(initial: PayrollPortsInput = {}): PayrollPort
     },
     get curriculum() {
       return state.curriculum;
+    },
+    get documents() {
+      return state.documents;
     },
   };
   return { register: apply, current: view };

@@ -78,7 +78,7 @@ describeIntegration("diplômes : scellement, PDF et vérification publique (adap
       logger: noopLogger,
       env: { REPORTCARDS_SIGNING_KEY: privateKeyPem, REPORTCARDS_SIGNING_KEY_ID: "test-docs-key-1", REPORTCARDS_VERIFICATION_BASE_URL: BASE },
     });
-    ports = buildPlatformPorts(kit, Object.assign(storage, { driver: "disk" as const, delete: async (k: string) => void storage.objects.delete(k) }), { documentRenderer: renderer });
+    ports = buildPlatformPorts(kit, Object.assign(storage, { driver: "disk" as const, delete: async (k: string) => void storage.objects.delete(k) }), {}, { documentRenderer: renderer });
     hd = createHigherDeps({ db: w.tenantDb, clock: w.clock, portsProvider: () => ({ ...ports.higher, rules: createRulesAdapter(() => kit.rules) }) });
     publicRc = createReportcardsDeps({ db: w.tenantDb, systemDb: w.systemDb, clock: w.clock, portsProvider: () => ({ ...ports.reportcards, storage }) });
 
@@ -213,7 +213,7 @@ describeIntegration("diplômes : scellement, PDF et vérification publique (adap
 
   it("sans clé de signature configurée : le scellement échoue explicitement, aucun document « scellé » en silence", async () => {
     const bare = createAdapterKit({ tenantDb: w.tenantDb, systemDb: w.systemDb, clock: w.clock, logger: noopLogger, env: {} });
-    const barePorts = buildPlatformPorts(bare, storage as never, { documentRenderer: new FakePdfRenderer() });
+    const barePorts = buildPlatformPorts(bare, storage as never, {}, { documentRenderer: new FakePdfRenderer() });
     const hdBare = createHigherDeps({ db: w.tenantDb, clock: w.clock, portsProvider: () => ({ ...ports.higher, documents: barePorts.higher.documents! }) });
     const fresh = unwrap(await issueSuccessAttestation(hd, admin, { studentId: school.pupils[0]!.studentId, programNodeId: school.seed.programId })).document;
     const r = await renderOfficialDocument(hdBare, admin, fresh.id);

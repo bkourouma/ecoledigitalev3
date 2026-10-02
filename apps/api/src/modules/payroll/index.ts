@@ -26,6 +26,10 @@ export type {
   HourLockLine,
   HoursQuery,
   HoursSourcePort,
+  OfficialDocumentInput,
+  OfficialDocumentState,
+  OfficialDocumentStatus,
+  PayslipDocumentPort,
   PayrollPortRegistry,
   PayrollPorts,
   PayrollPortsInput,
@@ -33,6 +37,8 @@ export type {
   StaffInfo,
 } from "./application/ports";
 export { InMemoryCurriculum, InMemoryHoursSource, InMemoryStaffDirectory, inMemoryPorts as inMemoryPayrollPorts, type InMemoryPayrollWorld } from "./infrastructure/in-memory-ports";
+export { getPayslipPdf } from "./application/payslip-document";
+export { buildPayslipDocument, durationText, type PayslipDocument as PayslipPdfContent, type PayslipPaymentFacts } from "./domain/payslip-document";
 export { noopAudit, RecordingAudit, type AuditEntry, type AuditPort } from "./application/audit";
 export { payrollAuditAdapter } from "./infrastructure/audit-adapter";
 

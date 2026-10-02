@@ -68,6 +68,10 @@ describe("manifeste", () => {
         "finance.cashregister.close",
         "finance.report.read",
         "finance.receipt.read",
+        "finance.child.read",
+        "finance.child.pay",
+        "finance.self.read",
+        "finance.self.pay",
       ].sort(),
     );
     expect(manifest.permissions.every((p) => p.key.startsWith("finance."))).toBe(true);
@@ -96,9 +100,10 @@ describe("manifeste", () => {
     const perms = new Set(manifest.permissions.map((p) => p.key));
     for (const m of manifest.menus) {
       expect(perms.has(m.permission)).toBe(true);
-      expect(m.portal).toBe("admin");
-      expect(m.href.startsWith("/admin/finance")).toBe(true);
+      if (m.portal === "admin") expect(m.href.startsWith("/admin/finance")).toBe(true);
+      else expect(["parent", "student"]).toContain(m.portal); // portails famille : `finance.child.read` / `finance.self.read`
     }
+    expect(manifest.menus.filter((m) => m.portal === "admin").length).toBeGreaterThanOrEqual(4);
   });
 });
 

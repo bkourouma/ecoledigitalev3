@@ -40,6 +40,7 @@ Le RBAC dit *quel type* de données ; le module décide *lesquelles* :
 
 Les cas d'usage sont `(deps, ctx, input) => Promise<Result<T, AppError>>` ; `deps = createPeopleDeps({ db, clock, audit, accounts?, storage?, academic?, enrollments?, country? })`.
 
+* Noms par lots : `lookupStudents`, `lookupStaff`, `getDisplayNamesOfStudents`, `getDisplayNamesOfStaff` (voir « Résolution de noms par lots »).
 * Élèves : `getStudent`, `getStudentsByIds` (≤ 500), `listStudents`/`searchStudents`, `findDuplicateStudents`, `createStudent` (idempotent par `externalRef`, `validateOnly`, `acknowledgeDuplicate`), `updateStudent`, `changeStudentStatus`, `getStudentSensitive`, `exportStudents`, `anonymizeStudent`, photo, contacts d'urgence, antécédents.
 * Tuteurs : `createGuardian`, `linkGuardian`, `updateGuardianLink`, `unlinkGuardian`, `listGuardiansOfStudent`, `listChildrenOfIdentity`, **`isGuardianOfStudent`** (à appeler par tout endpoint `*.child.*`), `resolveStudentForIdentity`, `updateMyContact`, `provisionPortalAccount`, `linkPersonToIdentity`.
 * Personnel : `getStaff`, `getStaffByIds`, `listStaff`, `resolveStaffForIdentity`, `createStaff`, `updateStaff`, `changeStaffStatus`, `setAffiliations`, contrats, qualifications, `emitExpiringQualifications` (job), `setCompetencies`, `setAvailabilities`, `listAvailabilities`, `getTeachingLoad`.
@@ -88,6 +89,25 @@ Les événements `iam.membership.*` portent `identityId`, `membershipId`, `roles
 * `settings.student_retention_days` (O-15) : sans valeur, **l'anonymisation est refusée** (aucune durée légale codée). Autres colonnes : `persons.anonymized_at`, `staff_qualifications.expiry_alerted_for`, table `identity_memberships` (0806).
 * `getTeachingLoad` : `PER_WEEK` converti en année seulement si `weeksPerYear` est fourni.
 * Rôles d'affectation : la garde d'offre / `listUnstaffedNodes` exigent un `LEAD` (explicite ou généraliste) ; `SUBSTITUTE` actif prend la place de l'affectation remplacée.
+
+## Résolution de noms par lots (`lookup`)
+
+Pour les écrans qui affichent des listes d'identifiants (finance, présences, résultats, paie…) : **une requête**, pas N.
+
+| Route | Permissions (la plus large applicable gagne, les périmètres d'une même personne se cumulent) | Périmètre |
+|---|---|---|
+| `GET /students/lookup?ids=a,b,c` | `student.list` / `student.read` | tous les élèves du tenant (hors enseignant restreint par le garde-fou) |
+| | `student.class.read` | élèves de SES classes (affectation active aujourd'hui × projection d'inscriptions) |
+| | `student.child.read` | SES enfants (lien vivant, accès portail) |
+| | `student.self.read` | son propre dossier |
+| `GET /staff/lookup?ids=a,b,c` | `staff.list` / `staff.read` | tout le personnel du tenant (comme `GET /staff/:id`) |
+| | `staff.own.read` seul | sa propre fiche |
+
+Réponse `{ items: [{ id, displayName, studentNumber|staffNumber, status }], missing: [id] }` — **minimale** (jamais naissance, contact, photo, inscription, identifiant national, compte lié, contrat). `items` suit l'ordre des ids demandés ; `ids` : UUID séparés par des virgules (ou paramètre répété), **dédoublonnés**, **≤ 100 distincts** (`PEOPLE_LOOKUP_MAX_IDS`, bornée par la longueur d'URL ; 400 au-delà, 400 pour un UUID mal formé ou un segment vide). `missing` = demandés et non restitués : **inconnus, d'un autre tenant (la RLS les rend invisibles) ou hors du périmètre — volontairement indiscernables** (jamais 403/404 par identifiant, aucune fuite d'existence). Aucune permission applicable : 403.
+
+API publique (`index.ts`) : `lookupStudents(deps, ctx, ids, { scope? })` et `lookupStaff(...)` → `Result<{ items, missing }>` (plafond **500**, `scope: { kind: "IDS", ids }` pour restreindre AVANT la lecture ; `resolveStudentLookupScope` / `resolveStaffLookupScope` calculent le périmètre d'un appelant) ; `getDisplayNamesOfStudents(deps, ctx, ids)` et `getDisplayNamesOfStaff(...)` → `Promise<Map<id, « NOM Prénom »>>` pour les modules et adaptateurs (découpe en lots de 500, ignore inconnus et UUID invalides, ne lève pas sur la taille ; **sans contrôle de périmètre** : l'appelant a déjà autorisé SA route).
+
+**Consommer depuis un autre module** (finance, attendance, results — DTO non modifiés ici) : dans l'adaptateur de `platform/adapters`, collecter les `studentId` d'une page de résultats, appeler UNE fois `getDisplayNamesOfStudents(peopleDeps, ctx, ids)` puis fixer `studentName = names.get(id) ?? null` (un nom absent = élève inconnu, anonymisé ou d'un autre tenant : afficher un libellé de repli, ne jamais échouer). Côté web, `GET /api/v1/people/students/lookup?ids=…` par paquets de 100 pour résoudre les noms d'une liste d'un portail.
 
 ## Demandes de changement vers les autres modules (non faites ici)
 

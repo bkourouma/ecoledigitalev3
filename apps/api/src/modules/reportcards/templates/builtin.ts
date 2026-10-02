@@ -245,6 +245,84 @@ const TRANSCRIPT_BODY = `<section class="doc">
 {{> footer}}
 </section>`;
 
+/**
+ * Documents officiels d'AUTRES modules (service générique `application/official-documents.ts`) : le contexte d'impression est
+ * fourni par le module propriétaire (chaînes déjà mises en forme : montants, dates), l'identité de l'établissement vient du
+ * branding courant au moment du scellement. Aucun nom de personne ni d'établissement dans le gabarit.
+ */
+const RECEIPT_BODY = `<section class="doc">
+{{@watermark}}
+{{> header}}
+{{> title}}
+<section class="summary">
+  <div class="sum-row"><span class="lbl">Numéro</span><span class="val">{{ receipt.number }}</span></div>
+  <div class="sum-row"><span class="lbl">Date</span><span class="val">{{ receipt.issuedOn | date_fr }}</span></div>
+  <div class="sum-row"><span class="lbl">Apprenant</span><span class="val">{{ receipt.learnerName | default:"--" }}</span></div>
+  {{#if receipt.learnerRegistration}}<div class="sum-row"><span class="lbl">Matricule</span><span class="val">{{ receipt.learnerRegistration }}</span></div>{{/if}}
+  <div class="sum-row"><span class="lbl">Reçu de</span><span class="val">{{ receipt.payerName | default:"--" }}</span></div>
+  <div class="sum-row"><span class="lbl">Mode de paiement</span><span class="val">{{ receipt.methodLabel }}</span></div>
+  {{#if receipt.reference}}<div class="sum-row"><span class="lbl">Référence</span><span class="val">{{ receipt.reference }}</span></div>{{/if}}
+  <div class="sum-row"><span class="lbl">Montant reçu</span><span class="val strong">{{ receipt.amountText }}</span></div>
+</section>
+{{#if receipt.allocations}}<table class="grades">
+  <thead><tr><th class="left">Facture</th><th class="left">Échéance</th><th>Montant imputé</th></tr></thead>
+  <tbody>
+  {{#each receipt.allocations limit=200}}
+    <tr><td class="left">{{ this.invoiceNumber | default:"--" }}</td><td class="left">{{ this.label }}</td><td>{{ this.amountText }}</td></tr>
+  {{/each}}
+  </tbody>
+</table>{{/if}}
+<section class="summary">
+  {{#if receipt.unallocatedText}}<div class="sum-row"><span class="lbl">Non imputé (avance)</span><span class="val">{{ receipt.unallocatedText }}</span></div>{{/if}}
+  {{#if receipt.balanceAfterText}}<div class="sum-row"><span class="lbl">Reste dû après ce paiement</span><span class="val">{{ receipt.balanceAfterText }}</span></div>{{/if}}
+</section>
+<p class="jury">Ce reçu atteste de l'encaissement indiqué à la date d'émission ; il ne préjuge pas d'un remboursement ultérieur.</p>
+{{> verification}}
+{{> footer}}
+</section>`;
+
+const PAYSLIP_BODY = `<section class="doc">
+{{@watermark}}
+{{> header}}
+{{> title}}
+<section class="student">
+  <div class="student-name">{{ payslip.staffName }}</div>
+  <div class="student-grid">
+    <div class="cell"><span class="lbl">Matricule</span><span class="val">{{ payslip.matricule | default:"--" }}</span></div>
+    <div class="cell"><span class="lbl">Période</span><span class="val">{{ payslip.periodName }}</span></div>
+    <div class="cell"><span class="lbl">Du</span><span class="val">{{ payslip.startDate | date_fr }}</span></div>
+    <div class="cell"><span class="lbl">Au</span><span class="val">{{ payslip.endDate | date_fr }}</span></div>
+    {{#if payslip.paidOn}}<div class="cell"><span class="lbl">Versé le</span><span class="val">{{ payslip.paidOn | date_fr }}</span></div>{{/if}}
+  </div>
+</section>
+{{#if payslip.lines}}<table class="grades">
+  <thead><tr><th class="left">Date</th><th class="left">Détail</th><th>Durée</th><th>Taux</th><th>Montant</th></tr></thead>
+  <tbody>
+  {{#each payslip.lines limit=1500}}
+    <tr><td class="left">{{ this.date | date_fr }}</td><td class="left">{{ this.label }}</td><td>{{ this.durationText }}</td><td>{{ this.rateText }}</td><td>{{ this.amountText }}</td></tr>
+  {{/each}}
+  </tbody>
+</table>{{/if}}
+{{#if payslip.adjustments}}<table class="grades">
+  <thead><tr><th class="left">Ajustement</th><th class="left">Motif</th><th>Montant</th></tr></thead>
+  <tbody>
+  {{#each payslip.adjustments limit=200}}
+    <tr><td class="left">{{ this.kindLabel }} — {{ this.label }}</td><td class="left">{{ this.reason | default:"--" }}</td><td>{{ this.amountText }}</td></tr>
+  {{/each}}
+  </tbody>
+</table>{{/if}}
+<section class="summary">
+  {{#if payslip.salaryText}}<div class="sum-row"><span class="lbl">Salaire de base</span><span class="val">{{ payslip.salaryText }}</span></div>{{/if}}
+  <div class="sum-row"><span class="lbl">Heures normales</span><span class="val">{{ payslip.regularHoursText }} ({{ payslip.regularDurationText }})</span></div>
+  <div class="sum-row"><span class="lbl">Heures supplémentaires</span><span class="val">{{ payslip.overtimeText }} ({{ payslip.overtimeDurationText }})</span></div>
+  <div class="sum-row"><span class="lbl">Primes</span><span class="val">{{ payslip.bonusText }}</span></div>
+  <div class="sum-row"><span class="lbl">Retenues</span><span class="val">{{ payslip.deductionText }}</span></div>
+  <div class="sum-row"><span class="lbl">Net à payer</span><span class="val strong">{{ payslip.totalText }}</span></div>
+</section>
+{{> verification}}
+{{> footer}}
+</section>`;
+
 export const BUILTIN_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([
   {
     key: "primary-bulletin",
@@ -303,6 +381,28 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([
     css: COMMON_CSS,
     optionsSchema: baseOptions(),
     signatureSlots: [{ slot: "director-studies", label: "Le Directeur des études", required: true }],
+  },
+  {
+    key: "receipt-standard",
+    version: 1,
+    documentKind: "RECEIPT",
+    pack: "CORE",
+    title: "Reçu de paiement (modèle générique)",
+    body: RECEIPT_BODY,
+    css: COMMON_CSS,
+    optionsSchema: { type: "object", additionalProperties: false, properties: { watermark: { type: "string", maxLength: 40, default: "" } } },
+    signatureSlots: [],
+  },
+  {
+    key: "payslip-standard",
+    version: 1,
+    documentKind: "PAYSLIP",
+    pack: "CORE",
+    title: "Bulletin de paie (modèle générique)",
+    body: PAYSLIP_BODY,
+    css: COMMON_CSS,
+    optionsSchema: { type: "object", additionalProperties: false, properties: { watermark: { type: "string", maxLength: 40, default: "" } } },
+    signatureSlots: [],
   },
 ] satisfies readonly BuiltinTemplate[]);
 

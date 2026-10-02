@@ -7,10 +7,12 @@
  */
 import { createEnrollmentDirectory, type AcademicDeps } from "../../modules/academic";
 import type { EnrollmentDirectory, LearnerDirectory } from "../../modules/finance";
-import { createLearnerDirectory, type PeopleDeps } from "../../modules/people";
+import { createLearnerDirectory, getDisplayNamesOfStudents, type PeopleDeps } from "../../modules/people";
 
 export function createFinanceLearnerDirectory(people: PeopleDeps): LearnerDirectory {
-  return createLearnerDirectory(people);
+  // `getLearnerNames` : « NOM Prénom » de N apprenants en UNE lecture (listes, exports) ; réponse minimale, aucun contrôle de
+  // périmètre ici (finance contrôle déjà l'accès à la liste), identifiants invisibles (autre tenant) absents.
+  return { ...createLearnerDirectory(people), getLearnerNames: (ctx, ids) => getDisplayNamesOfStudents(people, ctx, ids) };
 }
 
 export function createFinanceEnrollmentDirectory(academic: AcademicDeps): EnrollmentDirectory {

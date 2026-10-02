@@ -8188,5 +8188,533 @@
       "unavailable": "Vos inscriptions ne sont pas disponibles pour le moment.",
       "repeating": "Redoublement"
     }
+  },
+  "v2Owner": {
+    "nav": {
+      "label": "Pilotage",
+      "dashboard": "Tableau de bord",
+      "enrollment": "Effectifs et présences",
+      "pedagogy": "Pédagogie",
+      "tuition": "Scolarité",
+      "treasury": "Trésorerie",
+      "payroll": "Masse salariale",
+      "charges": "Charges et résultat",
+      "freshness": "Fraîcheur des données"
+    },
+    "common": {
+      "featureUnknown": "Impossible de vérifier que cette fonctionnalité est incluse dans votre offre. Réessayez plus tard.",
+      "featureMissing": "Le pilotage de la direction n'est pas inclus dans l'offre de votre établissement.",
+      "notMeasured": "Non mesuré",
+      "export": "Exporter (CSV)",
+      "exporting": "Export en cours…",
+      "exportFailed": "L'export a échoué. Réessayez."
+    },
+    "filters": {
+      "label": "Filtres du périmètre",
+      "institution": "Établissement",
+      "allInstitutions": "Tous les établissements",
+      "campus": "Campus",
+      "allCampuses": "Tous les campus",
+      "year": "Année scolaire",
+      "currentYear": "Année en cours",
+      "period": "Période",
+      "periodHint": "Par défaut : la dernière période dont les résultats sont clôturés.",
+      "latestPeriod": "Dernière période clôturée",
+      "classroom": "Classe",
+      "allClassrooms": "Toutes les classes"
+    },
+    "freshness": {
+      "asOf": "Données au {date}",
+      "never": "Aucune donnée n'a encore été calculée pour cet écran.",
+      "stale": "Ces données datent de plus longtemps que le délai de fraîcheur de l'établissement : elles ne sont peut-être plus à jour.",
+      "gapsTitle": "Ce qui manque ou n'est pas à jour"
+    },
+    "status": {
+      "good": "Bon",
+      "warning": "À surveiller",
+      "critical": "Critique",
+      "neutral": "Non évalué"
+    },
+    "chart": {
+      "showTable": "Afficher les données en tableau",
+      "category": "Catégorie"
+    },
+    "pedagogy": {
+      "title": "Pédagogie",
+      "description": "Résultats clôturés (FINAL) de la période : moyennes, validation, décisions et distribution, tels que calculés par le module des résultats.",
+      "kpiLabel": "Indicateurs pédagogiques",
+      "kpi": {
+        "average": "Moyenne générale",
+        "averageDetail": "Plus basse : {min} · plus haute : {max}",
+        "validation": "Taux de validation",
+        "validationDetail": "{validated} validés sur {count} résultats",
+        "cohort": "Résultats clôturés",
+        "cohortDetail": "Inscriptions classées sur la période",
+        "closed": "Classes clôturées",
+        "closedDetail": "{open} classe(s) pas encore clôturée(s) sur cette période"
+      },
+      "empty": "Aucun résultat clôturé pour ce périmètre.",
+      "distribution": {
+        "title": "Distribution des moyennes",
+        "note": "Histogramme d'affichage : échelle de 0 à {max}, classes de {width} points. Ce n'est pas un seuil de réussite.",
+        "chart": "Moyennes par classe de notes",
+        "summary": "Répartition de {count} moyennes par tranche.",
+        "count": "Effectif"
+      },
+      "byPeriod": {
+        "title": "Moyenne par période de l'année",
+        "summary": "Moyenne générale de {count} période(s).",
+        "average": "Moyenne",
+        "validation": "Taux de validation"
+      },
+      "classrooms": {
+        "title": "Résultats par classe",
+        "caption": "Résultats clôturés par classe",
+        "name": "Classe",
+        "level": "Niveau",
+        "count": "Résultats",
+        "average": "Moyenne",
+        "validation": "Validation",
+        "range": "Plus basse – plus haute"
+      },
+      "subjects": {
+        "title": "Résultats par matière et unité",
+        "struggling": "Matières avec le plus faible taux de validation",
+        "noneMeasured": "Aucune matière mesurée.",
+        "note": "{validated} sur {count}",
+        "validation": "Validation",
+        "counts": "Validés / résultats",
+        "caption": "Résultats clôturés par matière ou unité",
+        "name": "Matière ou unité",
+        "level": "Type",
+        "average": "Moyenne",
+        "resit": "Éligibles au rattrapage",
+        "session2": "Obtenus en session 2"
+      },
+      "level": {
+        "UE": "Unité d'enseignement",
+        "ECUE": "Élément constitutif",
+        "SUBJECT": "Matière"
+      },
+      "decisions": {
+        "title": "Décisions",
+        "period": "Décisions de la période",
+        "year": "Décisions de fin d'année",
+        "count": "Effectif",
+        "none": "Aucune décision confirmée."
+      },
+      "outcome": {
+        "ADMITTED": "Admis",
+        "RESIT": "Rattrapage",
+        "ADJOURNED": "Ajourné",
+        "PROMOTED": "Passage",
+        "REPEAT": "Redoublement",
+        "PENDING": "En attente",
+        "EXAM_REFERRAL": "Renvoi à l'examen",
+        "OTHER": "Autre décision",
+        "none": "Sans issue"
+      },
+      "load": {
+        "title": "Charge d'enseignement",
+        "totals": "{staff} enseignant(s) · {hours} heures prévues",
+        "caption": "Charge prévue par enseignant",
+        "name": "Enseignant",
+        "hours": "Heures prévues",
+        "classes": "Classes",
+        "contract": "Heures contractuelles / semaine",
+        "empty": "Aucune affectation d'enseignement pour cette année."
+      }
+    },
+    "tuition": {
+      "title": "Scolarité",
+      "description": "Facturé, encaissé, restant dû et recouvrement, par année et campus, d'après la facturation de l'établissement.",
+      "kpiLabel": "Indicateurs de scolarité",
+      "kpi": {
+        "rate": "Taux de recouvrement",
+        "rateDetail": "Situation au {date}",
+        "billed": "Facturé",
+        "billedDetail": "{count} facture(s)",
+        "credited": "Avoirs",
+        "collected": "Encaissé",
+        "outstanding": "Restant dû",
+        "overdue": "En retard",
+        "overdueDetail": "{count} facture(s) en retard",
+        "unallocated": "Paiements non imputés",
+        "unallocatedDetail": "Avances et trop-perçus"
+      },
+      "byClassroom": {
+        "chart": "Taux de recouvrement par classe",
+        "noGroup": "Sans classe",
+        "note": "reste {outstanding}",
+        "rate": "Taux de recouvrement",
+        "outstanding": "Reste dû"
+      },
+      "empty": "Aucune facture sur ce périmètre.",
+      "receivables": {
+        "title": "Créances",
+        "by": "Regrouper par",
+        "byClass": "Classe",
+        "byLearner": "Apprenant",
+        "onlyOutstanding": "Seulement les restes dus",
+        "captionLearner": "Créances par apprenant",
+        "captionClass": "Créances par classe",
+        "learner": "Apprenant",
+        "classroom": "Classe",
+        "learners": "Apprenants",
+        "billed": "Facturé",
+        "collected": "Encaissé",
+        "outstanding": "Reste dû",
+        "overdue": "En retard",
+        "rate": "Recouvrement",
+        "oldest": "Plus ancienne échéance en retard",
+        "unknown": "Inconnu",
+        "empty": "Aucune créance sur ce périmètre."
+      }
+    },
+    "treasury": {
+      "title": "Trésorerie",
+      "description": "Encaissements nets des remboursements, créances âgées et écarts de caisse.",
+      "empty": "Aucune donnée sur ce périmètre.",
+      "collections": {
+        "title": "Encaissements",
+        "filters": "Période des encaissements",
+        "from": "Du",
+        "hint": "Par défaut : les 12 derniers mois.",
+        "to": "Au",
+        "granularity": "Regroupement",
+        "day": "Par jour",
+        "week": "Par semaine",
+        "month": "Par mois",
+        "kpiLabel": "Indicateurs d'encaissement",
+        "collected": "Encaissé",
+        "refunded": "Remboursé",
+        "net": "Net",
+        "payments": "Paiements",
+        "range": "Du {from} au {to}",
+        "chart": "Encaissements nets par période",
+        "summary": "{count} période(s)."
+      },
+      "aged": {
+        "title": "Créances âgées",
+        "chart": "Restes dus par ancienneté · total {total}",
+        "amount": "Montant",
+        "invoices": "{count} facture(s)",
+        "invoicesHeader": "Factures",
+        "caption": "Principaux débiteurs par ancienneté",
+        "learner": "Apprenant",
+        "unknown": "Inconnu",
+        "total": "Total",
+        "empty": "Aucune créance âgée.",
+        "buckets": {
+          "NOT_DUE": "Non échu",
+          "D1_30": "1 à 30 jours",
+          "D31_60": "31 à 60 jours",
+          "D61_90": "61 à 90 jours",
+          "D91_PLUS": "Plus de 90 jours"
+        }
+      },
+      "cash": {
+        "title": "Écarts de caisse",
+        "kpiLabel": "Indicateurs de caisse",
+        "closed": "Sessions clôturées",
+        "closedDetail": "sur {sessions} session(s)",
+        "withVariance": "Sessions avec écart",
+        "netVariance": "Écart net",
+        "absoluteVariance": "Écart cumulé (en valeur absolue)",
+        "caption": "Sessions de caisse",
+        "closedAt": "Clôturée le",
+        "stillOpen": "Encore ouverte",
+        "expected": "Attendu",
+        "counted": "Compté",
+        "variance": "Écart",
+        "empty": "Aucune session de caisse.",
+        "balanced": "Aucun écart",
+        "short": "Il manque {amount}",
+        "over": "Excédent de {amount}"
+      }
+    },
+    "payroll": {
+      "title": "Masse salariale",
+      "description": "Bulletins de paie par période et par statut. La validation d'une paie se fait dans le module de paie.",
+      "sensitive": "Données sensibles : l'authentification forte est exigée et chaque consultation est enregistrée.",
+      "kpiLabel": "Indicateurs de masse salariale",
+      "kpi": {
+        "counted": "Masse comptée",
+        "countedDetail": "{count} bulletin(s) calculés, arrêtés ou payés",
+        "periods": "Périodes de paie"
+      },
+      "definition": "Sont comptés les bulletins calculés, arrêtés et payés. Les bulletins annulés et contestés sont exclus du total et montrés à part.",
+      "caption": "Masse salariale par période de paie",
+      "columns": {
+        "period": "Période",
+        "range": "Du {from} au {to}",
+        "counted": "Masse comptée",
+        "payslips": "Bulletins",
+        "byStatus": "Par statut",
+        "cancelled": "Annulés",
+        "disputed": "Contestés"
+      },
+      "empty": "Aucune période de paie.",
+      "status": {
+        "CALCULATED": "Calculé",
+        "APPROVED": "Arrêté",
+        "PAID": "Payé",
+        "DISPUTED": "Contesté",
+        "CANCELLED": "Annulé",
+        "OTHER": "Autre"
+      }
+    },
+    "charges": {
+      "title": "Charges et résultat",
+      "description": "Charges d'exploitation, compte de résultat et marges.",
+      "missingTitle": "Module de charges absent",
+      "notMeasured": {
+        "title": "Ce qui n'est pas mesuré",
+        "charges": "Charges d'exploitation par famille et par établissement",
+        "result": "Compte de résultat (produits moins charges)",
+        "margins": "Marge par filière ou par classe",
+        "retention": "Rétention et coût par élève"
+      }
+    },
+    "settings": {
+      "title": "Seuils de lecture et fraîcheur",
+      "description": "Ces réglages ne changent aucun chiffre : ils décident seulement de l'état affiché (Bon, À surveiller, Critique) et du délai après lequel une donnée est signalée comme ancienne.",
+      "sourceDefault": "Valeurs par défaut de la plateforme (aucun réglage propre à l'établissement).",
+      "sourceTenant": "Réglages de l'établissement.",
+      "collectionGood": "Recouvrement : « Bon » à partir de (%)",
+      "collectionWarning": "Recouvrement : « À surveiller » à partir de (%)",
+      "attendanceGood": "Présence : « Bon » à partir de (%)",
+      "attendanceWarning": "Présence : « À surveiller » à partir de (%)",
+      "staleHours": "Donnée « ancienne » au-delà de (heures)",
+      "percentHint": "De 0 à 100, deux décimales au plus.",
+      "invalidPercent": "Saisissez un pourcentage entre 0 et 100 (deux décimales au plus).",
+      "inverted": "Le seuil « À surveiller » ne peut pas dépasser le seuil « Bon ».",
+      "invalidHours": "Saisissez un nombre entier d'heures entre 1 et 168.",
+      "save": "Enregistrer les réglages",
+      "saved": "Les réglages sont enregistrés."
+    },
+    "hub": {
+      "title": "Fraîcheur des données de pilotage",
+      "description": "Dernière lecture de chaque source et file de mise à jour. Les tableaux de bord affichent la date de leur dernière vérification.",
+      "rebuild": {
+        "action": "Reconstruire depuis les sources",
+        "queued": "La reconstruction est en file : elle sera exécutée par le worker.",
+        "alreadyQueued": "Une reconstruction est déjà en file."
+      },
+      "queue": "En file : {pending} · en échec : {failed} · source indisponible : {unavailable}",
+      "caption": "État de la lecture des sources",
+      "columns": {
+        "kind": "Source",
+        "scope": "Périmètre",
+        "lastSuccess": "Dernière lecture réussie",
+        "status": "État",
+        "rows": "Lignes"
+      },
+      "kinds": {
+        "REBUILD": "Reconstruction complète",
+        "CALENDAR": "Calendrier scolaire",
+        "ENROLLMENT": "Inscriptions",
+        "RESULTS": "Résultats",
+        "ATTENDANCE": "Présences des élèves",
+        "STAFF_PRESENCE": "Présences du personnel",
+        "FINANCE": "Facturation et créances",
+        "COLLECTIONS": "Encaissements",
+        "CASH": "Sessions de caisse",
+        "PAYROLL": "Paie",
+        "TEACHING_LOAD": "Charge d'enseignement"
+      },
+      "never": "Jamais",
+      "state": {
+        "OK": "À jour",
+        "FAILED": "Échec",
+        "UNAVAILABLE": "Source indisponible"
+      },
+      "empty": "Aucune lecture n'a encore eu lieu."
+    }
+  },
+  "v2Direction": {
+    "dashboard": {
+      "title": "Tableau de bord de la direction",
+      "description": "L'essentiel de l'établissement : effectifs, présence, résultats, enseignants, scolarité et créances.",
+      "kpiLabel": "Indicateurs de la direction",
+      "headcount": {
+        "label": "Élèves en scolarité",
+        "detail": "{total} inscription(s) au total · {classrooms} classe(s)"
+      },
+      "attendance": {
+        "label": "Présence aujourd'hui",
+        "detail": "{present} présents sur {records} pointages · {absent} absents · {late} retards ({day})"
+      },
+      "average": {
+        "label": "Moyenne générale",
+        "detail": "{period} · {cohort} résultats clôturés"
+      },
+      "validation": {
+        "label": "Taux de validation",
+        "detail": "{validated} validés sur {cohort}"
+      },
+      "staff": {
+        "label": "Enseignants et personnel présents",
+        "detail": "{absent} absents · {leave} en congé ({day})"
+      },
+      "finance": {
+        "title": "Scolarité et créances",
+        "kpiLabel": "Indicateurs financiers",
+        "rate": "Scolarité recouvrée",
+        "rateDetail": "{collected} encaissés sur {billed} facturés",
+        "collected": "Encaissé",
+        "outstanding": "Créances (restant dû)",
+        "overdueDetail": "dont {overdue} en retard ({invoices} facture(s))"
+      },
+      "links": {
+        "title": "Aller plus loin",
+        "enrollment": {
+          "title": "Effectifs et présences",
+          "hint": "Répartitions, admissions, assiduité"
+        },
+        "pedagogy": {
+          "title": "Pédagogie",
+          "hint": "Résultats, décisions, charge d'enseignement"
+        },
+        "tuition": {
+          "title": "Scolarité",
+          "hint": "Recouvrement, créances par classe et par apprenant"
+        },
+        "treasury": {
+          "title": "Trésorerie",
+          "hint": "Encaissements, créances âgées, caisse"
+        },
+        "payroll": {
+          "title": "Masse salariale",
+          "hint": "Bulletins par période (données sensibles)"
+        },
+        "charges": {
+          "title": "Charges et résultat",
+          "hint": "Charges d'exploitation et marges"
+        }
+      }
+    },
+    "enrollment": {
+      "title": "Effectifs et présences",
+      "description": "Répartition des élèves, admissions et assiduité, d'après les inscriptions et les appels de l'établissement.",
+      "kpiLabel": "Indicateurs d'effectifs",
+      "kpi": {
+        "inSchooling": "Élèves en scolarité",
+        "inSchoolingDetail": "{total} inscription(s) tous statuts confondus",
+        "repeaters": "Redoublants",
+        "repeatersDetail": "Parmi les élèves en scolarité",
+        "repeaterRate": "Part de redoublants"
+      },
+      "split": {
+        "title": "Répartition des inscriptions",
+        "sex": "Par sexe",
+        "gradeLevel": "Par niveau",
+        "funding": "Par type de financement",
+        "status": "Par statut d'inscription",
+        "campus": "Par campus",
+        "count": "Inscriptions",
+        "inSchooling": "Dont en scolarité",
+        "empty": "Aucune inscription sur ce périmètre.",
+        "unknown": "Non renseigné",
+        "noCampus": "Sans campus"
+      },
+      "sex": {
+        "M": "Garçons",
+        "F": "Filles",
+        "UNKNOWN": "Non renseigné"
+      },
+      "funding": {
+        "PRIVATE": "Famille",
+        "STATE_ASSIGNED": "Affecté par l'État",
+        "SCHOLARSHIP": "Bourse",
+        "COMPANY": "Entreprise",
+        "STAFF_CHILD": "Enfant du personnel",
+        "OTHER": "Autre"
+      },
+      "status": {
+        "PENDING": "En attente",
+        "ACTIVE": "Active",
+        "CONFIRMED": "Confirmée",
+        "SUSPENDED": "Suspendue",
+        "WITHDRAWN": "Retirée",
+        "CANCELLED": "Annulée",
+        "COMPLETED": "Terminée",
+        "OTHER": "Autre statut"
+      },
+      "source": {
+        "ADMISSION": "Admission",
+        "IMPORT": "Import",
+        "MANUAL": "Saisie manuelle",
+        "ROLLOVER": "Reconduction",
+        "ONLINE": "En ligne",
+        "UNKNOWN": "Origine inconnue",
+        "OTHER": "Autre origine"
+      },
+      "classrooms": {
+        "caption": "Effectifs par classe",
+        "name": "Classe",
+        "level": "Niveau",
+        "inSchooling": "En scolarité",
+        "female": "Filles",
+        "male": "Garçons",
+        "count": "Inscriptions",
+        "empty": "Aucune classe sur ce périmètre."
+      },
+      "admissions": {
+        "title": "Admissions et inscriptions confirmées",
+        "kpiLabel": "Indicateurs d'admission",
+        "created": "Inscriptions créées",
+        "confirmed": "Inscriptions confirmées",
+        "cancelled": "Inscriptions annulées",
+        "rate": "Taux de confirmation",
+        "monthly": "Inscriptions créées par mois",
+        "monthlySummary": "{count} mois.",
+        "confirmedNote": "{count} confirmée(s)",
+        "bySource": "Inscriptions par origine",
+        "empty": "Aucune inscription."
+      }
+    },
+    "attendance": {
+      "title": "Présences et assiduité",
+      "range": {
+        "label": "Fenêtre d'observation",
+        "from": "Du",
+        "hint": "Par défaut : les 30 derniers jours.",
+        "to": "Au"
+      },
+      "kpiLabel": "Indicateurs de présence",
+      "kpi": {
+        "rate": "Taux de présence",
+        "rateDetail": "{present} présents sur {records} pointages, du {from} au {to}",
+        "absent": "Absences",
+        "absentDetail": "dont {excused} justifiées · {minutes} minutes",
+        "late": "Retards",
+        "sessions": "Séances d'appel"
+      },
+      "byDay": {
+        "title": "Taux de présence par jour",
+        "summary": "{count} jour(s).",
+        "rate": "Taux de présence",
+        "counts": "Présents / pointages",
+        "note": "{present} sur {records}"
+      },
+      "staff": {
+        "title": "Présence du personnel par jour",
+        "present": "Présents",
+        "others": "Absents / en congé",
+        "note": "{absent} absents · {leave} en congé",
+        "notMeasured": "La présence du personnel n'est pas mesurée sur cette fenêtre."
+      },
+      "empty": "Aucun appel soumis sur ce périmètre.",
+      "byClassroom": {
+        "caption": "Présence par classe",
+        "name": "Classe",
+        "rate": "Taux de présence",
+        "status": "État",
+        "absent": "Absences",
+        "late": "Retards",
+        "records": "Pointages"
+      }
+    }
   }
 }

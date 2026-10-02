@@ -18,10 +18,12 @@ import { err, InternalError, ok, type AppError, type RequestContext, type Result
 import type { Tx } from "@ecoledigitale/database";
 import {
   createReportcardsDeps,
+  ensureBuiltinTemplates,
   ensureSigningKeyRegistered,
   keyProviderFromEnv,
   puppeteerRendererFromEnv,
   registerFileHashFor,
+  reportcardsWorkerOverrides,
   registerVerificationFor,
   renderDocumentPdf,
   signDocumentHash,
@@ -58,7 +60,8 @@ export interface HigherDocumentFilesOptions {
 
 /** `ReportcardsDeps` dédiées au scellement et au rendu des documents d'autres modules (clés et moteur lus dans l'environnement). */
 export function createDocumentSealingDeps(kit: AdapterKit, storage: ObjectStorage | null, options: HigherDocumentFilesOptions = {}): ReportcardsDeps {
-  let renderer: PdfRenderer | undefined = options.renderer;
+  const renderer: PdfRenderer | undefined = options.renderer;
+  let lazyRenderer: PdfRenderer | undefined;
   const base = (kit.env.REPORTCARDS_VERIFICATION_BASE_URL ?? kit.env.V2_APP_BASE_URL ?? "").trim().replace(/\/+$/, "");
   return createReportcardsDeps({
     db: kit.tenantDb,
@@ -69,7 +72,9 @@ export function createDocumentSealingDeps(kit: AdapterKit, storage: ObjectStorag
     portsProvider: () => ({
       ...(storage ? { storage } : {}),
       get renderer() {
-        return (renderer ??= puppeteerRendererFromEnv(kit.env));
+        // Moteur injecté (tests), sinon celui que le worker a enregistré (`setReportcardsWorkerResources`), sinon Chromium
+        // configuré par l'environnement, démarré à la première utilisation.
+        return renderer ?? reportcardsWorkerOverrides().overrides.renderer ?? (lazyRenderer ??= puppeteerRendererFromEnv(kit.env));
       },
     }),
     config: { verificationBaseUrl: base || null },
@@ -78,6 +83,16 @@ export function createDocumentSealingDeps(kit: AdapterKit, storage: ObjectStorag
 
 export function createHigherDocumentFiles(kit: AdapterKit, storage: ObjectStorage | null, options: HigherDocumentFilesOptions = {}): DocumentFilesPort {
   const rc = createDocumentSealingDeps(kit, storage, options);
+  // Les gabarits de plateforme sont publiés à la création d'un tenant : un déploiement ANTÉRIEUR à ces gabarits les reçoit ici,
+  // une fois par processus (idempotent, table globale).
+  let templates: Promise<Result<unknown, AppError>> | null = null;
+  const ensureTemplates = (): Promise<Result<unknown, AppError>> => {
+    templates ??= ensureBuiltinTemplates(rc).then((r) => {
+      if (!r.ok) templates = null;
+      return r;
+    });
+    return templates;
+  };
   return {
     async prepareSeal() {
       const registered = await ensureSigningKeyRegistered(rc);
@@ -94,6 +109,8 @@ export function createHigherDocumentFiles(kit: AdapterKit, storage: ObjectStorag
 
     async render(ctx: RequestContext, input): Promise<Result<{ objectKey: string; pdfHash: string; pages: number; templateKey: string; templateVersion: number }, AppError>> {
       if (!storage) return err(portUnavailable("StoragePort"));
+      const published = await ensureTemplates();
+      if (!published.ok) return published;
       const logo = await logoDataUri(storage, input.logoRef);
       const rendered = await renderDocumentPdf(rc, ctx, {
         kind: input.kind,

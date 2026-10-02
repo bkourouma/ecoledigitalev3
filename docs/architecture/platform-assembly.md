@@ -2,7 +2,7 @@
 
 Ce document décrit comment les modules `tenancy`, `entitlements`, `iam`, `rbac`, `audit`, `finance`, le module `platform` (console des opérateurs) et `apps/worker` sont **assemblés** dans l'API, sans casser le legacy. Il complète `module-conventions.md` (normatif pour écrire un module) ; ici, on décrit ce qui se passe **entre** les modules.
 
-Preuve exécutable : `apps/api/test/phase1/` — en particulier `exit-criteria.integration.test.ts` (test de sortie de phase 1 du plan §4), lancé par `pnpm test:phase1` (Postgres + Redis éphémères dans Docker) et, en CI, par le job bloquant `v2-modules`.
+Preuve exécutable : `apps/api/test/phase1/` — en particulier `exit-criteria.integration.test.ts` (test de sortie de phase 1 du plan §4), lancé par `pnpm test:phase1` (Postgres + Redis éphémères dans Docker) et, en CI, par le job bloquant `v2-modules`. Le parcours complet d'une **année scolaire simulée** (provisionnement HIGHER -> inscription confirmée par événement -> appels -> notes -> résultats `rules` -> bulletins signés -> diplôme -> paie -> audit -> isolation -> accès parent) est dans `apps/api/test/phase2/` (`pnpm test:phase2`, job bloquant `phase2`) ; voir `phase2-exit.md` (journal des défauts et limites).
 
 ## 1. Flux d'une requête
 
@@ -107,8 +107,11 @@ Module et non code technique de `src/platform/` parce qu'il **orchestre** des us
 | `POST /tenants` | `tenancy.provisionTenant` → `rbac.instantiateSystemRoles` → abonnement d'essai (`entitlements.setSubscription`, TRIALING) → propriétaire (`iam.provisionMember` `owner`, invitation) → rôle système `owner` (`rbac.assignSystemRoleUseCase`) → audit de plateforme |
 | `PATCH /tenants/:id/status` | suspension / réactivation / archivage (effet immédiat : l'accès IAM vérifie l'état du tenant à chaque requête) |
 | `POST /tenants/:id/reconcile` | reprise idempotente des rôles et de l'abonnement |
+| `GET /audit/logs` | journal d'audit de **plateforme** (`audit.platform_audit_log`) : même enveloppe que l'audit d'un tenant (`{ items, nextCursor }`, curseur opaque, plus récent d'abord), filtres `action` (exact ou préfixe `x.*`), `actorId`, `entity`, `entityId`, `severity`, `from`, `to`, `limit` ≤ 200 ; lecture seule via l'API publique du module `audit` (`listPlatformAuditLogs`), transaction système en lecture seule ; seuls `seq` et `hash` de la chaîne sortent |
 | `GET /plans`, `PUT /plans/:key`, `PUT /plans/:key/features` | catalogue |
 | `GET\|PUT /tenants/:id/subscription`, `GET /tenants/:id/overrides`, `PUT\|DELETE …/overrides/:feature` | abonnement et surcharges |
+
+Contrats de réponse (`packages/contracts/src/v2/platform.ts`) : `PlatformProvisionTenantResponseSchema` (`POST /tenants`, 201 : `tenantId`, `slug`, `institutions[]`, `owner`, `subscription` — le résultat de la console, distinct de `ProvisionTenantResultSchema` du module tenancy qui porte `onboarding`), `PlatformSetTenantStatusResponseSchema` (`PATCH …/status` : `{ tenantId, previous, current }`), `PlatformTenantListResponseSchema` ; validés contre les réponses HTTP réelles par `apps/api/test/phase1/platform-console.integration.test.ts`.
 
 Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform_audit_log`, chaîné) en plus de l'audit du tenant visé fait par les use cases. Un provisioning interrompu laisse un tenant **partiel**, signalé par `platform.provisioning_partial` (étape en cause) ; `reconcile` reprend rôles et abonnement.
 
@@ -139,6 +142,7 @@ Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform
 | attendance | `attendance.cancel-session-on-occurrence-cancelled`, `attendance.refresh-summaries-on-enrollment-change.*`, `attendance.refresh-summaries-on-period-change.*`, `attendance.seed-reference-data` | `attendance.recompute-summaries` 02:50 |
 | scheduling | `scheduling.hold-on-attendance`, `scheduling.flag-on-staff-leave`, `scheduling.flag-on-staff-status`, `scheduling.flag-on-assignment-ended`, `scheduling.cancel-on-offering-cancelled`, `scheduling.cancel-on-classroom-cancelled`, `scheduling.archive-on-year-closed`, `scheduling.seed-reference-data` | `scheduling.generate-occurrences` 02:30 |
 | payroll | `payroll.seed-settings`, `payroll.flag-claim-source-changed.*` (séance annulée / invalidée / replanifiée / minutes payées modifiées), `payroll.close-periods-on-year-closed` | `payroll.fail-stale-runs` */10 |
+| analytics | `analytics.refresh-on-academic`, `-people`, `-results`, `-attendance`, `-finance`, `-payroll` : un abonné par source, ne calcule rien, **demande** un rafraîchissement coalescé (`analytics.refresh_requests`) | `analytics.process-refreshes` */30 s (lit les sources par ports, remplace le périmètre) ; `analytics.nightly-rebuild` 03:10 (reconstruction idempotente de chaque tenant) |
 | socle du worker | | `outbox-cleanup`, `ensure-partitions` (recoupe `audit.ensure-partitions`, idempotent) |
 
 Cette liste est celle que **découvre** le worker (`discoverModuleExtensions`) ; le test `worker-bundle.integration.test.ts` exige que le bundle de production enregistre exactement les mêmes abonnés et jobs que les sources, et qu'il ait branché les ports entre modules (`ports entre modules branchés (adaptateurs de plateforme)`).
@@ -253,13 +257,16 @@ Chaque module déclare des **ports** (ce qu'il attend de ses voisins) et échoue
 | `people-higher`, `people-reportcards` | people/iam -> higher, reportcards | `StudentDirectory`, `ActorDirectory`, `GuardianshipPort`, `UserDirectoryPort` |
 | `directories-finance` | people, academic -> finance | `LearnerDirectory` (un apprenant inconnu est refusé), `EnrollmentDirectory` |
 | `finance-academic` | finance -> academic | `InvoiceFactsReader`, `RegistrationFeeProbe` : **confirmation automatique de l'inscription** après paiement des frais d'inscription (décision métier du 2026-10-01) |
-| `finance-reportcards` | finance -> reportcards | `LearnerStandingPort` (impayé exigible, sans montant) |
+| `finance-reportcards` | finance -> reportcards ; reportcards -> finance | `LearnerStandingPort` (impayé exigible, sans montant) ; `ReceiptDocumentPort` (PDF du reçu : scellement, rendu par le worker, vérification publique) |
+| `payroll-reportcards` | reportcards -> payroll | `PayslipDocumentPort` (PDF du bulletin de paie versé) |
+| `people-finance` | people -> finance | `GuardianshipPort` (lien de tutelle / identité de l'élève : routes famille `/finance/me/*`, relu à chaque requête) |
 | `attendance-reportcards` | attendance -> reportcards | `AttendanceSummaryPort` (minutes justifiées / non justifiées, retards) |
 | `scheduling-attendance` | scheduling <-> attendance | `OccurrencePort` ; `AttendanceQuery` (l'appel est-il soumis ?) |
 | `payroll-sources` | scheduling, attendance -> payroll | `HoursSourcePort` d'origine SESSION (heures payables, **gel atomique** par bulletin) et ATTENDANCE |
 | `results-reportcards` | results -> reportcards | `ResultsReadPort` (état de période, effectif, bundle de résultats figé : noms, libellés, règles, trace) |
 | `results-higher` | results -> higher | `CreditsSourcePort`, `ResitSessionPort`, `CycleResultsPort` (UE identifiées par lignée) |
 | `reportcards-higher` | reportcards -> higher | `SignatoryDirectory`, `InstitutionPort` |
+| `analytics-sources` | tenancy, academic, people, results, attendance, finance, payroll -> analytics | `AnalyticsSourcePorts` (périmètres, calendrier, inscriptions + sexe, résultats FINAL + décisions confirmées, appels et présences du personnel, reporting financier, caisse, masse salariale, charge d'enseignement) : lectures seules, séquentielles ; un port manquant = passe `UNAVAILABLE` et manque déclaré |
 | `storage` | stockage d'objets -> attendance, people, reportcards | S3 / MinIO configurable par l'environnement, repli disque en développement |
 
 ### Règles à respecter dans un adaptateur

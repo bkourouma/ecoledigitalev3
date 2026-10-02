@@ -53,6 +53,7 @@ export const REPORTCARDS_TEMPLATE_DOCUMENT_KINDS = [
   "ATTESTATION_SUCCESS",
   "ATTESTATION_AUTHENTICITY",
   "PAYSLIP",
+  "RECEIPT",
 ] as const;
 export const reportcardsTemplateDocumentKindSchema = z.enum(REPORTCARDS_TEMPLATE_DOCUMENT_KINDS);
 
@@ -783,5 +784,13 @@ export const reportcardsEventPayloadSchemas = {
     .object({ v: v1, batchId: reportcardsUuidSchema, issued: z.number().int(), excluded: z.number().int(), failed: z.number().int() })
     .strict(),
   "reportcards.integrity.mismatch": z.object({ v: v1, reportCardId: reportcardsUuidSchema, expectedHash: hex64, actualHash: hex64, reason: z.enum(["HASH", "SIGNATURE"]) }).strict(),
+  // Documents officiels d'autres modules (reçu de paiement, bulletin de paie) : scellés puis rendus dans le worker.
+  "reportcards.official_document.render_requested": z.object({ v: v1, documentId: reportcardsUuidSchema, documentKind: z.enum(["RECEIPT", "PAYSLIP"]), sourceId: reportcardsUuidSchema }).strict(),
+  "reportcards.official_document.rendered": z
+    .object({ v: v1, documentId: reportcardsUuidSchema, documentKind: z.enum(["RECEIPT", "PAYSLIP"]), sourceId: reportcardsUuidSchema, pdfHash: hex64, sizeBytes: z.number().int().min(1) })
+    .strict(),
+  "reportcards.official_document.render_failed": z
+    .object({ v: v1, documentId: reportcardsUuidSchema, documentKind: z.enum(["RECEIPT", "PAYSLIP"]), sourceId: reportcardsUuidSchema, error: z.string().max(500) })
+    .strict(),
 } as const;
 export type ReportcardsEventType = keyof typeof reportcardsEventPayloadSchemas;

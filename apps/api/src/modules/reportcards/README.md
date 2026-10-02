@@ -24,6 +24,18 @@ signataires **résolus à l'émission**. Le PDF est rendu **dans le worker** (Pu
 | Relevé cumulé | `POST /transcripts` (feature `reportcard.transcript`), version `n+1` à chaque nouvelle demande |
 | Documents d'autres modules | `sealDocument`, `renderDocumentPdf`, `registerVerificationFor` (diplômes/attestations 019, bulletin de paie 032) ; natures inconnues refusées |
 
+## Documents officiels d'autres modules (reçu de paiement, bulletin de paie)
+
+Service générique `application/official-documents.ts` (table `official_documents`, migration 1304, gabarits livrés `receipt-standard` et
+`payslip-standard`) : le module propriétaire (finance : `RECEIPT` ; payroll : `PAYSLIP`) fournit un contenu figé et un contexte d'impression ;
+`requestOfficialDocument` les SCELLE (hash recalculé en SQL, code opaque, signature Ed25519, identité de l'établissement figée), les inscrit
+dans l'index de vérification publique et publie `reportcards.official_document.render_requested` ; l'abonné du worker
+`reportcards.render-official-document` rend le PDF depuis ce contenu seul (3 tentatives, puis `FAILED` + `render_failed` ; filet
+`sweepPendingOfficialDocuments` dans `reportcards.sweep-renders`) et le stocke (`reportcards/<tenant>/documents/<id>.pdf`, empreinte indexée pour la
+comparaison d'un fichier). `readOfficialDocument` renvoie l'état et les octets ; **l'accès est contrôlé par le module propriétaire** (titulaire ou
+gestion), jamais ici. Unique par (tenant, nature, source), idempotent, jamais réécrit ; pas de révocation (`AUTHENTIC` ou `INVALID`). Un document
+officiel n'est jamais rendu sans QR (domaine public de vérification obligatoire).
+
 ## Arborescence
 
 ```

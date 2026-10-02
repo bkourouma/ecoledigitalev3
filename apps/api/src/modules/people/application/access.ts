@@ -16,7 +16,9 @@ import { err, ok, type AppError, type RequestContext, type Result } from "@ecole
 import { CLASS_ACCESS_ROLES } from "../domain/assignments";
 import { PeopleErrors } from "../domain/errors";
 import { listClassroomIdsOfStaff } from "../infrastructure/teaching-repo";
+import { listChildIdsOfIdentity } from "../infrastructure/guardians-repo";
 import { findStaffByIdentity } from "../infrastructure/staff-repo";
+import { findStudentByIdentity } from "../infrastructure/students-repo";
 import { getStaffCategory } from "../infrastructure/reference-repo";
 import { todayOf, type PeopleDeps } from "./deps";
 import type { StudentScope } from "./students";
@@ -80,6 +82,56 @@ export async function resolveStudentAudience(deps: PeopleDeps, ctx: RequestConte
   if (broad && !classScoped) return ok("FULL");
   if (classScoped) {
     return (await staffCanReadStudent(deps, ctx, studentId)) ? ok("CLASS") : err(PeopleErrors.studentNotFound());
+  }
+  return err(PeopleErrors.forbidden());
+}
+
+/**
+ * Périmètre d'une RÉSOLUTION DE NOMS d'élèves (`GET /students/lookup`). Même règles que la liste, étendues aux portails :
+ *  - `student.list` / `student.read` (hors enseignant restreint) : tous les élèves du tenant ;
+ *  - enseignant (`student.class.read` ou garde-fou) : les élèves de ses classes ;
+ *  - `student.child.read` : SES enfants (lien vivant avec accès portail, `isGuardianOfStudent`) ;
+ *  - `student.self.read` : son propre dossier (`persons.identity_id`).
+ * Les périmètres d'une même personne se CUMULENT (parent ET enseignant). Aucune permission applicable : 403.
+ */
+export async function resolveStudentLookupScope(deps: PeopleDeps, ctx: RequestContext, can: PermissionProbe): Promise<Result<StudentScope, AppError>> {
+  const broad = (await can("student.list")) || (await can("student.read"));
+  const restricted = broad ? await isRestrictedTeacher(deps, ctx, can) : false;
+  if (broad && !restricted) return ok({ kind: "ALL" });
+
+  const ids = new Set<string>();
+  let applicable = false;
+  if (restricted || (await can("student.class.read"))) {
+    applicable = true;
+    const classrooms = await classroomsOfCurrentStaff(deps, ctx);
+    if (classrooms.length > 0) for (const id of await deps.enrollments.listStudentIdsOfClassrooms(ctx, classrooms, { onDate: todayOf(deps) })) ids.add(id);
+  }
+  const identityId = ctx.userId;
+  if (await can("student.child.read")) {
+    applicable = true;
+    if (identityId) for (const id of await deps.db.run(ctx, (tx) => listChildIdsOfIdentity(tx, ctx.tenantId, identityId), { readOnly: true })) ids.add(id);
+  }
+  if (await can("student.self.read")) {
+    applicable = true;
+    if (identityId) {
+      const own = await deps.db.run(ctx, (tx) => findStudentByIdentity(tx, ctx.tenantId, identityId), { readOnly: true });
+      if (own) ids.add(own.studentId);
+    }
+  }
+  return applicable ? ok({ kind: "IDS", ids: [...ids] }) : err(PeopleErrors.forbidden());
+}
+
+/**
+ * Périmètre d'une RÉSOLUTION DE NOMS du personnel (`GET /staff/lookup`) : `staff.list` / `staff.read` : tout le personnel
+ * du tenant (comme `GET /staff` et `GET /staff/:id`) ; `staff.own.read` seul : uniquement SA propre fiche ; sinon 403.
+ */
+export async function resolveStaffLookupScope(deps: PeopleDeps, ctx: RequestContext, can: PermissionProbe): Promise<Result<StudentScope, AppError>> {
+  if ((await can("staff.list")) || (await can("staff.read"))) return ok({ kind: "ALL" });
+  if (await can("staff.own.read")) {
+    const identityId = ctx.userId;
+    if (!identityId) return ok({ kind: "IDS", ids: [] });
+    const own = await deps.db.run(ctx, (tx) => findStaffByIdentity(tx, ctx.tenantId, identityId), { readOnly: true });
+    return ok({ kind: "IDS", ids: own ? [own.staffId] : [] });
   }
   return err(PeopleErrors.forbidden());
 }

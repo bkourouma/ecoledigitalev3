@@ -19,6 +19,7 @@ import { isUuid, type AppError } from "@ecoledigitale/kernel";
 import { createReportcardsDeps, type ReportcardsDeps } from "./application/deps";
 import { ensureBuiltinTemplates } from "./application/platform";
 import type { PdfMerger, PdfRenderer, StoragePort } from "./application/ports";
+import { renderOfficialDocument, OFFICIAL_RENDER_ATTEMPTS } from "./application/official-documents";
 import { buildCombinedPdf, renderReportCard } from "./application/render";
 import { ConsumedEvents, ReportcardsEvents } from "./domain/events";
 import { PdfLibMerger } from "./infrastructure/pdf-merger";
@@ -95,11 +96,37 @@ function handleRender(depsOf: DepsFactory) {
   };
 }
 
+/** Rendu d'un document officiel d'un autre module (reçu, bulletin de paie) : même politique de reprise que les bulletins. */
+function handleOfficialRender(depsOf: DepsFactory) {
+  return async (event: { id: string; payload: unknown }, ctx: EventHandlerContext): Promise<void> => {
+    const documentId = pickUuid(event.payload, "documentId");
+    if (!documentId) return ctx.logger.warn({ eventId: event.id }, "reportcards : documentId absent du payload") as unknown as void;
+    const result = await renderOfficialDocument(depsOf(ctx), ctx.db.ctx, { documentId, attempt: ctx.attempt, maxAttempts: OFFICIAL_RENDER_ATTEMPTS });
+    if (result.ok) return;
+    const error: AppError = result.error;
+    const final = (error.details as { final?: boolean } | undefined)?.final === true;
+    if (error.kind === "not_found") return ctx.logger.warn({ documentId }, "reportcards : document officiel introuvable, rendu ignoré") as unknown as void;
+    if (final) {
+      ctx.logger.error({ documentId, code: error.code }, "reportcards : rendu d'un document officiel définitivement en échec");
+      return;
+    }
+    throw error; // transitoire : la file rejoue (backoff)
+  };
+}
+
 export function buildSubscribers(depsOf: DepsFactory): SubscriberDefinition[] {
   const retry = { attempts: RENDER_ATTEMPTS, backoffMs: 2_000, maxBackoffMs: 60_000 };
   return [
     defineSubscriber({ name: "reportcards.render-snapshot", pattern: ReportcardsEvents.SNAPSHOT_CREATED, retry, concurrency: 2, timeoutMs: 120_000, handler: handleRender(depsOf) }),
     defineSubscriber({ name: "reportcards.render-requested", pattern: ReportcardsEvents.RENDER_REQUESTED, retry, concurrency: 2, timeoutMs: 120_000, handler: handleRender(depsOf) }),
+    defineSubscriber({
+      name: "reportcards.render-official-document",
+      pattern: ReportcardsEvents.OFFICIAL_RENDER_REQUESTED,
+      retry: { attempts: OFFICIAL_RENDER_ATTEMPTS, backoffMs: 2_000, maxBackoffMs: 60_000 },
+      concurrency: 2,
+      timeoutMs: 120_000,
+      handler: handleOfficialRender(depsOf),
+    }),
     defineSubscriber({
       name: "reportcards.combine-batch",
       pattern: ReportcardsEvents.BATCH_COMPLETED,

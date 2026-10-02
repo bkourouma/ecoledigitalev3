@@ -21,6 +21,7 @@ import { isVerificationCode, publicKeyFingerprint, verifyDocumentSignature } fro
 import { formatDateFr } from "../domain/template-engine";
 import type { ReportCardRecord } from "../domain/types";
 import * as cardsRepo from "../infrastructure/cards-repository";
+import * as officialRepo from "../infrastructure/official-documents-repository";
 import * as platformRepo from "../infrastructure/platform-repository";
 import { getSettings } from "../infrastructure/reference-repository";
 import type { ReportcardsDeps } from "./deps";
@@ -164,17 +165,54 @@ async function describe(deps: ReportcardsDeps, tenantId: string, cardId: string,
 }
 
 /**
- * Vérification d'un document émis par un autre module (`deps.ports.external[nature]`) : même contrat de réponse que pour un
- * bulletin — réponse minimale, uniformité (inconnu / sans vérificateur / code différent : `null`), intégrité (empreinte
- * recalculée par l'émetteur ET signature Ed25519 revérifiée contre la clé publique, y compris retirée).
+ * Documents officiels d'autres modules (reçu de paiement, bulletin de paie) : même contrôle d'intégrité que les bulletins
+ * (hash recalculé + signature revérifiée à chaque consultation), même réponse minimale. Pas de remplacement ni de révocation :
+ * `AUTHENTIC` ou `INVALID`. Le titre scellé ne contient aucune donnée personnelle.
  */
-async function describeExternal(deps: ReportcardsDeps, tenantId: string, kind: string, documentId: string, code: string): Promise<PublicVerification | null> {
+async function describeOfficial(deps: ReportcardsDeps, tenantId: string, documentId: string, code: string): Promise<{ result: PublicVerification; card: LoggedDocument } | null> {
   const system = deps.systemDb;
   if (!system) throw portUnavailable("SystemDb");
-  const verifier = deps.ports.external[kind];
-  if (!verifier) return null;
   if (deps.verificationEnabled && !(await deps.verificationEnabled(tenantId))) return null;
-  const facts = await verifier.describe(tenantId, documentId);
+  return system.runForTenant("public-verification", tenantId, async (tx) => {
+    const content = await officialRepo.getOfficialDocumentContent(tx, documentId);
+    if (!content || content.record.verificationCode !== code) return null;
+    const { record, snapshot, explain } = content;
+    const key = await platformRepo.getSigningKey(tx, record.signingKeyId);
+    const hashValid = snapshotHash(snapshot, explain) === record.snapshotHash;
+    const signatureValid = Boolean(key) && verifyDocumentSignature(key!.publicKey, { snapshotHash: record.snapshotHash, verificationCode: record.verificationCode, issuedAt: record.issuedAt }, record.signature);
+    const intact = hashValid && signatureValid;
+    const result: PublicVerification = {
+      status: intact ? "AUTHENTIC" : "INVALID",
+      documentKind: record.documentKind,
+      institutionName: String(snapshot?.institution?.legalName ?? ""),
+      title: record.title,
+      issuedAt: record.issuedAt,
+      mention: null,
+      supersededByIssuedAt: null,
+      revokedAt: null,
+      keyId: record.signingKeyId,
+      keyFingerprint: key ? publicKeyFingerprint(key.publicKey) : null,
+      snapshotHash: record.snapshotHash,
+      signature: record.signature,
+      message: intact ? MESSAGES.AUTHENTIC : MESSAGES.INVALID,
+    };
+    return { result, card: { id: record.id, documentKind: record.documentKind } };
+  });
+}
+
+/**
+ * Vérification d'un document émis par un autre module qui garde SON snapshot (`deps.ports.external[nature]` : diplômes et
+ * attestations du supérieur) : même contrat de réponse que pour un bulletin — réponse minimale, uniformité (inconnu / sans
+ * vérificateur / code différent : `null`), intégrité (empreinte recalculée par l'émetteur ET signature Ed25519 revérifiée contre
+ * la clé publique, y compris retirée), remplacement et révocation.
+ */
+async function describeExternal(deps: ReportcardsDeps, target: { tenantId: string; documentKind: string; documentId: string }, code: string): Promise<{ result: PublicVerification; card: LoggedDocument } | null> {
+  const system = deps.systemDb;
+  if (!system) throw portUnavailable("SystemDb");
+  const verifier = deps.ports.external[target.documentKind];
+  if (!verifier) return null;
+  if (deps.verificationEnabled && !(await deps.verificationEnabled(target.tenantId))) return null;
+  const facts = await verifier.describe(target.tenantId, target.documentId);
   if (!facts || facts.verificationCode !== code || !facts.signature || !facts.signingKeyId) return null;
   const keyId = facts.signingKeyId;
   const key = await system.run("public-verification", (tx) => platformRepo.getSigningKey(tx, keyId), { readOnly: true });
@@ -195,9 +233,9 @@ async function describeExternal(deps: ReportcardsDeps, tenantId: string, kind: s
     status = "AUTHENTIC";
     message = MESSAGES.AUTHENTIC;
   }
-  return {
+  const result: PublicVerification = {
     status,
-    documentKind: kind,
+    documentKind: target.documentKind,
     institutionName: facts.institutionName,
     title: facts.title,
     issuedAt: facts.issuedAt,
@@ -210,14 +248,22 @@ async function describeExternal(deps: ReportcardsDeps, tenantId: string, kind: s
     signature: facts.signature,
     message,
   };
+  return { result, card: { id: target.documentId, documentKind: target.documentKind } };
 }
 
-async function logExternalResult(deps: ReportcardsDeps, tenantId: string, kind: string, result: string, ipPrefix: string | null): Promise<void> {
-  try {
-    await deps.systemDb!.runForTenant("public-verification-log", tenantId, (tx) => cardsRepo.logVerification(tx, { id: deps.newId(), tenantId, reportCardId: null, documentKind: kind, result, ipPrefix }));
-  } catch (e) {
-    deps.logger.warn({ err: e instanceof Error ? e.message : String(e) }, "reportcards : journal de vérification indisponible");
-  }
+const OFFICIAL_KINDS: ReadonlySet<string> = new Set(["RECEIPT", "PAYSLIP"]);
+
+/** Résout un code vers un bulletin / relevé, un document officiel d'un autre module (reçu, paie) OU un document à vérificateur externe (diplôme, attestation). */
+async function describeAny(deps: ReportcardsDeps, target: { tenantId: string; documentKind: string; documentId: string }, code: string): Promise<{ result: PublicVerification; card: LoggedDocument } | null> {
+  if (OFFICIAL_KINDS.has(target.documentKind)) return describeOfficial(deps, target.tenantId, target.documentId, code);
+  if (target.documentKind !== "REPORT_CARD" && target.documentKind !== "TRANSCRIPT") return describeExternal(deps, target, code);
+  const described = await describe(deps, target.tenantId, target.documentId, code);
+  return described ? { result: described.result, card: { id: described.card.id, documentKind: described.card.documentKind } } : null;
+}
+
+interface LoggedDocument {
+  id: string;
+  documentKind: string;
 }
 
 export async function verifyByCode(deps: ReportcardsDeps, input: { code: string; ipPrefix?: string | null }): Promise<Result<PublicVerification, AppError>> {
@@ -226,20 +272,13 @@ export async function verifyByCode(deps: ReportcardsDeps, input: { code: string;
   if (!isVerificationCode(input.code)) return ok(UNKNOWN_VERIFICATION);
   const target = await system.run("public-verification", (tx) => cardsRepo.lookupVerification(tx, input.code), { readOnly: true });
   if (!target) return ok(UNKNOWN_VERIFICATION);
-  if (target.documentKind !== "REPORT_CARD" && target.documentKind !== "TRANSCRIPT") {
-    // Document d'un AUTRE module (diplôme, attestation) : son vérificateur lit le document, reportcards revérifie la signature.
-    const external = await describeExternal(deps, target.tenantId, target.documentKind, target.documentId, input.code);
-    if (!external) return ok(UNKNOWN_VERIFICATION);
-    await logExternalResult(deps, target.tenantId, target.documentKind, external.status, input.ipPrefix ?? null);
-    return ok(external);
-  }
-  const described = await describe(deps, target.tenantId, target.documentId, input.code);
+  const described = await describeAny(deps, target, input.code);
   if (!described) return ok(UNKNOWN_VERIFICATION);
   await logResult(deps, target.tenantId, described.card, described.result.status, input.ipPrefix ?? null);
   return ok(described.result);
 }
 
-async function logResult(deps: ReportcardsDeps, tenantId: string, card: ReportCardRecord, result: string, ipPrefix: string | null): Promise<void> {
+async function logResult(deps: ReportcardsDeps, tenantId: string, card: LoggedDocument, result: string, ipPrefix: string | null): Promise<void> {
   try {
     await deps.systemDb!.runForTenant("public-verification-log", tenantId, (tx) =>
       cardsRepo.logVerification(tx, { id: deps.newId(), tenantId, reportCardId: card.id, documentKind: card.documentKind, result, ipPrefix }),
@@ -271,18 +310,10 @@ export async function verifyByFile(deps: ReportcardsDeps, input: { bytes: Uint8A
   if (!found) return ok(mismatch);
   const target = await system.run("public-verification", (tx) => cardsRepo.lookupVerification(tx, found.code), { readOnly: true });
   if (!target) return ok(mismatch);
-  let result: PublicVerification;
-  if (target.documentKind !== "REPORT_CARD" && target.documentKind !== "TRANSCRIPT") {
-    const external = await describeExternal(deps, target.tenantId, target.documentKind, target.documentId, found.code);
-    if (!external) return ok(mismatch);
-    await logExternalResult(deps, target.tenantId, target.documentKind, "FILE_MATCH", input.ipPrefix ?? null);
-    result = external;
-  } else {
-    const described = await describe(deps, target.tenantId, target.documentId, found.code);
-    if (!described) return ok(mismatch);
-    await logResult(deps, target.tenantId, described.card, "FILE_MATCH", input.ipPrefix ?? null);
-    result = described.result;
-  }
+  const described = await describeAny(deps, target, found.code);
+  if (!described) return ok(mismatch);
+  await logResult(deps, target.tenantId, described.card, "FILE_MATCH", input.ipPrefix ?? null);
+  const { result } = described;
   const note =
     result.status === "AUTHENTIC"
       ? `Ce fichier est identique à l'original émis le ${formatDateFr(result.issuedAt!.toISOString())}.`
