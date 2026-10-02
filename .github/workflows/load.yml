@@ -1,0 +1,87 @@
+# Tests de CHARGE (Phase E) — manuels ou planifiés, NON BLOQUANTS.
+#
+# Fichier volontairement séparé de ci.yml : il ne modifie aucun job existant et n'entre PAS dans `needs` de `ci-ok`.
+# Il ne se déclenche ni sur pull_request ni sur push : lancement manuel (workflow_dispatch) ou chaque lundi.
+# `continue-on-error` garde le résultat visible sans jamais bloquer une fusion. Les seuils de latence y sont appliqués
+# (ED_LOAD_ENFORCE=1) : un dépassement rend le job rouge mais non bloquant. Méthode, seuils (PROPOSÉS) et résultats de référence :
+# docs/architecture/perf-report.md. Postgres 17 et Redis 7 sont éphémères (conteneurs de service) ; aucun secret, aucun effet externe.
+name: Load (non bloquant)
+
+on:
+  workflow_dispatch:
+    inputs:
+      scale:
+        description: "ED_LOAD_SCALE (1 = 60 élèves par tenant ; 33 = ~2 000)"
+        default: "2"
+        required: false
+      tenants:
+        description: "ED_LOAD_TENANTS"
+        default: "3"
+        required: false
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: load-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  load:
+    name: charge multi-tenant (Postgres 17 + Redis 7)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      REDIS_URL: redis://localhost:6379
+      TEST_REDIS_URL: redis://localhost:6379
+      ED_LOAD_SCALE: ${{ inputs.scale || '2' }}
+      ED_LOAD_TENANTS: ${{ inputs.tenants || '3' }}
+      ED_LOAD_ENFORCE: "1"
+      # Les runners partagés sont plus lents et plus bruités qu'un poste dédié : marge sur les seuils proposés.
+      ED_LOAD_THRESHOLD_FACTOR: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Appelle vitest directement (Postgres et Redis sont déjà fournis par les services) ; `pnpm test:load` démarre, lui, des
+      # conteneurs Docker éphémères pour les postes de développement.
+      - name: tests de charge (apps/api/test/load)
+        run: pnpm --filter @ecoledigitale/api exec vitest run -c vitest.load.config.ts
+      - name: rapport de charge
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-report
+          path: apps/api/test/load/results/
+          if-no-files-found: ignore
