@@ -309,6 +309,16 @@ describe("ports : échec fermé par défaut", () => {
   });
 });
 
+describe("spécification : le DDL de référence est EXACTEMENT celui des migrations", () => {
+  it("les blocs `22xx` de specs/v2/006-secondary/data-model.md (extraits par ddl-test/) égalent les fichiers de migration", () => {
+    const md = readFileSync(resolve(moduleDir, "../../../../../specs/v2/006-secondary/data-model.md"), "utf8").replace(/\r\n/g, "\n");
+    const blocks = new Map([...md.matchAll(/<!--\s*migration:\s*(22\d\d_[A-Za-z0-9_]+\.sql)\s*-->\s*```sql\n([\s\S]*?)\n```/g)].map((m) => [m[1]!, m[2]!]));
+    const files = readdirSync(join(moduleDir, "migrations")).filter((f) => f.endsWith(".sql")).sort();
+    expect([...blocks.keys()].sort()).toEqual(files.map((f) => f.replace(/\.sql$/, ".sql")));
+    for (const f of files) expect(blocks.get(f)?.replace(/\n+$/, ""), f).toBe(read(`migrations/${f}`).replace(/\r\n/g, "\n").replace(/\n+$/, ""));
+  });
+});
+
 describe("garde-fous de contenu : aucune règle réglementaire, aucun catalogue de fautes en code, aucune donnée livrée", () => {
   const walk = (dir: string, out: string[] = []): string[] => {
     for (const e of readdirSync(dir)) {
