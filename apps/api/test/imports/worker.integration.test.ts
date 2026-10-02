@@ -45,8 +45,10 @@ function rssMb(pid: number): number | null {
   try {
     if (process.platform === "win32") {
       const r = spawnSync("tasklist", ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"], { encoding: "utf8" });
-      const m = /"([\d.,\s ]+) [KkOo]"/.exec(r.stdout);
-      return m ? Math.round(Number((m[1] as string).replace(/[^\d]/g, "")) / 1024) : null;
+      const last = r.stdout.trim().split(/\r?\n/).pop() ?? "";
+      const m = /"([^"]*)"\s*$/.exec(last);
+      const kb = m ? Number((m[1] as string).replace(/[^\d]/g, "")) : 0;
+      return kb > 0 ? Math.round(kb / 1024) : null;
     }
     const r = spawnSync("sh", ["-c", `awk '/VmRSS/ {print $2}' /proc/${pid}/status`], { encoding: "utf8" });
     return r.stdout.trim() ? Math.round(Number(r.stdout.trim()) / 1024) : null;
@@ -109,7 +111,12 @@ describeIntegration.skipIf(!REDIS_URL)("imports par le worker de production (bun
     const up = unwrap(await uploadImportFile(deps, ctx, { importerKey: "students", fileName: name, bytes }));
     unwrap(await setImportMapping(deps, ctx, up.job.id, { mapping: up.suggestedMapping, runMode: "VALID_ONLY", onExisting: "SKIP" }, viewer));
     unwrap(await requestImportValidation(deps, ctx, up.job.id, viewer));
-    await waitFor(async () => (await jobStatus(up.job.id)) === "VALIDATED", { label: `validation de ${name} par le worker`, timeoutMs: 240_000, intervalMs: 250 });
+    try {
+      await waitFor(async () => (await jobStatus(up.job.id)) === "VALIDATED", { label: `validation de ${name} par le worker`, timeoutMs: 240_000, intervalMs: 250 });
+    } catch (e) {
+      const j = (await db.admin.query(`SELECT status, error_code, error_message, lease_owner, lease_until, run_attempts, valid_rows, invalid_rows FROM imports.jobs WHERE id = $1`, [up.job.id])).rows[0];
+      throw new Error(`${(e as Error).message} ; état : ${JSON.stringify(j)} ; journaux du worker : ${logs.slice(-12).join(" | ")}`);
+    }
     return up.job.id;
   }
   async function launch(id: string): Promise<void> {
@@ -200,7 +207,7 @@ describeIntegration.skipIf(!REDIS_URL)("imports par le worker de production (bun
 
   it("REPRISE après SIGKILL du worker en plein import : aucun doublon, aucune ligne perdue, lots atomiques", async () => {
     const rows = 700;
-    const id = await prepare(csvOf([STUDENT_HEADERS, ...studentRows(rows, "K")]), "eleves-kill.csv");
+    const id = await prepare(csvOf([STUDENT_HEADERS, ...studentRows(rows, "K", 2000)]), "eleves-kill.csv");
     await launch(id);
     // attend qu'une partie (mais pas tout) soit écrite, puis tue le worker sans préavis
     await waitFor(async () => (await count(`SELECT count(*) AS n FROM imports.rows WHERE job_id = $1 AND outcome IS NOT NULL`, [id])) >= 150, { label: "import en cours", timeoutMs: 300_000, intervalMs: 150 });
@@ -215,7 +222,13 @@ describeIntegration.skipIf(!REDIS_URL)("imports par le worker de production (bun
 
     // Un nouveau worker reprend (bail expiré -> filet de reprise ou nouvelle livraison) et termine.
     child = await startWorker();
-    await waitFor(async () => (await jobStatus(id)) === "COMPLETED", { label: "reprise et fin de l'import", timeoutMs: 300_000, intervalMs: 500 });
+    try {
+      await waitFor(async () => (await jobStatus(id)) === "COMPLETED", { label: "reprise et fin de l'import", timeoutMs: 300_000, intervalMs: 500 });
+    } catch (e) {
+      const j = (await db.admin.query(`SELECT status, error_code, error_message, lease_owner, lease_until, now() AS now, run_attempts, processed_count, created_count FROM imports.jobs WHERE id = $1`, [id])).rows[0];
+      const ob = (await db.admin.query(`SELECT type, published_at FROM kernel.domain_events WHERE aggregate_id = $1 ORDER BY created_at DESC LIMIT 5`, [id])).rows;
+      throw new Error(`${(e as Error).message} ; état : ${JSON.stringify(j)} ; événements : ${JSON.stringify(ob)} ; journaux : ${logs.slice(-15).join(" | ")}`);
+    }
     expect(await count(`SELECT count(*) AS n FROM people.students WHERE external_ref LIKE 'TK-%'`)).toBe(rows);
     expect(await count(`SELECT count(*) AS n FROM (SELECT external_ref FROM people.students WHERE external_ref LIKE 'TK-%' GROUP BY external_ref HAVING count(*) > 1) d`)).toBe(0);
     const job = (await db.admin.query(`SELECT created_count, failed_count, processed_count, run_attempts FROM imports.jobs WHERE id = $1`, [id])).rows[0];
@@ -227,7 +240,7 @@ describeIntegration.skipIf(!REDIS_URL)("imports par le worker de production (bun
 
   it("annulation demandée pendant l'exécution par le worker : état CANCELLED, lots validés conservés", async () => {
     const rows = 600;
-    const id = await prepare(csvOf([STUDENT_HEADERS, ...studentRows(rows, "A")]), "eleves-annule.csv");
+    const id = await prepare(csvOf([STUDENT_HEADERS, ...studentRows(rows, "A", 4000)]), "eleves-annule.csv");
     await launch(id);
     await waitFor(async () => (await count(`SELECT count(*) AS n FROM imports.rows WHERE job_id = $1 AND outcome IS NOT NULL`, [id])) >= 100, { label: "import en cours", timeoutMs: 300_000, intervalMs: 150 });
     unwrap(await cancelImportJob(deps, ctx, id, "Erreur de fichier", viewer));

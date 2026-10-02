@@ -5,8 +5,18 @@
  */
 import { IMPORT_EVENTS } from "@ecoledigitale/contracts/src/v2/imports";
 
-export const ImportEvents = IMPORT_EVENTS;
-export const ALL_IMPORT_EVENT_TYPES: ReadonlyArray<string> = Object.values(IMPORT_EVENTS);
+/** Noms littéraux (lus par l analyse statique du catalogue) ; `satisfies` garantit la parité avec les contrats. */
+export const ImportEvents = {
+  jobCreated: "imports.job.created",
+  validationRequested: "imports.job.validation_requested",
+  jobValidated: "imports.job.validated",
+  runRequested: "imports.run.requested",
+  runStarted: "imports.run.started",
+  runCompleted: "imports.run.completed",
+  runFailed: "imports.run.failed",
+  runCancelled: "imports.run.cancelled",
+} as const satisfies typeof IMPORT_EVENTS;
+export const ALL_IMPORT_EVENT_TYPES: ReadonlyArray<string> = Object.values(ImportEvents);
 /** Compatibilité avec le squelette généré (`manifest.ts`). */
 export const ALL_EVENT_TYPES = ALL_IMPORT_EVENT_TYPES;
 

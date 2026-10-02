@@ -111,7 +111,6 @@ export function ImportAssistant({ jobId }: { jobId?: string }) {
         </>
       ) : null}
       {job.data && !importer && importers.isSuccess ? <Notice kind="warning">{t("assistant.unknownImporter")}</Notice> : null}
-      {job.data && step === "report" ? null : null}
       <div className="mt-8">
         <Link href="/v2/imports" className={buttonClass.secondary}>
           {t("assistant.backToHistory")}

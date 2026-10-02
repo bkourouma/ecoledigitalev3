@@ -44,6 +44,6 @@ export default defineModule({
   menus: [{ key: "imports.home", label: "Imports Excel / CSV", href: "/v2/imports", permission: "imports.read", portal: "admin", icon: "upload", order: 800 }],
   events: {
     publishes: [...ALL_IMPORT_EVENT_TYPES],
-    consumes: [],
+    consumes: ["imports.job.validation_requested", "imports.run.requested"],
   },
 });

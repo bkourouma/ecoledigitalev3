@@ -440,3 +440,20 @@ export const importRunCompletedPayloadSchema = z.object({
   status: z.enum(["COMPLETED", "COMPLETED_WITH_ERRORS"]),
 });
 export type ImportRunCompletedPayload = z.infer<typeof importRunCompletedPayloadSchema>;
+
+/**
+ * Charges des événements publiés (`imports.*`), versionnées `{ v: 1, ... }` ; aucune donnée de ligne de fichier.
+ * Les demandes (`validation_requested`, `run_requested`) peuvent être REPUBLIÉES par le job de filet sans importeur
+ * (`resumed: true`) : seul `jobId` est alors garanti.
+ */
+const importEventBase = { v: z.literal(1), jobId: importsUuidSchema };
+export const importsEventPayloadSchemas = {
+  "imports.job.created": z.object({ ...importEventBase, importerKey: importerKeySchema, totalRows: z.number().int() }),
+  "imports.job.validation_requested": z.object({ ...importEventBase, importerKey: importerKeySchema.optional(), totalRows: z.number().int().optional(), resumed: z.boolean().optional() }),
+  "imports.job.validated": z.object({ ...importEventBase, importerKey: importerKeySchema, valid: z.number().int(), invalid: z.number().int() }),
+  "imports.run.requested": z.object({ ...importEventBase, importerKey: importerKeySchema.optional(), mode: z.string().optional(), resumed: z.boolean().optional() }),
+  "imports.run.started": z.object({ ...importEventBase, importerKey: importerKeySchema, totalRows: z.number().int() }),
+  "imports.run.completed": importRunCompletedPayloadSchema,
+  "imports.run.failed": z.object({ ...importEventBase, importerKey: importerKeySchema, code: z.string() }),
+  "imports.run.cancelled": z.object({ ...importEventBase, importerKey: importerKeySchema, processed: z.number().int() }),
+} as const;
