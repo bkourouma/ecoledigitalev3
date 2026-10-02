@@ -106,9 +106,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "exam.type.read", "exam.session.read", "exam.candidate.read", "exam.result.read", "exam.statistics.read",
       // imports (031, O-03) : classes et curriculum
       "imports.read", "imports.create", "imports.import.classrooms", "imports.import.curriculum", "imports.cancel",
-    ],
-    reserved: [
-      // conseils de classe (006) : `council.*` sauf l'approbation d'un déverrouillage et la révocation d'un PV
+      // councils (006) : `council.*` sauf l'approbation d'un déverrouillage et la révocation d'un PV
       "council.read", "council.manage", "council.prepare", "council.session.run", "council.proposal.write", "council.decision.record",
       "council.minutes.generate", "council.minutes.read", "council.minutes.sign", "council.unlock.request", "council.effect.manage",
       "council.exclusion.apply", "council.settings.manage", "council.orientation.read", "council.orientation.manage", "council.orientation.override",
@@ -142,9 +140,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "primary.report.read", "primary.class.read_all", "primary.bilan.read", "primary.competency.read",
       // imports (031, O-03) : élèves et tuteurs
       "imports.read", "imports.create", "imports.import.students", "imports.import.guardians", "imports.cancel",
-    ],
-    reserved: [
-      // conseils (006) : planifier, procès-verbaux (pas de révocation)
+      // councils (006) : planifier, procès-verbaux (pas de révocation)
       "council.read", "council.manage", "council.minutes.generate", "council.minutes.read", "council.minutes.sign",
     ],
   },
@@ -188,8 +184,9 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "payroll.payslip.read_own", "payroll.my.dispute",
       // schoollife (006) : signaler et noter dans SES classes
       "schoollife.read", "schoollife.incident.write", "schoollife.note.write",
+      // councils (006) : lire ses conseils (périmètre côté serveur), proposer (jamais décider)
+      "council.read", "council.proposal.write",
     ],
-    reserved: ["council.proposal.write"],
   },
 
   // Spec 005 pack-template §7 : mêmes clés RÉELLES que l'enseignant (sa classe) + reportcard.read ; `primary.*` réservées.
@@ -292,9 +289,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       // primary_school (005), schoollife et stateassign (006), examinations (018)
       "primary.competency.child.read", "primary.bilan.child.read",
       "schoollife.child.read", "schoollife.child.appeal", "schoollife.child.acknowledge",
-      "stateassign.child.read", "exam.document.child.read",
+      "stateassign.child.read", "exam.document.child.read", "council.child.read",
     ],
-    reserved: ["council.child.read"],
   },
 
   eleve: {
@@ -309,9 +305,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "reportcard.self.read", "attendance.self.read", "attendance.self.justify", "schedule.self.read", "higher.self.read",
       "finance.self.read", "finance.self.pay",
       // primary_school (005), schoollife (006), examinations (018)
-      "primary.competency.self.read", "primary.bilan.self.read", "schoollife.self.read", "schoollife.self.appeal", "exam.document.self.read",
+      "primary.competency.self.read", "primary.bilan.self.read", "schoollife.self.read", "schoollife.self.appeal", "exam.document.self.read", "council.self.read",
     ],
-    reserved: ["council.self.read"],
   },
 };
 
@@ -358,7 +353,7 @@ describe("modèles de rôles système : ensemble des rôles", () => {
     // rôle × permission est alors vérifiée comme celle des autres (voir `matrice rôle × module`).
     expect(modulesWithPermissions).toEqual(
       [
-        "academic", "admissions", "analytics", "assess", "attendance", "audit", "documents", "entitlements", "examinations", "finance", "higher", "iam", "imports", "messaging",
+        "academic", "admissions", "analytics", "assess", "attendance", "audit", "councils", "documents", "entitlements", "examinations", "finance", "higher", "iam", "imports", "messaging",
         "notifications", "payroll", "people", "primary_school", "rbac", "reportcards", "results", "rules", "scheduling", "schoollife", "stateassign", "tenancy",
         ...LOADED_UPCOMING_MODULES(),
       ].sort(),
@@ -983,9 +978,11 @@ describe("motif `*` et portails", () => {
   it("parent / élève : le modèle DÉCLARE (accordées + réservées en attente) exactement les permissions `child` / `self` — rien de plus, rien d'oublié (spec 006 data-model §11 point 7)", () => {
     const reservedChild = RESERVED_FOR_UPCOMING_MODULES.map((r) => r.key).filter(isChildKey);
     const reservedSelf = RESERVED_FOR_UPCOMING_MODULES.map((r) => r.key).filter(isSelfKey);
-    // seul `councils` reste à venir : `council.child.read` / `council.self.read`
-    expect(reservedChild).toEqual(["council.child.read"]);
-    expect(reservedSelf).toEqual(["council.self.read"]);
+    // plus aucun module à venir : `council.child.read` / `council.self.read` sont dans le catalogue réel
+    expect(reservedChild).toEqual([]);
+    expect(reservedSelf).toEqual([]);
+    expect(real.catalog.byKey.has("council.child.read")).toBe(true);
+    expect(real.catalog.byKey.has("council.self.read")).toBe(true);
     const realChild = real.catalog.keys.filter(isChildKey);
     const realSelf = real.catalog.keys.filter(isSelfKey);
     expect([...declared("parent")].sort()).toEqual([...new Set([...realChild, ...reservedChild])].sort());

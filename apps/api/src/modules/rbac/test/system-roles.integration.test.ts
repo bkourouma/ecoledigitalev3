@@ -9,9 +9,8 @@
  * est déplacé, pas écrasé ; l'arrivée du manifeste d'un module à venir résout les permissions réservées.
  */
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { createSystemContext, defineModule, noopLogger, newId, type ModuleManifest } from "@ecoledigitale/kernel";
+import { createSystemContext, noopLogger, newId } from "@ecoledigitale/kernel";
 import {
-  RESERVED_FOR_UPCOMING_MODULES,
   SYSTEM_ROLE_TEMPLATES,
   instantiateSystemRoles,
   isReservedPermission,
@@ -20,7 +19,6 @@ import {
   syncRbac,
 } from "../index";
 import { insertRole, replaceRolePermissions } from "../infrastructure/repository";
-import { RESERVED_MODULES } from "../templates/reserved-permissions";
 import { createRbacTestDb, describeIntegration, type RbacTestDb } from "./db";
 import { loadRealCatalog, type RealCatalog } from "./real-catalog";
 
@@ -97,21 +95,26 @@ describeIntegration("rôles système — provisioning contre le catalogue réel"
     const stored = await rolesOf(tenant);
     const storedPending = [...stored.values()].flatMap((r) => r.pending);
     expect(storedPending.filter((p) => !isReservedPermission(p))).toEqual([]);
-    // le module `councils` (seul module à venir) n'est pas chargé : ses permissions sont bien en attente (et non accordées) ;
-    // les modules des packs Primary, Secondary, Admissions et Examinations sont livrés : leurs permissions sont accordées.
+    // tous les modules (dont `councils`) sont livrés : la liste blanche est vide, plus rien n'est en attente
+    // et leurs permissions sont accordées.
     const expectedPending = resolveSystemRoles(real.catalog, SYSTEM_ROLE_TEMPLATES).flatMap((r) => r.pending);
-    expect(storedPending.length).toBe(expectedPending.length);
-    expect(storedPending.length).toBeGreaterThan(0);
+    expect(expectedPending).toEqual([]);
+    expect(storedPending).toEqual([]);
     expect(stored.get("instituteur")?.pending).toEqual([]);
-    expect(stored.get("parent")?.pending).toEqual(["council.child.read"]);
-    expect(stored.get("directeur_etudes")?.pending).toEqual(expect.arrayContaining(["council.read", "council.session.run"]));
+    expect(stored.get("parent")?.permissions).toContain("council.child.read");
+    expect(stored.get("eleve")?.permissions).toContain("council.self.read");
+    expect(stored.get("enseignant")?.permissions).toEqual(expect.arrayContaining(["council.read", "council.proposal.write"]));
+    expect(stored.get("enseignant")?.permissions).not.toContain("council.decision.record");
+    expect(stored.get("secretariat")?.permissions).toEqual(expect.arrayContaining(["council.minutes.sign", "council.minutes.generate"]));
+    expect(stored.get("secretariat")?.permissions).not.toContain("council.minutes.revoke");
+    expect(stored.get("directeur_etudes")?.permissions).toEqual(expect.arrayContaining(["council.read", "council.session.run", "council.decision.record"]));
+    expect(stored.get("directeur_etudes")?.permissions).not.toContain("council.unlock.approve");
+    expect(stored.get("directeur")?.permissions).toEqual(expect.arrayContaining(["council.unlock.approve", "council.minutes.revoke"]));
     expect(stored.get("instituteur")?.permissions).toEqual(expect.arrayContaining(["primary.competency.read", "primary.council.prepare"]));
     expect(stored.get("parent")?.permissions).toEqual(expect.arrayContaining(["primary.competency.child.read", "primary.bilan.child.read", "exam.document.child.read"]));
     expect(stored.get("responsable_examens")?.permissions).toContain("exam.session.manage");
     expect(stored.get("responsable_examens")?.permissions).not.toContain("exam.result.publish");
 
-    // signalé au niveau info, avec la liste blanche pour référence
-    expect(infos.some((i) => /réservées/.test(i.msg ?? ""))).toBe(true);
   });
 
   it("les permissions stockées de chaque rôle = celles du catalogue réel résolu ; owner/directeur à `*` seuls", async () => {
@@ -232,29 +235,11 @@ describeIntegration("rôles système — provisioning contre le catalogue réel"
     expect(replay.relocated).toEqual([]);
   });
 
-  it("l'arrivée des manifestes des modules à venir résout les permissions réservées dans les tenants EXISTANTS (en base)", async () => {
-    // Catalogue réel (sans les modules à venir s'ils sont déjà chargés) + un manifeste fictif par module à venir.
-    const fakes = RESERVED_MODULES.map((module) =>
-      defineModule({
-        key: module,
-        title: `Module à venir ${module}`,
-        packs: ["CORE"],
-        permissions: RESERVED_FOR_UPCOMING_MODULES.filter((r) => r.module === module).map((r) => ({
-          key: r.key,
-          label: `Réservée ${r.key}`,
-          ...(r.sensitive ? { sensitive: true } : {}),
-        })),
-      }),
-    ) as ModuleManifest[];
-    const manifests = [...real.manifests.filter((m) => !(RESERVED_MODULES as readonly string[]).includes(m.key)), ...fakes];
-
-    const before = await rolesOf(tenant);
-    expect(before.get("directeur_etudes")?.pending.length).toBeGreaterThan(0);
+  it("la synchronisation sur le catalogue réel laisse tous les tenants EXISTANTS sans motif en attente, avec les droits `council.*` (en base)", async () => {
+    const manifests = [...real.manifests];
     const customBefore = await rolesOf(await db.admin.query<{ id: string }>("SELECT id FROM kernel.tenants WHERE slug = 'ecole-ancienne'").then((r) => r.rows[0]?.id as string));
 
     const report = await syncRbac(db.systemDb, manifests, { logger: spyLogger });
-    expect(report.catalog.changed).toBe(true);
-    expect(report.reconciled).toBe(true);
     expect(report.tenants.failed).toEqual([]);
 
     for (const slug of ["ecole-reelle", "ecole-ancienne", "ecole-instituteur-perso"]) {

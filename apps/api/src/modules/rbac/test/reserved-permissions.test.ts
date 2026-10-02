@@ -3,6 +3,7 @@
  *
  * Elle remplace, de façon bornée et documentée, la règle « aucun motif en attente » pour les modules des
  * packs Primary, Secondary, Admissions et Examinations (leurs manifestes sont livrés après les rôles).
+ * ÉTAT : tous livrés, la liste est VIDE ; le mécanisme (et ses garde-fous) est conservé et testé avec un module fictif.
  *
  *  1. Forme des entrées : clé exacte valide, unique, module connu, spec existante, convention de portée.
  *  2. Chaque entrée est référencée par au moins un modèle (pas d'entrée inutile) ; tout motif en attente est
@@ -28,6 +29,8 @@ import {
   getReservedPermission,
   isReservedPermission,
   permissionScopeOf,
+  reserved,
+  type ReservedPermission,
 } from "../templates/reserved-permissions";
 import { SYSTEM_ROLE_TEMPLATES } from "../templates/system-roles";
 import { loadRealCatalog, resolveAgainst, type RealCatalog } from "./real-catalog";
@@ -44,13 +47,13 @@ const matchesAny = (patterns: readonly string[], key: string): boolean => patter
 const referencedBy = (key: string): string[] => SYSTEM_ROLE_TEMPLATES.filter((t) => t.permissions.includes(key)).map((t) => t.key);
 
 /** Un manifeste FICTIF par module à venir : déclare exactement ses permissions réservées, avec leur sensibilité. */
-function fakeUpcomingManifests(modules: readonly string[] = RESERVED_MODULES): ModuleManifest[] {
+function fakeUpcomingManifests(modules: readonly string[] = RESERVED_MODULES, entries: readonly ReservedPermission[] = RESERVED_FOR_UPCOMING_MODULES): ModuleManifest[] {
   return modules.map((module) =>
     defineModule({
       key: module,
       title: `Module à venir ${module}`,
       packs: ["CORE"],
-      permissions: RESERVED_FOR_UPCOMING_MODULES.filter((r) => r.module === module).map((r) => ({
+      permissions: entries.filter((r) => r.module === module).map((r) => ({
         key: r.key,
         label: `Réservée ${r.key}`,
         ...(r.sensitive ? { sensitive: true } : {}),
@@ -165,11 +168,19 @@ describe("non-oubli : la liste ne survit pas à la livraison du module", () => {
     expect(missing, "le module est livré mais ne déclare pas ces permissions : aligne le modèle de rôle (ou le manifeste), puis retire l'entrée").toEqual([]);
   });
 
-  it("le non-oubli détecterait une entrée devenue réelle (simulation : catalogue + manifeste du module)", () => {
-    const withModule = buildPermissionCatalog([...real.manifests, ...fakeUpcomingManifests(["councils"])]);
-    const stale = RESERVED_FOR_UPCOMING_MODULES.filter((r) => r.module === "councils" && withModule.byKey.has(r.key));
-    expect(stale.length).toBeGreaterThan(0);
+  it("le non-oubli détecterait une entrée devenue réelle (simulation : module fictif de test, la vraie liste étant vide)", () => {
+    const fakeList = reserved("module_fictif_test", "specs/test", ["fictif.read", "fictif.manage"], ["fictif.manage"]);
+    const withModule = buildPermissionCatalog([...real.manifests, ...fakeUpcomingManifests(["module_fictif_test"], fakeList)]);
+    const stale = fakeList.filter((r) => withModule.byKey.has(r.key));
+    expect(stale.length).toBe(fakeList.length);
     // c'est exactement la condition qui fait échouer « aucune entrée n'est déjà déclarée » sur le vrai catalogue
+    expect(withModule.byKey.get("fictif.manage")?.sensitive).toBe(true);
+  });
+
+  it("la liste réservée est vide : tous les modules sont livrés (councils inclus)", () => {
+    expect(RESERVED_FOR_UPCOMING_MODULES).toEqual([]);
+    expect(RESERVED_MODULES).toEqual([]);
+    expect(real.catalog.byKey.has("council.read")).toBe(true);
   });
 
   it("drapeau `sensitive` : celui de la spec, contrôlé contre le manifeste dès que le module est chargé", () => {
@@ -232,14 +243,7 @@ describe("quand les manifestes des modules à venir apparaissent : tout se réso
 
   it("les permissions sensibles réservées portent bien `sensitive` dans le manifeste fictif (cohérence avec la spec)", () => {
     const sensitive = RESERVED_FOR_UPCOMING_MODULES.filter((r) => r.sensitive).map((r) => r.key).sort();
-    expect(sensitive).toEqual([
-      "council.decision.record",
-      "council.exclusion.apply",
-      "council.minutes.sign",
-      "council.orientation.override",
-      "council.session.run",
-      "council.settings.manage",
-    ]);
+    expect(sensitive).toEqual([]);
     for (const k of sensitive) expect(getReservedPermission(k)?.module).toBe("councils");
   });
 });

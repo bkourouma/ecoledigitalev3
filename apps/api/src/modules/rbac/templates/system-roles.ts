@@ -38,11 +38,10 @@
  *      dans le rôle `personnel`, à CUMULER avec un rôle de fonction (secrétariat,
  *      économe, éducateur…) ; `enseignant` et `educateur` les embarquent déjà.
  *
- * Les packs Primary (`primary_school`), Secondary (`schoollife`, `stateassign`), Admissions et Examinations sont
- * LIVRÉS : leurs permissions sont déclarées par leurs manifestes et résolues contre le catalogue réel. Seules les
- * permissions de modules PAS ENCORE livrés (conseils de classe, `council.*`) sont des clés exactes listées dans
- * `reserved-permissions.ts` (liste blanche versionnée, avec module futur et spec). Elles restent « en attente »
- * (sans échec) jusqu'à la livraison du manifeste du module ; tout autre motif en attente fait échouer les tests.
+ * Les packs Primary (`primary_school`), Secondary (`schoollife`, `stateassign`, `councils`), Admissions et
+ * Examinations sont LIVRÉS : leurs permissions sont déclarées par leurs manifestes et résolues contre le catalogue réel.
+ * Les permissions d'un module PAS ENCORE livré seraient des clés exactes listées dans `reserved-permissions.ts`
+ * (liste blanche versionnée, aujourd'hui VIDE) ; tout motif en attente hors de cette liste fait échouer les tests.
  *
  * Conventions de nommage des modules (respectées par leurs manifestes) :
  *   - `<ressource>.<action>` : `student.read`, `grade.enter`, `finance.payment.create` ;
@@ -152,6 +151,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "primary.*": "Réviser une compétence validée, sceller et réémettre un bilan annuel, geler l'archive d'une année et appliquer le modèle de pack : actes irréversibles ou à effet durable, tenus par la direction (l'instituteur saisit et valide).",
       "schoollife.*": "Valider les sanctions et exclusions, appliquer leur effet sur le statut de l'élève, révoquer, trancher un recours, lire les éléments confidentiels (lecture journalisée) et régler les barèmes : responsabilité de direction ; l'éducateur propose, il ne valide pas.",
       "stateassign.*": "Vérifier, activer, suspendre ou amender un dossier d'affectation d'État et régler le module : actes humains audités de direction (le secrétariat enregistre sans vérifier).",
+      "council.*": "Approuver un déverrouillage de séance, révoquer un procès-verbal, appliquer une exclusion décidée par le conseil, déroger à un parcours d'orientation et régler les types de conseil : actes de direction (la direction des études tient la séance et enregistre la décision humaine, le secrétariat signe ; la demande de déverrouillage reste séparée de son approbation).",
       "documents.*": "Lire les documents confidentiels (dossiers médicaux, contrats, comptabilité), administrer tous les documents, y compris archivés, et libérer ou détruire un fichier en quarantaine : responsabilité de direction (chaque lecture est auditée).",
     },
   },
@@ -283,8 +283,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       // Règles de calcul : lecture et simulation seulement (la liaison et l'édition d'expressions = direction).
       "rules.ruleset.read",
       "rules.version.simulate",
-      // RÉSERVÉES (pack Secondary, spec 006 §10 ; `reserved-permissions.ts`, en attente jusqu'à la livraison des
-      // modules) : conseils de classe (`council.*` SAUF l'approbation d'un déverrouillage, qui est à la direction,
+      // Conseils de classe (module `councils`, spec 006 §10) (`council.*` SAUF l'approbation d'un déverrouillage, qui est à la direction,
       // et la révocation d'un procès-verbal : émission/signature ≠ révocation), vie scolaire en lecture,
       // affectation d'État en lecture.
       "council.read",
@@ -613,8 +612,10 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.leave.request",
       "payroll.payslip.read_own",
       "payroll.my.dispute",
-      // Proposer au conseil de classe (`council.*`, module à venir, clé RÉSERVÉE) ; signaler et noter la vie
+      // Conseil de classe (module `councils`) : lire ceux de SES classes (périmètre revérifié côté serveur) et proposer
+      // appréciations/distinctions/décisions (jamais décider) ; signaler et noter la vie
       // scolaire de SES classes (le module vérifie l'affectation). Aucune validation de sanction.
+      "council.read",
       "council.proposal.write",
       "schoollife.read",
       "schoollife.incident.write",
@@ -941,7 +942,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "finance.child.pay",
       // Compétences et bilan annuel du primaire (spec 005), vie scolaire partageable (+ recours et accusé de
       // convocation), statut d'affectation d'État (spec 006), documents d'examen (spec 018) ; décisions du conseil :
-      // `council.child.read` est RÉSERVÉE (`reserved-permissions.ts`, module à venir).
+      // `council.child.read` est déclarée par le module `councils`.
       "primary.competency.child.read",
       "primary.bilan.child.read",
       "council.child.read",
@@ -985,7 +986,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "finance.self.read",
       "finance.self.pay",
       // Ses compétences et son bilan (spec 005), sa vie scolaire partageable et ses recours (spec 006), ses documents
-      // d'examen (spec 018) ; les décisions de son conseil : `council.self.read` est RÉSERVÉE (module à venir).
+      // d'examen (spec 018) ; les décisions de son conseil : `council.self.read` est déclarée par le module `councils`.
       "primary.competency.self.read",
       "primary.bilan.self.read",
       "council.self.read",
