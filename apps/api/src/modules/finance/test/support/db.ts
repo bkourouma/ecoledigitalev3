@@ -18,6 +18,7 @@ import { createProviderRegistry, type ProviderRegistry } from "../../infrastruct
 const here = fileURLToPath(new URL(".", import.meta.url));
 export const BASELINE_DIR = resolve(here, "../../../../../../../packages/database/migrations");
 export const FINANCE_MIGRATIONS_DIR = resolve(here, "../../migrations");
+export const AUDIT_MIGRATIONS_DIR = resolve(here, "../../../audit/migrations");
 
 export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 export const hasDb = Boolean(TEST_DATABASE_URL);
@@ -53,7 +54,8 @@ export interface FinanceTestDb {
   drop(): Promise<void>;
 }
 
-export async function createFinanceTestDb(poolSize = 12): Promise<FinanceTestDb> {
+/** `extraMigrationDirs` : dossiers de migrations d'autres modules (ex. `audit`, pour tester le VRAI journal d'audit). */
+export async function createFinanceTestDb(poolSize = 12, extraMigrationDirs: readonly string[] = []): Promise<FinanceTestDb> {
   const name = `ed_it_${suffix()}_fin_test`;
   const maintenance = new Client({ connectionString: TEST_DATABASE_URL });
   await maintenance.connect();
@@ -61,7 +63,7 @@ export async function createFinanceTestDb(poolSize = 12): Promise<FinanceTestDb>
 
   const admin = new Client({ connectionString: urlFor(name) });
   await admin.connect();
-  await migrate({ client: admin, dirs: [BASELINE_DIR, FINANCE_MIGRATIONS_DIR], role: "migrator", logger: noopLogger });
+  await migrate({ client: admin, dirs: [BASELINE_DIR, ...extraMigrationDirs, FINANCE_MIGRATIONS_DIR], role: "migrator", logger: noopLogger });
 
   const role = `it_app_${suffix()}`;
   const password = randomBytes(16).toString("hex");

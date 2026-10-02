@@ -12,7 +12,7 @@ import { initiateOnlinePayment } from "../../application/online-payments";
 import { registerPaymentProviders } from "../../infrastructure/providers/definitions";
 import { createProviderRegistry, StaticProviderConfigSource, type ProviderRegistry } from "../../infrastructure/providers/registry";
 import { PHONE, testRuntime } from "./adapters";
-import { adminRows, createFinanceTestDb, ctxFor, type FinanceTestDb } from "./db";
+import { adminRows, AUDIT_MIGRATIONS_DIR, createFinanceTestDb, ctxFor, type FinanceTestDb } from "./db";
 import { createHarnesses, xof, type ProviderHarness } from "./harness";
 import type { MtnMock, OrangeMock, TresorPayMock, WaveMock } from "./mock-providers";
 import { learnerId, nextKey, seedCatalog, simpleInvoice } from "./scenario";
@@ -51,8 +51,8 @@ export interface TestDeps {
   readonly counters: Array<{ name: string; value: number; labels: Record<string, string> }>;
 }
 
-export async function createReconEnv(options: { timeoutMs?: number } = {}): Promise<ReconEnv> {
-  const db = await createFinanceTestDb(16);
+export async function createReconEnv(options: { timeoutMs?: number; withAudit?: boolean } = {}): Promise<ReconEnv> {
+  const db = await createFinanceTestDb(16, options.withAudit ? [AUDIT_MIGRATIONS_DIR] : []);
   const harnesses = await createHarnesses();
   const source = new StaticProviderConfigSource();
   const endpoints: Record<string, { production: string; sandbox: string }> = {};
