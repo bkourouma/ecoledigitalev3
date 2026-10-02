@@ -101,7 +101,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "attendance.read", "attendance.take", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
       "student.class.read", "staff.own.read", "staff.own.update",
       "schedule.own.read", "schedule.occurrence.declare",
-      "payroll.payslip.read_own",
+      "payroll.payslip.read_own", "payroll.my.dispute",
     ],
   },
 
@@ -130,7 +130,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
   personnel: {
     can: [
       "staff.own.read", "staff.own.update", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
-      "payroll.payslip.read_own", "schedule.own.read",
+      "payroll.payslip.read_own", "payroll.my.dispute", "schedule.own.read",
     ],
   },
 

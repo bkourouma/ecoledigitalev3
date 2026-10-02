@@ -434,6 +434,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.own.record",
       "attendance.leave.request",
       "payroll.payslip.read_own",
+      "payroll.my.dispute",
     ],
   },
 
@@ -537,6 +538,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "attendance.own.record",
       "attendance.leave.request",
       "payroll.payslip.read_own",
+      "payroll.my.dispute",
       "schedule.own.read",
     ],
   },

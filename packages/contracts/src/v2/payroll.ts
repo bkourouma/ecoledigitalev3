@@ -410,6 +410,12 @@ export const payrollPayBodySchema = z.union([
   z.object({ all: z.literal(true), periodId: payrollUuidSchema, method: payrollPaymentMethodSchema, reference: z.string().trim().max(120).optional() }).strict(),
 ]);
 export const payrollReasonBodySchema = z.object({ reason: reasonSchema }).strict();
+/**
+ * `POST /my/payslips/:id/dispute` (permission `payroll.my.dispute`) : contestation de SON bulletin par son titulaire.
+ * Motif OBLIGATOIRE (3 à 500 caractères après rognage) ; réponse : `payrollPayslipDtoSchema` (statut `DISPUTED`).
+ * Erreurs : 404 bulletin inconnu / d'autrui / non lisible par le titulaire ; 409 `payroll.invalid_transition` (déjà contesté, payé).
+ */
+export const payrollMyDisputeBodySchema = payrollReasonBodySchema;
 export const payrollAdjustBodySchema = z
   .object({
     add: z

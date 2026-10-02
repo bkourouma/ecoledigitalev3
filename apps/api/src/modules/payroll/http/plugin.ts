@@ -35,6 +35,7 @@ import {
   payrollListPeriodsQuerySchema,
   payrollListRatesQuerySchema,
   payrollMassQuerySchema,
+  payrollMyDisputeBodySchema,
   payrollMyPayslipsQuerySchema,
   payrollPayBodySchema,
   payrollRateBodySchema,
@@ -378,6 +379,15 @@ export async function payrollPlugin(app: FastifyInstance, options: PayrollPlugin
         const { id } = parse(payrollIdParamsSchema, req.params);
         // même cas d'usage que la gestion, mais SEULEMENT en tant que titulaire : un compte de gestion passe par /payslips/:id
         return present.dataDto(unwrapOrThrow(await q.getPayslipData(deps, ctxOf(req), { payslipId: id, caps: { readAll: false, readOwn: true } })));
+      });
+
+      // Contester SON bulletin : `payroll.my.dispute` seule (sans `payroll.payslip.approve`) ; titulaire résolu depuis le compte,
+      // bulletin d'autrui ou illisible → 404 uniforme ; seul un bulletin arrêté et non payé est contestable (409 sinon).
+      scope.post("/my/payslips/:id/dispute", { preHandler: guard("payroll.my.dispute") }, async (req) => {
+        const { id } = parse(payrollIdParamsSchema, req.params);
+        const { reason } = parse(payrollMyDisputeBodySchema, req.body);
+        const ctx = ctxOf(req);
+        return named(ctx, unwrapOrThrow(await wf.disputeOwnPayslip(deps, ctx, { payslipId: id, reason })));
       });
 
       // ===== Propriétaire =====================================================================================================

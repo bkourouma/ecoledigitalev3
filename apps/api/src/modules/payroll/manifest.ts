@@ -34,6 +34,7 @@ export default defineModule({
     { key: "payroll.run.calculate", label: "Lancer un calcul de paie ou un aperçu", description: "Un calcul réclame des heures : acte sensible, audité.", sensitive: true },
     { key: "payroll.payslip.read", label: "Consulter tous les bulletins de paie", description: "Les salaires sont des données sensibles : lecture et export audités.", sensitive: true },
     { key: "payroll.payslip.read_own", label: "Consulter ses propres bulletins de paie (personnel)" },
+    { key: "payroll.my.dispute", label: "Contester son propre bulletin de paie (personnel)", description: "Le titulaire conteste SON bulletin arrêté et non payé, avec un motif ; n'arrête ni ne verse rien." },
     { key: "payroll.payslip.adjust", label: "Saisir des primes et retenues sur un bulletin calculé", sensitive: true },
     { key: "payroll.payslip.approve", label: "Arrêter le montant d'un bulletin et le contester", description: "Arrêter n'est pas verser. Authentification forte requise.", sensitive: true },
     { key: "payroll.payslip.approve_owner", label: "Arrêter un bulletin au-delà du seuil propriétaire", description: "Réservée au propriétaire quand un seuil de validation est réglé.", sensitive: true },
