@@ -201,6 +201,54 @@ export async function makeWorld(db: ModuleTestDb, startsAt = "2026-11-02T08:00:0
   };
 }
 
+export interface FreshClass {
+  readonly classroomId: string;
+  readonly periodId: string;
+  readonly students: Student[];
+}
+
+/** Classe supplémentaire (autre séance possible : un seul conseil vivant par classe, type et période), avec ses élèves et ses résultats. */
+export function freshClassroom(w: TestWorld, options: { students?: number; teachers?: Person[] } = {}): FreshClass {
+  const classroomId = newId();
+  const periodId = newId();
+  w.ports.addClassroom({ classroomId, name: `Classe ${classroomId.slice(0, 4)}`, institutionId: w.institutionId, academicYearId: w.yearId, gradeLevelId: w.gradeLevelId, gradeLevelCode: "6E", programId: w.programId, active: true });
+  w.ports.addPeriod({ periodId, academicYearId: w.yearId, label: "Trimestre 2", startsOn: "2027-01-05", endsOn: "2027-03-30" });
+  w.ports.setState(classroomId, periodId, { stateId: newId(), status: "GRADING_LOCKED", ruleVersionRef: "CI-SECONDARY-PLACEHOLDER@1", ruleSourceKind: "placeholder" });
+  w.ports.setState(classroomId, null, { stateId: newId(), status: "GRADING_LOCKED", ruleVersionRef: "CI-SECONDARY-PLACEHOLDER@1", ruleSourceKind: "placeholder" });
+  for (const t of options.teachers ?? []) w.ports.addAssignment(classroomId, { staffId: t.staffId, displayName: t.name, assignmentRole: "TEACHER", coversAllSubjects: false });
+  const students: Student[] = [];
+  for (let i = 1; i <= (options.students ?? 0); i += 1) {
+    const studentId = newId();
+    const enrollmentId = newId();
+    const name = `Élève ${String(i).padStart(2, "0")} (${classroomId.slice(0, 4)})`;
+    w.ports.addEnrollment({ enrollmentId, studentId, classroomId, institutionId: w.institutionId, academicYearId: w.yearId, programId: w.programId, gradeLevelId: w.gradeLevelId, active: true, displayName: name });
+    w.ports.setResultsFacts(enrollmentId, SAMPLE_RESULTS());
+    students.push({ studentId, enrollmentId, name });
+  }
+  return { classroomId, periodId, students };
+}
+
+/** Séance sur une classe donnée avec les participants habituels (tous présents sauf indication contraire). */
+export async function councilOn(
+  w: TestWorld,
+  cls: FreshClass,
+  options: { scope?: "PERIOD" | "YEAR"; typeId?: string; present?: boolean; roles?: Array<{ person: Person; roleCode: string; fn?: "PRESIDENT" | "SECRETARY" }> } = {},
+): Promise<CouncilsCouncilDto> {
+  const scope = options.scope ?? "PERIOD";
+  const council = unwrap(await createCouncil(w.deps, w.director.ctx, { classroomId: cls.classroomId, ...(scope === "PERIOD" ? { academicPeriodId: cls.periodId } : {}), councilTypeId: options.typeId ?? (scope === "PERIOD" ? w.types.PERIOD : w.types.YEAR) }));
+  const roles = options.roles ?? [
+    { person: w.director, roleCode: "PRESIDENT", fn: "PRESIDENT" as const },
+    { person: w.secretary, roleCode: "SECRETARY", fn: "SECRETARY" as const },
+    { person: w.homeroom, roleCode: "HOMEROOM_TEACHER" },
+    { person: w.teacher, roleCode: "TEACHER" },
+  ];
+  for (const r of roles) {
+    const p = unwrap(await addParticipant(w.deps, w.director.ctx, council.id, { roleCode: r.roleCode, staffId: r.person.staffId, ...(r.fn ? { councilFunction: r.fn } : {}) }));
+    if (options.present !== false) unwrap(await setPresence(w.deps, w.director.ctx, council.id, p.id, "PRESENT"));
+  }
+  return council;
+}
+
 /** Séance de période planifiée : président (direction), secrétaire, professeur principal, enseignant — tous présents. */
 export async function plannedCouncil(w: TestWorld, options: { scope?: "PERIOD" | "YEAR"; present?: boolean } = {}): Promise<CouncilsCouncilDto> {
   const scope = options.scope ?? "PERIOD";

@@ -35,7 +35,7 @@ export async function listEffects(tx: Tx, f: EffectFilter, page: { limit: number
 
 /** Effets à rejouer par le job : en attente ou en échec, tentatives bornées ; jamais ceux d'un humain. */
 export const listRunnableEffects = (tx: Tx, maxAttempts: number, limit: number): Promise<EffectRow[]> =>
-  tx.many<EffectRow>(`SELECT ${COLS} FROM councils.effects e WHERE e.status IN ('PENDING','FAILED') AND e.attempts < $1 ORDER BY e.updated_at, e.id LIMIT $2 FOR UPDATE SKIP LOCKED`, [maxAttempts, limit]);
+  tx.many<EffectRow>(`SELECT ${COLS} FROM councils.effects e WHERE e.status IN ('PENDING','FAILED') AND e.attempts < $1 ORDER BY e.updated_at, e.id LIMIT $2`, [maxAttempts, limit]);
 
 export async function insertEffect(tx: Tx, e: { id: string; tenantId: string; councilId: string; decisionId: string | null; proposalId: string | null; kind: string; status: "PENDING" | "AWAITING_HUMAN" }): Promise<boolean> {
   // Unique par (décision ou proposition, nature) tant qu'il est vivant : un rejeu ne crée jamais de doublon.
