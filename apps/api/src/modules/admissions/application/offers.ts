@@ -127,7 +127,9 @@ export async function declineOffer(deps: AdmissionsDeps, ctx: RequestContext, in
     const events = new EventBuffer(deps, ctx);
     events.add(AdmissionsEvents.OFFER_DECLINED, { v: 1, ...applicationRef(app), offerId: offer.id, classroomId: offer.classroomId }, { type: "offer", id: offer.id });
     events.audit({ action: "admissions.offer.decline", resourceType: "offer", resourceId: offer.id, metadata: { applicationId: app.id } });
-    await closeApplication(deps, ctx, tx, scope, events, app, "WITHDRAWN_BY_FAMILY");
+    if (!(await closeApplication(deps, ctx, tx, scope, events, app, "WITHDRAWN_BY_FAMILY"))) {
+      deps.logger.warn({ applicationId: app.id, stage: app.stageCode }, "admissions : aucune étape de clôture atteignable depuis cette étape, le dossier reste en place");
+    }
     await events.flush(tx);
     return ok({ status: "DECLINED" as const });
   });
@@ -143,7 +145,11 @@ export async function expireOffer(deps: AdmissionsDeps, ctx: RequestContext, off
     const events = new EventBuffer(deps, ctx);
     events.add(AdmissionsEvents.OFFER_EXPIRED, { v: 1, ...applicationRef(app), offerId, classroomId: offer.classroomId }, { type: "offer", id: offerId });
     events.audit({ action: "admissions.offer.expire", resourceType: "offer", resourceId: offerId, metadata: { applicationId: app.id } });
-    if (!app.anonymizedAt && app.stageCanonicalStatus === "ACCEPTED" && !app.stageCreatesEnrollment) await closeApplication(deps, ctx, tx, scope, events, app, "OFFER_EXPIRED");
+    if (!app.anonymizedAt && app.stageCanonicalStatus === "ACCEPTED" && !app.stageCreatesEnrollment) {
+      if (!(await closeApplication(deps, ctx, tx, scope, events, app, "OFFER_EXPIRED"))) {
+        deps.logger.warn({ applicationId: app.id, stage: app.stageCode }, "admissions : aucune étape de clôture atteignable depuis cette étape, le dossier reste en place");
+      }
+    }
     await events.flush(tx);
     return ok({ expired: true });
   });

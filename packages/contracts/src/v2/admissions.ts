@@ -1010,6 +1010,45 @@ export const admissionsPublicOfferRespondBodySchema = z.object({ school: admissi
 export const admissionsPublicOfferRespondDtoSchema = z.object({ status: z.enum(["ACCEPTED", "DECLINED"]), message: z.string() }).strict();
 
 // ---------------------------------------------------------------------------
+// Vues complémentaires (réponses de l'API du personnel)
+// ---------------------------------------------------------------------------
+
+export const admissionsWorkflowViewDtoSchema = admissionsWorkflowDtoSchema.extend({ defects: z.array(admissionsWorkflowDefectSchema) });
+export type AdmissionsWorkflowViewDto = z.infer<typeof admissionsWorkflowViewDtoSchema>;
+
+export const admissionsLookupsDtoSchema = z.object({
+  institutions: z.array(z.object({ id: admissionsUuidSchema, name: z.string() })),
+  gradeLevels: z.array(z.object({ code: z.string(), label: z.string() })),
+  relationships: z.array(z.object({ code: z.string(), label: z.string() })),
+});
+export type AdmissionsLookupsDto = z.infer<typeof admissionsLookupsDtoSchema>;
+
+export const admissionsClassroomDtoSchema = z.object({ id: admissionsUuidSchema, label: z.string(), institutionId: admissionsUuidSchema, academicYearId: admissionsUuidSchema, gradeLevelCode: z.string(), open: z.boolean() });
+export const admissionsClassroomListDtoSchema = z.object({ items: z.array(admissionsClassroomDtoSchema) });
+
+export const admissionsInitializeResultDtoSchema = z.object({ workflowId: admissionsUuidSchema, workflowCreated: z.boolean(), reasonsCreated: z.number().int() });
+export const admissionsDocumentUrlDtoSchema = z.object({ url: z.string(), expiresAt: admissionsInstantSchema });
+export const admissionsDeletedDtoSchema = z.object({ deleted: z.literal(true) });
+export const admissionsAnonymizeResultDtoSchema = z.object({ anonymized: z.literal(true), applicationId: admissionsUuidSchema });
+export const admissionsCreatedProspectConversionDtoSchema = z.object({ applicationId: admissionsUuidSchema, applicationNumber: z.string() });
+export const admissionsDocumentListDtoSchema = z.object({ items: z.array(admissionsApplicationDocumentDtoSchema) });
+export const admissionsInterviewListDtoSchema = z.object({ items: z.array(admissionsInterviewDtoSchema) });
+export const admissionsDuplicateListDtoSchema = z.object({ items: z.array(admissionsDuplicateDtoSchema) });
+export const admissionsProspectListDtoSchema = z.object({ items: z.array(admissionsProspectDtoSchema), total: z.number().int(), page: z.number().int(), pageSize: z.number().int() });
+export const admissionsCampaignListDtoSchema = z.object({ items: z.array(admissionsCampaignDtoSchema) });
+export const admissionsWorkflowListDtoSchema = z.object({ items: z.array(admissionsWorkflowSummaryDtoSchema) });
+export const admissionsPriorityClassListDtoSchema = z.object({ items: z.array(admissionsPriorityClassDtoSchema) });
+export const admissionsDecisionReasonListDtoSchema = z.object({ items: z.array(admissionsDecisionReasonDtoSchema) });
+export const admissionsConsentTextListDtoSchema = z.object({ items: z.array(admissionsConsentTextDtoSchema) });
+export const admissionsDocumentRequirementListDtoSchema = z.object({ items: z.array(admissionsDocumentRequirementDtoSchema) });
+export const admissionsExportDtoSchema = z.object({
+  exportedAt: admissionsInstantSchema,
+  application: admissionsApplicationDetailDtoSchema,
+  history: admissionsHistoryDtoSchema,
+  notifications: z.array(z.object({ templateCode: z.string(), channel: z.string(), status: z.string(), queuedAt: admissionsInstantSchema })),
+});
+
+// ---------------------------------------------------------------------------
 // Événements (payload `{ v: 1, … }`, sans donnée personnelle)
 // ---------------------------------------------------------------------------
 
