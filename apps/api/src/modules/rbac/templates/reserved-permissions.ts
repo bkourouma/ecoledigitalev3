@@ -5,10 +5,10 @@
  * contre le catalogue RÉEL des manifestes. Une clé sans correspondance est « en attente »
  * (`rbac.role_pending_permissions`) : tolérée à l'exécution (module pas encore livré), re-résolue à la
  * prochaine `syncRbac`. Jusqu'ici un test refusait TOUT motif en attente (une faute de frappe ne devait
- * jamais passer en silence). ÉTAT : `primary_school` (005), `schoollife` et `stateassign` (006), `admissions` (007) et
- * `examinations` (018) sont LIVRÉS (leurs permissions sont déclarées par leur manifeste, donc retirées d'ici) ; seul
- * reste `councils` (conseils de classe, spec 006). Les packs livrent leurs
- * modules APRÈS les rôles qui les concernent : ce fichier est l'exception explicite et bornée.
+ * jamais passer en silence). ÉTAT : `primary_school` (005), `schoollife` et `stateassign` (006), `admissions` (007),
+ * `examinations` (018) et `councils` (006) sont LIVRÉS (leurs permissions sont déclarées par leur manifeste, donc
+ * retirées d'ici) : la liste est VIDE. Si un futur module est livré APRÈS les rôles qui le concernent, ce fichier est
+ * l'exception explicite et bornée.
  *
  * Règles (vérifiées par `test/reserved-permissions.test.ts` et `test/system-roles.test.ts`) :
  *   1. un motif en attente HORS de cette liste fait échouer les tests (faute de frappe, renommage) ;
@@ -38,54 +38,20 @@ export interface ReservedPermission {
   readonly sensitive: boolean;
 }
 
-export type ReservedModule = "councils";
+/** Clé de module (`manifest.key`) ; plus aucun module n'est « à venir » : la liste est vide mais le mécanisme reste. */
+export type ReservedModule = string;
 
-export const RESERVED_MODULES: readonly ReservedModule[] = Object.freeze(["councils"]);
+export const RESERVED_MODULES: readonly ReservedModule[] = Object.freeze<ReservedModule[]>([]);
 
-const SPEC_SECONDARY = "specs/v2/006-secondary/spec.md §10";
-
-function reserved(module: ReservedModule, spec: string, keys: readonly string[], sensitiveKeys: readonly string[] = []): ReservedPermission[] {
+/** Fabrique d'entrées pour le PROCHAIN module livré après ses rôles (inutilisée tant que la liste est vide). */
+export function reserved(module: ReservedModule, spec: string, keys: readonly string[], sensitiveKeys: readonly string[] = []): ReservedPermission[] {
   return keys.map((key) => ({ key, module, spec, sensitive: sensitiveKeys.includes(key) }));
 }
 
 export const RESERVED_FOR_UPCOMING_MODULES: readonly ReservedPermission[] = Object.freeze<ReservedPermission[]>([
-  // `primary_school`, `schoollife`, `stateassign`, `admissions` et `examinations` sont LIVRÉS : leurs permissions sont
-  // déclarées par leurs manifestes et ne figurent plus ici. Reste le module `councils`.
-
-  // ----- Pack Secondary : conseils de classe (module `councils`, spec 006) ---------------------------
-  ...reserved(
-    "councils",
-    SPEC_SECONDARY,
-    [
-      "council.read",
-      "council.manage",
-      "council.prepare",
-      "council.session.run",
-      "council.proposal.write",
-      "council.decision.record",
-      "council.minutes.generate",
-      "council.minutes.read",
-      "council.minutes.sign",
-      "council.unlock.request",
-      "council.effect.manage",
-      "council.exclusion.apply",
-      "council.settings.manage",
-      "council.orientation.read",
-      "council.orientation.manage",
-      "council.orientation.override",
-      "council.self.read",
-      "council.child.read",
-    ],
-    [
-      "council.session.run",
-      "council.decision.record",
-      "council.minutes.sign",
-      "council.exclusion.apply",
-      "council.settings.manage",
-      "council.orientation.override",
-    ],
-  ),
-
+  // TOUS les modules sont livrés (`primary_school`, `schoollife`, `stateassign`, `admissions`, `examinations`,
+  // `councils`) : leurs permissions sont déclarées par leurs manifestes et ne figurent plus ici. La liste est vide ;
+  // un futur module livré APRÈS les rôles qui le concernent y ajoute ses entrées avec `reserved(...)`.
 ]);
 
 export const RESERVED_PERMISSION_KEYS: ReadonlySet<string> = new Set(RESERVED_FOR_UPCOMING_MODULES.map((r) => r.key));
