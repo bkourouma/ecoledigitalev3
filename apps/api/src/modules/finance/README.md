@@ -177,6 +177,7 @@ Contexte : `request.ctx` posé en amont (iam / authentification historique). Per
 | `GET /exports/invoices\|payments\|receivables` (CSV complet) et `…/meta` (JSON) | `finance.invoice.read` / `finance.payment.read` / `finance.report.read` |
 | `GET /me/learners`, `GET /me/learners/:learnerId/statement\|invoices[/:id]\|installments\|payments[/:id]\|receipts[/:id]` | `finance.child.read` (parent) ou `finance.self.read` (élève) + **propriété** relue côté serveur |
 | `POST /me/learners/:learnerId/payments/online`, `POST /me/learners/:learnerId/payments/:id/verify` *(feature `finance.online-payment`)* | `finance.child.pay` (parent) ou `finance.self.pay` (élève) + propriété |
+| `GET /receipts/:id/pdf` (PDF du reçu), `GET /me/learners/:learnerId/receipts/:id/pdf` (famille) | `finance.receipt.read` ; `finance.child.read` / `finance.self.read` + propriété |
 | `POST /webhooks/:provider/:tenantId` | publique (signature) |
 
 Contrats Zod : `packages/contracts/src/v2/finance.ts` (réexportés par `v2/index.ts`). Entrées : montants entiers ou
@@ -200,6 +201,29 @@ Un parent lit la situation financière de SES enfants, un élève la sienne ; le
   (`fam:` + SHA-256 de `userId + clé`) : la clé d'un parent ne rejoue ni ne heurte le paiement d'un autre compte. Le paiement porte `created_by` = le compte
   initiateur ; l'initiation est auditée (`finance.payment.family_initiated`, relation `SELF` ou `GUARDIAN`). `verify` interroge le fournisseur pour un paiement
   en attente de l'apprenant lié.
+
+## PDF des reçus
+
+Le reçu est un snapshot IMMUABLE (déclencheur SQL) : `GET /receipts/:id/pdf` (gestion) et `GET /me/learners/:learnerId/receipts/:id/pdf`
+(famille : même contrôle de propriété, reçu d'un financeur ou d'un autre apprenant = 404 uniforme) le confient au module `reportcards`
+par le port `documents` (`platform/adapters/finance-reportcards.ts`) : contenu figé (`domain/receipt-document.ts`, nom de l'apprenant lu dans
+`people` et FIGÉ à la première demande) -> scellement (hash SHA-256 du JSON canonique, code de vérification de 128 bits, signature Ed25519)
+-> rendu par le worker (Chromium, JavaScript coupé, réseau coupé) depuis ce contenu seul -> stockage objet -> **page publique de
+vérification** (`/v/<code>`, QR imprimé sur le PDF ; code et fichier reconnus, aucune donnée personnelle publiée : le titre ne porte que le
+numéro du reçu). Réponses : `200` PDF (`Cache-Control: private, no-store`, `X-Document-Verification-Code`), `202` + `Retry-After` pendant le
+rendu (1re demande : le document est scellé et le rendu publié), `409 finance.document_render_failed` si le rendu a échoué définitivement
+(la demande suivante le redemande), `409 reportcards.branding_missing` sans identité d'établissement, `500 finance.port_unavailable` si le
+service de documents n'est pas branché. Chaque téléchargement abouti est audité (`finance.receipt.downloaded`). Variables : voir
+`reportcards/README.md` (`REPORTCARDS_SIGNING_KEY`, `REPORTCARDS_VERIFICATION_BASE_URL`, stockage objet).
+
+## Clés libres des barèmes (`levelKey`, `trackKey`, `learnerType`)
+
+Finance ne les interprète pas ; leur SENS est fixé par l'adaptateur d'inscriptions d'`academic` (`createEnrollmentDirectory`, branché par
+`platform/adapters/directories-finance.ts`) : `levelKey` = code du niveau de la classe (ex. `L1`), `trackKey` = code du programme (ex. `INFO`),
+`learnerType` = code du type de FINANCEMENT de l'inscription (`PRIVATE`, `STATE_ASSIGNED`, `SCHOLARSHIP`, `COMPANY`, `STAFF_CHILD`, `OTHER` : le
+même vocabulaire des deux côtés), `groupKey` = classe, `academicYear` = code de l'année. Le barème se résout depuis l'inscription (le plus
+spécifique gagne) ; une portée explicite de la demande prime clé par clé, une clé absente retombe sur l'inscription ; la sonde de frais
+d'inscription d'`academic` dérive le MÊME périmètre. Test : `apps/api/test/adapters/fee-scope.integration.test.ts` (vraies inscriptions).
 
 ## Exports CSV serveur
 

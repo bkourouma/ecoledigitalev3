@@ -256,7 +256,9 @@ Chaque module déclare des **ports** (ce qu'il attend de ses voisins) et échoue
 | `people-higher`, `people-reportcards` | people/iam -> higher, reportcards | `StudentDirectory`, `ActorDirectory`, `GuardianshipPort`, `UserDirectoryPort` |
 | `directories-finance` | people, academic -> finance | `LearnerDirectory` (un apprenant inconnu est refusé), `EnrollmentDirectory` |
 | `finance-academic` | finance -> academic | `InvoiceFactsReader`, `RegistrationFeeProbe` : **confirmation automatique de l'inscription** après paiement des frais d'inscription (décision métier du 2026-10-01) |
-| `finance-reportcards` | finance -> reportcards | `LearnerStandingPort` (impayé exigible, sans montant) |
+| `finance-reportcards` | finance -> reportcards ; reportcards -> finance | `LearnerStandingPort` (impayé exigible, sans montant) ; `ReceiptDocumentPort` (PDF du reçu : scellement, rendu par le worker, vérification publique) |
+| `payroll-reportcards` | reportcards -> payroll | `PayslipDocumentPort` (PDF du bulletin de paie versé) |
+| `people-finance` | people -> finance | `GuardianshipPort` (lien de tutelle / identité de l'élève : routes famille `/finance/me/*`, relu à chaque requête) |
 | `attendance-reportcards` | attendance -> reportcards | `AttendanceSummaryPort` (minutes justifiées / non justifiées, retards) |
 | `scheduling-attendance` | scheduling <-> attendance | `OccurrencePort` ; `AttendanceQuery` (l'appel est-il soumis ?) |
 | `payroll-sources` | scheduling, attendance -> payroll | `HoursSourcePort` d'origine SESSION (heures payables, **gel atomique** par bulletin) et ATTENDANCE |

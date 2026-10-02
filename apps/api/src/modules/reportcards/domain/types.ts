@@ -15,7 +15,7 @@ export type IsoInstant = string;
 export type { ReportcardExplain, ReportcardSnapshot, ReportcardSnapshotLine };
 
 export type DocumentKind = "REPORT_CARD" | "TRANSCRIPT";
-export type TemplateDocumentKind = DocumentKind | "DIPLOMA" | "ATTESTATION_SUCCESS" | "ATTESTATION_AUTHENTICITY" | "PAYSLIP";
+export type TemplateDocumentKind = DocumentKind | "DIPLOMA" | "ATTESTATION_SUCCESS" | "ATTESTATION_AUTHENTICITY" | "PAYSLIP" | "RECEIPT";
 export type Scope = "PERIOD" | "YEAR" | "CUMULATIVE";
 export type CardStatus = "ISSUED" | "PUBLISHED" | "SUPERSEDED" | "REVOKED";
 export type RenderStatus = "PENDING" | "RENDERING" | "RENDERED" | "FAILED";

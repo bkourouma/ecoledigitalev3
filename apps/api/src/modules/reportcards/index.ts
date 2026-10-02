@@ -109,6 +109,22 @@ export {
 
 // Port générique de scellement / rendu pour 019 (diplômes, attestations) et 032 (bulletin de paie)
 export { registerVerificationFor, renderDocumentPdf, sealDocument, type RenderDocumentInput, type SealedDocument } from "./application/documents";
+// Documents officiels d'autres modules : reçu de paiement (finance), bulletin de paie (payroll)
+export {
+  OFFICIAL_RENDER_ATTEMPTS,
+  getOfficialDocumentRecord,
+  readOfficialDocument,
+  renderOfficialDocument,
+  requestOfficialDocument,
+  requestOfficialDocumentRender,
+  sweepPendingOfficialDocuments,
+  type OfficialDocumentFile,
+  type OfficialDocumentRecord,
+  type OfficialDocumentRequestResult,
+  type OfficialRenderOutcome,
+  type RequestOfficialDocumentInput,
+} from "./application/official-documents";
+export { OFFICIAL_DOCUMENT_KINDS, isOfficialDocumentKind, type OfficialDocumentKind } from "./domain/constants";
 
 // Domaine : événements, codes d'erreur, canonisation, signature, QR, moteur de gabarit
 export { ALL_REPORTCARDS_EVENT_TYPES, ConsumedEvents, ReportcardsEvents } from "./domain/events";

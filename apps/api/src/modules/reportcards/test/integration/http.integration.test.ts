@@ -329,7 +329,7 @@ describeIntegration("API HTTP /api/v1/reportcards/* (Fastify + Postgres réel)",
 
     it("modèles : catalogue publié, configuration validée par le schéma du gabarit, aperçu sur données FICTIVES", async () => {
       const templates = ok(await call(director, "GET", "/templates"));
-      expect(templates.items.map((t: any) => t.key).sort()).toEqual(["higher-bulletin-coef", "higher-bulletin-credits", "primary-bulletin", "secondary-bulletin", "transcript-credits"]);
+      expect(templates.items.map((t: any) => t.key).sort()).toEqual(["higher-bulletin-coef", "higher-bulletin-credits", "payslip-standard", "primary-bulletin", "receipt-standard", "secondary-bulletin", "transcript-credits"]);
       for (const t of templates.items) expect(reportcardsTemplateDtoSchema.safeParse(t).success).toBe(true);
       const sig = ok(await call(director, "GET", "/signatories")).items.find((s: any) => s.active).id;
       const cfg = ok(await call(director, "PUT", "/template-configs", { documentKind: "REPORT_CARD", pack: "SECONDARY", templateKey: "secondary-bulletin", options: { showRank: false, watermark: "COPIE" }, signatureAssignments: [{ slot: "director", signatoryId: sig }] }));

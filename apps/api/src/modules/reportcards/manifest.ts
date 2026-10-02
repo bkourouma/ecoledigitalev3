@@ -80,6 +80,7 @@ export default defineModule({
       ReportcardsEvents.SNAPSHOT_CREATED,
       ReportcardsEvents.RENDER_REQUESTED,
       ReportcardsEvents.BATCH_COMPLETED,
+      ReportcardsEvents.OFFICIAL_RENDER_REQUESTED,
     ],
   },
 });

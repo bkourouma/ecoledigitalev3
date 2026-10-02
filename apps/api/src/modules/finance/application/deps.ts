@@ -26,6 +26,7 @@ import { PgOutboxWriter, isUniqueViolation, type TenantDb, type Tx } from "@ecol
 import { DEFAULT_ALLOCATION_ORDER, type AllocationOrder } from "../domain/types";
 import { noopAudit, type AuditEntry, type AuditPort } from "./ports/audit";
 import { noEnrollments, passThroughLearners, type EnrollmentDirectory, type LearnerDirectory } from "./ports/directories";
+import { unavailableReceiptDocuments, type ReceiptDocumentPort } from "./ports/documents";
 import { denyAllGuardianship, type GuardianshipPort } from "./ports/guardianship";
 import { createProviderRegistry, type AppEnvironment, type ProviderRegistry } from "../infrastructure/providers/registry";
 
@@ -66,6 +67,8 @@ export interface FinanceDeps {
   readonly enrollments: EnrollmentDirectory;
   /** Lien de tutelle / identité de l'élève (routes famille `/me/*`) : refuse tout tant qu'il n'est pas branché. */
   readonly guardianship: GuardianshipPort;
+  /** Rendu PDF des reçus (module reportcards) : indisponible tant qu'il n'est pas branché. */
+  readonly documents: ReceiptDocumentPort;
   readonly config: FinanceConfig;
   readonly newId: () => string;
   readonly logger: Logger;
@@ -79,11 +82,12 @@ export interface FinanceDepsInput {
   learners?: LearnerDirectory;
   enrollments?: EnrollmentDirectory;
   guardianship?: GuardianshipPort;
+  documents?: ReceiptDocumentPort;
   config?: Partial<FinanceConfig>;
   newId?: () => string;
   logger?: Logger;
   /** Annuaires branchés après la construction (adaptateurs de plateforme) : lus à chaque accès, prioritaires sur `learners` / `enrollments`. */
-  portsProvider?: () => Partial<{ learners: LearnerDirectory; enrollments: EnrollmentDirectory; guardianship: GuardianshipPort }>;
+  portsProvider?: () => Partial<{ learners: LearnerDirectory; enrollments: EnrollmentDirectory; guardianship: GuardianshipPort; documents: ReceiptDocumentPort }>;
 }
 
 /**
@@ -106,6 +110,9 @@ export function createFinanceDeps(input: FinanceDepsInput): FinanceDeps {
     },
     get guardianship() {
       return input.portsProvider?.().guardianship ?? input.guardianship ?? denyAllGuardianship;
+    },
+    get documents() {
+      return input.portsProvider?.().documents ?? input.documents ?? unavailableReceiptDocuments;
     },
     config,
     newId: input.newId ?? newId,

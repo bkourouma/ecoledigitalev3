@@ -17,6 +17,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from "fastify";
 import { ZodError, type ZodTypeAny, type z } from "zod";
 import {
+  ConflictError,
   ForbiddenError,
   Money,
   UnauthorizedError,
@@ -124,6 +125,8 @@ import {
   type FamilyAction,
   type PermissionProbe,
 } from "../application/family";
+import type { OfficialDocumentState } from "../application/ports/documents";
+import { getReceiptPdf } from "../application/receipt-document";
 import { createFinancePortRegistry, type FinancePortRegistry, type FinancePortSet } from "../application/port-registry";
 import { financeAuditAdapter } from "../infrastructure/audit-adapter";
 import { createProviderRegistry, EnvProviderConfigSource, type AppEnvironment } from "../infrastructure/providers/registry";
@@ -662,6 +665,12 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
         const { id } = parse(financeIdParamsSchema, req.params);
         return present.receiptDto(unwrapOrThrow(await getReceiptById(deps, ctxOf(req), id)));
       });
+      scope.get("/receipts/:id/pdf", { preHandler: perm("finance.receipt.read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const { id } = parse(financeIdParamsSchema, req.params);
+        const receipt = unwrapOrThrow(await getReceiptById(deps, ctx, id));
+        return sendDocument(reply, unwrapOrThrow(await getReceiptPdf(deps, ctx, receipt, "STAFF")));
+      });
       scope.get("/payments/:id/receipt", { preHandler: perm("finance.receipt.read") }, async (req) => {
         const { id } = parse(financeIdParamsSchema, req.params);
         return present.receiptDto(unwrapOrThrow(await getReceiptOfPayment(deps, ctxOf(req), id)));
@@ -727,6 +736,13 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
         const access = await familyAccess(req, reply, "read");
         const { id } = parse(financeFamilyItemParamsSchema, req.params);
         return present.receiptDto(unwrapOrThrow(await getFamilyReceipt(deps, ctx, access, id)));
+      });
+      scope.get("/me/learners/:learnerId/receipts/:id/pdf", { preHandler: familyGuard("read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const access = await familyAccess(req, reply, "read");
+        const { id } = parse(financeFamilyItemParamsSchema, req.params);
+        const receipt = unwrapOrThrow(await getFamilyReceipt(deps, ctx, access, id));
+        return sendDocument(reply, unwrapOrThrow(await getReceiptPdf(deps, ctx, receipt, access.relation === "SELF" ? "SELF" : "GUARDIAN")));
       });
       scope.post("/me/learners/:learnerId/payments/online", { preHandler: familyGuard("pay", "finance.online-payment") }, async (req, reply) => {
         const ctx = ctxOf(req);
@@ -887,6 +903,27 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
     },
     { prefix: options.prefix ?? FINANCE_ROUTES_PREFIX },
   );
+}
+
+/** Délai suggéré avant de redemander un PDF dont le rendu est en cours (secondes). */
+const DOCUMENT_RETRY_AFTER_SECONDS = 3;
+
+/** PDF prêt : 200 + pièce jointe, jamais mis en cache ; en cours : 202 + `Retry-After` ; rendu définitivement échoué : 409. */
+function sendDocument(reply: FastifyReply, state: OfficialDocumentState) {
+  if (state.status === "RENDERED" && state.bytes) {
+    return reply
+      .status(200)
+      .header("Content-Type", "application/pdf")
+      .header("Content-Disposition", `attachment; filename="${state.fileName}"`)
+      .header("Cache-Control", "private, no-store")
+      .header("X-Content-Type-Options", "nosniff")
+      .header("X-Document-Verification-Code", state.verificationCode)
+      .send(Buffer.from(state.bytes));
+  }
+  if (state.status === "FAILED") {
+    throw new ConflictError("Le rendu du document a échoué ; réessayez dans quelques instants.", { code: "finance.document_render_failed" });
+  }
+  return reply.status(202).header("Retry-After", String(DOCUMENT_RETRY_AFTER_SECONDS)).send({ status: state.status, retryAfterSeconds: DOCUMENT_RETRY_AFTER_SECONDS });
 }
 
 function maybeFastifyValidation(error: unknown): unknown {

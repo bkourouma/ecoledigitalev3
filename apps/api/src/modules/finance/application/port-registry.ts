@@ -5,6 +5,7 @@
  * Un registre par application Fastify (`app.financePorts`, posé par `setup`).
  */
 import type { EnrollmentDirectory, LearnerDirectory } from "./ports/directories";
+import type { ReceiptDocumentPort } from "./ports/documents";
 import type { GuardianshipPort } from "./ports/guardianship";
 
 export interface FinancePortSet {
@@ -12,6 +13,8 @@ export interface FinancePortSet {
   enrollments: EnrollmentDirectory;
   /** Lien de tutelle / identité de l'élève (people) : routes famille. Non branché : aucun accès. */
   guardianship: GuardianshipPort;
+  /** Rendu PDF des reçus (reportcards). Non branché : téléchargement indisponible (`finance.port_unavailable`). */
+  documents: ReceiptDocumentPort;
 }
 
 export interface FinancePortRegistry {

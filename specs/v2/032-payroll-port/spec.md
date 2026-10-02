@@ -19,9 +19,9 @@
 > 4. **Sources d'heures par pack (Q-36)** : par les features `payroll.session-source` (HIGHER, VIRTUAL) et `payroll.attendance-source` (PRIMARY, SECONDARY) ; la colonne `settings.hour_source_by_pack` est supprimée.
 > 5. **AC6.8** : le seuil propriétaire se lit via la permission `payroll.payslip.approve_owner` (sensible), jamais un rôle codé en dur ; la séparation des tâches et le seuil sont aussi imposés par le trigger `payslips_guard`.
 > 6. **Motifs d'écart** ajoutés : `NOTHING_TO_PAY` (tout est déjà payé), `ALREADY_CALCULATED` (bulletin calculé et pas de `recalculate`). Le multiplicateur d'une ligne peut valoir ×1,0 (1 000 ‰). Une période d'**un seul jour** est licite.
-> 7. **AC8.1/8.3** : l'enseignant lit ses bulletins **une fois le montant arrêté** (APPROVED, DISPUTED, PAID) ; le brouillon calculé reste réservé à la gestion. `/payslips/:id/pdf` est remplacé par `/payslips/:id/data` (snapshot figé + empreinte) tant que le rendu PDF (013/worker) n'existe pas.
+> 7. **AC8.1/8.3** : l'enseignant lit ses bulletins **une fois le montant arrêté** (APPROVED, DISPUTED, PAID) ; le brouillon calculé reste réservé à la gestion. `/payslips/:id/data` fournit le snapshot figé + son empreinte (aperçu imprimable, filigrane « NON VERSÉ ») ; **`/payslips/:id/pdf` et `/my/payslips/:id/pdf` livrent le PDF OFFICIEL d'un bulletin VERSÉ** (rendu par `reportcards`/le worker, scellé, QR de vérification publique ; 404 uniforme pour le bulletin d'autrui ; 409 `payroll.payslip_not_paid` avant versement) — voir `apps/api/src/modules/payroll/README.md` § « PDF du bulletin de paie ».
 > 9. **Contestation par le titulaire (AC6.9)** : `POST /my/payslips/:id/dispute` (permission `payroll.my.dispute`, non sensible, portée par les rôles système `enseignant` et `personnel`) — voir §4 AC6.9.
-> 8. **Reporté** : vue d'ensemble `GET /staff` (US9), notification e-mail (événements `payroll.payslip.approved|paid|notification_requested` publiés pour 016), rendu PDF.
+> 8. **Reporté** : vue d'ensemble `GET /staff` (US9), notification e-mail (événements `payroll.payslip.approved|paid|notification_requested` publiés pour 016). Le rendu PDF est livré (voir le point 7).
 
 ## 1. Objectifs
 

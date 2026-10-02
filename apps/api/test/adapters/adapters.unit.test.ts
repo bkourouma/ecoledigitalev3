@@ -215,9 +215,9 @@ describe("complétude des ports branchés par la plateforme", () => {
     expect(keys(withStorage.attendance)).toEqual(keys(unavailableAttendancePorts()).filter((k) => k !== "alertPolicy"));
     // higher : le port des règles est branché par défaut sur le module rules.
     expect(keys(withStorage.higher)).toEqual(keys(unavailableHigherPorts()).filter((k) => k !== "rules"));
-    expect(keys(withStorage.payroll)).toEqual(["attendanceHours", "curriculum", "sessionHours", "staff"]);
+    expect(keys(withStorage.payroll)).toEqual(["attendanceHours", "curriculum", "documents", "sessionHours", "staff"]);
     expect(keys(withStorage.scheduling)).toEqual(["academic", "attendance", "people"]);
-    expect(keys(withStorage.finance)).toEqual(["enrollments", "learners"]);
+    expect(keys(withStorage.finance)).toEqual(["documents", "enrollments", "guardianship", "learners"]);
     expect(keys(withStorage.people)).toEqual(["academic", "storage"]);
     expect(keys(withStorage.reportcards)).toEqual(["attendance", "directory", "guardianship", "results", "standing", "storage"]);
     expect(keys(withStorage.academic)).toEqual(["completion", "guardianship", "invoiceFacts", "readiness", "registrationFee", "schedule", "students", "usageGuard"]);

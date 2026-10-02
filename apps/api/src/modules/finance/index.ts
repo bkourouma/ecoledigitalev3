@@ -49,6 +49,9 @@ export type {
   ProviderWebhookEvent,
 } from "./application/ports/payment-provider";
 export { denyAllGuardianship, InMemoryGuardianship, type GuardianshipPort } from "./application/ports/guardianship";
+export { unavailableReceiptDocuments, type OfficialDocumentInput, type OfficialDocumentState, type OfficialDocumentStatus, type ReceiptDocumentPort } from "./application/ports/documents";
+export { getReceiptPdf, type ReceiptPdfAudience } from "./application/receipt-document";
+export { buildReceiptDocument, type ReceiptDocument } from "./domain/receipt-document";
 export { FAMILY_PERMISSIONS, familyIdempotencyKey, type FamilyAccess, type FamilyAction, type FamilyRelation } from "./application/family";
 export type { EnrollmentRef, LearnerRef } from "./domain/refs";
 

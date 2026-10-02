@@ -71,11 +71,22 @@ Chemins statiques déclarés avant les chemins paramétrés. Aucune route de pur
 | `GET /history`, `GET /history/export` | `payroll.payslip.read` |
 | `GET /reports/summary`, `GET /reports/export` | `payroll.report.read` |
 | `GET /my/payslips`, `GET /my/payslips/:id` (identité dérivée du compte) | `payroll.payslip.read_own` |
+| `GET /payslips/:id/pdf` (gestion ou titulaire), `GET /my/payslips/:id/pdf` (titulaire seulement) | `payroll.payslip.read` ou `.read_own` ; `payroll.payslip.read_own` |
 | `POST /my/payslips/:id/dispute` `{ reason }` — l'enseignant conteste SON bulletin | `payroll.my.dispute` (sans `payroll.payslip.approve`) |
 | `GET /owner/mass`, `POST /owner/payslips/:id/validate` | `payroll.report.read` / `.approve` + feature `payroll.owner-validation` |
 
-Le rendu PDF passe plus tard par `reportcards`/le worker : `GET /payslips/:id/data` fournit le **snapshot** figé à l'arrêt du montant
+Le rendu PDF passe par `reportcards`/le worker (voir « PDF du bulletin de paie ») : `GET /payslips/:id/data` fournit le **snapshot** figé à l'arrêt du montant
 (`final`, `watermark` « NON VERSÉ » tant que non payé, empreinte SHA-256 vérifiée).
+
+### PDF du bulletin de paie
+
+`GET /payslips/:id/pdf` et `GET /my/payslips/:id/pdf` : mêmes règles d'accès que `/data` (gestion, ou titulaire d'un bulletin arrêté) mais le bulletin
+d'autrui, inconnu ou illisible répond une **404 uniforme** (aucun oracle d'existence). Le PDF OFFICIEL n'existe que pour un bulletin **versé**
+(`PAID`) : avant, `409 payroll.payslip_not_paid` (l'aperçu imprimable `/data`, filigrane « NON VERSÉ », reste disponible). Le contenu scellé
+(`domain/payslip-document.ts`) est le snapshot immuable posé à l'arrêt du montant + le versement (empreinte du snapshot de paie incluse) ; le titre
+publié par la vérification ne porte que la période. Rendu, stockage, QR et vérification publique : `reportcards` (port `documents`, adaptateur
+`platform/adapters/payroll-reportcards.ts`). Réponses : `200` PDF, `202` + `Retry-After` en cours de rendu, `409 payroll.document_render_failed`,
+`409 payroll.port_unavailable` si le service de documents n'est pas branché. Chaque téléchargement abouti est audité (`payroll.payslip.pdf_downloaded`).
 
 ### Contestation par le titulaire (`payroll.my.dispute`)
 

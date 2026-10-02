@@ -18,7 +18,9 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { encodeQr, qrToSvg } from "../../domain/qr";
 import { renderDocumentHtml } from "../../domain/document-html";
 import { PuppeteerPdfRenderer, findChromeExecutable, findPuppeteerCachedChrome } from "../../infrastructure/puppeteer-renderer";
-import { ALL_BUILTIN_KEYS, FIXED_ISSUED_AT, snapshotFor } from "../support/fixtures";
+import { ALL_BUILTIN_KEYS, FIXED_ISSUED_AT, OFFICIAL_BUILTIN_KEYS, officialContext, snapshotFor } from "../support/fixtures";
+import { BUILTIN_TEMPLATES } from "../../templates/builtin";
+import { renderContextHtml } from "../../domain/document-html";
 import { PNG_1X1 } from "../support/world";
 
 const chrome = findChromeExecutable() ?? findPuppeteerCachedChrome();
@@ -62,6 +64,27 @@ describeChrome("rendu PDF réel (Chromium)", () => {
       expect(doc.getCreationDate()?.toISOString()).toBe(FIXED_ISSUED_AT.toISOString());
       expect(doc.getModificationDate()?.toISOString()).toBe(FIXED_ISSUED_AT.toISOString());
       expect(doc.getPage(0).getSize().width).toBeCloseTo(595.28, 0); // A4
+    });
+  }
+
+  for (const key of OFFICIAL_BUILTIN_KEYS) {
+    it(`${key} (document officiel d'un autre module) : 1 page, texte, QR, métadonnées d'émission, ≤ 300 Ko, déterministe`, async () => {
+      const t = BUILTIN_TEMPLATES.find((x) => x.key === key)!;
+      const ctx = officialContext(key);
+      const html = renderContextHtml({ template: { body: t.body, css: t.css }, context: ctx, title: String(ctx.title), colors: { primary: "#14532D", secondary: "#5b7aa3" }, qrSvg: verification.qrSvg, provisional: false, assets: { logo: `data:image/png;base64,${PNG_1X1.toString("base64")}` } });
+      const out = await renderer.render({ html, title: String(ctx.title), issuedAt: FIXED_ISSUED_AT });
+      expect(out.pages).toBe(1);
+      expect(out.pdf.length).toBeLessThan(300 * 1024);
+      const text = await textOf(out.pdf);
+      expect(text).toContain("ÉTABLISSEMENT DE DÉMONSTRATION");
+      expect(text).toContain("KOUASSI Aya Fictive");
+      expect(text).toContain(`Code : ABCDEFGHIJKLMNOPQRSTUVWXYZ`);
+      expect(text).toContain(key === "receipt-standard" ? "25 000 F CFA" : "280 000 F CFA");
+      const doc = await PDFDocument.load(out.pdf, { updateMetadata: false });
+      expect(doc.getTitle()).toBe(String(ctx.title));
+      expect(doc.getCreationDate()?.toISOString()).toBe(FIXED_ISSUED_AT.toISOString());
+      const again = await renderer.render({ html, title: String(ctx.title), issuedAt: FIXED_ISSUED_AT });
+      expect(Buffer.from(again.pdf).equals(Buffer.from(out.pdf))).toBe(true);
     });
   }
 

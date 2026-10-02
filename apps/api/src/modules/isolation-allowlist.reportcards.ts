@@ -60,6 +60,7 @@ export const reportcardsTenantTables: readonly string[] = Object.freeze([
   "reportcards.batch_items",
   "reportcards.verification_events",
   "reportcards.access_log",
+  "reportcards.official_documents",
 ]);
 
 export const reportcardsIsolationAllowlistTables: readonly string[] = Object.freeze(entries.map((e) => e.table));
