@@ -461,8 +461,8 @@
     "audit": {
       "title": "Journal de plateforme",
       "description": "Actions des opérateurs : provisionnement, statuts, plans, abonnements et dérogations.",
-      "unavailableTitle": "Le journal de plateforme n'est pas encore consultable",
-      "unavailableBody": "L'API n'expose pas encore la lecture du journal de plateforme. Les actions sont bien enregistrées ; leur consultation arrivera avec la route de lecture correspondante.",
+      "unavailableTitle": "Le journal de plateforme n'est pas disponible sur ce serveur",
+      "unavailableBody": "Ce serveur ne répond pas à la lecture du journal de plateforme (version de l'API antérieure à la route de lecture). Les actions sont bien enregistrées ; mettez l'API à jour pour les consulter.",
       "caption": "Entrées du journal de plateforme",
       "empty": "Aucune entrée dans le journal de plateforme."
     }
