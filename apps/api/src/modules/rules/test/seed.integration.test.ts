@@ -35,7 +35,7 @@ describeIntegration("données de départ du catalogue national", () => {
     const report = await ensureNationalCatalog(world.deps);
     expect(report.created.sort()).toEqual(SEED_LABELS);
 
-    const rows = await adminRows<{ code: string; status: string; definition_hash: string; contract_id: string; effective_from: string; approved_by: string; source_kind: string; rules: string }>(
+    const rows = await adminRows<{ code: string; version: number; status: string; definition_hash: string; contract_id: string; effective_from: string; approved_by: string; source_kind: string; rules: string }>(
       db,
       `SELECT s.code, v.version, v.status, v.definition_hash, v.contract_id, to_char(v.effective_from, 'YYYY-MM-DD') AS effective_from, v.approved_by, v.source_kind,
               (SELECT count(*) FROM rules.national_rule_definitions d WHERE d.rule_version_id = v.id)::text AS rules
