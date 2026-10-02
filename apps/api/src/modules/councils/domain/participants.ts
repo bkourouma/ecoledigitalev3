@@ -8,7 +8,7 @@
 export interface StaffAssignment {
   readonly staffId: string;
   readonly displayName: string;
-  /** Rôle d'affectation de `people` (`HOMEROOM`, `TEACHER`, `SUPERVISOR`…). */
+  /** Rôle d'affectation de `people` (`HOMEROOM`, `LEAD`, `CO_TEACHER`, `SUBSTITUTE`, `SUPERVISOR`). */
   readonly assignmentRole: string;
   readonly coversAllSubjects?: boolean;
 }
@@ -22,7 +22,7 @@ export interface ProposedParticipant {
 }
 
 /** Correspondance rôle d'affectation → code de rôle de participant (donnée de structure, adaptable par l'établissement). */
-export const DEFAULT_ASSIGNMENT_ROLE_MAP: Readonly<Record<string, string>> = Object.freeze({ HOMEROOM: "HOMEROOM_TEACHER", TEACHER: "TEACHER" });
+export const DEFAULT_ASSIGNMENT_ROLE_MAP: Readonly<Record<string, string>> = Object.freeze({ HOMEROOM: "HOMEROOM_TEACHER", LEAD: "TEACHER", CO_TEACHER: "TEACHER" });
 
 export function proposeParticipants(assignments: readonly StaffAssignment[], activeRoleCodes: ReadonlySet<string>, roleMap: Readonly<Record<string, string>> = DEFAULT_ASSIGNMENT_ROLE_MAP): ProposedParticipant[] {
   const byStaff = new Map<string, ProposedParticipant>();

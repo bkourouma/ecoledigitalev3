@@ -102,15 +102,15 @@ describe("participants proposés", () => {
   it("le professeur principal prime, les rôles n'existent que s'ils sont actifs chez l'établissement, aucune fonction n'est proposée", () => {
     const out = proposeParticipants(
       [
-        { staffId: "b", displayName: "Zoé", assignmentRole: "TEACHER" },
-        { staffId: "a", displayName: "Alice", assignmentRole: "TEACHER" },
+        { staffId: "b", displayName: "Zoé", assignmentRole: "LEAD" },
+        { staffId: "a", displayName: "Alice", assignmentRole: "LEAD" },
         { staffId: "a", displayName: "Alice", assignmentRole: "HOMEROOM" },
         { staffId: "c", displayName: "Charles", assignmentRole: "SUPERVISOR" },
       ],
       new Set(["HOMEROOM_TEACHER", "TEACHER"]),
     );
     expect(out.map((x) => [x.staffId, x.source, x.roleCode, x.councilFunction])).toEqual([["a", "HOMEROOM", "HOMEROOM_TEACHER", null], ["c", "TEACHING", null, null], ["b", "TEACHING", "TEACHER", null]]);
-    expect(proposeParticipants([{ staffId: "a", displayName: "A", assignmentRole: "TEACHER" }], new Set())[0]!.roleCode).toBeNull();
+    expect(proposeParticipants([{ staffId: "a", displayName: "A", assignmentRole: "LEAD" }], new Set())[0]!.roleCode).toBeNull();
   });
 });
 
@@ -118,9 +118,9 @@ describe("procès-verbal : snapshot DÉTERMINISTE, sans flottant, avec mention d
   const facts = buildFacts(src());
   const input = (order: "asc" | "desc", kind: "placeholder" | "regulation"): MinutesInput => {
     const participants = [
-      { id: "00000000-0000-4000-8000-000000000012", displayName: "Zoé", roleCode: "SECRETARY", councilFunction: "SECRETARY" as const, presence: "PRESENT" as const },
-      { id: "00000000-0000-4000-8000-000000000011", displayName: "Alice", roleCode: "PRESIDENT", councilFunction: "PRESIDENT" as const, presence: "PRESENT" as const },
-      { id: "00000000-0000-4000-8000-000000000013", displayName: "Marc", roleCode: "TEACHER", councilFunction: null, presence: "ABSENT" as const },
+      { id: "00000000-0000-4000-8000-000000000012", displayName: "Zoé", roleCode: "SECRETARY", roleLabel: "Secrétaire", councilFunction: "SECRETARY" as const, presence: "PRESENT" as const },
+      { id: "00000000-0000-4000-8000-000000000011", displayName: "Alice", roleCode: "PRESIDENT", roleLabel: "Président", councilFunction: "PRESIDENT" as const, presence: "PRESENT" as const },
+      { id: "00000000-0000-4000-8000-000000000013", displayName: "Marc", roleCode: "TEACHER", roleLabel: null, councilFunction: null, presence: "ABSENT" as const },
     ];
     const students = [
       { agendaItemId: "i1", enrollmentId: "00000000-0000-4000-8000-000000000021", studentId: "00000000-0000-4000-8000-000000000031", name: "Élève A", position: 1, factsVersion: 1, factsHash: "h", facts },
@@ -134,7 +134,7 @@ describe("procès-verbal : snapshot DÉTERMINISTE, sans flottant, avec mention d
       },
       participants: order === "asc" ? participants : [...participants].reverse(),
       students: order === "asc" ? students : [...students].reverse(),
-      decisions: [{ agendaItemId: "i1", decisionTypeCode: "PASSAGE", family: "PASSAGE", suggestedCode: "PROMOTED", differsFromSuggestion: false, justification: null, mode: "CONSENSUS", votesFor: null, votesAgainst: null, votesAbstain: null, targetLabel: null, deciderName: "Alice" }],
+      decisions: [{ agendaItemId: "i1", decisionTypeCode: "PASSAGE", decisionTypeLabel: "Passage", family: "PASSAGE", suggestedCode: "PROMOTED", differsFromSuggestion: false, justification: null, mode: "CONSENSUS", votesFor: null, votesAgainst: null, votesAbstain: null, targetLabel: null, deciderName: "Alice" }],
       proposals: [{ agendaItemId: "i1", kind: "APPRECIATION", code: null, body: "Bien.", status: "ACCEPTED", createdAt: "2026-11-02T10:00:00.000Z" }],
     };
   };

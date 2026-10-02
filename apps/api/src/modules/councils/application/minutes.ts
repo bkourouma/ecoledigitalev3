@@ -22,7 +22,7 @@ import type { CouncilRow, MinutesRow } from "../infrastructure/rows";
 import { EventBuffer, inTx, requireHuman, type CallerCaps, type CouncilsDeps } from "./deps";
 import { applyPendingEffects, planEffects } from "./effects";
 import { councilPayload } from "./councils";
-import { assertMayView, councilRefOf, displayContext, loadCouncil } from "./support";
+import { assertMayView, councilRefOf, displayContext, loadCouncil, loadRoles } from "./support";
 import { factsOf, minutesDto, placeholderNoticeOf } from "./views";
 
 const minutesPayload = (m: MinutesRow): { v: 1 } & Record<string, unknown> => ({ v: 1, minutesId: m.id, councilId: m.councilId, version: m.version, snapshotHash: m.snapshotHash });
@@ -58,6 +58,8 @@ export async function generateMinutes(deps: CouncilsDeps, ctx: RequestContext, c
     const items = await repo.listAgendaItems(tx, councilId);
     const decisions = await repo.listDecisionsOfCouncil(tx, councilId, { recordedOnly: true });
     const byParticipant = new Map(participants.map((p) => [p.id, p]));
+    const roles = await loadRoles(tx);
+    const decisionTypes = new Map((await reference.listDecisionTypes(tx)).map((t) => [t.id, t]));
     const input: MinutesInput = {
       council: {
         id: council.id,
@@ -82,11 +84,12 @@ export async function generateMinutes(deps: CouncilsDeps, ctx: RequestContext, c
         ruleVersionRef: state?.ruleVersionRef ?? null,
         ruleSourceKind: state?.ruleSourceKind ?? null,
       },
-      participants: participants.map((p) => ({ id: p.id, displayName: p.displayName, roleCode: p.roleCode, councilFunction: p.councilFunction, presence: p.presence })),
+      participants: participants.map((p) => ({ id: p.id, displayName: p.displayName, roleCode: p.roleCode, roleLabel: roles.get(p.roleCode)?.label ?? null, councilFunction: p.councilFunction, presence: p.presence })),
       students: items.map((i) => ({ agendaItemId: i.id, enrollmentId: i.enrollmentId, studentId: i.studentId, name: i.studentDisplayName, position: i.position, factsVersion: i.factsVersion, factsHash: i.factsHash, facts: factsOf(i) ?? buildFacts(EMPTY_FACTS) })),
       decisions: decisions.map((d) => ({
         agendaItemId: d.agendaItemId,
         decisionTypeCode: d.decisionTypeCode,
+        decisionTypeLabel: decisionTypes.get(d.decisionTypeId)?.label ?? null,
         family: d.family,
         suggestedCode: d.suggestedCode,
         differsFromSuggestion: d.differsFromSuggestion,

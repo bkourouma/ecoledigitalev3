@@ -80,9 +80,9 @@ export interface AcademicPort {
 
 export interface OutcomePort {
   /** Issue d'inscription de fin d'année (`academic.recordEnrollmentOutcome`), avec cible pour une issue de redirection. */
-  recordOutcome(ctx: RequestContext, input: { enrollmentId: Uuid; outcomeCode: string; targetProgramId?: Uuid | undefined; targetGradeLevelId?: Uuid | undefined; decisionRef: string }): Promise<void>;
+  recordOutcome(ctx: RequestContext, input: { enrollmentId: Uuid; outcomeCode: string; targetProgramId?: Uuid | undefined; targetGradeLevelId?: Uuid | undefined; decisionRef: Uuid }): Promise<void>;
   /** Issue de redirection vers une autre série pour l'année suivante (l'adaptateur choisit l'issue `REDIRECT` des données d'academic). */
-  recordRedirect(ctx: RequestContext, input: { enrollmentId: Uuid; targetProgramId: Uuid; targetGradeLevelId: Uuid; decisionRef: string }): Promise<void>;
+  recordRedirect(ctx: RequestContext, input: { enrollmentId: Uuid; targetProgramId: Uuid; targetGradeLevelId: Uuid; decisionRef: Uuid }): Promise<void>;
   /** Changement de classe en cours d'année (même établissement, même année). Retourne l'identifiant de l'inscription. */
   transferEnrollment(ctx: RequestContext, input: { enrollmentId: Uuid; toClassroomId: Uuid; effectiveOn: IsoDate | undefined; reason: string }): Promise<{ enrollmentId: Uuid }>;
 }

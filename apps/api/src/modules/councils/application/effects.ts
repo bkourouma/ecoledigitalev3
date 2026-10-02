@@ -121,7 +121,7 @@ async function executeEffect(deps: CouncilsDeps, ctx: RequestContext, tx: Tx, co
     }
     case "ENROLLMENT_OUTCOME": {
       if (!decision || !type || type.academicOutcomeCode === null) throw fail(CouncilsCode.EFFECT_NOT_APPLICABLE, "Le type de décision ne porte aucune issue d'inscription.");
-      await deps.ports.outcomes.recordOutcome(ctx, { enrollmentId: decision.enrollmentId, outcomeCode: type.academicOutcomeCode, targetProgramId: decision.targetProgramId ?? undefined, targetGradeLevelId: decision.targetGradeLevelId ?? undefined, decisionRef: decisionRefOf(decision.id) });
+      await deps.ports.outcomes.recordOutcome(ctx, { enrollmentId: decision.enrollmentId, outcomeCode: type.academicOutcomeCode, targetProgramId: decision.targetProgramId ?? undefined, targetGradeLevelId: decision.targetGradeLevelId ?? undefined, decisionRef: decision.id });
       return { externalRef: null };
     }
     case "ORIENTATION_FILE": {

@@ -138,8 +138,8 @@ export async function makeWorld(db: ModuleTestDb, startsAt = "2026-11-02T08:00:0
   const teacher = person("Enseignant E");
   const outsiderTeacher = person("Enseignant F");
   ports.addAssignment(classroomId, { staffId: homeroom.staffId, displayName: homeroom.name, assignmentRole: "HOMEROOM", coversAllSubjects: false });
-  ports.addAssignment(classroomId, { staffId: teacher.staffId, displayName: teacher.name, assignmentRole: "TEACHER", coversAllSubjects: false });
-  ports.addAssignment(otherClassroomId, { staffId: outsiderTeacher.staffId, displayName: outsiderTeacher.name, assignmentRole: "TEACHER", coversAllSubjects: false });
+  ports.addAssignment(classroomId, { staffId: teacher.staffId, displayName: teacher.name, assignmentRole: "LEAD", coversAllSubjects: false });
+  ports.addAssignment(otherClassroomId, { staffId: outsiderTeacher.staffId, displayName: outsiderTeacher.name, assignmentRole: "LEAD", coversAllSubjects: false });
 
   const students: Student[] = [];
   for (let i = 1; i <= 4; i += 1) {
@@ -215,7 +215,7 @@ export function freshClassroom(w: TestWorld, options: { students?: number; teach
   w.ports.addPeriod({ periodId, academicYearId: w.yearId, label: "Trimestre 2", startsOn: "2027-01-05", endsOn: "2027-03-30" });
   w.ports.setState(classroomId, periodId, { stateId: newId(), status: "GRADING_LOCKED", ruleVersionRef: "CI-SECONDARY-PLACEHOLDER@1", ruleSourceKind: "placeholder" });
   w.ports.setState(classroomId, null, { stateId: newId(), status: "GRADING_LOCKED", ruleVersionRef: "CI-SECONDARY-PLACEHOLDER@1", ruleSourceKind: "placeholder" });
-  for (const t of options.teachers ?? []) w.ports.addAssignment(classroomId, { staffId: t.staffId, displayName: t.name, assignmentRole: "TEACHER", coversAllSubjects: false });
+  for (const t of options.teachers ?? []) w.ports.addAssignment(classroomId, { staffId: t.staffId, displayName: t.name, assignmentRole: "LEAD", coversAllSubjects: false });
   const students: Student[] = [];
   for (let i = 1; i <= (options.students ?? 0); i += 1) {
     const studentId = newId();

@@ -322,7 +322,7 @@ export const councilsMinutesSnapshotSchema = z.object({
   classroom: z.object({ classroomId: councilsUuidSchema, name: z.string().nullable(), gradeLevelCode: z.string().nullable() }),
   period: z.object({ periodId: councilsUuidSchema.nullable(), label: z.string().nullable(), academicYearId: councilsUuidSchema }),
   council: z.object({ councilId: councilsUuidSchema, typeCode: z.string(), typeLabel: z.string(), scope: councilsScopeSchema, heldOn: councilsDateSchema, location: z.string().nullable(), reopenCount: z.number().int(), quorumWaived: z.boolean(), quorumWaiverReason: z.string().nullable() }),
-  participants: z.array(z.object({ participantId: councilsUuidSchema, name: z.string(), roleCode: z.string(), function: councilsFunctionSchema.nullable(), presence: councilsPresenceSchema })),
+  participants: z.array(z.object({ participantId: councilsUuidSchema, name: z.string(), roleCode: z.string(), roleLabel: z.string().nullable().default(null), function: councilsFunctionSchema.nullable(), presence: councilsPresenceSchema })),
   students: z.array(
     z.object({
       enrollmentId: councilsUuidSchema,
@@ -335,6 +335,7 @@ export const councilsMinutesSnapshotSchema = z.object({
       decisions: z.array(
         z.object({
           decisionTypeCode: z.string(),
+          decisionTypeLabel: z.string().nullable().default(null),
           family: councilsDecisionFamilySchema,
           suggestedCode: z.string().nullable(),
           differsFromSuggestion: z.boolean(),

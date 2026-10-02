@@ -46,6 +46,7 @@ export interface MinutesParticipant {
   readonly id: string;
   readonly displayName: string;
   readonly roleCode: string;
+  readonly roleLabel: string | null;
   readonly councilFunction: "PRESIDENT" | "SECRETARY" | null;
   readonly presence: "INVITED" | "PRESENT" | "ABSENT" | "EXCUSED";
 }
@@ -53,6 +54,7 @@ export interface MinutesParticipant {
 export interface MinutesDecision {
   readonly agendaItemId: string;
   readonly decisionTypeCode: string;
+  readonly decisionTypeLabel: string | null;
   readonly family: string;
   readonly suggestedCode: string | null;
   readonly differsFromSuggestion: boolean;
@@ -126,7 +128,7 @@ export function buildMinutesSnapshot(input: MinutesInput): CouncilsMinutesSnapsh
       quorumWaived: c.quorumWaived,
       quorumWaiverReason: c.quorumWaived ? c.quorumWaiverReason : null,
     },
-    participants: participants.map((p) => ({ participantId: p.id, name: p.displayName, roleCode: p.roleCode, function: p.councilFunction, presence: p.presence })),
+    participants: participants.map((p) => ({ participantId: p.id, name: p.displayName, roleCode: p.roleCode, roleLabel: p.roleLabel, function: p.councilFunction, presence: p.presence })),
     students: students.map((s) => {
       const accepted = input.proposals.filter((p) => p.agendaItemId === s.agendaItemId && (p.status === "ACCEPTED" || p.status === "MODIFIED"));
       const appreciation = accepted.filter((p) => p.kind === "APPRECIATION").sort((a, b) => cmp(a.createdAt, b.createdAt)).at(-1)?.body ?? null;
@@ -143,6 +145,7 @@ export function buildMinutesSnapshot(input: MinutesInput): CouncilsMinutesSnapsh
           .sort((a, b) => cmp(a.decisionTypeCode, b.decisionTypeCode))
           .map((d) => ({
             decisionTypeCode: d.decisionTypeCode,
+            decisionTypeLabel: d.decisionTypeLabel,
             family: d.family as CouncilsMinutesSnapshot["students"][number]["decisions"][number]["family"],
             suggestedCode: d.suggestedCode,
             differsFromSuggestion: d.differsFromSuggestion,

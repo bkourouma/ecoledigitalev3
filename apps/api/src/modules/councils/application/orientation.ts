@@ -251,7 +251,7 @@ export async function applyTransfer(deps: CouncilsDeps, ctx: RequestContext, id:
     try {
       await tx.transaction(async () => {
         if (t.effectiveKind === "MID_YEAR") await deps.ports.outcomes.transferEnrollment(ctx, { enrollmentId: t.enrollmentId, toClassroomId: input.toClassroomId as string, effectiveOn: t.effectiveOn ?? undefined, reason: `Transfert de série (${t.decidedVia === "COUNCIL" ? "décision du conseil" : "acte de la direction"})` });
-        else await deps.ports.outcomes.recordRedirect(ctx, { enrollmentId: t.enrollmentId, targetProgramId: t.toProgramId, targetGradeLevelId: t.toGradeLevelId, decisionRef: `series_transfer:${t.id}` });
+        else await deps.ports.outcomes.recordRedirect(ctx, { enrollmentId: t.enrollmentId, targetProgramId: t.toProgramId, targetGradeLevelId: t.toGradeLevelId, decisionRef: t.id });
       });
     } catch (e) {
       const message = isAppError(e) ? `${e.code}: ${e.message}` : e instanceof Error ? e.message : String(e);
