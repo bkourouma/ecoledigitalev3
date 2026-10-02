@@ -29,6 +29,13 @@ export const LEGACY_TO_V2_HREF: Readonly<Record<string, string>> = Object.freeze
   "/admin/paie/rapports": "/v2/payroll/reports",
   "/owner/masse-salariale": "/v2/payroll/owner",
   "/enseignant/remuneration": "/v2/payroll/my",
+  // Présences et emploi du temps (manifestes `attendance` et `scheduling`).
+  "/admin/attendance": "/v2/attendance/sessions",
+  "/admin/attendance/justificatifs": "/v2/attendance/justifications",
+  "/admin/attendance/personnel": "/v2/attendance/staff",
+  "/admin/emploi-du-temps": "/v2/schedule/timetables",
+  "/admin/emploi-du-temps/salles": "/v2/schedule/rooms",
+  "/admin/emploi-du-temps/remplacements": "/v2/schedule/replacements",
 });
 
 export function mapToV2Href(href: string): string {

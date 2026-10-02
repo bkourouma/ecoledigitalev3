@@ -126,6 +126,8 @@ Voir `docs/i18n.md`.
   interrupteur d'arrêt (désinscrit les service workers existants).
 - Déconnexion : `navigator.serviceWorker.controller?.postMessage({ type: "CLEAR_CACHES" })` purge les caches `ed-*`.
 - Changer `CACHE_VERSION` dans `sw.js` quand `/offline`, le manifeste ou les icônes changent.
+- File d'appel hors ligne (IndexedDB, identifiants non nominatifs, synchronisation par lot) : `src/platform/offline/`, voir `docs/v2-attendance-schedule.md`.
+  Ce n'est pas un cache de réponses : le service worker reste inchangé.
 
 ## 8. Écrans d'administration v2 (`/v2/...`)
 
