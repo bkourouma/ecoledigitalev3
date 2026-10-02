@@ -1,6 +1,6 @@
 # Modèle de données — 006-secondary (schémas Postgres `councils`, `schoollife`, `stateassign`)
 
-**Statut** : DDL de référence, **exécuté et testé sur PostgreSQL 17** (84 tests de comportement : isolation RLS, droits `app_user`, machines à états, acteur humain obligatoire, quorum, signatures, déverrouillage motivé, séparation des tâches, concurrence). Les blocs ci-dessous sont les migrations cibles ; ils font foi sur les noms et les contraintes. Les blocs `<!-- migration: … -->` sont **extraits tels quels** par `ddl-test/` (le document est la source de vérité, aucune copie) :
+**Statut** : DDL de référence, **exécuté et testé sur PostgreSQL 17** (85 tests de comportement : isolation RLS, droits `app_user`, machines à états, acteur humain obligatoire, quorum, signatures, déverrouillage motivé, séparation des tâches, concurrence). Les blocs ci-dessous sont les migrations cibles ; ils font foi sur les noms et les contraintes. Les blocs `<!-- migration: … -->` sont **extraits tels quels** par `ddl-test/` (le document est la source de vérité, aucune copie) :
 
 ```bash
 node specs/v2/006-secondary/ddl-test/run.mjs            # Postgres éphémère dans Docker (ED_PG_IMAGE=postgres:17-alpine), supprimé à la fin
@@ -83,7 +83,7 @@ stateassign.assignments (versionné) ─< controls ; documents (références) ; 
 ## 4. Les décisions de modélisation à connaître
 
 1. **Composition, pas duplication : `councils` ne possède aucun résultat, aucune absence, aucune note.** Il LIT `results` (moyennes, rangs, mentions, suggestions de décision, appréciations de matière), `attendance` (récapitulatifs) et `schoollife` (synthèse) et en garde un **instantané figé** par élève et par séance (`agenda_items.facts`, `facts_hash`, `facts_version`). Une décision est prise sur une version connue de l'instantané (`decisions.facts_version`) ; reconstruire l'instantané est interdit dès qu'une décision en dépend.
-2. **Source de vérité des décisions.** Le conseil est le lieu de la décision **humaine** (`councils.decisions` : décideur présent et habilité, mode consensus / vote, justification d'un écart avec la suggestion). Les familles `PASSAGE` et `REPEAT` sont **propagées** à `results.decisions` (portée année) par l'effet `RESULTS_DECISION` : c'est `results` qui reste l'unique source lue par `academic` (reconduction), `reportcards` et `higher`. Les autres familles (orientation, réorientation, exclusion, avis requis, autre) n'ont pas de code dans les contrats de règles : elles restent dans `councils` et alimentent leurs effets propres. **Les appréciations** (matière, générale du conseil) restent dans `results.appreciations` (copiées dans le snapshot de bulletin par 013) : le conseil en écrit la version « conseil » par le port, il n'en possède pas de copie vivante.
+2. **Source de vérité des décisions.** Le conseil est le lieu de la décision **humaine** (`councils.decisions` : décideur présent et habilité, mode consensus / vote, justification d'un écart avec la suggestion). Les familles `PASSAGE` et `REPEAT` sont **propagées** à `results.decisions` (portée année) par l'effet `RESULTS_DECISION` : c'est `results` qui reste l'unique source lue par `academic` (reconduction), `reportcards` et `higher`. Les autres familles (orientation, réorientation, exclusion, avis requis, autre) n'ont pas de code dans les contrats de règles : elles restent dans `councils` et alimentent leurs effets propres. **Les appréciations** (matière, générale du conseil) restent dans `results.appreciations` (copiées dans le snapshot de bulletin par 013) : une appréciation générale ou une distinction **acceptée** par un humain produit l'effet `RESULTS_APPRECIATION` / `RESULTS_DISTINCTION` qui l'écrit dans `results` par le port ; le conseil n'en possède pas de copie vivante (le texte figé figure au PV).
 3. **L'application ne décide jamais seule.** Trois verrous : (a) `proposals.origin = 'RULE_SUGGESTION'` n'a pas d'auteur humain et **ne devient jamais « acceptée » sans `resolved_by`** ; (b) `decisions` exige un utilisateur de session (acteur `user`), un décideur participant `PRESENT` dont le rôle a `can_decide` ; (c) les effets d'une décision d'exclusion naissent `AWAITING_HUMAN` et ne passent `APPLIED` que par un humain (`applied_by` posé par la base).
 4. **Verrouillage = clôture de séance.** `CLOSED` et `SIGNED` verrouillent participants, ordre du jour, propositions, décisions. Le **déverrouillage** (`CLOSED|SIGNED → OPEN`) exige une demande motivée (≥ 20 caractères) **approuvée** (par une autre personne si le réglage l'exige), **consommée** par une seule réouverture, sans effet appliqué restant ; le PV précédent passe `SUPERSEDED` et la reclôture crée la version n+1.
 5. **PV = snapshot immuable.** `councils.minutes.snapshot` (schéma `council-minutes/1` : chaînes, entiers, booléens, null) est scellé par un hash **calculé par la base** (`councils.minutes_hash`, SHA-256 du texte `jsonb`) ; les signatures portent ce hash ; quand tous les signataires exigés par le type de conseil (fonctions et rôles, présents) ont signé, la base passe PV et séance à `SIGNED`. Le PDF est rendu par le worker depuis le snapshot (013, port `DocumentRenderer`, type de document `COUNCIL_MINUTES` à enregistrer).
@@ -500,15 +500,17 @@ CREATE INDEX decisions_by_student ON councils.decisions (tenant_id, student_id, 
 CREATE INDEX decisions_by_council ON councils.decisions (tenant_id, council_id, status);
 GRANT SELECT, INSERT, UPDATE ON councils.decisions TO app_user;
 
--- Effets d'une décision (propagation vers results, academic, orientation, people…) : file idempotente,
--- un effet vivant par (décision, nature). 'AWAITING_HUMAN' : l'effet attend l'acte d'un humain habilité
--- (exclusion : changement de statut de l'élève).
+-- Effets d'une décision ou d'une proposition ACCEPTÉE (appréciation générale, distinction) : propagation vers
+-- results, academic, orientation, people… File idempotente, un effet vivant par (décision ou proposition, nature).
+-- 'AWAITING_HUMAN' : l'effet attend l'acte d'un humain habilité (exclusion : changement de statut de l'élève).
 CREATE TABLE councils.effects (
   id            uuid PRIMARY KEY,
   tenant_id     uuid NOT NULL REFERENCES kernel.tenants (id),
   council_id    uuid NOT NULL,
-  decision_id   uuid NOT NULL,
-  effect_kind   text NOT NULL CHECK (effect_kind IN ('RESULTS_DECISION', 'ENROLLMENT_OUTCOME', 'ORIENTATION_FILE', 'SERIES_TRANSFER', 'STUDENT_STATUS_REQUEST', 'NOTIFY_GUARDIANS')),
+  decision_id   uuid,
+  proposal_id   uuid,
+  effect_kind   text NOT NULL CHECK (effect_kind IN ('RESULTS_DECISION', 'ENROLLMENT_OUTCOME', 'ORIENTATION_FILE', 'SERIES_TRANSFER', 'STUDENT_STATUS_REQUEST', 'NOTIFY_GUARDIANS',
+                                                      'RESULTS_APPRECIATION', 'RESULTS_DISTINCTION')),
   status        text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'AWAITING_HUMAN', 'APPLIED', 'FAILED', 'REVERTED', 'SKIPPED')),
   attempts      integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
   last_error    text,
@@ -523,11 +525,14 @@ CREATE TABLE councils.effects (
   UNIQUE (tenant_id, id),
   FOREIGN KEY (tenant_id, council_id) REFERENCES councils.councils (tenant_id, id),
   FOREIGN KEY (tenant_id, decision_id) REFERENCES councils.decisions (tenant_id, id),
+  FOREIGN KEY (tenant_id, proposal_id) REFERENCES councils.proposals (tenant_id, id),
+  CHECK ((decision_id IS NULL) <> (proposal_id IS NULL)),
+  CHECK ((effect_kind IN ('RESULTS_APPRECIATION', 'RESULTS_DISTINCTION')) = (proposal_id IS NOT NULL)),
   CHECK (status <> 'APPLIED' OR applied_at IS NOT NULL),
   CHECK (status <> 'REVERTED' OR (reverted_at IS NOT NULL AND length(btrim(coalesce(revert_reason, ''))) >= 5))
 );
 SELECT kernel.enable_tenant_rls('councils.effects');
-CREATE UNIQUE INDEX effects_one_live ON councils.effects (tenant_id, decision_id, effect_kind) WHERE status NOT IN ('REVERTED', 'SKIPPED');
+CREATE UNIQUE INDEX effects_one_live ON councils.effects (tenant_id, coalesce(decision_id, proposal_id), effect_kind) WHERE status NOT IN ('REVERTED', 'SKIPPED');
 CREATE INDEX effects_pending ON councils.effects (tenant_id, status) WHERE status IN ('PENDING', 'FAILED', 'AWAITING_HUMAN');
 GRANT SELECT, INSERT, UPDATE ON councils.effects TO app_user;
 ```
@@ -1319,14 +1324,25 @@ LANGUAGE plpgsql AS $$
 DECLARE
   v_council councils.councils%ROWTYPE;
   v_dec     councils.decisions%ROWTYPE;
+  v_prop    councils.proposals%ROWTYPE;
   v_set     councils.settings%ROWTYPE;
   v_trigger text;
 BEGIN
   IF TG_OP = 'INSERT' THEN
     SELECT * INTO v_council FROM councils.councils WHERE tenant_id = NEW.tenant_id AND id = NEW.council_id;
-    SELECT * INTO v_dec FROM councils.decisions WHERE tenant_id = NEW.tenant_id AND id = NEW.decision_id;
-    IF v_dec.council_id <> NEW.council_id OR v_dec.status <> 'RECORDED' THEN
-      RAISE EXCEPTION 'councils.effect_decision: la décision doit être enregistrée dans cette séance' USING ERRCODE = 'check_violation';
+    IF NEW.decision_id IS NOT NULL THEN
+      SELECT * INTO v_dec FROM councils.decisions WHERE tenant_id = NEW.tenant_id AND id = NEW.decision_id;
+      IF v_dec.council_id <> NEW.council_id OR v_dec.status <> 'RECORDED' THEN
+        RAISE EXCEPTION 'councils.effect_decision: la décision doit être enregistrée dans cette séance' USING ERRCODE = 'check_violation';
+      END IF;
+    ELSE
+      -- appréciation générale ou distinction : seule une proposition ACCEPTÉE par un humain produit un effet
+      SELECT * INTO v_prop FROM councils.proposals WHERE tenant_id = NEW.tenant_id AND id = NEW.proposal_id;
+      IF v_prop.council_id <> NEW.council_id OR v_prop.status <> 'ACCEPTED'
+         OR NOT ((NEW.effect_kind = 'RESULTS_APPRECIATION' AND v_prop.kind = 'APPRECIATION')
+              OR (NEW.effect_kind = 'RESULTS_DISTINCTION' AND v_prop.kind = 'DISTINCTION')) THEN
+        RAISE EXCEPTION 'councils.effect_proposal: la proposition doit être ACCEPTÉE dans cette séance et correspondre à la nature de l''effet' USING ERRCODE = 'check_violation';
+      END IF;
     END IF;
     SELECT * INTO v_set FROM councils.settings WHERE tenant_id = NEW.tenant_id AND institution_id = v_council.institution_id;
     v_trigger := coalesce(v_set.effects_trigger, 'SIGNED');
@@ -1342,7 +1358,8 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF NEW.council_id <> OLD.council_id OR NEW.decision_id <> OLD.decision_id OR NEW.effect_kind <> OLD.effect_kind THEN
+  IF NEW.council_id <> OLD.council_id OR NEW.decision_id IS DISTINCT FROM OLD.decision_id
+     OR NEW.proposal_id IS DISTINCT FROM OLD.proposal_id OR NEW.effect_kind <> OLD.effect_kind THEN
     RAISE EXCEPTION 'councils.effect_identity_immutable' USING ERRCODE = 'restrict_violation';
   END IF;
   NEW.updated_at := now();
@@ -3370,4 +3387,4 @@ Partitionnement : non nécessaire en V1 (< 100 000 lignes par table et par an) ;
 
 ## 12. Tests de comportement (exécutés)
 
-`ddl-test/` : `harness.mjs` (base dédiée par fichier, baseline réelle `packages/database/migrations/0001-0003`, migrations extraites de ce document, exécution sous `app_user`), `councils.test.mjs` (44), `schoollife.test.mjs` (28), `stateassign.test.mjs` (12). Correspondance avec les critères de la spec : AC1.x (préparation, hash des faits), AC2.x (quorum, président, rôles), AC3.x (propositions, décisions, humain décideur), AC4.x (clôture, PV, signatures), AC5.x (déverrouillage motivé), AC6.x (effets, exclusion humaine), AC7.x (orientation), AC8.x (mesures, recours, convocations), AC9.x (barèmes, solde), AC10.x (affectation, rapprochement, contrôles) — voir `spec.md` §4 pour le détail. Le test d'isolation générique de la plateforme (`pnpm test:isolation`) s'applique aux 37 tables (18 + 14 + 5) avec trois allowlists vides.
+`ddl-test/` : `harness.mjs` (base dédiée par fichier, baseline réelle `packages/database/migrations/0001-0003`, migrations extraites de ce document, exécution sous `app_user`), `councils.test.mjs` (45), `schoollife.test.mjs` (28), `stateassign.test.mjs` (12). Correspondance avec les critères de la spec : AC1.x (préparation, hash des faits), AC2.x (quorum, président, rôles), AC3.x (propositions, décisions, humain décideur), AC4.x (clôture, PV, signatures), AC5.x (déverrouillage motivé), AC6.x (effets, exclusion humaine), AC7.x (orientation), AC8.x (mesures, recours, convocations), AC9.x (barèmes, solde), AC10.x (affectation, rapprochement, contrôles) — voir `spec.md` §4 pour le détail. Le test d'isolation générique de la plateforme (`pnpm test:isolation`) s'applique aux 37 tables (18 + 14 + 5) avec trois allowlists vides.

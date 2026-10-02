@@ -33,7 +33,7 @@ function withDatabase(url, name) {
 
 /** Blocs de migration d'un fichier Markdown : [{ name, sql }] dans l'ordre du document. */
 export function extractMigrations(mdPath) {
-  const md = readFileSync(mdPath, "utf8");
+  const md = readFileSync(mdPath, "utf8").replace(/\r\n/g, "\n"); // tolère les fins de ligne CRLF d'un dépôt Windows
   const out = [];
   const re = /<!--\s*migration:\s*([A-Za-z0-9_.-]+\.sql)\s*-->\s*```sql\n([\s\S]*?)\n```/g;
   let m;

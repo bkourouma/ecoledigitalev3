@@ -702,6 +702,27 @@ describe("effets des décisions", () => {
     });
   });
 
+  it("appréciation générale et distinction : seul un humain qui ACCEPTE la proposition produit l'effet correspondant", async () => {
+    await asUser(async (tx) => {
+      await seedReference(tx);
+      const institution = uuid();
+      await tx.q("INSERT INTO councils.settings (tenant_id, institution_id, effects_trigger) VALUES ($1,$2,'CLOSED')", [tx.tenantId, institution]);
+      const c = await council(tx, { open: true, institution });
+      const it1 = await item(tx, c.id);
+      const human = { origin: "HUMAN", proposed_by: USER_A, proposed_by_name: "Professeur principal" };
+      const appreciation = await mk(tx, "councils.proposals", { council_id: c.id, agenda_item_id: it1, kind: "APPRECIATION", body: "Bon trimestre, à encourager", ...human });
+      const distinction = await mk(tx, "councils.proposals", { council_id: c.id, agenda_item_id: it1, kind: "DISTINCTION", code: "HONOR_ROLL", ...human });
+      await tx.q("UPDATE councils.proposals SET status = 'ACCEPTED', resolved_by = $2, resolved_at = now() WHERE id = $1", [appreciation, USER_A]);
+      await tx.q("UPDATE councils.councils SET status = 'CLOSED' WHERE id = $1", [c.id]);
+      const sql = "INSERT INTO councils.effects (id, tenant_id, council_id, proposal_id, effect_kind) VALUES ($1,$2,$3,$4,$5)";
+      await tx.fail(sql, [uuid(), tx.tenantId, c.id, distinction, "RESULTS_DISTINCTION"], /effect_proposal/); // non acceptée
+      await tx.fail(sql, [uuid(), tx.tenantId, c.id, appreciation, "RESULTS_DISTINCTION"], /effect_proposal/); // mauvaise nature
+      await tx.fail(sql, [uuid(), tx.tenantId, c.id, appreciation, "RESULTS_DECISION"], /check|23514/); // une décision, pas une proposition
+      await tx.q(sql, [uuid(), tx.tenantId, c.id, appreciation, "RESULTS_APPRECIATION"]);
+      await tx.fail(sql, [uuid(), tx.tenantId, c.id, appreciation, "RESULTS_APPRECIATION"], /unique|23505/);
+    });
+  });
+
   it("machine d'états des effets : APPLIED -> REVERTED motivé, jamais si irréversible ; échec puis reprise", async () => {
     await asUser(async (tx) => {
       const { c, passage } = await signedCouncil(tx, { settingsTrigger: "CLOSED" });
