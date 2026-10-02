@@ -248,7 +248,7 @@ Schémas Zod dans `packages/contracts/src/v2/examinations.ts`. Erreurs `examinat
 
 ## 14. Tests
 
-- **DDL** (livrés) : 166 tests de comportement dont **concurrence réelle** (4 sessions : 20 numéros de candidat sans trou ni doublon).
+- **DDL** (livrés) : 195 tests de comportement (§18) dont **concurrence réelle** (4 sessions : 20 numéros de candidat sans trou ni doublon).
 - **Unitaires** : formatage de numéro (`format_number`), validation de colonnes d'export (liste blanche), transformations, schémas Zod, calcul d'avancement.
 - **Golden de mécanisme** : `golden-exam-mechanism` G1–G14 (`rule-contract.md` §5).
 - **Intégration** : parcours CEPE complet sur modules réels (éligibilité par règle, pièces, inscription, numéro, centres, convocation, examen blanc, import officiel, publication, révisions, attestation, statistiques, export) ; refus de calculer un résultat officiel ; refus d'importer un résultat d'examen blanc ; isolation A/B de chaque table ; reprise après échec d'import (aucune application partielle).
@@ -292,8 +292,29 @@ Schémas Zod dans `packages/contracts/src/v2/examinations.ts`. Erreurs `examinat
 
 La spec est terminée lorsque :
 
-1. Les migrations `2000`–`2002` s'appliquent sur base vide, les **166** tests de comportement passent, l'allowlist d'isolation du module est **vide** et le test d'isolation générique passe avec deux tenants.
+1. Les migrations `2000`–`2004` s'appliquent sur base vide, les **195** tests de comportement passent (166 initiaux + 29 de `ddl/tests/40_corrections_imports.sql`, voir §18), l'allowlist d'isolation du module est **vide** et le test d'isolation générique passe avec deux tenants.
 2. Le parcours E2E CEPE fictif (classe de CM2 → attestation → export) passe sans intervention manuelle hors décisions.
 3. 20 inscriptions concurrentes donnent 20 numéros distincts sans trou ; aucun résultat officiel n'est jamais calculé ; aucune note ni identité dans événements, audit, logs.
 4. Aucune épreuve, coefficient, seuil, condition d'éligibilité ou taux dans le code du module (lint R2 vert).
 5. Les demandes de changement du §16 sont acceptées ou refusées par écrit ; `regulatory-sources-needed.md` et Q-E01 à Q-E18 sont transmis au propriétaire du produit ; **aucun RuleSet officiel d'examen n'est publié** tant que les textes manquent.
+
+## 18. Précisions et corrections issues de l'implémentation (V1)
+
+Écarts constatés entre cette spec et le module livré (`apps/api/src/modules/examinations`, écrans `apps/web/src/app/v2/examinations`) ; le code et ce paragraphe font foi.
+
+**Données (migrations `2003` et `2004`, ajoutées à `2000`–`2002`)**
+- `2003_examinations_corrections.sql` : table `revision_requests` (demande de correction d'une note ou d'un résultat arrêté : valeur actuelle, valeur proposée, motif, demandeur ; décision, approbateur, note) ; l'approbation par la même personne que le demandeur est refusée **par la base** (`revision_same_person`) ; la valeur n'est modifiable que dans la transaction qui approuve une demande (garde `candidate_results_guard` remplacée) ; la liste blanche des colonnes d'export accepte les champs `stat.*` (statistiques).
+- `2004_examinations_import_formats.sql` : table `import_formats` (formats de fichiers d'autorité = DONNÉES : encodage, séparateurs, colonnes, table de valeurs) avec la même discipline que les formats d'export (liste blanche des cibles d'import identique en SQL et en TypeScript, format publié immuable).
+- Tests DDL : 195 (`ddl/tests/40_corrections_imports.sql` : 29 tests).
+
+**Permissions** : au-delà du §11, le module déclare les lectures `exam.candidate.read` et `exam.result.read`, ce qui permet un rôle de consultation sans droit de gestion. La publication d'un résultat exige `exam.result.publish`, l'application d'un import `exam.result.release`, l'approbation ou le rejet d'une correction `exam.result.revise` ; la demande de correction est ouverte à `exam.result.enter` ou `exam.result.revise`.
+
+**Documents** : natures `CONVOCATION`, `ATTESTATION_REUSSITE`, `RELEVE_NOTES` (portées par les natures officielles `EXAM_CONVOCATION`, `EXAM_SUCCESS_CERTIFICATE`, `EXAM_TRANSCRIPT` de `reportcards`). Un examen blanc **ne donne lieu à aucun document officiel** (`mock_no_official_document`). L'attestation exige une issue « admis » publiée ; la convocation exige une place attribuée.
+
+**Routes de lecture familiale** : `GET /me/exams`, `GET /family/exams`, `GET /family/exam-documents/:id/file` remplacent `GET /children/:studentId/exam-documents` : la liaison parent-élève est revérifiée à chaque appel et la réponse ne porte **jamais** de note ni de moyenne, seulement l'issue une fois publiée.
+
+**Examens blancs** : la moyenne et l'issue sont calculées par la règle épinglée, avec trace de la version de règle et empreinte des données d'entrée ; l'import de notes depuis `assess` ne reprend que des évaluations de type `EXAMEN_BLANC` d'une classe liée à l'épreuve, de même barème.
+
+**Écrans (`/v2/examinations/*`)** : sessions et détail, types (chargement du pack fictif), centres et salles, candidats et dossier, répartition, examens blancs, notes et résultats, imports, corrections (quatre yeux), statistiques, exports et documents, vue famille. Détails et permissions : `apps/web/docs/v2-examinations.md`.
+
+**Non livré en V1** : jeu de démonstration (session blanche et session officielle de 40 candidats) qui dépend du seed v2 des autres modules ; création et édition d'un format d'export ou d'import depuis l'écran (disponibles par l'API) ; plan de répartition par glisser-déposer (remplacé par une répartition automatique suivie d'un changement de salle). Les interfaces attendues des autres modules (`exam-national@1`, `getEligibilityFacts`, natures de `reportcards`) sont décrites dans le `README.md` du module ; tant qu'elles manquent, les adaptateurs échouent fermé avec `examinations.port_unavailable`.
