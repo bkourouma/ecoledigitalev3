@@ -153,15 +153,16 @@ export async function recordPointsForSource(
   ctx: RequestContext,
   tx: Tx,
   events: EventBuffer,
-  source: { kind: "MEASURE" | "NOTE"; id: string; type: EventTypeRow; enrollment: EnrollmentInfo; on: string },
+  source: { kind: "MEASURE" | "NOTE"; id: string; type: EventTypeRow; institutionId: string; enrollment: () => Promise<EnrollmentInfo | null>; on: string },
 ): Promise<void> {
-  const settings = await reference.getSettings(tx, source.enrollment.institutionId);
+  // Points désactivés (défaut) ou aucun barème actif : ni lecture d'inscription ni mouvement (aucune dépendance inutile à `academic`).
+  const settings = await reference.getSettings(tx, source.institutionId);
   if (!settings?.conductPointsEnabled) return;
-  const scale = pickScale((await conduct.listActiveScales(tx, source.enrollment.institutionId)).map(asFacts), {
-    institutionId: source.enrollment.institutionId,
-    gradeLevelId: source.enrollment.gradeLevelId,
-    on: source.on,
-  });
+  const scales = (await conduct.listActiveScales(tx, source.institutionId)).map(asFacts);
+  if (scales.length === 0) return;
+  const enrollment = await source.enrollment();
+  if (!enrollment) return;
+  const scale = pickScale(scales, { institutionId: source.institutionId, gradeLevelId: enrollment.gradeLevelId, on: source.on });
   if (!scale) return;
   const item = await conduct.getScaleItem(tx, scale.id, source.type.id);
   if (!item) return;
@@ -170,10 +171,10 @@ export async function recordPointsForSource(
     id,
     tenantId: ctx.tenantId,
     scaleId: scale.id,
-    enrollmentId: source.enrollment.enrollmentId,
-    studentId: source.enrollment.studentId,
-    academicYearId: source.enrollment.academicYearId,
-    academicPeriodId: await periodOf(deps, ctx, source.enrollment, source.on),
+    enrollmentId: enrollment.enrollmentId,
+    studentId: enrollment.studentId,
+    academicYearId: enrollment.academicYearId,
+    academicPeriodId: await periodOf(deps, ctx, enrollment, source.on),
     delta: item.pointsDelta,
     reason: `${source.kind === "MEASURE" ? "Mesure validée" : "Note"} : ${source.type.label}`.slice(0, 200),
     sourceKind: source.kind,
@@ -181,7 +182,7 @@ export async function recordPointsForSource(
     reversesId: null,
     createdBy: ctx.userId as string,
   });
-  events.add(SchoolLifeEvents.CONDUCT_MOVEMENT_RECORDED, { v: 1, movementId: id, scaleId: scale.id, enrollmentId: source.enrollment.enrollmentId, studentId: source.enrollment.studentId, delta: item.pointsDelta, sourceKind: source.kind, reversal: false }, { type: "schoollife.conduct_movement", id });
+  events.add(SchoolLifeEvents.CONDUCT_MOVEMENT_RECORDED, { v: 1, movementId: id, scaleId: scale.id, enrollmentId: enrollment.enrollmentId, studentId: enrollment.studentId, delta: item.pointsDelta, sourceKind: source.kind, reversal: false }, { type: "schoollife.conduct_movement", id });
 }
 
 /** Mouvement inverse exact du mouvement non inversé d'une source (mesure révoquée, note retirée), s'il existe. */

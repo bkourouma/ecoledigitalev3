@@ -59,7 +59,7 @@ export async function createNote(deps: SchoolLifeDeps, ctx: RequestContext, caps
     const events = new EventBuffer(deps, ctx);
     events.add(SchoolLifeEvents.NOTE_CREATED, { v: 1, noteId: id, enrollmentId: row.enrollmentId, studentId: row.studentId, kind: row.kind, typeId: row.typeId, visibility: row.visibility, confidentiality: row.confidentiality }, { type: "schoollife.note", id });
     events.audit({ action: "schoollife.note.created", resourceType: "note", resourceId: id, sensitive: confidentiality !== "STANDARD", after: { kind: row.kind, typeId: row.typeId, visibility: row.visibility, studentId: row.studentId } });
-    if (row.kind === "ENCOURAGEMENT") await recordPointsForSource(deps, ctx, tx, events, { kind: "NOTE", id, type, enrollment: enrollment.value, on: input.occurredOn <= todayOf(deps) ? input.occurredOn : todayOf(deps) });
+    if (row.kind === "ENCOURAGEMENT") await recordPointsForSource(deps, ctx, tx, events, { kind: "NOTE", id, type, institutionId: enrollment.value.institutionId, enrollment: async () => enrollment.value, on: input.occurredOn <= todayOf(deps) ? input.occurredOn : todayOf(deps) });
     await events.flush(tx);
     return ok((await views(deps, ctx, tx, [row], { unmask: true }))[0] as SchoolLifeNoteDto);
   });

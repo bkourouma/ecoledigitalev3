@@ -23,6 +23,7 @@ import * as reference from "../infrastructure/reference-repository";
 import type { AppealRow, EventTypeRow, MeasureRow } from "../infrastructure/rows";
 import { recordPointsForSource, reversePointsOfSource } from "./conduct";
 import { safely, EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
+import type { EnrollmentInfo } from "./ports";
 import { actorNameOf, assertStudentScope, clampPage, loadTypes, resolveEnrollment, staffMaySee, studentNames, viewerOf, type Viewer } from "./support";
 import { appealDto, measureDto } from "./views";
 
@@ -130,7 +131,7 @@ export async function proposeMeasure(deps: SchoolLifeDeps, ctx: RequestContext, 
     const events = new EventBuffer(deps, ctx);
     events.add(SchoolLifeEvents.MEASURE_PROPOSED, measureEventPayload(row), { type: "schoollife.measure", id });
     events.audit({ action: "schoollife.measure.proposed", resourceType: "measure", resourceId: id, sensitive: type.kind === "TEMP_EXCLUSION", after: { kind: type.kind, typeId: type.id, studentId: row.studentId, status: row.status } });
-    if (direct) await afterValidated(deps, ctx, tx, events, row, type, enrollment.value);
+    if (direct) await afterValidated(deps, ctx, tx, events, row, type, async () => enrollment.value);
     await events.flush(tx);
     return ok((await measureViews(deps, ctx, tx, [row], { unmask: true }))[0] as SchoolLifeMeasureDto);
   });
@@ -144,11 +145,11 @@ async function afterValidated(
   events: EventBuffer,
   row: MeasureRow,
   type: EventTypeRow,
-  enrollment: { institutionId: string; academicYearId: string; enrollmentId: string; studentId: string; classroomId: string; gradeLevelId: string | null; active: boolean },
+  enrollment: () => Promise<EnrollmentInfo | null>,
 ): Promise<void> {
   events.add(SchoolLifeEvents.MEASURE_VALIDATED, measureEventPayload(row), { type: "schoollife.measure", id: row.id });
   events.audit({ action: "schoollife.measure.validated", resourceType: "measure", resourceId: row.id, sensitive: true, after: { kind: row.kind, typeId: row.typeId, studentId: row.studentId } });
-  await recordPointsForSource(deps, ctx, tx, events, { kind: "MEASURE", id: row.id, type, enrollment, on: todayOf(deps) });
+  await recordPointsForSource(deps, ctx, tx, events, { kind: "MEASURE", id: row.id, type, institutionId: row.institutionId, enrollment, on: todayOf(deps) });
   if (row.kind === "TEMP_EXCLUSION") {
     for (const effect of await repo.listEffectsOfMeasure(tx, row.id)) {
       if (effect.status === "AWAITING_HUMAN") {
@@ -174,9 +175,7 @@ export async function validateMeasure(deps: SchoolLifeDeps, ctx: RequestContext,
     await repo.updateMeasure(tx, id, { status: "VALIDATED", validatedByName: validatorName, validationNote: input.note ?? null });
     const updated = (await repo.getMeasure(tx, id)) as MeasureRow;
     const events = new EventBuffer(deps, ctx);
-    const enrollment = await deps.ports.enrollments.getEnrollment(ctx, row.enrollmentId);
-    if (!enrollment) return err(notFound(SchoolLifeCode.ENROLLMENT_NOT_FOUND, "Inscription", row.enrollmentId));
-    await afterValidated(deps, ctx, tx, events, updated, type, enrollment);
+    await afterValidated(deps, ctx, tx, events, updated, type, () => deps.ports.enrollments.getEnrollment(ctx, row.enrollmentId));
     await events.flush(tx);
     return ok((await measureViews(deps, ctx, tx, [updated], { unmask: false }))[0] as SchoolLifeMeasureDto);
   });
