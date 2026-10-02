@@ -5,7 +5,9 @@
  * contre le catalogue RÉEL des manifestes. Une clé sans correspondance est « en attente »
  * (`rbac.role_pending_permissions`) : tolérée à l'exécution (module pas encore livré), re-résolue à la
  * prochaine `syncRbac`. Jusqu'ici un test refusait TOUT motif en attente (une faute de frappe ne devait
- * jamais passer en silence). Les packs Primary, Secondary, Admissions et Examinations livrent leurs
+ * jamais passer en silence). ÉTAT : `primary_school` (005), `schoollife` et `stateassign` (006), `admissions` (007) et
+ * `examinations` (018) sont LIVRÉS (leurs permissions sont déclarées par leur manifeste, donc retirées d'ici) ; seul
+ * reste `councils` (conseils de classe, spec 006). Les packs livrent leurs
  * modules APRÈS les rôles qui les concernent : ce fichier est l'exception explicite et bornée.
  *
  * Règles (vérifiées par `test/reserved-permissions.test.ts` et `test/system-roles.test.ts`) :
@@ -36,41 +38,19 @@ export interface ReservedPermission {
   readonly sensitive: boolean;
 }
 
-export type ReservedModule = "primary_school" | "councils" | "schoollife" | "stateassign" | "admissions" | "examinations";
+export type ReservedModule = "councils";
 
-export const RESERVED_MODULES: readonly ReservedModule[] = Object.freeze([
-  "primary_school",
-  "councils",
-  "schoollife",
-  "stateassign",
-  "admissions",
-  "examinations",
-]);
+export const RESERVED_MODULES: readonly ReservedModule[] = Object.freeze(["councils"]);
 
-const SPEC_PRIMARY = "specs/v2/005-primary/spec.md §10 ; pack-template.md §7";
 const SPEC_SECONDARY = "specs/v2/006-secondary/spec.md §10";
-const SPEC_ADMISSIONS = "specs/v2/007-admissions/spec.md §11";
-const SPEC_EXAMS = "specs/v2/018-examinations/spec.md §11";
 
 function reserved(module: ReservedModule, spec: string, keys: readonly string[], sensitiveKeys: readonly string[] = []): ReservedPermission[] {
   return keys.map((key) => ({ key, module, spec, sensitive: sensitiveKeys.includes(key) }));
 }
 
 export const RESERVED_FOR_UPCOMING_MODULES: readonly ReservedPermission[] = Object.freeze<ReservedPermission[]>([
-  // ----- Pack Primary (module `primary_school`, spec 005) --------------------------------------------
-  ...reserved("primary_school", SPEC_PRIMARY, [
-    "primary.competency.read",
-    "primary.competency.record",
-    "primary.competency.validate",
-    "primary.phrase.read",
-    "primary.council.read",
-    "primary.council.prepare",
-    // portails : parent (`child`) et élève (`self`)
-    "primary.competency.child.read",
-    "primary.bilan.child.read",
-    "primary.competency.self.read",
-    "primary.bilan.self.read",
-  ]),
+  // `primary_school`, `schoollife`, `stateassign`, `admissions` et `examinations` sont LIVRÉS : leurs permissions sont
+  // déclarées par leurs manifestes et ne figurent plus ici. Reste le module `councils`.
 
   // ----- Pack Secondary : conseils de classe (module `councils`, spec 006) ---------------------------
   ...reserved(
@@ -106,45 +86,6 @@ export const RESERVED_FOR_UPCOMING_MODULES: readonly ReservedPermission[] = Obje
     ],
   ),
 
-  // ----- Pack Secondary : vie scolaire (module `schoollife`, spec 006) -------------------------------
-  ...reserved("schoollife", SPEC_SECONDARY, [
-    "schoollife.read",
-    "schoollife.incident.write",
-    "schoollife.measure.propose",
-    "schoollife.note.write",
-    "schoollife.convocation.manage",
-    "schoollife.self.read",
-    "schoollife.child.read",
-  ]),
-
-  // ----- Pack Secondary : élèves affectés par l'État (module `stateassign`, spec 006) ----------------
-  ...reserved("stateassign", SPEC_SECONDARY, [
-    "stateassign.read",
-    "stateassign.record",
-    "stateassign.document.manage",
-    "stateassign.reconcile",
-    "stateassign.control.perform",
-    "stateassign.child.read",
-  ]),
-
-  // ----- Admissions (module `admissions`, spec 007) : le « chargé d'admissions » est le secrétariat ---
-  ...reserved("admissions", SPEC_ADMISSIONS, [
-    "admission.read",
-    "admission.create",
-    "admission.update",
-    "admission.document.upload",
-    "admission.document.review",
-    "admission.interview.manage",
-    "admission.offer.manage",
-    "admission.duplicate.resolve",
-    "admission.waitlist.manage",
-    "admission.prospect.manage",
-    "admission.enroll",
-    "admission.report.read",
-  ]),
-
-  // ----- Examens nationaux (module `examinations`, spec 018) : documents des candidats ----------------
-  ...reserved("examinations", SPEC_EXAMS, ["exam.document.child.read", "exam.document.self.read"]),
 ]);
 
 export const RESERVED_PERMISSION_KEYS: ReadonlySet<string> = new Set(RESERVED_FOR_UPCOMING_MODULES.map((r) => r.key));

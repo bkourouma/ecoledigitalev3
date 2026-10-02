@@ -1,5 +1,5 @@
 /**
- * Provisioning d'un tenant avec le catalogue RÉEL (tous les modules découverts) : les douze rôles système
+ * Provisioning d'un tenant avec le catalogue RÉEL (tous les modules découverts) : les quatorze rôles système
  * sont créés, AUCUN motif ne reste « en attente » HORS de la liste blanche `RESERVED_FOR_UPCOMING_MODULES`
  * (permissions des modules pas encore livrés : en attente signalée au niveau `info`, sans échec), et les
  * permissions stockées sont exactement celles que résout le catalogue.
@@ -81,11 +81,13 @@ describeIntegration("rôles système — provisioning contre le catalogue réel"
     await db?.drop();
   });
 
-  it("instanciation : douze rôles, motifs en attente = UNIQUEMENT des permissions réservées (liste blanche), aucun avertissement", async () => {
+  it("instanciation : quatorze rôles, motifs en attente = UNIQUEMENT des permissions réservées (liste blanche), aucun avertissement", async () => {
     const report = await provision(tenant);
-    expect(report.created).toHaveLength(12);
+    expect(report.created).toHaveLength(14);
     expect(report.created).toContain("personnel");
     expect(report.created).toContain("instituteur");
+    expect(report.created).toContain("responsable_examens");
+    expect(report.created).toContain("admissions_officer");
 
     // tout motif en attente (rapport et base) figure dans la liste blanche ; aucun `warn`
     const reportPending = Object.values(report.pendingByRole).flat();
@@ -95,12 +97,18 @@ describeIntegration("rôles système — provisioning contre le catalogue réel"
     const stored = await rolesOf(tenant);
     const storedPending = [...stored.values()].flatMap((r) => r.pending);
     expect(storedPending.filter((p) => !isReservedPermission(p))).toEqual([]);
-    // les modules à venir ne sont pas chargés : leurs permissions sont bien en attente (et non accordées)
+    // le module `councils` (seul module à venir) n'est pas chargé : ses permissions sont bien en attente (et non accordées) ;
+    // les modules des packs Primary, Secondary, Admissions et Examinations sont livrés : leurs permissions sont accordées.
     const expectedPending = resolveSystemRoles(real.catalog, SYSTEM_ROLE_TEMPLATES).flatMap((r) => r.pending);
     expect(storedPending.length).toBe(expectedPending.length);
-    expect(stored.get("instituteur")?.pending).toEqual(expect.arrayContaining(["primary.competency.read", "primary.council.prepare"]));
-    expect(stored.get("parent")?.pending).toEqual(expect.arrayContaining(["primary.competency.child.read", "primary.bilan.child.read"]));
-    expect(stored.get("instituteur")?.permissions).not.toContain("primary.competency.read");
+    expect(storedPending.length).toBeGreaterThan(0);
+    expect(stored.get("instituteur")?.pending).toEqual([]);
+    expect(stored.get("parent")?.pending).toEqual(["council.child.read"]);
+    expect(stored.get("directeur_etudes")?.pending).toEqual(expect.arrayContaining(["council.read", "council.session.run"]));
+    expect(stored.get("instituteur")?.permissions).toEqual(expect.arrayContaining(["primary.competency.read", "primary.council.prepare"]));
+    expect(stored.get("parent")?.permissions).toEqual(expect.arrayContaining(["primary.competency.child.read", "primary.bilan.child.read", "exam.document.child.read"]));
+    expect(stored.get("responsable_examens")?.permissions).toContain("exam.session.manage");
+    expect(stored.get("responsable_examens")?.permissions).not.toContain("exam.result.publish");
 
     // signalé au niveau info, avec la liste blanche pour référence
     expect(infos.some((i) => /réservées/.test(i.msg ?? ""))).toBe(true);
@@ -139,7 +147,7 @@ describeIntegration("rôles système — provisioning contre le catalogue réel"
     const legacy = await db.createTenant("ecole-ancienne");
     const withoutInstituteur = SYSTEM_ROLE_TEMPLATES.filter((t) => t.key !== "instituteur");
     const first = await provision(legacy, withoutInstituteur);
-    expect(first.created).toHaveLength(11);
+    expect(first.created).toHaveLength(13);
     expect(first.created).not.toContain("instituteur");
 
     // personnalisation du tenant : un rôle personnalisé (clone-like) avec un sous-ensemble de droits
@@ -241,7 +249,7 @@ describeIntegration("rôles système — provisioning contre le catalogue réel"
     const manifests = [...real.manifests.filter((m) => !(RESERVED_MODULES as readonly string[]).includes(m.key)), ...fakes];
 
     const before = await rolesOf(tenant);
-    expect(before.get("instituteur")?.pending.length).toBeGreaterThan(0);
+    expect(before.get("directeur_etudes")?.pending.length).toBeGreaterThan(0);
     const customBefore = await rolesOf(await db.admin.query<{ id: string }>("SELECT id FROM kernel.tenants WHERE slug = 'ecole-ancienne'").then((r) => r.rows[0]?.id as string));
 
     const report = await syncRbac(db.systemDb, manifests, { logger: spyLogger });
@@ -257,8 +265,8 @@ describeIntegration("rôles système — provisioning contre le catalogue réel"
         expect.arrayContaining(["primary.competency.read", "primary.competency.record", "primary.competency.validate", "primary.council.prepare"]),
       );
       expect(roles.get("instituteur")?.permissions, slug).not.toContain("primary.competency.revise");
-      expect(roles.get("parent")?.permissions, slug).toEqual(expect.arrayContaining(["primary.competency.child.read", "primary.bilan.child.read", "exam.document.child.read"]));
-      expect(roles.get("eleve")?.permissions, slug).toEqual(expect.arrayContaining(["primary.competency.self.read", "exam.document.self.read"]));
+      expect(roles.get("parent")?.permissions, slug).toEqual(expect.arrayContaining(["primary.competency.child.read", "primary.bilan.child.read", "exam.document.child.read", "council.child.read"]));
+      expect(roles.get("eleve")?.permissions, slug).toEqual(expect.arrayContaining(["primary.competency.self.read", "exam.document.self.read", "council.self.read"]));
       expect(roles.get("directeur")?.permissions, slug).toContain("council.decision.record");
       expect(roles.get("directeur_etudes")?.permissions, slug).not.toContain("council.unlock.approve");
     }

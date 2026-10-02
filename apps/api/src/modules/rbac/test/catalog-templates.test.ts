@@ -136,7 +136,7 @@ describe("motifs de permissions", () => {
 });
 
 describe("modèles de rôles système (mécanique ; le contenu réel est vérifié dans system-roles.test.ts)", () => {
-  it("expose les douze modèles du plan (dont `personnel` et `instituteur`), clés uniques et réservées", () => {
+  it("expose les quatorze modèles du plan (dont `personnel`, `instituteur`, `responsable_examens` et `admissions_officer`), clés uniques et réservées", () => {
     expect(SYSTEM_ROLE_KEYS).toEqual([
       "owner",
       "directeur",
@@ -147,11 +147,13 @@ describe("modèles de rôles système (mécanique ; le contenu réel est vérifi
       "instituteur",
       "educateur",
       "responsable_pedagogique",
+      "responsable_examens",
+      "admissions_officer",
       "personnel",
       "parent",
       "eleve",
     ]);
-    expect(new Set(SYSTEM_ROLE_KEYS).size).toBe(12);
+    expect(new Set(SYSTEM_ROLE_KEYS).size).toBe(14);
     for (const key of SYSTEM_ROLE_KEYS) {
       expect(ROLE_KEY_RE.test(key)).toBe(true);
       expect(isReservedRoleKey(key)).toBe(true);
