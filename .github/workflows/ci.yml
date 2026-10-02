@@ -609,6 +609,7 @@ jobs:
       - v2-isolation
       - v2-modules
       - phase2
+      - phase3
     runs-on: ubuntu-latest
     steps:
       - name: Verifier le resultat des jobs
