@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { ChannelMessage } from "../../application/ports";
-import { createOrangeSmsChannel, orangeDestination, readOrangeSmsSettings, smsSegments } from "../../infrastructure/channels/sms-orange";
+import { createOrangeSmsChannel, orangeDestination, readOrangeSmsSettings } from "../../infrastructure/channels/sms-orange";
 import { createSmsChannel } from "../../infrastructure/channels/sms-provider";
 
 interface Hit {
@@ -148,7 +148,7 @@ describe("Orange SMS : sélection par NOTIFICATIONS_SMS_PROVIDER", () => {
   });
 });
 
-describe("Orange SMS : destinataires et segments", () => {
+describe("Orange SMS : destinataires", () => {
   const s = { defaultDialCode: "225", allowInternational: false };
   it("normalise en E.164 et refuse les indicatifs étrangers par défaut", () => {
     expect(orangeDestination("07 07 07 07 34", s)).toBe("+2250707070734");
@@ -156,13 +156,6 @@ describe("Orange SMS : destinataires et segments", () => {
     expect(orangeDestination("+221771234567", s)).toBeNull();
     expect(orangeDestination("+221771234567", { ...s, allowInternational: true })).toBe("+221771234567");
     expect(orangeDestination("abc", s)).toBeNull();
-  });
-  it("compte les segments (GSM 7 bits / UCS-2)", () => {
-    expect(smsSegments("a".repeat(160))).toBe(1);
-    expect(smsSegments("a".repeat(161))).toBe(2);
-    expect(smsSegments("é".repeat(160))).toBe(1);
-    expect(smsSegments("ê".repeat(70))).toBe(1);
-    expect(smsSegments("ê".repeat(71))).toBe(2);
   });
 });
 

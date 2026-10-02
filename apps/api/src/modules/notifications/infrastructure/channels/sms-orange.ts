@@ -31,6 +31,7 @@
  * fois » (voir README). Le quota/plafond PAR ÉTABLISSEMENT est appliqué en amont par le module (`dailyCaps.SMS`, coût au journal).
  */
 import { normalizePhone, scrubAddresses } from "../../domain/addresses";
+import { smsSegments as estimateSegments } from "../../domain/templating";
 import type { ChannelAdapter, ChannelConfigStatus, ChannelMessage, ChannelOutcome } from "../../application/ports";
 
 export type OrangeSmsMode = "disabled" | "sandbox" | "live";
@@ -128,29 +129,6 @@ export function readOrangeSmsSettings(env: Readonly<Record<string, string | unde
       quotaPauseMs: Math.max(1, posInt(present(env.ORANGE_SMS_QUOTA_PAUSE_SECONDS), 900)) * 1000,
     },
   };
-}
-
-// --- Segments (coût) -------------------------------------------------------------------------------------------------
-
-const GSM7_BASIC =
-  "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà";
-const GSM7_EXT = "^{}\\[~]|€";
-
-/** Nombre de segments SMS d'un texte (GSM 7 bits : 160 / 153 ; sinon UCS-2 : 70 / 67). */
-export function smsSegments(text: string): number {
-  let units = 0;
-  let gsm = true;
-  for (const ch of text) {
-    if (GSM7_BASIC.includes(ch)) units += 1;
-    else if (GSM7_EXT.includes(ch)) units += 2;
-    else {
-      gsm = false;
-      break;
-    }
-  }
-  if (gsm) return units <= 160 ? 1 : Math.ceil(units / 153);
-  const ucs = [...text].reduce((n, ch) => n + (ch.codePointAt(0)! > 0xffff ? 2 : 1), 0);
-  return ucs <= 70 ? 1 : Math.ceil(ucs / 67);
 }
 
 /** Numéro de destination accepté (E.164 ; +225 seulement sauf autorisation internationale), ou `null`. */
@@ -306,7 +284,7 @@ export function createOrangeSmsChannel(options: OrangeSmsOptions): ChannelAdapte
       if (!to) return { status: "FAILED", code: "invalid_recipient", message: "Numéro de destination refusé (format E.164 +225 attendu)." };
       const text = m.text.trim();
       if (text === "") return { status: "FAILED", code: "empty_message", message: "Message SMS vide." };
-      const segments = smsSegments(text);
+      const segments = estimateSegments(text).segments; // GSM 7 bits / UCS-2 (estimation partagée du module)
       if (segments > settings.maxSegments) return { status: "FAILED", code: "sms_too_long", message: `Message trop long (${segments} segments, maximum ${settings.maxSegments}).` };
       const cost = settings.unitCost !== null ? { amount: segments * settings.unitCost, currency: "XOF" } : undefined;
 
