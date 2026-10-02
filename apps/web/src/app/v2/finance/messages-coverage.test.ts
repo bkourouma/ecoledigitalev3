@@ -10,7 +10,9 @@ import {
   FINANCE_INVOICE_STATUSES,
   FINANCE_PAYMENT_METHODS,
   FINANCE_PAYMENT_STATUSES,
+  FINANCE_RECONCILIATION_REASONS,
   FINANCE_REFUND_STATUSES,
+  FINANCE_RESOLUTION_OUTCOMES,
 } from "@ecoledigitale/contracts/v2/finance";
 import {
   PAYROLL_CONFIG_TYPES,
@@ -87,6 +89,12 @@ describe("messages fr-CI (finance et paie)", () => {
       ["v2Finance.status.invoice", FINANCE_INVOICE_STATUSES],
       ["v2Finance.status.payment", FINANCE_PAYMENT_STATUSES],
       ["v2Finance.status.refund", FINANCE_REFUND_STATUSES],
+      ["v2FinancePending.reasons", [...FINANCE_RECONCILIATION_REASONS.filter((r) => !["unverifiable_refund", "refund_exceeds_refundable", "payment_not_confirmed"].includes(r)), "unknown"]],
+      ["v2FinancePending.outcome", FINANCE_RESOLUTION_OUTCOMES],
+      ["v2FinancePending.resolve.outcomes", FINANCE_RESOLUTION_OUTCOMES],
+      ["v2FinancePending.decision.outcomes", FINANCE_RESOLUTION_OUTCOMES],
+      ["v2FinancePending.decision.approve", ["title", "description", "submit", "done"]],
+      ["v2FinancePending.decision.reject", ["title", "description", "submit", "done"]],
       ["v2Finance.status.installment", ["PENDING", "PARTIALLY_PAID", "PAID", "OVERDUE", "CREDITED"]],
       ["v2Finance.status.scholarship", ["ACTIVE", "SUSPENDED", "ENDED"]],
       ["v2Finance.status.cashSession", ["OPEN", "CLOSED"]],

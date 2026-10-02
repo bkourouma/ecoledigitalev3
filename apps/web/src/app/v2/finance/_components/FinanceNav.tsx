@@ -14,6 +14,7 @@ export function FinanceNav() {
     { href: "/v2/finance", label: t("overview"), permission: "finance.report.read", exact: true },
     { href: "/v2/finance/invoices", label: t("invoices"), permission: "finance.invoice.read" },
     { href: "/v2/finance/payments", label: t("payments"), permission: "finance.payment.read" },
+    { href: "/v2/finance/payments/pending", label: t("pendingPayments"), permission: "finance.payment.read" },
     { href: "/v2/finance/receipts", label: t("receipts"), permission: "finance.receipt.read" },
     { href: "/v2/finance/refunds", label: t("refunds"), permission: "finance.payment.read" },
     { href: "/v2/finance/cash", label: t("cash"), permission: "finance.cashregister.open" },

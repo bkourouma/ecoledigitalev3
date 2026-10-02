@@ -32,9 +32,11 @@ export function financeTone(status: string): Tone {
     case "PARTIALLY_PAID":
     case "SUSPENDED":
     case "DRAFT":
+    case "REFUND_PENDING":
       return "warning";
     case "OVERDUE":
     case "FAILED":
+    case "REFUND_FAILED":
     case "REJECTED":
     case "CANCELLED":
       return "danger";
