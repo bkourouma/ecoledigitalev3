@@ -153,7 +153,7 @@ Ordre des contrôles (les moins coûteux d'abord, le scanner en dernier) :
 | `messaging`, `people` (photos), `attendance` (justificatifs) | adaptateur `storage-scan` : `put` analysé par le `MalwareScanner` de la plateforme (fail-closed selon la politique) sans modifier ces modules |
 | `reportcards`, `higher`, `finance`, `payroll` | aucun doublon : leurs documents officiels restent chez eux ; l'explorateur peut afficher une **référence** (lien) |
 | notifications | consomme `documents.document.expiring` / `expired` |
-| web | `DocumentPicker` (sélection ou dépôt d'un document depuis un autre écran), `OwnerDocumentsPanel` |
+| web | `DocumentPicker` (sélection ou dépôt d'un document depuis un autre écran) et `UploadDropzone` (zone de dépôt accessible au clavier) dans `platform/ui`. Le raccordement du sélecteur aux fiches de `people` et d'`attendance` n'est PAS fait dans ce lot (modules hors périmètre : voir `parity.md` §3) |
 
 ## 11. Écrans (`/v2/documents/*`)
 
