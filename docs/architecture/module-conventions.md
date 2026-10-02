@@ -75,8 +75,9 @@ Les versions du runner (`schema_migrations.version`) sont **globales à tous les
 | 2300-2399 | `stateassign` |
 | 2400-2499 | `imports` |
 | 2500-2599 | `documents` |
-| 2600+ | modules suivants, attribués dans l'ordre de création (compléter ce tableau) |
+| 2600-2699 | `notifications` |
+| 2700+ | modules suivants, attribués dans l'ordre de création (compléter ce tableau) |
 
-Un nouveau module prend la prochaine plage libre et l'inscrit ici dans la même PR. `pnpm module:new <clé>` le fait pour vous : il lit ce tableau (ligne ouverte `NNNN+`), réserve 100 numéros (`--range 2600` pour imposer le début), nomme la migration initiale dans la plage (`2600_<clé>_init.sql`), insère la ligne du module et décale la ligne ouverte. Voir `docs/architecture/new-module-guide.md`.
+Un nouveau module prend la prochaine plage libre et l'inscrit ici dans la même PR. `pnpm module:new <clé>` le fait pour vous : il lit ce tableau (ligne ouverte `NNNN+`), réserve 100 numéros (`--range 2700` pour imposer le début), nomme la migration initiale dans la plage (`2700_<clé>_init.sql`), insère la ligne du module et décale la ligne ouverte. Voir `docs/architecture/new-module-guide.md`.
 
 Note : le script `db:v2:migrate` suit les versions par dossier (`schema_migrations_<module>`), donc une collision n'est pas bloquante techniquement ; les plages gardent les numéros lisibles et évitent toute ambiguïté dans les journaux.

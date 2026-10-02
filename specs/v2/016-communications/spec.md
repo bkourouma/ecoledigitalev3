@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-02
 
-**Status**: Rédigée et implémentée pour la partie **messagerie interne, annonces et notifications in-app** (module backend `messaging`, schéma Postgres `messaging`, migration `1700_messaging_init.sql` dans la plage 1700-1799). Les **canaux externes** (e-mail, SMS, WhatsApp, push), leurs gabarits et leur journal d'envoi relèvent d'un autre chantier : cette spec ne prévoit que le port `NotificationChannel` (§11). DDL : `data-model.md` ; plan : `plan.md` ; parité : `parity.md` ; décisions à arbitrer : `open-questions.md`.
+**Status**: Rédigée et implémentée en deux parties. **Partie A** (§1 à §16) : **messagerie interne, annonces et notifications in-app** (module `messaging`, schéma Postgres `messaging`, migration `1700_messaging_init.sql`, plage 1700-1799). **Partie B** (§17 à §30) : **canaux externes** — e-mail SMTP, SMS (adaptateur HTTP générique), WhatsApp (WaSender), Web Push (VAPID) et in-app via `messaging` —, gabarits par établissement versionnés, journal de CHAQUE envoi, préférences et consentement, règles configurables, relances d'impayés et alertes (module `notifications`, schéma Postgres `notifications`, migration `2600_notifications_init.sql`, plage 2600-2699). Le port `NotificationChannel` déclaré en §11 est réalisé par la partie B. DDL : `data-model.md` ; plan : `plan.md` ; parité : `parity.md` ; décisions à arbitrer : `open-questions.md`.
 
 **Sources**: `docs/PRD_EcoleDigitale_SaaS.md` §37-38 ; plan §3.11, §4 (phase 3) ; ADR-001, 002, 004, 006, 007 ; `docs/architecture/module-conventions.md`, `new-module-guide.md`, `platform-assembly.md` ; legacy : `routes/{parent,admin,teacher,student}-messages.ts`, `teacher-conversations.ts`, `admin-announcements.ts`, `admin-email.ts`, `notifications-inbox.ts`, `services/{message-delivery,message-email-definitions,notifications-dispatch.service}.ts` (inventaire : `parity.md`).
 
@@ -40,7 +40,7 @@
 
 | Sujet | Renvoi |
 |---|---|
-| E-mail, SMS, WhatsApp, push : envoi, gabarits HTML, journal des envois, relances, fournisseur SMS | autre chantier « canaux externes » (port `NotificationChannel`, §11) |
+| E-mail, SMS, WhatsApp, push : envoi, gabarits, journal des envois, relances, fournisseur SMS | **partie B de cette spec** (module `notifications`, §17 à §30) |
 | Invitations à des événements et RSVP (création côté établissement) | à spécifier avec le calendrier (017 / 024) ; non repris |
 | Rappels de paiement, impayés | 014 / 015 (publieront des messages système via événements une fois leurs événements disponibles) |
 | Mots interdits / filtre automatique de contenu, antivirus des pièces | hors V1 (`open-questions.md`) |
@@ -150,9 +150,9 @@ Abonnés du worker (idempotents) sur `attendance.absence.recorded` et `attendanc
 
 Erreurs `messaging.*` stables (`packages/contracts/src/v2/messaging.ts`). Réponses `Cache-Control: no-store`. Aucune identité lue d'un en-tête client.
 
-## 11. Port `NotificationChannel` (non implémenté ici)
+## 11. Port `NotificationChannel` (réalisé par la partie B)
 
-`application/ports.ts` déclare l'interface que le chantier « canaux externes » implémentera (`id`, `channel`, `deliver(notification)`), la forme `OutboundNotification` (tenant, destinataire, catégorie, titre, texte court, lien interne, clé de déduplication) et le résultat. Ce module **ne l'appelle pas** : le chantier voisin consommera les événements `messaging.*` (jamais de contenu dedans) et lira `notification_preferences.external_channels`. Les événements portent assez d'identifiants (`conversationId`, `messageId`, `announcementId`) pour qu'il relise les destinataires par l'API publique du module.
+`application/ports.ts` déclare l'interface (`channel`, `deliver(notification)`), la forme `OutboundNotification` (tenant, destinataire, catégorie, titre, texte court, lien interne, clé de déduplication) et le résultat. Ce module **ne l'appelle pas** : le module `notifications` (partie B) consomme les événements `messaging.*` (jamais de contenu dedans) et réalise le port par `ChannelAdapter` (§19), plus riche (adresse résolue, contenu rendu, clé d'idempotence, issue classée) ; `toMessagingChannel` fait le pont vers ce contrat. Les événements portent assez d'identifiants (`announcementId`) pour que `notifications` relise les destinataires par l'API publique `readAnnouncementForDelivery` (extension additive de `messaging`, lecture seule). **Source de vérité du consentement aux canaux externes : `notifications`** (§22) ; la colonne `notification_preferences.external_channels` de `messaging` n'est plus lue (Q-10, Q-19).
 
 ## 12. Événements publiés (`{ v: 1, … }`, jamais de texte de message)
 
@@ -181,3 +181,185 @@ Tuteur sans compte (aucune remise : signalé au composeur par un compte de desti
 ## 16. Dépendances
 
 `rbac` (permissions, rôles des contacts), `audit`, `people` (tutelle, comptes, affectations), `academic` (classes, niveaux, campus), `reportcards` (`StoragePort`, via l'adaptateur de stockage), `attendance` (événements consommés). Aucune importation directe : adaptateurs `apps/api/src/platform/adapters/{people,academic,rbac}-messaging.ts` et `storage.ts`.
+
+---
+
+# Partie B — Canaux externes, gabarits, journal, consentement, règles, relances et alertes (module `notifications`)
+
+> Le legacy a deux services de notification étroits (`notification.service.ts` : relances de paiement par e-mail et un SMS **factice** ; `notifications-dispatch.service.ts` : fan-out in-app / e-mail / WhatsApp), un client WaSender, un composeur d'e-mail par profil (16 modèles) et un journal `app_whatsapp_delivery_log` créé à la volée. Pas de consentement, pas d'heures calmes, pas de désinscription, pas de reprise, pas de relance automatique, pas de plafond, un SMS simulé en silence. Cette partie remplace tout cela par **un circuit unique** : événement -> règle -> destinataires -> **journal (file d'envoi)** -> envoi par canal -> issue classée -> reprise. Inventaire et sort de chaque élément : `parity.md` §6.
+
+## 17. Objectifs
+
+1. **Canaux externes derrière un port** : e-mail SMTP, SMS par adaptateur HTTP **générique** configurable (fournisseur non choisi, Q-18), WhatsApp (WaSender comme le legacy), Web Push (VAPID, un abonnement par appareil), in-app (délégué à `messaging`).
+2. **Gabarits par établissement versionnés** en base (variables TYPÉES validées, aperçu, langue fr-CI, repli sur gabarits livrés en DONNÉES) pour : absence, retard, paiement reçu, facture émise, impayé / relance, bulletin publié, convocation, annonce, urgence (+ seuil d'absences, changement d'horaire, alertes internes, bulletin de paie).
+3. **Journal de chaque envoi** : destinataire masqué, canal, gabarit et version, statut, tentatives, erreur, identifiant fournisseur, coût si connu ; reprise avec backoff ; dédoublonnage par clé d'événement.
+4. **Préférences et consentement** par personne et canal (opt-out, heures calmes, urgences qui contournent) ; conformité (désinscription signée, mentions).
+5. **Règles configurables par établissement** (qui est notifié, par quel canal, avec quel gabarit, quels seuils) appliquées aux événements des modules.
+6. **Relances d'impayés automatiques** par paliers (J+3, J+10, J+30 configurables) : jamais deux fois le même palier, arrêt dès paiement. **Alertes** configurables : absences, retard de paiement, baisse de résultats, charge d'enseignement, document expirant.
+7. **Administration** : routes `/api/v1/notifications/*`, écrans `/v2/notifications/*` et `/v2/account/notifications`, gardes serveur, i18n fr-CI `v2Notifications*`, mobile-first.
+8. **Sécurité** : aucun envoi réel en test ; secrets par variables d'environnement ; jamais d'adresse complète dans les journaux d'exécution ni dans le journal restitué ; quotas ; un canal non configuré échoue EXPLICITEMENT (jamais de simulation silencieuse).
+
+## 18. Périmètre
+
+### Inclus
+
+Canaux (§19), gabarits (§20), règles et déclencheurs (§21), consentement et préférences (§22), journal et file d'envoi (§23), relances (§24), alertes (§25), envoi manuel (§26), API et écrans (§27), sécurité et anti-abus (§28), événements et jobs (§29).
+
+### Exclu (renvoyé)
+
+| Sujet | Renvoi |
+|---|---|
+| Choix du fournisseur SMS, accord d'expéditeur (sender ID), coûts | Q-18 |
+| Notification externe d'un MESSAGE direct (non lu après N heures) | Q-10 / Q-20 : l'établissement l'obtient par une règle personnalisée quand l'événement `messaging.message.sent` sera relayé avec un seuil de non-lecture ; non livré |
+| Rebonds asynchrones lus dans une boîte (DSN) | accusés signés `POST /webhooks/:tenant/delivery-status` seulement (Q-21) |
+| Gabarits riches (HTML, images) par établissement | texte brut + enveloppe HTML produite par la plateforme, toujours échappée (aucun HTML dans un gabarit : pas d'injection) ; langues autres que fr-CI (Q-22) |
+| Fil de discussion e-mail entrant, réponses | hors périmètre |
+| Application mobile native (FCM / APNs) | Web Push uniquement |
+
+## 19. Canaux et port `ChannelAdapter`
+
+Réalisation concrète du port `NotificationChannel` de la §11 : `status()` (configuré ? variables manquantes — jamais leurs valeurs), `deliver(message)` -> issue classée :
+
+| Issue | Sens | Effet sur le journal |
+|---|---|---|
+| `SENT` (+ identifiant fournisseur, coût) | accepté par le fournisseur | `SENT`, adresse et contenu EFFACÉS |
+| `RETRY` (+ délai suggéré) | panne passagère (4xx SMTP, 429, 5xx, coupure, délai, session WhatsApp déconnectée) | `PENDING` + backoff exponentiel (1 min, 2, 4… plafond 1 h, +20 % de gigue) ; après `max_attempts` : `FAILED` |
+| `FAILED` | échec définitif (numéro invalide, contenu refusé, canal non configuré) | `FAILED` + événement `notifications.delivery.failed` |
+| `BOUNCED` | rebond définitif (boîte inconnue) | `BOUNCED`, adresse en **liste de suppression** (par empreinte salée), événement |
+| `SKIPPED` | rien à remettre (aucun abonnement push vivant) | `SKIPPED` + raison |
+| `SIMULATED` | simulation EXPLICITE (`NOTIFICATIONS_SIMULATE=1`, jamais en production) | `SIMULATED` (jamais confondu avec un envoi) |
+
+| Canal | Fournisseur | Particularités |
+|---|---|---|
+| `EMAIL` | SMTP via nodemailer (`SMTP_*` identiques à l'e-mail de comptes) | multipart texte + HTML produit et ÉCHAPPÉ par la plateforme, pied de page de conformité (mentions de l'établissement, désinscription), `List-Unsubscribe` + one-click, `Message-ID` dérivé de la remise ; REBONDS : 550 / 551 / 553 sur le destinataire = rebond définitif, 4xx = reprise ; authentification en échec = reprise (le canal revient quand l'accès est corrigé) |
+| `SMS` | **adaptateur HTTP générique** (`SMS_HTTP_*`) : URL, méthode, en-têtes, corps JSON ou formulaire avec jetons `{{to}}`, `{{toDigits}}`, `{{text}}`, `{{sender}}`, `{{reference}}`, lecture de la réponse (critère de succès, identifiant, coût, message d'erreur) ; profil de référence `africastalking` à valider | 429 / 5xx / délai = reprise (`Retry-After` respecté) ; 4xx ou critère de succès non satisfait = échec définitif |
+| `WHATSAPP` | WaSender (`WASENDER_*`, comme le legacy) | contrôle de la session avant l'envoi ; lien de désinscription ajouté ; mêmes classes d'issue |
+| `PUSH` | Web Push + VAPID (`NOTIFICATIONS_VAPID_*`) | un abonnement par appareil ; requête chiffrée (RFC 8291) ; 404 / 410 = abonnement expiré **supprimé** ; nettoyage périodique des abonnements en échec répété ou inutilisés |
+| `IN_APP` | module `messaging` (`postSystemMessages`) | fil d'alertes + cloche, idempotent (`notif:<remise>`) |
+
+**Numéros** : normalisés E.164 ; le plan de numérotation ivoirien (depuis 2021) **conserve le 0 initial** (`+225 07 …`), les autres pays le retirent ; un numéro à 8 chiffres (ancien plan) est refusé (préfixe opérateur inconnu).
+
+## 20. Gabarits
+
+- **Catalogue** (code) : catégorie (granularité des préférences), variables typées `string | text | number | date | money | url` (obligatoire ou non, exemple pour l'aperçu), utilisable en envoi manuel ou non. Variables intégrées : `schoolName`, `appUrl`.
+- **Livrés en données** (`domain/default-templates.ts`) : un gabarit par (code, canal) en fr-CI, dérivé de trois textes (objet, court, long). Repli quand l'établissement n'a rien publié (version 0, source `SHIPPED`).
+- **Par établissement, versionnés** : chaque publication crée une version IMMUABLE numérotée (`template_versions`) et la rend active ; retour arrière = changer le pointeur (version 0 = gabarit livré) ; activation / désactivation par canal. La remise **fige** la version utilisée (le journal la porte).
+- **Syntaxe** : `{{variable}}` et `{{#variable}}…{{/variable}}` (bloc conditionnel). Aucun HTML, aucun code. Validation à l'enregistrement : syntaxe, variables **du catalogue**, objet exigé (e-mail, push, in-app) ou interdit (SMS, WhatsApp), taille.
+- **Rendu** : valeurs validées par TYPE (date AAAA-MM-JJ valide -> `jj/mm/aaaa` ; montant entier en unités mineures + devise connue -> `25 000 F CFA` ; chemin interne résolu sur `V2_APP_BASE_URL`, https seulement) ; une variable obligatoire manquante est une **erreur** (remise `FAILED` explicite), jamais un message à trous ; une valeur n'est jamais ré-interprétée comme balise.
+- **Aperçu** : texte, HTML d'e-mail avec pied de page, nombre de segments SMS (GSM-7 / UCS-2) et avertissements ; brouillon sans enregistrement.
+
+## 21. Règles et déclencheurs
+
+Une règle = (déclencheur, audience, canaux ordonnés, stratégie, gabarit, urgence, seuils). Les règles LIVRÉES sont des données ; l'établissement les surcharge par clé ou crée des règles `custom.*`.
+
+| Déclencheur | Audience par défaut | Canaux (stratégie) |
+|---|---|---|
+| `finance.invoice.issued` | responsables financiers (repli : élève) | in-app, e-mail, push (tous) |
+| `finance.payment.completed` | idem | in-app, e-mail, push |
+| `finance.invoice.overdue` | idem — **désactivée** (les relances couvrent) | e-mail, WhatsApp |
+| `attendance.absence.recorded` (hors excusée, hors correction) | tuteurs | push, WhatsApp, SMS, e-mail (**premier canal joignable**) |
+| `attendance.late.recorded` — **désactivée** (parité avec la messagerie interne) | tuteurs | idem |
+| `attendance.alert.triggered` (seuil d'absences : indicateurs et `minValue` de la règle) | tuteurs | idem |
+| `reportcards.report_card.published` | tuteurs ; élève | in-app, e-mail, push ; in-app, push |
+| `scheduling.occurrence.cancelled` (séance sans classe : ignorée) | familles et élèves de la classe | in-app, push, e-mail |
+| `messaging.announcement.published` | destinataires figés de l'annonce | `HIGH` : e-mail, push ; `URGENT` : tous canaux, **urgent** |
+| `people.staff_qualification.expiring` (préavis 30 j) | l'intéressé ; ressources humaines (`secretariat`) | in-app, e-mail |
+| `payroll.payslip.notification_requested` | le titulaire | in-app, e-mail, push |
+| relance `dunning` | responsables financiers (repli : élève) | in-app, e-mail, WhatsApp |
+| alertes `OVERDUE_DAYS`, `GRADE_DROP`, `TEACHING_LOAD` | économat ; enseignants de la classe ; direction des études | in-app, e-mail |
+
+- **Stratégies** : `ALL` (un envoi par canal) ; `FIRST_REACHABLE` (le premier canal joignable ET consenti ; les canaux écartés avant lui sont consignés avec leur raison).
+- **Validation** : le déclencheur existe, l'audience lui convient, le gabarit n'exige **aucune variable que le déclencheur ne fournit pas**, un gabarit d'alerte interne n'est jamais adressé à une famille, paliers strictement croissants, seuil présent pour une alerte.
+- **Idempotence** : clé de remise = `<événement ou fait source>|<règle>|<personne>|<canal>` ; un événement rejoué, ou un fait republié (même enregistrement d'appel, même version de bulletin), ne double jamais l'envoi.
+- **Entités inconnues** (élève supprimé, annonce retirée) : événement bénin, consigné, non rejoué ; port indisponible : échec, le worker rejoue.
+
+## 22. Consentement, préférences, heures calmes, conformité
+
+- **Clé de personne** : `user:<identité IAM>` si la personne a un compte actif, sinon `person:<fiche>`. L'autre clé reste en **alias** : un refus exprimé avant la création du compte continue de valoir.
+- **Préférences** : par (canal, catégorie) avec `*` = tout le canal ; la plus **précise** l'emporte ; un refus sur une clé de la personne vaut pour toutes. **Modèle de l'établissement** par canal : `IMPLIED` (envoyé sauf refus ; défaut) ou `EXPLICIT` (envoyé seulement si accordé ; Q-19).
+- **Heures calmes** (SMS, WhatsApp, push) : plage de l'établissement (20:00-07:00, fuseau configurable) ou de la personne ; la remise est **reportée** à la fin de la plage, jamais perdue ; l'e-mail et l'in-app n'en dépendent pas.
+- **Urgence** : contourne heures calmes et refus de catégorie ; contourne la **révocation du canal** seulement si l'établissement l'a décidé (`urgent_bypasses_revocations`, faux par défaut) ; ne crée jamais un consentement absent sous le modèle `EXPLICIT` ; **ne contourne jamais** la liste de suppression ni un canal désactivé.
+- **Preuve** : chaque changement (soi-même, personnel habilité, lien de désinscription) écrit une ligne immuable du journal de consentement (qui, quand, comment) et publie `notifications.consent.changed`.
+- **Désinscription** : lien SIGNÉ (HMAC-SHA256, établissement + personne + canal ; sans expiration : il doit marcher dans un vieil e-mail) vers `/v2/notifications/unsubscribe?t=…` ; `GET` n'écrit pas, `POST` applique, idempotent. En-têtes `List-Unsubscribe` ; en production le secret est exigé (sinon e-mail non configuré).
+- **Relu à l'envoi** : consentement, canal actif, suppression et heures calmes sont revérifiés AU MOMENT de l'envoi.
+- **Mentions** : pied de page d'e-mail (établissement, mentions légales configurables, désinscription) ; ligne de désinscription WhatsApp ; texte SMS sans pied de page par défaut (longueur).
+
+## 23. Journal et file d'envoi
+
+`deliveries` est à la fois la **file** et la **trace**. Statuts : `PENDING`, `SENDING` (bail), `SENT`, `DELIVERED` (accusé), `FAILED`, `BOUNCED`, `SKIPPED` (raison), `CANCELLED`, `SIMULATED`.
+
+- **Envoi** (job `notifications.dispatch`, toutes les 15 s) : réclamation `FOR UPDATE SKIP LOCKED` (plusieurs workers sans doublon), urgentes d'abord, par canal dans la limite du **plafond journalier restant** ; l'envoi réseau se fait **hors transaction** ; issue consignée dans une transaction courte. Au moins une fois : un worker tué laisse un bail qui expire, la remise est reprise (le fournisseur reçoit la même clé d'idempotence).
+- **Minimisation** : l'adresse complète et le contenu rendu sont **effacés** dès l'état terminal ; le journal ne garde que le masque (`a***@gmail.com`, `+225 ** ** ** 34`), l'empreinte salée (suppression), le gabarit et sa version.
+- **Restitution** : jamais d'adresse complète ni de contenu ; messages d'erreur des fournisseurs **épurés** d'adresses et de numéros.
+- **Lecture** : filtres (canal, statut, catégorie, gabarit, origine, règle, utilisateur, période), pagination par curseur, statistiques.
+- **Entretien** (job quotidien) : purge du journal terminal au-delà de la rétention de l'établissement (365 j par défaut), jamais une remise en attente ; abonnements push expirés.
+
+## 24. Relances d'impayés
+
+Job quotidien (07:00) par établissement. Source : port `OverdueSource` (finance : échéances dont le reste dû est > 0, facture émise, payeur = apprenant ; aucun calcul de montant ici).
+
+- **Paliers** configurables (`conditions.stages`, défaut `[3, 10, 30]`) : pour une échéance en retard de *d* jours, seul le palier le plus haut atteint donne lieu à un message (un job en retard n'envoie pas J+3 ET J+10) ; tous les paliers atteints sont consignés (`dunning_steps`, clé primaire (échéance, palier)) : **jamais deux fois le même palier**, même job rejoué ou lancé deux fois.
+- **Arrêt dès paiement** : (1) l'échéance est relue au moment de l'envoi (`isInstallmentStillOverdue` : sinon `CANCELLED / paid`) ; (2) `finance.invoice.paid` annule les remises en attente de la facture ; (3) une échéance soldée n'est plus remontée.
+- Famille injoignable : le palier n'est pas consommé (nouvel essai à la passe suivante). Une seule règle de relance active par établissement.
+
+## 25. Alertes intelligentes
+
+| Alerte | Source | Dédoublonnage |
+|---|---|---|
+| absences >= seuil -> parents | `attendance.alert.triggered` (seuils d'assiduité = règles d'alerte du module `attendance` ; `minValue` de la règle ajoute un seuil propre) | par événement |
+| retard de paiement >= X jours -> économat | port finance (échéances) | une alerte par échéance |
+| baisse de résultats >= seuil -> enseignants de la classe | port `results` : deux résultats **FINAL** consécutifs LUS (aucune formule ici) ; désactivée par défaut (échelle des moyennes propre à l'établissement) | par élève et par période |
+| charge d'enseignement > seuil -> direction des études | port `people` : heures planifiées de l'année en cours (unité de planification de l'établissement ; défaut 800 h à ajuster) | par enseignant et par mois |
+| document expirant -> RH et intéressé | `people.staff_qualification.expiring` (préavis configurable) | par échéance |
+
+Un port d'alerte indisponible n'arrête pas les autres alertes : l'erreur est rapportée et le job signalé en échec.
+
+## 26. Envoi manuel
+
+`POST /send` : gabarits marqués manuels (convocation, annonce, avis urgent), audience (comptes, tuteurs d'élèves, classes, rôles), variables validées par type **avant** toute mise en file, plafond de 2 000 destinataires, idempotence par `clientKey`. L'**urgence** exige la permission sensible `notifications.send.urgent` (MFA, audit, événement `notifications.urgent.sent`) ; `urgent_notice` est toujours urgent.
+
+## 27. API et écrans
+
+Préfixe `/api/v1/notifications` (réponses `Cache-Control: no-store`, erreurs `notifications.*` stables).
+
+| Famille | Routes |
+|---|---|
+| Catalogue | `GET /catalog`, `GET /triggers` |
+| Gabarits | `GET /templates`, `GET /templates/:code/versions`, `POST /templates/:code` (publier), `POST /templates/:code/{activate,enable,preview}` |
+| Règles | `GET /rules`, `PUT /rules/:key`, `DELETE /rules/:key` |
+| Paramètres, canaux | `GET\|PUT /settings`, `GET /channels` (santé), `POST /channels/test` |
+| Journal | `GET /deliveries`, `GET /deliveries/stats` |
+| Envoi | `POST /send` |
+| Consentement | `POST /consent`, `GET /consent/log` |
+| Moi | `GET\|PUT /me/preferences`, `GET /me/push/{vapid-key,devices}`, `POST /me/push/{subscriptions,unsubscribe}`, `DELETE /me/push/devices/:id` |
+| Public (signé) | `GET\|POST /public/unsubscribe?t=…`, `POST /webhooks/:tenantId/delivery-status` |
+
+Permissions : `notifications.read`, `.templates.manage`, `.rules.manage`, `.settings.manage`, `.send`, `.send.urgent` (**sensible**), `.consent.manage`, `.own.manage` (personnel), `.child.manage` (parent), `.self.manage` (élève).
+
+Écrans : `/v2/notifications` (journal, filtres), `/v2/notifications/templates` (liste, éditeur avec aperçu, versions, retour arrière), `/v2/notifications/rules` (règles, relances, alertes), `/v2/notifications/channels` (état de santé, essai, plafonds, heures calmes, mentions), `/v2/notifications/unsubscribe` (public), `/v2/account/notifications` (préférences personnelles, heures calmes, appareils push). i18n fr-CI `v2Notifications*`, mobile-first, états chargement / erreur / vide.
+
+## 28. Sécurité et anti-abus
+
+- Secrets par environnement (placeholders documentés) ; **jamais** d'adresse complète dans les journaux d'exécution, le journal restitué, les événements ou l'audit ; contenu absent des événements.
+- **Quotas** : plafond journalier par canal (plateforme, surchargé par établissement) appliqué à l'envoi (l'excédent attend), plafond par destinataire sur 24 h (sauf urgence), file maximale par établissement, 2 000 destinataires par envoi manuel, limiteur de débit sur les routes publiques.
+- Canal non configuré : échec explicite ; simulation seulement si demandée, hors production.
+- Routes publiques : jeton HMAC / corps HMAC à temps constant, établissement dans le jeton ou l'URL, aucune écriture avant vérification, aucun `GET` n'écrit.
+- Isolation : RLS sur les 11 tables, clés composites, aucune FK inter-modules, aucune table globale.
+
+## 29. Événements et jobs
+
+Publiés (`{ v: 1, … }`, sans contenu) : `notifications.delivery.failed`, `.delivery.bounced`, `.consent.changed`, `.template.published`, `.rule.updated`, `.urgent.sent`. Consommés : `finance.invoice.issued|overdue|paid`, `finance.payment.completed`, `attendance.absence.recorded|late.recorded|alert.triggered`, `reportcards.report_card.published`, `scheduling.occurrence.cancelled`, `messaging.announcement.published`, `people.staff_qualification.expiring`, `payroll.payslip.notification_requested`.
+
+Abonnés : `notifications.on.<événement>` (un par déclencheur) et `notifications.stop-dunning-on-invoice-paid`. Jobs : `notifications.dispatch` (15 s), `notifications.run-dunning` (07:00), `notifications.evaluate-alerts` (07:30), `notifications.housekeeping` (04:15).
+
+## 30. Critères d'acceptation
+
+1. Un événement `attendance.absence.recorded` produit un message par tuteur par le premier canal joignable, journalisé (écartés avec raison), rendu avec nom et date ; rejoué, rien n'est doublé.
+2. Un opt-out WhatsApp écarte ce canal (consigné) et le message part par SMS ; relu à l'envoi.
+3. Un SMS de nuit est reporté à 07:00 puis envoyé ; une urgence part tout de suite ; la liste de suppression n'est jamais contournée.
+4. Une panne du canal est reprise avec backoff (1, 2, 4 min…) sans perte ni doublon ; épuisement = `FAILED` + événement ; rebond = `BOUNCED` + suppression ; un worker tué est repris à l'expiration du bail.
+5. Une échéance en retard reçoit J+3, J+10, J+30 une seule fois chacun ; un job en retard n'envoie que le palier le plus récent ; un paiement arrête les relances (y compris en attente).
+6. Chaque gabarit livré se rend sans variable résiduelle ; une variable inconnue, mal typée ou manquante est refusée ; les versions sont immuables et le journal porte la version utilisée.
+7. Le journal ne contient ni adresse complète ni contenu une fois terminal ; l'API ne restitue que le masque.
+8. Isolation A/B sur les 11 tables avec de vraies données.
+9. Les écrans sont utilisables à 375 px, états vide / erreur / chargement.

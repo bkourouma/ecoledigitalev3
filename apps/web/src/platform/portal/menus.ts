@@ -20,8 +20,6 @@ export interface PortalEntry {
   anyPermission: readonly string[];
   feature?: string;
   icon?: string;
-  /** Entrée vers un module d'un AUTRE chantier (messagerie) : masquée tant que son point d'entrée n'est pas activé. */
-  messaging?: boolean;
 }
 
 /** Racines des trois portails. */
@@ -34,26 +32,28 @@ export const PORTAL_GUARD: Readonly<Record<PortalKey, readonly string[]>> = Obje
   teacher: ["staff.own.read", "schedule.own.read"],
 });
 
-/**
- * Points d'entrée de la messagerie (module livré par un autre chantier). Activés par `NEXT_PUBLIC_V2_MESSAGING=1` le temps
- * que le module soit fusionné ; ils pointent vers `/v2/messages` et `/v2/announcements`.
- */
+/** Points d'entrée de la messagerie : `/v2/messages` et `/v2/announcements`. */
 export const MESSAGING_ENTRIES = {
   messages: "/v2/messages",
   announcements: "/v2/announcements",
 } as const;
 
-export function isMessagingEnabled(raw: string | undefined = process.env.NEXT_PUBLIC_V2_MESSAGING): boolean {
-  const v = (raw ?? "").trim().toLowerCase();
-  return v === "1" || v === "true" || v === "on";
-}
+/**
+ * Permission de lecture de la messagerie propre à chaque portail (module `messaging`) : l'entrée n'apparaît que si le
+ * compte la détient, comme toute autre entrée du portail (plus de drapeau d'environnement). L'API reste la barrière.
+ */
+export const MESSAGING_READ_PERMISSION: Readonly<Record<PortalKey, string>> = Object.freeze({
+  parent: "messaging.child.read",
+  student: "messaging.self.read",
+  teacher: "messaging.read",
+});
 
-const messaging = (key: string, href: string, labelKey: string): PortalEntry => ({ key, href, labelKey, anyPermission: [], icon: "message", messaging: true });
+const messaging = (portal: PortalKey, key: string, href: string, labelKey: string): PortalEntry => ({ key, href, labelKey, anyPermission: [MESSAGING_READ_PERMISSION[portal]], icon: "message" });
 
 export const PARENT_ENTRIES: readonly PortalEntry[] = [
   { key: "parent.children", labelKey: "children", href: "/v2/parent", anyPermission: [], icon: "users" },
-  messaging("parent.messages", MESSAGING_ENTRIES.messages, "messages"),
-  messaging("parent.announcements", MESSAGING_ENTRIES.announcements, "announcements"),
+  messaging("parent", "parent.messages", MESSAGING_ENTRIES.messages, "messages"),
+  messaging("parent", "parent.announcements", MESSAGING_ENTRIES.announcements, "announcements"),
   { key: "parent.account", labelKey: "account", href: "/v2/parent/account", anyPermission: [], icon: "settings" },
 ];
 
@@ -66,8 +66,8 @@ export const STUDENT_ENTRIES: readonly PortalEntry[] = [
   { key: "student.attendance", labelKey: "attendance", href: "/v2/student/attendance", anyPermission: ["attendance.self.read"], icon: "clipboard" },
   { key: "student.finance", labelKey: "finance", href: "/v2/student/finance", anyPermission: ["finance.self.read"], icon: "wallet" },
   { key: "student.documents", labelKey: "documents", href: "/v2/student/documents", anyPermission: ["reportcard.self.read", "finance.self.read", "higher.self.read"], icon: "library" },
-  messaging("student.messages", MESSAGING_ENTRIES.messages, "messages"),
-  messaging("student.announcements", MESSAGING_ENTRIES.announcements, "announcements"),
+  messaging("student", "student.messages", MESSAGING_ENTRIES.messages, "messages"),
+  messaging("student", "student.announcements", MESSAGING_ENTRIES.announcements, "announcements"),
   { key: "student.profile", labelKey: "profile", href: "/v2/student/profile", anyPermission: ["student.self.read"], icon: "settings" },
 ];
 
@@ -79,8 +79,8 @@ export const TEACHER_ENTRIES: readonly PortalEntry[] = [
   { key: "teacher.schedule", labelKey: "schedule", href: "/v2/teacher/schedule", anyPermission: ["schedule.own.read"], icon: "calendar" },
   { key: "teacher.payslips", labelKey: "payslips", href: "/v2/teacher/payslips", anyPermission: ["payroll.payslip.read_own"], icon: "wallet" },
   { key: "teacher.leaves", labelKey: "leaves", href: "/v2/teacher/leaves", anyPermission: ["attendance.own.read"], feature: "attendance.staff", icon: "user-cog" },
-  messaging("teacher.messages", MESSAGING_ENTRIES.messages, "messages"),
-  messaging("teacher.announcements", MESSAGING_ENTRIES.announcements, "announcements"),
+  messaging("teacher", "teacher.messages", MESSAGING_ENTRIES.messages, "messages"),
+  messaging("teacher", "teacher.announcements", MESSAGING_ENTRIES.announcements, "announcements"),
   { key: "teacher.profile", labelKey: "profile", href: "/v2/teacher/profile", anyPermission: ["staff.own.read"], icon: "settings" },
 ];
 
@@ -97,13 +97,11 @@ export interface BuildPortalMenuInput {
   /** Fonctionnalités actives de l'offre ; `null` si inconnues. */
   features: readonly string[] | null;
   labelOf: (labelKey: string) => string;
-  messagingEnabled?: boolean;
 }
 
-export function buildPortalMenu({ portal, permissions, features, labelOf, messagingEnabled = isMessagingEnabled() }: BuildPortalMenuInput): MenuItem[] {
+export function buildPortalMenu({ portal, permissions, features, labelOf }: BuildPortalMenuInput): MenuItem[] {
   const out: MenuItem[] = [];
   PORTAL_ENTRIES[portal].forEach((entry, index) => {
-    if (entry.messaging && !messagingEnabled) return;
     if (entry.anyPermission.length > 0) {
       if (!permissions || !entry.anyPermission.some((p) => hasPermission(permissions, p))) return;
     }

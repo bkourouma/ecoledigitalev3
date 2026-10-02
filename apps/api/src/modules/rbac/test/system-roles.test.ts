@@ -42,6 +42,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "messaging.read", "messaging.send", "messaging.send.any", "messaging.announcement.publish", "messaging.announcement.manage",
       // documents
       "documents.read", "documents.read.restricted", "documents.upload", "documents.share", "documents.archive", "documents.history.read",
+      // notifications
+      "notifications.read", "notifications.send",
       // academic (structure, curriculum, inscriptions)
       "academic.read", "academic.year.read", "academic.year.manage", "academic.period.read", "academic.period.manage", "academic.period.close",
       "academic.program.read", "academic.program.manage", "academic.classroom.read", "academic.classroom.manage", "academic.settings.manage",
@@ -77,6 +79,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "messaging.read", "messaging.send", "messaging.announcement.publish",
       // documents
       "documents.read", "documents.read.restricted", "documents.upload", "documents.share", "documents.history.read",
+      // notifications
+      "notifications.read", "notifications.send",
       "enrollment.read", "enrollment.create", "enrollment.update", "enrollment.cancel", "enrollment.course.manage",
       "academic.read", "academic.year.read", "academic.period.read", "academic.program.read", "academic.classroom.read", "curriculum.read",
       "student.list", "student.read", "student.create", "student.update", "student.status.update", "student.sensitive.read", "student.export",
@@ -95,6 +99,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "messaging.read", "messaging.send",
       // documents
       "documents.read", "documents.read.restricted", "documents.upload",
+      // notifications
+      "notifications.read",
       "finance.fee.read", "finance.fee.manage", "finance.invoice.read", "finance.invoice.create", "finance.invoice.cancel",
       "finance.payment.read", "finance.payment.create", "finance.payment.refund", "finance.cashregister.open", "finance.cashregister.close",
       "finance.report.read", "finance.receipt.read",
@@ -112,6 +118,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "messaging.read", "messaging.send", "messaging.announcement.publish_class",
       // documents
       "documents.read", "documents.own.read", "documents.own.upload",
+      // notifications
+      "notifications.own.manage",
       "assessment.type.read", "assessment.read", "assessment.create", "assessment.update", "grade.read", "grade.enter", "grade.revise.request",
       "appreciation.write",
       "attendance.read", "attendance.take", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
@@ -127,6 +135,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "messaging.read", "messaging.send", "messaging.announcement.publish_class",
       // documents
       "documents.read", "documents.own.read", "documents.own.upload",
+      // notifications
+      "notifications.own.manage",
       "attendance.read", "attendance.take", "attendance.manage", "attendance.validate", "attendance.justification.submit",
       "attendance.justification.read", "attendance.report.read", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
       "schedule.read", "schedule.occurrence.hold",
@@ -156,6 +166,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "documents.own.read", "documents.own.upload",
       "staff.own.read", "staff.own.update", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
       "payroll.payslip.read_own", "payroll.my.dispute", "schedule.own.read",
+      // notifications
+      "notifications.own.manage",
     ],
   },
 
@@ -165,6 +177,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "messaging.child.read", "messaging.child.send",
       // documents
       "documents.child.read", "documents.child.upload",
+      // notifications
+      "notifications.child.manage",
       "student.child.read", "student.child.update", "enrollment.child.read", "grade.child.read", "result.child.read", "reportcard.child.read",
       "attendance.child.read", "attendance.child.justify", "schedule.child.read", "higher.child.read",
       "finance.child.read", "finance.child.pay",
@@ -177,6 +191,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "messaging.self.read", "messaging.self.send",
       // documents
       "documents.self.read", "documents.self.upload",
+      // notifications
+      "notifications.self.manage",
       "student.self.read", "student.self.update", "enrollment.self.read", "enrollment.self.create", "grade.self.read", "result.self.read",
       "reportcard.self.read", "attendance.self.read", "attendance.self.justify", "schedule.self.read", "higher.self.read",
       "finance.self.read", "finance.self.pay",
@@ -212,7 +228,7 @@ describe("modèles de rôles système : ensemble des rôles", () => {
   it("le catalogue réel couvre les modules livrés (chaque module déclarant des permissions est connu de la matrice)", () => {
     const modulesWithPermissions = [...new Set(real.catalog.entries.map((e) => e.moduleKey))].sort();
     expect(modulesWithPermissions).toEqual([
-      "academic", "analytics", "assess", "attendance", "audit", "documents", "entitlements", "finance", "higher", "iam", "messaging", "payroll", "people", "rbac",
+      "academic", "analytics", "assess", "attendance", "audit", "documents", "entitlements", "finance", "higher", "iam", "messaging", "notifications", "payroll", "people", "rbac",
       "reportcards", "results", "rules", "scheduling", "tenancy",
     ]);
   });

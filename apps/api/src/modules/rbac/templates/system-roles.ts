@@ -137,6 +137,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "period.*": "Verrouiller, clôturer, rouvrir une période, changer sa version de règle.",
       "decision.*": "Modifier une décision proposée par la règle (délibération).",
       "schedule.*": "Valider les séances pour la paie, dépasser un conflit, créer une séance comptable, verrouiller les heures.",
+      "notifications.*": "Envoyer un avis urgent (contourne heures calmes et préférences de catégorie, audité, authentification forte) : responsabilité de direction.",
       "messaging.*": "Modérer les signalements, restreindre l'envoi et superviser les conversations avec motif obligatoire (audité) : responsabilité de direction.",
       "documents.*": "Lire les documents confidentiels (dossiers médicaux, contrats, comptabilité), administrer tous les documents, y compris archivés, et libérer ou détruire un fichier en quarantaine : responsabilité de direction (chaque lecture est auditée).",
     },
@@ -167,6 +168,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "messaging.send.any",
       "messaging.announcement.publish",
       "messaging.announcement.manage",
+      // Notifications (module notifications) : voir specs/v2/016-communications.
+      "notifications.read",
+      "notifications.send",
       // Structure académique (années, périodes, programmes, classes, réglages). La clôture/reconduction
       // d'année, la réouverture d'une période et l'application d'un modèle de pack restent à la direction.
       "academic.read",
@@ -306,6 +310,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "messaging.read",
       "messaging.send",
       "messaging.announcement.publish",
+      // Notifications (module notifications) : voir specs/v2/016-communications.
+      "notifications.read",
+      "notifications.send",
       // Inscriptions (création/annulation) ; dérogation et financement = direction / économe.
       "enrollment.read",
       "enrollment.create",
@@ -378,6 +385,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.read",
       "messaging.send",
+      // Notifications (module notifications) : voir specs/v2/016-communications.
+      "notifications.read",
       // Finance complète.
       "finance.fee.read",
       "finance.fee.manage",
@@ -450,6 +459,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "messaging.read",
       "messaging.send",
       "messaging.announcement.publish_class",
+      // Notifications (module notifications) : voir specs/v2/016-communications.
+      "notifications.own.manage",
       // Évaluations et notes de ses classes (le module vérifie l'affectation : assess.not_assigned).
       "assessment.type.read",
       "assessment.read",
@@ -499,6 +510,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "messaging.read",
       "messaging.send",
       "messaging.announcement.publish_class",
+      // Notifications (module notifications) : voir specs/v2/016-communications.
+      "notifications.own.manage",
       // Présences des élèves.
       "attendance.read",
       "attendance.take",
@@ -597,6 +610,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "payroll.payslip.read_own",
       "payroll.my.dispute",
       "schedule.own.read",
+      // Notifications (module notifications) : voir specs/v2/016-communications.
+      "notifications.own.manage",
     ],
   },
 
@@ -618,6 +633,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.child.read",
       "messaging.child.send",
+      // Notifications (module notifications) : voir specs/v2/016-communications.
+      "notifications.child.manage",
       "student.child.read",
       "student.child.update",
       "enrollment.child.read",
@@ -649,6 +666,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.self.read",
       "messaging.self.send",
+      // Notifications (module notifications) : voir specs/v2/016-communications.
+      "notifications.self.manage",
       "student.self.read",
       "student.self.update",
       "enrollment.self.read",
