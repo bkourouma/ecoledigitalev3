@@ -388,6 +388,8 @@ BEGIN
   -- paramètres
   PERFORM ddltest.throws(format($q$INSERT INTO admissions.settings (tenant_id, institution_id, waitlist_promotion) VALUES (%L, gen_random_uuid(), 'SOMETIMES')$q$, J), 'check', 'promotion de la liste d''attente : MANUAL ou AUTO');
   PERFORM ddltest.throws(format($q$INSERT INTO admissions.settings (tenant_id, institution_id, payment_deadline_days) VALUES (%L, gen_random_uuid(), 0)$q$, J), 'check', 'délai de paiement strictement positif (ou absent)');
+  PERFORM ddltest.throws(format($q$INSERT INTO admissions.settings (tenant_id, institution_id, submissions_per_10_min) VALUES (%L, gen_random_uuid(), 0)$q$, J), 'check', 'limite de dépôts publics : au moins 1 par fenêtre');
+  PERFORM ddltest.ok((SELECT submissions_per_10_min FROM admissions.settings WHERE institution_id = 'a2100000-0000-4000-8000-000000000001' AND tenant_id = J) = 5 AND NOT (SELECT captcha_required FROM admissions.settings WHERE institution_id = 'a2100000-0000-4000-8000-000000000001' AND tenant_id = J), 'défauts : 5 dépôts par 10 minutes, CAPTCHA non exigé');
 
   -- textes de consentement : publiés une fois, jamais modifiés
   INSERT INTO admissions.consent_texts (id, tenant_id, institution_id, kind, version, body)

@@ -70,6 +70,8 @@ CREATE TABLE admissions.settings (
   payment_deadline_days     integer CHECK (payment_deadline_days IS NULL OR payment_deadline_days BETWEEN 1 AND 365),
   waitlist_promotion        text NOT NULL DEFAULT 'MANUAL' CHECK (waitlist_promotion IN ('MANUAL', 'AUTO')),
   minimum_form_seconds      integer NOT NULL DEFAULT 5 CHECK (minimum_form_seconds BETWEEN 0 AND 600),
+  captcha_required          boolean NOT NULL DEFAULT false,
+  submissions_per_10_min    integer NOT NULL DEFAULT 5 CHECK (submissions_per_10_min BETWEEN 1 AND 1000),   -- dépôts par empreinte d'IP et par fenêtre de 10 minutes
   rejected_retention_months integer CHECK (rejected_retention_months IS NULL OR rejected_retention_months > 0),
   application_number_pattern text NOT NULL DEFAULT '{YEAR}-{SEQ:5}'
                              CHECK (length(application_number_pattern) BETWEEN 3 AND 60),
