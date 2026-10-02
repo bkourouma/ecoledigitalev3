@@ -82,6 +82,7 @@ enfant non rattaché), dryRun / recalcul, refus par séparation des tâches, ét
 Playwright : `PW_CHANNEL=msedge pnpm exec playwright test -c playwright.finance.config.ts` (Next seul) : chaque route compile, la garde serveur renvoie vers
 `/login` sans session et aucun appel finance n'est émis (375 px et bureau). Les parcours authentifiés exigent NextAuth + API + Postgres : à écrire avec
 l'infrastructure complète (encaisser et clôturer une caisse, calculer / arrêter / verser une période).
+Le smoke est LENT en `next dev` (33 routes x 2 projets, 5 à 17 s de compilation chacune : prévoir plus de 30 minutes à froid) ; vérifié ici : les premiers tests passent (Edge, 375 px) et un balayage `curl` de 11 routes représentatives renvoie 307 vers `/login` (aucune 500) ; la série complète n'a pas été menée à terme.
 
 ## Écarts connus (API) et points à arbitrer
 
