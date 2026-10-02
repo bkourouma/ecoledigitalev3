@@ -330,8 +330,12 @@ export const documentMyContextDtoSchema = z.object({
   }),
   links: z.object({
     studentId: documentsUuidSchema.nullable(),
+    studentName: z.string().nullable(),
     childStudentIds: z.array(documentsUuidSchema),
+    /** Enfants liés (pour le sélecteur de dépôt d'un parent). */
+    children: z.array(z.object({ id: documentsUuidSchema, displayName: z.string() })),
     staffId: documentsUuidSchema.nullable(),
+    staffName: z.string().nullable(),
   }),
   upload: z.object({
     defaultMaxBytes: z.number().int().positive(),
@@ -507,6 +511,15 @@ export type DocumentUpdateBody = z.infer<typeof documentUpdateBodySchema>;
 export const documentArchiveBodySchema = z.object({ reason: z.string().trim().min(3, "Motif obligatoire.").max(DOCUMENT_LIMITS.noteMax) });
 export type DocumentArchiveBody = z.infer<typeof documentArchiveBodySchema>;
 
+/** Accusé d'archivage (un document archivé n'est plus visible hors gestion : pas de détail). */
+export const documentArchiveResultDtoSchema = z.object({
+  id: documentsUuidSchema,
+  status: z.literal("ARCHIVED"),
+  archivedAt: documentsInstantSchema,
+  purgeAfter: documentsInstantSchema.nullable(),
+});
+export type DocumentArchiveResultDto = z.infer<typeof documentArchiveResultDtoSchema>;
+
 export const documentShareBodySchema = z.object({
   userId: documentsUuidSchema,
   level: documentShareLevelSchema.default("READ"),
@@ -539,6 +552,7 @@ export const documentHistoryEventDtoSchema = z.object({
 });
 export type DocumentHistoryEventDto = z.infer<typeof documentHistoryEventDtoSchema>;
 export const documentHistoryPageDtoSchema = z.object({ items: z.array(documentHistoryEventDtoSchema), nextCursor: z.string().nullable() });
+export type DocumentHistoryPageDto = z.infer<typeof documentHistoryPageDtoSchema>;
 export const documentHistoryQuerySchema = z.object({ cursor: z.string().max(500).optional(), limit: z.coerce.number().int().min(1).max(200).optional() });
 
 // ---------------------------------------------------------------------------
@@ -608,6 +622,7 @@ export type DocumentPersonQuery = z.infer<typeof documentPersonQuerySchema>;
 
 /** Tuteurs (identités) d'un élève : partage rapide. */
 export const documentGuardianListDtoSchema = z.object({ items: z.array(documentPersonDtoSchema) });
+export type DocumentGuardianListDto = z.infer<typeof documentGuardianListDtoSchema>;
 
 // ---------------------------------------------------------------------------
 // Codes d'erreur stables (partie du contrat d'API : ne jamais en renommer un)

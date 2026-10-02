@@ -82,46 +82,70 @@ export class FakeScanner implements MalwareScanner {
   }
 }
 
-export interface WorldPerson {
-  readonly id: Uuid;
-  readonly name: string;
-}
-
-/** Annuaire mémoire : fiches élèves / personnel / comptes, et les liens de chaque compte. */
+/** Annuaire mémoire, CLOISONNÉ PAR TENANT comme les vraies lectures sous RLS : fiches élèves / personnel / comptes et liens. */
 export class InMemoryOwners implements OwnerDirectory {
-  readonly students = new Map<Uuid, string>();
-  readonly staff = new Map<Uuid, string>();
-  readonly users = new Map<Uuid, string>();
-  readonly links = new Map<Uuid, ActorLinks>();
-  readonly guardians = new Map<Uuid, Uuid[]>();
+  private readonly students = new Map<string, string>();
+  private readonly staff = new Map<string, string>();
+  private readonly users = new Map<string, string>();
+  private readonly links = new Map<string, ActorLinks>();
+  private readonly guardians = new Map<string, Uuid[]>();
+
+  private static k(tenantId: string, id: Uuid): string {
+    return `${tenantId}|${id}`;
+  }
+  addStudent(tenantId: string, id: Uuid, name: string): this {
+    this.students.set(InMemoryOwners.k(tenantId, id), name);
+    return this;
+  }
+  addStaff(tenantId: string, id: Uuid, name: string): this {
+    this.staff.set(InMemoryOwners.k(tenantId, id), name);
+    return this;
+  }
+  addUser(tenantId: string, id: Uuid, name: string): this {
+    this.users.set(InMemoryOwners.k(tenantId, id), name);
+    return this;
+  }
+  setLinks(tenantId: string, userId: Uuid, links: Partial<ActorLinks>): this {
+    this.links.set(InMemoryOwners.k(tenantId, userId), { studentId: null, childStudentIds: [], staffId: null, ...links });
+    return this;
+  }
+  setGuardians(tenantId: string, studentId: Uuid, userIds: Uuid[]): this {
+    this.guardians.set(InMemoryOwners.k(tenantId, studentId), userIds);
+    return this;
+  }
 
   async resolveActorLinks(ctx: RequestContext): Promise<ActorLinks> {
-    return (ctx.userId && this.links.get(ctx.userId)) || NO_LINKS;
+    return (ctx.userId && this.links.get(InMemoryOwners.k(ctx.tenantId, ctx.userId))) || NO_LINKS;
   }
-  private dir(type: Exclude<DocumentOwnerType, "NONE">): Map<Uuid, string> {
+  private dir(type: Exclude<DocumentOwnerType, "NONE">): Map<string, string> {
     return type === "STUDENT" ? this.students : this.staff;
   }
-  async existingOwners(_ctx: RequestContext, type: Exclude<DocumentOwnerType, "NONE">, ids: readonly Uuid[]): Promise<ReadonlySet<Uuid>> {
+  async existingOwners(ctx: RequestContext, type: Exclude<DocumentOwnerType, "NONE">, ids: readonly Uuid[]): Promise<ReadonlySet<Uuid>> {
     const d = this.dir(type);
-    return new Set(ids.filter((id) => d.has(id)));
+    return new Set(ids.filter((id) => d.has(InMemoryOwners.k(ctx.tenantId, id))));
   }
-  async ownerNames(_ctx: RequestContext, type: Exclude<DocumentOwnerType, "NONE">, ids: readonly Uuid[]): Promise<ReadonlyMap<Uuid, string>> {
+  async ownerNames(ctx: RequestContext, type: Exclude<DocumentOwnerType, "NONE">, ids: readonly Uuid[]): Promise<ReadonlyMap<Uuid, string>> {
     const d = this.dir(type);
-    return new Map(ids.filter((id) => d.has(id)).map((id) => [id, d.get(id) as string] as [Uuid, string]));
+    return new Map(ids.filter((id) => d.has(InMemoryOwners.k(ctx.tenantId, id))).map((id) => [id, d.get(InMemoryOwners.k(ctx.tenantId, id)) as string] as [Uuid, string]));
   }
-  async searchOwners(_ctx: RequestContext, type: Exclude<DocumentOwnerType, "NONE">, query: string, limit: number): Promise<readonly PersonRef[]> {
+  private search(map: Map<string, string>, tenantId: string, query: string, limit: number): PersonRef[] {
     const q = query.toLowerCase();
-    return [...this.dir(type)].filter(([, n]) => n.toLowerCase().includes(q)).slice(0, limit).map(([id, name]) => ({ id, displayName: name, detail: null }));
+    return [...map]
+      .filter(([k, n]) => k.startsWith(`${tenantId}|`) && n.toLowerCase().includes(q))
+      .slice(0, limit)
+      .map(([k, name]) => ({ id: k.slice(tenantId.length + 1), displayName: name, detail: null }));
   }
-  async userNames(_ctx: RequestContext, userIds: readonly Uuid[]): Promise<ReadonlyMap<Uuid, string>> {
-    return new Map(userIds.filter((id) => this.users.has(id)).map((id) => [id, this.users.get(id) as string] as [Uuid, string]));
+  async searchOwners(ctx: RequestContext, type: Exclude<DocumentOwnerType, "NONE">, query: string, limit: number): Promise<readonly PersonRef[]> {
+    return this.search(this.dir(type), ctx.tenantId, query, limit);
   }
-  async searchUsers(_ctx: RequestContext, query: string, limit: number): Promise<readonly PersonRef[]> {
-    const q = query.toLowerCase();
-    return [...this.users].filter(([, n]) => n.toLowerCase().includes(q)).slice(0, limit).map(([id, name]) => ({ id, displayName: name, detail: null }));
+  async userNames(ctx: RequestContext, userIds: readonly Uuid[]): Promise<ReadonlyMap<Uuid, string>> {
+    return new Map(userIds.filter((id) => this.users.has(InMemoryOwners.k(ctx.tenantId, id))).map((id) => [id, this.users.get(InMemoryOwners.k(ctx.tenantId, id)) as string] as [Uuid, string]));
   }
-  async guardianUsers(_ctx: RequestContext, studentId: Uuid): Promise<readonly PersonRef[]> {
-    return (this.guardians.get(studentId) ?? []).map((id) => ({ id, displayName: this.users.get(id) ?? "Tuteur", detail: null }));
+  async searchUsers(ctx: RequestContext, query: string, limit: number): Promise<readonly PersonRef[]> {
+    return this.search(this.users, ctx.tenantId, query, limit);
+  }
+  async guardianUsers(ctx: RequestContext, studentId: Uuid): Promise<readonly PersonRef[]> {
+    return (this.guardians.get(InMemoryOwners.k(ctx.tenantId, studentId)) ?? []).map((id) => ({ id, displayName: this.users.get(InMemoryOwners.k(ctx.tenantId, id)) ?? "Tuteur", detail: null }));
   }
 }
 
