@@ -116,7 +116,7 @@ describeIntegration("primary_school : conseil des maîtres, bilan annuel scellé
     expect((await decideCouncilCase(deps, teacherA(), caseOf[e("s1")] as string, {}, {})).ok).toBe(false);
     const d1 = unwrap(await decideCouncilCase(deps, admin(), caseOf[e("s1")] as string, {}, DIRECTION));
     expect(d1).toMatchObject({ finalCode: "PROMOTED", changedFromProposal: false, outcomeRecorded: "PROMOTED", case: { status: "DECIDED" } });
-    expect(w.world.outcomes).toContainEqual({ enrollmentId: e("s1"), outcomeCode: "PROMOTED" });
+    expect(w.world.outcomes).toContainEqual(expect.objectContaining({ enrollmentId: e("s1"), outcomeCode: "PROMOTED" }));
 
     // écart sans justification : refusé ; justification trop courte : refusé
     const noWhy = await decideCouncilCase(deps, admin(), caseOf[e("s2")] as string, { finalCode: "REPEAT" }, DIRECTION);
