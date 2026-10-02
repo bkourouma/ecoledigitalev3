@@ -67,7 +67,7 @@ Consommés (`subscribers.ts`, idempotents, insensibles à l'ordre) :
 | `people.project-membership` | `iam.membership.created\|changed` | projection des accès (`identity_memberships`) |
 | `people.instantiate-reference-data` | `tenancy.tenant.provisioned` | types de liens, catégories, types de contrat (sans écraser) |
 | `people.end-assignments-on-classroom-closed` | `academic.classroom.cancelled\|completed` | termine les affectations de la classe |
-| `people.end-assignments-on-year-closed` | `academic.year.closed` / `academic.academic_year.closed` | termine les affectations de l'année |
+| `people.end-assignments-on-year-closed` | `academic.year.closed` | termine les affectations de l'année |
 
 Job : `people.emit-expiring-qualifications` (06:30, par tenant) — une alerte par franchissement de seuil (`expiry_alerted_for`), préavis = `settings.expiry_alert_days`.
 
@@ -114,3 +114,8 @@ Couverture d'intégration : 50 créations concurrentes = numéros 1…50 ; atomi
 * « Aujourd'hui » est la date **UTC** de l'horloge injectée (le fuseau de l'établissement, D-24, n'est pas disponible dans ce module).
 * `StoragePort`, `AcademicQuery`, `CountryProfileProvider` n'ont pas de fournisseur dans la plateforme : les fonctions correspondantes répondent par un refus explicite jusqu'à leur câblage.
 * Pas de fusion de dossiers en double (O-07), pas de données de santé (O-08), aucune reprise de données de production.
+
+## Assemblage : ports et lectures publiées
+
+- ports `academic` (affectations, ouverture d'offre) et `storage` : registre `registerPeoplePorts` (`app.peoplePorts`, API) et `setPeopleWorkerPorts` (worker), branchés par `platform/adapters` ;
+- `getDisplayNamesOfIdentities` (nom d'affichage par identité de compte) et `StaffBrief.identityId` (compte lié, résolu par `persons.identity_id`, jamais par e-mail) servent les annuaires des autres modules.

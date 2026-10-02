@@ -74,6 +74,7 @@ export { S3Storage, s3ConfigFromEnv, s3StorageFromEnv, safeFileName } from "./in
 export { StaticKeyProvider, generateSigningKeyPair, keyProviderFromEnv } from "./infrastructure/key-provider";
 export { PuppeteerPdfRenderer, findChromeExecutable, findPuppeteerCachedChrome, puppeteerRendererFromEnv } from "./infrastructure/puppeteer-renderer";
 export { PdfLibMerger, stampPdfMetadata } from "./infrastructure/pdf-merger";
+export { resetReportcardsWorkerResources, setReportcardsWorkerResources, type WorkerResourceOverrides } from "./infrastructure/worker-resources";
 
 // Cas d'usage — émission, cycle de vie, lecture, rendu, vérification
 export { createBatch, createTranscript, getBatchView, preflight, reissueReportCard, type BatchView, type CreateBatchInput, type PreflightInput, type PreflightView } from "./application/issue";

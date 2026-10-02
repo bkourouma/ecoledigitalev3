@@ -21,9 +21,7 @@ export const ReportcardsEvents = {
 
 export const ALL_REPORTCARDS_EVENT_TYPES = Object.freeze(Object.keys(reportcardsEventPayloadSchemas)) as readonly string[];
 
-/** Événements d'autres modules consommés (⚠ noms de travail, à aligner avec leurs producteurs : voir spec 013 §11). */
+/** Événements d'autres modules consommés (alignés avec leurs producteurs ; garde-fou : apps/api/test/events-catalog.test.ts). Un bulletin est un snapshot immuable : `results.period.*` n'est pas consommé. */
 export const ConsumedEvents = {
   TENANT_PROVISIONED: "tenancy.tenant.provisioned",
-  PERIOD_REOPENED: "results.period.reopened",
-  PERIOD_CLOSED: "results.period.closed",
 } as const;

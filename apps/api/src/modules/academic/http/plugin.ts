@@ -25,6 +25,8 @@ import type { ModuleRuntime } from "../../../platform/runtime";
 import { academicAuditAdapter } from "../infrastructure/audit-adapter";
 import { createTenancyInstitutionDirectory } from "../infrastructure/tenancy-directory";
 import { createAcademicDeps, type AcademicDeps } from "../application/deps";
+import { createAcademicPortRegistry, type AcademicPortRegistry } from "../application/port-registry";
+import type { AcademicPorts } from "../application/ports";
 import * as calendar from "../application/calendar";
 import * as classrooms from "../application/classrooms";
 import * as courses from "../application/courses";
@@ -627,18 +629,38 @@ export async function academicPlugin(app: FastifyInstance, options: AcademicPlug
   );
 }
 
+declare module "fastify" {
+  interface FastifyInstance {
+    /** Registre des ports d'academic (posé par `setup`, renseigné par `registerAcademicPorts`). */
+    academicPorts: AcademicPortRegistry;
+  }
+}
+
+/** Décore la RACINE avec le registre de ports (visible des adaptateurs de plateforme, quel que soit l'ordre de chargement). */
+export function setup(app: FastifyInstance, _runtime: ModuleRuntime): void {
+  if (!app.hasDecorator("academicPorts")) app.decorate("academicPorts", createAcademicPortRegistry());
+}
+
+/** À appeler par la plateforme (adaptateurs) : `students`, `guardianship`, `readiness`, `schedule`, `registrationFee`, `invoiceFacts`… */
+export function registerAcademicPorts(app: FastifyInstance, ports: Partial<AcademicPorts>): void {
+  if (!app.hasDecorator("academicPorts")) app.decorate("academicPorts", createAcademicPortRegistry());
+  app.academicPorts.register(ports);
+}
+
 /**
  * Contrat d'assemblage uniforme (`platform/runtime.ts`) : `(app, runtime)`, routes sans préfixe (le registre applique
  * `/api/v1/academic`). Les ports vers people / finance / scheduling / assess ne sont pas branchés ici : ils gardent
  * leur repli sûr jusqu'au câblage des modules concernés (voir README).
  */
 export default async function academicModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
+  if (!app.hasDecorator("academicPorts")) app.decorate("academicPorts", createAcademicPortRegistry());
   const deps = createAcademicDeps({
     db: runtime.tenantDb,
     clock: runtime.clock,
     logger: runtime.logger,
     audit: academicAuditAdapter(runtime.auditPort),
     ports: { institutions: createTenancyInstitutionDirectory({ db: runtime.tenantDb, clock: runtime.clock }) },
+    portsProvider: () => app.academicPorts.current,
   });
   await academicPlugin(app, {
     deps,

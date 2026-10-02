@@ -24,6 +24,7 @@ import { ConsumedEvents, ReportcardsEvents } from "./domain/events";
 import { PdfLibMerger } from "./infrastructure/pdf-merger";
 import { puppeteerRendererFromEnv } from "./infrastructure/puppeteer-renderer";
 import { s3StorageFromEnv } from "./infrastructure/storage-s3";
+import { reportcardsWorkerOverrides } from "./infrastructure/worker-resources";
 
 export const RENDER_ATTEMPTS = 3;
 
@@ -33,14 +34,26 @@ interface WorkerResources {
   merger: PdfMerger;
 }
 
-let resources: WorkerResources | null = null;
+let resources: { value: WorkerResources; version: number } | null = null;
 
-/** Ressources du worker (stockage, Chromium) créées une seule fois par processus. */
+/**
+ * Ressources du worker (stockage, Chromium) créées une seule fois par processus. L'assemblage de la plateforme peut injecter
+ * le stockage (S3 / MinIO ou repli disque), le moteur PDF ou la fusion (`setReportcardsWorkerResources`) ; sans injection :
+ * variables `REPORTCARDS_S3_*` et Chromium local, comme avant.
+ */
 function workerResources(): WorkerResources {
-  if (!resources) {
-    resources = { storage: s3StorageFromEnv(process.env), renderer: puppeteerRendererFromEnv(process.env), merger: new PdfLibMerger() };
+  const { overrides, version } = reportcardsWorkerOverrides();
+  if (!resources || resources.version !== version) {
+    resources = {
+      version,
+      value: {
+        storage: overrides.storage !== undefined ? overrides.storage : s3StorageFromEnv(process.env),
+        renderer: overrides.renderer ?? puppeteerRendererFromEnv(process.env),
+        merger: overrides.merger ?? new PdfLibMerger(),
+      },
+    };
   }
-  return resources;
+  return resources.value;
 }
 
 /** Dépendances d'un abonné. Injectables : les tests passent leurs propres ports (stockage mémoire, rendu factice). */
@@ -58,7 +71,8 @@ const defaultDeps: DepsFactory = (ctx) => {
   });
 };
 
-function pickUuid(payload: unknown, key: string): string | undefined {
+/** Lit un identifiant UUID dans une charge d'événement (`reportCardId`, `batchId`). Exporté pour le test de contrat. */
+export function pickUuid(payload: unknown, key: string): string | undefined {
   const v = payload && typeof payload === "object" ? (payload as Record<string, unknown>)[key] : undefined;
   return typeof v === "string" && isUuid(v) ? v : undefined;
 }

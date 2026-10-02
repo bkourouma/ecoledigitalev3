@@ -62,6 +62,8 @@ export interface StaffBrief {
   staffNumber: string;
   email: string | null;
   phone: string | null;
+  /** Identité IAM liée (compte utilisateur du membre), ou `null`. */
+  identityId: string | null;
 }
 
 /** Fiches résumées par lots (scheduling, attendance, paie, évaluations) : une requête, identifiants inconnus ignorés. */
@@ -72,7 +74,7 @@ export async function getStaffByIds(deps: PeopleDeps, ctx: RequestContext, ids: 
     ctx,
     async (tx) => {
       const rows = await repo.getStaffRows(tx, ctx.tenantId, [...new Set(ids)]);
-      return ok(rows.map((r) => ({ staffId: r.staffId, displayName: staffSummaryView(r).displayName, categoryCode: r.categoryCode, status: r.status, staffNumber: r.staffNumber, email: r.email, phone: r.phone })));
+      return ok(rows.map((r) => ({ staffId: r.staffId, displayName: staffSummaryView(r).displayName, categoryCode: r.categoryCode, status: r.status, staffNumber: r.staffNumber, email: r.email, phone: r.phone, identityId: r.identityId })));
     },
     { readOnly: true },
   );

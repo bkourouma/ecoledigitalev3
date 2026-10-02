@@ -39,7 +39,7 @@ const asRules = (t: NodeType): NodeType => t;
 // Nœuds suivis
 // ---------------------------------------------------------------------------
 
-async function periodChainOf(tx: Tx, periodId: string): Promise<{ chain: PeriodChainItem[]; period: AcademicPeriod; all: AcademicPeriod[] } | null> {
+export async function periodChainOf(tx: Tx, periodId: string): Promise<{ chain: PeriodChainItem[]; period: AcademicPeriod; all: AcademicPeriod[] } | null> {
   const period = await cal.getPeriod(tx, periodId);
   if (!period) return null;
   const all = await cal.listPeriods(tx, period.academicYearId);

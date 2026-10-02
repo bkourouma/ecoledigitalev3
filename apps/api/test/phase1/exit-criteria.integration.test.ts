@@ -28,6 +28,7 @@ import {
   provisionByConsole,
   readAuditLog,
   redeemInvitation,
+  seedLearner,
   type ProvisionedOwner,
   type Session,
 } from "./support/scenario";
@@ -86,7 +87,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 1 — plateforme
 
       for (const t of [A, B]) {
         const roles = await p.db.admin.query("SELECT count(*)::int AS n FROM rbac.roles WHERE tenant_id = $1 AND is_system", [t.tenantId]);
-        expect(roles.rows[0].n).toBe(10);
+        expect(roles.rows[0].n).toBe(11);
         const sub = await p.db.admin.query("SELECT plan_key, status, packs FROM entitlements.tenant_subscriptions WHERE tenant_id = $1", [t.tenantId]);
         expect(sub.rows).toHaveLength(1);
         expect(sub.rows[0]).toMatchObject({ plan_key: "STARTER", status: "TRIALING" });
@@ -108,6 +109,10 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 1 — plateforme
       ownerA = await loginWithMfaEnrollment(p, A.ownerEmail, A.slug);
       ownerB = await loginWithMfaEnrollment(p, B.ownerEmail, B.slug);
       expect(ownerA.identityId).toBe(A.ownerIdentityId);
+      // finance verifie l'apprenant dans people (adaptateurs de plateforme) : les apprenants des scenarios financiers existent.
+      // (les identifiants de dossiers sont uniques sur toute la plateforme : un apprenant par tenant)
+      await seedLearner(p, B.tenantId, "0192f0a4-7b1e-7c3a-8d2e-00000000a002");
+      await seedLearner(p, A.tenantId, "0192f0a4-7b1e-7c3a-8d2e-00000000a111");
     });
 
     it("isolation par appels CROISÉS : A ne voit, ne lit ni ne modifie rien de B (et réciproquement)", async () => {
@@ -128,7 +133,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 1 — plateforme
       const rolesA = await p.http("GET", "/api/v1/rbac/roles", { token: ownerA.accessToken });
       const rolesB = await p.http("GET", "/api/v1/rbac/roles", { token: ownerB.accessToken });
       const idsA = new Set(rolesA.body.roles.map((r: { id: string }) => r.id));
-      expect(rolesA.body.roles).toHaveLength(10);
+      expect(rolesA.body.roles).toHaveLength(11);
       expect(rolesB.body.roles.every((r: { id: string }) => !idsA.has(r.id))).toBe(true);
       const auditA = await readAuditLog(p, ownerA.accessToken);
       const auditB = await readAuditLog(p, ownerB.accessToken);
@@ -292,7 +297,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 1 — plateforme
       p.http("POST", "/api/v1/finance/payments/online", {
         token,
         headers: { "idempotency-key": key },
-        body: { learnerId: "0192f0a4-7b1e-7c3a-8d2e-00000000a001", amount: 50000, provider: "sandbox" },
+        body: { learnerId: "0192f0a4-7b1e-7c3a-8d2e-00000000a002", amount: 50000, provider: "sandbox" },
       });
 
     it("B passe en STARTER sans pack : le paiement en ligne est refusé (403 entitlements.feature_not_available)", async () => {

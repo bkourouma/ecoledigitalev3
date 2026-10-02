@@ -13,7 +13,7 @@
  * Idempotence par CONSTRUCTION (voir `application/consumers.ts`) : un rejeu ne change rien (constat déjà posé,
  * séance déjà signalée ou annulée), donc l'enveloppe `idempotent()` du SDK — qui ne couvrirait pas les
  * transactions propres aux cas d'usage — n'apporte rien. Un échec est relancé par le worker (reprises puis
- * dead-letter). ⚠ Les noms et charges des événements des autres modules sont des hypothèses de travail.
+ * dead-letter). Les noms et charges des événements des autres modules sont ceux de leurs producteurs (test de contrat : apps/api/test/events-contracts/scheduling.test.ts).
  */
 import { defineSubscriber } from "@ecoledigitale/worker/sdk";
 import type { AppError, Result } from "@ecoledigitale/kernel";

@@ -611,3 +611,24 @@ export const RulesPlatformSettingsResponseSchema = z.object({
   nationalFourEyes: z.boolean(),
   replaySamplePercent: z.number(),
 });
+
+// ---------------------------------------------------------------------------
+// Événements publiés (outbox ; payload `{ v: 1, … }`) — alignés sur `modules/rules/domain/events.ts`
+// ---------------------------------------------------------------------------
+
+/** `rules.binding.changed` : consommé par results (alerte « retard de version de règle », aucun recalcul). */
+export const RulesBindingChangedPayloadSchema = z.object({
+  v: z.literal(1),
+  bindingId: UuidSchema,
+  contractId: RulesContractIdSchema,
+  ruleSetCode: RulesRuleSetCodeSchema,
+  scope: z.object({ institutionId: UuidSchema.nullable(), curriculumNodeId: UuidSchema.nullable(), levelCode: z.string().nullable() }),
+  effectiveFrom: RulesIsoDateSchema,
+  effectiveTo: RulesIsoDateSchema.nullable(),
+  change: z.enum(["created", "updated", "deleted"]),
+});
+
+/** Schéma de charge utile des événements rules consommés par d'autres modules (additif). */
+export const rulesEventPayloadSchemas = {
+  "rules.binding.changed": RulesBindingChangedPayloadSchema,
+} as const;

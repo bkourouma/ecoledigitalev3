@@ -236,3 +236,8 @@ Consommés : `academic.classroom.cancelled|completed`, `academic.year.closed` (t
 4. Aucune suppression physique de personnel ; aucune lecture de contrat sans permission ; aucune identité par en-tête client.
 5. `listAvailabilities` et `getStaffByIds` consommés par un test de contrat de scheduling ; `getTeachingLoad` cohérent avec les données de test.
 6. Les tables et routes legacy remplacées (`teachers`, `teacher_assignments`, `professional_session_ecue_teachers`, `teaching_hours`, `course_assignments`, routes `teachers`, `teacher-assignments`, `teaching-hours*`) sont supprimées dans la tranche 2.2 ; la paie (032) lit `scheduling.listPayableHours` et `people.getStaffByIds`, jamais ces tables.
+
+## Addendum d'assemblage (additif)
+
+- `StaffBrief.identityId` (compte lié, résolu par la liaison explicite `persons.identity_id`, jamais par e-mail) et `getDisplayNamesOfIdentities` (nom d'affichage par identité) sont publiés pour les annuaires des autres modules (paie, présences, évaluations, bulletins).
+- Registre de ports par application (`registerPeoplePorts`, `app.peoplePorts`) et par processus pour le worker (`setPeopleWorkerPorts`) : les ports `academic` et `storage` sont branchés par `apps/api/src/platform/adapters/` (`docs/architecture/platform-assembly.md` §11).

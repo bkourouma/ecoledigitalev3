@@ -28,6 +28,7 @@ import {
   getInstallments,
   getInstallmentsByIds,
   getInvoice,
+  getInvoiceLines,
   updateInvoiceStatus,
 } from "../infrastructure/billing-repository";
 import {
@@ -72,9 +73,21 @@ export async function refreshInvoiceStatus(
   const balance = invoiceBalance({ total: invoice.total, paid: invoice.paid, credited: invoice.credited });
 
   if (next.value === "PAID" && invoice.number) {
+    // Charge ENRICHIE (additive) pour `academic` : l'inscription visée, la présence de frais d'inscription et les objets
+    // d'autres modules soldés par cette facture (confirmation automatique de l'inscription / d'un cours à la carte).
+    const lines = await getInvoiceLines(tx, invoiceId);
     events.add(
       FinanceEvents.INVOICE_PAID,
-      { v: 1, invoiceId, number: invoice.number, learnerId: invoice.learnerId, total: moneyPayload(invoice.total) },
+      {
+        v: 1,
+        invoiceId,
+        number: invoice.number,
+        learnerId: invoice.learnerId,
+        total: moneyPayload(invoice.total),
+        enrollmentId: invoice.enrollmentId,
+        containsRegistrationFee: lines.some((l) => l.category === "REGISTRATION"),
+        sourceRefs: lines.filter((l) => l.sourceRef !== null).map((l) => ({ sourceRef: l.sourceRef as string, category: l.category })),
+      },
       { type: "invoice", id: invoiceId },
     );
   }

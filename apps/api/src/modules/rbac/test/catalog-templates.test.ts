@@ -135,8 +135,8 @@ describe("motifs de permissions", () => {
   });
 });
 
-describe("modèles de rôles système", () => {
-  it("expose les dix modèles du plan, clés uniques et réservées", () => {
+describe("modèles de rôles système (mécanique ; le contenu réel est vérifié dans system-roles.test.ts)", () => {
+  it("expose les onze modèles du plan (dont `personnel`), clés uniques et réservées", () => {
     expect(SYSTEM_ROLE_KEYS).toEqual([
       "owner",
       "directeur",
@@ -146,10 +146,11 @@ describe("modèles de rôles système", () => {
       "enseignant",
       "educateur",
       "responsable_pedagogique",
+      "personnel",
       "parent",
       "eleve",
     ]);
-    expect(new Set(SYSTEM_ROLE_KEYS).size).toBe(10);
+    expect(new Set(SYSTEM_ROLE_KEYS).size).toBe(11);
     for (const key of SYSTEM_ROLE_KEYS) {
       expect(ROLE_KEY_RE.test(key)).toBe(true);
       expect(isReservedRoleKey(key)).toBe(true);
@@ -179,66 +180,23 @@ describe("modèles de rôles système", () => {
   const roles = new Map(resolveSystemRoles(catalog).map((r) => [r.template.key, r]));
   const perms = (key: string): readonly string[] => roles.get(key)?.permissions ?? [];
 
-  it("owner reçoit TOUT le catalogue", () => {
+  it("owner reçoit tout le catalogue de test ; le directeur ne reçoit pas la définition des rôles", () => {
     expect(perms("owner")).toEqual(catalog.keys);
     expect(roles.get("owner")?.pending).toEqual([]);
-  });
-
-  it("directeur : tout sauf abonnement, clôture et définition des rôles", () => {
     expect(perms("directeur")).toContain("grade.publish");
     expect(perms("directeur")).toContain("rbac.assignment.manage");
     expect(perms("directeur")).not.toContain("rbac.role.manage");
-    expect(perms("directeur")).not.toContain("tenant.billing.manage");
-    expect(perms("directeur")).not.toContain("tenant.close");
+    expect(perms("directeur")).not.toContain("entitlements.manage");
   });
 
-  it("econome : finance complète, pas les notes", () => {
-    expect(perms("econome")).toContain("finance.payment.create");
-    expect(perms("econome")).toContain("finance.settings.manage");
-    expect(perms("econome")).toContain("student.read");
-    expect(perms("econome")).not.toContain("grade.enter");
+  it("sur un catalogue partiel (modules absents), les clés sans correspondance sont signalées en attente, pas perdues", () => {
+    // Le catalogue de test n'a ni `payroll`, ni `attendance`, ni `people`…
+    expect(roles.get("econome")?.pending).toEqual(expect.arrayContaining(["payroll.payslip.pay", "payroll.run.calculate"]));
+    expect(roles.get("enseignant")?.pending).toEqual(expect.arrayContaining(["attendance.take", "attendance.own.record", "payroll.payslip.read_own"]));
+    expect(roles.get("educateur")?.pending).toEqual(expect.arrayContaining(["attendance.manage", "schedule.occurrence.hold"]));
   });
 
-  it("enseignant : saisit les notes mais ne les publie pas", () => {
-    expect(perms("enseignant")).toContain("grade.enter");
-    expect(perms("enseignant")).toContain("assessment.create");
-    expect(perms("enseignant")).not.toContain("grade.publish");
-    expect(perms("enseignant")).not.toContain("finance.invoice.read");
-  });
-
-  it("secrétariat : dossiers élèves et lecture financière, pas d'encaissement", () => {
-    expect(perms("secretariat")).toContain("student.create");
-    expect(perms("secretariat")).toContain("finance.invoice.read");
-    expect(perms("secretariat")).not.toContain("finance.payment.create");
-  });
-
-  it("parent et élève : uniquement portail + données .child. / .self.", () => {
-    expect(perms("parent")).toEqual(["finance.child.read", "grade.child.read", "portal.parent.access"]);
-    expect(perms("eleve")).toEqual(["grade.self.read", "portal.student.access"]);
-  });
-
-  it("directeur des études et responsable pédagogique valident les notes ; l'enseignant non", () => {
-    expect(perms("directeur_etudes")).toContain("grade.validate");
-    expect(perms("responsable_pedagogique")).toContain("grade.validate");
-    expect(perms("responsable_pedagogique")).not.toContain("grade.enter");
-    expect(perms("enseignant")).not.toContain("grade.validate");
-  });
-
-  it("aucun rôle autre que owner/directeur ne reçoit les permissions du module rbac en gestion de rôles", () => {
-    for (const t of SYSTEM_ROLE_TEMPLATES) {
-      if (t.key === "owner") continue;
-      expect(perms(t.key), t.key).not.toContain("rbac.role.manage");
-    }
-  });
-
-  it("les motifs sans correspondance sont signalés en attente, pas perdus", () => {
-    // Le catalogue de test n'a ni `payroll.*`, ni `attendance.*`, ni `curriculum.*`…
-    expect(roles.get("econome")?.pending).toContain("payroll.*");
-    expect(roles.get("enseignant")?.pending).toEqual(expect.arrayContaining(["attendance.read", "attendance.take", "payroll.own.*"]));
-    expect(roles.get("educateur")?.pending).toEqual(expect.arrayContaining(["attendance.*", "discipline.*"]));
-  });
-
-  it("une fois le module déclaré, les motifs en attente se résolvent (re-résolution)", () => {
+  it("une fois le module déclaré, les clés en attente se résolvent (re-résolution)", () => {
     const attendance = defineModule({
       key: "attendance",
       title: "Présences",
@@ -246,14 +204,15 @@ describe("modèles de rôles système", () => {
       permissions: [
         { key: "attendance.read", label: "Consulter" },
         { key: "attendance.take", label: "Faire l'appel" },
-        { key: "attendance.justify", label: "Justifier" },
+        { key: "attendance.justification.decide", label: "Décider" },
       ],
     });
     const before = resolveSystemRoles(catalog).find((r) => r.template.key === "enseignant");
     const after = resolveSystemRoles(buildPermissionCatalog([...ALL_MANIFESTS, attendance])).find((r) => r.template.key === "enseignant");
     expect(before?.permissions).not.toContain("attendance.take");
     expect(after?.permissions).toEqual(expect.arrayContaining(["attendance.read", "attendance.take"]));
-    expect(after?.permissions).not.toContain("attendance.justify");
+    // clés explicites : une permission ajoutée plus tard au module n'est PAS accordée d'office (moindre privilège)
+    expect(after?.permissions).not.toContain("attendance.justification.decide");
     expect(after?.pending).not.toContain("attendance.take");
   });
 

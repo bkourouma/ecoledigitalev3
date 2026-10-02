@@ -49,6 +49,8 @@ export async function createProgram(deps: AcademicDeps, ctx: RequestContext, inp
       description: input.description ?? null,
       durationMonths: input.durationMonths ?? null,
       attributes: input.attributes ?? {},
+      isCycle: input.isCycle ?? false,
+      calculationContract: input.calculationContract ?? null,
     });
     if (input.gradeLevelIds && input.gradeLevelIds.length > 0) {
       const levels = await checkGradeLevels(tx, input.gradeLevelIds);
@@ -70,7 +72,7 @@ export async function updateProgram(
   deps: AcademicDeps,
   ctx: RequestContext,
   id: string,
-  patch: { label?: string | undefined; kindCode?: string | undefined; domainCode?: string | null | undefined; description?: string | null | undefined; durationMonths?: number | null | undefined; attributes?: Record<string, unknown> | undefined; status?: "ACTIVE" | "ARCHIVED" | undefined },
+  patch: { label?: string | undefined; kindCode?: string | undefined; domainCode?: string | null | undefined; description?: string | null | undefined; durationMonths?: number | null | undefined; attributes?: Record<string, unknown> | undefined; status?: "ACTIVE" | "ARCHIVED" | undefined; isCycle?: boolean | undefined; calculationContract?: string | null | undefined },
 ): Promise<Result<Program, AppError>> {
   return inTx(deps, ctx, async (tx) => {
     const program = await cur.getProgram(tx, id);
@@ -83,6 +85,8 @@ export async function updateProgram(
     if (patch.durationMonths !== undefined) clean.durationMonths = patch.durationMonths;
     if (patch.attributes !== undefined) clean.attributes = patch.attributes;
     if (patch.status !== undefined) clean.status = patch.status;
+    if (patch.isCycle !== undefined) clean.isCycle = patch.isCycle;
+    if (patch.calculationContract !== undefined) clean.calculationContract = patch.calculationContract;
     await cur.updateProgram(tx, id, clean);
     return ok((await cur.getProgram(tx, id)) as Program);
   });

@@ -88,3 +88,7 @@ apps/api/node_modules/.bin/tsc -p apps/api/src/modules/iam/tsconfig.json
 ```
 
 Les tests de `test/` ne sont pas dans `__tests__` : Jest (apps/api) ne les exécute pas.
+
+## Lecture publiée pour la plateforme
+
+`getMemberEmails` (adresse de connexion des membres d'un tenant, pour l'annuaire d'utilisateurs des bulletins) : lecture seule, branchée par `platform/adapters/people-reportcards.ts`.

@@ -85,10 +85,10 @@ export const mapPeriod = (r: Row): AcademicPeriod => ({
 // Référentiels
 // ---------------------------------------------------------------------------
 
-export const EDUCATION_LEVEL_COLS = "id, code, label, ordinal, pack, active";
-export const mapEducationLevel = (r: Row): EducationLevel => ({ id: r.id, code: r.code, label: r.label, ordinal: r.ordinal, pack: r.pack, active: r.active });
+export const EDUCATION_LEVEL_COLS = "id, code, label, ordinal, pack, calculation_contract, active";
+export const mapEducationLevel = (r: Row): EducationLevel => ({ id: r.id, code: r.code, label: r.label, ordinal: r.ordinal, pack: r.pack, calculationContract: r.calculation_contract, active: r.active });
 
-export const GRADE_LEVEL_COLS = "id, education_level_id, code, label, short_label, ordinal, next_grade_level_id, is_final, active";
+export const GRADE_LEVEL_COLS = "id, education_level_id, code, label, short_label, ordinal, next_grade_level_id, is_final, terminal_exam_required, active";
 export const mapGradeLevel = (r: Row): GradeLevel => ({
   id: r.id,
   educationLevelId: r.education_level_id,
@@ -98,6 +98,7 @@ export const mapGradeLevel = (r: Row): GradeLevel => ({
   ordinal: r.ordinal,
   nextGradeLevelId: r.next_grade_level_id,
   isFinal: r.is_final,
+  terminalExamRequired: r.terminal_exam_required,
   active: r.active,
 });
 
@@ -154,7 +155,7 @@ export const mapSettings = (r: Row): InstitutionSettings => ({
 // Programmes, matières, curriculum
 // ---------------------------------------------------------------------------
 
-export const PROGRAM_COLS = `p.id, p.institution_id, p.education_level_id, p.parent_program_id, p.code, p.label, p.kind_code, p.domain_code, p.description, p.duration_months, p.attributes, p.status,
+export const PROGRAM_COLS = `p.id, p.institution_id, p.education_level_id, p.parent_program_id, p.code, p.label, p.kind_code, p.domain_code, p.description, p.duration_months, p.attributes, p.status, p.is_cycle, p.calculation_contract,
   COALESCE((SELECT array_agg(g.grade_level_id ORDER BY g.ordinal, g.grade_level_id) FROM academic.program_grade_levels g WHERE g.tenant_id = p.tenant_id AND g.program_id = p.id), '{}') AS grade_level_ids`;
 export const mapProgram = (r: Row): Program => ({
   id: r.id,
@@ -169,6 +170,8 @@ export const mapProgram = (r: Row): Program => ({
   durationMonths: r.duration_months,
   attributes: r.attributes,
   status: r.status,
+  isCycle: r.is_cycle,
+  calculationContract: r.calculation_contract,
   gradeLevelIds: r.grade_level_ids,
 });
 
@@ -201,7 +204,7 @@ export const mapVersion = (r: Row): CurriculumVersion => ({
 });
 
 export const NODE_COLS = `n.id, n.version_id, n.parent_id, n.node_type_code, n.lineage_id, n.subject_id, n.grade_level_id, n.period_type_code, n.period_ordinal, n.code, n.label, n.ordinal,
-  n.coefficient::text AS coefficient, n.credits::text AS credits, n.is_mandatory, n.is_transversal, n.category_code,
+  n.coefficient::text AS coefficient, n.credits::text AS credits, n.is_mandatory, n.is_transversal, n.category_code, n.grading_mode, n.resit_allowed, n.counts_in_average, n.section_key,
   n.hours_total::text AS hours_total, n.hours_lecture::text AS hours_lecture, n.hours_tutorial::text AS hours_tutorial, n.hours_practical::text AS hours_practical,
   n.attributes, n.status,
   COALESCE((SELECT array_agg(p.required_lineage_id ORDER BY p.required_lineage_id) FROM academic.curriculum_prerequisites p WHERE p.tenant_id = n.tenant_id AND p.node_id = n.id), '{}') AS prerequisite_lineage_ids`;
@@ -223,6 +226,10 @@ export const mapNode = (r: Row): CurriculumNode => ({
   isMandatory: r.is_mandatory,
   isTransversal: r.is_transversal,
   categoryCode: r.category_code,
+  gradingMode: r.grading_mode,
+  resitAllowed: r.resit_allowed,
+  countsInAverage: r.counts_in_average,
+  sectionKey: r.section_key,
   hoursTotal: dec(r.hours_total),
   hoursLecture: dec(r.hours_lecture),
   hoursTutorial: dec(r.hours_tutorial),

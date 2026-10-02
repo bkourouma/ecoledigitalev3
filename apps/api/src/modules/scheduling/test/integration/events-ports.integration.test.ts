@@ -77,8 +77,8 @@ describeIntegration("événements consommés, abonnés, jobs et ports", () => {
     expect(unwrap(await onStaffLeaveApproved(w.deps, w.tenantId, { staffId: "pas-un-uuid" })).ignored).toContain("charge invalide");
 
     // Départ : toutes les séances futures non signalées ; suspension / activité ordinaire.
-    expect(unwrap(await onStaffStatusChanged(w.deps, w.tenantId, { staffId: t, status: "ACTIVE" })).ignored).toContain("sans effet");
-    expect(unwrap(await onStaffStatusChanged(w.deps, w.tenantId, { staffId: t, status: "LEFT" })).affected).toBe(1); // d2 (d1 déjà signalée)
+    expect(unwrap(await onStaffStatusChanged(w.deps, w.tenantId, { staffId: t, toStatus: "ACTIVE" })).ignored).toContain("sans effet");
+    expect(unwrap(await onStaffStatusChanged(w.deps, w.tenantId, { staffId: t, toStatus: "LEFT" })).affected).toBe(1); // d2 (d1 déjà signalée)
     expect(unwrap(await getOccurrence(w.deps, w.ctx, { occurrenceId: d2.id })).replacementReason).toBe("STAFF_LEFT");
     const pending = unwrap(await listPendingReplacements(w.deps, w.ctx, { classroomId: cls.classroomId }));
     expect(pending.items.map((o) => o.id).sort()).toEqual([d1.id, d2.id].sort());
@@ -91,7 +91,7 @@ describeIntegration("événements consommés, abonnés, jobs et ports", () => {
     expect(unwrap(await onTeachingAssignmentEnded(w.deps, w.tenantId, { staffId: t2, classroomId: cls2.classroomId })).affected).toBe(1);
     expect(unwrap(await getOccurrence(w.deps, w.ctx, { occurrenceId: a.id })).replacementReason).toBe("ASSIGNMENT_ENDED");
     expect(unwrap(await getOccurrence(w.deps, w.ctx, { occurrenceId: b.id })).needsReplacement).toBe(false);
-    expect(unwrap(await onStaffStatusChanged(w.deps, w.tenantId, { staffId: t2, status: "SUSPENDED" })).affected).toBe(1); // b
+    expect(unwrap(await onStaffStatusChanged(w.deps, w.tenantId, { staffId: t2, toStatus: "SUSPENDED" })).affected).toBe(1); // b
     expect(unwrap(await getOccurrence(w.deps, w.ctx, { occurrenceId: b.id })).replacementReason).toBe("STAFF_SUSPENDED");
   });
 

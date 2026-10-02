@@ -65,17 +65,17 @@ export interface SessionContext {
 
 /** Contexte d'écriture d'une séance : statuts élèves, politique d'appel du niveau, roster à la date de la séance. */
 export async function loadSessionContext(deps: AttendanceDeps, ctx: RequestContext, tx: Tx, session: AttendanceSession): Promise<SessionContext> {
-  const [defs, policies, classroom, roster] = await Promise.all([
-    listStatuses(tx, "STUDENT"),
-    listCallPolicies(tx),
-    deps.ports.roster.getClassroom(ctx, session.classroomId),
-    deps.ports.roster.getRoster(ctx, {
-      classroomId: session.classroomId,
-      onDate: session.sessionDate,
-      curriculumNodeId: session.curriculumNodeId,
-      offeringId: session.offeringId,
-    }),
-  ]);
+  // SÉQUENTIEL : chaque appel de port académique ouvre un SAVEPOINT sur la connexion partagée de la transaction ; deux appels
+  // entrelacés (Promise.all) libèrent des points de sauvegarde qui n'existent plus (`savepoint "ed_sp_n" does not exist`).
+  const defs = await listStatuses(tx, "STUDENT");
+  const policies = await listCallPolicies(tx);
+  const classroom = await deps.ports.roster.getClassroom(ctx, session.classroomId);
+  const roster = await deps.ports.roster.getRoster(ctx, {
+    classroomId: session.classroomId,
+    onDate: session.sessionDate,
+    curriculumNodeId: session.curriculumNodeId,
+    offeringId: session.offeringId,
+  });
   const policy = selectPolicy(policies, session.institutionId, classroom?.educationLevelCode ?? null);
   return {
     defs: indexStatuses(defs, "STUDENT"),

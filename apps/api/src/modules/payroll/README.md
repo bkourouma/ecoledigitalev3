@@ -81,7 +81,7 @@ Le rendu PDF passe plus tard par `reportcards`/le worker : `GET /payslips/:id/da
 Publiés : `payroll.period.created|closed|archived`, `payroll.run.completed`, `payroll.payslip.calculated|approved|paid|disputed|cancelled|adjusted|notification_requested`
 (`approved`/`paid` portent `recipientUserId` pour la notification du titulaire, 016), `payroll.claim.source_changed` (alerte : une séance
 réclamée a changé à la source — le bulletin arrêté n'est jamais réécrit).
-Consommés (hypothèses de charge à confirmer) : `tenancy.tenant.provisioned`, `scheduling.occurrence.cancelled|unvalidated|rescheduled|paid_minutes_changed`, `academic.year.closed`.
+Consommés (charges alignées sur leurs producteurs, test de contrat `apps/api/test/events-contracts/payroll.test.ts`) : `tenancy.tenant.provisioned`, `scheduling.occurrence.cancelled|unvalidated|rescheduled|paid_minutes_changed`, `academic.year.closed`.
 Job : `payroll.fail-stale-runs` (abandonne les calculs interrompus). **Reconstruire le worker** après modification (`pnpm --filter @ecoledigitale/worker build`).
 
 ## Écarts assumés avec la spec 032 (corrigés dans `specs/v2/032-payroll-port/`)

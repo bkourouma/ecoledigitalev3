@@ -40,13 +40,13 @@ Conventions : références inter-modules par **UUID sans clé étrangère** (hor
 | **`payroll.payslip.paid`** | payroll | `payslipId, staffId, amount, currency, paidAt, method, reference` | **014/015 (décaissement, dépense, trésorerie)**, 016, 025 |
 | `payroll.claim.source_changed`, `payroll.session.validated/unvalidated` | payroll | `sourceKind, sourceRefId` | gestion (alerte) |
 
-## 3. Événements consommés (⚠ à confirmer avec leurs producteurs)
+## 3. Événements consommés (alignés sur leurs producteurs : garde-fous `apps/api/test/events-catalog.test.ts` et `apps/api/test/events-contracts/`)
 
 | Événement ⚠ | Producteur | Consommé par | Usage |
 |---|---|---|---|
 | `academic.enrollment.created/transferred/withdrawn` | 004 | `results`, `higher` | recalcul de classe, périmètre de lot, étudiants du cycle |
-| `academic.academic_year.closed` | 004 | `payroll` | clôture des périodes de paie de l'année |
-| `scheduling.session.cancelled/updated/deleted` | 017 | `payroll` | invalider une validation non réclamée ; alerter si réclamée |
+| `academic.year.closed` | 004 | `payroll` | clôture des périodes de paie de l'année |
+| `scheduling.occurrence.cancelled/unvalidated/rescheduled/paid_minutes_changed` (noms réels de 017, alignés) | 017 | `payroll` (et `attendance` : `occurrence.cancelled`) | invalider une validation non réclamée ; alerter si réclamée |
 | `attendance.teacher_session.completed/updated` | 010 | `payroll` | information de rafraîchissement (la lecture reste par port) |
 | `people.staff.deactivated` | 009 | `payroll` | indicateur d'enseignant inactif |
 | `people.student.guardian_changed` | 008 | `reportcards`, `assess` | invalidation des accès tuteurs (les droits sont revérifiés à chaque lecture) |
@@ -77,7 +77,7 @@ Conventions : références inter-modules par **UUID sans clé étrangère** (hor
 1. Attributs de nœud : `grading_mode`, `resit_allowed`, `counts_in_average`, `category`, `ordre`, `credits`, `coefficient` ; attribut de programme/niveau `terminal_exam_required` ; **nœud « cycle / diplôme »** racine de plusieurs niveaux (remplace la reconstitution par nom).
 2. **Type et rang des périodes** (`second_semestre`, `semestre`, `trimestre`, `session`) sans lecture de libellé.
 3. **Registre d'inscriptions aux cours/UE** (`academic.course_registrations`) : régulières, rattrapage, dette, électives, à la carte ; API `registerCourse`, `listRegistrations`.
-4. Événements `academic.enrollment.*` et `academic.academic_year.closed`.
+4. Événements `academic.enrollment.*` et `academic.year.closed`.
 5. Consommation de `results.decision.confirmed` (progression) et de `higher.ue.debt_detected`.
 6. Règles de **mutation de classe** en cours de période (Q-39).
 

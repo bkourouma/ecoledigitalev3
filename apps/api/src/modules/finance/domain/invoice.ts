@@ -23,6 +23,8 @@ export interface InvoiceLineInput {
   description: string;
   quantity?: number;
   unitAmount: Money;
+  /** Objet d'un autre module qui a produit la ligne (ex. sélection de cours à la carte d'academic), sans clé étrangère. */
+  sourceRef?: Uuid | null;
 }
 
 export interface InvoiceLine {
@@ -39,6 +41,8 @@ export interface InvoiceLine {
   readonly scholarship: Money;
   /** brut − remise − bourse */
   readonly total: Money;
+  /** Objet d'un autre module qui a produit la ligne (ex. sélection à la carte), ou `null`. */
+  readonly sourceRef: Uuid | null;
 }
 
 export interface InvoiceTotals {
@@ -91,6 +95,7 @@ export function buildInvoiceLines(
       discount: Money.zero(currency),
       scholarship: Money.zero(currency),
       total: gross,
+      sourceRef: input.sourceRef ?? null,
     });
   }
   return ok(lines);

@@ -154,6 +154,9 @@ export {
   requestStaffLeave,
 } from "./application/staff";
 
+// Heures de présence du personnel pour la paie (origine ATTENDANCE)
+export { listCompletedStaffPresence, type CompletedStaffPresence } from "./application/staff-hours";
+
 // Paramétrage et amorçage
 export {
   ensureReferenceData,

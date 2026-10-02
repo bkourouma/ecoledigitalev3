@@ -324,3 +324,10 @@ export const TenancyTenantStatusChangedPayloadSchema = z.object({
   reason: z.string().nullable(),
 });
 export type TenancyTenantStatusChangedPayload = z.infer<typeof TenancyTenantStatusChangedPayloadSchema>;
+
+/** Schéma de charge utile de chaque événement PUBLIÉ par tenancy (validé par les tests de contrat). */
+export const tenancyEventPayloadSchemas = {
+  "tenancy.institution.created": TenancyInstitutionCreatedPayloadSchema,
+  "tenancy.tenant.provisioned": TenancyTenantProvisionedPayloadSchema,
+  "tenancy.tenant.status_changed": TenancyTenantStatusChangedPayloadSchema,
+} as const;

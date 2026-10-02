@@ -1078,3 +1078,44 @@ export const peopleGuardianLinkPayloadSchema = z.object({
   linkId: peopleUuidSchema,
   change: z.enum(["linked", "link_changed", "unlinked"]),
 });
+
+const peopleEv = <T extends z.ZodRawShape>(shape: T) => z.object({ v: z.literal(1), ...shape });
+const peopleAssignmentRef = { assignmentId: peopleUuidSchema, staffId: peopleUuidSchema, classroomId: peopleUuidSchema } as const;
+
+/** `people.teaching_assignment.ended` : consommé par scheduling (séances à remplacer). `reason` : MANUAL, STAFF_LEFT, CLASSROOM_*, YEAR_CLOSED. */
+export const peopleTeachingAssignmentEndedPayloadSchema = peopleEv({ ...peopleAssignmentRef, reason: z.string() });
+
+/**
+ * Schéma de charge utile de chaque événement PUBLIÉ par people (additif ; validé par les tests de contrat
+ * `apps/api/test/events-contracts`). Aucune donnée personnelle ni texte libre.
+ */
+export const peopleEventPayloadSchemas = {
+  "people.student.created": peopleEv({ studentId: peopleUuidSchema, personId: peopleUuidSchema }),
+  "people.student.updated": peopleEv({ studentId: peopleUuidSchema, fields: z.array(z.string()) }),
+  "people.student.status_changed": peopleStudentStatusChangedPayloadSchema,
+  "people.student.anonymized": peopleEv({ studentId: peopleUuidSchema }),
+  "people.student.guardian_changed": peopleGuardianLinkPayloadSchema,
+  "people.guardian.created": peopleEv({ guardianId: peopleUuidSchema, personId: peopleUuidSchema }),
+  "people.guardian.linked": peopleEv({ studentId: peopleUuidSchema, guardianId: peopleUuidSchema, linkId: peopleUuidSchema }),
+  "people.guardian.link_changed": peopleEv({ studentId: peopleUuidSchema, guardianId: peopleUuidSchema, linkId: peopleUuidSchema }),
+  "people.guardian.unlinked": peopleEv({ studentId: peopleUuidSchema, guardianId: peopleUuidSchema, linkId: peopleUuidSchema }),
+  "people.person.identity_linked": peopleEv({ personId: peopleUuidSchema, identityId: peopleUuidSchema, via: z.enum(["invitation", "manual"]) }),
+  "people.staff.created": peopleEv({ staffId: peopleUuidSchema, personId: peopleUuidSchema, categoryCode: z.string() }),
+  "people.staff.updated": peopleEv({ staffId: peopleUuidSchema, fields: z.array(z.string()) }),
+  "people.staff.status_changed": peopleStaffStatusChangedPayloadSchema,
+  "people.staff.deactivated": peopleEv({ staffId: peopleUuidSchema, toStatus: peopleStaffStatusSchema, effectiveOn: peopleDateSchema }),
+  "people.staff_contract.created": peopleEv({ staffId: peopleUuidSchema, contractId: peopleUuidSchema, contractTypeCode: z.string(), startsOn: peopleDateSchema }),
+  "people.staff_contract.ended": peopleEv({ staffId: peopleUuidSchema, contractId: peopleUuidSchema, endsOn: peopleDateSchema }),
+  "people.staff_qualification.expiring": peopleEv({ staffId: peopleUuidSchema, qualificationId: peopleUuidSchema, expiresOn: peopleDateSchema, daysLeft: z.number().int() }),
+  "people.teaching_assignment.created": peopleEv({ ...peopleAssignmentRef, curriculumNodeId: peopleUuidSchema.nullable(), roleCode: z.string() }),
+  "people.teaching_assignment.ended": peopleTeachingAssignmentEndedPayloadSchema,
+  "people.teaching_assignment.replaced": peopleEv({
+    oldAssignmentId: peopleUuidSchema,
+    newAssignmentId: peopleUuidSchema,
+    oldStaffId: peopleUuidSchema,
+    newStaffId: peopleUuidSchema,
+    classroomId: peopleUuidSchema,
+    curriculumNodeId: peopleUuidSchema.nullable(),
+    effectiveOn: peopleDateSchema,
+  }),
+} as const;

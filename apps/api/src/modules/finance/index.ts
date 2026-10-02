@@ -12,7 +12,8 @@
 export { default as financeManifest } from "./manifest";
 
 // Plugin Fastify
-export { financePlugin, financeEnvironmentOf, FINANCE_ROUTES_PREFIX, type FinancePluginOptions } from "./http/plugin";
+export { financePlugin, financeEnvironmentOf, FINANCE_ROUTES_PREFIX, registerFinancePorts, type FinancePluginOptions } from "./http/plugin";
+export { createFinancePortRegistry, type FinancePortRegistry, type FinancePortSet } from "./application/port-registry";
 
 // Dépendances et configuration
 export {
@@ -73,6 +74,17 @@ export {
   type SandboxOutcome,
   type SandboxWebhook,
 } from "./infrastructure/providers/sandbox-provider";
+
+// Faits publiés pour les adaptateurs de plateforme (academic, reportcards) : frais d'inscription soldés, facture, impayé
+export {
+  getInvoiceFacts,
+  getRegistrationFeeStatus,
+  hasOverdueBalance,
+  isRegistrationFeeDue,
+  type InvoiceFacts,
+  type RegistrationFeeQuery,
+  type RegistrationFeeStatus,
+} from "./application/facts";
 
 // Cas d'usage — catalogue
 export {

@@ -77,6 +77,8 @@ export const ACADEMIC_VERSION_STATUSES = ["DRAFT", "PUBLISHED", "LOCKED", "ARCHI
 export const academicVersionStatusSchema = z.enum(ACADEMIC_VERSION_STATUSES);
 export type AcademicVersionStatus = z.infer<typeof academicVersionStatusSchema>;
 export const ACADEMIC_NODE_STATUSES = ["ACTIVE", "INACTIVE"] as const;
+/** Mode de saisie d'un nœud : moyenne d'évaluations (`COMPOSED`) ou note saisie directement (`DIRECT`, ex. conduite). */
+export const ACADEMIC_GRADING_MODES = ["COMPOSED", "DIRECT"] as const;
 
 export const ACADEMIC_CLASSROOM_KINDS = ["CLASS", "COHORT"] as const;
 export const ACADEMIC_CLASSROOM_STATUSES = ["DRAFT", "ACTIVE", "COMPLETED", "CANCELLED", "ARCHIVED"] as const;
@@ -130,6 +132,8 @@ export const academicEligibilityCodeSchema = z.enum(ACADEMIC_ELIGIBILITY_CODES);
 
 // Formats de codes (identiques aux CHECK de la base).
 const upperCode = z.string().regex(/^[A-Z][A-Z0-9_]{0,39}$/, "Code en majuscules (A-Z, 0-9, _), 40 caractères max.");
+/** Contrat de calcul des résultats : `<code>@<version>` (ex. `credit-semester@1`, `coef-semester@1`). */
+export const academicCalculationContractSchema = z.string().regex(/^[a-z][a-z0-9-]{0,39}@[0-9]{1,3}$/, "Contrat de calcul « code@version » attendu.");
 const gradeCode = z.string().regex(/^[A-Z0-9][A-Z0-9_]{0,39}$/, "Code en majuscules (A-Z, 0-9, _), 40 caractères max.");
 const dottedCode = z.string().regex(/^[A-Z0-9][A-Z0-9_.-]{0,39}$/, "Code en majuscules (A-Z, 0-9, _ . -), 40 caractères max.");
 const yearCode = z.string().regex(/^[0-9A-Za-z][0-9A-Za-z_./-]{0,19}$/, "Code d'année (ex. 2026-2027), 20 caractères max.");
@@ -163,6 +167,8 @@ export const academicEducationLevelDtoSchema = z.object({
   label: z.string(),
   ordinal: z.number().int(),
   pack: academicPackSchema.nullable(),
+  /** Contrat de calcul par défaut des programmes du cycle d'enseignement. */
+  calculationContract: academicCalculationContractSchema.nullable(),
   active: z.boolean(),
 });
 export type AcademicEducationLevelDto = z.infer<typeof academicEducationLevelDtoSchema>;
@@ -176,6 +182,8 @@ export const academicGradeLevelDtoSchema = z.object({
   ordinal: z.number().int(),
   nextGradeLevelId: academicUuidSchema.nullable(),
   isFinal: z.boolean(),
+  /** Le niveau se conclut par un examen terminal. */
+  terminalExamRequired: z.boolean(),
   active: z.boolean(),
 });
 export type AcademicGradeLevelDto = z.infer<typeof academicGradeLevelDtoSchema>;
@@ -271,7 +279,7 @@ export type AcademicUpdateSettingsBody = z.infer<typeof academicUpdateSettingsBo
 // Remplacement/ajout de référentiels (PUT /reference/*) : upsert PAR CODE, jamais de suppression.
 export const academicPutEducationLevelsBodySchema = z
   .object({
-    items: z.array(z.object({ code: upperCode, label, ordinal: z.number().int().min(0), pack: academicPackSchema.nullable().optional(), active: z.boolean().optional() }).strict()).min(1).max(100),
+    items: z.array(z.object({ code: upperCode, label, ordinal: z.number().int().min(0), pack: academicPackSchema.nullable().optional(), calculationContract: academicCalculationContractSchema.nullable().optional(), active: z.boolean().optional() }).strict()).min(1).max(100),
   })
   .strict();
 export const academicPutGradeLevelsBodySchema = z
@@ -287,6 +295,7 @@ export const academicPutGradeLevelsBodySchema = z
             ordinal: z.number().int().min(0),
             nextGradeLevelCode: gradeCode.nullable().optional(),
             isFinal: z.boolean().optional(),
+            terminalExamRequired: z.boolean().optional(),
             active: z.boolean().optional(),
           })
           .strict(),
@@ -490,6 +499,10 @@ export const academicProgramDtoSchema = z.object({
   durationMonths: z.number().int().nullable(),
   attributes: z.record(z.unknown()),
   status: z.enum(ACADEMIC_PROGRAM_STATUSES),
+  /** Cycle conduisant à un diplôme (nœud de cycle de higher). */
+  isCycle: z.boolean(),
+  /** Contrat de calcul des résultats du programme (`credit-semester@1`…), ou `null` (celui du cycle d'enseignement). */
+  calculationContract: academicCalculationContractSchema.nullable(),
   gradeLevelIds: z.array(academicUuidSchema),
 });
 export type AcademicProgramDto = z.infer<typeof academicProgramDtoSchema>;
@@ -506,6 +519,8 @@ export const academicCreateProgramBodySchema = z
     description: note.nullable().optional(),
     durationMonths: z.number().int().positive().max(240).nullable().optional(),
     attributes: z.record(z.unknown()).optional(),
+    isCycle: z.boolean().optional(),
+    calculationContract: academicCalculationContractSchema.nullable().optional(),
     gradeLevelIds: z.array(academicUuidSchema).max(30).optional(),
   })
   .strict();
@@ -520,6 +535,8 @@ export const academicUpdateProgramBodySchema = z
     durationMonths: z.number().int().positive().max(240).nullable().optional(),
     attributes: z.record(z.unknown()).optional(),
     status: z.enum(ACADEMIC_PROGRAM_STATUSES).optional(),
+    isCycle: z.boolean().optional(),
+    calculationContract: academicCalculationContractSchema.nullable().optional(),
   })
   .strict()
   .refine((b) => Object.keys(b).length > 0, "Aucune modification.");
@@ -609,6 +626,11 @@ export const academicCurriculumNodeDtoSchema = z.object({
   isMandatory: z.boolean(),
   isTransversal: z.boolean(),
   categoryCode: z.string().nullable(),
+  /** Faits de calcul des résultats (module results). */
+  gradingMode: z.enum(ACADEMIC_GRADING_MODES),
+  resitAllowed: z.boolean(),
+  countsInAverage: z.boolean(),
+  sectionKey: z.string().nullable(),
   hoursTotal: academicDecimalSchema.nullable(),
   hoursLecture: academicDecimalSchema.nullable(),
   hoursTutorial: academicDecimalSchema.nullable(),
@@ -661,6 +683,10 @@ const nodeFields = {
   isMandatory: z.boolean().optional(),
   isTransversal: z.boolean().optional(),
   categoryCode: upperCode.nullable().optional(),
+  gradingMode: z.enum(ACADEMIC_GRADING_MODES).optional(),
+  resitAllowed: z.boolean().optional(),
+  countsInAverage: z.boolean().optional(),
+  sectionKey: upperCode.nullable().optional(),
   hoursTotal: academicDecimalInputSchema.nullable().optional(),
   hoursLecture: academicDecimalInputSchema.nullable().optional(),
   hoursTutorial: academicDecimalInputSchema.nullable().optional(),
@@ -688,6 +714,10 @@ export const academicUpdateNodeBodySchema = z
     isMandatory: updatableNodeFields.isMandatory,
     isTransversal: updatableNodeFields.isTransversal,
     categoryCode: updatableNodeFields.categoryCode,
+    gradingMode: updatableNodeFields.gradingMode,
+    resitAllowed: updatableNodeFields.resitAllowed,
+    countsInAverage: updatableNodeFields.countsInAverage,
+    sectionKey: updatableNodeFields.sectionKey,
     hoursTotal: updatableNodeFields.hoursTotal,
     hoursLecture: updatableNodeFields.hoursLecture,
     hoursTutorial: updatableNodeFields.hoursTutorial,
@@ -731,6 +761,10 @@ export const academicAmendOperationSchema = z.discriminatedUnion("op", [
           coefficient: academicDecimalInputSchema.nullable().optional(),
           credits: academicDecimalInputSchema.nullable().optional(),
           categoryCode: upperCode.nullable().optional(),
+          gradingMode: z.enum(ACADEMIC_GRADING_MODES).optional(),
+          resitAllowed: z.boolean().optional(),
+          countsInAverage: z.boolean().optional(),
+          sectionKey: upperCode.nullable().optional(),
           hoursTotal: academicDecimalInputSchema.nullable().optional(),
           hoursLecture: academicDecimalInputSchema.nullable().optional(),
           hoursTutorial: academicDecimalInputSchema.nullable().optional(),
@@ -1307,14 +1341,24 @@ const eventBase = {
   institutionId: academicUuidSchema.nullable(),
   academicYearId: academicUuidSchema.nullable(),
 };
+/** Inscriptions, classes, offres : établissement et année sont TOUJOURS renseignés par le producteur. */
+const scopedEventBase = { ...eventBase, institutionId: academicUuidSchema, academicYearId: academicUuidSchema };
 const enrollmentEventBase = {
-  ...eventBase,
+  ...scopedEventBase,
   enrollmentId: academicUuidSchema,
   studentId: academicUuidSchema,
   classroomId: academicUuidSchema,
 };
 
-export const academicYearEventPayloadSchema = z.object({ ...eventBase, yearId: academicUuidSchema, code: z.string(), status: academicYearStatusSchema });
+/** Événements d'année : `institutionId` et `academicYearId` (= `yearId`) sont TOUJOURS renseignés (consommateurs : people, scheduling, payroll). */
+export const academicYearEventPayloadSchema = z.object({
+  ...eventBase,
+  institutionId: academicUuidSchema,
+  academicYearId: academicUuidSchema,
+  yearId: academicUuidSchema,
+  code: z.string(),
+  status: academicYearStatusSchema,
+});
 export const academicPeriodEventPayloadSchema = z.object({
   ...eventBase,
   periodId: academicUuidSchema,
@@ -1334,14 +1378,14 @@ export const academicCurriculumEventPayloadSchema = z.object({
   reason: z.string().nullable().optional(),
 });
 export const academicClassroomEventPayloadSchema = z.object({
-  ...eventBase,
+  ...scopedEventBase,
   classroomId: academicUuidSchema,
   programId: academicUuidSchema,
   gradeLevelId: academicUuidSchema,
   status: academicClassroomStatusSchema,
 });
 export const academicOfferingEventPayloadSchema = z.object({
-  ...eventBase,
+  ...scopedEventBase,
   offeringId: academicUuidSchema,
   classroomId: academicUuidSchema,
   curriculumNodeId: academicUuidSchema,
@@ -1405,6 +1449,11 @@ export const academicPaymentOrphanEventPayloadSchema = z.object({
 });
 
 /** Événements CONSOMMÉS par academic (payloads tolérants : seuls les champs lus sont déclarés). */
+export const academicConsumedInstitutionCreatedSchema = z
+  .object({ v: z.number().int(), institutionId: academicUuidSchema, pack: academicPackSchema, educationSystem: z.string() })
+  .passthrough();
+export type AcademicConsumedInstitutionCreated = z.infer<typeof academicConsumedInstitutionCreatedSchema>;
+
 export const academicConsumedInvoicePaidSchema = z
   .object({
     v: z.number().int(),
@@ -1418,8 +1467,12 @@ export const academicConsumedInvoicePaidSchema = z
   .passthrough();
 export type AcademicConsumedInvoicePaid = z.infer<typeof academicConsumedInvoicePaidSchema>;
 
+/**
+ * `people.student.status_changed` tel que people le publie (`peopleStudentStatusChangedPayloadSchema`) : le nouveau statut
+ * est `toStatus` (et non `status`), l'ancien `fromStatus`, le motif codé `reasonCode` (jamais de texte libre).
+ */
 export const academicConsumedStudentStatusChangedSchema = z
-  .object({ v: z.number().int(), studentId: academicUuidSchema, status: z.string(), previousStatus: z.string().nullable().optional(), reason: z.string().nullable().optional() })
+  .object({ v: z.number().int(), studentId: academicUuidSchema, toStatus: z.string(), fromStatus: z.string().nullable().optional(), reasonCode: z.string().nullable().optional() })
   .passthrough();
 export type AcademicConsumedStudentStatusChanged = z.infer<typeof academicConsumedStudentStatusChangedSchema>;
 

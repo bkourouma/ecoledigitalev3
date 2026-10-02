@@ -86,6 +86,7 @@ import {
   setLearnerFunding,
 } from "../application/catalog";
 import { createFinanceDeps, type FinanceDeps } from "../application/deps";
+import { createFinancePortRegistry, type FinancePortRegistry, type FinancePortSet } from "../application/port-registry";
 import { financeAuditAdapter } from "../infrastructure/audit-adapter";
 import { createProviderRegistry, EnvProviderConfigSource, type AppEnvironment } from "../infrastructure/providers/registry";
 import type { ModuleRuntime } from "../../../platform/runtime";
@@ -399,6 +400,7 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
             ...(b.academicYear ? { academicYear: b.academicYear } : {}),
             lines: b.lines.map((l) => ({
               ...(l.feeId ? { feeId: l.feeId } : {}),
+              ...(l.sourceRef ? { sourceRef: l.sourceRef } : {}),
               category: l.category,
               description: l.description,
               ...(l.quantity ? { quantity: l.quantity } : {}),
@@ -773,6 +775,24 @@ export function financeEnvironmentOf(env: Readonly<Record<string, string | undef
   return raw === "development" || raw === "test" || raw === "staging" || raw === "production" ? raw : "production";
 }
 
+declare module "fastify" {
+  interface FastifyInstance {
+    /** Registre des ports de finance (posé par `setup`, renseigné par `registerFinancePorts`). */
+    financePorts: FinancePortRegistry;
+  }
+}
+
+/** Décore la RACINE avec le registre de ports (visible des adaptateurs de plateforme, quel que soit l'ordre de chargement). */
+export function setup(app: FastifyInstance, _runtime: ModuleRuntime): void {
+  if (!app.hasDecorator("financePorts")) app.decorate("financePorts", createFinancePortRegistry());
+}
+
+/** À appeler par la plateforme (adaptateurs) : annuaires `learners` (people) et `enrollments` (academic). */
+export function registerFinancePorts(app: FastifyInstance, ports: Partial<FinancePortSet>): void {
+  if (!app.hasDecorator("financePorts")) app.decorate("financePorts", createFinancePortRegistry());
+  app.financePorts.register(ports);
+}
+
 /**
  * Contrat d'assemblage uniforme (`platform/runtime.ts`) : `(app, runtime)`, routes sans préfixe (le registre
  * applique `/api/v1/finance`). Le webhook `POST /webhooks/:provider/:tenantId` est déclaré `public` : il ne
@@ -782,8 +802,10 @@ export function financeEnvironmentOf(env: Readonly<Record<string, string | undef
  * aucune simulation), `FINANCE_WEBHOOK_BASE_URL`, `FINANCE_PROVIDER_<NOM>_<CLÉ>` (configuration des fournisseurs).
  */
 export default async function financeModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
+  if (!app.hasDecorator("financePorts")) app.decorate("financePorts", createFinancePortRegistry());
   const environment = financeEnvironmentOf(runtime.env);
   const deps = createFinanceDeps({
+    portsProvider: () => app.financePorts.current,
     db: runtime.tenantDb,
     clock: runtime.clock,
     audit: financeAuditAdapter(runtime.auditPort),

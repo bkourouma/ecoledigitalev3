@@ -3,12 +3,13 @@
  * construction (un rejeu ne change rien : constat déjà posé, séance déjà signalée ou annulée) ; elle
  * s'exécute sous un contexte SYSTÈME du tenant de l'événement.
  *
- * ⚠ Les noms et charges des événements d'autres modules sont des HYPOTHÈSES DE TRAVAIL
- * (specs/v2/011-assessments-grades/interfaces-publiees.md §3) à aligner avec leurs producteurs :
+ * Les noms et charges ci-dessous sont ceux des PRODUCTEURS (schémas de `packages/contracts/src/v2` ; garde-fous
+ * `apps/api/test/events-catalog.test.ts` et `apps/api/test/events-contracts/scheduling.test.ts`). Les fonctions
+ * `read*` sont les lecteurs purs de ces charges :
  *
  *   attendance.session.submitted         { occurrenceId }                      → constat HELD
  *   attendance.staff_leave.approved      { staffId, startsOn, endsOn }         → séances à remplacer
- *   people.staff.status_changed          { staffId, status }                   → LEFT / SUSPENDED : à remplacer
+ *   people.staff.status_changed          { staffId, toStatus }                 → LEFT / SUSPENDED : à remplacer
  *   people.teaching_assignment.ended     { staffId, classroomId }              → à remplacer
  *   academic.offering.cancelled          { offeringId }                        → annulation en cascade
  *   academic.classroom.cancelled         { classroomId }                       → annulation en cascade
@@ -32,6 +33,47 @@ import { archiveTimetable } from "./timetables";
 const asString = (v: unknown): string | null => (typeof v === "string" && v.length > 0 ? v : null);
 const asUuid = (v: unknown): string | null => (isUuid(v) ? v : null);
 
+// ---------------------------------------------------------------------------
+// Lecteurs purs des charges consommées (testés contre les schémas des producteurs)
+// ---------------------------------------------------------------------------
+
+const field = (payload: unknown, key: string): unknown => (payload && typeof payload === "object" ? (payload as Record<string, unknown>)[key] : undefined);
+
+/** `attendance.session.submitted` : la séance planifiée appelée (`null` si l'appel n'est pas rattaché à une séance). */
+export const readSubmittedOccurrenceId = (payload: unknown): string | null => asUuid(field(payload, "occurrenceId"));
+
+/** `attendance.staff_leave.approved` : l'intéressé et les bornes (dates civiles) du congé. */
+export function readApprovedLeave(payload: unknown): { staffId: string; startsOn: string; endsOn: string } | null {
+  const staffId = asUuid(field(payload, "staffId"));
+  const startsOn = asString(field(payload, "startsOn"));
+  const endsOn = asString(field(payload, "endsOn"));
+  if (!staffId || !startsOn || !endsOn || !isIsoDate(startsOn) || !isIsoDate(endsOn) || endsOn < startsOn) return null;
+  return { staffId, startsOn, endsOn };
+}
+
+/** `people.staff.status_changed` : l'intéressé et son NOUVEAU statut (`toStatus`, en majuscules). */
+export function readStaffStatusChange(payload: unknown): { staffId: string; status: string } | null {
+  const staffId = asUuid(field(payload, "staffId"));
+  const status = asString(field(payload, "toStatus"))?.toUpperCase();
+  return staffId && status ? { staffId, status } : null;
+}
+
+/** `people.teaching_assignment.ended` : l'intervenant et la classe dont l'affectation prend fin. */
+export function readEndedAssignment(payload: unknown): { staffId: string; classroomId: string } | null {
+  const staffId = asUuid(field(payload, "staffId"));
+  const classroomId = asUuid(field(payload, "classroomId"));
+  return staffId && classroomId ? { staffId, classroomId } : null;
+}
+
+/** `academic.offering.cancelled` : l'offre annulée. */
+export const readCancelledOfferingId = (payload: unknown): string | null => asUuid(field(payload, "offeringId"));
+
+/** `academic.classroom.cancelled` : la classe annulée. */
+export const readCancelledClassroomId = (payload: unknown): string | null => asUuid(field(payload, "classroomId"));
+
+/** `academic.year.closed` : l'année clôturée (`academicYearId`, égal à `yearId`). */
+export const readClosedYearId = (payload: unknown): string | null => asUuid(field(payload, "academicYearId"));
+
 export interface ConsumeReport {
   /** Séances touchées (constatées, signalées, annulées, emplois du temps archivés…). */
   affected: number;
@@ -44,7 +86,7 @@ const systemCtx = (tenantId: string): RequestContext => createSystemContext(tena
 
 /** `attendance.session.submitted` : l'appel soumis constate la séance (source ATTENDANCE). */
 export async function onAttendanceSessionSubmitted(deps: SchedulingDeps, tenantId: string, payload: unknown): Promise<Result<ConsumeReport, AppError>> {
-  const occurrenceId = asUuid((payload as { occurrenceId?: unknown } | null)?.occurrenceId);
+  const occurrenceId = readSubmittedOccurrenceId(payload);
   if (!occurrenceId) return ignored("occurrenceId absent (l'événement d'appel doit porter la séance)");
   const r = await holdOccurrence(deps, systemCtx(tenantId), { occurrenceId, source: "ATTENDANCE" });
   if (!r.ok) {
@@ -82,11 +124,9 @@ async function flagReplacement(deps: SchedulingDeps, tenantId: string, rows: rea
 
 /** `attendance.staff_leave.approved` : les séances futures PLANNED de l'intéressé pendant le congé sont signalées. */
 export async function onStaffLeaveApproved(deps: SchedulingDeps, tenantId: string, payload: unknown): Promise<Result<ConsumeReport, AppError>> {
-  const p = (payload ?? {}) as { staffId?: unknown; startsOn?: unknown; endsOn?: unknown };
-  const staffId = asUuid(p.staffId);
-  const startsOn = asString(p.startsOn);
-  const endsOn = asString(p.endsOn);
-  if (!staffId || !startsOn || !endsOn || !isIsoDate(startsOn) || !isIsoDate(endsOn) || endsOn < startsOn) return ignored("charge invalide (staffId, startsOn, endsOn)");
+  const leave = readApprovedLeave(payload);
+  if (!leave) return ignored("charge invalide (staffId, startsOn, endsOn)");
+  const { staffId, startsOn, endsOn } = leave;
   const ctx = systemCtx(tenantId);
   const rows = await inTx(
     deps,
@@ -107,10 +147,9 @@ export async function onStaffLeaveApproved(deps: SchedulingDeps, tenantId: strin
 
 /** `people.staff.status_changed` vers LEFT ou SUSPENDED : toutes ses séances futures PLANNED sont signalées. */
 export async function onStaffStatusChanged(deps: SchedulingDeps, tenantId: string, payload: unknown): Promise<Result<ConsumeReport, AppError>> {
-  const p = (payload ?? {}) as { staffId?: unknown; status?: unknown };
-  const staffId = asUuid(p.staffId);
-  const status = asString(p.status)?.toUpperCase();
-  if (!staffId || !status) return ignored("charge invalide (staffId, status)");
+  const change = readStaffStatusChange(payload);
+  if (!change) return ignored("charge invalide (staffId, toStatus)");
+  const { staffId, status } = change;
   if (status !== "LEFT" && status !== "SUSPENDED") return ignored(`statut ${status} sans effet sur le planning`);
   const ctx = systemCtx(tenantId);
   const rows = await inTx(deps, ctx, async (tx) => ok(await q.futurePlannedForStaff(tx, [staffId], deps.clock.now(), null)), { readOnly: true });
@@ -120,10 +159,9 @@ export async function onStaffStatusChanged(deps: SchedulingDeps, tenantId: strin
 
 /** `people.teaching_assignment.ended` : ses séances futures dans cette classe sont signalées. */
 export async function onTeachingAssignmentEnded(deps: SchedulingDeps, tenantId: string, payload: unknown): Promise<Result<ConsumeReport, AppError>> {
-  const p = (payload ?? {}) as { staffId?: unknown; classroomId?: unknown };
-  const staffId = asUuid(p.staffId);
-  const classroomId = asUuid(p.classroomId);
-  if (!staffId || !classroomId) return ignored("charge invalide (staffId, classroomId)");
+  const ended = readEndedAssignment(payload);
+  if (!ended) return ignored("charge invalide (staffId, classroomId)");
+  const { staffId, classroomId } = ended;
   const ctx = systemCtx(tenantId);
   const rows = await inTx(deps, ctx, async (tx) => ok(await q.futurePlannedForStaff(tx, [staffId], deps.clock.now(), null, classroomId)), { readOnly: true });
   if (!rows.ok) return rows;
@@ -145,21 +183,21 @@ async function cancelFuture(deps: SchedulingDeps, tenantId: string, target: { of
 
 /** `academic.offering.cancelled` : les séances futures non validées de l'offre sont annulées. */
 export async function onOfferingCancelled(deps: SchedulingDeps, tenantId: string, payload: unknown): Promise<Result<ConsumeReport, AppError>> {
-  const offeringId = asUuid((payload as { offeringId?: unknown } | null)?.offeringId);
+  const offeringId = readCancelledOfferingId(payload);
   if (!offeringId) return ignored("offeringId absent");
   return cancelFuture(deps, tenantId, { offeringId }, "Offre annulée");
 }
 
 /** `academic.classroom.cancelled` : les séances futures non validées de la classe sont annulées. */
 export async function onClassroomCancelled(deps: SchedulingDeps, tenantId: string, payload: unknown): Promise<Result<ConsumeReport, AppError>> {
-  const classroomId = asUuid((payload as { classroomId?: unknown } | null)?.classroomId);
+  const classroomId = readCancelledClassroomId(payload);
   if (!classroomId) return ignored("classroomId absent");
   return cancelFuture(deps, tenantId, { classroomId }, "Classe annulée");
 }
 
 /** `academic.year.closed` : les emplois du temps de l'année sont archivés (les séances passées restent). */
 export async function onYearClosed(deps: SchedulingDeps, tenantId: string, payload: unknown): Promise<Result<ConsumeReport, AppError>> {
-  const academicYearId = asUuid((payload as { academicYearId?: unknown } | null)?.academicYearId);
+  const academicYearId = readClosedYearId(payload);
   if (!academicYearId) return ignored("academicYearId absent");
   const ctx = systemCtx(tenantId);
   const list = await inTx(deps, ctx, async (tx) => ok((await tt.listTimetables(tx, { academicYearId })).filter((t) => t.status !== "ARCHIVED")), { readOnly: true });

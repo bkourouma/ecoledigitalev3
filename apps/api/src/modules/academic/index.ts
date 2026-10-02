@@ -11,8 +11,9 @@
 // Manifeste (le registre le découvre via manifest.ts ; réexporté pour les tests d'assemblage)
 export { default as academicManifest } from "./manifest";
 
-// Plugin Fastify
-export { academicPlugin, ACADEMIC_ROUTES_PREFIX, type AcademicPluginOptions } from "./http/plugin";
+// Plugin Fastify et registres de ports (adaptateurs de plateforme)
+export { academicPlugin, ACADEMIC_ROUTES_PREFIX, registerAcademicPorts, type AcademicPluginOptions } from "./http/plugin";
+export { academicWorkerPorts, createAcademicPortRegistry, resetAcademicWorkerPorts, setAcademicWorkerPorts, type AcademicPortRegistry } from "./application/port-registry";
 
 // Dépendances, configuration, ports (repli sûr si non câblés)
 export { createAcademicDeps, DEFAULT_ACADEMIC_CONFIG, type AcademicConfig, type AcademicDeps, type AcademicDepsInput } from "./application/deps";
@@ -169,6 +170,38 @@ export {
   listNodesForClassroom,
   listNodesForEnrollment,
 } from "./application/reads";
+
+// Faits publiés pour les adaptateurs de la plateforme (results, higher, attendance, scheduling, payroll)
+export {
+  getClassroomFacts,
+  getCycleFacts,
+  getLastEnrollmentInProgram,
+  getResultsStructure,
+  getUeFacts,
+  hasAttendedUe,
+  hasCompletedSelection,
+  listClassroomEnrollments,
+  listCycleEnrollments,
+  listProgramUe,
+  listStudentPlacements,
+  listUeRegistrants,
+} from "./application/facts";
+export {
+  effectiveContract,
+  periodFactsOf,
+  structureNodesOf,
+  RESULT_NODE_KINDS,
+  type ClassroomEnrollmentFacts,
+  type ClassroomFacts,
+  type CycleEnrollmentFacts,
+  type CycleFacts,
+  type LastEnrollmentFacts,
+  type ResultNodeKind,
+  type ResultsPeriodFacts,
+  type ResultsStructure,
+  type ResultsStructureNode,
+  type UeFacts,
+} from "./domain/facts";
 
 // Confirmation par événements, reconduction, jobs
 export { handleInvoicePaid, handleStudentStatusChanged, type InvoicePaidReport } from "./application/confirmation";
