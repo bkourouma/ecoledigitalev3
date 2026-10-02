@@ -51,3 +51,10 @@ Données de pack : `domain/reference-pack.ts` (statuts, motifs, types de congé,
 - `listCompletedStaffPresence` : présences du personnel terminées (heures de la paie d'origine ATTENDANCE) ;
 - les ports de `academic` sont appelés **en séquence** dans `loadSessionContext` : chacun ouvre un SAVEPOINT sur la connexion partagée de la transaction, des appels entrelacés (`Promise.all`) libèrent des points de sauvegarde inexistants. Ne pas les paralléliser.
 - ports branchés par `platform/adapters` : `academic-attendance`, `scheduling-attendance`, `people-attendance`, `storage`.
+
+## Extensions Phase 4-5 (2026-10-02) — pack Primary (appel journalier)
+
+Additives (spec 010 §17).
+
+- **Modèle de pack PRIMARY** : `templates/CI/primary.json` déclare la politique `PRIMARY_DAILY` (`scope: DAILY`, niveaux `PRESCHOOL` et `PRIMARY`, `dailyMinutes: null` : aucune conversion en minutes, les récapitulatifs ne comptent que des jours) ; il hérite des statuts, motifs et paramètres de la base. `getAttendancePackTemplate(educationSystem, pack)`, `onTenantProvisioned` instancie le modèle de chaque pack provisionné. `validatePackTemplate` accepte la forme déclarative (`scope` + `educationLevels`) et la forme historique. Aucune valeur réglementaire.
+- **Absences en journées et jours ouverts** (règle `cas_absences` de la spec 005) : `getAttendanceDays` / `getAttendanceDaysForEnrollments` renvoient `absentDays`, `excusedAbsentDays`, `unexcusedAbsentDays`, `lateDays`, `openDays` et `ruleInputs: { absences_journees, jours_ouverts }`. Seuls les appels `DAILY` soumis ou validés comptent ; sans calendrier, `jours_ouverts` = jours d'appel tenus ; le calendrier d'établissement se fournit par `openDays`. Aucun seuil.
