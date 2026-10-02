@@ -1,21 +1,21 @@
 {
   "section": "academic",
   "schemaVersion": 1,
-  "templateVersion": 1,
+  "templateVersion": 2,
   "educationSystem": "CI",
   "pack": "SECONDARY",
   "educationLevels": [
-    { "code": "LOWER_SECONDARY", "label": "Premier cycle du secondaire", "ordinal": 3, "calculationContract": "coef-semester@1" },
-    { "code": "UPPER_SECONDARY", "label": "Second cycle du secondaire", "ordinal": 4, "calculationContract": "coef-semester@1" }
+    { "code": "LOWER_SECONDARY", "label": "Premier cycle du secondaire", "ordinal": 3, "calculationContract": "secondary-annual@1", "sourceKind": "neutral", "sourceNote": "Branchement technique : nombre quelconque de périodes (spec 006 §6.4/§7.4). `coef-semester@1` reste utilisable, par programme ou par cycle, pour un établissement à deux périodes." },
+    { "code": "UPPER_SECONDARY", "label": "Second cycle du secondaire", "ordinal": 4, "calculationContract": "secondary-annual@1", "sourceKind": "neutral", "sourceNote": "Branchement technique : nombre quelconque de périodes (spec 006 §6.4/§7.4). `coef-semester@1` reste utilisable, par programme ou par cycle, pour un établissement à deux périodes." }
   ],
   "gradeLevels": [
     { "code": "6E", "label": "6e", "shortLabel": "6e", "educationLevel": "LOWER_SECONDARY", "ordinal": 1, "next": "5E" },
     { "code": "5E", "label": "5e", "shortLabel": "5e", "educationLevel": "LOWER_SECONDARY", "ordinal": 2, "next": "4E" },
     { "code": "4E", "label": "4e", "shortLabel": "4e", "educationLevel": "LOWER_SECONDARY", "ordinal": 3, "next": "3E" },
-    { "code": "3E", "label": "3e", "shortLabel": "3e", "educationLevel": "LOWER_SECONDARY", "ordinal": 4, "next": "2NDE" },
+    { "code": "3E", "label": "3e", "shortLabel": "3e", "educationLevel": "LOWER_SECONDARY", "ordinal": 4, "next": "2NDE", "terminalExamRequired": true, "sourceKind": "placeholder", "sourceNote": "Informatif : la 3e conduit au BEPC (PRD §15) ; à confirmer (Q6-27). Jamais décisionnel." },
     { "code": "2NDE", "label": "2nde", "shortLabel": "2nde", "educationLevel": "UPPER_SECONDARY", "ordinal": 1, "next": "1ERE" },
     { "code": "1ERE", "label": "1ère", "shortLabel": "1ère", "educationLevel": "UPPER_SECONDARY", "ordinal": 2, "next": "TLE" },
-    { "code": "TLE", "label": "Terminale", "shortLabel": "Tle", "educationLevel": "UPPER_SECONDARY", "ordinal": 3, "next": null, "isFinal": true }
+    { "code": "TLE", "label": "Terminale", "shortLabel": "Tle", "educationLevel": "UPPER_SECONDARY", "ordinal": 3, "next": null, "isFinal": true, "terminalExamRequired": true, "sourceKind": "placeholder", "sourceNote": "Informatif : la Terminale conduit au BAC (PRD §15) ; à confirmer (Q6-27). Jamais décisionnel." }
   ],
   "periodTypes": [
     { "code": "TRIMESTER", "label": "Trimestre", "kind": "TEACHING_PERIOD" },
@@ -29,18 +29,22 @@
     {
       "code": "THREE_TERMS",
       "label": "Trois trimestres",
+      "sourceKind": "neutral",
+      "sourceNote": "Poids de créneau égaux (1) : aucune pondération supposée.",
       "slots": [
-        { "type": "TRIMESTER", "ordinal": 1, "label": "Trimestre 1" },
-        { "type": "TRIMESTER", "ordinal": 2, "label": "Trimestre 2" },
-        { "type": "TRIMESTER", "ordinal": 3, "label": "Trimestre 3" }
+        { "type": "TRIMESTER", "ordinal": 1, "label": "Trimestre 1", "weight": 1 },
+        { "type": "TRIMESTER", "ordinal": 2, "label": "Trimestre 2", "weight": 1 },
+        { "type": "TRIMESTER", "ordinal": 3, "label": "Trimestre 3", "weight": 1 }
       ]
     },
     {
       "code": "TWO_SEMESTERS",
       "label": "Deux semestres",
+      "sourceKind": "neutral",
+      "sourceNote": "Poids de créneau égaux (1) : aucune pondération supposée.",
       "slots": [
-        { "type": "SEMESTER", "ordinal": 1, "label": "Semestre 1" },
-        { "type": "SEMESTER", "ordinal": 2, "label": "Semestre 2" }
+        { "type": "SEMESTER", "ordinal": 1, "label": "Semestre 1", "weight": 1 },
+        { "type": "SEMESTER", "ordinal": 2, "label": "Semestre 2", "weight": 1 }
       ]
     }
   ],

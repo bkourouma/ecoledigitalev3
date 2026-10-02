@@ -43,14 +43,35 @@ export async function getInvoiceFacts(deps: FinanceDeps, ctx: RequestContext, in
   );
 }
 
+/**
+ * État explicite des frais d'inscription d'une inscription :
+ *  - `NOT_BILLED` : aucune facture ÉMISE (non annulée) ne porte de frais d'inscription — état normal AVANT la facturation
+ *                   (inscription inconnue de finance comprise) : jamais une erreur et JAMAIS « payé » ;
+ *  - `PENDING`    : facturés, au moins une facture n'est pas soldée ;
+ *  - `PAID`       : toutes les factures émises portant des frais d'inscription sont soldées.
+ */
+export type RegistrationFeeState = "NOT_BILLED" | "PENDING" | "PAID";
+
 export interface RegistrationFeeStatus {
   /** Au moins une facture ÉMISE de l'inscription contient des frais d'inscription. */
   readonly invoiced: boolean;
   /** Toutes les factures émises (non annulées) portant des frais d'inscription sont soldées. `false` si aucune. */
   readonly paid: boolean;
   readonly invoiceIds: readonly Uuid[];
+  /** État explicite (voir `RegistrationFeeState`) : `NOT_BILLED` quand `invoiced` est faux. */
+  readonly status: RegistrationFeeState;
 }
 
+/** État des frais d'inscription d'après les statuts des factures émises qui en portent (fonction pure). */
+export function registrationFeeStateOf(invoiceStatuses: readonly string[]): RegistrationFeeState {
+  if (invoiceStatuses.length === 0) return "NOT_BILLED";
+  return invoiceStatuses.every((s) => s === "PAID") ? "PAID" : "PENDING";
+}
+
+/**
+ * « Frais d'inscription soldés » d'une inscription. Utilisable AVANT toute facturation : sans facture émise, l'état est
+ * `NOT_BILLED` (`invoiced: false`, `paid: false`), jamais une erreur ni « payé ». Une facture annulée n'est plus comptée.
+ */
 export async function getRegistrationFeeStatus(deps: FinanceDeps, ctx: RequestContext, input: { enrollmentId: Uuid }): Promise<Result<RegistrationFeeStatus, AppError>> {
   return inTx(
     deps,
@@ -64,7 +85,8 @@ export async function getRegistrationFeeStatus(deps: FinanceDeps, ctx: RequestCo
           ORDER BY i.id`,
         [input.enrollmentId],
       );
-      return ok({ invoiced: rows.length > 0, paid: rows.length > 0 && rows.every((r) => r.status === "PAID"), invoiceIds: rows.map((r) => r.id) });
+      const status = registrationFeeStateOf(rows.map((r) => r.status));
+      return ok({ invoiced: rows.length > 0, paid: status === "PAID", invoiceIds: rows.map((r) => r.id), status });
     },
     { readOnly: true },
   );

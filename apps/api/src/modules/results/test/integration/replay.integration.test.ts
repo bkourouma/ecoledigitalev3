@@ -114,11 +114,11 @@ describeIntegration("rejeu de reproductibilité des résultats FINAL (Postgres r
     expect(await source.buildCaseGroups({ ...request(), contractId: "coef-semester@1" })).toEqual([]);
   });
 
-  it("branchement dans le registre du processus : les deux contrats pris en charge, une seule fois", () => {
+  it("branchement dans le registre du processus : tous les contrats pris en charge, une seule fois", () => {
     bindResultsRulesSources(w.deps);
     bindResultsRulesSources(w.deps);
-    expect([...w.rulesApi.deps.replaySources.keys()].sort()).toEqual(["coef-semester@1", "credit-semester@1"]);
-    expect([...w.rulesApi.deps.simulationSources.keys()].sort()).toEqual(["coef-semester@1", "credit-semester@1"]);
+    expect([...w.rulesApi.deps.replaySources.keys()].sort()).toEqual(["coef-period@1", "coef-semester@1", "competency-period@1", "credit-semester@1", "secondary-annual@1"]);
+    expect([...w.rulesApi.deps.simulationSources.keys()].sort()).toEqual(["coef-period@1", "coef-semester@1", "competency-period@1", "credit-semester@1", "secondary-annual@1"]);
   });
 
   it("le contexte conservé ne sort que par `explain` (droit dédié) : jamais par la lecture famille", async () => {

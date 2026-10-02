@@ -40,6 +40,10 @@ export const ResultsCode = {
   INVALID_INPUT: "results.invalid_input",
   REPIN_NOT_ALLOWED: "results.repin_not_allowed",
   HASH_MISMATCH: "results.hash_mismatch",
+  /** Un code de proposition (ex. COUNCIL_REVIEW) n'est pas une décision : le conseil doit indiquer un code final. */
+  DECISION_NOT_FINAL: "results.decision_not_final",
+  /** Écriture par un conseil refusée : l'acteur ou la nature d'écriture n'est pas valide. */
+  COUNCIL_WRITE_REJECTED: "results.council_write_rejected",
 } as const;
 
 export type ResultsCodeValue = (typeof ResultsCode)[keyof typeof ResultsCode];

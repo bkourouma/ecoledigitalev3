@@ -17,7 +17,8 @@
  *   POST   /rule-versions/:id/simulations       rules.version.simulate      + rules.simulation        → 202
  *   GET    /simulations/:id                     rules.version.simulate
  *   POST   /rule-versions/:id/transitions       rules.version.propose (sensible)
- *   GET|PUT /bindings, DELETE /bindings/:id     rules.ruleset.read / rules.binding.manage (sensible)
+ *   GET|PUT /bindings, DELETE /bindings/:id     rules.ruleset.read / rules.binding.manage (sensible) ;
+ *                                               PUT avec `placeholderAck` : + rules.binding.accept_placeholder (sensible)
  *   GET    /contracts, /contracts/:id           rules.ruleset.read
  *   GET    /resolve                             rules.ruleset.read
  *   POST   /evaluate                            rules.version.edit (banc d'essai, 30 appels/min/utilisateur)
@@ -238,8 +239,11 @@ export default async function rulesModulePlugin(app: FastifyInstance, runtime: M
     return { items: items.map(toBindingDto) };
   });
 
-  app.put("/bindings", { preHandler: guards("rules.binding.manage") }, async (request) => {
+  app.put("/bindings", { preHandler: guards("rules.binding.manage") }, async (request, reply) => {
     const body = parse(RulesBindingBodySchema, request.body);
+    // L'accusé de l'usage d'un jeu FICTIF est un acte sensible distinct (MFA + audit) : permission dédiée, vérifiée ici car elle
+    // ne s'applique que si le corps porte un accusé.
+    if (body.placeholderAck) await perm("rules.binding.accept_placeholder").call(app, request, reply);
     return toBindingDto(unwrap(await putBinding(deps, ctxOf(request), body)));
   });
 

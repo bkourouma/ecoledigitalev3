@@ -11,16 +11,21 @@ export interface BindingQuery {
   readonly institutionId?: string | undefined;
   readonly curriculumNodeId?: string | undefined;
   readonly levelCode?: string | undefined;
+  /** Code du cycle d'enseignement (ex. `PRIMARY`, `PRESCHOOL`) : une liaison par niveau peut aussi viser le cycle (moins spécifique que le niveau fin). */
+  readonly educationLevelCode?: string | undefined;
   /** « AAAA-MM-JJ » */
   readonly date: string;
 }
 
 const NODE = 100;
 const LEVEL = 50;
+const EDUCATION_LEVEL = 45;
 const INSTITUTION = 10;
 
-export function bindingSpecificity(b: Pick<BindingRecord, "curriculumNodeId" | "levelCode" | "institutionId">): number {
-  return (b.curriculumNodeId ? NODE : 0) + (b.levelCode ? LEVEL : 0) + (b.institutionId ? INSTITUTION : 0);
+export function bindingSpecificity(b: Pick<BindingRecord, "curriculumNodeId" | "levelCode" | "institutionId">, q?: Pick<BindingQuery, "levelCode" | "educationLevelCode">): number {
+  // une liaison dont le code est celui du niveau fin est plus spécifique que celle qui vise le cycle d'enseignement
+  const level = b.levelCode ? (q && q.levelCode !== b.levelCode && q.educationLevelCode === b.levelCode ? EDUCATION_LEVEL : LEVEL) : 0;
+  return (b.curriculumNodeId ? NODE : 0) + level + (b.institutionId ? INSTITUTION : 0);
 }
 
 export function bindingApplies(b: BindingRecord, q: BindingQuery): boolean {
@@ -29,7 +34,7 @@ export function bindingApplies(b: BindingRecord, q: BindingQuery): boolean {
   if (b.effectiveTo !== null && q.date > b.effectiveTo) return false;
   if (b.institutionId !== null && b.institutionId !== q.institutionId) return false;
   if (b.curriculumNodeId !== null && b.curriculumNodeId !== q.curriculumNodeId) return false;
-  if (b.levelCode !== null && b.levelCode !== q.levelCode) return false;
+  if (b.levelCode !== null && b.levelCode !== q.levelCode && b.levelCode !== q.educationLevelCode) return false;
   return true;
 }
 
@@ -42,8 +47,8 @@ export function selectBinding(bindings: readonly BindingRecord[], q: BindingQuer
       best = b;
       continue;
     }
-    const sb = bindingSpecificity(b);
-    const sBest = bindingSpecificity(best);
+    const sb = bindingSpecificity(b, q);
+    const sBest = bindingSpecificity(best, q);
     if (sb > sBest || (sb === sBest && (b.effectiveFrom > best.effectiveFrom || (b.effectiveFrom === best.effectiveFrom && b.id < best.id)))) best = b;
   }
   return best;

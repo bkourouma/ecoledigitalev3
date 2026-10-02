@@ -146,6 +146,8 @@ export interface AllocatedPeriod {
   label: string;
   startsOn: IsoDate;
   endsOn: IsoDate;
+  /** Poids de la période dans la moyenne annuelle (copié du créneau, défaut 1). */
+  averageWeight: number;
 }
 
 export type PlanAllocation = { ok: true; periods: AllocatedPeriod[] } | { ok: false; reason: string };
@@ -182,6 +184,7 @@ export function allocatePeriodPlan(yearStart: IsoDate, yearEnd: IsoDate, slots: 
       label: slot.label,
       startsOn: addDays(yearStart, previousBoundary),
       endsOn: addDays(yearStart, boundary - 1),
+      averageWeight: slot.averageWeight ?? 1,
     });
     previousBoundary = boundary;
   }

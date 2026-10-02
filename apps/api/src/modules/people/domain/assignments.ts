@@ -4,9 +4,18 @@
  * Une affectation n'est JAMAIS l'autorisation de paie (la paie lit l'intervenant réel d'une séance, spec 017).
  *
  * Résolution du responsable d'un nœud dans une classe (`resolveResponsible`, spec 009 AC2.3) :
- *    LEAD explicite du nœud  >  généraliste (`covers_all_subjects`)  >  titulaire (`HOMEROOM`)
+ *    LEAD explicite du nœud  >  généraliste LEAD (`covers_all_subjects`)  >  titulaire généraliste (`HOMEROOM` +
+ *    `covers_all_subjects`)  >  titulaire (`HOMEROOM`)
  * avec deux précisions : un nœud transversal (conduite) n'a JAMAIS de responsable ; un SUBSTITUTE actif (suppléance de
  * longue durée, `replaces_assignment_id`) prend la place de l'affectation qu'il remplace pendant ses dates.
+ *
+ * CAS GÉNÉRALISTE (primaire, spec 005 T-P10) : l'instituteur est un rôle RBAC + UNE affectation `HOMEROOM` avec
+ * `covers_all_subjects = true` (sans nœud). Il est alors le responsable de TOUT nœud non transversal de sa classe (créer
+ * une évaluation, faire l'appel d'un nœud : `isStaffAssigned` l'accepte) et `Responsible.coversAllSubjects` vaut `true`.
+ * Un titulaire `HOMEROOM` SANS `covers_all_subjects` reste le repli historique (« à défaut de responsable de la
+ * matière ») mais n'est pas autorisé à noter toute matière. Son remplaçant de longue durée (`SUBSTITUTE`, même classe,
+ * `replaces_assignment_id`, `covers_all_subjects = true`) hérite des mêmes droits à la date d'effet ; `replaceTeachingAssignment`
+ * termine l'ancien titulaire la veille.
  */
 import type { PeopleAssignmentRole } from "@ecoledigitale/contracts/src/v2/people";
 
@@ -37,6 +46,8 @@ export interface Responsible {
   readonly staffId: string;
   readonly assignmentId: string;
   readonly via: ResponsibleVia;
+  /** L'affectation retenue couvre toutes les matières (généraliste : LEAD, HOMEROOM ou remplaçant d'un généraliste). */
+  readonly coversAllSubjects: boolean;
 }
 
 /** Une affectation compte à une date si elle est ACTIVE et couvre la date (bornes incluses). */
@@ -53,6 +64,10 @@ function leadCovers(a: AssignmentFact, nodeId: string): "LEAD" | "GENERALIST" | 
   if (a.coversAllSubjects && a.curriculumNodeId === null) return "GENERALIST";
   return null;
 }
+
+/** Titulaire de classe généraliste : `HOMEROOM` + `covers_all_subjects` (instituteur du primaire). */
+export const isGeneralistHomeroom = (a: Pick<AssignmentFact, "roleCode" | "coversAllSubjects" | "curriculumNodeId">): boolean =>
+  a.roleCode === "HOMEROOM" && a.coversAllSubjects && a.curriculumNodeId === null;
 
 /** Préfère l'affectation de période précise à celle valable pour toutes les périodes. */
 function preferPeriod<T extends AssignmentFact>(list: readonly T[], periodId: string | undefined): T | undefined {
@@ -78,12 +93,14 @@ export function resolveResponsible(assignments: readonly AssignmentFact[], input
   const live = assignments.filter((a) => a.classroomId === input.classroomId && isActiveOn(a, input.onDate) && periodMatches(a, input.periodId));
   const finalize = (base: AssignmentFact, via: ResponsibleVia): Responsible => {
     const { assignment, substituted } = withSubstitute(base, assignments.filter((a) => a.classroomId === input.classroomId), input.onDate);
-    return { staffId: assignment.staffId, assignmentId: assignment.id, via: substituted ? "SUBSTITUTE" : via };
+    return { staffId: assignment.staffId, assignmentId: assignment.id, via: substituted ? "SUBSTITUTE" : via, coversAllSubjects: assignment.coversAllSubjects };
   };
   const explicit = preferPeriod(live.filter((a) => leadCovers(a, input.nodeId) === "LEAD"), input.periodId);
   if (explicit) return finalize(explicit, "LEAD");
   const generalist = preferPeriod(live.filter((a) => leadCovers(a, input.nodeId) === "GENERALIST"), input.periodId);
   if (generalist) return finalize(generalist, "GENERALIST");
+  const generalistHomeroom = live.find(isGeneralistHomeroom);
+  if (generalistHomeroom) return finalize(generalistHomeroom, "HOMEROOM");
   const homeroom = live.find((a) => a.roleCode === "HOMEROOM");
   if (homeroom) return finalize(homeroom, "HOMEROOM");
   return null;
@@ -109,7 +126,8 @@ export function isStaffAssigned(assignments: readonly AssignmentFact[], input: I
   return assignments.some((a) => {
     if (a.staffId !== input.staffId || a.classroomId !== input.classroomId || !isActiveOn(a, input.onDate)) return false;
     if (input.nodeId === undefined) return CLASS_ACCESS_ROLES.includes(a.roleCode);
-    if (!NODE_ACCESS_ROLES.includes(a.roleCode)) return false;
+    // Un titulaire généraliste (HOMEROOM + covers_all_subjects) est autorisé sur tout nœud de sa classe ; un simple titulaire non.
+    if (!NODE_ACCESS_ROLES.includes(a.roleCode) && !isGeneralistHomeroom(a)) return false;
     return a.curriculumNodeId === input.nodeId || (a.coversAllSubjects && a.curriculumNodeId === null);
   });
 }
@@ -124,6 +142,9 @@ export function listUnstaffedNodes(
   input: { classroomId: string; periodId?: string | undefined; onDate: string },
 ): NodeFact[] {
   const leads = assignments.filter((a) => a.classroomId === input.classroomId && a.roleCode === "LEAD" && isActiveOn(a, input.onDate) && periodMatches(a, input.periodId));
+  // Un titulaire généraliste couvre toutes les matières de sa classe : plus aucun nœud sans responsable.
+  const hasGeneralistHomeroom = assignments.some((a) => a.classroomId === input.classroomId && isGeneralistHomeroom(a) && isActiveOn(a, input.onDate) && periodMatches(a, input.periodId));
+  if (hasGeneralistHomeroom) return [];
   return nodes.filter((n) => n.isMandatory && !n.isTransversal && !leads.some((a) => leadCovers(a, n.id) !== null));
 }
 

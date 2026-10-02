@@ -137,7 +137,7 @@ export { buildSnapshot, resolveSignatories } from "./domain/snapshot";
 export { parseTemplate, renderTemplate } from "./domain/template-engine";
 export { validateTemplate } from "./domain/template-validation";
 export { renderDocumentHtml, type RenderAssets } from "./domain/document-html";
-export { ALL_PLATFORM_TEMPLATES, BUILTIN_TEMPLATES, PLATFORM_DOCUMENT_TEMPLATES } from "./templates/builtin";
+export { ALL_PLATFORM_TEMPLATES, BUILTIN_TEMPLATES, PACK_PLATFORM_DOCUMENT_TEMPLATES, PLATFORM_DOCUMENT_TEMPLATES } from "./templates/builtin";
 export type {
   BatchRecord,
   Branding,

@@ -1,0 +1,16 @@
+{
+  "section": "attendance",
+  "schemaVersion": 1,
+  "templateVersion": 1,
+  "educationSystem": "CI",
+  "pack": "PRIMARY",
+  "callPolicies": [
+    {
+      "code": "PRIMARY_DAILY",
+      "label": "Appel journalier",
+      "scope": "DAILY",
+      "educationLevels": ["PRESCHOOL", "PRIMARY"],
+      "dailyMinutes": null
+    }
+  ]
+}

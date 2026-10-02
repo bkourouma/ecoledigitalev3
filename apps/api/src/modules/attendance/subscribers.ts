@@ -29,7 +29,9 @@ import {
   readCancelledOccurrenceId,
   readChangedEnrollmentId,
   readChangedPeriodId,
+  readProvisionedEducationSystem,
   readProvisionedInstitutionIds,
+  readProvisionedPacks,
 } from "./application/consumers";
 import { ConsumedEvents } from "./domain/events";
 import { attendanceAuditAdapter } from "./infrastructure/audit-adapter";
@@ -104,7 +106,7 @@ export function buildSubscribers(depsOf: (ctx: EventHandlerContext) => Attendanc
       retry: { attempts: 6, backoffMs: 1_000, maxBackoffMs: 120_000 },
       handler: idempotent("attendance.seed-reference-data", async (event, ctx) => {
         const ids = readProvisionedInstitutionIds(event.payload);
-        const r = await onTenantProvisioned(depsOf(ctx), ctx.db.ctx, { institutionIds: ids });
+        const r = await onTenantProvisioned(depsOf(ctx), ctx.db.ctx, { institutionIds: ids, packs: readProvisionedPacks(event.payload), educationSystem: readProvisionedEducationSystem(event.payload) });
         settle(r, ctx);
         ctx.logger.info({ institutions: ids.length }, "attendance : référentiels du pack instanciés");
       }),

@@ -32,7 +32,7 @@ describeIntegration("gardes SQL du module rules", () => {
   describe("catalogue national : lecture ouverte, écriture réservée à l'acteur système", () => {
     it("un tenant LIT le catalogue national", async () => {
       const rows = await db.tenantDb.run(adminCtx(tenantA), (tx) => tx.many("SELECT code FROM rules.national_rule_sets ORDER BY code"));
-      expect(rows.map((r) => (r as { code: string }).code)).toEqual(["CI-CLASSIC-SEMESTRE", "CI-HIGHER-BTS", "CI-HIGHER-LMD"]);
+      expect(rows.map((r) => (r as { code: string }).code)).toEqual(["CI-CLASSIC-SEMESTRE", "CI-EXAM-PLACEHOLDER", "CI-HIGHER-BTS", "CI-HIGHER-LMD", "CI-PRIMARY-PLACEHOLDER", "CI-SECONDARY-PLACEHOLDER"]);
     });
 
     it("un tenant ne peut ni INSÉRER ni MODIFIER ni SUPPRIMER dans les tables nationales (RLS)", async () => {

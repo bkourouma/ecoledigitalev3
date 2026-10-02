@@ -1,17 +1,34 @@
 /**
  * Rôles système contre le catalogue RÉEL (manifestes de TOUS les modules découverts).
  *
- *  1. Aucun motif « en attente » : tout motif d'un modèle désigne au moins une vraie permission.
+ *  1. Aucun motif « en attente » HORS de la liste blanche `RESERVED_FOR_UPCOMING_MODULES` : tout motif d'un
+ *     modèle désigne une vraie permission, ou une permission RÉSERVÉE à un module pas encore livré (liste
+ *     versionnée, `templates/reserved-permissions.ts` ; ses propres garde-fous sont dans
+ *     `reserved-permissions.test.ts`).
  *  2. Pour CHAQUE rôle et CHAQUE module : ce que le rôle PEUT et NE PEUT PAS faire, énuméré ici
  *     indépendamment des modèles (oracle). Un nouveau module ou une nouvelle permission sans décision
  *     explicite fait échouer le test.
  *  3. Interdits notables, expliqués (séparation des tâches, moindre privilège).
  *  4. Paires de tâches incompatibles : aucun rôle autre que owner/directeur ne détient les deux côtés.
  *  5. Permissions sensibles : justifiées ; `mfaRecommended` cohérent.
- *  6. `*` réservé à owner/directeur ; parent/élève : exactement `*.child.*` / `*.self.*`.
+ *  6. `*` réservé à owner/directeur ; parent/élève : exactement les permissions `child` / `self`
+ *     (trois ET quatre segments : `student.child.read`, `primary.competency.child.read`).
+ *
+ * Les permissions RÉSERVÉES (modules à venir) sont décrites dans l'oracle (`reserved`) en plus des permissions
+ * réelles (`can`) : tant que le module n'est pas chargé elles restent en attente (non accordées) ; dès que son
+ * manifeste est chargé elles doivent être accordées au rôle.
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { matchesPermissionPattern } from "../domain/permission-catalog";
+import {
+  CHILD_PERMISSION_PATTERNS,
+  RESERVED_FOR_UPCOMING_MODULES,
+  RESERVED_MODULES,
+  SELF_PERMISSION_PATTERNS,
+  getReservedPermission,
+  isReservedPermission,
+  permissionScopeOf,
+} from "../templates/reserved-permissions";
 import { SYSTEM_ROLE_KEYS, SYSTEM_ROLE_TEMPLATES, getSystemRoleTemplate } from "../templates/system-roles";
 import { loadRealCatalog, resolveAgainst, type RealCatalog } from "./real-catalog";
 
@@ -22,7 +39,14 @@ beforeAll(async () => {
   roles = resolveAgainst(real, SYSTEM_ROLE_TEMPLATES);
 });
 
+/** Permissions RÉELLEMENT accordées (résolues contre le catalogue des modules chargés). */
 const granted = (role: string): ReadonlySet<string> => roles.get(role)?.permissions ?? new Set();
+/** Accordées + en attente (clés exactes d'un module pas encore livré) : tout ce que le modèle DÉCLARE. */
+const declared = (role: string): ReadonlySet<string> => new Set([...granted(role), ...(roles.get(role)?.pending ?? [])]);
+const matchesAny = (patterns: readonly string[], key: string): boolean => patterns.some((p) => matchesPermissionPattern(p, key));
+const isChildKey = (key: string): boolean => matchesAny(CHILD_PERMISSION_PATTERNS, key);
+const isSelfKey = (key: string): boolean => matchesAny(SELF_PERMISSION_PATTERNS, key);
+const LOADED_UPCOMING_MODULES = (): string[] => RESERVED_MODULES.filter((m) => real.manifests.some((mf) => mf.key === m));
 
 /** Exclusions des deux rôles à motif `*`. */
 const OWNER_EXCEPT = ["rules.platform.manage"];
@@ -32,7 +56,7 @@ const DIRECTEUR_EXCEPT = ["entitlements.manage", "rbac.role.manage", "payroll.pa
  * ORACLE : permissions exactes de chaque rôle, indépendantes des modèles. `"ALL"` = tout le catalogue
  * moins `except`.
  */
-const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; can: string[] }> = {
+const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; can: string[]; reserved?: string[] }> = {
   owner: { all: true, except: OWNER_EXCEPT },
   directeur: { all: true, except: DIRECTEUR_EXCEPT },
 
@@ -71,6 +95,13 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       // rules
       "rules.ruleset.read", "rules.version.simulate",
     ],
+    reserved: [
+      // conseils de classe (006) : `council.*` sauf l'approbation d'un déverrouillage et la révocation d'un PV
+      "council.read", "council.manage", "council.prepare", "council.session.run", "council.proposal.write", "council.decision.record",
+      "council.minutes.generate", "council.minutes.read", "council.minutes.sign", "council.unlock.request", "council.effect.manage",
+      "council.exclusion.apply", "council.settings.manage", "council.orientation.read", "council.orientation.manage", "council.orientation.override",
+      "schoollife.read", "stateassign.read",
+    ],
   },
 
   secretariat: {
@@ -91,6 +122,16 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "schedule.read",
       "finance.invoice.read", "finance.payment.read", "finance.receipt.read",
     ],
+    reserved: [
+      // admissions (007) : traitement d'un dossier, jamais la décision
+      "admission.read", "admission.create", "admission.update", "admission.document.upload", "admission.document.review",
+      "admission.interview.manage", "admission.offer.manage", "admission.duplicate.resolve", "admission.waitlist.manage",
+      "admission.prospect.manage", "admission.enroll", "admission.report.read",
+      // conseils (006) : planifier, procès-verbaux (pas de révocation)
+      "council.read", "council.manage", "council.minutes.generate", "council.minutes.read", "council.minutes.sign",
+      // affectation d'État (006)
+      "stateassign.read", "stateassign.record", "stateassign.document.manage",
+    ],
   },
 
   econome: {
@@ -110,6 +151,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "student.list", "student.read", "guardian.read", "staff.list", "staff.read",
       "academic.read", "academic.year.read", "academic.program.read", "academic.classroom.read",
     ],
+    reserved: ["stateassign.read", "stateassign.reconcile", "stateassign.control.perform"],
   },
 
   enseignant: {
@@ -127,6 +169,25 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "schedule.own.read", "schedule.occurrence.declare",
       "payroll.payslip.read_own", "payroll.my.dispute",
     ],
+    reserved: ["council.proposal.write", "schoollife.read", "schoollife.incident.write", "schoollife.note.write"],
+  },
+
+  // Spec 005 pack-template §7 : mêmes clés RÉELLES que l'enseignant (sa classe) + reportcard.read ; `primary.*` réservées.
+  instituteur: {
+    can: [
+      // messaging
+      "messaging.read", "messaging.send", "messaging.announcement.publish_class",
+      "assessment.type.read", "assessment.read", "assessment.create", "assessment.update", "grade.read", "grade.enter", "grade.revise.request",
+      "appreciation.write", "reportcard.read",
+      "attendance.read", "attendance.take", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
+      "student.class.read", "staff.own.read", "staff.own.update",
+      "schedule.own.read", "schedule.occurrence.declare",
+      "payroll.payslip.read_own", "payroll.my.dispute",
+    ],
+    reserved: [
+      "primary.competency.read", "primary.competency.record", "primary.competency.validate",
+      "primary.phrase.read", "primary.council.read", "primary.council.prepare",
+    ],
   },
 
   educateur: {
@@ -143,6 +204,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "student.list", "student.read", "guardian.read", "staff.own.read", "staff.own.update",
       "enrollment.read", "academic.classroom.read",
     ],
+    reserved: ["schoollife.read", "schoollife.incident.write", "schoollife.measure.propose", "schoollife.note.write", "schoollife.convocation.manage"],
   },
 
   responsable_pedagogique: {
@@ -183,6 +245,10 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "attendance.child.read", "attendance.child.justify", "schedule.child.read", "higher.child.read",
       "finance.child.read", "finance.child.pay",
     ],
+    reserved: [
+      "primary.competency.child.read", "primary.bilan.child.read", "council.child.read", "schoollife.child.read",
+      "stateassign.child.read", "exam.document.child.read",
+    ],
   },
 
   eleve: {
@@ -197,18 +263,28 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "reportcard.self.read", "attendance.self.read", "attendance.self.justify", "schedule.self.read", "higher.self.read",
       "finance.self.read", "finance.self.pay",
     ],
+    reserved: ["primary.competency.self.read", "primary.bilan.self.read", "council.self.read", "schoollife.self.read", "exam.document.self.read"],
   },
 };
 
+/** Permissions que le rôle doit RÉELLEMENT porter : réelles de l'oracle + réservées dont le module est chargé. */
 function expectedOf(role: string): ReadonlySet<string> {
   const e = EXPECTED[role];
   if (!e) throw new Error(`Rôle sans oracle : ${role}`);
   if (e.all) return new Set(real.catalog.keys.filter((k) => !e.except.includes(k)));
-  return new Set(e.can);
+  return new Set([...e.can, ...(e.reserved ?? []).filter((k) => real.catalog.byKey.has(k))]);
+}
+
+/** Ce que le modèle doit DÉCLARER : réelles + réservées (accordées ou en attente). */
+function expectedDeclaredOf(role: string): ReadonlySet<string> {
+  const e = EXPECTED[role];
+  if (!e) throw new Error(`Rôle sans oracle : ${role}`);
+  if (e.all) return expectedOf(role);
+  return new Set([...e.can, ...(e.reserved ?? [])]);
 }
 
 describe("modèles de rôles système : ensemble des rôles", () => {
-  it("onze modèles, dont le NOUVEAU rôle `personnel`, clés uniques", () => {
+  it("douze modèles, dont `personnel` et `instituteur` (spec 005), clés uniques", () => {
     expect(SYSTEM_ROLE_KEYS).toEqual([
       "owner",
       "directeur",
@@ -216,6 +292,7 @@ describe("modèles de rôles système : ensemble des rôles", () => {
       "secretariat",
       "econome",
       "enseignant",
+      "instituteur",
       "educateur",
       "responsable_pedagogique",
       "personnel",
@@ -227,18 +304,27 @@ describe("modèles de rôles système : ensemble des rôles", () => {
 
   it("le catalogue réel couvre les modules livrés (chaque module déclarant des permissions est connu de la matrice)", () => {
     const modulesWithPermissions = [...new Set(real.catalog.entries.map((e) => e.moduleKey))].sort();
-    expect(modulesWithPermissions).toEqual([
-      "academic", "analytics", "assess", "attendance", "audit", "documents", "entitlements", "finance", "higher", "iam", "imports", "messaging", "notifications", "payroll", "people", "rbac",
-      "reportcards", "results", "rules", "scheduling", "tenancy",
-    ]);
+    // + les modules « à venir » (liste blanche des permissions réservées) dès qu'ils sont chargés : leur matrice
+    // rôle × permission est alors vérifiée comme celle des autres (voir `matrice rôle × module`).
+    expect(modulesWithPermissions).toEqual(
+      [
+        "academic", "analytics", "assess", "attendance", "audit", "documents", "entitlements", "finance", "higher", "iam", "imports", "messaging", "notifications", "payroll", "people", "rbac",
+        "reportcards", "results", "rules", "scheduling", "tenancy",
+        ...LOADED_UPCOMING_MODULES(),
+      ].sort(),
+    );
   });
 });
 
-describe("aucun motif « en attente » contre le catalogue réel", () => {
+describe("aucun motif « en attente » HORS liste blanche contre le catalogue réel", () => {
   for (const template of SYSTEM_ROLE_TEMPLATES) {
-    it(`${template.key} : chaque clé/motif d'octroi désigne au moins une permission réelle`, () => {
+    it(`${template.key} : chaque clé/motif d'octroi désigne une permission réelle, ou une permission RÉSERVÉE (module à venir)`, () => {
       const resolved = roles.get(template.key);
-      expect(resolved?.pending, `motifs en attente de ${template.key}`).toEqual([]);
+      const unexpected = (resolved?.pending ?? []).filter((p) => !isReservedPermission(p));
+      expect(
+        unexpected,
+        `motifs en attente de ${template.key} qui ne figurent pas dans RESERVED_FOR_UPCOMING_MODULES (faute de frappe, permission renommée ? sinon ajoute-les à templates/reserved-permissions.ts avec module et spec)`,
+      ).toEqual([]);
     });
   }
 
@@ -250,11 +336,14 @@ describe("aucun motif « en attente » contre le catalogue réel", () => {
     }
   });
 
-  it("toutes les permissions de l'oracle existent dans le catalogue réel", () => {
+  it("toutes les permissions de l'oracle existent dans le catalogue réel (les `reserved` : dans la liste blanche, ou déjà réelles)", () => {
     const unknown: string[] = [];
     for (const [role, e] of Object.entries(EXPECTED)) {
       const list = e.all ? e.except : e.can;
       for (const k of list) if (!real.catalog.byKey.has(k)) unknown.push(`${role}:${k}`);
+      if (!e.all) {
+        for (const k of e.reserved ?? []) if (!real.catalog.byKey.has(k) && !isReservedPermission(k)) unknown.push(`${role}:${k} (ni réelle ni réservée)`);
+      }
     }
     expect(unknown).toEqual([]);
   });
@@ -263,6 +352,24 @@ describe("aucun motif « en attente » contre le catalogue réel", () => {
     const fake = resolveAgainst(real, [{ key: "faux_role", label: "Faux", description: "d", permissions: ["payroll.own.*", "assessment.*", "grade.enter", "discipline.*"] }]);
     expect(fake.get("faux_role")?.pending).toEqual(["discipline.*", "payroll.own.*"]);
   });
+
+  it("une faute de frappe sur une permission réservée n'est PAS couverte par la liste blanche (le test échouerait)", () => {
+    const fake = resolveAgainst(real, [
+      { key: "faux_role", label: "Faux", description: "d", permissions: ["primary.competency.read", "primary.competancy.record", "council.proposal.writte"] },
+    ]);
+    const pending = fake.get("faux_role")?.pending ?? [];
+    expect(pending.filter((p) => !isReservedPermission(p))).toEqual(["council.proposal.writte", "primary.competancy.record"]);
+  });
+
+  for (const role of SYSTEM_ROLE_KEYS) {
+    if (role === "owner" || role === "directeur") continue;
+    it(`${role} : le modèle DÉCLARE exactement l'oracle (réelles + réservées), accordées ou en attente`, () => {
+      const got = [...declared(role)].sort();
+      const want = [...expectedDeclaredOf(role)].sort();
+      expect(got.filter((k) => !want.includes(k)), `${role} : clés déclarées en trop`).toEqual([]);
+      expect(want.filter((k) => !got.includes(k)), `${role} : clés de l'oracle non déclarées`).toEqual([]);
+    });
+  }
 });
 
 describe("matrice rôle × module : ce que chaque rôle PEUT et NE PEUT PAS faire", () => {
@@ -337,6 +444,26 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["staff.contract.read", "jamais les contrats du personnel"],
       ["grade.read", "aucune note"],
       ["schedule.occurrence.validate", "la validation des heures payables n'est pas à celui qui paie"],
+    ],
+    instituteur: [
+      ["grade.review", "relecture/validation/publication = autres rôles (spec 005 : absentes volontairement)"],
+      ["grade.validate", "idem"],
+      ["grade.publish", "idem"],
+      ["grade.revise.approve", "il demande la correction, il ne l'approuve pas"],
+      ["period.close", "clôture de période = direction des études / direction"],
+      ["period.lock", "idem"],
+      ["student.read", "uniquement les élèves de SA classe (`student.class.read`)"],
+      ["student.list", "idem"],
+      ["assessment.manage", "évaluations d'autrui : direction"],
+      ["attendance.manage", "corriger les appels d'autrui : vie scolaire"],
+      ["attendance.justification.decide", "pas de décision sur un justificatif"],
+      ["schedule.read", "emploi du temps global : direction des études (il voit le sien)"],
+      ["reportcard.generate", "l'émission des bulletins est à d'autres rôles"],
+      ["reportcard.publish", "idem"],
+      ["finance.invoice.read", "aucune permission finance (spec 005)"],
+      ["finance.payment.create", "aucune permission finance (spec 005)"],
+      ["payroll.payslip.read", "tous les bulletins de paie : économe"],
+      ["result.read", "résultats calculés : direction des études"],
     ],
     enseignant: [
       ["student.read", "uniquement les élèves de SES classes (`student.class.read`) — demande de changement de people"],
@@ -432,6 +559,98 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
     });
   }
 
+  /**
+   * Interdits portant sur des permissions de modules À VENIR : la clé peut ne pas (encore) exister dans le
+   * catalogue ; le modèle ne doit jamais la DÉCLARER (accordée ou en attente). Dès que le module est chargé,
+   * le même contrôle s'applique à la permission réelle.
+   */
+  const FORBIDDEN_UPCOMING: Record<string, ReadonlyArray<readonly [string, string]>> = {
+    instituteur: [
+      ["primary.competency.revise", "révision d'une compétence validée (sensible) : direction (spec 005 : absente volontairement)"],
+      ["primary.bilan.seal", "scellé du bilan annuel (sensible) : direction"],
+      ["primary.bilan.reissue", "réémission du bilan : direction"],
+      ["primary.archive.freeze", "gel de l'archive d'année : direction"],
+      ["primary.template.apply", "application d'un modèle de pack : direction"],
+      ["primary.settings.manage", "réglages du pack : direction"],
+    ],
+    enseignant: [
+      ["council.decision.record", "la décision du conseil est humaine et à la direction des études ; il PROPOSE"],
+      ["council.session.run", "tenue de séance : direction des études"],
+      ["schoollife.measure.propose", "propose une mesure : vie scolaire"],
+      ["schoollife.measure.validate", "validation d'une sanction : direction"],
+      ["schoollife.confidential.read", "éléments confidentiels : MFA, direction"],
+    ],
+    educateur: [
+      ["schoollife.measure.validate", "validation d'une sanction : direction (proposition ≠ validation)"],
+      ["schoollife.exclusion.validate", "validation d'une exclusion : direction"],
+      ["schoollife.measure.revoke", "révocation d'une mesure : direction"],
+      ["schoollife.appeal.decide", "trancher un recours : direction"],
+      ["schoollife.confidential.read", "éléments confidentiels : MFA, direction"],
+      ["schoollife.conduct.adjust", "ajustement manuel de points de conduite : direction"],
+    ],
+    directeur_etudes: [
+      ["council.unlock.approve", "il DEMANDE un déverrouillage ; l'approbation (MFA) est à la direction"],
+      ["council.minutes.revoke", "il signe/émet le procès-verbal ; la révocation est séparée (direction)"],
+      ["admission.decide", "admissions : décision et capacité = direction"],
+      ["stateassign.verify", "vérification d'un dossier d'affectation : direction"],
+      ["stateassign.manage", "activer/suspendre/terminer une affectation : direction"],
+    ],
+    secretariat: [
+      ["admission.decide", "il traite le dossier, la décision (admission/refus) est à la direction"],
+      ["admission.capacity.override", "dépassement de capacité (sensible) : direction"],
+      ["admission.workflow.publish", "publication d'un workflow (sensible) : direction"],
+      ["admission.anonymize", "anonymisation (sensible, MFA) : direction"],
+      ["admission.export", "export d'un dossier : direction"],
+      ["admission.settings.manage", "réglages d'admission : direction"],
+      ["council.minutes.revoke", "émission/signature ≠ révocation d'un procès-verbal"],
+      ["council.session.run", "tenue de séance : direction des études"],
+      ["council.decision.record", "décision du conseil : direction des études"],
+      ["council.unlock.approve", "approbation d'un déverrouillage : direction"],
+      ["stateassign.verify", "vérifier un dossier : direction (il l'enregistre)"],
+      ["stateassign.manage", "activer/suspendre une affectation : direction"],
+      ["stateassign.amend", "avenant : direction"],
+    ],
+    econome: [
+      ["stateassign.record", "enregistrer un dossier : secrétariat"],
+      ["stateassign.verify", "vérifier un dossier : direction"],
+      ["stateassign.manage", "gérer une affectation : direction"],
+      ["admission.read", "admissions : secrétariat et direction"],
+    ],
+    parent: [
+      ["primary.competency.self.read", "pas les données d'un élève (uniquement `*.child.*`)"],
+      ["council.self.read", "idem"],
+      ["exam.document.self.read", "idem"],
+      ["admission.read", "le parent n'a AUCUNE permission d'admission (accès par jeton, spec 007 §11)"],
+      ["schoollife.read", "vie scolaire de gestion : personnel"],
+      ["council.read", "dossiers de conseil de gestion : personnel"],
+      ["stateassign.read", "dossiers d'affectation de gestion : personnel"],
+    ],
+    eleve: [
+      ["primary.competency.child.read", "pas les données d'un enfant (uniquement `*.self.*`)"],
+      ["council.child.read", "idem"],
+      ["exam.document.child.read", "idem"],
+      ["stateassign.child.read", "l'affectation d'État n'a pas de portée `self`"],
+      ["admission.read", "aucune permission d'admission"],
+      ["schoollife.read", "vie scolaire de gestion : personnel"],
+    ],
+  };
+
+  for (const [role, list] of Object.entries(FORBIDDEN_UPCOMING)) {
+    it(`${role} ne peut pas (modules à venir) : ${list.length} interdits explicites`, () => {
+      expect(Object.keys(EXPECTED), role).toContain(role);
+      for (const [permission, reason] of list) {
+        expect(declared(role).has(permission), `${role} ne doit pas déclarer ${permission} — ${reason}`).toBe(false);
+      }
+    });
+  }
+
+  it("les interdits des modules à venir ne contredisent pas la liste blanche (une clé interdite à un rôle n'est pas réservée POUR lui)", () => {
+    for (const [role, list] of Object.entries(FORBIDDEN_UPCOMING)) {
+      const reservedForRole = new Set(EXPECTED[role] && !EXPECTED[role]?.all ? ((EXPECTED[role] as { reserved?: string[] }).reserved ?? []) : []);
+      for (const [permission] of list) expect(reservedForRole.has(permission), `${role} ${permission}`).toBe(false);
+    }
+  });
+
   it("directeur_etudes : la direction détient bien les contreparties qu'il n'a pas", () => {
     for (const k of ["result.override.approve", "period.reopen", "period.repin", "reportcard.revoke", "higher.award.revoke", "attendance.session.reopen"]) {
       expect(granted("directeur").has(k), k).toBe(true);
@@ -464,11 +683,41 @@ describe("séparation des tâches", () => {
 
   const EXEMPT = ["owner", "directeur"];
 
+  /**
+   * Paires des modules À VENIR (spec 005, 006, 007) : évaluées sur les clés DÉCLARÉES par chaque modèle
+   * (accordées ou en attente), donc actives dès aujourd'hui ; les clés ne sont pas contrôlées contre le catalogue
+   * tant que le module n'est pas livré.
+   */
+  const UPCOMING_CONFLICTS: ReadonlyArray<{ name: string; left: string[]; right: string[] }> = [
+    { name: "saisie/validation d'une compétence ≠ révision après validation", left: ["primary.competency.record", "primary.competency.validate"], right: ["primary.competency.revise"] },
+    { name: "préparation du bilan annuel ≠ scellé / réémission", left: ["primary.bilan.prepare", "primary.council.prepare"], right: ["primary.bilan.seal", "primary.bilan.reissue", "primary.archive.freeze"] },
+    { name: "demande de déverrouillage d'un conseil ≠ approbation", left: ["council.unlock.request"], right: ["council.unlock.approve"] },
+    { name: "génération/signature d'un procès-verbal ≠ révocation", left: ["council.minutes.generate", "council.minutes.sign"], right: ["council.minutes.revoke"] },
+    { name: "enregistrement d'un dossier d'affectation d'État ≠ vérification/gestion/avenant", left: ["stateassign.record"], right: ["stateassign.verify", "stateassign.manage", "stateassign.amend"] },
+    { name: "rapprochement/contrôle d'affectation ≠ vérification du dossier", left: ["stateassign.reconcile", "stateassign.control.perform"], right: ["stateassign.verify"] },
+    { name: "proposition de mesure disciplinaire ≠ validation/révocation/exclusion/recours", left: ["schoollife.measure.propose", "schoollife.incident.write"], right: ["schoollife.measure.validate", "schoollife.exclusion.validate", "schoollife.measure.revoke", "schoollife.appeal.decide"] },
+    { name: "traitement d'un dossier d'admission ≠ décision / dépassement de capacité / anonymisation", left: ["admission.create", "admission.update", "admission.offer.manage"], right: ["admission.decide", "admission.capacity.override", "admission.anonymize", "admission.workflow.publish"] },
+  ];
+
   it("la liste ne cite que de vraies permissions", () => {
     for (const c of CONFLICTS) {
       for (const k of [...c.left, ...c.right]) expect(real.catalog.byKey.has(k), `${c.name} : ${k}`).toBe(true);
     }
   });
+
+  for (const c of UPCOMING_CONFLICTS) {
+    it(`[modules à venir] ${c.name} : aucun rôle (hors direction) ne détient les deux côtés`, () => {
+      const offenders: string[] = [];
+      for (const role of SYSTEM_ROLE_KEYS) {
+        if (EXEMPT.includes(role)) continue;
+        const has = declared(role);
+        const l = c.left.filter((k) => has.has(k));
+        const r = c.right.filter((k) => has.has(k));
+        if (l.length > 0 && r.length > 0) offenders.push(`${role} : ${l.join(",")} + ${r.join(",")}`);
+      }
+      expect(offenders).toEqual([]);
+    });
+  }
 
   for (const c of CONFLICTS) {
     it(`${c.name} : aucun rôle (hors direction) ne détient les deux côtés`, () => {
@@ -510,26 +759,37 @@ describe("permissions sensibles et MFA", () => {
       const template = getSystemRoleTemplate(role);
       const justifications = template?.sensitiveJustifications ?? {};
       const sensitiveGranted = [...granted(role)].filter((k) => real.sensitive.has(k)).sort();
+      // Permissions RÉSERVÉES sensibles (spec) déclarées mais encore en attente : leur justification est exigée
+      // dès maintenant (elle ne doit pas être oubliée quand le module arrive) et n'est pas « périmée ».
+      const sensitiveReservedPending = [...declared(role)]
+        .filter((k) => getReservedPermission(k)?.sensitive === true && !real.catalog.byKey.has(k))
+        .sort();
+      const sensitiveAll = [...sensitiveGranted, ...sensitiveReservedPending];
 
       for (const key of Object.keys(justifications)) {
         expect(key, `${role} : « * » seul n'est pas une justification`).not.toBe("*");
         expect(justifications[key]?.trim().length ?? 0, `${role} : justification de ${key} trop courte`).toBeGreaterThanOrEqual(30);
         // pas de justification périmée : elle doit couvrir au moins une permission sensible réellement accordée
-        expect(sensitiveGranted.some((k) => matchesPermissionPattern(key, k)), `${role} : justification périmée « ${key} »`).toBe(true);
+        // (ou réservée sensible, en attente)
+        expect(sensitiveAll.some((k) => matchesPermissionPattern(key, k)), `${role} : justification périmée « ${key} »`).toBe(true);
       }
-      const unjustified = sensitiveGranted.filter((k) => !Object.keys(justifications).some((p) => matchesPermissionPattern(p, k)));
+      const unjustified = sensitiveAll.filter((k) => !Object.keys(justifications).some((p) => matchesPermissionPattern(p, k)));
       expect(unjustified, `${role} : permissions sensibles sans justification`).toEqual([]);
     });
 
     it(`${role} : \`mfaRecommended\` ⇔ le rôle porte au moins une permission sensible`, () => {
-      const hasSensitive = [...granted(role)].some((k) => real.sensitive.has(k));
+      const hasSensitive =
+        [...granted(role)].some((k) => real.sensitive.has(k)) ||
+        [...declared(role)].some((k) => getReservedPermission(k)?.sensitive === true && !real.catalog.byKey.has(k));
       expect(getSystemRoleTemplate(role)?.mfaRecommended === true, role).toBe(hasSensitive);
     });
   }
 
-  it("les rôles de portail (parent, élève) et le personnel n'ont AUCUNE permission sensible", () => {
-    for (const role of ["parent", "eleve", "personnel", "enseignant", "educateur"]) {
+  it("les rôles de portail (parent, élève), le personnel, l'enseignant, l'instituteur et l'éducateur n'ont AUCUNE permission sensible", () => {
+    for (const role of ["parent", "eleve", "personnel", "enseignant", "instituteur", "educateur"]) {
       expect([...granted(role)].filter((k) => real.sensitive.has(k)), role).toEqual([]);
+      // idem pour les permissions réservées (sensibilité prévue par la spec)
+      expect([...declared(role)].filter((k) => getReservedPermission(k)?.sensitive === true), `${role} (réservées)`).toEqual([]);
     }
   });
 
@@ -555,23 +815,37 @@ describe("motif `*` et portails", () => {
     expect(getSystemRoleTemplate("directeur")?.permissions).toEqual(["*"]);
   });
 
-  it("parent = EXACTEMENT toutes les permissions `*.child.*` du catalogue ; élève = EXACTEMENT toutes les `*.self.*`", () => {
-    const child = real.catalog.keys.filter((k) => matchesPermissionPattern("*.child.*", k)).sort();
-    const self = real.catalog.keys.filter((k) => matchesPermissionPattern("*.self.*", k)).sort();
+  it("parent = EXACTEMENT toutes les permissions `child` du catalogue ; élève = EXACTEMENT toutes les `self` (3 ET 4 segments)", () => {
+    const child = real.catalog.keys.filter(isChildKey).sort();
+    const self = real.catalog.keys.filter(isSelfKey).sort();
     expect([...granted("parent")].sort()).toEqual(child);
     expect([...granted("eleve")].sort()).toEqual(self);
     expect(child.length).toBeGreaterThanOrEqual(8);
     expect(self.length).toBeGreaterThanOrEqual(8);
   });
 
-  it("les permissions `*.child.*` / `*.self.*` ne sont accordées à aucun rôle de gestion (ni à l'autre portail)", () => {
+  it("parent / élève : le modèle DÉCLARE (accordées + réservées en attente) exactement les permissions `child` / `self` — rien de plus, rien d'oublié (spec 006 data-model §11 point 7)", () => {
+    const reservedChild = RESERVED_FOR_UPCOMING_MODULES.map((r) => r.key).filter(isChildKey);
+    const reservedSelf = RESERVED_FOR_UPCOMING_MODULES.map((r) => r.key).filter(isSelfKey);
+    expect(reservedChild.length).toBeGreaterThanOrEqual(6);
+    expect(reservedSelf.length).toBeGreaterThanOrEqual(5);
+    const realChild = real.catalog.keys.filter(isChildKey);
+    const realSelf = real.catalog.keys.filter(isSelfKey);
+    expect([...declared("parent")].sort()).toEqual([...new Set([...realChild, ...reservedChild])].sort());
+    expect([...declared("eleve")].sort()).toEqual([...new Set([...realSelf, ...reservedSelf])].sort());
+    // convention de portée : le segment d'une clé réservée dit à quel portail elle appartient
+    for (const k of [...declared("parent")]) expect(permissionScopeOf(k), `parent ${k}`).toBe("child");
+    for (const k of [...declared("eleve")]) expect(permissionScopeOf(k), `eleve ${k}`).toBe("self");
+  });
+
+  it("les permissions `child` / `self` (3 ET 4 segments) ne sont accordées ni déclarées par aucun rôle de gestion (ni à l'autre portail)", () => {
     for (const role of SYSTEM_ROLE_KEYS) {
       if (role === "owner" || role === "directeur" || role === "parent" || role === "eleve") continue;
-      const leaked = [...granted(role)].filter((k) => matchesPermissionPattern("*.child.*", k) || matchesPermissionPattern("*.self.*", k));
+      const leaked = [...declared(role)].filter((k) => isChildKey(k) || isSelfKey(k));
       expect(leaked, role).toEqual([]);
     }
-    expect([...granted("parent")].filter((k) => k.includes(".self."))).toEqual([]);
-    expect([...granted("eleve")].filter((k) => k.includes(".child."))).toEqual([]);
+    expect([...declared("parent")].filter((k) => permissionScopeOf(k) === "self")).toEqual([]);
+    expect([...declared("eleve")].filter((k) => permissionScopeOf(k) === "child")).toEqual([]);
   });
 
   it("toute permission `.own.` / `read_own` du catalogue est portée par `personnel` ; les rôles de fonction (hors enseignant/éducateur) et les portails n'en portent aucune", () => {
@@ -583,10 +857,27 @@ describe("motif `*` et portails", () => {
     }
   });
 
-  it("aucun rôle n'accorde `student.read`/`student.list` global à l'enseignant ; il a `student.class.read`", () => {
-    expect(granted("enseignant").has("student.class.read")).toBe(true);
-    expect(granted("enseignant").has("student.read")).toBe(false);
-    expect(granted("enseignant").has("student.list")).toBe(false);
+  it("aucun rôle n'accorde `student.read`/`student.list` global à l'enseignant ni à l'instituteur ; ils ont `student.class.read`", () => {
+    for (const role of ["enseignant", "instituteur"]) {
+      expect(granted(role).has("student.class.read"), role).toBe(true);
+      expect(granted(role).has("student.read"), role).toBe(false);
+      expect(granted(role).has("student.list"), role).toBe(false);
+    }
+  });
+
+  it("l'instituteur reprend l'expression de « sa classe » de l'enseignant (mêmes motifs de portée `*.own.*`, `student.class.read`) et porte exactement la liste de la spec 005 §7 (+ patron enseignant)", () => {
+    const spec005 = [
+      "attendance.take", "attendance.read", "assessment.create", "assessment.update", "grade.enter",
+      "primary.competency.read", "primary.competency.record", "primary.competency.validate", "primary.phrase.read",
+      "primary.council.read", "primary.council.prepare", "student.class.read", "messaging.read", "messaging.send",
+      "messaging.announcement.publish_class", "reportcard.read",
+    ];
+    for (const k of spec005) expect(declared("instituteur").has(k), `spec 005 §7 : ${k}`).toBe(true);
+    // tout ce que l'instituteur déclare en plus de la spec vient du patron enseignant (aucune invention)
+    const extra = [...declared("instituteur")].filter((k) => !spec005.includes(k));
+    for (const k of extra) expect(declared("enseignant").has(k), `${k} hors spec 005 : doit venir du patron enseignant`).toBe(true);
+    // l'enseignant n'a pas été appauvri
+    expect(getSystemRoleTemplate("enseignant")?.permissions).toEqual(expect.arrayContaining(["grade.enter", "attendance.take", "student.class.read", "staff.own.read"]));
   });
 
   it("aucun modèle ne mentionne un ancien nom de permission inexistant (portal.*, comms.*, document.*, report.*, tenant.*, discipline.*)", () => {

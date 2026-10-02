@@ -166,6 +166,13 @@ export async function classroomAction(deps: AcademicDeps, ctx: RequestContext, i
       const problem = classroomActivationProblem({ curriculumVersionId: c.curriculumVersionId, versionStatus: version?.status ?? null });
       if (problem === "curriculum_required") return err(conflict(AcademicCode.CLASSROOM_CURRICULUM_REQUIRED, "Choisissez un curriculum avant d'activer la classe."));
       if (problem === "curriculum_draft") return err(conflict(AcademicCode.CLASSROOM_CURRICULUM_DRAFT, "Le curriculum doit être publié avant d'activer la classe."));
+      // Garde de pack (port facultatif, spec 005 T-P11) : appelé APRÈS les contrôles du cœur ; un refus annule l'activation
+      // et porte le CODE du garde (conflit 409). Sans garde câblé, le repli ne refuse jamais.
+      const verdict = await deps.ports.classroomActivation.check(ctx, id);
+      if (!verdict.ok) {
+        const code = verdict.error.code?.trim() || AcademicCode.CLASSROOM_ACTIVATION_REFUSED;
+        return err(conflict(code, verdict.error.reason ?? "L'activation de la classe est refusée par une règle de l'établissement.", { ...verdict.error.details, guardCode: code, refusedBy: "classroomActivation" }));
+      }
     }
     if (target === "CANCELLED") {
       if ((reason?.trim().length ?? 0) < 5) return err(validation(AcademicCode.ENROLLMENT_REASON_REQUIRED, "Un motif de 5 caractères minimum est requis pour annuler une classe.", "reason"));
@@ -182,6 +189,11 @@ export async function classroomAction(deps: AcademicDeps, ctx: RequestContext, i
     await events.flush(tx);
     return ok(updated);
   });
+}
+
+/** Activation d'une classe (`DRAFT -> ACTIVE`) : raccourci nommé de `classroomAction(..., "activate")`, garde de pack comprise. */
+export async function activateClassroom(deps: AcademicDeps, ctx: RequestContext, id: string): Promise<Result<Classroom, AppError>> {
+  return classroomAction(deps, ctx, id, "activate");
 }
 
 // ---------------------------------------------------------------------------

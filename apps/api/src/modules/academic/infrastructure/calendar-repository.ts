@@ -107,21 +107,22 @@ export async function findPeriodBySlot(tx: Tx, yearId: string, typeCode: string,
 
 export async function insertPeriod(
   tx: Tx,
-  v: { id: string; academicYearId: string; parentPeriodId: string | null; periodTypeCode: string; ordinal: number; code: string; label: string; startsOn: string; endsOn: string },
+  v: { id: string; academicYearId: string; parentPeriodId: string | null; periodTypeCode: string; ordinal: number; code: string; label: string; startsOn: string; endsOn: string; averageWeight?: number | undefined },
 ): Promise<AcademicPeriod> {
   const r = await tx.queryOne(
-    `INSERT INTO academic.academic_periods (id, tenant_id, academic_year_id, parent_period_id, period_type_code, ordinal, code, label, starts_on, ends_on)
-     VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6, $7, $8::date, $9::date) RETURNING ${PERIOD_COLS}`,
-    [v.id, v.academicYearId, v.parentPeriodId, v.periodTypeCode, v.ordinal, v.code, v.label, v.startsOn, v.endsOn],
+    `INSERT INTO academic.academic_periods (id, tenant_id, academic_year_id, parent_period_id, period_type_code, ordinal, code, label, starts_on, ends_on, average_weight)
+     VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6, $7, $8::date, $9::date, $10) RETURNING ${PERIOD_COLS}`,
+    [v.id, v.academicYearId, v.parentPeriodId, v.periodTypeCode, v.ordinal, v.code, v.label, v.startsOn, v.endsOn, v.averageWeight ?? 1],
   );
   return mapPeriod(r as Record<string, unknown>);
 }
 
-export async function updatePeriodFields(tx: Tx, id: string, v: { label?: string; startsOn?: string; endsOn?: string }): Promise<AcademicPeriod> {
+export async function updatePeriodFields(tx: Tx, id: string, v: { label?: string; startsOn?: string; endsOn?: string; averageWeight?: number }): Promise<AcademicPeriod> {
   const r = await tx.queryOne(
-    `UPDATE academic.academic_periods SET label = COALESCE($2, label), starts_on = COALESCE($3::date, starts_on), ends_on = COALESCE($4::date, ends_on), updated_at = now()
+    `UPDATE academic.academic_periods SET label = COALESCE($2, label), starts_on = COALESCE($3::date, starts_on), ends_on = COALESCE($4::date, ends_on),
+        average_weight = COALESCE($5::integer, average_weight), updated_at = now()
       WHERE id = $1 RETURNING ${PERIOD_COLS}`,
-    [id, v.label ?? null, v.startsOn ?? null, v.endsOn ?? null],
+    [id, v.label ?? null, v.startsOn ?? null, v.endsOn ?? null, v.averageWeight ?? null],
   );
   return mapPeriod(r as Record<string, unknown>);
 }

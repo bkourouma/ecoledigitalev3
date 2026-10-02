@@ -44,6 +44,14 @@ describe("faits de période (rang sans lecture du libellé)", () => {
     expect(periodFactsOf([s1], "p1", types)?.period).toMatchObject({ rankInYear: 1, countInYear: 1, isLast: false });
   });
 
+  it("le poids de moyenne de chaque période est un fait publié (défaut 1)", () => {
+    const a = { ...period("a", "TRIMESTER", 1, "2026-09-01", "2026-12-15"), averageWeight: 1 };
+    const b = { ...period("b", "TRIMESTER", 2, "2027-01-05", "2027-03-31"), averageWeight: 2 };
+    const c = period("c", "TRIMESTER", 3, "2027-04-05", "2027-06-30");
+    const f = periodFactsOf([a, b, c], "c", types);
+    expect(f?.yearPeriods.map((p) => p.averageWeight)).toEqual([1, 2, undefined]);
+  });
+
   it("trois trimestres : le troisième est le dernier", () => {
     const t = [period("a", "TRIMESTER", 1, "2026-09-01", "2026-12-15"), period("b", "TRIMESTER", 2, "2027-01-05", "2027-03-31"), period("c", "TRIMESTER", 3, "2027-04-05", "2027-06-30")];
     expect(periodFactsOf(t, "c", types)?.period).toMatchObject({ rankInYear: 3, countInYear: 3, isLast: true });

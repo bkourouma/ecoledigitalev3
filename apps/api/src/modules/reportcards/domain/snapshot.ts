@@ -128,6 +128,7 @@ export function buildSnapshot(input: BuildSnapshotInput): BuildSnapshotResult {
     attendance: bundle.attendance ? { ...bundle.attendance } : null,
     deliberation: bundle.deliberation ? { ...bundle.deliberation } : null,
     appreciations: { general: bundle.generalAppreciation },
+    ...(bundle.competencies ? { competencies: bundle.competencies } : {}),
     signatories: input.signatories.map((s) => ({ ...s })),
     rules: { ...bundle.rules },
     template: { key: input.template.key, version: input.template.version, configVersion: input.template.configVersion, options: { ...input.template.options } },

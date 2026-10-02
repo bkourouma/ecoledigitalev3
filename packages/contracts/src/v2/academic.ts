@@ -204,6 +204,8 @@ export const academicPeriodPlanSlotSchema = z
     label,
     /** Poids relatif dans la répartition de l'année (défaut 1 : parts égales). */
     weight: z.number().int().min(1).max(1000).optional(),
+    /** Poids de la période dans la moyenne annuelle (défaut 1 : poids égaux) ; distinct de `weight`, qui répartit les dates. */
+    averageWeight: z.number().int().min(1).max(1000).optional(),
   })
   .strict();
 export type AcademicPeriodPlanSlot = z.infer<typeof academicPeriodPlanSlotSchema>;
@@ -446,6 +448,8 @@ export const academicPeriodDtoSchema = z.object({
   closedAt: academicInstantSchema.nullable(),
   closedBy: academicUuidSchema.nullable(),
   reopenedCount: z.number().int(),
+  /** Poids de la période dans la moyenne annuelle (défaut 1). */
+  averageWeight: z.number().int().optional(),
 });
 export type AcademicPeriodDto = z.infer<typeof academicPeriodDtoSchema>;
 

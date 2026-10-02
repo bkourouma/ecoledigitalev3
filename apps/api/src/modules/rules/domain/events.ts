@@ -72,4 +72,6 @@ export interface BindingChangedPayload {
   effectiveFrom: string;
   effectiveTo: string | null;
   change: "created" | "updated" | "deleted";
+  /** La liaison vise un jeu FICTIF dont l'usage a été accusé explicitement (production). */
+  placeholderAcknowledged?: boolean;
 }

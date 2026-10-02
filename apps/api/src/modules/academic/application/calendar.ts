@@ -369,6 +369,7 @@ export async function applyPeriodPlan(deps: AcademicDeps, ctx: RequestContext, y
           label: a.label,
           startsOn: a.startsOn,
           endsOn: a.endsOn,
+          averageWeight: a.averageWeight,
         }),
       );
     }

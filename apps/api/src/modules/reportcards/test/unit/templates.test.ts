@@ -159,8 +159,8 @@ describe("validation d'un gabarit à la publication (liste noire / blanche)", ()
     expect(validateCss("@page { size: A4; margin: 10mm; } .a > .b { color: red }", "t").length).toBeGreaterThan(0); // « > » interdit
   });
 
-  it("les 7 gabarits livrés (5 bulletins/relevés + reçu + bulletin de paie) et tous les composants passent la validation de sécurité", () => {
-    expect([...ALL_BUILTIN_KEYS].sort()).toEqual(["higher-bulletin-coef", "higher-bulletin-credits", "primary-bulletin", "secondary-bulletin", "transcript-credits"]);
+  it("les 8 gabarits livrés (6 bulletins/relevés + reçu + bulletin de paie) et tous les composants passent la validation de sécurité", () => {
+    expect([...ALL_BUILTIN_KEYS].sort()).toEqual(["higher-bulletin-coef", "higher-bulletin-credits", "primary-bulletin", "report-primary", "secondary-bulletin", "transcript-credits"]);
     expect([...OFFICIAL_BUILTIN_KEYS].sort()).toEqual(["payslip-standard", "receipt-standard"]);
     for (const t of BUILTIN_TEMPLATES) {
       const r = validateTemplate({ body: t.body, css: t.css, partialNames: PARTIAL_NAMES });

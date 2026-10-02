@@ -23,7 +23,7 @@ import {
 } from "@ecoledigitale/kernel";
 import { PgOutboxWriter, isDeadlock, isSerializationFailure, type TenantDb, type Tx } from "@ecoledigitale/database";
 import { civilDateOf } from "../domain/dates";
-import { DEFAULT_ENROLLABLE_STUDENT_STATUSES } from "../domain/enrollment";
+import { DEFAULT_ADMISSION_ENROLLABLE_STUDENT_STATUSES, DEFAULT_ENROLLABLE_STUDENT_STATUSES } from "../domain/enrollment";
 import { AcademicCode, forbidden, notFound, validation } from "../domain/errors";
 import { mapDbError } from "../infrastructure/db-errors";
 import { DEFAULT_PORTS, noopAudit, type AcademicPorts, type AuditEntry, type AuditPort } from "./ports";
@@ -31,6 +31,8 @@ import { DEFAULT_PORTS, noopAudit, type AcademicPorts, type AuditEntry, type Aud
 export interface AcademicConfig {
   /** Statuts d'apprenant (module people) qui autorisent une inscription. */
   enrollableStudentStatuses: readonly string[];
+  /** Statuts d apprenant qui autorisent une inscription issue d une ADMISSION (`sourceKind = ADMISSION`) : le dossier est encore INACTIF jusqu à la confirmation. */
+  admissionEnrollableStudentStatuses: readonly string[];
   /** Taille des lots de la reconduction annuelle (une transaction par lot). */
   rolloverBatchSize: number;
   /** Au-delà, la reconduction est confiée à un job (le HTTP refuse de la lancer en ligne). */
@@ -41,6 +43,7 @@ export interface AcademicConfig {
 
 export const DEFAULT_ACADEMIC_CONFIG: AcademicConfig = Object.freeze({
   enrollableStudentStatuses: DEFAULT_ENROLLABLE_STUDENT_STATUSES,
+  admissionEnrollableStudentStatuses: DEFAULT_ADMISSION_ENROLLABLE_STUDENT_STATUSES,
   rolloverBatchSize: 200,
   rolloverInlineLimit: 500,
   defaultPageSize: 50,

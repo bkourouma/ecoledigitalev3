@@ -14,7 +14,7 @@ import { BarChart, ColumnChart } from "./charts";
 import { ExportButton, FeatureGuard, FreshnessBar, KpiCard, KpiGrid, ScopeFilters, scopeFilters, Section, useScopeState, type ScopeField } from "./kit";
 
 const FIELDS: readonly ScopeField[] = ["institution", "campus", "year", "period", "classroom"];
-const OUTCOMES = ["ADMITTED", "RESIT", "ADJOURNED", "PROMOTED", "REPEAT", "PENDING", "EXAM_REFERRAL", "OTHER"];
+const OUTCOMES = ["ADMITTED", "RESIT", "ADJOURNED", "PROMOTED", "REPEAT", "PENDING", "EXAM_REFERRAL", "COUNCIL_REVIEW", "OTHER"];
 
 /**
  * Pédagogie : résultats FINAL de `results` (moyennes, validation, décisions) par classe, matière et période, histogramme des

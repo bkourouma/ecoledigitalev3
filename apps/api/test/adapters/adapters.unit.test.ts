@@ -45,10 +45,18 @@ describe("academic -> results : structure de calcul", () => {
   it("traduit les faits d'academic sans rien deviner (second semestre = dernière période, examen terminal = donnée)", () => {
     const s = toClassStructure(facts)!;
     expect(s).toMatchObject({ classroomId: "c1", academicYearId: "y1", institutionId: "i1", levelCode: "L1", contractId: "credit-semester@1", firstPeriodId: "p0", terminalExamRequired: true });
-    expect(s.period).toEqual({ id: "p1", rankInYear: 2, countInYear: 2, isSecondSemester: true, startsOn: "2027-02-01", endsOn: "2027-07-31" });
+    expect(s.period).toEqual({ id: "p1", rankInYear: 2, countInYear: 2, isSecondSemester: true, startsOn: "2027-02-01", endsOn: "2027-07-31", weight: "1" });
+    expect(s.educationLevelCode).toBe("LICENCE");
     expect(s.yearPeriods.map((p) => [p.id, p.isSecondSemester])).toEqual([["p0", false], ["p1", true]]);
     expect(s.nodes[1]).toMatchObject({ id: "e1", parentId: "u1", kind: "ECUE", ordinal: 1, credits: "3", coefficient: "2", gradingMode: "DIRECT", resitAllowed: true, countsInAverage: false, sectionKey: "SCI", category: null });
     expect(s.nodes[0]).toMatchObject({ category: "FOND" });
+  });
+
+  it("poids de moyenne des périodes : donnée du calendrier (décimal exact en chaîne), défaut 1", () => {
+    const weighted = { ...facts, yearPeriods: [{ ...period, id: "p0", rankInYear: 1, isLast: false, averageWeight: 1 }, { ...period, averageWeight: 2 }], period: { ...period, averageWeight: 2 } };
+    const s = toClassStructure(weighted)!;
+    expect(s.yearPeriods.map((p) => [p.id, p.weight])).toEqual([["p0", "1"], ["p1", "2"]]);
+    expect(s.period.weight).toBe("2");
   });
 
   it("sans contrat de calcul : aucune structure (results échoue fermé, jamais de contrat par défaut)", () => {
@@ -210,7 +218,8 @@ describe("complétude des ports branchés par la plateforme", () => {
   const keys = (o: object): string[] => Object.keys(o).sort();
 
   it("chaque port que ses modules déclarent indisponible est fourni (sinon `*.port_unavailable` en production)", () => {
-    expect(keys(withStorage.results)).toEqual(keys(unavailableResultsPorts()).filter((k) => !["assess", "rules"].includes(k)));
+    // yearFacts : port optionnel des packs (faits de fin d'annee), branche par la plateforme sans etre « indisponible » par defaut.
+    expect(keys(withStorage.results)).toEqual([...keys(unavailableResultsPorts()).filter((k) => !["assess", "rules"].includes(k)), "yearFacts"].sort());
     expect(keys(withStorage.assess)).toEqual(keys(unavailableAssessPorts()));
     expect(keys(withStorage.attendance)).toEqual(keys(unavailableAttendancePorts()).filter((k) => k !== "alertPolicy"));
     // higher : le port des règles est branché par défaut sur le module rules.

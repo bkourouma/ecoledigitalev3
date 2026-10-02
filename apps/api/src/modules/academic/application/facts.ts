@@ -9,8 +9,8 @@ import { err, ok, type AppError, type RequestContext, type Result } from "@ecole
 import { followedNodes } from "../domain/curriculum";
 import { SCHOOLING_COURSE_STATUSES } from "../domain/enrollment";
 import { AcademicCode, notFound } from "../domain/errors";
-import { effectiveContract, periodFactsOf, structureNodesOf } from "../domain/facts";
-import type { ClassroomEnrollmentFacts, ClassroomFacts, CycleEnrollmentFacts, CycleFacts, LastEnrollmentFacts, ResultsStructure, UeFacts } from "../domain/facts";
+import { countRepeatYears, effectiveContract, periodFactsOf, structureNodesOf } from "../domain/facts";
+import type { ClassroomEnrollmentFacts, ClassroomFacts, CycleEnrollmentFacts, CycleFacts, EnrollmentEligibilityFacts, LastEnrollmentFacts, ResultsStructure, UeFacts } from "../domain/facts";
 import * as cal from "../infrastructure/calendar-repository";
 import * as classroomsRepo from "../infrastructure/classroom-repository";
 import * as cur from "../infrastructure/curriculum-repository";
@@ -19,6 +19,7 @@ import * as facts from "../infrastructure/facts-repository";
 import * as ref from "../infrastructure/reference-repository";
 import { inReadTx, inScope, type AcademicDeps } from "./deps";
 import { loadClassroomInScope } from "./calendar";
+import { loadEnrollmentInScope } from "./enrollment-core";
 import { periodChainOf } from "./reads";
 
 async function programInScope(tx: Parameters<typeof cur.getProgram>[0], ctx: RequestContext, programId: string): Promise<Result<NonNullable<Awaited<ReturnType<typeof cur.getProgram>>>, AppError>> {
@@ -170,6 +171,67 @@ export async function listUeRegistrants(deps: AcademicDeps, ctx: RequestContext,
 /** L'étudiant a-t-il SUIVI l'UE (inscription active ou terminée, sélection confirmée ou terminée) ? */
 export async function hasAttendedUe(deps: AcademicDeps, ctx: RequestContext, input: { studentId: string; lineageId: string }): Promise<Result<boolean, AppError>> {
   return inReadTx(deps, ctx, async (tx) => ok(await facts.studentFollowsLineage(tx, input.studentId, input.lineageId, ["ACTIVE", "COMPLETED"], SCHOOLING_COURSE_STATUSES)));
+}
+
+/**
+ * Faits d'éligibilité d'une inscription (port `EligibilityFacts` de 018, spec 018 §13/§16) : niveau et cycle (codes), drapeau
+ * INFORMATIF d'examen terminal du niveau, classe, année, statut, redoublements du cycle. Aucune donnée d'identité ; aucune
+ * décision : l'éligibilité elle-même est évaluée par `rules` / `examinations` à partir de ces faits. 404 hors périmètre.
+ */
+export async function getEligibilityFacts(deps: AcademicDeps, ctx: RequestContext, enrollmentId: string): Promise<Result<EnrollmentEligibilityFacts, AppError>> {
+  return inReadTx(deps, ctx, async (tx) => {
+    const l = await loadEnrollmentInScope(tx, ctx, enrollmentId);
+    if (!l.ok) return l;
+    const e = l.value;
+    const classroom = await classroomsRepo.getClassroom(tx, e.classroomId);
+    const year = await cal.getYear(tx, e.academicYearId);
+    const grade = classroom ? await ref.getGradeLevel(tx, classroom.gradeLevelId) : null;
+    if (!classroom || !year || !grade) return err(notFound(AcademicCode.GRADE_LEVEL_NOT_FOUND, "Classe, année ou niveau de l'inscription", enrollmentId));
+    const level = await ref.getEducationLevel(tx, grade.educationLevelId);
+    const years = await facts.listRepeatYearsInCycle(tx, { studentId: e.studentId, educationLevelId: grade.educationLevelId, institutionId: ctx.institutionId ?? null });
+    return ok<EnrollmentEligibilityFacts>({
+      enrollmentId: e.id,
+      studentId: e.studentId,
+      institutionId: e.institutionId,
+      academicYearId: e.academicYearId,
+      academicYearCode: year.code,
+      classroomId: e.classroomId,
+      gradeLevelCode: grade.code,
+      educationLevelCode: level?.code ?? "",
+      pack: (level?.pack as EnrollmentEligibilityFacts["pack"]) ?? null,
+      terminalExamRequired: grade.terminalExamRequired,
+      status: e.status,
+      mode: e.mode,
+      isRepeating: e.isRepeating,
+      repeatsInCycle: countRepeatYears(years, { startsOn: year.startsOn }),
+      repeatsBeforeYear: countRepeatYears(years, { startsOn: year.startsOn, strict: true }),
+    });
+  });
+}
+
+/**
+ * Nombre de redoublements de l'élève dans un cycle d'enseignement (code de donnée, ex. `PRIMARY`) — entrée de la règle
+ * `cas_deja_redoublant` (spec 005). Sans `academicYearId` : toutes les années ; avec : jusqu'à cette année INCLUSE
+ * (`beforeYear: true` = strictement avant). Compte les années marquées `is_repeating` ou qui suivent une issue de type `REPEAT`,
+ * une fois chacune ; les inscriptions annulées ou en attente ne comptent pas.
+ */
+export async function countRepeatsInCycle(
+  deps: AcademicDeps,
+  ctx: RequestContext,
+  input: { studentId: string; educationLevelCode: string; academicYearId?: string | null | undefined; beforeYear?: boolean | undefined },
+): Promise<Result<number, AppError>> {
+  return inReadTx(deps, ctx, async (tx) => {
+    const level = (await ref.listEducationLevels(tx)).find((l) => l.code === input.educationLevelCode);
+    if (!level) return err(notFound(AcademicCode.EDUCATION_LEVEL_NOT_FOUND, "Cycle d'enseignement", input.educationLevelCode));
+    let bound: { startsOn: string; strict: boolean } | null = null;
+    if (input.academicYearId) {
+      const year = await cal.getYear(tx, input.academicYearId);
+      if (!year || (ctx.institutionId && year.institutionId !== ctx.institutionId)) return err(notFound(AcademicCode.YEAR_NOT_FOUND, "Année académique", input.academicYearId));
+      bound = { startsOn: year.startsOn, strict: input.beforeYear === true };
+    }
+    const years = await facts.listRepeatYearsInCycle(tx, { studentId: input.studentId, educationLevelId: level.id, institutionId: ctx.institutionId ?? null });
+    return ok(countRepeatYears(years, bound));
+  });
 }
 
 /** Placements ACTIFS d'un apprenant (classes et offres suivies) : emploi du temps élève / parent. */

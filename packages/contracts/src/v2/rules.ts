@@ -55,7 +55,7 @@ export type RulesOrigin = z.infer<typeof RulesOriginSchema>;
 
 export const RulesSourceSchema = z
   .object({
-    kind: z.enum(["regulation", "institution", "platform"]),
+    kind: z.enum(["regulation", "institution", "platform", "placeholder"]),
     reference: z.string().trim().min(1).max(500).optional(),
     url: z.string().url().max(1000).optional(),
     description: z.string().max(2000).optional(),
@@ -379,6 +379,11 @@ export const RulesBindingBodySchema = z
     levelCode: z.string().trim().min(1).max(64).nullable().optional(),
     effectiveFrom: RulesIsoDateSchema,
     effectiveTo: RulesIsoDateSchema.nullable().optional(),
+    /**
+     * Accusé EXPLICITE de l'usage d'un jeu de règles FICTIF (`placeholder`, aucune valeur officielle) : exigé en production
+     * (code `rules.placeholder_requires_ack`) et réservé à la permission sensible `rules.binding.accept_placeholder`.
+     */
+    placeholderAck: z.object({ reason: z.string().trim().min(10).max(500) }).strict().optional(),
   })
   .strict();
 export type RulesBindingBody = z.infer<typeof RulesBindingBodySchema>;
@@ -393,6 +398,9 @@ export const RulesBindingDtoSchema = z.object({
   effectiveFrom: RulesIsoDateSchema,
   effectiveTo: RulesIsoDateSchema.nullable(),
   createdAt: isoDateTime,
+  /** La liaison vise un jeu fictif dont l'usage a été accusé (motif conservé). */
+  placeholderAcknowledged: z.boolean().optional(),
+  placeholderAckReason: z.string().nullable().optional(),
 });
 export type RulesBindingDto = z.infer<typeof RulesBindingDtoSchema>;
 
@@ -459,6 +467,8 @@ export const RulesResolveResponseSchema = z.object({
       definitionHash: z.string(),
       origin: RulesOriginSchema,
       bindingId: UuidSchema,
+      /** Provenance de la version : `placeholder` = jeu de démonstration (filigrane obligatoire sur les résultats). */
+      sourceKind: RulesSourceSchema.shape.kind.optional(),
     })
     .nullable(),
   considered: z.array(RulesConsideredVersionDtoSchema),
@@ -626,6 +636,8 @@ export const RulesBindingChangedPayloadSchema = z.object({
   effectiveFrom: RulesIsoDateSchema,
   effectiveTo: RulesIsoDateSchema.nullable(),
   change: z.enum(["created", "updated", "deleted"]),
+  /** La liaison vise un jeu de règles de DÉMONSTRATION dont l'usage a été accusé explicitement (production). */
+  placeholderAcknowledged: z.boolean().optional(),
 });
 
 /** Schéma de charge utile des événements rules consommés par d'autres modules (additif). */

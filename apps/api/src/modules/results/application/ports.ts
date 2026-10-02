@@ -10,7 +10,7 @@
 import type { RequestContext, Result, AppError } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
 import type { BatchEvaluator } from "../domain/pipeline/runner";
-import type { ClassStructure, EnrollmentRef, GradeFact } from "../domain/types";
+import type { ClassStructure, CompetencyCounters, EnrollmentRef, EnrollmentYearFacts, GradeFact } from "../domain/types";
 
 /** Entrée d'audit telle que l'attend `audit.record` (identique à `RuntimeAuditEntry`). */
 export interface AuditEntry {
@@ -115,10 +115,17 @@ export interface RulePin {
   readonly definitionHash: string;
 }
 
+/** Provenance d'une version de règles : `placeholder` = jeu de DÉMONSTRATION (filigrane obligatoire sur tout ce qui en dérive). */
+export type RuleSourceKind = "regulation" | "institution" | "platform" | "placeholder";
+
 export interface RuleSession {
   readonly pin: RulePin;
   readonly engineVersion: string;
   readonly contractId: string;
+  /** Provenance de la version épinglée (`placeholder` ⇒ résultats marqués « règles de démonstration »). */
+  readonly sourceKind: RuleSourceKind;
+  /** La version épinglée définit-elle cette règle ? (règles OPTIONNELLES du contrat : mention, appréciation, sections…) */
+  hasRule(ruleKey: string): boolean;
   /** Évaluateur synchrone sur la version épinglée (déjà chargée, hash vérifié). `trace` : conserver la trace du moteur. */
   evaluator(options: { trace: boolean }): BatchEvaluator;
 }
@@ -127,6 +134,7 @@ export interface ResolveRequest {
   readonly contractId: string;
   readonly institutionId?: string | undefined;
   readonly levelCode?: string | undefined;
+  readonly educationLevelCode?: string | undefined;
   /** Date de DÉBUT de la période (jamais l'horloge, R-RUL-05). */
   readonly date: string;
 }
@@ -136,6 +144,25 @@ export interface RulesPort {
   resolve(ctx: RequestContext, request: ResolveRequest): Promise<Result<(RulePin & { contractId: string }) | null, AppError>>;
   /** Charge la version épinglée (hash vérifié : `rules.hash_mismatch` si elle a dérivé) et rend un évaluateur. */
   open(ctx: RequestContext, pin: RulePin & { contractId: string }): Promise<Result<RuleSession, AppError>>;
+  /** Provenance de la version épinglée (lecture légère, sans évaluateur) ; `null` si elle est introuvable. */
+  sourceKindOf?(ctx: RequestContext, pin: RulePin): Promise<RuleSourceKind | null>;
+}
+
+/**
+ * Faits de fin d'année par inscription (spec 005, règles `cas_absences` et `cas_deja_redoublant`) : absences en journées et jours
+ * ouverts (module `attendance`), redoublements du cycle (module `academic`). Port FACULTATIF : non branché, les faits sont signalés
+ * indisponibles (`yearFacts: "UNAVAILABLE"`) et les cas valent `false` — jamais une valeur devinée.
+ */
+export interface YearFactsPort {
+  getYearFacts(ctx: RequestContext, input: { classroomId: string; academicYearId: string; enrollmentIds: readonly string[] }): Promise<ReadonlyMap<string, EnrollmentYearFacts>>;
+}
+
+/**
+ * Compteurs de compétences par inscription (module `primary_school`) : entrée de `decision_fin_annee` du contrat
+ * `competency-period@1`. Non branché à la dernière période : calcul refusé (échec fermé), jamais de décision sans compteur.
+ */
+export interface CompetencyCountersPort {
+  getCompetencyCounters(ctx: RequestContext, input: { classroomId: string; academicYearId: string; enrollmentIds: readonly string[] }): Promise<ReadonlyMap<string, CompetencyCounters>>;
 }
 
 export interface ResultsPorts {
@@ -145,4 +172,8 @@ export interface ResultsPorts {
   readonly rules: RulesPort;
   readonly guardianship: GuardianshipPort;
   readonly names: ActorNamePort;
+  /** Faits d'assiduité et de redoublement (contrat `coef-period@1`) ; facultatif. */
+  readonly yearFacts?: YearFactsPort | undefined;
+  /** Compteurs de compétences (contrat `competency-period@1`) ; facultatif. */
+  readonly competencyCounters?: CompetencyCountersPort | undefined;
 }

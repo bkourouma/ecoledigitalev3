@@ -12,7 +12,7 @@
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import { isUniqueViolation } from "@ecoledigitale/database";
 import { getContract } from "../../rules";
-import { findOverridable, outcomeOf, DECISION_RULES } from "../domain/catalog";
+import { findOverridable, isFinalDecisionCode, outcomeOf, DECISION_RULES, YEAR_END_FINAL_CODES } from "../domain/catalog";
 import { ResultsCode, conflict, forbidden, notFound, validation } from "../domain/errors";
 import { ResultsEvents } from "../domain/events";
 import type { AppreciationRecord, DecisionRecord, DeliberationRecord, OverrideRecord, PeriodState, ResultsSettings } from "../domain/records";
@@ -231,12 +231,19 @@ export async function confirmDecisionUseCase(deps: ResultsDeps, ctx: RequestCont
     if (state.status === "CLOSED") return err(conflict(ResultsCode.STATE_CLOSED, "La période est clôturée : les décisions sont figées.", {}));
     const finalCode = input.finalCode ?? d.proposedCode;
     if (!finalCode) return err(validation(ResultsCode.INVALID_INPUT, "Aucune proposition à confirmer : indiquez le code final.", "finalCode"));
+    // COUNCIL_REVIEW n'est pas une décision : « la règle ne tranche pas, le conseil décide » — un code final explicite est exigé.
+    if (!isFinalDecisionCode(finalCode)) {
+      return err(validation(ResultsCode.DECISION_NOT_FINAL, `« ${finalCode} » n'est pas une décision : le conseil doit trancher en indiquant le code final (passage, redoublement…).`, "finalCode"));
+    }
     const changed = finalCode !== d.proposedCode;
+    // Trancher une proposition « la règle ne tranche pas » (COUNCIL_REVIEW) n'est pas un écart à la règle : pas de justification d'écart.
+    const deferred = d.proposedCode !== null && !isFinalDecisionCode(d.proposedCode);
+    const deviates = changed && !deferred;
     if (changed) {
-      if (!input.caps?.decisionApprove) return deny("Modifier la décision proposée par la règle exige le droit de confirmer les décisions.");
-      if ((input.justification?.trim().length ?? 0) < 20) return err(validation(ResultsCode.JUSTIFICATION_REQUIRED, "Une décision différente de la proposition de la règle exige une justification (20 caractères au moins).", "justification"));
+      if (!input.caps?.decisionApprove && !(deferred && input.caps?.decisionRecord)) return deny("Modifier la décision proposée par la règle exige le droit de confirmer les décisions.");
+      if (deviates && (input.justification?.trim().length ?? 0) < 20) return err(validation(ResultsCode.JUSTIFICATION_REQUIRED, "Une décision différente de la proposition de la règle exige une justification (20 caractères au moins).", "justification"));
       const ruleKey = DECISION_RULES[state.contractId]?.find((r) => r.kind === d.kind)?.ruleKey;
-      const allowed = ruleKey ? getContract(state.contractId)?.rules.find((r) => r.key === ruleKey)?.outputCodes : undefined;
+      const allowed = (d.kind === "YEAR_END" ? YEAR_END_FINAL_CODES[state.contractId] : undefined) ?? (ruleKey ? getContract(state.contractId)?.rules.find((r) => r.key === ruleKey)?.outputCodes : undefined);
       if (allowed && allowed.length > 0 && !allowed.includes(finalCode)) {
         return err(validation(ResultsCode.INVALID_INPUT, `« ${finalCode} » n'est pas un code permis pour cette décision (${allowed.join(", ")}).`, "finalCode"));
       }
@@ -249,7 +256,7 @@ export async function confirmDecisionUseCase(deps: ResultsDeps, ctx: RequestCont
     }
     const actorName = await deps.ports.names.nameOf(ctx, ctx.userId as string);
     const done = await guarded(() =>
-      confirmDecision(tx, { id: d.id, finalCode, finalOutcome: outcomeOf(finalCode), deliberationId: input.deliberationId ?? null, justification: changed ? (input.justification as string).trim() : null, by: ctx.userId as string, byName: actorName, at: deps.clock.now() }),
+      confirmDecision(tx, { id: d.id, finalCode, finalOutcome: outcomeOf(finalCode), deliberationId: input.deliberationId ?? null, justification: changed && (input.justification?.trim().length ?? 0) > 0 ? (input.justification as string).trim() : null, by: ctx.userId as string, byName: actorName, at: deps.clock.now() }),
     );
     if (!done) return err(conflict(ResultsCode.DECISION_TRANSITION, "La décision a été traitée entre-temps.", {}));
     const events = new EventBuffer(deps, ctx);
@@ -261,7 +268,7 @@ export async function confirmDecisionUseCase(deps: ResultsDeps, ctx: RequestCont
       before: { proposed: done.proposedCode },
       after: { final: done.finalCode, outcome: done.finalOutcome },
       reason: changed ? done.justification : null,
-      severity: changed ? "warning" : "notice",
+      severity: deviates ? "warning" : "notice",
     });
     await events.flush(tx);
     return ok(done);

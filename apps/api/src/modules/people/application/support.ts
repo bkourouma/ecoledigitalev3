@@ -5,7 +5,7 @@ import { ValidationError, err, ok, type AppError, type RequestContext, type Resu
 import type { Tx } from "@ecoledigitale/database";
 import type { PeopleDuplicateCandidateDto, PeoplePersonInput, PeoplePersonPatch } from "@ecoledigitale/contracts/src/v2/people";
 import { PeopleErrors } from "../domain/errors";
-import { compareMatches, matchPerson, type DuplicateOptions, type DuplicateSubject } from "../domain/duplicates";
+import { compareMatches, duplicateReasons, duplicateScore, matchPerson, type DuplicateOptions, type DuplicateSubject } from "../domain/duplicates";
 import { cleanText, displayName, isPlausibleBirthDate, normalizeEmail, normalizePhone } from "../domain/normalize";
 import { DEFAULT_SETTINGS } from "../domain/reference-data";
 import { findDuplicateCandidates, type NewPerson, type PersonPatchValues } from "../infrastructure/persons-repo";
@@ -126,8 +126,10 @@ export async function detectDuplicates(
   const found: Array<{ dto: PeopleDuplicateCandidateDto; rank: ReturnType<typeof matchPerson> & string }> = [];
   for (const r of rows) {
     if (r.personId === excludePersonId) continue;
-    const match = matchPerson(draft, { lastName: r.lastName, firstName: r.firstName, otherNames: r.otherNames, birthDate: r.birthDate, email: r.email, phone: r.phone }, options);
+    const candidate: DuplicateSubject = { lastName: r.lastName, firstName: r.firstName, otherNames: r.otherNames, birthDate: r.birthDate, email: r.email, phone: r.phone };
+    const match = matchPerson(draft, candidate, options);
     if (!match) continue;
+    const reasons = duplicateReasons(draft, candidate, options);
     const roles: PeopleDuplicateCandidateDto["roles"] = [];
     if (r.studentId && visibility.student) roles.push("STUDENT");
     if (r.isGuardian && visibility.guardian) roles.push("GUARDIAN");
@@ -139,13 +141,15 @@ export async function detectDuplicates(
         displayName: displayName(r.lastName, r.firstName),
         birthDate: r.birthDate,
         match,
+        score: duplicateScore(match, reasons),
+        reasons,
         roles,
         studentId: visibility.student ? r.studentId : null,
         studentNumber: visibility.student ? r.studentNumber : null,
       },
     });
   }
-  found.sort((a, b) => compareMatches(a.rank, b.rank) || a.dto.displayName.localeCompare(b.dto.displayName));
+  found.sort((a, b) => compareMatches(a.rank, b.rank) || b.dto.score - a.dto.score || a.dto.displayName.localeCompare(b.dto.displayName));
   return found.slice(0, 20).map((f) => f.dto);
 }
 

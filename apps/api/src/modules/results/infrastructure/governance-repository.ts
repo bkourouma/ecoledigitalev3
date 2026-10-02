@@ -157,7 +157,7 @@ export async function listYearEndDecisions(tx: Tx, academicYearId: string, enrol
   const rows = await tx.many<{ enrollment_id: string; final_code: string }>(
     `SELECT DISTINCT ON (d.enrollment_id) d.enrollment_id, d.final_code
        FROM results.decisions d JOIN results.period_states s ON s.tenant_id = d.tenant_id AND s.id = d.state_id
-      WHERE s.academic_year_id = $1 AND d.enrollment_id = ANY($2::uuid[]) AND d.scope = 'YEAR' AND d.status IN ('CONFIRMED', 'PUBLISHED') AND d.final_code IS NOT NULL
+      WHERE s.academic_year_id = $1 AND d.enrollment_id = ANY($2::uuid[]) AND d.scope = 'YEAR' AND d.kind = 'YEAR_END' AND d.status IN ('CONFIRMED', 'PUBLISHED') AND d.final_code IS NOT NULL
       ORDER BY d.enrollment_id, d.decided_at DESC NULLS LAST, d.created_at DESC, d.id DESC`,
     [academicYearId, [...enrollmentIds]],
   );
@@ -179,14 +179,33 @@ export async function upsertProposal(
   );
 }
 
-export async function confirmDecision(
+/**
+ * Décision écrite par un CONSEIL, sans proposition de règle (`origin = COUNCIL`) : créée CONFIRMÉE. `null` si une décision active de même
+ * nature existe déjà (l'appelant la confirme alors par `confirmDecision`).
+ */
+export async function insertCouncilDecision(
   tx: Tx,
-  d: { id: string; finalCode: string; finalOutcome: string; deliberationId: string | null; justification: string | null; by: string; byName: string; at: Date },
+  d: { id: string; tenantId: string; stateId: string; enrollmentId: string; scope: string; kind: string; finalCode: string; finalOutcome: string; deliberationId: string | null; councilRef: string; by: string; byName: string; at: Date },
 ): Promise<DecisionRecord | null> {
   const row = await tx.queryOne(
-    `UPDATE results.decisions d SET status = 'CONFIRMED', final_code = $2, final_outcome = $3, deliberation_id = $4, justification = $5, decided_by = $6, decided_by_name = $7, decided_at = $8
+    `INSERT INTO results.decisions AS d (id, tenant_id, state_id, enrollment_id, scope, kind, origin, council_ref, status, final_code, final_outcome, deliberation_id, decided_by, decided_by_name, decided_at)
+     VALUES ($1,$2,$3,$4,$5,$6,'COUNCIL',$7,'CONFIRMED',$8,$9,$10,$11,$12,$13)
+     ON CONFLICT (tenant_id, state_id, enrollment_id, kind) WHERE status <> 'WITHDRAWN' DO NOTHING
+     RETURNING ${DECISION_COLUMNS}`,
+    [d.id, d.tenantId, d.stateId, d.enrollmentId, d.scope, d.kind, d.councilRef, d.finalCode, d.finalOutcome, d.deliberationId, d.by, d.byName, d.at],
+  );
+  return row ? toDecision(row) : null;
+}
+
+export async function confirmDecision(
+  tx: Tx,
+  d: { id: string; finalCode: string; finalOutcome: string; deliberationId: string | null; justification: string | null; by: string; byName: string; at: Date; councilRef?: string | null | undefined },
+): Promise<DecisionRecord | null> {
+  const row = await tx.queryOne(
+    `UPDATE results.decisions d SET status = 'CONFIRMED', final_code = $2, final_outcome = $3, deliberation_id = $4, justification = $5, decided_by = $6, decided_by_name = $7, decided_at = $8,
+        council_ref = coalesce($9, d.council_ref)
       WHERE d.id = $1 AND d.status IN ('PROPOSED', 'CONFIRMED') RETURNING ${DECISION_COLUMNS}`,
-    [d.id, d.finalCode, d.finalOutcome, d.deliberationId, d.justification, d.by, d.byName, d.at],
+    [d.id, d.finalCode, d.finalOutcome, d.deliberationId, d.justification, d.by, d.byName, d.at, d.councilRef ?? null],
   );
   return row ? toDecision(row) : null;
 }

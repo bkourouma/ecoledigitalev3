@@ -7,7 +7,7 @@ import { err, ok, type AppError, type RequestContext, type Result } from "@ecole
 import { RulesCode, type RulesApi } from "../../rules";
 import { ResultsCode, conflict } from "../domain/errors";
 import type { BatchEvaluator, CallResult } from "../domain/pipeline/runner";
-import type { ResolveRequest, RulePin, RulesPort, RuleSession } from "../application/ports";
+import type { ResolveRequest, RulePin, RuleSourceKind, RulesPort, RuleSession } from "../application/ports";
 
 export function rulesPortFrom(api: RulesApi): RulesPort {
   return {
@@ -16,6 +16,7 @@ export function rulesPortFrom(api: RulesApi): RulesPort {
         contractId: request.contractId,
         ...(request.institutionId ? { institutionId: request.institutionId } : {}),
         ...(request.levelCode ? { levelCode: request.levelCode } : {}),
+        ...(request.educationLevelCode ? { educationLevelCode: request.educationLevelCode } : {}),
         date: request.date,
       });
       if (!r.ok) return r;
@@ -31,6 +32,11 @@ export function rulesPortFrom(api: RulesApi): RulesPort {
       });
     },
 
+    async sourceKindOf(ctx: RequestContext, pin: RulePin): Promise<RuleSourceKind | null> {
+      const loaded = await api.loadVersion(ctx, pin.ruleVersionId);
+      return loaded.ok ? loaded.value.version.source.kind : null;
+    },
+
     async open(ctx: RequestContext, pin: RulePin & { contractId: string }): Promise<Result<RuleSession, AppError>> {
       const loaded = await api.loadVersion(ctx, pin.ruleVersionId);
       if (!loaded.ok) return loaded;
@@ -38,10 +44,13 @@ export function rulesPortFrom(api: RulesApi): RulesPort {
       if (compiled.definitionHash !== pin.definitionHash) {
         return err(conflict(ResultsCode.HASH_MISMATCH, "La version de règle épinglée ne correspond plus à son empreinte : calcul bloqué.", { ruleVersionId: pin.ruleVersionId, rulesCode: RulesCode.HASH_MISMATCH }));
       }
+      const defined = new Set(compiled.rules.map((r) => r.key));
       return ok({
         pin,
         engineVersion: compiled.engineVersion,
         contractId: pin.contractId,
+        sourceKind: compiled.version.source.kind,
+        hasRule: (ruleKey: string) => defined.has(ruleKey),
         evaluator(options: { trace: boolean }): BatchEvaluator {
           return {
             run(calls) {

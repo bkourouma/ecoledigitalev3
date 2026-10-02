@@ -168,6 +168,8 @@ export const verificationDto = (v: PublicVerification) => ({
   snapshotHash: v.snapshotHash,
   signature: v.signature,
   message: v.message,
+  // présent seulement pour un document de démonstration : la réponse publique des documents ordinaires ne change pas
+  ...(v.demonstration ? { demonstration: true } : {}),
 });
 
 export const fileVerificationDto = (v: FileVerification) => ({

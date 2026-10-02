@@ -147,7 +147,8 @@ export async function deriveVariant(deps: RulesDeps, ctx: RequestContext, input:
       basedOnVersionId: national ? national.id : (own?.basedOnVersionId ?? null),
       effectiveFrom: input.effectiveFrom,
       effectiveTo: input.effectiveTo ?? null,
-      source: { kind: "institution", reference: baseLabel, description: `Variante dérivée de ${baseLabel}.` },
+      // Une variante d'un jeu FICTIF reste fictive tant que le texte officiel n'est pas cité (filigrane et accusé de liaison conservés).
+      source: { kind: base.source.kind === "placeholder" ? "placeholder" : "institution", reference: baseLabel, description: `Variante dérivée de ${baseLabel}.` },
       notes: input.notes ?? null,
       createdBy: ctx.userId,
     });

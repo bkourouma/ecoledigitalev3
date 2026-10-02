@@ -219,11 +219,15 @@ export interface BindingRow {
   effective_to: string | null;
   created_by: string | null;
   created_at: Date;
+  placeholder_ack_by: string | null;
+  placeholder_ack_at: Date | null;
+  placeholder_ack_reason: string | null;
 }
 
 export const BINDING_COLUMNS =
   "id, contract_id, rule_set_code, institution_id, curriculum_node_id, level_code, " +
-  "to_char(effective_from, 'YYYY-MM-DD') AS effective_from, to_char(effective_to, 'YYYY-MM-DD') AS effective_to, created_by, created_at";
+  "to_char(effective_from, 'YYYY-MM-DD') AS effective_from, to_char(effective_to, 'YYYY-MM-DD') AS effective_to, created_by, created_at, " +
+  "placeholder_ack_by, placeholder_ack_at, placeholder_ack_reason";
 
 export function toBinding(r: BindingRow): BindingRecord {
   return {
@@ -237,6 +241,10 @@ export function toBinding(r: BindingRow): BindingRecord {
     effectiveTo: r.effective_to,
     createdBy: r.created_by,
     createdAt: r.created_at,
+    placeholderAck:
+      r.placeholder_ack_by && r.placeholder_ack_at && r.placeholder_ack_reason
+        ? { by: r.placeholder_ack_by, at: r.placeholder_ack_at, reason: r.placeholder_ack_reason }
+        : null,
   };
 }
 

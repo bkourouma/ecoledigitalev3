@@ -219,3 +219,6 @@ export const statusHistory = (from: AcademicEnrollmentStatus | null, to: Academi
 export const STUDENT_STATUSES_THAT_WITHDRAW: readonly string[] = Object.freeze(["WITHDRAWN", "EXCLUDED", "TRANSFERRED_OUT"]);
 /** Statuts d'un apprenant que l'on peut inscrire (par défaut ; surchargeable au câblage). */
 export const DEFAULT_ENROLLABLE_STUDENT_STATUSES: readonly string[] = Object.freeze(["ACTIVE"]);
+
+/** Inscription issue d une admission : le dossier de l élève est INACTIF jusqu à la confirmation (paiement des frais d inscription, spec 007). */
+export const DEFAULT_ADMISSION_ENROLLABLE_STUDENT_STATUSES: readonly string[] = Object.freeze(["ACTIVE", "INACTIVE"]);

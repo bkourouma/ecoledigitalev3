@@ -66,7 +66,7 @@ export interface CreateNationalVersionInput {
   readonly contractId: string;
   readonly effectiveFrom: string;
   readonly effectiveTo?: string | null | undefined;
-  readonly source: { kind: "regulation" | "institution" | "platform"; reference?: string | undefined; url?: string | undefined; description?: string | undefined };
+  readonly source: { kind: "regulation" | "institution" | "platform" | "placeholder"; reference?: string | undefined; url?: string | undefined; description?: string | undefined };
   readonly rules: readonly RuleInput[];
   readonly notes?: string | undefined;
 }

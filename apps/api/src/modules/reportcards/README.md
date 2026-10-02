@@ -149,3 +149,12 @@ accès (gestion, élève, tuteur lié/non lié, autre tenant), vérification pub
 - `ResultsReadPort` : `platform/adapters/results-reportcards.ts` (état de période, effectif, bundle de résultats figé — noms, libellés, règles, trace) ; les valeurs décimales sont normalisées avant d'entrer dans l'instantané signé ;
 - `GuardianshipPort`, `UserDirectoryPort`, `AttendanceSummaryPort`, `LearnerStandingPort` : adaptateurs `people-reportcards`, `attendance-reportcards`, `finance-reportcards` ;
 - stockage et ressources de rendu du worker : `setReportcardsWorkerResources` (`infrastructure/worker-resources.ts`) ; stockage S3 / MinIO par `STORAGE_S3_*` (repli `REPORTCARDS_S3_*`), repli disque en développement.
+
+## Extensions Phase 4-5 (packs Primaire, Secondaire, Examens)
+
+Migration `1305_reportcards_pack_documents.sql`. Spec : `specs/v2/013-report-cards/spec.md` (« Extensions Phase 4-5 »).
+
+- **Natures** `COUNCIL_MINUTES`, `ANNUAL_REVIEW`, `EXAM_CONVOCATION`, `EXAM_SUCCESS_CERTIFICATE`, `EXAM_TRANSCRIPT` (`PACK_DOCUMENT_KINDS`) : service générique `requestOfficialDocument` (+ `ruleSourceKind` scellé), vérification publique étendue. Gabarits `council-minutes`, `annual-review-primary`, `exam-convocation`, `exam-success-certificate`, `exam-transcript` (`templates/pack-documents.ts`, contextes d'impression documentés en tête de fichier) et bulletin `report-primary` (bloc compétences). Contexte fourni par le module propriétaire (`primary_school`, `councils`, `examinations`).
+- **Règles de démonstration** : `rules.sourceKind = placeholder` ⇒ filigrane `DÉMONSTRATION` imposé + mention « Règles de démonstration — document sans valeur officielle » (`{{> footer}}`) ; la vérification publique le dit (`demonstration`).
+- **« Affecté(e) »** : snapshot `enrollment.stateAssigned`, dérivé du type de financement de l'inscription, jamais d'un texte de décision. Le bundle FINAL reflète la décision du conseil confirmée et les distinctions de conseil.
+- Snapshot `reportcard/1` : champs facultatifs additifs (`rules.sourceKind`, `enrollment.fundingType`/`stateAssigned`, `competencies`) ; les bulletins déjà émis sont inchangés.

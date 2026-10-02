@@ -16,6 +16,7 @@ import { createHmac } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DEFAULT_SANDBOX_SECRET } from "../../src/modules/finance";
 import { audit } from "../../src/modules/audit";
+import { SYSTEM_ROLE_TEMPLATES } from "../../src/modules/rbac";
 import { listPublicRoutes } from "../../src/platform/public-routes";
 import { describeIntegration } from "../helpers/fixtures";
 import { REDIS_URL, startPhase1Platform, waitFor, type Phase1Env } from "./support/harness";
@@ -87,7 +88,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 1 — plateforme
 
       for (const t of [A, B]) {
         const roles = await p.db.admin.query("SELECT count(*)::int AS n FROM rbac.roles WHERE tenant_id = $1 AND is_system", [t.tenantId]);
-        expect(roles.rows[0].n).toBe(11);
+        expect(roles.rows[0].n).toBe(SYSTEM_ROLE_TEMPLATES.length);
         const sub = await p.db.admin.query("SELECT plan_key, status, packs FROM entitlements.tenant_subscriptions WHERE tenant_id = $1", [t.tenantId]);
         expect(sub.rows).toHaveLength(1);
         expect(sub.rows[0]).toMatchObject({ plan_key: "STARTER", status: "TRIALING" });
@@ -133,7 +134,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 1 — plateforme
       const rolesA = await p.http("GET", "/api/v1/rbac/roles", { token: ownerA.accessToken });
       const rolesB = await p.http("GET", "/api/v1/rbac/roles", { token: ownerB.accessToken });
       const idsA = new Set(rolesA.body.roles.map((r: { id: string }) => r.id));
-      expect(rolesA.body.roles).toHaveLength(11);
+      expect(rolesA.body.roles).toHaveLength(SYSTEM_ROLE_TEMPLATES.length);
       expect(rolesB.body.roles.every((r: { id: string }) => !idsA.has(r.id))).toBe(true);
       const auditA = await readAuditLog(p, ownerA.accessToken);
       const auditB = await readAuditLog(p, ownerB.accessToken);

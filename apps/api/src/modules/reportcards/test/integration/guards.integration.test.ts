@@ -6,6 +6,7 @@ import { publishReportCard, revokeReportCard } from "../../application/lifecycle
 import { canonicalJson, snapshotHash } from "../../domain/canonical";
 import { generateVerificationCode } from "../../domain/signing";
 import * as cardsRepo from "../../infrastructure/cards-repository";
+import { ALL_PLATFORM_TEMPLATES } from "../../templates/builtin";
 import { SHARED_VECTOR } from "../support/vectors";
 import { adminOne, adminRows, createReportcardsTestDb, describeIntegration, ctxFor, type ReportcardsTestDb } from "../support/db";
 import { makeWorld, seedSchool, type School, type TestWorld } from "../support/world";
@@ -295,7 +296,7 @@ describeIntegration("gardes d'intégrité en base (déclencheurs, RLS) — même
       ).rejects.toThrow(/row-level security|RLS|politique/i);
       await expect(db.tenantDb.run(school.admin.ctx, (tx) => tx.query("INSERT INTO reportcards.signing_keys (key_id, public_key) VALUES ('pirate-key-01', repeat('A', 60))"))).rejects.toThrow(/row-level security|RLS|politique/i);
       // Lecture ouverte : le tenant lit le catalogue.
-      expect(await db.tenantDb.run(school.admin.ctx, (tx) => tx.many("SELECT key FROM reportcards.platform_templates"))).toHaveLength(10);
+      expect(await db.tenantDb.run(school.admin.ctx, (tx) => tx.many("SELECT key FROM reportcards.platform_templates"))).toHaveLength(ALL_PLATFORM_TEMPLATES.length);
     });
 
     it("gabarit publié immuable (corps, css, schéma d'options) ; retrait permis ; jamais de suppression", async () => {

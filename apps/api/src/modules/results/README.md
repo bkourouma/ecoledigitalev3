@@ -122,3 +122,14 @@ doit les avoir CORRIGÉS, jamais reproduits — et deux divergences documentées
 - `isCurriculumNodeInResults` : garde d'usage d'un nœud de curriculum (`platform/adapters/academic-guards.ts`) ;
 - la structure de calcul vient des **données** du curriculum (`platform/adapters/academic-results.ts`) : contrat (`program.calculation_contract ?? education_level.calculation_contract ?? null`, aucun défaut), rang de période, crédits, parents, `levelCode` = code du niveau ;
 - ports du worker : `setResultsWorkerPorts` (recalcul sur notes publiées).
+
+## Extensions Phase 4-5 (packs Primaire, Secondaire, Examens)
+
+Migration `1204_results_council.sql` (issue `COUNCIL_REVIEW`, décisions `origin = COUNCIL` sans proposition de règle, `council_ref`). Spec : `specs/v2/011-assessments-grades/spec.md` (« Extensions Phase 4-5 »).
+
+- **Contrats supplémentaires** : `coef-period@1` (`domain/pipeline/coef-period.ts`), `competency-period@1` (`competency-period.ts`), `secondary-annual@1` (même pipeline que `coef-semester@1`, option `contractId` de `computeCoefSemester`). Toujours aucune formule : poids de période = données d'academic (`PeriodFacts.weight`), faits d'assiduité et de redoublement = port facultatif `YearFactsPort`, compteurs de compétences = port facultatif `CompetencyCountersPort`.
+- **`COUNCIL_REVIEW`** : « la règle ne tranche pas, le conseil décide » ; jamais confirmé d'office, jamais accepté comme décision finale (`results.decision_not_final`).
+- **Port d'écriture des conseils** (`council-write.ts`) : `openCouncilDeliberation`, `markDeliberationHeld`, `publishYearDecision`, `recordDistinction`, `writeCouncilAppreciation` — acteur humain, module appelant (`councils` / `primary_school`) et `councilRef` opaque tracés et audités ; idempotents ; refusés sur une période clôturée.
+- **Provenance des règles** : `PeriodView.ruleSourceKind` ; `RuleSession.sourceKind` / `hasRule` (règles optionnelles du contrat) ; `RulesPort.sourceKindOf`.
+- **Quorum** : `evaluateCouncilQuorum` (règle `quorum_conseil`).
+- Adaptateur de plateforme `platform/adapters/results-year-facts.ts` (attendance + academic) ; la liaison de règles se fait par niveau fin **ou** par cycle d'enseignement (`educationLevelCode`).

@@ -93,7 +93,7 @@ function OfficialResults({ subject, labels }: { subject: FamilySubject; labels: 
 }
 
 function outcomeLabel(t: (key: never) => string, outcome: string): string {
-  return (["PROMOTED", "REPEAT", "PENDING", "EXAM_REFERRAL", "ADMITTED", "RESIT", "ADJOURNED", "OTHER"] as const).includes(outcome as never) ? t(outcome as never) : outcome;
+  return (["PROMOTED", "REPEAT", "PENDING", "EXAM_REFERRAL", "COUNCIL_REVIEW", "ADMITTED", "RESIT", "ADJOURNED", "OTHER"] as const).includes(outcome as never) ? t(outcome as never) : outcome;
 }
 
 function LinesDetails({ result, labels }: { result: Result; labels: LabelLookup }) {

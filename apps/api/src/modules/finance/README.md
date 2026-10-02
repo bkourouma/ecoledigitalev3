@@ -410,3 +410,12 @@ Extension additive de l'assemblage `platform/adapters` (voir `docs/architecture/
 - `finance.invoice.paid` est **enrichi** (`enrollmentId`, `containsRegistrationFee`, `sourceRefs[{ sourceRef, category }]`, schéma `financeInvoicePaidEventPayloadSchema`) : academic confirme l'inscription VISÉE après paiement des frais d'inscription (décision métier du 2026-10-01) ;
 - `application/facts.ts` : `getInvoiceFacts`, `getRegistrationFeeStatus` (frais d'inscription facturés / soldés), `isRegistrationFeeDue` (un barème applicable existe ; `false` = aucun frais, confirmation immédiate), `hasOverdueBalance` (impayé exigible, **sans montant**) ;
 - ports `learners` / `enrollments` : registre `registerFinancePorts` (`app.financePorts`), branchés par `platform/adapters/directories-finance.ts`. Les frais d'inscription doivent être facturés **séparément** de la scolarité (ligne de catégorie `REGISTRATION`).
+
+## Extensions Phase 4-5 (2026-10-02) — admissions et packs
+
+Additives (spec 014 §5). Les fichiers `reconcile*` ne sont pas concernés.
+
+- `getRegistrationFeeStatus` : champ `status` ajouté — `NOT_BILLED` (aucune facture émise : jamais une erreur, jamais « payé »), `PENDING`, `PAID`. `isRegistrationFeeDue` ne dépend que du catalogue : utilisable avant toute facturation.
+- `issueInvoiceFromSchedule` idempotent par clé (identifiant d'offre ou équivalent, 8-120 caractères) et `cancelInvoice` sur facture sans paiement (motif obligatoire, audit sensible, événement `finance.invoice.cancelled`, refus `finance.invoice_has_payments` dès qu'un paiement existe) : **déjà présents**, vérifiés et couverts par `test/integration/registration-flow.integration.test.ts` (dont 20 appels simultanés).
+- Modèle de pack : catégories `REGISTRATION` et `TUITION` (libellés, **aucun montant**) — `FINANCE_PACK_TEMPLATES`, `instantiateFinancePack(deps, ctx, { pack })` (idempotent, non destructif, non câblé au provisioning).
+- Non fournis (voir spec 014 §5, AC5.5) : `getLearnerStanding`, `getLinkedInvoicesTotals(scholarshipId)`, `getBilledAmounts({ enrollmentId })` ; `getLearnerStatement` donne les totaux d'un apprenant.

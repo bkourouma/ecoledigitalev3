@@ -62,7 +62,7 @@ export const mapYear = (r: Row): AcademicYear => ({
   archivedAt: iso(r.archived_at),
 });
 
-export const PERIOD_COLS = `id, academic_year_id, parent_period_id, period_type_code, ordinal, code, label, ${D("starts_on")}, ${D("ends_on")}, status, opened_at, grading_closed_at, closed_at, closed_by, reopened_count`;
+export const PERIOD_COLS = `id, academic_year_id, parent_period_id, period_type_code, ordinal, code, label, ${D("starts_on")}, ${D("ends_on")}, status, opened_at, grading_closed_at, closed_at, closed_by, reopened_count, average_weight`;
 export const mapPeriod = (r: Row): AcademicPeriod => ({
   id: r.id,
   academicYearId: r.academic_year_id,
@@ -79,6 +79,7 @@ export const mapPeriod = (r: Row): AcademicPeriod => ({
   closedAt: iso(r.closed_at),
   closedBy: r.closed_by,
   reopenedCount: r.reopened_count,
+  averageWeight: Number(r.average_weight ?? 1),
 });
 
 // ---------------------------------------------------------------------------

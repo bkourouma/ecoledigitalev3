@@ -19,6 +19,23 @@ import {
 const code = z.string().regex(/^[A-Z0-9][A-Z0-9_]{0,39}$/);
 const label = z.string().trim().min(1).max(200);
 
+/**
+ * Provenance d'une valeur de modèle qui n'est PAS un simple libellé (contrat de calcul, drapeau d'examen terminal, poids
+ * de période). Aucune valeur ne doit rester « non sourcée » (test de cohérence des modèles, pack-template.md §1) :
+ *   - `neutral`     : sans hypothèse métier (poids 1, branchement technique d'un contrat de calcul) ;
+ *   - `placeholder` : valeur de démonstration ou à confirmer par le propriétaire ; jamais décisionnelle ;
+ *   - `regulation`  : valeur issue d'un texte officiel — exige `sourceReference` (aucun modèle livré n'en contient tant que
+ *                     les textes n'ont pas été fournis).
+ */
+export const TEMPLATE_SOURCE_KINDS = ["neutral", "placeholder", "regulation"] as const;
+export const templateSourceKindSchema = z.enum(TEMPLATE_SOURCE_KINDS);
+export type TemplateSourceKind = z.infer<typeof templateSourceKindSchema>;
+const provenance = {
+  sourceKind: templateSourceKindSchema.optional(),
+  sourceReference: z.string().trim().min(1).max(300).optional(),
+  sourceNote: z.string().trim().min(1).max(300).optional(),
+};
+
 export const AcademicPackTemplateSchema = z
   .object({
     section: z.literal("academic"),
@@ -27,7 +44,7 @@ export const AcademicPackTemplateSchema = z
     templateVersion: z.number().int().min(1),
     educationSystem: z.string().regex(/^[A-Z0-9_]{1,20}$/),
     pack: academicPackSchema,
-    educationLevels: z.array(z.object({ code, label, ordinal: z.number().int().min(0), calculationContract: academicCalculationContractSchema.optional() }).strict()),
+    educationLevels: z.array(z.object({ code, label, ordinal: z.number().int().min(0), calculationContract: academicCalculationContractSchema.optional(), ...provenance }).strict()),
     gradeLevels: z.array(
       z
         .object({
@@ -38,12 +55,15 @@ export const AcademicPackTemplateSchema = z
           ordinal: z.number().int().min(0),
           next: code.nullable(),
           isFinal: z.boolean().optional(),
+          /** Informatif (le niveau se conclut par un examen terminal) : jamais décisionnel. */
           terminalExamRequired: z.boolean().optional(),
+          ...provenance,
         })
         .strict(),
     ),
     periodTypes: z.array(z.object({ code, label, kind: academicPeriodKindSchema }).strict()),
-    periodPlans: z.array(z.object({ code, label, slots: z.array(academicPeriodPlanSlotSchema).min(1) }).strict()),
+    /** `sourceKind` d'un plan couvre les poids de ses créneaux (`slots[].weight`). */
+    periodPlans: z.array(z.object({ code, label, slots: z.array(academicPeriodPlanSlotSchema).min(1), ...provenance }).strict()),
     nodeTypes: z.array(
       z
         .object({
@@ -97,6 +117,16 @@ export const AcademicPackTemplateSchema = z
     const dup = (items: readonly string[], what: string): void => {
       if (new Set(items).size !== items.length) issue(`${what} en double.`);
     };
+    for (const [what, items] of [
+      ["Cycle", t.educationLevels],
+      ["Niveau", t.gradeLevels],
+      ["Plan de périodes", t.periodPlans],
+    ] as const) {
+      for (const item of items) {
+        if (item.sourceKind === "regulation" && !item.sourceReference) issue(`${what} ${item.code} : une valeur « regulation » exige sa référence (sourceReference).`);
+        if (item.sourceReference && item.sourceKind !== "regulation") issue(`${what} ${item.code} : une référence réglementaire n'accompagne qu'une valeur « regulation ».`);
+      }
+    }
     dup(t.educationLevels.map((l) => l.code), "Cycle");
     dup(t.gradeLevels.map((g) => g.code), "Niveau");
     dup(t.periodTypes.map((p) => p.code), "Type de période");

@@ -6,6 +6,11 @@
  * Même règle d'or que `credit` : AUCUNE formule ni seuil ici. Le « 2ᵉ semestre » vient du rang de la période (donnée de
  * calendrier, plus jamais le nom), l'examen terminal requis de l'attribut de programme, la décision se lit dans le CODE.
  * Les sections (types de bilan) ne sont pas des nœuds : leurs résultats sont portés par la ligne `PERIOD` (`outputs.sections`).
+ *
+ * Le même pipeline sert le contrat `secondary-annual@1` (secondaire, N périodes pondérées : spec 006 §6.4) : mêmes règles et mêmes
+ * codes de sortie ; seules changent l'étape annuelle — `moyenne_annuelle` reçoit TOUTES les périodes de l'année `{ moyenne, poids }`
+ * (poids du plan de périodes) et `decision_fin_annee` reçoit `derniere_periode` à la place de `second_semestre`. La « dernière
+ * période » est une donnée de calendrier (`PeriodFacts.isSecondSemester` = dernière de l'année), jamais un nom.
  */
 import { hashOf } from "../hash";
 import { outcomeOf } from "../catalog";
@@ -19,6 +24,10 @@ export interface CoefInput {
   readonly overrides: readonly ApprovedOverride[];
   /** Moyenne du 1er semestre de chaque inscription (période précédente de l'année), `null` si absente. */
   readonly firstSemesterAverages: ReadonlyMap<string, string | null>;
+  /** `secondary-annual@1` : contrat de la version épinglée (défaut `coef-semester@1`). */
+  readonly contractId?: "coef-semester@1" | "secondary-annual@1" | undefined;
+  /** `secondary-annual@1` : moyennes (FINAL) des périodes précédentes de l'année, par inscription puis par période. */
+  readonly priorAverages?: ReadonlyMap<string, ReadonlyMap<string, string | null>> | undefined;
   readonly withTrace: boolean;
 }
 
@@ -91,6 +100,8 @@ const overrideMark = (o: ApprovedOverride, original: RuleValue): TraceRecord => 
 
 export function computeCoefSemester(input: CoefInput, evaluator: BatchEvaluator): ClassComputation {
   const { structure, enrollments, overrides } = input;
+  const contractId = input.contractId ?? "coef-semester@1";
+  const nPeriods = contractId === "secondary-annual@1";
   const subjects = validateCoefStructure(structure);
   const sectionKeys = [...new Set(subjects.filter((s) => s.countsInAverage && s.sectionKey !== null).map((s) => s.sectionKey as string))].sort();
   const runner = new StageRunner(evaluator, input.withTrace);
@@ -130,7 +141,8 @@ export function computeCoefSemester(input: CoefInput, evaluator: BatchEvaluator)
       appreciation: null,
       records: [],
       inputs: {
-        contract: "coef-semester@1",
+        contract: contractId,
+        ...(nPeriods ? { weights: structure.yearPeriods.map((p) => ({ id: p.id, weight: p.weight ?? "1" })), prior: structure.yearPeriods.filter((p) => p.id !== structure.period.id).map((p) => ({ id: p.id, average: input.priorAverages?.get(ref.enrollmentId)?.get(p.id) ?? null })) } : {}),
         period: { id: structure.period.id, rank: structure.period.rankInYear, second: structure.period.isSecondSemester },
         terminalExamRequired: structure.terminalExamRequired,
         firstSemester: input.firstSemesterAverages.get(ref.enrollmentId) ?? null,
@@ -236,14 +248,16 @@ export function computeCoefSemester(input: CoefInput, evaluator: BatchEvaluator)
   let annualCohort = 0;
   if (second) {
     const s5: Array<StageItem<{ st: State; what: string }>> = [];
-    states.forEach((st, i) => s5.push({ owner: i, ruleKey: "moyenne_annuelle", variables: { s1: st.s1, s2: st.moyenne, second_semestre: true }, tag: { st, what: "annual" } }));
+    const periodsOf = (st: State) =>
+      (structure.yearPeriods.length > 0 ? structure.yearPeriods : [structure.period]).map((p) => ({ moyenne: p.id === structure.period.id ? st.moyenne : (input.priorAverages?.get(st.ref.enrollmentId)?.get(p.id) ?? null), poids: p.weight ?? "1" }));
+    states.forEach((st, i) => s5.push({ owner: i, ruleKey: "moyenne_annuelle", variables: nPeriods ? { periodes: periodsOf(st) } : { s1: st.s1, s2: st.moyenne, second_semestre: true }, tag: { st, what: "annual" } }));
     for (const o of runner.batch(s5)) {
       o.tag.st.records.push(o.record);
       o.tag.st.annual = asString(o.value);
     }
     const s5b: Array<StageItem<{ st: State; what: string }>> = [];
     states.forEach((st, i) => {
-      s5b.push({ owner: i, ruleKey: "decision_fin_annee", variables: { moyenne: st.annual, second_semestre: true, examen_terminal_requis: structure.terminalExamRequired }, tag: { st, what: "year" } });
+      s5b.push({ owner: i, ruleKey: "decision_fin_annee", variables: nPeriods ? { moyenne: st.annual, derniere_periode: true, examen_terminal_requis: structure.terminalExamRequired } : { moyenne: st.annual, second_semestre: true, examen_terminal_requis: structure.terminalExamRequired }, tag: { st, what: "year" } });
       s5b.push({ owner: i, ruleKey: "distinction", variables: { moyenne: st.annual }, tag: { st, what: "distinction" } });
       s5b.push({ owner: i, ruleKey: "appreciation_conseil", variables: { moyenne: st.annual }, tag: { st, what: "appreciation" } });
       s5b.push({ owner: i, ruleKey: "arrondi_affichage", variables: { valeur: st.annual }, tag: { st, what: "display" } });
@@ -359,5 +373,5 @@ export function computeCoefSemester(input: CoefInput, evaluator: BatchEvaluator)
     const outputsHash = hashOf({ header, lines: lines.map((l) => ({ ...l, trace: undefined })) });
     return { enrollmentId: st.ref.enrollmentId, studentId: st.ref.studentId, error: null, inputsHash, inputs: st.inputs, header, lines, outputsHash };
   });
-  return { contractId: "coef-semester@1", enrollments: out };
+  return { contractId, enrollments: out };
 }

@@ -9,6 +9,7 @@ import { createBatch } from "../../application/issue";
 import { requestRender } from "../../application/render";
 import { ReportcardsEvents, ConsumedEvents } from "../../domain/events";
 import { buildSubscribers, RENDER_ATTEMPTS } from "../../subscribers";
+import { ALL_PLATFORM_TEMPLATES } from "../../templates/builtin";
 import { adminOne, adminRows, createReportcardsTestDb, describeIntegration, type ReportcardsTestDb } from "../support/db";
 import { makeWorld, seedSchool, type School, type TestWorld } from "../support/world";
 
@@ -115,6 +116,6 @@ describeIntegration("abonnés du worker : rendu sur `reportcards.snapshot.create
     const event = eventOf(ConsumedEvents.TENANT_PROVISIONED, { tenantId: school.tenantId });
     await handler(event as never, handlerCtx(1));
     await handler(event as never, handlerCtx(1));
-    expect(Number((await adminOne<any>(db, "SELECT count(*) AS n FROM reportcards.platform_templates WHERE status = 'PUBLISHED'")).n)).toBe(10);
+    expect(Number((await adminOne<any>(db, "SELECT count(*) AS n FROM reportcards.platform_templates WHERE status = 'PUBLISHED'")).n)).toBe(ALL_PLATFORM_TEMPLATES.length);
   });
 });

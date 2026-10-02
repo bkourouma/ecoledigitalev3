@@ -5991,6 +5991,7 @@
       "REPEAT": "Redoublement",
       "PENDING": "En attente",
       "EXAM_REFERRAL": "Renvoi à l'examen",
+      "COUNCIL_REVIEW": "À examiner en conseil",
       "ADMITTED": "Admis",
       "RESIT": "Rattrapage",
       "ADJOURNED": "Ajourné",
@@ -7019,7 +7020,12 @@
       "ATTESTATION_SUCCESS": "Attestation de réussite",
       "ATTESTATION_AUTHENTICITY": "Attestation d'authenticité",
       "PAYSLIP": "Bulletin de paie",
-      "RECEIPT": "Reçu de paiement"
+      "RECEIPT": "Reçu de paiement",
+      "COUNCIL_MINUTES": "Procès-verbal de conseil",
+      "ANNUAL_REVIEW": "Bilan annuel",
+      "EXAM_CONVOCATION": "Convocation à l'examen",
+      "EXAM_SUCCESS_CERTIFICATE": "Attestation de réussite à l'examen",
+      "EXAM_TRANSCRIPT": "Relevé de notes d'examen"
     },
     "file": {
       "title": "Comparer un fichier PDF",
@@ -8334,6 +8340,7 @@
         "REPEAT": "Redoublement",
         "PENDING": "En attente",
         "EXAM_REFERRAL": "Renvoi à l'examen",
+        "COUNCIL_REVIEW": "À examiner en conseil",
         "OTHER": "Autre décision",
         "none": "Sans issue"
       },

@@ -20,6 +20,8 @@ export function toClassStructure(f: ResultsStructure): ClassStructure | null {
     isSecondSemester: p.isLast,
     startsOn: p.startsOn,
     endsOn: p.endsOn,
+    // poids de la période dans la moyenne annuelle : donnée du calendrier (décimal exact en chaîne)
+    weight: String(p.averageWeight ?? 1),
   });
   return {
     classroomId: f.classroomId,
@@ -27,6 +29,7 @@ export function toClassStructure(f: ResultsStructure): ClassStructure | null {
     institutionId: f.institutionId,
     // Niveau de la classe : clé des liaisons de règles « par niveau » (le niveau le plus fin).
     levelCode: f.gradeLevelCode,
+    educationLevelCode: f.educationLevelCode,
     contractId: f.calculationContract,
     period: toPeriod(f.period),
     firstPeriodId: f.firstPeriodId,

@@ -166,6 +166,8 @@ export async function resultsPlugin(app: FastifyInstance, options: ResultsPlugin
       return {
         state: present.stateDto(v.state),
         ruleLag: v.ruleLag,
+        /** `placeholder` : règles de DÉMONSTRATION (bandeau obligatoire dans l'écran de période). */
+        ruleSourceKind: v.ruleSourceKind,
         counts: v.counts,
         pendingAssessments: v.pendingAssessments,
         closures: v.closures.map((c) => ({ id: c.id, resultsVersion: c.resultsVersion, resultsCount: c.resultsCount, closureHash: c.closureHash, closedAt: c.closedAt.toISOString(), forcedReason: c.forcedReason })),

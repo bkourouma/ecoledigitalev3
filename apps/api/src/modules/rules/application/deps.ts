@@ -20,6 +20,7 @@ import {
   type Result,
 } from "@ecoledigitale/kernel";
 import { PgOutboxWriter, type SystemDb, type TenantDb, type Tx } from "@ecoledigitale/database";
+import { isProductionEnvironment } from "../domain/environment";
 import { CompiledVersionCache } from "./compiled";
 import { defaultReplaySources, defaultSimulationSources } from "./registry";
 import { noopAudit, type ReplaySource, type RulesAuditPort, type SimulationCaseSource } from "./ports";
@@ -31,11 +32,17 @@ export interface RulesConfig {
   readonly logEvaluationFailures: boolean;
   /** Plafond du nombre de différences détaillées conservées par simulation (AC2.4). */
   readonly maxSimulationDifferences: number;
+  /**
+   * Environnement de PRODUCTION : la liaison d'un jeu de règles fictif (`placeholder`) exige alors un accusé explicite.
+   * Dérivé de `RULES_ENV` / `NODE_ENV` par `createRulesDeps` (défaut sûr : production).
+   */
+  readonly productionMode: boolean;
 }
 
 export const DEFAULT_RULES_CONFIG: RulesConfig = Object.freeze({
   logEvaluationFailures: true,
   maxSimulationDifferences: 1000,
+  productionMode: false,
 });
 
 export interface RulesDeps {
@@ -101,7 +108,7 @@ export function createRulesDeps(input: RulesDepsInput): RulesDeps {
     logger,
     newId: input.newId ?? newId,
     cache: input.cache ?? new CompiledVersionCache(),
-    config: { ...DEFAULT_RULES_CONFIG, ...input.config },
+    config: { ...DEFAULT_RULES_CONFIG, productionMode: isProductionEnvironment(process.env), ...input.config },
     simulationSources: input.simulationSources ?? defaultSimulationSources,
     replaySources: input.replaySources ?? defaultReplaySources,
     background: new BackgroundTasks((e) => logger.error({ err: e instanceof Error ? e.message : String(e) }, "rules : tâche de fond en échec")),

@@ -35,6 +35,8 @@ export const RulesCode = {
   PARAMETER_OUT_OF_RANGE: "rules.parameter_out_of_range",
   RATE_LIMITED: "rules.rate_limited",
   EXPRESSION_EDIT_FORBIDDEN: "rules.expression_edit_forbidden",
+  /** Liaison d'un jeu FICTIF (placeholder) en production sans accusé explicite. */
+  PLACEHOLDER_REQUIRES_ACK: "rules.placeholder_requires_ack",
 } as const;
 
 export type RulesCodeValue = (typeof RulesCode)[keyof typeof RulesCode];

@@ -15,7 +15,18 @@ export type IsoInstant = string;
 export type { ReportcardExplain, ReportcardSnapshot, ReportcardSnapshotLine };
 
 export type DocumentKind = "REPORT_CARD" | "TRANSCRIPT";
-export type TemplateDocumentKind = DocumentKind | "DIPLOMA" | "ATTESTATION_SUCCESS" | "ATTESTATION_AUTHENTICITY" | "PAYSLIP" | "RECEIPT";
+export type TemplateDocumentKind =
+  | DocumentKind
+  | "DIPLOMA"
+  | "ATTESTATION_SUCCESS"
+  | "ATTESTATION_AUTHENTICITY"
+  | "PAYSLIP"
+  | "RECEIPT"
+  | "COUNCIL_MINUTES"
+  | "ANNUAL_REVIEW"
+  | "EXAM_CONVOCATION"
+  | "EXAM_SUCCESS_CERTIFICATE"
+  | "EXAM_TRANSCRIPT";
 export type Scope = "PERIOD" | "YEAR" | "CUMULATIVE";
 export type CardStatus = "ISSUED" | "PUBLISHED" | "SUPERSEDED" | "REVOKED";
 export type RenderStatus = "PENDING" | "RENDERING" | "RENDERED" | "FAILED";
@@ -250,6 +261,9 @@ export interface FinalResultBundle {
   readonly deliberation: ReportcardSnapshot["deliberation"];
   readonly generalAppreciation: string | null;
   readonly attendance: ReportcardSnapshot["attendance"];
+  /** Compteurs de compétences par domaine (primaire / maternelle, module `primary_school`) ; absent pour un bulletin numérique. */
+  readonly competencies?: ReportcardSnapshot["competencies"] | undefined;
+  /** Version de règle utilisée ; `rules.sourceKind = "placeholder"` ⇒ document marqué « règles de démonstration ». */
   readonly rules: ReportcardSnapshot["rules"];
   /** Table code -> libellé extraite du `label_map` de la version de règle. */
   readonly labels: Readonly<Record<string, string>>;

@@ -35,8 +35,11 @@ export type {
   RosterEntry as ResultsRosterEntry,
   RosterPort as ResultsRosterPort,
   RulePin,
+  RuleSourceKind,
   RulesPort,
   RuleSession,
+  CompetencyCountersPort,
+  YearFactsPort,
 } from "./application/ports";
 export { noopAudit as resultsNoopAudit, RecordingAudit as ResultsRecordingAudit } from "./application/ports";
 export { assessPortFrom } from "./infrastructure/assess-adapter";
@@ -49,6 +52,24 @@ export {
   InMemoryRoster as InMemoryResultsRoster,
   unavailableResultsPorts,
 } from "./infrastructure/in-memory-ports";
+
+// Conseils : port d'ÉCRITURE (décisions de passage / redoublement, appréciation générale, distinctions, séance) et quorum (règle)
+export {
+  COUNCIL_WRITE_SOURCES,
+  markDeliberationHeld,
+  openCouncilDeliberation,
+  publishYearDecision,
+  recordDistinction,
+  writeCouncilAppreciation,
+  type CouncilActor,
+  type CouncilWriteSource,
+  type MarkDeliberationHeldInput,
+  type OpenCouncilDeliberationInput,
+  type PublishYearDecisionInput,
+  type RecordDistinctionInput,
+  type WriteCouncilAppreciationInput,
+} from "./application/council-write";
+export { evaluateCouncilQuorum, type CouncilQuorumResult, type EvaluateCouncilQuorumInput } from "./application/quorum";
 
 // Calcul, cycle de période
 export { computePeriod, type ComputeReport } from "./application/compute";
@@ -113,11 +134,13 @@ export { getYearResult, type YearPeriodSummary, type YearResult } from "./applic
 // Pipelines purs (testables sans base) et domaine
 export { computeCreditSemester } from "./domain/pipeline/credit";
 export { computeCoefSemester } from "./domain/pipeline/coef";
+export { computeCoefPeriod, COEF_PERIOD_CONTRACT, type CoefPeriodInput } from "./domain/pipeline/coef-period";
+export { computeCompetencyPeriod, COMPETENCY_PERIOD_CONTRACT, type CompetencyPeriodInput } from "./domain/pipeline/competency-period";
 export { StageRunner, StructureError, type BatchEvaluator, type CallResult, type RuleCall } from "./domain/pipeline/runner";
 export { ALL_RESULTS_EVENT_TYPES, ResultsEvents, ConsumedEvents as ResultsConsumedEvents, type ResultsEventType } from "./domain/events";
 export { ResultsCode, type ResultsCodeValue } from "./domain/errors";
-export { OVERRIDABLE, DECISION_RULES, EXAM_AGGREGATION_GROUP, outcomeOf } from "./domain/catalog";
+export { OVERRIDABLE, DECISION_RULES, EXAM_AGGREGATION_GROUP, YEAR_END_FINAL_CODES, NON_FINAL_DECISION_CODES, isFinalDecisionCode, outcomeOf } from "./domain/catalog";
 export { isLegalStateTransition, planClose, planDeliberate, planLock, planReopen } from "./domain/period-state";
 export { closureHashOf, hashOf, canonicalJson } from "./domain/hash";
-export type { ClassStructure, ComputedHeader, ComputedLine, EnrollmentComputation, ClassComputation, GradeFact, PeriodFacts, StructureNode, ApprovedOverride } from "./domain/types";
+export type { ClassStructure, ComputedHeader, ComputedLine, EnrollmentComputation, ClassComputation, GradeFact, PeriodFacts, StructureNode, ApprovedOverride, EnrollmentYearFacts, CompetencyCounters } from "./domain/types";
 export type { PeriodState, ResultHeader, LineRecord, OverrideRecord, DecisionRecord, DeliberationRecord, AppreciationRecord, ClosureRecord, RecomputeRequest, ResultsSettings } from "./domain/records";

@@ -99,6 +99,8 @@ export {
   findDuplicateStudents,
   getStatusHistory,
   getStudent,
+  getStudentAgeOn,
+  getStudentAgesOn,
   getStudentPhotoUrl,
   getStudentSensitive,
   getStudentsByIds,
@@ -114,6 +116,7 @@ export {
   updatePriorEducation,
   updateStudent,
   uploadStudentPhoto,
+  type CreateStudentInput,
   type CreateStudentOutcome,
   type StudentList,
   type StudentScope,
@@ -227,8 +230,12 @@ export { applyEnrollmentEvent, applyMembershipEvent, getMembershipStatus, rebuil
 
 // Règles de domaine pures réutilisables (tests de contrat des autres modules)
 export { isGuardianOfStudentRule, resolveLinkFlags, type GuardianshipFacts, type LinkFlags } from "./domain/guardianship";
-export { isActiveOn, isStaffAssigned, listUnstaffedNodes as unstaffedNodesOf, resolveResponsible, type AssignmentFact, type NodeFact, type Responsible } from "./domain/assignments";
-export { canTransitionStudent, canTransitionStaff, FINAL_STUDENT_STATUSES } from "./domain/status";
+export { isActiveOn, isGeneralistHomeroom, isStaffAssigned, listUnstaffedNodes as unstaffedNodesOf, resolveResponsible, type AssignmentFact, type NodeFact, type Responsible } from "./domain/assignments";
+export { canTransitionStudent, canTransitionStaff, FINAL_STUDENT_STATUSES, requiresHumanActor } from "./domain/status";
+// Âge à une date de référence FOURNIE (années révolues ; jamais l'horloge)
+export { ageInYearsOn, isValidIsoDate, type AgeOptions } from "./domain/age";
+// Rapprochement de personnes : score et raisons (codes)
+export { duplicateReasons, duplicateScore, type DuplicateReason } from "./domain/duplicates";
 export { formatNumber, validatePattern } from "./domain/number-pattern";
 export { normalizePhone, displayName } from "./domain/normalize";
 export { PeopleErrors } from "./domain/errors";

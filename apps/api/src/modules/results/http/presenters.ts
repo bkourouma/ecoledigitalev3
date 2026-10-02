@@ -92,6 +92,8 @@ export const decisionDto = (d: DecisionRecord) => ({
   justification: d.justification,
   decidedBy: d.decidedBy,
   decidedAt: iso(d.decidedAt),
+  origin: d.origin,
+  councilRef: d.councilRef,
 });
 
 export const overrideDto = (o: OverrideRecord) => ({

@@ -7,6 +7,7 @@
  *   PeriodClosureGuard      011, 013   repli : aucun refus
  *   CurriculumUsageGuard    011, 019   repli : « utilisé » (refus de tout amendement structurel) — sûr
  *   OfferingReadinessGuard  people     repli : aucun refus
+ *   ClassroomActivationGuard people, primary_school  repli : aucun refus (la classe s'active sans garde supplémentaire)
  *   CompletionLookup        011, 019   repli : sélections `COMPLETED` (lecture locale)
  *   ScheduleConflictChecker scheduling repli : aucun conflit
  *   TemplateProvider        tenancy    repli : modèles livrés avec le module (`templates/CI/*.json`)
@@ -126,6 +127,27 @@ export interface OfferingReadinessGuard {
 }
 export const alwaysReady: OfferingReadinessGuard = Object.freeze({
   async check(): Promise<Result<void, { missing: string[] }>> {
+    return ok(undefined);
+  },
+});
+
+/**
+ * Garde d'ACTIVATION d'une classe (spec 005 T-P11) : un module de pack peut exiger une condition propre avant qu'une classe
+ * passe `DRAFT -> ACTIVE` (ex. « une classe du primaire a un titulaire »). `academic` n'en connaît aucune : il appelle le garde
+ * APRÈS ses propres contrôles (curriculum publié) et, sur refus, renvoie un conflit portant le CODE du garde.
+ * `reason` (facultatif) est le message affiché ; `details` ne doit contenir aucune donnée personnelle.
+ */
+export interface ClassroomActivationRefusal {
+  code: string;
+  reason?: string;
+  details?: Record<string, unknown>;
+}
+export interface ClassroomActivationGuard {
+  check(ctx: RequestContext, classroomId: string): Promise<Result<void, ClassroomActivationRefusal>>;
+}
+/** Repli SÛR et NEUTRE : sans garde câblé, l'activation n'est jamais refusée par ce port. */
+export const neverBlockActivation: ClassroomActivationGuard = Object.freeze({
+  async check(): Promise<Result<void, ClassroomActivationRefusal>> {
     return ok(undefined);
   },
 });
@@ -274,6 +296,8 @@ export interface AcademicPorts {
   periodGuard: PeriodClosureGuard;
   usageGuard: CurriculumUsageGuard;
   readiness: OfferingReadinessGuard;
+  /** Garde d'activation de classe (repli : aucun refus). */
+  classroomActivation: ClassroomActivationGuard;
   /** `undefined` = repli local (sélections `COMPLETED`). */
   completion: CompletionLookup | undefined;
   schedule: ScheduleConflictChecker;
@@ -290,6 +314,7 @@ export const DEFAULT_PORTS: AcademicPorts = Object.freeze({
   periodGuard: neverBlockClosure,
   usageGuard: assumeNodesInUse,
   readiness: alwaysReady,
+  classroomActivation: neverBlockActivation,
   completion: undefined,
   schedule: noScheduleConflicts,
   templates: bundledTemplates,

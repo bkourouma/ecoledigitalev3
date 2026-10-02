@@ -43,6 +43,12 @@ export default defineModule({
       sensitive: true,
     },
     {
+      key: "rules.binding.accept_placeholder",
+      label: "Accuser l'usage d'un jeu de règles de démonstration (fictif) en production",
+      description: "Un jeu de démonstration n'a aucune valeur officielle : tout résultat, bulletin et PV qui en dérive porte le filigrane « règles de démonstration ».",
+      sensitive: true,
+    },
+    {
       key: "rules.platform.manage",
       label: "Console plateforme : catalogue national, approbation, publication et retrait des règles",
       description: "Réservé aux opérateurs de la plateforme (authentification super-administrateur).",

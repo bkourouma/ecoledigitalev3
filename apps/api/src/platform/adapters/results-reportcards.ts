@@ -28,6 +28,7 @@ import type { RulesApi } from "../../modules/rules";
 import {
   getClassMatrix,
   getFinalResult,
+  listDecisions,
   getPeriodView,
   getStateView,
   getYearResult,
@@ -103,12 +104,13 @@ function explainOf(lineCode: string, trace: unknown): { lineCode: string; rules:
 export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): ResultsReadPort {
   const { results, academic, people, rules } = deps;
 
-  async function labelsOf(ctx: RequestContext, ruleVersionId: string): Promise<Record<string, string>> {
+  /** Libellés de la version de règle (`label_map`) et sa PROVENANCE (`placeholder` ⇒ document marqué « règles de démonstration »). */
+  async function ruleInfoOf(ctx: RequestContext, ruleVersionId: string): Promise<{ labels: Record<string, string>; sourceKind: "regulation" | "institution" | "platform" | "placeholder" | null }> {
     const loaded = await rules.loadVersion(ctx, ruleVersionId);
-    if (!loaded.ok) return {};
+    if (!loaded.ok) return { labels: {}, sourceKind: null };
     const out: Record<string, string> = {};
     for (const rule of loaded.value.rules) for (const table of Object.values(rule.labelMap)) for (const [code, label] of Object.entries(table)) out[code.slice(0, 200)] = String(label).slice(0, 200);
-    return out;
+    return { labels: out, sourceKind: loaded.value.version.source.kind };
   }
 
   function nodeName(structure: ResultsStructure | null): (nodeId: string | null) => { code: string; label: string; parentCode: string | null; category: string | null } | null {
@@ -288,8 +290,17 @@ export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): Resu
     for (const a of appr) if (!byNode.has(a.curriculumNodeId) || a.authorRole !== "TEACHER") byNode.set(a.curriculumNodeId, a.body);
     const general = [...appr].filter((a) => a.curriculumNodeId === null).sort((a, b) => (a.authorRole === "TEACHER" ? 1 : 0) - (b.authorRole === "TEACHER" ? 1 : 0))[0];
 
-    const labels = await labelsOf(ctx, header.ruleVersionId);
+    const ruleInfo = await ruleInfoOf(ctx, header.ruleVersionId);
+    // Les libellés des distinctions décidées par un conseil viennent aussi du `label_map` de la version de règle.
+    const labels = ruleInfo.labels;
     const { lines, explain } = linesOf(header, structure, byNode, labels);
+
+    // Décisions CONFIRMÉES (conseil de classe, conseil des maîtres) : la décision finale prime sur la proposition de la règle ;
+    // les distinctions décidées par un conseil s'ajoutent à celles de la règle. Aucune décision n'est déduite d'un libellé.
+    const decisions = await listDecisions(results, ctx, { stateId: header.stateId, enrollmentId: header.enrollmentId, caps: READ });
+    const confirmed = decisions.ok ? decisions.value.filter((d) => (d.status === "CONFIRMED" || d.status === "PUBLISHED") && d.finalCode) : [];
+    const councilYearDecision = confirmed.find((d) => d.kind === "YEAR_END" && d.scope === "YEAR")?.finalCode ?? null;
+    const councilDistinctions = confirmed.filter((d) => d.kind === "DISTINCTION" && d.finalCode).map((d) => (labels[d.finalCode as string] ?? (d.finalCode as string)).slice(0, 120));
 
     // Bilan annuel : seulement à la dernière période d'enseignement, quand l'année est complète.
     let annual: FinalResultBundle["annual"] = null;
@@ -303,7 +314,7 @@ export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): Resu
           averageDisplay: truncate(year.value.averageDisplay, 40),
           rank: year.value.rank,
           classSize: year.value.cohortSize,
-          decisionCode: truncate(year.value.yearDecisionCode ?? year.value.mentionCode, 60),
+          decisionCode: truncate(councilYearDecision ?? year.value.yearDecisionCode ?? year.value.mentionCode, 60),
         };
       }
     }
@@ -333,6 +344,9 @@ export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): Resu
         periodId,
         periodLabel: period.ok ? truncate(period.value.label, 120) : null,
         classSize,
+        // « Affecté(e) » : dérivé du TYPE DE FINANCEMENT de l'inscription (spec 006 §7.4), jamais du texte d'une décision.
+        fundingType: enrollmentR.ok ? truncate(enrollmentR.value.fundingType, 40) : null,
+        stateAssigned: enrollmentR.ok ? enrollmentR.value.fundingType === "STATE_ASSIGNED" : null,
       },
       lines,
       summary: {
@@ -348,7 +362,7 @@ export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): Resu
         creditsRequired: fitDecimal(header.creditsRequired),
         totalCoefficient: null,
         weightedTotal: null,
-        distinctions: typeof summary.distinction === "string" && summary.distinction ? [summary.distinction.slice(0, 120)] : [],
+        distinctions: [...(typeof summary.distinction === "string" && summary.distinction ? [summary.distinction.slice(0, 120)] : []), ...councilDistinctions].slice(0, 8),
       },
       annual,
       deliberation: held?.heldOn ? { heldOn: held.heldOn, nature: held.kind } : null,
@@ -364,6 +378,8 @@ export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): Resu
         resultsStateId: header.stateId,
         resultsVersion: s.resultsVersion,
         closureHash: closure?.closureHash ?? ZERO_HASH,
+        // Provenance de la version de règle : `placeholder` ⇒ filigrane et mention « règles de démonstration » (bulletin et vérification).
+        ...(ruleInfo.sourceKind ? { sourceKind: ruleInfo.sourceKind } : {}),
       },
       labels,
       explain,

@@ -5,7 +5,7 @@
 import { ManualClock, newId, noopLogger, unwrap, type RequestContext } from "@ecoledigitale/kernel";
 import { createRulesApi, createRulesDeps, ensureNationalCatalog, putBinding, type RulesApi, type RulesDeps } from "../../../rules";
 import { createResultsDeps, type ResultsCaps, type ResultsDeps } from "../../application/deps";
-import { RecordingAudit } from "../../application/ports";
+import { RecordingAudit, type ResultsPorts } from "../../application/ports";
 import { rulesPortFrom } from "../../infrastructure/rules-adapter";
 import { InMemoryAssess, InMemoryCurriculum, InMemoryGuardianship, InMemoryNames, InMemoryRoster } from "../../infrastructure/in-memory-ports";
 import type { ClassStructure, GradeFact, PeriodFacts, StructureNode } from "../../domain/types";
@@ -45,7 +45,7 @@ export interface World {
   second: RequestContext;
 }
 
-export async function makeWorld(db: ResultsTestDb, options: { start?: string; seedRules?: boolean } = {}): Promise<World> {
+export async function makeWorld(db: ResultsTestDb, options: { start?: string; seedRules?: boolean; extraPorts?: Partial<ResultsPorts> } = {}): Promise<World> {
   const clock = new ManualClock(options.start ?? "2026-01-15T10:00:00.000Z");
   const audit = new RecordingAudit();
   const curriculum = new InMemoryCurriculum();
@@ -57,7 +57,7 @@ export async function makeWorld(db: ResultsTestDb, options: { start?: string; se
   if (options.seedRules !== false) await ensureNationalCatalog(rulesDeps);
   const rulesApi = createRulesApi(rulesDeps);
   const tenantId = await db.createTenant();
-  const deps = createResultsDeps({ db: db.tenantDb, clock, audit, logger: noopLogger, ports: { curriculum, roster, assess, rules: rulesPortFrom(rulesApi), guardianship, names } });
+  const deps = createResultsDeps({ db: db.tenantDb, clock, audit, logger: noopLogger, ports: { curriculum, roster, assess, rules: rulesPortFrom(rulesApi), guardianship, names, ...options.extraPorts } });
   return { db, tenantId, clock, audit, deps, rulesDeps, rulesApi, curriculum, roster, assess, guardianship, names, director: ctxFor(tenantId), second: ctxFor(tenantId) };
 }
 
