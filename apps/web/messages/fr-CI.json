@@ -6996,7 +6996,8 @@
       "DIPLOMA": "Diplôme",
       "ATTESTATION_SUCCESS": "Attestation de réussite",
       "ATTESTATION_AUTHENTICITY": "Attestation d'authenticité",
-      "PAYSLIP": "Bulletin de paie"
+      "PAYSLIP": "Bulletin de paie",
+      "RECEIPT": "Reçu de paiement"
     },
     "file": {
       "title": "Comparer un fichier PDF",
