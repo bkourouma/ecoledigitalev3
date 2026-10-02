@@ -15,6 +15,9 @@ import { PortalScreen } from "./PortalScreen";
 import { SessionsScreen } from "./SessionsScreen";
 import { StaffAttendanceScreen } from "./StaffAttendanceScreen";
 
+// Écrans complets rendus avec le vrai catalogue : marge pour les machines chargées (tests lancés en parallèle).
+vi.setConfig({ testTimeout: 30_000 });
+
 vi.mock("@/platform/api/default-client", async () => (await import("@/platform/test/api-mock")).defaultClientModule);
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 

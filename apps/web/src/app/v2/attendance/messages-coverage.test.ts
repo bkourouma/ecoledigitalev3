@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import catalog from "../../../../messages/fr-CI.json";
+import { SCHEDULING_OCCURRENCE_KINDS, SCHEDULING_OCCURRENCE_STATUSES, SCHEDULING_STAFF_ROLES } from "@ecoledigitale/contracts/v2/scheduling";
 import { ATTENDANCE_ALERT_METRICS, ATTENDANCE_JUSTIFICATION_STATUSES, ATTENDANCE_LEAVE_STATUSES, ATTENDANCE_SESSION_STATUSES, ATTENDANCE_SUBMITTER_KINDS, ATTENDANCE_SYNC_CONFLICT_KINDS } from "@ecoledigitale/contracts/v2/attendance";
 
 /**
@@ -58,6 +59,23 @@ describe("messages fr-CI : présences et emploi du temps", () => {
       ["v2Attendance.conflicts.resolution", ["ACCEPT_INCOMING", "KEEP_EXISTING"]],
       ["v2Attendance.reasonFallback", ["ILLNESS", "FAMILY_EVENT", "TRANSPORT", "OFFICIAL_ACTIVITY", "OTHER"]],
       ["v2Attendance.leaveFallback", ["ANNUAL", "SICK", "MATERNITY", "UNPAID", "AUTHORIZED_ABSENCE"]],
+      ["v2Schedule.kind", SCHEDULING_OCCURRENCE_KINDS],
+      ["v2Schedule.status", SCHEDULING_OCCURRENCE_STATUSES],
+      ["v2Schedule.staffRole", SCHEDULING_STAFF_ROLES],
+      ["v2Schedule.delivery", ["IN_PERSON", "ONLINE", "HYBRID"]],
+      ["v2Schedule.resourceStatus", ["AVAILABLE", "OUT_OF_SERVICE", "ARCHIVED"]],
+      ["v2Schedule.weekdayLong", ["1", "2", "3", "4", "5", "6", "7"]],
+      ["v2Schedule.weekdayShort", ["1", "2", "3", "4", "5", "6", "7"]],
+      ["v2Schedule.timetables.status", ["DRAFT", "PUBLISHED", "ARCHIVED"]],
+      ["v2Schedule.editor.status", ["DRAFT", "PUBLISHED", "ARCHIVED"]],
+      ["v2Schedule.editor.pattern", ["EVERY", "WEEK_A", "WEEK_B"]],
+      ["v2Schedule.entry.patterns", ["EVERY", "WEEK_A", "WEEK_B"]],
+      ["v2Schedule.entry.deliveryModes", ["IN_PERSON", "ONLINE", "HYBRID"]],
+      ["v2Schedule.entry.propagation", ["NONE", "FUTURE_PLANNED"]],
+      ["v2Schedule.rooms.setStatus", ["AVAILABLE", "OUT_OF_SERVICE", "ARCHIVED"]],
+      ["v2Schedule.export.sources", ["mine", "children", "classroom", "staff", "student", "room"]],
+      ["v2Schedule.viewer.modes", ["mine", "children", "classroom", "staff", "student", "room"]],
+      ["v2Schedule.conflicts.resource", ["STAFF", "CLASSROOM", "ROOM", "EQUIPMENT"]],
       ["v2Attendance.outcome.codes", ["attendance_unmarked_students", "attendance_occurrence_cancelled", "attendance_forbidden", "attendance_session_locked", "local_invalid_batch"]],
     ];
     const missing: string[] = [];

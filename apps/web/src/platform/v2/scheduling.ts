@@ -114,6 +114,7 @@ export function useViewOccurrences(kind: ViewKind, id: string | null, window: Wi
     schema: schedulingOccurrencePageDtoSchema,
     query: { from: window.from, to: window.to, includeCancelled: window.includeCancelled ? "true" : undefined, limit: 500 },
     enabled: enabled && id !== null,
+    keepPreviousData: true,
     retry: false,
   });
 }
@@ -127,6 +128,7 @@ export function useMyTimetable(window: WindowQuery, enabled = true) {
     schema: myTimetableDtoSchema,
     query: { from: window.from, to: window.to, includeCancelled: window.includeCancelled ? "true" : undefined, limit: 500 },
     enabled,
+    keepPreviousData: true,
     retry: false,
   });
 }
@@ -134,8 +136,9 @@ export function useMyTimetable(window: WindowQuery, enabled = true) {
 export function useChildTimetable(studentId: string | null, window: WindowQuery) {
   return hooks.useApiQuery([...KEY, "child", studentId], `${SCHEDULING_BASE}/children/${studentId}/timetable`, {
     schema: schedulingOccurrencePageDtoSchema,
-    query: { from: window.from, to: window.to, limit: 500 },
+    query: { from: window.from, to: window.to, includeCancelled: window.includeCancelled ? "true" : undefined, limit: 500 },
     enabled: studentId !== null,
+    keepPreviousData: true,
     retry: false,
   });
 }

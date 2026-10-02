@@ -34,6 +34,38 @@ describe("buildQueryKey", () => {
   });
 });
 
+describe("useApiQuery keepPreviousData", () => {
+  it("garde l'ancien contenu quand seule la fenêtre change, jamais quand la ressource change", async () => {
+    const gate: { release: () => void } = { release: () => undefined };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "http://t");
+      if (url.searchParams.get("week") === "2" || url.pathname.endsWith("/b")) await new Promise<void>((r) => (gate.release = r));
+      return json({ label: `${url.pathname}?week=${url.searchParams.get("week")}` });
+    });
+    const { hooks, wrapper } = setup("ipam", fetchMock as unknown as typeof fetch);
+    const schema = z.object({ label: z.string() });
+    const { result, rerender } = renderHook(
+      ({ resource, week }: { resource: string; week: number }) => hooks.useApiQuery(["view", resource], `/api/v1/views/${resource}`, { schema, query: { week }, keepPreviousData: true }),
+      { wrapper, initialProps: { resource: "a", week: 1 } },
+    );
+    await waitFor(() => expect(result.current.data?.label).toBe("/api/v1/views/a?week=1"));
+
+    // Même ressource, autre fenêtre : l'ancien contenu reste affiché pendant le chargement.
+    rerender({ resource: "a", week: 2 });
+    await waitFor(() => expect(result.current.isPlaceholderData).toBe(true));
+    expect(result.current.data?.label).toBe("/api/v1/views/a?week=1");
+    gate.release();
+    await waitFor(() => expect(result.current.data?.label).toBe("/api/v1/views/a?week=2"));
+
+    // Autre ressource : jamais les données de la précédente.
+    rerender({ resource: "b", week: 2 });
+    await waitFor(() => expect(result.current.isFetching).toBe(true));
+    expect(result.current.data).toBeUndefined();
+    gate.release();
+    await waitFor(() => expect(result.current.data?.label).toBe("/api/v1/views/b?week=2"));
+  });
+});
+
 describe("createQueryHooks", () => {
   it("useApiQuery : requête, validation Zod, clé de cache avec tenant", async () => {
     const fetchMock = vi.fn(async () => json({ items: [1, 2] }));

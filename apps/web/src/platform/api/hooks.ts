@@ -34,6 +34,8 @@ export interface ApiQueryOptions<TData, TSelected = TData> {
   retry?: boolean | number;
   select?: (data: TData) => TSelected;
   refetchOnWindowFocus?: boolean;
+  /** Garde les données de la clé précédente pendant le chargement de la nouvelle (navigation par semaine, pagination). */
+  keepPreviousData?: boolean;
 }
 
 export interface ApiMutationOptions<TData, TVariables> {
@@ -100,9 +102,13 @@ export function createQueryHooks(client: ApiClient): QueryHooks {
   ): UseQueryResult<TSelected, ApiError> {
     const tenant = client.getTenant();
     const hasTenant = tenant !== null;
+    const queryKey = buildQueryKey(tenant, options.query ? [...key, options.query] : key);
+    // Même ressource (clé identique hors paramètres de requête) : seulement dans ce cas on garde l'ancien contenu pendant
+    // le chargement ; un changement de ressource (autre classe, autre enfant) ne montre jamais les données de la précédente.
+    const sameResource = (previousKey: readonly unknown[]) => JSON.stringify(previousKey.slice(0, -1)) === JSON.stringify(queryKey.slice(0, -1));
     return useQuery<TData, ApiError, TSelected>({
       // Les paramètres de requête font partie de la clé : deux filtres différents = deux entrées.
-      queryKey: buildQueryKey(tenant, options.query ? [...key, options.query] : key),
+      queryKey,
       queryFn: ({ signal }) =>
         client.request<TData, ZodTypeAny | undefined>("GET", path, { query: options.query, schema: options.schema, signal }) as Promise<TData>,
       // Sans tenant, aucune requête n'est émise (l'UI affiche l'état « tenant inconnu »).
@@ -111,6 +117,7 @@ export function createQueryHooks(client: ApiClient): QueryHooks {
       gcTime: options.gcTime,
       select: options.select,
       refetchOnWindowFocus: options.refetchOnWindowFocus,
+      placeholderData: options.keepPreviousData && options.query ? (previous, previousQuery) => (previousQuery && sameResource(previousQuery.queryKey) ? previous : undefined) : undefined,
       retry: options.retry ?? ((count, error) => count < 1 && !isClientError(error)),
     });
   }
