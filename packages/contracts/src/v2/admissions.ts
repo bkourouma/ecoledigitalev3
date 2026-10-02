@@ -1031,7 +1031,7 @@ export const admissionsWaitlistPromotedEventSchema = z.object({ v: z.literal(1),
 export const admissionsProspectConvertedEventSchema = z.object({ v: z.literal(1), prospectId: admissionsUuidSchema, applicationId: admissionsUuidSchema, institutionId: admissionsUuidSchema });
 export const admissionsApplicationAnonymizedEventSchema = z.object({ v: z.literal(1), ...appRef });
 
-export const ADMISSIONS_EVENT_TYPES = {
+export const admissionsEventPayloadSchemas = {
   "admissions.application.submitted": admissionsApplicationSubmittedEventSchema,
   "admissions.application.status_changed": admissionsApplicationStatusChangedEventSchema,
   "admissions.decision.recorded": admissionsDecisionRecordedEventSchema,

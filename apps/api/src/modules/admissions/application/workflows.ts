@@ -214,6 +214,12 @@ export async function publishWorkflow(deps: AdmissionsDeps, ctx: RequestContext,
     if (defects.length > 0) {
       return err(validation(AdmissionsCode.WORKFLOW_PUBLISH_FAILED, `Le workflow ne peut pas être publié : ${defects.map((d) => d.message).join(" ")}`, "workflow", { defects }));
     }
+    // Publications du même cycle SÉRIALISÉES ; une version plus ancienne ne remplace jamais une version plus récente déjà publiée.
+    await wf.lockPublicationScope(tx, w.institutionId, w.educationLevelCode);
+    const live = await wf.getPublishedHeader(tx, w.institutionId, w.educationLevelCode);
+    if (live && live.code === w.code && live.version > w.version) {
+      return err(conflict(AdmissionsCode.WORKFLOW_CONFLICT, `Une version plus récente de ce parcours (v${live.version}) est déjà publiée : créez une nouvelle version à partir d'elle.`, { liveVersion: live.version }));
+    }
     const archived = await wf.archivePublishedOf(tx, w.institutionId, w.educationLevelCode, workflowId);
     await wf.publishWorkflowRow(tx, workflowId, ctx.userId);
     const buffer = new EventBuffer(deps, ctx);

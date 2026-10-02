@@ -160,6 +160,18 @@ export async function getPublishedWorkflowId(tx: Tx, institutionId: string, educ
   return r?.id ?? null;
 }
 
+/** Sérialise les publications d'un même (établissement, cycle) : verrou consultatif de la transaction. */
+export async function lockPublicationScope(tx: Tx, institutionId: string, educationLevelCode: string | null): Promise<void> {
+  await tx.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`admissions:workflow:${institutionId}:${educationLevelCode ?? ""}`]);
+}
+
+export async function getPublishedHeader(tx: Tx, institutionId: string, educationLevelCode: string | null): Promise<{ id: string; code: string; version: number } | null> {
+  return tx.queryOne(
+    `SELECT id, code, version FROM admissions.workflows WHERE institution_id = $1 AND status = 'PUBLISHED' AND coalesce(education_level_code, '') = coalesce($2, '') LIMIT 1`,
+    [institutionId, educationLevelCode],
+  );
+}
+
 export async function countCampaignsUsingWorkflow(tx: Tx, workflowId: string): Promise<number> {
   const r = await tx.queryOne<{ n: number }>(`SELECT count(*)::int AS n FROM admissions.campaigns WHERE workflow_id = $1`, [workflowId]);
   return r?.n ?? 0;
