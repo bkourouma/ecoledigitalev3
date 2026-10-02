@@ -187,7 +187,7 @@ export function ControlsPanel({ detail }: { detail: AssignmentDetailDto }) {
         confirmLabel={t("waive.submit")}
         isPending={waive.isPending}
         error={waive.error}
-        onConfirm={(reason) => waiving && waive.mutate({ id: waiving.id, reason }, { onSuccess: () => setWaiving(null) })}
+        onConfirm={(reason) => { if (waiving) waive.mutate({ id: waiving.id, reason }, { onSuccess: () => setWaiving(null) }) }}
       />
       <ReasonDialog
         open={resolving !== null}
@@ -198,7 +198,7 @@ export function ControlsPanel({ detail }: { detail: AssignmentDetailDto }) {
         confirmLabel={t("resolve.submit")}
         isPending={resolve.isPending}
         error={resolve.error}
-        onConfirm={(resolution) => resolving && resolve.mutate({ id: resolving.id, resolution }, { onSuccess: () => setResolving(null) })}
+        onConfirm={(resolution) => { if (resolving) resolve.mutate({ id: resolving.id, resolution }, { onSuccess: () => setResolving(null) }) }}
       />
     </section>
   );

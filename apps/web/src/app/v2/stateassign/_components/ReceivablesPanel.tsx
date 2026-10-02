@@ -169,7 +169,7 @@ export function ReceivablesPanel({ detail }: { detail: AssignmentDetailDto }) {
         destructive
         isPending={cancel.isPending}
         error={cancel.error}
-        onConfirm={(reason) => cancelling && cancel.mutate({ id: cancelling.id, reason, rowVersion: cancelling.rowVersion }, { onSuccess: () => setCancelling(null) })}
+        onConfirm={(reason) => { if (cancelling) cancel.mutate({ id: cancelling.id, reason, rowVersion: cancelling.rowVersion }, { onSuccess: () => setCancelling(null) }) }}
       />
     </section>
   );

@@ -104,7 +104,7 @@ export function DocumentsPanel({ detail }: { detail: AssignmentDetailDto }) {
         destructive
         isPending={withdraw.isPending}
         error={withdraw.error}
-        onConfirm={(reason) => withdrawing && withdraw.mutate({ id: withdrawing.id, reason }, { onSuccess: () => setWithdrawing(null) })}
+        onConfirm={(reason) => { if (withdrawing) withdraw.mutate({ id: withdrawing.id, reason }, { onSuccess: () => setWithdrawing(null) }) }}
       />
     </section>
   );

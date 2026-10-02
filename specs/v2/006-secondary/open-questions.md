@@ -78,6 +78,34 @@
 
 **Q6-32 — Collège et lycée dans un même établissement.** Un même chef d'établissement préside-t-il les deux conseils ? Le **conseil des maîtres** du primaire (spec 005) doit-il réutiliser le même outil de séance, de décision et de procès-verbal ? *Proposition* : oui, l'outil de conseil est le même (types de conseil et de décision en données).
 
+### A.6 Élèves affectés par l'État — créances, rejets, contrôles, exports (module `stateassign`)
+
+Ces questions sont nées de l'**implémentation** du module (migrations 2300-2303). Pour chacune, la **valeur par défaut** ci-dessous est ce que fait l'application aujourd'hui ; elle n'est **pas** une règle officielle et chaque point reste **réglable ou vide** tant que vous n'avez pas tranché.
+
+**Q6-33 — Calendrier des versements de l'État.** L'État (ou l'autorité d'affectation) verse-t-il la part qui lui revient **en une fois, par trimestre, par mois** ? Qui fixe les **dates** : l'acte d'affectation, une convention, une circulaire ? Un versement porte-t-il sur **un seul élève** ou sur **plusieurs** (virement groupé à ventiler) ? *Défaut* : l'établissement **planifie lui-même** les échéances attendues de chaque dossier (libellé, date, montant) ; leur **total ne peut pas dépasser** la part de l'État déclarée par l'acte ; un paiement est suivi **par élève**. *Pourquoi c'est important* : un virement groupé doit être ventilé par élève dans les finances avant que le suivi puisse l'affecter.
+
+**Q6-34 — Quand une créance de l'État est-elle « en retard » ?** Existe-t-il un délai de grâce usuel après l'échéance ? Qui prévenir (économe, direction, autorité de tutelle) et à quel rythme ? *Défaut* : **zéro jour de grâce** (réglable de 0 à 366 jours) ; l'alerte « créance en retard » est publiée **une seule fois** par échéance ; ancienneté présentée en tranches de 30 jours (présentation, pas une règle).
+
+**Q6-35 — Paiement partiel, trop-perçu, non-valeur.** Que fait-on d'un versement **inférieur** à l'échéance, **supérieur** au total attendu, ou jamais reçu ? Faut-il pouvoir **admettre en non-valeur** une créance, ou la **transférer** à la famille ? *Défaut* : le versement reçu est affecté aux échéances **dans l'ordre**, le surplus est affiché « non affecté » (jamais perdu) ; on **annule** une échéance **sans versement** avec un motif ; **aucune non-valeur** n'est modélisée.
+
+**Q6-36 — Rejet d'un dossier déjà vérifié.** Si l'autorité conteste un dossier **après** sa vérification (la référence est déjà portée sur l'inscription et la facturation a été séparée en parts État / famille), que doit devenir l'**inscription** (retour au type « privé ») et la **facturation** (refacturation de la part de l'État à la famille) ? *Défaut* : **rien n'est modifié automatiquement** (acte financier : une personne décide) ; l'audit et l'événement de rejet signalent que l'inscription porte encore la référence.
+
+**Q6-37 — Qui vérifie, qui active ?** La vérification doit-elle être faite par la **direction**, l'**économe**, un autre profil ? L'**activation** est-elle un acte distinct ? *Défaut* : la **séparation des tâches est active** (celui qui enregistre ne vérifie pas ; réglable) ; la permission de vérifier est **sensible** (authentification forte) et **n'est pas donnée au secrétariat** par défaut ; l'activation est un acte distinct (`stateassign.manage`).
+
+**Q6-38 — Avenants : effet sur la facturation.** Un avenant qui change la part de l'État doit-il entraîner une **refacturation** (avoir et nouvelle facture) ? À partir de **quelle date** s'applique-t-il ? *Défaut* : l'avenant **remplace** le dossier (date d'effet et motif obligatoires) et crée la version suivante, qui doit être **vérifiée à son tour** ; **aucune écriture n'est faite dans la facturation** : l'écart apparaît au rapprochement et une personne corrige. Un avenant **ne peut pas descendre** sous le calendrier de créances déjà planifié.
+
+**Q6-39 — Création de la bourse de l'État.** Le dossier vérifié doit-il **créer** la bourse « État » et séparer la facture (part de l'État / part de la famille) dans les finances ? *Défaut* : **non** — la bourse et les factures restent créées par l'économe dans les finances ; le module **compare** (écart facturé − déclaré, tolérance de l'établissement, zéro par défaut) et alerte.
+
+**Q6-40 — Contrôles et certificat de présence.** Quelles **natures** de contrôle, à quel **rythme**, avec quel **justificatif** ? Le **certificat de présence** a-t-il un modèle imposé (en-tête, signatures, période) ? Que transmet-on à l'autorité et comment ? *Défaut* : **aucun contrôle exigé** ; l'établissement choisit les natures (présence, identité, rapprochement financier, pièces, autre) et le **délai d'échéance** (jours après la fin de période ou la vérification) ; l'application **planifie**, une personne **réalise** ; les faits de présence viennent du module des présences ; le certificat est une **pièce** rattachée (le gabarit officiel reste à fournir).
+
+**Q6-41 — Formats d'export attendus par l'administration.** Quels fichiers l'autorité attend-elle (colonnes, ordre, intitulés, séparateur, encodage, fréquence, destinataire) ? *Défaut* : **aucun format officiel** ; chaque établissement **compose** ses formats (colonnes d'un catalogue, en-têtes, séparateur, BOM) ; à défaut, un **format neutre** reprend toutes les colonnes ; les montants sont des **entiers de francs**.
+
+**Q6-42 — Ce que voit la famille.** La famille voit-elle la **référence** et la **date de l'acte**, le **statut** du dossier, la **part de la famille** ? *Défaut* : statut, référence, date de l'acte et « vérifié / en attente » ; **jamais** les montants de l'État, les échéances, les écarts ni les contrôles.
+
+**Q6-43 — Changement d'année ou d'établissement.** Un élève affecté reconduit l'année suivante : le dossier est-il **reconduit** (même référence) ou **refait** ? Que devient le dossier en cas de **transfert** vers un autre établissement ? *Défaut* : le dossier suit l'**inscription** ; un nouvel exercice = nouveau dossier (la référence peut être reportée par une personne) ; le transfert **clôt** le dossier (date et motif).
+
+**Q6-44 — Plateforme publique d'affectation.** Existe-t-il un **échange de fichiers** ou une **interface** officielle, avec quel identifiant d'échange et quelle garantie d'intégrité ? *Défaut* : **saisie et import manuels** ; la passerelle est un **port** dont l'adaptateur `NotConfigured` répond « non disponible » ; **aucun appel externe** n'existe ; `source = GATEWAY` et l'empreinte (SHA-256) de l'échange sont prêts.
+
 ## B. Décisions de conception prises par défaut (réversibles)
 
 | # | Décision | Justification |
@@ -101,9 +129,14 @@
 | D6-17 | Passerelle de l'État = **port** avec adaptateur `NotConfigured` ; `source` et empreinte d'échange déjà prévues | PRD §20 : couche d'intégration future |
 | D6-18 | Retards et absences : **vue** d'`attendance`, aucune copie ni équivalence | Une seule source de présence |
 | D6-19 | Jeu de règles **`CI-SECONDARY-PLACEHOLDER`** (copie de démonstration de `CI-CLASSIC-SEMESTRE`) + contrat demandé `secondary-annual@1` ; valeur `placeholder` demandée à 012 | Mécanisme + jeu fictif, mention imprimée |
-| D6-20 | Plages de migrations **proposées** 1800 / 1900 / 2000 | Prochaines plages libres du tableau de `module-conventions.md` ; à renuméroter si 005/007/018 les prennent |
+| D6-20 | Plages de migrations **proposées** 1800 / 1900 / 2000 (**`stateassign` : plage 2300-2399 attribuée par `docs/architecture/module-conventions.md`, migrations 2300-2303** ; les anciens numéros 2000-2001 sont obsolètes) | Prochaines plages libres du tableau de `module-conventions.md` ; à renuméroter si 005/007/018 les prennent |
 | D6-21 | `effects_trigger = SIGNED`, `guardian_visibility = AFTER_NOTIFICATION`, `require_separate_unlocker = true`, `allow_quorum_waiver = true`, `require_separate_verifier = true` (défauts réglables) | Défauts prudents ; aucun n'est une règle officielle |
 | D6-22 | `retention_days = NULL` | Aucune durée légale codée (Q6-17) |
+| D6-23 | Les **créances sur l'État** sont un **calendrier attendu** (échéances) suivi dans `stateassign`, rattaché à l'**inscription** (un avenant n'en perd aucune) ; `finance` reste le grand livre ; le **reçu** est rapproché des paiements du financeur, le **statut** d'échéance est **calculé par la base**, le **retard est dérivé** (échéance + grâce) | R-A6 : `stateassign` n'écrit aucun montant facturé ; une seule source des paiements |
+| D6-24 | Les **formats d'export** sont des **données** (`stateassign.export_formats`), sans format officiel livré ; un format neutre intégré sert de repli ; cellules texte neutralisées contre l'injection de formule | Aucun format inventé ; sécurité des tableurs |
+| D6-25 | Rejeter un dossier **déjà vérifié** ne modifie **pas** l'inscription (financement, référence) : audit et événement le signalent | Acte financier : une personne décide (Q6-36) |
+| D6-26 | Un contrôle de **présence** vise une **période** ; les faits viennent d'`attendance` (valeur effective), jamais calculés par le module | Les récapitulatifs de présence sont par période |
+| D6-27 | Le rapprochement n'écrit rien s'il n'a rien à changer le même jour ; les horodatages de rapprochement, d'alerte et de retard viennent de l'**horloge injectée** | Historique non pollué ; tests déterministes |
 
 ## C. Incohérences relevées dans d'autres documents
 

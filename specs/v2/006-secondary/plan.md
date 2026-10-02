@@ -56,8 +56,8 @@ T6-GUARDS (lints, tests de contenu) ─► T6-E2E ─► T6-CLEAN (indicateur «
 - **Fin** : 14 tables, tests de `schoollife.test.mjs` portés ; fonctions `audience_may_see` et `conduct_balance` couvertes.
 
 ### T6-DB-S — Module `stateassign` : migrations (S)
-- **Fichiers** : `modules/stateassign/migrations/2000-2001_*.sql`, allowlist vide.
-- **Fin** : 5 tables, tests de `stateassign.test.mjs` portés.
+- **Fichiers** : `modules/stateassign/migrations/2300-2303_*.sql`, allowlist vide.
+- **Fin** : 8 tables, tests de `stateassign.test.mjs` portés.
 
 ### T6-CONTRACTS — Contrats Zod et événements (S)
 - **Fichiers** : `packages/contracts/src/v2/{councils,schoollife,stateassign}.ts`, réexport dans `v2/index.ts`.

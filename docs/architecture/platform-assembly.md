@@ -146,6 +146,7 @@ Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform
 | messaging | `messaging.system-message-on-absence` (`attendance.absence.recorded`), `messaging.system-message-on-late` (`attendance.late.recorded`) : message système dans le fil d'alertes de tous les tuteurs joignables, gabarit du tenant, idempotents (`evt:<id>`) | `messaging.publish-scheduled-announcements` chaque minute, `messaging.housekeeping` 04:50 (notifications lues périmées, pièces jamais liées) |
 | documents | (aucun) | `documents.expiry-sweep` 06:10 (alertes `documents.document.expiring` / `expired`, une fois par seuil), `documents.housekeeping` 03:40 (quarantaine échue, rétention : purge des archives échues) |
 | notifications | un abonné par événement déclencheur : `notifications.on.finance-invoice-issued`, `-finance-invoice-overdue`, `-finance-payment-completed`, `-attendance-absence-recorded`, `-attendance-late-recorded`, `-attendance-alert-triggered`, `-reportcards-report-card-published`, `-scheduling-occurrence-cancelled`, `-messaging-announcement-published`, `-people-staff-qualification-expiring`, `-payroll-payslip-notification-requested` (règles de l'établissement -> destinataires -> mise en file au journal, idempotents) ; `notifications.stop-dunning-on-invoice-paid` (`finance.invoice.paid`) | `notifications.dispatch` toutes les 15 s (envoi des remises dues, **hors transaction**, reprise avec backoff, plafonds), `notifications.run-dunning` 07:00 (relances J+3 / J+10 / J+30), `notifications.evaluate-alerts` 07:30, `notifications.housekeeping` 04:15 (purge du journal, abonnements push expirés) |
+| stateassign | `stateassign.on.finance-payment-completed`, `stateassign.on.finance-invoice-issued` (demandent un rapprochement : ne calculent rien) | `stateassign.reconcile` 01:40 (rapprochement de tous les tenants, idempotent), `stateassign.plan-controls` 06:20, `stateassign.flag-overdue` 07:20 (alerte unique par échéance), `stateassign.notify-due-controls` 07:25 |
 | socle du worker | | `outbox-cleanup`, `ensure-partitions` (recoupe `audit.ensure-partitions`, idempotent) |
 
 Cette liste est celle que **découvre** le worker (`discoverModuleExtensions`) ; le test `worker-bundle.integration.test.ts` exige que le bundle de production enregistre exactement les mêmes abonnés et jobs que les sources, et qu'il ait branché les ports entre modules (`ports entre modules branchés (adaptateurs de plateforme)`).
@@ -198,6 +199,7 @@ Les handlers reçoivent `ctx.tenantDb` (ajout au SDK du worker) pour appeler les
 | `REPORTCARDS_VERIFICATION_BASE_URL` | `V2_APP_BASE_URL` | API **et** worker | domaine public de vérification (QR `<base>/v/<code>`) |
 | `REPORTCARDS_S3_*` | — | API **et** worker | ancien nom du stockage d'objets (repli de `STORAGE_S3_*`) |
 | `REPORTCARDS_CHROME_PATH`, `REPORTCARDS_CHROME_NO_SANDBOX=1`, `REPORTCARDS_RENDER_CONCURRENCY` (2) | — | worker | moteur de rendu PDF |
+| `STATEASSIGN_EXPORT_MAX_ROWS` | borne interne | API | nombre maximal de lignes d'un export des élèves affectés (troncature signalée) |
 
 Le worker garde ses propres variables (`WORKER_DATABASE_URL`, `WORKER_RELAY_*`…, voir `apps/worker/README.md`) et lit `AUDIT_*`, `ENTITLEMENTS_*`, `IAM_PURGE_*` depuis `process.env` (les abonnés et jobs des modules sont du code du module).
 
@@ -292,6 +294,11 @@ Chaque module déclare des **ports** (ce qu'il attend de ses voisins) et échoue
 | `storage-scan` | antivirus -> messaging, people, attendance | enveloppe `withMalwareScan` des vues de stockage : un fichier infecté est refusé avant écriture ; politique fail-closed en production quand un antivirus est configuré |
 | `people-documents` | people, iam -> documents | `OwnerDirectory` : propriétaires (élève, personnel), tuteurs d'un élève, enfants liés d'un compte, personnes à partager ; liens relus à chaque requête |
 | `entitlements-documents` | entitlements -> documents | `UsageReporter` : jauge `STORAGE_BYTES` ; paliers de quota selon les features `documents.storage.*` |
+| `academic-stateassign` | academic -> stateassign | `EnrollmentPort` (faits d'inscription, période) et `EnrollmentFundingPort` (référence d'affectation portée par l'inscription, après vérification humaine) |
+| `finance-stateassign` | finance -> stateassign | `FinancePort` : factures de l'inscription (nettes des avoirs) et paiements `CONFIRMED` du financeur ; la facture famille ne porte que la part parent |
+| `attendance-stateassign` | attendance -> stateassign | `AttendanceFactsPort` : faits de présence d'une période (jamais calculés par stateassign) |
+| `documents-stateassign` | documents -> stateassign | `DocumentRefPort` : pièces d'un dossier d'affectation |
+| `people-stateassign` | people, iam -> stateassign | `StudentNamesPort`, `GuardianshipPort` (vue famille : lien relu à chaque requête) |
 
 ### Règles à respecter dans un adaptateur
 
