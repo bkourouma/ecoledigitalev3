@@ -7962,5 +7962,442 @@
         "records": "Pointages"
       }
     }
+  },
+  "v2Messaging": {
+    "nav": {
+      "label": "Messagerie et annonces",
+      "messages": "Messages",
+      "announcements": "Annonces",
+      "notifications": "Notifications",
+      "moderation": "Modération",
+      "settings": "Paramètres"
+    },
+    "bell": {
+      "label": "Notifications",
+      "open": "Ouvrir les notifications",
+      "count": "{count, plural, =0 {Aucune notification non lue} one {# notification non lue} other {# notifications non lues}}",
+      "empty": "Aucune notification.",
+      "seeAll": "Tout voir",
+      "markAll": "Tout marquer comme lu",
+      "loading": "Chargement…"
+    },
+    "priority": {
+      "LOW": "Basse",
+      "NORMAL": "Normale",
+      "HIGH": "Élevée",
+      "URGENT": "Urgente"
+    },
+    "common": {
+      "back": "Retour",
+      "cancel": "Annuler",
+      "send": "Envoyer",
+      "sending": "Envoi en cours…",
+      "loadMore": "Afficher plus",
+      "loading": "Chargement…",
+      "you": "Vous"
+    },
+    "inbox": {
+      "title": "Messages",
+      "description": "Vos conversations avec les enseignants, l'administration et les familles.",
+      "compose": "Nouveau message",
+      "restricted": "Votre envoi de messages est temporairement restreint par l'établissement. Vous pouvez toujours lire vos messages.",
+      "folders": "Dossiers de la messagerie",
+      "folder": {
+        "inbox": "Boîte de réception",
+        "starred": "Favoris",
+        "archived": "Archivés",
+        "sent": "Envoyés"
+      },
+      "searchLabel": "Rechercher dans la messagerie",
+      "searchPeople": "Rechercher par objet ou par personne",
+      "searchText": "Rechercher dans le texte des messages (2 caractères au moins)",
+      "searchMode": "Type de recherche",
+      "modePeople": "Objet et personnes",
+      "modeText": "Texte des messages",
+      "unreadOnly": "Non lus seulement",
+      "searchHint": "Saisissez au moins 2 caractères pour chercher dans vos messages.",
+      "noResults": "Aucun message ne correspond à cette recherche.",
+      "results": "Résultats de la recherche",
+      "noMatch": "Aucune conversation ne correspond à ce filtre.",
+      "empty": {
+        "inbox": "Votre boîte de réception est vide.",
+        "starred": "Aucune conversation en favori.",
+        "archived": "Aucune conversation archivée.",
+        "sent": "Vous n'avez encore rien envoyé."
+      },
+      "emptyHint": "Les nouveaux messages apparaissent ici dès leur réception.",
+      "list": "Conversations",
+      "systemSender": "EcoleDigitale — alertes",
+      "noParticipant": "Conversation sans autre participant",
+      "noSubject": "(sans objet)",
+      "starred": "Favori",
+      "unreadCount": "{count} non lu(s)",
+      "muted": "En sourdine",
+      "broadcastCount": "Diffusion : {count} destinataire(s)",
+      "group": "Groupe de {count}"
+    },
+    "thread": {
+      "openAttachment": "Ouvrir la pièce jointe",
+      "attachments": "Pièces jointes",
+      "removed": "Message retiré par son auteur",
+      "removedByModerator": "Message retiré par la modération",
+      "remove": "Retirer",
+      "report": "Signaler",
+      "actions": "Actions sur la conversation",
+      "star": "Favori",
+      "unstar": "Retirer des favoris",
+      "mute": "Sourdine",
+      "unmute": "Réactiver les notifications",
+      "archive": "Archiver",
+      "unarchive": "Désarchiver",
+      "leave": "Quitter le groupe",
+      "older": "Messages précédents",
+      "messages": "Messages de la conversation",
+      "systemNoReply": "Ce fil rassemble les alertes automatiques de l'établissement : on n'y répond pas.",
+      "replyForm": "Répondre",
+      "replyLabel": "Votre réponse",
+      "replyPlaceholder": "Écrire une réponse…",
+      "cannotReply": "Vous ne pouvez pas répondre dans cette conversation."
+    },
+    "report": {
+      "title": "Signaler ce message",
+      "description": "La modération de l'établissement examinera ce message. L'auteur n'est pas informé de votre signalement.",
+      "reason": "Motif",
+      "reasons": {
+        "SPAM": "Message indésirable",
+        "HARASSMENT": "Harcèlement ou propos injurieux",
+        "INAPPROPRIATE": "Contenu inapproprié",
+        "PRIVACY": "Atteinte à la vie privée",
+        "OTHER": "Autre motif"
+      },
+      "details": "Précisions",
+      "detailsHint": "Facultatif, 1 000 caractères au plus.",
+      "cancel": "Annuler",
+      "submit": "Signaler",
+      "done": "Merci : votre signalement a été transmis à la modération."
+    },
+    "compose": {
+      "cannotSend": "Vous ne pouvez pas envoyer de message pour le moment.",
+      "title": "Nouveau message",
+      "description": "Vous ne pouvez écrire qu'aux personnes proposées : celles qui sont liées à vos enfants, à vos classes ou à l'administration.",
+      "kind": "Type de message",
+      "kinds": {
+        "DIRECT": "Message direct",
+        "GROUP": "Message de groupe",
+        "BROADCAST": "Diffusion"
+      },
+      "kindHints": {
+        "DIRECT": "Une conversation avec une seule personne.",
+        "GROUP": "Une conversation partagée : tous les participants se voient.",
+        "BROADCAST": "Le même message envoyé en privé à chaque destinataire : ils ne se voient pas."
+      },
+      "recipients": "Destinataires",
+      "selected": "Destinataires choisis",
+      "removeRecipient": "Retirer {name}",
+      "search": "Rechercher une personne",
+      "searchHint": "Saisissez un nom ; seules les personnes que vous pouvez écrire sont proposées.",
+      "suggestions": "Personnes proposées",
+      "noPerson": "Aucune personne autorisée ne correspond à cette recherche.",
+      "noSuggestion": "Aucune suggestion : recherchez une personne par son nom.",
+      "classes": "Classes",
+      "removeClass": "Retirer {name}",
+      "classLabel": "Classe",
+      "classPlaceholder": "Choisir une classe",
+      "addClass": "Ajouter la classe",
+      "include": "Personnes visées dans la classe",
+      "includes": {
+        "STUDENTS": "Élèves",
+        "GUARDIANS": "Parents et tuteurs",
+        "TEACHERS": "Enseignants"
+      },
+      "wholeSchool": "Toute l'école",
+      "audiences": "Qui reçoit le message",
+      "audience": {
+        "STUDENTS": "Élèves",
+        "GUARDIANS": "Parents et tuteurs",
+        "STAFF": "Personnel"
+      },
+      "toAdministration": "Écrire aussi à l'administration",
+      "broadcastHint": "Chaque destinataire reçoit un fil privé. Leurs réponses reviennent dans votre boîte de réception.",
+      "aboutStudent": "À propos de l'enfant",
+      "aboutStudentHint": "Facultatif : l'enseignant saura de quel élève il s'agit.",
+      "noStudent": "Aucun enfant précisé",
+      "subject": "Objet",
+      "priority": "Priorité",
+      "body": "Message",
+      "allowReplies": "Autoriser les réponses des participants"
+    },
+    "attachments": {
+      "tooMany": "Au plus {max} pièces jointes.",
+      "uploading": "Dépôt en cours…",
+      "add": "Joindre un fichier",
+      "hint": "PDF, JPEG, PNG ou WebP ; la taille maximale est fixée par l'établissement.",
+      "list": "Pièces jointes à envoyer",
+      "remove": "Retirer la pièce jointe {name}"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Les alertes de votre messagerie : nouveaux messages, annonces, informations de l'établissement.",
+      "markAll": "Tout marquer comme lu",
+      "listTitle": "Mes notifications",
+      "unread": "{count} non lue(s)",
+      "unreadOnly": "Non lues seulement",
+      "none": "Aucune notification.",
+      "noneUnread": "Aucune notification non lue.",
+      "markRead": "Marquer comme lue",
+      "loadMore": "Afficher plus",
+      "categories": {
+        "MESSAGE": "Messages",
+        "ANNOUNCEMENT": "Annonces",
+        "SYSTEM": "Alertes automatiques",
+        "MODERATION": "Modération"
+      },
+      "prefsTitle": "Préférences de notification",
+      "prefsHint": "Choisissez comment être prévenu. Les annonces urgentes et les décisions de modération vous sont toujours signalées dans l'application.",
+      "inApp": "Notifications dans l'application",
+      "external": "Autres canaux autorisés (activés quand l'établissement les propose)",
+      "channels": {
+        "EMAIL": "E-mail",
+        "SMS": "SMS",
+        "WHATSAPP": "WhatsApp",
+        "PUSH": "Notification sur le téléphone"
+      },
+      "mutedUntil": "Ne pas me notifier avant le",
+      "prefsSave": "Enregistrer mes préférences",
+      "prefsSaved": "Vos préférences sont enregistrées."
+    }
+  },
+  "v2MessagingAnnouncements": {
+    "title": "Annonces",
+    "description": "Les informations de l'établissement destinées à vos classes, à vos enfants ou à votre fonction.",
+    "new": "Nouvelle annonce",
+    "back": "Retour aux annonces",
+    "scope": {
+      "inbox": "Reçues",
+      "managed": "Publiées par moi"
+    },
+    "filterStatus": "Statut",
+    "allStatuses": "Tous",
+    "unreadOnly": "Non lues seulement",
+    "includeExpired": "Afficher les annonces expirées",
+    "empty": "Aucune annonce pour vous pour le moment.",
+    "emptyManaged": "Vous n'avez publié aucune annonce.",
+    "emptyHint": "Les annonces de l'établissement apparaissent ici dès leur publication.",
+    "list": "Liste des annonces",
+    "loadMore": "Afficher plus",
+    "pinned": "Épinglée",
+    "expired": "Expirée",
+    "ackPending": "Accusé à donner",
+    "statsLine": "{recipients} destinataire(s), {read} lu(s), {acknowledged} accusé(s)",
+    "expiresOn": "Expire le {date}",
+    "attachments": "Pièces jointes",
+    "status": {
+      "DRAFT": "Brouillon",
+      "SCHEDULED": "Programmée",
+      "PUBLISHED": "Publiée",
+      "WITHDRAWN": "Retirée"
+    },
+    "targets": {
+      "TENANT": "Tout l'établissement",
+      "INSTITUTION": "Établissement scolaire",
+      "CAMPUS": "Campus",
+      "LEVEL": "Niveau",
+      "CLASSROOM": "Classe",
+      "ROLE": "Rôle"
+    },
+    "audiences": {
+      "STUDENTS": "Élèves",
+      "GUARDIANS": "Parents et tuteurs",
+      "STAFF": "Personnel"
+    },
+    "ack": {
+      "title": "Accusé de réception demandé",
+      "hint": "L'établissement vous demande de confirmer que vous avez pris connaissance de cette annonce.",
+      "button": "J'ai pris connaissance",
+      "done": "Vous avez pris connaissance de cette annonce le {date}.",
+      "thanks": "Merci : votre accusé de réception est enregistré."
+    },
+    "manage": {
+      "title": "Gestion de l'annonce",
+      "recipients": "Destinataires",
+      "read": "Lus",
+      "acknowledged": "Accusés",
+      "truncated": "L'audience dépasse le plafond de l'établissement : seuls les premiers destinataires ont reçu l'annonce.",
+      "audience": "Ciblage",
+      "edit": "Modifier",
+      "publishNow": "Publier maintenant",
+      "published": "L'annonce est publiée.",
+      "withdraw": "Retirer l'annonce",
+      "withdrawn": "L'annonce est retirée.",
+      "deleteDraft": "Supprimer le brouillon"
+    },
+    "receipts": {
+      "title": "Accusés de lecture",
+      "filter": "Afficher",
+      "states": {
+        "all": "Tous les destinataires",
+        "unread": "Non lus",
+        "read": "Lus",
+        "acknowledged": "Accusés",
+        "pending_ack": "Accusé en attente"
+      },
+      "none": "Aucun destinataire dans cette liste.",
+      "person": "Personne",
+      "delivered": "Reçue le",
+      "read": "Lue le",
+      "acknowledged": "Accusé le"
+    },
+    "withdrawDialog": {
+      "title": "Retirer cette annonce ?",
+      "description": "Elle disparaîtra de la boîte des destinataires. Le retrait est tracé avec son motif.",
+      "reason": "Motif du retrait",
+      "confirm": "Retirer l'annonce"
+    },
+    "editor": {
+      "newTitle": "Nouvelle annonce",
+      "editTitle": "Modifier l'annonce",
+      "description": "Choisissez les destinataires, puis enregistrez un brouillon ou publiez. Les destinataires sont figés à la publication.",
+      "cancel": "Annuler",
+      "title": "Titre",
+      "body": "Contenu",
+      "targets": "Destinataires",
+      "chosenTargets": "Cibles choisies",
+      "removeTarget": "Retirer {name}",
+      "noTarget": "Aucune cible choisie.",
+      "targetKind": "Type de cible",
+      "tenantHint": "Toutes les personnes de l'établissement, selon les audiences cochées.",
+      "choose": "Choisir…",
+      "addTarget": "Ajouter la cible",
+      "audiences": "Personnes visées",
+      "audiencesHint": "S'applique aux cibles de type établissement, campus, niveau et classe.",
+      "preview": "Compter les destinataires",
+      "previewCount": "{count} destinataire(s)",
+      "previewTruncated": "(plafond atteint)",
+      "priority": "Priorité",
+      "publishAt": "Publier le",
+      "publishAtHint": "Vide : publication immédiate.",
+      "expiresAt": "Expire le",
+      "expiresAtHint": "Vide : l'annonce n'expire pas.",
+      "requireAck": "Demander un accusé de réception",
+      "pinned": "Épingler en tête de liste",
+      "saveDraft": "Enregistrer le brouillon",
+      "schedule": "Programmer la publication",
+      "publish": "Publier"
+    }
+  },
+  "v2MessagingModeration": {
+    "title": "Modération des messages",
+    "description": "Signalements des participants, restrictions d'envoi et supervision motivée des conversations.",
+    "tabs": {
+      "reports": "Signalements",
+      "restrictions": "Restrictions",
+      "supervision": "Supervision"
+    },
+    "reasons": {
+      "SPAM": "Message indésirable",
+      "HARASSMENT": "Harcèlement ou propos injurieux",
+      "INAPPROPRIATE": "Contenu inapproprié",
+      "PRIVACY": "Atteinte à la vie privée",
+      "OTHER": "Autre motif"
+    },
+    "status": {
+      "OPEN": "À traiter",
+      "DISMISSED": "Rejeté",
+      "ACTIONED": "Sanctionné"
+    },
+    "onlyOpen": "Signalements à traiter seulement",
+    "noReports": "Aucun signalement.",
+    "review": "Examiner",
+    "see": "Consulter",
+    "loadMore": "Afficher plus",
+    "reviewTitle": "Examen d'un signalement",
+    "reviewDescription": "Le message signalé et ses voisins sont affichés avec leur contenu réel. Cette lecture est tracée.",
+    "unknownUser": "Utilisateur inconnu",
+    "contextMessages": "Messages de la conversation",
+    "system": "Système",
+    "removed": "retiré",
+    "alreadyDecided": "Signalement déjà traité. {note}",
+    "decision": "Décision",
+    "action": "Sanctionner",
+    "dismiss": "Rejeter le signalement",
+    "removeMessage": "Retirer le message",
+    "restrictSender": "Restreindre l'envoi de l'auteur",
+    "restrictDuration": "Durée de la restriction",
+    "untilLifted": "Jusqu'à levée explicite",
+    "days": "{count, plural, one {# jour} other {# jours}}",
+    "note": "Motif de la décision",
+    "noteHint": "Obligatoire (3 caractères au moins) : il est conservé dans le journal d'audit.",
+    "noteRequired": "Le motif de la décision est obligatoire (3 caractères au moins).",
+    "actionRequired": "Précisez l'action : retirer le message et/ou restreindre l'auteur.",
+    "close": "Fermer",
+    "confirm": "Confirmer la décision",
+    "decided": "Décision enregistrée.",
+    "noRestrictions": "Aucune restriction en cours.",
+    "until": "Jusqu'au {date}",
+    "lift": "Lever la restriction",
+    "superviseNotice": "La lecture du contenu d'une conversation exige un motif ; chaque lecture est enregistrée dans le journal d'audit.",
+    "search": "Rechercher par objet ou par personne",
+    "noConversations": "Aucune conversation.",
+    "noSubject": "(sans objet)",
+    "readWithReason": "Lire avec un motif",
+    "reasonTitle": "Lire cette conversation",
+    "reasonDescription": "Indiquez pourquoi vous consultez cette conversation. Le motif est conservé dans le journal d'audit.",
+    "reasonLabel": "Motif de la consultation",
+    "reasonConfirm": "Lire la conversation",
+    "readOnly": "Lecture seule : les messages retirés restent visibles pour la supervision."
+  },
+  "v2MessagingSettings": {
+    "title": "Paramètres de la messagerie",
+    "description": "Règles d'usage de la messagerie de l'établissement : élèves, contacts de l'administration, pièces jointes, limites d'envoi.",
+    "studentPolicy": "Messagerie des élèves",
+    "studentPolicyHint": "Définit ce que les élèves peuvent faire ; répondre à un enseignant reste possible tant que la messagerie n'est pas désactivée.",
+    "policies": {
+      "DISABLED": "Désactivée : les élèves n'écrivent pas",
+      "REPLY_ONLY": "Réponses seulement : ils répondent à ceux qui leur écrivent",
+      "TEACHERS": "Ils peuvent écrire à leurs enseignants",
+      "TEACHERS_AND_ADMIN": "Ils peuvent écrire à leurs enseignants et à l'administration"
+    },
+    "adminContactRoles": "Rôles des contacts de l'administration",
+    "adminContactRolesHint": "Clés de rôles séparées par des virgules (par exemple directeur, secretariat). Les titulaires reçoivent les messages « à l'administration ».",
+    "attachments": "Pièces jointes",
+    "attachmentsEnabled": "Autoriser les pièces jointes",
+    "attachmentMaxMb": "Taille maximale (Mo)",
+    "mime": {
+      "application_pdf": "PDF",
+      "image_jpeg": "JPEG",
+      "image_png": "PNG",
+      "image_webp": "WebP"
+    },
+    "numbers": {
+      "maxMessagesPerHour": "Messages par heure et par utilisateur",
+      "maxNewConversationsPerDay": "Nouvelles conversations par jour et par utilisateur",
+      "maxGroupParticipants": "Participants d'un message de groupe",
+      "maxBroadcastParticipants": "Destinataires d'une diffusion ou d'une annonce",
+      "messageMaxLength": "Longueur maximale d'un message (caractères)",
+      "attachmentMaxPerItem": "Pièces jointes par message",
+      "notificationRetentionDays": "Conservation des notifications lues (jours)"
+    },
+    "range": "Entre {min} et {max}.",
+    "sizeInvalid": "La taille maximale doit être comprise entre 0,001 et 25 Mo.",
+    "groupAboveBroadcast": "Le plafond d'un groupe ne peut pas dépasser celui d'une diffusion.",
+    "save": "Enregistrer les paramètres",
+    "saved": "Paramètres enregistrés.",
+    "templates": {
+      "heading": "Messages automatiques",
+      "description": "Textes des messages envoyés automatiquement aux familles à partir d'événements (absence, retard).",
+      "names": {
+        "attendance": {
+          "absence": "Absence d'un élève",
+          "late": "Retard d'un élève"
+        }
+      },
+      "customized": "Personnalisé",
+      "enabled": "Envoyer ce message automatiquement",
+      "title": "Titre",
+      "body": "Texte",
+      "variables": "Variables disponibles : {list}",
+      "save": "Enregistrer ce message",
+      "saved": "Message enregistré."
+    }
   }
 }
