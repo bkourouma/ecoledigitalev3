@@ -98,6 +98,9 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "schoollife.read.all",
       // stateassign (006) : lecture seule
       "stateassign.read",
+      // analytics (025 B) : données pédagogie/présences, alertes (lecture + accusé), comptages d'admission et de vie scolaire
+      "analytics.pedagogy.read", "analytics.attendance.read", "analytics.alerts.read", "analytics.alerts.acknowledge",
+      "analytics.admissions.read", "analytics.schoollife.read",
       // primary_school (005) : pilotage pédagogique, jamais le scellé / la révision / le gel / le modèle / les réglages
       "primary.framework.read", "primary.framework.manage", "primary.framework.publish", "primary.competency.read",
       "primary.phrase.read", "primary.phrase.manage", "primary.council.read", "primary.council.manage",
@@ -165,6 +168,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "stateassign.read", "stateassign.reconcile", "stateassign.receivable.manage", "stateassign.control.perform", "stateassign.export",
       // imports (031, O-03) : préparation seulement (lancement = direction)
       "imports.read", "imports.create",
+      // analytics (025 B) : scolarité, trésorerie, alertes (lecture + accusé)
+      "analytics.finance.read", "analytics.treasury.read", "analytics.alerts.read", "analytics.alerts.acknowledge",
     ],
   },
 
@@ -262,6 +267,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "admission.read", "admission.create", "admission.update", "admission.document.upload", "admission.document.review",
       "admission.interview.manage", "admission.offer.manage", "admission.duplicate.resolve", "admission.waitlist.manage",
       "admission.prospect.manage", "admission.enroll", "admission.report.read",
+      // analytics (025 B) : entonnoir d'admission agrégé
+      "analytics.admissions.read",
     ],
   },
 
@@ -479,6 +486,14 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["schoollife.confidential.read", "éléments confidentiels de vie scolaire : direction (MFA)"],
       ["stateassign.verify", "vérification d'un dossier d'affectation : direction"],
       ["stateassign.settings.manage", "réglages des affectations : direction"],
+      ["analytics.finance.read", "finance et trésorerie des tableaux de bord : économe et direction"],
+      ["analytics.treasury.read", "idem"],
+      ["analytics.payroll.read", "masse salariale (sensible) : direction"],
+      ["analytics.charges.read", "charges et compte de résultat : direction"],
+      ["analytics.alerts.manage", "seuils et destinataires des alertes : acte de direction"],
+      ["analytics.export", "export des tableaux de bord : direction"],
+      ["analytics.settings.manage", "réglages des tableaux de bord : direction"],
+      ["analytics.rebuild", "reconstruction des read-models : direction"],
       ["admission.decide", "décision d'admission : direction"],
       ["imports.import.grades", "import des notes : direction (saisie ≠ validation)"],
       ["imports.import.opening_balances", "soldes d'ouverture : direction (sensible)"],
@@ -535,6 +550,9 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["admission.read", "admissions : secrétariat et direction"],
     ],
     admissions_officer: [
+      ["analytics.alerts.read", "aucune alerte de direction"],
+      ["analytics.finance.read", "aucune donnée financière"],
+      ["analytics.alerts.manage", "acte de direction"],
       ["admission.decide", "décision d'admission : direction"],
       ["admission.capacity.override", "dépassement de capacité (sensible) : direction"],
       ["admission.workflow.publish", "publication d'un workflow (sensible) : direction"],
@@ -550,7 +568,12 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["exam.session.read", "aucun examen"],
     ],
     econome: [
-      ["payroll.payslip.approve", "calcul et versement sont séparés de l'arrêt du bulletin (quatre yeux de la paie)"],
+      ["analytics.payroll.read", "masse salariale des tableaux de bord (sensible) : direction"],
+      ["analytics.charges.read", "charges et compte de résultat : direction"],
+      ["analytics.alerts.manage", "seuils et destinataires des alertes : acte de direction"],
+      ["analytics.pedagogy.read", "aucune donnée pédagogique"],
+      ["analytics.export", "export des tableaux de bord : direction"],
+      ["payroll.payslip.approve","calcul et versement sont séparés de l'arrêt du bulletin (quatre yeux de la paie)"],
       ["payroll.payslip.approve_owner", "validation propriétaire"],
       ["payroll.payslip.cancel", "l'annulation relâche les heures : direction"],
       ["payroll.settings.manage", "seuil propriétaire et séparation des tâches : propriétaire"],

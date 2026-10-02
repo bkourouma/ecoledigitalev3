@@ -307,6 +307,16 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "schoollife.read.all",
       // Affectation d'État : lecture seule.
       "stateassign.read",
+      // Tableaux de bord de direction (module analytics, spec 025 partie B) : données pédagogie et présences + alertes de son
+      // domaine (accusé de réception compris) + comptages agrégés d'admission et de vie scolaire (sans candidat, élève ni motif).
+      // JAMAIS finance, trésorerie, paie ni charges, ni export, ni configuration des règles d'alerte (`analytics.alerts.manage`) :
+      // il accuse réception, il ne choisit ni les seuils ni les destinataires (acte de direction).
+      "analytics.pedagogy.read",
+      "analytics.attendance.read",
+      "analytics.alerts.read",
+      "analytics.alerts.acknowledge",
+      "analytics.admissions.read",
+      "analytics.schoollife.read",
       // Pack Primaire (spec 005) : référentiels de compétences (édition et publication), banque d'appréciations,
       // présidence du conseil des maîtres, préparation des bilans et de l'archive, états. JAMAIS révision d'une
       // compétence validée, scellé/réémission d'un bilan, gel d'archive, modèle de pack ni réglages (direction).
@@ -551,6 +561,13 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       // exemple les soldes d'ouverture) ; le LANCEMENT (`imports.import.*`, MFA pour les soldes) reste à la direction.
       "imports.read",
       "imports.create",
+      // Tableaux de bord de direction (module analytics, spec 025 partie B) : scolarité et trésorerie + alertes de ce domaine
+      // (accusé de réception compris). JAMAIS masse salariale (`analytics.payroll.read`, sensible), charges, export ni
+      // configuration des règles d'alerte (acte de direction).
+      "analytics.finance.read",
+      "analytics.treasury.read",
+      "analytics.alerts.read",
+      "analytics.alerts.acknowledge",
     ],
     mfaRecommended: true,
     sensitiveJustifications: {
@@ -881,6 +898,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "admission.prospect.manage",
       "admission.enroll",
       "admission.report.read",
+      // Tableaux de bord de direction (module analytics, spec 025 partie B) : entonnoir d'admission en comptages agrégés.
+      "analytics.admissions.read",
     ],
   },
 
