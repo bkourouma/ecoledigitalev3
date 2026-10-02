@@ -211,7 +211,7 @@ export interface StudentListFilter {
   offset: number;
 }
 
-function buildStudentWhere(tenantId: string, f: StudentListFilter): Where {
+export function buildStudentWhere(tenantId: string, f: StudentListFilter): Where {
   const w = new Where([tenantId]);
   if (f.status) w.and(`s.status = ${w.bind(f.status)}`);
   else if (!f.includeArchived) w.and(`s.status <> 'ARCHIVED'`);
@@ -254,20 +254,40 @@ function buildStudentWhere(tenantId: string, f: StudentListFilter): Where {
   return w;
 }
 
-export async function listStudentRows(tx: Tx, tenantId: string, f: StudentListFilter): Promise<{ rows: StudentRow[]; total: number }> {
+/**
+ * Requête de la liste paginée. Pagine D'ABORD (filtre + tri + LIMIT sur students/persons seuls), joint ENSUITE la projection
+ * d'inscription (LATERAL) et l'accès portail pour les seules lignes de la page : coût O(page) pour les jointures, au lieu d'un
+ * LATERAL par élève du tenant avant le LIMIT. Même filtre, même ordre (clé complète rejouée sur la page), même total
+ * (`count(*) OVER()` porte sur le filtre, avant LIMIT, comme avant).
+ */
+export function buildStudentListQuery(tenantId: string, f: StudentListFilter): { sql: string; params: unknown[] } {
   const w = buildStudentWhere(tenantId, f);
   const limit = w.bind(f.limit);
   const offset = w.bind(f.offset);
-  const rows = await tx.many<StudentRow & { total: string }>(
-    `SELECT ${STUDENT_COLUMNS}, count(*) OVER() AS total ${STUDENT_FROM}
-      WHERE s.tenant_id = $1${w.sql}
-      ORDER BY lower(p.last_name), lower(p.first_name), s.id
-      LIMIT ${limit} OFFSET ${offset}`,
-    w.params,
-  );
+  const sql = `WITH page AS MATERIALIZED (
+       SELECT s.id, count(*) OVER() AS total
+         FROM people.students s
+         JOIN people.persons p ON p.tenant_id = s.tenant_id AND p.id = s.person_id
+        WHERE s.tenant_id = $1${w.sql}
+        ORDER BY lower(p.last_name), lower(p.first_name), s.id
+        LIMIT ${limit} OFFSET ${offset})
+     SELECT ${STUDENT_COLUMNS}, page.total ${STUDENT_FROM}
+       JOIN page ON page.id = s.id
+      WHERE s.tenant_id = $1
+      ORDER BY lower(p.last_name), lower(p.first_name), s.id`;
+  return { sql, params: w.params };
+}
+
+export async function listStudentRows(tx: Tx, tenantId: string, f: StudentListFilter): Promise<{ rows: StudentRow[]; total: number }> {
+  const q = buildStudentListQuery(tenantId, f);
+  const rows = await tx.many<StudentRow & { total: string }>(q.sql, q.params);
   if (rows.length === 0 && f.offset > 0) {
+    // Page au-delà de la fin : le total vient d'un comptage SANS les jointures de présentation (elles ne changent pas le nombre de lignes).
     const w2 = buildStudentWhere(tenantId, f);
-    const c = await tx.queryOne<{ n: string }>(`SELECT count(*) AS n ${STUDENT_FROM} WHERE s.tenant_id = $1${w2.sql}`, w2.params);
+    const c = await tx.queryOne<{ n: string }>(
+      `SELECT count(*) AS n FROM people.students s JOIN people.persons p ON p.tenant_id = s.tenant_id AND p.id = s.person_id WHERE s.tenant_id = $1${w2.sql}`,
+      w2.params,
+    );
     return { rows: [], total: Number(c?.n ?? 0) };
   }
   return { rows, total: rows.length > 0 ? Number(rows[0]?.total ?? 0) : 0 };
