@@ -3,7 +3,7 @@
  * mémoire cloisonnés par tenant (people, academic, finance, documents, notifications simulés), une horloge réglable. Les gardes de
  * permission sont testées en HTTP (`http.integration.test.ts`) ; ici les cas d'usage reçoivent directement un contexte.
  */
-import { createRequestContext, type Clock, type RequestContext } from "@ecoledigitale/kernel";
+import { createRequestContext, noopLogger, type Clock, type RequestContext } from "@ecoledigitale/kernel";
 import { SystemDb } from "@ecoledigitale/database";
 import type { AdmissionsCampaignDto, AdmissionsApplicationDetailDto, AdmissionsCreateApplicationBody } from "@ecoledigitale/contracts/src/v2/admissions";
 import { createApplication, getApplication, recordConsent, transitionApplication } from "../../application/applications";
@@ -77,7 +77,7 @@ async function setupTenant(db: ModuleTestDb, clock: MutableClock, audit: Recordi
   const cp2 = mem.addClassroom({ institutionId: institution.id, academicYearId: YEAR_ID, gradeLevelCode: "CP2", label: "CP2 A", id: uuid(0x700 + offset) });
   const deps = createAdmissionsDeps({
     db: db.tenantDb,
-    systemDb: new SystemDb(db.tenantDb),
+    systemDb: new SystemDb(db.tenantDb, { logger: noopLogger }),
     clock,
     audit,
     ports: mem.ports(),

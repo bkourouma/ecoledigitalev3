@@ -4,6 +4,7 @@
  * échec, ENROLLED DÉRIVÉ de la confirmation (une seule fois), expiration, délai de paiement, refus de la famille, doublons.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { noopLogger } from "@ecoledigitale/kernel";
 import { getApplication, getHistory, transitionApplication } from "../../application/applications";
 import { recordDecision } from "../../application/decisions";
 import { listDuplicates, resolveDuplicate } from "../../application/duplicates";
@@ -172,7 +173,7 @@ describeIntegration("admissions : offres et saga d'inscription", () => {
       const r = await ready("ports-absents");
       const { createAdmissionsDeps } = await import("../../application/deps");
       const { SystemDb } = await import("@ecoledigitale/database");
-      const bare = createAdmissionsDeps({ db: w.db.tenantDb, systemDb: new SystemDb(w.db.tenantDb), clock: w.clock, ports: { catalog: r.t.mem.catalog_, documents: r.t.mem.documents_ } });
+      const bare = createAdmissionsDeps({ db: w.db.tenantDb, systemDb: new SystemDb(w.db.tenantDb, { logger: noopLogger }), clock: w.clock, ports: { catalog: r.t.mem.catalog_, documents: r.t.mem.documents_ } });
       const failed = await acceptOffer(bare, r.t.ctx(), { offerId: r.offerId, via: "GUARDIAN_LINK" });
       expect(failed.ok).toBe(false);
       if (!failed.ok) expect(failed.error.code).toBe("admissions.port_unavailable");
