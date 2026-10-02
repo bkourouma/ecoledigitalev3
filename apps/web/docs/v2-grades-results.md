@@ -91,8 +91,7 @@ Le smoke Playwright démarre Next seul (ni API ni base). Les parcours authentifi
 
 ## Écarts avec le legacy et points ouverts
 
-- **Pas de portail élève/parent « Mes notes / Mes résultats »** : les hooks `useMyPublishedGrades`, `useChildPublishedGrades`, `useMyResults`, `useChildResults`
-  sont écrits et typés, les écrans ne le sont pas (hors liste de la mission, sauf « bulletins de mes enfants » livré).
+- ~~Pas de portail élève/parent « Mes notes / Mes résultats »~~ **Livré** : `/v2/parent/children/[childId]/results` et `/v2/student/results` (`useFamilyGrades`, `useMyResults`, `useChildResults`), voir `v2-portals.md`.
 - **Pas de téléchargement des PDF d'un diplôme/attestation** : `higher` ne propose pas de route de téléchargement (le rendu passe par `reportcards`) ; l'écran liste l'état
   (scellé, rendu) et le code de vérification.
 - **Re-pin sans simulation préalable** : l'API ne propose pas de « dry-run » ; la simulation (rejeu sans écriture) est jointe à la réponse du re-pin et affichée ensuite.
@@ -100,6 +99,6 @@ Le smoke Playwright démarre Next seul (ni API ni base). Les parcours authentifi
 - **Prérequis entre UE** (`/higher/ue/:id/prerequisites`) : non livré.
 - **Dépôt d'images (logo, emblème, signature)** : le navigateur envoie directement le fichier à l'URL signée du stockage ; la CSP de `middleware.ts`
   (`connect-src 'self' http://localhost:…`) bloquera un stockage externe tant que son origine n'y est pas ajoutée.
-- **Enseignant sans `academic.classroom.read`** : la liste de classes de la création d'évaluation dépend de cette permission (repli « mes classes » non livré).
+- ~~Enseignant sans `academic.classroom.read`~~ **Levé** : les sélecteurs de classe, période et cours de la création d'évaluation se replient sur « mes classes » (`GET /people/me/classes` : noms, périodes, matières) ; voir `v2-portals.md`.
 - Noms d'élèves de la grille et du registre : `GET /people/students?classroomId=` (200 maximum) ; au-delà, des numéros s'affichent (avertissement).
 - Pas de file hors ligne persistante (squelette 029) : les saisies restent en mémoire et sont renvoyées au retour du réseau, pas après rechargement de la page.

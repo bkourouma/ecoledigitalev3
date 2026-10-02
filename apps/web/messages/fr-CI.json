@@ -3711,7 +3711,8 @@
           "title": "Reçus",
           "unavailable": "Les reçus ne sont pas disponibles pour le moment.",
           "empty": "Aucun reçu"
-        }
+        },
+        "learnerFallback": "Apprenant"
       },
       "payDialog": {
         "title": "Payer en ligne",
@@ -3725,7 +3726,8 @@
         "provider": "Opérateur",
         "phone": "Numéro de téléphone",
         "phoneHint": "Numéro mobile money, avec l'indicatif du pays."
-      }
+      },
+      "learnerFallback": "Apprenant"
     }
   },
   "v2Payroll": {

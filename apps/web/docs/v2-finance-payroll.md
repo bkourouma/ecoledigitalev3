@@ -41,7 +41,7 @@ L'encaissement manuel passe en plus par une **fenêtre de relecture** (apprenant
 | `/v2/finance/refunds` | remboursements à quatre yeux : approuver (et exécuter), exécuter, refuser | `finance.payment.read` (+ `.refund`) |
 | `/v2/finance/cash` | caisse : ouverture (fonds de caisse), mes mouvements, clôture avec comptage, écart, historique | `finance.cashregister.open` / `.close` |
 | `/v2/finance/reports` | synthèse, créances par classe et par apprenant, balance âgée, évolution, export CSV | `finance.report.read` |
-| `/v2/finance/me`, `/[learnerId]`, `/[learnerId]/receipts/[id]` | parent / élève : situation, échéances, reçus, paiement en ligne | `student.child.read` ou `student.self.read` |
+| `/v2/finance/me`, `/[learnerId]`, `/[learnerId]/receipts/[id]` | parent / élève : situation, échéances, reçus (PDF scellé), paiement en ligne ; **routes famille `/api/v1/finance/me/*`** (propriété relue côté serveur, 404 uniforme) ; mêmes écrans que `/v2/parent` et `/v2/student` (`app/v2/_family/FamilyFinance`) | `finance.child.read` ou `finance.self.read` (+ `.pay`, fonction `finance.online-payment`) |
 
 ### Paie
 
@@ -86,17 +86,14 @@ Le smoke est LENT en `next dev` (33 routes x 2 projets, 5 à 17 s de compilation
 
 ## Écarts connus (API) et points à arbitrer
 
-1. **Pas d'API finance « parent / élève »** : `/finance/*` n'expose aucune route filtrée par lien de tutelle, et le rôle parent (`*.child.*`) ne détient aucune
-   permission `finance.*` (le manifeste n'en déclare pas). `/v2/finance/me` restreint l'écran aux enfants renvoyés par `GET /people/children` (liens vivants
-   avec accès portail) et n'interroge **jamais** la finance pour un autre identifiant, mais **l'API doit être la barrière** : routes dédiées
-   (`/finance/children/:id/…`) ou permission `finance.child.read` avec contrôle de propriété. Tant qu'elles n'existent pas, un parent reçoit un 403 explicite.
-   Hypothèse : `learnerId` finance = identifiant de l'élève (`students.id`).
-2. **Reçus : pas de PDF serveur** (le rendu relève de `reportcards` / worker, Phase 3). Le reçu s'imprime (ou s'enregistre en PDF) depuis le navigateur ; le
-   contenu est l'instantané immuable de l'API. Même chose pour le bulletin de paie (`/payslips/:id/data`, pas de `/pdf`).
+1. ~~Pas d'API finance « parent / élève »~~ **Levé** : `/finance/me/*` (`finance.child.read|pay`, `finance.self.read|pay`, propriété relue par `GuardianshipPort`, 404
+   uniforme hors périmètre). Les écrans `/v2/finance/me` et les portails `/v2/parent`, `/v2/student` n'utilisent plus que ces routes (voir `v2-portals.md`).
+2. ~~Reçus : pas de PDF serveur~~ **Levé** : `GET /finance/me/learners/:learnerId/receipts/:id/pdf` (scellé, QR de vérification publique, 202 pendant le rendu :
+   `platform/ui/pdf.ts`). Le reçu reste imprimable depuis le navigateur ; le bulletin de paie a aussi son PDF (`/payroll/my/payslips/:id/pdf`).
 3. **Export CSV financier côté web** : l'API finance n'a pas d'export ; les CSV de `/v2/finance/*` sérialisent les lignes déjà calculées (page affichée). Les CSV
    de paie sont ceux de l'API (audités, limités en débit). À arbitrer : export serveur complet pour les rapports finance (volumes, audit).
-4. **Contestation par l'enseignant** : `POST /payslips/:id/dispute` exige `payroll.payslip.approve` (gestion) ; l'espace `/v2/payroll/my` affiche l'état
-   « contesté » et renvoie vers la gestion, sans bouton de contestation. À arbitrer : route `my` de contestation (motif) côté API.
+4. ~~Contestation par l'enseignant~~ **Levé** : `POST /payroll/my/payslips/:id/dispute` (`payroll.my.dispute`), écran `/v2/teacher/payslips/[id]` (motif de 3 à 500 caractères,
+   bulletin arrêté et non versé).
 5. **Clés libres des barèmes** (`levelKey`, `trackKey`, `learnerType`) : leur sens vient de l'adaptateur `EnrollmentDirectory` (non écrit) ; les écrans proposent
    une saisie libre avec suggestions (codes de niveaux). Idem `academicYear` (chaîne libre côté finance) : on utilise le **code** de l'année académique.
 6. **Tarifs horaires** : le contrat porte `curriculumNodeId` ; le sélecteur propose les nœuds feuilles / rattachés à une matière des versions **publiées**
