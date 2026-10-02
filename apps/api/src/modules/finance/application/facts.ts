@@ -142,3 +142,107 @@ export async function hasOverdueBalance(deps: FinanceDeps, ctx: RequestContext, 
     { readOnly: true },
   );
 }
+
+// ---------------------------------------------------------------------------
+// Lectures « solde » pour stateassign (spec 014 AC5.5, spec 006) — montants ENTIERS en unité mineure, lectures seules
+// ---------------------------------------------------------------------------
+
+/** Totaux d'un ensemble de factures ÉMISES (ni brouillon, ni annulées) dans une devise ; `outstanding = billed - credited - paid`. */
+export interface InvoiceTotals {
+  readonly currency: string;
+  readonly invoiceCount: number;
+  readonly billed: number;
+  readonly credited: number;
+  readonly paid: number;
+  readonly outstanding: number;
+}
+
+export interface LearnerStanding extends InvoiceTotals {
+  readonly learnerId: Uuid;
+  readonly academicYear: string | null;
+  /** Au moins une facture est en retard (`OVERDUE`) : aucun montant exposé séparément. */
+  readonly hasOverdue: boolean;
+}
+
+export interface BilledAmounts extends InvoiceTotals {
+  readonly enrollmentId: Uuid;
+  /** Part facturée à la FAMILLE (payeur `LEARNER`) et part des FINANCEURS (`FUNDER`) ; leur somme est `billed`. */
+  readonly byPayer: { readonly LEARNER: number; readonly FUNDER: number };
+}
+
+interface TotalsRow {
+  invoice_count: string;
+  billed: string | null;
+  credited: string | null;
+  paid: string | null;
+  overdue_count?: string;
+  learner_part?: string | null;
+  funder_part?: string | null;
+}
+
+function totalsOf(row: TotalsRow | null, currency: string): InvoiceTotals {
+  const billed = Number(row?.billed ?? 0);
+  const credited = Number(row?.credited ?? 0);
+  const paid = Number(row?.paid ?? 0);
+  return { currency, invoiceCount: Number(row?.invoice_count ?? 0), billed, credited, paid, outstanding: Math.max(0, billed - credited - paid) };
+}
+
+/** Solde d'un apprenant (toutes factures émises, éventuellement d'une année) : facturé, avoirs, encaissé, reste dû, retard. */
+export async function getLearnerStanding(deps: FinanceDeps, ctx: RequestContext, input: { learnerId: Uuid; academicYear?: string | undefined }): Promise<Result<LearnerStanding, AppError>> {
+  const currency = deps.config.defaultCurrency;
+  return inTx(
+    deps,
+    ctx,
+    async (tx) => {
+      const row = await tx.queryOne<TotalsRow>(
+        `SELECT count(*)::text AS invoice_count, sum(i.total_amount)::text AS billed, sum(i.credited_amount)::text AS credited, sum(i.paid_amount)::text AS paid,
+                (count(*) FILTER (WHERE i.status = 'OVERDUE'))::text AS overdue_count
+           FROM finance.invoices i
+          WHERE i.learner_id = $1 AND ($2::text IS NULL OR i.academic_year = $2) AND i.status NOT IN ('DRAFT', 'CANCELLED') AND i.currency = $3`,
+        [input.learnerId, input.academicYear ?? null, currency],
+      );
+      return ok({ learnerId: input.learnerId, academicYear: input.academicYear ?? null, ...totalsOf(row, currency), hasOverdue: Number(row?.overdue_count ?? 0) > 0 });
+    },
+    { readOnly: true },
+  );
+}
+
+/** Totaux des factures dont le payeur est le financeur désigné (`payerKind = FUNDER`, `payerRef` = identifiant de la bourse). */
+export async function getLinkedInvoicesTotals(deps: FinanceDeps, ctx: RequestContext, scholarshipId: Uuid): Promise<Result<InvoiceTotals, AppError>> {
+  const currency = deps.config.defaultCurrency;
+  return inTx(
+    deps,
+    ctx,
+    async (tx) => {
+      const row = await tx.queryOne<TotalsRow>(
+        `SELECT count(*)::text AS invoice_count, sum(i.total_amount)::text AS billed, sum(i.credited_amount)::text AS credited, sum(i.paid_amount)::text AS paid
+           FROM finance.invoices i
+          WHERE i.payer_kind = 'FUNDER' AND i.payer_ref = $1 AND i.status NOT IN ('DRAFT', 'CANCELLED') AND i.currency = $2`,
+        [scholarshipId, currency],
+      );
+      return ok(totalsOf(row, currency));
+    },
+    { readOnly: true },
+  );
+}
+
+/** Montants facturés d'une inscription, séparés entre la part de la famille et celle des financeurs. */
+export async function getBilledAmounts(deps: FinanceDeps, ctx: RequestContext, input: { enrollmentId: Uuid }): Promise<Result<BilledAmounts, AppError>> {
+  const currency = deps.config.defaultCurrency;
+  return inTx(
+    deps,
+    ctx,
+    async (tx) => {
+      const row = await tx.queryOne<TotalsRow>(
+        `SELECT count(*)::text AS invoice_count, sum(i.total_amount)::text AS billed, sum(i.credited_amount)::text AS credited, sum(i.paid_amount)::text AS paid,
+                (sum(i.total_amount) FILTER (WHERE i.payer_kind = 'LEARNER'))::text AS learner_part,
+                (sum(i.total_amount) FILTER (WHERE i.payer_kind = 'FUNDER'))::text AS funder_part
+           FROM finance.invoices i
+          WHERE i.enrollment_id = $1 AND i.status NOT IN ('DRAFT', 'CANCELLED') AND i.currency = $2`,
+        [input.enrollmentId, currency],
+      );
+      return ok({ enrollmentId: input.enrollmentId, ...totalsOf(row, currency), byPayer: { LEARNER: Number(row?.learner_part ?? 0), FUNDER: Number(row?.funder_part ?? 0) } });
+    },
+    { readOnly: true },
+  );
+}
