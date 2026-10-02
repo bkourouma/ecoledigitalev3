@@ -1,7 +1,7 @@
 -- =============================================================================
--- 1800 — Module imports : imports Excel / CSV (assistant en 7 étapes)
+-- 2400 — Module imports : imports Excel / CSV (assistant en 7 étapes)
 -- =============================================================================
--- Spec v2/031-imports. Plage 1800-1899.
+-- Spec v2/031-imports. Plage 2400-2499 (docs/architecture/module-conventions.md).
 -- Règles du module :
 --   - un schéma `imports` ; toute table de tenant : tenant_id + RLS forcée + GRANT app_user ;
 --   - AUCUNE clé étrangère vers un autre module : élèves, classes, évaluations... sont des UUID produits par les ports ;

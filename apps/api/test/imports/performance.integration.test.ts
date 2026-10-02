@@ -16,6 +16,7 @@ import { describeIntegration } from "../helpers/fixtures";
 import { adminRows, createAssemblyWorld, type AssemblyWorld } from "../adapters/support/world";
 
 const mb = (n: number): number => Math.round((n / 1024 / 1024) * 10) / 10;
+const ROWS = Math.max(300, Number(process.env.IMPORTS_PERF_ROWS ?? 5000));
 
 /** Échantillonne le tas pendant `fn` et renvoie le pic (octets) au-dessus de la base de départ. */
 async function withHeapPeak<T>(fn: () => Promise<T>): Promise<{ result: T; peak: number; ms: number }> {
@@ -76,16 +77,16 @@ describeIntegration("imports : performance et mémoire (5 000 lignes, adaptateur
     (globalThis as { __ref500?: number }).__ref500 = Math.max(r.upload.peak, r.validation.peak, r.run.peak);
   }, 600_000);
 
-  it("5 000 lignes : import complet, mémoire bornée, rejeu idempotent", async () => {
+  it(`${ROWS} lignes : import complet, mémoire bornée, rejeu idempotent`, async () => {
     const before = Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM people.students"))[0]!.n);
-    const r = await runImport(5000, "Q", 1000);
-    expect(r.job).toMatchObject({ createdCount: 5000, failedCount: 0, processedCount: 5000, status: "COMPLETED" });
-    expect(Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM people.students"))[0]!.n)).toBe(before + 5000);
+    const r = await runImport(ROWS, "Q", 1000);
+    expect(r.job).toMatchObject({ createdCount: ROWS, failedCount: 0, processedCount: ROWS, status: "COMPLETED" });
+    expect(Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM people.students"))[0]!.n)).toBe(before + ROWS);
     const dup = await adminRows(w, "SELECT external_ref FROM people.students GROUP BY external_ref HAVING count(*) > 1");
     expect(dup).toEqual([]);
     const peak = Math.max(r.upload.peak, r.validation.peak, r.run.peak);
-    const rate = Math.round((5000 / (r.run.ms / 1000)) * 10) / 10;
-    console.log(`[perf] 5 000 lignes : upload ${r.upload.ms} ms (pic ${mb(r.upload.peak)} Mo), validation ${r.validation.ms} ms (pic ${mb(r.validation.peak)} Mo), import ${r.run.ms} ms (pic ${mb(r.run.peak)} Mo) = ${rate} lignes/s ; durée enregistrée ${r.job.durationMs} ms`);
+    const rate = Math.round((ROWS / (r.run.ms / 1000)) * 10) / 10;
+    console.log(`[perf] ${ROWS} lignes : upload ${r.upload.ms} ms (pic ${mb(r.upload.peak)} Mo), validation ${r.validation.ms} ms (pic ${mb(r.validation.peak)} Mo), import ${r.run.ms} ms (pic ${mb(r.run.peak)} Mo) = ${rate} lignes/s ; durée enregistrée ${r.job.durationMs} ms`);
     // Mémoire bornée : 10 fois plus de lignes ne coûtent pas 10 fois plus de tas (le plafond absolu est généreux pour la CI).
     const ref = (globalThis as { __ref500?: number }).__ref500 ?? 0;
     expect(peak).toBeLessThan(Math.max(ref * 5, 150 * 1024 * 1024));
@@ -93,10 +94,10 @@ describeIntegration("imports : performance et mémoire (5 000 lignes, adaptateur
 
     // Rejeu : même fichier, mêmes matricules -> tout est ignoré, aucun doublon, aucune écriture dans people.
     const events = Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM kernel.domain_events WHERE type = 'people.student.created'"))[0]!.n);
-    const again = await runImport(5000, "Q", 1000);
-    expect(again.job).toMatchObject({ createdCount: 0, skippedCount: 5000, failedCount: 0 });
-    expect(Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM people.students"))[0]!.n)).toBe(before + 5000);
+    const again = await runImport(ROWS, "Q", 1000);
+    expect(again.job).toMatchObject({ createdCount: 0, skippedCount: ROWS, failedCount: 0 });
+    expect(Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM people.students"))[0]!.n)).toBe(before + ROWS);
     expect(Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM kernel.domain_events WHERE type = 'people.student.created'"))[0]!.n)).toBe(events);
-    console.log(`[perf] rejeu 5 000 lignes : validation ${again.validation.ms} ms, import ${again.run.ms} ms (toutes ignorées)`);
+    console.log(`[perf] rejeu ${ROWS} lignes : validation ${again.validation.ms} ms, import ${again.run.ms} ms (toutes ignorées)`);
   }, 1_800_000);
 });

@@ -1,0 +1,21 @@
+# Questions ouvertes et décisions à arbitrer — imports (031-imports)
+
+Valeur par défaut appliquée tant que le propriétaire du produit n'a pas tranché (un arbitrage prime sur la valeur par défaut ; voir `specs/v2/DECISIONS-METIER.md`).
+
+| # | Question | Valeur par défaut appliquée | Conséquence si on change |
+|---|---|---|---|
+| O-01 | **Longue transaction du mode « tout ou rien »** : une transaction unique retient les verrous des modules cibles (numérotation sans trou des élèves, verrou de chaîne d'audit) pendant toute l'écriture. | Plafond `all_or_nothing_max_rows` = 5 000 lignes, réglable par tenant ; `VALID_ONLY` recommandé pour les gros fichiers. | Une compensation (annulation logique) exigerait des cas d'usage « défaire » dans chaque module cible. |
+| O-02 | **Enseignants et notes** : `grade.enter` ne suffit pas, l'importeur de notes exige aussi `assessment.manage` (un enseignant ne peut pas importer les notes d'un collègue). | Direction / responsable pédagogique seulement. | Autoriser l'enseignant sur SES évaluations exige de passer le contexte d'affectation (`caps`) de l'auteur au worker. |
+| O-03 | **Attribution des permissions `imports.*`** aux rôles système (secrétariat, directeur des études, économe). | Seuls `owner` et `directeur` (`*`) les ont. | Demande de changement du module `rbac` (modèles de rôles). |
+| O-04 | **Numéro d'inscription comme référence d'élève** dans les notes et soldes (annoncé au départ) : non retenu, faute de résolution publique en lot côté `academic`. | Matricule d'origine ou matricule de la plateforme (`people.resolveStudentRefs`). | Ajouter une résolution par numéro d'inscription à `academic`. |
+| O-05 | **Doublons probables** d'élèves, de tuteurs, de personnel. | `REJECT` (ligne refusée avec les candidats) ; `ACKNOWLEDGE` crée avec un motif tracé dans l'audit de `people`. Aucune fusion (spec 008). | Une fusion exigerait une spec « fusion de dossiers » (008). |
+| O-06 | **Détection de doublons des tuteurs** : `people.createGuardian` n'a pas de `externalRef` ; l'idempotence repose sur `imports.entity_refs` (clé naturelle nom + contact). Un tuteur supprimé puis réimporté serait recréé ; deux imports d'établissements différents partageant le même tenant partagent la table. | Table de références du module. | Ajouter `externalRef` aux tuteurs (migration `people`). |
+| O-07 | **Mise à jour d'un tuteur ou d'un lien** (politique « mettre à jour ») : seuls l'identité / contacts du tuteur et les drapeaux du lien sont mis à jour. | Minimal. | Étendre aux affectations d'autorité ou au retrait de lien. |
+| O-08 | **Limite de 20 000 lignes** par import (plafond absolu). | 5 000 par défaut, 20 000 au maximum. | Au-delà : découper ; lever le plafond exige de revoir la mémoire du plan (`validKeys`). |
+| O-09 | **Débit** : ~10-20 lignes/s pour les élèves sur Postgres dans Docker/Windows (22 requêtes par `createStudent`). | Mesuré, documenté (README). | Un `createStudentsBulk` dans `people` (une requête par lot) multiplierait le débit ; hors périmètre (module cible). |
+| O-10 | **Fichier original conservé** dans le stockage d'objets jusqu'à la purge (`retention_days`), valeurs brutes purgées avec lui. | 30 jours. | Conservation plus longue : obligation d'information (RGPD / loi ivoirienne 2013-450) à valider. |
+| O-11 | **Formats** : `.xlsx` et `.csv` seulement. `.xls`, `.ods`, `.xlsb` refusés. | Message explicite « enregistrez au format .xlsx ». | Support `.ods` : lecteur supplémentaire. |
+| O-12 | **Reprise de données legacy** (tables Imhotep, comptes). | Aucune (D8). | — |
+| O-13 | **Importeurs absents** : inscriptions seules, affectations d'enseignement, emplois du temps, paiements encaissés, assiduité. | Hors V1. | Chacun serait un fichier d'importeur + un port. |
+| O-14 | **Financement des inscriptions** : seul le type de financement et la référence d'affectation sont importés ; les bourses et remises de `finance` ne le sont pas. | `academic.enrollStudent` seulement. | Ajouter `finance.setLearnerFunding` à l'importeur d'élèves. |
+| O-15 | **Soldes en avoir sans facture de reprise** : un avoir doit viser une facture de reprise (même fichier ou import précédent). | Refus explicite. | Un « solde créditeur » exigerait un mécanisme de crédit libre dans `finance`. |

@@ -1,64 +1,74 @@
-# Module `imports` — Imports
+# Module `imports` — imports Excel / CSV en sept étapes
 
-Squelette généré par `pnpm module:new imports`. Conforme à `docs/architecture/module-conventions.md` et au contrat d'assemblage
-(`docs/architecture/platform-assembly.md`). Pas à pas : `docs/architecture/new-module-guide.md`.
+Socle (pack `CORE`). Schéma Postgres `imports`, migrations **2400-2499** (`2400_imports_init.sql`). Spec : `specs/v2/031-imports/` (`spec.md`, `data-model.md`, `plan.md`, `parity.md`, `open-questions.md`). Conventions : `docs/architecture/module-conventions.md`. `dependsOn: []` : le module n'importe aucun autre module ; il **n'écrit jamais** dans un autre schéma.
 
-**À remplacer** : l'entité d'exemple `item` (table `imports.items`, routes `/items`, événement `imports.item.created`) par le vrai modèle du module,
-puis écrire ici ce que le module fait réellement (domaine, règles, tables, routes, événements).
+## Ce que fait le module
 
-- Schéma Postgres : `imports` — migrations `1800-1899` (plage réservée, inscrite dans le tableau de `module-conventions.md`).
-- Packs : `CORE` (à ajuster dans `manifest.ts`).
+Un **cadre générique** — Upload, Mapping, Validation, Erreurs, Preview, Import, Rapport — et sept **importeurs** : `students`, `guardians`, `staff`, `classrooms`, `curriculum`, `grades`, `opening_balances`. Chaque importeur est une DESCRIPTION (colonnes + alias, schéma Zod, règles, clé naturelle, options, permissions, lignes d'exemple) dans `importers/<clé>.ts`, enregistrée par `importers/registry.ts`. L'**écriture** est portée par un port (`ImportTargetPort`) que `apps/api/src/platform/adapters/imports-*.ts` branche sur l'**API publique** (`index.ts`) de `people`, `academic`, `assess` et `finance` : leurs règles, leur audit, leurs événements et leurs unicités s'appliquent à chaque ligne.
 
-## Arborescence
+| Importeur | Module cible (API publique) | Permissions en plus de `imports.import.<clé>` | Idempotence |
+|---|---|---|---|
+| `students` | `people.createStudent` / `updateStudent`, `academic.enrollStudent` | `student.create` (+ `student.update`, + `enrollment.create` si « Classe ») | `externalRef` (matricule d'origine, sinon empreinte de la clé naturelle) |
+| `guardians` | `people.createGuardian` / `linkGuardian` / `updateGuardian*` | `guardian.manage` | `entity_refs` + `link_exists` |
+| `staff` | `people.createStaff` / `updateStaff` | `staff.create` (+ `staff.update`) | `externalRef` |
+| `classrooms` | `academic.createClassroom` / `updateClassroom` | `academic.classroom.manage` | code unique + `entity_refs` |
+| `curriculum` | `academic.createSubject` / `addCurriculumNode` / `updateCurriculumNode` | `curriculum.manage` (+ `academic.program.manage`) | code + `entity_refs` |
+| `grades` | `assess.saveGrades` (codes ABS = `ABSENT_UNEXCUSED`, ABJ = `ABSENT_EXCUSED`, DISP = `EXEMPT`) | `grade.enter`, `assessment.manage` | upsert par inscription ; note identique = ignorée |
+| `opening_balances` | `finance.createInvoice` (émise) / `issueCreditNote` | `finance.invoice.create` ; **MFA** | `idempotencyKey` de la facture + `entity_refs` |
 
-```
-manifest.ts          permissions, features, menus, événements (source de vérité)
-index.ts             API publique : SEUL point d'import pour les autres modules
-migrations/          1800_imports_init.sql (schéma, table de tenant, RLS, droits)
-domain/              règles pures (aucun import pg/fastify) : item.ts, events.ts
-application/         cas d'usage (deps, ctx, input) => Result ; ports.ts (audit)
-infrastructure/      SQL via le Tx de TenantDb
-http/                plugin.ts : export default async (app, runtime) [+ setup facultatif] ; schemas.ts (Zod)
-subscribers.ts       abonnés du worker (exemple commenté)
-jobs.ts              jobs planifiés du worker (exemple commenté)
-test/                unitaires (sans base), intégration (TEST_DATABASE_URL), support/
-../isolation-allowlist.imports.ts   tables globales justifiées (vide)
-```
+## Parcours
 
-## Contrat d'assemblage utilisé
+1. **Upload** `POST /jobs?importer=…&fileName=…` (corps BRUT) : type réel (octets), taille, ZIP inspecté puis décompression comptée, DTD refusées, plafonds de lignes / colonnes / cellule, stockage (`StoragePort`), lignes brutes mises en table par lots (flux), empreinte SHA-256, proposition de mapping (modèle enregistré >= 80 % sinon détection par en-têtes).
+2. **Mapping** `PUT /jobs/:id/mapping` : champs <-> colonnes, options de l'importeur, politique « existant » (`SKIP` / `UPDATE`).
+3. **Validation** `POST /jobs/:id/validate` -> événement -> abonné `imports.validate` (worker) : mapping + coercion + Zod + règles + clé naturelle ; doublons dans le fichier ; **plan** contre l'existant par le port (transaction TOUJOURS annulée).
+4. **Erreurs** `GET /jobs/:id/rows?onlyProblems=…&column=…&code=…` ; rapport téléchargeable `GET /jobs/:id/report?format=csv|xlsx&kind=errors|full` (valeurs neutralisées).
+5. **Preview** `GET /jobs/:id/preview` : à créer / mettre à jour / ignorer / refuser, sans écriture.
+6. **Import** `POST /jobs/:id/run { runMode, onExisting, confirm: true }` -> abonné `imports.run` (worker) : lots transactionnels (`VALID_ONLY`) ou une transaction (`ALL_OR_NOTHING`), bail + battement de coeur, reprise, annulation (`POST /jobs/:id/cancel`).
+7. **Rapport** `GET /jobs/:id/summary` : créés, mis à jour, ignorés, en erreur, durée, auteur ; `GET /jobs` historique.
 
-| Besoin | Mécanisme |
-|---|---|
-| Routes | `export default async function (app, runtime)`, sans préfixe ; le registre applique `/api/v1/imports` |
-| Permissions | `runtime.requirePermission("imports.item.read")` en `preHandler` ; clés déclarées dans `manifest.ts` |
-| Features | `runtime.entitlements.requireFeature("imports.<feature>")` ; déclarées dans `manifest.ts` |
-| Audit | `runtime.auditPort.record(tx, …)` dans la transaction du use case, EN DERNIER (port `AuditPort`) |
-| Événements | `PgOutboxWriter(tx).append([...])` dans la même transaction ; payload `{ v: 1, … }` |
-| Contexte | `runtime.resolveContext(request)` |
-| Données | `runtime.tenantDb.run(ctx, fn)` uniquement (RLS) |
+Autres routes : `GET /importers` (descripteurs + `canUse` / `canRun` selon les droits de l'appelant), `GET /importers/:key/template?format=csv|xlsx`, `GET /importers/:key/options/:option/choices`, `GET|POST|PUT|DELETE /templates` (modèles de mapping), `GET|PUT /settings`, `DELETE /jobs/:id` (brouillon sans écriture).
 
-## Permissions
+## Permissions (manifeste)
 
-| Clé | Rôle |
-|---|---|
-| `imports.item.read` | consulter les éléments |
-| `imports.item.create` | créer un élément |
+`imports.read`, `imports.create` (téléverser, mapper, valider, prévisualiser : aucune écriture), `imports.import.<importeur>` (lancer ; `opening_balances` est **sensible** : MFA), `imports.cancel`, `imports.template.manage`, `imports.manage` (imports des autres, plafonds). Un importeur exige AUSSI les permissions de son module cible (vérifiées à l'upload, au mapping, à la validation et au lancement). Un import n'est visible que par son auteur ou par `imports.manage` (404 sinon). Aucun rôle système ne reçoit ces permissions ici : demande de changement du module `rbac` (voir `open-questions.md` O-03).
 
-## Événements publiés
+## Sécurité des fichiers (INV-S1 à S8, `spec.md` §4.1)
 
-| Type | Payload |
-|---|---|
-| `imports.item.created` | `{ v: 1, itemId }` |
+Type réel sur les octets (`.xls`, PDF, images, exécutables, archives non XLSX refusés ; incohérence nom / contenu / type annoncé refusée) ; zip-bomb (nombre d'entrées, taille déclarée, rapport de compression, **comptage de la décompression réelle**) ; XML en flux sans DTD ni entité ; formules lues par leur valeur en cache (jamais évaluées), macros ignorées ; plafonds ; **injection de formule neutralisée** dans les CSV / XLSX de rapport (apostrophe, cellules XLSX en texte) ; aucune donnée de ligne dans les événements ni les journaux ; valeurs brutes purgées après `retention_days`. Quotas par tenant (imports actifs, par 24 h), limiteur de débit par utilisateur.
+
+## Événements et jobs
+
+Publiés : `imports.job.created|validation_requested|validated`, `imports.run.requested|started|completed|failed|cancelled` (payload `{ v: 1, … }`, aucune donnée personnelle). Consommé par `tenancy` : `imports.run.completed` complète `STUDENT_IMPORT` (élèves) et `TEACHERS` (personnel).
+
+Abonnés (`subscribers.ts`) : `imports.validate`, `imports.run` (sans `idempotent()` : l'idempotence vient du bail et de l'état). Jobs (`jobs.ts`) : `imports.resume-stalled` (toutes les 30 s : republie les imports dont l'exécutant est mort), `imports.purge` (04:25 : brouillons abandonnés annulés, valeurs brutes et fichiers purgés). **Reconstruire le bundle du worker** après toute modification (`pnpm --filter @ecoledigitale/worker build`).
+
+Variables du worker (facultatives) : `IMPORTS_LEASE_SECONDS` (45), `IMPORTS_HEARTBEAT_MS` (5000), `IMPORTS_MAX_RUN_ATTEMPTS` (5), `IMPORTS_STALE_AFTER_SECONDS` (90). Stockage d'objets requis (`STORAGE_S3_*` ; repli disque de développement).
+
+## Extensions additives des modules cibles
+
+`people.resolveStudentRefs(deps, ctx, refs)` (matricule d'origine ou de la plateforme -> identifiant d'élève, par lots de 500) — nécessaire aux importeurs de tuteurs, de notes et de soldes ; testée (`people/test/integration/student-refs.integration.test.ts`). `tenancy` : abonné `tenancy.onboarding-on-import-completed` (`application/onboarding-events.ts`).
+
+## Performance mesurée
+
+Postgres 17 dans Docker sous Windows (latence d'aller-retour élevée), vrais adaptateurs, élèves sans inscription : upload de 5 000 lignes ~1 s ; validation (plan par `createStudent` à blanc) ~130 s ; import ~9 à 20 lignes/s (22 requêtes par élève dans `people`) ; **mémoire bornée** : pic de tas ~47 Mo en validation et ~42 Mo en import pour 5 000 lignes (≈ 2 fois celui de 200 lignes). Le rejeu d'un fichier déjà importé n'appelle aucun cas d'usage cible (toutes lignes ignorées, aucun doublon, aucun événement `people.student.created` de plus). Mesures et reprise après `SIGKILL` : `apps/api/test/imports/`.
 
 ## Tests
 
 ```bash
-pnpm --filter @ecoledigitale/api exec vitest run src/modules/imports          # unitaires (+ intégration ignorée sans base)
-ED_PG_IMAGE=postgres:17-alpine node packages/database/scripts/with-postgres.mjs --root apps/api src/modules/imports/test   # intégration
-pnpm check:boundaries && pnpm --filter @ecoledigitale/api type-check:v2 && pnpm test:isolation
+# unitaires (sans base) : domaine, fichiers hostiles (zip-bomb, DOCTYPE, formules, macros, corrompu, mauvais type), registre
+pnpm --filter @ecoledigitale/api exec vitest run src/modules/imports/test/unit
+# moteur, HTTP, isolation A/B sur Postgres éphémère (Docker)
+ED_PG_IMAGE=postgres:17-alpine node packages/database/scripts/with-postgres.mjs --root apps/api src/modules/imports/test/integration
+# adaptateurs sur les VRAIS modules cibles ; performance (5 000 lignes, IMPORTS_PERF_ROWS pour réduire)
+ED_PG_IMAGE=postgres:17-alpine node packages/database/scripts/with-postgres.mjs --root apps/api test/adapters/imports.integration.test.ts test/imports/performance.integration.test.ts
+# vrai worker (bundle) : reprise après SIGKILL, rejeu, annulation (Postgres + Redis éphémères)
+cd apps/api && ED_PG_IMAGE=postgres:17-alpine node ../worker/scripts/with-infra.mjs test/imports/worker.integration.test.ts
+# écrans
+cd apps/web && pnpm exec vitest run src/app/v2/imports
 ```
 
-## Avant la revue
+Fichiers d'exemple FICTIFS : `test/support/files.ts` (aucune donnée réelle) ; modèles téléchargeables : `GET /importers/:key/template`.
 
-Cochez la checklist de `docs/architecture/new-module-guide.md` (README réécrit, plus d'« item » d'exemple, schémas Zod déplacés vers `packages/contracts`,
-migrations dans la plage, abonnés/jobs réels ou fichiers vides conservés, worker reconstruit).
+## Limites connues
+
+Voir `specs/v2/031-imports/open-questions.md` (O-01 à O-15) : transaction unique du mode « tout ou rien » (verrous des modules cibles), notes réservées à `assessment.manage`, tuteurs sans `externalRef` (idempotence par table de références), débit borné par les cas d'usage des modules cibles, `.xls` / `.ods` non pris en charge.
