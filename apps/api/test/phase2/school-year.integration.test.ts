@@ -27,7 +27,7 @@ import { audit } from "../../src/modules/audit";
 import { DEFAULT_SANDBOX_SECRET } from "../../src/modules/finance";
 import { describeIntegration } from "../helpers/fixtures";
 import { REDIS_URL, waitFor } from "../phase1/support/harness";
-import { PASSWORD, loginWithMfaEnrollment, provisionByConsole, readAuditLog, redeemInvitation, type ProvisionedOwner } from "../phase1/support/scenario";
+import { PASSWORD, loginPlain, loginWithMfaEnrollment, provisionByConsole, readAuditLog, redeemInvitation, type ProvisionedOwner } from "../phase1/support/scenario";
 import { activatePortalAccount, actorFrom, expectStatus, onboardStaffMember, type Actor } from "./support/actors";
 import { startPhase2Platform, type Phase2Env } from "./support/platform";
 
@@ -636,19 +636,19 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       expect(rows.rows).toHaveLength(3);
       expect(new Set(rows.rows.map((r) => r.contract_id))).toEqual(new Set(["credit-semester@1"]));
       expect(new Set(rows.rows.map((r) => r.rule_set_code))).toEqual(new Set(["CI-HIGHER-LMD"]));
-      // eslint-disable-next-line no-console
-      console.log("PERIOD-RESULTS", JSON.stringify(rows.rows));
-      const detail = async (i: number): Promise<any> => (await dir().get(`/api/v1/results/enrollments/${W.students[i]!.enrollmentId}/periods/${W.periodIds[0]}`)).body;
-      const r1 = await detail(0);
-      const r2 = await detail(1);
-      const r3 = await detail(2);
-      // eslint-disable-next-line no-console
-      console.log("RESULTS-1", JSON.stringify(r1.header), JSON.stringify(r1.lines).slice(0, 1500));
-      // eslint-disable-next-line no-console
-      console.log("RESULTS-2", JSON.stringify(r2.header), JSON.stringify(r2.lines).slice(0, 1500));
-      expect(r1.header.status).toBe("FINAL");
-      expect(r2.header.status).toBe("FINAL");
-      expect(r3.header.status).toBe("FINAL");
+      const of = (i: number) => rows.rows.find((r) => r.enrollment_id === W.students[i]!.enrollmentId);
+      // Étudiant 1 : 15 partout -> les deux UE validées, semestre ADMIS (12 crédits sur 12).
+      expect(of(0)).toMatchObject({ validated: true, decision_outcome: "ADMITTED", average: "15", credits_acquired: "12.00", credits_required: "12.00" });
+      // Étudiant 2 : 18 en UE1 et 9 en UE2 = moyenne 13,5 (>= 10) MAIS UE2 non validée : PAS de compensation, semestre non validé (rattrapage ouvert, les ECUE le permettent).
+      expect(of(1)).toMatchObject({ validated: false, decision_outcome: "RESIT", average: "13.5", credits_acquired: "6.00", credits_required: "12.00" });
+      expect(Number(of(1)!.average)).toBeGreaterThanOrEqual(10);
+      // Étudiant 3 : 8 partout (absent à un examen) : rien de validé.
+      expect(of(2)).toMatchObject({ validated: false, decision_outcome: "RESIT", average: "8", credits_acquired: "0.00" });
+      // La lecture HTTP des résultats donne la même chose, avec la version de règle épinglée.
+      const detail = await dir().get(`/api/v1/results/enrollments/${W.students[1]!.enrollmentId}/periods/${W.periodIds[0]}`);
+      expect(detail.body.header).toMatchObject({ status: "FINAL", ruleSetCode: "CI-HIGHER-LMD", contractId: "credit-semester@1", validated: false });
+      expect(detail.body.header.inputsHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(detail.body.header.outputsHash).toMatch(/^[0-9a-f]{64}$/);
     });
   });
 
@@ -727,8 +727,6 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       const closed = await dir().post(`${ctxPath()}/close`, {});
       expect(closed.body.resultsVersion).toBeGreaterThanOrEqual(2);
       const e21 = await lineOf(1, "E21");
-      // eslint-disable-next-line no-console
-      console.log("RESIT-LINE-E21-ETU2", JSON.stringify(e21.line));
       expect(e21.line.outputs.note_s1).toBe("9");
       expect(e21.line.outputs.note_s2).toBe("5");
       expect(e21.line.outputs.note_examen, "REMPLACE : 5 et non max(9, 5)").toBe("5");
@@ -964,23 +962,16 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
 
     it("calcul : 2 séances × 2 h × 5 000 = 20 000 XOF, calculé par les heures de scheduling (jamais saisi à la main)", async () => {
       const run = await own().post(`/api/v1/payroll/periods/${periodId}/calculate`, {}, [200, 201]);
-      // eslint-disable-next-line no-console
-      console.log("PAYROLL-RUN", JSON.stringify(run.body).slice(0, 1200));
-      const dbg = await p.db.admin.query(
-        "SELECT id, status, starts_at, ends_at, validated_at, held_source FROM scheduling.session_occurrences WHERE tenant_id = $1 AND id = ANY($2::uuid[])",
-        [T().tenantId, W.occ.map((o) => o.id)],
-      );
-      // eslint-disable-next-line no-console
-      console.log("DEBUG-OCC", JSON.stringify(dbg.rows));
+      expect(run.body).toMatchObject({ calculated: 1, failed: 0 });
+      expect(run.body.items[0].minutesBySource).toEqual({ SESSION: 240, ATTENDANCE: 0 });
       const list = await own().get(`/api/v1/payroll/payslips?periodId=${periodId}`);
-      const slips = (list.body.items ?? list.body.payslips) as Array<{ id: string; staffId: string; status: string; totalAmount?: number; total?: number }>;
+      const slips = (list.body.items ?? list.body.payslips) as Array<{ id: string; staffId: string; status: string }>;
       expect(slips).toHaveLength(1);
       payslipId = slips[0]!.id;
       W.ids.payslip = payslipId;
-      expect(slips[0]!.status).toBe("CALCULATED");
+      expect(slips[0]).toMatchObject({ status: "CALCULATED", staffId: W.teacherStaffId });
       const detail = await own().get(`/api/v1/payroll/payslips/${payslipId}`);
-      const total = detail.body.totalAmount ?? detail.body.total ?? detail.body.payslip?.totalAmount;
-      expect(total, JSON.stringify(detail.body).slice(0, 800)).toBe(20000);
+      expect(detail.body.payslip).toMatchObject({ totalAmount: 20000, baseAmount: 20000, regularMinutes: 240, overtimeAmount: 0 });
     });
 
     it("séparation des tâches : celui qui a calculé ne peut pas arrêter le bulletin ; l'enseignant ne peut ni calculer, ni approuver, ni payer", async () => {
@@ -1005,10 +996,12 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       const unvalidate = await dir().raw("POST", `/api/v1/scheduling/occurrences/${W.occ[0]!.id}/unvalidate`, { reason: "Tentative après paiement" });
       expect(unvalidate.status, JSON.stringify(unvalidate.body)).toBeGreaterThanOrEqual(400);
       // Un second calcul ne repaie pas les mêmes heures.
-      const second = await own().post(`/api/v1/payroll/periods/${periodId}/calculate`, { recalculate: true }, [200, 201]);
+      await own().post(`/api/v1/payroll/periods/${periodId}/calculate`, { recalculate: true }, [200, 201]);
       const after = await own().get(`/api/v1/payroll/payslips?periodId=${periodId}`);
       expect(((after.body.items ?? after.body.payslips) as unknown[]).length).toBe(1);
-      expect(JSON.stringify(second.body)).not.toMatch(/"amount":2\d{4}.*"amount":2\d{4}/);
+      expect((await own().get(`/api/v1/payroll/payslips/${payslipId}`)).body.payslip).toMatchObject({ status: "PAID", totalAmount: 20000 });
+      const claims = await p.db.admin.query("SELECT count(*)::int AS n FROM payroll.hour_claims WHERE tenant_id = $1", [T().tenantId]);
+      expect(claims.rows[0].n).toBe(2); // une heure ne se paie qu'une fois : 2 séances, 2 réclamations
     });
 
     it("l'enseignant lit SON bulletin versé (et lui seul) ", async () => {
@@ -1031,8 +1024,6 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
         { label: "actes de tous les modules dans le journal d'audit", timeoutMs: 45_000 },
       );
       const actions = [...new Set(entries.map((e) => String(e.action)))].sort();
-      // eslint-disable-next-line no-console
-      console.log("AUDIT-ACTIONS", actions.join(","));
       // Acteurs : des utilisateurs réels (identité IAM), et l'opérateur de la plateforme pour le provisionnement.
       const byAction = (a: string) => entries.find((e) => e.action === a);
       expect(byAction("tenancy.tenant.provision")?.actorType).toBe("superAdmin");
@@ -1164,6 +1155,29 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       }
     });
 
+    it("l'abonnement gouverne les fonctions : B rétrogradé (STARTER, sans pack) perd higher, la paie par séances, la génération, le paiement en ligne ; le socle reste ; A n'est pas touché", async () => {
+      const set = (body: Record<string, unknown>) => p.http("PUT", `/api/v1/platform/tenants/${U.tenantId}/subscription`, { token: p.operatorToken, body });
+      expectStatus(await set({ planKey: "STARTER", packs: [], status: "ACTIVE" }), 200);
+      const anyId = "0192f0a4-7b1e-7c3a-8d2e-00000000dead";
+      const denied: Array<[string, string, unknown]> = [
+        ["GET", "/api/v1/higher/diplomas", undefined],
+        ["POST", `/api/v1/scheduling/timetables/${anyId}/generate`, { from: "2026-01-01", to: "2026-02-01" }],
+        ["POST", "/api/v1/finance/payments/online", { learnerId: anyId, amount: 1000, provider: "sandbox" }],
+        ["POST", "/api/v1/higher/resit-windows", { classroomId: anyId, academicPeriodId: anyId, opensOn: "2026-01-01", closesOn: "2026-01-02" }],
+      ];
+      for (const [method, url, body] of denied) {
+        const res = await ownerU.raw(method, url, body);
+        expect(res.status, `${method} ${url}`).toBe(403);
+        expect(res.body.code, `${method} ${url}`).toBe("entitlements.feature_not_available");
+      }
+      // Le socle (annuaire, référentiels académiques) reste ouvert.
+      expect((await ownerU.raw("GET", "/api/v1/academic/years")).status).toBe(200);
+      expect((await ownerU.raw("GET", "/api/v1/people/students")).status).toBe(200);
+      // A, avec son propre abonnement, garde tout.
+      expect((await own().raw("GET", "/api/v1/higher/diplomas")).status).toBe(200);
+      expectStatus(await set({ planKey: "PROFESSIONAL", packs: ["HIGHER"], status: "ACTIVE" }), 200);
+    });
+
     it("la vérification publique d'un bulletin de A ne dévoile rien de personnel, même à un client de B", async () => {
       const c = (await own().get(`/api/v1/reportcards/report-cards/${W.ids.reportCard}`)).body;
       const res = await p.http("GET", `/api/v1/public/verify/${c.verificationCode}`, { token: ownerU.token });
@@ -1251,6 +1265,212 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
   });
 
   // ===========================================================================================================
+  describe("(14a) portail étudiant et périmètre de l'enseignant : chacun ne voit que ce qui le concerne", () => {
+    let student: Actor;
+    const mine = (): string => W.students[0]!.id;
+    const otherId = (): string => W.students[1]!.id;
+
+    it("l'étudiant 1 reçoit son accès de portail (rôle système eleve) : ses données, jamais celles de ses camarades", async () => {
+      await own().patch(`/api/v1/people/students/${mine()}`, { person: { email: "etudiant1@horizon.test" } });
+      const person = await own().get(`/api/v1/people/students/${mine()}`);
+      const inv = await own().post(`/api/v1/people/persons/${person.body.personId}/portal-invitation`, { quality: "STUDENT" }, [200, 201]);
+      expect(inv.body.invited).toBe(true);
+      student = await activatePortalAccount(p, T().slug, "etudiant1@horizon.test", "eleve");
+      const me = await student.get("/api/v1/people/me/student");
+      expect(me.body.id ?? me.body.student?.id).toBe(mine());
+      const enr = await student.get("/api/v1/academic/me/enrollments");
+      expect(JSON.stringify(enr.body)).toContain(W.students[0]!.enrollmentId);
+      expect(JSON.stringify(enr.body)).not.toContain(W.students[1]!.enrollmentId);
+      const grades = await student.get("/api/v1/assess/me/grades");
+      expect((grades.body.items as unknown[]).length).toBeGreaterThanOrEqual(8);
+      const cards = await student.get("/api/v1/reportcards/me/report-cards");
+      expect((cards.body.items as Array<{ studentId: string }>).every((c) => c.studentId === mine())).toBe(true);
+      expect((cards.body.items as unknown[]).length).toBe(1);
+      await student.get("/api/v1/higher/me/credits");
+      const docs = await student.get("/api/v1/higher/me/documents");
+      expect(JSON.stringify(docs.body)).toContain(W.ids.document); // son diplôme publié
+      await student.get("/api/v1/attendance/me/attendance");
+      const res = await student.raw("GET", "/api/v1/results/me/results");
+      expect([200, 403]).toContain(res.status);
+    });
+
+    it("l'étudiant n'accède ni aux autres étudiants, ni à l'administration, ni aux espaces parent", async () => {
+      for (const url of [
+        `/api/v1/people/students/${otherId()}`,
+        "/api/v1/people/students",
+        "/api/v1/people/children",
+        `/api/v1/higher/children/${otherId()}/credits`,
+        `/api/v1/assess/children/${otherId()}/grades`,
+        "/api/v1/academic/enrollments",
+        "/api/v1/finance/invoices",
+        "/api/v1/payroll/payslips",
+      ]) {
+        const res = await student.raw("GET", url);
+        expect([403, 404], `${url} : ${res.status}`).toContain(res.status);
+      }
+      // Le bulletin d'un camarade : même réponse qu'un bulletin inexistant.
+      const card = (await own().get(`/api/v1/reportcards/report-cards?studentId=${otherId()}&live=true`)).body.items[0] as { id: string };
+      expect((await student.raw("GET", `/api/v1/reportcards/report-cards/${card.id}/pdf`)).status).toBe(404);
+    });
+
+    it("l'enseignant voit les étudiants de SA classe (fiche réduite), pas un étudiant hors de ses classes ; aucun droit de gestion", async () => {
+      const teacher = W.teacher as Actor;
+      const list = await teacher.get("/api/v1/people/students");
+      expect(JSON.stringify(list.body)).toContain(mine());
+      const outsider = await own().post("/api/v1/people/students", { person: { lastName: "HORSCLASSE", firstName: "Zoe", sex: "F", birthDate: "2005-05-15" } }, 201);
+      const outsiderId = outsider.body.student.id as string;
+      expect((await teacher.raw("GET", `/api/v1/people/students/${outsiderId}`)).status).toBe(404);
+      expect(JSON.stringify((await teacher.get("/api/v1/people/students")).body)).not.toContain(outsiderId);
+      for (const [method, url, body] of [
+        ["POST", "/api/v1/academic/enrollments", { studentId: mine(), classroomId: W.classroomId }],
+        ["POST", "/api/v1/people/students", { person: { lastName: "X", firstName: "Y", sex: "M" } }],
+        ["GET", "/api/v1/finance/invoices", undefined],
+        ["GET", "/api/v1/payroll/payslips", undefined],
+        ["GET", "/api/v1/audit/logs", undefined],
+      ] as Array<[string, string, unknown]>) {
+        expect((await teacher.raw(method, url, body)).status, `${method} ${url}`).toBe(403);
+      }
+    });
+
+    it("le bulletin de l'étudiant 2 porte son assiduité réelle (adaptateur attendance -> reportcards) : 1 séance d'absence", async () => {
+      const detail = await own().get(`/api/v1/reportcards/report-cards/${W.ids.reportCard}`);
+      const att = detail.body.snapshot.attendance;
+      expect(att, "l'assiduité doit figurer au bulletin").not.toBeNull();
+      expect(att).toEqual({ lateCount: 0, justifiedMinutes: 0, unjustifiedMinutes: 120 }); // 1 séance de 2 h manquée, aucun justificatif
+    });
+  });
+
+  // ===========================================================================================================
+  describe("(14a2) congé de l'enseignant : la séance à venir est signalée « à remplacer » par l'événement, puis un remplaçant est désigné", () => {
+    const today = iso(new Date());
+    const dir = (): Actor => W.directeur as Actor;
+    let leaveId: string;
+    let substituteStaffId: string;
+    let futureOccId: string;
+
+    it("l'enseignant demande un congé annuel (rôle système : sa propre demande), la direction l'approuve", async () => {
+      const req = await (W.teacher as Actor).post("/api/v1/attendance/staff/leaves", { leaveTypeCode: "ANNUAL", startsOn: addDays(today, 1), endsOn: addDays(today, 10), reason: "Congé annuel" }, 201);
+      leaveId = req.body.id;
+      expect(req.body.status).toBe("REQUESTED");
+      // Il ne peut pas décider de son propre congé.
+      const self = await (W.teacher as Actor).raw("POST", `/api/v1/attendance/staff/leaves/${leaveId}/approve`, {});
+      expect(self.status).toBe(403);
+      const ok = await dir().post(`/api/v1/attendance/staff/leaves/${leaveId}/approve`, { note: "Accordé" });
+      expect(ok.body.status).toBe("APPROVED");
+    });
+
+    it("événement attendance.staff_leave.approved -> scheduling : les séances PLANIFIÉES du congé sont signalées à remplacer", async () => {
+      const pending = await waitFor(
+        async () => {
+          const r = await dir().get(`/api/v1/scheduling/occurrences/pending-replacements?from=${addDays(today, 1)}&to=${addDays(today, 10)}`);
+          return (r.body.items as unknown[]).length > 0 ? (r.body.items as Array<{ id: string; startsAt: string; staff: Array<{ staffId: string }> }>) : false;
+        },
+        { label: "séances à remplacer signalées après l'approbation du congé", timeoutMs: 45_000 },
+      );
+      futureOccId = pending[0]!.id;
+      expect(pending.every((o) => Date.parse(o.startsAt) > Date.now())).toBe(true);
+    });
+
+    it("un remplaçant (autre fiche de personnel) est désigné : la séance n'est plus à remplacer ; l'enseignant d'origine reste tracé", async () => {
+      const cats = await own().get("/api/v1/people/reference/staff-categories");
+      const cat = (cats.body.items as Array<{ code: string; canTeach: boolean }>).find((c) => c.canTeach)!;
+      const sub = await own().post("/api/v1/people/staff", { person: { lastName: "REMPLACANT", firstName: "Eli", sex: "M", birthDate: "1990-01-01" }, categoryCode: cat.code, hiredOn: "2024-01-01" }, 201);
+      substituteStaffId = sub.body.staff?.id ?? sub.body.id;
+      const res = await dir().post(`/api/v1/scheduling/occurrences/${futureOccId}/substitute`, { originalStaffId: W.teacherStaffId, substituteStaffId, reason: "Congé annuel de l'enseignant titulaire" }, [200, 201]);
+      expect(JSON.stringify(res.body)).toContain(substituteStaffId);
+      const after = await dir().get(`/api/v1/scheduling/occurrences/pending-replacements?from=${addDays(today, 1)}&to=${addDays(today, 10)}`);
+      expect((after.body.items as Array<{ id: string }>).some((o) => o.id === futureOccId)).toBe(false);
+      const history = await dir().get(`/api/v1/scheduling/occurrences/${futureOccId}/history`);
+      expect(JSON.stringify(history.body)).toContain(W.teacherStaffId);
+    });
+  });
+
+  // ===========================================================================================================
+  describe("(14a3) départ d'un membre : la suspension de son accès le coupe sur TOUS les modules, immédiatement", () => {
+    it("le propriétaire suspend l'accès de l'enseignant : ses jetons sont refusés partout et définitivement ; la réactivation exige une NOUVELLE connexion", async () => {
+      const teacher = W.teacher as Actor;
+      const members = await own().get("/api/v1/iam/admin/members");
+      const m = (members.body.members as Array<{ membershipId: string; identityId: string }>).find((x) => x.identityId === teacher.identityId)!;
+      const probes = ["/api/v1/people/me/staff", "/api/v1/attendance/sessions", "/api/v1/assess/assessments", "/api/v1/scheduling/me/today", "/api/v1/payroll/my/payslips"];
+      for (const url of probes) expect((await teacher.raw("GET", url)).status, url).toBe(200);
+      await own().patch(`/api/v1/iam/admin/members/${m.membershipId}`, { status: "suspended" });
+      for (const url of probes) expect([401, 403], url).toContain((await teacher.raw("GET", url)).status);
+      await own().patch(`/api/v1/iam/admin/members/${m.membershipId}`, { status: "active" });
+      // Les sessions révoquées par la suspension ne ressuscitent pas : l'ancien jeton reste refusé...
+      for (const url of probes) expect([401, 403], `${url} (ancien jeton)`).toContain((await teacher.raw("GET", url)).status);
+      // ... une nouvelle connexion rétablit l'accès.
+      W.teacher = actorFrom(p.http, "enseignant", "enseignant@horizon.test", await loginPlain(p, "enseignant@horizon.test", T().slug));
+      for (const url of probes) expect((await (W.teacher as Actor).raw("GET", url)).status, `${url} après reconnexion`).toBe(200);
+    });
+  });
+
+  // ===========================================================================================================
+  describe("(14b) un étudiant quitte l'établissement : son inscription est CLOSE par l événement de statut (people -> academic)", () => {
+    it("inscrit et confirmé (frais d'inscription payés), puis déclaré « transféré » : l inscription passe à TRANSFERRED_OUT sans intervention", async () => {
+      const created = await own().post("/api/v1/people/students", { person: { lastName: "ETUDIANT4", firstName: "Salif", sex: "M", birthDate: "2005-04-14", birthPlace: "Bouaké" } }, 201);
+      const studentId = created.body.student.id as string;
+      const enrollment = await own().post("/api/v1/academic/enrollments", { studentId, classroomId: W.classroomId }, 201);
+      const enrollmentId = enrollment.body.id as string;
+      expect(enrollment.body.status).toBe("PENDING");
+      const inv = await own().post(
+        "/api/v1/finance/invoices/from-schedule",
+        { learnerId: studentId, enrollmentId, academicYear: W.year.code, items: [{ feeCode: "INSC" }], issue: true },
+        [200, 201],
+        { "idempotency-key": "p2-inv-etu4" },
+      );
+      await own().post(
+        "/api/v1/finance/payments",
+        { learnerId: studentId, enrollmentId, amount: 50000, method: "TRANSFER", reference: "VIR-4", allocation: { mode: "AUTO", invoiceIds: [inv.body.invoices[0].id] } },
+        [200, 201],
+        { "idempotency-key": "p2-vir-etu4" },
+      );
+      const status = async (): Promise<string> => (await own().get(`/api/v1/academic/enrollments/${enrollmentId}`)).body.enrollment.status as string;
+      await waitFor(async () => (await status()) === "ACTIVE", { label: "inscription de l'étudiant 4 confirmée", timeoutMs: 45_000 });
+
+      await own().post(`/api/v1/people/students/${studentId}/status`, { status: "TRANSFERRED_OUT", reasonText: "Transfert vers un autre établissement" });
+      await waitFor(async () => (await status()) === "TRANSFERRED_OUT", { label: "inscription passée à TRANSFERRED_OUT par l événement people.student.status_changed", timeoutMs: 45_000 });
+      // L'historique de l'inscription garde la trace (motif automatique).
+      const history = await own().get(`/api/v1/academic/enrollments/${enrollmentId}/history`);
+      expect(JSON.stringify(history.body)).toMatch(/TRANSFERRED_OUT/);
+      // Les résultats de la période close (3 étudiants) n'ont pas bougé.
+      const results = await p.db.admin.query("SELECT count(*)::int AS n FROM results.period_results WHERE tenant_id = $1 AND status = 'FINAL' AND academic_period_id = $2", [T().tenantId, W.periodIds[0]]);
+      expect(results.rows[0].n).toBe(3);
+    });
+  });
+
+  // ===========================================================================================================
+  describe("(14c) clôture de l'ANNÉE : les abonnés archivent l'emploi du temps, closent les affectations et les périodes de paie", () => {
+    const dir = (): Actor => W.directeur as Actor;
+
+    it("l'année ne se clôt pas tant qu'une période reste ouverte ; le second semestre est ouvert puis clos, puis l'année", async () => {
+      const refused = await dir().raw("POST", `/api/v1/academic/years/${W.year.id}/close`, { reason: "Fin d'année" });
+      expect([409, 422], JSON.stringify(refused.body)).toContain(refused.status);
+      const s2 = W.periodIds[1];
+      await dir().post(`/api/v1/academic/periods/${s2}/open`, {});
+      await dir().post(`/api/v1/academic/periods/${s2}/close-grading`, {});
+      await dir().post(`/api/v1/academic/periods/${s2}/close`, {});
+      const closed = await dir().post(`/api/v1/academic/years/${W.year.id}/close`, { reason: "Fin de l'année simulée" });
+      expect(closed.body.status).toBe("CLOSED");
+    });
+
+    it("effets par événements : emploi du temps ARCHIVÉ (scheduling), affectation de l'enseignant TERMINÉE (people), période de paie CLOSE (payroll)", async () => {
+      await waitFor(async () => (await own().get(`/api/v1/scheduling/timetables?academicYearId=${W.year.id}`)).body.items?.every((t: { status: string }) => t.status === "ARCHIVED"), { label: "emploi du temps archivé", timeoutMs: 45_000 });
+      await waitFor(
+        async () => {
+          const r = await own().get(`/api/v1/people/staff/${W.teacherStaffId}/assignments`);
+          const items = (r.body.items ?? r.body.assignments ?? []) as Array<{ status: string }>;
+          return items.length > 0 && items.every((a) => a.status === "ENDED");
+        },
+        { label: "affectations terminées", timeoutMs: 45_000 },
+      );
+      await waitFor(async () => ((await own().get(`/api/v1/payroll/periods`)).body.items as Array<{ status: string }>).every((x) => x.status === "CLOSED"), { label: "périodes de paie closes", timeoutMs: 45_000 });
+      // Le curriculum publié est verrouillé : plus d'amendement structurel silencieux.
+      const version = await own().get(`/api/v1/academic/curriculum-versions/${W.versionId}`);
+      expect(JSON.stringify(version.body)).toMatch(/LOCKED/);
+    });
+  });
+
+  // ===========================================================================================================
   describe("(15) santé asynchrone : outbox publiée, aucune lettre morte, aucun abonné en échec", () => {
     it("tous les événements de l'année ont été relayés ; la file de lettres mortes est vide", async () => {
       await waitFor(
@@ -1266,6 +1486,33 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       } finally {
         await redis.quit().catch(() => undefined);
       }
+    });
+
+    it("les abonnés qui portent le scénario ont TOUS réellement traité des événements (aucun nom d'événement qui ne correspond à rien)", async () => {
+      const rows = await p.db.admin.query("SELECT subscriber, count(*)::int AS n FROM kernel.processed_events GROUP BY subscriber ORDER BY subscriber");
+      const done = new Map<string, number>(rows.rows.map((r) => [r.subscriber as string, r.n as number]));
+      // Abonnés qui tiennent leur idempotence dans `kernel.processed_events`. Les autres (audit, scheduling, payroll, reportcards,
+      // entitlements) sont idempotents par construction : leur effet est prouvé par les étapes précédentes (séance « réalisée »,
+      // emploi du temps archivé, période de paie close, PDF rendu, essai ouvert).
+      const mustHaveFired = [
+        "academic.instantiate-reference-data",
+        "academic.confirm-on-invoice-paid",
+        "academic.withdraw-on-student-status",
+        "assess.seed-assessment-types",
+        "attendance.seed-reference-data",
+        "attendance.refresh-summaries-on-period-change.closed",
+        "attendance.refresh-summaries-on-enrollment-change.withdrawn",
+        "higher.capitalize-on-period-closed",
+        "higher.evaluate-diplomas-on-capitalized",
+        "people.instantiate-reference-data",
+        "people.project-enrollment",
+        "people.end-assignments-on-year-closed",
+        "rbac.instantiate-system-roles",
+        "results.recompute-on-grade-published",
+        "results.recompute-on-enrollment-created",
+        "results.recompute-on-enrollment-withdrawn",
+      ];
+      for (const name of mustHaveFired) expect(done.get(name), `abonné ${name} jamais exécuté`).toBeGreaterThan(0);
     });
 
     it("le journal du worker ne contient AUCUN échec d'abonné ou de job (« job en échec », dead-letter, erreur)", () => {
