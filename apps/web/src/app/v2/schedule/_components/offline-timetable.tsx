@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { classify } from "@/platform/offline/outbox-manager";
 import { browserScheduleCache } from "@/platform/offline/browser-schedule-cache";
+import { prefetchWindow } from "@/platform/offline/schedule-prefetch";
 import { freshnessOf, type CachedOccurrence, type ScheduleCache, type ScheduleSnapshot } from "@/platform/offline/schedule-cache";
 import { shortId, type Directory } from "@/platform/v2/directory";
-import type { OccurrenceDto, WindowQuery } from "@/platform/v2/scheduling";
+import { addDays, todayCivil } from "@/platform/v2/dates";
+import { fetchMyTimetablePage, type OccurrenceDto, type WindowQuery } from "@/platform/v2/scheduling";
 import { Notice } from "@/platform/ui/states";
 import type { Directories, OccurrenceView } from "./OccurrenceCard";
 
@@ -42,12 +44,15 @@ const labelsOf = (ids: ReadonlyArray<string | null>, dir: Directory): Record<str
  *  - chaque fenêtre affichée avec succès en ligne est enregistrée sur l'appareil (copie minimale, voir `schedule-cache.ts`) ;
  *  - si le réseau est injoignable (hors ligne, délai, serveur indisponible) et qu'aucune donnée n'est à l'écran, la copie de la
  *    MÊME fenêtre est affichée, en lecture seule, avec sa date d'enregistrement ;
+ *  - après l'enregistrement de la semaine COURANTE, la semaine suivante est préchargée en arrière-plan (une seule tentative par
+ *    ouverture, en ligne et hors économie de données, échec silencieux) pour pouvoir y naviguer hors ligne ;
  *  - jamais pour un autre sujet que « moi » (`active` faux) : on ne garde rien des classes, collègues ou élèves.
  */
 export function useOfflineTimetable({ active, window, query, dirs, cache }: { active: boolean; window: WindowQuery; query: TimetableQueryLike; dirs: Pick<Directories, "classrooms" | "rooms">; cache?: Promise<ScheduleCache> }) {
   const [snapshot, setSnapshot] = useState<ScheduleSnapshot | null>(null);
   const [looked, setLooked] = useState(false);
   const includeCancelled = Boolean(window.includeCancelled);
+  const prefetched = useRef(false);
   const live = query.data !== undefined && !query.isPlaceholderData;
   const unreachable = active && !live && ((query.isError && classify(query.error).retry) || query.fetchStatus === "paused");
 
@@ -61,7 +66,23 @@ export function useOfflineTimetable({ active, window, query, dirs, cache }: { ac
     if (!active || !live) return;
     let alive = true;
     void (cache ?? browserScheduleCache())
-      .then((c) => (alive ? c.save({ from: window.from, to: window.to, includeCancelled, hasMore: query.data!.hasMore, items: query.data!.items, classrooms, rooms }) : false))
+      .then(async (c) => {
+        if (!alive) return false;
+        const saved = await c.save({ from: window.from, to: window.to, includeCancelled, hasMore: query.data!.hasMore, items: query.data!.items, classrooms, rooms });
+        // Semaine courante (7 jours contenant aujourd'hui) enregistrée : on précharge la suivante, une seule fois par ouverture.
+        const today = todayCivil();
+        const isCurrentWeek = window.from <= today && today <= window.to && window.to === addDays(window.from, 6);
+        if (saved && isCurrentWeek && !prefetched.current) {
+          prefetched.current = true;
+          void prefetchWindow({
+            next: { from: addDays(window.from, 7), to: addDays(window.to, 7), includeCancelled },
+            cache: c,
+            fetchPage: (w) => fetchMyTimetablePage(w),
+            labels: { classrooms, rooms },
+          });
+        }
+        return saved;
+      })
       .catch(() => false);
     return () => {
       alive = false;

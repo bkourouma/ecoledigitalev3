@@ -130,7 +130,9 @@ en ligne reste possible. Stockage indisponible (navigation privée) : repli en m
 - **La grille doit avoir été ouverte en ligne** : la liste nominative n'est pas stockée. Hors ligne, un rechargement de la page n'affiche que `/offline`
   (avec la copie de l'emploi du temps) ; les saisies déjà faites sont en sécurité et se reprennent dès qu'on rouvre l'évaluation en ligne, ou s'envoient
   d'elles-mêmes depuis n'importe quelle page du portail enseignant dès que le réseau revient.
-- **Emploi du temps** : seules les fenêtres consultées en ligne sont disponibles (pas de préchargement des semaines suivantes) ; pas de secours pour les rôles autres que « moi » ;
+- **Emploi du temps** : les fenêtres consultées en ligne sont disponibles, plus la semaine **suivante**, préchargée en arrière-plan après le chargement réussi
+  de la semaine courante (une seule tentative par ouverture de l'écran, uniquement en ligne et hors économie de données `saveData`, échec silencieux, même
+  route et même projection minimale, mêmes plafonds : 8 fenêtres par personne, élagage à 21 jours) ; pas de préchargement au-delà d'une semaine ; pas de secours pour les rôles autres que « moi » ;
   les noms de collègues ne sont pas gardés.
 - Le jeton ne peut pas se renouveler hors ligne : la reprise attend un jeton valide (connexion de la même personne).
 - Les notes **publiées** ou en circuit de validation ne s'éditent pas hors ligne (corrections = demandes en ligne, inchangé).
