@@ -138,6 +138,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "decision.*": "Modifier une décision proposée par la règle (délibération).",
       "schedule.*": "Valider les séances pour la paie, dépasser un conflit, créer une séance comptable, verrouiller les heures.",
       "messaging.*": "Modérer les signalements, restreindre l'envoi et superviser les conversations avec motif obligatoire (audité) : responsabilité de direction.",
+      "documents.*": "Lire les documents confidentiels (dossiers médicaux, contrats, comptabilité), administrer tous les documents, y compris archivés, et libérer ou détruire un fichier en quarantaine : responsabilité de direction (chaque lecture est auditée).",
     },
   },
 
@@ -153,6 +154,13 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Directeur des études",
     description: "Pilotage pédagogique : structure académique, notes, résultats, bulletins, emplois du temps, présences.",
     permissions: [
+      // Gestion documentaire (module documents) : voir specs/v2/024-documents.
+      "documents.read",
+      "documents.read.restricted",
+      "documents.upload",
+      "documents.share",
+      "documents.archive",
+      "documents.history.read",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.read",
       "messaging.send",
@@ -288,6 +296,12 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Secrétariat",
     description: "Inscriptions, dossiers élèves et tuteurs, bulletins et attestations, présences, consultation des finances.",
     permissions: [
+      // Gestion documentaire (module documents) : voir specs/v2/024-documents.
+      "documents.read",
+      "documents.read.restricted",
+      "documents.upload",
+      "documents.share",
+      "documents.history.read",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.read",
       "messaging.send",
@@ -357,6 +371,10 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Économe",
     description: "Gestion financière : frais, factures, encaissements, caisse ; préparation, calcul et versement de la paie.",
     permissions: [
+      // Gestion documentaire (module documents) : voir specs/v2/024-documents.
+      "documents.read",
+      "documents.read.restricted",
+      "documents.upload",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.read",
       "messaging.send",
@@ -424,6 +442,10 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Enseignant",
     description: "Enseignement : appel, évaluations, notes et appréciations de ses classes ; ses données de personnel.",
     permissions: [
+      // Gestion documentaire (module documents) : voir specs/v2/024-documents.
+      "documents.read",
+      "documents.own.read",
+      "documents.own.upload",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.read",
       "messaging.send",
@@ -469,6 +491,10 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Éducateur",
     description: "Vie scolaire : appel et suivi des présences, justificatifs, suivi des élèves.",
     permissions: [
+      // Gestion documentaire (module documents) : voir specs/v2/024-documents.
+      "documents.read",
+      "documents.own.read",
+      "documents.own.upload",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.read",
       "messaging.send",
@@ -509,6 +535,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Responsable pédagogique",
     description: "Coordination d'une filière ou d'un niveau : curriculum, évaluations, relecture et validation des notes.",
     permissions: [
+      // Gestion documentaire (module documents) : voir specs/v2/024-documents.
+      "documents.read",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.read",
       "messaging.send",
@@ -559,6 +587,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Personnel",
     description: "Portail du personnel : sa fiche, sa présence et ses congés, son emploi du temps et ses bulletins de paie.",
     permissions: [
+      "documents.own.read",
+      "documents.own.upload",
       "staff.own.read",
       "staff.own.update",
       "attendance.own.read",
@@ -582,6 +612,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Parent",
     description: "Portail parent : suivi de ses enfants (scolarité, notes, résultats, bulletins, présences, emploi du temps).",
     permissions: [
+      // Gestion documentaire (module documents) : voir specs/v2/024-documents.
+      "documents.child.read",
+      "documents.child.upload",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.child.read",
       "messaging.child.send",
@@ -610,6 +643,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Élève",
     description: "Portail élève : son dossier, ses notes, résultats, bulletins, présences et son emploi du temps.",
     permissions: [
+      // Gestion documentaire (module documents) : voir specs/v2/024-documents.
+      "documents.self.read",
+      "documents.self.upload",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.self.read",
       "messaging.self.send",

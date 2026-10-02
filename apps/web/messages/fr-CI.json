@@ -10229,5 +10229,513 @@
         "retentionDays": "Passé ce délai, les données personnelles du fichier sont supprimées ; le rapport reste."
       }
     }
+  },
+  "v2Documents": {
+    "nav": {
+      "label": "Navigation des documents",
+      "explorer": "Documents",
+      "expirations": "Échéances",
+      "categories": "Catégories",
+      "quarantine": "Quarantaine",
+      "settings": "Paramètres"
+    },
+    "kind": {
+      "STUDENT": "Dossier d'élève",
+      "TEACHER": "Dossier du personnel",
+      "INSTITUTION": "Établissement",
+      "ACADEMIC": "Académique",
+      "FINANCIAL": "Financier"
+    },
+    "confidentiality": {
+      "INTERNAL": "Interne",
+      "RESTRICTED": "Restreint",
+      "CONFIDENTIAL": "Confidentiel"
+    },
+    "visibility": {
+      "INHERIT": "Selon la catégorie",
+      "STAFF_ONLY": "Personnel seulement",
+      "PRIVATE": "Privé"
+    },
+    "status": {
+      "ARCHIVED": "Archivé"
+    },
+    "ownerType": {
+      "STUDENT": "Élève",
+      "STAFF": "Personnel",
+      "NONE": "Établissement"
+    },
+    "scope": {
+      "all": "Tout ce que je peux voir",
+      "mine": "Mes dépôts",
+      "shared": "Partagés avec moi",
+      "child": "Mes enfants",
+      "self": "Mes pièces",
+      "own": "Mon dossier de personnel"
+    },
+    "list": {
+      "versions": "{count, plural, one {# version} other {# versions}}"
+    },
+    "expiry": {
+      "expired": "Échu le {date}",
+      "expiring": "{days, plural, =0 {Expire aujourd'hui} one {Expire dans # jour} other {Expire dans # jours}}",
+      "valid": "Valable jusqu'au {date}"
+    },
+    "explorer": {
+      "title": "Documents",
+      "description": "Pièces des élèves, du personnel et de l'établissement. Vous ne voyez que les documents que votre rôle, la catégorie et les partages vous autorisent à consulter.",
+      "upload": "Déposer un document",
+      "expirations": "Échéances",
+      "filters": "Filtres de recherche",
+      "search": "Rechercher",
+      "searchPlaceholder": "Titre, nom du fichier, étiquette, personne…",
+      "category": "Catégorie",
+      "kind": "Type de document",
+      "scope": "Portée",
+      "expiry": "Échéance",
+      "expiryOptions": {
+        "any": "Toutes",
+        "expiring": "À échoir bientôt",
+        "expired": "Échues",
+        "dated": "Avec une échéance",
+        "missing": "Échéance manquante"
+      },
+      "ownerType": "Concerne",
+      "owner": "Personne concernée",
+      "ownerSearch": "Rechercher un nom…",
+      "status": "État",
+      "statusOptions": {
+        "ACTIVE": "Actifs",
+        "ARCHIVED": "Archivés",
+        "ALL": "Tous"
+      },
+      "all": "Tous",
+      "listLabel": "Documents",
+      "empty": "Aucun document ne correspond.",
+      "emptyHint": "Déposez un premier document avec le bouton « Déposer un document ».",
+      "more": "Afficher plus de documents",
+      "loading": "Chargement…"
+    },
+    "upload": {
+      "title": "Déposer un document",
+      "description": "Choisissez la catégorie, la personne concernée et le fichier. Le type réel du fichier est contrôlé à l'enregistrement.",
+      "loading": "Préparation du dépôt…",
+      "noCategory": "Vous ne pouvez déposer dans aucune catégorie pour le moment.",
+      "category": "Catégorie",
+      "categoryPlaceholder": "Choisir une catégorie",
+      "file": "Fichier",
+      "required": "obligatoire",
+      "ownerType": "Document concernant",
+      "ownerTypes": {
+        "NONE": "Aucune personne (établissement)",
+        "STUDENT": "Un élève",
+        "STAFF": "Un membre du personnel"
+      },
+      "ownerStudent": "Élève concerné",
+      "ownerStaff": "Membre du personnel concerné",
+      "ownerSearch": "Rechercher un nom…",
+      "ownerChild": "Enfant concerné",
+      "ownerSelf": "Document concernant :",
+      "titleLabel": "Titre",
+      "titleHint": "Laissé vide, le nom du fichier est utilisé.",
+      "descriptionLabel": "Description",
+      "tags": "Étiquettes",
+      "tagsHint": "Séparées par des virgules (20 au plus).",
+      "expiresOn": "Date d'expiration",
+      "expiryHint": "Facultative : une alerte est envoyée avant l'échéance.",
+      "expiryRequiredHint": "Cette catégorie exige une date d'expiration.",
+      "visibility": "Visibilité",
+      "visibilityHint": "« Personnel seulement » masque le document à l'élève et aux tuteurs ; « Privé » le réserve à vous, aux gestionnaires et aux personnes avec qui vous le partagez.",
+      "visibilities": {
+        "INHERIT": "Selon la catégorie",
+        "STAFF_ONLY": "Personnel seulement",
+        "PRIVATE": "Privé"
+      },
+      "errors": {
+        "file": "Choisissez un fichier.",
+        "category": "Choisissez une catégorie.",
+        "owner": "Indiquez la personne concernée.",
+        "expiry": "La date d'expiration est obligatoire pour cette catégorie."
+      },
+      "cancel": "Annuler",
+      "submit": "Déposer",
+      "submitting": "Dépôt en cours…"
+    },
+    "edit": {
+      "title": "Modifier le document",
+      "description": "Modifier les informations ne change pas le fichier : pour le remplacer, déposez une nouvelle version.",
+      "titleLabel": "Titre",
+      "descriptionLabel": "Description",
+      "tags": "Étiquettes",
+      "tagsHint": "Séparées par des virgules.",
+      "expiresOn": "Date d'expiration",
+      "category": "Catégorie",
+      "visibility": "Visibilité",
+      "visibilityHint": "Modifier la visibilité change aussitôt qui peut voir ce document.",
+      "visibilities": {
+        "INHERIT": "Selon la catégorie",
+        "STAFF_ONLY": "Personnel seulement",
+        "PRIVATE": "Privé"
+      },
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…"
+    },
+    "newVersion": {
+      "title": "Déposer une nouvelle version",
+      "description": "La version {version} remplacera la version actuelle ; les versions précédentes restent consultables.",
+      "file": "Nouveau fichier",
+      "required": "obligatoire",
+      "note": "Note de version",
+      "noteHint": "Ce qui change (facultatif).",
+      "expiresOn": "Nouvelle date d'expiration",
+      "expiryRequired": "Obligatoire si le document est échu ou sans échéance dans cette catégorie.",
+      "expiryOptional": "Facultative : laissée vide, l'échéance actuelle est conservée.",
+      "errors": {
+        "file": "Choisissez un fichier.",
+        "expiry": "Indiquez la nouvelle date d'expiration."
+      },
+      "cancel": "Annuler",
+      "submit": "Déposer la version",
+      "submitting": "Dépôt en cours…"
+    },
+    "detail": {
+      "back": "Retour aux documents",
+      "download": "Télécharger",
+      "newVersion": "Nouvelle version",
+      "edit": "Modifier",
+      "archive": "Archiver",
+      "restore": "Restaurer",
+      "restored": "Document restauré.",
+      "archived": "Document archivé : il n'apparaît plus dans les listes.",
+      "archivedNotice": "Ce document est archivé. Motif : {reason}",
+      "category": "Catégorie",
+      "owner": "Personne concernée",
+      "uploadedBy": "Déposé par",
+      "expiresOn": "Échéance",
+      "noExpiry": "Aucune échéance",
+      "file": "Fichier actuel",
+      "updatedAt": "Dernière modification",
+      "tags": "Étiquettes",
+      "integrity": "Empreinte SHA-256"
+    },
+    "versions": {
+      "title": "{count, plural, one {# version} other {# versions}}",
+      "version": "Version {version}",
+      "current": "version actuelle",
+      "select": "Prévisualiser la version {version}",
+      "download": "Télécharger la version {version}",
+      "clean": "Analysé",
+      "unscanned": "Non analysé",
+      "purged": "Fichier purgé"
+    },
+    "preview": {
+      "title": "Aperçu de la version {version}",
+      "loading": "Chargement de l'aperçu…",
+      "unavailable": "Aucune prévisualisation pour ce type de fichier : téléchargez-le.",
+      "imageAlt": "Aperçu de {name}",
+      "pdfTitle": "Aperçu PDF de {name}",
+      "textLabel": "Contenu de {name}"
+    },
+    "shares": {
+      "title": "Partages",
+      "none": "Ce document n'est partagé avec personne.",
+      "listLabel": "Personnes ayant accès par partage",
+      "unknownPerson": "Personne inconnue",
+      "levels": {
+        "READ": "Lecture",
+        "WRITE": "Lecture et dépôt de versions"
+      },
+      "until": "jusqu'au {date}",
+      "noEnd": "sans date de fin",
+      "remove": "Retirer",
+      "removeFor": "Retirer le partage de {name}",
+      "person": "Partager avec",
+      "personSearch": "Rechercher une personne…",
+      "level": "Droit accordé",
+      "endDate": "Fin du partage",
+      "endDateHint": "Facultative.",
+      "note": "Note",
+      "share": "Partager",
+      "sharing": "Partage en cours…",
+      "shared": "Document partagé avec {name}.",
+      "guardians": "Partager rapidement avec les tuteurs de l'élève",
+      "shareWith": "Partager avec {name}"
+    },
+    "history": {
+      "title": "Historique",
+      "empty": "Aucun événement.",
+      "more": "Afficher plus d'événements",
+      "version": "(version {version})",
+      "by": "par {name}",
+      "system": "par le système",
+      "actions": {
+        "CREATED": "Document déposé",
+        "VERSION_ADDED": "Nouvelle version déposée",
+        "UPDATED": "Informations modifiées",
+        "VIEWED": "Consulté",
+        "PREVIEWED": "Prévisualisé",
+        "DOWNLOADED": "Téléchargé",
+        "SHARED": "Partagé",
+        "UNSHARED": "Partage retiré",
+        "ARCHIVED": "Archivé",
+        "RESTORED": "Restauré",
+        "EXPIRY_ALERTED": "Alerte d'échéance émise",
+        "EXPIRED": "Échu",
+        "PURGED": "Purgé (conservation échue)",
+        "INTEGRITY_FAILED": "Contrôle d'intégrité en échec"
+      }
+    },
+    "archiveDialog": {
+      "title": "Archiver ce document",
+      "description": "Le document disparaît des listes ; la gestion peut le restaurer jusqu'à l'échéance de conservation, après quoi il est purgé.",
+      "reason": "Motif de l'archivage",
+      "confirm": "Archiver"
+    },
+    "expirations": {
+      "title": "Échéances des documents",
+      "description": "Documents à renouveler : pièces qui arrivent à échéance, pièces échues et pièces sans date alors que la catégorie l'exige.",
+      "within": "Horizon",
+      "days": "{count, plural, one {# jour} other {# jours}}",
+      "summary": "Résumé des échéances",
+      "expiring": "À échoir sous {days} jours",
+      "expired": "Échus",
+      "missing": "Sans échéance (exigée)",
+      "tabs": "Liste des échéances",
+      "tab": {
+        "expiring": "À échoir",
+        "expired": "Échus",
+        "missing": "Sans échéance"
+      },
+      "empty": {
+        "expiring": "Aucun document n'arrive à échéance dans cet horizon.",
+        "expired": "Aucun document échu.",
+        "missing": "Aucun document sans échéance exigée."
+      },
+      "more": "Afficher plus"
+    },
+    "categories": {
+      "title": "Catégories de documents",
+      "description": "Les catégories fixent le niveau de confidentialité, les extensions acceptées, la taille maximale, les personnes concernées autorisées à lire ou déposer, l'échéance et la conservation.",
+      "create": "Nouvelle catégorie",
+      "empty": "Aucune catégorie.",
+      "kinds": {
+        "STUDENT": "Dossier d'élève",
+        "TEACHER": "Dossier du personnel",
+        "INSTITUTION": "Établissement",
+        "ACADEMIC": "Académique",
+        "FINANCIAL": "Financier"
+      },
+      "levels": {
+        "INTERNAL": "Interne",
+        "RESTRICTED": "Restreint",
+        "CONFIDENTIAL": "Confidentiel"
+      },
+      "archived": "Archivée",
+      "requiresExpiry": "Échéance obligatoire",
+      "audienceOwner": "Lisible par la personne concernée",
+      "audienceGuardians": "Lisible par les tuteurs",
+      "ownerUpload": "Dépôt par la personne concernée",
+      "documents": "{count, plural, =0 {aucun document} one {# document} other {# documents}}",
+      "edit": "Modifier",
+      "editFor": "Modifier la catégorie {label}",
+      "grants": {
+        "title": "Droits par personne : {label}",
+        "description": "Une personne autorisée ici lit (ou lit et dépose dans) toute la catégorie, quel que soit son rôle.",
+        "none": "Aucun droit par personne sur cette catégorie.",
+        "listLabel": "Personnes ayant un droit sur la catégorie",
+        "unknownPerson": "Personne inconnue",
+        "levels": {
+          "READ": "Lecture",
+          "WRITE": "Lecture et dépôt"
+        },
+        "until": "jusqu'au {date}",
+        "noEnd": "sans date de fin",
+        "revoke": "Retirer",
+        "revokeFor": "Retirer le droit de {name}",
+        "person": "Personne",
+        "personSearch": "Rechercher une personne…",
+        "level": "Droit accordé",
+        "endDate": "Fin du droit",
+        "note": "Note",
+        "grant": "Accorder le droit",
+        "granting": "Enregistrement…"
+      },
+      "grantsFor": "Droits par personne sur la catégorie {label}",
+      "archive": "Archiver",
+      "archiveFor": "Archiver la catégorie {label}",
+      "restore": "Restaurer",
+      "restoreFor": "Restaurer la catégorie {label}",
+      "archivedDone": "Catégorie « {label} » archivée.",
+      "restoredDone": "Catégorie « {label} » restaurée.",
+      "note": "Changer le niveau de confidentialité d'une catégorie change aussitôt qui peut voir ses documents.",
+      "form": {
+        "createTitle": "Nouvelle catégorie",
+        "editTitle": "Modifier la catégorie",
+        "description": "Le code et le type ne peuvent plus être modifiés une fois la catégorie créée.",
+        "code": "Code",
+        "codeHint": "Majuscules, chiffres et _ (2 à 40 caractères). Il ne changera plus.",
+        "required": "obligatoire",
+        "kind": "Type de document",
+        "kindHint": "Détermine la personne concernée (élève, personnel…).",
+        "kinds": {
+          "STUDENT": "Dossier d'élève",
+          "TEACHER": "Dossier du personnel",
+          "INSTITUTION": "Établissement",
+          "ACADEMIC": "Académique",
+          "FINANCIAL": "Financier"
+        },
+        "label": "Libellé",
+        "descriptionLabel": "Description",
+        "confidentiality": "Niveau de confidentialité",
+        "confidentialityHint": "Détermine la permission de lecture exigée.",
+        "levels": {
+          "INTERNAL": "Interne (tout le personnel)",
+          "RESTRICTED": "Restreint (secrétariat, études, économat)",
+          "CONFIDENTIAL": "Confidentiel (direction)"
+        },
+        "extensions": "Extensions acceptées",
+        "extensionsHint": "Le contenu réel du fichier est toujours contrôlé, quelle que soit l'extension.",
+        "maxMiB": "Taille maximale (Mo)",
+        "maxHint": "Laissée vide : la taille de l'établissement s'applique.",
+        "audiences": "Qui peut lire ou déposer ?",
+        "audienceOwner": "La personne concernée peut lire",
+        "audienceOwnerHint": "L'élève ses pièces, le membre du personnel son dossier.",
+        "audienceGuardians": "Les tuteurs liés peuvent lire",
+        "audienceGuardiansHint": "Les tuteurs de l'élève concerné.",
+        "ownerUpload": "La personne concernée ou son tuteur peut déposer",
+        "ownerUploadHint": "Dépôt limité à soi-même ou à ses enfants liés.",
+        "requiresExpiry": "Date d'expiration obligatoire",
+        "requiresExpiryHint": "Par exemple pour une habilitation ou une assurance.",
+        "alertDays": "Seuils d'alerte (jours)",
+        "alertDaysHint": "Séparés par des virgules (ex. 30, 7, 1). Vide : seuils de l'établissement.",
+        "retention": "Conservation après archivage (jours)",
+        "retentionHint": "0 : jamais purgé. Vide : réglage de l'établissement.",
+        "errors": {
+          "code": "Code invalide : majuscules, chiffres et _ (2 à 40 caractères).",
+          "label": "Le libellé est obligatoire.",
+          "extensions": "Choisissez au moins une extension.",
+          "max": "Taille invalide.",
+          "alert": "Seuils invalides : nombres entiers de 0 à 365 séparés par des virgules."
+        },
+        "cancel": "Annuler",
+        "save": "Enregistrer",
+        "saving": "Enregistrement…"
+      },
+      "grantsButton": "Droits par personne"
+    },
+    "quarantine": {
+      "title": "Quarantaine des documents",
+      "description": "Fichiers détectés comme malveillants lors d'un dépôt. Ils ne sont jamais servis ni téléchargeables.",
+      "warning": "Libérer un fichier est une décision motivée, auditée et soumise à l'authentification forte : ne le faites qu'après vérification d'un faux positif.",
+      "tabs": "Fichiers selon leur état",
+      "status": {
+        "HELD": "En quarantaine",
+        "RELEASED": "Libérés",
+        "DELETED": "Détruits",
+        "ALL": "Tous"
+      },
+      "empty": "Aucun fichier.",
+      "listLabel": "Fichiers en quarantaine",
+      "by": "déposé par {name}",
+      "signature": "Signature :",
+      "intentCreate": "Dépôt d'un nouveau document",
+      "intentVersion": "Dépôt d'une nouvelle version",
+      "decision": "Décision : {note}",
+      "openDocument": "Ouvrir le document créé",
+      "release": "Libérer",
+      "releaseFor": "Libérer le fichier {name}",
+      "delete": "Détruire",
+      "deleteFor": "Détruire le fichier {name}",
+      "reason": "Motif de la décision",
+      "releaseDialog": {
+        "title": "Libérer ce fichier",
+        "description": "Le dépôt demandé à l'origine est rejoué sans nouvelle analyse, au nom de la personne qui l'a effectué.",
+        "confirm": "Libérer"
+      },
+      "deleteDialog": {
+        "title": "Détruire ce fichier",
+        "description": "Le fichier est supprimé définitivement du stockage.",
+        "confirm": "Détruire"
+      },
+      "released": "Fichier {name} libéré.",
+      "deleted": "Fichier {name} détruit.",
+      "more": "Afficher plus"
+    },
+    "settings": {
+      "title": "Paramètres des documents",
+      "description": "Taille maximale des fichiers, quota de stockage, seuils d'alerte d'expiration et durées de conservation de l'établissement.",
+      "environmentNote": "L'antivirus, la conversion des documents Office et le stockage d'objets sont configurés par l'hébergeur de la plateforme.",
+      "usage": {
+        "title": "Stockage utilisé",
+        "meter": "Part du quota de stockage utilisée",
+        "summary": "{used} utilisés sur {quota} ({percent} %).",
+        "documents": "Documents",
+        "versions": "Versions",
+        "archived": "Archivés",
+        "quarantine": "En quarantaine",
+        "plan": "Quota de votre abonnement : {plan}. L'établissement peut fixer un quota plus strict."
+      },
+      "form": {
+        "title": "Réglages",
+        "maxMiB": "Taille maximale d'un fichier (Mo)",
+        "maxHint": "100 Mo au plus ; chaque catégorie peut fixer une taille plus petite.",
+        "quotaMiB": "Quota de stockage de l'établissement (Mo)",
+        "quotaHint": "Vide : quota de l'abonnement. Jamais supérieur à celui-ci.",
+        "alertDays": "Seuils d'alerte d'expiration (jours)",
+        "alertDaysHint": "Séparés par des virgules (ex. 30, 7, 1).",
+        "retention": "Conservation après archivage (jours)",
+        "retentionHint": "0 : jamais purgé.",
+        "quarantine": "Conservation de la quarantaine (jours)",
+        "quarantineHint": "Les fichiers non traités sont détruits ensuite.",
+        "versions": "Versions maximales par document",
+        "versionsHint": "De 1 à 500.",
+        "errors": {
+          "max": "Taille invalide (100 Mo au plus).",
+          "quota": "Quota invalide.",
+          "alert": "Seuils invalides : nombres entiers de 0 à 365 séparés par des virgules.",
+          "retention": "Durée invalide (0 à 3650).",
+          "quarantine": "Durée invalide (1 à 365).",
+          "versions": "Nombre invalide (1 à 500)."
+        },
+        "save": "Enregistrer",
+        "saving": "Enregistrement…",
+        "saved": "Paramètres enregistrés."
+      }
+    }
+  },
+  "v2DocumentsUi": {
+    "dropzone": {
+      "prompt": "Glissez un fichier ici, ou appuyez sur Entrée pour le choisir",
+      "hint": "Un seul fichier à la fois.",
+      "allowed": "Formats : {list}.",
+      "max": "Taille maximale : {max}.",
+      "inputLabel": "Choisir un fichier à déposer",
+      "empty": "Le fichier « {name} » est vide.",
+      "tooLarge": "Le fichier « {name} » dépasse la taille maximale ({max}).",
+      "badExtension": "Le fichier « {name} » n'a pas un format accepté ({allowed}).",
+      "oneAtATime": "Déposez un seul fichier à la fois.",
+      "selected": "Fichier retenu : {name} ({size}).",
+      "selectedAlready": "Fichier retenu : {name}.",
+      "busy": "Envoi du fichier en cours…"
+    },
+    "picker": {
+      "choose": "Choisir un document",
+      "change": "Changer de document",
+      "remove": "Retirer le document {title}",
+      "title": "Choisir un document",
+      "description": "Sélectionnez un document existant ou déposez-en un nouveau.",
+      "existing": "Documents existants",
+      "search": "Rechercher",
+      "searchPlaceholder": "Titre, nom du fichier, étiquette…",
+      "none": "Aucun document ne correspond.",
+      "more": "Afficher plus de documents",
+      "uploadNew": "Déposer un nouveau document",
+      "cannotUpload": "Vous ne pouvez pas déposer de document dans cette catégorie.",
+      "titleLabel": "Titre",
+      "titleHint": "Laissé vide, le nom du fichier est utilisé.",
+      "uploadAndSelect": "Déposer et sélectionner",
+      "uploading": "Dépôt en cours…",
+      "required": "obligatoire"
+    }
   }
 }
