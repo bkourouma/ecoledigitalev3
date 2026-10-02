@@ -31,6 +31,10 @@ Mesures de contrôle de cette session : `check:boundaries` (1902 modules, 0 viol
 
 Rien : tous les agents de la passe autonome sont terminés et fusionnés.
 
+## Démonstration locale
+
+`pnpm demo:up` démarre toute la pile v2 sur la machine (Postgres 17 et Redis 7 dans Docker `ed-demo-*`, migrations, trois établissements de démonstration Secondaire / Primaire / Supérieur, API, worker, web), avec un compte par rôle et des secrets générés à l'exécution (`.demo/`, ignoré par git) ; `demo:down`, `demo:reset`, `demo:totp`, `demo:smoke` (191 contrôles). Guide : `docs/DEMO_TEST_GUIDE.md`. Règles de calcul : jeux de démonstration, aucun envoi réel, paiements en fournisseur sandbox.
+
 ## Reste à faire
 
 1. **Phase E, restes** : cache de session (non fait : refus immédiat d une session révoquée non garanti), voisin bruyant en lecture (x3,5 pour un objectif x3), fastify 5 et mises à jour de version majeure (36 avis restants), test de charge à l échelle 33, exercice de restauration sur serveur réel (MinIO, PITR).

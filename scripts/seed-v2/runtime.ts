@@ -19,6 +19,18 @@ import { resetRegistryForTests } from "../../apps/api/src/modules/registry";
 import { configureTenantSync } from "../../apps/api/src/platform/tenant-sync";
 import { resetPublicRoutesForTests } from "../../apps/api/src/platform/public-routes";
 import { registerV2Platform } from "../../apps/api/src/platform/v2-bootstrap";
+import { MemoryRateLimiter } from "../../apps/api/src/modules/iam";
+
+/**
+ * Limiteur de débit du seed : le processus du seed est local et de confiance (adresse 127.0.0.1 unique) et active des dizaines de
+ * comptes d'affilée : le plafond horaire par adresse de l'API (réponse 429 `iam.too_many_attempts`) le bloquerait. L'API de la
+ * démonstration, elle, garde son limiteur Redis.
+ */
+class SeedRateLimiter extends MemoryRateLimiter {
+  override async hit(_key: string, _rule: Parameters<MemoryRateLimiter["hit"]>[1]): ReturnType<MemoryRateLimiter["hit"]> {
+    return { allowed: true, count: 0, retryAfterMs: 0 };
+  }
+}
 
 const apiRequire = createRequire(resolve(__dirname, "../../apps/api/package.json"));
 const { Redis } = apiRequire("ioredis") as { Redis: new (url: string, opts: { maxRetriesPerRequest: number }) => { keys(p: string): Promise<string[]>; del(...k: string[]): Promise<unknown>; disconnect(): void } };
@@ -27,8 +39,10 @@ export interface HttpResult {
   status: number;
   body: any;
   headers: Record<string, unknown>;
+  /** Octets bruts de la réponse (fichiers : XLSX, PDF). */
+  raw?: Buffer;
 }
-export type Http = (method: string, url: string, options?: { token?: string; body?: unknown; headers?: Record<string, string> }) => Promise<HttpResult>;
+export type Http = (method: string, url: string, options?: { token?: string; body?: unknown; rawBody?: string | Buffer; headers?: Record<string, string> }) => Promise<HttpResult>;
 
 export interface Invitation {
   kind: "invitation" | "password_reset";
@@ -46,7 +60,7 @@ export interface SeedPlatform {
 }
 
 interface FastifyLike {
-  inject(opts: { method: string; url: string; headers?: Record<string, string>; payload?: string }): Promise<{ statusCode: number; body: string; headers: Record<string, unknown> }>;
+  inject(opts: { method: string; url: string; headers?: Record<string, string>; payload?: string | Buffer }): Promise<{ statusCode: number; body: string; headers: Record<string, unknown>; rawPayload?: Buffer }>;
   ready(): Promise<unknown>;
   close(): Promise<unknown>;
 }
@@ -84,6 +98,7 @@ export async function startSeedPlatform(env: NodeJS.ProcessEnv): Promise<SeedPla
     env: apiEnv,
     skipLegacyCatchUp: true,
     runtime: {
+      rateLimiter: new SeedRateLimiter(),
       superAdminAuthorizer: {
         async authorize(request: { headers: Record<string, unknown> }) {
           const header = request.headers.authorization;
@@ -131,7 +146,7 @@ export async function startSeedPlatform(env: NodeJS.ProcessEnv): Promise<SeedPla
   const http: Http = async (method, url, options = {}) => {
     const headers: Record<string, string> = { ...(options.headers ?? {}) };
     if (options.token) headers.authorization = `Bearer ${options.token}`;
-    const payload = options.body !== undefined ? JSON.stringify(options.body) : undefined;
+    const payload = options.rawBody !== undefined ? options.rawBody : options.body !== undefined ? JSON.stringify(options.body) : undefined;
     if (payload !== undefined && !headers["content-type"]) headers["content-type"] = "application/json";
     const res = await app.inject({ method, url, headers, ...(payload !== undefined ? { payload } : {}) });
     let body: any = res.body;
@@ -140,7 +155,7 @@ export async function startSeedPlatform(env: NodeJS.ProcessEnv): Promise<SeedPla
     } catch {
       /* corps non JSON conservé tel quel */
     }
-    return { status: res.statusCode, body, headers: res.headers };
+    return { status: res.statusCode, body, headers: res.headers, ...(res.rawPayload ? { raw: res.rawPayload } : {}) };
   };
 
   return {

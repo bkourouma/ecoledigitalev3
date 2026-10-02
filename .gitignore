@@ -10,6 +10,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Démonstration locale (pnpm demo:up) : secrets, comptes, journaux, objets générés à l'exécution
+.demo/
+
 # Environment files and local secrets
 .env
 .env.*
