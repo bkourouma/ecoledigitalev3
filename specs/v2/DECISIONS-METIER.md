@@ -14,3 +14,12 @@ Source de vérité pour les specs et l'implémentation. Toute entrée ici l'empo
 ## Questions encore ouvertes (valeur par défaut appliquée tant qu'elles ne sont pas tranchées)
 
 Voir `004-academic-core/open-questions.md` (O-01 à O-23) et `012-rules-engine/open-questions.md` partie B (Q-01 à Q-40), et `012-rules-engine/regulatory-sources-needed.md` pour les textes officiels du primaire et du secondaire (nécessaires avant les Phases 4 et 5).
+
+## Décisions du 2026-10-02 (réponses de l'utilisateur via AskUserQuestion)
+
+| Sujet | Décision |
+|-------|----------|
+| Conduite non notée | Le semestre reste « en attente » tant que la conduite manque (défaut confirmé). |
+| Précision des notes | 3 décimales, sans arrondi intermédiaire (9,995 n'est pas arrondi à 10) (défaut confirmé). |
+| Paie | Taux et montants en francs entiers XOF (défaut confirmé). |
+| Fournisseur SMS | Orange SMS API (adaptateur dédié à construire derrière le port existant ; aucun envoi réel sans configuration explicite). |
