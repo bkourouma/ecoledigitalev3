@@ -81,7 +81,7 @@ Le module n'importe aucun autre module. Les adaptateurs `apps/api/src/platform/a
 | `StudentDirectory`, `FamilyLinks`, `InstitutionDirectory` | `academic` + `people`, `iam` | `getRoster`, `getEnrollment`, `getStudent`, tutelle (`isGuardianOfStudent`, `listChildrenOfIdentity`, `resolveStudentForIdentity`) (présents) | échec fermé ; famille : aucun accès |
 | `StoragePort` | plateforme | vue `asDocumentsStorage` du stockage d'objets | refus |
 
-Rôles système à ajouter côté `rbac` (PR dédiée, hors périmètre de ce module) : `responsable_examens` (toutes les permissions `exam.*` sauf les sensibles de publication/approbation) ; `directeur`/`owner` : `*` ; `parent` : `exam.document.child.read` ; `élève` : `exam.document.self.read`.
+Rôles système côté `rbac` (**faits**, voir `rbac/README.md` : `responsable_examens` porte toutes les `exam.*` non sensibles ; `directeur_etudes` : consultation ; `exam.candidate.read` n'est pas accordé aux enseignants, la consultation n'étant pas bornée à leurs classes) — spécification initiale : `responsable_examens` (toutes les permissions `exam.*` sauf les sensibles de publication/approbation) ; `directeur`/`owner` : `*` ; `parent` : `exam.document.child.read` ; `élève` : `exam.document.self.read`.
 
 ## Hypothèses documentées (aucune règle officielle inventée)
 

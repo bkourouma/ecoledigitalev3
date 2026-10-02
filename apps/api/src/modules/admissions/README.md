@@ -66,7 +66,7 @@ Un port non branché échoue **fermé** (`admissions.port_unavailable`, 503) ; l
 | `Captcha` | prestataire (non choisi) | absent : si l'établissement exige un CAPTCHA, le formulaire reste **fermé** | `verify(token, ip) -> boolean` |
 | `ActorDirectory` | people | nom d'affichage figé dans la décision (repli : `Utilisateur <8 premiers caractères>`) | — |
 
-Autres points à brancher ailleurs (hors périmètre) : rôles système `admissions_officer` (modèle `rbac/templates/system-roles.ts`, `owner`/`directeur` ont `*`) ; consommateurs `messaging` (annonce au personnel sur `admissions.application.submitted` / `offer.expired`) ; `analytics` (entonnoir direction) ; **`people` : `INACTIVE → ARCHIVED`** n'est pas permis aujourd'hui, un élève dont l'inscription est annulée au délai de paiement reste donc `INACTIVE` (jamais supprimé, matricule consommé).
+Autres points à brancher ailleurs (hors périmètre) : rôles système (**faits** : `admissions_officer` et `secretariat` portent le traitement d'un dossier, jamais `decide`, `capacity.override`, `workflow.*`, `campaign.manage`, `settings.manage`, `anonymize`, `export` ; `owner`/`directeur` ont `*`, voir `rbac/README.md`) ; consommateurs `messaging` (annonce au personnel sur `admissions.application.submitted` / `offer.expired`) ; `analytics` (entonnoir direction) ; **`people` : `INACTIVE → ARCHIVED`** n'est pas permis aujourd'hui, un élève dont l'inscription est annulée au délai de paiement reste donc `INACTIVE` (jamais supprimé, matricule consommé).
 
 ## Variables d'environnement
 

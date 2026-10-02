@@ -13,8 +13,8 @@ import { ALL_IMPORT_EVENT_TYPES } from "./domain/events";
  * Permissions : `imports.read` / `imports.create` (téléverser, mapper, valider, prévisualiser : aucune écriture dans les
  * modules cibles), `imports.import.<importeur>` (LANCER l'import ; exigée EN PLUS des permissions du module cible),
  * `imports.cancel`, `imports.template.manage`, `imports.manage` (voir et annuler les imports des autres, paramètres). Les
- * soldes financiers exigent la MFA (permission sensible). Aucun rôle système ne reçoit ces permissions ici (`owner` et
- * `directeur` ont `*`) : leur attribution à d'autres rôles est une demande de changement du module rbac.
+ * soldes financiers exigent la MFA (permission sensible). `owner` et `directeur` ont `*` ; l'attribution aux autres
+ * rôles système (secrétariat, directeur des études, économe en préparation) est portée par `rbac/templates/system-roles.ts`.
  */
 export default defineModule({
   key: "imports",

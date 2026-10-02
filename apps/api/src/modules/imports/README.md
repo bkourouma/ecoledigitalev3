@@ -30,7 +30,7 @@ Autres routes : `GET /importers` (descripteurs + `canUse` / `canRun` selon les d
 
 ## Permissions (manifeste)
 
-`imports.read`, `imports.create` (téléverser, mapper, valider, prévisualiser : aucune écriture), `imports.import.<importeur>` (lancer ; `opening_balances` est **sensible** : MFA), `imports.cancel`, `imports.template.manage`, `imports.manage` (imports des autres, plafonds). Un importeur exige AUSSI les permissions de son module cible (vérifiées à l'upload, au mapping, à la validation et au lancement). Un import n'est visible que par son auteur ou par `imports.manage` (404 sinon). Aucun rôle système ne reçoit ces permissions ici : demande de changement du module `rbac` (voir `open-questions.md` O-03).
+`imports.read`, `imports.create` (téléverser, mapper, valider, prévisualiser : aucune écriture), `imports.import.<importeur>` (lancer ; `opening_balances` est **sensible** : MFA), `imports.cancel`, `imports.template.manage`, `imports.manage` (imports des autres, plafonds). Un importeur exige AUSSI les permissions de son module cible (vérifiées à l'upload, au mapping, à la validation et au lancement). Un import n'est visible que par son auteur ou par `imports.manage` (404 sinon). Attribution côté `rbac` (O-03, à arbitrer) : `secretariat` (élèves, tuteurs), `directeur_etudes` (classes, curriculum), `econome` (préparation seulement : `imports.read` et `imports.create`) ; le reste (personnel, notes, soldes d'ouverture, modèles, `imports.manage`) est à la direction (`*`).
 
 ## Sécurité des fichiers (INV-S1 à S8, `spec.md` §4.1)
 

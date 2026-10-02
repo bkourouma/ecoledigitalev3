@@ -166,8 +166,8 @@ describe("non-oubli : la liste ne survit pas à la livraison du module", () => {
   });
 
   it("le non-oubli détecterait une entrée devenue réelle (simulation : catalogue + manifeste du module)", () => {
-    const withModule = buildPermissionCatalog([...real.manifests, ...fakeUpcomingManifests(["primary_school"])]);
-    const stale = RESERVED_FOR_UPCOMING_MODULES.filter((r) => r.module === "primary_school" && withModule.byKey.has(r.key));
+    const withModule = buildPermissionCatalog([...real.manifests, ...fakeUpcomingManifests(["councils"])]);
+    const stale = RESERVED_FOR_UPCOMING_MODULES.filter((r) => r.module === "councils" && withModule.byKey.has(r.key));
     expect(stale.length).toBeGreaterThan(0);
     // c'est exactement la condition qui fait échouer « aucune entrée n'est déjà déclarée » sur le vrai catalogue
   });
@@ -215,22 +215,13 @@ describe("quand les manifestes des modules à venir apparaissent : tout se réso
   });
 
   it("le rôle `instituteur` ne reçoit ni validation/publication des notes, ni révision, ni scellé, ni finance (spec 005 §7)", () => {
-    const catalog = buildPermissionCatalog([
-      ...manifestsWithAll(),
-      // permissions futures NON accordées à l'instituteur, déclarées par le module pour prouver qu'aucun motif large ne les capte
-      defineModule({
-        key: "primary_extra",
-        title: "Primary — permissions non accordées",
-        packs: ["CORE"],
-        permissions: [
-          { key: "primary.competency.revise", label: "Réviser", sensitive: true },
-          { key: "primary.bilan.seal", label: "Sceller", sensitive: true },
-          { key: "primary.bilan.prepare", label: "Préparer le bilan" },
-        ],
-      }) as ModuleManifest,
-    ]);
+    // le module `primary_school` est livré : ses permissions non accordées à l'instituteur (revise, seal, prepare…) sont déjà
+    // dans le catalogue réel, ce qui prouve qu'aucun motif large ne les capte
+    const catalog = buildPermissionCatalog(manifestsWithAll());
+    expect(catalog.byKey.has("primary.competency.revise")).toBe(true);
+    expect(catalog.byKey.has("primary.bilan.seal")).toBe(true);
     const instituteur = resolveAgainst({ ...real, catalog }, SYSTEM_ROLE_TEMPLATES).get("instituteur")?.permissions ?? new Set<string>();
-    for (const k of ["grade.validate", "grade.publish", "grade.revise.approve", "period.close", "primary.competency.revise", "primary.bilan.seal"]) {
+    for (const k of ["grade.validate", "grade.publish", "grade.revise.approve", "period.close", "primary.competency.revise", "primary.bilan.seal", "primary.bilan.prepare", "primary.bilan.reissue"]) {
       expect(instituteur.has(k), k).toBe(false);
     }
     expect([...instituteur].filter((k) => k.startsWith("finance."))).toEqual([]);

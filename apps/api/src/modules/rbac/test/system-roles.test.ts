@@ -94,13 +94,24 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "student.list", "student.read", "guardian.read", "staff.list", "staff.read", "staff.availability.manage", "teaching.read", "teaching.assign",
       // rules
       "rules.ruleset.read", "rules.version.simulate",
+      // schoollife (006) : lecture générale seulement
+      "schoollife.read.all",
+      // stateassign (006) : lecture seule
+      "stateassign.read",
+      // primary_school (005) : pilotage pédagogique, jamais le scellé / la révision / le gel / le modèle / les réglages
+      "primary.framework.read", "primary.framework.manage", "primary.framework.publish", "primary.competency.read",
+      "primary.phrase.read", "primary.phrase.manage", "primary.council.read", "primary.council.manage",
+      "primary.bilan.read", "primary.bilan.prepare", "primary.archive.prepare", "primary.report.read", "primary.class.read_all",
+      // examinations (018) : consultation seulement
+      "exam.type.read", "exam.session.read", "exam.candidate.read", "exam.result.read", "exam.statistics.read",
+      // imports (031, O-03) : classes et curriculum
+      "imports.read", "imports.create", "imports.import.classrooms", "imports.import.curriculum", "imports.cancel",
     ],
     reserved: [
       // conseils de classe (006) : `council.*` sauf l'approbation d'un déverrouillage et la révocation d'un PV
       "council.read", "council.manage", "council.prepare", "council.session.run", "council.proposal.write", "council.decision.record",
       "council.minutes.generate", "council.minutes.read", "council.minutes.sign", "council.unlock.request", "council.effect.manage",
       "council.exclusion.apply", "council.settings.manage", "council.orientation.read", "council.orientation.manage", "council.orientation.override",
-      "schoollife.read", "stateassign.read",
     ],
   },
 
@@ -121,16 +132,20 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "attendance.read", "attendance.take", "attendance.justification.submit", "attendance.justification.read", "attendance.report.read",
       "schedule.read",
       "finance.invoice.read", "finance.payment.read", "finance.receipt.read",
-    ],
-    reserved: [
       // admissions (007) : traitement d'un dossier, jamais la décision
       "admission.read", "admission.create", "admission.update", "admission.document.upload", "admission.document.review",
       "admission.interview.manage", "admission.offer.manage", "admission.duplicate.resolve", "admission.waitlist.manage",
       "admission.prospect.manage", "admission.enroll", "admission.report.read",
+      // affectation d'État (006) : enregistrer et rattacher les pièces, jamais vérifier
+      "stateassign.read", "stateassign.record", "stateassign.document.manage",
+      // primary_school (005) : états, accès à toutes les classes, lecture des bilans et des grilles
+      "primary.report.read", "primary.class.read_all", "primary.bilan.read", "primary.competency.read",
+      // imports (031, O-03) : élèves et tuteurs
+      "imports.read", "imports.create", "imports.import.students", "imports.import.guardians", "imports.cancel",
+    ],
+    reserved: [
       // conseils (006) : planifier, procès-verbaux (pas de révocation)
       "council.read", "council.manage", "council.minutes.generate", "council.minutes.read", "council.minutes.sign",
-      // affectation d'État (006)
-      "stateassign.read", "stateassign.record", "stateassign.document.manage",
     ],
   },
 
@@ -150,8 +165,11 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "payroll.payslip.read", "payroll.payslip.adjust", "payroll.payslip.notify", "payroll.payslip.pay", "payroll.report.read",
       "student.list", "student.read", "guardian.read", "staff.list", "staff.read",
       "academic.read", "academic.year.read", "academic.program.read", "academic.classroom.read",
+      // stateassign (006) : rapprochement, échéances, contrôles, export ; ni enregistrement ni vérification
+      "stateassign.read", "stateassign.reconcile", "stateassign.receivable.manage", "stateassign.control.perform", "stateassign.export",
+      // imports (031, O-03) : préparation seulement (lancement = direction)
+      "imports.read", "imports.create",
     ],
-    reserved: ["stateassign.read", "stateassign.reconcile", "stateassign.control.perform"],
   },
 
   enseignant: {
@@ -168,8 +186,10 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "student.class.read", "staff.own.read", "staff.own.update",
       "schedule.own.read", "schedule.occurrence.declare",
       "payroll.payslip.read_own", "payroll.my.dispute",
+      // schoollife (006) : signaler et noter dans SES classes
+      "schoollife.read", "schoollife.incident.write", "schoollife.note.write",
     ],
-    reserved: ["council.proposal.write", "schoollife.read", "schoollife.incident.write", "schoollife.note.write"],
+    reserved: ["council.proposal.write"],
   },
 
   // Spec 005 pack-template §7 : mêmes clés RÉELLES que l'enseignant (sa classe) + reportcard.read ; `primary.*` réservées.
@@ -183,10 +203,10 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "student.class.read", "staff.own.read", "staff.own.update",
       "schedule.own.read", "schedule.occurrence.declare",
       "payroll.payslip.read_own", "payroll.my.dispute",
-    ],
-    reserved: [
+      // primary_school (005) : compétences, banque d'appréciations, conseil des maîtres, référentiel et bilan de SA classe en lecture
       "primary.competency.read", "primary.competency.record", "primary.competency.validate",
       "primary.phrase.read", "primary.council.read", "primary.council.prepare",
+      "primary.framework.read", "primary.bilan.read",
     ],
   },
 
@@ -203,8 +223,10 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "schedule.read", "schedule.occurrence.hold",
       "student.list", "student.read", "guardian.read", "staff.own.read", "staff.own.update",
       "enrollment.read", "academic.classroom.read",
+      // schoollife (006) : saisie et instruction, PROPOSITION de mesure ; jamais la validation
+      "schoollife.read", "schoollife.read.all", "schoollife.incident.write", "schoollife.incident.review", "schoollife.measure.propose",
+      "schoollife.note.write", "schoollife.convocation.manage",
     ],
-    reserved: ["schoollife.read", "schoollife.incident.write", "schoollife.measure.propose", "schoollife.note.write", "schoollife.convocation.manage"],
   },
 
   responsable_pedagogique: {
@@ -220,6 +242,29 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "schedule.read", "teaching.read", "attendance.read", "attendance.report.read",
       "student.list", "student.read", "staff.list", "staff.read",
       "rules.ruleset.read",
+    ],
+  },
+
+  // Spec 018 / README examinations : toutes les `exam.*` NON sensibles ; la publication, l'application d'un lot, l'approbation
+  // d'une révision et la dérogation d'éligibilité (sensibles) restent à la direction.
+  responsable_examens: {
+    can: [
+      "documents.read", "messaging.read", "messaging.send", "notifications.read",
+      "exam.type.read", "exam.type.manage", "exam.center.manage", "exam.session.read", "exam.session.manage", "exam.candidate.read",
+      "exam.candidate.manage", "exam.eligibility.evaluate", "exam.score.enter", "exam.mock.manage", "exam.import.manage",
+      "exam.result.read", "exam.result.enter", "exam.statistics.read", "exam.export.manage", "exam.export.run", "exam.document.issue",
+      "academic.read", "academic.year.read", "academic.program.read", "academic.classroom.read",
+      "enrollment.read", "student.list", "student.read", "assessment.read",
+    ],
+  },
+
+  // Spec 007 §11 : « admissions_officer (secrétariat) » : traitement d'un dossier, jamais la décision ni les actes sensibles.
+  admissions_officer: {
+    can: [
+      "messaging.read", "messaging.send",
+      "admission.read", "admission.create", "admission.update", "admission.document.upload", "admission.document.review",
+      "admission.interview.manage", "admission.offer.manage", "admission.duplicate.resolve", "admission.waitlist.manage",
+      "admission.prospect.manage", "admission.enroll", "admission.report.read",
     ],
   },
 
@@ -244,11 +289,12 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "student.child.read", "student.child.update", "enrollment.child.read", "grade.child.read", "result.child.read", "reportcard.child.read",
       "attendance.child.read", "attendance.child.justify", "schedule.child.read", "higher.child.read",
       "finance.child.read", "finance.child.pay",
-    ],
-    reserved: [
-      "primary.competency.child.read", "primary.bilan.child.read", "council.child.read", "schoollife.child.read",
+      // primary_school (005), schoollife et stateassign (006), examinations (018)
+      "primary.competency.child.read", "primary.bilan.child.read",
+      "schoollife.child.read", "schoollife.child.appeal", "schoollife.child.acknowledge",
       "stateassign.child.read", "exam.document.child.read",
     ],
+    reserved: ["council.child.read"],
   },
 
   eleve: {
@@ -262,8 +308,10 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "student.self.read", "student.self.update", "enrollment.self.read", "enrollment.self.create", "grade.self.read", "result.self.read",
       "reportcard.self.read", "attendance.self.read", "attendance.self.justify", "schedule.self.read", "higher.self.read",
       "finance.self.read", "finance.self.pay",
+      // primary_school (005), schoollife (006), examinations (018)
+      "primary.competency.self.read", "primary.bilan.self.read", "schoollife.self.read", "schoollife.self.appeal", "exam.document.self.read",
     ],
-    reserved: ["primary.competency.self.read", "primary.bilan.self.read", "council.self.read", "schoollife.self.read", "exam.document.self.read"],
+    reserved: ["council.self.read"],
   },
 };
 
@@ -284,7 +332,7 @@ function expectedDeclaredOf(role: string): ReadonlySet<string> {
 }
 
 describe("modèles de rôles système : ensemble des rôles", () => {
-  it("douze modèles, dont `personnel` et `instituteur` (spec 005), clés uniques", () => {
+  it("quatorze modèles, dont `personnel`, `instituteur` (spec 005), `responsable_examens` (spec 018) et `admissions_officer` (spec 007), clés uniques", () => {
     expect(SYSTEM_ROLE_KEYS).toEqual([
       "owner",
       "directeur",
@@ -295,6 +343,8 @@ describe("modèles de rôles système : ensemble des rôles", () => {
       "instituteur",
       "educateur",
       "responsable_pedagogique",
+      "responsable_examens",
+      "admissions_officer",
       "personnel",
       "parent",
       "eleve",
@@ -308,8 +358,8 @@ describe("modèles de rôles système : ensemble des rôles", () => {
     // rôle × permission est alors vérifiée comme celle des autres (voir `matrice rôle × module`).
     expect(modulesWithPermissions).toEqual(
       [
-        "academic", "analytics", "assess", "attendance", "audit", "documents", "entitlements", "finance", "higher", "iam", "imports", "messaging", "notifications", "payroll", "people", "rbac",
-        "reportcards", "results", "rules", "scheduling", "tenancy",
+        "academic", "admissions", "analytics", "assess", "attendance", "audit", "documents", "entitlements", "examinations", "finance", "higher", "iam", "imports", "messaging",
+        "notifications", "payroll", "people", "primary_school", "rbac", "reportcards", "results", "rules", "scheduling", "schoollife", "stateassign", "tenancy",
         ...LOADED_UPCOMING_MODULES(),
       ].sort(),
     );
@@ -418,6 +468,25 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["student.sensitive.read", "champs sensibles : scolarité et direction"],
       ["staff.contract.read", "les contrats du personnel sont à la direction"],
       ["payroll.payslip.read", "aucune donnée salariale"],
+      ["exam.result.publish", "publication des résultats d'examen (sensible, MFA) : direction"],
+      ["exam.result.release", "application d'un lot de résultats officiels (immuable) : direction"],
+      ["exam.result.revise", "approbation d'une révision de résultat publié : direction"],
+      ["exam.eligibility.override", "dérogation d'éligibilité à un examen : direction"],
+      ["exam.session.manage", "conduite d'une session d'examen : responsable des examens"],
+      ["primary.bilan.seal", "scellé du bilan annuel (sensible) : direction"],
+      ["primary.bilan.reissue", "réémission d'un bilan scellé : direction"],
+      ["primary.competency.revise", "révision d'une compétence validée (sensible) : direction"],
+      ["primary.archive.freeze", "gel de l'archive d'année (irréversible) : direction"],
+      ["primary.template.apply", "modèle de pack : direction"],
+      ["primary.settings.manage", "réglages du pack Primaire : direction"],
+      ["schoollife.measure.validate", "validation d'une sanction : direction"],
+      ["schoollife.exclusion.validate", "validation d'une exclusion : direction"],
+      ["schoollife.confidential.read", "éléments confidentiels de vie scolaire : direction (MFA)"],
+      ["stateassign.verify", "vérification d'un dossier d'affectation : direction"],
+      ["stateassign.settings.manage", "réglages des affectations : direction"],
+      ["admission.decide", "décision d'admission : direction"],
+      ["imports.import.grades", "import des notes : direction (saisie ≠ validation)"],
+      ["imports.import.opening_balances", "soldes d'ouverture : direction (sensible)"],
     ],
     secretariat: [
       ["reportcard.publish", "le secrétariat émet, il ne publie pas aux familles"],
@@ -433,6 +502,57 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["staff.contract.read", "personnel : hors périmètre du secrétariat"],
       ["grade.enter", "aucune note"],
       ["payroll.payslip.read", "aucune donnée salariale"],
+      ["stateassign.verify", "vérifier un dossier : direction (le secrétariat l'enregistre)"],
+      ["stateassign.manage", "activer/suspendre une affectation : direction"],
+      ["stateassign.amend", "avenant d'une affectation : direction"],
+      ["stateassign.reconcile", "rapprochement avec la facturation : économe"],
+      ["admission.decide", "décision d'admission : direction"],
+      ["admission.capacity.override", "dépassement de capacité (sensible) : direction"],
+      ["admission.workflow.publish", "publication d'un workflow (sensible) : direction"],
+      ["admission.anonymize", "anonymisation (sensible) : direction"],
+      ["admission.export", "export d'un dossier : direction"],
+      ["admission.settings.manage", "réglages d'admission : direction"],
+      ["primary.bilan.seal", "scellé d'un bilan : direction"],
+      ["primary.competency.record", "aucune saisie pédagogique"],
+      ["primary.bilan.prepare", "préparation des bilans : direction des études"],
+      ["schoollife.read", "vie scolaire : personnel d'encadrement"],
+      ["exam.candidate.manage", "gestion des candidats : responsable des examens"],
+      ["imports.import.opening_balances", "soldes d'ouverture : direction (sensible)"],
+      ["imports.import.grades", "import des notes : direction"],
+      ["imports.import.staff", "import du personnel : direction"],
+      ["imports.manage", "imports des autres utilisateurs et plafonds : direction"],
+      ["imports.template.manage", "modèles de mapping : direction"],
+    ],
+    responsable_examens: [
+      ["exam.result.publish", "publication des résultats (sensible) : direction ; il saisit, il ne publie pas"],
+      ["exam.result.release", "application d'un lot de résultats officiels (sensible) : direction ; il dépose et valide, il n'applique pas"],
+      ["exam.result.revise", "approbation d'une révision (sensible) : direction ; il demande la correction, il ne l'approuve pas"],
+      ["exam.eligibility.override", "dérogation d'éligibilité (sensible) : direction ; il évalue, il ne déroge pas"],
+      ["exam.document.child.read", "portail parent uniquement"],
+      ["exam.document.self.read", "portail élève uniquement"],
+      ["grade.enter", "aucune note d'évaluation courante"],
+      ["grade.publish", "aucune publication de notes"],
+      ["student.update", "lecture seule des élèves"],
+      ["student.sensitive.read", "pas de champs sensibles"],
+      ["finance.invoice.read", "aucune finance"],
+      ["payroll.payslip.read", "aucune donnée salariale"],
+      ["reportcard.generate", "bulletins : scolarité"],
+      ["admission.read", "admissions : secrétariat et direction"],
+    ],
+    admissions_officer: [
+      ["admission.decide", "décision d'admission : direction"],
+      ["admission.capacity.override", "dépassement de capacité (sensible) : direction"],
+      ["admission.workflow.publish", "publication d'un workflow (sensible) : direction"],
+      ["admission.workflow.manage", "workflows : direction"],
+      ["admission.campaign.manage", "campagnes et capacités : direction"],
+      ["admission.settings.manage", "réglages : direction"],
+      ["admission.anonymize", "anonymisation (sensible) : direction"],
+      ["admission.export", "export d'un dossier : direction"],
+      ["student.read", "le dossier de l'élève naît à l'acceptation de l'offre : aucun accès aux élèves"],
+      ["student.list", "idem"],
+      ["finance.invoice.read", "aucune finance"],
+      ["grade.read", "aucune note"],
+      ["exam.session.read", "aucun examen"],
     ],
     econome: [
       ["payroll.payslip.approve", "calcul et versement sont séparés de l'arrêt du bulletin (quatre yeux de la paie)"],
@@ -444,6 +564,13 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["staff.contract.read", "jamais les contrats du personnel"],
       ["grade.read", "aucune note"],
       ["schedule.occurrence.validate", "la validation des heures payables n'est pas à celui qui paie"],
+      ["imports.import.opening_balances", "il PRÉPARE l'import des soldes d'ouverture, la direction le LANCE (sensible, MFA)"],
+      ["imports.import.students", "import des élèves : secrétariat"],
+      ["imports.manage", "imports des autres utilisateurs : direction"],
+      ["stateassign.record", "enregistrer un dossier d'affectation : secrétariat"],
+      ["stateassign.verify", "vérifier un dossier : direction"],
+      ["stateassign.manage", "gérer une affectation : direction"],
+      ["exam.session.read", "aucun examen"],
     ],
     instituteur: [
       ["grade.review", "relecture/validation/publication = autres rôles (spec 005 : absentes volontairement)"],
@@ -464,6 +591,13 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["finance.payment.create", "aucune permission finance (spec 005)"],
       ["payroll.payslip.read", "tous les bulletins de paie : économe"],
       ["result.read", "résultats calculés : direction des études"],
+      ["primary.bilan.prepare", "préparation des bilans annuels : direction des études / direction"],
+      ["primary.council.manage", "présider le conseil des maîtres : direction"],
+      ["primary.framework.manage", "référentiels de compétences : direction des études"],
+      ["primary.class.read_all", "il n'accède qu'à SA classe (sans cette permission)"],
+      ["schoollife.read", "la vie scolaire est un module du secondaire"],
+      ["imports.read", "aucun import"],
+      ["exam.candidate.read", "aucun examen national"],
     ],
     enseignant: [
       ["student.read", "uniquement les élèves de SES classes (`student.class.read`) — demande de changement de people"],
@@ -486,6 +620,11 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["higher.document.read", "aucune permission higher"],
       ["result.read", "résultats calculés : direction des études"],
       ["enrollment.read", "inscriptions : scolarité"],
+      ["schoollife.read.all", "vie scolaire de tous les élèves : encadrement (il ne voit que SES classes)"],
+      ["schoollife.incident.review", "instruction d'un incident : vie scolaire"],
+      ["primary.competency.read", "compétences du primaire : instituteur"],
+      ["imports.read", "aucun import"],
+      ["exam.candidate.read", "aucun examen national (la consultation par l'enseignant n'est pas bornée à ses classes)"],
     ],
     educateur: [
       ["attendance.justification.decide", "il dépose et lit les justificatifs ; la décision est à la direction des études"],
@@ -497,6 +636,19 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["student.update", "lecture seule des élèves"],
       ["schedule.occurrence.validate", "il constate, il ne valide pas pour la paie"],
       ["grade.enter", "aucune note"],
+      ["schoollife.measure.validate", "validation d'une sanction : direction (proposition ≠ validation)"],
+      ["schoollife.exclusion.validate", "validation d'une exclusion : direction"],
+      ["schoollife.exclusion.apply", "effet d'une exclusion sur le statut de l'élève : direction"],
+      ["schoollife.measure.revoke", "révocation d'une mesure : direction"],
+      ["schoollife.appeal.decide", "trancher un recours : direction"],
+      ["schoollife.appeal.file", "recours déposé pour une famille : direction"],
+      ["schoollife.restricted.read", "éléments restreints : direction (MFA)"],
+      ["schoollife.confidential.read", "éléments confidentiels : direction (MFA)"],
+      ["schoollife.confidential.audit", "journal des lectures confidentielles : direction"],
+      ["schoollife.conduct.manage", "barèmes de conduite : direction"],
+      ["schoollife.conduct.adjust", "ajustement de points de conduite : direction"],
+      ["schoollife.settings.manage", "réglages de vie scolaire : direction"],
+      ["imports.read", "aucun import"],
     ],
     responsable_pedagogique: [
       ["grade.enter", "il valide, il ne saisit pas"],
@@ -679,6 +831,16 @@ describe("séparation des tâches", () => {
     { name: "demande de congé ≠ décision de congé", left: ["attendance.leave.request"], right: ["attendance.leave.decide"] },
     { name: "inscription ≠ dérogation d'éligibilité / financement", left: ["enrollment.create", "enrollment.update", "enrollment.cancel"], right: ["enrollment.override", "enrollment.funding.update"] },
     { name: "encaissement/facturation ≠ réglages du catalogue de rôles et accès", left: ["finance.payment.create", "finance.payment.refund"], right: ["rbac.role.manage", "rbac.assignment.manage", "iam.mfa.reset"] },
+    // Modules livrés des packs Primary (005), Secondary (006), Admissions (007) et Examinations (018).
+    { name: "saisie/validation d'une compétence ≠ révision après validation", left: ["primary.competency.record", "primary.competency.validate"], right: ["primary.competency.revise"] },
+    { name: "préparation du bilan annuel ≠ scellé / réémission / gel de l'archive", left: ["primary.bilan.prepare", "primary.council.prepare", "primary.archive.prepare"], right: ["primary.bilan.seal", "primary.bilan.reissue", "primary.archive.freeze"] },
+    { name: "enregistrement d'un dossier d'affectation d'État ≠ vérification/gestion/avenant", left: ["stateassign.record"], right: ["stateassign.verify", "stateassign.manage", "stateassign.amend"] },
+    { name: "rapprochement/contrôle d'affectation ≠ vérification du dossier", left: ["stateassign.reconcile", "stateassign.control.perform", "stateassign.receivable.manage"], right: ["stateassign.verify"] },
+    { name: "proposition/déclaration d'une mesure disciplinaire ≠ validation/révocation/exclusion/recours", left: ["schoollife.measure.propose", "schoollife.incident.write", "schoollife.incident.review"], right: ["schoollife.measure.validate", "schoollife.exclusion.validate", "schoollife.exclusion.apply", "schoollife.measure.revoke", "schoollife.appeal.decide"] },
+    { name: "traitement d'un dossier d'admission ≠ décision / dépassement de capacité / anonymisation / publication de workflow", left: ["admission.create", "admission.update", "admission.offer.manage", "admission.enroll"], right: ["admission.decide", "admission.capacity.override", "admission.anonymize", "admission.workflow.publish"] },
+    { name: "saisie/dépôt/demande de correction d'un résultat d'examen ≠ publication/application/approbation", left: ["exam.result.enter", "exam.score.enter", "exam.import.manage"], right: ["exam.result.publish", "exam.result.release", "exam.result.revise"] },
+    { name: "évaluation/gestion des candidats d'un examen ≠ dérogation d'éligibilité", left: ["exam.eligibility.evaluate", "exam.candidate.manage"], right: ["exam.eligibility.override"] },
+    { name: "préparation d'un import de soldes (création) ≠ lancement de l'import des soldes d'ouverture", left: ["imports.create"], right: ["imports.import.opening_balances"] },
   ];
 
   const EXEMPT = ["owner", "directeur"];
@@ -689,14 +851,8 @@ describe("séparation des tâches", () => {
    * tant que le module n'est pas livré.
    */
   const UPCOMING_CONFLICTS: ReadonlyArray<{ name: string; left: string[]; right: string[] }> = [
-    { name: "saisie/validation d'une compétence ≠ révision après validation", left: ["primary.competency.record", "primary.competency.validate"], right: ["primary.competency.revise"] },
-    { name: "préparation du bilan annuel ≠ scellé / réémission", left: ["primary.bilan.prepare", "primary.council.prepare"], right: ["primary.bilan.seal", "primary.bilan.reissue", "primary.archive.freeze"] },
     { name: "demande de déverrouillage d'un conseil ≠ approbation", left: ["council.unlock.request"], right: ["council.unlock.approve"] },
     { name: "génération/signature d'un procès-verbal ≠ révocation", left: ["council.minutes.generate", "council.minutes.sign"], right: ["council.minutes.revoke"] },
-    { name: "enregistrement d'un dossier d'affectation d'État ≠ vérification/gestion/avenant", left: ["stateassign.record"], right: ["stateassign.verify", "stateassign.manage", "stateassign.amend"] },
-    { name: "rapprochement/contrôle d'affectation ≠ vérification du dossier", left: ["stateassign.reconcile", "stateassign.control.perform"], right: ["stateassign.verify"] },
-    { name: "proposition de mesure disciplinaire ≠ validation/révocation/exclusion/recours", left: ["schoollife.measure.propose", "schoollife.incident.write"], right: ["schoollife.measure.validate", "schoollife.exclusion.validate", "schoollife.measure.revoke", "schoollife.appeal.decide"] },
-    { name: "traitement d'un dossier d'admission ≠ décision / dépassement de capacité / anonymisation", left: ["admission.create", "admission.update", "admission.offer.manage"], right: ["admission.decide", "admission.capacity.override", "admission.anonymize", "admission.workflow.publish"] },
   ];
 
   it("la liste ne cite que de vraies permissions", () => {
@@ -785,8 +941,8 @@ describe("permissions sensibles et MFA", () => {
     });
   }
 
-  it("les rôles de portail (parent, élève), le personnel, l'enseignant, l'instituteur et l'éducateur n'ont AUCUNE permission sensible", () => {
-    for (const role of ["parent", "eleve", "personnel", "enseignant", "instituteur", "educateur"]) {
+  it("les rôles de portail (parent, élève), le personnel, l'enseignant, l'instituteur, l'éducateur, le responsable des examens et le chargé d'admissions n'ont AUCUNE permission sensible", () => {
+    for (const role of ["parent", "eleve", "personnel", "enseignant", "instituteur", "educateur", "responsable_examens", "admissions_officer"]) {
       expect([...granted(role)].filter((k) => real.sensitive.has(k)), role).toEqual([]);
       // idem pour les permissions réservées (sensibilité prévue par la spec)
       expect([...declared(role)].filter((k) => getReservedPermission(k)?.sensitive === true), `${role} (réservées)`).toEqual([]);
@@ -827,8 +983,9 @@ describe("motif `*` et portails", () => {
   it("parent / élève : le modèle DÉCLARE (accordées + réservées en attente) exactement les permissions `child` / `self` — rien de plus, rien d'oublié (spec 006 data-model §11 point 7)", () => {
     const reservedChild = RESERVED_FOR_UPCOMING_MODULES.map((r) => r.key).filter(isChildKey);
     const reservedSelf = RESERVED_FOR_UPCOMING_MODULES.map((r) => r.key).filter(isSelfKey);
-    expect(reservedChild.length).toBeGreaterThanOrEqual(6);
-    expect(reservedSelf.length).toBeGreaterThanOrEqual(5);
+    // seul `councils` reste à venir : `council.child.read` / `council.self.read`
+    expect(reservedChild).toEqual(["council.child.read"]);
+    expect(reservedSelf).toEqual(["council.self.read"]);
     const realChild = real.catalog.keys.filter(isChildKey);
     const realSelf = real.catalog.keys.filter(isSelfKey);
     expect([...declared("parent")].sort()).toEqual([...new Set([...realChild, ...reservedChild])].sort());
@@ -852,7 +1009,7 @@ describe("motif `*` et portails", () => {
     const own = real.catalog.keys.filter((k) => matchesPermissionPattern("*.own.*", k) || k.endsWith(".read_own")).sort();
     expect(own.length).toBeGreaterThanOrEqual(6);
     for (const k of own) expect(granted("personnel").has(k), k).toBe(true);
-    for (const role of ["secretariat", "econome", "directeur_etudes", "responsable_pedagogique", "parent", "eleve"]) {
+    for (const role of ["secretariat", "econome", "directeur_etudes", "responsable_pedagogique", "responsable_examens", "admissions_officer", "parent", "eleve"]) {
       expect([...granted(role)].filter((k) => own.includes(k)), role).toEqual([]);
     }
   });
@@ -874,7 +1031,12 @@ describe("motif `*` et portails", () => {
     ];
     for (const k of spec005) expect(declared("instituteur").has(k), `spec 005 §7 : ${k}`).toBe(true);
     // tout ce que l'instituteur déclare en plus de la spec vient du patron enseignant (aucune invention)
-    const extra = [...declared("instituteur")].filter((k) => !spec005.includes(k));
+    // (sauf deux ajouts de lecture DOCUMENTÉS par la livraison du module : `primary.framework.read` — la grille de compétences
+    // s'appuie sur le référentiel — et `primary.bilan.read` — « l'instituteur consulte le bilan de sa classe », spec 005, tableau des écarts d'implémentation, et
+    // README `primary_school`)
+    const MODULE_ADDITIONS = ["primary.framework.read", "primary.bilan.read"];
+    for (const k of MODULE_ADDITIONS) expect(declared("instituteur").has(k), `ajout documenté : ${k}`).toBe(true);
+    const extra = [...declared("instituteur")].filter((k) => !spec005.includes(k) && !MODULE_ADDITIONS.includes(k));
     for (const k of extra) expect(declared("enseignant").has(k), `${k} hors spec 005 : doit venir du patron enseignant`).toBe(true);
     // l'enseignant n'a pas été appauvri
     expect(getSystemRoleTemplate("enseignant")?.permissions).toEqual(expect.arrayContaining(["grade.enter", "attendance.take", "student.class.read", "staff.own.read"]));
