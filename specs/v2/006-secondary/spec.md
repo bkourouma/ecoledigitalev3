@@ -214,7 +214,7 @@ En tant que secrétariat et économe, je gère les élèves affectés (`STATE_AS
 - **AC10.6** **Contrôles** périodiques (présence, identité, rapprochement financier, pièces) : planifiés (par un humain ou par un job selon `required_control_kinds`, vide par défaut), **réalisés par un humain** (`OK`, `ANOMALY` avec constat, `WAIVED` avec motif) ; une anomalie se résout avec un motif ; un contrôle par nature et par période ; les faits constatés (comptages d'absences) sont lus d'`attendance` au moment du contrôle.
 - **AC10.7** **Documents** : références (jamais le fichier) vers la GED ou le dossier de l'élève : acte d'affectation, attestation de présence, reçu, courrier ; retrait motivé.
 - **AC10.8** **Passerelle future** : le port `StateAssignmentGateway` (`fetchAssignment`, `pushAttendanceCertificate`) a un adaptateur par défaut `NotConfigured` qui répond « non disponible » ; aucun appel externe n'existe en V1 ; `source = GATEWAY` et `external_payload_hash` tracent un futur échange sans stocker la donnée brute.
-- **AC10.9** Un élève affecté se **distingue sur le bulletin** par le **type de financement de son inscription** (donnée de `academic`), **jamais** par la décision de fin d'année (correction du legacy, `parity.md` P-S-12).
+- **AC10.9** Un élève affecté se **distingue sur le bulletin** par le **type de financement de son inscription** (donnée de `academic`), **jamais** par la décision de fin d'année (correction du legacy, `parity.md` P-S-05).
 
 ### US11 — Examens nationaux BEPC et BAC (P2)
 
