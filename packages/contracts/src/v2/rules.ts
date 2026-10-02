@@ -636,6 +636,8 @@ export const RulesBindingChangedPayloadSchema = z.object({
   effectiveFrom: RulesIsoDateSchema,
   effectiveTo: RulesIsoDateSchema.nullable(),
   change: z.enum(["created", "updated", "deleted"]),
+  /** La liaison vise un jeu de règles de DÉMONSTRATION dont l'usage a été accusé explicitement (production). */
+  placeholderAcknowledged: z.boolean().optional(),
 });
 
 /** Schéma de charge utile des événements rules consommés par d'autres modules (additif). */
