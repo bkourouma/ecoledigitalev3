@@ -5,6 +5,7 @@ export * from "./attendance";
 export * from "./audit";
 export * from "./documents";
 export * from "./entitlements";
+export * from "./examinations";
 export * from "./finance";
 export * from "./higher";
 export * from "./iam";
