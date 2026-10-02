@@ -80,7 +80,7 @@ Les droits RBAC disent **quel type** d'action ; le module décide **vis-à-vis d
 | R3 | `child.send` + tuteur lié | le personnel affecté à une classe d'un de SES enfants ; les contacts de l'administration ; `aboutStudentId` doit être l'un de SES enfants |
 | R4 | `self.send` + élève | selon `student_policy` : `DISABLED` aucun ; `REPLY_ONLY` aucun (réponse seulement) ; `TEACHERS` les enseignants de sa classe ; `TEACHERS_AND_ADMIN` + contacts de l'administration |
 
-Interdits structurels : parent → parent, élève → élève, parent / élève → classe entière, diffusion et audience pour tout autre que R1/R2 (classes), utilisateur inactif ou inconnu du tenant (404 indiscernable d'un refus pour ne pas révéler l'existence d'un compte), utilisateur restreint (`messaging.sender_restricted`).
+Interdits structurels : parent → parent, élève → élève, parent / élève → classe entière, diffusion et audience pour tout autre que R1/R2 (classes), utilisateur inactif ou inconnu du tenant (refus 403 IDENTIQUE à celui d un destinataire interdit : l existence d un compte n est jamais révélée, sauf à `send.any`), utilisateur restreint (`messaging.sender_restricted`).
 
 ### 4.2 Répondre dans un fil
 
