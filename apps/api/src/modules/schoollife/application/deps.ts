@@ -126,6 +126,19 @@ export async function inTx<T>(deps: SchoolLifeDeps, ctx: RequestContext, fn: (tx
   }
 }
 
+/**
+ * Appels de ports HORS transaction (périmètre, noms) : une `AppError` levée par un port (ex. `schoollife.port_unavailable`)
+ * devient un `Err`, jamais une exception qui remonterait en 500.
+ */
+export async function safely<T>(fn: () => Promise<Result<T, AppError>>): Promise<Result<T, AppError>> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (isAppError(e)) return err(e);
+    throw e;
+  }
+}
+
 /** Refuse tout acte (décision, validation, mesure, saisie) qui ne vient pas d'un UTILISATEUR identifié ; la base le revérifie. */
 export function requireHuman(ctx: RequestContext): Result<string, AppError> {
   if (ctx.actor !== "user" || !ctx.userId) return err(humanRequired());

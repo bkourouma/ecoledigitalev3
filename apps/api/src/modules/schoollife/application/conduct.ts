@@ -21,7 +21,7 @@ import { forbidden, invalid, notFound, SchoolLifeCode } from "../domain/errors";
 import * as conduct from "../infrastructure/conduct-repository";
 import * as reference from "../infrastructure/reference-repository";
 import type { EventTypeRow, ScaleRow } from "../infrastructure/rows";
-import { EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
+import { safely, EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
 import { assertStudentScope, loadTypes, resolveEnrollment } from "./support";
 import { scaleDto } from "./views";
 import type { EnrollmentInfo } from "./ports";
@@ -250,12 +250,13 @@ export async function adjustConduct(deps: SchoolLifeDeps, ctx: RequestContext, c
 }
 
 /** Solde dérivé + registre d'un élève pour son inscription la plus récente de l'année demandée. */
-export async function getStudentConduct(
+export function getStudentConduct(
   deps: SchoolLifeDeps,
   ctx: RequestContext,
   caps: CallerCaps,
   input: { studentId: string; academicYearId?: string | undefined; periodId?: string | undefined },
 ): Promise<Result<SchoolLifeConductDto, AppError>> {
+  return safely(async () => {
   const scope = await assertStudentScope(deps, ctx, caps, input.studentId);
   if (!scope.ok) return scope;
   const enrollments = await deps.ports.enrollments.listEnrollmentsOfStudent(ctx, input.studentId);
@@ -265,6 +266,7 @@ export async function getStudentConduct(
     async (tx) => ok(await conductViewOf(deps, ctx, tx, input.studentId, enrollments, input)),
     { readOnly: true },
   );
+  });
 }
 
 /** Construit la vue de conduite (réutilisée par le dossier de l'élève). */

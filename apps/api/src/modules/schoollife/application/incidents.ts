@@ -12,7 +12,7 @@ import { canTransition, INCIDENT_TRANSITIONS } from "../domain/machines";
 import * as repo from "../infrastructure/incidents-repository";
 import * as reference from "../infrastructure/reference-repository";
 import type { IncidentRow } from "../infrastructure/rows";
-import { EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
+import { safely, EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
 import { actorNameOf, assertStudentScope, clampPage, loadTypes, resolveEnrollment, staffMaySee, studentNames, viewerOf } from "./support";
 import type { EnrollmentInfo } from "./ports";
 import { incidentDto } from "./views";
@@ -27,8 +27,8 @@ async function viewOf(deps: SchoolLifeDeps, ctx: RequestContext, tx: import("@ec
 export async function declareIncident(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: SchoolLifeIncidentCreate): Promise<Result<SchoolLifeIncidentDto, AppError>> {
   const human = requireHuman(ctx);
   if (!human.ok) return human;
-  const reporterName = await actorNameOf(deps, ctx);
   return inTx(deps, ctx, async (tx) => {
+    const reporterName = await actorNameOf(deps, ctx);
     const type = (await loadTypes(tx, [input.typeId])).get(input.typeId);
     if (!type) return err(notFound(SchoolLifeCode.TYPE_NOT_FOUND, "Type d'événement", input.typeId));
     if (type.kind !== "INCIDENT" || !type.active) return err(invalid(SchoolLifeCode.TYPE_INACTIVE, "Le type choisi n'est pas un type d'incident actif.", "typeId"));
@@ -167,7 +167,8 @@ export interface ListIncidentsInput {
   pageSize: number;
 }
 
-export async function listIncidentsView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: ListIncidentsInput): Promise<Result<SchoolLifeIncidentDto[], AppError>> {
+export function listIncidentsView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: ListIncidentsInput): Promise<Result<SchoolLifeIncidentDto[], AppError>> {
+  return safely(async () => {
   const viewer = viewerOf(caps);
   const { limit, offset } = clampPage(input.page, input.pageSize);
   let enrollmentIds: string[] | undefined;
@@ -191,9 +192,11 @@ export async function listIncidentsView(deps: SchoolLifeDeps, ctx: RequestContex
     },
     { readOnly: true },
   );
+  });
 }
 
-export async function getIncidentView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, id: string): Promise<Result<SchoolLifeIncidentDto, AppError>> {
+export function getIncidentView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, id: string): Promise<Result<SchoolLifeIncidentDto, AppError>> {
+  return safely(async () => {
   const viewer = viewerOf(caps);
   return inTx(
     deps,
@@ -212,4 +215,5 @@ export async function getIncidentView(deps: SchoolLifeDeps, ctx: RequestContext,
     },
     { readOnly: true },
   );
+  });
 }

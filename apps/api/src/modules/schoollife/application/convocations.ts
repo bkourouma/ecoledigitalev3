@@ -11,8 +11,9 @@ import { SchoolLifeEvents } from "../domain/events";
 import { forbidden, invalid, notFound, SchoolLifeCode } from "../domain/errors";
 import { canTransition, CONVOCATION_TRANSITIONS } from "../domain/machines";
 import * as repo from "../infrastructure/convocations-repository";
+import * as visibility from "../infrastructure/visibility-repository";
 import type { ConvocationRow } from "../infrastructure/rows";
-import { EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
+import { safely, EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
 import { actorNameOf, assertStudentScope, clampPage, resolveEnrollment, staffMaySee, studentNames, viewerOf } from "./support";
 import type { NotificationChannelName } from "./ports";
 import { convocationDto } from "./views";
@@ -41,8 +42,8 @@ export async function createConvocation(deps: SchoolLifeDeps, ctx: RequestContex
   if (!human.ok) return human;
   const manage = requireManage(caps);
   if (!manage.ok) return manage;
-  const convenerName = await actorNameOf(deps, ctx);
   return inTx(deps, ctx, async (tx) => {
+    const convenerName = await actorNameOf(deps, ctx);
     const enrollment = await resolveEnrollment(deps, ctx, caps, input.enrollmentId);
     if (!enrollment.ok) return enrollment;
     const guardians = await deps.ports.people.listGuardiansOfStudent(ctx, enrollment.value.studentId);
@@ -155,8 +156,8 @@ export async function rescheduleConvocation(deps: SchoolLifeDeps, ctx: RequestCo
   if (!human.ok) return human;
   const manage = requireManage(caps);
   if (!manage.ok) return manage;
-  const convenerName = await actorNameOf(deps, ctx);
   return inTx(deps, ctx, async (tx) => {
+    const convenerName = await actorNameOf(deps, ctx);
     const loaded = await loadVisible(deps, ctx, tx, caps, id, { lock: true });
     if (!loaded.ok) return loaded;
     const row = loaded.value;
@@ -190,18 +191,18 @@ export async function rescheduleConvocation(deps: SchoolLifeDeps, ctx: RequestCo
 }
 
 /** Accusé de réception d'un TUTEUR convoqué (lien vivant revérifié ; la convocation doit lui être visible : règle SQL). */
-export async function acknowledgeConvocation(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, id: string, input: { guardianId: string }): Promise<Result<SchoolLifeConvocationDto, AppError>> {
+export async function acknowledgeConvocation(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, id: string, input: { guardianId?: string | undefined }): Promise<Result<SchoolLifeConvocationDto, AppError>> {
   const human = requireHuman(ctx);
   if (!human.ok) return human;
   if (!caps.childAcknowledge) return err(forbidden(SchoolLifeCode.PERMISSION_REQUIRED, "Accuser réception d'une convocation exige un compte de tuteur."));
   return inTx(deps, ctx, async (tx) => {
     const row = await repo.getConvocation(tx, id, { lock: true });
     if (!row) return err(notFound(SchoolLifeCode.NOT_FOUND, "Convocation", id));
-    const visible = await tx.queryOne<{ v: boolean }>(`SELECT schoollife.audience_may_see('GUARDIAN', 'CONVOCATION', $1, true, $2, NULL) AS v`, [row.confidentiality, row.status]);
-    if (!visible?.v || !(await deps.ports.people.isGuardianOfStudent(ctx, human.value, row.studentId))) return err(notFound(SchoolLifeCode.NOT_FOUND, "Convocation", id));
+    const visible = await visibility.maySee(tx, { audience: "GUARDIAN", kind: "CONVOCATION", confidentiality: row.confidentiality, shareable: true, status: row.status });
+    if (!visible ||!(await deps.ports.people.isGuardianOfStudent(ctx, human.value, row.studentId))) return err(notFound(SchoolLifeCode.NOT_FOUND, "Convocation", id));
     // Le tuteur qui accuse réception est CELUI du compte connecté (jamais un identifiant libre) et doit figurer parmi les convoqués.
     const mine = (await deps.ports.people.listGuardiansOfStudent(ctx, row.studentId)).find((g) => g.userId === human.value && row.guardianIds.includes(g.guardianId));
-    if (!mine || mine.guardianId !== input.guardianId) return err(forbidden(SchoolLifeCode.NOT_A_GUARDIAN, "Seul un tuteur convoqué peut accuser réception."));
+    if (!mine || (input.guardianId !== undefined && mine.guardianId !== input.guardianId)) return err(forbidden(SchoolLifeCode.NOT_A_GUARDIAN, "Seul un tuteur convoqué peut accuser réception."));
     if (!canTransition(CONVOCATION_TRANSITIONS, row.status, "ACKNOWLEDGED")) return err(invalid(SchoolLifeCode.INVALID_STATE, `Une convocation ${row.status} ne peut pas être acquittée.`));
     await repo.updateConvocation(tx, id, { status: "ACKNOWLEDGED", acknowledgedByGuardianId: mine.guardianId });
     const updated = (await repo.getConvocation(tx, id)) as ConvocationRow;
@@ -221,7 +222,8 @@ export interface ListConvocationsInput {
   pageSize: number;
 }
 
-export async function listConvocationsView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: ListConvocationsInput): Promise<Result<SchoolLifeConvocationDto[], AppError>> {
+export function listConvocationsView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: ListConvocationsInput): Promise<Result<SchoolLifeConvocationDto[], AppError>> {
+  return safely(async () => {
   const viewer = viewerOf(caps);
   const { limit, offset } = clampPage(input.page, input.pageSize);
   let convenedBy: string | undefined;
@@ -237,5 +239,6 @@ export async function listConvocationsView(deps: SchoolLifeDeps, ctx: RequestCon
     async (tx) => ok(await views(deps, ctx, await repo.listConvocations(tx, { audience: viewer.audience, status: input.status, studentId: input.studentId, convenedBy, upcomingFrom: input.upcomingOnly ? deps.clock.now() : undefined, limit, offset }))),
     { readOnly: true },
   );
+  });
 }
 

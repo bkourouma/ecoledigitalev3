@@ -12,7 +12,7 @@ import { isNoteKind } from "../domain/event-type";
 import * as repo from "../infrastructure/notes-repository";
 import type { NoteRow } from "../infrastructure/rows";
 import { recordPointsForSource, reversePointsOfSource } from "./conduct";
-import { EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
+import { safely, EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
 import { actorNameOf, assertStudentScope, clampPage, loadTypes, resolveEnrollment, staffMaySee, studentNames, viewerOf } from "./support";
 import { noteDto } from "./views";
 
@@ -25,8 +25,8 @@ async function views(deps: SchoolLifeDeps, ctx: RequestContext, tx: import("@eco
 export async function createNote(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: SchoolLifeNoteCreate): Promise<Result<SchoolLifeNoteDto, AppError>> {
   const human = requireHuman(ctx);
   if (!human.ok) return human;
-  const authorName = await actorNameOf(deps, ctx);
   return inTx(deps, ctx, async (tx) => {
+    const authorName = await actorNameOf(deps, ctx);
     const type = (await loadTypes(tx, [input.typeId])).get(input.typeId);
     if (!type) return err(notFound(SchoolLifeCode.TYPE_NOT_FOUND, "Type d'événement", input.typeId));
     if (!isNoteKind(type.kind) || !type.active) return err(invalid(SchoolLifeCode.TYPE_INACTIVE, "Le type choisi n'est pas un type d'encouragement ou d'observation actif.", "typeId"));
@@ -97,7 +97,8 @@ export interface ListNotesInput {
   pageSize: number;
 }
 
-export async function listNotesView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: ListNotesInput): Promise<Result<SchoolLifeNoteDto[], AppError>> {
+export function listNotesView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: ListNotesInput): Promise<Result<SchoolLifeNoteDto[], AppError>> {
+  return safely(async () => {
   const viewer = viewerOf(caps);
   const { limit, offset } = clampPage(input.page, input.pageSize);
   let enrollmentIds: string[] | undefined;
@@ -117,4 +118,5 @@ export async function listNotesView(deps: SchoolLifeDeps, ctx: RequestContext, c
     async (tx) => ok(await views(deps, ctx, tx, await repo.listNotes(tx, { audience: viewer.audience, studentId: input.studentId, enrollmentIds, kind: input.kind, authorId, limit, offset }))),
     { readOnly: true },
   );
+  });
 }

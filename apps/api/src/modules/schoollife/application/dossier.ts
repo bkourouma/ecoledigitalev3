@@ -23,7 +23,7 @@ import * as incidentsRepo from "../infrastructure/incidents-repository";
 import * as measuresRepo from "../infrastructure/measures-repository";
 import * as notesRepo from "../infrastructure/notes-repository";
 import { conductViewOf } from "./conduct";
-import { inTx, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
+import { safely, inTx, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
 import { assertStudentScope, loadTypes, studentNames, viewerOf } from "./support";
 import { convocationDto, familyConvocationItem, familyMeasureItem, familyNoteItem, incidentDto, measureDto, noteDto } from "./views";
 
@@ -45,12 +45,13 @@ async function attendanceViewOf(deps: SchoolLifeDeps, ctx: RequestContext, stude
   }
 }
 
-export async function getStudentLife(
+export function getStudentLife(
   deps: SchoolLifeDeps,
   ctx: RequestContext,
   caps: CallerCaps,
   input: { studentId: string; academicYearId?: string | undefined; from?: string | undefined; to?: string | undefined },
 ): Promise<Result<SchoolLifeStudentLifeDto, AppError>> {
+  return safely(async () => {
   const scope = await assertStudentScope(deps, ctx, caps, input.studentId);
   if (!scope.ok) return scope;
   const viewer = viewerOf(caps);
@@ -78,6 +79,7 @@ export async function getStudentLife(
       return ok({
         studentId: input.studentId,
         studentName: names.get(input.studentId) ?? null,
+        enrollmentId: enrollments[0]?.enrollmentId ?? null,
         clearance: viewer.clearance,
         incidents: incidentRows.map((r) => incidentDto(r, involvements, vc, { showStatements: caps.incidentReview === true })),
         measures: measureRows.map((r) => measureDto(r, appeals, vc)),
@@ -101,6 +103,7 @@ export async function getStudentLife(
     },
     { readOnly: true },
   );
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -108,12 +111,13 @@ export async function getStudentLife(
 // ---------------------------------------------------------------------------
 
 /** Tuteur lié (`audience: GUARDIAN`) ou élève lui-même (`STUDENT`). Hors lien : 404. */
-export async function getFamilyLife(
+export function getFamilyLife(
   deps: SchoolLifeDeps,
   ctx: RequestContext,
   caps: CallerCaps,
   input: { audience: "GUARDIAN" | "STUDENT"; studentId?: string | undefined },
 ): Promise<Result<SchoolLifeFamilyLifeDto, AppError>> {
+  return safely(async () => {
   const userId = ctx.userId;
   if (!userId) return err(forbidden(SchoolLifeCode.HUMAN_ACTOR_REQUIRED, "Identification requise."));
   let studentId: string;
@@ -149,21 +153,25 @@ export async function getFamilyLife(
     },
     { readOnly: true },
   );
+  });
 }
 
 /** Enfants du tuteur connecté (écran d'accueil du portail parent). */
-export async function listMyChildren(deps: SchoolLifeDeps, ctx: RequestContext): Promise<Result<Array<{ studentId: string; studentName: string | null }>, AppError>> {
+export function listMyChildren(deps: SchoolLifeDeps, ctx: RequestContext): Promise<Result<Array<{ studentId: string; studentName: string | null }>, AppError>> {
+  return safely(async () => {
   if (!ctx.userId) return err(forbidden(SchoolLifeCode.HUMAN_ACTOR_REQUIRED, "Identification requise."));
   const ids = await deps.ports.people.listChildrenOfGuardian(ctx, ctx.userId);
   const names = await studentNames(deps, ctx, ids);
   return ok(ids.map((id) => ({ studentId: id, studentName: names.get(id) ?? null })));
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Synthèse de classe et tableau de bord
 // ---------------------------------------------------------------------------
 
-export async function getClassroomSummary(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, classroomId: string): Promise<Result<SchoolLifeClassroomSummaryDto, AppError>> {
+export function getClassroomSummary(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, classroomId: string): Promise<Result<SchoolLifeClassroomSummaryDto, AppError>> {
+  return safely(async () => {
   const viewer = viewerOf(caps);
   const assigned = ctx.userId ? await deps.ports.people.isStaffAssignedToClassroom(ctx, ctx.userId, classroomId) : false;
   if (!viewer.readAll && !assigned) return err(notFound(SchoolLifeCode.NOT_FOUND, "Classe", classroomId));
@@ -198,6 +206,7 @@ export async function getClassroomSummary(deps: SchoolLifeDeps, ctx: RequestCont
     },
     { readOnly: true },
   );
+  });
 }
 
 export async function getDashboard(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: { institutionId?: string | undefined }): Promise<Result<SchoolLifeDashboardDto, AppError>> {

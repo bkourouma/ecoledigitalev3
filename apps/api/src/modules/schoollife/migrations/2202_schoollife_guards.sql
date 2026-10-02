@@ -26,7 +26,7 @@ CREATE FUNCTION schoollife.audience_may_see(
   p_audience text, p_kind text, p_confidentiality text, p_shareable boolean, p_status text, p_note_visibility text DEFAULT NULL
 ) RETURNS boolean
 LANGUAGE sql IMMUTABLE AS $$
-  SELECT CASE
+  SELECT coalesce(CASE
     WHEN p_audience IN ('STAFF_STANDARD', 'STAFF_RESTRICTED', 'STAFF_CONFIDENTIAL') THEN
       coalesce(schoollife.confidentiality_rank(p_confidentiality), 99)
         <= CASE p_audience WHEN 'STAFF_STANDARD' THEN 1 WHEN 'STAFF_RESTRICTED' THEN 2 ELSE 3 END
@@ -40,7 +40,7 @@ LANGUAGE sql IMMUTABLE AS $$
       OR (p_audience = 'STUDENT' AND p_note_visibility = 'STUDENT_AND_GUARDIANS'))
     WHEN p_kind = 'CONVOCATION' THEN p_audience = 'GUARDIAN' AND p_status IN ('SENT', 'ACKNOWLEDGED', 'HELD', 'NO_SHOW', 'RESCHEDULED')
     ELSE false
-  END
+  END, false)  -- une donnée absente (NULL) vaut TOUJOURS refus
 $$;
 
 -- Solde de points de conduite : points initiaux + mouvements du périmètre de remise à zéro du barème, borné.

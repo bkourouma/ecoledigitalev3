@@ -4415,6 +4415,702 @@
       }
     }
   },
+  "v2Schoollife": {
+    "nav": {
+      "label": "Vie scolaire",
+      "dashboard": "Tableau de bord",
+      "quickEntry": "Saisie rapide",
+      "validations": "Validations",
+      "convocations": "Convocations",
+      "settings": "Paramètres",
+      "family": "Vie scolaire de mes enfants",
+      "me": "Ma vie scolaire"
+    },
+    "picker": {
+      "classroom": "Classe",
+      "chooseClassroom": "Choisir une classe",
+      "student": "Élève",
+      "chooseStudent": "Choisir un élève",
+      "chooseClassroomFirst": "Choisir d'abord une classe"
+    },
+    "status": {
+      "DECLARED": "Déclaré",
+      "UNDER_REVIEW": "En instruction",
+      "CONFIRMED": "Confirmé",
+      "DISMISSED": "Écarté",
+      "CLOSED": "Clos",
+      "PROPOSED": "Proposée",
+      "VALIDATED": "Validée",
+      "NOTIFIED": "Notifiée",
+      "EXECUTED": "Exécutée",
+      "APPEALED": "En recours",
+      "REVOKED": "Révoquée",
+      "REJECTED": "Rejetée",
+      "CANCELLED": "Annulée",
+      "ACTIVE": "Active",
+      "WITHDRAWN": "Retirée",
+      "DRAFT": "Brouillon",
+      "SENT": "Envoyée",
+      "ACKNOWLEDGED": "Accusée",
+      "HELD": "Tenue",
+      "NO_SHOW": "Absent",
+      "RESCHEDULED": "Reportée",
+      "FILED": "Déposé",
+      "UPHELD": "Maintenue",
+      "OVERTURNED": "Accueilli",
+      "AWAITING_HUMAN": "En attente d'une décision humaine",
+      "APPLIED": "Appliqué",
+      "FAILED": "Échec",
+      "SKIPPED": "Écarté",
+      "REVERTED": "Levé",
+      "RETIRED": "Retiré"
+    },
+    "kind": {
+      "INCIDENT": "Incident",
+      "SANCTION": "Sanction",
+      "WARNING": "Avertissement",
+      "ENCOURAGEMENT": "Encouragement",
+      "TEMP_EXCLUSION": "Exclusion temporaire",
+      "OBSERVATION": "Observation"
+    },
+    "confidentiality": {
+      "STANDARD": "Standard",
+      "RESTRICTED": "Restreint",
+      "CONFIDENTIAL": "Confidentiel"
+    },
+    "role": {
+      "AUTHOR": "Auteur",
+      "VICTIM": "Victime",
+      "WITNESS": "Témoin",
+      "OTHER": "Autre"
+    },
+    "visibility": {
+      "STAFF_ONLY": "Personnel seulement",
+      "GUARDIANS": "Visible des parents",
+      "STUDENT_AND_GUARDIANS": "Visible de l'élève et des parents"
+    },
+    "reasonKind": {
+      "DISCIPLINE": "Discipline",
+      "ABSENCES": "Absences",
+      "ACADEMIC": "Résultats scolaires",
+      "HEALTH": "Santé",
+      "OTHER": "Autre motif"
+    },
+    "channel": {
+      "IN_APP": "Application",
+      "EMAIL": "E-mail",
+      "SMS": "SMS",
+      "WHATSAPP": "WhatsApp",
+      "PUSH": "Notification push"
+    },
+    "form": {
+      "type": "Type",
+      "chooseType": "Choisir un type",
+      "severity": "Gravité",
+      "typeDefault": "Selon le type",
+      "confidentiality": "Confidentialité",
+      "confidentialityHint": "Jamais inférieure à celle du type ; elle ne s'abaisse plus ensuite."
+    },
+    "dashboard": {
+      "title": "Vie scolaire",
+      "description": "Incidents ouverts, mesures à valider, exclusions en cours et convocations à tenir. Les éléments confidentiels n'apparaissent que masqués.",
+      "quickEntry": "Saisie rapide",
+      "countsLabel": "Indicateurs de la vie scolaire",
+      "cards": {
+        "openIncidents": "Incidents ouverts",
+        "measuresToValidate": "Mesures à valider",
+        "activeExclusions": "Exclusions en cours",
+        "convocationsToHold": "Convocations à tenir",
+        "effectsAwaitingHuman": "Effets en attente d'une décision"
+      },
+      "recentIncidents": "Incidents ouverts",
+      "noIncidents": "Aucun incident ouvert.",
+      "masked": "Élément confidentiel (masqué)",
+      "openFile": "Ouvrir le dossier",
+      "pendingMeasures": "Mesures proposées",
+      "noPending": "Aucune mesure en attente de validation.",
+      "upcomingConvocations": "Convocations à venir",
+      "noConvocations": "Aucune convocation à venir."
+    },
+    "quick": {
+      "title": "Saisie rapide",
+      "description": "Déclarez un incident ou rédigez un encouragement ou une observation en quelques gestes : classe, élève, texte.",
+      "choices": "Que souhaitez-vous saisir ?",
+      "incident": {
+        "title": "Déclarer un incident",
+        "hint": "Un fait à signaler, avant toute mesure."
+      },
+      "encouragement": {
+        "title": "Encourager un élève",
+        "hint": "Un point positif, partageable avec la famille si vous le choisissez."
+      },
+      "observation": {
+        "title": "Noter une observation",
+        "hint": "Un constat de suivi, réservé au personnel par défaut."
+      },
+      "attendanceHint": "Les retards et les absences se saisissent dans l'appel : la fiche de l'élève les affiche en lecture seule.",
+      "attendanceLink": "Ouvrir l'appel",
+      "saved": {
+        "incident": "Incident enregistré.",
+        "encouragement": "Encouragement enregistré.",
+        "observation": "Observation enregistrée."
+      }
+    },
+    "incident": {
+      "title": "Déclarer un incident",
+      "description": "Le déclarant est l'utilisateur connecté. L'élève et son établissement sont déduits de son inscription.",
+      "submit": "Déclarer l'incident",
+      "occurredAt": "Date des faits",
+      "time": "Heure des faits",
+      "descriptionLabel": "Description des faits",
+      "location": "Lieu",
+      "role": "Rôle de l'élève",
+      "statement": "Déclaration de l'élève",
+      "statementHint": "Facultative ; visible seulement de l'instruction de l'incident."
+    },
+    "note": {
+      "title": {
+        "ENCOURAGEMENT": "Encourager un élève",
+        "OBSERVATION": "Noter une observation"
+      },
+      "description": {
+        "ENCOURAGEMENT": "L'auteur est l'utilisateur connecté.",
+        "OBSERVATION": "Une observation est réservée au personnel sauf choix contraire autorisé par son type."
+      },
+      "submit": "Enregistrer",
+      "body": "Texte",
+      "occurredOn": "Date",
+      "visibility": "Visibilité",
+      "visibilityHint": "Choisissez qui peut lire cette note.",
+      "notShareable": "Ce type n'est pas partageable avec les familles."
+    },
+    "measure": {
+      "title": "Proposer une mesure",
+      "description": "Le type choisi définit le circuit : validation, séparation des tâches, recours, information de la famille.",
+      "submit": "Proposer la mesure",
+      "circuit": "Circuit de ce type",
+      "circuitValidation": "Cette mesure se propose, puis se valide.",
+      "circuitDirect": "Cette mesure est directement en vigueur.",
+      "circuitFourEyes": "Le validateur doit être une autre personne que vous.",
+      "circuitAppealable": "Elle peut faire l'objet d'un recours.",
+      "circuitNotify": "La famille est notifiée lors de la notification de la mesure.",
+      "reason": "Motif",
+      "startsOn": "Premier jour",
+      "endsOn": "Dernier jour",
+      "datesRequired": "Ce type de mesure exige des dates de début et de fin."
+    },
+    "convocation": {
+      "title": "Convocations",
+      "description": "Convoquez les tuteurs d'un élève, suivez les accusés de réception et le compte rendu de l'entretien.",
+      "filter": "Statut",
+      "all": "Tous les statuts",
+      "empty": "Aucune convocation.",
+      "emptyHint": "Créez une convocation pour inviter les tuteurs d'un élève.",
+      "listLabel": "Convocations",
+      "masked": "Convocation confidentielle (masquée).",
+      "convenedBy": "Convoquée par {name}",
+      "acknowledgedAt": "accusé de réception le {date}",
+      "sentAt": "envoyée le {date}",
+      "create": {
+        "open": "Nouvelle convocation",
+        "title": "Convoquer les tuteurs",
+        "description": "Tous les tuteurs liés de l'élève sont convoqués. Le message envoyé ne contient jamais le motif.",
+        "submit": "Créer la convocation",
+        "reasonKind": "Nature",
+        "reason": "Motif (visible dans le portail une fois la convocation envoyée)",
+        "reasonHint": "Le message envoyé par e-mail ou SMS ne reprend pas ce texte.",
+        "scheduledDate": "Date de l'entretien",
+        "scheduledTime": "Heure",
+        "location": "Lieu"
+      },
+      "actions": {
+        "send": "Envoyer",
+        "hold": "Entretien tenu",
+        "noShow": "Absent",
+        "reschedule": "Reporter",
+        "cancel": "Annuler"
+      },
+      "done": {
+        "created": "Convocation créée.",
+        "sent": "Convocation envoyée.",
+        "held": "Entretien enregistré comme tenu.",
+        "missed": "Absence enregistrée.",
+        "cancelled": "Convocation annulée.",
+        "rescheduled": "Convocation reportée : un nouveau brouillon a été créé."
+      },
+      "send": {
+        "title": "Envoyer la convocation",
+        "description": "Les tuteurs de {student} seront prévenus par les canaux choisis. La convocation n'est marquée envoyée que si l'envoi est réellement mis en file.",
+        "confirm": "Envoyer",
+        "channels": "Canaux d'envoi",
+        "hint": "Selon les consentements et les coordonnées de chaque tuteur."
+      },
+      "outcome": {
+        "hold": {
+          "title": "Entretien tenu",
+          "confirm": "Enregistrer"
+        },
+        "no-show": {
+          "title": "Tuteur absent à l'entretien",
+          "confirm": "Enregistrer"
+        },
+        "note": "Compte rendu (facultatif)"
+      },
+      "cancelDialog": {
+        "title": "Annuler la convocation",
+        "description": "L'annulation est motivée et définitive.",
+        "label": "Motif de l'annulation",
+        "confirm": "Annuler la convocation"
+      },
+      "rescheduleDialog": {
+        "title": "Reporter la convocation",
+        "description": "L'originale est marquée reportée ; une nouvelle convocation (brouillon) la référence.",
+        "confirm": "Reporter",
+        "dateRequired": "Choisissez une date."
+      }
+    },
+    "validations": {
+      "title": "Validation des mesures",
+      "description": "Validez, rejetez ou notifiez les mesures proposées. Le circuit (séparation des tâches, habilitation du type, exclusion) est contrôlé par le serveur.",
+      "masked": "Mesure confidentielle (masquée)",
+      "proposedBy": "Proposée par {name} le {date}",
+      "period": "du {from} au {to}",
+      "fourEyes": "validation par une autre personne exigée",
+      "appealBy": "Recours de {name}",
+      "proposed": {
+        "title": "À valider",
+        "hint": "Mesures proposées, en attente d'une décision humaine.",
+        "empty": "Aucune mesure à valider."
+      },
+      "validated": {
+        "title": "Validées : à notifier ou à exécuter",
+        "hint": "La famille est informée par la notification ; une exclusion validée n'applique jamais d'elle-même la suspension.",
+        "empty": "Aucune mesure validée en attente."
+      },
+      "appealed": {
+        "title": "Recours déposés",
+        "hint": "Maintenir ou annuler la mesure, avec une motivation.",
+        "empty": "Aucun recours en cours."
+      },
+      "inForce": {
+        "title": "Mesures en vigueur",
+        "hint": "Notifiées ou exécutées : révocables avec un motif.",
+        "empty": "Aucune mesure en vigueur."
+      },
+      "effects": {
+        "title": "Effets d'exclusion en attente",
+        "hint": "Suspendre ou exclure un élève est un acte humain : appliquez ou écartez chaque demande.",
+        "empty": "Aucun effet en attente.",
+        "request": "Demande de changement de statut de l'élève",
+        "openFile": "Ouvrir le dossier"
+      },
+      "actions": {
+        "validate": "Valider",
+        "reject": "Rejeter",
+        "cancel": "Annuler",
+        "notify": "Notifier la famille",
+        "execute": "Marquer exécutée",
+        "uphold": "Maintenir la mesure",
+        "overturn": "Annuler la mesure",
+        "revoke": "Révoquer",
+        "apply": "Appliquer",
+        "skip": "Écarter"
+      },
+      "done": {
+        "validated": "Mesure validée.",
+        "rejected": "Mesure rejetée.",
+        "cancelled": "Mesure annulée.",
+        "revoked": "Mesure révoquée.",
+        "notified": "Mesure notifiée.",
+        "executed": "Mesure marquée exécutée.",
+        "decided": "Recours tranché.",
+        "skipped": "Effet écarté.",
+        "applied": "Statut de l'élève modifié."
+      },
+      "dialogs": {
+        "validate": {
+          "title": "Valider la mesure",
+          "description": "Mesure concernant {student}.",
+          "label": "Note de validation (facultative)",
+          "confirm": "Valider"
+        },
+        "reject": {
+          "title": "Rejeter la mesure",
+          "description": "Mesure concernant {student}.",
+          "label": "Motif du rejet",
+          "confirm": "Rejeter"
+        },
+        "cancel": {
+          "title": "Annuler la mesure",
+          "description": "Mesure concernant {student}.",
+          "label": "Motif de l'annulation",
+          "confirm": "Annuler la mesure"
+        },
+        "revoke": {
+          "title": "Révoquer la mesure",
+          "description": "Mesure concernant {student}. La révocation est motivée et définitive.",
+          "label": "Motif de la révocation",
+          "confirm": "Révoquer"
+        },
+        "uphold": {
+          "title": "Maintenir la mesure",
+          "description": "Recours concernant {student}.",
+          "confirm": "Maintenir"
+        },
+        "overturn": {
+          "title": "Annuler la mesure",
+          "description": "Recours concernant {student} : la mesure sera révoquée.",
+          "confirm": "Annuler la mesure"
+        },
+        "appeal": {
+          "label": "Motivation de la décision"
+        },
+        "skip": {
+          "title": "Écarter l'effet",
+          "description": "L'élève conserve son statut actuel.",
+          "label": "Motif",
+          "confirm": "Écarter"
+        },
+        "apply": {
+          "title": "Appliquer le changement de statut",
+          "description": "Le statut de l'élève sera modifié dans son dossier, sous votre responsabilité.",
+          "confirm": "Appliquer",
+          "status": "Nouveau statut de l'élève",
+          "statusHint": "Une suspension se lève ensuite par un acte humain.",
+          "SUSPENDED": "Suspendu",
+          "EXCLUDED": "Exclu"
+        }
+      }
+    },
+    "file": {
+      "title": "Dossier de vie scolaire",
+      "description": "Chronologie des faits, mesures, notes et convocations visibles avec votre niveau d'habilitation.",
+      "clearance": "Votre niveau d'accès :",
+      "clearanceLevel": {
+        "STANDARD": "Standard",
+        "RESTRICTED": "Restreint",
+        "CONFIDENTIAL": "Confidentiel"
+      },
+      "clearanceHint": {
+        "STANDARD": "Les éléments restreints et confidentiels ne vous sont pas montrés.",
+        "RESTRICTED": "Les éléments confidentiels ne vous sont pas montrés.",
+        "CONFIDENTIAL": "Les éléments confidentiels sont masqués : leur lecture est journalisée avec un motif."
+      },
+      "actions": {
+        "incident": "Déclarer un incident",
+        "encouragement": "Encourager",
+        "observation": "Observation",
+        "measure": "Proposer une mesure",
+        "convocation": "Convoquer"
+      },
+      "done": {
+        "incident": "Incident enregistré.",
+        "encouragement": "Encouragement enregistré.",
+        "observation": "Observation enregistrée.",
+        "measure": "Mesure enregistrée.",
+        "convocation": "Convocation créée.",
+        "adjusted": "Points ajustés."
+      },
+      "timeline": {
+        "title": "Chronologie",
+        "empty": "Aucun élément de vie scolaire.",
+        "emptyHint": "Rien n'est enregistré pour cet élève avec votre niveau d'accès.",
+        "type": {
+          "INCIDENT": "Incident",
+          "MEASURE": "Mesure",
+          "NOTE": "Note",
+          "CONVOCATION": "Convocation"
+        },
+        "confidentiality": {
+          "STANDARD": "Standard",
+          "RESTRICTED": "Restreint",
+          "CONFIDENTIAL": "Confidentiel"
+        },
+        "masked": "Élément confidentiel : le contenu est masqué.",
+        "read": "Lire (motif exigé)",
+        "withdraw": "Retirer la note",
+        "reportedBy": "Déclaré par {name}",
+        "period": "du {from} au {to}",
+        "proposedBy": "Proposée par {name}",
+        "appeal": "Recours {status} — {name}",
+        "appealStatus": {
+          "FILED": "déposé",
+          "UPHELD": "rejeté (mesure maintenue)",
+          "OVERTURNED": "accueilli",
+          "WITHDRAWN": "retiré"
+        },
+        "noteBy": "{name} — {visibility}",
+        "visibility": {
+          "STAFF_ONLY": "personnel seulement",
+          "GUARDIANS": "visible des parents",
+          "STUDENT_AND_GUARDIANS": "visible de l'élève et des parents"
+        },
+        "convenedBy": "Convoquée par {name}",
+        "involvementRole": {
+          "AUTHOR": "auteur",
+          "VICTIM": "victime",
+          "WITNESS": "témoin",
+          "OTHER": "autre"
+        },
+        "readDialog": {
+          "title": "Lire un élément confidentiel",
+          "description": "Cette lecture est journalisée à votre nom, avec le motif ci-dessous.",
+          "label": "Motif de la lecture",
+          "confirm": "Lire"
+        },
+        "content": {
+          "title": "Contenu confidentiel",
+          "description": "Ce contenu n'est pas conservé sur cet appareil : fermez cette fenêtre après lecture.",
+          "close": "Fermer",
+          "type": "Type",
+          "fieldDescription": "Description",
+          "location": "Lieu",
+          "context": "Contexte",
+          "resolution": "Résolution",
+          "reason": "Motif",
+          "validationNote": "Note de validation",
+          "revokedReason": "Motif de révocation",
+          "body": "Texte",
+          "outcome": "Compte rendu"
+        },
+        "withdrawDialog": {
+          "title": "Retirer la note",
+          "description": "Une note ne se supprime jamais : elle est retirée avec un motif et reste dans l'historique.",
+          "label": "Motif du retrait",
+          "confirm": "Retirer"
+        }
+      },
+      "attendance": {
+        "title": "Retards et absences",
+        "hint": "Vue en lecture seule des données de la présence : rien n'est copié ni saisi ici.",
+        "unavailable": "Les présences ne sont pas disponibles pour le moment.",
+        "summary": "{absent} absence(s), dont {excused} justifiée(s) ; {late} retard(s).",
+        "empty": "Aucun retard ni absence enregistré.",
+        "caption": "Retards et absences de l'élève",
+        "columns": {
+          "date": "Date",
+          "status": "Statut",
+          "justified": "Justifiée",
+          "minutes": "Minutes"
+        },
+        "yes": "Oui",
+        "no": "Non"
+      },
+      "conduct": {
+        "title": "Points de conduite",
+        "hint": "Le solde est une aide dérivée du barème et du registre : la note de conduite du bulletin reste une saisie humaine.",
+        "placeholder": "Barème de démonstration",
+        "adjust": "Ajuster les points",
+        "noScale": "Aucun barème actif ne s'applique à cet élève.",
+        "source": {
+          "MEASURE": "Mesure",
+          "NOTE": "Note",
+          "MANUAL_ADJUSTMENT": "Ajustement manuel"
+        },
+        "adjustDialog": {
+          "title": "Ajuster les points de conduite",
+          "description": "Un ajustement manuel est motivé, tracé et ne se modifie plus (il se corrige par un mouvement inverse).",
+          "confirm": "Enregistrer l'ajustement",
+          "delta": "Points (négatif pour retirer)",
+          "deltaHint": "Entier non nul.",
+          "reason": "Motif"
+        }
+      },
+      "history": {
+        "title": "Historique",
+        "hint": "Chaque création et chaque changement de statut sont tracés automatiquement, avec leur auteur.",
+        "empty": "Aucun historique.",
+        "entity": {
+          "INCIDENT": "Incident",
+          "MEASURE": "Mesure",
+          "NOTE": "Note",
+          "CONVOCATION": "Convocation",
+          "APPEAL": "Recours",
+          "SCALE": "Barème"
+        },
+        "created": "créé",
+        "changed": "{from} → {to}",
+        "system": "Système"
+      }
+    },
+    "settings": {
+      "title": "Paramètres de la vie scolaire",
+      "description": "Réglages d'établissement, niveaux de gravité, types d'événements et barèmes de points de conduite.",
+      "noDefaults": "Aucune valeur n'est fournie par défaut : types, gravités et barèmes sont à définir par votre établissement.",
+      "saved": "Paramètre enregistré.",
+      "institution": {
+        "title": "Réglages par établissement",
+        "hint": "Points de conduite, motif des lectures confidentielles, durée de conservation.",
+        "none": "Aucun établissement.",
+        "conduct": "Activer les points de conduite",
+        "conductHint": "Désactivés par défaut ; sans barème actif aucun mouvement n'est écrit.",
+        "purpose": "Exiger un motif pour lire un élément confidentiel",
+        "purposeHint": "Chaque lecture est de toute façon journalisée.",
+        "retention": "Durée de conservation (jours)",
+        "retentionHint": "Laisser vide : non définie. Aucune durée légale n'est codée : à fixer par l'établissement.",
+        "retentionInvalid": "Saisissez un nombre entier de jours supérieur à 0, ou laissez vide.",
+        "save": "Enregistrer"
+      },
+      "severity": {
+        "title": "Niveaux de gravité",
+        "hint": "Le rang les ordonne ; le code et le libellé sont libres.",
+        "add": "Ajouter un niveau",
+        "empty": "Aucun niveau de gravité.",
+        "emptyHint": "Ajoutez les niveaux utilisés par votre établissement.",
+        "inactive": "Inactif",
+        "edit": "Modifier",
+        "dialog": {
+          "editTitle": "Modifier le niveau",
+          "addTitle": "Nouveau niveau de gravité",
+          "save": "Enregistrer",
+          "code": "Code",
+          "codeHint": "Majuscules, chiffres et _.",
+          "label": "Libellé",
+          "rank": "Rang",
+          "rankHint": "1 = le moins grave.",
+          "active": "Niveau actif"
+        }
+      },
+      "types": {
+        "title": "Types d'événements",
+        "hint": "Le type porte le circuit : validation, séparation des tâches, recours, partage avec les familles, confidentialité.",
+        "add": "Ajouter un type",
+        "empty": "Aucun type d'événement.",
+        "emptyHint": "Définissez les types utilisés par votre établissement (incidents, sanctions, encouragements…).",
+        "placeholder": "Démonstration",
+        "inactive": "Inactif",
+        "edit": "Modifier",
+        "flags": {
+          "validation": "validation exigée",
+          "direct": "directement en vigueur",
+          "fourEyes": "quatre yeux",
+          "appealable": "recours possible",
+          "notify": "famille notifiée",
+          "visible": "partageable avec la famille",
+          "hidden": "jamais partagé avec la famille",
+          "dates": "dates exigées",
+          "confidentiality": {
+            "RESTRICTED": "restreint",
+            "CONFIDENTIAL": "confidentiel"
+          }
+        },
+        "dialog": {
+          "editTitle": "Modifier le type",
+          "addTitle": "Nouveau type d'événement",
+          "description": "La famille d'un type utilisé ne change plus : créez-en un autre et désactivez celui-ci.",
+          "save": "Enregistrer",
+          "code": "Code",
+          "codeHint": "Majuscules, chiffres et _.",
+          "label": "Libellé",
+          "kind": "Famille",
+          "kindHint": "La famille pilote les tables ; elle ne se change plus une fois le type utilisé.",
+          "validation": "Validation exigée",
+          "validationHint": "La mesure se propose, puis se valide par une autre étape.",
+          "exclusionAlways": "Une exclusion temporaire est toujours validée.",
+          "fourEyes": "Séparation des tâches (quatre yeux)",
+          "fourEyesHint": "Le validateur n'est pas le proposant.",
+          "approver": "Permission d'approbation",
+          "approverHint": "Facultative : clé de permission exigée du validateur (ex. schoollife.measure.validate).",
+          "appealable": "Recours possible",
+          "appealableHint": "La famille ou l'élève peut contester la mesure notifiée.",
+          "notify": "Notifier la famille",
+          "notifyHint": "Une notification est mise en file à la notification de la mesure.",
+          "severity": "Gravité par défaut",
+          "noSeverity": "Aucune",
+          "confidentiality": "Confidentialité minimale",
+          "confidentialityHint": "Plancher imposé à tout enregistrement de ce type.",
+          "visible": "Partageable avec la famille",
+          "visibleHint": "Sous réserve de la confidentialité : un élément confidentiel n'est jamais partagé.",
+          "placeholder": "Type de démonstration",
+          "placeholderHint": "À remplacer par votre propre catalogue.",
+          "active": "Type actif"
+        }
+      },
+      "scales": {
+        "title": "Barèmes de points de conduite",
+        "hint": "Un barème est un paramètre : brouillon, puis actif (figé), puis retiré. Un seul barème actif par établissement, niveau et période.",
+        "add": "Nouveau barème",
+        "empty": "Aucun barème.",
+        "emptyHint": "Les points de conduite restent inactifs tant qu'aucun barème n'est défini et activé.",
+        "placeholder": "Démonstration",
+        "summary": "Points initiaux {initial} (min {min}, max {max}) · remise à zéro : {reset} · depuis le {from}",
+        "reset": {
+          "PERIOD": "par période",
+          "YEAR": "par année",
+          "NEVER": "jamais"
+        },
+        "sourceKind": {
+          "institution": "Établissement",
+          "regulation": "Texte réglementaire",
+          "placeholder": "Démonstration (non réglementaire)"
+        },
+        "editItems": "Valeurs par type",
+        "activate": "Activer",
+        "retire": "Retirer",
+        "dialog": {
+          "title": "Nouveau barème",
+          "description": "Créé en brouillon : ajoutez ensuite les valeurs par type, puis activez-le.",
+          "save": "Créer le barème",
+          "institution": "Établissement",
+          "chooseInstitution": "Choisir un établissement",
+          "code": "Code",
+          "codeHint": "Majuscules, chiffres et _.",
+          "label": "Libellé",
+          "initial": "Points initiaux",
+          "effectiveFrom": "En vigueur à partir du",
+          "min": "Minimum",
+          "max": "Maximum",
+          "boundHint": "Facultatif.",
+          "reset": "Remise à zéro",
+          "source": "Origine",
+          "sourceHint": "Un barème de démonstration est signalé comme tel à l'écran."
+        },
+        "items": {
+          "title": "Valeurs du barème « {label} »",
+          "description": "Points retirés pour une sanction (valeur négative), ajoutés pour un encouragement (valeur positive). Laissez vide : aucune valeur.",
+          "save": "Enregistrer les valeurs",
+          "invalid": "Chaque valeur est un entier non nul.",
+          "noTypes": "Aucun type de mesure ou d'encouragement à valoriser.",
+          "hint": "Entier non nul."
+        }
+      }
+    },
+    "family": {
+      "titleGuardian": "Vie scolaire de mes enfants",
+      "descriptionGuardian": "Décisions notifiées, encouragements partagés et convocations de l'établissement.",
+      "titleStudent": "Ma vie scolaire",
+      "descriptionStudent": "Ce que l'établissement partage avec vous : décisions notifiées et encouragements.",
+      "child": "Enfant",
+      "noChild": "Aucun enfant n'est rattaché à votre compte.",
+      "noChildHint": "Contactez l'établissement si vous pensez qu'il s'agit d'une erreur.",
+      "empty": "Rien à afficher pour le moment.",
+      "emptyHint": "Les informations apparaissent ici une fois notifiées par l'établissement.",
+      "about": "Vie scolaire de {name}",
+      "groups": {
+        "MEASURE": "Décisions",
+        "CONVOCATION": "Convocations",
+        "NOTE": "Encouragements et observations"
+      },
+      "appealStatus": "Recours : {status}",
+      "appealStatuses": {
+        "FILED": "déposé",
+        "UPHELD": "rejeté",
+        "OVERTURNED": "accueilli",
+        "WITHDRAWN": "retiré"
+      },
+      "period": "du {from} au {to}",
+      "acknowledge": "Accuser réception",
+      "acknowledged": "Accusé de réception enregistré.",
+      "appeal": "Déposer un recours",
+      "appealed": "Recours déposé.",
+      "appealDialog": {
+        "title": "Déposer un recours",
+        "description": "Expliquez pourquoi vous contestez cette décision. La direction l'examinera et vous répondra.",
+        "label": "Motif du recours",
+        "confirm": "Déposer le recours"
+      }
+    }
+  },
   "v2Attendance": {
     "nav": {
       "label": "Navigation des présences",

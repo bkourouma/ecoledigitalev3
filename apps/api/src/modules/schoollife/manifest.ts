@@ -52,7 +52,7 @@ export default defineModule({
     { key: "schoollife.convocations", label: "Convocations", href: "/v2/schoollife/convocations", permission: "schoollife.convocation.manage", feature: "schoollife.convocations", portal: "admin", icon: "calendar", order: 630 },
     { key: "schoollife.settings", label: "Paramètres de vie scolaire", href: "/v2/schoollife/parametres", permission: "schoollife.settings.manage", feature: "schoollife.core", portal: "admin", icon: "settings", order: 640 },
     { key: "schoollife.family", label: "Vie scolaire", href: "/v2/schoollife/famille", permission: "schoollife.child.read", feature: "schoollife.core", portal: "parent", icon: "shield", order: 600 },
-    { key: "schoollife.me", label: "Ma vie scolaire", href: "/v2/schoollife/famille", permission: "schoollife.self.read", feature: "schoollife.core", portal: "student", icon: "shield", order: 600 },
+    { key: "schoollife.me", label: "Ma vie scolaire", href: "/v2/schoollife/moi", permission: "schoollife.self.read", feature: "schoollife.core", portal: "student", icon: "shield", order: 600 },
   ],
   events: {
     publishes: [...ALL_EVENT_TYPES],

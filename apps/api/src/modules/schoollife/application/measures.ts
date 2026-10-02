@@ -18,10 +18,11 @@ import { isMeasureKind } from "../domain/event-type";
 import { APPEALABLE_MEASURE_STATUSES, canTransition, MEASURE_TRANSITIONS } from "../domain/machines";
 import * as repo from "../infrastructure/measures-repository";
 import * as incidents from "../infrastructure/incidents-repository";
+import * as visibility from "../infrastructure/visibility-repository";
 import * as reference from "../infrastructure/reference-repository";
 import type { AppealRow, EventTypeRow, MeasureRow } from "../infrastructure/rows";
 import { recordPointsForSource, reversePointsOfSource } from "./conduct";
-import { EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
+import { safely, EventBuffer, inTx, requireHuman, todayOf, type CallerCaps, type SchoolLifeDeps } from "./deps";
 import { actorNameOf, assertStudentScope, clampPage, loadTypes, resolveEnrollment, staffMaySee, studentNames, viewerOf, type Viewer } from "./support";
 import { appealDto, measureDto } from "./views";
 
@@ -80,8 +81,8 @@ async function assertMayDecide(caps: CallerCaps, type: EventTypeRow): Promise<Re
 export async function proposeMeasure(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: SchoolLifeMeasureProposeInput): Promise<Result<SchoolLifeMeasureDto, AppError>> {
   const human = requireHuman(ctx);
   if (!human.ok) return human;
-  const proposerName = await actorNameOf(deps, ctx);
   return inTx(deps, ctx, async (tx) => {
+    const proposerName = await actorNameOf(deps, ctx);
     const type = (await loadTypes(tx, [input.typeId])).get(input.typeId);
     if (!type) return err(notFound(SchoolLifeCode.TYPE_NOT_FOUND, "Type d'événement", input.typeId));
     if (!isMeasureKind(type.kind) || !type.active) return err(invalid(SchoolLifeCode.TYPE_INACTIVE, "Le type choisi n'est pas un type de mesure actif.", "typeId"));
@@ -160,8 +161,8 @@ async function afterValidated(
 export async function validateMeasure(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, id: string, input: { note?: string | undefined }): Promise<Result<SchoolLifeMeasureDto, AppError>> {
   const human = requireHuman(ctx);
   if (!human.ok) return human;
-  const validatorName = await actorNameOf(deps, ctx);
   return inTx(deps, ctx, async (tx) => {
+    const validatorName = await actorNameOf(deps, ctx);
     const loaded = await loadVisibleMeasure(deps, ctx, tx, caps, id, { lock: true });
     if (!loaded.ok) return loaded;
     const row = loaded.value;
@@ -335,7 +336,8 @@ export interface ListMeasuresInput {
   pageSize: number;
 }
 
-export async function listMeasuresView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: ListMeasuresInput): Promise<Result<SchoolLifeMeasureDto[], AppError>> {
+export function listMeasuresView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, input: ListMeasuresInput): Promise<Result<SchoolLifeMeasureDto[], AppError>> {
+  return safely(async () => {
   const viewer: Viewer = viewerOf(caps);
   const { limit, offset } = clampPage(input.page, input.pageSize);
   let enrollmentIds: string[] | undefined;
@@ -358,6 +360,7 @@ export async function listMeasuresView(deps: SchoolLifeDeps, ctx: RequestContext
     },
     { readOnly: true },
   );
+  });
 }
 
 export async function getMeasureView(deps: SchoolLifeDeps, ctx: RequestContext, caps: CallerCaps, id: string): Promise<Result<SchoolLifeMeasureDto, AppError>> {
@@ -396,8 +399,8 @@ export async function fileAppeal(
 ): Promise<Result<SchoolLifeAppealDto, AppError>> {
   const human = requireHuman(ctx);
   if (!human.ok) return human;
-  const filerName = await actorNameOf(deps, ctx);
   return inTx(deps, ctx, async (tx) => {
+    const filerName = await actorNameOf(deps, ctx);
     const row = await repo.getMeasure(tx, measureId, { lock: true });
     if (!row) return err(notFound(SchoolLifeCode.NOT_FOUND, "Mesure", measureId));
     // Qui dépose ? Le personnel habilité (périmètre général) ou la famille (lien vérifié à chaque appel).
@@ -424,8 +427,7 @@ export async function fileAppeal(
 
 /** Règle SQL unique, appliquée à une seule ligne (jamais recopiée dans le code). */
 async function mayFamilySee(tx: Tx, audience: "GUARDIAN" | "STUDENT", m: MeasureRow): Promise<boolean> {
-  const r = await tx.queryOne<{ v: boolean }>(`SELECT schoollife.audience_may_see($1, 'MEASURE', $2, $3, $4, NULL) AS v`, [audience, m.confidentiality, m.visibleToGuardians, m.status]);
-  return r?.v === true;
+  return visibility.maySee(tx, { audience, kind: "MEASURE", confidentiality: m.confidentiality, shareable: m.visibleToGuardians, status: m.status });
 }
 
 export async function decideAppeal(
@@ -438,8 +440,8 @@ export async function decideAppeal(
   const human = requireHuman(ctx);
   if (!human.ok) return human;
   if (!caps.appealDecide) return err(forbidden(SchoolLifeCode.PERMISSION_REQUIRED, "Trancher un recours exige une autorisation spécifique."));
-  const name = await actorNameOf(deps, ctx);
   return inTx(deps, ctx, async (tx) => {
+    const name = await actorNameOf(deps, ctx);
     const appeal = await repo.getAppeal(tx, appealId, { lock: true });
     if (!appeal) return err(notFound(SchoolLifeCode.NOT_FOUND, "Recours", appealId));
     const measure = await repo.getMeasure(tx, appeal.measureId, { lock: true });
@@ -467,8 +469,8 @@ export async function decideAppeal(
 export async function withdrawAppeal(deps: SchoolLifeDeps, ctx: RequestContext, appealId: string): Promise<Result<SchoolLifeAppealDto, AppError>> {
   const human = requireHuman(ctx);
   if (!human.ok) return human;
-  const name = await actorNameOf(deps, ctx);
   return inTx(deps, ctx, async (tx) => {
+    const name = await actorNameOf(deps, ctx);
     const appeal = await repo.getAppeal(tx, appealId, { lock: true });
     if (!appeal || appeal.filedBy !== human.value) return err(notFound(SchoolLifeCode.NOT_FOUND, "Recours", appealId));
     if (appeal.status !== "FILED") return err(invalid(SchoolLifeCode.INVALID_STATE, `Le recours est déjà ${appeal.status}.`));

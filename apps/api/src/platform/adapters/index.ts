@@ -38,6 +38,7 @@ import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorker
 import { createOfficialDocumentDeps, type OfficialDocumentDepsOptions } from "./official-documents";
 import { registerResultsPorts, setResultsWorkerPorts, type ResultsPorts } from "../../modules/results";
 import { registerSchedulingPorts } from "../../modules/scheduling";
+import { registerSchoolLifePorts, type SchoolLifePorts } from "../../modules/schoollife";
 import type { ModuleRuntime, RuntimeAuditPort } from "../runtime";
 import { createAcademicCompletionLookup, createAcademicScheduleChecker, createAcademicUsageGuard } from "./academic-guards";
 import { createAnalyticsSources } from "./analytics-sources";
@@ -83,6 +84,10 @@ import { createGradesImportPort } from "./imports-assess";
 import { createOpeningBalancesImportPort } from "./imports-finance";
 import { createGuardiansImportPort, createImportActorNames, createStaffImportPort, createStudentsImportPort } from "./imports-people";
 import { createImportWriteEnv } from "./imports-support";
+import { createSchoollifeEnrollmentPort, createSchoollifePeriodPort } from "./academic-schoollife";
+import { createSchoollifeAttendanceView } from "./attendance-schoollife";
+import { createSchoollifeNotificationPort, createSchoollifeNotificationsDeps } from "./notifications-schoollife";
+import { createSchoollifePeoplePort, createSchoollifeStudentStatusPort } from "./people-schoollife";
 
 export { createAdapterKit, type AdapterKit, type AdapterKitInput } from "./kit";
 export { createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
@@ -108,6 +113,8 @@ export interface PlatformPorts {
   readonly documents: Partial<DocumentsPorts>;
   /** Canaux externes (016) : coordonnées de remise, échéances en retard, résultats FINAL, charge d'enseignement, annonces. */
   readonly notifications: Partial<NotificationsPorts>;
+  /** Vie scolaire (006) : inscriptions et périodes (academic), tuteurs et périmètre (people), vue d'assiduité (attendance), information des tuteurs (notifications), statut d'élève (people). */
+  readonly schoollife: Partial<SchoolLifePorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -125,6 +132,7 @@ export function buildPlatformPorts(
   // fichiers (messagerie, photos, justificatifs) l'appliquent par enveloppe de leur vue de stockage (aucune modification de leur code).
   const scan = scanPolicyFromEnv(kit.env, { warn: (m) => kit.logger.warn({}, m) });
   const scanned = () => scan;
+  const schoollifePeople = createSchoollifePeoplePort(people, academic, lookups);
   const base: Omit<PlatformPorts, "imports"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
@@ -226,6 +234,14 @@ export function buildPlatformPorts(
       teachingLoad: createNotificationsTeachingLoad(kit),
       announcements: createNotificationsAnnouncements(kit),
     },
+    schoollife: {
+      enrollments: createSchoollifeEnrollmentPort(academic),
+      periods: createSchoollifePeriodPort(academic),
+      people: schoollifePeople,
+      attendance: createSchoollifeAttendanceView(attendance),
+      notifications: createSchoollifeNotificationPort(createSchoollifeNotificationsDeps(kit), schoollifePeople),
+      studentStatus: createSchoollifeStudentStatusPort(people),
+    },
   };
   // Imports (031) : écriture par les cas d'usage publics des modules cibles, avec le VRAI audit (l'API : `runtime.auditPort` ;
   // le worker : le service d'audit du processus). Sans audit fourni (tests ciblés), l'audit est no-op.
@@ -276,6 +292,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerImportsPorts(app, ports.imports);
   registerDocumentsPorts(app, ports.documents);
   registerNotificationsPorts(app, ports.notifications);
+  registerSchoolLifePorts(app, ports.schoollife);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }

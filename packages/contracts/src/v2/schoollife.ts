@@ -423,7 +423,8 @@ export const schoollifeConvocationCreateSchema = z
   .strict();
 export type SchoolLifeConvocationCreate = z.infer<typeof schoollifeConvocationCreateSchema>;
 export const schoollifeConvocationSendSchema = z.object({ channels: z.array(z.enum(["EMAIL", "SMS", "WHATSAPP", "PUSH", "IN_APP"])).min(1).max(5).default(["IN_APP", "EMAIL"]) }).strict();
-export const schoollifeConvocationAcknowledgeSchema = z.object({ guardianId: schoollifeUuidSchema }).strict();
+/** Le tuteur qui accuse réception est CELUI du compte connecté ; `guardianId`, s'il est fourni, doit être le sien. */
+export const schoollifeConvocationAcknowledgeSchema = z.object({ guardianId: schoollifeUuidSchema.optional() }).strict();
 export const schoollifeConvocationHoldSchema = z.object({ outcomeNote: text(1, 2000).optional() }).strict();
 export const schoollifeConvocationNoShowSchema = z.object({ outcomeNote: text(1, 2000).optional() }).strict();
 export const schoollifeConvocationCancelSchema = z.object({ reason: text(5, 1000, "Le motif d'annulation") }).strict();
@@ -590,6 +591,8 @@ export type SchoolLifeAttendanceViewDto = z.infer<typeof schoollifeAttendanceVie
 export const schoollifeStudentLifeDtoSchema = z.object({
   studentId: schoollifeUuidSchema,
   studentName: z.string().nullable(),
+  /** Inscription vivante la plus récente : les saisies (mesure, note, convocation) partent de l'inscription, jamais de l'élève seul. */
+  enrollmentId: schoollifeUuidSchema.nullable(),
   /** Habilitation effective de l'appelant : pilote l'affichage (masques, bouton « lire (motif) »). */
   clearance: z.enum(["STANDARD", "RESTRICTED", "CONFIDENTIAL"]),
   incidents: z.array(schoollifeIncidentDtoSchema),
