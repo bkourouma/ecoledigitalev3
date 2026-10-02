@@ -154,7 +154,8 @@ describeIntegration("admissions : HTTP", () => {
       if (none.statusCode !== 403) offenders.push(`${method} ${url} sans permission : ${none.statusCode}`);
       const others = await call(method, url, ALL.filter((p) => !required.includes(p)));
       if (others.statusCode !== 403) offenders.push(`${method} ${url} sans ${required.join("|")} : ${others.statusCode}`);
-      const withIt = await call(method, url, [required[0] as string]);
+      const extra = url.endsWith("/accept-on-behalf") ? ["admission.enroll"] : []; // la délégation franchit aussi l'étape qui crée l'inscription
+      const withIt = await call(method, url, [required[0] as string, ...extra]);
       if (withIt.statusCode === 403 || withIt.statusCode === 401) offenders.push(`${method} ${url} avec ${required[0]} : ${withIt.statusCode}`);
     }
     expect(offenders).toEqual([]);
@@ -303,6 +304,8 @@ describeIntegration("admissions : HTTP", () => {
     });
 
     it("réponse à une offre : consultation puis acceptation par lien à usage unique ; jeton inconnu -> 404 neutre", async () => {
+      // Les pièces exigées par les tests précédents sont désactivées : cette candidature n'a plus à les fournir.
+      for (const code of ["ACTE_HTTP", "PIECE_PUBLIQUE"]) unwrap(await upsertRequirement(w.A.deps, w.A.ctx(), { institutionId: w.A.institutionId, code, label: code, active: false }));
       const campaign = await openCampaignWith(w.A, { seats: { CP1: 9 } });
       const app = await submittedApplication(w.A, campaign.id);
       await acceptApplication(w.A, app.id);
