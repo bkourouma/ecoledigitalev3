@@ -1,6 +1,14 @@
-import { isMessagingEnabled, MESSAGING_ENTRIES } from "@/platform/portal/menus";
+"use client";
 
-/** Lien vers la messagerie (module livré à part) : `null` tant que son point d'entrée n'est pas activé (`NEXT_PUBLIC_V2_MESSAGING=1`). */
-export function messagingEntry(kind: keyof typeof MESSAGING_ENTRIES, raw?: string): string | null {
-  return isMessagingEnabled(raw ?? process.env.NEXT_PUBLIC_V2_MESSAGING) ? MESSAGING_ENTRIES[kind] : null;
+import { usePermission } from "@/platform/access";
+import { MESSAGING_ENTRIES, MESSAGING_READ_PERMISSION } from "@/platform/portal/menus";
+
+/**
+ * Lien vers la messagerie pour un portail famille : `null` tant que le compte ne détient pas la permission de lecture de
+ * la messagerie (parent : `messaging.child.read`, élève : `messaging.self.read`). Plus de drapeau d'environnement :
+ * l'accès suit le même contrôle que le reste du portail (l'API reste la barrière).
+ */
+export function useMessagingEntry(kind: keyof typeof MESSAGING_ENTRIES, portal: "parent" | "student"): string | null {
+  const { allowed } = usePermission(MESSAGING_READ_PERMISSION[portal]);
+  return allowed ? MESSAGING_ENTRIES[kind] : null;
 }

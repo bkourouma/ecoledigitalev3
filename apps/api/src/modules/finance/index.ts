@@ -19,6 +19,8 @@ export { createFinancePortRegistry, type FinancePortRegistry, type FinancePortSe
 export {
   createFinanceDeps,
   DEFAULT_FINANCE_CONFIG,
+  DEFAULT_RECONCILIATION_CONFIG,
+  type ReconciliationConfig,
   inTx as financeInTx,
   type FinanceConfig,
   type FinanceDeps,
@@ -162,11 +164,32 @@ export {
   completeRefund,
   getRefundById,
   listRefundPage,
+  planRefundRoute,
   rejectRefund,
   requestRefund,
   type ApproveRefundInput,
+  type ManualRefundEvidence,
+  type RefundRoute,
   type RequestRefundInput,
 } from "./application/refunds";
+export {
+  approveManualResolution,
+  listManualResolutions,
+  listPendingReconciliations,
+  rejectManualResolution,
+  requestManualResolution,
+  type RequestResolutionInput,
+} from "./application/manual-resolution";
+export {
+  backoffDelayMs,
+  reconcileAllTenants,
+  reconcileTenant,
+  type ReconcileAllReport,
+  type ReconcileTenantReport,
+  type SubjectCounts,
+} from "./application/reconciliation";
+export { getFinanceWorkerResources, resetFinanceWorkerResources, setFinanceWorkerResources, type FinanceWorkerResources } from "./application/worker-resources";
+export { FinanceMetricNames, logAlerts, noopMetrics, type FinanceAlert, type FinanceAlertPort, type FinanceMetricsPort } from "./application/ports/operations";
 
 // Cas d'usage — caisses
 export {
@@ -233,3 +256,11 @@ export {
   type ExportMeta,
 } from "./application/exports";
 export { csvCell, toCsv } from "./domain/csv";
+
+// Échéances en retard pour les relances et alertes du module notifications (016) : lectures seules
+export {
+  isInstallmentOverdue,
+  listOverdueInstallments,
+  type ListOverdueInstallmentsInput,
+  type OverdueInstallmentFact,
+} from "./application/overdue-feed";

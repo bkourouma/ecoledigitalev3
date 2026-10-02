@@ -60,6 +60,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export class OrangeMoneyProvider implements PaymentProvider {
   readonly simulated = false;
+  /** Sans `pay_token` (réponse d'initiation perdue) aucune vérification n'est possible (Q-PAY-05) : rapprochement manuel. */
+  readonly cannotVerifyWithoutProviderRef = true;
   private readonly mode: ProviderMode;
   private readonly http: ProviderHttp;
   private readonly tokens: TokenCache;

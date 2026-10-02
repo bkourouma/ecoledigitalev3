@@ -68,7 +68,7 @@ function ChildDashboardBody({ child }: { child: PeopleStudentSummaryDto }) {
     <div className="space-y-6">
       <PageHeader title={child.displayName} description={child.currentEnrollment?.classroomName ?? t("notEnrolled")} />
       <FamilySnapshot subject={{ kind: "child", id: child.id }} links={childLinks(child.id)} />
-      <AnnouncementsEntry />
+      <AnnouncementsEntry portal="parent" />
     </div>
   );
 }

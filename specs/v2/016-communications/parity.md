@@ -133,3 +133,25 @@
 ## 5. Synthèse
 
 17 éléments de données legacy examinés : 10 améliorés, 4 abandonnés (code mort, vide, factice ou DDL à la volée), 3 renvoyés à d'autres chantiers. Tous les endpoints de messagerie, d'annonces et de notifications des quatre profils sont couverts ou explicitement renvoyés. Les 16 défauts relevés (B-01 à B-16) sont traités par construction ; aucun n'est reproduit.
+
+---
+
+# 6. Partie B — canaux externes : parité legacy -> `notifications`
+
+**Sources lues** : `services/{email.service,wasender,notification.service,notifications-dispatch.service,message-delivery,message-email-definitions,message-email-templates}.ts`, `routes/notifications.ts` (rappels de paiement), `services/whatsapp-delivery-log.ts` (journal), `routes/admin-email.ts`.
+
+| ID | Legacy | Statut | Cible v2 | Justification |
+|---|---|---|---|---|
+| X-01 | `EmailService` : SMTP nodemailer, `SMTP_*`, pièces jointes, **échec silencieux sans configuration** (`console.warn`) | amélioré | canal `EMAIL` (`SMTP_*` identiques) | issues classées (rebond / reprise / échec), canal non configuré = échec explicite consigné, HTML produit et échappé, pied de page de conformité |
+| X-02 | `wasender.ts` : `WASENDER_*`, état de session, `send-message`, E.164 | conservé | canal `WHATSAPP` derrière le port | même contrôle de session et mêmes variables ; issues classées, lien de désinscription, aucun numéro dans les journaux |
+| X-03 | SMS : `sendSMS` **factice** dans `notification.service.ts` (succès aléatoire à 85 %, aucun fournisseur) ; l'e-mail de ce même service est factice aussi (succès aléatoire à 90 %) : les rappels de paiement du legacy ne partaient JAMAIS | amélioré | canal `SMS` : adaptateur HTTP générique configurable | plus aucune simulation silencieuse ; fournisseur à choisir (Q-18) |
+| X-04 | `dispatchNotification` : fan-out `inapp / email / whatsapp` sans reprise ni consentement | amélioré | `enqueueInTx` + job d'envoi | consentement, heures calmes, plafonds, idempotence, reprise, journal |
+| X-05 | `app_whatsapp_delivery_log` (créée à la volée ; colonne `channel` ajoutée par `ALTER`) | abandonné | `notifications.deliveries` | table de tenant, RLS, migration versionnée, masque du destinataire |
+| X-06 | 16 modèles d'e-mail par profil (admin / enseignant / parent / étudiant), personnalisables | amélioré | gabarits par canal, versionnés, variables typées | catalogue fermé (pas de HTML libre), aperçu, retour arrière, version figée dans le journal |
+| X-07 | `routes/notifications.ts` : `payment-reminder` (un élève), `bulk-reminders`, `history/:studentId` | amélioré | relances automatiques par paliers + envoi manuel + journal filtrable | jamais deux fois le même palier, arrêt dès paiement ; historique = journal filtré par utilisateur |
+| X-08 | Paramétrage des canaux par `.env` seulement | amélioré | `settings` par établissement (canaux activés, expéditeur, plafonds, heures calmes, consentement, mentions) + état de santé | |
+| X-09 | Préférences : aucune (hors catégories de messagerie in-app) | **nouveau** | consentement par personne, canal et catégorie, désinscription signée, preuve | conformité |
+| X-10 | Absence de Web Push | **nouveau** | canal `PUSH` (VAPID, un abonnement par appareil, nettoyage des expirés) | |
+| X-11 | Alertes : aucune (seuils d'assiduité propres à `attendance`) | **nouveau** | règles et alertes configurables | absences, retard de paiement, baisse de résultats, charge d'enseignement, document expirant |
+
+**Défauts du legacy corrigés** : SMS et e-mail des rappels de paiement simulés (succès aléatoire, rien n'était envoyé) ; adresses et numéros écrits en clair dans les logs (`console.log(to)`) ; relances sans mémoire (un clic renvoyait le même rappel) ; journal créé à la volée ; adresse e-mail et numéro dans les messages d'erreur et logs ; aucun plafond (un administrateur pouvait déclencher des dizaines d'e-mails par message) ; aucune désinscription ; numéros normalisés sans tenir compte du plan ivoirien depuis 2021 (le `0` initial était retiré à tort pour `+225`).

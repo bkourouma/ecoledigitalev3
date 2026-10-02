@@ -74,3 +74,40 @@ Dépôt préalable (`message_id` et `announcement_id` nuls, `bound_at` nul) puis
 ## 4. Invariants vérifiés par test
 
 Isolation A/B des treize tables avec de vraies données ; défauts du code = défauts de la table ; seq unique par fil ; message système sans expéditeur ; retrait cohérent ; lien de notification interne ; annonce programmée datée ; accusé implique lecture.
+
+---
+
+# Partie B — schéma `notifications` (canaux externes)
+
+Migration `apps/api/src/modules/notifications/migrations/2600_notifications_init.sql` (plage 2600-2699). Mêmes principes que la partie A : `tenant_id` + RLS forcée + `GRANT app_user` sur chaque table, **aucune FK inter-modules**, aucune table globale (allowlist vide ; les gabarits et règles LIVRÉS sont des données du code). Dépend de `messaging` pour le canal in-app (ordre de migration, import par `index.ts`).
+
+## B.1 Tables
+
+| Table | Rôle | Points clés |
+|---|---|---|
+| `settings` | paramètres d'établissement (une ligne, créée à la première modification) | canaux activés, expéditeur, fuseau, indicatif par défaut, heures calmes, plafonds journaliers par canal, plafond par destinataire, modèle de consentement par canal, `urgent_bypasses_revocations`, tentatives max, rétention du journal, mentions |
+| `template_versions` | versions IMMUABLES de gabarit | `(tenant, code, channel, locale, version)` unique ; INSERT seul (aucun UPDATE / DELETE accordé) |
+| `templates` | pointeur de version active | `active_version` nul = gabarit livré ; FK composite vers la version ; `enabled` |
+| `rules` | surcharges de règles livrées + règles `custom.*` | `kind` (`EVENT`, `ALERT`, `DUNNING`), déclencheur, audience JSON, canaux, stratégie, urgence, seuils JSON |
+| `deliveries` | **journal = file d'envoi** | `UNIQUE (tenant, dedupe_key)` ; statut ; `attempts` / `max_attempts` ; `available_at` (report, backoff) ; `locked_until` (bail) ; `provider_id` ; coût ; `recipient_masked` ; `recipient_address`, `content` (EFFACÉS à l'état terminal) ; `address_hash` ; `group_key` (arrêt des relances) ; version de gabarit figée |
+| `channel_preferences` | consentement par (personne, canal, catégorie) | catégorie `*` = tout le canal |
+| `subject_preferences` | heures calmes personnelles | surcharge nullable de la plage de l'établissement |
+| `consent_log` | preuve de consentement | append-only (INSERT seul) : source `SELF`, `ADMIN`, `UNSUBSCRIBE_LINK`, `BOUNCE`, `IMPORT` |
+| `suppressions` | liste de suppression | par EMPREINTE SHA-256 salée (établissement + canal), jamais l'adresse |
+| `push_subscriptions` | un abonnement Web Push par appareil | `UNIQUE (tenant, endpoint)` ; compteur d'échecs |
+| `dunning_steps` | registre des paliers de relance | `PRIMARY KEY (tenant, installment_id, stage_days)` : jamais deux fois le même palier |
+
+## B.2 Requêtes structurantes
+
+| Besoin | Requête |
+|---|---|
+| Mise en file | insertion par lots (`unnest`) `ON CONFLICT (tenant_id, dedupe_key) DO NOTHING` ; préférences, suppressions, abonnements push, compteurs par destinataire lus en UNE requête chacun |
+| Réclamation | `WITH due AS (SELECT … WHERE (PENDING ET available_at <= now) OU (SENDING ET bail expiré) ORDER BY urgent DESC, available_at LIMIT n FOR UPDATE SKIP LOCKED) UPDATE … SET status='SENDING', attempts=attempts+1, locked_until=…` |
+| Plafond journalier | `count(*)` des remises consommées (`SENDING, SENT, DELIVERED, BOUNCED, SIMULATED`) sur 24 h glissantes par canal (index partiel) |
+| Arrêt des relances | `UPDATE … SET status='CANCELLED' WHERE group_key = 'dunning:<facture>' AND status='PENDING'` |
+| Palier | lecture des paliers consignés des échéances d'une page, puis `INSERT … ON CONFLICT DO NOTHING` |
+| Journal | `ORDER BY created_at DESC, id DESC` avec curseur, filtres paramétrés |
+
+## B.3 Invariants vérifiés par test
+
+Isolation A/B des 11 tables avec de vraies données ; `SKIPPED` exige une raison ; clés d'idempotence uniques par établissement ; aucune adresse ni contenu sur une remise terminale ; versions de gabarit immuables ; un palier n'est consigné qu'une fois ; la migration ne référence que `kernel` et `notifications`.

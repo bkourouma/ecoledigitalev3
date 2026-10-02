@@ -189,6 +189,12 @@ export class TresorPayProvider implements PaymentProvider {
     return baseUrl;
   }
 
+  /** Contrat hérité du legacy, confiance faible : partiel, NON idempotent (jamais renvoyé après une réponse ambiguë), pas de lecture d'état. */
+  readonly refundCapabilities = { partial: true, idempotent: false, statusQuery: false } as const;
+
+  /** `verify` exige la référence TresorPay reçue à l'initiation. */
+  readonly cannotVerifyWithoutProviderRef = true;
+
   async refund(request: ProviderRefundRequest): Promise<Result<ProviderRefundResult, AppError>> {
     if (!request.providerRef) return err(invalidInput("Référence TresorPay du paiement manquante.", "providerRef"));
     if (request.amount.currency !== "XOF" || !request.amount.isPositive()) return err(invalidAmount("Montant de remboursement invalide."));
@@ -196,6 +202,10 @@ export class TresorPayProvider implements PaymentProvider {
     // Non idempotent côté fournisseur (aucune clé documentée) : jamais rejoué après une réponse ambiguë.
     const res = await this.signed("POST", "/refunds", "refund", false, body);
     if (!res.ok) return res;
+    // 5xx / 429 / 408 : le fournisseur a PU traiter la demande — réponse ambiguë, jamais un échec définitif.
+    if (res.value.status >= 500 || res.value.status === 429 || res.value.status === 408) {
+      return err(upstreamError(TRESORPAY_NAME, "refund", "upstream_5xx", { httpStatus: res.value.status }));
+    }
     const o = obj(res.value.json);
     const data = obj(o?.data);
     if (res.value.status >= 400 || !o || o.status !== "success" || !data) {

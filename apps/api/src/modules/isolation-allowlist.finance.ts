@@ -7,7 +7,8 @@
  * policy `tenant_isolation` (fees, fee_schedules, installment_plans, discounts,
  * learner_accounts, scholarships, invoices, invoice_lines, invoice_discounts, installments,
  * cash_registers, cash_sessions, payments, payment_allocations, allocation_reversals,
- * receipts, refunds, credit_notes, webhook_events, provider_configs, number_sequences). Même les compteurs de
+ * receipts, refunds, credit_notes, webhook_events, provider_configs, reconciliation_state, manual_resolutions,
+ * number_sequences). Même les compteurs de
  * numérotation et le journal des webhooks sont par tenant.
  */
 export interface IsolationAllowlistEntry {
@@ -43,6 +44,8 @@ export const financeTenantTables: readonly string[] = Object.freeze([
   "finance.credit_notes",
   "finance.webhook_events",
   "finance.provider_configs",
+  "finance.reconciliation_state",
+  "finance.manual_resolutions",
 ]);
 
 export default financeIsolationAllowlist;

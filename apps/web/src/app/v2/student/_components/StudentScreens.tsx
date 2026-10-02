@@ -99,7 +99,7 @@ function StudentHomeBody({ student, subject }: { student: PeopleStudentDetailDto
           </ul>
         ) : null}
       </section>
-      <AnnouncementsEntry />
+      <AnnouncementsEntry portal="student" />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { accessRoutes, setTestApi } from "@/platform/test/api-mock";
 import { renderWithProviders } from "@/platform/test/render";
 import { mariam, yao, MARIAM, YAO } from "@/app/v2/_test/fixtures-family";
 import { ChildHeader } from "./ChildScope";
-import { buildPortalMenu, childIdFromPath, childSectionHref, isMessagingEnabled, PORTAL_GUARD, switchChildPath, visibleChildSections } from "./menus";
+import { buildPortalMenu, childIdFromPath, childSectionHref, PORTAL_GUARD, switchChildPath, visibleChildSections } from "./menus";
 import { isUuid } from "./ids";
 
 vi.mock("@/platform/api/default-client", async () => (await import("@/platform/test/api-mock")).defaultClientModule);
@@ -31,14 +31,20 @@ describe("menus des portails", () => {
     expect(keys(buildPortalMenu({ portal: "teacher", permissions: perms, features: ["attendance.staff"], labelOf: label }))).toContain("teacher.leaves");
   });
 
-  it("messagerie : points d'entrée masqués tant qu'ils ne sont pas activés, jamais sans l'accès au portail", () => {
+  it("messagerie : entrées montrées par la permission du module messaging, propre à chaque portail", () => {
     const perms = ["student.child.read"];
-    expect(keys(buildPortalMenu({ portal: "parent", permissions: perms, features: [], labelOf: label, messagingEnabled: false }))).toEqual(["parent.children", "parent.account"]);
-    const on = buildPortalMenu({ portal: "parent", permissions: perms, features: [], labelOf: label, messagingEnabled: true });
+    expect(keys(buildPortalMenu({ portal: "parent", permissions: perms, features: [], labelOf: label }))).toEqual(["parent.children", "parent.account"]);
+    const on = buildPortalMenu({ portal: "parent", permissions: [...perms, "messaging.child.read"], features: [], labelOf: label });
     expect(on.map((i) => i.href)).toEqual(["/v2/parent", "/v2/messages", "/v2/announcements", "/v2/parent/account"]);
-    expect(isMessagingEnabled("1")).toBe(true);
-    expect(isMessagingEnabled(undefined)).toBe(false);
-    expect(isMessagingEnabled("0")).toBe(false);
+    // Les permissions des autres portails n'ouvrent pas l'entrée.
+    expect(keys(buildPortalMenu({ portal: "parent", permissions: [...perms, "messaging.read", "messaging.self.read"], features: [], labelOf: label }))).toEqual(["parent.children", "parent.account"]);
+    const student = buildPortalMenu({ portal: "student", permissions: ["student.self.read", "messaging.self.read"], features: [], labelOf: label });
+    expect(keys(student)).toEqual(expect.arrayContaining(["student.messages", "student.announcements"]));
+    const teacher = buildPortalMenu({ portal: "teacher", permissions: ["staff.own.read", "messaging.read"], features: [], labelOf: label });
+    expect(keys(teacher)).toEqual(expect.arrayContaining(["teacher.messages", "teacher.announcements"]));
+    expect(keys(buildPortalMenu({ portal: "teacher", permissions: ["staff.own.read"], features: [], labelOf: label }))).not.toContain("teacher.messages");
+    // Permissions inconnues : aucune entrée de messagerie (fermé par défaut).
+    expect(keys(buildPortalMenu({ portal: "student", permissions: null, features: null, labelOf: label })).some((k) => k.includes("messages"))).toBe(false);
   });
 
   it("garde de portail : chaque portail n'est ouvert que par sa propre permission", () => {

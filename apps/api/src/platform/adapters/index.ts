@@ -31,6 +31,7 @@ import { registerHigherPorts, registerHigherWorkerPorts, type HigherPorts } from
 import { importsAuditAdapter, registerImportsPorts, setImportsWorkerPorts, type ImportPorts } from "../../modules/imports";
 import { audit as auditService } from "../../modules/audit";
 import { registerMessagingPorts, setMessagingWorkerPorts, type MessagingPorts } from "../../modules/messaging";
+import { registerNotificationsPorts, setNotificationsWorkerPorts, type NotificationsPorts } from "../../modules/notifications";
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
 import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorkerResources, type PdfRenderer, type ReportcardsPorts } from "../../modules/reportcards";
@@ -57,6 +58,8 @@ import { createFinanceReceiptDocuments, createReportcardsLearnerStanding } from 
 import { createFinanceGuardianshipPort } from "./people-finance";
 import { createMessagingAudienceDirectory } from "./academic-messaging";
 import { createMessagingPeopleDirectory } from "./people-messaging";
+import { createNotificationsDirectory } from "./people-notifications";
+import { createNotificationsAnnouncements, createNotificationsGrades, createNotificationsOverdueSource, createNotificationsTeachingLoad } from "./sources-notifications";
 import { createAssessActorNamePort, createAssessGuardianshipPort, createAssessTeachingPort } from "./people-assess";
 import { createAcademicGuardianship, createAcademicOfferingReadiness, createAcademicStudentDirectory } from "./people-academic";
 import { createAttendancePeoplePort } from "./people-attendance";
@@ -103,6 +106,8 @@ export interface PlatformPorts {
   readonly imports: Partial<ImportPorts>;
   /** Gestion documentaire (024) : stockage, annuaire des propriétaires (people, iam), antivirus et conversion (environnement), usage. */
   readonly documents: Partial<DocumentsPorts>;
+  /** Canaux externes (016) : coordonnées de remise, échéances en retard, résultats FINAL, charge d'enseignement, annonces. */
+  readonly notifications: Partial<NotificationsPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -214,6 +219,13 @@ export function buildPlatformPorts(
       converter: officeConverterFromEnv(kit.env),
       ...(storage ? { storage: asDocumentsStorage(storage) } : {}),
     },
+    notifications: {
+      directory: createNotificationsDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock }),
+      overdue: createNotificationsOverdueSource(kit),
+      grades: createNotificationsGrades(kit),
+      teachingLoad: createNotificationsTeachingLoad(kit),
+      announcements: createNotificationsAnnouncements(kit),
+    },
   };
   // Imports (031) : écriture par les cas d'usage publics des modules cibles, avec le VRAI audit (l'API : `runtime.auditPort` ;
   // le worker : le service d'audit du processus). Sans audit fourni (tests ciblés), l'audit est no-op.
@@ -263,6 +275,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerMessagingPorts(app, ports.messaging);
   registerImportsPorts(app, ports.imports);
   registerDocumentsPorts(app, ports.documents);
+  registerNotificationsPorts(app, ports.notifications);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -294,6 +307,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   setMessagingWorkerPorts(ports.messaging);
   setImportsWorkerPorts(ports.imports);
   setDocumentsWorkerPorts(ports.documents);
+  setNotificationsWorkerPorts(ports.notifications);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }

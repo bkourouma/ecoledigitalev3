@@ -63,7 +63,7 @@ describe("module documents : manifeste", () => {
 
   it("les défauts du code (paramètres) sont ceux de la table", async () => {
     const { DEFAULT_SETTINGS } = await import("../../infrastructure/settings-repository");
-    const sql = readFileSync(resolve(__dirname, "../../migrations/1800_documents_reference.sql"), "utf8");
+    const sql = readFileSync(resolve(__dirname, "../../migrations/2500_documents_reference.sql"), "utf8");
     expect(sql).toContain(`max_bytes                 integer NOT NULL DEFAULT ${DEFAULT_SETTINGS.maxBytes}`);
     expect(sql).toContain(`ARRAY[${DEFAULT_SETTINGS.defaultAlertDays.join(", ")}]`);
     expect(sql).toContain(`archive_retention_days    integer NOT NULL DEFAULT ${DEFAULT_SETTINGS.archiveRetentionDays}`);

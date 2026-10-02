@@ -32,6 +32,11 @@ import {
   financeAgedBalanceQuerySchema,
   financeAllocatePaymentBodySchema,
   financeApproveRefundBodySchema,
+  financeCompleteRefundBodySchema,
+  financeDecideResolutionBodySchema,
+  financeListPendingPaymentsQuerySchema,
+  financeListResolutionsQuerySchema,
+  financeRequestResolutionBodySchema,
   financeCancelInvoiceBodySchema,
   financeCloseCashSessionBodySchema,
   financeCollectionsTrendQuerySchema,
@@ -133,11 +138,7 @@ import { learnerNames } from "../application/learner-names";
 import { getReceiptPdf } from "../application/receipt-document";
 import { createFinancePortRegistry, type FinancePortRegistry, type FinancePortSet } from "../application/port-registry";
 import { financeAuditAdapter } from "../infrastructure/audit-adapter";
-import { createProviderRegistry, EnvProviderConfigSource, isDevLikeEnvironment, type AppEnvironment } from "../infrastructure/providers/registry";
-import { endpointsFromEnv, registerPaymentProviders } from "../infrastructure/providers/definitions";
-import { SANDBOX_PROVIDER_NAME } from "../infrastructure/providers/sandbox-provider";
-import { CompositeConfigSource, TenantProviderConfigSource } from "../infrastructure/provider-config-source";
-import { secretStoreFromEnv } from "../infrastructure/secrets/aes-gcm-secret-store";
+import { createFinanceProviderRuntime, financeEnvironmentOf, reconciliationConfigFromEnv } from "../infrastructure/runtime";
 import type { ModuleRuntime } from "../../../platform/runtime";
 import {
   cancelInvoice,
@@ -163,6 +164,13 @@ import {
   recordManualPayment,
 } from "../application/payments";
 import { approveRefund, completeRefund, getRefundById, listRefundPage, rejectRefund, requestRefund } from "../application/refunds";
+import {
+  approveManualResolution,
+  listManualResolutions,
+  listPendingReconciliations,
+  rejectManualResolution,
+  requestManualResolution,
+} from "../application/manual-resolution";
 import {
   getAgedBalance,
   getCollectionsTrend,
@@ -551,6 +559,59 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
         return reply.status(201).send({ creditNote: present.creditNoteDto(r.creditNote), invoice: present.invoiceDetailDto(r.invoice, todayOf(deps)) });
       });
 
+      // ----- Rapprochement : paiements en attente et résolutions manuelles (quatre yeux) -------------
+      // Lecture : `finance.payment.read`. Résolution : `finance.payment.reconcile` (SENSIBLE, MFA) ; l'approbateur est
+      // une AUTRE personne que le demandeur (contrôlé par le cas d'usage). « Vérifier maintenant » reste `POST /payments/:id/verify`.
+      scope.get("/payments/pending", { preHandler: perm("finance.payment.read") }, async (req) => {
+        const q = parse(financeListPendingPaymentsQuerySchema, req.query);
+        const page = unwrapOrThrow(
+          await listPendingReconciliations(deps, ctxOf(req), {
+            limit: q.limit,
+            offset: q.offset,
+            ...(q.flagged !== undefined ? { flagged: q.flagged } : {}),
+            ...(q.provider ? { provider: q.provider } : {}),
+            ...(q.olderThanMinutes !== undefined ? { olderThan: new Date(deps.clock.now().getTime() - q.olderThanMinutes * 60_000) } : {}),
+          }),
+        );
+        return { items: page.items.map(present.pendingPaymentDto), total: page.total };
+      });
+      scope.get("/resolutions", { preHandler: perm("finance.payment.read") }, async (req) => {
+        const q = parse(financeListResolutionsQuerySchema, req.query);
+        const items = unwrapOrThrow(
+          await listManualResolutions(deps, ctxOf(req), {
+            limit: q.limit,
+            offset: q.offset,
+            ...(q.status ? { status: q.status } : {}),
+            ...(q.paymentId ? { paymentId: q.paymentId } : {}),
+            ...(q.refundId ? { refundId: q.refundId } : {}),
+          }),
+        );
+        return { items: items.map(present.resolutionDto) };
+      });
+      scope.post("/resolutions", { preHandler: perm("finance.payment.reconcile") }, async (req, reply) => {
+        const b = parse(financeRequestResolutionBodySchema, req.body);
+        const row = unwrapOrThrow(
+          await requestManualResolution(deps, ctxOf(req), {
+            ...(b.paymentId ? { paymentId: b.paymentId } : {}),
+            ...(b.refundId ? { refundId: b.refundId } : {}),
+            outcome: b.outcome,
+            reason: b.reason,
+            evidenceRef: b.evidenceRef,
+          }),
+        );
+        return reply.status(201).send(present.resolutionDto(row));
+      });
+      scope.post("/resolutions/:id/approve", { preHandler: perm("finance.payment.reconcile") }, async (req) => {
+        const { id } = parse(financeIdParamsSchema, req.params);
+        const b = parse(financeDecideResolutionBodySchema, req.body);
+        return present.resolutionDto(unwrapOrThrow(await approveManualResolution(deps, ctxOf(req), { resolutionId: id, ...(b.note ? { note: b.note } : {}) })));
+      });
+      scope.post("/resolutions/:id/reject", { preHandler: perm("finance.payment.reconcile") }, async (req) => {
+        const { id } = parse(financeIdParamsSchema, req.params);
+        const b = parse(financeDecideResolutionBodySchema, req.body);
+        return present.resolutionDto(unwrapOrThrow(await rejectManualResolution(deps, ctxOf(req), { resolutionId: id, ...(b.note ? { note: b.note } : {}) })));
+      });
+
       // ----- Paiements ------------------------------------------------------------------------
       scope.get("/payments", { preHandler: perm("finance.payment.read") }, async (req) => {
         const q = parse(financeListPaymentsQuerySchema, req.query);
@@ -652,11 +713,22 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
       scope.post("/refunds/:id/approve", { preHandler: perm("finance.payment.refund") }, async (req) => {
         const { id } = parse(financeIdParamsSchema, req.params);
         const b = parse(financeApproveRefundBodySchema, req.body);
-        return present.refundDto(unwrapOrThrow(await approveRefund(deps, ctxOf(req), { refundId: id, ...(b.complete !== undefined ? { complete: b.complete } : {}) })));
+        return present.refundDto(
+          unwrapOrThrow(
+            await approveRefund(deps, ctxOf(req), {
+              refundId: id,
+              ...(b.complete !== undefined ? { complete: b.complete } : {}),
+              ...(b.manual ? { manual: stripUndefined(b.manual) as { reference: string; note?: string } } : {}),
+            }),
+          ),
+        );
       });
       scope.post("/refunds/:id/complete", { preHandler: perm("finance.payment.refund") }, async (req) => {
         const { id } = parse(financeIdParamsSchema, req.params);
-        return present.refundDto(unwrapOrThrow(await completeRefund(deps, ctxOf(req), { refundId: id })));
+        const b = parse(financeCompleteRefundBodySchema, req.body);
+        return present.refundDto(
+          unwrapOrThrow(await completeRefund(deps, ctxOf(req), { refundId: id, ...(b.manual ? { manual: stripUndefined(b.manual) as { reference: string; note?: string } } : {}) })),
+        );
       });
       scope.post("/refunds/:id/reject", { preHandler: perm("finance.payment.refund") }, async (req) => {
         const { id } = parse(financeIdParamsSchema, req.params);
@@ -1086,17 +1158,7 @@ function exportMaxRowsOf(env: Readonly<Record<string, string | undefined>>): { e
   return Number.isInteger(n) && n >= 1 && n <= 500_000 ? { exportMaxRows: n } : {};
 }
 
-/** `FINANCE_PROVIDER_CONFIG_CACHE_MS` : durée du cache de configuration des fournisseurs (0 à 300 000 ms ; sinon défaut 15 000). */
-function configCacheMsOf(env: Readonly<Record<string, string | undefined>>): { ttlMs?: number } {
-  const n = Number(env.FINANCE_PROVIDER_CONFIG_CACHE_MS);
-  return env.FINANCE_PROVIDER_CONFIG_CACHE_MS !== undefined && Number.isInteger(n) && n >= 0 && n <= 300_000 ? { ttlMs: n } : {};
-}
-
-/** Environnement d'exécution des fournisseurs de paiement : `FINANCE_ENV`, sinon dérivé de `NODE_ENV` (défaut SÛR : production). */
-export function financeEnvironmentOf(env: Readonly<Record<string, string | undefined>>): AppEnvironment {
-  const raw = (env.FINANCE_ENV ?? env.NODE_ENV ?? "").trim().toLowerCase();
-  return raw === "development" || raw === "test" || raw === "staging" || raw === "production" ? raw : "production";
-}
+export { financeEnvironmentOf };
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -1126,34 +1188,15 @@ export function registerFinancePorts(app: FastifyInstance, ports: Partial<Financ
  */
 export default async function financeModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
   if (!app.hasDecorator("financePorts")) app.decorate("financePorts", createFinancePortRegistry());
-  const environment = financeEnvironmentOf(runtime.env);
   const audit = financeAuditAdapter(runtime.auditPort);
-  // Coffre des secrets marchands : clé maître d'environnement ; absente ou invalide ⇒ indisponible (jamais de clair).
-  const secrets = secretStoreFromEnv(runtime.env, (message) => runtime.logger.error({ message }, "finance : coffre des secrets invalide"));
-  const tenantConfig = new TenantProviderConfigSource({
+  // Registre, coffre (clé maître d'environnement ; absente ⇒ indisponible, jamais de clair) et configuration par tenant :
+  // MÊME assemblage que le worker (rapprochement des paiements en attente).
+  const { environment, secrets, providers, tenantConfig } = createFinanceProviderRuntime({
     db: runtime.tenantDb,
-    secrets,
+    clock: runtime.clock,
+    logger: runtime.logger,
+    env: runtime.env,
     audit,
-    clock: runtime.clock,
-    logger: runtime.logger,
-    ...configCacheMsOf(runtime.env),
-  });
-  // Configuration d'ENVIRONNEMENT : repli explicite seulement (déploiement mono-établissement, développement) ;
-  // la sandbox interne reste pilotée par l'environnement (`allowSandbox` d'un tenant de démonstration).
-  const envFallback = runtime.env.FINANCE_PROVIDER_ENV_FALLBACK === undefined ? isDevLikeEnvironment(environment) : runtime.env.FINANCE_PROVIDER_ENV_FALLBACK === "true";
-  const providers = createProviderRegistry({
-    environment,
-    logger: runtime.logger,
-    configSource: new CompositeConfigSource(tenantConfig, new EnvProviderConfigSource(runtime.env), {
-      allowEnvFallback: envFallback,
-      alwaysEnv: [SANDBOX_PROVIDER_NAME],
-    }),
-  });
-  registerPaymentProviders(providers, {
-    clock: runtime.clock,
-    logger: runtime.logger,
-    endpoints: endpointsFromEnv(runtime.env),
-    allowInsecureHttp: isDevLikeEnvironment(environment),
   });
   const deps = createFinanceDeps({
     portsProvider: () => app.financePorts.current,
@@ -1164,7 +1207,12 @@ export default async function financeModulePlugin(app: FastifyInstance, runtime:
     providers,
     secrets,
     providerConfigChanged: (tenantId, provider) => tenantConfig.invalidate(tenantId, provider || undefined),
-    config: { environment, webhookBaseUrl: runtime.env.FINANCE_WEBHOOK_BASE_URL?.trim() || null, ...exportMaxRowsOf(runtime.env) },
+    config: {
+      environment,
+      webhookBaseUrl: runtime.env.FINANCE_WEBHOOK_BASE_URL?.trim() || null,
+      ...exportMaxRowsOf(runtime.env),
+      reconciliation: reconciliationConfigFromEnv(runtime.env),
+    },
   });
   await app.register(financePlugin, {
     deps,

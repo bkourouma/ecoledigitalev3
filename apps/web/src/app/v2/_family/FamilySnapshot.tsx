@@ -11,8 +11,8 @@ import { useChildTimetable, useMyTimetable } from "@/platform/v2/scheduling";
 import { showDecimal, useDateFormat } from "@/platform/ui/format";
 import { useMoney } from "@/platform/ui/money";
 import { buttonClass } from "@/platform/ui/PageHeader";
-import { LoadingBlock, Notice } from "@/platform/ui/states";
-import { messagingEntry } from "./messaging";
+import { LoadingBlock } from "@/platform/ui/states";
+import { useMessagingEntry } from "./messaging";
 
 export interface SnapshotLinks {
   results: string;
@@ -159,22 +159,17 @@ function UpcomingCard({ subject, href }: { subject: FamilySubject; href: string 
   );
 }
 
-/** Annonces : le module de messagerie est livré à part ; tant qu'il n'est pas activé, un message l'indique et aucun écran fantôme n'est proposé. */
-export function AnnouncementsEntry() {
+/** Annonces : lien vers la messagerie, visible seulement pour un compte qui a la permission de la lire (aucune carte fantôme sinon). */
+export function AnnouncementsEntry({ portal }: { portal: "parent" | "student" }) {
   const t = useTranslations("v2Portal.family.snapshot.announcements");
-  const entry = messagingEntry("announcements");
+  const entry = useMessagingEntry("announcements", portal);
+  if (!entry) return null;
   return (
     <section aria-label={t("title")} className="rounded-lg border p-4">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("title")}</h3>
-      {entry ? (
-        <Link href={entry} className={`${buttonClass.secondary} mt-2`}>
-          {t("open")}
-        </Link>
-      ) : (
-        <Notice kind="info" className="mt-2">
-          {t("soon")}
-        </Notice>
-      )}
+      <Link href={entry} className={`${buttonClass.secondary} mt-2`}>
+        {t("open")}
+      </Link>
     </section>
   );
 }

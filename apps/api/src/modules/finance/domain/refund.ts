@@ -4,7 +4,9 @@
  * configuration explicite).
  *
  * États : REQUESTED → APPROVED → COMPLETED ; REQUESTED | APPROVED → REJECTED.
- * Le montant remboursable = payé − déjà remboursé − demandes en cours.
+ * Remboursement chez un fournisseur : APPROVED → REFUND_PENDING (envoyé) → COMPLETED (remboursé) | REFUND_FAILED
+ * (refus définitif). Le grand livre n'est écrit qu'à COMPLETED.
+ * Le montant remboursable = payé − déjà remboursé − demandes en cours (REQUESTED, APPROVED, REFUND_PENDING).
  */
 import { err, ok, type AppError, type Money, type Result } from "@ecoledigitale/kernel";
 import { FinanceCode, conflict, invalidTransition, validation } from "./errors";
@@ -13,10 +15,15 @@ import type { PaymentStatus, RefundStatus } from "./types";
 
 export const REFUND_TRANSITIONS: Readonly<Record<RefundStatus, ReadonlyArray<RefundStatus>>> = Object.freeze({
   REQUESTED: ["APPROVED", "REJECTED"],
-  APPROVED: ["COMPLETED", "REJECTED"],
+  APPROVED: ["REFUND_PENDING", "COMPLETED", "REJECTED"],
+  REFUND_PENDING: ["COMPLETED", "REFUND_FAILED"],
   COMPLETED: [],
+  REFUND_FAILED: [],
   REJECTED: [],
 });
+
+/** Statuts qui réservent une part du montant remboursable (le remboursement n'est ni refusé, ni échoué, ni terminé). */
+export const OPEN_REFUND_STATUSES = ["REQUESTED", "APPROVED", "REFUND_PENDING"] as const satisfies ReadonlyArray<RefundStatus>;
 
 export const canTransitionRefund = (from: RefundStatus, to: RefundStatus): boolean => REFUND_TRANSITIONS[from].includes(to);
 

@@ -172,6 +172,62 @@ self.addEventListener("fetch", (event) => {
   // Tout le reste : aucune interception.
 });
 
+/**
+ * Web Push (module `notifications`). Le service worker n'affiche que ce que le serveur envoie (titre, extrait court,
+ * lien) ; il n'écrit rien dans les caches. Le lien d'une notification n'est suivi que s'il est de MÊME ORIGINE : toute autre
+ * adresse (charge utile détournée) est remplacée par l'accueil.
+ */
+const PUSH_FALLBACK_URL = "/v2";
+
+function safeTargetUrl(raw, origin) {
+  if (typeof raw !== "string" || raw === "" || raw.length > 1000) return PUSH_FALLBACK_URL;
+  try {
+    const target = new URL(raw, origin);
+    if (target.origin !== origin) return PUSH_FALLBACK_URL;
+    return target.pathname + target.search + target.hash;
+  } catch (_) {
+    return PUSH_FALLBACK_URL;
+  }
+}
+
+function pushDisplay(data, origin) {
+  const d = data && typeof data === "object" ? data : {};
+  const title = typeof d.title === "string" && d.title.trim() ? d.title.trim().slice(0, 120) : "EcoleDigitale";
+  const options = {
+    body: typeof d.body === "string" ? d.body.slice(0, 300) : "",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { url: safeTargetUrl(d.url, origin) },
+  };
+  if (typeof d.tag === "string" && d.tag) options.tag = d.tag.slice(0, 60);
+  if (d.urgent === true) options.requireInteraction = true;
+  return { title, options };
+}
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (_) {
+    data = {};
+  }
+  const shown = pushDisplay(data, self.location.origin);
+  event.waitUntil(self.registration.showNotification(shown.title, shown.options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = safeTargetUrl(event.notification.data && event.notification.data.url, self.location.origin);
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const open = windows.find((w) => new URL(w.url).pathname === url.split("?")[0].split("#")[0]);
+      if (open && typeof open.focus === "function") return open.focus();
+      return self.clients.openWindow(url);
+    })(),
+  );
+});
+
 // Déconnexion : l'application peut demander la purge de tous les caches `ed-*`.
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "CLEAR_CACHES") {
@@ -181,5 +237,5 @@ self.addEventListener("message", (event) => {
 
 // Export pour les tests unitaires (inexistant dans le navigateur).
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { isNeverCache, isVersionedStaticAsset, isCacheableResponse, SHELL_CACHE, STATIC_CACHE, OFFLINE_URL, PRECACHE_URLS };
+  module.exports = { isNeverCache, isVersionedStaticAsset, isCacheableResponse, safeTargetUrl, pushDisplay, SHELL_CACHE, STATIC_CACHE, OFFLINE_URL, PRECACHE_URLS };
 }

@@ -24,6 +24,8 @@ import type {
   ProviderPaymentStatus,
   ProviderRefundRequest,
   ProviderRefundResult,
+  ProviderRefundStatus,
+  ProviderRefundStatusRequest,
   ProviderVerification,
   ProviderVerifyRequest,
   ProviderWebhookEvent,
@@ -258,6 +260,27 @@ export class MtnMomoProvider implements PaymentProvider {
   }
 
   // ---- remboursement (Q-PAY-10, confiance faible) ---------------------------------------------------------
+
+  /** Partiel possible ; `X-Reference-Id` stable (UUID dérivé du remboursement, 409 = rejeu) ; lecture `GET refund/{id}`. */
+  readonly refundCapabilities = { partial: true, idempotent: true, statusQuery: true } as const;
+
+  async refundStatus(request: ProviderRefundStatusRequest): Promise<Result<ProviderRefundStatus, AppError>> {
+    const referenceId = toMtnReferenceId(request.refundId);
+    const res = await this.authed(() => ({ method: "GET", path: `/collection/v2_0/refund/${referenceId}`, operation: "refund_status" }));
+    if (!res.ok) return res;
+    const { status, json } = res.value;
+    if (status === 404) return ok({ status: "NOT_FOUND", providerRefundRef: null });
+    const o = obj(json);
+    if (status >= 400 || !o) return err(upstreamError(MTN_MOMO_NAME, "refund_status", "rejected", { httpStatus: status, ...codeOf(o) }));
+    const rawStatus = str(o.status);
+    if (!rawStatus) return malformed(MTN_MOMO_NAME, "refund_status");
+    const external = str(o.externalId);
+    if (external && external !== request.refundId) return err(upstreamError(MTN_MOMO_NAME, "refund_status", "reference_mismatch"));
+    const mapped = mapMtnStatus(rawStatus, o.reason);
+    // Un statut inconnu reste « en attente » (jamais un échec ni un succès présumé).
+    const outcome = mapped.status === "SUCCEEDED" ? "SUCCEEDED" : mapped.status === "PENDING" ? "PENDING" : "FAILED";
+    return ok({ status: outcome, providerRefundRef: referenceId, ...(outcome === "FAILED" ? { failureReason: mapped.reason ?? "declined" } : {}) });
+  }
 
   async refund(request: ProviderRefundRequest): Promise<Result<ProviderRefundResult, AppError>> {
     if (!request.providerRef) return err(invalidInput("Référence MTN du paiement manquante.", "providerRef"));

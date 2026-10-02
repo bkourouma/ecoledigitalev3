@@ -13,6 +13,7 @@ import type {
   PayerKind,
   PaymentMethod,
   PaymentStatus,
+  RefundExecutionMode,
   RefundStatus,
   Uuid,
 } from "./types";
@@ -141,6 +142,51 @@ export interface RefundRecord {
   readonly cashSessionId: Uuid | null;
   readonly idempotencyKey: string | null;
   readonly requestFingerprint: string | null;
+  /** Comment le remboursement a été (ou est en train d'être) exécuté ; `null` tant qu'il n'a pas démarré (et pour l'historique). */
+  readonly executionMode: RefundExecutionMode | null;
+  readonly provider: string | null;
+  readonly providerRefundRef: string | null;
+  readonly providerStatus: string | null;
+  readonly providerRequestedAt: Date | null;
+  readonly failedAt: Date | null;
+  readonly failureReason: string | null;
+  readonly manualReference: string | null;
+  readonly manualNote: string | null;
+}
+
+/** Suivi du rapprochement d'un paiement en attente ou d'un remboursement en vol (une ligne par sujet). */
+export interface ReconciliationRecord {
+  readonly id: Uuid;
+  readonly paymentId: Uuid | null;
+  readonly refundId: Uuid | null;
+  readonly attempts: number;
+  readonly firstAttemptAt: Date | null;
+  readonly lastAttemptAt: Date | null;
+  readonly nextAttemptAt: Date;
+  readonly lastOutcome: string | null;
+  readonly lastErrorCode: string | null;
+  readonly flaggedAt: Date | null;
+  readonly flagReason: string | null;
+  readonly resolvedAt: Date | null;
+}
+
+export type ManualResolutionOutcome = "SUCCEEDED" | "FAILED";
+export type ManualResolutionStatus = "REQUESTED" | "APPROVED" | "REJECTED";
+
+/** Demande de résolution manuelle (quatre yeux) d'un paiement ou d'un remboursement indéterminé. */
+export interface ManualResolutionRecord {
+  readonly id: Uuid;
+  readonly paymentId: Uuid | null;
+  readonly refundId: Uuid | null;
+  readonly outcome: ManualResolutionOutcome;
+  readonly reason: string;
+  readonly evidenceRef: string;
+  readonly status: ManualResolutionStatus;
+  readonly requestedBy: Uuid;
+  readonly requestedAt: Date;
+  readonly decidedBy: Uuid | null;
+  readonly decidedAt: Date | null;
+  readonly decisionNote: string | null;
 }
 
 export interface CreditNoteRecord {

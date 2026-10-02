@@ -2497,7 +2497,8 @@
       "fees": "Frais et barèmes",
       "funding": "Remises et bourses",
       "reports": "Rapports",
-      "me": "Mes finances"
+      "me": "Mes finances",
+      "pendingPayments": "À rapprocher"
     },
     "common": {
       "amountHint": "En francs, sans décimales (par exemple 150000).",
@@ -2764,7 +2765,9 @@
         "REQUESTED": "Demandé",
         "APPROVED": "Approuvé",
         "COMPLETED": "Exécuté",
-        "REJECTED": "Refusé"
+        "REJECTED": "Refusé",
+        "REFUND_PENDING": "Envoyé au fournisseur",
+        "REFUND_FAILED": "Refusé par le fournisseur"
       },
       "scholarship": {
         "ACTIVE": "Active",
@@ -3433,7 +3436,24 @@
         "reason": "Motif du refus",
         "confirm": "Refuser"
       },
-      "rejected": "Le remboursement est refusé."
+      "rejected": "Le remboursement est refusé.",
+      "pendingHint": "Envoyé au fournisseur : le grand livre n'est écrit qu'à sa confirmation. Le rapprochement automatique conclut ; s'il ne le peut pas, le remboursement apparaît dans « À rapprocher ».",
+      "executedManually": "Le remboursement manuel est enregistré.",
+      "manualNeeded": "Ce remboursement ne peut pas être exécuté par le fournisseur (pas d'API de remboursement, remboursement partiel refusé ou fournisseur indisponible).",
+      "manualAction": "Confirmer un remboursement manuel",
+      "manualDialog": {
+        "title": "Confirmer un remboursement fait à la main",
+        "description": "Vous attestez avoir remboursé {amount} hors de la plateforme (portail du fournisseur, caisse…). L'action est journalisée avec votre identité et la référence de preuve.",
+        "reference": "Référence de la preuve",
+        "referenceHint": "Numéro de transaction du remboursement ou de la pièce (3 à 120 caractères).",
+        "note": "Note (facultatif)",
+        "submit": "Confirmer le remboursement",
+        "errors": {
+          "reference": "Saisissez la référence de la preuve (3 caractères au moins)."
+        }
+      },
+      "provider": "Fournisseur",
+      "failure": "Motif du refus : {reason}"
     },
     "overview": {
       "title": "Finance",
@@ -10736,6 +10756,626 @@
       "uploadAndSelect": "Déposer et sélectionner",
       "uploading": "Dépôt en cours…",
       "required": "obligatoire"
+    }
+  },
+  "v2Notifications": {
+    "nav": {
+      "label": "Navigation des notifications",
+      "journal": "Journal des envois",
+      "send": "Envoyer",
+      "templates": "Gabarits",
+      "rules": "Règles",
+      "channels": "Canaux",
+      "preferences": "Mes préférences"
+    },
+    "title": "Journal des envois",
+    "description": "Chaque message envoyé par e-mail, SMS, WhatsApp, notification push ou dans l'application. Les adresses sont masquées et le contenu des messages n'est pas conservé.",
+    "urgent": "Urgent",
+    "list": "Envois",
+    "loadMore": "Voir plus",
+    "status": {
+      "PENDING": "En attente",
+      "SENDING": "En cours d'envoi",
+      "SENT": "Envoyé",
+      "DELIVERED": "Remis",
+      "FAILED": "Échec",
+      "BOUNCED": "Rejeté",
+      "SKIPPED": "Non envoyé",
+      "CANCELLED": "Annulé",
+      "SIMULATED": "Simulé"
+    },
+    "channels": {
+      "IN_APP": "Application",
+      "EMAIL": "E-mail",
+      "SMS": "SMS",
+      "WHATSAPP": "WhatsApp",
+      "PUSH": "Notification push"
+    },
+    "categories": {
+      "ATTENDANCE": "Présences",
+      "FINANCE": "Finances",
+      "RESULTS": "Résultats",
+      "SCHEDULE": "Emploi du temps",
+      "ANNOUNCEMENT": "Annonces",
+      "ALERT": "Alertes",
+      "URGENT": "Urgences"
+    },
+    "source": {
+      "EVENT": "Événement",
+      "ALERT": "Alerte",
+      "DUNNING": "Relance",
+      "MANUAL": "Envoi manuel",
+      "TEST": "Essai"
+    },
+    "skip": {
+      "consent_revoked": "consentement retiré",
+      "category_opt_out": "catégorie refusée par la personne",
+      "no_contact": "aucune coordonnée",
+      "suppressed": "adresse sur liste de suppression",
+      "channel_disabled": "canal désactivé",
+      "recipient_cap": "plafond journalier du destinataire atteint",
+      "backlog_limit": "file d'envoi saturée",
+      "fallback_not_needed": "un autre canal a déjà abouti",
+      "paid": "paiement reçu entre-temps",
+      "cancelled_by_admin": "annulé par l'administration",
+      "no_subscription": "aucun appareil abonné"
+    },
+    "row": {
+      "recipient": "Destinataire :",
+      "template": "Gabarit :",
+      "templateValue": "{code} (version {version})",
+      "source": "Origine :",
+      "attempts": "Tentatives :",
+      "attemptsValue": "{n} sur {max}",
+      "sentAt": "Envoyé le :",
+      "providerId": "Identifiant fournisseur :",
+      "cost": "Coût :",
+      "skipped": "Non envoyé : {reason}.",
+      "nextAttempt": "Prochaine tentative : {at}"
+    },
+    "stats": {
+      "label": "Répartition des envois",
+      "none": "Aucun envoi sur cette période.",
+      "channel": "{channel} : {n}",
+      "period": "Période des statistiques",
+      "days": "{n} j"
+    },
+    "filters": {
+      "label": "Filtres du journal",
+      "channel": "Canal",
+      "status": "Statut",
+      "category": "Catégorie",
+      "from": "Du",
+      "to": "Au",
+      "all": "Tous"
+    },
+    "empty": {
+      "title": "Aucun envoi pour le moment",
+      "description": "Les envois apparaissent ici dès qu'un événement, une relance ou une alerte déclenche une notification.",
+      "filteredTitle": "Aucun envoi ne correspond",
+      "filteredDescription": "Modifiez ou retirez des filtres pour élargir la recherche."
+    }
+  },
+  "v2NotificationsTemplates": {
+    "title": "Gabarits de messages",
+    "description": "Le texte de chaque message par canal. Chaque modification crée une nouvelle version : vous pouvez toujours revenir à une version précédente ou au gabarit livré.",
+    "empty": "Aucun gabarit disponible.",
+    "template": "Message",
+    "channels": "Canaux du gabarit",
+    "channelNames": {
+      "IN_APP": "Application",
+      "EMAIL": "E-mail",
+      "SMS": "SMS",
+      "WHATSAPP": "WhatsApp",
+      "PUSH": "Notification push"
+    },
+    "noChannel": "Ce message n'a pas de gabarit pour ce canal.",
+    "shipped": "Gabarit livré",
+    "tenantVersion": "Version {n} de l'établissement",
+    "enabled": "Activé",
+    "disabled": "Désactivé",
+    "enable": "Activer ce gabarit",
+    "disable": "Désactiver ce gabarit",
+    "nowEnabled": "Gabarit activé.",
+    "nowDisabled": "Gabarit désactivé.",
+    "disabledHint": "Ce gabarit est désactivé : aucun message de ce type n'est envoyé sur ce canal.",
+    "editor": "Édition du gabarit",
+    "subject": "Objet",
+    "body": "Texte du message",
+    "bodyHint": "{max} caractères au plus.",
+    "variables": "Variables",
+    "variablesHint": "Cliquez sur une variable pour l'insérer à la position du curseur. Une étoile signale une variable toujours renseignée.",
+    "note": "Note de version",
+    "noteHint": "Facultatif : ce qui change dans cette version.",
+    "bodyRequired": "Le texte du message est obligatoire.",
+    "subjectRequired": "L'objet est obligatoire pour ce canal.",
+    "publish": "Publier une nouvelle version",
+    "published": "Version {n} publiée et activée.",
+    "preview": {
+      "run": "Aperçu",
+      "title": "Aperçu avec des valeurs d'exemple",
+      "subject": "Objet :",
+      "htmlFrame": "Aperçu du message e-mail",
+      "segments": "Estimation : {n} segment(s) SMS."
+    },
+    "versions": {
+      "title": "Versions",
+      "none": "Aucune version propre à l'établissement : le gabarit livré est utilisé.",
+      "version": "Version {n}",
+      "active": "Active",
+      "load": "Charger dans l'éditeur",
+      "activate": "Activer cette version",
+      "activated": "Version {n} activée.",
+      "backToShipped": "Revenir au gabarit livré",
+      "shippedRestored": "Gabarit livré rétabli."
+    }
+  },
+  "v2NotificationsRules": {
+    "title": "Règles de notification",
+    "description": "Qui est prévenu, par quel canal et avec quel gabarit, pour chaque événement, relance d'impayés et alerte. Les règles livrées peuvent être modifiées puis rétablies.",
+    "empty": "Aucune règle disponible.",
+    "kinds": {
+      "EVENT": "Événements",
+      "ALERT": "Alertes",
+      "DUNNING": "Relances d'impayés"
+    },
+    "kindHints": {
+      "EVENT": "Un message part dès qu'un événement se produit dans l'établissement.",
+      "ALERT": "Évaluées chaque jour : un message part quand un seuil est franchi.",
+      "DUNNING": "Une relance par palier de retard, jamais deux fois le même palier, arrêtée dès le paiement."
+    },
+    "trigger": "Déclencheur : {value}",
+    "alertTriggers": {
+      "dunning": "retard de paiement, par palier",
+      "OVERDUE_DAYS": "retard de paiement dépassant le seuil",
+      "GRADE_DROP": "baisse de résultats entre deux périodes",
+      "TEACHING_LOAD": "charge d'enseignement au-delà du seuil"
+    },
+    "enabled": "Active",
+    "disabled": "Désactivée",
+    "urgent": "Urgente",
+    "custom": "Personnalisée",
+    "overridden": "Modifiée",
+    "shipped": "Livrée",
+    "editRule": "Modifier la règle {label}",
+    "edit": "Modifier",
+    "summary": {
+      "audience": "Destinataires :",
+      "channels": "Canaux :",
+      "template": "Gabarit :",
+      "thresholds": "Seuils :",
+      "stages": "paliers {list}",
+      "minDaysOverdue": "{n} jour(s) de retard au moins",
+      "minDrop": "baisse d'au moins {n} point(s)",
+      "maxHours": "au-delà de {n} heure(s)",
+      "minValue": "à partir de {n}",
+      "daysBefore": "{n} jour(s) avant l'échéance",
+      "priorities": "priorités {list}"
+    },
+    "priorities": {
+      "LOW": "Basse",
+      "NORMAL": "Normale",
+      "HIGH": "Haute",
+      "URGENT": "Urgente"
+    },
+    "audiences": {
+      "STUDENT_GUARDIANS": "Parents et tuteurs de l'élève",
+      "STUDENT": "L'élève",
+      "STAFF_SUBJECT": "Le membre du personnel concerné",
+      "ROLES": "Titulaires de rôles",
+      "CLASSROOM": "Une classe",
+      "ANNOUNCEMENT_RECIPIENTS": "Destinataires de l'annonce",
+      "PAYSLIP_HOLDER": "Titulaire du bulletin de paie"
+    },
+    "channels": {
+      "IN_APP": "Application",
+      "EMAIL": "E-mail",
+      "SMS": "SMS",
+      "WHATSAPP": "WhatsApp",
+      "PUSH": "Notification push"
+    },
+    "strategies": {
+      "ALL": "Tous les canaux choisis",
+      "FIRST_REACHABLE": "Premier canal joignable"
+    },
+    "form": "Modifier la règle",
+    "label": "Nom de la règle",
+    "enabledField": "Règle active",
+    "templateField": "Gabarit du message",
+    "audienceField": "Destinataires",
+    "audienceKind": "Qui est prévenu",
+    "financialFirst": "Responsables financiers d'abord",
+    "fallbackToStudent": "Prévenir l'élève si aucun tuteur n'est joignable",
+    "roleKeys": "Rôles",
+    "roleKeysHint": "Clés de rôle séparées par des virgules, par exemple accountant, director.",
+    "includes": {
+      "GUARDIANS": "Parents et tuteurs",
+      "STUDENTS": "Élèves",
+      "TEACHERS": "Enseignants"
+    },
+    "channelsField": "Canaux",
+    "strategyField": "Stratégie d'envoi",
+    "strategyHint": "« Premier canal joignable » économise les SMS : le message s'arrête au premier canal qui aboutit.",
+    "urgentField": "Règle urgente",
+    "urgentHint": "Une règle urgente ignore les heures calmes et les préférences de catégorie des destinataires.",
+    "thresholds": "Seuils",
+    "conditions": {
+      "stages": "Paliers de relance (jours de retard)",
+      "minDaysOverdue": "Jours de retard minimum",
+      "minDrop": "Baisse minimale entre deux résultats",
+      "maxHours": "Heures d'enseignement maximum",
+      "minValue": "Valeur minimale de l'indicateur",
+      "priorities": "Priorités d'annonce concernées",
+      "daysBefore": "Préavis (jours avant l'expiration)"
+    },
+    "conditionHints": {
+      "stages": "Séparés par des virgules et croissants, par exemple 3, 10, 30.",
+      "minDaysOverdue": "Nombre entier de jours.",
+      "minDrop": "Dans l'unité de la moyenne, par exemple 2 ou 1,5.",
+      "maxHours": "Heures planifiées par semaine au-delà desquelles on alerte.",
+      "minValue": "Par exemple le nombre d'absences à partir duquel on prévient les parents.",
+      "daysBefore": "Nombre entier de jours."
+    },
+    "errors": {
+      "channels": "Choisissez au moins un canal.",
+      "roles": "Indiquez au moins un rôle valide : minuscules, chiffres et tirets bas.",
+      "include": "Choisissez au moins une catégorie de destinataires.",
+      "stages": "Indiquez un à six paliers, en nombres entiers de jours.",
+      "stagesOrder": "Les paliers doivent être strictement croissants.",
+      "number": "La valeur de « {field} » n'est pas valide."
+    },
+    "save": "Enregistrer la règle",
+    "saved": "Règle enregistrée.",
+    "delete": "Supprimer la règle",
+    "deleted": "Règle supprimée.",
+    "restore": "Rétablir la règle livrée",
+    "restored": "Règle livrée rétablie.",
+    "dialogHint": "Les changements s'appliquent aux prochains événements."
+  },
+  "v2NotificationsChannels": {
+    "title": "Canaux d'envoi",
+    "description": "État de chaque canal, envoi d'essai et réglages de l'établissement : plafonds, heures calmes, consentement, nouvelles tentatives.",
+    "health": "État des canaux",
+    "simulation": "Mode simulation actif : aucun message n'est réellement envoyé. Ce mode est réservé au développement.",
+    "provider": "Fournisseur : {name}",
+    "noProvider": "Aucun fournisseur branché.",
+    "missing": "Configuration manquante sur le serveur (variables d'environnement) :",
+    "last24h": "24 dernières heures",
+    "last24hValue": "{sent} envoyés, {failed} échecs, {bounced} rejetés, {skipped} non envoyés",
+    "pending": "En attente",
+    "pendingValue": "{n} depuis le {since}",
+    "quota": "Plafond du jour",
+    "quotaValue": "{sent} sur {cap}",
+    "lastError": "Dernière erreur :",
+    "testChannel": "Envoyer un essai par {channel}",
+    "test": "Envoyer un essai",
+    "testResult": "Essai en file : {queued} message(s), {skipped} ignoré(s). Consultez le journal des envois.",
+    "names": {
+      "IN_APP": "Application",
+      "EMAIL": "E-mail",
+      "SMS": "SMS",
+      "WHATSAPP": "WhatsApp",
+      "PUSH": "Notification push"
+    },
+    "states": {
+      "OK": "Opérationnel",
+      "DEGRADED": "Dégradé",
+      "NOT_CONFIGURED": "Non configuré",
+      "DISABLED": "Désactivé"
+    },
+    "settings": {
+      "title": "Réglages de l'établissement",
+      "readOnly": "Vous pouvez consulter ces réglages ; leur modification demande une autre permission.",
+      "save": "Enregistrer les réglages",
+      "saved": "Réglages enregistrés.",
+      "enabledChannels": "Canaux activés",
+      "channels": {
+        "IN_APP": "Application",
+        "EMAIL": "E-mail",
+        "SMS": "SMS",
+        "WHATSAPP": "WhatsApp",
+        "PUSH": "Notification push"
+      },
+      "senderName": "Nom de l'expéditeur",
+      "senderNameHint": "Affiché dans les e-mails et les SMS. Laissez vide pour le nom par défaut.",
+      "replyTo": "Adresse de réponse",
+      "timezone": "Fuseau horaire",
+      "dialCode": "Indicatif téléphonique par défaut",
+      "dialCodeHint": "Chiffres seuls, sans le signe plus, par exemple 225.",
+      "quietHours": "Heures calmes",
+      "quietEnabled": "Ne pas envoyer de SMS, WhatsApp ni notification push la nuit",
+      "quietStart": "Début",
+      "quietEnd": "Fin",
+      "quietHint": "Les messages sont différés à la fin des heures calmes. Les messages urgents les ignorent.",
+      "caps": "Plafonds journaliers",
+      "capOf": "Plafond {channel}",
+      "capHint": "Vide : plafond par défaut de la plateforme.",
+      "perRecipient": "Messages par destinataire et par jour",
+      "perRecipientHint": "Entre 1 et 500.",
+      "consent": "Consentement",
+      "consentHint": "« Implicite » : le canal est actif tant que la personne ne s'est pas désinscrite. « Sur accord » : la personne doit d'abord accepter.",
+      "modelOf": "Consentement {channel}",
+      "models": {
+        "IMPLIED": "Implicite",
+        "EXPLICIT": "Sur accord"
+      },
+      "urgentBypass": "Les messages urgents peuvent être envoyés même après un retrait de consentement (sauf adresse rejetée)",
+      "maxAttempts": "Tentatives d'envoi",
+      "maxAttemptsHint": "Entre 1 et 10, avec délai croissant entre deux tentatives.",
+      "retention": "Conservation du journal (jours)",
+      "retentionHint": "Entre 7 et 3650 jours.",
+      "legalFooter": "Mention légale des e-mails",
+      "legalFooterHint": "Ajoutée au pied de chaque e-mail, avec le lien de désinscription.",
+      "errors": {
+        "dial": "L'indicatif doit comporter de 1 à 4 chiffres.",
+        "time": "Les heures doivent être au format HH:MM.",
+        "email": "L'adresse de réponse n'est pas valide.",
+        "cap": "Un plafond doit être un nombre entier positif.",
+        "perRecipient": "Le plafond par destinataire doit être compris entre 1 et 500.",
+        "attempts": "Le nombre de tentatives doit être compris entre 1 et 10.",
+        "retention": "La conservation doit être comprise entre 7 et 3650 jours."
+      }
+    }
+  },
+  "v2NotificationsSend": {
+    "title": "Envoyer un message",
+    "description": "Convocation, annonce ou avis urgent envoyé aux familles, aux élèves ou au personnel, sur les canaux choisis.",
+    "form": "Envoi d'un message",
+    "template": "Type de message",
+    "audience": "Destinataires",
+    "audienceKind": "Choisir par",
+    "audiences": {
+      "STUDENT_GUARDIANS": "Élèves (leurs parents et tuteurs)",
+      "CLASSROOM": "Classes",
+      "ROLES": "Rôles du personnel"
+    },
+    "addStudent": "Ajouter un élève",
+    "studentPlaceholder": "Rechercher un élève",
+    "selectedStudents": "Élèves choisis",
+    "financialFirst": "Responsables financiers d'abord",
+    "addClassroom": "Ajouter une classe",
+    "classroomPlaceholder": "Rechercher une classe",
+    "selectedClassrooms": "Classes choisies",
+    "includes": {
+      "GUARDIANS": "Parents et tuteurs",
+      "STUDENTS": "Élèves",
+      "TEACHERS": "Enseignants"
+    },
+    "roleKeys": "Rôles",
+    "roleKeysHint": "Clés de rôle séparées par des virgules, par exemple teacher, accountant.",
+    "remove": "Retirer {name}",
+    "channelsLegend": "Canaux",
+    "channels": {
+      "IN_APP": "Application",
+      "EMAIL": "E-mail",
+      "SMS": "SMS",
+      "WHATSAPP": "WhatsApp",
+      "PUSH": "Notification push"
+    },
+    "unavailable": "indisponible",
+    "strategy": "Stratégie d'envoi",
+    "strategyHint": "« Premier canal joignable » s'arrête au premier canal qui aboutit pour chaque personne.",
+    "strategies": {
+      "ALL": "Tous les canaux choisis",
+      "FIRST_REACHABLE": "Premier canal joignable"
+    },
+    "urgent": "Message urgent : ignore les heures calmes et les préférences de catégorie. À réserver aux situations qui l'exigent.",
+    "variables": "Contenu du message",
+    "errors": {
+      "channels": "Choisissez au moins un canal.",
+      "students": "Choisissez au moins un élève.",
+      "classrooms": "Choisissez au moins une classe.",
+      "include": "Choisissez au moins une catégorie de destinataires.",
+      "roles": "Indiquez au moins un rôle valide : minuscules, chiffres et tirets bas.",
+      "required": "Renseignez « {name} ».",
+      "number": "La valeur de « {name} » doit être un nombre."
+    },
+    "reused": "Ce message avait déjà été envoyé : rien n'a été renvoyé.",
+    "done": "Message mis en file : {recipients} destinataire(s), {deliveries} envoi(s), {skipped} ignoré(s).",
+    "review": "Vérifier avant l'envoi",
+    "confirm": {
+      "title": "Confirmer l'envoi",
+      "hint": "Le message part aux destinataires choisis dès confirmation.",
+      "urgentHint": "Message urgent : il ignore les heures calmes et les préférences des destinataires.",
+      "template": "Message : {name}",
+      "channels": "Canaux : {list}",
+      "audience": {
+        "STUDENT_GUARDIANS": "Destinataires : les parents et tuteurs des élèves choisis",
+        "CLASSROOM": "Destinataires : les classes choisies",
+        "ROLES": "Destinataires : les titulaires des rôles choisis"
+      },
+      "urgent": "Envoi urgent",
+      "cancel": "Annuler",
+      "send": "Envoyer maintenant"
+    }
+  },
+  "v2NotificationsAccount": {
+    "title": "Mes notifications",
+    "description": "Choisissez comment l'établissement peut vous prévenir. Les messages urgents (sécurité, fermeture) peuvent passer même si vous avez limité un canal.",
+    "saved": "Préférence enregistrée.",
+    "channelsTitle": "Canaux et catégories",
+    "channelsHint": "Chaque case est enregistrée dès que vous la modifiez.",
+    "channels": {
+      "IN_APP": "Application",
+      "EMAIL": "E-mail",
+      "SMS": "SMS",
+      "WHATSAPP": "WhatsApp",
+      "PUSH": "Notification push"
+    },
+    "explicit": "Sur accord",
+    "implied": "Actif par défaut",
+    "notAvailable": "Ce canal n'est pas disponible dans votre établissement.",
+    "channelToggle": "Recevoir des messages par {channel}",
+    "channelOn": "Activé",
+    "channelOff": "Désactivé",
+    "categoriesHint": "Catégories reçues sur ce canal",
+    "categories": {
+      "ATTENDANCE": "Présences",
+      "FINANCE": "Finances",
+      "RESULTS": "Résultats",
+      "SCHEDULE": "Emploi du temps",
+      "ANNOUNCEMENT": "Annonces",
+      "ALERT": "Alertes",
+      "URGENT": "Urgences"
+    },
+    "categoryToggle": "{category} par {channel}",
+    "quiet": {
+      "title": "Heures calmes",
+      "description": "Pendant ces heures, les SMS, WhatsApp et notifications push attendent le matin.",
+      "inherit": "Utiliser les heures calmes de l'établissement",
+      "enabled": "Activer mes heures calmes",
+      "start": "Début",
+      "end": "Fin",
+      "current": "Heures calmes de l'établissement : de {start} à {end}.",
+      "urgentNote": "Un message urgent peut vous parvenir pendant les heures calmes.",
+      "saved": "Heures calmes enregistrées.",
+      "invalid": "Les heures doivent être au format HH:MM.",
+      "save": "Enregistrer les heures calmes"
+    },
+    "push": {
+      "title": "Appareils pour les notifications push",
+      "description": "Recevez les alertes directement sur cet appareil, même quand l'application est fermée.",
+      "notConfigured": "Les notifications push ne sont pas encore activées pour cet établissement.",
+      "unsupported": "Ce navigateur ne permet pas les notifications push.",
+      "deviceName": "Nom de cet appareil",
+      "deviceNameHint": "Pour le reconnaître dans la liste, par exemple Téléphone de Awa.",
+      "defaultLabel": "Cet appareil",
+      "activate": "Activer sur cet appareil",
+      "activated": "Notifications activées sur cet appareil.",
+      "failures": {
+        "unsupported": "Ce navigateur ne permet pas les notifications push.",
+        "denied": "L'autorisation a été refusée. Autorisez les notifications dans les réglages du navigateur puis réessayez.",
+        "failed": "L'activation a échoué. Réessayez dans un instant."
+      },
+      "none": "Aucun appareil enregistré.",
+      "devices": "Appareils enregistrés",
+      "unnamed": "Appareil sans nom",
+      "since": "Ajouté le {at}",
+      "lastUsed": "Dernière notification : {at}",
+      "removed": "Appareil retiré.",
+      "remove": "Retirer {name}",
+      "removeAction": "Retirer"
+    }
+  },
+  "v2NotificationsUnsubscribe": {
+    "title": "Préférences de notification",
+    "missingToken": "Ce lien n'est pas valide. Utilisez le lien reçu dans le message.",
+    "question": "Voulez-vous ne plus recevoir de messages {channel} ?",
+    "questionWithOrg": "Voulez-vous ne plus recevoir de messages {channel} de {organization} ?",
+    "note": "Vous pourrez vous réabonner à tout moment depuis votre compte. Les avis urgents peuvent encore vous parvenir.",
+    "confirm": "Me désinscrire",
+    "done": "C'est fait : vous ne recevrez plus de messages {channel}.",
+    "doneWithOrg": "C'est fait : vous ne recevrez plus de messages {channel} de {organization}.",
+    "channels": {
+      "IN_APP": "dans l'application",
+      "EMAIL": "par e-mail",
+      "SMS": "par SMS",
+      "WHATSAPP": "par WhatsApp",
+      "PUSH": "par notification push"
+    }
+  },
+  "v2FinancePending": {
+    "title": "Paiements à rapprocher",
+    "description": "Paiements en ligne restés en attente (notification perdue, session abandonnée). Le rapprochement automatique interroge le fournisseur ; ce qu'il ne peut pas conclure est signalé ici.",
+    "fourEyes": "Règle des quatre yeux : une personne demande la résolution manuelle (avec motif et preuve), une autre personne l'approuve. Seule l'approbation modifie le paiement.",
+    "caption": "Paiements en ligne en attente",
+    "columns": {
+      "received": "Reçu le",
+      "provider": "Fournisseur",
+      "amount": "Montant",
+      "state": "Rapprochement",
+      "next": "Prochaine vérification",
+      "actions": "Actions"
+    },
+    "state": {
+      "flagged": "À rapprocher",
+      "checking": "Vérification en cours",
+      "waiting": "Pas encore contrôlé"
+    },
+    "attempts": "{count, plural, one {# vérification} other {# vérifications}}",
+    "reasons": {
+      "unverifiable_no_provider_ref": "Aucune référence du fournisseur : la transaction ne peut pas être vérifiée automatiquement.",
+      "attempts_exhausted": "Le fournisseur répond toujours « en attente » après le nombre maximal de vérifications.",
+      "provider_unavailable": "Fournisseur désactivé, non configuré ou injoignable.",
+      "provider_amount_mismatch": "Le montant annoncé par le fournisseur diffère du montant attendu : rien n'a été encaissé.",
+      "provider_reference_mismatch": "La référence annoncée par le fournisseur diffère de celle de la transaction : rien n'a été encaissé.",
+      "provider_failed": "Le fournisseur a répondu de façon incohérente.",
+      "simulated_payment_in_production": "Paiement simulé : jamais confirmé en production.",
+      "unknown": "Une vérification manuelle est nécessaire."
+    },
+    "verify": "Vérifier maintenant",
+    "verifiedSettled": "Le fournisseur a conclu : le paiement est à jour.",
+    "verifiedStillPending": "Le fournisseur répond toujours « en attente ».",
+    "resolveAction": "Résoudre à la main",
+    "resolutionPending": "Résolution à approuver",
+    "filters": {
+      "state": "Rapprochement",
+      "all": "Tous",
+      "flagged": "À rapprocher (action humaine)",
+      "progress": "Vérification automatique en cours"
+    },
+    "empty": "Aucun paiement à rapprocher",
+    "emptyHint": "Les paiements en ligne en attente apparaissent ici ; ceux qui aboutissent disparaissent seuls.",
+    "outcome": {
+      "SUCCEEDED": "L'argent est arrivé",
+      "FAILED": "L'argent n'est pas arrivé"
+    },
+    "resolve": {
+      "title": "Résoudre un paiement à la main",
+      "description": "Paiement en attente de {amount}. Votre demande doit être approuvée par une autre personne avant de produire un effet.",
+      "outcome": "Ce qui s'est réellement passé",
+      "outcomes": {
+        "SUCCEEDED": "L'argent est arrivé : confirmer le paiement (reçu et imputation)",
+        "FAILED": "L'argent n'est pas arrivé : marquer le paiement échoué"
+      },
+      "reason": "Motif",
+      "reasonHint": "Expliquez la situation (10 caractères au moins).",
+      "evidence": "Preuve",
+      "evidenceHint": "Référence de transaction du relevé du fournisseur, numéro de pièce… (3 à 120 caractères).",
+      "warning": "Cette action est sensible : elle est journalisée avec votre identité, le motif et la preuve.",
+      "submit": "Demander la résolution",
+      "requested": "La demande est enregistrée : elle attend l'approbation d'une autre personne.",
+      "errors": {
+        "reason": "Le motif doit faire au moins 10 caractères.",
+        "evidence": "Saisissez la preuve (3 caractères au moins)."
+      }
+    },
+    "requests": {
+      "title": "Demandes à approuver",
+      "description": "Résolutions manuelles en attente. Vous ne pouvez pas approuver votre propre demande.",
+      "caption": "Demandes de résolution manuelle",
+      "empty": "Aucune demande en attente",
+      "payment": "Paiement {id}",
+      "refund": "Remboursement {id}",
+      "approve": "Approuver",
+      "reject": "Refuser",
+      "columns": {
+        "requested": "Demandé le",
+        "subject": "Concerne",
+        "outcome": "Issue déclarée",
+        "reason": "Motif",
+        "evidence": "Preuve"
+      }
+    },
+    "decision": {
+      "outcomes": {
+        "SUCCEEDED": "l'argent est arrivé",
+        "FAILED": "l'argent n'est pas arrivé"
+      },
+      "reason": "Motif de la demande : {reason}",
+      "note": "Note (facultatif)",
+      "approve": {
+        "title": "Approuver la résolution",
+        "description": "Vous confirmez que {outcome} (preuve : {evidence}). Le paiement ou le remboursement sera mis à jour.",
+        "submit": "Approuver",
+        "done": "La résolution est approuvée et appliquée."
+      },
+      "reject": {
+        "title": "Refuser la résolution",
+        "description": "La demande est close sans effet (preuve : {evidence}).",
+        "submit": "Refuser",
+        "done": "La demande est refusée."
+      }
     }
   }
 }

@@ -28,6 +28,16 @@ export const FinanceCode = {
   REFUND_EXCEEDS_REFUNDABLE: "finance.refund_exceeds_refundable",
   REFUND_NOT_FOUND: "finance.refund_not_found",
   REFUND_SELF_APPROVAL: "finance.refund_self_approval",
+  /** Le fournisseur n'offre pas ce remboursement (pas d'API, ou partiel) : l'exécuter À LA MAIN avec preuve (`manual`). */
+  REFUND_MANUAL_REQUIRED: "finance.refund_manual_required",
+  /** Un remboursement manuel est refusé : le fournisseur sait le faire (risque de double remboursement). */
+  REFUND_MANUAL_NOT_ALLOWED: "finance.refund_manual_not_allowed",
+  /** Remboursement déjà parti chez le fournisseur (REFUND_PENDING) : seul le rapprochement ou une résolution manuelle le conclut. */
+  REFUND_IN_FLIGHT: "finance.refund_in_flight",
+  RESOLUTION_NOT_FOUND: "finance.resolution_not_found",
+  RESOLUTION_NOT_APPLICABLE: "finance.resolution_not_applicable",
+  RESOLUTION_SELF_APPROVAL: "finance.resolution_self_approval",
+  RESOLUTION_ALREADY_OPEN: "finance.resolution_already_open",
   CREDIT_EXCEEDS_BALANCE: "finance.credit_exceeds_balance",
   CASH_SESSION_REQUIRED: "finance.cash_session_required",
   CASH_SESSION_NOT_FOUND: "finance.cash_session_not_found",
