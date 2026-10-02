@@ -3,6 +3,7 @@ export * from "./analytics";
 export * from "./assess";
 export * from "./attendance";
 export * from "./audit";
+export * from "./documents";
 export * from "./entitlements";
 export * from "./finance";
 export * from "./higher";
