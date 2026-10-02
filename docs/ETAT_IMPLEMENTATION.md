@@ -1,6 +1,6 @@
 # État de l'implémentation EcoleDigitale v2
 
-Mis à jour le 2026-10-02 sur la branche `feat/v2-phase-0` (572 commits, locale, rien n'est poussé). Référence de pilotage : `docs/PLAN_Mise_en_oeuvre_EcoleDigitale_SaaS.md`.
+Mis à jour le 2026-10-02 (fin de la passe autonome) sur la branche `feat/v2-phase-0` (environ 650 commits, locale, rien n'est poussé). Référence de pilotage : `docs/PLAN_Mise_en_oeuvre_EcoleDigitale_SaaS.md`.
 Décisions métier validées : `specs/v2/DECISIONS-METIER.md`. Questions encore ouvertes (valeur par défaut appliquée) : `specs/v2/QUESTIONS-A-VALIDER.md`. Décisions d'architecture : `docs/adr/`. Contrat des modules : `docs/architecture/module-conventions.md`, `platform-assembly.md`, `new-module-guide.md`.
 
 ## Terminé et fusionné
@@ -25,16 +25,15 @@ Mesures de contrôle de cette session : `check:boundaries` (1902 modules, 0 viol
 | B — Phase 3 (paiements, notifications, documents, imports) | Terminé côté code ; fournisseurs réels en sandbox/désactivé par défaut |
 | C — Pack Primary | Livré : `primary_school`, `admissions`, `examinations` + extensions de `rules`, `results`, `reportcards`, `academic`, `people`, `finance` ; règles officielles = jeux `placeholder` marqués |
 | D — Pack Secondary | Livré : `schoollife`, `stateassign`, `councils` ; BEPC/BAC/passage = mécanisme + paramètres vides, aucune règle officielle inventée |
-| E — qualité et exploitation | Accessibilité faite ; revue de sécurité et tests de charge en cours ; analytics avancés/alertes et hors-ligne avancé non faits |
+| E — qualité et exploitation | Terminé : accessibilité (axe), revue de sécurité (36 constats, critiques et élevés corrigés, `security-review-v2.md`), correctifs de dépendances (263 -> 36 avis, 0 critique), tests de charge et optimisations (`perf-report.md`), tableaux de bord de direction et alertes (spec 025 B), hors-ligne avancé (emploi du temps, notes), exercice de restauration (32/32 contrôles, `runbook-exploitation.md` §12) |
 
-## En cours au moment de la rédaction (vérifier `git log` et `git branch --list 'worktree-agent-*'`)
+## En cours
 
-- Revue de sécurité complète (`docs/architecture/security-review-v2.md` attendu).
-- Tests de charge et `docs/architecture/perf-report.md`.
+Rien : tous les agents de la passe autonome sont terminés et fusionnés.
 
 ## Reste à faire
 
-1. **Phase E restante** : tableaux de bord de direction et alertes avancées (spec 025), hors-ligne avancé (emploi du temps, notes), exercice de restauration, intégration des corrections de la revue de sécurité, job de charge en CI (non bloquant).
+1. **Phase E, restes** : cache de session (non fait : refus immédiat d une session révoquée non garanti), voisin bruyant en lecture (x3,5 pour un objectif x3), fastify 5 et mises à jour de version majeure (36 avis restants), test de charge à l échelle 33, exercice de restauration sur serveur réel (MinIO, PITR).
 2. **Compléments connus des packs** (additifs, voir les README de modules) :
    - `admissions` : édition d'une candidature existante côté web. *(Fait le 2026-10-02 : événements `admissions.interview.scheduled|rescheduled|cancelled` ; rattachement des pièces à la GED différé et confirmé par un humain, sans acteur système — voir le README du module.)*
    - `councils` : sélecteur de participant externe et formulaire de vœux d'orientation (web). *(Fait le 2026-10-02 : retrait unitaire d'une décision/distinction dans `results`, PV remplacé marqué par `reportcards` à la réouverture, accès `label_map` de `rules` pour libeller les propositions ; restent hors périmètre les échecs préexistants de `test/events-catalog.test.ts` et de la couverture des contrats d'événements, voir le README de `councils`.)*
