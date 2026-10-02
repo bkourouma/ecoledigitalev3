@@ -46,6 +46,17 @@ export default defineModule({
       sensitive: true,
     },
     {
+      key: "finance.webhook.read",
+      label: "Consulter les événements webhook de paiement en échec (sans charge brute ni secret)",
+      description: "Liste des notifications de fournisseur que le module n'a pas pu appliquer : identifiant, fournisseur, paiement lié, code d'erreur, tentatives.",
+    },
+    {
+      key: "finance.webhook.replay",
+      label: "Rejouer un événement webhook en échec (re-vérification auprès du fournisseur)",
+      description: "Relance l'application d'un événement après interrogation du fournisseur, avec les mêmes contrôles que le webhook. Idempotent, toujours audité ; exige l'authentification forte.",
+      sensitive: true,
+    },
+    {
       key: "finance.provider.manage",
       label: "Configurer les fournisseurs de paiement en ligne (identifiants marchands, activation, test de connexion)",
       description: "Les identifiants marchands déterminent où arrive l'argent des familles : exige l'authentification forte, chaque accès aux secrets est audité.",

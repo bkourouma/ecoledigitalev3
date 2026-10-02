@@ -29,6 +29,8 @@ import type {
   ReconciliationRecord,
   RefundRecord,
 } from "../domain/records";
+import type { WebhookEventRecord } from "../domain/records";
+import { safeWebhookError } from "../application/webhook-admin";
 import type { PendingPaymentRow } from "../infrastructure/reconciliation-repository";
 import type { Scholarship } from "../domain/scholarship";
 import type { IsoDate } from "../domain/types";
@@ -308,6 +310,20 @@ export const pendingPaymentDto = (row: PendingPaymentRow) => ({
   payment: paymentDto(row.payment),
   reconciliation: row.reconciliation ? reconciliationDto(row.reconciliation) : null,
   openResolutionId: row.openResolutionId,
+});
+
+/** Événement webhook : jamais la charge brute, ni en-tête, ni secret ; `error` = code court. */
+export const webhookEventDto = (w: WebhookEventRecord) => ({
+  id: w.id,
+  provider: w.provider,
+  eventId: w.eventId,
+  eventType: w.eventType,
+  status: w.status,
+  paymentId: w.paymentId,
+  error: safeWebhookError(w.error),
+  attempts: w.attempts,
+  receivedAt: w.receivedAt.toISOString(),
+  processedAt: iso(w.processedAt),
 });
 
 export const resolutionDto = (r: ManualResolutionRecord) => ({

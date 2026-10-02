@@ -35,6 +35,8 @@ import {
   financeCompleteRefundBodySchema,
   financeDecideResolutionBodySchema,
   financeListPendingPaymentsQuerySchema,
+  financeListWebhookEventsQuerySchema,
+  financeReplayWebhookEventBodySchema,
   financeListResolutionsQuerySchema,
   financeRequestResolutionBodySchema,
   financeCancelInvoiceBodySchema,
@@ -107,6 +109,7 @@ import {
   setLearnerFunding,
 } from "../application/catalog";
 import { createFinanceDeps, type FinanceDeps } from "../application/deps";
+import { getWebhookEventView, listWebhookEventsPage, replayFailedWebhookEvent } from "../application/webhook-admin";
 import {
   exportInvoicesCsv,
   exportPaymentsCsv,
@@ -574,6 +577,31 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
           }),
         );
         return { items: page.items.map(present.pendingPaymentDto), total: page.total };
+      });
+      // ----- Webhooks en échec : lecture (`finance.webhook.read`) et rejeu sûr (`finance.webhook.replay`, SENSIBLE) -------
+      // Jamais de charge brute ni de secret dans les réponses ; le rejeu interroge le fournisseur (aucune issue imposée).
+      scope.get("/webhook-events", { preHandler: perm("finance.webhook.read") }, async (req) => {
+        const q = parse(financeListWebhookEventsQuerySchema, req.query);
+        const page = unwrapOrThrow(
+          await listWebhookEventsPage(deps, ctxOf(req), {
+            status: q.status,
+            limit: q.limit,
+            offset: q.offset,
+            ...(q.provider ? { provider: q.provider } : {}),
+            ...(q.paymentId ? { paymentId: q.paymentId } : {}),
+          }),
+        );
+        return { items: page.items.map(present.webhookEventDto), total: page.total };
+      });
+      scope.get("/webhook-events/:id", { preHandler: perm("finance.webhook.read") }, async (req) => {
+        const { id } = parse(financeIdParamsSchema, req.params);
+        return present.webhookEventDto(unwrapOrThrow(await getWebhookEventView(deps, ctxOf(req), id)));
+      });
+      scope.post("/webhook-events/:id/replay", { preHandler: perm("finance.webhook.replay") }, async (req) => {
+        const { id } = parse(financeIdParamsSchema, req.params);
+        const b = parse(financeReplayWebhookEventBodySchema, req.body ?? {});
+        const r = unwrapOrThrow(await replayFailedWebhookEvent(deps, ctxOf(req), { id, ...(b.note ? { note: b.note } : {}) }));
+        return { replayed: r.replayed, resolved: r.resolved, event: present.webhookEventDto(r.event), paymentStatus: r.paymentStatus };
       });
       scope.get("/resolutions", { preHandler: perm("finance.payment.read") }, async (req) => {
         const q = parse(financeListResolutionsQuerySchema, req.query);
