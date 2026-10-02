@@ -80,6 +80,8 @@ export default defineModule({
     // tant que l'établissement n'a pas souscrit la feature (le test de sortie de phase 1 s'appuie dessus).
     { key: "finance.online-payments", label: "Paiements en ligne", href: "/admin/finance/paiements-en-ligne", permission: "finance.payment.read", feature: "finance.online-payment", portal: "admin", icon: "smartphone", order: 415 },
     { key: "finance.providers", label: "Fournisseurs de paiement", href: "/admin/finance/fournisseurs", permission: "finance.provider.manage", feature: "finance.online-payment", portal: "admin", icon: "credit-card", order: 416 },
+    // Écran `/v2/finance/payments/pending` (lecture `GET /payments/pending`, résolution quatre yeux) : cible des alertes `notifications`.
+    { key: "finance.reconciliation", label: "Paiements à rapprocher", href: "/v2/finance/payments/pending", permission: "finance.payment.read", feature: "finance.online-payment", portal: "admin", icon: "scale", order: 417 },
     { key: "finance.state-assigned", label: "Élèves affectés par l'État", href: "/admin/finance/affectes-etat", permission: "finance.fee.read", feature: "finance.state-assigned", portal: "admin", icon: "landmark", order: 435 },
     { key: "finance.child", label: "Scolarité de mes enfants", href: "/parent/finance", permission: "finance.child.read", portal: "parent", icon: "wallet", order: 500 },
     { key: "finance.self", label: "Ma scolarité", href: "/student/finance", permission: "finance.self.read", portal: "student", icon: "wallet", order: 500 },
