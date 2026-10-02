@@ -33,6 +33,7 @@ import {
   type Tx,
 } from "@ecoledigitale/database";
 import type { Logger } from "../logger";
+import type { RelayObserver } from "../observability";
 import { computeBackoff, type BackoffOptions } from "./backoff";
 import type { NotificationSource } from "./notifications";
 import type { DeadLetter, EventPublisher } from "./publisher";
@@ -43,6 +44,8 @@ export interface RelayConfig {
   pollIntervalMs: number;
   maxAttempts: number;
   backoff: BackoffOptions;
+  /** Lit la colonne `traceparent` de l'outbox (migration 0604) pour propager le contexte de trace (ADR-009). */
+  withTraceparent?: boolean;
 }
 
 export interface RelayDeps {
@@ -53,6 +56,8 @@ export interface RelayDeps {
   logger: Logger;
   config: RelayConfig;
   rng?: () => number;
+  /** Métriques d'exploitation du relais (retard de publication, échecs, plus ancien événement en attente). */
+  observer?: RelayObserver;
 }
 
 export interface RelayStats {
@@ -87,6 +92,7 @@ export function toDomainEvent(row: PendingEvent): DomainEvent {
     ...(row.aggregate_id ? { aggregateId: row.aggregate_id } : {}),
     ...(row.actor_id ? { actorId: row.actor_id } : {}),
     ...(row.request_id ? { requestId: row.request_id } : {}),
+    ...(row.traceparent ? { traceparent: row.traceparent } : {}),
   };
 }
 
@@ -209,6 +215,7 @@ export class OutboxRelay {
     const pause = computeBackoff(this.infraFailures, INFRA_BACKOFF, this.deps.rng);
     this.infraPausedUntil = Date.now() + pause;
     this.sweepRequested = true;
+    this.deps.observer?.infraFailure();
     this.deps.logger.error({ err: err.message, pauseMs: pause, consecutive: this.infraFailures }, "relais en pause : Redis injoignable");
   }
 
@@ -227,6 +234,7 @@ export class OutboxRelay {
       return n;
     });
     for (const ok of report.succeeded) published += ok.result;
+    this.deps.observer?.sweepDone(Date.now());
     const infra = report.failed.find((f) => f.error instanceof RelayInfraError);
     for (const f of report.failed) {
       if (f.error instanceof RelayInfraError) continue;
@@ -267,9 +275,15 @@ export class OutboxRelay {
    * `SystemDb` du tenant. Renvoie le nombre d'événements MIS EN FILE (publiés).
    */
   async processTenant(tx: Tx, tenantId: string): Promise<number> {
-    const { publisher, dead, config, logger } = this.deps;
-    const rows = await fetchPendingEvents(tx, config.batchSize);
-    if (rows.length === 0) return 0;
+    const { publisher, dead, config, logger, observer } = this.deps;
+    const rows = await fetchPendingEvents(tx, config.batchSize, config.withTraceparent ? { withTraceparent: true } : {});
+    if (rows.length === 0) {
+      observer?.tenantPending(tenantId, null);
+      return 0;
+    }
+    // Panne d'infrastructure : rien n'a été publié, tout ce lot reste en attente (signal « outbox bloquée »).
+    const stuck = (): void =>
+      observer?.tenantPending(tenantId, { count: rows.length, oldestOccurredAtMs: new Date(rows[0]?.occurred_at ?? Date.now()).getTime() });
 
     const events = rows.map(toDomainEvent);
     const failures = new Map<string, unknown>();
@@ -277,13 +291,19 @@ export class OutboxRelay {
     try {
       await publisher.publishMany(events);
     } catch (bulkError) {
-      if (!(await publisher.isHealthy())) throw new RelayInfraError("publication impossible : Redis ne répond pas", bulkError);
+      if (!(await publisher.isHealthy())) {
+        stuck();
+        throw new RelayInfraError("publication impossible : Redis ne répond pas", bulkError);
+      }
       // Redis répond : on isole le(s) événement(s) fautif(s). Les doublons sont absorbés par le jobId.
       for (const event of events) {
         try {
           await publisher.publish(event);
         } catch (error) {
-          if (!(await publisher.isHealthy())) throw new RelayInfraError("publication impossible : Redis ne répond pas", error);
+          if (!(await publisher.isHealthy())) {
+            stuck();
+            throw new RelayInfraError("publication impossible : Redis ne répond pas", error);
+          }
           failures.set(event.id, error);
         }
       }
@@ -292,6 +312,8 @@ export class OutboxRelay {
     const okIds = events.filter((e) => !failures.has(e.id)).map((e) => e.id);
     await markEventsPublished(tx, okIds);
 
+    // Reste en attente après ce passage : les événements dont la publication a échoué et sera reprise.
+    const retained: Array<{ occurredAtMs: number }> = [];
     for (const row of rows) {
       const error = failures.get(row.id);
       if (error === undefined) continue;
@@ -317,18 +339,28 @@ export class OutboxRelay {
           [row.id, message],
         );
         this.stats.dead += 1;
-        logger.error({ tenantId, eventId: row.id, eventType: row.type, attempts, err: message }, "événement en échec définitif (dead-letter)");
+        observer?.dead();
+        logger.error({ tenantId, eventId: row.id, eventType: row.type, requestId: row.request_id ?? undefined, attempts, err: message }, "événement en échec définitif (dead-letter)");
       } else {
         const retryInMs = computeBackoff(attempts, config.backoff, this.deps.rng);
         await markEventFailed(tx, row.id, message, retryInMs);
         this.stats.failed += 1;
+        observer?.publishFailed();
+        retained.push({ occurredAtMs: new Date(row.occurred_at).getTime() });
         this.scheduleRetry(tenantId, retryInMs);
-        logger.warn({ tenantId, eventId: row.id, eventType: row.type, attempts, retryInMs, err: message }, "publication échouée : nouvelle tentative planifiée");
+        logger.warn({ tenantId, eventId: row.id, eventType: row.type, requestId: row.request_id ?? undefined, attempts, retryInMs, err: message }, "publication échouée : nouvelle tentative planifiée");
       }
     }
 
     this.stats.published += okIds.length;
     if (okIds.length > 0) this.stats.lastPublishedAt = Date.now();
+    if (observer) {
+      observer.published(events.filter((e) => !failures.has(e.id)), Date.now());
+      observer.tenantPending(
+        tenantId,
+        retained.length > 0 ? { count: retained.length, oldestOccurredAtMs: Math.min(...retained.map((r) => r.occurredAtMs)) } : null,
+      );
+    }
     logger.debug({ tenantId, published: okIds.length, failed: failures.size }, "lot d'outbox traité");
     return okIds.length + failures.size;
   }

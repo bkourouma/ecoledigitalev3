@@ -103,6 +103,14 @@ describe("règles de frontières (dependency-cruiser)", () => {
     write(r, `${M}/beta/application/imports-adapter.ts`, 'import { okAdapter } from "../../../platform/adapters/ok-adapter";\nexport const bad11 = okAdapter;\n');
     write(r, "apps/api/src/platform/not-an-adapter.ts", 'import { secret } from "../modules/alpha/internal/secret";\nexport const notAdapter = secret;\n');
 
+    // --- observabilité (ADR-009) : le coeur est sans Fastify, sans pg, sans module ; aucun fichier n'importe un module ---
+    write(r, "apps/api/src/platform/observability/core/ok-core.ts", "export const okCore = 1;\n");
+    write(r, "apps/api/src/platform/observability/core/bad-fastify.ts", 'import "fastify";\nexport const badObs1 = 1;\n');
+    write(r, "apps/api/src/platform/observability/core/bad-pg.ts", 'import "pg";\nexport const badObs2 = 1;\n');
+    write(r, "apps/api/src/platform/observability/core/bad-module.ts", 'import { secret } from "../../../modules/alpha/index";\nexport const badObs3 = secret;\n');
+    write(r, "apps/api/src/platform/observability/plugin-ok.ts", 'import "fastify";\nimport { okCore } from "./core/ok-core";\nexport const pluginOk = okCore;\n');
+    write(r, "apps/api/src/platform/observability/bad-legacy.ts", 'import { legacySvc } from "../../services/legacy-svc";\nexport const badObs4 = legacySvc;\n');
+
     // --- packages ---
     write(r, "packages/rules-engine/src/bad.ts", 'import "pg";\nimport { readFileSync } from "node:fs";\nexport const bad9 = readFileSync;\n');
     write(r, "packages/kernel/src/bad.ts", 'import { platformOk } from "../../../apps/api/src/platform/platform-ok";\nexport const bad10 = platformOk;\n');
@@ -159,6 +167,15 @@ describe("règles de frontières (dependency-cruiser)", () => {
     expect(has("modules-not-adapters", "beta/application/imports-adapter.ts", "platform/adapters/ok-adapter.ts")).toBe(true);
     // Le reste de platform/ n'est pas concerné par la règle des adaptateurs (aucune exception créée).
     expect(violations.some((v) => v.rule.startsWith("platform-adapters") && v.from.endsWith("platform/not-an-adapter.ts"))).toBe(false);
+  });
+
+  it("observabilité : le coeur est sans Fastify, pg ni module ; aucun fichier n'importe un module ni le legacy", () => {
+    expect(violations.some((v) => v.from.endsWith("observability/core/ok-core.ts") || v.from.endsWith("observability/plugin-ok.ts"))).toBe(false);
+    expect(has("observability-core-framework-free", "observability/core/bad-fastify.ts")).toBe(true);
+    expect(has("observability-core-framework-free", "observability/core/bad-pg.ts")).toBe(true);
+    expect(has("observability-core-framework-free", "observability/core/bad-module.ts", "alpha/index.ts")).toBe(true);
+    expect(has("observability-no-modules", "observability/core/bad-module.ts", "alpha/index.ts")).toBe(true);
+    expect(has("observability-no-modules", "observability/bad-legacy.ts", "services/legacy-svc.ts")).toBe(true);
   });
 
   it("garde les packages purs (rules-engine sans pg / node:fs, kernel sans code d'app)", () => {

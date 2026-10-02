@@ -1,0 +1,38 @@
+# Prometheus de DÉVELOPPEMENT (profil `observability` de infra/compose/docker-compose.dev.yml). Aucun secret dans ce fichier :
+# le jeton de /metrics est lu dans un fichier monté (infra/observability/secrets/metrics-token, ignoré par git).
+#
+# Côté application (hors Docker, `pnpm dev`) :
+#   API    : METRICS_PORT=9464 METRICS_HOST=0.0.0.0 METRICS_TOKEN=<contenu du fichier>   (un port dédié hors loopback EXIGE un jeton)
+#   worker : WORKER_HTTP_HOST=0.0.0.0 METRICS_TOKEN=<contenu du fichier>                 (/metrics sur le serveur de santé, port 8012)
+# En production, adapter `targets` (découverte de service) et ne jamais exposer ces ports hors du réseau d'exploitation.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: ed-api
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/metrics-token
+    static_configs:
+      - targets: ["host.docker.internal:9464"]
+
+  - job_name: ed-worker
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/metrics-token
+    static_configs:
+      - targets: ["host.docker.internal:8012"]
+
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8888"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

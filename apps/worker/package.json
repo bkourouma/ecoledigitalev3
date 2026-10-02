@@ -21,10 +21,22 @@
   "dependencies": {
     "@ecoledigitale/database": "workspace:*",
     "@ecoledigitale/kernel": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/core": "^2.0.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
+    "@opentelemetry/instrumentation": "^0.222.0",
+    "@opentelemetry/instrumentation-http": "^0.222.0",
+    "@opentelemetry/instrumentation-pg": "^0.74.0",
+    "@opentelemetry/instrumentation-undici": "^0.32.0",
+    "@opentelemetry/resources": "^2.0.0",
+    "@opentelemetry/sdk-trace-base": "^2.0.0",
+    "@opentelemetry/sdk-trace-node": "^2.0.0",
+    "@opentelemetry/semantic-conventions": "^1.30.0",
     "bullmq": "^5.58.0",
     "ioredis": "^5.7.0",
     "pg": "^8.12.0",
     "pino": "^9.9.0",
+    "prom-client": "^15.1.3",
     "zod": "^3.22.4"
   },
   "devDependencies": {

@@ -207,7 +207,8 @@ describeIntegration("jobs planifiés, jobs du socle et garde-fous du démarrage 
 
       const summary = lines.filter((l) => l.msg === "outbox purgée");
       expect(summary.reduce((n, l) => n + l.eventsDeleted, 0)).toBe(25);
-      expect(summary.every((l) => typeof l.tenantId === "string" && typeof l.job === "string")).toBe(true); // contexte structuré
+      // contexte structuré, au schéma commun de l'API et du worker (ADR-009) : tenant_id, job_id, module
+      expect(summary.every((l) => typeof l.tenant_id === "string" && typeof l.job === "string" && typeof l.job_id === "string")).toBe(true);
     });
   });
 

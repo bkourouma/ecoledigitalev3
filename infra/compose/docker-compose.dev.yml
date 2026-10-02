@@ -91,7 +91,87 @@ services:
       redis:
         condition: service_healthy
 
+  # ---------------------------------------------------------------------------------------------------------------------
+  # Observabilite (ADR-009) : PROFIL OPTIONNEL `observability` (non demarre par defaut) — collecteur OTLP, Tempo (traces),
+  # Prometheus (metriques, regles d alerte), Grafana (tableau de bord provisionne). AUCUN secret dans le depot :
+  #
+  #   1. jeton de /metrics et mot de passe administrateur de Grafana, ecrits une fois dans des fichiers (le dossier `secrets/`
+  #      est ignore par le controle de version ; aucune valeur par defaut : sans ces fichiers le profil ne demarre pas) :
+  #        mkdir -p infra/observability/secrets
+  #        openssl rand -hex 24 > infra/observability/secrets/metrics-token
+  #        openssl rand -hex 16 > infra/observability/secrets/grafana-admin-password
+  #   2. demarrer :
+  #        docker compose -f infra/compose/docker-compose.dev.yml --profile observability up -d
+  #   3. lancer l API et le worker (hors Docker) avec :
+  #        OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318      # active les traces (aucun appel reseau sans cette variable)
+  #        METRICS_TOKEN=$(cat infra/observability/secrets/metrics-token)
+  #        API    : METRICS_PORT=9464 METRICS_HOST=0.0.0.0         # un port de metriques hors loopback EXIGE le jeton
+  #        worker : WORKER_HTTP_HOST=0.0.0.0                       # /metrics sur le serveur de sante (port 8012)
+  #   Grafana : http://localhost:3001 (admin) ; Prometheus : http://localhost:9090 ; ports lies a 127.0.0.1.
+  # ---------------------------------------------------------------------------------------------------------------------
+  otel-collector:
+    profiles: ["observability"]
+    image: otel/opentelemetry-collector-contrib:0.131.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ../observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "127.0.0.1:${OTLP_GRPC_PORT:-4317}:4317"
+      - "127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318"
+    depends_on:
+      - tempo
+
+  tempo:
+    profiles: ["observability"]
+    image: grafana/tempo:2.8.1
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ../observability/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+
+  prometheus:
+    profiles: ["observability"]
+    image: prom/prometheus:v3.5.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../observability/prometheus/rules:/etc/prometheus/rules:ro
+      - ${OBS_METRICS_TOKEN_FILE:-../observability/secrets/metrics-token}:/etc/prometheus/secrets/metrics-token:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:12.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      # Mot de passe lu dans un fichier (jamais dans le depot ni dans l environnement du compose).
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana-admin-password
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ${OBS_GRAFANA_PASSWORD_FILE:-../observability/secrets/grafana-admin-password}:/run/secrets/grafana-admin-password:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      - prometheus
+      - tempo
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  prometheus_data:
+  grafana_data:
+  tempo_data:

@@ -10,12 +10,13 @@
 import { randomBytes } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import { Redis } from "ioredis";
 import { noopLogger } from "@ecoledigitale/kernel";
 import { WorkerApp } from "../../../../worker/src/app";
 import { loadConfig } from "../../../../worker/src/config";
-import { createLogger } from "../../../../worker/src/logger";
+import { createLogger, type Logger as WorkerLogger } from "../../../../worker/src/logger";
+import type { WorkerObservability } from "../../../../worker/src/observability";
 import { configureTenantSync } from "../../../src/platform/tenant-sync";
 import { resetPublicRoutesForTests } from "../../../src/platform/public-routes";
 import { resetRegistryForTests } from "../../../src/modules/registry";
@@ -139,8 +140,17 @@ export async function prepareInfra(options: { legacyTenants?: LegacyTenantInput[
 }
 
 /** Une instance de l'API : Fastify + vrais plugins legacy + `registerV2Platform`, comme `src/index.ts`. */
-export async function bootInstance(infra: Infra, options: { extraEnv?: Record<string, string> } = {}): Promise<{ app: FastifyInstance; status: V2PlatformStatus }> {
-  const app = Fastify({ logger: false });
+export interface BootInstanceOptions {
+  extraEnv?: Record<string, string>;
+  /** Options de Fastify (défaut : `{ logger: false }`) — l'observabilité (ADR-009) fournit les siennes. */
+  fastify?: FastifyServerOptions;
+  /** Exécuté AVANT tout autre plugin (c'est la place du plugin d'observabilité : ses hooks ne couvrent que les routes déclarées après lui). */
+  beforePlatform?: (app: FastifyInstance) => Promise<void>;
+}
+
+export async function bootInstance(infra: Infra, options: BootInstanceOptions = {}): Promise<{ app: FastifyInstance; status: V2PlatformStatus }> {
+  const app = Fastify(options.fastify ?? { logger: false });
+  await options.beforePlatform?.(app);
   app.decorate("pg", infra.legacy.pool as never);
   const { default: tenantContextPlugin } = await legacyModule<{ default: never }>("plugins/tenant-context");
   const { default: authMiddleware } = await legacyModule<{ default: never }>("plugins/auth-middleware");
@@ -194,7 +204,13 @@ export interface Phase1Env {
   stop(): Promise<void>;
 }
 
-export function workerFor(infra: Infra): WorkerApp {
+export interface WorkerForOptions {
+  logger?: WorkerLogger;
+  /** `undefined` : observabilité par défaut (environnement) ; `null` : aucune ; fonction : construite avec l'infrastructure (préfixe de files). */
+  observability?: WorkerObservability | null | ((infra: Infra) => WorkerObservability);
+}
+
+export function workerFor(infra: Infra, options: WorkerForOptions = {}): WorkerApp {
   return new WorkerApp(
     loadConfig({
       NODE_ENV: "test",
@@ -210,15 +226,20 @@ export function workerFor(infra: Infra): WorkerApp {
       WORKER_RELAY_BACKOFF_MAX_MS: "500",
       WORKER_SHUTDOWN_TIMEOUT_MS: "10000",
     } as NodeJS.ProcessEnv),
-    { logger: createLogger("silent") },
+    {
+      logger: options.logger ?? createLogger("silent"),
+      ...(options.observability !== undefined ? { observability: typeof options.observability === "function" ? options.observability(infra) : options.observability } : {}),
+    },
   );
 }
 
-export async function startPhase1Platform(options: { startWorker?: boolean; legacyTenants?: LegacyTenantInput[] } = {}): Promise<Phase1Env> {
+export async function startPhase1Platform(
+  options: { startWorker?: boolean; legacyTenants?: LegacyTenantInput[]; instance?: BootInstanceOptions; worker?: WorkerForOptions } = {},
+): Promise<Phase1Env> {
   const infra = await prepareInfra(options.legacyTenants ? { legacyTenants: options.legacyTenants } : {});
-  const { app, status } = await bootInstance(infra);
+  const { app, status } = await bootInstance(infra, options.instance ?? {});
 
-  const worker = workerFor(infra);
+  const worker = workerFor(infra, options.worker ?? {});
   if (options.startWorker !== false) await worker.start();
 
   const { generateSuperAdminToken } = await legacyModule<{ generateSuperAdminToken(id: string, email: string): string }>("services/super-admin-jwt.service");

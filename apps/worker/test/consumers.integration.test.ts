@@ -290,7 +290,11 @@ describeIntegration("abonnés d'événements (relais -> routeur -> handlers, Pos
     expect((await fetch(`${base}/health`)).status).toBe(200);
     const ready = await fetch(`${base}/ready`);
     expect(ready.status).toBe(200);
-    expect((await ready.json()) as { checks: Array<{ name: string; ok: boolean }> }).toMatchObject({ status: "ready", checks: [{ name: "redis", ok: true }, { name: "postgres", ok: true }] });
+    // ADR-009 : sondes redis, postgres, migrations (requises) et stockage (facultative, ignorée sans configuration).
+    expect((await ready.json()) as { checks: Array<{ name: string; ok: boolean }> }).toMatchObject({
+      status: "ready",
+      checks: [{ name: "redis", ok: true }, { name: "postgres", ok: true }, { name: "migrations", ok: true }, { name: "storage", ok: true }],
+    });
 
     await writeEvents(env, tenantA(), 1, "school.student.enrolled");
     await waitFor(() => started, { label: "handler démarré" });

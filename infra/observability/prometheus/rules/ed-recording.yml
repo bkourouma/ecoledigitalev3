@@ -1,0 +1,51 @@
+# Règles d'enregistrement EcoleDigitale (ADR-009) : agrégats réutilisés par les alertes et le tableau de bord.
+# Aucune étiquette `tenant_id` : les séries sont agrégées par module et par motif de route (cardinalité maîtrisée).
+groups:
+  - name: ed-recording
+    interval: 30s
+    rules:
+      # Trafic et erreurs HTTP de l'API
+      - record: ed:http_requests:rate5m
+        expr: sum by (module) (rate(ed_http_requests_total[5m]))
+      - record: ed:http_errors:rate5m
+        expr: sum by (module) (rate(ed_http_requests_total{status_class="5xx"}[5m]))
+      - record: ed:http_error_ratio:5m
+        expr: |
+          sum(rate(ed_http_requests_total{status_class="5xx"}[5m]))
+            / clamp_min(sum(rate(ed_http_requests_total[5m])), 1e-9)
+      - record: ed:http_error_ratio_by_module:5m
+        expr: |
+          sum by (module) (rate(ed_http_requests_total{status_class="5xx"}[5m]))
+            / clamp_min(sum by (module) (rate(ed_http_requests_total[5m])), 1e-9)
+      # Latence (quantiles agrégés sur toutes les instances)
+      - record: ed:http_latency_p95:5m
+        expr: histogram_quantile(0.95, sum by (le) (rate(ed_http_request_duration_seconds_bucket[5m])))
+      - record: ed:http_latency_p99:5m
+        expr: histogram_quantile(0.99, sum by (le) (rate(ed_http_request_duration_seconds_bucket[5m])))
+      - record: ed:http_latency_p95_by_module:5m
+        expr: histogram_quantile(0.95, sum by (module, le) (rate(ed_http_request_duration_seconds_bucket[5m])))
+      # Relais d'outbox : retard de publication
+      - record: ed:outbox_publish_lag_p95:5m
+        expr: histogram_quantile(0.95, sum by (le) (rate(ed_outbox_publish_lag_seconds_bucket[5m])))
+      - record: ed:outbox_publish_lag_p99:5m
+        expr: histogram_quantile(0.99, sum by (le) (rate(ed_outbox_publish_lag_seconds_bucket[5m])))
+      # Abonnés : taux d'échec (retry + dead) par module
+      - record: ed:subscriber_failure_ratio_by_module:15m
+        expr: |
+          sum by (module) (rate(ed_subscriber_jobs_total{outcome=~"retry|dead"}[15m]))
+            / clamp_min(sum by (module) (rate(ed_subscriber_jobs_total[15m])), 1e-9)
+      # Rendus PDF
+      - record: ed:pdf_render_p95:15m
+        expr: histogram_quantile(0.95, sum by (le) (rate(ed_pdf_render_duration_seconds_bucket[15m])))
+      - record: ed:pdf_render_failure_ratio:15m
+        expr: |
+          sum(rate(ed_pdf_render_failures_total[15m]))
+            / clamp_min(sum(rate(ed_pdf_render_duration_seconds_count[15m])), 1e-9)
+      # Jobs planifiés : ancienneté de la dernière réussite
+      - record: ed:scheduled_job_last_success_age_seconds
+        expr: time() - max by (job) (ed_scheduled_job_last_success_timestamp_seconds)
+      # Profondeur agrégée sur les réplicas du worker (chaque réplica lit les mêmes files : on prend le maximum, jamais la somme)
+      - record: ed:queue_jobs:max
+        expr: max by (queue, state) (ed_queue_jobs)
+      - record: ed:queue_oldest_waiting_age_seconds:max
+        expr: max by (queue) (ed_queue_oldest_waiting_age_seconds)

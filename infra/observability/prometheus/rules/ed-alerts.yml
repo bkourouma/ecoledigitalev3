@@ -1,0 +1,295 @@
+# Règles d'alerte EcoleDigitale (ADR-009). EXEMPLES à ajuster à la charge réelle ; seuils expliqués dans
+# docs/architecture/runbook-exploitation.md (SLO proposés, procédures de diagnostic par alerte : annotation `runbook`).
+#
+# Convention : severity = critical (réveille quelqu'un) | warning (à traiter dans la journée) ; aucune étiquette de tenant
+# (les métriques n'en portent pas : pour savoir QUEL tenant est touché, chercher son tenant_id dans les journaux et les traces).
+groups:
+  # ---------------------------------------------------------------------------------------------------------------------
+  - name: ed-api
+    rules:
+      - alert: EdApiDown
+        expr: up{job="ed-api"} == 0
+        for: 2m
+        labels: { severity: critical, component: api }
+        annotations:
+          summary: "L'API ne répond plus au scrape ({{ $labels.instance }})"
+          description: "Prometheus n'obtient plus /metrics de l'API depuis 2 minutes. Vérifier /health puis /ready, les journaux du conteneur et le jeton METRICS_TOKEN."
+          runbook: "docs/architecture/runbook-exploitation.md#api-indisponible"
+
+      - alert: EdApiErrorRateHigh
+        expr: ed:http_error_ratio:5m > 0.05 and sum(ed:http_requests:rate5m) > 0.2
+        for: 10m
+        labels: { severity: critical, component: api }
+        annotations:
+          summary: "Plus de 5 % de réponses 5xx sur l'API"
+          description: "Taux d'erreur serveur {{ $value | humanizePercentage }} sur 5 minutes. Voir le tableau de bord (erreurs par module) puis les journaux level=error avec module=<module>."
+          runbook: "docs/architecture/runbook-exploitation.md#taux-derreur-5xx-élevé"
+
+      - alert: EdApiErrorRateElevated
+        expr: ed:http_error_ratio:5m > 0.01 and sum(ed:http_requests:rate5m) > 0.2
+        for: 15m
+        labels: { severity: warning, component: api }
+        annotations:
+          summary: "Plus de 1 % de réponses 5xx sur l'API"
+          description: "Taux d'erreur serveur {{ $value | humanizePercentage }} sur 5 minutes (budget d'erreur du SLO de disponibilité en consommation)."
+          runbook: "docs/architecture/runbook-exploitation.md#taux-derreur-5xx-élevé"
+
+      - alert: EdModuleErrorRateHigh
+        expr: ed:http_error_ratio_by_module:5m > 0.1 and ed:http_requests:rate5m > 0.05
+        for: 10m
+        labels: { severity: warning, component: api }
+        annotations:
+          summary: "Module {{ $labels.module }} : plus de 10 % de 5xx"
+          description: "Le module {{ $labels.module }} répond en erreur serveur dans {{ $value | humanizePercentage }} des requêtes."
+          runbook: "docs/architecture/runbook-exploitation.md#taux-derreur-5xx-élevé"
+
+      - alert: EdApiLatencyP95High
+        expr: ed:http_latency_p95:5m > 1 and sum(ed:http_requests:rate5m) > 0.2
+        for: 15m
+        labels: { severity: warning, component: api }
+        annotations:
+          summary: "Latence p95 de l'API supérieure à 1 s"
+          description: "p95 = {{ $value | humanizeDuration }}. Regarder la latence par module, le pool PostgreSQL et le retard de la boucle d'événements."
+          runbook: "docs/architecture/runbook-exploitation.md#latence-élevée"
+
+      - alert: EdApiLatencyP99Critical
+        expr: ed:http_latency_p99:5m > 5 and sum(ed:http_requests:rate5m) > 0.2
+        for: 10m
+        labels: { severity: critical, component: api }
+        annotations:
+          summary: "Latence p99 de l'API supérieure à 5 s"
+          description: "p99 = {{ $value | humanizeDuration }}."
+          runbook: "docs/architecture/runbook-exploitation.md#latence-élevée"
+
+      - alert: EdPgPoolSaturated
+        expr: max by (pool) (ed_pg_pool_utilization_ratio) > 0.9
+        for: 10m
+        labels: { severity: warning, component: api }
+        annotations:
+          summary: "Pool PostgreSQL « {{ $labels.pool }} » utilisé à plus de 90 %"
+          description: "Le pool est presque saturé : des requêtes attendent une connexion. Augmenter V2_DB_POOL_MAX (ou WORKER_PG_POOL_MAX) ou chercher les requêtes lentes."
+          runbook: "docs/architecture/runbook-exploitation.md#pool-postgresql-saturé"
+
+      - alert: EdPgPoolWaiting
+        expr: max by (pool) (ed_pg_pool_connections{state="waiting"}) > 0
+        for: 5m
+        labels: { severity: critical, component: api }
+        annotations:
+          summary: "Requêtes en attente d'une connexion PostgreSQL ({{ $labels.pool }})"
+          description: "Des requêtes attendent une connexion depuis 5 minutes : latence et timeouts en cascade."
+          runbook: "docs/architecture/runbook-exploitation.md#pool-postgresql-saturé"
+
+      - alert: EdEventLoopLagHigh
+        expr: max by (instance, job) (nodejs_eventloop_lag_p99_seconds) > 0.5
+        for: 10m
+        labels: { severity: warning, component: api }
+        annotations:
+          summary: "Boucle d'événements Node.js saturée ({{ $labels.job }} {{ $labels.instance }})"
+          description: "p99 du retard de la boucle d'événements = {{ $value | humanizeDuration }} : calcul synchrone lourd ou charge CPU."
+          runbook: "docs/architecture/runbook-exploitation.md#latence-élevée"
+
+  # ---------------------------------------------------------------------------------------------------------------------
+  - name: ed-outbox
+    rules:
+      - alert: EdOutboxRelayStalled
+        expr: time() - max(ed_outbox_relay_last_sweep_timestamp_seconds) > 60
+        for: 2m
+        labels: { severity: critical, component: worker }
+        annotations:
+          summary: "Le relais d'outbox ne balaie plus les événements"
+          description: "Aucun balayage terminé depuis {{ $value | humanizeDuration }} : les événements s'accumulent dans kernel.domain_events (inscriptions confirmées, notifications, bulletins en retard)."
+          runbook: "docs/architecture/runbook-exploitation.md#outbox-bloquée"
+
+      - alert: EdOutboxOldestPendingHigh
+        expr: max(ed_outbox_oldest_pending_age_seconds) > 120
+        for: 5m
+        labels: { severity: critical, component: worker }
+        annotations:
+          summary: "Un événement d'outbox attend depuis plus de 2 minutes"
+          description: "Plus ancien événement non publié : {{ $value | humanizeDuration }} ; événements en attente : voir ed_outbox_pending_events."
+          runbook: "docs/architecture/runbook-exploitation.md#outbox-bloquée"
+
+      - alert: EdOutboxPublishLagHigh
+        expr: ed:outbox_publish_lag_p95:5m > 30
+        for: 10m
+        labels: { severity: warning, component: worker }
+        annotations:
+          summary: "Retard de publication des événements (p95 > 30 s)"
+          description: "p95 = {{ $value | humanizeDuration }} (objectif : p95 < 5 s)."
+          runbook: "docs/architecture/runbook-exploitation.md#outbox-bloquée"
+
+      - alert: EdOutboxEventsDead
+        expr: increase(ed_outbox_events_dead_total[15m]) > 0
+        labels: { severity: critical, component: worker }
+        annotations:
+          summary: "Événement(s) d'outbox en échec définitif"
+          description: "{{ $value | humanize }} événement(s) sont passés en dead-letter côté relais (available_at = infinity). Corriger la cause puis rejouer : voir le runbook."
+          runbook: "docs/architecture/runbook-exploitation.md#dead-letter-queue-dlq"
+
+      - alert: EdOutboxRelayRedisFailures
+        expr: increase(ed_outbox_relay_infra_failures_total[5m]) > 0
+        for: 5m
+        labels: { severity: warning, component: worker }
+        annotations:
+          summary: "Le relais d'outbox rencontre des pannes Redis"
+          description: "Redis est injoignable ou refuse l'écriture : le relais est en pause avec backoff, les événements restent en base (aucune perte)."
+          runbook: "docs/architecture/runbook-exploitation.md#redis-indisponible"
+
+  # ---------------------------------------------------------------------------------------------------------------------
+  - name: ed-worker
+    rules:
+      - alert: EdWorkerDown
+        expr: up{job="ed-worker"} == 0
+        for: 2m
+        labels: { severity: critical, component: worker }
+        annotations:
+          summary: "Le worker ne répond plus au scrape ({{ $labels.instance }})"
+          description: "Sans worker : relais d'outbox arrêté, abonnés et jobs planifiés à l'arrêt."
+          runbook: "docs/architecture/runbook-exploitation.md#worker-arrêté"
+
+      - alert: EdWorkerHeartbeatLost
+        expr: time() - max(ed_worker_heartbeat_timestamp_seconds) > 90
+        for: 1m
+        labels: { severity: critical, component: worker }
+        annotations:
+          summary: "Plus aucun battement de cœur de worker depuis 90 s"
+          description: "Aucune instance du worker n'écrit son battement dans Redis (l'API signale alors /ready en `degraded`)."
+          runbook: "docs/architecture/runbook-exploitation.md#worker-arrêté"
+
+      - alert: EdDlqNotEmpty
+        expr: max(ed_queue_jobs{queue="domain-events-dead",state="waiting"}) > 0
+        for: 5m
+        labels: { severity: warning, component: worker }
+        annotations:
+          summary: "La dead-letter queue contient des événements"
+          description: "{{ $value }} entrée(s) dans domain-events-dead. Lister avec `pnpm --filter @ecoledigitale/worker dlq -- list`, corriger la cause, rejouer."
+          runbook: "docs/architecture/runbook-exploitation.md#dead-letter-queue-dlq"
+
+      - alert: EdDlqGrowing
+        expr: max(ed_queue_jobs{queue="domain-events-dead",state="waiting"}) > 10
+        for: 5m
+        labels: { severity: critical, component: worker }
+        annotations:
+          summary: "Plus de 10 événements en dead-letter"
+          description: "{{ $value }} entrées en dead-letter : un abonné ou le relais est durablement en échec."
+          runbook: "docs/architecture/runbook-exploitation.md#dead-letter-queue-dlq"
+
+      - alert: EdQueueBacklog
+        expr: max by (queue) (ed_queue_oldest_waiting_age_seconds{queue!="domain-events-dead"}) > 300
+        for: 10m
+        labels: { severity: warning, component: worker }
+        annotations:
+          summary: "File {{ $labels.queue }} : un job attend depuis plus de 5 minutes"
+          description: "Le plus ancien job en attente date de {{ $value | humanizeDuration }} : abonné trop lent, concurrence insuffisante ou worker arrêté."
+          runbook: "docs/architecture/runbook-exploitation.md#files-bullmq-en-retard"
+
+      - alert: EdSubscriberDeadLetters
+        expr: sum by (module, subscriber) (increase(ed_subscriber_jobs_total{outcome="dead"}[15m])) > 0
+        labels: { severity: critical, component: worker }
+        annotations:
+          summary: "Abonné {{ $labels.subscriber }} : échec définitif"
+          description: "{{ $value | humanize }} événement(s) en échec définitif pour {{ $labels.subscriber }} (module {{ $labels.module }}). Les journaux portent event_id et request_id."
+          runbook: "docs/architecture/runbook-exploitation.md#dead-letter-queue-dlq"
+
+      - alert: EdSubscriberFailureRateHigh
+        expr: ed:subscriber_failure_ratio_by_module:15m > 0.1
+        for: 15m
+        labels: { severity: warning, component: worker }
+        annotations:
+          summary: "Module {{ $labels.module }} : plus de 10 % d'échecs d'abonnés"
+          description: "Taux d'échec (reprises comprises) {{ $value | humanizePercentage }} sur 15 minutes."
+          runbook: "docs/architecture/runbook-exploitation.md#files-bullmq-en-retard"
+
+      - alert: EdScheduledJobStaleFrequent
+        expr: ed:scheduled_job_last_success_age_seconds{job=~"academic.expire-holds|results.process-recomputes|analytics.process-refreshes|messaging.publish-scheduled-announcements|reportcards.sweep-renders|payroll.fail-stale-runs"} > 1800
+        for: 5m
+        labels: { severity: critical, component: worker }
+        annotations:
+          summary: "Job {{ $labels.job }} sans réussite depuis plus de 30 minutes"
+          description: "Dernière réussite il y a {{ $value | humanizeDuration }} (périodicité : moins d'une heure)."
+          runbook: "docs/architecture/runbook-exploitation.md#job-planifié-en-retard"
+
+      - alert: EdScheduledJobStaleDaily
+        expr: ed:scheduled_job_last_success_age_seconds{job!~"academic.expire-holds|results.process-recomputes|analytics.process-refreshes|messaging.publish-scheduled-announcements|reportcards.sweep-renders|payroll.fail-stale-runs|audit.detach-expired-partitions|reportcards.purge-verification-log"} > 129600
+        for: 15m
+        labels: { severity: warning, component: worker }
+        annotations:
+          summary: "Job {{ $labels.job }} sans réussite depuis plus de 36 heures"
+          description: "Dernière réussite il y a {{ $value | humanizeDuration }} (job quotidien)."
+          runbook: "docs/architecture/runbook-exploitation.md#job-planifié-en-retard"
+
+      - alert: EdScheduledJobStaleMonthly
+        expr: ed:scheduled_job_last_success_age_seconds{job=~"audit.detach-expired-partitions|reportcards.purge-verification-log"} > 3024000
+        for: 1h
+        labels: { severity: warning, component: worker }
+        annotations:
+          summary: "Job mensuel {{ $labels.job }} sans réussite depuis plus de 35 jours"
+          description: "Dernière réussite il y a {{ $value | humanizeDuration }}."
+          runbook: "docs/architecture/runbook-exploitation.md#job-planifié-en-retard"
+
+      - alert: EdScheduledJobFailing
+        expr: sum by (job) (increase(ed_scheduled_job_runs_total{outcome="failure"}[1h])) > 2
+        labels: { severity: warning, component: worker }
+        annotations:
+          summary: "Job {{ $labels.job }} en échec répété"
+          description: "{{ $value | humanize }} échecs sur la dernière heure. Les journaux portent job_id et, pour un job par tenant, tenant_id."
+          runbook: "docs/architecture/runbook-exploitation.md#job-planifié-en-retard"
+
+  # ---------------------------------------------------------------------------------------------------------------------
+  - name: ed-business
+    rules:
+      - alert: EdPaymentsPendingStale
+        expr: max(ed_finance_payments_pending_stale) > 0
+        for: 15m
+        labels: { severity: warning, component: finance }
+        annotations:
+          summary: "Paiements restés en attente (PENDING) depuis plus de 30 minutes"
+          description: "{{ $value }} paiement(s) PENDING anciens. Un fournisseur de paiement n'a pas confirmé (webhook perdu ?) : voir le runbook."
+          runbook: "docs/architecture/runbook-exploitation.md#paiements-en-attente"
+
+      - alert: EdPaymentsPendingVeryOld
+        expr: max(ed_finance_payments_pending_oldest_age_seconds) > 7200
+        for: 15m
+        labels: { severity: critical, component: finance }
+        annotations:
+          summary: "Un paiement est en attente depuis plus de 2 heures"
+          description: "Le plus ancien paiement PENDING date de {{ $value | humanizeDuration }} : un parent peut avoir payé sans que sa facture soit soldée."
+          runbook: "docs/architecture/runbook-exploitation.md#paiements-en-attente"
+
+      - alert: EdPdfRenderFailureRateHigh
+        expr: ed:pdf_render_failure_ratio:15m > 0.05 and sum(rate(ed_pdf_render_duration_seconds_count[15m])) > 0.005
+        for: 15m
+        labels: { severity: warning, component: worker }
+        annotations:
+          summary: "Plus de 5 % d'échecs de rendu PDF"
+          description: "Taux d'échec des rendus (bulletins, documents) : {{ $value | humanizePercentage }}. Vérifier Chrome (REPORTCARDS_CHROME_PATH) et le stockage objet."
+          runbook: "docs/architecture/runbook-exploitation.md#rendus-pdf-en-échec-ou-lents"
+
+      - alert: EdPdfRenderSlow
+        expr: ed:pdf_render_p95:15m > 60
+        for: 15m
+        labels: { severity: warning, component: worker }
+        annotations:
+          summary: "Rendus PDF lents (p95 > 60 s)"
+          description: "p95 = {{ $value | humanizeDuration }} (objectif : p95 < 20 s)."
+          runbook: "docs/architecture/runbook-exploitation.md#rendus-pdf-en-échec-ou-lents"
+
+  # ---------------------------------------------------------------------------------------------------------------------
+  - name: ed-observability
+    rules:
+      - alert: EdMetricsRouteLabelOverflow
+        expr: increase(ed_http_requests_total{route="__other__"}[1h]) > 0
+        labels: { severity: warning, component: observability }
+        annotations:
+          summary: "Plafond de cardinalité de l'étiquette `route` atteint"
+          description: "Des requêtes sont agrégées sous route=\"__other__\" : OBS_ROUTE_LABEL_LIMIT est trop bas ou une route génère des motifs dynamiques."
+          runbook: "docs/architecture/runbook-exploitation.md#cardinalité-des-métriques"
+
+      - alert: EdScrapeTargetMissing
+        expr: absent(up{job=~"ed-api|ed-worker"})
+        for: 10m
+        labels: { severity: warning, component: observability }
+        annotations:
+          summary: "Aucune cible Prometheus ed-api / ed-worker"
+          description: "La configuration de scrape ne contient plus la cible, ou le service de découverte est en panne."
+          runbook: "docs/architecture/runbook-exploitation.md#métriques"

@@ -18,10 +18,14 @@ export interface BundledModule {
   /** Export par défaut de `subscribers.ts` (tableau ou objet unique) ; absent si le fichier n'existe pas. */
   subscribers?: unknown;
   jobs?: unknown;
+  /** Le module possède un schéma (dossier `migrations/` avec du SQL) : sa présence est contrôlée par `/ready` (ADR-009). */
+  hasSchema?: boolean;
 }
 
 export interface DiscoveredExtensions {
   modules: string[];
+  /** Modules découverts qui possèdent un schéma Postgres (même nom que la clé du module). */
+  schemas: string[];
   subscribers: Array<{ module: string; definition: SubscriberDefinition }>;
   jobs: Array<{ module: string; definition: ScheduledJobDefinition }>;
 }
@@ -41,6 +45,12 @@ function findFile(dir: string, base: string): string | null {
     if (existsSync(file)) return file;
   }
   return null;
+}
+
+/** `migrations/` contient au moins un fichier SQL. */
+export function hasMigrations(moduleDir: string): boolean {
+  const dir = join(moduleDir, "migrations");
+  return existsSync(dir) && readdirSync(dir).some((f) => f.toLowerCase().endsWith(".sql"));
 }
 
 function asArray(value: unknown): unknown[] {
@@ -93,11 +103,12 @@ export interface DiscoverOptions {
 }
 
 export async function discoverModuleExtensions(options: DiscoverOptions): Promise<DiscoveredExtensions> {
-  const out: DiscoveredExtensions = { modules: [], subscribers: [], jobs: [] };
+  const out: DiscoveredExtensions = { modules: [], schemas: [], subscribers: [], jobs: [] };
 
   if (options.bundled) {
     for (const m of options.bundled) {
       out.modules.push(m.module);
+      if (m.hasSchema) out.schemas.push(m.module);
       for (const definition of normalizeSubscribers(m.module, m.subscribers, "bundle")) out.subscribers.push({ module: m.module, definition });
       for (const definition of normalizeJobs(m.module, m.jobs, "bundle")) out.jobs.push({ module: m.module, definition });
     }
@@ -114,6 +125,7 @@ export async function discoverModuleExtensions(options: DiscoverOptions): Promis
       const jobsFile = findFile(moduleDir, "jobs");
       if (!subscribersFile && !jobsFile) continue;
       out.modules.push(entry);
+      if (hasMigrations(moduleDir)) out.schemas.push(entry);
       if (subscribersFile) {
         const value = await importDefault(subscribersFile, entry);
         for (const definition of normalizeSubscribers(entry, value, subscribersFile)) out.subscribers.push({ module: entry, definition });
