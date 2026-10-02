@@ -275,12 +275,20 @@ async function authMiddleware(fastify: FastifyInstance) {
       // AUTH_SOCIAL_SHARED_SECRET (routes/auth.ts), jamais ouverte.
       "/api/v1/auth/social-login",
       "/api/v1/health",
-      "/api/v1/files/",
       "/api/v1/super-admin/auth/login",
       "/api/v1/webhooks/livekit",
     ];
 
     if (skipAuthRoutes.some((route) => request.url.startsWith(route))) {
+      return;
+    }
+
+    // SEC-04 : la lecture de fichiers reste ouverte (éléments média sans en-tête Authorization, voir routes/files.ts) ;
+    // toute écriture (upload…) exige un JWT valide : elle ne se fie plus aux seuls en-têtes x-tenant / x-user-id.
+    if (
+      (request.method === "GET" || request.method === "HEAD") &&
+      request.url.startsWith("/api/v1/files/")
+    ) {
       return;
     }
 

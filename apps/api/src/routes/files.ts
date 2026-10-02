@@ -33,7 +33,25 @@ function guessMimeTypeFromFilename(filename: string): string {
   return map[ext] || "application/octet-stream";
 }
 
+/** Un segment de chemin fourni par le client ne peut ni remonter ni contenir de séparateur ni d'octet nul. */
+export function isUnsafePathSegment(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  return value.includes("..") || value.includes("/") || value.includes("\\") || value.includes("\0");
+}
+
 export async function filesRoutes(fastify: FastifyInstance) {
+  // SEC-03 : ces routes sont ouvertes au JWT (lecture par des éléments média) ; tout paramètre de chemin ou de requête
+  // qui sortirait du dossier de stockage (« ..%2F.. ») est refusé avant tout handler.
+  fastify.addHook("preValidation", async (request, reply) => {
+    const values = [
+      ...Object.values((request.params ?? {}) as Record<string, unknown>),
+      ...["tenantId", "courseId", "filename"].map((k) => ((request.query ?? {}) as Record<string, unknown>)[k]),
+    ];
+    if (values.some(isUnsafePathSegment)) {
+      return reply.status(400).send({ success: false, error: "Chemin de fichier invalide" });
+    }
+  });
+
   // FILE SERVING ROUTE - WORKING SOLUTION
   fastify.get("/serve-file", async (request, reply) => {
     console.log('🚀 SIMPLE FILE SERVING ROUTE CALLED');

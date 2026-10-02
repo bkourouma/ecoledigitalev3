@@ -104,11 +104,11 @@ services:
       # (which the browser sends through nginx → /api/v1/ → API).
       NEXT_PUBLIC_API_URL: http://ecoledigitale-api:8011
       # Panneau « Comptes par tenant » de /login : il remplit le formulaire avec
-      # les identifiants des comptes techniques. Activé : cette instance sert de
-      # démonstration, avec des données de test. Le jour où elle accueille de
-      # vraies données, mettre SHOW_TECHNICAL_ACCOUNTS=false dans le .env —
+      # les identifiants des comptes techniques. DÉSACTIVÉ par défaut (SEC-02) ; une instance de
+      # démonstration avec des données de test doit l'activer explicitement. Ne jamais l'activer si elle accueille de
+      # vraies données (SHOW_TECHNICAL_ACCOUNTS=true) —
       # sans quoi n'importe quel visiteur ouvre la session administrateur.
-      SHOW_TECHNICAL_ACCOUNTS: ${SHOW_TECHNICAL_ACCOUNTS:-true}
+      SHOW_TECHNICAL_ACCOUNTS: ${SHOW_TECHNICAL_ACCOUNTS:-false}
     ports:
       - "127.0.0.1:3011:3000"
     restart: unless-stopped

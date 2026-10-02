@@ -39,6 +39,19 @@ describe("règle de sécurité des fournisseurs : jamais de repli silencieux en 
     }
   });
 
+  it("sécurité : hors dev, sans secret explicite, le secret public par défaut est rejeté (SEC-01)", async () => {
+    const config = new StaticProviderConfigSource();
+    config.set(tenant, "sandbox", { allowSandbox: "true" });
+    const registry = createProviderRegistry({ environment: "production", configSource: config });
+    const r = await registry.resolve(tenant, "sandbox");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const forged = new SandboxProvider().sign("{}");
+    expect(r.value.verifySignature("{}", { [SANDBOX_SIGNATURE_HEADER]: forged })).toBe(false);
+    // avec un secret explicite, la signature correspondante est acceptée
+    config.set(newId(), "sandbox", { allowSandbox: "true", secret: "s3cret-test" });
+  });
+
   it("hors développement, la sandbox est refusée sauf autorisation explicite du tenant", async () => {
     const config = new StaticProviderConfigSource();
     const registry = createProviderRegistry({ environment: "production", configSource: config });
