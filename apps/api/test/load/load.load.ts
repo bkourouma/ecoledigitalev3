@@ -72,6 +72,8 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
   const sqlByScenario: Record<string, Array<Pick<SqlStat, "text" | "calls" | "totalMs" | "maxMs">>> = {};
   const allSql = new Map<string, SqlStat>();
   const notes: Record<string, unknown> = {};
+  /** Compteurs d'instructions SQL par scénario (comparaison avant / après : N+1, recherches de session, transactions). */
+  const sqlCounters: Record<string, Record<string, number>> = {};
   const startedAt = new Date().toISOString();
 
   /** Écrit le rapport (JSON + Markdown) ; appelé après CHAQUE scénario pour qu'une interruption ne perde pas les mesures déjà faites. */
@@ -94,7 +96,7 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
       memGb: Math.round(totalmem() / 1073741824),
       enforce: ENFORCE,
     };
-    writeFileSync(join(dir, "latest.json"), JSON.stringify({ meta, notes, results, extras, sqlByScenario, breaches }, null, 2));
+    writeFileSync(join(dir, "latest.json"), JSON.stringify({ meta, notes, results, extras, sqlByScenario, sqlCounters, breaches }, null, 2));
     writeFileSync(join(dir, "latest.md"), `${toMarkdown(results)}\n\nDépassements de seuils : ${breaches.length ? `\n- ${breaches.join("\n- ")}` : "aucun"}\n`);
   }
 
@@ -111,6 +113,15 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
     h.disable();
     const cpu = process.cpuUsage(cpu0);
     extras[name] = { loopP99Ms: Math.round(h.percentile(99) / 1e4) / 100, loopMaxMs: Math.round(h.max / 1e4) / 100, cpuMs: Math.round((cpu.user + cpu.system) / 1000), heapMb: Math.round(process.memoryUsage().heapUsed / 1048576) };
+    const everything = sqlTop("total", 100_000);
+    const countOf = (re: RegExp): number => everything.filter((x) => re.test(x.text)).reduce((a, x) => a + x.calls, 0);
+    sqlCounters[name] = {
+      statements: everything.reduce((a, x) => a + x.calls, 0),
+      transactions: countOf(/^BEGIN/),
+      gradeLevelById: countOf(/FROM academic.grade_levels WHERE id/),
+      sessionLookups: countOf(/FROM iam.sessions s JOIN iam.identities/),
+      nextNumber: countOf(/next_number/),
+    };
     const top = sqlTop("total", 6);
     sqlByScenario[name] = top.map((s) => ({ text: s.text.slice(0, 700), calls: s.calls, totalMs: Math.round(s.totalMs), maxMs: Math.round(s.maxMs) }));
     for (const s of sqlTop("total", 200)) {
@@ -585,7 +596,7 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
         log(`voisin (${mode.key}) : ${noiseStats.count} requêtes, ${noiseStats.errors} erreurs, ${noiseStats.rps} req/s ; pool max ${maxTotal} connexions, ${maxWaiting} en attente`);
         if (alone && loud) {
           const ratio = Math.round((loud.p95 / Math.max(1, alone.p95)) * 100) / 100;
-          noisy[mode.key] = { aloneP95: alone.p95, loudP95: loud.p95, ratioP95: ratio, aloneP50: alone.p50, loudP50: loud.p50, victimErrors: loud.errors, aggressorReqPerSec: noiseStats.rps, poolMaxConnections: maxTotal, poolMaxWaiting: maxWaiting };
+          noisy[mode.key] = { aloneP95: alone.p95, loudP95: loud.p95, ratioP95: ratio, aloneP50: alone.p50, loudP50: loud.p50, victimErrors: loud.errors, aggressorReqPerSec: noiseStats.rps, aggressorErrors: noiseStats.errors, aggressorRequests: noiseStats.count, poolMaxConnections: maxTotal, poolMaxWaiting: maxWaiting };
           log(`voisin bruyant (${mode.key}) : p95 ${alone.p95} -> ${loud.p95} ms (x${ratio}), p50 ${alone.p50} -> ${loud.p50} ms`);
           if (ratio > NOISY_NEIGHBOUR_MAX_RATIO) breaches.push(`voisin bruyant (${mode.key}) : p95 x${ratio} > x${NOISY_NEIGHBOUR_MAX_RATIO}`);
         }
