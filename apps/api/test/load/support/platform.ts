@@ -55,7 +55,7 @@ export function startSqlCapture(): void {
       const record = (): void => {
         const d = performance.now() - t0;
         const norm = normalize(text);
-        const key = norm.slice(0, 600);
+        const key = norm;
         const s = sqlStats.get(key) ?? { key, text: norm, calls: 0, totalMs: 0, maxMs: 0, slowestValues: [] };
         s.calls += 1;
         s.totalMs += d;
@@ -91,16 +91,20 @@ export function stopSqlCapture(): void {
 }
 
 /**
- * Remet à zéro les compteurs du limiteur d'IP de IAM (clés Redis `ed:iam:rl:<portée>:*`). Les limites de PRODUCTION restent actives
+ * Remet à zéro les compteurs du limiteur d'IP de IAM (clés Redis `<préfixe>:iam:rl:w:<portée>:<empreinte>`). Les limites de PRODUCTION restent actives
  * (elles ne sont pas modifiées) ; on n'efface que l'historique accumulé par la génération du jeu de données (une seule IP, 127.0.0.1,
  * enchaîne des dizaines d'activations de comptes : au-delà de 20 réinitialisations de mot de passe par heure le limiteur répond 429).
  */
 export async function resetIpLimiters(scopes: string[] = ["reset:ip", "forgot:ip", "login:ip", "refresh:ip"]): Promise<void> {
   const redis = new Redis(REDIS_URL as string, { maxRetriesPerRequest: 1 });
   try {
+    let deleted = 0;
     for (const scope of scopes) {
-      for await (const keys of redis.scanStream({ match: `${process.env.WORKER_QUEUE_PREFIX?.trim() || "ed"}:iam:rl:${scope}:*`, count: 200 }) as AsyncIterable<string[]>) if (keys.length > 0) await redis.del(...keys);
+      for await (const keys of redis.scanStream({ match: `*:iam:rl:w:${scope}:*`, count: 500 }) as AsyncIterable<string[]>) {
+        if (keys.length > 0) deleted += await redis.del(...keys);
+      }
     }
+    if (process.env.ED_LOAD_DEBUG === "1") console.log(`[load] limiteurs remis à zéro : ${deleted} clés (${scopes.join(", ")})`);
   } finally {
     await redis.quit().catch(() => undefined);
   }

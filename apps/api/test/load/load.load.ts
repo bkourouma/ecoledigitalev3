@@ -28,7 +28,7 @@ import { DEFAULT_SANDBOX_SECRET } from "../../src/modules/finance/infrastructure
 import { addDays } from "../phase3/support/admissions";
 import { CONCURRENCY, ENFORCE, NOISY_NEIGHBOUR_MAX_RATIO, READS, REAL_PDF, SCALE, SCRYPT_LOG_N, STUDENTS_PER_TENANT, TENANTS, THRESHOLDS, THRESHOLD_FACTOR, CLASS_SIZE, log } from "./config";
 import { resetIpLimiters, resetSqlStats, setSqlCapture, sqlTop, startLoadPlatform, type LoadEnv, type SqlStat } from "./support/platform";
-import { drive, toMarkdown, type DriveOptions, type OpResult, type ScenarioStats } from "./support/stats";
+import { drive, StepRecorder, toMarkdown, type DriveOptions, type OpResult, type ScenarioStats } from "./support/stats";
 import { seedTenant, SUBJECTS, type TenantWorld } from "./support/seed";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -104,6 +104,7 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
     results.push(stats);
     const th = THRESHOLDS[name];
     if (th && stats.p95 > th.p95 * THRESHOLD_FACTOR) breaches.push(`${name} : p95 ${stats.p95} ms > seuil ${Math.round(th.p95 * THRESHOLD_FACTOR)} ms`);
+    if (th?.p99 !== undefined && stats.p99 > th.p99 * THRESHOLD_FACTOR) breaches.push(`${name} : p99 ${stats.p99} ms > seuil ${Math.round(th.p99 * THRESHOLD_FACTOR)} ms`);
     log(`${name.padEnd(30)} n=${String(stats.count).padStart(5)} err=${stats.errors} p50=${stats.p50} p95=${stats.p95} p99=${stats.p99} max=${stats.max} ${stats.rps} req/s  (boucle p99 ${extras[name]!.loopP99Ms} ms, cpu ${extras[name]!.cpuMs} ms)`);
     if (!allowErrors) expect(stats.errors, `${name} : ${stats.samples.join(" | ")}`).toBe(0);
     return stats;
@@ -122,6 +123,8 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
   describe("(0) génération du jeu de données (écritures mesurées)", () => {
     it(`${TENANTS} tenants, ${STUDENTS_PER_TENANT} élèves chacun (classes de ${CLASS_SIZE}), inscriptions, factures, notes publiées, parents`, async () => {
       const t0 = performance.now();
+      resetSqlStats();
+      setSqlCapture(true);
       for (let i = 0; i < TENANTS; i += 1) {
         const ts = performance.now();
         const w = await seedTenant(p, i, PASSWORD);
@@ -133,6 +136,12 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
         log(`tenant ${i + 1} généré en ${Math.round((performance.now() - ts) / 1000)} s`);
       }
       notes.seedSeconds = Math.round((performance.now() - t0) / 1000);
+      setSqlCapture(false);
+      notes.seedSqlTop = sqlTop("total", 40)
+        .filter((s) => !/set_config|^(BEGIN|COMMIT)/i.test(s.text))
+        .slice(0, 8)
+        .map((s) => ({ text: s.text.slice(0, 500), calls: s.calls, totalMs: Math.round(s.totalMs), meanMs: Math.round((s.totalMs / s.calls) * 10) / 10, maxMs: Math.round(s.maxMs) }));
+      expect(worlds, "tous les tenants générés").toHaveLength(TENANTS);
       const counts = await p.db.admin.query(
         `SELECT (SELECT count(*) FROM people.students)::int AS students, (SELECT count(*) FROM academic.enrollments)::int AS enrollments, (SELECT count(*) FROM finance.invoices)::int AS invoices, (SELECT count(*) FROM assess.grades)::int AS grades`,
       );
@@ -283,6 +292,8 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
 
     it("appel : ouverture de séance + pointage de la classe + soumission", async () => {
       const days = 3;
+      const steps = new StepRecorder();
+      const t0 = performance.now();
       const jobs = worlds.flatMap((w) => w.classes.flatMap((c) => Array.from({ length: days }, (_, k) => ({ w, c, date: addDays(w.yearStart, 14 + k) }))));
       await scenario("attendance.call", {
         what: `POST /attendance/sessions + PUT .../records (${CLASS_SIZE} élèves) + POST .../submit`,
@@ -290,18 +301,26 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
         total: jobs.length,
         op: async (i) => {
           const { w, c, date } = jobs[i]!;
-          let opened = await w.owner.raw("POST", "/api/v1/attendance/sessions", { scope: "DAILY", classroomId: c.id, date });
+          let opened = await steps.step("open", () => w.owner.raw("POST", "/api/v1/attendance/sessions", { scope: "DAILY", classroomId: c.id, date }));
           if (opened.status === 409 || opened.status === 422) {
-            opened = await w.owner.raw("POST", "/api/v1/attendance/sessions", { scope: "SESSION", classroomId: c.id, date, curriculumNodeId: w.nodeBySubject.MATHS!.nodeId, source: "LIVE_CLASS", durationMinutes: 60 });
+            opened = await steps.step("open", () =>
+              w.owner.raw("POST", "/api/v1/attendance/sessions", { scope: "SESSION", classroomId: c.id, date, curriculumNodeId: w.nodeBySubject.MATHS!.nodeId, source: "LIVE_CLASS", durationMinutes: 60 }),
+            );
           }
           if (opened.status >= 300) return res(opened);
           const sid = opened.body.session.id as string;
           const entries = c.studentIds.map((studentId, k) => ({ studentId, statusCode: k % 11 === 0 ? "ABSENT" : k % 7 === 0 ? "LATE" : "PRESENT", ...(k % 7 === 0 && k % 11 !== 0 ? { minutesLate: 5 } : {}) }));
-          const marked = await w.owner.raw("PUT", `/api/v1/attendance/sessions/${sid}/records`, { entries });
+          const marked = await steps.step("mark", () => w.owner.raw("PUT", `/api/v1/attendance/sessions/${sid}/records`, { entries }));
           if (marked.status >= 300) return res(marked);
-          return res(await w.owner.raw("POST", `/api/v1/attendance/sessions/${sid}/submit`, {}));
+          return res(await steps.step("submit", () => w.owner.raw("POST", `/api/v1/attendance/sessions/${sid}/submit`, {})));
         },
       });
+      for (const s of steps.toStats("attendance", { open: "POST /attendance/sessions (ouverture)", mark: `PUT /attendance/sessions/:id/records (${CLASS_SIZE} pointages)`, submit: "POST /attendance/sessions/:id/submit" }, CONCURRENCY, performance.now() - t0)) {
+        results.push(s);
+        const th = THRESHOLDS[s.name];
+        if (th && s.p95 > th.p95 * THRESHOLD_FACTOR) breaches.push(`${s.name} : p95 ${s.p95} ms > seuil ${Math.round(th.p95 * THRESHOLD_FACTOR)} ms`);
+        log(`${s.name.padEnd(30)} n=${String(s.count).padStart(5)} err=${s.errors} p50=${s.p50} p95=${s.p95} p99=${s.p99} max=${s.max}`);
+      }
     });
   });
 

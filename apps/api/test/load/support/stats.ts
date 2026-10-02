@@ -125,6 +125,48 @@ export async function drive(opts: DriveOptions): Promise<ScenarioStats> {
   };
 }
 
+/**
+ * Enregistre les latences des ÉTAPES d'une opération composite (ex. appel : ouverture, pointage, soumission) pour publier des
+ * percentiles par étape en plus de ceux de l'opération entière.
+ */
+export class StepRecorder {
+  private readonly lat = new Map<string, number[]>();
+  private readonly errs = new Map<string, number>();
+  async step<T extends { status: number }>(name: string, fn: () => Promise<T>): Promise<T> {
+    const t0 = performance.now();
+    const r = await fn();
+    const d = ms(t0);
+    this.lat.set(name, [...(this.lat.get(name) ?? []), d]);
+    if (r.status >= 400) this.errs.set(name, (this.errs.get(name) ?? 0) + 1);
+    return r;
+  }
+  toStats(prefix: string, what: Record<string, string>, concurrency: number, wallMs: number): ScenarioStats[] {
+    const round = (n: number): number => Math.round(n * 10) / 10;
+    return [...this.lat.entries()].map(([name, l]) => {
+      const s = [...l].sort((a, b) => a - b);
+      const errors = this.errs.get(name) ?? 0;
+      return {
+        name: `${prefix}.${name}`,
+        what: what[name] ?? name,
+        concurrency,
+        count: s.length,
+        ok: s.length - errors,
+        errors,
+        limited: 0,
+        errorRate: s.length ? errors / s.length : 0,
+        wallMs: Math.round(wallMs),
+        rps: round(s.length / (wallMs / 1000)),
+        p50: round(percentile(s, 50)),
+        p95: round(percentile(s, 95)),
+        p99: round(percentile(s, 99)),
+        max: round(s[s.length - 1] ?? 0),
+        mean: round(s.reduce((a, b) => a + b, 0) / Math.max(1, s.length)),
+        samples: [],
+      };
+    });
+  }
+}
+
 /** Chronomètre une opération (ms). */
 export async function timed<T>(fn: () => Promise<T>): Promise<{ value: T; ms: number }> {
   const t0 = performance.now();
