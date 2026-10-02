@@ -134,7 +134,9 @@ export type SortKey = "updatedAt" | "createdAt" | "title" | "expiresOn";
 const SORTS: Readonly<Record<SortKey, { expr: string; cast: string }>> = {
   updatedAt: { expr: "d.updated_at", cast: "timestamptz" },
   createdAt: { expr: "d.created_at", cast: "timestamptz" },
-  title: { expr: "lower(d.title)", cast: "text" },
+  // Tri par titre DÉTERMINISTE : clé normalisée (minuscules, sans accents : « cni élève » avant « cni enfant ») comparée en
+  // collation « C » (octets). Sans cela, l'ordre dépendait de la locale de l'image Postgres (en_US.utf8, C.UTF-8, ICU...).
+  title: { expr: 'documents.normalize_search(d.title) COLLATE "C"', cast: "text" },
   expiresOn: { expr: "COALESCE(d.expires_on, 'infinity'::date)", cast: "date" },
 };
 

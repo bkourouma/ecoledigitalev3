@@ -1,5 +1,5 @@
 import { defineModule } from "@ecoledigitale/kernel";
-import { ALL_EVENT_TYPES, ConsumedEvents } from "./domain/events";
+import { ALL_EVENT_TYPES, ConsumedEvents, CouncilsEvents } from "./domain/events";
 
 /**
  * Manifeste du module "councils" — conseil de classe du secondaire (spec v2/006 US1-US7) : séances, ordre du jour figé, propositions et
@@ -51,6 +51,6 @@ export default defineModule({
   ],
   events: {
     publishes: [...ALL_EVENT_TYPES],
-    consumes: [ConsumedEvents.INSTITUTION_CREATED, ConsumedEvents.RESULTS_PERIOD_REOPENED, ConsumedEvents.DOCUMENT_RENDERED],
+    consumes: [ConsumedEvents.INSTITUTION_CREATED, ConsumedEvents.RESULTS_PERIOD_REOPENED, ConsumedEvents.DOCUMENT_RENDERED, CouncilsEvents.MINUTES_GENERATED], // le dernier : abonné `councils.render-minutes` à son propre événement (PDF hors transaction)
   },
 });

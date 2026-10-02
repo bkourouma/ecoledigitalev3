@@ -37,6 +37,7 @@ const IRREGULAR_VERBS = new Set([
   "sent", // messaging.message.sent — participe passé irrégulier (nom demandé par la spec 016)
   "ready", // primary_school.year_archive.ready — constat « archive prête » (nom fixé par la spec 005)
   "frozen", // primary_school.year_archive.frozen — participe passé irrégulier (gel irréversible, spec 005)
+  "awaiting_human", // councils.effect.awaiting_human — état « en attente d'un acte humain » (nom fixé par la spec 006, comme `stateassign.control.due`)
   "due", // stateassign.control.due — contrôle arrivé à échéance (nom de la spec 006, comme `overdue`)
   "discrepancy", // stateassign.reconciliation.discrepancy — constat d'écart (nom de la spec 006, comme `mismatch`)
 ]);
