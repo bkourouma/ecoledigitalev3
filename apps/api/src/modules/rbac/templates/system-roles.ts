@@ -895,8 +895,6 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "admission.update",
       "admission.document.upload",
       "admission.document.review",
-      // Rattachement des pièces acceptées d'un dossier inscrit à la GED (exige aussi `documents.upload`, route relue côté serveur).
-      "admission.document.attach",
       "admission.interview.manage",
       "admission.offer.manage",
       "admission.duplicate.resolve",

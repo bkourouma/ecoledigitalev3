@@ -268,7 +268,6 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
     can: [
       "messaging.read", "messaging.send",
       "admission.read", "admission.create", "admission.update", "admission.document.upload", "admission.document.review",
-      "admission.document.attach",
       "admission.interview.manage", "admission.offer.manage", "admission.duplicate.resolve", "admission.waitlist.manage",
       "admission.prospect.manage", "admission.enroll", "admission.report.read",
       // analytics (025 B) : entonnoir d'admission agrégé
@@ -566,6 +565,7 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["admission.settings.manage", "réglages : direction"],
       ["admission.anonymize", "anonymisation (sensible) : direction"],
       ["admission.export", "export d'un dossier : direction"],
+      ["admission.document.attach", "rattachement à la GED : exige `documents.upload` que seul le secrétariat détient"],
       ["student.read", "le dossier de l'élève naît à l'acceptation de l'offre : aucun accès aux élèves"],
       ["student.list", "idem"],
       ["finance.invoice.read", "aucune finance"],
