@@ -20,6 +20,7 @@ import { createBatch } from "../../application/issue";
 import { renderReportCard } from "../../application/render";
 import { ensureSigningKeyRegistered } from "../../application/platform";
 import manifest from "../../manifest";
+import { ALL_PLATFORM_TEMPLATES } from "../../templates/builtin";
 import { VERIFY_RATE_RULE, reportcardsPlugin, registerPublicRoutes } from "../../http/plugin";
 import { PNG_1X1, makeWorld, newActor, seedSchool, type School, type TestWorld } from "../support/world";
 import { adminRows, createReportcardsTestDb, describeIntegration, type ReportcardsTestDb } from "../support/db";
@@ -329,7 +330,7 @@ describeIntegration("API HTTP /api/v1/reportcards/* (Fastify + Postgres réel)",
 
     it("modèles : catalogue publié, configuration validée par le schéma du gabarit, aperçu sur données FICTIVES", async () => {
       const templates = ok(await call(director, "GET", "/templates"));
-      expect(templates.items.map((t: any) => t.key).sort()).toEqual(["higher-attestation-authenticity", "higher-attestation-success", "higher-bulletin-coef", "higher-bulletin-credits", "higher-diploma", "payslip-standard", "primary-bulletin", "receipt-standard", "secondary-bulletin", "transcript-credits"]);
+      expect(templates.items.map((t: any) => t.key).sort()).toEqual(ALL_PLATFORM_TEMPLATES.map((t) => t.key).sort());
       for (const t of templates.items) expect(reportcardsTemplateDtoSchema.safeParse(t).success).toBe(true);
       const sig = ok(await call(director, "GET", "/signatories")).items.find((s: any) => s.active).id;
       const cfg = ok(await call(director, "PUT", "/template-configs", { documentKind: "REPORT_CARD", pack: "SECONDARY", templateKey: "secondary-bulletin", options: { showRank: false, watermark: "COPIE" }, signatureAssignments: [{ slot: "director", signatoryId: sig }] }));

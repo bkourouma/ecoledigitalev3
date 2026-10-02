@@ -16,7 +16,7 @@
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import { isUniqueViolation } from "@ecoledigitale/database";
 import { sha256Hex } from "../domain/canonical";
-import { DEFAULT_OFFICIAL_TEMPLATE, isOfficialDocumentKind, type OfficialDocumentKind } from "../domain/constants";
+import { DEFAULT_OFFICIAL_TEMPLATE, DEMONSTRATION_NOTICE, DEMONSTRATION_WATERMARK, isDemonstrationSource, isOfficialDocumentKind, type OfficialDocumentKind } from "../domain/constants";
 import { renderContextHtml } from "../domain/document-html";
 import { ReportcardsCode, conflict, internal, invalid, notFound } from "../domain/errors";
 import { ReportcardsEvents } from "../domain/events";
@@ -47,6 +47,12 @@ export interface RequestOfficialDocumentInput {
   context: Record<string, unknown>;
   templateKey?: string;
   institutionId?: Uuid | null;
+  /**
+   * Provenance de la version de règle dont le document tire ses résultats (`placeholder` = jeu de DÉMONSTRATION) : scellée avec le
+   * document, elle impose le filigrane et la mention « Règles de démonstration — document sans valeur officielle » au rendu et à la
+   * vérification publique. Obligatoire pour tout document calculé par un jeu de règles (PV de conseil, bilan, examen blanc).
+   */
+  ruleSourceKind?: "regulation" | "institution" | "platform" | "placeholder" | null;
 }
 
 export interface OfficialDocumentRequestResult {
@@ -111,6 +117,7 @@ export async function requestOfficialDocument(deps: ReportcardsDeps, ctx: Reques
           brandingVersion: branding.version,
         },
         content: input.content,
+        ...(input.ruleSourceKind ? { ruleSourceKind: input.ruleSourceKind } : {}),
       };
       const sealed = sealDocument(deps, { kind: input.kind, snapshot, explain: input.context, issuedAt: input.issuedAt });
       if (!sealed.ok) return sealed;
@@ -195,12 +202,17 @@ export async function renderOfficialDocument(deps: ReportcardsDeps, ctx: Request
     const verification = buildVerificationInfo(deps, record.verificationCode, false);
     if (!verification) throw internal("Le domaine public de vérification n'est pas configuré : un document officiel ne peut pas être rendu sans QR.", ReportcardsCode.RENDER_FAILED);
     const contact = [inst.address, inst.phone ? `Tél : ${inst.phone}` : null, inst.email, inst.website].filter((x: unknown): x is string => typeof x === "string" && x.length > 0).join(" — ");
+    // Règles de DÉMONSTRATION : filigrane + mention imprimée, imposés par la provenance SCELLÉE avec le document.
+    const demonstration = isDemonstrationSource((snapshot as Record<string, unknown>).ruleSourceKind);
     const html = renderContextHtml({
       template: { body: template.body, css: template.css },
+      watermarkText: demonstration ? DEMONSTRATION_WATERMARK : null,
       context: {
         ...(explain as Record<string, unknown>),
         title: record.title,
         provisional: false,
+        demonstration,
+        demonstrationNotice: demonstration ? DEMONSTRATION_NOTICE : "",
         institution: {
           legalName: inst.legalName,
           shortName: inst.shortName ?? "",

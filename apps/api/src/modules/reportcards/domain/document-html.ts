@@ -8,6 +8,7 @@
  * désactivé et réseau coupé (`infrastructure/puppeteer-renderer.ts`).
  */
 import { PARTIAL_SOURCES } from "../templates/partials";
+import { DEMONSTRATION_WATERMARK } from "./constants";
 import { buildRenderContext, type VerificationInfo } from "./render-context";
 import { escapeHtml, parseTemplate, readPath, renderTemplate, TemplateError, type ParsedTemplate, type RenderEnvironment } from "./template-engine";
 import { validateTemplate } from "./template-validation";
@@ -117,7 +118,8 @@ export function renderDocumentHtml(input: {
     colors: ctx.colors,
     qrSvg: input.verification?.qrSvg ?? null,
     provisional: ctx.provisional,
-    watermarkText: typeof watermark === "string" ? watermark : null,
+    // Règles de DÉMONSTRATION : le filigrane s'impose (une option de gabarit ne peut pas le retirer).
+    watermarkText: ctx.demonstration ? DEMONSTRATION_WATERMARK : typeof watermark === "string" ? watermark : null,
     ...(input.assets ? { assets: input.assets } : {}),
   });
 }

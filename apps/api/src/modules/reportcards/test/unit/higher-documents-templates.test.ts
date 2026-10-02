@@ -5,7 +5,7 @@ import { PARTIAL_NAMES } from "../../domain/document-html";
 import { validateOptionsSchema } from "../../domain/options-schema";
 import { validateTemplate } from "../../domain/template-validation";
 import { validatePlatformTemplate } from "../../application/platform";
-import { ALL_PLATFORM_TEMPLATES, BUILTIN_TEMPLATES, PLATFORM_DOCUMENT_TEMPLATES } from "../../templates/builtin";
+import { ALL_PLATFORM_TEMPLATES, BUILTIN_TEMPLATES, PACK_PLATFORM_DOCUMENT_TEMPLATES, PLATFORM_DOCUMENT_TEMPLATES } from "../../templates/builtin";
 
 const CONTEXT = {
   title: "Diplôme",
@@ -34,7 +34,7 @@ describe("gabarits de plateforme du supérieur (diplôme, attestations)", () => 
       ["higher-attestation-authenticity", "ATTESTATION_AUTHENTICITY"],
     ]);
     expect(BUILTIN_TEMPLATES.map((t) => t.key)).not.toContain("higher-diploma");
-    expect(ALL_PLATFORM_TEMPLATES).toHaveLength(BUILTIN_TEMPLATES.length + 3);
+    expect(ALL_PLATFORM_TEMPLATES).toHaveLength(BUILTIN_TEMPLATES.length + 3 + PACK_PLATFORM_DOCUMENT_TEMPLATES.length);
     for (const t of PLATFORM_DOCUMENT_TEMPLATES) {
       const r = validateTemplate({ body: t.body, css: t.css, partialNames: PARTIAL_NAMES });
       expect(r.problems, t.key).toEqual([]);

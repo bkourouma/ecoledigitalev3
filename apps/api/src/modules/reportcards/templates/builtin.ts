@@ -9,6 +9,7 @@
  */
 import type { Pack, SignatureSlot, TemplateDocumentKind } from "../domain/types";
 import { HIGHER_DOCUMENT_TEMPLATES } from "./higher-documents";
+import { PACK_DOCUMENT_TEMPLATES, PRIMARY_COMPETENCIES_BLOCK } from "./pack-documents";
 import type { BuiltinTemplate } from "./types";
 
 export type { BuiltinTemplate } from "./types";
@@ -148,6 +149,17 @@ const PRIMARY_BODY = `<section class="doc">
 {{> verification}}
 {{> footer}}
 </section>`;
+
+/**
+ * Bulletin `report-primary` (Phase 4-5, spec 005 pack-template §6) : le bulletin du primaire AVEC le bloc COMPÉTENCES (compteurs de niveaux par domaine, module `primary_school`).
+ * `primary-bulletin` reste tel quel (le contenu d un gabarit publié est haché) : un établissement choisit `report-primary` par sa configuration de gabarit.
+ */
+const REPORT_PRIMARY_BODY = PRIMARY_BODY.replace("{{> jury}}", `${PRIMARY_COMPETENCIES_BLOCK}\n{{> jury}}`);
+
+/** Mention imprimée des documents calculés avec un jeu de règles de DÉMONSTRATION (composant `{{> footer}}`), ajoutée aux versions v2 et suivantes. */
+const DEMO_CSS = `
+.doc-demo { margin-top: 8px; padding: 4px 8px; border: 1px dashed #b41e1e; color: #b41e1e; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; font-weight: 700; text-align: center; }
+`;
 
 const HIGHER_CREDITS_BODY = `<section class="doc">
 {{@watermark}}
@@ -327,6 +339,17 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([
     signatureSlots: SIGNATURE_SLOTS_DIRECTION,
   },
   {
+    key: "report-primary",
+    version: 1,
+    documentKind: "REPORT_CARD",
+    pack: "PRIMARY",
+    title: "Bulletin du primaire et de la maternelle — avec compétences (modèle générique)",
+    body: REPORT_PRIMARY_BODY,
+    css: COMMON_CSS + DEMO_CSS,
+    optionsSchema: baseOptions(),
+    signatureSlots: SIGNATURE_SLOTS_DIRECTION,
+  },
+  {
     key: "secondary-bulletin",
     version: 1,
     documentKind: "REPORT_CARD",
@@ -403,8 +426,14 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([
  */
 export const PLATFORM_DOCUMENT_TEMPLATES: readonly BuiltinTemplate[] = HIGHER_DOCUMENT_TEMPLATES;
 
+/**
+ * Gabarits des documents des PACKS (Phase 4-5) : PV de conseil, bilan annuel du primaire, documents d'examen — rendus par le
+ * service générique des documents officiels, hors de la liste des bulletins.
+ */
+export const PACK_PLATFORM_DOCUMENT_TEMPLATES: readonly BuiltinTemplate[] = PACK_DOCUMENT_TEMPLATES;
+
 /** Tous les gabarits que la plateforme publie. */
-export const ALL_PLATFORM_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([...BUILTIN_TEMPLATES, ...PLATFORM_DOCUMENT_TEMPLATES]);
+export const ALL_PLATFORM_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([...BUILTIN_TEMPLATES, ...PLATFORM_DOCUMENT_TEMPLATES, ...PACK_PLATFORM_DOCUMENT_TEMPLATES]);
 
 /** Dernier gabarit livré pour une clé (les versions suivantes s'ajoutent à la fin de la liste). */
 export function builtinTemplate(key: string): BuiltinTemplate | undefined {

@@ -12,7 +12,7 @@
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
 import { snapshotHash } from "../domain/canonical";
-import { isKnownDocumentKind } from "../domain/constants";
+import { DEMONSTRATION_NOTICE, DEMONSTRATION_WATERMARK, isDemonstrationSource, isKnownDocumentKind } from "../domain/constants";
 import { renderContextHtml, type RenderAssets } from "../domain/document-html";
 import { ReportcardsCode, conflict, internal, invalid, notFound } from "../domain/errors";
 import { generateVerificationCode } from "../domain/signing";
@@ -93,6 +93,8 @@ export interface RenderDocumentInput {
   colors?: { primary?: string | null; secondary?: string | null };
   assets?: RenderAssets;
   watermarkText?: string | null;
+  /** Provenance de la version de règle des résultats imprimés : `placeholder` impose le filigrane et la mention de démonstration. */
+  ruleSourceKind?: string | null;
 }
 
 /** Rend un document de plateforme en HTML puis en PDF avec le moteur de rendu du processus (worker). */
@@ -108,14 +110,15 @@ export async function renderDocumentPdf(deps: ReportcardsDeps, ctx: RequestConte
   }, { readOnly: true });
   if (!template.ok) return template;
   const verification = input.verificationCode ? buildVerificationInfo(deps, input.verificationCode, false) : null;
+  const demonstration = isDemonstrationSource(input.ruleSourceKind);
   const html = renderContextHtml({
     template: { body: template.value.body, css: template.value.css },
-    context: { ...input.context, meta: { ...(input.context.meta as object | undefined), code: verification?.code ?? "", verifyUrl: verification?.url ?? "", hasQr: Boolean(verification?.qrSvg), issuedAt: input.issuedAt.toISOString() } },
+    context: { ...input.context, ...(demonstration ? { demonstration: true, demonstrationNotice: DEMONSTRATION_NOTICE } : {}), meta: { ...(input.context.meta as object | undefined), code: verification?.code ?? "", verifyUrl: verification?.url ?? "", hasQr: Boolean(verification?.qrSvg), issuedAt: input.issuedAt.toISOString() } },
     title: input.title,
     colors: { primary: input.colors?.primary ?? "#1f3a5f", secondary: input.colors?.secondary ?? "#5b7aa3" },
     qrSvg: verification?.qrSvg ?? null,
     provisional: !input.verificationCode,
-    watermarkText: input.watermarkText ?? null,
+    watermarkText: demonstration ? DEMONSTRATION_WATERMARK : (input.watermarkText ?? null),
     ...(input.assets ? { assets: input.assets } : {}),
   });
   const rendered = await renderer.render({ html, title: input.title, issuedAt: input.issuedAt });

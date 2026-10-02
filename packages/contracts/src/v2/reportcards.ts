@@ -54,7 +54,17 @@ export const REPORTCARDS_TEMPLATE_DOCUMENT_KINDS = [
   "ATTESTATION_AUTHENTICITY",
   "PAYSLIP",
   "RECEIPT",
+  // natures des packs (Phase 4-5) : PV de conseil, bilan annuel du primaire, documents d'examen
+  "COUNCIL_MINUTES",
+  "ANNUAL_REVIEW",
+  "EXAM_CONVOCATION",
+  "EXAM_SUCCESS_CERTIFICATE",
+  "EXAM_TRANSCRIPT",
 ] as const;
+
+/** Natures rendues par le service générique des documents officiels (propriétaires : finance, payroll, primary_school, councils, examinations). */
+export const REPORTCARDS_OFFICIAL_DOCUMENT_KINDS = ["RECEIPT", "PAYSLIP", "COUNCIL_MINUTES", "ANNUAL_REVIEW", "EXAM_CONVOCATION", "EXAM_SUCCESS_CERTIFICATE", "EXAM_TRANSCRIPT"] as const;
+export const reportcardsOfficialDocumentKindSchema = z.enum(REPORTCARDS_OFFICIAL_DOCUMENT_KINDS);
 export const reportcardsTemplateDocumentKindSchema = z.enum(REPORTCARDS_TEMPLATE_DOCUMENT_KINDS);
 
 export const REPORTCARDS_SCOPES = ["PERIOD", "YEAR", "CUMULATIVE"] as const;
@@ -79,6 +89,7 @@ export const reportcardsBatchOutcomeSchema = z.enum(REPORTCARDS_BATCH_OUTCOMES);
 /** Gabarits livrés par la plateforme (modèles génériques ; les modèles officiels s'ajoutent par versions). */
 export const REPORTCARDS_BUILTIN_TEMPLATE_KEYS = [
   "primary-bulletin",
+  "report-primary",
   "secondary-bulletin",
   "higher-bulletin-credits",
   "higher-bulletin-coef",
@@ -143,6 +154,36 @@ export const reportcardSnapshotEnrollmentSchema = z
     periodLabel: optText(120),
     /** Effectif de la classe pour la période. */
     classSize: nonNegInt.nullable(),
+    /**
+     * Type de financement de l'inscription (code du tenant, ex. `PRIVATE`, `STATE_ASSIGNED`) et indicateur « affecté(e) par l'État » :
+     * DÉRIVÉS du type de financement de l'inscription (academic), jamais déduits du texte de la décision (spec 006 §7.4). Absents
+     * des bulletins émis avant la Phase 4-5.
+     */
+    fundingType: z.string().max(40).nullable().optional(),
+    stateAssigned: z.boolean().nullable().optional(),
+  })
+  .strict();
+
+/**
+ * Compétences de l'élève par domaine (primaire / maternelle, spec 005) : COMPTEURS de niveaux, jamais une moyenne ni un seuil.
+ * Fournies par le module `primary_school` ; absentes des bulletins numériques.
+ */
+export const reportcardSnapshotCompetenciesSchema = z
+  .object({
+    scaleLabel: optText(120),
+    domains: z
+      .array(
+        z
+          .object({
+            code: z.string().min(1).max(40),
+            label: label(160),
+            evaluated: nonNegInt,
+            expected: nonNegInt,
+            levels: z.array(z.object({ code: z.string().min(1).max(40), label: label(80), count: nonNegInt }).strict()).max(12),
+          })
+          .strict(),
+      )
+      .max(40),
   })
   .strict();
 
@@ -263,6 +304,12 @@ export const reportcardSnapshotRulesSchema = z
     resultsStateId: reportcardsUuidSchema,
     resultsVersion: z.number().int().min(1),
     closureHash: hex64,
+    /**
+     * Provenance de la version de règle : `placeholder` = jeu de DÉMONSTRATION (aucune valeur officielle) ⇒ filigrane et mention
+     * « Règles de démonstration — document sans valeur officielle » sur le document et à la vérification publique. Absente des
+     * bulletins émis avant la Phase 4-5 (équivaut à une provenance non fictive).
+     */
+    sourceKind: z.enum(["regulation", "institution", "platform", "placeholder"]).optional(),
   })
   .strict();
 
@@ -291,6 +338,8 @@ export const reportcardSnapshotSchema = z
     attendance: reportcardSnapshotAttendanceSchema.nullable(),
     deliberation: reportcardSnapshotDeliberationSchema.nullable(),
     appreciations: z.object({ general: optText(1000) }).strict(),
+    /** Compétences par domaine (primaire / maternelle) ; absent pour les bulletins numériques. */
+    competencies: reportcardSnapshotCompetenciesSchema.nullable().optional(),
     signatories: z.array(reportcardSnapshotSignatorySchema).max(8),
     rules: reportcardSnapshotRulesSchema,
     template: reportcardSnapshotTemplateSchema,
@@ -716,6 +765,8 @@ export const reportcardsPublicVerificationDtoSchema = z.object({
   snapshotHash: hex64.nullable(),
   signature: z.string().nullable(),
   message: z.string(),
+  /** Le document a été calculé avec un jeu de règles de DÉMONSTRATION : il n'a aucune valeur officielle (affiché par la page publique). */
+  demonstration: z.boolean().optional(),
 });
 
 export const reportcardsPublicVerifyParamsSchema = z.object({ code: z.string().max(64) });
@@ -785,12 +836,12 @@ export const reportcardsEventPayloadSchemas = {
     .strict(),
   "reportcards.integrity.mismatch": z.object({ v: v1, reportCardId: reportcardsUuidSchema, expectedHash: hex64, actualHash: hex64, reason: z.enum(["HASH", "SIGNATURE"]) }).strict(),
   // Documents officiels d'autres modules (reçu de paiement, bulletin de paie) : scellés puis rendus dans le worker.
-  "reportcards.official_document.render_requested": z.object({ v: v1, documentId: reportcardsUuidSchema, documentKind: z.enum(["RECEIPT", "PAYSLIP"]), sourceId: reportcardsUuidSchema }).strict(),
+  "reportcards.official_document.render_requested": z.object({ v: v1, documentId: reportcardsUuidSchema, documentKind: reportcardsOfficialDocumentKindSchema, sourceId: reportcardsUuidSchema }).strict(),
   "reportcards.official_document.rendered": z
-    .object({ v: v1, documentId: reportcardsUuidSchema, documentKind: z.enum(["RECEIPT", "PAYSLIP"]), sourceId: reportcardsUuidSchema, pdfHash: hex64, sizeBytes: z.number().int().min(1) })
+    .object({ v: v1, documentId: reportcardsUuidSchema, documentKind: reportcardsOfficialDocumentKindSchema, sourceId: reportcardsUuidSchema, pdfHash: hex64, sizeBytes: z.number().int().min(1) })
     .strict(),
   "reportcards.official_document.render_failed": z
-    .object({ v: v1, documentId: reportcardsUuidSchema, documentKind: z.enum(["RECEIPT", "PAYSLIP"]), sourceId: reportcardsUuidSchema, error: z.string().max(500) })
+    .object({ v: v1, documentId: reportcardsUuidSchema, documentKind: reportcardsOfficialDocumentKindSchema, sourceId: reportcardsUuidSchema, error: z.string().max(500) })
     .strict(),
 } as const;
 export type ReportcardsEventType = keyof typeof reportcardsEventPayloadSchemas;

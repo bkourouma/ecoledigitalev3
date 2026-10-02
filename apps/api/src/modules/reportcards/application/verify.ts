@@ -14,7 +14,7 @@
 import { createDomainEvent, createSystemContext, err, newId, ok, type AppError, type Result } from "@ecoledigitale/kernel";
 import { PgOutboxWriter } from "@ecoledigitale/database";
 import { snapshotHash, sha256Hex } from "../domain/canonical";
-import { MAX_UPLOAD_BYTES } from "../domain/constants";
+import { MAX_UPLOAD_BYTES, OFFICIAL_DOCUMENT_KINDS, isDemonstrationSource } from "../domain/constants";
 import { ReportcardsCode, invalid, portUnavailable } from "../domain/errors";
 import { ReportcardsEvents } from "../domain/events";
 import { isVerificationCode, publicKeyFingerprint, verifyDocumentSignature } from "../domain/signing";
@@ -42,7 +42,15 @@ export interface PublicVerification {
   snapshotHash: string | null;
   signature: string | null;
   message: string;
+  /** Calculé avec un jeu de règles de DÉMONSTRATION (`placeholder`) : aucune valeur officielle. */
+  demonstration?: boolean;
 }
+
+/** Mention ajoutée au message d'un document de démonstration (la page publique la relaie). */
+export const DEMONSTRATION_VERIFICATION_NOTE = "Ce document a été calculé avec des règles de démonstration : il n'a aucune valeur officielle.";
+
+const withDemonstration = (result: PublicVerification, demonstration: boolean): PublicVerification =>
+  demonstration ? { ...result, demonstration: true, message: `${result.message} ${DEMONSTRATION_VERIFICATION_NOTE}` } : result;
 
 export const UNKNOWN_VERIFICATION: PublicVerification = Object.freeze({
   status: "UNKNOWN",
@@ -160,7 +168,7 @@ async function describe(deps: ReportcardsDeps, tenantId: string, cardId: string,
       signature: record.signature,
       message,
     };
-    return { result, card: record };
+    return { result: withDemonstration(result, isDemonstrationSource(snapshot.rules.sourceKind)), card: record };
   });
 }
 
@@ -196,7 +204,7 @@ async function describeOfficial(deps: ReportcardsDeps, tenantId: string, documen
       signature: record.signature,
       message: intact ? MESSAGES.AUTHENTIC : MESSAGES.INVALID,
     };
-    return { result, card: { id: record.id, documentKind: record.documentKind } };
+    return { result: withDemonstration(result, isDemonstrationSource((snapshot as Record<string, unknown> | null)?.ruleSourceKind)), card: { id: record.id, documentKind: record.documentKind } };
   });
 }
 
@@ -251,7 +259,8 @@ async function describeExternal(deps: ReportcardsDeps, target: { tenantId: strin
   return { result, card: { id: target.documentId, documentKind: target.documentKind } };
 }
 
-const OFFICIAL_KINDS: ReadonlySet<string> = new Set(["RECEIPT", "PAYSLIP"]);
+/** Natures du service générique des documents officiels : reçu, bulletin de paie et documents de packs (PV de conseil, bilan annuel, examens). */
+const OFFICIAL_KINDS: ReadonlySet<string> = new Set(OFFICIAL_DOCUMENT_KINDS);
 
 /** Résout un code vers un bulletin / relevé, un document officiel d'un autre module (reçu, paie) OU un document à vérificateur externe (diplôme, attestation). */
 async function describeAny(deps: ReportcardsDeps, target: { tenantId: string; documentKind: string; documentId: string }, code: string): Promise<{ result: PublicVerification; card: LoggedDocument } | null> {

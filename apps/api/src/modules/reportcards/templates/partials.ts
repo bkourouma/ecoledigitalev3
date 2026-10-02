@@ -35,6 +35,7 @@ export const PARTIAL_SOURCES: Readonly<Record<string, string>> = Object.freeze({
     {{#if enrollment.programLabel}}<div class="cell wide"><span class="lbl">Filière</span><span class="val">{{ enrollment.programLabel }}</span></div>{{/if}}
     <div class="cell"><span class="lbl">Effectif</span><span class="val">{{ enrollment.classSize | default:"--" }}</span></div>
     {{#if student.repeatingText}}<div class="cell"><span class="lbl">Redoublant(e)</span><span class="val">{{ student.repeatingText }}</span></div>{{/if}}
+    {{#if enrollment.stateAssignedText}}<div class="cell"><span class="lbl">Statut</span><span class="val">{{ enrollment.stateAssignedText }}</span></div>{{/if}}
     {{/unless}}
   </div>
 </section>`,
@@ -65,5 +66,5 @@ export const PARTIAL_SOURCES: Readonly<Record<string, string>> = Object.freeze({
   </div>{{else}}<div class="verif-text"><div>Émis le {{ meta.issuedAt | datetime_fr }}</div>{{#if provisional}}<div>Document provisoire : non vérifiable.</div>{{/if}}</div>{{/if}}
 </section>`,
 
-  footer: `{{#if institution.footerText}}<footer class="doc-footer">{{ institution.footerText }}</footer>{{/if}}`,
+  footer: `{{#if demonstrationNotice}}<footer class="doc-demo">{{ demonstrationNotice }}</footer>{{/if}}{{#if institution.footerText}}<footer class="doc-footer">{{ institution.footerText }}</footer>{{/if}}`,
 });

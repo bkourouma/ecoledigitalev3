@@ -5,6 +5,7 @@
  * Le contexte ne contient que des chaînes, booléens et listes : rien d'exécutable, rien qui provienne d'ailleurs que du
  * snapshot, des options résolues et des éléments de vérification.
  */
+import { DEMONSTRATION_NOTICE, isDemonstrationSource } from "./constants";
 import type { ReportcardSnapshot, ReportcardSnapshotLine } from "./types";
 
 export interface VerificationInfo {
@@ -121,16 +122,40 @@ export function groupLines(lines: readonly ReportcardSnapshotLine[], labels: Rea
   return groups;
 }
 
+export interface CompetencyDomainContext {
+  code: string;
+  label: string;
+  evaluated: string;
+  expected: string;
+  levels: Array<{ code: string; label: string; count: string }>;
+  levelsText: string;
+}
+
 export interface RenderContext {
   title: string;
   provisional: boolean;
   isTranscript: boolean;
+  /** Les résultats viennent d'un jeu de règles de DÉMONSTRATION : filigrane et mention imprimée (`DEMONSTRATION_NOTICE`). */
+  demonstration: boolean;
+  demonstrationNotice: string;
   institution: {
     legalName: string; shortName: string; headerLeft: string[]; headerRight: string[]; contactLine: string;
     address: string; phone: string; email: string; website: string; registrationRef: string; footerText: string;
   };
   student: { fullName: string; lastName: string; firstNames: string; matricule: string; birthDate: string; birthPlace: string; gender: string; nationality: string; repeatingText: string };
-  enrollment: { classroomLabel: string; levelLabel: string; programLabel: string; academicYearLabel: string; periodLabel: string; classSize: string };
+  enrollment: {
+    classroomLabel: string;
+    levelLabel: string;
+    programLabel: string;
+    academicYearLabel: string;
+    periodLabel: string;
+    classSize: string;
+    /** « Affecté(e) » si le TYPE DE FINANCEMENT de l'inscription est l'affectation par l'État ; vide sinon (jamais déduit d'un texte de décision). */
+    stateAssignedText: string;
+    stateAssigned: boolean;
+  };
+  /** Compétences par domaine (primaire / maternelle) ; `null` pour un bulletin numérique. */
+  competencies: { scaleLabel: string; domains: CompetencyDomainContext[] } | null;
   options: Record<string, unknown>;
   groups: GroupContext[];
   rows: RowContext[];
@@ -161,6 +186,8 @@ export function buildRenderContext(snapshot: ReportcardSnapshot, verification: V
     title: s.meta.title,
     provisional: s.meta.provisional,
     isTranscript: s.meta.kind === "TRANSCRIPT",
+    demonstration: isDemonstrationSource(s.rules.sourceKind),
+    demonstrationNotice: isDemonstrationSource(s.rules.sourceKind) ? DEMONSTRATION_NOTICE : "",
     institution: {
       legalName: inst.legalName,
       shortName: inst.shortName ?? "",
@@ -192,7 +219,22 @@ export function buildRenderContext(snapshot: ReportcardSnapshot, verification: V
       academicYearLabel: s.enrollment.academicYearLabel,
       periodLabel: s.enrollment.periodLabel ?? "",
       classSize: s.enrollment.classSize === null ? "" : String(s.enrollment.classSize),
+      stateAssigned: s.enrollment.stateAssigned === true,
+      stateAssignedText: s.enrollment.stateAssigned === true ? "Affecté(e)" : "",
     },
+    competencies: s.competencies
+      ? {
+          scaleLabel: s.competencies.scaleLabel ?? "",
+          domains: s.competencies.domains.map((d) => ({
+            code: d.code,
+            label: d.label,
+            evaluated: String(d.evaluated),
+            expected: String(d.expected),
+            levels: d.levels.map((l) => ({ code: l.code, label: l.label, count: String(l.count) })),
+            levelsText: d.levels.map((l) => `${l.label} : ${l.count}`).join(" — "),
+          })),
+        }
+      : null,
     options: { ...s.template.options },
     groups: groupLines(s.results.lines, labels),
     rows: s.results.lines.map((l) => rowOf(l, labels)),
