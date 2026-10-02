@@ -33,7 +33,10 @@ export async function writeHistory(deps: AcademicDeps, ctx: RequestContext, tx: 
   await enr.insertHistory(tx, { id: deps.newId(), enrollmentId, kind: draft.kind, from: draft.from, to: draft.to, reason: draft.reason, actorId: actorId(ctx) });
 }
 
-export function enrollmentPayload(e: Enrollment, previousStatus: Enrollment["status"] | null, reason: string | null): Record<string, unknown> & { v: 1 } {
+/** Faits de la classe que la projection de `people` ne peut pas relire (elle ne lit jamais le schéma d'academic). */
+export type EnrollmentClassroomFacts = Pick<Classroom, "name" | "programId" | "gradeLevelId">;
+
+export function enrollmentPayload(e: Enrollment, previousStatus: Enrollment["status"] | null, reason: string | null, classroom: EnrollmentClassroomFacts | null = null): Record<string, unknown> & { v: 1 } {
   return {
     v: 1,
     institutionId: e.institutionId,
@@ -41,6 +44,8 @@ export function enrollmentPayload(e: Enrollment, previousStatus: Enrollment["sta
     enrollmentId: e.id,
     studentId: e.studentId,
     classroomId: e.classroomId,
+    ...(classroom ? { classroomName: classroom.name, programId: classroom.programId, gradeLevelId: classroom.gradeLevelId } : {}),
+    enrolledOn: e.enrolledOn,
     status: e.status,
     previousStatus,
     mode: e.mode,

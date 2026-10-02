@@ -1329,7 +1329,14 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       const kids = await parent().get("/api/v1/people/children");
       expect((kids.body.items ?? kids.body.children ?? kids.body) as unknown[]).toHaveLength(1);
       expect(JSON.stringify(kids.body)).toContain(mine());
-      await parent().get(`/api/v1/people/children/${mine()}`);
+      // Régression « Non inscrit » : la projection reçoit le NOM de la classe porté par les événements d'inscription.
+      const kidEnrollment = ((kids.body.items ?? kids.body.children ?? kids.body) as Array<{ currentEnrollment: { status: string; classroomName: string | null } | null }>)[0]?.currentEnrollment;
+      expect(kidEnrollment, JSON.stringify(kids.body).slice(0, 300)).toMatchObject({ status: "ACTIVE" });
+      expect(kidEnrollment?.classroomName).toBeTruthy();
+      const kid = await parent().get(`/api/v1/people/children/${mine()}`);
+      expect(kid.body.student?.currentEnrollment?.classroomName).toBe(kidEnrollment?.classroomName);
+      const adminView = await own().get(`/api/v1/people/students/${mine()}`);
+      expect(adminView.body.currentEnrollment?.classroomName).toBe(kidEnrollment?.classroomName);
       const enr = await parent().get(`/api/v1/academic/children/${mine()}/enrollments`);
       expect(JSON.stringify(enr.body)).toContain(W.students[1]!.enrollmentId);
       await parent().get(`/api/v1/attendance/children/${mine()}/attendance`);

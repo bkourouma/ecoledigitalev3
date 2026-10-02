@@ -30,6 +30,7 @@ import { AcademicEvents, ENROLLMENT_ACTION_EVENTS } from "../domain/events";
 import { formatRegistrationNumber } from "../domain/registration-number";
 import type { Classroom, Enrollment, EnrollmentCourse, HistoryEntry, InstitutionSettings, Placement } from "../domain/records";
 import * as cal from "../infrastructure/calendar-repository";
+import * as classroomsRepo from "../infrastructure/classroom-repository";
 import * as cur from "../infrastructure/curriculum-repository";
 import * as enr from "../infrastructure/enrollment-repository";
 import * as ref from "../infrastructure/reference-repository";
@@ -250,8 +251,8 @@ export async function createEnrollmentInTx(
     reason: input.note ?? null,
   });
   const created = (await enr.getEnrollment(tx, id)) as Enrollment;
-  events.add(AcademicEvents.ENROLLMENT_CREATED, enrollmentPayload(created, null, null), { type: "enrollment", id });
-  if (status === "ACTIVE") events.add(AcademicEvents.ENROLLMENT_CONFIRMED, enrollmentPayload(created, "PENDING", "politique de confirmation"), { type: "enrollment", id });
+  events.add(AcademicEvents.ENROLLMENT_CREATED, enrollmentPayload(created, null, null, classroom), { type: "enrollment", id });
+  if (status === "ACTIVE") events.add(AcademicEvents.ENROLLMENT_CONFIRMED, enrollmentPayload(created, "PENDING", "politique de confirmation", classroom), { type: "enrollment", id });
   return ok(created);
 }
 
@@ -328,7 +329,8 @@ export async function transitionEnrollmentInTx(
   }
   await writeHistory(deps, ctx, tx, enrollment.id, statusHistory(enrollment.status, target, why));
   const updated = (await enr.getEnrollment(tx, enrollment.id)) as Enrollment;
-  events.add(ENROLLMENT_ACTION_EVENTS[action], enrollmentPayload(updated, enrollment.status, why), { type: "enrollment", id: enrollment.id });
+  const classroomFacts = await classroomsRepo.getClassroom(tx, updated.classroomId);
+  events.add(ENROLLMENT_ACTION_EVENTS[action], enrollmentPayload(updated, enrollment.status, why, classroomFacts), { type: "enrollment", id: enrollment.id });
 
   // Répercussions sur les sélections de cours.
   if (target === "CANCELLED" || target === "WITHDRAWN" || target === "TRANSFERRED_OUT") {
@@ -449,7 +451,7 @@ export async function transferEnrollment(
     await writeHistory(deps, ctx, tx, id, { kind: "PLACEMENT", from: { classroomId: from }, to: { classroomId: to.id, effectiveOn }, reason });
     const updated = (await enr.getEnrollment(tx, id)) as Enrollment;
     const events = new EventBuffer(deps, ctx);
-    events.add(AcademicEvents.ENROLLMENT_TRANSFERRED, { ...enrollmentPayload(updated, enrollment.status, reason), fromClassroomId: from, toClassroomId: to.id, effectiveOn }, { type: "enrollment", id });
+    events.add(AcademicEvents.ENROLLMENT_TRANSFERRED, { ...enrollmentPayload(updated, enrollment.status, reason, to), fromClassroomId: from, toClassroomId: to.id, effectiveOn }, { type: "enrollment", id });
     await events.flush(tx);
     return ok(updated);
   });
