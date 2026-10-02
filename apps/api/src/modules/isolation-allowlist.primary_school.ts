@@ -2,7 +2,7 @@
  * Tables GLOBALES du schéma "primary_school" (sans tenant_id, hors RLS) pour le test d'isolation
  * (pnpm test:isolation et assertTenantIsolation). Fichier découvert automatiquement.
  *
- * AUCUNE : les 16 tables du schéma portent `tenant_id uuid NOT NULL REFERENCES kernel.tenants(id)` et la RLS forcée
+ * AUCUNE : les 17 tables du schéma portent `tenant_id uuid NOT NULL REFERENCES kernel.tenants(id)` et la RLS forcée
  * (kernel.enable_tenant_rls) — échelles et niveaux d'appréciation, référentiels de compétences (structure, niveaux d'application),
  * appréciations et révisions, verrous de période, banque de phrases, dossiers et présence du conseil, procès-verbaux, bilans
  * annuels, archives, paramètres, applications du modèle. Même les référentiels de DÉMONSTRATION sont instanciés PAR tenant : un

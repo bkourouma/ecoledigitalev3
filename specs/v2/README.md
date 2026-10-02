@@ -41,7 +41,7 @@ Phases du plan §4 : 0 = cadrage, 1 = socle SaaS, 2 = cœur académique et migra
 | 002 | auth-rbac | 1 | À écrire |
 | 003 | organization-campus | 1 | À écrire |
 | 004 | academic-core | 2 | Rédigée (`004-academic-core/`) |
-| 005 | primary | 4 | Rédigée (`005-primary/` : spec, data-model, plan, parity, rule-contract, pack-template, regulatory-sources-needed, open-questions ; module `primary_school`, DDL testé) |
+| 005 | primary | 4 | Rédigée (`005-primary/` : spec, data-model, plan, parity, rule-contract, pack-template, regulatory-sources-needed, open-questions ; module `primary_school`, DDL testé ; **implémentée** : module, adaptateurs, écrans `/v2/primary/*` ; reste : contrats de règles et RuleSet fictif, natures de documents, rôle `instituteur` — voir `005-primary/spec.md` §16) |
 | 006 | secondary | 5 | Rédigée (`006-secondary/` : spec, data-model testé sur Postgres — 37 tables, 3 schémas `councils`/`schoollife`/`stateassign`, 85 tests —, plan, parity, open-questions, regulatory-sources-needed, `ddl-test/`) |
 | 007 | admissions | 4 | Rédigée (`007-admissions/` : spec, data-model, plan, parity, open-questions ; module `admissions`, DDL testé dont concurrence) |
 | 008 | students-guardians | 2 | Rédigée (`008-students-guardians/`) |

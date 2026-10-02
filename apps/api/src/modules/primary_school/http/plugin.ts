@@ -127,7 +127,18 @@ export interface PrimarySchoolPluginOptions {
   requirePermission: (permission: string) => preHandlerAsyncHookHandler;
   resolveContext?: (request: FastifyRequest) => RequestContext;
   rateLimiter?: RateLimiterLike;
+  /** Garde de feature (entitlements) : 403 si la feature vendable n'est pas accordée au tenant. Absente : aucune garde de feature (tests). */
+  requireFeature?: (featureKey: string) => preHandlerAsyncHookHandler;
 }
+
+/** Feature vendable de chaque famille de routes (le motif porte sur la route SANS préfixe). Paramètres, échelles et référentiels : sans feature. */
+const FEATURE_OF_ROUTE: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^\/(my-classrooms|rule-banner|classrooms\/|competency-assessments|enrollments\/|children\/:studentId\/enrollments|phrases)/, "primary.competencies"],
+  [/^\/councils/, "primary.council"],
+  [/^\/(annual-reviews|me\/annual-reviews|children\/:studentId\/annual-reviews)/, "primary.annual-review"],
+  [/^\/year-archives/, "primary.year-archive"],
+  [/^\/(reports|progress)/, "primary.reports"],
+];
 
 const HTTP_RATE = Object.freeze({ bulk: { limit: 60, windowMs: 60_000 } });
 
@@ -163,6 +174,15 @@ export async function primarySchoolPlugin(app: FastifyInstance, options: Primary
       if (!reply.hasHeader("Cache-Control")) noStore(reply);
       return payload;
     });
+    // Garde de feature (entitlements) par famille de routes : posée AVANT la garde de permission de la route.
+    if (options.requireFeature) {
+      const guardOf = options.requireFeature;
+      scope.addHook("preHandler", async function featureGuard(this: FastifyInstance, request: FastifyRequest, reply: FastifyReply) {
+        const route = (request.routeOptions?.url ?? "").replace(/^.*\/primary_school(?=\/)/, "");
+        const feature = FEATURE_OF_ROUTE.find(([re]) => re.test(route))?.[1];
+        if (feature) await guardOf(feature).call(this, request, reply);
+      });
+    }
     const caps = (req: FastifyRequest, reply: FastifyReply, keys: ReadonlyArray<keyof CallerCaps> = ALL_CAPS): Promise<CallerCaps> => kit.capsFor(scope, req, reply, keys);
     const throttle = (kind: keyof typeof HTTP_RATE): preHandlerAsyncHookHandler =>
       async function throttleGuard(this: FastifyInstance, request: FastifyRequest, reply: FastifyReply) {
@@ -339,6 +359,7 @@ export default async function primarySchoolModulePlugin(app: FastifyInstance, ru
     requirePermission: (permission) => runtime.requirePermission(permission),
     resolveContext: (request) => runtime.resolveContext(request),
     rateLimiter: runtime.rateLimiter as unknown as RateLimiterLike,
+    ...(runtime.entitlements ? { requireFeature: (key: string) => runtime.entitlements.requireFeature(key) } : {}),
   });
 }
 

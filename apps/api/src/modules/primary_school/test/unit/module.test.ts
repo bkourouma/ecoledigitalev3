@@ -174,7 +174,7 @@ describe("chargé par le registre", () => {
   const quiet = { info: () => undefined, warn: () => undefined, error: () => undefined };
   const ctx: RequestContext = createRequestContext({ tenantId: "0192f0a4-7b1e-7c3a-8d2e-0000000000a1", userId: "0192f0a4-7b1e-7c3a-8d2e-0000000000b1" });
 
-  async function boot(grant: string[] = [], opts: { ports?: boolean } = {}) {
+  async function boot(grant: string[] = [], opts: { ports?: boolean; deniedFeatures?: string[] } = {}) {
     const guarded: string[] = [];
     const runtime = {
       // Une base qui REFUSE toute requête : prouve que les routes testées s'arrêtent avant (garde, port) sans toucher aux données.
@@ -188,6 +188,11 @@ describe("chargé par le registre", () => {
         if (!grant.includes(permission)) throw new ForbiddenError("Action non autorisée.", { details: { permission } });
       },
       rateLimiter: { hit: async () => ({ allowed: true, retryAfterMs: 0 }) },
+      entitlements: {
+        requireFeature: (key: string) => async () => {
+          if (opts.deniedFeatures?.includes(key)) throw new ForbiddenError("Fonctionnalité non accordée.", { code: "entitlements.feature_not_available", details: { feature: key } });
+        },
+      },
     } as unknown as ModuleRuntime;
     app = Fastify({ logger: false });
     app.decorate("v2", {} as never);
@@ -238,6 +243,22 @@ describe("chargé par le registre", () => {
     const res = await instance.inject({ method: "GET", url: "/api/v1/primary_school/settings", headers: { "x-tenant": "t" } });
     expect(res.statusCode).toBe(500);
     expect(res.json()).toMatchObject({ code: "primary_school.port_unavailable" });
+  });
+
+  it("les features vendables gardent leurs familles de routes (403 si non accordée au tenant), sans toucher aux paramètres", async () => {
+    const all = manifest.permissions.map((p) => p.key);
+    const { app: instance } = await boot(all, { ports: true, deniedFeatures: ["primary.council", "primary.annual-review", "primary.year-archive", "primary.reports", "primary.competencies"] });
+    const denied = ["/councils", "/annual-reviews", "/year-archives", "/reports/class-list", "/progress", "/my-classrooms", "/phrases", "/rule-banner", "/me/annual-reviews"];
+    for (const path of denied) {
+      const res = await instance.inject({ method: "GET", url: `/api/v1/primary_school${path}`, headers: { "x-tenant": "t" } });
+      expect(res.statusCode, path).toBe(403);
+      expect(res.json().code, path).toBe("entitlements.feature_not_available");
+    }
+    // paramètres, échelles et référentiels ne sont pas vendus à part : jamais gardés par une feature
+    for (const path of ["/settings", "/rating-scales", "/frameworks"]) {
+      const res = await instance.inject({ method: "GET", url: `/api/v1/primary_school${path}`, headers: { "x-tenant": "t" } });
+      expect(res.json().code, path).not.toBe("entitlements.feature_not_available");
+    }
   });
 
   it("le registre de ports de l'application sert les routes (ports branchés : l'erreur devient celle de la base)", async () => {

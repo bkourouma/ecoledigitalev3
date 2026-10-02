@@ -56,3 +56,21 @@ Format : **question** — options — **défaut retenu** (applicable tant que la
 - **007-admissions** : voir `specs/v2/007-admissions/open-questions.md` (questions Q-A01 à Q-A18 : frais de dossier, délai de validité d'une offre, priorités de la liste d'attente, durée de conservation des dossiers refusés, consentements, âge minimal par niveau, affectés par l'État à l'admission…).
 - **018-examinations** : voir `specs/v2/018-examinations/open-questions.md` et `regulatory-sources-needed.md` (questions Q-E01 à Q-E18 : épreuves et coefficients du CEPE, conditions d'éligibilité, numéro de candidat, taux de réussite, formats d'export officiels…).
 - **Textes à obtenir** : `regulatory-sources-needed.md` (primaire) et celui de 018 (examens).
+
+## D. Décisions techniques prises à l'implémentation
+
+| # | Décision | Justification |
+|---|---|---|
+| T-P16 | Plage de migrations `1900–1999` (et non `1800–1899`) ; migration additive `1903` (période du conseil, procès-verbal figé) | `imports` occupe `1800` ; le procès-verbal doit être FIGÉ en base (contenu, empreinte, version) avant d'être confié à `reportcards`, et un conseil doit retrouver sa période sans interroger `results` |
+| T-P17 | Idempotence de la saisie en lot par convergence, sans table de reçus | Une ligne identique n'est jamais réécrite ; une ligne différente exige `rowVersion` ; la reprise après échec réseau rejoue le même lot sans doublon (testé) |
+| T-P18 | Permission `primary.class.read_all` | Distinguer « toutes les classes » (direction, secrétariat) de « mes classes » sans nom de rôle codé en dur (convention n° 7) |
+| T-P19 | Le PDF d'un bilan est demandé par un abonné du worker à `primary_school.annual_review.sealed` ; « publié » pour une famille = scellé ET PDF émis | Le scellement (acte sensible, immuable) ne doit jamais dépendre d'un rendu qui peut échouer ou d'une nature de document non encore livrée |
+| T-P20 | Le conseil se tient avant la clôture de la période ; le bilan se scelle après | Contrainte réelle de `results` (délibération et décisions refusées sur une période `CLOSED`) |
+
+## E. Questions supplémentaires pour le propriétaire du produit
+
+| # | Question | Options | Défaut retenu |
+|---|---|---|---|
+| Q-P21 | Un instituteur lit-il les bilans annuels de SA classe ? | oui (lecture seule) ; non | **Oui** (`primary.bilan.read`), préparation et scellement réservés à la direction |
+| Q-P22 | Que voit la famille entre la réémission d'un bilan et son nouveau scellement ? | rien ; l'ancienne version | **Rien** (une seule version vivante par inscription et par année) ; à arbitrer si le trou est gênant (autoriserait deux versions vivantes en lecture, évolution du DDL) |
+| Q-P23 | Un bilan peut-il être scellé avant que le PDF existe, et l'archive gelée sans PDF ? | oui / non | **Scellement : oui ; gel de l'archive : non** (tous les PDF doivent être émis) |

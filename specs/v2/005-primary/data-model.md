@@ -1,6 +1,6 @@
 # Modèle de données — 005-primary (schéma Postgres `primary_school`)
 
-**Statut** : DDL de référence, **exécuté et testé** sur PostgreSQL 17 (`ddl/run.mjs` : 104 tests de comportement — publication et immuabilité des référentiels, FK composites, verrou de période, révisions à trace obligatoire, synthèse par compteurs, bilan scellé et versions, archive gelée, RLS A/B). Les fichiers ci-dessous sont les migrations cibles `apps/api/src/modules/primary_school/migrations/1900…1902` ; ils font foi sur les noms et les contraintes. Les blocs `<!-- migration: … -->` sont **générés** depuis `ddl/migrations/*.sql` (`node ddl/run.mjs --sync-doc`) et vérifiés par `--check-doc`.
+**Statut** : DDL de référence, **exécuté et testé** sur PostgreSQL 17 (`ddl/run.mjs` : 118 tests de comportement, dont 14 pour l'ajout `1903` — publication et immuabilité des référentiels, FK composites, verrou de période, révisions à trace obligatoire, synthèse par compteurs, bilan scellé et versions, archive gelée, RLS A/B). Les fichiers ci-dessous sont les migrations cibles `apps/api/src/modules/primary_school/migrations/1900…1903` (plage `1900–1999` : `imports` a pris `1800`) ; ils font foi sur les noms et les contraintes. Les blocs `<!-- migration: … -->` sont **générés** depuis `ddl/migrations/*.sql` (`node ddl/run.mjs --sync-doc`) et vérifiés par `--check-doc`.
 
 **Sources** : `docs/architecture/module-conventions.md`, ADR-002 (RLS), ADR-005 (types de ligne à la main), ADR-006 (un schéma par module), ADR-007 (UUID, UTC, snake_case anglais), `specs/v2/004-academic-core/data-model.md` (patron), `specs/v2/011-assessments-grades` (révisions), `specs/v2/013-report-cards` (instantanés).
 
@@ -49,6 +49,7 @@ appreciation_phrases    settings    template_applications
 | `period_locks` | Verrous de saisie | 15 classes × 3 périodes |
 | `appreciation_phrases` | Banque de phrases | 20 à 200 |
 | `council_cases`, `council_attendance` | Dossiers et présence du conseil | 600 dossiers par conseil de fin d'année ; 20 présences |
+| `council_minutes` | Procès-verbal FIGÉ du conseil (contenu, empreinte, versions) — ajout `1903` | 1 à 3 par conseil |
 | `annual_reviews` | Bilans annuels | 600 par an (+ réémissions) |
 | `year_archives` | Archives | 1 par an et établissement |
 | `settings`, `template_applications` | Paramètres, idempotence | quelques lignes |
@@ -932,6 +933,7 @@ CREATE TRIGGER council_minutes_guard BEFORE UPDATE OR DELETE ON primary_school.c
 | `10_reference.sql` | 29 | origine des données, FK composites inter-tenants, publication (manques), immuabilité (structure, échelle, identité), une version publiée, RLS et `GRANT` |
 | `20_competency_assessments.sql` | 34 | échelle et référentiel cohérents, unicité, validation, gel, révisions (même transaction seulement, ajout seul), verrou de période, brouillon supprimable, synthèse par compteurs, RLS |
 | `30_council_bilan.sql` | 41 | dossier de conseil, présence (président, secrétaire, signature), bilan (conditions de scellement, immuabilité, version n+1, réglage de l'établissement), archive (READY, FROZEN, année gelée), RLS et `GRANT` |
+| `40_council_minutes.sql` | 14 | période du dossier, procès-verbal figé (unicité de version et d'empreinte, contenu et empreinte immuables, document émis renseigné une fois, suppression refusée), RLS et `GRANT` |
 
 Exécution : `node specs/v2/005-primary/ddl/run.mjs` (Docker requis ; conteneur éphémère supprimé en fin d'essai ; `ED_PG_IMAGE=postgres:17-alpine`). Contrôle documentaire : `node ddl/run.mjs --check-doc`.
 
