@@ -160,6 +160,7 @@ Résultats du semestre 1 (`/v2/results`), relevés de notes PDF (`/v2/reportcard
 | Page blanche ou erreur de compilation Next.js | Journal `.demo/logs/web.log` ; relancez `pnpm demo:down` puis `pnpm demo:up`. |
 | Connexion refusée sur un compte MFA | Code déjà utilisé : attendez 30 s ; l'horloge de la machine doit être exacte. |
 | Après la connexion, la page tourne sans fin | Vous êtes sur une page historique : ouvrez `/v2/...` (voir §3). |
+| « Des ressources Docker de démonstration existent mais .demo/secrets.json est absent » | Les noms `ed-demo-*` sont uniques par machine : une démonstration lancée depuis une autre copie du dépôt a laissé ses conteneurs ou volumes. `pnpm demo:reset` (supprime uniquement `ed-demo-*`) puis `pnpm demo:up`. |
 | Mot de passe perdu | `.demo/credentials.md` (régénéré seulement par `demo:reset`). |
 | Nettoyage complet | `pnpm demo:reset`. Les images Docker `postgres:17-alpine` et `redis:7-alpine` restent en cache (`docker rmi` pour les retirer, à votre initiative). |
 
