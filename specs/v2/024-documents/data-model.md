@@ -1,6 +1,6 @@
 # Modèle de données — gestion documentaire (024)
 
-Schéma Postgres `documents`, migrations `apps/api/src/modules/documents/migrations/1800_documents_reference.sql`, `1801_documents_core.sql`, `1802_documents_guards.sql` (plage 2500-2599). Source de vérité : le DDL ; ce document en explique les choix.
+Schéma Postgres `documents`, migrations `apps/api/src/modules/documents/migrations/2500_documents_reference.sql`, `2501_documents_core.sql`, `2502_documents_guards.sql` (plage 2500-2599). Source de vérité : le DDL ; ce document en explique les choix.
 
 ## 1. Principes
 
