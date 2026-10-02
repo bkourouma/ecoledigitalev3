@@ -72,6 +72,12 @@ export {
   type CatalogEntry,
 } from "./domain/permission-catalog";
 export { SYSTEM_ROLE_TEMPLATES, type SystemRoleTemplate } from "./templates/system-roles";
+export {
+  RESERVED_FOR_UPCOMING_MODULES,
+  RESERVED_PERMISSION_KEYS,
+  isReservedPermission,
+  type ReservedPermission,
+} from "./templates/reserved-permissions";
 export { resolveSystemRoles } from "./domain/system-roles";
 export { syncPermissionCatalog, loadPermissionCatalog, type SyncCatalogReport } from "./application/catalog";
 export {

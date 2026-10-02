@@ -8,7 +8,10 @@
  *
  * Motifs sans correspondance dans le catalogue (module pas encore déployé) :
  * stockés dans `rbac.role_pending_permissions`, signalés dans les logs, et
- * re-résolus à la prochaine exécution — jamais perdus.
+ * re-résolus à la prochaine exécution — jamais perdus. Deux niveaux de signalement :
+ *   - clé figurant dans la liste blanche `RESERVED_FOR_UPCOMING_MODULES` (module à venir, attendu) :
+ *     `info`, aucun échec ;
+ *   - tout autre motif (faute de frappe, permission renommée) : `warn` (et les tests échouent).
  */
 import { PgOutboxWriter, type SystemDb, type Tx } from "@ecoledigitale/database";
 import {
@@ -35,6 +38,7 @@ import {
   replaceRolePermissions,
   updateRoleFields,
 } from "../infrastructure/repository";
+import { isReservedPermission } from "../templates/reserved-permissions";
 import { SYSTEM_ROLE_TEMPLATES, type SystemRoleTemplate } from "../templates/system-roles";
 import { loadPermissionCatalog, syncPermissionCatalog, type SyncCatalogReport } from "./catalog";
 import type { PermissionSetCache } from "./permission-cache";
@@ -153,14 +157,34 @@ export async function instantiateSystemRoles(
   }
 
   if (Object.keys(pendingByRole).length > 0) {
-    logger.warn(
-      {
-        tenantId: tid,
-        pendingByRole,
-        pendingCount: Object.values(pendingByRole).reduce((n, p) => n + p.length, 0),
-      },
-      "rbac : permissions de modèles système en attente (aucune permission du catalogue ne correspond encore) ; re-résolues à la prochaine synchro",
-    );
+    const unexpectedByRole: Record<string, readonly string[]> = {};
+    const reservedByRole: Record<string, readonly string[]> = {};
+    for (const [roleKey, patterns] of Object.entries(pendingByRole)) {
+      const unexpected = patterns.filter((p) => !isReservedPermission(p));
+      const reserved = patterns.filter((p) => isReservedPermission(p));
+      if (unexpected.length > 0) unexpectedByRole[roleKey] = unexpected;
+      if (reserved.length > 0) reservedByRole[roleKey] = reserved;
+    }
+    if (Object.keys(unexpectedByRole).length > 0) {
+      logger.warn(
+        {
+          tenantId: tid,
+          pendingByRole: unexpectedByRole,
+          pendingCount: Object.values(unexpectedByRole).reduce((n, p) => n + p.length, 0),
+        },
+        "rbac : permissions de modèles système en attente (aucune permission du catalogue ne correspond encore) ; re-résolues à la prochaine synchro",
+      );
+    }
+    if (Object.keys(reservedByRole).length > 0) {
+      logger.info(
+        {
+          tenantId: tid,
+          reservedByRole,
+          reservedCount: Object.values(reservedByRole).reduce((n, p) => n + p.length, 0),
+        },
+        "rbac : permissions réservées à des modules pas encore livrés (liste blanche RESERVED_FOR_UPCOMING_MODULES) ; résolues à la livraison du module",
+      );
+    }
   }
 
   if (events.length > 0 && options.publishEvents !== false) {
