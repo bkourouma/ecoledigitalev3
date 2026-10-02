@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { accessRoutes, setTestApi } from "@/platform/test/api-mock";
 import { createFakeIndexedDb, type FakeIndexedDb } from "@/platform/test/fake-indexeddb";
@@ -59,7 +59,7 @@ describe("emploi du temps personnel hors ligne", () => {
     setTestApi(ownRoutes(() => new Response(JSON.stringify(week()), { status: 200, headers: { "content-type": "application/json" } })));
     const first = renderWithProviders(<TimetableScreen />);
     expect(await screen.findAllByText("Mathématiques")).not.toHaveLength(0);
-    await waitFor(() => expect(fake.dump(OFFLINE_DB_NAME, "schedule_cache")).toHaveLength(1));
+    await waitFor(() => expect(fake.dump(OFFLINE_DB_NAME, "schedule_cache")).toHaveLength(2));
     // ni les notes, ni le motif d'annulation (données potentiellement personnelles) ne sont gardés
     const raw = JSON.stringify(fake.dump(OFFLINE_DB_NAME, "schedule_cache"));
     expect(raw).not.toContain("Awa");
@@ -86,7 +86,7 @@ describe("emploi du temps personnel hors ligne", () => {
     setTestApi(ownRoutes(() => new Response(JSON.stringify(week()), { status: 200, headers: { "content-type": "application/json" } })));
     const first = renderWithProviders(<TimetableScreen />);
     await screen.findAllByText("Mathématiques");
-    await waitFor(() => expect(fake.dump(OFFLINE_DB_NAME, "schedule_cache")).toHaveLength(1));
+    await waitFor(() => expect(fake.dump(OFFLINE_DB_NAME, "schedule_cache")).toHaveLength(2));
     first.unmount();
     setTestApi(ownRoutes(down));
     renderWithProviders(<TimetableScreen />);
@@ -99,7 +99,7 @@ describe("emploi du temps personnel hors ligne", () => {
     setTestApi(ownRoutes(() => new Response(JSON.stringify(week()), { status: 200, headers: { "content-type": "application/json" } })));
     const first = renderWithProviders(<TimetableScreen />);
     await screen.findAllByText("Mathématiques");
-    await waitFor(() => expect(fake.dump(OFFLINE_DB_NAME, "schedule_cache")).toHaveLength(1));
+    await waitFor(() => expect(fake.dump(OFFLINE_DB_NAME, "schedule_cache")).toHaveLength(2));
     first.unmount();
 
     owner = "ecole:user-2";
@@ -109,6 +109,59 @@ describe("emploi du temps personnel hors ligne", () => {
     expect(await screen.findByText(/aucune copie de cette période n'est enregistrée sur cet appareil/)).toBeTruthy();
     expect(screen.queryByText("Mathématiques")).toBeNull();
     expect(screen.queryByTestId("offline-copy-notice")).toBeNull();
+  });
+
+  describe("préchargement de la semaine suivante", () => {
+    const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+    const nextWeekBody = week({ items: [occurrence({ id: "00000000-0000-4000-8000-000000009101", title: "Anglais", occursOn: "2026-10-06", startsAt: "2026-10-06T08:00:00.000Z", endsAt: "2026-10-06T09:00:00.000Z" })] });
+    const routesByWeek = (calls: string[]) =>
+      ownRoutes(({ url }: { url: URL }) => {
+        const from = url.searchParams.get("from") ?? "";
+        calls.push(from);
+        return json(from === "2026-10-05" ? nextWeekBody : week());
+      });
+
+    it("après la semaine courante, la suivante est lue en arrière-plan puis consultable hors ligne", async () => {
+      const calls: string[] = [];
+      setTestApi(routesByWeek(calls));
+      const first = renderWithProviders(<TimetableScreen />);
+      await screen.findAllByText("Mathématiques");
+      await waitFor(() => expect(fake.dump(OFFLINE_DB_NAME, "schedule_cache")).toHaveLength(2));
+      expect(calls.filter((f) => f === "2026-10-05")).toHaveLength(1);
+      first.unmount();
+
+      setTestApi(ownRoutes(down));
+      renderWithProviders(<TimetableScreen />);
+      await screen.findByTestId("offline-copy-notice");
+      fireEvent.click(screen.getByRole("button", { name: "Semaine suivante" }));
+      expect((await screen.findAllByText("Anglais")).length).toBeGreaterThan(0);
+      expect(screen.getByTestId("offline-copy-notice").textContent).toContain("Lecture seule");
+    });
+
+    it("échec du préchargement : silencieux (aucune alerte), la semaine courante reste affichée", async () => {
+      setTestApi(ownRoutes(({ url }: { url: URL }) => (url.searchParams.get("from") === "2026-10-05" ? new Response("boom", { status: 503 }) : json(week()))));
+      renderWithProviders(<TimetableScreen />);
+      await screen.findAllByText("Mathématiques");
+      await new Promise((r) => setTimeout(r, 300));
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(fake.dump(OFFLINE_DB_NAME, "schedule_cache")).toHaveLength(1);
+    });
+
+    it("pas de préchargement en économie de données", async () => {
+      const calls: string[] = [];
+      Object.defineProperty(navigator, "connection", { value: { saveData: true }, configurable: true });
+      try {
+        setTestApi(routesByWeek(calls));
+        renderWithProviders(<TimetableScreen />);
+        await screen.findAllByText("Mathématiques");
+        await waitFor(() => expect(fake.dump(OFFLINE_DB_NAME, "schedule_cache")).toHaveLength(1));
+        await new Promise((r) => setTimeout(r, 300));
+        expect(calls).not.toContain("2026-10-05");
+        expect(fake.dump(OFFLINE_DB_NAME, "schedule_cache")).toHaveLength(1);
+      } finally {
+        Reflect.deleteProperty(navigator, "connection");
+      }
+    });
   });
 
   it("un autre sujet que « moi » n'est jamais gardé sur l'appareil", async () => {

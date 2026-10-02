@@ -133,6 +133,15 @@ export function useMyTimetable(window: WindowQuery, enabled = true) {
   });
 }
 
+/** Lecture directe (hors cache de requêtes) de l'emploi du temps personnel d'une fenêtre : sert au préchargement hors ligne. Une seule tentative. */
+export function fetchMyTimetablePage(window: { from: string; to: string; includeCancelled?: boolean }) {
+  return platformApi.get(`${SCHEDULING_BASE}/me/timetable`, {
+    schema: myTimetableDtoSchema,
+    query: { from: window.from, to: window.to, includeCancelled: window.includeCancelled ? "true" : undefined, limit: 500 },
+    retries: 0,
+  });
+}
+
 export function useChildTimetable(studentId: string | null, window: WindowQuery) {
   return hooks.useApiQuery([...KEY, "child", studentId], `${SCHEDULING_BASE}/children/${studentId}/timetable`, {
     schema: schedulingOccurrencePageDtoSchema,
