@@ -84,6 +84,25 @@ module.exports = {
       to: { path: "^apps/api/src/platform/adapters/" },
     },
     {
+      name: "observability-core-framework-free",
+      severity: "error",
+      comment:
+        "platform/observability/core est partagé avec apps/worker (ADR-009) : ni Fastify, ni `pg`, ni module, ni code legacy. " +
+        "Il reçoit ses dépendances (pools, clients Redis) par injection.",
+      from: { path: "^apps/api/src/platform/observability/core/", pathNot: TESTS },
+      to: { path: [PG, FASTIFY, "^apps/api/src/modules/", "^apps/api/src/(?!(modules|platform)/)"] },
+    },
+    {
+      name: "observability-no-modules",
+      severity: "error",
+      comment:
+        "L'observabilité de la plateforme n'importe aucun module ni le code legacy (ADR-009) : elle observe les modules par " +
+        "leurs journaux, leurs routes et leurs événements, jamais par leurs fichiers. Les sondes qui ont besoin d'un module " +
+        "passent par platform/adapters.",
+      from: { path: "^apps/api/src/platform/observability/", pathNot: TESTS },
+      to: { path: ["^apps/api/src/modules/", "^apps/api/src/(?!(modules|platform)/)"] },
+    },
+    {
       name: "domain-is-pure",
       severity: "error",
       comment:

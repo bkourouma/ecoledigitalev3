@@ -328,7 +328,10 @@ export interface PinoOptionsLike {
   base: Record<string, unknown>;
   messageKey: string;
   timestamp: () => string;
-  formatters: { level: (label: string) => { level: string } };
+  formatters: {
+    level: (label: string) => { level: string };
+    bindings: (bindings: Record<string, unknown>) => Record<string, unknown>;
+  };
   mixin: () => Record<string, unknown>;
   hooks: { logMethod: (this: unknown, args: unknown[], method: (...a: unknown[]) => void) => void };
 }
@@ -357,7 +360,11 @@ export function buildPinoOptions(input: PinoOptionsInput): PinoOptionsLike {
     base: { service: input.service, ...(input.base ?? {}) },
     messageKey: "msg",
     timestamp: () => `,"time":"${new Date().toISOString()}"`,
-    formatters: { level: (label) => ({ level: label }) },
+    formatters: {
+      level: (label) => ({ level: label }),
+      // Bindings des loggers enfants (`logger.child({ jobId })`) : même normalisation et même redaction que les lignes.
+      bindings: (bindings) => sanitizeLogObject(bindings),
+    },
     mixin: () => input.mixin?.() ?? {},
     hooks: {
       logMethod(args, method) {

@@ -1,6 +1,10 @@
 // Doit rester le premier import : charge .env puis valide l'environnement
 // (JWT_SECRET, DATABASE_URL…) et arrête le process si la configuration est invalide.
 import { env } from "./config/bootstrap-env";
+// Observabilité (ADR-009) : DEUXIÈME import, avant Fastify et `pg` — les instrumentations ne patchent que les modules chargés
+// après elles. Sans OTEL_EXPORTER_OTLP_ENDPOINT : aucun SDK chargé, aucun appel réseau.
+import { observability } from "./platform/observability/bootstrap";
+import { observabilityPlugin } from "./platform/observability/plugin";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
@@ -112,9 +116,8 @@ import {
 // import { studentDashboardRoutes } from "./routes/student-dashboard";
 
 const fastify = Fastify({
-  logger: {
-    level: process.env.NODE_ENV === "production" ? "info" : "debug",
-  },
+  // Journal pino commun (schéma snake_case, redaction, corrélation), identifiant de requête, journal d'accès unique : LOG_LEVEL.
+  ...observability.fastifyOptions,
   // find-my-way limite par défaut chaque paramètre d'URL à 100 caractères.
   // Nos noms de fichiers téléversés (sujet d'évaluation / rendu d'étudiant)
   // sont préfixés par un ou deux UUID (36 chars chacun) + nom original
@@ -127,6 +130,10 @@ const fastify = Fastify({
 
 async function start() {
   try {
+    // Observabilité : PREMIER plugin (ses hooks ne s'appliquent qu'aux routes déclarées après lui) ; expose /health, /ready,
+    // et /metrics (jamais public sans jeton : voir docs/architecture/runbook-exploitation.md).
+    await fastify.register(observabilityPlugin, { observability });
+
     // Register plugins
     await fastify.register(helmet);
     await fastify.register(cors, {
@@ -366,3 +373,15 @@ async function start() {
 }
 
 start();
+
+// Arrêt gracieux (docker stop, orchestrateur) : fermer Fastify exécute les hooks `onClose`, dont le vidage des spans en attente.
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.once(signal, () => {
+    const guard = setTimeout(() => process.exit(1), 15_000);
+    guard.unref();
+    fastify.close().then(
+      () => process.exit(0),
+      () => process.exit(1),
+    );
+  });
+}
