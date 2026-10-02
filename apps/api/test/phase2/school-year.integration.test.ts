@@ -934,7 +934,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
   });
 
   // ===========================================================================================================
-  describe("(10) diplôme et attestation de réussite (higher) : octroi, documents scellés par reportcards, vérification publique", () => {
+  describe("(10) diplôme et attestation de réussite (higher) : octroi, documents officiels émis, numérotés, publiés (scellement : D-P2-10)", () => {
     const dir = (): Actor => W.directeur as Actor;
     let diplomaId: string;
     let awardId: string;
@@ -962,7 +962,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       expect(JSON.stringify(progress.body)).toContain(W.ue[1]!.lineageId); // l'UE manquante est désignée
     });
 
-    it("signataires datés des documents, puis diplôme et attestation d'authenticité scellés (signature + QR) par reportcards", async () => {
+    it("signataires datés des documents, puis diplôme émis (numéroté, snapshot immuable) ; le rejeu ne crée pas de second diplôme", async () => {
       const from = addDays(iso(new Date()), -1);
       for (const slotKey of ["DIPLOMA_LEFT", "DIPLOMA_RIGHT", "ATTESTATION_SUCCESS", "AUTHENTICITY"]) {
         await own().put("/api/v1/higher/document-slots", { slotKey, signatoryId: W.signatoryId, validFrom: from });
