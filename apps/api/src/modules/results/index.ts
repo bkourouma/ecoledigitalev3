@@ -60,6 +60,7 @@ export {
   openCouncilDeliberation,
   publishYearDecision,
   recordDistinction,
+  withdrawCouncilDecision,
   writeCouncilAppreciation,
   type CouncilActor,
   type CouncilWriteSource,
@@ -67,6 +68,7 @@ export {
   type OpenCouncilDeliberationInput,
   type PublishYearDecisionInput,
   type RecordDistinctionInput,
+  type WithdrawCouncilDecisionInput,
   type WriteCouncilAppreciationInput,
 } from "./application/council-write";
 export { evaluateCouncilQuorum, type CouncilQuorumResult, type EvaluateCouncilQuorumInput } from "./application/quorum";

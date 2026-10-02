@@ -133,3 +133,12 @@ Migration `1204_results_council.sql` (issue `COUNCIL_REVIEW`, décisions `origin
 - **Provenance des règles** : `PeriodView.ruleSourceKind` ; `RuleSession.sourceKind` / `hasRule` (règles optionnelles du contrat) ; `RulesPort.sourceKindOf`.
 - **Quorum** : `evaluateCouncilQuorum` (règle `quorum_conseil`).
 - Adaptateur de plateforme `platform/adapters/results-year-facts.ts` (attendance + academic) ; la liaison de règles se fait par niveau fin **ou** par cycle d'enseignement (`educationLevelCode`).
+
+## Retrait d'une décision ou d'une distinction de conseil (2026-10-02)
+
+`withdrawCouncilDecision(deps, ctx, { decisionId, reason, actor })` (API publique, migration `1205`, événement `results.decision.withdrawn`) :
+
+* **Tracé et audité** : utilisateur authentifié (nom figé), date, motif (10 à 500 caractères, conservé avec la décision et dans l'audit `warning`, **jamais dans l'événement**), module appelant et référence opaque de l'acte source (`councilRef`).
+* **Interdit** sur une période **clôturée** (`results.state_closed`) ; **jamais** pour une décision **publiée** (`results.decision_transition`) ; seules une décision de fin d'année et une distinction **confirmées** se retirent (une proposition se remplace par le recalcul). Déjà retirée : idempotent, rien n'est refait ni émis.
+* Décision d'origine **règle** : la proposition de la règle est **rétablie** dans la même transaction (le conseil redécide sur la même base, la clôture ne voit pas de décision « périmée ») et un recalcul est demandé ; décision d'origine **conseil** : rien à restaurer. Une distinction retirée peut être ré-enregistrée (index unique partiel).
+* Consommé par `councils` : l'annulation d'un effet `RESULTS_DECISION` / `RESULTS_DISTINCTION` utilise ce retrait quand l'adaptateur l'offre (sinon l'ancien comportement : annulation par la réouverture de la période).

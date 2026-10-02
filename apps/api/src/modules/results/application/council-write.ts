@@ -20,9 +20,11 @@ import { DECISION_RULES, YEAR_END_FINAL_CODES, isFinalDecisionCode, outcomeOf } 
 import { ResultsCode, conflict, forbidden, notFound, validation } from "../domain/errors";
 import type { AppreciationRecord, DecisionRecord, DeliberationRecord, PeriodState } from "../domain/records";
 import { guarded } from "../infrastructure/db-errors";
-import { confirmDecision, getDeliberation, insertCouncilDecision, listDecisions, upsertAppreciation } from "../infrastructure/governance-repository";
+import { confirmDecision, getDecision, getDeliberation, insertCouncilDecision, listDecisions, restoreRuleProposal, upsertAppreciation, withdrawDecisionRow } from "../infrastructure/governance-repository";
 import { getStateById } from "../infrastructure/states-repository";
 import { EventBuffer, inTx, type ResultsCaps, type ResultsDeps } from "./deps";
+import { requestRecompute } from "./recompute";
+import { ResultsEvents } from "../domain/events";
 import { createDeliberation, updateDeliberationUseCase } from "./governance";
 import { emitConfirmed } from "./lifecycle";
 
@@ -264,6 +266,79 @@ export async function recordDistinction(deps: ResultsDeps, ctx: RequestContext, 
     });
     await events.flush(tx);
     return ok(done);
+  });
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Retrait d'une décision ou d'une distinction
+// ---------------------------------------------------------------------------------------------------------------------
+
+export interface WithdrawCouncilDecisionInput {
+  /** Décision (de fin d'année) ou distinction à retirer : l'identifiant renvoyé par `publishYearDecision` / `recordDistinction`. */
+  readonly decisionId: string;
+  /** Motif obligatoire (10 caractères au moins) : conservé avec le retrait et dans l'audit, jamais dans un événement. */
+  readonly reason: string;
+  readonly actor: CouncilActor;
+}
+
+/**
+ * Retire UNE décision ou distinction écrite pour un conseil (réouverture du conseil, erreur de saisie) — jusqu'ici seule la
+ * réouverture de la période les retirait, en masse.
+ *
+ *  - TRACÉ ET AUDITÉ : qui retire (utilisateur authentifié, nom figé), quand, pourquoi, quel acte source (`councilRef`), quel
+ *    module appelant ; audit `warning` dans la même transaction ; événement `results.decision.withdrawn` (identifiants et codes).
+ *  - INTERDIT sur une période CLÔTURÉE (`results.state_closed`) et JAMAIS pour une décision PUBLIÉE (`results.decision_transition`) :
+ *    une décision finale publiée au bulletin ne se retire pas par cette voie.
+ *  - Seule une décision CONFIRMÉE se retire (`PROPOSED` n'est pas une décision ; une proposition de règle se remplace par le
+ *    recalcul). Déjà retirée : IDEMPOTENT (rien n'est refait, rien n'est émis).
+ *  - Une décision issue d'une RÈGLE (`origin = RULE`) : la proposition de la règle est RÉTABLIE dans la même transaction (le conseil peut
+ *    redécider sur la même base ; la clôture ne voit pas de décision périmée) et un recalcul est demandé pour la rafraîchir ; une décision
+ *    de CONSEIL n'a pas de proposition à restaurer.
+ */
+export async function withdrawCouncilDecision(deps: ResultsDeps, ctx: RequestContext, input: WithdrawCouncilDecisionInput): Promise<Result<DecisionRecord, AppError>> {
+  const actorCheck = checkActor(input.actor);
+  if (!actorCheck.ok) return actorCheck;
+  if (!ctx.userId) return err(forbidden(ResultsCode.FORBIDDEN, "Un utilisateur authentifié est requis."));
+  const reason = input.reason.trim();
+  if (reason.length < 10) return err(validation(ResultsCode.INVALID_INPUT, "Le motif du retrait est obligatoire (10 caractères au moins).", "reason"));
+  if (reason.length > 500) return err(validation(ResultsCode.INVALID_INPUT, "Le motif du retrait est limité à 500 caractères.", "reason"));
+  return inTx(deps, ctx, async (tx) => {
+    const found = await getDecision(tx, input.decisionId, true);
+    if (!found) return err(notFound(ResultsCode.DECISION_NOT_FOUND, "Décision", input.decisionId));
+    if (found.kind !== "YEAR_END" && found.kind !== "DISTINCTION") {
+      return err(validation(ResultsCode.INVALID_INPUT, "Seules une décision de fin d'année et une distinction de conseil se retirent par cette voie.", "decisionId"));
+    }
+    if (found.status === "WITHDRAWN") return ok(found); // idempotent
+    if (found.status === "PUBLISHED") return err(conflict(ResultsCode.DECISION_TRANSITION, "Cette décision est publiée : elle ne se retire pas.", { status: found.status }));
+    if (found.status !== "CONFIRMED") return err(conflict(ResultsCode.DECISION_TRANSITION, "Seule une décision confirmée se retire : une proposition se remplace par le recalcul.", { status: found.status }));
+    const loaded = await loadOpenState(tx, found.stateId);
+    if (!loaded.ok) return loaded;
+    const state = loaded.value;
+    const actorName = await deps.ports.names.nameOf(ctx, ctx.userId as string);
+    const withdrawn = await guarded(() => withdrawDecisionRow(tx, { id: found.id, by: ctx.userId as string, byName: actorName, reason, ref: input.actor.councilRef, at: deps.clock.now() }));
+    if (!withdrawn) return err(conflict(ResultsCode.DECISION_TRANSITION, "La décision a été traitée entre-temps.", {}));
+    const events = new EventBuffer(deps, ctx);
+    events.add(
+      ResultsEvents.DECISION_WITHDRAWN,
+      { v: 1, decisionId: withdrawn.id, enrollmentId: withdrawn.enrollmentId, scope: withdrawn.scope, kind: withdrawn.kind, finalCode: found.finalCode, stateId: state.id, academicPeriodId: state.academicPeriodId, origin: withdrawn.origin },
+      { type: "decision", id: withdrawn.id },
+    );
+    events.audit({
+      action: "results.decision.withdrawn_by_council",
+      entity: "decision",
+      entityId: withdrawn.id,
+      before: { status: "CONFIRMED", final: found.finalCode, outcome: found.finalOutcome },
+      after: { status: "WITHDRAWN", kind: withdrawn.kind },
+      reason,
+      metadata: { source: input.actor.source, councilRef: input.actor.councilRef, origin: withdrawn.origin, stateId: state.id },
+      severity: "warning",
+    });
+    await events.flush(tx);
+    if (withdrawn.origin === "RULE") await restoreRuleProposal(tx, withdrawn.id, deps.newId());
+    if (withdrawn.origin === "RULE" && state.academicPeriodId) {
+      await requestRecompute(deps, ctx, { classroomId: state.classroomId, academicPeriodId: state.academicPeriodId, cause: { event: ResultsEvents.DECISION_WITHDRAWN, id: withdrawn.id }, tx });
+    }
+    return ok(withdrawn);
   });
 }
 

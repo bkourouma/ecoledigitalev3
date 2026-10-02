@@ -339,6 +339,8 @@ export const resultsEventPayloadSchemas = {
   "results.period.closed": ev({ ...periodRef, closureHash: z.string(), resultsVersion: z.number().int(), withoutDeliberation: z.boolean() }),
   "results.period.reopened": ev({ ...periodRef, closureHash: z.string().nullable(), resultsVersion: z.number().int(), reopenKind: resultsReopenKindSchema, reason: z.string() }),
   "results.decision.confirmed": ev({ enrollmentId: resultsUuidSchema, scope: z.enum(["PERIOD", "YEAR"]), kind: z.string(), finalCode: z.string().nullable(), outcome: z.string().nullable(), stateId: resultsUuidSchema, academicPeriodId: resultsUuidSchema.nullable(), changedFromProposal: z.boolean() }),
+  /** Retrait unitaire d'une décision / distinction de conseil : identifiants et codes (jamais le motif, conservé avec la décision et l'audit). */
+  "results.decision.withdrawn": ev({ decisionId: resultsUuidSchema, enrollmentId: resultsUuidSchema, scope: z.enum(["PERIOD", "YEAR"]), kind: z.string(), finalCode: z.string().nullable(), stateId: resultsUuidSchema, academicPeriodId: resultsUuidSchema.nullable(), origin: z.enum(["RULE", "COUNCIL"]) }),
   "results.override.requested": ev({ overrideId: resultsUuidSchema, enrollmentId: resultsUuidSchema, periodId: resultsUuidSchema.nullable(), stateId: resultsUuidSchema }),
   "results.override.approved": ev({ overrideId: resultsUuidSchema, enrollmentId: resultsUuidSchema, periodId: resultsUuidSchema.nullable(), stateId: resultsUuidSchema }),
   "results.override.revoked": ev({ overrideId: resultsUuidSchema, enrollmentId: resultsUuidSchema, periodId: resultsUuidSchema.nullable(), stateId: resultsUuidSchema }),

@@ -211,6 +211,36 @@ export async function confirmDecision(
 }
 
 /**
+ * Retrait UNITAIRE et tracé d'une décision CONFIRMÉE (jamais PUBLIÉE : la garde SQL le refuse aussi) : qui, quand, pourquoi, quel acte.
+ * `null` si la décision n'est plus confirmée (traitée entre-temps).
+ */
+export async function withdrawDecisionRow(tx: Tx, input: { id: string; by: string; byName: string; reason: string; ref: string; at: Date }): Promise<DecisionRecord | null> {
+  const row = await tx.queryOne(
+    `UPDATE results.decisions d
+        SET status = 'WITHDRAWN', withdrawn_at = $2, withdrawn_by = $3, withdrawn_by_name = $4, withdrawal_reason = $5, withdrawal_ref = $6
+      WHERE d.id = $1 AND d.status = 'CONFIRMED'
+      RETURNING ${DECISION_COLUMNS}`,
+    [input.id, input.at, input.by, input.byName, input.reason, input.ref],
+  );
+  return row ? toDecision(row) : null;
+}
+
+/**
+ * Après le retrait d'une décision d'origine RÈGLE : la PROPOSITION de la règle est rétablie (copie de celle de la ligne retirée), pour que le
+ * conseil puisse redécider sur la même base que la première fois et que la clôture ne voie pas de décision « périmée ». Un recalcul la rafraîchit
+ * si les entrées ont changé. Sans effet si une ligne vivante existe déjà.
+ */
+export async function restoreRuleProposal(tx: Tx, withdrawnId: string, newId: string): Promise<void> {
+  await tx.query(
+    `INSERT INTO results.decisions (id, tenant_id, state_id, enrollment_id, scope, kind, source_result_id, proposed_code, proposed_outcome, status, origin)
+     SELECT $2, tenant_id, state_id, enrollment_id, scope, kind, source_result_id, proposed_code, proposed_outcome, 'PROPOSED', 'RULE'
+       FROM results.decisions WHERE id = $1 AND origin = 'RULE' AND proposed_code IS NOT NULL
+     ON CONFLICT (tenant_id, state_id, enrollment_id, kind) WHERE status <> 'WITHDRAWN' DO NOTHING`,
+    [withdrawnId, newId],
+  );
+}
+
+/**
  * Réouverture : les décisions CONFIRMÉES reposent sur l'ancienne version des résultats ; elles sont RETIRÉES (conservées,
  * consultables) et de nouvelles propositions seront créées par le recalcul. Les décisions PUBLIÉES (bulletin) ne bougent pas.
  */
