@@ -92,7 +92,7 @@ export async function onDomainEvent(deps: NotificationsDeps, ctx: RequestContext
         values: enriched.values,
         dedupeBase: base,
         context: facts.context,
-        linkPath: null,
+        linkPath: facts.linkPath ?? null,
       });
       queued += r.queued;
       skipped += r.skipped;

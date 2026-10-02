@@ -70,7 +70,7 @@ Toutes les routes exigent la feature `stateassign.core`. Erreurs : codes stables
 
 `stateassign.assignment.received|verified|activated|suspended|resumed|ended|transferred|superseded|rejected` · `stateassign.control.due|performed|anomaly_detected` · `stateassign.reconciliation.discrepancy` · `stateassign.receivable.scheduled|overdue|received|cancelled`. Schémas : `stateassignEventPayloadSchemas` (contrats). **Consommés** : `finance.payment.completed` (paiement d'un FINANCEUR seulement), `finance.invoice.issued`.
 
-Alertes de l'économe / de la direction : **aucun abonné de `notifications` n'existe encore** pour `stateassign.reconciliation.discrepancy`, `receivable.overdue`, `control.due`, `control.anomaly_detected` (module `notifications` : à brancher par son propriétaire).
+Alertes de l'économe / de la direction : `notifications` consomme `stateassign.reconciliation.discrepancy`, `receivable.overdue`, `control.due`, `control.anomaly_detected` (règles livrées `stateassign.*`, gabarit interne `stateassign_alert`, rôles `econome` et `directeur`, aucun nom d'élève dans le message ; voir le README de `notifications`).
 
 ## Abonnés et jobs (worker, `WORKER_TZ`)
 

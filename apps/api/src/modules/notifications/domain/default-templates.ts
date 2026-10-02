@@ -104,6 +104,36 @@ export const SHIPPED_TEXTS: Readonly<Record<NotifTemplateCode, ShippedText>> = O
     short: "Votre bulletin de paie est disponible dans votre espace.",
     long: "Bonjour,\n\nVotre bulletin de paie est disponible. Vous pouvez le consulter depuis votre espace : {{appUrl}}" + SIGN,
   },
+  reconciliation_needed: {
+    title: "Rapprochement manuel requis : {{subject}}",
+    short: "Rapprochement manuel requis : un {{subject}} de {{amount}}{{#provider}} ({{provider}}){{/provider}}.{{#reason}} Motif : {{reason}}.{{/reason}} Voir « Paiements à rapprocher ».",
+    long: "Bonjour,\n\nUn {{subject}} de {{amount}}{{#provider}} (fournisseur : {{provider}}){{/provider}} ne peut plus être rapproché automatiquement.{{#reason}}\nMotif : {{reason}}.{{/reason}}\n\nMerci de le traiter depuis « Paiements à rapprocher » : {{appUrl}}/v2/finance/payments/pending" + SIGN,
+  },
+  stateassign_alert: {
+    title: "{{alertLabel}}",
+    short: "{{alertLabel}}{{#dueDate}} (échéance : {{dueDate}}){{/dueDate}}{{#daysOverdue}}, {{daysOverdue}} jours de retard{{/daysOverdue}}{{#amount}}, reste à recevoir : {{amount}}{{/amount}}. Détails dans l'application.",
+    long: "Bonjour,\n\n{{alertLabel}}.{{#dueDate}}\nÉchéance : {{dueDate}}{{/dueDate}}{{#daysOverdue}}\nRetard : {{daysOverdue}} jours{{/daysOverdue}}{{#amount}}\nReste à recevoir : {{amount}}{{/amount}}\n\nVoir le détail : {{appUrl}}/v2/stateassign" + SIGN,
+  },
+  schoollife_convocation: {
+    title: "Convocation{{#statusLabel}} {{statusLabel}}{{/statusLabel}} : {{studentName}}",
+    short: "Convocation{{#statusLabel}} {{statusLabel}}{{/statusLabel}} concernant {{studentName}} : le {{date}} à {{time}}{{#place}} ({{place}}){{/place}}. Détails dans l'application.",
+    long: "Bonjour,\n\nUne convocation{{#statusLabel}} {{statusLabel}}{{/statusLabel}} concerne {{studentName}} : le {{date}} à {{time}}{{#place}}, lieu : {{place}}{{/place}}.\n\nLe détail est disponible dans votre espace : {{appUrl}}" + SIGN,
+  },
+  schoollife_measure_notified: {
+    title: "Vie scolaire : information concernant {{studentName}}",
+    short: "Une décision de vie scolaire concernant {{studentName}} est disponible dans l'application.",
+    long: "Bonjour,\n\nUne décision de vie scolaire concernant {{studentName}} est disponible dans votre espace. Nous vous invitons à vous y connecter pour la consulter : {{appUrl}}" + SIGN,
+  },
+  admissions_application_received: {
+    title: "Candidature bien reçue",
+    short: "Nous avons bien reçu votre dossier de candidature. Nous reviendrons vers vous à chaque étape de son étude.",
+    long: "Bonjour,\n\nNous avons bien reçu votre dossier de candidature. Nous reviendrons vers vous à chaque étape de son étude.\n\nVous pouvez en suivre l'avancement depuis : {{appUrl}}" + SIGN,
+  },
+  admissions_offer_issued: {
+    title: "Une offre d'admission est disponible",
+    short: "Une offre d'admission est disponible pour votre dossier. Consultez le lien qui vous a été transmis ou contactez l'établissement.",
+    long: "Bonjour,\n\nUne offre d'admission est disponible pour votre dossier de candidature. Merci de consulter le lien qui vous a été transmis, ou de contacter l'établissement, pour y répondre dans les délais indiqués.\n\nSuivi : {{appUrl}}" + SIGN,
+  },
   channel_test: {
     title: "Message d'essai",
     short: "Message d'essai de {{schoolName}} : ce canal fonctionne.",

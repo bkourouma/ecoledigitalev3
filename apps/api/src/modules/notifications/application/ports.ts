@@ -94,8 +94,18 @@ export interface AnnouncementFeed {
   read(ctx: RequestContext, announcementId: string): Promise<{ readonly title: string; readonly summary: string | null; readonly priority: string; readonly recipientUserIds: readonly string[] } | null>;
 }
 
+/**
+ * Contacts d'un dossier de candidature (admissions) : un candidat n'est ni un élève ni un compte, et les événements
+ * d'admissions ne portent aucune donnée personnelle. Le port rend le responsable principal du dossier (à défaut le premier
+ * tuteur) avec ses coordonnées ; `[]` si le dossier est inconnu, anonymisé ou sans contact.
+ */
+export interface ApplicantDirectory {
+  applicantContacts(ctx: RequestContext, applicationId: string): Promise<readonly Recipient[]>;
+}
+
 export interface NotificationsPorts {
   readonly directory: RecipientDirectory;
+  readonly applicants: ApplicantDirectory;
   readonly overdue: OverdueSource;
   readonly grades: GradeSource;
   readonly teachingLoad: TeachingLoadSource;

@@ -102,7 +102,7 @@ describe("manifeste", () => {
     const perms = new Set(manifest.permissions.map((p) => p.key));
     for (const m of manifest.menus) {
       expect(perms.has(m.permission)).toBe(true);
-      if (m.portal === "admin") expect(m.href.startsWith("/admin/finance")).toBe(true);
+      if (m.portal === "admin") expect(m.href.startsWith("/admin/finance") || m.href.startsWith("/v2/finance")).toBe(true); // `/v2/finance/*` : écrans v2 (ex. paiements à rapprocher)
       else expect(["parent", "student"]).toContain(m.portal); // portails famille : `finance.child.read` / `finance.self.read`
     }
     expect(manifest.menus.filter((m) => m.portal === "admin").length).toBeGreaterThanOrEqual(4);

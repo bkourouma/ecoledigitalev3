@@ -12346,7 +12346,8 @@
       "ROLES": "Titulaires de rôles",
       "CLASSROOM": "Une classe",
       "ANNOUNCEMENT_RECIPIENTS": "Destinataires de l'annonce",
-      "PAYSLIP_HOLDER": "Titulaire du bulletin de paie"
+      "PAYSLIP_HOLDER": "Titulaire du bulletin de paie",
+      "APPLICANT_GUARDIANS": "Responsable du dossier de candidature"
     },
     "channels": {
       "IN_APP": "Application",

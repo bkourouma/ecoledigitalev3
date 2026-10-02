@@ -10,6 +10,10 @@
  *     -> Promise<{ channel: "EMAIL" | "SMS" | "WHATSAPP" | "IN_APP"; status: "SENT" | "QUEUED"; providerRef?: string | null }>
  *
  * Câblage prévu : `createAdmissionsApplicantNotifier(notificationsSender)` dans `buildPlatformPorts` quand le module existe.
+ *
+ * NB : `notifications` consomme aussi `admissions.application.submitted` et `admissions.offer.issued` (règles livrées
+ * `admissions.*.applicant`, DÉSACTIVÉES par défaut, coordonnées lues par `notifications-admissions.ts`). Ne pas activer ces
+ * règles en même temps que ce canal : le message partirait deux fois (arbitrage du propriétaire d'admissions).
  */
 import { InternalError, type RequestContext } from "@ecoledigitale/kernel";
 import type { ApplicantNotifier, DeliveryReceipt, NotificationChannel } from "../../modules/admissions";

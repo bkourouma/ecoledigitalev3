@@ -20,6 +20,7 @@ export { createNotificationsPortRegistry, notificationsWorkerPorts, resetNotific
 export { configFromEnv, createNotificationsDeps, DEFAULT_NOTIFICATIONS_CONFIG, type NotificationsConfig, type NotificationsDeps, type NotificationsDepsInput } from "./application/deps";
 export type {
   AnnouncementFeed,
+  ApplicantDirectory,
   AuditEntry,
   AuditPort,
   ChannelAdapter,

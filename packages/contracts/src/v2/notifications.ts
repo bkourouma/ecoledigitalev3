@@ -78,6 +78,15 @@ export const NOTIF_TEMPLATE_CODES = [
   "document_expiring",
   "payslip_available",
   "channel_test",
+  // Alertes internes (économat, direction) : rapprochement de paiements, créances et contrôles de l'État.
+  "reconciliation_needed",
+  "stateassign_alert",
+  // Vie scolaire : texte NEUTRE, jamais le motif disciplinaire. (Les codes de gabarit sont en snake_case : la base impose `^[a-z][a-z0-9_]+$`.)
+  "schoollife_convocation",
+  "schoollife_measure_notified",
+  // Admissions : messages au candidat (accusé de réception, offre). Aucun nom ni motif.
+  "admissions_application_received",
+  "admissions_offer_issued",
 ] as const;
 export const notifTemplateCodeSchema = z.enum(NOTIF_TEMPLATE_CODES);
 export type NotifTemplateCode = z.infer<typeof notifTemplateCodeSchema>;
@@ -251,7 +260,7 @@ export type NotifPreviewResponse = z.infer<typeof notifPreviewResponseSchema>;
 // Règles (qui est notifié, par quel canal, avec quel gabarit, seuils)
 // ---------------------------------------------------------------------------
 
-export const NOTIF_AUDIENCE_KINDS = ["STUDENT_GUARDIANS", "STUDENT", "STAFF_SUBJECT", "ROLES", "CLASSROOM", "ANNOUNCEMENT_RECIPIENTS", "PAYSLIP_HOLDER"] as const;
+export const NOTIF_AUDIENCE_KINDS = ["STUDENT_GUARDIANS", "STUDENT", "STAFF_SUBJECT", "ROLES", "CLASSROOM", "ANNOUNCEMENT_RECIPIENTS", "PAYSLIP_HOLDER", "APPLICANT_GUARDIANS"] as const;
 
 export const notifAudienceSchema = z.discriminatedUnion("kind", [
   /** Tuteurs de l'élève visé ; `financialFirst` : les responsables financiers d'abord ; `fallbackToStudent` : l'élève si aucun tuteur joignable. */
@@ -266,6 +275,8 @@ export const notifAudienceSchema = z.discriminatedUnion("kind", [
     .strict(),
   z.object({ kind: z.literal("ANNOUNCEMENT_RECIPIENTS") }).strict(),
   z.object({ kind: z.literal("PAYSLIP_HOLDER") }).strict(),
+  /** Responsable principal (à défaut le premier tuteur) du dossier de candidature visé par l'événement (admissions). */
+  z.object({ kind: z.literal("APPLICANT_GUARDIANS") }).strict(),
 ]);
 export type NotifAudience = z.infer<typeof notifAudienceSchema>;
 

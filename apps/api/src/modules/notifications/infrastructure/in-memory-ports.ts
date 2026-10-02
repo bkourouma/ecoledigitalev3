@@ -6,6 +6,7 @@ import { portUnavailable } from "../domain/errors";
 import type { Recipient } from "../domain/types";
 import type {
   AnnouncementFeed,
+  ApplicantDirectory,
   GradePair,
   GradeSource,
   NotificationsPorts,
@@ -32,6 +33,7 @@ function unavailable<T extends object>(name: string): T {
 export function unavailablePorts(): NotificationsPorts {
   return {
     directory: unavailable<RecipientDirectory>("annuaire des destinataires"),
+    applicants: unavailable<ApplicantDirectory>("contacts des candidatures"),
     overdue: unavailable<OverdueSource>("échéances en retard"),
     grades: unavailable<GradeSource>("résultats"),
     teachingLoad: unavailable<TeachingLoadSource>("charge d'enseignement"),
@@ -107,7 +109,15 @@ export class InMemoryAnnouncements implements AnnouncementFeed {
   }
 }
 
+export class InMemoryApplicants implements ApplicantDirectory {
+  readonly applications = new Map<string, Recipient[]>();
+  async applicantContacts(_ctx: RequestContext, applicationId: string) {
+    return this.applications.get(applicationId) ?? [];
+  }
+}
+
 export interface InMemoryWorld {
+  applicants: InMemoryApplicants;
   directory: InMemoryDirectory;
   overdue: InMemoryOverdue;
   grades: InMemoryGrades;
@@ -122,5 +132,6 @@ export function inMemoryPorts(): InMemoryWorld {
   const grades = new InMemoryGrades();
   const teachingLoad = new InMemoryTeachingLoad();
   const announcements = new InMemoryAnnouncements();
-  return { directory, overdue, grades, teachingLoad, announcements, ports: { directory, overdue, grades, teachingLoad, announcements } };
+  const applicants = new InMemoryApplicants();
+  return { applicants, directory, overdue, grades, teachingLoad, announcements, ports: { directory, applicants, overdue, grades, teachingLoad, announcements } };
 }
