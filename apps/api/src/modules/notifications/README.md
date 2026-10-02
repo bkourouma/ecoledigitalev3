@@ -65,7 +65,7 @@ Publiés (`{ v: 1, … }`, **jamais de contenu ni d'adresse**) : `notifications.
 - **Codes de gabarit** : snake_case (`schoollife_convocation`, `schoollife_measure_notified`) — la base impose `^[a-z][a-z0-9_]+$` ; ce sont les gabarits dédiés `schoollife.convocation` / `schoollife.measure.notified` demandés par la spec.
 - **Idempotence** : une alerte de rapprochement par élément et par motif ; une alerte de créance par créance ; une décision ou une convocation par identifiant ; un rejeu ne double rien.
 - **Admissions : coordonnées par port** : les événements ne portent aucune donnée personnelle ; l'audience `APPLICANT_GUARDIANS` interroge le port `applicants` (adaptateur `platform/adapters/notifications-admissions.ts` : cas d'usage public `getApplication` d'admissions, responsable principal à défaut premier tuteur). Port absent = échec fermé `notifications.port_unavailable` (le worker rejoue).
-- **Manque connu** : il n'existe pas d'événement `admissions.interview.*` : la convocation d'entretien d'admission ne peut pas être consommée ; elle reste envoyée par `admissions` lui-même (à demander au propriétaire d'admissions : publier `admissions.interview.scheduled`).
+- **Entretiens d'admission** : `admissions.interview.scheduled|rescheduled|cancelled` sont publiés (identifiants et instants seulement) ; aucune règle `notifications` ne les consomme encore et `admissions` n'envoie lui-même aucune convocation d'entretien : en ajouter une (audience `APPLICANT_GUARDIANS`, texte neutre) ne doublera donc aucun message.
 
 ## Ports et adaptateurs
 

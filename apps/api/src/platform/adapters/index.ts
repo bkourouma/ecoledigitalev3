@@ -320,7 +320,7 @@ export function buildPlatformPorts(
       enrollments: createAdmissionsEnrollmentService(admissionsEnv),
       fees: createAdmissionsRegistrationFees(admissionsEnv),
       catalog: createAdmissionsCatalog(admissionsEnv),
-      documents: createAdmissionsDocumentStore(storage, scanned),
+      documents: createAdmissionsDocumentStore(storage, scanned, () => documentsDeps),
       actors: createAdmissionsActorDirectory(admissionsEnv),
       // Canal de notification : `notifications` met le message en file (e-mail, SMS, WhatsApp) ; aucun canal joignable = échec FERMÉ.
       notifier: createAdmissionsApplicantNotifier(createAdmissionsNotificationSender(createSchoollifeNotificationsDeps(kit))),

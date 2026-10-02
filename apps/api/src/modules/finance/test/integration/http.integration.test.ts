@@ -514,7 +514,7 @@ describeIntegration("API HTTP /api/v1/finance/* (Fastify + Postgres réel)", () 
     });
 
     it("les seules permissions sensibles sont le remboursement, le rapprochement manuel et la configuration des fournisseurs de paiement", () => {
-      expect(manifest.permissions.filter((p) => p.sensitive).map((p) => p.key)).toEqual(["finance.payment.refund", "finance.payment.reconcile", "finance.provider.manage"]);
+      expect(manifest.permissions.filter((p) => p.sensitive).map((p) => p.key)).toEqual(["finance.payment.refund", "finance.payment.reconcile", "finance.webhook.replay", "finance.provider.manage"]);
     });
   });
 });

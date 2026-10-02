@@ -17,6 +17,9 @@ export const AdmissionsEvents = {
   WAITLIST_PROMOTED: "admissions.waitlist.promoted",
   PROSPECT_CONVERTED: "admissions.prospect.converted",
   APPLICATION_ANONYMIZED: "admissions.application.anonymized",
+  INTERVIEW_SCHEDULED: "admissions.interview.scheduled",
+  INTERVIEW_RESCHEDULED: "admissions.interview.rescheduled",
+  INTERVIEW_CANCELLED: "admissions.interview.cancelled",
 } as const;
 
 export const ALL_ADMISSIONS_EVENT_TYPES: readonly string[] = Object.values(AdmissionsEvents);

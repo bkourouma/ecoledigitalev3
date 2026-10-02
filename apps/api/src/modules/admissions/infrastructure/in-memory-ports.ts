@@ -7,7 +7,7 @@
  * l'état de la BASE (aucune ligne d'application, d'offre ou d'événement) et les compteurs d'appels.
  */
 import { createHash } from "node:crypto";
-import { InternalError, type RequestContext } from "@ecoledigitale/kernel";
+import { InternalError, newId, type RequestContext } from "@ecoledigitale/kernel";
 import { validation } from "../domain/errors";
 import { AdmissionsCode, portUnavailable } from "../domain/errors";
 import type {
@@ -100,6 +100,9 @@ export class InMemoryWorld {
   invoices = new Map<Uuid, { id: Uuid; enrollmentId: Uuid; cancelled: boolean; key: string }>();
   invoiceByKey = new Map<string, Uuid>();
   pieces = new Map<string, { bytes: Uint8Array; piece: StoredPiece; linkedTo?: Uuid; removed?: boolean }>();
+  /** GED simulée : (élève, catégorie, empreinte) -> document ; `attachedBy` garde le déposant (toujours un humain). */
+  gedAttachments = new Map<string, Uuid>();
+  attachedBy: Array<{ documentRef: Uuid; userId: string; studentId: Uuid }> = [];
   sent: ApplicantMessage[] = [];
   duplicatesFor: StudentDuplicate[] = [];
   /** Frais d'inscription dus ? (`false` : `issueRegistrationInvoice` renvoie `null` et l'inscription est confirmée d'emblée). */
@@ -246,6 +249,18 @@ export class InMemoryWorld {
       return { linked: true };
     },
     signedUrl: async (_ctx, piece) => ({ url: `memory://${piece.storageKey}`, expiresAt: new Date(Date.now() + 60_000) }),
+    attachToStudentFile: async (ctx, piece, target, _caps) => {
+      if (!ctx.userId) throw new Error("déposant humain requis");
+      const p = this.pieces.get(piece.storageKey);
+      if (!p) throw validation(AdmissionsCode.FILE_REJECTED, "Pièce introuvable dans le stockage.", "file");
+      const key = `${target.id}:${target.categoryId}:${p.piece.sha256}`;
+      const known = this.gedAttachments.get(key);
+      if (known) return { documentRef: known, alreadyPresent: true };
+      const documentRef = newId();
+      this.gedAttachments.set(key, documentRef);
+      this.attachedBy.push({ documentRef, userId: ctx.userId, studentId: target.id });
+      return { documentRef, alreadyPresent: false };
+    },
   };
 
   readonly notifier_: ApplicantNotifier = {
