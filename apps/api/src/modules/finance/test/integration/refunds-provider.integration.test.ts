@@ -369,6 +369,43 @@ describeIntegration("remboursement réel chez le fournisseur", () => {
     });
   });
 
+  describe("isolation entre tenants (RLS A/B)", () => {
+    it("un remboursement en vol, son suivi et sa résolution sont invisibles et inopérants depuis un autre tenant", async () => {
+      const a = await env.newTenant();
+      const b = await env.newTenant();
+      const t = env.makeDeps();
+      const { requester, approver } = people(a);
+      const c = await confirmed("mtn_momo", t, a);
+      const req = unwrap(await requestRefund(t.deps, requester, { paymentId: c.paymentId, amount: xof(5_000), reason: "Remboursement du tenant A" }));
+      unwrap(await approveRefund(t.deps, approver, { refundId: req.id }));
+      expect((await refundRow(req.id)).status).toBe("REFUND_PENDING");
+
+      const intruder = ctxFor(b);
+      expect((await getRefundById(t.deps, intruder, req.id)).ok).toBe(false);
+      for (const r of [
+        await approveRefund(t.deps, intruder, { refundId: req.id }),
+        await completeRefund(t.deps, intruder, { refundId: req.id, manual: { reference: "INTRUS-1" } }),
+        await rejectRefund(t.deps, intruder, { refundId: req.id, reason: "Tentative d'un autre tenant" }),
+        await requestManualResolution(t.deps, intruder, { refundId: req.id, outcome: "SUCCEEDED", reason: "Tentative d'un autre tenant", evidenceRef: "INTRUS-2" }),
+      ]) {
+        expect(r.ok).toBe(false);
+        if (!r.ok) expect(["finance.refund_not_found", "finance.payment_not_found"]).toContain(r.error.code);
+      }
+      // Le passage du job d'un autre tenant ne touche pas ce remboursement (ni son suivi).
+      t.clock.advance(61_000);
+      const refRef = [...env.mtn.refundStates.entries()].find(([, v]) => v.externalId === req.id)![0];
+      env.mtn.settleRefund(refRef, "SUCCESSFUL");
+      expect((await reconcileTenant(t.deps, b)).refunds.examined).toBe(0);
+      expect((await refundRow(req.id)).status).toBe("REFUND_PENDING");
+      const seen = await t.deps.db.run(intruder, (tx) => tx.many("SELECT refund_id FROM finance.reconciliation_state WHERE refund_id IS NOT NULL"), { readOnly: true });
+    // (RLS : le contexte du tenant B ne voit aucune ligne du tenant A)
+      expect(seen).toEqual([]);
+      // Le tenant propriétaire conclut.
+      expect((await reconcileTenant(t.deps, a)).refunds).toMatchObject({ confirmed: 1 });
+      expect((await refundRow(req.id)).status).toBe("COMPLETED");
+    });
+  });
+
   describe("fournisseurs sans API de remboursement : repli MANUEL explicite et audité", () => {
     it.each(["orange_money", "cinetpay"] as const)("%s : approuvé mais non exécuté ; l'exécution exige l'attestation avec preuve", async (provider) => {
       const tenantId = await env.newTenant();
