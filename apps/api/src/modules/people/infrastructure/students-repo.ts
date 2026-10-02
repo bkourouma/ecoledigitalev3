@@ -90,6 +90,8 @@ export interface NewStudent {
   civilRegistryOffice?: string | null | undefined;
   attributes?: Record<string, unknown> | undefined;
   externalRef?: string | null | undefined;
+  /** Statut à la création (défaut `ACTIVE`). */
+  status?: "ACTIVE" | "INACTIVE" | undefined;
 }
 
 export async function insertStudent(tx: Tx, tenantId: string, s: NewStudent, now: Date): Promise<void> {
@@ -97,7 +99,7 @@ export async function insertStudent(tx: Tx, tenantId: string, s: NewStudent, now
     `INSERT INTO people.students
        (id, tenant_id, person_id, student_number, sequence_number, national_student_id, birth_certificate_number,
         birth_certificate_date, civil_registry_office, attributes, external_ref, status, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9,$10::jsonb,$11,'ACTIVE',$12,$12)`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9,$10::jsonb,$11,$13,$12,$12)`,
     [
       s.id,
       tenantId,
@@ -111,6 +113,7 @@ export async function insertStudent(tx: Tx, tenantId: string, s: NewStudent, now
       JSON.stringify(s.attributes ?? {}),
       s.externalRef ?? null,
       now,
+      s.status ?? "ACTIVE",
     ],
   );
 }

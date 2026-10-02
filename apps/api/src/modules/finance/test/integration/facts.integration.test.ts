@@ -52,7 +52,7 @@ describeIntegration("faits publiés : frais d'inscription soldés, charge enrich
     expect(invoice.lines.map((l) => [l.category, l.sourceRef])).toEqual([["REGISTRATION", null], ["TUITION", courseRef]]);
 
     // Avant paiement : facturés mais pas soldés.
-    expect(unwrap(await getRegistrationFeeStatus(world.deps, ctx, { enrollmentId }))).toEqual({ invoiced: true, paid: false, invoiceIds: [invoice.invoice.id] });
+    expect(unwrap(await getRegistrationFeeStatus(world.deps, ctx, { enrollmentId }))).toEqual({ invoiced: true, paid: false, invoiceIds: [invoice.invoice.id], status: "PENDING" });
 
     unwrap(await pay(world.deps, ctx, learner, 100_000));
     expect(unwrap(await getInvoiceById(world.deps, ctx, invoice.invoice.id)).invoice.status).toBe("PAID");
@@ -63,7 +63,7 @@ describeIntegration("faits publiés : frais d'inscription soldés, charge enrich
     expect(payload).toMatchObject({ invoiceId: invoice.invoice.id, learnerId: learner, enrollmentId, containsRegistrationFee: true });
     expect(payload.sourceRefs).toEqual([{ sourceRef: courseRef, category: "TUITION" }]);
 
-    expect(unwrap(await getRegistrationFeeStatus(world.deps, ctx, { enrollmentId }))).toEqual({ invoiced: true, paid: true, invoiceIds: [invoice.invoice.id] });
+    expect(unwrap(await getRegistrationFeeStatus(world.deps, ctx, { enrollmentId }))).toEqual({ invoiced: true, paid: true, invoiceIds: [invoice.invoice.id], status: "PAID" });
     expect(unwrap(await getInvoiceFacts(world.deps, ctx, invoice.invoice.id))).toEqual({
       invoiceId: invoice.invoice.id,
       learnerId: learner,
@@ -80,7 +80,7 @@ describeIntegration("faits publiés : frais d'inscription soldés, charge enrich
     unwrap(await pay(world.deps, ctx, learner, 40_000));
     const events = await adminRows<{ payload: Record<string, unknown> }>(db, "SELECT payload FROM kernel.domain_events WHERE type = 'finance.invoice.paid' AND aggregate_id = $1", [created.invoices[0]!.invoice.id]);
     expect(financeInvoicePaidEventPayloadSchema.parse(events[0]!.payload)).toMatchObject({ enrollmentId, containsRegistrationFee: false, sourceRefs: [] });
-    expect(unwrap(await getRegistrationFeeStatus(world.deps, ctx, { enrollmentId }))).toEqual({ invoiced: false, paid: false, invoiceIds: [] });
+    expect(unwrap(await getRegistrationFeeStatus(world.deps, ctx, { enrollmentId }))).toEqual({ invoiced: false, paid: false, invoiceIds: [], status: "NOT_BILLED" });
     expect(unwrap(await getInvoiceFacts(world.deps, ctx, newId()))).toBeNull();
   });
 

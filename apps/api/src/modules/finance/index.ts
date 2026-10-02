@@ -86,8 +86,10 @@ export {
   getRegistrationFeeStatus,
   hasOverdueBalance,
   isRegistrationFeeDue,
+  registrationFeeStateOf,
   type InvoiceFacts,
   type RegistrationFeeQuery,
+  type RegistrationFeeState,
   type RegistrationFeeStatus,
 } from "./application/facts";
 
@@ -111,6 +113,11 @@ export {
   type CreateFeeScheduleInput,
   type CreateInstallmentPlanInput,
 } from "./application/catalog";
+
+// Modèle de pack `finance` : catégories de frais REGISTRATION / TUITION (libellés seulement, AUCUN montant)
+export { instantiateFinancePack, type FinancePackReport } from "./application/pack";
+export { feeTemplatesForPack, FINANCE_PACK_TEMPLATES, type FinancePackKey, type PackFeeTemplate } from "./domain/pack-template";
+export { FEE_CATEGORIES, FEE_CATEGORY_LABELS_FR } from "./domain/types";
 
 // Cas d'usage — facturation
 export {

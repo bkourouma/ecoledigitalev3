@@ -17,6 +17,7 @@ import {
   type PeopleListStudentsQuery,
   type PeoplePriorEducationDto,
   type PeopleStatusHistoryDto,
+  type PeopleStudentAgeDto,
   type PeopleStudentDetailDto,
   type PeopleStudentSensitiveDto,
   type PeopleStudentSummaryDto,
@@ -27,7 +28,8 @@ import { PeopleErrors } from "../domain/errors";
 import { sniffImage, studentPhotoKey } from "../domain/files";
 import { addDays, displayName, isoDate, normalizePhone } from "../domain/normalize";
 import { formatNumber } from "../domain/number-pattern";
-import { canTransitionStudent, setsLeftOn, studentReasonRequired } from "../domain/status";
+import { ageInYearsOn, isValidIsoDate } from "../domain/age";
+import { canTransitionStudent, requiresHumanActor, setsLeftOn, studentReasonRequired } from "../domain/status";
 import {
   anonymizePerson,
   getPerson,
@@ -72,6 +74,7 @@ function primaryFacts(rows: Awaited<ReturnType<typeof listPrimaryGuardians>>, st
 function uniqueViolationToError(e: unknown): AppError | null {
   if (!isUniqueViolation(e)) return null;
   const text = `${(e as { constraint?: string }).constraint ?? ""} ${(e as Error).message ?? ""}`;
+  if (text.includes("students_pkey")) return PeopleErrors.studentIdConflict();
   if (text.includes("students_national_id_unique")) return PeopleErrors.nationalIdConflict();
   if (text.includes("external_ref")) return PeopleErrors.externalRefConflict();
   if (text.includes("persons_identity_unique")) return PeopleErrors.identityAlreadyLinked();
@@ -191,6 +194,63 @@ export async function getStatusHistory(deps: PeopleDeps, ctx: RequestContext, st
   );
 }
 
+/** Validation commune de la date de référence (fournie par l'appelant ou par la règle, jamais l'horloge). */
+function checkReferenceDate(referenceDate: string): Result<string, AppError> {
+  return isValidIsoDate(referenceDate) ? ok(referenceDate) : err(PeopleErrors.invalidReferenceDate());
+}
+
+const ageView = (studentId: string, referenceDate: string, birthDate: string | null, leapBirthday?: "MARCH_1" | "FEB_28"): PeopleStudentAgeDto => {
+  const age = birthDate ? ageInYearsOn(birthDate, referenceDate, leapBirthday ? { leapBirthday } : {}) : null;
+  return { studentId, referenceDate, birthDateKnown: Boolean(birthDate), bornAfterReference: Boolean(birthDate) && age === null, ageYears: age };
+};
+
+/**
+ * Âge d'un élève à `referenceDate` (années révolues). La date de référence est FOURNIE (ex. « au 31 décembre de l'année de
+ * l'examen », décidée par la règle) : jamais l'horloge. Date de naissance inconnue ou postérieure à la date de référence :
+ * `ageYears = null` avec le drapeau explicatif, jamais une valeur inventée. Lecture seule ; ne renvoie que l'âge (pas la
+ * date de naissance). Erreurs : `people.student_not_found`, `people.invalid_reference_date`.
+ */
+export async function getStudentAgeOn(
+  deps: PeopleDeps,
+  ctx: RequestContext,
+  studentId: string,
+  referenceDate: string,
+  options: { leapBirthday?: "MARCH_1" | "FEB_28" } = {},
+): Promise<Result<PeopleStudentAgeDto, AppError>> {
+  const checked = checkReferenceDate(referenceDate);
+  if (!checked.ok) return checked;
+  return inTx(
+    deps,
+    ctx,
+    async (tx) => {
+      const row = await repo.getStudentRow(tx, ctx.tenantId, studentId);
+      if (!row) return err(PeopleErrors.studentNotFound(studentId));
+      return ok(ageView(studentId, referenceDate, row.birthDate, options.leapBirthday));
+    },
+    { readOnly: true },
+  );
+}
+
+/** Âges de plusieurs élèves à la même date de référence (une requête ; identifiants inconnus ignorés). */
+export async function getStudentAgesOn(
+  deps: PeopleDeps,
+  ctx: RequestContext,
+  studentIds: readonly string[],
+  referenceDate: string,
+  options: { leapBirthday?: "MARCH_1" | "FEB_28" } = {},
+): Promise<Result<PeopleStudentAgeDto[], AppError>> {
+  if (studentIds.length > deps.config.maxBatchSize) return err(ValidationError.field("ids", `Au plus ${deps.config.maxBatchSize} identifiants par appel.`, "too_many"));
+  const checked = checkReferenceDate(referenceDate);
+  if (!checked.ok) return checked;
+  const unique = [...new Set(studentIds)];
+  return inTx(
+    deps,
+    ctx,
+    async (tx) => ok((await repo.getStudentRows(tx, ctx.tenantId, unique)).map((r) => ageView(r.studentId, referenceDate, r.birthDate, options.leapBirthday))),
+    { readOnly: true },
+  );
+}
+
 export async function listStudentEnrollments(deps: PeopleDeps, ctx: RequestContext, studentId: string): Promise<Result<repo.EnrollmentSummaryRow[], AppError>> {
   return inTx(
     deps,
@@ -212,13 +272,21 @@ export type CreateStudentOutcome =
   | { kind: "validated"; duplicates: PeopleDuplicateCandidateDto[] };
 
 /**
+ * Entrée de `createStudent` : le corps HTTP (`PeopleCreateStudentBody`, dont `initialStatus`) plus un `id` FOURNI par
+ * l'appelant (ex. admissions, qui fixe l'identifiant du dossier avant l'écriture). `id` n'est PAS exposé par l'API HTTP.
+ */
+export type CreateStudentInput = PeopleCreateStudentBody & { id?: string | undefined };
+
+/**
  * Crée atomiquement la personne (ou réutilise une personne existante), le dossier, le numéro gapless, la ligne d'historique
- * `NULL -> ACTIVE` et l'événement `people.student.created`. Idempotent par `externalRef` ; `validateOnly` n'écrit rien.
+ * `NULL -> initialStatus` (`ACTIVE` par défaut, ou `INACTIVE`) et l'événement `people.student.created`. Idempotent par
+ * `externalRef` ET par `id` fourni (un dossier existant sous cet `id` est renvoyé, `replayed: true`) ; `validateOnly` n'écrit rien.
+ * Un `id` déjà pris hors du tenant (ou par une autre ressource) est refusé : `people.student_id_conflict`.
  */
 export async function createStudent(
   deps: PeopleDeps,
   ctx: RequestContext,
-  input: PeopleCreateStudentBody,
+  input: CreateStudentInput,
   options: { visibility?: RoleVisibility; allowSensitive?: boolean } = {},
 ): Promise<Result<CreateStudentOutcome, AppError>> {
   const visibility = options.visibility ?? SEE_NO_ROLE;
@@ -236,6 +304,14 @@ export async function createStudent(
     const today = todayOf(deps);
     const settings = await loadSettings(deps, tx, ctx, { write: !validateOnly });
 
+    if (input.id) {
+      await lockKey(tx, ctx, "student-id", input.id);
+      const existingById = await repo.getStudentRow(tx, ctx.tenantId, input.id);
+      if (existingById) {
+        const primary = primaryFacts(await listPrimaryGuardians(tx, ctx.tenantId, [existingById.studentId]), existingById.studentId);
+        return ok<CreateStudentOutcome>({ kind: "created", student: studentDetailView(existingById, "FULL", primary), replayed: true });
+      }
+    }
     if (input.externalRef) {
       await lockKey(tx, ctx, "student-ref", input.externalRef);
       const existing = await repo.findStudentByExternalRef(tx, ctx.tenantId, input.externalRef);
@@ -288,12 +364,14 @@ export async function createStudent(
       // Le compteur gapless est pris le plus TARD possible : son verrou est tenu jusqu'au COMMIT.
       const seq = await nextNumber(tx, "STUDENT");
       const studentNumber = formatNumber(settings.studentNumberPattern, { seq, year: now.getUTCFullYear(), prefix: settings.numberPrefix });
-      const studentId = deps.newId();
+      const studentId = input.id ?? deps.newId();
+      const initialStatus = input.initialStatus ?? "ACTIVE";
       await repo.insertStudent(
         tx,
         ctx.tenantId,
         {
           id: studentId,
+          status: initialStatus,
           personId,
           studentNumber,
           sequenceNumber: seq,
@@ -306,10 +384,17 @@ export async function createStudent(
         },
         now,
       );
-      await repo.insertStatusHistory(tx, ctx.tenantId, { id: deps.newId(), studentId, fromStatus: null, toStatus: "ACTIVE", reasonCode: "CREATED", effectiveOn: today, changedBy: actorId(ctx) }, now);
+      await repo.insertStatusHistory(tx, ctx.tenantId, { id: deps.newId(), studentId, fromStatus: null, toStatus: initialStatus, reasonCode: "CREATED", effectiveOn: today, changedBy: actorId(ctx) }, now);
 
-      buffer.add(PEOPLE_EVENTS.studentCreated, { v: 1, studentId, personId }, { type: "student", id: studentId });
-      buffer.audit({ action: "people.student.created", entity: "student", entityId: studentId, severity: sensitiveGiven ? "notice" : "info", metadata: { personId, reusedPerson: Boolean(reuse), sensitiveFields: sensitiveFieldNames(input) } });
+      // `initialStatus` n'est publié que pour un dossier créé INACTIVE (absent = ACTIVE : charge utile inchangée par défaut).
+      buffer.add(PEOPLE_EVENTS.studentCreated, { v: 1, studentId, personId, ...(initialStatus === "INACTIVE" ? { initialStatus } : {}) }, { type: "student", id: studentId });
+      buffer.audit({
+        action: "people.student.created",
+        entity: "student",
+        entityId: studentId,
+        severity: sensitiveGiven ? "notice" : "info",
+        metadata: { personId, reusedPerson: Boolean(reuse), sensitiveFields: sensitiveFieldNames(input), ...(initialStatus === "INACTIVE" ? { initialStatus } : {}) },
+      });
       if (duplicates.length > 0) {
         buffer.audit({ action: "people.student.duplicate_acknowledged", entity: "student", entityId: studentId, severity: "notice", reason: input.duplicateReason ?? null, metadata: { candidates: duplicates.map((d) => d.personId) } });
       }
@@ -393,6 +478,9 @@ export async function updateStudent(
  * iam, 010, 014, 016). Le statut est TOUJOURS une action explicite, jamais déduit des inscriptions.
  */
 export async function changeStudentStatus(deps: PeopleDeps, ctx: RequestContext, studentId: string, input: PeopleChangeStatusBody): Promise<Result<PeopleStudentDetailDto, AppError>> {
+  // Suspension et exclusion sont des ACTES : utilisateur identifié obligatoire (acteur système refusé) et motif obligatoire
+  // (`studentReasonRequired`). `INACTIVE -> ACTIVE` (confirmation d'une inscription) reste libre de motif (spec 007 §16).
+  if (requiresHumanActor(input.status) && !actorId(ctx)) return err(PeopleErrors.humanActorRequired(`passage à ${input.status}`));
   return inTx(deps, ctx, async (tx) => {
     const now = deps.clock.now();
     const today = todayOf(deps);

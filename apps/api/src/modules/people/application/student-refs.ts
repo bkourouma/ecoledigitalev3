@@ -21,7 +21,15 @@ export interface StudentRefMatch {
 }
 
 export async function resolveStudentRefs(deps: PeopleDeps, ctx: RequestContext, refs: readonly string[]): Promise<Result<StudentRefMatch[], AppError>> {
-  const wanted = [...new Set(refs.map((r) => r.trim()).filter((r) => r !== ""))];
+  // Dédoublonnage insensible à la casse (la correspondance l'est) : la première graphie demandée est conservée.
+  const seenKeys = new Set<string>();
+  const wanted = refs
+    .map((r) => r.trim())
+    .filter((r) => {
+      if (r === "" || seenKeys.has(r.toUpperCase())) return false;
+      seenKeys.add(r.toUpperCase());
+      return true;
+    });
   if (wanted.length === 0) return ok([]);
   if (wanted.length > STUDENT_REFS_MAX) return err(new ValidationError(`Au plus ${STUDENT_REFS_MAX} références par appel.`, [{ path: ["refs"], message: "Trop de références.", code: "people.invalid_input" }]));
   const upper = wanted.map((r) => r.toUpperCase());
