@@ -200,16 +200,19 @@ export interface PaymentListFilter {
   method?: PaymentMethod;
   from?: string;
   to?: string;
+  /** Payeur : les vues famille ne voient que les paiements de la famille (`LEARNER`), jamais ceux d'un financeur. */
+  payerKind?: PayerKind;
   limit: number;
   offset: number;
 }
 
 export async function listPayments(tx: Tx, f: PaymentListFilter): Promise<{ items: PaymentRecord[]; total: number }> {
-  const params = [f.learnerId ?? null, f.status ?? null, f.method ?? null, f.from ?? null, f.to ?? null];
+  const params = [f.learnerId ?? null, f.status ?? null, f.method ?? null, f.from ?? null, f.to ?? null, f.payerKind ?? null];
   const where = `($1::uuid IS NULL OR learner_id = $1) AND ($2::text IS NULL OR status = $2) AND ($3::text IS NULL OR method = $3)
-                 AND ($4::timestamptz IS NULL OR received_at >= $4) AND ($5::timestamptz IS NULL OR received_at < $5)`;
+                 AND ($4::timestamptz IS NULL OR received_at >= $4) AND ($5::timestamptz IS NULL OR received_at < $5)
+                 AND ($6::text IS NULL OR payer_kind = $6)`;
   const rows = await tx.many(
-    `SELECT ${PAYMENT_COLS} FROM finance.payments WHERE ${where} ORDER BY received_at DESC, id DESC LIMIT $6 OFFSET $7`,
+    `SELECT ${PAYMENT_COLS} FROM finance.payments WHERE ${where} ORDER BY received_at DESC, id DESC LIMIT $7 OFFSET $8`,
     [...params, f.limit, f.offset],
   );
   const count = await tx.queryOne<{ n: string }>(`SELECT count(*)::text AS n FROM finance.payments WHERE ${where}`, params);
@@ -359,17 +362,16 @@ export async function getReceiptByPayment(tx: Tx, paymentId: Uuid): Promise<Rece
 
 export async function listReceipts(
   tx: Tx,
-  f: { learnerId?: Uuid; limit: number; offset: number },
+  f: { learnerId?: Uuid; payerKind?: PayerKind; limit: number; offset: number },
 ): Promise<{ items: ReceiptRecord[]; total: number }> {
+  const where = `($1::uuid IS NULL OR learner_id = $1)
+    AND ($2::text IS NULL OR EXISTS (SELECT 1 FROM finance.payments p WHERE p.id = finance.receipts.payment_id AND p.payer_kind = $2))`;
   const rows = await tx.many(
-    `SELECT ${RECEIPT_COLS} FROM finance.receipts WHERE ($1::uuid IS NULL OR learner_id = $1)
-      ORDER BY number_year DESC, number_seq DESC LIMIT $2 OFFSET $3`,
-    [f.learnerId ?? null, f.limit, f.offset],
+    `SELECT ${RECEIPT_COLS} FROM finance.receipts WHERE ${where}
+      ORDER BY number_year DESC, number_seq DESC LIMIT $3 OFFSET $4`,
+    [f.learnerId ?? null, f.payerKind ?? null, f.limit, f.offset],
   );
-  const count = await tx.queryOne<{ n: string }>(
-    "SELECT count(*)::text AS n FROM finance.receipts WHERE ($1::uuid IS NULL OR learner_id = $1)",
-    [f.learnerId ?? null],
-  );
+  const count = await tx.queryOne<{ n: string }>(`SELECT count(*)::text AS n FROM finance.receipts WHERE ${where}`, [f.learnerId ?? null, f.payerKind ?? null]);
   return { items: rows.map(receiptOf), total: Number(count?.n ?? 0) };
 }
 

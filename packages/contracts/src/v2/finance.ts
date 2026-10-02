@@ -857,6 +857,147 @@ export const financeLearnerStatementDtoSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Vues FAMILLE (`/finance/me/*`) : parent (`finance.child.*`) et élève (`finance.self.*`)
+//
+// Accès filtré par lien de tutelle / identité de l'élève, relu côté serveur ; toute ressource hors périmètre répond la même
+// 404 `finance.not_found`. Seules les factures ÉMISES et paiements à la charge de la FAMILLE (`payerKind = LEARNER`) sont
+// exposés. Les champs internes (`payerRef`, `cancelReason`, `providerRef`, `simulated`, `cashSessionId`) sont retirés.
+// ---------------------------------------------------------------------------
+
+export const FINANCE_FAMILY_RELATIONS = ["SELF", "GUARDIAN"] as const;
+export const financeFamilyRelationSchema = z.enum(FINANCE_FAMILY_RELATIONS);
+
+/** Non strict : les routes imbriquées (`:learnerId/invoices/:id`) portent aussi `id`. */
+export const financeFamilyLearnerParamsSchema = z.object({ learnerId: financeUuidSchema });
+export const financeFamilyItemParamsSchema = z.object({ learnerId: financeUuidSchema, id: financeUuidSchema }).strict();
+
+export const financeFamilyStatementQuerySchema = z.object({ academicYear: z.string().trim().min(1).max(20).optional(), currency: financeCurrencySchema.optional() }).strict();
+export const financeFamilyInvoicesQuerySchema = financePageQuerySchema.extend({
+  academicYear: z.string().trim().min(1).max(20).optional(),
+  status: financeInvoiceStatusSchema.optional(),
+});
+export const financeFamilyInstallmentsQuerySchema = z.object({ open: boolQuery.optional() });
+export const financeFamilyPaymentsQuerySchema = financePageQuerySchema.extend({ status: financePaymentStatusSchema.optional() });
+export const financeFamilyReceiptsQuerySchema = financePageQuerySchema;
+
+export const financeFamilyLearnerDtoSchema = z.object({ learnerId: financeUuidSchema, relation: financeFamilyRelationSchema });
+export type FinanceFamilyLearnerDto = z.infer<typeof financeFamilyLearnerDtoSchema>;
+export const financeFamilyLearnersDtoSchema = z.object({ items: z.array(financeFamilyLearnerDtoSchema) });
+
+export const financeFamilyInvoiceSummaryDtoSchema = financeInvoiceSummaryDtoSchema.omit({ payerRef: true, cancelReason: true });
+export type FinanceFamilyInvoiceSummaryDto = z.infer<typeof financeFamilyInvoiceSummaryDtoSchema>;
+export const financeFamilyInvoiceDetailDtoSchema = financeFamilyInvoiceSummaryDtoSchema.extend({
+  lines: z.array(financeInvoiceLineDtoSchema),
+  installments: z.array(financeInstallmentDtoSchema),
+  discounts: z.array(z.object({ discountId: financeUuidSchema, amount: financeMoneyDtoSchema })),
+});
+export type FinanceFamilyInvoiceDetailDto = z.infer<typeof financeFamilyInvoiceDetailDtoSchema>;
+
+export const financeFamilyInstallmentDtoSchema = financeInstallmentDtoSchema.extend({
+  invoiceId: financeUuidSchema,
+  invoiceNumber: z.string(),
+  invoiceStatus: financeInvoiceStatusSchema,
+  academicYear: z.string(),
+});
+export type FinanceFamilyInstallmentDto = z.infer<typeof financeFamilyInstallmentDtoSchema>;
+
+export const financeFamilyPaymentDtoSchema = financePaymentDtoSchema.omit({ payerRef: true, providerRef: true, simulated: true, cashSessionId: true });
+export type FinanceFamilyPaymentDto = z.infer<typeof financeFamilyPaymentDtoSchema>;
+export const financeFamilyPaymentViewDtoSchema = z.object({
+  payment: financeFamilyPaymentDtoSchema,
+  receipt: financeReceiptDtoSchema.nullable(),
+  allocations: z.array(financeAllocationDtoSchema),
+  replayed: z.boolean(),
+});
+export const financeFamilyOnlinePaymentDtoSchema = financeFamilyPaymentViewDtoSchema.extend({ instructions: financeOnlinePaymentDtoSchema.shape.instructions });
+
+export const financeFamilyStatementDtoSchema = z.object({
+  learnerId: financeUuidSchema,
+  currency: financeCurrencySchema,
+  invoices: z.array(financeFamilyInvoiceSummaryDtoSchema),
+  payments: z.array(financeFamilyPaymentDtoSchema),
+  totals: financeLearnerStatementDtoSchema.shape.totals,
+});
+export type FinanceFamilyStatementDto = z.infer<typeof financeFamilyStatementDtoSchema>;
+
+/** Paiement en ligne initié par le parent (ou l'élève) : la facture visée est OBLIGATOIRE, le montant ≤ son reste dû. */
+export const financeFamilyInitiatePaymentBodySchema = z
+  .object({
+    idempotencyKey: financeIdempotencyKeySchema.optional(),
+    invoiceId: financeUuidSchema,
+    amount: financePositiveAmountSchema,
+    currency: financeCurrencySchema.optional(),
+    provider: z.string().regex(/^[a-z][a-z0-9_]{1,39}$/),
+    payer: financeInitiateOnlinePaymentBodySchema.shape.payer,
+    returnUrl: z.string().url().max(500).optional(),
+    description: optionalText(200).optional(),
+  })
+  .strict();
+export type FinanceFamilyInitiatePaymentBody = z.infer<typeof financeFamilyInitiatePaymentBodySchema>;
+
+// ---------------------------------------------------------------------------
+// Exports CSV serveur : `GET /finance/exports/{invoices|payments|receivables}` (+ `/meta` en JSON)
+//
+// Le fichier contient TOUTES les lignes du filtre jusqu'à un plafond (`FINANCE_EXPORT_MAX_ROWS`, défaut 50 000). Au-delà il
+// est TRONQUÉ et la troncature est signalée par les en-têtes `X-Export-*` ET par la route `/meta` (JSON, lisible par le client
+// typé sans toucher aux en-têtes) : un export tronqué n'est jamais présenté comme complet.
+// ---------------------------------------------------------------------------
+
+export const FINANCE_EXPORT_DATASETS = ["invoices", "payments", "receivables"] as const;
+export const financeExportDatasetSchema = z.enum(FINANCE_EXPORT_DATASETS);
+export type FinanceExportDataset = z.infer<typeof financeExportDatasetSchema>;
+/** Plafond par défaut d'un export (lignes) : documenté, surchargé par `FINANCE_EXPORT_MAX_ROWS` côté serveur. */
+export const FINANCE_EXPORT_DEFAULT_MAX_ROWS = 50_000;
+
+/** En-têtes de réponse d'un export CSV (noms en minuscules, comme les expose `fetch`). */
+export const FINANCE_EXPORT_HEADERS = Object.freeze({
+  truncated: "x-export-truncated",
+  rowCount: "x-export-row-count",
+  totalCount: "x-export-total-count",
+  maxRows: "x-export-max-rows",
+});
+
+export const financeExportInvoicesQuerySchema = z.object({
+  learnerId: financeUuidSchema.optional(),
+  academicYear: z.string().optional(),
+  status: financeInvoiceStatusSchema.optional(),
+  groupKey: z.string().optional(),
+  payerKind: financePayerKindSchema.optional(),
+});
+export const financeExportPaymentsQuerySchema = z.object({
+  learnerId: financeUuidSchema.optional(),
+  status: financePaymentStatusSchema.optional(),
+  method: financePaymentMethodSchema.optional(),
+  from: isoInstant.optional(),
+  to: isoInstant.optional(),
+});
+export const financeExportReceivablesQuerySchema = financeReportQuerySchema.extend({ onlyOutstanding: boolQuery.optional() });
+
+export const financeExportMetaDtoSchema = z.object({
+  dataset: financeExportDatasetSchema,
+  /** Lignes correspondant au filtre. */
+  totalCount: z.number().int().nonnegative(),
+  /** Lignes présentes dans le fichier : `min(totalCount, maxRows)`. */
+  rowCount: z.number().int().nonnegative(),
+  maxRows: z.number().int().positive(),
+  truncated: z.boolean(),
+});
+export type FinanceExportMetaDto = z.infer<typeof financeExportMetaDtoSchema>;
+
+/**
+ * Lit les en-têtes `X-Export-*` d'une réponse d'export (`get` = `headers.get` de fetch). `null` si l'un manque : l'appelant
+ * doit alors traiter l'export comme POTENTIELLEMENT tronqué (jamais comme complet).
+ */
+export function parseFinanceExportHeaders(get: (name: string) => string | null | undefined): { truncated: boolean; rowCount: number; totalCount: number; maxRows: number } | null {
+  const truncated = get(FINANCE_EXPORT_HEADERS.truncated);
+  const rowCount = Number(get(FINANCE_EXPORT_HEADERS.rowCount));
+  const totalCount = Number(get(FINANCE_EXPORT_HEADERS.totalCount));
+  const maxRows = Number(get(FINANCE_EXPORT_HEADERS.maxRows));
+  if ((truncated !== "true" && truncated !== "false") || ![rowCount, totalCount, maxRows].every((n) => Number.isInteger(n) && n >= 0)) return null;
+  return { truncated: truncated === "true", rowCount, totalCount, maxRows };
+}
+
+// ---------------------------------------------------------------------------
 // Listes paginées
 // ---------------------------------------------------------------------------
 

@@ -26,6 +26,7 @@ import { PgOutboxWriter, isUniqueViolation, type TenantDb, type Tx } from "@ecol
 import { DEFAULT_ALLOCATION_ORDER, type AllocationOrder } from "../domain/types";
 import { noopAudit, type AuditEntry, type AuditPort } from "./ports/audit";
 import { noEnrollments, passThroughLearners, type EnrollmentDirectory, type LearnerDirectory } from "./ports/directories";
+import { denyAllGuardianship, type GuardianshipPort } from "./ports/guardianship";
 import { createProviderRegistry, type AppEnvironment, type ProviderRegistry } from "../infrastructure/providers/registry";
 
 export interface FinanceConfig {
@@ -41,6 +42,8 @@ export interface FinanceConfig {
   cashVarianceTolerance: number;
   /** URL publique de base des webhooks (communiquée aux fournisseurs). */
   webhookBaseUrl: string | null;
+  /** Plafond de lignes d'un export CSV serveur (au-delà : fichier tronqué ET signalé `X-Export-Truncated`). */
+  exportMaxRows: number;
 }
 
 export const DEFAULT_FINANCE_CONFIG: FinanceConfig = Object.freeze({
@@ -51,6 +54,7 @@ export const DEFAULT_FINANCE_CONFIG: FinanceConfig = Object.freeze({
   refundSelfApproval: false,
   cashVarianceTolerance: 0,
   webhookBaseUrl: null,
+  exportMaxRows: 50_000,
 });
 
 export interface FinanceDeps {
@@ -60,6 +64,8 @@ export interface FinanceDeps {
   readonly providers: ProviderRegistry;
   readonly learners: LearnerDirectory;
   readonly enrollments: EnrollmentDirectory;
+  /** Lien de tutelle / identité de l'élève (routes famille `/me/*`) : refuse tout tant qu'il n'est pas branché. */
+  readonly guardianship: GuardianshipPort;
   readonly config: FinanceConfig;
   readonly newId: () => string;
   readonly logger: Logger;
@@ -72,11 +78,12 @@ export interface FinanceDepsInput {
   providers?: ProviderRegistry;
   learners?: LearnerDirectory;
   enrollments?: EnrollmentDirectory;
+  guardianship?: GuardianshipPort;
   config?: Partial<FinanceConfig>;
   newId?: () => string;
   logger?: Logger;
   /** Annuaires branchés après la construction (adaptateurs de plateforme) : lus à chaque accès, prioritaires sur `learners` / `enrollments`. */
-  portsProvider?: () => Partial<{ learners: LearnerDirectory; enrollments: EnrollmentDirectory }>;
+  portsProvider?: () => Partial<{ learners: LearnerDirectory; enrollments: EnrollmentDirectory; guardianship: GuardianshipPort }>;
 }
 
 /**
@@ -96,6 +103,9 @@ export function createFinanceDeps(input: FinanceDepsInput): FinanceDeps {
     },
     get enrollments() {
       return input.portsProvider?.().enrollments ?? input.enrollments ?? noEnrollments;
+    },
+    get guardianship() {
+      return input.portsProvider?.().guardianship ?? input.guardianship ?? denyAllGuardianship;
     },
     config,
     newId: input.newId ?? newId,

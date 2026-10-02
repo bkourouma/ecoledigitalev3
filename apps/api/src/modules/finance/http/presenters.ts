@@ -32,6 +32,8 @@ import type { IsoDate } from "../domain/types";
 import type { PaymentView } from "../application/billing-core";
 import type { OnlinePaymentResult } from "../application/online-payments";
 import type { InvoicePreview, LearnerStatement } from "../application/invoices";
+import type { FamilyAccess, FamilyStatement } from "../application/family";
+import type { LearnerInstallmentRow } from "../infrastructure/billing-repository";
 import type { CashSessionSummary } from "../application/cash";
 import type {
   AgedBalanceReport,
@@ -364,6 +366,63 @@ export const learnerStatementDto = (s: LearnerStatement) => ({
   currency: s.currency,
   invoices: s.invoices.map(invoiceSummaryDto),
   payments: s.payments.map(paymentDto),
+  totals: {
+    billed: money(s.totals.billed),
+    credited: money(s.totals.credited),
+    collected: money(s.totals.collected),
+    outstanding: money(s.totals.outstanding),
+    unallocatedPayments: money(s.totals.unallocatedPayments),
+  },
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Vues FAMILLE (`/finance/me/*`) : mêmes formes que l'administration, SANS les champs internes
+// ---------------------------------------------------------------------------------------------------------------------
+
+export const familyLearnerDto = (a: FamilyAccess) => ({ learnerId: a.learnerId, relation: a.relation });
+
+export const familyInvoiceSummaryDto = (i: InvoiceRecord) => {
+  const { payerRef: _payerRef, cancelReason: _cancelReason, ...rest } = invoiceSummaryDto(i);
+  return rest;
+};
+
+export const familyInvoiceDetailDto = (d: InvoiceDetail, today: IsoDate) => ({
+  ...familyInvoiceSummaryDto(d.invoice),
+  lines: d.lines.map(lineDto),
+  installments: d.installments.map((i) => installmentDto(i, today)),
+  discounts: d.discounts.map((x) => ({ discountId: x.discountId, amount: money(x.amount) })),
+});
+
+export const familyInstallmentDto = (r: LearnerInstallmentRow, today: IsoDate) => ({
+  ...installmentDto(r.installment, today),
+  invoiceId: r.installment.invoiceId,
+  invoiceNumber: r.invoiceNumber,
+  invoiceStatus: r.invoiceStatus,
+  academicYear: r.academicYear,
+});
+
+export const familyPaymentDto = (p: PaymentRecord) => {
+  const { payerRef: _payerRef, providerRef: _providerRef, simulated: _simulated, cashSessionId: _cashSessionId, ...rest } = paymentDto(p);
+  return rest;
+};
+
+export const familyPaymentViewDto = (v: PaymentView) => ({
+  payment: familyPaymentDto(v.payment),
+  receipt: v.receipt ? receiptDto(v.receipt) : null,
+  allocations: v.allocations.map(allocationDto),
+  replayed: v.replayed,
+});
+
+export const familyOnlinePaymentDto = (v: OnlinePaymentResult) => ({
+  ...familyPaymentViewDto(v),
+  instructions: onlinePaymentDto(v).instructions,
+});
+
+export const familyStatementDto = (s: FamilyStatement) => ({
+  learnerId: s.learnerId,
+  currency: s.currency,
+  invoices: s.invoices.map(familyInvoiceSummaryDto),
+  payments: s.payments.map(familyPaymentDto),
   totals: {
     billed: money(s.totals.billed),
     credited: money(s.totals.credited),

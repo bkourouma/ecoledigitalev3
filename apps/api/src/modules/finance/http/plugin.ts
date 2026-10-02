@@ -42,6 +42,18 @@ import {
   financeCreatePlanBodySchema,
   financeCreateScholarshipBodySchema,
   financeCreditNoteBodySchema,
+  FINANCE_EXPORT_HEADERS,
+  financeExportInvoicesQuerySchema,
+  financeExportPaymentsQuerySchema,
+  financeExportReceivablesQuerySchema,
+  financeFamilyInitiatePaymentBodySchema,
+  financeFamilyInstallmentsQuerySchema,
+  financeFamilyInvoicesQuerySchema,
+  financeFamilyItemParamsSchema,
+  financeFamilyLearnerParamsSchema,
+  financeFamilyPaymentsQuerySchema,
+  financeFamilyReceiptsQuerySchema,
+  financeFamilyStatementQuerySchema,
   financeGenerateInstallmentsBodySchema,
   financeIdParamsSchema,
   financeInitiateOnlinePaymentBodySchema,
@@ -86,6 +98,32 @@ import {
   setLearnerFunding,
 } from "../application/catalog";
 import { createFinanceDeps, type FinanceDeps } from "../application/deps";
+import {
+  exportInvoicesCsv,
+  exportPaymentsCsv,
+  exportReceivablesCsv,
+  type CsvExport,
+  type ExportDataset,
+  type ExportOptions,
+} from "../application/exports";
+import {
+  authorizeFamilyAccess,
+  FAMILY_PERMISSIONS,
+  getFamilyInvoice,
+  getFamilyPayment,
+  getFamilyReceipt,
+  getFamilyStatement,
+  initiateFamilyOnlinePayment,
+  listFamilyInstallments,
+  listFamilyInvoices,
+  listFamilyPayments,
+  listFamilyReceipts,
+  listMyLearners,
+  verifyFamilyPayment,
+  type FamilyAccess,
+  type FamilyAction,
+  type PermissionProbe,
+} from "../application/family";
 import { createFinancePortRegistry, type FinancePortRegistry, type FinancePortSet } from "../application/port-registry";
 import { financeAuditAdapter } from "../infrastructure/audit-adapter";
 import { createProviderRegistry, EnvProviderConfigSource, type AppEnvironment } from "../infrastructure/providers/registry";
@@ -194,6 +232,55 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
       });
     }
     return guards;
+  };
+
+  /** Sonde de permission sans exception pour un simple refus (autre erreur : propagée). */
+  const probeOf =
+    (req: FastifyRequest, reply: FastifyReply): PermissionProbe =>
+    async (permission) => {
+      try {
+        await perm(permission).call(app, req, reply);
+        return true;
+      } catch (e) {
+        if (e instanceof ForbiddenError) return false;
+        throw e;
+      }
+    };
+
+  /**
+   * Garde des routes famille : au moins UNE des deux permissions (`finance.child.<action>` ou `finance.self.<action>`) ;
+   * puis, si `feature`, la garde d'entitlement. La propriété de l'apprenant est contrôlée dans le handler (`familyAccess`).
+   */
+  const familyGuard = (action: FamilyAction, feature?: string): preHandlerAsyncHookHandler[] => {
+    const wanted = [FAMILY_PERMISSIONS.GUARDIAN[action], FAMILY_PERMISSIONS.SELF[action]];
+    const guards: preHandlerAsyncHookHandler[] = [
+      async function familyPermissionGate(request, reply) {
+        let last: unknown;
+        for (const p of wanted) {
+          try {
+            await perm(p).call(request.server, request, reply);
+            return;
+          } catch (e) {
+            if (!(e instanceof ForbiddenError)) throw e;
+            last = e;
+          }
+        }
+        throw last ?? new ForbiddenError("Action non autorisée.");
+      },
+    ];
+    if (feature && options.requireFeature) {
+      const featureGuard = options.requireFeature(feature);
+      guards.push(async function featureGate(request, reply) {
+        return featureGuard.call(request.server, request, reply);
+      });
+    }
+    return guards;
+  };
+
+  /** Autorise l'accès à l'apprenant du chemin (`:learnerId`) : propriété + permission du bon type, sinon 404 uniforme. */
+  const familyAccess = async (req: FastifyRequest, reply: FastifyReply, action: FamilyAction): Promise<FamilyAccess> => {
+    const { learnerId } = parse(financeFamilyLearnerParamsSchema, req.params);
+    return unwrapOrThrow(await authorizeFamilyAccess(deps, ctxOf(req), learnerId, action, probeOf(req, reply)));
   };
 
   const requireFeature = async (ctx: RequestContext, feature: string): Promise<void> => {
@@ -580,6 +667,95 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
         return present.receiptDto(unwrapOrThrow(await getReceiptOfPayment(deps, ctxOf(req), id)));
       });
 
+      // ----- Vues FAMILLE : parent (`finance.child.*`) et élève (`finance.self.*`) ---------------------------------
+      // Deux couches : permission RBAC (au moins une des deux) PUIS propriété relue côté serveur (lien de tutelle /
+      // identité de l'élève). Hors périmètre, TOUJOURS la même 404 `finance.not_found`.
+      scope.get("/me/learners", { preHandler: familyGuard("read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const items = unwrapOrThrow(await listMyLearners(deps, ctx, probeOf(req, reply)));
+        return { items: items.map(present.familyLearnerDto) };
+      });
+      scope.get("/me/learners/:learnerId/statement", { preHandler: familyGuard("read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const access = await familyAccess(req, reply, "read");
+        const q = parse(financeFamilyStatementQuerySchema, req.query);
+        return present.familyStatementDto(unwrapOrThrow(await getFamilyStatement(deps, ctx, access, { ...(q.academicYear ? { academicYear: q.academicYear } : {}), ...(q.currency ? { currency: q.currency } : {}) })));
+      });
+      scope.get("/me/learners/:learnerId/invoices", { preHandler: familyGuard("read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const access = await familyAccess(req, reply, "read");
+        const q = parse(financeFamilyInvoicesQuerySchema, req.query);
+        const page = unwrapOrThrow(await listFamilyInvoices(deps, ctx, access, { limit: q.limit, offset: q.offset, ...(q.academicYear ? { academicYear: q.academicYear } : {}), ...(q.status ? { status: q.status } : {}) }));
+        return { items: page.items.map(present.familyInvoiceSummaryDto), total: page.total };
+      });
+      scope.get("/me/learners/:learnerId/invoices/:id", { preHandler: familyGuard("read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const access = await familyAccess(req, reply, "read");
+        const { id } = parse(financeFamilyItemParamsSchema, req.params);
+        return present.familyInvoiceDetailDto(unwrapOrThrow(await getFamilyInvoice(deps, ctx, access, id)), todayOf(deps));
+      });
+      scope.get("/me/learners/:learnerId/installments", { preHandler: familyGuard("read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const access = await familyAccess(req, reply, "read");
+        const q = parse(financeFamilyInstallmentsQuerySchema, req.query);
+        const rows = unwrapOrThrow(await listFamilyInstallments(deps, ctx, access, { openOnly: q.open === true }));
+        const today = todayOf(deps);
+        return { items: rows.map((r) => present.familyInstallmentDto(r, today)) };
+      });
+      scope.get("/me/learners/:learnerId/payments", { preHandler: familyGuard("read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const access = await familyAccess(req, reply, "read");
+        const q = parse(financeFamilyPaymentsQuerySchema, req.query);
+        const page = unwrapOrThrow(await listFamilyPayments(deps, ctx, access, { limit: q.limit, offset: q.offset, ...(q.status ? { status: q.status } : {}) }));
+        return { items: page.items.map(present.familyPaymentDto), total: page.total };
+      });
+      scope.get("/me/learners/:learnerId/payments/:id", { preHandler: familyGuard("read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const access = await familyAccess(req, reply, "read");
+        const { id } = parse(financeFamilyItemParamsSchema, req.params);
+        return present.familyPaymentViewDto(unwrapOrThrow(await getFamilyPayment(deps, ctx, access, id)));
+      });
+      scope.get("/me/learners/:learnerId/receipts", { preHandler: familyGuard("read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const access = await familyAccess(req, reply, "read");
+        const q = parse(financeFamilyReceiptsQuerySchema, req.query);
+        const page = unwrapOrThrow(await listFamilyReceipts(deps, ctx, access, { limit: q.limit, offset: q.offset }));
+        return { items: page.items.map(present.receiptDto), total: page.total };
+      });
+      scope.get("/me/learners/:learnerId/receipts/:id", { preHandler: familyGuard("read") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        const access = await familyAccess(req, reply, "read");
+        const { id } = parse(financeFamilyItemParamsSchema, req.params);
+        return present.receiptDto(unwrapOrThrow(await getFamilyReceipt(deps, ctx, access, id)));
+      });
+      scope.post("/me/learners/:learnerId/payments/online", { preHandler: familyGuard("pay", "finance.online-payment") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        await requireFeature(ctx, "finance.online-payment");
+        const access = await familyAccess(req, reply, "pay");
+        const b = parse(financeFamilyInitiatePaymentBodySchema, req.body);
+        const key = idempotencyKeyOf(req, b.idempotencyKey);
+        if (!key) throw ValidationError.field("idempotencyKey", "Une clé d'idempotence est obligatoire (en-tête Idempotency-Key).", "finance.invalid_input");
+        const view = unwrapOrThrow(
+          await initiateFamilyOnlinePayment(deps, ctx, access, {
+            idempotencyKey: key,
+            invoiceId: b.invoiceId,
+            amount: m(b.amount, b.currency),
+            provider: b.provider,
+            ...(b.payer ? { payer: stripUndefined(b.payer) } : {}),
+            ...(b.returnUrl ? { returnUrl: b.returnUrl } : {}),
+            ...(b.description ? { description: b.description } : {}),
+          }),
+        );
+        return reply.status(view.replayed ? 200 : 201).send(present.familyOnlinePaymentDto(view));
+      });
+      scope.post("/me/learners/:learnerId/payments/:id/verify", { preHandler: familyGuard("pay", "finance.online-payment") }, async (req, reply) => {
+        const ctx = ctxOf(req);
+        await requireFeature(ctx, "finance.online-payment");
+        const access = await familyAccess(req, reply, "pay");
+        const { id } = parse(financeFamilyItemParamsSchema, req.params);
+        return present.familyPaymentViewDto(unwrapOrThrow(await verifyFamilyPayment(deps, ctx, access, id)));
+      });
+
       // ----- Caisses --------------------------------------------------------------------------
       scope.get("/cash-registers", { preHandler: perm("finance.cashregister.open") }, async (req) => ({
         items: unwrapOrThrow(await listRegisters(deps, ctxOf(req))).map(present.cashRegisterDto),
@@ -623,6 +799,41 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
           unwrapOrThrow(await closeCashSession(deps, ctxOf(req), { sessionId: id, countedAmount: m(b.countedAmount, b.currency), ...(b.note ? { note: b.note } : {}) })),
         );
       });
+
+      // ----- Exports CSV serveur (jeu complet jusqu'au plafond ; troncature signalée) -----------------------------
+      const registerExport = <S extends ZodTypeAny>(
+        dataset: ExportDataset,
+        permission: string,
+        schema: S,
+        file: string,
+        run: (ctx: RequestContext, filter: never, options: ExportOptions) => Promise<Result<CsvExport>>,
+      ): void => {
+        scope.get(`/exports/${dataset}`, { preHandler: perm(permission) }, async (req, reply) => {
+          const ctx = ctxOf(req);
+          const filter = stripUndefined(parse(schema, req.query) as Record<string, unknown>) as never;
+          const out = unwrapOrThrow(await run(ctx, filter, {}));
+          const names = Object.values(FINANCE_EXPORT_HEADERS);
+          return reply
+            .header("Content-Type", "text/csv; charset=utf-8")
+            .header("Content-Disposition", `attachment; filename="${file}-${todayOf(deps)}.csv"`)
+            .header("Cache-Control", "no-store")
+            .header(FINANCE_EXPORT_HEADERS.truncated, String(out.truncated))
+            .header(FINANCE_EXPORT_HEADERS.rowCount, String(out.rowCount))
+            .header(FINANCE_EXPORT_HEADERS.totalCount, String(out.totalCount))
+            .header(FINANCE_EXPORT_HEADERS.maxRows, String(out.maxRows))
+            .header("Access-Control-Expose-Headers", ["content-disposition", ...names].join(", "))
+            .send(out.csv);
+        });
+        scope.get(`/exports/${dataset}/meta`, { preHandler: perm(permission) }, async (req) => {
+          const ctx = ctxOf(req);
+          const filter = stripUndefined(parse(schema, req.query) as Record<string, unknown>) as never;
+          const { csv: _csv, ...meta } = unwrapOrThrow(await run(ctx, filter, { metaOnly: true }));
+          return meta;
+        });
+      };
+      registerExport("invoices", "finance.invoice.read", financeExportInvoicesQuerySchema, "factures", (ctx, f, o) => exportInvoicesCsv(deps, ctx, f, o));
+      registerExport("payments", "finance.payment.read", financeExportPaymentsQuerySchema, "paiements", (ctx, f, o) => exportPaymentsCsv(deps, ctx, f, o));
+      registerExport("receivables", "finance.report.read", financeExportReceivablesQuerySchema, "creances", (ctx, f, o) => exportReceivablesCsv(deps, ctx, f, o));
 
       // ----- Reporting ------------------------------------------------------------------------
       scope.get("/reports/summary", { preHandler: perm("finance.report.read") }, async (req) =>
@@ -769,6 +980,12 @@ function invoicesResultDto(result: { invoices: Parameters<typeof present.invoice
   return { replayed: result.replayed, invoices: result.invoices.map((d) => present.invoiceDetailDto(d, today)) };
 }
 
+/** `FINANCE_EXPORT_MAX_ROWS` : plafond de lignes d'un export CSV (entier de 1 à 500 000 ; sinon défaut 50 000). */
+function exportMaxRowsOf(env: Readonly<Record<string, string | undefined>>): { exportMaxRows?: number } {
+  const n = Number(env.FINANCE_EXPORT_MAX_ROWS);
+  return Number.isInteger(n) && n >= 1 && n <= 500_000 ? { exportMaxRows: n } : {};
+}
+
 /** Environnement d'exécution des fournisseurs de paiement : `FINANCE_ENV`, sinon dérivé de `NODE_ENV` (défaut SÛR : production). */
 export function financeEnvironmentOf(env: Readonly<Record<string, string | undefined>>): AppEnvironment {
   const raw = (env.FINANCE_ENV ?? env.NODE_ENV ?? "").trim().toLowerCase();
@@ -815,7 +1032,7 @@ export default async function financeModulePlugin(app: FastifyInstance, runtime:
       logger: runtime.logger,
       configSource: new EnvProviderConfigSource(runtime.env),
     }),
-    config: { environment, webhookBaseUrl: runtime.env.FINANCE_WEBHOOK_BASE_URL?.trim() || null },
+    config: { environment, webhookBaseUrl: runtime.env.FINANCE_WEBHOOK_BASE_URL?.trim() || null, ...exportMaxRowsOf(runtime.env) },
   });
   await app.register(financePlugin, {
     deps,

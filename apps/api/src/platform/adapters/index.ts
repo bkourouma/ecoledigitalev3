@@ -44,6 +44,7 @@ import { createReportcardsAttendanceSummary } from "./attendance-reportcards";
 import { createFinanceEnrollmentDirectory, createFinanceLearnerDirectory } from "./directories-finance";
 import { createAcademicInvoiceFactsReader, createAcademicRegistrationFeeProbe } from "./finance-academic";
 import { createReportcardsLearnerStanding } from "./finance-reportcards";
+import { createFinanceGuardianshipPort } from "./people-finance";
 import { createAssessActorNamePort, createAssessGuardianshipPort, createAssessTeachingPort } from "./people-assess";
 import { createAcademicGuardianship, createAcademicOfferingReadiness, createAcademicStudentDirectory } from "./people-academic";
 import { createAttendancePeoplePort } from "./people-attendance";
@@ -98,6 +99,7 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
     finance: {
       learners: createFinanceLearnerDirectory(people),
       enrollments: createFinanceEnrollmentDirectory(academic),
+      guardianship: createFinanceGuardianshipPort(lookups),
     },
     assess: {
       roster: createAssessRosterPort(academic),
