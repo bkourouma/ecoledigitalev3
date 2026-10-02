@@ -28,7 +28,7 @@ const FLAGS = ["isPrimaryContact", "isEmergencyContact", "isFinancialResponsible
 
 const ROOT = path.resolve(__dirname, "../..");
 // Périmètre de ce test : le cœur académique et les personnes (les autres sections du portail v2 ont leurs propres tests).
-const SECTIONS = ["academic", "enrollments", "students", "guardians", "staff"];
+const SECTIONS = ["academic", "enrollments", "students", "student", "guardians", "staff"];
 const SOURCES = [...SECTIONS.map((s) => path.join(ROOT, "app/v2", s)), path.join(ROOT, "platform/ui")];
 
 function walk(dir: string): string[] {

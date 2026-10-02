@@ -48,7 +48,9 @@ describe("targetYearsOf", () => {
 });
 
 async function selectYears() {
-  fireEvent.change(await screen.findByLabelText(/Année source/), { target: { value: ROLLOVER_FROM } });
+  const from = (await screen.findByLabelText(/Année source/)) as HTMLSelectElement;
+  await waitFor(() => expect(from.options.length).toBeGreaterThan(1));
+  fireEvent.change(from, { target: { value: ROLLOVER_FROM } });
   await waitFor(() => expect((screen.getByLabelText(/Année cible/) as HTMLSelectElement).disabled).toBe(false));
   fireEvent.change(screen.getByLabelText(/Année cible/), { target: { value: ROLLOVER_TO } });
   fireEvent.click(screen.getByRole("button", { name: "Suivant" }));
@@ -98,7 +100,7 @@ describe("RolloverWizard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Suivant" }));
 
     // 4) Confirmation explicite : la case « j'ai vérifié l'aperçu » est obligatoire.
-    fireEvent.click(screen.getByRole("button", { name: "Lancer la reconduction" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Lancer la reconduction" }));
     expect(await screen.findByText("Confirmez que vous avez vérifié l'aperçu.")).toBeTruthy();
     expect(api.calls.filter((c) => c.method === "POST")).toHaveLength(0);
     fireEvent.click(screen.getByRole("checkbox", { name: /J'ai vérifié l'aperçu/ }));
