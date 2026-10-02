@@ -14,7 +14,7 @@
  *    cache de ce contexte et de sa transaction ; une lecture dans la transaction qui a écrit ne remplit jamais le cache
  *    (elle verrait des données non validées qu'un ROLLBACK annulerait) ;
  *  - un niveau absent (`null`) n'est jamais mémorisé ;
- *  - désactivable : `ACADEMIC_REQUEST_CACHE=off`.
+ *  - désactivable : `configureGradeLevelCache({ enabled: false })`, câblé sur `ACADEMIC_REQUEST_CACHE=off` par la plateforme.
  *
  * Limite assumée : une modification faite par UN AUTRE processus pendant la vie (quelques secondes) du contexte lecteur
  * n'est pas vue par ce contexte. Les niveaux sont des référentiels qui changent à l'administration, pas en cours de calcul.
@@ -39,10 +39,13 @@ const dirtyTx = new WeakSet<Tx>();
 
 export const gradeLevelCacheStats = { hits: 0, misses: 0 };
 
-const enabled = (): boolean => {
-  const v = (process.env.ACADEMIC_REQUEST_CACHE ?? "on").trim().toLowerCase();
-  return !(v === "off" || v === "false" || v === "0");
-};
+let enabledFlag = true;
+
+/** Active / désactive la mémoïsation (lue dans l'environnement par la plateforme : `ACADEMIC_REQUEST_CACHE=off`). */
+export function configureGradeLevelCache(options: { enabled: boolean }): void {
+  enabledFlag = options.enabled;
+}
+const enabled = (): boolean => enabledFlag;
 
 function cacheOf(ctx: RequestContext, now: number): ContextCache {
   let c = byContext.get(ctx);
@@ -58,7 +61,7 @@ function cacheOf(ctx: RequestContext, now: number): ContextCache {
 export async function readGradeLevelCached(tx: Tx, id: string, load: () => Promise<GradeLevel | null>): Promise<GradeLevel | null> {
   const ctx = getRequestContext();
   if (!ctx || !enabled() || dirtyTx.has(tx)) return load();
-  const cache = cacheOf(ctx, Date.now());
+  const cache = cacheOf(ctx, performance.now());
   if (cache.disabled) return load();
   const hit = cache.items.get(id);
   if (hit) {
@@ -82,6 +85,6 @@ export function noteGradeLevelWrite(tx: Tx): void {
     c.disabled = true;
     c.items.clear();
   } else {
-    byContext.set(ctx, { tenantId: ctx.tenantId, createdAt: Date.now(), disabled: true, items: new Map() });
+    byContext.set(ctx, { tenantId: ctx.tenantId, createdAt: performance.now(), disabled: true, items: new Map() });
   }
 }

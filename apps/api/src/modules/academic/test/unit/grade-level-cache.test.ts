@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRequestContext, runWithContext } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
-import { GRADE_LEVEL_CACHE_TTL_MS, noteGradeLevelWrite } from "../../infrastructure/grade-level-cache";
+import { GRADE_LEVEL_CACHE_TTL_MS, configureGradeLevelCache, noteGradeLevelWrite } from "../../infrastructure/grade-level-cache";
 import { getGradeLevel, upsertGradeLevel } from "../../infrastructure/reference-repository";
 
 const A = "11111111-1111-4111-8111-111111111111";
@@ -43,11 +43,11 @@ function fakeTx(tenantLabel: string, state: { reads: number; label?: string }): 
 
 describe("getGradeLevel : mémoïsation par contexte de requête", () => {
   beforeEach(() => {
-    delete process.env.ACADEMIC_REQUEST_CACHE;
+    configureGradeLevelCache({ enabled: true });
   });
   afterEach(() => {
     vi.useRealTimers();
-    delete process.env.ACADEMIC_REQUEST_CACHE;
+    configureGradeLevelCache({ enabled: true });
   });
 
   it("un même contexte lit un niveau une seule fois, même à travers plusieurs transactions", async () => {
@@ -79,12 +79,12 @@ describe("getGradeLevel : mémoïsation par contexte de requête", () => {
     expect(sb.reads).toBe(1);
   });
 
-  it("sans contexte ambiant, ou avec ACADEMIC_REQUEST_CACHE=off : toujours la base", async () => {
+  it("sans contexte ambiant, ou avec cache désactivé : toujours la base", async () => {
     const s = { reads: 0 };
     await getGradeLevel(fakeTx("A", s), G1);
     await getGradeLevel(fakeTx("A", s), G1);
     expect(s.reads).toBe(2);
-    process.env.ACADEMIC_REQUEST_CACHE = "off";
+    configureGradeLevelCache({ enabled: false });
     const ctx = ctxOf(A);
     await runWithContext(ctx, () => getGradeLevel(fakeTx("A", s), G1));
     await runWithContext(ctx, () => getGradeLevel(fakeTx("A", s), G1));
