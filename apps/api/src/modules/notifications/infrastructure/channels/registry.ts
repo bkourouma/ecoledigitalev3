@@ -11,7 +11,7 @@ import type { ChannelAdapter, ChannelMessage, ChannelOutcome, ChannelRegistry } 
 import { createSystemContext } from "@ecoledigitale/kernel";
 import { createSmtpChannel } from "./email-smtp";
 import { createInAppChannel } from "./in-app";
-import { createSmsHttpChannel } from "./sms-http";
+import { createSmsChannel } from "./sms-provider";
 import { createWebPushChannel } from "./web-push";
 import { createWasenderChannel } from "./whatsapp-wasender";
 
@@ -51,7 +51,7 @@ export function createChannelRegistry(deps: NotificationsDeps, options: ChannelR
   const built: Record<NotifChannel, ChannelAdapter> = {
     IN_APP: options.overrides?.IN_APP ?? createInAppChannel({ db: deps.db, clock: deps.clock, logger: deps.logger }),
     EMAIL: options.overrides?.EMAIL ?? createSmtpChannel({ env, requireUnsubscribeSecret: deps.config.production, unsubscribeSecretPresent: secretPresent }),
-    SMS: options.overrides?.SMS ?? createSmsHttpChannel({ env, ...(fetchImpl ? { fetch: fetchImpl } : {}) }),
+    SMS: options.overrides?.SMS ?? createSmsChannel({ env, production: deps.config.production, ...(fetchImpl ? { fetch: fetchImpl } : {}) }),
     WHATSAPP: options.overrides?.WHATSAPP ?? createWasenderChannel({ env, ...(fetchImpl ? { fetch: fetchImpl } : {}) }),
     PUSH: options.overrides?.PUSH ?? createWebPushChannel({ env, store: pushStore, ...(fetchImpl ? { fetch: fetchImpl } : {}), now: () => deps.clock.now() }),
   };

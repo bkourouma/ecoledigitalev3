@@ -6,7 +6,7 @@ Spec : `specs/v2/016-communications/` (partie B : `spec.md` §17 à §30, `data-
 
 | Domaine | Fonctions |
 |---|---|
-| Canaux | `EMAIL` (SMTP, nodemailer, rebonds, pied de page de conformité), `SMS` (adaptateur HTTP **générique** configurable, fournisseur non choisi : Q-18), `WHATSAPP` (WaSender), `PUSH` (Web Push VAPID, un abonnement par appareil), `IN_APP` (messaging). Un canal non configuré **échoue explicitement** ; simulation seulement demandée, hors production |
+| Canaux | `EMAIL` (SMTP, nodemailer, rebonds, pied de page de conformité), `SMS` (**Orange SMS API** par `NOTIFICATIONS_SMS_PROVIDER=orange` — décision du 2026-10-02 — ou adaptateur HTTP **générique** configurable), `WHATSAPP` (WaSender), `PUSH` (Web Push VAPID, un abonnement par appareil), `IN_APP` (messaging). Un canal non configuré **échoue explicitement** ; simulation seulement demandée, hors production |
 | Gabarits | par établissement, **versionnés** (versions immuables, retour arrière), variables **typées**, aperçu, fr-CI, repli sur des gabarits livrés en DONNÉES ; absence, retard, paiement reçu, facture émise, relance, bulletin publié, convocation, annonce, urgence, seuil d'absences, changement d'horaire, alertes internes, bulletin de paie |
 | Journal | une ligne par envoi (file ET trace) : destinataire **masqué**, canal, gabarit + version, statut, tentatives, erreur, identifiant fournisseur, coût ; reprise avec backoff ; dédoublonnage par clé d'événement ; adresse et contenu effacés à l'état terminal |
 | Consentement | par personne, canal et catégorie ; modèle `IMPLIED` / `EXPLICIT` ; heures calmes (établissement et personne) ; urgence qui contourne (sauf suppression) ; désinscription par lien signé ; journal de preuve |
@@ -62,11 +62,30 @@ Registre : `app.notificationsPorts` (API, `registerNotificationsPorts`) ; `setNo
 
 ## Configuration (voir `.env.example`)
 
-SMTP : `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME` — `NOTIFICATIONS_UNSUBSCRIBE_SECRET` (obligatoire en production pour l'e-mail), `NOTIFICATIONS_WEBHOOK_SECRET`, `NOTIFICATIONS_DEFAULT_SENDER_NAME`, `NOTIFICATIONS_SIMULATE` (hors production), `NOTIFICATIONS_DISPATCH_BATCH`, `NOTIFICATIONS_LEASE_MS`, `NOTIFICATIONS_MAX_PENDING`, `V2_APP_BASE_URL` — SMS : `SMS_HTTP_PROFILE`, `SMS_HTTP_URL`, `SMS_HTTP_METHOD`, `SMS_HTTP_CONTENT_TYPE`, `SMS_HTTP_BODY`, `SMS_HTTP_HEADERS`, `SMS_HTTP_API_KEY[_HEADER|_PREFIX]`, `SMS_HTTP_USERNAME`, `SMS_HTTP_SENDER_ID`, `SMS_HTTP_SUCCESS_PATH|_EQUALS`, `SMS_HTTP_ID_PATH`, `SMS_HTTP_COST_PATH|_MULTIPLIER|_CURRENCY`, `SMS_HTTP_ERROR_PATH`, `SMS_HTTP_TIMEOUT_MS` — WhatsApp : `WASENDER_API_KEY`, `WASENDER_API_BASE_URL`, `WASENDER_SESSION[_NAME]`, `WASENDER_TIMEOUT_MS`, `WASENDER_SKIP_STATUS_CHECK`, `WHATSAPP_PROVIDER` — Push : `NOTIFICATIONS_VAPID_PUBLIC_KEY`, `NOTIFICATIONS_VAPID_PRIVATE_KEY`, `NOTIFICATIONS_VAPID_SUBJECT`.
+SMTP : `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME` — `NOTIFICATIONS_UNSUBSCRIBE_SECRET` (obligatoire en production pour l'e-mail), `NOTIFICATIONS_WEBHOOK_SECRET`, `NOTIFICATIONS_DEFAULT_SENDER_NAME`, `NOTIFICATIONS_SIMULATE` (hors production), `NOTIFICATIONS_DISPATCH_BATCH`, `NOTIFICATIONS_LEASE_MS`, `NOTIFICATIONS_MAX_PENDING`, `V2_APP_BASE_URL` — SMS : `NOTIFICATIONS_SMS_PROVIDER` (`http` par défaut, `orange`, `none`), `ORANGE_SMS_*` (voir ci-dessous), `SMS_HTTP_PROFILE`, `SMS_HTTP_URL`, `SMS_HTTP_METHOD`, `SMS_HTTP_CONTENT_TYPE`, `SMS_HTTP_BODY`, `SMS_HTTP_HEADERS`, `SMS_HTTP_API_KEY[_HEADER|_PREFIX]`, `SMS_HTTP_USERNAME`, `SMS_HTTP_SENDER_ID`, `SMS_HTTP_SUCCESS_PATH|_EQUALS`, `SMS_HTTP_ID_PATH`, `SMS_HTTP_COST_PATH|_MULTIPLIER|_CURRENCY`, `SMS_HTTP_ERROR_PATH`, `SMS_HTTP_TIMEOUT_MS` — WhatsApp : `WASENDER_API_KEY`, `WASENDER_API_BASE_URL`, `WASENDER_SESSION[_NAME]`, `WASENDER_TIMEOUT_MS`, `WASENDER_SKIP_STATUS_CHECK`, `WHATSAPP_PROVIDER` — Push : `NOTIFICATIONS_VAPID_PUBLIC_KEY`, `NOTIFICATIONS_VAPID_PRIVATE_KEY`, `NOTIFICATIONS_VAPID_SUBJECT`.
+
+### SMS : Orange SMS API (adaptateur dédié)
+
+`NOTIFICATIONS_SMS_PROVIDER=orange` branche `infrastructure/channels/sms-orange.ts` derrière le même port `ChannelAdapter`. **Désactivé par défaut** : tant que `ORANGE_SMS_MODE` n'est pas `sandbox` ou `live`, le canal échoue explicitement (`channel_not_configured`).
+
+| Mode | Effet |
+|---|---|
+| `disabled` (défaut) | échec explicite, aucun appel |
+| `sandbox` | aucun appel réseau : valide numéro, longueur, consigne `SIMULATED` ; **refusé en production** |
+| `live` | OAuth2 client-credentials (`POST {base}/oauth/v3/token`, jeton mis en cache, un seul appel concurrent, renouvelé sur 401 avec une reprise) puis `POST {base}/smsmessaging/v1/outbound/{tel:+expéditeur}/requests` |
+
+Variables : `ORANGE_SMS_CLIENT_ID` / `ORANGE_SMS_CLIENT_SECRET` (ou `ORANGE_SMS_AUTHORIZATION_HEADER`), `ORANGE_SMS_SENDER` (numéro expéditeur déclaré chez Orange), `ORANGE_SMS_SENDER_NAME`, `ORANGE_SMS_API_BASE_URL`, `ORANGE_SMS_TOKEN_URL`, `ORANGE_SMS_TIMEOUT_MS`, `ORANGE_SMS_DEFAULT_DIAL_CODE` (225), `ORANGE_SMS_ALLOW_INTERNATIONAL`, `ORANGE_SMS_MAX_SEGMENTS` (3), `ORANGE_SMS_UNIT_COST` (XOF par segment, sans valeur par défaut : aucun tarif n'est supposé), `ORANGE_SMS_MAX_PER_MINUTE`, `ORANGE_SMS_QUOTA_PAUSE_SECONDS` (900).
+
+- **Secrets** : variables d'environnement de la plateforme (le `SecretStorePort` appartient à `finance` et sert aux identifiants marchands PAR établissement ; le contrat Orange est unique pour la plateforme). Rien en dur, rien dans les journaux : l'adaptateur n'écrit aucun log, les messages d'erreur sont épurés (numéros masqués) et la redaction pino du noyau masque déjà `secret`, `token`, `authorization`, `credential`, `phone`.
+- **Numéros** : normalisation E.164 (`+225` + 10 chiffres, « 0 » initial conservé pour la Côte d'Ivoire) ; un autre indicatif est refusé tant que `ORANGE_SMS_ALLOW_INTERNATIONAL=1` n'est pas posé (maîtrise du coût).
+- **Classement** : 201 -> envoyé (identifiant = dernier segment de `resourceURL`) ; 401 -> jeton renouvelé puis une reprise, sinon `orange_auth_failed` ; 408 / 425 / 429 / 5xx / coupure / délai -> reprise (`Retry-After` respecté) ; refus « quota / forfait épuisé » -> reprise différée **et pause locale** (les envois suivants n'appellent pas Orange) ; autre 4xx -> échec définitif.
+- **Coût et quota** : plafond par établissement et par canal déjà appliqué par le module (`dailyCaps.SMS`, plafond par destinataire) ; l'adaptateur ajoute le refus des messages de plus de `ORANGE_SMS_MAX_SEGMENTS` segments (GSM 7 bits / UCS-2), un plafond local par minute et le coût estimé (`segments x ORANGE_SMS_UNIT_COST`) au journal.
+- **Idempotence** : l'API Orange n'a pas de clé d'idempotence ; un message déjà accepté n'est pas renvoyé par le même processus (mémoire bornée), mais entre processus, ou après un délai dépassé sans réponse, la livraison reste « au moins une fois » (un SMS peut doubler, jamais manquer).
+- Les chemins, corps et codes d'erreur Orange sont à **valider avec la documentation et le contrat Orange** de l'établissement avant le premier envoi réel (aucun compte ni appel réel n'a été utilisé : tests contre un serveur local factice, `test/channels/sms-orange.test.ts`).
 
 ### SMS : adaptateur HTTP générique
 
-Le fournisseur n'est pas choisi (Q-18). Le **modèle de requête** (URL, méthode, en-têtes, corps JSON ou formulaire avec jetons `{{to}}`, `{{toDigits}}`, `{{text}}`, `{{sender}}`, `{{reference}}`, `{{username}}`) et la **lecture de la réponse** (chemin du critère de succès, de l'identifiant de message, du coût, du message d'erreur) sont des variables d'environnement. Exemple (API JSON) :
+Adaptateur de repli (`NOTIFICATIONS_SMS_PROVIDER` absent ou `http`) ; le fournisseur retenu est Orange (voir ci-dessus). Le **modèle de requête** (URL, méthode, en-têtes, corps JSON ou formulaire avec jetons `{{to}}`, `{{toDigits}}`, `{{text}}`, `{{sender}}`, `{{reference}}`, `{{username}}`) et la **lecture de la réponse** (chemin du critère de succès, de l'identifiant de message, du coût, du message d'erreur) sont des variables d'environnement. Exemple (API JSON) :
 
 ```
 SMS_HTTP_URL=https://api.fournisseur.example/v1/messages
