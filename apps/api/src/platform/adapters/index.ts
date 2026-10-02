@@ -28,6 +28,7 @@ import { registerAttendancePorts, type AttendancePorts } from "../../modules/att
 import { registerFinancePorts, type FinancePortSet } from "../../modules/finance";
 import { registerHigherPorts, registerHigherWorkerPorts, type HigherPorts } from "../../modules/higher";
 import { registerMessagingPorts, setMessagingWorkerPorts, type MessagingPorts } from "../../modules/messaging";
+import { registerNotificationsPorts, setNotificationsWorkerPorts, type NotificationsPorts } from "../../modules/notifications";
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
 import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorkerResources, type ReportcardsPorts } from "../../modules/reportcards";
@@ -51,6 +52,8 @@ import { createFinanceReceiptDocuments, createReportcardsLearnerStanding } from 
 import { createFinanceGuardianshipPort } from "./people-finance";
 import { createMessagingAudienceDirectory } from "./academic-messaging";
 import { createMessagingPeopleDirectory } from "./people-messaging";
+import { createNotificationsDirectory } from "./people-notifications";
+import { createNotificationsAnnouncements, createNotificationsGrades, createNotificationsOverdueSource, createNotificationsTeachingLoad } from "./sources-notifications";
 import { createAssessActorNamePort, createAssessGuardianshipPort, createAssessTeachingPort } from "./people-assess";
 import { createAcademicGuardianship, createAcademicOfferingReadiness, createAcademicStudentDirectory } from "./people-academic";
 import { createAttendancePeoplePort } from "./people-attendance";
@@ -86,6 +89,8 @@ export interface PlatformPorts {
   /** Sources des read-models de direction (025) : lectures de tenancy, academic, people, results, attendance, finance, payroll. */
   readonly analytics: AnalyticsSourcePorts;
   readonly messaging: Partial<MessagingPorts>;
+  /** Canaux externes (016) : coordonnées de remise, échéances en retard, résultats FINAL, charge d'enseignement, annonces. */
+  readonly notifications: Partial<NotificationsPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -172,6 +177,13 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
       audience: createMessagingAudienceDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock, directory: messagingDirectory }),
       ...(storage ? { storage: asMessagingStorage(storage) } : {}),
     },
+    notifications: {
+      directory: createNotificationsDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock }),
+      overdue: createNotificationsOverdueSource(kit),
+      grades: createNotificationsGrades(kit),
+      teachingLoad: createNotificationsTeachingLoad(kit),
+      announcements: createNotificationsAnnouncements(kit),
+    },
   };
 }
 
@@ -201,6 +213,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerHigherPorts(app, ports.higher);
   registerAnalyticsPorts(app, ports.analytics);
   registerMessagingPorts(app, ports.messaging);
+  registerNotificationsPorts(app, ports.notifications);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -230,6 +243,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   registerSchedulingPorts(ports.scheduling);
   setAnalyticsWorkerPorts(ports.analytics);
   setMessagingWorkerPorts(ports.messaging);
+  setNotificationsWorkerPorts(ports.notifications);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }

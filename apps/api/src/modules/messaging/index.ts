@@ -110,3 +110,6 @@ export { getMessagingSettings, listSystemTemplates, updateMessagingSettings, upd
 
 // Consommateurs d'événements et jobs
 export { formatDateFr, isBenignConsumerError, onAttendanceRecorded, readRecordedEvent } from "./application/consumers";
+
+// Annonce publiée vue par les canaux externes (module notifications, 016) : lecture seule, contexte système
+export { DELIVERY_FEED_MAX_RECIPIENTS, readAnnouncementForDelivery, type AnnouncementDeliveryView } from "./application/delivery-feed";

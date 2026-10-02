@@ -236,13 +236,13 @@ describe("Web Push (VAPID)", () => {
       async listForUser() {
         return devices.filter((d) => !state.removed.includes(d.id));
       },
-      async remove(_t, id) {
+      async remove(_t: string, id: string) {
         state.removed.push(id);
       },
-      async touch(_t, id) {
+      async touch(_t: string, id: string) {
         state.touched.push(id);
       },
-      async recordFailure(_t, id) {
+      async recordFailure(_t: string, id: string) {
         state.failures.push(id);
       },
     } as never;

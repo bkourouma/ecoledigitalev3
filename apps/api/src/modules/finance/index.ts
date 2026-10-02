@@ -233,3 +233,11 @@ export {
   type ExportMeta,
 } from "./application/exports";
 export { csvCell, toCsv } from "./domain/csv";
+
+// Échéances en retard pour les relances et alertes du module notifications (016) : lectures seules
+export {
+  isInstallmentOverdue,
+  listOverdueInstallments,
+  type ListOverdueInstallmentsInput,
+  type OverdueInstallmentFact,
+} from "./application/overdue-feed";

@@ -75,6 +75,17 @@ export {
   type StudentAudience,
 } from "./application/audience";
 
+// Coordonnées de remise des notifications (016, canaux externes) : lectures seules, jamais exposées par une route
+export {
+  CONTACTS_MAX_STUDENTS,
+  listNotificationContactsOfIdentities,
+  listNotificationContactsOfStaff,
+  listNotificationContactsOfStudents,
+  type ContactPoint,
+  type GuardianContactPoint,
+  type StudentContactSet,
+} from "./application/contacts";
+
 // Élèves
 export {
   addEmergencyContact,

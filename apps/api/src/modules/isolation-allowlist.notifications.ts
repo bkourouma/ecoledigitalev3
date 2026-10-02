@@ -18,3 +18,6 @@ import type { AllowlistEntry } from "./isolation-allowlist";
 const entries: AllowlistEntry[] = [];
 
 export default entries;
+
+/** Valeurs imposées pour fabriquer une ligne de test dans une table à CHECK exotique (sinon contrôle de structure seul). */
+export const fixtures: Record<string, Record<string, unknown>> = {};

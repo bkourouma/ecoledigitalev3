@@ -11,7 +11,9 @@
  *  - les alertes d'absences s'appuient sur `attendance.alert.triggered` : les seuils d'ABSENCES sont ceux des règles
  *    d'alerte du module `attendance` ; `minValue` ajoute un seuil propre à la notification ;
  *  - les relances d'impayés ont des paliers J+3 / J+10 / J+30 ;
- *  - l'alerte de baisse de résultats est désactivée par défaut : l'échelle des moyennes dépend de l'établissement.
+ *  - l'alerte de baisse de résultats est désactivée par défaut : l'échelle des moyennes dépend de l'établissement ;
+ *  - la charge d'enseignement se lit dans l'unité de PLANIFICATION des heures de l'établissement (`planned_hours` des affectations,
+ *    cumul de l'année) : le seuil de départ (800 h) est à ajuster.
  */
 import { ConsumedEvents } from "./events";
 import type { RuleDef } from "./types";
@@ -285,7 +287,7 @@ export const DEFAULT_RULES: readonly RuleDef[] = Object.freeze<RuleDef[]>([
     channels: ["IN_APP", "EMAIL"],
     strategy: "ALL",
     urgent: false,
-    conditions: { maxHours: 24 },
+    conditions: { maxHours: 800 },
     custom: false,
   },
 ]);

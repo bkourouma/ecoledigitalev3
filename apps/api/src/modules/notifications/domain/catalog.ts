@@ -155,7 +155,7 @@ export const TEMPLATE_CATALOG: readonly CatalogEntry[] = Object.freeze<CatalogEn
     label: "Charge d'enseignement élevée",
     description: "Alerte l'administration lorsque la charge d'un enseignant dépasse le seuil.",
     category: "ALERT",
-    variables: [v("staffName", "Enseignant", "string", "Mme Traoré"), v("hours", "Heures planifiées", "number", "28"), v("threshold", "Seuil", "number", "24")],
+    variables: [v("staffName", "Enseignant", "string", "Mme Traoré"), v("hours", "Heures planifiées (année)", "number", "840"), v("threshold", "Seuil", "number", "800")],
     manual: false,
     staffFacing: true,
   },

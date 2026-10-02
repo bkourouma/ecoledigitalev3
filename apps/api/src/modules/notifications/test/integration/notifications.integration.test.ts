@@ -661,7 +661,7 @@ describeIntegration("module notifications : base réelle", () => {
 
     it("charge d'enseignement > seuil -> administration, une fois par mois", async () => {
       await reset();
-      mem.teachingLoad.loads = [{ staffId: IDS.STAFF1, staffName: "M. Diallo", plannedHours: 28 }, { staffId: IDS.EVT(5), staffName: "Mme Bamba", plannedHours: 20 }];
+      mem.teachingLoad.loads = [{ staffId: IDS.STAFF1, staffName: "M. Diallo", plannedHours: 900 }, { staffId: IDS.EVT(5), staffName: "Mme Bamba", plannedHours: 700 }];
       expect(unwrap(await evaluateAlerts(deps, sys())).teachingLoad).toBe(2);
       expect(unwrap(await evaluateAlerts(deps, sys())).teachingLoad).toBe(0);
       clock.set("2026-11-03T09:00:00.000Z");
@@ -692,7 +692,7 @@ describeIntegration("module notifications : base réelle", () => {
 
     it("un port d'alerte indisponible n'arrête pas les autres alertes ; l'erreur est rapportée", async () => {
       await reset();
-      mem.teachingLoad.loads = [{ staffId: IDS.STAFF1, staffName: "M. Diallo", plannedHours: 40 }];
+      mem.teachingLoad.loads = [{ staffId: IDS.STAFF1, staffName: "M. Diallo", plannedHours: 900 }];
       const broken = createNotificationsDeps({ db: db.tenantDb, clock, ports: { ...mem.ports, overdue: { listOverdueInstallments: async () => { throw new Error("finance indisponible"); }, isInstallmentStillOverdue: async () => true } }, channels: deps.channels });
       const r = unwrap(await evaluateAlerts(broken, sys()));
       expect(r.errors.join(" ")).toContain("finance indisponible");
