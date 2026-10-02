@@ -45,6 +45,7 @@ export const FinanceCode = {
   PROVIDER_CONFIG_INVALID: "finance.provider_config_invalid",
   WEBHOOK_UNVERIFIED: "finance.webhook_unverified",
   SECRETS_UNAVAILABLE: "finance.secrets_unavailable",
+  PROVIDER_TEST_THROTTLED: "finance.provider_test_throttled",
   WEBHOOK_SIGNATURE_INVALID: "finance.webhook_signature_invalid",
   WEBHOOK_PAYLOAD_INVALID: "finance.webhook_payload_invalid",
   SIMULATED_IN_PRODUCTION: "finance.simulated_payment_in_production",
