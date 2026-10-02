@@ -89,14 +89,15 @@ Prérequis hors module : l'authentification pose `request.ctx` (`RequestContext`
 
 * Catalogue : `rbac.permissions` (globale) est le reflet des manifestes ; une permission retirée
   est marquée `retired_at`, jamais supprimée (les rôles ne perdent rien en silence).
-* Modèles système (`templates/system-roles.ts`), **onze** : `owner`, `directeur`, `directeur_etudes`,
-  `secretariat`, `econome`, `enseignant`, `educateur`, `responsable_pedagogique`, `personnel`
-  (nouveau), `parent`, `eleve`. Les rôles autres que `owner`/`directeur` énumèrent des **clés
+* Modèles système (`templates/system-roles.ts`), **douze** : `owner`, `directeur`, `directeur_etudes`,
+  `secretariat`, `econome`, `enseignant`, `instituteur` (nouveau, spec 005), `educateur`,
+  `responsable_pedagogique`, `personnel`, `parent`, `eleve`. Les rôles autres que `owner`/`directeur` énumèrent des **clés
   exactes** issues des manifestes (jamais `module.*` : une permission ajoutée plus tard à un module,
   surtout sensible, n'est pas accordée d'office). Un motif sans correspondance reste **en attente**
   à l'exécution (`rbac.role_pending_permissions`, un `warn` par instanciation, re-résolu à la
   prochaine `syncRbac`) ; **les tests échouent** s'il en reste un contre le catalogue complet des
-  modules livrés (`test/system-roles.test.ts`, `test/system-roles.integration.test.ts`).
+  modules livrés (`test/system-roles.test.ts`, `test/system-roles.integration.test.ts`), **sauf** les
+  permissions de la liste blanche `RESERVED_FOR_UPCOMING_MODULES` (voir « Permissions réservées »).
 * Rôles système verrouillés (trigger SQL + use cases) : on les **clone** pour les adapter.
   Rôles personnalisés : création, clonage, modification, suppression (refusée tant qu'assigné ;
   FK `RESTRICT` en base).
@@ -115,11 +116,55 @@ Prérequis hors module : l'authentification pose `request.ctx` (`RequestContext`
 | `secretariat` | inscriptions (création/annulation), dossiers élèves et tuteurs (dont champs sensibles, export, statut), émission des bulletins/relevés, attestations (`higher.document.*`), présences (lecture, saisie, dépôt de justificatifs), emploi du temps en lecture, factures/paiements/reçus en **lecture seule** | publier/révoquer un document, décider d'un justificatif, encaisser, anonymiser, dérogation, personnel |
 | `econome` | finance complète, financement des inscriptions, paie : configurations, tarifs, périodes, **calcul**, ajustements, notification, **versement**, rapports ; lecture élèves, tuteurs, inscriptions, personnel | arrêter/annuler un bulletin (direction), réglages et validation propriétaire de la paie, contrats, notes, validation des heures |
 | `enseignant` | SES classes : évaluations, notes (`grade.enter`, demande de correction), appréciations de matière, appel ; `student.class.read` (pas `student.read`/`student.list`) ; emploi du temps personnel + déclaration de séance ; `staff.own.*`, `attendance.own.*`, `attendance.leave.request`, `payroll.payslip.read_own`, `payroll.my.dispute` | relire/valider/publier/approuver, évaluations d'autrui, justificatifs, higher, finance, gestion de paie, résultats |
+| `instituteur` | titulaire UNIQUE d'une classe du primaire (spec 005 pack-template §7) : mêmes clés que `enseignant` pour sa classe (`attendance.take\|read`, `assessment.type.read\|read\|create\|update`, `grade.read\|enter\|revise.request`, `appreciation.write`, `student.class.read`, emploi du temps et données `*.own.*`) + `reportcard.read`, messagerie ; **réservées** : `primary.competency.read\|record\|validate`, `primary.phrase.read`, `primary.council.read\|prepare` | `grade.review/validate/publish/revise.approve`, `period.lock/close`, `student.read/list`, toute `finance.*`, `primary.competency.revise`, `primary.bilan.seal` (pas de permission sensible : pas de MFA recommandée) |
 | `educateur` | appel et suivi des présences (saisie, validation, correction, justificatifs : dépôt et lecture), constatation des séances, élèves/tuteurs/inscriptions en lecture ; ses données de personnel | décider d'un justificatif, rouvrir un appel, surcharger un récapitulatif, congés/présence du personnel, valider les séances pour la paie (aucune permission disciplinaire n'existe encore) |
 | `responsable_pedagogique` | curriculum (édition), évaluations et notes en lecture, `grade.review` + `grade.validate`, résultats et bulletins en lecture, contexte (emplois du temps, enseignement, présences, personnel) | saisir, publier, approuver une correction, publier un curriculum, émettre |
 | `personnel` | uniquement SES données : `staff.own.*`, `attendance.own.*`, `attendance.leave.request`, `payroll.payslip.read_own`, `payroll.my.dispute`, `schedule.own.read` ; à **cumuler** avec un rôle de fonction | tout le reste |
-| `parent` | exactement toutes les permissions `*.child.*` du catalogue (élève, inscriptions, notes, résultats, bulletins, absences + justificatif, emploi du temps, parcours supérieur) | toute permission de gestion (la finance est limitée à `finance.child.read` / `finance.child.pay`) |
-| `eleve` | exactement toutes les permissions `*.self.*` du catalogue (dossier, inscriptions, notes, résultats, bulletins, absences, emploi du temps, parcours, finance `finance.self.read` / `finance.self.pay`) | toute permission de gestion |
+| `parent` | exactement toutes les permissions `child` du catalogue, à trois ET quatre segments (élève, inscriptions, notes, résultats, bulletins, absences + justificatif, emploi du temps, parcours supérieur ; **réservées** : `primary.competency.child.read`, `primary.bilan.child.read`, `council.child.read`, `schoollife.child.read`, `stateassign.child.read`, `exam.document.child.read`) | toute permission de gestion (la finance est limitée à `finance.child.read` / `finance.child.pay`) |
+| `eleve` | exactement toutes les permissions `self` du catalogue, à trois ET quatre segments (dossier, inscriptions, notes, résultats, bulletins, absences, emploi du temps, parcours, finance `finance.self.read` / `finance.self.pay` ; **réservées** : `primary.competency.self.read`, `primary.bilan.self.read`, `council.self.read`, `schoollife.self.read`, `exam.document.self.read`) | toute permission de gestion |
+
+### Permissions réservées pour les modules à venir (liste blanche)
+
+Les packs Primary (005), Secondary (006), Admissions (007) et Examinations (018) livrent leurs modules
+**après** les rôles qui les concernent. Leurs permissions sont donc inscrites dans les modèles de rôles
+(clés exactes) et restent **en attente** — signalées au niveau `info`, sans échec, sans accorder quoi que
+ce soit — jusqu'à ce que le manifeste du module les déclare ; la prochaine `syncRbac` les résout dans tous
+les tenants existants (idempotent, rôles personnalisés intouchés).
+
+La liste est **versionnée** dans `templates/reserved-permissions.ts` (`RESERVED_FOR_UPCOMING_MODULES`) : pour
+chaque clé, le module futur (clé de manifeste), la spec source et la sensibilité prévue.
+
+| Module futur | Permissions réservées (rôles qui les portent) |
+|---|---|
+| `primary_school` (005) | `primary.competency.read\|record\|validate`, `primary.phrase.read`, `primary.council.read\|prepare` (`instituteur`) ; `primary.competency.child.read`, `primary.bilan.child.read` (`parent`) ; `primary.competency.self.read`, `primary.bilan.self.read` (`eleve`) |
+| `councils` (006) | `council.*` sauf `unlock.approve` et `minutes.revoke` (`directeur_etudes`) ; `read`, `manage`, `minutes.generate\|read\|sign` (`secretariat`) ; `proposal.write` (`enseignant`) ; `child.read` (`parent`), `self.read` (`eleve`) |
+| `schoollife` (006) | `read`, `incident.write`, `note.write` (`enseignant`) ; `read`, `incident.write`, `measure.propose`, `note.write`, `convocation.manage` (`educateur`, sans validation) ; `read` (`directeur_etudes`) ; `child.read` / `self.read` |
+| `stateassign` (006) | `read` (`directeur_etudes`) ; `read`, `record`, `document.manage` (`secretariat`) ; `read`, `reconcile`, `control.perform` (`econome`) ; `child.read` (`parent`) |
+| `admissions` (007) | traitement d'un dossier (`read`, `create`, `update`, `document.upload\|review`, `interview.manage`, `offer.manage`, `duplicate.resolve`, `waitlist.manage`, `prospect.manage`, `enroll`, `report.read`) pour le `secretariat` ; jamais `decide`, `capacity.override`, `anonymize`, `export`, workflows, campagnes, réglages |
+| `examinations` (018) | `exam.document.child.read` (`parent`), `exam.document.self.read` (`eleve`) |
+
+Garde-fous (`test/reserved-permissions.test.ts`, `test/system-roles.test.ts`) :
+
+* un motif **en attente hors de la liste** fait échouer les tests (faute de frappe, permission renommée) ;
+* chaque entrée de la liste est référencée par au moins un modèle ;
+* **non-oubli** : dès qu'une entrée est déclarée par un manifeste chargé, le test échoue avec « retire-la de
+  la liste » ; si le module est chargé mais ne déclare pas la clé, il échoue aussi (modèle à aligner) ; le
+  drapeau `sensitive` de la liste est comparé à celui du manifeste ;
+* un manifeste fictif par module à venir prouve qu'à son arrivée plus rien n'est en attente et que
+  `parent` / `eleve` reçoivent exactement les permissions `child` / `self` ;
+* conventions de portée : segment `self` ⇒ rôle `eleve` seul, `child` ⇒ `parent` seul. Les motifs de
+  portail couvrent les clés à trois segments (`student.child.read`) **et** à quatre
+  (`primary.competency.child.read`, `exam.document.self.read`) : `CHILD_PERMISSION_PATTERNS` /
+  `SELF_PERMISSION_PATTERNS` dans `templates/reserved-permissions.ts` ;
+* séparation des tâches des modules à venir (proposition ≠ validation d'une mesure, enregistrement ≠
+  vérification d'une affectation, demande ≠ approbation d'un déverrouillage, signature ≠ révocation d'un PV,
+  traitement ≠ décision d'admission, saisie/validation ≠ révision d'une compétence) évaluée sur les clés
+  **déclarées** (accordées ou en attente), donc active dès aujourd'hui.
+
+**Pour livrer un module à venir** : déclarer les permissions dans son `manifest.ts` avec les clés de la liste
+(ou corriger modèles + liste si la clé change), puis **retirer** les lignes correspondantes de
+`RESERVED_FOR_UPCOMING_MODULES`, étendre l'oracle de `system-roles.test.ts` (le module entre alors dans la matrice
+rôle × module) et justifier dans `sensitiveJustifications` toute permission sensible accordée.
 
 Garde-fous vérifiés par test (`test/system-roles.test.ts`, catalogue **réel** issu de `discoverModules`) :
 
@@ -133,12 +178,16 @@ Garde-fous vérifiés par test (`test/system-roles.test.ts`, catalogue **réel**
 * toute permission `sensitive` d'un rôle autre que `owner` est justifiée (`sensitiveJustifications`
   du modèle, texte obligatoire, pas de justification périmée) ; `mfaRecommended` ⇔ le rôle porte une
   permission sensible ;
-* seuls `owner` et `directeur` ont `*` ; `parent`/`eleve` = exactement `*.child.*`/`*.self.*` ; aucune
+* seuls `owner` et `directeur` ont `*` ; `parent`/`eleve` = exactement les permissions `child`/`self` (3 et 4 segments, réservées incluses) ; aucune
   fuite de ces permissions vers un rôle de gestion ;
-* aucun motif en attente, aucune permission `rules.platform.manage` (console plateforme) dans un rôle de tenant.
+* aucun motif en attente hors liste blanche, aucune permission `rules.platform.manage` (console plateforme) dans un rôle de tenant.
 
 Finance : `finance` déclare `finance.child.read|pay` (parent) et `finance.self.read|pay` (élève) ; ils figurent
 dans `parent` / `eleve` (routes `/api/v1/finance/me/*`, tutelle relue côté serveur).
+
+Synchronisation des tenants existants (`test/system-roles.integration.test.ts`) : un nouveau modèle (`instituteur`) est ajouté par
+`syncRbac` sans toucher aux rôles personnalisés ni aux autres rôles système, de façon idempotente ; un rôle personnalisé qui
+occupait la clé est déplacé (`instituteur_custom`), jamais écrasé.
 
 Manques constatés dans les manifestes : aucun module `discipline`/`comms`/`document`/`report` n'existe encore (les anciens motifs
 `discipline.*`, `comms.*`, `document.*`, `report.*`, `portal.*` ont été retirés).

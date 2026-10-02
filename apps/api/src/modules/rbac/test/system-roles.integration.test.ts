@@ -211,6 +211,9 @@ describeIntegration("rôles système — provisioning contre le catalogue réel"
     const report = await provision(squatted);
     expect(report.created).toEqual(["instituteur"]);
     expect(report.relocated).toEqual([{ from: "instituteur", to: "instituteur_custom" }]);
+    // le déplacement est signalé (avertissement attendu, consommé ici pour ne pas polluer les assertions suivantes)
+    expect(warnings.filter((w) => w.from === "instituteur" && w.to === "instituteur_custom")).toHaveLength(1);
+    warnings.length = 0;
 
     const roles = await rolesOf(squatted);
     expect(roles.get("instituteur_custom")).toMatchObject({ isSystem: false, templateKey: null, permissions: ["attendance.read", "grade.read"] });
