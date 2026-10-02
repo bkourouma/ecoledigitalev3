@@ -916,7 +916,9 @@
     },
     "common": {
       "choose": "Choisir…",
-      "institution": "Établissement"
+      "institution": "Établissement",
+      "yes": "Oui",
+      "no": "Non"
     },
     "status": {
       "year": {
@@ -1092,6 +1094,10 @@
       "saveGradeLevels": "Enregistrer les niveaux",
       "gradesSaved": "Les niveaux couverts ont été enregistrés.",
       "checkFields": "Vérifiez les champs signalés.",
+      "cycleBadge": "Cycle diplômant",
+      "calculationContractInherited": "Hérité du niveau d'enseignement : {contract}",
+      "calculationContractNone": "Aucun (le niveau d'enseignement n'en définit pas par défaut)",
+      "terminalExam": "Examen terminal",
       "fields": {
         "code": "Code",
         "codeHint": "Majuscules, chiffres, _ . - (40 caractères au plus).",
@@ -1102,11 +1108,19 @@
         "kindCode": "Nature",
         "domainCode": "Domaine",
         "durationMonths": "Durée (mois)",
-        "description": "Description"
+        "description": "Description",
+        "isCycle": "Cycle diplômant",
+        "isCycleHint": "Ce programme conduit à un diplôme (cycle de l'enseignement supérieur).",
+        "calculationContract": "Contrat de calcul des résultats",
+        "calculationContractHint": "Format code@version, par exemple credit-semester@1. Laissez vide pour hériter de celui du niveau d'enseignement."
       }
     },
     "curriculum": {
       "title": "Éditeur de curriculum",
+      "gradingModes": {
+        "COMPOSED": "Composée (moyenne d'évaluations)",
+        "DIRECT": "Directe (note saisie telle quelle)"
+      },
       "description": "Arbre des matières, unités d'enseignement et éléments constitutifs d'un programme pour une année, avec coefficients et crédits.",
       "program": "Programme",
       "year": "Année",
@@ -1226,7 +1240,12 @@
         "hoursTutorial": "Travaux dirigés",
         "hoursPractical": "Travaux pratiques",
         "isMandatory": "Obligatoire",
-        "isTransversal": "Transversal"
+        "isTransversal": "Transversal",
+        "gradingMode": "Mode de saisie des notes",
+        "resitAllowed": "Rattrapage autorisé",
+        "countsInAverage": "Compte dans la moyenne",
+        "sectionKey": "Section du bulletin",
+        "sectionKeyHint": "Code en majuscules (A-Z, 0-9, _) regroupant des matières dans une même section. Vide : aucune section."
       }
     },
     "classrooms": {

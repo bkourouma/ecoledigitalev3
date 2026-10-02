@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { academicCreateProgramBodySchema, type AcademicProgramDto } from "@ecoledigitale/contracts/v2/academic";
+import { academicCreateProgramBodySchema, academicUpdateProgramBodySchema, type AcademicProgramDto } from "@ecoledigitale/contracts/v2/academic";
 import { useCreateProgram, usePrograms, useReference, useSetProgramGradeLevels, useUpdateProgram } from "@/platform/v2/academic";
 import { usePermission } from "@/platform/access";
 import { Can } from "@/platform/ui/AccessGate";
@@ -65,6 +65,7 @@ export function ProgramsScreen() {
                 <span className="flex min-w-0 flex-wrap items-center gap-x-2">
                   <span className="truncate font-medium">{n.item.label}</span>
                   <span className="text-xs text-muted-foreground">{n.item.code}</span>
+                  {n.item.isCycle ? <StatusBadge label={t("cycleBadge")} tone="info" /> : null}
                   {n.item.status === "ARCHIVED" ? <StatusBadge label={t("archived")} tone="neutral" /> : null}
                 </span>
               )}
@@ -88,7 +89,10 @@ export function ProgramsScreen() {
 function ProgramDetail({ program, levelLabel, onEdit, onFlash }: { program: AcademicProgramDto; levelLabel: string; onEdit: () => void; onFlash: (message: string) => void }) {
   const t = useTranslations("v2Academic.programs");
   const tStatus = useTranslations("v2Academic.status.program");
+  const tCommon = useTranslations("v2Academic.common");
   const grades = useReference("grade-levels");
+  const levels = useReference("education-levels");
+  const inheritedContract = (levels.data ?? []).find((l) => l.id === program.educationLevelId)?.calculationContract ?? null;
   const setGrades = useSetProgramGradeLevels();
   const update = useUpdateProgram();
   const manage = usePermission("academic.program.manage").allowed;
@@ -160,6 +164,17 @@ function ProgramDetail({ program, levelLabel, onEdit, onFlash }: { program: Acad
           <dt className="text-muted-foreground">{t("fields.durationMonths")}</dt>
           <dd>{program.durationMonths === null ? "—" : t("months", { count: program.durationMonths })}</dd>
         </div>
+        <div>
+          <dt className="text-muted-foreground">{t("fields.isCycle")}</dt>
+          <dd>{program.isCycle ? tCommon("yes") : tCommon("no")}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">{t("fields.calculationContract")}</dt>
+          <dd>
+            {program.calculationContract ??
+              (inheritedContract ? t("calculationContractInherited", { contract: inheritedContract }) : t("calculationContractNone"))}
+          </dd>
+        </div>
         <div className="sm:col-span-2">
           <dt className="text-muted-foreground">{t("fields.description")}</dt>
           <dd>{program.description ?? "—"}</dd>
@@ -173,7 +188,7 @@ function ProgramDetail({ program, levelLabel, onEdit, onFlash }: { program: Acad
         {candidates.length === 0 ? <p className="text-sm text-muted-foreground">{t("noGradeLevels")}</p> : null}
         <div className="grid gap-x-4 sm:grid-cols-2">
           {candidates.map((g) => (
-            <CheckControl key={g.id} checked={covered.includes(g.id)} onChange={(on) => toggle(g.id, on)} label={g.label} hint={g.shortLabel ?? undefined} disabled={!manage} />
+            <CheckControl key={g.id} checked={covered.includes(g.id)} onChange={(on) => toggle(g.id, on)} label={g.label} hint={[g.shortLabel, g.terminalExamRequired ? t("terminalExam") : null].filter(Boolean).join(" · ") || undefined} disabled={!manage} />
           ))}
         </div>
         {setGrades.error ? <ErrorBlock error={setGrades.error} /> : null}
@@ -206,8 +221,10 @@ function ProgramDialog({ program, programs, onClose, onDone }: { program?: Acade
     domainCode: program?.domainCode ?? "",
     durationMonths: program?.durationMonths ? String(program.durationMonths) : "",
     description: program?.description ?? "",
+    isCycle: program?.isCycle ?? false,
+    calculationContract: program?.calculationContract ?? "",
   });
-  const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: Exclude<keyof typeof form, "isCycle">) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const pending = create.isPending || update.isPending;
 
   async function submit() {
@@ -220,8 +237,12 @@ function ProgramDialog({ program, programs, onClose, onDone }: { program?: Acade
           domainCode: form.domainCode || null,
           description: form.description || null,
           durationMonths: form.durationMonths ? Number(form.durationMonths) : null,
+          isCycle: form.isCycle,
+          calculationContract: form.calculationContract.trim() || null,
         };
-        await update.mutateAsync({ id: program.id, patch: JSON.parse(JSON.stringify(patch)) as Record<string, unknown> });
+        const checked = validateWith(academicUpdateProgramBodySchema, JSON.parse(JSON.stringify(patch)));
+        if (!checked.ok) return setErrors(checked.errors);
+        await update.mutateAsync({ id: program.id, patch: checked.data });
         onDone(form.label);
         return onClose();
       }
@@ -229,6 +250,8 @@ function ProgramDialog({ program, programs, onClose, onDone }: { program?: Acade
         institutionId,
         ...compact({ code: form.code, label: form.label, educationLevelId: form.educationLevelId, parentProgramId: form.parentProgramId, kindCode: form.kindCode, domainCode: form.domainCode, description: form.description }),
         ...(form.durationMonths ? { durationMonths: Number(form.durationMonths) } : {}),
+        ...(form.isCycle ? { isCycle: true } : {}),
+        ...(form.calculationContract.trim() ? { calculationContract: form.calculationContract.trim() } : {}),
       };
       const v = validateWith(academicCreateProgramBodySchema, body);
       if (!v.ok) return setErrors(v.errors);
@@ -278,6 +301,14 @@ function ProgramDialog({ program, programs, onClose, onDone }: { program?: Acade
         <FormField label={t("fields.durationMonths")} error={errors.durationMonths}>
           {(c) => <TextControl {...c} type="number" min={1} max={240} inputMode="numeric" value={form.durationMonths} onChange={set("durationMonths")} />}
         </FormField>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label={t("fields.calculationContract")} hint={t("fields.calculationContractHint")} error={errors.calculationContract}>
+          {(c) => <TextControl {...c} value={form.calculationContract} onChange={(v) => set("calculationContract")(v.toLowerCase())} maxLength={44} placeholder="credit-semester@1" />}
+        </FormField>
+        <div className="self-end">
+          <CheckControl checked={form.isCycle} onChange={(on) => setForm((f) => ({ ...f, isCycle: on }))} label={t("fields.isCycle")} hint={t("fields.isCycleHint")} />
+        </div>
       </div>
       <FormField label={t("fields.description")} error={errors.description}>
         {(c) => <TextAreaControl {...c} value={form.description} onChange={set("description")} maxLength={1000} />}
