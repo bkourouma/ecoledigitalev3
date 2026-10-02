@@ -7,7 +7,7 @@
  * l'API publique aussi (liste des classes d'une année, noeuds d'une version).
  */
 import { unwrap, type RequestContext } from "@ecoledigitale/kernel";
-import { AcademicCode, addCurriculumNode, createClassroom, createSubject, getCurriculumVersion, getProgram, listAcademicYears, listClassrooms, listCurriculumNodes, listCurriculumVersions, listPrograms, listReference, listSubjects, updateClassroom, updateCurriculumNode } from "../../modules/academic";
+import { AcademicCode, addCurriculumNode, getAcademicYear, createClassroom, createSubject, getCurriculumVersion, getProgram, listAcademicYears, listClassrooms, listCurriculumNodes, listCurriculumVersions, listPrograms, listReference, listSubjects, updateClassroom, updateCurriculumNode } from "../../modules/academic";
 import { listInstitutions } from "../../modules/tenancy";
 import type { ApplyItem, ApplyResult, ImportTargetPort, PlanItem, PlanResult, PlanRun } from "../../modules/imports";
 import { issue, issuesFromError, type ImportWriteEnv } from "./imports-support";
@@ -81,10 +81,11 @@ export function createClassroomsImportPort(env: ImportWriteEnv): ImportTargetPor
     },
     async checkOptions(ctx, options) {
       const out = [];
-      const institutions = await institutionChoices(env, ctx);
-      if (!institutions.some((i) => i.value === options["institutionId"])) out.push(issue("institutionId", "imports.options_invalid", "Établissement inconnu."));
-      const years = await yearChoices(env, ctx);
-      if (!years.some((y) => y.value === options["academicYearId"])) out.push(issue("academicYearId", "imports.options_invalid", "Année scolaire inconnue."));
+      const institution = await env.academic.ports.institutions.getInstitution(ctx, String(options["institutionId"]));
+      if (!institution) out.push(issue("institutionId", "imports.options_invalid", "Établissement inconnu."));
+      const year = await getAcademicYear(env.academic, ctx, String(options["academicYearId"]));
+      if (!year.ok) out.push(issue("academicYearId", "imports.options_invalid", "Année scolaire inconnue."));
+      else if (year.value.institutionId !== String(options["institutionId"])) out.push(issue("academicYearId", "imports.options_invalid", "Cette année scolaire n'appartient pas à l'établissement choisi."));
       return out;
     },
     async plan(ctx, items, run) {
@@ -140,6 +141,7 @@ interface NodeValues {
   nodeTypeCode: string;
   parentCode?: string;
   subjectCode?: string;
+  gradeLevelCode?: string;
   coefficient?: string;
   credits?: string;
   periodTypeCode?: string;
@@ -157,7 +159,9 @@ export function createCurriculumImportPort(env: ImportWriteEnv): ImportTargetPor
     const nodes = unwrap(await listCurriculumNodes(env.academic, ctx, versionId));
     const types = unwrap(await listReference(env.academic, ctx, "node-types"));
     const subjects = unwrap(await listSubjects(env.academic, ctx, { institutionId: program.institutionId }));
+    const levels = unwrap(await listReference(env.academic, ctx, "grade-levels"));
     return {
+      levels: new Map(levels.map((l) => [norm(l.code), l])),
       version,
       program,
       nodes: new Map(nodes.map((n) => [norm(n.code), n])),
@@ -193,6 +197,7 @@ export function createCurriculumImportPort(env: ImportWriteEnv): ImportTargetPor
         if (row.parentCode && !l.nodes.has(norm(row.parentCode)) && !item.inFileDependencies.has(keyOf(versionId, row.parentCode))) {
           issues.push(issue("parentCode", "imports.reference_unknown", `Le parent « ${row.parentCode} » n'existe pas dans la version et n'est pas déclaré plus haut dans le fichier.`));
         }
+        if (row.gradeLevelCode && !l.levels.has(norm(row.gradeLevelCode))) issues.push(issue("gradeLevelCode", "imports.reference_unknown", `Niveau « ${row.gradeLevelCode} » inconnu.`));
         if (row.subjectCode && !l.subjects.has(norm(row.subjectCode))) issues.push(issue("subjectCode", "imports.reference_unknown", `La matière « ${row.subjectCode} » n'existe pas : elle sera créée à partir du libellé.`, "WARNING"));
         const existing = l.nodes.get(norm(row.code));
         if (issues.some((i) => i.severity === "ERROR")) out.push({ rowNo: item.rowNo, action: "ERROR", issues });
@@ -217,8 +222,10 @@ export function createCurriculumImportPort(env: ImportWriteEnv): ImportTargetPor
       }
       const parent = row.parentCode ? l.nodes.get(norm(row.parentCode)) : undefined;
       if (row.parentCode && !parent) return { rowNo: item.rowNo, outcome: "FAILED", issues: [issue("parentCode", "imports.reference_unknown", `Parent « ${row.parentCode} » introuvable.`)] };
+      const level = row.gradeLevelCode ? l.levels.get(norm(row.gradeLevelCode)) : undefined;
       const fields = {
         label: row.label,
+        ...(level ? { gradeLevelId: level.id } : {}),
         ...(subjectId ? { subjectId } : {}),
         ...(row.coefficient !== undefined ? { coefficient: row.coefficient } : {}),
         ...(row.credits !== undefined ? { credits: row.credits } : {}),

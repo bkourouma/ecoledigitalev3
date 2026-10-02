@@ -21,6 +21,7 @@ export const curriculumRowSchema = z.object({
   nodeTypeCode: z.string().trim().min(1).max(60),
   parentCode: optionalText(60),
   subjectCode: optionalText(60),
+  gradeLevelCode: optionalText(60),
   coefficient: decimal.optional(),
   credits: decimal.optional(),
   periodTypeCode: optionalText(60),
@@ -37,6 +38,7 @@ export const CURRICULUM_COLUMNS = [
   column("nodeTypeCode", "Type de noeud (code)", "code", { required: true, aliases: ["type", "type noeud", "type de noeud", "nature", "node type", "categorie noeud"], description: "Code du type de noeud défini par le programme (ex. SUBJECT, UE, ECUE, PERIOD).", example: "SUBJECT" }),
   column("parentCode", "Code du parent", "code", { aliases: ["parent", "code parent", "ue", "rattache a", "parent code", "semestre"], description: "Code du noeud parent (facultatif) ; il doit être déclaré plus haut.", example: "" }),
   column("subjectCode", "Code de la matière", "code", { aliases: ["code matiere", "matiere code", "subject", "subject code", "discipline"], description: "Code de la matière du référentiel ; créée à partir du libellé si elle n'existe pas encore.", example: "MATHS" }),
+  column("gradeLevelCode", "Niveau (code)", "code", { aliases: ["niveau", "code niveau", "grade level", "classe niveau", "niveau scolaire"], description: "Code du niveau scolaire (exigé par un noeud de type niveau).", example: "" }),
   column("coefficient", "Coefficient", "decimal", { aliases: ["coefficient", "coef", "coeff", "poids", "weight"], description: "Coefficient (nombre positif).", example: "4" }),
   column("credits", "Crédits", "decimal", { aliases: ["credits", "credit", "ects", "nombre de credits"], description: "Crédits (nombre positif).", example: "" }),
   column("periodTypeCode", "Type de période (code)", "code", { aliases: ["type periode", "type de periode", "periode type", "period type"], description: "Code du type de période (ex. SEMESTER, TRIMESTER).", example: "" }),
@@ -78,7 +80,7 @@ export const curriculumImporter: ImporterDef<CurriculumRow> = {
     return mappedColumns.has("subjectCode") ? ["academic.program.manage"] : [];
   },
   sampleRows: [
-    ["MATHS", "Mathématiques", "SUBJECT", "", "MATHS", "4", "", "", "", "1", "oui", "120"],
-    ["FRANC", "Français", "SUBJECT", "", "FRANC", "4", "", "", "", "2", "oui", "120"],
+    ["MATHS", "Mathématiques", "SUBJECT", "", "MATHS", "", "4", "", "", "", "1", "oui", "120"],
+    ["FRANC", "Français", "SUBJECT", "", "FRANC", "", "4", "", "", "", "2", "oui", "120"],
   ],
 };

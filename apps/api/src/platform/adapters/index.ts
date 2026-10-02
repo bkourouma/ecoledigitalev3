@@ -93,6 +93,8 @@ export interface PlatformPorts {
   /** Sources des read-models de direction (025) : lectures de tenancy, academic, people, results, attendance, finance, payroll. */
   readonly analytics: AnalyticsSourcePorts;
   readonly messaging: Partial<MessagingPorts>;
+  /** Imports Excel / CSV (031) : un port d'écriture par importeur, bâti sur l'API publique des modules cibles. */
+  readonly imports: Partial<ImportPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -105,7 +107,7 @@ export function buildPlatformPorts(
   const officialDocuments = createOfficialDocumentDeps(kit, storage, documents);
   const { academic, people, finance, attendance, scheduling, results, reportcards, assess, higher, rules, lookups, clock } = kit;
   const messagingDirectory = createMessagingPeopleDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock });
-  return {
+  const base: Omit<PlatformPorts, "imports"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
       guardianship: createAcademicGuardianship(people),
@@ -185,6 +187,24 @@ export function buildPlatformPorts(
       ...(storage ? { storage: asMessagingStorage(storage) } : {}),
     },
   };
+  // Imports (031) : écriture par les cas d'usage publics des modules cibles, avec le VRAI audit (l'API : `runtime.auditPort` ;
+  // le worker : le service d'audit du processus). Sans audit fourni (tests ciblés), l'audit est no-op.
+  const writeEnv = createImportWriteEnv(kit, () => base, options.audit);
+  const imports: Partial<ImportPorts> = {
+    targets: {
+      students: createStudentsImportPort(writeEnv),
+      guardians: createGuardiansImportPort(writeEnv),
+      staff: createStaffImportPort(writeEnv),
+      classrooms: createClassroomsImportPort(writeEnv),
+      curriculum: createCurriculumImportPort(writeEnv),
+      grades: createGradesImportPort(writeEnv),
+      opening_balances: createOpeningBalancesImportPort(writeEnv),
+    },
+    names: createImportActorNames(writeEnv),
+    ...(storage ? { storage } : {}),
+    ...(options.audit ? { audit: importsAuditAdapter(options.audit) } : {}),
+  };
+  return { ...base, imports };
 }
 
 export interface WiredPlatform {
@@ -213,6 +233,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerHigherPorts(app, ports.higher);
   registerAnalyticsPorts(app, ports.analytics);
   registerMessagingPorts(app, ports.messaging);
+  registerImportsPorts(app, ports.imports);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -234,7 +255,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   const env = input.env ?? process.env;
   const storage = createObjectStorage(env, { warn: (m) => input.logger.warn({}, m) });
   const kit = createAdapterKit({ tenantDb: input.tenantDb, systemDb: input.systemDb, clock: input.clock, logger: input.logger, env });
-  const ports = buildPlatformPorts(kit, storage);
+  const ports = buildPlatformPorts(kit, storage, {}, { audit: { record: (tx, entry) => auditService.record(tx, entry as Parameters<typeof auditService.record>[1]) } });
   setAcademicWorkerPorts(ports.academic);
   setPeopleWorkerPorts(ports.people);
   setResultsWorkerPorts(ports.results);
@@ -242,6 +263,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   registerSchedulingPorts(ports.scheduling);
   setAnalyticsWorkerPorts(ports.analytics);
   setMessagingWorkerPorts(ports.messaging);
+  setImportsWorkerPorts(ports.imports);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }

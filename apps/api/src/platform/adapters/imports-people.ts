@@ -12,7 +12,7 @@
  */
 import { createHash } from "node:crypto";
 import type { RequestContext } from "@ecoledigitale/kernel";
-import { AcademicCode, enrollStudent, listReference } from "../../modules/academic";
+import { AcademicCode, enrollStudent, getAcademicYear, listReference } from "../../modules/academic";
 import { guardianIdentityKey, type ApplyItem, type ApplyResult, type GuardianRow, type ImportActorNamePort, type ImportTargetPort, type PlanItem, type PlanResult, type PlanRun, type StaffRow, type StudentRow } from "../../modules/imports";
 import {
   createGuardian,
@@ -84,7 +84,8 @@ export function createStudentsImportPort(env: ImportWriteEnv): ImportTargetPort<
     async checkOptions(ctx, options) {
       const y = options["academicYearId"];
       if (y === undefined || y === "") return [];
-      return (await yearChoices(env, ctx)).some((c) => c.value === y) ? [] : [issue("academicYearId", "imports.options_invalid", "Année scolaire inconnue.")];
+      const year = await getAcademicYear(env.academic, ctx, String(y));
+      return year.ok ? [] : [issue("academicYearId", "imports.options_invalid", "Année scolaire inconnue.")];
     },
     async plan(ctx, items: readonly PlanItem<StudentRow>[], run: PlanRun): Promise<PlanResult[]> {
       const out: PlanResult[] = [];
