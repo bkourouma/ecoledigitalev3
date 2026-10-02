@@ -436,3 +436,16 @@
 ---
 
 **Mise à jour** : 2026-10-02 sur branche `feat/v2-phase-0`
+
+## Ajouts du lead (2026-10-02) — arbitrages par défaut pris pendant l'intégration
+
+| Id | Question | Défaut appliqué | Qui tranche |
+|----|----------|-----------------|-------------|
+| L-01 | `council.read` accordé à l'enseignant (périmètre limité à ses classes côté serveur) ; ajoute le menu « Conseils de classe » | Accordé (suit le README councils) | Direction |
+| L-02 | Publication des résultats d'examen, dérogation d'éligibilité, approbation d'une révision : `directeur`/`owner` seuls ; `directeur_etudes` en consultation | Direction seule | Direction |
+| L-03 | Le secrétariat n'a aucun droit sur les examens (convocations : permission `exam.document.issue` à lui donner si souhaité) | Aucun | Direction |
+| L-04 | Imports : secrétariat = élèves/tuteurs ; directeur d'études = classes/curriculum ; économe = préparation ; soldes d'ouverture (MFA) = direction | Voir à gauche | Direction |
+| L-05 | Règles de notification `schoollife.*` et `admissions.*` livrées DÉSACTIVÉES (les modules informent déjà eux-mêmes ; les activer enverrait en double) | Désactivées | Propriétaires des modules |
+| L-06 | Rapprochement stateassign : compte tous les frais de la famille, frais d'inscription compris | Tolérance de l'établissement | Économe |
+| L-07 | Job `councils.apply-effects` exécuté sous l'identité de l'humain décideur (contrainte `TenantDb`) | Identité du décideur | Technique / direction |
+| L-08 | Couleur « destructive » éclaircie pour atteindre le contraste 4,5:1 | Appliqué | Design |
