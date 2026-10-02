@@ -834,7 +834,7 @@ export type AdmissionsUpdateInterviewBody = z.infer<typeof admissionsUpdateInter
 // Offres ----------------------------------------------------------------------------------------------------------------
 
 export const admissionsIssueOfferBodySchema = z
-  .object({ classroomId: admissionsUuidSchema, gradeLevelCode: admissionsGradeCodeSchema.optional(), conditions: z.string().trim().max(2000).optional(), validityDays: z.number().int().min(1).max(365).optional() })
+  .object({ classroomId: admissionsUuidSchema.optional(), gradeLevelCode: admissionsGradeCodeSchema.optional(), conditions: z.string().trim().max(2000).optional(), validityDays: z.number().int().min(1).max(365).optional() })
   .strict();
 export type AdmissionsIssueOfferBody = z.infer<typeof admissionsIssueOfferBodySchema>;
 
