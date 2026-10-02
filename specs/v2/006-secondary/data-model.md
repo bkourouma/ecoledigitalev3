@@ -97,15 +97,14 @@ stateassign.assignments (versionné) ─< controls ; documents (références) ; 
 
 ### 5.1 `councils` — référentiels
 
-<!-- migration: 1800_councils_reference.sql -->
+<!-- migration: 2100_councils_reference.sql -->
 ```sql
 -- =============================================================================
--- 1800 — Module councils : schéma et référentiels du conseil de classe
+-- 2100 — Module councils : schéma et référentiels du conseil de classe
 -- =============================================================================
 --
--- Plage de numéros proposée au module councils : 1800–1899 (numéros GLOBAUX, voir
--- docs/architecture/module-conventions.md ; la plage définitive est attribuée par
--- `pnpm module:new` dans l'ordre de création).
+-- Plage de numéros du module councils : 2100–2199 (numéros GLOBAUX, voir
+-- docs/architecture/module-conventions.md).
 --
 -- Règles (module-conventions.md, ADR-002/006/007) :
 --   - un module = un schéma (`councils`) ; AUCUNE clé étrangère vers le schéma d'un autre module,
@@ -284,17 +283,17 @@ GRANT SELECT, INSERT, UPDATE ON councils.settings TO app_user;
 
 ### 5.2 `councils` — séances, ordre du jour, propositions, décisions, effets
 
-<!-- migration: 1801_councils_sessions.sql -->
+<!-- migration: 2101_councils_sessions.sql -->
 ```sql
 -- =============================================================================
--- 1801 — Module councils : séances de conseil, participants, ordre du jour, propositions,
+-- 2101 — Module councils : séances de conseil, participants, ordre du jour, propositions,
 --        décisions, effets
 -- =============================================================================
 --
 -- Un conseil = une séance pour une classe et une période (ou un bilan de fin d'année).
 --   PLANNED  -> OPEN -> CLOSED -> SIGNED ; CANCELLED depuis PLANNED/OPEN.
 --   CLOSED et SIGNED sont les états VERROUILLÉS ; le déverrouillage (CLOSED|SIGNED -> OPEN) exige une
---   demande approuvée (`unlock_requests`, migration 1802) et est imposé par la base (1804).
+--   demande approuvée (`unlock_requests`, migration 2102) et est imposé par la base (2104).
 -- Les résultats, absences, discipline et appréciations sont LUS dans `results`, `attendance`,
 -- `schoollife` : l'ordre du jour en garde un instantané figé (`agenda_items.facts`) avec son hash.
 -- Les propositions des règles sont des SUGGESTIONS (`origin = 'RULE_SUGGESTION'`) ; seule une
@@ -540,10 +539,10 @@ GRANT SELECT, INSERT, UPDATE ON councils.effects TO app_user;
 
 ### 5.3 `councils` — procès-verbal, signatures, déverrouillage, journal
 
-<!-- migration: 1802_councils_minutes.sql -->
+<!-- migration: 2102_councils_minutes.sql -->
 ```sql
 -- =============================================================================
--- 1802 — Module councils : procès-verbal (snapshot immuable), signatures datées,
+-- 2102 — Module councils : procès-verbal (snapshot immuable), signatures datées,
 --        demandes de déverrouillage, journal
 -- =============================================================================
 --
@@ -551,7 +550,7 @@ GRANT SELECT, INSERT, UPDATE ON councils.effects TO app_user;
 -- séance, scellé par un hash calculé PAR LA BASE (`councils.minutes_hash`). Le PDF est rendu dans le
 -- worker depuis ce snapshot seul (spec 013, port `DocumentRenderer`). Chaque signature porte le hash
 -- signé et sa date ; une fois toutes les signatures exigées recueillies, la base passe le procès-verbal
--- puis la séance à SIGNED (1804). Aucune suppression, aucune modification du contenu.
+-- puis la séance à SIGNED (2104). Aucune suppression, aucune modification du contenu.
 -- =============================================================================
 
 -- Hash canonique d'un snapshot : SHA-256 du texte jsonb (ordre des clés déterministe côté Postgres).
@@ -664,10 +663,10 @@ GRANT SELECT, INSERT ON councils.events TO app_user;                      -- app
 
 ### 5.4 `councils` — orientation et passage d'une série à l'autre
 
-<!-- migration: 1803_councils_orientation.sql -->
+<!-- migration: 2103_councils_orientation.sql -->
 ```sql
 -- =============================================================================
--- 1803 — Module councils : orientation, réorientation, passage d'une série à l'autre
+-- 2103 — Module councils : orientation, réorientation, passage d'une série à l'autre
 -- =============================================================================
 --
 -- Les séries, options et langues sont des DONNÉES de `academic` (programmes enfants d'un programme
@@ -759,7 +758,7 @@ GRANT SELECT, INSERT, UPDATE ON councils.orientation_wishes TO app_user;
 --   decided_via = 'COUNCIL'       -> `decision_id` (décision du conseil) obligatoire ;
 --   decided_via = 'DIRECTOR_ACT'  -> `act_reference` obligatoire (acte de la direction hors séance).
 -- Le parcours doit exister dans `orientation_paths`, sinon dérogation motivée (>= 20 caractères) par un
--- utilisateur ; contrôlé par la base (1804).
+-- utilisateur ; contrôlé par la base (2104).
 CREATE TABLE councils.series_transfers (
   id                    uuid PRIMARY KEY,
   tenant_id             uuid NOT NULL REFERENCES kernel.tenants (id),
@@ -808,10 +807,10 @@ GRANT SELECT, INSERT, UPDATE ON councils.series_transfers TO app_user;
 
 ### 5.5 `councils` — invariants imposés par la base
 
-<!-- migration: 1804_councils_guards.sql -->
+<!-- migration: 2104_councils_guards.sql -->
 ```sql
 -- =============================================================================
--- 1804 — Module councils : invariants imposés par la base
+-- 2104 — Module councils : invariants imposés par la base
 -- =============================================================================
 --
 -- Défense en profondeur (même esprit que academic/0704, results/1203) : le domaine TypeScript applique
@@ -1680,6 +1679,27 @@ CREATE TRIGGER orientation_files_no_delete BEFORE DELETE ON councils.orientation
   FOR EACH ROW EXECUTE FUNCTION councils.forbid_mutation();
 CREATE TRIGGER council_types_no_delete BEFORE DELETE ON councils.council_types
   FOR EACH ROW EXECUTE FUNCTION councils.forbid_mutation();
+```
+
+### 5.5 bis `councils` — ce que l'implémentation a ajouté (migration 2105)
+
+Le statut d'élève visé par une décision d'exclusion est une DONNÉE du type de décision (aucun statut n'est supposé par le code).
+
+<!-- migration: 2105_councils_additions.sql -->
+```sql
+-- =============================================================================
+-- 2105 — Module councils : compléments posés par l'implémentation
+-- =============================================================================
+--
+-- Statut d'élève visé par une décision d'EXCLUSION : l'effet `STUDENT_STATUS_REQUEST` demande à `people` de passer l'élève à
+-- `SUSPENDED` ou `EXCLUDED`. C'est une DONNÉE du type de décision (aucun statut n'est supposé par le code) ; NULL pour toute
+-- famille autre que l'exclusion. Le changement de statut lui-même reste un acte HUMAIN (jamais un job).
+-- =============================================================================
+
+ALTER TABLE councils.decision_types
+  ADD COLUMN student_status text CHECK (student_status IS NULL OR student_status IN ('SUSPENDED', 'EXCLUDED'));
+ALTER TABLE councils.decision_types
+  ADD CONSTRAINT decision_types_student_status_family CHECK (student_status IS NULL OR family = 'EXCLUSION');
 ```
 
 ### 5.6 `schoollife` — paramètres, types d'événements, barèmes de conduite

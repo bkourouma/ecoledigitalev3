@@ -1,0 +1,31 @@
+{
+  "section": "councils",
+  "schemaVersion": 1,
+  "templateVersion": 1,
+  "educationSystem": "CI",
+  "pack": "SECONDARY",
+  "participantRoles": [
+    { "code": "PRESIDENT", "label": "Président du conseil", "canDecide": true, "isVoting": true, "countsForQuorum": true, "sortOrder": 10 },
+    { "code": "SECRETARY", "label": "Secrétaire de séance", "canDecide": false, "isVoting": false, "countsForQuorum": true, "sortOrder": 20 },
+    { "code": "HOMEROOM_TEACHER", "label": "Professeur principal", "canDecide": false, "isVoting": true, "countsForQuorum": true, "sortOrder": 30 },
+    { "code": "TEACHER", "label": "Enseignant de la classe", "canDecide": false, "isVoting": true, "countsForQuorum": true, "sortOrder": 40 },
+    { "code": "EDUCATOR", "label": "Éducateur / vie scolaire", "canDecide": false, "isVoting": false, "countsForQuorum": false, "sortOrder": 50 },
+    { "code": "STUDENT_REP", "label": "Délégué des élèves", "isExternal": true, "isVoting": false, "countsForQuorum": false, "maySign": false, "sortOrder": 60 },
+    { "code": "PARENT_REP", "label": "Délégué des parents", "isExternal": true, "isVoting": false, "countsForQuorum": false, "maySign": false, "sortOrder": 70 }
+  ],
+  "councilTypes": [
+    { "code": "PERIOD_COUNCIL", "label": "Conseil de classe de période", "scope": "PERIOD", "minResultsStatus": "GRADING_LOCKED", "minParticipants": null, "requiredRoleCodes": [], "signerFunctions": ["PRESIDENT", "SECRETARY"], "requiresDecisionPerStudent": false, "sortOrder": 10 },
+    { "code": "YEAR_END_COUNCIL", "label": "Conseil de classe de fin d'année", "scope": "YEAR", "minResultsStatus": "GRADING_LOCKED", "minParticipants": null, "requiredRoleCodes": [], "signerFunctions": ["PRESIDENT", "SECRETARY"], "requiresDecisionPerStudent": true, "sortOrder": 20 }
+  ],
+  "decisionTypes": [
+    { "code": "PASSAGE", "label": "Passage en classe supérieure", "family": "PASSAGE", "appliesTo": "YEAR", "exclusiveGroup": "YEAR_OUTCOME", "resultsDecisionKind": "YEAR_END", "resultsFinalCode": "PROMOTED", "academicOutcomeCode": "PROMOTED", "sortOrder": 10 },
+    { "code": "REPEAT", "label": "Redoublement", "family": "REPEAT", "appliesTo": "YEAR", "exclusiveGroup": "YEAR_OUTCOME", "requiresJustification": true, "resultsDecisionKind": "YEAR_END", "resultsFinalCode": "REPEAT", "academicOutcomeCode": "REPEATED", "sortOrder": 20 },
+    { "code": "ORIENTATION", "label": "Orientation", "family": "ORIENTATION", "appliesTo": "YEAR", "exclusiveGroup": "YEAR_OUTCOME", "requiresTarget": true, "academicOutcomeCode": "ORIENTED", "sortOrder": 30 },
+    { "code": "REORIENTATION", "label": "Réorientation", "family": "REORIENTATION", "appliesTo": "BOTH", "requiresTarget": true, "requiresJustification": true, "academicOutcomeCode": "REORIENTED", "sortOrder": 40 },
+    { "code": "EXCLUSION", "label": "Exclusion (recommandation du conseil)", "family": "EXCLUSION", "appliesTo": "BOTH", "requiresJustification": true, "needsHumanApplication": true, "academicOutcomeCode": "EXCLUDED", "studentStatus": "EXCLUDED", "sortOrder": 50 },
+    { "code": "REQUIRED_OPINION", "label": "Avis requis du conseil", "family": "REQUIRED_OPINION", "appliesTo": "BOTH", "sortOrder": 60 },
+    { "code": "OTHER", "label": "Autre décision", "family": "OTHER", "appliesTo": "BOTH", "requiresJustification": true, "sortOrder": 70 }
+  ],
+  "settings": { "requireSeparateUnlocker": true, "effectsTrigger": "SIGNED", "guardianVisibility": "AFTER_NOTIFICATION", "allowQuorumWaiver": true },
+  "orientationPaths": []
+}

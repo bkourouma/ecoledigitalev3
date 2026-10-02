@@ -42,6 +42,13 @@ Le registre (`apps/api/src/modules/registry.ts`, agent « platform-api ») déco
 - `kernel.tenants` est la source de vérité des modules v2. Pendant la coexistence, elle est alimentée à sens unique depuis `public.tenants` (mêmes UUID) au démarrage et à la création d'un tenant legacy.
 - Le contexte (`RequestContext`) est construit depuis l'authentification legacy existante (JWT) tant que le module `iam` n'a pas pris le relais ; la forme du jeton (`userId`, `tenantId`, `roles`, `activeRole`) est conservée.
 
+## Conventions apprises (module `councils`)
+
+14. **Acte humain et identité.** `TenantDb` refuse un changement d'identité à l'intérieur d'une transaction : un effet qui exige un acteur humain (statut d'élève, décision de résultats) est appliqué dans la transaction de l'humain, ou rejoué par un job qui ouvre SA transaction sous l'identité de l'humain enregistré, jamais sous l'identité système.
+15. **Ports en échec fermé.** Un port sans adaptateur répond `<module>.port_unavailable` (409 conflit, jamais 500, jamais « autorisé »). Les ports sont lus à chaque requête (`registerXPorts`), pas à l'import.
+16. **Effets de bord réversibles ou non.** Chaque effet d'une décision porte son statut (`PENDING`, `APPLIED`, `FAILED`, `AWAITING_HUMAN`, `REVERTED`) et sa réversibilité ; ce qu'un module voisin ne sait pas retirer est retiré par son propre événement (ex. `results.period.reopened`), jamais par une écriture dans son schéma.
+17. **Paramètres réglementaires vides ou marqués.** Un pack livre le mécanisme et des paramètres vides ou `isPlaceholder`; l'écran affiche « règles de démonstration » tant que le tenant n'a rien validé.
+
 ## Numérotation des migrations (décision du lead)
 
 Les versions du runner (`schema_migrations.version`) sont **globales à tous les dossiers**. Chaque module reçoit une plage réservée de 100 numéros ; un fichier hors de sa plage est refusé en revue.

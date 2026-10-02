@@ -39,6 +39,8 @@ import { audit as auditService } from "../../modules/audit";
 import { registerMessagingPorts, setMessagingWorkerPorts, type MessagingPorts } from "../../modules/messaging";
 import { registerNotificationsPorts, setNotificationsWorkerPorts, type NotificationsPorts } from "../../modules/notifications";
 import { registerStateassignPorts, setStateassignWorkerPorts, type StateassignPorts } from "../../modules/stateassign";
+import { registerCouncilsPorts, setCouncilsWorkerPorts, type CouncilsPorts } from "../../modules/councils";
+import { createSchoolLifeDeps } from "../../modules/schoollife";
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
 import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorkerResources, type PdfRenderer, type ReportcardsPorts } from "../../modules/reportcards";
@@ -114,6 +116,15 @@ import { createStateassignAttendanceFacts } from "./attendance-stateassign";
 import { createStateassignDocumentRefs } from "./documents-stateassign";
 import { createStateassignFinancePort } from "./finance-stateassign";
 import { createStateassignGuardianshipPort, createStateassignStudentNames } from "./people-stateassign";
+import { createCouncilsAcademicPort, createCouncilsOutcomePort } from "./academic-councils";
+import { createCouncilsResultsRead, createCouncilsResultsWrite, createCouncilsRuleCodes } from "./results-councils";
+import { createCouncilsAttendancePort } from "./attendance-councils";
+import { createCouncilsSchoolLifePort } from "./schoollife-councils";
+import { createCouncilsFamilyPort, createCouncilsStaffPort, createCouncilsStudentStatusPort } from "./people-councils";
+import { createCouncilsNotificationPort } from "./notifications-councils";
+import { createCouncilsDocumentsPort } from "./reportcards-councils";
+import { createCouncilsStoragePort } from "./storage-councils";
+import { createCouncilsTemplatePort } from "./tenancy-councils";
 
 export { createAdapterKit, type AdapterKit, type AdapterKitInput } from "./kit";
 export { createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
@@ -149,6 +160,8 @@ export interface PlatformPorts {
   readonly schoollife: Partial<SchoolLifePorts>;
   /** Élèves affectés par l'État (006) : inscription et financement (academic), facturation (finance), présence (attendance), pièces (documents), noms et tutelle (people). La passerelle reste `NotConfigured`. */
   readonly stateassign: Partial<StateassignPorts>;
+  /** Conseils de classe (006) : classes, effectif, inscriptions et issues (academic), résultats et délibération (results), assiduité, vie scolaire (comptages), personnel et tutelle (people), notifications, PV scellé (reportcards), stockage, modèle de pack (tenancy). */
+  readonly councils: Partial<CouncilsPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -170,7 +183,7 @@ export function buildPlatformPorts(
   // Admissions : écriture par les cas d'usage publics de people, academic, finance (avec le VRAI audit), dans la transaction du module.
   const admissionsEnv = createAdmissionsWriteEnv(kit, () => base, extras.audit);
   const schoollifePeople = createSchoollifePeoplePort(people, academic, lookups);
-  const base: Omit<PlatformPorts, "imports" | "examinations" | "stateassign"> = {
+  const base: Omit<PlatformPorts, "imports" | "examinations" | "stateassign" | "councils"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
       guardianship: createAcademicGuardianship(people),
@@ -352,7 +365,26 @@ export function buildPlatformPorts(
     students: createStateassignStudentNames(people),
     guardianship: createStateassignGuardianshipPort(lookups),
   };
-  return { ...base, imports, examinations, stateassign };
+  // Conseils de classe (006) : lectures et écritures par les API PUBLIQUES des modules voisins ; `councils` ne calcule aucune règle.
+  // La vie scolaire est lue par ses fonctions publiques (comptages et codes), sur ses propres ports.
+  const councilsSchoollifeDeps = createSchoolLifeDeps({ db: kit.tenantDb, clock: kit.clock, logger: kit.logger, portsProvider: () => base.schoollife });
+  const councils: Partial<CouncilsPorts> = {
+    academic: createCouncilsAcademicPort({ academic, people, tenantDb: kit.tenantDb, clock }),
+    outcomes: createCouncilsOutcomePort(academic),
+    resultsRead: createCouncilsResultsRead({ results, academic, rules }),
+    resultsWrite: createCouncilsResultsWrite(results),
+    ruleCodes: createCouncilsRuleCodes(rules),
+    attendance: createCouncilsAttendancePort({ attendance, academic }),
+    schoollife: createCouncilsSchoolLifePort(councilsSchoollifeDeps),
+    staff: createCouncilsStaffPort(people, lookups),
+    family: createCouncilsFamilyPort(people, lookups),
+    studentStatus: createCouncilsStudentStatusPort(people),
+    notifications: createCouncilsNotificationPort(createSchoollifeNotificationsDeps(kit), people),
+    documents: createCouncilsDocumentsPort(reportcards, storage),
+    storage: createCouncilsStoragePort(storage),
+    templates: createCouncilsTemplatePort(),
+  };
+  return { ...base, imports, examinations, stateassign, councils };
 }
 
 export interface WiredPlatform {
@@ -389,6 +421,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerAdmissionsPorts(app, ports.admissions);
   registerSchoolLifePorts(app, ports.schoollife);
   registerStateassignPorts(app, ports.stateassign);
+  registerCouncilsPorts(app, ports.councils);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -425,6 +458,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   setExaminationsWorkerPorts(ports.examinations);
   setAdmissionsWorkerPorts(ports.admissions);
   setStateassignWorkerPorts(ports.stateassign);
+  setCouncilsWorkerPorts(ports.councils);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }

@@ -1,4 +1,4 @@
-// Tests de comportement du schéma `councils` (migrations 1800-1804 de data-model.md).
+// Tests de comportement du schéma `councils` (migrations 2100-2104 de data-model.md).
 // Exécution : node specs/v2/006-secondary/ddl-test/run.mjs
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -9,7 +9,7 @@ const USER_A = uuid();
 const USER_B = uuid();
 
 before(async () => {
-  d = await createDatabase("councils", ["18"]);
+  d = await createDatabase("councils", ["21"]);
 });
 after(async () => {
   await d?.close();
