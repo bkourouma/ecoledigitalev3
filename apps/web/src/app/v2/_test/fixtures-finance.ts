@@ -102,6 +102,7 @@ export function invoiceLine(over: Over = {}) {
     discount: xof(0),
     scholarship: xof(0),
     total: xof(500000),
+    sourceRef: null,
     ...over,
   };
 }

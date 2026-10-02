@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { accessRoutes, setTestApi } from "@/platform/test/api-mock";
 import { json, renderWithProviders } from "@/platform/test/render";
-import { uuid } from "../../_test/fixtures";
+import { node as curriculumNode, uuid, version as curriculumVersion } from "../../_test/fixtures";
 import { staffSummary } from "../../_test/fixtures-people";
 import { config, pid, rate, settings } from "../../_test/fixtures-payroll";
 import { ConfigsScreen, RatesScreen, SettingsScreen } from "./Configuration";
@@ -112,35 +112,9 @@ describe("ConfigsScreen", () => {
 });
 
 describe("RatesScreen et simulateur", () => {
-  const version = { id: uuid(500), programId: uuid(300), academicYearId: uuid(100), status: "PUBLISHED", clonedFromVersionId: null, publishedAt: null, publishedBy: null, lockedAt: null, note: null, nodeCount: 1 };
-  const node = (over: Record<string, unknown> = {}) => ({
-    id: pid(80),
-    versionId: version.id,
-    parentId: null,
-    nodeTypeCode: "ECUE",
-    lineageId: uuid(900),
-    subjectId: uuid(901),
-    gradeLevelId: null,
-    periodTypeCode: null,
-    periodOrdinal: null,
-    code: "MATH-101",
-    label: "Algèbre",
-    ordinal: 1,
-    coefficient: null,
-    credits: null,
-    isMandatory: true,
-    isTransversal: false,
-    categoryCode: null,
-    hoursTotal: null,
-    hoursLecture: null,
-    hoursTutorial: null,
-    hoursPractical: null,
-    attributes: {},
-    status: "ACTIVE",
-    prerequisiteLineageIds: [],
-    children: [],
-    ...over,
-  });
+  const version = curriculumVersion({ id: uuid(500), status: "PUBLISHED", nodeCount: 1 });
+  const node = (over: Record<string, unknown> = {}) =>
+    curriculumNode({ id: pid(80), versionId: version.id, nodeTypeCode: "ECUE", lineageId: uuid(900), subjectId: uuid(901), code: "MATH-101", label: "Algèbre", ordinal: 1, credits: null, ...over });
   const base = {
     ...accessRoutes(MANAGE),
     "GET /api/v1/people/staff": staff,
