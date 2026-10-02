@@ -171,6 +171,8 @@ export const councilsDecisionTypeInputSchema = z
     resultsFinalCode: councilsCodeSchema.nullable().default(null),
     academicOutcomeCode: councilsCodeSchema.nullable().default(null),
     needsHumanApplication: z.boolean().optional(),
+    /** Statut d'élève visé par une exclusion (donnée du type, jamais supposé par le code) ; `null` pour toute autre famille. */
+    studentStatus: z.enum(["SUSPENDED", "EXCLUDED"]).nullable().default(null),
     sortOrder: z.number().int().min(0).max(10_000).default(0),
     active: z.boolean().default(true),
   })
@@ -190,6 +192,7 @@ export const councilsDecisionTypeDtoSchema = z.object({
   resultsFinalCode: z.string().nullable(),
   academicOutcomeCode: z.string().nullable(),
   needsHumanApplication: z.boolean(),
+  studentStatus: z.enum(["SUSPENDED", "EXCLUDED"]).nullable(),
   isSystem: z.boolean(),
   sortOrder: z.number().int(),
   active: z.boolean(),
@@ -261,8 +264,11 @@ export const councilsFactsSchema = z.object({
   attendance: z
     .object({
       available: z.boolean(),
-      justifiedMinutes: z.number().int().nullable(),
-      unjustifiedMinutes: z.number().int().nullable(),
+      /** Valeurs EFFECTIVES de `attendance` (surcharge tracée comprise), recopiées sans calcul. */
+      absentMinutes: z.number().int().nullable(),
+      excusedMinutes: z.number().int().nullable(),
+      absentCount: z.number().int().nullable(),
+      excusedCount: z.number().int().nullable(),
       lateCount: z.number().int().nullable(),
     })
     .nullable(),
@@ -797,6 +803,8 @@ export const councilsSeriesTransferInputSchema = z
   .refine((v) => v.pathId !== undefined || v.overrideReason !== undefined, { message: "Désignez un parcours autorisé ou motivez une dérogation.", path: ["pathId"] })
   .refine((v) => v.effectiveKind !== "MID_YEAR" || v.effectiveOn !== undefined, { message: "Un transfert en cours d'année indique sa date d'effet.", path: ["effectiveOn"] });
 export type CouncilsSeriesTransferInput = z.infer<typeof councilsSeriesTransferInputSchema>;
+/** Application d'un transfert : en cours d'année, la classe de destination est désignée à l'application (même établissement et même année). */
+export const councilsTransferApplySchema = z.object({ toClassroomId: councilsUuidSchema.optional() }).strict();
 export const councilsTransferCancelSchema = z.object({ reason: text(5, 1000, "Le motif d'annulation") }).strict();
 export const councilsSeriesTransferDtoSchema = z.object({
   id: councilsUuidSchema,
