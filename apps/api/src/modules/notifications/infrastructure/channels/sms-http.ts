@@ -189,7 +189,7 @@ export function createSmsHttpChannel(options: SmsHttpOptions): ChannelAdapter {
       const timer = setTimeout(() => controller.abort(), settings.timeoutMs);
       let res: Response;
       try {
-        res = await doFetch(url, { method: settings.method, headers, ...(body !== undefined ? { body } : {}), signal: controller.signal });
+        res = await doFetch(url, { method: settings.method, redirect: "error", headers, ...(body !== undefined ? { body } : {}), signal: controller.signal });
       } catch (e) {
         const aborted = e instanceof Error && e.name === "AbortError";
         return { status: "RETRY", code: aborted ? "sms_timeout" : "sms_unreachable", message: aborted ? "Délai dépassé vers le fournisseur SMS." : "Fournisseur SMS injoignable." };

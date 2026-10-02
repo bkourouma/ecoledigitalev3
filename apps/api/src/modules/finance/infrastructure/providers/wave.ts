@@ -295,6 +295,9 @@ export class WaveProvider implements PaymentProvider {
       status,
       amount,
       occurredAt: parseDate(data.when_completed),
+      // SEC-08 : le mode `shared_secret` n'authentifie que par un Bearer statique (ni HMAC du corps ni horodatage) :
+      // le statut et le montant du corps ne sont crus qu'après relecture de la session chez Wave.
+      ...(this.settings.webhook_strategy === "shared_secret" ? { requiresActiveVerification: true } : {}),
       storedPayload: {
         id,
         type,

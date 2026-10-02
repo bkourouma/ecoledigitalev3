@@ -14,7 +14,7 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from "fastify";
 import { timingSafeEqual } from "node:crypto";
 import { ZodError, type ZodTypeAny, type z } from "zod";
-import { UnauthorizedError, isAppError, toErrorBody, unwrap } from "@ecoledigitale/kernel";
+import { ForbiddenError, UnauthorizedError, isAppError, toErrorBody, unwrap } from "@ecoledigitale/kernel";
 import {
   AuthErrorCodes,
   FederatedLoginRequestSchema,
@@ -280,6 +280,8 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
   });
 
   app.post("/logout-all", auth, async (request, reply) => {
+    // Pendant une impersonation, l'opérateur ne peut pas déconnecter tous les appareils de la cible.
+    if (principalOf(request).impersonatedBy) throw new ForbiddenError("Action interdite pendant une impersonation.", { code: AuthErrorCodes.impersonationForbidden });
     const result = await iam.logoutAll(principalOf(request), requestMeta(request));
     clearRefreshCookie(reply, config);
     noStore(reply);

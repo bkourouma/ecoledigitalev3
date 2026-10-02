@@ -266,6 +266,15 @@ describe("Wave Checkout (serveur simulé conforme à la documentation)", () => {
       expect(make({ webhook_strategy: "shared_secret", webhook_secret: undefined }).p.verifySignature(w.rawBody, w.headers)).toBe(false);
     });
 
+    it("SEC-08 : en « shared secret », le webhook exige la vérification active ; en signing_secret non", async () => {
+      const shared = make({ webhook_strategy: "shared_secret" }).p;
+      const a = await shared.handleWebhook(JSON.stringify(event()), {});
+      expect(a.ok && a.value.requiresActiveVerification).toBe(true);
+      const signed = make().p;
+      const b = await signed.handleWebhook(JSON.stringify(event()), {});
+      expect(b.ok && b.value.requiresActiveVerification).toBeUndefined();
+    });
+
     it("payment_failed = tentative échouée (EN ATTENTE, la session reste ouverte) ; expirée => échec ; événements étrangers => sans effet", async () => {
       const { p } = make();
       const failed = await p.handleWebhook(JSON.stringify(event({ payment_status: "failed", checkout_status: "failed" }, "checkout.session.payment_failed")), {});
