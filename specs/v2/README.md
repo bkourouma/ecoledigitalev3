@@ -42,7 +42,7 @@ Phases du plan §4 : 0 = cadrage, 1 = socle SaaS, 2 = cœur académique et migra
 | 003 | organization-campus | 1 | À écrire |
 | 004 | academic-core | 2 | Rédigée (`004-academic-core/`) |
 | 005 | primary | 4 | À écrire |
-| 006 | secondary | 5 | À écrire |
+| 006 | secondary | 5 | Rédigée (`006-secondary/` : spec, data-model testé sur Postgres — 37 tables, 3 schémas `councils`/`schoollife`/`stateassign`, 85 tests —, plan, parity, open-questions, regulatory-sources-needed, `ddl-test/`) |
 | 007 | admissions | 4 | À écrire |
 | 008 | students-guardians | 2 | Rédigée (`008-students-guardians/`) |
 | 009 | teachers-staff | 2 | Rédigée (`009-teachers-staff/`) |
