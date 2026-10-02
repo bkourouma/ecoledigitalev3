@@ -74,7 +74,8 @@ export function platformEnv({ secrets, ports }) {
     ADMISSIONS_FINGERPRINT_SECRET: secrets.admissionsFingerprintSecret,
     // Stockage d'objets : repli disque (dossier local ignoré par git), URL signées servies par l'API.
     STORAGE_DISK_DIR: OBJECTS_DIR,
-    STORAGE_PUBLIC_BASE_URL: apiBase,
+    // URLs signées servies par l'API derrière le web (même origine : `/api/v1/storage/object` est relayé par les réécritures de Next).
+    STORAGE_PUBLIC_BASE_URL: webBase,
     STORAGE_SIGNING_SECRET: secrets.storageSigningSecret,
     // Notifications : AUCUN envoi réel. SMS Orange en sandbox (aucun appel réseau), e-mail et WhatsApp non configurés ;
     // la simulation consigne les remises sans les émettre.

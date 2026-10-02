@@ -19,6 +19,18 @@ import { resetRegistryForTests } from "../../apps/api/src/modules/registry";
 import { configureTenantSync } from "../../apps/api/src/platform/tenant-sync";
 import { resetPublicRoutesForTests } from "../../apps/api/src/platform/public-routes";
 import { registerV2Platform } from "../../apps/api/src/platform/v2-bootstrap";
+import { MemoryRateLimiter } from "../../apps/api/src/modules/iam";
+
+/**
+ * Limiteur de débit du seed : le processus du seed est local et de confiance (adresse 127.0.0.1 unique) et active des dizaines de
+ * comptes d'affilée : le plafond horaire par adresse de l'API (réponse 429 `iam.too_many_attempts`) le bloquerait. L'API de la
+ * démonstration, elle, garde son limiteur Redis.
+ */
+class SeedRateLimiter extends MemoryRateLimiter {
+  override async hit(_key: string, _rule: Parameters<MemoryRateLimiter["hit"]>[1]): ReturnType<MemoryRateLimiter["hit"]> {
+    return { allowed: true, count: 0, retryAfterMs: 0 };
+  }
+}
 
 const apiRequire = createRequire(resolve(__dirname, "../../apps/api/package.json"));
 const { Redis } = apiRequire("ioredis") as { Redis: new (url: string, opts: { maxRetriesPerRequest: number }) => { keys(p: string): Promise<string[]>; del(...k: string[]): Promise<unknown>; disconnect(): void } };
@@ -86,6 +98,7 @@ export async function startSeedPlatform(env: NodeJS.ProcessEnv): Promise<SeedPla
     env: apiEnv,
     skipLegacyCatchUp: true,
     runtime: {
+      rateLimiter: new SeedRateLimiter(),
       superAdminAuthorizer: {
         async authorize(request: { headers: Record<string, unknown> }) {
           const header = request.headers.authorization;

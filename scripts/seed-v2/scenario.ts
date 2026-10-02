@@ -67,6 +67,9 @@ export interface ScenarioContext {
   guardianPersonIds: string[];
   teacherStaffIds: string[];
   timetableId: string;
+  /** Codes des frais utilisés par le scénario (frais du modèle de pack, sinon INSC / SCOL). */
+  registrationFeeCode: string;
+  tuitionFeeCode: string;
   /** Résumé libre que le prolongement complète (affiché dans le rapport). */
   notes: string[];
   counts: Record<string, number>;
@@ -245,8 +248,19 @@ export async function runScenario(platform: SeedPlatform, data: SeedDataset, log
 
   // ------------------------------------------------------------------------------------------------ 4. finances et inscriptions
   step(`frais, inscriptions, factures ; ${data.paidCount} règlements (confirmation par événement)`);
-  const registration = (await owner.post("/api/v1/finance/fees", { code: "INSC", name: "Frais d'inscription", category: "REGISTRATION" }, 201)).body;
-  const tuition = (await owner.post("/api/v1/finance/fees", { code: "SCOL", name: "Scolarité annuelle", category: "TUITION" }, 201)).body;
+  // Les modèles de pack Primary et Secondary créent déjà les frais REGISTRATION et TUITION (sans barème) : on les réutilise, car
+  // l'admission facture TOUS les frais de catégorie REGISTRATION (un second frais doublerait la facture d'inscription). Le pack
+  // HIGHER n'en a pas : le scénario crée les siens.
+  const feeOf = async (category: "REGISTRATION" | "TUITION", fallback: { code: string; name: string }): Promise<{ id: string; code: string }> => {
+    const find = async (): Promise<{ id: string; code: string } | undefined> => {
+      const list = (await owner.get("/api/v1/finance/fees")).body.items as Array<{ id: string; code: string; category: string }>;
+      return list.find((f) => f.category === category);
+    };
+    const found = data.pack === "HIGHER" ? await find() : await waitFor(async () => (await find()) ?? false, { label: `frais ${category} du modèle de pack`, timeoutMs: 60_000 });
+    return found ?? ((await owner.post("/api/v1/finance/fees", { ...fallback, category }, 201)).body as { id: string; code: string });
+  };
+  const registration = await feeOf("REGISTRATION", { code: "INSC", name: "Frais d'inscription" });
+  const tuition = await feeOf("TUITION", { code: "SCOL", name: "Scolarité annuelle" });
   await owner.post("/api/v1/finance/fee-schedules", { feeId: registration.id, academicYear: data.yearCode, amount: data.registrationFee, effectiveFrom: "2020-01-01" }, 201);
   await owner.post("/api/v1/finance/fee-schedules", { feeId: tuition.id, academicYear: data.yearCode, amount: data.tuitionFee, effectiveFrom: "2020-01-01" }, 201);
 
@@ -259,7 +273,7 @@ export async function runScenario(platform: SeedPlatform, data: SeedDataset, log
     const inv = (
       await owner.post(
         "/api/v1/finance/invoices/from-schedule",
-        { learnerId: s.id, enrollmentId: s.enrollmentId, academicYear: data.yearCode, items: [{ feeCode: "INSC" }], issue: true },
+        { learnerId: s.id, enrollmentId: s.enrollmentId, academicYear: data.yearCode, items: [{ feeCode: registration.code }], issue: true },
         [200, 201],
         { "idempotency-key": key("inv-insc", i) },
       )
@@ -275,7 +289,7 @@ export async function runScenario(platform: SeedPlatform, data: SeedDataset, log
     const tuitionInvoice = (
       await owner.post(
         "/api/v1/finance/invoices/from-schedule",
-        { learnerId: s.id, enrollmentId: s.enrollmentId, academicYear: data.yearCode, items: [{ feeCode: "SCOL" }], issue: true },
+        { learnerId: s.id, enrollmentId: s.enrollmentId, academicYear: data.yearCode, items: [{ feeCode: tuition.code }], issue: true },
         [200, 201],
         { "idempotency-key": key("inv-scol", i) },
       )
@@ -380,7 +394,7 @@ export async function runScenario(platform: SeedPlatform, data: SeedDataset, log
       platform, data, log, accounts, owner, directeur, pedago, teacher, parent, learner,
       tenantId, institutionId, yearId, periodIds, programId: programId as string, gradeLevelId, versionId, classroomId,
       teachable, subjectIds, students, guardianIds, guardianPersonIds, teacherStaffIds, timetableId: timetable.id as string,
-      notes, counts: extraCounts,
+      registrationFeeCode: registration.code, tuitionFeeCode: tuition.code, notes, counts: extraCounts,
     });
   }
   if (data.pack === "HIGHER") {

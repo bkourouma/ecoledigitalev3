@@ -103,7 +103,7 @@ async function main(): Promise<void> {
 
   // --- par établissement -----------------------------------------------------------------------------------------------------
   const tokens = new Map<string, string>();
-  const idsByTenant = new Map<string, { classroomId?: string; studentId?: string; invoiceId?: string; reportCardId?: string; verificationCode?: string }>();
+  const idsByTenant = new Map<string, { classroomId?: string; periodId?: string; studentId?: string; invoiceId?: string; reportCardId?: string; verificationCode?: string }>();
   for (const tenant of tenants) {
     console.log(`\nÉtablissement ${tenant}`);
     const accounts = creds.accounts.filter((a) => a.tenant === tenant);
@@ -142,15 +142,17 @@ async function main(): Promise<void> {
       const first = (cards.body?.items as Array<{ id: string; verificationCode: string }> | undefined)?.[0];
       ids.reportCardId = first?.id;
       ids.verificationCode = first?.verificationCode;
-      if (ids.classroomId) {
-        const periods = await call("GET", "/api/v1/academic/years", owner);
-        void periods;
+      const years = await call("GET", "/api/v1/academic/years", owner);
+      const yearId = (years.body?.items as Array<{ id: string }> | undefined)?.[0]?.id;
+      if (yearId) {
+        const periods = await call("GET", `/api/v1/academic/years/${yearId}/periods`, owner);
+        ids.periodId = (periods.body?.items as Array<{ id: string }> | undefined)?.[0]?.id;
       }
     }
     const dir = t("directeur");
     if (dir) {
       await expect2xx("directeur : tableau de bord", "GET", "/api/v1/analytics/overview", dir);
-      if (ids.classroomId) await expect2xx("directeur : résultats de la classe", "GET", `/api/v1/results/classrooms/${ids.classroomId}/periods`, dir).catch(() => undefined);
+      if (ids.classroomId && ids.periodId) await expect2xx("directeur : résultats de la classe (période 1)", "GET", `/api/v1/results/classrooms/${ids.classroomId}/periods/${ids.periodId}/state`, dir);
     }
     const parent = t("parent");
     if (parent) {
