@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Megaphone, Star } from "lucide-react";
 import type { MessagingConversationSummaryDto } from "@ecoledigitale/contracts/v2/messaging";
@@ -57,7 +58,9 @@ function ConversationRow({ c, folder }: { c: MessagingConversationSummaryDto; fo
 export function InboxScreen() {
   const t = useTranslations("v2Messaging");
   const audience = useMyAudience();
-  const [folder, setFolder] = useState<Folder>("inbox");
+  const params = useSearchParams();
+  const requested = params?.get("folder");
+  const [folder, setFolder] = useState<Folder>((FOLDERS as readonly string[]).includes(requested ?? "") ? (requested as Folder) : "inbox");
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"people" | "text">("people");
   const [unreadOnly, setUnreadOnly] = useState(false);

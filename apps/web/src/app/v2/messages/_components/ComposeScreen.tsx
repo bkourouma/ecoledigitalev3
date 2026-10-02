@@ -115,7 +115,7 @@ export function ComposeScreen() {
     }
     setErrors({});
     create.mutate(checked.data, {
-      onSuccess: (r) => router.push(r.conversation ? `/v2/messages/${r.conversation.id}` : "/v2/messages?sent=1"),
+      onSuccess: (r) => router.push(r.conversation ? `/v2/messages/${r.conversation.id}` : "/v2/messages?folder=sent"),
       onError: (err) => setErrors(apiErrorToFieldErrors(err)),
     });
   }

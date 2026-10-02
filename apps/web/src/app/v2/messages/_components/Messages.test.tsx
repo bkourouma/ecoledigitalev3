@@ -21,16 +21,19 @@ import { ThreadScreen } from "./ThreadScreen";
 
 vi.setConfig({ testTimeout: 30_000 });
 
-const nav = vi.hoisted(() => ({ push: vi.fn() }));
+const nav = vi.hoisted(() => ({ push: vi.fn(), search: "" }));
 vi.mock("@/platform/api/default-client", async () => (await import("@/platform/test/api-mock")).defaultClientModule);
-vi.mock("next/navigation", () => ({ usePathname: () => "/v2/messages", useRouter: () => ({ push: nav.push, replace: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/v2/messages", useRouter: () => ({ push: nav.push, replace: vi.fn() }), useSearchParams: () => new URLSearchParams(nav.search) }));
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 
 const M = "/api/v1/messaging";
 const bodyBox = () => screen.getByRole("textbox", { name: /^Message \(obligatoire\)/ }) as HTMLTextAreaElement;
 const READ = accessRoutes(["messaging.child.read", "messaging.child.send"]);
 
-beforeEach(() => nav.push.mockClear());
+beforeEach(() => {
+  nav.push.mockClear();
+  nav.search = "";
+});
 afterEach(() => vi.restoreAllMocks());
 
 describe("fabriques de test conformes aux contrats courants", () => {
@@ -113,6 +116,15 @@ describe("InboxScreen : boîte de réception", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Afficher plus" }));
     expect(await screen.findByText("Seconde page")).toBeTruthy();
     expect(api.calls.find((c) => c.query.cursor === "CURSEUR")).toBeTruthy();
+  });
+
+  it("ouvre directement le dossier demandé par l'adresse (après une diffusion : « Envoyés »)", async () => {
+    nav.search = "folder=sent";
+    const api = setTestApi({ ...READ, [`GET ${M}/me/audience`]: myAudience(), [`GET ${M}/conversations`]: page([conversation({ broadcastCount: 24, subject: "Convocation" })]) });
+    renderWithProviders(<InboxScreen />);
+    expect(await screen.findByText("Diffusion : 24 destinataire(s)")).toBeTruthy();
+    expect(api.calls.some((c) => c.path.endsWith("/conversations") && c.query.folder === "sent")).toBe(true);
+    expect(screen.getByRole("tab", { name: "Envoyés" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("compte restreint : avertissement et pas de bouton d'écriture", async () => {
@@ -326,7 +338,7 @@ describe("ComposeScreen : composition avec destinataires autorisés", () => {
     fireEvent.change(screen.getByLabelText(/Objet/), { target: { value: "Convocation" } });
     fireEvent.change(bodyBox(), { target: { value: "Merci de passer au secrétariat." } });
     fireEvent.click(screen.getByRole("button", { name: "Envoyer" }));
-    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/v2/messages?sent=1"));
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/v2/messages?folder=sent"));
     expect(api.calls.find((c) => c.method === "POST")!.body).toMatchObject({ kind: "BROADCAST", subject: "Convocation", recipients: { userIds: [], classrooms: [{ classroomId: IDS.class6A, include: ["GUARDIANS"] }], toAdministration: false } });
     expect((api.calls.find((c) => c.method === "POST")!.body as { recipients: Record<string, unknown> }).recipients.audience).toBeUndefined();
   });
