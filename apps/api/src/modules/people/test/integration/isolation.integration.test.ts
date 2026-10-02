@@ -3,6 +3,8 @@ import { newId, unwrap } from "@ecoledigitale/kernel";
 import { assertTenantIsolation, checkTenantIsolation } from "@ecoledigitale/database";
 import allowlistDefault, { fixtures as peopleFixtures, peopleIsolationAllowlistTables, peopleTenantTables } from "../../../isolation-allowlist.people";
 import { addEmergencyContact, addPriorEducation, getStudent, getStudentsByIds, listStudents } from "../../application/students";
+import { listStudentDocuments, uploadStudentDocument } from "../../application/documents";
+import { FakeStorage } from "../support/fakes";
 import { addContract, addQualification, getStaff, listStaff, setAffiliations, setAvailabilities, setCompetencies } from "../../application/staff";
 import { createTeachingAssignment, listAssignmentsForClassroom } from "../../application/teaching";
 import { getGuardian, isGuardianOfStudent, listChildrenOfIdentity, listGuardians } from "../../application/guardians";
@@ -27,7 +29,7 @@ describeIntegration("isolation multi-tenant du schéma people (Postgres réel)",
   beforeAll(async () => {
     db = await createPeopleTestDb();
     academic = new FakeAcademic();
-    world = makeWorld(db, { academic });
+    world = makeWorld(db, { academic, storage: new FakeStorage() });
     tenantA = await db.createTenant("tenant-a");
     tenantB = await db.createTenant("tenant-b");
     a = ctxFor(tenantA);
@@ -44,6 +46,7 @@ describeIntegration("isolation multi-tenant du schéma people (Postgres réel)",
     await link(world.deps, a, s.id, g.id, { isPrimaryContact: true });
     unwrap(await addEmergencyContact(world.deps, a, s.id, { contactName: "Oncle", phone: "0102030405" }));
     unwrap(await addPriorEducation(world.deps, a, s.id, { kind: "DIPLOMA", label: "BEPC", referenceNumber: "REF-1" }, { withSensitive: true }));
+    unwrap(await uploadStudentDocument(world.deps, a, s.id, Uint8Array.from(Buffer.from("%PDF-1.7\n%%EOF")), { typeCode: "ID_CARD", fileName: "cni.pdf" }));
     await giveEnrollment(db, tenantA, s.id, { classroomId: classroom.id });
     const st = await mkStaff(world.deps, a);
     staffA = st.id;
@@ -118,6 +121,8 @@ describeIntegration("isolation multi-tenant du schéma people (Postgres réel)",
     expect(unwrap(await listGuardians(world.deps, b, {})).items.map((i) => i.id)).not.toContain(guardianA);
     expect((await getStaff(world.deps, b, staffA)).ok).toBe(false);
     expect(unwrap(await listStaff(world.deps, b, {})).items.map((i) => i.id)).not.toContain(staffA);
+    expect(await listStudentDocuments(world.deps, b, studentA)).toMatchObject({ ok: false, error: { code: "people.student_not_found" } });
+    expect(unwrap(await listStudentDocuments(world.deps, a, studentA))).toHaveLength(1);
     expect(await isGuardianOfStudent(world.deps, b, identityA, studentA)).toBe(false);
     expect(unwrap(await listChildrenOfIdentity(world.deps, b, identityA))).toEqual([]);
     const fakeClass = [...academic.classrooms.keys()][0] as string;

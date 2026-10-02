@@ -23,6 +23,7 @@ import { createPeoplePortRegistry, type PeoplePortRegistry, type PeoplePortSet }
 import { PeopleErrors } from "../domain/errors";
 import { resolveStudentAudience, resolveStudentListScope, type PermissionProbe } from "../application/access";
 import { getPersonQualities, linkPersonToIdentity, provisionPortalAccount, type PersonQuality } from "../application/accounts";
+import * as documentsUc from "../application/documents";
 import * as guardiansUc from "../application/guardians";
 import { rebuildEnrollmentProjection } from "../application/projection";
 import * as settingsUc from "../application/settings";
@@ -135,7 +136,8 @@ export async function peoplePlugin(app: FastifyInstance, options: PeoplePluginOp
       return payload;
     });
     // Photos : corps binaire brut (le type réel est contrôlé par octets magiques).
-    scope.addContentTypeParser(["image/jpeg", "image/png", "image/webp", "application/octet-stream"], { parseAs: "buffer", bodyLimit: deps.config.photoMaxBytes + 1024 }, (_req, body, done) => done(null, body));
+    // Pièces (PDF ou image) : même corps binaire ; la taille réelle est vérifiée par chaque cas d'usage (photo : 2 Mo, pièce : 8 Mo par défaut).
+    scope.addContentTypeParser(["image/jpeg", "image/png", "image/webp", "application/pdf", "application/octet-stream"], { parseAs: "buffer", bodyLimit: Math.max(deps.config.photoMaxBytes, deps.config.documentMaxBytes) + 1024 }, (_req, body, done) => done(null, body));
 
     // =============================================================================================================
     // Élèves
@@ -235,6 +237,42 @@ export async function peoplePlugin(app: FastifyInstance, options: PeoplePluginOp
       const url = unwrap(await studentsUc.getStudentPhotoUrl(deps, ctx, id));
       if (!url) throw PeopleErrors.studentNotFound();
       return url;
+    });
+
+    // --- pièces de l'élève (stockage objet) -------------------------------------------------------------------
+    // Lecture : `student.sensitive.read` (sensible : MFA), CHAQUE lecture est auditée ; écriture : `student.update`.
+    // Le fichier est le CORPS binaire (PDF, JPEG, PNG, WebP : type réel contrôlé par octets magiques), les métadonnées sont en query.
+    const docParams = z_obj({ id: c.peopleUuidSchema, docId: c.peopleUuidSchema });
+    const bodyBytes = (req: FastifyRequest): Uint8Array => {
+      const body = req.body;
+      if (!Buffer.isBuffer(body)) throw PeopleErrors.invalidDocument("Corps binaire attendu (PDF, JPEG, PNG ou WebP).");
+      return new Uint8Array(body);
+    };
+    scope.get("/students/:id/documents", { preHandler: perm("student.sensitive.read") }, async (req) => {
+      const { id } = parse(idParams, req.params);
+      return { items: unwrap(await documentsUc.listStudentDocuments(deps, ctxOf(req), id, parse(c.peopleListStudentDocumentsQuerySchema, req.query))) };
+    });
+    scope.put("/students/:id/documents", { preHandler: perm("student.update") }, async (req, reply) => {
+      const { id } = parse(idParams, req.params);
+      const meta = parse(c.peopleUploadStudentDocumentQuerySchema, req.query);
+      return reply.status(201).send(unwrap(await documentsUc.uploadStudentDocument(deps, ctxOf(req), id, bodyBytes(req), meta)));
+    });
+    scope.put("/students/:id/documents/:docId", { preHandler: perm("student.update") }, async (req, reply) => {
+      const { id, docId } = parse(docParams, req.params);
+      const meta = parse(c.peopleReplaceStudentDocumentQuerySchema, req.query);
+      return reply.status(201).send(unwrap(await documentsUc.replaceStudentDocument(deps, ctxOf(req), id, docId, bodyBytes(req), meta)));
+    });
+    scope.patch("/students/:id/documents/:docId", { preHandler: perm("student.update") }, async (req) => {
+      const { id, docId } = parse(docParams, req.params);
+      return unwrap(await documentsUc.updateStudentDocument(deps, ctxOf(req), id, docId, parse(c.peopleUpdateStudentDocumentBodySchema, req.body)));
+    });
+    scope.post("/students/:id/documents/:docId/remove", { preHandler: perm("student.update") }, async (req) => {
+      const { id, docId } = parse(docParams, req.params);
+      return unwrap(await documentsUc.removeStudentDocument(deps, ctxOf(req), id, docId, parse(c.peopleRemoveStudentDocumentBodySchema, req.body)));
+    });
+    scope.get("/students/:id/documents/:docId/url", { preHandler: perm("student.sensitive.read") }, async (req) => {
+      const { id, docId } = parse(docParams, req.params);
+      return unwrap(await documentsUc.getStudentDocumentUrl(deps, ctxOf(req), id, docId));
     });
 
     // --- contacts d'urgence ---------------------------------------------------------------------------------

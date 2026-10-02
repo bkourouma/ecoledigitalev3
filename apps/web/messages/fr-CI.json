@@ -7434,5 +7434,231 @@
       "validTo": "Valide jusqu'au",
       "validToHint": "Facultatif."
     }
+  },
+  "v2Rollover": {
+    "nav": "Reconduction",
+    "featureOff": "La reconduction annuelle n'est pas incluse dans l'offre de votre établissement.",
+    "step": {
+      "PERIODS": "Calendrier et périodes",
+      "HOLIDAYS": "Jours fériés et vacances",
+      "CURRICULUM": "Curriculum des programmes",
+      "CLASSROOMS": "Classes",
+      "OFFERINGS": "Offres de cours à la carte",
+      "ENROLLMENTS": "Réinscriptions des élèves"
+    },
+    "stepHint": {
+      "PERIODS": "Reporte les périodes (semestres, trimestres…) de l'année source sur l'année cible, avec les dates décalées.",
+      "HOLIDAYS": "Reporte les jours fériés, vacances et fermetures marqués « se répète chaque année ». Les fêtes mobiles sont à ressaisir.",
+      "CURRICULUM": "Clone la version de curriculum de chaque programme pour l'année cible.",
+      "CLASSROOMS": "Crée les classes de l'année cible à partir de celles de l'année source.",
+      "OFFERINGS": "Recrée les offres de cours ouvertes à l'inscription à la carte.",
+      "ENROLLMENTS": "Réinscrit les élèves selon la décision de passage de fin d'année (passage, redoublement, réorientation, sortie)."
+    },
+    "stepStatus": {
+      "PENDING": "En attente",
+      "RUNNING": "En cours",
+      "DONE": "Terminée",
+      "SKIPPED": "Ignorée",
+      "FAILED": "En échec"
+    },
+    "runStatus": {
+      "PENDING": "En attente du worker",
+      "RUNNING": "En cours",
+      "COMPLETED": "Terminée",
+      "FAILED": "En échec"
+    },
+    "holidayKind": {
+      "HOLIDAY": "Jour férié",
+      "BREAK": "Vacances",
+      "CLOSURE": "Fermeture"
+    },
+    "wizard": {
+      "title": "Reconduction annuelle",
+      "description": "Prépare l'année suivante à partir d'une année existante : calendrier, curriculum, classes, offres et réinscriptions. Rien n'est écrit avant votre confirmation.",
+      "history": "Historique des reconductions",
+      "choose": "Choisir…",
+      "years": {
+        "title": "Années",
+        "description": "Choisissez l'année de départ et l'année à préparer.",
+        "from": "Année source",
+        "to": "Année cible",
+        "toHint": "Une année en brouillon ou ouverte, postérieure à l'année source.",
+        "fromRequired": "Choisissez l'année source.",
+        "toRequired": "Choisissez l'année cible.",
+        "noTarget": "Aucune année cible possible : créez d'abord l'année suivante (brouillon) dans « Années et périodes »."
+      },
+      "steps": {
+        "title": "Éléments à reconduire",
+        "description": "Cochez ce que vous voulez copier. Chaque étape peut être refaite sans doublon.",
+        "required": "Retenez au moins une étape.",
+        "createMissing": "Créer les classes de destination qui manquent",
+        "createMissingHint": "Pour les réinscriptions : une classe est créée lorsque le niveau suivant n'en a pas encore dans l'année cible."
+      },
+      "preview": {
+        "title": "Aperçu",
+        "description": "Ce que la reconduction ferait, calculé par le serveur sans rien écrire.",
+        "loading": "Calcul de l'aperçu…",
+        "refresh": "Actualiser l'aperçu",
+        "liveRun": "Une reconduction est déjà en attente ou en cours pour ces deux années.",
+        "resume": "Reprendre son suivi"
+      },
+      "confirm": {
+        "title": "Confirmation",
+        "description": "Relisez le récapitulatif avant de lancer l'exécution.",
+        "from": "Année source",
+        "to": "Année cible",
+        "steps": "Étapes retenues",
+        "warnings": "{count, plural, one {L'aperçu contient # avertissement.} other {L'aperçu contient # avertissements.}} Vérifiez-les avant de continuer.",
+        "liveRun": "Une exécution est déjà en cours pour ces années : le lancement reprendra son suivi au lieu d'en créer une seconde.",
+        "reviewed": "J'ai vérifié l'aperçu",
+        "reviewedHint": "La reconduction crée des données dans l'année cible. Elle s'exécute en tâche de fond ; vous pourrez suivre sa progression.",
+        "reviewedRequired": "Confirmez que vous avez vérifié l'aperçu.",
+        "launch": "Lancer la reconduction"
+      }
+    },
+    "plan": {
+      "readOnly": "Aperçu en lecture seule : aucune donnée n'a été modifiée.",
+      "toCreate": "À créer",
+      "existing": "Déjà présents",
+      "more": "… et {count} autres non affichés.",
+      "periods": {
+        "caption": "Périodes à créer",
+        "label": "Période",
+        "code": "Code",
+        "dates": "Dates"
+      },
+      "holidays": {
+        "caption": "Jours fériés et vacances à créer",
+        "label": "Libellé",
+        "kind": "Nature",
+        "dates": "Dates",
+        "notRecurring": "Non répétés (à ressaisir)",
+        "notRecurringHint": "{count, plural, one {# jour de l'année source ne se répète pas chaque année} other {# jours de l'année source ne se répètent pas chaque année}} (fêtes mobiles, fermetures ponctuelles) : à saisir pour l'année cible.",
+        "openCalendar": "Ouvrir le calendrier de l'établissement"
+      },
+      "curriculum": {
+        "caption": "Curriculum par programme",
+        "empty": "Aucun programme à reconduire.",
+        "program": "Programme",
+        "source": "Version source",
+        "nodes": "Éléments",
+        "actionLabel": "Action",
+        "action": {
+          "CLONE": "Sera cloné",
+          "EXISTS": "Existe déjà",
+          "NO_SOURCE": "Aucune source"
+        }
+      },
+      "classrooms": {
+        "caption": "Classes à créer",
+        "name": "Classe",
+        "code": "Code",
+        "capacity": "Capacité"
+      },
+      "enrollments": {
+        "toCreate": "Réinscriptions à créer",
+        "alreadyRolledOver": "Déjà reconduites",
+        "classroomsToCreate": "Classes à créer",
+        "anomalies": "Anomalies",
+        "byOutcome": "Répartition par issue de fin d'année",
+        "kind": {
+          "ADVANCE": "Passage",
+          "REPEAT": "Redoublement",
+          "REDIRECT": "Réorientation",
+          "EXIT": "Sortie"
+        }
+      }
+    },
+    "warnings": {
+      "title": {
+        "plan": "{count, plural, one {# avertissement à examiner avant de lancer} other {# avertissements à examiner avant de lancer}}",
+        "report": "{count, plural, one {# avertissement signalé pendant l'exécution} other {# avertissements signalés pendant l'exécution}}"
+      },
+      "fix": "Ouvrir l'écran de correction",
+      "code": {
+        "target_year_has_periods": "L'année cible a déjà des périodes",
+        "target_year_has_classrooms": "L'année cible a déjà des classes",
+        "target_year_has_curriculum": "L'année cible a déjà un curriculum",
+        "target_year_not_empty": "L'année cible n'est pas vide",
+        "periods_dates_clamped": "Dates de périodes ajustées",
+        "periods_source_missing": "Aucune période dans l'année source",
+        "holidays_not_recurring": "Jours à ressaisir (fêtes mobiles)",
+        "curriculum_source_missing": "Curriculum source manquant",
+        "curriculum_source_draft": "Curriculum source en brouillon",
+        "classrooms_source_missing": "Aucune classe dans l'année source",
+        "offerings_need_curriculum": "Les offres exigent un curriculum",
+        "offerings_feature_disabled": "Offres à la carte non incluses dans l'offre",
+        "promotion_decisions_missing": "Décisions de passage manquantes",
+        "conflict": "Conflit avec des données existantes",
+        "item_failed": "Élément en échec"
+      }
+    },
+    "anomalies": {
+      "group": "{label} : {count}",
+      "more": "… et {count} autres non affichées.",
+      "openEnrollment": "Ouvrir l'inscription",
+      "openClassroom": "Ouvrir la classe",
+      "code": {
+        "outcome_missing": "Décision de fin d'année manquante",
+        "next_level_missing": "Niveau suivant non défini",
+        "curriculum_missing": "Curriculum manquant pour la classe cible",
+        "funding_to_reconfirm": "Financement à reconfirmer",
+        "redirect_target_missing": "Destination de réorientation absente",
+        "target_classroom_missing": "Classe cible absente",
+        "target_classroom_full": "Classe cible complète",
+        "enrollment_failed": "Réinscription en échec",
+        "student_not_enrollable": "Élève non réinscriptible"
+      }
+    },
+    "run": {
+      "title": "Suivi de la reconduction",
+      "subtitle": "De {from} vers {to}",
+      "refresh": "Actualiser",
+      "history": "Historique",
+      "requestedAt": "Demandée le {date}",
+      "finishedAt": "terminée le {date}",
+      "attempts": "{count} tentatives",
+      "pendingHint": "En attente du worker : la tâche est enregistrée et démarrera dès qu'un worker de l'établissement sera disponible. Vous pouvez quitter cette page, la reconduction continue.",
+      "autoRefresh": "L'état est relu automatiquement toutes les 2 secondes.",
+      "failedTitle": "La reconduction s'est arrêtée sur une erreur.",
+      "failedUnknown": "Aucun détail n'a été fourni par le serveur.",
+      "failedHint": "Les éléments déjà créés sont conservés ; « Relancer » reprend sans rien dupliquer.",
+      "retry": "Relancer",
+      "stepsTitle": "Progression par étape",
+      "noProgress": "Aucune étape n'a encore démarré.",
+      "progressLabel": "Progression : {step}",
+      "progressText": "{done} sur {total}",
+      "noReport": "L'exécution est terminée mais aucun rapport n'a été fourni."
+    },
+    "report": {
+      "title": "Rapport de reconduction",
+      "created": "Créés : {step}",
+      "alreadyRolledOver": "Réinscriptions déjà présentes",
+      "skipped": "Éléments ignorés",
+      "anomalies": "{count, plural, one {# anomalie à traiter} other {# anomalies à traiter}}",
+      "noAnomaly": "Aucune anomalie."
+    },
+    "history": {
+      "title": "Historique des reconductions",
+      "description": "Les exécutions lancées depuis une année source. Une exécution en attente ou en cours peut être reprise.",
+      "new": "Nouvelle reconduction",
+      "from": "Année source",
+      "choose": "Choisir une année…",
+      "selectYear": "Choisissez une année source pour voir ses reconductions.",
+      "caption": "Reconductions de l'année source",
+      "empty": "Aucune reconduction pour cette année.",
+      "emptyHint": "Lancez-en une avec l'assistant.",
+      "liveRun": "Une reconduction est en attente ou en cours.",
+      "resume": "Reprendre le suivi",
+      "open": "Ouvrir",
+      "columns": {
+        "requestedAt": "Demandée",
+        "to": "Année cible",
+        "status": "État",
+        "steps": "Étapes",
+        "attempts": "Tentatives",
+        "actions": "Actions"
+      }
+    }
   }
 }

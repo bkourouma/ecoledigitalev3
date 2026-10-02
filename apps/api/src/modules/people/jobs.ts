@@ -11,6 +11,7 @@ import { defineScheduledJob } from "@ecoledigitale/worker/sdk";
 import { createPeopleDeps } from "./application/deps";
 import { peopleWorkerPorts } from "./application/port-registry";
 import { emitExpiringQualifications } from "./application/staff";
+import { emitExpiringStudentDocuments } from "./application/documents";
 
 export default [
   defineScheduledJob({
@@ -23,6 +24,19 @@ export default [
       const res = await emitExpiringQualifications(deps, createSystemContext(tenant.id));
       if (!res.ok) throw res.error;
       logger.info({ tenantId: tenant.id, emitted: res.value.emitted }, "people : alertes de qualifications publiées");
+    },
+  }),
+  // Pièces d'élèves : même principe (une alerte par franchissement de seuil, préavis = `settings.expiry_alert_days`).
+  defineScheduledJob({
+    name: "people.emit-expiring-student-documents",
+    cron: "40 6 * * *",
+    perTenant: true,
+    lockTtlMs: 10 * 60_000,
+    handler: async ({ tenant, tenantDb, logger }) => {
+      const deps = createPeopleDeps({ db: tenantDb, logger, portsProvider: peopleWorkerPorts });
+      const res = await emitExpiringStudentDocuments(deps, createSystemContext(tenant.id));
+      if (!res.ok) throw res.error;
+      logger.info({ tenantId: tenant.id, emitted: res.value.emitted }, "people : alertes de pièces d'élèves publiées");
     },
   }),
 ];
