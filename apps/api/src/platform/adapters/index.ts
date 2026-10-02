@@ -25,6 +25,12 @@ import {
 import { registerAnalyticsPorts, setAnalyticsWorkerPorts, type AnalyticsSourcePorts } from "../../modules/analytics";
 import { officeConverterFromEnv, registerDocumentsPorts, scanPolicyFromEnv, setDocumentsWorkerPorts, type DocumentsPorts } from "../../modules/documents";
 import { registerAssessPorts, type AssessPorts } from "../../modules/assess";
+import { registerExaminationsPorts, setExaminationsWorkerPorts, type ExaminationsPorts } from "../../modules/examinations";
+import { createDocumentsDeps } from "../../modules/documents";
+import { createExaminationsAssessPort } from "./examinations-assess";
+import { createExaminationsEligibilityFacts, createExaminationsFamilyLinks, createExaminationsInstitutions, createExaminationsStudentDirectory } from "./examinations-directories";
+import { createExaminationsOfficialDocuments, createExaminationsPieceDocuments } from "./examinations-documents";
+import { createExaminationsRulesPort } from "./examinations-rules";
 import { registerAttendancePorts, type AttendancePorts } from "../../modules/attendance";
 import { registerFinancePorts, type FinancePortSet } from "../../modules/finance";
 import { registerHigherPorts, registerHigherWorkerPorts, type HigherPorts } from "../../modules/higher";
@@ -108,6 +114,8 @@ export interface PlatformPorts {
   readonly documents: Partial<DocumentsPorts>;
   /** Canaux externes (016) : coordonnées de remise, échéances en retard, résultats FINAL, charge d'enseignement, annonces. */
   readonly notifications: Partial<NotificationsPorts>;
+  /** Examens nationaux (018) : élèves et inscriptions, règles `exam-national@1`, évaluations, pièces, documents officiels scellés, stockage. */
+  readonly examinations: Partial<ExaminationsPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -125,7 +133,7 @@ export function buildPlatformPorts(
   // fichiers (messagerie, photos, justificatifs) l'appliquent par enveloppe de leur vue de stockage (aucune modification de leur code).
   const scan = scanPolicyFromEnv(kit.env, { warn: (m) => kit.logger.warn({}, m) });
   const scanned = () => scan;
-  const base: Omit<PlatformPorts, "imports"> = {
+  const base: Omit<PlatformPorts, "imports" | "examinations"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
       guardianship: createAcademicGuardianship(people),
@@ -244,7 +252,20 @@ export function buildPlatformPorts(
     ...(storage ? { storage } : {}),
     ...(extras.audit ? { audit: importsAuditAdapter(extras.audit) } : {}),
   };
-  return { ...base, imports };
+  // Examens nationaux (018) : chaque port est bâti sur l'API PUBLIQUE du fournisseur ; un point attendu et absent fait échouer le port FERMÉ.
+  const documentsDeps = createDocumentsDeps({ db: kit.tenantDb, clock: kit.clock, logger: kit.logger, ports: base.documents });
+  const examinations: Partial<ExaminationsPorts> = {
+    students: createExaminationsStudentDirectory({ academic, people }),
+    eligibility: createExaminationsEligibilityFacts({ academic, people }),
+    institutions: createExaminationsInstitutions(kit),
+    family: createExaminationsFamilyLinks(lookups),
+    rules: createExaminationsRulesPort(rules),
+    assess: createExaminationsAssessPort(assess),
+    pieces: createExaminationsPieceDocuments(documentsDeps),
+    officialDocuments: createExaminationsOfficialDocuments(officialDocuments),
+    ...(storage ? { storage: asDocumentsStorage(storage) } : {}),
+  };
+  return { ...base, imports, examinations };
 }
 
 export interface WiredPlatform {
@@ -276,6 +297,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerImportsPorts(app, ports.imports);
   registerDocumentsPorts(app, ports.documents);
   registerNotificationsPorts(app, ports.notifications);
+  registerExaminationsPorts(app, ports.examinations);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -308,6 +330,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   setImportsWorkerPorts(ports.imports);
   setDocumentsWorkerPorts(ports.documents);
   setNotificationsWorkerPorts(ports.notifications);
+  setExaminationsWorkerPorts(ports.examinations);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }

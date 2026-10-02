@@ -11377,5 +11377,843 @@
         "done": "La demande est refusée."
       }
     }
+  },
+  "v2Examinations": {
+    "nav": {
+      "label": "Examens",
+      "sessions": "Sessions",
+      "candidates": "Candidats",
+      "assignments": "Répartition",
+      "centers": "Centres et salles",
+      "mock": "Examens blancs",
+      "results": "Notes et résultats",
+      "imports": "Imports",
+      "corrections": "Corrections",
+      "statistics": "Statistiques",
+      "exports": "Exports et documents",
+      "types": "Types d'examens",
+      "family": "Examen de l'élève"
+    },
+    "demo": {
+      "title": "Règles de démonstration",
+      "body": "Cet examen utilise des données ou des règles FICTIVES de démonstration : aucune valeur n'est officielle et rien ne doit servir à une décision réelle."
+    },
+    "sessionPicker": {
+      "label": "Session d'examen",
+      "choose": "Choisir une session",
+      "empty": "Aucune session d'examen",
+      "emptyHint": "Créez d'abord une session depuis la liste des sessions."
+    },
+    "common": {
+      "failures": "Lignes refusées",
+      "moreFailures": "… et {count} autres lignes refusées."
+    },
+    "enums": {
+      "sessionStatus": {
+        "PLANNED": "Planifiée",
+        "REGISTRATION_OPEN": "Inscriptions ouvertes",
+        "REGISTRATION_CLOSED": "Inscriptions closes",
+        "IN_PROGRESS": "Épreuves en cours",
+        "RESULTS_ENTERED": "Résultats saisis",
+        "PUBLISHED": "Résultats publiés",
+        "ARCHIVED": "Archivée"
+      },
+      "sessionKind": {
+        "OFFICIAL": "Officiel",
+        "MOCK": "Examen blanc"
+      },
+      "registration": {
+        "DRAFT": "Brouillon",
+        "PRE_REGISTERED": "Pré-inscrit",
+        "REGISTERED": "Inscrit",
+        "WITHDRAWN": "Retiré"
+      },
+      "eligibility": {
+        "NOT_EVALUATED": "Non évaluée",
+        "ELIGIBLE": "Éligible",
+        "INELIGIBLE": "Non éligible",
+        "NEEDS_REVIEW": "À examiner"
+      },
+      "outcome": {
+        "PENDING": "En attente",
+        "ADMITTED": "Admis",
+        "FAILED": "Refusé",
+        "ABSENT": "Absent",
+        "EXCLUDED": "Exclu",
+        "DEFERRED": "Différé"
+      },
+      "resultCode": {
+        "ADMITTED": "Admis",
+        "FAILED": "Refusé",
+        "ABSENT": "Absent",
+        "EXCLUDED": "Exclu",
+        "DEFERRED": "Différé"
+      },
+      "scoreStatus": {
+        "ENTERED": "Saisie",
+        "ABSENT": "Absent",
+        "EXCUSED": "Excusé",
+        "MALPRACTICE": "Fraude"
+      },
+      "docKind": {
+        "CONVOCATION": "Convocation",
+        "ATTESTATION_REUSSITE": "Attestation de réussite",
+        "RELEVE_NOTES": "Relevé de notes"
+      },
+      "batchStatus": {
+        "UPLOADED": "Déposé",
+        "VALIDATED": "Analysé",
+        "APPLIED": "Appliqué",
+        "REJECTED": "Rejeté"
+      },
+      "batchKind": {
+        "OFFICIAL_NUMBERS": "Numéros officiels",
+        "SCORES": "Notes",
+        "RESULTS": "Résultats"
+      },
+      "piece": {
+        "MISSING": "Manquante",
+        "SUBMITTED": "Déposée",
+        "ACCEPTED": "Acceptée",
+        "REJECTED": "Refusée"
+      },
+      "source": {
+        "regulation": "Réglementation",
+        "institution": "Établissement",
+        "platform": "Plateforme",
+        "placeholder": "Démonstration (fictif)",
+        "score_MANUAL": "Saisie à la main",
+        "score_IMPORT": "Importée",
+        "score_ASSESS": "Évaluations (assess)",
+        "result_IMPORTED": "Importé de l'autorité",
+        "result_ENTERED": "Saisi à la main",
+        "result_COMPUTED": "Calculé par règle (examen blanc)"
+      },
+      "countGroup": {
+        "ALL": "Ensemble",
+        "INSTITUTION": "Par établissement",
+        "TRACK": "Par filière",
+        "SEX": "Par sexe",
+        "GRADE": "Par niveau"
+      },
+      "revisionStatus": {
+        "PENDING": "En attente",
+        "APPROVED": "Approuvée",
+        "REJECTED": "Rejetée"
+      },
+      "docStatus": {
+        "REQUESTED": "Demandé",
+        "ISSUED": "Émis",
+        "REVOKED": "Révoqué"
+      },
+      "reason": {
+        "ALREADY_LIVE": "Un document valide existe déjà.",
+        "ALREADY_CANDIDATE": "Déjà candidat à cette session."
+      },
+      "importError": {
+        "FILE_EMPTY": "Le fichier est vide.",
+        "FILE_TOO_LARGE": "Le fichier dépasse 5 Mio.",
+        "FILE_UNREADABLE": "Le fichier n'est pas lisible avec l'encodage du format.",
+        "KEY_MISSING": "Clé d'identification manquante.",
+        "KEY_DUPLICATE": "Clé présente plusieurs fois dans le fichier.",
+        "COLUMN_COUNT": "Nombre de colonnes incorrect.",
+        "RESULT_CODE_UNKNOWN": "Code de résultat inconnu.",
+        "RESULT_CODE_MISSING": "Code de résultat manquant.",
+        "AVERAGE_INVALID": "Moyenne invalide.",
+        "TOTAL_INVALID": "Total de points invalide.",
+        "RANK_INVALID": "Rang invalide.",
+        "MENTION_INVALID": "Mention invalide.",
+        "SCORE_INVALID": "Note invalide.",
+        "SCORE_STATUS_UNKNOWN": "Statut de note inconnu.",
+        "OFFICIAL_NUMBER_INVALID": "Numéro officiel invalide.",
+        "VALUE_WITHOUT_RESULT_FORBIDDEN": "Une valeur est donnée alors que le résultat n'en admet pas.",
+        "CANDIDATE_UNKNOWN": "Candidat inconnu dans cette session.",
+        "CANDIDATE_NOT_REGISTERED": "Candidat non inscrit.",
+        "PAPER_UNKNOWN": "Épreuve inconnue.",
+        "PAPER_NOT_FOR_TRACK": "Épreuve étrangère à la filière du candidat.",
+        "SCORE_ABOVE_SCALE": "Note supérieure au barème.",
+        "RESULT_ALREADY_PUBLISHED": "Résultat déjà publié : passer par une correction.",
+        "OFFICIAL_NUMBER_TAKEN": "Numéro officiel déjà attribué."
+      }
+    },
+    "sessions": {
+      "title": "Sessions d'examen",
+      "description": "Sessions officielles (CEPE, BEPC, BAC, BTS…) et examens blancs de l'établissement.",
+      "caption": "Sessions d'examen",
+      "demo": "Démonstration",
+      "empty": "Aucune session d'examen",
+      "emptyHint": "Créez une session à partir d'un type d'examen.",
+      "columns": {
+        "label": "Session",
+        "type": "Examen",
+        "kind": "Nature",
+        "status": "État",
+        "progress": "Avancement",
+        "startsOn": "Début des épreuves",
+        "demo": "Données"
+      },
+      "filters": {
+        "status": "État",
+        "kind": "Nature",
+        "all": "Tous"
+      },
+      "create": {
+        "open": "Nouvelle session",
+        "title": "Nouvelle session d'examen",
+        "description": "La définition du type est copiée puis figée à l'ouverture des inscriptions.",
+        "type": "Type d'examen",
+        "institution": "Établissement",
+        "kind": "Nature",
+        "mockOf": "Session officielle préparée",
+        "mockOfHint": "Facultatif : relie l'examen blanc à la session officielle qu'il prépare.",
+        "none": "Aucune",
+        "choose": "Choisir",
+        "code": "Code",
+        "codeHint": "Lettres majuscules, chiffres, tirets (ex. CEPE-2027).",
+        "label": "Libellé",
+        "year": "Année de la session",
+        "startsOn": "Début des épreuves",
+        "startsOnHint": "Facultatif.",
+        "cancel": "Annuler",
+        "submit": "Créer la session"
+      }
+    },
+    "sessionDetail": {
+      "back": "Retour aux sessions",
+      "phases": "Parcours de la session",
+      "countsTitle": "Effectifs",
+      "counts": {
+        "label": "Effectifs de la session",
+        "candidates": "Candidats",
+        "registered": "Inscrits",
+        "withdrawn": "Retirés",
+        "eligible": "Éligibles",
+        "assigned": "Placés",
+        "withResult": "Avec résultat",
+        "published": "Publiés"
+      },
+      "dates": "Dates",
+      "date": {
+        "registrationOpensOn": "Ouverture des inscriptions",
+        "registrationClosesOn": "Clôture des inscriptions",
+        "startsOn": "Début des épreuves",
+        "endsOn": "Fin des épreuves"
+      },
+      "actions": "Actions",
+      "notLocked": "La définition (séries et épreuves) n'est pas encore copiée depuis le type d'examen.",
+      "instantiate": "Copier et figer la définition",
+      "instantiated": "Définition copiée : {count} épreuve(s).",
+      "locked": "Définition figée le {date}.",
+      "moveTo": "Passer à : {status}",
+      "blockers": "Points bloquants pour « {status} »",
+      "noTransition": "Aucune étape suivante possible.",
+      "transitioned": "La session est maintenant : {status}.",
+      "papers": "Épreuves",
+      "noPapers": "Aucune épreuve",
+      "noPapersHint": "Copiez la définition du type d'examen pour obtenir les épreuves.",
+      "paper": {
+        "code": "Code",
+        "label": "Épreuve",
+        "track": "Filière",
+        "coefficient": "Coefficient",
+        "scaleMax": "Barème",
+        "source": "Source",
+        "optional": "facultative"
+      },
+      "linksTitle": "Écrans de la session",
+      "links": {
+        "candidates": "Candidats",
+        "assignments": "Répartition",
+        "results": "Notes et résultats",
+        "imports": "Imports",
+        "mock": "Examen blanc",
+        "statistics": "Statistiques",
+        "corrections": "Corrections",
+        "exports": "Exports et documents"
+      },
+      "publishConfirm": {
+        "title": "Publier les résultats",
+        "body": "Les résultats de {count} candidat(s) deviennent visibles des familles. Après publication, toute modification passe par une correction approuvée par une autre personne.",
+        "cancel": "Annuler",
+        "confirm": "Publier"
+      }
+    },
+    "types": {
+      "title": "Types d'examens",
+      "description": "Les types d'examens, filières, épreuves et pièces à fournir sont des DONNÉES paramétrables.",
+      "instantiatePack": "Charger le pack du primaire (fictif)",
+      "packDone": "Pack chargé : {created} type(s) créé(s), {existing} déjà présent(s).",
+      "demo": "Démonstration",
+      "status": {
+        "ACTIVE": "Actif",
+        "ARCHIVED": "Archivé"
+      },
+      "show": "Afficher le détail",
+      "hide": "Masquer le détail",
+      "empty": "Aucun type d'examen",
+      "emptyHint": "Chargez le pack du primaire ou créez un type.",
+      "create": {
+        "open": "Nouveau type",
+        "title": "Nouveau type d'examen",
+        "description": "Le type décrit l'examen ; ses épreuves et filières s'ajoutent ensuite.",
+        "code": "Code",
+        "codeHint": "Lettres majuscules (ex. BEPC).",
+        "label": "Libellé",
+        "educationLevel": "Niveau d'enseignement",
+        "educationLevelHint": "Code du niveau (ex. PRIMARY).",
+        "gradeLevel": "Niveau de classe visé",
+        "source": "Origine des données",
+        "sourceReference": "Référence de la source",
+        "submit": "Créer le type"
+      },
+      "track": {
+        "title": "Nouvelle filière",
+        "code": "Code",
+        "label": "Libellé",
+        "submit": "Ajouter la filière"
+      },
+      "paper": {
+        "title": "Nouvelle épreuve",
+        "code": "Code",
+        "label": "Libellé",
+        "track": "Filière",
+        "trackHint": "Laissez vide pour une épreuve commune à toutes les filières.",
+        "allTracks": "Toutes les filières",
+        "coefficient": "Coefficient",
+        "scaleMax": "Barème (sur)",
+        "ordinal": "Ordre",
+        "optional": "Épreuve facultative",
+        "submit": "Ajouter l'épreuve"
+      },
+      "detail": {
+        "contract": "Contrat de résultat",
+        "numberPattern": "Modèle du numéro de candidat",
+        "educationLevel": "Niveau d'enseignement",
+        "source": "Source",
+        "tracks": "Filières",
+        "addTrack": "Ajouter une filière",
+        "noTracks": "Aucune filière.",
+        "papers": "Épreuves",
+        "addPaper": "Ajouter une épreuve",
+        "noPapers": "Aucune épreuve.",
+        "code": "Code",
+        "label": "Épreuve",
+        "coefficient": "Coefficient",
+        "scaleMax": "Barème",
+        "requirements": "Pièces à fournir",
+        "noRequirements": "Aucune pièce exigée.",
+        "optional": "facultative"
+      }
+    },
+    "centers": {
+      "title": "Centres et salles",
+      "description": "Centres d'examen (propres ou d'accueil) et capacités de leurs salles.",
+      "empty": "Aucun centre d'examen",
+      "emptyHint": "Ajoutez un centre puis ses salles pour pouvoir placer les candidats.",
+      "active": "Actif",
+      "inactive": "Inactif",
+      "activate": "Activer le centre",
+      "deactivate": "Désactiver le centre",
+      "addRoom": "Ajouter une salle",
+      "noRooms": "Aucune salle.",
+      "rooms": "Salles du centre {center}",
+      "create": {
+        "open": "Nouveau centre",
+        "title": "Nouveau centre d'examen",
+        "code": "Code",
+        "name": "Nom",
+        "kind": "Nature",
+        "kindHint": "Centre propre à l'établissement ou centre d'accueil.",
+        "own": "Centre propre",
+        "host": "Centre d'accueil",
+        "authorityCode": "Code attribué par l'autorité",
+        "locality": "Localité",
+        "submit": "Créer le centre"
+      },
+      "room": {
+        "title": "Nouvelle salle du centre {center}",
+        "code": "Code",
+        "label": "Libellé",
+        "capacity": "Capacité (places)",
+        "status": "État",
+        "actions": "Actions",
+        "active": "Active",
+        "inactive": "Inactive",
+        "activate": "Activer",
+        "deactivate": "Désactiver",
+        "submit": "Ajouter la salle"
+      }
+    },
+    "candidates": {
+      "title": "Candidats",
+      "description": "Les candidats sont les élèves de l'établissement ; l'éligibilité est évaluée par la règle de l'examen.",
+      "caption": "Candidats de la session",
+      "demoNote": "Les règles d'éligibilité de cette session sont des règles de démonstration.",
+      "empty": "Aucun candidat",
+      "emptyHint": "Ajoutez les élèves d'une classe pour constituer la liste des candidats.",
+      "complete": "Dossier complet",
+      "missingPieces": "{count} pièce(s) manquante(s)",
+      "columns": {
+        "select": "Sélection",
+        "name": "Candidat",
+        "number": "Numéro",
+        "track": "Filière",
+        "registration": "Inscription",
+        "eligibility": "Éligibilité",
+        "pieces": "Pièces",
+        "outcome": "Issue"
+      },
+      "add": {
+        "title": "Ajouter les élèves d'une classe",
+        "hint": "Chaque élève de la classe devient candidat ; ceux qui le sont déjà sont ignorés.",
+        "classroom": "Classe",
+        "choose": "Choisir une classe",
+        "submit": "Ajouter les élèves",
+        "report": "{created} candidat(s) ajouté(s), {skipped} déjà présent(s)."
+      },
+      "evaluateAll": "Évaluer l'éligibilité de tous",
+      "evaluateReport": "{count} candidat(s) évalué(s) par la règle.",
+      "registerSelected": "Inscrire la sélection ({count})",
+      "registerReport": "{count} candidat(s) inscrit(s).",
+      "selectPage": "Sélectionner la page",
+      "unselectPage": "Désélectionner la page",
+      "selectOne": "Sélectionner {name}",
+      "filters": {
+        "search": "Rechercher",
+        "registration": "Inscription",
+        "eligibility": "Éligibilité",
+        "all": "Tous"
+      }
+    },
+    "candidateDetail": {
+      "back": "Retour aux candidats",
+      "subtitle": "Numéro de candidat : {number}",
+      "noNumber": "pas encore attribué",
+      "register": "Inscrire le candidat",
+      "registered": "Candidat inscrit, numéro {number}.",
+      "withdraw": "Retirer le candidat",
+      "withdrawDialog": {
+        "title": "Retirer le candidat",
+        "description": "Le retrait est conservé dans l'historique ; le numéro attribué n'est jamais réutilisé.",
+        "reason": "Motif du retrait",
+        "confirm": "Retirer"
+      },
+      "identity": {
+        "title": "État civil",
+        "lastName": "Nom",
+        "firstName": "Prénoms",
+        "birthDate": "Date de naissance",
+        "birthPlace": "Lieu de naissance",
+        "sex": "Sexe",
+        "track": "Filière",
+        "gradeLevel": "Niveau",
+        "officialNumber": "Numéro officiel"
+      },
+      "eligibility": {
+        "title": "Éligibilité",
+        "evaluate": "Évaluer par la règle",
+        "evaluated": "Éligibilité évaluée par la règle.",
+        "none": "Aucune évaluation pour l'instant.",
+        "history": "Historique des évaluations",
+        "byRule": "Évaluée par la règle",
+        "byHand": "Saisie à la main",
+        "overridden": "Dérogation",
+        "overrideReason": "Motif de la dérogation : {reason}",
+        "manual": {
+          "open": "Saisir à la main",
+          "title": "Saisie manuelle de l'éligibilité",
+          "description": "Possible seulement si aucune règle n'est épinglée à la session ; l'auteur est enregistré.",
+          "result": "Résultat",
+          "reasons": "Motifs",
+          "reasonsHint": "Codes séparés par des virgules (facultatif).",
+          "submit": "Enregistrer"
+        },
+        "override": {
+          "open": "Accorder une dérogation",
+          "title": "Dérogation à l'éligibilité",
+          "description": "La dérogation rend le candidat éligible malgré la règle ; elle est motivée et journalisée.",
+          "reason": "Motif de la dérogation",
+          "confirm": "Accorder la dérogation"
+        }
+      },
+      "pieces": {
+        "title": "Pièces du dossier",
+        "none": "Aucune pièce exigée pour ce type d'examen.",
+        "required": "obligatoire",
+        "submitAction": "Joindre un document",
+        "accept": "Accepter",
+        "reject": "Refuser",
+        "rejectDialog": {
+          "title": "Refuser la pièce « {piece} »",
+          "reason": "Motif du refus",
+          "confirm": "Refuser la pièce"
+        },
+        "submit": {
+          "title": "Joindre la pièce « {piece} »",
+          "document": "Document",
+          "hint": "Le document est choisi parmi les documents de l'établissement.",
+          "cancel": "Annuler",
+          "confirm": "Joindre"
+        }
+      },
+      "identifiers": {
+        "title": "Identifiants officiels",
+        "none": "Aucun identifiant enregistré.",
+        "kind": "Type d'identifiant",
+        "value": "Valeur",
+        "save": "Enregistrer l'identifiant"
+      },
+      "assignment": {
+        "title": "Place attribuée",
+        "none": "Aucune place attribuée.",
+        "value": "{center}, salle {room}, place {seat}."
+      },
+      "scores": {
+        "title": "Notes et résultat",
+        "none": "Aucune note.",
+        "value": "{score} / {max}"
+      },
+      "result": {
+        "title": "Résultat",
+        "average": "Moyenne : {average}",
+        "published": "publié",
+        "draft": "non publié"
+      },
+      "documents": {
+        "title": "Documents",
+        "issue": "Émettre : {kind}",
+        "none": "Aucun document émis.",
+        "download": "Télécharger",
+        "downloadAria": "Télécharger {kind}, version {version}"
+      },
+      "history": {
+        "title": "Historique",
+        "none": "Aucun événement."
+      }
+    },
+    "assignments": {
+      "title": "Répartition des candidats",
+      "description": "Choix des centres de la session, puis placement par salle et par place.",
+      "summary": "Synthèse de la répartition",
+      "summaryItem": {
+        "registered": "Inscrits",
+        "unassigned": "Sans place",
+        "capacity": "Capacité",
+        "assigned": "Placés"
+      },
+      "frozen": "La répartition est figée à ce stade de la session.",
+      "insufficient": "Capacité insuffisante : il manque {missing} place(s).",
+      "centersTitle": "Centres de la session",
+      "noCenters": "Aucun centre actif : créez-en dans « Centres et salles ».",
+      "saveCenters": "Enregistrer les centres",
+      "centersSaved": "Centres de la session enregistrés.",
+      "autoTitle": "Répartition automatique",
+      "autoHint": "Place les candidats inscrits sans place dans les salles des centres choisis.",
+      "reassign": "Tout replacer",
+      "reassignHint": "Efface les places actuelles avant de répartir.",
+      "auto": "Répartir automatiquement",
+      "autoDone": "{assigned} candidat(s) placé(s), {already} déjà placé(s).",
+      "roomsTitle": "Salles",
+      "noRooms": "Aucune salle disponible.",
+      "occupancy": "{used} / {capacity} places occupées",
+      "inactive": "inactive",
+      "caption": "Places attribuées",
+      "empty": "Aucune place attribuée",
+      "emptyHint": "Lancez la répartition automatique.",
+      "unassign": "Retirer la place",
+      "columns": {
+        "number": "Numéro",
+        "name": "Candidat",
+        "center": "Centre",
+        "room": "Salle",
+        "seat": "Place",
+        "actions": "Actions"
+      },
+      "move": {
+        "open": "Changer",
+        "title": "Changer la place de {name}",
+        "room": "Salle",
+        "choose": "Choisir une salle",
+        "seat": "Numéro de place",
+        "seatHint": "Laissez vide pour la première place libre.",
+        "submit": "Enregistrer"
+      }
+    },
+    "mock": {
+      "title": "Examens blancs",
+      "description": "Notes reprises des évaluations ; moyenne et issue calculées par la règle de l'examen.",
+      "notice": "Un examen blanc n'est jamais un résultat officiel : sa moyenne est calculée par la règle, avec la version de règle et l'empreinte des données tracées.",
+      "linksTitle": "Évaluations liées",
+      "noLinks": "Aucune évaluation liée",
+      "noLinksHint": "Liez une évaluation de classe à chaque épreuve de l'examen blanc.",
+      "linkLine": "{paper} ← évaluation {assessment}",
+      "unlink": "Délier",
+      "add": {
+        "title": "Lier une évaluation",
+        "paper": "Épreuve",
+        "classroom": "Classe",
+        "assessment": "Évaluation",
+        "assessmentHint": "Évaluations de la classe choisie.",
+        "choose": "Choisir",
+        "submit": "Lier l'évaluation"
+      },
+      "run": {
+        "title": "Calcul",
+        "hint": "Reprenez d'abord les notes, puis lancez le calcul par la règle.",
+        "import": "Reprendre les notes des évaluations",
+        "importReport": "{saved} note(s) reprise(s), {unchanged} inchangée(s), {noCandidate} sans candidat.",
+        "compute": "Calculer par la règle",
+        "computeReport": "{computed} résultat(s) calculé(s), {skipped} déjà publié(s) ignoré(s).",
+        "trace": "Règle {ruleSet}, version {version}.",
+        "demoRules": "Le calcul a utilisé des règles de démonstration."
+      }
+    },
+    "results": {
+      "title": "Notes et résultats",
+      "description": "Notes par épreuve et résultats : saisis ou importés de l'autorité, jamais calculés pour un examen officiel.",
+      "tabs": {
+        "label": "Notes ou résultats",
+        "results": "Résultats",
+        "scores": "Notes par épreuve"
+      },
+      "scores": {
+        "caption": "Notes par candidat et par épreuve",
+        "candidate": "Candidat",
+        "scoreOf": "Note de {name} en {paper}",
+        "statusOf": "État de la note de {name} en {paper}",
+        "save": "Enregistrer les notes modifiées ({count})",
+        "discard": "Annuler les modifications",
+        "report": "{saved} note(s) enregistrée(s), {unchanged} inchangée(s).",
+        "empty": "Aucun candidat inscrit",
+        "emptyHint": "Les notes se saisissent pour les candidats inscrits.",
+        "revisionHint": "Une note déjà arrêtée ne se change que par une correction approuvée par une autre personne.",
+        "revisionLink": "Demander une correction"
+      },
+      "enter": {
+        "title": "Saisir un résultat",
+        "hint": "Résultat communiqué par l'autorité, saisi tel quel : la plateforme ne le calcule pas.",
+        "candidate": "Candidat",
+        "choose": "Choisir un candidat",
+        "code": "Résultat",
+        "average": "Moyenne",
+        "rank": "Rang",
+        "mention": "Mention",
+        "mentionHint": "Code de mention fourni par l'autorité (facultatif).",
+        "submit": "Enregistrer le résultat",
+        "report": "{saved} résultat(s) enregistré(s)."
+      },
+      "list": {
+        "caption": "Résultats des candidats",
+        "empty": "Aucun résultat",
+        "emptyHint": "Saisissez ou importez les résultats de l'autorité.",
+        "draft": "Non publié",
+        "published": "Publié",
+        "publish": "Publier",
+        "publishAria": "Publier le résultat de {name}",
+        "revisionHint": "Un résultat publié ne se change que par une correction approuvée par une autre personne.",
+        "revisionLink": "Demander une correction",
+        "filters": {
+          "code": "Résultat",
+          "status": "Publication",
+          "all": "Tous"
+        },
+        "columns": {
+          "number": "Numéro",
+          "name": "Candidat",
+          "code": "Résultat",
+          "average": "Moyenne",
+          "rank": "Rang",
+          "mention": "Mention",
+          "source": "Origine",
+          "status": "Publication"
+        }
+      }
+    },
+    "imports": {
+      "title": "Imports de l'autorité",
+      "description": "Numéros officiels, notes et résultats communiqués sous forme de fichier.",
+      "notice": "Un import est analysé ligne par ligne avant d'être appliqué ; l'application est atomique et le fichier d'origine est conservé avec son empreinte.",
+      "demo": "démonstration",
+      "upload": {
+        "title": "Déposer un fichier",
+        "kind": "Contenu du fichier",
+        "format": "Format du fichier",
+        "chooseFormat": "Choisir un format",
+        "noFormat": "Aucun format publié pour ce contenu.",
+        "needFormat": "Choisissez d'abord le format du fichier.",
+        "readError": "Le fichier n'a pas pu être lu."
+      },
+      "batches": {
+        "title": "Fichiers déposés",
+        "empty": "Aucun fichier déposé",
+        "emptyHint": "Déposez le premier fichier de la session.",
+        "open": "Ouvrir",
+        "hide": "Masquer"
+      },
+      "detail": {
+        "counts": "{rows} ligne(s) : {ok} valide(s), {errors} en erreur.",
+        "sha": "Empreinte SHA-256 : {sha}",
+        "validate": "Analyser le fichier",
+        "apply": "Appliquer l'import",
+        "applied": "Import appliqué.",
+        "applyBlocked": "Corrigez le fichier puis redéposez-le : un import comportant des erreurs ne s'applique pas.",
+        "ignoredHeaders": "Colonnes ignorées : {headers}.",
+        "errorsByCode": "Erreurs par nature",
+        "errorRows": "Lignes en erreur",
+        "line": "Ligne",
+        "error": "Erreur",
+        "candidate": "Candidat"
+      }
+    },
+    "corrections": {
+      "title": "Corrections après résultats",
+      "description": "Toute correction d'une note ou d'un résultat arrêté est une demande motivée.",
+      "notice": "Règle des quatre yeux : la demande est approuvée par une AUTRE personne que celle qui l'a faite ; la valeur d'origine reste dans l'historique.",
+      "filter": "Afficher",
+      "all": "Toutes",
+      "pending": "En attente",
+      "approved": "Approuvées",
+      "rejected": "Rejetées",
+      "listLabel": "Demandes de correction",
+      "empty": "Aucune demande de correction",
+      "emptyHint": "Les demandes apparaissent ici.",
+      "field": {
+        "resultCode": "Résultat",
+        "average": "Moyenne",
+        "status": "État de la note",
+        "score": "Note"
+      },
+      "new": {
+        "title": "Nouvelle demande de correction",
+        "hint": "Choisissez la note ou le résultat à corriger et indiquez le motif.",
+        "target": "Objet de la correction",
+        "targetResult": "Un résultat",
+        "targetScore": "Une note",
+        "choose": "Choisir",
+        "result": "Résultat concerné",
+        "code": "Résultat proposé",
+        "average": "Moyenne proposée",
+        "candidate": "Candidat",
+        "paper": "Épreuve",
+        "status": "État proposé",
+        "score": "Note proposée",
+        "reason": "Motif",
+        "reasonHint": "10 caractères au minimum.",
+        "submit": "Envoyer la demande",
+        "sent": "Demande envoyée : une autre personne doit l'approuver.",
+        "pickResult": "Choisissez un résultat.",
+        "pickScore": "Choisissez un candidat et une épreuve ayant déjà une note."
+      },
+      "card": {
+        "result": "Résultat",
+        "score": "Note",
+        "current": "Valeur actuelle",
+        "proposed": "Valeur proposée",
+        "reason": "Motif :",
+        "note": "Décision :",
+        "approve": "Approuver",
+        "reject": "Rejeter",
+        "fourEyes": "Vous ne pouvez pas approuver votre propre demande.",
+        "rejectDialog": {
+          "title": "Rejeter la demande",
+          "note": "Motif du rejet",
+          "confirm": "Rejeter"
+        }
+      }
+    },
+    "statistics": {
+      "title": "Statistiques d'examen",
+      "description": "Effectifs et taux de réussite d'une session.",
+      "groupBy": "Regrouper",
+      "compare": "Comparer avec",
+      "compareNone": "Aucune comparaison",
+      "previousYear": "L'année précédente",
+      "mockCompare": "L'examen blanc",
+      "compareTitle": "Comparaison : {label}",
+      "all": "Ensemble",
+      "sex": {
+        "F": "Filles",
+        "M": "Garçons"
+      },
+      "rateNote": "Le taux de réussite est calculé par la règle de l'examen ; le dénominateur est un paramètre de cette règle.",
+      "rateUnavailable": "Le taux n'est pas disponible : aucune règle n'est épinglée à la session.",
+      "table": {
+        "group": "Groupe",
+        "registered": "Inscrits",
+        "present": "Présents",
+        "admitted": "Admis",
+        "failed": "Refusés",
+        "absent": "Absents",
+        "excluded": "Exclus",
+        "deferred": "Différés",
+        "rate": "Taux",
+        "total": "Total"
+      }
+    },
+    "exports": {
+      "pageTitle": "Exports et documents",
+      "pageDescription": "Fichiers officiels paramétrables et documents scellés (convocation, attestation, relevé de notes).",
+      "title": "Exports",
+      "notice": "Les colonnes d'un export viennent d'une liste de champs autorisés ; les cellules de texte qui ressembleraient à une formule sont neutralisées.",
+      "demo": "démonstration",
+      "format": "Format d'export",
+      "chooseFormat": "Choisir un format",
+      "noFormat": "Aucun format publié.",
+      "groupBy": "Regroupement des statistiques",
+      "groupByDefault": "Par défaut",
+      "run": "Lancer l'export",
+      "runs": {
+        "label": "Exports réalisés",
+        "empty": "Aucun export",
+        "emptyHint": "Choisissez un format puis lancez l'export.",
+        "rows": "{count} ligne(s)",
+        "status": {
+          "RUNNING": "En cours",
+          "DONE": "Terminé",
+          "FAILED": "Échoué"
+        },
+        "download": "Télécharger",
+        "refresh": "Actualiser la liste"
+      }
+    },
+    "documents": {
+      "title": "Documents",
+      "hint": "L'émission produit des documents scellés ; un document révoqué reste conservé avec son motif.",
+      "mockNone": "Un examen blanc ne donne lieu à aucun document officiel.",
+      "kind": "Document",
+      "issueBatch": "Émettre pour tous les candidats concernés",
+      "report": "{issued} document(s) émis, {skipped} ignoré(s).",
+      "listLabel": "Documents émis",
+      "empty": "Aucun document émis",
+      "emptyHint": "Choisissez un type de document puis lancez l'émission.",
+      "download": "Télécharger",
+      "downloadAria": "Télécharger {kind} du candidat {number}",
+      "revoke": "Révoquer",
+      "revokeDialog": {
+        "title": "Révoquer le document",
+        "description": "Le document n'est plus valable ; un nouveau pourra être émis.",
+        "reason": "Motif de la révocation",
+        "confirm": "Révoquer"
+      }
+    },
+    "family": {
+      "titleParent": "Examen de mon enfant",
+      "titleStudent": "Mon examen",
+      "description": "Inscription, place, résultat publié et documents.",
+      "child": "Élève",
+      "empty": "Aucun examen",
+      "emptyHint": "Aucune inscription à un examen n'est enregistrée.",
+      "number": "Numéro de candidat",
+      "noNumber": "pas encore attribué",
+      "startsOn": "Début des épreuves",
+      "seat": "Place",
+      "seatValue": "{center}, salle {room}, place {seat}",
+      "noSeat": "pas encore attribuée",
+      "outcome": "Résultat :",
+      "outcomePending": "Le résultat n'est pas encore publié.",
+      "documents": "Documents",
+      "download": "Télécharger",
+      "downloadAria": "Télécharger {kind} de {name}"
+    }
   }
 }

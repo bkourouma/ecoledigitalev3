@@ -6,6 +6,7 @@
  *                             sous le rôle `migrator`, exécute tests/*.sql, supprime le conteneur
  *   node run.mjs --sync-doc   réécrit les blocs ```sql de ../data-model.md depuis migrations/*.sql
  *   node run.mjs --check-doc  vérifie que data-model.md contient EXACTEMENT les migrations (sortie 1 sinon)
+ *   ED_DDL_MIGRATIONS=<dossier> node run.mjs   rejoue les tests de comportement sur un autre dossier de migrations
  *
  * Variables : ED_PG_IMAGE (défaut postgres:17-alpine). Le conteneur est nommé `ed-ddl-<aléa>` et supprimé
  * à la fin, même en cas d'échec. Les services Postgres locaux ne sont jamais touchés.
@@ -17,7 +18,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const migDir = join(here, "migrations");
+// ED_DDL_MIGRATIONS : rejoue le banc d'essai sur un autre dossier (ex. les migrations du module apps/api/src/modules/examinations/migrations).
+const migDir = process.env.ED_DDL_MIGRATIONS ? resolve(process.env.ED_DDL_MIGRATIONS) : join(here, "migrations");
 const testDir = join(here, "tests");
 const docPath = resolve(here, "..", "data-model.md");
 const baselineDir = resolve(here, "..", "..", "..", "..", "packages", "database", "migrations");
