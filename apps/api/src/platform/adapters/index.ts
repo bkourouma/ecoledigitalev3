@@ -100,16 +100,12 @@ export interface PlatformPorts {
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
-<<<<<<< HEAD
-export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | null, documents: OfficialDocumentDepsOptions = {}, extras: { documentRenderer?: PdfRenderer } = {}): PlatformPorts {
-=======
 export function buildPlatformPorts(
   kit: AdapterKit,
   storage: ObjectStorage | null,
   documents: OfficialDocumentDepsOptions = {},
-  options: { audit?: Pick<RuntimeAuditPort, "record"> } = {},
+  extras: { documentRenderer?: PdfRenderer; audit?: Pick<RuntimeAuditPort, "record"> } = {},
 ): PlatformPorts {
->>>>>>> worktree-agent-aec4c72ef72a9ea3b
   const officialDocuments = createOfficialDocumentDeps(kit, storage, documents);
   const documentRenderer = extras.documentRenderer;
   const { academic, people, finance, attendance, scheduling, results, reportcards, assess, higher, rules, lookups, clock } = kit;
@@ -204,7 +200,7 @@ export function buildPlatformPorts(
   };
   // Imports (031) : écriture par les cas d'usage publics des modules cibles, avec le VRAI audit (l'API : `runtime.auditPort` ;
   // le worker : le service d'audit du processus). Sans audit fourni (tests ciblés), l'audit est no-op.
-  const writeEnv = createImportWriteEnv(kit, () => base, options.audit);
+  const writeEnv = createImportWriteEnv(kit, () => base, extras.audit);
   const imports: Partial<ImportPorts> = {
     targets: {
       students: createStudentsImportPort(writeEnv),
@@ -217,7 +213,7 @@ export function buildPlatformPorts(
     },
     names: createImportActorNames(writeEnv),
     ...(storage ? { storage } : {}),
-    ...(options.audit ? { audit: importsAuditAdapter(options.audit) } : {}),
+    ...(extras.audit ? { audit: importsAuditAdapter(extras.audit) } : {}),
   };
   return { ...base, imports };
 }
