@@ -124,6 +124,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "grade.*": "Valider, publier et corriger après publication les notes : responsabilité de direction (garde-fou final).",
       "attendance.*": "Rouvrir un appel validé, surcharger un récapitulatif, décider des congés du personnel.",
       "audit.*": "Exporter le journal d'audit : contrôle de direction.",
+      "imports.*": "Importer en masse les soldes d'ouverture (avec MFA) : engagement financier de la direction de l'établissement.",
       "finance.*": "Rembourser (quatre yeux à l'exécution) : la direction supervise la caisse.",
       "rules.*": "Choisir et faire évoluer les règles de calcul de l'établissement (la console nationale reste à la plateforme).",
       "higher.*": "Octroyer, forcer et révoquer les diplômes, émettre les documents officiels, affecter les signataires.",
