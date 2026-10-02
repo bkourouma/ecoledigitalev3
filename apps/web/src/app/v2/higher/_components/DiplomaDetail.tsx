@@ -27,6 +27,7 @@ import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, Notice, QueryBoundary, useFlash } from "@/platform/ui/states";
 import { apiErrorToFieldErrors, validateWith, type FieldErrors } from "@/platform/ui/validation";
 import { toneOfStatus } from "../../assessments/_components/shared";
+import { AwardDocuments } from "./AwardDocuments";
 
 type Candidate = z.infer<typeof higherCandidateDtoSchema>;
 type Tab = "requirements" | "candidates" | "awards";
@@ -479,6 +480,7 @@ function AwardsTab({ diplomaId }: { diplomaId: string }) {
                 {a.forcedReason ? <p className="text-warning-foreground rounded bg-amber-50 p-2 text-xs text-amber-900">{t("forcedReason", { reason: a.forcedReason })}</p> : null}
                 {a.reawardDecision ? <p className="text-xs text-muted-foreground">{t("reawardDecision", { decision: a.reawardDecision })}</p> : null}
                 {a.status === "REVOKED" ? <p className="text-xs text-destructive">{t("revoked", { name: a.revokedByName ?? "—", date: date.instant(a.revokedAt), reason: a.revokeReason ?? "—" })}</p> : null}
+                <AwardDocuments award={a} />
                 {a.status === "OBTAINED" ? (
                   <div className="flex flex-wrap gap-2">
                     {canIssue.allowed ? (

@@ -12,6 +12,7 @@ import {
   ACADEMIC_ROLLOVER_STEP_STATUSES,
 } from "@ecoledigitale/contracts/v2/academic";
 import { HIGHER_PREREQUISITE_MODES } from "@ecoledigitale/contracts/v2/higher";
+import { PEOPLE_DOCUMENT_EXPIRY_STATES, PEOPLE_DOCUMENT_STATUSES, PEOPLE_STUDENT_DOCUMENT_TYPES } from "@ecoledigitale/contracts/v2/people";
 import { ANOMALY_CODES, WARNING_CODES } from "./academic/_components/rollover/labels";
 import { SETTINGS_TABS } from "./academic/_components/settings/settings-tabs";
 import { PEOPLE_TOKENS, REGISTRATION_TOKENS } from "./academic/_components/settings/numbering-utils";
@@ -23,7 +24,7 @@ import { PEOPLE_TOKENS, REGISTRATION_TOKENS } from "./academic/_components/setti
  * et l'absence de valeur vide dans nos espaces de noms.
  */
 
-const OWN_NAMESPACES = ["v2Rollover", "v2AcademicSettings", "v2RulesBindings", "v2HigherPrerequisites", "v2StudentSelf"] as const;
+const OWN_NAMESPACES = ["v2Rollover", "v2AcademicSettings", "v2RulesBindings", "v2HigherPrerequisites", "v2StudentSelf", "v2StudentDocuments", "v2HigherPdf"] as const;
 
 function lookup(path: string): unknown {
   return path.split(".").reduce<unknown>((acc, part) => (acc && typeof acc === "object" ? (acc as Record<string, unknown>)[part] : undefined), catalog);
@@ -58,6 +59,11 @@ describe("messages fr-CI (reconduction, paramètres, liaisons, prérequis, mon d
       ["v2RulesBindings.state", ["active", "upcoming", "expired"]],
       ["v2RulesBindings.dialog.scopeChoice", ["tenant", "program", "level", "tenantHelp", "programHelp", "levelHelp"]],
       ["v2StudentSelf.sex", ["M", "F"]],
+      ["v2StudentDocuments.type", PEOPLE_STUDENT_DOCUMENT_TYPES],
+      ["v2StudentDocuments.expiry", PEOPLE_DOCUMENT_EXPIRY_STATES],
+      ["v2StudentDocuments.status", PEOPLE_DOCUMENT_STATUSES],
+      ["v2StudentDocuments.file.error", ["required", "badType", "tooLarge"]],
+      ["v2HigherPdf.state", ["ready", "preparing", "failed", "revoked"]],
     ];
     const missing: string[] = [];
     for (const [ns, values] of expectations) for (const v of values) if (typeof lookup(`${ns}.${v}`) !== "string") missing.push(`${ns}.${v}`);

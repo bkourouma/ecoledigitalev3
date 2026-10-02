@@ -6996,7 +6996,8 @@
       "DIPLOMA": "Diplôme",
       "ATTESTATION_SUCCESS": "Attestation de réussite",
       "ATTESTATION_AUTHENTICITY": "Attestation d'authenticité",
-      "PAYSLIP": "Bulletin de paie"
+      "PAYSLIP": "Bulletin de paie",
+      "RECEIPT": "Reçu de paiement"
     },
     "file": {
       "title": "Comparer un fichier PDF",
@@ -8715,6 +8716,142 @@
         "late": "Retards",
         "records": "Pointages"
       }
+    }
+  },
+  "v2StudentDocuments": {
+    "audited": "Chaque consultation de ces pièces est enregistrée dans le journal d'audit de l'établissement.",
+    "restricted": {
+      "title": "Accès restreint",
+      "body": "Les pièces de l'élève (pièces d'identité, certificats, bulletins antérieurs) sont des données sensibles. Leur consultation exige une habilitation spécifique et une authentification renforcée."
+    },
+    "title": "Pièces de l'élève",
+    "description": "Pièces d'identité, certificats et justificatifs déposés au dossier. Un nouveau dépôt du même type crée une nouvelle version.",
+    "upload": "Déposer une pièce",
+    "filter": {
+      "label": "Échéance",
+      "all": "Toutes les pièces",
+      "expiring": "À renouveler bientôt",
+      "expired": "Échues"
+    },
+    "history": "Afficher l'historique des versions",
+    "historyHint": "Versions remplacées et pièces retirées.",
+    "uploaded": "La pièce « {label} » est déposée.",
+    "replaced": "La pièce « {label} » est remplacée par une nouvelle version.",
+    "updated": "Les informations de la pièce sont enregistrées.",
+    "removeTitle": "Retirer la pièce « {label} » ?",
+    "removeDescription": "La pièce n'est plus proposée ni consultable. Elle reste tracée dans l'historique avec le motif du retrait.",
+    "reason": "Motif du retrait",
+    "remove": "Retirer",
+    "removed": "La pièce « {label} » est retirée.",
+    "empty": "Aucune pièce au dossier.",
+    "emptyFiltered": "Aucune pièce ne correspond à ce filtre.",
+    "emptyHint": "Déposez une première pièce avec le bouton « Déposer une pièce ».",
+    "type": {
+      "ID_CARD": "Pièce d'identité",
+      "BIRTH_CERTIFICATE": "Acte de naissance",
+      "MEDICAL_CERTIFICATE": "Certificat médical",
+      "PRIOR_REPORT": "Bulletin ou relevé antérieur",
+      "TRANSFER_CERTIFICATE": "Certificat de transfert",
+      "PHOTO_ID": "Photo d'identité",
+      "OTHER": "Autre pièce"
+    },
+    "version": "Version {n}",
+    "size": "Taille",
+    "uploadedAt": "Déposée le",
+    "issuedOn": "Émise le",
+    "expiresOn": "Expire le",
+    "daysLeft": "{count, plural, =0 {expire aujourd'hui} one {encore # jour} other {encore # jours}}",
+    "daysOver": "{count, plural, one {échue depuis # jour} other {échue depuis # jours}}",
+    "removedReason": "Motif du retrait : {reason}",
+    "replacedNote": "Version remplacée par une plus récente.",
+    "open": "Ouvrir",
+    "replace": "Remplacer",
+    "edit": "Modifier",
+    "expiry": {
+      "NO_EXPIRY": "Sans échéance",
+      "VALID": "Valide",
+      "EXPIRING": "Bientôt échue",
+      "EXPIRED": "Échue"
+    },
+    "status": {
+      "ACTIVE": "Active",
+      "REPLACED": "Remplacée",
+      "REMOVED": "Retirée"
+    },
+    "file": {
+      "label": "Fichier",
+      "hint": "Un seul fichier : PDF, JPEG, PNG ou WebP, 8 Mo au plus. Le serveur vérifie le contenu réel du fichier.",
+      "error": {
+        "required": "Choisissez un fichier.",
+        "badType": "Format non accepté : PDF, JPEG, PNG ou WebP uniquement.",
+        "tooLarge": "Le fichier dépasse 8 Mo."
+      }
+    },
+    "fields": {
+      "title": "Intitulé",
+      "titleHint": "Facultatif. Par défaut, le nom du fichier.",
+      "issuedOn": "Date d'émission",
+      "expiresOn": "Date d'expiration",
+      "expiresOnHint": "Facultative. Une pièce sans échéance n'est jamais signalée."
+    },
+    "uploadDialog": {
+      "title": "Déposer une pièce",
+      "description": "Le fichier est transmis tel quel au service de stockage de l'établissement.",
+      "submit": "Déposer",
+      "type": "Type de pièce",
+      "chooseType": "Choisir un type…",
+      "duplicateHint": "Une pièce de ce type est déjà au dossier. Vous pouvez la remplacer : l'ancienne version est conservée dans l'historique.",
+      "replaceExisting": "Remplacer la pièce existante"
+    },
+    "replaceDialog": {
+      "title": "Remplacer « {label} »",
+      "description": "Le nouveau fichier devient la version {n}. L'ancienne reste consultable dans l'historique.",
+      "submit": "Remplacer"
+    },
+    "editDialog": {
+      "title": "Modifier « {label} »",
+      "description": "Intitulé et dates uniquement ; le fichier ne change pas.",
+      "submit": "Enregistrer"
+    }
+  },
+  "v2HigherPdf": {
+    "nav": "Mes documents",
+    "state": {
+      "ready": "PDF prêt",
+      "preparing": "PDF en préparation",
+      "failed": "PDF en échec",
+      "revoked": "Révoqué"
+    },
+    "sealed": "Scellé",
+    "notSealed": "Non scellé",
+    "verify": "Page de vérification publique",
+    "download": "Télécharger le PDF",
+    "retry": "Relancer",
+    "revokedNote": "Document révoqué : le PDF n'est plus fourni.",
+    "preparing": "Le PDF est en préparation (scellement puis mise en page). Cette page se met à jour toute seule.",
+    "nowReady": "Le PDF est prêt : cliquez sur « Télécharger le PDF ».",
+    "timeout": "Le PDF est toujours en préparation. Revenez dans quelques minutes.",
+    "failed": "La production du PDF a échoué. Vous pouvez relancer la préparation.",
+    "failedNoRetry": "La production du PDF a échoué. Contactez le secrétariat pour la relancer.",
+    "award": {
+      "show": "Documents émis",
+      "hide": "Masquer les documents",
+      "none": "Aucun document n'a encore été émis pour cet octroi.",
+      "listLabel": "Documents de l'octroi {reference}",
+      "version": "version {n}"
+    },
+    "mine": {
+      "title": "Mes documents officiels",
+      "description": "Diplômes et attestations publiés par l'établissement. Le lien de vérification publique permet à un tiers de contrôler leur authenticité.",
+      "own": "Mes documents",
+      "noChild": "Aucun enfant n'est rattaché à votre compte.",
+      "child": "Documents de {name}",
+      "empty": "Aucun document publié.",
+      "emptyHint": "Les documents apparaissent ici dès que l'établissement les publie.",
+      "version": "version {n}",
+      "issuedOn": "Émis le {date}",
+      "revoked": "Document révoqué : {reason}",
+      "verifyHint": "Partagez cette page pour prouver l'authenticité du document : elle ne montre aucune donnée personnelle."
     }
   }
 }

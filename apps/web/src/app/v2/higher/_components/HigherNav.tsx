@@ -6,6 +6,7 @@ import { SectionNav } from "@/platform/ui/SectionNav";
 export function HigherNav() {
   const t = useTranslations("v2Higher.nav");
   const tPrerequisites = useTranslations("v2HigherPrerequisites");
+  const tPdf = useTranslations("v2HigherPdf");
   return (
     <SectionNav
       label={t("label")}
@@ -14,6 +15,7 @@ export function HigherNav() {
         { href: "/v2/higher/attestations", label: t("attestations"), permission: "higher.diploma.read" },
         { href: "/v2/higher/documents", label: t("documents"), permission: "higher.document.read" },
         { href: "/v2/higher/credits", label: t("credits"), permission: "higher.credits.read" },
+        { href: "/v2/higher/me/documents", label: tPdf("nav"), anyPermission: ["higher.self.read", "higher.child.read"] },
         { href: "/v2/higher/prerequisites", label: tPrerequisites("nav"), anyPermission: ["higher.prerequisite.manage", "higher.credits.read"] },
         { href: "/v2/higher/resit", label: t("resit"), permission: "higher.resit.manage" },
         { href: "/v2/higher/signatories", label: t("signatories"), permission: "higher.slot.manage" },

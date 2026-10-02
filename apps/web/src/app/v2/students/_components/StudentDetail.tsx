@@ -16,6 +16,7 @@ import { ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states
 import { apiErrorToFieldErrors, validateWith, type FieldErrors } from "@/platform/ui/validation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IdentityFields, identityOf, identityPatch, type IdentityValue } from "./identity";
+import { DocumentsTab } from "./StudentDocuments";
 import { studentTone } from "./StudentsScreen";
 import { EmergencyTab, GuardiansTab, SchoolingTab } from "./StudentTabs";
 
@@ -107,7 +108,7 @@ export function StudentDetail({ id }: { id: string }) {
           <StatusTab studentId={s.id} />
         </TabsContent>
         <TabsContent value="documents">
-          <Notice kind="info">{t("documentsUnavailable")}</Notice>
+          <DocumentsTab studentId={s.id} />
         </TabsContent>
       </Tabs>
 

@@ -20,7 +20,17 @@ export function json(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" }, ...init });
 }
 
-export type RouteHandler = (request: { method: string; url: URL; body: unknown }) => Response | Promise<Response> | undefined;
+/** Lit un `Blob` en octets (jsdom n'implémente pas toujours `Blob.arrayBuffer`). */
+export function readBytes(blob: Blob): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+export type RouteHandler =(request: { method: string; url: URL; body: unknown }) => Response | Promise<Response> | undefined;
 
 /**
  * Client API de test : un faux `fetch` qui route par `METHOD /chemin`. Chaque appel est consigné dans `calls`.
@@ -36,7 +46,10 @@ export function createTestApi(routes: Record<string, RouteHandler | unknown>): {
     const url = new URL(String(input), "http://test.local");
     const method = (init?.method ?? "GET").toUpperCase();
     let body: unknown;
-    if (typeof init?.body === "string") {
+    if (typeof Blob !== "undefined" && init?.body instanceof Blob) {
+      // Corps binaire (dépôt de pièce) : octets exacts, pour les vérifier dans les tests.
+      body = await readBytes(init.body);
+    } else if (typeof init?.body === "string") {
       try {
         body = JSON.parse(init.body);
       } catch {
