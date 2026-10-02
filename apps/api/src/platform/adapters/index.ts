@@ -26,6 +26,7 @@ import { registerAssessPorts, type AssessPorts } from "../../modules/assess";
 import { registerAttendancePorts, type AttendancePorts } from "../../modules/attendance";
 import { registerFinancePorts, type FinancePortSet } from "../../modules/finance";
 import { registerHigherPorts, registerHigherWorkerPorts, type HigherPorts } from "../../modules/higher";
+import { registerMessagingPorts, setMessagingWorkerPorts, type MessagingPorts } from "../../modules/messaging";
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
 import { registerReportcardsPorts, setReportcardsWorkerResources, type ReportcardsPorts } from "../../modules/reportcards";
@@ -44,6 +45,8 @@ import { createReportcardsAttendanceSummary } from "./attendance-reportcards";
 import { createFinanceEnrollmentDirectory, createFinanceLearnerDirectory } from "./directories-finance";
 import { createAcademicInvoiceFactsReader, createAcademicRegistrationFeeProbe } from "./finance-academic";
 import { createReportcardsLearnerStanding } from "./finance-reportcards";
+import { createMessagingAudienceDirectory } from "./academic-messaging";
+import { createMessagingPeopleDirectory } from "./people-messaging";
 import { createAssessActorNamePort, createAssessGuardianshipPort, createAssessTeachingPort } from "./people-assess";
 import { createAcademicGuardianship, createAcademicOfferingReadiness, createAcademicStudentDirectory } from "./people-academic";
 import { createAttendancePeoplePort } from "./people-attendance";
@@ -57,7 +60,7 @@ import { createHigherInstitutionPort, createHigherSignatoryDirectory } from "./r
 import { createReportcardsResultsRead } from "./results-reportcards";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
-import { asAttendanceStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
+import { asAttendanceStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
 import { createAdapterKit, type AdapterKit } from "./kit";
 
 export { createAdapterKit, type AdapterKit, type AdapterKitInput } from "./kit";
@@ -75,11 +78,13 @@ export interface PlatformPorts {
   readonly results: Partial<ResultsPorts>;
   readonly reportcards: Partial<ReportcardsPorts>;
   readonly higher: Partial<HigherPorts>;
+  readonly messaging: Partial<MessagingPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
 export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | null): PlatformPorts {
   const { academic, people, finance, attendance, scheduling, results, reportcards, assess, higher, rules, lookups, clock } = kit;
+  const messagingDirectory = createMessagingPeopleDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock });
   return {
     academic: {
       students: createAcademicStudentDirectory(people),
@@ -150,6 +155,11 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
       signatories: createHigherSignatoryDirectory(reportcards),
       institution: createHigherInstitutionPort(reportcards),
     },
+    messaging: {
+      directory: messagingDirectory,
+      audience: createMessagingAudienceDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock, directory: messagingDirectory }),
+      ...(storage ? { storage: asMessagingStorage(storage) } : {}),
+    },
   };
 }
 
@@ -177,6 +187,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerResultsPorts(app, ports.results);
   registerReportcardsPorts(app, ports.reportcards);
   registerHigherPorts(app, ports.higher);
+  registerMessagingPorts(app, ports.messaging);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -204,6 +215,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   setResultsWorkerPorts(ports.results);
   registerHigherWorkerPorts(ports.higher);
   registerSchedulingPorts(ports.scheduling);
+  setMessagingWorkerPorts(ports.messaging);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }

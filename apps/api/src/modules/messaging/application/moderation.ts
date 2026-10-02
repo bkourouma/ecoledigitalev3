@@ -107,7 +107,7 @@ export async function getReportContext(deps: MessagingDeps, ctx: RequestContext,
   });
 }
 
-export async function decideReport(deps: MessagingDeps, ctx: RequestContext, input: { reportId: Uuid } & MessagingDecideReportBody): Promise<Result<MessagingReportDto, AppError>> {
+export async function decideReport(deps: MessagingDeps, ctx: RequestContext, input: { reportId: Uuid } & Omit<MessagingDecideReportBody, "removeMessage"> & { removeMessage?: boolean | undefined }): Promise<Result<MessagingReportDto, AppError>> {
   const me = ctx.userId;
   if (!me) return noUser();
   return inTx(deps, ctx, async (tx) => {

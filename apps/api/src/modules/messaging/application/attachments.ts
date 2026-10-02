@@ -89,15 +89,27 @@ export async function getAttachmentUrl(deps: MessagingDeps, ctx: RequestContext,
   });
 }
 
-/** Purge des pièces déposées mais jamais liées (job). Les objets de stockage sont supprimés APRÈS la validation. */
+/**
+ * Purge des pièces déposées mais jamais liées (job). L'objet de stockage est supprimé D'ABORD : la ligne n'est effacée que si
+ * l'objet l'est (stockage indisponible => la ligne reste, la purge réessaiera ; jamais d'objet orphelin silencieux).
+ */
 export async function purgeOrphanAttachments(deps: MessagingDeps, ctx: RequestContext): Promise<number> {
   const before = new Date(deps.clock.now().getTime() - deps.config.orphanAttachmentTtlHours * 3_600_000);
-  const result = await inTx(deps, ctx, async (tx) => {
-    const orphans = await repo.listOrphanAttachments(tx, ctx.tenantId, before, 500);
-    await repo.deleteAttachments(tx, ctx.tenantId, orphans.map((o) => o.id));
-    return ok(orphans);
+  const listed = await inTx(deps, ctx, async (tx) => ok(await repo.listOrphanAttachments(tx, ctx.tenantId, before, 500)), { readOnly: true });
+  if (!listed.ok) return 0;
+  const purged: Uuid[] = [];
+  for (const o of listed.value) {
+    try {
+      await deps.ports.storage.delete(o.storageKey);
+      purged.push(o.id);
+    } catch (e) {
+      deps.logger.warn({ key: o.storageKey, err: e instanceof Error ? e.message : String(e) }, "messaging : suppression d'une pièce orpheline impossible");
+    }
+  }
+  if (purged.length === 0) return 0;
+  await inTx(deps, ctx, async (tx) => {
+    await repo.deleteAttachments(tx, ctx.tenantId, purged);
+    return ok(true as const);
   });
-  if (!result.ok) return 0;
-  for (const o of result.value) await deps.ports.storage.delete(o.storageKey).catch((e: unknown) => deps.logger.warn({ key: o.storageKey, err: e instanceof Error ? e.message : String(e) }, "messaging : suppression d'une pièce orpheline impossible"));
-  return result.value.length;
+  return purged.length;
 }

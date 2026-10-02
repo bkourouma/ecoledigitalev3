@@ -41,7 +41,7 @@ export { messagingAuditAdapter } from "./infrastructure/audit-adapter";
 export { InMemoryDirectory, InMemoryStorage, inMemoryPorts, unavailablePorts, type WorldUser } from "./infrastructure/in-memory-ports";
 
 // Domaine (types et règles pures, réutilisables par les adaptateurs et les tests)
-export { DEFAULT_MESSAGING_SETTINGS, type ActorProfile, type CallerCaps, type DirectoryContact, type MessagingSettings } from "./domain/types";
+export { DEFAULT_MESSAGING_SETTINGS, type ActorProfile, type CallerCaps, type DirectoryContact, type MessagingAudience, type MessagingSettings, type MessagingTarget } from "./domain/types";
 export { applicableRules, canInitiate, canTargetClassroom, evaluateRecipient, replyBlock, type Decision, type DenyReason } from "./domain/policy";
 export { ALL_MESSAGING_EVENT_TYPES, ConsumedEvents, MessagingEvents } from "./domain/events";
 export { MessagingCode } from "./domain/errors";
