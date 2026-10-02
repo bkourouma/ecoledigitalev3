@@ -33,7 +33,25 @@ export function createRedis(url: string, kind: RedisKind, logger?: Logger): Redi
   return redis;
 }
 
+/** Attend l'état « ready » d'une connexion en cours d'ouverture (la file hors ligne des connexions « fail fast » est désactivée). */
+async function waitUntilReady(redis: Redis, timeoutMs = 5_000): Promise<void> {
+  if (redis.status === "ready") return;
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      redis.off("ready", onReady);
+      reject(new Error(`Redis : connexion non prête après ${timeoutMs} ms`));
+    }, timeoutMs);
+    const onReady = (): void => {
+      clearTimeout(timer);
+      resolve();
+    };
+    redis.once("ready", onReady);
+    if (redis.status === "ready") onReady();
+  });
+}
+
 export async function pingRedis(redis: Redis): Promise<void> {
+  if (redis.status === "connecting" || redis.status === "connect") await waitUntilReady(redis);
   const reply = await redis.ping();
   if (reply !== "PONG") throw new Error(`Réponse Redis inattendue : ${reply}`);
 }

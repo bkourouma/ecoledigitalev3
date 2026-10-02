@@ -15,6 +15,9 @@ export const WORKER_ROOT = resolve(here, "..");
 export const BASELINE_DIR = resolve(here, "../../../packages/database/migrations");
 export const WORKER_MIGRATIONS_DIR = resolve(here, "../migrations");
 
+// Sondes de /ready (ADR-009) : délai large en test, une machine chargée (Docker, autres suites) ne doit pas les faire échouer.
+process.env.OBS_PROBE_TIMEOUT_MS ??= "10000";
+
 export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 export const TEST_REDIS_URL = process.env.TEST_REDIS_URL;
 export const hasInfra = Boolean(TEST_DATABASE_URL && TEST_REDIS_URL);
