@@ -148,8 +148,8 @@ export async function promoteHead(deps: AdmissionsDeps, ctx: RequestContext, tx:
   const left = await wf.seatsLeft(tx, input.campaignId, input.grade, preview.desiredProgramId);
   if (left !== null && left <= 0) return { promoted: false, applicationId: target.applicationId, reason: "NO_SEAT" };
 
-  const app = (await apps.getApplicationRow(tx, target.applicationId, { forUpdate: true })) as apps.ApplicationRow;
-  if (app.status !== "WAITLISTED") return { promoted: false, applicationId: app.id, reason: "NOT_WAITLISTED" };
+  const app = await apps.getApplicationRow(tx, target.applicationId, { forUpdate: true });
+  if (!app || app.status !== "WAITLISTED") return { promoted: false, applicationId: target.applicationId, reason: "NOT_WAITLISTED" };
   const accept = (await apps.listTransitionsFrom(tx, app.workflowId, app.stageId)).find((t) => t.toStatus === "ACCEPTED" && !t.createsEnrollment && t.requiresDecision);
   if (!accept) return { promoted: false, applicationId: app.id, reason: "NO_TRANSITION" };
 

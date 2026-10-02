@@ -153,17 +153,19 @@ const APPLICATION_SELECT = `a.id, a.institution_id AS "institutionId", a.campaig
   s.notify_template_code AS "stageNotifyTemplateCode"`;
 
 export async function getApplicationRow(tx: Tx, id: string, options: { forUpdate?: boolean } = {}): Promise<ApplicationRow | null> {
+  // Le verrou est pris SEUL, jamais sur la requête jointe : après une attente, Postgres réévalue la jointure avec l'ANCIENNE
+  // étape et renverrait `null` si un concurrent a déplacé le dossier. La ligne est relue une fois le verrou acquis.
+  if (options.forUpdate) await tx.query(`SELECT 1 FROM admissions.applications WHERE id = $1 FOR UPDATE`, [id]);
   return tx.queryOne<ApplicationRow>(
-    `SELECT ${APPLICATION_SELECT} FROM admissions.applications a JOIN admissions.workflow_stages s ON s.tenant_id = a.tenant_id AND s.id = a.stage_id
-      WHERE a.id = $1 ${options.forUpdate ? "FOR UPDATE OF a" : ""}`,
+    `SELECT ${APPLICATION_SELECT} FROM admissions.applications a JOIN admissions.workflow_stages s ON s.tenant_id = a.tenant_id AND s.id = a.stage_id WHERE a.id = $1`,
     [id],
   );
 }
 
 export async function getApplicationByEnrollment(tx: Tx, enrollmentId: string, options: { forUpdate?: boolean } = {}): Promise<ApplicationRow | null> {
+  if (options.forUpdate) await tx.query(`SELECT 1 FROM admissions.applications WHERE enrollment_id = $1 FOR UPDATE`, [enrollmentId]);
   return tx.queryOne<ApplicationRow>(
-    `SELECT ${APPLICATION_SELECT} FROM admissions.applications a JOIN admissions.workflow_stages s ON s.tenant_id = a.tenant_id AND s.id = a.stage_id
-      WHERE a.enrollment_id = $1 ${options.forUpdate ? "FOR UPDATE OF a" : ""}`,
+    `SELECT ${APPLICATION_SELECT} FROM admissions.applications a JOIN admissions.workflow_stages s ON s.tenant_id = a.tenant_id AND s.id = a.stage_id WHERE a.enrollment_id = $1`,
     [enrollmentId],
   );
 }
@@ -296,7 +298,7 @@ export interface ApplicationFilter {
 }
 
 function filterSql(filter: ApplicationFilter, params: unknown[]): string {
-  const where: string[] = ["true"];
+  const where: string[] = ["$1::timestamptz IS NOT NULL"];
   const add = (sql: string, value: unknown): void => {
     params.push(value);
     where.push(sql.replace("?", `$${params.length}`));
