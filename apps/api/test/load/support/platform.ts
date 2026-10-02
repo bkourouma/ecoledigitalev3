@@ -99,7 +99,7 @@ export async function resetIpLimiters(scopes: string[] = ["reset:ip", "forgot:ip
   const redis = new Redis(REDIS_URL as string, { maxRetriesPerRequest: 1 });
   try {
     for (const scope of scopes) {
-      for await (const keys of redis.scanStream({ match: `ed:iam:rl:${scope}:*`, count: 200 }) as AsyncIterable<string[]>) if (keys.length > 0) await redis.del(...keys);
+      for await (const keys of redis.scanStream({ match: `${process.env.WORKER_QUEUE_PREFIX?.trim() || "ed"}:iam:rl:${scope}:*`, count: 200 }) as AsyncIterable<string[]>) if (keys.length > 0) await redis.del(...keys);
     }
   } finally {
     await redis.quit().catch(() => undefined);

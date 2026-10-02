@@ -14,7 +14,7 @@
  * Non rejoué ici : l'import de 5 000 lignes est mesuré par `test/imports/performance.integration.test.ts` (durées `[perf]` et pic mémoire).
  */
 import { createHmac } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { cpus, totalmem } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -488,40 +488,65 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
         const pa = pick(victim.parents, i);
         return res(await pa.actor.raw("GET", `/api/v1/finance/me/learners/${pa.studentIds[0]}/invoices`));
       };
-      const victimTotal = Math.max(150, READS);
+      const victimTotal = Math.max(150, Math.min(READS, 300));
       const alone = await scenario("noisy.victim.alone", { what: "tenant calme seul", concurrency: 2, total: victimTotal, op: victimOp });
 
-      const stopAt = { done: false };
-      const noise = drive({
-        name: "noisy.aggressor",
-        what: "voisin bruyant",
-        concurrency: CONCURRENCY * 3,
-        durationMs: 10 * 60_000,
-        stop: () => stopAt.done,
-        op: async (i) => {
-          const k = i % 4;
-          if (k === 0) {
-            const n = 900_000 + i;
-            return res(await aggressor.owner.raw("POST", "/api/v1/people/students", { person: { lastName: `BRUIT${n.toString(36).toUpperCase()}`, firstName: `Voisin${(n * 7).toString(36)}`, sex: "M", birthDate: "2010-05-05" }, acknowledgeDuplicate: true, duplicateReason: "Voisin bruyant (charge)." }));
-          }
-          if (k === 1) return res(await aggressor.owner.raw("GET", `/api/v1/people/students?limit=200&offset=${rnd(Math.max(1, STUDENTS_PER_TENANT - 200))}`));
-          if (k === 2) return res(await aggressor.owner.raw("GET", "/api/v1/finance/reports/summary"));
-          return res(await aggressor.owner.raw("GET", `/api/v1/finance/invoices?limit=200&offset=${rnd(Math.max(1, STUDENTS_PER_TENANT - 200))}`));
+      const modes: Array<{ key: string; label: string; op: (i: number) => Promise<OpResult> }> = [
+        {
+          key: "reads",
+          label: "lectures lourdes (pages de 200, synthèse financière)",
+          op: async (i) => {
+            const k = i % 3;
+            if (k === 0) return res(await aggressor.owner.raw("GET", `/api/v1/people/students?limit=200&offset=${rnd(Math.max(1, STUDENTS_PER_TENANT - 200))}`));
+            if (k === 1) return res(await aggressor.owner.raw("GET", "/api/v1/finance/reports/summary"));
+            return res(await aggressor.owner.raw("GET", `/api/v1/finance/invoices?limit=200&offset=${rnd(Math.max(1, STUDENTS_PER_TENANT - 200))}`));
+          },
         },
-      });
-      await new Promise((r) => setTimeout(r, 1500)); // le voisin atteint son régime
-      const loud = await scenario("noisy.victim.loud", { what: "tenant calme PENDANT la saturation du voisin", concurrency: 2, total: victimTotal, op: victimOp });
-      stopAt.done = true;
-      // arrêt du voisin : on épuise son drive par un drapeau (op lent), puis on n'attend pas la fin de la durée maximale
-      const noiseStats = await noise;
-      results.push(noiseStats);
-      log(`voisin : ${noiseStats.count} requêtes, ${noiseStats.errors} erreurs, ${noiseStats.rps} req/s`);
-      if (alone && loud) {
-        const ratio = Math.round((loud.p95 / Math.max(1, alone.p95)) * 100) / 100;
-        notes.noisyNeighbour = { aloneP95: alone.p95, loudP95: loud.p95, ratioP95: ratio, aloneP50: alone.p50, loudP50: loud.p50, victimErrorsLoud: loud.errors, maxRatioProposed: NOISY_NEIGHBOUR_MAX_RATIO };
-        log(`voisin bruyant : p95 ${alone.p95} -> ${loud.p95} ms (x${ratio}), p50 ${alone.p50} -> ${loud.p50} ms`);
-        if (ratio > NOISY_NEIGHBOUR_MAX_RATIO) breaches.push(`voisin bruyant : p95 x${ratio} > x${NOISY_NEIGHBOUR_MAX_RATIO}`);
+        {
+          key: "writes",
+          label: "créations d'élèves en rafale (compteur gapless du tenant)",
+          op: async (i) => {
+            const n = 900_000 + i;
+            return res(
+              await aggressor.owner.raw("POST", "/api/v1/people/students", {
+                person: { lastName: `BRUIT${n.toString(36).toUpperCase()}`, firstName: `Voisin${(n * 7).toString(36)}`, sex: "M", birthDate: "2010-05-05" },
+                acknowledgeDuplicate: true,
+                duplicateReason: "Voisin bruyant (charge).",
+              }),
+            );
+          },
+        },
+      ];
+      const poolOf = (): { total: number; waiting: number } => {
+        const pool = p.app.v2.pool as unknown as { totalCount: number; waitingCount: number };
+        return { total: pool.totalCount, waiting: pool.waitingCount };
+      };
+      const noisy: Record<string, unknown> = {};
+      for (const mode of modes) {
+        const stopAt = { done: false };
+        let maxWaiting = 0;
+        let maxTotal = 0;
+        const sampler = setInterval(() => {
+          const s = poolOf();
+          maxWaiting = Math.max(maxWaiting, s.waiting);
+          maxTotal = Math.max(maxTotal, s.total);
+        }, 100);
+        const noise = drive({ name: `noisy.aggressor.${mode.key}`, what: `voisin bruyant : ${mode.label}`, concurrency: CONCURRENCY * 3, durationMs: 10 * 60_000, stop: () => stopAt.done, op: async (i) => mode.op(i) });
+        await new Promise((r) => setTimeout(r, 1500)); // le voisin atteint son régime
+        const loud = await scenario(`noisy.victim.loud.${mode.key}`, { what: `tenant calme PENDANT la saturation du voisin (${mode.label})`, concurrency: 2, total: victimTotal, op: victimOp });
+        stopAt.done = true;
+        clearInterval(sampler);
+        const noiseStats = await noise;
+        results.push(noiseStats);
+        log(`voisin (${mode.key}) : ${noiseStats.count} requêtes, ${noiseStats.errors} erreurs, ${noiseStats.rps} req/s ; pool max ${maxTotal} connexions, ${maxWaiting} en attente`);
+        if (alone && loud) {
+          const ratio = Math.round((loud.p95 / Math.max(1, alone.p95)) * 100) / 100;
+          noisy[mode.key] = { aloneP95: alone.p95, loudP95: loud.p95, ratioP95: ratio, aloneP50: alone.p50, loudP50: loud.p50, victimErrors: loud.errors, aggressorReqPerSec: noiseStats.rps, poolMaxConnections: maxTotal, poolMaxWaiting: maxWaiting };
+          log(`voisin bruyant (${mode.key}) : p95 ${alone.p95} -> ${loud.p95} ms (x${ratio}), p50 ${alone.p50} -> ${loud.p50} ms`);
+          if (ratio > NOISY_NEIGHBOUR_MAX_RATIO) breaches.push(`voisin bruyant (${mode.key}) : p95 x${ratio} > x${NOISY_NEIGHBOUR_MAX_RATIO}`);
+        }
       }
+      notes.noisyNeighbour = { maxRatioProposed: NOISY_NEIGHBOUR_MAX_RATIO, ...noisy };
     });
   });
 
@@ -620,7 +645,7 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
     it("EXPLAIN (ANALYZE, BUFFERS) des 3 requêtes de lecture les plus coûteuses (temps cumulé), écriture du rapport", async () => {
       setSqlCapture(false);
       const candidates = [...allSql.values()]
-        .filter((s) => /^\s*(SELECT|WITH)\b/i.test(s.text) && !/set_config|pg_advisory|current_setting\(\s*'app\./i.test(s.text) && s.calls >= 5)
+        .filter((s) => /^\s*(SELECT|WITH)\b/i.test(s.text) && /\bFROM\b/i.test(s.text) && !/next_number|set_config|pg_advisory|current_setting\(\s*'app\./i.test(s.text) && s.calls >= 5)
         .sort((a, b) => b.totalMs - a.totalMs)
         .slice(0, 8);
       const explains: Array<{ text: string; calls: number; totalMs: number; meanMs: number; maxMs: number; plan: string }> = [];
@@ -667,6 +692,12 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
       writeFileSync(join(dir, "latest.json"), JSON.stringify({ meta, notes, results, extras, sqlByScenario, breaches }, null, 2));
       writeFileSync(join(dir, "latest.md"), `${toMarkdown(results)}\n\nDépassements de seuils (proposés) : ${breaches.length ? `\n- ${breaches.join("\n- ")}` : "aucun"}\n`);
       log(`rapport : ${join(dir, "latest.json")}`);
+      if (process.env.ED_LOAD_HOLD === "1") {
+        // Maintient Postgres/Redis éphémères pour des expériences à la main (index candidats) ; créer results/release pour libérer.
+        const release = join(dir, "release");
+        log(`ED_LOAD_HOLD : infrastructure maintenue, base ${p.db.name} ; créer ${release} pour terminer`);
+        await waitFor(async () => existsSync(release), { label: "release", timeoutMs: 45 * 60_000, intervalMs: 2000 });
+      }
       if (ENFORCE) expect(breaches, "seuils de latence dépassés (ED_LOAD_ENFORCE=1)").toEqual([]);
       else if (breaches.length) log("[BREACH]", breaches.join(" ; "));
     });
