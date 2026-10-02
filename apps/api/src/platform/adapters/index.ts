@@ -27,6 +27,8 @@ import { registerAssessPorts, type AssessPorts } from "../../modules/assess";
 import { registerAttendancePorts, type AttendancePorts } from "../../modules/attendance";
 import { registerFinancePorts, type FinancePortSet } from "../../modules/finance";
 import { registerHigherPorts, registerHigherWorkerPorts, type HigherPorts } from "../../modules/higher";
+import { importsAuditAdapter, registerImportsPorts, setImportsWorkerPorts, type ImportPorts } from "../../modules/imports";
+import { audit as auditService } from "../../modules/audit";
 import { registerMessagingPorts, setMessagingWorkerPorts, type MessagingPorts } from "../../modules/messaging";
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
@@ -34,7 +36,7 @@ import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorker
 import { createOfficialDocumentDeps, type OfficialDocumentDepsOptions } from "./official-documents";
 import { registerResultsPorts, setResultsWorkerPorts, type ResultsPorts } from "../../modules/results";
 import { registerSchedulingPorts } from "../../modules/scheduling";
-import type { ModuleRuntime } from "../runtime";
+import type { ModuleRuntime, RuntimeAuditPort } from "../runtime";
 import { createAcademicCompletionLookup, createAcademicScheduleChecker, createAcademicUsageGuard } from "./academic-guards";
 import { createAnalyticsSources } from "./analytics-sources";
 import { createAssessCurriculumPort, createAssessPeriodPort, createAssessRosterPort } from "./academic-assess";
@@ -67,6 +69,11 @@ import { createHigherCreditsSource, createHigherCycleResults, createHigherResitS
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
 import { asAttendanceStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
 import { createAdapterKit, type AdapterKit } from "./kit";
+import { createClassroomsImportPort, createCurriculumImportPort } from "./imports-academic";
+import { createGradesImportPort } from "./imports-assess";
+import { createOpeningBalancesImportPort } from "./imports-finance";
+import { createGuardiansImportPort, createImportActorNames, createStaffImportPort, createStudentsImportPort } from "./imports-people";
+import { createImportWriteEnv } from "./imports-support";
 
 export { createAdapterKit, type AdapterKit, type AdapterKitInput } from "./kit";
 export { createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
@@ -89,7 +96,12 @@ export interface PlatformPorts {
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
-export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | null, documents: OfficialDocumentDepsOptions = {}): PlatformPorts {
+export function buildPlatformPorts(
+  kit: AdapterKit,
+  storage: ObjectStorage | null,
+  documents: OfficialDocumentDepsOptions = {},
+  options: { audit?: Pick<RuntimeAuditPort, "record"> } = {},
+): PlatformPorts {
   const officialDocuments = createOfficialDocumentDeps(kit, storage, documents);
   const { academic, people, finance, attendance, scheduling, results, reportcards, assess, higher, rules, lookups, clock } = kit;
   const messagingDirectory = createMessagingPeopleDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock });
@@ -188,7 +200,7 @@ export interface WiredPlatform {
 export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): WiredPlatform {
   const storage = createObjectStorage(runtime.env, { warn: (m) => runtime.logger.warn({}, m) });
   const kit = createAdapterKit({ tenantDb: runtime.tenantDb, systemDb: runtime.systemDb, clock: runtime.clock, logger: runtime.logger, env: runtime.env });
-  const ports = buildPlatformPorts(kit, storage, { audit: reportcardsAuditAdapter(runtime.auditPort) });
+  const ports = buildPlatformPorts(kit, storage, { audit: reportcardsAuditAdapter(runtime.auditPort) }, { audit: runtime.auditPort });
   registerAcademicPorts(app, ports.academic);
   registerPeoplePorts(app, ports.people);
   registerFinancePorts(app, ports.finance);

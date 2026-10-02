@@ -6,7 +6,7 @@
  *   1. lecture : mapping + coercion + schéma + règles métier + clé naturelle ;
  *   2. doublons dans le fichier (SQL, une requête) ;
  *   3. plan : ce que le module cible ferait de la ligne (créer / mettre à jour / ignorer / refuser) — LECTURE SEULE
- *      (transaction `READ ONLY` : une écriture accidentelle d'un port échoue bruyamment).
+ *      (exécuté dans une transaction TOUJOURS annulée : rien ne peut subsister, même par effet de bord).
  * Aucune écriture dans les modules cibles n'a lieu ici.
  */
 import { createSystemContext, err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
@@ -71,6 +71,30 @@ export async function requestImportValidation(deps: ImportsDeps, ctx: RequestCon
   });
 }
 
+/** Signal : porte le résultat d'un plan hors de sa transaction, qui est ainsi TOUJOURS annulée. */
+class PlanRollback<T> extends Error {
+  constructor(readonly value: T) {
+    super("plan-rollback");
+  }
+}
+
+/**
+ * Exécute `plan` dans une transaction qui est TOUJOURS annulée : le plan ne peut rien écrire, même par un effet de bord
+ * d'une lecture (amorçage paresseux de référentiels, verrous consultatifs...). Garantie plus forte qu'un `READ ONLY` qui
+ * ferait échouer ces lectures légitimes.
+ */
+async function planRolledBack<T>(deps: ImportsDeps, ctx: RequestContext, fn: () => Promise<T>): Promise<T> {
+  try {
+    await deps.db.run(ctx, async () => {
+      throw new PlanRollback(await fn());
+    });
+  } catch (e) {
+    if (e instanceof PlanRollback) return e.value as T;
+    throw e;
+  }
+  throw new Error("plan : transaction terminée sans résultat");
+}
+
 export interface ProcessOutcome {
   claimed: boolean;
   status?: JobRecord["status"];
@@ -118,7 +142,7 @@ export async function processValidation(deps: ImportsDeps, tenantId: string, job
     // --- Passe 2 : doublons dans le fichier -----------------------------------------------------------------------------
     await deps.db.run(sys, (tx) => markDuplicates(tx, jobId));
 
-    // --- Passe 3 : plan contre l'existant (lecture seule) ---------------------------------------------------------------
+    // --- Passe 3 : plan contre l'existant (transaction toujours annulée : aucune écriture ne subsiste) ---------------------------------------------------------------
     const keyRows = await deps.db.run(sys, (tx) => validKeys(tx, jobId), { readOnly: true });
     const run = { jobId, options: jobOptions, onExisting: job.onExisting, mode: job.runMode } as const;
     let after = 0;
@@ -149,10 +173,7 @@ export async function processValidation(deps: ImportsDeps, tenantId: string, job
         toPlan.push({ rowNo: r.rowNo, key: r.naturalKey, row: r.normalized, knownEntityId: known, related, inFileDependencies: inFile });
       }
       if (toPlan.length > 0) {
-        const results = await deps.db.run(ctx, (tx) => {
-          void tx;
-          return target.plan(ctx, toPlan, run);
-        }, { readOnly: true });
+        const results = await planRolledBack(deps, ctx, () => target.plan(ctx, toPlan, run));
         const byRow = new Map(results.map((p) => [p.rowNo, p]));
         for (const item of toPlan) {
           const base = rows.find((x) => x.rowNo === item.rowNo)?.issues ?? [];

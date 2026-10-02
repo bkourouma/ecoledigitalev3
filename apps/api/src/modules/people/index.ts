@@ -65,6 +65,8 @@ export {
   type LookupResult,
   type LookupScope,
 } from "./application/lookup";
+// Résolution de références d'élèves d'un fichier (imports 031) : matricule d'origine ou matricule de la plateforme
+export { resolveStudentRefs, STUDENT_REFS_MAX, type StudentRefMatch } from "./application/student-refs";
 // Audience de la messagerie (016) : comptes joignables d'élèves / tuteurs, recherche par nom (lectures seules)
 export {
   AUDIENCE_MAX_STUDENTS,

@@ -47,6 +47,14 @@ export { handleRunRequested, handleValidationRequested, purgeExpiredImports, res
 // Importeurs (description : colonnes, schéma, clé naturelle) et domaine pur
 export { IMPORTERS, IMPORTER_LIST, findImporter, getImporter } from "./importers/registry";
 export type { ColumnDef, ImporterDef, ImportIssue, ImportOptions, RowValues } from "./domain/types";
+export type { StudentRow } from "./importers/students";
+export type { GuardianRow } from "./importers/guardians";
+export { guardianIdentityKey } from "./importers/guardians";
+export type { StaffRow } from "./importers/staff";
+export type { ClassroomRow } from "./importers/classrooms";
+export type { CurriculumRow } from "./importers/curriculum";
+export type { GradeRow, GradeEntry } from "./importers/grades";
+export type { BalanceRow } from "./importers/opening-balances";
 export { ALL_IMPORT_EVENT_TYPES, ImportEvents } from "./domain/events";
 export { detectMapping, matchTemplate, validateMapping } from "./domain/mapping";
 export { neutralizeCell } from "./domain/text";
