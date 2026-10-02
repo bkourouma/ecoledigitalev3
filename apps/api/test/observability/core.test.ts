@@ -1,6 +1,8 @@
 /**
  * Cœur de l'observabilité (ADR-009) : configuration, nettoyage des spans, propagation W3C, cardinalité. Sans base ni Redis.
  */
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { SpanKind, trace } from "@opentelemetry/api";
 import { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base";
 import { afterEach, describe, expect, it } from "vitest";
@@ -132,6 +134,61 @@ describe("nettoyage des spans exportés", () => {
     expect(stripUrlQuery("/api/v1/x")).toBe("/api/v1/x");
   });
 });
+
+describe("exportateur OTLP réel (serveur LOCAL, aucun réseau sortant)", () => {
+  it("POST /v1/traces avec les en-têtes configurés ; les attributs sont filtrés AVANT l'envoi", async () => {
+    const received: Array<{ url: string; auth: string | undefined; body: string }> = [];
+    const server = createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on("data", (c: Buffer) => chunks.push(c));
+      req.on("end", () => {
+        received.push({ url: req.url ?? "", auth: req.headers.authorization, body: Buffer.concat(chunks).toString("utf8") });
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end("{}");
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    try {
+      const port = (server.address() as AddressInfo).port;
+      const config = loadObservabilityConfig("api", {
+        OTEL_EXPORTER_OTLP_ENDPOINT: `http://127.0.0.1:${port}`,
+        OTEL_EXPORTER_OTLP_HEADERS: "authorization=Bearer%20jeton-otlp-1234567890",
+        OTEL_TRACES_SAMPLER_ARG: "1",
+      });
+      expect(config.tracing.enabled).toBe(true);
+      const handle = initTracing(config, { instrumentations: false, synchronous: true });
+      expect(handle.enabled).toBe(true);
+      const span = trace.getTracer("test").startSpan("GET /api/v1/finance/invoices/:id", { kind: SpanKind.SERVER });
+      span.setAttributes({ "tenant.id": "11111111-1111-4111-8111-111111111111", "enduser.email": "jean@ecole.ci", "url.full": "https://x.test/p?token=ABC" });
+      span.end();
+      await handle.forceFlush();
+      await waitUntil(() => received.length > 0);
+      expect(received[0]?.url).toBe("/v1/traces");
+      expect(received[0]?.auth).toBe("Bearer jeton-otlp-1234567890");
+      expect(received[0]?.body).toContain("GET /api/v1/finance/invoices/:id");
+      expect(received[0]?.body).toContain("11111111-1111-4111-8111-111111111111");
+      expect(received[0]?.body).not.toContain("jean@ecole.ci");
+      expect(received[0]?.body).not.toContain("ABC");
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+  });
+
+  it("sans point d'accès : aucun SDK, aucun fournisseur, aucune socket ouverte", async () => {
+    const handle = initTracing(loadObservabilityConfig("api", { NODE_ENV: "production" }));
+    expect(handle.enabled).toBe(false);
+    expect(trace.getTracerProvider().constructor.name).toMatch(/Noop|Proxy/);
+    expect(currentTraceparent()).toBeUndefined();
+  });
+});
+
+async function waitUntil(predicate: () => boolean, timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error("délai dépassé");
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
 
 describe("propagation W3C", () => {
   it("sans traçage : aucun traceparent, withSpan reste utilisable", async () => {
