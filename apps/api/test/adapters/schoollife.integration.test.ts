@@ -102,7 +102,7 @@ describeIntegration("schoollife : adaptateurs réels (academic, people, attendan
     expect(sent.status).toBe("SENT");
     const rows = await adminRows<{ template_code: string; channel: string; status: string; content: string | null }>(
       w,
-      "SELECT template_code, channel, status, content::text AS content FROM notifications.deliveries WHERE template_code = 'convocation' ORDER BY created_at",
+      "SELECT template_code, channel, status, content::text AS content FROM notifications.deliveries WHERE template_code = 'schoollife_convocation' ORDER BY created_at",
     );
     expect(rows.length).toBeGreaterThanOrEqual(1);
     expect(rows.some((r) => r.status === "PENDING")).toBe(true);

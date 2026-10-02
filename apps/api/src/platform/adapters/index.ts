@@ -66,6 +66,7 @@ import { createFinanceReceiptDocuments, createReportcardsLearnerStanding } from 
 import { createFinanceGuardianshipPort } from "./people-finance";
 import { createMessagingAudienceDirectory } from "./academic-messaging";
 import { createMessagingPeopleDirectory } from "./people-messaging";
+import { createNotificationsApplicants } from "./notifications-admissions";
 import { createNotificationsDirectory } from "./people-notifications";
 import { createNotificationsAnnouncements, createNotificationsGrades, createNotificationsOverdueSource, createNotificationsTeachingLoad } from "./sources-notifications";
 import { createAssessActorNamePort, createAssessGuardianshipPort, createAssessTeachingPort } from "./people-assess";
@@ -267,6 +268,7 @@ export function buildPlatformPorts(
     },
     notifications: {
       directory: createNotificationsDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock }),
+      applicants: createNotificationsApplicants(kit),
       overdue: createNotificationsOverdueSource(kit),
       grades: createNotificationsGrades(kit),
       teachingLoad: createNotificationsTeachingLoad(kit),

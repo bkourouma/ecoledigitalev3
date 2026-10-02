@@ -45,7 +45,27 @@ test/                unit (69 + canaux 25), integration (RLS A/B, flux complets,
 
 ## Événements
 
-Publiés (`{ v: 1, … }`, **jamais de contenu ni d'adresse**) : `notifications.delivery.failed`, `.delivery.bounced`, `.consent.changed`, `.template.published`, `.rule.updated`, `.urgent.sent`. Consommés : `finance.invoice.issued|overdue|paid`, `finance.payment.completed`, `attendance.absence.recorded|late.recorded|alert.triggered`, `reportcards.report_card.published`, `scheduling.occurrence.cancelled`, `messaging.announcement.published`, `people.staff_qualification.expiring`, `payroll.payslip.notification_requested` (contrats : `apps/api/test/events-contracts/notifications.contracts.ts`).
+Publiés (`{ v: 1, … }`, **jamais de contenu ni d'adresse**) : `notifications.delivery.failed`, `.delivery.bounced`, `.consent.changed`, `.template.published`, `.rule.updated`, `.urgent.sent`. Consommés : `finance.invoice.issued|overdue|paid`, `finance.payment.completed`, `attendance.absence.recorded|late.recorded|alert.triggered`, `reportcards.report_card.published`, `scheduling.occurrence.cancelled`, `messaging.announcement.published`, `people.staff_qualification.expiring`, `payroll.payslip.notification_requested`, et, ajoutés : `finance.payment.reconciliation_needed|refund.reconciliation_needed` (alerte économat + direction), `stateassign.reconciliation.discrepancy|receivable.overdue|control.due|control.anomaly_detected` (alerte économat, direction pour les contrôles), `schoollife.measure.notified|convocation.sent|convocation.cancelled` (tuteurs, texte neutre), `admissions.application.submitted|offer.issued` (responsable du dossier de candidature) (contrats : `apps/api/test/events-contracts/notifications.contracts.ts`).
+
+### Abonnés ajoutés : alertes internes, vie scolaire, admissions
+
+| Événement | Règle livrée (clé) | État par défaut | Gabarit | Destinataires |
+|---|---|---|---|---|
+| `finance.payment.reconciliation_needed` / `finance.refund.reconciliation_needed` | `finance.payment_reconciliation_needed`, `finance.refund_reconciliation_needed` | **active** | `reconciliation_needed` (interne) | rôles `econome`, `directeur` ; IN_APP + e-mail ; lien `/v2/finance/payments/pending` |
+| `stateassign.reconciliation.discrepancy` | `stateassign.reconciliation_discrepancy` | **active** | `stateassign_alert` (interne) | rôle `econome` |
+| `stateassign.receivable.overdue` | `stateassign.receivable_overdue` | **active** | `stateassign_alert` | rôle `econome` (une alerte par créance) |
+| `stateassign.control.due` / `anomaly_detected` | `stateassign.control_due`, `stateassign.control_anomaly` | **active** | `stateassign_alert` | rôles `econome`, `directeur` |
+| `schoollife.measure.notified` | `schoollife.measure_notified.guardians` | **désactivée** | `schoollife_measure_notified` | tuteurs de l'élève |
+| `schoollife.convocation.sent` / `cancelled` | `schoollife.convocation_sent.guardians`, `schoollife.convocation_cancelled.guardians` | **désactivées** | `schoollife_convocation` | tuteurs de l'élève |
+| `admissions.application.submitted` | `admissions.application_received.applicant` | **désactivée** | `admissions_application_received` | responsable du dossier (port `applicants`) ; e-mail, WhatsApp, SMS en `FIRST_REACHABLE` |
+| `admissions.offer.issued` | `admissions.offer_issued.applicant` | **désactivée** | `admissions_offer_issued` | idem |
+
+- **Aucune donnée sensible** : les alertes internes ne nomment aucun élève et n'incluent ni message du fournisseur ni référence d'acte (montants, libellés neutres, dates, jours de retard) ; les messages de vie scolaire ne disent ni la nature de la mesure, ni sa gravité, ni ses dates, ni le motif de la convocation (le lecteur ne lit pas `reasonKind` / `kind` / `severityCode`) ; une mesure confidentielle ou non visible des tuteurs est ignorée ; admissions : aucun nom, aucun lien secret.
+- **Pourquoi vie scolaire et admissions sont désactivées par défaut** : `schoollife` informe DÉJÀ les tuteurs lui-même au moment où il publie ces événements (port `NotificationPort` -> envoi manuel, qui utilise désormais les gabarits dédiés) : activer ces règles doublerait le message, et `convocation.cancelled` ne dit pas si la convocation avait été envoyée. `admissions` a son propre canal (`ApplicantNotifier`, échec fermé tant qu'il n'est pas câblé) : activer la règle ET câbler ce canal enverrait deux fois. Un établissement les active par `PUT /rules/:key` après arbitrage.
+- **Codes de gabarit** : snake_case (`schoollife_convocation`, `schoollife_measure_notified`) — la base impose `^[a-z][a-z0-9_]+$` ; ce sont les gabarits dédiés `schoollife.convocation` / `schoollife.measure.notified` demandés par la spec.
+- **Idempotence** : une alerte de rapprochement par élément et par motif ; une alerte de créance par créance ; une décision ou une convocation par identifiant ; un rejeu ne double rien.
+- **Admissions : coordonnées par port** : les événements ne portent aucune donnée personnelle ; l'audience `APPLICANT_GUARDIANS` interroge le port `applicants` (adaptateur `platform/adapters/notifications-admissions.ts` : cas d'usage public `getApplication` d'admissions, responsable principal à défaut premier tuteur). Port absent = échec fermé `notifications.port_unavailable` (le worker rejoue).
+- **Manque connu** : il n'existe pas d'événement `admissions.interview.*` : la convocation d'entretien d'admission ne peut pas être consommée ; elle reste envoyée par `admissions` lui-même (à demander au propriétaire d'admissions : publier `admissions.interview.scheduled`).
 
 ## Ports et adaptateurs
 
@@ -56,6 +76,7 @@ Publiés (`{ v: 1, … }`, **jamais de contenu ni d'adresse**) : `notifications.
 | `GradeSource` (deux résultats FINAL consécutifs) | `sources-notifications.ts` : results + academic + people |
 | `TeachingLoadSource` | `sources-notifications.ts` : people + academic |
 | `AnnouncementFeed` | `sources-notifications.ts` : messaging (`readAnnouncementForDelivery`, extension additive) |
+| `ApplicantDirectory` (responsable d'un dossier de candidature) | `notifications-admissions.ts` : admissions (`getApplication`, API publique existante) |
 | `ChannelAdapter` / `ChannelRegistry` | `infrastructure/channels/*` (réalisation du port `NotificationChannel` de messaging ; pont `toMessagingChannel`) |
 
 Registre : `app.notificationsPorts` (API, `registerNotificationsPorts`) ; `setNotificationsWorkerPorts` (worker, branché par `installWorkerAdapters`). Port absent = échec fermé `notifications.port_unavailable`.
@@ -108,4 +129,4 @@ pnpm check:boundaries && pnpm --filter @ecoledigitale/api type-check:v2 && pnpm 
 
 ## Limites connues
 
-Q-18 (fournisseur SMS), Q-19 (consentement par défaut), Q-20 (message direct non lu), Q-21 (rebonds asynchrones), Q-26 à Q-28 (paliers, unités des seuils, rôle RH) dans `specs/v2/016-communications/open-questions.md`. Livraison « au moins une fois » (un worker tué entre l'envoi et la consignation peut renvoyer : le fournisseur reçoit la même clé d'idempotence). L'adaptateur de résultats FINAL (deux périodes consécutives) n'est éprouvé que sur « rien de clôturé » : la comparaison est testée avec un port simulé.
+Q-18 (fournisseur SMS : **tranchée le 2026-10-02, Orange SMS API** ; reste à valider chemins, codes d'erreur, quota et tarifs avec le contrat Orange), Q-19 (consentement par défaut), Q-20 (message direct non lu), Q-21 (rebonds asynchrones), Q-26 à Q-28 (paliers, unités des seuils, rôle RH) dans `specs/v2/016-communications/open-questions.md`. Livraison « au moins une fois » (un worker tué entre l'envoi et la consignation peut renvoyer : le fournisseur reçoit la même clé d'idempotence). L'adaptateur de résultats FINAL (deux périodes consécutives) n'est éprouvé que sur « rien de clôturé » : la comparaison est testée avec un port simulé.

@@ -30,6 +30,21 @@ export const ConsumedEvents = {
   ANNOUNCEMENT_PUBLISHED: "messaging.announcement.published",
   QUALIFICATION_EXPIRING: "people.staff_qualification.expiring",
   PAYSLIP_NOTIFICATION: "payroll.payslip.notification_requested",
+  /** Alertes internes (économat, direction) : action humaine requise sur un paiement ou un remboursement. */
+  PAYMENT_RECONCILIATION_NEEDED: "finance.payment.reconciliation_needed",
+  REFUND_RECONCILIATION_NEEDED: "finance.refund.reconciliation_needed",
+  /** Affectation par l'État : écart de rapprochement, créance en retard, contrôle à effectuer, anomalie de contrôle. */
+  STATE_RECONCILIATION_DISCREPANCY: "stateassign.reconciliation.discrepancy",
+  STATE_RECEIVABLE_OVERDUE: "stateassign.receivable.overdue",
+  STATE_CONTROL_DUE: "stateassign.control.due",
+  STATE_CONTROL_ANOMALY: "stateassign.control.anomaly_detected",
+  /** Vie scolaire : information des tuteurs, texte neutre (jamais de motif). */
+  MEASURE_NOTIFIED: "schoollife.measure.notified",
+  CONVOCATION_SENT: "schoollife.convocation.sent",
+  CONVOCATION_CANCELLED: "schoollife.convocation.cancelled",
+  /** Admissions : messages au candidat (accusé de réception, offre). */
+  APPLICATION_SUBMITTED: "admissions.application.submitted",
+  OFFER_ISSUED: "admissions.offer.issued",
 } as const;
 
 export const CONSUMED_EVENT_TYPES: readonly string[] = Object.freeze(Object.values(ConsumedEvents));

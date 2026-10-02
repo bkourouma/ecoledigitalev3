@@ -15,6 +15,7 @@ export interface EntityRefs {
   readonly classroomId?: string | undefined;
   readonly announcementId?: string | undefined;
   readonly userId?: string | undefined;
+  readonly applicationId?: string | undefined;
 }
 
 export class AudienceResolver {
@@ -105,6 +106,10 @@ export class AudienceResolver {
       case "PAYSLIP_HOLDER": {
         if (!refs.userId) return [];
         return this.deps.ports.directory.contactsOfUsers(this.ctx, [refs.userId]);
+      }
+      case "APPLICANT_GUARDIANS": {
+        if (!refs.applicationId) return [];
+        return this.deps.ports.applicants.applicantContacts(this.ctx, refs.applicationId);
       }
     }
   }

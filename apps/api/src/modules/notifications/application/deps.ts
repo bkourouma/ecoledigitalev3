@@ -114,6 +114,7 @@ export function createNotificationsDeps(input: NotificationsDepsInput): Notifica
   const resolve = input.portsProvider ?? ((): Partial<NotificationsPorts> => input.ports ?? {});
   const ports: NotificationsPorts = {
     get directory() { return resolve().directory ?? fallback.directory; },
+    get applicants() { return resolve().applicants ?? fallback.applicants; },
     get overdue() { return resolve().overdue ?? fallback.overdue; },
     get grades() { return resolve().grades ?? fallback.grades; },
     get teachingLoad() { return resolve().teachingLoad ?? fallback.teachingLoad; },

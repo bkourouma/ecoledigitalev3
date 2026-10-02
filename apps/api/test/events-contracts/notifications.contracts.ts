@@ -3,7 +3,8 @@
  *
  * Le lecteur est `readEvent` (`domain/event-readers.ts`) : il doit produire des FAITS (ou ignorer explicitement : absence
  * excusée, facture de financeur) pour l'échantillon du producteur, variantes complète et minimale. Les événements dont le
- * producteur ne publie pas encore de schéma Zod (finance : facture émise, en retard, paiement ; paie) sont exemptés avec motif ;
+ * producteur ne publie pas encore de schéma Zod (finance : facture émise, en retard, paiement, alertes de rapprochement ; paie)
+ * sont exemptés avec motif ;
  * leurs lecteurs sont éprouvés par les tests unitaires (`test/unit/domain.test.ts`) sur les formes TypeScript des producteurs.
  */
 import { CONSUMED_EVENT_TYPES } from "../../src/modules/notifications/domain/events";
@@ -34,6 +35,18 @@ const READS: Record<string, FieldRead[]> = {
   "scheduling.occurrence.cancelled": [{ field: "classroomId", kind: "uuid", nullable: true }, { field: "startsAt", kind: "string" }, optional("occurrenceId", "uuid")],
   "messaging.announcement.published": [uuid("announcementId"), { field: "priority", kind: "string" }],
   "people.staff_qualification.expiring": [uuid("staffId"), { field: "expiresOn", kind: "string" }, { field: "daysLeft", kind: "number" }, optional("qualificationId", "uuid")],
+  // stateassign : alertes internes, aucun nom ; seuls identifiants, dates, statuts et montants entiers sont lus.
+  "stateassign.reconciliation.discrepancy": [uuid("assignmentId"), optional("status", "string"), optional("version", "number")],
+  "stateassign.receivable.overdue": [uuid("receivableId"), { field: "dueOn", kind: "string" }, { field: "daysOverdue", kind: "number" }, optional("expected", "object"), optional("received", "object")],
+  "stateassign.control.due": [uuid("controlId"), { field: "dueOn", kind: "string" }],
+  "stateassign.control.anomaly_detected": [uuid("controlId"), { field: "dueOn", kind: "string" }],
+  // schoollife : jamais de motif ; `reasonKind`, `kind`, `severityCode`, dates de mesure ne sont PAS lus.
+  "schoollife.measure.notified": [uuid("studentId"), uuid("measureId"), optional("visibleToGuardians", "boolean"), optional("confidentiality", "string")],
+  "schoollife.convocation.sent": [uuid("studentId"), uuid("convocationId"), { field: "scheduledAt", kind: "string" }],
+  "schoollife.convocation.cancelled": [uuid("studentId"), uuid("convocationId"), { field: "scheduledAt", kind: "string" }],
+  // admissions : identifiants seulement (les coordonnées viennent du port `applicants`).
+  "admissions.application.submitted": [uuid("applicationId"), { field: "via", kind: "string" }],
+  "admissions.offer.issued": [uuid("applicationId"), uuid("offerId")],
 };
 
 const published = producerSchemas();
