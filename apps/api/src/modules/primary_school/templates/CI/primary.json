@@ -1,0 +1,64 @@
+{
+  "section": "primary_school",
+  "schemaVersion": 1,
+  "templateVersion": 1,
+  "educationSystem": "CI",
+  "pack": "PRIMARY",
+  "ratingScales": [
+    {
+      "code": "MASTERY_4",
+      "label": "Niveaux de maîtrise (échelle de démonstration)",
+      "sourceKind": "placeholder",
+      "levels": [
+        { "code": "N1", "label": "Non acquis", "ordinal": 1, "meetsExpectation": false },
+        { "code": "N2", "label": "En cours d'acquisition", "ordinal": 2, "meetsExpectation": false },
+        { "code": "N3", "label": "Acquis", "ordinal": 3, "meetsExpectation": true },
+        { "code": "N4", "label": "Acquis avec aisance", "ordinal": 4, "meetsExpectation": true }
+      ]
+    }
+  ],
+  "competencyFrameworks": [
+    {
+      "code": "PRESCHOOL_DEMO",
+      "label": "Compétences de la maternelle (démonstration)",
+      "scale": "MASTERY_4",
+      "sourceKind": "placeholder",
+      "gradeLevels": ["PS", "MS", "GS"],
+      "domains": [
+        {
+          "code": "D1",
+          "label": "Domaine 1 (démonstration)",
+          "competencies": [
+            { "code": "D1.1", "label": "Compétence 1.1 (démonstration)" },
+            { "code": "D1.2", "label": "Compétence 1.2 (démonstration)" }
+          ]
+        },
+        {
+          "code": "D2",
+          "label": "Domaine 2 (démonstration)",
+          "competencies": [{ "code": "D2.1", "label": "Compétence 2.1 (démonstration)" }]
+        }
+      ]
+    },
+    {
+      "code": "PRIMARY_DEMO",
+      "label": "Compétences du primaire (démonstration)",
+      "scale": "MASTERY_4",
+      "sourceKind": "placeholder",
+      "gradeLevels": ["CP1", "CP2", "CE1", "CE2", "CM1", "CM2"],
+      "domains": [
+        {
+          "code": "D1",
+          "label": "Domaine 1 (démonstration)",
+          "competencies": [{ "code": "D1.1", "label": "Compétence 1.1 (démonstration)" }]
+        }
+      ]
+    }
+  ],
+  "appreciationPhrases": [
+    { "code": "PERIOD_N1", "scope": "PERIOD", "body": "Des difficultés persistent ; un soutien est conseillé. (phrase de démonstration)", "ratingLevelCode": "N1", "sourceKind": "placeholder" },
+    { "code": "PERIOD_N3", "scope": "PERIOD", "body": "Le travail est satisfaisant. (phrase de démonstration)", "ratingLevelCode": "N3", "sourceKind": "placeholder" },
+    { "code": "YEAR_GENERIC", "scope": "YEAR", "body": "Appréciation de fin d'année à compléter par l'instituteur. (phrase de démonstration)", "sourceKind": "placeholder" }
+  ],
+  "settings": { "requireHomeroomForActivation": true, "councilRequiredForBilan": true, "phraseBankEnabled": true, "archiveRetentionYears": null }
+}

@@ -191,7 +191,7 @@ Un **jeu de démonstration** (seeds déterministes, jamais en production) ajoute
 
 ## 7. Modèle de données
 
-Voir `data-model.md` (DDL de référence **exécuté et testé** sur PostgreSQL 17, 104 tests). Schéma `primary_school`, migrations `1800`–`1802` (plage `1800–1899`, à inscrire dans `module-conventions.md`).
+Voir `data-model.md` (DDL de référence **exécuté et testé** sur PostgreSQL 17, 104 tests). Schéma `primary_school`, migrations `1900`–`1902` (plage `1900–1999`, à inscrire dans `module-conventions.md`).
 
 | Table | Rôle |
 |---|---|
@@ -296,13 +296,13 @@ Portail **instituteur** (mobile d'abord) : « Ma classe » (liste, appel du jour
 | 009 / 002 | Modèle de rôle système `instituteur` (permissions US2) ; `getResponsibleForNode` documente le cas généraliste |
 | 003 | Sections de modèle de pack par module : `primary_school` |
 | 010 | Politique d'appel `DAILY` dans le modèle de pack PRIMARY |
-| `module-conventions.md` | Plage `1800–1899` pour `primary_school` (la ligne ouverte devient `1900+`) |
+| `module-conventions.md` | Plage `1900–1999` pour `primary_school` (la ligne ouverte devient `2000+`) |
 
 ## 15. Critères de sortie (mesurables)
 
 La spec est terminée lorsque :
 
-1. Les migrations `1800`–`1802` s'appliquent sur base vide et les 104 tests de comportement passent ; l'allowlist d'isolation du module est vide et le test d'isolation générique passe avec deux tenants.
+1. Les migrations `1900`–`1902` s'appliquent sur base vide et les 104 tests de comportement passent ; l'allowlist d'isolation du module est vide et le test d'isolation générique passe avec deux tenants.
 2. Un établissement `PRIMARY` créé par le provisioning contient, sans intervention, niveaux, périodes, rôle d'instituteur, politique d'appel, types d'évaluation, échelle et référentiels de démonstration ; la ré-exécution ne change rien.
 3. Le flux « une classe, une année » (évaluations, compétences, appel, clôture des trois périodes, conseil, bilans scellés, archive gelée) passe en intégration avec le RuleSet **fictif**, bulletins marqués « règles de démonstration ».
 4. Aucune constante de seuil, coefficient ou formule dans `apps/api/src/modules/primary_school/**` (lint R2 vert) ; aucun libellé affiché n'est comparé en logique.

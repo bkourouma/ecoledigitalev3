@@ -1,5 +1,5 @@
 -- =============================================================================
--- 1802 — Module primary_school : conseil des maîtres, bilan annuel, archivage des années
+-- 1902 — Module primary_school : conseil des maîtres, bilan annuel, archivage des années
 -- =============================================================================
 --
 -- Le conseil des maîtres RÉUTILISE `results.deliberations` (kind = COUNCIL) et `results.decisions` :

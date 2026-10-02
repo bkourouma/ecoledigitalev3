@@ -68,7 +68,8 @@ Les versions du runner (`schema_migrations.version`) sont **globales à tous les
 | 1600-1699 | `analytics` |
 | 1700-1799 | `messaging` |
 | 1800-1899 | `imports` |
-| 1900+ | modules suivants, attribués dans l'ordre de création (compléter ce tableau) |
+| 1900-1999 | `primary_school` |
+| 2000+ | modules suivants, attribués dans l'ordre de création (compléter ce tableau) |
 
 Un nouveau module prend la prochaine plage libre et l'inscrit ici dans la même PR. `pnpm module:new <clé>` le fait pour vous : il lit ce tableau (ligne ouverte `NNNN+`), réserve 100 numéros (`--range 1800` pour imposer le début), nomme la migration initiale dans la plage (`1800_<clé>_init.sql`), insère la ligne du module et décale la ligne ouverte. Voir `docs/architecture/new-module-guide.md`.
 

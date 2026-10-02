@@ -1,8 +1,8 @@
 -- =============================================================================
--- 1800 — Module primary_school : schéma, paramètres, échelles d'appréciation, référentiels de compétences
+-- 1900 — Module primary_school : schéma, paramètres, échelles d'appréciation, référentiels de compétences
 -- =============================================================================
 --
--- Plage de numéros réservée au module primary_school : 1800–1899 (numéros GLOBAUX, voir
+-- Plage de numéros réservée au module primary_school : 1900–1999 (numéros GLOBAUX, voir
 -- docs/architecture/module-conventions.md ; ligne à inscrire dans ce tableau).
 --
 -- Pourquoi `primary_school` et non `primary` : PRIMARY est un mot réservé de SQL (`PRIMARY KEY`) ;

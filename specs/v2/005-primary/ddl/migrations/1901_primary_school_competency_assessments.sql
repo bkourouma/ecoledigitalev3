@@ -1,5 +1,5 @@
 -- =============================================================================
--- 1801 — Module primary_school : évaluation par compétences (maternelle et primaire)
+-- 1901 — Module primary_school : évaluation par compétences (maternelle et primaire)
 -- =============================================================================
 --
 -- `assess` ne porte que des notes chiffrées (score ≤ barème). L'évaluation par compétences — niveau
