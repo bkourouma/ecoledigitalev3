@@ -2,7 +2,7 @@
 
 Ce document décrit comment les modules `tenancy`, `entitlements`, `iam`, `rbac`, `audit`, `finance`, le module `platform` (console des opérateurs) et `apps/worker` sont **assemblés** dans l'API, sans casser le legacy. Il complète `module-conventions.md` (normatif pour écrire un module) ; ici, on décrit ce qui se passe **entre** les modules.
 
-Preuve exécutable : `apps/api/test/phase1/` — en particulier `exit-criteria.integration.test.ts` (test de sortie de phase 1 du plan §4), lancé par `pnpm test:phase1` (Postgres + Redis éphémères dans Docker) et, en CI, par le job bloquant `v2-modules`.
+Preuve exécutable : `apps/api/test/phase1/` — en particulier `exit-criteria.integration.test.ts` (test de sortie de phase 1 du plan §4), lancé par `pnpm test:phase1` (Postgres + Redis éphémères dans Docker) et, en CI, par le job bloquant `v2-modules`. Le parcours complet d'une **année scolaire simulée** (provisionnement HIGHER -> inscription confirmée par événement -> appels -> notes -> résultats `rules` -> bulletins signés -> diplôme -> paie -> audit -> isolation -> accès parent) est dans `apps/api/test/phase2/` (`pnpm test:phase2`, job bloquant `phase2`) ; voir `phase2-exit.md` (journal des défauts et limites).
 
 ## 1. Flux d'une requête
 
