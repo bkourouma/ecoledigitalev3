@@ -60,6 +60,9 @@ import {
   financeInitiateOnlinePaymentBodySchema,
   financeInvoiceFromScheduleBodySchema,
   financeLearnerParamsSchema,
+  financeProviderParamsSchema,
+  financeProviderStatusBodySchema,
+  financeSaveProviderBodySchema,
   financeListCashSessionsQuerySchema,
   financeListFeesQuerySchema,
   financeListInvoicesQuerySchema,
@@ -130,7 +133,11 @@ import { learnerNames } from "../application/learner-names";
 import { getReceiptPdf } from "../application/receipt-document";
 import { createFinancePortRegistry, type FinancePortRegistry, type FinancePortSet } from "../application/port-registry";
 import { financeAuditAdapter } from "../infrastructure/audit-adapter";
-import { createProviderRegistry, EnvProviderConfigSource, type AppEnvironment } from "../infrastructure/providers/registry";
+import { createProviderRegistry, EnvProviderConfigSource, isDevLikeEnvironment, type AppEnvironment } from "../infrastructure/providers/registry";
+import { endpointsFromEnv, registerPaymentProviders } from "../infrastructure/providers/definitions";
+import { SANDBOX_PROVIDER_NAME } from "../infrastructure/providers/sandbox-provider";
+import { CompositeConfigSource, TenantProviderConfigSource } from "../infrastructure/provider-config-source";
+import { secretStoreFromEnv } from "../infrastructure/secrets/aes-gcm-secret-store";
 import type { ModuleRuntime } from "../../../platform/runtime";
 import {
   cancelInvoice,
@@ -145,6 +152,7 @@ import {
   previewInvoiceFromSchedule,
 } from "../application/invoices";
 import { handleProviderWebhook, initiateOnlinePayment, verifyPendingPayment } from "../application/online-payments";
+import { clearProviderCredentials, listProviders, rotateProviderSecrets, saveProviderConfig, setProviderStatus, testProviderConnection } from "../application/provider-admin";
 import {
   allocatePayment,
   getPaymentView,
@@ -853,6 +861,45 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
       registerExport("payments", "finance.payment.read", financeExportPaymentsQuerySchema, "paiements", (ctx, f, o) => exportPaymentsCsv(deps, ctx, f, o));
       registerExport("receivables", "finance.report.read", financeExportReceivablesQuerySchema, "creances", (ctx, f, o) => exportReceivablesCsv(deps, ctx, f, o));
 
+      // ----- Fournisseurs de paiement : configuration par tenant (permission SENSIBLE) ---------------
+      const manageProviders = perm("finance.provider.manage");
+      scope.get("/providers", { preHandler: manageProviders }, async (req) => present.providerListDto(unwrapOrThrow(await listProviders(deps, ctxOf(req)))));
+      // `rotate-secrets` est déclarée AVANT `/providers/:provider/...` : jamais confondue avec un nom de fournisseur.
+      scope.post("/providers/rotate-secrets", { preHandler: manageProviders }, async (req) => {
+        const r = unwrapOrThrow(await rotateProviderSecrets(deps, ctxOf(req)));
+        return { rotated: r.rotated, keyId: r.keyId };
+      });
+      scope.put("/providers/:provider", { preHandler: manageProviders }, async (req) => {
+        const { provider } = parse(financeProviderParamsSchema, req.params);
+        const b = parse(financeSaveProviderBodySchema, req.body);
+        return present.providerDto(
+          unwrapOrThrow(
+            await saveProviderConfig(deps, ctxOf(req), {
+              provider,
+              ...(b.mode ? { mode: b.mode } : {}),
+              ...(b.settings ? { settings: b.settings } : {}),
+              ...(b.secrets ? { secrets: b.secrets } : {}),
+              ...(b.clearSecrets ? { clearSecrets: b.clearSecrets } : {}),
+              ...(b.regenerateWebhookSecret ? { regenerateWebhookSecret: true } : {}),
+            }),
+          ),
+        );
+      });
+      scope.patch("/providers/:provider/status", { preHandler: manageProviders }, async (req) => {
+        const { provider } = parse(financeProviderParamsSchema, req.params);
+        const b = parse(financeProviderStatusBodySchema, req.body);
+        return present.providerDto(unwrapOrThrow(await setProviderStatus(deps, ctxOf(req), { provider, enabled: b.enabled })));
+      });
+      scope.post("/providers/:provider/test", { preHandler: manageProviders }, async (req) => {
+        const { provider } = parse(financeProviderParamsSchema, req.params);
+        const r = unwrapOrThrow(await testProviderConnection(deps, ctxOf(req), { provider }));
+        return { ok: r.ok, code: r.code, at: r.at.toISOString() };
+      });
+      scope.delete("/providers/:provider/credentials", { preHandler: manageProviders }, async (req) => {
+        const { provider } = parse(financeProviderParamsSchema, req.params);
+        return present.providerDto(unwrapOrThrow(await clearProviderCredentials(deps, ctxOf(req), { provider })));
+      });
+
       // ----- Reporting ------------------------------------------------------------------------
       scope.get("/reports/summary", { preHandler: perm("finance.report.read") }, async (req) =>
         present.summaryDto(unwrapOrThrow(await getFinanceSummary(deps, ctxOf(req), reportFilter(parse(financeReportQuerySchema, req.query))))),
@@ -889,20 +936,33 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
       hooks.setErrorHandler((error, request, reply) => handleError(error, request, reply));
       // Le corps JSON est conservé BRUT : la signature se vérifie sur les octets reçus.
       hooks.addContentTypeParser("application/json", { parseAs: "string", bodyLimit: 262_144 }, (_req, body, done) => done(null, body));
-      hooks.post("/webhooks/:provider/:tenantId", { config: { public: true } }, async (req, reply) => {
-        const { provider, tenantId } = parse(financeWebhookParamsSchema, req.params);
-        const rawBody = typeof req.body === "string" ? req.body : "";
-        const result = unwrapOrThrow(
-          await handleProviderWebhook(deps, {
-            tenantId,
-            provider,
-            rawBody,
-            headers: req.headers as Record<string, string | string[] | undefined>,
-            requestId: String(req.id),
-          }),
-        );
-        return reply.status(200).send({ status: result.status, replayed: result.replayed, paymentId: result.paymentId });
+      // CinetPay notifie en `application/x-www-form-urlencoded` ; l'adaptateur relit le corps BRUT.
+      hooks.addContentTypeParser("application/x-www-form-urlencoded", { parseAs: "string", bodyLimit: 262_144 }, (_req, body, done) => done(null, body));
+      // POST (Wave, Orange, CinetPay, TresorPay) et PUT (rappel MTN MoMo).
+      hooks.route({
+        method: ["POST", "PUT"],
+        url: "/webhooks/:provider/:tenantId",
+        config: { public: true },
+        handler: async (req, reply) => {
+          const { provider, tenantId } = parse(financeWebhookParamsSchema, req.params);
+          const rawBody = typeof req.body === "string" ? req.body : "";
+          const query: Record<string, string> = {};
+          for (const [k, v] of Object.entries((req.query ?? {}) as Record<string, unknown>)) if (typeof v === "string") query[k] = v;
+          const result = unwrapOrThrow(
+            await handleProviderWebhook(deps, {
+              tenantId,
+              provider,
+              rawBody,
+              headers: req.headers as Record<string, string | string[] | undefined>,
+              query,
+              requestId: String(req.id),
+            }),
+          );
+          return reply.status(200).send({ status: result.status, replayed: result.replayed, paymentId: result.paymentId });
+        },
       });
+      // Pas de GET : le garde-fou d'assemblage (phase 1, D3b) interdit toute route publique répondant favorablement sans
+      // identifiants. Si CinetPay sondait l'URL de notification par un GET, il faudrait l'y déclarer explicitement (Q-PAY-27).
     },
     { prefix: options.prefix ?? FINANCE_ROUTES_PREFIX },
   );
@@ -1026,6 +1086,12 @@ function exportMaxRowsOf(env: Readonly<Record<string, string | undefined>>): { e
   return Number.isInteger(n) && n >= 1 && n <= 500_000 ? { exportMaxRows: n } : {};
 }
 
+/** `FINANCE_PROVIDER_CONFIG_CACHE_MS` : durée du cache de configuration des fournisseurs (0 à 300 000 ms ; sinon défaut 15 000). */
+function configCacheMsOf(env: Readonly<Record<string, string | undefined>>): { ttlMs?: number } {
+  const n = Number(env.FINANCE_PROVIDER_CONFIG_CACHE_MS);
+  return env.FINANCE_PROVIDER_CONFIG_CACHE_MS !== undefined && Number.isInteger(n) && n >= 0 && n <= 300_000 ? { ttlMs: n } : {};
+}
+
 /** Environnement d'exécution des fournisseurs de paiement : `FINANCE_ENV`, sinon dérivé de `NODE_ENV` (défaut SÛR : production). */
 export function financeEnvironmentOf(env: Readonly<Record<string, string | undefined>>): AppEnvironment {
   const raw = (env.FINANCE_ENV ?? env.NODE_ENV ?? "").trim().toLowerCase();
@@ -1061,17 +1127,43 @@ export function registerFinancePorts(app: FastifyInstance, ports: Partial<Financ
 export default async function financeModulePlugin(app: FastifyInstance, runtime: ModuleRuntime): Promise<void> {
   if (!app.hasDecorator("financePorts")) app.decorate("financePorts", createFinancePortRegistry());
   const environment = financeEnvironmentOf(runtime.env);
+  const audit = financeAuditAdapter(runtime.auditPort);
+  // Coffre des secrets marchands : clé maître d'environnement ; absente ou invalide ⇒ indisponible (jamais de clair).
+  const secrets = secretStoreFromEnv(runtime.env, (message) => runtime.logger.error({ message }, "finance : coffre des secrets invalide"));
+  const tenantConfig = new TenantProviderConfigSource({
+    db: runtime.tenantDb,
+    secrets,
+    audit,
+    clock: runtime.clock,
+    logger: runtime.logger,
+    ...configCacheMsOf(runtime.env),
+  });
+  // Configuration d'ENVIRONNEMENT : repli explicite seulement (déploiement mono-établissement, développement) ;
+  // la sandbox interne reste pilotée par l'environnement (`allowSandbox` d'un tenant de démonstration).
+  const envFallback = runtime.env.FINANCE_PROVIDER_ENV_FALLBACK === undefined ? isDevLikeEnvironment(environment) : runtime.env.FINANCE_PROVIDER_ENV_FALLBACK === "true";
+  const providers = createProviderRegistry({
+    environment,
+    logger: runtime.logger,
+    configSource: new CompositeConfigSource(tenantConfig, new EnvProviderConfigSource(runtime.env), {
+      allowEnvFallback: envFallback,
+      alwaysEnv: [SANDBOX_PROVIDER_NAME],
+    }),
+  });
+  registerPaymentProviders(providers, {
+    clock: runtime.clock,
+    logger: runtime.logger,
+    endpoints: endpointsFromEnv(runtime.env),
+    allowInsecureHttp: isDevLikeEnvironment(environment),
+  });
   const deps = createFinanceDeps({
     portsProvider: () => app.financePorts.current,
     db: runtime.tenantDb,
     clock: runtime.clock,
-    audit: financeAuditAdapter(runtime.auditPort),
+    audit,
     logger: runtime.logger,
-    providers: createProviderRegistry({
-      environment,
-      logger: runtime.logger,
-      configSource: new EnvProviderConfigSource(runtime.env),
-    }),
+    providers,
+    secrets,
+    providerConfigChanged: (tenantId, provider) => tenantConfig.invalidate(tenantId, provider || undefined),
     config: { environment, webhookBaseUrl: runtime.env.FINANCE_WEBHOOK_BASE_URL?.trim() || null, ...exportMaxRowsOf(runtime.env) },
   });
   await app.register(financePlugin, {

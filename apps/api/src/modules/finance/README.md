@@ -94,8 +94,9 @@ compteurs → chaîne d'audit** (l'audit est écrit en dernier, cf. `EventBuffer
 Port `PaymentProvider` (`application/ports/payment-provider.ts`) — contrat de l'interface historique en version
 typée `Result` / `Money` : `initiate`, `verify`, `handleWebhook`, `verifySignature`, `getProviderName`.
 La table de correspondance legacy ↔ port est dans l'en-tête du fichier. Les adaptateurs réels (Orange Money,
-MTN MoMo, Wave, CinetPay, TresorPay) ne sont **pas** écrits ici (Phase 3) ; `test/support/fake-provider.ts` prouve
-qu'un adaptateur se branche sans toucher au module.
+MTN MoMo, Wave, CinetPay, TresorPay) sont écrits dans `infrastructure/providers/` (voir « Adaptateurs de paiement réels »
+ci-dessous et `specs/v2/015-payments/`) ; `test/support/fake-provider.ts` prouve qu'un adaptateur se branche sans
+toucher au module.
 
 **Règle de sécurité** (`ProviderRegistry`) : hors `development`/`test`, un fournisseur **non configuré est
 refusé** (`finance.provider_not_configured`, seuls les *noms* des paramètres manquants sont exposés) et la
@@ -273,16 +274,65 @@ Couverture mesurée (v8, `--coverage` exige `@vitest/coverage-v8`, non encore un
 4. `apps/worker` : `jobs.ts` — `finance.mark-overdue-invoices` (quotidien 01:15, `markOverdueForAllTenants`, échec d'un tenant signalé). Les consommateurs de `finance.*` (notifications de retard, reçus PDF) restent à écrire (Phase 3) ; l'audit de finance est écrit directement dans la transaction (le module audit ne s'abonne pas aux événements `finance.*`).
 5. `EnvProviderConfigSource` met les clés en minuscules : `allowSandbox` s'exprime donc aussi `allowsandbox`.
 
+## Adaptateurs de paiement réels (spec 015-payments)
+
+Fichiers : `infrastructure/providers/{orange-money,mtn-momo,wave,cinetpay,tresorpay}.ts` (adaptateurs), `http.ts` (délais,
+reprises, journalisation expurgée), `token-cache.ts` (OAuth en cache, single-flight), `common.ts` (HMAC, temps constant,
+montants entiers stricts, références compactes, masquage), `catalog.ts` (champs de configuration, secrets ou non),
+`definitions.ts` (enregistrement + `endpointsFromEnv`). Zones d'incertitude documentaires : `specs/v2/015-payments/open-questions.md`.
+
+| Fournisseur | Initiation | Confirmation | Authenticité du webhook | Remboursement |
+|---|---|---|---|---|
+| Orange Money (`orange_money`) | `POST …/webpayment` (jeton OAuth) | `transactionstatus` | URL à jeton `?ref&t` **+ vérification active** | non |
+| MTN MoMo (`mtn_momo`) | `POST requesttopay` (référence UUID v4 dérivée du paiement ; 409 = rejeu) | `GET requesttopay/{id}` | URL à jeton `?t` **+ vérification active** | oui (zone d'incertitude) |
+| Wave (`wave`) | `POST checkout/sessions` (recherche par `client_reference` avant création) | `GET sessions/{id}` | `Wave-Signature` HMAC + horodatage ± 5 min, ou secret partagé | oui (total) |
+| CinetPay (`cinetpay`) | `POST /v2/payment` (montant multiple de 5) | `POST /v2/payment/check` | `x-token` HMAC **+ vérification active** | non |
+| TresorPay (`tresorpay`) | `POST /payments/initialize` (appel signé) | `GET /payments/{id}/verify` | `x-signature` HMAC | oui (contrat legacy, faible confiance) |
+
+* **Indice contre preuve** : un webhook sans signature de contenu est marqué `requiresActiveVerification` ; `handleProviderWebhook`
+  interroge `verify` AVANT d'ouvrir la transaction de confirmation, et refuse (409 `finance.webhook_unverified`, rien d'enregistré,
+  le fournisseur réessaie) si le fournisseur ne confirme pas ou est injoignable. Aucun appel sortant pour un paiement inconnu.
+* **Contrôles avant confirmation** (`applyProviderOutcome`) : montant et devise égaux, référence fournisseur identique à celle de
+  l'initiation, paiement non simulé hors développement ; sinon événement `FAILED` + audit `finance.webhook.rejected`, paiement inchangé.
+* **Mode explicite** : `mode = sandbox | production` sans défaut ; `sandbox` refusé en environnement `production`. Un fournisseur
+  désactivé répond `finance.provider_disabled`. Aucune simulation implicite.
+* **Aucun point d'accès configurable par un tenant** (SSRF) : URL de base dans le code ou `FINANCE_PROVIDER_<NOM>_[SANDBOX_]BASE_URL`.
+* Ports étendus (additifs) : `verifySignature/handleWebhook(…, meta)` (paramètres d'URL), `ProviderVerifyRequest.amount`,
+  `ProviderWebhookEvent.requiresActiveVerification / storedPayload`, `refund?`, `testConnection?`, `webhookUrl?`.
+* La route de webhook accepte `POST` et `PUT` (rappel MTN) ; elle lit aussi `application/x-www-form-urlencoded` en corps brut
+  (CinetPay). Aucun `GET` public (garde-fou d'assemblage D3b) : voir Q-PAY-27.
+
+### Configuration par tenant et coffre des secrets
+
+Table `finance.provider_configs` (migration 0505, RLS) : réglages non secrets en clair, secrets **scellés** AES-256-GCM
+(`SecretStorePort` → `AesGcmSecretStore`, trousseau `FINANCE_SECRETS_KEYS`, AAD `tenant|fournisseur|champ`, rotation par
+`POST /providers/rotate-secrets`) ; la base refuse une valeur non scellée (`finance.secrets_are_sealed`). Sans clé maître le coffre est
+indisponible : saisie refusée (`finance.secrets_unavailable`). `TenantProviderConfigSource` ouvre les secrets à l'usage (cache 15 s,
+ouverture auditée `finance.provider_secret.accessed`) ; `CompositeConfigSource` ne retombe sur l'environnement que si
+`FINANCE_PROVIDER_ENV_FALLBACK=true` (jamais par défaut en production).
+
+| Route (`/api/v1/finance`) | Rôle |
+|---|---|
+| `GET /providers` | catalogue + état du tenant (présence des secrets, jamais leur valeur), URL de webhook, dernier test |
+| `PUT /providers/:provider` | mode, réglages, secrets (omis = conservés), `clearSecrets`, `regenerateWebhookSecret` |
+| `PATCH /providers/:provider/status` | activer (configuration complète exigée) / désactiver |
+| `POST /providers/:provider/test` | test de connexion sans paiement (espacé de 3 s) |
+| `DELETE /providers/:provider/credentials` | efface les secrets et désactive |
+| `POST /providers/rotate-secrets` | rechiffre avec la clé active |
+
+Toutes : permission `finance.provider.manage` (**sensible**, MFA) ; chaque écriture est auditée (noms de champs, jamais de valeur).
+Écran : `apps/web/src/app/v2/finance/providers`.
+
 ## Câblage restant (hors périmètre de ce module)
 
 1. Annuaires : un adaptateur appelant l'API publique du module `academic` pour `LearnerDirectory` / `EnrollmentDirectory`.
-2. Enregistrer les adaptateurs de paiement réels dans le `ProviderRegistry` (`register({ name, requiredSettings, create })`) et fournir la
-   configuration par tenant (`ProviderConfigSource`).
+2. Job planifié de rattrapage des paiements en attente (assembler le registre + coffre dans le worker et appeler `verifyPendingPayment`).
+3. Branchement de `completeRefund` sur `PaymentProvider.refund` (décision métier : spec 015, Q-PAY-32).
 
 ## Décisions et limites connues
 
-* Un paiement en ligne n'est jamais remboursé *via* le fournisseur (le port n'a pas de `refund`) : le remboursement est comptable ; l'envoi
-  de l'argent est fait hors module (Phase 3 : méthode optionnelle `refund`).
+* Un remboursement n'est pas encore exécuté chez le fournisseur : le port expose `refund?` (Wave, MTN, TresorPay) mais `completeRefund`
+  reste comptable ; l'envoi de l'argent est fait hors module.
 * La sandbox garde son état en mémoire du processus : elle est réservée au développement et aux tests.
 * Une facture d'un financeur est payée par le financeur (`payerKind = FUNDER`, `payerRef` = id de la bourse) ; un paiement ne s'impute
   jamais sur la facture d'un autre payeur.

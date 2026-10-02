@@ -137,19 +137,19 @@ export const toAward = (r: AwardRow): DiplomaAward => ({
 // --- documents ----------------------------------------------------------------------------------------------------
 export const DOCUMENT_COLUMNS = `id, document_kind, award_id, student_id, program_node_id, reference, reference_year, reference_seq::text AS reference_seq,
   version, supersedes_id, status, snapshot_schema, snapshot, snapshot_hash, verification_code, signing_key_id, signature, template_key,
-  render_status, object_key, issued_at, issued_by, issued_by_name, published_at, revoked_at, revoke_reason`;
+  render_status, object_key, pdf_hash, issued_at, issued_by, issued_by_name, published_at, revoked_at, revoke_reason`;
 export interface DocumentRow {
   id: Uuid; document_kind: DocumentKind; award_id: Uuid | null; student_id: Uuid; program_node_id: Uuid | null; reference: string;
   reference_year: number; reference_seq: string; version: number; supersedes_id: Uuid | null; status: DocumentStatus; snapshot_schema: SnapshotSchema;
   snapshot: Record<string, unknown>; snapshot_hash: string; verification_code: string; signing_key_id: string | null; signature: string | null;
-  template_key: string | null; render_status: OfficialDocument["renderStatus"]; object_key: string | null; issued_at: Date; issued_by: Uuid;
+  template_key: string | null; render_status: OfficialDocument["renderStatus"]; object_key: string | null; pdf_hash: string | null; issued_at: Date; issued_by: Uuid;
   issued_by_name: string; published_at: Date | null; revoked_at: Date | null; revoke_reason: string | null;
 }
 export const toDocument = (r: DocumentRow): OfficialDocument => ({
   id: r.id, documentKind: r.document_kind, awardId: r.award_id, studentId: r.student_id, programNodeId: r.program_node_id, reference: r.reference,
   referenceYear: r.reference_year, referenceSeq: Number(r.reference_seq), version: r.version, supersedesId: r.supersedes_id, status: r.status,
   snapshotSchema: r.snapshot_schema, snapshot: r.snapshot, snapshotHash: r.snapshot_hash, verificationCode: r.verification_code,
-  signingKeyId: r.signing_key_id, signature: r.signature, templateKey: r.template_key, renderStatus: r.render_status, objectKey: r.object_key,
+  signingKeyId: r.signing_key_id, signature: r.signature, templateKey: r.template_key, renderStatus: r.render_status, objectKey: r.object_key, pdfHash: r.pdf_hash,
   issuedAt: r.issued_at, issuedBy: r.issued_by, issuedByName: r.issued_by_name, publishedAt: r.published_at, revokedAt: r.revoked_at, revokeReason: r.revoke_reason,
 });
 

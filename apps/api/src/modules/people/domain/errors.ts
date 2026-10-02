@@ -68,6 +68,11 @@ export const PeopleErrors = {
   identityAlreadyLinked: (): AppError => conflict("people.identity_already_linked", "Cette identité est déjà liée à une autre personne, ou la personne a déjà une identité."),
   storageUnavailable: (): AppError => new ConflictError("Le stockage de fichiers n'est pas disponible.", { code: "people.storage_unavailable" }),
   invalidImage: (message: string): AppError => invalid("people.invalid_image", message, "file"),
+  invalidDocument: (message: string): AppError => invalid("people.invalid_document", message, "file"),
+  documentNotFound: (id?: string): AppError => NotFoundError.of("Pièce", id, { code: "people.document_not_found" }),
+  documentExists: (typeCode: string): AppError =>
+    conflict("people.document_exists", "Une pièce de ce type existe déjà : remplacez-la pour garder l'historique.", { typeCode }),
+  documentNotActive: (): AppError => conflict("people.document_not_active", "Cette pièce a déjà été remplacée ou retirée."),
   retentionNotConfigured: (): AppError =>
     conflict("people.retention_not_configured", "La durée de conservation des dossiers n'est pas fixée : anonymisation impossible."),
   retentionNotElapsed: (eligibleOn: string): AppError => conflict("people.retention_not_elapsed", "Le délai de conservation n'est pas écoulé.", { eligibleOn }),

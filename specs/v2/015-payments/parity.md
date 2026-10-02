@@ -1,0 +1,21 @@
+# Parité legacy — 015-payments
+
+**Périmètre** : fournisseurs de paiement du legacy. Les fichiers `orange-money.service.ts`, `mtn-money.service.ts`, `wave.service.ts`, `tresorpay.service.ts`, `payment-provider.interface.ts` ont été retirés avec Imhotep (commit `59b53a8`, lus par `git show 59b53a8^:…`). `tresorpay-gateway.service.ts` et `routes/student-payments.ts` (scolarité) restent en ligne jusqu'à la bascule de la finance v2.
+
+Statuts : **Conservé**, **Amélioré**, **Abandonné**, **Reporté**. Lignes : état au 2026-10-02.
+
+| ID | Fonction legacy (fichier) | Comportement | Statut | Cible v2 | Justification |
+|---|---|---|---|---|---|
+| P-PAY-01 | `PaymentProviderService` (`payment-provider.interface.ts`) | `initiatePayment`, `verifyPayment`, `handleWebhook`, `verifySignature`, `getProviderName`, montants `number` | **Amélioré** | Port `PaymentProvider` (014) + extensions additives (`meta`, `requiresActiveVerification`, `refund?`, `testConnection?`) | Types `Money`, `Result`, corps brut. |
+| P-PAY-02 | Orange `initiatePayment` (jeton `oauth/v2/token`, `webhpayment`) | Appel si clés présentes, **sinon réponse simulée `*144#`** | **Amélioré** | `OrangeMoneyProvider` (Web Payment, jeton mis en cache) ; **aucun repli simulé** | Défaut du plan §3.12 : repli silencieux. |
+| P-PAY-03 | Orange `verifyPayment` | `// TODO`, renvoie toujours `pending`, montant 0 | **Amélioré** | `transactionstatus` (order_id, amount, pay_token) | Un paiement n'était jamais confirmé autrement que par webhook non authentifié. |
+| P-PAY-04 | Orange / MTN / Wave `verifySignature` | `return true` si secret absent, sinon `signature.length > 0` | **Abandonné** (faille) | HMAC / URL signée + vérification active ; `false` sans secret ; temps constant | Faille critique : n'importe qui pouvait confirmer un paiement. |
+| P-PAY-05 | Orange / MTN / Wave `handleWebhook` | `parseFloat(amount)`, `status` multiples, `paidAt = new Date()`, statut inconnu → `pending` | **Amélioré** | Montant entier strict, devise, référence ; statut inconnu → en attente ; `paidAt` du fournisseur | Exactitude monétaire. |
+| P-PAY-06 | MTN `requesttopay` (`X-Target-Environment: 'sandbox'` figé, `X-Reference-Id = enrollmentId`) | Mode figé en sandbox, identifiant non UUID | **Amélioré** | `X-Reference-Id` = identifiant du paiement (UUID), `X-Target-Environment` selon `mode`, `409` = rejeu | |
+| P-PAY-07 | Wave `checkout/sessions` (`amount` flottant, `Bearer apiKey`) | Création sans recherche ni vérification | **Amélioré** | Montant en chaîne d'entiers, `client_reference` = paiement, recherche avant création, `Wave-Signature` | |
+| P-PAY-08 | `tresorpay-gateway.service.ts` | Client signé HMAC, **repli simulé** (`mock_…`, vérification « completed 50 000 » factice), webhook HMAC `x-signature` | **Conservé** (contrat) / **Amélioré** (sécurité) | `TresorPayProvider` ; plus de simulation ; webhook : statut inconnu → en attente | Seul fournisseur lié à la scolarité en production dans le legacy. |
+| P-PAY-09 | `student-payments.ts` webhook : `createTresorPayService()` **par défaut** (configuration globale, pas de tenant) | Un seul compte marchand pour tous les tenants | **Abandonné** | Configuration par tenant chiffrée (`provider_configs`) ; URL `/webhooks/:provider/:tenantId` | Isolation de l'argent entre établissements. |
+| P-PAY-10 | `student-payments.ts` : `payment_transactions`, `gateway_response` JSON complet | Journal brut des réponses | **Amélioré** | `webhook_events.payload` expurgé | Pas de numéro complet ni de jeton stocké. |
+| P-PAY-11 | `carte-bancaire` (mentionné par le plan, jamais implémenté) | Carte via TresorPay | **Amélioré** | **CinetPay** (cartes + mobile money) | Agrégateur documenté publiquement. |
+| P-PAY-12 | Variables `ORANGE_MONEY_*`, `MTN_MONEY_*`, `WAVE_*`, `TRESORPAY_*` globales | Clés dans l'environnement du processus | **Abandonné** | `provider_configs` par tenant ; `FINANCE_PROVIDER_<NOM>_*` seulement en repli explicite | |
+| P-PAY-13 | `processRefund` (TresorPay) | Remboursement via l'API | **Conservé** (adaptateur) / **Reporté** (branchement) | `refund?` optionnelle du port : Wave, MTN, TresorPay ; le cas d'usage `completeRefund` reste comptable | Voir `open-questions.md` Q-PAY-32. |

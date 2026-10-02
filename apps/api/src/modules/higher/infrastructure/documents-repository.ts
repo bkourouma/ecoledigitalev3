@@ -85,7 +85,7 @@ export async function listDocumentsOfAward(tx: Tx, awardId: Uuid): Promise<Offic
 
 export async function listDocumentsOfStudent(tx: Tx, studentId: Uuid, publishedOnly: boolean): Promise<OfficialDocument[]> {
   const rows = await tx.many<DocumentRow>(
-    `SELECT ${DOCUMENT_COLUMNS} FROM higher.official_documents WHERE student_id = $1 ${publishedOnly ? "AND published_at IS NOT NULL AND status IN ('ISSUED', 'REVOKED')" : ""} ORDER BY issued_at DESC, id DESC`,
+    `SELECT ${DOCUMENT_COLUMNS} FROM higher.official_documents WHERE student_id = $1 ${publishedOnly ? "AND published_at IS NOT NULL AND status IN ('ISSUED', 'SUPERSEDED', 'REVOKED')" : ""} ORDER BY issued_at DESC, id DESC`,
     [studentId],
   );
   return rows.map(toDocument);
@@ -108,6 +108,12 @@ export async function listDocuments(
   const items = rows.slice(0, limit).map(toDocument);
   const last = items[items.length - 1];
   return { items, nextCursor: rows.length > limit && last ? encodeCursor({ a: last.issuedAt.toISOString(), i: last.id }) : null };
+}
+
+/** Le duplicata qui a remplacé ce document (le plus récent), pour la vérification publique d'un document remplacé. */
+export async function findSuperseding(tx: Tx, id: Uuid): Promise<OfficialDocument | null> {
+  const r = await tx.queryOne<DocumentRow>(`SELECT ${DOCUMENT_COLUMNS} FROM higher.official_documents WHERE supersedes_id = $1 ORDER BY version DESC LIMIT 1`, [id]);
+  return r ? toDocument(r) : null;
 }
 
 export async function markSuperseded(tx: Tx, id: Uuid): Promise<boolean> {

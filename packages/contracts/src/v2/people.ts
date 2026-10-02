@@ -372,6 +372,95 @@ export const peopleStudentSensitiveDtoSchema = z.object({
 });
 export type PeopleStudentSensitiveDto = z.infer<typeof peopleStudentSensitiveDtoSchema>;
 
+// ---------------------------------------------------------------------------
+// Pièces de l'élève (stockage objet, type réel contrôlé par octets magiques, URL signées, lectures auditées)
+// ---------------------------------------------------------------------------
+
+export const PEOPLE_STUDENT_DOCUMENT_TYPES = ["ID_CARD", "BIRTH_CERTIFICATE", "MEDICAL_CERTIFICATE", "PRIOR_REPORT", "TRANSFER_CERTIFICATE", "PHOTO_ID", "OTHER"] as const;
+export const peopleStudentDocumentTypeSchema = z.enum(PEOPLE_STUDENT_DOCUMENT_TYPES);
+export type PeopleStudentDocumentType = z.infer<typeof peopleStudentDocumentTypeSchema>;
+
+export const PEOPLE_DOCUMENT_CONTENT_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
+export const PEOPLE_DOCUMENT_STATUSES = ["ACTIVE", "REPLACED", "REMOVED"] as const;
+/** État d'échéance DÉRIVÉ à la lecture : `NO_EXPIRY`, `VALID`, `EXPIRING` (dans le préavis du tenant), `EXPIRED`. */
+export const PEOPLE_DOCUMENT_EXPIRY_STATES = ["NO_EXPIRY", "VALID", "EXPIRING", "EXPIRED"] as const;
+
+export const peopleStudentDocumentDtoSchema = z.object({
+  id: peopleUuidSchema,
+  studentId: peopleUuidSchema,
+  typeCode: peopleStudentDocumentTypeSchema,
+  title: z.string().nullable(),
+  fileName: z.string(),
+  contentType: z.enum(PEOPLE_DOCUMENT_CONTENT_TYPES),
+  sizeBytes: z.number().int().positive(),
+  sha256: z.string(),
+  version: z.number().int().positive(),
+  supersedesId: peopleUuidSchema.nullable(),
+  status: z.enum(PEOPLE_DOCUMENT_STATUSES),
+  issuedOn: peopleDateSchema.nullable(),
+  expiresOn: peopleDateSchema.nullable(),
+  expiryState: z.enum(PEOPLE_DOCUMENT_EXPIRY_STATES),
+  /** Jours restants avant l'échéance (négatif : échue) ; `null` sans date d'expiration. */
+  daysLeft: z.number().int().nullable(),
+  uploadedBy: peopleUuidSchema.nullable(),
+  uploadedAt: instant,
+  replacedAt: instant.nullable(),
+  removedAt: instant.nullable(),
+  removedReason: z.string().nullable(),
+});
+export type PeopleStudentDocumentDto = z.infer<typeof peopleStudentDocumentDtoSchema>;
+
+/** Métadonnées du dépôt : le FICHIER est le corps binaire de la requête (`PUT`), jamais un champ JSON. */
+export const peopleUploadStudentDocumentQuerySchema = z
+  .object({
+    typeCode: peopleStudentDocumentTypeSchema,
+    fileName: text(200),
+    title: text(200).optional(),
+    issuedOn: peopleDateSchema.optional(),
+    expiresOn: peopleDateSchema.optional(),
+  })
+  .strict()
+  .refine((q) => !q.issuedOn || !q.expiresOn || q.expiresOn >= q.issuedOn, { message: "L'expiration précède la date d'émission.", path: ["expiresOn"] });
+export type PeopleUploadStudentDocumentQuery = z.infer<typeof peopleUploadStudentDocumentQuerySchema>;
+
+/** Remplacement : même métadonnées, le type est celui de la pièce remplacée. */
+export const peopleReplaceStudentDocumentQuerySchema = z
+  .object({
+    fileName: text(200),
+    title: text(200).optional(),
+    issuedOn: peopleDateSchema.optional(),
+    expiresOn: peopleDateSchema.optional(),
+  })
+  .strict()
+  .refine((q) => !q.issuedOn || !q.expiresOn || q.expiresOn >= q.issuedOn, { message: "L'expiration précède la date d'émission.", path: ["expiresOn"] });
+export type PeopleReplaceStudentDocumentQuery = z.infer<typeof peopleReplaceStudentDocumentQuerySchema>;
+
+export const peopleUpdateStudentDocumentBodySchema = z
+  .object({ title: text(200).nullable().optional(), issuedOn: peopleDateSchema.nullable().optional(), expiresOn: peopleDateSchema.nullable().optional() })
+  .strict()
+  .refine((b) => Object.keys(b).length > 0, "Aucune modification.");
+export type PeopleUpdateStudentDocumentBody = z.infer<typeof peopleUpdateStudentDocumentBodySchema>;
+
+export const peopleRemoveStudentDocumentBodySchema = z.object({ reason: z.string().trim().min(5, "Motif de 5 caractères minimum.").max(500) }).strict();
+export type PeopleRemoveStudentDocumentBody = z.infer<typeof peopleRemoveStudentDocumentBodySchema>;
+
+export const peopleListStudentDocumentsQuerySchema = z
+  .object({
+    /** `true` : y compris les versions remplacées et les pièces retirées (historique). */
+    includeHistory: z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean()).optional(),
+    expiry: z.enum(["EXPIRING", "EXPIRED"]).optional(),
+  })
+  .strict();
+export type PeopleListStudentDocumentsQuery = z.infer<typeof peopleListStudentDocumentsQuerySchema>;
+
+export const peopleStudentDocumentUrlDtoSchema = z.object({
+  url: z.string(),
+  expiresInSec: z.number().int().positive(),
+  fileName: z.string(),
+  contentType: z.enum(PEOPLE_DOCUMENT_CONTENT_TYPES),
+});
+export type PeopleStudentDocumentUrlDto = z.infer<typeof peopleStudentDocumentUrlDtoSchema>;
+
 export const peopleStatusHistoryDtoSchema = z.object({
   id: peopleUuidSchema,
   fromStatus: z.string().nullable(),
@@ -1126,6 +1215,7 @@ export const PEOPLE_EVENTS = {
   staffContractCreated: "people.staff_contract.created",
   staffContractEnded: "people.staff_contract.ended",
   staffQualificationExpiring: "people.staff_qualification.expiring",
+  studentDocumentExpiring: "people.student_document.expiring",
   teachingAssignmentCreated: "people.teaching_assignment.created",
   teachingAssignmentEnded: "people.teaching_assignment.ended",
   teachingAssignmentReplaced: "people.teaching_assignment.replaced",
@@ -1183,6 +1273,7 @@ export const peopleEventPayloadSchemas = {
   "people.staff_contract.created": peopleEv({ staffId: peopleUuidSchema, contractId: peopleUuidSchema, contractTypeCode: z.string(), startsOn: peopleDateSchema }),
   "people.staff_contract.ended": peopleEv({ staffId: peopleUuidSchema, contractId: peopleUuidSchema, endsOn: peopleDateSchema }),
   "people.staff_qualification.expiring": peopleEv({ staffId: peopleUuidSchema, qualificationId: peopleUuidSchema, expiresOn: peopleDateSchema, daysLeft: z.number().int() }),
+  "people.student_document.expiring": peopleEv({ studentId: peopleUuidSchema, documentId: peopleUuidSchema, typeCode: peopleStudentDocumentTypeSchema, expiresOn: peopleDateSchema, daysLeft: z.number().int() }),
   "people.teaching_assignment.created": peopleEv({ ...peopleAssignmentRef, curriculumNodeId: peopleUuidSchema.nullable(), roleCode: z.string() }),
   "people.teaching_assignment.ended": peopleTeachingAssignmentEndedPayloadSchema,
   "people.teaching_assignment.replaced": peopleEv({

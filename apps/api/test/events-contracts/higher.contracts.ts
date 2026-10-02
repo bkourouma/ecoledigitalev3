@@ -1,5 +1,6 @@
 /** Définition des contrats d'événements consommés par `higher` (abonnés : `modules/higher/subscribers.ts`). */
 import { parseCreditsCapitalized, parsePeriodClosed } from "../../src/modules/higher/application/consumers";
+import { parseDocumentEvent } from "../../src/modules/higher/application/files";
 import type { EventContract } from "./support";
 
 export const contracts: EventContract[] = [
@@ -29,4 +30,7 @@ export const contracts: EventContract[] = [
     ],
     reader: parseCreditsCapitalized,
   },
+  // Rendu PDF des documents officiels (abonnés du worker `higher.render-document[-requested]`).
+  { consumer: "higher", event: "higher.document.issued", reads: [{ field: "documentId", kind: "uuid" }], reader: parseDocumentEvent },
+  { consumer: "higher", event: "higher.document.render_requested", reads: [{ field: "documentId", kind: "uuid" }], reader: parseDocumentEvent },
 ];

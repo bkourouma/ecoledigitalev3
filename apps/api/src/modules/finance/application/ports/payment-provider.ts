@@ -75,6 +75,8 @@ export interface ProviderInitiation {
 export interface ProviderVerifyRequest {
   readonly paymentId: string;
   readonly providerRef: string | null;
+  /** Montant ATTENDU (notre base) : certains fournisseurs l'exigent pour interroger le statut (Orange Money). */
+  readonly amount?: Money;
 }
 
 export interface ProviderVerification {
@@ -96,6 +98,41 @@ export interface ProviderWebhookEvent {
   readonly status: ProviderPaymentStatus;
   readonly amount: Money | null;
   readonly occurredAt: Date | null;
+  /**
+   * Le webhook n'est qu'un INDICE (aucune signature de contenu : Orange Money, MTN MoMo, CinetPay) : le cas d'usage
+   * interroge `verify` AVANT de croire le statut et le montant. Sans cette marque, la signature fait foi.
+   */
+  readonly requiresActiveVerification?: boolean;
+  /** Contenu expurgé (numéros masqués, jetons retirés) conservé dans `webhook_events.payload` ; sinon le corps brut. */
+  readonly storedPayload?: unknown;
+}
+
+/** Contexte de la requête de webhook hors en-têtes (paramètres d'URL signés). */
+export interface ProviderWebhookMeta {
+  readonly query?: Readonly<Record<string, string>>;
+  /** Tenant de l'URL : certains schémas lient la signature au tenant. */
+  readonly tenantId?: string;
+}
+
+export interface ProviderRefundRequest {
+  readonly paymentId: string;
+  readonly providerRef: string | null;
+  readonly amount: Money;
+  /** Identifiant (stable) du remboursement : référence d'idempotence côté fournisseur. */
+  readonly refundId: string;
+  readonly reason?: string;
+}
+
+export interface ProviderRefundResult {
+  readonly status: "PENDING" | "SUCCEEDED" | "FAILED";
+  readonly providerRefundRef: string | null;
+  readonly failureReason?: string;
+}
+
+export interface ProviderConnectionCheck {
+  /** Code court (jamais un message du fournisseur) : `ok`, `credentials_rejected`, `unreachable`… */
+  readonly code: string;
+  readonly ok: boolean;
 }
 
 export interface PaymentProvider {
@@ -105,7 +142,13 @@ export interface PaymentProvider {
   initiate(request: ProviderInitiateRequest): Promise<Result<ProviderInitiation, AppError>>;
   verify(request: ProviderVerifyRequest): Promise<Result<ProviderVerification, AppError>>;
   /** Authenticité du webhook. Doit renvoyer `false` (jamais `true`) si le secret manque. */
-  verifySignature(rawBody: string, headers: ProviderHeaders): boolean;
+  verifySignature(rawBody: string, headers: ProviderHeaders, meta?: ProviderWebhookMeta): boolean;
   /** Analyse un webhook DÉJÀ authentifié. */
-  handleWebhook(rawBody: string, headers: ProviderHeaders): Promise<Result<ProviderWebhookEvent, AppError>>;
+  handleWebhook(rawBody: string, headers: ProviderHeaders, meta?: ProviderWebhookMeta): Promise<Result<ProviderWebhookEvent, AppError>>;
+  /** Remboursement chez le fournisseur (facultatif : absent quand l'API publique n'en offre pas). */
+  refund?(request: ProviderRefundRequest): Promise<Result<ProviderRefundResult, AppError>>;
+  /** Contrôle des identifiants SANS jamais créer de paiement (écran d'administration). */
+  testConnection?(): Promise<Result<ProviderConnectionCheck, AppError>>;
+  /** URL de webhook à afficher, éventuellement porteuse d'un jeton (schémas « URL secrète »). */
+  webhookUrl?(baseUrl: string, tenantId: string): string;
 }

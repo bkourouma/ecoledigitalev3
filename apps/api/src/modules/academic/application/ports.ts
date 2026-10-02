@@ -242,6 +242,32 @@ export const noInvoiceFacts: InvoiceFactsReader = Object.freeze({
 /** Catégorie de ligne de facture qui désigne les frais d'inscription (convention de finance : `REGISTRATION`). */
 export const REGISTRATION_FEE_CATEGORY = "REGISTRATION";
 
+// ---------------------------------------------------------------------------
+// results
+// ---------------------------------------------------------------------------
+
+/**
+ * Décision de passage de fin d'année d'une inscription, telle que `results` l'a CONFIRMÉE. academic ne la calcule jamais :
+ * il la lit (reconduction annuelle) quand l'inscription n'a pas d'issue enregistrée à la main.
+ */
+export interface PromotionDecision {
+  enrollmentId: string;
+  /** Nature de la décision : passage au niveau suivant, redoublement, sortie. */
+  kind: "ADVANCE" | "REPEAT" | "EXIT";
+  /** Code de la décision côté `results` (traçabilité), jamais un libellé. */
+  sourceCode: string | null;
+}
+
+export interface PromotionDecisionPort {
+  /** Décisions confirmées de l'année source pour ces inscriptions ; une inscription sans décision confirmée est omise. */
+  listDecisions(ctx: RequestContext, input: { academicYearId: string; enrollmentIds: readonly string[] }): Promise<PromotionDecision[]>;
+}
+export const noPromotionDecisions: PromotionDecisionPort = Object.freeze({
+  async listDecisions(): Promise<PromotionDecision[]> {
+    return [];
+  },
+});
+
 export interface AcademicPorts {
   students: StudentDirectory;
   guardianship: GuardianshipPort;
@@ -255,6 +281,7 @@ export interface AcademicPorts {
   institutions: InstitutionDirectory;
   registrationFee: RegistrationFeeProbe;
   invoiceFacts: InvoiceFactsReader;
+  promotions: PromotionDecisionPort;
 }
 
 export const DEFAULT_PORTS: AcademicPorts = Object.freeze({
@@ -269,4 +296,5 @@ export const DEFAULT_PORTS: AcademicPorts = Object.freeze({
   institutions: anyInstitution,
   registrationFee: unknownRegistrationFee,
   invoiceFacts: noInvoiceFacts,
+  promotions: noPromotionDecisions,
 });

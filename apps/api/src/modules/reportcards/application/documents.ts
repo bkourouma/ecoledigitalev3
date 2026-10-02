@@ -19,6 +19,7 @@ import { generateVerificationCode } from "../domain/signing";
 import * as cardsRepo from "../infrastructure/cards-repository";
 import { getPlatformTemplate } from "../infrastructure/reference-repository";
 import { inTx, type ReportcardsDeps } from "./deps";
+import { ensureSigningKeyRegistered } from "./platform";
 import { buildVerificationInfo } from "./render-support";
 
 export interface SealedDocument {
@@ -45,6 +46,33 @@ export function sealDocument(deps: ReportcardsDeps, input: { kind: string; snaps
   }
   const code = generateVerificationCode();
   return ok({ snapshotHash: hash, verificationCode: code, signature: keys.sign({ snapshotHash: hash, verificationCode: code, issuedAt: input.issuedAt }), keyId: keys.keyId, issuedAt: input.issuedAt });
+}
+
+/**
+ * Signe une empreinte DÉJÀ calculée par le module émetteur (019 garde sa propre forme canonique `diploma/1`) : signature
+ * Ed25519 de `(empreinte, code, date d'émission)` et enregistrement idempotent de la clé publique (`signing_keys`) pour que
+ * la vérification publique puisse la relire. Le message signé est celui des bulletins (`ed-rc/v1`).
+ */
+export async function signDocumentHash(
+  deps: ReportcardsDeps,
+  input: { kind: string; snapshotHash: string; verificationCode: string; issuedAt: Date },
+  options: { registerKey?: boolean } = {},
+): Promise<Result<{ signature: string; keyId: string }, AppError>> {
+  if (!isKnownDocumentKind(input.kind)) return err(invalid(`Nature de document inconnue (${input.kind}).`, ReportcardsCode.UNKNOWN_DOCUMENT_KIND));
+  if (!/^[0-9a-f]{64}$/.test(input.snapshotHash)) return err(invalid("Empreinte de snapshot invalide.", ReportcardsCode.INVALID_SNAPSHOT));
+  const keys = deps.keys;
+  if (!keys) return err(conflict("Aucune clé de signature n'est configurée.", ReportcardsCode.SIGNING_KEY_MISSING));
+  // `registerKey: false` : l'appelant a déjà enregistré la clé HORS transaction (c'est un accès SYSTÈME, interdit dans une transaction de tenant).
+  if (options.registerKey !== false) {
+    const registered = await ensureSigningKeyRegistered(deps);
+    if (!registered.ok) return registered;
+  }
+  return ok({ signature: keys.sign({ snapshotHash: input.snapshotHash, verificationCode: input.verificationCode, issuedAt: input.issuedAt }), keyId: keys.keyId });
+}
+
+/** Inscrit l'empreinte du PDF émis (reconnaissance d'un fichier téléversé), dans la transaction de l'appelant. */
+export async function registerFileHashFor(tx: Tx, ctx: RequestContext, input: { pdfHash: string; code: string }): Promise<void> {
+  await cardsRepo.registerFileHash(tx, { pdfHash: input.pdfHash, code: input.code, tenantId: ctx.tenantId });
 }
 
 /** Inscrit le code dans l'index public, dans la transaction de l'appelant (le tenant courant est imposé par la RLS). */

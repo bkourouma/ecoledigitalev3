@@ -200,12 +200,63 @@ async function describeOfficial(deps: ReportcardsDeps, tenantId: string, documen
   });
 }
 
+/**
+ * Vérification d'un document émis par un autre module qui garde SON snapshot (`deps.ports.external[nature]` : diplômes et
+ * attestations du supérieur) : même contrat de réponse que pour un bulletin — réponse minimale, uniformité (inconnu / sans
+ * vérificateur / code différent : `null`), intégrité (empreinte recalculée par l'émetteur ET signature Ed25519 revérifiée contre
+ * la clé publique, y compris retirée), remplacement et révocation.
+ */
+async function describeExternal(deps: ReportcardsDeps, target: { tenantId: string; documentKind: string; documentId: string }, code: string): Promise<{ result: PublicVerification; card: LoggedDocument } | null> {
+  const system = deps.systemDb;
+  if (!system) throw portUnavailable("SystemDb");
+  const verifier = deps.ports.external[target.documentKind];
+  if (!verifier) return null;
+  if (deps.verificationEnabled && !(await deps.verificationEnabled(target.tenantId))) return null;
+  const facts = await verifier.describe(target.tenantId, target.documentId);
+  if (!facts || facts.verificationCode !== code || !facts.signature || !facts.signingKeyId) return null;
+  const keyId = facts.signingKeyId;
+  const key = await system.run("public-verification", (tx) => platformRepo.getSigningKey(tx, keyId), { readOnly: true });
+  const hashValid = facts.snapshotHash === facts.recomputedHash;
+  const signatureValid = Boolean(key) && verifyDocumentSignature(key!.publicKey, { snapshotHash: facts.snapshotHash, verificationCode: code, issuedAt: facts.issuedAt }, facts.signature);
+  let status: VerificationStatus;
+  let message: string;
+  if (!hashValid || !signatureValid) {
+    status = "INVALID";
+    message = MESSAGES.INVALID;
+  } else if (facts.status === "REVOKED") {
+    status = "REVOKED";
+    message = MESSAGES.REVOKED;
+  } else if (facts.status === "SUPERSEDED") {
+    status = "SUPERSEDED";
+    message = `Document remplacé par une version plus récente émise le ${formatDateFr((facts.supersededByIssuedAt ?? facts.issuedAt).toISOString())}.`;
+  } else {
+    status = "AUTHENTIC";
+    message = MESSAGES.AUTHENTIC;
+  }
+  const result: PublicVerification = {
+    status,
+    documentKind: target.documentKind,
+    institutionName: facts.institutionName,
+    title: facts.title,
+    issuedAt: facts.issuedAt,
+    mention: null,
+    supersededByIssuedAt: status === "SUPERSEDED" ? facts.supersededByIssuedAt : null,
+    revokedAt: status === "REVOKED" ? facts.revokedAt : null,
+    keyId,
+    keyFingerprint: key ? publicKeyFingerprint(key.publicKey) : null,
+    snapshotHash: facts.snapshotHash,
+    signature: facts.signature,
+    message,
+  };
+  return { result, card: { id: target.documentId, documentKind: target.documentKind } };
+}
+
 const OFFICIAL_KINDS: ReadonlySet<string> = new Set(["RECEIPT", "PAYSLIP"]);
 
-/** Résout un code vers un bulletin / relevé OU un document officiel d'un autre module. */
+/** Résout un code vers un bulletin / relevé, un document officiel d'un autre module (reçu, paie) OU un document à vérificateur externe (diplôme, attestation). */
 async function describeAny(deps: ReportcardsDeps, target: { tenantId: string; documentKind: string; documentId: string }, code: string): Promise<{ result: PublicVerification; card: LoggedDocument } | null> {
   if (OFFICIAL_KINDS.has(target.documentKind)) return describeOfficial(deps, target.tenantId, target.documentId, code);
-  if (target.documentKind !== "REPORT_CARD" && target.documentKind !== "TRANSCRIPT") return null;
+  if (target.documentKind !== "REPORT_CARD" && target.documentKind !== "TRANSCRIPT") return describeExternal(deps, target, code);
   const described = await describe(deps, target.tenantId, target.documentId, code);
   return described ? { result: described.result, card: { id: described.card.id, documentKind: described.card.documentKind } } : null;
 }

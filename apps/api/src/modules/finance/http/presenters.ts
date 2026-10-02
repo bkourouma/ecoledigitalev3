@@ -29,6 +29,8 @@ import type {
 } from "../domain/records";
 import type { Scholarship } from "../domain/scholarship";
 import type { IsoDate } from "../domain/types";
+import type { FinanceProviderDto, FinanceProviderListDto, FinanceProviderName } from "@ecoledigitale/contracts/src/v2/finance";
+import type { ProviderListView, ProviderView } from "../application/provider-admin";
 import type { PaymentView } from "../application/billing-core";
 import type { OnlinePaymentResult } from "../application/online-payments";
 import type { InvoicePreview, LearnerStatement } from "../application/invoices";
@@ -432,3 +434,44 @@ export const familyStatementDto = (s: FamilyStatement) => ({
     unallocatedPayments: money(s.totals.unallocatedPayments),
   },
 });
+
+// ---------------------------------------------------------------------------
+// Fournisseurs de paiement (spec 015) : jamais un secret, seulement « enregistré ou non »
+// ---------------------------------------------------------------------------
+
+export function providerDto(v: ProviderView): FinanceProviderDto {
+  return {
+    provider: v.provider as FinanceProviderName,
+    label: v.label,
+    description: v.description,
+    enabled: v.enabled,
+    configured: v.configured,
+    complete: v.complete,
+    missing: [...v.missing],
+    mode: v.mode,
+    sandboxAllowed: v.sandboxAllowed,
+    supportsRefund: v.supportsRefund,
+    webhookAuth: v.webhookAuth,
+    webhookUrl: v.webhookUrl,
+    fields: v.fields.map((f) => ({
+      key: f.key,
+      label: f.label,
+      secret: f.secret,
+      required: f.required,
+      kind: f.kind,
+      ...(f.options ? { options: [...f.options] } : {}),
+      ...(f.defaultValue ? { defaultValue: f.defaultValue } : {}),
+      generated: f.generated,
+      ...(f.help ? { help: f.help } : {}),
+      isSet: f.isSet,
+      // Défense en profondeur : la valeur d'un secret n'est JAMAIS sérialisée, même si une vue la portait par erreur.
+      value: f.secret ? null : f.value,
+    })),
+    lastTest: v.lastTest ? { at: v.lastTest.at.toISOString(), ok: v.lastTest.ok, code: v.lastTest.code } : null,
+    updatedAt: v.updatedAt ? v.updatedAt.toISOString() : null,
+  };
+}
+
+export function providerListDto(v: ProviderListView): FinanceProviderListDto {
+  return { items: v.items.map(providerDto), secretsAvailable: v.secretsAvailable, environment: v.environment };
+}

@@ -934,11 +934,11 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
   });
 
   // ===========================================================================================================
-  describe("(10) diplôme et attestation de réussite (higher) : octroi, documents officiels émis, numérotés, publiés (scellement : D-P2-10)", () => {
+  describe("(10) diplôme et attestation de réussite (higher) : octroi, documents officiels émis, numérotés, publiés (scellement, PDF et vérification publique)", () => {
     const dir = (): Actor => W.directeur as Actor;
     let diplomaId: string;
     let awardId: string;
-    const docs: { diploma?: { id: string; verificationCode: string }; attestation?: { id: string; verificationCode: string } } = {};
+    const docs: { diploma?: { id: string; verificationCode: string }; attestation?: { id: string; verificationCode: string }; diplomaPdf?: Buffer } = {};
 
     it("le programme devient un cycle ; le diplôme (LICENCE) est dérivé du curriculum : exigences = les UE du cycle, par lignée", async () => {
       await own().patch(`/api/v1/academic/programs/${W.programId}`, { isCycle: true });
@@ -988,6 +988,13 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
         const pub = await dir().post(`/api/v1/higher/documents/${d.id}/publish`, {});
         expect(pub.body.publishedAt).toBeTruthy();
       }
+      // Le worker SCELLE (signature Ed25519 de l'empreinte) puis RAND chaque document (événement higher.document.issued).
+      for (const d of [docs.diploma!, docs.attestation]) {
+        await waitFor(async () => {
+          const doc = (await dir().get(`/api/v1/higher/documents/${d.id}`)).body;
+          return doc.sealed === true && doc.renderStatus === "RENDERED";
+        }, { label: `scellement et PDF du document ${d.id}`, timeoutMs: 90_000 });
+      }
       // Numérotation sans trou et snapshots immuables : une référence par document, distinctes.
       const list = await dir().get("/api/v1/higher/documents");
       const refs = (list.body.items as Array<{ reference: string }>).map((d) => d.reference);
@@ -1004,11 +1011,60 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       expect(diploma.body.status).toBe("ISSUED");
     });
 
-    // LIMITE CONNUE (voir docs/architecture/phase2-exit.md, D-P2-10) : `higher` ne scelle pas ses documents. Aucun adaptateur
-    // ne relie `higher.issueAwardDocument` à `reportcards.sealDocument` / `registerVerificationFor` : le diplôme n'est ni signé,
-    // ni rendu en PDF, et son code n'est pas résolu par la vérification publique (qui ne connaît que REPORT_CARD et TRANSCRIPT).
-    // C'est une fonctionnalité à construire (port de scellement + résolveur de statut), pas un câblage oublié.
-    it.todo("diplôme et attestation : scellement Ed25519, rendu PDF par le worker et vérification publique (/api/v1/public/verify/:code) — D-P2-10");
+    it("le PDF du diplôme : URL signée à durée courte, octets %PDF-, accès réservé (étudiant tiers : refus) ; l'URL n'expose aucun chemin de stockage", async () => {
+      const dl = await dir().get(`/api/v1/higher/documents/${docs.diploma!.id}/pdf`);
+      expect(dl.body).toMatchObject({ status: "READY", contentType: "application/pdf", expiresInSec: 120 });
+      expect(dl.body.pdfHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(dl.body.url).not.toContain("tenants/");
+      const u = new URL(dl.body.url);
+      const file = await p.app.inject({ method: "GET", url: `${u.pathname}${u.search}` });
+      expect(file.statusCode).toBe(200);
+      expect(file.rawPayload.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+      docs.diplomaPdf = file.rawPayload;
+      // Sans authentification : refus.
+      expect((await p.http("GET", `/api/v1/higher/documents/${docs.diploma!.id}/pdf`)).status).toBe(401);
+    });
+
+    it("vérification PUBLIQUE du diplôme (code de higher) : AUTHENTIQUE, signature relue, aucune donnée personnelle ; fichier téléversé reconnu, fichier modifié non", async () => {
+      const res = await p.http("GET", `/api/v1/public/verify/${docs.diploma!.verificationCode}`);
+      expectStatus(res, 200);
+      expect(res.body).toMatchObject({ status: "AUTHENTIC", documentKind: "DIPLOMA", institutionName: "Université Horizon", keyId: p.signingKeyId });
+      expect(res.body.title).toContain("Licence d'Informatique");
+      const dump = JSON.stringify(res.body);
+      expect(dump).not.toContain("ETUDIANT");
+      expect(dump).not.toContain("2005-");
+      // La signature est vérifiable HORS LIGNE avec la clé publique publiée, comme celle d'un bulletin.
+      const wk = await p.http("GET", "/.well-known/ecoledigitale-keys.json");
+      const key = (wk.body.keys as Array<{ keyId: string; publicKey: string }>).find((k) => k.keyId === p.signingKeyId)!;
+      const issuedAt = new Date(res.body.issuedAt).toISOString();
+      const message = Buffer.concat([Buffer.from("ed-rc/v1"), Buffer.from([0]), Buffer.from(res.body.snapshotHash), Buffer.from([0]), Buffer.from(docs.diploma!.verificationCode), Buffer.from([0]), Buffer.from(issuedAt)]);
+      expect(edVerify(null, message, createPublicKey({ key: Buffer.from(key.publicKey, "base64"), format: "der", type: "spki" }), Buffer.from(res.body.signature, "base64"))).toBe(true);
+      // Fichier téléversé : le PDF émis est reconnu ; une copie modifiée ne l'est pas.
+      const upload = (bytes: Buffer) => p.app.inject({ method: "POST", url: "/api/v1/public/verify/upload", headers: { "content-type": "application/pdf" }, payload: bytes });
+      const same = await upload(docs.diplomaPdf!);
+      expect(same.statusCode).toBe(200);
+      expect(same.json()).toMatchObject({ match: true, status: "AUTHENTIC" });
+      expect((await upload(Buffer.concat([docs.diplomaPdf!, Buffer.from(" ")]))).json()).toMatchObject({ match: false });
+    });
+
+    it("l'attestation révoquée est RÉVOQUÉE pour le public (et son PDF n'est plus servi) ; un duplicata du diplôme remplace l'original (REMPLACÉ), les deux restent vérifiables", async () => {
+      const att = await p.http("GET", `/api/v1/public/verify/${docs.attestation!.verificationCode}`);
+      expectStatus(att, 200);
+      expect(att.body.status).toBe("REVOKED");
+      expect(att.body.revokedAt).toBeTruthy();
+      const gone = await dir().raw("GET", `/api/v1/higher/documents/${docs.attestation!.id}/pdf`);
+      expect(gone.status).toBe(409);
+      expect(gone.body.code).toBe("higher.document_revoked");
+
+      const dup = await dir().post(`/api/v1/higher/awards/${awardId}/documents`, { kind: "DIPLOMA", duplicate: true }, [200, 201]);
+      const duplicate = { id: dup.body.document.id as string, code: dup.body.document.verificationCode as string };
+      expect(dup.body.created).toBe(true);
+      await waitFor(async () => (await dir().get(`/api/v1/higher/documents/${duplicate.id}`)).body.renderStatus === "RENDERED", { label: "PDF du duplicata", timeoutMs: 90_000 });
+      expect((await p.http("GET", `/api/v1/public/verify/${docs.diploma!.verificationCode}`)).body.status).toBe("SUPERSEDED");
+      expect((await p.http("GET", `/api/v1/public/verify/${duplicate.code}`)).body.status).toBe("AUTHENTIC");
+      // Les codes fournis par higher sont ceux de la vérification publique : jamais deux codes pour un document.
+      expect(docs.diploma!.verificationCode).toMatch(/^[A-Z2-7]{26}$/);
+    });
   });
 
   // ===========================================================================================================
@@ -1504,7 +1560,13 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 2 — une année
       const failures: string[] = [];
       for (const name of names) {
         try {
-          const outcome = await scheduler.run(name, `p2-${name}`.slice(0, 80));
+          // Un job planifié à la minute peut être en cours d'exécution PAR LE PLANIFICATEUR au moment du déclenchement manuel :
+          // `skipped/locked` n'est pas un échec (le verrou fait son travail), on réessaie un court instant.
+          let outcome = await scheduler.run(name, `p2-${name}`.slice(0, 80));
+          for (let attempt = 0; attempt < 10 && outcome.status === "skipped" && (outcome as { reason?: string }).reason === "locked"; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            outcome = await scheduler.run(name, `p2-${name}`.slice(0, 80));
+          }
           if (outcome.status !== "completed") failures.push(`${name} : ${JSON.stringify(outcome)}`);
         } catch (e) {
           failures.push(`${name} : ${e instanceof Error ? e.message : String(e)}`);

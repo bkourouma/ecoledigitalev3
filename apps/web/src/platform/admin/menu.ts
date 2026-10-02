@@ -23,6 +23,7 @@ export const LEGACY_TO_V2_HREF: Readonly<Record<string, string>> = Object.freeze
   "/admin/finance/frais": "/v2/finance/fees",
   "/admin/finance/rapports": "/v2/finance/reports",
   "/admin/finance/affectes-etat": "/v2/finance/funding",
+  "/admin/finance/fournisseurs": "/v2/finance/providers",
   "/admin/paie": "/v2/payroll",
   "/admin/paie/configuration": "/v2/payroll/configuration",
   "/admin/paie/historique": "/v2/payroll/history",

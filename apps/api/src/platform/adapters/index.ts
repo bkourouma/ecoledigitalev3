@@ -32,7 +32,7 @@ import { audit as auditService } from "../../modules/audit";
 import { registerMessagingPorts, setMessagingWorkerPorts, type MessagingPorts } from "../../modules/messaging";
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
-import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorkerResources, type ReportcardsPorts } from "../../modules/reportcards";
+import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorkerResources, type PdfRenderer, type ReportcardsPorts } from "../../modules/reportcards";
 import { createOfficialDocumentDeps, type OfficialDocumentDepsOptions } from "./official-documents";
 import { registerResultsPorts, setResultsWorkerPorts, type ResultsPorts } from "../../modules/results";
 import { registerSchedulingPorts } from "../../modules/scheduling";
@@ -64,6 +64,8 @@ import { createResultsActorNamePort, createResultsGuardianshipPort } from "./peo
 import { createSchedulingPeopleQuery } from "./people-scheduling";
 import { createPayrollAttendanceHours, createPayrollSessionHours } from "./payroll-sources";
 import { createHigherInstitutionPort, createHigherSignatoryDirectory } from "./reportcards-higher";
+import { createHigherDocumentFiles, createHigherDocumentVerifier } from "./reportcards-higher-documents";
+import { createAcademicPromotionDecisions } from "./results-academic";
 import { createReportcardsResultsRead } from "./results-reportcards";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
@@ -102,9 +104,10 @@ export function buildPlatformPorts(
   kit: AdapterKit,
   storage: ObjectStorage | null,
   documents: OfficialDocumentDepsOptions = {},
-  options: { audit?: Pick<RuntimeAuditPort, "record"> } = {},
+  extras: { documentRenderer?: PdfRenderer; audit?: Pick<RuntimeAuditPort, "record"> } = {},
 ): PlatformPorts {
   const officialDocuments = createOfficialDocumentDeps(kit, storage, documents);
+  const documentRenderer = extras.documentRenderer;
   const { academic, people, finance, attendance, scheduling, results, reportcards, assess, higher, rules, lookups, clock } = kit;
   const messagingDirectory = createMessagingPeopleDirectory({ people, academic, lookups, tenantDb: kit.tenantDb, clock });
   const base: Omit<PlatformPorts, "imports"> = {
@@ -117,6 +120,7 @@ export function buildPlatformPorts(
       completion: createAcademicCompletionLookup(higher, academic),
       registrationFee: createAcademicRegistrationFeeProbe(finance, academic, clock),
       invoiceFacts: createAcademicInvoiceFactsReader(finance),
+      promotions: createAcademicPromotionDecisions(results),
     },
     people: {
       academic: createPeopleAcademicQuery(academic),
@@ -166,6 +170,12 @@ export function buildPlatformPorts(
       guardianship: createReportcardsGuardianshipPort(lookups),
       attendance: createReportcardsAttendanceSummary(attendance),
       standing: createReportcardsLearnerStanding(finance),
+      // Vérification publique des diplômes et attestations : higher lit, reportcards revérifie signature et empreinte.
+      external: {
+        DIPLOMA: createHigherDocumentVerifier(higher),
+        ATTESTATION_SUCCESS: createHigherDocumentVerifier(higher),
+        ATTESTATION_AUTHENTICITY: createHigherDocumentVerifier(higher),
+      },
       directory: createReportcardsUserDirectory(lookups),
       ...(storage ? { storage } : {}),
     },
@@ -179,6 +189,7 @@ export function buildPlatformPorts(
       actors: createHigherActorDirectory(lookups),
       signatories: createHigherSignatoryDirectory(reportcards),
       institution: createHigherInstitutionPort(reportcards),
+      documents: createHigherDocumentFiles(kit, storage, documentRenderer ? { renderer: documentRenderer } : {}),
     },
     analytics: createAnalyticsSources(kit),
     messaging: {
@@ -189,7 +200,7 @@ export function buildPlatformPorts(
   };
   // Imports (031) : écriture par les cas d'usage publics des modules cibles, avec le VRAI audit (l'API : `runtime.auditPort` ;
   // le worker : le service d'audit du processus). Sans audit fourni (tests ciblés), l'audit est no-op.
-  const writeEnv = createImportWriteEnv(kit, () => base, options.audit);
+  const writeEnv = createImportWriteEnv(kit, () => base, extras.audit);
   const imports: Partial<ImportPorts> = {
     targets: {
       students: createStudentsImportPort(writeEnv),
@@ -202,7 +213,7 @@ export function buildPlatformPorts(
     },
     names: createImportActorNames(writeEnv),
     ...(storage ? { storage } : {}),
-    ...(options.audit ? { audit: importsAuditAdapter(options.audit) } : {}),
+    ...(extras.audit ? { audit: importsAuditAdapter(extras.audit) } : {}),
   };
   return { ...base, imports };
 }

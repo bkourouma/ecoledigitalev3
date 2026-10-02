@@ -13,6 +13,7 @@ import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock, QueryBoundary, useFlash } from "@/platform/ui/states";
 import { shortHash } from "../../results/_components/shared";
 import { toneOfStatus } from "../../assessments/_components/shared";
+import { DocumentPdfActions, PdfStateBadge, VerifyLink } from "./DocumentPdf";
 import { StudentName } from "./shared";
 
 /** Documents officiels émis (diplômes, attestations) : états, scellement, publication, révocation. Les PDF sont produits par le module bulletins. */
@@ -20,7 +21,6 @@ export function DocumentsScreen() {
   const t = useTranslations("v2Higher.documents");
   const tKind = useTranslations("v2Higher.documentKind");
   const tStatus = useTranslations("v2Higher.documentStatus");
-  const tRender = useTranslations("v2Reportcards.renderStatus");
   const date = useDateFormat();
   const [kind, setKind] = useState("");
   const [status, setStatus] = useState("");
@@ -82,6 +82,7 @@ export function DocumentsScreen() {
                     <span className="block font-mono text-xs font-normal text-muted-foreground">
                       {d.reference} · {t("version", { n: d.version })}
                     </span>
+                    <VerifyLink code={d.verificationCode} />
                   </th>
                   <td className="hidden px-3 py-2 sm:table-cell">
                     <StudentName studentId={d.studentId} />
@@ -91,7 +92,7 @@ export function DocumentsScreen() {
                       <StatusBadge label={tStatus(d.status)} tone={toneOfStatus(d.status)} />
                       <StatusBadge label={d.publishedAt ? t("publishedBadge") : t("unpublished")} tone={d.publishedAt ? "success" : "neutral"} />
                       <StatusBadge label={d.sealed ? t("sealed") : t("notSealed")} tone={d.sealed ? "success" : "warning"} />
-                      <StatusBadge label={tRender(d.renderStatus)} tone={toneOfStatus(d.renderStatus)} />
+                      <PdfStateBadge doc={d} />
                     </span>
                   </td>
                   <td className="hidden px-3 py-2 md:table-cell">
@@ -99,7 +100,8 @@ export function DocumentsScreen() {
                     <span className="block text-xs text-muted-foreground">{d.issuedByName}</span>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <span className="flex flex-wrap justify-end gap-1">
+                    <span className="flex flex-wrap items-start justify-end gap-1">
+                      <DocumentPdfActions doc={d} />
                       <button type="button" className={buttonClass.ghost} onClick={() => setDetail(d.id)} aria-label={t("detailOf", { reference: d.reference })}>
                         {t("detail")}
                       </button>

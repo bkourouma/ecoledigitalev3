@@ -29,6 +29,8 @@ import { noEnrollments, passThroughLearners, type EnrollmentDirectory, type Lear
 import { unavailableReceiptDocuments, type ReceiptDocumentPort } from "./ports/documents";
 import { denyAllGuardianship, type GuardianshipPort } from "./ports/guardianship";
 import { createProviderRegistry, type AppEnvironment, type ProviderRegistry } from "../infrastructure/providers/registry";
+import { unavailableSecretStore } from "../infrastructure/secrets/aes-gcm-secret-store";
+import type { SecretStorePort } from "./ports/secret-store";
 
 export interface FinanceConfig {
   /** Environnement d'exécution : détermine la politique des fournisseurs de paiement. */
@@ -69,6 +71,10 @@ export interface FinanceDeps {
   readonly guardianship: GuardianshipPort;
   /** Rendu PDF des reçus (module reportcards) : indisponible tant qu'il n'est pas branché. */
   readonly documents: ReceiptDocumentPort;
+  /** Coffre des secrets marchands (identifiants des fournisseurs) : indisponible tant qu'aucune clé maître n'est configurée. */
+  readonly secrets: SecretStorePort;
+  /** Appelé après une écriture de configuration d'un fournisseur : invalide le cache de la source de configuration. */
+  readonly providerConfigChanged: (tenantId: string, provider: string) => void;
   readonly config: FinanceConfig;
   readonly newId: () => string;
   readonly logger: Logger;
@@ -83,6 +89,8 @@ export interface FinanceDepsInput {
   enrollments?: EnrollmentDirectory;
   guardianship?: GuardianshipPort;
   documents?: ReceiptDocumentPort;
+  secrets?: SecretStorePort;
+  providerConfigChanged?: (tenantId: string, provider: string) => void;
   config?: Partial<FinanceConfig>;
   newId?: () => string;
   logger?: Logger;
@@ -114,6 +122,8 @@ export function createFinanceDeps(input: FinanceDepsInput): FinanceDeps {
     get documents() {
       return input.portsProvider?.().documents ?? input.documents ?? unavailableReceiptDocuments;
     },
+    secrets: input.secrets ?? unavailableSecretStore,
+    providerConfigChanged: input.providerConfigChanged ?? (() => undefined),
     config,
     newId: input.newId ?? newId,
     logger: input.logger ?? noopLogger,

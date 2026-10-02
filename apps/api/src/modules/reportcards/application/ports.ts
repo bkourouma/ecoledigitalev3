@@ -165,7 +165,35 @@ export class RecordingAudit implements AuditPort {
   }
 }
 
+/**
+ * Faits d'un document émis par un AUTRE module (diplôme, attestation : 019) pour la vérification PUBLIQUE. Le module
+ * émetteur lit son document (sous la RLS de son tenant) et fournit l'empreinte STOCKÉE et l'empreinte RECALCULÉE de son
+ * snapshot ; reportcards revérifie la signature Ed25519 avec la clé publique de `signing_keys` (y compris une clé retirée).
+ * AUCUNE donnée personnelle : ni nom d'étudiant, ni date de naissance, ni note.
+ */
+export interface ExternalDocumentFacts {
+  readonly status: "ISSUED" | "SUPERSEDED" | "REVOKED";
+  readonly title: string;
+  readonly institutionName: string | null;
+  readonly issuedAt: Date;
+  readonly supersededByIssuedAt: Date | null;
+  readonly revokedAt: Date | null;
+  readonly verificationCode: string;
+  readonly snapshotHash: string;
+  /** Empreinte recalculée du snapshot au moment de la vérification : égale à `snapshotHash` ⇒ contenu intact. */
+  readonly recomputedHash: string;
+  readonly signingKeyId: string | null;
+  readonly signature: string | null;
+}
+
+export interface ExternalDocumentVerifier {
+  /** `null` : document inconnu (réponse uniforme « aucun document »). */
+  describe(tenantId: string, documentId: string): Promise<ExternalDocumentFacts | null>;
+}
+
 export interface ReportcardsPorts {
+  /** Vérificateurs de documents d'autres modules, par NATURE (`DIPLOMA`, `ATTESTATION_SUCCESS`, `ATTESTATION_AUTHENTICITY`…). */
+  readonly external: Readonly<Record<string, ExternalDocumentVerifier>>;
   readonly results: ResultsReadPort;
   readonly guardianship: GuardianshipPort;
   readonly attendance: AttendanceSummaryPort | null;

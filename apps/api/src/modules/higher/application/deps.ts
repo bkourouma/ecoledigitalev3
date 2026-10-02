@@ -67,11 +67,12 @@ export interface HigherDepsInput {
   logger?: Logger;
 }
 
-const BASE32 = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+// Base32 RFC 4648 (A-Z, 2-7) : le format du code de vérification PUBLIQUE de reportcards (`^[A-Z2-7]{26}$`).
+const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
-/** 20 caractères sur un alphabet de 32 : 100 bits d'entropie, sans caractères ambigus. */
+/** 26 caractères sur un alphabet de 32 : 130 bits d'entropie (≥ 128), le format attendu par la vérification publique. */
 export function randomVerificationCode(): string {
-  const bytes = randomBytes(20);
+  const bytes = randomBytes(26);
   let out = "";
   for (const b of bytes) out += BASE32[b % 32];
   return out;
@@ -83,6 +84,7 @@ export function createHigherDeps(input: HigherDepsInput): HigherDeps {
   const resolve = input.portsProvider ?? ((): Partial<HigherPorts> => input.ports ?? {});
   // Getters : chaque accès relit le fournisseur (enregistrement tardif des ports par les autres modules).
   const ports: HigherPorts = {
+    get documents() { return resolve().documents ?? fallback.documents; },
     get credits() { return resolve().credits ?? fallback.credits; },
     get resitSession() { return resolve().resitSession ?? fallback.resitSession; },
     get cycleResults() { return resolve().cycleResults ?? fallback.cycleResults; },

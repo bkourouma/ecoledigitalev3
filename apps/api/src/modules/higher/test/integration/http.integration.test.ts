@@ -31,6 +31,7 @@ import { registerModules, resetRegistryForTests } from "../../../registry";
 import manifest from "../../manifest";
 import { registerHigherPorts } from "../../http/plugin";
 import { capitalizePeriod } from "../../application/ledger";
+import { renderOfficialDocument } from "../../application/files";
 import { adminRows, createHigherTestDb, describeIntegration, type HigherTestDb } from "../support/db";
 import { makeWorld, scriptRules, seedSchool, ueLine, type School, type TestWorld } from "../support/world";
 import { dirname, join } from "node:path";
@@ -313,6 +314,39 @@ describeIntegration("API HTTP /api/v1/higher/* (Fastify + registre + Postgres r�
     expect((await call("otherGuardian", "GET", `/children/${a!.studentId}/documents`)).status).toBe(403);
     expect((await call("guardian", "GET", `/children/${b!.studentId}/credits`)).status).toBe(403);
     expect((await call("noRole", "GET", `/documents/${docId}`)).status).toBe(403);
+  });
+
+  it("PDF : état du rendu (202) puis URL signée (200) ; même contrôle d'accès que le document ; révoqué : 409 ; reprise réservée à l'émission", async () => {
+    // Pas encore rendu : le personnel lit l'état (202), personne d'autre n'y accède sans droit.
+    const pending = await call("registrar", "GET", `/documents/${docId}/pdf`);
+    expect(pending.status).toBe(202);
+    expect(pending.json).toEqual({ status: "PENDING" });
+    expect((await call("noRole", "GET", `/documents/${docId}/pdf`)).status).toBe(403);
+    expect((await call("otherGuardian", "GET", `/documents/${docId}/pdf`)).status).toBe(403);
+    expect((await call("teacher", "GET", `/documents/${docId}/pdf`)).status).toBe(403);
+    expect((await call(null, "GET", `/documents/${docId}/pdf`)).status).toBe(401);
+    // Reprise : réservée à `higher.document.issue` ; la demande est publiée au worker.
+    expect((await call("registrar", "POST", `/documents/${docId}/render`)).status).toBe(403);
+    expect(ok(await call("admin", "POST", `/documents/${docId}/render`), 202)).toMatchObject({ id: docId, renderStatus: "PENDING" });
+    const requested = await adminRows<{ payload: { documentId: string } }>(db, "SELECT payload FROM kernel.domain_events WHERE tenant_id = $1 AND type = 'higher.document.render_requested'", [school.tenantId]);
+    expect(requested.map((r) => r.payload.documentId)).toEqual([docId]);
+    expect(higherEventPayloadSchemas["higher.document.render_requested"].safeParse(requested[0]!.payload).success).toBe(true);
+
+    // Le worker scelle et rend (ports : mémoire) ; l'URL est signée et à durée courte.
+    const rendered = unwrap(await renderOfficialDocument(world.deps, school.admin.ctx, docId));
+    expect(rendered).toMatchObject({ renderStatus: "RENDERED", signingKeyId: "test-key-0001" });
+    const ready = await call("registrar", "GET", `/documents/${docId}/pdf`);
+    expect(ready.status).toBe(200);
+    expect(ready.json).toMatchObject({ status: "READY", contentType: "application/pdf", expiresInSec: 120, fileName: "DIP-2026-000001.pdf" });
+    expect(ready.json.url).toMatch(/^https:\/\//);
+    expect(ready.json.url).not.toContain("tenants/");
+    expect(ready.json.pdfHash).toMatch(/^[0-9a-f]{64}$/);
+    // Étudiant et tuteur lié : leur document publié ; un tiers non.
+    expect((await call("pupil", "GET", `/documents/${docId}/pdf`)).status).toBe(200);
+    expect((await call("guardian", "GET", `/documents/${docId}/pdf`)).status).toBe(200);
+    expect((await call("otherGuardian", "GET", `/documents/${docId}/pdf`)).status).toBe(403);
+    // L'émission d'une URL est auditée.
+    expect(world.audit.entries.filter((e) => e.entry.action === "higher.document.downloaded").length).toBeGreaterThanOrEqual(3);
   });
 
   it("étudiant et tuteur : leurs crédits, diplômes et parcours uniquement ; jamais ceux d'un autre", async () => {

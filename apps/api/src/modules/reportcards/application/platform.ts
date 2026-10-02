@@ -11,7 +11,7 @@ import { validateOptionsSchema } from "../domain/options-schema";
 import { publicKeyFingerprint } from "../domain/signing";
 import { validateTemplate } from "../domain/template-validation";
 import type { PlatformTemplate, SignatureSlot } from "../domain/types";
-import { BUILTIN_TEMPLATES } from "../templates/builtin";
+import { ALL_PLATFORM_TEMPLATES } from "../templates/builtin";
 import * as platformRepo from "../infrastructure/platform-repository";
 import { listPlatformTemplates } from "../infrastructure/reference-repository";
 import type { ReportcardsDeps } from "./deps";
@@ -159,12 +159,12 @@ export async function ensureBuiltinTemplates(deps: ReportcardsDeps): Promise<Res
   const system = deps.systemDb;
   if (!system) return err(portUnavailable("SystemDb"));
   const published: string[] = [];
-  for (const t of BUILTIN_TEMPLATES) {
+  for (const t of ALL_PLATFORM_TEMPLATES) {
     const problems = validatePlatformTemplate(t);
     if (problems.length) return err(invalid(`Le gabarit livré ${t.key} est invalide.`, ReportcardsCode.INVALID_TEMPLATE, { problems }));
   }
   await system.run("reportcards.seed-builtin-templates", async (tx) => {
-    for (const t of BUILTIN_TEMPLATES) {
+    for (const t of ALL_PLATFORM_TEMPLATES) {
       if (await platformRepo.getTemplateVersion(tx, t.key, t.version)) continue;
       await platformRepo.insertPublishedTemplate(tx, {
         key: t.key,

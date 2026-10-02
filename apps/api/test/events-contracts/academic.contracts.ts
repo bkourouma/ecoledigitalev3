@@ -1,8 +1,14 @@
 /** Définition des contrats d'événements consommés par `academic` (abonnés : `modules/academic/subscribers.ts`). */
-import { academicConsumedInstitutionCreatedSchema, academicConsumedInvoicePaidSchema, academicConsumedStudentStatusChangedSchema } from "@ecoledigitale/contracts/v2";
+import { academicConsumedInstitutionCreatedSchema, academicConsumedInvoicePaidSchema, academicConsumedStudentStatusChangedSchema, academicRolloverRequestedEventPayloadSchema } from "@ecoledigitale/contracts/v2";
 import type { EventContract } from "./support";
 
 export const contracts: EventContract[] = [
+  {
+    consumer: "academic",
+    event: "academic.rollover.requested",
+    reads: [{ field: "runId", kind: "uuid" }],
+    reader: (p) => academicRolloverRequestedEventPayloadSchema.safeParse(p).success,
+  },
   {
     consumer: "academic",
     event: "tenancy.institution.created",

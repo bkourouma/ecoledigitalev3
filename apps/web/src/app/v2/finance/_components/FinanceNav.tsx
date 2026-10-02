@@ -7,6 +7,7 @@ import { SectionNav, type SectionNavItem } from "@/platform/ui/SectionNav";
 /** Navigation de la section finance : chaque entrée n'apparaît que si la permission correspondante est détenue. */
 export function FinanceNav() {
   const t = useTranslations("v2Finance.nav");
+  const tProviders = useTranslations("v2FinanceProviders");
   const child = usePermission("finance.child.read");
   const self = usePermission("finance.self.read");
   const items: SectionNavItem[] = [
@@ -19,6 +20,7 @@ export function FinanceNav() {
     { href: "/v2/finance/fees", label: t("fees"), permission: "finance.fee.read" },
     { href: "/v2/finance/funding", label: t("funding"), permission: "finance.invoice.read" },
     { href: "/v2/finance/reports", label: t("reports"), permission: "finance.report.read" },
+    { href: "/v2/finance/providers", label: tProviders("navLabel"), permission: "finance.provider.manage" },
   ];
   // « Mes finances » : parent (`finance.child.read`) ou élève (`finance.self.read`), routes famille `/finance/me/*`.
   if (child.allowed || self.allowed) items.push({ href: "/v2/finance/me", label: t("me") });

@@ -523,6 +523,7 @@ export const higherEventPayloadSchemas = {
   "higher.diploma.awarded": z.object({ v: v1, awardId: higherUuidSchema, studentId: higherUuidSchema, definitionId: higherUuidSchema, reference: z.string(), via: higherAwardedViaSchema }),
   "higher.diploma.revoked": z.object({ v: v1, awardId: higherUuidSchema, studentId: higherUuidSchema, definitionId: higherUuidSchema, reason: z.string() }),
   "higher.document.issued": z.object({ v: v1, documentId: higherUuidSchema, kind: higherDocumentKindSchema, awardId: higherUuidSchema.optional() }),
+  "higher.document.render_requested": z.object({ v: v1, documentId: higherUuidSchema, kind: higherDocumentKindSchema }),
 } as const;
 
 export type HigherEventType = keyof typeof higherEventPayloadSchemas;

@@ -45,6 +45,8 @@ export const AcademicEvents = {
   COURSE_EXPIRED: "academic.enrollment_course.expired",
   COURSE_PAYMENT_ORPHAN: "academic.enrollment_course.payment_orphan",
   ROLLOVER_COMPLETED: "academic.rollover.completed",
+  /** Demande d'exécution de l'assistant de reconduction : reprise par l'abonné du worker (`academic.run-rollover`). */
+  ROLLOVER_REQUESTED: "academic.rollover.requested",
 } as const;
 
 export type AcademicEventType = (typeof AcademicEvents)[keyof typeof AcademicEvents];
@@ -55,6 +57,8 @@ export const ConsumedEvents = {
   INSTITUTION_CREATED: "tenancy.institution.created",
   INVOICE_PAID: "finance.invoice.paid",
   STUDENT_STATUS_CHANGED: "people.student.status_changed",
+  /** Son propre événement : la reconduction s'exécute dans le worker, jamais dans la requête HTTP. */
+  ROLLOVER_REQUESTED: AcademicEvents.ROLLOVER_REQUESTED,
 } as const;
 
 export const ALL_CONSUMED_EVENT_TYPES: ReadonlyArray<string> = Object.values(ConsumedEvents);

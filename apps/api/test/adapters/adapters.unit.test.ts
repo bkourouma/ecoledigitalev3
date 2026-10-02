@@ -219,8 +219,8 @@ describe("complétude des ports branchés par la plateforme", () => {
     expect(keys(withStorage.scheduling)).toEqual(["academic", "attendance", "people"]);
     expect(keys(withStorage.finance)).toEqual(["documents", "enrollments", "guardianship", "learners"]);
     expect(keys(withStorage.people)).toEqual(["academic", "storage"]);
-    expect(keys(withStorage.reportcards)).toEqual(["attendance", "directory", "guardianship", "results", "standing", "storage"]);
-    expect(keys(withStorage.academic)).toEqual(["completion", "guardianship", "invoiceFacts", "readiness", "registrationFee", "schedule", "students", "usageGuard"]);
+    expect(keys(withStorage.reportcards)).toEqual(["attendance", "directory", "external", "guardianship", "results", "standing", "storage"]);
+    expect(keys(withStorage.academic)).toEqual(["completion", "guardianship", "invoiceFacts", "promotions", "readiness", "registrationFee", "schedule", "students", "usageGuard"]);
   });
 
   it("sans stockage d'objets configuré, aucun port de stockage n'est branché (échec fermé, pas de disque implicite)", () => {

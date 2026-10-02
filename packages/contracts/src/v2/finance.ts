@@ -1007,6 +1007,96 @@ export const financePageDtoSchema = <T extends z.ZodTypeAny>(item: T) =>
   z.object({ items: z.array(item), total: z.number().int().nonnegative() });
 
 // ---------------------------------------------------------------------------
+// Fournisseurs de paiement : configuration par tenant (spec 015-payments). AUCUN secret n'est jamais renvoyé :
+// les réponses indiquent seulement quels secrets sont ENREGISTRÉS.
+// ---------------------------------------------------------------------------
+
+export const FINANCE_PROVIDER_NAMES = ["orange_money", "mtn_momo", "wave", "cinetpay", "tresorpay"] as const;
+export const financeProviderNameSchema = z.enum(FINANCE_PROVIDER_NAMES);
+export type FinanceProviderName = z.infer<typeof financeProviderNameSchema>;
+
+export const FINANCE_PROVIDER_MODES = ["sandbox", "production"] as const;
+export const financeProviderModeSchema = z.enum(FINANCE_PROVIDER_MODES);
+
+export const financeProviderParamsSchema = z.object({ provider: financeProviderNameSchema }).strict();
+
+const providerFieldKeySchema = z.string().regex(/^[a-z][a-z0-9_]{1,39}$/);
+const providerFieldValueSchema = z.string().min(1).max(512);
+
+/** Écriture : mode, réglages non secrets et secrets (un secret omis est conservé). Aucune URL de point d'accès. */
+export const financeSaveProviderBodySchema = z
+  .object({
+    mode: financeProviderModeSchema.optional(),
+    settings: z.record(providerFieldKeySchema, providerFieldValueSchema).optional(),
+    secrets: z.record(providerFieldKeySchema, providerFieldValueSchema).optional(),
+    clearSecrets: z.array(providerFieldKeySchema).max(20).optional(),
+    regenerateWebhookSecret: z.boolean().optional(),
+  })
+  .strict();
+export type FinanceSaveProviderBody = z.infer<typeof financeSaveProviderBodySchema>;
+
+export const financeProviderStatusBodySchema = z.object({ enabled: z.boolean() }).strict();
+
+export const financeProviderFieldDtoSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  secret: z.boolean(),
+  required: z.boolean(),
+  kind: z.enum(["text", "select"]),
+  options: z.array(z.string()).optional(),
+  defaultValue: z.string().optional(),
+  generated: z.boolean(),
+  help: z.string().optional(),
+  /** Secret : seulement « enregistré ou non ». Non secret : la valeur. */
+  isSet: z.boolean(),
+  value: z.string().nullable(),
+});
+export type FinanceProviderFieldDto = z.infer<typeof financeProviderFieldDtoSchema>;
+
+export const financeProviderTestDtoSchema = z.object({
+  at: isoInstant,
+  ok: z.boolean(),
+  code: z.string(),
+});
+
+export const financeProviderDtoSchema = z.object({
+  provider: financeProviderNameSchema,
+  label: z.string(),
+  description: z.string(),
+  enabled: z.boolean(),
+  /** Une configuration existe pour ce tenant. */
+  configured: z.boolean(),
+  /** Tous les champs obligatoires sont renseignés. */
+  complete: z.boolean(),
+  missing: z.array(z.string()),
+  mode: financeProviderModeSchema.nullable(),
+  /** Le mode `sandbox` est refusé dans l'environnement courant (production). */
+  sandboxAllowed: z.boolean(),
+  supportsRefund: z.boolean(),
+  webhookAuth: z.enum(["signature", "signed_url"]),
+  /** URL à copier chez le fournisseur ; `null` tant que `FINANCE_WEBHOOK_BASE_URL` n'est pas défini. */
+  webhookUrl: z.string().nullable(),
+  fields: z.array(financeProviderFieldDtoSchema),
+  lastTest: financeProviderTestDtoSchema.nullable(),
+  updatedAt: isoInstant.nullable(),
+});
+export type FinanceProviderDto = z.infer<typeof financeProviderDtoSchema>;
+
+export const financeProviderListDtoSchema = z.object({
+  items: z.array(financeProviderDtoSchema),
+  /** Le coffre des secrets est disponible (clé maître définie) : sinon aucune saisie n'est possible. */
+  secretsAvailable: z.boolean(),
+  environment: z.enum(["development", "test", "staging", "production"]),
+});
+export type FinanceProviderListDto = z.infer<typeof financeProviderListDtoSchema>;
+
+export const financeProviderTestResultDtoSchema = z.object({ ok: z.boolean(), code: z.string(), at: isoInstant });
+export type FinanceProviderTestResultDto = z.infer<typeof financeProviderTestResultDtoSchema>;
+
+export const financeRotateSecretsResultDtoSchema = z.object({ rotated: z.number().int().nonnegative(), keyId: z.string() });
+export type FinanceRotateSecretsResultDto = z.infer<typeof financeRotateSecretsResultDtoSchema>;
+
+// ---------------------------------------------------------------------------
 // Charges utiles des événements PUBLIÉS (consommées par academic : confirmation automatique d'une inscription)
 // ---------------------------------------------------------------------------
 

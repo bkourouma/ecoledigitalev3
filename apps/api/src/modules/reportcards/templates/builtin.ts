@@ -8,18 +8,10 @@
  * alimentées par le branding du tenant. Chaque gabarit est revalidé par `validateTemplate` (test unitaire) avant publication.
  */
 import type { Pack, SignatureSlot, TemplateDocumentKind } from "../domain/types";
+import { HIGHER_DOCUMENT_TEMPLATES } from "./higher-documents";
+import type { BuiltinTemplate } from "./types";
 
-export interface BuiltinTemplate {
-  readonly key: string;
-  readonly version: number;
-  readonly documentKind: TemplateDocumentKind;
-  readonly pack: Pack;
-  readonly title: string;
-  readonly body: string;
-  readonly css: string;
-  readonly optionsSchema: Record<string, unknown>;
-  readonly signatureSlots: readonly SignatureSlot[];
-}
+export type { BuiltinTemplate } from "./types";
 
 const COMMON_CSS = `
 .doc { position: relative; padding: 0; color: #1d2433; font-family: "Georgia", "Times New Roman", serif; font-size: 9.5pt; line-height: 1.3; }
@@ -404,6 +396,15 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([
     signatureSlots: [],
   },
 ] satisfies readonly BuiltinTemplate[]);
+
+/**
+ * Gabarits livrés pour les documents d'AUTRES modules (diplômes et attestations du supérieur, 019) : publiés avec les
+ * bulletins (`ensureBuiltinTemplates`) mais hors de la liste des bulletins (contexte fourni par l'appelant, pas un snapshot).
+ */
+export const PLATFORM_DOCUMENT_TEMPLATES: readonly BuiltinTemplate[] = HIGHER_DOCUMENT_TEMPLATES;
+
+/** Tous les gabarits que la plateforme publie. */
+export const ALL_PLATFORM_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([...BUILTIN_TEMPLATES, ...PLATFORM_DOCUMENT_TEMPLATES]);
 
 /** Dernier gabarit livré pour une clé (les versions suivantes s'ajoutent à la fin de la liste). */
 export function builtinTemplate(key: string): BuiltinTemplate | undefined {

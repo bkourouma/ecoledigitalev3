@@ -64,6 +64,7 @@ describe("manifeste", () => {
         "finance.payment.read",
         "finance.payment.create",
         "finance.payment.refund",
+        "finance.provider.manage",
         "finance.cashregister.open",
         "finance.cashregister.close",
         "finance.report.read",
