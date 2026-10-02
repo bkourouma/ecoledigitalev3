@@ -38,9 +38,6 @@ export interface CachedOccurrence {
   locationLabel: string | null;
 }
 
-/** Séance source (sous-ensemble structurel de `OccurrenceDto`) : on ne copie que les champs de `CachedOccurrence`. */
-export type OccurrenceSource = CachedOccurrence & Record<string, unknown>;
-
 export interface ScheduleSnapshot {
   /** Clé de stockage : `sched:<owner>:<from>:<to>`. */
   key: string;
@@ -195,6 +192,23 @@ export class ScheduleCache {
     alive.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
     for (const r of alive.slice(MAX_WINDOWS_PER_OWNER)) await this.store.delete(r.key);
   }
+}
+
+/** Copie à montrer hors ligne : celle qui couvre `today` (la plus récente), sinon la plus récemment enregistrée. */
+export function pickSnapshot(list: ReadonlyArray<ScheduleSnapshot>, today: string): ScheduleSnapshot | null {
+  const byRecent = [...list].sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+  return byRecent.find((s) => s.from <= today && today <= s.to) ?? byRecent[0] ?? null;
+}
+
+/** Séances d'une copie groupées par jour civil, triées par heure. */
+export function groupByDay(items: ReadonlyArray<CachedOccurrence>): Array<[string, CachedOccurrence[]]> {
+  const map = new Map<string, CachedOccurrence[]>();
+  for (const o of [...items].sort((a, b) => a.startsAt.localeCompare(b.startsAt))) {
+    const list = map.get(o.occursOn) ?? [];
+    list.push(o);
+    map.set(o.occursOn, list);
+  }
+  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
 /** Fraîcheur d'une copie : âge en minutes et indicateur « ancienne ». */

@@ -174,7 +174,7 @@ describe("sw.js — fichiers statiques versionnés", () => {
     const sw = loadWorker(fetchSpy);
 
     await sw.dispatchFetch({ url: HASHED_CHUNK });
-    expect(sw.puts).toEqual([{ cache: "ed-static-v1", url: "/_next/static/chunks/app/page-3f9a1c2b7d8e4f60.js" }]);
+    expect(sw.puts).toEqual([{ cache: "ed-static-v2", url: "/_next/static/chunks/app/page-3f9a1c2b7d8e4f60.js" }]);
 
     await sw.dispatchFetch({ url: HASHED_CHUNK });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -201,11 +201,11 @@ describe("sw.js — cycle de vie", () => {
     sw.stores.set("ed-shell-v0", new Map());
     sw.stores.set("ed-static-v0", new Map());
     sw.stores.set("autre-app-cache", new Map());
-    sw.stores.set("ed-shell-v1", new Map());
+    sw.stores.set("ed-shell-v2", new Map());
     let done: Promise<unknown> = Promise.resolve();
     sw.listeners.get("activate")!({ waitUntil: (p: Promise<unknown>) => (done = p) });
     await done;
-    expect([...sw.stores.keys()].sort()).toEqual(["autre-app-cache", "ed-shell-v1"]);
+    expect([...sw.stores.keys()].sort()).toEqual(["autre-app-cache", "ed-shell-v2"]);
     expect(sw.self.clients.claim).toHaveBeenCalled();
   });
 

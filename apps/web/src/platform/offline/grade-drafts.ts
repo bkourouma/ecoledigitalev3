@@ -125,6 +125,8 @@ function isEmpty(d: GradeDraft): boolean {
 export interface ServerGrade extends GradeValue {
   enrollmentId: string;
   rowVersion: number;
+  /** Identifiant de la note (pour l'historique) ; facultatif. */
+  id?: string;
 }
 
 export interface GradeDraftDeps {

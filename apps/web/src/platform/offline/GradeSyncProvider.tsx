@@ -15,27 +15,24 @@ import { assessSaveGradesResultDtoSchema } from "@ecoledigitale/contracts/v2/ass
 import { ASSESS_BASE, gradeSheetSchema } from "@/platform/v2/assess";
 import { openOfflineDb } from "./idb";
 import { currentOfflineOwner, hasValidSession } from "./owner";
-import { GradeSyncManager, type GradeSyncStatus } from "./grade-sync-manager";
+import { GradeSyncManager, type GradeSyncDeps, type GradeSyncStatus } from "./grade-sync-manager";
 import type { ServerGrade } from "./grade-drafts";
 
 const GradeSyncContext = createContext<GradeSyncManager | null>(null);
 
 interface ApiGrade {
+  id: string;
   enrollmentId: string;
   score: string | null;
   entryStatus: ServerGrade["entryStatus"];
   comment: string | null;
   rowVersion: number;
 }
-const toServerGrade = (g: ApiGrade): ServerGrade => ({ enrollmentId: g.enrollmentId, score: g.score, entryStatus: g.entryStatus, comment: g.comment, rowVersion: g.rowVersion });
+const toServerGrade = (g: ApiGrade): ServerGrade => ({ id: g.id, enrollmentId: g.enrollmentId, score: g.score, entryStatus: g.entryStatus, comment: g.comment, rowVersion: g.rowVersion });
 
-export function createBrowserGradeSyncManager(): GradeSyncManager {
-  const locks = typeof navigator !== "undefined" ? (navigator as { locks?: { request: <T>(name: string, fn: () => Promise<T>) => Promise<T> } }).locks : undefined;
-  return new GradeSyncManager({
-    openDb: () => openOfflineDb(),
-    // Identité des brouillons : celle du jeton, MÊME expiré (la saisie hors ligne dure plus longtemps qu'un jeton d'accès).
-    owner: () => currentOfflineOwner({ allowExpired: true }),
-    canSync: hasValidSession,
+/** Appels d'API du gestionnaire : `PUT` du lot (avec `Idempotency-Key`) et relecture de la feuille pour documenter un conflit. */
+export function gradeSyncApi(): Pick<GradeSyncDeps, "put" | "fetchSheet"> {
+  return {
     put: async (assessmentId, entries, idempotencyKey) => {
       const r = await platformApi.put(`${ASSESS_BASE}/assessments/${assessmentId}/grades`, { entries }, { schema: assessSaveGradesResultDtoSchema, idempotencyKey });
       return { created: r.created, updated: r.updated, unchanged: r.unchanged, replayed: r.replayed, grades: r.grades.map(toServerGrade) };
@@ -44,6 +41,17 @@ export function createBrowserGradeSyncManager(): GradeSyncManager {
       const sheet = await platformApi.get(`${ASSESS_BASE}/assessments/${assessmentId}/grades`, { schema: gradeSheetSchema });
       return { status: sheet.assessment.status, grades: sheet.grades.map(toServerGrade) };
     },
+  };
+}
+
+export function createBrowserGradeSyncManager(): GradeSyncManager {
+  const locks = typeof navigator !== "undefined" ? (navigator as { locks?: { request: <T>(name: string, fn: () => Promise<T>) => Promise<T> } }).locks : undefined;
+  return new GradeSyncManager({
+    ...gradeSyncApi(),
+    openDb: () => openOfflineDb(),
+    // Identité des brouillons : celle du jeton, MÊME expiré (la saisie hors ligne dure plus longtemps qu'un jeton d'accès).
+    owner: () => currentOfflineOwner({ allowExpired: true }),
+    canSync: hasValidSession,
     ...(locks ? { exclusive: <T,>(fn: () => Promise<T>) => locks.request("ed-grade-sync", fn) } : {}),
     isOnline: () => (typeof navigator === "undefined" ? true : navigator.onLine),
   });

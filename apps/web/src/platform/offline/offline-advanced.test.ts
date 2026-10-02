@@ -249,7 +249,7 @@ describe("brouillons de notes : coupure pendant la saisie et reprise", () => {
     await m.syncNow();
     expect(s.server.log).toHaveLength(1);
     expect(s.server.log[0]!.entries).toEqual([
-      { enrollmentId: E(1), entryStatus: "ENTERED", score: "14", rowVersion: 1 },
+      { enrollmentId: E(1), entryStatus: "ENTERED", score: "14", comment: null, rowVersion: 1 },
       { enrollmentId: E(2), entryStatus: "ENTERED", score: "9" },
     ]);
     expect(m.getSnapshot().drafts).toEqual([]);

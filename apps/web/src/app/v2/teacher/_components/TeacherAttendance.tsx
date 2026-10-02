@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { GradeSyncProvider } from "@/platform/offline/GradeSyncProvider";
 import { OutboxProvider } from "@/platform/offline/OutboxProvider";
 import { useAttendanceSessions } from "@/platform/v2/attendance";
 import { addDays, todayCivil } from "@/platform/v2/dates";
@@ -14,9 +15,16 @@ import { CallListScreen } from "../../attendance/_components/CallListScreen";
 import { CallScreen } from "../../attendance/_components/CallScreen";
 import { TEACHER_CALL_BASE, TEACHER_ROOT } from "./hrefs";
 
-/** Les écrans d'appel ont besoin de la file hors ligne : elle est fournie à tout le portail enseignant. */
+/**
+ * Les écrans d'appel ont besoin de la file hors ligne, la grille de notes de ses brouillons locaux : l'une et l'autre sont fournies
+ * à tout le portail enseignant (la reprise d'envoi se fait donc depuis n'importe quelle page du portail, pas seulement la grille).
+ */
 export function TeacherProviders({ children }: { children: React.ReactNode }) {
-  return <OutboxProvider>{children}</OutboxProvider>;
+  return (
+    <OutboxProvider>
+      <GradeSyncProvider>{children}</GradeSyncProvider>
+    </OutboxProvider>
+  );
 }
 
 type SessionRow = NonNullable<ReturnType<typeof useAttendanceSessions>["data"]>["items"][number];

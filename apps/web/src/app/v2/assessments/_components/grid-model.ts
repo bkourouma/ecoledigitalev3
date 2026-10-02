@@ -216,6 +216,47 @@ export function mergeSaved(rows: ReadonlyArray<GridRow>, saved: ReadonlyArray<Sa
 }
 
 // ---------------------------------------------------------------------------
+// Hors ligne : brouillons locaux (voir `platform/offline/grade-drafts.ts`)
+// ---------------------------------------------------------------------------
+
+/** Lot de la grille -> saisies à garder sur l'appareil (valeurs canoniques, version de ligne lue). */
+export function toDraftEntries(entries: ReadonlyArray<GradeEntryInput>): Array<{ enrollmentId: string; entryStatus: EntryStatus; score: string | null; comment: string | null; baseVersion: number | null }> {
+  return entries.map((e) => ({
+    enrollmentId: e.enrollmentId,
+    entryStatus: (e.entryStatus ?? "ENTERED") as EntryStatus,
+    score: e.score === undefined || e.score === null ? null : String(e.score),
+    comment: e.comment ?? null,
+    baseVersion: e.rowVersion ?? null,
+  }));
+}
+
+/** Restitue dans la grille les saisies hors ligne retrouvées sur l'appareil (leur version de ligne est celle de la feuille lue). */
+export function applyRestored(rows: ReadonlyArray<GridRow>, restored: ReadonlyArray<{ enrollmentId: string; entryStatus: EntryStatus; score: string | null; comment: string | null }>): GridRow[] {
+  const byEnrollment = new Map(restored.map((r) => [r.enrollmentId, r]));
+  return rows.map((row) => {
+    const r = byEnrollment.get(row.enrollmentId);
+    return r ? { ...row, text: textOf(r.entryStatus, normalizeDecimal(r.score)), comment: r.comment ?? "", apiError: null } : row;
+  });
+}
+
+/**
+ * Notes que le serveur vient d'enregistrer (ou, pour `resetIds`, valeur courante d'une ligne en CONFLIT) :
+ *  - ligne en conflit -> remise à la valeur du serveur ; la saisie est en lieu sûr dans le brouillon, jamais renvoyée seule ;
+ *  - sinon -> nouvelle version de ligne ; si la personne a retapé entre-temps, son texte est gardé (la ligne reste modifiée).
+ */
+export function applyApplied(rows: ReadonlyArray<GridRow>, grades: ReadonlyArray<Omit<SavedGrade, "id" | "studentId"> & { id?: string }>, resetIds: ReadonlySet<string>, ctx: CellContext): GridRow[] {
+  const byEnrollment = new Map(grades.map((g) => [g.enrollmentId, g]));
+  return rows.map((row) => {
+    const g = byEnrollment.get(row.enrollmentId);
+    if (!g) return row;
+    const fresh = rowFromGrade({ ...g, id: g.id ?? row.gradeId ?? row.enrollmentId, studentId: row.studentId });
+    if (resetIds.has(row.enrollmentId)) return fresh;
+    const kept = { ...fresh, text: row.text, comment: row.comment };
+    return isDirty(kept, ctx) ? kept : fresh;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Collage depuis un tableur
 // ---------------------------------------------------------------------------
 

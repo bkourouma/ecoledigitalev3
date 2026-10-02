@@ -141,7 +141,8 @@ function toApiEntry(e: { enrollmentId: string; entryStatus: string; score: strin
     enrollmentId: e.enrollmentId,
     entryStatus: e.entryStatus,
     ...(e.entryStatus === "ENTERED" && e.score !== null ? { score: e.score } : {}),
-    ...(e.comment !== null ? { comment: e.comment } : {}),
+    // Ligne existante : le brouillon porte l'état complet voulu, un commentaire vidé est donc envoyé (`null`).
+    ...(e.comment !== null || e.baseVersion !== null ? { comment: e.comment } : {}),
     ...(e.baseVersion !== null ? { rowVersion: e.baseVersion } : {}),
   };
 }
