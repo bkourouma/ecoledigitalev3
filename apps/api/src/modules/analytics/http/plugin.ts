@@ -105,7 +105,13 @@ export default async function modulePlugin(app: FastifyInstance, runtime: Module
   app.get(
     "/payroll/mass",
     { preHandler: [runtime.requirePermission(P.payroll), runtime.entitlements.requireFeature(ANALYTICS_FEATURES.payroll)] },
-    async (request, reply) => sendCached(request, reply, unwrap(await q.getPayroll(deps, ctxOf(request), parse(analyticsScopeQuerySchema, request.query)))),
+    async (request, reply) => {
+      const query = parse(analyticsScopeQuerySchema, request.query);
+      const result = unwrap(await q.getPayroll(deps, ctxOf(request), query));
+      // Donnée sensible : la lecture est consignée AVANT d'être livrée (un échec d'audit refuse la lecture).
+      await admin.auditSensitiveRead(deps, ctxOf(request), { resource: "payroll", metadata: { institutionId: query.institutionId ?? null, campusId: query.campusId ?? null, yearId: query.yearId ?? null, periodId: query.periodId ?? null } });
+      return sendCached(request, reply, result);
+    },
   );
   app.get("/charges", { preHandler: guard(P.charges) }, async (request, reply) => sendCached(request, reply, unwrap(await q.getCharges(deps, ctxOf(request)))));
 

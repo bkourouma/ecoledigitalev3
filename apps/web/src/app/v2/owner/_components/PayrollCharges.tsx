@@ -9,6 +9,7 @@ import { useDateFormat } from "@/platform/ui/format";
 import { useMoney } from "@/platform/ui/money";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
+import { SettingsPanel } from "./Settings";
 import { ExportButton, FeatureGuard, FreshnessBar, KpiCard, KpiGrid, ScopeFilters, scopeFilters, Section, useScopeState, type ScopeField } from "./kit";
 
 const FIELDS: readonly ScopeField[] = ["year"];
@@ -182,6 +183,9 @@ function Freshness() {
           />
         </>
       ) : null}
+      <Can permission="analytics.settings.manage">
+        <SettingsPanel />
+      </Can>
     </div>
   );
 }

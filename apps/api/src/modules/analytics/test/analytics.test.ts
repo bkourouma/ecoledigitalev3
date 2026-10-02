@@ -234,8 +234,12 @@ describe("module analytics : plugin chargé par le registre", () => {
     resetRegistryForTests();
   });
 
-  async function boot(grant: string[] = [], features: string[] = [ANALYTICS_FEATURES.direction, ANALYTICS_FEATURES.payroll]) {
-    const fake = makeFakeDb();
+  async function boot(grant: string[] = [], features: string[] = [ANALYTICS_FEATURES.direction, ANALYTICS_FEATURES.payroll], options: { failAudit?: boolean } = {}) {
+    if (app) {
+      await app.close();
+      resetRegistryForTests();
+    }
+    const fake = makeFakeDb(options);
     const guarded: string[] = [];
     const runtime = {
       tenantDb: fake.db,
@@ -306,6 +310,19 @@ describe("module analytics : plugin chargé par le registre", () => {
     const alsoDenied = await second.inject({ method: "GET", url: "/api/v1/analytics/export/payroll-mass.csv", headers: { "x-tenant": TENANT } });
     expect(alsoDenied.statusCode).toBe(403);
     expect(g2).toEqual([ANALYTICS_PERMISSIONS.export, ANALYTICS_PERMISSIONS.payroll]);
+  });
+
+  it("la lecture de la masse salariale est auditée AVANT livraison ; un échec d'audit refuse la lecture", async () => {
+    const { app: instance, fake } = await boot([ANALYTICS_PERMISSIONS.payroll]);
+    const ok = await instance.inject({ method: "GET", url: "/api/v1/analytics/payroll/mass", headers: { "x-tenant": TENANT } });
+    expect(ok.statusCode).toBe(200);
+    expect(fake.auditEntries).toHaveLength(1);
+    expect(fake.auditEntries[0]).toMatchObject({ action: "analytics.payroll.read", entity: "payroll", metadata: { yearId: null, campusId: null } });
+    expect(JSON.stringify(fake.auditEntries[0])).not.toMatch(/total|payslip/i); // le contenu lu n'est jamais copié dans l'audit
+
+    const { app: failing } = await boot([ANALYTICS_PERMISSIONS.payroll], undefined, { failAudit: true });
+    const refused = await failing.inject({ method: "GET", url: "/api/v1/analytics/payroll/mass", headers: { "x-tenant": TENANT } });
+    expect(refused.statusCode).toBe(500);
   });
 
   it("valide les paramètres (400) et les réglages", async () => {

@@ -7280,6 +7280,23 @@
         "retention": "Rétention et coût par élève"
       }
     },
+    "settings": {
+      "title": "Seuils de lecture et fraîcheur",
+      "description": "Ces réglages ne changent aucun chiffre : ils décident seulement de l'état affiché (Bon, À surveiller, Critique) et du délai après lequel une donnée est signalée comme ancienne.",
+      "sourceDefault": "Valeurs par défaut de la plateforme (aucun réglage propre à l'établissement).",
+      "sourceTenant": "Réglages de l'établissement.",
+      "collectionGood": "Recouvrement : « Bon » à partir de (%)",
+      "collectionWarning": "Recouvrement : « À surveiller » à partir de (%)",
+      "attendanceGood": "Présence : « Bon » à partir de (%)",
+      "attendanceWarning": "Présence : « À surveiller » à partir de (%)",
+      "staleHours": "Donnée « ancienne » au-delà de (heures)",
+      "percentHint": "De 0 à 100, deux décimales au plus.",
+      "invalidPercent": "Saisissez un pourcentage entre 0 et 100 (deux décimales au plus).",
+      "inverted": "Le seuil « À surveiller » ne peut pas dépasser le seuil « Bon ».",
+      "invalidHours": "Saisissez un nombre entier d'heures entre 1 et 168.",
+      "save": "Enregistrer les réglages",
+      "saved": "Les réglages sont enregistrés."
+    },
     "hub": {
       "title": "Fraîcheur des données de pilotage",
       "description": "Dernière lecture de chaque source et file de mise à jour. Les tableaux de bord affichent la date de leur dernière vérification.",

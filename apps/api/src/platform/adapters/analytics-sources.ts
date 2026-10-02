@@ -287,7 +287,10 @@ export function createAnalyticsSources(kit: AdapterKit): AnalyticsSourcePorts {
       },
 
       async readCollections(ctx, input) {
-        return unwrap(await getCollectionsTrend(finance, ctx, { from: input.from, to: input.to, granularity: "day" })).map((p) => ({ day: p.bucket, currency: p.collected.currency, collected: p.collected.amount, refunded: p.refunded.amount, net: p.net.amount, paymentCount: p.paymentCount }));
+        // finance renvoie un seau par jour (sans trou) : les jours sans mouvement ne sont pas stockés (la lecture comble les seaux).
+        return unwrap(await getCollectionsTrend(finance, ctx, { from: input.from, to: input.to, granularity: "day" }))
+          .filter((p) => p.paymentCount > 0 || p.collected.amount !== 0 || p.refunded.amount !== 0)
+          .map((p) => ({ day: p.bucket, currency: p.collected.currency, collected: p.collected.amount, refunded: p.refunded.amount, net: p.net.amount, paymentCount: p.paymentCount }));
       },
 
       async listCashSessions(ctx) {

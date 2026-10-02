@@ -32,6 +32,8 @@ import {
   analyticsTeachingLoadDataSchema,
   type AnalyticsExportDataset,
   type AnalyticsScopeQuery,
+  type AnalyticsSettingsData,
+  type AnalyticsSettingsUpdate,
 } from "@ecoledigitale/contracts/v2/analytics";
 import { useApiAction } from "./actions";
 
@@ -79,6 +81,11 @@ export const useAnalyticsFreshness = (options?: { enabled?: boolean }) => useVie
 /** Réglages d'affichage (seuils des feux, délai de fraîcheur). */
 export const useAnalyticsSettings = (options?: { enabled?: boolean }) =>
   hooks.useApiQuery(["analytics", "settings"], `${ANALYTICS_BASE}/settings`, { schema: analyticsSettingsDataSchema, staleTime: STALE_MS, enabled: options?.enabled ?? true });
+
+/** Mise à jour des réglages d'affichage : les vues sont relues (leurs états changent). */
+export function useAnalyticsUpdateSettings() {
+  return useApiAction<AnalyticsSettingsData, AnalyticsSettingsUpdate>({ method: "PUT", path: `${ANALYTICS_BASE}/settings`, body: (v) => v, schema: analyticsSettingsDataSchema, invalidate: [["analytics"]] });
+}
 
 /** Demande de reconstruction (mise en file côté API, exécutée par le worker). */
 export function useAnalyticsRebuild() {

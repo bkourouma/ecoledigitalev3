@@ -276,6 +276,40 @@ describe("Fraîcheur et reconstruction", () => {
     expect(api.calls.filter((c) => c.method === "POST" && c.path.endsWith("/rebuild"))).toHaveLength(1);
   });
 
+  it("réglages d'affichage : pourcentages convertis en points de base, incohérence refusée, aucun appel si invalide", async () => {
+    let stored: Record<string, unknown> = { collectionGoodBps: 8000, collectionWarningBps: 6000, attendanceGoodBps: 8500, attendanceWarningBps: 7000, staleAfterSeconds: 86_400, source: "DEFAULT" };
+    const api = setTestApi({
+      ...base(["analytics.read", "analytics.settings.manage"]),
+      "GET /api/v1/analytics/freshness": env(freshness()),
+      "GET /api/v1/analytics/settings": () => json(stored),
+      "PUT /api/v1/analytics/settings": ({ body }: { body: unknown }) => ((stored = { ...(body as object), source: "TENANT" }), json(stored)),
+    });
+    renderWithProviders(<FreshnessScreen />);
+    const good = await screen.findByLabelText(/^Recouvrement : « Bon »/);
+    expect((good as HTMLInputElement).value).toBe("80");
+    expect(screen.getByText(/Valeurs par défaut de la plateforme/)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText(/^Recouvrement : « À surveiller »/), { target: { value: "95" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer les réglages" }));
+    expect(await screen.findByText("Le seuil « À surveiller » ne peut pas dépasser le seuil « Bon ».")).toBeTruthy();
+    expect(api.calls.filter((c) => c.method === "PUT")).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText(/^Recouvrement : « À surveiller »/), { target: { value: "62,5" } });
+    fireEvent.change(screen.getByLabelText(/^Donnée « ancienne »/), { target: { value: "12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer les réglages" }));
+    expect(await screen.findByText("Les réglages sont enregistrés.")).toBeTruthy();
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ collectionGoodBps: 8000, collectionWarningBps: 6250, attendanceGoodBps: 8500, attendanceWarningBps: 7000, staleAfterSeconds: 43_200 });
+    expect(await screen.findByText("Réglages de l'établissement.")).toBeTruthy();
+  });
+
+  it("sans analytics.settings.manage : pas de formulaire de réglages", async () => {
+    const api = setTestApi({ ...base(["analytics.read"]), "GET /api/v1/analytics/freshness": env(freshness()), "GET /api/v1/analytics/settings": { collectionGoodBps: 8000, collectionWarningBps: 6000, attendanceGoodBps: 8500, attendanceWarningBps: 7000, staleAfterSeconds: 86_400, source: "DEFAULT" } });
+    renderWithProviders(<FreshnessScreen />);
+    await screen.findByRole("table", { name: "État de la lecture des sources" });
+    expect(screen.queryByRole("button", { name: "Enregistrer les réglages" })).toBeNull();
+    expect(calls(api, "/settings")).toHaveLength(0);
+  });
+
   it("sans analytics.rebuild : pas de bouton", async () => {
     setTestApi({ ...base(["analytics.read"]), "GET /api/v1/analytics/freshness": env(freshness()) });
     renderWithProviders(<FreshnessScreen />);

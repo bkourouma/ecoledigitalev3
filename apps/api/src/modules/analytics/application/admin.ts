@@ -56,6 +56,16 @@ export async function updateSettings(deps: AnalyticsDeps, ctx: RequestContext, u
   });
 }
 
+/**
+ * Trace la LECTURE d'une donnée sensible (masse salariale) : écrite AVANT de livrer la réponse, dans une transaction du
+ * tenant (un échec d'audit refuse la lecture). Le contenu lu n'est jamais copié dans l'audit : seulement le périmètre.
+ */
+export async function auditSensitiveRead(deps: AnalyticsDeps, ctx: RequestContext, input: { resource: string; metadata?: Record<string, unknown> }): Promise<void> {
+  await inTx(deps, ctx, async (tx) => {
+    await deps.audit.record(tx, { action: `analytics.${input.resource}.read`, entity: input.resource, entityId: null, metadata: input.metadata ?? null, severity: "notice" });
+  });
+}
+
 /** Met la reconstruction en file (exécutée par le worker : `analytics.process-refreshes`). Coalescée. */
 export async function requestRebuild(deps: AnalyticsDeps, ctx: RequestContext, input: { reason?: string | undefined }): Promise<Result<{ requested: true; requestId: string | null; queued: boolean }, AppError>> {
   return await inTx(deps, ctx, async (tx) => {
