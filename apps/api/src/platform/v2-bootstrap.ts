@@ -95,6 +95,9 @@ export async function registerV2Platform(app: FastifyInstance, options: Register
   const manifests = discovered.map((d) => d.manifest);
   const catchUpPolicy = catchUp.readCatchUpPolicy(env);
 
+  // Mémoïsation des niveaux par contexte de requête (module academic) : `ACADEMIC_REQUEST_CACHE=off` la désactive.
+  (await import("../modules/academic")).configureGradeLevelCache({ enabled: !/^(off|false|0)$/i.test((env.ACADEMIC_REQUEST_CACHE ?? "").trim()) });
+
   // 2. Pool v2 + TenantDb/SystemDb + request.ctx. Lève si le rôle est superuser/BYPASSRLS.
   await app.register(v2ContextPlugin, { connectionString, manifests });
 

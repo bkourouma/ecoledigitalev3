@@ -19,6 +19,7 @@ import {
   runWithContext,
   type RequestContext,
 } from "@ecoledigitale/kernel";
+import type { TenantBulkhead } from "./bulkhead";
 import { TransactionExecutor, type DbActor, type ExecutorOptions, type SessionSettings } from "./executor";
 import type { PgPoolLike, RunOptions, Tx } from "./types";
 
@@ -68,6 +69,11 @@ export class TenantDb {
       throw new InternalError("TenantDb : pool invalide.", { code: "DB_POOL_INVALID" });
     }
     this.executor = new TransactionExecutor(pool, options);
+  }
+
+  /** Bulkhead par tenant, s'il est actif (métriques). */
+  get bulkhead(): TenantBulkhead | undefined {
+    return this.executor.bulkhead;
   }
 
   /**

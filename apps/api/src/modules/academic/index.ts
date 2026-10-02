@@ -44,6 +44,7 @@ export {
   type StudentSummary,
   type TemplateProvider,
 } from "./application/ports";
+export { configureGradeLevelCache } from "./infrastructure/grade-level-cache";
 export { academicAuditAdapter } from "./infrastructure/audit-adapter";
 export { createTenancyInstitutionDirectory } from "./infrastructure/tenancy-directory";
 

@@ -7,6 +7,7 @@ import {
   InternalError,
   NotFoundError,
   UnauthorizedError,
+  UnavailableError,
   ValidationError,
   httpStatusFor,
   isAppError,
@@ -22,6 +23,7 @@ describe("erreurs applicatives", () => {
     [new ConflictError(), 409, "CONFLICT", "conflict"],
     [new ValidationError(), 400, "VALIDATION_FAILED", "validation"],
     [new UnauthorizedError(), 401, "UNAUTHORIZED", "unauthorized"],
+    [new UnavailableError(), 503, "UNAVAILABLE", "unavailable"],
     [new InternalError(), 500, "INTERNAL", "internal"],
   ])("%s → HTTP %i, code %s", (error, status, code, kind) => {
     expect(error.httpStatus).toBe(status);
@@ -39,6 +41,7 @@ describe("erreurs applicatives", () => {
       CONFLICT: "CONFLICT",
       VALIDATION_FAILED: "VALIDATION_FAILED",
       UNAUTHORIZED: "UNAUTHORIZED",
+      UNAVAILABLE: "UNAVAILABLE",
       INTERNAL: "INTERNAL",
     });
   });

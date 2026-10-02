@@ -350,6 +350,13 @@ async function start() {
         return;
       }
 
+      // Saturation d'un tenant (bulkhead v2, `tenant_busy`) : 503 rejouable, pas une erreur interne (Retry-After posé par v2-context).
+      const unavailable = error as { kind?: string; code?: string };
+      if (unavailable.kind === "unavailable") {
+        reply.status(503).send({ status: 503, code: unavailable.code ?? "UNAVAILABLE", kind: "unavailable", message: "Service momentanément indisponible. Réessayez dans un instant." });
+        return;
+      }
+
       reply.status(500).send({
         error: "Internal Server Error",
         message: process.env.NODE_ENV === "production"

@@ -18,6 +18,7 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { InternalError } from "@ecoledigitale/kernel";
+import type { TenantBulkhead } from "./bulkhead";
 import type { PgPoolLike, PoolClientLike, QueryResult, RunOptions, Tx } from "./types";
 
 export type DbActor = "user" | "system" | "superAdmin";
@@ -35,6 +36,11 @@ export interface SessionSettings {
 export interface ExecutorOptions {
   /** `SET LOCAL statement_timeout` (ms) pour chaque transaction ; absent = valeur du serveur/rôle. */
   statementTimeoutMs?: number;
+  /**
+   * Isolation d'équité entre tenants (voir `bulkhead.ts`) : une place est obtenue AVANT la connexion du pool et
+   * rendue APRÈS sa libération. Absent = désactivé (comportement historique).
+   */
+  bulkhead?: TenantBulkhead;
 }
 
 const SET_CONFIG_SQL = `SELECT
@@ -43,6 +49,10 @@ const SET_CONFIG_SQL = `SELECT
   set_config('app.actor', $3, true),
   set_config('app.request_id', $4, true),
   set_config('app.reason', $5, true)`;
+
+/** Même instruction + le délai d'instruction (portée transaction) : un aller-retour de moins par transaction. */
+const SET_CONFIG_WITH_TIMEOUT_SQL = `${SET_CONFIG_SQL},
+  set_config('statement_timeout', $6, true)`;
 
 class PgTx implements Tx {
   private closed = false;
@@ -109,6 +119,11 @@ interface ActiveTx {
 }
 
 export class TransactionExecutor {
+  /** Bulkhead par tenant, s'il est actif. */
+  get bulkhead(): TenantBulkhead | undefined {
+    return this.options.bulkhead;
+  }
+
   private readonly active = new AsyncLocalStorage<ActiveTx>();
 
   constructor(
@@ -141,23 +156,34 @@ export class TransactionExecutor {
       return outer.tx.transaction(fn);
     }
 
+    const release = this.options.bulkhead ? await this.options.bulkhead.acquire(settings.tenantId) : undefined;
+    try {
+      return await this.executeTop(settings, fn, runOptions, wrap);
+    } finally {
+      release?.();
+    }
+  }
+
+  private async executeTop<T>(
+    settings: SessionSettings,
+    fn: (tx: Tx) => Promise<T>,
+    runOptions: RunOptions,
+    wrap: <R>(inner: () => R) => R,
+  ): Promise<T> {
     const client = await this.pool.connect();
     const tx = new PgTx(client);
     let destroy: Error | undefined;
     try {
       await client.query(runOptions.readOnly ? "BEGIN READ ONLY" : "BEGIN");
-      await client.query(SET_CONFIG_SQL, [
+      const timeout = this.options.statementTimeoutMs;
+      await client.query(timeout !== undefined ? SET_CONFIG_WITH_TIMEOUT_SQL : SET_CONFIG_SQL, [
         settings.tenantId,
         settings.userId,
         settings.actor,
         settings.requestId,
         settings.reason,
+        ...(timeout !== undefined ? [String(timeout)] : []),
       ]);
-      if (this.options.statementTimeoutMs !== undefined) {
-        await client.query("SELECT set_config('statement_timeout', $1, true)", [
-          String(this.options.statementTimeoutMs),
-        ]);
-      }
       const result = await this.active.run({ tx, settings }, () => wrap(() => fn(tx)));
       await client.query("COMMIT");
       return result;

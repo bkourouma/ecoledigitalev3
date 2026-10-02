@@ -6,6 +6,15 @@ export {
   type SystemDbOptions,
   type TenantRef,
 } from "./system-db";
+export {
+  TenantBulkhead,
+  TENANT_BUSY_CODE,
+  bulkheadOptionsFromEnv,
+  type BulkheadObserver,
+  type BulkheadOptions,
+  type BulkheadRelease,
+  type BulkheadStats,
+} from "./bulkhead";
 export { TransactionExecutor, type DbActor, type ExecutorOptions, type SessionSettings } from "./executor";
 export {
   PgOutboxWriter,

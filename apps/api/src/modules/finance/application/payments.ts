@@ -184,8 +184,10 @@ export async function finalizeConfirmedPayment(
   const applied = await applyAllocations(deps, ctx, tx, events, payment, withLines);
   if (!applied.ok) return applied;
 
-  const receipt = await issueReceipt(deps, ctx, tx, events, payment.id);
+  // Relu AVANT le reçu : `issueReceipt` prend le verrou du compteur gapless (tenu jusqu'au COMMIT) ; tout ce qui ne dépend pas du
+  // numéro se fait en amont pour raccourcir la section critique. L'insertion du reçu ne modifie pas la ligne du paiement.
   const after = await getPayment(tx, payment.id);
+  const receipt = await issueReceipt(deps, ctx, tx, events, payment.id);
   events.add(
     FinanceEvents.PAYMENT_COMPLETED,
     {

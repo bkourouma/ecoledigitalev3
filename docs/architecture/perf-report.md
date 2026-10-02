@@ -130,7 +130,7 @@ Aucune erreur côté tenant calme (0 5xx, 0 timeout) : c'est de la **latence**, 
 1. **Le pool Postgres (10 connexions) est partagé et servi en FIFO sans équité par tenant** : 24 requêtes d'un voisin font la queue devant celles de la victime (17 en attente observées). Le mode « créations » est pire car chaque requête détient sa connexion pendant qu'elle **attend le verrou gapless `people.next_number` de son propre tenant** (moyenne 636 ms par appel, max 10 s) : le voisin épuise le pool avec des transactions bloquées.
 2. **Un seul thread Node** exécute tous les tenants (et le worker, qui traite en tâche de fond les ~3 300 événements `student.created` produits par le voisin).
 
-**Recommandation (non implémentée ici, hors périmètre de cette tâche) :** plafonner la concurrence **par tenant** (bulkhead : p. ex. 1/4 du pool, files par tenant en tourniquet) devant le pool, limiter le débit d'écritures par tenant (`@fastify/rate-limit` par `tenantId`), et séparer lectures (réplica / pool dédié) et écritures. À tester ensuite avec ce même scénario.
+**Recommandation (bulkhead par tenant implémenté ensuite : voir §10.1) :** plafonner la concurrence **par tenant** (bulkhead : p. ex. 1/4 du pool, files par tenant en tourniquet) devant le pool, limiter le débit d'écritures par tenant (`@fastify/rate-limit` par `tenantId`), et séparer lectures (réplica / pool dédié) et écritures. À tester ensuite avec ce même scénario.
 
 ## 6. Goulots, pires requêtes et index
 
@@ -203,3 +203,87 @@ ED_LOAD_SCALE=33 pnpm test:load
 ```
 
 Avec Postgres et Redis déjà disponibles (CI) : `pnpm --filter @ecoledigitale/api exec vitest run -c vitest.load.config.ts` avec `TEST_DATABASE_URL` et `REDIS_URL`. Le job `.github/workflows/load.yml` fait cela (manuel ou lundi, non bloquant, seuils appliqués avec un facteur 2).
+
+## 10. Après optimisations
+
+Date : 2026-10-02. Mesure **avant / après sur la même machine, même harnais, même échelle réduite** : `ED_LOAD_SCALE=3` (3 tenants x 180 élèves = 540 élèves, 4 320 notes), concurrence 8, scénarios `people.students,portal,isolation.mixed,noisy,results.close,finance.payment.manual`. « Avant » = sources de `65767c25` (`apps/api/src` et `packages` remis à cet état, harnais identique), « après » = HEAD. Données brutes : `apps/api/test/load/reference/before-65767c25.json` / `after-optimisations.json` (copies de `results/latest.json`).
+
+> **Mise en garde.** Poste Windows partagé avec d'autres agents : la charge ambiante a varié entre les deux exécutions (exemple : 180 inscriptions en lot du premier tenant en 192 s « avant » contre 44 s pour le dernier tenant « après »). Les latences absolues ne se comparent donc que **grossièrement** ; les comparaisons fiables sont les **compteurs d'instructions SQL** (déterministes) et les **plans `EXPLAIN`**. Une seule exécution de chaque, sans intervalle de confiance.
+
+### 10.1 Voisin bruyant (bulkhead par tenant) : objectif proposé <= x3
+
+Mécanisme : `packages/database/src/bulkhead.ts`, utilisé par `TransactionExecutor` (donc `TenantDb` et `SystemDb`). Une place est prise **avant** `pool.connect()` et rendue **après** sa libération. Plafond par tenant (défaut : moitié du pool), plafond total = taille du pool (l'attente se fait donc dans des files **par tenant servies en tourniquet**, plus dans la file FIFO du pool), attente maximale et file bornée ; au-delà : `503` `tenant_busy` avec `Retry-After` (nouvelle catégorie `unavailable` du noyau, corps `{status:503, code:"tenant_busy", kind:"unavailable"}`). Un `run` imbriqué (SAVEPOINT) ne reprend pas de place (pas d'interblocage). RLS, permissions et audit ne sont pas touchés : le bulkhead ne fait que retarder ou refuser l'ouverture d'une transaction. Actif par défaut, désactivable.
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `V2_DB_TENANT_BULKHEAD` | actif | `off` / `false` / `0` désactive |
+| `V2_DB_TENANT_MAX_CONCURRENCY` | moitié du pool (5 pour 10) | transactions simultanées par tenant |
+| `V2_DB_TENANT_MAX_WAIT_MS` | 8000 | attente maximale d'une place avant 503 |
+| `V2_DB_TENANT_MAX_QUEUE` | 200 | demandes en attente par tenant avant 503 immédiat |
+| `V2_DB_TENANT_RETRY_AFTER_S` | 2 | valeur de `Retry-After` |
+
+Métriques Prometheus (sans étiquette de tenant, par cardinalité) : `ed_db_tenant_bulkhead{pool,state=active|queued|tenants_at_cap|max_one_tenant}`, `ed_db_tenant_bulkhead_wait_seconds`, `ed_db_tenant_bulkhead_rejected_total{reason=timeout|queue_full}` ; un refus est journalisé (warn) au plus une fois par tenant et par 30 s.
+
+| Voisin (24 requêtes simultanées) | p95 calme seul -> avec voisin, **avant** | Rapport | p95 calme seul -> avec voisin, **après** | Rapport |
+|---|---|---:|---|---:|
+| Lectures lourdes (pages de 200, synthèse financière, factures) | 157 -> 1 608 ms | **x10,2** | 169 -> 597 ms | **x3,5** |
+| Créations d'élèves en rafale (compteur gapless du tenant) | 157 -> 8 020 ms (p50 87 -> 2 331 ms) | **x51,0** | 169 -> 188 ms (p50 78 -> 101 ms) | **x1,1** |
+
+* Pool « avant » : 10 connexions, **17 requêtes en attente** ; « après » : 7 à 8 connexions utilisées, **0 en attente** (le voisin attend dans sa propre file). Aucune erreur 5xx côté tenant calme dans les deux cas ; côté voisin « créations », 13 erreurs « avant », 0 « après » (aucun `tenant_busy` déclenché à cette échelle : aucune attente n'a dépassé 8 s).
+* **Objectif x3 : atteint pour les écritures (x1,1), non atteint pour les lectures (x3,5 contre x10,2).** Les lectures lourdes restent limitées par le **thread Node unique** (client de charge, API et worker dans un même processus : le CPU du processus est saturé), qu'un bulkhead de connexions ne peut pas relâcher. À re-mesurer avec API et worker séparés. Le voisin « lectures » est aussi freiné (25 req/s contre 35) : il fait la queue chez lui, c'est le but.
+* Tests : `packages/database/test/bulkhead.unit.test.ts` (plafond, tourniquet, délai, file pleine, SAVEPOINT, options), `bulkhead.integration.test.ts` (pool réel de 4 connexions : la victime attend plus de 300 ms sans bulkhead, moins de 250 ms avec ; RLS A/B inchangée ; places rendues même après erreur), `apps/api/test/tenant-bulkhead.test.ts` (503 + `Retry-After` + code, autre tenant non ralenti, désactivation, variables, métriques).
+* Limites : le plafond par tenant est dur (un tenant seul sur la plateforme ne peut pas dépasser la moitié du pool : relever `V2_DB_TENANT_MAX_CONCURRENCY` pour un déploiement mono-tenant) ; le bulkhead est **par processus** (chaque instance d'API a le sien) ; le worker n'est pas câblé (son `TenantDb` n'a pas de bulkhead).
+
+### 10.2 Liste d'élèves : paginer d'abord, joindre ensuite
+
+`people/infrastructure/students-repo.ts` : la page est choisie (filtre, tri, `LIMIT/OFFSET`, `count(*) OVER()`) sur `students` JOIN `persons` dans un `WITH page AS MATERIALIZED`, puis la projection d'inscription (`LATERAL`) et l'accès portail ne sont joints que pour les lignes de la page. Contrat, filtres, ordre (`lower(nom), lower(prénom), id`) et total inchangés ; la page au-delà de la fin compte sans jointure. Test `students-list-pagination.integration.test.ts` : **mêmes lignes, même ordre, même total** que la requête historique (conservée dans le test) pour 14 combinaisons de filtres et de pages, plus RLS A/B.
+
+`EXPLAIN (ANALYZE, BUFFERS)`, 20 000 élèves dans le tenant (+300 dans un autre), Postgres 17.10, médiane de 7 exécutions :
+
+| Cas | Avant | Après | Boucles du `LATERAL` |
+|---|---:|---:|---|
+| Page 1 (50) | 507 ms | **48 ms** | 19 600 -> 50 |
+| Dernière page | 601 ms | **97 ms** | 19 600 -> aucune boucle sur le tenant entier |
+| Recherche `q=Nom12` | 268 ms | **180 ms** | 1 399 -> 50 |
+
+Reste O(N) : le tri et le `count(*) OVER()` du filtre (inhérents à une pagination par `OFFSET` avec total) ; une pagination par curseur ferait mieux au-delà de quelques dizaines de milliers de lignes. Dans le harnais (540 élèves) l'effet est noyé par la charge ambiante : liste p50 227 -> 130 ms, recherche p95 795 -> 308 ms.
+
+### 10.3 N+1 `academic.grade_levels WHERE id = $1`
+
+`academic/infrastructure/grade-level-cache.ts` : mémoïsation **par objet `RequestContext`** (un traitement qui appelle les ports N fois avec le même contexte lit chaque niveau une fois ; un autre contexte, donc une autre requête, ne partage rien), durée de vie absolue de 10 s, jamais de `null` en cache, copies renvoyées, **désactivée définitivement pour un contexte qui écrit sur les niveaux** (`upsertGradeLevel`, `setGradeLevelNext`, `tpl*`) et jamais remplie par la transaction qui a écrit (ROLLBACK possible) ; `ACADEMIC_REQUEST_CACHE=off` la désactive. Aucun cache entre tenants, requêtes ou processus. Tests : `academic/test/unit/grade-level-cache.test.ts` (8 : même contexte, deux contextes, deux tenants avec valeurs différentes, désactivation, TTL, écriture, ROLLBACK, copies).
+
+Mesure (compteur `gradeLevelById`) : `portal.parent.mix` **48 -> 3** ; `results.close` 35 -> 34 et `finance.payment.manual` 162 -> 162, **inchangés** : dans ces scénarios chaque appel de port arrive avec un contexte distinct (une lecture par requête HTTP, ce n'est pas un N+1). Les ~7 000 lectures du rapport initial venaient surtout de la génération (inscriptions en lot : un même contexte pour N inscriptions) et des bulletins par lot, qui ne sont pas rejoués dans cette exécution réduite : **le gain sur ces chemins n'est pas mesuré ici**. Limite assumée : une modification faite par un AUTRE processus pendant la vie (au plus 10 s) du contexte lecteur n'est pas vue par lui.
+
+### 10.4 Recherche de session par requête authentifiée : **non réalisé** (volontairement)
+
+L'exigence était un cache court, par jeton, invalidé à la révocation, **sans fenêtre de grâce**. Je ne peux pas la garantir : le verdict de `findSessionForRequest` dépend de plusieurs sources (`sessions.revoked_at`, `sessions.auth_epoch` contre `identities.auth_epoch`, `identities.status`, `memberships.status` et `roles`, `tenants.status`, `mfa_verified`) modifiées par plusieurs modules (IAM, tenancy pour la suspension d'un tenant, RBAC) et lues par **plusieurs instances d'API** : une invalidation locale ne protège pas les autres processus, et une invalidation partagée (Redis) devrait couvrir tous ces points d'écriture et refuser par défaut si Redis est indisponible. Une session révoquée resterait acceptée jusqu'à l'expiration du cache sur au moins une instance. Les tests existants (`iam/test/sessions.integration.test.ts`, `security.integration.test.ts`) continuent de prouver le refus immédiat tel qu'il est aujourd'hui.
+
+Gain obtenu sans toucher à la sémantique : **un aller-retour de moins par transaction** (le `statement_timeout` est posé dans le même `SELECT set_config(...)` que le contexte de session : `BEGIN`, `SELECT`, requête, `COMMIT` au lieu de cinq instructions), ce qui profite à la recherche de session (une transaction par requête) comme à toutes les autres. Instructions SQL avant -> après : `people.students.list` 10 612 -> 8 204 (-23 %), `people.students.search` 10 474 -> 7 939 (-24 %), `isolation.mixed` 22 651 -> 18 456 (-19 %), `portal.parent.mix` 33 199 -> 27 724 (-16 %), pour un nombre de recherches de session identique (900 / 900 / 1 800 / 1 800). Piste ultérieure : un jeton de version de session partagé (Redis) vérifié à chaque requête (un aller-retour Redis au lieu d'une transaction), avec échec fermé.
+
+### 10.5 Verrous des compteurs gapless : garantie intacte, une réduction minime
+
+`finance.next_number` et `people.next_number` : **aucune modification de la numérotation** (compteur incrémenté dans la transaction qui insère le document, verrou jusqu'au `COMMIT`, sans trou). Un seul changement, sûr : dans `finalizeConfirmedPayment`, la relecture `getPayment` (indépendante du reçu) est faite **avant** `issueReceipt` : une requête de moins sous le verrou du compteur de reçus. Gain faible.
+
+Non fait, et pourquoi : (a) la section critique réelle va du premier verrou de tenant (compteur) au `COMMIT` et inclut le verrou de la chaîne d'audit, lui aussi tenu jusqu'au `COMMIT` : déplacer l'audit avant le compteur ne ferait que déplacer la sérialisation ; (b) `issueDraft` (factures) a besoin du numéro avant `markInvoiceIssued`, puis de `refreshInvoiceStatus` qui lit l'état « émise » : non réordonnable sans changer le comportement ; (c) numéroter après coup ou en asynchrone changerait la garantie (numéro absent de la réponse) : décision métier hors périmètre. Les gains se trouvent plutôt dans la file par tenant (10.1) et la réduction des aller-retour (10.4).
+
+### 10.6 Autres chiffres du harnais (avant -> après, même mise en garde)
+
+| Scénario | p95 avant | p95 après | Instructions SQL avant -> après |
+|---|---:|---:|---|
+| people.students.list | 481 ms | 367 ms | 10 612 -> 8 204 |
+| people.students.list.deep | 997 ms | 867 ms | 10 934 -> 8 790 |
+| people.students.search | 795 ms | 308 ms | 10 474 -> 7 939 |
+| finance.payment.manual | 4 950 ms | 2 499 ms | 17 905 -> 15 602 |
+| isolation.mixed (0 fuite, 0 erreur) | 701 ms | 616 ms | 22 651 -> 18 456 |
+| results.close | 7 063 ms | 9 856 ms | 10 890 -> 9 899 |
+| portal.parent.mix | 438 ms | 602 ms | 33 199 -> 27 724 |
+
+`results.close` et `portal.parent.mix` ont un p95 plus élevé « après » alors que leur nombre d'instructions baisse : charge ambiante différente d'une exécution à l'autre (cf. mise en garde) ; je ne les présente ni comme une régression prouvée ni comme un gain. Aucune erreur 5xx ni fuite inter-tenants dans aucune des deux exécutions.
+
+### 10.7 Reproduire
+
+```bash
+ED_LOAD_SCALE=3 ED_LOAD_ONLY="people.students,portal,isolation.mixed,noisy,results.close,finance.payment.manual" pnpm test:load
+# V2_DB_TENANT_BULKHEAD=off désactive le seul bulkhead ; les autres changements se comparent à 65767c25
+PEOPLE_PERF_EXPLAIN=1 PEOPLE_PERF_N=20000 ED_PG_IMAGE=postgres:17-alpine node packages/database/scripts/with-postgres.mjs --config apps/api/src/modules/people/vitest.config.ts students-list-pagination
+```

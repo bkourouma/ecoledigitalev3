@@ -16,9 +16,10 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { Pool } from "pg";
-import { SystemDb, TenantDb } from "@ecoledigitale/database";
+import { SystemDb, TenantBulkhead, TenantDb, bulkheadOptionsFromEnv, type BulkheadOptions } from "@ecoledigitale/database";
 import {
   createRequestContext,
+  isAppError,
   isUuid,
   newId,
   type Logger,
@@ -204,6 +205,11 @@ export interface V2ContextOptions {
   poolMax?: number;
   /** Délai maximal d'une instruction, ms (défaut : `V2_DB_STATEMENT_TIMEOUT_MS` ou 15000). */
   statementTimeoutMs?: number;
+  /**
+   * Isolation d'équité par tenant devant le pool. `false` = désactivé ; absent = lu dans l'environnement
+   * (`V2_DB_TENANT_BULKHEAD=off` désactive ; voir `bulkheadOptionsFromEnv` pour les autres variables).
+   */
+  tenantBulkhead?: BulkheadOptions | false;
 }
 
 function intFromEnv(name: string, fallback: number): number {
@@ -236,13 +242,40 @@ const plugin: FastifyPluginAsync<V2ContextOptions> = async (app: FastifyInstance
     throw e;
   }
 
+  const poolMax = options.poolMax ?? ownedPool.options?.max ?? intFromEnv("V2_DB_POOL_MAX", 10);
+  const bulkheadOptions = options.tenantBulkhead === false ? undefined : (options.tenantBulkhead ?? bulkheadOptionsFromEnv(poolMax));
+  const bulkhead = bulkheadOptions ? new TenantBulkhead(bulkheadOptions) : undefined;
+  if (bulkhead) {
+    // Un refus par tenant est journalisé au plus une fois toutes les 30 s (pas de tempête de journaux sous charge).
+    const lastWarn = new Map<string, number>();
+    bulkhead.observe({
+      rejected: (reason, tenantId) => {
+        const now = Date.now();
+        if (now - (lastWarn.get(tenantId) ?? 0) < 30_000) return;
+        if (lastWarn.size > 1000) lastWarn.clear();
+        lastWarn.set(tenantId, now);
+        logger.warn({ tenant_id: tenantId, reason, ...bulkhead.stats() }, "v2 : tenant_busy, transaction refusée par le bulkhead du tenant");
+      },
+    });
+    logger.info({ ...bulkhead.options, observer: undefined }, "v2 : bulkhead par tenant actif");
+  }
   const tenantDb = new TenantDb(ownedPool, {
     statementTimeoutMs: options.statementTimeoutMs ?? intFromEnv("V2_DB_STATEMENT_TIMEOUT_MS", 15_000),
+    ...(bulkhead ? { bulkhead } : {}),
   });
   const systemDb = new SystemDb(tenantDb, { logger });
 
   app.decorate("v2", Object.freeze({ tenantDb, systemDb, manifests: options.manifests, logger, pool: ownedPool }));
   app.decorateRequest("ctx", null as unknown as RequestContext);
+
+  // 503 « tenant_busy » : `Retry-After` posé avant le gestionnaire d'erreurs de n'importe quel module (le statut vient de
+  // `AppError.httpStatus`, l'en-tête d'ici : un seul endroit pour toutes les routes).
+  app.addHook("onError", async (_request, reply, error) => {
+    if (isAppError(error) && error.kind === "unavailable") {
+      const seconds = (error.details as { retryAfterSeconds?: unknown } | undefined)?.retryAfterSeconds;
+      void reply.header("Retry-After", String(typeof seconds === "number" && seconds > 0 ? Math.ceil(seconds) : 1));
+    }
+  });
 
   // Enregistré après les hooks d'authentification legacy ⇒ exécuté après eux.
   app.addHook("preHandler", async (request: FastifyRequest) => {
