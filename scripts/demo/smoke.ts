@@ -107,6 +107,7 @@ async function main(): Promise<void> {
   for (const tenant of tenants) {
     console.log(`\nÉtablissement ${tenant}`);
     const accounts = creds.accounts.filter((a) => a.tenant === tenant);
+    const pack = accounts[0]?.pack ?? "";
     for (const a of accounts) {
       const token = await login(a);
       check(`connexion ${a.role}${a.totpSecret ? " (MFA)" : ""}`, token !== null);
@@ -142,8 +143,41 @@ async function main(): Promise<void> {
       const first = (cards.body?.items as Array<{ id: string; verificationCode: string }> | undefined)?.[0];
       ids.reportCardId = first?.id;
       ids.verificationCode = first?.verificationCode;
+      if (first) {
+        // Téléchargement du PDF : URL signée de courte durée (servie par l'API, relayée par le web), octets « %PDF- ».
+        const pdf = await call("GET", `/api/v1/reportcards/report-cards/${first.id}/pdf`, owner);
+        const url = (pdf.body?.url ?? pdf.body?.downloadUrl) as string | undefined;
+        let isPdf = false;
+        if (url) {
+          const file = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+          const bytes = Buffer.from(await file.arrayBuffer());
+          isPdf = file.status === 200 && bytes.subarray(0, 5).toString("latin1") === "%PDF-";
+        }
+        check("bulletin : PDF téléchargeable par URL signée", isPdf, `HTTP ${pdf.status} ${JSON.stringify(pdf.body).slice(0, 120)}`);
+      }
+      // Contenu propre à chaque pack (volumes minimaux de la démonstration).
+      const countOf = (r: Res): number => ((r.body?.items ?? r.body) as unknown[] | undefined)?.length ?? 0;
+      const apps = await expect2xx("propriétaire : candidatures (au moins 9)", "GET", "/api/v1/admissions/applications?limit=50", owner);
+      check("au moins 9 candidatures à tous les statuts", countOf(apps) >= 9, String(countOf(apps)));
+      const imports = await call("GET", "/api/v1/imports/jobs?limit=10", owner);
+      check("un import d'élèves VALIDÉ, prêt à exécuter", imports.status === 200 && JSON.stringify(imports.body).includes('"VALIDATED"'), `HTTP ${imports.status}`);
+      if (pack === "SECONDARY") {
+        const councils = await expect2xx("propriétaire : conseils de classe", "GET", "/api/v1/councils/councils", owner);
+        check("un conseil de classe OUVERT", JSON.stringify(councils.body).includes('"OPEN"'));
+        const measures = await expect2xx("propriétaire : mesures de vie scolaire", "GET", "/api/v1/schoollife/measures", owner);
+        check("au moins 3 mesures de vie scolaire", countOf(measures) >= 3, String(countOf(measures)));
+        const assigns = await expect2xx("propriétaire : élèves affectés par l'État", "GET", "/api/v1/stateassign/assignments", owner);
+        check("un dossier d'affectation", countOf(assigns) >= 1, String(countOf(assigns)));
+        const sessions = await expect2xx("propriétaire : sessions d'examen", "GET", "/api/v1/examinations/sessions", owner);
+        check("session officielle et examen blanc", countOf(sessions) >= 2, String(countOf(sessions)));
+      }
+      if (pack === "PRIMARY") {
+        const reviews = await expect2xx("propriétaire : bilans annuels", "GET", "/api/v1/primary_school/annual-reviews?limit=20", owner);
+        check("5 bilans annuels dont 3 scellés", countOf(reviews) >= 5 && (JSON.stringify(reviews.body).match(/"SEALED"/g)?.length ?? 0) >= 3, String(countOf(reviews)));
+        await expect2xx("propriétaire : conseils des maîtres", "GET", "/api/v1/primary_school/councils", owner);
+      }
       const years = await call("GET", "/api/v1/academic/years", owner);
-      const yearId = (years.body?.items as Array<{ id: string }> | undefined)?.[0]?.id;
+      const yearId =(years.body?.items as Array<{ id: string }> | undefined)?.[0]?.id;
       if (yearId) {
         const periods = await call("GET", `/api/v1/academic/years/${yearId}/periods`, owner);
         ids.periodId = (periods.body?.items as Array<{ id: string }> | undefined)?.[0]?.id;
@@ -167,7 +201,10 @@ async function main(): Promise<void> {
     }
     const teacher = t("enseignant") ?? t("instituteur");
     if (teacher) {
-      await expect2xx("enseignant : emploi du temps personnel", "GET", "/api/v1/scheduling/me/occurrences", teacher);
+      const from = new Date().toISOString().slice(0, 10);
+      const to = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
+      await expect2xx("enseignant : emploi du temps personnel (deux semaines)", "GET", `/api/v1/scheduling/me/timetable?from=${from}&to=${to}`, teacher);
+      await expect2xx("enseignant : séances du jour", "GET", "/api/v1/scheduling/me/today", teacher);
       await expect2xx("enseignant : ses évaluations", "GET", "/api/v1/assess/assessments?limit=10", teacher);
     }
     const econome = t("econome");
@@ -177,7 +214,7 @@ async function main(): Promise<void> {
     // Vérification publique d'un bulletin.
     if (ids.verificationCode) {
       const v = await call("GET", `/api/v1/public/verify/${ids.verificationCode}`);
-      check("vérification publique d'un bulletin : AUTHENTIQUE et « démonstration »", v.status === 200 && v.body?.status === "AUTHENTIC" && v.body?.demonstration === true, `HTTP ${v.status} ${JSON.stringify(v.body).slice(0, 120)}`);
+      check(`vérification publique d'un bulletin : AUTHENTIQUE${pack === "HIGHER" ? "" : " et « démonstration »"}`, v.status === 200 && v.body?.status === "AUTHENTIC" && (pack === "HIGHER" || v.body?.demonstration === true), `HTTP ${v.status} ${JSON.stringify(v.body).slice(0, 120)}`);
     }
   }
 

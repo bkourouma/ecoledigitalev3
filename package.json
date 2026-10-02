@@ -20,6 +20,8 @@
     "demo:status": "node scripts/demo/cli.mjs status",
     "demo:totp": "node scripts/demo/cli.mjs totp",
     "demo:smoke": "node scripts/demo/cli.mjs smoke",
+    "demo:seed": "node scripts/demo/cli.mjs seed",
+    "demo:restart-web": "node scripts/demo/cli.mjs restart-web",
     "migrate": "node scripts/run-psql.mjs infra/scripts/migrations/0001_init.sql",
     "migrate:academic": "node scripts/run-psql.mjs infra/scripts/migrations/0002_academic.sql",
     "migrate:assignments": "node scripts/run-psql.mjs infra/scripts/migrations/0018_assignments_refactor.sql",
