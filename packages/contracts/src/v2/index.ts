@@ -7,6 +7,7 @@ export * from "./finance";
 export * from "./higher";
 export * from "./iam";
 export * from "./iam-legacy-roles";
+export * from "./messaging";
 export * from "./payroll";
 export * from "./people";
 export * from "./platform";
