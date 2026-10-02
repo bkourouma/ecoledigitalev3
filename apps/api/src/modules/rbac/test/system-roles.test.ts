@@ -177,7 +177,7 @@ describe("modèles de rôles système : ensemble des rôles", () => {
   it("le catalogue réel couvre les modules livrés (chaque module déclarant des permissions est connu de la matrice)", () => {
     const modulesWithPermissions = [...new Set(real.catalog.entries.map((e) => e.moduleKey))].sort();
     expect(modulesWithPermissions).toEqual([
-      "academic", "assess", "attendance", "audit", "entitlements", "finance", "higher", "iam", "payroll", "people", "rbac",
+      "academic", "analytics", "assess", "attendance", "audit", "entitlements", "finance", "higher", "iam", "payroll", "people", "rbac",
       "reportcards", "results", "rules", "scheduling", "tenancy",
     ]);
   });

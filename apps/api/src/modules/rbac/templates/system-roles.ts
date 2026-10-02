@@ -128,6 +128,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "rules.*": "Choisir et faire évoluer les règles de calcul de l'établissement (la console nationale reste à la plateforme).",
       "higher.*": "Octroyer, forcer et révoquer les diplômes, émettre les documents officiels, affecter les signataires.",
       "iam.*": "Réinitialiser la double authentification d'un membre : gestion des accès par la direction.",
+      "analytics.*": "Consulter la masse salariale par période dans les tableaux de bord de direction (lecture seule, MFA exigée, chaque lecture est auditée).",
       "payroll.*": "Gérer les configurations de paie, arrêter, verser et annuler les bulletins (le seuil propriétaire et les réglages restent au propriétaire).",
       "student.*": "Changer le statut, lire les champs sensibles, exporter et anonymiser les dossiers élèves.",
       "staff.*": "Gérer les statuts et les contrats du personnel.",
