@@ -31,7 +31,8 @@ export const RESULTS_RESULT_STATUSES = ["DRAFT", "FINAL", "SUPERSEDED", "ERROR"]
 export const resultsResultStatusSchema = z.enum(RESULTS_RESULT_STATUSES);
 export const RESULTS_LEVELS = ["ECUE", "SUBJECT", "UE", "SECTION", "PERIOD", "YEAR"] as const;
 export const resultsLevelSchema = z.enum(RESULTS_LEVELS);
-export const RESULTS_OUTCOMES = ["PROMOTED", "REPEAT", "PENDING", "EXAM_REFERRAL", "ADMITTED", "RESIT", "ADJOURNED", "OTHER"] as const;
+/** `COUNCIL_REVIEW` : « la règle ne tranche pas, le conseil décide » (jamais une décision finale). */
+export const RESULTS_OUTCOMES = ["PROMOTED", "REPEAT", "PENDING", "EXAM_REFERRAL", "ADMITTED", "RESIT", "ADJOURNED", "COUNCIL_REVIEW", "OTHER"] as const;
 export const resultsOutcomeSchema = z.enum(RESULTS_OUTCOMES);
 export const RESULTS_REOPEN_KINDS = ["CORRECTION", "RESIT_SESSION"] as const;
 export const resultsReopenKindSchema = z.enum(RESULTS_REOPEN_KINDS);
@@ -273,6 +274,9 @@ export const resultsDecisionDtoSchema = z.object({
   justification: z.string().nullable(),
   decidedBy: resultsUuidSchema.nullable(),
   decidedAt: resultsInstantSchema.nullable(),
+  /** `COUNCIL` : décision écrite par un conseil (aucune proposition de règle) ; défaut `RULE`. */
+  origin: z.enum(["RULE", "COUNCIL"]).optional(),
+  councilRef: z.string().nullable().optional(),
 });
 
 export const resultsDeliberationCreateBodySchema = z

@@ -18,6 +18,7 @@ import { ResultsCode, conflict, forbidden, notFound, validation } from "../domai
 import { ResultsEvents } from "../domain/events";
 import { closureHashOf } from "../domain/hash";
 import { planClose, planDeliberate, planLock, planReopen } from "../domain/period-state";
+import { isFinalDecisionCode } from "../domain/catalog";
 import type { DecisionRecord, PeriodState } from "../domain/records";
 import type { ReopenKind } from "../domain/types";
 import { guarded } from "../infrastructure/db-errors";
@@ -129,7 +130,8 @@ export async function deliberatePeriod(deps: ResultsDeps, ctx: RequestContext, i
     if (input.confirmProposed) {
       const heldDelib = (await listDeliberations(tx, state.id)).find((d) => d.status === "HELD" || d.status === "SIGNED");
       for (const d of await listDecisions(tx, { stateId: state.id, status: "PROPOSED" })) {
-        if (!d.proposedCode) continue;
+        // « La règle ne tranche pas » (COUNCIL_REVIEW) : jamais confirmée d'office, le conseil décide.
+        if (!d.proposedCode || !isFinalDecisionCode(d.proposedCode)) continue;
         const done = await guarded(() => confirmDecision(tx, { id: d.id, finalCode: d.proposedCode as string, finalOutcome: d.proposedOutcome as string, deliberationId: heldDelib?.id ?? null, justification: null, by: ctx.userId as string, byName: actorName, at: now }));
         if (done) {
           confirmed += 1;
@@ -280,7 +282,8 @@ export async function closePeriod(deps: ResultsDeps, ctx: RequestContext, input:
     // Sans délibération : les décisions proposées sont confirmées par la clôture elle-même (tracé, pas de date de séance inventée).
     if (plan.value.withoutDeliberation) {
       for (const d of await listDecisions(tx, { stateId: state.id, status: "PROPOSED" })) {
-        if (!d.proposedCode) continue;
+        // « La règle ne tranche pas » (COUNCIL_REVIEW) : jamais confirmée d'office, le conseil décide.
+        if (!d.proposedCode || !isFinalDecisionCode(d.proposedCode)) continue;
         const done = await guarded(() => confirmDecision(tx, { id: d.id, finalCode: d.proposedCode as string, finalOutcome: d.proposedOutcome as string, deliberationId: null, justification: null, by: ctx.userId as string, byName: actorName, at: now }));
         if (done) emitConfirmed(events, state, done);
       }

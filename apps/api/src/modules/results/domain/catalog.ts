@@ -25,6 +25,15 @@ export const OVERRIDABLE: Readonly<Record<string, readonly OverridableTarget[]>>
     { ruleKey: "moyenne_matiere", level: "SUBJECT", kind: "VALUE" },
     { ruleKey: "moyenne_ponderee", level: "PERIOD", kind: "VALUE" },
   ] as const),
+  "secondary-annual@1": Object.freeze([
+    { ruleKey: "moyenne_matiere", level: "SUBJECT", kind: "VALUE" },
+    { ruleKey: "moyenne_ponderee", level: "PERIOD", kind: "VALUE" },
+  ] as const),
+  "coef-period@1": Object.freeze([
+    { ruleKey: "moyenne_matiere", level: "SUBJECT", kind: "VALUE" },
+    { ruleKey: "moyenne_periode", level: "PERIOD", kind: "VALUE" },
+  ] as const),
+  // competency-period@1 : aucune note, aucune moyenne — rien à surcharger.
 });
 
 export function findOverridable(contractId: string, ruleKey: string, level: Level, kind: OverrideKind): OverridableTarget | undefined {
@@ -38,7 +47,30 @@ export const DECISION_RULES: Readonly<Record<string, ReadonlyArray<{ ruleKey: st
     { ruleKey: "decision_conseil", kind: "COUNCIL", scope: "PERIOD" },
     { ruleKey: "decision_fin_annee", kind: "YEAR_END", scope: "YEAR" },
   ],
+  "secondary-annual@1": [
+    { ruleKey: "decision_conseil", kind: "COUNCIL", scope: "PERIOD" },
+    { ruleKey: "decision_fin_annee", kind: "YEAR_END", scope: "YEAR" },
+  ],
+  // La proposition de fin d'année vit sur la ligne `YEAR` du dernier résultat de période (pas de décision de période).
+  "coef-period@1": [{ ruleKey: "decision_fin_annee", kind: "YEAR_END", scope: "YEAR" }],
+  "competency-period@1": [{ ruleKey: "decision_fin_annee", kind: "YEAR_END", scope: "YEAR" }],
 });
+
+/**
+ * Codes qu'une décision FINALE de fin d'année peut prendre quand elle est tranchée par un humain (conseil), par contrat. Pour les
+ * contrats historiques, l'ensemble est celui des codes de sortie de la règle (comportement inchangé) ; pour `coef-period@1` et
+ * `competency-period@1`, la règle ne propose que `PENDING` / `COUNCIL_REVIEW` / passage / redoublement : le conseil choisit parmi
+ * le passage et le redoublement (jamais `COUNCIL_REVIEW`, qui n'est pas une décision).
+ */
+export const YEAR_END_FINAL_CODES: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  "coef-period@1": Object.freeze(["PROMOTED", "REPEAT"]),
+  "competency-period@1": Object.freeze(["PROMOTED", "REPEAT"]),
+});
+
+/** Codes de PROPOSITION qui ne sont jamais confirmés automatiquement ni acceptés comme décision finale : le conseil tranche. */
+export const NON_FINAL_DECISION_CODES: readonly string[] = Object.freeze(["COUNCIL_REVIEW"]);
+
+export const isFinalDecisionCode = (code: string): boolean => !NON_FINAL_DECISION_CODES.includes(code);
 
 const OUTCOME_BY_CODE: Readonly<Record<string, DecisionOutcome>> = Object.freeze({
   ADMITTED: "ADMITTED",
@@ -52,6 +84,7 @@ const OUTCOME_BY_CODE: Readonly<Record<string, DecisionOutcome>> = Object.freeze
   PERIOD_VALIDATED: "ADMITTED",
   PERIOD_NOT_VALIDATED: "ADJOURNED",
   REINFORCEMENT_ADVISED: "OTHER",
+  COUNCIL_REVIEW: "COUNCIL_REVIEW",
 });
 
 /** Issue d'une décision d'après son CODE (jamais son libellé). Code inconnu : `OTHER`. */

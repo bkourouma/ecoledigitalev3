@@ -46,6 +46,9 @@ export interface StageOutput<T> {
   readonly record: TraceRecord;
 }
 
+/** Règles de classement (`rang`, `rang_matiere`, `rang_periode`, `rang_annuel`, `rang_candidat`) : leur contexte porte toute la cohorte. */
+export const isRankRule = (ruleKey: string): boolean => ruleKey === "rang" || ruleKey.startsWith("rang_");
+
 export class StageRunner {
   /** Premier échec par inscription (index). */
   readonly failures = new Map<number, ComputedFailure>();
@@ -87,7 +90,7 @@ export class StageRunner {
           ...(this.withTrace && r.trace !== undefined ? { trace: r.trace } : {}),
           // Résultats FINAL : le contexte exact de l'appel est conservé pour le REJEU de reproductibilité (module rules). Le rang est
           // exclu : son contexte porte toute la cohorte (la reproductibilité du classement est couverte par le hash de clôture).
-          ...(this.withTrace && item.ruleKey !== "rang" ? { variables: item.variables } : {}),
+          ...(this.withTrace && !isRankRule(item.ruleKey) ? { variables: item.variables } : {}),
         },
       });
     });

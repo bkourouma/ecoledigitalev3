@@ -9,12 +9,16 @@ export type PeriodStatus = "OPEN" | "GRADING_LOCKED" | "DELIBERATED" | "CLOSED";
 export type StateScope = "PERIOD" | "YEAR";
 export type ResultStatus = "DRAFT" | "FINAL" | "SUPERSEDED" | "ERROR";
 export type Level = "ECUE" | "SUBJECT" | "UE" | "SECTION" | "PERIOD" | "YEAR";
-export type DecisionOutcome = "PROMOTED" | "REPEAT" | "PENDING" | "EXAM_REFERRAL" | "ADMITTED" | "RESIT" | "ADJOURNED" | "OTHER";
+/**
+ * Issue d'une décision. `COUNCIL_REVIEW` (contrats `coef-period@1` et `competency-period@1`) n'est JAMAIS une décision finale : la règle ne
+ * tranche pas, le conseil décide (la proposition reste `PROPOSED` jusqu'à un code final explicite).
+ */
+export type DecisionOutcome = "PROMOTED" | "REPEAT" | "PENDING" | "EXAM_REFERRAL" | "ADMITTED" | "RESIT" | "ADJOURNED" | "COUNCIL_REVIEW" | "OTHER";
 export type ReopenKind = "CORRECTION" | "RESIT_SESSION";
 export type GradingMode = "COMPOSED" | "DIRECT";
 
 /** Contrats de règles pris en charge par les pipelines de `results` (chaînage = structure, écrit en code). */
-export const SUPPORTED_CONTRACTS = ["credit-semester@1", "coef-semester@1"] as const;
+export const SUPPORTED_CONTRACTS = ["credit-semester@1", "coef-semester@1", "coef-period@1", "competency-period@1", "secondary-annual@1"] as const;
 export type SupportedContract = (typeof SUPPORTED_CONTRACTS)[number];
 
 /** Nœud de la structure du curriculum d'une classe (fourni par le port `CurriculumPort`, jamais deviné par un libellé). */
@@ -46,6 +50,8 @@ export interface PeriodFacts {
   readonly isSecondSemester: boolean;
   readonly startsOn: string;
   readonly endsOn: string;
+  /** Poids de la période dans la moyenne annuelle (créneau du plan de périodes, décimal exact) ; absent = "1" (jamais une pondération supposée). */
+  readonly weight?: string | undefined;
 }
 
 /** Structure d'une classe × période. */
@@ -185,4 +191,20 @@ export interface ProposedDecision {
   readonly kind: string;
   readonly code: string;
   readonly outcome: DecisionOutcome;
+}
+
+/**
+ * Faits de fin d'année d'une inscription pour les règles `cas_*` du contrat `coef-period@1` (données d'AUTRES modules, jamais
+ * calculées ici) : absences en journées et jours ouverts (`attendance`), redoublements du cycle (`academic`).
+ */
+export interface EnrollmentYearFacts {
+  readonly absencesDays: number;
+  readonly openDays: number;
+  readonly cycleRepeats: number;
+}
+
+/** Compteurs de compétences d'une inscription (`primary_school`) : nombre évalué vs attendu, jamais un niveau de maîtrise. */
+export interface CompetencyCounters {
+  readonly evaluated: number;
+  readonly expected: number;
 }

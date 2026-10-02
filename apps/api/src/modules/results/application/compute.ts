@@ -15,6 +15,8 @@ import { DECISION_RULES, outcomeOf } from "../domain/catalog";
 import { ResultsCode, conflict, notFound, validation } from "../domain/errors";
 import { ResultsEvents } from "../domain/events";
 import { computeCoefSemester } from "../domain/pipeline/coef";
+import { computeCoefPeriod } from "../domain/pipeline/coef-period";
+import { computeCompetencyPeriod } from "../domain/pipeline/competency-period";
 import { computeCreditSemester } from "../domain/pipeline/credit";
 import { StructureError } from "../domain/pipeline/runner";
 import type { PeriodState, ResultHeader } from "../domain/records";
@@ -114,6 +116,22 @@ async function firstSemesterAverages(tx: Tx, structure: ClassStructure): Promise
   return out;
 }
 
+/** Moyennes (FINAL) des périodes PRÉCÉDENTES de l'année, par inscription puis par période (contrats à N périodes pondérées). */
+async function priorPeriodAverages(tx: Tx, structure: ClassStructure): Promise<Map<string, Map<string, string | null>>> {
+  const out = new Map<string, Map<string, string | null>>();
+  for (const p of structure.yearPeriods) {
+    if (p.id === structure.period.id) continue;
+    const state = await getStateByKey(tx, { classroomId: structure.classroomId, academicPeriodId: p.id, academicYearId: structure.academicYearId, scope: "PERIOD" });
+    if (!state) continue;
+    for (const h of await listCurrentHeaders(tx, state.id, "FINAL")) {
+      const m = out.get(h.enrollmentId) ?? new Map<string, string | null>();
+      m.set(p.id, h.average);
+      out.set(h.enrollmentId, m);
+    }
+  }
+  return out;
+}
+
 /** Exécute le pipeline du contrat sur la classe entière. `withTrace` : conserve la trace d'explicabilité (résultats FINAL). */
 export async function runPipeline(deps: ResultsDeps, ctx: RequestContext, tx: Tx, prepared: Prepared, options: { withTrace: boolean }): Promise<Result<ClassComputation, AppError>> {
   const { state, structure, enrollments, session } = prepared;
@@ -126,6 +144,44 @@ export async function runPipeline(deps: ResultsDeps, ctx: RequestContext, tx: Tx
     }
     if (state.contractId === "coef-semester@1") {
       return ok(computeCoefSemester({ structure, enrollments, grades, overrides, firstSemesterAverages: await firstSemesterAverages(tx, structure), withTrace: options.withTrace }, evaluator));
+    }
+    if (state.contractId === "secondary-annual@1") {
+      return ok(computeCoefSemester({ structure, enrollments, grades, overrides, firstSemesterAverages: new Map(), contractId: "secondary-annual@1", priorAverages: structure.period.isSecondSemester ? await priorPeriodAverages(tx, structure) : new Map(), withTrace: options.withTrace }, evaluator));
+    }
+    if (state.contractId === "coef-period@1") {
+      const last = structure.period.isSecondSemester;
+      const ids = enrollments.map((e) => e.enrollmentId);
+      return ok(
+        computeCoefPeriod(
+          {
+            structure,
+            enrollments,
+            grades,
+            overrides,
+            priorAverages: last ? await priorPeriodAverages(tx, structure) : new Map(),
+            yearFacts: last && deps.ports.yearFacts ? await deps.ports.yearFacts.getYearFacts(ctx, { classroomId: structure.classroomId, academicYearId: structure.academicYearId, enrollmentIds: ids }) : undefined,
+            hasRule: (key) => session.hasRule(key),
+            withTrace: options.withTrace,
+          },
+          evaluator,
+        ),
+      );
+    }
+    if (state.contractId === "competency-period@1") {
+      const last = structure.period.isSecondSemester;
+      const ids = enrollments.map((e) => e.enrollmentId);
+      return ok(
+        computeCompetencyPeriod(
+          {
+            structure,
+            enrollments,
+            counters: last && deps.ports.competencyCounters ? await deps.ports.competencyCounters.getCompetencyCounters(ctx, { classroomId: structure.classroomId, academicYearId: structure.academicYearId, enrollmentIds: ids }) : undefined,
+            yearFacts: last && deps.ports.yearFacts ? await deps.ports.yearFacts.getYearFacts(ctx, { classroomId: structure.classroomId, academicYearId: structure.academicYearId, enrollmentIds: ids }) : undefined,
+            withTrace: options.withTrace,
+          },
+          evaluator,
+        ),
+      );
     }
   } catch (e) {
     if (e instanceof StructureError) return err(conflict(ResultsCode.CURRICULUM_INCOMPLETE, e.message, e.details));

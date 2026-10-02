@@ -162,6 +162,10 @@ export interface DecisionRecord {
   decidedBy: string | null;
   decidedByName: string | null;
   decidedAt: Date | null;
+  /** `RULE` : proposée par une règle ; `COUNCIL` : écrite par un conseil (aucune proposition de règle). */
+  origin: "RULE" | "COUNCIL";
+  /** Référence OPAQUE de l'acte source d'un conseil (séance, décision), `null` pour une décision de règle. */
+  councilRef: string | null;
 }
 
 export interface AppreciationRecord {

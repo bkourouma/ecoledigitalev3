@@ -67,6 +67,8 @@ export function createResultsDeps(input: ResultsDepsInput): ResultsDeps {
     get rules() { return resolve().rules ?? fallback.rules; },
     get guardianship() { return resolve().guardianship ?? fallback.guardianship; },
     get names() { return resolve().names ?? fallback.names; },
+    get yearFacts() { return resolve().yearFacts; },
+    get competencyCounters() { return resolve().competencyCounters; },
   };
   return {
     db: input.db,

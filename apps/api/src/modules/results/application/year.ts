@@ -5,7 +5,8 @@
  *    la réponse porte `complete: false` et la liste des périodes manquantes, jamais une moyenne partielle ;
  *  - contrat à crédits : `moyenne_annuelle` (pondérée par les crédits de semestre), `annee_validee` (toutes les UE des périodes
  *    selon le mode du jeu de règles), `credits_valides` / `credits_total`, `mention_diplome`, `rang` sur la cohorte de la classe ;
- *  - contrat à coefficients : l'année est déjà produite par le pipeline du 2ᵉ semestre (ligne `YEAR`) ; elle est restituée telle quelle ;
+ *  - contrats à coefficients (`coef-semester@1`, `secondary-annual@1`, `coef-period@1`) et par compétences (`competency-period@1`) :
+ *    l'année est déjà produite par le pipeline de la dernière période (ligne `YEAR`) ; elle est restituée telle quelle ;
  *  - la version de règle utilisée est celle ÉPINGLÉE sur le dernier résultat FINAL de l'année (jamais l'heure courante) ⇒ résultat
  *    reproductible. Rien n'est persisté : ce sont des fonctions pures de résultats FINAL immuables et d'une version de règle figée.
  * Aucune formule ici : tout vient des règles.
@@ -55,6 +56,9 @@ export interface YearResult {
   yearDecisionCode: string | null;
   inputsHash: string | null;
 }
+
+/** Contrats dont l'année est déjà produite par le pipeline de la DERNIÈRE période (ligne `YEAR`) : tous sauf le contrat à crédits. */
+const YEAR_LINE_CONTRACTS: readonly string[] = ["coef-semester@1", "secondary-annual@1", "coef-period@1", "competency-period@1"];
 
 const incomplete = (base: Omit<YearResult, "average" | "averageDisplay" | "rank" | "cohortSize" | "validated" | "creditsAcquired" | "creditsRequired" | "mentionCode" | "yearDecisionCode" | "inputsHash" | "ruleSetCode" | "ruleVersionNo" | "definitionHash">): YearResult => ({
   ...base,
@@ -108,7 +112,7 @@ export async function getYearResult(
       const lastFinal = finalOf(lastPeriod.id, input.enrollmentId) as ResultHeader;
 
       // ---- contrat à coefficients : l'année est portée par la ligne YEAR du dernier semestre ------------------------------
-      if (any.contractId === "coef-semester@1") {
+      if (YEAR_LINE_CONTRACTS.includes(any.contractId)) {
         const year = (linesByHeader.get(lastFinal.id) ?? []).find((l) => l.level === "YEAR");
         return ok({
           ...base,

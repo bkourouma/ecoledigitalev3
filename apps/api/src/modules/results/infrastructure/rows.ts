@@ -166,7 +166,7 @@ export const toDeliberation = (r: any): DeliberationRecord => ({
 });
 
 export const DECISION_COLUMNS = `d.id, d.state_id, d.enrollment_id, d.scope, d.kind, d.source_result_id, d.proposed_code, d.proposed_outcome, d.final_code, d.final_outcome,
-  d.status, d.deliberation_id, d.justification, d.decided_by, d.decided_by_name, d.decided_at`;
+  d.status, d.deliberation_id, d.justification, d.decided_by, d.decided_by_name, d.decided_at, d.origin, d.council_ref`;
 export const toDecision = (r: any): DecisionRecord => ({
   id: r.id,
   stateId: r.state_id,
@@ -184,6 +184,8 @@ export const toDecision = (r: any): DecisionRecord => ({
   decidedBy: r.decided_by,
   decidedByName: r.decided_by_name,
   decidedAt: r.decided_at,
+  origin: r.origin ?? "RULE",
+  councilRef: r.council_ref ?? null,
 });
 
 export const APPRECIATION_COLUMNS = "a.id, a.state_id, a.enrollment_id, a.curriculum_node_id, a.author_staff_id, a.author_role, a.body, a.updated_at";
