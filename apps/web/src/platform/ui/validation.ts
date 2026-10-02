@@ -3,7 +3,7 @@
  * l'API, donc aucun écart de règle de forme. Les règles métier (doublon, éligibilité, capacité…) restent à l'API.
  */
 
-import type { ZodTypeAny, z } from "zod";
+import type { ZodErrorMap, ZodTypeAny, z } from "zod";
 import { ApiError } from "@/platform/api/errors";
 
 export type FieldErrors = Record<string, string>;
@@ -25,8 +25,42 @@ export function zodIssuesToErrors(issues: ReadonlyArray<{ path: ReadonlyArray<st
 
 export type Validated<S extends ZodTypeAny> = { ok: true; data: z.output<S> } | { ok: false; errors: FieldErrors };
 
+/**
+ * Messages par défaut de Zod en français (chaînes vides, bornes, formats, choix). Les messages PROPRES aux contrats
+ * (`z.string().min(5, "Le motif doit faire…")`) passent en priorité : cette table ne traduit que les messages que Zod
+ * génère lui-même, qui seraient sinon affichés en anglais à l'utilisateur.
+ */
+export const frenchErrorMap: ZodErrorMap = (issue, ctx) => {
+  switch (issue.code) {
+    case "invalid_type":
+      return { message: issue.received === "undefined" || issue.received === "null" ? "Ce champ est obligatoire." : "Valeur invalide." };
+    case "too_small":
+      if (issue.type === "string") return { message: Number(issue.minimum) <= 1 ? "Ce champ est obligatoire." : `Au moins ${issue.minimum} caractères.` };
+      if (issue.type === "array") return { message: Number(issue.minimum) <= 1 ? "Sélectionnez au moins un élément." : `Au moins ${issue.minimum} éléments.` };
+      return { message: `La valeur doit être supérieure ou égale à ${issue.minimum}.` };
+    case "too_big":
+      if (issue.type === "string") return { message: `Au plus ${issue.maximum} caractères.` };
+      if (issue.type === "array") return { message: `Au plus ${issue.maximum} éléments.` };
+      return { message: `La valeur doit être inférieure ou égale à ${issue.maximum}.` };
+    case "invalid_string":
+      if (issue.validation === "uuid") return { message: "Choix invalide." };
+      if (issue.validation === "email") return { message: "Adresse électronique invalide." };
+      if (issue.validation === "url") return { message: "Adresse invalide." };
+      if (issue.validation === "datetime") return { message: "Date et heure invalides." };
+      return { message: "Format invalide." };
+    case "invalid_enum_value":
+    case "invalid_literal":
+    case "invalid_union":
+      return { message: "Choix invalide." };
+    case "unrecognized_keys":
+      return { message: "Champ non reconnu." };
+    default:
+      return { message: ctx.defaultError === "Invalid input" ? "Valeur invalide." : ctx.defaultError };
+  }
+};
+
 export function validateWith<S extends ZodTypeAny>(schema: S, value: unknown): Validated<S> {
-  const parsed = schema.safeParse(value);
+  const parsed = schema.safeParse(value, { errorMap: frenchErrorMap });
   if (parsed.success) return { ok: true, data: parsed.data };
   return { ok: false, errors: zodIssuesToErrors(parsed.error.issues) };
 }

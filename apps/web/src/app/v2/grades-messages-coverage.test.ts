@@ -3,6 +3,10 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import catalog from "../../../messages/fr-CI.json";
 import { ASSESS_ENTRY_STATUSES, ASSESS_PUBLICATION_MODES, ASSESS_REVISION_KINDS, ASSESS_REVISION_STATUSES, ASSESS_STATUSES } from "@ecoledigitale/contracts/v2/assess";
+import { RESULTS_LEVELS, RESULTS_OUTCOMES, RESULTS_PERIOD_STATUSES, RESULTS_RESULT_STATUSES } from "@ecoledigitale/contracts/v2/results";
+import { RULES_RULE_TYPES, RULES_STATUSES } from "@ecoledigitale/contracts/v2/rules";
+import { REPORTCARDS_BATCH_OUTCOMES, REPORTCARDS_BATCH_STATUSES, REPORTCARDS_PACKS, REPORTCARDS_RENDER_STATUSES, REPORTCARDS_STATUSES, REPORTCARDS_TEMPLATE_DOCUMENT_KINDS, REPORTCARDS_VERIFICATION_STATUSES } from "@ecoledigitale/contracts/v2/reportcards";
+import { HIGHER_ACQUIRED_VIA, HIGHER_AWARD_STATUSES, HIGHER_AWARDED_VIA, HIGHER_DIPLOMA_STATUSES, HIGHER_DOCUMENT_KINDS, HIGHER_DOCUMENT_STATUSES, HIGHER_LEDGER_STATUSES, HIGHER_RESIT_PHASES, HIGHER_RESIT_REGISTRATION_STATUSES, HIGHER_RESIT_WINDOW_STATUSES, HIGHER_SLOT_KEYS } from "@ecoledigitale/contracts/v2/higher";
 
 /**
  * Filet de sécurité i18n des écrans « notes, résultats, règles, bulletins, supérieur » (`v2Assess*`, `v2Results*`,
@@ -73,5 +77,41 @@ describe("messages fr-CI (notes, résultats, règles, bulletins, supérieur)", (
     for (const s of ASSESS_REVISION_STATUSES) expect(a.revisionStatus![s], `revisionStatus.${s}`).toBeTruthy();
     for (const s of ASSESS_REVISION_KINDS) expect(a.revisionKind![s], `revisionKind.${s}`).toBeTruthy();
     for (const s of ASSESS_PUBLICATION_MODES) expect(a.publicationMode![s], `publicationMode.${s}`).toBeTruthy();
+  });
+
+  it("les énumérations des contrats de résultats, règles, bulletins et supérieur ont toutes un libellé", () => {
+    const ns = catalog as unknown as Record<string, Record<string, Record<string, unknown>>>;
+    const expectAll = (namespace: string, group: string, values: ReadonlyArray<string>) => {
+      for (const v of values) expect(ns[namespace]?.[group]?.[v], `${namespace}.${group}.${v}`).toBeTruthy();
+    };
+    expectAll("v2Results", "periodStatus", RESULTS_PERIOD_STATUSES);
+    expectAll("v2Results", "resultStatus", RESULTS_RESULT_STATUSES);
+    expectAll("v2Results", "outcome", RESULTS_OUTCOMES);
+    expectAll("v2Results", "levels", RESULTS_LEVELS);
+    expectAll("v2Rules", "status", RULES_STATUSES);
+    expectAll("v2Rules", "ruleType", RULES_RULE_TYPES);
+    expectAll("v2Reportcards", "status", REPORTCARDS_STATUSES);
+    expectAll("v2Reportcards", "renderStatus", REPORTCARDS_RENDER_STATUSES);
+    expectAll("v2Reportcards", "batchStatus", REPORTCARDS_BATCH_STATUSES);
+    expectAll("v2Reportcards", "batchOutcome", REPORTCARDS_BATCH_OUTCOMES);
+    expectAll("v2Reportcards", "pack", REPORTCARDS_PACKS);
+    expectAll("v2ReportcardsVerify", "status", REPORTCARDS_VERIFICATION_STATUSES);
+    expectAll("v2ReportcardsVerify", "kind", REPORTCARDS_TEMPLATE_DOCUMENT_KINDS);
+    expectAll("v2Higher", "diplomaStatus", HIGHER_DIPLOMA_STATUSES);
+    expectAll("v2Higher", "awardStatus", HIGHER_AWARD_STATUSES);
+    expectAll("v2Higher", "awardedVia", HIGHER_AWARDED_VIA);
+    expectAll("v2Higher", "documentKind", HIGHER_DOCUMENT_KINDS);
+    expectAll("v2Higher", "documentStatus", HIGHER_DOCUMENT_STATUSES);
+    expectAll("v2Higher", "acquiredVia", HIGHER_ACQUIRED_VIA);
+    expectAll("v2Higher", "ledgerStatus", HIGHER_LEDGER_STATUSES);
+    expectAll("v2Higher", "resitPhase", HIGHER_RESIT_PHASES);
+    expectAll("v2Higher", "resitWindowStatus", HIGHER_RESIT_WINDOW_STATUSES);
+    expectAll("v2Higher", "resitRegistrationStatus", HIGHER_RESIT_REGISTRATION_STATUSES);
+    expectAll("v2Higher", "slotKey", HIGHER_SLOT_KEYS);
+    expectAll("v2Results", "decisionStatus", ["PROPOSED", "CONFIRMED", "PUBLISHED", "WITHDRAWN"]);
+    expectAll("v2Results", "overrideStatus", ["REQUESTED", "APPROVED", "REJECTED", "REVOKED"]);
+    expectAll("v2Results", "deliberationStatus", ["PLANNED", "HELD", "SIGNED", "CANCELLED"]);
+    expectAll("v2Rules", "simulationStatus", ["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"]);
+    expectAll("v2Higher", "debtStatus", ["OPEN", "CLEARED"]);
   });
 });
