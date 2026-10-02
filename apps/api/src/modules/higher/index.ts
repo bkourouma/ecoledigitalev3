@@ -82,6 +82,7 @@ export {
   InMemoryCredits,
   InMemoryCurriculum,
   InMemoryCycleResults,
+  InMemoryDocumentFiles,
   InMemoryEnrollments,
   InMemoryInstitution,
   InMemoryResitSession,
@@ -185,6 +186,20 @@ export {
   type IssueAwardDocumentInput,
   type IssuedDocument,
 } from "./application/documents";
+
+// PDF des documents officiels : scellement, rendu (worker), téléchargement contrôlé, vérification publique
+export {
+  describeDocumentForVerification,
+  getDocumentDownload,
+  parseDocumentEvent,
+  pdfFileName,
+  renderOfficialDocument,
+  requestDocumentRender,
+  type DocumentDownload,
+  type DocumentVerificationFacts,
+} from "./application/files";
+export { buildDocumentContext, DOCUMENT_TEMPLATE_KEYS, MENTION_LABELS, TEMPLATE_SLOT_OF, type DocumentRenderContext } from "./domain/document-context";
+export type { DocumentFilesPort, RenderedDocumentFile, SealedDocumentInfo } from "./application/ports";
 
 // Vues étudiant / tuteur, réglages
 export { getStudentDiplomaView, getStudentPathway, type StudentDiplomaView, type StudentPathway } from "./application/student-view";

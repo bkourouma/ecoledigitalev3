@@ -87,6 +87,7 @@ function unavailable<T extends object>(name: string): T {
 export function createReportcardsDeps(input: ReportcardsDepsInput): ReportcardsDeps {
   const resolve = input.portsProvider ?? ((): Partial<ReportcardsPorts> => input.ports ?? {});
   const ports: ReportcardsPorts = {
+    get external() { return resolve().external ?? {}; },
     get results() { return resolve().results ?? unavailable<ResultsReadPort>("ResultsReadPort"); },
     get guardianship() { return resolve().guardianship ?? unavailable<GuardianshipPort>("GuardianshipPort"); },
     get attendance() { return resolve().attendance ?? null; },

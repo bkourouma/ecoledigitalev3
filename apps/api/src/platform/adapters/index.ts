@@ -28,7 +28,7 @@ import { registerFinancePorts, type FinancePortSet } from "../../modules/finance
 import { registerHigherPorts, registerHigherWorkerPorts, type HigherPorts } from "../../modules/higher";
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
-import { registerReportcardsPorts, setReportcardsWorkerResources, type ReportcardsPorts } from "../../modules/reportcards";
+import { registerReportcardsPorts, setReportcardsWorkerResources, type PdfRenderer, type ReportcardsPorts } from "../../modules/reportcards";
 import { registerResultsPorts, setResultsWorkerPorts, type ResultsPorts } from "../../modules/results";
 import { registerSchedulingPorts } from "../../modules/scheduling";
 import type { ModuleRuntime } from "../runtime";
@@ -54,6 +54,7 @@ import { createResultsActorNamePort, createResultsGuardianshipPort } from "./peo
 import { createSchedulingPeopleQuery } from "./people-scheduling";
 import { createPayrollAttendanceHours, createPayrollSessionHours } from "./payroll-sources";
 import { createHigherInstitutionPort, createHigherSignatoryDirectory } from "./reportcards-higher";
+import { createHigherDocumentFiles, createHigherDocumentVerifier } from "./reportcards-higher-documents";
 import { createAcademicPromotionDecisions } from "./results-academic";
 import { createReportcardsResultsRead } from "./results-reportcards";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
@@ -79,7 +80,8 @@ export interface PlatformPorts {
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
-export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | null): PlatformPorts {
+export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | null, options: { documentRenderer?: PdfRenderer } = {}): PlatformPorts {
+  const documentRenderer = options.documentRenderer;
   const { academic, people, finance, attendance, scheduling, results, reportcards, assess, higher, rules, lookups, clock } = kit;
   return {
     academic: {
@@ -138,6 +140,12 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
       guardianship: createReportcardsGuardianshipPort(lookups),
       attendance: createReportcardsAttendanceSummary(attendance),
       standing: createReportcardsLearnerStanding(finance),
+      // Vérification publique des diplômes et attestations : higher lit, reportcards revérifie signature et empreinte.
+      external: {
+        DIPLOMA: createHigherDocumentVerifier(higher),
+        ATTESTATION_SUCCESS: createHigherDocumentVerifier(higher),
+        ATTESTATION_AUTHENTICITY: createHigherDocumentVerifier(higher),
+      },
       directory: createReportcardsUserDirectory(lookups),
       ...(storage ? { storage } : {}),
     },
@@ -151,6 +159,7 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
       actors: createHigherActorDirectory(lookups),
       signatories: createHigherSignatoryDirectory(reportcards),
       institution: createHigherInstitutionPort(reportcards),
+      documents: createHigherDocumentFiles(kit, storage, documentRenderer ? { renderer: documentRenderer } : {}),
     },
   };
 }

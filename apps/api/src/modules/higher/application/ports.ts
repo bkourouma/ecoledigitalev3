@@ -304,7 +304,43 @@ export class RecordingAudit implements AuditPort {
   }
 }
 
+// ---------------------------------------------------------------------------
+// reportcards : scellement, rendu PDF et stockage des documents officiels
+// ---------------------------------------------------------------------------
+
+/** Résultat du scellement d'un document : signature Ed25519 de l'empreinte du snapshot (clé de l'environnement). */
+export interface SealedDocumentInfo {
+  readonly signingKeyId: string;
+  readonly signature: string;
+}
+
+/** Un PDF rendu depuis le snapshot et stocké : clé d'objet, empreinte SHA-256 du fichier, gabarit utilisé. */
+export interface RenderedDocumentFile {
+  readonly objectKey: string;
+  readonly pdfHash: string;
+  readonly pages: number;
+  readonly templateKey: string;
+  readonly templateVersion: number;
+}
+
+/**
+ * Fichiers des documents officiels (013) : le module `higher` produit le snapshot immuable et son empreinte ; `reportcards`
+ * le SCELLE (signature Ed25519, code inscrit dans l'index de vérification publique), le RAND en PDF (gabarit de plateforme,
+ * worker) et le STOCKE. Repli si non branché : `higher.port_unavailable` (jamais de document « scellé » en silence).
+ */
+export interface DocumentFilesPort {
+  /** Prépare le scellement HORS transaction (enregistrement de la clé publique de signature : accès système). Échoue si aucune clé n'est configurée. */
+  prepareSeal(ctx: RequestContext): Promise<Result<void, AppError>>;
+  /** Signe l'empreinte et inscrit le code dans l'index public, DANS la transaction de l'appelant (document et index naissent ensemble). */
+  seal(ctx: RequestContext, tx: Tx, input: { documentId: Uuid; kind: string; snapshotHash: string; verificationCode: string; issuedAt: Date }): Promise<Result<SealedDocumentInfo, AppError>>;
+  /** Rend le PDF depuis le contexte du gabarit, le stocke et indexe son empreinte (reconnaissance d'un fichier téléversé). Idempotent. */
+  render(ctx: RequestContext, input: { documentId: Uuid; kind: string; templateKey: string; title: string; context: Readonly<Record<string, unknown>>; verificationCode: string; issuedAt: Date; logoRef: string | null }): Promise<Result<RenderedDocumentFile, AppError>>;
+  /** URL de lecture à durée courte (jamais un chemin de stockage). */
+  signedUrl(ctx: RequestContext, objectKey: string, options: { ttlSec: number; fileName: string }): Promise<string>;
+}
+
 export interface HigherPorts {
+  readonly documents: DocumentFilesPort;
   readonly credits: CreditsSourcePort;
   readonly resitSession: ResitSessionPort;
   readonly cycleResults: CycleResultsPort;

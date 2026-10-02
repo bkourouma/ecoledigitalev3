@@ -163,12 +163,76 @@ async function describe(deps: ReportcardsDeps, tenantId: string, cardId: string,
   });
 }
 
+/**
+ * Vérification d'un document émis par un autre module (`deps.ports.external[nature]`) : même contrat de réponse que pour un
+ * bulletin — réponse minimale, uniformité (inconnu / sans vérificateur / code différent : `null`), intégrité (empreinte
+ * recalculée par l'émetteur ET signature Ed25519 revérifiée contre la clé publique, y compris retirée).
+ */
+async function describeExternal(deps: ReportcardsDeps, tenantId: string, kind: string, documentId: string, code: string): Promise<PublicVerification | null> {
+  const system = deps.systemDb;
+  if (!system) throw portUnavailable("SystemDb");
+  const verifier = deps.ports.external[kind];
+  if (!verifier) return null;
+  if (deps.verificationEnabled && !(await deps.verificationEnabled(tenantId))) return null;
+  const facts = await verifier.describe(tenantId, documentId);
+  if (!facts || facts.verificationCode !== code || !facts.signature || !facts.signingKeyId) return null;
+  const keyId = facts.signingKeyId;
+  const key = await system.run("public-verification", (tx) => platformRepo.getSigningKey(tx, keyId), { readOnly: true });
+  const hashValid = facts.snapshotHash === facts.recomputedHash;
+  const signatureValid = Boolean(key) && verifyDocumentSignature(key!.publicKey, { snapshotHash: facts.snapshotHash, verificationCode: code, issuedAt: facts.issuedAt }, facts.signature);
+  let status: VerificationStatus;
+  let message: string;
+  if (!hashValid || !signatureValid) {
+    status = "INVALID";
+    message = MESSAGES.INVALID;
+  } else if (facts.status === "REVOKED") {
+    status = "REVOKED";
+    message = MESSAGES.REVOKED;
+  } else if (facts.status === "SUPERSEDED") {
+    status = "SUPERSEDED";
+    message = `Document remplacé par une version plus récente émise le ${formatDateFr((facts.supersededByIssuedAt ?? facts.issuedAt).toISOString())}.`;
+  } else {
+    status = "AUTHENTIC";
+    message = MESSAGES.AUTHENTIC;
+  }
+  return {
+    status,
+    documentKind: kind,
+    institutionName: facts.institutionName,
+    title: facts.title,
+    issuedAt: facts.issuedAt,
+    mention: null,
+    supersededByIssuedAt: status === "SUPERSEDED" ? facts.supersededByIssuedAt : null,
+    revokedAt: status === "REVOKED" ? facts.revokedAt : null,
+    keyId,
+    keyFingerprint: key ? publicKeyFingerprint(key.publicKey) : null,
+    snapshotHash: facts.snapshotHash,
+    signature: facts.signature,
+    message,
+  };
+}
+
+async function logExternalResult(deps: ReportcardsDeps, tenantId: string, kind: string, result: string, ipPrefix: string | null): Promise<void> {
+  try {
+    await deps.systemDb!.runForTenant("public-verification-log", tenantId, (tx) => cardsRepo.logVerification(tx, { id: deps.newId(), tenantId, reportCardId: null, documentKind: kind, result, ipPrefix }));
+  } catch (e) {
+    deps.logger.warn({ err: e instanceof Error ? e.message : String(e) }, "reportcards : journal de vérification indisponible");
+  }
+}
+
 export async function verifyByCode(deps: ReportcardsDeps, input: { code: string; ipPrefix?: string | null }): Promise<Result<PublicVerification, AppError>> {
   const system = deps.systemDb;
   if (!system) return err(portUnavailable("SystemDb"));
   if (!isVerificationCode(input.code)) return ok(UNKNOWN_VERIFICATION);
   const target = await system.run("public-verification", (tx) => cardsRepo.lookupVerification(tx, input.code), { readOnly: true });
-  if (!target || (target.documentKind !== "REPORT_CARD" && target.documentKind !== "TRANSCRIPT")) return ok(UNKNOWN_VERIFICATION);
+  if (!target) return ok(UNKNOWN_VERIFICATION);
+  if (target.documentKind !== "REPORT_CARD" && target.documentKind !== "TRANSCRIPT") {
+    // Document d'un AUTRE module (diplôme, attestation) : son vérificateur lit le document, reportcards revérifie la signature.
+    const external = await describeExternal(deps, target.tenantId, target.documentKind, target.documentId, input.code);
+    if (!external) return ok(UNKNOWN_VERIFICATION);
+    await logExternalResult(deps, target.tenantId, target.documentKind, external.status, input.ipPrefix ?? null);
+    return ok(external);
+  }
   const described = await describe(deps, target.tenantId, target.documentId, input.code);
   if (!described) return ok(UNKNOWN_VERIFICATION);
   await logResult(deps, target.tenantId, described.card, described.result.status, input.ipPrefix ?? null);
@@ -207,10 +271,18 @@ export async function verifyByFile(deps: ReportcardsDeps, input: { bytes: Uint8A
   if (!found) return ok(mismatch);
   const target = await system.run("public-verification", (tx) => cardsRepo.lookupVerification(tx, found.code), { readOnly: true });
   if (!target) return ok(mismatch);
-  const described = await describe(deps, target.tenantId, target.documentId, found.code);
-  if (!described) return ok(mismatch);
-  await logResult(deps, target.tenantId, described.card, "FILE_MATCH", input.ipPrefix ?? null);
-  const { result } = described;
+  let result: PublicVerification;
+  if (target.documentKind !== "REPORT_CARD" && target.documentKind !== "TRANSCRIPT") {
+    const external = await describeExternal(deps, target.tenantId, target.documentKind, target.documentId, found.code);
+    if (!external) return ok(mismatch);
+    await logExternalResult(deps, target.tenantId, target.documentKind, "FILE_MATCH", input.ipPrefix ?? null);
+    result = external;
+  } else {
+    const described = await describe(deps, target.tenantId, target.documentId, found.code);
+    if (!described) return ok(mismatch);
+    await logResult(deps, target.tenantId, described.card, "FILE_MATCH", input.ipPrefix ?? null);
+    result = described.result;
+  }
   const note =
     result.status === "AUTHENTIC"
       ? `Ce fichier est identique à l'original émis le ${formatDateFr(result.issuedAt!.toISOString())}.`

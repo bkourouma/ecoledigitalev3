@@ -110,6 +110,12 @@ export async function listDocuments(
   return { items, nextCursor: rows.length > limit && last ? encodeCursor({ a: last.issuedAt.toISOString(), i: last.id }) : null };
 }
 
+/** Le duplicata qui a remplacé ce document (le plus récent), pour la vérification publique d'un document remplacé. */
+export async function findSuperseding(tx: Tx, id: Uuid): Promise<OfficialDocument | null> {
+  const r = await tx.queryOne<DocumentRow>(`SELECT ${DOCUMENT_COLUMNS} FROM higher.official_documents WHERE supersedes_id = $1 ORDER BY version DESC LIMIT 1`, [id]);
+  return r ? toDocument(r) : null;
+}
+
 export async function markSuperseded(tx: Tx, id: Uuid): Promise<boolean> {
   const res = await tx.query(`UPDATE higher.official_documents SET status = 'SUPERSEDED' WHERE id = $1 AND status = 'ISSUED'`, [id]);
   return res.rowCount > 0;

@@ -108,7 +108,8 @@ export {
 } from "./application/platform";
 
 // Port générique de scellement / rendu pour 019 (diplômes, attestations) et 032 (bulletin de paie)
-export { registerVerificationFor, renderDocumentPdf, sealDocument, type RenderDocumentInput, type SealedDocument } from "./application/documents";
+export { registerFileHashFor, registerVerificationFor, renderDocumentPdf, sealDocument, signDocumentHash, type RenderDocumentInput, type SealedDocument } from "./application/documents";
+export type { ExternalDocumentFacts, ExternalDocumentVerifier } from "./application/ports";
 
 // Domaine : événements, codes d'erreur, canonisation, signature, QR, moteur de gabarit
 export { ALL_REPORTCARDS_EVENT_TYPES, ConsumedEvents, ReportcardsEvents } from "./domain/events";
@@ -120,7 +121,7 @@ export { buildSnapshot, resolveSignatories } from "./domain/snapshot";
 export { parseTemplate, renderTemplate } from "./domain/template-engine";
 export { validateTemplate } from "./domain/template-validation";
 export { renderDocumentHtml, type RenderAssets } from "./domain/document-html";
-export { BUILTIN_TEMPLATES } from "./templates/builtin";
+export { ALL_PLATFORM_TEMPLATES, BUILTIN_TEMPLATES, PLATFORM_DOCUMENT_TEMPLATES } from "./templates/builtin";
 export type {
   BatchRecord,
   Branding,

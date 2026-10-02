@@ -18,6 +18,8 @@ export const HigherEvents = {
   DIPLOMA_AWARDED: "higher.diploma.awarded",
   DIPLOMA_REVOKED: "higher.diploma.revoked",
   DOCUMENT_ISSUED: "higher.document.issued",
+  /** Demande (ou reprise) du scellement et du rendu PDF d'un document : traitée dans le worker (Chromium). */
+  DOCUMENT_RENDER_REQUESTED: "higher.document.render_requested",
 } as const;
 
 export type HigherEventType = (typeof HigherEvents)[keyof typeof HigherEvents];
@@ -31,4 +33,7 @@ export const ALL_HIGHER_EVENT_TYPES: ReadonlyArray<HigherEventType> = Object.val
 export const ConsumedEvents = {
   RESULTS_PERIOD_CLOSED: "results.period.closed",
   CREDITS_CAPITALIZED: HigherEvents.CREDITS_CAPITALIZED,
+  /** Ses propres événements déclenchent le scellement et le rendu des PDF (abonnés du worker). */
+  DOCUMENT_ISSUED: HigherEvents.DOCUMENT_ISSUED,
+  DOCUMENT_RENDER_REQUESTED: HigherEvents.DOCUMENT_RENDER_REQUESTED,
 } as const;

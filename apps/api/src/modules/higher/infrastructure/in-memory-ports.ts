@@ -9,6 +9,7 @@
  * La règle réelle (`diplome_eligible`, `moyenne_annuelle`, `mention_diplome`) vit dans le RuleSet du module rules ; la
  * parité est prouvée par un test d'intégration qui évalue le vrai RuleSet.
  */
+import { createHash } from "node:crypto";
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import { portUnavailable } from "../domain/errors";
 import type { DecimalString, Uuid } from "../domain/types";
@@ -22,6 +23,7 @@ import type {
   CycleResults,
   CycleResultsPort,
   DiplomaRulesPort,
+  DocumentFilesPort,
   EligibilityEvaluation,
   EnrollmentDirectory,
   EnrollmentInfo,
@@ -30,11 +32,13 @@ import type {
   InstitutionProfile,
   LastEnrollment,
   ListFinalLinesQuery,
+  RenderedDocumentFile,
   ResitCandidateLine,
   ResitCandidates,
   ResitSessionPort,
   RuleRef,
   RuleScope,
+  SealedDocumentInfo,
   SignatoryDirectory,
   SignatoryInfo,
   StudentDirectory,
@@ -58,6 +62,7 @@ function unavailable<T extends object>(name: string): T {
 
 export function unavailablePorts(overrides: Partial<HigherPorts> = {}): HigherPorts {
   return {
+    documents: unavailable<DocumentFilesPort>("DocumentFilesPort"),
     credits: unavailable<CreditsSourcePort>("CreditsSourcePort"),
     resitSession: unavailable<ResitSessionPort>("ResitSessionPort"),
     cycleResults: unavailable<CycleResultsPort>("CycleResultsPort"),
@@ -317,10 +322,54 @@ export class ScriptedRules implements DiplomaRulesPort {
 }
 
 // ---------------------------------------------------------------------------
+// reportcards : scellement et PDF (factices, déterministes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Scellement et rendu FACTICES pour les tests du module : la « signature » est une chaîne dérivée de l'empreinte, le « PDF »
+ * est un petit fichier `%PDF-` qui contient le titre. Le vrai scellement (Ed25519) et le vrai rendu (gabarit, Chromium) sont
+ * ceux de `reportcards`, branchés par la plateforme (`platform/adapters/reportcards-higher.ts`).
+ */
+export class InMemoryDocumentFiles implements DocumentFilesPort {
+  readonly sealed: Array<{ documentId: Uuid; kind: string; snapshotHash: string; verificationCode: string }> = [];
+  readonly rendered: Array<{ documentId: Uuid; templateKey: string; context: Readonly<Record<string, unknown>> }> = [];
+  readonly files = new Map<string, Uint8Array>();
+  failRenderWith: AppError | null = null;
+  failSealWith: AppError | null = null;
+
+  prepared = 0;
+
+  async prepareSeal(): Promise<Result<void, AppError>> {
+    this.prepared += 1;
+    return ok(undefined);
+  }
+
+  async seal(_ctx: RequestContext, _tx: unknown, input: { documentId: Uuid; kind: string; snapshotHash: string; verificationCode: string; issuedAt: Date }): Promise<Result<SealedDocumentInfo, AppError>> {
+    if (this.failSealWith) return err(this.failSealWith);
+    this.sealed.push({ documentId: input.documentId, kind: input.kind, snapshotHash: input.snapshotHash, verificationCode: input.verificationCode });
+    return ok({ signingKeyId: "test-key-0001", signature: `sig:${input.snapshotHash.slice(0, 16)}:${input.verificationCode.slice(0, 8)}` });
+  }
+
+  async render(_ctx: RequestContext, input: { documentId: Uuid; kind: string; templateKey: string; title: string; context: Readonly<Record<string, unknown>>; verificationCode: string; issuedAt: Date; logoRef: string | null }): Promise<Result<RenderedDocumentFile, AppError>> {
+    if (this.failRenderWith) return err(this.failRenderWith);
+    this.rendered.push({ documentId: input.documentId, templateKey: input.templateKey, context: input.context });
+    const bytes = new TextEncoder().encode(`%PDF-1.4\n% ${input.title}\n${input.verificationCode}\n%%EOF`);
+    const objectKey = `memory/${input.documentId}.pdf`;
+    this.files.set(objectKey, bytes);
+    return ok({ objectKey, pdfHash: createHash("sha256").update(bytes).digest("hex"), pages: 1, templateKey: input.templateKey, templateVersion: 1 });
+  }
+
+  async signedUrl(_ctx: RequestContext, objectKey: string, options: { ttlSec: number; fileName: string }): Promise<string> {
+    return `https://files.example.test/${objectKey}?ttl=${options.ttlSec}&name=${encodeURIComponent(options.fileName)}`;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Monde complet
 // ---------------------------------------------------------------------------
 
 export interface InMemoryWorld extends HigherPorts {
+  readonly documents: InMemoryDocumentFiles;
   readonly credits: InMemoryCredits;
   readonly resitSession: InMemoryResitSession;
   readonly cycleResults: InMemoryCycleResults;
@@ -335,6 +384,7 @@ export interface InMemoryWorld extends HigherPorts {
 
 export function inMemoryPorts(): InMemoryWorld {
   return {
+    documents: new InMemoryDocumentFiles(),
     credits: new InMemoryCredits(),
     resitSession: new InMemoryResitSession(),
     cycleResults: new InMemoryCycleResults(),

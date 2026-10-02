@@ -75,6 +75,6 @@ export default defineModule({
   ],
   events: {
     publishes: [...ALL_HIGHER_EVENT_TYPES],
-    consumes: [ConsumedEvents.RESULTS_PERIOD_CLOSED, ConsumedEvents.CREDITS_CAPITALIZED],
+    consumes: [ConsumedEvents.RESULTS_PERIOD_CLOSED, ConsumedEvents.CREDITS_CAPITALIZED, ConsumedEvents.DOCUMENT_ISSUED, ConsumedEvents.DOCUMENT_RENDER_REQUESTED],
   },
 });

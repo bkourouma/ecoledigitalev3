@@ -8,6 +8,7 @@
  * alimentées par le branding du tenant. Chaque gabarit est revalidé par `validateTemplate` (test unitaire) avant publication.
  */
 import type { Pack, SignatureSlot, TemplateDocumentKind } from "../domain/types";
+import { HIGHER_DOCUMENT_TEMPLATES } from "./higher-documents";
 
 export interface BuiltinTemplate {
   readonly key: string;
@@ -304,6 +305,15 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([
     signatureSlots: [{ slot: "director-studies", label: "Le Directeur des études", required: true }],
   },
 ] satisfies readonly BuiltinTemplate[]);
+
+/**
+ * Gabarits livrés pour les documents d'AUTRES modules (diplômes et attestations du supérieur, 019) : publiés avec les
+ * bulletins (`ensureBuiltinTemplates`) mais hors de la liste des bulletins (contexte fourni par l'appelant, pas un snapshot).
+ */
+export const PLATFORM_DOCUMENT_TEMPLATES: readonly BuiltinTemplate[] = HIGHER_DOCUMENT_TEMPLATES;
+
+/** Tous les gabarits que la plateforme publie. */
+export const ALL_PLATFORM_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([...BUILTIN_TEMPLATES, ...PLATFORM_DOCUMENT_TEMPLATES]);
 
 /** Dernier gabarit livré pour une clé (les versions suivantes s'ajoutent à la fin de la liste). */
 export function builtinTemplate(key: string): BuiltinTemplate | undefined {
