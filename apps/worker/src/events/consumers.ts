@@ -18,6 +18,7 @@ import type { Redis } from "ioredis";
 import type { DomainEvent } from "@ecoledigitale/kernel";
 import type { SystemDb, TenantDb } from "@ecoledigitale/database";
 import type { Logger } from "../logger";
+import type { JobObservability, JobTrace } from "../observability";
 import { scopeDb } from "../scoped-db";
 import type { ScopedTenantDb } from "../sdk";
 import { computeBackoff } from "./backoff";
@@ -43,6 +44,8 @@ export interface ConsumersDeps {
   routerConcurrency: number;
   routerBackoff: { baseMs: number; maxMs: number };
   shutdownTimeoutMs: number;
+  /** Corrélation, spans et métriques (ADR-009) ; absent : comportement d'avant. */
+  observability?: JobObservability;
 }
 
 /** Reprise des jobs d'un process tué : <= lockDuration + stalledInterval (~20 s). */
@@ -63,6 +66,12 @@ function readEvent(job: Job): DomainEvent {
     throw new UnrecoverableError(`Job ${job.id} : enveloppe d'événement invalide.`);
   }
   return event;
+}
+
+/** Contexte de trace déposé par le relais (ou le routeur) à côté de l'événement ; absent si le traçage est inactif. */
+function readTrace(job: Job): JobTrace | undefined {
+  const trace = (job.data as { trace?: JobTrace } | undefined)?.trace;
+  return trace && typeof trace.traceparent === "string" ? { traceparent: trace.traceparent } : undefined;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
@@ -87,6 +96,11 @@ export class EventConsumers {
   private started = false;
 
   constructor(private readonly deps: ConsumersDeps) {}
+
+  /** Files ouvertes par les consommateurs (statistiques de profondeur, ADR-009). */
+  queueList(): Array<{ name: string; queue: Queue }> {
+    return [...this.queues.entries()].map(([name, queue]) => ({ name, queue }));
+  }
 
   private queueFor(sub: ResolvedSubscriber): Queue {
     let q = this.queues.get(sub.queueName);
@@ -151,36 +165,46 @@ export class EventConsumers {
       DOMAIN_EVENTS_QUEUE,
       async (job) => {
         const event = readEvent(job);
-        const log = logger.child({ jobId: job.id, tenantId: event.tenantId, eventId: event.id, eventType: event.type });
-        try {
-          const targets = registry.match(event.type);
-          for (const sub of targets) {
-            await this.queueFor(sub).add(
-              event.type,
-              { event },
-              {
-                jobId: event.id,
-                attempts: sub.attempts,
-                backoff: { type: "custom" },
-                removeOnComplete: COMPLETED_RETENTION,
-                removeOnFail: FAILED_RETENTION,
-              },
-            );
+        const obs = this.deps.observability;
+        // Avec l'observabilité, job_id / tenant_id / event_id / request_id viennent du contexte de corrélation (mixin) : pas de doublon.
+        const log = logger.child(obs ? { eventType: event.type } : { jobId: job.id, tenantId: event.tenantId, eventId: event.id, eventType: event.type });
+        const route = async (): Promise<void> => {
+          try {
+            const targets = registry.match(event.type);
+            const trace = obs?.jobTrace() ?? {};
+            for (const sub of targets) {
+              await this.queueFor(sub).add(
+                event.type,
+                trace.traceparent ? { event, trace } : { event },
+                {
+                  jobId: event.id,
+                  attempts: sub.attempts,
+                  backoff: { type: "custom" },
+                  removeOnComplete: COMPLETED_RETENTION,
+                  removeOnFail: FAILED_RETENTION,
+                },
+              );
+            }
+            log.debug({ subscribers: targets.map((s) => s.name) }, "événement routé");
+            obs?.observeRouter("success");
+          } catch (err) {
+            obs?.observeRouter("failure");
+            const final = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+            if (final) {
+              await dead.push({
+                kind: "router",
+                event,
+                error: errText(err),
+                attempts: job.attemptsMade + 1,
+                failedAt: new Date().toISOString(),
+              });
+            }
+            throw err;
           }
-          log.debug({ subscribers: targets.map((s) => s.name) }, "événement routé");
-        } catch (err) {
-          const final = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
-          if (final) {
-            await dead.push({
-              kind: "router",
-              event,
-              error: errText(err),
-              attempts: job.attemptsMade + 1,
-              failedAt: new Date().toISOString(),
-            });
-          }
-          throw err;
-        }
+        };
+        await (obs
+          ? obs.runEventJob({ stage: "route", name: DOMAIN_EVENTS_QUEUE, queue: DOMAIN_EVENTS_QUEUE, event, jobId: job.id, attempt: job.attemptsMade + 1, trace: readTrace(job) }, route)
+          : route());
       },
       {
         ...this.workerOptions(this.deps.routerConcurrency, this.deps.routerBackoff),
@@ -199,17 +223,16 @@ export class EventConsumers {
       async (job) => {
         const event = readEvent(job);
         const attempt = job.attemptsMade + 1;
+        const obs = this.deps.observability;
+        // Avec l'observabilité, job_id / tenant_id / event_id / request_id viennent du contexte de corrélation (mixin) : pas de doublon.
         const log = logger.child({
-          jobId: job.id,
-          tenantId: event.tenantId,
-          eventId: event.id,
+          ...(obs ? {} : { jobId: job.id, tenantId: event.tenantId, eventId: event.id, ...(event.requestId ? { requestId: event.requestId } : {}) }),
           eventType: event.type,
           subscriber: sub.name,
           attempt,
-          ...(event.requestId ? { requestId: event.requestId } : {}),
         });
         const startedAt = Date.now();
-        try {
+        const attemptOnce = async (): Promise<void> => {
           let db: ScopedTenantDb;
           try {
             db = scopeDb(tenantDb, event.tenantId, event.requestId ?? event.id);
@@ -224,24 +247,35 @@ export class EventConsumers {
             `abonné ${sub.name}`,
           );
           log.info({ durationMs: Date.now() - startedAt }, "événement traité");
-        } catch (err) {
-          const final = err instanceof UnrecoverableError || attempt >= (job.opts.attempts ?? 1);
-          log.warn({ err: errText(err), final, durationMs: Date.now() - startedAt }, "handler en échec");
-          if (final) {
-            // Dépôt AVANT le passage du job en « failed » : un crash ici entraîne un nouvel essai,
-            // et le jobId déterministe de la DLQ évite le doublon.
-            await dead.push({
-              kind: "handler",
-              event,
-              subscriber: sub.name,
-              error: errText(err),
-              attempts: attempt,
-              failedAt: new Date().toISOString(),
-            });
-            log.error({}, "événement en échec définitif pour cet abonné (dead-letter)");
+        };
+        // Tout le corps du job (succès, échec, dead-letter) s'exécute DANS le contexte de corrélation et le span.
+        const body = async (): Promise<void> => {
+          try {
+            await attemptOnce();
+            obs?.observeSubscriber(sub.name, "success", (Date.now() - startedAt) / 1000);
+          } catch (err) {
+            const final = err instanceof UnrecoverableError || attempt >= (job.opts.attempts ?? 1);
+            obs?.observeSubscriber(sub.name, final ? "dead" : "retry", (Date.now() - startedAt) / 1000);
+            log.warn({ err: errText(err), final, durationMs: Date.now() - startedAt }, "handler en échec");
+            if (final) {
+              // Dépôt AVANT le passage du job en « failed » : un crash ici entraîne un nouvel essai,
+              // et le jobId déterministe de la DLQ évite le doublon.
+              await dead.push({
+                kind: "handler",
+                event,
+                subscriber: sub.name,
+                error: errText(err),
+                attempts: attempt,
+                failedAt: new Date().toISOString(),
+              });
+              log.error({}, "événement en échec définitif pour cet abonné (dead-letter)");
+            }
+            throw err;
           }
-          throw err;
-        }
+        };
+        await (obs
+          ? obs.runEventJob({ stage: "handle", name: sub.name, queue: sub.queueName, event, jobId: job.id, attempt, trace: readTrace(job) }, body)
+          : body());
       },
       this.workerOptions(sub.concurrency, { baseMs: sub.backoffMs, maxMs: sub.maxBackoffMs }),
     );

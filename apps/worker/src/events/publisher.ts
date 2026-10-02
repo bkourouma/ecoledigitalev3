@@ -11,6 +11,7 @@
 import type { DomainEvent } from "@ecoledigitale/kernel";
 import { Queue, type ConnectionOptions, type JobsOptions } from "bullmq";
 import type { Redis } from "ioredis";
+import { startPublishTrace, type PublishTrace } from "../observability/job-trace";
 
 export const DOMAIN_EVENTS_QUEUE = "domain-events";
 export const DEAD_LETTER_QUEUE = "domain-events-dead";
@@ -43,12 +44,27 @@ export class BullEventPublisher implements EventPublisher {
   constructor(private readonly queue: Queue) {}
 
   async publish(event: DomainEvent): Promise<void> {
-    await this.queue.add(event.type, { event }, eventJobOptions(event));
+    const traced = startPublishTrace(event);
+    try {
+      await this.queue.add(event.type, traced.data, eventJobOptions(event));
+      traced.end();
+    } catch (error) {
+      traced.end(error);
+      throw error;
+    }
   }
 
   async publishMany(events: readonly DomainEvent[]): Promise<void> {
     if (events.length === 0) return;
-    await this.queue.addBulk(events.map((event) => ({ name: event.type, data: { event }, opts: eventJobOptions(event) })));
+    // ADR-009 : un span producteur par événement (enfant du span HTTP d'origine) dont le `traceparent` voyage dans le job.
+    const traced = events.map((event) => startPublishTrace(event));
+    try {
+      await this.queue.addBulk(events.map((event, i) => ({ name: event.type, data: (traced[i] as PublishTrace).data, opts: eventJobOptions(event) })));
+      for (const t of traced) t.end();
+    } catch (error) {
+      for (const t of traced) t.end(error);
+      throw error;
+    }
   }
 
   async isHealthy(): Promise<boolean> {

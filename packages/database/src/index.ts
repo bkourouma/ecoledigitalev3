@@ -10,9 +10,12 @@ export { TransactionExecutor, type DbActor, type ExecutorOptions, type SessionSe
 export {
   PgOutboxWriter,
   fetchPendingEvents,
+  setOutboxTraceparentProvider,
   markEventFailed,
   markEventsPublished,
+  type FetchPendingOptions,
   type PendingEvent,
+  type TraceparentProvider,
 } from "./outbox";
 export * from "./pg-errors";
 

@@ -19,7 +19,14 @@ async function main(): Promise<void> {
     process.exit(78); // EX_CONFIG
   }
 
-  const app = new WorkerApp(config);
+  let app: WorkerApp;
+  try {
+    app = new WorkerApp(config);
+  } catch (err) {
+    // Configuration d'observabilité invalide (OTEL_*, METRICS_*, OBS_*) : liste des variables, jamais leurs valeurs.
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(78); // EX_CONFIG
+  }
   let signalled = false;
 
   const shutdown = (signal: string): void => {

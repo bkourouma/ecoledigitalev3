@@ -374,6 +374,22 @@ export function buildPinoOptions(input: PinoOptionsInput): PinoOptionsLike {
   };
 }
 
+/**
+ * Fait normaliser et masquer les bindings de TOUS les loggers enfants (`logger.child({ tenantId })` -> `tenant_id`). Pino
+ * n'applique pas `formatters.bindings` aux enfants : on enveloppe `child` sur l'instance racine, que les enfants héritent.
+ * Idempotent. Renvoie le logger reçu.
+ */
+export function normalizeChildBindings<L extends { child: (bindings: any, options?: any) => any }>(logger: L): L {
+  const marked = logger as L & { __edChildNormalized?: true };
+  if (marked.__edChildNormalized) return logger;
+  const original = logger.child;
+  logger.child = function (this: unknown, bindings: Record<string, unknown>, options?: unknown) {
+    return original.call(this ?? logger, sanitizeLogObject(bindings ?? {}), options);
+  } as L["child"];
+  Object.defineProperty(marked, "__edChildNormalized", { value: true, enumerable: false });
+  return logger;
+}
+
 // ---------------------------------------------------------------------------
 // Garde-fou des tests
 // ---------------------------------------------------------------------------

@@ -1,0 +1,57 @@
+# OpenTelemetry Collector de DÉVELOPPEMENT : reçoit les traces OTLP de l'API et du worker (OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318)
+# et les transmet à Tempo. Aucun secret. En production : même schéma, exportateur vers le backend choisi (Tempo, Jaeger, SaaS)
+# avec ses en-têtes d'authentification fournis par l'environnement (`${env:...}`), jamais écrits ici.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  batch:
+    timeout: 2s
+    send_batch_size: 512
+  # Dernière ligne de défense (l'application filtre déjà ses spans : ADR-009) : retire les attributs qui ressembleraient à un secret.
+  attributes/redact:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+      - key: enduser.email
+        action: delete
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  debug:
+    verbosity: basic
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  telemetry:
+    metrics:
+      level: basic
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/redact, batch]
+      exporters: [otlp/tempo, debug]

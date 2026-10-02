@@ -13,6 +13,7 @@ const TRACE_PARENT = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
 interface Harness {
   app: FastifyInstance;
   lines: Array<Record<string, any>>;
+  raw: string[];
   spans: InMemorySpanExporter | undefined;
   metrics(): Promise<string>;
 }
@@ -21,9 +22,14 @@ const open: FastifyInstance[] = [];
 
 async function harness(options: { env?: Record<string, string>; tracing?: boolean; probes?: Probe[]; routes?: (app: FastifyInstance) => void } = {}): Promise<Harness> {
   const lines: Array<Record<string, any>> = [];
+  const raw: string[] = [];
   const stream = {
     write(chunk: string) {
-      for (const l of chunk.split("\n")) if (l.trim()) lines.push(JSON.parse(l));
+      for (const l of chunk.split("\n")) {
+        if (!l.trim()) continue;
+        raw.push(l);
+        lines.push(JSON.parse(l));
+      }
     },
   };
   const exporter = options.tracing ? new InMemorySpanExporter() : undefined;
@@ -44,7 +50,7 @@ async function harness(options: { env?: Record<string, string>; tracing?: boolea
   options.routes?.(app);
   await app.ready();
   open.push(app);
-  return { app, lines, spans: exporter, metrics: async () => await observability.kit.registry.metrics() };
+  return { app, lines, raw, spans: exporter, metrics: async () => await observability.kit.registry.metrics() };
 }
 
 afterEach(async () => {
@@ -59,6 +65,16 @@ describe("identifiant de requête", () => {
     const id = res.headers["x-request-id"] as string;
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     expect(h.lines.filter((l) => l.request_id === id).length).toBeGreaterThanOrEqual(2); // handler + accès
+  });
+
+  it("aucune clé de corrélation n'est dupliquée dans une ligne JSON (mixin seul, pas de binding d'enfant)", async () => {
+    const h = await harness();
+    await h.app.inject({ method: "GET", url: "/api/v1/legacy-things/42" });
+    expect(h.raw.length).toBeGreaterThanOrEqual(2);
+    for (const line of h.raw) {
+      const keys = [...line.matchAll(/"([a-z_]+)":/g)].map((m) => m[1]);
+      expect(new Set(keys).size, line).toBe(keys.length);
+    }
   });
 
   it("reprend un x-request-id valide et rejette un identifiant dangereux", async () => {

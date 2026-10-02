@@ -1,44 +1,37 @@
 /**
- * Serveur HTTP minimal (aucune dépendance) :
- *   GET /health  liveness : le process répond (200 tant qu'il n'est pas en arrêt).
- *   GET /ready   readiness : Redis ET PostgreSQL répondent, démarrage terminé, pas d'arrêt en cours.
- * Aucune donnée sensible n'est exposée ; le port n'est pas publié hors du réseau interne.
+ * Serveur HTTP minimal (aucune dépendance, port interne : jamais publié hors du réseau de l'orchestrateur) :
+ *   GET /health   liveness : le process répond (200 tant qu'il n'est pas en arrêt), aucune dépendance sondée.
+ *   GET /ready    readiness : sondes Redis, PostgreSQL, migrations (requises par défaut) et stockage objet (facultative).
+ *                 503 si le démarrage n'est pas terminé, si un arrêt est en cours ou si une sonde REQUISE échoue ;
+ *                 200 `degraded` si seule une sonde facultative échoue (ADR-009).
+ *   GET /metrics  métriques Prometheus : 404 par défaut ; jeton `Authorization: Bearer` si `METRICS_TOKEN` est défini, sans jeton
+ *                 seulement quand le serveur écoute en loopback (voir `resolveMetricsExposure`).
+ * Aucune donnée sensible n'est exposée : la réponse de `/ready` ne contient que des noms de sonde et des booléens.
  */
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import type { Registry } from "prom-client";
+import { renderReadiness, runProbes, type Probe } from "../../../api/src/platform/observability/core/health";
+import { authorizeMetrics, renderMetrics } from "../../../api/src/platform/observability/core/metrics-http";
 import type { Logger } from "../logger";
 
-export interface ReadinessProbe {
-  name: string;
-  check(): Promise<void>;
-}
+/** Sonde de readiness (nom connu de `OBS_READY_REQUIRE`). */
+export type ReadinessProbe = Probe;
 
 export interface HealthServerOptions {
   host: string;
   port: number;
   logger: Logger;
-  probes: ReadinessProbe[];
+  probes: Probe[];
   isReady: () => boolean;
   info?: () => Record<string, unknown>;
+  /** Sondes requises, détail des erreurs, délai (défaut : postgres, redis, migrations ; sans détail ; 2 s). */
+  health?: { required: ReadonlySet<string>; details: boolean; probeTimeoutMs: number };
+  /** Exposition de `/metrics` ; absent ou `mode: "none"` : 404. */
+  metrics?: { mode: "none" | "inline"; registry: Registry; token?: string | undefined; tokenRequired: boolean };
 }
 
-const PROBE_TIMEOUT_MS = 2_000;
-
-function withTimeout(p: Promise<void>, ms: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`délai de ${ms} ms dépassé`)), ms);
-    p.then(
-      () => {
-        clearTimeout(t);
-        resolve();
-      },
-      (e) => {
-        clearTimeout(t);
-        reject(e);
-      },
-    );
-  });
-}
+const DEFAULT_HEALTH = { required: new Set(["postgres", "redis", "migrations"]), details: false, probeTimeoutMs: 2_000 };
 
 export class HealthServer {
   private server: Server | null = null;
@@ -53,10 +46,15 @@ export class HealthServer {
   async start(): Promise<void> {
     const { host, port, logger } = this.options;
     const server = createServer((req, res) => {
-      void this.handle(req.method ?? "GET", req.url ?? "/", (status, body) => {
-        const json = JSON.stringify(body);
-        res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store", "content-length": Buffer.byteLength(json) });
-        res.end(json);
+      void this.handle(req.method ?? "GET", req.url ?? "/", req.headers.authorization, (status, body, headers) => {
+        const payload = typeof body === "string" ? body : JSON.stringify(body);
+        res.writeHead(status, {
+          "content-type": typeof body === "string" ? "text/plain" : "application/json",
+          "cache-control": "no-store",
+          "content-length": Buffer.byteLength(payload),
+          ...(headers ?? {}),
+        });
+        res.end(payload);
       });
     });
     server.keepAliveTimeout = 1_000;
@@ -68,10 +66,15 @@ export class HealthServer {
       });
     });
     this.server = server;
-    logger.info({ host, port: this.port }, "serveur de santé démarré (/health, /ready)");
+    logger.info({ host, port: this.port, metrics: this.options.metrics?.mode ?? "none" }, "serveur de santé démarré (/health, /ready, /metrics)");
   }
 
-  private async handle(method: string, url: string, reply: (status: number, body: unknown) => void): Promise<void> {
+  private async handle(
+    method: string,
+    url: string,
+    authorization: string | undefined,
+    reply: (status: number, body: unknown, headers?: Record<string, string>) => void,
+  ): Promise<void> {
     const path = url.split("?")[0];
     if (method !== "GET" && method !== "HEAD") return reply(405, { error: "method_not_allowed" });
     if (path === "/health") {
@@ -84,18 +87,23 @@ export class HealthServer {
     }
     if (path === "/ready") {
       if (!this.options.isReady()) return reply(503, { status: "not_ready", reason: "starting_or_stopping" });
-      const results = await Promise.all(
-        this.options.probes.map(async (probe) => {
-          try {
-            await withTimeout(probe.check(), PROBE_TIMEOUT_MS);
-            return { name: probe.name, ok: true as const };
-          } catch (err) {
-            return { name: probe.name, ok: false as const, error: err instanceof Error ? err.message : String(err) };
-          }
-        }),
-      );
-      const ok = results.every((r) => r.ok);
-      return reply(ok ? 200 : 503, { status: ok ? "ready" : "not_ready", checks: results });
+      const health = this.options.health ?? DEFAULT_HEALTH;
+      const report = await runProbes(this.options.probes, health);
+      return reply(report.httpStatus, renderReadiness(report, { details: health.details, service: "worker" }));
+    }
+    if (path === "/metrics") {
+      const metrics = this.options.metrics;
+      if (!metrics || metrics.mode === "none") return reply(404, { error: "not_found" });
+      if (authorizeMetrics({ tokenRequired: metrics.tokenRequired }, metrics.token, authorization) !== "ok") {
+        return reply(401, { error: "unauthorized" }, { "www-authenticate": 'Bearer realm="metrics"' });
+      }
+      try {
+        const { contentType, body } = await renderMetrics(metrics.registry);
+        return reply(200, body, { "content-type": contentType });
+      } catch (err) {
+        this.options.logger.error({ err: err instanceof Error ? err.message : String(err) }, "métriques : rendu impossible");
+        return reply(500, { error: "metrics_unavailable" });
+      }
     }
     return reply(404, { error: "not_found" });
   }

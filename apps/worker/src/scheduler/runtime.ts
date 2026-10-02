@@ -10,7 +10,9 @@
 import { Queue, Worker, type Job } from "bullmq";
 import type { Redis } from "ioredis";
 import type { SystemDb, TenantDb, TenantRef } from "@ecoledigitale/database";
+import { runWithCorrelation } from "../../../api/src/platform/observability/core/correlation";
 import type { Logger } from "../logger";
+import type { JobObservability } from "../observability";
 import type { ScheduledJobDefinition } from "../sdk";
 import { scopeDb } from "../scoped-db";
 import { acquireLease } from "./lock";
@@ -29,6 +31,8 @@ export interface SchedulerDeps {
   tz: string;
   prune: boolean;
   shutdownTimeoutMs: number;
+  /** Corrélation, spans et métriques (ADR-009) ; absent : comportement d'avant. */
+  observability?: JobObservability;
 }
 
 export type RunOutcome =
@@ -52,6 +56,11 @@ export class ScheduledJobsRuntime {
 
   get jobNames(): string[] {
     return [...this.byName.keys()];
+  }
+
+  /** File des échéances (statistiques de profondeur, ADR-009). */
+  queueList(): Array<{ name: string; queue: Queue }> {
+    return this.queue ? [{ name: SCHEDULED_QUEUE, queue: this.queue }] : [];
   }
 
   async start(): Promise<void> {
@@ -101,7 +110,9 @@ export class ScheduledJobsRuntime {
   async run(name: string, runId: string = `manual-${Date.now()}`): Promise<RunOutcome> {
     const { logger, failfast, prefix, systemDb, tenantDb } = this.deps;
     const def = this.byName.get(name);
-    const log = logger.child({ job: name, jobId: runId });
+    const obs = this.deps.observability;
+    // Avec l'observabilité, job_id / request_id viennent du contexte de corrélation (mixin) : pas de doublon.
+    const log = logger.child(obs ? { job: name } : { job: name, jobId: runId });
     if (!def) {
       log.warn({}, "job planifié inconnu : ignoré");
       return { status: "skipped", reason: "unknown-job" };
@@ -111,42 +122,50 @@ export class ScheduledJobsRuntime {
       log.error({}, "verrou d'unicité perdu pendant l'exécution (Redis lent ou injoignable)"),
     );
     if (!lease) {
+      obs?.observeScheduledSkipped(name);
       log.info({}, "déjà en cours d'exécution ailleurs : échéance ignorée");
       return { status: "skipped", reason: "locked" };
     }
 
     const startedAt = Date.now();
-    log.info({}, "job planifié : début");
-    try {
-      if (def.perTenant === true) {
-        const tenants = await systemDb.run(`job ${name} :: list-tenants`, (tx) =>
-          tx.many<TenantRef>("SELECT id, slug FROM kernel.tenants WHERE status = 'active' ORDER BY created_at, id"),
-          { readOnly: true },
-        );
-        let ok = 0;
-        let failed = 0;
-        for (const tenant of tenants) {
-          const tlog = log.child({ tenantId: tenant.id, tenant: tenant.slug });
-          try {
-            const db = scopeDb(tenantDb, tenant.id, `job-${name}-${runId}`.slice(0, 200));
-            await def.handler({ name, logger: tlog, systemDb, tenantDb, tenant, db });
-            ok += 1;
-          } catch (err) {
-            failed += 1;
-            tlog.error({ err: errText(err) }, "job planifié : échec sur un tenant");
+    const execute = async (): Promise<RunOutcome> => {
+      log.info({}, "job planifié : début");
+      try {
+        if (def.perTenant === true) {
+          const tenants = await systemDb.run(`job ${name} :: list-tenants`, (tx) =>
+            tx.many<TenantRef>("SELECT id, slug FROM kernel.tenants WHERE status = 'active' ORDER BY created_at, id"),
+            { readOnly: true },
+          );
+          let ok = 0;
+          let failed = 0;
+          for (const tenant of tenants) {
+            const tlog = log.child(obs ? { tenant: tenant.slug } : { tenantId: tenant.id, tenant: tenant.slug });
+            await runWithCorrelation({ tenant_id: tenant.id }, async () => {
+              try {
+                const db = scopeDb(tenantDb, tenant.id, `job-${name}-${runId}`.slice(0, 200));
+                await def.handler({ name, logger: tlog, systemDb, tenantDb, tenant, db });
+                ok += 1;
+              } catch (err) {
+                failed += 1;
+                tlog.error({ err: errText(err) }, "job planifié : échec sur un tenant");
+              }
+            });
           }
+          log.info({ durationMs: Date.now() - startedAt, tenantsOk: ok, tenantsFailed: failed }, "job planifié : fin");
+          if (failed > 0) throw new Error(`${failed} tenant(s) en échec sur ${tenants.length}`);
+          return { status: "completed", tenants: { ok, failed } };
         }
-        log.info({ durationMs: Date.now() - startedAt, tenantsOk: ok, tenantsFailed: failed }, "job planifié : fin");
-        if (failed > 0) throw new Error(`${failed} tenant(s) en échec sur ${tenants.length}`);
-        return { status: "completed", tenants: { ok, failed } };
-      }
 
-      await def.handler({ name, logger: log, systemDb, tenantDb });
-      log.info({ durationMs: Date.now() - startedAt }, "job planifié : fin");
-      return { status: "completed" };
-    } catch (err) {
-      log.error({ err: errText(err), durationMs: Date.now() - startedAt }, "job planifié : échec");
-      throw err;
+        await def.handler({ name, logger: log, systemDb, tenantDb });
+        log.info({ durationMs: Date.now() - startedAt }, "job planifié : fin");
+        return { status: "completed" };
+      } catch (err) {
+        log.error({ err: errText(err), durationMs: Date.now() - startedAt }, "job planifié : échec");
+        throw err;
+      }
+    };
+    try {
+      return await (obs ? obs.runScheduledJob(name, runId, execute) : execute());
     } finally {
       await lease.release();
     }

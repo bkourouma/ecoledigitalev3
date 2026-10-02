@@ -12,6 +12,7 @@
  */
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
+import { normalizeChildBindings } from "@ecoledigitale/kernel";
 import { Redis } from "ioredis";
 import { context, propagation, ROOT_CONTEXT, SpanKind, SpanStatusCode, trace, type Span } from "@opentelemetry/api";
 import { authorizeMetrics, renderMetrics, startMetricsServer, type MetricsServer } from "./core/metrics-http";
@@ -27,6 +28,7 @@ import {
   type Probe,
 } from "./core/health";
 import { identityAttributes, recordSafeException, tracer } from "./core/tracing";
+import { disableOutboxTraceContext, enableOutboxTraceContext } from "./outbox-trace";
 import { expectedSchemaFromModules, storageProbeFromEnv } from "./probes";
 import type { Observability } from "./observability";
 
@@ -136,6 +138,9 @@ const plugin: FastifyPluginAsync<ObservabilityPluginOptions> = async (app, optio
   const { config, http } = observability;
   const env = options.env ?? process.env;
   app.decorate("observability", observability);
+  // `request_id` (et le reste de la corrélation) vient du mixin : un enfant lié à `request_id` le doublerait dans la ligne JSON.
+  normalizeChildBindings(app.log as unknown as { child: (bindings: any, options?: any) => any });
+  app.setChildLoggerFactory((logger, _bindings, childOptions) => logger.child({}, childOptions));
 
   const probeRedis = lazyRedis(env.REDIS_URL?.trim() || undefined);
   const startedAt = Date.now();
@@ -148,11 +153,17 @@ const plugin: FastifyPluginAsync<ObservabilityPluginOptions> = async (app, optio
     return moduleKeys;
   };
 
+  let outboxTraceEnabled = false;
+
   // --- pools PostgreSQL : suivis dès que la plateforme v2 est assemblée (onReady : tout est enregistré).
   app.addHook("onReady", async () => {
     const loose = app as unknown as Loose;
     if (loose.pg) observability.pools.track("legacy", loose.pg.pool ?? loose.pg);
     if (loose.v2?.pool) observability.pools.track("v2", loose.v2.pool);
+    // Contexte de trace dans l'outbox : seulement si le traçage est actif et la colonne présente.
+    if (loose.v2?.pool) {
+      outboxTraceEnabled = await enableOutboxTraceContext(loose.v2.pool, { tracingEnabled: observability.tracing.enabled, logger: app.log });
+    }
   });
 
   // --- hook d'entrée : identifiant, contexte de corrélation, span serveur
@@ -269,6 +280,7 @@ const plugin: FastifyPluginAsync<ObservabilityPluginOptions> = async (app, optio
   }
 
   app.addHook("onClose", async () => {
+    if (outboxTraceEnabled) disableOutboxTraceContext();
     await dedicated?.close();
     await probeRedis?.close();
     await observability.shutdown(); // vide les spans en attente (no-op si le traçage est inactif)

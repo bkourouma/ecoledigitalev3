@@ -40,7 +40,9 @@ function scanModules() {
       if (!statSync(moduleDir).isDirectory()) continue;
       const subscribers = findFile(moduleDir, "subscribers");
       const jobs = findFile(moduleDir, "jobs");
-      if (subscribers || jobs) found.push({ module: entry, subscribers, jobs });
+      const migrations = join(moduleDir, "migrations");
+      const hasSchema = existsSync(migrations) && readdirSync(migrations).some((f) => f.toLowerCase().endsWith(".sql"));
+      if (subscribers || jobs) found.push({ module: entry, subscribers, jobs, hasSchema });
     }
   }
   return found;
@@ -52,7 +54,7 @@ function bundledSource() {
   const lines = [];
   const items = [];
   modules.forEach((m, i) => {
-    const parts = [`module: ${JSON.stringify(m.module)}`];
+    const parts = [`module: ${JSON.stringify(m.module)}`, `hasSchema: ${m.hasSchema === true}`];
     if (m.subscribers) {
       lines.push(`import s${i} from ${JSON.stringify(m.subscribers.replace(/\\/g, "/"))};`);
       parts.push(`subscribers: s${i}`);

@@ -21,12 +21,13 @@ describeIntegration("migrations du worker (runner de @ecoledigitale/database)", 
       logger: noopLogger,
     });
     expect(again.applied).toEqual([]);
-    expect(again.alreadyApplied).toHaveLength(6); // 3 de la baseline + 3 du worker
+    expect(again.alreadyApplied).toHaveLength(7); // 3 de la baseline + 4 du worker
     const rows = await env.admin.query("SELECT version, name FROM schema_migrations WHERE version >= '0600' ORDER BY version");
     expect(rows.rows).toEqual([
       { version: "0601", name: "processed_events" },
       { version: "0602", name: "domain_events_notify" },
       { version: "0603", name: "domain_events_published_idx" },
+      { version: "0604", name: "domain_events_traceparent" },
     ]);
   });
 

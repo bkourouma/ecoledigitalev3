@@ -2,8 +2,9 @@
  * Sondes de readiness spécifiques à la plateforme (API et worker) : schémas attendus, stockage d'objets (ADR-009).
  *
  * Ce fichier lit le DISQUE (dossiers `modules/<clé>/migrations`) mais n'importe aucun module : le contrôle des
- * migrations est structurel (voir `migrationsProbe`). Le stockage est résolu paresseusement par `platform/adapters/storage`
- * (mêmes variables `STORAGE_*` que l'API et le worker).
+ * migrations est structurel (voir `migrationsProbe`). Le stockage est résolu par `platform/adapters/storage` (mêmes variables
+ * `STORAGE_*` que l'API et le worker) ; son chargement, lourd (il tire le module reportcards), démarre en arrière-plan dès la
+ * création de la sonde pour ne jamais être payé dans le délai d'une requête `/ready`.
  */
 import { existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -28,19 +29,26 @@ export function expectedSchemaFromModules(modulesDir: string = DEFAULT_MODULES_D
   return { schemas: ["kernel", ...schemas.sort()], tables: [...KERNEL_EXPECTED_TABLES] };
 }
 
+interface Existence {
+  exists(key: string): Promise<boolean>;
+}
+
 /**
  * Sonde du stockage d'objets : interroge l'existence d'une clé sentinelle (S3 : HEAD ; disque : stat). Une clé absente est
  * normale ; seule une erreur d'accès (réseau, droits, bucket inconnu) fait échouer la sonde. Aucun stockage configuré :
  * sonde ignorée.
  */
 export function storageProbeFromEnv(env: Readonly<Record<string, string | undefined>>): Probe {
-  let storage: { exists(key: string): Promise<boolean> } | null | undefined;
+  let storage: Promise<Existence | null> | undefined;
+  const load = (): Promise<Existence | null> => {
+    storage ??= import("../adapters/storage").then((m) => m.createObjectStorage(env));
+    return storage;
+  };
+  // Précharge en arrière-plan ; une erreur de chargement sera rapportée par la première vérification.
+  void load().catch(() => undefined);
   return storageProbe(async () => {
-    if (storage === undefined) {
-      const { createObjectStorage } = await import("../adapters/storage");
-      storage = createObjectStorage(env);
-    }
-    if (!storage) return "skipped";
-    await storage.exists("healthcheck/sentinel");
+    const s = await load();
+    if (!s) return "skipped";
+    await s.exists("healthcheck/sentinel");
   });
 }

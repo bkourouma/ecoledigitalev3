@@ -8,6 +8,10 @@ import type { Pool } from "pg";
 import type { Redis } from "ioredis";
 import { Queue } from "bullmq";
 import { SystemDb, TenantDb } from "@ecoledigitale/database";
+import { migrationsProbe, redisProbe, KERNEL_EXPECTED_TABLES } from "../../api/src/platform/observability/core/health";
+import { resolveMetricsExposure } from "../../api/src/platform/observability/core/config";
+import { enableOutboxTraceContext, disableOutboxTraceContext, outboxHasTraceparent } from "../../api/src/platform/observability/outbox-trace";
+import { storageProbeFromEnv } from "../../api/src/platform/observability/probes";
 import type { WorkerConfig } from "./config";
 import { redactUrl } from "./config";
 import { bundledModules } from "./discovery/bundled";
@@ -18,6 +22,8 @@ import { PgNotificationListener } from "./events/notifications";
 import {
   BullDeadLetter,
   BullEventPublisher,
+  DEAD_LETTER_QUEUE,
+  DOMAIN_EVENTS_QUEUE,
   createDeadLetterQueue,
   createDomainEventsQueue,
 } from "./events/publisher";
@@ -28,6 +34,7 @@ import { assertRequiredTables, assertSafeRole, createPool, pingPg } from "./infr
 import { createRedis, pingRedis } from "./infra/redis";
 import { builtinJobs } from "./jobs";
 import { createLogger, systemDbLogger, type Logger } from "./logger";
+import { createWorkerObservability, type WorkerObservability } from "./observability";
 import { ScheduledJobsRuntime } from "./scheduler/runtime";
 import type { ScheduledJobDefinition, SubscriberDefinition } from "./sdk";
 
@@ -48,6 +55,11 @@ export interface WorkerAppOptions {
    * alors aucun module. `null` : aucun câblage.
    */
   platformWiring?: PlatformWiring | null;
+  /**
+   * Observabilité (ADR-009) : métriques, corrélation, spans, battement de cœur. Défaut : créée depuis l'environnement
+   * (`OTEL_*`, `METRICS_*`, `OBS_*`) ; `null` : aucune.
+   */
+  observability?: WorkerObservability | null;
 }
 
 export class WorkerApp {
@@ -61,12 +73,14 @@ export class WorkerApp {
   consumers: EventConsumers | null = null;
   scheduler: ScheduledJobsRuntime | null = null;
   health: HealthServer | null = null;
+  readonly observability: WorkerObservability | null;
 
   private blocking: Redis | null = null;
   private failfast: Redis | null = null;
   private eventsQueue: Queue | null = null;
   private deadQueue: Queue | null = null;
   private ready = false;
+  private outboxTraceEnabled = false;
   private stopped = false;
   private stopPromise: Promise<void> | null = null;
 
@@ -75,6 +89,10 @@ export class WorkerApp {
     private readonly options: WorkerAppOptions = {},
   ) {
     this.logger = options.logger ?? createLogger(config.LOG_LEVEL);
+    this.observability =
+      options.observability === undefined
+        ? createWorkerObservability({ logger: this.logger, prefix: config.WORKER_QUEUE_PREFIX })
+        : options.observability;
   }
 
   get isReady(): boolean {
@@ -89,14 +107,30 @@ export class WorkerApp {
   async start(): Promise<void> {
     const { config, logger } = this;
     try {
+      const obs = this.observability;
+      // Schémas de modules attendus : ceux des modules découverts qui possèdent des migrations (les modules factices des
+      // tests du socle n'en ont pas : seules les tables du noyau sont alors attendues).
+      let expectedModules: readonly string[] = [];
+      const poolProxy = { query: (text: string, values?: unknown[]) => this.pool.query(text, values) };
+      const exposure = resolveMetricsExposure({ service: "worker", token: obs?.config.metrics.token, host: config.WORKER_HTTP_HOST });
       this.health = new HealthServer({
         host: config.WORKER_HTTP_HOST,
         port: config.WORKER_HTTP_PORT,
         logger,
         isReady: () => this.isReady,
+        ...(obs ? { health: obs.config.health, metrics: { mode: exposure.mode === "none" ? "none" : "inline", registry: obs.kit.registry, token: obs.config.metrics.token, tokenRequired: exposure.tokenRequired } } : {}),
         probes: [
-          { name: "redis", check: () => pingRedis(this.failfast as Redis) },
+          { name: "redis", check: () => redisProbe(this.failfast as Redis).check() },
           { name: "postgres", check: () => pingPg(this.pool) },
+          {
+            name: "migrations",
+            check: () =>
+              migrationsProbe(poolProxy, {
+                schemas: ["kernel", ...expectedModules],
+                tables: [...KERNEL_EXPECTED_TABLES],
+              }).check(),
+          },
+          storageProbeFromEnv(process.env),
         ],
         info: () => ({
           ready: this.isReady,
@@ -144,6 +178,7 @@ export class WorkerApp {
           : defaultModuleDirs(resolve(__dirname, "..")));
       const bundled = "bundled" in this.options ? this.options.bundled : bundledModules;
       const found = await discoverModuleExtensions({ dirs: moduleDirs, bundled });
+      expectedModules = found.schemas;
       for (const s of found.subscribers) this.registry.add(s.definition, `module ${s.module}`);
       for (const s of this.options.subscribers ?? []) this.registry.add(s, "options");
       if (!this.options.skipBuiltinJobs) jobs.push(...builtinJobs(config));
@@ -170,6 +205,7 @@ export class WorkerApp {
           routerConcurrency: config.WORKER_ROUTER_CONCURRENCY,
           routerBackoff: { baseMs: config.WORKER_RELAY_BACKOFF_BASE_MS, maxMs: config.WORKER_RELAY_BACKOFF_MAX_MS },
           shutdownTimeoutMs: config.WORKER_SHUTDOWN_TIMEOUT_MS,
+          ...(obs ? { observability: obs } : {}),
         });
         await this.consumers.start();
       }
@@ -186,8 +222,16 @@ export class WorkerApp {
           tz: config.WORKER_TZ,
           prune: config.WORKER_PRUNE_SCHEDULERS,
           shutdownTimeoutMs: config.WORKER_SHUTDOWN_TIMEOUT_MS,
+          ...(obs ? { observability: obs } : {}),
         });
         await this.scheduler.start();
+      }
+
+      // ADR-009 : contexte de trace dans l'outbox (colonne traceparent, migration 0604) quand le traçage est actif.
+      let withTraceparent = false;
+      if (obs?.tracing.enabled) {
+        withTraceparent = await outboxHasTraceparent(this.pool).catch(() => false);
+        this.outboxTraceEnabled = await enableOutboxTraceContext(this.pool, { tracingEnabled: true, logger });
       }
 
       if (config.WORKER_RELAY_ENABLED) {
@@ -197,7 +241,9 @@ export class WorkerApp {
           dead: dlq,
           notifications: new PgNotificationListener(config.WORKER_DATABASE_URL, logger),
           logger,
+          ...(obs ? { observer: obs } : {}),
           config: {
+            withTraceparent,
             batchSize: config.WORKER_RELAY_BATCH_SIZE,
             sweepIntervalMs: config.WORKER_RELAY_SWEEP_INTERVAL_MS,
             pollIntervalMs: config.WORKER_RELAY_POLL_INTERVAL_MS,
@@ -206,6 +252,16 @@ export class WorkerApp {
           },
         });
         await this.relay.start();
+      }
+
+      if (obs) {
+        obs.registerQueues(() => [
+          { name: DOMAIN_EVENTS_QUEUE, queue: this.eventsQueue as Queue },
+          { name: DEAD_LETTER_QUEUE, queue: this.deadQueue as Queue },
+          ...(this.consumers?.queueList() ?? []),
+          ...(this.scheduler?.queueList() ?? []),
+        ]);
+        obs.start({ failfast: this.failfast as Redis, systemDb: this.systemDb });
       }
 
       this.ready = true;
@@ -237,6 +293,10 @@ export class WorkerApp {
     await step("relay", () => this.relay?.stop());
     await step("consumers", () => this.consumers?.stop());
     await step("scheduler", () => this.scheduler?.stop());
+    await step("observability", async () => {
+      if (this.outboxTraceEnabled) disableOutboxTraceContext();
+      await this.observability?.stop();
+    });
     await step("events-queue", () => this.eventsQueue?.close());
     await step("dead-queue", () => this.deadQueue?.close());
     await step("redis-failfast", async () => {
