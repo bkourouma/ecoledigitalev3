@@ -463,9 +463,9 @@ describeIntegration("administration des fournisseurs de paiement (Postgres réel
       expect(financeProviderListDtoSchema.parse(listB.json()).items.find((i) => i.provider === "cinetpay")).toMatchObject({ configured: false });
     });
 
-    it("le webhook accepte POST et PUT et répond au GET de contrôle sans effet ; formulaire CinetPay lu en corps brut", async () => {
+    it("le webhook accepte POST et PUT, n'expose AUCUN GET public ; formulaire CinetPay lu en corps brut", async () => {
       const get = await app.inject({ method: "GET", url: `/api/v1/finance/webhooks/cinetpay/${tenantA}` });
-      expect(get.statusCode).toBe(200);
+      expect(get.statusCode).toBe(404);
       const form = await app.inject({ method: "POST", url: `/api/v1/finance/webhooks/cinetpay/${tenantA}`, headers: { "content-type": "application/x-www-form-urlencoded", "x-token": "0".repeat(64) }, payload: "cpm_site_id=1&cpm_trans_id=abc" });
       expect([401, 409, 404]).toContain(form.statusCode); // refusé : non configuré / signature invalide, jamais 415
       const put = await app.inject({ method: "PUT", url: `/api/v1/finance/webhooks/mtn_momo/${tenantA}?t=${"0".repeat(64)}`, headers: { "content-type": "application/json" }, payload: "{}" });

@@ -28,7 +28,7 @@
 - **AC1.6** Mode `sandbox` / `production` **explicite** par tenant (jamais de valeur par défaut) : `sandbox` est refusé en `production` (`finance.provider_sandbox_forbidden`).
 
 ### US2 — Confirmer un paiement (webhook et vérification active)
-- **AC2.1** Le webhook `POST|PUT /api/v1/finance/webhooks/:provider/:tenantId` est public ; **l'authenticité fait foi** : signature HMAC documentée du fournisseur quand elle existe (Wave : `Wave-Signature`, CinetPay : `x-token`, TresorPay : `x-signature`), sinon **URL signée** (Orange, MTN : `?ref=<paiement>&sig=<HMAC(secret)>`) **plus** vérification active auprès du fournisseur.
+- **AC2.1** Le webhook `POST|PUT /api/v1/finance/webhooks/:provider/:tenantId` est public ; **l'authenticité fait foi** : signature HMAC documentée du fournisseur quand elle existe (Wave : `Wave-Signature`, CinetPay : `x-token`, TresorPay : `x-signature`), sinon **URL à jeton** (Orange : `?ref=<paiement>&t=<HMAC(secret, tenant|fournisseur|paiement)>` ; MTN : `?t=<HMAC(secret, tenant|fournisseur)>`) **plus** vérification active auprès du fournisseur.
 - **AC2.2** `verifySignature` renvoie **`false`** si le secret est absent, la signature illisible ou la comparaison échoue ; comparaison **à temps constant**.
 - **AC2.3** Un webhook qui n'est qu'un **indice** (Orange, MTN, CinetPay : pas de signature de contenu) est confirmé en interrogeant l'API de statut du fournisseur : seul le montant, la devise et le statut de **cette** réponse sont crus. Réponse indisponible ou incohérente avec l'indice ⇒ erreur 409, rien n'est stocké, le fournisseur réessaie.
 - **AC2.4** Avant toute confirmation, finance compare **montant et devise** du fournisseur au paiement en base, et la **référence** fournisseur quand les deux existent ; divergence ⇒ événement `FAILED`, paiement inchangé, audit sensible `finance.webhook.rejected` (rapprochement manuel).
@@ -51,7 +51,7 @@
 - **AC4.4** La base refuse un secret non scellé (contrainte `CHECK` sur le format de l'enveloppe) ; aucun secret en clair en base, dans les journaux, dans l'audit ni dans une réponse.
 
 ### US5 — Remboursement fournisseur
-- **AC5.1** Le port expose une méthode **optionnelle** `refund` ; implémentée pour Wave (remboursement total) et MTN (Refund de la Collection API, zone d'incertitude). Orange Money Web Payment, CinetPay Checkout et TresorPay n'en ont pas de documentée publiquement : `refund` absente ⇒ le remboursement reste comptable (comportement de 014).
+- **AC5.1** Le port expose une méthode **optionnelle** `refund` ; implémentée pour Wave (remboursement total, documenté), MTN (Refund de la Collection API, zone d'incertitude) et TresorPay (contrat legacy). Orange Money Web Payment et CinetPay Checkout n'en ont pas de documentée publiquement : `refund` absente ⇒ le remboursement reste comptable (comportement de 014).
 - **AC5.2** Le branchement du cas d'usage `completeRefund` sur `refund` est **hors de cette tranche** (point à arbitrer).
 
 ## 4. Règles métier

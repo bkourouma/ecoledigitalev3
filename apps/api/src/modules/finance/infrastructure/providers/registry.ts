@@ -11,8 +11,11 @@
  *     (`devSandboxFallback: true`), il est journalisé, et les paiements concernés sont
  *     marqués `simulated`.
  *
- * Les adaptateurs réels (Orange Money, MTN MoMo, Wave, CinetPay, TresorPay) se branchent
- * en Phase 3 par `register({ name, requiredSettings, create })` ; aucun n'est écrit ici.
+ * Les adaptateurs réels (Orange Money, MTN MoMo, Wave, CinetPay, TresorPay) s'enregistrent par
+ * `register({ name, requiredSettings, modeAware, create })` : voir `definitions.ts`
+ * (`registerPaymentProviders`). Un adaptateur `modeAware` exige `settings.mode` (`sandbox` | `production`,
+ * sans défaut) ; `sandbox` est refusé en environnement `production`. Un fournisseur désactivé par le
+ * tenant (`settings.enabled = "false"`) répond `finance.provider_disabled`.
  */
 import { createHash } from "node:crypto";
 import { err, noopLogger, ok, type AppError, type Logger, type Result } from "@ecoledigitale/kernel";

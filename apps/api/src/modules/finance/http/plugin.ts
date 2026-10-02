@@ -961,8 +961,8 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
           return reply.status(200).send({ status: result.status, replayed: result.replayed, paymentId: result.paymentId });
         },
       });
-      // CinetPay vérifie l'accessibilité de l'URL de notification par un GET : réponse statique, aucun effet.
-      hooks.get("/webhooks/:provider/:tenantId", { config: { public: true } }, async (_req, reply) => reply.status(200).send({ status: "ok" }));
+      // Pas de GET : le garde-fou d'assemblage (phase 1, D3b) interdit toute route publique répondant favorablement sans
+      // identifiants. Si CinetPay sondait l'URL de notification par un GET, il faudrait l'y déclarer explicitement (Q-PAY-27).
     },
     { prefix: options.prefix ?? FINANCE_ROUTES_PREFIX },
   );
