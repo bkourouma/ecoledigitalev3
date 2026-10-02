@@ -105,6 +105,7 @@ export function announcementView(
     withdrawnAt: iso(a.withdrawnAt),
     expired: isExpired(a.expiresAt, extra.now),
     attachments: extra.attachments.map(attachmentView),
+    isRecipient: extra.mine !== null,
     myReadAt: iso(extra.mine?.readAt ?? null),
     myAcknowledgedAt: iso(extra.mine?.acknowledgedAt ?? null),
     stats: extra.stats ? { ...extra.stats, truncated: a.recipientsTruncated } : null,

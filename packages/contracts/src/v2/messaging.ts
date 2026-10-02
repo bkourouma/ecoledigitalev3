@@ -91,7 +91,12 @@ export const MESSAGING_LIMITS = Object.freeze({
   bodyMax: 20000,
 });
 
-const text = (min: number, max: number) => z.string().trim().min(min).max(max);
+const text = (min: number, max: number) =>
+  z
+    .string()
+    .trim()
+    .min(min, min <= 1 ? "Ce champ est obligatoire." : `${min} caractères au moins.`)
+    .max(max, `${max} caractères au plus.`);
 export const messagingBodySchema = text(1, MESSAGING_LIMITS.bodyMax);
 
 // ---------------------------------------------------------------------------
@@ -131,8 +136,8 @@ export type MessagingClassRecipient = z.infer<typeof messagingClassRecipientSche
 
 export const messagingAudienceSelectionSchema = z
   .object({
-    targets: z.array(messagingTargetSchema).min(1).max(MESSAGING_LIMITS.targetsPerAnnouncement),
-    audiences: z.array(messagingAudienceSchema).min(1).max(3).default(["STUDENTS", "GUARDIANS", "STAFF"]),
+    targets: z.array(messagingTargetSchema).min(1, "Choisissez au moins une cible.").max(MESSAGING_LIMITS.targetsPerAnnouncement),
+    audiences: z.array(messagingAudienceSchema).min(1, "Choisissez au moins une audience.").max(3).default(["STUDENTS", "GUARDIANS", "STAFF"]),
   })
   .strict();
 export type MessagingAudienceSelection = z.infer<typeof messagingAudienceSelectionSchema>;
@@ -471,6 +476,8 @@ export const messagingAnnouncementDtoSchema = z.object({
   /** Vrai si l'annonce a dépassé son expiration (elle reste lisible dans l'historique). */
   expired: z.boolean(),
   attachments: z.array(messagingAttachmentDtoSchema),
+  /** L'utilisateur courant est-il destinataire de l'annonce (sinon il la voit comme auteur ou gestionnaire) ? */
+  isRecipient: z.boolean(),
   /** État de lecture de l'utilisateur courant (null si l'utilisateur n'est pas destinataire). */
   myReadAt: messagingInstantSchema.nullable(),
   myAcknowledgedAt: messagingInstantSchema.nullable(),
