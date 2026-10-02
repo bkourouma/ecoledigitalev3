@@ -66,7 +66,7 @@ describeIntegration.skipIf(!REDIS_URL)("rattrapage des tenants legacy (Postgres 
     await p?.stop();
   });
 
-  it("au démarrage : profil, UN établissement + campus par défaut, onboarding, 11 rôles système et abonnement pour chaque tenant", async () => {
+  it("au démarrage : profil, UN établissement + campus par défaut, onboarding, 12 rôles système et abonnement pour chaque tenant", async () => {
     expect(p.status.catchUp).toBeDefined();
     expect(p.status.catchUp).toMatchObject({
       examined: 3,
@@ -75,7 +75,7 @@ describeIntegration.skipIf(!REDIS_URL)("rattrapage des tenants legacy (Postgres 
       failed: [],
       // Rôles : `syncRbac` (étape précédente du démarrage) a déjà instancié ceux des 2 tenants ACTIFS ; le rattrapage
       // complète le tenant suspendu (que `syncRbac` ne parcourt pas). Les 30 rôles sont vérifiés tenant par tenant.
-      created: { profiles: 3, institutions: 3, campuses: 3, onboarding: 3, roles: 11, subscriptions: 3 },
+      created: { profiles: 3, institutions: 3, campuses: 3, onboarding: 3, roles: 12, subscriptions: 3 },
     });
 
     for (const [id, name, status] of [[L1, "École Un", "active"], [L2, "École Deux (suspendue)", "suspended"], [L3, "École Trois", "active"]] as const) {
