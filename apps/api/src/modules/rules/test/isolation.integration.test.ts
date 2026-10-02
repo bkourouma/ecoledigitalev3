@@ -87,6 +87,6 @@ describeIntegration("isolation multi-tenant", () => {
       tenantRows: (await tx.many("SELECT id FROM rules.rule_versions")).length,
       national: (await tx.many("SELECT id FROM rules.national_rule_versions")).length,
     }));
-    expect(system).toEqual({ tenantRows: 0, national: 3 });
+    expect(system).toEqual({ tenantRows: 0, national: 8 }); // 3 portages du legacy + 5 versions fictives (Phase 4-5)
   });
 });

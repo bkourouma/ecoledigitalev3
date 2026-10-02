@@ -104,6 +104,8 @@ export function toBindingDto(b: BindingRecord): RulesBindingDto {
     effectiveFrom: b.effectiveFrom,
     effectiveTo: b.effectiveTo,
     createdAt: iso(b.createdAt),
+    placeholderAcknowledged: b.placeholderAck != null,
+    placeholderAckReason: b.placeholderAck?.reason ?? null,
   };
 }
 

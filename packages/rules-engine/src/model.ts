@@ -60,10 +60,13 @@ export type RuleScope = z.infer<typeof RuleScopeSchema>;
 
 /* -------------------------------- source ---------------------------------- */
 
-/** Provenance d'une version : texte réglementaire, décision d'établissement ou plateforme. */
+/**
+ * Provenance d'une version : texte réglementaire, décision d'établissement, plateforme (portage fidèle du legacy) ou
+ * `placeholder` (jeu FICTIF de démonstration : mécanisme seulement, aucune valeur officielle ; jamais publié comme règlement).
+ */
 export const RuleSourceSchema = z
   .object({
-    kind: z.enum(['regulation', 'institution', 'platform']),
+    kind: z.enum(['regulation', 'institution', 'platform', 'placeholder']),
     /** Référence du texte (arrêté, décret, note interne…). */
     reference: z.string().min(1).optional(),
     url: z.string().url().optional(),

@@ -63,6 +63,25 @@ export {
   CREDIT_SEMESTER_RULES,
   coefSemesterContract,
   creditSemesterContract,
+  COEF_PERIOD_ID,
+  COEF_PERIOD_RULES,
+  coefPeriodContract,
+  COMPETENCY_PERIOD_ID,
+  COMPETENCY_PERIOD_RULES,
+  competencyPeriodContract,
+  EXAM_NATIONAL_ID,
+  EXAM_NATIONAL_RULES,
+  examNationalContract,
+  SECONDARY_ANNUAL_ID,
+  SECONDARY_ANNUAL_RULES,
+  secondaryAnnualContract,
+  PERIOD_YEAR_DECISION_CODES,
+  COUNCIL_REASON_CODES,
+  COMPETENCY_YEAR_DECISION_CODES,
+  ELIGIBILITY_CODES,
+  ELIGIBILITY_REASON_CODES,
+  CANDIDATE_RESULT_CODES,
+  EXAM_MENTION_CODES,
   getContract,
   listContracts,
   ECUE_STATUS_CODES,
@@ -102,5 +121,8 @@ export { computeInputsHash, computeOutputsHash } from "./domain/evaluation";
 export { canonicalJson, sha256Hex } from "./domain/canonical";
 export type { RuleDefinitionRecord, RuleSetRecord, RuleVersionRecord, RuleVersionWithRules, SimulationRecord, BindingRecord } from "./domain/types";
 
-// Données de départ
-export { SEED_RULE_SETS } from "./seed/rulesets";
+// Environnement (liaison d'un jeu fictif en production)
+export { isProductionEnvironment } from "./domain/environment";
+
+// Données de départ (jeux fictifs : `source.kind = "placeholder"`, voir `PLACEHOLDER_RULE_SET_CODES`)
+export { PLACEHOLDER_EFFECTIVE_FROM, PLACEHOLDER_RULE_SET_CODES, SEED_RULE_SETS } from "./seed/rulesets";

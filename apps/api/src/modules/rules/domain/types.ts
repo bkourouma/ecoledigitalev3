@@ -95,6 +95,8 @@ export interface BindingRecord {
   readonly effectiveTo: string | null;
   readonly createdBy: string | null;
   readonly createdAt: Date;
+  /** Accusé explicite de l'usage d'un jeu FICTIF (`placeholder`) ; `null` si la liaison n'en a pas (eu) besoin. */
+  readonly placeholderAck?: { readonly by: string; readonly at: Date; readonly reason: string } | null;
 }
 
 export type SimulationStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";

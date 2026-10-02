@@ -174,7 +174,7 @@ describeIntegration("HTTP /api/v1/rules", () => {
       const res = await app.inject({ method: "GET", url: url("/rule-sets"), headers: hA() });
       expect(res.statusCode).toBe(200);
       const body = RulesListRuleSetsResponseSchema.parse(json(res));
-      expect(body.items.map((s) => s.code).sort()).toEqual(["CI-CLASSIC-SEMESTRE", "CI-HIGHER-BTS", "CI-HIGHER-LMD"]);
+      expect(body.items.map((s) => s.code).sort()).toEqual(["CI-CLASSIC-SEMESTRE", "CI-EXAM-PLACEHOLDER", "CI-HIGHER-BTS", "CI-HIGHER-LMD", "CI-PRIMARY-PLACEHOLDER", "CI-SECONDARY-PLACEHOLDER"]);
       expect(body.items.every((s) => s.versions.every((v) => v.status === "published"))).toBe(true);
       const filtered = await app.inject({ method: "GET", url: url("/rule-sets?code=CI-HIGHER-LMD&origin=national"), headers: hA() });
       expect(json(filtered).items).toHaveLength(1);
@@ -306,9 +306,34 @@ describeIntegration("HTTP /api/v1/rules", () => {
       expect((await app.inject({ method: "DELETE", url: url(`/bindings/${binding.id}`), headers: hA() })).statusCode).toBe(204);
     });
 
+    it("PUT /bindings avec `placeholderAck` exige la permission sensible dédiée ; resolve expose `sourceKind`", async () => {
+      const body = {
+        contractId: "coef-period@1",
+        ruleSetCode: "CI-PRIMARY-PLACEHOLDER",
+        levelCode: "PRIMARY",
+        effectiveFrom: "2026-09-01",
+        placeholderAck: { reason: "Démonstration interne, sans valeur officielle." },
+      };
+      const without = ALL_PERMS.split(",").filter((p) => p !== "rules.binding.accept_placeholder").join(",");
+      const refused = await app.inject({ method: "PUT", url: url("/bindings"), headers: hA({ "x-perms": without }), payload: body });
+      expect(refused.statusCode).toBe(403);
+      expect(json(refused).details?.permission ?? json(refused).error?.details?.permission ?? "rules.binding.accept_placeholder").toBe("rules.binding.accept_placeholder");
+      // un accusé sans MFA est refusé (permission sensible)
+      expect((await app.inject({ method: "PUT", url: url("/bindings"), headers: hA({ "x-mfa": "0" }), payload: body })).statusCode).toBe(403);
+
+      const ok = await app.inject({ method: "PUT", url: url("/bindings"), headers: hA(), payload: body });
+      expect(ok.statusCode).toBe(200);
+      const dto = RulesBindingDtoSchema.parse(json(ok));
+      expect(dto).toMatchObject({ placeholderAcknowledged: true, ruleSetCode: "CI-PRIMARY-PLACEHOLDER" });
+
+      const resolved = RulesResolveResponseSchema.parse(json(await app.inject({ method: "GET", url: url("/resolve?contractId=coef-period@1&levelCode=PRIMARY&date=2026-10-01"), headers: hA() })));
+      expect(resolved.resolved?.sourceKind).toBe("placeholder");
+      expect((await app.inject({ method: "DELETE", url: url(`/bindings/${dto.id}`), headers: hA() })).statusCode).toBe(204);
+    });
+
     it("GET /contracts et /contracts/:id", async () => {
       const list = json(await app.inject({ method: "GET", url: url("/contracts"), headers: hA() }));
-      expect(list.items.map((c: { id: string }) => c.id).sort()).toEqual(["coef-semester@1", "credit-semester@1"]);
+      expect(list.items.map((c: { id: string }) => c.id).sort()).toEqual(["coef-period@1", "coef-semester@1", "competency-period@1", "credit-semester@1", "exam-national@1", "secondary-annual@1"]);
       const one = RulesContractDtoSchema.parse(json(await app.inject({ method: "GET", url: url("/contracts/credit-semester@1"), headers: hA() })));
       expect(one.rules.find((r) => r.key === "statut_ecue")!.outputCodes).toContain("COMPENSATED");
       expect((await app.inject({ method: "GET", url: url("/contracts/inconnu@1"), headers: hA() })).statusCode).toBe(404);

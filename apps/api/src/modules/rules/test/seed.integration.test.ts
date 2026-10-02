@@ -1,5 +1,6 @@
 /**
- * Données de départ : base vide + migrations ⇒ 3 RuleSets `published`, chaque règle compile, le hash stocké égale celui des
+ * Données de départ : base vide + migrations ⇒ les RuleSets de départ `published` (3 portages du legacy + 3 jeux fictifs de la
+ * Phase 4-5, `source_kind = placeholder`), chaque règle compile, le hash stocké égale celui des
  * données ; le chargement est idempotent, concurrent-safe, et une altération de la v1 est refusée (R-RUL-12).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -14,6 +15,10 @@ import { SEED_RULE_SETS } from "../seed/rulesets";
 import { seedVersionRecords } from "../seed/records";
 import { adminRows, createRulesTestDb, describeIntegration, makeWorld, type RulesTestDb, type TestWorld } from "./support/db";
 
+/** « CODE vN » de chaque version de départ (portages du legacy et jeux fictifs). */
+const SEED_LABELS = SEED_RULE_SETS.flatMap((s) => s.versions.map((v) => `${s.code} v${v.versionNo}`)).sort();
+const SEED_VERSION_COUNT = SEED_LABELS.length;
+
 describeIntegration("données de départ du catalogue national", () => {
   let db: RulesTestDb;
   let world: TestWorld;
@@ -26,23 +31,28 @@ describeIntegration("données de départ du catalogue national", () => {
     await db.drop();
   });
 
-  it("charge les trois RuleSets de départ, publiés, signés de leur hash", async () => {
+  it("charge les RuleSets de départ (portages du legacy et jeux fictifs), publiés, signés de leur hash", async () => {
     const report = await ensureNationalCatalog(world.deps);
-    expect(report.created.sort()).toEqual(["CI-CLASSIC-SEMESTRE v1", "CI-HIGHER-BTS v1", "CI-HIGHER-LMD v1"]);
+    expect(report.created.sort()).toEqual(SEED_LABELS);
 
     const rows = await adminRows<{ code: string; status: string; definition_hash: string; contract_id: string; effective_from: string; approved_by: string; source_kind: string; rules: string }>(
       db,
-      `SELECT s.code, v.status, v.definition_hash, v.contract_id, to_char(v.effective_from, 'YYYY-MM-DD') AS effective_from, v.approved_by, v.source_kind,
+      `SELECT s.code, v.version, v.status, v.definition_hash, v.contract_id, to_char(v.effective_from, 'YYYY-MM-DD') AS effective_from, v.approved_by, v.source_kind,
               (SELECT count(*) FROM rules.national_rule_definitions d WHERE d.rule_version_id = v.id)::text AS rules
-         FROM rules.national_rule_versions v JOIN rules.national_rule_sets s ON s.id = v.rule_set_id ORDER BY s.code`,
+         FROM rules.national_rule_versions v JOIN rules.national_rule_sets s ON s.id = v.rule_set_id ORDER BY s.code, v.version`,
     );
-    expect(rows.map((r) => [r.code, r.status, r.contract_id, r.effective_from, r.source_kind])).toEqual([
-      ["CI-CLASSIC-SEMESTRE", "published", "coef-semester@1", "2024-09-01", "platform"],
-      ["CI-HIGHER-BTS", "published", "coef-semester@1", "2024-09-01", "platform"],
-      ["CI-HIGHER-LMD", "published", "credit-semester@1", "2024-09-01", "platform"],
+    expect(rows.map((r) => [r.code, Number(r.version), r.status, r.contract_id, r.effective_from, r.source_kind])).toEqual([
+      ["CI-CLASSIC-SEMESTRE", 1, "published", "coef-semester@1", "2024-09-01", "platform"],
+      ["CI-EXAM-PLACEHOLDER", 1, "published", "exam-national@1", "2026-09-01", "placeholder"],
+      ["CI-HIGHER-BTS", 1, "published", "coef-semester@1", "2024-09-01", "platform"],
+      ["CI-HIGHER-LMD", 1, "published", "credit-semester@1", "2024-09-01", "platform"],
+      ["CI-PRIMARY-PLACEHOLDER", 1, "published", "coef-period@1", "2026-09-01", "placeholder"],
+      ["CI-PRIMARY-PLACEHOLDER", 2, "published", "competency-period@1", "2026-09-01", "placeholder"],
+      ["CI-SECONDARY-PLACEHOLDER", 1, "published", "coef-semester@1", "2026-09-01", "placeholder"],
+      ["CI-SECONDARY-PLACEHOLDER", 2, "published", "secondary-annual@1", "2026-09-01", "placeholder"],
     ]);
     for (const row of rows) {
-      const seed = SEED_RULE_SETS.find((s) => s.code === row.code)!.versions[0]!;
+      const seed = SEED_RULE_SETS.find((s) => s.code === row.code)!.versions.find((v) => v.versionNo === Number(row.version))!;
       expect(row.definition_hash).toBe(computeDefinitionHash(seed.contractId, seedVersionRecords(seed)));
       expect(Number(row.rules)).toBe(seed.rules.length);
       expect(row.approved_by).not.toBeNull();
@@ -74,7 +84,7 @@ describeIntegration("données de départ du catalogue national", () => {
   it("est idempotent : un second chargement ne crée rien et vérifie les hash", async () => {
     const again = await ensureNationalCatalog(world.deps);
     expect(again.created).toEqual([]);
-    expect(again.verified.sort()).toEqual(["CI-CLASSIC-SEMESTRE v1", "CI-HIGHER-BTS v1", "CI-HIGHER-LMD v1"]);
+    expect(again.verified.sort()).toEqual(SEED_LABELS);
   });
 
   it("supporte des démarrages concurrents (verrou consultatif)", async () => {
@@ -82,9 +92,9 @@ describeIntegration("données de départ du catalogue national", () => {
     try {
       const w = makeWorld(fresh);
       const reports = await Promise.all([ensureNationalCatalog(w.deps), ensureNationalCatalog(w.deps), ensureNationalCatalog(w.deps)]);
-      expect(reports.reduce((n, r) => n + r.created.length, 0)).toBe(3);
+      expect(reports.reduce((n, r) => n + r.created.length, 0)).toBe(SEED_VERSION_COUNT);
       const rows = await adminRows<{ n: string }>(fresh, "SELECT count(*)::text AS n FROM rules.national_rule_versions");
-      expect(rows[0]?.n).toBe("3");
+      expect(rows[0]?.n).toBe(String(SEED_VERSION_COUNT));
     } finally {
       await fresh.drop();
     }

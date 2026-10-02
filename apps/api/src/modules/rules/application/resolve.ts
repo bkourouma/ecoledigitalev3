@@ -10,7 +10,7 @@
  */
 import { err, ok, type AppError, type Result } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
-import { isValidIsoDate, resolveRuleSet, type ConsideredVersion } from "../engine";
+import { isValidIsoDate, resolveRuleSet, type ConsideredVersion, type RuleSource } from "../engine";
 import { getContract } from "../contracts";
 import { selectBinding } from "../domain/binding";
 import { computeDefinitionHash, toEngineRuleSet } from "../domain/definition";
@@ -39,6 +39,8 @@ export interface ResolvedVersion {
   readonly origin: Origin;
   readonly contractId: string;
   readonly bindingId: string;
+  /** Provenance de la version : `placeholder` = jeu de DÉMONSTRATION (filigrane obligatoire sur tout résultat qui en dérive). */
+  readonly sourceKind: RuleSource["kind"];
 }
 
 export interface Resolution {
@@ -92,6 +94,7 @@ export async function resolveInTx(tx: Tx, tenantId: string, input: ResolveInput)
       origin: originOf(record.kind),
       contractId: record.contractId,
       bindingId: binding.id,
+      sourceKind: record.source.kind,
     },
     considered: resolved.considered,
   });

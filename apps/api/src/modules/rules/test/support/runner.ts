@@ -38,10 +38,11 @@ export function versionRecordFor(code: string, seed: SeedVersion, records: reado
 }
 
 /** Version compilée d'un RuleSet de départ, éventuellement avec des règles modifiées (variante de test). */
-export function compiledSeed(code: string, edit?: (rules: RuleDefinitionRecord[]) => RuleDefinitionRecord[]): CompiledVersion {
+export function compiledSeed(code: string, edit?: (rules: RuleDefinitionRecord[]) => RuleDefinitionRecord[], versionNo = 1): CompiledVersion {
   const set = SEED_RULE_SETS.find((s) => s.code === code);
   if (!set) throw new Error(`RuleSet de départ inconnu : ${code}`);
-  const seed = set.versions[0] as SeedVersion;
+  const seed = set.versions.find((v) => v.versionNo === versionNo);
+  if (!seed) throw new Error(`RuleSet de départ ${code} : version ${versionNo} inconnue`);
   const base = seedVersionRecords(seed);
   const records = edit ? edit(base) : base;
   return createCompiledVersion(versionRecordFor(code, seed, records), records, computeDefinitionHash(seed.contractId, records));

@@ -39,19 +39,34 @@ export interface NewBinding {
   readonly effectiveFrom: string;
   readonly effectiveTo: string | null;
   readonly createdBy: string | null;
+  /** Accusé de l'usage d'un jeu fictif (`null` : aucun). */
+  readonly placeholderAck?: { readonly by: string; readonly at: Date; readonly reason: string } | null;
 }
 
 export async function insertBinding(tx: Tx, tenantId: string, b: NewBinding): Promise<BindingRecord> {
   await tx.query(
-    `INSERT INTO rules.rule_bindings (id, tenant_id, contract_id, rule_set_code, institution_id, curriculum_node_id, level_code, effective_from, effective_to, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [b.id, tenantId, b.contractId, b.ruleSetCode, b.institutionId, b.curriculumNodeId, b.levelCode, b.effectiveFrom, b.effectiveTo, b.createdBy],
+    `INSERT INTO rules.rule_bindings (id, tenant_id, contract_id, rule_set_code, institution_id, curriculum_node_id, level_code, effective_from, effective_to, created_by,
+                                      placeholder_ack_by, placeholder_ack_at, placeholder_ack_reason)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    [
+      b.id, tenantId, b.contractId, b.ruleSetCode, b.institutionId, b.curriculumNodeId, b.levelCode, b.effectiveFrom, b.effectiveTo, b.createdBy,
+      b.placeholderAck?.by ?? null, b.placeholderAck?.at ?? null, b.placeholderAck?.reason ?? null,
+    ],
   );
   return (await getBinding(tx, b.id)) as BindingRecord;
 }
 
-export async function updateBinding(tx: Tx, id: string, patch: { ruleSetCode: string; effectiveTo: string | null }): Promise<BindingRecord> {
-  await tx.query(`UPDATE rules.rule_bindings SET rule_set_code = $2, effective_to = $3 WHERE id = $1`, [id, patch.ruleSetCode, patch.effectiveTo]);
+export async function updateBinding(
+  tx: Tx,
+  id: string,
+  patch: { ruleSetCode: string; effectiveTo: string | null; placeholderAck?: { readonly by: string; readonly at: Date; readonly reason: string } | null },
+): Promise<BindingRecord> {
+  await tx.query(
+    `UPDATE rules.rule_bindings
+        SET rule_set_code = $2, effective_to = $3, placeholder_ack_by = $4, placeholder_ack_at = $5, placeholder_ack_reason = $6
+      WHERE id = $1`,
+    [id, patch.ruleSetCode, patch.effectiveTo, patch.placeholderAck?.by ?? null, patch.placeholderAck?.at ?? null, patch.placeholderAck?.reason ?? null],
+  );
   return (await getBinding(tx, id)) as BindingRecord;
 }
 

@@ -5,10 +5,25 @@
  */
 import { describe, expect, it } from "vitest";
 import { resolveSchema, RULE_TYPES } from "../engine";
-import { COEF_SEMESTER_ID, CREDIT_SEMESTER_ID, getContract, listContracts, coefSemesterContract, creditSemesterContract } from "../contracts";
+import {
+  COEF_PERIOD_ID,
+  COEF_SEMESTER_ID,
+  COMPETENCY_PERIOD_ID,
+  CREDIT_SEMESTER_ID,
+  EXAM_NATIONAL_ID,
+  SECONDARY_ANNUAL_ID,
+  coefPeriodContract,
+  competencyPeriodContract,
+  examNationalContract,
+  getContract,
+  listContracts,
+  secondaryAnnualContract,
+  coefSemesterContract,
+  creditSemesterContract,
+} from "../contracts";
 import { checkConformity, inputSchemaProblems, parameterAllowed } from "../domain/conformity";
 import type { RuleDefinitionRecord } from "../domain/types";
-import { SEED_RULE_SETS } from "../seed/rulesets";
+import { PLACEHOLDER_RULE_SET_CODES, SEED_RULE_SETS } from "../seed/rulesets";
 import { seedVersionRecords } from "../seed/records";
 
 const lmd = (): RuleDefinitionRecord[] => seedVersionRecords(SEED_RULE_SETS.find((s) => s.code === "CI-HIGHER-LMD")!.versions[0]!);
@@ -20,13 +35,22 @@ const edit = (rules: RuleDefinitionRecord[], key: string, patch: Partial<RuleDef
 const codes = (rules: RuleDefinitionRecord[], contract = credit): string[] => checkConformity(contract, rules).violations.map((v) => `${v.ruleKey}:${v.code}`);
 
 describe("catalogue de contrats", () => {
-  it("expose credit-semester@1 et coef-semester@1, versionnés en code", () => {
-    expect(listContracts().map((c) => c.id).sort()).toEqual([COEF_SEMESTER_ID, CREDIT_SEMESTER_ID].sort());
+  it("expose les contrats versionnés en code (historiques et Phase 4-5)", () => {
+    expect(listContracts().map((c) => c.id).sort()).toEqual(
+      [COEF_SEMESTER_ID, CREDIT_SEMESTER_ID, COEF_PERIOD_ID, COMPETENCY_PERIOD_ID, EXAM_NATIONAL_ID, SECONDARY_ANNUAL_ID].sort(),
+    );
     expect(getContract("credit-semester@1")).toBe(credit);
     expect(getContract("coef-semester@2")).toBeUndefined();
   });
 
-  it.each([[credit.id, credit], [coef.id, coef]] as const)("%s : clés uniques, types de règle du moteur, schémas d'entrée valides, pipeline cohérent", (_id, contract) => {
+  it.each([
+    [credit.id, credit],
+    [coef.id, coef],
+    [coefPeriodContract.id, coefPeriodContract],
+    [competencyPeriodContract.id, competencyPeriodContract],
+    [examNationalContract.id, examNationalContract],
+    [secondaryAnnualContract.id, secondaryAnnualContract],
+  ] as const)("%s : clés uniques, types de règle du moteur, schémas d'entrée valides, pipeline cohérent", (_id, contract) => {
     const keys = contract.rules.map((r) => r.key);
     expect(new Set(keys).size).toBe(keys.length);
     for (const r of contract.rules) {
@@ -42,9 +66,19 @@ describe("catalogue de contrats", () => {
   });
 
   it("aucune règle réglementaire ivoirienne officielle n'est inventée (MGA, CEPE, BEPC, BAC…)", () => {
-    const text = JSON.stringify([credit, coef, SEED_RULE_SETS]);
+    const text = JSON.stringify([credit, coef, coefPeriodContract, competencyPeriodContract, examNationalContract, secondaryAnnualContract, SEED_RULE_SETS]);
     for (const forbidden of ["MGA", "CEPE", "BEPC", "BACCALAUR", "BAC "]) expect(text.includes(forbidden), forbidden).toBe(false);
-    for (const set of SEED_RULE_SETS) for (const v of set.versions) expect(v.source.kind).toBe("platform");
+    // Portages fidèles du legacy : `platform` ; jeux de démonstration de la Phase 4-5 : `placeholder`, jamais `regulation`.
+    for (const set of SEED_RULE_SETS) {
+      const placeholder = (PLACEHOLDER_RULE_SET_CODES as readonly string[]).includes(set.code);
+      for (const v of set.versions) {
+        expect(v.source.kind, `${set.code} v${v.versionNo}`).toBe(placeholder ? "placeholder" : "platform");
+        if (placeholder) {
+          expect(set.name, set.code).toContain("(fictif)");
+          for (const rule of v.rules) expect(rule.description, `${set.code}.${rule.key}`).toMatch(/\(fictif\)/);
+        }
+      }
+    }
   });
 
   it("les règles à code déclarent leurs codes de sortie ; les paramètres de mode sont énumérés", () => {
