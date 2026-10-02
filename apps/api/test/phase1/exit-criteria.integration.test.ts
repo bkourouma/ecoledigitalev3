@@ -88,7 +88,7 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 1 — plateforme
 
       for (const t of [A, B]) {
         const roles = await p.db.admin.query("SELECT count(*)::int AS n FROM rbac.roles WHERE tenant_id = $1 AND is_system", [t.tenantId]);
-        expect(roles.rows[0].n).toBe(11);
+        expect(roles.rows[0].n).toBe(SYSTEM_ROLE_TEMPLATES.length);
         const sub = await p.db.admin.query("SELECT plan_key, status, packs FROM entitlements.tenant_subscriptions WHERE tenant_id = $1", [t.tenantId]);
         expect(sub.rows).toHaveLength(1);
         expect(sub.rows[0]).toMatchObject({ plan_key: "STARTER", status: "TRIALING" });
