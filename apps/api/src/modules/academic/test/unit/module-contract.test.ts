@@ -109,6 +109,8 @@ describe("contrats et API publique", () => {
       "previewRollover", "rolloverAcademicYear", "instantiatePackReferenceData",
       "previewRolloverPlan", "startRolloverRun", "executeRolloverRun", "getRolloverRun", "listRolloverRuns", "retryRolloverRun", "listHolidays", "createHoliday",
       "registerCourse", "listCourseRegistrations", "createAcademicDeps", "academicPlugin", "academicManifest",
+      // Extensions Phase 4-5 (specs 005, 006, 007, 018) : additives
+      "activateClassroom", "cancelEnrollment", "getEligibilityFacts", "countRepeatsInCycle", "changeEnrollmentFunding", "transferEnrollment", "neverBlockActivation",
     ];
     for (const n of names) expect(publicApi, n).toHaveProperty(n);
   });

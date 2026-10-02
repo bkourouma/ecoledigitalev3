@@ -57,7 +57,9 @@ export type {
 export {
   defaultPackTemplates,
   buildPackTemplates,
+  getPackTemplateSection,
   PackTemplateSchema,
+  PackTemplateSectionKeySchema,
   type PackTemplate,
   type PackTemplates,
 } from "./templates";

@@ -372,6 +372,36 @@ export async function transitionEnrollment(deps: AcademicDeps, ctx: RequestConte
   });
 }
 
+/** Motif posé quand l'appelant (ex. le module d'admissions) n'en fournit pas : la machine d'états exige un motif d'annulation. */
+export const PENDING_CANCEL_DEFAULT_REASON = "Annulation d'une inscription en attente";
+
+/**
+ * Annule une inscription EN ATTENTE (`PENDING`) — spec 007 §16 (candidature retirée ou refusée après pré-inscription).
+ *  - `PENDING` -> `CANCELLED` : la place est libérée, les sélections vivantes sont annulées, événement
+ *    `academic.enrollment.cancelled` (payload `{ v: 1, … }`, sans donnée personnelle) et audit ;
+ *  - IDEMPOTENT : une inscription déjà `CANCELLED` est renvoyée telle quelle, sans nouvel événement ni nouvelle ligne d'historique ;
+ *  - toute autre situation (`ACTIVE`, `SUSPENDED`, `COMPLETED`, `WITHDRAWN`, `TRANSFERRED_OUT`) est refusée
+ *    (`academic.enrollment_not_pending`, 409) : une inscription confirmée se RETIRE (`transitionEnrollment(…, "withdraw")`).
+ */
+export async function cancelEnrollment(deps: AcademicDeps, ctx: RequestContext, id: string, input: { reason?: string | null | undefined } = {}): Promise<Result<Enrollment, AppError>> {
+  return inTx(deps, ctx, async (tx) => {
+    const l = await loadEnrollmentInScope(tx, ctx, id, true);
+    if (!l.ok) return l;
+    const enrollment = l.value;
+    if (enrollment.status === "CANCELLED") return ok(enrollment);
+    if (enrollment.status !== "PENDING") {
+      return err(conflict(AcademicCode.ENROLLMENT_NOT_PENDING, `L'inscription est ${enrollment.status} : seule une inscription en attente s'annule (une inscription confirmée se retire).`, { status: enrollment.status }));
+    }
+    const reason = input.reason?.trim() || PENDING_CANCEL_DEFAULT_REASON;
+    const events = new EventBuffer(deps, ctx);
+    const cancelled = await transitionEnrollmentInTx(deps, ctx, tx, events, enrollment, "cancel", reason);
+    if (!cancelled.ok) return cancelled;
+    events.audit({ action: "academic.enrollment.cancelled", resourceType: "enrollment", resourceId: id, before: { status: "PENDING" }, after: { status: "CANCELLED" }, reason });
+    await events.flush(tx);
+    return cancelled;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Changement de classe (AC4.2) : même `enrollment_id`, placements historisés
 // ---------------------------------------------------------------------------

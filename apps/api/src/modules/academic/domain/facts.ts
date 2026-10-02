@@ -223,3 +223,54 @@ export interface ClassroomEnrollmentFacts {
   /** Inscription qui ouvre la scolarité ET dont la classe actuelle est celle-ci. */
   active: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Faits d'éligibilité (examens, conseils, règles) — port `EligibilityFacts` de 018 (spec 018 §13 et §16)
+// ---------------------------------------------------------------------------
+
+/**
+ * Faits d'une inscription pour évaluer une éligibilité ou une règle de passage. AUCUNE donnée d'identité (ni nom, ni date de
+ * naissance) : `studentId` est un identifiant opaque qui permet à l'appelant de croiser ses propres faits (âge côté `people`).
+ * `terminalExamRequired` est INFORMATIF : academic ne décide jamais d'une éligibilité ni d'un passage.
+ */
+export interface EnrollmentEligibilityFacts {
+  enrollmentId: string;
+  studentId: string;
+  institutionId: string;
+  academicYearId: string;
+  academicYearCode: string;
+  classroomId: string;
+  /** Niveau (code de donnée du modèle de pack : `CM2`, `3E`, `TLE`…). */
+  gradeLevelCode: string;
+  /** Cycle d'enseignement (code de donnée : `PRIMARY`, `LOWER_SECONDARY`…). */
+  educationLevelCode: string;
+  /** Pack du cycle d'enseignement ; `null` si non renseigné. */
+  pack: "PRIMARY" | "SECONDARY" | "HIGHER" | "VIRTUAL" | null;
+  /** Le niveau se conclut par un examen terminal (donnée du niveau, informative). */
+  terminalExamRequired: boolean;
+  status: string;
+  mode: "CLASS" | "A_LA_CARTE";
+  /** Cette inscription est elle-même un redoublement. */
+  isRepeating: boolean;
+  /**
+   * Redoublements de l'élève dans le CYCLE d'enseignement jusqu'à l'année de cette inscription INCLUSE (une année de
+   * redoublement compte pour un, qu'elle soit marquée `is_repeating` ou qu'elle suive une issue de type `REPEAT`).
+   */
+  repeatsInCycle: number;
+  /** Idem, mais strictement AVANT l'année de cette inscription (entrée de la règle « déjà redoublant »). */
+  repeatsBeforeYear: number;
+}
+
+/** Une année de redoublement de l'élève dans un cycle d'enseignement. */
+export interface RepeatYearFact {
+  enrollmentId: string;
+  academicYearId: string;
+  /** Début de l'année académique (date civile `YYYY-MM-DD`). */
+  startsOn: string;
+}
+
+/** Comptage pur : années de redoublement dont le début est ≤ (ou < si `strict`) à la borne ; sans borne : toutes. */
+export function countRepeatYears(years: readonly Pick<RepeatYearFact, "startsOn">[], bound: { startsOn: string; strict?: boolean } | null = null): number {
+  if (!bound) return years.length;
+  return years.filter((y) => (bound.strict ? y.startsOn < bound.startsOn : y.startsOn <= bound.startsOn)).length;
+}
