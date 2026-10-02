@@ -22,7 +22,8 @@ export function DiagnosticList({ diagnostics, source, id }: { diagnostics: Rules
   const t = useTranslations("v2Rules.editor");
   if (diagnostics.length === 0) return null;
   return (
-    <ul id={id} role="alert" className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+    <div id={id} role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+    <ul className="space-y-2">
       {diagnostics.map((d, i) => {
         const excerpt = source ? excerptAt(source, d.position) : null;
         return (
@@ -43,6 +44,7 @@ export function DiagnosticList({ diagnostics, source, id }: { diagnostics: Rules
         );
       })}
     </ul>
+    </div>
   );
 }
 

@@ -67,6 +67,8 @@ export function DossierDocuments({ application }: { application: AdmissionsAppli
                   }}
                   type="file"
                   className="sr-only"
+                  tabIndex={-1}
+                  aria-label={t("uploadAria", { label: doc.requirementLabel })}
                   id={`up-${doc.requirementId}`}
                   accept={ADMISSION_ACCEPTED_MIME.join(",")}
                   onChange={(e) => {

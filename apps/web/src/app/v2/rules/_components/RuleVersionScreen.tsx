@@ -149,14 +149,16 @@ function ValidationReport({ report, version }: { report: RulesValidateResponse; 
     <section aria-label={t("validationTitle")} className="space-y-2 rounded-md border p-4">
       <Notice kind={report.ok ? "success" : "error"}>{t(report.ok ? "validationOk" : "validationKo")}</Notice>
       {report.violations.length > 0 ? (
-        <ul className="space-y-1 text-sm" role="alert">
-          {report.violations.map((v, i) => (
-            <li key={i} className="text-destructive">
-              {v.ruleKey ? <span className="font-mono text-xs">{v.ruleKey} : </span> : null}
-              {v.message}
-            </li>
-          ))}
-        </ul>
+        <div role="alert">
+          <ul className="space-y-1 text-sm">
+            {report.violations.map((v, i) => (
+              <li key={i} className="text-destructive">
+                {v.ruleKey ? <span className="font-mono text-xs">{v.ruleKey} : </span> : null}
+                {v.message}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       {report.rules
         .filter((r) => !r.ok)

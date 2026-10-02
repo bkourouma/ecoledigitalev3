@@ -123,6 +123,8 @@ function Result({ school, code, data, onChanged }: { school: string; code: strin
                     }}
                     type="file"
                     className="sr-only"
+                    tabIndex={-1}
+                    aria-label={t("uploadAria", { label: d.label })}
                     accept={ADMISSION_ACCEPTED_MIME.join(",")}
                     onChange={(e) => {
                       const file = e.target.files?.[0];

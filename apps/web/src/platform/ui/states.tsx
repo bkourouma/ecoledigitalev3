@@ -28,7 +28,7 @@ export function ErrorBlock({ error, onRetry, className }: { error: unknown; onRe
         <p>{describe(error)}</p>
       </div>
       {onRetry ? (
-        <button type="button" onClick={onRetry} className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <button type="button" onClick={onRetry} className="inline-flex h-11 items-center rounded-md border border-input sm:h-9 bg-background px-3 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {t("retry")}
         </button>
       ) : null}

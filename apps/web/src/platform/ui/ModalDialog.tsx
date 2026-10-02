@@ -35,14 +35,14 @@ export function ModalDialog({
             className,
           )}
         >
-          <DialogPrimitive.Title className="pr-8 text-lg font-semibold leading-tight">{title}</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="pr-12 text-lg font-semibold leading-tight sm:pr-8">{title}</DialogPrimitive.Title>
           {description ? (
             <DialogPrimitive.Description className="mt-1 text-sm text-muted-foreground">{description}</DialogPrimitive.Description>
           ) : (
             <DialogPrimitive.Description className="sr-only">{title}</DialogPrimitive.Description>
           )}
           <div className="mt-4">{children}</div>
-          <DialogPrimitive.Close aria-label={t("close")} className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <DialogPrimitive.Close aria-label={t("close")} className="absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:right-3 sm:top-3 sm:h-9 sm:w-9">
             <X className="h-4 w-4" aria-hidden="true" />
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>

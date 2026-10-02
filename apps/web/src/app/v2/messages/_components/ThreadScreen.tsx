@@ -287,11 +287,14 @@ export function ThreadScreen({ conversationId }: { conversationId: string }) {
         </div>
       ) : null}
 
-      <ol role="log" aria-live="polite" aria-label={t("thread.messages")} className="space-y-3">
-        {items.map((m) => (
-          <MessageBubble key={m.id} m={m} onReport={() => setReporting(m)} onRemove={() => remove.mutate({ messageId: m.id })} />
-        ))}
-      </ol>
+      {/* `role="log"` retire la sémantique de liste de son élément : la liste est donc imbriquée dans la région. */}
+      <div role="log" aria-live="polite" aria-label={t("thread.messages")}>
+        <ol className="space-y-3">
+          {items.map((m) => (
+            <MessageBubble key={m.id} m={m} onReport={() => setReporting(m)} onRemove={() => remove.mutate({ messageId: m.id })} />
+          ))}
+        </ol>
+      </div>
       <div ref={bottomRef} />
 
       {system ? (
