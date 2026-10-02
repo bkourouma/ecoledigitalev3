@@ -83,7 +83,6 @@ import { createReportcardsResultsRead } from "./results-reportcards";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
 import { asAttendanceStorage, asDocumentsStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
-import { asAttendanceStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
 import { registerPrimarySchoolPorts, setPrimarySchoolWorkerPorts, type PrimarySchoolPorts } from "../../modules/primary_school";
 import { createPrimaryClassroomPort, createPrimaryOutcomePort, createPrimaryPeriodStatePort } from "./academic-primary";
 import { createPrimaryGuardianshipPort, createPrimaryTeachingPort } from "./people-primary";
@@ -142,9 +141,8 @@ export function buildPlatformPorts(
   // fichiers (messagerie, photos, justificatifs) l'appliquent par enveloppe de leur vue de stockage (aucune modification de leur code).
   const scan = scanPolicyFromEnv(kit.env, { warn: (m) => kit.logger.warn({}, m) });
   const scanned = () => scan;
-  const base: Omit<PlatformPorts, "imports" | "examinations"> = {
   const primaryAttendance = createPrimaryAttendancePort({ attendance, academic });
-  const base: Omit<PlatformPorts, "imports"> = {
+  const base: Omit<PlatformPorts, "imports" | "examinations"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
       guardianship: createAcademicGuardianship(people),
