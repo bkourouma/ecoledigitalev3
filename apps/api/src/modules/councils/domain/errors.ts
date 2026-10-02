@@ -6,7 +6,7 @@
  * les convertit en `AppError` (aucun 500 pour une violation prévisible, spec 006 §8).
  * Domaine pur : aucun import d'infrastructure (les violations arrivent sous forme d'objets `{ sqlstate, message, constraint }`).
  */
-import { ConflictError, ForbiddenError, InternalError, NotFoundError, ValidationError, type AppError } from "@ecoledigitale/kernel";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError, type AppError } from "@ecoledigitale/kernel";
 
 export const CouncilsCode = {
   PORT_UNAVAILABLE: "councils.port_unavailable",
@@ -47,7 +47,7 @@ export const invalid = (code: string, message: string, field?: string): AppError
 
 /** Port non branché : la plateforme n'a pas câblé le module voisin ; l'opération est refusée par prudence (échec fermé). */
 export const portUnavailable = (port: string): AppError =>
-  new InternalError(`Le service « ${port} » n'est pas branché : l'opération est refusée par prudence.`, { code: CouncilsCode.PORT_UNAVAILABLE, details: { port } });
+  conflict(CouncilsCode.PORT_UNAVAILABLE, `Le service « ${port} » n'est pas branché : l'opération est refusée par prudence.`, { port });
 
 export const humanRequired = (): AppError =>
   forbidden(CouncilsCode.HUMAN_DECISION_REQUIRED, "Cet acte exige un utilisateur identifié : un traitement automatique ne peut ni décider, ni signer, ni ouvrir ou clore une séance.");

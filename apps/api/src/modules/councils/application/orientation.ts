@@ -22,7 +22,7 @@ import type {
 } from "@ecoledigitale/contracts/src/v2/councils";
 import { CouncilsCode, conflict, forbidden, invalid, notFound } from "../domain/errors";
 import { CouncilsEvents } from "../domain/events";
-import * as repo from "../infrastructure/councils-repository";
+import * as effectsRepo from "../infrastructure/effects-repository";
 import * as orientation from "../infrastructure/orientation-repository";
 import type { OrientationFileRow, OrientationPathRow, TransferRow } from "../infrastructure/rows";
 import { EventBuffer, inTx, requireHuman, type CallerCaps, type CouncilsDeps } from "./deps";
@@ -259,9 +259,9 @@ export async function applyTransfer(deps: CouncilsDeps, ctx: RequestContext, id:
       return ok(transferDto((await orientation.getTransfer(tx, id)) as TransferRow));
     }
     await orientation.markTransferApplied(tx, id, t.enrollmentId, now);
-    if (file && (file.status === "DECIDED" || file.status === "PROPOSED" || file.status === "WISHES_COLLECTED" || file.status === "OPEN") && (file.status === "DECIDED" || file.decisionId)) await orientation.updateFile(tx, file.id, { status: "APPLIED" });
+    if (file && file.decisionId !== null && file.status !== "APPLIED" && file.status !== "CLOSED" && file.status !== "CANCELLED") await orientation.updateFile(tx, file.id, { status: "APPLIED" });
     // Un transfert appliqué à l'inscription ne se défait plus : l'effet qui l'a planifié devient irréversible.
-    await tx.query("UPDATE councils.effects SET irreversible = true WHERE effect_kind = 'SERIES_TRANSFER' AND external_ref = $1 AND status = 'APPLIED'", [id]);
+    await effectsRepo.markTransferEffectsIrreversible(tx, id);
     const row = (await orientation.getTransfer(tx, id)) as TransferRow;
     ev.add(CouncilsEvents.SERIES_TRANSFER_APPLIED, transferPayload(row), { type: "councils.series_transfer", id });
     ev.audit({ action: "councils.series_transfer.applied", resourceType: "series_transfer", resourceId: id, sensitive: true, after: { enrollmentId: t.enrollmentId, effectiveKind: t.effectiveKind } });
@@ -289,4 +289,3 @@ export async function cancelTransfer(deps: CouncilsDeps, ctx: RequestContext, id
   });
 }
 
-void repo;

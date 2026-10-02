@@ -83,3 +83,9 @@ export async function notifiedDecisionIds(tx: Tx, decisionIds: readonly string[]
   const rows = await tx.many<{ id: string }>(`SELECT e.decision_id AS id FROM councils.effects e WHERE e.decision_id = ANY($1::uuid[]) AND e.effect_kind = 'NOTIFY_GUARDIANS' AND e.status = 'APPLIED'`, [decisionIds]);
   return new Set(rows.map((r) => r.id));
 }
+
+export const setEffectLastError = (tx: Tx, id: string, message: string): Promise<unknown> => tx.query("UPDATE councils.effects SET last_error = $2 WHERE id = $1", [id, message.slice(0, 1000)]);
+export const markEffectIrreversible = (tx: Tx, id: string): Promise<unknown> => tx.query("UPDATE councils.effects SET irreversible = true WHERE id = $1", [id]);
+/** Un transfert de série appliqué à l'inscription ne se défait plus : l'effet qui l'a planifié devient irréversible. */
+export const markTransferEffectsIrreversible = (tx: Tx, transferId: string): Promise<unknown> =>
+  tx.query("UPDATE councils.effects SET irreversible = true WHERE effect_kind = 'SERIES_TRANSFER' AND external_ref = $1 AND status = 'APPLIED'", [transferId]);

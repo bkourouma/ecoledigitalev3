@@ -56,8 +56,7 @@ export async function upsertCouncilType(deps: CouncilsDeps, ctx: RequestContext,
     const before = await repo.getCouncilTypeByCode(tx, input.code);
     if (before && before.scope !== input.scope) {
       // La portée d'un type utilisé ne change plus (la base impose l'égalité type/séance) : on crée un autre type.
-      const used = await tx.queryOne<{ n: number }>("SELECT count(*)::int AS n FROM councils.councils WHERE council_type_id = $1", [before.id]);
-      if ((used?.n ?? 0) > 0) return err(conflict(CouncilsCode.INVALID_STATE, "La portée d'un type de conseil déjà utilisé ne change plus : créez un autre type et désactivez celui-ci."));
+      if ((await repo.countCouncilsOfType(tx, before.id)) > 0) return err(conflict(CouncilsCode.INVALID_STATE, "La portée d'un type de conseil déjà utilisé ne change plus : créez un autre type et désactivez celui-ci."));
     }
     const roles = new Map((await repo.listRoles(tx)).map((r) => [r.code, r]));
     const unknown = [...input.requiredRoleCodes, ...input.signerRoleCodes].filter((c) => !roles.has(c));
@@ -95,8 +94,7 @@ export async function upsertDecisionType(deps: CouncilsDeps, ctx: RequestContext
   return inTx(deps, ctx, async (tx) => {
     const before = await repo.getDecisionTypeByCode(tx, input.code);
     if (before && before.family !== shape.family) {
-      const used = await tx.queryOne<{ n: number }>("SELECT count(*)::int AS n FROM councils.decisions WHERE decision_type_id = $1", [before.id]);
-      if ((used?.n ?? 0) > 0) return err(conflict(CouncilsCode.INVALID_STATE, "La famille d'un type de décision déjà utilisé ne change plus : créez un autre type et désactivez celui-ci."));
+      if ((await repo.countDecisionsOfType(tx, before.id)) > 0) return err(conflict(CouncilsCode.INVALID_STATE, "La famille d'un type de décision déjà utilisé ne change plus : créez un autre type et désactivez celui-ci."));
     }
     const row = await repo.upsertDecisionType(tx, ctx.tenantId, deps.newId(), {
       code: shape.code,

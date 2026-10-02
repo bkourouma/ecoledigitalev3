@@ -221,7 +221,7 @@ export async function attemptEffect(deps: CouncilsDeps, ctx: RequestContext, tx:
     }
     if (appError.code === CouncilsCode.PORT_UNAVAILABLE) {
       // Port non branché : l'effet reste PENDING (jamais appliqué à moitié), diagnostic conservé.
-      await tx.query("UPDATE councils.effects SET last_error = $2 WHERE id = $1", [effect.id, `${appError.code}: ${appError.message}`.slice(0, 1000)]);
+      await repo.setEffectLastError(tx, effect.id, `${appError.code}: ${appError.message}`);
       return { status: "PENDING", error: appError };
     }
     await repo.markEffectFailed(tx, effect.id, `${appError.code}: ${appError.message}`);
@@ -428,7 +428,7 @@ export async function revertEffect(deps: CouncilsDeps, ctx: RequestContext, caps
       if (transfer && transfer.status === "PLANNED") {
         await orientationRepo.cancelTransfer(tx, transfer.id, reason);
       } else if (transfer && transfer.status === "APPLIED") {
-        await tx.query("UPDATE councils.effects SET irreversible = true WHERE id = $1", [id]);
+        await repo.markEffectIrreversible(tx, id);
         return err(conflict("councils.effect_irreversible", "Le transfert de série est déjà appliqué à l'inscription : l'effet ne peut plus être annulé."));
       }
     }

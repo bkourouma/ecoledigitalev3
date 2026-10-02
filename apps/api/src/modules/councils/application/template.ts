@@ -28,7 +28,7 @@ export async function instantiateCouncilsReferenceData(deps: CouncilsDeps, ctx: 
   const template = parsed.data;
   return inTx(deps, ctx, async (tx) => {
     // Sérialise deux instanciations simultanées du même établissement.
-    await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`councils:template:${ctx.tenantId}:${input.institutionId}`]);
+    await reference.lockTemplateInstantiation(tx, `councils:template:${ctx.tenantId}:${input.institutionId}`);
     const created = { roles: 0, councilTypes: 0, decisionTypes: 0, settings: 0 };
     for (const r of template.participantRoles) {
       if (await reference.getRoleByCode(tx, r.code)) continue;

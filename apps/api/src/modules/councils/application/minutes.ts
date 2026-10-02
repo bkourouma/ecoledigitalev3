@@ -150,6 +150,8 @@ export async function getMinutesDetail(deps: CouncilsDeps, ctx: RequestContext, 
 
 /** URL signée (≤ 5 min) du PDF rendu, après contrôle de permission. Un PV `SUPERSEDED` reste téléchargeable. */
 export async function getMinutesPdf(deps: CouncilsDeps, ctx: RequestContext, caps: CallerCaps, minutesId: string): Promise<Result<{ url: string; expiresAt: string; renderHash: string }, AppError>> {
+  const human = requireHuman(ctx); // une URL signée est délivrée à un utilisateur identifié et journalisée
+  if (!human.ok) return human;
   if (!caps.minutesRead) return err(forbidden(CouncilsCode.PERMISSION_REQUIRED, "Télécharger un procès-verbal exige l'autorisation dédiée."));
   return inTx(deps, ctx, async (tx) => {
     const m = await minutesRepo.getMinutes(tx, minutesId);

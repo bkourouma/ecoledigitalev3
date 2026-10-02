@@ -138,3 +138,14 @@ export async function insertSettingsIfAbsent(tx: Tx, tenantId: string, instituti
   );
   return (r.rowCount ?? 0) > 0;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Usage et verrous
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** Le type de conseil est-il déjà utilisé par une séance ? (sa portée ne change alors plus). */
+export const countCouncilsOfType = async (tx: Tx, typeId: string): Promise<number> => (await tx.queryOne<{ n: number }>("SELECT count(*)::int AS n FROM councils.councils WHERE council_type_id = $1", [typeId]))?.n ?? 0;
+/** Le type de décision est-il déjà utilisé par une décision ? (sa famille ne change alors plus). */
+export const countDecisionsOfType = async (tx: Tx, typeId: string): Promise<number> => (await tx.queryOne<{ n: number }>("SELECT count(*)::int AS n FROM councils.decisions WHERE decision_type_id = $1", [typeId]))?.n ?? 0;
+/** Sérialise deux instanciations simultanées du modèle de pack pour un même établissement. */
+export const lockTemplateInstantiation = (tx: Tx, key: string): Promise<unknown> => tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [key]);
