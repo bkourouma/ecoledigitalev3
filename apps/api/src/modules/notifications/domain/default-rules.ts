@@ -268,7 +268,7 @@ export const DEFAULT_RULES: readonly RuleDef[] = Object.freeze<RuleDef[]>([
     trigger: ConsumedEvents.ANALYTICS_ALERT_RAISED,
     enabled: true,
     templateCode: "analytics_alert",
-    // Rôles de repli seulement : une alerte porte les rôles destinataires configurés par l'établissement (analytics).
+    // Indicatif : le destinataire effectif est toujours celui de l'alerte (rôles configurés par l'établissement dans analytics) ; sans rôle valable, l'événement est ignoré.
     audience: { kind: "ROLES", roleKeys: ["directeur"] },
     channels: ["IN_APP", "EMAIL"],
     strategy: "ALL",

@@ -51,7 +51,7 @@ export default defineModule({
     { key: "analytics.schoollife", label: "Vie scolaire (agrégée)", href: "/v2/analytics/vie-scolaire", permission: "analytics.schoollife.read", feature: "analytics.direction", portal: "owner", icon: "shield", order: 26 },
     { key: "analytics.compare", label: "Comparaisons", href: "/v2/analytics/comparaisons", permission: "analytics.read", feature: "analytics.direction", portal: "owner", icon: "columns", order: 75 },
     { key: "analytics.alerts", label: "Alertes de direction", href: "/v2/analytics/alertes", permission: "analytics.alerts.read", feature: "analytics.direction", portal: "owner", icon: "bell", order: 80 },
-    { key: "analytics.alert_rules", label: "Règles d'alerte", href: "/v2/analytics/alertes/regles", permission: "analytics.alerts.manage", feature: "analytics.direction", portal: "owner", icon: "sliders", order: 85 },
+    { key: "analytics.alert_rules", label: "Règles d'alerte", href: "/v2/analytics/alertes/regles", permission: "analytics.alerts.read", feature: "analytics.direction", portal: "owner", icon: "sliders", order: 85 },
     { key: "analytics.charges", label: "Charges et résultat", href: "/v2/owner/charges", permission: "analytics.charges.read", feature: "analytics.direction", portal: "owner", icon: "scale", order: 70 },
   ],
   events: {

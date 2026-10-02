@@ -28,15 +28,40 @@ export function AnalyticsNav() {
   const t = useTranslations("v2Owner.nav");
   const items: SectionNavItem[] = [
     { href: "/v2/direction", label: t("dashboard"), permission: "analytics.read", exact: true },
+    { href: "/v2/analytics", label: t("indicators"), permission: "analytics.read", exact: true },
     { href: "/v2/direction/effectifs", label: t("enrollment"), permission: "analytics.read" },
+    { href: "/v2/analytics/admissions", label: t("admissions"), permission: "analytics.admissions.read" },
+    { href: "/v2/analytics/vie-scolaire", label: t("schoollife"), permission: "analytics.schoollife.read" },
     { href: "/v2/owner/pedagogie", label: t("pedagogy"), permission: "analytics.pedagogy.read" },
     { href: "/v2/owner/scolarite", label: t("tuition"), permission: "analytics.finance.read" },
     { href: "/v2/owner/tresorerie", label: t("treasury"), permission: "analytics.treasury.read" },
     { href: "/v2/owner/paie", label: t("payroll"), permission: "analytics.payroll.read" },
     { href: "/v2/owner/charges", label: t("charges"), permission: "analytics.charges.read" },
+    { href: "/v2/analytics/comparaisons", label: t("compare"), permission: "analytics.read" },
+    { href: "/v2/analytics/alertes", label: t("alerts"), permission: "analytics.alerts.read" },
     { href: "/v2/owner", label: t("freshness"), permission: "analytics.read", exact: true },
   ];
   return <SectionNav label={t("label")} items={items} />;
+}
+
+/**
+ * Bandeau « règles de démonstration » : tant qu'une période lue repose sur un jeu de règles fictif (`placeholder`), les moyennes,
+ * taux de validation et décisions affichés ne sont PAS officiels. Une provenance illisible est dite aussi, jamais présumée officielle.
+ */
+export function DemoRulesBanner({ rulesSource }: { rulesSource: { demonstration: boolean; unknownClassPeriods?: number } | undefined }) {
+  const t = useTranslations("v2Owner.demo");
+  if (!rulesSource) return null;
+  return (
+    <>
+      {rulesSource.demonstration ? (
+        <Notice kind="warning">
+          <p className="font-medium">{t("title")}</p>
+          <p className="mt-1">{t("body")}</p>
+        </Notice>
+      ) : null}
+      {!rulesSource.demonstration && (rulesSource.unknownClassPeriods ?? 0) > 0 ? <Notice kind="info">{t("unknown")}</Notice> : null}
+    </>
+  );
 }
 
 /** La fonctionnalité vendable `analytics.direction` : message explicite quand l'offre ne l'inclut pas. */

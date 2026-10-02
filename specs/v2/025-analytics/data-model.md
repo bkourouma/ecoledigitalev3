@@ -1,6 +1,6 @@
 # Modèle de données — 025-analytics
 
-Schéma Postgres `analytics`, migration `apps/api/src/modules/analytics/migrations/1600_analytics_init.sql` (plage 1600-1699). **Le fichier SQL est le DDL de référence** ; il est appliqué et vérifié par `test/refresh.integration.test.ts` (migration complète, 22 tables, `assertTenantIsolation` : `tenant_id` + RLS forcée, comportement A/B) et par les tests d'assemblage `apps/api/test/adapters/analytics.integration.test.ts` (base migrée par **toutes** les migrations v2).
+Schéma Postgres `analytics`, migrations `apps/api/src/modules/analytics/migrations/1600_analytics_init.sql` et `1601_analytics_alerts_indicators.sql` (plage 1600-1699). **Le fichier SQL est le DDL de référence** ; il est appliqué et vérifié par `test/refresh.integration.test.ts` (migrations complètes, 28 tables, `assertTenantIsolation` : `tenant_id` + RLS forcée, comportement A/B) et par les tests d'assemblage `apps/api/test/adapters/analytics.integration.test.ts` (base migrée par **toutes** les migrations v2).
 
 ## Principes
 
@@ -84,3 +84,25 @@ Les agrégats ne filtrent pas par `tenant_id` (la RLS s'en charge). Le périmèt
 ## Événements publiés
 
 `analytics.snapshot.refreshed` `{ v: 1, kind, scopeKey, asOf, rows, changed }` (seulement si le contenu a changé), `analytics.rebuild.requested` `{ v: 1, requestedBy, reason, kinds }`, `analytics.rebuild.completed` (réservé).
+
+---
+
+# Partie B (migration 1601) : indicateurs transverses et alertes
+
+Même principes (instantanés dérivés, UUID sans clé étrangère hors `kernel.tenants`, RLS forcée, `GRANT app_user`). Nouveaux genres de rafraîchissement : `ADMISSIONS`, `SCHOOLLIFE` (contrainte `refresh_requests_kind_check` étendue).
+
+| Table | Clé | Contenu |
+|---|---|---|
+| `result_scopes.rules_source_kind` (colonne ajoutée) | — | provenance des règles épinglées : `regulation`, `institution`, `platform`, `placeholder` (démonstration) ou `NULL` (illisible) |
+| `admissions_campaign_facts` | `(tenant_id, campaign_id)` | campagne : établissement, année, code, libellé, état, places et places restantes |
+| `admissions_stage_facts` | `(tenant_id, campaign_id, stage_code)` | étape : libellé, statut canonique, rang, terminale, **nombre** de dossiers — aucun candidat |
+| `schoollife_facts` | `(tenant_id, institution_key, indicator)` | 4 comptages (`OPEN_INCIDENTS`, `MEASURES_TO_VALIDATE`, `ACTIVE_EXCLUSIONS`, `CONVOCATIONS_TO_HOLD`) ; `institution_key` = identifiant ou `*` |
+| `alert_rules` | `(tenant_id, id)` | règle : libellé, `metric`, seuils (`warning_value`, `critical_value`, au moins un), fenêtre, périmètre, `recipient_roles text[]` (1 à 8), `frequency`, `enabled`, `row_version`, dernière évaluation (instant, issue, valeur) |
+| `alert_events` | `(tenant_id, id)` ; index unique partiel `(tenant_id, rule_id) WHERE status IN ('OPEN','ACKNOWLEDGED')` | alerte (épisode) : gravité, état (`OPEN`, `ACKNOWLEDGED`, `RESOLVED`), valeur, seuil franchi, devise, périmètre, année / période, `raised_at`, `last_seen_at`, `as_of`, notifications émises, accusé de réception (qui, quand, note), résolution |
+| `alert_notifications` | `(tenant_id, id)` ; **`UNIQUE (tenant_id, dedupe_key)`** | notification émise (historique + anti-doublon) : motif (`RAISED`, `ESCALATED`, `REMINDER`), gravité, valeur, rôles, instant ; `dedupe_key = règle:gravité:créneau` |
+
+Alimentation : `admissions.*` -> `ADMISSIONS` (`admissions.listCampaigns`, `getBoard` : colonnes et totaux seulement) ; `schoollife.*` -> `SCHOOLLIFE` (`schoollife.getAggregateCounts`) ; la provenance des règles est lue avec chaque (classe, période) FINAL (`results.getPeriodView`).
+
+Cycle d'évaluation d'une règle (transaction unique, `FOR UPDATE` sur la règle) : fraîcheur et manques des genres lus (sinon `SOURCE_UNAVAILABLE`) -> valeur (sinon `NOT_MEASURED`) -> gravité (`severityOf`) -> alerte active ? création / mise à jour / résolution -> insertion de la notification (clé unique) -> événement `analytics.alert.raised` seulement si l'insertion a réussi.
+
+Événements publiés en plus : `analytics.alert.raised` `{ v: 1, alertId, ruleId, metric, metricLabel, severity, reason, unit, comparator, value, threshold, currency, recipientRoles, dedupeKey, institutionId, campusId }`, `analytics.alert.acknowledged` `{ v: 1, alertId, ruleId, acknowledgedBy }`, `analytics.alert.resolved` `{ v: 1, alertId, ruleId, metric, resolvedValue }`.

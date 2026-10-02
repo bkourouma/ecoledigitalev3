@@ -3,7 +3,14 @@
  * valide), de sorte qu'un changement de contrat casse le test au lieu de passer silencieusement.
  */
 import type {
+  AnalyticsAdmissionsFunnelData,
   AnalyticsAgedData,
+  AnalyticsAlertDetail,
+  AnalyticsAlertMetricsData,
+  AnalyticsAlertRulesData,
+  AnalyticsAlertsData,
+  AnalyticsComparisonData,
+  AnalyticsSchoolLifeData,
   AnalyticsAttendanceData,
   AnalyticsCashData,
   AnalyticsCollectionsData,
@@ -61,7 +68,7 @@ export function overview(overrides: Partial<AnalyticsOverviewData> = {}): Analyt
   return {
     headcount: { inSchooling: 412, total: 440, classrooms: 14 },
     attendanceToday: { day: "2026-03-20", recordsCount: 400, presentCount: 372, absentCount: 22, lateCount: 6, rateBps: 9300, status: "good", measured: true },
-    results: { periodId: IDS.p1, periodLabel: "Semestre 1", generalAverage: 11.72, cohortSize: 380, validatedCount: 266, validationRateBps: 7000, measured: true },
+    results: { periodId: IDS.p1, periodLabel: "Semestre 1", generalAverage: 11.72, cohortSize: 380, validatedCount: 266, validationRateBps: 7000, measured: true, demonstration: false },
     staffToday: { day: "2026-03-20", present: 31, absent: 2, onLeave: 3, measured: true },
     ...overrides,
   };
@@ -207,7 +214,8 @@ export function results(overrides: Partial<AnalyticsResultsData> = {}): Analytic
       { nodeId: aid(501), code: "FR", label: "Français", level: "SUBJECT", ...stats, validationRateBps: 8000, validatedCount: 32, resitEligibleCount: 4, session2Count: 1 },
       { nodeId: aid(502), code: "UE1", label: "UE Fondamentale", level: "UE", ...stats, validationRateBps: 3000, validatedCount: 12, resitEligibleCount: 0, session2Count: 0 },
     ],
-    byPeriod: [{ periodId: IDS.p1, label: "Semestre 1", ordinal: 1, ...stats }],
+    byPeriod: [{ periodId: IDS.p1, label: "Semestre 1", ordinal: 1, ...stats, demonstration: false }],
+    rulesSource: { demonstration: false, finalClassPeriods: 4, placeholderClassPeriods: 0, unknownClassPeriods: 0 },
     distribution: { scaleMax: 20, binWidth: 2, bins: Array.from({ length: 10 }, (_, i) => ({ index: i, from: i * 2, to: i * 2 + 2, count: i === 5 ? 9 : 3 })) },
     decisions: { period: [{ code: "ADMITTED", outcome: "ADMITTED", count: 28 }, { code: "ADJOURNED", outcome: "ADJOURNED", count: 12 }], year: [{ code: "REPEAT", outcome: "REPEAT", count: 5 }] },
     ...overrides,
@@ -233,4 +241,149 @@ export function freshness(overrides: Partial<AnalyticsFreshnessData> = {}): Anal
     staleAfterSeconds: 86_400,
     ...overrides,
   };
+}
+
+// --- Partie B : entonnoir, vie scolaire, comparaisons, alertes -----------------------------------------------------------
+
+export function funnel(overrides: Partial<AnalyticsAdmissionsFunnelData> = {}): AnalyticsAdmissionsFunnelData {
+  const statuses = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "MISSING_DOCUMENT", "ACCEPTED", "REJECTED", "WAITLISTED", "ENROLLED"] as const;
+  const counts: Record<(typeof statuses)[number], number> = { DRAFT: 5, SUBMITTED: 40, UNDER_REVIEW: 25, MISSING_DOCUMENT: 0, ACCEPTED: 20, REJECTED: 10, WAITLISTED: 0, ENROLLED: 30 };
+  return {
+    totals: { applications: 130, submitted: 125, accepted: 50, enrolled: 30, rejected: 10, waitlisted: 0, acceptanceRateBps: 4000, enrollmentRateBps: 6000, seats: 120, seatsLeft: 70 },
+    byStatus: statuses.map((status) => ({ status, count: counts[status] })),
+    campaigns: [
+      {
+        campaignId: aid(7001),
+        institutionId: IDS.institution,
+        yearId: IDS.year,
+        code: "ADM-2026",
+        label: "Campagne 2026-2027",
+        status: "OPEN",
+        seats: 120,
+        seatsLeft: 70,
+        applications: 130,
+        stages: [
+          { code: "DEPOSE", label: "Déposé", canonicalStatus: "SUBMITTED", ordinal: 1, isTerminal: false, applications: 40 },
+          { code: "ETUDE", label: "En étude", canonicalStatus: "UNDER_REVIEW", ordinal: 2, isTerminal: false, applications: 25 },
+          { code: "INSCRIT", label: "Inscrit", canonicalStatus: "ENROLLED", ordinal: 4, isTerminal: true, applications: 30 },
+        ],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+export function schoolLife(overrides: Partial<AnalyticsSchoolLifeData> = {}): AnalyticsSchoolLifeData {
+  return {
+    scopeConfidentiality: "STANDARD",
+    institutionId: null,
+    indicators: [
+      { indicator: "OPEN_INCIDENTS", value: 7, measured: true },
+      { indicator: "MEASURES_TO_VALIDATE", value: 2, measured: true },
+      { indicator: "ACTIVE_EXCLUSIONS", value: 1, measured: true },
+      { indicator: "CONVOCATIONS_TO_HOLD", value: 3, measured: true },
+    ],
+    ...overrides,
+  };
+}
+
+export function comparison(domain: AnalyticsComparisonData["domain"] = "enrollment", overrides: Partial<AnalyticsComparisonData> = {}): AnalyticsComparisonData {
+  const side = (label: string, demonstration = false) => ({ label, yearId: IDS.year, periodId: null, from: null, to: null, demonstration });
+  return {
+    domain,
+    currency: domain === "finance" ? "XOF" : null,
+    baseline: side("Année 2024-2025"),
+    target: side("Année 2025-2026"),
+    metrics:
+      domain === "finance"
+        ? [
+            { key: "collected", unit: "AMOUNT", baseline: 38_000_000, target: 41_000_000, delta: 3_000_000, changeBps: 789 },
+            { key: "collectionRateBps", unit: "BPS", baseline: null, target: 6949, delta: null, changeBps: null },
+          ]
+        : [
+            { key: "inSchooling", unit: "COUNT", baseline: 400, target: 412, delta: 12, changeBps: 300 },
+            { key: "repeaterRateBps", unit: "BPS", baseline: 800, target: 650, delta: -150, changeBps: -1875 },
+            { key: "repeaters", unit: "COUNT", baseline: 0, target: 5, delta: 5, changeBps: null },
+          ],
+    ...overrides,
+  };
+}
+
+const rule = (over: Record<string, unknown> = {}) => ({
+  id: aid(8001),
+  label: "Présence trop basse",
+  metric: "ATTENDANCE_RATE",
+  comparator: "BELOW",
+  unit: "BPS",
+  warningValue: 8500,
+  criticalValue: 7000,
+  windowDays: 30,
+  institutionId: null,
+  campusId: null,
+  recipientRoles: ["directeur", "owner"],
+  frequency: "DAILY",
+  enabled: true,
+  rowVersion: 1,
+  lastEvaluatedAt: "2026-03-20T10:15:00.000Z",
+  lastOutcome: "CRITICAL",
+  lastValue: 6000,
+  createdAt: "2026-03-01T08:00:00.000Z",
+  updatedAt: "2026-03-01T08:00:00.000Z",
+  ...over,
+});
+
+export function alertRules(rules: Array<Record<string, unknown>> = [rule(), rule({ id: aid(8002), label: "Impayés élevés", metric: "OVERDUE_AMOUNT", comparator: "ABOVE", unit: "AMOUNT", warningValue: 5_000_000, criticalValue: null, windowDays: null, recipientRoles: ["econome", "equipe_paie"], frequency: "WEEKLY", lastOutcome: "OK", lastValue: 3_000_000 })]): AnalyticsAlertRulesData {
+  return { rules } as AnalyticsAlertRulesData;
+}
+
+export function alertMetrics(only?: string[]): AnalyticsAlertMetricsData {
+  const all = [
+    { metric: "ATTENDANCE_RATE", label: "Taux de présence des élèves", unit: "BPS", comparator: "BELOW", permission: "analytics.attendance.read", windowed: true, defaultWindowDays: 30, campusScoped: false },
+    { metric: "COLLECTION_RATE", label: "Taux de recouvrement de la scolarité", unit: "BPS", comparator: "BELOW", permission: "analytics.finance.read", windowed: false, defaultWindowDays: null, campusScoped: true },
+    { metric: "OVERDUE_AMOUNT", label: "Montant des impayés échus", unit: "AMOUNT", comparator: "ABOVE", permission: "analytics.finance.read", windowed: false, defaultWindowDays: null, campusScoped: true },
+    { metric: "SCHOOLLIFE_OPEN_INCIDENTS", label: "Incidents de vie scolaire ouverts", unit: "COUNT", comparator: "ABOVE", permission: "analytics.schoollife.read", windowed: false, defaultWindowDays: null, campusScoped: false },
+  ];
+  return { metrics: all.filter((m) => !only || only.includes(m.metric)) } as AnalyticsAlertMetricsData;
+}
+
+const alert = (over: Record<string, unknown> = {}) => ({
+  id: aid(9001),
+  ruleId: aid(8001),
+  ruleLabel: "Présence trop basse",
+  metric: "ATTENDANCE_RATE",
+  unit: "BPS",
+  comparator: "BELOW",
+  severity: "CRITICAL",
+  status: "OPEN",
+  value: 6000,
+  threshold: 7000,
+  currency: null,
+  institutionId: null,
+  campusId: null,
+  raisedAt: "2026-03-18T07:30:00.000Z",
+  lastSeenAt: "2026-03-20T07:30:00.000Z",
+  asOf: "2026-03-20T07:29:00.000Z",
+  notifyCount: 3,
+  lastNotifiedAt: "2026-03-20T07:30:00.000Z",
+  acknowledgedAt: null,
+  acknowledgementNote: null,
+  resolvedAt: null,
+  resolvedValue: null,
+  ...over,
+});
+
+export function alertsData(alerts: Array<Record<string, unknown>> = [alert(), alert({ id: aid(9002), ruleId: aid(8002), ruleLabel: "Impayés élevés", metric: "OVERDUE_AMOUNT", unit: "AMOUNT", comparator: "ABOVE", severity: "WARNING", status: "ACKNOWLEDGED", value: 6_200_000, threshold: 5_000_000, currency: "XOF", acknowledgedAt: "2026-03-19T09:00:00.000Z", acknowledgementNote: "Relance en cours", notifyCount: 1 }), alert({ id: aid(9003), status: "RESOLVED", severity: "WARNING", value: 8400, threshold: 8500, resolvedAt: "2026-03-10T08:00:00.000Z", resolvedValue: 9100, raisedAt: "2026-03-05T07:30:00.000Z" })]): AnalyticsAlertsData {
+  const count = (s: string) => alerts.filter((a) => a.status === s).length;
+  return { total: alerts.length, counts: { open: count("OPEN"), acknowledged: count("ACKNOWLEDGED"), resolved: count("RESOLVED") }, alerts } as AnalyticsAlertsData;
+}
+
+export function alertDetail(over: Record<string, unknown> = {}): AnalyticsAlertDetail {
+  return {
+    ...alert(),
+    notifications: [
+      { id: aid(9101), reason: "RAISED", severity: "CRITICAL", value: 6200, recipientRoles: ["directeur", "owner"], emittedAt: "2026-03-18T07:30:00.000Z" },
+      { id: aid(9102), reason: "REMINDER", severity: "CRITICAL", value: 6000, recipientRoles: ["directeur", "owner"], emittedAt: "2026-03-19T07:30:00.000Z" },
+    ],
+    ...over,
+  } as AnalyticsAlertDetail;
 }

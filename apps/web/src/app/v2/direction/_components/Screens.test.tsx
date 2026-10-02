@@ -62,7 +62,7 @@ describe("Tableau de bord de la direction", () => {
         "GET /api/v1/analytics/overview": env(
           overview({
             attendanceToday: { day: "2026-03-20", recordsCount: 0, presentCount: 0, absentCount: 0, lateCount: 0, rateBps: null, status: "neutral", measured: false },
-            results: { periodId: null, periodLabel: null, generalAverage: null, cohortSize: 0, validatedCount: 0, validationRateBps: null, measured: false },
+            results: { periodId: null, periodLabel: null, generalAverage: null, cohortSize: 0, validatedCount: 0, validationRateBps: null, measured: false, demonstration: false },
             staffToday: { day: "2026-03-20", present: 0, absent: 0, onLeave: 0, measured: false },
           }),
           { gaps: [{ source: "RESULTS", reason: "NEVER_COMPUTED", message: "Résultats : aucune lecture de la source n'a encore eu lieu." }] },
