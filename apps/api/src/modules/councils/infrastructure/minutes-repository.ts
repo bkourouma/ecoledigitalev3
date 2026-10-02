@@ -102,3 +102,13 @@ export async function reviewNeededCouncilIds(tx: Tx, classroomId: string): Promi
   );
   return rows.map((r) => r.id);
 }
+
+/** Un signal « résultats rouverts » postérieur à la clôture existe-t-il déjà ? (le rejeu de l'événement n'alerte pas deux fois) */
+export async function hasReopenSignal(tx: Tx, councilId: string): Promise<boolean> {
+  const r = await tx.queryOne<{ n: number }>(
+    `SELECT count(*)::int AS n FROM councils.events ev JOIN councils.councils c ON c.tenant_id = ev.tenant_id AND c.id = ev.council_id
+      WHERE ev.council_id = $1 AND ev.kind = 'RESULTS_REOPENED' AND ev.occurred_at > coalesce(c.closed_at, c.opened_at)`,
+    [councilId],
+  );
+  return (r?.n ?? 0) > 0;
+}

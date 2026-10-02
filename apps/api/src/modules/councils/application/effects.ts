@@ -526,7 +526,7 @@ export async function onResultsReopened(deps: CouncilsDeps, ctx: RequestContext,
         emitEffect(ev, effect, "REVERTED");
         reverted += 1;
       }
-      if (council.status === "CLOSED" || council.status === "SIGNED") {
+      if ((council.status === "CLOSED" || council.status === "SIGNED") && !(await minutesRepo.hasReopenSignal(tx, council.id))) {
         await minutesRepo.appendEvent(tx, { id: deps.newId(), tenantId: ctx.tenantId, councilId: council.id, kind: "RESULTS_REOPENED", actorId: null, actorKind: "system", reason: null, data: { stateId: input.stateId } });
         ev.add(CouncilsEvents.COUNCIL_REVIEW_NEEDED, { ...councilPayload(council), cause: "RESULTS_REOPENED" }, { type: "councils.council", id: council.id });
       }
