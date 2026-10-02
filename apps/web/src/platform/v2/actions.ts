@@ -24,6 +24,10 @@ export interface ActionOptions<TData, TVars> {
   query?: (variables: TVars) => QueryParams;
   schema?: ZodType<TData, ZodTypeDef, unknown>;
   invalidate?: ReadonlyArray<readonly unknown[]>;
+  /** Clé d'idempotence (en-tête `Idempotency-Key`) : autorise aussi les nouvelles tentatives d'un POST. */
+  idempotencyKey?: (variables: TVars) => string | undefined;
+  /** `text` pour un export (CSV) : la réponse n'est pas du JSON. */
+  responseType?: "json" | "text" | "blob";
 }
 
 export function useApiAction<TData = unknown, TVars = void>(options: ActionOptions<TData, TVars>): UseMutationResult<TData, ApiError, TVars> {
@@ -34,6 +38,8 @@ export function useApiAction<TData = unknown, TVars = void>(options: ActionOptio
         body: options.body ? options.body(variables) : undefined,
         query: options.query ? options.query(variables) : undefined,
         schema: options.schema,
+        idempotencyKey: options.idempotencyKey?.(variables),
+        responseType: options.responseType,
       }) as Promise<TData>,
     onSuccess: async () => {
       await Promise.all((options.invalidate ?? []).map((parts) => queryClient.invalidateQueries({ queryKey: platformHooks.queryKey(...parts) })));

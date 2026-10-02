@@ -29,9 +29,9 @@ export type RouteHandler = (request: { method: string; url: URL; body: unknown }
 export function createTestApi(routes: Record<string, RouteHandler | unknown>): {
   client: ApiClient;
   hooks: QueryHooks;
-  calls: Array<{ method: string; path: string; query: Record<string, string>; body: unknown }>;
+  calls: Array<{ method: string; path: string; query: Record<string, string>; body: unknown; headers: Record<string, string> }>;
 } {
-  const calls: Array<{ method: string; path: string; query: Record<string, string>; body: unknown }> = [];
+  const calls: Array<{ method: string; path: string; query: Record<string, string>; body: unknown; headers: Record<string, string> }> = [];
   const fetchMock = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = new URL(String(input), "http://test.local");
     const method = (init?.method ?? "GET").toUpperCase();
@@ -44,7 +44,8 @@ export function createTestApi(routes: Record<string, RouteHandler | unknown>): {
       }
     }
     const query = Object.fromEntries(url.searchParams.entries());
-    calls.push({ method, path: url.pathname, query, body });
+    const headers = Object.fromEntries(Object.entries((init?.headers ?? {}) as Record<string, string>).map(([k, v]) => [k.toLowerCase(), v]));
+    calls.push({ method, path: url.pathname, query, body, headers });
     const handler = routes[`${method} ${url.pathname}`];
     if (handler === undefined) return json({ code: "NOT_FOUND", message: `Route de test absente : ${method} ${url.pathname}` }, { status: 404 });
     if (typeof handler === "function") {
