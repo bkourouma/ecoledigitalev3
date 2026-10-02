@@ -196,7 +196,7 @@ export function scrubLogString(value: string): string {
 export interface SanitizeOptions {
   /** Profondeur maximale (défaut 8) ; au-delà : `[…]`. */
   maxDepth?: number;
-  /** Éléments conservés par tableau (défaut 50). */
+  /** Éléments conservés par tableau (défaut 200). */
   maxArray?: number;
   /** Clés conservées par objet (défaut 100). */
   maxKeys?: number;
@@ -221,7 +221,7 @@ export function safeErrorForLog(err: Error): Record<string, unknown> {
  */
 export function sanitizeForLog(value: unknown, options: SanitizeOptions = {}): unknown {
   const maxDepth = options.maxDepth ?? 8;
-  const maxArray = options.maxArray ?? 50;
+  const maxArray = options.maxArray ?? 200;
   const maxKeys = options.maxKeys ?? 100;
   const seen = new WeakSet<object>();
 
