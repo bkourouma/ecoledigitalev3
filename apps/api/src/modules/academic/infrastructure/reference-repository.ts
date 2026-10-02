@@ -9,6 +9,7 @@
  *    (`updated_at = created_at`) en préservant ce marqueur ; une ligne personnalisée n'est jamais modifiée.
  */
 import type { Tx } from "@ecoledigitale/database";
+import { noteGradeLevelWrite, readGradeLevelCached } from "./grade-level-cache";
 import type { AcademicPack } from "@ecoledigitale/contracts/src/v2/academic";
 import type {
   EducationLevel,
@@ -55,9 +56,12 @@ export const listOutcomes = async (tx: Tx): Promise<EnrollmentOutcome[]> =>
 export const listNodeTypes = async (tx: Tx): Promise<NodeType[]> =>
   (await tx.many(`SELECT ${NODE_TYPE_COLS} FROM academic.curriculum_node_types ORDER BY sort_order, code`)).map(mapNodeType);
 
+/** Niveau par identifiant ; mémoïsé par contexte de requête (voir `grade-level-cache.ts`) : évite le N+1 des ports appelés par élève. */
 export async function getGradeLevel(tx: Tx, id: string): Promise<GradeLevel | null> {
-  const r = await tx.queryOne(`SELECT ${GRADE_LEVEL_COLS} FROM academic.grade_levels WHERE id = $1`, [id]);
-  return r ? mapGradeLevel(r) : null;
+  return readGradeLevelCached(tx, id, async () => {
+    const r = await tx.queryOne(`SELECT ${GRADE_LEVEL_COLS} FROM academic.grade_levels WHERE id = $1`, [id]);
+    return r ? mapGradeLevel(r) : null;
+  });
 }
 export async function getEducationLevel(tx: Tx, id: string): Promise<EducationLevel | null> {
   const r = await tx.queryOne(`SELECT ${EDUCATION_LEVEL_COLS} FROM academic.education_levels WHERE id = $1`, [id]);
@@ -94,6 +98,7 @@ export async function upsertGradeLevel(
   id: string,
   v: { code: string; label: string; shortLabel: string | null; educationLevelId: string; ordinal: number; isFinal: boolean; active: boolean; terminalExamRequired?: boolean | undefined },
 ): Promise<UpsertOutcome> {
+  noteGradeLevelWrite(tx);
   const r = await tx.queryOne<{ inserted: boolean }>(
     `INSERT INTO academic.grade_levels (id, tenant_id, code, label, short_label, education_level_id, ordinal, is_final, active, terminal_exam_required)
      VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6, $7, $8, COALESCE($9::boolean, false))
@@ -107,6 +112,7 @@ export async function upsertGradeLevel(
 }
 
 export async function setGradeLevelNext(tx: Tx, code: string, nextCode: string | null, isFinal: boolean): Promise<void> {
+  noteGradeLevelWrite(tx);
   await tx.query(
     `UPDATE academic.grade_levels g
         SET next_grade_level_id = (SELECT n.id FROM academic.grade_levels n WHERE n.tenant_id = g.tenant_id AND n.code = $2),
@@ -227,6 +233,7 @@ export async function tplGradeLevel(
   id: string,
   v: { code: string; label: string; shortLabel: string | null; educationLevelCode: string; ordinal: number; terminalExamRequired?: boolean | undefined },
 ): Promise<TplResult> {
+  noteGradeLevelWrite(tx);
   return tplResult(
     await tx.queryOne<{ inserted: boolean }>(
       `INSERT INTO academic.grade_levels (id, tenant_id, code, label, short_label, education_level_id, ordinal, terminal_exam_required)
@@ -242,6 +249,7 @@ export async function tplGradeLevel(
 
 /** Pose le niveau suivant d'une ligne de modèle non personnalisée. */
 export async function tplGradeLevelNext(tx: Tx, code: string, nextCode: string | null, isFinal: boolean): Promise<void> {
+  noteGradeLevelWrite(tx);
   await tx.query(
     `UPDATE academic.grade_levels g
         SET next_grade_level_id = (SELECT n.id FROM academic.grade_levels n WHERE n.tenant_id = g.tenant_id AND n.code = $2), is_final = $3, updated_at = g.created_at
