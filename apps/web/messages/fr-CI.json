@@ -9217,8 +9217,7 @@
         },
         "announcements": {
           "title": "Annonces",
-          "open": "Ouvrir les annonces",
-          "soon": "Les annonces de l'établissement arriveront dans cet espace."
+          "open": "Ouvrir les annonces"
         }
       },
       "documents": {

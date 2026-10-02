@@ -100,8 +100,9 @@ académique ; comportement inchangé pour tout autre profil). Défauts inchangé
 - **Devoirs à rendre / soumission de copies / corrections en attente** : la nouvelle plateforme n'a pas de module de devoirs ; « évaluations à
   venir » = examens PLANIFIÉS à l'emploi du temps (séances de type évaluation). Parité manquante, à décider avec le module d'évaluation en ligne.
 - **Supports de cours, visioconférence, tuteur IA, support/FAQ, auto-inscription (module professionnel)** : hors périmètre (specs 022, 018+).
-- **Messages et annonces** : le module de messagerie est livré par un autre chantier. Points d'entrée prêts (`/v2/messages`, `/v2/announcements`),
-  masqués tant que `NEXT_PUBLIC_V2_MESSAGING=1` n'est pas posé ; la carte « Annonces » du tableau de bord affiche un message d'attente.
+- **Messages et annonces** : entrées `/v2/messages` et `/v2/announcements` affichées selon la permission de lecture du module `messaging`
+  (parent : `messaging.child.read`, élève : `messaging.self.read`, enseignant : `messaging.read`), comme toute autre entrée du portail. Le drapeau
+  `NEXT_PUBLIC_V2_MESSAGING` n'existe plus. Sans la permission, ni l'entrée de menu ni la carte « Annonces » du tableau de bord ne sont montrées.
 - **Heures déclarées / séances professionnelles de l'enseignant** : remplacées par les séances validées du module `scheduling` et les bulletins de
   paie (`payroll`).
 - **Tableau de bord analytique enseignant** (`/teacher/reports`) : pas de route v2 ; reste à faire avec la spec 025.

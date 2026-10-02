@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { X } from "lucide-react";
 import { NOTIF_CHANNELS, NOTIF_STRATEGIES, type NotifCatalogEntry, type NotifChannel, type NotifManualAudience, type NotifSendBody, type NotifStrategy, type NotifVariableDef } from "@ecoledigitale/contracts/v2/notifications";
@@ -39,6 +39,12 @@ function Chips({ items, onRemove, label }: { items: SelectOption[]; onRemove: (v
   );
 }
 
+/**
+ * Clé d'idempotence d'UN envoi confirmé : créée à la validation du formulaire, conservée par la fenêtre de confirmation
+ * (un nouvel essai après une erreur réseau ne double donc pas l'envoi) ; un nouvel envoi aura sa propre clé.
+ */
+const newClientKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `k-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
 /** Valeur saisie -> valeur typée du contrat (le serveur valide à nouveau). `undefined` : variable facultative laissée vide. */
 function typedValue(def: NotifVariableDef, raw: string, currency: string): unknown {
   const text = raw.trim();
@@ -70,7 +76,6 @@ export function SendScreen() {
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<NotifSendBody | null>(null);
   const [result, setResult] = useState<{ recipients: number; deliveries: number; skipped: number; reused: boolean } | null>(null);
-  const clientKey = useMemo(() => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `k-${Date.now()}-${Math.random().toString(36).slice(2)}`), [confirm]);
 
   const manual = (catalog.data?.items ?? []).filter((e) => e.manual);
   const entry: NotifCatalogEntry | undefined = manual.find((e) => e.code === code) ?? manual[0];
@@ -107,7 +112,7 @@ export function SendScreen() {
       variables[def.name] = v;
     }
     setError(null);
-    return { templateCode: entry.code, audience: target, variables, channels, strategy, urgent: urgent && canUrgent, clientKey } as NotifSendBody;
+    return { templateCode: entry.code, audience: target, variables, channels, strategy, urgent: urgent && canUrgent, clientKey: newClientKey() } as NotifSendBody;
   }
 
   function toggleChannel(c: NotifChannel, on: boolean) {
