@@ -141,7 +141,14 @@ export function SelectAsync({ value, onChange, useOptions, placeholder, clearabl
           <ChevronsUpDown className="mr-1 h-4 w-4 text-muted-foreground" aria-hidden="true" />
         </div>
       </div>
-      {open ? (
+      {open && options.length === 0 ? (
+        // Un `listbox` vide est invalide (aria-required-children) : sans option, le message est un simple bloc.
+        <div id={listId} className="absolute z-30 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+          {!result.isLoading && !result.error ? <p className="px-2 py-2 text-sm text-muted-foreground">{t("noResults")}</p> : null}
+          {result.error ? <p className="px-2 py-2 text-sm text-destructive">{t("error")}</p> : null}
+        </div>
+      ) : null}
+      {open && options.length > 0 ? (
         <ul id={listId} role="listbox" aria-label={ariaLabel ?? placeholder ?? t("placeholder")} className="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
           {options.map((option, index) => (
             <li
@@ -161,11 +168,6 @@ export function SelectAsync({ value, onChange, useOptions, placeholder, clearabl
               </span>
             </li>
           ))}
-          {!result.isLoading && options.length === 0 && !result.error ? (
-            <li role="presentation" className="px-2 py-2 text-sm text-muted-foreground">
-              {t("noResults")}
-            </li>
-          ) : null}
           {result.error ? (
             <li role="presentation" className="px-2 py-2 text-sm text-destructive">
               {t("error")}

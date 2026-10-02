@@ -37,13 +37,14 @@ const items = [item("a", "/v2/access/roles", "Rôles"), item("b", "/v2/audit", "
 
 describe("garde-fou du harnais axe", () => {
   it("détecte bien un champ sans libellé et un bouton sans nom (sinon le harnais ne prouverait rien)", async () => {
-    const { container } = renderWithProviders(
+    const { container, unmount } = renderWithProviders(
       <div>
         <input type="text" />
         <button type="button" />
       </div>,
     );
     await expect(expectNoBlockingViolations(container)).rejects.toThrow(/label|button-name/);
+    unmount(); // le balayage transversal (`test:a11y`) ne doit pas retrouver ce DOM volontairement fautif
   });
 });
 
