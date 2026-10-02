@@ -16761,5 +16761,130 @@
         }
       }
     }
+  },
+  "v2FinanceWebhooks": {
+    "navLabel": "Webhooks en échec",
+    "title": "Webhooks en échec",
+    "description": "Notifications authentiques de vos fournisseurs de paiement que le système n'a pas pu appliquer. Rejouez-les après avoir corrigé la cause.",
+    "noRawPayload": "Le contenu brut des notifications, les en-têtes et les signatures ne sont jamais affichés.",
+    "caption": "Événements webhook des fournisseurs de paiement",
+    "empty": "Aucun événement pour ce filtre",
+    "emptyFailed": "Aucun webhook en échec",
+    "emptyFailedHint": "Toutes les notifications reçues ont été appliquées ou ignorées.",
+    "filters": {
+      "status": "Statut",
+      "provider": "Fournisseur",
+      "allProviders": "Tous les fournisseurs",
+      "payment": "Paiement (identifiant)",
+      "paymentHint": "Identifiant complet du paiement, facultatif.",
+      "paymentInvalid": "Identifiant de paiement invalide."
+    },
+    "columns": {
+      "received": "Reçu le",
+      "provider": "Fournisseur",
+      "type": "Type",
+      "payment": "Paiement",
+      "state": "État",
+      "attempts": "Tentatives",
+      "actions": "Actions"
+    },
+    "status": {
+      "RECEIVED": "Reçu",
+      "PROCESSED": "Traité",
+      "IGNORED": "Ignoré",
+      "FAILED": "En échec"
+    },
+    "providers": {
+      "orange_money": "Orange Money",
+      "mtn_momo": "MTN MoMo",
+      "wave": "Wave",
+      "cinetpay": "CinetPay",
+      "tresorpay": "TrésorPay"
+    },
+    "reasons": {
+      "finance_provider_amount_mismatch": "Le montant annoncé diffère de celui du paiement.",
+      "finance_provider_reference_mismatch": "La référence annoncée ne correspond pas au paiement.",
+      "finance_provider_failed": "Le fournisseur annonce un échec.",
+      "finance_provider_unavailable": "Le fournisseur était injoignable.",
+      "finance_provider_not_configured": "Le fournisseur n'est pas configuré.",
+      "finance_provider_disabled": "Le fournisseur est désactivé.",
+      "finance_simulated_payment_in_production": "Paiement simulé refusé en production.",
+      "payment_already_settled": "Le paiement était déjà réglé.",
+      "late_success_after_failure": "Succès tardif d'un paiement déjà échoué : résolution manuelle nécessaire.",
+      "amount_missing": "Succès annoncé sans montant.",
+      "unknown": "Une vérification manuelle est nécessaire."
+    },
+    "detail": {
+      "open": "Détail",
+      "title": "Détail de l'événement",
+      "description": "Informations de suivi de la notification, sans contenu brut.",
+      "loading": "Chargement…",
+      "eventId": "Identifiant de l'événement",
+      "reason": "Motif",
+      "processedAt": "Traité le",
+      "noRawPayload": "Aucun contenu brut ni secret n'est conservé dans cette vue."
+    },
+    "replay": {
+      "action": "Rejouer",
+      "title": "Rejouer ce webhook",
+      "description": "Événement du fournisseur {provider}.",
+      "warning": "Le rejeu n'applique pas le contenu stocké : le système interroge de nouveau le fournisseur sur le paiement lié, avec les mêmes contrôles de montant, de devise et de référence. Aucune issue ne peut être imposée.",
+      "mfa": "Cette action sensible exige une authentification renforcée (MFA) et est inscrite au journal d'audit.",
+      "note": "Motif (facultatif)",
+      "noteHint": "Conservé dans le journal d'audit.",
+      "confirm": "Je confirme vouloir rejouer cet événement.",
+      "confirmRequired": "Cochez la case pour confirmer le rejeu.",
+      "submit": "Rejouer l'événement"
+    },
+    "result": {
+      "alreadyHandled": "Cet événement n'était plus en échec : rien n'a été retraité.",
+      "resolved": "Le rejeu a abouti : l'événement est réglé.",
+      "stillFailed": "Le rejeu n'a pas abouti : l'événement reste en échec. Consultez le motif et réessayez plus tard.",
+      "paymentStatus": "Statut du paiement : {status}."
+    },
+    "errors": {
+      "mfaRequired": "Une authentification renforcée est requise pour rejouer un webhook. Confirmez votre identité puis réessayez.",
+      "notReplayable": "Cet événement ne peut pas être rejoué (paiement ou fournisseur incohérent).",
+      "notFound": "Cet événement est introuvable.",
+      "providerUnavailable": "Le fournisseur n'est pas disponible ou pas configuré.",
+      "forbidden": "Vous n'avez pas le droit de rejouer ce webhook, ou une vérification d'identité renforcée est nécessaire.",
+      "conflict": "Cet événement a changé entre-temps. Actualisez la liste puis réessayez.",
+      "rejected": "La demande a été refusée.",
+      "generic": "Une erreur est survenue. Réessayez dans un instant."
+    }
+  },
+  "v2AdmissionsAttach": {
+    "title": "Dossier permanent de l'élève",
+    "description": "Les pièces acceptées ne sont pas copiées automatiquement : rattachez-les au dossier de l'élève dans la gestion documentaire, après vérification.",
+    "noneAccepted": "Aucune pièce acceptée à rattacher.",
+    "acceptedCount": "{count, plural, one {# pièce acceptée peut être rattachée.} other {# pièces acceptées peuvent être rattachées.}}",
+    "needsUpload": "Le rattachement exige aussi le droit de déposer dans la gestion documentaire.",
+    "action": "Rattacher les pièces acceptées au dossier de l'élève",
+    "dialog": {
+      "title": "Rattacher les pièces au dossier de l'élève",
+      "description": "{count, plural, one {# pièce acceptée sera déposée} other {# pièces acceptées seront déposées}} dans la gestion documentaire.",
+      "category": "Catégorie de la gestion documentaire",
+      "categoryHint": "Catégories d'élèves dans lesquelles vous pouvez déposer.",
+      "choose": "Choisir une catégorie",
+      "loading": "Chargement des catégories…",
+      "noCategory": "Aucune catégorie d'élève ne vous autorise le dépôt.",
+      "depositor": "Vous serez enregistré comme déposant dans l'historique de la gestion documentaire. Les règles de la catégorie (types de fichier, taille, quota) s'appliquent.",
+      "confirm": "Je confirme le rattachement de ces pièces au dossier de l'élève.",
+      "submit": "Rattacher",
+      "errors": {
+        "category": "Choisissez une catégorie.",
+        "confirm": "Cochez la case pour confirmer."
+      }
+    },
+    "report": {
+      "summary": "{attached} rattachée(s), {skipped} déjà présente(s) ignorée(s), {failed} en échec.",
+      "unknownRequirement": "Pièce",
+      "outcome": {
+        "ATTACHED": "Rattachée",
+        "ALREADY_PRESENT": "Déjà présente",
+        "FAILED": "En échec"
+      },
+      "retryHint": "Les pièces en échec n'empêchent pas les autres. Vous pouvez relancer le rattachement : les pièces déjà présentes ne sont pas dupliquées."
+    }
   }
 }

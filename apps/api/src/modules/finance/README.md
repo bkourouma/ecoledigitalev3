@@ -441,3 +441,4 @@ Un événement `finance.webhook_events` à l'état `FAILED` est un webhook authe
   * audit sensible `finance.webhook.replayed` / `finance.webhook.replay_failed` (avec `note` facultative) dans la même transaction ; aucun nouvel événement
     de domaine (les événements de paiement habituels sont émis si le paiement est appliqué).
 * Tests : `test/integration/webhook-admin.integration.test.ts` (cas d'usage, HTTP, contrats, RLS A/B, concurrence).
+* **Rôles (fait)** : `finance.webhook.read` -> `econome` (lecture) et direction ; `finance.webhook.replay` (sensible, MFA) -> direction seule (comme `finance.payment.reconcile`, l'économe ne rejoue pas). Écran web `/v2/finance/webhooks` (menu `finance.webhooks`, `apps/web/src/app/v2/finance/webhooks`) : liste filtrable (statut, fournisseur, paiement), détail sans charge brute, rejeu avec confirmation explicite.

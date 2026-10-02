@@ -109,3 +109,5 @@ Problème : `documents.createDocument` exige un déposant humain (`created_by` N
 * Idempotent : `application_documents.document_ref` est posé à chaque pièce rattachée (une pièce déjà rattachée n'est pas reprise) ; un doublon connu de la GED est reconnu (`ALREADY_PRESENT`) ; un échec sur une pièce n'arrête pas les autres (code stable dans le compte rendu). Audité (`admissions.document.attach_to_student_file`).
 * La copie du stockage d'admissions est conservée (rétention propre au module) ; la copie de la GED vit sa vie (versions, expiration, purge).
 * Port non branché ou sans stockage : échec fermé `admissions.port_unavailable`.
+
+* **Écran web** : dans un dossier `ENROLLED`, la section « Dossier permanent de l'élève » (`DossierAttach`) propose « Rattacher les pièces acceptées au dossier de l'élève » : choix d'une catégorie GED (catégories d'élèves actives où l'on peut déposer), confirmation humaine explicite, puis rapport rattachées / déjà présentes (ignorées) / en échec. Rôles : `secretariat` et `admissions_officer` portent `admission.document.attach` ; la route exige aussi `documents.upload` (secrétariat seulement).

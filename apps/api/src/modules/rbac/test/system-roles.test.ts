@@ -135,6 +135,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "finance.invoice.read", "finance.payment.read", "finance.receipt.read",
       // admissions (007) : traitement d'un dossier, jamais la décision
       "admission.read", "admission.create", "admission.update", "admission.document.upload", "admission.document.review",
+      "admission.document.attach",
       "admission.interview.manage", "admission.offer.manage", "admission.duplicate.resolve", "admission.waitlist.manage",
       "admission.prospect.manage", "admission.enroll", "admission.report.read",
       // affectation d'État (006) : enregistrer et rattacher les pièces, jamais vérifier
@@ -159,6 +160,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "finance.fee.read", "finance.fee.manage", "finance.invoice.read", "finance.invoice.create", "finance.invoice.cancel",
       "finance.payment.read", "finance.payment.create", "finance.payment.refund", "finance.cashregister.open", "finance.cashregister.close",
       "finance.report.read", "finance.receipt.read",
+      // webhooks de paiement en échec : lecture seule (le rejeu, sensible, reste à la direction)
+      "finance.webhook.read",
       "enrollment.funding.update", "enrollment.read",
       "payroll.config.read", "payroll.config.manage", "payroll.rate.read", "payroll.rate.manage", "payroll.period.manage", "payroll.run.calculate",
       "payroll.payslip.read", "payroll.payslip.adjust", "payroll.payslip.notify", "payroll.payslip.pay", "payroll.report.read",
@@ -265,6 +268,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
     can: [
       "messaging.read", "messaging.send",
       "admission.read", "admission.create", "admission.update", "admission.document.upload", "admission.document.review",
+      "admission.document.attach",
       "admission.interview.manage", "admission.offer.manage", "admission.duplicate.resolve", "admission.waitlist.manage",
       "admission.prospect.manage", "admission.enroll", "admission.report.read",
       // analytics (025 B) : entonnoir d'admission agrégé
@@ -550,6 +554,7 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["admission.read", "admissions : secrétariat et direction"],
     ],
     admissions_officer: [
+      ["finance.webhook.read", "aucune donnée financière"],
       ["analytics.alerts.read", "aucune alerte de direction"],
       ["analytics.finance.read", "aucune donnée financière"],
       ["analytics.alerts.manage", "acte de direction"],
@@ -568,6 +573,8 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["exam.session.read", "aucun examen"],
     ],
     econome: [
+      ["finance.webhook.replay", "rejeu d'un webhook de paiement (sensible, MFA) : direction"],
+      ["finance.payment.reconcile", "résolution manuelle des paiements (sensible, quatre yeux) : direction"],
       ["analytics.payroll.read", "masse salariale des tableaux de bord (sensible) : direction"],
       ["analytics.charges.read", "charges et compte de résultat : direction"],
       ["analytics.alerts.manage", "seuils et destinataires des alertes : acte de direction"],
