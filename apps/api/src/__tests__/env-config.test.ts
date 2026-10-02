@@ -80,3 +80,22 @@ describe("config/env — validateEnv", () => {
     expect(validateEnv(base({ TECHNICAL_ACCOUNT_PASSWORD: "q8Zk-W3mT-p7LxB-2" })).ok).toBe(true);
   });
 });
+
+describe("config/env — réglages interdits en production", () => {
+  it("refuse SHOW_TECHNICAL_ACCOUNTS=true en production, l'accepte hors production", () => {
+    for (const value of ["true", "TRUE"]) expect(validateEnv(base({ SHOW_TECHNICAL_ACCOUNTS: value })).ok).toBe(false);
+    expect(validateEnv(base({ SHOW_TECHNICAL_ACCOUNTS: "false" })).ok).toBe(true);
+    expect(validateEnv(base({ SHOW_TECHNICAL_ACCOUNTS: undefined })).ok).toBe(true);
+    expect(validateEnv(base({ SHOW_TECHNICAL_ACCOUNTS: "true", NODE_ENV: "development" })).ok).toBe(true);
+    const refused = validateEnv(base({ SHOW_TECHNICAL_ACCOUNTS: "true" }));
+    expect(!refused.ok && refused.errors.join(" ")).toContain("SHOW_TECHNICAL_ACCOUNTS");
+  });
+
+  it("refuse les identifiants MinIO par défaut en production seulement", () => {
+    expect(validateEnv(base({ MINIO_USER: "minioadmin", MINIO_PASSWORD: "minioadmin" })).ok).toBe(false);
+    expect(validateEnv(base({ MINIO_ACCESS_KEY: "ecoledigitale", MINIO_SECRET_KEY: "minioadmin" })).ok).toBe(false);
+    expect(validateEnv(base({ MINIO_USER: "ecoledigitale", MINIO_PASSWORD: "CHANGE_ME_strong_password" })).ok).toBe(false);
+    expect(validateEnv(base({ MINIO_USER: "ecoledigitale", MINIO_PASSWORD: "w7Rk3Vp9LzQ2xTn5" })).ok).toBe(true);
+    expect(validateEnv(base({ MINIO_USER: "minioadmin", MINIO_PASSWORD: "minioadmin", NODE_ENV: "development" })).ok).toBe(true);
+  });
+});

@@ -135,8 +135,9 @@ export function assertWebEnv(source: EnvSource = process.env): void {
       );
     }
     if (source.SHOW_TECHNICAL_ACCOUNTS?.trim().toLowerCase() === "true") {
-      console.warn(
-        "[env] AVERTISSEMENT SHOW_TECHNICAL_ACCOUNTS=true en production : le panneau de comptes de /login est exposé."
+      throw new Error(
+        "Configuration invalide, démarrage du web refusé : SHOW_TECHNICAL_ACCOUNTS=true est interdit en production " +
+          "(le panneau de comptes de /login exposerait des identifiants). Retirer la variable ou la mettre à false."
       );
     }
     return;
