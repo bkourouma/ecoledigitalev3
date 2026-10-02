@@ -99,10 +99,20 @@ export function createPrimaryClassroomPort(input: { academic: AcademicDeps; peop
     },
     async listClassrooms(ctx, filter) {
       const out: ClassroomInfo[] = [];
+      // Sans année demandée : les classes des années EN COURS (ouvertes) ; l'historique se demande par année explicite.
+      const openYears = new Map<string, boolean>();
+      const yearIsOpen = async (yearId: string): Promise<boolean> => {
+        if (!openYears.has(yearId)) {
+          const y = await getAcademicYear(academic, ctx, yearId);
+          openYears.set(yearId, y.ok && y.value.status === "OPEN");
+        }
+        return openYears.get(yearId) === true;
+      };
       for (let page = 1; page <= 50; page += 1) {
         const r = await listClassrooms(academic, ctx, { ...(filter.academicYearId ? { academicYearId: filter.academicYearId } : {}), ...(filter.institutionId ? { institutionId: filter.institutionId } : {}), page, pageSize: 200 });
         if (!r.ok) break;
         for (const c of r.value.items) {
+          if (!filter.academicYearId && !(await yearIsOpen(c.academicYearId))) continue;
           const facts = await getClassroomFacts(academic, ctx, c.id);
           // Seules les classes du pack Primary (maternelle, primaire) relèvent de ce module.
           if (facts.ok && (facts.value.pack === "PRIMARY" || facts.value.educationLevelCode === "PRIMARY" || facts.value.educationLevelCode === "PRESCHOOL")) out.push(infoOf(facts.value));

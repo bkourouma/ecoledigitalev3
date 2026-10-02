@@ -37,7 +37,8 @@ export interface IncomingEvent {
 
 /** Une erreur « bénigne » n'a aucun intérêt à être rejouée : ressource disparue, donnée déjà traitée. */
 export function isBenignConsumerError(e: AppError): boolean {
-  return e.kind === "not_found" || e.code === PrimaryCode.ARCHIVE_FROZEN || e.code === PrimaryCode.YEAR_FROZEN;
+  // `template_unavailable` : aucun modèle de pack pour ce système éducatif (pays non couvert) — attendu, pas une panne à rejouer.
+  return e.kind === "not_found" || e.code === PrimaryCode.ARCHIVE_FROZEN || e.code === PrimaryCode.YEAR_FROZEN || e.code === PrimaryCode.TEMPLATE_UNAVAILABLE;
 }
 
 export async function onInstitutionCreated(deps: PrimarySchoolDeps, ctx: RequestContext, event: IncomingEvent): Promise<Result<{ applied: boolean }, AppError>> {
