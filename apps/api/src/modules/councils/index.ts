@@ -58,7 +58,7 @@ export { bundledTemplatePort as councilsBundledTemplatePort } from "./templates"
 
 // Domaine pur (machines à états miroir de la base, quorum, effets, faits, procès-verbal)
 export { CouncilsEvents, ALL_EVENT_TYPES as COUNCILS_EVENT_TYPE_LIST } from "./domain/events";
-export { CouncilsCode } from "./domain/errors";
+export { CouncilsCode, portUnavailable as councilsPortUnavailable } from "./domain/errors";
 export { COUNCIL_TRANSITIONS, EFFECT_TRANSITIONS, TRANSFER_TRANSITIONS, UNLOCK_TRANSITIONS, canTransition, isLocked } from "./domain/machines";
 export { evaluateQuorum, requiredSigners } from "./domain/quorum";
 export { buildFacts, isMissingResults } from "./domain/facts";
