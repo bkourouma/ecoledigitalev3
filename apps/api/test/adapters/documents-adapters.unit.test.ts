@@ -75,7 +75,7 @@ describe("analyse antivirus des pièces des autres modules (aucune modification 
 
   function recording() {
     const puts: string[] = [];
-    return { puts, port: { async put(key: string): Promise<void> { puts.push(key); }, async delete(): Promise<void> {}, async signedUrl() { return { url: "u", expiresAt: new Date() }; } } };
+    return { puts, port: { async put(key: string, _data?: Uint8Array, _options?: { contentType: string }): Promise<void> { puts.push(key); }, async delete(): Promise<void> {}, async signedUrl() { return { url: "u", expiresAt: new Date() }; } } };
   }
   const fakeStorage = (puts: string[]) => ({
     driver: "disk" as const,
