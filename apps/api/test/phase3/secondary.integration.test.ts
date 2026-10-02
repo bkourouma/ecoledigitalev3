@@ -416,7 +416,7 @@ describeIntegration.skipIf(!REDIS_URL)("PHASE 3 — Secondary : admission -> ins
     it("avis aux tuteurs : texte NEUTRE (jamais la nature ni le motif de la mesure) mis en file par `notifications`", async () => {
       const r = await dir().post(`/api/v1/schoollife/measures/${measureId}/notify`, {}, [200, 201]);
       expect(r.status).toBeLessThan(300);
-      const rows = await p.db.admin.query("SELECT content ->> 'text' AS text FROM notifications.deliveries WHERE tenant_id = $1 AND template_code = 'announcement' AND context ->> 'origin' IS DISTINCT FROM 'admissions'", [T().tenantId]);
+      const rows = await p.db.admin.query("SELECT content ->> 'text' AS text FROM notifications.deliveries WHERE tenant_id = $1 AND template_code IN ('announcement', 'schoollife_measure_notified') AND context ->> 'origin' IS DISTINCT FROM 'admissions'", [T().tenantId]);
       expect(rows.rows.length).toBeGreaterThan(0);
       for (const row of rows.rows) expect(row.text ?? "").not.toMatch(/exclusion|incident|sanction|d[ée]monstration pendant|proposée/i);
     });
