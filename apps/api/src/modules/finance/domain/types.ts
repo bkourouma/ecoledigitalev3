@@ -77,8 +77,16 @@ export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 export const PAYMENT_STATUSES = ["PENDING", "CONFIRMED", "FAILED", "REFUNDED"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-export const REFUND_STATUSES = ["REQUESTED", "APPROVED", "COMPLETED", "REJECTED"] as const;
+/**
+ * `REFUND_PENDING` : envoyé au fournisseur, résultat pas encore connu (rien n'est encore écrit au grand livre) ;
+ * `COMPLETED` : remboursé (écritures inverses passées) ; `REFUND_FAILED` : refus définitif du fournisseur, rien n'est parti.
+ */
+export const REFUND_STATUSES = ["REQUESTED", "APPROVED", "REFUND_PENDING", "COMPLETED", "REFUND_FAILED", "REJECTED"] as const;
 export type RefundStatus = (typeof REFUND_STATUSES)[number];
+
+/** Comment un remboursement a été exécuté : écriture comptable seule, appel du fournisseur, ou remboursement manuel justifié. */
+export const REFUND_EXECUTION_MODES = ["LEDGER", "PROVIDER", "MANUAL"] as const;
+export type RefundExecutionMode = (typeof REFUND_EXECUTION_MODES)[number];
 
 export const CASH_SESSION_STATUSES = ["OPEN", "CLOSED"] as const;
 export type CashSessionStatus = (typeof CASH_SESSION_STATUSES)[number];

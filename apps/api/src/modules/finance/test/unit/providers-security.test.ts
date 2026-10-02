@@ -97,7 +97,8 @@ describe("comparaison à temps constant", () => {
 describe("garde-fous statiques du code des adaptateurs", () => {
   const dir = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../infrastructure/providers");
   const files = readdirSync(dir).filter((f) => f.endsWith(".ts"));
-  const source = (f: string): string => readFileSync(resolve(dir, f), "utf8");
+  // Fins de ligne normalisées : les extractions par motif multi-lignes ne dépendent pas de `core.autocrlf` (Windows).
+  const source = (f: string): string => readFileSync(resolve(dir, f), "utf8").replace(/\r\n/g, "\n");
   const adapters = ["orange-money.ts", "mtn-momo.ts", "wave.ts", "cinetpay.ts", "tresorpay.ts"];
 
   it.each(adapters)("%s : pas de flottant monétaire, pas de console, pas de secret par défaut, pas de `return true` de signature", (f) => {

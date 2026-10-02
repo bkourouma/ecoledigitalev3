@@ -64,6 +64,7 @@ describe("manifeste", () => {
         "finance.payment.read",
         "finance.payment.create",
         "finance.payment.refund",
+        "finance.payment.reconcile",
         "finance.provider.manage",
         "finance.cashregister.open",
         "finance.cashregister.close",
@@ -83,7 +84,7 @@ describe("manifeste", () => {
     expect(new Set(manifest.events.publishes).size).toBe(manifest.events.publishes.length);
     for (const type of manifest.events.publishes) {
       expect(isValidEventType(type), type).toBe(true);
-      expect(type, type).toMatch(/^finance\.[a-z_]+\.(issued|paid|overdue|cancelled|initiated|completed|failed|allocated|requested|rejected|opened|closed)$/);
+      expect(type, type).toMatch(/^finance\.[a-z_]+\.(issued|paid|overdue|cancelled|initiated|completed|failed|allocated|requested|rejected|opened|closed|submitted|reconciliation_needed)$/);
     }
     for (const required of ["finance.invoice.issued", "finance.payment.completed", "finance.invoice.overdue", "finance.refund.completed"]) {
       expect(manifest.events.publishes).toContain(required);
@@ -183,7 +184,8 @@ describe("migrations", () => {
     expect([...invoiceStatuses.matchAll(/'([A-Z_]+)'/g)].map((x) => x[1]).sort()).toEqual([...INVOICE_STATUSES].sort());
     const paymentStatuses = /CREATE TABLE finance\.payments[\s\S]*?status\s+text[^;]*?CHECK \(status IN \(([^)]*)\)/.exec(allSql)![1]!;
     expect([...paymentStatuses.matchAll(/'([A-Z_]+)'/g)].map((x) => x[1]).sort()).toEqual([...PAYMENT_STATUSES].sort());
-    const refundStatuses = /CREATE TABLE finance\.refunds[\s\S]*?status\s+text[^;]*?CHECK \(status IN \(([^)]*)\)/.exec(allSql)![1]!;
+    // Les états d'un remboursement ont été étendus par la migration 0506 (contrainte nommée) : c'est elle qui fait foi.
+    const refundStatuses = /ADD CONSTRAINT refunds_status_check\s+CHECK \(status IN \(([^)]*)\)/.exec(allSql)![1]!;
     expect([...refundStatuses.matchAll(/'([A-Z_]+)'/g)].map((x) => x[1]).sort()).toEqual([...REFUND_STATUSES].sort());
     expect([...allSql.matchAll(/currency IN \(([^)]*)\)/g)].every((m) => [...m[1]!.matchAll(/'([A-Z]+)'/g)].map((x) => x[1]).sort().join() === Object.keys(CURRENCIES).sort().join())).toBe(true);
   });

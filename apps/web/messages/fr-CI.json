@@ -2497,7 +2497,8 @@
       "fees": "Frais et barèmes",
       "funding": "Remises et bourses",
       "reports": "Rapports",
-      "me": "Mes finances"
+      "me": "Mes finances",
+      "pendingPayments": "À rapprocher"
     },
     "common": {
       "amountHint": "En francs, sans décimales (par exemple 150000).",
@@ -2764,7 +2765,9 @@
         "REQUESTED": "Demandé",
         "APPROVED": "Approuvé",
         "COMPLETED": "Exécuté",
-        "REJECTED": "Refusé"
+        "REJECTED": "Refusé",
+        "REFUND_PENDING": "Envoyé au fournisseur",
+        "REFUND_FAILED": "Refusé par le fournisseur"
       },
       "scholarship": {
         "ACTIVE": "Active",
@@ -3433,7 +3436,24 @@
         "reason": "Motif du refus",
         "confirm": "Refuser"
       },
-      "rejected": "Le remboursement est refusé."
+      "rejected": "Le remboursement est refusé.",
+      "pendingHint": "Envoyé au fournisseur : le grand livre n'est écrit qu'à sa confirmation. Le rapprochement automatique conclut ; s'il ne le peut pas, le remboursement apparaît dans « À rapprocher ».",
+      "executedManually": "Le remboursement manuel est enregistré.",
+      "manualNeeded": "Ce remboursement ne peut pas être exécuté par le fournisseur (pas d'API de remboursement, remboursement partiel refusé ou fournisseur indisponible).",
+      "manualAction": "Confirmer un remboursement manuel",
+      "manualDialog": {
+        "title": "Confirmer un remboursement fait à la main",
+        "description": "Vous attestez avoir remboursé {amount} hors de la plateforme (portail du fournisseur, caisse…). L'action est journalisée avec votre identité et la référence de preuve.",
+        "reference": "Référence de la preuve",
+        "referenceHint": "Numéro de transaction du remboursement ou de la pièce (3 à 120 caractères).",
+        "note": "Note (facultatif)",
+        "submit": "Confirmer le remboursement",
+        "errors": {
+          "reference": "Saisissez la référence de la preuve (3 caractères au moins)."
+        }
+      },
+      "provider": "Fournisseur",
+      "failure": "Motif du refus : {reason}"
     },
     "overview": {
       "title": "Finance",
@@ -10963,6 +10983,110 @@
       "SMS": "par SMS",
       "WHATSAPP": "par WhatsApp",
       "PUSH": "par notification push"
+    }
+  },
+  "v2FinancePending": {
+    "title": "Paiements à rapprocher",
+    "description": "Paiements en ligne restés en attente (notification perdue, session abandonnée). Le rapprochement automatique interroge le fournisseur ; ce qu'il ne peut pas conclure est signalé ici.",
+    "fourEyes": "Règle des quatre yeux : une personne demande la résolution manuelle (avec motif et preuve), une autre personne l'approuve. Seule l'approbation modifie le paiement.",
+    "caption": "Paiements en ligne en attente",
+    "columns": {
+      "received": "Reçu le",
+      "provider": "Fournisseur",
+      "amount": "Montant",
+      "state": "Rapprochement",
+      "next": "Prochaine vérification",
+      "actions": "Actions"
+    },
+    "state": {
+      "flagged": "À rapprocher",
+      "checking": "Vérification en cours",
+      "waiting": "Pas encore contrôlé"
+    },
+    "attempts": "{count, plural, one {# vérification} other {# vérifications}}",
+    "reasons": {
+      "unverifiable_no_provider_ref": "Aucune référence du fournisseur : la transaction ne peut pas être vérifiée automatiquement.",
+      "attempts_exhausted": "Le fournisseur répond toujours « en attente » après le nombre maximal de vérifications.",
+      "provider_unavailable": "Fournisseur désactivé, non configuré ou injoignable.",
+      "provider_amount_mismatch": "Le montant annoncé par le fournisseur diffère du montant attendu : rien n'a été encaissé.",
+      "provider_reference_mismatch": "La référence annoncée par le fournisseur diffère de celle de la transaction : rien n'a été encaissé.",
+      "provider_failed": "Le fournisseur a répondu de façon incohérente.",
+      "simulated_payment_in_production": "Paiement simulé : jamais confirmé en production.",
+      "unknown": "Une vérification manuelle est nécessaire."
+    },
+    "verify": "Vérifier maintenant",
+    "verifiedSettled": "Le fournisseur a conclu : le paiement est à jour.",
+    "verifiedStillPending": "Le fournisseur répond toujours « en attente ».",
+    "resolveAction": "Résoudre à la main",
+    "resolutionPending": "Résolution à approuver",
+    "filters": {
+      "state": "Rapprochement",
+      "all": "Tous",
+      "flagged": "À rapprocher (action humaine)",
+      "progress": "Vérification automatique en cours"
+    },
+    "empty": "Aucun paiement à rapprocher",
+    "emptyHint": "Les paiements en ligne en attente apparaissent ici ; ceux qui aboutissent disparaissent seuls.",
+    "outcome": {
+      "SUCCEEDED": "L'argent est arrivé",
+      "FAILED": "L'argent n'est pas arrivé"
+    },
+    "resolve": {
+      "title": "Résoudre un paiement à la main",
+      "description": "Paiement en attente de {amount}. Votre demande doit être approuvée par une autre personne avant de produire un effet.",
+      "outcome": "Ce qui s'est réellement passé",
+      "outcomes": {
+        "SUCCEEDED": "L'argent est arrivé : confirmer le paiement (reçu et imputation)",
+        "FAILED": "L'argent n'est pas arrivé : marquer le paiement échoué"
+      },
+      "reason": "Motif",
+      "reasonHint": "Expliquez la situation (10 caractères au moins).",
+      "evidence": "Preuve",
+      "evidenceHint": "Référence de transaction du relevé du fournisseur, numéro de pièce… (3 à 120 caractères).",
+      "warning": "Cette action est sensible : elle est journalisée avec votre identité, le motif et la preuve.",
+      "submit": "Demander la résolution",
+      "requested": "La demande est enregistrée : elle attend l'approbation d'une autre personne.",
+      "errors": {
+        "reason": "Le motif doit faire au moins 10 caractères.",
+        "evidence": "Saisissez la preuve (3 caractères au moins)."
+      }
+    },
+    "requests": {
+      "title": "Demandes à approuver",
+      "description": "Résolutions manuelles en attente. Vous ne pouvez pas approuver votre propre demande.",
+      "caption": "Demandes de résolution manuelle",
+      "empty": "Aucune demande en attente",
+      "payment": "Paiement {id}",
+      "refund": "Remboursement {id}",
+      "approve": "Approuver",
+      "reject": "Refuser",
+      "columns": {
+        "requested": "Demandé le",
+        "subject": "Concerne",
+        "outcome": "Issue déclarée",
+        "reason": "Motif",
+        "evidence": "Preuve"
+      }
+    },
+    "decision": {
+      "outcomes": {
+        "SUCCEEDED": "l'argent est arrivé",
+        "FAILED": "l'argent n'est pas arrivé"
+      },
+      "reason": "Motif de la demande : {reason}",
+      "note": "Note (facultatif)",
+      "approve": {
+        "title": "Approuver la résolution",
+        "description": "Vous confirmez que {outcome} (preuve : {evidence}). Le paiement ou le remboursement sera mis à jour.",
+        "submit": "Approuver",
+        "done": "La résolution est approuvée et appliquée."
+      },
+      "reject": {
+        "title": "Refuser la résolution",
+        "description": "La demande est close sans effet (preuve : {evidence}).",
+        "submit": "Refuser",
+        "done": "La demande est refusée."
+      }
     }
   }
 }

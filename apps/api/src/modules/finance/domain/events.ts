@@ -21,6 +21,13 @@ export const FinanceEvents = {
   REFUND_REQUESTED: "finance.refund.requested",
   REFUND_COMPLETED: "finance.refund.completed",
   REFUND_REJECTED: "finance.refund.rejected",
+  /** Remboursement envoyé au fournisseur (REFUND_PENDING) : le résultat n'est pas encore connu. */
+  REFUND_SUBMITTED: "finance.refund.submitted",
+  /** Refus définitif du fournisseur (REFUND_FAILED) : rien n'a été remboursé. */
+  REFUND_FAILED: "finance.refund.failed",
+  /** Le rapprochement automatique ne peut plus conclure : une personne doit trancher (écran « paiements à rapprocher »). */
+  PAYMENT_RECONCILIATION_NEEDED: "finance.payment.reconciliation_needed",
+  REFUND_RECONCILIATION_NEEDED: "finance.refund.reconciliation_needed",
   CASH_SESSION_OPENED: "finance.cash_session.opened",
   CASH_SESSION_CLOSED: "finance.cash_session.closed",
 } as const;
@@ -143,7 +150,27 @@ export interface RefundPayload {
   learnerId: Uuid;
   amount: MoneyPayload;
   reason: string;
-  status: "REQUESTED" | "COMPLETED" | "REJECTED";
+  status: "REQUESTED" | "REFUND_PENDING" | "COMPLETED" | "REFUND_FAILED" | "REJECTED";
+  /** Renseigné pour `finance.refund.submitted|completed|failed` : fournisseur, mode d'exécution, motif d'échec. */
+  provider?: string | null;
+  executionMode?: "LEDGER" | "PROVIDER" | "MANUAL";
+  failureReason?: string;
+}
+
+/** `finance.payment.reconciliation_needed` / `finance.refund.reconciliation_needed` (alerte : action humaine requise). */
+export interface ReconciliationNeededPayload {
+  v: 1;
+  subject: "PAYMENT" | "REFUND";
+  paymentId: Uuid;
+  refundId?: Uuid;
+  learnerId: Uuid;
+  amount: MoneyPayload;
+  provider: string | null;
+  /** Code court : `unverifiable_no_provider_ref`, `attempts_exhausted`, `provider_mismatch`, `late_success`, `provider_not_configured`… */
+  reason: string;
+  attempts: number;
+  /** Dernier code d'erreur du fournisseur (jamais un message amont). */
+  lastErrorCode: string | null;
 }
 
 export interface CashSessionPayload {

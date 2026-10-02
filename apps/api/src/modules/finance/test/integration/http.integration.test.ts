@@ -513,8 +513,8 @@ describeIntegration("API HTTP /api/v1/finance/* (Fastify + Postgres réel)", () 
       expect([...declared].sort()).toEqual(["finance.installments", "finance.online-payment", "finance.state-assigned"]);
     });
 
-    it("les seules permissions sensibles sont le remboursement et la configuration des fournisseurs de paiement", () => {
-      expect(manifest.permissions.filter((p) => p.sensitive).map((p) => p.key)).toEqual(["finance.payment.refund", "finance.provider.manage"]);
+    it("les seules permissions sensibles sont le remboursement, le rapprochement manuel et la configuration des fournisseurs de paiement", () => {
+      expect(manifest.permissions.filter((p) => p.sensitive).map((p) => p.key)).toEqual(["finance.payment.refund", "finance.payment.reconcile", "finance.provider.manage"]);
     });
   });
 });

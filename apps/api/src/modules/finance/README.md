@@ -15,7 +15,8 @@ Le module ne connaît les apprenants et les inscriptions que par **UUID**, à tr
 | Financement | type de financement porté par le compte de l'apprenant (`PRIVATE`, `STATE_ASSIGNED`, `SCHOLARSHIP`, `COMPANY`, `STAFF_CHILD`, `OTHER`) ; **bourses / prises en charge** : la part de chaque financeur (État, entreprise…) devient une **facture liée** payable séparément, la famille garde sa part (somme exacte, au franc près) |
 | Encaissement | paiement manuel (espèces, chèque, virement, carte, mobile money), **imputation** automatique (plus ancienne échéance d'abord, ordre configurable) ou manuelle (échéances, lignes), reçus `REC-aaaa-nnnnnn` immuables, **idempotence** par clé fournie |
 | Paiement en ligne | port `PaymentProvider` + `ProviderRegistry` + `SandboxProvider` déterministe ; initiation, vérification active, **webhooks idempotents** et signés |
-| Remboursement | partiel ou total, motif, **approbation à quatre yeux**, exécution par écritures inverses |
+| Remboursement | partiel ou total, motif, **approbation à quatre yeux**, exécution par écritures inverses ; **réel chez le fournisseur** (Wave total, MTN, TresorPay, sandbox : `REFUND_PENDING → COMPLETED \| REFUND_FAILED`, jamais de double remboursement) ou **repli manuel explicite et audité** (Orange, CinetPay, partiel Wave) |
+| Rapprochement | job `finance.reconcile-pending-payments` : interroge les fournisseurs pour les paiements restés `PENDING` et les remboursements en vol, confirme / échoue avec les contrôles du webhook, plafonne les tentatives, **signale** ce qui reste indéterminé ; liste « paiements à rapprocher » et **résolution manuelle à quatre yeux** (permission sensible) |
 | Caisse | caisses, sessions d'ouverture/clôture par caissier, fonds de caisse, écart attendu / compté, paiements espèces rattachés à la session |
 | Reporting | facturé, encaissé, restant dû, retard, taux de recouvrement, créances par classe (clé libre) et par apprenant, évolution des encaissements, **balance âgée** |
 
@@ -85,7 +86,7 @@ compteurs → chaîne d'audit** (l'audit est écrit en dernier, cf. `EventBuffer
 |---|---|
 | Paiement manuel / en ligne | clé fournie (en-tête `Idempotency-Key` ou champ `idempotencyKey`), `UNIQUE (tenant, clé)` + `INSERT … ON CONFLICT DO NOTHING` ; empreinte SHA-256 de la demande : même clé + demande différente ⇒ `409 finance.idempotency_key_reused` |
 | Facture (depuis barème / manuelle) | clé facultative ; verrou consultatif par clé (les doublons concurrents deviennent des rejeux) |
-| Remboursement | clé facultative, même schéma que les paiements |
+| Remboursement | clé facultative, même schéma que les paiements ; envoi au fournisseur : intention durable (`REFUND_PENDING`) AVANT l'appel, référence d'idempotence = identifiant du remboursement, jamais de renvoi aveugle |
 | Webhook | `UNIQUE (tenant, fournisseur, event_id)` : événement déjà traité ⇒ réponse immédiate ; livraisons concurrentes sérialisées |
 | Passage en retard | un statut ne change qu'à la transition ⇒ un seul `finance.invoice.overdue` par transition |
 
@@ -144,7 +145,8 @@ facture à l'émission ; le module n'interprète jamais cette clé.
 `createFee`, `createFeeSchedule`, `createInstallmentPlan`, `createDiscount`, `setLearnerFunding`, `createScholarship`,
 `issueInvoiceFromSchedule` / `previewInvoiceFromSchedule` / `createInvoice` / `issueInvoice` / `cancelInvoice`,
 `generateInstallmentPlan`, `issueCreditNote`, `recordManualPayment`, `allocatePayment`, `initiateOnlinePayment`,
-`verifyPendingPayment`, `handleProviderWebhook`, `requestRefund` / `approveRefund` / `completeRefund` / `rejectRefund`,
+`verifyPendingPayment`, `handleProviderWebhook`, `requestRefund` / `approveRefund` / `completeRefund` / `rejectRefund` / `planRefundRoute`,
+`reconcileTenant` / `reconcileAllTenants` (job du worker), `listPendingReconciliations`, `requestManualResolution` / `approveManualResolution` / `rejectManualResolution`,
 `createCashRegister`, `openCashSession`, `closeCashSession`, `markOverdueInvoices` (+ `markOverdueForAllTenants(deps, systemDb)`
 pour `apps/worker`), requêtes `getFinanceSummary`, `getReceivablesByGroup`, `getReceivablesByLearner`,
 `getCollectionsTrend`, `getAgedBalance`, `getLearnerStatement`…
@@ -153,7 +155,9 @@ pour `apps/worker`), requêtes `getFinanceSummary`, `getReceivablesByGroup`, `ge
 
 `finance.invoice.issued|paid|overdue|cancelled`, `finance.credit_note.issued`,
 `finance.payment.initiated|completed|failed|allocated`, `finance.receipt.issued`,
-`finance.refund.requested|completed|rejected`, `finance.cash_session.opened|closed`.
+`finance.refund.requested|submitted|completed|failed|rejected`, `finance.payment.reconciliation_needed`, `finance.refund.reconciliation_needed`,
+`finance.cash_session.opened|closed`. `submitted` : remboursement envoyé au fournisseur (`REFUND_PENDING`) ; `failed` : refus définitif ;
+`reconciliation_needed` : le rapprochement ne peut plus conclure, une personne doit trancher (voir « Rapprochement »).
 `finance.payment.completed` porte reçu, imputations et non-imputé ; `finance.invoice.overdue` le solde, le montant
 échu, la plus ancienne échéance et les jours de retard.
 
@@ -168,7 +172,8 @@ Contexte : `request.ctx` posé en amont (iam / authentification historique). Per
 | `GET /invoices`, `GET /invoices/:id`, `GET /learners/:id/funding`, `GET /learners/:id/statement`, `POST /invoices/from-schedule/preview` | `finance.invoice.read` |
 | `POST /invoices`, `POST /invoices/from-schedule`, `POST /invoices/:id/issue`, `POST /invoices/:id/installments` | `finance.invoice.create` |
 | `POST /invoices/:id/cancel`, `POST /invoices/:id/credit-notes` | `finance.invoice.cancel` |
-| `GET /payments`, `GET /payments/:id`, `GET /refunds`, `GET /refunds/:id` | `finance.payment.read` |
+| `GET /payments`, `GET /payments/:id`, `GET /payments/pending`, `GET /refunds`, `GET /refunds/:id`, `GET /resolutions` | `finance.payment.read` |
+| `POST /resolutions`, `POST /resolutions/:id/approve\|reject` | `finance.payment.reconcile` (**sensible** : MFA, quatre yeux) |
 | `POST /payments`, `POST /payments/online` *(feature `finance.online-payment`)*, `POST /payments/:id/verify`, `POST /payments/:id/allocations` | `finance.payment.create` |
 | `POST /payments/:id/refunds`, `POST /refunds/:id/approve\|complete\|reject` | `finance.payment.refund` (**sensible** : MFA) |
 | `GET /cash-registers`, `POST /cash-registers/:id/sessions`, `GET /cash-sessions[/mine\|/:id]` | `finance.cashregister.open` |
@@ -271,7 +276,7 @@ Couverture mesurée (v8, `--coverage` exige `@vitest/coverage-v8`, non encore un
 1. `http/plugin.ts` exporte par défaut `(app, runtime)` : `createFinanceDeps` avec `runtime.tenantDb`, l'adaptateur d'audit (`financeAuditAdapter`, table de correspondance dans son en-tête : `resourceType` → `entity`, `resourceId` → `entityId`, `sensitive` → `severity notice`), le registre de fournisseurs (`FINANCE_ENV`, `FINANCE_PROVIDER_<NOM>_<CLÉ>`, `FINANCE_WEBHOOK_BASE_URL`) ; routes **sans préfixe** (le registre applique `/api/v1/finance`). `financePlugin` garde l'option `prefix` pour les tests.
 2. Entitlements : `POST /payments/online` et `POST /payments/:id/verify` sont gardées par `requireFeature('finance.online-payment')` (403 `entitlements.feature_not_available`) ; les contrôles dépendant du corps (échéanciers, `STATE_ASSIGNED`) restent en ligne via `isFeatureEnabled`. Deux entrées de menu conditionnées par une feature (`finance.online-payments`, `finance.state-assigned`).
 3. Le webhook `POST /webhooks/:provider/:tenantId` est déclaré `config: { public: true }` (la signature fait foi) : ni le registre ni le middleware legacy ne le rejettent.
-4. `apps/worker` : `jobs.ts` — `finance.mark-overdue-invoices` (quotidien 01:15, `markOverdueForAllTenants`, échec d'un tenant signalé). Les consommateurs de `finance.*` (notifications de retard, reçus PDF) restent à écrire (Phase 3) ; l'audit de finance est écrit directement dans la transaction (le module audit ne s'abonne pas aux événements `finance.*`).
+4. `apps/worker` : `jobs.ts` — `finance.mark-overdue-invoices` (quotidien 01:15, `markOverdueForAllTenants`, échec d'un tenant signalé) et `finance.reconcile-pending-payments` (toutes les 2 minutes, voir « Rapprochement »). Les consommateurs de `finance.*` (notifications de retard, reçus PDF) restent à écrire (Phase 3) ; l'audit de finance est écrit directement dans la transaction (le module audit ne s'abonne pas aux événements `finance.*`).
 5. `EnvProviderConfigSource` met les clés en minuscules : `allowSandbox` s'exprime donc aussi `allowsandbox`.
 
 ## Adaptateurs de paiement réels (spec 015-payments)
@@ -284,10 +289,10 @@ montants entiers stricts, références compactes, masquage), `catalog.ts` (champ
 | Fournisseur | Initiation | Confirmation | Authenticité du webhook | Remboursement |
 |---|---|---|---|---|
 | Orange Money (`orange_money`) | `POST …/webpayment` (jeton OAuth) | `transactionstatus` | URL à jeton `?ref&t` **+ vérification active** | non |
-| MTN MoMo (`mtn_momo`) | `POST requesttopay` (référence UUID v4 dérivée du paiement ; 409 = rejeu) | `GET requesttopay/{id}` | URL à jeton `?t` **+ vérification active** | oui (zone d'incertitude) |
-| Wave (`wave`) | `POST checkout/sessions` (recherche par `client_reference` avant création) | `GET sessions/{id}` | `Wave-Signature` HMAC + horodatage ± 5 min, ou secret partagé | oui (total) |
+| MTN MoMo (`mtn_momo`) | `POST requesttopay` (référence UUID v4 dérivée du paiement ; 409 = rejeu) | `GET requesttopay/{id}` | URL à jeton `?t` **+ vérification active** | oui : partiel, asynchrone, lecture d'état (zone d'incertitude) |
+| Wave (`wave`) | `POST checkout/sessions` (recherche par `client_reference` avant création) | `GET sessions/{id}` | `Wave-Signature` HMAC + horodatage ± 5 min, ou secret partagé | oui : total uniquement, idempotent (le partiel passe par le repli manuel) |
 | CinetPay (`cinetpay`) | `POST /v2/payment` (montant multiple de 5) | `POST /v2/payment/check` | `x-token` HMAC **+ vérification active** | non |
-| TresorPay (`tresorpay`) | `POST /payments/initialize` (appel signé) | `GET /payments/{id}/verify` | `x-signature` HMAC | oui (contrat legacy, faible confiance) |
+| TresorPay (`tresorpay`) | `POST /payments/initialize` (appel signé) | `GET /payments/{id}/verify` | `x-signature` HMAC | oui (contrat legacy, faible confiance) : partiel, **non idempotent, sans lecture d'état** : une réponse ambiguë est signalée, jamais renvoyée |
 
 * **Indice contre preuve** : un webhook sans signature de contenu est marqué `requiresActiveVerification` ; `handleProviderWebhook`
   interroge `verify` AVANT d'ouvrir la transaction de confirmation, et refuse (409 `finance.webhook_unverified`, rien d'enregistré,
@@ -323,17 +328,75 @@ ouverture auditée `finance.provider_secret.accessed`) ; `CompositeConfigSource`
 Toutes : permission `finance.provider.manage` (**sensible**, MFA) ; chaque écriture est auditée (noms de champs, jamais de valeur).
 Écran : `apps/web/src/app/v2/finance/providers`.
 
+## Rapprochement et remboursement réel (spec 015, migration 0506)
+
+### Job `finance.reconcile-pending-payments` (apps/worker, toutes les 2 minutes)
+
+Tenant par tenant, par lots : (1) crée le suivi (`finance.reconciliation_state`) des paiements en ligne `PENDING` et des remboursements
+`REFUND_PENDING` ; (2) **prend à bail** (`next_attempt_at` repoussé de `FINANCE_RECONCILIATION_LEASE_MS`, `FOR UPDATE SKIP LOCKED`) ceux qui sont
+échus (ancienneté ≥ `FINANCE_RECONCILIATION_MIN_AGE_MS`) ; (3) interroge le fournisseur (registre + coffre assemblés par `infrastructure/runtime.ts`,
+**le même assemblage que l'API** ; clé HMAC d'audit `AUDIT_HMAC_KEY` commune) ; (4) applique l'issue par **les mêmes contrôles que le webhook**
+(`applyProviderOutcome`) ; (5) attend (backoff `base × 2^(n−1)`, plafonné) ou **signale**.
+
+| Situation | Effet |
+|---|---|
+| Fournisseur : succès (montant, devise, référence conformes) | paiement confirmé, reçu, imputation, `finance.payment.completed` |
+| Fournisseur : échec / session expirée | paiement `FAILED` (motif), `finance.payment.failed` |
+| Fournisseur : toujours « en attente » ou injoignable | tentative comptée, prochaine échéance (backoff) ; au plafond (`MAX_ATTEMPTS`, défaut 12 ≈ 33 h) : **signalé** |
+| Montant / référence divergents, paiement simulé en production | rien n'est encaissé ; **signalé** (`provider_amount_mismatch`…) |
+| Orange Money / TresorPay sans référence fournisseur | **signalé dès la première passe**, aucun appel (`unverifiable_no_provider_ref`) |
+| Fournisseur désactivé / non configuré | tentative comptée sans appel ; au plafond : signalé (`provider_unavailable`) |
+| Remboursement `REFUND_PENDING` | lecture d'état (MTN) ; sinon renvoi de la **même** demande si le fournisseur est idempotent (Wave) ; sinon **signalé** (`unverifiable_refund`, TresorPay) |
+
+**Signalement** : le suivi porte `flagged_at` / `flag_reason` et n'est plus repris ; événement `finance.payment.reconciliation_needed` (ou
+`finance.refund.…`) dans l'outbox, audit **sensible**, alerte par `FinanceAlertPort` (journal d'erreur `alert: true` par défaut ; branchable par
+`setFinanceWorkerResources({ alerts, metrics })` sans que finance importe l'observabilité). Un seul signalement par sujet. Compteurs facultatifs
+(`FinanceMetricsPort`) : `finance_reconciliation_total{subject,outcome}`, `finance_reconciliation_runs_total`, `finance_provider_refund_total{provider,outcome}`.
+
+Garanties : idempotent (sous verrou de ligne, jamais deux reçus), plusieurs instances sans doublon (bail en base), reprise après plantage (le bail expire),
+un tenant en échec n'arrête pas les autres (le job échoue APRÈS les avoir tous traités).
+
+### Remboursement réel
+
+`approveRefund` / `completeRefund` décident de la route SANS appel réseau (`planRefundRoute`) : `LEDGER` (paiement manuel), `PROVIDER` (fournisseur
+capable) ou `MANUAL_REQUIRED` (pas d'API, partiel refusé par Wave, fournisseur indisponible, référence inconnue). Route `PROVIDER` en trois temps :
+**Tx1** `APPROVED → REFUND_PENDING` (intention durable, montant réservé) ; appel `provider.refund({ refundId })` hors transaction (référence d'idempotence
+= identifiant du remboursement) ; **Tx2** `SUCCEEDED` → écritures inverses + `COMPLETED`, refus définitif → `REFUND_FAILED` (rien n'est parti), réponse
+ambiguë (délai, 5xx) → reste `REFUND_PENDING`, le job conclut. **Le grand livre n'est écrit qu'à `COMPLETED`.** Jamais de double remboursement :
+rejeu, approbations concurrentes, réponse perdue, plantage entre Tx1 et Tx2 sont couverts par `test/integration/refunds-provider.integration.test.ts`.
+
+**Repli manuel** (`manual: { reference, note? }` dans `approve` ou `complete`) : accepté seulement pour une route `MANUAL_REQUIRED` ; **refusé** (409
+`finance.refund_manual_not_allowed`) quand le fournisseur sait rembourser ; sans preuve : 409 `finance.refund_manual_required` (l'approbation seule laisse
+le remboursement `APPROVED`). Audit sensible `finance.refund.completed_manually`, `execution_mode = MANUAL`.
+
+### Résolution manuelle à quatre yeux (`finance.payment.reconcile`, sensible)
+
+`GET /payments/pending` (liste, `finance.payment.read`) · `POST /resolutions` (demande : sujet, `outcome`, motif ≥ 10 caractères, **preuve**) ·
+`POST /resolutions/:id/approve|reject` (une AUTRE personne ; auto-approbation 409 sauf `manualResolutionSelfApproval`) · `GET /resolutions`. Seule
+l'approbation écrit, par les mêmes chemins que le fournisseur (paiement : `applyProviderOutcome` ; remboursement : `applyRefundOutcomeInTx`). Écran :
+`/v2/finance/payments/pending`.
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `FINANCE_RECONCILIATION_MIN_AGE_MS` | 900000 | ancienneté avant la première interrogation (60 s – 7 j) |
+| `FINANCE_RECONCILIATION_MAX_ATTEMPTS` | 12 | tentatives avant signalement (1 – 100) |
+| `FINANCE_RECONCILIATION_BACKOFF_BASE_MS` / `_MAX_MS` | 600000 / 14400000 | attente exponentielle plafonnée |
+| `FINANCE_RECONCILIATION_LEASE_MS` | 600000 | durée du bail d'un sujet pris par une instance |
+| `FINANCE_RECONCILIATION_BATCH_SIZE` | 50 | sujets par tenant et par passage (1 – 500) |
+
 ## Câblage restant (hors périmètre de ce module)
 
 1. Annuaires : un adaptateur appelant l'API publique du module `academic` pour `LearnerDirectory` / `EnrollmentDirectory`.
-2. Job planifié de rattrapage des paiements en attente (assembler le registre + coffre dans le worker et appeler `verifyPendingPayment`).
-3. Branchement de `completeRefund` sur `PaymentProvider.refund` (décision métier : spec 015, Q-PAY-32).
+2. Abonné d'alerte : consommer `finance.payment.reconciliation_needed` / `finance.refund.reconciliation_needed` (notifications, observabilité) ; en attendant,
+   journal d'erreur `alert: true`.
+3. Attribuer `finance.payment.reconcile` au rôle économe (`rbac/templates/system-roles.ts`) si le propriétaire le décide (spec 015, Q-PAY-38) ; entrée de menu
+   `/admin/finance/paiements-a-rapprocher` -> `/v2/finance/payments/pending` (`platform/admin/menu.ts`).
 
 ## Décisions et limites connues
 
-* Un remboursement n'est pas encore exécuté chez le fournisseur : le port expose `refund?` (Wave, MTN, TresorPay) mais `completeRefund`
-  reste comptable ; l'envoi de l'argent est fait hors module.
-* La sandbox garde son état en mémoire du processus : elle est réservée au développement et aux tests.
+* Un paiement `FAILED` dont le fournisseur annonce un succès tardif n'est pas réactivable (machine d'états figée) : il est signalé par le webhook
+  (`finance.webhook.rejected`) et se règle par un nouvel encaissement.
+* La sandbox garde son état en mémoire du processus : elle est réservée au développement et aux tests (le worker ne voit pas les transactions sandbox de l'API).
 * Une facture d'un financeur est payée par le financeur (`payerKind = FUNDER`, `payerRef` = id de la bourse) ; un paiement ne s'impute
   jamais sur la facture d'un autre payeur.
 * Un avoir porte sur le **reste dû** : pour annuler une somme déjà encaissée, rembourser d'abord (reprise d'imputation), puis créditer.

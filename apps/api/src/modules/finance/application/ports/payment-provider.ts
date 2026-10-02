@@ -129,6 +129,39 @@ export interface ProviderRefundResult {
   readonly failureReason?: string;
 }
 
+/**
+ * Ce que le remboursement d'un fournisseur sait faire. Sert à décider SANS appel réseau si le remboursement réel est
+ * possible (sinon : repli manuel explicite) et comment relancer sans danger après une réponse ambiguë.
+ */
+export interface ProviderRefundCapabilities {
+  /** Vrai si un remboursement PARTIEL est possible (Wave : total uniquement). */
+  readonly partial: boolean;
+  /**
+   * Vrai si renvoyer la MÊME demande (même `refundId`) ne peut jamais rembourser deux fois (clé d'idempotence ou
+   * référence stable côté fournisseur). Faux : après une réponse ambiguë on n'envoie JAMAIS une seconde fois.
+   */
+  readonly idempotent: boolean;
+  /** Vrai si `refundStatus` interroge l'état d'un remboursement déjà envoyé. */
+  readonly statusQuery: boolean;
+}
+
+export interface ProviderRefundStatusRequest {
+  readonly paymentId: string;
+  readonly providerRef: string | null;
+  /** Notre identifiant du remboursement (référence stable envoyée au fournisseur). */
+  readonly refundId: string;
+  /** Référence du remboursement chez le fournisseur, si on l'a reçue. */
+  readonly providerRefundRef: string | null;
+  readonly amount: Money;
+}
+
+export interface ProviderRefundStatus {
+  /** `NOT_FOUND` : le fournisseur n'a aucune trace de ce remboursement (jamais reçu). */
+  readonly status: "PENDING" | "SUCCEEDED" | "FAILED" | "NOT_FOUND";
+  readonly providerRefundRef: string | null;
+  readonly failureReason?: string;
+}
+
 export interface ProviderConnectionCheck {
   /** Code court (jamais un message du fournisseur) : `ok`, `credentials_rejected`, `unreachable`… */
   readonly code: string;
@@ -147,6 +180,15 @@ export interface PaymentProvider {
   handleWebhook(rawBody: string, headers: ProviderHeaders, meta?: ProviderWebhookMeta): Promise<Result<ProviderWebhookEvent, AppError>>;
   /** Remboursement chez le fournisseur (facultatif : absent quand l'API publique n'en offre pas). */
   refund?(request: ProviderRefundRequest): Promise<Result<ProviderRefundResult, AppError>>;
+  /** Capacités du remboursement (présentes dès que `refund` l'est). Absentes ⇒ prudence maximale (ni partiel, ni rejeu). */
+  readonly refundCapabilities?: ProviderRefundCapabilities;
+  /** État d'un remboursement déjà envoyé (rapprochement) ; absent quand le fournisseur n'offre pas de lecture. */
+  refundStatus?(request: ProviderRefundStatusRequest): Promise<Result<ProviderRefundStatus, AppError>>;
+  /**
+   * Vrai quand `verify` n'a AUCUN moyen d'interroger une transaction sans la référence reçue à l'initiation
+   * (Orange Money : `pay_token`). Un paiement en attente sans référence est alors « à rapprocher » à la main.
+   */
+  readonly cannotVerifyWithoutProviderRef?: boolean;
   /** Contrôle des identifiants SANS jamais créer de paiement (écran d'administration). */
   testConnection?(): Promise<Result<ProviderConnectionCheck, AppError>>;
   /** URL de webhook à afficher, éventuellement porteuse d'un jeton (schémas « URL secrète »). */

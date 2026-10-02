@@ -48,14 +48,24 @@ export abstract class MockHttp {
         this.requests.push(recorded);
         const next = this.overrides.shift();
         const forced = typeof next === "function" ? next(recorded) : next;
-        const reply = forced ?? this.handle(recorded);
+        let reply = forced ?? this.handle(recorded);
+        // « Réponse perdue » : la requête est TRAITÉE (effets chez le fournisseur) mais la réponse arrive trop tard pour l'appelant.
+        if (!forced && this.lostResponses > 0 && this.lostMatcher(recorded)) {
+          this.lostResponses--;
+          reply = { ...reply, delayMs: 5_000 };
+        }
         const send = (): void => {
           const body = reply.text ?? (reply.json !== undefined ? JSON.stringify(reply.json) : "");
           res.writeHead(reply.status ?? 200, { "content-type": "application/json", ...reply.headers });
           res.end(body);
         };
-        if (reply.delayMs) setTimeout(send, reply.delayMs);
-        else send();
+        if (reply.delayMs) {
+          const timer = setTimeout(() => {
+            this.timers.delete(timer);
+            send();
+          }, reply.delayMs);
+          this.timers.add(timer);
+        } else send();
       });
     });
     await new Promise<void>((resolve) => this.server!.listen(0, "127.0.0.1", resolve));
@@ -63,11 +73,27 @@ export abstract class MockHttp {
     return this;
   }
 
+  private readonly timers = new Set<ReturnType<typeof setTimeout>>();
+
   async stop(): Promise<void> {
+    for (const t of this.timers) clearTimeout(t);
+    this.timers.clear();
     const s = this.server;
     this.server = null;
     s?.closeAllConnections?.();
     if (s) await new Promise<void>((resolve) => s.close(() => resolve()));
+  }
+
+  private lostResponses = 0;
+  private lostMatcher: (req: RecordedRequest) => boolean = () => true;
+
+  /**
+   * Les `count` prochaines requêtes (celles qui satisfont `matcher`) sont TRAITÉES normalement mais leur réponse
+   * n'arrive que 5 s plus tard : l'appelant (délai court) conclut à un délai dépassé alors que l'effet a eu lieu.
+   */
+  loseNextResponses(count: number, matcher: (req: RecordedRequest) => boolean = () => true): void {
+    this.lostResponses = count;
+    this.lostMatcher = matcher;
   }
 
   /** Les N prochaines réponses sont forcées (5xx, malformée, délai…), dans l'ordre. */
@@ -83,6 +109,7 @@ export abstract class MockHttp {
   reset(): void {
     this.requests.length = 0;
     this.overrides.length = 0;
+    this.lostResponses = 0;
   }
 
   protected abstract handle(req: RecordedRequest): MockReply;
@@ -273,10 +300,32 @@ export class MtnMock extends MockHttp {
       };
     }
     if (req.method === "POST" && req.path === "/collection/v2_0/refund") {
-      this.refunds.push(parse(req.body));
+      const ref = String(req.headers["x-reference-id"] ?? "");
+      if (!UUID_V4.test(ref)) return { status: 400, json: { code: "INVALID_REFERENCE_ID" } };
+      // Référence déjà utilisée : le remboursement existe déjà, JAMAIS un second (idempotence documentée).
+      if (this.refundStates.has(ref)) return { status: 409, json: { code: "RESOURCE_ALREADY_EXIST" } };
+      const b = parse(req.body);
+      if (!this.transactions.has(String(b.referenceIdToRefund))) return { status: 404, json: { code: "RESOURCE_NOT_FOUND" } };
+      this.refunds.push({ ...b, referenceId: ref });
+      this.refundStates.set(ref, { status: "PENDING", externalId: String(b.externalId), amount: String(b.amount) });
       return { status: 202, text: "" };
     }
+    const refundGet = /^\/collection\/v2_0\/refund\/([^/]+)$/.exec(req.path);
+    if (req.method === "GET" && refundGet) {
+      const r = this.refundStates.get(refundGet[1] as string);
+      if (!r) return { status: 404, json: { code: "RESOURCE_NOT_FOUND" } };
+      return { json: { amount: r.amount, currency: this.creds.currency, externalId: r.externalId, status: r.status, ...(r.reason ? { reason: { code: r.reason, message: "technical detail" } } : {}) } };
+    }
     return { status: 404, json: { message: "unknown route" } };
+  }
+
+  /** Remboursements reçus, par `X-Reference-Id`. */
+  readonly refundStates = new Map<string, { status: "PENDING" | "SUCCESSFUL" | "FAILED"; externalId: string; amount: string; reason?: string }>();
+
+  settleRefund(referenceId: string, status: "SUCCESSFUL" | "FAILED", reason?: string): void {
+    const r = this.refundStates.get(referenceId)!;
+    r.status = status;
+    if (reason) r.reason = reason;
   }
 }
 
@@ -300,6 +349,8 @@ export interface WaveSession {
 export class WaveMock extends MockHttp {
   readonly sessions = new Map<string, WaveSession>();
   readonly refunded = new Set<string>();
+  /** Appels de remboursement reçus (un rejeu idempotent compte, mais ne rembourse qu'une fois : `refunded.size`). */
+  refundCalls = 0;
   /** Nombre de créations effectivement exécutées (preuve d'absence de doublon). */
   creations = 0;
   constructor(readonly apiKey: string, private readonly searchSupported = true) {
@@ -354,6 +405,7 @@ export class WaveMock extends MockHttp {
       const s = this.sessions.get(refund[1] as string);
       if (!s || s.payment_status !== "succeeded") return { status: 409, json: { code: "refund-not-possible" } };
       this.refunded.add(s.id);
+      this.refundCalls++;
       return { status: 200, text: "{}" };
     }
     return { status: 404, json: { message: "unknown route" } };
@@ -449,6 +501,8 @@ export interface TresorPayPayment {
 
 export class TresorPayMock extends MockHttp {
   readonly payments = new Map<string, TresorPayPayment>();
+  /** Remboursements EXÉCUTÉS (un par appel reçu). */
+  readonly refundsDone: Array<{ transaction_id: string; amount: number }> = [];
   constructor(readonly creds: { apiKey: string; secretKey: string; merchantId: string }) {
     super();
   }
@@ -473,7 +527,9 @@ export class TresorPayMock extends MockHttp {
       return { json: { status: "success", data: { transaction_id: p.id, status: p.status, amount: p.amount, currency: "XOF", payment_method: "ORANGE_MONEY", processed_at: "2025-09-01T08:05:00Z" } } };
     }
     if (req.method === "POST" && endpoint === "/refunds") {
-      return { json: { status: "success", message: "ok", data: { refund_id: "rf_1", transaction_id: parse(req.body).transaction_id, amount: parse(req.body).amount, status: "completed" } } };
+      // Aucune clé d'idempotence documentée : chaque appel REMBOURSE (d'où l'interdiction de renvoyer après une réponse ambiguë).
+      this.refundsDone.push({ transaction_id: parse(req.body).transaction_id, amount: parse(req.body).amount });
+      return { json: { status: "success", message: "ok", data: { refund_id: `rf_${this.refundsDone.length}`, transaction_id: parse(req.body).transaction_id, amount: parse(req.body).amount, status: "completed" } } };
     }
     return { status: 404, json: { message: "unknown route" } };
   }

@@ -131,7 +131,7 @@ Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform
 | rbac | `rbac.instantiate-system-roles` (`tenancy.tenant.provisioned`), `rbac.reconcile-roles-on-reactivation`, `rbac.invalidate-permission-cache.*` | |
 | entitlements | `entitlements.start-trial` (`tenancy.tenant.provisioned`, `ENTITLEMENTS_TRIAL_*`), `entitlements.invalidate-cache.*` | |
 | iam | | `iam.purge-expired-data` 03:40 (`IAM_PURGE_RETENTION_DAYS`) |
-| finance | | `finance.mark-overdue-invoices` 01:15 |
+| finance | | `finance.mark-overdue-invoices` 01:15 ; **`finance.reconcile-pending-payments` toutes les 2 minutes** (rapprochement des paiements `PENDING` et des remboursements `REFUND_PENDING` : interroge les fournisseurs avec le registre et le coffre assemblés par `infrastructure/runtime.ts` — le même assemblage que l'API —, confirme / échoue avec les contrôles du webhook, plafonne les tentatives, signale `finance.payment.reconciliation_needed` ; bail en base, audit direct avec `AUDIT_HMAC_KEY`). Aucun abonné : finance publie, n'écoute rien |
 | academic | `academic.run-rollover` (`academic.rollover.requested` : reconduction annuelle reprenable, progression en base), `academic.instantiate-reference-data` (`tenancy.institution.created`), **`academic.confirm-on-invoice-paid` (`finance.invoice.paid`)**, `academic.withdraw-on-student-status` (`people.student.status_changed`) | `academic.expire-holds` chaque minute, `academic.finalize-offerings` 01:00 |
 | people | `people.project-enrollment` (`academic.enrollment.*`), `people.project-membership`, `people.instantiate-reference-data`, `people.end-assignments-on-classroom-closed`, `people.end-assignments-on-year-closed` | `people.emit-expiring-qualifications` 06:30 |
 | assess | `assess.seed-assessment-types` | `assess.purge-batch-receipts` 04:20 |
@@ -176,6 +176,11 @@ Les handlers reçoivent `ctx.tenantDb` (ajout au SDK du worker) pour appeler les
 | `SMS_HTTP_*` (`URL`, `METHOD`, `CONTENT_TYPE`, `BODY`, `HEADERS`, `API_KEY[_HEADER\|_PREFIX]`, `USERNAME`, `SENDER_ID`, `SUCCESS_PATH\|_EQUALS`, `ID_PATH`, `COST_PATH\|_MULTIPLIER\|_CURRENCY`, `ERROR_PATH`, `TIMEOUT_MS`, `PROFILE`) | — | worker (API : état de santé) | SMS : adaptateur HTTP **générique**, fournisseur non choisi (Q-18) ; voir `modules/notifications/README.md` |
 | `WASENDER_API_KEY`, `WASENDER_API_BASE_URL`, `WASENDER_SESSION`, `WASENDER_SESSION_NAME`, `WASENDER_TIMEOUT_MS`, `WASENDER_SKIP_STATUS_CHECK`, `WHATSAPP_PROVIDER` | — | worker (API : état de santé) | WhatsApp (WaSender), mêmes noms que le legacy |
 | `NOTIFICATIONS_VAPID_PUBLIC_KEY`, `NOTIFICATIONS_VAPID_PRIVATE_KEY`, `NOTIFICATIONS_VAPID_SUBJECT` | — | API (clé publique) **et** worker | Web Push (VAPID) : `npx web-push generate-vapid-keys` |
+| `FINANCE_ENV` | dérivé de `NODE_ENV`, sinon `production` | API **et** worker | `production`/`staging` : aucune simulation de paiement |
+| `FINANCE_WEBHOOK_BASE_URL`, `FINANCE_PROVIDER_<NOM>_<CLÉ>` | — | API (le worker lit `FINANCE_PROVIDER_*`) | webhooks et fournisseurs de paiement |
+| `FINANCE_SECRETS_KEYS`, `FINANCE_SECRETS_ACTIVE_KEY` | — | API **et** worker | trousseau du coffre des identifiants marchands : **le worker doit avoir le même**, sinon le rapprochement ne peut pas ouvrir les secrets d'un tenant (tentatives comptées puis signalement `provider_unavailable`) |
+| `FINANCE_RECONCILIATION_MIN_AGE_MS` (900000), `_MAX_ATTEMPTS` (12), `_BACKOFF_BASE_MS` (600000), `_BACKOFF_MAX_MS` (14400000), `_LEASE_MS` (600000), `_BATCH_SIZE` (50) | voir colonne | worker | rapprochement planifié des paiements en attente (valeur hors plage ignorée : défaut) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL` | — | API | mêmes noms que l'e-mail legacy |
 | `V2_APP_BASE_URL` | — | API | base des liens `/auth/invitation?token=…` et `/auth/reset-password?token=…` |
 | `IAM_*` | voir `modules/iam/README.md` | API | cookie, TTL, MFA, politique de mot de passe |
 | `V2_LEGACY_IAM_BRIDGE` | actif | API | `0` : les routes legacy refusent à nouveau les jetons IAM |
@@ -237,6 +242,7 @@ Contrôles : `pnpm check:boundaries`, `pnpm check:secrets`, `pnpm test:isolation
 - **Provisioning de la console** : étapes en transactions distinctes (un use case par module), reprise par `reconcile` ; pas de transaction globale.
 - **Caches** : TTL 30 s (droits), 5 s (arbre des périmètres) ; l'invalidation par événement exige Redis. Sans Redis, seuls le processus d'origine et le TTL jouent.
 - **Audit des événements de finance** : par écriture directe uniquement (pas de souscription `finance.*`) ; les événements sont relayés mais non consommés par audit.
+- **Alertes de rapprochement** : `finance.payment.reconciliation_needed` / `finance.refund.reconciliation_needed` sont publiés dans l'outbox et audités, mais aucun abonné ne les transforme encore en notification ; l'alerte est un journal d'erreur structuré (`alert: true`). Le branchement d'un port d'alerte / de compteurs se fait par `setFinanceWorkerResources` (exporté par `modules/finance`) depuis `installWorkerAdapters`.
 - **Production de l'API** : l'image exécute `tsx src/index.ts` ; les dossiers `apps/worker` ne sont pas nécessaires à l'API (les `subscribers.ts` ne sont chargés que par le worker). Les migrations v2 s'exécutent depuis un poste ou une étape de déploiement (`pnpm db:v2:migrate`), pas depuis l'image.
 - **Fournisseurs de paiement réels** : seul `sandbox` existe (Phase 3) ; son secret de webhook par défaut est public — refusé hors `development`/`test` sauf autorisation explicite du tenant.
 - **Stockage disque** : le repli disque (`STORAGE_DISK_DIR`) est un confort de développement (pas de réplication, URL signées servies par l'API) ; en production, configurer `STORAGE_S3_BUCKET`.
