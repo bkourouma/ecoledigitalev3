@@ -38,6 +38,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   directeur_etudes: {
     can: [
+      // messaging
+      "messaging.read", "messaging.send", "messaging.send.any", "messaging.announcement.publish", "messaging.announcement.manage",
       // academic (structure, curriculum, inscriptions)
       "academic.read", "academic.year.read", "academic.year.manage", "academic.period.read", "academic.period.manage", "academic.period.close",
       "academic.program.read", "academic.program.manage", "academic.classroom.read", "academic.classroom.manage", "academic.settings.manage",
@@ -69,6 +71,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   secretariat: {
     can: [
+      // messaging
+      "messaging.read", "messaging.send", "messaging.announcement.publish",
       "enrollment.read", "enrollment.create", "enrollment.update", "enrollment.cancel", "enrollment.course.manage",
       "academic.read", "academic.year.read", "academic.period.read", "academic.program.read", "academic.classroom.read", "curriculum.read",
       "student.list", "student.read", "student.create", "student.update", "student.status.update", "student.sensitive.read", "student.export",
@@ -83,6 +87,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   econome: {
     can: [
+      // messaging
+      "messaging.read", "messaging.send",
       "finance.fee.read", "finance.fee.manage", "finance.invoice.read", "finance.invoice.create", "finance.invoice.cancel",
       "finance.payment.read", "finance.payment.create", "finance.payment.refund", "finance.cashregister.open", "finance.cashregister.close",
       "finance.report.read", "finance.receipt.read",
@@ -96,6 +102,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   enseignant: {
     can: [
+      // messaging
+      "messaging.read", "messaging.send", "messaging.announcement.publish_class",
       "assessment.type.read", "assessment.read", "assessment.create", "assessment.update", "grade.read", "grade.enter", "grade.revise.request",
       "appreciation.write",
       "attendance.read", "attendance.take", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
@@ -107,6 +115,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   educateur: {
     can: [
+      // messaging
+      "messaging.read", "messaging.send", "messaging.announcement.publish_class",
       "attendance.read", "attendance.take", "attendance.manage", "attendance.validate", "attendance.justification.submit",
       "attendance.justification.read", "attendance.report.read", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
       "schedule.read", "schedule.occurrence.hold",
@@ -117,6 +127,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   responsable_pedagogique: {
     can: [
+      // messaging
+      "messaging.read", "messaging.send", "messaging.announcement.publish_class",
       "academic.read", "academic.year.read", "academic.period.read", "academic.program.read", "academic.classroom.read",
       "curriculum.read", "curriculum.manage", "enrollment.read",
       "assessment.type.read", "assessment.read", "grade.read", "grade.review", "grade.validate",
@@ -136,6 +148,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   parent: {
     can: [
+      // messaging
+      "messaging.child.read", "messaging.child.send",
       "student.child.read", "student.child.update", "enrollment.child.read", "grade.child.read", "result.child.read", "reportcard.child.read",
       "attendance.child.read", "attendance.child.justify", "schedule.child.read", "higher.child.read",
     ],
@@ -143,6 +157,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   eleve: {
     can: [
+      // messaging
+      "messaging.self.read", "messaging.self.send",
       "student.self.read", "student.self.update", "enrollment.self.read", "enrollment.self.create", "grade.self.read", "result.self.read",
       "reportcard.self.read", "attendance.self.read", "attendance.self.justify", "schedule.self.read", "higher.self.read",
     ],
@@ -177,7 +193,7 @@ describe("modèles de rôles système : ensemble des rôles", () => {
   it("le catalogue réel couvre les modules livrés (chaque module déclarant des permissions est connu de la matrice)", () => {
     const modulesWithPermissions = [...new Set(real.catalog.entries.map((e) => e.moduleKey))].sort();
     expect(modulesWithPermissions).toEqual([
-      "academic", "assess", "attendance", "audit", "entitlements", "finance", "higher", "iam", "payroll", "people", "rbac",
+      "academic", "assess", "attendance", "audit", "entitlements", "finance", "higher", "iam", "messaging", "payroll", "people", "rbac",
       "reportcards", "results", "rules", "scheduling", "tenancy",
     ]);
   });

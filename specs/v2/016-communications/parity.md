@@ -128,7 +128,7 @@
 | Filtre de contenu / mots interdits ; antivirus des pièces | non repris | hors V1 (Q-07, Q-08) |
 | Durée de conservation des conversations ; anonymisation d'un élève dans les fils | non reprise | décision légale (Q-02) |
 | Rappels de paiement | non repris | 014 / 015 (événements) |
-| Rôles système : accorder `messaging.*` au personnel | **à faire dans rbac** | Q-01 ; sans cela, seuls direction, parents, élèves ont accès |
+| Rôles système : accorder `messaging.*` | **fait** (modèles rbac étendus, tests de matrice alignés) | Q-01 : le personnel de classe a `messaging.read`/`send`, direction par `*`, parents `child.*`, élèves `self.*` |
 
 ## 5. Synthèse
 

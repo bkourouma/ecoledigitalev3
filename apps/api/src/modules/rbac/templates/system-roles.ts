@@ -136,6 +136,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "period.*": "Verrouiller, clôturer, rouvrir une période, changer sa version de règle.",
       "decision.*": "Modifier une décision proposée par la règle (délibération).",
       "schedule.*": "Valider les séances pour la paie, dépasser un conflit, créer une séance comptable, verrouiller les heures.",
+      "messaging.*": "Modérer les signalements, restreindre l'envoi et superviser les conversations avec motif obligatoire (audité) : responsabilité de direction.",
     },
   },
 
@@ -151,6 +152,12 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Directeur des études",
     description: "Pilotage pédagogique : structure académique, notes, résultats, bulletins, emplois du temps, présences.",
     permissions: [
+      // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
+      "messaging.read",
+      "messaging.send",
+      "messaging.send.any",
+      "messaging.announcement.publish",
+      "messaging.announcement.manage",
       // Structure académique (années, périodes, programmes, classes, réglages). La clôture/reconduction
       // d'année, la réouverture d'une période et l'application d'un modèle de pack restent à la direction.
       "academic.read",
@@ -280,6 +287,10 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Secrétariat",
     description: "Inscriptions, dossiers élèves et tuteurs, bulletins et attestations, présences, consultation des finances.",
     permissions: [
+      // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
+      "messaging.read",
+      "messaging.send",
+      "messaging.announcement.publish",
       // Inscriptions (création/annulation) ; dérogation et financement = direction / économe.
       "enrollment.read",
       "enrollment.create",
@@ -345,6 +356,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Économe",
     description: "Gestion financière : frais, factures, encaissements, caisse ; préparation, calcul et versement de la paie.",
     permissions: [
+      // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
+      "messaging.read",
+      "messaging.send",
       // Finance complète.
       "finance.fee.read",
       "finance.fee.manage",
@@ -409,6 +423,10 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Enseignant",
     description: "Enseignement : appel, évaluations, notes et appréciations de ses classes ; ses données de personnel.",
     permissions: [
+      // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
+      "messaging.read",
+      "messaging.send",
+      "messaging.announcement.publish_class",
       // Évaluations et notes de ses classes (le module vérifie l'affectation : assess.not_assigned).
       "assessment.type.read",
       "assessment.read",
@@ -449,6 +467,10 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Éducateur",
     description: "Vie scolaire : appel et suivi des présences, justificatifs, suivi des élèves.",
     permissions: [
+      // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
+      "messaging.read",
+      "messaging.send",
+      "messaging.announcement.publish_class",
       // Présences des élèves.
       "attendance.read",
       "attendance.take",
@@ -485,6 +507,10 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Responsable pédagogique",
     description: "Coordination d'une filière ou d'un niveau : curriculum, évaluations, relecture et validation des notes.",
     permissions: [
+      // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
+      "messaging.read",
+      "messaging.send",
+      "messaging.announcement.publish_class",
       // Structure académique et curriculum (édition ; la publication revient à la direction des études).
       "academic.read",
       "academic.year.read",
@@ -552,6 +578,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Parent",
     description: "Portail parent : suivi de ses enfants (scolarité, notes, résultats, bulletins, présences, emploi du temps).",
     permissions: [
+      // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
+      "messaging.child.read",
+      "messaging.child.send",
       "student.child.read",
       "student.child.update",
       "enrollment.child.read",
@@ -575,6 +604,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Élève",
     description: "Portail élève : son dossier, ses notes, résultats, bulletins, présences et son emploi du temps.",
     permissions: [
+      // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
+      "messaging.self.read",
+      "messaging.self.send",
       "student.self.read",
       "student.self.update",
       "enrollment.self.read",

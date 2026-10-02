@@ -264,27 +264,29 @@ describe("tableau des plages de module-conventions.md", () => {
 
   it("scaffoldModule ajoute la ligne au tableau : plages successives, ligne ouverte décalée", () => {
     const { modulesDir, conventionsPath } = freshSandbox("table");
+    const base = nextFreeRangeStart(parseRangeTable(real));
     const first = scaffoldModule({ key: "gen_first", modulesDir, conventionsPath });
-    expect(first.range.start).toBe(1600);
+    expect(first.range.start).toBe(base);
     expect(first.conventionsUpdated).toBe(conventionsPath);
     const second = scaffoldModule({ key: "gen_second", modulesDir, conventionsPath });
-    expect(second.range.start).toBe(1700);
+    expect(second.range.start).toBe(base + 100);
 
     const rows = parseRangeTable(readFileSync(conventionsPath, "utf8"));
-    expect(rows.find((r) => r.owner.includes("gen_first"))).toMatchObject({ start: 1600, end: 1699 });
-    expect(rows.find((r) => r.owner.includes("gen_second"))).toMatchObject({ start: 1700, end: 1799 });
-    expect(rows.find((r) => r.end === null)?.start).toBe(1800);
+    expect(rows.find((r) => r.owner.includes("gen_first"))).toMatchObject({ start: base, end: base + 99 });
+    expect(rows.find((r) => r.owner.includes("gen_second"))).toMatchObject({ start: base + 100, end: base + 199 });
+    expect(rows.find((r) => r.end === null)?.start).toBe(base + 200);
     // La migration du second module est bien dans sa plage.
-    expect(readdirSync(join(modulesDir, "gen_second", "migrations"))).toEqual(["1700_gen_second_init.sql"]);
+    expect(readdirSync(join(modulesDir, "gen_second", "migrations"))).toEqual([`${base + 100}_gen_second_init.sql`]);
   });
 
   it("--range : accepte la prochaine plage, refuse une plage prise, mal alignée ou réservée, sans rien écrire", () => {
     const { modulesDir, conventionsPath } = freshSandbox("explicit");
-    expect(scaffoldModule({ key: "gen_r1", modulesDir, conventionsPath, range: 1600 }).range.start).toBe(1600);
+    const base = nextFreeRangeStart(parseRangeTable(real));
+    expect(scaffoldModule({ key: "gen_r1", modulesDir, conventionsPath, range: base }).range.start).toBe(base);
     const before = readFileSync(conventionsPath, "utf8");
     for (const [range, message] of [
-      [1600, /déjà attribuée à `gen_r1`|déjà attribuée/],
-      [1650, /Plage invalide/],
+      [base, /déjà attribuée à `gen_r1`|déjà attribuée/],
+      [base + 50, /Plage invalide/],
       [1500, /Plage invalide/],
       [300, /Plage invalide/],
     ] as const) {
@@ -295,8 +297,8 @@ describe("tableau des plages de module-conventions.md", () => {
     expect(readFileSync(conventionsPath, "utf8")).toBe(before);
 
     // Un saut de plage est accepté mais signalé.
-    const skipped = scaffoldModule({ key: "gen_r3", modulesDir, conventionsPath, range: 2000 });
-    expect(skipped.warnings.join(" ")).toMatch(/saute 1700-1999/);
+    const skipped = scaffoldModule({ key: "gen_r3", modulesDir, conventionsPath, range: base + 400 });
+    expect(skipped.warnings.join(" ")).toMatch(new RegExp(`saute ${base + 100}-${base + 399}`));
   });
 
   it("sans conventionsPath explicite, un modulesDir de test ne touche JAMAIS au vrai tableau", () => {

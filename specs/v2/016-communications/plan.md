@@ -42,7 +42,8 @@ subscribers.ts : attendance.absence.recorded / late.recorded -> messages systèm
 |---|---|---|
 | people | `application/audience.ts` + `infrastructure/audience-repo.ts` : `listAudienceOfStudents`, `searchAudienceIdentities` (lectures seules, aucune coordonnée) | le DTO des tuteurs ne porte pas l'identité du compte ; la messagerie en a besoin pour joindre les tuteurs d'une classe |
 | plateforme | `apps/api/test/events-catalog.test.ts` : verbe irrégulier `sent` ; `apps/api/test/events-contracts/messaging.contracts.ts` | nom d'événement `messaging.message.sent` demandé par la spec ; contrat des événements consommés |
-| rbac | **aucune** — demande consignée (Q-01) | périmètre |
+| rbac | `templates/system-roles.ts` : permissions `messaging.*` accordées aux rôles système (+ justification du motif `messaging.*` pour la direction) ; `test/system-roles.test.ts` : oracle et liste des modules | la suite complète refuse un module sans matrice de rôles ; sans cela personne (hors propriétaire) n'a accès |
+| plateforme | `apps/api/test/scaffold.test.ts` | la prochaine plage libre n'est plus codée en dur (1700 après `messaging`) |
 
 ## 5. Risques et parades
 
@@ -60,6 +61,6 @@ subscribers.ts : attendance.absence.recorded / late.recorded -> messages systèm
 
 1. `pnpm db:v2:migrate` (migration `1600_messaging_init.sql` ; extensions `unaccent` et `pg_trgm` déjà requises par people).
 2. `pnpm --filter @ecoledigitale/worker build` (abonnés et jobs embarqués).
-3. Rôles : appliquer la PR rbac (Q-01), sinon accorder `messaging.read` / `messaging.send` à des rôles personnalisés.
+3. Rôles : les modèles système portent déjà `messaging.*` ; les établissements existants reçoivent les nouvelles permissions à la prochaine synchronisation rbac.
 4. Variables : aucune nouvelle ; le stockage d'objets est celui de `STORAGE_*`. Redis (`REDIS_URL`) recommandé pour le limiteur de débit multi-instances.
 5. Web : menus servis par `rbac/me/navigation` (entrées déclarées au manifeste) ; routes `/v2/messages`, `/v2/announcements`.
