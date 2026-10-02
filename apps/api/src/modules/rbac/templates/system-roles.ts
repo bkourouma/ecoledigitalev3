@@ -145,7 +145,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "decision.*": "Modifier une décision proposée par la règle (délibération).",
       "schedule.*": "Valider les séances pour la paie, dépasser un conflit, créer une séance comptable, verrouiller les heures.",
       "notifications.*": "Envoyer un avis urgent (contourne heures calmes et préférences de catégorie, audité, authentification forte) : responsabilité de direction.",
-      "imports.*": "Reprise de données (soldes financiers d'ouverture : factures et avoirs de reprise, MFA exigée, audité) : acte de direction ; les autres rôles n'ont aucun droit d'import tant que le plan de rôles du module n'est pas arrêté.",
+      "imports.*": "Reprise de données (soldes financiers d'ouverture : factures et avoirs de reprise, MFA exigée, audité) : acte de direction ; les autres rôles ne lancent que les importeurs de leur métier (jamais les soldes d'ouverture).",
       "messaging.*": "Modérer les signalements, restreindre l'envoi et superviser les conversations avec motif obligatoire (audité) : responsabilité de direction.",
       "admission.*": "Décider d'une candidature, dépasser une capacité, publier un workflow et anonymiser un dossier clos (acte irréversible, motif obligatoire, MFA) : responsabilité de direction ; le traitement courant reste au secrétariat.",
       "exam.*": "Accorder une dérogation d'éligibilité, publier les résultats d'une session, appliquer un lot de résultats officiels et approuver la révision d'une note publiée : actes de direction, hors du responsable des examens (qui saisit et prépare).",

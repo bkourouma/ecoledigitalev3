@@ -42,7 +42,7 @@ Les identifiants d'élève, d'inscription, de facture, de bourse, de document so
 
 `stateassign.read`, `.record`, `.verify` (sensible), `.manage` (sensible), `.amend` (sensible), `.reconcile`, `.receivable.manage`, `.control.perform`, `.document.manage`, `.export`, `.settings.manage` (sensible), `.child.read`. Features : `stateassign.core` (pack `SECONDARY`), `stateassign.gateway` (réservée : aucun pack).
 
-À accorder aux rôles système (modèles `rbac/templates/system-roles.ts`, **PR du module rbac**, non faite ici) : `directeur` / `owner` : `*` ; `secretariat` : `stateassign.read`, `.record`, `.document.manage` ; `econome` : `stateassign.read`, `.reconcile`, `.receivable.manage`, `.control.perform`, `.export` ; `directeur_etudes` : `stateassign.read` ; `parent` : `stateassign.child.read`. **La vérification n'est pas donnée au secrétariat par défaut** (séparation des tâches).
+Accordé aux rôles système (modèles `rbac/templates/system-roles.ts`, **fait**, voir `rbac/README.md`) : `directeur` / `owner` : `*` ; `secretariat` : `stateassign.read`, `.record`, `.document.manage` ; `econome` : `stateassign.read`, `.reconcile`, `.receivable.manage`, `.control.perform`, `.export` ; `directeur_etudes` : `stateassign.read` ; `parent` : `stateassign.child.read`. **La vérification n'est pas donnée au secrétariat par défaut** (séparation des tâches).
 
 ## Routes `/api/v1/stateassign`
 
