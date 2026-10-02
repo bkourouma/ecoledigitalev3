@@ -38,6 +38,7 @@ import {
   type SessionListResponse,
 } from "@ecoledigitale/contracts/src/v2/iam";
 import { TooManyAttemptsError } from "../application/deps";
+import { assertCanGrantRoles } from "../application/members";
 import type { MfaSubject } from "../application/mfa";
 import type { AuthenticatedPrincipal, SuperAdminAuthenticator } from "../application/ports";
 import type { IamService } from "../application/service";
@@ -443,6 +444,7 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
     app.post("/admin/members", { preHandler: requirePermission("iam.user.invite") }, async (request, reply) => {
       const body = parse(ProvisionMemberRequestSchema, request.body);
       const p = principalOf(request);
+      unwrap(assertCanGrantRoles(p, body.roles));
       const out = unwrap(await iam.provisionMember(p.ctx, { email: body.email, roles: body.roles, sendInvitation: body.sendInvitation, invitedBy: p.identityId, meta: requestMeta(request) }));
       noStore(reply);
       return reply.status(201).send({ membershipId: out.membershipId });

@@ -22,6 +22,28 @@ import type { AuthenticatedPrincipal } from "./ports";
 
 const ROLE_RE = /^[a-z][a-z0-9_]{0,63}$/;
 
+/**
+ * SEC-07 : anti-escalade des rôles élevés. `membership.roles` est la source des droits (relue à chaque requête) : sans
+ * garde, un directeur (`iam.user.manage`) se faisait un complice `owner` et contournait les exclusions de son modèle
+ * (abonnement, rôles, paie propriétaire). `owner` ne s'accorde que depuis une session `owner` ; `admin` depuis owner/admin.
+ */
+const OWNER_ONLY_ROLES: readonly string[] = ["owner"];
+const ADMIN_LEVEL_ROLES: readonly string[] = ["admin", "administrateur"];
+
+export function canManageElevatedRoles(activeRole: string, roles: readonly string[]): boolean {
+  const actor = String(activeRole ?? "").trim().toLowerCase();
+  const wanted = roles.map((r) => String(r).trim().toLowerCase());
+  if (wanted.some((r) => OWNER_ONLY_ROLES.includes(r)) && actor !== "owner") return false;
+  if (wanted.some((r) => ADMIN_LEVEL_ROLES.includes(r)) && ![...OWNER_ONLY_ROLES, ...ADMIN_LEVEL_ROLES].includes(actor)) return false;
+  return true;
+}
+
+export function assertCanGrantRoles(principal: Pick<AuthenticatedPrincipal, "activeRole">, roles: readonly string[]): Result<void, AppError> {
+  return canManageElevatedRoles(principal.activeRole, roles)
+    ? ok(undefined)
+    : err(new ForbiddenError("Ce rôle ne peut être accordé que par un propriétaire ou un administrateur.", { code: AuthErrorCodes.forbidden }));
+}
+
 export interface ProvisionInput {
   email: string;
   roles: readonly string[];
@@ -131,6 +153,9 @@ export async function updateMember(
     const current = await memberships.findMembershipById(tx, tenantId, membershipId);
     if (!current) return err(new ForbiddenError("Membre introuvable.", { code: AuthErrorCodes.forbidden }));
     if (current.identity_id === principal.identityId) return err(new ForbiddenError("Vous ne pouvez pas modifier votre propre accès.", { code: AuthErrorCodes.forbidden }));
+    // Rôles accordés ET rôles actuels du membre ciblé (déclasser ou suspendre un propriétaire est aussi réservé).
+    const elevated = assertCanGrantRoles(principal, [...(patch.roles ?? []), ...current.roles]);
+    if (!elevated.ok) return elevated;
 
     const updated = await memberships.updateMembership(
       tx,

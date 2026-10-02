@@ -78,6 +78,12 @@ export async function getPersonQualities(deps: PeopleDeps, ctx: RequestContext, 
  * la phase 2, l'accès existe côté iam : une relance répond `people.account_exists` et la liaison se fait par
  * `linkPersonToIdentity` (l'identité est connue par la projection des événements iam).
  */
+/**
+ * Rôles que l'invitation de portail peut accorder. SEC-06 : le rôle est attribué sous un contexte `system` (sans contrôle
+ * anti-escalade) ; accepter n'importe quelle clé permettait à un secrétariat (`guardian.manage`) de s'attribuer `owner`.
+ */
+export const PORTAL_ROLES: readonly string[] = Object.freeze(["parent", "eleve", "enseignant", "educateur"]);
+
 export async function provisionPortalAccount(
   deps: PeopleDeps,
   ctx: RequestContext,
@@ -85,6 +91,9 @@ export async function provisionPortalAccount(
 ): Promise<Result<AccountOutcome, AppError>> {
   const accounts = deps.accounts;
   if (!accounts) return err(PeopleErrors.accountProvisioningUnavailable());
+  if (input.role !== undefined && !PORTAL_ROLES.includes(input.role)) {
+    return err(ValidationError.field("role", "Ce rôle ne peut pas être accordé par une invitation de portail.", "role_not_portal"));
+  }
 
   // Phase 1 : lecture et décision.
   const plan = await inTx(
