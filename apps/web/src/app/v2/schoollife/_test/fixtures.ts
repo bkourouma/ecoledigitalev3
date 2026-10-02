@@ -166,7 +166,7 @@ export function referenceDto(over: Record<string, unknown> = {}) {
     visibleToGuardians: true, confidentialityDefault: "STANDARD", requiresDates: false, appealable: false, isPlaceholder: true, sortOrder: 0, active: true, ...extra,
   });
   return {
-    settings: [{ institutionId: IDS.institution, conductPointsEnabled: false, confidentialReadRequiresPurpose: true, retentionDays: null }],
+    settings: [{ institutionId: IDS.institution, conductPointsEnabled: false, confidentialReadRequiresPurpose: true, retentionDays: null, convocationReminderHours: null, exclusionBoundaryNotices: false }],
     severityLevels: [{ id: uuid(801), code: "LOW", label: "Faible", rank: 1, active: true }],
     eventTypes: [
       type(IDS.typeInc, "INC", "INCIDENT"),
