@@ -74,6 +74,30 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
   const notes: Record<string, unknown> = {};
   const startedAt = new Date().toISOString();
 
+  /** Écrit le rapport (JSON + Markdown) ; appelé après CHAQUE scénario pour qu'une interruption ne perde pas les mesures déjà faites. */
+  function persist(finished = false): void {
+    const dir = join(here, "results");
+    mkdirSync(dir, { recursive: true });
+    const meta = {
+      startedAt,
+      finishedAt: finished ? new Date().toISOString() : null,
+      scale: SCALE,
+      tenants: TENANTS,
+      studentsPerTenant: STUDENTS_PER_TENANT,
+      classSize: CLASS_SIZE,
+      concurrency: CONCURRENCY,
+      scryptLogN: SCRYPT_LOG_N,
+      pdf: p?.realPdf ? "chrome" : "deterministe",
+      node: process.version,
+      platform: process.platform,
+      cpus: `${cpus().length} x ${cpus()[0]?.model ?? "?"}`,
+      memGb: Math.round(totalmem() / 1073741824),
+      enforce: ENFORCE,
+    };
+    writeFileSync(join(dir, "latest.json"), JSON.stringify({ meta, notes, results, extras, sqlByScenario, breaches }, null, 2));
+    writeFileSync(join(dir, "latest.md"), `${toMarkdown(results)}\n\nDépassements de seuils : ${breaches.length ? `\n- ${breaches.join("\n- ")}` : "aucun"}\n`);
+  }
+
   /** Exécute un scénario avec mesure de la boucle d'événements, du CPU et des requêtes SQL ; applique erreurs 5xx et seuils. */
   async function scenario(name: string, opts: Omit<DriveOptions, "name">, { allowErrors = false }: { allowErrors?: boolean } = {}): Promise<ScenarioStats | null> {
     if (!wanted(name)) return null;
@@ -106,6 +130,7 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
     if (th && stats.p95 > th.p95 * THRESHOLD_FACTOR) breaches.push(`${name} : p95 ${stats.p95} ms > seuil ${Math.round(th.p95 * THRESHOLD_FACTOR)} ms`);
     if (th?.p99 !== undefined && stats.p99 > th.p99 * THRESHOLD_FACTOR) breaches.push(`${name} : p99 ${stats.p99} ms > seuil ${Math.round(th.p99 * THRESHOLD_FACTOR)} ms`);
     log(`${name.padEnd(30)} n=${String(stats.count).padStart(5)} err=${stats.errors} p50=${stats.p50} p95=${stats.p95} p99=${stats.p99} max=${stats.max} ${stats.rps} req/s  (boucle p99 ${extras[name]!.loopP99Ms} ms, cpu ${extras[name]!.cpuMs} ms)`);
+    persist();
     if (!allowErrors) expect(stats.errors, `${name} : ${stats.samples.join(" | ")}`).toBe(0);
     return stats;
   }
@@ -691,25 +716,7 @@ describeIntegration.skipIf(!REDIS_URL)(`CHARGE — ${TENANTS} tenants x ${STUDEN
       );
       notes.seqScans = seq.rows;
       const dir = join(here, "results");
-      mkdirSync(dir, { recursive: true });
-      const meta = {
-        startedAt,
-        finishedAt: new Date().toISOString(),
-        scale: SCALE,
-        tenants: TENANTS,
-        studentsPerTenant: STUDENTS_PER_TENANT,
-        classSize: CLASS_SIZE,
-        concurrency: CONCURRENCY,
-        scryptLogN: SCRYPT_LOG_N,
-        pdf: p.realPdf ? "chrome" : "deterministe",
-        node: process.version,
-        platform: process.platform,
-        cpus: `${cpus().length} x ${cpus()[0]?.model ?? "?"}`,
-        memGb: Math.round(totalmem() / 1073741824),
-        enforce: ENFORCE,
-      };
-      writeFileSync(join(dir, "latest.json"), JSON.stringify({ meta, notes, results, extras, sqlByScenario, breaches }, null, 2));
-      writeFileSync(join(dir, "latest.md"), `${toMarkdown(results)}\n\nDépassements de seuils (proposés) : ${breaches.length ? `\n- ${breaches.join("\n- ")}` : "aucun"}\n`);
+      persist(true);
       log(`rapport : ${join(dir, "latest.json")}`);
       if (process.env.ED_LOAD_HOLD === "1") {
         // Maintient Postgres/Redis éphémères pour des expériences à la main (index candidats) ; créer results/release pour libérer.
