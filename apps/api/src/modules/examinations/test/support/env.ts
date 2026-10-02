@@ -99,6 +99,26 @@ export async function openSession(env: Env, code: string, options: { kind?: "OFF
   return unwrap(await transitionSession(deps, ctx, created.id, "REGISTRATION_OPEN"));
 }
 
+/** Crée un candidat éligible (pièce acceptée, éligibilité évaluée par la règle) sans l'inscrire. */
+export async function prepareCandidate(env: Env, ctx: RequestContext, sessionId: string, pupil: Pupil, options: { official?: boolean } = {}): Promise<string> {
+  const deps = env.deps();
+  const c = unwrap(await createCandidate(deps, ctx, sessionId, { studentId: pupil.studentId, enrollmentId: pupil.enrollmentId }));
+  if (options.official !== false) {
+    const pieces = await env.db.admin.query(
+      "SELECT r.id FROM examinations.document_requirements r JOIN examinations.sessions s ON s.exam_type_id = r.exam_type_id WHERE s.id = $1 AND r.active AND r.required",
+      [sessionId],
+    );
+    for (const row of pieces.rows) {
+      const documentId = newId();
+      env.world.pieces.set(documentId, pupil.studentId);
+      unwrap(await actOnPiece(deps, ctx, c.id, row.id as string, { action: "SUBMIT", documentRef: documentId }));
+      unwrap(await actOnPiece(deps, ctx, c.id, row.id as string, { action: "ACCEPT" }));
+    }
+    unwrap(await evaluateEligibility(deps, ctx, c.id, { mode: "EVALUATE" }));
+  }
+  return c.id;
+}
+
 /**
  * Crée, qualifie et inscrit un candidat : éligibilité par la règle, pièce acceptée (session officielle), puis inscription.
  * Renvoie l'identifiant du candidat et son numéro.

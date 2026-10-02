@@ -200,8 +200,8 @@ export function inMemoryPorts(world: InMemoryWorld, overrides: Partial<Examinati
       world.officialStates.set(documentId, { documentId, status: "RENDERED", fileName: `${input.kind.toLowerCase()}.pdf`, bytes: new TextEncoder().encode(`%PDF-1.4 ${input.title}`), verificationCode: "TESTCODE" });
       return ok({ documentId });
     },
-    async read(_ctx, documentId) {
-      return ok(world.officialStates.get(documentId) ?? null);
+    async read(_ctx, input) {
+      return ok(world.officialStates.get(input.documentId) ?? null);
     },
   };
   return {

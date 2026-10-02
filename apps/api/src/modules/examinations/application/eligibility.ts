@@ -139,6 +139,7 @@ export async function evaluateEligibility(deps: ExaminationsDeps, ctx: RequestCo
     if (session.ruleVersionRef) return err(conflict(ExamCode.MANUAL_ELIGIBILITY_REFUSED, "Une règle d'éligibilité est épinglée à cette session : l'éligibilité se calcule par la règle (ou se déroge avec un motif).", { ruleVersionRef: session.ruleVersionRef }));
     entry = { ruleVersionRef: null, result: body.result, reasons: body.reasons, inputsHash: null, overriddenBy: null, overrideReason: null, mode: "MANUAL" };
   } else {
+    if (body.reason.trim().length < 10) return err(validation(ExamCode.INVALID_INPUT, "Le motif d'une dérogation compte au moins 10 caractères.", "reason"));
     if (c.eligibilityStatus === "NOT_EVALUATED") return err(validation(ExamCode.INVALID_INPUT, "Évaluer l'éligibilité avant d'accorder une dérogation.", "mode"));
     if (c.eligibilityStatus === "ELIGIBLE") return err(conflict(ExamCode.INVALID_INPUT, "Ce candidat est déjà éligible : aucune dérogation nécessaire."));
     entry = { ruleVersionRef: null, result: c.eligibilityStatus as EligibilityResult, reasons: [], inputsHash: null, overriddenBy: actor, overrideReason: body.reason.trim(), mode: "OVERRIDE" };

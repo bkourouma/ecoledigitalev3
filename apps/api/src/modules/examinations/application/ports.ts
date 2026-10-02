@@ -234,8 +234,8 @@ export interface OfficialDocumentState {
 export interface OfficialDocumentPort {
   /** Scelle le document (QR, signature) et demande son rendu. Idempotent par `sourceId`. */
   request(ctx: RequestContext, input: OfficialDocumentRequest): Promise<Result<{ documentId: string }, AppError>>;
-  /** État et fichier (si rendu) d'un document scellé. */
-  read(ctx: RequestContext, documentId: string): Promise<Result<OfficialDocumentState | null, AppError>>;
+  /** État et fichier (si rendu) d'un document scellé, retrouvé par sa nature et sa source (le module a DÉJÀ contrôlé l'accès). */
+  read(ctx: RequestContext, input: { documentId: string; kind: ExamOfficialKind; sourceId: string }): Promise<Result<OfficialDocumentState | null, AppError>>;
 }
 
 // ---------------------------------------------------------------------------

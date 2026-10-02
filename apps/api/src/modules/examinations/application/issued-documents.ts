@@ -221,7 +221,7 @@ export async function readIssuedDocumentFile(deps: ExaminationsDeps, ctx: Reques
   // Accès famille : le lien de tutelle est relu à chaque requête ; hors périmètre, le document n'existe pas (404).
   if (options.allow && !(await options.allow(c))) return err(notFound(ExamCode.DOCUMENT_NOT_FOUND, "Document d'examen", id));
   if (d.status !== "ISSUED" || !d.officialDocumentId) return err(conflict(ExamCode.DOCUMENT_REVOKED, d.status === "REVOKED" ? "Ce document est révoqué." : "Ce document n'est pas encore émis."));
-  const state = await deps.ports.officialDocuments.read(ctx, d.officialDocumentId);
+  const state = await deps.ports.officialDocuments.read(ctx, { documentId: d.officialDocumentId, kind: OFFICIAL_KIND[d.kind], sourceId: d.id });
   if (!state.ok) return state;
   const audited = await inTx(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);
