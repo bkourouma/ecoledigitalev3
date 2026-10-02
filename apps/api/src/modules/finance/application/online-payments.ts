@@ -49,6 +49,7 @@ import type {
   ProviderMetadata,
   ProviderPayer,
   ProviderPaymentStatus,
+  ProviderWebhookEvent,
 } from "./ports/payment-provider";
 import { loadPaymentView, type PaymentView } from "./billing-core";
 import { EventBuffer, inTx, moneyPayload, type FinanceDeps } from "./deps";
@@ -159,6 +160,14 @@ export async function applyProviderOutcome(
   if (!outcome.amount) {
     return err(
       conflict(FinanceCode.PROVIDER_AMOUNT_MISMATCH, "Le fournisseur n'a pas rapporté le montant : confirmation refusée.", {
+        paymentId: payment.id,
+      }),
+    );
+  }
+  if (payment.providerRef && outcome.providerRef && payment.providerRef !== outcome.providerRef) {
+    // La référence rapportée n'est pas celle de la transaction initiée : jamais d'encaissement sur une autre transaction.
+    return err(
+      conflict(FinanceCode.PROVIDER_REFERENCE_MISMATCH, "La référence rapportée par le fournisseur diffère de celle de la transaction.", {
         paymentId: payment.id,
       }),
     );
@@ -362,7 +371,7 @@ export async function verifyPendingPayment(
   }
   const provider = await deps.providers.resolve(ctx.tenantId, payment.provider);
   if (!provider.ok) return provider;
-  const verification = await provider.value.verify({ paymentId: payment.id, providerRef: payment.providerRef });
+  const verification = await provider.value.verify({ paymentId: payment.id, providerRef: payment.providerRef, amount: payment.amount });
   if (!verification.ok) return verification;
 
   return inTx(deps, ctx, async (tx) => {
@@ -392,6 +401,8 @@ export interface HandleWebhookInput {
   /** Corps BRUT tel que reçu (la signature porte sur ces octets). */
   rawBody: string;
   headers: ProviderHeaders;
+  /** Paramètres d'URL (schémas à URL signée : Orange Money, MTN MoMo). */
+  query?: Readonly<Record<string, string>>;
   requestId?: string;
 }
 
@@ -420,13 +431,21 @@ export async function handleProviderWebhook(deps: FinanceDeps, input: HandleWebh
   if (!resolved.ok) return resolved;
   const provider: PaymentProvider = resolved.value;
 
-  if (!provider.verifySignature(input.rawBody, input.headers)) {
+  const meta = { tenantId: input.tenantId, ...(input.query ? { query: input.query } : {}) };
+  if (!provider.verifySignature(input.rawBody, input.headers, meta)) {
     deps.logger.warn({ tenantId: input.tenantId, provider: input.provider }, "webhook de paiement : signature invalide");
     return err(new UnauthorizedError("Signature de webhook invalide.", { code: FinanceCode.WEBHOOK_SIGNATURE_INVALID }));
   }
-  const parsed = await provider.handleWebhook(input.rawBody, input.headers);
+  const parsed = await provider.handleWebhook(input.rawBody, input.headers, meta);
   if (!parsed.ok) return parsed;
-  const event = parsed.value;
+  let event = parsed.value;
+
+  // Indice sans signature de contenu : la PREUVE est l'API de statut du fournisseur (appel hors transaction).
+  if (event.requiresActiveVerification) {
+    const refined = await refineWithActiveVerification(deps, ctx, provider, input.provider, event);
+    if (!refined.ok) return refined;
+    event = refined.value;
+  }
 
   const processed = inTx<WebhookResult>(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);
@@ -437,7 +456,7 @@ export async function handleProviderWebhook(deps: FinanceDeps, input: HandleWebh
       provider: input.provider,
       eventId: event.eventId,
       eventType: event.type,
-      payload: safeJson(input.rawBody),
+      payload: event.storedPayload ?? safeJson(input.rawBody),
       receivedAt: now,
     });
     if (!record) {
@@ -506,6 +525,59 @@ export async function handleProviderWebhook(deps: FinanceDeps, input: HandleWebh
     if (isForeignKeyViolation(e)) return err(notFound(FinanceCode.NOT_FOUND, "Établissement", input.tenantId));
     throw e;
   }
+}
+
+/**
+ * Remplace le statut, le montant et la référence d'un webhook-indice par ceux de l'API de statut du fournisseur.
+ *  - paiement introuvable : l'événement passe tel quel (il sera enregistré IGNORÉ, `payment_not_found`) — AUCUN appel
+ *    sortant n'est fait pour un identifiant inconnu (un tiers ne peut pas nous faire interroger le fournisseur à volonté) ;
+ *  - paiement déjà réglé : rien à vérifier, l'indice passe (le traitement le verra réglé) ;
+ *  - fournisseur injoignable ou réponse en attente alors que l'indice annonçait un état final : `WEBHOOK_UNVERIFIED`
+ *    (409) — rien n'est enregistré et le fournisseur réessaiera.
+ */
+async function refineWithActiveVerification(
+  deps: FinanceDeps,
+  ctx: RequestContext,
+  provider: PaymentProvider,
+  providerName: string,
+  event: ProviderWebhookEvent,
+): Promise<Result<ProviderWebhookEvent, AppError>> {
+  const payment = await deps.db.run(
+    ctx,
+    async (tx) =>
+      event.paymentId
+        ? getPayment(tx, event.paymentId)
+        : event.providerRef
+          ? getPaymentByProviderRef(tx, providerName, event.providerRef)
+          : null,
+    { readOnly: true },
+  );
+  if (!payment || (payment.provider && payment.provider !== providerName) || payment.status !== "PENDING") {
+    return ok({ ...event, requiresActiveVerification: false });
+  }
+  const verification = await provider.verify({ paymentId: payment.id, providerRef: payment.providerRef, amount: payment.amount });
+  if (!verification.ok) {
+    deps.logger.warn({ provider: providerName, paymentId: payment.id, code: verification.error.code }, "webhook de paiement : vérification active impossible");
+    return err(
+      conflict(FinanceCode.WEBHOOK_UNVERIFIED, "Le statut du paiement n'a pas pu être vérifié auprès du fournisseur ; réessayez.", {
+        provider: providerName,
+      }),
+    );
+  }
+  const v = verification.value;
+  if (v.status === "PENDING" && event.status !== "PENDING") {
+    return err(
+      conflict(FinanceCode.WEBHOOK_UNVERIFIED, "Le fournisseur n'a pas encore confirmé ce statut ; réessayez.", { provider: providerName }),
+    );
+  }
+  return ok({
+    ...event,
+    requiresActiveVerification: false,
+    paymentId: payment.id,
+    status: v.status,
+    amount: v.amount,
+    providerRef: v.providerRef ?? event.providerRef,
+  });
 }
 
 function safeJson(raw: string): unknown {

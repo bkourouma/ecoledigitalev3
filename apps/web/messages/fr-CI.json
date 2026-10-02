@@ -9818,5 +9818,127 @@
         "contact": "Mes coordonnées"
       }
     }
+  },
+  "v2FinanceProviders": {
+    "navLabel": "Fournisseurs de paiement",
+    "title": "Fournisseurs de paiement",
+    "description": "Configurez les fournisseurs de paiement en ligne de votre établissement. Les identifiants sont chiffrés à l'enregistrement et ne sont jamais réaffichés.",
+    "caption": "Fournisseurs de paiement",
+    "environment": {
+      "label": "Environnement",
+      "development": "Développement",
+      "test": "Test",
+      "staging": "Pré-production",
+      "production": "Production"
+    },
+    "vaultUnavailable": "Le coffre des secrets n'est pas configuré : la saisie des identifiants est impossible. Demandez à l'administrateur de la plateforme de le configurer.",
+    "rotate": {
+      "button": "Faire tourner les clés de chiffrement",
+      "title": "Faire tourner les clés de chiffrement ?",
+      "description": "Tous les identifiants enregistrés de votre établissement seront rechiffrés avec la clé de chiffrement active. Aucun identifiant n'est modifié ni affiché.",
+      "confirm": "Faire tourner les clés",
+      "done": "Rotation terminée : {count, plural, =0 {aucun secret rechiffré} one {# secret rechiffré} other {# secrets rechiffrés}} avec la clé {keyId}."
+    },
+    "state": {
+      "disabled": "Désactivé",
+      "active": "Actif",
+      "incomplete": "Configuration incomplète"
+    },
+    "mode": {
+      "label": "Mode",
+      "placeholder": "Choisir un mode",
+      "sandbox": "Sandbox (essai)",
+      "production": "Production",
+      "hint": "Le mode sandbox sert aux essais : aucun vrai paiement n'est effectué.",
+      "sandboxForbidden": "Le mode sandbox est refusé dans cet environnement de production : choisissez le mode production."
+    },
+    "fields": {
+      "required": "obligatoire",
+      "choose": "Choisir…",
+      "secretSet": "Enregistré",
+      "secretUnset": "Non renseigné",
+      "secretKeepHint": "Laissez vide pour conserver la valeur enregistrée.",
+      "secretEnterHint": "Saisissez la valeur : elle sera chiffrée puis ne sera plus jamais affichée.",
+      "clear": "Effacer",
+      "clearLabel": "Effacer le secret « {field} »",
+      "generated": "Généré par la plateforme",
+      "generatedSet": "Déjà généré",
+      "generatedUnset": "Pas encore généré",
+      "regenerate": "Régénérer",
+      "regenerateLabel": "Régénérer « {field} »"
+    },
+    "capabilities": {
+      "refund": "Remboursement via le fournisseur : pris en charge.",
+      "noRefund": "Remboursement via le fournisseur : non pris en charge (le remboursement reste comptable)."
+    },
+    "webhook": {
+      "label": "URL de webhook",
+      "copy": "Copier",
+      "copied": "L'URL de webhook a été copiée.",
+      "copyFailed": "La copie automatique a échoué : l'URL est sélectionnée, copiez-la avec le clavier.",
+      "help": "Saisissez cette URL dans l'interface du fournisseur pour recevoir les confirmations de paiement.",
+      "missing": "L'URL de webhook n'est pas disponible : définissez FINANCE_WEBHOOK_BASE_URL côté serveur.",
+      "signedUrl": "Cette URL contient un jeton secret : ne la partagez pas et ne la publiez nulle part.",
+      "signature": "L'authenticité des notifications est vérifiée par la signature du fournisseur."
+    },
+    "actions": {
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "saved": "La configuration de {name} a été enregistrée.",
+      "test": "Tester la connexion",
+      "testing": "Test en cours…",
+      "testNeedsConfig": "Renseignez tous les champs obligatoires pour tester la connexion.",
+      "enable": "Activer",
+      "disable": "Désactiver",
+      "enabled": "{name} est activé.",
+      "disabled": "{name} est désactivé.",
+      "clearAll": "Effacer les identifiants",
+      "cleared": "Les identifiants de {name} ont été effacés et le fournisseur est désactivé.",
+      "secretCleared": "Le secret « {field} » de {name} a été effacé.",
+      "regenerated": "Le secret « {field} » de {name} a été régénéré.",
+      "missing": "Champs manquants : {fields}.",
+      "enableBlocked": "Activation impossible tant que la configuration est incomplète."
+    },
+    "test": {
+      "lastResult": "Dernier test",
+      "at": "{date}",
+      "ok": "Connexion réussie : les identifiants sont acceptés par le fournisseur.",
+      "credentials_rejected": "Identifiants refusés par le fournisseur : vérifiez-les puis enregistrez-les à nouveau.",
+      "unreachable": "Le fournisseur est injoignable pour le moment : réessayez plus tard.",
+      "unexpected_response": "Le fournisseur a répondu de façon inattendue : réessayez ou contactez le support.",
+      "not_supported": "Ce fournisseur ne permet pas de tester la connexion.",
+      "unknown": "Résultat de test inconnu."
+    },
+    "confirm": {
+      "clearSecret": {
+        "title": "Effacer ce secret ?",
+        "description": "La valeur enregistrée de « {field} » sera supprimée définitivement. Le fournisseur peut devenir inutilisable tant qu'elle n'est pas ressaisie.",
+        "confirm": "Effacer le secret"
+      },
+      "regenerate": {
+        "title": "Régénérer ce secret ?",
+        "description": "Une nouvelle valeur de « {field} » sera générée par la plateforme et remplacera l'ancienne. L'URL de webhook et les réglages côté fournisseur devront peut-être être mis à jour.",
+        "confirm": "Régénérer"
+      },
+      "clearAll": {
+        "title": "Effacer les identifiants ?",
+        "description": "Tous les identifiants enregistrés de {name} seront supprimés définitivement et le fournisseur sera désactivé. Les paiements en ligne via ce fournisseur ne seront plus possibles.",
+        "confirm": "Effacer les identifiants"
+      }
+    },
+    "updatedAt": "Dernière modification : {date}",
+    "never": "Jamais configuré",
+    "errors": {
+      "secretsUnavailable": "Le coffre des secrets n'est pas configuré : la saisie des identifiants est impossible.",
+      "sandboxForbidden": "Le mode sandbox est refusé dans cet environnement de production.",
+      "notConfigured": "Ce fournisseur n'est pas configuré : renseignez et enregistrez ses champs obligatoires.",
+      "testThrottled": "Trop de tests de connexion : patientez un instant avant de réessayer.",
+      "disabled": "Ce fournisseur est désactivé.",
+      "unknownProvider": "Fournisseur inconnu.",
+      "incomplete": "La configuration est incomplète : renseignez tous les champs obligatoires.",
+      "forbidden": "Vous n'avez pas le droit de gérer les fournisseurs de paiement, ou cette action exige une vérification d'identité renforcée.",
+      "rejected": "La demande a été refusée : vérifiez les valeurs saisies puis réessayez.",
+      "generic": "Une erreur est survenue : réessayez dans un instant."
+    }
   }
 }

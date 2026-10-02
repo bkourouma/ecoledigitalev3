@@ -38,6 +38,12 @@ export default defineModule({
       description: "Mouvement de fonds sortant : exige l'authentification forte et reste toujours audité.",
       sensitive: true,
     },
+    {
+      key: "finance.provider.manage",
+      label: "Configurer les fournisseurs de paiement en ligne (identifiants marchands, activation, test de connexion)",
+      description: "Les identifiants marchands déterminent où arrive l'argent des familles : exige l'authentification forte, chaque accès aux secrets est audité.",
+      sensitive: true,
+    },
     { key: "finance.cashregister.open", label: "Ouvrir une session de caisse et encaisser des espèces" },
     { key: "finance.cashregister.close", label: "Clôturer une session de caisse (comptage et écart)" },
     { key: "finance.report.read", label: "Consulter les tableaux de bord et rapports financiers" },
@@ -66,6 +72,7 @@ export default defineModule({
     // Entrées conditionnées par une feature du plan/pack : la navigation (`GET /rbac/me/navigation`) les masque
     // tant que l'établissement n'a pas souscrit la feature (le test de sortie de phase 1 s'appuie dessus).
     { key: "finance.online-payments", label: "Paiements en ligne", href: "/admin/finance/paiements-en-ligne", permission: "finance.payment.read", feature: "finance.online-payment", portal: "admin", icon: "smartphone", order: 415 },
+    { key: "finance.providers", label: "Fournisseurs de paiement", href: "/admin/finance/fournisseurs", permission: "finance.provider.manage", feature: "finance.online-payment", portal: "admin", icon: "credit-card", order: 416 },
     { key: "finance.state-assigned", label: "Élèves affectés par l'État", href: "/admin/finance/affectes-etat", permission: "finance.fee.read", feature: "finance.state-assigned", portal: "admin", icon: "landmark", order: 435 },
     { key: "finance.child", label: "Scolarité de mes enfants", href: "/parent/finance", permission: "finance.child.read", portal: "parent", icon: "wallet", order: 500 },
     { key: "finance.self", label: "Ma scolarité", href: "/student/finance", permission: "finance.self.read", portal: "student", icon: "wallet", order: 500 },
