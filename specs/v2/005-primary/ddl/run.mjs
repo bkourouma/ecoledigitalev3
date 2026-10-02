@@ -118,8 +118,8 @@ try {
   for (const f of list(migDir)) apply(migDir, f, true);
 
   let pass = 0;
-  for (const f of list(testDir)) {
-    const r = psql(["-v", "VERBOSITY=terse"], readFileSync(join(testDir, f), "utf8"));
+  for (const f of list(testDir).filter((x) => !process.env.ED_ONLY || /^0/.test(x) || x.includes(process.env.ED_ONLY))) {
+    const r = psql(["-v", `VERBOSITY=${process.env.ED_VERBOSE ? "default" : "terse"}`], readFileSync(join(testDir, f), "utf8"));
     const lines = `${r.stdout}\n${r.stderr}`.split(/\r?\n/);
     const passes = lines.filter((l) => /PASS: /.test(l));
     for (const l of passes) console.log(l.replace(/^.*?(PASS: )/, "  PASS: "));
