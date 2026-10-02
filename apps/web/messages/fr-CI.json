@@ -15186,5 +15186,1069 @@
       "acceptedTitle": "Place acceptée",
       "declinedTitle": "Place déclinée"
     }
+  },
+  "v2Councils": {
+    "nav": {
+      "label": "Conseils de classe",
+      "calendar": "Calendrier des conseils",
+      "effects": "Effets des décisions",
+      "orientation": "Orientation",
+      "settings": "Paramètres",
+      "family": "Décisions de mes enfants",
+      "me": "Mes décisions"
+    },
+    "common": {
+      "notFound": "Élément introuvable",
+      "notFoundHint": "Ce conseil ou ce dossier n'existe pas, ou il n'est pas dans votre périmètre.",
+      "backToCalendar": "Retour au calendrier",
+      "tableLabel": "Tableau : {caption}"
+    },
+    "subnav": {
+      "label": "Sections de la séance",
+      "file": "Dossier de classe",
+      "deliberation": "Délibération",
+      "minutes": "Procès-verbal",
+      "history": "Historique"
+    },
+    "banner": {
+      "title": "Règles de démonstration — non réglementaires",
+      "hint": "Les suggestions et mentions de cet écran reposent sur un jeu de règles de démonstration, sans valeur réglementaire.",
+      "short": "Règles de démonstration"
+    },
+    "errors": {
+      "codes": {
+        "not_found": "Élément introuvable.",
+        "quorum_not_met": "Le quorum n'est pas atteint.",
+        "invalid_status": "Cette action n'est pas possible dans l'état actuel de la séance.",
+        "locked": "La séance est verrouillée : demandez un déverrouillage motivé.",
+        "minutes_not_rendered": "Le rendu du PDF n'est pas encore prêt. Réessayez dans un instant.",
+        "justification_required": "Une justification est obligatoire pour cette décision.",
+        "conflict": "Cette action est en conflit avec l'état actuel du dossier. Actualisez la page."
+      }
+    },
+    "enums": {
+      "status": {
+        "PLANNED": "Planifié",
+        "OPEN": "En séance",
+        "CLOSED": "Clos",
+        "SIGNED": "Signé",
+        "CANCELLED": "Annulé"
+      },
+      "scope": {
+        "PERIOD": "Période",
+        "YEAR": "Bilan de fin d'année"
+      },
+      "presence": {
+        "INVITED": "Convoqué",
+        "PRESENT": "Présent",
+        "ABSENT": "Absent",
+        "EXCUSED": "Excusé"
+      },
+      "function": {
+        "PRESIDENT": "Président",
+        "SECRETARY": "Secrétaire"
+      },
+      "agendaStatus": {
+        "PENDING": "À examiner",
+        "REVIEWED": "Examiné",
+        "DECIDED": "Décidé"
+      },
+      "proposalKind": {
+        "APPRECIATION": "Appréciation",
+        "DISTINCTION": "Distinction",
+        "DECISION": "Décision",
+        "REMARK": "Remarque"
+      },
+      "proposalStatus": {
+        "PROPOSED": "Proposée",
+        "ACCEPTED": "Acceptée",
+        "MODIFIED": "Modifiée",
+        "REJECTED": "Refusée",
+        "WITHDRAWN": "Retirée"
+      },
+      "origin": {
+        "RULE_SUGGESTION": "Suggestion",
+        "HUMAN": "Proposition humaine"
+      },
+      "decisionFamily": {
+        "PASSAGE": "Passage",
+        "REPEAT": "Redoublement",
+        "ORIENTATION": "Orientation",
+        "REORIENTATION": "Réorientation",
+        "EXCLUSION": "Exclusion",
+        "REQUIRED_OPINION": "Avis requis",
+        "OTHER": "Autre"
+      },
+      "decisionMode": {
+        "CONSENSUS": "Consensus",
+        "VOTE": "Vote",
+        "PRESIDENT_CASTING_VOTE": "Voix prépondérante du président"
+      },
+      "decisionStatus": {
+        "RECORDED": "Enregistrée",
+        "WITHDRAWN": "Retirée",
+        "SUPERSEDED": "Remplacée"
+      },
+      "effectKind": {
+        "RESULTS_DECISION": "Décision de résultats",
+        "ENROLLMENT_OUTCOME": "Issue d'inscription",
+        "ORIENTATION_FILE": "Dossier d'orientation",
+        "SERIES_TRANSFER": "Transfert de série",
+        "STUDENT_STATUS_REQUEST": "Demande de changement de statut de l'élève",
+        "NOTIFY_GUARDIANS": "Information des tuteurs",
+        "RESULTS_APPRECIATION": "Appréciation de résultats",
+        "RESULTS_DISTINCTION": "Distinction de résultats"
+      },
+      "effectStatus": {
+        "PENDING": "En attente",
+        "AWAITING_HUMAN": "À appliquer par un humain",
+        "APPLIED": "Appliqué",
+        "FAILED": "En échec",
+        "REVERTED": "Annulé",
+        "SKIPPED": "Abandonné"
+      },
+      "minutesStatus": {
+        "GENERATED": "Généré",
+        "SIGNED": "Signé",
+        "SUPERSEDED": "Remplacé",
+        "REVOKED": "Révoqué"
+      },
+      "renderStatus": {
+        "PENDING": "Rendu en cours",
+        "RENDERED": "PDF prêt",
+        "FAILED": "Rendu en échec"
+      },
+      "signatureMethod": {
+        "ELECTRONIC": "Électronique",
+        "SCANNED_PAPER": "Papier numérisé"
+      },
+      "unlockStatus": {
+        "REQUESTED": "Demandé",
+        "APPROVED": "Approuvé",
+        "REJECTED": "Refusé",
+        "CONSUMED": "Utilisé",
+        "EXPIRED": "Expiré"
+      },
+      "resultsStatus": {
+        "OPEN": "Résultats ouverts",
+        "GRADING_LOCKED": "Saisie des notes verrouillée"
+      },
+      "guardianVisibility": {
+        "NEVER": "Jamais",
+        "AFTER_SIGNATURE": "Après signature du procès-verbal",
+        "AFTER_NOTIFICATION": "Après notification"
+      },
+      "effectsTrigger": {
+        "CLOSED": "À la clôture de la séance",
+        "SIGNED": "À la signature du procès-verbal"
+      },
+      "appliesTo": {
+        "PERIOD": "Période",
+        "YEAR": "Année",
+        "BOTH": "Période et année"
+      },
+      "pathKind": {
+        "ORIENTATION": "Orientation",
+        "REORIENTATION": "Réorientation",
+        "SERIES_CHANGE": "Changement de série"
+      },
+      "orientationStatus": {
+        "OPEN": "Ouvert",
+        "WISHES_COLLECTED": "Vœux recueillis",
+        "PROPOSED": "Proposé",
+        "DECIDED": "Décidé",
+        "APPLIED": "Appliqué",
+        "CLOSED": "Clos",
+        "CANCELLED": "Annulé"
+      },
+      "consent": {
+        "NOT_REQUIRED": "Non requis",
+        "PENDING": "En attente",
+        "GIVEN": "Donné",
+        "REFUSED": "Refusé"
+      },
+      "wishSource": {
+        "GUARDIAN": "Tuteur",
+        "STUDENT": "Élève",
+        "STAFF": "Personnel",
+        "COUNSELLOR": "Conseiller d'orientation"
+      },
+      "transferStatus": {
+        "PLANNED": "Planifié",
+        "APPLIED": "Appliqué",
+        "CANCELLED": "Annulé",
+        "FAILED": "En échec"
+      },
+      "effectiveKind": {
+        "NEXT_YEAR": "À la prochaine année",
+        "MID_YEAR": "En cours d'année"
+      },
+      "decidedVia": {
+        "COUNCIL": "Décision du conseil",
+        "DIRECTOR_ACT": "Acte de la direction"
+      },
+      "ruleSource": {
+        "regulation": "Réglementaire",
+        "institution": "Établissement",
+        "platform": "Plateforme",
+        "placeholder": "Démonstration"
+      },
+      "authorRole": {
+        "TEACHER": "Enseignant",
+        "COUNCIL": "Conseil",
+        "DIRECTOR": "Direction"
+      },
+      "proposedSource": {
+        "HOMEROOM": "Professeur principal",
+        "TEACHING": "Enseignant de la classe"
+      },
+      "studentStatus": {
+        "SUSPENDED": "Suspendu",
+        "EXCLUDED": "Exclu"
+      }
+    },
+    "statusBar": {
+      "label": "État de la séance",
+      "quorumMet": "Quorum atteint",
+      "quorumNotMet": "Quorum non atteint",
+      "present": "{present} présent(s) sur {required} requis",
+      "presentNoMin": "{present} présent(s) — aucun minimum défini",
+      "reopened": "Rouvert {count} fois",
+      "waived": "Quorum dérogé",
+      "heldOn": "Tenu le {date}",
+      "scheduledAt": "Prévu le {date}",
+      "noDate": "Date non fixée",
+      "missingRoles": "Rôles manquants",
+      "presidentAbsent": "Le président n'est pas présent.",
+      "waiverReason": "Motif de dérogation au quorum",
+      "cancelReason": "Motif d'annulation"
+    },
+    "facts": {
+      "none": "Les faits de cet élève ne sont pas encore préparés : lancez la préparation de la séance.",
+      "frozen": "Faits figés, version {version}, empreinte",
+      "missingResults": "Aucun résultat exploitable pour cet élève : une décision de passage ou de redoublement exige une justification.",
+      "resultStatus": "État du résultat",
+      "average": "Moyenne",
+      "rank": "Rang",
+      "rankOf": "{rank} sur {size}",
+      "mention": "Mention",
+      "ruleVersion": "Version de règle",
+      "repeating": "Redoublant",
+      "yes": "Oui",
+      "no": "Non",
+      "funding": "Financement",
+      "stateAssigned": "Affecté par l'État",
+      "attendance": "Assiduité",
+      "absentMinutes": "Minutes d'absence",
+      "excusedMinutes": "Minutes justifiées",
+      "absentCount": "Absences",
+      "excusedCount": "Absences justifiées",
+      "lateCount": "Retards",
+      "attendanceUnavailable": "L'assiduité n'est pas disponible pour cet élève.",
+      "discipline": "Vie scolaire",
+      "exclusionDays": "Jours d'exclusion",
+      "conductPoints": "Points de conduite",
+      "measuresByKind": "Mesures par famille",
+      "disciplineUnavailable": "La vie scolaire n'est pas disponible pour cet élève.",
+      "appreciations": "Appréciations des enseignants"
+    },
+    "suggestions": {
+      "title": "Suggestions des règles",
+      "notDecision": "Ces suggestions viennent du jeu de règles : ce ne sont pas des décisions. Seul le conseil décide.",
+      "none": "Aucune suggestion des règles pour cet élève.",
+      "label": "Suggestion"
+    },
+    "proposals": {
+      "title": "Propositions",
+      "add": "Ajouter une proposition",
+      "none": "Aucune proposition pour le moment.",
+      "originSuggestion": "Suggestion",
+      "originHuman": "Proposition",
+      "by": "Proposée par {name}",
+      "accept": "Accepter",
+      "reject": "Refuser",
+      "withdraw": "Retirer",
+      "dialog": {
+        "note": "Note (facultative)",
+        "reject": {
+          "title": "Refuser la proposition",
+          "description": "La proposition est refusée ; une note peut expliquer pourquoi.",
+          "confirm": "Refuser"
+        },
+        "withdraw": {
+          "title": "Retirer la proposition",
+          "description": "La proposition est retirée du dossier de l'élève.",
+          "confirm": "Retirer"
+        }
+      },
+      "done": {
+        "accepted": "Proposition acceptée.",
+        "rejected": "Proposition refusée.",
+        "withdrawn": "Proposition retirée.",
+        "added": "Proposition ajoutée."
+      },
+      "form": {
+        "title": "Ajouter une proposition",
+        "description": "Appréciation, remarque ou distinction proposée par un membre du conseil. Elle reste à accepter par le conseil.",
+        "submit": "Ajouter",
+        "kind": "Nature",
+        "code": "Code de la distinction",
+        "codeHint": "Code défini par l'établissement (majuscules, chiffres et _).",
+        "body": "Texte"
+      }
+    },
+    "decisions": {
+      "title": "Décisions",
+      "none": "Aucune décision enregistrée pour cet élève.",
+      "differs": "Écart avec la suggestion",
+      "suggested": "Ce que la règle suggérait",
+      "suggestionTag": "Suggestion",
+      "noSuggestion": "Aucune suggestion",
+      "decided": "Décision du conseil",
+      "mode": "Mode",
+      "votes": "Voix",
+      "votesValue": "{for} pour, {against} contre, {abstain} abstention(s)",
+      "decider": "Décideur",
+      "decidedAt": "Enregistrée le",
+      "target": "Cible",
+      "facts": "Faits de référence",
+      "factsVersion": "version {version}",
+      "justification": "Justification",
+      "withdrawnReason": "Motif du retrait",
+      "withdraw": "Retirer la décision",
+      "withdrawDialog": {
+        "title": "Retirer la décision",
+        "description": "La décision est retirée avec un motif ; elle reste visible dans l'historique.",
+        "label": "Motif du retrait",
+        "confirm": "Retirer"
+      },
+      "withdrawn": "Décision retirée."
+    },
+    "decisionForm": {
+      "title": "Enregistrer une décision",
+      "notOpen": "Les décisions s'enregistrent pendant que la séance est ouverte.",
+      "noDecider": "Aucun participant présent n'est habilité à décider : renseignez la présence dans le dossier de classe.",
+      "type": "Type de décision",
+      "chooseType": "Choisir un type",
+      "decider": "Décideur présent",
+      "deciderHint": "Participant présent dont le rôle permet de décider.",
+      "chooseDecider": "Choisir le décideur",
+      "typeRules": "Règles du type de décision",
+      "rules": {
+        "justification": "Ce type exige une justification.",
+        "vote": "Ce type exige un vote.",
+        "target": "Ce type exige une cible (série ou niveau).",
+        "humanApplication": "L'effet de ce type sera appliqué par un humain habilité.",
+        "exclusive": "Une seule décision du groupe « {group} » peut être retenue."
+      },
+      "gapHint": "Ce type diffère de la suggestion des règles : une justification sera exigée.",
+      "mode": "Mode de décision",
+      "votesFor": "Voix pour",
+      "votesAgainst": "Voix contre",
+      "votesAbstain": "Abstentions",
+      "justification": "Justification",
+      "justificationHint": "Facultative sauf écart avec la suggestion, type exigeant ou résultats manquants.",
+      "justificationHintRequired": "Obligatoire pour cette décision.",
+      "justificationRequired": "La justification est obligatoire pour cette décision.",
+      "target": "Cible",
+      "targetProgram": "Série ou programme",
+      "targetGrade": "Niveau",
+      "targetLabel": "Libellé de la cible",
+      "none": "Aucun",
+      "targetRequired": "Ce type exige une cible : choisissez une série, un niveau ou précisez un libellé.",
+      "existing": "Une décision du même groupe est déjà enregistrée : « {decision} ». L'enregistrer la remplace.",
+      "supersedeReason": "Motif du remplacement",
+      "supersedeRequired": "Remplacer « {decision} » exige un motif de retrait.",
+      "saved": "Décision enregistrée.",
+      "submit": "Enregistrer la décision"
+    },
+    "item": {
+      "title": "Fiche élève",
+      "description": "Faits figés, suggestions, propositions et décisions du conseil.",
+      "backToFile": "Retour au dossier de classe",
+      "missingResults": "Résultats manquants",
+      "markReviewed": "Marquer comme examiné",
+      "reviewed": "Élève marqué comme examiné.",
+      "rebuild": "Reconstruire les faits",
+      "rebuilt": "Faits reconstruits.",
+      "factsTitle": "Faits du dossier",
+      "proposalsCount": "Propositions ({count})"
+    },
+    "deliberation": {
+      "title": "Délibération",
+      "description": "Mode séance : un élève à la fois.",
+      "notOpen": "La séance n'est pas ouverte : la saisie des décisions est impossible.",
+      "emptyTitle": "Aucun élève à l'ordre du jour",
+      "emptyHint": "Préparez la séance depuis le dossier de classe.",
+      "backToFile": "Retour au dossier de classe",
+      "navLabel": "Navigation entre les élèves",
+      "previous": "Élève précédent",
+      "next": "Élève suivant",
+      "jump": "Aller à un élève",
+      "position": "Élève {position} sur {total}",
+      "openFile": "Ouvrir la fiche complète"
+    },
+    "calendar": {
+      "title": "Calendrier des conseils de classe",
+      "description": "Séances planifiées, ouvertes, closes et signées, par classe et par période.",
+      "create": "Planifier un conseil",
+      "created": "Séance créée.",
+      "openCreated": "Ouvrir la séance",
+      "filters": {
+        "label": "Filtres du calendrier",
+        "classroom": "Classe",
+        "year": "Année scolaire",
+        "period": "Période",
+        "status": "Statut",
+        "from": "À partir du",
+        "to": "Jusqu'au",
+        "all": "Tous"
+      },
+      "statusOptions": {
+        "PLANNED": "Planifié",
+        "OPEN": "En séance",
+        "CLOSED": "Clos",
+        "SIGNED": "Signé",
+        "CANCELLED": "Annulé"
+      },
+      "summary": {
+        "title": "Synthèse de la classe",
+        "reviewNeeded": "Conseil à revoir : la période de résultats a été rouverte sous une séance signée. La direction décide de la suite.",
+        "reviewLink": "Ouvrir la séance à revoir",
+        "effects": "Effets des décisions",
+        "pending": "{count} en attente",
+        "failed": "{count} en échec",
+        "awaitingHuman": "{count} à appliquer par un humain",
+        "decisions": "Décisions par code"
+      },
+      "empty": "Aucun conseil",
+      "emptyHint": "Aucune séance ne correspond à ces filtres.",
+      "table": {
+        "caption": "Conseils de classe",
+        "council": "Conseil",
+        "classroom": "Classe",
+        "period": "Période",
+        "date": "Date",
+        "status": "Statut",
+        "progress": "Avancement",
+        "results": "Résultats",
+        "yearScope": "Bilan de fin d'année",
+        "reviewNeeded": "À revoir",
+        "reopened": "Rouvert {count} fois",
+        "progressValue": "{decided} décidé(s) sur {items} · {present} présent(s) sur {participants}",
+        "resultsLinked": "Résultats liés",
+        "resultsNotLinked": "Résultats non liés"
+      },
+      "pagination": {
+        "label": "Pagination",
+        "previous": "Précédent",
+        "next": "Suivant",
+        "page": "Page {page} sur {pages}"
+      },
+      "form": {
+        "title": "Planifier un conseil de classe",
+        "description": "Le type de conseil est une donnée de l'établissement.",
+        "submit": "Planifier",
+        "classroom": "Classe",
+        "chooseClassroom": "Choisir une classe",
+        "type": "Type de conseil",
+        "chooseType": "Choisir un type",
+        "year": "Année scolaire",
+        "period": "Période",
+        "choosePeriod": "Choisir une période",
+        "periodRequired": "Ce type de conseil porte sur une période : choisissez-la.",
+        "yearScope": "Ce type de conseil porte sur l'année entière.",
+        "titleLabel": "Intitulé (facultatif)",
+        "date": "Date prévue",
+        "time": "Heure",
+        "location": "Lieu"
+      }
+    },
+    "file": {
+      "title": "Dossier de classe",
+      "description": "Préparation et déroulement de la séance : quorum, participants, ordre du jour par élève.",
+      "actions": {
+        "label": "Actions de la séance",
+        "prepare": "Préparer la séance",
+        "prepared": "Préparation terminée : {created} créé(s), {rebuilt} reconstruit(s), {unchanged} inchangé(s), {skipped} ignoré(s).",
+        "convoke": "Convoquer",
+        "convoked": "Convocation envoyée : {convoked} convoqué(s), {notified} notifié(s).",
+        "open": "Ouvrir la séance",
+        "close": "Clore la séance",
+        "edit": "Modifier",
+        "cancel": "Annuler la séance",
+        "deliberate": "Passer en mode séance",
+        "effects": "Voir les effets",
+        "openBlocked": "Le quorum n'est pas atteint et l'établissement n'autorise pas de dérogation : la séance ne peut pas être ouverte.",
+        "openWaiverHint": "Le quorum n'est pas atteint : l'ouverture exige un motif de dérogation."
+      },
+      "dialogs": {
+        "open": {
+          "title": "Ouvrir la séance",
+          "description": "La séance passe en cours ; les décisions peuvent être enregistrées.",
+          "confirm": "Ouvrir",
+          "quorumMet": "Le quorum est atteint."
+        },
+        "waiver": {
+          "title": "Ouvrir sans quorum",
+          "description": "Le quorum n'est pas atteint. L'ouverture est consignée au procès-verbal avec votre motif.",
+          "label": "Motif de la dérogation au quorum",
+          "confirm": "Ouvrir malgré tout"
+        },
+        "close": {
+          "title": "Clore la séance",
+          "description": "Après la clôture, les décisions ne sont plus modifiables sans déverrouillage motivé.",
+          "confirm": "Clore",
+          "body": "Confirmez-vous la clôture de la séance ?"
+        },
+        "cancel": {
+          "title": "Annuler la séance",
+          "description": "La séance est annulée et ne pourra plus être ouverte.",
+          "label": "Motif de l'annulation",
+          "confirm": "Annuler la séance"
+        }
+      },
+      "done": {
+        "opened": "Séance ouverte.",
+        "openedWaived": "Séance ouverte avec dérogation au quorum.",
+        "closed": "Séance close.",
+        "cancelled": "Séance annulée.",
+        "updated": "Séance mise à jour."
+      },
+      "edit": {
+        "title": "Modifier la séance",
+        "description": "Intitulé, date et lieu.",
+        "submit": "Enregistrer",
+        "titleLabel": "Intitulé",
+        "date": "Date prévue",
+        "time": "Heure",
+        "location": "Lieu",
+        "heldOn": "Date de tenue",
+        "heldOnHint": "Renseignée pour le procès-verbal."
+      }
+    },
+    "participants": {
+      "title": "Participants et présence",
+      "add": "Ajouter un participant",
+      "none": "Aucun participant pour le moment.",
+      "caption": "Participants de la séance",
+      "name": "Nom",
+      "role": "Rôle",
+      "function": "Fonction",
+      "presence": "Présence",
+      "convoked": "Convocation",
+      "actions": "Actions",
+      "notConvoked": "Non convoqué",
+      "nonVoting": "sans voix délibérative",
+      "presenceOf": "Présence de {name}",
+      "remove": "Retirer {name}",
+      "removeShort": "Retirer",
+      "removed": "Participant retiré.",
+      "proposedTitle": "Participants proposés",
+      "proposedHint": "Proposés d'après les affectations d'enseignement de la classe ; aucun nom n'est figé avant l'ajout.",
+      "proposedNone": "Aucun autre participant à proposer.",
+      "addProposed": "Ajouter {name}",
+      "added": "Participant ajouté.",
+      "form": {
+        "title": "Ajouter un participant",
+        "description": "Le nom est figé à l'ajout.",
+        "submit": "Ajouter",
+        "staff": "Membre du personnel",
+        "chooseStaff": "Choisir un membre",
+        "role": "Rôle",
+        "chooseRole": "Choisir un rôle",
+        "function": "Fonction",
+        "noFunction": "Aucune"
+      }
+    },
+    "agenda": {
+      "title": "Ordre du jour par élève",
+      "empty": "Aucun élève à l'ordre du jour",
+      "emptyHint": "Lancez « Préparer la séance » pour constituer l'ordre du jour.",
+      "caption": "Ordre du jour",
+      "position": "N°",
+      "student": "Élève",
+      "status": "Statut",
+      "facts": "Faits",
+      "decisions": "Décisions",
+      "proposals": "Propositions à traiter",
+      "openFile": "Ouvrir la fiche de {name}",
+      "missingResults": "Résultats manquants",
+      "factsVersion": "Version {version}",
+      "notPrepared": "Non préparé"
+    },
+    "minutes": {
+      "title": "Procès-verbal",
+      "description": "Génération, signatures et déverrouillage motivé.",
+      "generate": "Générer le procès-verbal",
+      "generated": "Procès-verbal généré (version {version}).",
+      "empty": "Aucun procès-verbal",
+      "emptyHint": "Générez le procès-verbal une fois les décisions enregistrées.",
+      "versions": {
+        "title": "Versions",
+        "caption": "Versions du procès-verbal",
+        "version": "Version",
+        "status": "Statut",
+        "render": "PDF",
+        "generatedAt": "Généré le",
+        "hash": "Empreinte",
+        "actions": "Actions",
+        "versionValue": "Version {version}",
+        "shown": "Affichée",
+        "show": "Afficher la version {version}",
+        "showShort": "Afficher"
+      },
+      "current": {
+        "title": "Procès-verbal, version {version}",
+        "status": "Statut",
+        "render": "Rendu PDF",
+        "generatedAt": "Généré le",
+        "signedAt": "Signé le",
+        "revokedReason": "Motif de révocation",
+        "pdfTitle": "Document PDF",
+        "renderPending": "Le rendu du PDF est en cours.",
+        "renderFailed": "Le rendu du PDF a échoué.",
+        "pdfPrepare": "Préparer le téléchargement",
+        "pdfDownload": "Télécharger le PDF",
+        "pdfExpires": "Lien valable jusqu'au {date}. Empreinte",
+        "signaturesTitle": "Signatures",
+        "noSignature": "Aucune signature pour le moment.",
+        "signaturesCaption": "Signatures du procès-verbal",
+        "signer": "Signataire",
+        "role": "Rôle",
+        "method": "Mode",
+        "signedOn": "Signé le",
+        "hash": "Empreinte",
+        "missingTitle": "Signataires manquants",
+        "noMissing": "Tous les signataires exigés ont signé.",
+        "toSign": "À signer",
+        "paperFor": "Enregistrer la signature papier de {name}",
+        "paper": "Signature papier",
+        "signed": "Signature enregistrée.",
+        "signElectronic": "Signer électroniquement",
+        "revoke": "Révoquer le procès-verbal",
+        "contentTitle": "Contenu du procès-verbal",
+        "contentCaption": "Décisions par élève",
+        "student": "Élève",
+        "decisions": "Décisions",
+        "appreciation": "Appréciation",
+        "differs": "écart avec la suggestion",
+        "paperSigned": "Signature papier enregistrée.",
+        "revoked": "Procès-verbal révoqué.",
+        "revokeDialog": {
+          "title": "Révoquer le procès-verbal",
+          "description": "Un procès-verbal révoqué n'a plus de valeur ; le motif est conservé.",
+          "label": "Motif de la révocation",
+          "confirm": "Révoquer"
+        }
+      },
+      "paperDialog": {
+        "title": "Signature papier",
+        "description": "Enregistre la signature d'un signataire sur le document imprimé et numérisé.",
+        "submit": "Enregistrer",
+        "signer": "Signataire",
+        "chooseSigner": "Choisir le signataire",
+        "evidence": "Référence de la pièce numérisée",
+        "evidenceHint": "Clé de la pièce justificative déjà déposée."
+      }
+    },
+    "unlock": {
+      "title": "Déverrouillage motivé",
+      "request": "Demander le déverrouillage",
+      "intro": "Une séance close ou signée ne se modifie qu'après un déverrouillage motivé, approuvé par un autre responsable lorsque l'établissement l'exige.",
+      "none": "Aucune demande de déverrouillage.",
+      "caption": "Demandes de déverrouillage",
+      "requestedBy": "Demandé par",
+      "reason": "Motif",
+      "status": "Statut",
+      "decidedBy": "Décidé par",
+      "actions": "Actions",
+      "fourEyesWaived": "Double validation non exigée",
+      "approve": "Approuver",
+      "reject": "Refuser",
+      "approvedHint": "Un déverrouillage est approuvé : la séance peut être rouverte.",
+      "reopen": "Rouvrir la séance",
+      "requested": "Demande de déverrouillage envoyée.",
+      "approved": "Demande approuvée.",
+      "rejected": "Demande refusée.",
+      "reopened": "Séance rouverte.",
+      "requestDialog": {
+        "title": "Demander le déverrouillage",
+        "description": "Expliquez pourquoi la séance doit être rouverte.",
+        "label": "Motif du déverrouillage",
+        "confirm": "Envoyer la demande"
+      },
+      "approveDialog": {
+        "title": "Approuver le déverrouillage",
+        "description": "La séance pourra être rouverte.",
+        "label": "Note (facultative)",
+        "confirm": "Approuver"
+      },
+      "rejectDialog": {
+        "title": "Refuser le déverrouillage",
+        "description": "Le refus doit être motivé.",
+        "label": "Motif du refus",
+        "confirm": "Refuser"
+      },
+      "reopenDialog": {
+        "title": "Rouvrir la séance",
+        "description": "La séance repasse en cours ; les décisions redeviennent modifiables.",
+        "confirm": "Rouvrir",
+        "body": "Confirmez-vous la réouverture de la séance ?"
+      }
+    },
+    "history": {
+      "title": "Historique de la séance",
+      "description": "Journal, demandes de déverrouillage et réouvertures.",
+      "reopenCount": "Réouvertures : {count}",
+      "journal": "Journal de séance",
+      "journalCaption": "Journal de séance",
+      "empty": "Journal vide",
+      "emptyHint": "Aucun événement enregistré pour cette séance.",
+      "when": "Quand",
+      "what": "Événement",
+      "who": "Auteur",
+      "reason": "Motif",
+      "unlocks": "Demandes de déverrouillage",
+      "events": {
+        "council_created": "Séance créée",
+        "council_convoked": "Participants convoqués",
+        "council_opened": "Séance ouverte",
+        "council_closed": "Séance close",
+        "council_signed": "Procès-verbal signé",
+        "council_reopened": "Séance rouverte",
+        "council_cancelled": "Séance annulée",
+        "council_review_needed": "Conseil à revoir",
+        "quorum_waived": "Dérogation au quorum",
+        "decision_recorded": "Décision enregistrée",
+        "decision_withdrawn": "Décision retirée",
+        "minutes_generated": "Procès-verbal généré",
+        "minutes_rendered": "PDF du procès-verbal prêt",
+        "minutes_signed": "Procès-verbal signé",
+        "minutes_superseded": "Procès-verbal remplacé",
+        "minutes_revoked": "Procès-verbal révoqué",
+        "unlock_requested": "Déverrouillage demandé",
+        "unlock_approved": "Déverrouillage approuvé",
+        "unlock_rejected": "Déverrouillage refusé",
+        "effect_applied": "Effet appliqué",
+        "effect_failed": "Effet en échec",
+        "effect_reverted": "Effet annulé",
+        "effect_awaiting_human": "Effet à appliquer par un humain",
+        "orientation_file_decided": "Dossier d'orientation décidé",
+        "series_transfer_planned": "Transfert de série planifié",
+        "series_transfer_applied": "Transfert de série appliqué",
+        "series_transfer_cancelled": "Transfert de série annulé"
+      }
+    },
+    "effects": {
+      "title": "Effets des décisions",
+      "description": "Ce que les décisions du conseil déclenchent ailleurs : relances, applications par un humain, annulations motivées.",
+      "filteredByCouncil": "Effets d'une seule séance.",
+      "showAll": "Voir tous les effets",
+      "filters": {
+        "label": "Filtres des effets",
+        "status": "Statut",
+        "kind": "Nature",
+        "all": "Tous"
+      },
+      "empty": "Aucun effet",
+      "emptyHint": "Aucun effet ne correspond à ces filtres.",
+      "table": {
+        "caption": "File des effets",
+        "student": "Élève",
+        "effect": "Effet",
+        "status": "Statut",
+        "attempts": "Tentatives",
+        "detail": "Détail",
+        "actions": "Actions",
+        "council": "Séance",
+        "irreversible": "Irréversible",
+        "appliedAt": "Appliqué le {date}",
+        "revertReason": "Annulé : {reason}"
+      },
+      "actions": {
+        "retry": "Relancer",
+        "apply": "Appliquer",
+        "skip": "Abandonner",
+        "revert": "Annuler l'effet"
+      },
+      "done": {
+        "retried": "Relance demandée.",
+        "applied": "Effet appliqué.",
+        "skipped": "Effet abandonné.",
+        "reverted": "Effet annulé."
+      },
+      "dialogs": {
+        "apply": {
+          "title": "Appliquer l'effet",
+          "description": "Cet effet change la situation d'un élève. Il n'est jamais appliqué automatiquement : il demande l'acte d'un humain habilité.",
+          "confirm": "Appliquer l'effet",
+          "student": "Élève",
+          "effect": "Effet",
+          "irreversible": "Cet effet est irréversible.",
+          "confirmLabel": "Je confirme appliquer cet effet à cet élève",
+          "confirmHint": "L'application est tracée à votre nom.",
+          "confirmRequired": "Cochez la case pour confirmer l'application.",
+          "reason": "Motif (facultatif)",
+          "reasonHint": "5 caractères au moins si renseigné.",
+          "reasonTooShort": "Le motif doit faire au moins 5 caractères."
+        },
+        "skip": {
+          "title": "Abandonner l'effet",
+          "description": "L'effet ne sera pas appliqué ; le motif est conservé.",
+          "label": "Motif de l'abandon",
+          "confirm": "Abandonner"
+        },
+        "revert": {
+          "title": "Annuler l'effet",
+          "description": "L'effet appliqué est annulé ; le motif est conservé.",
+          "label": "Motif de l'annulation",
+          "confirm": "Annuler l'effet"
+        }
+      },
+      "pagination": {
+        "label": "Pagination",
+        "previous": "Précédent",
+        "next": "Suivant",
+        "page": "Page {page} sur {pages}"
+      }
+    },
+    "settings": {
+      "title": "Paramètres des conseils de classe",
+      "description": "Rôles, types de conseil, types de décision et réglages de l'établissement. Aucune valeur réglementaire n'est imposée par le logiciel.",
+      "saved": "Paramètre enregistré.",
+      "common": {
+        "code": "Code",
+        "codeHint": "Majuscules, chiffres et _ (40 caractères au plus).",
+        "label": "Libellé",
+        "active": "Actif",
+        "actions": "Actions",
+        "edit": "Modifier",
+        "editNamed": "Modifier {name}",
+        "sortOrder": "Ordre d'affichage",
+        "save": "Enregistrer",
+        "yes": "Oui",
+        "no": "Non"
+      },
+      "roles": {
+        "title": "Rôles des participants",
+        "hint": "Voix délibérative, quorum, signature et capacité à décider sont définis par l'établissement.",
+        "add": "Ajouter un rôle",
+        "empty": "Aucun rôle défini",
+        "caption": "Rôles des participants",
+        "isVoting": "Voix délibérative",
+        "countsForQuorum": "Compte pour le quorum",
+        "maySign": "Peut signer",
+        "canDecide": "Peut décider",
+        "canDecideHint": "Un décideur doit être présent pour enregistrer une décision.",
+        "isExternal": "Personne extérieure à l'établissement",
+        "external": "Externe",
+        "editTitle": "Modifier le rôle",
+        "addTitle": "Ajouter un rôle",
+        "dialogHint": "Création ou mise à jour par code."
+      },
+      "councilTypes": {
+        "title": "Types de conseil",
+        "hint": "Le quorum et les signataires sont des données de l'établissement ; sans minimum, aucun contrôle de quorum n'est fait.",
+        "add": "Ajouter un type",
+        "empty": "Aucun type de conseil défini",
+        "caption": "Types de conseil",
+        "scope": "Portée",
+        "minResultsStatus": "État minimal des résultats",
+        "minParticipants": "Quorum minimal",
+        "minParticipantsHint": "Laisser vide : aucun contrôle de quorum.",
+        "noQuorum": "Aucun contrôle",
+        "requiredRoles": "Rôles exigés au quorum",
+        "signerFunctions": "Fonctions signataires",
+        "signerRoles": "Rôles signataires",
+        "requiresDecisionPerStudent": "Une décision par élève est exigée",
+        "editTitle": "Modifier le type de conseil",
+        "addTitle": "Ajouter un type de conseil",
+        "dialogHint": "Création ou mise à jour par code."
+      },
+      "decisionTypes": {
+        "title": "Types de décision",
+        "hint": "Les décisions proposées au conseil sont définies ici ; aucune liste n'est imposée par le logiciel.",
+        "add": "Ajouter un type",
+        "empty": "Aucun type de décision défini",
+        "caption": "Types de décision",
+        "family": "Famille",
+        "exclusiveGroup": "Groupe exclusif",
+        "exclusiveGroupHint": "Une seule décision par groupe est retenue pour un élève.",
+        "rules": "Règles",
+        "system": "Système",
+        "flags": {
+          "justification": "Justification exigée",
+          "vote": "Vote exigé",
+          "target": "Cible exigée",
+          "humanApplication": "Application par un humain"
+        },
+        "humanApplicationHint": "L'effet attend l'acte d'un humain habilité.",
+        "appliesTo": "S'applique à",
+        "resultsDecisionKind": "Nature dans les résultats",
+        "resultsHint": "Pour les familles passage et redoublement : doit correspondre au contrat de règles.",
+        "resultsFinalCode": "Code final dans les résultats",
+        "academicOutcomeCode": "Issue d'inscription",
+        "studentStatus": "Statut d'élève visé",
+        "studentStatusHint": "Pour une exclusion : statut demandé, appliqué par un humain.",
+        "studentStatusNone": "Aucun",
+        "editTitle": "Modifier le type de décision",
+        "addTitle": "Ajouter un type de décision",
+        "dialogHint": "Création ou mise à jour par code."
+      },
+      "institution": {
+        "title": "Réglages de l'établissement",
+        "empty": "Aucun réglage",
+        "emptyHint": "Aucun réglage d'établissement n'est disponible pour votre compte.",
+        "requireSeparateUnlocker": "Le déverrouillage doit être approuvé par une autre personne",
+        "requireSeparateUnlockerHint": "Double validation d'une demande de déverrouillage.",
+        "effectsTrigger": "Déclenchement des effets",
+        "effectsTriggerHint": "Moment où les décisions produisent leurs effets.",
+        "guardianVisibility": "Visibilité pour les familles",
+        "guardianVisibilityHint": "Quand les tuteurs et l'élève voient la décision.",
+        "allowQuorumWaiver": "Autoriser l'ouverture sans quorum, avec motif",
+        "allowQuorumWaiverHint": "L'ouverture sans quorum reste consignée au procès-verbal.",
+        "minutesTemplateKey": "Modèle de procès-verbal",
+        "minutesTemplateKeyHint": "Clé du modèle (minuscules, chiffres et tirets).",
+        "editTitle": "Modifier les réglages",
+        "dialogHint": "Les réglages s'appliquent à tout l'établissement."
+      }
+    },
+    "orientation": {
+      "title": "Orientation",
+      "description": "Parcours autorisés, dossiers d'orientation et transferts de série.",
+      "done": {
+        "pathSaved": "Parcours enregistré.",
+        "fileCreated": "Dossier d'orientation ouvert.",
+        "transferCreated": "Transfert planifié.",
+        "transferCancelled": "Transfert annulé.",
+        "transferApplied": "Transfert appliqué.",
+        "consentGiven": "Consentement enregistré.",
+        "consentRefused": "Refus enregistré."
+      },
+      "paths": {
+        "title": "Parcours autorisés",
+        "hint": "Les parcours sont des données de l'établissement. Hors parcours, un transfert exige une dérogation motivée.",
+        "add": "Ajouter un parcours",
+        "empty": "Aucun parcours défini",
+        "emptyHint": "Définissez les parcours autorisés de votre établissement.",
+        "caption": "Parcours autorisés",
+        "kind": "Nature",
+        "from": "Origine",
+        "to": "Destination",
+        "rules": "Conditions",
+        "source": "Source",
+        "actions": "Actions",
+        "opinion": "Avis du conseil",
+        "consent": "Consentement du tuteur",
+        "inactive": "Inactif",
+        "edit": "Modifier",
+        "form": {
+          "editTitle": "Modifier le parcours",
+          "addTitle": "Ajouter un parcours",
+          "description": "Création ou mise à jour d'un parcours autorisé.",
+          "submit": "Enregistrer",
+          "kind": "Nature",
+          "sourceKind": "Source",
+          "fromProgram": "Série d'origine",
+          "fromGrade": "Niveau d'origine",
+          "toProgram": "Série de destination",
+          "toGrade": "Niveau de destination",
+          "any": "Toutes",
+          "choose": "Choisir",
+          "label": "Libellé",
+          "opinion": "Un avis du conseil est requis",
+          "consent": "Le consentement du tuteur est requis",
+          "active": "Actif"
+        }
+      },
+      "files": {
+        "title": "Dossiers d'orientation",
+        "create": "Ouvrir un dossier",
+        "empty": "Aucun dossier",
+        "emptyHint": "Aucun dossier d'orientation pour le moment.",
+        "caption": "Dossiers d'orientation",
+        "student": "Élève",
+        "status": "Statut",
+        "wishes": "Vœux",
+        "consent": "Consentement",
+        "actions": "Actions",
+        "consentGiven": "Consentement donné",
+        "consentRefused": "Consentement refusé",
+        "form": {
+          "title": "Ouvrir un dossier d'orientation",
+          "description": "Le dossier est rattaché à l'inscription de l'élève.",
+          "submit": "Ouvrir",
+          "notes": "Notes",
+          "studentRequired": "Choisissez un élève."
+        }
+      },
+      "transfers": {
+        "title": "Transferts de série",
+        "create": "Planifier un transfert",
+        "empty": "Aucun transfert",
+        "emptyHint": "Aucun transfert de série pour le moment.",
+        "caption": "Transferts de série",
+        "from": "Origine",
+        "to": "Destination",
+        "effective": "Effet",
+        "decidedVia": "Décidé par",
+        "status": "Statut",
+        "actions": "Actions",
+        "overridden": "Dérogation",
+        "apply": "Appliquer",
+        "cancel": "Annuler",
+        "form": {
+          "title": "Planifier un transfert de série",
+          "description": "Un transfert suit un parcours autorisé ou une dérogation motivée.",
+          "submit": "Planifier",
+          "studentRequired": "Choisissez un élève.",
+          "path": "Parcours autorisé",
+          "pathHint": "Choisir un parcours renseigne la destination.",
+          "noPath": "Aucun parcours (dérogation)",
+          "toProgram": "Série de destination",
+          "toGrade": "Niveau de destination",
+          "choose": "Choisir",
+          "effectiveKind": "Prise d'effet",
+          "effectiveOn": "Date d'effet",
+          "decidedVia": "Décidé par",
+          "decisionId": "Identifiant de la décision du conseil",
+          "decisionIdHint": "Identifiant de la décision enregistrée en conseil.",
+          "actReference": "Référence de l'acte de la direction",
+          "overrideReason": "Motif de la dérogation",
+          "overrideHint": "20 caractères au moins ; permission de dérogation requise."
+        },
+        "cancelDialog": {
+          "title": "Annuler le transfert",
+          "description": "Le transfert ne sera pas appliqué.",
+          "label": "Motif de l'annulation",
+          "confirm": "Annuler le transfert"
+        },
+        "applyDialog": {
+          "title": "Appliquer le transfert",
+          "description": "En cours d'année, désignez la classe de destination.",
+          "confirm": "Appliquer",
+          "classroom": "Classe de destination",
+          "choose": "Choisir une classe",
+          "classroomRequired": "Choisissez la classe de destination."
+        }
+      }
+    },
+    "portal": {
+      "titleGuardian": "Décisions du conseil de classe",
+      "descriptionGuardian": "Les décisions du conseil de classe concernant votre enfant, quand l'établissement les rend visibles.",
+      "titleStudent": "Mes décisions du conseil de classe",
+      "descriptionStudent": "Les décisions du conseil de classe qui te concernent, quand l'établissement les rend visibles.",
+      "child": "Enfant",
+      "noChild": "Aucun enfant rattaché",
+      "noChildHint": "Aucun élève n'est rattaché à votre compte.",
+      "empty": "Aucune décision à afficher",
+      "emptyHint": "Aucune décision n'est visible pour le moment.",
+      "about": "Décisions concernant {name}",
+      "listLabel": "Décisions du conseil de classe",
+      "target": "Orientation",
+      "appreciation": "Appréciation",
+      "distinctions": "Distinctions"
+    }
   }
 }
