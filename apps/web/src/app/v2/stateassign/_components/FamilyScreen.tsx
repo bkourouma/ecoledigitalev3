@@ -34,9 +34,9 @@ export function ChildAssignmentCard({ studentId, name }: { studentId: string; na
             <dt className="text-xs text-muted-foreground">{t("issuedOn")}</dt>
             <dd>{date.civil(query.data.issuedOn)}</dd>
           </div>
-          <p className="text-xs text-muted-foreground sm:col-span-3">{query.data.verified ? t("verified") : t("notVerified")}</p>
         </dl>
       ) : null}
+      {query.data?.hasAssignment && query.data.status ? <p className="text-xs text-muted-foreground">{query.data.verified ? t("verified") : t("notVerified")}</p> : null}
     </section>
   );
 }

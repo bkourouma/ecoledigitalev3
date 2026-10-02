@@ -85,13 +85,13 @@ function CardRow({ card, periodLabel, issued }: { card: Card; periodLabel: strin
                 {card.verificationCode}
               </dd>
             </div>
-            <div>
-              <Link href={`/v2/verify/${card.verificationCode}`} className="text-primary underline-offset-4 hover:underline">
-                {t("openVerify")}
-              </Link>
-            </div>
-            <p className="max-w-xs text-xs text-muted-foreground">{t("verifyHint")}</p>
           </dl>
+          <div className="space-y-2 text-sm">
+            <Link href={`/v2/verify/${card.verificationCode}`} className="text-primary underline-offset-4 hover:underline">
+              {t("openVerify")}
+            </Link>
+            <p className="max-w-xs text-xs text-muted-foreground">{t("verifyHint")}</p>
+          </div>
         </div>
       ) : null}
     </article>
