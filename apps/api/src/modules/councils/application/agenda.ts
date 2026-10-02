@@ -50,7 +50,7 @@ async function ensureRuleSuggestions(deps: CouncilsDeps, ctx: RequestContext, tx
   for (const s of facts.results?.suggestions ?? []) {
     if (s.kind === "DECISION" && !isFirmSuggestion(s.code)) continue;
     if (known.some((k) => k.kind === s.kind && k.code === s.code)) continue;
-    await repo.insertProposal(tx, { id: deps.newId(), tenantId: ctx.tenantId, councilId: council.id, agendaItemId: item.id, kind: s.kind, code: s.code, body: s.kind === "APPRECIATION" ? s.code : null, origin: "RULE_SUGGESTION", proposedBy: null, proposedByName: null, ruleVersionRef: s.ref });
+    await repo.insertProposal(tx, { id: deps.newId(), tenantId: ctx.tenantId, councilId: council.id, agendaItemId: item.id, kind: s.kind, code: s.code, body: s.kind === "APPRECIATION" ? (s.label ?? s.code) : null, origin: "RULE_SUGGESTION", proposedBy: null, proposedByName: null, ruleVersionRef: s.ref });
   }
 }
 

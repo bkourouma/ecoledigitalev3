@@ -47,14 +47,19 @@ export async function handleEnrollmentConfirmed(deps: AdmissionsDeps, ctx: Reque
 
     // Rattachement des pièces au dossier permanent de l'élève (aucune copie hors du port).
     let linked = 0;
+    let awaiting = 0;
     for (const f of await cases.listDocumentFiles(tx, app.id)) {
       try {
         const r = await deps.ports.documents.link(ctx, { storageKey: f.storageKey, documentRef: f.documentRef }, { type: "STUDENT", id: app.studentId });
         if (r.linked) linked += 1;
+        else if (!f.documentRef) awaiting += 1;
       } catch (e) {
         deps.logger.warn({ applicationId: app.id, err: e instanceof Error ? e.message : String(e) }, "admissions : pièce non rattachée au dossier de l'élève");
       }
     }
+    // Le rattachement à la GED exige un déposant humain (`documents.createDocument`) : l'abonné système ne le fait pas. Il laisse la
+    // trace du nombre de pièces en attente ; une personne habilitée les rattache (`attachDocumentsToStudentFile`).
+    if (awaiting > 0) events.audit({ action: "admissions.document.attach_pending", resourceType: "application", resourceId: app.id, metadata: { pieces: awaiting } });
     await events.flush(tx);
     return ok({ ignored: false, alreadyEnrolled: false, applicationId: app.id, documentsLinked: linked });
   });

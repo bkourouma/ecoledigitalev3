@@ -55,6 +55,7 @@ describeIntegration("abonnés du worker : rendu sur `reportcards.snapshot.create
       ["reportcards.render-snapshot", "reportcards.snapshot.created"],
       ["reportcards.render-requested", "reportcards.report_card.render_requested"],
       ["reportcards.render-official-document", "reportcards.official_document.render_requested"],
+      ["reportcards.supersede-council-minutes", "councils.minutes.superseded"],
       ["reportcards.combine-batch", "reportcards.batch.completed"],
       ["reportcards.seed-templates", "tenancy.tenant.provisioned"],
     ]);

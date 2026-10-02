@@ -1,4 +1,4 @@
-// Tests de comportement du schéma `schoollife` (migrations 2200-2203 de data-model.md).
+// Tests de comportement du schéma `schoollife` (migrations 2200-2204 de data-model.md).
 // Exécution : node specs/v2/006-secondary/ddl-test/run.mjs
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -61,7 +61,7 @@ const asValidator = (tx) => tx.as({ userId: VALIDATOR });
 const asProposer = (tx) => tx.as({ userId: PROPOSER });
 
 describe("isolation et droits", () => {
-  it("RLS forcée sur les 15 tables ; isolation entre tenants ; FK composites", async () => {
+  it("RLS forcée sur les 16 tables ; isolation entre tenants ; FK composites", async () => {
     const a = await newTenant(d.db, "a");
     const b = await newTenant(d.db, "b");
     const typeA = await inTenant(d.db, { tenantId: a, userId: PROPOSER }, async (tx) => (await seed(tx)).WARN, { commit: true });
@@ -74,7 +74,7 @@ describe("isolation et droits", () => {
       );
     });
     const { tables, problems } = await structuralIsolationViolations(d.db, "schoollife");
-    assert.equal(tables.length, 15);
+    assert.equal(tables.length, 16);
     assert.deepEqual(problems, []);
   });
 

@@ -108,7 +108,7 @@ export async function reopenCouncil(deps: CouncilsDeps, ctx: RequestContext, cap
     const reopened = (await repo.getCouncil(tx, councilId)) as CouncilRow;
     const ev = new EventBuffer(deps, ctx);
     ev.add(CouncilsEvents.COUNCIL_REOPENED, { ...councilPayload(reopened), reopenCount: reopened.reopenCount }, { type: "councils.council", id: councilId });
-    if (previous) ev.add(CouncilsEvents.MINUTES_SUPERSEDED, { v: 1, minutesId: previous.id, councilId, version: previous.version, snapshotHash: previous.snapshotHash }, { type: "councils.minutes", id: previous.id });
+    if (previous) ev.add(CouncilsEvents.MINUTES_SUPERSEDED, { v: 1, minutesId: previous.id, councilId, version: previous.version, snapshotHash: previous.snapshotHash, reasonRef: approved.id, reopenCount: reopened.reopenCount }, { type: "councils.minutes", id: previous.id });
     ev.audit({ action: "councils.council.reopened", resourceType: "council", resourceId: councilId, sensitive: true, reason: approved.reason, after: { reopenCount: reopened.reopenCount, unlockRequestId: approved.id } });
     await ev.flush(tx);
     return ok(await detailOf(deps, ctx, tx, reopened));

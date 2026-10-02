@@ -207,6 +207,10 @@ export function inMemoryPorts(): InMemoryWorld {
         world.resultsWrites.push({ op: "recordDistinction", input: { ...input } });
         return { decisionId: newId() };
       },
+      async withdrawDecision(_c, input) {
+        maybeFail("withdrawDecision");
+        world.resultsWrites.push({ op: "withdrawDecision", input: { ...input } });
+      },
       async writeAppreciation(_c, input) {
         maybeFail("writeAppreciation");
         world.resultsWrites.push({ op: "writeAppreciation", input: { ...input } });

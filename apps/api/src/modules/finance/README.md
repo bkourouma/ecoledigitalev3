@@ -185,6 +185,8 @@ Contexte : `request.ctx` posé en amont (iam / authentification historique). Per
 | `POST /me/learners/:learnerId/payments/online`, `POST /me/learners/:learnerId/payments/:id/verify` *(feature `finance.online-payment`)* | `finance.child.pay` (parent) ou `finance.self.pay` (élève) + propriété |
 | `GET /receipts/:id/pdf` (PDF du reçu), `GET /me/learners/:learnerId/receipts/:id/pdf` (famille) | `finance.receipt.read` ; `finance.child.read` / `finance.self.read` + propriété |
 | `POST /webhooks/:provider/:tenantId` | publique (signature) |
+| `GET /webhook-events` (filtres `status` = `FAILED` par défaut, `provider`, `paymentId`), `GET /webhook-events/:id` | `finance.webhook.read` |
+| `POST /webhook-events/:id/replay` (corps `{ note? }`) | `finance.webhook.replay` (**sensible**, MFA) |
 
 Contrats Zod : `packages/contracts/src/v2/finance.ts` (réexportés par `v2/index.ts`). Entrées : montants entiers ou
 chaînes de chiffres, jamais de décimale ; champs inconnus refusés (`strict`).
@@ -420,3 +422,22 @@ Additives (spec 014 §5). Les fichiers `reconcile*` ne sont pas concernés.
 - Modèle de pack : catégories `REGISTRATION` et `TUITION` (libellés, **aucun montant**) — `FINANCE_PACK_TEMPLATES`, `instantiateFinancePack(deps, ctx, { pack })` (idempotent, non destructif, câblé par l'abonné `finance.instantiate-pack` en phase 3).
 - Lectures « solde » (spec 014 §5, AC5.5), **livrées en phase 3** (`application/facts.ts`, lectures seules, entiers en unité mineure, factures émises non annulées, devise par défaut du tenant) : `getLearnerStanding({ learnerId, academicYear? })` (facturé, avoirs, encaissé, reste dû, `hasOverdue` sans montant), `getLinkedInvoicesTotals(scholarshipId)` (factures dont le financeur est cette bourse), `getBilledAmounts({ enrollmentId })` (facturé, dont part famille `LEARNER` / part financeurs `FUNDER`). Test : `test/integration/standing-facts.integration.test.ts` (RLS vérifiée). L'adaptateur `finance-stateassign` de la plateforme continue de servir le `FinancePort` de `stateassign` par `getStateFundingBilling` (rapprochement prouvé par le parcours Secondary) ; ces trois lectures sont disponibles pour d'autres consommateurs.
 - **Modèle de pack câblé** (phase 3) : l'abonné `finance.instantiate-pack` (`subscribers.ts`, `tenancy.institution.created`) appelle `instantiateFinancePack` pour PRIMARY et SECONDARY (idempotent, aucun montant, aucun barème).
+
+## Webhooks en échec : lecture et rejeu sûr (2026-10-02)
+
+Un événement `finance.webhook_events` à l'état `FAILED` est un webhook authentique (signature vérifiée) que le module n'a pas pu appliquer
+(montant divergent, succès sans montant, succès tardif d'un paiement échoué…).
+
+* **Permissions à accorder aux rôles** (par l'agent RBAC) : `finance.webhook.read` (lecture, ex. direction financière, comptable) et
+  `finance.webhook.replay` (**sensible**, MFA ; mêmes porteurs que `finance.payment.reconcile`).
+* **Lecture** : jamais de charge brute (`payload`), d'en-tête, de signature ni de secret ; `error` est un code court (tout autre contenu est masqué `unknown`).
+* **Rejeu** (`POST /webhook-events/:id/replay`) : ne rejoue PAS la charge stockée. Il interroge le fournisseur sur le paiement lié (comme le
+  rapprochement) et applique l'issue par `applyProviderOutcome` — mêmes contrôles que le webhook (montant, devise, référence, simulé). Un utilisateur
+  ne peut donc imposer aucune issue ni aucun montant.
+  * idempotent : seul un événement encore `FAILED` est retraité (verrou de ligne) ; sinon réponse `replayed: true`, aucun effet ;
+  * issue : `PROCESSED` / `IGNORED` (`resolved: true`) ; fournisseur injoignable ou toujours « en attente », paiement échoué (succès tardif,
+    à régler par résolution manuelle) ou contrôle refusé : l'événement reste `FAILED`, tentative comptée, motif (code) mis à jour ;
+  * paiement déjà réglé entre-temps : événement `IGNORED` (`payment_already_settled`) ;
+  * audit sensible `finance.webhook.replayed` / `finance.webhook.replay_failed` (avec `note` facultative) dans la même transaction ; aucun nouvel événement
+    de domaine (les événements de paiement habituels sont émis si le paiement est appliqué).
+* Tests : `test/integration/webhook-admin.integration.test.ts` (cas d'usage, HTTP, contrats, RLS A/B, concurrence).

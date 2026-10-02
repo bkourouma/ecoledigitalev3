@@ -47,7 +47,7 @@ import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorker
 import { createOfficialDocumentDeps, warmOfficialDocuments, type OfficialDocumentDepsOptions } from "./official-documents";
 import { registerResultsPorts, setResultsWorkerPorts, type ResultsPorts } from "../../modules/results";
 import { registerSchedulingPorts } from "../../modules/scheduling";
-import { registerSchoolLifePorts, type SchoolLifePorts } from "../../modules/schoollife";
+import { registerSchoolLifePorts, setSchoolLifeWorkerPorts, type SchoolLifePorts } from "../../modules/schoollife";
 import type { ModuleRuntime, RuntimeAuditPort } from "../runtime";
 import { createAcademicCompletionLookup, createAcademicScheduleChecker, createAcademicUsageGuard } from "./academic-guards";
 import { createAnalyticsSources } from "./analytics-sources";
@@ -320,7 +320,7 @@ export function buildPlatformPorts(
       enrollments: createAdmissionsEnrollmentService(admissionsEnv),
       fees: createAdmissionsRegistrationFees(admissionsEnv),
       catalog: createAdmissionsCatalog(admissionsEnv),
-      documents: createAdmissionsDocumentStore(storage, scanned),
+      documents: createAdmissionsDocumentStore(storage, scanned, () => documentsDeps),
       actors: createAdmissionsActorDirectory(admissionsEnv),
       // Canal de notification : `notifications` met le message en file (e-mail, SMS, WhatsApp) ; aucun canal joignable = échec FERMÉ.
       notifier: createAdmissionsApplicantNotifier(createAdmissionsNotificationSender(createSchoollifeNotificationsDeps(kit))),
@@ -478,6 +478,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   setAdmissionsWorkerPorts(ports.admissions);
   setStateassignWorkerPorts(ports.stateassign);
   setCouncilsWorkerPorts(ports.councils);
+  setSchoolLifeWorkerPorts(ports.schoollife);
   if (storage) setReportcardsWorkerResources({ storage });
   void ports.warmup().catch((e: unknown) => (e as { code?: string })?.code === "reportcards.signing_key_missing" ? undefined : input.logger.warn({ err: e instanceof Error ? e.message : String(e) }, "documents officiels : préparation du scellement impossible (échec fermé à la demande)"));
   return { kit, ports, storage };

@@ -133,6 +133,15 @@ export interface StoredPiece {
   readonly sha256: string;
 }
 
+/** Sous-ensemble des droits de la GED utile au dépôt (niveau de la catégorie + droit de dépôt). */
+export interface DocumentCaps {
+  readonly upload?: boolean;
+  readonly manage?: boolean;
+  readonly read?: boolean;
+  readonly readRestricted?: boolean;
+  readonly readConfidential?: boolean;
+}
+
 export interface DocumentStore {
   /**
    * Contrôle le TYPE RÉEL (octets magiques, jamais le type déclaré), la taille, l'antivirus ; écrit l'objet ; renvoie l'empreinte
@@ -143,6 +152,18 @@ export interface DocumentStore {
   /** Rattache les pièces au dossier permanent de l'élève (`documents`) ; `linked: false` si le port ne sait que le stockage. */
   link(ctx: RequestContext, piece: { storageKey: string | null; documentRef: Uuid | null }, owner: { type: "STUDENT"; id: Uuid }): Promise<{ linked: boolean }>;
   signedUrl(ctx: RequestContext, piece: { storageKey: string | null; documentRef: Uuid | null }, options: { ttlSeconds: number; fileName: string; contentType: string }): Promise<{ url: string; expiresAt: Date }>;
+  /**
+   * Rattachement DIFFÉRÉ au dossier permanent de l'élève (GED), sous l'identité de l'humain qui l'a demandé (`ctx.userId` est le
+   * déposant). Absent ou non branché : échec fermé (`admissions.port_unavailable`). Renvoie la référence du document de la GED ;
+   * `alreadyPresent` si la GED connaissait déjà ce fichier pour cet élève et cette catégorie (idempotence).
+   */
+  attachToStudentFile?(
+    ctx: RequestContext,
+    piece: { storageKey: string; contentType: string | null; fileName: string; title: string },
+    target: { type: "STUDENT"; id: Uuid; categoryId: Uuid },
+    /** Droits RÉELS de la personne dans la GED, relus par la route (jamais élargis par admissions). */
+    caps: DocumentCaps,
+  ): Promise<{ documentRef: Uuid; alreadyPresent: boolean }>;
 }
 
 // ---------------------------------------------------------------------------

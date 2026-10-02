@@ -840,6 +840,9 @@ export const reportcardsEventPayloadSchemas = {
   "reportcards.official_document.rendered": z
     .object({ v: v1, documentId: reportcardsUuidSchema, documentKind: reportcardsOfficialDocumentKindSchema, sourceId: reportcardsUuidSchema, pdfHash: hex64, sizeBytes: z.number().int().min(1) })
     .strict(),
+  "reportcards.official_document.superseded": z
+    .object({ v: v1, documentId: reportcardsUuidSchema, documentKind: reportcardsOfficialDocumentKindSchema, sourceId: reportcardsUuidSchema, reasonCode: z.enum(["COUNCIL_REOPENED"]) })
+    .strict(),
   "reportcards.official_document.render_failed": z
     .object({ v: v1, documentId: reportcardsUuidSchema, documentKind: reportcardsOfficialDocumentKindSchema, sourceId: reportcardsUuidSchema, error: z.string().max(500) })
     .strict(),

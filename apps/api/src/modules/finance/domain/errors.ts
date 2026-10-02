@@ -58,6 +58,7 @@ export const FinanceCode = {
   PROVIDER_TEST_THROTTLED: "finance.provider_test_throttled",
   WEBHOOK_SIGNATURE_INVALID: "finance.webhook_signature_invalid",
   WEBHOOK_PAYLOAD_INVALID: "finance.webhook_payload_invalid",
+  WEBHOOK_NOT_REPLAYABLE: "finance.webhook_not_replayable",
   SIMULATED_IN_PRODUCTION: "finance.simulated_payment_in_production",
   LEARNER_NOT_FOUND: "finance.learner_not_found",
   ENROLLMENT_NOT_FOUND: "finance.enrollment_not_found",

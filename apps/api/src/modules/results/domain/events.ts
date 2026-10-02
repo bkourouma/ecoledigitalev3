@@ -9,6 +9,7 @@ export const ResultsEvents = {
   PERIOD_CLOSED: "results.period.closed",
   PERIOD_REOPENED: "results.period.reopened",
   DECISION_CONFIRMED: "results.decision.confirmed",
+  DECISION_WITHDRAWN: "results.decision.withdrawn",
   OVERRIDE_REQUESTED: "results.override.requested",
   OVERRIDE_APPROVED: "results.override.approved",
   OVERRIDE_REVOKED: "results.override.revoked",

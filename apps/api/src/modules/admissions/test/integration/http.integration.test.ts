@@ -127,6 +127,7 @@ describeIntegration("admissions : HTTP", () => {
     ["POST", `/applications/${UUID}/documents/${UUID}/review`, ["admission.document.review"]],
     ["GET", `/applications/${UUID}/documents/${UUID}/url`, ["admission.document.review"]],
     ["POST", `/applications/${UUID}/consents`, ["admission.update"]],
+    ["POST", `/applications/${UUID}/documents/attach-to-student-file`, ["admission.document.attach"]],
     ["POST", `/applications/${UUID}/interviews`, ["admission.interview.manage"]],
     ["PATCH", `/applications/${UUID}/interviews/${UUID}`, ["admission.interview.manage"]],
     ["POST", `/applications/${UUID}/offers`, ["admission.offer.manage"]],
@@ -154,7 +155,8 @@ describeIntegration("admissions : HTTP", () => {
       if (none.statusCode !== 403) offenders.push(`${method} ${url} sans permission : ${none.statusCode}`);
       const others = await call(method, url, ALL.filter((p) => !required.includes(p)));
       if (others.statusCode !== 403) offenders.push(`${method} ${url} sans ${required.join("|")} : ${others.statusCode}`);
-      const extra = url.endsWith("/accept-on-behalf") ? ["admission.enroll"] : []; // la délégation franchit aussi l'étape qui crée l'inscription
+      // le rattachement exige AUSSI le droit de dépôt de la GED (permission d'un autre module, hors manifeste d'admissions)
+      const extra = url.endsWith("/accept-on-behalf") ? ["admission.enroll"] : url.endsWith("/attach-to-student-file") ? ["documents.upload"] : []; // la délégation franchit aussi l'étape qui crée l'inscription
       const withIt = await call(method, url, [required[0] as string, ...extra]);
       if (withIt.statusCode === 403 || withIt.statusCode === 401) offenders.push(`${method} ${url} avec ${required[0]} : ${withIt.statusCode}`);
     }

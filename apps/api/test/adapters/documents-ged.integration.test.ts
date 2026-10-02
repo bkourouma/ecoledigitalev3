@@ -15,6 +15,7 @@ import {
   type ActorCaps,
   type DocumentsDeps,
 } from "../../src/modules/documents";
+import { createAdmissionsDocumentStore } from "../../src/platform/adapters/admissions-documents";
 import { describeIntegration } from "../helpers/fixtures";
 import { adminRows, createAssemblyWorld, seedHigherSchool, type AssemblyWorld, type HigherSchool } from "./support/world";
 
@@ -187,5 +188,33 @@ describeIntegration("GED : people + iam + entitlements -> documents (adaptateurs
     const counter = await adminRows<{ value: string; metric: string }>(w, "SELECT metric, value::text FROM entitlements.usage_counters WHERE tenant_id = $1 AND metric = 'STORAGE_BYTES'", [w.tenantId]);
     expect(counter).toEqual([{ metric: "STORAGE_BYTES", value: used }]);
     expect(Number(used)).toBeGreaterThanOrEqual(bytes.length);
+  });
+  it("admissions -> GED (rattachement différé) : déposant humain, doublon reconnu (idempotent), refus sans humain, copie dans le dossier de l'élève", async () => {
+    const [p1] = school.pupils;
+    const { listCategories } = await import("../../src/modules/documents");
+    const cats = unwrap(await listCategories(deps, ctxOf(u.secretary), { caps: CAPS.secretary }));
+    const categoryId = cats.find((c) => c.code === "STUDENT_ENROLLMENT")!.id;
+    const bytes = pdf("admission");
+    const objects = new Map<string, { bytes: Uint8Array; contentType: string | null }>([["admissions/t/a/r/abc", { bytes, contentType: "application/pdf" }]]);
+    const fakeStorage = { driver: "disk", get: async (k: string) => objects.get(k) ?? null, delete: async () => undefined } as never;
+    const store = createAdmissionsDocumentStore(fakeStorage, () => ({ scanner: null, failClosed: false }) as never, () => deps);
+    const piece = { storageKey: "admissions/t/a/r/abc", contentType: "application/pdf", fileName: "acte_naissance", title: "Acte de naissance" };
+    const target = { type: "STUDENT" as const, id: p1!.studentId, categoryId };
+
+    const caps = { upload: true, read: true, readRestricted: true };
+    const first = await store.attachToStudentFile!(ctxOf(u.secretary), piece, target, caps);
+    expect(first.alreadyPresent).toBe(false);
+    const created = await adminRows<{ created_by: string; owner_id: string }>(w, "SELECT created_by, owner_id FROM documents.documents WHERE id = $1", [first.documentRef]);
+    expect(created[0]).toMatchObject({ created_by: u.secretary, owner_id: p1!.studentId });
+
+    const again = await store.attachToStudentFile!(ctxOf(u.secretary), piece, target, caps);
+    expect(again).toEqual({ documentRef: first.documentRef, alreadyPresent: true });
+
+    // sans droit de dépôt réel : la GED refuse (admissions n'élargit jamais les droits)
+    await expect(store.attachToStudentFile!(ctxOf(u.secretary), piece, target, { read: true })).rejects.toMatchObject({ code: "documents.forbidden" });
+    // jamais sans humain
+    await expect(store.attachToStudentFile!(createRequestContext({ tenantId: w.tenantId, actor: "system", userId: null }), piece, target, caps)).rejects.toMatchObject({ code: "admissions.port_unavailable" });
+    // objet absent du stockage : refus explicite
+    await expect(store.attachToStudentFile!(ctxOf(u.secretary), { ...piece, storageKey: "admissions/t/a/r/absent" }, target, caps)).rejects.toMatchObject({ code: "admissions.file_rejected" });
   });
 });

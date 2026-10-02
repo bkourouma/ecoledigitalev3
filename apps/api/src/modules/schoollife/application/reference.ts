@@ -36,6 +36,8 @@ export async function upsertSettings(deps: SchoolLifeDeps, ctx: RequestContext, 
       conductPointsEnabled: input.conductPointsEnabled,
       confidentialReadRequiresPurpose: input.confidentialReadRequiresPurpose,
       retentionDays: input.retentionDays,
+      convocationReminderHours: input.convocationReminderHours,
+      exclusionBoundaryNotices: input.exclusionBoundaryNotices,
     });
     const events = new EventBuffer(deps, ctx);
     events.audit({ action: "schoollife.settings.updated", resourceType: "settings", resourceId: input.institutionId, sensitive: true, before: before ?? null, after: row });

@@ -1070,6 +1070,38 @@ export const admissionsWaitlistPromotedEventSchema = z.object({ v: z.literal(1),
 export const admissionsProspectConvertedEventSchema = z.object({ v: z.literal(1), prospectId: admissionsUuidSchema, applicationId: admissionsUuidSchema, institutionId: admissionsUuidSchema });
 export const admissionsApplicationAnonymizedEventSchema = z.object({ v: z.literal(1), ...appRef });
 
+/**
+ * Entretiens et tests d'admission : identifiants, type, instants. AUCUN nom, lieu libre, note ni résultat (l'examinateur est un
+ * identifiant de personnel). `scheduledAt` = instant planifié (ISO 8601) ; `previousScheduledAt` seulement pour un report.
+ */
+export const admissionsInterviewScheduledEventSchema = z.object({
+  v: z.literal(1),
+  ...appRef,
+  interviewId: admissionsUuidSchema,
+  kind: admissionInterviewKindSchema,
+  scheduledAt: admissionsInstantSchema,
+  conductedByStaffId: admissionsUuidSchema.nullable(),
+});
+export const admissionsInterviewRescheduledEventSchema = admissionsInterviewScheduledEventSchema.extend({ previousScheduledAt: admissionsInstantSchema });
+export const admissionsInterviewCancelledEventSchema = admissionsInterviewScheduledEventSchema;
+
+export const admissionsAttachToStudentFileBodySchema = z.object({ categoryId: admissionsUuidSchema }).strict();
+export type AdmissionsAttachToStudentFileBody = z.infer<typeof admissionsAttachToStudentFileBodySchema>;
+export const admissionsAttachToStudentFileResultDtoSchema = z.object({
+  attached: z.number().int().min(0),
+  failed: z.number().int().min(0),
+  items: z.array(
+    z.object({
+      requirementId: admissionsUuidSchema,
+      outcome: z.enum(["ATTACHED", "ALREADY_PRESENT", "FAILED"]),
+      documentRef: admissionsUuidSchema.nullable(),
+      /** Code stable de l'échec (jamais un message amont). */
+      code: z.string().nullable(),
+    }),
+  ),
+});
+export type AdmissionsAttachToStudentFileResultDto = z.infer<typeof admissionsAttachToStudentFileResultDtoSchema>;
+
 export const admissionsEventPayloadSchemas = {
   "admissions.application.submitted": admissionsApplicationSubmittedEventSchema,
   "admissions.application.status_changed": admissionsApplicationStatusChangedEventSchema,
@@ -1083,6 +1115,9 @@ export const admissionsEventPayloadSchemas = {
   "admissions.waitlist.promoted": admissionsWaitlistPromotedEventSchema,
   "admissions.prospect.converted": admissionsProspectConvertedEventSchema,
   "admissions.application.anonymized": admissionsApplicationAnonymizedEventSchema,
+  "admissions.interview.scheduled": admissionsInterviewScheduledEventSchema,
+  "admissions.interview.rescheduled": admissionsInterviewRescheduledEventSchema,
+  "admissions.interview.cancelled": admissionsInterviewCancelledEventSchema,
 } as const;
 
 // Événements CONSOMMÉS (charge utile minimale lue par les abonnés ; tout champ inconnu est ignoré)

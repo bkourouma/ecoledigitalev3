@@ -21,6 +21,8 @@ import {
   admissionsConvertProspectBodySchema,
   admissionsCreateApplicationBodySchema,
   admissionsCreateCampaignBodySchema,
+  admissionsAttachToStudentFileBodySchema,
+  admissionsAttachToStudentFileResultDtoSchema,
   admissionsCreateInterviewBodySchema,
   admissionsCreateProspectBodySchema,
   admissionsCreateWorkflowBodySchema,
@@ -88,6 +90,7 @@ import { createAdmissionsDeps, type AdmissionsDeps } from "../application/deps";
 import { listDuplicates, resolveDuplicate, runDetection } from "../application/duplicates";
 import { getDocumentUrl, reviewDocument, uploadDocument } from "../application/documents";
 import { createInterview, updateInterview } from "../application/interviews";
+import { attachDocumentsToStudentFile } from "../application/student-file";
 import { acceptOffer, issueOffer, recordAcceptFailure, setOfferClassroom, withdrawOffer } from "../application/offers";
 import { createAdmissionsPortRegistry, type AdmissionsPortRegistry } from "../application/port-registry";
 import type { AdmissionsPorts } from "../application/ports";
@@ -391,6 +394,21 @@ export async function admissionsPlugin(app: FastifyInstance, options: Admissions
     scope.post("/applications/:id/consents/withdraw", P("admission.update"), async (req) => unwrap(await withdrawConsent(deps, ctxOf(req), uuidParam(req.params), parse(admissionsWithdrawConsentBodySchema, req.body))));
 
     // Entretiens
+    // Rattachement différé à la GED, confirmé par un humain : la personne doit aussi pouvoir déposer dans la GED (`documents.upload`).
+    // Les droits GED RÉELS de la personne sont relus ici (niveau de la catégorie) et transmis tels quels : admissions n'élargit rien.
+    scope.post("/applications/:id/documents/attach-to-student-file", P("admission.document.attach", options.requirePermission("documents.upload")), async (req, reply) => {
+      const has = async (permission: string): Promise<boolean> => {
+        try {
+          await check(scope, req, reply, permission);
+          return true;
+        } catch (e) {
+          if (e instanceof ForbiddenError) return false;
+          throw e;
+        }
+      };
+      const caps = { upload: true, read: await has("documents.read"), readRestricted: await has("documents.read.restricted"), readConfidential: await has("documents.read.confidential"), manage: await has("documents.manage") };
+      return admissionsAttachToStudentFileResultDtoSchema.parse(unwrap(await attachDocumentsToStudentFile(deps, ctxOf(req), uuidParam(req.params), { ...parse(admissionsAttachToStudentFileBodySchema, req.body), caps })));
+    });
     scope.post("/applications/:id/interviews", { preHandler: [options.requirePermission("admission.interview.manage"), ...feature("admissions.core"), ...feature("admissions.interviews")] }, async (req, reply) =>
       reply.status(201).send({ items: unwrap(await createInterview(deps, ctxOf(req), uuidParam(req.params), parse(admissionsCreateInterviewBodySchema, req.body))) }),
     );

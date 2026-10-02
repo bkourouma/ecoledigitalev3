@@ -74,6 +74,8 @@ describe("manifeste", () => {
         "finance.child.pay",
         "finance.self.read",
         "finance.self.pay",
+        "finance.webhook.read",
+        "finance.webhook.replay",
       ].sort(),
     );
     expect(manifest.permissions.every((p) => p.key.startsWith("finance."))).toBe(true);

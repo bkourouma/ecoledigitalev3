@@ -81,6 +81,34 @@ describeIntegration("effets des décisions (Postgres réel)", () => {
     await expect(skipEffect(w.deps, w.director.ctx, DIRECTOR_CAPS, byKind.NOTIFY_GUARDIANS!.id, {})).resolves.toMatchObject({ ok: false });
   });
 
+  it("RESULTS_DECISION appliqué : annulé par le retrait unitaire de `results` quand il existe (la séance redevient réouvrable) ; refus de `results` : l'effet reste appliqué ; sans retrait : ancien comportement", async () => {
+    const cls = freshClassroom(w, { students: 1 });
+    const { council } = await runCouncil(cls, "PASSAGE");
+    const resultsEffect = (await effectsOf(council.id)).find((e) => e.kind === "RESULTS_DECISION")!;
+    expect(resultsEffect.status).toBe("APPLIED");
+    expect(resultsEffect.externalRef).toBeTruthy();
+
+    // `results` refuse (période clôturée, décision publiée…) : l'erreur est rendue telle quelle, l'effet reste APPLIED
+    w.ports.failResults = { op: "withdrawDecision", error: portUnavailable("results") };
+    expect(code(await revertEffect(w.deps, w.director.ctx, DIRECTOR_CAPS, resultsEffect.id, { reason: "Décision à reprendre en conseil." }))).toBe("councils.port_unavailable");
+    w.ports.failResults = null;
+    expect((await effectsOf(council.id)).find((e) => e.id === resultsEffect.id)?.status).toBe("APPLIED");
+
+    // sans API de retrait : l'annulation passe par la réouverture de la période de résultats (comportement historique)
+    const original = w.ports.resultsWrite.withdrawDecision;
+    (w.ports.resultsWrite as { withdrawDecision?: unknown }).withdrawDecision = undefined;
+    expect(code(await revertEffect(w.deps, w.director.ctx, DIRECTOR_CAPS, resultsEffect.id, { reason: "Décision à reprendre en conseil." }))).toBe("councils.effect_revert_via_results");
+    (w.ports.resultsWrite as { withdrawDecision?: unknown }).withdrawDecision = original;
+
+    // avec l'API : retrait de la décision de `results` désignée par la référence de l'effet, motif transmis, acte source tracé
+    const reverted = unwrap(await revertEffect(w.deps, w.director.ctx, DIRECTOR_CAPS, resultsEffect.id, { reason: "Décision à reprendre en conseil." }));
+    expect(reverted).toMatchObject({ status: "REVERTED" });
+    const withdraw = w.ports.resultsWrites.filter((x) => x.op === "withdrawDecision").at(-1)!;
+    expect(withdraw.input).toMatchObject({ decisionId: resultsEffect.externalRef, reason: "Décision à reprendre en conseil." });
+    expect(String(withdraw.input.councilRef)).toMatch(/^decision:/);
+    w.ports.resultsWrites.length = 0; // les tests suivants comptent leurs propres écritures
+  });
+
   it("échec d'un port : l'effet est FAILED avec diagnostic sans bloquer la signature ; port non branché : l'effet reste PENDING ; le job rejoue", async () => {
     const cls = freshClassroom(w, { students: 2 });
     w.ports.failResults = { op: "publishYearDecision", error: new Error("results momentanément indisponible") };

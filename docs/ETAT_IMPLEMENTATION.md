@@ -36,11 +36,11 @@ Mesures de contrôle de cette session : `check:boundaries` (1902 modules, 0 viol
 
 1. **Phase E restante** : tableaux de bord de direction et alertes avancées (spec 025), hors-ligne avancé (emploi du temps, notes), exercice de restauration, intégration des corrections de la revue de sécurité, job de charge en CI (non bloquant).
 2. **Compléments connus des packs** (additifs, voir les README de modules) :
-   - `admissions` : `DocumentStore.link` (acteur système côté GED), événement `admissions.interview.*` pour les convocations d'entretien, édition d'une candidature existante côté web.
-   - `councils` : sélecteur de participant externe et formulaire de vœux d'orientation (web), retrait d'une décision côté `results`, réédition du PV à la réouverture, `label_map` côté `rules`.
-   - `schoollife` : jobs de rappel de convocations, saisie rapide hors-ligne (clé d'idempotence serveur), consommation par `attendance` de `schoollife.measure.validated` (dépend de la question métier Q6-19).
+   - `admissions` : édition d'une candidature existante côté web. *(Fait le 2026-10-02 : événements `admissions.interview.scheduled|rescheduled|cancelled` ; rattachement des pièces à la GED différé et confirmé par un humain, sans acteur système — voir le README du module.)*
+   - `councils` : sélecteur de participant externe et formulaire de vœux d'orientation (web). *(Fait le 2026-10-02 : retrait unitaire d'une décision/distinction dans `results`, PV remplacé marqué par `reportcards` à la réouverture, accès `label_map` de `rules` pour libeller les propositions ; restent hors périmètre les échecs préexistants de `test/events-catalog.test.ts` et de la couverture des contrats d'événements, voir le README de `councils`.)*
+   - `schoollife` : consommation par `attendance` de `schoollife.measure.validated` (dépend de la question métier Q6-19, toujours ouverte). *(Fait le 2026-10-02 : jobs `remind-convocations` et `exclusion-boundaries` éteints par défaut, clé d'idempotence serveur de la saisie rapide d'incidents.)*
    - `stateassign` : passerelle réelle vers la plateforme de l'État (spécification officielle inconnue).
-   - `finance` : route et écran de lecture des événements webhook en échec (`finance.webhook_events` en `FAILED`), saisie des charges et tableaux de bord propriétaire (trésorerie, scolarité), commandes/lots du parcours professionnel, commissions de prospection.
+   - `finance` : écran web de lecture des événements webhook en échec (la route et le rejeu sûr existent depuis le 2026-10-02, permissions `finance.webhook.read|replay` à accorder aux rôles), saisie des charges et tableaux de bord propriétaire (trésorerie, scolarité), commandes/lots du parcours professionnel, commissions de prospection.
    - Menus des portails : harmonisation des href.
 3. **Mise en service** : actions à fort impact, à faire par un humain (ci-dessous).
 

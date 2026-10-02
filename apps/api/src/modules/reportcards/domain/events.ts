@@ -21,6 +21,8 @@ export const ReportcardsEvents = {
   OFFICIAL_RENDER_REQUESTED: "reportcards.official_document.render_requested",
   OFFICIAL_RENDERED: "reportcards.official_document.rendered",
   OFFICIAL_RENDER_FAILED: "reportcards.official_document.render_failed",
+  /** Un document officiel est remplacé par une version plus récente (PV de conseil rouvert) : l'ancien est conservé et le dit à la vérification. */
+  OFFICIAL_SUPERSEDED: "reportcards.official_document.superseded",
 } as const;
 
 export const ALL_REPORTCARDS_EVENT_TYPES = Object.freeze(Object.keys(reportcardsEventPayloadSchemas)) as readonly string[];
@@ -28,4 +30,6 @@ export const ALL_REPORTCARDS_EVENT_TYPES = Object.freeze(Object.keys(reportcards
 /** Événements d'autres modules consommés (alignés avec leurs producteurs ; garde-fou : apps/api/test/events-catalog.test.ts). Un bulletin est un snapshot immuable : `results.period.*` n'est pas consommé. */
 export const ConsumedEvents = {
   TENANT_PROVISIONED: "tenancy.tenant.provisioned",
+  /** Un PV de conseil est remplacé (réouverture de la séance) : `reportcards` marque l'ancien document comme remplacé. */
+  COUNCIL_MINUTES_SUPERSEDED: "councils.minutes.superseded",
 } as const;

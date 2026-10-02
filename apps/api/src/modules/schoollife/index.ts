@@ -17,6 +17,8 @@ export { schoollifePlugin, registerSchoolLifePorts, createPortRegistry as create
 export { createPermissionKit, PERMISSIONS as SCHOOLLIFE_PERMISSIONS, type PermissionKit } from "./http/guards";
 
 // Dépendances et ports
+export { schoolLifeWorkerPorts, resetSchoolLifeWorkerPorts, setSchoolLifeWorkerPorts } from "./application/worker-ports";
+export { notifyExclusionBoundaries, remindConvocations, type JobReport } from "./application/jobs";
 export { createSchoolLifeDeps, clearanceOfCaps, type CallerCaps, type SchoolLifeDeps, type SchoolLifeDepsInput } from "./application/deps";
 export {
   noopAudit,

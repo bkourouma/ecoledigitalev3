@@ -126,3 +126,28 @@ export async function listStalePendingOfficialDocuments(tx: Tx, olderThan: Date,
   );
   return rows.map((r) => r.id);
 }
+
+export interface OfficialSupersession {
+  readonly documentId: Uuid;
+  readonly reasonCode: string;
+  readonly reasonRef: Uuid | null;
+  readonly supersededAt: Date;
+}
+
+export async function getOfficialSupersession(tx: Tx, documentId: Uuid): Promise<OfficialSupersession | null> {
+  const row = await tx.queryOne(`SELECT document_id, reason_code, reason_ref, superseded_at FROM reportcards.official_document_supersessions WHERE document_id = $1`, [documentId]);
+  return row ? { documentId: row.document_id, reasonCode: row.reason_code, reasonRef: row.reason_ref, supersededAt: row.superseded_at } : null;
+}
+
+/** Enregistre le remplacement ; `false` si le document l'était déjà (rejeu). */
+export async function insertOfficialSupersession(
+  tx: Tx,
+  input: { id: Uuid; tenantId: Uuid; documentId: Uuid; documentKind: string; reasonCode: string; reasonRef: Uuid | null; sourceEventId: Uuid | null; at: Date },
+): Promise<boolean> {
+  const res = await tx.query(
+    `INSERT INTO reportcards.official_document_supersessions (id, tenant_id, document_id, document_kind, reason_code, reason_ref, source_event_id, superseded_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (tenant_id, document_id) DO NOTHING`,
+    [input.id, input.tenantId, input.documentId, input.documentKind, input.reasonCode, input.reasonRef, input.sourceEventId, input.at],
+  );
+  return res.rowCount === 1;
+}

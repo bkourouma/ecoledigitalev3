@@ -668,6 +668,53 @@ export const financeWebhookResultDtoSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Événements webhook en échec : lecture et relecture (rejeu) sûres
+// ---------------------------------------------------------------------------
+
+export const FINANCE_WEBHOOK_EVENT_STATUSES = ["RECEIVED", "PROCESSED", "IGNORED", "FAILED"] as const;
+
+/** `status` vaut `FAILED` par défaut : l'écran sert à traiter les événements que le module n'a pas pu appliquer. */
+export const financeListWebhookEventsQuerySchema = financePageQuerySchema.extend({
+  status: z.enum(FINANCE_WEBHOOK_EVENT_STATUSES).default("FAILED"),
+  provider: z.string().regex(/^[a-z][a-z0-9_]{1,39}$/).optional(),
+  paymentId: financeUuidSchema.optional(),
+});
+
+/**
+ * Vue d'un événement webhook : JAMAIS la charge brute (`payload`), ni en-têtes, ni signature, ni secret. `error` est un
+ * CODE court (ex. `finance.provider_amount_mismatch`), jamais un message du fournisseur.
+ */
+export const financeWebhookEventDtoSchema = z.object({
+  id: financeUuidSchema,
+  provider: z.string(),
+  eventId: z.string(),
+  eventType: z.string().nullable(),
+  status: z.enum(FINANCE_WEBHOOK_EVENT_STATUSES),
+  paymentId: financeUuidSchema.nullable(),
+  error: z.string().nullable(),
+  attempts: z.number().int().min(1),
+  receivedAt: isoInstant,
+  processedAt: isoInstant.nullable(),
+});
+export type FinanceWebhookEventDto = z.infer<typeof financeWebhookEventDtoSchema>;
+
+export const financeWebhookEventsDtoSchema = z.object({ items: z.array(financeWebhookEventDtoSchema), total: z.number().int().min(0) });
+export type FinanceWebhookEventsDto = z.infer<typeof financeWebhookEventsDtoSchema>;
+
+/** Rejeu : motif facultatif (journal d'audit). Aucun montant, aucune issue : le serveur interroge le fournisseur. */
+export const financeReplayWebhookEventBodySchema = z.object({ note: z.string().trim().min(1).max(500).optional() }).strict();
+
+export const financeReplayWebhookEventResultDtoSchema = z.object({
+  /** Vrai : l'événement n'était plus `FAILED`, rien n'a été retraité. */
+  replayed: z.boolean(),
+  /** Vrai : l'événement est sorti de l'état `FAILED` à ce rejeu. */
+  resolved: z.boolean(),
+  event: financeWebhookEventDtoSchema,
+  paymentStatus: z.string().nullable(),
+});
+export type FinanceReplayWebhookEventResultDto = z.infer<typeof financeReplayWebhookEventResultDtoSchema>;
+
+// ---------------------------------------------------------------------------
 // Remboursements
 // ---------------------------------------------------------------------------
 

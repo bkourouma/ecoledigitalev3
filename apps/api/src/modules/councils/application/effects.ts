@@ -413,7 +413,17 @@ export async function revertEffect(deps: CouncilsDeps, ctx: RequestContext, caps
     const isExclusion = kind === "STUDENT_STATUS_REQUEST";
     if (isExclusion ? !caps.exclusionApply : !caps.effectManage) return err(forbidden(CouncilsCode.PERMISSION_REQUIRED, "Annuler cet effet exige une autorisation dédiée."));
     if (REVERTED_BY_RESULTS_REOPEN.includes(kind)) {
-      return err(conflict("councils.effect_revert_via_results", "Cet effet s'annule par la réouverture de la période de résultats : l'annulation sera enregistrée automatiquement."));
+      // Retrait unitaire dans `results` quand son API l'offre ; sinon (ou référence inconnue) : annulation par la réouverture de la période.
+      const withdraw = deps.ports.resultsWrite.withdrawDecision;
+      if (!withdraw || !effect.externalRef) {
+        return err(conflict("councils.effect_revert_via_results", "Cet effet s'annule par la réouverture de la période de résultats : l'annulation sera enregistrée automatiquement."));
+      }
+      try {
+        await withdraw.call(deps.ports.resultsWrite, ctx, { decisionId: effect.externalRef, reason, councilRef: effect.decisionId ? decisionRefOf(effect.decisionId) : effect.proposalId ? proposalRefOf(effect.proposalId) : councilRefOf(council.id) });
+      } catch (e) {
+        if (isAppError(e)) return err(e); // refus de `results` (période clôturée, décision publiée…) : l'effet reste appliqué
+        throw e;
+      }
     }
     const decision = effect.decisionId ? await councilsRepo.getDecision(tx, effect.decisionId) : null;
     if (kind === "STUDENT_STATUS_REQUEST") {

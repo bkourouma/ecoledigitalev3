@@ -102,6 +102,10 @@ export const schoollifeSettingsInputSchema = z
     confidentialReadRequiresPurpose: z.boolean().optional(),
     /** Durée de conservation en jours ; `null` = non définie (aucune durée légale codée : question ouverte). */
     retentionDays: z.number().int().min(1).nullable().optional(),
+    /** Rappel d'une convocation N heures avant l'échéance (1 à 720) ; `null` = aucun rappel (VIDE par défaut, aucune valeur imposée). */
+    convocationReminderHours: z.number().int().min(1).max(720).nullable().optional(),
+    /** Avis neutre aux tuteurs au début et à la fin d'une exclusion temporaire (éteint par défaut). */
+    exclusionBoundaryNotices: z.boolean().optional(),
   })
   .strict();
 export type SchoolLifeSettingsInput = z.infer<typeof schoollifeSettingsInputSchema>;
@@ -111,6 +115,8 @@ export const schoollifeSettingsDtoSchema = z.object({
   conductPointsEnabled: z.boolean(),
   confidentialReadRequiresPurpose: z.boolean(),
   retentionDays: z.number().int().nullable(),
+  convocationReminderHours: z.number().int().nullable(),
+  exclusionBoundaryNotices: z.boolean(),
 });
 export type SchoolLifeSettingsDto = z.infer<typeof schoollifeSettingsDtoSchema>;
 
@@ -191,6 +197,12 @@ export const schoollifeIncidentCreateSchema = z
     institutionId: schoollifeUuidSchema.optional(),
     academicYearId: schoollifeUuidSchema.optional(),
     involvements: z.array(schoollifeInvolvementInputSchema).max(50).default([]),
+    /**
+     * Clé d'idempotence de la saisie (générée par le client, 8 à 100 caractères `A-Za-z0-9_.:-`) : rejouer la MÊME saisie avec la même clé
+     * renvoie l'incident déjà créé (aucun doublon, aucun second événement) ; la réutiliser avec un autre contenu est refusé (409).
+     * L'en-tête `Idempotency-Key` est équivalent. Prévu pour le rejeu d'une saisie rapide faite hors ligne.
+     */
+    clientKey: z.string().regex(/^[A-Za-z0-9_.:-]{8,100}$/, "La clé d'idempotence contient 8 à 100 caractères (lettres, chiffres, _ . : -).").optional(),
   })
   .strict()
   .refine((v) => v.involvements.length > 0 || (v.institutionId !== undefined && v.academicYearId !== undefined), {

@@ -6,9 +6,9 @@
  * Les valeurs sont FICTIVES : aucun résultat ne dit ce que dit le règlement.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { newId, unwrap } from "@ecoledigitale/kernel";
+import { createRequestContext, newId, unwrap } from "@ecoledigitale/kernel";
 import { computePeriod } from "../../application/compute";
-import { markDeliberationHeld, openCouncilDeliberation, publishYearDecision, recordDistinction, writeCouncilAppreciation } from "../../application/council-write";
+import { markDeliberationHeld, openCouncilDeliberation, publishYearDecision, recordDistinction, withdrawCouncilDecision, writeCouncilAppreciation } from "../../application/council-write";
 import { confirmDecisionUseCase, listAppreciationsView, listDecisionsView, updateResultsSettings } from "../../application/governance";
 import { closePeriod, deliberatePeriod, lockPeriod } from "../../application/lifecycle";
 import { listPromotionOutcomes } from "../../application/promotion";
@@ -208,6 +208,62 @@ describeIntegration("primaire et N périodes (Postgres réel + règles fictives)
       expect(JSON.stringify(w.audit.entries)).not.toContain("Élève sérieux");
     });
 
+    it("retrait d'une décision / distinction de conseil : motif, trace, audit, événement ; idempotent ; jamais publiée ; la décision de règle réapparaît au recalcul", async () => {
+      const state = stateT3;
+      const dist = (await adminRows<{ id: string }>(db, "SELECT id FROM results.decisions WHERE state_id = $1 AND kind = 'DISTINCTION' AND status = 'CONFIRMED'", [state]))[0]!;
+      const yearEndB = (await adminRows<{ id: string }>(db, "SELECT id FROM results.decisions WHERE state_id = $1 AND enrollment_id = $2 AND kind = 'YEAR_END'", [state, students[1]!.enrollmentId]))[0]!;
+      w.audit.clear();
+
+      // refus : motif trop court, acteur invalide, décision inconnue, kind non retirable
+      expect(await withdrawCouncilDecision(w.deps, w.director, { decisionId: dist.id, reason: "court", actor: ACTOR })).toMatchObject({ ok: false, error: { code: "results.invalid_input" } });
+      expect(await withdrawCouncilDecision(w.deps, w.director, { decisionId: dist.id, reason: "Erreur de saisie de la distinction", actor: { source: "autre" as never, councilRef: "x" } })).toMatchObject({ ok: false, error: { code: "results.council_write_rejected" } });
+      expect(await withdrawCouncilDecision(w.deps, w.director, { decisionId: newId(), reason: "Erreur de saisie de la distinction", actor: ACTOR })).toMatchObject({ ok: false, error: { code: "results.decision_not_found" } });
+
+      // RLS A/B : un autre tenant ne voit pas la décision (introuvable) et ne peut pas la retirer
+      const other = createRequestContext({ tenantId: await db.createTenant(), userId: newId(), roles: [] });
+      expect(await withdrawCouncilDecision(w.deps, other, { decisionId: dist.id, reason: "Retrait depuis un autre établissement", actor: ACTOR })).toMatchObject({ ok: false, error: { code: "results.decision_not_found" } });
+      expect((await adminRows<{ status: string }>(db, "SELECT status FROM results.decisions WHERE id = $1", [dist.id]))[0]!.status).toBe("CONFIRMED");
+
+      // distinction (origine conseil) : retirée, tracée
+      const withdrawn = unwrap(await withdrawCouncilDecision(w.deps, w.director, { decisionId: dist.id, reason: "Distinction saisie par erreur pour cet élève", actor: ACTOR }));
+      expect(withdrawn).toMatchObject({ id: dist.id, status: "WITHDRAWN", kind: "DISTINCTION", finalCode: "HONOR_ROLL" });
+      const row = (await adminRows<{ withdrawn_by: string; withdrawal_reason: string; withdrawal_ref: string; withdrawn_by_name: string }>(db, "SELECT withdrawn_by, withdrawn_by_name, withdrawal_reason, withdrawal_ref FROM results.decisions WHERE id = $1", [dist.id]))[0]!;
+      expect(row).toMatchObject({ withdrawal_reason: "Distinction saisie par erreur pour cet élève", withdrawal_ref: ACTOR.councilRef });
+      expect(row.withdrawn_by).toBeTruthy();
+      expect(w.audit.actions()).toContain("results.decision.withdrawn_by_council");
+      const events = await adminRows<{ payload: Record<string, unknown> }>(db, "SELECT payload FROM kernel.domain_events WHERE type = 'results.decision.withdrawn' AND aggregate_id = $1", [dist.id]);
+      expect(events).toHaveLength(1);
+      expect(events[0]!.payload).toMatchObject({ v: 1, decisionId: dist.id, kind: "DISTINCTION", origin: "COUNCIL" });
+      expect(JSON.stringify(events[0]!.payload)).not.toContain("saisie par erreur"); // le motif n'est jamais dans l'événement
+      // idempotent : rien de plus
+      expect(unwrap(await withdrawCouncilDecision(w.deps, w.director, { decisionId: dist.id, reason: "Distinction saisie par erreur pour cet élève", actor: ACTOR })).status).toBe("WITHDRAWN");
+      expect(await adminRows(db, "SELECT 1 FROM kernel.domain_events WHERE type = 'results.decision.withdrawn' AND aggregate_id = $1", [dist.id])).toHaveLength(1);
+      // la distinction peut être ré-enregistrée après retrait (index unique partiel)
+      const redone = unwrap(await recordDistinction(w.deps, w.director, { stateId: state, enrollmentId: students[0]!.enrollmentId, distinctionCode: "HONOR_ROLL", actor: ACTOR }));
+      expect(redone).toMatchObject({ status: "CONFIRMED", finalCode: "HONOR_ROLL" });
+      expect(redone.id).not.toBe(dist.id);
+
+      // décision d'origine RÈGLE : retirée, un recalcul est demandé pour que la proposition réapparaisse
+      const requestsBefore = Number((await adminRows<{ n: string }>(db, "SELECT count(*)::text AS n FROM results.recompute_requests WHERE causes::text LIKE '%results.decision.withdrawn%'"))[0]!.n);
+      expect(unwrap(await withdrawCouncilDecision(w.deps, w.director, { decisionId: yearEndB.id, reason: "Le conseil revient sur sa décision de passage", actor: ACTOR })).origin).toBe("RULE");
+      const requestsAfter = Number((await adminRows<{ n: string }>(db, "SELECT count(*)::text AS n FROM results.recompute_requests WHERE causes::text LIKE '%results.decision.withdrawn%'"))[0]!.n);
+      expect(requestsBefore).toBe(0);
+      expect(requestsAfter).toBe(1);
+      // la proposition de la règle est rétablie ; le conseil redécide sur la même base (ici : il suit la règle, sans justification)
+      const restored = (await adminRows<{ status: string; proposed_code: string }>(db, "SELECT status, proposed_code FROM results.decisions WHERE state_id = $1 AND enrollment_id = $2 AND kind = 'YEAR_END' AND status <> 'WITHDRAWN'", [state, students[1]!.enrollmentId]));
+      expect(restored).toEqual([{ status: "PROPOSED", proposed_code: "REPEAT" }]);
+      expect(unwrap(await publishYearDecision(w.deps, w.director, { stateId: state, enrollmentId: students[1]!.enrollmentId, finalCode: "PROMOTED", justification: "Progrès constants au troisième trimestre, avis unanime des maîtres.", actor: ACTOR }))).toMatchObject({ status: "CONFIRMED", finalCode: "PROMOTED", origin: "RULE" });
+
+      // décision PUBLIÉE (bulletin) : jamais retirée (ligne d'essai publiée, hors du scénario des élèves)
+      const publishedId = newId();
+      await db.admin.query(
+        `INSERT INTO results.decisions (id, tenant_id, state_id, enrollment_id, scope, kind, final_code, final_outcome, status, origin, decided_by, decided_by_name, decided_at)
+         SELECT $1, tenant_id, id, $3, 'YEAR', 'DISTINCTION', 'HONOR_ROLL', 'OTHER', 'PUBLISHED', 'COUNCIL', $4, 'Direction', now() FROM results.period_states WHERE id = $2`,
+        [publishedId, state, newId(), newId()],
+      );
+      expect(await withdrawCouncilDecision(w.deps, w.director, { decisionId: publishedId, reason: "Tentative de retrait d'une décision publiée", actor: ACTOR })).toMatchObject({ ok: false, error: { code: "results.decision_transition" } });
+    });
+
     it("délibération : les propositions fermes sont confirmées, « la règle ne tranche pas » ne l'est jamais d'office ; la clôture fige tout", async () => {
       // un dossier à examiner non tranché reste PROPOSÉ (E est « en attente » : confirmé tel quel, sans note)
       await lock(classroomId, t3.id);
@@ -222,6 +278,9 @@ describeIntegration("primaire et N périodes (Postgres réel + règles fictives)
       // période close : plus aucune écriture de conseil
       const afterClose = await publishYearDecision(w.deps, w.director, { stateId: stateT3, enrollmentId: students[2]!.enrollmentId, finalCode: "REPEAT", justification: "Tentative de modification après clôture.", actor: ACTOR });
       expect(afterClose).toMatchObject({ ok: false, error: { code: "results.state_closed" } });
+      // et plus aucun retrait non plus (période clôturée)
+      const closedDecision = (await adminRows<{ id: string }>(db, "SELECT id FROM results.decisions WHERE state_id = $1 AND enrollment_id = $2 AND kind = 'YEAR_END' AND status = 'CONFIRMED'", [stateT3, students[2]!.enrollmentId]))[0]!;
+      expect(await withdrawCouncilDecision(w.deps, w.director, { decisionId: closedDecision.id, reason: "Retrait après la clôture de la période", actor: ACTOR })).toMatchObject({ ok: false, error: { code: "results.state_closed" } });
     });
 
     it("l'année : moyenne générale annuelle restituée, décision confirmée lue par academic (passage / redoublement)", async () => {

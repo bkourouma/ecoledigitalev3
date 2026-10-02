@@ -59,6 +59,30 @@ export async function listDocumentFiles(tx: Tx, applicationId: string): Promise<
   );
 }
 
+/** Pièces ACCEPTÉES d'un dossier, stockées (admissions) et pas encore rattachées à la GED (`document_ref` vide). */
+export async function listAttachableFiles(
+  tx: Tx,
+  applicationId: string,
+): Promise<Array<{ requirementId: string; requirementCode: string; requirementLabel: string; storageKey: string; contentType: string | null }>> {
+  return tx.many(
+    `SELECT d.requirement_id AS "requirementId", r.code AS "requirementCode", r.label AS "requirementLabel", d.storage_key AS "storageKey", d.content_type AS "contentType"
+       FROM admissions.application_documents d
+       JOIN admissions.document_requirements r ON r.tenant_id = d.tenant_id AND r.id = d.requirement_id
+      WHERE d.application_id = $1 AND d.status = 'ACCEPTED' AND d.storage_key IS NOT NULL AND d.document_ref IS NULL
+      ORDER BY r.sort_order, r.code`,
+    [applicationId],
+  );
+}
+
+/** Pose la référence GED d'une pièce (rattachement) ; sans effet si elle en a déjà une (idempotent). */
+export async function setDocumentRef(tx: Tx, applicationId: string, requirementId: string, documentRef: string): Promise<void> {
+  await tx.query(
+    `UPDATE admissions.application_documents SET document_ref = $3, updated_at = now()
+      WHERE application_id = $1 AND requirement_id = $2 AND document_ref IS NULL`,
+    [applicationId, requirementId, documentRef],
+  );
+}
+
 export async function upsertSubmittedDocument(
   tx: Tx,
   input: { id: string; tenantId: string; applicationId: string; requirementId: string; documentRef: string | null; storageKey: string; contentType: string; sizeBytes: number; sha256: string },

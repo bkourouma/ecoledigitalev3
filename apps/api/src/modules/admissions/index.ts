@@ -70,6 +70,8 @@ export { handleEnrollmentConfirmed, handleEnrollmentEnded } from "./application/
 export { getPublicForm, respondOfferPublic, submitPublicApplication, trackApplication, uploadTrackedDocument, viewOfferPublic } from "./application/public-form";
 export { anonymizeApplication, anonymizeExpired, exportApplication } from "./application/anonymize";
 export { reviewDocument, uploadDocument } from "./application/documents";
+export { attachDocumentsToStudentFile } from "./application/student-file";
+export type { DocumentCaps } from "./application/ports";
 export { detectDuplicates } from "./application/duplicates";
 export { enforcePaymentDeadline, expireOffers, purgePublicFormData } from "./application/jobs";
 export { createProspect, convertProspect } from "./application/prospects";

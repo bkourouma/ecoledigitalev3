@@ -47,6 +47,11 @@ export default defineModule({
     { key: "admission.prospect.manage", label: "Gérer les prospects et les convertir en candidatures" },
     { key: "admission.document.upload", label: "Déposer une pièce justificative au nom de la famille" },
     { key: "admission.document.review", label: "Relire, accepter ou rejeter une pièce justificative (lecture auditée)" },
+    {
+      key: "admission.document.attach",
+      label: "Rattacher les pièces d'un dossier inscrit au dossier permanent de l'élève (GED)",
+      description: "Exige aussi le droit de dépôt de la GED (documents.upload) : la personne qui confirme devient le déposant dans l'historique de la GED.",
+    },
     { key: "admission.interview.manage", label: "Planifier un test ou un entretien et saisir son résultat" },
     { key: "admission.offer.manage", label: "Émettre, retirer une offre d'admission ; accepter au nom de la famille (pièce justificative)" },
     { key: "admission.duplicate.resolve", label: "Trancher les rapprochements de doublons" },

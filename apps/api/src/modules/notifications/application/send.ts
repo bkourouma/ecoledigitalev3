@@ -75,7 +75,33 @@ export async function sendManualNotification(deps: NotificationsDeps, ctx: Reque
   if (urgent && !caps.urgent) return err(forbidden(NotifCode.FORBIDDEN, "L'envoi urgent exige une autorisation spécifique."));
   const userId = ctx.userId;
   if (!userId) return err(forbidden(NotifCode.FORBIDDEN, "Utilisateur identifié requis."));
+  return runSend(deps, ctx, body, { userId, urgent, source: "MANUAL" });
+}
 
+/**
+ * Envoi AUTOMATIQUE (rappel planifié d'un module : job du worker, acteur système) : mêmes contrôles que l'envoi manuel (gabarit
+ * `manual` du catalogue, variables validées avant la mise en file, audience résolue par l'annuaire, consentements, heures calmes,
+ * plafonds et idempotence par `clientKey`) mais SANS utilisateur : source `EVENT`, jamais d'urgence, `createdBy` vide. Réservé aux
+ * contextes `system` : un contexte utilisateur passe par `sendManualNotification` (permission `notifications.send`).
+ */
+export async function sendAutomaticNotification(deps: NotificationsDeps, ctx: RequestContext, body: NotifSendBody): Promise<Result<SendResult, AppError>> {
+  if (ctx.userId) return err(forbidden(NotifCode.FORBIDDEN, "L'envoi automatique est réservé aux traitements planifiés."));
+  const entry = catalogEntry(body.templateCode);
+  if (!entry) return err(notFound(NotifCode.TEMPLATE_NOT_FOUND, "Gabarit", body.templateCode));
+  if (!entry.manual) return err(validation(NotifCode.INVALID_INPUT, `Le gabarit « ${entry.label} » n'est pas utilisable en envoi automatique.`, "templateCode"));
+  if (body.urgent || body.templateCode === "urgent_notice") return err(forbidden(NotifCode.FORBIDDEN, "Un envoi automatique n'est jamais urgent."));
+  if (!body.clientKey) return err(validation(NotifCode.INVALID_INPUT, "Un envoi automatique porte une clé d'idempotence.", "clientKey"));
+  return runSend(deps, ctx, body, { userId: null, urgent: false, source: "EVENT" });
+}
+
+async function runSend(
+  deps: NotificationsDeps,
+  ctx: RequestContext,
+  body: NotifSendBody,
+  who: { userId: string | null; urgent: boolean; source: "MANUAL" | "EVENT" },
+): Promise<Result<SendResult, AppError>> {
+  const entry = catalogEntry(body.templateCode)!;
+  const { userId, urgent } = who;
   return inTx(deps, ctx, async (tx) => {
     const settings = await settingsRepo.getSettings(tx, ctx.tenantId);
     // Validation des variables AVANT toute mise en file : un essai de rendu par le premier canal disposant d'un gabarit.
@@ -94,7 +120,7 @@ export async function sendManualNotification(deps: NotificationsDeps, ctx: Reque
     const base = `manual:${body.clientKey ?? deps.newId()}`;
     const wantsStudentName = entry.variables.some((v) => v.name === "studentName") && body.variables.studentName === undefined;
     const r = await enqueueInTx(deps, ctx, tx, {
-      source: { kind: "MANUAL" },
+      source: { kind: who.source },
       templateCode: body.templateCode,
       urgent,
       recipients,
@@ -103,12 +129,12 @@ export async function sendManualNotification(deps: NotificationsDeps, ctx: Reque
       values: body.variables,
       valuesFor: wantsStudentName ? (rec) => (studentNameOf.has(rec.subjectKey) ? { studentName: studentNameOf.get(rec.subjectKey) } : {}) : undefined,
       dedupeBase: base,
-      context: { sentBy: userId },
+      context: userId ? { sentBy: userId } : { automatic: "true" },
       linkPath: null,
       createdBy: userId,
     });
-    if (urgent) events.add(NotificationsEvents.URGENT_SENT, { v: 1, templateCode: body.templateCode, recipients: r.recipients, sentBy: userId }, { type: "send", id: base });
-    events.audit({ action: urgent ? "notifications.urgent.send" : "notifications.send", entity: "send", entityId: base, after: { templateCode: body.templateCode, channels: body.channels, recipients: r.recipients, queued: r.queued, skipped: r.skipped }, severity: urgent ? "warning" : "info" });
+    if (urgent && userId) events.add(NotificationsEvents.URGENT_SENT, { v: 1, templateCode: body.templateCode, recipients: r.recipients, sentBy: userId }, { type: "send", id: base });
+    events.audit({ action: urgent ? "notifications.urgent.send" : "notifications.send", entity: "send", entityId: base, after: { templateCode: body.templateCode, channels: body.channels, recipients: r.recipients, queued: r.queued, skipped: r.skipped, ...(userId ? {} : { automatic: true }) }, severity: urgent ? "warning" : "info" });
     await events.flush(tx);
     return ok({ recipients: r.recipients, deliveries: r.queued, skipped: r.skipped, reused: r.duplicates > 0 && r.queued === 0 && r.skipped === 0 });
   });
