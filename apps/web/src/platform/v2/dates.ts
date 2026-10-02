@@ -41,7 +41,10 @@ export function weekDays(civil: string): string[] {
 }
 
 export function isCivilDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && toCivil(toDate(value)) === value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = toDate(value);
+  // `Invalid Date` (mois 13…) ferait lever `toISOString()` : une date de l'URL ne doit jamais faire échouer la page.
+  return !Number.isNaN(d.getTime()) && toCivil(d) === value;
 }
 
 export function minutesToTime(minutes: number): string {

@@ -136,6 +136,8 @@ export function JustificationDetail({ id, onClose, onDone }: { id: string; onClo
     setFileError(null);
     try {
       const signed = await fetchAttachmentUrl(id, attachmentId);
+      // Seul un lien http(s) est ouvert (jamais `javascript:` ni `data:`), dans un nouvel onglet isolé.
+      if (!/^https?:\/\//i.test(signed.url)) throw new Error("URL de pièce invalide.");
       window.open(signed.url, "_blank", "noopener,noreferrer");
     } catch (e) {
       setFileError(e instanceof ApiError ? e.message : t("fileError"));
