@@ -31,6 +31,15 @@ Mesures de référence : API v2 environ 2 940 tests, critères de sortie Phase 1
 5. **Phase 6** : tableaux de bord de direction et alertes (spec 025), hors-ligne avancé, tests de charge, exercice de restauration, revue de sécurité complète, accessibilité.
 6. **Mise en service** (actions à fort impact : voir les garde-fous du prompt) : reset de la base et archivage des migrations legacy, suppression du code legacy et de Prisma, image du worker (Chromium), variables d'environnement et rôles de base de production, bascule de l'authentification.
 
+## Manques d'API identifiés par les écrans (à traiter dans le backlog C)
+
+- Finance : routes parent/élève filtrées par lien de tutelle (permission `finance.child.read` / `finance.self.read` avec contrôle de propriété) ; sans elles `/v2/finance/me` renvoie 403 aux parents.
+- Paie : contestation d'un bulletin par l'enseignant lui-même (aujourd'hui `dispute` exige `payroll.payslip.approve`).
+- Finance : export CSV serveur complet pour gros volumes (aujourd'hui produit côté web à partir de la page affichée) ; route de lecture du rapprochement des webhooks en échec ; rendu PDF des reçus et des bulletins de paie via `reportcards`/worker (aujourd'hui impression navigateur).
+- Lectures par lots (noms d'élèves/apprenants par identifiants multiples) pour éviter une requête par élève dans les listes.
+- Adaptateur d'inscriptions : sens des clés libres des barèmes (`levelKey`, `trackKey`, `learnerType`) à définir côté `academic`.
+- Parité legacy manquante côté finance : saisie des charges et tableaux de bord propriétaire (trésorerie, scolarité), commandes/lots du parcours « professionnel », commissions de prospection.
+
 ## Dette connue
 
 - tsc legacy : 365 erreurs (API), 412 (web) ; ne doivent pas augmenter. Jest legacy : 8 suites en échec historiques.
