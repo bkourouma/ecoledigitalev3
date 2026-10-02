@@ -59,6 +59,7 @@
     "remove:technical-parent": "tsx scripts/remove-technical-parent.ts",
     "rotate:technical-passwords": "tsx scripts/rotate-technical-passwords.ts",
     "check:secrets": "node scripts/check-secrets.mjs",
+    "restore:drill": "node infra/scripts/restore-drill.mjs",
     "check:boundaries": "depcruise apps/api/src/modules apps/api/src/platform packages/kernel/src packages/rules-engine/src packages/database/src --config .dependency-cruiser.cjs",
     "db:v2:migrate": "tsx scripts/db/v2-migrate.ts",
     "db:v2:create-login-role": "tsx scripts/db/create-login-role.ts",
