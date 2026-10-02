@@ -35,6 +35,8 @@ const UNIQUE_BY_TABLE: Readonly<Record<string, [string, string]>> = {
   curriculum_versions: [AcademicCode.CURRICULUM_EXISTS, "Un curriculum existe déjà pour ce programme et cette année."],
   curriculum_nodes: [AcademicCode.NODE_CODE_TAKEN, "Ce code existe déjà parmi les nœuds frères."],
   classroom_offerings: [AcademicCode.OFFERING_EXISTS, "Une offre existe déjà pour ce nœud dans cette classe."],
+  institution_holidays: [AcademicCode.HOLIDAY_DUPLICATE, "Ce jour férié existe déjà dans le calendrier de l'établissement."],
+  rollover_runs: [AcademicCode.ROLLOVER_RUN_LIVE, "Une reconduction est déjà en attente ou en cours pour ces deux années."],
 };
 
 const FK_BY_CONSTRAINT: ReadonlyArray<[RegExp, string, string]> = [

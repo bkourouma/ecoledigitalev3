@@ -1311,6 +1311,216 @@ export const academicRolloverReportDtoSchema = z.object({
 export type AcademicRolloverReportDto = z.infer<typeof academicRolloverReportDtoSchema>;
 
 // ---------------------------------------------------------------------------
+// Assistant de reconduction (calendrier, curriculum, classes, offres, réinscriptions) : aperçu, exécution en tâche de
+// fond avec progression, rapport. Les réinscriptions réutilisent `academicRollover*` ci-dessus.
+// ---------------------------------------------------------------------------
+
+/** Étapes de la reconduction, dans l'ordre d'exécution. */
+export const ACADEMIC_ROLLOVER_STEPS = ["PERIODS", "HOLIDAYS", "CURRICULUM", "CLASSROOMS", "OFFERINGS", "ENROLLMENTS"] as const;
+export const academicRolloverStepSchema = z.enum(ACADEMIC_ROLLOVER_STEPS);
+export type AcademicRolloverStep = z.infer<typeof academicRolloverStepSchema>;
+
+export const ACADEMIC_ROLLOVER_RUN_STATUSES = ["PENDING", "RUNNING", "COMPLETED", "FAILED"] as const;
+export const academicRolloverRunStatusSchema = z.enum(ACADEMIC_ROLLOVER_RUN_STATUSES);
+export type AcademicRolloverRunStatus = z.infer<typeof academicRolloverRunStatusSchema>;
+
+export const ACADEMIC_ROLLOVER_STEP_STATUSES = ["PENDING", "RUNNING", "DONE", "SKIPPED", "FAILED"] as const;
+
+const rolloverStepsInput = z.array(academicRolloverStepSchema).min(1).max(ACADEMIC_ROLLOVER_STEPS.length);
+
+export const academicRolloverRunBodySchema = z
+  .object({
+    toAcademicYearId: academicUuidSchema,
+    /** Étapes retenues (défaut : toutes). Une étape absente n'est ni prévisualisée ni exécutée. */
+    steps: rolloverStepsInput.optional(),
+    /** Ne reconduit que ces classes sources (défaut : toutes les classes de l'année source). */
+    classroomIds: uuidList.optional(),
+    /** Crée les classes de destination qui manquent pour les réinscriptions (défaut : oui). */
+    createMissingClassrooms: z.boolean().optional(),
+  })
+  .strict();
+export type AcademicRolloverRunBody = z.infer<typeof academicRolloverRunBodySchema>;
+
+export const academicRolloverPlanQuerySchema = z
+  .object({
+    toAcademicYearId: academicUuidSchema,
+    /** Étapes séparées par des virgules (ex. `PERIODS,CURRICULUM`) ; défaut : toutes. */
+    steps: z
+      .string()
+      .optional()
+      .transform((v, ctx) => {
+        if (v === undefined || v.trim() === "") return undefined;
+        const parts = v.split(",").map((s) => s.trim());
+        const parsed = rolloverStepsInput.safeParse(parts);
+        if (!parsed.success) {
+          ctx.addIssue({ code: "custom", message: "Étapes inconnues." });
+          return z.NEVER;
+        }
+        return parsed.data;
+      }),
+    createMissingClassrooms: boolQuery.optional(),
+  })
+  .strict();
+export type AcademicRolloverPlanQuery = z.infer<typeof academicRolloverPlanQuerySchema>;
+
+/** Avertissement de l'aperçu ou du rapport : `code` stable, `step` = étape concernée (null = général). */
+export const academicRolloverWarningSchema = z.object({
+  code: z.enum([
+    "target_year_has_periods",
+    "target_year_has_classrooms",
+    "target_year_has_curriculum",
+    "target_year_not_empty",
+    "periods_dates_clamped",
+    "periods_source_missing",
+    "holidays_not_recurring",
+    "curriculum_source_missing",
+    "curriculum_source_draft",
+    "classrooms_source_missing",
+    "offerings_need_curriculum",
+    "offerings_feature_disabled",
+    "promotion_decisions_missing",
+    "conflict",
+    "item_failed",
+  ]),
+  step: academicRolloverStepSchema.nullable(),
+  message: z.string(),
+});
+export type AcademicRolloverWarning = z.infer<typeof academicRolloverWarningSchema>;
+
+export const academicRolloverPlanDtoSchema = z.object({
+  fromAcademicYearId: academicUuidSchema,
+  toAcademicYearId: academicUuidSchema,
+  steps: z.array(academicRolloverStepSchema),
+  /** Une exécution est déjà en attente ou en cours pour ce couple d'années. */
+  liveRunId: academicUuidSchema.nullable(),
+  warnings: z.array(academicRolloverWarningSchema),
+  periods: z.object({
+    toCreate: z.array(z.object({ code: z.string(), parentCode: z.string().nullable(), periodTypeCode: z.string(), ordinal: z.number().int(), label: z.string(), startsOn: academicDateSchema, endsOn: academicDateSchema })),
+    existing: z.number().int().nonnegative(),
+  }),
+  holidays: z.object({
+    toCreate: z.array(z.object({ label: z.string(), kind: z.enum(["HOLIDAY", "BREAK", "CLOSURE"]), startsOn: academicDateSchema, endsOn: academicDateSchema })),
+    existing: z.number().int().nonnegative(),
+    /** Jours non annuels de l'année source : à ressaisir pour l'année cible (fêtes mobiles, fermetures ponctuelles). */
+    notRecurring: z.number().int().nonnegative(),
+  }),
+  curriculum: z.object({
+    items: z.array(
+      z.object({
+        programId: academicUuidSchema,
+        programCode: z.string(),
+        programLabel: z.string(),
+        sourceVersionId: academicUuidSchema.nullable(),
+        sourceStatus: z.enum(["DRAFT", "PUBLISHED", "LOCKED", "ARCHIVED"]).nullable(),
+        nodeCount: z.number().int().nonnegative(),
+        targetVersionId: academicUuidSchema.nullable(),
+        action: z.enum(["CLONE", "EXISTS", "NO_SOURCE"]),
+      }),
+    ),
+  }),
+  classrooms: z.object({
+    toCreate: z.array(z.object({ sourceClassroomId: academicUuidSchema, code: z.string(), name: z.string(), programId: academicUuidSchema, gradeLevelId: academicUuidSchema, capacity: z.number().int().nullable() })),
+    existing: z.number().int().nonnegative(),
+  }),
+  offerings: z.object({ toCreate: z.number().int().nonnegative(), existing: z.number().int().nonnegative() }),
+  /** Aperçu des réinscriptions (décisions de passage lues dans `results`) ; null si l'étape n'est pas retenue. */
+  enrollments: academicRolloverPreviewDtoSchema.nullable(),
+});
+export type AcademicRolloverPlanDto = z.infer<typeof academicRolloverPlanDtoSchema>;
+
+export const academicRolloverStepProgressSchema = z.object({
+  key: academicRolloverStepSchema,
+  status: z.enum(ACADEMIC_ROLLOVER_STEP_STATUSES),
+  done: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  message: z.string().nullable(),
+});
+export const academicRolloverRunReportSchema = z.object({
+  periodsCreated: z.number().int().nonnegative(),
+  holidaysCreated: z.number().int().nonnegative(),
+  curriculumVersionsCreated: z.number().int().nonnegative(),
+  classroomsCreated: z.number().int().nonnegative(),
+  offeringsCreated: z.number().int().nonnegative(),
+  enrollmentsCreated: z.number().int().nonnegative(),
+  alreadyRolledOver: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+  warnings: z.array(academicRolloverWarningSchema),
+  anomalies: z.array(academicRolloverAnomalySchema),
+});
+export type AcademicRolloverRunReport = z.infer<typeof academicRolloverRunReportSchema>;
+
+export const academicRolloverRunDtoSchema = z.object({
+  id: academicUuidSchema,
+  institutionId: academicUuidSchema,
+  fromAcademicYearId: academicUuidSchema,
+  toAcademicYearId: academicUuidSchema,
+  status: academicRolloverRunStatusSchema,
+  steps: z.array(academicRolloverStepSchema),
+  requestedBy: academicUuidSchema.nullable(),
+  requestedAt: academicInstantSchema,
+  startedAt: academicInstantSchema.nullable(),
+  finishedAt: academicInstantSchema.nullable(),
+  attempts: z.number().int().nonnegative(),
+  progress: z.object({ stage: academicRolloverStepSchema.nullable(), steps: z.array(academicRolloverStepProgressSchema) }),
+  report: academicRolloverRunReportSchema.nullable(),
+  errorMessage: z.string().nullable(),
+});
+export type AcademicRolloverRunDto = z.infer<typeof academicRolloverRunDtoSchema>;
+
+// ---------------------------------------------------------------------------
+// Calendrier de l'établissement : jours fériés, vacances, fermetures (données de l'établissement : aucune date livrée)
+// ---------------------------------------------------------------------------
+
+export const ACADEMIC_HOLIDAY_KINDS = ["HOLIDAY", "BREAK", "CLOSURE"] as const;
+export const academicHolidayKindSchema = z.enum(ACADEMIC_HOLIDAY_KINDS);
+export type AcademicHolidayKind = z.infer<typeof academicHolidayKindSchema>;
+
+export const academicHolidayDtoSchema = z.object({
+  id: academicUuidSchema,
+  institutionId: academicUuidSchema,
+  label: z.string(),
+  kind: academicHolidayKindSchema,
+  startsOn: academicDateSchema,
+  endsOn: academicDateSchema,
+  /** Fête fixe : reportée à la même date civile par la reconduction annuelle. */
+  recursYearly: z.boolean(),
+  blocksTeaching: z.boolean(),
+});
+export type AcademicHolidayDto = z.infer<typeof academicHolidayDtoSchema>;
+
+export const academicCreateHolidayBodySchema = z
+  .object({
+    institutionId: academicUuidSchema,
+    label,
+    kind: academicHolidayKindSchema.optional(),
+    startsOn: academicDateSchema,
+    /** Défaut : `startsOn` (un jour). */
+    endsOn: academicDateSchema.optional(),
+    recursYearly: z.boolean().optional(),
+    blocksTeaching: z.boolean().optional(),
+  })
+  .strict();
+export type AcademicCreateHolidayBody = z.infer<typeof academicCreateHolidayBodySchema>;
+
+export const academicUpdateHolidayBodySchema = z
+  .object({
+    label: label.optional(),
+    kind: academicHolidayKindSchema.optional(),
+    startsOn: academicDateSchema.optional(),
+    endsOn: academicDateSchema.optional(),
+    recursYearly: z.boolean().optional(),
+    blocksTeaching: z.boolean().optional(),
+  })
+  .strict()
+  .refine((b) => Object.keys(b).length > 0, "Aucune modification.");
+export type AcademicUpdateHolidayBody = z.infer<typeof academicUpdateHolidayBodySchema>;
+
+export const academicListHolidaysQuerySchema = z
+  .object({ institutionId: academicUuidSchema.optional(), from: academicDateSchema.optional(), to: academicDateSchema.optional() })
+  .strict();
+export type AcademicListHolidaysQuery = z.infer<typeof academicListHolidaysQuerySchema>;
+
+// ---------------------------------------------------------------------------
 // Annuaire d'inscriptions pour la finance (conforme au port `EnrollmentDirectory` de finance)
 // ---------------------------------------------------------------------------
 
@@ -1440,6 +1650,15 @@ export const academicRolloverEventPayloadSchema = z.object({
   toAcademicYearId: academicUuidSchema,
   enrollmentsCreated: z.number().int().nonnegative(),
   classroomsCreated: z.number().int().nonnegative(),
+  runId: academicUuidSchema.optional(),
+});
+/** `academic.rollover.requested` : l'assistant a enregistré une exécution ; le worker la reprend (abonné d'academic). */
+export const academicRolloverRequestedEventPayloadSchema = z.object({
+  v: z.literal(1),
+  runId: academicUuidSchema,
+  institutionId: academicUuidSchema,
+  fromAcademicYearId: academicUuidSchema,
+  toAcademicYearId: academicUuidSchema,
 });
 export const academicPaymentOrphanEventPayloadSchema = z.object({
   ...enrollmentEventBase,
@@ -1519,4 +1738,5 @@ export const academicEventPayloadSchemas = {
   "academic.enrollment_course.expired": academicEnrollmentCourseEventPayloadSchema,
   "academic.enrollment_course.payment_orphan": academicPaymentOrphanEventPayloadSchema,
   "academic.rollover.completed": academicRolloverEventPayloadSchema,
+  "academic.rollover.requested": academicRolloverRequestedEventPayloadSchema,
 } as const;

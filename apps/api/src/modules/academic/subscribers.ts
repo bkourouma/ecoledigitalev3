@@ -8,6 +8,8 @@
  *  - `academic.confirm-on-invoice-paid`     `finance.invoice.paid` -> DÉCISION MÉTIER VALIDÉE : confirmation
  *    AUTOMATIQUE de l'inscription VISÉE après paiement des frais d'inscription ; un cours à la carte est confirmé une
  *    fois SA ligne soldée (`sourceRef = enrollmentCourseId`).
+ *  - `academic.run-rollover`                `academic.rollover.requested` (son propre événement) -> exécution de l'assistant de
+ *    reconduction annuelle, par étapes, avec progression et rapport (`academic.rollover_runs`).
  *  - `academic.withdraw-on-student-status`  `people.student.status_changed` -> retrait automatique des inscriptions
  *    vivantes d'un apprenant sorti (`WITHDRAWN`, `EXCLUDED`, `TRANSFERRED_OUT`), avec motif.
  *
@@ -19,14 +21,38 @@ import {
   academicConsumedInstitutionCreatedSchema,
   academicConsumedInvoicePaidSchema,
   academicConsumedStudentStatusChangedSchema,
+  academicRolloverRequestedEventPayloadSchema,
 } from "@ecoledigitale/contracts/src/v2/academic";
 import { handleInvoicePaid, handleStudentStatusChanged } from "./application/confirmation";
+import { executeRolloverRun } from "./application/rollover-run";
 import { createAcademicDeps } from "./application/deps";
 import { instantiatePackReferenceData } from "./application/reference";
 import { academicWorkerPorts } from "./application/port-registry";
 import { ConsumedEvents } from "./domain/events";
 
 export default [
+  // Reconduction annuelle : la requête HTTP n'enregistre qu'une demande (`academic.rollover_runs`) ; l'exécution — par
+  // étapes, avec progression — se fait ici. Volontairement SANS `idempotent()` : ce wrapper tiendrait toute la reconduction
+  // dans UNE transaction (progression invisible, verrous longs). L'idempotence est dans `executeRolloverRun` : une
+  // exécution terminée est renvoyée telle quelle, une exécution en échec reprend, les étapes ne recréent jamais l'existant.
+  defineSubscriber({
+    name: "academic.run-rollover",
+    pattern: ConsumedEvents.ROLLOVER_REQUESTED,
+    retry: { attempts: 3, backoffMs: 5_000, maxBackoffMs: 60_000 },
+    concurrency: 1,
+    timeoutMs: 30 * 60_000,
+    handler: async (event, ctx) => {
+      const parsed = academicRolloverRequestedEventPayloadSchema.safeParse(event.payload);
+      if (!parsed.success) {
+        ctx.logger.warn({ eventId: event.id }, "academic : charge utile academic.rollover.requested illisible, ignorée");
+        return;
+      }
+      const deps = createAcademicDeps({ db: ctx.tenantDb, logger: ctx.logger, portsProvider: academicWorkerPorts });
+      const r = await executeRolloverRun(deps, ctx.db.ctx, parsed.data.runId);
+      if (!r.ok) throw r.error;
+      ctx.logger.info({ runId: r.value.id, status: r.value.status }, "academic : reconduction traitée");
+    },
+  }),
   defineSubscriber({
     name: "academic.instantiate-reference-data",
     pattern: ConsumedEvents.INSTITUTION_CREATED,

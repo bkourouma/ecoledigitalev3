@@ -54,6 +54,7 @@ import { createResultsActorNamePort, createResultsGuardianshipPort } from "./peo
 import { createSchedulingPeopleQuery } from "./people-scheduling";
 import { createPayrollAttendanceHours, createPayrollSessionHours } from "./payroll-sources";
 import { createHigherInstitutionPort, createHigherSignatoryDirectory } from "./reportcards-higher";
+import { createAcademicPromotionDecisions } from "./results-academic";
 import { createReportcardsResultsRead } from "./results-reportcards";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
@@ -90,6 +91,7 @@ export function buildPlatformPorts(kit: AdapterKit, storage: ObjectStorage | nul
       completion: createAcademicCompletionLookup(higher, academic),
       registrationFee: createAcademicRegistrationFeeProbe(finance, academic, clock),
       invoiceFacts: createAcademicInvoiceFactsReader(finance),
+      promotions: createAcademicPromotionDecisions(results),
     },
     people: {
       academic: createPeopleAcademicQuery(academic),

@@ -205,7 +205,18 @@ export {
 
 // Confirmation par événements, reconduction, jobs
 export { handleInvoicePaid, handleStudentStatusChanged, type InvoicePaidReport } from "./application/confirmation";
-export { previewRollover, rolloverAcademicYear } from "./application/rollover";
+export { loadPromotionDecisions, previewRollover, rolloverAcademicYear } from "./application/rollover";
+export {
+  executeRolloverRun,
+  getRolloverRun,
+  listRolloverRuns,
+  previewRolloverPlan,
+  retryRolloverRun,
+  startRolloverRun,
+  type RolloverAssistOptions,
+} from "./application/rollover-run";
+export { createHoliday, deleteHoliday, holidaysOn, listHolidays, updateHoliday, type Holiday } from "./application/holidays";
+export type { PromotionDecision, PromotionDecisionPort } from "./application/ports";
 export { expireHoldsForAllTenants, finalizeOfferingsForAllTenants } from "./application/jobs";
 
 // Domaine (types et fonctions pures utiles aux autres modules et au web)

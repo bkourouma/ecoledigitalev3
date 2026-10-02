@@ -101,6 +101,9 @@ export {
 export { createWorkerResultsDeps, setResultsWorkerPorts } from "./application/worker-ports";
 export { bindResultsRulesSources, createResultsReplaySource, createResultsSimulationSource } from "./application/replay";
 
+// Décisions de passage de fin d'année (lues par la reconduction annuelle d'academic ; jamais calculées par academic)
+export { listPromotionOutcomes, type PromotionOutcome } from "./application/promotion";
+
 // Usage d'un nœud de curriculum (garde d'amendement structurel d'academic)
 export { isCurriculumNodeInResults } from "./application/usage";
 

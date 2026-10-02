@@ -107,23 +107,25 @@ describe("contrats et API publique", () => {
       "getEnrollment", "listEnrollments", "listEnrollmentsByStudent", "getEnrollmentHistory", "enrollStudent", "enrollStudentsBulk",
       "recordEnrollmentOutcome", "confirmEnrollmentCourse", "completeEnrollmentCourse", "createEnrollmentDirectory", "selfEnrollToOffering", "reopenOffering",
       "previewRollover", "rolloverAcademicYear", "instantiatePackReferenceData",
+      "previewRolloverPlan", "startRolloverRun", "executeRolloverRun", "getRolloverRun", "listRolloverRuns", "retryRolloverRun", "listHolidays", "createHoliday",
       "registerCourse", "listCourseRegistrations", "createAcademicDeps", "academicPlugin", "academicManifest",
     ];
     for (const n of names) expect(publicApi, n).toHaveProperty(n);
   });
   it("abonnés et jobs découvrables par le worker", () => {
-    expect(subscribers.map((s) => s.name).sort()).toEqual(["academic.confirm-on-invoice-paid", "academic.instantiate-reference-data", "academic.withdraw-on-student-status"]);
+    expect(subscribers.map((s) => s.name).sort()).toEqual(["academic.confirm-on-invoice-paid", "academic.instantiate-reference-data", "academic.run-rollover", "academic.withdraw-on-student-status"]);
+    expect(subscribers.find((s) => s.name === "academic.run-rollover")?.pattern).toBe("academic.rollover.requested");
     expect(subscribers.find((s) => s.name === "academic.confirm-on-invoice-paid")?.pattern).toBe("finance.invoice.paid");
     expect(jobs.map((j) => j.name).sort()).toEqual(["academic.expire-holds", "academic.finalize-offerings"]);
   });
 });
 
-describe("migrations 0700-0706", () => {
+describe("migrations 0700-0708", () => {
   const dir = join(moduleDir, "migrations");
   const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
   const sql = files.map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
   it("numéros dans la plage réservée 0700-0799, contigus", () => {
-    expect(files.map((f) => Number(f.slice(0, 4)))).toEqual([700, 701, 702, 703, 704, 705, 706]);
+    expect(files.map((f) => Number(f.slice(0, 4)))).toEqual([700, 701, 702, 703, 704, 705, 706, 707, 708]);
   });
   it("chaque table du schéma est un tenant : RLS + GRANT, et la liste attendue de l'isolation est exacte", () => {
     const tables = [...sql.matchAll(/CREATE TABLE academic\.(\w+)/g)].map((m) => `academic.${m[1]}`).sort();
