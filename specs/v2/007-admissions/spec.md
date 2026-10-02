@@ -364,3 +364,17 @@ La spec est terminée lorsque :
 4. Aucune donnée personnelle dans un événement, un audit, un log ou une réponse publique (tests de contrat).
 5. Aucune constante de capacité, de priorité, de délai ou d'âge dans le code du module ; lint R2 vert.
 6. Les demandes de changement du §16 sont acceptées ou refusées par écrit ; les questions Q-A01 à Q-A18 sont transmises au propriétaire du produit.
+
+## 18. Écarts constatés à l'implémentation (corrections de la spec)
+
+Constatés en implémentant le module (migrations `1900`–`1902` inchangées ; seul le comportement applicatif précise la spec) :
+
+1. **Modèle de workflow livré** : en plus des étapes du §6, le modèle contient des étapes de **clôture automatique** `OFFER_EXPIRED` (offre expirée) et `DUPLICATE` (doublon confirmé), de statut canonique `REJECTED`. Les travaux planifiés (`admissions.expire-offers`, `admissions.payment-deadline`) n'ont pas de code d'étape en dur : ils cherchent l'étape terminale portant le `closure_kind` voulu et, si le workflow de l'établissement n'en déclare pas, **journalisent un avertissement et laissent le dossier en l'état** (jamais de clôture silencieuse).
+2. **Routes publiques** : `POST /track`, `POST /track/documents`, `POST /offers/view` et `POST /offers/respond` portent le **slug du lien public (`school`) dans le corps** (avec le code de suivi ou le jeton), pas dans l'URL. La résolution se fait avant tout contexte de tenant ; une réponse `404` unique et identique répond à un lien inconnu, désactivé, à un code inconnu et à un jeton inconnu. Le jeton de réponse à une offre voyage dans le **fragment** de l'adresse (`#t=…`), jamais dans la chaîne de requête.
+3. **Offre sans classe désignée** : l'offre peut être émise sans `classroomId` ; à l'acceptation, une **classe unique ouverte du niveau** est retenue d'office, sinon l'acceptation est refusée (`admissions.classroom_required`) tant que le secrétariat n'a pas désigné la classe. Le corps `issueOffer` rend donc `classroomId` facultatif.
+4. **Promotion manuelle de liste d'attente** : la réponse contient `offerId` et `responseToken` (le lien de réponse n'est montré qu'à ce moment, seule son empreinte est conservée), comme l'émission directe.
+5. **Publication d'un workflow** : sérialisée par un verrou consultatif par (établissement, cycle) ; une publication **périmée** (version plus ancienne que celle déjà publiée) est refusée (`admissions.workflow_conflict`), la plus récente l'emporte. Les défauts de structure (étape initiale unique, étapes atteignables, statut final) restent validés par la base (`workflows_guard`).
+6. **Formulaire public fermé sans texte de consentement publié** : confirmé ; il l'est aussi si le port `Captcha` est exigé mais absent .
+7. **Capacités** : aucune capacité n'est supprimée (aucun `DELETE` accordé en base) : les lignes non citées lors d'un remplacement sont conservées, on met les places à zéro pour fermer un niveau.
+8. **Annulation d'une inscription en attente** : `people` passe l'élève `INACTIVE` à `ARCHIVED` (jamais supprimé, matricule consommé) ; la demande 008 doit autoriser cette transition (voir README du module, « interfaces attendues »).
+9. **Écran du personnel** : une étape à décision formelle n'est jamais franchie par un simple glisser-déplacer ; le pipeline renvoie vers le dossier, où la décision (motif codé, conditions, dépassement de capacité sous permission sensible) est journalisée.
