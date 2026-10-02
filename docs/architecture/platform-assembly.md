@@ -152,6 +152,7 @@ Chaque action réussie écrit dans le journal de **plateforme** (`audit.platform
 | examinations | `examinations.withdraw-on-enrollment-withdrawn` (`academic.enrollment.withdrawn` : retrait automatique du candidat, motif tracé, numéro conservé ; sans effet une fois les résultats saisis) | (aucun : rien n'est purgé, rétention illimitée) |
 | primary_school | `primary_school.instantiate-reference-data` (`tenancy.institution.created`, pack PRIMARY seulement : échelle, référentiels de démonstration, phrases, paramètres), `primary_school.mirror-period-lock.*` (`academic.classroom_period.*` : miroir du verrou de saisie), `primary_school.on-decision-confirmed` (`results.decision.confirmed` : dossier décidé, issue d'inscription de fin d'année), `primary_school.request-review-document` (`primary_school.annual_review.sealed` : PDF du bilan demandé à reportcards, échec fermé tant que la nature `ANNUAL_REVIEW` n'est pas livrée), `primary_school.on-document-rendered` (`reportcards.official_document.rendered`) | `primary_school.purge-draft-reviews` 04:35 (par tenant) |
 | admissions | `admissions.derive-enrolled` (`academic.enrollment.confirmed` : `ENROLLED` DÉRIVÉ de la confirmation, élève activé, pièces rattachées, une seule fois), `admissions.close-on-enrollment-cancelled` / `-withdrawn`, `admissions.initialize-institution` (`tenancy.institution.created` : paramètres, workflow modèle publié, motifs) | `admissions.expire-offers` */15 min, `admissions.payment-deadline` à la 5e minute de chaque heure (inactif sans `payment_deadline_days`), `admissions.purge-public-form` 03:20, `admissions.anonymize-expired` 04:10 (inactif sans `rejected_retention_months`) |
+| stateassign | `stateassign.on.finance-payment-completed`, `stateassign.on.finance-invoice-issued` (demandent un rapprochement : ne calculent rien) | `stateassign.reconcile` 01:40 (rapprochement de tous les tenants, idempotent), `stateassign.plan-controls` 06:20, `stateassign.flag-overdue` 07:20 (alerte unique par échéance), `stateassign.notify-due-controls` 07:25 |
 | socle du worker | | `outbox-cleanup`, `ensure-partitions` (recoupe `audit.ensure-partitions`, idempotent) |
 
 Cette liste est celle que **découvre** le worker (`discoverModuleExtensions`) ; le test `worker-bundle.integration.test.ts` exige que le bundle de production enregistre exactement les mêmes abonnés et jobs que les sources, et qu'il ait branché les ports entre modules (`ports entre modules branchés (adaptateurs de plateforme)`).
@@ -210,6 +211,7 @@ Les handlers reçoivent `ctx.tenantDb` (ajout au SDK du worker) pour appeler les
 | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_TRACES_SAMPLER_ARG`, `OTEL_SDK_DISABLED` | absent = traçage **désactivé** | API, worker | traces OpenTelemetry ; aucun appel réseau sans point d'accès (§12) |
 | `METRICS_TOKEN`, `METRICS_PORT`, `METRICS_HOST`, `METRICS_TENANT_LABEL_MAX` | absents = pas de `/metrics` | API (worker : `METRICS_TOKEN`) | métriques Prometheus ; **jamais publiques sans authentification** (§12) |
 | `OBS_READY_REQUIRE`, `OBS_HEALTH_DETAILS`, `OBS_TRUST_INBOUND_TRACEPARENT`, `OBS_ROUTE_LABEL_LIMIT`, `OBS_COLLECT_CACHE_MS`, `OBS_BUSINESS_GAUGES_INTERVAL_MS`, `OBS_PAYMENTS_STALE_MINUTES` | voir le runbook | API, worker | santé, traces, cardinalité (docs/architecture/runbook-exploitation.md §2) |
+| `STATEASSIGN_EXPORT_MAX_ROWS` | borne interne | API | nombre maximal de lignes d'un export des élèves affectés (troncature signalée) |
 
 Le worker garde ses propres variables (`WORKER_DATABASE_URL`, `WORKER_RELAY_*`…, voir `apps/worker/README.md`) et lit `AUDIT_*`, `ENTITLEMENTS_*`, `IAM_PURGE_*` depuis `process.env` (les abonnés et jobs des modules sont du code du module).
 
@@ -318,6 +320,11 @@ Chaque module déclare des **ports** (ce qu'il attend de ses voisins) et échoue
 | `results-primary` | results (+ academic, rules, attendance) -> primary_school | `ResultsPort` (délibération COUNCIL, propositions de la règle, confirmation, résultat d'année, origine du jeu de règles), `RulesPort` (quorum `quorum_conseil`, motifs `cas_limite` / `cas_absences` / `cas_deja_redoublant` ; sans contrat publié : aucune règle liée) |
 | `attendance-primary` | attendance (+ academic) -> primary_school | `AttendancePort` (récapitulatif d'année par somme des périodes, registre d'appel mensuel `DAILY`) |
 | `reportcards-primary` | reportcards -> primary_school | `DocumentsPort` (PV `COUNCIL_MINUTES`, bilan `ANNUAL_REVIEW`, périodes publiées) : **échec fermé** tant que ces natures ne sont pas dans `OFFICIAL_DOCUMENT_KINDS` |
+| `academic-stateassign` | academic -> stateassign | `EnrollmentPort` (faits d'inscription, période) et `EnrollmentFundingPort` (référence d'affectation portée par l'inscription, après vérification humaine) |
+| `finance-stateassign` | finance -> stateassign | `FinancePort` : factures de l'inscription (nettes des avoirs) et paiements `CONFIRMED` du financeur ; la facture famille ne porte que la part parent |
+| `attendance-stateassign` | attendance -> stateassign | `AttendanceFactsPort` : faits de présence d'une période (jamais calculés par stateassign) |
+| `documents-stateassign` | documents -> stateassign | `DocumentRefPort` : pièces d'un dossier d'affectation |
+| `people-stateassign` | people, iam -> stateassign | `StudentNamesPort`, `GuardianshipPort` (vue famille : lien relu à chaque requête) |
 
 ### Règles à respecter dans un adaptateur
 

@@ -24,10 +24,9 @@ import {
   type AcademicPorts,
 } from "../../modules/academic";
 import { registerAnalyticsPorts, setAnalyticsWorkerPorts, type AnalyticsSourcePorts } from "../../modules/analytics";
-import { officeConverterFromEnv, registerDocumentsPorts, scanPolicyFromEnv, setDocumentsWorkerPorts, type DocumentsPorts } from "../../modules/documents";
+import { createDocumentsDeps, documentsAuditAdapter, officeConverterFromEnv, registerDocumentsPorts, scanPolicyFromEnv, setDocumentsWorkerPorts, type DocumentsPorts } from "../../modules/documents";
 import { registerAssessPorts, type AssessPorts } from "../../modules/assess";
 import { registerExaminationsPorts, setExaminationsWorkerPorts, type ExaminationsPorts } from "../../modules/examinations";
-import { createDocumentsDeps } from "../../modules/documents";
 import { createExaminationsAssessPort } from "./examinations-assess";
 import { createExaminationsEligibilityFacts, createExaminationsFamilyLinks, createExaminationsInstitutions, createExaminationsStudentDirectory } from "./examinations-directories";
 import { createExaminationsOfficialDocuments, createExaminationsPieceDocuments } from "./examinations-documents";
@@ -39,6 +38,7 @@ import { importsAuditAdapter, registerImportsPorts, setImportsWorkerPorts, type 
 import { audit as auditService } from "../../modules/audit";
 import { registerMessagingPorts, setMessagingWorkerPorts, type MessagingPorts } from "../../modules/messaging";
 import { registerNotificationsPorts, setNotificationsWorkerPorts, type NotificationsPorts } from "../../modules/notifications";
+import { registerStateassignPorts, setStateassignWorkerPorts, type StateassignPorts } from "../../modules/stateassign";
 import { registerPeoplePorts, setPeopleWorkerPorts, type PeoplePortSet } from "../../modules/people";
 import { registerPayrollPorts, type PayrollPortsInput } from "../../modules/payroll";
 import { registerReportcardsPorts, reportcardsAuditAdapter, setReportcardsWorkerResources, type PdfRenderer, type ReportcardsPorts } from "../../modules/reportcards";
@@ -108,6 +108,11 @@ import { createSchoollifeEnrollmentPort, createSchoollifePeriodPort } from "./ac
 import { createSchoollifeAttendanceView } from "./attendance-schoollife";
 import { createSchoollifeNotificationPort, createSchoollifeNotificationsDeps } from "./notifications-schoollife";
 import { createSchoollifePeoplePort, createSchoollifeStudentStatusPort } from "./people-schoollife";
+import { createStateassignEnrollmentPort, createStateassignFundingPort } from "./academic-stateassign";
+import { createStateassignAttendanceFacts } from "./attendance-stateassign";
+import { createStateassignDocumentRefs } from "./documents-stateassign";
+import { createStateassignFinancePort } from "./finance-stateassign";
+import { createStateassignGuardianshipPort, createStateassignStudentNames } from "./people-stateassign";
 
 export { createAdapterKit, type AdapterKit, type AdapterKitInput } from "./kit";
 export { createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
@@ -141,6 +146,8 @@ export interface PlatformPorts {
   readonly admissions: Partial<AdmissionsPorts>;
   /** Vie scolaire (006) : inscriptions et périodes (academic), tuteurs et périmètre (people), vue d'assiduité (attendance), information des tuteurs (notifications), statut d'élève (people). */
   readonly schoollife: Partial<SchoolLifePorts>;
+  /** Élèves affectés par l'État (006) : inscription et financement (academic), facturation (finance), présence (attendance), pièces (documents), noms et tutelle (people). La passerelle reste `NotConfigured`. */
+  readonly stateassign: Partial<StateassignPorts>;
 }
 
 /** Construit les adaptateurs de chaque paire de modules sur un kit de lecture. `storage` : stockage d'objets (ou `null`). */
@@ -162,7 +169,7 @@ export function buildPlatformPorts(
   // Admissions : écriture par les cas d'usage publics de people, academic, finance (avec le VRAI audit), dans la transaction du module.
   const admissionsEnv = createAdmissionsWriteEnv(kit, () => base, extras.audit);
   const schoollifePeople = createSchoollifePeoplePort(people, academic, lookups);
-  const base: Omit<PlatformPorts, "imports" | "examinations"> = {
+  const base: Omit<PlatformPorts, "imports" | "examinations" | "stateassign"> = {
     academic: {
       students: createAcademicStudentDirectory(people),
       guardianship: createAcademicGuardianship(people),
@@ -325,7 +332,25 @@ export function buildPlatformPorts(
     officialDocuments: createExaminationsOfficialDocuments(officialDocuments),
     ...(storage ? { storage: asDocumentsStorage(storage) } : {}),
   };
-  return { ...base, imports, examinations };
+  // Élèves affectés par l'État (006) : lectures et écriture du financement par les cas d'usage PUBLICS d'academic, finance,
+  // attendance, documents, people. La passerelle vers une plateforme publique n'est pas branchée : `NotConfigured` (aucun appel externe).
+  const stateassignDocumentsDeps = createDocumentsDeps({
+    db: kit.tenantDb,
+    clock: kit.clock,
+    logger: kit.logger,
+    portsProvider: () => base.documents,
+    ...(extras.audit ? { audit: documentsAuditAdapter(extras.audit) } : {}),
+  });
+  const stateassign: Partial<StateassignPorts> = {
+    enrollments: createStateassignEnrollmentPort(academic),
+    funding: createStateassignFundingPort(academic),
+    finance: createStateassignFinancePort(finance, academic),
+    attendance: createStateassignAttendanceFacts(attendance),
+    documents: createStateassignDocumentRefs(stateassignDocumentsDeps),
+    students: createStateassignStudentNames(people),
+    guardianship: createStateassignGuardianshipPort(lookups),
+  };
+  return { ...base, imports, examinations, stateassign };
 }
 
 export interface WiredPlatform {
@@ -361,6 +386,7 @@ export function wireApiPorts(app: FastifyInstance, runtime: ModuleRuntime): Wire
   registerExaminationsPorts(app, ports.examinations);
   registerAdmissionsPorts(app, ports.admissions);
   registerSchoolLifePorts(app, ports.schoollife);
+  registerStateassignPorts(app, ports.stateassign);
   if (storage instanceof DiskStorage) registerDiskStorageRoute(app, storage);
   return { kit, ports, storage };
 }
@@ -396,6 +422,7 @@ export function installWorkerAdapters(input: WorkerAdapterInput): WiredPlatform 
   setNotificationsWorkerPorts(ports.notifications);
   setExaminationsWorkerPorts(ports.examinations);
   setAdmissionsWorkerPorts(ports.admissions);
+  setStateassignWorkerPorts(ports.stateassign);
   if (storage) setReportcardsWorkerResources({ storage });
   return { kit, ports, storage };
 }

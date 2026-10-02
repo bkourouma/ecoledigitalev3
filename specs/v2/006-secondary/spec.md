@@ -216,6 +216,9 @@ En tant que secrétariat et économe, je gère les élèves affectés (`STATE_AS
 - **AC10.7** **Documents** : références (jamais le fichier) vers la GED ou le dossier de l'élève : acte d'affectation, attestation de présence, reçu, courrier ; retrait motivé.
 - **AC10.8** **Passerelle future** : le port `StateAssignmentGateway` (`fetchAssignment`, `pushAttendanceCertificate`) a un adaptateur par défaut `NotConfigured` qui répond « non disponible » ; aucun appel externe n'existe en V1 ; `source = GATEWAY` et `external_payload_hash` tracent un futur échange sans stocker la donnée brute.
 - **AC10.9** Un élève affecté se **distingue sur le bulletin** par le **type de financement de son inscription** (donnée de `academic`), **jamais** par la décision de fin d'année (correction du legacy, `parity.md` P-S-05).
+- **AC10.10** **Créances sur l'État** : l'établissement planifie les **échéances attendues** de chaque dossier (libellé, date, montant entier ; total ≤ part de l'État déclarée) ; le **montant reçu** de chaque échéance est écrit par le rapprochement (versements du financeur dans `finance`, affectés dans l'ordre des échéances ; surplus « non affecté » visible) ; le **statut** est calculé par la base ; le **retard** est dérivé (échéance + délai de grâce de l'établissement) et signalé une seule fois (`stateassign.receivable.overdue`) ; une échéance reçue ne s'annule pas ; historique en ajout seul ; ancienneté et totaux par tranche.
+- **AC10.11** **Exports** : états et exports CSV pour l'administration, **formats en données** par établissement (aucun format officiel livré, format neutre en repli), cellules texte neutralisées contre l'injection de formule, troncature signalée ; chaque export est audité.
+- **AC10.12** **Vue famille** : le parent lié voit le **statut** du dossier de son enfant, jamais les montants de l'État, les échéances, les écarts ni les contrôles (`GET /children/:studentId/assignment`, lien relu à chaque requête).
 
 ### US11 — Examens nationaux BEPC et BAC (P2)
 
@@ -295,7 +298,7 @@ Voir `data-model.md` (38 tables, DDL testé). Plages attribuées (`module-conven
 |---|---|
 | `councils` (18) | `participant_roles`, `council_types`, `decision_types`, `settings`, `councils`, `participants`, `agenda_items`, `proposals`, `decisions`, `effects`, `minutes`, `minute_signatures`, `unlock_requests`, `events`, `orientation_paths`, `orientation_files`, `orientation_wishes`, `series_transfers` |
 | `schoollife` (15) | `settings`, `severity_levels`, `event_types`, `conduct_scales`, `conduct_scale_items`, `incidents`, `incident_involvements`, `measures`, `measure_appeals`, `notes`, `convocations`, `conduct_movements`, `life_events`, `confidential_reads`, `measure_effects` |
-| `stateassign` (5) | `settings`, `assignments`, `controls`, `documents`, `assignment_events` |
+| `stateassign` (8) | `settings`, `assignments`, `controls`, `documents`, `assignment_events`, `receivables`, `receivable_events`, `export_formats` |
 
 ### 6.1 Cycle de vie d'une séance
 

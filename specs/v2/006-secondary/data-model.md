@@ -3371,6 +3371,19 @@ CREATE TRIGGER documents_guard BEFORE INSERT OR UPDATE OR DELETE ON stateassign.
   FOR EACH ROW EXECUTE FUNCTION stateassign.documents_guard();
 ```
 
+### 5.11 `stateassign` — ce que l'implémentation a ajouté (migrations 2300-2303)
+
+Le DDL des §5.9-5.10 est la **référence testée** (`ddl-test/stateassign.test.mjs`, numéros 2000-2001 **obsolètes**). Le module est implémenté dans `apps/api/src/modules/stateassign/migrations`, plage **2300-2399** attribuée par `docs/architecture/module-conventions.md` ; **ces fichiers font foi** pour le schéma livré :
+
+| Fichier | Contenu |
+|---|---|
+| `2300_stateassign_init.sql` | §5.9, avec : `settings.control_due_offset_days` (échéance d'un contrôle planifié ; NULL = aucune planification), `settings.receivable_grace_days` (délai de grâce des créances, 0 par défaut), `settings.updated_by` ; `controls.due_notified_at` (l'alerte `control.due` n'est publiée qu'une fois) ; index `assignments_by_enrollment` ; historique daté par `clock_timestamp()` (ordre déterministe) |
+| `2301_stateassign_guards.sql` | §5.10, avec : `settings_guard` (modifier les réglages est un acte humain) ; une modification de fond d'un contrôle (hors marqueur d'alerte) exige un humain |
+| `2302_stateassign_receivables.sql` | **3 tables nouvelles** : `receivables` (échéances de la créance sur l'État, rattachées à l'**inscription**), `receivable_events` (historique en ajout seul), `export_formats` (formats d'export en données) |
+| `2303_stateassign_receivable_guards.sql` | planifier / reporter / annuler = acte humain ; somme des échéances non annulées ≤ montant État déclaré (dossier sans montant : aucune échéance) ; statut d'échéance **calculé** depuis `expected_amount` et `received_amount` ; une échéance reçue (même en partie) ne s'annule pas ; un **avenant** ne peut pas descendre sous le calendrier planifié ; formats d'export : acte humain, identité figée |
+
+Le module compte donc **8 tables** (et non 5) ; son allowlist d'isolation reste vide.
+
 ## 6. Invariants : qui les garantit
 
 | Invariant | Base | Domaine (TypeScript) | Test |

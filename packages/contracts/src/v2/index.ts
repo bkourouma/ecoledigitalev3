@@ -24,4 +24,5 @@ export * from "./results";
 export * from "./rules";
 export * from "./scheduling";
 export * from "./schoollife";
+export * from "./stateassign";
 export * from "./tenancy";
