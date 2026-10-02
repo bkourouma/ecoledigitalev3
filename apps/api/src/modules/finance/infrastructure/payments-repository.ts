@@ -378,9 +378,20 @@ export async function listReceipts(
 // --- Remboursements ----------------------------------------------------------
 
 const REFUND_COLS = `id, payment_id, amount::text AS amount, currency, reason, status, requested_by, requested_at, approved_by,
-  approved_at, completed_at, rejected_by, rejected_at, rejection_reason, cash_session_id, idempotency_key, request_fingerprint`;
+  approved_at, completed_at, rejected_by, rejected_at, rejection_reason, cash_session_id, idempotency_key, request_fingerprint,
+  execution_mode, provider, provider_refund_ref, provider_status, provider_requested_at, failed_at, failure_reason,
+  manual_reference, manual_note`;
 
 export const refundOf = (r: any): RefundRecord => ({
+  executionMode: r.execution_mode ?? null,
+  provider: r.provider ?? null,
+  providerRefundRef: r.provider_refund_ref ?? null,
+  providerStatus: r.provider_status ?? null,
+  providerRequestedAt: r.provider_requested_at ?? null,
+  failedAt: r.failed_at ?? null,
+  failureReason: r.failure_reason ?? null,
+  manualReference: r.manual_reference ?? null,
+  manualNote: r.manual_note ?? null,
   id: r.id,
   paymentId: r.payment_id,
   amount: money(r.amount, r.currency),
@@ -443,11 +454,11 @@ export async function listRefunds(tx: Tx, f: { paymentId?: Uuid; status?: Refund
   return rows.map(refundOf);
 }
 
-/** Somme des remboursements ouverts (REQUESTED + APPROVED) d'un paiement. */
+/** Somme des remboursements ouverts (REQUESTED, APPROVED, REFUND_PENDING) d'un paiement : ils réservent le remboursable. */
 export async function sumOpenRefunds(tx: Tx, paymentId: Uuid, currency: CurrencyCode, excludeId?: Uuid): Promise<Money> {
   const row = await tx.queryOne<{ s: string }>(
     `SELECT COALESCE(sum(amount), 0)::text AS s FROM finance.refunds
-      WHERE payment_id = $1 AND status IN ('REQUESTED','APPROVED') AND ($2::uuid IS NULL OR id <> $2)`,
+      WHERE payment_id = $1 AND status IN ('REQUESTED','APPROVED','REFUND_PENDING') AND ($2::uuid IS NULL OR id <> $2)`,
     [paymentId, excludeId ?? null],
   );
   return money(row!.s, currency);
@@ -469,11 +480,74 @@ export async function rejectRefundRow(tx: Tx, id: Uuid, by: Uuid, at: Date, reas
   );
 }
 
-export async function completeRefundRow(tx: Tx, id: Uuid, at: Date, cashSessionId: Uuid | null): Promise<void> {
+export interface RefundCompletion {
+  /** Mode d'exécution ; conservé tel quel s'il est déjà posé (PROVIDER). */
+  mode: "LEDGER" | "PROVIDER" | "MANUAL";
+  providerRefundRef?: string | null;
+  providerStatus?: string | null;
+  manualReference?: string | null;
+  manualNote?: string | null;
+}
+
+/** Termine un remboursement APPROVED (comptable / manuel) ou REFUND_PENDING (fournisseur) : écritures comptables déjà passées par l'appelant. */
+export async function completeRefundRow(
+  tx: Tx,
+  id: Uuid,
+  at: Date,
+  cashSessionId: Uuid | null,
+  completion: RefundCompletion = { mode: "LEDGER" },
+): Promise<void> {
   await tx.query(
-    "UPDATE finance.refunds SET status = 'COMPLETED', completed_at = $2, cash_session_id = $3, updated_at = now() WHERE id = $1 AND status = 'APPROVED'",
-    [id, at, cashSessionId],
+    `UPDATE finance.refunds
+        SET status = 'COMPLETED', completed_at = $2, cash_session_id = $3,
+            execution_mode = COALESCE(execution_mode, $4),
+            provider_refund_ref = COALESCE(provider_refund_ref, $5),
+            provider_status = COALESCE($6, provider_status),
+            manual_reference = COALESCE($7, manual_reference),
+            manual_note = COALESCE($8, manual_note),
+            updated_at = now()
+      WHERE id = $1 AND status IN ('APPROVED', 'REFUND_PENDING')`,
+    [id, at, cashSessionId, completion.mode, completion.providerRefundRef ?? null, completion.providerStatus ?? null, completion.manualReference ?? null, completion.manualNote ?? null],
   );
+}
+
+/** APPROVED → REFUND_PENDING : l'intention d'envoi est durable AVANT l'appel réseau (reprise après plantage). */
+export async function markRefundPending(tx: Tx, id: Uuid, provider: string, at: Date): Promise<void> {
+  await tx.query(
+    `UPDATE finance.refunds
+        SET status = 'REFUND_PENDING', execution_mode = 'PROVIDER', provider = $2, provider_requested_at = $3, updated_at = now()
+      WHERE id = $1 AND status = 'APPROVED'`,
+    [id, provider, at],
+  );
+}
+
+/** Mémorise ce que le fournisseur a répondu (référence, statut) sans conclure. */
+export async function setRefundProviderState(tx: Tx, id: Uuid, state: { providerRefundRef: string | null; providerStatus: string }): Promise<void> {
+  await tx.query(
+    `UPDATE finance.refunds
+        SET provider_refund_ref = COALESCE(provider_refund_ref, $2), provider_status = $3, updated_at = now()
+      WHERE id = $1 AND status = 'REFUND_PENDING'`,
+    [id, state.providerRefundRef, state.providerStatus],
+  );
+}
+
+/** REFUND_PENDING → REFUND_FAILED : refus définitif, rien n'est parti. */
+export async function failRefundRow(tx: Tx, id: Uuid, at: Date, reason: string, providerStatus: string | null): Promise<void> {
+  await tx.query(
+    `UPDATE finance.refunds
+        SET status = 'REFUND_FAILED', failed_at = $2, failure_reason = $3, provider_status = COALESCE($4, provider_status), updated_at = now()
+      WHERE id = $1 AND status = 'REFUND_PENDING'`,
+    [id, at, reason.slice(0, 500), providerStatus],
+  );
+}
+
+/** Remboursements envoyés au fournisseur, sans conclusion, du plus ancien au plus récent. */
+export async function listInFlightRefunds(tx: Tx, limit: number): Promise<RefundRecord[]> {
+  const rows = await tx.many(
+    `SELECT ${REFUND_COLS} FROM finance.refunds WHERE status = 'REFUND_PENDING' ORDER BY provider_requested_at, id LIMIT $1`,
+    [limit],
+  );
+  return rows.map(refundOf);
 }
 
 // --- Avoirs ------------------------------------------------------------------

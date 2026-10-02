@@ -42,6 +42,7 @@ import {
   insertWebhookEvent,
   markWebhookProcessed,
 } from "../infrastructure/webhook-repository";
+import { resolveState } from "../infrastructure/reconciliation-repository";
 import { isDevLikeEnvironment } from "../infrastructure/providers/registry";
 import type {
   PaymentProvider,
@@ -85,7 +86,7 @@ interface Outcome {
   amount: Money | null;
   providerRef: string | null;
   failureReason?: string;
-  source: "initiate" | "verify" | "webhook";
+  source: "initiate" | "verify" | "webhook" | "reconcile" | "manual";
 }
 
 const allocationFor = (invoiceId: Uuid | null): AllocationSpec =>
@@ -127,6 +128,7 @@ export async function applyProviderOutcome(
   if (outcome.status === "FAILED" || outcome.status === "CANCELLED") {
     const reason = outcome.failureReason ?? (outcome.status === "CANCELLED" ? "cancelled" : "declined");
     await failPaymentRow(tx, payment.id, now, reason, outcome.status);
+    await resolveState(tx, { paymentId: payment.id }, now, "failed");
     events.add(
       FinanceEvents.PAYMENT_FAILED,
       {
@@ -185,6 +187,7 @@ export async function applyProviderOutcome(
 
   await setPaymentProviderState(tx, payment.id, { providerRef: outcome.providerRef, providerStatus: "SUCCEEDED" });
   await confirmPaymentRow(tx, payment.id, now, "SUCCEEDED");
+  await resolveState(tx, { paymentId: payment.id }, now, "confirmed");
   const confirmed = (await getPayment(tx, payment.id))!;
   const done = await finalizeConfirmedPayment(deps, ctx, tx, events, confirmed, allocationFor(payment.intendedInvoiceId));
   if (!done.ok) return done;

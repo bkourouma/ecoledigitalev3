@@ -23,6 +23,10 @@ import type {
   ProviderInitiateRequest,
   ProviderInitiation,
   ProviderPaymentStatus,
+  ProviderRefundRequest,
+  ProviderRefundResult,
+  ProviderRefundStatus,
+  ProviderRefundStatusRequest,
   ProviderVerification,
   ProviderVerifyRequest,
   ProviderWebhookEvent,
@@ -144,6 +148,25 @@ export class SandboxProvider implements PaymentProvider {
       paidAt: tx.status === "SUCCEEDED" ? tx.settledAt : null,
       ...(tx.failureReason ? { failureReason: tx.failureReason } : {}),
     });
+  }
+
+  /** Remboursement simulé : partiel possible, idempotent par `refundId` (même demande = même résultat, jamais deux fois). */
+  readonly refundCapabilities = { partial: true, idempotent: true, statusQuery: true } as const;
+  private readonly refunds = new Map<string, ProviderRefundResult>();
+
+  async refund(request: ProviderRefundRequest): Promise<Result<ProviderRefundResult, AppError>> {
+    const known = this.refunds.get(request.refundId);
+    if (known) return ok(known);
+    if (!request.amount.isPositive()) return err(validation(FinanceCode.INVALID_AMOUNT, "Montant de remboursement invalide.", "amount"));
+    // Accepté aussitôt (la simulation d'un refus n'a pas de sens : le remboursement comptable est testé avec un faux fournisseur).
+    const result: ProviderRefundResult = { status: "SUCCEEDED", providerRefundRef: `sbx_refund_${request.refundId}` };
+    this.refunds.set(request.refundId, result);
+    return ok(result);
+  }
+
+  async refundStatus(request: ProviderRefundStatusRequest): Promise<Result<ProviderRefundStatus, AppError>> {
+    const known = this.refunds.get(request.refundId);
+    return ok(known ? { status: known.status, providerRefundRef: known.providerRefundRef, ...(known.failureReason ? { failureReason: known.failureReason } : {}) } : { status: "NOT_FOUND", providerRefundRef: null });
   }
 
   /** Règle une transaction « en attente » (action de test / de démonstration). */

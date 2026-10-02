@@ -31,6 +31,31 @@ import { denyAllGuardianship, type GuardianshipPort } from "./ports/guardianship
 import { createProviderRegistry, type AppEnvironment, type ProviderRegistry } from "../infrastructure/providers/registry";
 import { unavailableSecretStore } from "../infrastructure/secrets/aes-gcm-secret-store";
 import type { SecretStorePort } from "./ports/secret-store";
+import { logAlerts, noopMetrics, type FinanceAlertPort, type FinanceMetricsPort } from "./ports/operations";
+
+/** Rapprochement planifié des paiements en attente et des remboursements en vol (job du worker, spec 015). */
+export interface ReconciliationConfig {
+  /** Ancienneté minimale avant la première interrogation du fournisseur (laisse sa chance au webhook). */
+  minAgeMs: number;
+  /** Tentatives maximales avant signalement « à rapprocher » (`reconciliation_needed`). */
+  maxAttempts: number;
+  /** Attente avant la tentative suivante : base × 2^(tentatives − 1), plafonnée. */
+  backoffBaseMs: number;
+  backoffMaxMs: number;
+  /** Durée du bail pris sur un sujet (une instance qui plante le rend après ce délai). */
+  leaseMs: number;
+  /** Sujets traités par tenant et par passage (paiements, puis remboursements). */
+  batchSize: number;
+}
+
+export const DEFAULT_RECONCILIATION_CONFIG: ReconciliationConfig = Object.freeze({
+  minAgeMs: 15 * 60_000,
+  maxAttempts: 12,
+  backoffBaseMs: 10 * 60_000,
+  backoffMaxMs: 4 * 3_600_000,
+  leaseMs: 10 * 60_000,
+  batchSize: 50,
+});
 
 export interface FinanceConfig {
   /** Environnement d'exécution : détermine la politique des fournisseurs de paiement. */
@@ -47,6 +72,9 @@ export interface FinanceConfig {
   webhookBaseUrl: string | null;
   /** Plafond de lignes d'un export CSV serveur (au-delà : fichier tronqué ET signalé `X-Export-Truncated`). */
   exportMaxRows: number;
+  /** Autorise le demandeur d'une résolution manuelle (paiement / remboursement indéterminé) à l'approuver lui-même (déconseillé). */
+  manualResolutionSelfApproval: boolean;
+  reconciliation: ReconciliationConfig;
 }
 
 export const DEFAULT_FINANCE_CONFIG: FinanceConfig = Object.freeze({
@@ -58,6 +86,8 @@ export const DEFAULT_FINANCE_CONFIG: FinanceConfig = Object.freeze({
   cashVarianceTolerance: 0,
   webhookBaseUrl: null,
   exportMaxRows: 50_000,
+  manualResolutionSelfApproval: false,
+  reconciliation: DEFAULT_RECONCILIATION_CONFIG,
 });
 
 export interface FinanceDeps {
@@ -75,6 +105,10 @@ export interface FinanceDeps {
   readonly secrets: SecretStorePort;
   /** Appelé après une écriture de configuration d'un fournisseur : invalide le cache de la source de configuration. */
   readonly providerConfigChanged: (tenantId: string, provider: string) => void;
+  /** Alerte humaine (rapprochement indéterminé) : journal d'erreur structuré par défaut. */
+  readonly alerts: FinanceAlertPort;
+  /** Compteurs d'exploitation : aucun par défaut. */
+  readonly metrics: FinanceMetricsPort;
   readonly config: FinanceConfig;
   readonly newId: () => string;
   readonly logger: Logger;
@@ -91,7 +125,9 @@ export interface FinanceDepsInput {
   documents?: ReceiptDocumentPort;
   secrets?: SecretStorePort;
   providerConfigChanged?: (tenantId: string, provider: string) => void;
-  config?: Partial<FinanceConfig>;
+  config?: Partial<Omit<FinanceConfig, "reconciliation">> & { reconciliation?: Partial<ReconciliationConfig> };
+  alerts?: FinanceAlertPort;
+  metrics?: FinanceMetricsPort;
   newId?: () => string;
   logger?: Logger;
   /** Annuaires branchés après la construction (adaptateurs de plateforme) : lus à chaque accès, prioritaires sur `learners` / `enrollments`. */
@@ -104,7 +140,12 @@ export interface FinanceDepsInput {
  * passe-plat tant que le cœur académique n'existe pas.
  */
 export function createFinanceDeps(input: FinanceDepsInput): FinanceDeps {
-  const config: FinanceConfig = { ...DEFAULT_FINANCE_CONFIG, ...input.config };
+  const config: FinanceConfig = {
+    ...DEFAULT_FINANCE_CONFIG,
+    ...input.config,
+    reconciliation: { ...DEFAULT_RECONCILIATION_CONFIG, ...input.config?.reconciliation },
+  };
+  const logger = input.logger ?? noopLogger;
   return {
     db: input.db,
     clock: input.clock ?? systemClock,
@@ -124,9 +165,11 @@ export function createFinanceDeps(input: FinanceDepsInput): FinanceDeps {
     },
     secrets: input.secrets ?? unavailableSecretStore,
     providerConfigChanged: input.providerConfigChanged ?? (() => undefined),
+    alerts: input.alerts ?? logAlerts(logger),
+    metrics: input.metrics ?? noopMetrics,
     config,
     newId: input.newId ?? newId,
-    logger: input.logger ?? noopLogger,
+    logger,
   };
 }
 

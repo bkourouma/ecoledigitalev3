@@ -65,7 +65,8 @@ export const financeInvoiceStatusSchema = z.enum(FINANCE_INVOICE_STATUSES);
 export const FINANCE_PAYMENT_STATUSES = ["PENDING", "CONFIRMED", "FAILED", "REFUNDED"] as const;
 export const financePaymentStatusSchema = z.enum(FINANCE_PAYMENT_STATUSES);
 
-export const FINANCE_REFUND_STATUSES = ["REQUESTED", "APPROVED", "COMPLETED", "REJECTED"] as const;
+/** `REFUND_PENDING` : envoyé au fournisseur, sans conclusion ; `COMPLETED` : remboursé ; `REFUND_FAILED` : refus définitif, rien n'est parti. */
+export const FINANCE_REFUND_STATUSES = ["REQUESTED", "APPROVED", "REFUND_PENDING", "COMPLETED", "REFUND_FAILED", "REJECTED"] as const;
 export const financeRefundStatusSchema = z.enum(FINANCE_REFUND_STATUSES);
 
 export const financePayerKindSchema = z.enum(["LEARNER", "FUNDER"]);
@@ -679,7 +680,17 @@ export const financeRequestRefundBodySchema = z
   })
   .strict();
 
-export const financeApproveRefundBodySchema = z.object({ complete: z.boolean().optional() }).strict();
+/**
+ * Repli MANUEL explicite pour un fournisseur sans API de remboursement (Orange Money, CinetPay), un partiel refusé par
+ * le fournisseur (Wave) ou un fournisseur indisponible : l'exécutant atteste avoir remboursé à la main et fournit la
+ * référence de preuve. Refusé (409) quand le fournisseur sait rembourser lui-même.
+ */
+export const financeManualRefundEvidenceSchema = z
+  .object({ reference: z.string().trim().min(3).max(120), note: z.string().trim().max(500).optional() })
+  .strict();
+
+export const financeApproveRefundBodySchema = z.object({ complete: z.boolean().optional(), manual: financeManualRefundEvidenceSchema.optional() }).strict();
+export const financeCompleteRefundBodySchema = z.object({ manual: financeManualRefundEvidenceSchema.optional() }).strict();
 export const financeRejectRefundBodySchema = z.object({ reason: z.string().trim().min(5).max(500) }).strict();
 
 export const financeListRefundsQuerySchema = financePageQuerySchema.extend({
@@ -702,8 +713,105 @@ export const financeRefundDtoSchema = z.object({
   rejectedAt: isoInstant.nullable(),
   rejectionReason: z.string().nullable(),
   cashSessionId: financeUuidSchema.nullable(),
+  /** `LEDGER` : écriture comptable seule ; `PROVIDER` : remboursé par le fournisseur ; `MANUAL` : à la main avec preuve ; `null` : pas encore exécuté. */
+  // Ajouts (spec 015) : `default(null)` garde la compatibilité des clients et jeux d'essai antérieurs au remboursement fournisseur.
+  executionMode: z.enum(["LEDGER", "PROVIDER", "MANUAL"]).nullable().default(null),
+  provider: z.string().nullable().default(null),
+  providerStatus: z.string().nullable().default(null),
+  providerRequestedAt: isoInstant.nullable().default(null),
+  failedAt: isoInstant.nullable().default(null),
+  failureReason: z.string().nullable().default(null),
+  manualReference: z.string().nullable().default(null),
 });
 export type FinanceRefundDto = z.infer<typeof financeRefundDtoSchema>;
+
+// ---------------------------------------------------------------------------
+// Rapprochement des paiements en attente et résolutions manuelles (spec 015)
+// ---------------------------------------------------------------------------
+
+/** Motifs de signalement `reconciliation_needed` (codes courts stables, jamais un message du fournisseur). */
+export const FINANCE_RECONCILIATION_REASONS = [
+  "unverifiable_no_provider_ref",
+  "unverifiable_refund",
+  "attempts_exhausted",
+  "provider_unavailable",
+  "provider_amount_mismatch",
+  "provider_reference_mismatch",
+  "provider_failed",
+  "simulated_payment_in_production",
+  "refund_exceeds_refundable",
+  "payment_not_confirmed",
+] as const;
+
+export const financeListPendingPaymentsQuerySchema = financePageQuerySchema.extend({
+  /** `true` : seulement les paiements signalés (action humaine requise) ; `false` : ceux que le job traite encore. */
+  flagged: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
+  provider: z.string().regex(/^[a-z][a-z0-9_]{1,39}$/).optional(),
+  /** Reçus depuis au moins N minutes. */
+  olderThanMinutes: z.coerce.number().int().min(0).max(525_600).optional(),
+});
+
+export const financeReconciliationDtoSchema = z.object({
+  attempts: z.number().int().min(0),
+  firstAttemptAt: isoInstant.nullable(),
+  lastAttemptAt: isoInstant.nullable(),
+  nextAttemptAt: isoInstant,
+  lastOutcome: z.string().nullable(),
+  lastErrorCode: z.string().nullable(),
+  flaggedAt: isoInstant.nullable(),
+  flagReason: z.string().nullable(),
+});
+export type FinanceReconciliationDto = z.infer<typeof financeReconciliationDtoSchema>;
+
+export const financePendingPaymentDtoSchema = z.object({
+  payment: financePaymentDtoSchema,
+  reconciliation: financeReconciliationDtoSchema.nullable(),
+  /** Demande de résolution manuelle en attente d'approbation (quatre yeux), s'il y en a une. */
+  openResolutionId: financeUuidSchema.nullable(),
+});
+export type FinancePendingPaymentDto = z.infer<typeof financePendingPaymentDtoSchema>;
+
+export const financePendingPaymentsDtoSchema = z.object({ items: z.array(financePendingPaymentDtoSchema), total: z.number().int().min(0) });
+export type FinancePendingPaymentsDto = z.infer<typeof financePendingPaymentsDtoSchema>;
+
+export const FINANCE_RESOLUTION_OUTCOMES = ["SUCCEEDED", "FAILED"] as const;
+export const FINANCE_RESOLUTION_STATUSES = ["REQUESTED", "APPROVED", "REJECTED"] as const;
+
+/** Demande de résolution manuelle : un paiement OU un remboursement, ce qui s'est réellement passé, un motif et une preuve. */
+export const financeRequestResolutionBodySchema = z
+  .object({
+    paymentId: financeUuidSchema.optional(),
+    refundId: financeUuidSchema.optional(),
+    outcome: z.enum(FINANCE_RESOLUTION_OUTCOMES),
+    reason: z.string().trim().min(10).max(500),
+    evidenceRef: z.string().trim().min(3).max(120),
+  })
+  .strict()
+  .refine((b) => (b.paymentId === undefined) !== (b.refundId === undefined), { message: "Désignez un paiement OU un remboursement.", path: ["paymentId"] });
+
+export const financeDecideResolutionBodySchema = z.object({ note: z.string().trim().max(500).optional() }).strict();
+
+export const financeListResolutionsQuerySchema = financePageQuerySchema.extend({
+  status: z.enum(FINANCE_RESOLUTION_STATUSES).optional(),
+  paymentId: financeUuidSchema.optional(),
+  refundId: financeUuidSchema.optional(),
+});
+
+export const financeResolutionDtoSchema = z.object({
+  id: financeUuidSchema,
+  paymentId: financeUuidSchema.nullable(),
+  refundId: financeUuidSchema.nullable(),
+  outcome: z.enum(FINANCE_RESOLUTION_OUTCOMES),
+  reason: z.string(),
+  evidenceRef: z.string(),
+  status: z.enum(FINANCE_RESOLUTION_STATUSES),
+  requestedBy: financeUuidSchema,
+  requestedAt: isoInstant,
+  decidedBy: financeUuidSchema.nullable(),
+  decidedAt: isoInstant.nullable(),
+  decisionNote: z.string().nullable(),
+});
+export type FinanceResolutionDto = z.infer<typeof financeResolutionDtoSchema>;
 
 // ---------------------------------------------------------------------------
 // Caisses

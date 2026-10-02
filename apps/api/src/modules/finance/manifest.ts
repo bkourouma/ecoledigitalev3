@@ -39,6 +39,13 @@ export default defineModule({
       sensitive: true,
     },
     {
+      key: "finance.payment.reconcile",
+      label: "Rapprocher les paiements en attente : résoudre à la main un paiement ou un remboursement que le fournisseur n'a pas pu confirmer",
+      description:
+        "Déclare qu'un paiement est arrivé ou non (avec preuve) : crée ou annule un encaissement. Quatre yeux (une autre personne approuve), authentification forte, toujours audité.",
+      sensitive: true,
+    },
+    {
       key: "finance.provider.manage",
       label: "Configurer les fournisseurs de paiement en ligne (identifiants marchands, activation, test de connexion)",
       description: "Les identifiants marchands déterminent où arrive l'argent des familles : exige l'authentification forte, chaque accès aux secrets est audité.",

@@ -23,10 +23,13 @@ import type {
   CreditNoteRecord,
   InvoiceDetail,
   InvoiceRecord,
+  ManualResolutionRecord,
   PaymentRecord,
   ReceiptRecord,
+  ReconciliationRecord,
   RefundRecord,
 } from "../domain/records";
+import type { PendingPaymentRow } from "../infrastructure/reconciliation-repository";
 import type { Scholarship } from "../domain/scholarship";
 import type { IsoDate } from "../domain/types";
 import type { FinanceProviderDto, FinanceProviderListDto, FinanceProviderName } from "@ecoledigitale/contracts/src/v2/finance";
@@ -281,6 +284,45 @@ export const refundDto = (r: RefundRecord) => ({
   rejectedAt: iso(r.rejectedAt),
   rejectionReason: r.rejectionReason,
   cashSessionId: r.cashSessionId,
+  executionMode: r.executionMode,
+  provider: r.provider,
+  providerStatus: r.providerStatus,
+  providerRequestedAt: iso(r.providerRequestedAt),
+  failedAt: iso(r.failedAt),
+  failureReason: r.failureReason,
+  manualReference: r.manualReference,
+});
+
+export const reconciliationDto = (r: ReconciliationRecord) => ({
+  attempts: r.attempts,
+  firstAttemptAt: iso(r.firstAttemptAt),
+  lastAttemptAt: iso(r.lastAttemptAt),
+  nextAttemptAt: r.nextAttemptAt.toISOString(),
+  lastOutcome: r.lastOutcome,
+  lastErrorCode: r.lastErrorCode,
+  flaggedAt: iso(r.flaggedAt),
+  flagReason: r.flagReason,
+});
+
+export const pendingPaymentDto = (row: PendingPaymentRow) => ({
+  payment: paymentDto(row.payment),
+  reconciliation: row.reconciliation ? reconciliationDto(row.reconciliation) : null,
+  openResolutionId: row.openResolutionId,
+});
+
+export const resolutionDto = (r: ManualResolutionRecord) => ({
+  id: r.id,
+  paymentId: r.paymentId,
+  refundId: r.refundId,
+  outcome: r.outcome,
+  reason: r.reason,
+  evidenceRef: r.evidenceRef,
+  status: r.status,
+  requestedBy: r.requestedBy,
+  requestedAt: r.requestedAt.toISOString(),
+  decidedBy: r.decidedBy,
+  decidedAt: iso(r.decidedAt),
+  decisionNote: r.decisionNote,
 });
 
 export const cashRegisterDto = (r: CashRegisterRecord) => ({ ...r });

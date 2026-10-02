@@ -316,6 +316,9 @@ export class WaveProvider implements PaymentProvider {
 
   // ---- remboursement (total uniquement ; idempotent chez Wave) ---------------------------------------------
 
+  /** Total uniquement, idempotent (documenté) : renvoyer la même demande ne rembourse pas deux fois. Aucune lecture d'état dédiée. */
+  readonly refundCapabilities = { partial: false, idempotent: true, statusQuery: false } as const;
+
   async refund(request: ProviderRefundRequest): Promise<Result<ProviderRefundResult, AppError>> {
     if (!request.providerRef) return err(invalidInput("Référence Wave du paiement manquante.", "providerRef"));
     const read = await this.call("GET", `/v1/checkout/sessions/${encodeURIComponent(request.providerRef)}`, "refund_read", true);
@@ -328,7 +331,7 @@ export class WaveProvider implements PaymentProvider {
     }
     const res = await this.call("POST", `/v1/checkout/sessions/${encodeURIComponent(request.providerRef)}/refund`, "refund", true);
     if (!res.ok) return res;
-    if (res.value.status === 200) return ok({ status: "SUCCEEDED", providerRefundRef: request.providerRef });
+    if (res.value.status >= 200 && res.value.status < 300) return ok({ status: "SUCCEEDED", providerRefundRef: request.providerRef });
     return ok({ status: "FAILED", providerRefundRef: null, failureReason: safeUpstreamCode(obj(res.value.json)?.code)?.toLowerCase() ?? `http_${res.value.status}` });
   }
 
