@@ -18,6 +18,9 @@ lerna-debug.log*
 secrets/
 .secrets/
 api-keys.*
+# Exceptions : modules applicatifs légitimes nommés « secrets » (coffre chiffré, aucune valeur réelle)
+!apps/api/src/**/secrets/
+!packages/*/src/**/secrets/
 
 # Build outputs
 dist/
