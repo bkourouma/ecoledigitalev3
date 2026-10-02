@@ -10,7 +10,9 @@ import { useDateFormat } from "@/platform/ui/format";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
 import { useDescribeError } from "@/platform/ui/errors";
+import { Can } from "@/platform/ui/AccessGate";
 import { DecisionDialog } from "./DecisionDialog";
+import { EditApplicationDialog } from "./EditApplicationDialog";
 import { DossierDocuments } from "./DossierDocuments";
 import { DossierInterviews } from "./DossierInterviews";
 import { DossierDuplicates, DossierGuardians, DossierHistory, DossierPrivacy } from "./DossierMisc";
@@ -26,14 +28,16 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
   const query = useApplication(applicationId);
   if (query.isPending) return <LoadingBlock />;
   if (query.isError) return <ErrorBlock error={query.error} onRetry={() => void query.refetch()} />;
-  return <Dossier application={query.data} backLabel={t("back")} />;
+  return <Dossier application={query.data} backLabel={t("back")} onReload={() => void query.refetch()} />;
 }
 
-function Dossier({ application, backLabel }: { application: AdmissionsApplicationDetailDto; backLabel: string }) {
+function Dossier({ application, backLabel, onReload }: { application: AdmissionsApplicationDetailDto; backLabel: string; onReload: () => void }) {
   const t = useTranslations("v2Admissions.detail");
   const ts = useTranslations("v2Admissions.status");
   const fmt = useDateFormat();
+  const te = useTranslations("v2AdmissionsEdit");
   const flash = useFlash();
+  const [editing, setEditing] = useState(false);
   const name = application.anonymized ? t("anonymized") : fullName(application);
 
   return (
@@ -59,6 +63,14 @@ function Dossier({ application, backLabel }: { application: AdmissionsApplicatio
       {application.duplicates.some((d) => d.status === "OPEN") ? <Notice kind="warning">{t("openDuplicates")}</Notice> : null}
 
       <Actions application={application} onDone={flash.show} />
+      {!application.anonymized && application.closedAt === null ? (
+        <Can permission="admission.update">
+          <button type="button" className={buttonClass.secondary} onClick={() => setEditing(true)}>
+            {te("open")}
+          </button>
+        </Can>
+      ) : null}
+      {editing ? <EditApplicationDialog application={application} onClose={() => setEditing(false)} onSaved={() => flash.show(te("saved"))} onReload={onReload} /> : null}
       <EnrollmentStatus application={application} />
 
       <div className="grid gap-4 lg:grid-cols-2">

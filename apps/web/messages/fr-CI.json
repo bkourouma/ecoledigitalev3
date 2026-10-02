@@ -10037,7 +10037,12 @@
         "children": "Mes enfants",
         "messages": "Messages",
         "announcements": "Annonces",
-        "account": "Paramètres du compte"
+        "account": "Paramètres du compte",
+        "primary": "Bulletin et compétences (primaire)",
+        "schoollife": "Vie scolaire",
+        "councils": "Décisions du conseil",
+        "stateassign": "Affectation de mon enfant",
+        "examinations": "Examens de mes enfants"
       },
       "student": {
         "home": "Mon dossier",
@@ -10050,7 +10055,11 @@
         "documents": "Mes documents",
         "messages": "Messages",
         "announcements": "Annonces",
-        "profile": "Mon profil"
+        "profile": "Mon profil",
+        "primary": "Mon parcours (primaire)",
+        "schoollife": "Ma vie scolaire",
+        "councils": "Décisions du conseil",
+        "examinations": "Mon examen"
       },
       "teacher": {
         "today": "Aujourd'hui",
@@ -10062,7 +10071,11 @@
         "leaves": "Mes congés et ma présence",
         "messages": "Messages",
         "announcements": "Annonces",
-        "profile": "Mon profil"
+        "profile": "Mon profil",
+        "primaryClass": "Ma classe (primaire)",
+        "primaryCouncil": "Conseil des maîtres",
+        "schoollife": "Saisie vie scolaire",
+        "councils": "Conseils de classe"
       }
     },
     "child": {
@@ -16252,5 +16265,49 @@
       "appreciation": "Appréciation",
       "distinctions": "Distinctions"
     }
+  },
+  "v2CouncilsExtra": {
+    "external": {
+      "kind": "Type de participant",
+      "staff": "Membre du personnel",
+      "externalOption": "Personne externe (tuteur du registre)",
+      "search": "Rechercher une personne externe",
+      "searchHint": "Saisissez au moins 2 lettres du nom.",
+      "person": "Personne externe",
+      "choose": "Choisir une personne",
+      "none": "Aucune personne correspondante.",
+      "error": "La recherche a échoué. Réessayez."
+    },
+    "wish": {
+      "add": "Ajouter un vœu",
+      "addFor": "Ajouter un vœu pour {name}",
+      "saved": "Vœu enregistré.",
+      "title": "Vœu d'orientation de {name}",
+      "description": "Un vœu au même rang remplace le précédent. Le consentement du tuteur peut être consigné dans la foulée.",
+      "submit": "Enregistrer le vœu",
+      "rank": "Rang du vœu",
+      "rankHint": "1 = premier choix.",
+      "rankReplaces": "Un vœu existe déjà à ce rang : il sera remplacé.",
+      "source": "Origine du vœu",
+      "program": "Série souhaitée",
+      "grade": "Niveau souhaité",
+      "choose": "Choisir",
+      "comment": "Commentaire",
+      "consent": "Consentement du tuteur",
+      "consentHint": "Facultatif : à renseigner si le tuteur s'est prononcé.",
+      "consentNone": "Ne pas modifier",
+      "currentConsent": "Consentement actuel"
+    }
+  },
+  "v2AdmissionsEdit": {
+    "open": "Modifier la candidature",
+    "saved": "Candidature mise à jour.",
+    "title": "Modifier la candidature",
+    "description": "Dossier {number}. Seuls les champs modifiés sont envoyés.",
+    "submit": "Enregistrer",
+    "assignmentRequired": "La référence d'affectation est obligatoire pour une affectation de l'État.",
+    "nothingChanged": "Aucune modification à enregistrer.",
+    "conflict": "Le dossier a été modifié par une autre personne depuis son affichage. Rechargez la dernière version avant de ressaisir vos modifications.",
+    "reload": "Recharger la dernière version"
   }
 }
