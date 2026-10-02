@@ -54,7 +54,10 @@ async function ensureRuleSuggestions(deps: CouncilsDeps, ctx: RequestContext, tx
   }
 }
 
-const sameFacts = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+/** Sérialisation à clés triées : `jsonb` ne conserve pas l'ordre d'insertion des clés, la comparaison doit y être indifférente. */
+const canonical = (v: unknown): string =>
+  JSON.stringify(v, (_k, value: unknown) => (value && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))) : value));
+const sameFacts = (a: unknown, b: unknown): boolean => canonical(a) === canonical(b);
 
 export async function prepareCouncil(deps: CouncilsDeps, ctx: RequestContext, caps: CallerCaps, councilId: string): Promise<Result<CouncilsPrepareReportDto, AppError>> {
   const human = requireHuman(ctx);
