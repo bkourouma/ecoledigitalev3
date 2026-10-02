@@ -211,10 +211,10 @@ export const peopleDuplicateCandidateDtoSchema = z.object({
   birthDate: peopleDateSchema.nullable(),
   /** `EXACT` : même nom (permutation admise) et même date ; `NEAR` : fautes de frappe ; `NAME_ONLY` : une date manque. */
   match: z.enum(["EXACT", "NEAR", "NAME_ONLY", "EMAIL", "PHONE"]),
-  /** Confiance du rapprochement, entier de 0 à 100 (indicative, jamais un seuil de décision : l'arbitrage reste humain). */
-  score: z.number().int().min(0).max(100),
+  /** Confiance du rapprochement, entier de 0 à 100 (indicative, jamais un seuil de décision : l'arbitrage reste humain). `0` si un serveur plus ancien ne la fournit pas. */
+  score: z.number().int().min(0).max(100).default(0),
   /** Signaux qui expliquent le rapprochement (codes). */
-  reasons: z.array(peopleDuplicateReasonSchema),
+  reasons: z.array(peopleDuplicateReasonSchema).default([]),
   /** Rôles visibles pour l'acteur (filtrés par ses permissions). */
   roles: z.array(z.enum(["STUDENT", "GUARDIAN", "STAFF"])),
   studentId: peopleUuidSchema.nullable(),
