@@ -52,7 +52,7 @@ Phases du plan §4 : 0 = cadrage, 1 = socle SaaS, 2 = cœur académique et migra
 | 013 | report-cards | 2 | Rédigée (`013-report-cards/` : spec, data-model, plan, parity) |
 | 014 | finance | 1 puis 3 | Extensions d'API rédigées (`014-finance/` : routes famille, exports, PDF, clés de barèmes) ; spec complète à écrire |
 | 015 | payments | 1 puis 3 | À écrire |
-| 016 | communications | 3 | Messagerie interne, annonces et notifications in-app : rédigée et implémentée (`016-communications/` : spec, data-model, plan, parity, open-questions ; module `messaging`). Canaux externes : autre chantier |
+| 016 | communications | 3 | Rédigée et implémentée (`016-communications/` : spec, data-model, plan, parity, open-questions). Partie A : messagerie interne, annonces et notifications in-app (module `messaging`). Partie B : canaux externes — e-mail SMTP, SMS (adaptateur HTTP générique, fournisseur à choisir : Q-18), WhatsApp (WaSender), Web Push (VAPID) —, gabarits versionnés par établissement, journal de chaque envoi, consentement et préférences, règles, relances d'impayés (J+3 / J+10 / J+30) et alertes (module `notifications`) |
 | 017 | scheduling | 2 | Rédigée (`017-scheduling/`) |
 | 018 | examinations | 4 | À écrire |
 | 019 | higher-education | 2 | Rédigée (`019-higher-education/` : spec, data-model, plan, parity) |

@@ -64,3 +64,71 @@ subscribers.ts : attendance.absence.recorded / late.recorded -> messages systèm
 3. Rôles : les modèles système portent déjà `messaging.*` ; les établissements existants reçoivent les nouvelles permissions à la prochaine synchronisation rbac.
 4. Variables : aucune nouvelle ; le stockage d'objets est celui de `STORAGE_*`. Redis (`REDIS_URL`) recommandé pour le limiteur de débit multi-instances.
 5. Web : menus servis par `rbac/me/navigation` (entrées déclarées au manifeste) ; routes `/v2/messages`, `/v2/announcements`.
+
+---
+
+# Partie B — Plan du module `notifications` (canaux externes)
+
+## 7. Résumé
+
+Module backend `notifications` (schéma Postgres `notifications`, migration `1800`, packs PRIMARY / SECONDARY / HIGHER / VIRTUAL, `dependsOn: ["messaging"]`), contrats `packages/contracts/src/v2/notifications.ts`, adaptateurs `platform/adapters/{people,sources}-notifications.ts`, écrans `/v2/notifications/*` et `/v2/account/notifications`. Dépendances npm : `nodemailer` (déjà présent), `web-push` ; en développement `smtp-server`, `mailparser`.
+
+## 8. Architecture
+
+```
+événement (outbox) ─▶ abonné `notifications.on.<événement>` ─▶ règles de l'établissement ─▶ AudienceResolver (ports)
+                                                                                   │
+job relances (07:00) ─ OverdueSource (finance) ─▶ paliers ─┐                       ▼
+job alertes (07:30) ─ ports results / people / finance ─────┼──▶ enqueueInTx : consentement, heures calmes, suppression,
+envoi manuel (API) ─────────────────────────────────────────┘     plafonds, rendu du gabarit (version figée) ─▶ `deliveries`
+                                                                                   │
+job envoi (15 s) ─ réclamation SKIP LOCKED ─ relecture (consentement, relance toujours due) ─ canal ─▶ issue ─▶ journal
+                          canaux : IN_APP (messaging) · EMAIL (SMTP) · SMS (HTTP générique) · WHATSAPP (WaSender) · PUSH (VAPID)
+```
+
+- **Couches** : `domain/` pur (catalogue, gabarits, rendu, consentement, heures calmes, paliers, lecteurs d'événements, règles livrées) ; `application/` (cas d'usage, ports, envoi) ; `infrastructure/` (SQL, canaux) ; `http/` (plugin, gardes).
+- **Ports** (`application/ports.ts`) : `RecipientDirectory`, `OverdueSource`, `GradeSource`, `TeachingLoadSource`, `AnnouncementFeed` ; `ChannelAdapter` / `ChannelRegistry`. Port absent = échec fermé `notifications.port_unavailable`. Appels séquentiels (connexion partagée).
+- **Transactions** : mise en file dans la transaction de l'abonné / du job (donnée + événement + audit ensemble) ; l'**envoi réseau jamais dans une transaction** de donnée.
+
+## 9. Lots (tous livrés)
+
+| Lot | Contenu | Preuve |
+|---|---|---|
+| N1 | Spec, contrats, migration `1800`, domaine pur, cas d'usage, canaux, plugin HTTP, abonnés, jobs | `test/unit/*` (69), `test/channels/*` (25 : SMTP et HTTP simulés, Web Push chiffré déchiffré), `type-check:v2`, `check:boundaries` |
+| N2 | Intégration réelle : RLS A/B, événement -> journal -> envoi, consentement, heures calmes, reprise, rebonds, relances, alertes, gabarits, envoi manuel, plafonds, confidentialité | `test/integration/notifications.integration.test.ts` (58) |
+| N3 | HTTP réel par rôle, routes publiques signées, chargement par le registre | `test/unit/module.test.ts` (13), `test/integration/http.integration.test.ts` (9) |
+| N4 | Adaptateurs réels people / academic / rbac / iam / finance / messaging, relances sur de vraies factures, assemblage | `apps/api/test/adapters/notifications.integration.test.ts` (7), `test/phase1/*`, contrats d'événements |
+| N5 | Écrans web, client typé, i18n `v2Notifications*`, portails (messagerie par permission) | tests Vitest / RTL |
+| N6 | Documentation (README, assemblage, ce dossier), reconstruction du worker | gates |
+
+## 10. Extensions additives des autres modules
+
+| Module | Extension | Raison |
+|---|---|---|
+| people | `application/contacts.ts` + `infrastructure/contacts-repo.ts` : `listNotificationContactsOfStudents / Staff / Identities` (lectures seules, jamais exposées par une route) | e-mail et téléphone d'un tuteur AVEC ou SANS compte, non disponibles dans l'audience de la messagerie (qui ne porte que des comptes) |
+| finance | `application/overdue-feed.ts` : `listOverdueInstallments`, `isInstallmentOverdue` | relances et alertes par échéance ; arrêt dès paiement |
+| messaging | `application/delivery-feed.ts` : `readAnnouncementForDelivery` | titre, extrait et destinataires figés d'une annonce, sans droit d'appelant (contexte système) |
+| rbac | `templates/system-roles.ts` : `notifications.*` accordées (lecture / envoi au secrétariat et à la direction des études, lecture à l'économe, `own.manage` au personnel / enseignant / éducateur, `child.manage` aux parents, `self.manage` aux élèves) + justification de `notifications.*` pour la direction (urgence sensible) ; oracle de test aligné | la suite complète refuse un module sans matrice de rôles |
+| plateforme | `platform/adapters/index.ts` (ports `notifications` API et worker), `test/events-contracts/notifications.contracts.ts` | assemblage et contrats d'événements |
+| web | portails parent / élève / enseignant : le drapeau `NEXT_PUBLIC_V2_MESSAGING` est remplacé par la vérification de permission du module `messaging` | la messagerie est livrée |
+
+## 11. Risques et parades
+
+| Risque | Parade |
+|---|---|
+| Envoi réel involontaire en test | canaux testés contre SMTP et HTTP simulés ; canal non configuré = échec explicite ; simulation seulement demandée, jamais en production |
+| Double envoi (événement rejoué, job lancé deux fois) | clé de remise `événement|règle|personne|canal`, registre des paliers, `ON CONFLICT DO NOTHING` |
+| Fuite d'adresse | masque dans le journal, adresse effacée à l'état terminal, erreurs de fournisseur épurées, rien dans les événements ni l'audit |
+| Spam / emballement d'une règle | plafonds (canal, destinataire, file), limiteur des routes publiques, urgence sensible et auditée |
+| SMS coûteux | stratégie `FIRST_REACHABLE`, plafond journalier, coût journalisé quand le fournisseur le renvoie |
+| Perte de consentement à la création d'un compte | clés de personne avec alias ; un refus sur une clé vaut pour toutes |
+| Relance après paiement | relecture à l'envoi + annulation par `finance.invoice.paid` + échéance soldée non remontée |
+| Panne du fournisseur | reprise avec backoff, bail expirable, état de santé par canal |
+
+## 12. Déploiement
+
+1. `pnpm db:v2:migrate` (migration `1800_notifications_init.sql`, après `1700` de `messaging`).
+2. `pnpm --filter @ecoledigitale/worker build` (abonnés et jobs embarqués) ; le worker est **indispensable** à l'envoi.
+3. Variables : voir `.env.example` (SMTP, `NOTIFICATIONS_*`, `SMS_HTTP_*`, `WASENDER_*`, VAPID). Production : `NOTIFICATIONS_UNSUBSCRIBE_SECRET` obligatoire pour l'e-mail ; `NOTIFICATIONS_WEBHOOK_SECRET` pour les accusés ; clés VAPID pour le push.
+4. Rôles : les modèles système portent déjà `notifications.*` ; les établissements existants les reçoivent à la prochaine synchronisation rbac.
+5. Web : menus servis par `rbac/me/navigation` ; routes `/v2/notifications/*`, `/v2/account/notifications`.
