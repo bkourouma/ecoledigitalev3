@@ -10,6 +10,9 @@ export const AnalyticsEvents = {
   SNAPSHOT_REFRESHED: "analytics.snapshot.refreshed",
   REBUILD_REQUESTED: "analytics.rebuild.requested",
   REBUILD_COMPLETED: "analytics.rebuild.completed",
+  ALERT_RAISED: "analytics.alert.raised",
+  ALERT_ACKNOWLEDGED: "analytics.alert.acknowledged",
+  ALERT_RESOLVED: "analytics.alert.resolved",
 } as const;
 
 export type AnalyticsEventType = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];
@@ -57,5 +60,11 @@ export const CONSUMED_EVENTS: readonly string[] = [
   "finance.credit_note.issued", "finance.payment.completed", "finance.payment.allocated", "finance.refund.completed",
   "finance.cash_session.opened", "finance.cash_session.closed",
   "payroll.period.created", "payroll.period.closed", "payroll.period.archived", "payroll.run.completed",
+  "admissions.application.submitted", "admissions.application.status_changed", "admissions.application.enrolled", "admissions.application.anonymized",
+  "admissions.decision.recorded", "admissions.offer.accepted", "admissions.offer.declined", "admissions.offer.expired", "admissions.offer.withdrawn",
+  "admissions.waitlist.promoted", "admissions.prospect.converted",
+  "schoollife.incident.declared", "schoollife.incident.status_changed",
+  "schoollife.measure.proposed", "schoollife.measure.validated", "schoollife.measure.notified", "schoollife.measure.executed", "schoollife.measure.revoked", "schoollife.measure.rejected", "schoollife.measure.cancelled",
+  "schoollife.appeal.decided", "schoollife.convocation.sent", "schoollife.convocation.held", "schoollife.convocation.missed", "schoollife.convocation.cancelled",
   "payroll.payslip.calculated", "payroll.payslip.approved", "payroll.payslip.paid", "payroll.payslip.disputed", "payroll.payslip.cancelled", "payroll.payslip.adjusted",
 ];

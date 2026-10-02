@@ -6,6 +6,7 @@
 import type { RequestContext } from "@ecoledigitale/kernel";
 import type { AnalyticsSourcePorts } from "../application/ports";
 import type {
+  AdmissionsCampaignFact,
   AttendanceDayFact,
   CashSessionFact,
   ClassPeriodResults,
@@ -15,6 +16,7 @@ import type {
   FinanceScopeFacts,
   PayrollStatusFact,
   PeriodFact,
+  SchoolLifeFact,
   ScopeFact,
   StaffPresenceFact,
   TeachingLoadFact,
@@ -35,6 +37,8 @@ export class InMemoryAnalyticsWorld {
   cash: CashSessionFact[] = [];
   payroll: PayrollStatusFact[] = [];
   teachingLoad: TeachingLoadFact[] = [];
+  admissions: AdmissionsCampaignFact[] = [];
+  schoolLife: SchoolLifeFact[] = [];
   /** Nombre d'appels par méthode de port (preuve de coalescence et de lecture unique). */
   readonly calls: Record<string, number> = {};
   /** Méthodes qui échouent (simulation d'une source en panne) : `"results.readClassPeriod"`. */
@@ -134,6 +138,18 @@ export class InMemoryAnalyticsWorld {
         async readLoads(_ctx, input) {
           w.hit("teachingLoad.readLoads");
           return structuredClone(w.teachingLoad.filter((t) => t.yearId === input.yearId));
+        },
+      },
+      admissions: {
+        async readFunnel() {
+          w.hit("admissions.readFunnel");
+          return structuredClone(w.admissions);
+        },
+      },
+      schoollife: {
+        async readCounts() {
+          w.hit("schoollife.readCounts");
+          return structuredClone(w.schoolLife);
         },
       },
     };

@@ -14,11 +14,17 @@ import { useMutation } from "@tanstack/react-query";
 import type { z } from "zod";
 import { platformHooks as hooks } from "@/platform/api/default-client";
 import {
+  analyticsAdmissionsFunnelDataSchema,
   analyticsAgedDataSchema,
+  analyticsAlertDetailSchema,
+  analyticsAlertMetricsDataSchema,
+  analyticsAlertRulesDataSchema,
+  analyticsAlertsDataSchema,
   analyticsAttendanceDataSchema,
   analyticsCashDataSchema,
   analyticsChargesDataSchema,
   analyticsCollectionsDataSchema,
+  analyticsComparisonDataSchema,
   analyticsEnrollmentDataSchema,
   analyticsEnvelope,
   analyticsFinanceSummaryDataSchema,
@@ -27,9 +33,18 @@ import {
   analyticsPayrollDataSchema,
   analyticsReceivablesDataSchema,
   analyticsResultsDataSchema,
+  analyticsSchoolLifeDataSchema,
   analyticsScopesDataSchema,
   analyticsSettingsDataSchema,
   analyticsTeachingLoadDataSchema,
+  type AnalyticsAlert,
+  type AnalyticsAlertAcknowledgeBody,
+  type AnalyticsAlertRule,
+  type AnalyticsAlertRuleCreate,
+  type AnalyticsAlertRuleUpdate,
+  type AnalyticsAlertsQuery,
+  type AnalyticsCompareQuery,
+  type AnalyticsComparisonDomain,
   type AnalyticsExportDataset,
   type AnalyticsScopeQuery,
   type AnalyticsSettingsData,
@@ -106,3 +121,48 @@ export function useAnalyticsExport() {
       hooks.client.request<string, undefined>("GET", `${ANALYTICS_BASE}/export/${dataset}.csv`, { query: query ?? {}, responseType: "text" }) as Promise<string>,
   });
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Indicateurs transverses de direction (admissions, vie scolaire agrégée, comparaisons)
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** Entonnoir d'admission : comptages par campagne et par étape (aucun candidat). */
+export const useAnalyticsAdmissionsFunnel = (filters: { institutionId?: string; yearId?: string } = {}, options?: { enabled?: boolean }) =>
+  useView("admissions-funnel", "admissions/funnel", analyticsAdmissionsFunnelDataSchema, scopeQuery(filters), options);
+
+/** Vie scolaire agrégée : quatre comptages (confidentialité STANDARD), aucun élève. */
+export const useAnalyticsSchoolLife = (filters: { institutionId?: string } = {}, options?: { enabled?: boolean }) =>
+  useView("schoollife", "schoollife/summary", analyticsSchoolLifeDataSchema, scopeQuery(filters), options);
+
+/** Comparaison d'un indicateur entre deux périodes ou années (la requête n'est émise que si ses deux côtés sont choisis). */
+export const useAnalyticsCompare = (domain: AnalyticsComparisonDomain, query: Partial<AnalyticsCompareQuery>, options?: { enabled?: boolean }) =>
+  useView(`compare-${domain}`, `compare/${domain}`, analyticsComparisonDataSchema, scopeQuery(query as Query), options);
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Alertes configurables
+// ---------------------------------------------------------------------------------------------------------------------
+
+const alertsView = <T>(view: string, path: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>, query: Query, options: { enabled?: boolean } = {}) =>
+  hooks.useApiQuery<T>(["analytics", "alerts", view, query], `${ANALYTICS_BASE}/${path}`, { schema, query, staleTime: 0, enabled: options.enabled ?? true });
+
+/** Indicateurs que l'utilisateur peut surveiller (selon ses permissions de données). */
+export const useAnalyticsAlertMetrics = (options?: { enabled?: boolean }) => alertsView("metrics", "alerts/metrics", analyticsAlertMetricsDataSchema, {}, options);
+export const useAnalyticsAlertRules = (options?: { enabled?: boolean }) => alertsView("rules", "alerts/rules", analyticsAlertRulesDataSchema, {}, options);
+export const useAnalyticsAlerts = (query: Partial<AnalyticsAlertsQuery> = {}, options?: { enabled?: boolean }) => alertsView("list", "alerts", analyticsAlertsDataSchema, scopeQuery(query as Query), options);
+export const useAnalyticsAlert = (id: string | null, options?: { enabled?: boolean }) => alertsView("detail", `alerts/${id ?? "none"}`, analyticsAlertDetailSchema, { id: id ?? "" }, { enabled: Boolean(id) && (options?.enabled ?? true) });
+
+const ALERT_KEYS = [["analytics", "alerts"]] as const;
+
+export function useAnalyticsCreateAlertRule() {
+  return useApiAction<AnalyticsAlertRule, AnalyticsAlertRuleCreate>({ path: `${ANALYTICS_BASE}/alerts/rules`, body: (v) => v, invalidate: ALERT_KEYS });
+}
+
+export function useAnalyticsUpdateAlertRule() {
+  return useApiAction<AnalyticsAlertRule, { id: string; body: AnalyticsAlertRuleUpdate }>({ method: "PUT", path: (v) => `${ANALYTICS_BASE}/alerts/rules/${v.id}`, body: (v) => v.body, invalidate: ALERT_KEYS });
+}
+
+/** Accusé de réception : l'alerte et ses listes sont relues. */
+export function useAnalyticsAcknowledgeAlert() {
+  return useApiAction<AnalyticsAlert, { id: string; body: AnalyticsAlertAcknowledgeBody }>({ path: (v) => `${ANALYTICS_BASE}/alerts/${v.id}/acknowledge`, body: (v) => v.body, invalidate: ALERT_KEYS });
+}
+

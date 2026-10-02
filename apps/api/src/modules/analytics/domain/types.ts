@@ -19,6 +19,8 @@ export const REFRESH_KINDS = [
   "CASH",
   "PAYROLL",
   "TEACHING_LOAD",
+  "ADMISSIONS",
+  "SCHOOLLIFE",
 ] as const;
 export type RefreshKind = (typeof REFRESH_KINDS)[number];
 
@@ -37,6 +39,8 @@ export const KIND_ORDER: Readonly<Record<RefreshKind, number>> = {
   CASH: 7,
   PAYROLL: 8,
   TEACHING_LOAD: 9,
+  ADMISSIONS: 10,
+  SCHOOLLIFE: 11,
 };
 
 export type Uuid = string;
@@ -149,12 +153,20 @@ export interface ResultLineFact {
   resitEligible: boolean | null;
 }
 
+export const RULES_SOURCE_KINDS = ["regulation", "institution", "platform", "placeholder"] as const;
+export type RulesSourceKind = (typeof RULES_SOURCE_KINDS)[number];
+
 /** Contenu lu d'une (classe, période) : seuls les résultats FINAL comptent ; sinon `state = "NOT_FINAL"` et aucune ligne. */
 export interface ClassPeriodResults {
   classroomId: Uuid;
   periodId: Uuid;
   yearId: Uuid | null;
   state: "FINAL" | "NOT_FINAL";
+  /**
+   * Provenance des règles épinglées pour cette (classe, période) : `placeholder` = jeu de DÉMONSTRATION (bandeau obligatoire).
+   * `null` : non lisible (jamais présenté comme officiel).
+   */
+  rulesSourceKind?: RulesSourceKind | null;
   results: ResultFact[];
   lines: ResultLineFact[];
 }
@@ -290,4 +302,26 @@ export interface TeachingLoadFact {
   plannedHours: number;
   classroomCount: number;
   contractualHoursPerWeek: number | null;
+}
+
+/** Entonnoir d'admission d'UNE campagne : places et répartition des dossiers par étape (comptages seulement). */
+export interface AdmissionsCampaignFact {
+  campaignId: Uuid;
+  institutionId: Uuid;
+  yearId: Uuid | null;
+  code: string;
+  label: string;
+  status: string;
+  seats: number | null;
+  seatsLeft: number | null;
+  stages: Array<{ code: string; label: string; canonicalStatus: string; ordinal: number; isTerminal: boolean; applications: number }>;
+}
+
+export const SCHOOLLIFE_INDICATORS = ["OPEN_INCIDENTS", "MEASURES_TO_VALIDATE", "ACTIVE_EXCLUSIONS", "CONVOCATIONS_TO_HOLD"] as const;
+export type SchoolLifeIndicator = (typeof SCHOOLLIFE_INDICATORS)[number];
+
+/** Comptages agrégés de la vie scolaire d'un établissement (`institutionKey` = identifiant, ou `*` pour le tenant entier). */
+export interface SchoolLifeFact {
+  institutionKey: string;
+  values: Record<SchoolLifeIndicator, number>;
 }

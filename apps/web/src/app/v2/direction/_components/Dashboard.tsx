@@ -9,7 +9,7 @@ import { useDateFormat } from "@/platform/ui/format";
 import { useMoney } from "@/platform/ui/money";
 import { PageHeader } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock } from "@/platform/ui/states";
-import { FeatureGuard, FreshnessBar, KpiCard, KpiGrid, ScopeFilters, scopeFilters, Section, useScopeState, type ScopeField } from "../../owner/_components/kit";
+import { DemoRulesBanner, FeatureGuard, FreshnessBar, KpiCard, KpiGrid, ScopeFilters, scopeFilters, Section, useScopeState, type ScopeField } from "../../owner/_components/kit";
 
 const FIELDS: readonly ScopeField[] = ["institution", "campus", "year"];
 
@@ -47,6 +47,7 @@ function Dashboard() {
       {data ? (
         <>
           <FreshnessBar meta={overview.data?.meta} />
+          <DemoRulesBanner rulesSource={{ demonstration: data.results.demonstration }} />
           <KpiGrid label={t("kpiLabel")}>
             <KpiCard label={t("headcount.label")} value={date.number(data.headcount.inSchooling)} detail={t("headcount.detail", { total: data.headcount.total, classrooms: data.headcount.classrooms })} />
             <KpiCard

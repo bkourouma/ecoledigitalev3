@@ -14,14 +14,14 @@ Principes de lecture : le legacy lit directement les tables de l'application (mo
 | Académique | `/v2/owner/pedagogie` | ✅ | moyennes par classe et par période, réussite, assiduité (voir `/v2/direction/effectifs`) |
 | RH (enseignants, heures, paies en attente) | `/v2/owner/pedagogie` (charge d'enseignement) + `/v2/owner/paie` | ◐ | heures **prévues** et contractuelles ; pas d'heures **validées**, ni de « cours sans titulaire », ni de liste de paies en attente de validation |
 | Formations | — | ⏭ | module de formations courtes supprimé du périmètre v2 (Imhotep, décision D7) |
-| Alertes (acquitter) | — | ❌ | pas d'alertes propriétaire en v2 ; les alertes d'assiduité restent dans `attendance` |
+| Alertes (acquitter) | `/v2/analytics/alertes`, `/v2/analytics/alertes/regles` | ✅ | alertes de direction configurables (seuils, rôles, fréquence), accusé de réception, historique (partie B) ; les alertes nominatives d'assiduité restent dans `attendance` |
 | Accès (rôles) | — | ⏭ | écrans `rbac` / `iam` |
 
 ## 2. Endpoints `/api/v1/owner/*`
 
 | Legacy | v2 (`/api/v1/analytics/*`) | État | Écart |
 |---|---|---|---|
-| `GET /pulse` | `overview` + `finance/summary` | ✅ | KPI du pouls : effectif, présence, résultats, enseignants, recouvrement, créances ; **comparaison à la période précédente non reprise** ; statuts via seuils d'affichage réglables (`settings`) |
+| `GET /pulse` | `overview` + `finance/summary` + `compare/*` | ✅ | KPI du pouls : effectif, présence, résultats, enseignants, recouvrement, créances ; **comparaison entre périodes / années** via `compare/*` (partie B) ; statuts via seuils d'affichage réglables (`settings`) |
 | `GET /scolarite` | `finance/summary`, `finance/receivables?by=class` | ◐ | facturé / encaissé / reste par classe ✅ ; **barème, « trous de facturation », écart commandé/dû, entonnoir demande→paiement non repris** (nécessitent un port de lecture des barèmes de finance) |
 | `GET /tresorerie` | `treasury/collections`, `treasury/aged` | ◐ | courbe d'encaissements (jour / semaine / mois) ✅, balance âgée par apprenant ✅ ; **répartition par mode de règlement, délai de paiement par classe, anomalies de caisse détaillées non reprises** (le reporting de finance ne les expose pas) |
 | `GET /tresorerie/journal` (caisse) | `treasury/cash` | ◐ | sessions : fonds, attendu, compté, écart ✅ ; **journal des mouvements par session non repris** |
@@ -29,11 +29,11 @@ Principes de lecture : le legacy lit directement les tables de l'application (mo
 | `GET /academic`, `/pedagogie` (+ export) | `pedagogy/results` (+ export CSV) | ✅ / ◐ | ✅ moyenne générale, taux de validation, décisions, distribution des moyennes, matières à faible validation, poids de la session 2, UE (niveau `UE`) ; ◐ pas de « Top 15 ECUE échouées » trié côté serveur (le tableau est triable côté écran), **pas de rattrapages détaillés ni d'état des bulletins** |
 | `GET /assiduite` (+ export) | `attendance`, `pedagogy/teaching-load` (+ exports) | ◐ | taux de présence global, par jour, par classe ✅ ; **top des étudiants les plus absents (nominatif), occupation des salles, charge hebdomadaire planifiée, séances sans enseignant non repris** (scheduling : pas de port agrégé) |
 | `GET /personnes` (+ export) | `enrollment` | ◐ | sexe, niveau, financement, campus, classe, redoublants ✅ ; **pyramide des âges, nationalités, contrats d'enseignants, couverture parents/comptes non repris** (champs sensibles de `people` non exposés en agrégat) |
-| `GET /recrutement` (+ export) | `enrollment` (entonnoir d'admission) | ◐ | inscriptions créées → confirmées → annulées par source ✅ ; **demandes en ligne (en attente / rejetées, délai de traitement, motifs de rejet) non repris** : pas de source v2 |
+| `GET /recrutement` (+ export) | `enrollment` (entonnoir d'inscription) + `admissions/funnel` (+ export) | ◐ | inscriptions créées → confirmées → annulées par source ✅ ; **entonnoir de candidatures par statut et par étape ✅ (partie B)** ; délai de traitement et motifs de rejet non repris (jamais de donnée de candidat) |
 | `GET /prospection` (+ export) | — | ⏭ | CRM commercial : hors 025 |
 | `GET /economie` | `charges` | ❌ | **aucun module de charges / comptabilité en v2** : l'API et l'écran déclarent le manque (`MODULE_MISSING`) ; marges par filière, rétention, compte de résultat non mesurés |
 | `GET/POST/PATCH/DELETE /charges*`, `/charges/categories`, `/charges/cohortes` | — | ❌ | saisie des charges : même manque (module à créer, specs 014/015) |
-| `GET /risque` | — | ❌ | signaux d'élèves/enseignants « à risque » (nominatifs, croisés) : hors 025 v1 (données personnelles ; à reprendre avec les alertes) |
+| `GET /risque` | `alerts` (agrégées) | ◐ | les signaux **nominatifs** (élèves « à risque ») restent exclus (données personnelles) ; les alertes de direction surveillent des taux, montants et comptages agrégés |
 | `GET /remplissage` | `enrollment` (effectif par classe) | ◐ | effectifs par classe ✅ ; **taux de remplissage vs capacité, cohortes, conflits de planning, couverture non repris** (capacité non lue) |
 | `GET /programme` | — | ❌ | statistiques cycles / filières / matières : à reprendre depuis `academic` (curriculum) |
 | `GET /referentiel` | — | ❌ | « santé du catalogue » (UE sans ECUE, crédits incohérents…) : ces anomalies du modèle professionnel n'existent plus par construction (validation du curriculum d'`academic`) |
@@ -43,7 +43,8 @@ Principes de lecture : le legacy lit directement les tables de l'application (mo
 | `GET /stats/filters` | `scopes` | ✅ | établissements, campus, années, périodes, classes (année scolaire = **table `academic`**, plus dérivée d'un pivot de septembre) |
 | `GET /reports/financial` | `export/<jeu>.csv` | ◐ | CSV audité par jeu de données ; PDF non repris |
 | `GET /roles/assignable`, `/users`, `PATCH /users/:id/roles` | — | ⏭ | `rbac` / `iam` |
-| `GET /alerts`, `PATCH /alerts/:id/acknowledge`, `GET /dashboard`, `/finances`, `/academic`, `/staff`, `/formations` (spec 027) | — | ◐ / ⏭ | tableaux de synthèse repris par `overview` ; alertes et formations : voir §1 |
+| `GET /alerts`, `PATCH /alerts/:id/acknowledge` | `GET /alerts`, `POST /alerts/:id/acknowledge` | ✅ | partie B : agrégées, sans élève ; livraison par `notifications` |
+| `GET /dashboard`, `/finances`, `/academic`, `/staff`, `/formations` (spec 027) | — | ◐ / ⏭ | tableaux de synthèse repris par `overview` ; formations : voir §1 |
 
 ## 3. Pages web legacy `apps/web/src/app/owner/*`
 

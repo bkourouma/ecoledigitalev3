@@ -57,6 +57,18 @@ const ENROLLMENT_WHERE = `($1::uuid IS NULL OR e.institution_id = $1) AND ($2::u
    AND ($3::uuid IS NULL OR e.year_id = $3) AND ($4::uuid IS NULL OR e.classroom_id = $4)`;
 const enrollmentParams = (s: ReadScope): unknown[] => [s.institutionId, s.campusId, s.yearId, s.classroomId];
 
+export async function enrollmentTotals(tx: Tx, s: ReadScope): Promise<EnrollmentBreakdown["totals"]> {
+  const r = await tx.queryOne<{ total: string; in_schooling: string; repeaters: string }>(
+    `SELECT count(*)::text AS total, count(*) FILTER (WHERE e.in_schooling)::text AS in_schooling,
+            count(*) FILTER (WHERE e.in_schooling AND e.is_repeating)::text AS repeaters
+       FROM analytics.enrollment_facts e WHERE ${ENROLLMENT_WHERE}`,
+    enrollmentParams(s),
+  );
+  const inSchooling = n(r?.in_schooling);
+  const repeaters = n(r?.repeaters);
+  return { total: n(r?.total), inSchooling, repeaters, repeaterRateBps: rateBps(repeaters, inSchooling) };
+}
+
 export async function enrollmentBreakdown(tx: Tx, s: ReadScope): Promise<EnrollmentBreakdown> {
   const p = enrollmentParams(s);
   const rows = (sql: string): Promise<Array<{ key: string | null; label: string | null; c: string; s: string }>> =>
@@ -221,11 +233,36 @@ const RESULT_WHERE = `($1::uuid IS NULL OR rf.year_id = $1) AND ($2::uuid IS NUL
 const resultParams = (s: ReadScope, withPeriod = true): unknown[] => [s.yearId, withPeriod ? s.periodId : null, s.classroomId, s.institutionId, s.campusId, s.gradeLevelCode ?? null];
 const RESULT_FROM = `analytics.result_facts rf LEFT JOIN analytics.dim_classroom dc ON dc.classroom_id = rf.classroom_id`;
 
+/** Provenance des règles des (classe, période) FINAL lues : `demonstration` dès qu'une seule repose sur un jeu de règles `placeholder`. */
+export interface RulesSourceSummary {
+  demonstration: boolean;
+  finalClassPeriods: number;
+  placeholderClassPeriods: number;
+  unknownClassPeriods: number;
+}
+
+/** Filtre des périmètres de résultats : année $1, période $2, classe $3, institution $4, campus $5, niveau $6 (alias `rs`, classes `dc`). */
+const SCOPE_WHERE = `($1::uuid IS NULL OR rs.year_id = $1) AND ($2::uuid IS NULL OR rs.period_id = $2) AND ($3::uuid IS NULL OR rs.classroom_id = $3)
+        AND ($4::uuid IS NULL OR dc.institution_id = $4) AND ($5::uuid IS NULL OR dc.campus_id = $5) AND ($6::text IS NULL OR dc.grade_level_code = $6)`;
+
+export async function rulesSourceSummary(tx: Tx, s: ReadScope): Promise<RulesSourceSummary> {
+  const r = await tx.queryOne<Record<string, any>>(
+    `SELECT count(*) FILTER (WHERE rs.state = 'FINAL')::text AS final,
+            count(*) FILTER (WHERE rs.state = 'FINAL' AND rs.rules_source_kind = 'placeholder')::text AS placeholder,
+            count(*) FILTER (WHERE rs.state = 'FINAL' AND rs.rules_source_kind IS NULL)::text AS unknown
+       FROM analytics.result_scopes rs LEFT JOIN analytics.dim_classroom dc ON dc.classroom_id = rs.classroom_id WHERE ${SCOPE_WHERE}`,
+    resultParams(s),
+  );
+  const placeholder = n(r?.placeholder);
+  return { demonstration: placeholder > 0, finalClassPeriods: n(r?.final), placeholderClassPeriods: placeholder, unknownClassPeriods: n(r?.unknown) };
+}
+
 export interface ResultsBreakdown {
   totals: ResultStats & { classPeriodsFinal: number; classPeriodsNotFinal: number };
   byClassroom: Array<{ classroomId: string; name: string; gradeLevelLabel: string } & ResultStats>;
   bySubject: Array<{ nodeId: string; code: string; label: string; level: string; resitEligibleCount: number; session2Count: number } & ResultStats>;
-  byPeriod: Array<{ periodId: string; label: string; ordinal: number } & ResultStats>;
+  byPeriod: Array<{ periodId: string; label: string; ordinal: number; demonstration: boolean } & ResultStats>;
+  rulesSource: RulesSourceSummary;
   distribution: { scaleMax: number; binWidth: number; bins: HistogramBin[] };
   decisions: { period: Array<{ code: string; outcome: string | null; count: number }>; year: Array<{ code: string; outcome: string | null; count: number }> };
 }
@@ -268,6 +305,13 @@ export async function resultsBreakdown(tx: Tx, s: ReadScope, display: { scaleMax
       WHERE ${RESULT_WHERE} GROUP BY rf.period_id ORDER BY max(dp.starts_on) NULLS LAST, max(dp.ordinal) NULLS LAST, rf.period_id`,
     resultParams(s, false),
   );
+  const demoPeriods = await tx.many<{ id: string }>(
+    `SELECT DISTINCT rs.period_id AS id FROM analytics.result_scopes rs LEFT JOIN analytics.dim_classroom dc ON dc.classroom_id = rs.classroom_id
+      WHERE rs.state = 'FINAL' AND rs.rules_source_kind = 'placeholder' AND ${SCOPE_WHERE}`,
+    resultParams(s, false),
+  );
+  const demoSet = new Set(demoPeriods.map((r) => r.id));
+  const rulesSource = await rulesSourceSummary(tx, s);
   const bins = binCount(display.scaleMax, display.binWidth);
   const distRows = await tx.many<{ bin: number; c: string }>(
     `SELECT LEAST($7::int - 1, FLOOR(LEAST(GREATEST(rf.average, 0), $8::numeric) / $9::numeric))::int AS bin, count(*)::text AS c
@@ -288,7 +332,8 @@ export async function resultsBreakdown(tx: Tx, s: ReadScope, display: { scaleMax
     totals: { ...statsOf(totals ?? {}), classPeriodsFinal: n(scopesRow?.final), classPeriodsNotFinal: n(scopesRow?.not_final) },
     byClassroom: byClassroom.map((r) => ({ classroomId: r.id, name: r.name ?? r.id, gradeLevelLabel: r.gl ?? "", ...statsOf(r) })),
     bySubject: bySubject.map((r) => ({ nodeId: r.id, code: r.code, label: r.label, level: r.level, resitEligibleCount: n(r.resit), session2Count: n(r.s2), ...statsOf(r) })),
-    byPeriod: byPeriod.map((r) => ({ periodId: r.id, label: r.label ?? r.id, ordinal: n(r.ordinal), ...statsOf(r) })),
+    byPeriod: byPeriod.map((r) => ({ periodId: r.id, label: r.label ?? r.id, ordinal: n(r.ordinal), demonstration: demoSet.has(r.id), ...statsOf(r) })),
+    rulesSource,
     distribution: { scaleMax: display.scaleMax, binWidth: display.binWidth, bins: buildBins(new Map(distRows.map((r) => [r.bin, n(r.c)])), display.scaleMax, display.binWidth) },
     decisions: {
       period: decisionsPeriod.map((r) => ({ code: r.code, outcome: r.outcome, count: n(r.c) })),
@@ -568,4 +613,62 @@ export async function staffOfDay(tx: Tx, day: string): Promise<{ present: number
   const r = await staffPresenceByDay(tx, { from: day, to: day });
   const d = r[0];
   return { present: d?.present ?? 0, absent: d?.absent ?? 0, onLeave: d?.onLeave ?? 0, measured: r.length > 0 };
+}
+
+// ------------------------------------------------------------------------------------------------------------------
+// Admissions (entonnoir) et vie scolaire agrégée : comptages, jamais de personne
+// ------------------------------------------------------------------------------------------------------------------
+
+export interface FunnelCampaign {
+  campaignId: string;
+  institutionId: string;
+  yearId: string | null;
+  code: string;
+  label: string;
+  status: string;
+  seats: number | null;
+  seatsLeft: number | null;
+  applications: number;
+  stages: Array<{ code: string; label: string; canonicalStatus: string; ordinal: number; isTerminal: boolean; applications: number }>;
+}
+
+export async function admissionsFunnel(tx: Tx, s: { institutionId: string | null; yearId: string | null }): Promise<FunnelCampaign[]> {
+  const campaigns = await tx.many<Record<string, any>>(
+    `SELECT campaign_id, institution_id, year_id, code, label, status, seats, seats_left
+       FROM analytics.admissions_campaign_facts WHERE ($1::uuid IS NULL OR institution_id = $1) AND ($2::uuid IS NULL OR year_id = $2)
+      ORDER BY label, campaign_id`,
+    [s.institutionId, s.yearId],
+  );
+  if (campaigns.length === 0) return [];
+  const stages = await tx.many<Record<string, any>>(
+    `SELECT campaign_id, stage_code, stage_label, canonical_status, ordinal, is_terminal, applications
+       FROM analytics.admissions_stage_facts WHERE campaign_id = ANY($1::uuid[]) ORDER BY campaign_id, ordinal, stage_code`,
+    [campaigns.map((c) => c.campaign_id)],
+  );
+  return campaigns.map((c) => {
+    const own = stages.filter((x) => x.campaign_id === c.campaign_id).map((x) => ({ code: x.stage_code as string, label: x.stage_label as string, canonicalStatus: x.canonical_status as string, ordinal: n(x.ordinal), isTerminal: Boolean(x.is_terminal), applications: n(x.applications) }));
+    return {
+      campaignId: c.campaign_id,
+      institutionId: c.institution_id,
+      yearId: c.year_id,
+      code: c.code,
+      label: c.label,
+      status: c.status,
+      seats: c.seats === null ? null : n(c.seats),
+      seatsLeft: c.seats_left === null ? null : n(c.seats_left),
+      applications: own.reduce((t, x) => t + x.applications, 0),
+      stages: own,
+    };
+  });
+}
+
+/** Une valeur de vie scolaire pour un établissement (`'*'` = tout le tenant) ; `null` si la passe n'a pas encore eu lieu. */
+export async function schoolLifeValue(tx: Tx, institutionKey: string, indicator: string): Promise<number | null> {
+  const r = await tx.queryOne<{ value: number }>(`SELECT value FROM analytics.schoollife_facts WHERE institution_key = $1 AND indicator = $2`, [institutionKey, indicator]);
+  return r ? n(r.value) : null;
+}
+
+export async function schoolLifeValues(tx: Tx, institutionKey: string): Promise<Record<string, number>> {
+  const rows = await tx.many<{ indicator: string; value: number }>(`SELECT indicator, value FROM analytics.schoollife_facts WHERE institution_key = $1`, [institutionKey]);
+  return Object.fromEntries(rows.map((r) => [r.indicator, n(r.value)]));
 }

@@ -7,6 +7,7 @@
  */
 import type { Tx } from "@ecoledigitale/database";
 import type {
+  AdmissionsCampaignFact,
   AttendanceDayFact,
   CashSessionFact,
   ClassPeriodResults,
@@ -16,6 +17,7 @@ import type {
   FinanceScopeFacts,
   PayrollStatusFact,
   PeriodFact,
+  SchoolLifeFact,
   ScopeFact,
   StaffPresenceFact,
   TeachingLoadFact,
@@ -95,11 +97,12 @@ export async function replaceClassPeriodResults(tx: Tx, tenantId: string, data: 
   await tx.query(`DELETE FROM analytics.result_line_facts WHERE classroom_id = $1 AND period_id = $2`, [data.classroomId, data.periodId]);
   await tx.query(`DELETE FROM analytics.result_facts WHERE classroom_id = $1 AND period_id = $2`, [data.classroomId, data.periodId]);
   await tx.query(
-    `INSERT INTO analytics.result_scopes (tenant_id, classroom_id, period_id, year_id, state, results_count, refreshed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO analytics.result_scopes (tenant_id, classroom_id, period_id, year_id, state, results_count, refreshed_at, rules_source_kind)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (tenant_id, classroom_id, period_id)
-     DO UPDATE SET year_id = EXCLUDED.year_id, state = EXCLUDED.state, results_count = EXCLUDED.results_count, refreshed_at = EXCLUDED.refreshed_at`,
-    [tenantId, data.classroomId, data.periodId, data.yearId, data.state, data.state === "FINAL" ? data.results.length : 0, now],
+     DO UPDATE SET year_id = EXCLUDED.year_id, state = EXCLUDED.state, results_count = EXCLUDED.results_count, refreshed_at = EXCLUDED.refreshed_at,
+         rules_source_kind = EXCLUDED.rules_source_kind`,
+    [tenantId, data.classroomId, data.periodId, data.yearId, data.state, data.state === "FINAL" ? data.results.length : 0, now, data.rulesSourceKind ?? null],
   );
   if (data.state !== "FINAL" || data.yearId === null) return 0;
   const yearId = data.yearId;
@@ -236,5 +239,40 @@ export async function replaceTeachingLoad(tx: Tx, tenantId: string, yearId: stri
     ["tenant_id", "staff_id", "year_id", "display_name", "status", "planned_hours", "classroom_count", "contractual_hours_per_week", "refreshed_at"],
     facts.map((f) => [tenantId, f.staffId, yearId, f.displayName, f.status, f.plannedHours, f.classroomCount, f.contractualHoursPerWeek, now]),
     "ON CONFLICT (tenant_id, staff_id, year_id) DO NOTHING",
+  );
+}
+
+// ------------------------------------------------------------------------------------------------------------------
+// Admissions (entonnoir) et vie scolaire agrégée
+// ------------------------------------------------------------------------------------------------------------------
+
+export async function replaceAdmissionsFunnel(tx: Tx, tenantId: string, campaigns: readonly AdmissionsCampaignFact[], now: Date): Promise<number> {
+  await tx.query(`DELETE FROM analytics.admissions_stage_facts`);
+  await tx.query(`DELETE FROM analytics.admissions_campaign_facts`);
+  let n = await bulkInsert(
+    tx,
+    "analytics.admissions_campaign_facts",
+    ["tenant_id", "campaign_id", "institution_id", "year_id", "code", "label", "status", "seats", "seats_left", "refreshed_at"],
+    campaigns.map((c) => [tenantId, c.campaignId, c.institutionId, c.yearId, c.code, c.label, c.status, c.seats, c.seatsLeft, now]),
+    "ON CONFLICT (tenant_id, campaign_id) DO NOTHING",
+  );
+  n += await bulkInsert(
+    tx,
+    "analytics.admissions_stage_facts",
+    ["tenant_id", "campaign_id", "stage_code", "stage_label", "canonical_status", "ordinal", "is_terminal", "applications", "refreshed_at"],
+    campaigns.flatMap((c) => c.stages.map((s) => [tenantId, c.campaignId, s.code, s.label, s.canonicalStatus, s.ordinal, s.isTerminal, s.applications, now])),
+    "ON CONFLICT (tenant_id, campaign_id, stage_code) DO NOTHING",
+  );
+  return n;
+}
+
+export async function replaceSchoolLife(tx: Tx, tenantId: string, counts: readonly SchoolLifeFact[], now: Date): Promise<number> {
+  await tx.query(`DELETE FROM analytics.schoollife_facts`);
+  return bulkInsert(
+    tx,
+    "analytics.schoollife_facts",
+    ["tenant_id", "institution_key", "indicator", "value", "refreshed_at"],
+    counts.flatMap((c) => Object.entries(c.values).map(([indicator, value]) => [tenantId, c.institutionKey, indicator, value, now])),
+    "ON CONFLICT (tenant_id, institution_key, indicator) DO NOTHING",
   );
 }

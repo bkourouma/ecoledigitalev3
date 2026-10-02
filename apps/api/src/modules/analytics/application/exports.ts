@@ -10,11 +10,15 @@ import { ANALYTICS_PERMISSIONS, type AnalyticsExportDataset } from "@ecoledigita
 import { toCsv, type CsvColumn } from "../domain/csv";
 import { inTx } from "./deps";
 import type { AnalyticsDeps } from "./ports";
+import * as alerts from "./alerts";
+import * as indicators from "./indicators";
 import * as q from "./queries";
 import type { ScopeQueryInput } from "./scope";
 
 export interface ExportQuery extends ScopeQueryInput {
   granularity?: "day" | "week" | "month" | undefined;
+  /** Historique d'alertes : indicateurs que l'appelant a le droit de voir (calculés par la couche HTTP). */
+  alertMetrics?: readonly string[] | undefined;
 }
 
 export interface ExportResult {
@@ -38,6 +42,9 @@ export const EXPORT_PERMISSIONS: Readonly<Record<AnalyticsExportDataset, string>
   "cash-sessions": ANALYTICS_PERMISSIONS.treasury,
   "payroll-mass": ANALYTICS_PERMISSIONS.payroll,
   "teaching-load": ANALYTICS_PERMISSIONS.pedagogy,
+  "admissions-funnel": ANALYTICS_PERMISSIONS.admissions,
+  "schoollife-summary": ANALYTICS_PERMISSIONS.schoollife,
+  "alerts-history": ANALYTICS_PERMISSIONS.alertsRead,
 };
 
 type Built = { csv: string; rows: number; asOf: string | null };
@@ -258,6 +265,64 @@ async function build(deps: AnalyticsDeps, ctx: RequestContext, dataset: Analytic
           ],
           r.value.data.rows,
           r.value.meta.asOf,
+        ),
+      );
+    }
+    case "admissions-funnel": {
+      const r = await indicators.getAdmissionsFunnel(deps, ctx, { institutionId: query.institutionId, yearId: query.yearId });
+      if (!r.ok) return r;
+      const rows = r.value.data.campaigns.flatMap((c) => c.stages.map((s) => ({ campaign: c.label, campaignStatus: c.status, seats: c.seats, stage: s.label, status: s.canonicalStatus, applications: s.applications })));
+      return ok(
+        built(
+          [
+            { header: "Campagne", value: (x) => x.campaign },
+            { header: "État de la campagne", value: (x) => x.campaignStatus },
+            { header: "Places", value: (x) => x.seats },
+            { header: "Étape", value: (x) => x.stage },
+            { header: "Statut canonique", value: (x) => x.status },
+            { header: "Dossiers", value: (x) => x.applications },
+          ],
+          rows,
+          r.value.meta.asOf,
+        ),
+      );
+    }
+    case "schoollife-summary": {
+      const r = await indicators.getSchoolLife(deps, ctx, { institutionId: query.institutionId });
+      if (!r.ok) return r;
+      return ok(
+        built(
+          [
+            { header: "Indicateur", value: (x) => x.indicator },
+            { header: "Valeur", value: (x) => x.value },
+            { header: "Mesuré", value: (x) => x.measured },
+          ],
+          r.value.data.indicators,
+          r.value.meta.asOf,
+        ),
+      );
+    }
+    case "alerts-history": {
+      const r = await alerts.listAlertsForExport(deps, ctx, {}, query.alertMetrics ?? []);
+      if (!r.ok) return r;
+      return ok(
+        built(
+          [
+            { header: "Règle", value: (x) => x.ruleLabel },
+            { header: "Indicateur", value: (x) => x.metric },
+            { header: "Gravité", value: (x) => x.severity },
+            { header: "État", value: (x) => x.status },
+            { header: "Valeur", value: (x) => x.value },
+            { header: "Seuil franchi", value: (x) => x.threshold },
+            { header: "Ouverte le", value: (x) => x.raisedAt },
+            { header: "Dernière constatation", value: (x) => x.lastSeenAt },
+            { header: "Notifications", value: (x) => x.notifyCount },
+            { header: "Acquittée le", value: (x) => x.acknowledgedAt },
+            { header: "Note d'acquittement", value: (x) => x.acknowledgementNote },
+            { header: "Résolue le", value: (x) => x.resolvedAt },
+          ],
+          r.value,
+          null,
         ),
       );
     }

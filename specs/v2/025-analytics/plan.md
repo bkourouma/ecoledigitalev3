@@ -72,3 +72,18 @@ apps/web/src/app/v2/direction/**  apps/web/src/app/v2/owner/**
 | Dérive entre l'API et le web | schémas Zod partagés ; client typé |
 | Paie : fuite de salaires | permission `sensitive` (MFA), feature dédiée, audit des lectures et exports |
 | Seuils de feux perçus comme des règles | valeurs d'affichage par défaut, réglables, jamais dans un calcul |
+
+---
+
+# Partie B — plan d'implémentation (indicateurs transverses et alertes)
+
+| Lot | Contenu | Preuve |
+|---|---|---|
+| B1 | contrats (`analytics.ts` : admissions, vie scolaire, comparaisons, alertes, charges d'événements), migration 1601, domaine pur (`alert-metrics`, `alerts`) | `test/alerts.test.ts` (règles pures, catalogue, contrats, garde-fous HTTP) |
+| B2 | ports `admissions` et `schoollife`, adaptateurs de plateforme, provenance des règles, genres `ADMISSIONS` / `SCHOOLLIFE` (refresh, reconstruction, abonnés) ; fonction publique additive `schoollife.getAggregateCounts` | `test/adapters/analytics.integration.test.ts` (vrais modules) |
+| B3 | indicateurs (`application/indicators.ts`), alertes (`application/alerts.ts`, `alert-values.ts`, `alerts-repository.ts`), routes, exports, job `analytics.evaluate-alerts` | `test/alerts.integration.test.ts` (Postgres : cycle de vie, anti-doublon concurrent, périmé / en échec / non mesuré, A/B, périmètre, permissions, 404 uniforme, CSV, job) |
+| B4 | livraison par `notifications` : déclencheur, lecteur, gabarit `analytics_alert`, règle livrée, rôles de l'alerte | `notifications/test/integration/analytics-alert.integration.test.ts`, contrat d'événement |
+| B5 | écrans `/v2/analytics/*`, client typé, i18n `v2Analytics`, bandeau de démonstration | `apps/web/src/app/v2/analytics/_components/Screens.test.tsx`, `messages-coverage.test.ts`, balayage axe strict |
+| B6 | barrières | `check:boundaries`, `check:secrets`, `test:isolation`, `type-check:v2`, `events-catalog` |
+
+Risques : alerte sur donnée périmée (parade : exiger fraîcheur et absence de manque), spam (créneau de fréquence + clé unique + un seul épisode actif), fuite par la notification (libellé de catalogue, valeurs agrégées, aucun nom), contournement des préférences (aucun envoi direct : événement consommé par `notifications`).

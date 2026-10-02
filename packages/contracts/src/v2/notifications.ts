@@ -81,6 +81,8 @@ export const NOTIF_TEMPLATE_CODES = [
   // Alertes internes (économat, direction) : rapprochement de paiements, créances et contrôles de l'État.
   "reconciliation_needed",
   "stateassign_alert",
+  // Alertes de direction (module analytics) : indicateur, valeur et seuil. Aucun nom, aucune donnée d'élève.
+  "analytics_alert",
   // Vie scolaire : texte NEUTRE, jamais le motif disciplinaire. (Les codes de gabarit sont en snake_case : la base impose `^[a-z][a-z0-9_]+$`.)
   "schoollife_convocation",
   "schoollife_measure_notified",

@@ -8924,7 +8924,12 @@
       "treasury": "Trésorerie",
       "payroll": "Masse salariale",
       "charges": "Charges et résultat",
-      "freshness": "Fraîcheur des données"
+      "freshness": "Fraîcheur des données",
+      "indicators": "Indicateurs de direction",
+      "admissions": "Admissions",
+      "schoollife": "Vie scolaire",
+      "compare": "Comparaisons",
+      "alerts": "Alertes"
     },
     "common": {
       "featureUnknown": "Impossible de vérifier que cette fonctionnalité est incluse dans votre offre. Réessayez plus tard.",
@@ -8990,7 +8995,8 @@
         "title": "Moyenne par période de l'année",
         "summary": "Moyenne générale de {count} période(s).",
         "average": "Moyenne",
-        "validation": "Taux de validation"
+        "validation": "Taux de validation",
+        "demo": "règles de démonstration"
       },
       "classrooms": {
         "title": "Résultats par classe",
@@ -9247,7 +9253,9 @@
         "COLLECTIONS": "Encaissements",
         "CASH": "Sessions de caisse",
         "PAYROLL": "Paie",
-        "TEACHING_LOAD": "Charge d'enseignement"
+        "TEACHING_LOAD": "Charge d'enseignement",
+        "ADMISSIONS": "Admissions (entonnoir)",
+        "SCHOOLLIFE": "Vie scolaire (comptages)"
       },
       "never": "Jamais",
       "state": {
@@ -9256,6 +9264,11 @@
         "UNAVAILABLE": "Source indisponible"
       },
       "empty": "Aucune lecture n'a encore eu lieu."
+    },
+    "demo": {
+      "title": "Règles de démonstration",
+      "body": "Au moins une période affichée repose sur un jeu de règles de démonstration (fictif) : ces moyennes, taux de validation et décisions ne sont pas officiels. Validez les règles de l'établissement avant de vous y fier.",
+      "unknown": "La provenance des règles de certaines périodes n'a pas pu être lue : ces chiffres ne sont pas présentés comme officiels."
     }
   },
   "v2Direction": {
@@ -16309,5 +16322,444 @@
     "nothingChanged": "Aucune modification à enregistrer.",
     "conflict": "Le dossier a été modifié par une autre personne depuis son affichage. Rechargez la dernière version avant de ressaisir vos modifications.",
     "reload": "Recharger la dernière version"
+  },
+  "v2Analytics": {
+    "hub": {
+      "title": "Indicateurs de direction",
+      "description": "Vue transverse de l'établissement : effectifs, assiduité, résultats par période, recouvrement, admissions, vie scolaire, alertes et charge de paie. Chaque bloc ne montre que ce que vos droits permettent ; aucune donnée nominative.",
+      "enrollment": {
+        "title": "Effectifs et inscriptions",
+        "more": "Voir les effectifs",
+        "kpiLabel": "Indicateurs d'effectifs",
+        "inSchooling": "Élèves en scolarité",
+        "inSchoolingDetail": "{total} inscription(s) tous statuts confondus",
+        "created": "Inscriptions créées",
+        "createdDetail": "dont {cancelled} annulée(s)",
+        "confirmed": "Inscriptions confirmées",
+        "confirmationRate": "Taux de confirmation"
+      },
+      "attendance": {
+        "title": "Assiduité",
+        "more": "Voir la présence",
+        "kpiLabel": "Indicateurs d'assiduité",
+        "rate": "Taux de présence",
+        "rateDetail": "Du {from} au {to}",
+        "absent": "Absences",
+        "absentDetail": "dont {excused} justifiée(s)",
+        "late": "Retards"
+      },
+      "results": {
+        "title": "Résultats par période",
+        "more": "Voir la pédagogie",
+        "caption": "Résultats clôturés par période de l'année",
+        "period": "Période",
+        "count": "Résultats",
+        "average": "Moyenne",
+        "validation": "Taux de validation",
+        "rules": "Règles",
+        "demo": "Démonstration",
+        "official": "Officielles",
+        "notMeasured": "Non mesuré",
+        "empty": "Aucune période n'a encore de résultats clôturés."
+      },
+      "finance": {
+        "title": "Recouvrement et impayés",
+        "more": "Voir la scolarité",
+        "kpiLabel": "Indicateurs financiers",
+        "rate": "Scolarité recouvrée",
+        "rateDetail": "{collected} encaissés sur {billed} facturés",
+        "outstanding": "Restant dû",
+        "overdue": "Impayés échus",
+        "overdueDetail": "{invoices} facture(s) en retard"
+      },
+      "admissions": {
+        "title": "Admissions",
+        "more": "Voir l'entonnoir",
+        "kpiLabel": "Indicateurs d'admission",
+        "submitted": "Dossiers déposés",
+        "accepted": "Acceptés (dont inscrits)",
+        "enrolled": "Inscrits",
+        "seats": "Places offertes",
+        "seatsLeft": "{count} place(s) restante(s)"
+      },
+      "schoollife": {
+        "title": "Vie scolaire (agrégée)",
+        "more": "Voir le détail",
+        "privacy": "Comptages uniquement : aucun élève, aucun motif, aucun élément restreint ou confidentiel.",
+        "kpiLabel": "Indicateurs de vie scolaire",
+        "indicators": {
+          "OPEN_INCIDENTS": "Incidents ouverts",
+          "MEASURES_TO_VALIDATE": "Mesures à valider",
+          "ACTIVE_EXCLUSIONS": "Exclusions en cours",
+          "CONVOCATIONS_TO_HOLD": "Convocations à tenir"
+        }
+      },
+      "alerts": {
+        "title": "Alertes de direction",
+        "more": "Voir les alertes",
+        "kpiLabel": "Alertes",
+        "open": "Alertes ouvertes",
+        "openDetail": "À traiter ou à acquitter",
+        "acknowledged": "Accusées de réception",
+        "resolved": "Résolues (historique)"
+      },
+      "payroll": {
+        "title": "Charge de paie",
+        "more": "Voir la masse salariale",
+        "sensitive": "Donnée sensible : la lecture exige l'authentification forte et est consignée dans le journal d'audit.",
+        "show": "Afficher la masse salariale",
+        "kpiLabel": "Indicateurs de paie",
+        "counted": "Masse comptée",
+        "countedDetail": "{payslips} bulletin(s) calculés, arrêtés ou payés",
+        "periods": "Périodes de paie",
+        "disputed": "Bulletins contestés",
+        "disputedDetail": "comptés à part"
+      }
+    },
+    "admissions": {
+      "title": "Entonnoir d'admission",
+      "description": "Répartition des dossiers de candidature par statut et par étape, campagne par campagne.",
+      "snapshot": "Répartition à ce jour : chaque dossier est compté dans son statut actuel (ce n'est pas un historique de passages). Aucun candidat n'est affiché ici.",
+      "kpiLabel": "Indicateurs d'admission",
+      "kpi": {
+        "submitted": "Dossiers déposés",
+        "submittedDetail": "{total} dossier(s) brouillons compris",
+        "accepted": "Acceptés (dont inscrits)",
+        "acceptedDetail": "statuts « accepté » et « inscrit »",
+        "enrolled": "Inscrits",
+        "acceptanceRate": "Taux d'acceptation",
+        "enrollmentRate": "Taux d'inscription",
+        "enrollmentRateDetail": "inscrits parmi les acceptés",
+        "seats": "Places offertes",
+        "seatsLeft": "{count} place(s) restante(s)"
+      },
+      "byStatus": {
+        "title": "Par statut",
+        "chart": "Dossiers par statut",
+        "applications": "Dossiers"
+      },
+      "status": {
+        "DRAFT": "Brouillon",
+        "SUBMITTED": "Déposé",
+        "UNDER_REVIEW": "En étude",
+        "MISSING_DOCUMENT": "Pièce manquante",
+        "ACCEPTED": "Accepté",
+        "REJECTED": "Refusé",
+        "WAITLISTED": "Liste d'attente",
+        "ENROLLED": "Inscrit"
+      },
+      "campaignStatus": {
+        "DRAFT": "Brouillon",
+        "OPEN": "Ouverte",
+        "CLOSED": "Clôturée",
+        "ARCHIVED": "Archivée",
+        "OTHER": "Autre état"
+      },
+      "campaigns": {
+        "title": "Campagnes",
+        "caption": "Dossiers par étape — {label}",
+        "stage": "Étape",
+        "status": "Statut",
+        "count": "Dossiers",
+        "seats": "{seats} place(s), {left} restante(s)",
+        "applications": "{count} dossier(s)"
+      },
+      "empty": "Aucune campagne d'admission lue pour ce périmètre."
+    },
+    "schoollife": {
+      "title": "Vie scolaire agrégée",
+      "description": "Quatre comptages de la vie scolaire de l'établissement, pour le pilotage.",
+      "privacy": "Comptages uniquement : aucun élève n'est nommé, aucun motif n'est lu, et les éléments restreints ou confidentiels ne sont jamais comptés ici.",
+      "kpiLabel": "Indicateurs de vie scolaire",
+      "indicators": {
+        "OPEN_INCIDENTS": {
+          "label": "Incidents ouverts",
+          "detail": "déclarés ou en cours d'examen"
+        },
+        "MEASURES_TO_VALIDATE": {
+          "label": "Mesures à valider",
+          "detail": "proposées, en attente de décision"
+        },
+        "ACTIVE_EXCLUSIONS": {
+          "label": "Exclusions en cours",
+          "detail": "exclusions temporaires dont la période court aujourd'hui"
+        },
+        "CONVOCATIONS_TO_HOLD": {
+          "label": "Convocations à tenir",
+          "detail": "envoyées ou accusées, à venir"
+        }
+      }
+    },
+    "compare": {
+      "title": "Comparaisons",
+      "description": "Comparer un indicateur entre deux années, deux périodes ou deux fenêtres de dates.",
+      "form": "Choix de la comparaison",
+      "noPermission": "Vous n'avez accès à aucun indicateur comparable.",
+      "domain": "Indicateur",
+      "domains": {
+        "enrollment": "Effectifs",
+        "attendance": "Assiduité",
+        "results": "Résultats",
+        "finance": "Recouvrement"
+      },
+      "institution": "Établissement",
+      "campus": "Campus",
+      "campusFinanceHint": "La facturation est suivie par campus : choisissez-en un si l'établissement en compte plusieurs.",
+      "all": "Tous",
+      "choose": "Choisir…",
+      "baselineYear": "Année de référence",
+      "targetYear": "Année comparée",
+      "baselinePeriod": "Période de référence",
+      "targetPeriod": "Période comparée",
+      "baselineFrom": "Référence : du",
+      "baselineTo": "Référence : au",
+      "targetFrom": "Comparée : du",
+      "targetTo": "Comparée : au",
+      "pick": "Choisissez les deux côtés de la comparaison pour l'afficher.",
+      "result": "Résultat de la comparaison",
+      "caption": "Comparaison : {baseline} et {target}",
+      "metric": "Indicateur",
+      "baseline": "Référence",
+      "target": "Comparée",
+      "delta": "Écart",
+      "change": "Variation",
+      "points": "points",
+      "notMeasured": "Non mesuré",
+      "empty": "Rien à comparer.",
+      "note": "L'écart est « comparée moins référence ». Un côté non mesuré donne « Non mesuré », jamais zéro ; la variation n'est pas calculée quand la référence est nulle.",
+      "metrics": {
+        "enrollment": {
+          "inSchooling": "Élèves en scolarité",
+          "total": "Inscriptions (tous statuts)",
+          "repeaters": "Redoublants",
+          "repeaterRateBps": "Part de redoublants"
+        },
+        "attendance": {
+          "rateBps": "Taux de présence",
+          "recordsCount": "Pointages",
+          "absentCount": "Absences",
+          "lateCount": "Retards",
+          "absentMinutes": "Minutes d'absence"
+        },
+        "results": {
+          "count": "Résultats clôturés",
+          "average": "Moyenne générale",
+          "validatedCount": "Validés",
+          "validationRateBps": "Taux de validation"
+        },
+        "finance": {
+          "netBilled": "Facturé net",
+          "collected": "Encaissé",
+          "outstanding": "Restant dû",
+          "overdue": "En retard",
+          "collectionRateBps": "Taux de recouvrement"
+        }
+      }
+    },
+    "alerts": {
+      "title": "Alertes de direction",
+      "description": "Seuils franchis par les indicateurs de l'établissement. Actives d'abord ; l'historique reste consultable.",
+      "rulesLink": "Règles d'alerte",
+      "kpiLabel": "Synthèse des alertes",
+      "counts": {
+        "open": "Ouvertes",
+        "openDetail": "À traiter ou à acquitter",
+        "acknowledged": "Accusées de réception",
+        "resolved": "Résolues",
+        "resolvedDetail": "historique conservé"
+      },
+      "filters": {
+        "label": "Filtres des alertes",
+        "status": "État",
+        "severity": "Gravité",
+        "metric": "Indicateur",
+        "allStatuses": "Tous les états",
+        "allSeverities": "Toutes les gravités",
+        "allMetrics": "Tous les indicateurs"
+      },
+      "severity": {
+        "WARNING": "Attention",
+        "CRITICAL": "Critique"
+      },
+      "status": {
+        "OPEN": "Ouverte",
+        "ACKNOWLEDGED": "Accusée de réception",
+        "RESOLVED": "Résolue"
+      },
+      "metrics": {
+        "ATTENDANCE_RATE": "Taux de présence des élèves",
+        "COLLECTION_RATE": "Taux de recouvrement de la scolarité",
+        "OVERDUE_AMOUNT": "Montant des impayés échus",
+        "VALIDATION_RATE": "Taux de validation de la dernière période clôturée",
+        "ENROLLMENT_IN_SCHOOLING": "Effectif en scolarité",
+        "CASH_VARIANCE": "Écart de caisse cumulé (valeur absolue)",
+        "SCHOOLLIFE_OPEN_INCIDENTS": "Incidents de vie scolaire ouverts",
+        "SCHOOLLIFE_MEASURES_TO_VALIDATE": "Mesures de vie scolaire en attente de validation"
+      },
+      "list": {
+        "title": "Alertes",
+        "caption": "Alertes de direction",
+        "severity": "Gravité",
+        "metric": "Indicateur",
+        "value": "Valeur",
+        "below": "sous le seuil de {threshold}",
+        "above": "au-dessus du seuil de {threshold}",
+        "status": "État",
+        "raised": "Ouverte le",
+        "notified": "Notifications",
+        "actions": "Actions",
+        "details": "Détails",
+        "acknowledge": "Accuser réception",
+        "empty": "Aucune alerte pour ces filtres."
+      },
+      "acknowledge": {
+        "title": "Accuser réception : {rule}",
+        "form": "Accusé de réception",
+        "hint": "L'accusé de réception arrête les rappels tant que l'alerte reste au même niveau de gravité. Il est consigné (qui, quand, note).",
+        "note": "Note (facultative)",
+        "noteHint": "500 caractères au plus. Ne saisissez aucune donnée personnelle d'élève.",
+        "confirm": "Confirmer l'accusé de réception",
+        "cancel": "Annuler",
+        "done": "Accusé de réception enregistré."
+      },
+      "detail": {
+        "title": "Détail de l'alerte",
+        "raisedAt": "Ouverte le",
+        "lastSeenAt": "Dernière constatation",
+        "asOf": "Données au",
+        "value": "Valeur constatée",
+        "threshold": "Seuil franchi",
+        "acknowledgedAt": "Accusée de réception le",
+        "note": "Note d'accusé de réception",
+        "resolvedAt": "Résolue le",
+        "resolvedValue": "Valeur au retour à la normale",
+        "deliveryNote": "Les notifications sont remises par le module de notifications, qui respecte les préférences, consentements et heures calmes de chaque destinataire.",
+        "notifications": {
+          "caption": "Notifications émises pour cette alerte",
+          "at": "Émise le",
+          "reason": "Motif",
+          "severity": "Gravité",
+          "value": "Valeur",
+          "roles": "Rôles destinataires",
+          "empty": "Aucune notification émise.",
+          "reasons": {
+            "RAISED": "Ouverture",
+            "ESCALATED": "Montée en gravité",
+            "REMINDER": "Rappel"
+          },
+          "severities": {
+            "WARNING": "Attention",
+            "CRITICAL": "Critique"
+          }
+        }
+      }
+    },
+    "rules": {
+      "title": "Règles d'alerte",
+      "description": "Pour chaque indicateur : deux seuils, un périmètre, les rôles prévenus et la fréquence maximale des rappels.",
+      "deliveryNote": "Les alertes sont livrées par le module de notifications (messagerie interne et e-mail par défaut) : les préférences, consentements et heures calmes de chaque destinataire sont respectés. Aucun seuil n'est proposé par défaut : ce sont ceux de votre établissement.",
+      "new": "Nouvelle règle",
+      "saved": "Règle enregistrée.",
+      "metrics": {
+        "ATTENDANCE_RATE": "Taux de présence des élèves",
+        "COLLECTION_RATE": "Taux de recouvrement de la scolarité",
+        "OVERDUE_AMOUNT": "Montant des impayés échus",
+        "VALIDATION_RATE": "Taux de validation de la dernière période clôturée",
+        "ENROLLMENT_IN_SCHOOLING": "Effectif en scolarité",
+        "CASH_VARIANCE": "Écart de caisse cumulé (valeur absolue)",
+        "SCHOOLLIFE_OPEN_INCIDENTS": "Incidents de vie scolaire ouverts",
+        "SCHOOLLIFE_MEASURES_TO_VALIDATE": "Mesures de vie scolaire en attente de validation"
+      },
+      "roles": {
+        "owner": "Propriétaire",
+        "directeur": "Directeur",
+        "directeur_etudes": "Directeur des études",
+        "econome": "Économe",
+        "secretariat": "Secrétariat",
+        "responsable_pedagogique": "Responsable pédagogique",
+        "responsable_examens": "Responsable des examens",
+        "admissions_officer": "Responsable des admissions"
+      },
+      "direction": {
+        "BELOW": "sous",
+        "ABOVE": "au-dessus de"
+      },
+      "frequency": {
+        "HOURLY": "Au plus un rappel par heure",
+        "DAILY": "Au plus un rappel par jour",
+        "WEEKLY": "Au plus un rappel par semaine",
+        "MONTHLY": "Au plus un rappel par mois"
+      },
+      "outcome": {
+        "OK": "Dans les seuils",
+        "WARNING": "Attention",
+        "CRITICAL": "Critique",
+        "NOT_MEASURED": "Non mesuré",
+        "SOURCE_UNAVAILABLE": "Source indisponible ou périmée"
+      },
+      "list": {
+        "title": "Règles",
+        "caption": "Règles d'alerte de l'établissement",
+        "rule": "Règle",
+        "thresholds": "Seuils",
+        "warning": "Attention : {direction} {value}",
+        "critical": "Critique : {direction} {value}",
+        "roles": "Destinataires",
+        "frequency": "Fréquence",
+        "state": "État",
+        "enabled": "Active",
+        "disabled": "Désactivée",
+        "last": "Dernière évaluation",
+        "neverEvaluated": "Pas encore évaluée",
+        "actions": "Actions",
+        "edit": "Modifier",
+        "empty": "Aucune règle d'alerte n'est configurée."
+      },
+      "form": {
+        "newTitle": "Nouvelle règle d'alerte",
+        "editTitle": "Modifier la règle d'alerte",
+        "label": "Nom de la règle",
+        "metric": "Indicateur surveillé",
+        "choose": "Choisir…",
+        "direction": "L'alerte se déclenche quand la valeur passe {direction} le seuil.",
+        "warning": "Seuil d'attention",
+        "critical": "Seuil critique",
+        "criticalHint": "Facultatif ; plus grave que le seuil d'attention.",
+        "unitHint": {
+          "BPS": "En pourcentage (ex. 85 ou 87,5).",
+          "AMOUNT": "Montant entier en francs CFA (ex. 500000).",
+          "COUNT": "Nombre entier."
+        },
+        "window": "Fenêtre (jours)",
+        "windowHint": "Nombre de jours glissants pris en compte (par défaut {days}).",
+        "institution": "Établissement",
+        "campus": "Campus",
+        "everywhere": "Tout le périmètre",
+        "scopeHint": "Laisser vide pour surveiller l'ensemble de ce que vous pouvez voir.",
+        "campusRequiredHint": "La facturation est suivie par campus.",
+        "frequency": "Fréquence des rappels",
+        "frequencyHint": "Tant que l'alerte reste ouverte, au plus une notification par créneau.",
+        "roles": "Rôles prévenus",
+        "rolesHint": "Les titulaires de ces rôles sont notifiés, selon leurs préférences.",
+        "extraRoles": "Autres rôles (clés séparées par des virgules)",
+        "extraRolesHint": "Clés de rôles personnalisés de l'établissement.",
+        "enabled": "Règle active",
+        "enabledHint": "Désactiver une règle résout son alerte en cours.",
+        "save": "Enregistrer la règle",
+        "cancel": "Annuler",
+        "errors": {
+          "label": "Le nom doit comporter de 3 à 120 caractères.",
+          "metric": "Choisissez un indicateur.",
+          "number": "Saisissez un nombre valide.",
+          "range": "Un taux est compris entre 0 et 100 %.",
+          "oneThreshold": "Renseignez au moins un seuil (attention ou critique).",
+          "criticalBelow": "Le seuil critique doit être inférieur ou égal au seuil d'attention.",
+          "criticalAbove": "Le seuil critique doit être supérieur ou égal au seuil d'attention.",
+          "window": "La fenêtre est un nombre de jours entre 1 et 365.",
+          "roles": "Choisissez de 1 à {max} rôles valides.",
+          "campus": "Choisissez un campus : la facturation est suivie par campus."
+        }
+      }
+    }
   }
 }

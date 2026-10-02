@@ -27,6 +27,8 @@ export const REFRESH_DELAY_SECONDS: Readonly<Record<RefreshKind, number>> = {
   CASH: 10,
   PAYROLL: 30,
   TEACHING_LOAD: 60,
+  ADMISSIONS: 30,
+  SCHOOLLIFE: 60,
 };
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -149,6 +151,14 @@ export function planRefreshes(eventType: string, payload: unknown, occurredAt: s
     add("PAYROLL");
     return out;
   }
+  if (/^admissions.(application.(submitted|status_changed|enrolled|anonymized)|decision.recorded|offer.(accepted|declined|expired|withdrawn)|waitlist.promoted|prospect.converted)$/.test(eventType)) {
+    add("ADMISSIONS");
+    return out;
+  }
+  if (/^schoollife.(incident.(declared|status_changed)|measure.(proposed|validated|notified|executed|revoked|rejected|cancelled)|appeal.decided|convocation.(sent|held|missed|cancelled))$/.test(eventType)) {
+    add("SCHOOLLIFE");
+    return out;
+  }
   return out;
 }
 
@@ -161,6 +171,8 @@ const SOURCES: ReadonlyArray<readonly [string, string]> = [
   ["analytics.refresh-on-attendance", "attendance"],
   ["analytics.refresh-on-finance", "finance"],
   ["analytics.refresh-on-payroll", "payroll"],
+  ["analytics.refresh-on-admissions", "admissions"],
+  ["analytics.refresh-on-schoollife", "schoollife"],
 ];
 export const SUBSCRIPTION_GROUPS: ReadonlyArray<{ name: string; pattern: RegExp }> = SOURCES.map(([name, source]) => ({
   name,

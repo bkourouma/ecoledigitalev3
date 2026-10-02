@@ -6,7 +6,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Money, createRequestContext, createSystemContext, newId, unwrap } from "@ecoledigitale/kernel";
-import { analyticsQueries as q, createAnalyticsDeps, processDueRefreshes, enqueueFromEvent, rebuildTenant } from "../../src/modules/analytics";
+import { analyticsIndicators as indicatorsModule, analyticsQueries as q, createAnalyticsDeps, processDueRefreshes, enqueueFromEvent, rebuildTenant } from "../../src/modules/analytics";
 import { markStaffAttendance, markStudentRecords, openAttendanceSession, submitAttendanceSession } from "../../src/modules/attendance";
 import { createFinanceDeps, createInvoice, recordManualPayment, type FinanceDeps } from "../../src/modules/finance";
 import { createOccurrence, seedReference } from "../../src/modules/scheduling";
@@ -192,6 +192,39 @@ describeIntegration("analytics : read-models alimentés par les VRAIS modules (a
     const payroll = unwrap(await q.getPayroll(deps, owner));
     expect(payroll.data.periods).toEqual([]);
     expect(payroll.meta.gaps.filter((g) => g.source === "PAYROLL")).toEqual([]);
+  });
+
+  it("provenance des règles : celle du jeu épinglé par results (lue dans rules), jamais déduite ; le drapeau « démonstration » suit exactement les jeux placeholder", async () => {
+    const pins = await adminRows<{ classroom_id: string; academic_period_id: string; rule_version_id: string }>(
+      w,
+      `SELECT classroom_id, academic_period_id, rule_version_id FROM results.period_states WHERE tenant_id = $1 AND scope = 'PERIOD'`,
+      [w.tenantId],
+    );
+    expect(pins.length).toBeGreaterThan(0);
+    const scopes = await adminRows<{ classroom_id: string; period_id: string; state: string; rules_source_kind: string | null }>(w, `SELECT classroom_id, period_id, state, rules_source_kind FROM analytics.result_scopes WHERE tenant_id = $1 AND state = 'FINAL'`, [w.tenantId]);
+    expect(scopes.length).toBeGreaterThan(0);
+    for (const s of scopes) {
+      const pin = pins.find((p) => p.classroom_id === s.classroom_id && p.academic_period_id === s.period_id)!;
+      const loaded = await w.kit.rules.loadVersion(sys, pin.rule_version_id);
+      expect(loaded.ok).toBe(true);
+      expect(s.rules_source_kind).toBe(loaded.ok ? loaded.value.version.source.kind : "illisible");
+    }
+    const { data } = unwrap(await q.getResults(deps, owner, { yearId: school.seed.yearId, periodId: school.ref.academicPeriodId }));
+    expect(data.rulesSource.finalClassPeriods).toBe(scopes.length);
+    expect(data.rulesSource.placeholderClassPeriods).toBe(scopes.filter((s) => s.rules_source_kind === "placeholder").length);
+    expect(data.rulesSource.demonstration).toBe(scopes.some((s) => s.rules_source_kind === "placeholder"));
+    expect(data.rulesSource.unknownClassPeriods).toBe(scopes.filter((s) => s.rules_source_kind === null).length);
+  });
+
+  it("admissions et vie scolaire : lus par les API publiques des vrais modules (comptages), aucun candidat ni élève dans les faits", async () => {
+    const funnel = unwrap(await indicatorsModule.getAdmissionsFunnel(deps, owner));
+    expect(funnel.meta.gaps.filter((g) => g.source === "ADMISSIONS")).toEqual([]); // la source est branchée et lue sans échec
+    expect(funnel.meta.sources.ADMISSIONS).not.toBeNull();
+    const life = unwrap(await indicatorsModule.getSchoolLife(deps, owner));
+    expect(life.meta.gaps.filter((g) => g.source === "SCHOOLLIFE")).toEqual([]);
+    expect(life.data.indicators.every((i) => i.measured && i.value === 0)).toBe(true); // aucune vie scolaire saisie : zéros MESURÉS (la source a répondu)
+    const cols = await adminRows<{ column_name: string }>(w, `SELECT column_name FROM information_schema.columns WHERE table_schema = 'analytics' AND table_name IN ('admissions_campaign_facts','admissions_stage_facts','schoollife_facts')`);
+    expect(cols.map((c) => c.column_name).filter((c) => /student|applicant|application_id|_name|email|phone|birth/i.test(c))).toEqual([]);
   });
 
   it("la reconstruction est idempotente sur les vrais modules, et le flux d'événements réels remet un périmètre à jour", async () => {

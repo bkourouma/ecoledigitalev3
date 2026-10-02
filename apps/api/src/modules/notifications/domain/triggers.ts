@@ -39,6 +39,7 @@ export const SUPPORTED_TRIGGERS: readonly TriggerDef[] = Object.freeze<TriggerDe
   { trigger: ConsumedEvents.STATE_RECEIVABLE_OVERDUE, kind: "EVENT", label: "Créance de l'État en retard", audiences: ["ROLES"], provides: ["alertLabel", "dueDate", "daysOverdue", "amount"] },
   { trigger: ConsumedEvents.STATE_CONTROL_DUE, kind: "EVENT", label: "Contrôle d'un élève affecté par l'État à effectuer", audiences: ["ROLES"], provides: ["alertLabel", "dueDate"] },
   { trigger: ConsumedEvents.STATE_CONTROL_ANOMALY, kind: "EVENT", label: "Anomalie de contrôle d'un élève affecté par l'État", audiences: ["ROLES"], provides: ["alertLabel", "dueDate"] },
+  { trigger: ConsumedEvents.ANALYTICS_ALERT_RAISED, kind: "EVENT", label: "Alerte de direction (seuil d'un indicateur franchi)", audiences: ["ROLES"], provides: ["alertLabel", "currentValue", "thresholdValue", "directionLabel"] },
   { trigger: ConsumedEvents.MEASURE_NOTIFIED, kind: "EVENT", label: "Décision de vie scolaire notifiée", audiences: ["STUDENT_GUARDIANS"], provides: ["studentName"] },
   { trigger: ConsumedEvents.CONVOCATION_SENT, kind: "EVENT", label: "Convocation de vie scolaire envoyée", audiences: ["STUDENT_GUARDIANS"], provides: ["studentName", "date", "time", "statusLabel"] },
   { trigger: ConsumedEvents.CONVOCATION_CANCELLED, kind: "EVENT", label: "Convocation de vie scolaire annulée", audiences: ["STUDENT_GUARDIANS"], provides: ["studentName", "date", "time", "statusLabel"] },

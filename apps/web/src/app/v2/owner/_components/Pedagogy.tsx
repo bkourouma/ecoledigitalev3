@@ -11,7 +11,7 @@ import { useMoney } from "@/platform/ui/money";
 import { PageHeader } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock } from "@/platform/ui/states";
 import { BarChart, ColumnChart } from "./charts";
-import { ExportButton, FeatureGuard, FreshnessBar, KpiCard, KpiGrid, ScopeFilters, scopeFilters, Section, useScopeState, type ScopeField } from "./kit";
+import { DemoRulesBanner, ExportButton, FeatureGuard, FreshnessBar, KpiCard, KpiGrid, ScopeFilters, scopeFilters, Section, useScopeState, type ScopeField } from "./kit";
 
 const FIELDS: readonly ScopeField[] = ["institution", "campus", "year", "period", "classroom"];
 const OUTCOMES = ["ADMITTED", "RESIT", "ADJOURNED", "PROMOTED", "REPEAT", "PENDING", "EXAM_REFERRAL", "COUNCIL_REVIEW", "OTHER"];
@@ -57,6 +57,7 @@ function Pedagogy() {
       {data ? (
         <>
           <FreshnessBar meta={query.data?.meta} />
+          <DemoRulesBanner rulesSource={data.rulesSource} />
           <KpiGrid label={t("kpiLabel")}>
             <KpiCard label={t("kpi.average")} value={data.totals.average === null ? "—" : date.number(data.totals.average)} detail={t("kpi.averageDetail", { min: date.number(data.totals.min), max: date.number(data.totals.max) })} measured={data.totals.count > 0 && data.totals.average !== null} />
             <KpiCard label={t("kpi.validation")} value={money.bps(data.totals.validationRateBps)} detail={t("kpi.validationDetail", { validated: data.totals.validatedCount, count: data.totals.count })} measured={data.totals.validationRateBps !== null} />
@@ -77,7 +78,7 @@ function Pedagogy() {
               <ColumnChart
                 title={t("byPeriod.title")}
                 summary={t("byPeriod.summary", { count: data.byPeriod.length })}
-                rows={data.byPeriod.map((p) => ({ key: p.periodId, label: p.label, value: p.average ?? 0, display: p.average === null ? "—" : date.number(p.average), note: money.bps(p.validationRateBps) }))}
+                rows={data.byPeriod.map((p) => ({ key: p.periodId, label: p.demonstration ? `${p.label} (${t("byPeriod.demo")})` : p.label, value: p.average ?? 0, display: p.average === null ? "—" : date.number(p.average), note: money.bps(p.validationRateBps) }))}
                 valueHeader={t("byPeriod.average")}
                 noteHeader={t("byPeriod.validation")}
                 empty={t("empty")}

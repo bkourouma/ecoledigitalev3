@@ -40,13 +40,13 @@ export interface Envelope<T> {
   data: T;
 }
 
-const DEFAULT_ATTENDANCE_WINDOW_DAYS = 30;
+export const DEFAULT_ATTENDANCE_WINDOW_DAYS = 30;
 const DEFAULT_COLLECTIONS_WINDOW_DAYS = 365;
 const DEFAULT_SCALE_MAX = 20;
 const DEFAULT_BIN_WIDTH = 2;
-const MAX_WINDOW_DAYS = 800;
+export const MAX_WINDOW_DAYS = 800;
 
-const today = (deps: AnalyticsDeps): string => deps.clock.now().toISOString().slice(0, 10);
+export const today = (deps: AnalyticsDeps): string => deps.clock.now().toISOString().slice(0, 10);
 
 interface Prepared {
   scope: ResolvedScope;
@@ -55,7 +55,7 @@ interface Prepared {
 }
 
 /** Transaction de lecture commune : périmètre résolu, seuils d'affichage, méta construite sur les genres lus. */
-async function read<T>(
+export async function read<T>(
   deps: AnalyticsDeps,
   ctx: RequestContext,
   query: ScopeQueryInput,
@@ -115,6 +115,7 @@ export function getOverview(deps: AnalyticsDeps, ctx: RequestContext, query: Sco
     const att = await repo.attendanceOfDay(tx, p.scope, day);
     const latest = p.scope.periodId ? { periodId: p.scope.periodId, label: p.scope.period?.label ?? p.scope.periodId } : await repo.latestFinalPeriod(tx, p.scope.yearId);
     const stats = latest ? await repo.resultsTotals(tx, { ...p.scope, periodId: latest.periodId }) : null;
+    const source = latest ? await repo.rulesSourceSummary(tx, { ...p.scope, periodId: latest.periodId }) : null;
     const staff = await repo.staffOfDay(tx, day);
     const data: AnalyticsOverviewData = {
       headcount,
@@ -136,6 +137,7 @@ export function getOverview(deps: AnalyticsDeps, ctx: RequestContext, query: Sco
         validatedCount: stats?.validatedCount ?? 0,
         validationRateBps: stats?.validationRateBps ?? null,
         measured: stats !== null && stats.count > 0,
+        demonstration: source?.demonstration ?? false,
       },
       staffToday: { day, present: staff.present, absent: staff.absent, onLeave: staff.onLeave, measured: staff.measured },
     };
@@ -219,7 +221,7 @@ export function getTeachingLoad(deps: AnalyticsDeps, ctx: RequestContext, query:
  * Clés des tables `finance_*` pour un périmètre : année (code) et campus. Un établissement SANS campus choisi n'a pas de clé
  * propre dans finance : s'il n'a qu'un campus c'est celui-là, sinon l'utilisateur doit en choisir un.
  */
-async function financeKeys(tx: Tx, scope: ResolvedScope): Promise<Result<repo.FinanceKeys, AppError>> {
+export async function financeKeys(tx: Tx, scope: ResolvedScope): Promise<Result<repo.FinanceKeys, AppError>> {
   let campusKey = scope.campusId ?? "*";
   if (!scope.campusId && scope.institutionId) {
     const campuses = (await selectScopes(tx)).filter((s) => s.kind === "CAMPUS" && s.parentId === scope.institutionId);

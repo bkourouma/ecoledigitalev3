@@ -4,9 +4,9 @@
 
 **Created**: 2026-10-02
 
-**Status**: Implémentée (module `apps/api/src/modules/analytics`, migration `1600`, écrans `/v2/owner/*` et `/v2/direction/*`) — points à arbitrer : §9
+**Status**: Implémentée (module `apps/api/src/modules/analytics`, migrations `1600` et `1601`, écrans `/v2/owner/*`, `/v2/direction/*` et `/v2/analytics/*`) — points à arbitrer : §9 et §15
 
-**Périmètre de cette spec** : partie « direction / propriétaire » de la spec 025 (read-models et tableaux de bord). Les alertes pédagogiques (025 : `attendance.alert.*`) et les exports réglementaires restent à leurs modules.
+**Périmètre de cette spec** : partie A « direction / propriétaire » (read-models et tableaux de bord, §1 à §9) et partie B « indicateurs transverses et alertes de direction » (§10 à §15). Les alertes pédagogiques nominatives (`attendance.alert.*`) et les exports réglementaires restent à leurs modules.
 
 **Sources** : `docs/guide-utilisateur-espace-proprietaire-owner.md`, `docs/statistiques-owner-requirements.md`, `docs/refonte-owner-menus-et-statistiques.md`, `docs/guide-tests-espace-proprietaire-owner.md` ; legacy à égaler fonctionnellement : `apps/api/src/routes/owner/index.ts`, `apps/api/src/services/owner-{pulse,pedagogie,scolarite,tresorerie,charges,finances,economie,resultat,caisse,assiduite,personnes,payroll-mass,…}.service.ts`, `apps/web/src/app/owner/*` ; modules fournisseurs `finance`, `results`, `academic`, `people`, `attendance`, `payroll`, `tenancy` ; `docs/architecture/module-conventions.md`, `platform-assembly.md` ; décisions : `specs/v2/DECISIONS-METIER.md`. Parité écran par écran : `parity.md`.
 
@@ -151,3 +151,96 @@ Features : `analytics.direction` (toutes les routes), `analytics.payroll-insight
 3. **FINAL officiel** : une période rouverte garde son FINAL tant que la nouvelle clôture ne le remplace pas (cohérent avec la lecture des familles) ; à confirmer.
 4. **Rôles** : seuls `owner` et `directeur` reçoivent `analytics.*` (`*`) ; l'économe (finance/trésorerie) et le directeur des études (pédagogie, présence) n'y sont pas ajoutés (modèles de rôles = module `rbac`, PR dédiée).
 5. **Mode de règlement, âge, nationalité, occupation des salles, état des bulletins** : indicateurs legacy sans port de lecture agrégé dans les modules v2 ; consignés dans `parity.md`.
+
+---
+
+# Partie B — indicateurs transverses et alertes de direction
+
+## 10. Objectifs de la partie B
+
+1. **Un seul écran de synthèse** (`/v2/analytics`) : effectifs et inscriptions, assiduité, résultats par période, recouvrement et impayés, admissions en entonnoir, vie scolaire agrégée, alertes ouvertes, charge de paie. Chaque bloc ne se lit que si l'utilisateur détient la permission de SES données.
+2. **Aucun chiffre non officiel présenté comme tel** : tant qu'une période repose sur un jeu de règles de démonstration (`placeholder`), l'écran affiche le bandeau « règles de démonstration » ; une provenance illisible est dite aussi ; aucune alerte n'en dérive.
+3. **Alertes configurables par établissement** : indicateur du catalogue, deux seuils (attention, critique), périmètre, **rôles destinataires**, fréquence maximale de rappel, accusé de réception, historique, anti-doublon.
+4. **Livraison par `notifications`**, jamais directe : `analytics` publie `analytics.alert.raised` ; les préférences, consentements, heures calmes et plafonds restent ceux de `notifications`.
+5. **Comparaisons** entre deux années, deux périodes ou deux fenêtres de dates, avec écart absolu et variation relative ; un côté non mesuré donne « Non mesuré », jamais zéro.
+6. **Aucune donnée individuelle** : entonnoir et vie scolaire sont des comptages (aucune candidature, aucun élève, aucun motif, confidentialité STANDARD seulement) ; les alertes ne portent que des taux, montants et comptages agrégés.
+
+## 11. Parcours et critères d'acceptation
+
+### US10 — Indicateurs transverses (`/v2/analytics`)
+- AC10.1 Les blocs effectifs, assiduité, résultats par période, recouvrement, admissions, vie scolaire, alertes et paie sont gardés par `analytics.read`, `.attendance.read`, `.pedagogy.read`, `.finance.read`, `.admissions.read`, `.schoollife.read`, `.alerts.read`, `.payroll.read` ; un bloc non permis n'est ni affiché ni demandé.
+- AC10.2 Chaque bloc porte `asOf`, `stale` et `gaps` ; un indicateur sans mesure affiche « Non mesuré ».
+- AC10.3 La masse salariale (sensible : MFA, lecture auditée) n'est lue qu'après une action explicite.
+- AC10.4 Résultats : `rulesSource.demonstration` (au moins une classe-période FINAL lue repose sur un jeu `placeholder`) déclenche le bandeau ; chaque période de `byPeriod` porte son drapeau `demonstration`.
+
+### US11 — Entonnoir d'admission (`GET /admissions/funnel`)
+- AC11.1 Répartition **à ce jour** des dossiers par statut canonique (`DRAFT`…`ENROLLED`) et par étape de chaque campagne ; places offertes et restantes.
+- AC11.2 `submitted` = dossiers hors brouillons ; `accepted` = acceptés + inscrits ; taux d'acceptation = accepté / déposé ; taux d'inscription = inscrit / accepté ; `null` si le dénominateur est nul.
+- AC11.3 Lecture par comptage de colonnes (`admissions.getBoard`) ; les cartes de candidats ne sont ni conservées ni transmises. Un accès limité à un campus est refusé (403 : l'admission est suivie par établissement).
+
+### US12 — Vie scolaire agrégée (`GET /schoollife/summary`)
+- AC12.1 Quatre comptages : incidents ouverts, mesures à valider, exclusions en cours, convocations à tenir ; **confidentialité STANDARD uniquement** (fonction publique additive `schoollife.getAggregateCounts`, audience `STAFF_STANDARD`).
+- AC12.2 Aucun identifiant d'élève, aucun texte libre, aucun élément restreint ou confidentiel ; la table `schoollife_facts` n'a aucune colonne personnelle.
+
+### US13 — Comparaisons (`GET /compare/{enrollment,attendance,results,finance}`)
+- AC13.1 `enrollment`, `finance` : deux années ; `results` : deux périodes (années éventuellement différentes) ; `attendance` : deux fenêtres de dates (≤ 800 jours chacune).
+- AC13.2 Chaque indicateur renvoie `baseline`, `target`, `delta` (cible − référence) et `changeBps` ; `null` si un côté n'est pas mesuré ou si la référence est nulle.
+- AC13.3 `results` : le drapeau `demonstration` de chaque côté est transmis (bandeau).
+
+### US14 — Alertes de direction
+- AC14.1 **Configuration** (`analytics.alerts.manage`) : indicateur du catalogue (§12), seuils d'attention et critique dans l'unité de l'indicateur (aucune valeur par défaut), fenêtre pour les indicateurs fenêtrés, périmètre établissement / campus, 1 à 8 rôles destinataires, fréquence `HOURLY`/`DAILY`/`WEEKLY`/`MONTHLY`, activation. Contrôle de version optimiste (409 sur conflit) ; création et modification auditées.
+- AC14.2 **Évaluation** par le job `analytics.evaluate-alerts` (toutes les 15 min), sur les read-models. Franchissement **strict** (une valeur égale au seuil n'alerte pas). Aucune évaluation ni résolution sur une donnée jamais lue, périmée, non branchée ou en échec (`SOURCE_UNAVAILABLE`), ni sur une valeur non mesurée (`NOT_MEASURED`) ; un taux de validation issu de règles de démonstration n'est pas mesuré.
+- AC14.3 **Alerte** = épisode de dépassement ; une seule alerte active par règle. Montée en gravité : notification ; baisse : silencieuse. Retour dans les seuils : alerte `RESOLVED` (événement `analytics.alert.resolved`), historique conservé ; une rechute ouvre une nouvelle alerte.
+- AC14.4 **Livraison** : `analytics.alert.raised` (outbox, même transaction) ; `notifications` résout les destinataires **par les rôles de l'alerte**, applique préférences, consentements, heures calmes et plafonds. Le message ne dit que l'indicateur, la valeur, le seuil et pointe `/v2/analytics/alertes`.
+- AC14.5 **Anti-doublon** : clé UNIQUE `règle:gravité:créneau` (créneau = heure, jour, semaine ISO ou mois) ; deux évaluations simultanées ou rejouées n'émettent qu'une notification par créneau ; `notifications` déduplique à son tour sur cette clé.
+- AC14.6 **Accusé de réception** (`analytics.alerts.acknowledge`) : qui, quand, note (≤ 500 caractères), audité, événement `analytics.alert.acknowledged` ; les rappels s'arrêtent tant que la gravité ne monte pas ; accuser une alerte résolue : 409.
+- AC14.7 **Visibilité** : une alerte n'existe pour l'appelant que si la permission de données de son indicateur lui est accordée et si son périmètre est dans le sien (un utilisateur limité à un campus ne voit ni ne crée de règle sur l'établissement entier) ; sinon **404 uniforme** (inexistante, hors périmètre, non permise, identifiant mal formé : indiscernables).
+
+### US15 — Exports et rafraîchissement
+- AC15.1 Jeux CSV `admissions-funnel`, `schoollife-summary`, `alerts-history` (permission du jeu **et** `analytics.export`, audité, BOM, `;`, neutralisation des formules : tout texte débutant par `=`, `+`, `-`, `@`, tabulation ou retour chariot est préfixé d'une apostrophe, y compris les libellés de règles et les notes d'accusé de réception saisis par les utilisateurs).
+- AC15.2 Deux nouveaux genres de rafraîchissement, `ADMISSIONS` et `SCHOOLLIFE`, alimentés par les événements `admissions.*` et `schoollife.*` (abonnés `analytics.refresh-on-admissions`, `analytics.refresh-on-schoollife`), le job `analytics.process-refreshes` et la reconstruction nocturne.
+
+## 12. Catalogue des indicateurs d'alerte
+
+| Indicateur | Unité | Sens | Fenêtre | Permission de données | Genres lus |
+|---|---|---|---|---|---|
+| `ATTENDANCE_RATE` | points de base | sous le seuil | 30 j par défaut | `analytics.attendance.read` | ATTENDANCE, CALENDAR |
+| `COLLECTION_RATE` | points de base | sous le seuil | — | `analytics.finance.read` | FINANCE, CALENDAR |
+| `OVERDUE_AMOUNT` | unités mineures | au-dessus | — | `analytics.finance.read` | FINANCE, CALENDAR |
+| `VALIDATION_RATE` (dernière période clôturée, règles officielles seulement) | points de base | sous le seuil | — | `analytics.pedagogy.read` | RESULTS, CALENDAR |
+| `ENROLLMENT_IN_SCHOOLING` | nombre | sous le seuil | — | `analytics.read` | ENROLLMENT, CALENDAR |
+| `CASH_VARIANCE` (somme des écarts absolus des sessions closes) | unités mineures | au-dessus | 30 j par défaut | `analytics.treasury.read` | CASH |
+| `SCHOOLLIFE_OPEN_INCIDENTS` | nombre | au-dessus | — | `analytics.schoollife.read` | SCHOOLLIFE |
+| `SCHOOLLIFE_MEASURES_TO_VALIDATE` | nombre | au-dessus | — | `analytics.schoollife.read` | SCHOOLLIFE |
+
+La masse salariale n'est **pas** surveillable par une alerte (donnée sensible : MFA et audit de chaque lecture).
+
+## 13. Permissions, menus et événements de la partie B
+
+| Permission | Donne accès à |
+|---|---|
+| `analytics.admissions.read` | `admissions/funnel`, export `admissions-funnel` |
+| `analytics.schoollife.read` | `schoollife/summary`, export `schoollife-summary`, alertes de vie scolaire |
+| `analytics.alerts.read` | `alerts`, `alerts/:id`, `alerts/rules`, `alerts/metrics`, export `alerts-history` |
+| `analytics.alerts.acknowledge` | `POST alerts/:id/acknowledge` |
+| `analytics.alerts.manage` | `POST/PUT alerts/rules` |
+
+Les comparaisons exigent la permission de données de leur domaine (`analytics.read`, `.attendance.read`, `.pedagogy.read`, `.finance.read`). Fonctionnalité : `analytics.direction` pour toutes les routes. Menus (portail `owner`) : indicateurs, admissions, vie scolaire, comparaisons, alertes, règles d'alerte.
+
+Événements publiés : `analytics.alert.raised`, `analytics.alert.acknowledged`, `analytics.alert.resolved` (charges versionnées, schémas `analyticsEventPayloadSchemas`). Consommés en plus : `admissions.application.{submitted,status_changed,enrolled,anonymized}`, `admissions.decision.recorded`, `admissions.offer.{accepted,declined,expired,withdrawn}`, `admissions.waitlist.promoted`, `admissions.prospect.converted`, `schoollife.incident.{declared,status_changed}`, `schoollife.measure.*`, `schoollife.appeal.decided`, `schoollife.convocation.{sent,held,missed,cancelled}`.
+
+## 14. Exigences non fonctionnelles de la partie B
+
+- Les alertes lisent **uniquement** les read-models d'`analytics` (aucun SQL vers un autre schéma) ; seuls les ports sources lisent les modules fournisseurs, par leurs API publiques (`admissions.listCampaigns/getBoard`, `schoollife.getAggregateCounts`, `results.getPeriodView` pour la provenance des règles).
+- Une évaluation = une transaction par règle, verrou `FOR UPDATE` sur la règle : deux évaluations simultanées se sérialisent.
+- RLS forcée sur les 6 nouvelles tables (28 au total) ; test A/B (lecture, acquittement, modification et écriture croisée refusés).
+- Accessibilité : états et gravités en texte, tableaux légendés, formulaires reliés, strict axe-core sans violation ; libellés `fr-CI` sous `v2Analytics`.
+
+## 15. Points à arbitrer (partie B)
+
+1. **Seuils** : aucun seuil par défaut n'est livré (ce sont ceux de l'établissement). À confirmer avec le propriétaire du produit si des modèles de règles (« présence < 85 % ») doivent être proposés en un clic.
+2. **Rôles destinataires** : les rôles sont saisis par clés (propositions : rôles du système + clés personnalisées). Aucune vérification d'existence du rôle n'est faite par `analytics` (pas de port `rbac`) : une clé inconnue ne notifie personne. À arbitrer : exposer un port de lecture des rôles.
+3. **Attribution des permissions aux rôles** : voir le README du module (§ « Permissions à attribuer »).
+4. **Évaluation à la demande** : l'évaluation n'a lieu que par le job (15 min). Un bouton « évaluer maintenant » est possible mais enverrait de vraies notifications ; non livré.
+5. **Alertes de paie** : exclues (donnée sensible).
+6. **Dépassement strict** et **créneaux en UTC** (Abidjan = UTC+0) : à confirmer si un établissement est un jour hébergé hors de ce fuseau.

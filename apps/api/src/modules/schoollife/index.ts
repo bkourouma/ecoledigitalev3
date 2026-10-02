@@ -72,4 +72,5 @@ export { createNote, listNotesView, withdrawNote } from "./application/notes";
 export { acknowledgeConvocation, cancelConvocation, createConvocation, holdConvocation, listConvocationsView, markConvocationMissed, rescheduleConvocation, sendConvocation } from "./application/convocations";
 export { activateScale, adjustConduct, createScale, getStudentConduct, listScalesView, retireScale, setScaleItems } from "./application/conduct";
 export { listConfidentialReadsView, readConfidential, DEFAULT_READ_PURPOSE } from "./application/confidential";
+export { getAggregateCounts as getSchoolLifeAggregateCounts, type SchoolLifeAggregateCounts } from "./application/dossier";
 export { getClassroomLifeSummary, getClassroomSummary, getConductPoints, getDashboard, getDisciplineFacts, getFamilyLife, getStudentLife, getStudentLifeSummary, listMyChildren, type StudentLifeSummary } from "./application/dossier";

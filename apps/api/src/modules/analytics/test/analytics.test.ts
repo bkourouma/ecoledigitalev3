@@ -39,7 +39,7 @@ describe("module analytics : manifeste", () => {
   it("publie des événements <module>.<entité>.<verbe> et ses fichiers conventionnels existent", () => {
     for (const type of manifest.events.publishes) expect(type).toMatch(/^analytics\.[a-z_]+\.[a-z_]+$/);
     const dir = resolve(__dirname, "..");
-    for (const file of ["manifest.ts", "index.ts", "subscribers.ts", "jobs.ts", "http/plugin.ts", "migrations/1600_analytics_init.sql"]) expect(existsSync(resolve(dir, file)), file).toBe(true);
+    for (const file of ["manifest.ts", "index.ts", "subscribers.ts", "jobs.ts", "http/plugin.ts", "migrations/1600_analytics_init.sql", "migrations/1601_analytics_alerts_indicators.sql"]) expect(existsSync(resolve(dir, file)), file).toBe(true);
   });
 
   it("les permissions et features des contrats sont celles du manifeste, la paie est sensible", () => {
@@ -50,7 +50,7 @@ describe("module analytics : manifeste", () => {
     for (const menu of manifest.menus) {
       expect(keys).toContain(menu.permission);
       expect(menu.portal).toBe("owner");
-      expect(menu.href).toMatch(/^\/v2\/(owner|direction)(\/|$)/);
+      expect(menu.href).toMatch(/^\/v2\/(owner|direction|analytics)(\/|$)/);
     }
   });
 
@@ -124,6 +124,7 @@ describe("plan de rafraîchissement : événement -> demandes", () => {
     const planned = [
       "academic.enrollment.created", "academic.classroom.activated", "people.student.status_changed", "people.teaching_assignment.created", "results.period.closed",
       "results.decision.confirmed", "attendance.session.validated", "attendance.staff_leave.cancelled", "finance.invoice.paid", "finance.cash_session.opened", "payroll.run.completed",
+      "admissions.application.submitted", "admissions.offer.accepted", "schoollife.incident.declared", "schoollife.measure.validated",
     ];
     for (const type of planned) {
       expect(planRefreshes(type, { classroomId: "C", academicPeriodId: "P", date: "2026-03-18", startsOn: "2026-03-02", endsOn: "2026-03-06" }, at).length, type).toBeGreaterThan(0);
@@ -149,7 +150,7 @@ describe("plan de rafraîchissement : événement -> demandes", () => {
   });
 
   it("jobs et genres : noms stables, ordre des dépendances, délais de reprise croissants et plafonnés", () => {
-    expect(jobs.map((j) => j.name)).toEqual(["analytics.process-refreshes", "analytics.nightly-rebuild"]);
+    expect(jobs.map((j) => j.name)).toEqual(["analytics.process-refreshes", "analytics.nightly-rebuild", "analytics.evaluate-alerts"]);
     expect(Object.keys(KIND_ORDER).sort()).toEqual([...REFRESH_KINDS].sort());
     expect(KIND_ORDER.CALENDAR).toBeLessThan(KIND_ORDER.ENROLLMENT);
     expect([1, 2, 3, 4, 5, 6, 7].map(retryDelayMs)).toEqual([15_000, 30_000, 60_000, 120_000, 240_000, 300_000, 300_000]);

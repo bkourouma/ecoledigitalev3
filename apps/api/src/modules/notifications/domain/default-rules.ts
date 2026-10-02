@@ -262,6 +262,21 @@ export const DEFAULT_RULES: readonly RuleDef[] = Object.freeze<RuleDef[]>([
     custom: false,
   },
   {
+    key: "analytics.alert_raised",
+    label: "Alerte de direction : prévenir les rôles choisis dans la configuration des alertes",
+    kind: "EVENT",
+    trigger: ConsumedEvents.ANALYTICS_ALERT_RAISED,
+    enabled: true,
+    templateCode: "analytics_alert",
+    // Indicatif : le destinataire effectif est toujours celui de l'alerte (rôles configurés par l'établissement dans analytics) ; sans rôle valable, l'événement est ignoré.
+    audience: { kind: "ROLES", roleKeys: ["directeur"] },
+    channels: ["IN_APP", "EMAIL"],
+    strategy: "ALL",
+    urgent: false,
+    conditions: {},
+    custom: false,
+  },
+  {
     key: "stateassign.reconciliation_discrepancy",
     label: "Écart de rapprochement avec la part de l'État : alerter l'économat",
     kind: "EVENT",

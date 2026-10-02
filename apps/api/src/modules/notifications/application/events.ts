@@ -79,7 +79,9 @@ export async function onDomainEvent(deps: NotificationsDeps, ctx: RequestContext
     for (const rule of rules) {
       const entry = catalogEntry(rule.templateCode);
       if (!entry) continue;
-      const recipients = await resolver.resolve(rule.audience, facts.refs);
+      // Rôles choisis par l'émetteur (alertes de direction) : seule une audience `ROLES` les accepte ; les règles de canal et de gabarit restent celles de la règle.
+      const audience = facts.audienceRoles && rule.audience.kind === "ROLES" ? { kind: "ROLES" as const, roleKeys: [...facts.audienceRoles] } : rule.audience;
+      const recipients = await resolver.resolve(audience, facts.refs);
       if (recipients.length === 0) continue;
       const base = facts.dedupeId ? `fact:${input.eventType}:${facts.dedupeId}:${rule.key}` : `evt:${input.eventId}:${rule.key}`;
       const r = await enqueueInTx(deps, ctx, tx, {

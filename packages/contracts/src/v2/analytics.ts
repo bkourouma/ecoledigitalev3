@@ -19,7 +19,7 @@ export const analyticsInstantSchema = z.string().datetime({ offset: true });
 export const analyticsAmountSchema = z.number().int().safe();
 export const analyticsBpsSchema = z.number().int().min(0).max(1_000_000).nullable();
 
-export const ANALYTICS_REFRESH_KINDS = ["REBUILD", "CALENDAR", "ENROLLMENT", "RESULTS", "ATTENDANCE", "STAFF_PRESENCE", "FINANCE", "COLLECTIONS", "CASH", "PAYROLL", "TEACHING_LOAD"] as const;
+export const ANALYTICS_REFRESH_KINDS = ["REBUILD", "CALENDAR", "ENROLLMENT", "RESULTS", "ATTENDANCE", "STAFF_PRESENCE", "FINANCE", "COLLECTIONS", "CASH", "PAYROLL", "TEACHING_LOAD", "ADMISSIONS", "SCHOOLLIFE"] as const;
 export const analyticsRefreshKindSchema = z.enum(ANALYTICS_REFRESH_KINDS);
 export type AnalyticsRefreshKind = z.infer<typeof analyticsRefreshKindSchema>;
 
@@ -109,6 +109,7 @@ export const analyticsOverviewDataSchema = z.object({
     validatedCount: z.number().int(),
     validationRateBps: analyticsBpsSchema,
     measured: z.boolean(),
+    demonstration: z.boolean(),
   }),
   staffToday: z.object({ day: analyticsDateSchema, present: z.number().int(), absent: z.number().int(), onLeave: z.number().int(), measured: z.boolean() }),
 });
@@ -190,7 +191,8 @@ export const analyticsResultsDataSchema = z.object({
   totals: z.object({ ...resultStats, classPeriodsFinal: z.number().int(), classPeriodsNotFinal: z.number().int() }),
   byClassroom: z.array(z.object({ classroomId: analyticsUuidSchema, name: z.string(), gradeLevelLabel: z.string(), ...resultStats })),
   bySubject: z.array(z.object({ nodeId: analyticsUuidSchema, code: z.string(), label: z.string(), level: z.string(), ...resultStats, resitEligibleCount: z.number().int(), session2Count: z.number().int() })),
-  byPeriod: z.array(z.object({ periodId: analyticsUuidSchema, label: z.string(), ordinal: z.number().int(), ...resultStats })),
+  byPeriod: z.array(z.object({ periodId: analyticsUuidSchema, label: z.string(), ordinal: z.number().int(), ...resultStats, demonstration: z.boolean() })),
+  rulesSource: z.object({ demonstration: z.boolean(), finalClassPeriods: z.number().int(), placeholderClassPeriods: z.number().int(), unknownClassPeriods: z.number().int() }),
   distribution: z.object({ scaleMax: z.number(), binWidth: z.number(), bins: z.array(z.object({ index: z.number().int(), from: z.number(), to: z.number(), count: z.number().int() })) }),
   decisions: z.object({
     period: z.array(z.object({ code: z.string(), outcome: z.string().nullable(), count: z.number().int() })),
@@ -403,6 +405,9 @@ export const ANALYTICS_EXPORT_DATASETS = [
   "cash-sessions",
   "payroll-mass",
   "teaching-load",
+  "admissions-funnel",
+  "schoollife-summary",
+  "alerts-history",
 ] as const;
 export const analyticsExportDatasetSchema = z.enum(ANALYTICS_EXPORT_DATASETS);
 export type AnalyticsExportDataset = z.infer<typeof analyticsExportDatasetSchema>;
@@ -412,6 +417,9 @@ export const ANALYTICS_EVENTS = {
   snapshotRefreshed: "analytics.snapshot.refreshed",
   rebuildRequested: "analytics.rebuild.requested",
   rebuildCompleted: "analytics.rebuild.completed",
+  alertRaised: "analytics.alert.raised",
+  alertAcknowledged: "analytics.alert.acknowledged",
+  alertResolved: "analytics.alert.resolved",
 } as const;
 
 /** Permissions du module (aussi déclarées par le manifeste ; le web s'en sert pour `usePermission`). */
@@ -426,6 +434,316 @@ export const ANALYTICS_PERMISSIONS = {
   export: "analytics.export",
   settings: "analytics.settings.manage",
   rebuild: "analytics.rebuild",
+  admissions: "analytics.admissions.read",
+  schoollife: "analytics.schoollife.read",
+  alertsRead: "analytics.alerts.read",
+  alertsAcknowledge: "analytics.alerts.acknowledge",
+  alertsManage: "analytics.alerts.manage",
 } as const;
 
 export const ANALYTICS_FEATURES = { direction: "analytics.direction", payroll: "analytics.payroll-insights" } as const;
+
+// ---------------------------------------------------------------------------
+// Partie B (spec 025) : provenance des règles, entonnoir d'admission, vie scolaire agrégée, comparaisons, alertes
+// ---------------------------------------------------------------------------
+
+/**
+ * Provenance des règles des résultats FINAL lus : `demonstration` = au moins une (classe, période) lue repose sur un jeu de
+ * règles de DÉMONSTRATION (`placeholder`) : l'écran affiche un bandeau « règles de démonstration » et aucun chiffre n'est
+ * présenté comme officiel. `unknownClassPeriods` : provenance non lisible (jamais comptée comme officielle).
+ */
+export const analyticsRulesSourceSchema = z.object({
+  demonstration: z.boolean(),
+  finalClassPeriods: z.number().int(),
+  placeholderClassPeriods: z.number().int(),
+  unknownClassPeriods: z.number().int(),
+});
+export type AnalyticsRulesSource = z.infer<typeof analyticsRulesSourceSchema>;
+
+// --- Entonnoir d'admission --------------------------------------------------------------------------------------------
+
+export const ANALYTICS_ADMISSION_STATUSES = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "MISSING_DOCUMENT", "ACCEPTED", "REJECTED", "WAITLISTED", "ENROLLED"] as const;
+
+export const analyticsAdmissionsFunnelQuerySchema = z.object({ institutionId: analyticsUuidSchema.optional(), yearId: analyticsUuidSchema.optional() });
+export type AnalyticsAdmissionsFunnelQuery = z.infer<typeof analyticsAdmissionsFunnelQuerySchema>;
+
+export const analyticsAdmissionsFunnelDataSchema = z.object({
+  /**
+   * Répartition À CE JOUR des dossiers par statut canonique (position actuelle, pas un historique de passages) : hors brouillons,
+   * `submitted` = tous les dossiers déposés, `accepted` = acceptés + inscrits, `enrolled` = inscrits.
+   */
+  totals: z.object({
+    applications: z.number().int(),
+    submitted: z.number().int(),
+    accepted: z.number().int(),
+    enrolled: z.number().int(),
+    rejected: z.number().int(),
+    waitlisted: z.number().int(),
+    acceptanceRateBps: analyticsBpsSchema,
+    enrollmentRateBps: analyticsBpsSchema,
+    seats: z.number().int().nullable(),
+    seatsLeft: z.number().int().nullable(),
+  }),
+  byStatus: z.array(z.object({ status: z.enum(ANALYTICS_ADMISSION_STATUSES), count: z.number().int() })),
+  campaigns: z.array(
+    z.object({
+      campaignId: analyticsUuidSchema,
+      institutionId: analyticsUuidSchema,
+      yearId: analyticsUuidSchema.nullable(),
+      code: z.string(),
+      label: z.string(),
+      status: z.string(),
+      seats: z.number().int().nullable(),
+      seatsLeft: z.number().int().nullable(),
+      applications: z.number().int(),
+      stages: z.array(z.object({ code: z.string(), label: z.string(), canonicalStatus: z.enum(ANALYTICS_ADMISSION_STATUSES), ordinal: z.number().int(), isTerminal: z.boolean(), applications: z.number().int() })),
+    }),
+  ),
+});
+export type AnalyticsAdmissionsFunnelData = z.infer<typeof analyticsAdmissionsFunnelDataSchema>;
+
+// --- Vie scolaire agrégée ----------------------------------------------------------------------------------------------
+
+export const ANALYTICS_SCHOOLLIFE_INDICATORS = ["OPEN_INCIDENTS", "MEASURES_TO_VALIDATE", "ACTIVE_EXCLUSIONS", "CONVOCATIONS_TO_HOLD"] as const;
+export const analyticsSchoolLifeDataSchema = z.object({
+  /** Comptages de la confidentialité STANDARD uniquement : jamais d'élève, de motif ni d'élément restreint ou confidentiel. */
+  scopeConfidentiality: z.literal("STANDARD"),
+  institutionId: analyticsUuidSchema.nullable(),
+  indicators: z.array(z.object({ indicator: z.enum(ANALYTICS_SCHOOLLIFE_INDICATORS), value: z.number().int().nullable(), measured: z.boolean() })),
+});
+export type AnalyticsSchoolLifeData = z.infer<typeof analyticsSchoolLifeDataSchema>;
+
+// --- Comparaisons entre périodes ou années ---------------------------------------------------------------------------
+
+export const ANALYTICS_COMPARISON_DOMAINS = ["enrollment", "attendance", "results", "finance"] as const;
+export const analyticsComparisonDomainSchema = z.enum(ANALYTICS_COMPARISON_DOMAINS);
+export type AnalyticsComparisonDomain = z.infer<typeof analyticsComparisonDomainSchema>;
+
+/**
+ * Comparaison d'un indicateur entre une référence (`baseline`) et une cible (`target`) :
+ *  - enrollment, finance : deux ANNÉES (`baselineYearId`, `targetYearId`) ;
+ *  - results : deux PÉRIODES (`baselinePeriodId`, `targetPeriodId`, éventuellement d'années différentes) ;
+ *  - attendance : deux FENÊTRES de dates (`baselineFrom`..`baselineTo`, `targetFrom`..`targetTo`).
+ * Les filtres établissement / campus s'appliquent aux deux côtés.
+ */
+export const analyticsCompareQuerySchema = z
+  .object({
+    institutionId: analyticsUuidSchema.optional(),
+    campusId: analyticsUuidSchema.optional(),
+    baselineYearId: analyticsUuidSchema.optional(),
+    targetYearId: analyticsUuidSchema.optional(),
+    baselinePeriodId: analyticsUuidSchema.optional(),
+    targetPeriodId: analyticsUuidSchema.optional(),
+    baselineFrom: analyticsDateSchema.optional(),
+    baselineTo: analyticsDateSchema.optional(),
+    targetFrom: analyticsDateSchema.optional(),
+    targetTo: analyticsDateSchema.optional(),
+  })
+  .strict();
+export type AnalyticsCompareQuery = z.infer<typeof analyticsCompareQuerySchema>;
+
+export const ANALYTICS_COMPARISON_UNITS = ["COUNT", "BPS", "AMOUNT", "DECIMAL"] as const;
+const comparisonSide = z.object({ label: z.string(), yearId: analyticsUuidSchema.nullable(), periodId: analyticsUuidSchema.nullable(), from: analyticsDateSchema.nullable(), to: analyticsDateSchema.nullable(), demonstration: z.boolean() });
+export const analyticsComparisonDataSchema = z.object({
+  domain: analyticsComparisonDomainSchema,
+  currency: z.string().length(3).nullable(),
+  baseline: comparisonSide,
+  target: comparisonSide,
+  metrics: z.array(
+    z.object({
+      key: z.string(),
+      unit: z.enum(ANALYTICS_COMPARISON_UNITS),
+      baseline: z.number().nullable(),
+      target: z.number().nullable(),
+      /** cible - référence ; `null` si l'une des deux mesures manque (jamais un zéro inventé). */
+      delta: z.number().nullable(),
+      /** Variation relative en points de base ; `null` si la référence est nulle ou absente. */
+      changeBps: z.number().int().nullable(),
+    }),
+  ),
+});
+export type AnalyticsComparisonData = z.infer<typeof analyticsComparisonDataSchema>;
+
+// --- Alertes configurables ---------------------------------------------------------------------------------------------
+
+/** Indicateurs surveillables (catalogue : `domain/alert-metrics.ts`). Aucun ne porte de donnée d'élève. */
+export const ANALYTICS_ALERT_METRICS = [
+  "ATTENDANCE_RATE",
+  "COLLECTION_RATE",
+  "OVERDUE_AMOUNT",
+  "VALIDATION_RATE",
+  "ENROLLMENT_IN_SCHOOLING",
+  "CASH_VARIANCE",
+  "SCHOOLLIFE_OPEN_INCIDENTS",
+  "SCHOOLLIFE_MEASURES_TO_VALIDATE",
+] as const;
+export const analyticsAlertMetricSchema = z.enum(ANALYTICS_ALERT_METRICS);
+export type AnalyticsAlertMetric = z.infer<typeof analyticsAlertMetricSchema>;
+
+export const ANALYTICS_ALERT_UNITS = ["BPS", "AMOUNT", "COUNT"] as const;
+export const ANALYTICS_ALERT_COMPARATORS = ["BELOW", "ABOVE"] as const;
+export const ANALYTICS_ALERT_FREQUENCIES = ["HOURLY", "DAILY", "WEEKLY", "MONTHLY"] as const;
+export const analyticsAlertFrequencySchema = z.enum(ANALYTICS_ALERT_FREQUENCIES);
+export const ANALYTICS_ALERT_SEVERITIES = ["WARNING", "CRITICAL"] as const;
+export const analyticsAlertSeveritySchema = z.enum(ANALYTICS_ALERT_SEVERITIES);
+export type AnalyticsAlertSeverity = z.infer<typeof analyticsAlertSeveritySchema>;
+export const ANALYTICS_ALERT_STATUSES = ["OPEN", "ACKNOWLEDGED", "RESOLVED"] as const;
+export const analyticsAlertStatusSchema = z.enum(ANALYTICS_ALERT_STATUSES);
+export type AnalyticsAlertStatus = z.infer<typeof analyticsAlertStatusSchema>;
+export const ANALYTICS_ALERT_OUTCOMES = ["OK", "WARNING", "CRITICAL", "NOT_MEASURED", "SOURCE_UNAVAILABLE"] as const;
+
+export const ANALYTICS_ALERT_LIMITS = { recipientRolesMax: 8, labelMin: 3, labelMax: 120, noteMax: 500, windowMax: 365 } as const;
+const alertRoleKey = z.string().regex(/^[a-z][a-z0-9_]{1,59}$/, "Clé de rôle attendue : minuscules, chiffres et _.");
+const alertThreshold = z.number().int().safe();
+
+const alertRuleFields = {
+  label: z.string().trim().min(ANALYTICS_ALERT_LIMITS.labelMin).max(ANALYTICS_ALERT_LIMITS.labelMax),
+  metric: analyticsAlertMetricSchema,
+  /** Seuils dans l'UNITÉ de l'indicateur : points de base (1 % = 100), unités mineures de la monnaie, nombre. */
+  warningValue: alertThreshold.nullable().optional(),
+  criticalValue: alertThreshold.nullable().optional(),
+  /** Fenêtre glissante en jours (indicateurs fenêtrés : présence, écarts de caisse). */
+  windowDays: z.number().int().min(1).max(ANALYTICS_ALERT_LIMITS.windowMax).nullable().optional(),
+  institutionId: analyticsUuidSchema.nullable().optional(),
+  campusId: analyticsUuidSchema.nullable().optional(),
+  recipientRoles: z.array(alertRoleKey).min(1).max(ANALYTICS_ALERT_LIMITS.recipientRolesMax),
+  frequency: analyticsAlertFrequencySchema.default("DAILY"),
+  enabled: z.boolean().default(true),
+};
+
+export const analyticsAlertRuleCreateSchema = z
+  .object(alertRuleFields)
+  .strict()
+  .refine((v) => v.warningValue != null || v.criticalValue != null, { message: "Au moins un seuil (attention ou critique) est attendu.", path: ["warningValue"] });
+export type AnalyticsAlertRuleCreate = z.infer<typeof analyticsAlertRuleCreateSchema>;
+
+export const analyticsAlertRuleUpdateSchema = z
+  .object({ ...alertRuleFields, rowVersion: z.number().int().min(1) })
+  .strict()
+  .refine((v) => v.warningValue != null || v.criticalValue != null, { message: "Au moins un seuil (attention ou critique) est attendu.", path: ["warningValue"] });
+export type AnalyticsAlertRuleUpdate = z.infer<typeof analyticsAlertRuleUpdateSchema>;
+
+export const analyticsAlertMetricInfoSchema = z.object({
+  metric: analyticsAlertMetricSchema,
+  label: z.string(),
+  unit: z.enum(ANALYTICS_ALERT_UNITS),
+  comparator: z.enum(ANALYTICS_ALERT_COMPARATORS),
+  permission: z.string(),
+  windowed: z.boolean(),
+  defaultWindowDays: z.number().int().nullable(),
+  /** Indicateur suivi par campus (finance) : un établissement à plusieurs campus doit en désigner un. */
+  campusScoped: z.boolean(),
+});
+export const analyticsAlertMetricsDataSchema = z.object({ metrics: z.array(analyticsAlertMetricInfoSchema) });
+export type AnalyticsAlertMetricsData = z.infer<typeof analyticsAlertMetricsDataSchema>;
+
+export const analyticsAlertRuleSchema = z.object({
+  id: analyticsUuidSchema,
+  label: z.string(),
+  metric: analyticsAlertMetricSchema,
+  comparator: z.enum(ANALYTICS_ALERT_COMPARATORS),
+  unit: z.enum(ANALYTICS_ALERT_UNITS),
+  warningValue: z.number().nullable(),
+  criticalValue: z.number().nullable(),
+  windowDays: z.number().int().nullable(),
+  institutionId: analyticsUuidSchema.nullable(),
+  campusId: analyticsUuidSchema.nullable(),
+  recipientRoles: z.array(z.string()),
+  frequency: analyticsAlertFrequencySchema,
+  enabled: z.boolean(),
+  rowVersion: z.number().int(),
+  lastEvaluatedAt: analyticsInstantSchema.nullable(),
+  lastOutcome: z.enum(ANALYTICS_ALERT_OUTCOMES).nullable(),
+  lastValue: z.number().nullable(),
+  createdAt: analyticsInstantSchema,
+  updatedAt: analyticsInstantSchema,
+});
+export type AnalyticsAlertRule = z.infer<typeof analyticsAlertRuleSchema>;
+export const analyticsAlertRulesDataSchema = z.object({ rules: z.array(analyticsAlertRuleSchema) });
+export type AnalyticsAlertRulesData = z.infer<typeof analyticsAlertRulesDataSchema>;
+
+export const analyticsAlertsQuerySchema = z.object({
+  status: analyticsAlertStatusSchema.optional(),
+  severity: analyticsAlertSeveritySchema.optional(),
+  metric: analyticsAlertMetricSchema.optional(),
+  ruleId: analyticsUuidSchema.optional(),
+  from: analyticsDateSchema.optional(),
+  to: analyticsDateSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type AnalyticsAlertsQuery = z.infer<typeof analyticsAlertsQuerySchema>;
+
+export const analyticsAlertSchema = z.object({
+  id: analyticsUuidSchema,
+  ruleId: analyticsUuidSchema,
+  ruleLabel: z.string(),
+  metric: analyticsAlertMetricSchema,
+  unit: z.enum(ANALYTICS_ALERT_UNITS),
+  comparator: z.enum(ANALYTICS_ALERT_COMPARATORS),
+  severity: analyticsAlertSeveritySchema,
+  status: analyticsAlertStatusSchema,
+  value: z.number(),
+  threshold: z.number(),
+  currency: z.string().nullable(),
+  institutionId: analyticsUuidSchema.nullable(),
+  campusId: analyticsUuidSchema.nullable(),
+  raisedAt: analyticsInstantSchema,
+  lastSeenAt: analyticsInstantSchema,
+  asOf: analyticsInstantSchema.nullable(),
+  notifyCount: z.number().int(),
+  lastNotifiedAt: analyticsInstantSchema.nullable(),
+  acknowledgedAt: analyticsInstantSchema.nullable(),
+  acknowledgementNote: z.string().nullable(),
+  resolvedAt: analyticsInstantSchema.nullable(),
+  resolvedValue: z.number().nullable(),
+});
+export type AnalyticsAlert = z.infer<typeof analyticsAlertSchema>;
+
+export const analyticsAlertsDataSchema = z.object({
+  total: z.number().int(),
+  counts: z.object({ open: z.number().int(), acknowledged: z.number().int(), resolved: z.number().int() }),
+  alerts: z.array(analyticsAlertSchema),
+});
+export type AnalyticsAlertsData = z.infer<typeof analyticsAlertsDataSchema>;
+
+export const analyticsAlertDetailSchema = analyticsAlertSchema.extend({
+  notifications: z.array(z.object({ id: analyticsUuidSchema, reason: z.enum(["RAISED", "ESCALATED", "REMINDER"]), severity: analyticsAlertSeveritySchema, value: z.number(), recipientRoles: z.array(z.string()), emittedAt: analyticsInstantSchema })),
+});
+export type AnalyticsAlertDetail = z.infer<typeof analyticsAlertDetailSchema>;
+
+export const analyticsAlertAcknowledgeBodySchema = z.object({ note: z.string().trim().max(ANALYTICS_ALERT_LIMITS.noteMax).optional() }).strict();
+export type AnalyticsAlertAcknowledgeBody = z.infer<typeof analyticsAlertAcknowledgeBodySchema>;
+
+/** Charge de `analytics.alert.raised` : consommée par `notifications` (alerte interne ; ni élève, ni nom, ni contenu libre). */
+export const analyticsAlertRaisedPayloadSchema = z.object({
+  v: z.literal(1),
+  alertId: analyticsUuidSchema,
+  ruleId: analyticsUuidSchema,
+  metric: analyticsAlertMetricSchema,
+  /** Libellé NEUTRE de l'indicateur (catalogue), jamais saisi librement. */
+  metricLabel: z.string().max(120),
+  severity: analyticsAlertSeveritySchema,
+  reason: z.enum(["RAISED", "ESCALATED", "REMINDER"]),
+  unit: z.enum(ANALYTICS_ALERT_UNITS),
+  comparator: z.enum(ANALYTICS_ALERT_COMPARATORS),
+  value: z.number().int().safe(),
+  threshold: z.number().int().safe(),
+  currency: z.string().length(3).nullable(),
+  recipientRoles: z.array(alertRoleKey).min(1).max(ANALYTICS_ALERT_LIMITS.recipientRolesMax),
+  /** Créneau de fréquence de cette notification (clé de dédoublonnage côté notifications). */
+  dedupeKey: z.string().max(200),
+  institutionId: analyticsUuidSchema.nullable(),
+  campusId: analyticsUuidSchema.nullable(),
+});
+export type AnalyticsAlertRaisedPayload = z.infer<typeof analyticsAlertRaisedPayloadSchema>;
+
+export const analyticsAlertAcknowledgedPayloadSchema = z.object({ v: z.literal(1), alertId: analyticsUuidSchema, ruleId: analyticsUuidSchema, acknowledgedBy: analyticsUuidSchema.nullable() });
+export const analyticsAlertResolvedPayloadSchema = z.object({ v: z.literal(1), alertId: analyticsUuidSchema, ruleId: analyticsUuidSchema, metric: analyticsAlertMetricSchema, resolvedValue: z.number().int().safe() });
+
+/** Charges des événements publiés (contrôlées par `apps/api/test/events-contracts`). */
+export const analyticsEventPayloadSchemas = {
+  "analytics.alert.raised": analyticsAlertRaisedPayloadSchema,
+  "analytics.alert.acknowledged": analyticsAlertAcknowledgedPayloadSchema,
+  "analytics.alert.resolved": analyticsAlertResolvedPayloadSchema,
+} as const;
