@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { accessRoutes, setTestApi } from "@/platform/test/api-mock";
 import { createFakeIndexedDb, type FakeIndexedDb } from "@/platform/test/fake-indexeddb";
+import { expectNoBlockingViolations } from "@/platform/test/axe";
 import { json, renderWithProviders } from "@/platform/test/render";
 import { GradeSyncProvider, gradeSyncApi } from "@/platform/offline/GradeSyncProvider";
 import { GradeSyncManager } from "@/platform/offline/grade-sync-manager";
@@ -148,6 +149,7 @@ describe("grille de notes hors ligne", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
     const panel = await screen.findByTestId("grade-conflicts");
     expect(indicator().getAttribute("data-kind")).toBe("conflict");
+    await expectNoBlockingViolations(document.body); // tableau de résolution + indicateur : 0 violation axe serious/critical
     expect(within(panel).getByText("15")).toBeTruthy(); // ma saisie
     expect(within(panel).getByText("5")).toBeTruthy(); // la valeur du serveur
     // la grille montre la valeur du serveur : ma saisie est en lieu sûr, elle ne sera pas renvoyée seule

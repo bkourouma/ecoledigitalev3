@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyPaste, buildBatch, effectiveOf, isDirty, mergeSaved, nextIndex, normalizeDecimal, parseCell, progressOf, rowFromGrade, rowFromPending, type CellContext, type GridRow } from "./grid-model";
+import { applyApplied, applyPaste, applyRestored, buildBatch, effectiveOf, isDirty, mergeSaved, nextIndex, normalizeDecimal, parseCell, progressOf, rowFromGrade, rowFromPending, toDraftEntries, type CellContext, type GridRow } from "./grid-model";
 
 const ctx: CellContext = { scaleMax: "20", maxDecimals: 2 };
 const grade = (n: number, over: Record<string, unknown> = {}) => ({ id: `g${n}`, enrollmentId: `e${n}`, studentId: `s${n}`, score: null as string | null, entryStatus: "NOT_GRADED" as const, comment: null as string | null, rowVersion: 1, ...over });
@@ -127,5 +127,50 @@ describe("avancement et navigation", () => {
     expect(normalizeDecimal("12.000")).toBe("12");
     expect(normalizeDecimal("100")).toBe("100");
     expect(normalizeDecimal(null)).toBeNull();
+  });
+});
+
+describe("brouillons hors ligne : pont grille <-> brouillon", () => {
+  it("toDraftEntries garde la valeur canonique, le commentaire et la version de ligne lue", () => {
+    const rows = [{ ...rowFromGrade(grade(1, { score: "10", entryStatus: "ENTERED" })), text: "14,5" }, { ...rowFromPending({ enrollmentId: "e2", studentId: "s2" }), text: "abs" }];
+    const { entries } = buildBatch(rows, ctx);
+    expect(toDraftEntries(entries)).toEqual([
+      { enrollmentId: "e1", entryStatus: "ENTERED", score: "14.5", comment: null, baseVersion: 1 },
+      { enrollmentId: "e2", entryStatus: "ABSENT_UNEXCUSED", score: null, comment: null, baseVersion: null },
+    ]);
+  });
+
+  it("applyRestored remet la saisie dans la grille (une absence reste un état, pas un zéro) sans toucher aux autres lignes", () => {
+    const rows = [rowFromGrade(grade(1)), rowFromGrade(grade(2)), rowFromPending({ enrollmentId: "e3", studentId: "s3" })];
+    const out = applyRestored(rows, [
+      { enrollmentId: "e1", entryStatus: "ENTERED", score: "14.5", comment: "bien" },
+      { enrollmentId: "e3", entryStatus: "ABSENT_EXCUSED", score: null, comment: null },
+    ]);
+    expect(out.map((r) => r.text)).toEqual(["14,5", "", "ABJ"]);
+    expect(out[0]!.comment).toBe("bien");
+    expect(out[1]).toBe(rows[1]);
+    expect(isDirty(out[0]!, ctx)).toBe(true);
+    expect(out[0]!.rowVersion).toBe(1); // la version lue sur le serveur ne change pas
+  });
+
+  it("applyApplied : une ligne en conflit revient à la valeur du serveur (jamais renvoyée seule)", () => {
+    const mine = { ...rowFromGrade(grade(1, { score: "10", entryStatus: "ENTERED" })), text: "15" };
+    const out = applyApplied([mine], [{ enrollmentId: "e1", score: "5", entryStatus: "ENTERED", comment: null, rowVersion: 2 }], new Set(["e1"]), ctx);
+    expect(out[0]).toMatchObject({ text: "5", rowVersion: 2, gradeId: "g1", studentId: "s1" });
+    expect(isDirty(out[0]!, ctx)).toBe(false);
+  });
+
+  it("applyApplied : une note enregistrée devient propre ; une retape pendant l'envoi reste modifiée avec la nouvelle version", () => {
+    const sent = { ...rowFromGrade(grade(1)), text: "14" };
+    const retyped = { ...rowFromGrade(grade(2)), text: "16" };
+    const saved = [
+      { enrollmentId: "e1", score: "14", entryStatus: "ENTERED" as const, comment: null, rowVersion: 2 },
+      { enrollmentId: "e2", score: "14", entryStatus: "ENTERED" as const, comment: null, rowVersion: 2 },
+    ];
+    const [a, b] = applyApplied([sent, retyped], saved, new Set(), ctx);
+    expect(isDirty(a!, ctx)).toBe(false);
+    expect(a!.rowVersion).toBe(2);
+    expect(b).toMatchObject({ text: "16", rowVersion: 2 });
+    expect(isDirty(b!, ctx)).toBe(true);
   });
 });

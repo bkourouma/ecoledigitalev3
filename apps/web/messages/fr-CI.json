@@ -6377,7 +6377,6 @@
       "cachedNotice": "Hors ligne : vous consultez la copie de votre emploi du temps enregistrée {time}. Lecture seule.",
       "cachedStale": "Cette copie date de plus de 24 h : l'emploi du temps a pu changer. Reconnectez-vous pour le vérifier.",
       "noCopy": "Hors ligne, et aucune copie de cette période n'est enregistrée sur cet appareil. Ouvrez-la une fois en ligne pour la retrouver ici.",
-      "fresh": "Copie hors ligne enregistrée à {time}.",
       "truncated": "La copie est incomplète : seules les premières séances de la période ont été gardées.",
       "ago": "il y a {minutes, plural, =0 {moins d'une minute} one {# minute} other {# minutes}}",
       "agoHours": "il y a {hours, plural, one {# heure} other {# heures}}",
