@@ -141,6 +141,8 @@ export const importerDescriptorSchema = z.object({
   description: z.string(),
   /** Soldes financiers : MFA exigée pour lancer l'import. */
   sensitive: z.boolean(),
+  /** `false` : la politique « mettre à jour l'existant » n'existe pas (documents financiers immuables). */
+  supportsUpdate: z.boolean(),
   columns: z.array(importColumnDefSchema),
   options: z.array(importOptionDefSchema),
   /** Permission de lancer cet importeur (en plus de celles du module cible). */

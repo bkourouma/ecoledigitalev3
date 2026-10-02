@@ -17,14 +17,16 @@ export function studentRows(count: number, prefix = "A", start = 1): string[][] 
   const rows: string[][] = [];
   for (let i = 0; i < count; i += 1) {
     const n = start + i;
-    const day = String((n % 27) + 1).padStart(2, "0");
-    const month = String((n % 12) + 1).padStart(2, "0");
+    // Date de naissance UNIQUE par ligne (jusqu'à 7 700 lignes) : deux fiches de même nom et même naissance seraient des doublons probables.
+    const day = String((n % 28) + 1).padStart(2, "0");
+    const month = String((Math.floor(n / 28) % 12) + 1).padStart(2, "0");
+    const year = 1990 + (Math.floor(n / 336) % 23);
     rows.push([
       `T${prefix}-${String(n).padStart(5, "0")}`,
       LAST_NAMES[n % LAST_NAMES.length] as string,
       `${FIRST_NAMES[(n * 7) % FIRST_NAMES.length]} ${prefix}${n}`,
       n % 2 === 0 ? "F" : "M",
-      `${day}/${month}/${2008 + (n % 8)}`,
+      `${day}/${month}/${year}`,
       "Abidjan",
       `07${String(10_000_000 + n).slice(-8)}`,
     ]);

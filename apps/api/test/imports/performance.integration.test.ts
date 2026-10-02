@@ -51,8 +51,8 @@ describeIntegration("imports : performance et mémoire (5 000 lignes, adaptateur
     await w?.drop();
   });
 
-  async function runImport(rows: number, prefix: string) {
-    const bytes = csvOf([STUDENT_HEADERS, ...studentRows(rows, prefix)]);
+  async function runImport(rows: number, prefix: string, start = 1) {
+    const bytes = csvOf([STUDENT_HEADERS, ...studentRows(rows, prefix, start)]);
     const upload = await withHeapPeak(async () => unwrap(await uploadImportFile(deps, ctx, { importerKey: "students", fileName: `eleves-${rows}.csv`, bytes })));
     const jobId = upload.result.job.id;
     unwrap(await setImportMapping(deps, ctx, jobId, { mapping: upload.result.suggestedMapping, runMode: "VALID_ONLY", onExisting: "SKIP" }, viewer));
@@ -61,8 +61,11 @@ describeIntegration("imports : performance et mémoire (5 000 lignes, adaptateur
     expect(validation.result.status).toBe("VALIDATED");
     unwrap(await requestImportRun(deps, ctx, jobId, { runMode: "VALID_ONLY", onExisting: "SKIP", confirm: true }, viewer));
     const run = await withHeapPeak(() => processRun(deps, ctx.tenantId, jobId, { workerId: `perf-r-${jobId}` }));
-    expect(run.result.status).toBe("COMPLETED");
     const job = unwrap(await getImportJob(deps, ctx, jobId, viewer));
+    if (run.result.status !== "COMPLETED") {
+      const bad = await adminRows(w, "SELECT row_no, issues, outcome_issues FROM imports.rows WHERE job_id = $1 AND (validation = 'INVALID' OR outcome = 'FAILED') ORDER BY row_no LIMIT 3", [jobId]);
+      throw new Error(`import non terminé proprement (${job.failedCount} lignes en échec) : ${JSON.stringify(bad)}`);
+    }
     return { jobId, job, upload, validation, run };
   }
 
@@ -75,7 +78,7 @@ describeIntegration("imports : performance et mémoire (5 000 lignes, adaptateur
 
   it("5 000 lignes : import complet, mémoire bornée, rejeu idempotent", async () => {
     const before = Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM people.students"))[0]!.n);
-    const r = await runImport(5000, "Q");
+    const r = await runImport(5000, "Q", 1000);
     expect(r.job).toMatchObject({ createdCount: 5000, failedCount: 0, processedCount: 5000, status: "COMPLETED" });
     expect(Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM people.students"))[0]!.n)).toBe(before + 5000);
     const dup = await adminRows(w, "SELECT external_ref FROM people.students GROUP BY external_ref HAVING count(*) > 1");
@@ -90,7 +93,7 @@ describeIntegration("imports : performance et mémoire (5 000 lignes, adaptateur
 
     // Rejeu : même fichier, mêmes matricules -> tout est ignoré, aucun doublon, aucune écriture dans people.
     const events = Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM kernel.domain_events WHERE type = 'people.student.created'"))[0]!.n);
-    const again = await runImport(5000, "Q");
+    const again = await runImport(5000, "Q", 1000);
     expect(again.job).toMatchObject({ createdCount: 0, skippedCount: 5000, failedCount: 0 });
     expect(Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM people.students"))[0]!.n)).toBe(before + 5000);
     expect(Number((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM kernel.domain_events WHERE type = 'people.student.created'"))[0]!.n)).toBe(events);
