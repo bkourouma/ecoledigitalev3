@@ -366,6 +366,14 @@ describeIntegration("API HTTP /api/v1/attendance/* (Fastify + Postgres réel)", 
     ok(await call(director, "PUT", "/reference/settings", { alertRules: [] }));
     const policy = attendanceCallPolicyDtoSchema.parse(ok(await call(director, "PUT", "/reference/call-policies", { institutionId: school.institutionId, educationLevelCode: "SECONDARY_1", callScope: "SESSION", editWindowMinutes: 240 })));
     expect(policy.editWindowMinutes).toBe(240);
+    // Politique d'appel : lisible aussi par qui peut faire l'appel (l'écran « Faire l'appel » masque les types d'appel interdits),
+    // sans ouvrir pour autant les autres référentiels ni la modification.
+    const takeOnly = as("takeOnly", school.teacher.ctx, ["attendance.take"]);
+    const readable = ok(await call(takeOnly, "GET", "/reference/call-policies"));
+    expect(readable.items.map((p: any) => attendanceCallPolicyDtoSchema.parse(p).callScope)).toContain("SESSION");
+    expect((await call(takeOnly, "GET", "/reference/status-definitions")).status).toBe(403);
+    expect((await call(takeOnly, "PUT", "/reference/call-policies", { institutionId: school.institutionId, educationLevelCode: "SECONDARY_1", callScope: "DAILY" })).status).toBe(403);
+    expect((await call(anonymous, "GET", "/reference/call-policies")).status).toBe(403);
   });
 
   it("AUCUN GET n'écrit (hors l'audit de la lecture d'une pièce) : lignes, événements et audit inchangés", async () => {

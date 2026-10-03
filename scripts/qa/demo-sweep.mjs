@@ -149,6 +149,8 @@ async function extract(page) {
       menuHrefs,
       skeletons: document.querySelectorAll('[aria-busy="true"], .animate-pulse, [data-loading="true"]').length,
       hasLogout: [...document.querySelectorAll("button, a")].some((e) => /d[ée]connect|log ?out|sign ?out/i.test(e.textContent ?? "")),
+      // Navigation globale de la coque (`AppShell`) : un `nav` nomme « Navigation de ... » (menu lateral).
+      hasNav: [...document.querySelectorAll("nav[aria-label]")].some((e) => /^Navigation de/i.test(e.getAttribute("aria-label") ?? "")),
     };
   });
 }

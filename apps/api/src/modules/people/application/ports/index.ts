@@ -123,6 +123,8 @@ export interface AcademicQuery {
   getAcademicPeriod(ctx: RequestContext, periodId: string): Promise<AcademicPeriod | null>;
   /** Nœuds du curriculum de la classe (obligatoires ou non, transversaux ou non). */
   listNodesForClassroom(ctx: RequestContext, classroomId: string, options?: { periodId?: string }): Promise<AcademicNode[]>;
+  /** Code du niveau d'enseignement de la classe (portail enseignant : politique d'appel du cycle). Facultatif. */
+  educationLevelOf?(ctx: RequestContext, classroomId: string): Promise<string | null>;
   /** Classes de l'année (rapport « matières sans enseignant »). Facultatif. */
   listClassrooms?(ctx: RequestContext, filter: { academicYearId: string; programId?: string }): Promise<AcademicClassroom[]>;
   /** Périodes d'une année (portail enseignant : choisir la période d'une évaluation sans `academic.year.read`). Facultatif. */

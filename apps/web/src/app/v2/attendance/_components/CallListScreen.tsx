@@ -17,6 +17,7 @@ import { useDateFormat } from "@/platform/ui/format";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { SelectAsync, type SelectOption } from "@/platform/ui/SelectAsync";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice } from "@/platform/ui/states";
+import { useCallScope, type CallScopeKind } from "./call-scope";
 import { OfflineIndicator } from "./OfflineIndicator";
 
 /** « Mes séances à faire » : les séances du jour de l'enseignant, l'appel journalier de ses classes, la file hors ligne. */
@@ -31,9 +32,22 @@ export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?
   const myClasses = useMyClasses();
   const classrooms = useClassroomDirectory();
 
+  const callScope = useCallScope();
+  // Politique d'appel du cycle : on ne propose pas un type d'appel que l'API refuserait (409 `attendance.call_scope_not_allowed`).
+  // Niveau inconnu (classe hors « mes classes », API ancienne) : tout est proposé, l'API tranche.
+  const levelOfClass = new Map<string, string>();
+  for (const c of myClasses.data ?? []) if (typeof c.educationLevelCode === "string" && c.educationLevelCode !== "") levelOfClass.set(c.classroomId, c.educationLevelCode);
+  const allows = (classroomId: string | null, scope: CallScopeKind) => {
+    const level = classroomId ? levelOfClass.get(classroomId) : undefined;
+    return level === undefined ? true : callScope.allows(level, scope);
+  };
+
   const sessionOfOccurrence = new Map<string, NonNullable<typeof sessions.data>["items"][number]>();
   for (const s of sessions.data?.items ?? []) if (s.occurrenceId) sessionOfOccurrence.set(s.occurrenceId, s);
   const dailySessions = (sessions.data?.items ?? []).filter((s) => s.scope === "DAILY");
+  const todayOccurrences = (today.data?.items ?? []).filter((o) => allows(o.classroomId, "SESSION"));
+  const dailyClasses = (myClasses.data ?? []).filter((c) => allows(c.classroomId, "DAILY"));
+  const sessionCallHidden = (today.data?.items ?? []).length > 0 && todayOccurrences.length === 0;
 
   return (
     <div className="space-y-6">
@@ -50,11 +64,13 @@ export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?
           <LoadingBlock />
         ) : today.isError ? (
           <ErrorBlock error={today.error} onRetry={() => void today.refetch()} />
-        ) : today.data.items.length === 0 ? (
+        ) : sessionCallHidden ? (
+          <Notice kind="info">{t("sessionCallNotAllowed")}</Notice>
+        ) : todayOccurrences.length === 0 ? (
           <EmptyBlock title={t("emptyToday")} description={t("emptyTodayHint")} />
         ) : (
           <ul className="space-y-2">
-            {today.data.items.map((o) => {
+            {todayOccurrences.map((o) => {
               const s = sessionOfOccurrence.get(o.id);
               const time = `${format.dateTime(new Date(o.startsAt), { timeStyle: "short" })} – ${format.dateTime(new Date(o.endsAt), { timeStyle: "short" })}`;
               return (
@@ -78,14 +94,15 @@ export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?
         )}
       </section>
 
+      {dailyClasses.length > 0 || (myClasses.data ?? []).length === 0 ? (
       <section aria-labelledby="daily-title" className="space-y-3">
         <h2 id="daily-title" className="text-lg font-semibold">
           {t("dailyTitle")}
         </h2>
         <p className="text-sm text-muted-foreground">{t("dailyHint")}</p>
-        {(myClasses.data ?? []).length > 0 ? (
+        {dailyClasses.length > 0 ? (
           <ul className="space-y-2">
-            {(myClasses.data ?? []).map((c) => {
+            {dailyClasses.map((c) => {
               const done = dailySessions.find((s) => s.classroomId === c.classroomId);
               return (
                 <li key={c.classroomId} className="flex items-center justify-between gap-3 rounded-lg border p-3">
@@ -105,6 +122,16 @@ export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?
           <OtherCall date={date} />
         </Can>
       </section>
+      ) : (
+        <Can permission="attendance.manage">
+          <section aria-labelledby="daily-title" className="space-y-3">
+            <h2 id="daily-title" className="text-lg font-semibold">
+              {t("dailyTitle")}
+            </h2>
+            <OtherCall date={date} />
+          </section>
+        </Can>
+      )}
 
       <OutboxList basePath={basePath} />
     </div>

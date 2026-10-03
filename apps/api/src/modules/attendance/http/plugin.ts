@@ -598,7 +598,8 @@ export async function attendancePlugin(app: FastifyInstance, options: Attendance
     scope.put("/reference/leave-types", { preHandler: kit.require(P.settingsManage) }, async (req) =>
       present.leaveTypeDto(unwrapOrThrow(await upsertLeaveTypeDefinition(deps, ctxOf(req), parse(attendanceUpsertLeaveTypeBodySchema, req.body)))),
     );
-    scope.get("/reference/call-policies", { preHandler: readRef }, async (req) => ({ items: unwrapOrThrow(await listCallPolicyDefinitions(deps, ctxOf(req))).map(present.callPolicyDto) }));
+    // Politique d'appel : lisible aussi par qui peut faire l'appel (l'écran « Faire l'appel » masque les types d'appel interdits).
+    scope.get("/reference/call-policies", { preHandler: kit.anyOf(P.read, P.settingsManage, P.take) }, async (req) => ({ items: unwrapOrThrow(await listCallPolicyDefinitions(deps, ctxOf(req))).map(present.callPolicyDto) }));
     scope.put("/reference/call-policies", { preHandler: kit.require(P.settingsManage) }, async (req) =>
       present.callPolicyDto(unwrapOrThrow(await upsertCallPolicy(deps, ctxOf(req), parse(attendanceUpsertCallPolicyBodySchema, req.body)))),
     );

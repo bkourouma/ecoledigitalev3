@@ -418,12 +418,13 @@ export async function listMyClasses(deps: PeopleDeps, ctx: RequestContext, staff
     academicYearId: string;
     classroomName: string | null;
     classroomCode: string | null;
+    educationLevelCode: string | null;
     periods: Array<{ id: string; label: string; startsOn: string; endsOn: string }>;
     nodes: Array<{ id: string; label: string }>;
     assignments: Array<{ assignmentId: string; roleCode: string; curriculumNodeId: string | null; nodeLabel: string | null; coversAllSubjects: boolean }>;
   };
   const academic = deps.academic;
-  if (!academic) return ok(base.value.map((c): Out => ({ ...c, classroomName: null, classroomCode: null, periods: [], nodes: [], assignments: c.assignments.map((a) => ({ ...a, nodeLabel: null })) })));
+  if (!academic) return ok(base.value.map((c): Out => ({ ...c, classroomName: null, classroomCode: null, educationLevelCode: null, periods: [], nodes: [], assignments: c.assignments.map((a) => ({ ...a, nodeLabel: null })) })));
   const nodeLabels = new Map<string, string | null>();
   const labelOf = async (nodeId: string): Promise<string | null> => {
     if (!nodeLabels.has(nodeId)) nodeLabels.set(nodeId, await academic.getCurriculumNode(ctx, nodeId).then((n) => n?.label ?? null, () => null));
@@ -442,7 +443,8 @@ export async function listMyClasses(deps: PeopleDeps, ctx: RequestContext, staff
     if (assignments.some((a) => a.coversAllSubjects)) {
       for (const n of await academic.listNodesForClassroom(ctx, c.classroomId).catch(() => [])) if (n.subjectId && !n.isTransversal && n.label) nodes.set(n.id, n.label);
     }
-    enriched.push({ ...c, classroomName: classroom?.name ?? null, classroomCode: classroom?.code ?? null, periods: periodsOfYear.get(c.academicYearId) ?? [], nodes: [...nodes].map(([id, label]) => ({ id, label })), assignments });
+    const educationLevelCode = academic.educationLevelOf ? await academic.educationLevelOf(ctx, c.classroomId).catch(() => null) : null;
+    enriched.push({ ...c, classroomName: classroom?.name ?? null, classroomCode: classroom?.code ?? null, educationLevelCode, periods: periodsOfYear.get(c.academicYearId) ?? [], nodes: [...nodes].map(([id, label]) => ({ id, label })), assignments });
   }
   return ok(enriched);
 }

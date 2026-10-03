@@ -8,7 +8,10 @@ import { PortalShell } from "./PortalShell";
 vi.mock("@/platform/api/default-client", async () => (await import("@/platform/test/api-mock")).defaultClientModule);
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/v2/parent", useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
-vi.mock("next-auth/react", () => ({ signOut: vi.fn(), useSession: () => ({ status: "authenticated", data: null }) }));
+vi.mock("next-auth/react", async () => {
+  const actual = await vi.importActual<typeof import("next-auth/react")>("next-auth/react");
+  return { ...actual, signOut: vi.fn(), useSession: () => ({ status: "authenticated", data: null }) };
+});
 
 /** Forme exacte de `GET /api/v1/tenancy/branding` (`TenantBrandingSchema`) : aucun champ manquant, aucun en trop. */
 const BRANDING = {

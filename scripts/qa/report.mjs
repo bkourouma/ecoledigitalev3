@@ -136,7 +136,7 @@ const CAUSE = {
   "label-not-enrolled": "Statut d'inscription non propage vers ce portail (voir le mapping des evenements d'inscription).",
   "alert-without-api-failure": "Etat d'erreur affiche alors qu'aucune requete n'a echoue : logique de composant.",
   "console-js": "Erreur d'hydratation React : rendu serveur different du rendu client (date/heure, `typeof window`, attribut variable).",
-  "no-shell": "Le layout du module (`app/v2/<module>/layout.tsx`) ne pose qu'un menu a onglets : aucun `TenantAdminShell`/`PortalShell` (nom de l'etablissement, deconnexion, menu global).",
+  "no-shell": "Le layout de premier niveau du module (`app/v2/<module>/layout.tsx`) ne pose pas `<AppShell>` (`platform/shell/AppShell.tsx` : nom de l'etablissement, menu global, modules, compte, deconnexion) ; le test statique `app/v2/shell-coverage.test.ts` le verifie.",
   "empty-state": "A confronter a la graine de demonstration (`scripts/seed-v2`).",
 };
 

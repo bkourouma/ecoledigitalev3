@@ -12,6 +12,8 @@ export class FakeAcademic implements AcademicQuery {
   readonly periods = new Map<string, AcademicPeriod>();
   readonly offerings = new Map<string, { id: string; classroomId: string; periodId?: string | null; nodeIds: string[] }>();
   readonly enrollmentsByStudent = new Map<string, AcademicEnrollment[]>();
+  /** Niveau d'enseignement par classe (`educationLevelOf`). */
+  readonly educationLevels = new Map<string, string>();
 
   addNode(over: Partial<AcademicNode> = {}): AcademicNode {
     const node: AcademicNode = { id: newId(), isTransversal: false, isMandatory: true, subjectId: newId(), label: `Matière ${this.nodes.size + 1}`, ...over };
@@ -34,6 +36,9 @@ export class FakeAcademic implements AcademicQuery {
 
   async getClassroom(_ctx: RequestContext, classroomId: string) {
     return this.classrooms.get(classroomId) ?? null;
+  }
+  async educationLevelOf(_ctx: RequestContext, classroomId: string) {
+    return this.educationLevels.get(classroomId) ?? null;
   }
   async getCurriculumNode(_ctx: RequestContext, nodeId: string) {
     return this.nodes.get(nodeId) ?? null;

@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   BookOpen,
   Building2,
   Calendar,
+  ChevronDown,
   ClipboardList,
   CreditCard,
   FileText,
@@ -53,6 +55,13 @@ export function iconFor(name: string | undefined): LucideIcon {
   return (name && ICONS[name]) || Circle;
 }
 
+export interface SidebarGrouping {
+  moduleOf: (item: MenuItem) => string;
+  labelOf: (moduleKey: string) => string;
+  /** En dessous de ce nombre d'entrées la liste reste plate (défaut 12). */
+  minItems?: number;
+}
+
 export interface PlatformSidebarProps {
   items: readonly MenuItem[];
   /** Libellé accessible de la navigation. */
@@ -64,17 +73,65 @@ export interface PlatformSidebarProps {
   /** Surcharge du chemin courant (tests) ; défaut : `usePathname()`. */
   activePath?: string | null;
   isLoading?: boolean;
+  /**
+   * Regroupement par module (coque de gestion : une centaine d'entrées) : un groupe repliable par module, celui de la page
+   * courante ouvert. Sans cette option, liste plate (portails famille et enseignant).
+   */
+  grouping?: SidebarGrouping;
+}
+
+function SidebarLink({ item, active, onNavigate }: { item: MenuItem; active: boolean; onNavigate?: () => void }) {
+  const Icon = iconFor(item.icon);
+  return (
+    <li>
+      <Link
+        href={item.href}
+        onClick={onNavigate}
+        aria-current={active ? "page" : undefined}
+        className={`flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+          active ? "bg-gray-800 text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
+        }`}
+      >
+        <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+        <span className="truncate">{item.label}</span>
+      </Link>
+    </li>
+  );
 }
 
 /**
- * Sidebar générée depuis le menu de l'API. Petite, sans état, accessible (landmark `nav`, `aria-current`,
- * focus visible, cibles tactiles >= 44px) et pensée mobile-first : elle remplit son conteneur, le tiroir
- * mobile reste géré par `components/layout/Layout.tsx`.
+ * Sidebar générée depuis le menu de l'API. Petite, accessible (landmark `nav`, `aria-current`, focus visible, cibles
+ * tactiles >= 44px) et pensée mobile-first : elle remplit son conteneur, le tiroir mobile est géré par la coque.
  */
-export function PlatformSidebar({ items, label = "Navigation principale", onNavigate, onClose, activePath, isLoading }: PlatformSidebarProps) {
+export function PlatformSidebar({ items, label = "Navigation principale", onNavigate, onClose, activePath, isLoading, grouping }: PlatformSidebarProps) {
   const currentPath = usePathname();
   const sorted = sortMenuItems(items);
   const activeKey = findActiveMenuKey(sorted, activePath ?? currentPath);
+
+  const grouped = grouping && sorted.length >= (grouping.minItems ?? 12);
+  const groups = useMemo(() => {
+    if (!grouping || !grouped) return [];
+    const map = new Map<string, MenuItem[]>();
+    for (const item of sorted) {
+      const key = grouping.moduleOf(item);
+      map.set(key, [...(map.get(key) ?? []), item]);
+    }
+    return [...map].map(([key, list]) => ({ key, label: grouping.labelOf(key), items: list }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `sorted` est recalculé à chaque rendu ; on dépend des entrées
+  }, [items, grouped, grouping?.moduleOf, grouping?.labelOf]);
+  const activeGroup = groups.find((g) => g.items.some((i) => i.key === activeKey))?.key ?? null;
+  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set(activeGroup ? [activeGroup] : []));
+  // Naviguer vers un autre module ouvre son groupe (les groupes ouverts à la main le restent).
+  useEffect(() => {
+    if (activeGroup) setOpened((prev) => (prev.has(activeGroup) ? prev : new Set([...prev, activeGroup])));
+  }, [activeGroup]);
+  const toggle = (key: string) =>
+    setOpened((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
     <div className="h-full bg-gray-900 flex flex-col" data-testid="platform-sidebar">
@@ -104,27 +161,41 @@ export function PlatformSidebar({ items, label = "Navigation principale", onNavi
               <li key={i} className="h-11 animate-pulse rounded-md bg-gray-800" />
             ))}
           </ul>
-        ) : (
+        ) : grouped ? (
           <ul className="space-y-1">
-            {sorted.map((item) => {
-              const Icon = iconFor(item.icon);
-              const active = item.key === activeKey;
+            {groups.map((group) => {
+              const open = opened.has(group.key);
+              const panelId = `sidebar-group-${group.key}`;
               return (
-                <li key={item.key}>
-                  <Link
-                    href={item.href}
-                    onClick={onNavigate}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-                      active ? "bg-gray-800 text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                <li key={group.key}>
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    aria-controls={panelId}
+                    onClick={() => toggle(group.key)}
+                    className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                      group.key === activeGroup ? "text-white" : "text-gray-400 hover:text-white"
                     }`}
                   >
-                    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="truncate">{item.label}</span>
-                  </Link>
+                    <span className="truncate">{group.label}</span>
+                    <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+                  </button>
+                  {open ? (
+                    <ul id={panelId} className="space-y-1 pb-2">
+                      {group.items.map((item) => (
+                        <SidebarLink key={item.key} item={item} active={item.key === activeKey} onNavigate={onNavigate} />
+                      ))}
+                    </ul>
+                  ) : null}
                 </li>
               );
             })}
+          </ul>
+        ) : (
+          <ul className="space-y-1">
+            {sorted.map((item) => (
+              <SidebarLink key={item.key} item={item} active={item.key === activeKey} onNavigate={onNavigate} />
+            ))}
           </ul>
         )}
       </nav>

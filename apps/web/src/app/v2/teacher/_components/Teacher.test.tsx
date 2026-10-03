@@ -114,6 +114,16 @@ describe("Mes classes : périmètre de l'enseignant", () => {
     expect(screen.getByRole("link", { name: /Évaluations/ }).getAttribute("href")).toBe(`/v2/teacher/assessments?classroom=${MINE}`);
   });
 
+  it("politique d'appel du cycle : pas d'appel journalier en secondaire (politique par séance), appel proposé au primaire", async () => {
+    const policies = { items: [{ institutionId: uuid(1), educationLevelCode: "PRIMARY", callScope: "DAILY", editWindowMinutes: null, lateRequiresMinutes: false, dailyMinutes: null }, { institutionId: uuid(1), educationLevelCode: "*", callScope: "SESSION", editWindowMinutes: 120, lateRequiresMinutes: false, dailyMinutes: null }] };
+    const primaire = { ...myClass, classroomId: uuid(501), classroomName: "CM2", educationLevelCode: "PRIMARY" };
+    setTestApi(base({ "GET /api/v1/people/me/classes": { items: [{ ...myClass, educationLevelCode: "SECONDARY_1" }, primaire] }, "GET /api/v1/attendance/reference/call-policies": policies }));
+    renderWithProviders(<TeacherClasses />);
+    expect(await screen.findByRole("heading", { level: 2, name: "CM2" })).toBeTruthy();
+    await waitFor(() => expect(screen.getAllByRole("link", { name: /Faire l'appel/ })).toHaveLength(1));
+    expect(screen.getByRole("link", { name: /Faire l'appel/ }).getAttribute("href")).toContain(`/daily/${uuid(501)}`);
+  });
+
   it("aucune affectation : état vide", async () => {
     setTestApi(base({ "GET /api/v1/people/me/classes": { items: [] } }));
     renderWithProviders(<TeacherClasses />);

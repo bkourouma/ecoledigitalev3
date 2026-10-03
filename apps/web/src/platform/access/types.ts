@@ -3,7 +3,7 @@
  *
  * Endpoints du kernel/RBAC (Phase 1, piste A) :
  *   GET /api/v1/rbac/me/permissions -> { permissions: string[] }
- *   GET /api/v1/entitlements/me/features -> { features: string[] }  (tout membre authentifié)
+ *   GET /api/v1/entitlements/me     -> { features: string[], plan?: string | null, packs?: string[] }
  *
  * Quand `packages/contracts/src/v2/*` publiera ces schémas, remplacer les définitions ci-dessous par un
  * import ; la forme est volontairement minimale pour que ce changement soit transparent.
@@ -47,8 +47,20 @@ export const MyEntitlementsSchema = z.object({
 export type MyEntitlements = z.infer<typeof MyEntitlementsSchema>;
 
 export const PERMISSIONS_ENDPOINT = "/api/v1/rbac/me/permissions";
+export const ENTITLEMENTS_ENDPOINT = "/api/v1/entitlements/me";
+
 /**
- * Fonctionnalités actives : vue minimale ouverte à tout membre authentifié (`MyFeaturesSchema` côté API : uniquement
- * `{ features }`). L'ancienne lecture de `/entitlements/me` exige `entitlements.read` et répondait 403 aux autres rôles.
+ * Fonctionnalités actives lisibles par TOUT membre authentifié (`GET /api/v1/entitlements/me/features`) : l'abonnement complet
+ * (`/entitlements/me`, permission `entitlements.read`) reste réservé à la direction. Réponses acceptées : `{ features: [...] }`
+ * ou une liste nue, chaque fonctionnalité étant une clé ou un objet portant `key`. Normalisé vers `MyEntitlements`.
  */
-export const ENTITLEMENTS_ENDPOINT = "/api/v1/entitlements/me/features";
+const FeatureEntrySchema = z.union([z.string(), z.object({ key: z.string() })]);
+export const MyFeaturesSchema = z
+  .union([z.object({ features: z.array(FeatureEntrySchema), plan: z.string().nullish(), packs: z.array(z.string()).optional() }), z.array(FeatureEntrySchema)])
+  .transform((value): MyEntitlements => {
+    const features = Array.isArray(value) ? value : value.features;
+    const keys = features.map((f) => (typeof f === "string" ? f : f.key));
+    return Array.isArray(value) ? { features: keys } : { features: keys, plan: value.plan ?? null, ...(value.packs ? { packs: value.packs } : {}) };
+  });
+
+export const ENTITLEMENT_FEATURES_ENDPOINT = "/api/v1/entitlements/me/features";

@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { useShellMenu } from "@/platform/shell/context";
 
 /**
  * Cadre commun des pages d'authentification V2 : une colonne centrée, mobile d'abord, un seul `<main>` et un seul
@@ -9,7 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
  * le fait la page de connexion historique, pour que le formulaire reste atteignable sur un petit écran / clavier ouvert.
  */
 export function AuthShell({ title, description, children, wide = false }: { title: string; description?: string; children: ReactNode; wide?: boolean }) {
+  // Dans la coque de navigation (sécurité du compte, membres : pages ouvertes depuis le menu), la page n'a ni son propre
+  // `<main>` ni sa colonne plein écran : c'est la coque qui les fournit.
+  const inShell = useShellMenu() !== null;
   useEffect(() => {
+    if (inShell) return;
     const html = document.documentElement.style;
     const body = document.body.style;
     const saved = { hOverflow: html.overflow, hHeight: html.height, bOverflow: body.overflow, bOverflowY: body.overflowY, bHeight: body.height };
@@ -25,7 +30,21 @@ export function AuthShell({ title, description, children, wide = false }: { titl
       body.overflowY = saved.bOverflowY;
       body.height = saved.bHeight;
     };
-  }, []);
+  }, [inShell]);
+
+  if (inShell) {
+    return (
+      <div className={`mx-auto w-full space-y-6 ${wide ? "max-w-3xl" : "max-w-md"}`}>
+        <Card variant="glass">
+          <CardHeader>
+            <h1 className="gradient-text text-2xl font-semibold leading-tight tracking-tight">{title}</h1>
+            {description ? <CardDescription>{description}</CardDescription> : null}
+          </CardHeader>
+          <CardContent className="space-y-4">{children}</CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen flex items-start justify-center bg-background px-4 pb-16 pt-8 sm:px-6 sm:pt-12">

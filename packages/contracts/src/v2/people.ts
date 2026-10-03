@@ -1212,6 +1212,8 @@ export const peopleMyClassDtoSchema = z.object({
   /** Nom et code de la classe (ajoutés quand `academic` est branché ; `null` sinon) : de quoi nommer « mes classes » sans `academic.classroom.read`. */
   classroomName: z.string().nullable().optional(),
   classroomCode: z.string().nullable().optional(),
+  /** Code du niveau d'enseignement de la classe : de quoi appliquer la politique d'appel du cycle (journalier ou par séance) sans `academic.classroom.read`. */
+  educationLevelCode: z.string().nullable().optional(),
   /** Périodes de l'année de la classe : de quoi choisir la période d'une évaluation sans `academic.year.read`. */
   periods: z.array(z.object({ id: peopleUuidSchema, label: z.string(), startsOn: peopleDateSchema, endsOn: peopleDateSchema })).optional(),
   /** Matières que l'enseignant peut évaluer dans la classe (ses affectations ; toutes les matières pour un généraliste). */

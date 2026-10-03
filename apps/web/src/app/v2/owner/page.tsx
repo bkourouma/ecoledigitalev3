@@ -1,7 +1,9 @@
-import { requirePermission } from "@/platform/auth/server";
-import { FreshnessScreen } from "./_components/PayrollCharges";
+import { redirect } from "next/navigation";
 
-export default async function OwnerHomePage() {
-  await requirePermission("analytics.read");
-  return <FreshnessScreen />;
+/**
+ * `/v2/owner` : l'atterrissage du propriétaire est le tableau de bord de la direction (`/v2/direction`). L'écran technique
+ * « Fraîcheur des données de pilotage » est désormais `/v2/owner/fraicheur` (dernier onglet du pilotage).
+ */
+export default function OwnerHomePage() {
+  redirect("/v2/direction");
 }

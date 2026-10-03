@@ -240,7 +240,7 @@ describe("écran /v2/audit", () => {
     expect(calls.some((c) => c.path.endsWith("/export"))).toBe(false);
 
     // Avec période appliquée : l'export part avec from/to/limit.
-    fireEvent.change(screen.getByLabelText("Du"), { target: { value: "2026-09-20T00:00" } });
+    fireEvent.change(await screen.findByLabelText("Du"), { target: { value: "2026-09-20T00:00" } });
     fireEvent.change(screen.getByLabelText("Au"), { target: { value: "2026-10-01T00:00" } });
     fireEvent.click(screen.getByRole("button", { name: "Appliquer les filtres" }));
     await waitFor(() => expect(logCalls().at(-1)!.query.get("from")).not.toBeNull());
@@ -264,7 +264,7 @@ describe("écran /v2/audit", () => {
     renderScreen(<AuditPage />);
     const button = await screen.findByRole("button", { name: /Exporter en CSV/ });
     await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.change(screen.getByLabelText("Du"), { target: { value: "2026-09-20T00:00" } });
+    fireEvent.change(await screen.findByLabelText("Du"), { target: { value: "2026-09-20T00:00" } });
     fireEvent.change(screen.getByLabelText("Au"), { target: { value: "2026-10-01T00:00" } });
     fireEvent.click(screen.getByRole("button", { name: "Appliquer les filtres" }));
     await waitFor(() => expect(logCalls().at(-1)!.query.get("from")).not.toBeNull());

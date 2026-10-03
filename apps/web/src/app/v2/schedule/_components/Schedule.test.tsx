@@ -354,7 +354,7 @@ describe("TimetableEditor : patrons récurrents", () => {
     renderWithProviders(<TimetableEditor id={IDS.timetable} />);
     expect(await screen.findByText("Seul un brouillon est modifiable.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Ajouter un créneau" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Générer les séances" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Générer les séances" }));
     const dialog = await screen.findByRole("dialog", { name: "Générer les séances" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Générer" }));
     const report = await screen.findByRole("region", { name: /Génération du/ }).catch(() => null);

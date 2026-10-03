@@ -55,11 +55,12 @@ const UsageListSchema = z.object({ items: z.array(UsageCounterSchema) });
 
 // --------------------------------------------------------------------------- profil
 
-export function useTenantProfile() {
+export function useTenantProfile(options: { enabled?: boolean } = {}) {
   return platformHooks.useApiQuery<TenantProfile>(["tenancy", "profile", "full"], `${TENANCY}/profile`, {
     schema: TenantProfileSchema,
     staleTime: FIVE_MINUTES,
     retry: false,
+    ...(options.enabled !== undefined ? { enabled: options.enabled } : {}),
   });
 }
 

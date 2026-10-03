@@ -59,9 +59,12 @@ export function sortMenuItems(items: readonly MenuItem[]): MenuItem[] {
 export function findActiveMenuKey(items: readonly MenuItem[], pathname: string | null | undefined): string | null {
   if (!pathname) return null;
   let best: MenuItem | null = null;
+  const current = pathname.split("?")[0]!;
   for (const item of items) {
-    const matches = pathname === item.href || pathname.startsWith(item.href.endsWith("/") ? item.href : `${item.href}/`);
-    if (matches && (!best || item.href.length > best.href.length)) best = item;
+    // L'entrée peut porter un filtre (`/v2/assessments?status=SUBMITTED`) : seul le chemin compte pour l'entrée active.
+    const target = item.href.split("?")[0]!;
+    const matches = current === target || current.startsWith(target.endsWith("/") ? target : `${target}/`);
+    if (matches && (!best || target.length > best.href.split("?")[0]!.length)) best = item;
   }
   return best?.key ?? null;
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { routeForRole } from "@/lib/role-landing";
+import { routeForRole, v2RouteForRole } from "@/lib/role-landing";
 
 const saved = process.env.NEXT_PUBLIC_V2_LANDING;
 afterEach(() => {
@@ -17,16 +17,17 @@ describe("routeForRole", () => {
     expect(routeForRole("directeur")).toBe("/tableau-de-bord");
   });
 
-  it("NEXT_PUBLIC_V2_LANDING=1 : un écran v2 par rôle, repli sur les paramètres", () => {
+  it("NEXT_PUBLIC_V2_LANDING=1 : un écran v2 par rôle, repli sur l'accueil de gestion", () => {
     process.env.NEXT_PUBLIC_V2_LANDING = "1";
-    expect(routeForRole("owner")).toBe("/v2/owner");
+    expect(routeForRole("owner")).toBe("/v2/direction");
     expect(routeForRole("directeur")).toBe("/v2/direction");
     expect(routeForRole("teacher")).toBe("/v2/teacher");
     expect(routeForRole("instituteur")).toBe("/v2/primary");
     expect(routeForRole("parent")).toBe("/v2/parent");
     expect(routeForRole("student")).toBe("/v2/student");
     expect(routeForRole("econome")).toBe("/v2/finance");
-    expect(routeForRole("rôle-inconnu")).toBe("/v2/settings");
-    expect(routeForRole(undefined)).toBe("/v2/settings");
+    expect(routeForRole("rôle-inconnu")).toBe("/v2/home");
+    expect(routeForRole(undefined)).toBe("/v2/home");
+    expect(v2RouteForRole("admissions_officer")).toBe("/v2/admissions");
   });
 });
