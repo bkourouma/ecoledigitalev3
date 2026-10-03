@@ -168,6 +168,12 @@ if (loginFailures.length) L(`- Connexions en échec : ${loginFailures.map((r) =>
 L();
 L("Gravités : **bloquant** = page inutilisable (5xx, écran d'erreur ou blanc, exception, lien de menu mort, boucle) ; **majeur** = fonction cassée ou donnée fausse (appel API rejeté sur une page atteignable par l'interface, clé i18n brute, `undefined`, lien menant à un refus, libellé incohérent) ; **mineur** = cosmétique, refus 403/404 attendu sur une page hors menu (route de l'arborescence sans lien depuis l'interface), bruit console.");
 L();
+// Synthèse rédigée à la main (priorités, corrections livrées, décisions à prendre) : `scripts/qa/report-notes.txt`.
+const notesFile = join(repoRoot, "scripts", "qa", "report-notes.txt");
+if (existsSync(notesFile)) {
+  L(readFileSync(notesFile, "utf8").trim());
+  L();
+}
 L("## Couverture par rôle");
 L();
 L("| Établissement | Rôle | Atterrissage | Pages | Menu (liens) | Bloquant | Majeur | Mineur |");
@@ -240,12 +246,12 @@ else {
   L("| Établissement | Rôle | Liens du menu rendu | Entrées API (tous portails) | Entrées API absentes du menu rendu | Droits / abonnement (`entitlements/me`) |");
   L("|---|---|---:|---:|---|---|");
   for (const r of menus.values()) {
-    const rendered = new Set(r.landingMenu ?? []);
+    const rendered = new Set([...(r.landingMenu ?? []), ...(r.adminMenu ?? [])]);
     const apiItems = Object.values(r.api?.navigation ?? {}).flat();
     // Seul le portail `admin` de l'API alimente le menu rendu par la coquille d'administration (`buildV2Menu`, avec `mapToV2Href`).
     const adminItems = (r.api?.navigation?.admin ?? []).filter((it) => it?.href);
-    const missing = adminItems.filter((it) => !rendered.has(LEGACY_TO_V2[it.href] ?? it.href)).map((it) => `${it.label} (\`${it.href}\`)`);
-    L(`| ${short(r.account.tenant)} | ${r.account.role} | ${rendered.size} | ${apiItems.length} | ${missing.length ? missing.slice(0, 6).join(", ") + (missing.length > 6 ? ` … (+${missing.length - 6})` : "") : "—"} | ${r.api ? (r.api.entitlementsStatus === 200 ? "lisible" : `HTTP ${r.api.entitlementsStatus}`) : "?"} |`);
+    const missing = adminItems.filter((it) => !rendered.has(it.href) && !rendered.has(LEGACY_TO_V2[it.href] ?? it.href)).map((it) => `${it.label} (\`${it.href}\`)`);
+    L(`| ${short(r.account.tenant)} | ${r.account.role} | ${rendered.size} | ${apiItems.length} | ${missing.length ? missing.slice(0, 3).join(", ") + (missing.length > 3 ? ` … (+${missing.length - 3})` : "") : "—"} | ${r.api ? (r.api.entitlementsStatus === 200 ? "lisible" : `HTTP ${r.api.entitlementsStatus}`) : "?"} |`);
   }
 }
 L();
