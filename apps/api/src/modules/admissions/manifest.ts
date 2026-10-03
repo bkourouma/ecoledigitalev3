@@ -78,7 +78,7 @@ export default defineModule({
     { key: "admissions.prospects", label: "Prospects", href: "/v2/admissions/prospects", permission: "admission.prospect.manage", feature: "admissions.core", portal: "admin", icon: "users", order: 720 },
     { key: "admissions.waitlist", label: "Listes d'attente", href: "/v2/admissions/waitlist", permission: "admission.waitlist.manage", feature: "admissions.waitlist", portal: "admin", icon: "clock", order: 730 },
     { key: "admissions.campaigns", label: "Campagnes d'admission", href: "/v2/admissions/campaigns", permission: "admission.campaign.manage", feature: "admissions.core", portal: "admin", icon: "calendar", order: 740 },
-    { key: "admissions.workflow", label: "Parcours d'admission", href: "/v2/admissions/workflow", permission: "admission.workflow.manage", feature: "admissions.core", portal: "admin", icon: "workflow", order: 750 },
+    { key: "admissions.workflow", label: "Parcours d'admission", href: "/v2/admissions/settings/workflow", permission: "admission.workflow.manage", feature: "admissions.core", portal: "admin", icon: "workflow", order: 750 },
     { key: "admissions.reports", label: "Recrutement : tableaux de bord", href: "/v2/admissions/reports", permission: "admission.report.read", feature: "admissions.core", portal: "admin", icon: "chart", order: 760 },
     { key: "admissions.settings", label: "Paramètres des admissions", href: "/v2/admissions/settings", permission: "admission.settings.manage", feature: "admissions.core", portal: "admin", icon: "settings", order: 770 },
   ],
