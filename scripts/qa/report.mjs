@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Genere `docs/qa/demo-sweep-report.md` a partir des JSON bruts de `demo-sweep.mjs` (`.demo/qa/sweep-*.json`).
+ * Genere `docs/qa/demo-sweep-report.md` a partir des JSON bruts de `demo-sweep.mjs` (`.demo/qa/acct-*.json`).
  * Pour chaque couple tenant/role, seul le resultat le plus recent est retenu. Aucun secret : les JSON ne contiennent que des
  * e-mails de demonstration, des chemins et des extraits de texte d'ecran.
  *
@@ -11,7 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { demoDir, repoRoot } from "./lib.mjs";
-import { SEVERITY_ORDER } from "./analyze.mjs";
+import { SEVERITY_ORDER, TECHNICAL_KEY_PAGES } from "./analyze.mjs";
 import { listTreeEntries, patternOf, sourceFileOf } from "./tree.mjs";
 
 const args = Object.fromEntries(process.argv.slice(2).map((a) => { const m = /^--([^=]+)=(.*)$/.exec(a); return m ? [m[1], m[2]] : [a, true]; }));
@@ -22,9 +22,10 @@ const fixed = existsSync(fixedFile) ? JSON.parse(readFileSync(fixedFile, "utf8")
 
 // --- chargement : dernier resultat par tenant/role -----------------------------------------------------------------------------
 const latest = new Map();
-for (const f of readdirSync(inDir).filter((n) => /^sweep-.*\.json$/.test(n)).sort()) {
+for (const f of readdirSync(inDir).filter((n) => /^acct-.*.json$/.test(n)).sort()) {
   const data = JSON.parse(readFileSync(join(inDir, f), "utf8"));
-  for (const r of data.results) latest.set(`${r.account.tenant}/${r.account.role}`, { ...r, file: f, generatedAt: data.generatedAt });
+  const r = data.result;
+  latest.set(`${r.account.tenant}/${r.account.role}`, { ...r, file: f, generatedAt: data.generatedAt, done: data.done });
 }
 const results = [...latest.values()];
 if (!results.length) throw new Error(`Aucun resultat dans ${inDir}`);
@@ -43,8 +44,12 @@ for (const r of results) {
     const route = p.pattern ?? patternOf(p.url.split("?")[0]) ?? p.url;
     visitedPatterns.add(route);
     for (const f of p.findings ?? []) {
-      const key = `${f.code}|${norm(f.message)}|${route}`;
-      const g = groups.get(key) ?? { severity: f.severity, code: f.code, message: norm(f.message), route, evidence: f.evidence, urls: new Set(), roles: new Set(), shot: p.screenshot, ms: 0 };
+      if (f.code === "raw-i18n-key" && TECHNICAL_KEY_PAGES.test(p.url.split("?")[0])) continue;
+      // Defauts d'API systemiques (meme appel en echec sur beaucoup de pages) : un seul constat, avec la liste des pages.
+      const systemic = f.code.startsWith("api-");
+      const key = systemic ? `${f.code}|${norm(f.message).replace(/\?\S*/, "")}` : `${f.code}|${norm(f.message)}|${route}`;
+      const g = groups.get(key) ?? { severity: f.severity, code: f.code, message: norm(f.message), route, routes: new Set(), evidence: f.evidence, urls: new Set(), roles: new Set(), shot: p.screenshot, systemic };
+      g.routes.add(route);
       g.urls.add(p.url);
       g.roles.add(`${r.account.tenant.replace("demo-", "")}/${r.account.role}`);
       if (SEVERITY_ORDER[f.severity] < SEVERITY_ORDER[g.severity]) g.severity = f.severity;

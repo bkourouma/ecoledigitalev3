@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { useClassroom, useClassroomAction, type ClassroomAction } from "@/platform/v2/academic";
 import { useClassroomAssignments, useStudents } from "@/platform/v2/people";
 import { usePrograms, useReference, useAcademicYears } from "@/platform/v2/academic";
-import { Can } from "@/platform/ui/AccessGate";
+import { Can, GuardedLink } from "@/platform/ui/AccessGate";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
 import { useDateFormat } from "@/platform/ui/format";
 import { ReasonDialog } from "@/platform/ui/ModalDialog";
@@ -118,9 +118,9 @@ export function ClassroomDetail({ id }: { id: string }) {
           <h2 id="class-assign" className="text-lg font-semibold">
             {t("assignments.title")}
           </h2>
-          <Link href={`/v2/staff/assignments?classroomId=${c.id}`} className={buttonClass.secondary}>
+          <GuardedLink permission="teaching.read" href={`/v2/staff/assignments?classroomId=${c.id}`} className={buttonClass.secondary}>
             {t("assignments.manage")}
-          </Link>
+          </GuardedLink>
         </div>
         <DataTable caption={t("assignments.caption")} columns={assignmentColumns} rows={assignments.data ?? []} getRowId={(a) => a.id} isLoading={assignments.isFetching} error={assignments.error} onRetry={() => void assignments.refetch()} emptyTitle={t("assignments.empty")} />
       </section>

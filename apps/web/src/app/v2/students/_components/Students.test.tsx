@@ -100,6 +100,22 @@ describe("StudentDetail", () => {
     expect(screen.queryByRole("button", { name: "Afficher les informations sensibles" })).toBeNull();
   });
 
+  it("liens vers la classe et le tuteur : texte simple sans la permission de la page cible (pas de /unauthorized)", async () => {
+    const withLinks = { [`GET /api/v1/people/students/${uuid(2000)}`]: studentDetail({ currentEnrollment: { enrollmentId: uuid(1000), academicYearId: uuid(100), institutionId: uuid(1), classroomId: uuid(500), classroomName: "Licence 1 A", status: "ACTIVE", registrationNumber: "2026-0001" }, primaryGuardian: { guardianId: uuid(3000), displayName: "KONE Mariam", relationshipCode: "MOTHER", phone: null } as never }) };
+    setTestApi(detailRoutes(["student.read"], withLinks));
+    const first = renderWithProviders(<StudentDetail id={uuid(2000)} />);
+    expect(await screen.findByText("Licence 1 A")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Licence 1 A" })).toBeNull());
+    expect(screen.queryByRole("link", { name: "KONE Mariam" })).toBeNull();
+    first.unmount();
+
+    setTestApi(detailRoutes(["student.read", "academic.classroom.read", "guardian.read"], withLinks));
+    renderWithProviders(<StudentDetail id={uuid(2000)} />);
+    const classLink = await screen.findByRole("link", { name: "Licence 1 A" });
+    expect(classLink.getAttribute("href")).toBe(`/v2/academic/classrooms/${uuid(500)}`);
+    expect((await screen.findByRole("link", { name: "KONE Mariam" })).getAttribute("href")).toBe(`/v2/guardians/${uuid(3000)}`);
+  });
+
   it("tuteurs : liste avec rôles, lier un tuteur existant (corps exact), clôturer un lien avec motif en paramètres", async () => {
     const api = setTestApi(
       detailRoutes(["student.read", "guardian.read", "guardian.manage"], {

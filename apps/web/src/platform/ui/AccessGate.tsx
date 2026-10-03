@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { useFeature, usePermission } from "@/platform/access";
@@ -32,4 +33,20 @@ export function Feature({ feature, children, fallback = null }: { feature: strin
 export function FeatureNotice({ children }: { children?: ReactNode }) {
   const t = useTranslations("errors");
   return <Notice kind="info">{children ?? t("unavailableFeature")}</Notice>;
+}
+
+/**
+ * Lien vers un écran protégé par une permission : sans elle, le libellé s'affiche en texte simple plutôt que de mener
+ * à `/unauthorized` (constat du balayage QA : liens de détail ouverts par des rôles qui n'ont pas la permission de la
+ * page cible). Fail-closed : sans réponse des permissions, pas de lien. La garde serveur de la page cible reste la barrière.
+ */
+export function GuardedLink({ permission, href, className, children }: { permission: string; href: string; className?: string; children: ReactNode }) {
+  const { allowed } = usePermission(permission);
+  return allowed ? (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
+  ) : (
+    <span>{children}</span>
+  );
 }

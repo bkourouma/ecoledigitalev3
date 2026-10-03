@@ -30,7 +30,7 @@ import {
   useUpdateGuardianLink,
 } from "@/platform/v2/people";
 import { useGuardianOptions } from "@/platform/v2/lookups";
-import { Can } from "@/platform/ui/AccessGate";
+import { Can, GuardedLink } from "@/platform/ui/AccessGate";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
 import { FormField, NativeSelect, TextControl } from "@/platform/ui/FormField";
 import { useDateFormat } from "@/platform/ui/format";
@@ -67,9 +67,9 @@ export function GuardiansTab({ studentId }: { studentId: string }) {
       rowHeader: true,
       cell: (g) => (
         <span>
-          <Link href={`/v2/guardians/${g.guardian.id}`} className="font-medium text-primary underline-offset-4 hover:underline">
+          <GuardedLink permission="guardian.read" href={`/v2/guardians/${g.guardian.id}`} className="font-medium text-primary underline-offset-4 hover:underline">
             {g.guardian.displayName}
-          </Link>
+          </GuardedLink>
           {g.guardian.phone ? <span className="block text-xs text-muted-foreground">{g.guardian.phone}</span> : null}
         </span>
       ),

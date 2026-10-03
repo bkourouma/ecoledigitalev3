@@ -10,7 +10,7 @@ import { useDateFormat } from "@/platform/ui/format";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
 import { useDescribeError } from "@/platform/ui/errors";
-import { Can } from "@/platform/ui/AccessGate";
+import { Can, GuardedLink } from "@/platform/ui/AccessGate";
 import { DecisionDialog } from "./DecisionDialog";
 import { EditApplicationDialog } from "./EditApplicationDialog";
 import { DossierAttach } from "./DossierAttach";
@@ -131,14 +131,14 @@ function EnrollmentStatus({ application }: { application: AdmissionsApplicationD
       </p>
       <p className="mt-1 flex flex-wrap gap-3 text-sm">
         {application.studentId ? (
-          <Link href={`/v2/students/${application.studentId}`} className="text-primary hover:underline">
+          <GuardedLink permission="student.read" href={`/v2/students/${application.studentId}`} className="text-primary hover:underline">
             {t("studentFile")}
-          </Link>
+          </GuardedLink>
         ) : null}
         {application.enrollmentId ? (
-          <Link href={`/v2/enrollments/${application.enrollmentId}`} className="text-primary hover:underline">
+          <GuardedLink permission="enrollment.read" href={`/v2/enrollments/${application.enrollmentId}`} className="text-primary hover:underline">
             {t("enrollmentFile")}
-          </Link>
+          </GuardedLink>
         ) : null}
       </p>
     </section>

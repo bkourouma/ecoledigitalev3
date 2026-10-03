@@ -41,6 +41,8 @@ export function rawI18nKeys(text) {
   return [...out];
 }
 
+export const TECHNICAL_KEY_PAGES = /^\/v2\/(access|audit|rules|platform\/audit|imports|notifications\/(rules|templates)|analytics\/alertes\/regles)(\/|$)/;
+
 export function isDeniedPath(p) {
   return /^\/(v2\/)?(unauthorized|forbidden)(\/|$|\?)/.test(p ?? "");
 }
@@ -104,7 +106,10 @@ export function analyzePage(rec, env) {
     if (a.status >= 500) add("bloquant", "api-5xx", `Erreur serveur API : ${msg}`, ev);
     else if (a.status === 429) add("mineur", "api-429", `Limitation de debit : ${msg}`, ev);
     else if (a.status === 403) add(inMenu ? "majeur" : "mineur", "api-403", inMenu ? `Appel refuse (403) depuis une page du menu : ${msg}` : `Appel refuse (403, attendu hors menu) : ${msg}`, ev);
-    else if (a.status === 401) add("majeur", "api-401", `Appel non authentifie : ${msg}`, ev);
+    else if (a.status === 401 && /(profil|dossier).{0,40}(li[ée]|rattach)|aucun .{0,30}li[ée] [àa] votre compte/i.test(a.body)) {
+      // « Aucun profil d'eleve lie a votre compte » : 401 est un mauvais code (attendu : 403/404), mais le refus est normal pour un compte sans ce profil.
+      add(inMenu ? "majeur" : "mineur", "api-401-no-profile", `${msg} (profil absent du compte ; l'API devrait repondre 403/404, pas 401)`, ev);
+    } else if (a.status === 401) add("majeur", "api-401", `Appel non authentifie : ${msg}`, ev);
     else if (a.status === 404) add(inMenu ? "majeur" : "mineur", "api-404", `Ressource ou route API introuvable : ${msg}`, ev);
     else add("majeur", `api-${a.status}`, `Requete rejetee : ${msg}`, ev);
   }
@@ -129,7 +134,8 @@ export function analyzePage(rec, env) {
     for (const tk of SUSPECT_TOKENS) {
       if (tk.re.test(main)) add(tk.severity, "suspect-text", `Texte suspect « ${tk.label} » affiche`, snippet(main, tk.re));
     }
-    const keys = rawI18nKeys(main);
+    // Ces ecrans affichent legitimement des identifiants techniques (permissions, evenements d'audit, regles) : pas de detection de cles i18n.
+    const keys = TECHNICAL_KEY_PAGES.test(path) ? [] : rawI18nKeys(main);
     if (keys.length) add("majeur", "raw-i18n-key", `Cle(s) i18n brute(s) affichee(s) : ${keys.slice(0, 5).join(", ")}`, keys.slice(0, 5).join(" | "));
     if (/Non inscrit/i.test(main) && /^(parent|eleve)$/.test(env.account.role)) {
       add("majeur", "label-not-enrolled", "Libelle « Non inscrit » pour un compte parent/eleve de la demo (eleve inscrit ?)", snippet(main, /Non inscrit/i, 80));

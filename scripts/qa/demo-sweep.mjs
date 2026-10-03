@@ -17,9 +17,9 @@
  * Chaque page est analysee : statut, redirections, erreurs console, requetes API en echec, ecran d'erreur, ecran blanc, textes
  * suspects (undefined, null, [object Object], NaN, cles i18n brutes), libelles incoherents.
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { demoDir, loadCredentials, loadPlaywright, tenantOrigin, totpAt, WEB_PORT, findUp } from "./lib.mjs";
+import { apiCall, demoDir, loadCredentials, loadPlaywright, tenantOrigin, totpAt, WEB_PORT, findUp } from "./lib.mjs";
 import { analyzePage } from "./analyze.mjs";
 import { listTreeRoutes, patternOf } from "./tree.mjs";
 
@@ -35,7 +35,7 @@ const MAX_PAGES_ARG = args["max-pages"] ? Number(args["max-pages"]) : null;
 /** Plafond de pages par compte : le proprietaire (et l'operateur) parcourent toute l'arborescence, les autres roles leur menu et ses liens. */
 const maxPagesFor = (account) => MAX_PAGES_ARG ?? (account.role === "proprietaire" || account.role === "operateur" ? 260 : 45);
 const DELAY = Number(args.delay ?? 150);
-const NAV_TIMEOUT = 90_000;
+const NAV_TIMEOUT = Number(process.env.ED_QA_NAV_TIMEOUT ?? 150_000);
 const outDir = args.out ? String(args.out) : join(demoDir(), "qa");
 mkdirSync(join(outDir, "shots"), { recursive: true });
 
@@ -63,6 +63,30 @@ async function freshTotp(secret) {
   if (step > cur + 1) await new Promise((r) => setTimeout(r, (step * 30_000 - Date.now()) + 500));
   lastStep.set(secret, step);
   return totpAt(secret, step * 30_000 + 1_000);
+}
+
+/** Instantane API du role (lecture seule) : permissions et navigation, pour comparer au menu rendu. Connexion API distincte de l'UI. */
+async function apiSnapshot(account) {
+  if (account.tenant === "platform") return null;
+  try {
+    const first = await apiCall("POST", "/api/v1/iam/login", undefined, { email: account.email, password: account.password, tenantSlug: account.tenant, client: "mobile" });
+    let token = first.body?.status === "authenticated" ? first.body.accessToken : null;
+    if (!token && first.body?.status === "mfa_required" && account.totpSecret) {
+      const r = await apiCall("POST", "/api/v1/iam/mfa/challenge", undefined, { challengeToken: first.body.challengeToken, code: await freshTotp(account.totpSecret), client: "mobile" });
+      token = r.body?.accessToken ?? null;
+    }
+    if (!token) return null;
+    const perms = await apiCall("GET", "/api/v1/rbac/me/permissions", token);
+    const nav = await apiCall("GET", "/api/v1/rbac/me/navigation", token);
+    const ent = await apiCall("GET", "/api/v1/entitlements/me", token);
+    return {
+      permissions: perms.body?.permissions ?? null,
+      navigation: nav.body?.portals ?? null,
+      entitlementsStatus: ent.status,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function uiLogin(page, origin, account) {
@@ -162,7 +186,8 @@ async function visit(page, cur, origin, url, meta) {
   return rec;
 }
 
-function normalizeLink(href, origin, from) {
+/** `anyPath` : liens de MENU, visites meme hors `/v2` (entree historique `/admin/...` : un lien de menu mort doit etre detecte). */
+function normalizeLink(href, origin, from, anyPath = false) {
   if (!href || href.startsWith("#") || /^(mailto|tel|javascript):/.test(href)) return null;
   let u;
   try {
@@ -171,26 +196,29 @@ function normalizeLink(href, origin, from) {
     return null;
   }
   if (u.origin !== origin) return null;
-  if (!u.pathname.startsWith("/v2")) return null;
+  if (!u.pathname.startsWith("/v2") && !(anyPath && !/^\/(api|_next)(\/|$)/.test(u.pathname) && u.pathname !== "/")) return null;
   if (/logout|signout|sign-out|deconnexion/i.test(u.pathname)) return null;
+  // Les ecrans d'appel ouvrent une seance (POST) au chargement : on ne les visite pas, le balayage reste en lecture seule.
+  if (/\/attendance\/call\/[^/]+\/[^/]+$/.test(u.pathname)) return null;
   return u.pathname.replace(/\/$/, "") || "/v2";
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------
 // Balayage d'un compte
 // ---------------------------------------------------------------------------------------------------------------------------
-async function sweepAccount(browser, account) {
+async function sweepAccount(browser, account, persist = () => {}) {
   const origin = account.tenant === "platform" ? `http://localhost:${WEB_PORT}` : tenantOrigin(account.tenant);
   const label = `${account.tenant}/${account.role}`;
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 }, locale: "fr-FR" });
   const page = await ctx.newPage();
   const cur = { rec: null };
   page.on("console", (m) => {
-    if (m.type() === "error" && cur.rec) cur.rec.consoleErrors.push({ text: m.text().slice(0, 500), at: m.location()?.url?.slice(0, 160) });
+    if (m.type() === "error" && cur.rec) cur.rec.consoleErrors.push({ text: m.text().slice(0, 1800), at: m.location()?.url?.slice(0, 160) });
   });
   page.on("pageerror", (e) => cur.rec?.pageErrors.push(String(e?.message ?? e).slice(0, 500)));
   page.on("response", async (r) => {
-    if (!cur.rec) return;
+    const rec = cur.rec;
+    if (!rec) return;
     const u = new URL(r.url());
     if (!u.pathname.startsWith("/api/") && !r.url().includes(":4100")) return;
     if (r.status() < 400) return;
@@ -200,7 +228,7 @@ async function sweepAccount(browser, account) {
     } catch {
       /* corps indisponible */
     }
-    cur.rec.apiFailures.push({ method: r.request().method(), path: u.pathname + (u.search ? u.search.slice(0, 80) : ""), status: r.status(), body });
+    rec.apiFailures.push({ method: r.request().method(), path: u.pathname + (u.search ? u.search.slice(0, 80) : ""), status: r.status(), body });
   });
   page.on("requestfailed", (r) => {
     if (!cur.rec) return;
@@ -210,6 +238,7 @@ async function sweepAccount(browser, account) {
   });
 
   const result = { account: { tenant: account.tenant, role: account.role, email: account.email, pack: account.pack }, loginError: null, landing: null, pages: [], uncoveredNote: null };
+  if (args["menu-only"]) result.api = await apiSnapshot(account);
   try {
     await uiLogin(page, origin, account);
   } catch (e) {
@@ -220,11 +249,12 @@ async function sweepAccount(browser, account) {
   }
   result.landing = page.url().replace(origin, "");
 
-  const queue = [];
+  const queue = []; // pages atteignables par l'interface (atterrissage, menu, liens decouverts depuis une page atteignable)
+  const treeQueue = []; // routes de l'arborescence sans lien depuis l'interface : visitees apres, 'atteignable' = faux
   const seen = new Set();
   const perPattern = new Map();
-  const menuLinks = new Set();
-  const enqueue = (path, source, front = false) => {
+  const menuLinks = new Set(); // menu de la page d'atterrissage uniquement : c'est le menu que voit le role
+  const enqueue = (path, source, reachable, front = false) => {
     if (!path || seen.has(path)) return;
     const pattern = patternOf(path);
     if (pattern && /\[/.test(pattern)) {
@@ -233,19 +263,21 @@ async function sweepAccount(browser, account) {
       perPattern.set(pattern, n + 1);
     }
     seen.add(path);
-    (front ? queue.unshift : queue.push).call(queue, { path, source });
+    const target = reachable ? queue : treeQueue;
+    (front ? target.unshift : target.push).call(target, { path, source, reachable });
   };
 
   const landingPath = result.landing.split("?")[0];
-  enqueue(landingPath, "landing", true);
-  // Les liens de menu de l'atterrissage sont lus apres sa visite (premiere iteration), puis ajoutes en tete de file.
-  const treeSeed = !args["no-tree"] && (args["tree-all"] || account.role === "proprietaire" || account.role === "operateur");
+  enqueue(landingPath, "landing", true, true);
+  const only = args.only ? String(args.only).split(",").filter(Boolean) : null;
+  const menuOnly = Boolean(args["menu-only"]);
+  const treeSeed = !only && !menuOnly && !args["no-tree"] && (args["tree-all"] || account.role === "proprietaire" || account.role === "operateur");
   let menuHarvested = false;
   let visited = 0;
   const maxPages = maxPagesFor(account);
-  while (queue.length && visited < maxPages) {
-    const { path, source } = queue.shift();
-    const rec = await visit(page, cur, origin, path, { source, role: account.role, tenant: account.tenant, isMenuLink: menuLinks.has(path), pattern: patternOf(path) });
+  while ((queue.length || treeQueue.length) && visited < maxPages) {
+    const { path, source, reachable } = queue.length ? queue.shift() : treeQueue.shift();
+    const rec = await visit(page, cur, origin, path, { source, role: account.role, tenant: account.tenant, isMenuLink: reachable, pattern: patternOf(path) });
     visited += 1;
     const links = new Set();
     for (const h of rec.hrefs ?? []) {
@@ -255,20 +287,15 @@ async function sweepAccount(browser, account) {
     if (!menuHarvested && rec.finalUrl) {
       menuHarvested = true;
       for (const h of rec.menuHrefs ?? []) {
-        const n = normalizeLink(h, origin, path);
+        const n = normalizeLink(h, origin, path, true);
         if (n) menuLinks.add(n);
       }
-      result.menuLinks = [...menuLinks].sort();
-      for (const m of [...menuLinks].sort().reverse()) enqueue(m, "menu", true);
-      rec.isMenuLink = menuLinks.has(path);
-      if (treeSeed) for (const r of TREE) if (!/\[/.test(r) && !SKIP_SEED.test(r)) enqueue(r, "tree");
+      result.landingMenu = [...menuLinks].sort();
+      if (only) for (const p of only) enqueue(p, "only", true);
+      else for (const m of [...menuLinks].sort().reverse()) enqueue(m, "menu", true, true);
+      if (treeSeed) for (const r of TREE) if (!/\[/.test(r) && !SKIP_SEED.test(r)) enqueue(r, "tree", false);
     }
-    for (const n of [...links].sort()) enqueue(n, "crawl");
-    // Les menus des pages suivantes completent le menu du role (les coquilles different par portail).
-    for (const h of rec.menuHrefs ?? []) {
-      const n = normalizeLink(h, origin, path);
-      if (n && !menuLinks.has(n)) menuLinks.add(n);
-    }
+    if (!only && !menuOnly && reachable) for (const n of [...links].sort()) enqueue(n, "crawl", true);
     rec.findings = analyzePage(rec, { menuLinks, account });
     if (rec.findings.some((f) => f.severity === "bloquant" || f.severity === "majeur")) {
       rec.screenshot = join("shots", `${label.replace(/\W/g, "_")}-${path.replace(/\W+/g, "_").slice(0, 80)}.png`);
@@ -276,15 +303,15 @@ async function sweepAccount(browser, account) {
     }
     delete rec.hrefs;
     delete rec.menuHrefs;
-    rec.body = rec.body?.slice(0, 1500);
-    rec.main = rec.main?.slice(0, 1500);
+    delete rec.body;
+    rec.main = rec.main?.slice(0, 4000);
     result.pages.push(rec);
+    persist(result);
     const worst = rec.findings.find((f) => f.severity === "bloquant") ? "BLOQ" : rec.findings.find((f) => f.severity === "majeur") ? "MAJ " : rec.findings.length ? "min " : "ok  ";
-    console.log(`  ${worst} ${String(rec.navStatus ?? "---").padEnd(3)} ${String(rec.ms).padStart(6)}ms ${path}${rec.finalUrl && rec.finalUrl.split("?")[0] !== path ? ` -> ${rec.finalUrl}` : ""}`);
+    console.log(`  ${worst} ${String(rec.navStatus ?? "---").padEnd(3)} ${String(rec.ms).padStart(6)}ms ${path}${rec.finalUrl && rec.finalUrl.split("?")[0] !== path ? ` -> ${rec.finalUrl}` : ""}${reachable ? "" : "  (hors menu)"}`);
     if (DELAY) await page.waitForTimeout(DELAY);
   }
-  result.queueLeft = queue.length;
-  result.menuLinks = [...menuLinks].sort();
+  result.queueLeft = queue.length + treeQueue.length;
   await ctx.close();
   return result;
 }
@@ -301,24 +328,34 @@ async function main() {
   console.log(`Balayage : ${accounts.length} compte(s), ${TREE.length} routes dans l'arborescence, plafond par compte : ${MAX_PAGES_ARG ?? "260 (proprietaire/operateur), 45 (autres)"}`);
   const { chromium } = loadPlaywright();
   const browser = await chromium.launch({ channel: "chrome", headless: !args.headed });
-  const all = [];
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const file = join(outDir, `sweep-${args.tenant ?? "all"}-${args.role ?? "all"}-${stamp}.json`);
+  const prefix = args["menu-only"] ? "menu" : args.only ? "recheck" : "acct";
   try {
     for (const account of accounts) {
-      console.log(`\n=== ${account.tenant} / ${account.role} (${account.email})`);
+      const file = join(outDir, `${prefix}-${account.tenant}-${account.role}.json`);
+      if (args.resume && existsSync(file) && JSON.parse(readFileSync(file, "utf8")).done) {
+        console.log(`
+=== ${account.tenant} / ${account.role} : deja balaye (--resume)`);
+        continue;
+      }
+      console.log(`
+=== ${account.tenant} / ${account.role} (${account.email})`);
       const t0 = Date.now();
-      const r = await sweepAccount(browser, account).catch((e) => ({ account: { tenant: account.tenant, role: account.role, email: account.email, pack: account.pack }, loginError: `Exception du balayage : ${String(e?.message ?? e).split("\n")[0].slice(0, 200)}`, pages: [] }));
+      const save = (res, done = false) => writeFileSync(file, JSON.stringify({ generatedAt: new Date().toISOString(), done, result: { ...res, ms: Date.now() - t0 } }, null, 1));
+      let r;
+      try {
+        r = await sweepAccount(browser, account, (res) => save(res));
+      } catch (e) {
+        r = { account: { tenant: account.tenant, role: account.role, email: account.email, pack: account.pack }, loginError: `Exception du balayage : ${String(e?.message ?? e).split(/\r?\n/)[0].slice(0, 200)}`, pages: [] };
+      }
       r.ms = Date.now() - t0;
-      all.push(r);
-      writeFileSync(file, JSON.stringify({ generatedAt: new Date().toISOString(), tree: TREE, results: all }, null, 1));
+      save(r, true);
       if (r.loginError) console.log(`  ECHEC DE CONNEXION : ${r.loginError}`);
       else console.log(`  ${r.pages.length} pages en ${Math.round(r.ms / 1000)} s`);
     }
   } finally {
     await browser.close();
   }
-  console.log(`\nResultat brut : ${file}`);
+  console.log(`\nResultats bruts : ${outDir}`);
 }
 
 if (process.argv[1]?.endsWith("demo-sweep.mjs")) {

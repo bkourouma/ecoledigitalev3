@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { PEOPLE_STUDENT_STATUSES, peopleChangeStatusBodySchema, peopleUpdateStudentBodySchema, type PeopleStudentDetailDto } from "@ecoledigitale/contracts/v2/people";
 import { useChangeStudentStatus, useStudent, useStudentSensitive, useStudentStatusHistory, useUpdateStudent } from "@/platform/v2/people";
 import { usePermission } from "@/platform/access";
-import { Can } from "@/platform/ui/AccessGate";
+import { Can, GuardedLink } from "@/platform/ui/AccessGate";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
 import { FormField, NativeSelect, TextAreaControl, TextControl } from "@/platform/ui/FormField";
 import { useDateFormat } from "@/platform/ui/format";
@@ -72,9 +72,9 @@ export function StudentDetail({ id }: { id: string }) {
         {s.currentEnrollment ? (
           <span>
             {t("currentClass")} :{" "}
-            <Link href={`/v2/academic/classrooms/${s.currentEnrollment.classroomId}`} className="text-primary underline-offset-4 hover:underline">
+            <GuardedLink permission="academic.classroom.read" href={`/v2/academic/classrooms/${s.currentEnrollment.classroomId}`} className="text-primary underline-offset-4 hover:underline">
               {s.currentEnrollment.classroomName ?? "—"}
-            </Link>
+            </GuardedLink>
           </span>
         ) : (
           <span className="text-muted-foreground">{t("notEnrolled")}</span>
@@ -172,9 +172,9 @@ function IdentityTab({ student: s }: { student: PeopleStudentDetailDto }) {
             {t("primaryGuardian")}
           </h2>
           <p className="text-sm">
-            <Link href={`/v2/guardians/${s.primaryGuardian.guardianId}`} className="font-medium text-primary underline-offset-4 hover:underline">
+            <GuardedLink permission="guardian.read" href={`/v2/guardians/${s.primaryGuardian.guardianId}`} className="font-medium text-primary underline-offset-4 hover:underline">
               {s.primaryGuardian.displayName}
-            </Link>{" "}
+            </GuardedLink>{" "}
             · {s.primaryGuardian.relationshipCode} {s.primaryGuardian.phone ? `· ${s.primaryGuardian.phone}` : ""}
           </p>
         </section>
