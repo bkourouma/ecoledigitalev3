@@ -28,6 +28,7 @@ import {
   councilsEffectsDtoSchema,
   councilsEventsDtoSchema,
   councilsFamilyDecisionsDtoSchema,
+  councilsFamilyOrientationDtoSchema,
   councilsListDtoSchema,
   councilsMinutesDetailDtoSchema,
   councilsMinutesDtoSchema,
@@ -441,4 +442,14 @@ export function useChildDecisions(studentId: string | null) {
 
 export function useMyDecisions(enabled = true) {
   return hooks.useApiQuery([...KEY, "me"], `${COUNCILS_BASE}/me/decisions`, { schema: councilsFamilyDecisionsDtoSchema, enabled, retry: false });
+}
+
+/** Dossier d'orientation vu par la famille (lien tuteur relu côté API) : état masqué selon la visibilité, vœux de la famille, parcours proposés. */
+export function useChildOrientation(studentId: string | null) {
+  return hooks.useApiQuery([...KEY, "child-orientation", studentId], `${COUNCILS_BASE}/children/${studentId}/orientation`, { schema: councilsFamilyOrientationDtoSchema, enabled: studentId !== null, retry: false });
+}
+
+/** Dossier d'orientation de l'élève connecté (lecture seule). */
+export function useMyOrientation(enabled = true) {
+  return hooks.useApiQuery([...KEY, "me-orientation"], `${COUNCILS_BASE}/me/orientation`, { schema: councilsFamilyOrientationDtoSchema, enabled, retry: false });
 }
