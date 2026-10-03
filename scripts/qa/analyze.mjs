@@ -51,6 +51,14 @@ export function isLoginPath(p) {
   return /^\/(v2\/)?(platform\/)?login(\/|$|\?)/.test(p ?? "");
 }
 
+/** Ecrans publics ou a coque propre : pas de coque de gestion/portail attendue (alignes sur `app/v2/shell-coverage.test.ts`). */
+export const SHELL_FREE_PAGES = /^\/v2\/(apply|verify|notifications\/unsubscribe|forgot-password|reset-password|platform)(\/|$)/;
+
+export function isShellExpected(p) {
+  const path = (p ?? "").split("?")[0];
+  return /^\/v2(\/|$)/.test(path) && !SHELL_FREE_PAGES.test(path) && !isLoginPath(path) && !isDeniedPath(path);
+}
+
 /**
  * @param rec enregistrement de visite (voir demo-sweep.mjs)
  * @param env { menuLinks:Set<string>, account:{role,tenant} }
@@ -73,9 +81,10 @@ export function analyzePage(rec, env) {
     add(inMenu ? "bloquant" : "majeur", "http-404", inMenu ? "Lien de menu mort (404)" : "Page introuvable (404)", `${rec.navStatus} ${rec.h1 ?? ""}`);
   }
   if (rec.devToast) add("majeur", "dev-toast", "Indicateur d'erreur Next.js (probleme signale en console)", rec.devToast);
-  // Ecran d'atterrissage du role sans aucun moyen de se deconnecter : pas de coquille (menu global, compte, deconnexion).
-  if (rec.source === "landing" && rec.hasLogout === false && !isLoginPath(finalPath) && rec.navStatus < 400) {
-    add("majeur", "no-shell", "Ecran d'atterrissage sans coquille : ni deconnexion, ni menu global, ni nom d'etablissement", `${path} : aucun bouton de deconnexion`);
+  // Ecran sans coquille : aucun moyen de se deconnecter, ou aucune navigation globale (`AppShell` : nom de l'etablissement, menu,
+  // modules, compte, deconnexion). Vaut pour TOUT ecran /v2 authentifie (landing, menu, parcours), hors ecrans publics et refus.
+  if (isShellExpected(finalPath || path) && rec.navStatus < 400 && !rec.error && (rec.hasLogout === false || rec.hasNav === false)) {
+    add("majeur", "no-shell", rec.source === "landing" ? "Ecran d'atterrissage sans coquille : ni deconnexion, ni menu global, ni nom d'etablissement" : "Ecran sans coquille de navigation : ni deconnexion, ni menu global", `${path} : ${rec.hasLogout === false ? "aucun bouton de deconnexion" : "aucune navigation globale"}`);
   }
   if (rec.overlay) add("bloquant", "dev-overlay", "Ecran d'erreur Next.js (overlay)", rec.overlay);
   if (!rec.error && ERROR_SCREEN.test(main) && !(rec.navStatus === 404)) {

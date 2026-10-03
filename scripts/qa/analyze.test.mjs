@@ -48,10 +48,17 @@ test("libelle Non inscrit pour un parent ou un eleve", () => {
   assert.ok(!codes({ main: "Awa : Non inscrit" }).includes("majeur:label-not-enrolled"));
 });
 
-test("atterrissage sans deconnexion = ecran sans coquille", () => {
+test("ecran /v2 sans deconnexion ou sans navigation globale = ecran sans coquille", () => {
   assert.ok(codes({ source: "landing", hasLogout: false }).includes("majeur:no-shell"));
   assert.ok(!codes({ source: "landing", hasLogout: true }).includes("majeur:no-shell"));
-  assert.ok(!codes({ source: "crawl", hasLogout: false }).includes("majeur:no-shell"));
+  // Tout ecran authentifie, plus seulement l'atterrissage.
+  assert.ok(codes({ url: "/v2/finance/invoices", finalUrl: "/v2/finance/invoices", source: "crawl", hasLogout: false }).includes("majeur:no-shell"));
+  assert.ok(codes({ url: "/v2/finance/invoices", finalUrl: "/v2/finance/invoices", source: "menu", hasLogout: true, hasNav: false }).includes("majeur:no-shell"));
+  assert.ok(!codes({ url: "/v2/finance/invoices", finalUrl: "/v2/finance/invoices", source: "crawl", hasLogout: true, hasNav: true }).includes("majeur:no-shell"));
+  // Ecrans publics ou a coque propre : exemptes.
+  assert.ok(!codes({ url: "/v2/apply/ecole", finalUrl: "/v2/apply/ecole", source: "crawl", hasLogout: false }).includes("majeur:no-shell"));
+  assert.ok(!codes({ url: "/v2/platform/tenants", finalUrl: "/v2/platform/tenants", source: "crawl", hasLogout: false }).includes("majeur:no-shell"));
+  assert.ok(!codes({ url: "/v2/login", finalUrl: "/v2/login", source: "crawl", hasLogout: false }).includes("majeur:no-shell"));
 });
 
 test("erreurs console : cle i18n manquante majeure, bruit reseau ignore", () => {

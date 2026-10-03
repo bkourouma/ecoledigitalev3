@@ -145,7 +145,8 @@ Arborescence `src/app/v2/` (pages minces) ; toute la logique est dans `src/platf
 
 - **Coquille** : `admin/shell/Shell` (lien d'évitement, tiroir mobile `aria-expanded`, Échap, `PlatformSidebar`). Menu tenant =
   `rbac/me/navigation` (hrefs historiques `/admin/...` réécrits vers `/v2/...`, entrées v2 manquantes ajoutées **seulement** si la
-  permission est détenue — `admin/menu.ts`). `AppLayout` n'enveloppe pas `/v2`.
+  permission est détenue — `admin/menu.ts`). `AppLayout` n'enveloppe pas `/v2`. **Tous** les modules `/v2` sont habillés par `AppShell`
+  (`platform/shell`, coque de gestion ou de portail selon le rôle de la session) : voir `v2-navigation.md`.
 - **Console** : client API **sans tenant** (`createApiClient({ tenantless: true })`, clé de cache `["api","platform",…]`), jeton
   `superAdminToken` (stockage séparé). `fetch-interceptor` traite `/api/v1/platform/*` et `/api/v1/entitlements/admin/*` comme des
   routes opérateur.
