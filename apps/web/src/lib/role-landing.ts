@@ -14,7 +14,9 @@
  * (rôle historique quand il existe : `teacher`, `student`, `parent`, `owner`, `admin` ; sinon le modèle de rôle v2).
  */
 const V2_LANDING: Readonly<Record<string, string>> = Object.freeze({
-  owner: "/v2/owner",
+  // Propriétaire : le tableau de bord de la direction (`/v2/owner` n'est que l'écran technique de fraîcheur des données).
+  owner: "/v2/direction",
+  proprietaire: "/v2/direction",
   admin: "/v2/direction",
   directeur: "/v2/direction",
   directeur_etudes: "/v2/academic",
@@ -36,9 +38,14 @@ export function isV2Landing(): boolean {
   return process.env.NEXT_PUBLIC_V2_LANDING === "1";
 }
 
+/** Atterrissage v2 d'un rôle (sans le drapeau d'environnement) : son écran, sinon l'accueil de gestion (raccourcis par module). */
+export function v2RouteForRole(role?: string): string {
+  return V2_LANDING[String(role || "").toLowerCase()] ?? "/v2/home";
+}
+
 export function routeForRole(role?: string): string {
   const normalized = String(role || "").toLowerCase();
-  if (isV2Landing()) return V2_LANDING[normalized] ?? "/v2/settings";
+  if (isV2Landing()) return v2RouteForRole(normalized);
   if (normalized === "owner") return "/owner/dashboard";
   if (normalized === "teacher") return "/teacher/dashboard";
   if (normalized === "parent") return "/parent/children";

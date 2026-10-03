@@ -39,7 +39,7 @@ export function AnalyticsNav() {
     { href: "/v2/owner/charges", label: t("charges"), permission: "analytics.charges.read" },
     { href: "/v2/analytics/comparaisons", label: t("compare"), permission: "analytics.read" },
     { href: "/v2/analytics/alertes", label: t("alerts"), permission: "analytics.alerts.read" },
-    { href: "/v2/owner", label: t("freshness"), permission: "analytics.read", exact: true },
+    { href: "/v2/owner/fraicheur", label: t("freshness"), permission: "analytics.read", exact: true },
   ];
   return <SectionNav label={t("label")} items={items} />;
 }
