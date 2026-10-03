@@ -13,6 +13,7 @@ import { issueDocument } from "../../application/issued-documents";
 import { createCenter, createRoom } from "../../application/reference";
 import { assignCandidate, setSessionCenters } from "../../application/assignments";
 import { examinationsPlugin } from "../../http/plugin";
+import { bodylessMethodsCompat } from "../../../../platform/http-compat";
 import manifest from "../../manifest";
 import { describeIntegration } from "../support/db";
 import { addPupils, openSession, registerPupil, seedPack, setupEnv, type Env } from "../support/env";
@@ -134,6 +135,7 @@ describeIntegration("examinations : HTTP", () => {
   beforeAll(async () => {
     env = await setupEnv();
     app = Fastify({ logger: false });
+    await app.register(bodylessMethodsCompat); // DELETE JSON sans corps : comme le serveur réel (platform/http-compat.ts)
     app.addHook("onRoute", (r) => {
       for (const m of Array.isArray(r.method) ? r.method : [r.method]) if (m !== "HEAD" && m !== "OPTIONS") registered.push(`${m} ${r.url.replace("/api/v1/examinations", "")}`);
     });

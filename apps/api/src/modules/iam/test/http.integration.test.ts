@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ForbiddenError } from "@ecoledigitale/kernel";
 import { base32Decode, totp } from "../domain/totp";
 import { registerIam, type IamPluginOptions } from "../http/plugin";
+import { bodylessMethodsCompat } from "../../../platform/http-compat";
 import { createHarness, describeIntegration, TEST_PASSWORD, type Harness } from "./helpers";
 
 const P = "/api/v1/iam";
@@ -32,6 +33,7 @@ describeIntegration("iam — routes HTTP (Postgres réel)", () => {
     h = await createHarness({ overrides: { allowedOrigins: ["https://app.exemple.ci"] } });
     A = await h.createTenant("lycee-a", "Lycée A");
     app = Fastify({ trustProxy: true });
+    await app.register(bodylessMethodsCompat); // DELETE JSON sans corps : comme le serveur réel (platform/http-compat.ts)
     await registerIam(app, { iam: h.iam });
     appAdmin = Fastify();
     await registerIam(appAdmin, { iam: h.iam, requirePermission });

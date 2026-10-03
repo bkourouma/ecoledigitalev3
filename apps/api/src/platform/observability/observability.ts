@@ -6,7 +6,7 @@
  *   const app = Fastify({ ...observability.fastifyOptions });
  *   await app.register(observabilityPlugin, { observability });   // premier plugin : ses hooks s'appliquent à toutes les routes
  */
-import type { FastifyServerOptions } from "fastify";
+import { LogController, type FastifyServerOptions } from "fastify";
 import { buildPinoOptions, newId, type PinoOptionsLike } from "@ecoledigitale/kernel";
 import { loadObservabilityConfig, type EnvLike, type ObservabilityConfig, type ServiceKind } from "./core/config";
 import { correlationMixin, enableAmbientRequestId } from "./core/correlation";
@@ -73,8 +73,8 @@ export function createObservability(service: ServiceKind, options: CreateObserva
       logger: { ...loggerOptions, ...(options.logStream ? { stream: options.logStream } : {}) } as unknown as FastifyServerOptions["logger"],
       genReqId: (req) => resolveRequestId(req.headers),
       requestIdHeader: false,
-      requestIdLogLabel: "request_id",
-      disableRequestLogging: true,
+      // Fastify 5.12 : `requestIdLogLabel` et `disableRequestLogging` passent par `logController` (options de premier niveau dépréciées).
+      logController: new LogController({ requestIdLogLabel: "request_id", disableRequestLogging: true }),
     },
     shutdown: () => (tracing.enabled ? shutdownTracing() : Promise.resolve()),
   };
