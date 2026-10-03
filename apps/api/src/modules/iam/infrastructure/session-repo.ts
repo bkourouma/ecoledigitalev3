@@ -40,6 +40,8 @@ export interface SessionCheckRow {
   kind: "user" | "impersonation";
   active_role: string;
   mfa_verified: boolean;
+  /** Fin de l'élévation MFA (step-up) ; `null` = jamais élevée. */
+  mfa_elevated_until: Date | null;
   actor_id: string | null;
   session_epoch: number;
   expires_at: Date;
@@ -57,7 +59,7 @@ export interface SessionCheckRow {
 /** Tout ce qu'il faut pour décider, en UNE requête, si une session est encore valide. */
 export function findSessionForRequest(tx: Tx, tenantId: string, sessionId: string): Promise<SessionCheckRow | null> {
   return tx.queryOne<SessionCheckRow>(
-    `SELECT s.id, s.identity_id, s.membership_id, s.kind, s.active_role, s.mfa_verified, s.actor_id,
+    `SELECT s.id, s.identity_id, s.membership_id, s.kind, s.active_role, s.mfa_verified, s.mfa_elevated_until, s.actor_id,
             s.auth_epoch AS session_epoch, s.expires_at, s.revoked_at,
             i.email AS identity_email, i.status AS identity_status, i.auth_epoch AS identity_epoch, i.mfa_enabled AS identity_mfa_enabled,
             m.status AS membership_status, m.roles AS membership_roles,
@@ -69,6 +71,15 @@ export function findSessionForRequest(tx: Tx, tenantId: string, sessionId: strin
       WHERE s.id = $2 AND s.tenant_id = $1`,
     [tenantId, sessionId],
   );
+}
+
+/** Marque la session comme élevée (MFA satisfaite) jusqu'à `until`. `false` = session absente, révoquée ou d'impersonation. */
+export async function elevateSession(tx: Tx, tenantId: string, sessionId: string, until: Date): Promise<boolean> {
+  const res = await tx.query(
+    `UPDATE iam.sessions SET mfa_elevated_until = $3 WHERE tenant_id = $1 AND id = $2 AND revoked_at IS NULL AND kind = 'user'`,
+    [tenantId, sessionId, until],
+  );
+  return res.rowCount === 1;
 }
 
 export interface SessionListRow {

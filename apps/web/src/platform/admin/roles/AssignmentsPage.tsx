@@ -27,6 +27,8 @@ import {
 import type { RbacAssignment, RbacRoleSummary } from "@ecoledigitale/contracts/v2/rbac";
 import type { MemberSummary } from "@ecoledigitale/contracts/v2/iam";
 import { usePermission } from "@/platform/access";
+import { StepUpDialog } from "@/platform/ui/StepUpDialog";
+import { useStepUp } from "@/platform/ui/useStepUp";
 import { ApiErrorState, useDateOnly } from "../common";
 import { notifySuccess } from "../notify";
 import { toIsoInstant } from "../audit/filters";
@@ -58,6 +60,7 @@ export function AssignmentsPage() {
   const institutions = useInstitutions();
   const assignments = useAssignments({ userId: userId || undefined, roleId: roleId || undefined });
   const revoke = useRevokeAssignment();
+  const stepUp = useStepUp();
 
   const roleById = useMemo(() => new Map<string, RbacRoleSummary>((roles.data ?? []).map((r) => [r.id, r])), [roles.data]);
   const memberByIdentity = useMemo(() => new Map<string, MemberSummary>((members.data ?? []).map((m) => [m.identityId, m])), [members.data]);
@@ -183,19 +186,18 @@ export function AssignmentsPage() {
         pending={revoke.isPending}
         onConfirm={() =>
           revoking &&
-          revoke.mutate(
-            { id: revoking.id },
-            {
-              onSuccess: () => {
-                notifySuccess(t("revoke.done"));
-                setRevoking(null);
-              },
+          void stepUp.run(() => revoke.mutateAsync({ id: revoking.id })).then(
+            () => {
+              notifySuccess(t("revoke.done"));
+              setRevoking(null);
             },
+            () => undefined,
           )
         }
       >
         {revoke.error ? <Notice tone="danger">{message(revoke.error)}</Notice> : null}
       </ConfirmDialog>
+      <StepUpDialog {...stepUp.dialogProps} />
     </div>
   );
 }
@@ -206,6 +208,7 @@ function EditValidityDialog({ assignment, roleLabel, onClose }: { assignment: Rb
   const tu = useTranslations("ui");
   const message = useErrorMessage();
   const update = useUpdateAssignment();
+  const stepUp = useStepUp();
   const [from, setFrom] = useState("");
   const [until, setUntil] = useState("");
   const [periodError, setPeriodError] = useState(false);
@@ -235,14 +238,12 @@ function EditValidityDialog({ assignment, roleLabel, onClose }: { assignment: Rb
       return;
     }
     setPeriodError(false);
-    update.mutate(
-      { id: assignment.id, validFrom: f, validUntil: u },
-      {
-        onSuccess: () => {
-          notifySuccess(t("edit.done"));
-          close();
-        },
+    void stepUp.run(() => update.mutateAsync({ id: assignment.id, validFrom: f, validUntil: u })).then(
+      () => {
+        notifySuccess(t("edit.done"));
+        close();
       },
+      () => undefined,
     );
   };
 
@@ -271,6 +272,7 @@ function EditValidityDialog({ assignment, roleLabel, onClose }: { assignment: Rb
           </DialogFooter>
         </form>
       </DialogContent>
+      <StepUpDialog {...stepUp.dialogProps} />
     </Dialog>
   );
 }

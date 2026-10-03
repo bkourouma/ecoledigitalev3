@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ImportJobDto, ImportRowDto, ImportRunMode, ImporterDescriptor } from "@ecoledigitale/contracts/v2/imports";
-import { buttonClass, LoadingBlock, Notice, QueryBoundary, useDescribeError } from "@/platform/ui";
+import { buttonClass, LoadingBlock, Notice, QueryBoundary, StepUpDialog, useDescribeError, useStepUp } from "@/platform/ui";
 import { downloadImportFile, reportPath, useImportPreview, useRunImport, useSetMapping } from "@/platform/v2/imports";
 import { RowsList } from "./RowsList";
 
@@ -50,6 +50,7 @@ export function PreviewStep({ job, importer }: { job: ImportJobDto; importer: Im
   const describe = useDescribeError();
   const preview = useImportPreview(job.id);
   const run = useRunImport(job.id);
+  const stepUp = useStepUp();
   const back = useSetMapping(job.id);
   const [mode, setMode] = useState<ImportRunMode>(job.runMode);
   const [confirm, setConfirm] = useState(false);
@@ -127,7 +128,8 @@ export function PreviewStep({ job, importer }: { job: ImportJobDto; importer: Im
               aria-label={t("launchTitle")}
               onSubmit={(e) => {
                 e.preventDefault();
-                if (confirm) run.mutate({ runMode: mode, onExisting: job.onExisting, confirm: true });
+                // Import sensible (soldes) refusé en `imports.mfa_required` : confirmation d'identité puis relance unique.
+                if (confirm) void stepUp.run(() => run.mutateAsync({ runMode: mode, onExisting: job.onExisting, confirm: true })).catch(() => undefined);
               }}
             >
               <h2 className="text-base font-semibold">{t("launchTitle")}</h2>
@@ -179,6 +181,7 @@ export function PreviewStep({ job, importer }: { job: ImportJobDto; importer: Im
               </div>
               {back.isError ? <Notice kind="error">{describe(back.error)}</Notice> : null}
             </form>
+            <StepUpDialog {...stepUp.dialogProps} />
           </>
         ) : null}
       </QueryBoundary>

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft } from "lucide-react";
 import { Button, Field, Input, LoadingState, Notice, PageHeader } from "@ecoledigitale/ui";
+import { StepUpDialog } from "@/platform/ui/StepUpDialog";
+import { useStepUp } from "@/platform/ui/useStepUp";
 import { ApiErrorState } from "../common";
 import { fieldErrorsOf } from "../errors";
 import { notifySuccess } from "../notify";
@@ -26,6 +28,7 @@ export function RoleCreatePage() {
   const catalog = usePermissionCatalog();
   const held = useHeldPermissions();
   const create = useCreateRole();
+  const stepUp = useStepUp();
   const [label, setLabel] = useState("");
   const [key, setKey] = useState("");
   const [description, setDescription] = useState("");
@@ -39,19 +42,19 @@ export function RoleCreatePage() {
     if (key.trim() && !KEY_PATTERN.test(key.trim())) found.key = t("keyInvalid");
     setErrors(found);
     if (Object.keys(found).length > 0) return;
-    create.mutate(
-      {
-        label: label.trim(),
-        permissions: [...selected].sort(),
-        ...(key.trim() ? { key: key.trim() } : {}),
-        ...(description.trim() ? { description: description.trim() } : {}),
+    const body = {
+      label: label.trim(),
+      permissions: [...selected].sort(),
+      ...(key.trim() ? { key: key.trim() } : {}),
+      ...(description.trim() ? { description: description.trim() } : {}),
+    };
+    // Gestion des rôles = permission sensible : refus `rbac.mfa_required` -> confirmation TOTP puis relance unique.
+    void stepUp.run(() => create.mutateAsync(body)).then(
+      (role) => {
+        notifySuccess(t("created", { label: role.label }));
+        router.push(`/v2/access/roles/${role.id}`);
       },
-      {
-        onSuccess: (role) => {
-          notifySuccess(t("created", { label: role.label }));
-          router.push(`/v2/access/roles/${role.id}`);
-        },
-      },
+      () => undefined,
     );
   };
 
@@ -90,6 +93,7 @@ export function RoleCreatePage() {
           {create.isPending ? t("creating") : t("submit")}
         </Button>
       </form>
+      <StepUpDialog {...stepUp.dialogProps} />
     </div>
   );
 }

@@ -16,7 +16,7 @@ Le module **orchestre, il ne calcule rien**. Les moyennes, le passage, le redoub
 
 ## Routes (`/api/v1/councils`)
 
-Référence et réglages (`/reference`, `/participant-roles`, `/council-types`, `/decision-types`, `/settings`), séances (`/councils`, `/:id/prepare|convoke|open|close|cancel|reopen`), participants et présences, ordre du jour (`/agenda/:itemId`, rebuild, review), propositions et décisions (`/proposals/:id/*`, `/decisions/:id/withdraw`), PV (`/councils/:id/minutes`, `/minutes/:id/pdf|sign|signatures/paper|revoke`), déverrouillage motivé (`/unlock-requests`), effets (`/effects`, retry, apply, skip, revert), orientation (`/orientation-paths`, `/orientation-files`, `/series-transfers`), vues portail (`/me/decisions`, `/children/:studentId/decisions`), synthèse de classe.
+Référence et réglages (`/reference`, `/participant-roles`, `/council-types`, `/decision-types`, `/settings`), séances (`/councils`, `/:id/prepare|convoke|open|close|cancel|reopen`), participants et présences, ordre du jour (`/agenda/:itemId`, rebuild, review), propositions et décisions (`/proposals/:id/*`, `/decisions/:id/withdraw`), PV (`/councils/:id/minutes`, `/minutes/:id/pdf|sign|signatures/paper|revoke`), déverrouillage motivé (`/unlock-requests`), effets (`/effects`, retry, apply, skip, revert), orientation (`/orientation-paths`, `/orientation-files`, `/series-transfers`), vues portail (`/me/decisions`, `/children/:studentId/decisions`, `/me/orientation`, `/children/:studentId/orientation` : dossier d'orientation vu par la famille — lien tuteur relu, 404 hors lien, jamais de notes internes, de décision non visible (`guardian_visibility`), d'avis du personnel ni de vœux retirés ; options = parcours autorisés actifs ; l'élève lit sans écrire), synthèse de classe.
 
 ## Permissions (`manifest.ts`)
 
@@ -51,7 +51,7 @@ Abonnés : `councils.instantiate-reference-data`, `councils.render-minutes`, `co
 3. **rules** : table `label_map` des codes d'appréciation pour libeller les propositions.
 4. **academic** : marquer une issue d'inscription comme irréversible après la rentrée de l'année suivante.
 5. **reportcards** : réédition du PV à l'écoute de `councils.council.reopened`.
-6. **web** : sélecteur de participant externe (`personId`), formulaire de vœux et consentement tuteur (routes API prêtes : `/orientation-files/:id/wishes|consent`).
+6. **web** : sélecteur de participant externe (`personId`), formulaire de vœux et consentement tuteur : fait (`/v2/councils/famille`, `/v2/councils/moi`).
 
 ## Points à arbitrer
 

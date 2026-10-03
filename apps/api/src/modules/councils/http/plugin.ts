@@ -25,6 +25,7 @@ import { addParticipant, cancelCouncil, closeCouncil, convokeCouncil, createCoun
 import { addProposal, listDecisionsView, listProposalsView, recordDecision, resolveProposal, withdrawDecision } from "../application/deliberation";
 import { applyEffect, listEffectsOfCouncilView, listEffectsView, planCouncilEffects, retryEffect, revertEffect, skipEffect } from "../application/effects";
 import { addPaperSignature, generateMinutes, getMinutesDetail, getMinutesPdf, listMinutesView, revokeMinutes, signMinutes } from "../application/minutes";
+import { getChildOrientation, getMyOrientation } from "../application/family-orientation";
 import { addWish, applyTransfer, cancelTransfer, createFile, createTransfer, listFilesView, listPathsView, listTransfersView, recordConsent, upsertPath } from "../application/orientation";
 import { getChildDecisions, getClassroomSummary, getMyDecisions, listEventsView } from "../application/reads";
 import { getReference, upsertCouncilType, upsertDecisionType, upsertRole, upsertSettings } from "../application/reference";
@@ -234,6 +235,10 @@ export async function councilsPlugin(app: FastifyInstance, options: CouncilsPlug
     scope.get("/classrooms/:id/council-summary", { preHandler: [...core, staffViewers] }, async (req, reply) => unwrapOrThrow(await getClassroomSummary(deps, ctxOf(req), await caps(req, reply), idOf(req))));
     scope.get("/me/decisions", { preHandler: [...core, kit.require(P.selfRead)] }, async (req, reply) => unwrapOrThrow(await getMyDecisions(deps, ctxOf(req), await caps(req, reply))));
     scope.get("/children/:studentId/decisions", { preHandler: [...core, kit.require(P.childRead)] }, async (req, reply) => unwrapOrThrow(await getChildDecisions(deps, ctxOf(req), await caps(req, reply), idOf(req, "studentId"))));
+    // Dossier d'orientation vu par la famille (lien tuteur relu ; 404 hors lien) et par l'élève (son compte, lecture seule) : jamais de notes
+    // internes, de décision non visible, d'avis du personnel ni de données d'un autre élève (`application/family-orientation.ts`).
+    scope.get("/children/:studentId/orientation", { preHandler: [...core, ...orientationFeature, kit.require(P.childRead)] }, async (req, reply) => unwrapOrThrow(await getChildOrientation(deps, ctxOf(req), await caps(req, reply), idOf(req, "studentId"))));
+    scope.get("/me/orientation", { preHandler: [...core, ...orientationFeature, kit.require(P.selfRead)] }, async (req, reply) => unwrapOrThrow(await getMyOrientation(deps, ctxOf(req), await caps(req, reply))));
   });
 }
 

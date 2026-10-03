@@ -18,6 +18,7 @@ Tables globales justifiées dans `../isolation-allowlist.iam.ts` (à fusionner d
 ## Routes `/api/v1/iam`
 
 `POST login`, `mfa/challenge`, `refresh`, `logout`, `logout-all`, `switch-tenant`, `switch-role`, `GET me`, `GET sessions`, `DELETE sessions/:id`, `POST password/change|forgot|reset`, `mfa/enroll|verify|disable`.
+`POST mfa/step-up` (`{ code }` TOTP, session ouverte) : **élévation d'authentification**. Une action sensible est refusée en `*.mfa_required` tant que `RequestContext.mfa` est faux ; `mfa` = « session ouverte avec second facteur » (`sessions.mfa_verified`) OU « élévation encore valide » (`sessions.mfa_elevated_until > now`, migration 0401, relu en base à chaque requête, jamais dans le jeton). Le code correct pose la fenêtre (`IAM_MFA_STEPUP_TTL_SEC`, défaut 300 s, bornes 60-900) sur LA session courante ; elle s'éteint seule ou à la révocation. TOTP seulement (pas de code de secours), pas sous impersonation, pas sans MFA activée (409 `iam.mfa_not_enabled`), anti-rejeu du pas TOTP, verrouillage progressif dédié par identité (`mfaIdentityLockout`, 429 + `Retry-After`), événement `iam.mfa.elevated` (jamais le code) et échec journalisé `bad_mfa_step_up`. Le web rejoue ensuite UNE fois l'action refusée (`useStepUp` / `StepUpDialog`).
 `POST switch-role` : nouvelle session dans le même établissement avec un autre rôle de l'accès, ancienne révoquée (facteurs conservés ; interdit sous impersonation).
 `POST federated-login` (connexion Google, **seulement si `IAM_SERVICE_SECRET` est défini**, en-tête `x-iam-service-secret`) : appelée par le serveur web après vérification OAuth ; identité existante uniquement (aucune création), `emailVerified: true` exigé, MFA toujours appliquée, facteur `fed`.
 Administration (seulement si `requirePermission` du rbac est fourni) : `GET|POST admin/members`, `PATCH admin/members/:id`, `POST admin/members/:id/sessions/revoke`, `POST admin/members/:id/mfa/reset`.
@@ -68,6 +69,7 @@ comptes : `pnpm iam:import-legacy` (`platform/legacy-import.ts`). Plan de bascul
 | `IAM_MFA_ENCRYPTION_KEY` (obligatoire, 32 octets base64) | chiffrement des secrets TOTP ; `IAM_MFA_ENCRYPTION_KEY_PREVIOUS` pour la rotation |
 | `IAM_COOKIE_SECURE` (défaut `true`; `false` interdit en production), `IAM_COOKIE_DOMAIN`, `IAM_ALLOWED_ORIGINS` (liste séparée par des virgules) | cookie et contrôle d'Origin |
 | `IAM_MFA_REQUIRED_ROLES`, `IAM_MFA_TOTP_ISSUER` | politique MFA, libellé `otpauth://` |
+| `IAM_MFA_STEPUP_TTL_SEC` (300, bornes 60-900) | durée de l'élévation d'authentification (`POST mfa/step-up`) |
 | `IAM_REFRESH_REUSE_GRACE_MS` (0, max 30000) | tolérance des doubles soumissions d'un refresh token ; 0 = toute réutilisation révoque la session |
 | `IAM_SERVICE_SECRET` (facultatif, ≥ 32 car.) | active `POST /federated-login` ; absent = la route n'existe pas |
 | `IAM_ACCESS_TTL_SEC` (900), `IAM_REFRESH_IDLE_TTL_SEC`, `IAM_SESSION_MAX_AGE_SEC`, `IAM_IMPERSONATION_TTL_SEC` (600), `IAM_PASSWORD_MIN_LENGTH` (12), `IAM_SCRYPT_LOG_N` (16) | réglages bornés |

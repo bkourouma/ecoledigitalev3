@@ -13,6 +13,8 @@ import { useDateFormat } from "@/platform/ui/format";
 import { ReasonDialog } from "@/platform/ui/ModalDialog";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock, useFlash } from "@/platform/ui/states";
+import { StepUpDialog } from "@/platform/ui/StepUpDialog";
+import { useStepUp } from "@/platform/ui/useStepUp";
 import { toneOfStatus } from "../../assessments/_components/shared";
 import { ClassPeriodSelector, useClassPeriodSelection } from "../../results/_components/shared";
 import { DownloadButton } from "./shared";
@@ -182,6 +184,8 @@ export function CardActions({ card, onMessage }: { card: ReportCard; onMessage: 
   const render = useRenderCard();
   const reissue = useReissueCard();
   const revoke = useRevokeCard();
+  // Actes refusés en `reportcards.mfa_required` : confirmation d'identité (TOTP) puis relance unique.
+  const stepUp = useStepUp();
   const [dialog, setDialog] = useState<"reissue" | "revoke" | null>(null);
   const [error, setError] = useState<unknown>(null);
   const name = card.studentName;
@@ -189,7 +193,7 @@ export function CardActions({ card, onMessage }: { card: ReportCard; onMessage: 
   async function run(fn: () => Promise<unknown>, message: string) {
     setError(null);
     try {
-      await fn();
+      await stepUp.run(fn);
       onMessage(message);
     } catch (e) {
       setError(e);
@@ -240,7 +244,7 @@ export function CardActions({ card, onMessage }: { card: ReportCard; onMessage: 
           error={reissue.error}
           onConfirm={async (reason) => {
             try {
-              await reissue.mutateAsync({ id: card.id, reason });
+              await stepUp.run(() => reissue.mutateAsync({ id: card.id, reason }));
               onMessage(t("reissued", { name }));
               setDialog(null);
             } catch {
@@ -262,7 +266,7 @@ export function CardActions({ card, onMessage }: { card: ReportCard; onMessage: 
           error={revoke.error}
           onConfirm={async (reason) => {
             try {
-              await revoke.mutateAsync({ id: card.id, reason });
+              await stepUp.run(() => revoke.mutateAsync({ id: card.id, reason }));
               onMessage(t("revoked", { name }));
               setDialog(null);
             } catch {
@@ -271,6 +275,7 @@ export function CardActions({ card, onMessage }: { card: ReportCard; onMessage: 
           }}
         />
       ) : null}
+      <StepUpDialog {...stepUp.dialogProps} />
     </>
   );
 }

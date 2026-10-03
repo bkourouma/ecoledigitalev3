@@ -77,6 +77,8 @@ export interface IamService {
   beginMfaEnrollment(subject: mfa.MfaSubject, input: Parameters<typeof mfa.beginEnrollment>[2]): ReturnType<typeof mfa.beginEnrollment>;
   confirmMfaEnrollment(subject: mfa.MfaSubject, input: Parameters<typeof mfa.confirmEnrollment>[2]): ReturnType<typeof mfa.confirmEnrollment>;
   disableMfa(principal: AuthenticatedPrincipal, input: Parameters<typeof mfa.disableMfa>[2]): ReturnType<typeof mfa.disableMfa>;
+  /** Élévation d'authentification (step-up) : code TOTP en cours de session -> MFA satisfaite pour une fenêtre courte. */
+  stepUpMfa(principal: AuthenticatedPrincipal, input: Parameters<typeof mfa.stepUp>[2]): ReturnType<typeof mfa.stepUp>;
   adminResetMfa(principal: AuthenticatedPrincipal, membershipId: string, meta: RequestMeta): ReturnType<typeof mfa.adminResetMfa>;
   startImpersonation(actor: SuperAdminActor, input: Parameters<typeof impersonation.startImpersonation>[2]): ReturnType<typeof impersonation.startImpersonation>;
   provisionMember(ctx: RequestContext, input: members.ProvisionInput): ReturnType<typeof members.provisionMember>;
@@ -128,6 +130,7 @@ export function createIamService(options: IamServiceOptions): IamService {
     beginMfaEnrollment: (s, input) => mfa.beginEnrollment(deps, s, input),
     confirmMfaEnrollment: (s, input) => mfa.confirmEnrollment(deps, s, input),
     disableMfa: (p, input) => mfa.disableMfa(deps, p, input),
+    stepUpMfa: (p, input) => mfa.stepUp(deps, p, input),
     adminResetMfa: (p, id, meta) => mfa.adminResetMfa(deps, p, id, meta),
     startImpersonation: (a, input) => impersonation.startImpersonation(deps, a, input),
     provisionMember: (ctx, input) => members.provisionMember(deps, ctx, input),

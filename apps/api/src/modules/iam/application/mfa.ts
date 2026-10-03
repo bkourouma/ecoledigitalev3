@@ -508,6 +508,83 @@ export async function disableMfa(
   return ok(inner.outcome);
 }
 
+// -----------------------------------------------------------------------------
+// Élévation d'authentification (step-up) en cours de session
+// -----------------------------------------------------------------------------
+
+export interface StepUpResult {
+  /** Fin de la fenêtre d'élévation. */
+  expiresAt: Date;
+  ttlSec: number;
+}
+
+/**
+ * Vérifie un code TOTP (jamais un code de secours : il est à usage unique et réservé à la reprise de compte)
+ * pour la session COURANTE et la marque « MFA satisfaite » pendant `config.mfa.stepUpTtlSec`.
+ *
+ *  - la fenêtre est portée par la ligne de session (lue à chaque requête par `authenticateBearer`), pas par le
+ *    jeton : elle s'éteint seule, et la révocation de la session l'éteint aussitôt ;
+ *  - anti-rejeu : le pas TOTP est consommé (un code déjà utilisé au login ne sert pas deux fois) ;
+ *  - limiteur dédié par identité (verrouillage progressif), distinct de celui du login pour qu'un jeton volé ne
+ *    puisse pas bloquer la connexion légitime, mais borné pour interdire la devinette du code ;
+ *  - jamais de code dans les journaux ni dans l'événement ; refusé en impersonation.
+ */
+export async function stepUp(
+  deps: IamDeps,
+  principal: AuthenticatedPrincipal,
+  input: { code: string; meta: RequestMeta },
+): Promise<Result<StepUpResult, AppError>> {
+  if (principal.impersonatedBy) return err(new ForbiddenError("Action interdite pendant une impersonation.", { code: AuthErrorCodes.impersonationForbidden }));
+  const { identityId } = principal;
+  const tenantId = principal.ctx.tenantId;
+
+  const lockKey = limiterKey(deps.config.keys.tokenHash, "mfa:stepup:id", identityId);
+  const lock = await deps.limiter.lockStatus(lockKey);
+  if (lock.blocked) return err(new TooManyAttemptsError(lock.retryAfterMs));
+
+  type Inner = { kind: "bad_code" } | { kind: "not_enabled" } | { kind: "stale" } | { kind: "ok"; expiresAt: Date };
+  const ctx = userContext(tenantId, identityId, principal.ctx.roles, input.meta.requestId);
+  const ttlSec = deps.config.mfa.stepUpTtlSec;
+  const inner = await deps.tenantDb.run(ctx, async (tx): Promise<Inner> => {
+    const now = deps.clock.now();
+    const identity = await identities.findIdentityById(tx, identityId, true);
+    if (!identity || identity.status !== "active") return { kind: "stale" };
+    if (!identity.mfa_enabled) return { kind: "not_enabled" };
+
+    const factor = await verifySecondFactor(deps, tx, identity, { code: input.code });
+    if (!factor.ok) {
+      await publish(deps, tx, systemContext(tenantId, input.meta.requestId), IAM_EVENT.loginFailed, {
+        reason: "bad_mfa_step_up",
+        identityId,
+        locked: false,
+        ip: input.meta.ip,
+        userAgent: input.meta.userAgent,
+      });
+      return { kind: "bad_code" };
+    }
+    const expiresAt = new Date(now.getTime() + ttlSec * 1000);
+    if (!(await sessions.elevateSession(tx, tenantId, principal.sessionId, expiresAt))) return { kind: "stale" };
+    await publish(
+      deps,
+      tx,
+      ctx,
+      IAM_EVENT.mfaElevated,
+      { identityId, sessionId: principal.sessionId, expiresAt: expiresAt.toISOString(), ip: input.meta.ip, userAgent: input.meta.userAgent },
+      { type: "session", id: principal.sessionId },
+    );
+    return { kind: "ok", expiresAt };
+  });
+
+  if (inner.kind === "not_enabled") return err(new ConflictError("La vérification en deux étapes n'est pas activée sur votre compte.", { code: AuthErrorCodes.mfaNotEnabled }));
+  if (inner.kind === "stale") return err(sessionInvalid());
+  if (inner.kind === "bad_code") {
+    const after = await deps.limiter.recordFailure(lockKey, deps.config.mfaIdentityLockout);
+    return err(after.blocked ? new TooManyAttemptsError(after.retryAfterMs) : badCode());
+  }
+  await deps.limiter.clear(lockKey);
+  return ok({ expiresAt: inner.expiresAt, ttlSec });
+}
+
 /** Vrai si l'un des accès actifs de l'identité (tous tenants) a un rôle qui impose la MFA. */
 async function isMfaMandatoryAnywhere(deps: IamDeps, identityId: string, requestId: string): Promise<boolean> {
   const tenants = await deps.systemDb.run("iam.mfa.mandatory-check", (tx) => identities.listTenantsOfIdentity(tx, identityId), { readOnly: true });

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Field, Input, Notice } from "@ecoledigitale/ui";
 import type { RbacRoleSummary } from "@ecoledigitale/contracts/v2/rbac";
+import { StepUpDialog } from "@/platform/ui/StepUpDialog";
+import { useStepUp } from "@/platform/ui/useStepUp";
 import { fieldErrorsOf } from "../errors";
 import { notifySuccess } from "../notify";
 import { useErrorMessage } from "../use-error-message";
@@ -21,6 +23,7 @@ export function CloneRoleDialog({ role, onClose }: CloneRoleDialogProps) {
   const router = useRouter();
   const message = useErrorMessage();
   const clone = useCloneRole();
+  const stepUp = useStepUp();
   const [label, setLabel] = useState("");
   const [key, setKey] = useState("");
   const [description, setDescription] = useState("");
@@ -43,20 +46,19 @@ export function CloneRoleDialog({ role, onClose }: CloneRoleDialogProps) {
       return;
     }
     setLabelError(undefined);
-    clone.mutate(
-      {
-        id: role.id,
-        label: label.trim(),
-        ...(key.trim() ? { key: key.trim() } : {}),
-        ...(description.trim() ? { description: description.trim() } : {}),
+    const body = {
+      id: role.id,
+      label: label.trim(),
+      ...(key.trim() ? { key: key.trim() } : {}),
+      ...(description.trim() ? { description: description.trim() } : {}),
+    };
+    void stepUp.run(() => clone.mutateAsync(body)).then(
+      (created) => {
+        notifySuccess(t("done", { label: created.label }));
+        close();
+        router.push(`/v2/access/roles/${created.id}`);
       },
-      {
-        onSuccess: (created) => {
-          notifySuccess(t("done", { label: created.label }));
-          close();
-          router.push(`/v2/access/roles/${created.id}`);
-        },
-      },
+      () => undefined,
     );
   };
 
@@ -90,6 +92,7 @@ export function CloneRoleDialog({ role, onClose }: CloneRoleDialogProps) {
           </DialogFooter>
         </form>
       </DialogContent>
+      <StepUpDialog {...stepUp.dialogProps} />
     </Dialog>
   );
 }

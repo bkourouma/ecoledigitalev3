@@ -33,6 +33,7 @@ export default defineModule({
       "iam.mfa.enabled",
       "iam.mfa.disabled",
       "iam.mfa.reset",
+      "iam.mfa.elevated",
       "iam.password.changed",
       "iam.impersonation.started",
       "iam.membership.created",

@@ -787,6 +787,57 @@ export const councilsOrientationFileDtoSchema = z.object({
 });
 export type CouncilsOrientationFileDto = z.infer<typeof councilsOrientationFileDtoSchema>;
 
+// Vue FAMILLE / ÉLÈVE du dossier d'orientation (`GET /children/:studentId/orientation`, `GET /me/orientation`).
+// Minimisation : jamais les notes internes, la décision du conseil (avant la visibilité fixée par l'établissement), les avis du
+// personnel ou du conseiller d'orientation, les vœux retirés, ni quoi que ce soit d'un autre élève. L'état est « masqué » : tant que
+// la décision du conseil n'est pas visible de la famille (`guardianVisibility`), le dossier reste vu comme « vœux recueillis ».
+export const COUNCIL_FAMILY_ORIENTATION_STAGES = ["OPEN", "WISHES_COLLECTED", "DECIDED", "APPLIED", "CLOSED", "CANCELLED"] as const;
+export const councilsFamilyOrientationStageSchema = z.enum(COUNCIL_FAMILY_ORIENTATION_STAGES);
+export const councilsFamilyOrientationWishDtoSchema = z.object({
+  id: councilsUuidSchema,
+  rank: z.number().int(),
+  toProgramId: councilsUuidSchema,
+  toGradeLevelId: councilsUuidSchema,
+  /** Libellé du parcours autorisé correspondant (donnée de l'établissement) ; `null` si aucun parcours nommé ne correspond. */
+  targetLabel: z.string().nullable(),
+  optionIds: z.array(councilsUuidSchema),
+  /** Seuls les vœux de la famille et de l'élève sont exposés (jamais ceux du personnel ou du conseiller). */
+  source: z.enum(["GUARDIAN", "STUDENT"]),
+  expressedAt: councilsInstantSchema,
+  comment: z.string().nullable(),
+});
+export const councilsFamilyOrientationOptionDtoSchema = z.object({
+  pathId: councilsUuidSchema,
+  label: z.string().nullable(),
+  kind: councilsPathKindSchema,
+  toProgramId: councilsUuidSchema,
+  toGradeLevelId: councilsUuidSchema,
+  requiresGuardianConsent: z.boolean(),
+});
+export const councilsFamilyOrientationFileDtoSchema = z.object({
+  id: councilsUuidSchema,
+  academicYearId: councilsUuidSchema,
+  stage: councilsFamilyOrientationStageSchema,
+  guardianConsent: councilsConsentSchema,
+  consentRecordedAt: councilsInstantSchema.nullable(),
+  /** Le tuteur peut-il encore exprimer ou modifier des vœux ? (jamais vrai pour l'élève : lecture seule) */
+  wishesOpen: z.boolean(),
+  /** Le tuteur peut-il donner / modifier son accord ? (parcours exigeant l'accord de la famille, dossier non appliqué) */
+  consentOpen: z.boolean(),
+  wishes: z.array(councilsFamilyOrientationWishDtoSchema),
+});
+export const councilsFamilyOrientationDtoSchema = z.object({
+  studentId: councilsUuidSchema,
+  studentName: z.string().nullable(),
+  /** `null` : aucun dossier d'orientation ouvert pour cet élève. */
+  file: councilsFamilyOrientationFileDtoSchema.nullable(),
+  /** Destinations des parcours autorisés (données de l'établissement) pour la situation de l'élève ; vide pour l'élève et si aucun parcours. */
+  options: z.array(councilsFamilyOrientationOptionDtoSchema),
+});
+export type CouncilsFamilyOrientationDto = z.infer<typeof councilsFamilyOrientationDtoSchema>;
+export type CouncilsFamilyOrientationFileDto = z.infer<typeof councilsFamilyOrientationFileDtoSchema>;
+export type CouncilsFamilyOrientationOptionDto = z.infer<typeof councilsFamilyOrientationOptionDtoSchema>;
+
 export const councilsSeriesTransferInputSchema = z
   .object({
     enrollmentId: councilsUuidSchema,

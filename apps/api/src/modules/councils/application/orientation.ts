@@ -26,6 +26,7 @@ import * as effectsRepo from "../infrastructure/effects-repository";
 import * as orientation from "../infrastructure/orientation-repository";
 import type { OrientationFileRow, OrientationPathRow, TransferRow } from "../infrastructure/rows";
 import { EventBuffer, inTx, requireHuman, type CallerCaps, type CouncilsDeps } from "./deps";
+import { redactFileForFamily } from "./family-orientation";
 import { clampPage } from "./support";
 import { fileDto, pathDto, transferDto } from "./views";
 
@@ -100,6 +101,13 @@ export async function createFile(deps: CouncilsDeps, ctx: RequestContext, input:
   });
 }
 
+/** Vue du dossier renvoyée par une écriture : complète pour le personnel, EXPURGÉE pour la famille (notes, décision, avis du personnel). */
+async function viewForActor(deps: CouncilsDeps, ctx: RequestContext, tx: Tx, fileId: string, staff: boolean): Promise<CouncilsOrientationFileDto> {
+  const fresh = (await orientation.getFile(tx, fileId)) as OrientationFileRow;
+  const view = (await filesView(deps, ctx, tx, [fresh]))[0] as CouncilsOrientationFileDto;
+  return staff ? view : redactFileForFamily(tx, fresh, view);
+}
+
 /** Le tuteur LIÉ de l'élève (lien relu à chaque appel), ou le personnel habilité. Hors lien : introuvable (jamais 403). */
 async function loadFileForActor(deps: CouncilsDeps, ctx: RequestContext, tx: Tx, caps: CallerCaps, fileId: string): Promise<Result<{ file: OrientationFileRow; staff: boolean }, AppError>> {
   const file = await orientation.getFile(tx, fileId, { lock: true });
@@ -116,7 +124,7 @@ export async function addWish(deps: CouncilsDeps, ctx: RequestContext, caps: Cal
     const loaded = await loadFileForActor(deps, ctx, tx, caps, fileId);
     if (!loaded.ok) return loaded;
     const { file, staff } = loaded.value;
-    if (file.status === "APPLIED" || file.status === "CLOSED" || file.status === "CANCELLED") return err(conflict(CouncilsCode.INVALID_STATE, `Le dossier est ${file.status} : les vœux ne changent plus.`));
+    if (file.status === "APPLIED" || file.status === "CLOSED" || file.status === "CANCELLED") return err(conflict(CouncilsCode.INVALID_STATE, staff ? `Le dossier est ${file.status} : les vœux ne changent plus.` : "Le dossier est clos : les vœux ne changent plus."));
     // Une famille exprime SES vœux : la source est imposée par le compte, pas par la requête.
     const source = staff ? input.source : "GUARDIAN";
     await orientation.withdrawWishAtRank(tx, fileId, input.rank, deps.clock.now());
@@ -125,7 +133,7 @@ export async function addWish(deps: CouncilsDeps, ctx: RequestContext, caps: Cal
     const ev = new EventBuffer(deps, ctx);
     ev.audit({ action: "councils.orientation_wish.expressed", resourceType: "orientation_file", resourceId: fileId, after: { rank: input.rank, source } });
     await ev.flush(tx);
-    return ok((await filesView(deps, ctx, tx, [(await orientation.getFile(tx, fileId)) as OrientationFileRow]))[0] as CouncilsOrientationFileDto);
+    return ok(await viewForActor(deps, ctx, tx, fileId, staff));
   });
 }
 
@@ -140,7 +148,7 @@ export async function recordConsent(deps: CouncilsDeps, ctx: RequestContext, cap
     const ev = new EventBuffer(deps, ctx);
     ev.audit({ action: "councils.orientation_consent.recorded", resourceType: "orientation_file", resourceId: fileId, sensitive: true, after: { state: input.state, byGuardian: !loaded.value.staff } });
     await ev.flush(tx);
-    return ok((await filesView(deps, ctx, tx, [(await orientation.getFile(tx, fileId)) as OrientationFileRow]))[0] as CouncilsOrientationFileDto);
+    return ok(await viewForActor(deps, ctx, tx, fileId, loaded.value.staff));
   });
 }
 

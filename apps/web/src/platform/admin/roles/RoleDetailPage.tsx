@@ -19,6 +19,8 @@ import {
 import type { RbacRoleDetail } from "@ecoledigitale/contracts/v2/rbac";
 import { usePermission } from "@/platform/access";
 import { ApiError } from "@/platform/api/errors";
+import { StepUpDialog } from "@/platform/ui/StepUpDialog";
+import { useStepUp } from "@/platform/ui/useStepUp";
 import { ApiErrorState } from "../common";
 import { fieldErrorsOf } from "../errors";
 import { notifySuccess } from "../notify";
@@ -69,6 +71,7 @@ function RoleEditor({ role }: { role: RbacRoleDetail }) {
   const manage = usePermission("rbac.role.manage");
   const update = useUpdateRole();
   const del = useDeleteRole();
+  const stepUp = useStepUp();
 
   const original = useMemo(() => new Set(role.permissions), [role.permissions]);
   const [label, setLabel] = useState(role.label);
@@ -92,27 +95,24 @@ function RoleEditor({ role }: { role: RbacRoleDetail }) {
       return;
     }
     setLabelError(undefined);
-    update.mutate(
-      {
-        id: role.id,
-        ...(labelChanged ? { label: label.trim() } : {}),
-        ...(descriptionChanged ? { description: description.trim() || null } : {}),
-        ...(permissionsChanged ? { permissions: [...selected].sort() } : {}),
-      },
-      { onSuccess: () => notifySuccess(t("saved")) },
-    );
+    const body = {
+      id: role.id,
+      ...(labelChanged ? { label: label.trim() } : {}),
+      ...(descriptionChanged ? { description: description.trim() || null } : {}),
+      ...(permissionsChanged ? { permissions: [...selected].sort() } : {}),
+    };
+    // Permission sensible : refus `rbac.mfa_required` -> confirmation TOTP puis relance unique.
+    void stepUp.run(() => update.mutateAsync(body)).then(() => notifySuccess(t("saved")), () => undefined);
   };
 
   const remove = () =>
-    del.mutate(
-      { id: role.id },
-      {
-        onSuccess: () => {
-          notifySuccess(t("deleted"));
-          setConfirmDelete(false);
-          router.push("/v2/access/roles");
-        },
+    void stepUp.run(() => del.mutateAsync({ id: role.id })).then(
+      () => {
+        notifySuccess(t("deleted"));
+        setConfirmDelete(false);
+        router.push("/v2/access/roles");
       },
+      () => undefined,
     );
 
   const server = fieldErrorsOf(update.error);
@@ -230,6 +230,7 @@ function RoleEditor({ role }: { role: RbacRoleDetail }) {
       </ConfirmDialog>
 
       <CloneRoleDialog role={cloning ? { id: role.id, label: role.label } : null} onClose={() => setCloning(false)} />
+      <StepUpDialog {...stepUp.dialogProps} />
     </div>
   );
 }

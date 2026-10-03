@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { Button, Field, Input, NativeSelect, Notice } from "@ecoledigitale/ui";
 import type { RbacRoleSummary } from "@ecoledigitale/contracts/v2/rbac";
 import type { MemberSummary } from "@ecoledigitale/contracts/v2/iam";
+import { StepUpDialog } from "@/platform/ui/StepUpDialog";
+import { useStepUp } from "@/platform/ui/useStepUp";
 import { fieldErrorsOf } from "../errors";
 import { notifySuccess } from "../notify";
 import { useCampuses, useInstitutions } from "../tenancy/hooks";
@@ -34,6 +36,7 @@ export function CreateAssignmentForm({ roles, members }: CreateAssignmentFormPro
   const tu = useTranslations("ui");
   const message = useErrorMessage();
   const create = useCreateAssignment();
+  const stepUp = useStepUp();
   const [form, setForm] = useState<AssignmentFormState>(EMPTY_ASSIGNMENT_FORM);
   const [errors, setErrors] = useState<AssignmentFormErrors>({});
 
@@ -51,15 +54,17 @@ export function CreateAssignmentForm({ roles, members }: CreateAssignmentFormPro
     setErrors(found);
     const body = toCreateBody(form);
     if (Object.keys(found).length > 0 || !body) return;
-    create.mutate(body, {
-      onSuccess: () => {
+    void stepUp.run(() => create.mutateAsync(body)).then(
+      () => {
         notifySuccess(t("done"));
         setForm(EMPTY_ASSIGNMENT_FORM);
       },
-    });
+      () => undefined,
+    );
   };
 
   return (
+    <>
     <form onSubmit={submit} noValidate aria-labelledby="assignment-create-title" className="space-y-4 rounded-lg border p-4">
       <h2 id="assignment-create-title" className="text-base font-semibold">
         {t("title")}
@@ -156,5 +161,7 @@ export function CreateAssignmentForm({ roles, members }: CreateAssignmentFormPro
         {create.isPending ? t("submitting") : t("submit")}
       </Button>
     </form>
+    <StepUpDialog {...stepUp.dialogProps} />
+    </>
   );
 }

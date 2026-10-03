@@ -278,6 +278,19 @@ export const MfaDisableRequestSchema = z
   });
 export type MfaDisableRequest = z.infer<typeof MfaDisableRequestSchema>;
 
+/** Élévation d'authentification (step-up) : un code TOTP en cours de session, pour une fenêtre courte. */
+export const MfaStepUpRequestSchema = z.object({ code: TotpCodeSchema }).strict();
+export type MfaStepUpRequest = z.infer<typeof MfaStepUpRequestSchema>;
+
+export const MfaStepUpResponseSchema = z.object({
+  elevated: z.literal(true),
+  /** Fin de la fenêtre d'élévation (ISO 8601). */
+  expiresAt: z.string(),
+  /** Durée de la fenêtre (secondes). */
+  ttlSec: z.number().int().positive(),
+});
+export type MfaStepUpResponse = z.infer<typeof MfaStepUpResponseSchema>;
+
 // Administration du tenant -----------------------------------------------------
 
 export const MemberStatusSchema = z.enum(["invited", "active", "suspended", "revoked"]);
@@ -391,6 +404,8 @@ export const iamEventPayloadSchemas = {
   "iam.mfa.enabled": iamIdentityEv({ method: z.string(), via: z.string() }),
   "iam.mfa.disabled": iamIdentityEv({}),
   "iam.mfa.reset": iamIdentityEv({ membershipId: iamEvUuid, resetBy: iamEvUuid }),
+  /** Élévation d'authentification (step-up) réussie : jamais de code, seulement la session et la fin de fenêtre. */
+  "iam.mfa.elevated": iamIdentityEv({ sessionId: iamEvUuid, expiresAt: z.string(), ...iamEvRequestMeta }),
   "iam.password.changed": iamIdentityEv({ via: z.string(), ip: z.string().nullable().optional() }),
   "iam.impersonation.started": iamEv({
     sessionId: iamEvUuid,

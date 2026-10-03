@@ -111,6 +111,8 @@ export interface IamConfig {
     requiredRoles: readonly string[];
     maxChallengeAttempts: number;
     recoveryCodeCount: number;
+    /** Durée (s) pendant laquelle une session reste « MFA satisfaite » après une élévation (step-up) réussie. */
+    stepUpTtlSec: number;
   };
 
   cookie: {
@@ -253,6 +255,7 @@ export function buildIamConfig(input: IamConfigInput): IamConfig {
       requiredRoles,
       maxChallengeAttempts: bounded("mfa.maxChallengeAttempts", o.mfa?.maxChallengeAttempts ?? 5, 1, 10),
       recoveryCodeCount: bounded("mfa.recoveryCodeCount", o.mfa?.recoveryCodeCount ?? 10, 4, 20),
+      stepUpTtlSec: bounded("mfa.stepUpTtlSec", o.mfa?.stepUpTtlSec ?? 5 * 60, 60, 15 * 60),
     }),
 
     cookie: Object.freeze({
@@ -304,8 +307,15 @@ export function loadIamConfig(env: Record<string, string | undefined> = process.
       ...(num("IAM_REFRESH_REUSE_GRACE_MS") !== undefined ? { refreshReuseGraceMs: num("IAM_REFRESH_REUSE_GRACE_MS") as number } : {}),
       ...(num("IAM_PASSWORD_MIN_LENGTH") !== undefined ? { password: { minLength: num("IAM_PASSWORD_MIN_LENGTH") as number } } : {}),
       ...(num("IAM_SCRYPT_LOG_N") !== undefined ? { scrypt: { logN: num("IAM_SCRYPT_LOG_N") as number } } : {}),
-      ...(mfaRoles ? { mfa: { requiredRoles: mfaRoles } } : {}),
-      ...(env.IAM_MFA_TOTP_ISSUER ? { mfa: { totpIssuer: env.IAM_MFA_TOTP_ISSUER, ...(mfaRoles ? { requiredRoles: mfaRoles } : {}) } } : {}),
+      ...(mfaRoles || env.IAM_MFA_TOTP_ISSUER || num("IAM_MFA_STEPUP_TTL_SEC") !== undefined
+        ? {
+            mfa: {
+              ...(mfaRoles ? { requiredRoles: mfaRoles } : {}),
+              ...(env.IAM_MFA_TOTP_ISSUER ? { totpIssuer: env.IAM_MFA_TOTP_ISSUER } : {}),
+              ...(num("IAM_MFA_STEPUP_TTL_SEC") !== undefined ? { stepUpTtlSec: num("IAM_MFA_STEPUP_TTL_SEC") as number } : {}),
+            },
+          }
+        : {}),
       cookie: { secure: secure_, ...(env.IAM_COOKIE_DOMAIN ? { domain: env.IAM_COOKIE_DOMAIN } : {}) },
       allowedOrigins: origins,
     },

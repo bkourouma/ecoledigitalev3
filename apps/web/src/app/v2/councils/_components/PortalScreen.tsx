@@ -8,6 +8,7 @@ import { useMyChildren } from "@/platform/v2/schoollife";
 import { FormField, NativeSelect } from "@/platform/ui/FormField";
 import { PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock } from "@/platform/ui/states";
+import { FamilyOrientation } from "./FamilyOrientation";
 import { CouncilsBoundary, EnumLabel, useDateTime } from "./shared";
 
 /**
@@ -38,6 +39,7 @@ export function PortalScreen({ mode }: { mode: "guardian" | "student" }) {
           {data ? <Decisions data={data} /> : null}
         </CouncilsBoundary>
       ) : null}
+      {mode === "student" || selected ? <FamilyOrientation mode={mode} studentId={selected} /> : null}
     </div>
   );
 }

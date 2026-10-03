@@ -126,6 +126,9 @@ export async function authenticateBearer(
     return err(new ForbiddenError("Vérification en deux étapes requise. Reconnectez-vous.", { code: AuthErrorCodes.mfaRequired }));
   }
 
+  // MFA satisfaite : à la connexion (`mfa_verified`) OU par élévation (step-up) encore dans sa fenêtre courte.
+  const mfaSatisfied = !isImpersonation && (row.mfa_verified || (row.mfa_elevated_until !== null && row.mfa_elevated_until > now));
+
   const ctx = createRequestContext({
     tenantId: claims.tenantId,
     userId: claims.userId,
@@ -134,7 +137,7 @@ export async function authenticateBearer(
     requestId,
     actor: isImpersonation ? "superAdmin" : "user",
     // Lu en base (jamais dans la revendication du jeton) ; lu par le RBAC pour les permissions sensibles.
-    mfa: !isImpersonation && row.mfa_verified,
+    mfa: mfaSatisfied,
   });
   const principal: AuthenticatedPrincipal = {
     ctx,
@@ -145,7 +148,7 @@ export async function authenticateBearer(
     tenantSlug: claims.tenantSlug,
     activeRole: claims.activeRole,
     availableRoles: row.membership_roles,
-    mfa: !isImpersonation && row.mfa_verified,
+    mfa: mfaSatisfied,
     ...(isImpersonation ? { impersonatedBy: (claims as { act: { sub: string } }).act.sub } : {}),
   };
   return ok({ principal, claims });
