@@ -346,8 +346,36 @@ describe("ImportAssistant : aperçu, erreurs et lancement", () => {
     expect(await screen.findByText(/crée des documents financiers/)).toBeTruthy();
     fireEvent.click(await screen.findByLabelText(/J'ai consulté l'aperçu/));
     fireEvent.click(screen.getByRole("button", { name: "Lancer l'import" }));
+    // Élévation d'authentification : le code TOTP est demandé ; annuler garde le message du serveur, sans changer d'étape.
+    const stepUp = await screen.findByRole("dialog", { name: "Confirmez votre identité" });
+    fireEvent.click(within(stepUp).getByRole("button", { name: "Annuler" }));
     expect(await screen.findByText("Confirmez votre identité par l'authentification renforcée avant de lancer cet import.")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "4. Erreurs et aperçu avant import" })).toBeTruthy();
+  });
+
+  it("MFA exigée : code TOTP demandé, puis le lancement est rejoué UNE fois avec le même corps", async () => {
+    let runs = 0;
+    const api = setTestApi(
+      routes({
+        [`GET /api/v1/imports/jobs/${JOB}`]: jobDto({ ...validated, importerKey: "opening_balances", invalidRows: 0 }),
+        "GET /api/v1/imports/importers": { items: [studentsDescriptor(), { ...balancesDescriptor(), canUse: true, canRun: true }] },
+        [`GET /api/v1/imports/jobs/${JOB}/preview`]: preview({ invalidRows: 0, willFail: 0, topIssues: [] }),
+        [`POST /api/v1/imports/jobs/${JOB}/run`]: () =>
+          ++runs === 1 ? json({ status: 403, code: "imports.mfa_required", kind: "forbidden", message: "MFA requise." }, { status: 403 }) : json(jobDto({ status: "QUEUED" }), { status: 202 }),
+        "POST /api/v1/iam/mfa/step-up": { elevated: true, expiresAt: "2026-10-02T10:05:00.000Z", ttlSec: 300 },
+      }),
+    );
+    renderWithProviders(<ImportAssistant jobId={JOB} />);
+    fireEvent.click(await screen.findByLabelText(/J'ai consulté l'aperçu/));
+    fireEvent.click(screen.getByRole("button", { name: "Lancer l'import" }));
+    const stepUp = await screen.findByRole("dialog", { name: "Confirmez votre identité" });
+    fireEvent.change(within(stepUp).getByLabelText(/Code à 6 chiffres/), { target: { value: "123456" } });
+    fireEvent.click(within(stepUp).getByRole("button", { name: "Confirmer et continuer" }));
+    await waitFor(() => expect(runs).toBe(2));
+    const runCalls = api.calls.filter((c) => c.method === "POST" && c.path.endsWith("/run"));
+    expect(runCalls).toHaveLength(2);
+    expect(runCalls[1]!.body).toEqual(runCalls[0]!.body);
+    expect(api.calls.filter((c) => c.path === "/api/v1/iam/mfa/step-up")).toHaveLength(1);
   });
 });
 

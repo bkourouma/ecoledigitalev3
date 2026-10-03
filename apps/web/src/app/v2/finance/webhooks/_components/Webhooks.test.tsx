@@ -115,7 +115,36 @@ describe("WebhooksScreen (webhooks en échec)", () => {
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("checkbox"));
     fireEvent.click(within(dialog).getByRole("button", { name: "Rejouer l'événement" }));
+    // Élévation d'authentification : le code TOTP est demandé ; annuler garde le message dédié, la fenêtre reste ouverte.
+    const stepUp = await screen.findByRole("dialog", { name: "Confirmez votre identité" });
+    fireEvent.click(within(stepUp).getByRole("button", { name: "Annuler" }));
     expect(await within(dialog).findByText(/authentification renforcée est requise/)).toBeTruthy();
+  });
+
+  it("MFA requise : confirmation du code TOTP puis rejeu relancé UNE fois (même requête), résultat affiché", async () => {
+    let replays = 0;
+    const api = setTestApi({
+      ...accessRoutes(REPLAYER),
+      [`GET ${BASE}`]: { items: [event()], total: 1 },
+      [`POST ${BASE}/${fid(400)}/replay`]: () =>
+        ++replays === 1
+          ? json({ code: "rbac.mfa_required", message: "Authentification forte (MFA) requise pour cette action." }, { status: 403 })
+          : json({ replayed: false, resolved: true, event: event({ status: "PROCESSED", error: null }), paymentStatus: "CONFIRMED" }),
+      "POST /api/v1/iam/mfa/step-up": { elevated: true, expiresAt: "2026-10-02T10:05:00.000Z", ttlSec: 300 },
+    });
+    renderWithProviders(<WebhooksScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Rejouer/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rejouer l'événement" }));
+    const stepUp = await screen.findByRole("dialog", { name: "Confirmez votre identité" });
+    fireEvent.change(within(stepUp).getByLabelText(/Code à 6 chiffres/), { target: { value: "123456" } });
+    fireEvent.click(within(stepUp).getByRole("button", { name: "Confirmer et continuer" }));
+    await screen.findByText("Le rejeu a abouti : l'événement est réglé.");
+    expect(replays).toBe(2);
+    expect(posts(api, `${BASE}/${fid(400)}/replay`)).toHaveLength(2);
+    expect(api.calls.filter((c) => c.path === "/api/v1/iam/mfa/step-up")).toHaveLength(1);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("un événement déjà réglé n'a pas de bouton de rejeu", async () => {

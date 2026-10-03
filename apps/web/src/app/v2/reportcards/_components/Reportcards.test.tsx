@@ -166,6 +166,9 @@ describe("CardsScreen — liste, publication, retrait, réémission, révocation
     dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText(/Motif/), { target: { value: "Bulletin émis par erreur" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Révoquer" }));
+    // Élévation d'authentification : code TOTP demandé ; annuler laisse le message du serveur dans la boîte de dialogue.
+    const stepUp = await screen.findByRole("dialog", { name: "Confirmez votre identité" });
+    fireEvent.click(within(stepUp).getByRole("button", { name: "Annuler" }));
     await within(dialog).findByText("Une authentification forte est requise pour révoquer.");
   });
 

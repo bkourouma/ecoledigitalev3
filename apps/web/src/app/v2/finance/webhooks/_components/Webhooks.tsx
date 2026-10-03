@@ -14,6 +14,8 @@ import { useDateFormat } from "@/platform/ui/format";
 import { FormDialog, ModalDialog } from "@/platform/ui/ModalDialog";
 import { buttonClass, PageHeader, StatusBadge, type Tone } from "@/platform/ui/PageHeader";
 import { Notice } from "@/platform/ui/states";
+import { StepUpDialog } from "@/platform/ui/StepUpDialog";
+import { useStepUp } from "@/platform/ui/useStepUp";
 
 const PAGE_SIZE = 25;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -240,6 +242,7 @@ function ReplayDialog({ target, onClose, onDone }: { target: FinanceWebhookEvent
   const t = useTranslations("v2FinanceWebhooks.replay");
   const describe = useWebhookError();
   const replay = useReplayWebhookEvent();
+  const stepUp = useStepUp();
   const [note, setNote] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -248,10 +251,12 @@ function ReplayDialog({ target, onClose, onDone }: { target: FinanceWebhookEvent
   function submit() {
     setSubmitted(true);
     if (!confirmed) return;
-    replay.mutate({ id: target.id, ...(note.trim() ? { note: note.trim() } : {}) }, { onSuccess: onDone });
+    // Rejeu sensible refusé en `*.mfa_required` : confirmation d'identité (TOTP) puis relance unique de la même requête.
+    void stepUp.run(() => replay.mutateAsync({ id: target.id, ...(note.trim() ? { note: note.trim() } : {}) })).then(onDone, () => undefined);
   }
 
   return (
+    <>
     <FormDialog open onOpenChange={(o) => !o && onClose()} title={t("title")} description={t("description", { provider: target.provider })} submitLabel={t("submit")} isPending={replay.isPending} onSubmit={submit}>
       <Notice kind="warning">{t("warning")}</Notice>
       <Notice kind="info">{t("mfa")}</Notice>
@@ -271,6 +276,8 @@ function ReplayDialog({ target, onClose, onDone }: { target: FinanceWebhookEvent
         </p>
       ) : null}
     </FormDialog>
+    <StepUpDialog {...stepUp.dialogProps} />
+    </>
   );
 }
 

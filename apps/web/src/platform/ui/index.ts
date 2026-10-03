@@ -11,6 +11,8 @@ export * from "./PageHeader";
 export * from "./SectionNav";
 export * from "./SelectAsync";
 export * from "./states";
+export * from "./StepUpDialog";
+export * from "./useStepUp";
 export * from "./TreeEditor";
 export * from "./UploadDropzone";
 export * from "./validation";

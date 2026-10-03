@@ -16348,6 +16348,77 @@
       "distinctions": "Distinctions"
     }
   },
+  "v2CouncilsFamily": {
+    "title": "Orientation",
+    "descriptionGuardian": "Le dossier d'orientation de votre enfant : état, vœux exprimés et accord de la famille.",
+    "descriptionStudent": "Votre dossier d'orientation : état et vœux exprimés.",
+    "about": "Dossier de {name}",
+    "noFile": "Aucun dossier d'orientation",
+    "noFileHint": "Aucun dossier d'orientation n'est ouvert pour le moment. L'établissement vous prévient lorsqu'il l'ouvre.",
+    "stateTitle": "État du dossier",
+    "stage": {
+      "OPEN": "Ouvert",
+      "WISHES_COLLECTED": "Vœux recueillis",
+      "DECIDED": "Décision prise",
+      "APPLIED": "Décision appliquée",
+      "CLOSED": "Clos",
+      "CANCELLED": "Annulé"
+    },
+    "stageHint": {
+      "OPEN": "Le dossier est ouvert. Les vœux peuvent être exprimés.",
+      "WISHES_COLLECTED": "Les vœux sont recueillis. Aucune décision n'est encore communiquée.",
+      "DECIDED": "Une décision a été prise. Elle est consultable dans la rubrique « Décisions du conseil » ci-dessus.",
+      "APPLIED": "La décision a été appliquée au dossier de l'élève.",
+      "CLOSED": "Le dossier est clos.",
+      "CANCELLED": "Le dossier a été annulé."
+    },
+    "wishesTitle": "Vœux exprimés",
+    "noWishes": "Aucun vœu enregistré pour le moment.",
+    "wishRank": "Vœu n° {rank}",
+    "unnamedTarget": "Destination sans libellé",
+    "source": {
+      "GUARDIAN": "Exprimé par la famille",
+      "STUDENT": "Exprimé par l'élève"
+    },
+    "comment": "Commentaire",
+    "consentTitle": "Accord de la famille",
+    "consent": {
+      "NOT_REQUIRED": "Non requis",
+      "PENDING": "En attente",
+      "GIVEN": "Donné",
+      "REFUSED": "Refusé"
+    },
+    "consentHint": {
+      "NOT_REQUIRED": "Aucun accord n'est demandé.",
+      "PENDING": "Le parcours envisagé exige l'accord de la famille. Sans accord, aucun changement n'est appliqué.",
+      "GIVEN": "Accord enregistré le {date}.",
+      "REFUSED": "Refus enregistré le {date}. Aucun changement ne sera appliqué sans nouvel accord."
+    },
+    "consentSaved": "Votre réponse est enregistrée.",
+    "consentGive": "Donner mon accord",
+    "consentRefuse": "Refuser",
+    "consentDialogTitle": "Accord de la famille",
+    "consentGiveConfirm": "Confirmez-vous donner l'accord de la famille au changement d'orientation envisagé ?",
+    "consentRefuseConfirm": "Confirmez-vous refuser le changement d'orientation envisagé ? Aucun changement ne sera appliqué sans nouvel accord.",
+    "cancel": "Annuler",
+    "formTitle": "Exprimer un vœu",
+    "rank": "Rang du vœu",
+    "rankHint": "1 correspond au premier choix.",
+    "rankReplaces": "Ce rang est déjà utilisé : le nouveau vœu remplacera le précédent.",
+    "destination": "Destination souhaitée",
+    "choose": "Choisir une destination",
+    "optionFallback": "Destination n° {n}",
+    "commentOptional": "Commentaire (facultatif)",
+    "submit": "Enregistrer le vœu",
+    "saved": "Votre vœu n° {rank} est enregistré.",
+    "wishesClosed": "Les vœux ne peuvent plus être modifiés pour ce dossier.",
+    "noOptions": "L'établissement n'a pas encore indiqué de destinations possibles. Contactez la direction pour exprimer un vœu.",
+    "readOnly": "Lecture seule : les vœux sont exprimés par la famille ou par l'établissement.",
+    "errors": {
+      "option": "Choisissez une destination.",
+      "invalid": "Le vœu n'est pas valide. Vérifiez le rang et la destination."
+    }
+  },
   "v2CouncilsExtra": {
     "external": {
       "kind": "Type de participant",
@@ -16829,6 +16900,25 @@
           "campus": "Choisissez un campus : la facturation est suivie par campus."
         }
       }
+    }
+  },
+  "v2StepUp": {
+    "title": "Confirmez votre identité",
+    "description": "Cette action est sensible. Saisissez le code à 6 chiffres affiché par votre application d'authentification pour continuer.",
+    "codeLabel": "Code à 6 chiffres",
+    "required": "obligatoire",
+    "codeHint": "Le code change toutes les 30 secondes. Un code déjà utilisé n'est pas accepté : attendez le suivant.",
+    "submit": "Confirmer et continuer",
+    "verifying": "Vérification en cours…",
+    "errors": {
+      "format": "Saisissez les 6 chiffres du code.",
+      "invalid": "Code invalide. Vérifiez l'heure de votre téléphone, puis attendez le prochain code.",
+      "locked": "Trop de tentatives. Patientez quelques minutes avant de réessayer.",
+      "notEnabled": "La vérification en deux étapes n'est pas activée sur votre compte. Activez-la depuis la page Sécurité, puis reconnectez-vous.",
+      "impersonation": "Action impossible pendant une session d'assistance.",
+      "session": "Votre session a expiré. Reconnectez-vous.",
+      "network": "Service injoignable. Vérifiez votre connexion et réessayez.",
+      "generic": "La vérification a échoué. Réessayez."
     }
   },
   "v2FinanceWebhooks": {
