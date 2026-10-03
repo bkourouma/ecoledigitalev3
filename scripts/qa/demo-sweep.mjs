@@ -148,6 +148,7 @@ async function extract(page) {
       hrefs,
       menuHrefs,
       skeletons: document.querySelectorAll('[aria-busy="true"], .animate-pulse, [data-loading="true"]').length,
+      hasLogout: [...document.querySelectorAll("button, a")].some((e) => /d[ée]connect|log ?out|sign ?out/i.test(e.textContent ?? "")),
     };
   });
 }
@@ -294,7 +295,8 @@ async function sweepAccount(browser, account, persist = () => {}) {
       result.landingMenu = [...menuLinks].sort();
       if (only) for (const p of only) enqueue(p, "only", true);
       else for (const m of [...menuLinks].sort().reverse()) enqueue(m, "menu", true, true);
-      if (treeSeed) for (const r of TREE) if (!/\[/.test(r) && !SKIP_SEED.test(r)) enqueue(r, "tree", false);
+      // L'operateur n'a que la console `/v2/platform` ; les autres routes le renvoient a la connexion (balayage inutile).
+      if (treeSeed) for (const r of TREE) if (!/\[/.test(r) && (account.role === "operateur" ? /^\/v2\/platform(\/|$)/.test(r) && !/\/login$/.test(r) : !SKIP_SEED.test(r))) enqueue(r, "tree", false);
     }
     if (!only && !menuOnly && reachable) for (const n of [...links].sort()) enqueue(n, "crawl", true);
     // Passe menus : la coquille d'administration (`/v2/settings`) affiche les entrees de `/api/v1/rbac/me/navigation` (hrefs historiques `/admin/...`).

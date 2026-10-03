@@ -28,7 +28,10 @@ describe("menu v2 (fonctions pures)", () => {
     expect(mapToV2Href("/admin/roles")).toBe("/v2/access/roles");
     expect(mapToV2Href("/admin/roles/attributions")).toBe("/v2/access/assignments");
     expect(mapToV2Href("/admin/audit")).toBe("/v2/audit");
-    expect(mapToV2Href("/admin/utilisateurs")).toBe("/admin/utilisateurs");
+    // Entrée sans écran v2 (calendrier de l'établissement) : laissée intacte.
+    expect(mapToV2Href("/admin/emploi-du-temps/calendrier")).toBe("/admin/emploi-du-temps/calendrier");
+    // « Utilisateurs » : l'écran v2 est « Membres » (l'ancienne page s'affichait blanche).
+    expect(mapToV2Href("/admin/utilisateurs")).toBe("/v2/admin/members");
   });
 
   it("ajoute les entrées v2 manquantes SEULEMENT si la permission est détenue (échec fermé)", () => {

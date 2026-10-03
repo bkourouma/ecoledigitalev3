@@ -41,7 +41,7 @@ export function rawI18nKeys(text) {
   return [...out];
 }
 
-export const TECHNICAL_KEY_PAGES = /^\/v2\/(access|audit|rules|platform\/audit|imports|notifications\/(rules|templates)|analytics\/alertes\/regles)(\/|$)/;
+export const TECHNICAL_KEY_PAGES = /^\/v2\/(access|audit|rules|platform\/(audit|plans|tenants)|settings\/subscription|imports|notifications\/(rules|templates)|analytics\/alertes\/regles)(\/|$)/;
 
 export function isDeniedPath(p) {
   return /^\/(v2\/)?(unauthorized|forbidden)(\/|$|\?)/.test(p ?? "");
@@ -73,6 +73,10 @@ export function analyzePage(rec, env) {
     add(inMenu ? "bloquant" : "majeur", "http-404", inMenu ? "Lien de menu mort (404)" : "Page introuvable (404)", `${rec.navStatus} ${rec.h1 ?? ""}`);
   }
   if (rec.devToast) add("majeur", "dev-toast", "Indicateur d'erreur Next.js (probleme signale en console)", rec.devToast);
+  // Ecran d'atterrissage du role sans aucun moyen de se deconnecter : pas de coquille (menu global, compte, deconnexion).
+  if (rec.source === "landing" && rec.hasLogout === false && !isLoginPath(finalPath) && rec.navStatus < 400) {
+    add("majeur", "no-shell", "Ecran d'atterrissage sans coquille : ni deconnexion, ni menu global, ni nom d'etablissement", `${path} : aucun bouton de deconnexion`);
+  }
   if (rec.overlay) add("bloquant", "dev-overlay", "Ecran d'erreur Next.js (overlay)", rec.overlay);
   if (!rec.error && ERROR_SCREEN.test(main) && !(rec.navStatus === 404)) {
     add("bloquant", "error-screen", "Ecran d'erreur affiche", snippet(main, ERROR_SCREEN));

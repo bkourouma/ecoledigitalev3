@@ -86,8 +86,13 @@ function ingest(r, p, f, kind) {
   if (f.code === "raw-i18n-key" && TECHNICAL_KEY_PAGES.test(p.url.split("?")[0])) return;
   const route = p.pattern ?? patternOf(p.url.split("?")[0]) ?? p.url;
   // Defauts d'API systemiques (meme appel en echec sur beaucoup de pages) : un seul constat, avec la liste des pages.
-  const systemic = f.code.startsWith("api-");
-  const key = systemic ? `${f.code}|${norm(f.message).replace(/^.*?(GET|POST|PUT|PATCH|DELETE) /, "$1 ").replace(/\?\S*/, "")}` : `${f.code}|${norm(f.message)}|${route}`;
+  const apiSystemic = f.code.startsWith("api-");
+  const systemic = apiSystemic || ["http-404", "no-shell", "denied-redirect", "dev-toast", "console-js"].includes(f.code);
+  const key = apiSystemic
+    ? `${f.code}|${norm(f.message).replace(/^.*?(GET|POST|PUT|PATCH|DELETE) /, "$1 ").replace(/\?\S*/, "")}`
+    : systemic
+      ? `${f.code}|${norm(f.message)}`
+      : `${f.code}|${norm(f.message)}|${route}`;
   const g = groups.get(key) ?? { severity: f.severity, code: f.code, message: norm(f.message), route, routes: new Set(), evidence: f.evidence, urls: new Set(), roles: new Set(), shot: p.screenshot, systemic, transient: true, kinds: new Set() };
   g.routes.add(route);
   g.urls.add(p.url);
@@ -131,6 +136,7 @@ const CAUSE = {
   "label-not-enrolled": "Statut d'inscription non propage vers ce portail (voir le mapping des evenements d'inscription).",
   "alert-without-api-failure": "Etat d'erreur affiche alors qu'aucune requete n'a echoue : logique de composant.",
   "console-js": "Erreur d'hydratation React : rendu serveur different du rendu client (date/heure, `typeof window`, attribut variable).",
+  "no-shell": "Le layout du module (`app/v2/<module>/layout.tsx`) ne pose qu'un menu a onglets : aucun `TenantAdminShell`/`PortalShell` (nom de l'etablissement, deconnexion, menu global).",
   "empty-state": "A confronter a la graine de demonstration (`scripts/seed-v2`).",
 };
 
@@ -182,6 +188,18 @@ for (const sev of sevs) {
     L();
     continue;
   }
+  if (sev === "mineur") {
+    // Les mineurs sont nombreux (403/404 attendus sur des pages hors menu, bruit console) : tableau compact.
+    L("| # | Type | Constat | Pages (ex.) | Rôles |");
+    L("|---:|---|---|---|---|");
+    list.forEach((g, n) => {
+      const fx = isFixed(g);
+      const ex = [...new Set([...g.urls].map((u) => u.replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi, ":id")))].slice(0, 3).map((u) => `\`${u}\``).join(", ");
+      L(`| m${n + 1} | \`${g.code}\` | ${fx ? "✔ " : ""}${g.message.replace(/\|/g, "/").slice(0, 150)} | ${ex}${g.urls.size > 3 ? ` (+${g.urls.size - 3})` : ""} | ${[...g.roles].slice(0, 3).join(", ")}${g.roles.size > 3 ? " …" : ""} |`);
+    });
+    L();
+    continue;
+  }
   let i = 0;
   for (const g of list) {
     i += 1;
@@ -191,7 +209,11 @@ for (const sev of sevs) {
     const mark = fx ? "✔ " : g.transient && rechecks.size && sev !== "mineur" ? "⟳ " : "";
     L(`### ${sev.slice(0, 1).toUpperCase()}${i}. ${mark}${g.message}`);
     L();
-    if (g.systemic) L(`- **Pages concernées** : ${g.routes.size} route(s), ${urls.length} URL (ex. ${[...g.routes].slice(0, 4).map((x) => `\`${x}\``).join(", ")}${g.routes.size > 4 ? " …" : ""})`);
+    if (g.systemic) {
+      const shown = (urls.length <= 40 ? urls : [...g.routes]).map((x) => `\`${x.replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi, ":id")}\``);
+      const uniq = [...new Set(shown)];
+      L(`- **Pages concernées** : ${g.routes.size} route(s), ${urls.length} URL : ${uniq.slice(0, 40).join(", ")}${uniq.length > 40 ? " …" : ""}`);
+    }
     else L(`- **Route** : \`${g.route}\`${urls.length > 1 ? ` (${urls.length} URL, ex. \`${urls[0]}\`)` : urls[0] !== g.route ? ` (\`${urls[0]}\`)` : ""}`);
     L(`- **Rôles** : ${roles.length > 8 ? `${roles.slice(0, 8).join(", ")} … (${roles.length})` : roles.join(", ")}`);
     L(`- **Type** : \`${g.code}\`${g.kinds.has("menu") ? " (passe menus)" : ""}`);

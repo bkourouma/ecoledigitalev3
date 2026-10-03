@@ -48,6 +48,12 @@ test("libelle Non inscrit pour un parent ou un eleve", () => {
   assert.ok(!codes({ main: "Awa : Non inscrit" }).includes("majeur:label-not-enrolled"));
 });
 
+test("atterrissage sans deconnexion = ecran sans coquille", () => {
+  assert.ok(codes({ source: "landing", hasLogout: false }).includes("majeur:no-shell"));
+  assert.ok(!codes({ source: "landing", hasLogout: true }).includes("majeur:no-shell"));
+  assert.ok(!codes({ source: "crawl", hasLogout: false }).includes("majeur:no-shell"));
+});
+
 test("erreurs console : cle i18n manquante majeure, bruit reseau ignore", () => {
   assert.ok(codes({ consoleErrors: [{ text: "MISSING_MESSAGE: Could not resolve `a.b` in messages for locale `fr-CI`" }] }).includes("majeur:i18n-missing"));
   assert.deepEqual(codes({ consoleErrors: [{ text: "Failed to load resource: the server responded with a status of 403 (Forbidden)" }] }), []);

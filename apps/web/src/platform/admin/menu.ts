@@ -39,6 +39,8 @@ export const LEGACY_TO_V2_HREF: Readonly<Record<string, string>> = Object.freeze
   "/admin/emploi-du-temps/remplacements": "/v2/schedule/replacements",
   // Personnes, académique, évaluations, résultats, bulletins, règles, supérieur, admissions : sans cette réécriture, les entrées
   // du portail admin menaient à des routes sans page (404 constaté au balayage QA).
+  // Utilisateurs : l'ancienne page `/admin/utilisateurs` s'affichait blanche (appels `/api/v1/admin/access/*` en 404) ; l'écran v2 est « Membres ».
+  "/admin/utilisateurs": "/v2/admin/members",
   "/admin/eleves": "/v2/students",
   "/admin/parents": "/v2/guardians",
   "/admin/personnel": "/v2/staff",
