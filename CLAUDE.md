@@ -11,7 +11,7 @@ New specs live in `specs/v2/` (configured by `specs_dir` in `.specify/init-optio
 overridable with the `SPECIFY_SPECS_DIR` environment variable). `specs/001..031` is the
 **history** of the current application: keep it untouched and do not add new specs there.
 
-Stack: TypeScript / Node 18+ monorepo (pnpm) — Fastify API (`apps/api`),
+Stack: TypeScript / Node 20+ monorepo (pnpm) — Fastify 5 API (`apps/api`),
 Next.js 15 App Router web (`apps/web`), shared Zod contracts
 (`packages/contracts`), PostgreSQL 14+ with Row-Level Security, SQL
 migrations in `infra/scripts/migrations`.
