@@ -94,6 +94,32 @@ export const TenantProfileSchema = z.object({
 });
 export type TenantProfile = z.infer<typeof TenantProfileSchema>;
 
+/**
+ * Marque MINIMALE de l'organisation, lisible par TOUT membre authentifié du tenant (parent et élève compris) :
+ * `GET /api/v1/tenancy/branding`. Vue d'affichage uniquement : aucun contact, adresse, domaine, identifiant
+ * technique ni donnée contractuelle. Schéma STRICT : tout champ ajouté à la réponse sans être déclaré ici
+ * fait échouer le test de forme exacte.
+ */
+export const TenantBrandingSchema = z
+  .object({
+    slug: z.string(),
+    /** Nom commercial s'il existe, sinon raison sociale. */
+    displayName: z.string(),
+    theme: z
+      .object({
+        logoUrl: z.string().nullable(),
+        primaryColor: HexColorSchema.nullable(),
+        secondaryColor: HexColorSchema.nullable(),
+      })
+      .strict(),
+    /** Locale, fuseau et devise du pays de l'organisation (référentiel global `country_profiles`). */
+    locale: z.string(),
+    timezone: z.string(),
+    currencyCode: z.string().regex(/^[A-Z]{3}$/),
+  })
+  .strict();
+export type TenantBranding = z.infer<typeof TenantBrandingSchema>;
+
 const nullableText = (max: number) => z.string().trim().min(1).max(max).nullable();
 
 export const UpdateTenantProfileSchema = z

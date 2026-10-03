@@ -2,7 +2,9 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ManualClock, createRequestContext, newId, ForbiddenError, type RequestContext } from "@ecoledigitale/kernel";
+import { TenantBrandingSchema } from "@ecoledigitale/contracts/src/v2/tenancy";
 import { provisionTenant, tenancyPlugin } from "../index";
+import { getBranding } from "../infrastructure/profile-repository";
 import { TENANCY_MIGRATIONS, createTestDb, describeIntegration, type TestDb } from "./support/db";
 
 const clock = new ManualClock("2026-10-01T08:00:00.000Z");
@@ -205,5 +207,79 @@ describeIntegration("tenancy — HTTP", () => {
     });
     expect(res.statusCode).toBe(400);
     expect(JSON.stringify(res.json())).not.toMatch(/at .*\.ts|node_modules/);
+  });
+
+  describe("GET /branding : tout membre authentifié, vue minimale", () => {
+    it("sans session : 401 ; sans AUCUNE permission (parent, élève, enseignant) : 200", async () => {
+      const bare = Fastify({ logger: false });
+      await bare.register(tenancyPlugin, { db: db.tenantDb, requirePermission: () => async () => undefined });
+      expect((await bare.inject({ method: "GET", url: "/api/v1/tenancy/branding" })).statusCode).toBe(401);
+      await bare.close();
+
+      for (const role of ["parent", "eleve", "enseignant"]) {
+        const res = await app.inject({ method: "GET", url: "/api/v1/tenancy/branding", headers: { ...headers(A.tenantId), "x-role": role } });
+        expect(res.statusCode, role).toBe(200);
+      }
+      // `/profile` reste fermé sans la permission : la nouvelle route n'élargit aucune permission existante.
+      const profile = await app.inject({ method: "GET", url: "/api/v1/tenancy/profile", headers: headers(A.tenantId) });
+      expect(profile.statusCode).toBe(403);
+      // Plugin sans garde de permissions : la vue minimale n'en dépend pas (elle ne porte aucune donnée sensible).
+      const open = await denyApp.inject({ method: "GET", url: "/api/v1/tenancy/branding", headers: headers(A.tenantId) });
+      expect(open.statusCode).toBe(200);
+    });
+
+    it("forme EXACTE et aucune donnée de contact, d'adresse, de domaine ni d'identifiant technique", async () => {
+      const patch = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/tenancy/profile",
+        headers: headers(A.tenantId, ALL[1]!),
+        payload: {
+          tradeName: "Groupe Scolaire Les Palmiers",
+          logoUrl: "https://cdn.example.org/palmiers.png",
+          primaryColor: "#112233",
+          secondaryColor: "#445566",
+          contactName: "Mme Secrète",
+          contactEmail: "secret@palmiers.ci",
+          contactPhone: "+225 07 00 00 00 00",
+          address: "12 rue confidentielle, Abidjan",
+          customDomain: "ecole.palmiers-secret.ci",
+        },
+      });
+      expect(patch.statusCode).toBe(200);
+
+      const res = await app.inject({ method: "GET", url: "/api/v1/tenancy/branding", headers: headers(A.tenantId) });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({
+        slug: "http-a",
+        displayName: "Groupe Scolaire Les Palmiers",
+        theme: { logoUrl: "https://cdn.example.org/palmiers.png", primaryColor: "#112233", secondaryColor: "#445566" },
+        locale: "fr-CI",
+        timezone: "Africa/Abidjan",
+        currencyCode: "XOF",
+      });
+      expect(TenantBrandingSchema.safeParse(res.json()).success).toBe(true);
+      const text = JSON.stringify(res.json());
+      for (const leak of ["secret", "Secrète", "confidentielle", "+225", A.tenantId, "legalName", "customDomain", "createdAt"]) {
+        expect(text.toLowerCase(), leak).not.toContain(leak.toLowerCase());
+      }
+    });
+
+    it("sans nom commercial : la raison sociale sert de nom d'affichage", async () => {
+      const res = await app.inject({ method: "GET", url: "/api/v1/tenancy/branding", headers: headers(B.tenantId) });
+      expect(res.json()).toMatchObject({ slug: "http-b", displayName: "Org http-b", theme: { logoUrl: null, primaryColor: null, secondaryColor: null } });
+    });
+
+    it("A/B : un membre du tenant B ne voit jamais la marque du tenant A (HTTP et RLS)", async () => {
+      const b = await app.inject({ method: "GET", url: "/api/v1/tenancy/branding", headers: headers(B.tenantId) });
+      expect(b.json().slug).toBe("http-b");
+      expect(JSON.stringify(b.json())).not.toContain("Palmiers");
+      // Aucun paramètre ne cible un autre tenant.
+      const spoof = await app.inject({ method: "GET", url: `/api/v1/tenancy/branding?tenantId=${A.tenantId}`, headers: headers(B.tenantId) });
+      expect(spoof.json().slug).toBe("http-b");
+      // Niveau base : sous l'identité de B, la lecture de la marque de A est filtrée par la RLS.
+      const asB = createRequestContext({ tenantId: B.tenantId, userId: USER });
+      const leaked = await db.tenantDb.run(asB, (tx) => getBranding(tx, A.tenantId), { readOnly: true });
+      expect(leaked).toBeNull();
+    });
   });
 });

@@ -3,7 +3,7 @@
  *
  * Endpoints du kernel/RBAC (Phase 1, piste A) :
  *   GET /api/v1/rbac/me/permissions -> { permissions: string[] }
- *   GET /api/v1/entitlements/me     -> { features: string[], plan?: string | null, packs?: string[] }
+ *   GET /api/v1/entitlements/me/features -> { features: string[] }  (tout membre authentifié)
  *
  * Quand `packages/contracts/src/v2/*` publiera ces schémas, remplacer les définitions ci-dessous par un
  * import ; la forme est volontairement minimale pour que ce changement soit transparent.
@@ -47,4 +47,8 @@ export const MyEntitlementsSchema = z.object({
 export type MyEntitlements = z.infer<typeof MyEntitlementsSchema>;
 
 export const PERMISSIONS_ENDPOINT = "/api/v1/rbac/me/permissions";
-export const ENTITLEMENTS_ENDPOINT = "/api/v1/entitlements/me";
+/**
+ * Fonctionnalités actives : vue minimale ouverte à tout membre authentifié (`MyFeaturesSchema` côté API : uniquement
+ * `{ features }`). L'ancienne lecture de `/entitlements/me` exige `entitlements.read` et répondait 403 aux autres rôles.
+ */
+export const ENTITLEMENTS_ENDPOINT = "/api/v1/entitlements/me/features";

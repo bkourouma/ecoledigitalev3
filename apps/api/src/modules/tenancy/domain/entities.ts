@@ -41,6 +41,18 @@ export interface TenantProfileRecord {
   updatedAt: Date;
 }
 
+/** Marque minimale d'affichage (lisible par tout membre du tenant) : aucune donnée de contact ni technique. */
+export interface TenantBrandingRecord {
+  slug: string;
+  displayName: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  locale: string;
+  timezone: string;
+  currencyCode: string;
+}
+
 export interface InstitutionRecord {
   id: string;
   tenantId: string;

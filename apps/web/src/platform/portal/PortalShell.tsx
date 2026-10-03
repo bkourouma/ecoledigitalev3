@@ -8,7 +8,7 @@ import { purgeOfflineDataBestEffort } from "@/platform/offline/purge";
 import { useTranslations } from "next-intl";
 import { useMyEntitlements, useMyPermissions } from "@/platform/access";
 import { Shell } from "@/platform/admin/shell/Shell";
-import { useTenantProfile } from "@/platform/admin/tenancy/hooks";
+import { useTenantBranding } from "@/platform/theme/TenantTheme";
 import { isAuthV2 } from "@/platform/auth/iam-config";
 import { buildPortalMenu, type PortalKey } from "./menus";
 
@@ -21,7 +21,8 @@ export function PortalShell({ portal, children, activePath }: { portal: PortalKe
   const tMenu = useTranslations(`v2Portal.menu.${portal}`);
   const permissions = useMyPermissions();
   const entitlements = useMyEntitlements();
-  const profile = useTenantProfile();
+  // Marque minimale (tout membre authentifié) : le profil complet exige `tenancy.institution.read` (403 pour parent, élève…).
+  const branding = useTenantBranding();
 
   const items = useMemo(
     () =>
@@ -34,7 +35,7 @@ export function PortalShell({ portal, children, activePath }: { portal: PortalKe
     [portal, permissions.data, entitlements.data, tMenu],
   );
 
-  const name = profile.data?.tradeName ?? profile.data?.legalName ?? t("brand");
+  const name = branding.data?.name ?? t("brand");
   const accountHref = isAuthV2() ? "/v2/account/security" : null;
 
   return (

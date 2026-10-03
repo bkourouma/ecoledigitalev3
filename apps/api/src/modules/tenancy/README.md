@@ -79,12 +79,26 @@ Codes d'erreur : `tenancy.onboarding.{prerequisites_unmet, step_not_skippable, s
 |---|---|
 | `GET /countries` | `tenancy.institution.read` |
 | `GET /profile` · `PATCH /profile` | `…read` · `tenancy.institution.manage` |
+| `GET /branding` | **aucune permission nominative** : tout membre authentifié du tenant (voir ci-dessous) |
 | `GET /institutions[?status=]` · `GET /institutions/:id` | `…read` |
 | `POST /institutions` (201, campus par défaut inclus) · `PATCH /institutions/:id` | `tenancy.institution.manage` |
 | `GET /institutions/:id/campuses` | `…read` |
 | `POST /institutions/:id/campuses` (201) · `PATCH /campuses/:id` · `DELETE /campuses/:id` (204) | `tenancy.campus.manage` |
 | `GET /onboarding` | `…read` |
 | `POST /onboarding/steps/:step/complete` · `…/skip` | `tenancy.institution.manage` |
+
+**`GET /branding` (marque minimale, sans permission nominative).** Les coques web (portails parent, élève,
+enseignant, thème de marque) ont besoin du nom de l'établissement et des couleurs pour TOUS les membres, alors
+que `GET /profile` exige `tenancy.institution.read` (contact, adresse, domaine : données de gestion). La route
+est donc ajoutée à côté, sans rien élargir : elle n'a pas de garde de permission, mais elle est protégée par
+(1) l'authentification de session posée en `onRequest` pour toute route non déclarée publique (`config.public`
+absent) et, en défense, `ctxOf` qui répond 401 sans contexte ; (2) le tenant de la session, jamais un paramètre
+(la requête n'accepte aucun identifiant) ; (3) la RLS de `tenant_profiles`. Même mécanisme que
+`GET /rbac/me/permissions` et `/me/navigation`. Réponse STRICTE (`TenantBrandingSchema`) :
+`{ slug, displayName, theme: { logoUrl, primaryColor, secondaryColor }, locale, timezone, currencyCode }`
+(`displayName` = nom commercial, sinon raison sociale ; locale/fuseau/devise viennent du pays,
+référentiel global). Jamais de contact, d'adresse, de domaine personnalisé, d'identifiant de tenant ni de dates.
+Tout nouveau champ doit être ajouté au schéma strict ET justifié comme non sensible.
 
 Schémas Zod : `packages/contracts/src/v2/tenancy.ts` (réexporté par `v2/index.ts`).
 Erreurs : `{ status, code, kind, message, issues?, requestId }` (`toErrorBody` du kernel).

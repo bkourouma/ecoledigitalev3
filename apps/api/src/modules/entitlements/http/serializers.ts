@@ -3,6 +3,7 @@ import type {
   EffectiveEntitlementsDto,
   Feature,
   FeatureOverride,
+  MyFeaturesDto,
   Pack,
   Plan,
   Subscription,
@@ -18,7 +19,10 @@ import type {
 } from "../domain/entities";
 import type { EffectiveEntitlements } from "../domain/resolve";
 
-export const toEntitlementsDto = (e: EffectiveEntitlements): EffectiveEntitlementsDto => ({
+/** Vue minimale : clés actives (triées) uniquement. */
+export const toMyFeaturesDto = (e: EffectiveEntitlements): MyFeaturesDto => ({ features: [...e.features].sort() });
+
+export const toEntitlementsDto =(e: EffectiveEntitlements): EffectiveEntitlementsDto => ({
   tenantId: e.tenantId,
   reason: e.reason,
   planKey: e.planKey,

@@ -47,6 +47,7 @@ import type { ModuleRuntime } from "../../../platform/runtime";
 import {
   toEntitlementsDto,
   toFeatureDto,
+  toMyFeaturesDto,
   toOverrideDto,
   toPackDto,
   toPlanDto,
@@ -118,6 +119,15 @@ const routes: FastifyPluginAsync<EntitlementsPluginOptions & { service: Entitlem
   app.get("/me", { preHandler: READ }, async (req) =>
     toEntitlementsDto(await service.reader.getEntitlements(ctxOf(req).tenantId)),
   );
+
+  // Fonctionnalités actives : volontairement SANS permission nominative, pour que le web masque ou affiche les
+  // entrées de menu conditionnées par une fonctionnalité pour TOUT membre (parent, élève, enseignant…). Authentification
+  // de session exigée par `ctxOf` (401 sinon) ; le tenant lu est TOUJOURS celui de la session. Uniquement les clés :
+  // ni plan, ni pack, ni quota, ni prix, ni date d'abonnement (`MyFeaturesSchema`).
+  app.get("/me/features", async (req) => {
+    const entitlements = await service.reader.getEntitlements(ctxOf(req).tenantId);
+    return toMyFeaturesDto(entitlements);
+  });
 
   app.get("/me/usage", { preHandler: READ }, async (req) =>
     ({ items: unwrap(await getUsage(deps, ctxOf(req), req.query ?? {})).map(toUsageDto) }),

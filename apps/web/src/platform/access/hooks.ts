@@ -1,6 +1,6 @@
 /**
  * `usePermission(key)` / `useFeature(key)` : lisent `GET /api/v1/rbac/me/permissions` et
- * `GET /api/v1/entitlements/me` (une requête chacune, mise en cache et partagée par tous les composants).
+ * `GET /api/v1/entitlements/me/features` (une requête chacune, mise en cache et partagée par tous les composants).
  *
  * Fail-closed : tant que la réponse n'est pas là, ou si l'endpoint est indisponible, `allowed` vaut `false`
  * (et `isUnavailable` permet à l'UI de distinguer « refusé » de « inconnu »). Ces hooks servent à AFFICHER
@@ -38,7 +38,7 @@ export function createAccessHooks(hooks: QueryHooks) {
   }
 
   function useMyEntitlements() {
-    return hooks.useApiQuery<MyEntitlements>(["entitlements", "me"], ENTITLEMENTS_ENDPOINT, {
+    return hooks.useApiQuery<MyEntitlements>(["entitlements", "me", "features"], ENTITLEMENTS_ENDPOINT, {
       schema: MyEntitlementsSchema,
       staleTime: FIVE_MINUTES,
       retry: false,

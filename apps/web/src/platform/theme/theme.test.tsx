@@ -6,7 +6,34 @@ import { describe, expect, it, vi } from "vitest";
 import { createApiClient } from "@/platform/api/client";
 import { createQueryHooks } from "@/platform/api/hooks";
 import { useTenantTheme } from "./TenantTheme";
-import { DEFAULT_BRAND, buildBrandVariables, hexToRgbTriplet, sanitizeColor, sanitizeLogoUrl } from "./theme";
+import { TenantBrandingSchema } from "@ecoledigitale/contracts/src/v2/tenancy";
+import { DEFAULT_BRAND, TENANCY_BRANDING_ENDPOINT, TenancyProfileSchema, buildBrandVariables, hexToRgbTriplet, sanitizeColor, sanitizeLogoUrl } from "./theme";
+
+describe("marque minimale (GET /tenancy/branding)", () => {
+  const branding = {
+    slug: "palmiers",
+    displayName: "Collège Les Palmiers",
+    theme: { logoUrl: "https://cdn.example.org/logo.png", primaryColor: "#112233", secondaryColor: null },
+    locale: "fr-CI",
+    timezone: "Africa/Abidjan",
+    currencyCode: "XOF",
+  };
+
+  it("pointe vers la route ouverte à tout membre, et la fixture respecte le contrat strict de l'API", () => {
+    expect(TENANCY_BRANDING_ENDPOINT).toBe("/api/v1/tenancy/branding");
+    expect(TenantBrandingSchema.safeParse(branding).success).toBe(true);
+    expect(TenantBrandingSchema.safeParse({ ...branding, contactEmail: "x@y.z" }).success).toBe(false);
+  });
+
+  it("est normalisée en { name, theme } puis en variables de marque", () => {
+    const profile = TenancyProfileSchema.parse(branding);
+    expect(profile.name).toBe("Collège Les Palmiers");
+    const vars = buildBrandVariables(profile);
+    expect(vars["--brand-primary"]).toBe("#112233");
+    expect(vars["--brand-secondary"]).toBe(DEFAULT_BRAND.secondary);
+    expect(vars["--brand-logo-url"]).toBe('url("https://cdn.example.org/logo.png")');
+  });
+});
 
 describe("sanitize", () => {
   it("couleurs : hex strict normalisé, le reste refusé", () => {
