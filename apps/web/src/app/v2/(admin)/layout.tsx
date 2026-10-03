@@ -1,13 +1,11 @@
 import type { ReactNode } from "react";
-import { requireSession } from "@/platform/auth/server";
-import { TenantAdminShell } from "@/platform/admin/shell/TenantAdminShell";
+import { AppShell } from "@/platform/shell/AppShell";
 
 /**
- * Administration d'un tenant. Garde serveur : session obligatoire (sinon `/login`) ; chaque section ajoute sa propre
- * permission (`requirePermission`, voir les layouts de `settings`, `access`, `audit`). Les gardes complètent l'API,
- * qui reste la barrière réelle (RBAC + RLS).
+ * Administration d'un tenant (`/v2/settings`, `/v2/access`, `/v2/audit`). Session obligatoire (sinon `/login`, vérifiée par
+ * `AppShell`) ; chaque section ajoute sa propre permission (`requirePermission`, voir les layouts de `settings`, `access`, `audit`).
+ * Les gardes complètent l'API, qui reste la barrière réelle (RBAC + RLS). La coque est celle des autres modules de gestion.
  */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  await requireSession();
-  return <TenantAdminShell>{children}</TenantAdminShell>;
+  return <AppShell>{children}</AppShell>;
 }

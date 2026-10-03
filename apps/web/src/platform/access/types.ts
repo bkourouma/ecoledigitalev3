@@ -48,3 +48,19 @@ export type MyEntitlements = z.infer<typeof MyEntitlementsSchema>;
 
 export const PERMISSIONS_ENDPOINT = "/api/v1/rbac/me/permissions";
 export const ENTITLEMENTS_ENDPOINT = "/api/v1/entitlements/me";
+
+/**
+ * Fonctionnalités actives lisibles par TOUT membre authentifié (`GET /api/v1/entitlements/me/features`) : l'abonnement complet
+ * (`/entitlements/me`, permission `entitlements.read`) reste réservé à la direction. Réponses acceptées : `{ features: [...] }`
+ * ou une liste nue, chaque fonctionnalité étant une clé ou un objet portant `key`. Normalisé vers `MyEntitlements`.
+ */
+const FeatureEntrySchema = z.union([z.string(), z.object({ key: z.string() })]);
+export const MyFeaturesSchema = z
+  .union([z.object({ features: z.array(FeatureEntrySchema), plan: z.string().nullish(), packs: z.array(z.string()).optional() }), z.array(FeatureEntrySchema)])
+  .transform((value): MyEntitlements => {
+    const features = Array.isArray(value) ? value : value.features;
+    const keys = features.map((f) => (typeof f === "string" ? f : f.key));
+    return Array.isArray(value) ? { features: keys } : { features: keys, plan: value.plan ?? null, ...(value.packs ? { packs: value.packs } : {}) };
+  });
+
+export const ENTITLEMENT_FEATURES_ENDPOINT = "/api/v1/entitlements/me/features";

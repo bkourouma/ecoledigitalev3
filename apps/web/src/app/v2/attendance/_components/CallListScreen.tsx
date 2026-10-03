@@ -37,8 +37,8 @@ export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?
   // Niveau inconnu (classe hors « mes classes », API ancienne) : tout est proposé, l'API tranche.
   const levelOfClass = new Map<string, string>();
   for (const c of myClasses.data ?? []) if (typeof c.educationLevelCode === "string" && c.educationLevelCode !== "") levelOfClass.set(c.classroomId, c.educationLevelCode);
-  const allows = (classroomId: string, scope: CallScopeKind) => {
-    const level = levelOfClass.get(classroomId);
+  const allows = (classroomId: string | null, scope: CallScopeKind) => {
+    const level = classroomId ? levelOfClass.get(classroomId) : undefined;
     return level === undefined ? true : callScope.allows(level, scope);
   };
 

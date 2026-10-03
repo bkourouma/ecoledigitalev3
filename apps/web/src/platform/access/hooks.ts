@@ -10,8 +10,10 @@
 import { hasPermission } from "@/platform/auth/policies";
 import type { QueryHooks } from "@/platform/api/hooks";
 import {
+  ENTITLEMENT_FEATURES_ENDPOINT,
   ENTITLEMENTS_ENDPOINT,
   MyEntitlementsSchema,
+  MyFeaturesSchema,
   MyPermissionsSchema,
   PERMISSIONS_ENDPOINT,
   type MyEntitlements,
@@ -37,13 +39,26 @@ export function createAccessHooks(hooks: QueryHooks) {
     });
   }
 
+  /**
+   * Fonctionnalités actives de l'établissement. Lecture ouverte à tout membre (`/entitlements/me/features`) d'abord ; si ce point
+   * d'API est absent ou refusé, repli sur l'abonnement complet (`/entitlements/me`, réservé à la direction). Les deux requêtes sont
+   * mises en cache : un refus ne se répète pas à chaque page (le repli reste fermé : fonctionnalité inconnue = non active).
+   */
   function useMyEntitlements() {
-    return hooks.useApiQuery<MyEntitlements>(["entitlements", "me"], ENTITLEMENTS_ENDPOINT, {
-      schema: MyEntitlementsSchema,
+    const open = hooks.useApiQuery<MyEntitlements>(["entitlements", "me", "features"], ENTITLEMENT_FEATURES_ENDPOINT, {
+      schema: MyFeaturesSchema,
       staleTime: FIVE_MINUTES,
       retry: false,
       refetchOnWindowFocus: false,
     });
+    const full = hooks.useApiQuery<MyEntitlements>(["entitlements", "me"], ENTITLEMENTS_ENDPOINT, {
+      schema: MyEntitlementsSchema,
+      enabled: open.isError,
+      staleTime: FIVE_MINUTES,
+      retry: false,
+      refetchOnWindowFocus: false,
+    });
+    return open.isError ? full : open;
   }
 
   function usePermission(key: string): AccessState {

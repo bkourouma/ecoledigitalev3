@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { requireSession } from "@/platform/auth/server";
+import { AppShell } from "@/platform/shell/AppShell";
 
 /**
  * Racine des écrans « élèves affectés par l'État » (`/v2/stateassign/*`) : session obligatoire côté serveur. La permission de chaque
@@ -8,6 +8,9 @@ import { requireSession } from "@/platform/auth/server";
  * section), la vue famille dans `family`.
  */
 export default async function StateassignLayout({ children }: { children: ReactNode }) {
-  await requireSession();
-  return <>{children}</>;
+  return (
+    <AppShell>
+      {children}
+    </AppShell>
+  );
 }

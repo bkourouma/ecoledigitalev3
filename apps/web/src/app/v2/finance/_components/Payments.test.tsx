@@ -198,6 +198,9 @@ describe("OnlinePaymentScreen et suivi de statut", () => {
     fireEvent.change(await screen.findByLabelText(/^Montant/), { target: { value: "25000" } });
     fireEvent.change(screen.getByLabelText(/^Téléphone du payeur/), { target: { value: "+2250707070707" } });
     const submit = screen.getByRole("button", { name: "Lancer le paiement" });
+    // La fonction de l'offre est lue d'abord sur /entitlements/me/features puis, en repli, sur /entitlements/me : le bouton reste
+    // inactif tant que la fonctionnalité est inconnue.
+    await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(submit);
     fireEvent.click(submit);
     expect(await screen.findByText("Validez sur votre téléphone.")).toBeTruthy();
