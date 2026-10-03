@@ -1,6 +1,6 @@
 # État de l'implémentation EcoleDigitale v2
 
-Mis à jour le 2026-10-02 (fin de la passe autonome) sur la branche `feat/v2-phase-0` (environ 650 commits, locale, rien n'est poussé). Référence de pilotage : `docs/PLAN_Mise_en_oeuvre_EcoleDigitale_SaaS.md`.
+Mis à jour le 2026-10-03 sur la branche `feat/v2-phase-0` (environ 680 commits, locale, rien n’est poussé). Référence de pilotage : `docs/PLAN_Mise_en_oeuvre_EcoleDigitale_SaaS.md`.
 Décisions métier validées : `specs/v2/DECISIONS-METIER.md`. Questions encore ouvertes (valeur par défaut appliquée) : `specs/v2/QUESTIONS-A-VALIDER.md`. Décisions d'architecture : `docs/adr/`. Contrat des modules : `docs/architecture/module-conventions.md`, `platform-assembly.md`, `new-module-guide.md`.
 
 ## Terminé et fusionné
@@ -37,7 +37,7 @@ Rien : tous les agents de la passe autonome sont terminés et fusionnés.
 
 ## Reste à faire
 
-1. **Phase E, restes** : cache de session (non fait : refus immédiat d une session révoquée non garanti), voisin bruyant en lecture (x3,5 pour un objectif x3), fastify 5 et mises à jour de version majeure (36 avis restants), test de charge à l échelle 33, exercice de restauration sur serveur réel (MinIO, PITR).
+1. **Restes techniques** : voisin bruyant en lecture (x3,5 pour un objectif x3), test de charge à pleine échelle, avis de dépendances restants (27 : `nodemailer`, `xlsx`, `sharp`, `extract-zip`, `next-intl`...), exercice de restauration sur serveur réel, écran d’appel non balayé par le QA, 89 états vides de démo à confronter à la graine (voir le rapport QA), 401 sur `/me/*` sans profil lié, `/unauthorized` dans l’ancienne coque.
 2. **Compléments connus des packs** (additifs, voir les README de modules) :
    - `admissions` : édition d'une candidature existante côté web. *(Fait le 2026-10-02 : événements `admissions.interview.scheduled|rescheduled|cancelled` ; rattachement des pièces à la GED différé et confirmé par un humain, sans acteur système — voir le README du module.)*
    - `councils` : sélecteur de participant externe et formulaire de vœux d'orientation (web). *(Fait le 2026-10-02 : retrait unitaire d'une décision/distinction dans `results`, PV remplacé marqué par `reportcards` à la réouverture, accès `label_map` de `rules` pour libeller les propositions ; restent hors périmètre les échecs préexistants de `test/events-catalog.test.ts` et de la couverture des contrats d'événements, voir le README de `councils`.)*
