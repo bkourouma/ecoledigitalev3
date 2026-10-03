@@ -101,6 +101,12 @@ export async function registerV2Platform(app: FastifyInstance, options: Register
   // 2. Pool v2 + TenantDb/SystemDb + request.ctx. Lève si le rôle est superuser/BYPASSRLS.
   await app.register(v2ContextPlugin, { connectionString, manifests });
 
+  // 2b. Cache du verdict de session (Redis, révocation immédiate, échec fermé) : installé AVANT toute écriture de
+  //     verdict (la synchronisation des tenants ci-dessous peut suspendre un tenant) et avant la construction des
+  //     services IAM. `V2_SESSION_CACHE=off` le désactive ; désactivé par défaut en test et sans REDIS_URL.
+  const sessionCache = await (await import("../modules/iam")).startSessionVerdictCacheFromEnv(env, { logger: app.v2.logger });
+  if (sessionCache) app.addHook("onClose", async () => sessionCache.close());
+
   // 3. kernel.tenants doit exister (migrations v2 appliquées) puis être alimentée depuis le legacy.
   const probe = await app.v2.pool.query("SELECT to_regclass('kernel.tenants') IS NOT NULL AS ok");
   if (probe.rows[0]?.ok !== true) {

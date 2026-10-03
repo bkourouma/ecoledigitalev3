@@ -55,6 +55,20 @@ export { createMfaPolicy, mfaRequiredFor, type MfaPolicy } from "./domain/mfa-po
 export { PasswordPolicy, type PasswordIssue } from "./domain/password-policy";
 export { PasswordHasher } from "./domain/password-hash";
 
+// Cache du verdict de session (Redis, révocation immédiate, échec fermé) : câblage de la plateforme et tests.
+export {
+  SessionVerdictCache,
+  installSessionVerdictCache,
+  getProcessVerdictCache,
+  startSessionVerdictCacheFromEnv,
+  readVerdictCacheEnv,
+  type SessionVerdictCacheOptions,
+  type VerdictRedisLike,
+  type VerdictCacheStats,
+  type StartedVerdictCache,
+  type InstalledVerdictCache,
+} from "./infrastructure/session-verdict-cache";
+
 // Limiteurs de débit
 export { MemoryRateLimiter } from "./infrastructure/rate-limiter.memory";
 export { RedisRateLimiter, type RedisLike } from "./infrastructure/rate-limiter.redis";

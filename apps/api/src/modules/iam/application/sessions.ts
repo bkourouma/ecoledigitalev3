@@ -33,6 +33,7 @@ import { hashOpaqueToken, limiterKey, parseRefreshToken } from "../domain/tokens
 import * as identities from "../infrastructure/identity-repo";
 import * as memberships from "../infrastructure/membership-repo";
 import * as sessions from "../infrastructure/session-repo";
+import type { VerdictTicket } from "../infrastructure/session-verdict-cache";
 import {
   IAM_EVENT,
   TooManyAttemptsError,
@@ -74,7 +75,25 @@ export interface AuthenticateOptions {
   requestId?: string | undefined;
 }
 
-type AuthDeps = Pick<IamDeps, "config" | "clock" | "tenantDb" | "mfaPolicy" | "logger">;
+type AuthDeps = Pick<IamDeps, "config" | "clock" | "tenantDb" | "mfaPolicy" | "logger" | "verdictCache">;
+
+/** Décision de validité d'une session (pure) : appliquée à la ligne lue en base OU au verdict mis en cache. */
+function isSessionRowValid(row: sessions.SessionCheckRow, claims: BearerClaims, now: Date, isImpersonation: boolean): boolean {
+  return !(
+    row.identity_id !== claims.userId ||
+    row.membership_id !== claims.mid ||
+    row.revoked_at !== null ||
+    row.expires_at <= now ||
+    row.session_epoch !== row.identity_epoch ||
+    row.identity_status !== "active" ||
+    row.membership_status !== "active" ||
+    row.tenant_status !== "active" ||
+    row.tenant_slug !== claims.tenantSlug ||
+    (row.kind === "impersonation") !== isImpersonation ||
+    (isImpersonation && row.actor_id !== (claims as { act: { sub: string } }).act.sub) ||
+    !row.membership_roles.includes(claims.activeRole)
+  );
+}
 
 /**
  * Vérifie un jeton porteur ET l'état de sa session en base. C'est l'unique point
@@ -94,32 +113,32 @@ export async function authenticateBearer(
   }
 
   const requestId = options.requestId ?? newId();
-  const row = await deps.tenantDb.run(
-    systemContext(claims.tenantId, requestId),
-    (tx) => sessions.findSessionForRequest(tx, claims.tenantId, claims.sid),
-    { readOnly: true },
-  );
-
-  // Toute incohérence = session invalide. Le tenant du jeton (signé) est confronté à la ligne lue sous RLS.
-  if (!row) return err(sessionInvalid(AuthErrorCodes.sessionRevoked));
   const now = deps.clock.now();
   const isImpersonation = claims.use === "impersonation";
-  if (
-    row.identity_id !== claims.userId ||
-    row.membership_id !== claims.mid ||
-    row.revoked_at !== null ||
-    row.expires_at <= now ||
-    row.session_epoch !== row.identity_epoch ||
-    row.identity_status !== "active" ||
-    row.membership_status !== "active" ||
-    row.tenant_status !== "active" ||
-    row.tenant_slug !== claims.tenantSlug ||
-    (row.kind === "impersonation") !== isImpersonation ||
-    (isImpersonation && row.actor_id !== (claims as { act: { sub: string } }).act.sub) ||
-    !row.membership_roles.includes(claims.activeRole)
-  ) {
-    return err(sessionInvalid(AuthErrorCodes.sessionRevoked));
+  const valid = (r: sessions.SessionCheckRow): boolean => isSessionRowValid(r, claims, now, isImpersonation);
+
+  // Cache de verdict (révocation immédiate, échec fermé) : voir infrastructure/session-verdict-cache.ts. Un verdict en
+  // cache est RÉÉVALUÉ ici (expiration, concordance avec le jeton) ; seule la lecture SQL est évitée.
+  const cache = deps.verdictCache;
+  let row: sessions.SessionCheckRow | null = null;
+  let ticket: VerdictTicket | undefined;
+  if (cache) {
+    const found = await cache.lookup(claims.tenantId, claims.userId, claims.sid);
+    if (found.kind === "hit") row = found.row;
+    else if (found.kind === "miss") ticket = found.ticket;
   }
+  if (!row) {
+    row = await deps.tenantDb.run(
+      systemContext(claims.tenantId, requestId),
+      (tx) => sessions.findSessionForRequest(tx, claims.tenantId, claims.sid),
+      { readOnly: true },
+    );
+    // Seuls les verdicts POSITIFS sont mémorisés (jamais un refus), avec les jetons lus AVANT la lecture SQL.
+    if (cache && ticket && row && valid(row)) cache.store(ticket, row);
+  }
+
+  // Toute incohérence = session invalide. Le tenant du jeton (signé) est confronté à la ligne lue sous RLS.
+  if (!row || !valid(row)) return err(sessionInvalid(AuthErrorCodes.sessionRevoked));
 
   // Politique MFA appliquée à chaque requête : un rôle devenu sensible exige une session MFA.
   if (!isImpersonation && !row.mfa_verified && deps.mfaPolicy.requiredFor(row.membership_roles)) {

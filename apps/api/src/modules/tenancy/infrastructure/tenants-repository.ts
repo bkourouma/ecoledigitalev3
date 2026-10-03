@@ -10,6 +10,7 @@
  * qualifient explicitement l'identifiant du tenant visé.
  */
 import type { Tx } from "@ecoledigitale/database";
+import { invalidateSessionVerdict } from "@ecoledigitale/kernel";
 import type { TenantStatus } from "@ecoledigitale/contracts/src/v2/tenancy";
 import type { TenantRecord } from "../domain/entities";
 
@@ -47,6 +48,9 @@ export async function updateTenantStatus(
   status: TenantStatus,
   now: Date,
 ): Promise<TenantRecord | null> {
+  // Le statut du tenant fait partie du verdict de session (suspendu/archivé => toutes ses sessions refusées) : le cache
+  // de verdict est invalidé DANS cette transaction, avant l'écriture (échec fermé). Port du noyau, sans dépendre d'iam.
+  await invalidateSessionVerdict(tx, { kind: "tenant", tenantId: id });
   const row = await tx.queryOne<TenantRow>(
     `UPDATE kernel.tenants SET status = $2, updated_at = $3 WHERE id = $1
      RETURNING id, slug, name, status`,

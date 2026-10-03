@@ -20,6 +20,7 @@ import type { IamConfig } from "../config";
 import type { PasswordHasher } from "../domain/password-hash";
 import type { PasswordPolicy } from "../domain/password-policy";
 import type { MfaPolicy } from "../domain/mfa-policy";
+import type { SessionVerdictCache } from "../infrastructure/session-verdict-cache";
 import type { AccountNotifier, BackgroundTasks, RateLimiter } from "./ports";
 
 export interface IamDeps {
@@ -34,6 +35,8 @@ export interface IamDeps {
   mfaPolicy: MfaPolicy;
   notifier: AccountNotifier;
   background: BackgroundTasks;
+  /** Cache du verdict de session (absent = lecture SQL à chaque requête, comportement historique). */
+  verdictCache?: SessionVerdictCache | undefined;
   /** Attente injectable (tests déterministes). */
   sleep: (ms: number) => Promise<void>;
 }

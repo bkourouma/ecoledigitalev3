@@ -3,6 +3,7 @@
  * À appeler dans `TenantDb.run(ctx, ...)`.
  */
 import type { Tx } from "@ecoledigitale/database";
+import { invalidateSessionVerdict } from "@ecoledigitale/kernel";
 
 export interface SessionInsert {
   id: string;
@@ -104,7 +105,11 @@ export interface RevokedSession {
   kind: "user" | "impersonation";
 }
 
-export function revokeSession(
+/**
+ * Écrit `revoked_at` : donnée du verdict de session. Le cache de verdict est invalidé DANS la transaction, avant
+ * l'écriture (échec fermé : si l'invalidation ne peut être enregistrée, l'appelant est annulé).
+ */
+export async function revokeSession(
   tx: Tx,
   tenantId: string,
   sessionId: string,
@@ -113,6 +118,7 @@ export function revokeSession(
   now: Date,
   constraint?: { identityId: string },
 ): Promise<RevokedSession | null> {
+  await invalidateSessionVerdict(tx, { kind: "session", tenantId, sessionId });
   const params: unknown[] = [tenantId, sessionId, now, reason, revokedBy];
   let extra = "";
   if (constraint) {
@@ -127,7 +133,8 @@ export function revokeSession(
   );
 }
 
-export function revokeSessionsOfIdentity(
+/** Révoque les sessions de l'identité dans le tenant : toute la portée « identité » du cache de verdict est invalidée. */
+export async function revokeSessionsOfIdentity(
   tx: Tx,
   tenantId: string,
   identityId: string,
@@ -136,6 +143,7 @@ export function revokeSessionsOfIdentity(
   now: Date,
   exceptSessionId?: string,
 ): Promise<RevokedSession[]> {
+  await invalidateSessionVerdict(tx, { kind: "identity", identityId });
   const params: unknown[] = [tenantId, identityId, now, reason, revokedBy];
   let extra = "";
   if (exceptSessionId) {
