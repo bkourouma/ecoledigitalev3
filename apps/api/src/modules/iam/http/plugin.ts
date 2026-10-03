@@ -24,6 +24,7 @@ import {
   MfaChallengeRequestSchema,
   MfaDisableRequestSchema,
   MfaEnrollRequestSchema,
+  MfaStepUpRequestSchema,
   MfaVerifyRequestSchema,
   PasswordChangeRequestSchema,
   PasswordForgotRequestSchema,
@@ -401,6 +402,15 @@ export const iamPlugin: FastifyPluginAsync<IamPluginOptions> = async (app, optio
     const result = await iam.confirmMfaEnrollment(await mfaSubject(request), { code: body.code, meta: requestMeta(request) });
     const v = unwrap(result);
     return presentVerify(reply, config, clock.now(), v.recoveryCodes, v.session, body.client);
+  });
+
+  // Élévation d'authentification (step-up) : prouver un code TOTP pour rejouer une action sensible
+  // refusée en `*.mfa_required`. Aucun corps de réponse ne contient de secret ; jamais mis en cache.
+  app.post("/mfa/step-up", auth, async (request, reply) => {
+    const body = parse(MfaStepUpRequestSchema, request.body);
+    const out = unwrap(await iam.stepUpMfa(principalOf(request), { code: body.code, meta: requestMeta(request) }));
+    noStore(reply);
+    return { elevated: true as const, expiresAt: out.expiresAt.toISOString(), ttlSec: out.ttlSec };
   });
 
   app.post("/mfa/disable", auth, async (request, reply) => {

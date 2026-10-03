@@ -52,6 +52,7 @@ export const IAM_EVENT = {
   mfaEnabled: "iam.mfa.enabled",
   mfaDisabled: "iam.mfa.disabled",
   mfaReset: "iam.mfa.reset",
+  mfaElevated: "iam.mfa.elevated",
   passwordChanged: "iam.password.changed", // secret-scan:allow (nom d'evenement, pas un secret)
   impersonationStarted: "iam.impersonation.started",
   membershipCreated: "iam.membership.created",
