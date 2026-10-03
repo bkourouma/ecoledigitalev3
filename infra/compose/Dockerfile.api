@@ -19,7 +19,8 @@
 #
 # Passer a une Alpine plus recente suppose donc de monter Puppeteer en meme
 # temps (et d'adapter `headless: "new"`, retire apres la v22).
-FROM node:18-alpine3.19 AS base
+# Node 20 (et non 18) : fastify 5 exige Node >= 20. Le tag Alpine reste 3.19 (voir ci-dessus).
+FROM node:20-alpine3.19 AS base
 # pnpm est epingle sur la version declaree par `packageManager` dans
 # package.json. Sans version, `npm install -g pnpm` sert la derniere publiee :
 # pnpm 12 verifie l identite du gestionnaire de paquets et refuse un lockfile v9,

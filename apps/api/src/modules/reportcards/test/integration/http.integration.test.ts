@@ -25,6 +25,7 @@ import { VERIFY_RATE_RULE, reportcardsPlugin, registerPublicRoutes } from "../..
 import { PNG_1X1, makeWorld, newActor, seedSchool, type School, type TestWorld } from "../support/world";
 import { adminRows, createReportcardsTestDb, describeIntegration, type ReportcardsTestDb } from "../support/db";
 import { InMemoryRateLimiter } from "../support/rate-limiter";
+import { compatRouterOptions } from "../../../../platform/http-compat";
 
 const ALL = manifest.permissions.map((p) => p.key);
 const FAMILY_SELF = ["reportcard.self.read"];
@@ -99,7 +100,8 @@ describeIntegration("API HTTP /api/v1/reportcards/* (Fastify + Postgres réel)",
     world.guardianship.link(parentActor.userId, school.students[0]!.studentId);
     world.guardianship.link(otherParentActor.userId, school.students[1]!.studentId);
 
-    app = Fastify({ logger: false });
+    // Même configuration de routeur que le serveur réel : un code trop long reste un 404 uniforme (platform/http-compat.ts).
+    app = Fastify({ logger: false, routerOptions: compatRouterOptions() });
     app.addHook("onRequest", async (req) => {
       const id = req.headers["x-test-identity"];
       const who = typeof id === "string" ? identities.get(id) : undefined;

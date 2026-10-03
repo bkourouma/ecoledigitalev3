@@ -21,3 +21,21 @@ export function parseTrustProxy(raw: string | undefined): boolean | number | str
   }
   return list;
 }
+
+/** Valeur acceptée par l'option `trustProxy` de Fastify 5 (son type n'admet plus un nombre de sauts). */
+export type FastifyTrustProxy = boolean | string[] | ((address: string, hop: number) => boolean);
+
+/**
+ * Fastify 5.12 traite un `trustProxy` numérique comme « ne croire personne » (fail-closed) : `TRUST_PROXY=1` ne
+ * rendrait plus l'adresse du client. On exprime donc le nombre de sauts en fonction, avec la sémantique exacte de
+ * `proxy-addr` (celle de fastify 4) : le saut `hop` est de confiance tant que `hop < sauts`.
+ */
+export function toFastifyTrustProxy(parsed: boolean | number | string[]): FastifyTrustProxy {
+  if (typeof parsed === "number") return (_address: string, hop: number) => hop < parsed;
+  return parsed;
+}
+
+/** `TRUST_PROXY` brut -> option `trustProxy` de Fastify 5 (échoue sur une valeur invalide, comme `parseTrustProxy`). */
+export function resolveTrustProxy(raw: string | undefined): FastifyTrustProxy {
+  return toFastifyTrustProxy(parseTrustProxy(raw));
+}

@@ -17,7 +17,8 @@ import {
   parseLegacyTokenSunset,
   peekJwtTyp,
 } from "../src/platform/legacy-iam-bridge";
-import { parseTrustProxy } from "../src/platform/trust-proxy";
+import Fastify from "fastify";
+import { parseTrustProxy, resolveTrustProxy } from "../src/platform/trust-proxy";
 
 const jwtWithTyp = (typ: unknown): string => `${Buffer.from(JSON.stringify({ alg: "HS256", typ })).toString("base64url")}.e30.c2ln`;
 
@@ -170,5 +171,26 @@ describe("TRUST_PROXY", () => {
     expect(parseTrustProxy("10.0.0.0/8, 172.16.0.0/12")).toEqual(["10.0.0.0/8", "172.16.0.0/12"]);
     expect(() => parseTrustProxy("tout le monde")).toThrow();
     expect(() => parseTrustProxy("999999")).toThrow();
+  });
+
+  it("fastify 5 : un nombre de sauts rend toujours l'adresse du client (sinon fail-closed), la liste CIDR aussi", async () => {
+    const ipFor = async (raw: string | undefined, forwarded: string, peer = "10.1.1.1") => {
+      const app = Fastify({ trustProxy: resolveTrustProxy(raw) });
+      app.get("/ip", async (request) => ({ ip: request.ip }));
+      const res = await app.inject({ url: "/ip", remoteAddress: peer, headers: { "x-forwarded-for": forwarded } });
+      await app.close();
+      return (res.json() as { ip: string }).ip;
+    };
+    // Sans TRUST_PROXY : l'en-tête n'est pas cru.
+    expect(await ipFor(undefined, "203.0.113.7")).toBe("10.1.1.1");
+    // 1 saut (nginx) : l'adresse annoncée par nginx.
+    expect(await ipFor("1", "203.0.113.7")).toBe("203.0.113.7");
+    // 2 sauts (nginx + serveur web) : on remonte d'un cran dans la chaîne.
+    expect(await ipFor("2", "203.0.113.7, 10.2.2.2")).toBe("203.0.113.7");
+    // Un en-tête plus long que les sauts de confiance n'est pas remonté plus loin.
+    expect(await ipFor("1", "198.51.100.9, 203.0.113.7")).toBe("203.0.113.7");
+    // Liste de CIDR : seuls ces proxys sont crus.
+    expect(await ipFor("10.0.0.0/8", "203.0.113.7")).toBe("203.0.113.7");
+    expect(await ipFor("10.0.0.0/8", "203.0.113.7", "192.0.2.50")).toBe("192.0.2.50");
   });
 });

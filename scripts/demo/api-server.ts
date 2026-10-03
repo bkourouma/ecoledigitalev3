@@ -19,6 +19,7 @@ import { resolve } from "node:path";
 import { observability } from "../../apps/api/src/platform/observability/bootstrap";
 import { observabilityPlugin } from "../../apps/api/src/platform/observability/plugin";
 import { registerV2Platform } from "../../apps/api/src/platform/v2-bootstrap";
+import { bodylessMethodsCompat, compatRouterOptions } from "../../apps/api/src/platform/http-compat";
 import { createSuperAdminAuthorizer } from "../../apps/api/src/platform/super-admin-authorizer";
 
 const apiRequire = createRequire(resolve(__dirname, "../../apps/api/package.json"));
@@ -69,8 +70,9 @@ async function main(): Promise<void> {
   const operatorSecret = required("DEMO_OPERATOR_JWT_SECRET");
   const mailbox = required("DEMO_MAILBOX_FILE");
 
-  const app = Fastify({ ...observability.fastifyOptions, maxParamLength: 1024 });
+  const app = Fastify({ ...observability.fastifyOptions, routerOptions: { ...compatRouterOptions(), maxParamLength: 1024 } });
   await app.register(observabilityPlugin, { observability });
+  await app.register(bodylessMethodsCompat);
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
 
   const operatorAuthorizer = createSuperAdminAuthorizer({

@@ -55,7 +55,7 @@ async function superAdminAuditPlugin(fastify: FastifyInstance) {
           actor.tenantId,
           actor.tenantSlug,
           actor.impersonatedUserId,
-          `${request.method} ${(request as any).routerPath || request.url}`,
+          `${request.method} ${request.routeOptions?.url || request.url}`,
           request.method,
           request.url,
           reply.statusCode,

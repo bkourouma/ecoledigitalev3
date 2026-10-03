@@ -5,7 +5,7 @@ import { env } from "./config/bootstrap-env";
 // après elles. Sans OTEL_EXPORTER_OTLP_ENDPOINT : aucun SDK chargé, aucun appel réseau.
 import { observability } from "./platform/observability/bootstrap";
 import { observabilityPlugin } from "./platform/observability/plugin";
-import Fastify from "fastify";
+import Fastify, { type FastifyError } from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import postgres from "@fastify/postgres";
@@ -107,7 +107,8 @@ import { notificationsInboxRoutes } from "./routes/notifications-inbox";
 import { rsoActivityRoutes } from "./routes/rso/activities";
 import { bootstrapSuperAdmin } from "./services/super-admin-bootstrap.service";
 import { registerV2Platform } from "./platform/v2-bootstrap";
-import { parseTrustProxy } from "./platform/trust-proxy";
+import { resolveTrustProxy } from "./platform/trust-proxy";
+import { bodylessMethodsCompat, compatRouterOptions } from "./platform/http-compat";
 import {
   ensureReferenceTenant,
   syncTechnicalAccountsForAllTenants,
@@ -123,9 +124,11 @@ const fastify = Fastify({
   // sont préfixés par un ou deux UUID (36 chars chacun) + nom original
   // → on dépasse facilement la limite et la route remonte un 404.
   // On élève la limite à 1024 pour tenir compte de toute combinaison réaliste.
-  maxParamLength: 1024,
+  // Fastify 5 : l'option vit sous `routerOptions` (l'accès direct est déprécié).
+  // `compatRouterOptions` : un paramètre trop long reste un 404 (et non le 414 de fastify 5.12) : voir platform/http-compat.ts.
+  routerOptions: { ...compatRouterOptions(), maxParamLength: 1024 },
   // Adresse réelle du client derrière nginx / le serveur web (limiteur de débit et audit d'iam) : TRUST_PROXY.
-  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+  trustProxy: resolveTrustProxy(process.env.TRUST_PROXY),
 });
 
 async function start() {
@@ -133,10 +136,18 @@ async function start() {
     // Observabilité : PREMIER plugin (ses hooks ne s'appliquent qu'aux routes déclarées après lui) ; expose /health, /ready,
     // et /metrics (jamais public sans jeton : voir docs/architecture/runbook-exploitation.md).
     await fastify.register(observabilityPlugin, { observability });
+    // Comportement fastify 4 des DELETE / OPTIONS JSON sans corps (sinon 400 avant l'authentification) : platform/http-compat.ts.
+    await fastify.register(bodylessMethodsCompat);
 
     // Register plugins
-    await fastify.register(helmet);
+    // Valeurs figées à celles de la ligne fastify 4 (helmet 7) : @fastify/helmet 13 passe HSTS à 1 an par défaut.
+    await fastify.register(helmet, {
+      strictTransportSecurity: { maxAge: 15_552_000, includeSubDomains: true },
+    });
     await fastify.register(cors, {
+      // @fastify/cors 10+ ne laisse passer par défaut que GET, HEAD, POST : on garde la liste de la ligne 9.x
+      // (sans quoi les pré-requêtes PUT / PATCH / DELETE du web seraient refusées).
+      methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
       origin: process.env.NODE_ENV === "production"
         ? ["https://ecoledigitale.engage-360.net"]
         : true,
@@ -338,7 +349,8 @@ async function start() {
     // await fastify.register(studentDashboardRoutes, { prefix: "/api/v1/students/dashboards" });
 
     // Global error handler
-    fastify.setErrorHandler((error, request, reply) => {
+    // Fastify 5 type l'erreur en `unknown` par défaut : on la déclare (comme en 4) pour lire `validation` et `message`.
+    fastify.setErrorHandler((error: FastifyError, request, reply) => {
       fastify.log.error(error);
 
       if (error.validation) {

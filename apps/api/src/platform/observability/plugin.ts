@@ -323,5 +323,5 @@ const plugin: FastifyPluginAsync<ObservabilityPluginOptions> = async (app, optio
   });
 };
 
-export const observabilityPlugin = fp(plugin, { name: "observability", fastify: "4.x" });
+export const observabilityPlugin = fp(plugin, { name: "observability", fastify: "5.x" });
 export default observabilityPlugin;

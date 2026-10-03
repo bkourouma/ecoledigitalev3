@@ -58,6 +58,10 @@ export function isDeclaredPublicRoute(request: FastifyRequest): boolean {
 
 /** Marque posée par l'authentification v2 (jeton IAM) : le middleware legacy n'a alors rien à vérifier. */
 declare module "fastify" {
+  /** Fastify 5 type `config` strictement : on y déclare la marque `public` posée par les routes de module. */
+  interface FastifyContextConfig {
+    public?: boolean;
+  }
   interface FastifyRequest {
     /** Posé par `platform/v2-auth.ts` quand un jeton IAM v2 valide a authentifié la requête. */
     v2Authenticated?: boolean;

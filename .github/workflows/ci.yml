@@ -12,7 +12,7 @@
 #     verification obligatoire dans la protection de branche.
 #
 # Versions : pnpm lue dans `packageManager` (package.json racine, pnpm@10.14.0),
-# Node 20 (les images Docker de prod restent en Node 18, cf. Dockerfile.*).
+# Node 20 (fastify 5 exige Node >= 20 : l'image de l'API, Dockerfile.api, est en Node 20 ; l'image web reste en Node 18).
 name: CI
 
 on:

@@ -173,7 +173,38 @@ Mises à jour faites (correctifs et mineures, une famille par commit) :
 - `@fastify/multipart` 7.7.3 -> 8.3.1 (la ligne 8.x est celle de fastify 4 ; `fastify` reste en 4.29.1, dernier 4.x) ;
 - `pnpm.overrides` racine (même majeure, 0.x : même mineure) : `fast-xml-parser` 5.11.2, `basic-ftp` 5.3.1, `axios` 1.20.0, puis `js-yaml`, `lodash`, `follow-redirects`, `form-data`, `ws`, `nodemailer` 7.0.13, `jws`, `glob`, `tar-fs`, `tmp`, `preact`, `picomatch`, `minimatch`, `brace-expansion`, `postcss`, `mammoth`, `@xmldom/xmldom`, `underscore`, `ip-address`, `nanoid`, `dompurify`, `fast-uri`, `ajv`, `yaml`, `postcss-selector-parser`, `@smithy/config-resolver`.
 
-Mises à jour refusées (saut de version majeure ou pas de correctif disponible) : `fastify` 4 -> 5 (9 avis), `@fastify/static` (correctif seulement en 10.x, fastify 5), `nodemailer` 7 -> 8+ (13 avis), `next-intl` 3 -> 4, `uuid` -> 11, `js-cookie` 2 -> 3, `find-my-way` 8 -> 9 (via fastify), `deepmerge-ts` 7 -> 8, `basic-ftp` 5 -> 6 (1 avis restant), `sharp` 0.34 -> 0.35 (mineure instable en 0.x), `xlsx` et `extract-zip` (aucune version corrigée publiée). À planifier avec la montée de fastify 5.
+Mises à jour refusées (saut de version majeure ou pas de correctif disponible) : `nodemailer` 7 -> 8+ (13 avis), `next-intl` 3 -> 4, `uuid` -> 11, `js-cookie` 2 -> 3, `deepmerge-ts` 7 -> 8, `basic-ftp` 5 -> 6 (1 avis restant), `sharp` 0.34 -> 0.35 (mineure instable en 0.x), `xlsx` et `extract-zip` (aucune version corrigée publiée). `fastify` 4 -> 5 (9 avis, dont `find-my-way` et `@fastify/static`) : faite ensuite, voir « Montée de fastify 5 » ci-dessous.
 
 Vérifications : tests web 1616 verts ; `tsc -p tsconfig.v2.json` = 0 ; suite vitest API hors intégration ; intégration documents, admissions, IAM, auth-bridge et imports sur Postgres Docker éphémère ; `pnpm check:boundaries` et `scripts/check-secrets.mjs` verts. Le build web compile et génère les 448 pages ; seule la copie `standalone` échoue sous Windows (symlinks, EPERM), sans lien avec les versions.
+### Montée de fastify 5 (2026-10-03)
+
+`apps/api` : `fastify` 4.29.1 -> 5.12.5, `@fastify/cors` 9.0.1 -> 11.3.0, `@fastify/helmet` 11.1.1 -> 13.1.1, `@fastify/multipart` 8.3.1 -> 10.1.2, `@fastify/postgres` 5.2.2 -> 6.1.0 (`fastify-plugin` 5 déjà en place ; `find-my-way` passe en 9 ; `@fastify/static` n'est plus dans l'arbre). Node >= 20 exigé : `engines` d'`apps/api`, `Dockerfile.api` en `node:20-alpine3.19` (Alpine 3.19 conservé pour Chromium/Puppeteer), CI déjà en Node 20 ; l'image web reste en Node 18. Ni le worker ni les autres paquets n'utilisent Fastify ; le serveur de démonstration (`scripts/demo/api-server.ts`) est aligné.
+
+`pnpm audit --prod` :
+
+| | Faibles | Modérés | Élevés | Critiques | Total |
+|---|---|---|---|---|---|
+| Avant | 2 | 16 | 18 | 0 | 36 |
+| Après | 1 | 13 | 13 | 0 | 27 |
+
+Plus aucun avis `fastify`, `@fastify/*` ni `find-my-way`. Restent : `nodemailer` (13), `extract-zip`, `sharp`, `xlsx`, `next-intl` (2 chacun), `braces`, `basic-ftp`, `deepmerge-ts`, `uuid`, `js-cookie`.
+
+Comportements que Fastify 5 ou ses greffons ont changés et que le code **rétablit** (aucun changement fonctionnel ni de sécurité visible) :
+
+| Changement amont | Effet sans correctif | Rétabli par |
+|---|---|---|
+| `trustProxy` numérique traité en fail-closed (5.12) | `TRUST_PROXY=1` ou `2` n'aurait plus rendu l'adresse du client : limiteur de débit et audit sur l'IP du proxy | `platform/trust-proxy.ts` (`resolveTrustProxy` : nombre de sauts exprimé en fonction, sémantique `proxy-addr` de Fastify 4) ; tests dans `test/legacy-iam-bridge.test.ts` (requêtes réelles avec `X-Forwarded-For`) |
+| paramètre d'URL > `maxParamLength` : 414 JSON qui répète le chemin (5.12) au lieu du 404 | rupture des réponses uniformes des routes publiques (reportcards AC4.5, admissions) | `routerOptions.onMaxParamLength: undefined` (`platform/http-compat.ts`, `compatRouterOptions`) |
+| `DELETE`/`OPTIONS` avec `Content-Type: application/json` sans corps : 400 avant l'authentification | DELETE de clients qui posent ce type par défaut cassés | plugin `bodylessMethodsCompat` (même condition que Fastify 4 : ni `Content-Length` ni `Transfer-Encoding`) |
+| `@fastify/helmet` 13 : HSTS 1 an au lieu de 180 jours | en-tête changé | `strictTransportSecurity: { maxAge: 15552000, includeSubDomains: true }` |
+| `@fastify/cors` 10+ : méthodes autorisées par défaut `GET, HEAD, POST` | pré-requêtes PUT/PATCH/DELETE refusées | `methods: "GET,HEAD,PUT,PATCH,POST,DELETE"` |
+
+Vérifié en comparant, avant et après, les en-têtes complets (helmet, CORS en développement et en production, pré-requêtes par méthode, origine étrangère) : identiques, à la seule exception du séparateur `;` ci-dessous.
+
+Changement assumé, plus strict : `useSemicolonDelimiter` vaut `false` en Fastify 5 (`/route;x=1` répond désormais 404 au lieu d'être routé sur `/route`). Aucun client du dépôt n'utilise `;` ; le défaut est conservé (moins de confusion de chemin possible).
+
+Autres adaptations : `request.routerPath` -> `request.routeOptions.url` (audit super-admin) ; `logController` à la place de `requestIdLogLabel` / `disableRequestLogging` (dépréciés en 5.12) ; `routerOptions.maxParamLength` ; plugin d'observabilité déclaré `fastify: "5.x"` ; gestionnaire d'erreur global typé `FastifyError`. Typage : `FastifyContextConfig.public` déclaré, et `src/types/fastify-reply-compat.d.ts` rétablit `reply.code()/status(): number` (Fastify 5.12 le restreint aux clés de `schema.response`, ce qui aurait ajouté des centaines d'erreurs de compilation à l'API legacy sans effet à l'exécution). Les 365 erreurs `tsc` legacy sont inchangées (aucune nouvelle). L'API legacy (toutes les routes `src/routes`) s'enregistre sans erreur de schéma (démarrage à blanc de `index.ts`, 657 lignes de routes).
+
+Vérifications : `tsc -p tsconfig.v2.json` = 0 ; vitest API complet sur Postgres/Redis éphémères : 6435 verts sur 6440 (3 ignorés, 2 échecs : `attendance` AC5.2 et `scheduling` AC2.5, tests de performance sensibles à la charge de la machine partagée, sans Fastify dans leur chemin) ; `test:phase1` 78, `test:phase2` 91, `test:phase3` 74, `test:isolation` 6 verts ; `test:characterization` vert ; build du worker ; Jest legacy identique avant/après (8 suites en échec historique, 28 passées ; 288 tests passés sur 292) ; `pnpm check:boundaries` et `scripts/check-secrets.mjs` verts.
+
 Échecs observés non liés aux dépendances : `test/events-catalog.test.ts` (nommage `councils.effect.awaiting_human`, abonné `councils.render-minutes`), `test/events-contracts/coverage.test.ts`, `test/scaffold-gates.test.ts` (module `councils` et gabarit), et un test de tri par collation de `documents/access.integration.test.ts`.
