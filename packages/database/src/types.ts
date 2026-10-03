@@ -36,6 +36,12 @@ export interface Tx {
    * Ne pas lancer deux sous-transactions EN PARALLÈLE sur le même `Tx`.
    */
   transaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T>;
+  /**
+   * Enregistre `fn`, exécutée APRÈS la fin de la transaction externe (COMMIT ou ROLLBACK, connexion déjà rendue au
+   * pool) et AVANT le retour de `run` ; ses erreurs sont avalées (à elle de journaliser). Sert aux effets qui doivent
+   * suivre la fin de la transaction (ex. retirer un marqueur d'invalidation de cache). Facultatif pour les faux `Tx`.
+   */
+  onSettled?(fn: () => void | Promise<void>): void;
 }
 
 export interface RunOptions {

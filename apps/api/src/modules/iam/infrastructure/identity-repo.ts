@@ -6,6 +6,15 @@
  * Toutes les requêtes sont paramétrées ; les colonnes sont énumérées (jamais `SELECT *`).
  */
 import type { Tx } from "@ecoledigitale/database";
+import { invalidateSessionVerdict } from "@ecoledigitale/kernel";
+
+/**
+ * Toute écriture d'une donnée du verdict de session portée par l'IDENTITÉ (époque, mot de passe, statut, MFA) passe par
+ * ici : le cache de verdict de toutes ses sessions est invalidé DANS la transaction (échec fermé), avant l'écriture.
+ */
+function invalidateIdentityVerdict(tx: Tx, identityId: string): Promise<void> {
+  return invalidateSessionVerdict(tx, { kind: "identity", identityId });
+}
 
 export interface IdentityRow {
   id: string;
@@ -62,6 +71,7 @@ export async function replacePasswordHash(tx: Tx, id: string, oldHash: string, n
 
 /** Nouveau mot de passe + invalidation de TOUTES les sessions (auth_epoch + 1). Renvoie la nouvelle époque. */
 export async function setPasswordAndBumpEpoch(tx: Tx, id: string, hash: string, now: Date): Promise<number> {
+  await invalidateIdentityVerdict(tx, id);
   const row = await tx.queryOne<{ auth_epoch: number }>(
     `UPDATE iam.identities
         SET password_hash = $2, password_changed_at = $3, auth_epoch = auth_epoch + 1, updated_at = $3
@@ -74,6 +84,7 @@ export async function setPasswordAndBumpEpoch(tx: Tx, id: string, hash: string, 
 }
 
 export async function bumpAuthEpoch(tx: Tx, id: string, now: Date): Promise<number> {
+  await invalidateIdentityVerdict(tx, id);
   const row = await tx.queryOne<{ auth_epoch: number }>(
     `UPDATE iam.identities SET auth_epoch = auth_epoch + 1, updated_at = $2 WHERE id = $1 RETURNING auth_epoch`,
     [id, now],
@@ -87,6 +98,7 @@ export async function recordLogin(tx: Tx, id: string, tenantId: string, now: Dat
 }
 
 export async function setIdentityStatus(tx: Tx, id: string, status: "active" | "disabled", now: Date): Promise<void> {
+  await invalidateIdentityVerdict(tx, id);
   await tx.query(`UPDATE iam.identities SET status = $2, updated_at = $3 WHERE id = $1`, [id, status, now]);
 }
 
@@ -95,6 +107,7 @@ export async function setMfaPending(tx: Tx, id: string, enc: string, now: Date):
 }
 
 export async function enableMfa(tx: Tx, id: string, enc: string, step: number, now: Date): Promise<void> {
+  await invalidateIdentityVerdict(tx, id);
   await tx.query(
     `UPDATE iam.identities
         SET mfa_enabled = true, mfa_secret_enc = $2, mfa_pending_secret_enc = NULL,
@@ -105,6 +118,7 @@ export async function enableMfa(tx: Tx, id: string, enc: string, step: number, n
 }
 
 export async function disableMfa(tx: Tx, id: string, now: Date): Promise<void> {
+  await invalidateIdentityVerdict(tx, id);
   await tx.query(
     `UPDATE iam.identities
         SET mfa_enabled = false, mfa_secret_enc = NULL, mfa_pending_secret_enc = NULL,

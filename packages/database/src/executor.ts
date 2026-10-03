@@ -57,11 +57,30 @@ const SET_CONFIG_WITH_TIMEOUT_SQL = `${SET_CONFIG_SQL},
 class PgTx implements Tx {
   private closed = false;
   private savepointSeq = 0;
+  private settled: Array<() => void | Promise<void>> = [];
 
   constructor(private readonly client: PoolClientLike) {}
 
   close(): void {
     this.closed = true;
+  }
+
+  onSettled(fn: () => void | Promise<void>): void {
+    this.assertOpen();
+    this.settled.push(fn);
+  }
+
+  /** Exécute, dans l'ordre d'enregistrement, les effets de fin de transaction ; aucune erreur ne remonte. */
+  async runSettled(): Promise<void> {
+    const hooks = this.settled;
+    this.settled = [];
+    for (const hook of hooks) {
+      try {
+        await hook();
+      } catch {
+        /* le hook journalise lui-même ; la transaction est déjà terminée */
+      }
+    }
   }
 
   private assertOpen(): void {
@@ -198,6 +217,7 @@ export class TransactionExecutor {
     } finally {
       tx.close();
       client.release(destroy);
+      await tx.runSettled();
     }
   }
 }

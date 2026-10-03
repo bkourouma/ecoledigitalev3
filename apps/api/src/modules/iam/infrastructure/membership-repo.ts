@@ -4,6 +4,7 @@
  * `WHERE tenant_id` (on l'écrit quand même pour l'index et la lisibilité).
  */
 import type { Tx } from "@ecoledigitale/database";
+import { invalidateSessionVerdict } from "@ecoledigitale/kernel";
 
 export type MembershipStatus = "invited" | "active" | "suspended" | "revoked";
 
@@ -74,10 +75,14 @@ export async function updateMembership(
     params.push(patch.activeRole);
     sets.push(`active_role = $${params.length}`);
   }
-  return tx.queryOne<MembershipRow>(
+  const updated = await tx.queryOne<MembershipRow>(
     `UPDATE iam.memberships SET ${sets.join(", ")} WHERE tenant_id = $1 AND id = $2 RETURNING ${COLUMNS}`,
     params,
   );
+  // Statut, rôles, rôle actif : données du verdict de session. Invalidation DANS la transaction, avant le COMMIT
+  // (l'identité n'est connue qu'avec la ligne mise à jour) ; échec fermé : sans elle, l'appelant est annulé.
+  if (updated) await invalidateSessionVerdict(tx, { kind: "identity", identityId: updated.identity_id });
+  return updated;
 }
 
 export interface MemberListRow extends MembershipRow {

@@ -258,7 +258,7 @@ Mesure (compteur `gradeLevelById`) : `portal.parent.mix` **48 -> 3** ; `results.
 
 L'exigence était un cache court, par jeton, invalidé à la révocation, **sans fenêtre de grâce**. Je ne peux pas la garantir : le verdict de `findSessionForRequest` dépend de plusieurs sources (`sessions.revoked_at`, `sessions.auth_epoch` contre `identities.auth_epoch`, `identities.status`, `memberships.status` et `roles`, `tenants.status`, `mfa_verified`) modifiées par plusieurs modules (IAM, tenancy pour la suspension d'un tenant, RBAC) et lues par **plusieurs instances d'API** : une invalidation locale ne protège pas les autres processus, et une invalidation partagée (Redis) devrait couvrir tous ces points d'écriture et refuser par défaut si Redis est indisponible. Une session révoquée resterait acceptée jusqu'à l'expiration du cache sur au moins une instance. Les tests existants (`iam/test/sessions.integration.test.ts`, `security.integration.test.ts`) continuent de prouver le refus immédiat tel qu'il est aujourd'hui.
 
-Gain obtenu sans toucher à la sémantique : **un aller-retour de moins par transaction** (le `statement_timeout` est posé dans le même `SELECT set_config(...)` que le contexte de session : `BEGIN`, `SELECT`, requête, `COMMIT` au lieu de cinq instructions), ce qui profite à la recherche de session (une transaction par requête) comme à toutes les autres. Instructions SQL avant -> après : `people.students.list` 10 612 -> 8 204 (-23 %), `people.students.search` 10 474 -> 7 939 (-24 %), `isolation.mixed` 22 651 -> 18 456 (-19 %), `portal.parent.mix` 33 199 -> 27 724 (-16 %), pour un nombre de recherches de session identique (900 / 900 / 1 800 / 1 800). Piste ultérieure : un jeton de version de session partagé (Redis) vérifié à chaque requête (un aller-retour Redis au lieu d'une transaction), avec échec fermé.
+Gain obtenu sans toucher à la sémantique : **un aller-retour de moins par transaction** (le `statement_timeout` est posé dans le même `SELECT set_config(...)` que le contexte de session : `BEGIN`, `SELECT`, requête, `COMMIT` au lieu de cinq instructions), ce qui profite à la recherche de session (une transaction par requête) comme à toutes les autres. Instructions SQL avant -> après : `people.students.list` 10 612 -> 8 204 (-23 %), `people.students.search` 10 474 -> 7 939 (-24 %), `isolation.mixed` 22 651 -> 18 456 (-19 %), `portal.parent.mix` 33 199 -> 27 724 (-16 %), pour un nombre de recherches de session identique (900 / 900 / 1 800 / 1 800). Piste ultérieure, **réalisée ensuite : voir 10.8** (jeton de version de session partagé via Redis, vérifié à chaque requête, échec fermé).
 
 ### 10.5 Verrous des compteurs gapless : garantie intacte, une réduction minime
 
@@ -287,3 +287,52 @@ ED_LOAD_SCALE=3 ED_LOAD_ONLY="people.students,portal,isolation.mixed,noisy,resul
 # V2_DB_TENANT_BULKHEAD=off désactive le seul bulkhead ; les autres changements se comparent à 65767c25
 PEOPLE_PERF_EXPLAIN=1 PEOPLE_PERF_N=20000 ED_PG_IMAGE=postgres:17-alpine node packages/database/scripts/with-postgres.mjs --config apps/api/src/modules/people/vitest.config.ts students-list-pagination
 ```
+
+### 10.8 Cache du verdict de session à révocation immédiate (Redis, échec fermé) : **réalisé**
+
+Remplace la conclusion « non réalisé » de 10.4 : la garantie demandée (aucune fenêtre de grâce, y compris entre instances) est tenue et prouvée par des tests ; la recherche de session (39 684 appels, §6) n'est plus faite qu'au remplissage.
+
+**Principe.** Le verdict de `findSessionForRequest` est mis en cache localement (TTL **absolu** 3 s, jamais au-delà de l'expiration de la session : l'expiration et la concordance avec le jeton sont **réévaluées à chaque requête** sur la ligne en cache). Il n'est resservi que si un seul script Lua Redis (un aller-retour, au lieu d'une transaction SQL) prouve que **rien n'a touché au verdict** depuis son remplissage : trois jetons de version aléatoires (session `(tenant, session)`, identité, tenant) identiques à ceux lus **avant** la lecture SQL, et aucun marqueur d'écriture en cours. Clé du cache local : strictement `(tenant, session)`. Un refus n'est jamais mémorisé.
+
+**Écrivains (port du noyau `invalidateSessionVerdict`, `packages/kernel/src/session-verdict.ts`).** Tout code qui écrit une donnée du verdict appelle le port dans **sa** transaction : `begin` (avant COMMIT : nouveau jeton + marqueur « écriture en cours », compteur à durée de vie courte) puis `end` après COMMIT/ROLLBACK (`Tx.onSettled`, nouveau dans `packages/database`). Si `begin` échoue (Redis injoignable/lent), la transaction est **annulée** (503 `iam.session_cache_unavailable`) : on ne valide jamais un changement de verdict que le cache n'a pas pu apprendre. Si `end` est perdu, le marqueur expire seul (60 s) : le cache est simplement contourné. Pas de fenêtre : un lecteur dont les jetons précèdent `begin` voit ensuite un jeton différent ; un lecteur postérieur à `begin` voit le marqueur jusqu'à la fin de la transaction, donc lit la base (à jour après COMMIT).
+
+**Échec fermé (lecture).** Redis tué, déconnecté, plus lent que 150 ms, réponse incohérente, clé absente (Redis redémarré à vide : jetons recréés, différents) : aucun verdict servi depuis le cache, lecture complète en base (comportement historique) ; un disjoncteur (1 s) évite d'attendre Redis à chaque requête ; chaque erreur ou déconnexion vide le cache local.
+
+**Causes de changement de verdict et où elles sont couvertes** (chaque ligne a un test dans `apps/api/test/session-cache/session-cache.integration.test.ts` : verdict en cache sur deux instances, modification par A, requête suivante refusée par B puis A, sans attente) :
+
+| Cause | Écrivain (fonction de dépôt) | Portée invalidée |
+|---|---|---|
+| Révocation d'une session, déconnexion, déconnexion par refresh token, fin d'impersonation, réutilisation d'un refresh token (révoque la session), changement de rôle actif (`switchRole`), changement d'établissement (`switchTenant`, session source) | `session-repo.revokeSession` | session |
+| Révocation par un administrateur, suspension/retrait d'un accès, déconnexion de tous les appareils | `session-repo.revokeSessionsOfIdentity` (+ `bumpAuthEpoch`) | identité |
+| Changement de mot de passe, réinitialisation par lien, `logout-all`, désactivation/reset MFA (époque) | `identity-repo.setPasswordAndBumpEpoch`, `bumpAuthEpoch` | identité |
+| Désactivation de l'identité, activation/désactivation de la MFA | `identity-repo.setIdentityStatus`, `enableMfa`, `disableMfa` | identité |
+| Statut ou rôles de l'accès (suspension, retrait, changement de rôles) | `membership-repo.updateMembership` | identité |
+| Suspension, réactivation, archivage du tenant (console, module `tenancy`) | `tenants-repository.updateTenantStatus` (port du noyau : `tenancy` ne dépend pas d'`iam`) | tenant |
+| Désactivation du tenant côté legacy (synchronisation `public.tenants` -> `kernel.tenants`) | `platform/tenant-sync.writeTenants` (seulement si statut ou slug change) | tenant |
+| Impersonation (session `kind=impersonation`) | mêmes dépôts : fin de session, suspension de la cible, suspension du tenant (testés) | session / identité / tenant |
+
+Hors du verdict, donc sans cache à invalider : la **rotation du refresh** (ne touche que `last_seen_at` et le jeton ; la réutilisation, elle, révoque la session : couverte), les **permissions RBAC** (rôle -> permission : relues par le module `rbac` à chaque requête, leur cache propre est invalidé par événements, inchangé) et les **entitlements** (évalués par le module `entitlements`, pas par le verdict de session). Le verdict ne contient que les **noms** de rôles de l'accès : leur changement est couvert (ligne « statut ou rôles »). Un test statique (`guard.test.ts`) fait échouer la CI si une écriture sur `iam.sessions|identities|memberships` ou `kernel.tenants` apparaît hors des dépôts instrumentés, ou si une fonction de ces dépôts qui écrit le verdict n'appelle pas le port.
+
+**Limites explicites (à connaître).**
+* **SQL direct** (psql, scripts d'exploitation, graines) : non couvert par le port ; fenêtre <= TTL (3 s) sur les instances ayant le verdict en cache. Procédure d'urgence : `redis-cli DEL <préfixe>t:g` (jeton global : invalide d'un coup tous les verdicts de toutes les instances ; préfixe par défaut `ed:iam:sv:`, sinon `<WORKER_QUEUE_PREFIX>:iam:sv:`) ou `V2_SESSION_CACHE=off`. Il n'existe pas de route applicative pour désactiver une identité : `setIdentityStatus` est prêt (instrumenté) pour quand elle sera ajoutée.
+* **Redis en panne = les écritures de verdict échouent** (déconnexion, mot de passe, suspension... : 503, rien d'écrit) tant que le cache est actif ; les lectures retombent sur la base. C'est cohérent avec le limiteur de connexion (échec fermé, ADR-008) mais c'est un couplage de disponibilité : `V2_SESSION_CACHE=off` le supprime.
+* Toutes les instances d'un environnement doivent partager `V2_SESSION_CACHE` (les écrivains n'invalident que si le cache est actif chez eux) et le Redis doit être en `maxmemory-policy noeviction` (déjà requis par BullMQ) : un marqueur évincé ouvrirait une fenêtre pendant une écriture en cours.
+* Redis en Cluster non géré (le script manipule plusieurs clés).
+
+**Configuration.** `V2_SESSION_CACHE=on|off` ; absent : **actif si `REDIS_URL` est défini hors test** (`NODE_ENV=test`, Vitest, Jest : désactivé) ; `on` sans `REDIS_URL` reste désactivé. `V2_SESSION_CACHE_TTL_MS` (3000, max 10000), `V2_SESSION_CACHE_REDIS_TIMEOUT_MS` (150). Connexion Redis dédiée, sans file d'attente hors ligne.
+
+**Mesures** (`ED_LOAD_SCALE=3 ED_LOAD_ONLY="people.students,portal,isolation.mixed,noisy" V2_SESSION_CACHE=off|on pnpm test:load`, même poste chargé qu'en 10.4 : lire les latences avec la même prudence, les compteurs SQL sont, eux, exacts ; 0 erreur et 0 fuite dans toutes les exécutions) :
+
+| Scénario | Recherches de session | Instructions SQL | Transactions | p95 (deux exécutions « avant » -> « après ») |
+|---|---:|---:|---:|---|
+| people.students.list | 900 -> 19 | 7 990 -> 4 341 (-46 %) | 1 907 -> 996 | 222 / 157 -> 122 ms |
+| people.students.list.deep | 900 -> 17 | 7 726 -> 4 279 (-45 %) | 1 923 -> 1 016 | 160 / 190 -> 111 ms |
+| people.students.search | 900 -> 12 | 7 653 -> 3 894 (-49 %) | 1 910 -> 971 | 121 / 195 -> 92 ms |
+| isolation.mixed | 1 800 -> 54 | 17 134 -> 9 810 (-43 %) | 3 808 -> 1 987 | 304 / 318 -> 189 ms |
+| portal.parent.mix | 1 800 -> 44 | 25 658 -> 16 118 (-37 %) | 6 245 -> 3 725 | 214 / 188 -> 107 ms |
+| noisy.victim.loud.reads | 1 275 -> 119 | 12 930 -> 9 168 (-29 %) | 2 927 -> 1 947 | 304 / 216 -> 235 ms |
+| noisy.victim.loud.writes | 444 -> 27 | 7 686 -> 5 333 (-31 %) | 1 313 -> 848 | 165 / 133 -> 90 ms |
+
+Les recherches de session restantes sont les remplissages (au plus une par session et par 3 s) et les contournements. Le coût ajouté par requête est un aller-retour Redis local (script Lua, quelques centaines de µs ; davantage si Redis est distant : à mesurer en production).
+
+**Tests de sécurité** (Postgres + Redis éphémères : `cd apps/api && node ../worker/scripts/with-infra.mjs test/session-cache`) : chaque cause ci-dessus refusée à la requête suivante sur une autre instance ; course lecteurs/écrivain (6 tours, lecteurs sur A et B martelant pendant la révocation : zéro réponse positive après la fin de la révocation) ; Redis tué via un proxy TCP (lecture en base, écriture refusée sans effet, reprise), Redis vidé (FLUSHALL), Redis lent (> délai), réponse incohérente, ROLLBACK de l'écrivain, écrivain mort entre `begin` et `end`, TTL absolu, pas de fuite inter-tenant (jeton signé forgé inclus), `DEL` du jeton global. Une mutation (retrait de l'invalidation dans `revokeSession`) fait bien échouer le test de déconnexion.

@@ -15,6 +15,7 @@ import type { AccountNotifier, RateLimiter } from "../application/ports";
 import type { RequestMeta } from "../application/deps";
 import type { AuthenticatedOutcome } from "../application/session-issue";
 import { MemoryRateLimiter } from "../infrastructure/rate-limiter.memory";
+import type { SessionVerdictCache } from "../infrastructure/session-verdict-cache";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const BASELINE_DIR = resolve(here, "../../../../../../packages/database/migrations");
@@ -89,6 +90,8 @@ export interface HarnessOptions {
   limiter?: RateLimiter;
   secrets?: ReturnType<typeof testSecrets>;
   startTime?: string;
+  /** Cache du verdict de session de l'instance « A » du harnais (défaut : aucun, comme en production sans Redis). */
+  verdictCache?: SessionVerdictCache | null;
 }
 
 const PASSWORD = "Correct-Horse-Battery-9"; // secret-scan:allow (mot de passe factice de test)
@@ -124,7 +127,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
   const notifier = new RecordingNotifier();
   const limiter = options.limiter ?? new MemoryRateLimiter(clock);
   const config = testConfig(options.overrides, options.secrets);
-  const iam = createIamService({ config, tenantDb, systemDb, limiter, notifier, clock, logger: noopLogger, sleep: async () => undefined });
+  const iam = createIamService({ config, tenantDb, systemDb, limiter, notifier, clock, logger: noopLogger, sleep: async () => undefined, verdictCache: options.verdictCache ?? null });
 
   const h: Harness = {
     admin,

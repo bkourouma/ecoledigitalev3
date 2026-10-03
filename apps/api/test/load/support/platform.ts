@@ -134,6 +134,8 @@ export async function startLoadPlatform(): Promise<LoadEnv> {
     REPORTCARDS_VERIFICATION_BASE_URL: "https://verif.ecoledigitale.test",
     V2_APP_BASE_URL: "https://app.ecoledigitale.test",
     IAM_ACCESS_TTL_SEC: "3600",
+    // Cache du verdict de session : désactivé en test par défaut ; `V2_SESSION_CACHE=on pnpm test:load` mesure « après ».
+    ...(process.env.V2_SESSION_CACHE ? { V2_SESSION_CACHE: process.env.V2_SESSION_CACHE } : {}),
     ...(chromePath ? { REPORTCARDS_CHROME_PATH: chromePath, REPORTCARDS_CHROME_NO_SANDBOX: process.env.CI ? "1" : "0" } : {}),
   };
   Object.assign(process.env, extra);

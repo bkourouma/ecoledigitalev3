@@ -7,3 +7,4 @@ export * from "./money";
 export * from "./logger";
 export * from "./events";
 export * from "./module";
+export * from "./session-verdict";

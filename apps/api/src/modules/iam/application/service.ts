@@ -10,6 +10,7 @@ import { PasswordHasher } from "../domain/password-hash";
 import { PasswordPolicy } from "../domain/password-policy";
 import { createMfaPolicy } from "../domain/mfa-policy";
 import { MemoryRateLimiter } from "../infrastructure/rate-limiter.memory";
+import { getProcessVerdictCache, type SessionVerdictCache } from "../infrastructure/session-verdict-cache";
 import type { IamDeps, RequestMeta } from "./deps";
 import { login, type LoginInput } from "./login";
 import { federatedLogin, type FederatedLoginInput } from "./federated";
@@ -52,6 +53,8 @@ export interface IamServiceOptions {
   logger?: Logger;
   sleep?: (ms: number) => Promise<void>;
   background?: BackgroundTasks;
+  /** Cache du verdict de session (Redis). Absent : celui du processus s'il existe ; `null` : aucun. */
+  verdictCache?: SessionVerdictCache | null;
 }
 
 export interface IamService {
@@ -105,6 +108,8 @@ export function createIamService(options: IamServiceOptions): IamService {
     mfaPolicy: createMfaPolicy(config.mfa.requiredRoles),
     notifier: options.notifier ?? noopNotifier,
     background: options.background ?? createBackgroundTasks(logger),
+    // Cache du verdict de session : celui du processus (posé au démarrage de la plateforme) sauf injection (`null` = aucun).
+    verdictCache: (options.verdictCache === undefined ? getProcessVerdictCache() : options.verdictCache) ?? undefined,
     sleep: options.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))),
   };
 

@@ -151,9 +151,29 @@ const SELECT_ALL = "SELECT id, slug, name, is_active FROM public.tenants ORDER B
 
 async function writeTenants(cfg: TenantSyncConfig, rows: readonly LegacyTenantRow[], reason: string) {
   const outcomes: Array<{ id: string; slug: string; disambiguated: boolean }> = [];
+  // Chargé ici seulement (jamais à l'import) : ce fichier est importé par le provisioning legacy sans paquets v2.
+  const { invalidateSessionVerdict, hasSessionVerdictInvalidator } = await import("@ecoledigitale/kernel");
   await cfg.systemDb.run(reason, async (tx) => {
+    // Un changement de statut ou de slug d'un tenant EXISTANT modifie le verdict de ses sessions : le cache de verdict
+    // est invalidé dans cette transaction (échec fermé). Seuls les tenants réellement modifiés sont signalés.
+    const existing = new Map<string, { slug: string; status: string }>();
+    // (sans invalidateur enregistré — cache désactivé — aucune lecture préalable : coût nul.)
+    if (rows.length > 0 && hasSessionVerdictInvalidator()) {
+      const found = await tx.many<{ id: string; slug: string; status: string }>(
+        "SELECT id, slug, status FROM kernel.tenants WHERE id = ANY($1::uuid[])",
+        [rows.map((r) => r.id.toLowerCase())],
+      );
+      for (const f of found) existing.set(f.id, { slug: f.slug, status: f.status });
+    }
     for (const row of rows) {
       const tenant = legacyRowToKernelTenant(row);
+      const before = existing.get(tenant.id);
+      if (before) {
+        const nextStatus = before.status === "archived" ? "archived" : tenant.status;
+        if (before.status !== nextStatus || before.slug !== tenant.slug) {
+          await invalidateSessionVerdict(tx, { kind: "tenant", tenantId: tenant.id });
+        }
+      }
       const written = await upsertKernelTenant(tx as unknown as TxLike, tenant);
       outcomes.push({ id: tenant.id, slug: written.slug, disambiguated: written.disambiguated });
     }
