@@ -10,6 +10,7 @@ import { useTeachingContext, type MyClass } from "@/platform/v2/teaching";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice } from "@/platform/ui/states";
+import { useCallScope } from "../../attendance/_components/call-scope";
 import { teacherHref } from "./hrefs";
 
 /** Libellé des matières d'une classe pour l'enseignant (ses affectations ; « toutes les matières » pour un généraliste). */
@@ -23,7 +24,9 @@ export function TeacherClasses() {
   const t = useTranslations("v2Portal.teacher.classes");
   const tRoles = useTranslations("v2Staff.roles");
   const ctx = useTeachingContext();
-  const canCall = usePermission("attendance.take").allowed;
+  const canTake = usePermission("attendance.take").allowed;
+  const callScope = useCallScope();
+  const canCallClass = (c: MyClass) => canTake && (typeof c.educationLevelCode !== "string" || c.educationLevelCode === "" || callScope.allows(c.educationLevelCode, "DAILY"));
   const canGrade = usePermission("assessment.read").allowed;
   const today = todayCivil();
   return (
@@ -60,7 +63,7 @@ export function TeacherClasses() {
                     <span className="sr-only"> — {name}</span>
                   </Link>
                 ) : null}
-                {canCall ? (
+                {canCallClass(c) ? (
                   <Link href={teacherHref.dailyCall(c.classroomId, today)} className={buttonClass.secondary}>
                     {t("call")}
                     <span className="sr-only"> — {name}</span>
@@ -102,7 +105,11 @@ function Roster({ classroomId, name }: { classroomId: string; name: string }) {
   const t = useTranslations("v2Portal.teacher.classes.detail");
   const tStatus = useTranslations("v2Students.status");
   const canGrade = usePermission("assessment.read").allowed;
-  const canCall = usePermission("attendance.take").allowed;
+  const ctx = useTeachingContext();
+  const callScope = useCallScope();
+  const level = ctx.classes.find((c) => c.classroomId === classroomId)?.educationLevelCode;
+  // Politique d'appel du cycle : pas d'appel journalier là où la politique l'interdit (niveau inconnu : l'API tranche).
+  const canCall = usePermission("attendance.take").allowed && (typeof level !== "string" || level === "" || callScope.allows(level, "DAILY"));
   const query = useStudents({ classroomId, limit: 200 });
   const rows = query.data?.items ?? [];
   const columns: DataTableColumn<PeopleStudentSummaryDto>[] = [

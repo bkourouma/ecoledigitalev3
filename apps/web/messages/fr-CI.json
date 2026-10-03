@@ -5247,6 +5247,7 @@
       "noScheduleAccess": "L'emploi du temps n'est pas disponible pour votre profil : ouvrez l'appel de votre classe ci-dessous.",
       "emptyToday": "Aucune séance prévue aujourd'hui.",
       "emptyTodayHint": "Vos séances du jour apparaîtront ici avec leur état d'appel.",
+      "sessionCallNotAllowed": "Dans votre cycle, l'appel se fait une fois par jour pour la classe, et non séance par séance.",
       "untitled": "Séance",
       "notDone": "Appel à faire",
       "view": "Voir l'appel",

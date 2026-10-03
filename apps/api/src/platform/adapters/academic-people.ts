@@ -9,6 +9,7 @@ import type { RequestContext } from "@ecoledigitale/kernel";
 import {
   getAcademicPeriod,
   getClassroom,
+  getClassroomFacts,
   getCurriculumNode,
   getOffering,
   listAcademicPeriods,
@@ -24,6 +25,10 @@ export function createPeopleAcademicQuery(academic: AcademicDeps): AcademicQuery
     async getClassroom(ctx: RequestContext, classroomId) {
       const r = await getClassroom(academic, ctx, classroomId);
       return r.ok ? { id: r.value.id, academicYearId: r.value.academicYearId, status: r.value.status, name: r.value.name, code: r.value.code } : null;
+    },
+    async educationLevelOf(ctx: RequestContext, classroomId) {
+      const r = await getClassroomFacts(academic, ctx, classroomId);
+      return r.ok ? r.value.educationLevelCode || null : null;
     },
     async getCurriculumNode(ctx, nodeId) {
       const r = await getCurriculumNode(academic, ctx, nodeId);
