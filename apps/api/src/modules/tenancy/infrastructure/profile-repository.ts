@@ -1,5 +1,5 @@
 import type { Tx } from "@ecoledigitale/database";
-import type { TenantProfileRecord } from "../domain/entities";
+import type { TenantBrandingRecord, TenantProfileRecord } from "../domain/entities";
 import { updateRow } from "./sql";
 
 interface ProfileRow {
@@ -65,6 +65,45 @@ export async function insertProfile(tx: Tx, p: NewProfile, now: Date): Promise<v
 export async function getProfile(tx: Tx, tenantId: string): Promise<TenantProfileRecord | null> {
   const row = await tx.queryOne<ProfileRow>(`${SELECT} WHERE p.tenant_id = $1`, [tenantId]);
   return row ? toRecord(row) : null;
+}
+
+interface BrandingRow {
+  slug: string;
+  legal_name: string;
+  trade_name: string | null;
+  logo_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  locale: string;
+  timezone: string;
+  currency_code: string;
+}
+
+/**
+ * Marque minimale du tenant COURANT (vue d'affichage). Ne sélectionne QUE les colonnes exposées : ni contact,
+ * ni adresse, ni domaine. Le filtre `tenant_id` double la RLS (défense en profondeur).
+ */
+export async function getBranding(tx: Tx, tenantId: string): Promise<TenantBrandingRecord | null> {
+  const row = await tx.queryOne<BrandingRow>(
+    `SELECT t.slug, p.legal_name, p.trade_name, p.logo_url, p.primary_color, p.secondary_color,
+            c.locale, c.timezone, c.currency_code
+       FROM tenancy.tenant_profiles p
+       JOIN kernel.tenants t ON t.id = p.tenant_id
+       JOIN tenancy.country_profiles c ON c.code = p.country_code
+      WHERE p.tenant_id = $1`,
+    [tenantId],
+  );
+  if (!row) return null;
+  return {
+    slug: row.slug,
+    displayName: row.trade_name ?? row.legal_name,
+    logoUrl: row.logo_url,
+    primaryColor: row.primary_color,
+    secondaryColor: row.secondary_color,
+    locale: row.locale,
+    timezone: row.timezone,
+    currencyCode: row.currency_code,
+  };
 }
 
 const UPDATABLE = {

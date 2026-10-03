@@ -18,6 +18,7 @@ import {
   syncFeatureCatalog,
   type SuperAdminAuthorizer,
 } from "../index";
+import { MyFeaturesSchema } from "@ecoledigitale/contracts/src/v2/entitlements";
 import { createTestDb, describeIntegration, type TestDb } from "./support/db";
 
 const clock = new ManualClock("2026-10-01T08:00:00.000Z");
@@ -276,5 +277,45 @@ describeIntegration("entitlements — HTTP", () => {
     const withPerm = await strictApp.inject({ method: "GET", url: "/api/v1/entitlements/admin/catalog", headers: { ...asOperator, ...asTenant(A, "entitlements.manage") } });
     expect(withPerm.statusCode).toBe(200);
     await strictApp.close();
+  });
+
+  describe("GET /me/features : tout membre authentifié, vue minimale", () => {
+    it("sans session : 401 ; sans AUCUNE permission : 200 (parent, élève, enseignant)", async () => {
+      const anon = await app.inject({ method: "GET", url: "/api/v1/entitlements/me/features" });
+      expect(anon.statusCode).toBe(401);
+      for (const role of ["parent", "eleve", "enseignant"]) {
+        const res = await app.inject({ method: "GET", url: "/api/v1/entitlements/me/features", headers: { ...asTenant(A), "x-role": role } });
+        expect(res.statusCode, role).toBe(200);
+      }
+      // Le plugin sans garde de permissions (échec fermé sur /me) sert quand même la vue minimale : elle n'en dépend pas.
+      const locked = await lockedApp.inject({ method: "GET", url: "/api/v1/entitlements/me/features", headers: asTenant(A) });
+      expect(locked.statusCode).toBe(200);
+    });
+
+    it("forme EXACTE : uniquement `features` (clés triées) ; ni plan, ni pack, ni quota, ni date, ni source", async () => {
+      const res = await app.inject({ method: "GET", url: "/api/v1/entitlements/me/features", headers: asTenant(A) });
+      const body = res.json();
+      expect(Object.keys(body)).toEqual(["features"]);
+      expect(MyFeaturesSchema.safeParse(body).success).toBe(true);
+      expect(body.features).toEqual([...body.features].sort());
+      expect(body.features).toEqual(expect.arrayContaining(["platformcore.dashboard", "finance.receipts"]));
+      const text = JSON.stringify(body);
+      for (const leak of ["PROFESSIONAL", "learnerTierMax", "validUntil", "computedAt", "subscription", "tenantId", "sources"]) {
+        expect(text, leak).not.toContain(leak);
+      }
+      // Même jeu de clés que /me (la source de vérité), sans rien d'autre.
+      const full = await app.inject({ method: "GET", url: "/api/v1/entitlements/me", headers: asTenant(A, "entitlements.read") });
+      expect(body.features).toEqual(full.json().features);
+    });
+
+    it("A/B : un membre du tenant B ne voit jamais les fonctionnalités du tenant A", async () => {
+      const b = await app.inject({ method: "GET", url: "/api/v1/entitlements/me/features", headers: asTenant(B) });
+      expect(b.json()).toEqual({ features: ["platformcore.dashboard"] });
+      const a = await app.inject({ method: "GET", url: "/api/v1/entitlements/me/features", headers: asTenant(A) });
+      expect(a.json().features).toContain("finance.receipts");
+      // Aucun paramètre ne permet de cibler un autre tenant : la route ignore la requête et lit la session.
+      const spoof = await app.inject({ method: "GET", url: `/api/v1/entitlements/me/features?tenantId=${A}`, headers: asTenant(B) });
+      expect(spoof.json()).toEqual({ features: ["platformcore.dashboard"] });
+    });
   });
 });

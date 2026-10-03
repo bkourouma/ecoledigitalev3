@@ -91,6 +91,13 @@ transformée en autorisation. Sans plugin enregistré : erreur `entitlements.not
 
 Tenant (permission `entitlements.read`) : `GET /me` (droits effectifs), `GET /me/usage?from=AAAA-MM&to=AAAA-MM&metric=`.
 
+Tout membre authentifié, **sans permission nominative** : `GET /me/features` -> `{ features: string[] }` (clés
+actives, triées ; `MyFeaturesSchema`). Il sert aux menus du web (parent, élève, enseignant…) qui masquent ou
+affichent une entrée selon une fonctionnalité de l'offre. Ni plan, ni pack, ni quota, ni prix, ni date
+d'abonnement, ni source d'octroi (cela reste `GET /me`, `entitlements.read`). Protection : authentification de
+session (`onRequest` global pour toute route non publique ; `ctxOf` répond 401 sans contexte) et tenant de la
+session uniquement (aucun paramètre ne cible un autre tenant) ; même mécanisme que `GET /rbac/me/permissions`.
+
 Administration, réservée au **`SuperAdminAuthorizer`** (port, voir ci-dessous) :
 
 | Route | |

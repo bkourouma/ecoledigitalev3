@@ -9,9 +9,14 @@ import {
 } from "@ecoledigitale/kernel";
 import { isUniqueViolation } from "@ecoledigitale/database";
 import { UpdateTenantProfileSchema } from "@ecoledigitale/contracts/src/v2/tenancy";
-import type { CountryProfileRecord, TenantProfileRecord } from "../domain/entities";
+import type { CountryProfileRecord, TenantBrandingRecord, TenantProfileRecord } from "../domain/entities";
 import { findCountry, listCountries as listCountryRows } from "../infrastructure/countries-repository";
-import { getProfile, updateProfile as updateProfileRow, type ProfilePatch } from "../infrastructure/profile-repository";
+import {
+  getBranding,
+  getProfile,
+  updateProfile as updateProfileRow,
+  type ProfilePatch,
+} from "../infrastructure/profile-repository";
 import { parseWith, resolveDeps, runResult, type TenancyDeps } from "./support";
 
 const profileNotFound = (tenantId: string) =>
@@ -29,6 +34,27 @@ export async function getTenantProfile(
       const profile = await getProfile(tx, ctx.tenantId);
       if (!profile) throw profileNotFound(ctx.tenantId);
       return profile;
+    },
+    { readOnly: true },
+  );
+}
+
+/**
+ * Marque minimale du tenant de la session (RLS). Aucune permission nominative : ouvert à tout membre authentifié
+ * (le contexte est exigé en amont par la route). Le tenant ciblé est TOUJOURS celui du contexte.
+ */
+export async function getTenantBranding(
+  deps: TenancyDeps,
+  ctx: RequestContext,
+): Promise<Result<TenantBrandingRecord, AppError>> {
+  const d = resolveDeps(deps);
+  return runResult(
+    d.db,
+    ctx,
+    async (tx) => {
+      const branding = await getBranding(tx, ctx.tenantId);
+      if (!branding) throw profileNotFound(ctx.tenantId);
+      return branding;
     },
     { readOnly: true },
   );

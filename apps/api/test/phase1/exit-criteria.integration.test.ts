@@ -534,6 +534,46 @@ describeIntegration.skipIf(!REDIS_URL)("TEST DE SORTIE DE PHASE 1 — plateforme
   });
 
   // ---------------------------------------------------------------------------------------------------------
+  describe("(h) vues minimales pour tout membre : GET /tenancy/branding et /entitlements/me/features", () => {
+    const managerToken = (): string => (globalThis as any).__phase1.managerToken;
+
+    it("sans jeton : 401", async () => {
+      expect((await p.http("GET", "/api/v1/tenancy/branding")).status).toBe(401);
+      expect((await p.http("GET", "/api/v1/entitlements/me/features")).status).toBe(401);
+    });
+
+    it("un membre sans `tenancy.institution.read` ni `entitlements.read` : 403 sur les routes complètes, 200 sur les vues minimales", async () => {
+      expect((await p.http("GET", "/api/v1/tenancy/profile", { token: managerToken() })).status).toBe(403);
+      expect((await p.http("GET", "/api/v1/entitlements/me", { token: managerToken() })).status).toBe(403);
+
+      const branding = await p.http("GET", "/api/v1/tenancy/branding", { token: managerToken() });
+      expect(branding.status, JSON.stringify(branding.body)).toBe(200);
+      expect(Object.keys(branding.body).sort()).toEqual(["currencyCode", "displayName", "locale", "slug", "theme", "timezone"]);
+      expect(Object.keys(branding.body.theme).sort()).toEqual(["logoUrl", "primaryColor", "secondaryColor"]);
+      expect(branding.body.slug).toBe(A.slug);
+
+      const features = await p.http("GET", "/api/v1/entitlements/me/features", { token: managerToken() });
+      expect(features.status, JSON.stringify(features.body)).toBe(200);
+      expect(Object.keys(features.body)).toEqual(["features"]);
+      const full = await p.http("GET", "/api/v1/entitlements/me", { token: ownerA.accessToken });
+      expect(features.body.features).toEqual(full.body.features);
+    });
+
+    it("A/B : chaque propriétaire ne voit que la marque et les fonctionnalités de son tenant", async () => {
+      const a = await p.http("GET", "/api/v1/tenancy/branding", { token: ownerA.accessToken });
+      const b = await p.http("GET", "/api/v1/tenancy/branding", { token: ownerB.accessToken });
+      expect(a.body.slug).toBe(A.slug);
+      expect(b.body.slug).toBe(B.slug);
+      expect(a.body.displayName).not.toBe(b.body.displayName);
+      const fa = await p.http("GET", "/api/v1/entitlements/me/features", { token: ownerA.accessToken });
+      const fb = await p.http("GET", "/api/v1/entitlements/me/features", { token: ownerB.accessToken });
+      const fullB = await p.http("GET", "/api/v1/entitlements/me", { token: ownerB.accessToken });
+      expect(fb.body.features).toEqual(fullB.body.features);
+      expect(fa.body.features).not.toEqual(fb.body.features);
+    });
+  });
+
+  // ---------------------------------------------------------------------------------------------------------
   describe("(e) l'audit contient les opérations ci-dessus, chaînage valide, vu par l'API de lecture", () => {
     it("le journal du tenant A (lu par son propriétaire) contient provisioning, rôles, MFA, abonnement, finance", async () => {
       const wanted = [

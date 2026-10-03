@@ -28,7 +28,7 @@ import {
   getOnboarding,
   skipOnboardingStep,
 } from "../application/onboarding";
-import { getTenantProfile, listCountries, updateTenantProfile } from "../application/profile";
+import { getTenantBranding, getTenantProfile, listCountries, updateTenantProfile } from "../application/profile";
 import { parseWith, type AuditRecorder, type TenancyDeps } from "../application/support";
 import { permissionGuardFactory } from "../../../platform/guards";
 import type { ModuleRuntime } from "../../../platform/runtime";
@@ -44,6 +44,7 @@ import {
   toCampusDto,
   toCountryDto,
   toInstitutionDto,
+  toTenantBrandingDto,
   toTenantProfileDto,
 } from "./serializers";
 
@@ -99,6 +100,12 @@ const tenancyRoutes: FastifyPluginAsync<TenancyPluginOptions> = async (app: Fast
   app.get("/profile", { preHandler: READ }, async (req) =>
     toTenantProfileDto(unwrap(await getTenantProfile(deps, ctxOf(req)))),
   );
+
+  // Marque minimale pour l'affichage (coque, thème) : volontairement SANS permission nominative. Elle est ouverte
+  // à tout membre authentifié du tenant (parent, élève, enseignant…) ; l'authentification de session est exigée
+  // par `ctxOf` (401 sans contexte) et la RLS borne la lecture au tenant de la session. Réponse minimale et
+  // stricte (`TenantBrandingSchema`) : pas de contact, d'adresse, de domaine ni de donnée contractuelle.
+  app.get("/branding", async (req) => toTenantBrandingDto(unwrap(await getTenantBranding(deps, ctxOf(req)))));
 
   app.patch("/profile", { preHandler: MANAGE }, async (req) =>
     toTenantProfileDto(unwrap(await updateTenantProfile(deps, ctxOf(req), req.body))),

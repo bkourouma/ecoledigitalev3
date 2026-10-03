@@ -175,6 +175,14 @@ export const EffectiveEntitlementsSchema = z.object({
 });
 export type EffectiveEntitlementsDto = z.infer<typeof EffectiveEntitlementsSchema>;
 
+/**
+ * Fonctionnalités ACTIVES de l'organisation, lisibles par TOUT membre authentifié du tenant :
+ * `GET /api/v1/entitlements/me/features`. Uniquement les clés (triées) : ni plan, ni pack, ni quota, ni prix,
+ * ni date d'abonnement, ni source d'octroi. Sert à afficher ou masquer des entrées de menu.
+ */
+export const MyFeaturesSchema = z.object({ features: z.array(FeatureKeySchema) }).strict();
+export type MyFeaturesDto = z.infer<typeof MyFeaturesSchema>;
+
 export const UsageCounterSchema = z.object({
   metric: UsageMetricSchema,
   /** Premier jour du mois UTC (`YYYY-MM-DD`). */

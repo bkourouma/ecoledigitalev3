@@ -3,12 +3,14 @@ import type {
   Campus,
   CountryProfile,
   Institution,
+  TenantBranding,
   TenantProfile,
 } from "@ecoledigitale/contracts/src/v2/tenancy";
 import type {
   CampusRecord,
   CountryProfileRecord,
   InstitutionRecord,
+  TenantBrandingRecord,
   TenantProfileRecord,
 } from "../domain/entities";
 
@@ -32,7 +34,16 @@ export const toTenantProfileDto = (p: TenantProfileRecord): TenantProfile => ({
   updatedAt: p.updatedAt.toISOString(),
 });
 
-export const toInstitutionDto = (i: InstitutionRecord): Institution => ({
+export const toTenantBrandingDto = (b: TenantBrandingRecord): TenantBranding => ({
+  slug: b.slug,
+  displayName: b.displayName,
+  theme: { logoUrl: b.logoUrl, primaryColor: b.primaryColor, secondaryColor: b.secondaryColor },
+  locale: b.locale,
+  timezone: b.timezone,
+  currencyCode: b.currencyCode,
+});
+
+export const toInstitutionDto =(i: InstitutionRecord): Institution => ({
   id: i.id,
   tenantId: i.tenantId,
   code: i.code,
