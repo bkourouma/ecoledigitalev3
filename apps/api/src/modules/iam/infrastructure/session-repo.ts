@@ -80,6 +80,8 @@ export async function elevateSession(tx: Tx, tenantId: string, sessionId: string
     `UPDATE iam.sessions SET mfa_elevated_until = $3 WHERE tenant_id = $1 AND id = $2 AND revoked_at IS NULL AND kind = 'user'`,
     [tenantId, sessionId, until],
   );
+  // L’élévation change le verdict (mfa) : elle doit être vue immédiatement par toutes les instances (cache de session).
+  if (res.rowCount === 1) await invalidateSessionVerdict(tx, { kind: "session", tenantId, sessionId });
   return res.rowCount === 1;
 }
 
