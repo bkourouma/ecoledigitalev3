@@ -26,7 +26,7 @@ describe("routes publiques DÉRIVÉES de config.public (middleware legacy)", () 
         scope.post("/open", { config: { public: true } }, async () => ({ ok: true }));
         scope.post("/webhooks/:provider/:tenantId", { config: { public: true } }, async () => ({ ok: true }));
         scope.get("/private", async () => ({ ok: true }));
-        scope.get("/not-quite", { config: { public: "true" } }, async () => ({ ok: true }));
+        scope.get("/not-quite", { config: { public: "true" as unknown as boolean } }, async () => ({ ok: true }));
       },
       { prefix: "/api/v1/demo" },
     );
