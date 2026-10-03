@@ -185,6 +185,7 @@ describeIntegration("affectations d'enseignement (Postgres réel, academic simul
   it("fin d'affectation, modification, historique et lecture par classe / par enseignant / « mes classes »", async () => {
     const node = academic.addNode();
     const classroom = academic.addClassroom(year, [node], { name: "6e A", code: "6A" });
+    academic.educationLevels.set(classroom.id, "SECONDARY_1");
     const period = academic.addPeriod(year);
     const t = await mkStaff(world.deps, ctx);
     const a = unwrap(await assign(t.id, classroom.id, node.id, { plannedHours: 10, startsOn: "2025-09-01" }));
@@ -197,6 +198,8 @@ describeIntegration("affectations d'enseignement (Postgres réel, academic simul
     expect(unwrap(await listMyClasses(world.deps, ctx, t.id))[0]).toMatchObject({
       classroomName: "6e A",
       classroomCode: "6A",
+      // niveau d'enseignement : de quoi appliquer la politique d'appel du cycle sans `academic.classroom.read`
+      educationLevelCode: "SECONDARY_1",
       periods: expect.arrayContaining([expect.objectContaining({ id: period.id, startsOn: "2025-09-01" })]),
       nodes: [{ id: node.id, label: node.label }],
       assignments: [{ nodeLabel: node.label }],
