@@ -67,9 +67,9 @@ describe("usePermission", () => {
 });
 
 describe("useFeature", () => {
-  it("lit /entitlements/me", async () => {
+  it("lit /entitlements/me/features (vue minimale)", async () => {
     const { access, wrapper } = setup((url) =>
-      url.endsWith("/entitlements/me") ? json({ features: ["finance.online-payment"], plan: "pro" }) : json({}, { status: 404 }),
+      url.endsWith("/entitlements/me/features") ? json({ features: ["finance.online-payment"] }) : json({}, { status: 404 }),
     );
     const on = renderHook(() => access.useFeature("finance.online-payment"), { wrapper });
     const off = renderHook(() => access.useFeature("virtual.live"), { wrapper });

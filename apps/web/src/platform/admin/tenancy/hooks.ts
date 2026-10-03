@@ -68,7 +68,7 @@ export function useUpdateTenantProfile() {
     method: "PATCH",
     path: `${TENANCY}/profile`,
     schema: TenantProfileSchema,
-    invalidate: [["tenancy", "profile"]],
+    invalidate: [["tenancy", "profile"], ["tenancy", "branding"]],
   });
 }
 

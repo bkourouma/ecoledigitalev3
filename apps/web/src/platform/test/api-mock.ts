@@ -8,7 +8,7 @@
  *   const api = setTestApi({ "GET /api/v1/academic/years": { items: [] } });
  *
  * `usePermission` / `useFeature` passent aussi par ce faux client : déclarer les routes
- * `GET /api/v1/rbac/me/permissions` et `GET /api/v1/entitlements/me` (voir `accessRoutes`).
+ * `GET /api/v1/rbac/me/permissions` et `GET /api/v1/entitlements/me/features` (voir `accessRoutes`).
  */
 
 import type { ApiClient } from "@/platform/api/client";
@@ -47,6 +47,6 @@ export const defaultClientModule = { platformHooks: delegatingHooks, platformApi
 export function accessRoutes(permissions: string[], features: string[] = []): Record<string, unknown> {
   return {
     "GET /api/v1/rbac/me/permissions": { permissions },
-    "GET /api/v1/entitlements/me": { features },
+    "GET /api/v1/entitlements/me/features": { features },
   };
 }

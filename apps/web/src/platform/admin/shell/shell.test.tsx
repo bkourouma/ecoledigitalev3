@@ -143,7 +143,7 @@ describe("TenantAdminShell", () => {
         ],
         requiresMfa: [],
       }),
-      "GET /api/v1/entitlements/me": json({ features: ["audit.log"], planKey: "STARTER" }),
+      "GET /api/v1/entitlements/me/features": json({ features: ["audit.log"] }),
       "GET /api/v1/tenancy/profile": json({
         tenantId: "22222222-2222-4222-8222-222222222222",
         slug: "ipam",

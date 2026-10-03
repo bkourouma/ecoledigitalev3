@@ -1,5 +1,5 @@
 /**
- * Thème de tenant : contrat de `GET /api/v1/tenancy/profile` et calcul PUR des variables CSS.
+ * Thème de tenant : contrat de `GET /api/v1/tenancy/branding` et calcul PUR des variables CSS.
  *
  * Variables posées sur `:root` (jamais sur `[data-role]`, donc le thème par rôle `--role-primary` n'est pas
  * touché) :
@@ -13,7 +13,11 @@
 
 import { z } from "zod";
 
-export const TENANCY_PROFILE_ENDPOINT = "/api/v1/tenancy/profile";
+/**
+ * Marque MINIMALE, lisible par tout membre authentifié (parent, élève, enseignant compris) : remplace l'ancienne lecture
+ * de `/tenancy/profile`, qui exige `tenancy.institution.read` et répondait 403 aux autres rôles.
+ */
+export const TENANCY_BRANDING_ENDPOINT = "/api/v1/tenancy/branding";
 
 export const DEFAULT_BRAND = Object.freeze({
   primary: "#2563eb", // bleu EcoleDigitale (dégradé du logo « ED »)
@@ -22,9 +26,9 @@ export const DEFAULT_BRAND = Object.freeze({
 });
 
 /**
- * Deux formes sont acceptées : l'ancienne `{ name, theme: { primaryColor, secondaryColor, logoUrl } }` et le profil réel
- * du module tenancy `{ tradeName, legalName, branding: { logoUrl, primaryColor, secondaryColor } }` (`TenantProfileSchema`).
- * Les deux sont normalisées vers la première.
+ * Trois formes sont acceptées : la marque minimale `{ displayName, theme: { primaryColor, secondaryColor, logoUrl }, … }`
+ * (`TenantBrandingSchema`, `GET /tenancy/branding`), l'ancienne `{ name, theme }` et le profil complet du module tenancy
+ * `{ tradeName, legalName, branding: { … } }` (`TenantProfileSchema`). Toutes sont normalisées vers `{ name, theme }`.
  */
 const BrandingSchema = z
   .object({
@@ -42,6 +46,7 @@ export interface TenancyProfile {
 export const TenancyProfileSchema = z
   .object({
     name: z.string().optional(),
+    displayName: z.string().nullish(),
     tradeName: z.string().nullish(),
     legalName: z.string().optional(),
     theme: BrandingSchema,
@@ -49,7 +54,7 @@ export const TenancyProfileSchema = z
   })
   .transform(
     (value): TenancyProfile => ({
-      name: value.name ?? value.tradeName ?? value.legalName ?? undefined,
+      name: value.name ?? value.displayName ?? value.tradeName ?? value.legalName ?? undefined,
       theme: value.theme ?? value.branding ?? null,
     }),
   );
