@@ -61,7 +61,7 @@ const FAMILY_SOURCES = new Set<WishRow["source"]>(["GUARDIAN", "STUDENT"]);
 
 /** Vœux exposables : ceux de la famille et de l'élève, non retirés, classés. */
 function visibleWishes(wishes: readonly WishRow[], fileId: string): WishRow[] {
-  return wishes.filter((w) => w.fileId === fileId && w.withdrawnAt === null && FAMILY_SOURCES.has(w.source)).sort((a, b) => a.rank - b.rank);
+  return wishes.filter((w) => w.fileId === fileId && w.withdrawnAt === null && FAMILY_SOURCES.has(w.source)).sort((a, b) => (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0)); // ordre d'affichage des vœux (aucun calcul)
 }
 
 /** Parcours autorisés actifs qui s'appliquent à la situation courante du dossier (donnée de l'établissement). */
