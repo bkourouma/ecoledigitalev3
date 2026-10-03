@@ -57,7 +57,9 @@ async function classroomInfo(env: AdmissionsWriteEnv, ctx: RequestContext, id: s
 export function createAdmissionsCatalog(env: AdmissionsWriteEnv): InstitutionCatalog {
   return {
     async listInstitutions(ctx) {
-      const r = unwrapPort(await listInstitutions(env.tenancy, ctx, { status: "active" as never }));
+      // Les statuts sont en MAJUSCULES en base (`ACTIVE`) : « active » ne correspondait a aucune ligne et toutes les routes
+      // d'admissions repondaient 404 `admissions.institution_unknown`.
+      const r = unwrapPort(await listInstitutions(env.tenancy, ctx, { status: "ACTIVE" }));
       return r.map((i) => ({ id: i.id, name: i.name }));
     },
     async getInstitution(ctx, id) {
