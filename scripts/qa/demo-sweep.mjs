@@ -271,6 +271,7 @@ async function sweepAccount(browser, account, persist = () => {}) {
   enqueue(landingPath, "landing", true, true);
   const only = args.only ? String(args.only).split(",").filter(Boolean) : null;
   const menuOnly = Boolean(args["menu-only"]);
+  if (menuOnly) enqueue("/v2/settings", "adminshell", true);
   const treeSeed = !only && !menuOnly && !args["no-tree"] && (args["tree-all"] || account.role === "proprietaire" || account.role === "operateur");
   let menuHarvested = false;
   let visited = 0;
@@ -296,6 +297,16 @@ async function sweepAccount(browser, account, persist = () => {}) {
       if (treeSeed) for (const r of TREE) if (!/\[/.test(r) && !SKIP_SEED.test(r)) enqueue(r, "tree", false);
     }
     if (!only && !menuOnly && reachable) for (const n of [...links].sort()) enqueue(n, "crawl", true);
+    // Passe menus : la coquille d'administration (`/v2/settings`) affiche les entrees de `/api/v1/rbac/me/navigation` (hrefs historiques `/admin/...`).
+    if (menuOnly && path === "/v2/settings" && (rec.finalUrl ?? "").split("?")[0] === path) {
+      const admin = new Set();
+      for (const h of rec.menuHrefs ?? []) {
+        const n = normalizeLink(h, origin, path, true);
+        if (n) admin.add(n);
+      }
+      result.adminMenu = [...admin].sort();
+      for (const m of result.adminMenu) enqueue(m, "adminmenu", true);
+    }
     rec.findings = analyzePage(rec, { menuLinks, account });
     if (rec.findings.some((f) => f.severity === "bloquant" || f.severity === "majeur")) {
       rec.screenshot = join("shots", `${label.replace(/\W/g, "_")}-${path.replace(/\W+/g, "_").slice(0, 80)}.png`);
