@@ -12,8 +12,10 @@
  *   - identité : `identité` (tous établissements) époque (mot de passe, déconnexion générale, MFA), statut,
  *                                                accès (statut, rôles) de l'identité ;
  *   - tenant   : `tenant`                        suspension, archivage.
- * Un verdict en cache porte les trois jetons lus AVANT la lecture SQL qui l'a produit ; il n'est resservi que si les
- * trois jetons sont inchangés ET qu'aucune écriture n'est en cours.
+ * Un quatrième jeton, GLOBAL (`<préfixe>t:g`), n'est écrit par personne : `DEL` de cette clé invalide tous les verdicts
+ * (procédure d'urgence après un SQL direct, hors application).
+ * Un verdict en cache porte les jetons lus AVANT la lecture SQL qui l'a produit ; il n'est resservi que si tous les
+ * jetons sont inchangés ET qu'aucune écriture n'est en cours.
  *
  * Écrivains (port `invalidateSessionVerdict` du noyau) :
  *   begin (DANS la transaction, avant COMMIT) : nouveau jeton + marqueur « écriture en cours » (compteur à durée de vie
