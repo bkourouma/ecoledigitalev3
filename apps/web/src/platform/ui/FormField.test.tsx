@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ApiError } from "@/platform/api/errors";
 import { renderWithProviders } from "@/platform/test/render";
-import { FormField, TextControl } from "./FormField";
+import { FormField, slugOfLabel, TextControl } from "./FormField";
 import { apiErrorToFieldErrors, compact, nullifyEmpty, validateWith } from "./validation";
 
 describe("FormField", () => {
@@ -22,6 +22,25 @@ describe("FormField", () => {
     expect(document.getElementById(describedBy[0]!)!.textContent).toBe("Tel qu'à l'état civil");
     expect(screen.getByRole("alert").textContent).toBe("Obligatoire");
     expect(screen.getByText("(obligatoire)")).toBeTruthy();
+  });
+
+  it("identifiant dérivé du libellé (stable entre serveur et client, indépendant de la position dans l'arbre)", () => {
+    expect(slugOfLabel("Année académique (obligatoire) é")).toBe("annee-academique-obligatoire-e");
+    expect(slugOfLabel("***")).toBe("champ");
+    renderWithProviders(<FormField label="Étudiant">{(c) => <TextControl value="" onChange={() => undefined} {...c} />}</FormField>);
+    expect(screen.getByLabelText("Étudiant").id).toBe("f-etudiant");
+  });
+
+  it("deux champs de même libellé restent uniques après montage", async () => {
+    renderWithProviders(
+      <>
+        <FormField label="Montant">{(c) => <TextControl value="" onChange={() => undefined} {...c} />}</FormField>
+        <FormField label="Montant">{(c) => <TextControl value="" onChange={() => undefined} {...c} />}</FormField>
+      </>,
+    );
+    const inputs = await screen.findAllByLabelText("Montant");
+    expect(inputs).toHaveLength(2);
+    expect(new Set(inputs.map((i) => i.id)).size).toBe(2);
   });
 
   it("sans erreur : champ valide, pas d'alerte", () => {

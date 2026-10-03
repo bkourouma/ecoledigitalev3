@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,18 @@ export interface FormFieldProps {
   children: (control: FieldControlProps) => ReactNode;
 }
 
+/** Libellé -> fragment d'identifiant (minuscules, sans accents ni ponctuation). */
+export function slugOfLabel(label: string): string {
+  const slug = label
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return slug || "champ";
+}
+
 /**
  * Champ de formulaire accessible : libellé relié au contrôle, aide et erreur reliées par `aria-describedby`,
  * marqueur « obligatoire » lisible (pas seulement un astérisque coloré).
@@ -31,7 +43,17 @@ export interface FormFieldProps {
 export function FormField({ label, error, hint, required, className, id: forcedId, children }: FormFieldProps) {
   const t = useTranslations("v2Ui.form");
   const generated = useId();
-  const id = forcedId ?? `f-${generated}`;
+  const base = `f-${slugOfLabel(label)}`;
+  const [unique, setUnique] = useState(false);
+  // Identifiant DÉRIVÉ DU LIBELLÉ (déterministe : identique au rendu serveur et au premier rendu client). `useId` encode la
+  // position dans l'arbre : dès que l'arbre diffère entre serveur et client (écran protégé, fournisseur monté après coup), le
+  // `htmlFor` généré divergeait et l'hydratation signalait une erreur (constat QA : /v2/higher/credits, /v2/academic/curriculum).
+  // Deux champs de même libellé sur une page (lignes répétées) reçoivent, APRÈS montage, un suffixe `useId` pour rester uniques.
+  useEffect(() => {
+    if (forcedId) return;
+    if (document.querySelectorAll(`[id="${base}"]`).length > 1) setUnique(true);
+  }, [forcedId, base]);
+  const id = forcedId ?? (unique ? `${base}-${generated.replace(/[^a-zA-Z0-9_-]/g, "")}` : base);
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
