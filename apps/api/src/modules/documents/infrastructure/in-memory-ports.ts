@@ -4,7 +4,7 @@
  */
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { RequestContext } from "@ecoledigitale/kernel";
-import { NO_CONVERTER, NO_SCANNER, NO_USAGE_REPORTER, type DocumentsPorts, type MalwareScanner, type OwnerDirectory, type PersonRef, type ScanVerdict, type StoragePort, type StoredObject } from "../application/ports";
+import { NO_CONVERTER, NO_SCANNER, NO_TEXT_EXTRACTOR, NO_USAGE_REPORTER, type DocumentsPorts, type MalwareScanner, type OwnerDirectory, type PersonRef, type ScanVerdict, type StoragePort, type StoredObject } from "../application/ports";
 import { portUnavailable } from "../domain/errors";
 import { NO_LINKS, type ActorLinks, type DocumentOwnerType, type Uuid } from "../domain/types";
 
@@ -174,6 +174,7 @@ export function inMemoryPorts(options: InMemoryPortsOptions = {}): InMemoryWorld
     converter: NO_CONVERTER,
     usage: NO_USAGE_REPORTER,
     planQuota: async () => quota,
+    textExtractor: NO_TEXT_EXTRACTOR,
   };
 }
 
@@ -197,5 +198,6 @@ export function unavailablePorts(): DocumentsPorts {
     converter: NO_CONVERTER,
     usage: NO_USAGE_REPORTER,
     planQuota: async () => 2 * 1024 * 1024 * 1024,
+    textExtractor: NO_TEXT_EXTRACTOR,
   };
 }

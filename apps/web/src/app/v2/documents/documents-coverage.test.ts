@@ -9,6 +9,8 @@ import {
   DOCUMENT_OWNER_TYPES,
   DOCUMENT_QUARANTINE_STATUSES,
   DOCUMENT_SHARE_LEVELS,
+  DOCUMENT_TEXT_INDEX_ERRORS,
+  DOCUMENT_TEXT_INDEX_STATUSES,
   DOCUMENT_VISIBILITIES,
 } from "@ecoledigitale/contracts/v2/documents";
 
@@ -79,6 +81,10 @@ describe("messages fr-CI : gestion documentaire", () => {
       ["v2Documents.categories.form.levels", DOCUMENT_CONFIDENTIALITIES],
       ["v2Documents.categories.grants.levels", DOCUMENT_SHARE_LEVELS],
       ["v2Documents.quarantine.status", [...DOCUMENT_QUARANTINE_STATUSES, "ALL"]],
+      ["v2Documents.textIndex.status", DOCUMENT_TEXT_INDEX_STATUSES],
+      ["v2Documents.textAdmin.counts", DOCUMENT_TEXT_INDEX_STATUSES],
+      ["v2Documents.textIndex.errors", DOCUMENT_TEXT_INDEX_ERRORS],
+      ["v2Documents.textAdmin.errors", DOCUMENT_TEXT_INDEX_ERRORS],
     ];
     const missing: string[] = [];
     for (const [ns, keys] of need) for (const key of keys) if (typeof lookup(ns, key) !== "string") missing.push(`${ns}.${key}`);

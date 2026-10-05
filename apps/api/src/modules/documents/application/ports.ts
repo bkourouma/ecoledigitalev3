@@ -94,6 +94,37 @@ export interface DocumentConverter {
 export const NO_CONVERTER: DocumentConverter = Object.freeze({ enabled: false, async toPdf() { return null; } });
 
 // ---------------------------------------------------------------------------
+// Extraction du texte des PDF (recherche dans le contenu) — exécutée par le worker, jamais par l'API
+// ---------------------------------------------------------------------------
+
+/** Motifs d'échec d'une extraction (codes stables, stockés dans `text_index.error_code`). */
+export type PdfExtractFailure = "corrupt" | "encrypted" | "too_large" | "timeout" | "memory" | "crashed" | "unavailable";
+
+export type PdfExtractResult =
+  | {
+      readonly ok: true;
+      /** Texte brut, borné, sans caractère de contrôle. Vide ou presque : PDF sans couche de texte (scan). */
+      readonly text: string;
+      /** Pages réellement lues / pages du document. */
+      readonly pagesRead: number;
+      readonly pageCount: number;
+      /** Vrai si les limites de pages ou de caractères ont coupé la lecture. */
+      readonly truncated: boolean;
+    }
+  | { readonly ok: false; readonly code: PdfExtractFailure; readonly retryable: boolean };
+
+/**
+ * Port d'extraction du texte d'un PDF NON FIABLE. L'adaptateur de production (`pdf-text-extractor.ts`) l'exécute dans un
+ * processus fils isolé (limites de taille, de pages, de mémoire et de durée, sans réseau, sans accès disque en écriture).
+ * Ne lève jamais : toute panne est un `{ ok: false }`. `unavailable` : l'extracteur n'est pas installé (la file attend).
+ */
+export interface PdfTextExtractor {
+  extract(bytes: Uint8Array): Promise<PdfExtractResult>;
+}
+
+export const NO_TEXT_EXTRACTOR: PdfTextExtractor = Object.freeze({ async extract(): Promise<PdfExtractResult> { return { ok: false, code: "unavailable", retryable: true }; } });
+
+// ---------------------------------------------------------------------------
 // Usage de stockage et quotas
 // ---------------------------------------------------------------------------
 
@@ -153,4 +184,5 @@ export interface DocumentsPorts {
   readonly converter: DocumentConverter;
   readonly usage: UsageReporter;
   readonly planQuota: PlanQuotaResolver;
+  readonly textExtractor: PdfTextExtractor;
 }

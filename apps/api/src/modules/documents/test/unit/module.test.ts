@@ -58,7 +58,13 @@ describe("module documents : manifeste", () => {
     const refs = [...sql.matchAll(/REFERENCES\s+([a-z_]+)\./gi)].map((m) => m[1]!.toLowerCase());
     for (const schema of refs) expect(["kernel", "documents"]).toContain(schema);
     expect(sql).not.toMatch(/\b(people|academic|rbac|iam|tenancy|attendance|messaging)\./i);
-    for (const grant of sql.matchAll(/GRANT\s+([^;]*?)\s+ON\s+documents\.[a-z_]+\s+TO\s+app_user/gi)) expect(grant[1], grant[0]).not.toMatch(/DELETE/i);
+    // Seule exception : `text_index` (Q-14), copie DÉRIVÉE du contenu des PDF, recalculable, supprimée avec le document à la purge.
+    const DERIVED_TABLES = ["documents.text_index"];
+    for (const grant of sql.matchAll(/GRANT\s+([^;]*?)\s+ON\s+(documents\.[a-z_]+)\s+TO\s+app_user/gi)) {
+      if (DERIVED_TABLES.includes(grant[2]!.toLowerCase())) continue;
+      expect(grant[1], grant[0]).not.toMatch(/DELETE/i);
+    }
+    expect(sql).toMatch(/GRANT\s+SELECT,\s*INSERT,\s*UPDATE,\s*DELETE\s+ON\s+documents\.text_index\s+TO\s+app_user/i);
   });
 
   it("les défauts du code (paramètres) sont ceux de la table", async () => {

@@ -427,7 +427,84 @@ export const documentShareDtoSchema = z.object({
 export type DocumentShareDto = z.infer<typeof documentShareDtoSchema>;
 export const documentShareListDtoSchema = z.object({ items: z.array(documentShareDtoSchema) });
 
+// ---------------------------------------------------------------------------
+// Recherche dans le TEXTE des PDF (Q-14) : texte extrait par un job du worker (processus isolé), jamais d'OCR
+// ---------------------------------------------------------------------------
+
+/**
+ * État d'indexation du texte de la version courante d'un PDF : `PENDING` (en attente du worker), `INDEXED` (cherchable),
+ * `NO_TEXT` (PDF sans couche de texte, typiquement un scan : il n'y a pas d'OCR), `FAILED` (illisible : chiffré, corrompu, trop
+ * gros, délai dépassé…).
+ */
+export const DOCUMENT_TEXT_INDEX_STATUSES = ["PENDING", "INDEXED", "NO_TEXT", "FAILED"] as const;
+export const documentTextIndexStatusSchema = z.enum(DOCUMENT_TEXT_INDEX_STATUSES);
+export type DocumentTextIndexStatus = z.infer<typeof documentTextIndexStatusSchema>;
+
+/** Codes d'échec d'indexation (stables, affichés traduits côté client). */
+export const DOCUMENT_TEXT_INDEX_ERRORS = ["corrupt", "encrypted", "too_large", "timeout", "memory", "crashed", "unavailable", "object_missing", "index_error"] as const;
+
+export const documentTextIndexDtoSchema = z.object({
+  status: documentTextIndexStatusSchema,
+  versionNo: z.number().int().min(1),
+  pageCount: z.number().int().min(0).nullable(),
+  pagesIndexed: z.number().int().min(0).nullable(),
+  /** Vrai si les limites de pages ou de caractères ont coupé la lecture : la fin du document n'est pas cherchable. */
+  truncated: z.boolean(),
+  indexedAt: documentsInstantSchema.nullable(),
+  errorCode: z.string().nullable(),
+});
+export type DocumentTextIndexDto = z.infer<typeof documentTextIndexDtoSchema>;
+
+export const DOCUMENT_TEXT_SEARCH_LIMITS = Object.freeze({ queryMin: 2, queryMax: 100, pageSizeMax: 50, pageSizeDefault: 20 });
+
+export const documentTextSearchQuerySchema = z.object({
+  /** Mots recherchés (syntaxe web : plusieurs mots = tous requis, « expression exacte », -exclu, OR). */
+  q: z.string().trim().min(DOCUMENT_TEXT_SEARCH_LIMITS.queryMin, "Saisissez au moins 2 caractères.").max(DOCUMENT_TEXT_SEARCH_LIMITS.queryMax),
+  categoryId: documentsUuidSchema.optional(),
+  kind: documentKindSchema.optional(),
+  cursor: z.string().max(500).optional(),
+  limit: z.coerce.number().int().min(1).max(DOCUMENT_TEXT_SEARCH_LIMITS.pageSizeMax).optional(),
+});
+export type DocumentTextSearchQuery = z.infer<typeof documentTextSearchQuerySchema>;
+
+/** Segment d'extrait : le texte est TOUJOURS du texte brut (jamais du HTML) ; `match` marque les mots trouvés. */
+export const documentTextSnippetSegmentSchema = z.object({ text: z.string(), match: z.boolean() });
+export type DocumentTextSnippetSegment = z.infer<typeof documentTextSnippetSegmentSchema>;
+
+export const documentTextHitDtoSchema = z.object({
+  document: documentSummaryDtoSchema,
+  snippet: z.array(documentTextSnippetSegmentSchema),
+  versionNo: z.number().int().min(1),
+  pageCount: z.number().int().min(0).nullable(),
+  pagesIndexed: z.number().int().min(0).nullable(),
+  truncated: z.boolean(),
+  /** Pertinence (plus grand = plus pertinent) ; valeur relative, sans unité. */
+  score: z.number(),
+});
+export type DocumentTextHitDto = z.infer<typeof documentTextHitDtoSchema>;
+
+export const documentTextSearchPageDtoSchema = z.object({
+  items: z.array(documentTextHitDtoSchema),
+  nextCursor: z.string().nullable(),
+});
+export type DocumentTextSearchPageDto = z.infer<typeof documentTextSearchPageDtoSchema>;
+
+/** `FAILED` : ré-essaie les PDF en échec ; `ALL` : ré-extrait tous les PDF (l'index est vidé puis reconstruit par le worker). */
+export const documentTextReindexBodySchema = z.object({ scope: z.enum(["FAILED", "ALL"]).default("FAILED") });
+export type DocumentTextReindexBody = z.infer<typeof documentTextReindexBodySchema>;
+export const documentTextReindexResultDtoSchema = z.object({ queued: z.number().int().min(0) });
+export type DocumentTextReindexResultDto = z.infer<typeof documentTextReindexResultDtoSchema>;
+
+export const documentTextIndexStatusDtoSchema = z.object({
+  counts: z.object({ PENDING: z.number().int().min(0), INDEXED: z.number().int().min(0), NO_TEXT: z.number().int().min(0), FAILED: z.number().int().min(0) }),
+  /** Cause la plus fréquente parmi les échecs (code), pour orienter l'exploitation. */
+  failures: z.array(z.object({ errorCode: z.string(), count: z.number().int().min(0) })),
+});
+export type DocumentTextIndexStatusDto = z.infer<typeof documentTextIndexStatusDtoSchema>;
+
 export const documentDetailDtoSchema = documentSummaryDtoSchema.extend({
+  /** Indexation du texte de la version courante ; `null` si ce n'est pas un PDF. */
+  textIndex: documentTextIndexDtoSchema.nullable().optional(),
   metadata: documentMetadataSchema,
   alertDays: documentAlertDaysSchema.nullable(),
   versions: z.array(documentVersionDtoSchema),

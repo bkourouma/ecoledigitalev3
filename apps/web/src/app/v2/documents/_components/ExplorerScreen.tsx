@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { CalendarClock, FileText, Image as ImageIcon, Plus } from "lucide-react";
+import { CalendarClock, FileText, Image as ImageIcon, Plus, Search } from "lucide-react";
 import type { DocumentKind, DocumentSummaryDto } from "@ecoledigitale/contracts/v2/documents";
 import { DOCUMENT_KINDS } from "@ecoledigitale/contracts/v2/documents";
 import { useDocumentCategories, useDocumentsInfinite, useMyDocumentsContext, usePeopleOptions, type DocumentFilters } from "@/platform/v2/documents";
@@ -113,6 +113,10 @@ export function ExplorerScreen() {
         description={t("explorer.description")}
         actions={
           <>
+            <Link href="/v2/documents/search" className={buttonClass.secondary}>
+              <Search className="h-4 w-4" aria-hidden="true" />
+              {t("explorer.contentSearch")}
+            </Link>
             <Link href="/v2/documents/expirations" className={buttonClass.secondary}>
               <CalendarClock className="h-4 w-4" aria-hidden="true" />
               {t("explorer.expirations")}

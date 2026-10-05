@@ -80,6 +80,7 @@ export function createDocumentsDeps(input: DocumentsDepsInput): DocumentsDeps {
     get converter() { return resolve().converter ?? fallback.converter; },
     get usage() { return resolve().usage ?? fallback.usage; },
     get planQuota() { return resolve().planQuota ?? fallback.planQuota; },
+    get textExtractor() { return resolve().textExtractor ?? fallback.textExtractor; },
   };
   return {
     db: input.db,

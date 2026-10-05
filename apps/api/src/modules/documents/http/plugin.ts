@@ -28,6 +28,8 @@ import {
   documentQuarantineDecisionBodySchema,
   documentQuarantineQuerySchema,
   documentShareBodySchema,
+  documentTextReindexBodySchema,
+  documentTextSearchQuerySchema,
   documentUpdateBodySchema,
   documentUpdateCategoryBodySchema,
   documentUpdateSettingsBodySchema,
@@ -43,6 +45,7 @@ import { createDocumentsPortRegistry, type DocumentsPortRegistry } from "../appl
 import type { DocumentsPorts } from "../application/ports";
 import { deleteQuarantine, listQuarantine, releaseQuarantine } from "../application/quarantine";
 import { listShares, shareDocument, unshareDocument } from "../application/shares";
+import { reindexTexts, searchDocumentText, textIndexStatus } from "../application/text-search";
 import { addVersion, createDocument, type UploadedFile } from "../application/uploads";
 import { DocumentsCode, HTTP_STATUS_BY_DOCUMENTS_CODE, forbidden, validation } from "../domain/errors";
 import { QUOTA_FEATURE_KEYS, planQuotaBytes, quotaTierFor } from "../domain/quota";
@@ -112,6 +115,8 @@ const HTTP_RATE = Object.freeze({
   upload: { limit: 20, windowMs: 60_000 },
   read: { limit: 240, windowMs: 60_000 },
   share: { limit: 60, windowMs: 60_000 },
+  /** La recherche dans le texte est la lecture la plus coûteuse (index + extraits) : fenêtre plus étroite. */
+  search: { limit: 60, windowMs: 60_000 },
 });
 
 export interface RateLimiterLike {
@@ -364,6 +369,16 @@ export async function documentsPlugin(app: FastifyInstance, options: DocumentsPl
       unwrapOrThrow(await unshareDocument(deps, ctxOf(req), { caps: await caps(req, reply), documentId: idParams(req.params).id, shareId }));
       return reply.status(204).send();
     });
+
+    // ===== Recherche dans le texte des PDF (Q-14) ===========================================================
+    // Les droits de lecture sont décidés PAR DOCUMENT dans la requête (mêmes règles que la liste) ; la route n'exige qu'une permission de lecture.
+    scope.get("/search", { preHandler: [viewers, throttle("search")] }, async (req, reply) =>
+      unwrapOrThrow(await searchDocumentText(deps, ctxOf(req), { caps: await caps(req, reply), query: parse(documentTextSearchQuerySchema, req.query) })),
+    );
+    scope.get("/search/status", { preHandler: kit.anyOf(P.manage) }, async (req, reply) => unwrapOrThrow(await textIndexStatus(deps, ctxOf(req), { caps: await caps(req, reply) })));
+    scope.post("/search/reindex", { preHandler: kit.anyOf(P.manage) }, async (req, reply) =>
+      unwrapOrThrow(await reindexTexts(deps, ctxOf(req), { caps: await caps(req, reply), scope: parse(documentTextReindexBodySchema, req.body).scope })),
+    );
 
     // ===== Personnes (sélecteurs) ============================================================================
     scope.get("/people", { preHandler: kit.anyOf(P.share, P.upload, P.manage, P.categoryManage) }, async (req, reply) => {

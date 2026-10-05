@@ -30,8 +30,14 @@ import {
   documentShareListDtoSchema,
   documentSignedUrlDtoSchema,
   documentSummaryCountsDtoSchema,
+  documentTextIndexStatusDtoSchema,
+  documentTextReindexResultDtoSchema,
+  documentTextSearchPageDtoSchema,
   documentUsageDtoSchema,
+  DOCUMENT_TEXT_SEARCH_LIMITS,
   type DocumentArchiveBody,
+  type DocumentTextReindexBody,
+  type DocumentTextSearchQuery,
   type DocumentCreateCategoryBody,
   type DocumentGrantBody,
   type DocumentKind,
@@ -137,6 +143,39 @@ export function useDocumentsInfinite(filters: DocumentFilters, enabled = true) {
     getNextCursor: (p) => p.nextCursor,
     enabled,
     retry: false,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Recherche dans le texte des PDF (Q-14)
+// ---------------------------------------------------------------------------
+
+export type TextSearchFilters = Pick<DocumentTextSearchQuery, "categoryId" | "kind">;
+
+/** Recherche dans le contenu des PDF : l'API ne renvoie que ce que l'appelant peut lire, extrait compris. Au moins 2 caractères. */
+export function useDocumentTextSearch(q: string, filters: TextSearchFilters = {}) {
+  const text = q.trim();
+  return hooks.useApiInfiniteQuery([...KEY, "text-search", text, filters.categoryId ?? "", filters.kind ?? ""], `${DOCUMENTS_BASE}/search`, {
+    query: { q: text, ...filters, limit: 20 },
+    schema: documentTextSearchPageDtoSchema,
+    getNextCursor: (p) => p.nextCursor,
+    enabled: text.length >= DOCUMENT_TEXT_SEARCH_LIMITS.queryMin,
+    retry: false,
+  });
+}
+
+/** État de l'index de texte (gestion). */
+export function useTextIndexStatus(enabled = true) {
+  return hooks.useApiQuery([...KEY, "text-index", "status"], `${DOCUMENTS_BASE}/search/status`, { schema: documentTextIndexStatusDtoSchema, enabled, retry: false });
+}
+
+/** Demande de réindexation (gestion, MFA) : `FAILED` relance les échecs, `ALL` reconstruit tout l'index. */
+export function useReindexDocumentTexts() {
+  return useApiAction({
+    path: `${DOCUMENTS_BASE}/search/reindex`,
+    body: (v: DocumentTextReindexBody) => v,
+    schema: documentTextReindexResultDtoSchema,
+    invalidate: [[...KEY, "text-index"], [...KEY, "text-search"], [...KEY, "one"]],
   });
 }
 
