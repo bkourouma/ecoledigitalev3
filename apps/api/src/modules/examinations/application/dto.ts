@@ -60,7 +60,7 @@ export const isPlaceholder = (...kinds: Array<string | null | undefined>): boole
 
 export const toTypeDto = (t: ExamTypeRow): ExamTypeDto => ({
   id: t.id, code: t.code, label: t.label, educationLevelCode: t.educationLevelCode, gradeLevelCode: t.gradeLevelCode, resultContractId: t.resultContractId,
-  candidateNumberPattern: t.candidateNumberPattern, sourceKind: t.sourceKind, sourceReference: t.sourceReference, status: t.status, placeholder: t.sourceKind === "placeholder",
+  candidateNumberPattern: t.candidateNumberPattern, transmitsToAdmission: t.transmitsToAdmission, sourceKind: t.sourceKind, sourceReference: t.sourceReference, status: t.status, placeholder: t.sourceKind === "placeholder",
 });
 export const toTrackDto = (t: ExamTrackRow): ExamTrackDto => ({ id: t.id, code: t.code, label: t.label, sourceKind: t.sourceKind, active: t.active });
 export const toPaperDto = (p: ExamPaperRow): ExamPaperDto => ({

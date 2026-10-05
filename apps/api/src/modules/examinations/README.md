@@ -2,7 +2,7 @@
 
 Moteur d'examens **générique** : CEPE, BEPC, BAC, BTS sont des **types** (lignes de données), pas du code. Séries, épreuves, coefficients, pièces exigées, formats d'export et d'import sont des **données** ; l'éligibilité, la moyenne et l'issue d'un examen **blanc**, le taux de réussite sont des **règles** (`rules`, contrat `exam-national@1`). **Aucune constante réglementaire dans le module** (test `module.unit.test.ts` : lint R2). L'admission d'un examen **officiel** est celle que l'autorité prononce : le module l'**enregistre** (saisie ou import), il ne la **calcule jamais** (déclencheur `official_not_computed`).
 
-- Schéma Postgres : `examinations` — migrations **2000–2006** (plage 2000–2099).
+- Schéma Postgres : `examinations` — migrations **2000–2007** (plage 2000–2099).
 - Packs : `PRIMARY`, `SECONDARY`, `HIGHER` ; features `examinations.core`, `.mock`, `.exports`.
 - CEPE livré en **données FICTIVES** marquées `source_kind = placeholder` (3 épreuves `EP1`–`EP3`, pièce « acte de naissance », 2 formats d'export, 1 format d'import) : `POST /exam-types/instantiate-pack {"pack":"PRIMARY"}` (idempotent). Un bandeau « Règles de démonstration » (`demoRules`) et un filigrane sur les documents scellés sont reportés tant que les données ou la règle sont fictives.
 
@@ -34,7 +34,7 @@ test/                unit/ (sans base), integration/ (Postgres réel), support/ 
 | Imports | fichier unique par empreinte SHA-256 ; analyse selon un **format publié** (donnée) ; lot en erreur **refusé** ; application **tout ou rien** ; lignes sans nom ni adresse |
 | Exports | format publié et figé, champs et transformations en **liste blanche** (aucune expression libre) ; injection de formule neutralisée (CSV, XLSX) ; empreinte, effectif, version tracés ; téléchargement journalisé |
 | Famille | lien de tutelle relu à chaque requête ; hors périmètre = 404 ; sessions **officielles** seulement ; issue visible une fois publiée, jamais de note ni de moyenne |
-| Vie privée | aucune note, moyenne ni identité d'élève dans les événements ni l'audit (testé sur tout le parcours) |
+| Vie privée | aucune note, moyenne ni identité d'élève dans les événements ni l'audit (testé sur tout le parcours) — **une seule exception décidée par le métier (Q-E18)** : la moyenne de l'événement `examinations.result.transmitted`, réservé aux admissions (voir ci-dessous) |
 
 ## Ajouts au DDL de référence (voir `specs/v2/018-examinations/data-model.md` §5.4)
 
@@ -92,9 +92,22 @@ Une personne qui n'est **pas élève** de l'établissement peut être inscrite �
 | Candidat libre | `finance` ne facture que des apprenants : l'obligation passe à `AWAITING_MANUAL_INVOICE` (facture à établir par la comptabilité, à son nom ou à celui de son tuteur) ; **aucune donnée personnelle** n'est transmise à `finance` |
 | Désinscription | obligation non facturée : `CANCELLED` ; facture non encaissée : annulée, `CANCELLED` ; facture **encaissée** : jamais annulée, `REFUND_DUE` puis `REFUND_DONE` quand une personne habilitée confirme le remboursement **manuel** (Q-PAY-32, sensible, audité) |
 
+## Transmission du résultat et de la moyenne aux admissions (décision métier Q-E18)
+
+Pour un examen qui conditionne l'admission en classe supérieure (CEPE vers la 6e), le résultat transmis aux admissions contient « admis / non admis » **ET la moyenne** (et non plus le résultat seul).
+
+| Sujet | Mécanisme |
+|---|---|
+| Paramètre | `exam_types.transmits_to_admission` (migration 2007) : **désactivé par défaut**, activé pour le CEPE du pack (donnée modifiable : `PATCH /exam-types/:id`, tracé) |
+| Événement | `examinations.result.transmitted` `{ v:1, sessionId, candidateId, resultId, studentId, institutionId, examTypeCode, sessionYear, outcome, admitted, average, revision }` : à la publication d'un résultat (unitaire ou de session) et à chaque **correction approuvée** (version `revision` plus grande) |
+| Minimisation | la moyenne ne voyage QUE dans cet événement ; `result.published` reste sans moyenne ; jamais de nom, de naissance ni de contact ; seulement les candidats-**élèves** d'une session **officielle** (ni examen blanc, ni candidat libre) |
+| Restriction | seul `admissions` y est abonné (test `events-restricted-consumers.test.ts` : nom, motifs et abonnés du worker) ; côté admissions la moyenne n'est lisible qu'avec `admission.exam_result.read`, lecture tracée |
+| Audit | `examinations.result.transmit` (identifiants, issue, version) **sans la valeur de la moyenne** |
+| Réception | `admissions.record-exam-result` → table `admissions.exam_results` (migration 1903), idempotente et ordonnée par version ; rattachement au dossier par son élève ou un rapprochement **confirmé** |
+
 ## Événements
 
-Publiés (`{ v: 1, … }`, **sans note ni identité**) : `examinations.session.opened|registration_closed|results_published|archived`, `candidate.registered|withdrawn`, `eligibility.evaluated`, `result.published` (issue seule ; **jamais** émis pour un examen blanc), `result.revised`, `revision.requested|rejected`, `import.applied`, `document.issued|revoked`, `export.completed`. Consommé : `academic.enrollment.withdrawn`.
+Publiés (`{ v: 1, … }`, **sans note ni identité**, sauf `result.transmitted`) : `examinations.session.opened|registration_closed|results_published|archived`, `candidate.registered|withdrawn`, `eligibility.evaluated`, `result.published` (issue seule ; **jamais** émis pour un examen blanc), `result.transmitted` (Q-E18 : admis / non admis ET moyenne, vers les admissions seules), `result.revised`, `revision.requested|rejected`, `import.applied`, `document.issued|revoked`, `export.completed`. Consommé : `academic.enrollment.withdrawn`.
 
 ## Ports et INTERFACES ATTENDUES des autres modules (non branchées tant qu'elles manquent : échec fermé `examinations.port_unavailable`)
 

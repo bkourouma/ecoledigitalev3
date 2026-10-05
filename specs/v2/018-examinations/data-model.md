@@ -2070,6 +2070,29 @@ CREATE TRIGGER candidate_fees_guard BEFORE INSERT OR UPDATE ON examinations.cand
   FOR EACH ROW EXECUTE FUNCTION examinations.candidate_fees_guard();
 ```
 
+### 5.7 Transmission du résultat et de la moyenne aux admissions (ajout 2007, décision métier Q-E18)
+
+Ajout au DDL de référence : `exam_types.transmits_to_admission` (désactivé par défaut) désigne les types d'examen dont le résultat (« admis / non admis ») **ET la moyenne** sont transmis aux admissions (CEPE vers l'admission en 6e). La moyenne ne voyage que dans l'événement dédié `examinations.result.transmitted` (jamais dans `result.published`), pour les seuls candidats-élèves d'une session officielle, sans nom ni date de naissance.
+
+<!-- migration: 2007_examinations_admission_transfer.sql -->
+```sql
+-- =============================================================================
+-- 2007 — Module examinations : transmission du résultat et de la MOYENNE aux admissions (décision métier Q-E18)
+-- =============================================================================
+--
+-- Décision : pour un examen qui conditionne l'admission en classe supérieure (CEPE -> 6e), le résultat transmis aux admissions contient
+-- « admis / non admis » ET la MOYENNE (et non plus le résultat seul). Minimisation et restriction d'accès :
+--
+--   * la transmission est un paramètre PAR TYPE D'EXAMEN, désactivé par défaut (`transmits_to_admission`) : la moyenne ne part que
+--     pour les types que l'établissement désigne ;
+--   * elle ne concerne que les candidats-élèves d'une session OFFICIELLE (jamais un examen blanc, jamais un candidat libre sans dossier) ;
+--   * la moyenne ne voyage que dans l'événement dédié `examinations.result.transmitted`, consommé par `admissions` seul (le résultat
+--     publié `examinations.result.published` reste SANS note ni moyenne) ; aucun nom ni date de naissance n'y figure.
+-- =============================================================================
+
+ALTER TABLE examinations.exam_types ADD COLUMN transmits_to_admission boolean NOT NULL DEFAULT false;
+```
+
 ## 6. Invariants : qui les garantit
 
 | Invariant | Base (DDL) | Domaine / cas d'usage |
@@ -2104,6 +2127,7 @@ CREATE TRIGGER candidate_fees_guard BEFORE INSERT OR UPDATE ON examinations.cand
 
 | `50_external_candidates.sql` | 35 | candidat libre (Q-E15) : régime `STUDENT`/`EXTERNAL` (forme, identité dès la création, un libre vivant par identité, jamais en examen blanc), profil restreint (contact exigé, pièce d'identité unique par session, un profil par candidat), pièce vue sur place, **numéro du même compteur sans trou**, identité figée à l'inscription, **anonymisation** (identité neutre, profil effacé, numéro et résultat conservés, irréversible, tracée), RLS |
 | `60_exam_fees.sql` | 28 | frais d'examen (Q-E13) : barème **vide par défaut et sans montant**, unicité d'un frais par type, portée `ALL`/`STUDENT`/`EXTERNAL`, obligation par candidat (naît sans facture), cycle (facturé, remboursement dû puis confirmé par une personne identifiée, annulé), facture et payeur immuables, obligation close figée, RLS, jamais de suppression |
+| `70_admission_transfer.sql` | 3 | transmission aux admissions (Q-E18) : paramètre par type d'examen, **désactivé par défaut**, jamais nul |
 
 Exécution : `node specs/v2/018-examinations/ddl/run.mjs` (Docker requis, conteneur éphémère supprimé, `ED_PG_IMAGE=postgres:17-alpine`). `ED_ONLY=<motif>` limite les fichiers de test ; `ED_VERBOSE=1` détaille les erreurs. Contrôle documentaire : `--check-doc`.
 

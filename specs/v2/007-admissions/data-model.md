@@ -1,6 +1,6 @@
 # Modèle de données — 007-admissions (schéma Postgres `admissions`)
 
-**Statut** : DDL de référence, **exécuté et testé** sur PostgreSQL 17 (`ddl/run.mjs` : 174 tests de comportement, dont des essais de **concurrence réelle** à plusieurs sessions Postgres via `dblink`). Les fichiers ci-dessous sont les migrations cibles `apps/api/src/modules/admissions/migrations/1900…1902` ; ils font foi sur les noms et les contraintes. Les blocs `<!-- migration: … -->` sont **générés** depuis `ddl/migrations/*.sql` (`node ddl/run.mjs --sync-doc`) et vérifiés par `--check-doc`.
+**Statut** : DDL de référence, **exécuté et testé** sur PostgreSQL 17 (`ddl/run.mjs` : 185 tests de comportement, dont des essais de **concurrence réelle** à plusieurs sessions Postgres via `dblink`). Les fichiers ci-dessous sont les migrations cibles `apps/api/src/modules/admissions/migrations/1900…1903` ; ils font foi sur les noms et les contraintes. Les blocs `<!-- migration: … -->` sont **générés** depuis `ddl/migrations/*.sql` (`node ddl/run.mjs --sync-doc`) et vérifiés par `--check-doc`.
 
 **Sources** : `docs/architecture/module-conventions.md`, ADR-002 (RLS), ADR-005 (types de ligne à la main), ADR-006 (un schéma par module), ADR-007 (UUID, UTC, snake_case anglais), `specs/v2/004-academic-core/data-model.md` (patron), `specs/v2/013-report-cards/data-model.md` (index public global), `specs/v2/008-students-guardians/data-model.md` (numérotation sans trou).
 
@@ -1383,6 +1383,73 @@ $$;
 GRANT EXECUTE ON FUNCTION admissions.recent_attempts(text, interval) TO app_user;
 ```
 
+### 5.4 Résultat d'examen et moyenne reçus d'`examinations` (ajout 1903, décision métier Q-E18)
+
+Ajout au DDL de référence : `exam_results` range, par élève, le résultat (« admis / non admis ») **ET la moyenne** transmis par `examinations` (CEPE vers l'admission en 6e) : une ligne par résultat source, remplacée seulement par une **version plus grande** (correction approuvée), identité figée. Un dossier n'y est rattaché que par son propre élève ou un rapprochement **confirmé** (jamais un rapprochement ouvert). La moyenne n'est lue que par le personnel habilité (`admission.exam_result.read`, lecture tracée).
+
+<!-- migration: 1903_admissions_exam_results.sql -->
+```sql
+-- =============================================================================
+-- 1903 — Module admissions : résultat d'examen ET moyenne reçus de `examinations` (décision métier Q-E18, CEPE -> admission en 6e)
+-- =============================================================================
+--
+-- `examinations` transmet (événement `examinations.result.transmitted`) le résultat « admis / non admis » ET la MOYENNE d'un élève ayant
+-- passé un examen qui conditionne l'admission. Ce module les reçoit et les range ICI, par élève : jamais de SQL croisé, jamais de nom.
+--
+--   * Une ligne par résultat de l'examen (`source_result_id`) ; une correction approuvée après transmission remplace la ligne si sa
+--     version (`revision`) est plus grande (jamais l'inverse : un événement tardif ou rejoué ne défait rien).
+--   * Un dossier de candidature n'y est rattaché que par un lien SÛR : son propre élève (`applications.student_id`) ou un
+--     rapprochement CONFIRMÉ par une personne (`duplicate_candidates.status = 'CONFIRMED_DUPLICATE'`). Un simple rapprochement
+--     « ouvert » ne montre jamais la moyenne d'un autre enfant.
+--   * La MOYENNE n'est lue que par le personnel d'admission habilité (permission `admission.exam_result.read`, lecture auditée) ;
+--     sans cette permission, seul « admis / non admis » est montré.
+--   * Aucune durée de conservation n'est inventée : elle suivra la politique de conservation de l'établissement.
+-- =============================================================================
+
+CREATE TABLE admissions.exam_results (
+  id                uuid PRIMARY KEY,
+  tenant_id         uuid NOT NULL REFERENCES kernel.tenants (id),
+  institution_id    uuid NOT NULL,
+  student_id        uuid NOT NULL,                              -- people.students.id (sans FK)
+  source_candidate_id uuid NOT NULL,                            -- examinations.candidates.id (sans FK)
+  source_result_id  uuid NOT NULL,                              -- examinations.candidate_results.id (sans FK)
+  exam_type_code    text NOT NULL CHECK (exam_type_code ~ '^[A-Z][A-Z0-9_]{1,19}$'),
+  session_year      integer NOT NULL CHECK (session_year BETWEEN 2000 AND 2200),
+  outcome           text NOT NULL CHECK (outcome IN ('ADMITTED', 'FAILED', 'ABSENT', 'EXCLUDED', 'DEFERRED')),
+  admitted          boolean NOT NULL,
+  average           numeric(7, 3) CHECK (average IS NULL OR average >= 0),
+  revision          integer NOT NULL CHECK (revision >= 1),
+  source_event_id   uuid NOT NULL,
+  received_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, id),
+  UNIQUE (tenant_id, source_result_id),
+  CHECK (admitted = (outcome = 'ADMITTED')),
+  CHECK (outcome NOT IN ('ABSENT', 'EXCLUDED', 'DEFERRED') OR average IS NULL)
+);
+SELECT kernel.enable_tenant_rls('admissions.exam_results');
+CREATE INDEX exam_results_by_student ON admissions.exam_results (tenant_id, student_id, session_year DESC);
+GRANT SELECT, INSERT, UPDATE ON admissions.exam_results TO app_user;      -- jamais de suppression par l'application
+
+-- L'identité d'un résultat reçu est figée ; une mise à jour ne vient que d'une version PLUS GRANDE du même résultat.
+CREATE FUNCTION admissions.exam_results_guard() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.student_id <> OLD.student_id OR NEW.source_result_id <> OLD.source_result_id OR NEW.source_candidate_id <> OLD.source_candidate_id
+     OR NEW.institution_id <> OLD.institution_id OR NEW.exam_type_code <> OLD.exam_type_code OR NEW.session_year <> OLD.session_year THEN
+    RAISE EXCEPTION 'admissions.exam_result_identity_immutable: élève, résultat source, établissement, examen et année sont figés' USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF NEW.revision <= OLD.revision THEN
+    RAISE EXCEPTION 'admissions.exam_result_stale: une correction remplace un résultat reçu seulement si sa version est plus grande (% -> %)', OLD.revision, NEW.revision USING ERRCODE = 'restrict_violation';
+  END IF;
+  NEW.updated_at := now();
+  RETURN NEW;
+END
+$$;
+CREATE TRIGGER exam_results_guard BEFORE UPDATE ON admissions.exam_results
+  FOR EACH ROW EXECUTE FUNCTION admissions.exam_results_guard();
+```
+
 ## 6. Invariants : qui les garantit
 
 | Invariant | Base (DDL) | Domaine / cas d'usage |
@@ -1413,6 +1480,7 @@ GRANT EXECUTE ON FUNCTION admissions.recent_attempts(text, interval) TO app_user
 | `10_workflow.sql` | 44 | contraintes d'étape, **sept** cas de workflow incohérent refusés à la publication, immuabilité, un seul publié par cycle, campagnes, capacités, paramètres, lien public (lecture ouverte, écriture limitée), RLS |
 | `20_applications.sql` | 110 | cycle de vie complet, doublons (accents, casse), consentement, pièces, décisions (étape périmée, type incohérent, motif), journaux, capacité HARD/SOFT, liste d'attente et priorités, retrait et redépôt, inscription (offre, élève, confirmation), doublons BLOCK, entretien, plafond d'attente, offres, prospects, notifications, campagne close, numérotation, textes de consentement, anonymisation, RLS et `GRANT` |
 | `30_public_form_and_concurrency.sql` | 20 | jetons (trop rapide, valide, rejoué, expiré, figé), empreintes, tentatives, **concurrence réelle** : un seul jeton consommé, une seule admission sur la dernière place, 100 numéros sans trou |
+| `40_exam_results.sql` | 11 | résultat d'examen reçu (Q-E18) : une ligne par résultat source, « admis » cohérent avec l'issue, pas de moyenne pour un absent, version croissante seulement, identité figée, RLS et `GRANT` |
 
 Exécution : `node specs/v2/007-admissions/ddl/run.mjs` (Docker requis, conteneur éphémère supprimé, `ED_PG_IMAGE=postgres:17-alpine`). `ED_ONLY=<motif>` limite les fichiers de test ; `ED_VERBOSE=1` détaille les erreurs. Contrôle documentaire : `--check-doc`.
 

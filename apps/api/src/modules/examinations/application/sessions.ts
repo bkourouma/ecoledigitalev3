@@ -14,11 +14,12 @@ import type { ExamCreateSessionBody, ExamSessionDetailDto, ExamSessionDto, ExamP
 import { ExaminationsEvents } from "../domain/events";
 import { ExamCode, conflict, notFound, validation } from "../domain/errors";
 import { canTransitionSession, SESSION_TRANSITIONS, transitionBlockers } from "../domain/lifecycle";
-import type { SessionRow, SessionStatus } from "../domain/types";
+import type { CandidateRow, SessionRow, SessionStatus } from "../domain/types";
 import * as cand from "../infrastructure/candidates-repo";
 import * as ref from "../infrastructure/reference-repo";
 import * as res from "../infrastructure/results-repo";
 import * as sess from "../infrastructure/sessions-repo";
+import { addTransmission, transmittedPayload } from "./admission-transfer";
 import { toPaperDto, toSessionDto } from "./dto";
 import { EventBuffer, inTx, type ExaminationsDeps } from "./deps";
 import { pinRuleVersion } from "./rule-pin";
@@ -189,8 +190,12 @@ export async function transitionSession(deps: ExaminationsDeps, ctx: RequestCont
       // Publication des résultats : étape distincte du saisi, faite ici dans la même transaction que le passage d'état.
       const published = await res.publishAllDraft(tx, id, actor.value);
       const students = new Map<string, { studentId: string | null; candidateKind: "STUDENT" | "EXTERNAL" }>();
+      const candidates = new Map<string, CandidateRow>();
       for (let i = 0; i < published.length; i += 500) {
-        for (const c of await cand.listCandidatesByIds(tx, published.slice(i, i + 500).map((r) => r.candidateId))) students.set(c.id, { studentId: c.studentId, candidateKind: c.candidateKind });
+        for (const c of await cand.listCandidatesByIds(tx, published.slice(i, i + 500).map((r) => r.candidateId))) {
+          students.set(c.id, { studentId: c.studentId, candidateKind: c.candidateKind });
+          candidates.set(c.id, c);
+        }
       }
       publishedCount = (await sess.sessionCounts(tx, id)).published;
       if (s.sessionKind === "OFFICIAL") {
@@ -200,6 +205,10 @@ export async function transitionSession(deps: ExaminationsDeps, ctx: RequestCont
             { v: 1, sessionId: id, candidateId: r.candidateId, studentId: students.get(r.candidateId)?.studentId ?? null, candidateKind: students.get(r.candidateId)?.candidateKind ?? "STUDENT", institutionId: s.institutionId, examTypeCode: type?.code ?? "", sessionYear: s.sessionYear, outcome: r.resultCode },
             { type: "examinations.result", id: r.id },
           );
+          // Q-E18 : résultat ET moyenne vers les admissions, pour les seuls types qui le demandent (événement dédié).
+          const owner = candidates.get(r.candidateId);
+          const transfer = owner ? transmittedPayload(s, type, owner, r) : null;
+          if (transfer) addTransmission(events, transfer, "PUBLISH");
         }
       }
     }

@@ -121,6 +121,7 @@ describeIntegration("admissions : HTTP", () => {
     ["GET", `/applications/${UUID}`, ["admission.read"]],
     ["PATCH", `/applications/${UUID}`, ["admission.update"]],
     ["GET", `/applications/${UUID}/history`, ["admission.read"]],
+    ["GET", `/applications/${UUID}/exam-results`, ["admission.read"]],
     ["POST", `/applications/${UUID}/transition`, ["admission.read"]],
     ["POST", `/applications/${UUID}/decisions`, ["admission.decide"]],
     ["POST", `/applications/${UUID}/documents`, ["admission.document.upload"]],
@@ -186,6 +187,31 @@ describeIntegration("admissions : HTTP", () => {
     const decided = await call("POST", `/applications/${appId}/decisions`, ["admission.decide"], { toStageId: accept.toStageId, kind: "ACCEPT" });
     expect(decided.statusCode).toBe(200);
     expect(decided.json().status).toBe("ACCEPTED");
+  });
+
+  it("résultat d'examen (Q-E18) : « admis / non admis » pour qui lit les dossiers ; la MOYENNE seulement avec `admission.exam_result.read` (tracée)", async () => {
+    const { recordTransmittedResult } = await import("../../application/exam-results");
+    const { runDetection, resolveDuplicate } = await import("../../application/duplicates");
+    const student = "0192f0a4-7b1e-7c3a-8d2e-0000000000e1";
+    unwrap(await recordTransmittedResult(w.A.deps, w.A.ctx(), { sessionId: UUID, candidateId: UUID, resultId: "0192f0a4-7b1e-7c3a-8d2e-0000000000e2", studentId: student, institutionId: w.A.institutionId, examTypeCode: "CEPE", sessionYear: 2027, outcome: "FAILED", admitted: false, average: "8.75", revision: 1 }, "0192f0a4-7b1e-7c3a-8d2e-0000000000e3"));
+    const app = await submittedApplication(w.A, campaignId);
+    w.A.mem.duplicatesFor = [{ studentId: student, score: 100, reasons: ["EXACT"] }];
+    const dups = unwrap(await runDetection(w.A.deps, w.A.ctx(), app.id));
+    w.A.mem.duplicatesFor = [];
+    unwrap(await resolveDuplicate(w.A.deps, w.A.ctx(), app.id, dups.find((d) => d.matchedKind === "STUDENT")!.id, "CONFIRMED_DUPLICATE"));
+    const plain = await call("GET", `/applications/${app.id}/exam-results`, ["admission.read"]);
+    expect(plain.statusCode).toBe(200);
+    expect(plain.json()).toMatchObject({ canSeeAverage: false, items: [{ outcome: "FAILED", admitted: false, average: null, averageHidden: true }] });
+    expect(plain.body).not.toContain("8.75");
+    expect(plain.headers["cache-control"]).toContain("no-store");
+    const before = w.audit.entries.length;
+    const allowed = await call("GET", `/applications/${app.id}/exam-results`, ["admission.read", "admission.exam_result.read"]);
+    expect(allowed.statusCode).toBe(200);
+    expect(allowed.json()).toMatchObject({ canSeeAverage: true, items: [{ average: "8.750", averageHidden: false }] });
+    expect(w.audit.entries.slice(before).some((e) => e.entry.action === "admissions.exam_result.read_average")).toBe(true);
+    // la permission de moyenne seule ne suffit pas à lire un dossier
+    expect((await call("GET", `/applications/${app.id}/exam-results`, ["admission.exam_result.read"])).statusCode).toBe(403);
+    expect((await call("GET", `/applications/${UUID}/exam-results`, ["admission.read"])).statusCode).toBe(404);
   });
 
   it("validation Zod stricte (400 stable), 404 hors périmètre, 409 sur règle de passage", async () => {

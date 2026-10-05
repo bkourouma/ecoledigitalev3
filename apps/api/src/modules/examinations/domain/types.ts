@@ -49,6 +49,8 @@ export interface ExamTypeRow {
   gradeLevelCode: string | null;
   resultContractId: string;
   candidateNumberPattern: string;
+  /** Q-E18 : le résultat et la MOYENNE des candidats-élèves partent vers les admissions (désactivé par défaut). */
+  transmitsToAdmission: boolean;
   sourceKind: SourceKind;
   sourceReference: string | null;
   status: "ACTIVE" | "ARCHIVED";

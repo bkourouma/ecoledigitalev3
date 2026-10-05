@@ -85,6 +85,7 @@ import {
 } from "../application/applications";
 import { closeCampaign, createCampaign, getCampaign, listCampaigns, openCampaign, updateCampaign, upsertCapacities } from "../application/campaigns";
 import { ensureInstitutionDefaults } from "../application/defaults";
+import { listApplicationExamResults } from "../application/exam-results";
 import { recordDecision } from "../application/decisions";
 import { createAdmissionsDeps, type AdmissionsDeps } from "../application/deps";
 import { listDuplicates, resolveDuplicate, runDetection } from "../application/duplicates";
@@ -355,6 +356,18 @@ export async function admissionsPlugin(app: FastifyInstance, options: Admissions
     scope.get("/applications/:id", P("admission.read"), async (req) => unwrap(await getApplication(deps, ctxOf(req), uuidParam(req.params))));
     scope.patch("/applications/:id", P("admission.update"), async (req) => unwrap(await updateApplication(deps, ctxOf(req), uuidParam(req.params), parse(admissionsUpdateApplicationBodySchema, req.body))));
     scope.get("/applications/:id/history", P("admission.read"), async (req) => unwrap(await getHistory(deps, ctxOf(req), uuidParam(req.params))));
+    // Résultat d'examen transmis (Q-E18) : « admis / non admis » pour toute personne qui lit les dossiers ; la MOYENNE seulement avec la
+    // permission dédiée `admission.exam_result.read` (lecture tracée) — la permission est évaluée ICI, sans jamais refuser le reste.
+    scope.get("/applications/:id/exam-results", P("admission.read"), async (req, reply) => {
+      let includeAverage = true;
+      try {
+        await check(scope, req, reply, "admission.exam_result.read");
+      } catch (e) {
+        if (!(e instanceof ForbiddenError)) throw e;
+        includeAverage = false;
+      }
+      return unwrap(await listApplicationExamResults(deps, ctxOf(req), uuidParam(req.params), { includeAverage }));
+    });
 
     // Changement d'étape : la permission est celle PORTÉE PAR LA TRANSITION du workflow.
     scope.post("/applications/:id/transition", P("admission.read"), async (req, reply) => {

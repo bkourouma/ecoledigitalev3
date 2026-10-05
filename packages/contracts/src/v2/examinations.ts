@@ -9,7 +9,8 @@
  *    vérifiées par les ports du module.
  *  - NOMBRES EXACTS (coefficient, barème, note, moyenne, total) : CHAÎNES décimales (`"14.5"`), jamais de flottant.
  *  - DATES calendaires `AAAA-MM-JJ` ; INSTANTS ISO 8601 avec fuseau.
- *  - AUCUNE note, moyenne ni identité d'élève dans un événement. Messages utilisateur en français ; codes d'erreur stables
+ *  - AUCUNE note, moyenne ni identité d'élève dans un événement, à l'exception de la moyenne de `examinations.result.transmitted`
+ *    (décision Q-E18 : résultat ET moyenne transmis aux admissions, jamais de nom). Messages utilisateur en français ; codes d'erreur stables
  *    `examinations.*` (`EXAMINATIONS_ERROR_CODES`).
  *  - Les formats d'export et d'import ne citent que des champs d'une LISTE BLANCHE (aucune expression libre).
  */
@@ -158,6 +159,7 @@ export const examCreateTypeBodySchema = z
     gradeLevelCode: z.string().regex(/^[A-Z0-9][A-Z0-9_]{0,39}$/).nullable().optional(),
     resultContractId: z.string().regex(/^[a-z][a-z0-9-]*@[0-9]+$/).optional(),
     candidateNumberPattern: z.string().min(3).max(60).optional(),
+    transmitsToAdmission: z.boolean().optional(),
     sourceKind: examSourceKindSchema.default("institution"),
     sourceReference: optText(500),
   })
@@ -169,6 +171,7 @@ export const examUpdateTypeBodySchema = z
     label: text(200).optional(),
     gradeLevelCode: z.string().regex(/^[A-Z0-9][A-Z0-9_]{0,39}$/).nullable().optional(),
     candidateNumberPattern: z.string().min(3).max(60).optional(),
+    transmitsToAdmission: z.boolean().optional(),
     sourceReference: optText(500),
     status: z.enum(["ACTIVE", "ARCHIVED"]).optional(),
   })
@@ -564,6 +567,8 @@ export const examTypeDtoSchema = z.object({
   gradeLevelCode: nullableStr,
   resultContractId: z.string(),
   candidateNumberPattern: z.string(),
+  /** Q-E18 : le résultat (admis / non admis) ET la moyenne des candidats-élèves sont transmis aux admissions (désactivé par défaut). */
+  transmitsToAdmission: z.boolean().default(false),
   sourceKind: examSourceKindSchema,
   sourceReference: nullableStr,
   status: z.enum(["ACTIVE", "ARCHIVED"]),
@@ -1010,7 +1015,7 @@ export const EXAMINATIONS_ERROR_CODES = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// Événements publiés (charge utile : AUCUNE note, moyenne ni identité)
+// Événements publiés (charge utile : AUCUNE note, moyenne ni identité — sauf la moyenne de `examinations.result.transmitted`, Q-E18)
 // ---------------------------------------------------------------------------
 
 const v1 = z.literal(1);
@@ -1026,8 +1031,30 @@ export const examinationsEventPayloadSchemas = {
   "examinations.candidate.registered": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema.nullable(), candidateKind: candidateKindSchema, institutionId: examUuidSchema, candidateNumber: z.string() }).strict(),
   "examinations.candidate.withdrawn": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema.nullable(), candidateKind: candidateKindSchema, reasonCode: z.enum(["MANUAL", "ENROLLMENT_WITHDRAWN"]) }).strict(),
   "examinations.eligibility.evaluated": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, result: z.enum(["ELIGIBLE", "INELIGIBLE", "NEEDS_REVIEW"]), reasonCodes: z.array(z.string()), mode: z.enum(["RULE", "MANUAL", "OVERRIDE"]) }).strict(),
-  /** Issue seule (Q-E18) : ni note, ni moyenne, ni rang. Consommé par 006/007 pour l'admission en 6e. */
+  /** Issue seule : ni note, ni moyenne, ni rang. (La moyenne destinée à l'admission en 6e voyage dans `examinations.result.transmitted`, Q-E18.) */
   "examinations.result.published": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema.nullable(), candidateKind: candidateKindSchema, institutionId: examUuidSchema, examTypeCode: z.string(), sessionYear: z.number().int(), outcome: examResultCodeSchema }).strict(),
+  /**
+   * Q-E18 — transmission aux ADMISSIONS (seules abonnées) : « admis / non admis » ET la MOYENNE d'un candidat-élève d'une session
+   * officielle, pour les types d'examen qui le demandent. Minimisation : identifiants et codes, aucun nom ni date de naissance ;
+   * `revision` (version du résultat) ordonne une correction approuvée après transmission. Le web n'affiche la moyenne qu'au
+   * personnel d'admission habilité (permission dédiée d'`admissions`), lecture tracée.
+   */
+  "examinations.result.transmitted": z
+    .object({
+      v: v1,
+      sessionId: examUuidSchema,
+      candidateId: examUuidSchema,
+      resultId: examUuidSchema,
+      studentId: examUuidSchema,
+      institutionId: examUuidSchema,
+      examTypeCode: z.string(),
+      sessionYear: z.number().int(),
+      outcome: examResultCodeSchema,
+      admitted: z.boolean(),
+      average: examDecimalSchema.nullable(),
+      revision: z.number().int().min(1),
+    })
+    .strict(),
   "examinations.result.revised": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, resultId: examUuidSchema, fromOutcome: examResultCodeSchema, toOutcome: examResultCodeSchema }).strict(),
   "examinations.revision.requested": z.object({ v: v1, sessionId: examUuidSchema, requestId: examUuidSchema, targetKind: z.enum(["SCORE", "RESULT"]) }).strict(),
   "examinations.revision.rejected": z.object({ v: v1, sessionId: examUuidSchema, requestId: examUuidSchema, targetKind: z.enum(["SCORE", "RESULT"]) }).strict(),

@@ -3,7 +3,9 @@
  * écrits dans l'outbox dans la même transaction que la donnée. Domaine pur.
  *
  * AUCUNE note, moyenne, ni identité d'élève (nom, date de naissance) dans un événement : identifiants, codes, effectifs
- * (R-EXA-12, Q-E18 : le résultat publié ne transporte que l'issue, jamais la moyenne).
+ * (R-EXA-12) — à UNE exception, décidée par le métier (Q-E18) : `examinations.result.transmitted`, destiné aux seules admissions, porte
+ * « admis / non admis » ET la MOYENNE d'un candidat-élève, pour les seuls types d'examen qui le demandent (`transmits_to_admission`).
+ * `examinations.result.published` reste, lui, SANS moyenne. Aucun nom, aucune date de naissance, dans aucun des deux.
  */
 export const ExaminationsEvents = {
   SESSION_OPENED: "examinations.session.opened",
@@ -14,6 +16,8 @@ export const ExaminationsEvents = {
   CANDIDATE_WITHDRAWN: "examinations.candidate.withdrawn",
   ELIGIBILITY_EVALUATED: "examinations.eligibility.evaluated",
   RESULT_PUBLISHED: "examinations.result.published",
+  /** Q-E18 : résultat (admis / non admis) ET moyenne, pour les admissions seules (voir l'en-tête). */
+  RESULT_TRANSMITTED: "examinations.result.transmitted",
   RESULT_REVISED: "examinations.result.revised",
   REVISION_REQUESTED: "examinations.revision.requested",
   REVISION_REJECTED: "examinations.revision.rejected",

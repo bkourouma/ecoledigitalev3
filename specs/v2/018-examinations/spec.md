@@ -227,7 +227,8 @@ Schémas Zod dans `packages/contracts/src/v2/examinations.ts`. Erreurs `examinat
 | `examinations.session.opened` / `.registration_closed` / `.results_published` / `.archived` | session | 016, 025 |
 | `examinations.candidate.registered` / `.withdrawn` | candidat | 016, 025 |
 | `examinations.eligibility.evaluated` (`result`, `reasonCodes`) | éligibilité | 016 |
-| `examinations.result.published` (candidat, issue — **sans note ni moyenne**) | publication | 006/007 (admission en 6e), 013, 016, 025 |
+| `examinations.result.published` (candidat, issue — **sans note ni moyenne**) | publication | 013, 016, 025 |
+| `examinations.result.transmitted` (candidat-élève, issue ET **moyenne**, version du résultat — décision **Q-E18**, jamais de nom) | publication d'un résultat, correction approuvée ; seulement si le type d'examen le demande | **007 (admissions) seul** — admission en 6e |
 | `examinations.result.revised` | révision | audit, 016 |
 | `examinations.import.applied` | import | audit |
 | `examinations.document.issued` / `.revoked` | documents | 016 |

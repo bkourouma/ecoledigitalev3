@@ -135,7 +135,8 @@ describeIntegration("examinations : révisions à quatre yeux", () => {
   });
 
   it("aucune note ni moyenne dans les événements ni dans l'audit des révisions", async () => {
-    const events = await env.db.admin.query("SELECT type, payload::text AS p FROM kernel.domain_events WHERE tenant_id = $1 AND type LIKE 'examinations.%'", [env.tenantA]);
+    // Q-E18 : seul l'événement dédié aux admissions porte la moyenne (corrigée comprise) ; aucun autre événement n'en porte.
+    const events = await env.db.admin.query("SELECT type, payload::text AS p FROM kernel.domain_events WHERE tenant_id = $1 AND type LIKE 'examinations.%' AND type <> 'examinations.result.transmitted'", [env.tenantA]);
     const dump = events.rows.map((e) => e.p).join("\n");
     expect(dump).not.toMatch(/average|moyenne|score|"9\.4"|10\.2/);
     const audits = JSON.stringify(env.audit.entries.map((e) => e.entry));

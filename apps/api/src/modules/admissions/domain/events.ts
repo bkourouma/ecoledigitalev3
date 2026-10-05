@@ -30,4 +30,6 @@ export const ConsumedEvents = {
   ENROLLMENT_CANCELLED: "academic.enrollment.cancelled",
   ENROLLMENT_WITHDRAWN: "academic.enrollment.withdrawn",
   INSTITUTION_CREATED: "tenancy.institution.created",
+  /** Q-E18 : résultat (admis / non admis) ET moyenne d'un élève ayant passé un examen qui conditionne l'admission (CEPE -> 6e). Abonné SEUL. */
+  EXAM_RESULT_TRANSMITTED: "examinations.result.transmitted",
 } as const;

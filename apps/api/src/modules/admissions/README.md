@@ -1,6 +1,6 @@
 # Module `admissions` — du prospect à l'élève inscrit
 
-Spec : `specs/v2/007-admissions/` (spec, data-model, plan, parity, open-questions, `ddl/` testé). Plage de migrations : **1900-1999** (`1900`-`1902` livrées, copie EXACTE du DDL de référence testé : `node specs/v2/007-admissions/ddl/run.mjs --check-doc`). Schéma Postgres : `admissions`.
+Spec : `specs/v2/007-admissions/` (spec, data-model, plan, parity, open-questions, `ddl/` testé). Plage de migrations : **1900-1999** (`1900`-`1903` livrées, `1903` = résultat d'examen reçu (Q-E18) ; copie EXACTE du DDL de référence testé : `node specs/v2/007-admissions/ddl/run.mjs --check-doc`). Schéma Postgres : `admissions`.
 
 Le module possède le **dossier de candidature et ses décisions**, et **orchestre** `people`, `academic`, `finance`, `documents` et le canal de notification par des **ports** et des événements — jamais par le schéma SQL d'un autre module.
 
@@ -45,11 +45,20 @@ Personnel (`/api/v1/admissions`, `requirePermission` du manifeste ; la permissio
 
 Public (`/api/v1/public/admissions`, `config: { public: true }`, `no-store`, `noindex`) : `GET /forms/:slug` · `POST /forms/:slug/applications` · `POST /track` · `POST /track/documents` (multipart) · `POST /offers/view` · `POST /offers/respond`. Toute erreur est neutre (404 « introuvable » identique, 400 générique, 429, 503).
 
+## Résultat d'examen et moyenne reçus d'`examinations` (décision métier Q-E18)
+
+| Sujet | Mécanisme |
+|---|---|
+| Réception | abonné `admissions.record-exam-result` → `admissions.exam_results` (migration **1903**) : une ligne par résultat source, remplacée seulement par une **version plus grande** (correction approuvée), rejeu et événement tardif sans effet ; charge hors contrat refusée (avertissement, pas de rejeu infini) |
+| Rattachement | un dossier ne voit que les résultats de **son élève** (`applications.student_id`) ou d'un rapprochement **confirmé** (`duplicate_candidates.status = CONFIRMED_DUPLICATE`) : un rapprochement seulement ouvert ne montre jamais la moyenne d'un autre enfant |
+| Lecture | `GET /applications/:id/exam-results` (`admission.read`) : « admis / non admis » ; la **MOYENNE** seulement avec `admission.exam_result.read` (à attribuer au personnel d'admission habilité), lecture **tracée** (`admissions.exam_result.read_average`, sans la valeur) ; sans elle `average: null, averageHidden: true` |
+| Écran | encart « Résultat d'examen » du dossier (`DossierExamResults`) ; aucune décision d'admission n'en est tirée : la décision reste formelle (workflow) |
+
 ## Permissions, features, événements, jobs
 
 Permissions (`manifest.ts`) : `admission.read|create|update|decide|workflow.manage|campaign.manage|settings.manage|prospect.manage|document.upload|document.review|document.attach|interview.manage|offer.manage|duplicate.resolve|waitlist.manage|enroll|export|report.read` ; **sensibles (MFA, audit)** : `admission.capacity.override`, `admission.workflow.publish`, `admission.anonymize`. Features : `admissions.core`, `admissions.public-form`, `admissions.waitlist`, `admissions.interviews`.
 
-Événements publiés (`{ v: 1, … }`, schémas dans `packages/contracts/src/v2/admissions.ts`) : `admissions.application.submitted|status_changed|enrolled|anonymized`, `admissions.decision.recorded`, `admissions.offer.issued|accepted|declined|expired|withdrawn`, `admissions.waitlist.promoted`, `admissions.prospect.converted`, `admissions.interview.scheduled|rescheduled|cancelled` (voir « Entretiens »). Consommés : `academic.enrollment.confirmed|cancelled|withdrawn`, `tenancy.institution.created`. Jobs : voir `docs/architecture/platform-assembly.md` §7.
+Événements publiés (`{ v: 1, … }`, schémas dans `packages/contracts/src/v2/admissions.ts`) : `admissions.application.submitted|status_changed|enrolled|anonymized`, `admissions.decision.recorded`, `admissions.offer.issued|accepted|declined|expired|withdrawn`, `admissions.waitlist.promoted`, `admissions.prospect.converted`, `admissions.interview.scheduled|rescheduled|cancelled` (voir « Entretiens »). Consommés : `academic.enrollment.confirmed|cancelled|withdrawn`, `tenancy.institution.created`, `examinations.result.transmitted` (**Q-E18** : résultat « admis / non admis » ET moyenne d'un élève, CEPE vers l'admission en 6e). Jobs : voir `docs/architecture/platform-assembly.md` §7.
 
 ## Ports (adaptateurs `apps/api/src/platform/adapters/admissions-*.ts`) et INTERFACES ATTENDUES des modules voisins
 

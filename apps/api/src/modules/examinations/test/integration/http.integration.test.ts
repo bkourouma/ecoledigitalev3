@@ -301,7 +301,11 @@ describeIntegration("examinations : HTTP", () => {
     }
     const types = new Set(emitted.map((e) => e.type as string));
     for (const t of ["examinations.session.opened", "examinations.candidate.registered", "examinations.result.published", "examinations.document.issued", "examinations.session.results_published"]) expect(types.has(t), t).toBe(true);
-    const events = emitted.map((r) => JSON.stringify(r.payload)).join("\n");
+    // Q-E18 : la MOYENNE ne voyage que dans l'événement dédié aux admissions ; tous les autres restent sans note ni moyenne.
+    const transmitted = emitted.filter((e) => e.type === "examinations.result.transmitted");
+    for (const t of transmitted) expect(Object.keys(t.payload as object).sort()).toEqual(["admitted", "average", "candidateId", "examTypeCode", "institutionId", "outcome", "resultId", "revision", "sessionId", "sessionYear", "studentId", "v"]);
+    expect(transmitted.map((t) => JSON.stringify(t.payload)).join("\n")).not.toMatch(/FAMILLE|ELEVE|Prénom|Abidjan|2016-05-05/);
+    const events = emitted.filter((e) => e.type !== "examinations.result.transmitted").map((r) => JSON.stringify(r.payload)).join("\n");
     expect(events.length).toBeGreaterThan(100);
     expect(events).not.toMatch(/FAMILLE|ELEVE|Prénom|Abidjan|2016-05-05|"17"|average|moyenne/);
     const audits = JSON.stringify(env.audit.entries.map((e) => e.entry));
