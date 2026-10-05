@@ -17,6 +17,20 @@ export const HigherCode = {
   // Registre de crédits
   CREDIT_IN_USE: "higher.credit_in_use",
   LEDGER_NOT_FOUND: "higher.ledger_not_found",
+  // UE annuelle (O-11)
+  ANNUAL_UE_NOT_FOUND: "higher.annual_ue_not_found",
+  ANNUAL_UE_EXISTS: "higher.annual_ue_exists",
+  ANNUAL_UE_MEMBER_TAKEN: "higher.annual_ue_member_taken",
+  ANNUAL_UE_UNKNOWN_UE: "higher.annual_ue_unknown_ue",
+  ANNUAL_UE_IN_USE: "higher.annual_ue_in_use",
+  // Dispense d'UE (O-14)
+  EXEMPTION_NOT_FOUND: "higher.exemption_not_found",
+  EXEMPTION_EXISTS: "higher.exemption_exists",
+  EXEMPTION_REASON_REQUIRED: "higher.exemption_reason_required",
+  EXEMPTION_ALREADY_REVOKED: "higher.exemption_already_revoked",
+  EXEMPTION_UNKNOWN_UE: "higher.exemption_unknown_ue",
+  EXEMPTION_UE_ACQUIRED: "higher.exemption_ue_already_acquired",
+  EXEMPTION_ENROLLMENT_MISMATCH: "higher.exemption_enrollment_mismatch",
   // Rattrapage
   RESIT_WINDOW_NOT_FOUND: "higher.resit_window_not_found",
   RESIT_WINDOW_OPEN_EXISTS: "higher.resit_window_open_exists",

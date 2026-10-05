@@ -198,6 +198,31 @@ export const higherNumberingParamsSchema = z.object({ counterKey: higherCounterK
 export const higherUpdateNumberingBodySchema = z.object({ pattern: z.string().trim().min(3).max(60), gapless: z.boolean() }).strict();
 export const higherAdvanceNumberingBodySchema = z.object({ nextNumber: z.number().int().min(2).max(999_999_999), reason: z.string().trim().min(10).max(500) }).strict();
 
+// --- O-11 : UE annuelle (offerte sur plusieurs semestres, un résultat commun) -------------------------------------------
+export const higherDeclareAnnualUeBodySchema = z
+  .object({
+    ueNodeId: higherUuidSchema,
+    memberNodeIds: z.array(higherUuidSchema).max(8).optional(),
+    partsExpected: z.number().int().min(2).max(4).optional(),
+    reason: text(5, 1000),
+  })
+  .strict();
+export const higherRemoveAnnualUeBodySchema = z.object({ reason: text(5, 1000) }).strict();
+
+// --- O-14 : dispense d'UE manuelle avec motif ------------------------------------------------------------------------------
+export const HIGHER_EXEMPTION_CREDIT_POLICIES = ["RECORD_ONLY", "GRANT_CREDITS"] as const;
+export const higherExemptionCreditPolicySchema = z.enum(HIGHER_EXEMPTION_CREDIT_POLICIES);
+export const HIGHER_EXEMPTION_STATUSES = ["ACTIVE", "REVOKED"] as const;
+export const higherExemptionStatusSchema = z.enum(HIGHER_EXEMPTION_STATUSES);
+export const higherGrantExemptionBodySchema = z
+  .object({ studentId: higherUuidSchema, enrollmentId: higherUuidSchema, ueNodeId: higherUuidSchema, academicPeriodId: higherUuidSchema, reason: text(10, 1000) })
+  .strict();
+export const higherRevokeExemptionBodySchema = z.object({ reason: text(10, 1000) }).strict();
+export const higherListExemptionsQuerySchema = z
+  .object({ studentId: higherUuidSchema.optional(), ueNodeId: higherUuidSchema.optional(), status: higherExemptionStatusSchema.optional(), limit: limit(500, 100) })
+  .strict();
+export const higherUpdateExemptionSettingsBodySchema = z.object({ exemptionCreditPolicy: higherExemptionCreditPolicySchema }).strict();
+
 // ---------------------------------------------------------------------------
 // DTO de réponse
 // ---------------------------------------------------------------------------
@@ -492,6 +517,44 @@ export const higherSlotDtoSchema = z.object({
 });
 
 export const higherSettingsDtoSchema = z.object({ creditValidityMonths: z.number().int().nullable() });
+export const higherExemptionSettingsDtoSchema = z.object({ exemptionCreditPolicy: higherExemptionCreditPolicySchema });
+
+export const higherAnnualUeDtoSchema = z.object({
+  id: higherUuidSchema,
+  ueNodeId: higherUuidSchema,
+  memberNodeIds: z.array(higherUuidSchema),
+  partsExpected: z.number().int(),
+  reason: z.string(),
+  createdAt: higherInstantSchema,
+  /** Code et libellé de l'UE principale et des UE membres (lus du curriculum à l'affichage ; absents si l'UE n'existe plus). */
+  ueCode: z.string().nullable().optional(),
+  ueLabel: z.string().nullable().optional(),
+  members: z.array(z.object({ ueNodeId: higherUuidSchema, code: z.string().nullable(), label: z.string().nullable() })).optional(),
+});
+export type HigherAnnualUeDto = z.infer<typeof higherAnnualUeDtoSchema>;
+
+export const higherExemptionDtoSchema = z.object({
+  id: higherUuidSchema,
+  studentId: higherUuidSchema,
+  enrollmentId: higherUuidSchema,
+  ueNodeId: higherUuidSchema,
+  academicYearId: higherUuidSchema,
+  academicPeriodId: higherUuidSchema,
+  credits: z.number(),
+  reason: z.string(),
+  creditPolicy: higherExemptionCreditPolicySchema,
+  ledgerId: higherUuidSchema.nullable(),
+  status: higherExemptionStatusSchema,
+  grantedBy: higherUuidSchema,
+  grantedAt: higherInstantSchema,
+  revokedBy: higherUuidSchema.nullable(),
+  revokedAt: higherInstantSchema.nullable(),
+  revokeReason: z.string().nullable(),
+  /** Libellé de l'UE (lu du curriculum à l'affichage ; `null` si l'UE n'existe plus). */
+  ueCode: z.string().nullable().optional(),
+  ueLabel: z.string().nullable().optional(),
+});
+export type HigherExemptionDto = z.infer<typeof higherExemptionDtoSchema>;
 
 export const higherNumberingDtoSchema = z.object({
   counterKey: higherCounterKeySchema,
@@ -536,6 +599,16 @@ export const higherEventPayloadSchemas = {
   "higher.credits.expired": z.object({ v: v1, ledgerId: higherUuidSchema, studentId: higherUuidSchema, ueNodeId: higherUuidSchema }),
   "higher.credits.revocation_blocked": z.object({ v: v1, ledgerId: higherUuidSchema, studentId: higherUuidSchema, ueNodeId: higherUuidSchema, awardIds: z.array(higherUuidSchema) }),
   "higher.ue.debt_detected": z.object({ v: v1, studentId: higherUuidSchema, ueNodeId: higherUuidSchema, periodId: higherUuidSchema }),
+  "higher.ue.exempted": z.object({
+    v: v1,
+    exemptionId: higherUuidSchema,
+    studentId: higherUuidSchema,
+    ueNodeId: higherUuidSchema,
+    enrollmentId: higherUuidSchema,
+    creditPolicy: higherExemptionCreditPolicySchema,
+    ledgerId: higherUuidSchema.nullable(),
+  }),
+  "higher.ue.exemption_revoked": z.object({ v: v1, exemptionId: higherUuidSchema, studentId: higherUuidSchema, ueNodeId: higherUuidSchema }),
   "higher.resit.window_opened": z.object({ v: v1, windowId: higherUuidSchema, classroomId: higherUuidSchema, periodId: higherUuidSchema, nodeIds: z.array(higherUuidSchema) }),
   "higher.resit.window_closed": z.object({ v: v1, windowId: higherUuidSchema, classroomId: higherUuidSchema, periodId: higherUuidSchema, nodeIds: z.array(higherUuidSchema) }),
   "higher.resit.registered": z.object({ v: v1, registrationId: higherUuidSchema, enrollmentId: higherUuidSchema, nodeId: higherUuidSchema, periodId: higherUuidSchema }),

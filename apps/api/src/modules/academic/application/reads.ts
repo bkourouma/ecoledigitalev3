@@ -313,12 +313,15 @@ export function createEnrollmentDirectory(deps: AcademicDeps): { getEnrollment(c
 // Portails : « mes inscriptions » (élève) et « inscriptions de mon enfant » (parent)
 // ---------------------------------------------------------------------------
 
+/** O-01 : le motif d'une dérogation de confirmation et l'identité de son auteur sont un détail de gestion, jamais exposé aux familles. */
+const withoutStaffConfirmationDetails = (e: Enrollment): Enrollment => ({ ...e, confirmationReason: null, confirmedBy: null });
+
 export async function listMyEnrollments(deps: AcademicDeps, ctx: RequestContext): Promise<Result<Enrollment[], AppError>> {
   if (!ctx.userId) return err(forbidden(AcademicCode.FORBIDDEN_SCOPE, "Un utilisateur est requis."));
   const lookup = deps.ports.students.findStudentByUserId;
   const mine = lookup ? await lookup.call(deps.ports.students, ctx, ctx.userId) : null;
   if (!mine) return ok([]);
-  return inReadTx(deps, ctx, async (tx) => ok((await enr.listEnrollmentsByStudent(tx, mine.studentId)).filter((e) => inScope(ctx, e))));
+  return inReadTx(deps, ctx, async (tx) => ok((await enr.listEnrollmentsByStudent(tx, mine.studentId)).filter((e) => inScope(ctx, e)).map(withoutStaffConfirmationDetails)));
 }
 
 /** Un parent ne lit que les inscriptions de ses enfants (`people.isGuardianOfStudent`) ; hors lien : 404, jamais 403. */
@@ -326,7 +329,7 @@ export async function listChildEnrollments(deps: AcademicDeps, ctx: RequestConte
   if (!ctx.userId) return err(forbidden(AcademicCode.FORBIDDEN_SCOPE, "Un utilisateur est requis."));
   const allowed = await deps.ports.guardianship.isGuardianOfStudent(ctx, ctx.userId, studentId);
   if (!allowed) return err(notFound(AcademicCode.STUDENT_NOT_FOUND, "Apprenant", studentId));
-  return inReadTx(deps, ctx, async (tx) => ok((await enr.listEnrollmentsByStudent(tx, studentId)).filter((e) => inScope(ctx, e))));
+  return inReadTx(deps, ctx, async (tx) => ok((await enr.listEnrollmentsByStudent(tx, studentId)).filter((e) => inScope(ctx, e)).map(withoutStaffConfirmationDetails)));
 }
 
 /**

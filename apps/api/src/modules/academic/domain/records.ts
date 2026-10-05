@@ -311,6 +311,10 @@ export interface Enrollment {
   sourceKind: "ADMISSION" | "IMPORT" | "MANUAL" | "ROLLOVER" | "ONLINE" | null;
   sourceRef: Uuid | null;
   confirmedAt: IsoInstant | null;
+  /** O-01 : comment l'inscription a été confirmée (`null` = pas encore confirmée, ou confirmée avant la migration 0710). */
+  confirmationMode: "AUTO" | "PAYMENT" | "MANUAL" | "OVERRIDE" | null;
+  confirmationReason: string | null;
+  confirmedBy: Uuid | null;
   cancelledAt: IsoInstant | null;
   createdAt: IsoInstant;
 }

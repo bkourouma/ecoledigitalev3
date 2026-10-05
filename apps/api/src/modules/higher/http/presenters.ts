@@ -7,7 +7,9 @@ import type { NumberingView } from "../application/numbering";
 import type { PrerequisiteWarning } from "../application/prerequisites";
 import type { StudentResitView } from "../application/resit";
 import type { StudentDiplomaView, StudentPathway } from "../application/student-view";
+import type { AnnualUeDef } from "../domain/annual-ue";
 import type { DiplomaProgress, RequirementState } from "../domain/diploma";
+import type { UeExemption } from "../domain/exemption";
 import type {
   DiplomaAward,
   DiplomaDefinition,
@@ -23,6 +25,18 @@ import type {
 } from "../domain/types";
 
 const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
+
+export const annualUeDto = (a: AnnualUeDef, labels?: ReadonlyMap<string, { code: string; label: string }>) => ({
+  id: a.id, ueNodeId: a.ueNodeId, memberNodeIds: [...a.memberNodeIds], partsExpected: a.partsExpected, reason: a.reason, createdAt: a.createdAt.toISOString(),
+  ueCode: labels?.get(a.ueNodeId)?.code ?? null, ueLabel: labels?.get(a.ueNodeId)?.label ?? null,
+  members: a.memberNodeIds.map((m) => ({ ueNodeId: m, code: labels?.get(m)?.code ?? null, label: labels?.get(m)?.label ?? null })),
+});
+
+export const exemptionDto = (e: UeExemption, ue?: { code: string; label: string } | null) => ({
+  id: e.id, studentId: e.studentId, enrollmentId: e.enrollmentId, ueNodeId: e.ueNodeId, academicYearId: e.academicYearId, academicPeriodId: e.academicPeriodId, credits: e.credits,
+  reason: e.reason, creditPolicy: e.creditPolicy, ledgerId: e.ledgerId, status: e.status, grantedBy: e.grantedBy, grantedAt: e.grantedAt.toISOString(),
+  revokedBy: e.revokedBy, revokedAt: iso(e.revokedAt), revokeReason: e.revokeReason, ueCode: ue?.code ?? null, ueLabel: ue?.label ?? null,
+});
 
 export const diplomaDto = (d: DiplomaDefinition) => ({
   id: d.id, institutionId: d.institutionId, code: d.code, label: d.label, gradeCode: d.gradeCode, curriculumNodeId: d.curriculumNodeId, uvRequired: d.uvRequired,

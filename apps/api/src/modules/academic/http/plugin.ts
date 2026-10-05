@@ -35,6 +35,7 @@ import * as enrollments from "../application/enrollments";
 import * as enrollmentFundings from "../application/enrollment-fundings";
 import * as facts from "../application/facts";
 import * as holidays from "../application/holidays";
+import * as nationalHolidays from "../application/national-holidays";
 import * as programs from "../application/programs";
 import * as reads from "../application/reads";
 import * as reference from "../application/reference";
@@ -154,6 +155,7 @@ export async function academicPlugin(app: FastifyInstance, options: AcademicPlug
     };
 
   /** Garde appelée DANS un handler quand le corps le demande (dérogation `override`). */
+  const confirmOverrideGuard = perm("enrollment.confirm.override");
   const overrideGuard = perm("enrollment.override");
   const requireOverridePermission = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     await overrideGuard.call(app, req, reply);
@@ -558,7 +560,22 @@ export async function academicPlugin(app: FastifyInstance, options: AcademicPlug
         const q = parse(c.academicRuleContextQuerySchema, req.query);
         return { items: unwrapOrThrow(await reads.listCourseRegistrations(deps, ctxOf(req), { enrollmentId: id, periodId: q.periodId ?? null })) };
       });
-      for (const action of Object.keys(ENROLLMENT_ACTION_TARGETS) as EnrollmentAction[]) {
+      // O-01 : confirmation MANUELLE. `enrollment.update` suffit pour la politique MANUAL ; confirmer sans paiement une
+      // inscription dont la politique attend le paiement est une dérogation (permission dédiée + motif, vérifiés ici et dans le cas d'usage).
+      scope.post("/enrollments/:id/confirm", { preHandler: perm("enrollment.update") }, async (req, reply) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        const b = parse(c.academicConfirmEnrollmentBodySchema, req.body ?? {});
+        const first = await enrollments.confirmEnrollmentManually(deps, ctxOf(req), id, { reason: b.reason, overridePermitted: false });
+        if (first.ok || first.error.code !== AcademicCode.ENROLLMENT_OVERRIDE_REQUIRED) return unwrapOrThrow(first);
+        // Dérogation : la permission dédiée n'est interrogée que dans ce cas (refus -> 403 `academic.enrollment_override_required`).
+        try {
+          await confirmOverrideGuard.call(app, req, reply);
+        } catch {
+          return unwrapOrThrow(first);
+        }
+        return unwrapOrThrow(await enrollments.confirmEnrollmentManually(deps, ctxOf(req), id, { reason: b.reason, overridePermitted: true }));
+      });
+      for (const action of (Object.keys(ENROLLMENT_ACTION_TARGETS) as EnrollmentAction[]).filter((a) => a !== "confirm")) {
         const permission = action === "withdraw" || action === "cancel" ? "enrollment.cancel" : "enrollment.update";
         scope.post(`/enrollments/:id/${action}`, { preHandler: perm(permission) }, async (req) => {
           const { id } = parse(c.academicIdParamsSchema, req.params);
@@ -692,6 +709,20 @@ export async function academicPlugin(app: FastifyInstance, options: AcademicPlug
       scope.get("/holidays", { preHandler: perm("academic.read") }, async (req) => {
         const q = parse(c.academicListHolidaysQuerySchema, req.query);
         return { items: unwrapOrThrow(await holidays.listHolidays(deps, ctxOf(req), q)) };
+      });
+      // O-10 : calendrier national préchargé (référence de plateforme) + activation par établissement + vue effective.
+      scope.get("/national-holidays", { preHandler: perm("academic.read") }, async (req) => {
+        const q = parse(c.academicListNationalHolidaysQuerySchema, req.query);
+        return { items: unwrapOrThrow(await nationalHolidays.listNationalHolidays(deps, ctxOf(req), q)) };
+      });
+      scope.put("/national-holidays/:code", { preHandler: perm("academic.settings.manage") }, async (req) => {
+        const { code } = parse(c.academicNationalHolidayCodeParamsSchema, req.params);
+        const b = parse(c.academicSetNationalHolidayBodySchema, req.body);
+        return unwrapOrThrow(await nationalHolidays.setNationalHolidayEnabled(deps, ctxOf(req), { institutionId: b.institutionId, code, enabled: b.enabled }));
+      });
+      scope.get("/holidays/effective", { preHandler: perm("academic.read") }, async (req) => {
+        const q = parse(c.academicEffectiveHolidaysQuerySchema, req.query);
+        return { items: unwrapOrThrow(await nationalHolidays.listEffectiveHolidays(deps, ctxOf(req), q)) };
       });
       scope.post("/holidays", { preHandler: perm("academic.settings.manage") }, async (req, reply) => {
         return reply.status(201).send(unwrapOrThrow(await holidays.createHoliday(deps, ctxOf(req), parse(c.academicCreateHolidayBodySchema, req.body))));

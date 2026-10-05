@@ -7,6 +7,8 @@ export function HigherNav() {
   const t = useTranslations("v2Higher.nav");
   const tPrerequisites = useTranslations("v2HigherPrerequisites");
   const tPdf = useTranslations("v2HigherPdf");
+  const tExemptions = useTranslations("v2HigherExemptions");
+  const tAnnual = useTranslations("v2HigherAnnualUes");
   return (
     <SectionNav
       label={t("label")}
@@ -18,6 +20,8 @@ export function HigherNav() {
         { href: "/v2/higher/me/documents", label: tPdf("nav"), anyPermission: ["higher.self.read", "higher.child.read"] },
         { href: "/v2/higher/prerequisites", label: tPrerequisites("nav"), anyPermission: ["higher.prerequisite.manage", "higher.credits.read"] },
         { href: "/v2/higher/resit", label: t("resit"), permission: "higher.resit.manage" },
+        { href: "/v2/higher/exemptions", label: tExemptions("nav"), permission: "higher.exemption.read" },
+        { href: "/v2/higher/annual-ues", label: tAnnual("nav"), permission: "higher.annual_ue.manage" },
         { href: "/v2/higher/signatories", label: t("signatories"), permission: "higher.slot.manage" },
       ]}
     />

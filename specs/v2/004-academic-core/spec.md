@@ -378,6 +378,7 @@ Exécution : un abonné du worker (`academic.run-rollover`) rejoue les étapes d
 | `curriculum.amend` | Amender un curriculum publié | oui |
 | `enrollment.read` / `enrollment.create` / `enrollment.update` / `enrollment.cancel` | Inscriptions | |
 | `enrollment.override` | Déroger à l'éligibilité (fenêtre, prérequis) avec motif | oui |
+| `enrollment.confirm.override` | Confirmer sans paiement une inscription dont la politique attend le paiement (dérogation de la direction, O-01, motif obligatoire) | oui |
 | `enrollment.self.create` | S'inscrire soi-même à une offre ouverte (libre-service) | |
 | `enrollment.funding.update` | Changer le financement | oui |
 | `enrollment.outcome.record` | Enregistrer l'issue de fin d'année | |
@@ -509,3 +510,36 @@ Demandes de changement des specs **005** (§14.2), **006** (§7.4, data-model §
 ## Évolution O-04 — cumul de financements d'une inscription (décision du propriétaire, 2026-10)
 
 `enrollments.funding_type` reste le type **principal** ; la table `enrollment_fundings` (migration additive 0710) porte les **parts** du cumul (pourcentage en points de base ou montant) : somme des pourcentages ≤ 100 % et devise unique imposées par la base, parts terminées immuables, historique `FUNDING` conservé, événement `academic.enrollment.funding_changed` enrichi du champ additif `fundings`. Routes `GET|PUT /enrollments/:id/fundings` ; l'ancienne route de financement unique est inchangée. Voir `apps/api/src/modules/academic/README.md`.
+
+## 17. Décisions métier O-01 et O-10 (réponses du 2026-10-05, livrées, additives)
+
+Source : `specs/v2/REPONSES-METIER.md` (section « Écarts à implémenter »).
+
+### 17.1 O-01 — inscription confirmée par le paiement OU manuellement (dérogation de la direction)
+
+Le comportement automatique est **inchangé** : sous `ON_REGISTRATION_FEE_PAID` / `ON_FULL_PAYMENT`, `finance.invoice.paid` confirme l'inscription visée. S'y ajoute la **confirmation manuelle** :
+
+| Politique de l'établissement | Confirmation manuelle (`POST /enrollments/:id/confirm`) | Mode enregistré |
+|---|---|---|
+| `MANUAL` | Personne habilitée (`enrollment.update`), motif facultatif | `MANUAL` |
+| `ON_REGISTRATION_FEE_PAID`, `ON_FULL_PAYMENT` | **Dérogation** : permission dédiée `enrollment.confirm.override` (sensible) + motif obligatoire (5 caractères au moins). Sans la permission : 403 `academic.enrollment_override_required` ; sans motif : 400 `academic.enrollment_reason_required`. Aucun paiement n'est touché (la facture reste due). | `OVERRIDE` |
+
+- Migration **0712** : `enrollments.confirmation_mode` (`AUTO` \| `PAYMENT` \| `MANUAL` \| `OVERRIDE`, `NULL` = non confirmée ou confirmée avant la migration), `confirmation_reason`, `confirmed_by`. Contrainte de base : une dérogation porte un motif (≥ 5 car.) et un auteur. Migration additive.
+- Traçabilité : mode, motif et auteur sur l'inscription ; ligne d'historique immuable (motif `dérogation : …`) ; `academic.enrollment.confirmed` porte `confirmationMode` (champ **additif** facultatif, `v: 1` inchangé) ; audit `academic.enrollment.confirmation_overridden` (**sensible**, motif) ou `academic.enrollment.confirmed_manually`.
+- Confidentialité : les routes famille (`/me/enrollments`, `/children/:id/enrollments`) rendent le mode mais **jamais** le motif ni l'auteur de la dérogation.
+- Séparation des tâches : **non requise** (décision du client) ; une seule personne habilitée suffit.
+- Écran : détail d'une inscription (`/v2/enrollments/:id`) — bouton « Confirmer sans paiement » (permission `enrollment.confirm.override`) ouvrant une boîte de dialogue à motif obligatoire ; le mode et le motif sont affichés au personnel.
+- Cas d'usage `confirmEnrollmentManually(deps, ctx, id, { reason?, overridePermitted })` (exporté) ; `overridePermitted` est calculé par la couche HTTP (jamais lu du corps). La route générique de transition n'enregistre plus `confirm` : elle est portée par la route ci-dessus (même URL).
+
+### 17.2 O-10 — calendrier national des jours fériés ivoiriens préchargé
+
+- Migration **0711** : `academic.national_holidays` (référence **globale**, allowlistée dans `isolation-allowlist.academic.ts` : lecture ouverte, écriture réservée à l'acteur `system`, jamais de `DELETE`) et `academic.institution_national_holiday_settings` (par tenant, RLS : activer / désactiver une fête nationale ; sans ligne = activé). Le seed est une **migration de données**.
+- **Aucune date inventée** : sont livrés les jours fériés à date fixe dont la date calendaire est certaine (1er janvier, 1er mai, 7 août, 15 août, 1er novembre, 25 décembre) et, comme **définitions sans date** (`recurrence = MOVABLE`), Lundi de Pâques, Ascension, Lundi de Pentecôte, Aïd el-Fitr, Aïd el-Adha, Mawlid. Toute ligne est `source_kind = placeholder` et `needs_confirmation = true` tant qu'un texte officiel n'est pas rattaché (`regulation` + `source_reference`, contrainte de base). La liste à confirmer / compléter est dans `jours-feries-ci.md`.
+- Un établissement **active / désactive** (`PUT /national-holidays/:code`, `academic.settings.manage`, audit `academic.national_holiday.toggled`) et **ajoute** ses jours dans son calendrier (`/holidays`, 0708), où il saisit aussi les dates des fêtes mobiles.
+- Lectures : `GET /national-holidays?institutionId` (`academic.read`) ; `GET /holidays/effective?institutionId&from&to` (`academic.read`) fusionne fêtes fixes étendues sur la plage (non désactivées) et jours de l'établissement (`origin` `NATIONAL` \| `INSTITUTION`, `needsConfirmation`). `listHolidays` / `holidaysOn` sont **inchangés** (jours de l'établissement seulement) : l'emploi du temps et l'appel doivent lire `listEffectiveHolidays` pour tenir compte du calendrier national (suite à planifier côté `scheduling` / `attendance`).
+- Écran : Paramètres académiques > Calendrier > « Jours fériés nationaux » (badge « À confirmer », bouton Activer / Désactiver).
+- Pays : celui de l'établissement (`InstitutionDirectory.countryCode`), `CI` à défaut (`DEFAULT_HOLIDAY_COUNTRY`).
+
+### 17.3 Permissions et codes d'erreur ajoutés
+
+`enrollment.confirm.override` (sensible). Codes : `academic.enrollment_override_required` (403), `academic.national_holiday_not_found` (404).

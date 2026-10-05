@@ -69,6 +69,12 @@ export default defineModule({
     { key: "enrollment.update", label: "Confirmer, suspendre, transférer une inscription" },
     { key: "enrollment.cancel", label: "Retirer ou annuler une inscription" },
     {
+      key: "enrollment.confirm.override",
+      label: "Confirmer une inscription sans paiement (dérogation de la direction)",
+      description: "Décision O-01 : une inscription est confirmée par le paiement des frais OU manuellement. Confirmer à la main une inscription dont la politique attend le paiement exige cette permission et un motif ; le tout est tracé (historique, événement, audit sensible).",
+      sensitive: true,
+    },
+    {
       key: "enrollment.override",
       label: "Déroger à l'éligibilité d'une offre",
       description: "Fenêtre, période close ou prérequis : dérogation motivée. La capacité n'est jamais dépassable.",

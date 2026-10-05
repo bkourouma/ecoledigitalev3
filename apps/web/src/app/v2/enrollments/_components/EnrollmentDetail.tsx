@@ -42,12 +42,18 @@ const ACTIONS: Record<string, EnrollmentAction[]> = {
   COMPLETED: ["reopen"],
 };
 const NEEDS_REASON: ReadonlySet<EnrollmentAction> = new Set(["suspend", "withdraw", "cancel", "reopen"]);
+/**
+ * O-01 : sous ces politiques l'inscription est confirmée par le PAIEMENT ; la confirmer à la main est une dérogation
+ * (permission dédiée + motif obligatoire). Affordance d'écran seulement : l'API décide.
+ */
+const PAYMENT_LINKED_POLICIES: ReadonlySet<string> = new Set(["ON_REGISTRATION_FEE_PAID", "ON_FULL_PAYMENT"]);
 
 export function EnrollmentDetail({ id }: { id: string }) {
   const t = useTranslations("v2Enrollments.detail");
   const tStatus = useTranslations("v2Enrollments.status");
   const tMode = useTranslations("v2Enrollments.mode");
   const tFunding = useTranslations("v2Enrollments.funding");
+  const tOverride = useTranslations("v2EnrollmentOverride");
   const date = useDateFormat();
   const detail = useEnrollmentDetail(id);
   const history = useEnrollmentHistory(id);
@@ -63,12 +69,20 @@ export function EnrollmentDetail({ id }: { id: string }) {
   if (detail.isError) return <ErrorBlock error={detail.error} onRetry={() => void detail.refetch()} />;
   if (!detail.data) return null;
   const { enrollment: e, placements } = detail.data;
+  const paymentLinked = settings.data ? PAYMENT_LINKED_POLICIES.has(settings.data.enrollmentConfirmationPolicy) : false;
+  const isOverride = (a: EnrollmentAction): boolean => a === "confirm" && paymentLinked;
+  const confirmationModeLabel = {
+    AUTO: tOverride("mode.AUTO"),
+    PAYMENT: tOverride("mode.PAYMENT"),
+    MANUAL: tOverride("mode.MANUAL"),
+    OVERRIDE: tOverride("mode.OVERRIDE"),
+  };
 
   async function run(a: EnrollmentAction, reason?: string) {
     setActionError(null);
     try {
       await action.mutateAsync({ id: e.id, action: a, reason });
-      flash.show(t(`done.${a}`));
+      flash.show(isOverride(a) ? tOverride("done") : t(`done.${a}`));
       setPending(null);
     } catch (err) {
       setActionError(err);
@@ -92,11 +106,20 @@ export function EnrollmentDetail({ id }: { id: string }) {
               {t("back")}
             </Link>
             <Can permission="enrollment.update">
-              {(ACTIONS[e.status] ?? []).map((a) => (
-                <button key={a} type="button" className={a === "cancel" || a === "withdraw" ? buttonClass.danger : buttonClass.secondary} onClick={() => (NEEDS_REASON.has(a) ? setPending(a) : void run(a))} disabled={action.isPending}>
-                  {t(`actions.${a}`)}
-                </button>
-              ))}
+              {(ACTIONS[e.status] ?? []).map((a) =>
+                isOverride(a) ? (
+                  // O-01 : confirmer sans paiement = dérogation, réservée à la permission dédiée.
+                  <Can key={a} permission="enrollment.confirm.override">
+                    <button type="button" className={buttonClass.secondary} onClick={() => setPending(a)} disabled={action.isPending}>
+                      {tOverride("action")}
+                    </button>
+                  </Can>
+                ) : (
+                  <button key={a} type="button" className={a === "cancel" || a === "withdraw" ? buttonClass.danger : buttonClass.secondary} onClick={() => (NEEDS_REASON.has(a) ? setPending(a) : void run(a))} disabled={action.isPending}>
+                    {t(`actions.${a}`)}
+                  </button>
+                ),
+              )}
               {e.status === "ACTIVE" || e.status === "SUSPENDED" ? (
                 <button type="button" className={buttonClass.secondary} onClick={() => setTransferring(true)}>
                   {t("actions.transfer")}
@@ -135,6 +158,9 @@ export function EnrollmentDetail({ id }: { id: string }) {
         {settings.data ? <p className="text-sm">{t("confirmation.policy", { policy: t(`confirmation.policies.${settings.data.enrollmentConfirmationPolicy}`) })}</p> : null}
         {e.status === "PENDING" ? <Notice kind="info">{t("confirmation.pending")}</Notice> : null}
         {e.confirmedAt ? <p className="text-sm">{t("confirmation.confirmedAt", { date: date.instant(e.confirmedAt) })}</p> : null}
+        {e.confirmationMode ? <p className="text-sm">{tOverride("modeLine", { mode: confirmationModeLabel[e.confirmationMode] })}</p> : null}
+        {e.confirmationMode === "OVERRIDE" && e.confirmationReason ? <p className="text-sm">{tOverride("reasonLine", { reason: e.confirmationReason })}</p> : null}
+        {e.status === "PENDING" && paymentLinked ? <Notice kind="info">{tOverride("pendingHint")}</Notice> : null}
         {e.cancelledAt ? <p className="text-sm">{t("confirmation.cancelledAt", { date: date.instant(e.cancelledAt) })}</p> : null}
         <p className="text-xs text-muted-foreground">{t("confirmation.feesNote")}</p>
       </section>
@@ -188,10 +214,10 @@ export function EnrollmentDetail({ id }: { id: string }) {
         <ReasonDialog
           open
           onOpenChange={(o) => !o && setPending(null)}
-          title={t(`reasonTitle.${pending}`)}
-          description={t(`reasonDescription.${pending}`)}
+          title={isOverride(pending) ? tOverride("dialogTitle") : t(`reasonTitle.${pending}`)}
+          description={isOverride(pending) ? tOverride("dialogDescription") : t(`reasonDescription.${pending}`)}
           reasonLabel={t("reason")}
-          confirmLabel={t(`actions.${pending}`)}
+          confirmLabel={isOverride(pending) ? tOverride("confirm") : t(`actions.${pending}`)}
           destructive={pending === "cancel" || pending === "withdraw"}
           isPending={action.isPending}
           error={actionError}

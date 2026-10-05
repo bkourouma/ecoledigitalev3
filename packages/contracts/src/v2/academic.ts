@@ -97,6 +97,11 @@ export const ACADEMIC_ENROLLMENT_STATUSES = ["PENDING", "ACTIVE", "SUSPENDED", "
 export const academicEnrollmentStatusSchema = z.enum(ACADEMIC_ENROLLMENT_STATUSES);
 export type AcademicEnrollmentStatus = z.infer<typeof academicEnrollmentStatusSchema>;
 
+/** O-01 : comment une inscription a été confirmée (paiement des frais, automatiquement, ou à la main — éventuellement par dérogation). */
+export const ACADEMIC_ENROLLMENT_CONFIRMATION_MODES = ["AUTO", "PAYMENT", "MANUAL", "OVERRIDE"] as const;
+export const academicEnrollmentConfirmationModeSchema = z.enum(ACADEMIC_ENROLLMENT_CONFIRMATION_MODES);
+export type AcademicEnrollmentConfirmationMode = z.infer<typeof academicEnrollmentConfirmationModeSchema>;
+
 export const ACADEMIC_ENROLLMENT_SOURCE_KINDS = ["ADMISSION", "IMPORT", "MANUAL", "ROLLOVER", "ONLINE"] as const;
 export const academicEnrollmentSourceKindSchema = z.enum(ACADEMIC_ENROLLMENT_SOURCE_KINDS);
 
@@ -1010,6 +1015,11 @@ export const academicEnrollmentDtoSchema = z.object({
   sourceKind: academicEnrollmentSourceKindSchema.nullable(),
   sourceRef: academicUuidSchema.nullable(),
   confirmedAt: academicInstantSchema.nullable(),
+  /** O-01 : `null` tant que l'inscription n'est pas confirmée (ou si elle l'a été avant la migration 0710). */
+  confirmationMode: academicEnrollmentConfirmationModeSchema.nullable().optional(),
+  /** Motif de la dérogation (personnel de gestion seulement : jamais rendu aux familles). */
+  confirmationReason: z.string().nullable().optional(),
+  confirmedBy: academicUuidSchema.nullable().optional(),
   cancelledAt: academicInstantSchema.nullable(),
   createdAt: academicInstantSchema,
 });
@@ -1155,6 +1165,9 @@ export const academicListEnrollmentsQuerySchema = academicPageQuerySchema.extend
 });
 
 export const academicEnrollmentActionBodySchema = z.object({ reason: reason.optional() }).strict();
+/** O-01 : confirmation manuelle ; le motif est obligatoire quand elle déroge à une politique liée au paiement (contrôlé par le cas d'usage). */
+export const academicConfirmEnrollmentBodySchema = academicEnrollmentActionBodySchema;
+export type AcademicConfirmEnrollmentBody = z.infer<typeof academicConfirmEnrollmentBodySchema>;
 export const academicEnrollmentReasonBodySchema = z.object({ reason }).strict();
 export const academicTransferBodySchema = z.object({ toClassroomId: academicUuidSchema, effectiveOn: academicDateSchema.optional(), reason }).strict();
 export const academicChangeFundingBodySchema = z
@@ -1601,6 +1614,50 @@ export const academicListHolidaysQuerySchema = z
 export type AcademicListHolidaysQuery = z.infer<typeof academicListHolidaysQuerySchema>;
 
 // ---------------------------------------------------------------------------
+// Calendrier national des jours fériés (O-10) : référence de plateforme, fêtes à date fixe seulement ; tout est « à confirmer »
+// ---------------------------------------------------------------------------
+
+export const academicNationalHolidayDtoSchema = z.object({
+  code: z.string(),
+  countryCode: z.string(),
+  label: z.string(),
+  /** `FIXED_DATE` : mois et jour renseignés ; `MOVABLE` : aucune date livrée, l'établissement la saisit chaque année. */
+  recurrence: z.enum(["FIXED_DATE", "MOVABLE"]),
+  month: z.number().int().min(1).max(12).nullable(),
+  day: z.number().int().min(1).max(31).nullable(),
+  sourceKind: z.enum(["placeholder", "regulation"]),
+  sourceReference: z.string().nullable(),
+  needsConfirmation: z.boolean(),
+  note: z.string().nullable(),
+  active: z.boolean(),
+  /** Réglage de l'établissement (sans réglage : activé). */
+  enabled: z.boolean(),
+});
+export type AcademicNationalHolidayDto = z.infer<typeof academicNationalHolidayDtoSchema>;
+
+export const academicNationalHolidayCodeParamsSchema = z.object({ code: z.string().regex(/^[A-Z][A-Z0-9_]{2,63}$/) }).strict();
+export const academicListNationalHolidaysQuerySchema = z.object({ institutionId: academicUuidSchema }).strict();
+export type AcademicListNationalHolidaysQuery = z.infer<typeof academicListNationalHolidaysQuerySchema>;
+
+export const academicSetNationalHolidayBodySchema = z.object({ institutionId: academicUuidSchema, enabled: z.boolean() }).strict();
+export type AcademicSetNationalHolidayBody = z.infer<typeof academicSetNationalHolidayBodySchema>;
+
+export const academicEffectiveHolidayDtoSchema = z.object({
+  origin: z.enum(["NATIONAL", "INSTITUTION"]),
+  ref: z.string(),
+  label: z.string(),
+  kind: academicHolidayKindSchema,
+  startsOn: academicDateSchema,
+  endsOn: academicDateSchema,
+  blocksTeaching: z.boolean(),
+  needsConfirmation: z.boolean(),
+});
+export type AcademicEffectiveHolidayDto = z.infer<typeof academicEffectiveHolidayDtoSchema>;
+
+export const academicEffectiveHolidaysQuerySchema = z.object({ institutionId: academicUuidSchema, from: academicDateSchema, to: academicDateSchema }).strict();
+export type AcademicEffectiveHolidaysQuery = z.infer<typeof academicEffectiveHolidaysQuerySchema>;
+
+// ---------------------------------------------------------------------------
 // Annuaire d'inscriptions pour la finance (conforme au port `EnrollmentDirectory` de finance)
 // ---------------------------------------------------------------------------
 
@@ -1691,6 +1748,8 @@ export const academicEnrollmentEventPayloadSchema = z.object({
   fundingType: z.string(),
   registrationNumber: z.string().nullable(),
   reason: z.string().nullable(),
+  /** O-01 (additif) : présent sur `academic.enrollment.confirmed` — `PAYMENT`, `MANUAL` ou `OVERRIDE` (dérogation motivée). */
+  confirmationMode: academicEnrollmentConfirmationModeSchema.optional(),
 });
 export const academicEnrollmentTransferredEventPayloadSchema = academicEnrollmentEventPayloadSchema.extend({
   fromClassroomId: academicUuidSchema,

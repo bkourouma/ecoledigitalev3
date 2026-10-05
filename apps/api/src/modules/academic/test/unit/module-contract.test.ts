@@ -47,13 +47,13 @@ describe("manifeste", () => {
       "academic.read", "academic.year.read", "academic.year.manage", "academic.year.close", "academic.period.read", "academic.period.manage", "academic.period.close", "academic.period.reopen",
       "academic.program.read", "academic.program.manage", "academic.classroom.read", "academic.classroom.manage", "academic.settings.manage", "academic.template.apply",
       "curriculum.read", "curriculum.manage", "curriculum.publish", "curriculum.amend",
-      "enrollment.read", "enrollment.create", "enrollment.update", "enrollment.cancel", "enrollment.override", "enrollment.self.create", "enrollment.funding.update",
+      "enrollment.read", "enrollment.create", "enrollment.update", "enrollment.cancel", "enrollment.override", "enrollment.confirm.override", "enrollment.self.create", "enrollment.funding.update",
       "enrollment.outcome.record", "enrollment.course.manage", "enrollment.self.read", "enrollment.child.read",
     ]) expect(keys, k).toContain(k);
     expect(new Set(keys).size).toBe(keys.length);
     const sensitive = manifest.permissions.filter((p) => p.sensitive).map((p) => p.key).sort();
     expect(sensitive).toEqual(
-      ["academic.period.reopen", "academic.template.apply", "academic.year.close", "academic.year.rollover", "curriculum.amend", "enrollment.funding.update", "enrollment.override"].sort(),
+      ["academic.period.reopen", "academic.template.apply", "academic.year.close", "academic.year.rollover", "curriculum.amend", "enrollment.confirm.override", "enrollment.funding.update", "enrollment.override"].sort(),
     );
   });
   it("fonctionnalités : à la carte (supérieur), affectés par l'État (secondaire), reconduction (tous)", () => {
@@ -111,6 +111,8 @@ describe("contrats et API publique", () => {
       "registerCourse", "listCourseRegistrations", "createAcademicDeps", "academicPlugin", "academicManifest",
       // Extensions Phase 4-5 (specs 005, 006, 007, 018) : additives
       "activateClassroom", "cancelEnrollment", "getEligibilityFacts", "countRepeatsInCycle", "changeEnrollmentFunding", "transferEnrollment", "neverBlockActivation",
+      // O-01 / O-10
+      "confirmEnrollmentManually", "listNationalHolidays", "setNationalHolidayEnabled", "listEffectiveHolidays",
     ];
     for (const n of names) expect(publicApi, n).toHaveProperty(n);
   });
@@ -122,22 +124,27 @@ describe("contrats et API publique", () => {
   });
 });
 
-describe("migrations 0700-0710", () => {
+describe("migrations 0700-0712", () => {
   const dir = join(moduleDir, "migrations");
   const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
   const sql = files.map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
   it("numéros dans la plage réservée 0700-0799, contigus", () => {
-    expect(files.map((f) => Number(f.slice(0, 4)))).toEqual([700, 701, 702, 703, 704, 705, 706, 707, 708, 709, 710]);
+    expect(files.map((f) => Number(f.slice(0, 4)))).toEqual([700, 701, 702, 703, 704, 705, 706, 707, 708, 709, 710, 711, 712]);
   });
-  it("chaque table du schéma est un tenant : RLS + GRANT, et la liste attendue de l'isolation est exacte", () => {
+  it("chaque table du schéma est un tenant : RLS + GRANT, et la liste attendue de l'isolation est exacte (+ la seule table globale allowlistée)", () => {
     const tables = [...sql.matchAll(/CREATE TABLE academic\.(\w+)/g)].map((m) => `academic.${m[1]}`).sort();
-    expect(tables).toEqual([...academicTenantTables].sort());
-    for (const t of tables) {
+    const globals = academicIsolationAllowlist.map((e) => e.table);
+    expect(tables).toEqual([...academicTenantTables, ...globals].sort());
+    for (const t of tables.filter((x) => !globals.includes(x))) {
       expect(sql, t).toContain(`kernel.enable_tenant_rls('${t}')`);
       expect(sql, t).toMatch(new RegExp(`GRANT [A-Z, ]+ ON ${t.replace(".", "\\.")} TO app_user`));
     }
-    expect(academicIsolationAllowlist).toEqual([]);
+    // O-10 : UNE table globale, le calendrier national (lecture ouverte, écriture `system` seulement).
+    expect(globals).toEqual(["academic.national_holidays"]);
     expect(allowlist).toBe(academicIsolationAllowlist);
+    expect(sql).toMatch(/CREATE POLICY national_holidays_read ON academic\.national_holidays FOR SELECT USING \(true\)/);
+    expect(sql).toMatch(/national_holidays_system_insert[^;]+current_actor\(\) = 'system'/);
+    expect(sql).not.toMatch(/GRANT [A-Z, ]*DELETE[A-Z, ]* ON academic\.national_holidays/);
   });
   it("aucune clé étrangère vers un autre schéma que kernel.tenants", () => {
     const refs = [...sql.matchAll(/REFERENCES\s+([a-z_]+)\.(\w+)/g)].map((m) => `${m[1]}.${m[2]}`);

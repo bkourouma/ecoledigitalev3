@@ -120,6 +120,27 @@ export function initialEnrollmentStatus(policy: AcademicConfirmationPolicy, regi
   return "PENDING";
 }
 
+// ---------------------------------------------------------------------------
+// O-01 : confirmation par le paiement OU confirmation manuelle (dérogation motivée)
+// ---------------------------------------------------------------------------
+
+/** Comment une inscription a été confirmée (colonne `confirmation_mode`). */
+export type EnrollmentConfirmationMode = "AUTO" | "PAYMENT" | "MANUAL" | "OVERRIDE";
+
+/** Politiques de confirmation que le PAIEMENT déclenche : les confirmer à la main est une dérogation. */
+export const PAYMENT_LINKED_CONFIRMATION_POLICIES: readonly AcademicConfirmationPolicy[] = Object.freeze(["ON_REGISTRATION_FEE_PAID", "ON_FULL_PAYMENT"]);
+
+/** Longueur minimale du motif d'une dérogation (même seuil que les autres actions motivées de l'inscription). */
+export const OVERRIDE_REASON_MIN_LENGTH = 5;
+
+/**
+ * Mode d'une confirmation faite à la main : `OVERRIDE` quand la politique attend normalement un paiement (dérogation :
+ * permission dédiée et motif obligatoires), `MANUAL` sinon (politique `MANUAL`, confirmation ordinaire d'une personne habilitée).
+ */
+export function manualConfirmationMode(policy: AcademicConfirmationPolicy): "MANUAL" | "OVERRIDE" {
+  return PAYMENT_LINKED_CONFIRMATION_POLICIES.includes(policy) ? "OVERRIDE" : "MANUAL";
+}
+
 export interface PaidInvoiceFacts {
   /** L'inscription visée par la facture (jamais « toutes celles de l'étudiant » : bug legacy P-081/P-089). */
   enrollmentId: string | null;

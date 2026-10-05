@@ -2,7 +2,7 @@
  * Tables GLOBALES du module `higher` (hors RLS « tenant »), à joindre à la liste blanche du test d'isolation avec la
  * justification de chaque entrée (ADR-002 §5).
  *
- * AUCUNE : les 13 tables du schéma `higher` portent `tenant_id uuid NOT NULL` et la policy `tenant_isolation` — réglages,
+ * AUCUNE : les 17 tables du schéma `higher` (dont `numbering_settings` — Q-24 —, `annual_ues`, `annual_ue_members`, `annual_ue_parts` — O-11 — et `ue_exemptions` — O-14) portent `tenant_id uuid NOT NULL` et la policy `tenant_isolation` — réglages,
  * compteurs et motifs de numérotation, définitions et exigences de diplômes, registre de crédits, dettes, prérequis, fenêtres et
  * inscriptions de rattrapage, octrois, documents officiels, emplacements de signature. Même les compteurs de références sont
  * PAR TENANT (`DIP-AAAA-NNNNNN` est continu pour chaque établissement, sans trou).
@@ -29,6 +29,10 @@ export const higherTenantTables: readonly string[] = Object.freeze([
   "higher.diploma_awards",
   "higher.official_documents",
   "higher.official_document_slots",
+  "higher.annual_ues",
+  "higher.annual_ue_members",
+  "higher.annual_ue_parts",
+  "higher.ue_exemptions",
 ]);
 
 export const higherIsolationAllowlistTables: readonly string[] = Object.freeze(entries.map((e) => e.table));

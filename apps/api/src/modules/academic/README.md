@@ -46,6 +46,15 @@ Branchement : `registerAcademicPorts(app, ports)` (API), `setAcademicWorkerPorts
 | Financement affecté (006) | `changeEnrollmentFunding` | Permission `enrollment.funding.update`, audit sensible. |
 | Changement de série en cours d'année (006) | `transferEnrollment` | Toute classe du même établissement et de la même année. |
 
+## Décisions métier O-01 et O-10 (spec §17)
+
+| Besoin | Export / route | Notes |
+|---|---|---|
+| Confirmation manuelle ou par dérogation (O-01) | `confirmEnrollmentManually`, `POST /enrollments/:id/confirm` | Politique `MANUAL` : `enrollment.update`. Politique liée au paiement : **dérogation**, permission `enrollment.confirm.override` (sensible) + motif ≥ 5 car. (403 `academic.enrollment_override_required`). Mode (`AUTO`/`PAYMENT`/`MANUAL`/`OVERRIDE`), motif, auteur sur l'inscription (migration 0710), `academic.enrollment.confirmed.confirmationMode` (additif), audit sensible `academic.enrollment.confirmation_overridden`. Pas de séparation des tâches. Familles : mode visible, motif/auteur masqués. |
+| Calendrier national des jours fériés (O-10) | `listNationalHolidays`, `setNationalHolidayEnabled`, `listEffectiveHolidays`, `GET /national-holidays`, `PUT /national-holidays/:code`, `GET /holidays/effective` | Table **globale** `academic.national_holidays` (migration 0711, allowlistée, écriture `system`), réglage par établissement `institution_national_holiday_settings` (RLS). Dates fixes certaines seulement, **toutes « à confirmer »** ; fêtes mobiles = définitions sans date. Voir `specs/v2/004-academic-core/jours-feries-ci.md`. `listHolidays`/`holidaysOn` restent ceux de l'établissement. |
+
+Permission ajoutée : `enrollment.confirm.override` (à attribuer à la direction / au chef d'établissement ; **pas** au secrétariat par défaut).
+
 ## Modèles de pack
 
 `templates/CI/{primary,secondary,higher,virtual}.json`, validés par `AcademicPackTemplateSchema` (strict) et chargés

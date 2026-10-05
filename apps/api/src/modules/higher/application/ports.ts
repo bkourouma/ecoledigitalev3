@@ -44,6 +44,11 @@ export interface UeResultLine {
   readonly resultsVersion: number;
   /** Date de validation de l'UE (clôture du résultat) ; à défaut, l'instant de la capitalisation. */
   readonly validatedAt?: Date | undefined;
+  /**
+   * Marqueur INTERNE (O-11) : ligne « commune » fabriquée par ce module pour une UE annuelle à partir des résultats de ses
+   * semestres. Jamais fournie par `results`.
+   */
+  readonly annual?: boolean | undefined;
 }
 
 export interface ListFinalLinesQuery {
@@ -264,6 +269,43 @@ export interface DiplomaRulesPort {
     ctx: RequestContext,
     input: { semestres: ReadonlyArray<{ moyenne: DecimalString | null; credits: number }>; scope: RuleScope },
   ): Promise<Result<CycleEvaluation, AppError>>;
+  /**
+   * O-11 — résultat COMMUN d'une UE annuelle : règles `moyenne_annuelle` (moyenne commune des semestres), `credits_ue`,
+   * `ue_validee`, `etat_ue` et `session_validation_ue`, toutes du MÊME jeu de règles (version épinglée). Aucune valeur
+   * implicite : sans jeu de règles actif, l'évaluation est refusée.
+   */
+  evaluateAnnualUe(ctx: RequestContext, input: AnnualUeEvaluationInput): Promise<Result<AnnualUeEvaluation, AppError>>;
+}
+
+/** Une partie (un semestre) d'une UE annuelle, telle que la voient les règles. */
+export interface AnnualUeRulePart {
+  readonly moyenne: DecimalString | null;
+  readonly credits: number;
+  /** Validation manuelle du jury (surcharge approuvée dans `results`). */
+  readonly validationManuelle: boolean;
+  /** Session d'obtention de la partie (1 ou 2), `null` si non validée. */
+  readonly session: number | null;
+}
+
+export interface AnnualUeEvaluationInput {
+  readonly parts: readonly AnnualUeRulePart[];
+  /** Le rattrapage de toutes les parties est épuisé (aucune n'est « à repasser »). */
+  readonly session2Tentee: boolean;
+  /**
+   * Chaque partie a été validée par le jury (surcharges approuvées de `results`) : la décision HUMAINE prime, l'UE annuelle
+   * est validée sans réévaluer `ue_validee` (comme une surcharge de jury sur une UE ordinaire).
+   */
+  readonly validationParJury: boolean;
+  readonly scope: RuleScope;
+}
+
+export interface AnnualUeEvaluation {
+  readonly average: DecimalString | null;
+  readonly credits: number;
+  readonly validated: boolean;
+  readonly state: "VALIDATED" | "RESIT" | "DEBT";
+  readonly sessionObtained: number | null;
+  readonly rule: RuleRef;
 }
 
 // ---------------------------------------------------------------------------

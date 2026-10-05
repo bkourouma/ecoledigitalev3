@@ -119,6 +119,30 @@ export {
   type SetPrerequisitesResult,
 } from "./application/prerequisites";
 
+// Cas d'usage — UE annuelle (O-11) et dispense d'UE (O-14)
+export {
+  declareAnnualUe,
+  foldCurriculumUes,
+  listAnnualUes,
+  removeAnnualUe,
+  resolveAnnualLines,
+  type AnnualResolution,
+  type DeclareAnnualUeInput,
+} from "./application/annual-ue";
+export { commonLine, foldAnnualUes, isComplete as isAnnualUeComplete, type AnnualPart, type AnnualUeDef, type AnnualUeVerdict } from "./domain/annual-ue";
+export {
+  describeUes,
+  getExemptionSettings,
+  grantExemption,
+  listExemptions,
+  revokeExemption,
+  setExemptionCreditPolicy,
+  type GrantExemptionInput,
+  type RevokeExemptionInput,
+} from "./application/exemptions";
+export { DEFAULT_EXEMPTION_CREDIT_POLICY, EXEMPTION_CREDIT_POLICIES, type ExemptionCreditPolicy, type UeExemption } from "./domain/exemption";
+export type { AnnualUeEvaluation, AnnualUeEvaluationInput, AnnualUeRulePart } from "./application/ports";
+
 // Cas d'usage — rattrapage
 export {
   closeResitWindow,

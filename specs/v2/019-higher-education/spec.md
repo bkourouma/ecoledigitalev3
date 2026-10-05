@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-01
 
-**Status**: Rédigée — **backend implémenté** (module `higher`, migrations 1400-1409, voir `apps/api/src/modules/higher/README.md`) ; à relire avec le propriétaire du produit (questions : `../012-rules-engine/open-questions.md` §B, Q-01 à Q-05, Q-21, Q-22, Q-24, Q-25, Q-26)
+**Status**: Rédigée — **backend implémenté** (module `higher`, migrations 1400-1411, voir `apps/api/src/modules/higher/README.md`) ; à relire avec le propriétaire du produit (questions : `../012-rules-engine/open-questions.md` §B, Q-01 à Q-05, Q-21, Q-22, Q-24, Q-25, Q-26)
 
 > **Corrections de la spec à l'implémentation (2026-10-01)** — décisions métier validées (`../DECISIONS-METIER.md`) appliquées : la session 2 **remplace** la session 1 (aucune logique de note dans `higher`), un semestre est validé si **toutes** les UE le sont (les règles « 20 crédits » / « > 48 crédits » ne sont pas reprises). Incohérences levées :
 > - **Données** : voir l'encadré en tête de `data-model.md` (table de dettes `ue_debts`, durée de validité des crédits et statut `EXPIRED`, unicité des inscriptions de rattrapage par période, octroi forcé sans acquisition, scellement postérieur des documents, duplicata `/Dn`, `reaward_decision`).
@@ -228,6 +228,9 @@ Préfixe `/api/v1/higher` (pack `HIGHER`, `requireFeature`). Contrats Zod avant 
 | `higher.prerequisite.manage` | Gérer les prérequis entre UE | non |
 | `higher.resit.manage` | Gérer les fenêtres et candidats de rattrapage | non |
 | `higher.slot.manage` | Affecter les signataires des documents officiels | **oui** |
+| `higher.annual_ue.manage` | Déclarer / retirer une UE annuelle (O-11) | **oui** |
+| `higher.exemption.read` | Consulter les dispenses d'UE (O-14) | |
+| `higher.exemption.grant` | Accorder ou révoquer une dispense d'UE (direction, O-14) | **oui** |
 
 Features : `higher.diplomas`, `higher.session2`, `higher.prerequisites`, `higher.attestations` (pack `HIGHER`). L'enseignant n'a **aucun** accès aux diplômes (parité 029).
 
@@ -291,3 +294,26 @@ Consommés : `results.period.closed` / `.reopened` / `results.decision.confirmed
 5. Le rattrapage de bout en bout (fenêtre, notes de session 2, reclôture) produit la capitalisation `session_obtained = 2` et la dette pour les UE non validées.
 6. Aucun nom de personne ni valeur de signataire par défaut dans le code (grep CI) ; l'émission sans signataire valide est refusée.
 7. `professional_diplomas*`, `student_professional_diplomas`, `student_professional_ue_results`, `professional_ue_prerequisites`, `professional_signataires`, `professional-cycle-groups.ts`, `professional-diplomas.service.ts`, `professional-attestations.service.ts`, `professional-signataires.service.ts` et les générateurs jsPDF de diplômes sont supprimés dans la même tranche.
+
+## 15. Décisions métier O-11 et O-14 (réponses du 2026-10-05, livrées, additives)
+
+Source : `specs/v2/REPONSES-METIER.md` (section « Écarts à implémenter »). Migrations **1410** et **1411** (additives : sans déclaration ni dispense, le comportement de la capitalisation est strictement inchangé — parité prouvée par test).
+
+### 15.1 O-11 — une UE gérée sur deux semestres (UE annuelle, résultat commun)
+
+- **Modèle** (1410) : `annual_ues` (UE « ancre » = lignée qui porte l'écriture au registre, aux prérequis et aux exigences de diplôme ; `parts_expected` 2 à 4 ; motif), `annual_ue_members` (lignées qui l'alimentent ; une lignée n'alimente qu'**une** UE annuelle), `annual_ue_parts` (résultat FINAL de chaque semestre reçu de `results`, par étudiant et année ; mis à jour à chaque reclôture, jamais supprimé).
+- **Mécanisme** : à la clôture d'un semestre, `capitalizePeriod` **n'écrit pas** la partie au registre : il l'enregistre. Quand les résultats FINAL de tous les semestres attendus sont reçus (semestres **distincts**), le port des règles évalue le résultat **commun** et l'UE annuelle suit alors la capitalisation **ordinaire** (une écriture sous l'ancre, dette, événements, révocation si le résultat est remplacé — y compris par la reclôture d'un autre semestre). Tant qu'il manque un semestre : rien au registre, **aucune dette** ; le rapport porte `annual: { pending, evaluated }` (champ présent seulement quand une UE annuelle est concernée).
+- **Règles (aucune formule ni seuil dans le module)** : `DiplomaRulesPort.evaluateAnnualUe` réutilise les règles **existantes** du contrat `credit-semester@1`, d'une seule version épinglée — `moyenne_annuelle` (moyenne commune pondérée par les crédits de chaque semestre), `credits_ue` (crédits de l'UE annuelle), `ue_validee` (sur la moyenne commune, seuils du RuleSet de démonstration), `etat_ue` (rattrapage épuisé = aucune partie « à repasser »), `session_validation_ue`. Si **chaque** partie a été validée par le jury, la décision humaine prime (`ue_validee` n'est pas réévaluée). Sans jeu de règles actif : refus (`rules.no_active_ruleset`), **rien n'est écrit** (transaction annulée). **Point à arbitrer** : la pondération par crédits est celle de `moyenne_annuelle` (partagée avec la moyenne de cycle) ; une pondération différente demanderait une règle dédiée dans une nouvelle version du RuleSet.
+- **Diplômes et attestations** : les exigences issues du curriculum **replient** les UE annuelles (une exigence sous l'ancre, crédits = somme des parties ; la partie n'est pas exigée à part) — `createDiplomaFromCurriculum`, `syncDiplomaRequirements`, roster et émission d'attestation.
+- **API** : `GET|POST /annual-ues` (lecture `higher.diploma.read`, écriture `higher.annual_ue.manage`, motif ≥ 5 car., audit sensible), `POST /annual-ues/:id/remove` (refusé dès qu'un résultat de semestre est enregistré : `higher.annual_ue_in_use`). Codes : `higher.annual_ue_exists`, `_member_taken`, `_unknown_ue`, `_not_found`, `_in_use`.
+- **Écrans** : « UE annuelles » (`/v2/higher/annual-ues`) ; les écrans de diplôme (exigences) et d'attestation reflètent le repli ; la vue Crédits affiche l'écriture sous l'UE principale.
+- **Tests** : unitaires (domaine pur, adaptateur de règles), intégration (cycle S1 -> S2, ordre inversé, dette, rattrapage, reclôture, échec fermé, jury), **parité** (une UE annuelle déclarée sur d'autres UE ne change rien pour les UE ordinaires : mêmes écritures, mêmes dettes, même rapport), règles **réelles** (`CI-HIGHER-LMD`), isolation A/B, HTTP.
+
+### 15.2 O-14 — dispense d'UE manuelle avec motif (direction)
+
+- **Modèle** (1411) : `ue_exemptions` (étudiant, inscription, UE par lignée, semestre de rattachement, crédits figés, motif ≥ 10 car., politique appliquée figée, écriture de registre éventuelle, auteur, date, révocation motivée ; **une dispense active** par (étudiant, UE) ; contenu figé par déclencheur, jamais supprimée) et `higher.settings.exemption_credit_policy`.
+- **Impact sur les crédits et la validation = PARAMÈTRE de l'établissement** (`GET|PUT /exemption-settings`, `higher.settings.manage`, audit sensible) : `RECORD_ONLY` (**défaut**) la dispense est seulement tracée, aucun effet sur le registre, la validation ni l'éligibilité ; `GRANT_CREDITS` une acquisition `acquired_via = EXEMPTION` est inscrite (crédits de l'UE figés ; l'UE compte pour les prérequis, l'attestation et l'éligibilité ; une dette est levée ; `higher.credits.capitalized` est publié). Une clôture ultérieure ne révoque **jamais** l'écriture d'une dispense (ni d'un transfert).
+- **API** : `GET /exemptions` (`higher.exemption.read`), `POST /exemptions` et `POST /exemptions/:id/revoke` (`higher.exemption.grant`, sensible, motif ≥ 10 car.). Pas de séparation des tâches. Une UE annuelle se dispense par son ancre (crédits = somme des parties). La révocation révoque l'écriture de crédits, sauf si un diplôme octroyé s'y appuie (`higher.credit_in_use`).
+- **Événements** (`v: 1`, sans donnée d'identité) : `higher.ue.exempted`, `higher.ue.exemption_revoked`. **Audit** : `higher.exemption.granted|revoked` (sensible, motif), `higher.exemption_policy.updated`.
+- **Écran minimal** : « Dispenses d'UE » (`/v2/higher/exemptions`) : liste filtrable, octroi (étudiant, inscription, UE, semestre, motif), révocation motivée, politique de crédits.
+- **Codes** : `higher.exemption_reason_required`, `_exists`, `_not_found`, `_already_revoked`, `_unknown_ue`, `_ue_already_acquired`, `_enrollment_mismatch`.

@@ -8,6 +8,7 @@
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import { isUniqueViolation, type Tx } from "@ecoledigitale/database";
 import { isCurrentlyValid, sumCredits } from "../domain/credits";
+import { foldCurriculumUes } from "./annual-ue";
 import { computeProgress, resolveRequirementStates, toEligibilityContext, type DiplomaProgress, type RequirementState } from "../domain/diploma";
 import { HigherCode, conflict, notFound, validation } from "../domain/errors";
 import type { DiplomaAward, DiplomaDefinition, DiplomaRequirement, DiplomaStatus, Uuid } from "../domain/types";
@@ -70,7 +71,9 @@ async function loadCycleUe(deps: HigherDeps, ctx: RequestContext, nodeId: Uuid):
   const node = await deps.ports.curriculum.getNode(ctx, nodeId);
   if (!node) return err(notFound(HigherCode.CURRICULUM_NODE_NOT_FOUND, "Nœud du curriculum", nodeId));
   if (!node.isCycle && !node.isProgram) return err(validation(HigherCode.NOT_A_CYCLE_NODE, "Le diplôme doit être rattaché à un cycle ou à un programme du curriculum.", "curriculumNodeId"));
-  const ues = node.isCycle ? await deps.ports.curriculum.listCycleUe(ctx, nodeId) : await deps.ports.curriculum.listProgramUe(ctx, nodeId);
+  const all = node.isCycle ? await deps.ports.curriculum.listCycleUe(ctx, nodeId) : await deps.ports.curriculum.listProgramUe(ctx, nodeId);
+  // O-11 : une UE annuelle est UNE exigence (sous son ancre, crédits = somme des parties) ; sans déclaration, liste inchangée.
+  const ues = await foldCurriculumUes(deps, ctx, all);
   return ok({ node, ues });
 }
 
