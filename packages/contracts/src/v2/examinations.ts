@@ -364,6 +364,23 @@ export const examUpdateExternalCandidateBodySchema = z
   .strict();
 export const examAnonymizeBodySchema = z.object({ reason: z.string().trim().min(10).max(500) }).strict();
 
+// --- Frais d'examen intégrés à l'inscription (Q-E13) : barème de l'établissement, obligation du candidat -----------------------------
+
+export const EXAM_FEE_APPLIES_TO = ["ALL", "STUDENT", "EXTERNAL"] as const;
+export const examFeeAppliesToSchema = z.enum(EXAM_FEE_APPLIES_TO);
+export type ExamFeeAppliesTo = z.infer<typeof examFeeAppliesToSchema>;
+export const EXAM_FEE_STATUSES = ["NOT_APPLICABLE", "PENDING_INVOICE", "INVOICED", "AWAITING_MANUAL_INVOICE", "CANCELLED", "REFUND_DUE", "REFUND_DONE"] as const;
+export const examFeeStatusSchema = z.enum(EXAM_FEE_STATUSES);
+export type ExamFeeStatus = z.infer<typeof examFeeStatusSchema>;
+export const EXAM_FEE_PAYMENT_STATUSES = ["NONE", "UNPAID", "PARTIAL", "PAID", "CANCELLED", "CREDITED", "UNKNOWN"] as const;
+export const examFeePaymentStatusSchema = z.enum(EXAM_FEE_PAYMENT_STATUSES);
+
+/** Barème de frais d'examen d'un type : les frais du catalogue de `finance` qui s'appliquent. VIDE par défaut ; aucun montant ici. */
+export const examSetFeeItemsBodySchema = z
+  .object({ items: z.array(z.object({ feeId: z.string().uuid(), appliesTo: examFeeAppliesToSchema.default("ALL"), active: z.boolean().default(true) }).strict()).max(50) })
+  .strict();
+export const examRefundDoneBodySchema = z.object({ note: z.string().trim().min(5).max(500) }).strict();
+
 export const examIdentifierBodySchema = z
   .object({ kind: z.string().regex(/^[A-Z][A-Z0-9_]{1,39}$/), value: z.string().trim().min(1).max(60).regex(/^[^\u0000-\u001f]+$/, "Caractères de contrôle interdits.") })
   .strict();
@@ -691,6 +708,28 @@ export const examEligibilityCheckDtoSchema = z.object({
   overrideReason: nullableStr,
 });
 export type ExamEligibilityCheckDto = z.infer<typeof examEligibilityCheckDtoSchema>;
+export const examFeeItemDtoSchema = z.object({ id: examUuidSchema, feeId: examUuidSchema, appliesTo: examFeeAppliesToSchema, active: z.boolean(), label: z.string().nullable(), currency: z.string().nullable() });
+export type ExamFeeItemDto = z.infer<typeof examFeeItemDtoSchema>;
+export const examFeeCatalogEntryDtoSchema = z.object({ feeId: examUuidSchema, code: z.string(), label: z.string(), currency: z.string(), active: z.boolean() });
+export type ExamFeeCatalogEntryDto = z.infer<typeof examFeeCatalogEntryDtoSchema>;
+/** Obligation d'un candidat : état de la facturation (stocké) + état du paiement relu EN DIRECT auprès de `finance`. */
+export const examCandidateFeeDtoSchema = z.object({
+  candidateId: examUuidSchema,
+  status: examFeeStatusSchema,
+  payerKind: z.enum(["STUDENT", "EXTERNAL"]),
+  currency: z.string().nullable(),
+  /** Unités mineures de la devise (entier) ; `null` tant que non facturé : aucun tarif n'est inventé. */
+  totalMinor: z.number().int().nullable(),
+  lines: z.array(z.object({ feeId: examUuidSchema, label: z.string().nullable(), amountMinor: z.number().int().nullable() })),
+  invoiceId: examUuidSchema.nullable(),
+  invoiceNumber: z.string().nullable(),
+  payment: z.object({ status: examFeePaymentStatusSchema, paidMinor: z.number().int().nullable() }),
+  lastErrorCode: z.string().nullable(),
+  note: z.string().nullable(),
+  refundConfirmedAt: z.string().nullable(),
+});
+export type ExamCandidateFeeDto = z.infer<typeof examCandidateFeeDtoSchema>;
+export const examFeeSyncReportSchema = z.object({ settled: z.number().int(), stillPending: z.number().int(), failed: z.array(z.object({ candidateId: examUuidSchema, code: z.string(), message: z.string() })) });
 export const examPieceDtoSchema = z.object({ requirementId: examUuidSchema, code: z.string(), label: z.string(), required: z.boolean(), status: examPieceStatusSchema, documentRef: examUuidSchema.nullable(), presentationKind: z.enum(["DOCUMENT", "SIGHTED"]).default("DOCUMENT"), sightedNote: nullableStr.default(null), rejectionReason: nullableStr, reviewedAt: nullableStr });
 export type ExamPieceDto = z.infer<typeof examPieceDtoSchema>;
 export const examPiecesDtoSchema = z.object({ pieces: z.array(examPieceDtoSchema), missing: z.array(z.string()) });
@@ -967,7 +1006,7 @@ export const EXAMINATIONS_ERROR_CODES = [
   "examinations.document_already_live", "examinations.revoke_reason_required", "examinations.mock_no_official_document",
   "examinations.group_unknown", "examinations.rate_limited",
   "examinations.external_only", "examinations.external_official_only", "examinations.candidate_anonymized", "examinations.piece_mode_mismatch",
-  "examinations.external_profile_incomplete",
+  "examinations.external_profile_incomplete", "examinations.fee_not_found", "examinations.fee_state", "examinations.fee_item_invalid",
 ] as const;
 
 // ---------------------------------------------------------------------------

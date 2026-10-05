@@ -17,6 +17,8 @@ export const PERMISSIONS = {
   candidateRead: "exam.candidate.read",
   candidateManage: "exam.candidate.manage",
   externalManage: "exam.external.manage",
+  feeRead: "exam.fee.read",
+  feeManage: "exam.fee.manage",
   externalRead: "exam.external.read",
   externalAnonymize: "exam.external.anonymize",
   eligibilityEvaluate: "exam.eligibility.evaluate",

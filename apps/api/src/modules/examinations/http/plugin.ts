@@ -37,6 +37,8 @@ import {
   examCreateTypeBodySchema,
   examEligibilityBodySchema,
   examExternalBatchBodySchema,
+  examRefundDoneBodySchema,
+  examSetFeeItemsBodySchema,
   examFromClassroomBodySchema,
   examIdentifierBodySchema,
   examImportRowsQuerySchema,
@@ -76,6 +78,7 @@ import type { ModuleRuntime } from "../../../platform/runtime";
 import { getRequestCtx } from "../../rbac";
 import { actOnPiece, listPieces } from "../application/pieces";
 import { autoAssign, assignCandidate, getAssignmentsOverview, setSessionCenters, unassignCandidate } from "../application/assignments";
+import { confirmRefund, getCandidateFee, listFeeCatalog, listFeeItems, setFeeItems, syncCandidateFee, syncSessionFees } from "../application/fees";
 import { anonymizeExternalCandidate, createExternalBatch, createExternalCandidate, getExternalProfile, updateExternalCandidate } from "../application/external-candidates";
 import { createCandidate, createFromClassroom, getCandidateDetail, listCandidates, registerBatch, registerCandidate, setIdentifier, updateCandidateTrack, withdrawCandidate } from "../application/candidates";
 import { createExaminationsDeps, type ExaminationsDeps } from "../application/deps";
@@ -284,6 +287,17 @@ export async function examinationsPlugin(app: FastifyInstance, options: Examinat
     });
     scope.put("/candidates/:id/external-profile", g(kit.require(P.externalManage), ...core), async (request) => unwrapOrThrow(await updateExternalCandidate(deps, ctxOf(request), idOf(request.params), parse(examUpdateExternalCandidateBodySchema, request.body))));
     scope.post("/candidates/:id/anonymize", g(kit.require(P.externalAnonymize), ...core), async (request) => unwrapOrThrow(await anonymizeExternalCandidate(deps, ctxOf(request), idOf(request.params), parse(examAnonymizeBodySchema, request.body).reason)));
+    // --- frais d'examen intégrés à l'inscription (Q-E13) : barème par type, obligation du candidat, reprise, remboursement manuel
+    scope.get("/exam-types/:id/fee-items", g(kit.anyOf(P.feeRead, P.feeManage), ...core), async (request) => ({ items: unwrapOrThrow(await listFeeItems(deps, ctxOf(request), idOf(request.params))) }));
+    scope.put("/exam-types/:id/fee-items", g(kit.require(P.feeManage), ...core), async (request) => ({ items: unwrapOrThrow(await setFeeItems(deps, ctxOf(request), idOf(request.params), parse(examSetFeeItemsBodySchema, request.body))) }));
+    scope.get("/fee-catalog", g(kit.require(P.feeManage), ...core), async (request) => ({ items: unwrapOrThrow(await listFeeCatalog(deps, ctxOf(request))) }));
+    scope.get("/candidates/:id/fee", g(kit.anyOf(P.feeRead, P.feeManage), ...core), async (request) => unwrapOrThrow(await getCandidateFee(deps, ctxOf(request), idOf(request.params))));
+    scope.post("/candidates/:id/fee/sync", g(kit.require(P.feeManage), ...core), async (request) => unwrapOrThrow(await syncCandidateFee(deps, ctxOf(request), idOf(request.params))));
+    scope.post("/candidates/:id/fee/refund-done", g(kit.require(P.feeManage), ...core), async (request) => unwrapOrThrow(await confirmRefund(deps, ctxOf(request), idOf(request.params), parse(examRefundDoneBodySchema, request.body).note)));
+    scope.post("/sessions/:id/fees/sync", g(kit.require(P.feeManage), ...core), async (request, reply) => {
+      await limit(request, reply, "bulk");
+      return unwrapOrThrow(await syncSessionFees(deps, ctxOf(request), idOf(request.params)));
+    });
     scope.get("/candidates/:id/documents", g(kit.anyOf(P.candidateRead, P.candidateManage), ...core), async (request) => unwrapOrThrow(await listPieces(deps, ctxOf(request), idOf(request.params))));
     scope.put("/candidates/:id/documents/:reqId", g(kit.require(P.candidateManage), ...core), async (request) => unwrapOrThrow(await actOnPiece(deps, ctxOf(request), idOf(request.params), idOf(request.params, "reqId"), parse(examPieceActionBodySchema, request.body))));
     scope.put("/candidates/:id/identifiers", g(kit.require(P.candidateManage), ...core), async (request) => unwrapOrThrow(await setIdentifier(deps, ctxOf(request), idOf(request.params), parse(examIdentifierBodySchema, request.body))));

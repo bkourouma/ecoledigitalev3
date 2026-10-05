@@ -21,6 +21,7 @@ import * as sess from "../infrastructure/sessions-repo";
 import * as out from "../infrastructure/outputs-repo";
 import { toAssignmentDto, toCandidateDto, toCheckDto, toDocumentDto, toHistoryDto, toIdentifierDto, toPieceDto, toResultDto, toScoreDto } from "./dto";
 import { attempt, EventBuffer, inTx, type ExaminationsDeps } from "./deps";
+import { createFeeInTx, settleQuietly } from "./fees";
 import type { EnrollmentFacts } from "./ports";
 
 const OFFICIAL_NUMBER = "OFFICIAL_NUMBER";
@@ -234,7 +235,7 @@ export async function updateCandidateTrack(deps: ExaminationsDeps, ctx: RequestC
 
 /** Inscription d'un candidat LIBRE : identité déjà saisie (nom, prénoms, naissance, sexe), profil présent ; le numéro vient du même compteur sans trou. */
 async function registerExternal(deps: ExaminationsDeps, ctx: RequestContext, id: string): Promise<Result<ExamCandidateDto, AppError>> {
-  return inTx(deps, ctx, async (tx) => {
+  const done = await inTx(deps, ctx, async (tx) => {
     const c = await cand.getCandidate(tx, id, { forUpdate: true });
     if (!c) return err(notFound(ExamCode.CANDIDATE_NOT_FOUND, "Candidat", id));
     if (c.anonymizedAt) return err(conflict(ExamCode.CANDIDATE_ANONYMIZED, "Ce candidat est anonymisé : il ne peut plus être inscrit."));
@@ -251,9 +252,13 @@ async function registerExternal(deps: ExaminationsDeps, ctx: RequestContext, id:
     const events = new EventBuffer(deps, ctx);
     events.add(ExaminationsEvents.CANDIDATE_REGISTERED, { v: 1, sessionId: registered.sessionId, candidateId: registered.id, studentId: null, candidateKind: "EXTERNAL", institutionId: s.institutionId, candidateNumber: registered.candidateNumber ?? "" }, { type: "examinations.candidate", id: registered.id });
     events.audit({ action: "examinations.candidate.register", resourceType: "candidate", resourceId: id, after: { candidateNumber: registered.candidateNumber }, metadata: { sessionId: registered.sessionId, candidateKind: "EXTERNAL" } });
+    // Frais d'examen (Q-E13) : l'obligation naît avec l'inscription ; la facture est demandée à `finance` APRÈS la validation.
+    await createFeeInTx(deps, ctx, tx, registered, s);
     await events.flush(tx);
     return ok(toCandidateDto(registered));
   });
+  if (done.ok) await settleQuietly(deps, ctx, id);
+  return done;
 }
 
 /** Inscrit le candidat : identité figée à cet instant, numéro attribué par la base. Les gardes (éligibilité, pièces) sont celles de la base. */
@@ -274,7 +279,7 @@ export async function registerCandidate(deps: ExaminationsDeps, ctx: RequestCont
   if (!identity.birthDate) missing.push("date de naissance");
   if (!identity.sex) missing.push("sexe");
   if (missing.length > 0) return err(validation(ExamCode.IDENTITY_INCOMPLETE, `L'état civil de l'élève est incomplet (${missing.join(", ")}) : le compléter avant l'inscription à l'examen.`, "identity", { missing }));
-  return inTx(deps, ctx, async (tx) => {
+  const done = await inTx(deps, ctx, async (tx) => {
     const c = await cand.getCandidate(tx, id, { forUpdate: true });
     if (!c) return err(notFound(ExamCode.CANDIDATE_NOT_FOUND, "Candidat", id));
     const registered = await cand.registerCandidate(tx, id, {
@@ -285,9 +290,13 @@ export async function registerCandidate(deps: ExaminationsDeps, ctx: RequestCont
     const events = new EventBuffer(deps, ctx);
     events.add(ExaminationsEvents.CANDIDATE_REGISTERED, { v: 1, sessionId: row.sessionId, candidateId: row.id, studentId: row.studentId, candidateKind: row.candidateKind, institutionId: s.institutionId, candidateNumber: row.candidateNumber ?? "" }, { type: "examinations.candidate", id: row.id });
     events.audit({ action: "examinations.candidate.register", resourceType: "candidate", resourceId: id, after: { candidateNumber: row.candidateNumber }, metadata: { sessionId: row.sessionId } });
+    // Frais d'examen (Q-E13) : l'obligation naît avec l'inscription ; la facture est demandée à `finance` APRÈS la validation.
+    await createFeeInTx(deps, ctx, tx, row, s);
     await events.flush(tx);
     return ok(toCandidateDto(row));
   });
+  if (done.ok) await settleQuietly(deps, ctx, id);
+  return done;
 }
 
 export interface RegisterBatchReport {
@@ -307,7 +316,7 @@ export async function registerBatch(deps: ExaminationsDeps, ctx: RequestContext,
 }
 
 export async function withdrawCandidate(deps: ExaminationsDeps, ctx: RequestContext, id: string, reason: string, options: { reasonCode?: "MANUAL" | "ENROLLMENT_WITHDRAWN" } = {}): Promise<Result<ExamCandidateDto, AppError>> {
-  return inTx(deps, ctx, async (tx) => {
+  const done = await inTx(deps, ctx, async (tx) => {
     const c = await cand.getCandidate(tx, id, { forUpdate: true });
     if (!c) return err(notFound(ExamCode.CANDIDATE_NOT_FOUND, "Candidat", id));
     const s = (await sess.getSession(tx, c.sessionId)) as SessionRow;
@@ -320,6 +329,9 @@ export async function withdrawCandidate(deps: ExaminationsDeps, ctx: RequestCont
     await events.flush(tx);
     return ok(toCandidateDto(withdrawn));
   });
+  // Frais d'examen (Q-E13) : facture annulée si non encaissée, sinon remboursement manuel signalé (jamais bloquant pour le retrait).
+  if (done.ok) await settleQuietly(deps, ctx, id);
+  return done;
 }
 
 // ------------------------------------------------------------------ identifiants officiels

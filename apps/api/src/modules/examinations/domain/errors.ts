@@ -66,6 +66,10 @@ export const ExamCode = {
   CANDIDATE_ANONYMIZED: "examinations.candidate_anonymized",
   PIECE_MODE_MISMATCH: "examinations.piece_mode_mismatch",
   EXTERNAL_PROFILE_INCOMPLETE: "examinations.external_profile_incomplete",
+  // Frais d'examen (Q-E13)
+  FEE_NOT_FOUND: "examinations.fee_not_found",
+  FEE_STATE: "examinations.fee_state",
+  FEE_ITEM_INVALID: "examinations.fee_item_invalid",
   // Éligibilité
   NO_RULE_VERSION: "examinations.no_rule_version",
   RULE_EVALUATION_FAILED: "examinations.rule_evaluation_failed",

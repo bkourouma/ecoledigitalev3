@@ -241,6 +241,56 @@ export interface OfficialDocumentPort {
 }
 
 // ---------------------------------------------------------------------------
+// Frais d'examen (finance) — décision métier Q-E13 : intégrés à l'inscription du candidat
+// ---------------------------------------------------------------------------
+
+/** Un frais du catalogue de `finance` (catégorie EXAMS) que l'établissement peut inscrire à son barème d'examen. Aucun montant ici : il reste dans `finance`. */
+export interface ExamFeeCatalogEntry {
+  feeId: string;
+  code: string;
+  label: string;
+  currency: string;
+  active: boolean;
+}
+
+/** Payeur d'un candidat : un élève (apprenant de `finance`) ou un candidat LIBRE (aucun compte famille : AUCUNE donnée personnelle transmise). */
+export type ExamFeePayer = { kind: "STUDENT"; studentId: string; enrollmentId: string | null } | { kind: "EXTERNAL" };
+
+export interface ExamInvoiceLine {
+  feeId: string | null;
+  label: string;
+  /** Unités mineures de la devise (entier). */
+  amountMinor: number;
+}
+
+export type ExamIssueOutcome =
+  | { mode: "INVOICED"; invoiceId: string; invoiceNumber: string | null; currency: string; totalMinor: number; lines: ExamInvoiceLine[] }
+  /** `finance` ne facture que des apprenants : la facture d'un candidat libre (à son nom ou à celui de son tuteur) est à établir par la comptabilité. */
+  | { mode: "MANUAL_REQUIRED"; reason: "NO_LEARNER_ACCOUNT" };
+
+export type ExamInvoiceStatus = "DRAFT" | "ISSUED" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "CANCELLED" | "CREDITED";
+
+export interface ExamInvoiceState {
+  invoiceId: string;
+  number: string | null;
+  status: ExamInvoiceStatus;
+  currency: string;
+  totalMinor: number;
+  paidMinor: number;
+}
+
+export interface ExamFeesPort {
+  /** Frais actifs de catégorie EXAMS du catalogue de `finance` (aide au paramétrage du barème). */
+  listCatalog(ctx: RequestContext): Promise<Result<ExamFeeCatalogEntry[], AppError>>;
+  /** Établit la facture des frais désignés ; IDEMPOTENT par `idempotencyKey` (un rejeu rend la même facture). */
+  issueInvoice(ctx: RequestContext, input: { candidateId: string; payer: ExamFeePayer; feeIds: readonly string[]; idempotencyKey: string }): Promise<Result<ExamIssueOutcome, AppError>>;
+  /** État courant (statut, total, encaissé) d'une facture, ou `null` si elle est inconnue. Lecture en direct : jamais de copie du paiement. */
+  getInvoiceState(ctx: RequestContext, invoiceId: string): Promise<Result<ExamInvoiceState | null, AppError>>;
+  /** Annule une facture NON encaissée ; une facture encaissée n'est jamais touchée (`hasPayments: true`) : le remboursement est manuel (Q-PAY-32). */
+  cancelInvoice(ctx: RequestContext, input: { invoiceId: string; reason: string }): Promise<Result<{ cancelled: boolean; hasPayments: boolean }, AppError>>;
+}
+
+// ---------------------------------------------------------------------------
 // Stockage d'objets (fichiers d'import et d'export) — même forme que le port de `documents`
 // ---------------------------------------------------------------------------
 
@@ -269,6 +319,7 @@ export interface ExaminationsPorts {
   readonly assess: AssessPort;
   readonly pieces: PieceDocumentPort;
   readonly officialDocuments: OfficialDocumentPort;
+  readonly fees: ExamFeesPort;
   readonly storage: StoragePort;
 }
 

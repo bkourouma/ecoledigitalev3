@@ -30,6 +30,7 @@ import { registerExaminationsPorts, setExaminationsWorkerPorts, type Examination
 import { createExaminationsAssessPort } from "./examinations-assess";
 import { createExaminationsEligibilityFacts, createExaminationsFamilyLinks, createExaminationsInstitutions, createExaminationsStudentDirectory } from "./examinations-directories";
 import { createExaminationsOfficialDocuments, createExaminationsPieceDocuments } from "./examinations-documents";
+import { createExaminationsFees, createExaminationsFinanceDeps } from "./examinations-finance";
 import { createExaminationsRulesPort } from "./examinations-rules";
 import { registerAttendancePorts, type AttendancePorts } from "../../modules/attendance";
 import { registerFinancePorts, type FinancePortSet } from "../../modules/finance";
@@ -362,6 +363,8 @@ export function buildPlatformPorts(
     assess: createExaminationsAssessPort(assess),
     pieces: createExaminationsPieceDocuments(documentsDeps),
     officialDocuments: createExaminationsOfficialDocuments(officialDocuments),
+    // Frais d'examen (Q-E13) : facturation par les cas d'usage PUBLICS de finance (vrai audit, vrais annuaires d'apprenants et d'inscriptions).
+    fees: createExaminationsFees(createExaminationsFinanceDeps(kit, () => base.finance, extras.audit)),
     ...(storage ? { storage: asDocumentsStorage(storage) } : {}),
   };
   // Élèves affectés par l'État (006) : lectures et écriture du financement par les cas d'usage PUBLICS d'academic, finance,

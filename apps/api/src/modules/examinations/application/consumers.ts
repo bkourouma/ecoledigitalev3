@@ -14,6 +14,7 @@ import * as cand from "../infrastructure/candidates-repo";
 import * as sess from "../infrastructure/sessions-repo";
 import { ASSIGNMENT_OPEN } from "../domain/lifecycle";
 import { attempt, EventBuffer, inTx, type ExaminationsDeps } from "./deps";
+import { settleQuietly } from "./fees";
 
 export interface ConsumeReport {
   affected: number;
@@ -26,7 +27,8 @@ export async function onEnrollmentWithdrawn(deps: ExaminationsDeps, tenantId: st
   const parsed = examinationsConsumedEnrollmentWithdrawnSchema.safeParse(payload);
   if (!parsed.success) return err(validation(ExamCode.INVALID_INPUT, "Charge de l'événement d'inscription retirée illisible.", "payload"));
   const ctx = createSystemContext(tenantId);
-  return inTx(deps, ctx, async (tx) => {
+  const withdrawnIds: string[] = [];
+  const result = await inTx(deps, ctx, async (tx) => {
     const live = await cand.listCandidatesOfEnrollment(tx, parsed.data.enrollmentId);
     if (live.length === 0) return ok({ affected: 0, ignored: "aucune candidature vivante pour cette inscription" });
     const events = new EventBuffer(deps, ctx);
@@ -42,9 +44,15 @@ export async function onEnrollmentWithdrawn(deps: ExaminationsDeps, tenantId: st
         return ok(true);
       });
       // Retrait refusé par la base (résultats déjà saisis) : le candidat est conservé, ce n'est pas une erreur du consommateur.
-      if (r.ok && r.value) affected += 1;
+      if (r.ok && r.value) {
+        affected += 1;
+        withdrawnIds.push(c.id);
+      }
     }
     await events.flush(tx);
     return ok({ affected });
   });
+  // Frais d'examen (Q-E13) : obligation soldée après la validation du retrait ; un `finance` indisponible laisse l'obligation rejouable.
+  if (result.ok) for (const id of withdrawnIds) await settleQuietly(deps, ctx, id);
+  return result;
 }

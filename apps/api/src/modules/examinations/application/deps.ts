@@ -70,6 +70,7 @@ export function createExaminationsDeps(input: ExaminationsDepsInput): Examinatio
     get assess() { return resolve().assess ?? fallback.assess; },
     get pieces() { return resolve().pieces ?? fallback.pieces; },
     get officialDocuments() { return resolve().officialDocuments ?? fallback.officialDocuments; },
+    get fees() { return resolve().fees ?? fallback.fees; },
     get storage() { return resolve().storage ?? fallback.storage; },
   };
   return {

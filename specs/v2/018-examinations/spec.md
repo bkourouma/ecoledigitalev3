@@ -56,7 +56,7 @@ Types d'examens, séries, épreuves, pièces exigées, formats d'export ; sessio
 | Intégration technique avec une plateforme publique d'examens (PRD §20 : « lorsqu'une interface officielle existe ») | futur : le port d'échange est le **format d'export/import** en données |
 | Délibération du jury **national** (l'autorité) | hors périmètre : on enregistre ses résultats |
 | Emploi du temps des épreuves, surveillance | 017 (`kind = EXAM`) — voir §14 |
-| Frais d'inscription à l'examen | 014 (question Q-E13) |
+| Frais d'inscription à l'examen | 014 : les montants et les factures restent dans `finance` ; ce module porte le **barème** (quels frais pour quel type) et l'**obligation** de chaque candidat (décision Q-E13 : frais intégrés à l'inscription) |
 | Orientation / admission en 6e à partir du CEPE | 006 / 007 (consomment le résultat) |
 | Import générique de fichiers (colonnes, mapping, rapport) | 031 (le module livre le **lot** et ses lignes ; l'analyse de fichier peut passer par 031) |
 

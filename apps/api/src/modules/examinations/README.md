@@ -2,7 +2,7 @@
 
 Moteur d'examens **générique** : CEPE, BEPC, BAC, BTS sont des **types** (lignes de données), pas du code. Séries, épreuves, coefficients, pièces exigées, formats d'export et d'import sont des **données** ; l'éligibilité, la moyenne et l'issue d'un examen **blanc**, le taux de réussite sont des **règles** (`rules`, contrat `exam-national@1`). **Aucune constante réglementaire dans le module** (test `module.unit.test.ts` : lint R2). L'admission d'un examen **officiel** est celle que l'autorité prononce : le module l'**enregistre** (saisie ou import), il ne la **calcule jamais** (déclencheur `official_not_computed`).
 
-- Schéma Postgres : `examinations` — migrations **2000–2005** (plage 2000–2099).
+- Schéma Postgres : `examinations` — migrations **2000–2006** (plage 2000–2099).
 - Packs : `PRIMARY`, `SECONDARY`, `HIGHER` ; features `examinations.core`, `.mock`, `.exports`.
 - CEPE livré en **données FICTIVES** marquées `source_kind = placeholder` (3 épreuves `EP1`–`EP3`, pièce « acte de naissance », 2 formats d'export, 1 format d'import) : `POST /exam-types/instantiate-pack {"pack":"PRIMARY"}` (idempotent). Un bandeau « Règles de démonstration » (`demoRules`) et un filigrane sur les documents scellés sont reportés tant que les données ou la règle sont fictives.
 
@@ -60,6 +60,7 @@ Les migrations sont rejouées par `specs/v2/018-examinations/ddl/run.mjs` (195 t
 | Exports | `GET/POST /export-formats`, `GET/PATCH /export-formats/:id`, `POST …/publish`, `POST …/new-version`, `GET/POST /sessions/:id/exports`, `GET /exports/:id`, `GET /exports/:id/download` | `exam.export.manage` / `.run` |
 | Documents | `POST /candidates/:id/documents/issue`, `POST /sessions/:id/documents/issue-batch`, `GET /sessions/:id/issued-documents`, `POST /issued-documents/:id/revoke`, `GET /issued-documents/:id/file` | `exam.document.issue` |
 | Candidats libres (Q-E15) | `POST /sessions/:id/external-candidates`, `POST …/external-candidates/batch` (import en lot), `GET/PUT /candidates/:id/external-profile` (`?reveal=true` : numéro de pièce entier), `POST /candidates/:id/anonymize` | `exam.external.manage` ; `exam.external.read` (lecture auditée) ; `exam.external.anonymize` (sensible) |
+| Frais d'examen (Q-E13) | `GET/PUT /exam-types/:id/fee-items` (barème), `GET /fee-catalog`, `GET /candidates/:id/fee`, `POST /candidates/:id/fee/sync`, `POST /candidates/:id/fee/refund-done`, `POST /sessions/:id/fees/sync` | `exam.fee.read` ; `exam.fee.manage` |
 | Famille | `GET /me/exams`, `/me/exam-documents`, `/family/exams`, `/children/:studentId/exams`, `/children/:studentId/exam-documents`, `GET /family/exam-documents/:id/file` | `exam.document.self.read` / `.child.read` |
 
 Permissions ajoutées à la liste de la spec (additives) : `exam.candidate.read` (consultation par l'enseignant), `exam.result.read` (consultation des résultats et des demandes de révision).
@@ -79,6 +80,18 @@ Une personne qui n'est **pas élève** de l'établissement peut être inscrite �
 | Anonymisation | `POST /candidates/:id/anonymize` (motif ≥ 10 caractères, sensible, irréversible) : profil et identifiants personnels effacés, identité neutre (année de naissance seule), numéro, résultat et historique conservés ; plus aucun document nominatif |
 | Événements | `studentId: null` et `candidateKind: "EXTERNAL"` ; jamais de nom, contact ni pièce |
 
+## Frais d'examen intégrés à l'inscription (décision métier Q-E13)
+
+| Sujet | Mécanisme |
+|---|---|
+| Barème | `exam_fee_items` : pour un type d'examen, les frais du **catalogue de `finance`** (catégorie EXAMS) qui s'appliquent (`ALL`, `STUDENT`, `EXTERNAL`). **Vide par défaut**, aucun montant dans ce module : les montants sont ceux des barèmes de `finance` |
+| Inscription | une **obligation** (`candidate_fees`) est créée DANS la transaction d'inscription (session officielle) : `NOT_APPLICABLE` sans barème, sinon `PENDING_INVOICE` ; la facture est ensuite demandée à `finance` par le port `ExamFeesPort` (adaptateur `platform/adapters/examinations-finance.ts`, jamais de SQL croisé) |
+| Idempotence | clé `exam-fee-<candidat>` : un rejeu, une reprise, une inscription répétée ne créent jamais deux factures |
+| Indisponibilité de `finance` | l'inscription est **maintenue** ; l'obligation reste `PENDING_INVOICE` avec son code d'erreur (visible dans la fiche) ; `POST /candidates/:id/fee/sync` ou `POST /sessions/:id/fees/sync` rejoue |
+| Paiement | statut relu **en direct** auprès de `finance` (`UNPAID`, `PARTIAL`, `PAID`…, `UNKNOWN` si injoignable) : aucune copie qui se désynchronise |
+| Candidat libre | `finance` ne facture que des apprenants : l'obligation passe à `AWAITING_MANUAL_INVOICE` (facture à établir par la comptabilité, à son nom ou à celui de son tuteur) ; **aucune donnée personnelle** n'est transmise à `finance` |
+| Désinscription | obligation non facturée : `CANCELLED` ; facture non encaissée : annulée, `CANCELLED` ; facture **encaissée** : jamais annulée, `REFUND_DUE` puis `REFUND_DONE` quand une personne habilitée confirme le remboursement **manuel** (Q-PAY-32, sensible, audité) |
+
 ## Événements
 
 Publiés (`{ v: 1, … }`, **sans note ni identité**) : `examinations.session.opened|registration_closed|results_published|archived`, `candidate.registered|withdrawn`, `eligibility.evaluated`, `result.published` (issue seule ; **jamais** émis pour un examen blanc), `result.revised`, `revision.requested|rejected`, `import.applied`, `document.issued|revoked`, `export.completed`. Consommé : `academic.enrollment.withdrawn`.
@@ -94,6 +107,7 @@ Le module n'importe aucun autre module. Les adaptateurs `apps/api/src/platform/a
 | `RulesPort` | `rules` | contrat **`exam-national@1`** : règles `eligibilite`, `motif_eligibilite`, `moyenne_candidat`, `resultat_candidat`, `rang_candidat`, `taux_reussite` (et facultativement `mention_examen`) ; `resolve` + `loadVersion` + `evaluateMany` de `RulesApi` (déjà présents) | pas d'éligibilité automatique ni de calcul d'examen blanc ; saisie manuelle de l'éligibilité avec auteur |
 | `EligibilityFactsPort` | `academic` | `getEligibilityFacts(deps, ctx, { enrollmentId, examGradeLevelCode, referenceDate }) -> Result<{ inExamGrade: boolean; ageYears: number \| null }>` ; **à défaut**, l'adaptateur n'invente rien : `port_unavailable` | aucune évaluation sans faits |
 | `OfficialDocumentPort` | `reportcards` | natures `EXAM_CONVOCATION`, `EXAM_SUCCESS_CERTIFICATE`, `EXAM_TRANSCRIPT` acceptées par `requestOfficialDocument` (gabarits génériques) ; un refus `reportcards.unknown_document_kind` devient `port_unavailable` | documents indisponibles |
+| `ExamFeesPort` (Q-E13) | `finance` | `listFeeCatalog` (catégorie EXAMS), `issueInvoiceFromSchedule` (idempotent par clé), `getInvoiceById`, `cancelInvoice` (adaptateur `examinations-finance.ts`) ; un candidat libre sans compte famille : `MANUAL_REQUIRED` | obligation `PENDING_INVOICE` rejouable, inscription maintenue |
 | `AssessPort` | `assess` | `getAssessmentView` + `listPublishedGrades` (présents) ; type d'évaluation `EXAMEN_BLANC` | saisie manuelle des notes |
 | `PieceDocumentPort` | `documents` | lecture d'un document (propriétaire = élève) via `getDocument` | refus des dépôts |
 | `StudentDirectory`, `FamilyLinks`, `InstitutionDirectory` | `academic` + `people`, `iam` | `getRoster`, `getEnrollment`, `getStudent`, tutelle (`isGuardianOfStudent`, `listChildrenOfIdentity`, `resolveStudentForIdentity`) (présents) | échec fermé ; famille : aucun accès |

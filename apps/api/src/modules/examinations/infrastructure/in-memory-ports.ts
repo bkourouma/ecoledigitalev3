@@ -13,6 +13,11 @@ import type {
   AssessPort,
   AssessmentFacts,
   ClassroomRoster,
+  ExamFeeCatalogEntry,
+  ExamFeesPort,
+  ExamInvoiceLine,
+  ExamInvoiceState,
+  ExamInvoiceStatus,
   EligibilityFacts,
   EligibilityFactsPort,
   EnrollmentFacts,
@@ -52,6 +57,12 @@ export function unavailablePorts(): ExaminationsPorts {
     assess: { async getAssessment() { throw fail("assess"); }, async listPublishedGrades() { throw fail("assess"); } },
     pieces: { async verify() { throw fail("documents"); } },
     officialDocuments: { async request() { return err(fail("officialDocuments")); }, async read() { return err(fail("officialDocuments")); } },
+    fees: {
+      async listCatalog() { return err(fail("fees")); },
+      async issueInvoice() { return err(fail("fees")); },
+      async getInvoiceState() { return err(fail("fees")); },
+      async cancelInvoice() { return err(fail("fees")); },
+    },
     storage: {
       async put() { throw fail("storage"); },
       async get() { throw fail("storage"); },
@@ -118,6 +129,11 @@ export class InMemoryWorld {
   /** Si défini, `request` échoue avec ce code de refus (ex. nature de document inconnue de reportcards). */
   officialFailure: string | null = null;
   eligibilityFailure: string | null = null;
+  /** Frais d'examen (finance simulée) : catalogue EXAMS, factures, encaissements ; `feesFailure` simule un `finance` indisponible. */
+  readonly feeCatalog = new Map<string, ExamFeeCatalogEntry & { amountMinor: number }>();
+  readonly invoices = new Map<string, ExamInvoiceState & { idempotencyKey: string; lines: ExamInvoiceLine[]; cancelReason: string | null }>();
+  readonly issueCalls: Array<{ candidateId: string; payerKind: "STUDENT" | "EXTERNAL"; feeIds: string[]; idempotencyKey: string }> = [];
+  feesFailure: string | null = null;
 
   addStudent(identity: StudentIdentity): StudentIdentity {
     this.identities.set(identity.studentId, identity);
@@ -204,6 +220,41 @@ export function inMemoryPorts(world: InMemoryWorld, overrides: Partial<Examinati
       return ok(world.officialStates.get(input.documentId) ?? null);
     },
   };
+  const fees: ExamFeesPort = {
+    async listCatalog() {
+      if (world.feesFailure) return err(portUnavailable("fees", world.feesFailure));
+      return ok([...world.feeCatalog.values()].map(({ amountMinor: _amount, ...entry }) => entry));
+    },
+    async issueInvoice(ctx, input) {
+      if (world.feesFailure) return err(portUnavailable("fees", world.feesFailure));
+      world.issueCalls.push({ candidateId: input.candidateId, payerKind: input.payer.kind, feeIds: [...input.feeIds], idempotencyKey: input.idempotencyKey });
+      if (input.payer.kind === "EXTERNAL") return ok({ mode: "MANUAL_REQUIRED", reason: "NO_LEARNER_ACCOUNT" } as const);
+      const existing = [...world.invoices.values()].find((i) => i.idempotencyKey === input.idempotencyKey);
+      const chosen = input.feeIds.map((id) => world.feeCatalog.get(id));
+      if (chosen.some((c) => !c)) return err(portUnavailable("fees", "frais inconnu du catalogue"));
+      const lines: ExamInvoiceLine[] = (chosen as Array<ExamFeeCatalogEntry & { amountMinor: number }>).map((c) => ({ feeId: c.feeId, label: c.label, amountMinor: c.amountMinor }));
+      const invoice = existing ?? {
+        invoiceId: deterministicUuid(key(ctx, "invoice", input.idempotencyKey)), number: `FAC-${world.invoices.size + 1}`, status: "ISSUED" as ExamInvoiceStatus, currency: "XOF",
+        totalMinor: lines.reduce((s, l) => s + l.amountMinor, 0), paidMinor: 0, idempotencyKey: input.idempotencyKey, lines, cancelReason: null,
+      };
+      world.invoices.set(invoice.invoiceId, invoice);
+      return ok({ mode: "INVOICED", invoiceId: invoice.invoiceId, invoiceNumber: invoice.number, currency: invoice.currency, totalMinor: invoice.totalMinor, lines: invoice.lines } as const);
+    },
+    async getInvoiceState(_ctx, invoiceId) {
+      if (world.feesFailure) return err(portUnavailable("fees", world.feesFailure));
+      const i = world.invoices.get(invoiceId);
+      return ok(i ? ({ invoiceId: i.invoiceId, number: i.number, status: i.status, currency: i.currency, totalMinor: i.totalMinor, paidMinor: i.paidMinor } satisfies ExamInvoiceState) : null);
+    },
+    async cancelInvoice(_ctx, input) {
+      if (world.feesFailure) return err(portUnavailable("fees", world.feesFailure));
+      const i = world.invoices.get(input.invoiceId);
+      if (!i) return err(portUnavailable("fees", "facture inconnue"));
+      if (i.paidMinor > 0) return ok({ cancelled: false, hasPayments: true });
+      i.status = "CANCELLED";
+      i.cancelReason = input.reason;
+      return ok({ cancelled: true, hasPayments: false });
+    },
+  };
   return {
     students,
     eligibility,
@@ -214,6 +265,7 @@ export function inMemoryPorts(world: InMemoryWorld, overrides: Partial<Examinati
     assess,
     pieces,
     officialDocuments,
+    fees,
     storage: world.storage,
     ...overrides,
   };

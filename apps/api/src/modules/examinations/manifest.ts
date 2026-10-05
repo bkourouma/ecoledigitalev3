@@ -35,6 +35,8 @@ export default defineModule({
       description: "Irréversible : motif obligatoire, audité, authentification forte requise.",
       sensitive: true,
     },
+    { key: "exam.fee.read", label: "Consulter les frais d'examen (barème d'un type, obligation et statut de paiement d'un candidat)" },
+    { key: "exam.fee.manage", label: "Gérer le barème des frais d'examen, relancer la facturation, confirmer un remboursement manuel" },
     { key: "exam.eligibility.evaluate", label: "Évaluer l'éligibilité d'un candidat (règle) ou la saisir manuellement en l'absence de règle" },
     {
       key: "exam.eligibility.override",
