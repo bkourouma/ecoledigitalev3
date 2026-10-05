@@ -97,11 +97,11 @@ describeIntegration("primaire et N périodes (Postgres réel + règles fictives)
       await setDeliberation(false);
     });
 
-    it("période ordinaire : moyenne, rangs et mention absente (règle optionnelle non définie) ; aucune décision de période", async () => {
+    it("période ordinaire : moyenne, rang de compétition (1, 1, 3, 4) et mention par seuils (Q-P04, Q-P05) ; aucune décision de période", async () => {
       const report = await compute(classroomId, t1.id);
       expect(report).toMatchObject({ computed: 5, created: 5, errors: 0, contractId: "coef-period@1" });
       const a = await resultOf(students[0]!, t1.id);
-      expect(a.header).toMatchObject({ status: "DRAFT", contractId: "coef-period@1", ruleSetCode: "CI-PRIMARY-PLACEHOLDER", average: "14", averageDisplay: "14.00", rank: 1, mentionCode: null, decisionCode: null, decisionOutcome: null });
+      expect(a.header).toMatchObject({ status: "DRAFT", contractId: "coef-period@1", ruleSetCode: "CI-PRIMARY-PLACEHOLDER", average: "14", averageDisplay: "14.00", rank: 1, mentionCode: "GOOD", decisionCode: null, decisionOutcome: null });
       expect(a.lines.find((l) => l.level === "SUBJECT" && l.curriculumNodeId === ids.get("MATH"))).toMatchObject({ value: "14", rank: 1, coefficient: "2.000" });
       expect(a.lines.some((l) => l.level === "YEAR")).toBe(false);
       expect(a.decisions).toEqual([]);
@@ -109,12 +109,18 @@ describeIntegration("primaire et N périodes (Postgres réel + règles fictives)
       const e = await resultOf(students[4]!, t1.id);
       expect(e.header).toMatchObject({ status: "DRAFT", average: null, rank: null });
       expect(e.header.summary).toMatchObject({ pending: true });
+      // Q-P04 : classement « compétition » — A et D ex æquo (14) sont premiers, C est TROISIÈME (jamais 2e), B quatrième ; E sans rang
+      const ranks = await Promise.all([0, 3, 2, 1].map(async (i) => (await resultOf(students[i]!, t1.id)).header.rank));
+      expect(ranks).toEqual([1, 1, 3, 4]);
+      // Q-P05 : mentions par seuils de départ fictifs (14 = Bien, 10 = Passable, 7 = Insuffisant) ; moyenne absente = en attente
+      const mentions = await Promise.all([0, 3, 2, 1, 4].map(async (i) => (await resultOf(students[i]!, t1.id)).header.mentionCode));
+      expect(mentions).toEqual(["GOOD", "GOOD", "PASSABLE", "INSUFFICIENT", "PENDING"]);
     });
 
     it("la provenance `placeholder` remonte dans la vue de période (bandeau « règles de démonstration »)", async () => {
       const v = unwrap(await getPeriodView(w.deps, w.director, { ...ref(classroomId, t1.id), caps: CAPS_ALL }));
       expect(v.ruleSourceKind).toBe("placeholder");
-      expect(v.state).toMatchObject({ contractId: "coef-period@1", ruleSetCode: "CI-PRIMARY-PLACEHOLDER", ruleVersionNo: 1 });
+      expect(v.state).toMatchObject({ contractId: "coef-period@1", ruleSetCode: "CI-PRIMARY-PLACEHOLDER", ruleVersionNo: 3 });
     });
 
     it("T1 et T2 se clôturent ; la dernière période porte la moyenne générale annuelle, les cas à examiner et la proposition en quatre codes", async () => {

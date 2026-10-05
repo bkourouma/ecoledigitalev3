@@ -13770,6 +13770,17 @@
       "downloadAria": "Télécharger {kind} de {name}"
     }
   },
+  "v2PrimaryRules": {
+    "mentions": {
+      "PENDING": "En attente",
+      "INSUFFICIENT": "Insuffisant",
+      "PASSABLE": "Passable",
+      "FAIRLY_GOOD": "Assez bien",
+      "GOOD": "Bien",
+      "VERY_GOOD": "Très bien",
+      "EXCELLENT": "Excellent"
+    }
+  },
   "v2PrimaryNav": {
     "label": "Pack Primaire",
     "classe": "Ma classe",

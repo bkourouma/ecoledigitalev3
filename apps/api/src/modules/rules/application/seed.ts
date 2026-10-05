@@ -100,7 +100,24 @@ export async function ensureNationalCatalog(deps: RulesDeps, sets: readonly Seed
         });
         await insertRules(tx, "NATIONAL", null, version.id, records, deps.newId);
         await recordVersionEvent(deps, tx, env, version.id, null, "draft", "Données de départ de la plateforme.");
-        for (const to of ["simulated", "proposed", "approved", "published"] as const) {
+        for (const to of ["simulated", "proposed"] as const) {
+          const step = await performTransition(deps, tx, env, { versionId: version.id, to, comment: "Données de départ de la plateforme." });
+          if (!step.ok) throw step.error;
+        }
+        // Version de remplacement : l'ancienne version (même jeu, même contrat) est RETIRÉE avant l'approbation, sinon les
+        // périodes d'effet se chevaucheraient. Elle reste chargeable (rejeu) ; ses calculs gardent leur version épinglée.
+        if (seedVersion.supersedes !== undefined) {
+          const replaced = (await listVersions(tx, "NATIONAL", { ruleSetId: set.id })).find((v) => v.versionNo === seedVersion.supersedes && v.contractId === seedVersion.contractId);
+          if (replaced && (replaced.status === "published" || replaced.status === "approved")) {
+            const step = await performTransition(deps, tx, env, {
+              versionId: replaced.id,
+              to: "retired",
+              comment: `Remplacée par la version ${seedVersion.versionNo} (données de départ de la plateforme).`,
+            });
+            if (!step.ok) throw step.error;
+          }
+        }
+        for (const to of ["approved", "published"] as const) {
           const step = await performTransition(deps, tx, env, { versionId: version.id, to, comment: "Données de départ de la plateforme." });
           if (!step.ok) throw step.error;
         }

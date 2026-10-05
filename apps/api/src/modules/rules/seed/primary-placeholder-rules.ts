@@ -6,7 +6,7 @@
  * Le seuil de passage 10 est le milieu du barème /20, choisi pour la démonstration. La version porte
  * `source.kind = "placeholder"` ; chaque description est préfixée « (fictif) » et chaque libellé suffixé « (fictif) ».
  */
-import { labels, num } from "./helpers";
+import { labels, num, threshold } from "./helpers";
 import type { SeedRule } from "./types";
 
 const MARK = "(fictif) ";
@@ -16,6 +16,44 @@ const YEAR_DECISION_LABELS = labels({
   PROMOTED: "Passage en classe supérieure (fictif)",
   REPEAT: "Redoublement (fictif)",
   COUNCIL_REVIEW: "Dossier à examiner par le conseil (fictif)",
+});
+
+/**
+ * Mentions du primaire (décision Q-P05, 2026-10-05) : le primaire a des mentions automatiques par seuils de moyenne, RÉGLABLES par
+ * l'établissement (variante d'établissement : les seuils sont des paramètres bornés 0..20) et DÉSACTIVABLES (la règle est optionnelle
+ * dans le contrat : une variante qui l'omet supprime la mention ; le gabarit de bulletin a aussi une option d'affichage).
+ * Les valeurs de départ sont FICTIVES (jeu `source.kind = "placeholder"`) : aucune échelle de mentions officielle n'est inventée.
+ */
+const PRIMARY_MENTION_LABELS = labels({
+  PENDING: "En attente (fictif)",
+  INSUFFICIENT: "Insuffisant (fictif)",
+  PASSABLE: "Passable (fictif)",
+  FAIRLY_GOOD: "Assez bien (fictif)",
+  GOOD: "Bien (fictif)",
+  VERY_GOOD: "Très bien (fictif)",
+  EXCELLENT: "Excellent (fictif)",
+});
+
+export const primaryMentionPlaceholderRule: SeedRule = Object.freeze<SeedRule>({
+  key: "mention_periode",
+  type: "mention",
+  description: `${MARK}Mention de période par seuils de moyenne /20 (bornes inférieures incluses). Seuils de départ FICTIFS, réglables par l'établissement ; règle optionnelle (désactivable).`,
+  expression:
+    'if(is_null(moyenne), "PENDING", ' +
+    'if(moyenne >= params.excellent, "EXCELLENT", ' +
+    'if(moyenne >= params.tres_bien, "VERY_GOOD", ' +
+    'if(moyenne >= params.bien, "GOOD", ' +
+    'if(moyenne >= params.assez_bien, "FAIRLY_GOOD", ' +
+    'if(moyenne >= params.passable, "PASSABLE", "INSUFFICIENT"))))))',
+  parameters: {
+    passable: threshold(10, `${MARK}Moyenne /20 à partir de laquelle la mention est « Passable » (seuil de départ non officiel)`),
+    assez_bien: threshold(12, `${MARK}Moyenne /20 à partir de laquelle la mention est « Assez bien » (seuil de départ non officiel)`),
+    bien: threshold(14, `${MARK}Moyenne /20 à partir de laquelle la mention est « Bien » (seuil de départ non officiel)`),
+    tres_bien: threshold(16, `${MARK}Moyenne /20 à partir de laquelle la mention est « Très bien » (seuil de départ non officiel)`),
+    excellent: threshold(18, `${MARK}Moyenne /20 à partir de laquelle la mention est « Excellent » (seuil de départ non officiel)`),
+  },
+  labelMap: PRIMARY_MENTION_LABELS,
+  isOptional: true,
 });
 
 export const coefPeriodPlaceholderRules: readonly SeedRule[] = Object.freeze<SeedRule[]>([
@@ -122,6 +160,9 @@ export const coefPeriodPlaceholderRules: readonly SeedRule[] = Object.freeze<See
     parameters: { quorum_pourcent: num(50, 0, 100, `${MARK}Pourcentage de présents requis`) },
   },
 ]);
+
+/** Version 3 du jeu `coef-period@1` : la version 1 + les mentions réglables (Q-P05). La version 1 reste intacte (immuable, rejouable). */
+export const coefPeriodPlaceholderRulesV3: readonly SeedRule[] = Object.freeze<SeedRule[]>([...coefPeriodPlaceholderRules, primaryMentionPlaceholderRule]);
 
 export const competencyPeriodPlaceholderRules: readonly SeedRule[] = Object.freeze<SeedRule[]>([
   {

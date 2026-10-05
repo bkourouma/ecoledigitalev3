@@ -91,6 +91,23 @@ describe("portail élève : lui-même uniquement", () => {
     expect(within(grades).getByText("14,5 / 20")).toBeTruthy();
   });
 
+  it("résultats du primaire : rang (classement de compétition) et mention traduite ; sans rang, un tiret ; code inconnu affiché tel quel (Q-P04, Q-P05)", async () => {
+    setTestApi(
+      base({
+        "GET /api/v1/results/me/results": {
+          items: [familyResult({ rank: 1, cohortSize: 30, mentionCode: "GOOD" }), familyResult({ academicPeriodId: PERIOD_1, version: 2, rank: null, cohortSize: null, mentionCode: "CODE_INCONNU" })],
+        },
+        "GET /api/v1/academic/me/labels": familyLabels(),
+        "GET /api/v1/assess/me/grades": gradesPage([]),
+      }),
+    );
+    renderWithProviders(<StudentResults />);
+    expect(await screen.findByText("Bien")).toBeTruthy();
+    expect(screen.queryByText("GOOD")).toBeNull();
+    expect(screen.getByText("CODE_INCONNU")).toBeTruthy();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+
   it("résultats non visibles (403 de l'API) : message affiché", async () => {
     setTestApi(
       base({

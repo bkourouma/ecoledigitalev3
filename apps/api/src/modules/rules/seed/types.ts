@@ -27,6 +27,12 @@ export interface SeedVersion {
   readonly effectiveTo?: string | null;
   readonly source: RuleSource;
   readonly notes?: string;
+  /**
+   * Numéro d'une version du même jeu et du même contrat que celle-ci REMPLACE : avant de publier cette version, le chargeur
+   * RETIRE (`published -> retired`, tracé) la version remplacée, ce qui évite le chevauchement de période d'effet. La version
+   * retirée reste chargeable (rejeu des anciens calculs) ; les calculs qui l'ont épinglée gardent leur règle.
+   */
+  readonly supersedes?: number;
   readonly rules: readonly SeedRule[];
 }
 

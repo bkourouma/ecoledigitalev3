@@ -156,6 +156,26 @@ const PRIMARY_BODY = `<section class="doc">
  */
 const REPORT_PRIMARY_BODY = PRIMARY_BODY.replace("{{> jury}}", `${PRIMARY_COMPETENCIES_BLOCK}\n{{> jury}}`);
 
+/**
+ * Bulletins du primaire, VERSION 2 (décisions métier Q-P04 et Q-P05, 2026-10-05) :
+ *  - le RANG est AFFICHÉ PAR DÉFAUT (`showRank` = true), en classement « compétition » (1, 1, 3) calculé par `results` ; l'établissement peut le
+ *    désactiver (option du gabarit) ; la maternelle, sans note, n'a jamais de rang (`show.rank` faux : ni colonne ni ligne) ;
+ *  - la MENTION de période est affichée quand la règle `mention_periode` du jeu de règles en produit une (`showMention` = true par défaut,
+ *    désactivable) ; les seuils sont ceux du jeu de règles (réglables par l'établissement), jamais écrits ici.
+ * Les versions 1 restent publiées telles quelles (leur contenu est haché) : un établissement bascule en choisissant la version 2 dans sa configuration.
+ */
+const toDisplayFlags = (body: string): string => body.split("{{#if options.showRank}}").join("{{#if show.rank}}").split("{{#if summary.mentionLabel}}").join("{{#if show.mention}}");
+const PRIMARY_BODY_V2 = toDisplayFlags(PRIMARY_BODY);
+const REPORT_PRIMARY_BODY_V2 = toDisplayFlags(REPORT_PRIMARY_BODY);
+const primaryV2Options = (): Record<string, unknown> => {
+  const base = baseOptions({ showMention: { type: "boolean", default: true, title: "Afficher la mention de période", description: "Mention produite par le jeu de règles (seuils réglables par l'établissement)." } }) as {
+    properties: Record<string, Record<string, unknown>>;
+  };
+  // Titres lisibles dans l'écran de configuration ; le rang est AFFICHÉ par défaut (décision Q-P04), l'établissement peut le désactiver.
+  Object.assign(base.properties.showRank!, { title: "Afficher le rang", description: "Classement « compétition » en cas d'égalité (1, 1, 3). Jamais de rang à la maternelle." });
+  return base;
+};
+
 /** Mention imprimée des documents calculés avec un jeu de règles de DÉMONSTRATION (composant `{{> footer}}`), ajoutée aux versions v2 et suivantes. */
 const DEMO_CSS = `
 .doc-demo { margin-top: 8px; padding: 4px 8px; border: 1px dashed #b41e1e; color: #b41e1e; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; font-weight: 700; text-align: center; }
@@ -347,6 +367,28 @@ export const BUILTIN_TEMPLATES: readonly BuiltinTemplate[] = Object.freeze([
     body: REPORT_PRIMARY_BODY,
     css: COMMON_CSS + DEMO_CSS,
     optionsSchema: baseOptions(),
+    signatureSlots: SIGNATURE_SLOTS_DIRECTION,
+  },
+  {
+    key: "primary-bulletin",
+    version: 2,
+    documentKind: "REPORT_CARD",
+    pack: "PRIMARY",
+    title: "Bulletin du primaire (modèle générique) — rang et mention",
+    body: PRIMARY_BODY_V2,
+    css: COMMON_CSS,
+    optionsSchema: primaryV2Options(),
+    signatureSlots: SIGNATURE_SLOTS_DIRECTION,
+  },
+  {
+    key: "report-primary",
+    version: 2,
+    documentKind: "REPORT_CARD",
+    pack: "PRIMARY",
+    title: "Bulletin du primaire et de la maternelle — avec compétences, rang et mention (modèle générique)",
+    body: REPORT_PRIMARY_BODY_V2,
+    css: COMMON_CSS + DEMO_CSS,
+    optionsSchema: primaryV2Options(),
     signatureSlots: SIGNATURE_SLOTS_DIRECTION,
   },
   {

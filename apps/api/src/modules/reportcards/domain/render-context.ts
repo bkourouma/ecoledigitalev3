@@ -157,6 +157,12 @@ export interface RenderContext {
   /** Compétences par domaine (primaire / maternelle) ; `null` pour un bulletin numérique. */
   competencies: { scaleLabel: string; domains: CompetencyDomainContext[] } | null;
   options: Record<string, unknown>;
+  /**
+   * Drapeaux d'AFFICHAGE résolus (gabarits du primaire v2 : décisions Q-P04 et Q-P05). `rank` : l'option `showRank` est active ET un rang existe
+   * (la maternelle, sans note, n'en a jamais : ni colonne ni ligne « Rang ») ; `mention` : l'option `showMention` est active ET la règle a produit
+   * une mention. Aucune valeur n'est calculée ici : on décide seulement de montrer ou non ce que `results` a produit.
+   */
+  show: { rank: boolean; mention: boolean };
   groups: GroupContext[];
   rows: RowContext[];
   summary: {
@@ -236,6 +242,10 @@ export function buildRenderContext(snapshot: ReportcardSnapshot, verification: V
         }
       : null,
     options: { ...s.template.options },
+    show: {
+      rank: s.template.options.showRank !== false && (sum.rank !== null || s.results.lines.some((l) => l.rank !== null && l.rank > 0)),
+      mention: s.template.options.showMention !== false && Boolean(sum.mention),
+    },
     groups: groupLines(s.results.lines, labels),
     rows: s.results.lines.map((l) => rowOf(l, labels)),
     summary: {

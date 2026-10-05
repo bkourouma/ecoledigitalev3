@@ -33,7 +33,7 @@ La pile classique (classes, matières, coefficients, semestres) est la plus proc
 | PR-14 | `buildCouncilDecision` (10 / 8) — P-RUL-22 ; `buildEndYearDecision` — P-RUL-24 | **Mécanisme conservé**, valeurs **non reprises** | `decision_fin_annee` (`PENDING`, `PROMOTED`, `REPEAT`, `COUNCIL_REVIEW`) ; seuil fictif | Les seuils du supérieur ne sont pas des règles du primaire |
 | PR-15 | `buildAssignmentFlagsFromDecision` (cherche « REDOUBL » dans le texte) — P-RUL-25 | **Abandonné** | Le **code** de décision porte l'issue ; `recordEnrollmentOutcome` | Dépendance à la langue et à l'orthographe |
 | PR-16 | `buildCouncilAppreciationFromAverage` (7 phrases par seuils) — P-RUL-27 | **Amélioré** | `appreciation_periode` (règle **optionnelle**, inactive) + banque de phrases proposées, jamais appliquées seules | L'appréciation est rédigée ou choisie par l'instituteur |
-| PR-17 | Mentions et distinctions (`buildAverageMention`, `…Distinction…`) — P-RUL-21, P-RUL-26 | **Non transposé** | Règles `mention_periode` optionnelle, inactive (Q-P05) | Le primaire a-t-il des mentions ? question ouverte |
+| PR-17 | Mentions et distinctions (`buildAverageMention`, `…Distinction…`) — P-RUL-21, P-RUL-26 | **Transposé (mentions)** | Règle `mention_periode` (optionnelle, seuils réglables, valeurs de départ fictives) dans `CI-PRIMARY-PLACEHOLDER` v3 (Q-P05, décidé le 2026-10-05) | Les distinctions (tableau d'honneur…) restent non transposées |
 | PR-18 | Seuils en flottant, arrondi `Math.round(x*100)/100` — P-RUL-14 | **Amélioré** | Décimal exact, `arrondi_affichage` (affichage seulement) | Golden tests G7, G8 |
 
 ## 3. Bulletins, appel, enseignants, classes

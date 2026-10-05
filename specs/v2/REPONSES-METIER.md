@@ -37,8 +37,8 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 | Q-P01 | Primaire noté sur 20, barème modifiable par type d'évaluation | Défaut conservé |
 | Q-P02 | 3 trimestres proposés, école libre | Défaut conservé |
 | Q-P03 | Poids des périodes égaux 1-1-1, modifiables | Défaut conservé |
-| Q-P04 | Rang AFFICHÉ par défaut sur le bulletin du primaire (classement « compétition » en cas d'égalité) | Écart |
-| Q-P05 | Mentions automatiques par seuils de moyenne (seuils réglables par l'établissement, non officiels) | Écart |
+| Q-P04 | Rang AFFICHÉ par défaut sur le bulletin du primaire (classement « compétition » en cas d'égalité) | Implémenté (2026-10-05) : gabarits `primary-bulletin` / `report-primary` v2, `showRank` actif par défaut, jamais de rang à la maternelle |
+| Q-P05 | Mentions automatiques par seuils de moyenne (seuils réglables par l'établissement, non officiels) | Implémenté (2026-10-05) : règle `mention_periode` de `CI-PRIMARY-PLACEHOLDER` v3 (placeholder), gabarits v2 (`showMention`) |
 | Q-P06 | La règle propose, le conseil confirme (écart justifié et tracé) | Défaut conservé |
 | Q-P07 | Bilan annuel : résultat d'année, compétences, assiduité, décision | Défaut conservé |
 | Q-P08 | Maternelle : sans note, compétences à 4 niveaux, sans rang | Défaut conservé |

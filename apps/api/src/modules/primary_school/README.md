@@ -9,6 +9,8 @@
 > (révisions, présence) et des **instantanés** (bilan, archive). Aucune règle réglementaire ivoirienne n'y est écrite
 > (`regulatory-sources-needed.md`, `open-questions.md` de la spec). Un test de lint (R2) échoue si une moyenne, un seuil ou un coefficient apparaît dans le code.
 
+> **Rang et mentions (décisions Q-P04 et Q-P05, 2026-10-05).** Le rang de période est calculé par `results` (classement « compétition » : 1, 1, 3) et **affiché par défaut** sur le bulletin du primaire ; la maternelle, sans note, n'a jamais de rang. Les **mentions** de période viennent de la règle optionnelle `mention_periode` du jeu fictif `CI-PRIMARY-PLACEHOLDER` v3 : seuils de départ fictifs (non officiels), réglables par l'établissement par une variante du jeu de règles, désactivables. Ce module ne calcule toujours ni rang, ni mention, ni seuil.
+
 ## Tables (schéma `primary_school`, migrations 1800-1803)
 
 Les migrations 1800-1802 sont **identiques** au DDL testé de `specs/v2/005-primary/ddl` (test de conformité octet pour octet) ; 1803 est

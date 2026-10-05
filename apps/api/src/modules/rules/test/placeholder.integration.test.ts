@@ -58,8 +58,10 @@ describeIntegration("jeux de règles fictifs (placeholder)", () => {
       db,
       "SELECT s.code, v.source_kind, v.status FROM rules.national_rule_versions v JOIN rules.national_rule_sets s ON s.id = v.rule_set_id WHERE s.code LIKE '%-PLACEHOLDER'",
     );
-    expect(rows.length).toBe(5);
-    for (const r of rows) expect([r.source_kind, r.status]).toEqual(["placeholder", "published"]);
+    expect(rows.length).toBe(6);
+    // Une seule version est retirée : CI-PRIMARY-PLACEHOLDER v1, remplacée par la v3 (mentions réglables, Q-P05).
+    expect(rows.filter((r) => r.status === "retired").map((r) => r.code)).toEqual(["CI-PRIMARY-PLACEHOLDER"]);
+    for (const r of rows) expect([r.source_kind, ["published", "retired"].includes(r.status)]).toEqual(["placeholder", true]);
   });
 
   it("resolve expose la provenance de la version (`placeholder` / `platform`)", async () => {
