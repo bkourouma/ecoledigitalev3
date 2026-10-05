@@ -83,6 +83,11 @@ export interface SetFundingInput {
   readonly issuedOn: IsoDate | null;
   /** Autorité émettrice (financeur) telle que saisie sur le dossier ; `null` si non renseignée. */
   readonly funderLabel: string | null;
+  /**
+   * Montant de l'État déclaré par le dossier (O-04, cumul) : sa PART du financement de l'inscription. Absent : comportement historique
+   * (type de financement unique). Si l'inscription cumule déjà un autre financement, le montant est exigé.
+   */
+  readonly stateAmount?: Money | null;
   readonly reason: string;
 }
 
@@ -114,6 +119,9 @@ export interface FundingInvoiceFacts {
   readonly dueDate: IsoDate;
   /** Bourse (financeur) à laquelle la facture est liée, `null` pour la facture de la famille. */
   readonly scholarshipId: Uuid | null;
+  /** Nature et nom du financeur (cumul, O-04) : renseignés pour les factures de financeur, absents pour la facture de la famille. */
+  readonly funderKind?: string | null;
+  readonly funderName?: string | null;
 }
 
 export interface FundingPaymentFacts {
@@ -130,6 +138,14 @@ export interface StateFundingBilling {
   readonly stateInvoices: readonly FundingInvoiceFacts[];
   /** Factures de la famille (payeur LEARNER), non annulées : elles ne portent QUE la part parent. */
   readonly parentInvoices: readonly FundingInvoiceFacts[];
+  /**
+   * Cumul de financements (O-04) : factures des AUTRES financeurs (bourse, entreprise…), une par prise en charge. Leur part est comptée
+   * avec celle de la famille pour la comparer au montant « famille » déclaré (la famille ne paie que le reste après ces financeurs).
+   * Absent : aucun autre financeur (comportement historique).
+   */
+  readonly otherFunderInvoices?: readonly FundingInvoiceFacts[];
+  /** Paiements de financeur sans référence de prise en charge alors que plusieurs financeurs existent : jamais rattachés à l'État. */
+  readonly unattributedPayments?: readonly FundingPaymentFacts[];
   /** Paiements reçus de l'État (financeur), confirmés. */
   readonly statePayments: readonly FundingPaymentFacts[];
   /** Bourses de nature STATE actives de l'élève pour l'année. */

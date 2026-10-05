@@ -309,6 +309,26 @@ export const stateFundingBillingSchema = z.object({
       dueDate: stateassignDateSchema,
     }),
   ),
+  /**
+   * Cumul de financements (O-04) : factures des AUTRES financeurs de l'élève (bourse, entreprise…), une par prise en charge. Leur part
+   * s'ajoute à celle de la famille pour comparer au montant « famille » déclaré par l'acte (la famille ne paie que le reste).
+   */
+  otherFunderInvoices: z
+    .array(
+      z.object({
+        invoiceId: stateassignUuidSchema,
+        number: z.string().nullable(),
+        status: z.string(),
+        total: stateassignMoneySchema,
+        paid: stateassignMoneySchema,
+        credited: stateassignMoneySchema,
+        dueDate: stateassignDateSchema,
+        scholarshipId: stateassignUuidSchema.nullable(),
+        funderKind: z.string().nullable(),
+        funderName: z.string().nullable(),
+      }),
+    )
+    .default([]),
   /** Paiements reçus de l'État (financeur) : lecture, jamais copiés ici. */
   statePayments: z.array(
     z.object({
@@ -319,6 +339,18 @@ export const stateFundingBillingSchema = z.object({
       reference: z.string().nullable(),
     }),
   ),
+  /** Paiements de financeur SANS référence de prise en charge alors que l'élève a plusieurs financeurs : non rattachés à l'État. */
+  unattributedPayments: z
+    .array(
+      z.object({
+        paymentId: stateassignUuidSchema,
+        receivedAt: stateassignInstantSchema,
+        amount: stateassignMoneySchema,
+        allocated: stateassignMoneySchema,
+        reference: z.string().nullable(),
+      }),
+    )
+    .default([]),
   scholarshipIds: z.array(stateassignUuidSchema),
 });
 export type StateFundingBillingDto = z.infer<typeof stateFundingBillingSchema>;

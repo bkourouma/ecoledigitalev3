@@ -203,6 +203,8 @@ export async function actOnAssignment(deps: StateassignDeps, ctx: RequestContext
         reference: updated.reference,
         issuedOn: updated.issuedOn,
         funderLabel: updated.issuingAuthority,
+        // Cumul de financements (O-04) : la part de l'État déclarée par l'acte.
+        stateAmount: updated.declaredState,
         reason: `Dossier d'affectation vérifié (version ${updated.version})`,
       });
       if (!funded.ok) return err(conflict(StateassignCode.ENROLLMENT_FUNDING_REFUSED, `L'inscription n'a pas pu être rattachée à l'affectation : ${funded.error.message}`, { code: funded.error.code }));
