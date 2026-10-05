@@ -11,7 +11,7 @@
  */
 import type { Clock, RequestContext } from "@ecoledigitale/kernel";
 import type { TenantDb } from "@ecoledigitale/database";
-import { getClassroom, getRoster, listEnrollmentsByStudent, type AcademicDeps } from "../../modules/academic";
+import { getClassroom, getRoster, listAcademicYears, listEnrollmentsByStudent, type AcademicDeps } from "../../modules/academic";
 import { getMemberEmails } from "../../modules/iam";
 import type { ActorProfile, ClassroomContacts, DirectoryContact, PeopleDirectory } from "../../modules/messaging";
 import {
@@ -28,6 +28,8 @@ import { listAssignmentsUseCase, listRolesUseCase, noopAudit as noopRbacAudit } 
 import { emailLocalPart, type PeopleLookups } from "./people-lookups";
 
 const MAX_PROFILES = 200;
+/** Cache court de l'année précédente (une lecture par tenant et par minute, pas une par profil). */
+const PREVIOUS_YEAR_TTL_MS = 60_000;
 const NAME_CHUNK = 500;
 
 export interface MessagingDirectoryInput {
@@ -86,9 +88,49 @@ async function namesOf(input: Pick<MessagingDirectoryInput, "tenantDb" | "people
   return out;
 }
 
+/** Q-05 : l'année PRÉCÉDENTE (dernière année terminée de chaque établissement) et l'ancrage de la fenêtre d'écriture des parents. */
+interface PreviousYears {
+  readonly yearIds: ReadonlySet<string>;
+  readonly anchorOn: string | null;
+}
+const NO_PREVIOUS_YEAR: PreviousYears = Object.freeze({ yearIds: new Set<string>(), anchorOn: null });
+
 export function createMessagingPeopleDirectory(input: MessagingDirectoryInput): PeopleDirectory {
   const { people, academic, lookups, clock } = input;
   const today = (): string => isoDay(clock.now());
+  const previousYearCache = new Map<string, { at: number; value: PreviousYears }>();
+
+  /**
+   * Par établissement : l'année précédente = la plus récente année TERMINÉE (fin avant aujourd'hui) ; l'ancrage = début de l'année
+   * qui la suit, sinon sa fin (tant que l'année suivante n'est pas créée). Ancrage global = le plus tardif. Échec de lecture : aucune
+   * année précédente (fenêtre fermée).
+   */
+  async function previousYears(ctx: RequestContext): Promise<PreviousYears> {
+    const cached = previousYearCache.get(ctx.tenantId);
+    const nowMs = clock.now().getTime();
+    if (cached && nowMs - cached.at < PREVIOUS_YEAR_TTL_MS) return cached.value;
+    const years = await listAcademicYears(academic, ctx, {});
+    let value: PreviousYears = NO_PREVIOUS_YEAR;
+    if (years.ok) {
+      const day = today();
+      const byInstitution = new Map<string, typeof years.value>();
+      for (const y of years.value) byInstitution.set(y.institutionId, [...(byInstitution.get(y.institutionId) ?? []), y]);
+      const ids = new Set<string>();
+      let anchor: string | null = null;
+      for (const list of byInstitution.values()) {
+        const sorted = [...list].sort((a, b) => (a.startsOn < b.startsOn ? -1 : a.startsOn > b.startsOn ? 1 : 0));
+        const prev = [...sorted].reverse().find((y) => y.endsOn < day);
+        if (!prev) continue;
+        const next = sorted.find((y) => y.startsOn > prev.startsOn);
+        const a = next?.startsOn ?? prev.endsOn;
+        ids.add(prev.id);
+        if (anchor === null || a > anchor) anchor = a;
+      }
+      value = ids.size > 0 ? { yearIds: ids, anchorOn: anchor } : NO_PREVIOUS_YEAR;
+    }
+    previousYearCache.set(ctx.tenantId, { at: nowMs, value });
+    return value;
+  }
 
   async function classroomsOfStudents(ctx: RequestContext, studentIds: readonly string[]): Promise<string[]> {
     const rooms = new Set<string>();
@@ -125,6 +167,20 @@ export function createMessagingPeopleDirectory(input: MessagingDirectoryInput): 
       const a = await listAssignmentsForStaff(people, ctx, staffId, { onDate: today(), status: "ACTIVE" });
       if (a.ok) for (const x of a.value) teaching.add(x.classroomId);
     }
+    // Q-05 : classes de l'année précédente (enfants du tuteur, affectations du personnel), pour la fenêtre d'écriture des parents.
+    const previous = children.length > 0 || staffId ? await previousYears(ctx) : NO_PREVIOUS_YEAR;
+    const childPrevious = new Set<string>();
+    for (const childId of previous.yearIds.size > 0 ? children : []) {
+      const r = await listEnrollmentsByStudent(academic, ctx, childId);
+      if (r.ok) for (const e of r.value) if (previous.yearIds.has(e.academicYearId) && (e.status === "ACTIVE" || e.status === "COMPLETED")) childPrevious.add(e.classroomId);
+    }
+    const pastTeaching = new Set<string>();
+    if (staffId) {
+      for (const yearId of previous.yearIds) {
+        const a = await listAssignmentsForStaff(people, ctx, staffId, { yearId });
+        if (a.ok) for (const x of a.value) if (x.status !== "CANCELLED") pastTeaching.add(x.classroomId);
+      }
+    }
     return {
       userId,
       displayName: (await lookups.displayNameOfUser(ctx, userId)) ?? null,
@@ -134,6 +190,9 @@ export function createMessagingPeopleDirectory(input: MessagingDirectoryInput): 
       childClassroomIds: await classroomsOfStudents(ctx, children),
       staffId,
       teachingClassroomIds: [...teaching],
+      childPreviousYearClassroomIds: [...childPrevious],
+      pastTeachingClassroomIds: [...pastTeaching],
+      previousYearWindowAnchorOn: previous.anchorOn,
     };
   }
 
@@ -147,10 +206,20 @@ export function createMessagingPeopleDirectory(input: MessagingDirectoryInput): 
       return out;
     },
 
-    async listClassroomContacts(ctx, classroomId, include): Promise<ClassroomContacts> {
+    async listClassroomContacts(ctx, classroomId, include, options): Promise<ClassroomContacts> {
       const room = await getClassroom(academic, ctx, classroomId);
       if (!room.ok) return { classroom: null, contacts: [] };
       const contacts: DirectoryContact[] = [];
+      if (options?.previousYear) {
+        // Q-05 : enseignants de la classe d'une année précédente = toutes ses affectations (terminées comprises), jamais les élèves ni les tuteurs.
+        const past = await listAssignmentsForClassroom(people, ctx, classroomId, {});
+        const staffIds = past.ok ? [...new Set(past.value.filter((a) => a.status !== "CANCELLED").map((a) => a.staffId))] : [];
+        const staff = staffIds.length > 0 ? await getStaffByIds(people, ctx, staffIds) : null;
+        for (const s of staff && staff.ok ? staff.value : []) {
+          if (s.identityId && (s.status === "ACTIVE" || s.status === "ON_LEAVE")) contacts.push({ userId: s.identityId, displayName: s.displayName, kind: "STAFF", classroomId });
+        }
+        return { classroom: { id: classroomId, name: room.value.name }, contacts };
+      }
       const wantsStudents = include.includes("STUDENTS");
       const wantsGuardians = include.includes("GUARDIANS");
       if (wantsStudents || wantsGuardians) {

@@ -64,9 +64,12 @@ describe("module documents : manifeste", () => {
   it("les défauts du code (paramètres) sont ceux de la table", async () => {
     const { DEFAULT_SETTINGS } = await import("../../infrastructure/settings-repository");
     const sql = readFileSync(resolve(__dirname, "../../migrations/2500_documents_reference.sql"), "utf8");
+    // Q-03 : le défaut de rétention a été changé par une migration ultérieure (2503), jamais en réécrivant 2500.
+    const later = readFileSync(resolve(__dirname, "../../migrations/2503_documents_retention_never.sql"), "utf8");
+    expect(later).toContain(`ALTER COLUMN archive_retention_days SET DEFAULT ${DEFAULT_SETTINGS.archiveRetentionDays}`);
+    expect(DEFAULT_SETTINGS.archiveRetentionDays).toBe(0);
     expect(sql).toContain(`max_bytes                 integer NOT NULL DEFAULT ${DEFAULT_SETTINGS.maxBytes}`);
     expect(sql).toContain(`ARRAY[${DEFAULT_SETTINGS.defaultAlertDays.join(", ")}]`);
-    expect(sql).toContain(`archive_retention_days    integer NOT NULL DEFAULT ${DEFAULT_SETTINGS.archiveRetentionDays}`);
     expect(sql).toContain(`quarantine_retention_days integer NOT NULL DEFAULT ${DEFAULT_SETTINGS.quarantineRetentionDays}`);
     expect(sql).toContain(`max_versions              integer NOT NULL DEFAULT ${DEFAULT_SETTINGS.maxVersions}`);
   });

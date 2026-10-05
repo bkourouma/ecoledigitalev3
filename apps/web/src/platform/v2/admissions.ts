@@ -64,6 +64,7 @@ import {
   admissionsSlaReportDtoSchema,
   admissionsSourcesReportDtoSchema,
   admissionsWaitlistDtoSchema,
+  admissionsWaitlistReorderResultDtoSchema,
   admissionsWorkflowListDtoSchema,
   admissionsWorkflowViewDtoSchema,
   type AdmissionsAcceptOfferResultDto,
@@ -405,6 +406,16 @@ export function useWaitlist(query: { campaignId: string | null; grade: string | 
     schema: admissionsWaitlistDtoSchema,
     enabled: query.campaignId !== null && query.grade !== null,
     retry: false,
+  });
+}
+/** Q-A03 : décision de la direction — classe / réordonne la liste d'attente d'un niveau (liste complète, dans l'ordre voulu). */
+export function useReorderWaitlist() {
+  return useApiAction({
+    method: "PUT",
+    path: `${ADMISSIONS_BASE}/waitlist/order`,
+    body: (v: { campaignId: string; grade: string; orderedApplicationIds: string[]; reason?: string }) => v,
+    schema: admissionsWaitlistReorderResultDtoSchema,
+    invalidate: [[...KEY, "waitlist"]],
   });
 }
 export function usePromoteFromWaitlist() {

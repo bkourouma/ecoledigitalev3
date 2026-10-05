@@ -28,6 +28,18 @@ export interface ActorProfile {
   readonly childClassroomIds: readonly Uuid[];
   readonly staffId: Uuid | null;
   readonly teachingClassroomIds: readonly Uuid[];
+  /**
+   * Q-05 : classes des enfants (tuteur) durant l'ANNÉE PRÉCÉDENTE (inscriptions suivies, y compris terminées). Absent = aucune.
+   * Ne sert qu'à la règle R3, tant que la fenêtre de l'établissement est ouverte (`previousYearOpen`).
+   */
+  readonly childPreviousYearClassroomIds?: readonly Uuid[];
+  /** Q-05 : classes où le membre du personnel enseignait durant l'ANNÉE PRÉCÉDENTE (affectations terminées comprises). */
+  readonly pastTeachingClassroomIds?: readonly Uuid[];
+  /**
+   * Q-05 : date (AAAA-MM-JJ) à partir de laquelle court la fenêtre — début de l'année qui suit l'année précédente, sinon fin de
+   * l'année précédente. `null`/absent : pas d'année précédente connue. Posé par l'annuaire (academic), jamais par le client.
+   */
+  readonly previousYearWindowAnchorOn?: string | null;
 }
 
 /** Une personne joignable, telle que la présente un annuaire. */
@@ -55,6 +67,8 @@ export interface MessagingSettings {
   readonly maxBroadcastParticipants: number;
   readonly messageMaxLength: number;
   readonly notificationRetentionDays: number;
+  /** Q-05 : jours pendant lesquels un parent peut écrire aux enseignants de l'année précédente (0 = fermé). */
+  readonly previousYearWindowDays: number;
 }
 
 /**
@@ -68,12 +82,13 @@ export const DEFAULT_MESSAGING_SETTINGS: MessagingSettings = Object.freeze({
   attachmentMaxBytes: 5 * 1024 * 1024,
   attachmentMaxPerItem: 5,
   allowedAttachmentTypes: Object.freeze(["application/pdf", "image/jpeg", "image/png", "image/webp"]),
-  maxMessagesPerHour: 60,
+  maxMessagesPerHour: 120,
   maxNewConversationsPerDay: 30,
   maxGroupParticipants: 200,
   maxBroadcastParticipants: 5000,
   messageMaxLength: 5000,
   notificationRetentionDays: 90,
+  previousYearWindowDays: 90,
 });
 
 /** Capacités RBAC de l'appelant (permissions du manifeste). Sans capacité fournie : le droit le plus restreint. */

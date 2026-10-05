@@ -126,7 +126,7 @@ En tant que parent, je veux déposer le dossier de mon enfant depuis un lien que
 
 ### US8 — Liste d'attente et priorités (P1)
 
-- **AC8.1** L'ordre est : **rang de la classe de priorité** (donnée de l'établissement : fratrie, enfant du personnel, affectation d'État, standard…), puis **date d'entrée**, puis identifiant (`waitlist_order`, testé). Une priorité absente passe après toutes les classes déclarées.
+- **AC8.1** *(modifié par la réponse métier Q-A03, migration `1903`)* L'ordre est une **DÉCISION MANUELLE de la direction**, plus un calcul : rang `waitlist_rank` défini et réordonné par `PUT /waitlist/order` (permission `admission.waitlist.reorder`, liste complète dans l'ordre voulu, motif facultatif), tracé (`waitlist_rank_changes`, audit, événement `admissions.waitlist.reordered`). Un dossier qui entre en liste est **à classer** (affiché après les classés, par date d'entrée) et n'est jamais promu d'office. La **classe de priorité** et l'**ancienneté** restent affichées mais ne trient plus. *(Ancien AC8.1 : rang de la classe de priorité, puis date d'entrée, puis identifiant.)*
 - **AC8.2** Plafond facultatif de liste d'attente par niveau (`waitlist_limit`) ; au-delà : `admissions.waitlist_full`.
 - **AC8.3** Quand une place se libère (retrait, offre expirée, délai de paiement dépassé) : `waitlist_promotion = MANUAL` → alerte et bouton « proposer la place » ; `AUTO` → offre proposée au premier de la liste (la candidature repasse `ACCEPTED` avec décision système) ; dans les deux cas **une seule** place est offerte une seule fois (concurrence testée).
 
@@ -337,7 +337,7 @@ Schémas Zod dans `packages/contracts/src/v2/admissions.ts`. Erreurs `admissions
 - **Événement de confirmation reçu avant le commit de la saga** : impossible (événement posté dans la même transaction) ; reçu en double : un seul passage à `ENROLLED`.
 - **Retrait de la famille après paiement** : remboursement = politique de `finance` ; le dossier passe `WITHDRAWN` (statut canonique `REJECTED`) **et** l'inscription est retirée (`academic`).
 - **Anonymisation d'un dossier ayant des doublons ou un prospect lié** : les liens sont conservés sans nom.
-- **Changement de classe de priorité après entrée en liste d'attente** : l'ordre se recalcule (donnée), historique en `transitions`/audit.
+- **Changement de classe de priorité après entrée en liste d'attente** : sans effet sur l'ordre (Q-A03 : le rang est décidé par la direction) ; la priorité reste une information affichée.
 
 ## 16. Dépendances et demandes de changement
 

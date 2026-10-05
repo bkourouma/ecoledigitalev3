@@ -38,6 +38,8 @@ export interface WorldUser {
   readonly childStudentIds?: readonly Uuid[];
   readonly staffId?: Uuid;
   readonly teachingClassroomIds?: readonly Uuid[];
+  /** Q-05 : classes où le membre du personnel enseignait l'année précédente. */
+  readonly pastTeachingClassroomIds?: readonly Uuid[];
   readonly roles?: readonly string[];
   readonly active?: boolean;
 }
@@ -47,6 +49,10 @@ export class InMemoryDirectory implements PeopleDirectory, AudienceDirectory {
   readonly classrooms = new Map<Uuid, { name: string; levelId?: string; campusId?: string; institutionId?: string }>();
   /** studentId -> classes de l'élève (inscriptions actives). */
   readonly studentClasses = new Map<Uuid, Uuid[]>();
+  /** Q-05 : studentId -> classes de l'élève durant l'année précédente. */
+  readonly studentPreviousYearClasses = new Map<Uuid, Uuid[]>();
+  /** Q-05 : ancrage de la fenêtre « année précédente » (AAAA-MM-JJ) ; `null` : pas d'année précédente. */
+  previousYearWindowAnchorOn: string | null = null;
   /** studentId -> nom d'affichage de l'élève. */
   readonly studentNames = new Map<Uuid, string>();
 
@@ -70,6 +76,9 @@ export class InMemoryDirectory implements PeopleDirectory, AudienceDirectory {
       childClassroomIds: [...new Set(children.flatMap((c) => this.classroomsOfStudent(c)))],
       staffId: u.staffId ?? null,
       teachingClassroomIds: u.teachingClassroomIds ?? [],
+      childPreviousYearClassroomIds: [...new Set(children.flatMap((c) => this.studentPreviousYearClasses.get(c) ?? []))],
+      pastTeachingClassroomIds: u.pastTeachingClassroomIds ?? [],
+      previousYearWindowAnchorOn: this.previousYearWindowAnchorOn,
     };
   }
 
@@ -82,10 +91,16 @@ export class InMemoryDirectory implements PeopleDirectory, AudienceDirectory {
     return out;
   }
 
-  async listClassroomContacts(_ctx: RequestContext, classroomId: Uuid, include: readonly MessagingClassInclude[]): Promise<ClassroomContacts> {
+  async listClassroomContacts(_ctx: RequestContext, classroomId: Uuid, include: readonly MessagingClassInclude[], options: { readonly previousYear?: boolean } = {}): Promise<ClassroomContacts> {
     const room = this.classrooms.get(classroomId);
     if (!room) return { classroom: null, contacts: [] };
     const contacts: DirectoryContact[] = [];
+    if (options.previousYear) {
+      for (const u of this.users.values()) {
+        if (u.active !== false && u.staffId && (u.pastTeachingClassroomIds ?? []).includes(classroomId)) contacts.push({ userId: u.userId, displayName: u.displayName, kind: "STAFF", classroomId });
+      }
+      return { classroom: { id: classroomId, name: room.name }, contacts };
+    }
     for (const u of this.users.values()) {
       if (u.active === false) continue;
       if (include.includes("STUDENTS") && u.studentId && this.classroomsOfStudent(u.studentId).includes(classroomId)) {

@@ -54,6 +54,7 @@ export { dueAlert, effectiveAlertDays, expiryStatus } from "./domain/expiry";
 export { ALL_DOCUMENTS_EVENT_TYPES, DocumentsEvents } from "./domain/events";
 export { DocumentsCode, HTTP_STATUS_BY_DOCUMENTS_CODE } from "./domain/errors";
 export { DEFAULT_CATEGORIES } from "./domain/default-categories";
+export { GIB, PLAN_QUOTA_DEFAULT_BYTES, QUOTA_FEATURE_KEYS, planQuotaBytes, quotaTierFor, type QuotaTier } from "./domain/quota";
 
 // Cas d'usage
 export { createDocument, addVersion, type UploadedFile } from "./application/uploads";

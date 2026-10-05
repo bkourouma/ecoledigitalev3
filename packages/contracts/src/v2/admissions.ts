@@ -901,11 +901,38 @@ export const admissionsWaitlistDtoSchema = z.object({
       priorityClassCode: z.string().nullable(),
       priorityLabel: z.string().nullable(),
       priorityRank: z.number().int().nullable(),
+      /** Ancienneté (date d'entrée en liste) : information affichée, ne détermine plus l'ordre (Q-A03). */
       waitlistEnteredAt: admissionsInstantSchema,
+      /** Rang DÉCIDÉ par la direction (1 = premier) ; `null` = « à classer » (aucune décision encore). */
+      manualRank: z.number().int().min(1).nullable(),
+    }),
+  ),
+  /** Derniers classements / déplacements de rang (trace), du plus récent au plus ancien. */
+  changes: z.array(
+    z.object({
+      id: admissionsUuidSchema,
+      applicationId: admissionsUuidSchema,
+      kind: z.enum(["RANKED", "MOVED"]),
+      fromRank: z.number().int().nullable(),
+      toRank: z.number().int().nullable(),
+      reason: z.string().nullable(),
+      actorId: admissionsUuidSchema.nullable(),
+      occurredAt: admissionsInstantSchema,
     }),
   ),
 });
 export type AdmissionsWaitlistDto = z.infer<typeof admissionsWaitlistDtoSchema>;
+/** Réordonnancement MANUEL de la liste d'attente (Q-A03) : la liste complète, dans l'ordre voulu par la direction. */
+export const admissionsWaitlistReorderBodySchema = z
+  .object({
+    campaignId: admissionsUuidSchema,
+    grade: admissionsGradeCodeSchema,
+    orderedApplicationIds: z.array(admissionsUuidSchema).min(1).max(5000),
+    reason: z.string().trim().min(3, "Motif d'au moins 3 caractères.").max(500).optional(),
+  })
+  .strict();
+export type AdmissionsWaitlistReorderBody = z.infer<typeof admissionsWaitlistReorderBodySchema>;
+export const admissionsWaitlistReorderResultDtoSchema = z.object({ count: z.number().int(), changed: z.number().int() });
 export const admissionsPromoteBodySchema = z
   .object({ campaignId: admissionsUuidSchema, grade: admissionsGradeCodeSchema, classroomId: admissionsUuidSchema.optional(), applicationId: admissionsUuidSchema.optional() })
   .strict();
@@ -1067,6 +1094,14 @@ export const admissionsDecisionRecordedEventSchema = z.object({ v: z.literal(1),
 export const admissionsOfferEventSchema = z.object({ v: z.literal(1), ...appRef, offerId: admissionsUuidSchema, classroomId: admissionsUuidSchema.nullable() });
 export const admissionsApplicationEnrolledEventSchema = z.object({ v: z.literal(1), ...appRef, studentId: admissionsUuidSchema, enrollmentId: admissionsUuidSchema });
 export const admissionsWaitlistPromotedEventSchema = z.object({ v: z.literal(1), ...appRef, offerId: admissionsUuidSchema.nullable(), auto: z.boolean() });
+export const admissionsWaitlistReorderedEventSchema = z.object({
+  v: z.literal(1),
+  campaignId: admissionsUuidSchema,
+  institutionId: admissionsUuidSchema,
+  gradeLevelCode: z.string(),
+  count: z.number().int(),
+  changed: z.number().int(),
+});
 export const admissionsProspectConvertedEventSchema = z.object({ v: z.literal(1), prospectId: admissionsUuidSchema, applicationId: admissionsUuidSchema, institutionId: admissionsUuidSchema });
 export const admissionsApplicationAnonymizedEventSchema = z.object({ v: z.literal(1), ...appRef });
 
@@ -1113,6 +1148,7 @@ export const admissionsEventPayloadSchemas = {
   "admissions.offer.withdrawn": admissionsOfferEventSchema,
   "admissions.application.enrolled": admissionsApplicationEnrolledEventSchema,
   "admissions.waitlist.promoted": admissionsWaitlistPromotedEventSchema,
+  "admissions.waitlist.reordered": admissionsWaitlistReorderedEventSchema,
   "admissions.prospect.converted": admissionsProspectConvertedEventSchema,
   "admissions.application.anonymized": admissionsApplicationAnonymizedEventSchema,
   "admissions.interview.scheduled": admissionsInterviewScheduledEventSchema,
@@ -1166,6 +1202,7 @@ export const ADMISSIONS_ERROR_CODES = [
   "admissions.capacity_full",
   "admissions.capacity_override_reason",
   "admissions.waitlist_full",
+  "admissions.waitlist_order_stale",
   "admissions.application_frozen_after_enrollment",
   "admissions.application_anonymized",
   "admissions.application_enrolled_final",

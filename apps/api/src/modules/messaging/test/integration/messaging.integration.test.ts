@@ -1036,7 +1036,7 @@ describeIntegration("module messaging : base réelle", () => {
 
     it("paramètres : valeurs par défaut sans ligne, mise à jour auditée (avant / après), cohérence des plafonds", async () => {
       const fresh = unwrap(await getMessagingSettings(deps, ctxOf(IDS.admin, tenantB)));
-      expect(fresh).toMatchObject({ studentPolicy: "TEACHERS_AND_ADMIN", maxMessagesPerHour: 60, attachmentMaxBytes: 5 * 1024 * 1024, adminContactRoles: ["directeur", "secretariat"] });
+      expect(fresh).toMatchObject({ studentPolicy: "TEACHERS_AND_ADMIN", maxMessagesPerHour: 120, previousYearWindowDays: 90, attachmentMaxBytes: 5 * 1024 * 1024, adminContactRoles: ["directeur", "secretariat"] });
       const before = audit.entries.length;
       unwrap(await updateMessagingSettings(deps, ctxOf(IDS.admin), { adminContactRoles: ["directeur"] }));
       const entry = audit.entries.slice(before).find((e) => e.entry.action === "messaging.settings.updated")!.entry;
@@ -1052,8 +1052,9 @@ describeIntegration("module messaging : base réelle", () => {
         studentPolicy: row.student_policy, adminContactRoles: row.admin_contact_roles, attachmentsEnabled: row.attachments_enabled, attachmentMaxBytes: row.attachment_max_bytes,
         attachmentMaxPerItem: row.attachment_max_per_item, allowedAttachmentTypes: row.allowed_attachment_types, maxMessagesPerHour: row.max_messages_per_hour,
         maxNewConversationsPerDay: row.max_new_conversations_per_day, maxGroupParticipants: row.max_group_participants, maxBroadcastParticipants: row.max_broadcast_participants,
-        messageMaxLength: row.message_max_length, notificationRetentionDays: row.notification_retention_days,
+        messageMaxLength: row.message_max_length, notificationRetentionDays: row.notification_retention_days, previousYearWindowDays: row.previous_year_window_days,
       });
+      expect(row.max_messages_per_hour).toBe(120); // Q-06 : plafond par défaut 120 messages/h
       await q("DELETE FROM messaging.settings WHERE tenant_id = $1", [tenantB]);
     });
 
@@ -1062,6 +1063,78 @@ describeIntegration("module messaging : base réelle", () => {
       await expect(q("INSERT INTO messaging.messages (id, tenant_id, conversation_id, seq, kind, sender_id, body) VALUES (gen_random_uuid(), $1, $2, 1, 'USER', $3, 'doublon de seq')", [tenantA, c.id, IDS.teacher6A])).rejects.toThrow();
       await expect(q("INSERT INTO messaging.messages (id, tenant_id, conversation_id, seq, kind, sender_id, body) VALUES (gen_random_uuid(), $1, $2, 99, 'SYSTEM', $3, 'système avec expéditeur')", [tenantA, c.id, IDS.teacher6A])).rejects.toThrow();
       await expect(q("UPDATE messaging.messages SET removed_at = now() WHERE conversation_id = $1", [c.id])).rejects.toThrow(); // removal_kind obligatoire avec removed_at
+    });
+  });
+
+  // =========================================================================================================
+  describe("Q-05 : un parent écrit aux enseignants de l'année précédente (fenêtre configurable)", () => {
+    const S5 = "0192f0a4-7b1e-7c3a-8d2e-000000000305";
+    const PARENT_PY = "0192f0a4-7b1e-7c3a-8d2e-000000000125";
+    const FORMER = "0192f0a4-7b1e-7c3a-8d2e-000000000118";
+    const FORMER_STAFF = "0192f0a4-7b1e-7c3a-8d2e-000000000408";
+    const anchor = (): string => new Date(clock.now().getTime() - 30 * 86_400_000).toISOString().slice(0, 10);
+    let fixedAnchor = "";
+    const caps = (id: string) => (id === PARENT_PY ? { childSend: true } : capsOf(id));
+    const send = (from: string, to: string, subject: string) =>
+      createConversation(deps, ctxOf(from), { kind: "DIRECT", subject, body: "Bonjour", priority: "NORMAL", recipients: { userIds: [to], classrooms: [], toAdministration: false }, attachmentIds: [], caps: caps(from) });
+
+    beforeAll(() => {
+      // L'enfant (S5) était en 5ème A l'an dernier, il est en 6ème A ; l'ancien professeur de 5ème A n'enseigne plus aujourd'hui.
+      world.studentClasses.set(S5, [IDS.C6A]);
+      world.studentPreviousYearClasses.set(S5, [IDS.C5A]);
+      world.studentNames.set(S5, "Ibrahim Test");
+      world.addUser({ userId: PARENT_PY, displayName: "TEST Parent Précédent", childStudentIds: [S5] });
+      world.addUser({ userId: FORMER, displayName: "LAMINE Ancien professeur", staffId: FORMER_STAFF, teachingClassroomIds: [], pastTeachingClassroomIds: [IDS.C5A] });
+      fixedAnchor = anchor();
+      world.previousYearWindowAnchorOn = fixedAnchor; // début de l'année en cours : on est au jour 30
+    });
+    afterAll(() => {
+      world.previousYearWindowAnchorOn = null;
+    });
+
+    it("dans la fenêtre (90 jours par défaut) : autorisé ; un enseignant sans lien avec l'ANCIENNE classe de l'enfant reste refusé", async () => {
+      unwrap(await send(PARENT_PY, FORMER, "Ancien professeur"));
+      // Les enseignants de la classe ACTUELLE restent joignables ; un enseignant d'une autre classe, jamais.
+      unwrap(await send(PARENT_PY, IDS.teacher6A, "Professeur actuel"));
+      expectErr(await send(PARENT_PY, IDS.teacher6B, "Autre classe"), MessagingCode.RECIPIENT_NOT_ALLOWED);
+      // Le lien n'est pas symétrique : l'ancien professeur n'ouvre rien à un parent d'un autre enfant.
+      expectErr(await send(IDS.parent3, FORMER, "Sans lien"), MessagingCode.RECIPIENT_NOT_ALLOWED);
+      // Le sélecteur de destinataires propose cet enseignant (par nom, par classe de l'an dernier, et dans les contacts naturels).
+      const byName = unwrap(await listAllowedRecipients(deps, ctxOf(PARENT_PY), { q: "Ancien", limit: 20, caps: caps(PARENT_PY) }));
+      expect(byName.items.map((i) => i.userId)).toEqual([FORMER]);
+      const byClass = unwrap(await listAllowedRecipients(deps, ctxOf(PARENT_PY), { classroomId: IDS.C5A, limit: 20, caps: caps(PARENT_PY) }));
+      expect(byClass.items.map((i) => i.userId)).toEqual([FORMER]);
+      const natural = unwrap(await listAllowedRecipients(deps, ctxOf(PARENT_PY), { limit: 50, caps: caps(PARENT_PY) }));
+      expect(natural.items.map((i) => i.userId)).toEqual(expect.arrayContaining([FORMER, IDS.teacher6A]));
+      // Un autre parent ne voit pas cette classe de l'an dernier.
+      const other = unwrap(await listAllowedRecipients(deps, ctxOf(IDS.parent3), { classroomId: IDS.C5A, limit: 20, caps: capsOf(IDS.parent3) }));
+      expect(other.items).toEqual([]);
+    });
+
+    it("la fenêtre se ferme : au-delà de la durée configurée, ou fermée par l'établissement (0 jour) ; isolation A/B des réglages", async () => {
+      unwrap(await updateMessagingSettings(deps, ctxOf(IDS.admin), { previousYearWindowDays: 20 })); // jour 30 > 20
+      expectErr(await send(PARENT_PY, FORMER, "Fenêtre échue"), MessagingCode.RECIPIENT_NOT_ALLOWED);
+      expect(unwrap(await listAllowedRecipients(deps, ctxOf(PARENT_PY), { q: "Ancien", limit: 20, caps: caps(PARENT_PY) })).items).toEqual([]);
+      unwrap(await updateMessagingSettings(deps, ctxOf(IDS.admin), { previousYearWindowDays: 40 }));
+      unwrap(await send(PARENT_PY, FORMER, "Fenêtre rouverte"));
+      unwrap(await updateMessagingSettings(deps, ctxOf(IDS.admin), { previousYearWindowDays: 0 }));
+      expectErr(await send(PARENT_PY, FORMER, "Fenêtre fermée"), MessagingCode.RECIPIENT_NOT_ALLOWED);
+      // Le réglage est PAR établissement : le tenant B garde le défaut.
+      expect(unwrap(await getMessagingSettings(deps, ctxOf(IDS.admin, tenantB))).previousYearWindowDays).toBe(90);
+      expect((await q("SELECT previous_year_window_days AS d FROM messaging.settings WHERE tenant_id = $1", [tenantA]))[0]!.d).toBe(0);
+      // Le temps passe : à 90 jours + 1, la fenêtre par défaut est échue.
+      unwrap(await updateMessagingSettings(deps, ctxOf(IDS.admin), { previousYearWindowDays: 90 }));
+      unwrap(await send(PARENT_PY, FORMER, "Dernier jour"));
+      clock.advance(62 * 86_400_000); // jour 92 : la fenêtre de 90 jours (bornes incluses) est échue
+      try {
+        expectErr(await send(PARENT_PY, FORMER, "Trop tard"), MessagingCode.RECIPIENT_NOT_ALLOWED);
+        // Sans année précédente connue (aucun ancrage), la fenêtre reste fermée (échec fermé).
+        world.previousYearWindowAnchorOn = null;
+        clock.advance(-62 * 86_400_000);
+        expectErr(await send(PARENT_PY, FORMER, "Sans ancrage"), MessagingCode.RECIPIENT_NOT_ALLOWED);
+      } finally {
+        world.previousYearWindowAnchorOn = fixedAnchor;
+      }
     });
   });
 });

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import type { ImportUploadResult, ImporterKey } from "@ecoledigitale/contracts/v2/imports";
 import { buttonClass, LoadingBlock, Notice, QueryBoundary, StatusBadge, useDescribeError } from "@/platform/ui";
 import { downloadImportFile, templatePath, useImporters, useUploadImport } from "@/platform/v2/imports";
-import { ACCEPT, INPUT_CLASS, formatBytes } from "./import-utils";
+import { ACCEPT, INPUT_CLASS, formatBytes, visibleImporters } from "./import-utils";
 
 /** Étape 1 — Fichier : choix de l'importeur, modèle à télécharger, envoi du fichier (corps brut ; type réel contrôlé par le serveur). */
 export function UploadStep({ onUploaded }: { onUploaded: (result: ImportUploadResult) => void }) {
@@ -49,7 +49,7 @@ export function UploadStep({ onUploaded }: { onUploaded: (result: ImportUploadRe
           <legend className="text-base font-semibold">{t("importerLegend")}</legend>
           <p className="text-sm text-muted-foreground">{t("importerHint")}</p>
           <div role="radiogroup" aria-describedby={importerError ? "upload-importer-error" : undefined} className="grid gap-3 md:grid-cols-2">
-            {(importers.data?.items ?? []).map((i) => (
+            {visibleImporters(importers.data?.items ?? []).map((i) => (
               <label
                 key={i.key}
                 className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm focus-within:ring-2 focus-within:ring-ring ${importer === i.key ? "border-primary bg-primary/5" : "border-input"} ${i.canUse ? "" : "cursor-not-allowed opacity-60"}`}

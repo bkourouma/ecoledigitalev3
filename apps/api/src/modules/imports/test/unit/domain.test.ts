@@ -169,8 +169,8 @@ describe("validation de ligne et doublons dans le fichier", () => {
     expect(duplicateInFileIssue(2)).toMatchObject({ code: "imports.duplicate_in_file", severity: "ERROR" });
   });
 
-  it("le registre expose les sept importeurs, avec un modèle de fichier cohérent avec leurs colonnes", () => {
-    expect(Object.keys(IMPORTERS).sort()).toEqual(["classrooms", "curriculum", "grades", "guardians", "opening_balances", "staff", "students"]);
+  it("le registre expose les neuf importeurs, avec un modèle de fichier cohérent avec leurs colonnes", () => {
+    expect(Object.keys(IMPORTERS).sort()).toEqual(["classrooms", "curriculum", "enrollments", "grades", "grades_own", "guardians", "opening_balances", "staff", "students"]);
     for (const imp of Object.values(IMPORTERS)) {
       for (const row of imp.sampleRows) expect(row.length, imp.key).toBe(imp.columns.length);
       expect(imp.importPermission).toBe(`imports.import.${imp.key}`);
@@ -178,5 +178,72 @@ describe("validation de ligne et doublons dans le fichier", () => {
     }
     expect(IMPORTERS.opening_balances.sensitive).toBe(true);
     expect(IMPORTERS.students.sensitive).toBe(false);
+  });
+});
+
+describe("importeur d'inscriptions (O-13)", () => {
+  const enrollments = getImporter("enrollments");
+  const options = { academicYearId: "0192f0a4-7b1e-7c3a-8d2e-000000000001" };
+
+  it("exige un élève et une classe ; financement, référence d'affectation et date sont facultatifs", () => {
+    const ok = validateRow(enrollments, { studentRef: "2024-0001", classCode: "6EME_A" }, options, ENV);
+    expect(ok.issues).toEqual([]);
+    expect(ok.values).toMatchObject({ studentRef: "2024-0001", classCode: "6EME_A" });
+    const missing = validateRow(enrollments, { studentRef: "2024-0001" }, options, ENV);
+    expect(missing.values).toBeNull();
+    expect(missing.issues.map((i) => i.column)).toContain("classCode");
+    const dated = validateRow(enrollments, { studentRef: "2024-0001", classCode: "6EME_A", enrolledOn: "01/09/2026" }, options, ENV);
+    expect(dated.issues).toEqual([]);
+    expect(dated.values).toMatchObject({ enrolledOn: "2026-09-01" });
+    expect(validateRow(enrollments, { studentRef: "2024-0001", classCode: "6EME_A", enrolledOn: "01/09/1950" }, options, ENV).values).toBeNull();
+  });
+
+  it("l'année scolaire est une option obligatoire ; la clé naturelle est (année, élève) : un élève deux fois dans le fichier est un doublon", () => {
+    expect(enrollments.validateOptions({}).map((i) => i.code)).toEqual(["imports.options_invalid"]);
+    expect(enrollments.validateOptions({ academicYearId: "pas-un-uuid" }).map((i) => i.code)).toEqual(["imports.options_invalid"]);
+    expect(enrollments.validateOptions(options)).toEqual([]);
+    const a = validateRow(enrollments, { studentRef: " ab-1 ", classCode: "6EME_A" }, options, ENV);
+    const b = validateRow(enrollments, { studentRef: "AB-1", classCode: "6EME_B" }, options, ENV);
+    expect(a.naturalKey).toBe(b.naturalKey);
+    expect([...findDuplicateRows([{ rowNo: 2, naturalKey: a.naturalKey }, { rowNo: 3, naturalKey: b.naturalKey }]).entries()]).toEqual([[3, 2]]);
+    const otherYear = enrollments.naturalKey({ studentRef: "AB-1", classCode: "6EME_A" } as never, { academicYearId: "0192f0a4-7b1e-7c3a-8d2e-000000000002" });
+    expect(otherYear).not.toBe(a.naturalKey);
+  });
+
+  it("permission dédiée, droit du module cible exigé, aucune mise à jour (une inscription existante n'est jamais modifiée)", () => {
+    expect(enrollments.importPermission).toBe("imports.import.enrollments");
+    expect(enrollments.targetPermissions).toEqual(["enrollment.create"]);
+    expect(enrollments.supportsUpdate).toBe(false);
+    expect(enrollments.sensitive).toBe(false);
+    expect(enrollments.extraPermissions({ mappedColumns: new Set(["classCode", "fundingType"]), onExisting: "SKIP", options })).toEqual([]);
+  });
+
+  it("le mapping reconnaît les en-têtes usuels d'un export de scolarité", () => {
+    const detected = detectMapping(enrollments.columns, ["Matricule", "Classe", "Financement", "Date d'inscription"]);
+    expect(detected.mapping).toMatchObject({ studentRef: "Matricule", classCode: "Classe", fundingType: "Financement", enrolledOn: "Date d'inscription" });
+    expect(detected.missingRequired).toEqual([]);
+  });
+});
+
+describe("importeur « notes de mes classes » (O-02)", () => {
+  const own = getImporter("grades_own");
+  const all = getImporter("grades");
+
+  it("mêmes colonnes, mêmes règles et mêmes clés naturelles que « notes » : seul le périmètre de droits change", () => {
+    expect(own.columns).toBe(all.columns);
+    expect(own.sampleRows).toBe(all.sampleRows);
+    const row = { studentRef: "2024-0001", entry: "ABS" };
+    const options = { assessmentId: "0192f0a4-7b1e-7c3a-8d2e-000000000009" };
+    expect(validateRow(own, row, options, ENV).values).toEqual(validateRow(all, row, options, ENV).values);
+    expect(own.naturalKey(validateRow(own, row, options, ENV).values as never, options)).toBe(all.naturalKey(validateRow(all, row, options, ENV).values as never, options));
+  });
+
+  it("n'exige ni assessment.manage (toute évaluation) ni imports.import.grades : grade.enter et sa propre permission", () => {
+    expect(own.targetPermissions).toEqual(["grade.enter"]);
+    expect(own.targetPermissions).not.toContain("assessment.manage");
+    expect(own.importPermission).toBe("imports.import.grades_own");
+    expect(all.targetPermissions).toContain("assessment.manage");
+    expect(all.importPermission).toBe("imports.import.grades");
+    expect(own.sensitive).toBe(false);
   });
 });

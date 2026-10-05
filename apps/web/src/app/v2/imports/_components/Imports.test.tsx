@@ -9,7 +9,7 @@ import { HistoryScreen } from "./HistoryScreen";
 import { ImportAssistant } from "./ImportAssistant";
 import { SettingsScreen } from "./SettingsScreen";
 import { TemplatesScreen } from "./TemplatesScreen";
-import { ASSISTANT_STEPS, formatBytes, formatDuration, percent, stepOf } from "./import-utils";
+import { ASSISTANT_STEPS, formatBytes, formatDuration, percent, stepOf, visibleImporters } from "./import-utils";
 
 vi.mock("@/platform/api/default-client", async () => (await import("@/platform/test/api-mock")).defaultClientModule);
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
@@ -103,6 +103,16 @@ const base = (perms: string[] = ["imports.read", "imports.create", "imports.canc
   "GET /api/v1/imports/templates": { items: [] },
 });
 
+describe("importeurs visibles (O-02, O-13)", () => {
+  const d = (key: string, canUse: boolean) => ({ key, canUse });
+  it("« Notes de mes classes » n'est proposé qu'à qui ne peut pas utiliser « Notes » ; la direction ne voit que « Notes »", () => {
+    expect(visibleImporters([d("students", true), d("grades", true), d("grades_own", true)]).map((i) => i.key)).toEqual(["students", "grades"]);
+    expect(visibleImporters([d("students", false), d("grades", false), d("grades_own", true)]).map((i) => i.key)).toEqual(["students", "grades_own"]);
+    expect(visibleImporters([d("grades", false), d("grades_own", false)]).map((i) => i.key)).toEqual(["grades"]);
+    expect(visibleImporters([d("enrollments", true)]).map((i) => i.key)).toEqual(["enrollments"]);
+  });
+});
+
 describe("utilitaires d'affichage", () => {
   it("déduit l'étape de l'assistant de l'état serveur", () => {
     expect(stepOf(null)).toBe("upload");
@@ -157,6 +167,51 @@ describe("HistoryScreen", () => {
     renderWithProviders(<HistoryScreen />);
     expect(await screen.findByText("Aucun import pour le moment.")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Nouvel import" })).toBeNull();
+  });
+});
+
+describe("ImportAssistant : inscriptions et notes de l'enseignant", () => {
+  const enrollmentsDescriptor = (): ImporterDescriptor =>
+    studentsDescriptor({
+      key: "enrollments",
+      label: "Inscriptions",
+      description: "Inscrit des élèves déjà enregistrés dans les classes de l'année courante.",
+      supportsUpdate: false,
+      columns: [column("studentRef", "Matricule de l'élève", true), column("classCode", "Classe (code)", true)],
+      options: [{ key: "academicYearId", label: "Année scolaire des inscriptions", required: true, help: "L'année courante.", kind: "choice" }],
+      importPermission: "imports.import.enrollments",
+      targetPermissions: ["enrollment.create"],
+    });
+  const gradesDescriptor = (key: "grades" | "grades_own", canUse: boolean) =>
+    studentsDescriptor({ key, label: key === "grades" ? "Notes" : "Notes de mes classes", description: "Notes d'une évaluation.", targetPermissions: key === "grades" ? ["grade.enter", "assessment.manage"] : ["grade.enter"], importPermission: `imports.import.${key}`, canUse, canRun: canUse, options: [] });
+
+  it("l'importeur d'inscriptions apparaît dans l'assistant avec ses droits, son modèle CSV / Excel et son option d'année ; sans droit, il est désactivé et expliqué", async () => {
+    setTestApi({ ...accessRoutes(["imports.read", "imports.create"]), "GET /api/v1/imports/importers": { items: [enrollmentsDescriptor()] }, "GET /api/v1/imports/templates": { items: [] } });
+    renderWithProviders(<ImportAssistant />);
+    const radio = await screen.findByRole("radio", { name: /Inscriptions/ });
+    expect((radio as HTMLInputElement).disabled).toBe(false);
+    fireEvent.click(radio);
+    expect(await screen.findByText("Colonnes attendues pour « Inscriptions »")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Télécharger le modèle Excel" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Télécharger le modèle CSV/ })).toBeTruthy();
+  });
+  it("un importeur d'inscriptions non autorisé est désactivé : droits manquants nommés", async () => {
+    setTestApi({ ...accessRoutes(["imports.read"]), "GET /api/v1/imports/importers": { items: [{ ...enrollmentsDescriptor(), canUse: false, canRun: false }] }, "GET /api/v1/imports/templates": { items: [] } });
+    renderWithProviders(<ImportAssistant />);
+    const radio = await screen.findByRole("radio", { name: /Inscriptions/ });
+    expect((radio as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByText(/Droits manquants : enrollment\.create/)).toBeTruthy();
+  });
+  it("un enseignant voit « Notes de mes classes » (pas « Notes » désactivé) ; la direction voit « Notes » seulement", async () => {
+    setTestApi({ ...accessRoutes(["imports.read", "imports.create"]), "GET /api/v1/imports/importers": { items: [gradesDescriptor("grades", false), gradesDescriptor("grades_own", true)] }, "GET /api/v1/imports/templates": { items: [] } });
+    const first = renderWithProviders(<ImportAssistant />);
+    expect(await screen.findByRole("radio", { name: /Notes de mes classes/ })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /^Notes$/ })).toBeNull();
+    first.unmount();
+    setTestApi({ ...accessRoutes(["imports.read", "imports.create"]), "GET /api/v1/imports/importers": { items: [gradesDescriptor("grades", true), gradesDescriptor("grades_own", true)] }, "GET /api/v1/imports/templates": { items: [] } });
+    renderWithProviders(<ImportAssistant />);
+    expect(await screen.findByRole("radio", { name: /^Notes/ })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /Notes de mes classes/ })).toBeNull();
   });
 });
 

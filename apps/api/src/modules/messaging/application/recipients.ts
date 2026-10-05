@@ -6,7 +6,7 @@
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import type { MessagingMyAudienceDto, MessagingRecipientDto, MessagingRecipientKind } from "@ecoledigitale/contracts/src/v2/messaging";
 import { forbidden, MessagingCode } from "../domain/errors";
-import { applicableRules, canInitiate, evaluateRecipient } from "../domain/policy";
+import { applicableRules, canInitiate, evaluateRecipient, previousYearOpen } from "../domain/policy";
 import type { ActorProfile, CallerCaps, DirectoryContact, MessagingClassInclude, Uuid } from "../domain/types";
 import * as settingsRepo from "../infrastructure/settings-repository";
 import { ADMIN_CONTACT_CAP } from "./conversations";
@@ -62,8 +62,13 @@ export async function listAllowedRecipients(deps: MessagingDeps, ctx: RequestCon
         const mayBlock = caps.sendAny || (rules.includes("R2") && actor.teachingClassroomIds.includes(room));
         const include: MessagingClassInclude[] = mayBlock ? (input.kind ? [INCLUDE_BY_KIND[input.kind]] : ["STUDENTS", "GUARDIANS", "TEACHERS"]) : ["TEACHERS"];
         const mine = mayBlock || actor.childClassroomIds.includes(room) || actor.studentClassroomIds.includes(room);
+        // Q-05 : la classe d'un enfant l'année précédente, tant que la fenêtre est ouverte (enseignants seulement).
+        const previousYear = !mine && rules.includes("R3") && previousYearOpen(actor, settings, deps.clock.now()) && (actor.childPreviousYearClassroomIds ?? []).includes(room);
         if (mine) {
           const res = await dir.listClassroomContacts(ctx, room, include);
+          for (const c of res.contacts) add(c, relationOf(c, res.classroom?.name ?? null, false));
+        } else if (previousYear) {
+          const res = await dir.listClassroomContacts(ctx, room, ["TEACHERS"], { previousYear: true });
           for (const c of res.contacts) add(c, relationOf(c, res.classroom?.name ?? null, false));
         }
       } else if (input.q) {
@@ -73,7 +78,7 @@ export async function listAllowedRecipients(deps: MessagingDeps, ctx: RequestCon
         for (const c of found) {
           const target = profiles.get(c.userId);
           if (!target) continue;
-          if (evaluateRecipient({ caps, actor, target, settings, adminContacts: adminIds }).allowed) add(c, relationOf(c, null, adminIds.has(c.userId)));
+          if (evaluateRecipient({ caps, actor, target, settings, adminContacts: adminIds, now: deps.clock.now() }).allowed) add(c, relationOf(c, null, adminIds.has(c.userId)));
         }
       } else {
         // Sans critère : les contacts « naturels » (enseignants des classes de l'enfant / de l'élève, administration).
@@ -81,6 +86,14 @@ export async function listAllowedRecipients(deps: MessagingDeps, ctx: RequestCon
         if (rules.includes("R3") || rules.includes("R4")) {
           for (const room of rooms) {
             const res = await dir.listClassroomContacts(ctx, room, ["TEACHERS"]);
+            for (const c of res.contacts) add(c, relationOf(c, res.classroom?.name ?? null, false));
+          }
+        }
+        // Q-05 : les enseignants de l'année précédente de ses enfants, tant que la fenêtre est ouverte.
+        if (rules.includes("R3") && previousYearOpen(actor, settings, deps.clock.now())) {
+          for (const room of actor.childPreviousYearClassroomIds ?? []) {
+            if (rooms.includes(room)) continue;
+            const res = await dir.listClassroomContacts(ctx, room, ["TEACHERS"], { previousYear: true });
             for (const c of res.contacts) add(c, relationOf(c, res.classroom?.name ?? null, false));
           }
         }

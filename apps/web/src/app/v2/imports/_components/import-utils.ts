@@ -68,4 +68,18 @@ export function formatBytes(n: number): string {
   return `${Math.round(n / 104857.6) / 10} Mo`;
 }
 
+/**
+ * Importeurs proposés à l'écran. « Notes » (direction, toute évaluation) et « Notes de mes classes » (enseignant, ses seules
+ * évaluations) couvrent le même fichier : on ne montre qu'un des deux selon les droits — le complet s'il est utilisable, sinon
+ * celui de l'enseignant s'il l'est, sinon le complet (désactivé, avec les droits manquants).
+ */
+export function visibleImporters<T extends { key: string; canUse: boolean }>(items: readonly T[]): T[] {
+  const can = new Map(items.map((i) => [i.key, i.canUse]));
+  return items.filter((i) => {
+    if (i.key === "grades_own") return can.get("grades_own") === true && can.get("grades") !== true;
+    if (i.key === "grades") return can.get("grades") === true || can.get("grades_own") !== true;
+    return true;
+  });
+}
+
 export const ACCEPT = ".xlsx,.csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv";

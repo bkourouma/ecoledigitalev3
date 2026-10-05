@@ -98,7 +98,7 @@ import { createPrimaryResultsPort, createPrimaryRulesPort } from "./results-prim
 import { createPrimaryAttendancePort } from "./attendance-primary";
 import { createPrimaryDocumentsPort } from "./reportcards-primary";
 import { createAdapterKit, type AdapterKit } from "./kit";
-import { createClassroomsImportPort, createCurriculumImportPort } from "./imports-academic";
+import { createClassroomsImportPort, createCurriculumImportPort, createEnrollmentsImportPort } from "./imports-academic";
 import { createGradesImportPort } from "./imports-assess";
 import { createOpeningBalancesImportPort } from "./imports-finance";
 import { createGuardiansImportPort, createImportActorNames, createStaffImportPort, createStudentsImportPort } from "./imports-people";
@@ -344,7 +344,9 @@ export function buildPlatformPorts(
       staff: createStaffImportPort(writeEnv),
       classrooms: createClassroomsImportPort(writeEnv),
       curriculum: createCurriculumImportPort(writeEnv),
-      grades: createGradesImportPort(writeEnv),
+      grades: createGradesImportPort(writeEnv, "ALL"),
+      grades_own: createGradesImportPort(writeEnv, "OWN"),
+      enrollments: createEnrollmentsImportPort(writeEnv),
       opening_balances: createOpeningBalancesImportPort(writeEnv),
     },
     names: createImportActorNames(writeEnv),

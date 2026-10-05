@@ -11,7 +11,7 @@ import { reviewDocument, uploadDocument } from "../../application/documents";
 import { convertProspect, createProspect, updateProspect } from "../../application/prospects";
 import { upsertPriorityClass, upsertRequirement, updateSettings } from "../../application/reference";
 import { funnel, capacityReport } from "../../application/reports";
-import { getWaitlist, promoteManually } from "../../application/waitlist";
+import { getWaitlist, promoteManually, reorderWaitlist } from "../../application/waitlist";
 import { createInterview, updateInterview } from "../../application/interviews";
 import { anonymizeApplication, exportApplication } from "../../application/anonymize";
 import { describeIntegration } from "../support/db";
@@ -272,7 +272,10 @@ describeIntegration("admissions : candidatures, décisions, capacités, liste d'
       return app.id;
     }
 
-    it("ordre = rang de la classe de priorité, puis ancienneté ; plafond de liste ; une priorité absente passe après les classes déclarées", async () => {
+    const rankAll = async (t: TenantWorld, campaignId: string, ids: string[], reason?: string) =>
+      unwrap(await reorderWaitlist(t.deps, t.ctx(), { campaignId, grade: "CP1", orderedApplicationIds: ids, ...(reason ? { reason } : {}) }));
+
+    it("Q-A03 : l'ordre est une DÉCISION de la direction (rang manuel), pas l'ancienneté ni la priorité ; plafond de liste ; trace des déplacements", async () => {
       const t = await w.tenant("liste");
       unwrap(await upsertPriorityClass(t.deps, t.ctx(), { institutionId: t.institutionId, code: "FRATRIE", label: "Fratrie", rank: 1 }));
       unwrap(await upsertPriorityClass(t.deps, t.ctx(), { institutionId: t.institutionId, code: "PERSONNEL", label: "Enfant du personnel", rank: 2 }));
@@ -282,22 +285,95 @@ describeIntegration("admissions : candidatures, décisions, capacités, liste d'
       const standard = await waitlisted(t, campaign.id);
       const staff = await waitlisted(t, campaign.id, { priorityClassCode: "PERSONNEL" });
       const sibling = await waitlisted(t, campaign.id, { priorityClassCode: "FRATRIE" });
+      // Avant toute décision : AUCUN rang ; l'affichage suit la date d'entrée (information), la priorité ne trie plus.
       const list = unwrap(await getWaitlist(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1" }));
-      expect(list.entries.map((e) => e.applicationId)).toEqual([sibling, staff, standard]);
+      expect(list.entries.map((e) => e.applicationId)).toEqual([standard, staff, sibling]);
+      expect(list.entries.map((e) => e.manualRank)).toEqual([null, null, null]);
       expect(list.entries.map((e) => e.queuePosition)).toEqual([1, 2, 3]);
-      expect(list.entries[0]).toMatchObject({ priorityClassCode: "FRATRIE", priorityLabel: "Fratrie", priorityRank: 1 });
-      expect(list.entries[2]).toMatchObject({ priorityClassCode: null, priorityRank: null });
-      expect(list).toMatchObject({ seatsLeft: 0, waitlistLimit: 3 });
+      expect(list.entries[2]).toMatchObject({ priorityClassCode: "FRATRIE", priorityLabel: "Fratrie", priorityRank: 1 });
+      expect(list.entries[0]).toMatchObject({ priorityClassCode: null, priorityRank: null });
+      expect(list.entries[0]!.waitlistEnteredAt).toMatch(/^\d{4}-/);
+      expect(list).toMatchObject({ seatsLeft: 0, waitlistLimit: 3, changes: [] });
+      // La direction décide : staff, standard, sibling.
+      expect(await rankAll(t, campaign.id, [staff, standard, sibling], "Décision de la direction")).toEqual({ count: 3, changed: 3 });
+      const decided = unwrap(await getWaitlist(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1" }));
+      expect(decided.entries.map((e) => e.applicationId)).toEqual([staff, standard, sibling]);
+      expect(decided.entries.map((e) => e.manualRank)).toEqual([1, 2, 3]);
+      expect(decided.changes).toHaveLength(3);
+      expect(decided.changes.every((c) => c.kind === "RANKED" && c.fromRank === null && c.reason === "Décision de la direction")).toBe(true);
+      // Un déplacement ne trace que les rangs modifiés (ancien rang, nouveau rang, acteur).
+      expect(await rankAll(t, campaign.id, [staff, sibling, standard])).toEqual({ count: 3, changed: 2 });
+      const moved = unwrap(await getWaitlist(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1" }));
+      expect(moved.entries.map((e) => e.applicationId)).toEqual([staff, sibling, standard]);
+      expect(moved.changes.slice(0, 2).every((c) => c.kind === "MOVED" && c.actorId === t.ctx().userId)).toBe(true);
+      expect(moved.changes.find((c) => c.applicationId === sibling)).toMatchObject({ fromRank: 3, toRank: 2 });
+      // Rien à changer : ni trace ni événement.
+      expect(await rankAll(t, campaign.id, [staff, sibling, standard])).toEqual({ count: 3, changed: 0 });
+      expect(unwrap(await getWaitlist(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1" })).changes).toHaveLength(5);
+      const events = await w.db.admin.query("SELECT payload FROM kernel.domain_events WHERE tenant_id = $1 AND type = 'admissions.waitlist.reordered' ORDER BY occurred_at, id", [t.id]);
+      expect(events.rows).toHaveLength(2);
+      expect(events.rows[1].payload).toMatchObject({ v: 1, campaignId: campaign.id, gradeLevelCode: "CP1", count: 3, changed: 2 });
+      expect(JSON.stringify(events.rows)).not.toMatch(/Prénom|Nom\b/i);
+      // Liste périmée (un dossier manque / un intrus) ou doublon : refus, rien n'est modifié.
+      const stale = await reorderWaitlist(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1", orderedApplicationIds: [staff, sibling] });
+      expect(stale.ok).toBe(false);
+      if (!stale.ok) expect(stale.error.code).toBe("admissions.waitlist_order_stale");
+      const dup = await reorderWaitlist(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1", orderedApplicationIds: [staff, staff, sibling] });
+      expect(dup.ok).toBe(false);
+      expect(unwrap(await getWaitlist(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1" })).entries.map((e) => e.applicationId)).toEqual([staff, sibling, standard]);
+      // Le journal des rangs est ajouté seulement.
+      await expect(w.db.admin.query("UPDATE admissions.waitlist_rank_changes SET reason = 'x' WHERE tenant_id = $1", [t.id])).rejects.toThrow();
+      await expect(w.db.admin.query("DELETE FROM admissions.waitlist_rank_changes WHERE tenant_id = $1", [t.id])).rejects.toThrow();
       // Plafond de 3 atteint : le quatrième est refusé.
       const extra = await submittedApplication(t, campaign.id);
       const detail = unwrap(await transitionApplication(t.deps, t.ctx(), extra.id, { toStageId: toStage(extra, "UNDER_REVIEW") }));
       const refused = await recordDecision(t.deps, t.ctx(), extra.id, { toStageId: toStage(detail, "WAITLISTED"), kind: "WAITLIST", reasonCode: "NO_SEAT_YET", overrideCapacity: false });
       expect(refused.ok).toBe(false);
       if (!refused.ok) expect(refused.error.code).toBe("admissions.waitlist_full");
-      // Changer la classe de priorité après l'entrée recalcule l'ordre (donnée).
+      // Changer la classe de priorité après l'entrée ne bouge PAS l'ordre décidé (la priorité n'est qu'une information).
       unwrap(await updateApplication(t.deps, t.ctx(), standard, { priorityClassCode: "FRATRIE" }));
       const reordered = unwrap(await getWaitlist(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1" }));
-      expect(reordered.entries.map((e) => e.applicationId)).toEqual([standard, sibling, staff]); // même rang : l'ancienneté départage
+      expect(reordered.entries.map((e) => e.applicationId)).toEqual([staff, sibling, standard]);
+      expect(reordered.entries[2]).toMatchObject({ priorityClassCode: "FRATRIE", priorityRank: 1, manualRank: 3 });
+    });
+
+    it("Q-A03 : un dossier entré après le classement est « à classer » (après les classés) ; sans rang décidé, aucune promotion d'office ; le rang est remis à zéro à la sortie ; isolation A/B", async () => {
+      const t = await w.tenant("a-classer");
+      const other = await w.tenant("a-classer-b");
+      const campaign = await openCampaignWith(t, { seats: { CP1: 1 } });
+      const otherCampaign = await openCampaignWith(other, { seats: { CP1: 1 } });
+      const holder = await submittedApplication(t, campaign.id);
+      await acceptApplication(t, holder.id);
+      const first = await waitlisted(t, campaign.id);
+      const second = await waitlisted(t, campaign.id);
+      const foreign = await waitlisted(other, otherCampaign.id);
+      // Place libérée, mais personne n'est classé : la tête « par défaut » n'est jamais proposée.
+      const held = unwrap(await getApplication(t.deps, t.ctx(), holder.id));
+      unwrap(await recordDecision(t.deps, t.ctx(), holder.id, { toStageId: toStage(held, "WITHDRAWN"), kind: "WITHDRAW", reasonCode: "WITHDRAWN_BY_FAMILY", overrideCapacity: false }));
+      expect(unwrap(await promoteManually(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1" }))).toMatchObject({ promoted: false, reason: "NOT_RANKED", applicationId: first });
+      expect(unwrap(await getApplication(t.deps, t.ctx(), first)).status).toBe("WAITLISTED");
+      // La direction classe seulement `second` en premier, puis un troisième dossier arrive : il est à classer, après les classés.
+      await rankAll(t, campaign.id, [second, first]);
+      const third = await waitlisted(t, campaign.id);
+      const list = unwrap(await getWaitlist(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1" }));
+      expect(list.entries.map((e) => [e.applicationId, e.manualRank])).toEqual([[second, 1], [first, 2], [third, null]]);
+      // B ne voit ni ne réordonne la liste de A (la campagne de A est introuvable pour B) ; la liste de B reste intacte.
+      const crossed = await reorderWaitlist(other.deps, other.ctx(), { campaignId: campaign.id, grade: "CP1", orderedApplicationIds: [first, second, third] });
+      expect(crossed.ok).toBe(false);
+      if (!crossed.ok) expect(crossed.error.code).toBe("admissions.campaign_not_found");
+      const mixed = await reorderWaitlist(other.deps, other.ctx(), { campaignId: otherCampaign.id, grade: "CP1", orderedApplicationIds: [first] });
+      expect(mixed.ok).toBe(false);
+      if (!mixed.ok) expect(mixed.error.code).toBe("admissions.waitlist_order_stale");
+      expect(unwrap(await getWaitlist(other.deps, other.ctx(), { campaignId: otherCampaign.id, grade: "CP1" })).entries.map((e) => [e.applicationId, e.manualRank])).toEqual([[foreign, null]]);
+      const leak = await other.deps.db.run(other.ctx(), (tx) => tx.many("SELECT id FROM admissions.waitlist_rank_changes"));
+      expect(leak).toEqual([]);
+      const seen = await t.deps.db.run(t.ctx(), (tx) => tx.many("SELECT application_id FROM admissions.waitlist_rank_changes"));
+      expect(seen.length).toBe(2);
+      // La tête décidée est proposée ; son rang disparaît de la liste (le dossier la quitte), les autres gardent le leur.
+      const promoted = unwrap(await promoteManually(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1", classroomId: t.rooms.cp1 }));
+      expect(promoted).toMatchObject({ promoted: true, applicationId: second });
+      const { rows } = await w.db.admin.query("SELECT id, waitlist_rank FROM admissions.applications WHERE id = ANY($1)", [[first, second, third]]);
+      expect(Object.fromEntries(rows.map((r) => [r.id, r.waitlist_rank]))).toEqual({ [first]: 2, [second]: null, [third]: null });
     });
 
     it("promotion MANUELLE : sans place libre rien n'est proposé ; une place libérée est offerte UNE seule fois au premier de la liste", async () => {
@@ -307,6 +383,7 @@ describeIntegration("admissions : candidatures, décisions, capacités, liste d'
       await acceptApplication(t, holder.id);
       const first = await waitlisted(t, campaign.id);
       const second = await waitlisted(t, campaign.id);
+      await rankAll(t, campaign.id, [first, second]);
       const none = unwrap(await promoteManually(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1" }));
       expect(none).toMatchObject({ promoted: false, reason: "NO_SEAT" });
       // La famille du dossier admis se désiste : la place revient (promotion manuelle : MANUAL par défaut, rien d'automatique).
@@ -336,6 +413,7 @@ describeIntegration("admissions : candidatures, décisions, capacités, liste d'
       const holder = await submittedApplication(t, campaign.id);
       await acceptApplication(t, holder.id);
       const first = await waitlisted(t, campaign.id);
+      await rankAll(t, campaign.id, [first]);
       const held = unwrap(await getApplication(t.deps, t.ctx(), holder.id));
       unwrap(await recordDecision(t.deps, t.ctx(), holder.id, { toStageId: toStage(held, "WITHDRAWN"), kind: "WITHDRAW", reasonCode: "WITHDRAWN_BY_FAMILY", overrideCapacity: false }));
       const promoted = unwrap(await getApplication(t.deps, t.ctx(), first));

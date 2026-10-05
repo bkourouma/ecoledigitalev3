@@ -448,10 +448,10 @@ describeIntegration("module documents : HTTP (matrice par rôle)", () => {
     it("paramètres et usage : lecture et écriture par la direction ; validation", async () => {
       expect((await call("GET", "/settings", USERS.secretary)).statusCode).toBe(403);
       const settings = await call("GET", "/settings", USERS.manager);
-      expect(settings.json()).toMatchObject({ maxBytes: 15 * 1024 * 1024, defaultAlertDays: [30, 7, 1], archiveRetentionDays: 365, maxVersions: 50 });
+      expect(settings.json()).toMatchObject({ maxBytes: 15 * 1024 * 1024, defaultAlertDays: [30, 7, 1], archiveRetentionDays: 0, maxVersions: 50 });
       const put = await call("PUT", "/settings", USERS.manager, { archiveRetentionDays: 400, defaultAlertDays: [45, 15] });
       expect(put.json()).toMatchObject({ archiveRetentionDays: 400, defaultAlertDays: [45, 15] });
-      await call("PUT", "/settings", USERS.manager, { archiveRetentionDays: 365, defaultAlertDays: [30, 7, 1] });
+      await call("PUT", "/settings", USERS.manager, { archiveRetentionDays: 0, defaultAlertDays: [30, 7, 1] });
       expect((await call("PUT", "/settings", USERS.manager, {})).statusCode).toBe(400);
       expect((await call("PUT", "/settings", USERS.manager, { maxBytes: 999_999_999 })).statusCode).toBe(400);
       expect((await call("PUT", "/settings", USERS.manager, { storageQuotaBytes: 10 * 1024 ** 4 })).statusCode).toBe(400);

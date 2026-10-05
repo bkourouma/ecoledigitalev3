@@ -87,3 +87,20 @@ export const gradesImporter: ImporterDef<GradeRow> = {
     ["2024-0003", "9", ""],
   ],
 };
+
+/**
+ * Importeur « notes de mes classes » (réponse métier O-02) : le MÊME fichier et les MÊMES règles que « notes », ouvert aux
+ * ENSEIGNANTS pour leurs seules évaluations. Il n'exige pas `assessment.manage` (qui ouvre toutes les évaluations) mais
+ * `grade.enter` + `imports.import.grades_own`, et le port (`scope: "OWN"`) travaille SANS capacité étendue : `assess` vérifie alors,
+ * à chaque lecture et à chaque écriture, que l'auteur est l'enseignant de l'évaluation ET encore affecté à cette matière dans cette
+ * classe (`assess.not_assigned` sinon). Le périmètre est donc vérifié côté serveur, par l'affectation d'enseignement, jamais par
+ * un paramètre du client. Les notes arrivent dans les mêmes évaluations en brouillon et suivent le même circuit de validation.
+ */
+export const gradesOwnImporter: ImporterDef<GradeRow> = {
+  ...gradesImporter,
+  key: "grades_own",
+  label: "Notes de mes classes",
+  description: "Notes d'une de vos évaluations (matières et classes où vous enseignez), avec les codes ABS, ABJ, DISP. Aucun calcul.",
+  importPermission: "imports.import.grades_own",
+  targetPermissions: ["grade.enter"],
+};

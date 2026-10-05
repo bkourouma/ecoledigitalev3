@@ -19,6 +19,7 @@ const NUMBERS = [
   ["messageMaxLength", 100, 20000],
   ["attachmentMaxPerItem", 1, 20],
   ["notificationRetentionDays", 7, 3650],
+  ["previousYearWindowDays", 0, 366],
 ] as const;
 
 function SettingsForm({ settings }: { settings: MessagingSettingsDto }) {
@@ -52,6 +53,7 @@ function SettingsForm({ settings }: { settings: MessagingSettingsDto }) {
         maxBroadcastParticipants: draft.maxBroadcastParticipants,
         messageMaxLength: draft.messageMaxLength,
         notificationRetentionDays: draft.notificationRetentionDays,
+        previousYearWindowDays: draft.previousYearWindowDays,
       },
       { onSuccess: () => flash.show(t("saved")) },
     );

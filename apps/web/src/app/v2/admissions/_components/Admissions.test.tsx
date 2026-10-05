@@ -342,10 +342,10 @@ describe("ApplicationDetailScreen : dossier", () => {
 
 describe("WaitlistScreen", () => {
   it("affiche l'ordre et les places libres de l'API ; la promotion montre le lien de réponse une fois", async () => {
-    const entries = [{ queuePosition: 1, applicationId: IDS.app1, applicationNumber: "2026-00001", applicantFirstName: "Awa", applicantLastName: "KONÉ", priorityClassCode: "STAFF", priorityLabel: "Enfant de personnel", priorityRank: 1, waitlistEnteredAt: "2026-09-10T08:00:00.000Z" }];
+    const entries = [{ queuePosition: 1, applicationId: IDS.app1, applicationNumber: "2026-00001", applicantFirstName: "Awa", applicantLastName: "KONÉ", priorityClassCode: "STAFF", priorityLabel: "Enfant de personnel", priorityRank: 1, waitlistEnteredAt: "2026-09-10T08:00:00.000Z", manualRank: 1 }];
     const api = setTestApi(
       base(["admission.read", "admission.waitlist.manage"], {
-        [`GET ${A}/waitlist`]: { campaignId: IDS.campaign, grade: "CP1", seatsLeft: 1, waitlistLimit: 10, entries },
+        [`GET ${A}/waitlist`]: { campaignId: IDS.campaign, grade: "CP1", seatsLeft: 1, waitlistLimit: 10, entries, changes: [] },
         [`POST ${A}/waitlist/promote`]: { promoted: true, applicationId: IDS.app1, reason: null, offerId: IDS.offer, responseToken: "Z".repeat(43) },
       }),
     );
@@ -360,6 +360,61 @@ describe("WaitlistScreen", () => {
     expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ campaignId: IDS.campaign, grade: "CP1" });
     expect(await screen.findByText("Une offre a été émise.")).toBeTruthy();
     expect(((await screen.findByLabelText("Lien de réponse de la famille")) as HTMLInputElement).value).toContain(`#t=${"Z".repeat(43)}`);
+  });
+});
+
+describe("WaitlistScreen : rang décidé par la direction (Q-A03)", () => {
+  const entry = (n: number, applicationId: string, first: string, manualRank: number | null) => ({
+    queuePosition: n,
+    applicationId,
+    applicationNumber: `2026-0000${n}`,
+    applicantFirstName: first,
+    applicantLastName: "KONÉ",
+    priorityClassCode: null,
+    priorityLabel: null,
+    priorityRank: null,
+    waitlistEnteredAt: "2026-09-10T08:00:00.000Z",
+    manualRank,
+  });
+  const listFixture = {
+    campaignId: IDS.campaign,
+    grade: "CP1",
+    seatsLeft: 0,
+    waitlistLimit: null,
+    entries: [entry(1, IDS.app1, "Awa", 1), entry(2, IDS.app2, "Binta", null)],
+    changes: [{ id: uuid(90), applicationId: IDS.app1, kind: "RANKED", fromRank: null, toRank: 1, reason: "Décision du comité", actorId: uuid(91), occurredAt: "2026-10-01T08:00:00.000Z" }],
+  };
+
+  it("sans le droit de réordonner : pas de boutons Monter / Descendre ; un dossier « à classer » est signalé ; la trace des changements est lisible", async () => {
+    setTestApi(base(["admission.read", "admission.waitlist.manage"], { [`GET ${A}/waitlist`]: listFixture }));
+    renderWithProviders(<WaitlistScreen />);
+    await screen.findByText("Choisissez un niveau pour afficher sa liste d'attente.");
+    fireEvent.change(await screen.findByLabelText("Niveau"), { target: { value: "CP1" } });
+    const table = await screen.findByRole("table", { name: "Liste d'attente du niveau" });
+    expect(await within(table).findByText("À classer")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Monter/ })).toBeNull();
+    expect(await screen.findByText(/Décision du comité/)).toBeTruthy();
+    expect(screen.getByText(/Des dossiers n'ont pas encore de rang décidé/)).toBeTruthy();
+  });
+
+  it("avec le droit : monter un dossier envoie la LISTE COMPLÈTE dans le nouvel ordre, avec le motif ; rien n'est envoyé avant l'enregistrement", async () => {
+    const api = setTestApi(
+      base(["admission.read", "admission.waitlist.manage", "admission.waitlist.reorder"], {
+        [`GET ${A}/waitlist`]: listFixture,
+        [`PUT ${A}/waitlist/order`]: { count: 2, changed: 2 },
+      }),
+    );
+    renderWithProviders(<WaitlistScreen />);
+    await screen.findByText("Choisissez un niveau pour afficher sa liste d'attente.");
+    fireEvent.change(await screen.findByLabelText("Niveau"), { target: { value: "CP1" } });
+    await screen.findByRole("table", { name: "Liste d'attente du niveau" });
+    fireEvent.click(await screen.findByRole("button", { name: "Monter Binta KONÉ d'un rang" }));
+    expect(api.calls.some((c) => c.method === "PUT")).toBe(false);
+    fireEvent.change(await screen.findByLabelText(/Motif/), { target: { value: "Fratrie prioritaire" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer l'ordre" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ campaignId: IDS.campaign, grade: "CP1", orderedApplicationIds: [IDS.app2, IDS.app1], reason: "Fratrie prioritaire" });
+    expect(await screen.findByText("L'ordre de la liste d'attente est enregistré.")).toBeTruthy();
   });
 });
 

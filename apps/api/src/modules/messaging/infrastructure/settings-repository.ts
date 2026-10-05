@@ -17,13 +17,15 @@ interface SettingsRow {
   maxBroadcastParticipants: number;
   messageMaxLength: number;
   notificationRetentionDays: number;
+  previousYearWindowDays: number;
 }
 
 const COLS = `student_policy AS "studentPolicy", admin_contact_roles AS "adminContactRoles", attachments_enabled AS "attachmentsEnabled",
   attachment_max_bytes AS "attachmentMaxBytes", attachment_max_per_item AS "attachmentMaxPerItem", allowed_attachment_types AS "allowedAttachmentTypes",
   max_messages_per_hour AS "maxMessagesPerHour", max_new_conversations_per_day AS "maxNewConversationsPerDay",
   max_group_participants AS "maxGroupParticipants", max_broadcast_participants AS "maxBroadcastParticipants",
-  message_max_length AS "messageMaxLength", notification_retention_days AS "notificationRetentionDays"`;
+  message_max_length AS "messageMaxLength", notification_retention_days AS "notificationRetentionDays",
+  previous_year_window_days AS "previousYearWindowDays"`;
 
 /** Paramètres du tenant de la transaction ; sans ligne, les défauts du code. */
 export async function getSettings(tx: Tx, tenantId: Uuid): Promise<MessagingSettings> {
@@ -35,15 +37,15 @@ export async function upsertSettings(tx: Tx, tenantId: Uuid, s: MessagingSetting
   await tx.query(
     `INSERT INTO messaging.settings (tenant_id, student_policy, admin_contact_roles, attachments_enabled, attachment_max_bytes, attachment_max_per_item,
         allowed_attachment_types, max_messages_per_hour, max_new_conversations_per_day, max_group_participants, max_broadcast_participants,
-        message_max_length, notification_retention_days, updated_by, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        message_max_length, notification_retention_days, previous_year_window_days, updated_by, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
      ON CONFLICT (tenant_id) DO UPDATE SET student_policy = EXCLUDED.student_policy, admin_contact_roles = EXCLUDED.admin_contact_roles,
         attachments_enabled = EXCLUDED.attachments_enabled, attachment_max_bytes = EXCLUDED.attachment_max_bytes,
         attachment_max_per_item = EXCLUDED.attachment_max_per_item, allowed_attachment_types = EXCLUDED.allowed_attachment_types,
         max_messages_per_hour = EXCLUDED.max_messages_per_hour, max_new_conversations_per_day = EXCLUDED.max_new_conversations_per_day,
         max_group_participants = EXCLUDED.max_group_participants, max_broadcast_participants = EXCLUDED.max_broadcast_participants,
         message_max_length = EXCLUDED.message_max_length, notification_retention_days = EXCLUDED.notification_retention_days,
-        updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at`,
+        previous_year_window_days = EXCLUDED.previous_year_window_days, updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at`,
     [
       tenantId,
       s.studentPolicy,
@@ -58,6 +60,7 @@ export async function upsertSettings(tx: Tx, tenantId: Uuid, s: MessagingSetting
       s.maxBroadcastParticipants,
       s.messageMaxLength,
       s.notificationRetentionDays,
+      s.previousYearWindowDays,
       by,
       now,
     ],

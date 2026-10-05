@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useAdmissionsSettings, useAdmissionsLookups, usePromoteFromWaitlist, useWaitlist } from "@/platform/v2/admissions";
+import { useAdmissionsSettings, useAdmissionsLookups, usePromoteFromWaitlist, useReorderWaitlist, useWaitlist } from "@/platform/v2/admissions";
 import { Can } from "@/platform/ui/AccessGate";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
-import { FormField, NativeSelect } from "@/platform/ui/FormField";
+import { FormField, NativeSelect, TextControl } from "@/platform/ui/FormField";
 import { useDateFormat } from "@/platform/ui/format";
 import { buttonClass, PageHeader } from "@/platform/ui/PageHeader";
 import { Notice } from "@/platform/ui/states";
@@ -17,8 +17,11 @@ import { offerLink } from "./admissions-utils";
 type Entry = NonNullable<ReturnType<typeof useWaitlist>["data"]>["entries"][number];
 
 /**
- * Liste d'attente par niveau : l'ordre (priorité puis ancienneté) et le nombre de places libres sont ceux de l'API. La promotion
- * émet une offre ; le lien de réponse n'est montré qu'à cet instant (seule son empreinte est conservée).
+ * Liste d'attente par niveau : l'ordre est une DÉCISION de la direction (Q-A03), jamais un calcul d'ancienneté. Les dossiers « à
+ * classer » sont affichés après les classés ; l'ancienneté et la priorité ne sont que des informations. La direction (permission
+ * `admission.waitlist.reorder`) réordonne par boutons monter / descendre (clavier), avec un motif facultatif, puis enregistre : le
+ * rang est tracé côté serveur. La promotion émet une offre ; le lien de réponse n'est montré qu'à cet instant (seule son empreinte
+ * est conservée).
  */
 export function WaitlistScreen() {
   const t = useTranslations("v2Admissions.waitlist");
@@ -31,9 +34,45 @@ export function WaitlistScreen() {
   const [grade, setGrade] = useState("");
   const list = useWaitlist({ campaignId, grade: grade || null });
   const promote = usePromoteFromWaitlist();
+  const reorder = useReorderWaitlist();
+  const [draft, setDraft] = useState<string[] | null>(null);
+  const [reason, setReason] = useState("");
+  const [saved, setSaved] = useState(false);
   const [done, setDone] = useState<{ message: string; token: string | null } | null>(null);
   const grades = (selected?.capacities ?? []).map((c) => c.gradeLevelCode);
   const labels = new Map((lookups.data?.gradeLevels ?? []).map((g) => [g.code, g.label]));
+
+  const serverIds = (list.data?.entries ?? []).map((e) => e.applicationId);
+  const byId = new Map((list.data?.entries ?? []).map((e) => [e.applicationId, e]));
+  // Ordre affiché : le brouillon (si la liste n'a pas changé côté serveur), sinon l'ordre de l'API.
+  const draftValid = draft !== null && draft.length === serverIds.length && draft.every((id) => byId.has(id));
+  const shown: Entry[] = draftValid ? draft.map((id) => byId.get(id) as Entry) : (list.data?.entries ?? []);
+
+  function move(id: string, delta: -1 | 1) {
+    const ids = shown.map((e) => e.applicationId);
+    const from = ids.indexOf(id);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    const next = [...ids];
+    next.splice(from, 1);
+    next.splice(to, 0, id);
+    setSaved(false);
+    setDraft(next);
+  }
+
+  function saveOrder() {
+    if (!campaignId || !grade || !draftValid) return;
+    reorder.mutate(
+      { campaignId, grade, orderedApplicationIds: draft, ...(reason.trim() ? { reason: reason.trim() } : {}) },
+      {
+        onSuccess: () => {
+          setDraft(null);
+          setReason("");
+          setSaved(true);
+        },
+      },
+    );
+  }
 
   function run(applicationId?: string) {
     if (!campaignId || !grade) return;
@@ -45,7 +84,7 @@ export function WaitlistScreen() {
   }
 
   const columns: DataTableColumn<Entry>[] = [
-    { id: "position", header: t("columns.position"), headerLabel: t("columns.position"), cell: (e) => e.queuePosition },
+    { id: "position", header: t("columns.position"), headerLabel: t("columns.position"), cell: (e) => (draftValid ? shown.indexOf(e) + 1 : (e.manualRank ?? <span className="text-muted-foreground">{t("toRank")}</span>)) },
     {
       id: "name",
       header: t("columns.name"),
@@ -64,11 +103,25 @@ export function WaitlistScreen() {
       header: <span className="sr-only">{t("columns.actions")}</span>,
       headerLabel: t("columns.actions"),
       align: "right",
-      cell: (e) => (
-        <button type="button" className={buttonClass.secondary} disabled={promote.isPending} onClick={() => run(e.applicationId)} aria-label={t("promoteOne", { name: `${e.applicantFirstName} ${e.applicantLastName}` })}>
-          {t("promote")}
-        </button>
-      ),
+      cell: (e) => {
+        const name = `${e.applicantFirstName} ${e.applicantLastName}`;
+        const index = shown.indexOf(e);
+        return (
+          <div className="flex flex-wrap justify-end gap-2">
+            <Can permission="admission.waitlist.reorder">
+              <button type="button" className={buttonClass.secondary} disabled={reorder.isPending || index <= 0} onClick={() => move(e.applicationId, -1)} aria-label={t("moveUp", { name })}>
+                {t("up")}
+              </button>
+              <button type="button" className={buttonClass.secondary} disabled={reorder.isPending || index >= shown.length - 1} onClick={() => move(e.applicationId, 1)} aria-label={t("moveDown", { name })}>
+                {t("down")}
+              </button>
+            </Can>
+            <button type="button" className={buttonClass.secondary} disabled={promote.isPending || draftValid} onClick={() => run(e.applicationId)} aria-label={t("promoteOne", { name })}>
+              {t("promote")}
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -95,6 +148,9 @@ export function WaitlistScreen() {
         </p>
       ) : null}
       {promote.error ? <Notice kind="error" className="mb-3">{describe(promote.error)}</Notice> : null}
+      {reorder.error ? <Notice kind="error" className="mb-3">{describe(reorder.error)}</Notice> : null}
+      {saved ? <Notice kind="success" className="mb-3">{t("orderSaved")}</Notice> : null}
+      {grade && list.data && list.data.entries.some((e) => e.manualRank === null) && !draftValid ? <Notice kind="info" className="mb-3">{t("unranked")}</Notice> : null}
       {done ? (
         <div className="mb-3 space-y-2">
           <Notice kind={done.token ? "success" : "info"}>{done.message}</Notice>
@@ -105,21 +161,66 @@ export function WaitlistScreen() {
         <>
           <Can permission="admission.waitlist.manage">
             <div className="mb-3">
-              <button type="button" className={buttonClass.primary} disabled={promote.isPending || (list.data?.entries.length ?? 0) === 0} onClick={() => run()}>
+              <button type="button" className={buttonClass.primary} disabled={promote.isPending || draftValid || (list.data?.entries.length ?? 0) === 0} onClick={() => run()}>
                 {t("promoteFirst")}
               </button>
             </div>
           </Can>
+          <Can permission="admission.waitlist.reorder">
+            {draftValid ? (
+              <div className="mb-3 grid gap-3 sm:max-w-xl" role="group" aria-label={t("reorderGroup")}>
+                <FormField label={t("reason")} hint={t("reasonHint")}>
+                  {(c) => <TextControl {...c} value={reason} onChange={setReason} maxLength={500} />}
+                </FormField>
+                <div className="flex gap-2">
+                  <button type="button" className={buttonClass.primary} disabled={reorder.isPending} onClick={saveOrder}>
+                    {t("saveOrder")}
+                  </button>
+                  <button
+                    type="button"
+                    className={buttonClass.secondary}
+                    disabled={reorder.isPending}
+                    onClick={() => {
+                      setDraft(null);
+                      setReason("");
+                    }}
+                  >
+                    {t("cancelOrder")}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </Can>
           <DataTable
             caption={t("caption")}
             columns={columns}
-            rows={list.data?.entries ?? []}
+            rows={shown}
             getRowId={(e) => e.applicationId}
             isLoading={list.isPending}
             error={list.error}
             onRetry={() => void list.refetch()}
             emptyTitle={t("empty")}
           />
+          {list.data && list.data.changes.length > 0 ? (
+            <section className="mt-6" aria-labelledby="waitlist-changes">
+              <h2 id="waitlist-changes" className="mb-2 text-sm font-semibold">
+                {t("changesTitle")}
+              </h2>
+              <ul className="space-y-1 text-sm">
+                {list.data.changes.map((c) => (
+                  <li key={c.id}>
+                    {t("changeLine", {
+                      name: byId.has(c.applicationId) ? `${byId.get(c.applicationId)!.applicantFirstName} ${byId.get(c.applicationId)!.applicantLastName}` : t("changeOther"),
+                      from: c.fromRank ?? "—",
+                      to: c.toRank ?? "—",
+                      date: fmt.instant(c.occurredAt),
+                    })}
+                    {c.reason ? ` — ${c.reason}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </>
       ) : (
         <p className="text-sm text-muted-foreground">{t("pickGrade")}</p>

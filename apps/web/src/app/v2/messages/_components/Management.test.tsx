@@ -154,12 +154,13 @@ describe("SettingsScreen : paramètres et gabarits", () => {
     attachmentMaxBytes: 5 * 1024 * 1024,
     attachmentMaxPerItem: 5,
     allowedAttachmentTypes: ["application/pdf", "image/jpeg", "image/png", "image/webp"],
-    maxMessagesPerHour: 60,
+    maxMessagesPerHour: 120,
     maxNewConversationsPerDay: 30,
     maxGroupParticipants: 200,
     maxBroadcastParticipants: 5000,
     messageMaxLength: 5000,
     notificationRetentionDays: 90,
+    previousYearWindowDays: 90,
   };
   const templates = { items: [{ code: "attendance.absence", title: "Absence de {{studentName}}", body: "{{studentName}} était absent le {{date}}.", enabled: true, variables: ["studentName", "date"], customized: false }, { code: "attendance.late", title: "Retard de {{studentName}}", body: "Retard le {{date}}.", enabled: false, variables: ["studentName", "date"], customized: false }] };
 
@@ -192,6 +193,7 @@ describe("SettingsScreen : paramètres et gabarits", () => {
       maxBroadcastParticipants: 5000,
       messageMaxLength: 5000,
       notificationRetentionDays: 90,
+      previousYearWindowDays: 90,
     });
   });
 

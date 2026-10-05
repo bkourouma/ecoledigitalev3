@@ -35,6 +35,7 @@ export const AdmissionsCode = {
   CAPACITY_OVERRIDE_REASON: "admissions.capacity_override_reason",
   WAITLIST_FULL: "admissions.waitlist_full",
   WAITLIST_DISABLED: "admissions.waitlist_disabled",
+  WAITLIST_ORDER_STALE: "admissions.waitlist_order_stale",
   CONSENT_MISSING: "admissions.consent_missing",
   CONSENT_TEXT_MISSING: "admissions.consent_text_missing",
   DOCUMENTS_INCOMPLETE: "admissions.documents_incomplete",

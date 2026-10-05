@@ -62,7 +62,7 @@ export { newOpaqueToken, newPublicSlug, newTrackingCode, sha256Hex, tokenHash, t
 export { acceptOffer, declineOffer, expireOffer, issueOffer, withdrawOffer, setOfferClassroom, recordAcceptFailure } from "./application/offers";
 export { recordDecision, promoteHead, promoteOnFreedSeat } from "./application/decisions";
 export { createApplication, createApplicationInTx, getApplication, getBoard, getHistory, listApplications, recordConsent, submitInTx, transitionApplication, updateApplication, withdrawConsent } from "./application/applications";
-export { getWaitlist, promoteManually } from "./application/waitlist";
+export { getWaitlist, promoteManually, reorderWaitlist } from "./application/waitlist";
 export { createWorkflow, getWorkflowDetail, listWorkflows, newWorkflowVersion, publishWorkflow, replaceStages, replaceTransitions } from "./application/workflows";
 export { closeCampaign, createCampaign, getCampaign, listCampaigns, openCampaign, updateCampaign, upsertCapacities } from "./application/campaigns";
 export { ensureInstitutionDefaults } from "./application/defaults";

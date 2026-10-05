@@ -7,9 +7,10 @@
  * l'API publique aussi (liste des classes d'une année, noeuds d'une version).
  */
 import { unwrap, type RequestContext } from "@ecoledigitale/kernel";
-import { AcademicCode, addCurriculumNode, getAcademicYear, createClassroom, createSubject, getCurriculumVersion, getProgram, listAcademicYears, listClassrooms, listCurriculumNodes, listCurriculumVersions, listPrograms, listReference, listSubjects, updateClassroom, updateCurriculumNode } from "../../modules/academic";
+import { AcademicCode, addCurriculumNode, enrollStudent, getAcademicYear, createClassroom, createSubject, getCurriculumVersion, getProgram, listAcademicYears, listClassrooms, listCurriculumNodes, listCurriculumVersions, listEnrollmentsByStudent, listPrograms, listReference, listSubjects, updateClassroom, updateCurriculumNode } from "../../modules/academic";
 import { listInstitutions } from "../../modules/tenancy";
-import type { ApplyItem, ApplyResult, ImportTargetPort, PlanItem, PlanResult, PlanRun } from "../../modules/imports";
+import type { ApplyItem, ApplyResult, EnrollmentRow, ImportTargetPort, PlanItem, PlanResult, PlanRun } from "../../modules/imports";
+import { resolveStudentRefs } from "../../modules/people";
 import { issue, issuesFromError, type ImportWriteEnv } from "./imports-support";
 
 const norm = (s: string): string => s.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
@@ -243,6 +244,131 @@ export function createCurriculumImportPort(env: ImportWriteEnv): ImportTargetPor
       }
       const r = await addCurriculumNode(env.academic, ctx, versionId, { nodeTypeCode: row.nodeTypeCode, code: row.code, parentId: parent?.id ?? null, ...fields });
       return r.ok ? { rowNo: item.rowNo, outcome: "CREATED", entityId: r.value.id, issues: [] } : { rowNo: item.rowNo, outcome: "FAILED", issues: issuesFromError(r.error) };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Inscriptions (O-13) : des élèves DÉJÀ enregistrés vers les classes d'une année
+// ---------------------------------------------------------------------------
+
+const LIVE_ENROLLMENT = new Set(["PENDING", "ACTIVE", "SUSPENDED", "COMPLETED"]);
+const OPEN_CLASSROOM = new Set(["DRAFT", "ACTIVE"]);
+
+/**
+ * Importeur « inscriptions » : l'élève est désigné par son matricule (d'origine, de la plateforme ou numéro d'inscription), la
+ * classe par son code dans l'année choisie. Aucune fiche élève n'est créée ni modifiée. Écriture EXCLUSIVEMENT par
+ * `academic.enrollStudent` (classe ouverte, une inscription de classe par année, capacité dure, financement, confirmation).
+ *
+ * Le PLAN est en lecture seule (aucun cas d'usage d'écriture, même annulé) : élève et classe résolus, statut de l'élève, classe
+ * ouverte, financement connu, inscription déjà vivante dans la même classe (ligne ignorée : rejeu sans doublon) ou dans une autre
+ * classe de l'année (refus : un changement de classe se fait dans `academic`), effectif prévisible de la classe (avertissement).
+ */
+export function createEnrollmentsImportPort(env: ImportWriteEnv): ImportTargetPort<EnrollmentRow> {
+  const cache = new Map<string, { at: number; byCode: Map<string, Awaited<ReturnType<typeof classroomsOfYear>>[number]>; funding: Set<string> }>();
+  async function classesFor(ctx: RequestContext, yearId: string, jobId: string) {
+    const hit = cache.get(jobId);
+    if (hit && Date.now() - hit.at < 10 * 60_000) return hit;
+    for (const [k, v] of cache) if (Date.now() - v.at > 30 * 60_000) cache.delete(k);
+    const classes = await classroomsOfYear(env, ctx, yearId);
+    const funding = await listReference(env.academic, ctx, "funding-types");
+    const entry = { at: Date.now(), byCode: new Map(classes.map((c) => [norm(c.code), c])), funding: new Set(funding.ok ? funding.value.map((f) => norm(f.code)) : []) };
+    cache.set(jobId, entry);
+    return entry;
+  }
+  async function students(ctx: RequestContext, refs: readonly string[]) {
+    const r = await resolveStudentRefs(env.people, ctx, refs);
+    return new Map((r.ok ? r.value : []).map((m) => [norm(m.ref), m.studentId]));
+  }
+  const bodyOf = (row: EnrollmentRow, studentId: string, classroomId: string) => ({
+    studentId,
+    classroomId,
+    sourceKind: "IMPORT" as const,
+    ...(row.enrolledOn ? { enrolledOn: row.enrolledOn } : {}),
+    ...(row.fundingType ? { fundingType: row.fundingType } : {}),
+    ...(row.assignmentReference ? { assignmentReference: row.assignmentReference } : {}),
+  });
+
+  async function writeOne(ctx: RequestContext, item: ApplyItem<EnrollmentRow>, run: PlanRun, studentId: string | undefined): Promise<ApplyResult> {
+    const row = item.row;
+    const classes = await classesFor(ctx, String(run.options["academicYearId"] ?? ""), run.jobId);
+    const room = classes.byCode.get(norm(row.classCode));
+    if (!studentId) return { rowNo: item.rowNo, outcome: "FAILED", issues: [issue("studentRef", "imports.reference_unknown", `Aucun élève avec le matricule « ${row.studentRef} ».`)] };
+    if (!room) return { rowNo: item.rowNo, outcome: "FAILED", issues: [issue("classCode", "imports.reference_unknown", `Classe « ${row.classCode} » inconnue pour cette année scolaire.`)] };
+    const r = await enrollStudent(env.academic, ctx, bodyOf(row, studentId, room.id) as never);
+    if (r.ok) return { rowNo: item.rowNo, outcome: "CREATED", entityId: r.value.id, issues: [] };
+    if (r.error.code === AcademicCode.ALREADY_ENROLLED) return { rowNo: item.rowNo, outcome: "SKIPPED", issues: [issue(null, "imports.already_imported", "L'élève est déjà inscrit dans cette classe : ligne ignorée.", "WARNING")] };
+    return { rowNo: item.rowNo, outcome: "FAILED", issues: issuesFromError(r.error) };
+  }
+
+  return {
+    async choices(ctx, optionKey) {
+      return optionKey === "academicYearId" ? yearChoices(env, ctx) : [];
+    },
+    async checkOptions(ctx, options) {
+      const year = await getAcademicYear(env.academic, ctx, String(options["academicYearId"]));
+      if (!year.ok) return [issue("academicYearId", "imports.options_invalid", "Année scolaire inconnue.")];
+      if (year.value.status !== "DRAFT" && year.value.status !== "OPEN") return [issue("academicYearId", "imports.options_invalid", "Cette année scolaire n'accepte plus d'inscription : choisissez l'année courante ou celle qui s'ouvre.")];
+      return [];
+    },
+    async plan(ctx, items: readonly PlanItem<EnrollmentRow>[], run: PlanRun): Promise<PlanResult[]> {
+      const yearId = String(run.options["academicYearId"] ?? "");
+      const classes = await classesFor(ctx, yearId, run.jobId);
+      const ids = await students(ctx, items.map((i) => i.row.studentRef));
+      const incoming = new Map<string, number>(); // effectif prévisible par classe, dans ce lot
+      const out: PlanResult[] = [];
+      for (const item of items) {
+        const row = item.row;
+        const issues = [];
+        const studentId = ids.get(norm(row.studentRef));
+        const room = classes.byCode.get(norm(row.classCode));
+        if (!studentId) issues.push(issue("studentRef", "imports.reference_unknown", `Aucun élève avec le matricule « ${row.studentRef} ». L'importeur d'inscriptions ne crée pas de fiche : importez d'abord les élèves.`));
+        if (!room) issues.push(issue("classCode", "imports.reference_unknown", `Classe « ${row.classCode} » inconnue pour cette année scolaire.`));
+        else if (!OPEN_CLASSROOM.has(room.status)) issues.push(issue("classCode", AcademicCode.CLASSROOM_NOT_OPEN, `La classe « ${row.classCode} » est ${room.status} : elle n'accepte plus d'inscription.`));
+        if (row.fundingType && !classes.funding.has(norm(row.fundingType))) issues.push(issue("fundingType", "imports.reference_unknown", `Type de financement « ${row.fundingType} » inconnu.`));
+        if (studentId) {
+          const student = await env.academic.ports.students.getStudent(ctx, studentId);
+          if (!student) issues.push(issue("studentRef", "imports.reference_unknown", `Aucun élève avec le matricule « ${row.studentRef} ».`));
+          else if (!env.academic.config.enrollableStudentStatuses.includes(student.status)) issues.push(issue("studentRef", AcademicCode.STUDENT_NOT_ENROLLABLE, `Le dossier de l'élève est ${student.status} : il ne peut pas être inscrit.`));
+        }
+        let sameClass: string | null = null;
+        if (studentId && room && !issues.some((i) => i.severity === "ERROR")) {
+          const existing = await listEnrollmentsByStudent(env.academic, ctx, studentId);
+          const mine = existing.ok ? existing.value.filter((e) => LIVE_ENROLLMENT.has(e.status)) : [];
+          const same = mine.find((e) => e.classroomId === room.id);
+          const other = mine.find((e) => e.academicYearId === yearId && e.mode === "CLASS" && e.classroomId !== room.id);
+          if (same) sameClass = same.id;
+          else if (other) {
+            const where = [...classes.byCode.values()].find((c) => c.id === other.classroomId);
+            issues.push(issue("classCode", AcademicCode.CLASS_ENROLLMENT_EXISTS, `L'élève est déjà inscrit cette année${where ? ` dans la classe « ${where.code} »` : " dans une autre classe"} : un changement de classe se fait dans les inscriptions, pas par import.`));
+          }
+        }
+        if (issues.some((i) => i.severity === "ERROR")) {
+          out.push({ rowNo: item.rowNo, action: "ERROR", issues });
+          continue;
+        }
+        if (sameClass) {
+          out.push({ rowNo: item.rowNo, action: "SKIP", entityId: sameClass, issues: [issue(null, "imports.already_imported", "L'élève est déjà inscrit dans cette classe : ligne ignorée.", "WARNING")] });
+          continue;
+        }
+        if (room && room.capacity !== null) {
+          const planned = (incoming.get(room.id) ?? 0) + 1;
+          incoming.set(room.id, planned);
+          if (room.enrolledCount + planned > room.capacity) {
+            issues.push(
+              room.capacityIsHard
+                ? issue("classCode", AcademicCode.CLASSROOM_FULL, `La classe « ${room.code} » (${room.capacity} places, ${room.enrolledCount} inscrits) risque d'être pleine : l'inscription sera refusée si la capacité est atteinte.`, "WARNING")
+                : issue("classCode", AcademicCode.CLASSROOM_FULL, `La classe « ${room.code} » dépasse sa capacité indicative (${room.capacity}).`, "WARNING"),
+            );
+          }
+        }
+        out.push({ rowNo: item.rowNo, action: "CREATE", issues });
+      }
+      return out;
+    },
+    async apply(ctx, item: ApplyItem<EnrollmentRow>, run: PlanRun): Promise<ApplyResult> {
+      const ids = await students(ctx, [item.row.studentRef]);
+      return writeOne(ctx, item, run, ids.get(norm(item.row.studentRef)));
     },
   };
 }

@@ -663,6 +663,8 @@ export const messagingSettingsDtoSchema = z.object({
   maxBroadcastParticipants: z.number().int(),
   messageMaxLength: z.number().int(),
   notificationRetentionDays: z.number().int(),
+  /** Q-05 : jours pendant lesquels un parent peut écrire aux enseignants de l'année précédente (0 = fermé). */
+  previousYearWindowDays: z.number().int(),
 });
 export type MessagingSettingsDto = z.infer<typeof messagingSettingsDtoSchema>;
 
@@ -680,6 +682,7 @@ export const messagingUpdateSettingsBodySchema = z
     maxBroadcastParticipants: z.number().int().min(2).max(20000).optional(),
     messageMaxLength: z.number().int().min(100).max(20000).optional(),
     notificationRetentionDays: z.number().int().min(7).max(3650).optional(),
+    previousYearWindowDays: z.number().int().min(0).max(366).optional(),
   })
   .strict()
   .refine((b) => Object.keys(b).length > 0, "Aucun changement demandé.");

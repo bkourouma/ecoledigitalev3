@@ -265,4 +265,72 @@ describeIntegration("module imports : HTTP sur base réelle", () => {
     expect(up.json().missingRequired).toEqual([]);
     expect((await xlsxOf([["a"]])).length).toBeGreaterThan(0);
   });
+
+  describe("O-02 notes par les enseignants (grades_own) et O-13 inscriptions (enrollments) : permissions", () => {
+    const TEACHER = ["imports.read", "imports.create", "imports.import.grades_own", "grade.enter"];
+    const CSV = csvOf([["Matricule", "Note"], ["2024-0001", "14,5"]]);
+    const ENROLL_CSV = csvOf([["Matricule", "Classe"], ["2024-0001", "6EME_A"]]);
+
+    it("un enseignant (grade.enter + imports.import.grades_own, SANS assessment.manage) peut utiliser « notes de mes classes » mais ni « notes » ni les autres importeurs", async () => {
+      const list = await app.inject({ method: "GET", url: "/importers", headers: headers(TEACHER) });
+      expect(list.statusCode).toBe(200);
+      const byKey = Object.fromEntries(list.json().items.map((i: { key: string; canUse: boolean; canRun: boolean }) => [i.key, i]));
+      expect(byKey["grades_own"]).toMatchObject({ canUse: true, canRun: true, importPermission: "imports.import.grades_own", targetPermissions: ["grade.enter"] });
+      for (const key of ["grades", "students", "guardians", "staff", "classrooms", "curriculum", "enrollments", "opening_balances"]) expect(byKey[key], key).toMatchObject({ canUse: false, canRun: false });
+      // « notes » exige assessment.manage : refusé avec la permission manquante nommée.
+      const full = await upload(CSV, "notes.csv", "text/csv", [...TEACHER, "imports.import.grades"], "grades");
+      expect(full.statusCode).toBe(403);
+      expect(full.json().details.permission).toBe("assessment.manage");
+      // sans grade.enter, même avec la permission d'import : refus.
+      const noGrade = await upload(CSV, "notes.csv", "text/csv", ["imports.read", "imports.create", "imports.import.grades_own"], "grades_own");
+      expect(noGrade.statusCode).toBe(403);
+      expect(noGrade.json().details.permission).toBe("grade.enter");
+      // la permission d'import seule ne suffit pas à lancer : elle est exigée AU LANCEMENT, avec celle du module cible.
+      const ok = await upload(CSV, "notes.csv", "text/csv", ["imports.read", "imports.create", "grade.enter"], "grades_own");
+      expect(ok.statusCode).toBe(201);
+      const id = ok.json().job.id as string;
+      const run = await app.inject({ method: "POST", url: `/jobs/${id}/run`, headers: headers(["imports.read", "imports.create", "grade.enter"]), payload: { runMode: "VALID_ONLY", onExisting: "SKIP", confirm: true } });
+      expect(run.statusCode).toBe(403);
+      expect(run.json().details.permission).toBe("imports.import.grades_own");
+      // le directeur (imports.import.grades + assessment.manage + grade.enter) n'a pas besoin du droit limité
+      const director = ["imports.read", "imports.create", "imports.import.grades", "assessment.manage", "grade.enter"];
+      const list2 = await app.inject({ method: "GET", url: "/importers", headers: headers(director) });
+      const dir = Object.fromEntries(list2.json().items.map((i: { key: string; canUse: boolean }) => [i.key, i.canUse]));
+      expect(dir["grades"]).toBe(true);
+      expect(dir["grades_own"]).toBe(true); // grade.enter suffit à l'USAGE ; le lancement exige imports.import.grades_own
+    });
+
+    it("inscriptions : permission d'import dédiée ET enrollment.create du module cible ; jamais student.create (aucune fiche créée)", async () => {
+      const prepareOnly = ["imports.read", "imports.create"];
+      const noTarget = await upload(ENROLL_CSV, "inscriptions.csv", "text/csv", [...prepareOnly, "imports.import.enrollments"], "enrollments");
+      expect(noTarget.statusCode).toBe(403);
+      expect(noTarget.json().details.permission).toBe("enrollment.create");
+      const up = await upload(ENROLL_CSV, "inscriptions.csv", "text/csv", [...prepareOnly, "enrollment.create"], "enrollments");
+      expect(up.statusCode).toBe(201);
+      expect(up.json().suggestedMapping).toMatchObject({ studentRef: "Matricule", classCode: "Classe" });
+      expect(up.json().missingRequired).toEqual([]);
+      const id = up.json().job.id as string;
+      const noImportPerm = await app.inject({ method: "POST", url: `/jobs/${id}/run`, headers: headers([...prepareOnly, "enrollment.create"]), payload: { runMode: "VALID_ONLY", onExisting: "SKIP", confirm: true } });
+      expect(noImportPerm.statusCode).toBe(403);
+      expect(noImportPerm.json().details.permission).toBe("imports.import.enrollments");
+      // « mettre à jour » n'existe pas pour les inscriptions : refusé.
+      const upd = await app.inject({ method: "PUT", url: `/jobs/${id}/mapping`, headers: headers([...prepareOnly, "enrollment.create"]), payload: { mapping: up.json().suggestedMapping, onExisting: "UPDATE" } });
+      expect(upd.statusCode).toBeGreaterThanOrEqual(400);
+      // modèles de fichier générés (CSV et XLSX)
+      const tpl = await app.inject({ method: "GET", url: "/importers/enrollments/template?format=csv", headers: headers(["imports.read"]) });
+      expect(tpl.statusCode).toBe(200);
+      expect(tpl.body).toContain("Matricule de l'élève");
+      expect(tpl.body).toContain("Classe (code)");
+      const x = await app.inject({ method: "GET", url: "/importers/enrollments/template?format=xlsx", headers: headers(["imports.read"]) });
+      expect(x.statusCode).toBe(200);
+      expect((await JSZip.loadAsync(x.rawPayload)).file("xl/worksheets/sheet1.xml")).not.toBeNull();
+    });
+
+    it("isolation A/B : un import d'inscriptions du tenant A est invisible du tenant B (404)", async () => {
+      const up = await upload(ENROLL_CSV, "inscriptions.csv", "text/csv", ["imports.read", "imports.create", "enrollment.create"], "enrollments");
+      const id = up.json().job.id as string;
+      const asB = await app.inject({ method: "GET", url: `/jobs/${id}`, headers: headers(["imports.read"], {}, w.tenantB) });
+      expect(asB.statusCode).toBe(404);
+    });
+  });
 });

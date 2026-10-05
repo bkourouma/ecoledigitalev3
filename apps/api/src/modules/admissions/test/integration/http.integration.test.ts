@@ -140,6 +140,7 @@ describeIntegration("admissions : HTTP", () => {
     ["GET", `/applications/${UUID}/export`, ["admission.export"]],
     ["GET", "/waitlist", ["admission.waitlist.manage"]],
     ["POST", "/waitlist/promote", ["admission.waitlist.manage"]],
+    ["PUT", "/waitlist/order", ["admission.waitlist.reorder"]],
     ["GET", "/reports/funnel", ["admission.report.read"]],
     ["GET", "/reports/capacity", ["admission.report.read"]],
     ["GET", "/reports/sla", ["admission.report.read"]],

@@ -7,7 +7,8 @@ import type { ImporterKey } from "@ecoledigitale/contracts/src/v2/imports";
 import type { ImporterDef } from "../domain/types";
 import { classroomsImporter } from "./classrooms";
 import { curriculumImporter } from "./curriculum";
-import { gradesImporter } from "./grades";
+import { enrollmentsImporter } from "./enrollments";
+import { gradesImporter, gradesOwnImporter } from "./grades";
 import { guardiansImporter } from "./guardians";
 import { openingBalancesImporter } from "./opening-balances";
 import { staffImporter } from "./staff";
@@ -20,6 +21,8 @@ export const IMPORTERS: Readonly<Record<ImporterKey, ImporterDef<any>>> = Object
   classrooms: classroomsImporter,
   curriculum: curriculumImporter,
   grades: gradesImporter,
+  grades_own: gradesOwnImporter,
+  enrollments: enrollmentsImporter,
   opening_balances: openingBalancesImporter,
 });
 

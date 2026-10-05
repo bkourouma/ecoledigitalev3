@@ -149,24 +149,34 @@ describe("workflow modèle livré en donnée", () => {
   });
 });
 
-describe("liste d'attente : ordre = classe de priorité, puis date d'entrée, puis identifiant", () => {
-  it("une priorité absente passe après toutes les classes déclarées ; à rang égal, l'ancienneté", () => {
+describe("liste d'attente : ordre = rang décidé par la direction (Q-A03), jamais l'ancienneté ni la priorité", () => {
+  it("le rang manuel prime sur la classe de priorité et l'ancienneté ; les dossiers à classer passent après, par date d'entrée", () => {
     const rows = [
-      { applicationId: "c", priorityRank: null, enteredAt: "2026-01-01T00:00:00Z" },
-      { applicationId: "b", priorityRank: 2, enteredAt: "2026-01-03T00:00:00Z" },
-      { applicationId: "a", priorityRank: 1, enteredAt: "2026-02-01T00:00:00Z" },
+      { applicationId: "c", priorityRank: null, enteredAt: "2026-01-01T00:00:00Z", manualRank: 3 },
+      { applicationId: "b", priorityRank: 2, enteredAt: "2026-01-03T00:00:00Z", manualRank: 1 },
+      { applicationId: "a", priorityRank: 1, enteredAt: "2026-02-01T00:00:00Z", manualRank: 2 },
+      { applicationId: "e", priorityRank: 1, enteredAt: "2026-03-01T00:00:00Z", manualRank: null },
       { applicationId: "d", priorityRank: 2, enteredAt: "2026-01-02T00:00:00Z" },
     ];
-    expect(orderWaitlist(rows).map((r) => r.applicationId)).toEqual(["a", "d", "b", "c"]);
-    expect(orderWaitlist(rows).map((r) => r.queuePosition)).toEqual([1, 2, 3, 4]);
+    expect(orderWaitlist(rows).map((r) => r.applicationId)).toEqual(["b", "a", "c", "d", "e"]);
+    expect(orderWaitlist(rows).map((r) => r.queuePosition)).toEqual([1, 2, 3, 4, 5]);
     expect(NO_PRIORITY_RANK).toBeGreaterThan(1_000_000);
+  });
+
+  it("sans aucun rang décidé, l'ordre n'est qu'un affichage par date d'entrée (jamais une promotion implicite)", () => {
+    const out = orderWaitlist([
+      { applicationId: "z", priorityRank: 1, enteredAt: "2026-02-01T00:00:00Z" },
+      { applicationId: "y", priorityRank: null, enteredAt: "2026-01-01T00:00:00Z" },
+    ]);
+    expect(out.map((r) => r.applicationId)).toEqual(["y", "z"]);
+    expect(out.map((r) => r.queuePosition)).toEqual([1, 2]);
   });
 
   it("à date identique, l'identifiant départage (ordre total, stable)", () => {
     const t = "2026-01-01T00:00:00Z";
     const out = orderWaitlist([
-      { applicationId: "z", priorityRank: 1, enteredAt: t },
-      { applicationId: "m", priorityRank: 1, enteredAt: t },
+      { applicationId: "z", priorityRank: 1, enteredAt: t, manualRank: null },
+      { applicationId: "m", priorityRank: 1, enteredAt: t, manualRank: null },
     ]);
     expect(out.map((r) => r.applicationId)).toEqual(["m", "z"]);
   });

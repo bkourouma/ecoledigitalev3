@@ -56,6 +56,7 @@ export default defineModule({
     { key: "admission.offer.manage", label: "Émettre, retirer une offre d'admission ; accepter au nom de la famille (pièce justificative)" },
     { key: "admission.duplicate.resolve", label: "Trancher les rapprochements de doublons" },
     { key: "admission.waitlist.manage", label: "Consulter la liste d'attente et proposer une place libérée" },
+    { key: "admission.waitlist.reorder", label: "Décider du rang de la liste d'attente : classer et réordonner manuellement (décision de la direction, tracée)" },
     { key: "admission.enroll", label: "Franchir l'étape qui crée l'inscription (acceptation de l'offre)" },
     {
       key: "admission.anonymize",
