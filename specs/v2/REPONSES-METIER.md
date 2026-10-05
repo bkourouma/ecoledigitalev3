@@ -241,3 +241,63 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 | O-13 | AJOUTER l'import des inscriptions maintenant | Écart |
 | O-15 | Avoir sans facture de reprise refusé | Défaut conservé |
 | O-04, 06, 07, 09, 14 | Questions techniques : défauts conservés | Défaut conservé |
+
+## Textes officiels et décisions d'exploitation
+
+| Sujet | Décision | Statut |
+|-------|----------|--------|
+| Textes officiels ivoiriens (programmes, MGA, passage, conseils, BEPC, BAC, CEPE, bulletins, états à transmettre) | L'utilisateur les fournira plus tard | En attente : les packs restent en règles de démonstration |
+| Secrets exposés | Rotation immédiate puis tous les 90 jours | À exécuter côté serveur par l'utilisateur ; procédure à documenter |
+| Serveur Imhotep | Archiver une sauvegarde chiffrée puis supprimer | À exécuter par l'utilisateur après sauvegarde |
+| Conformité RGPD / loi 2013-450 | Pas d'avis juridique prévu pour l'instant | Risque accepté : durées de conservation et anonymisation laissées aux établissements |
+
+## Arbitrages d'intégration (L-01 à L-08)
+
+| Id | Décision | Statut |
+|----|----------|--------|
+| L-01 | Enseignants : lecture de leurs conseils de classe et propositions | Défaut conservé |
+| L-02 | Le directeur d'études PUBLIE aussi les résultats d'examen et approuve les dérogations | Écart (modifier les rôles RBAC) |
+| L-03 | Secrétariat sans droit sur les examens | Défaut conservé |
+| L-04 | Soldes d'ouverture importés par la direction seule, avec MFA | Défaut conservé |
+| L-05 | Règles de notification vie scolaire / admissions laissées désactivées | Défaut conservé |
+| L-06 | Rapprochement des affectés : frais d'inscription inclus, tolérance de l'établissement | Défaut conservé |
+| L-07 | Job d'effets du conseil de classe sous l'identité de l'humain décideur | Défaut conservé |
+| L-08 | Couleur « destructive » éclaircie conservée | Défaut conservé |
+
+---
+
+## Écarts à implémenter (réponses différentes des valeurs par défaut déjà codées)
+
+Chaque ligne est une demande de changement ; les lignes « à risque » demandent un cadrage avant code.
+
+| Id | Changement demandé | Risque |
+|----|--------------------|--------|
+| O-01 | Confirmation d'inscription par paiement OU confirmation manuelle | Faible |
+| O-04 | Cumul de financements sur une inscription (ex. bourse + État) | Moyen (facturation, rapprochement des affectés) |
+| O-05 | Générateur complet d'emploi du temps | Chantier important |
+| O-10 | Calendrier national des jours fériés préchargé | Faible (données à maintenir) |
+| O-11 | UE gérée sur deux semestres (supérieur) | Moyen (résultats) |
+| O-14 | Dispense d'UE manuelle avec motif | Faible |
+| Q-P04 | Rang affiché par défaut au primaire | Faible |
+| Q-P05 | Mentions automatiques par seuils réglables (primaire) | Faible (seuils non officiels) |
+| Q-P17 | Appel matin et après-midi | Moyen (politique d'appel, bulletins d'assiduité) |
+| Q-P18 | Parents voient rangs et compétences immédiatement après saisie | À RISQUE : résultats non validés exposés aux familles |
+| Q-A03 | Liste d'attente : décision manuelle (pas d'ordre par ancienneté) | Faible |
+| Q-24 | Numérotation des diplômes à format libre | Moyen (perd la garantie « sans trou ni doublon ») |
+| Q-PAY-30 | Comptes fournisseurs de la plateforme partagés entre établissements | À RISQUE : fonds de plusieurs écoles sur un même compte |
+| Q-PAY-32 | Remboursements toujours manuels | Faible (désactiver l'exécution automatique) |
+| Q-PAY-38 | Résolution manuelle d'un paiement bloqué par UNE seule personne | Moyen (perd la séparation des tâches) |
+| Q-05 (msg) | Parent peut écrire aux enseignants de l'année précédente | Faible |
+| Q-06 (msg) | Plafond de messagerie 120 messages/h | Faible |
+| Q-13 (msg) | Tout enseignant peut écrire à toute famille | À RISQUE : confidentialité, portée élargie |
+| Q-26 | Relances d'impayés à J+7/J+21/J+45 | Faible |
+| Q-E13 | Frais d'examen intégrés à l'inscription du candidat | Moyen |
+| Q-E15 | Candidat libre (sans dossier élève) | Chantier (examens) |
+| Q-E18 | Du CEPE vers l'admission en 6e : résultat et moyenne | Moyen (données personnelles) |
+| Q-03 (doc) | Pièces jamais purgées | Faible (à rapprocher de la loi sur les données) |
+| Q-05 (doc) | Quotas de stockage 5/50/250 Gio | Faible |
+| Q-14 (doc) | Recherche dans le texte des PDF | Chantier |
+| O-02 (imp) | Import de notes par les enseignants pour leurs classes | Faible |
+| O-11 (imp) | Import .xls et .ods | À RISQUE : conversion côté serveur, surface d'attaque |
+| O-13 (imp) | Import des inscriptions | Chantier |
+| L-02 | Directeur d'études publie les résultats d'examen | Moyen (séparation des tâches) |
