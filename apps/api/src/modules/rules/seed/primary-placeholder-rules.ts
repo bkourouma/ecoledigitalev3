@@ -20,8 +20,8 @@ const YEAR_DECISION_LABELS = labels({
 
 /**
  * Mentions du primaire (décision Q-P05, 2026-10-05) : le primaire a des mentions automatiques par seuils de moyenne, RÉGLABLES par
- * l'établissement (variante d'établissement : les seuils sont des paramètres bornés 0..20) et DÉSACTIVABLES (la règle est optionnelle
- * dans le contrat : une variante qui l'omet supprime la mention ; le gabarit de bulletin a aussi une option d'affichage).
+ * l'établissement (variante d'établissement : les seuils sont des paramètres bornés 0..20) et DÉSACTIVABLES (paramètre `actif` à 0 dans une
+ * variante : la règle ne produit plus de mention, code `PENDING` = « pas de mention » ; le gabarit de bulletin a en plus une option d'affichage).
  * Les valeurs de départ sont FICTIVES (jeu `source.kind = "placeholder"`) : aucune échelle de mentions officielle n'est inventée.
  */
 const PRIMARY_MENTION_LABELS = labels({
@@ -37,15 +37,16 @@ const PRIMARY_MENTION_LABELS = labels({
 export const primaryMentionPlaceholderRule: SeedRule = Object.freeze<SeedRule>({
   key: "mention_periode",
   type: "mention",
-  description: `${MARK}Mention de période par seuils de moyenne /20 (bornes inférieures incluses). Seuils de départ FICTIFS, réglables par l'établissement ; règle optionnelle (désactivable).`,
+  description: `${MARK}Mention de période par seuils de moyenne /20 (bornes inférieures incluses). Seuils de départ FICTIFS, réglables par l'établissement ; désactivable (actif = 0) ; « PENDING » = pas de mention (moyenne absente ou mentions désactivées).`,
   expression:
-    'if(is_null(moyenne), "PENDING", ' +
+    'if(is_null(moyenne) || params.actif < 1, "PENDING", ' +
     'if(moyenne >= params.excellent, "EXCELLENT", ' +
     'if(moyenne >= params.tres_bien, "VERY_GOOD", ' +
     'if(moyenne >= params.bien, "GOOD", ' +
     'if(moyenne >= params.assez_bien, "FAIRLY_GOOD", ' +
     'if(moyenne >= params.passable, "PASSABLE", "INSUFFICIENT"))))))',
   parameters: {
+    actif: num(1, 0, 1, `${MARK}1 = mentions de période calculées, 0 = désactivées (aucune mention n'est alors produite)`),
     passable: threshold(10, `${MARK}Moyenne /20 à partir de laquelle la mention est « Passable » (seuil de départ non officiel)`),
     assez_bien: threshold(12, `${MARK}Moyenne /20 à partir de laquelle la mention est « Assez bien » (seuil de départ non officiel)`),
     bien: threshold(14, `${MARK}Moyenne /20 à partir de laquelle la mention est « Bien » (seuil de départ non officiel)`),

@@ -169,7 +169,7 @@ describe("CI-PRIMARY-PLACEHOLDER v3 — rang de compétition et mentions réglab
     expect([15, 15, 12].map((m) => coefV3.value("rang_periode", { moyenne: m, cohorte }))).toEqual(["1", "1", "3"]);
   });
 
-  it("Q-P05 — la mention est une règle OPTIONNELLE du contrat (désactivable en l'omettant dans une variante)", () => {
+  it("Q-P05 — la mention est une règle OPTIONNELLE du contrat (absente de la version 1)", () => {
     const rule = coefV3.compiled.rules.find((r) => r.key === "mention_periode");
     expect(rule?.isOptional).toBe(true);
     expect(coef.compiled.rules.some((r) => r.key === "mention_periode")).toBe(false);
@@ -185,11 +185,19 @@ describe("CI-PRIMARY-PLACEHOLDER v3 — rang de compétition et mentions réglab
   it("Q-P05 — seuils de départ FICTIFS et bornés ; libellés marqués (fictif), aucune mention officielle", () => {
     expect(["passable", "assez_bien", "bien", "tres_bien", "excellent"].map((p) => coefV3.param("mention_periode", p))).toEqual([10, 12, 14, 16, 18]);
     const rule = coefV3.compiled.rules.find((r) => r.key === "mention_periode")!;
-    for (const [name, spec] of Object.entries(rule.parameters)) {
+    for (const [name, spec] of Object.entries(rule.parameters).filter(([n]) => n !== "actif")) {
       expect(spec.type === "number" && spec.min === 0 && spec.max === 20, name).toBe(true);
       expect(spec.description, name).toMatch(/non officiel/);
     }
     for (const code of ["PASSABLE", "FAIRLY_GOOD", "GOOD", "VERY_GOOD", "EXCELLENT", "INSUFFICIENT", "PENDING"]) expect(coefV3.label("mention_periode", code)).toMatch(/\(fictif\)$/);
+  });
+
+  it("Q-P05 — désactivable : avec `actif` = 0 (variante d'établissement), aucune mention n'est produite (PENDING = pas de mention)", () => {
+    expect(coefV3.param("mention_periode", "actif")).toBe(1);
+    expect(coefV3.str("mention_periode", { moyenne: 17 }, { actif: 0 })).toBe("PENDING");
+    expect(coefV3.str("mention_periode", { moyenne: 17 }, { actif: 1 })).toBe("VERY_GOOD");
+    const spec = coefV3.compiled.rules.find((r) => r.key === "mention_periode")!.parameters.actif!;
+    expect(spec.type === "number" && spec.min === 0 && spec.max === 1).toBe(true);
   });
 
   it("Q-P05 — l'établissement règle les seuils (surcharge bornée) sans nouveau code", () => {

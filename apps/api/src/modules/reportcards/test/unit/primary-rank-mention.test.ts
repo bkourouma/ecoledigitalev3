@@ -87,6 +87,8 @@ describe.each(KEYS)("gabarit %s v2 (Q-P04, Q-P05)", (key) => {
     expect(html(key)).toContain('<span class="lbl">Mention</span><span class="val">Assez bien</span>');
     expect(html(key, () => {}, { showMention: false })).not.toContain('<span class="lbl">Mention</span>');
     expect(html(key, (s) => { s.results.summary.mention = null; })).not.toContain('<span class="lbl">Mention</span>');
+    // « PENDING » = pas de mention (moyenne absente ou mentions désactivées par l'établissement dans son jeu de règles) : jamais affiché.
+    expect(html(key, (s) => { s.results.summary.mention = "PENDING"; })).not.toContain('<span class="lbl">Mention</span>');
   });
 
   it("le rendu reste déterministe", () => {

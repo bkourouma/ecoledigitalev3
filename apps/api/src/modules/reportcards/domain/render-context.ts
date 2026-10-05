@@ -244,7 +244,8 @@ export function buildRenderContext(snapshot: ReportcardSnapshot, verification: V
     options: { ...s.template.options },
     show: {
       rank: s.template.options.showRank !== false && (sum.rank !== null || s.results.lines.some((l) => l.rank !== null && l.rank > 0)),
-      mention: s.template.options.showMention !== false && Boolean(sum.mention),
+      // `PENDING` = pas de mention (moyenne absente ou mentions désactivées dans le jeu de règles) : rien à montrer.
+      mention: s.template.options.showMention !== false && Boolean(sum.mention) && sum.mention !== "PENDING",
     },
     groups: groupLines(s.results.lines, labels),
     rows: s.results.lines.map((l) => rowOf(l, labels)),
