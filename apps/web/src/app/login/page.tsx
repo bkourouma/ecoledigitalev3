@@ -274,6 +274,14 @@ function LegacyLoginPage() {
                   </Select>
                 </div>
 
+                {technicalAccounts.length > 0 && technicalAccounts.every((account) => !account.password) && (
+                  <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                    Mot de passe non configuré : un clic remplit seulement l'e-mail. Définissez{" "}
+                    <code>TECHNICAL_ACCOUNT_PASSWORD</code> dans <code>apps/web/.env.local</code> (et la même valeur côté API),
+                    puis redémarrez le serveur web.
+                  </p>
+                )}
+
                 <div className="space-y-2">
                   {technicalAccounts.map((account, index) => (
                     <Button
