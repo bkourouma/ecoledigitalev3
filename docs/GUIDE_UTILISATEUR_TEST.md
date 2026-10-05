@@ -3724,11 +3724,10 @@ Le cas des élèves affectés par l'État (facture partagée entre la famille et
 **Comptes :** économe (lecture et vérification), directeur puis propriétaire (résolution à la main) · **Où :** « Paiements à rapprocher » (`/v2/finance/payments/pending`)
 1. En économe, ouvrez la page. Le paiement de 50 001 F créé en C12.10 est listé : fournisseur `sandbox`, rapprochement « Pas encore contrôlé » ou « Vérification en cours » (le système interroge le fournisseur automatiquement toutes les quelques minutes). Cliquez « Vérifier maintenant » : « Le fournisseur répond toujours « en attente ». » L'économe n'a pas le bouton « Résoudre à la main ».
 2. En directeur : même page. Cliquez « Résoudre à la main » sur ce paiement. Ce qui s'est réellement passé : « L'argent n'est pas arrivé : marquer le paiement échoué ». Motif : « Test de résolution manuelle, aucun argent reçu » (10 caractères au moins). Preuve : `RELEVE-TEST-001`. « Demander la résolution ».
-3. Le message « La demande est enregistrée : elle attend l'approbation d'une autre personne. » apparaît ; la ligne porte « Résolution à approuver » et une ligne apparaît dans « Demandes à approuver ».
-4. Déconnectez-vous, connectez-vous en propriétaire, ouvrez la même page, « Demandes à approuver » : cliquez « Approuver » puis confirmez.
-**Résultat attendu :** « La résolution est approuvée et appliquée. » Le paiement quitte la liste « Paiements à rapprocher » et passe au statut « Échoué » dans « Encaissements ». Seule l'approbation modifie le paiement.
+3. Depuis la décision métier Q-PAY-38 (2026-10-05), une seule personne suffit, mais une confirmation par code (MFA récente) est exigée : la fenêtre de confirmation s'ouvre, saisissez le code (`pnpm demo:totp`), la résolution est alors rejouée automatiquement. Sans code valide, rien n'est écrit (erreur « MFA requise »).
+**Résultat attendu :** la résolution est appliquée immédiatement par la même personne. Le paiement quitte la liste « Paiements à rapprocher » et passe au statut « Échoué » dans « Encaissements ». Le motif, la preuve et l'état avant/après sont visibles dans le journal d'audit (événement sensible).
 - [ ] Résultat attendu constaté
-- [ ] Le demandeur ne peut pas approuver sa propre demande (voir C12.N4)
+- [ ] Sans confirmation par code récente, la résolution est refusée et le paiement reste inchangé (voir C12.N4)
 - [ ] Un paiement dont l'issue déclarée est « L'argent est arrivé » créerait le reçu et l'imputation : ne pas le tester sans nécessité (action définitive)
 
 #### C12.15 Demander un remboursement (économe) puis l'approuver (direction)
@@ -3816,9 +3815,9 @@ Un « webhook » est une notification automatique que l'opérateur de paiement e
 #### C12.N4 Les quatre yeux et les droits sensibles
 **Comptes :** économe, directeur · **Où :** « Remboursements », « À rapprocher », « Webhooks en échec », « Fournisseurs de paiement »
 1. Faites une nouvelle demande de remboursement en économe (5 000 F sur un paiement de test). Toujours en économe, cliquez « Approuver » sur cette ligne.
-2. Directeur : sur C12.14, faites une demande de résolution manuelle sur un autre paiement en attente (créez-en un en 50001) puis, avec le même compte, cliquez « Approuver » dans « Demandes à approuver ».
+2. Directeur : sur C12.14, tentez une résolution manuelle sur un autre paiement en attente (créez-en un en 50001) en annulant la fenêtre de confirmation par code : rien ne doit être modifié.
 3. Économe : cherchez « Résoudre à la main » sur « À rapprocher », « Rejouer » sur « Webhooks en échec », et tapez `/v2/finance/providers`.
-**Résultat attendu :** étapes 1 et 2 : le système refuse (la personne qui demande ne peut pas approuver) et la ligne reste « Demandé » ou « Résolution à approuver ». Étape 3 : pas de bouton « Résoudre à la main », pas de bouton « Rejouer », et « Accès refusé » sur la page des fournisseurs (droits réservés à la direction).
+**Résultat attendu :** étape 1 : le système refuse (la personne qui demande ne peut pas approuver le remboursement). Étape 2 : sans code, aucune résolution n'est appliquée. Étape 3 : pas de bouton « Résoudre à la main », pas de bouton « Rejouer », et « Accès refusé » sur la page des fournisseurs (droits réservés à la direction).
 - [ ] Résultat attendu constaté (remboursement)
 - [ ] Résultat attendu constaté (résolution manuelle)
 - [ ] Résultat attendu constaté (droits de l'économe)
@@ -3862,7 +3861,7 @@ Un « webhook » est une notification automatique que l'opérateur de paiement e
 
 ### 12.5 Problèmes connus et limites
 - **Paiement en ligne parent** : la liste « Moyen de paiement » ne contient pas le fournisseur de démonstration. Selon la configuration, le paiement du parent peut être refusé (fournisseur non configuré). La règle des montants (001, 013) se teste sans risque côté économe (« Autre fournisseur » + code `sandbox`).
-- **Paiements simulés** : le fournisseur de démonstration garde son état en mémoire. Un paiement « En attente » n'est jamais « réglé » tout seul : il reste en attente, puis est signalé comme « À rapprocher » après plusieurs vérifications automatiques (jusqu'à 12 tentatives espacées de 10 minutes à 4 heures). Redémarrer le service de démonstration efface cette mémoire : le paiement reste alors en attente sans réponse possible du fournisseur, d'où la résolution manuelle à quatre yeux.
+- **Paiements simulés** : le fournisseur de démonstration garde son état en mémoire. Un paiement « En attente » n'est jamais « réglé » tout seul : il reste en attente, puis est signalé comme « À rapprocher » après plusieurs vérifications automatiques (jusqu'à 12 tentatives espacées de 10 minutes à 4 heures). Redémarrer le service de démonstration efface cette mémoire : le paiement reste alors en attente sans réponse possible du fournisseur, d'où la résolution manuelle (une seule personne, avec confirmation par code et motif obligatoire, depuis Q-PAY-38).
 - **Aucun paiement en attente au départ** : la graine ne crée volontairement aucun paiement en attente ; la liste « Paiements à rapprocher » est vide jusqu'à C12.10.
 - **Listes vides au départ (rapport QA)** : plans d'échéancier, remises, sessions de caisse, remboursements : « Aucun plan d'échéancier », « Aucune remise », « Aucune session ouverte… », « Aucun remboursement ». C'est normal.
 - **Défaut QA M7** : sur « Frais et barèmes » > « Barèmes », le compte économe peut déclencher un appel refusé en arrière-plan (liste des établissements) ; l'écran reste utilisable (filtre « Établissement » éventuellement vide).
@@ -3879,7 +3878,7 @@ Un « webhook » est une notification automatique que l'opérateur de paiement e
 - `docs/DEMO_TEST_GUIDE.md` cite le secrétariat parmi les saisisseurs du paiement d'inscription : le rôle secrétariat n'a que la lecture des finances (`finance.payment.create` absent) ; c'est l'économe ou la direction qui encaisse.
 - La spec 014 §6 range hors périmètre la saisie des charges, les tableaux de bord propriétaire (trésorerie), les commissions de prospection et la lecture des commandes/lots du parcours professionnel : aucun écran dans `/v2/finance/**`.
 - Aucun envoi automatique de relance d'impayé n'est visible depuis le module Finance (flux de lecture des échéances en retard prévu pour le module de notifications, voir spec 016).
-- La résolution manuelle (`finance.payment.reconcile`) n'est portée par aucun rôle autre que direction et propriétaire (l'économe en est exclu), ce qui impose aux « quatre yeux » d'avoir deux comptes de direction.
+- La résolution manuelle (`finance.payment.reconcile`) n'est portée par aucun rôle autre que direction et propriétaire (l'économe en est exclu), ; elle exige une confirmation par code récente (MFA) et un motif, mais plus de seconde personne. Les remboursements gardent la règle des quatre yeux (ou restent manuels, Q-PAY-32).
 
 ---
 
@@ -7132,3 +7131,12 @@ Les adresses contenant un identifiant (par exemple `/v2/students/<identifiant>`)
 | Rapport de qualité (défauts connus) | `docs/qa/demo-sweep-report.md` |
 | État d'implémentation | `docs/ETAT_IMPLEMENTATION.md` |
 
+
+## Annexe : fonctions ajoutées le 2026-10-05 (à tester)
+
+- **Comptes fournisseurs par école (Q-PAY-30)** : `/v2/finance` > Rapports > « Comptes fournisseurs » et écran Fournisseurs (compte actif : école ou plateforme). Le reversement des fonds partagés n'est pas modélisé.
+- **Primaire, état « prêt » (Q-P18)** : `/v2/primary/classe`, bouton « Marquer prête » (instituteur). Avant, la famille ne voit ni rang ni compétences en brouillon ; après, elle voit les compétences et un « Rang provisoire ». « Retirer le marquage » exige un motif (refusé si un bulletin est publié).
+- **Messagerie (Q-13)** : permission `messaging.send.any_family` (direction ; attribuable à un enseignant par un rôle personnalisé). Un envoi hors de sa portée affiche un avertissement et est audité.
+- **Imports .xls et .ods (O-11)** : `/v2/imports`, déposer un fichier .xls ou .ods ; un faux fichier ou un .odt renommé est refusé.
+- **Générateur d'emploi du temps (O-05)** : `/v2/schedule/generator` : lancer, voir l'aperçu et les séances non placées, appliquer en brouillon (jamais de publication automatique).
+- **Recherche dans les PDF (Q-14)** : `/v2/documents/search`. L'indexation est asynchrone (job chaque minute) et demande `pdf-parse` dans le worker en production.

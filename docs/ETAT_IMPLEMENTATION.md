@@ -33,7 +33,7 @@ Rien : tous les agents de la passe autonome sont terminés et fusionnés.
 
 ## Décisions métier (2026-10-05)
 
-22 des 29 écarts demandés sont implémentés (liste : fin de `specs/v2/REPONSES-METIER.md`). Restent : 5 écarts à risque à cadrer (Q-P18, Q-PAY-30, Q-13 messagerie, O-11 imports .xls/.ods, Q-PAY-38) et 2 chantiers (O-05 générateur d'emploi du temps, Q-14 recherche dans les PDF).
+Les 29 écarts demandés sont implémentés (liste : fin de `specs/v2/REPONSES-METIER.md`), dont les cinq à risque cadrés (Q-P18, Q-PAY-30, Q-13, O-11 imports, Q-PAY-38), le générateur d'emploi du temps (O-05) et la recherche dans les PDF (Q-14). Points ouverts : reversement des fonds partagés (Q-PAY-30) non modélisé ; `pdf-parse` à embarquer dans l'image du worker ; `xlsx` (avis sans correctif) confiné à un processus enfant ; `GRANT DELETE` accordé sur `documents.text_index` seulement ; générateur limité à une semaine type.
 
 ## Démonstration locale
 
