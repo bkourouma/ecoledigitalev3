@@ -84,6 +84,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       // higher
       "higher.diploma.read", "higher.diploma.manage", "higher.award.read", "higher.award.create", "higher.document.read", "higher.document.issue",
       "higher.credits.read", "higher.prerequisite.manage", "higher.resit.manage", "higher.settings.manage",
+      // O-11 / O-14 : UE annuelle (sensible) et lecture des dispenses ; accorder une dispense reste à la direction
+      "higher.exemption.read", "higher.annual_ue.manage",
       // scheduling
       "schedule.read", "schedule.manage", "schedule.publish", "schedule.room.manage", "schedule.room.book", "schedule.calendar.manage",
       "schedule.occurrence.validate", "schedule.conflict.override",
@@ -130,7 +132,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "student.list", "student.read", "student.create", "student.update", "student.status.update", "student.sensitive.read", "student.export",
       "guardian.read", "guardian.manage",
       "reportcard.read", "reportcard.generate",
-      "higher.document.read", "higher.document.issue",
+      "higher.document.read", "higher.document.issue", "higher.exemption.read",
       "attendance.read", "attendance.take", "attendance.justification.submit", "attendance.justification.read", "attendance.report.read",
       "schedule.read",
       "finance.invoice.read", "finance.payment.read", "finance.receipt.read",
@@ -163,7 +165,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "finance.report.read", "finance.receipt.read",
       // webhooks de paiement en échec : lecture seule (le rejeu, sensible, reste à la direction)
       "finance.webhook.read",
-      "enrollment.funding.update", "enrollment.read",
+      "enrollment.funding.update", "enrollment.read", "exam.fee.read",
       "payroll.config.read", "payroll.config.manage", "payroll.rate.read", "payroll.rate.manage", "payroll.period.manage", "payroll.run.calculate",
       "payroll.payslip.read", "payroll.payslip.adjust", "payroll.payslip.notify", "payroll.payslip.pay", "payroll.report.read",
       "student.list", "student.read", "guardian.read", "staff.list", "staff.read",
@@ -263,6 +265,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "exam.type.read", "exam.type.manage", "exam.center.manage", "exam.session.read", "exam.session.manage", "exam.candidate.read",
       "exam.candidate.manage", "exam.eligibility.evaluate", "exam.score.enter", "exam.mock.manage", "exam.import.manage",
       "exam.result.read", "exam.result.enter", "exam.statistics.read", "exam.export.manage", "exam.export.run", "exam.document.issue",
+      // Q-E15 / Q-E13 : candidats libres (saisie + lecture auditée) et frais en lecture ; ni anonymisation ni gestion des frais
+      "exam.external.manage", "exam.external.read", "exam.fee.read",
       "academic.read", "academic.year.read", "academic.program.read", "academic.classroom.read",
       "enrollment.read", "student.list", "student.read", "assessment.read",
     ],
@@ -518,12 +522,25 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["reportcard.publish", "le secrétariat émet, il ne publie pas aux familles"],
       ["reportcard.revoke", "pas de révocation de document"],
       ["attendance.justification.decide", "il reçoit les justificatifs, la décision est à la vie scolaire/direction des études"],
+      ["enrollment.confirm.override", "confirmer sans paiement (O-01, sensible) : direction"],
+      ["higher.exemption.grant", "accorder ou révoquer une dispense d'UE (O-14, sensible) : direction ; il déclare une UE annuelle et consulte les dispenses"],
+      ["exam.external.read", "données personnelles d'un candidat libre : responsable des examens et direction"],
+      ["exam.external.anonymize", "anonymisation d'un candidat libre (sensible) : direction"],
+      ["exam.fee.manage", "barème des frais et remboursement manuel : direction"],
+      ["admission.exam_result.read", "moyenne d'examen transmise aux admissions : direction seulement"],
       ["finance.payment.create", "finances en lecture seule"],
       ["finance.invoice.create", "finances en lecture seule"],
       ["student.anonymize", "anonymisation = direction"],
       ["higher.award.revoke", "pas de révocation de diplôme"],
       ["higher.slot.manage", "les signataires sont affectés par la direction"],
       ["enrollment.override", "dérogation = direction"],
+      ["enrollment.confirm.override", "confirmer une inscription sans paiement (O-01, sensible, MFA) : direction ; le secrétariat inscrit mais ne confirme pas sans paiement"],
+      ["higher.exemption.grant", "accorder une dispense d'UE (O-14, sensible) : direction ; il ne fait que la consulter"],
+      ["higher.annual_ue.manage", "déclarer une UE annuelle (O-11, sensible) : direction des études et direction"],
+      ["exam.external.read", "données personnelles d'un candidat libre : responsable des examens et direction"],
+      ["exam.external.manage", "candidats libres : responsable des examens"],
+      ["exam.fee.read", "frais d'examen : responsable des examens, économe et direction"],
+      ["admission.exam_result.read", "moyenne d'examen transmise (donnée d'un enfant) : direction seulement"],
       ["enrollment.funding.update", "financement = économe/direction"],
       ["staff.contract.read", "personnel : hors périmètre du secrétariat"],
       ["grade.enter", "aucune note"],
@@ -554,6 +571,10 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["exam.result.release", "application d'un lot de résultats officiels (sensible) : direction ; il dépose et valide, il n'applique pas"],
       ["exam.result.revise", "approbation d'une révision (sensible) : direction ; il demande la correction, il ne l'approuve pas"],
       ["exam.eligibility.override", "dérogation d'éligibilité (sensible) : direction ; il évalue, il ne déroge pas"],
+      ["exam.external.anonymize", "anonymisation d'un candidat libre (irréversible, sensible, MFA) : direction ; il saisit, il n'efface pas"],
+      ["exam.fee.manage", "barème des frais et confirmation d'un remboursement manuel : direction ; il consulte seulement"],
+      ["admission.exam_result.read", "moyenne d'examen transmise aux admissions : direction seulement"],
+      ["enrollment.confirm.override", "confirmer sans paiement : direction"],
       ["exam.document.child.read", "portail parent uniquement"],
       ["exam.document.self.read", "portail élève uniquement"],
       ["grade.enter", "aucune note d'évaluation courante"],
@@ -567,6 +588,7 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
     ],
     admissions_officer: [
       ["admission.waitlist.reorder", "rang de la liste d'attente (Q-A03) : décision de la direction ; il propose la place"],
+      ["admission.exam_result.read", "moyenne d'examen transmise (donnée d'un enfant) : direction seulement, pas le chargé d'admissions"],
       ["imports.import.enrollments", "import des inscriptions : secrétariat (il n'a pas enrollment.create)"],
       ["finance.webhook.read", "aucune donnée financière"],
       ["analytics.alerts.read", "aucune alerte de direction"],
@@ -588,6 +610,10 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["exam.session.read", "aucun examen"],
     ],
     econome: [
+      ["exam.external.read", "données personnelles d'un candidat libre : responsable des examens et direction, pas l'économe"],
+      ["exam.external.manage", "candidats libres : responsable des examens"],
+      ["exam.fee.manage", "barème des frais d'examen et confirmation d'un remboursement manuel : direction ; l'économe consulte l'obligation de paiement"],
+      ["enrollment.confirm.override", "confirmer une inscription sans paiement : direction (l'économe encaisse, il ne dispense pas)"],
       ["finance.webhook.replay", "rejeu d'un webhook de paiement (sensible, MFA) : direction"],
       ["finance.payment.reconcile", "résolution manuelle des paiements (sensible, quatre yeux) : direction"],
       ["analytics.payroll.read", "masse salariale des tableaux de bord (sensible) : direction"],
@@ -877,6 +903,49 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
   });
 });
 
+describe("permissions de la passe O-01 / O-11 / O-14 / Q-E13 / Q-E15 : moindre privilège", () => {
+  const SENSITIVE = ["enrollment.confirm.override", "higher.exemption.grant", "higher.annual_ue.manage", "exam.external.anonymize"];
+  const HOLDERS = (key: string): string[] =>
+    SYSTEM_ROLE_TEMPLATES.map((t) => t.key).filter((r) => granted(r).has(key));
+
+  it("les permissions sensibles sont bien sensibles dans le catalogue réel et réservées à la direction (+ directeur_etudes pour l'UE annuelle)", () => {
+    for (const k of SENSITIVE) expect(real.sensitive.has(k), `${k} sensible`).toBe(true);
+    expect(HOLDERS("enrollment.confirm.override")).toEqual(["owner", "directeur"]);
+    expect(HOLDERS("higher.exemption.grant")).toEqual(["owner", "directeur"]);
+    expect(HOLDERS("exam.external.anonymize")).toEqual(["owner", "directeur"]);
+    expect(HOLDERS("higher.annual_ue.manage")).toEqual(["owner", "directeur", "directeur_etudes"]);
+    expect(getSystemRoleTemplate("directeur_etudes")?.sensitiveJustifications?.["higher.annual_ue.manage"]?.length ?? 0).toBeGreaterThanOrEqual(30);
+  });
+
+  it("le secrétariat ne confirme pas une inscription sans paiement", () => {
+    expect(granted("secretariat").has("enrollment.update")).toBe(true);
+    expect(granted("secretariat").has("enrollment.confirm.override")).toBe(false);
+  });
+
+  it("l'économe ne lit pas les données personnelles d'un candidat libre, ne gère pas le barème ni le remboursement des frais d'examen", () => {
+    expect(granted("econome").has("exam.fee.read")).toBe(true);
+    for (const k of ["exam.external.read", "exam.external.manage", "exam.external.anonymize", "exam.fee.manage"]) expect(granted("econome").has(k), k).toBe(false);
+  });
+
+  it("exam.fee.manage (remboursement manuel) et la lecture des données d'un candidat libre ont des porteurs bornés", () => {
+    expect(HOLDERS("exam.fee.manage")).toEqual(["owner", "directeur"]);
+    expect(HOLDERS("exam.fee.read")).toEqual(["owner", "directeur", "econome", "responsable_examens"]);
+    expect(HOLDERS("exam.external.read")).toEqual(["owner", "directeur", "responsable_examens"]);
+    expect(HOLDERS("exam.external.manage")).toEqual(["owner", "directeur", "responsable_examens"]);
+  });
+
+  it("la moyenne d'examen transmise aux admissions est lisible par la direction seulement", () => {
+    expect(HOLDERS("admission.exam_result.read")).toEqual(["owner", "directeur"]);
+  });
+
+  it("higher : aucune permission d'exemption/UE annuelle pour l'enseignant ni les portails ; le secrétariat ne fait que lire les dispenses", () => {
+    for (const r of ["enseignant", "instituteur", "educateur", "parent", "eleve", "econome", "responsable_examens", "admissions_officer"]) {
+      for (const k of ["higher.exemption.read", "higher.exemption.grant", "higher.annual_ue.manage"]) expect(granted(r).has(k), `${r} ${k}`).toBe(false);
+    }
+    expect(HOLDERS("higher.exemption.read")).toEqual(["owner", "directeur", "directeur_etudes", "secretariat"]);
+  });
+});
+
 describe("séparation des tâches", () => {
   /** Paires de côtés incompatibles : aucun rôle (hors owner/directeur) ne détient une permission de chaque côté. */
   const CONFLICTS: ReadonlyArray<{ name: string; left: string[]; right: string[] }> = [
@@ -895,6 +964,10 @@ describe("séparation des tâches", () => {
     { name: "validation d'un appel ≠ réouverture/surcharge", left: ["attendance.validate"], right: ["attendance.session.reopen", "attendance.summary.override"] },
     { name: "dépôt d'un justificatif ≠ décision sur un justificatif", left: ["attendance.justification.submit"], right: ["attendance.justification.decide"] },
     { name: "demande de congé ≠ décision de congé", left: ["attendance.leave.request"], right: ["attendance.leave.decide"] },
+    { name: "inscription ≠ confirmation sans paiement (O-01)", left: ["enrollment.create", "enrollment.update", "finance.payment.create"], right: ["enrollment.confirm.override"] },
+    { name: "saisie/import d'un candidat libre ≠ anonymisation (effacement irréversible)", left: ["exam.external.manage", "exam.external.read"], right: ["exam.external.anonymize"] },
+    { name: "gestion des candidats / frais en lecture ≠ gestion du barème et remboursement manuel des frais d'examen", left: ["exam.candidate.manage", "exam.external.manage", "finance.payment.create"], right: ["exam.fee.manage"] },
+    { name: "déclaration d'une UE annuelle ≠ dispense d'UE (O-14)", left: ["higher.annual_ue.manage"], right: ["higher.exemption.grant"] },
     { name: "inscription ≠ dérogation d'éligibilité / financement", left: ["enrollment.create", "enrollment.update", "enrollment.cancel"], right: ["enrollment.override", "enrollment.funding.update"] },
     { name: "encaissement/facturation ≠ réglages du catalogue de rôles et accès", left: ["finance.payment.create", "finance.payment.refund"], right: ["rbac.role.manage", "rbac.assignment.manage", "iam.mfa.reset"] },
     // Modules livrés des packs Primary (005), Secondary (006), Admissions (007) et Examinations (018).
